@@ -1,0 +1,158 @@
+/* 修仙主题样式系统 */
+:root {
+  /* 修仙主色调 */
+  --immortal-gold: #FFD700;
+  --immortal-gold-light: #FFA500;
+  --immortal-gold-dark: #B8860B;
+  --immortal-blue: #4169E1;
+  --immortal-purple: #9370DB;
+  --immortal-jade: #00CED1;
+  
+  /* 修仙渐变 */
+  --dao-gradient-primary: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
+  --dao-gradient-secondary: linear-gradient(135deg, #4169E1, #9370DB, #4169E1);
+  --dao-gradient-celestial: linear-gradient(135deg, 
+    rgba(255, 215, 0, 0.2) 0%, 
+    rgba(255, 165, 0, 0.3) 50%, 
+    rgba(255, 215, 0, 0.2) 100%);
+  
+  /* 五行颜色 */
+  --element-fire: #FF4500; /* 火 - 炽红 */
+  --element-water: #00BFFF; /* 水 - 深蓝 */
+  --element-earth: #8B4513; /* 土 - 褐色 */
+  --element-metal: #C0C0C0; /* 金 - 银色 */
+  --element-wood: #228B22; /* 木 - 翠绿 */
+  
+  /* 修仙属性颜色 */
+  --attr-health: #DC143C; /* 气血 - 深红 */
+  --attr-energy: #FF4500; /* 灵气 - 橙红 */
+  --attr-consciousness: #9370DB; /* 神识 - 紫色 */
+  --attr-lifespan: #228B22; /* 寿元 - 绿色 */
+  --attr-comprehension: #4169E1; /* 悟性 - 蓝色 */
+  --attr-spirit-root: #8B4513; /* 灵根 - 褐色 */
+  
+  /* 境界颜色等级 */
+  --realm-mortal: #8B8680; /* 凡人 - 灰褐 */
+  --realm-qi-refining: #4169E1; /* 炼气 - 蓝色 */
+  --realm-foundation: #9370DB; /* 筑基 - 紫色 */
+  --realm-golden-core: #FFD700; /* 金丹 - 金色 */
+  --realm-nascent-soul: #FF6347; /* 元婴 - 橙红 */
+  --realm-soul-transformation: #00CED1; /* 化神 - 青绿 */
+  --realm-void-refinement: #DDA0DD; /* 炼虚 - 浅紫 */
+  --realm-tribulation: linear-gradient(135deg, #FFD700, #FF4500, #9370DB); /* 渡劫 - 渐变 */
+  
+  /* 背景与边框 */
+  --dao-bg-primary: rgba(13, 25, 43, 0.9);
+  --dao-bg-secondary: rgba(27, 38, 59, 0.8);
+  --dao-border-primary: rgba(255, 215, 0, 0.3);
+  --dao-border-secondary: rgba(255, 215, 0, 0.6);
+  
+  /* 文字颜色 */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 215, 0, 0.8);
+  --text-muted: rgba(255, 255, 255, 0.6);
+}
+
+/* 金色文字效果 */
+.gold-text {
+  color: var(--dark-gold, #b8860b); /* Add a fallback color */
+  background: var(--gold-gradient-main);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.gold-text-animated {
+  background: var(--gold-gradient-bright);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: goldShine 3s linear infinite;
+  font-weight: bold;
+}
+
+@keyframes goldShine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* 淡金色文字 */
+.light-gold-text {
+  background: var(--light-gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 黑金色文字 */
+.black-gold-text {
+  background: var(--black-gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 资质样式 */
+.quality-mortal {
+  color: var(--quality-mortal);
+  font-weight: normal;
+}
+
+.quality-talented {
+  color: var(--quality-talented);
+  font-weight: 600;
+  text-shadow: 0 0 5px rgba(65, 105, 225, 0.3);
+}
+
+.quality-genius {
+  color: var(--quality-genius);
+  font-weight: 600;
+  text-shadow: 0 0 8px rgba(147, 112, 219, 0.4);
+}
+
+.quality-destiny {
+  background: var(--quality-destiny-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  animation: destinyGlow 2s ease-in-out infinite;
+}
+
+@keyframes destinyGlow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2);
+  }
+}
+
+/* 属性颜色类 */
+.attr-hp {
+  color: var(--attr-hp);
+}
+.attr-mp {
+  color: var(--attr-mp);
+}
+.attr-spirit {
+  color: var(--attr-spirit);
+}
+.attr-lifespan {
+  color: var(--attr-lifespan);
+}
+.attr-reputation {
+  color: var(--attr-reputation);
+}
+.attr-appearance {
+  color: var(--attr-appearance);
+}
+.attr-luck {
+  color: var(--attr-luck);
+}

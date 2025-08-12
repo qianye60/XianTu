@@ -1,0 +1,137 @@
+{
+  "world": {
+    "worldState": {
+      "name": "朝天大陆",
+      "timeline": {
+        "era": "开元历",
+        "year": 732,
+        "season": "秋",
+        "day": 1,
+        "timeOfDay": "辰时",
+        "lastEvent": "青云宗开山收徒"
+      },
+      "celestialPhenomena": "三阳当空",
+      "activeWorldLaws": [
+        "仙凡之别",
+        "大道争锋"
+      ]
+    },
+    "player": {
+      "id": "player_01",
+      "name": "道友",
+      "title": "初入道途者",
+      "location": {
+        "continent": "外三环",
+        "region": "青州",
+        "city": "望仙城",
+        "coordinates": [120, 350]
+      },
+      "progression": {
+        "realm": "炼气",
+        "stage": "三层",
+        "experience": 350,
+        "expToNextLevel": 1000,
+        "breakthroughChance": 0.6
+      },
+      "attributes": {
+        "core": {
+          "vitality": { "current": 100, "max": 100 },
+          "mana": { "current": 80, "max": 80 },
+          "spirit": { "current": 50, "max": 50 }
+        },
+        "extended": {
+          "lifespan": { "current": 118, "max": 120 },
+          "aptitude": {
+            "spiritRoot": "金木双系 (中品)",
+            "comprehension": 7,
+            "physique": "凡胎肉体"
+          },
+          "reputation": {
+            "global": 10,
+            "righteous": 5,
+            "demonic": 0
+          }
+        }
+      },
+      "skills": {
+        "activeCultivationMethod": "青元剑诀",
+        "learnedMethods": {
+          "青元剑诀": {
+            "level": 2,
+            "description": "青云宗入门心法，中正平和，剑气绵长。",
+            "abilities": ["御剑术", "青元剑气"]
+          }
+        }
+      },
+      "inventory": {
+        "money": { "spiritStone": 50 },
+        "items": [
+          { "id": "item_001", "name": "下品飞剑", "quantity": 1, "type": "weapon" },
+          { "id": "item_002", "name": "辟谷丹", "quantity": 10, "type": "consumable" }
+        ]
+      },
+      "relationships": {
+        "factions": {
+          "faction_01": {
+            "name": "青云宗",
+            "status": "外门弟子",
+            "contribution": 25
+          }
+        },
+        "npcs": {
+          "npc_01": { "name": "张师兄", "relationshipLevel": "相识", "favorability": 10 }
+        }
+      },
+      "quests": {
+        "active": ["quest_001"],
+        "completed": []
+      }
+    },
+    "npcs": {
+      "npc_01": {
+        "name": "张师兄",
+        "title": "青云宗外门管事",
+        "realm": "炼气",
+        "stage": "七层",
+        "location": "青云宗外门",
+        "disposition": "刻板严厉",
+        "dialogueCount": 1,
+        "knowsAbout": ["宗门任务", "坊市位置"]
+      },
+      "npc_02": {
+        "name": "神秘老者",
+        "title": "？？？",
+        "realm": "？？？",
+        "stage": "？？？",
+        "location": "望仙城街角",
+        "disposition": "深不可测",
+        "dialogueCount": 0,
+        "knowsAbout": []
+      }
+    },
+    "factions": {
+      "faction_01": {
+        "name": "青云宗",
+        "type": "正道宗门",
+        "powerLevel": "中三环霸主之一",
+        "location": "天柱山",
+        "attitudeToPlayer": "中立"
+      }
+    },
+    "definitions": {
+      "items": {
+        "item_001": { "name": "下品飞剑", "description": "精铁打造的飞剑，可御风而行，是炼气期修士的常用法器。" },
+        "item_002": { "name": "辟谷丹", "description": "服用一粒可十日不食，是修士外出必备丹药。" }
+      },
+      "quests": {
+        "quest_001": {
+          "title": "宗门任务：采集清灵草",
+          "description": "前往宗门后山的黑风林，采集十株清灵草交给外门管事张师兄。",
+          "issuer": "npc_01",
+          "status": "accepted",
+          "objectives": [{ "task": "采集清灵草", "current": 0, "required": 10 }]
+        }
+      }
+    }
+  }
+}

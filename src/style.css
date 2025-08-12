@@ -1,0 +1,140 @@
+/* --- Design Tokens (The Alchemist's Formula) --- */
+:root {
+  /* 仙道主题配色 - 晨雾白 */
+  --color-primary: #8c735a; /* 沉香色 - 稳定、古朴的木质感 */
+  --color-primary-hover: #a2866c; /* 亮沉香 */
+  --color-primary-active: #6b5846; /* 暗沉香 */
+
+  --color-accent: #5a8c8c; /* 青碧色 - 如玉石般温润 */
+  --color-accent-hover: #7aa7a7; /* 亮青碧 */
+
+  --color-background: #f9f6f0; /* 晨雾白 - 略带暖意的宣纸/画布底色 */
+  --color-surface: #ffffff; /* 纯白 - 用于需要凸显的面板 */
+  --color-surface-light: #f0ebe4; /* 淡墨灰 - 比背景稍深的次级表面 */
+
+  --color-text: #3d3d3d; /* 石墨色 - 清晰、沉稳的文字颜色 */
+  --color-text-secondary: #888888; /* 浅墨色 - 用于次要信息 */
+  --color-border: #dcdcdc; /* 银灰色 - 柔和的边框 */
+
+  --color-spiritual: #8b7fbf; /* 紫霞色 - 保留，灵气感 */
+  --color-nature: #7fb069; /* 青竹色 - 保留，生机感 */
+  --color-danger: #c65552; /* 朱砂色 - 保留，警示感 */
+
+  --font-family-serif: 'Noto Serif SC', 'STSong', 'KaiTi', 'STKaiti', serif; /* 宋体/楷体 */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --transition-fast: all 0.2s ease-in-out;
+
+  /* 滚动条颜色 */
+  --scrollbar-thumb: #c0c0c0; /* 滚动条滑块 - 银灰色 */
+  --scrollbar-track: #f0f0f0; /* 滚动条轨道 - 浅灰色 */
+}
+
+/* --- Base Styles --- */
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-family-sans);
+  margin: 0;
+  padding: 0;
+}
+
+/* --- Reusable Button Class (The Master's Touch) --- */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-family-serif);
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  user-select: none; /* Prevent text selection on click */
+}
+
+/* --- Button States (Guaranteed Visual Feedback) --- */
+.btn:hover {
+  background-color: var(--color-primary);
+  color: var(--color-background);
+  box-shadow: 0 0 15px rgba(200, 160, 100, 0.5);
+}
+
+.btn:active {
+  transform: scale(0.98);
+  background-color: var(--color-primary-active);
+  border-color: var(--color-primary-active);
+  box-shadow: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary-hover);
+  outline-offset: 2px;
+}
+
+/* --- Disabled Button State --- */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: transparent;
+  color: var(--color-border);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+/* --- Button Variants --- */
+.btn.btn-secondary {
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.btn.btn-secondary:hover {
+  background-color: var(--color-surface);
+  border-color: var(--color-text);
+}
+
+.btn.btn-complete {
+  border-color: var(--color-accent); /* 青玉色 */
+  color: var(--color-accent);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.btn.btn-complete:hover {
+  background-color: var(--color-accent);
+  color: var(--color-background);
+  box-shadow: 0 0 20px rgba(111, 179, 184, 0.5);
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(111, 179, 184, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(111, 179, 184, 0.6);
+  }
+}
+
+/* 滚动条样式 - 修仙主题 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
+}

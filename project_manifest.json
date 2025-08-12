@@ -1,0 +1,77 @@
+{
+  "projectName": "朝天大陆 - AI双向交互框架",
+  "version": "1.4.0",
+  "description": "一个基于Vue 3、FastAPI和MySQL构建的，拥有云端同步、多世界架构和高度自定义开局的修仙题材AI交互游戏框架。项目已完成前后端重构，实现了用户系统、云端存档和模块化前端，并规划了基于Leaflet的交互式地图系统。",
+  "author": "AI全栈开发专家 (精通修仙国风)",
+  "coreConcepts": [
+    {
+      "name": "数据驱动",
+      "description": "游戏的核心状态由一个结构化的JSON对象驱动，AI通过修改此对象来改变世界。"
+    },
+    {
+      "name": "云端一体化",
+      "description": "采用FastAPI后端和MySQL数据库，支持用户账户、多世界管理和角色数据云端同步。"
+    },
+    {
+      "name": "模块化前端",
+      "description": "UI界面采用Vue 3组件化开发，分为`views`（页面）、`components`（组件）、`composables`（逻辑）和`services`（服务），结构清晰，易于扩展。"
+    },
+    {
+      "name": "坤舆图志 (Leaflet Map System)",
+      "description": "规划中的核心功能。将采用Leaflet.js构建一个可交互的动态世界地图，用于承载世界探索、区域交互、资源点标注等核心玩法。"
+    },
+    {
+      "name": "双模运行",
+      "description": "支持'单机闭关'（本地存储）和'联机共修'（云端同步）两种模式，满足不同道友的需求。"
+    }
+  ],
+  "fileStructure": [
+    {
+      "path": "server/",
+      "purpose": "【云端天宫】",
+      "description": "FastAPI后端服务，处理API请求、数据库交互和业务逻辑。"
+    },
+    {
+      "path": "src/App.vue",
+      "purpose": "【乾坤镜】",
+      "description": "Vue应用的根组件。作为应用路由器，根据模式选择、登录状态决定渲染哪个视图（模式选择、登录、世界选择、游戏主界面等）。(已重构)"
+    },
+    {
+      "path": "src/views/auth/LoginView.vue",
+      "purpose": "【山门接引台】",
+      "description": "用户登录/注册视图，是在线模式的入口。(新增)"
+    },
+    {
+      "path": "src/views/online/WorldSelector.vue",
+      "purpose": "【诸天万界之门】",
+      "description": "用于展示和选择不同修仙世界的视图。(规划中)"
+    },
+    {
+      "path": "src/views/online/MapView.vue",
+      "purpose": "【坤舆图】",
+      "description": "基于Leaflet的交互式地图主视图，将是未来在线模式的核心。(规划中)"
+    },
+    {
+      "path": "src/composables/useAuth.ts",
+      "purpose": "【身份验证神符】",
+      "description": "管理用户登录状态、当前用户信息及本地持久化。(新增)"
+    },
+    {
+      "path": "src/composables/useWorlds.ts",
+      "purpose": "【世界探索神通】",
+      "description": "负责从后端获取和管理世界列表。(新增)"
+    },
+    {
+      "path": "src/services/api.ts",
+      "purpose": "【接口法诀】",
+      "description": "封装所有与后端API的通信，提供如注册、获取世界列表等方法。(已重构)"
+    }
+  ],
+  "workflow": {
+    "initialization": "1. 脚本加载，初始化Vue应用。",
+    "modeSelection": "2. `App.vue`渲染`ModeSelector.vue`让用户选择游戏模式。",
+    "login": "3. (在线模式) `App.vue`检测到在线模式且未登录，渲染`LoginView.vue`。",
+    "worldSelection": "4. (在线模式) 用户登录成功后，`App.vue`将渲染`WorldSelector.vue`或直接进入`MapView.vue`。",
+    "gameLoop": "5. 在主游戏视图中，每一次与AI对话，系统都会将最新的世界状态注入提示词，周而复始。"
+  }
+}

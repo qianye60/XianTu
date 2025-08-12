@@ -1,0 +1,173 @@
+import type { Origin, Talent, SpiritRoot } from '@/core/rules/characterCreation'
+
+// --- 类型定义 ---
+// 与后端 main.py 中的 Pydantic 模型保持同步
+export interface User {
+  id: number
+  user_name: string
+}
+
+export interface World {
+  id: number
+  name: string
+  type: string | null
+  description: string | null
+}
+
+// --- 角色/存档体系API ---
+
+// 缔造仙身时，需要提交的数据契约
+export interface CharacterCreatePayload {
+  user_id: number
+  world_id: number
+  character_name: string
+  character_data: {
+    origin: Origin | null
+    talents: Talent[]
+    spiritRoot: SpiritRoot | null
+    attributes: Record<string, number>
+  }
+}
+
+// 缔造成功后，天宫返回的仙身信息
+export interface CharacterResponse {
+  id: number
+  user_id: number
+  world_id: number
+  character_name: string
+}
+
+// 此乃与后台灵脉沟通的根基法阵地址
+const BASE_URL = 'http://127.0.0.1:3000'
+
+/**
+ * 通用获取神通，用于从后台灵脉中获取各类数据。
+ * @param endpoint - 灵脉的特定路径，如 'rules/origins'
+ * @returns - 返回解析后的数据Promise
+ */
+async function fetchData<T>(endpoint: string): Promise<T> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/${endpoint}`)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: '无法解析错误信息。' }))
+      throw new Error(errorData.detail || `天机受阻，无法从灵脉'${endpoint}'获取数据。`)
+    }
+
+    return response.json() as Promise<T>
+  } catch (error) {
+    console.error(`[API Fetch Error] 探查'${endpoint}'失败:`, error)
+    throw error // 重新抛出错误，让上层调用者处理
+  }
+}
+
+/**
+ * 通用提交神通，用于向后台灵脉提交数据。
+ * @param endpoint - 灵脉的特定路径，如 'register'
+ * @param body - 要提交的数据体
+ * @returns - 返回解析后的数据Promise
+ */
+async function postData<T>(endpoint: string, body: object): Promise<T> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: '无法解析错误信息。' }))
+      // 将后端的HTTPException作为前端的Error抛出
+      throw new Error(errorData.detail || `向灵脉'${endpoint}'提交数据失败，天道不允。`)
+    }
+
+    return response.json() as Promise<T>
+  } catch (error) {
+    console.error(`[API Post Error] 提交到'${endpoint}'失败:`, error)
+    throw error // 重新抛出错误，让上层调用者处理
+  }
+}
+
+// --- 用户体系API ---
+
+/**
+ * 接引道友（注册或登录）。
+ * @param userName - 道号
+ * @returns 返回用户信息
+ */
+export const registerUser = (userName: string): Promise<User> => {
+  return postData<User>('register', { user_name: userName })
+}
+
+// --- 世界体系API ---
+
+/**
+ * 获取所有已创建的世界列表。
+ * @returns 返回世界列表
+ */
+export const getWorlds = (): Promise<World[]> => {
+  return fetchData<World[]>('worlds')
+}
+
+/**
+ * 为用户在指定世界中缔造一具化身（创建云存档）。
+ * @param payload - 包含所有创角信息的负载
+ * @returns 返回新创建的角色基本信息
+ */
+export const createCharacter = (payload: CharacterCreatePayload): Promise<CharacterResponse> => {
+  return postData<CharacterResponse>('characters', payload)
+}
+
+// --- 核心规则API ---
+
+/**
+ * 探查所有可选的【出身】
+ * @returns 返回一个包含所有出身的数组 Promise
+ */
+export const getOrigins = (): Promise<Origin[]> => {
+  return fetchData<Origin[]>('rules/origins')
+}
+
+/**
+ * 探查所有可选的【天赋】
+ * @returns 返回一个包含所有天赋的数组 Promise
+ */
+export const getTalents = (): Promise<Talent[]> => {
+  return fetchData<Talent[]>('rules/talents')
+}
+
+/**
+ * 探查所有可选的【灵根】
+ * @returns 返回一个包含所有灵根的数组 Promise
+ */
+export const getSpiritRoots = (): Promise<SpiritRoot[]> => {
+  return fetchData<SpiritRoot[]>('rules/spirit-roots')
+}
+
+/**
+ * 提交用户自创天赋。
+ * @param payload - 包含天赋名、描述、作者名和兑换码
+ * @returns 返回提交结果
+ */
+export const submitUgcTalent = (payload: {
+  name: string
+  description: string
+  redemption_code: string
+  author_name: string
+}): Promise<{ message: string }> => {
+  console.log('正在向天宫提交自创天赋...', payload)
+  // 此处为前端占位实现，待后端接口完成后再行对接
+  // return postData('ugc/talents', payload);
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ message: '天赋已上达天听，待天尊审核！' })
+    }, 1000)
+  })
+}
+
+/**
+ * `saveCharacter` 是 `createCharacter` 的别名，为旧法兼容。
+ */
+export const saveCharacter = createCharacter
