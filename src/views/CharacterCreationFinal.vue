@@ -1,312 +1,189 @@
 <template>
-  <div class="creation-container">
-    <div v-if="isLoading" class="loading-overlay">
-      <p>天机推演中，正在为您开辟洞天，请稍候...</p>
-    </div>
-    <div v-else class="creation-content">
-      <header class="creation-header">
-        <p class="title-text">【 天道筑基，化凡入圣 】</p>
-        <p class="subtitle-text">道友，请择汝之道途，塑汝之仙身。</p>
-      </header>
-
-      <main class="creation-steps">
-        <StepIndicator :current-step="currentStep" :steps="steps" />
-
-        <!-- Step 1: Origin -->
-        <section v-if="currentStep === 1 && origins.length > 0" class="step-section">
-          <BirthOriginSelector v-model="selectedOrigin" :origins="origins" />
-        </section>
-
-        <!-- Step 2: Spirit Root -->
-        <section v-if="currentStep === 2" class="step-section">
-          <SpiritRootSelector v-model="selectedSpiritRoot" :spirit-roots="spiritRoots" />
-        </section>
-
-        <!-- Step 3: Talents -->
-        <section v-if="currentStep === 3" class="step-section">
-          <TalentSelectorImproved v-model="selectedTalents" :talents="talents" />
-        </section>
-
-        <!-- Step 4: Preview -->
-        <section v-if="currentStep === 4" class="step-section">
-          <CharacterPreview :character-data="finalCharacterSheet" />
-        </section>
-      </main>
-
-      <footer class="creation-footer">
-        <button v-if="currentStep > 1" @click="currentStep--" class="btn btn-secondary">
-          上一步
-        </button>
-        <button v-if="currentStep < steps.length" @click="currentStep++" class="btn">下一步</button>
+  <CharacterCreationCore
+    :character-name="userName"
+    :steps="steps"
+    :worlds="characterData.worlds"
+    :origins="characterData.origins"
+    :talents="characterData.talents"
+    :spirit-roots="characterData.spiritRoots"
+    :is-loading="isLoading"
+    loading-text="天机推演中，正在为您开辟洞天，请稍候..."
+    @finalize="handleFinalize"
+    @back="handleBack"
+  >
+    <template #header-extension>
+      <div v-if="isUsingLocalData" class="server-sync-section">
+        <p class="local-data-hint">当前使用本地数据，可尝试从天宫灵脉获取更多选项</p>
         <button
-          v-if="currentStep === steps.length"
-          class="btn btn-complete"
-          :disabled="!isCreationComplete"
-          @click="finalizeCharacterCreation"
+          @click="loadServerData"
+          :disabled="isLoadingServerData"
+          class="btn btn-secondary sync-btn"
         >
-          完成创生，开启道途
+          {{ isLoadingServerData ? '正在连接天宫灵脉...' : '获取天宫数据' }}
         </button>
-      </footer>
-    </div>
-  </div>
+      </div>
+      <div v-else class="server-sync-section">
+        <p class="server-data-hint">已从天宫灵脉获取数据</p>
+      </div>
+    </template>
+
+  </CharacterCreationCore>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { getOrigins, getTalents, getSpiritRoots } from '@/services/api' //, saveCharacter } from '@/services/api' // TODO: Refactor for new API
+import { ref, reactive, onMounted } from 'vue'
+import { getOrigins, getTalents, getSpiritRoots, getWorldBackgrounds } from '@/services/api'
 import {
-  ATTRIBUTE_RULES,
-  CORE_ATTRIBUTES,
-  CoreAttribute,
-  type Origin,
-  type Talent,
-  type SpiritRoot,
-  type CharacterSheet,
-  type WorldState,
-  type Character,
-} from '@/core/rules/characterCreation'
+  DEFAULT_WORLDS,
+  EXTENDED_ORIGINS,
+  EXTENDED_TALENTS,
+  EXTENDED_SPIRIT_ROOTS,
+} from '@/core/data/database_seed'
+import { useGameMode } from '@/composables/useGameMode'
+import { type World, type Origin, type Talent, type SpiritRoot, type CharacterSheet, type WorldState } from '@/core/rules/characterCreation'
 import { getUserInfo } from '@/services/tavern'
 import { useGameState } from '@/composables/useGameState'
 
-// Import modular components
-import BirthOriginSelector from '@/components/character-creation/BirthOriginSelector.vue'
-import SpiritRootSelector from '@/components/character-creation/SpiritRootSelector.vue'
-import TalentSelectorImproved from '@/components/character-creation/TalentSelectorImproved.vue'
-import CharacterPreview from '@/components/character-creation/CharacterPreview.vue'
-import StepIndicator from '@/components/shared/StyledStepIndicator.vue'
+import CharacterCreationCore from '@/components/character-creation/CharacterCreationCore.vue'
 
-declare const TavernHelper: any
 
-const { loadGameState } = useGameState()
+const { addNewCharacterSlot } = useGameState()
+const { clearGameMode } = useGameMode()
 
-// Stepper state
-const currentStep = ref(1)
+const isLoading = ref(true)
+const isLoadingServerData = ref(false)
+const isUsingLocalData = ref(false)
+const userName = ref('道友')
+
 const steps = [
+  { id: 'world', name: '择世界', icon: 'fas fa-globe' },
   { id: 'origin', name: '择出身', icon: 'fas fa-scroll' },
   { id: 'spirit-root', name: '觅灵根', icon: 'fas fa-seedling' },
   { id: 'talents', name: '选天赋', icon: 'fas fa-star' },
+  { id: 'attributes', name: '定根骨', icon: 'fas fa-fist-raised' },
   { id: 'preview', name: '观命盘', icon: 'fas fa-book-open' },
 ]
 
-// Data holding refs
-const origins = ref<Origin[]>([])
-const talents = ref<Talent[]>([])
-const spiritRoots = ref<SpiritRoot[]>([])
-const isLoading = ref(true)
+const characterData = reactive<{
+  worlds: World[]
+  origins: Origin[]
+  talents: Talent[]
+  spiritRoots: SpiritRoot[]
+}>({
+  worlds: [],
+  origins: [],
+  talents: [],
+  spiritRoots: []
+})
 
-// Form state refs
-const selectedOrigin = ref<Origin | null>(null)
-const selectedTalents = ref<Talent[]>([])
-const selectedSpiritRoot = ref<SpiritRoot | null>(null)
-const userName = ref('道友')
+const handleFinalize = (finalSheet: CharacterSheet) => {
+  console.log('Final character sheet received from core component:', finalSheet)
+
+  const newWorldState: WorldState = {
+    character: finalSheet,
+    time: { year: 1, month: 1, day: 1 },
+    location: '新手村',
+    events: [],
+    flags: {},
+  }
+
+  addNewCharacterSlot(newWorldState)
+  console.log(`命盘【${finalSheet.name}】已成功缔造！`);
+  clearGameMode()
+}
+
+const handleBack = () => {
+  clearGameMode()
+}
+
+
+const loadServerData = async () => {
+  isLoadingServerData.value = true
+  try {
+    const [worldsData, originsData, talentsData, spiritRootsData] = await Promise.all([
+      getWorldBackgrounds(),
+      getOrigins(),
+      getTalents(),
+      getSpiritRoots(),
+    ])
+    characterData.worlds = worldsData
+    characterData.origins = originsData
+    characterData.talents = talentsData
+    characterData.spiritRoots = spiritRootsData
+    isUsingLocalData.value = false
+    console.log('成功从天宫灵脉获取修行数据！');
+  } catch (error) {
+    console.error('获取服务器数据失败:', error)
+    console.error('无法连接天宫灵脉，请检查网络连接或稍后再试。');
+  } finally {
+    isLoadingServerData.value = false
+  }
+}
+
+const useLocalData = () => {
+  characterData.worlds = DEFAULT_WORLDS
+  characterData.origins = EXTENDED_ORIGINS
+  characterData.talents = EXTENDED_TALENTS
+  characterData.spiritRoots = EXTENDED_SPIRIT_ROOTS
+  isUsingLocalData.value = true
+}
 
 onMounted(async () => {
   isLoading.value = true
-  const [originsData, talentsData, spiritRootsData, userData] = await Promise.all([
-    getOrigins(),
-    getTalents(),
-    getSpiritRoots(),
-    getUserInfo(),
-  ])
-
-  origins.value = originsData
-  talents.value = talentsData
-  spiritRoots.value = spiritRootsData
-  userName.value = userData.name
-
-  // Set default selections
-  if (origins.value.length > 0 && !selectedOrigin.value) selectedOrigin.value = origins.value[0]
-  if (spiritRoots.value.length > 0 && !selectedSpiritRoot.value)
-    selectedSpiritRoot.value = spiritRoots.value[0]
-
-  isLoading.value = false
-})
-
-// --- Logic Computeds ---
-
-const isCreationComplete = computed(() => {
-  return selectedOrigin.value && selectedSpiritRoot.value && selectedTalents.value.length > 0
-})
-
-const finalCharacterSheet = computed<CharacterSheet>(() => {
-  const baseAttributes = ATTRIBUTE_RULES.reduce(
-    (acc, rule) => {
-      acc[rule.id] = 10
-      return acc
-    },
-    {} as Record<CoreAttribute, number>,
-  )
-
-  if (selectedOrigin.value) {
-    for (const key in selectedOrigin.value.attributeModifiers) {
-      const attrKey = key as CoreAttribute
-      baseAttributes[attrKey] += selectedOrigin.value.attributeModifiers[attrKey] || 0
-    }
-  }
-  selectedTalents.value.forEach((talent) => {
-    if (talent.effects && typeof talent.effects === 'string') {
-      try {
-        const parsedEffects: Array<{ type: string; target: CoreAttribute; value: number }> =
-          JSON.parse(talent.effects)
-        parsedEffects.forEach((effect) => {
-          if (effect.type === 'ATTRIBUTE_MODIFIER' && baseAttributes[effect.target]) {
-            baseAttributes[effect.target] += effect.value
-          }
-        })
-      } catch (e) {
-        console.error(`天赋'${talent.name}'的effects字段解析失败:`, e)
-      }
-    }
-  })
-
-  const finalAttrs = baseAttributes
-
-  const origin = selectedOrigin.value
-  const spiritRoot = selectedSpiritRoot.value
-  const finalTalents = selectedTalents.value.map((t) => ({ ...t, level: 1 }))
-
-  const generateFateVerdict = (): string => {
-    if (!origin || !spiritRoot) return '天机混沌，命数未显...'
-
-    let verdict = `${userName.value}，${origin.description} `
-    verdict += `身具【${spiritRoot.name}】，此乃修行之基。`
-
-    if (finalTalents.length > 0) {
-      verdict += `更得天道垂青，与生便有“${finalTalents.map((t) => t.name).join('”、“')}”等天赋，仙路前景，已胜常人三分。`
-    } else {
-      verdict += `然未得天眷，无伴生天赋，仙路需倍加勤勉。`
-    }
-
-    const sortedAttrs = Object.entries(finalAttrs).sort((a, b) => b[1] - a[1])
-    const highestAttr = sortedAttrs[0][0] as CoreAttribute
-
-    let attrVerdict = ''
-    switch (highestAttr) {
-      case CoreAttribute.CON:
-        attrVerdict = '然其命数之中，【根骨】二字最为耀眼，此乃肉身成圣之兆。'
-        break
-      case CoreAttribute.INT:
-        attrVerdict = '其魂魄深处，【悟性】之光独占鳌头，此乃天生道子。'
-        break
-      case CoreAttribute.SPI:
-        attrVerdict = '此子【神识】天生强大，远超同辈，一切虚妄幻象，皆无所遁形。'
-        break
-      case CoreAttribute.LUK:
-        attrVerdict = '冥冥之中，【气运】二字与汝纠缠最深，乃是福缘深厚之人。'
-        break
-      case CoreAttribute.CHA:
-        attrVerdict = '其【仪容】风姿，令人见之忘俗，如谪仙临尘。'
-        break
-      case CoreAttribute.BKG:
-        attrVerdict = '其【家世】渊源，虽未明言，却已在命数中留下浓墨重彩的一笔。'
-        break
-    }
-    verdict += ` ${attrVerdict}`
-
-    return verdict
-  }
-
-  return {
-    name: userName.value,
-    origin: origin!,
-    spiritRoot: spiritRoot!,
-    talents: finalTalents,
-    attributes: finalAttrs,
-    description: generateFateVerdict(),
-    memory_shards: [],
+  try {
+    const userData = await getUserInfo()
+    userName.value = userData.name
+    useLocalData()
+  } catch (error) {
+    console.error('初始化失败:', error)
+    console.error('身份识别失败，将使用默认道号。');
+    useLocalData()
+  } finally {
+    isLoading.value = false
   }
 })
-
-const finalizeCharacterCreation = async () => {
-  if (!isCreationComplete.value) {
-    TavernHelper.toastr.error('道友，你的道途尚未完整，请完成所有选择。')
-    return
-  }
-
-  isLoading.value = true
-  // TODO: Refactor this function for the new online mode.
-  // It will need to call a new `createCharacter` API function,
-  // passing the user_id and world_id.
-  TavernHelper.toastr.info('角色创建逻辑正在重构中...')
-  console.log('Final character sheet:', finalCharacterSheet.value)
-  isLoading.value = false
-}
 </script>
 
 <style scoped>
-.creation-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  width: 100%;
-  padding: 2rem;
-  box-sizing: border-box;
-  background-color: var(--color-background);
-}
-
-.creation-content {
-  width: 100%;
-  max-width: 1000px;
-  padding: 3rem;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-}
-
-.loading-overlay {
+.server-sync-section {
+  padding: 1rem;
+  background-color: rgba(var(--color-primary-rgb), 0.05);
+  border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
-  font-size: 1.5rem;
-  color: var(--color-text-secondary);
-  font-family: var(--font-family-serif);
-}
-
-.creation-header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.title-text {
-  font-family: var(--font-family-serif);
-  font-size: 2.8rem;
-  color: var(--color-primary);
-  margin-bottom: 1rem;
-  text-shadow: 0 0 20px var(--color-primary-hover);
-}
-
-.subtitle-text {
-  font-size: 1.2rem;
-  color: var(--color-text-secondary);
-}
-
-.step-section {
-  margin-top: 2.5rem;
-  margin-bottom: 2.5rem;
-  animation: fadeIn 0.6s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.creation-footer {
-  display: flex;
-  justify-content: center;
   gap: 1.5rem;
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--color-border);
+}
+
+.local-data-hint, .server-data-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+  font-style: italic;
+}
+
+.server-data-hint {
+  color: var(--color-nature, #22c55e);
+}
+
+.sync-btn {
+  font-size: 0.9rem;
+  padding: 0.5rem 1.5rem;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-primary) 100%);
+  border: none;
+  color: white;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.sync-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.sync-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

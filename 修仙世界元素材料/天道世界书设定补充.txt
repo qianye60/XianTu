@@ -1,0 +1,98 @@
+08.01 15:40
+天道世界书设定补充
+Cultivation Art System:
+1. Cultivation Art Quality Tiers (Low to High):
+    Common (White)  
+    Rare (Green)  
+    Exceptional (Blue)  
+    Peerless (Purple)  
+    Heaven-Defying (Red)  
+2. Cultivation Art Function:Cultivation Arts determine how much of a cultivator's [Realm] and [Spiritual Energy] power they can unleash. Without a Cultivation Art, only 70% [Effectiveness] can be achieved.  
+3.  Effectiveness Benchmark:
+    No Cultivation Art: 70%  
+    Common Cultivation Art: 100%
+    Rare Cultivation Art: 150%
+    Exceptional Cultivation Art: 200%
+    Peerless Cultivation Art: 300%
+    Heaven-Defying Cultivation Art: 400%
+4. Example (Simplified):Assuming two cultivators of the same [Realm] use equal [Spiritual Energy] to attack, and ignoring Cultivation Art attributes or elemental counters. The [attack potency] of the cultivator using a Peerless Cultivation Art is 3 times that of the cultivator using a Common Cultivation Art.
+Magical Treasure System:
+1.  Magical Treasure Quality Tiers (Low to High):
+    Talisman Tool  
+    Artifact  
+    Spirit Treasure  
+    Numinous Treasure  
+    Supreme Treasure  
+2.  Magical Treasure Function:Magical Treasures enhance a cultivator's actions in two ways: a [Base Bonus Percentage] and additional special abilities (called "Extra Traits" or "Enchantments").  
+3.  Base Bonus:
+    Talisman Tool: +20%  
+    Artifact: +50%  
+    Spirit Treasure: +100%  
+    Numinous Treasure: +150%  
+    Supreme Treasure: +200%  
+4. Extra Traits (Enchantments):
+    Maximum Quantity:
+        Talisman Tool: Max 1 Enchantment  
+        Artifact: Max 2 Enchantments  
+        Spirit Treasure: Max 3 Enchantments  
+        Numinous Treasure: Max 4 Enchantments  
+        Supreme Treasure: Max 5 Enchantments  
+    Enchantment Strength & Complexity:
+        Low-tier Treasures (Talisman Tool, Artifact): Can only possess simple mechanics or common effect Enchantments (e.g., "Sharpness" - increases cutting power, "Sturdiness" - increases durability).  
+        High-tier Treasures (Spirit Treasure, Numinous Treasure, Supreme Treasure): Can possess powerful mechanics or potent effect Enchantments (e.g., "Impervious-Piercing" - ignores defenses of all lower-tier treasures, "Soulflame" - burns souls, consuming any soul contacting it except the treasure's soul-bound wielder).
+Action Potency Calculation:
+1.  Core Formula:The final [Potency] of a cultivator's action (e.g., an attack) consists of two parts:  
+    Base Potency Calculation:`Cultivation Art Effectiveness Percentage + Magical Treasure Base Bonus Percentage`  
+    Additional Effects:Plus all special effects granted by the Magical Treasure's "Extra Traits" (Enchantments).  
+2.  Example:A cultivator using a "Peerless Cultivation Art" (300%) attacks with a "Numinous Treasure" (+150% Base Bonus).  
+    Their Base Action Potency is: 300% + 150% = 450%.  
+    On top of this 450%, all effects from the Numinous Treasure's "Extra Traits" (Enchantments) are applied.
+//以下是注释
+功法系统：
+1. 功法品质分级（由低到高）：
+    凡品（白色）
+    奇珍（绿色）
+    极品（蓝色）
+    绝品（紫色）
+    通天（红色）
+2. 功法作用：功法决定了修士能发挥出其境界和灵气的多少威力。没有功法，只能发挥70%的效力。
+3. 功法效力基准：
+    无功法：70%
+    凡品功法：100%
+    奇珍功法：150%
+    极品功法：200%
+    绝品功法：300%
+    通天功法：400%
+4. 示例说明（简化）：假设两位同境界修士使用等量灵气攻击，且不考虑功法属性和克制。那么，修炼绝品功法修士的攻击效果，是修炼凡品功法修士的3倍。
+法宝系统：
+1. 法宝品质分级（由低到高）：
+    符器
+    法器
+    通宝
+    灵宝
+    至宝
+2.  法宝作用：法宝为修士的行动提供两方面提升：基础加成百分比和额外的特殊能力（称为“额外特性”或“词条”）。
+3. 基础加成：
+    符器：+20%
+    法器：+50%
+    通宝：+100%
+    灵宝：+150%
+    至宝：+200%
+4. 额外特性（词条）：
+    数量上限：
+        符器：最多1个词条
+        法器：最多2个词条
+        通宝：最多3个词条
+        灵宝：最多4个词条
+        至宝：最多5个词条
+    词条强度与复杂度：
+        低级法宝（符器、法器）：只能拥有机制简单或效果普通的词条（例如：“锋锐” - 增加锋利度，“坚硬” - 增加坚固度）。
+        高级法宝（通宝、灵宝、至宝）：可以拥有机制强大或效果强大的词条（例如：“无坚不摧” - 能无视所有更低等级法宝的防御，“冥炎” - 能灼烧灵魂，烧尽除法宝炼化者外一切接触者的灵魂）。
+行动效力计算：
+1. 核心公式：修士执行某个行动（如攻击）的最终效力，由两部分构成：
+    基础效力计算：`功法效力百分比 + 法宝基础加成百分比`
+    附加效果：再加上法宝所有“额外特性”带来的特殊效果。
+2.  示例说明：一位修炼“绝品功法”（300%）的修士，使用一件“灵宝”（+150%基础加成）发起攻击。
+    他的行动基础效力是：300% + 150% = 450%。
+    在此450%的基础上，还需附加该灵宝所拥有的所有“额外特性”（词条）的效果。
+

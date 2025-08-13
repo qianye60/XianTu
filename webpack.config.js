@@ -1,7 +1,10 @@
+const webpack = require('webpack')
 const path = require('path')
 const { VueLoaderPlugin } = require('vue-loader')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const HtmlInlineScriptPlugin = require('html-inline-script-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
+const HtmlInlineCssWebpackPlugin = require('html-inline-css-webpack-plugin').default
 const TavernLiveReloadPlugin = require('./webpack/TavernLiveReloadPlugin')
 
 module.exports = (env, argv) => {
@@ -39,18 +42,40 @@ module.exports = (env, argv) => {
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader'],
+          use: [MiniCssExtractPlugin.loader, 'css-loader'],
         },
       ],
     },
     plugins: [
       new VueLoaderPlugin(),
+      new MiniCssExtractPlugin(),
+      new webpack.DefinePlugin({
+        __VUE_OPTIONS_API__: JSON.stringify(true),
+        __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false)
+      }),
       new HtmlWebpackPlugin({
         template: './index.html',
         inject: 'body',
       }),
       new HtmlInlineScriptPlugin(),
+      new HtmlInlineCssWebpackPlugin(),
       !isProduction ? new TavernLiveReloadPlugin() : null,
     ].filter(Boolean),
+    devServer: {
+      static: {
+        directory: path.join(__dirname, 'dist'),
+      },
+      compress: true,
+      port: 8080,
+      hot: true,
+      proxy: [
+        {
+          context: ['/api'],
+          target: 'http://localhost:8001',
+          changeOrigin: true,
+        },
+      ],
+    },
   }
 }

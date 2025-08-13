@@ -1,92 +1,237 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List, Any, Dict
+import datetime
 
-# --- 数据模型 (Pydantic Models) ---
-
-# --- 用户体系 ---
-class UserCreate(BaseModel):
-    user_name: str
-    password: str
-
-class User(BaseModel):
-    id: int
-    user_name: str
-    role: str
-
-# --- 世界体系 ---
-class World(BaseModel):
-    id: int
-    name: str
-    type: str | None = None
-    description: str | None = None
-
-class WorldCreate(BaseModel):
-    name: str
-    type: str
-    description: str
-    author_id: int
-
-# --- 角色/存档体系 ---
-class Character(BaseModel):
-    id: int
-    user_id: int
-    world_id: int
-    character_name: str
-
-class CharacterCreate(BaseModel):
-    user_id: int
-    world_id: int
-    character_name: str
-    character_data: dict
+# --- 基础模型 ---
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    username: str | None = None
+    username: Optional[str] = None
+
+class TokenPayload(BaseModel):
+    sub: str
+    exp: Optional[int] = None
+
+# --- 手动创建 Pydantic 模型以解耦启动依赖 ---
+
+# --- 账户模型 ---
+
+class PlayerAccount(BaseModel):
+    id: int
+    user_name: str
+    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class PlayerAccountCreate(BaseModel):
+    user_name: str
+    password: str
+
+class PlayerAccountUpdate(BaseModel):
+    user_name: Optional[str] = None
+    password: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
+class AdminPasswordChange(BaseModel):
+    new_password: str
+
+class AdminAccount(BaseModel):
+    id: int
+    user_name: str
+    role: str
+    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# --- 世界模型 ---
+
+class World(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    era: Optional[str] = None
+    core_rules: Optional[Dict[str, Any]] = None
+    creator: Optional[AdminAccount] = None
+    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class WorldCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    era: Optional[str] = None
+    core_rules: Optional[Dict[str, Any]] = None
+    creator_id: int
+
+class WorldUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    era: Optional[str] = None
+    core_rules: Optional[Dict[str, Any]] = None
+
+# --- 角色/存档模型 ---
+
+class Character(BaseModel):
+    id: int
+    character_name: str
+    character_data: Dict[str, Any]
+    is_active: bool
+    player: PlayerAccount
+    world: World
+    model_config = ConfigDict(from_attributes=True)
+
+class CharacterCreate(BaseModel):
+    user_id: int
+    world_id: int
+    character_name: str
+    character_data: Dict[str, Any]
+
+# --- 核心规则模型 ---
+
+class Origin(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    attribute_modifiers: Optional[Dict[str, Any]] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class OriginCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    attribute_modifiers: Optional[Dict[str, Any]] = None
+
+class Talent(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    effects: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class TalentCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    effects: Optional[str] = None
+
+class SpiritRoot(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    base_multiplier: float
+    model_config = ConfigDict(from_attributes=True)
+
+class SpiritRootCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    base_multiplier: float
 
 # --- 通用修仙元素 ---
 
-class RealmBase(BaseModel):
-    name: str
-    title: str | None = None
-    milestone: str | None = None
-    lifespan: str | None = None
-    description: str | None = None
-    order: int # 用于排序
-
-class RealmCreate(RealmBase):
-    pass
-
-class Realm(RealmBase):
+class Realm(BaseModel):
     id: int
-    class Config:
-        orm_mode = True
-
-class CultivationPathBase(BaseModel):
     name: str
-    concept: str | None = None
-    description: str | None = None
+    title: Optional[str] = None
+    milestone: Optional[str] = None
+    lifespan: Optional[str] = None
+    description: Optional[str] = None
+    order: int
+    model_config = ConfigDict(from_attributes=True)
 
-class CultivationPathCreate(CultivationPathBase):
-    pass
-
-class CultivationPath(CultivationPathBase):
-    id: int
-    class Config:
-        orm_mode = True
-
-class CultivationArtBase(BaseModel):
+class RealmCreate(BaseModel):
     name: str
-    function: str | None = None
-    ranks: str | None = None # 存储为JSON字符串
-    products: str | None = None # 存储为JSON字符串
-    note: str | None = None
+    title: Optional[str] = None
+    milestone: Optional[str] = None
+    lifespan: Optional[str] = None
+    description: Optional[str] = None
+    order: int
 
-class CultivationArtCreate(CultivationArtBase):
-    pass
-
-class CultivationArt(CultivationArtBase):
+class CultivationPath(BaseModel):
     id: int
-    class Config:
-        orm_mode = True
+    name: str
+    concept: Optional[str] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class CultivationPathCreate(BaseModel):
+    name: str
+    concept: Optional[str] = None
+    description: Optional[str] = None
+
+class CultivationArt(BaseModel):
+    id: int
+    name: str
+    function: Optional[str] = None
+    ranks: Optional[List[Any]] = None
+    products: Optional[List[Any]] = None
+    note: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class CultivationArtCreate(BaseModel):
+    name: str
+    function: Optional[str] = None
+    ranks: Optional[List[Any]] = None
+    products: Optional[List[Any]] = None
+    note: Optional[str] = None
+
+class WeaponType(BaseModel):
+    id: int
+    name: str
+    category: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class WeaponTypeCreate(BaseModel):
+    name: str
+    category: Optional[str] = None
+
+class Profession(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ProfessionCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class Organization(BaseModel):
+    id: int
+    name: str
+    type: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class OrganizationCreate(BaseModel):
+    name: str
+    type: Optional[str] = None
+
+# --- 兑换码模型 ---
+
+class RedemptionCode(BaseModel):
+    id: int
+    code: str
+    type: str
+    payload: Optional[Dict[str, Any]] = None
+    max_uses: int
+    times_used: int
+    expires_at: Optional[datetime.datetime] = None
+    is_used: bool
+    is_expired: bool
+    model_config = ConfigDict(from_attributes=True)
+
+class RedemptionCodeCreate(BaseModel):
+    code: str
+    type: str
+    payload: Optional[Dict[str, Any]] = None
+    max_uses: int = 1
+    used_by_user_id: Optional[int] = None
+
+class RedemptionCodeAdminCreate(BaseModel):
+    type: str
+    payload: Dict[str, Any]
+    max_uses: int = 1
+
+class CreationDataResponse(BaseModel):
+    origins: Optional[List[Dict[str, Any]]] = None
+    spirit_roots: Optional[List[Dict[str, Any]]] = None
+    world_backgrounds: Optional[List[Dict[str, Any]]] = None

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大道朝天 - 管理后台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        /* 视频背景样式 */
+        .video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+            opacity: 0.3; /* 调整透明度，让内容更清晰 */
+        }
+        
+        /* 确保内容在视频之上 */
+        .content-overlay {
+            position: relative;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.1); /* 轻微的暗色遮罩 */
+            backdrop-filter: blur(1px); /* 轻微模糊效果 */
+        }
+        
+        /* 优化卡片和模态框的透明度 */
+        .card-overlay {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-overlay {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+        }
+        
+        /* 表格样式优化 */
+        .table-overlay {
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .table-row-hover:hover {
+            background: rgba(249, 250, 251, 0.8);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 视频背景 -->
+    <video class="video-background" autoplay muted loop>
+        <source src="background.mp4" type="video/mp4">
+        您的浏览器不支持视频播放。
+    </video>
+
+    <div class="content-overlay min-h-screen">
+        <!-- 顶部导航栏 -->
+        <nav class="bg-blue-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">大道朝天 - 管理后台</h1>
+                <div class="space-x-4">
+                    <button onclick="refreshData()" class="bg-blue-500 hover:bg-blue-700 px-4 py-2 rounded">刷新数据</button>
+                    <button onclick="showAddModal()" class="bg-green-500 hover:bg-green-700 px-4 py-2 rounded">添加数据</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主要内容区域 -->
+        <div class="container mx-auto p-6">
+            <!-- 数据统计卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="card-overlay p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-gray-700">用户总数</h3>
+                    <p class="text-3xl font-bold text-blue-600" id="userCount">-</p>
+                </div>
+                <div class="card-overlay p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-gray-700">世界总数</h3>
+                    <p class="text-3xl font-bold text-green-600" id="worldCount">-</p>
+                </div>
+                <div class="card-overlay p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-gray-700">角色总数</h3>
+                    <p class="text-3xl font-bold text-purple-600" id="characterCount">-</p>
+                </div>
+                <div class="card-overlay p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-gray-700">在线用户</h3>
+                    <p class="text-3xl font-bold text-orange-600" id="onlineCount">-</p>
+                </div>
+            </div>
+
+            <!-- 数据管理标签页 -->
+            <div class="card-overlay rounded-lg shadow">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                        <button onclick="showTab('users')" class="tab-btn border-b-2 border-blue-500 py-4 px-1 text-sm font-medium text-blue-600">用户管理</button>
+                        <button onclick="showTab('worlds')" class="tab-btn border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">世界管理</button>
+                        <button onclick="showTab('origins')" class="tab-btn border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">出身管理</button>
+                        <button onclick="showTab('talents')" class="tab-btn border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">天赋管理</button>
+                        <button onclick="showTab('redemption')" class="tab-btn border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">兑换码管理</button>
+                    </nav>
+                </div>
+
+                <!-- 数据表格容器 -->
+                <div class="p-6">
+                    <div id="loading" class="text-center py-8">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p class="mt-2 text-gray-600">加载中...</p>
+                    </div>
+                    
+                    <div id="dataTable" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50" id="tableHeader"></thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="errorMessage" class="hidden text-center py-8 text-red-600"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑/添加模态框 -->
+    <div id="editModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md modal-overlay">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">编辑数据</h3>
+                <form id="editForm">
+                    <div id="formFields"></div>
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" onclick="closeModal()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">取消</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md modal-overlay">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">确认删除</h3>
+                <p class="text-sm text-gray-500 mb-6">确定要删除这条数据吗？此操作不可撤销。</p>
+                <div class="flex justify-center space-x-3">
+                    <button onclick="closeDeleteModal()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">取消</button>
+                    <button onclick="confirmDelete()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API 基础URL
+        const API_BASE = '/api/v1';
+        let currentTab = 'users';
+        let currentEditId = null;
+        let currentDeleteId = null;
+        let currentData = [];
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+            showTab('users');
+        });
+
+        // 刷新数据
+        async function refreshData() {
+            try {
+                await loadStats();
+                await loadTabData(currentTab);
+            } catch (error) {
+                console.error('刷新数据失败:', error);
+                showError('数据加载失败');
+            }
+        }
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const responses = await Promise.all([
+                    axios.get(`${API_BASE}/users`),
+                    axios.get(`${API_BASE}/worlds`),
+                ]);
+
+                document.getElementById('userCount').textContent = responses[0].data.length || 0;
+                document.getElementById('worldCount').textContent = responses[1].data.length || 0;
+                document.getElementById('characterCount').textContent = '-';
+                document.getElementById('onlineCount').textContent = '-';
+            } catch (error) {
+                console.error('统计数据加载失败:', error);
+            }
+        }
+
+        // 显示标签页
+        function showTab(tab) {
+            currentTab = tab;
+            
+            // 更新标签样式
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            event.target.classList.remove('border-transparent', 'text-gray-500');
+            event.target.classList.add('border-blue-500', 'text-blue-600');
+            
+            loadTabData(tab);
+        }
+
+        // 加载标签页数据
+        async function loadTabData(tab) {
+            showLoading();
+            
+            try {
+                let url, columns, formatData;
+                
+                switch(tab) {
+                    case 'users':
+                        url = `${API_BASE}/users`;
+                        columns = ['ID', '用户名', '创建时间', '操作'];
+                        formatData = (item) => [
+                            item.id,
+                            item.user_name,
+                            new Date(item.created_at).toLocaleString('zh-CN'),
+                            `<button onclick="editItem(${item.id})" class="bg-yellow-500 hover:bg-yellow-700 text-white px-2 py-1 rounded mr-2 text-xs">编辑</button>
+                             <button onclick="deleteItem(${item.id})" class="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">删除</button>`
+                        ];
+                        break;
+                        
+                    case 'worlds':
+                        url = `${API_BASE}/worlds`;
+                        columns = ['ID', '世界名称', '类型', '作者', '创建时间', '操作'];
+                        formatData = (item) => [
+                            item.id,
+                            item.name,
+                            item.type || '-',
+                            item.author || '-',
+                            new Date(item.created_at).toLocaleString('zh-CN'),
+                            `<button onclick="editItem(${item.id})" class="bg-yellow-500 hover:bg-yellow-700 text-white px-2 py-1 rounded mr-2 text-xs">编辑</button>
+                             <button onclick="deleteItem(${item.id})" class="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">删除</button>`
+                        ];
+                        break;
+                        
+                    case 'origins':
+                        url = `${API_BASE}/origins`;
+                        columns = ['ID', '出身名称', '描述', '操作'];
+                        formatData = (item) => [
+                            item.id,
+                            item.name,
+                            item.description ? (item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description) : '-',
+                            `<button onclick="editItem(${item.id})" class="bg-yellow-500 hover:bg-yellow-700 text-white px-2 py-1 rounded mr-2 text-xs">编辑</button>
+                             <button onclick="deleteItem(${item.id})" class="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">删除</button>`
+                        ];
+                        break;
+                        
+                    case 'talents':
+                        url = `${API_BASE}/talents`;
+                        columns = ['ID', '天赋名称', '描述', '操作'];
+                        formatData = (item) => [
+                            item.id,
+                            item.name,
+                            item.description ? (item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description) : '-',
+                            `<button onclick="editItem(${item.id})" class="bg-yellow-500 hover:bg-yellow-700 text-white px-2 py-1 rounded mr-2 text-xs">编辑</button>
+                             <button onclick="deleteItem(${item.id})" class="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">删除</button>`
+                        ];
+                        break;
+                        
+                    case 'redemption':
+                        url = `${API_BASE}/admin/codes`;
+                        columns = ['ID', '兑换码', '类型', '最大使用次数', '已使用次数', '状态', '操作'];
+                        formatData = (item) => [
+                            item.id,
+                            item.code,
+                            item.type,
+                            item.max_uses,
+                            item.times_used,
+                            item.is_used ? '已使用' : (item.is_expired ? '已过期' : '有效'),
+                            `<button onclick="editItem(${item.id})" class="bg-yellow-500 hover:bg-yellow-700 text-white px-2 py-1 rounded mr-2 text-xs">查看</button>
+                             <button onclick="deleteItem(${item.id})" class="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">删除</button>`
+                        ];
+                        break;
+                        
+                    default:
+                        throw new Error('未知的标签页');
+                }
+                
+                const response = await axios.get(url);
+                currentData = response.data;
+                
+                showDataTable(columns, currentData.map(formatData));
+                
+            } catch (error) {
+                console.error('数据加载失败:', error);
+                showError(`${tab} 数据加载失败: ${error.message}`);
+            }
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('dataTable').classList.add('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
+        // 显示数据表格
+        function showDataTable(columns, rows) {
+            const headerHtml = columns.map(col => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider table-overlay">${col}</th>`).join('');
+            document.getElementById('tableHeader').innerHTML = `<tr>${headerHtml}</tr>`;
+            
+            const bodyHtml = rows.map(row => 
+                `<tr class="table-row-hover table-overlay">
+                    ${row.map(cell => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${cell}</td>`).join('')}
+                </tr>`
+            ).join('');
+            document.getElementById('tableBody').innerHTML = bodyHtml;
+            
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('dataTable').classList.remove('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('dataTable').classList.add('hidden');
+            document.getElementById('errorMessage').classList.remove('hidden');
+        }
+
+        // 编辑项目
+        function editItem(id) {
+            currentEditId = id;
+            const item = currentData.find(d => d.id === id);
+            if (!item) return;
+
+            document.getElementById('modalTitle').textContent = '编辑数据';
+            
+            let fieldsHtml = '';
+            switch(currentTab) {
+                case 'users':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+                            <input type="text" name="user_name" value="${item.user_name}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">新密码（留空不修改）</label>
+                            <input type="password" name="password" placeholder="留空不修改密码" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    `;
+                    break;
+                case 'worlds':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">世界名称</label>
+                            <input type="text" name="name" value="${item.name}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea name="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${item.description || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                case 'origins':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">出身名称</label>
+                            <input type="text" name="name" value="${item.name}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea name="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${item.description || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                case 'talents':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">天赋名称</label>
+                            <input type="text" name="name" value="${item.name}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea name="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${item.description || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                case 'redemption':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">兑换码</label>
+                            <input type="text" value="${item.code}" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">类型</label>
+                            <input type="text" value="${item.type}" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                            <input type="text" value="${item.is_used ? '已使用' : (item.is_expired ? '已过期' : '有效')}" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">使用情况</label>
+                            <input type="text" value="${item.times_used}/${item.max_uses}" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">载荷数据</label>
+                            <textarea class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly rows="6">${JSON.stringify(item.payload, null, 2)}</textarea>
+                        </div>
+                    `;
+                    break;
+            }
+
+            document.getElementById('formFields').innerHTML = fieldsHtml;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        // 显示添加模态框
+        function showAddModal() {
+            currentEditId = null;
+            document.getElementById('modalTitle').textContent = '添加数据';
+            
+            let fieldsHtml = '';
+            switch(currentTab) {
+                case 'users':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+                            <input type="text" name="user_name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">密码</label>
+                            <input type="password" name="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    `;
+                    break;
+                case 'worlds':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">世界名称</label>
+                            <input type="text" name="name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea name="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">时代</label>
+                            <input type="text" name="era" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    `;
+                    break;
+                case 'origins':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">出身名称</label>
+                            <input type="text" name="name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea name="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    `;
+                    break;
+                case 'talents':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">天赋名称</label>
+                            <input type="text" name="name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea name="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    `;
+                    break;
+                case 'redemption':
+                    fieldsHtml = `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">兑换码类型</label>
+                            <select name="type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                <option value="character_creation">角色创建</option>
+                                <option value="item_reward">物品奖励</option>
+                                <option value="special_privilege">特殊权限</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最大使用次数</label>
+                            <input type="number" name="max_uses" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">载荷数据 (JSON格式)</label>
+                            <textarea name="payload" placeholder='{"origins": [], "talents": [], "items": []}' class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" rows="6" required></textarea>
+                        </div>
+                    `;
+                    break;
+            }
+
+            document.getElementById('formFields').innerHTML = fieldsHtml;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        // 删除项目
+        function deleteItem(id) {
+            currentDeleteId = id;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // 关闭编辑模态框
+        function closeModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            currentEditId = null;
+        }
+
+        // 关闭删除模态框
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            currentDeleteId = null;
+        }
+
+        // 确认删除
+        async function confirmDelete() {
+            if (!currentDeleteId) return;
+            
+            try {
+                let url;
+                switch(currentTab) {
+                    case 'users':
+                        url = `${API_BASE}/users/${currentDeleteId}`;
+                        break;
+                    case 'worlds':
+                        url = `${API_BASE}/worlds/${currentDeleteId}`;
+                        break;
+                    case 'origins':
+                        url = `${API_BASE}/origins/${currentDeleteId}`;
+                        break;
+                    case 'talents':
+                        url = `${API_BASE}/talents/${currentDeleteId}`;
+                        break;
+                }
+
+                await axios.delete(url);
+                closeDeleteModal();
+                await refreshData();
+                alert('删除成功！');
+            } catch (error) {
+                console.error('删除失败:', error);
+                alert('删除失败：' + error.message);
+            }
+        }
+
+        // 处理表单提交
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {};
+            
+            for (let [key, value] of formData.entries()) {
+                if (value.trim() !== '' || key === 'password') {
+                    data[key] = value;
+                }
+            }
+
+            // 如果是密码字段且为空，则不发送
+            if (currentEditId && data.password === '') {
+                delete data.password;
+            }
+
+            try {
+                let url, method;
+                
+                if (currentEditId) {
+                    // 编辑
+                    switch(currentTab) {
+                        case 'users':
+                            url = `${API_BASE}/users/${currentEditId}`;
+                            break;
+                        case 'worlds':
+                            url = `${API_BASE}/worlds/${currentEditId}`;
+                            break;
+                        case 'origins':
+                            url = `${API_BASE}/origins/${currentEditId}`;
+                            break;
+                        case 'talents':
+                            url = `${API_BASE}/talents/${currentEditId}`;
+                            break;
+                    }
+                    await axios.put(url, data);
+                } else {
+                    // 添加
+                    switch(currentTab) {
+                        case 'users':
+                            url = `${API_BASE}/register`;
+                            break;
+                        case 'worlds':
+                            url = `${API_BASE}/worlds/`;
+                            data.creator_id = 1; // 默认创建者ID，你可能需要根据实际情况调整
+                            break;
+                        case 'origins':
+                            url = `${API_BASE}/origins/`;
+                            break;
+                        case 'talents':
+                            url = `${API_BASE}/talents/`;
+                            break;
+                        case 'redemption':
+                            url = `${API_BASE}/admin/create`;
+                            // 处理JSON载荷
+                            try {
+                                data.payload = JSON.parse(data.payload);
+                            } catch (e) {
+                                alert('载荷数据格式错误，请输入有效的JSON');
+                                return;
+                            }
+                            break;
+                    }
+                    await axios.post(url, data);
+                }
+
+                closeModal();
+                await refreshData();
+                alert(currentEditId ? '更新成功！' : '添加成功！');
+            } catch (error) {
+                console.error('保存失败:', error);
+                alert('保存失败：' + (error.response?.data?.detail || error.message));
+            }
+        });
+    </script>
+</body>
+</html>

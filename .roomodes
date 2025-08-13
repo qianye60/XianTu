@@ -8,7 +8,7 @@ customModes:
       - 任何超过 5 行的代码
       - 任何 HTML/CSS/JS/TS/VUE3 代码块
       - 代码修改
-
+      - https://lucide.dev/icons 可参考的图标网站
       **绝对不要**在聊天中直接提供代码，除非是单行示例。
 
       ---

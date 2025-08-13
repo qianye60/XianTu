@@ -4,7 +4,14 @@
  * 它接收角色的基础属性与选择，推演出最终的面板数值。
  */
 import { computed, type Ref } from 'vue'
-import { CoreAttribute, type CharacterSheet } from '@/core/rules/characterCreation'
+import {
+  CoreAttribute,
+  type CharacterSheet,
+  type Origin,
+  type Talent,
+  type SpiritRoot,
+  ATTRIBUTE_RULES,
+} from '@/core/rules/characterCreation'
 
 // Re-export CharacterSheet for components that need it
 export type { CharacterSheet } from '@/core/rules/characterCreation'
@@ -86,5 +93,113 @@ export function useCharacterCalculations(
     criticalChance,
     // State
     isCreationReady,
+  }
+}
+
+// =================================================================
+// 命盘构建法门 (Character Sheet Builder)
+// =================================================================
+
+export function useCharacterSheetBuilder(
+  characterName: Ref<string>,
+  selectedOrigin: Ref<Origin | null>,
+  selectedSpiritRoot: Ref<SpiritRoot | null>,
+  selectedTalents: Ref<Talent[]>,
+) {
+  const isCreationComplete = computed(() => {
+    return selectedOrigin.value && selectedSpiritRoot.value && selectedTalents.value.length > 0
+  })
+
+  const finalCharacterSheet = computed<CharacterSheet>(() => {
+    const baseAttributes = ATTRIBUTE_RULES.reduce(
+      (acc, rule) => {
+        acc[rule.id] = 10
+        return acc
+      },
+      {} as Record<CoreAttribute, number>,
+    )
+
+    if (selectedOrigin.value) {
+      for (const key in selectedOrigin.value.attributeModifiers) {
+        const attrKey = key as CoreAttribute
+        baseAttributes[attrKey] += selectedOrigin.value.attributeModifiers[attrKey] || 0
+      }
+    }
+    selectedTalents.value.forEach((talent) => {
+      if (talent.effects && typeof talent.effects === 'string') {
+        try {
+          const parsedEffects: Array<{ type: string; target: CoreAttribute; value: number }> =
+            JSON.parse(talent.effects)
+          parsedEffects.forEach((effect) => {
+            if (effect.type === 'ATTRIBUTE_MODIFIER' && baseAttributes[effect.target]) {
+              baseAttributes[effect.target] += effect.value
+            }
+          })
+        } catch (e) {
+          console.error(`天赋'${talent.name}'的effects字段解析失败:`, e)
+        }
+      }
+    })
+
+    const finalAttrs = baseAttributes
+    const finalTalents = selectedTalents.value.map((t) => ({ ...t, level: 1 }))
+
+    const generateFateVerdict = (): string => {
+      if (!selectedOrigin.value || !selectedSpiritRoot.value) return '天机混沌，命数未显...'
+
+      let verdict = `${characterName.value}，${selectedOrigin.value.description} `
+      verdict += `身具【${selectedSpiritRoot.value.name}】，此乃修行之基。`
+
+      if (finalTalents.length > 0) {
+        verdict += `更得天道垂青，与生便有“${finalTalents
+          .map((t) => t.name)
+          .join('”、“')}”等天赋，仙路前景，已胜常人三分。`
+      } else {
+        verdict += `然未得天眷，无伴生天赋，仙路需倍加勤勉。`
+      }
+
+      const sortedAttrs = Object.entries(finalAttrs).sort((a, b) => b[1] - a[1])
+      const highestAttr = sortedAttrs[0][0] as CoreAttribute
+
+      let attrVerdict = ''
+      switch (highestAttr) {
+        case CoreAttribute.CON:
+          attrVerdict = '然其命数之中，【根骨】二字最为耀眼，此乃肉身成圣之兆。'
+          break
+        case CoreAttribute.INT:
+          attrVerdict = '其魂魄深处，【悟性】之光独占鳌头，此乃天生道子。'
+          break
+        case CoreAttribute.SPI:
+          attrVerdict = '此子【神识】天生强大，远超同辈，一切虚妄幻象，皆无所遁形。'
+          break
+        case CoreAttribute.LUK:
+          attrVerdict = '冥冥之中，【气运】二字与汝纠缠最深，乃是福缘深厚之人。'
+          break
+        case CoreAttribute.CHA:
+          attrVerdict = '其【仪容】风姿，令人见之忘俗，如谪仙临尘。'
+          break
+        case CoreAttribute.BKG:
+          attrVerdict = '其【家世】渊源，虽未明言，却已在命数中留下浓墨重彩的一笔。'
+          break
+      }
+      verdict += ` ${attrVerdict}`
+
+      return verdict
+    }
+
+    return {
+      name: characterName.value,
+      origin: selectedOrigin.value!,
+      spiritRoot: selectedSpiritRoot.value!,
+      talents: finalTalents,
+      attributes: finalAttrs,
+      description: generateFateVerdict(),
+      memory_shards: [],
+    }
+  })
+
+  return {
+    finalCharacterSheet,
+    isCreationComplete,
   }
 }

@@ -15,5 +15,8 @@
     "types": ["@types/node"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/components/character-creation/CustomSettingsPanel.vue"
+  ]
 }

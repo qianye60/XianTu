@@ -1,8 +1,14 @@
 <template>
   <div class="mode-selector-overlay">
     <div class="mode-selector-panel">
+      <div class="stars-container">
+        <div v-for="n in 50" :key="`star-${n}`" class="star"></div>
+      </div>
       <header class="panel-header">
-        <h2 class="title">【 道途选择 】</h2>
+        <div class="header-content">
+          <h2 class="title">【 道途选择 】</h2>
+          <ThemeSwitcher />
+        </div>
         <p class="subtitle">道友，请择汝之修行模式</p>
       </header>
 
@@ -13,7 +19,19 @@
           :class="{ selected: selectedMode === 'offline' }"
         >
           <div class="mode-icon">
-            <i class="fas fa-mountain"></i>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
+            </svg>
           </div>
           <h3 class="mode-title">单机闭关</h3>
           <p class="mode-description">
@@ -34,7 +52,21 @@
           :class="{ selected: selectedMode === 'online' }"
         >
           <div class="mode-icon">
-            <i class="fas fa-globe"></i>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+              <path d="M2 12h20" />
+            </svg>
           </div>
           <h3 class="mode-title">联机共修</h3>
           <p class="mode-description">
@@ -51,7 +83,7 @@
       </main>
 
       <footer class="panel-footer">
-        <button class="btn btn-complete" :disabled="!selectedMode" @click="confirmMode">
+        <button @click="confirmMode" class="btn btn-primary confirm-btn" :disabled="!selectedMode">
           开启修行之路
         </button>
         <p class="mode-hint" v-if="selectedMode">
@@ -64,11 +96,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import ThemeSwitcher from './ThemeSwitcher.vue'
+import { useGameMode } from '@/composables/useGameMode'
 
-const emit = defineEmits<{
-  'mode-selected': [mode: 'online' | 'offline']
-}>()
-
+const { setGameMode } = useGameMode()
 const selectedMode = ref<'online' | 'offline' | null>(null)
 
 const selectMode = (mode: 'online' | 'offline') => {
@@ -76,8 +107,12 @@ const selectMode = (mode: 'online' | 'offline') => {
 }
 
 const confirmMode = () => {
+  console.log('[ModeSelector] 按下“开启修行之路”法印。')
   if (selectedMode.value) {
-    emit('mode-selected', selectedMode.value)
+    console.log(`[ModeSelector] 已择道途: ${selectedMode.value}，开始传送...`)
+    setGameMode(selectedMode.value)
+  } else {
+    console.log('[ModeSelector] 未择道途，无动于衷。')
   }
 }
 </script>
@@ -89,43 +124,50 @@ const confirmMode = () => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.95) 0%,
-    rgba(30, 41, 59, 0.95) 50%,
-    rgba(15, 23, 42, 0.95) 100%
-  );
-  backdrop-filter: blur(12px);
+  background: transparent; /* 移除背景，让下层天幕显现 */
+  overflow: auto; /* 改为auto，以防面板过长时无法滚动整个页面 */
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  animation: fadeIn 0.8s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  /* padding: 2rem; -- 遵道友法旨，移除内边距 */
+  box-sizing: border-box; /* 确保padding不会导致溢出 */
 }
 
 .mode-selector-panel {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  padding: 3rem;
-  max-width: 900px;
-  width: 90%;
-  box-shadow:
-    0 25px 50px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  animation: slideUp 0.6s ease-out 0.2s both;
+    position: relative;
+    z-index: 10;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 3rem;
+    max-width: 900px;
+    width: 100%;
+    box-shadow:
+      0 25px 50px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    animation: slideUp 0.6s ease-out 0.2s both;
+}
+
+/* 心法三：卷轴化滚动条 */
+.mode-selector-overlay::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mode-selector-overlay::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mode-selector-overlay::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.mode-selector-overlay::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.5);
 }
 
 @keyframes slideUp {
@@ -140,8 +182,26 @@ const confirmMode = () => {
 }
 
 .panel-header {
-  text-align: center;
   margin-bottom: 3rem;
+  text-align: center;
+}
+
+.header-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.header-content .title {
+  margin: 0;
+}
+
+.header-content .theme-switcher {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .title {
@@ -167,8 +227,8 @@ const confirmMode = () => {
 }
 
 .mode-card {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-surface-light); /* 修正：白昼模式下，与选中状态颜色对调 */
+  border: 2px solid var(--color-border); /* 使用清晰的边框颜色 */
   border-radius: 16px;
   padding: 2.5rem;
   cursor: pointer;
@@ -194,17 +254,16 @@ const confirmMode = () => {
 
 .mode-card:hover {
   transform: translateY(-8px);
-  border-color: rgba(255, 255, 255, 0.3);
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 20px 40px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .mode-card.selected {
-  border-color: var(--color-accent);
-  background: linear-gradient(145deg, rgba(90, 140, 140, 0.15) 0%, rgba(90, 140, 140, 0.08) 100%);
+  border-color: var(--color-primary); /* 选中时使用主色边框 */
+  background: var(--color-surface); /* 修正：白昼模式下，与未选中状态颜色对调 */
   box-shadow:
-    0 0 30px rgba(90, 140, 140, 0.3),
+    0 0 20px rgba(var(--color-primary-rgb), 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transform: translateY(-4px);
 }
@@ -215,28 +274,30 @@ const confirmMode = () => {
   margin-bottom: 1.5rem;
 }
 
-.mode-icon i {
-  font-size: 3rem;
+.mode-icon svg {
+  width: 3rem;
+  height: 3rem;
   color: var(--color-accent);
   opacity: 0.8;
   transition: all 0.3s ease;
 }
 
-.mode-card:hover .mode-icon i {
+.mode-card:hover .mode-icon svg {
   transform: scale(1.1);
   opacity: 1;
+  color: var(--color-primary);
 }
 
 .mode-title {
   font-size: 1.5rem;
-  color: var(--color-text);
+  color: var(--color-primary); /* 改为月华金 */
   margin-bottom: 1rem;
   text-align: center;
   font-weight: 600;
 }
 
 .mode-description {
-  color: var(--color-text-secondary);
+  color: var(--color-text); /* 改为星辉白，提升亮度 */
   line-height: 1.6;
   margin-bottom: 1.5rem;
   text-align: center;
@@ -268,6 +329,34 @@ const confirmMode = () => {
   text-align: center;
 }
 
+.confirm-btn {
+  padding: 1rem 2.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: var(--color-primary);
+  color: var(--color-background);
+  border: 2px solid var(--color-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: var(--font-family-serif);
+  letter-spacing: 0.05em;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.4);
+  transform: translateY(-2px);
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .mode-hint {
   margin-top: 1rem;
   color: var(--color-accent);
@@ -275,11 +364,68 @@ const confirmMode = () => {
   opacity: 0.9;
 }
 
+/* 星辰 & 流星动画 */
+.stars-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.star {
+  position: absolute;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px var(--color-primary);
+  animation: animate-star 10s linear infinite;
+  opacity: 0;
+}
+
+@keyframes animate-star-1 { /* 右下 */
+  0% { transform: translate(0, 0); opacity: 0; }
+  10%, 90% { opacity: 1; }
+  100% { transform: translate(150px, 150px); opacity: 0; }
+}
+
+@keyframes animate-star-2 { /* 左下 */
+  0% { transform: translate(0, 0); opacity: 0; }
+  10%, 90% { opacity: 1; }
+  100% { transform: translate(-120px, 180px); opacity: 0; }
+}
+
+@keyframes animate-star-3 { /* 右 */
+  0% { transform: translate(0, 0); opacity: 0; }
+  10%, 90% { opacity: 1; }
+  100% { transform: translate(200px, 50px); opacity: 0; }
+}
+
+
+/* 随机化星辰位置、大小和动画 - 仅示例前10颗 */
+.star:nth-child(1) { top: 10%; left: 20%; width: 2px; height: 2px; animation-name: animate-star-1; animation-delay: 0s; animation-duration: 8s; }
+.star:nth-child(2) { top: 30%; left: 80%; width: 1px; height: 1px; animation-name: animate-star-2; animation-delay: 1.5s; animation-duration: 10s; }
+.star:nth-child(3) { top: 50%; left: 5%; width: 2px; height: 2px; animation-name: animate-star-3; animation-delay: 3s; animation-duration: 7s; }
+.star:nth-child(4) { top: 80%; left: 90%; width: 3px; height: 3px; animation-name: animate-star-1; animation-delay: 4.5s; animation-duration: 6s; }
+.star:nth-child(5) { top: 5%; left: 50%; width: 1px; height: 1px; animation-name: animate-star-2; animation-delay: 6s; animation-duration: 12s; }
+.star:nth-child(6) { top: 60%; left: 60%; width: 2px; height: 2px; animation-name: animate-star-3; animation-delay: 0.5s; animation-duration: 9s; }
+.star:nth-child(7) { top: 90%; left: 15%; width: 1px; height: 1px; animation-name: animate-star-1; animation-delay: 2.5s; animation-duration: 11s; }
+.star:nth-child(8) { top: 40%; left: 40%; width: 2px; height: 2px; animation-name: animate-star-2; animation-delay: 4s; animation-duration: 8s; }
+.star:nth-child(9) { top: 75%; left: 70%; width: 1px; height: 1px; animation-name: animate-star-3; animation-delay: 5.5s; animation-duration: 10s; }
+.star:nth-child(10) { top: 25%; left: 95%; width: 3px; height: 3px; animation-name: animate-star-1; animation-delay: 7s; animation-duration: 6s; }
+/* ... 可按此法继续添加，以覆盖所有50颗星辰 ... */
+
+
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .mode-selector-overlay {
+    /* padding: 1rem; -- 遵道友法旨，移除内边距 */
+  }
+
   .mode-selector-panel {
-    padding: 2rem;
-    margin: 1rem;
+    padding: 1.5rem; /* 相应地减小面板的内边距 */
   }
 
   .mode-options {

@@ -1,142 +1,90 @@
-import pymysql
-import json
-from .. import database
-from ..schemas import schema
+from typing import List, Optional, Tuple, Any
+
+from server.models import (
+    Realm, CultivationPath, CultivationArt, WeaponType, Profession, Organization
+)
+from server.schemas import schema
 
 # ========= 境界 (Realms) =========
 
-def create_realm(realm: schema.RealmCreate):
+async def create_realm(realm: schema.RealmCreate) -> Tuple[Optional[Realm], str]:
     """向藏经阁中录入一条新的境界法理。"""
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = """
-        INSERT INTO realms (name, title, milestone, lifespan, description, `order`)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql, (
-                realm.name, realm.title, realm.milestone, 
-                realm.lifespan, realm.description, realm.order
-            ))
-            conn.commit()
-            new_id = cursor.lastrowid
-            return {"id": new_id, **realm.dict()}, "境界法理录入成功"
-    except pymysql.MySQLError as e:
-        conn.rollback()
+        new_realm = await Realm.create(**realm.model_dump())
+        return new_realm, "境界法理录入成功"
+    except Exception as e:
         return None, f"录入境界法理失败: {e}"
-    finally:
-        if conn:
-            conn.close()
 
-def get_realms():
+async def get_realms() -> List[Realm]:
     """从藏经阁中查阅所有境界法理。"""
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = "SELECT * FROM realms ORDER BY `order` ASC"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql)
-            result = cursor.fetchall()
-            return result, "境界法理查阅完毕"
-    except pymysql.MySQLError as e:
-        return None, f"查阅境界法理失败: {e}"
-    finally:
-        if conn:
-            conn.close()
+    return await Realm.all().order_by("order")
 
 # ========= 道途 (Cultivation Paths) =========
 
-def create_cultivation_path(path_data: schema.CultivationPathCreate):
+async def create_cultivation_path(path_data: schema.CultivationPathCreate) -> Tuple[Optional[CultivationPath], str]:
     """向藏经阁中录入一条新的道途法理。"""
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = "INSERT INTO cultivation_paths (name, concept, description) VALUES (%s, %s, %s)"
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql, (path_data.name, path_data.concept, path_data.description))
-            conn.commit()
-            new_id = cursor.lastrowid
-            return {"id": new_id, **path_data.dict()}, "道途法理录入成功"
-    except pymysql.MySQLError as e:
-        conn.rollback()
+        new_path = await CultivationPath.create(**path_data.model_dump())
+        return new_path, "道途法理录入成功"
+    except Exception as e:
         return None, f"录入道途法理失败: {e}"
-    finally:
-        if conn:
-            conn.close()
 
-def get_cultivation_paths():
+async def get_cultivation_paths() -> List[CultivationPath]:
     """从藏经阁中查阅所有道途法理。"""
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = "SELECT * FROM cultivation_paths"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql)
-            result = cursor.fetchall()
-            return result, "道途法理查阅完毕"
-    except pymysql.MySQLError as e:
-        return None, f"查阅道途法理失败: {e}"
-    finally:
-        if conn:
-            conn.close()
+    return await CultivationPath.all()
 
 # ========= 百艺 (Cultivation Arts) =========
 
-def create_cultivation_art(art_data: schema.CultivationArtCreate):
+async def create_cultivation_art(art_data: schema.CultivationArtCreate) -> Tuple[Optional[CultivationArt], str]:
     """向藏经阁中录入一条新的百艺法理。"""
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-        
-    # 将list转换为JSON字符串
-    ranks_json = json.dumps(art_data.ranks, ensure_ascii=False) if isinstance(art_data.ranks, list) else art_data.ranks
-    products_json = json.dumps(art_data.products, ensure_ascii=False) if isinstance(art_data.products, list) else art_data.products
-
-    sql = "INSERT INTO cultivation_arts (name, function, ranks, products, note) VALUES (%s, %s, %s, %s, %s)"
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql, (
-                art_data.name, art_data.function, ranks_json, products_json, art_data.note
-            ))
-            conn.commit()
-            new_id = cursor.lastrowid
-            return {"id": new_id, **art_data.dict()}, "百艺法理录入成功"
-    except pymysql.MySQLError as e:
-        conn.rollback()
+        new_art = await CultivationArt.create(**art_data.model_dump())
+        return new_art, "百艺法理录入成功"
+    except Exception as e:
         return None, f"录入百艺法理失败: {e}"
-    finally:
-        if conn:
-            conn.close()
 
-def get_cultivation_arts():
+async def get_cultivation_arts() -> List[CultivationArt]:
     """从藏经阁中查阅所有百艺法理。"""
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = "SELECT * FROM cultivation_arts"
+    return await CultivationArt.all()
+
+# ========= 武器法门 (Weapon Types) =========
+
+async def create_weapon_type(weapon_type: schema.WeaponTypeCreate) -> Tuple[Optional[WeaponType], str]:
+    """向藏经阁中录入一种新的武器法门。"""
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql)
-            results = cursor.fetchall()
-            # 将JSON字符串转回list
-            for item in results:
-                if item.get('ranks'):
-                    item['ranks'] = json.loads(item['ranks'])
-                if item.get('products'):
-                    item['products'] = json.loads(item['products'])
-            return results, "百艺法理查阅完毕"
-    except (pymysql.MySQLError, json.JSONDecodeError) as e:
-        return None, f"查阅百艺法理失败: {e}"
-    finally:
-        if conn:
-            conn.close()
+        new_weapon_type = await WeaponType.create(**weapon_type.model_dump())
+        return new_weapon_type, "武器法门录入成功"
+    except Exception as e:
+        return None, f"录入武器法门失败: {e}"
+
+async def get_weapon_types() -> List[WeaponType]:
+    """从藏经阁中查阅所有武器法门。"""
+    return await WeaponType.all()
+
+# ========= 修仙职业 (Professions) =========
+
+async def create_profession(profession: schema.ProfessionCreate) -> Tuple[Optional[Profession], str]:
+    """向藏经阁中录入一种新的修仙职业。"""
+    try:
+        new_profession = await Profession.create(**profession.model_dump())
+        return new_profession, "修仙职业录入成功"
+    except Exception as e:
+        return None, f"录入修仙职业失败: {e}"
+
+async def get_professions() -> List[Profession]:
+    """从藏经阁中查阅所有修仙职业。"""
+    return await Profession.all()
+
+# ========= 组织机构 (Organizations) =========
+
+async def create_organization(organization: schema.OrganizationCreate) -> Tuple[Optional[Organization], str]:
+    """向藏经阁中录入一个新的组织机构。"""
+    try:
+        new_org = await Organization.create(**organization.model_dump())
+        return new_org, "组织机构录入成功"
+    except Exception as e:
+        return None, f"录入组织机构失败: {e}"
+
+async def get_organizations() -> List[Organization]:
+    """从藏经阁中查阅所有组织机构。"""
+    return await Organization.all()

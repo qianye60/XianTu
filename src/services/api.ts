@@ -1,4 +1,4 @@
-import type { Origin, Talent, SpiritRoot } from '@/core/rules/characterCreation'
+import type { Origin, Talent, SpiritRoot, World } from '@/core/rules/characterCreation'
 
 // --- 类型定义 ---
 // 与后端 main.py 中的 Pydantic 模型保持同步
@@ -7,12 +7,8 @@ export interface User {
   user_name: string
 }
 
-export interface World {
-  id: number
-  name: string
-  type: string | null
-  description: string | null
-}
+// This interface is now defined in characterCreation.ts to be shared.
+// export interface World { ... }
 
 // --- 角色/存档体系API ---
 
@@ -38,7 +34,7 @@ export interface CharacterResponse {
 }
 
 // 此乃与后台灵脉沟通的根基法阵地址
-const BASE_URL = 'http://127.0.0.1:3000'
+const BASE_URL = 'http://127.0.0.1:12345'
 
 /**
  * 通用获取神通，用于从后台灵脉中获取各类数据。
@@ -67,7 +63,7 @@ async function fetchData<T>(endpoint: string): Promise<T> {
  * @param body - 要提交的数据体
  * @returns - 返回解析后的数据Promise
  */
-async function postData<T>(endpoint: string, body: object): Promise<T> {
+export async function postData<T>(endpoint: string, body: object): Promise<T> {
   try {
     const response = await fetch(`${BASE_URL}/api/v1/${endpoint}`, {
       method: 'POST',
@@ -93,12 +89,32 @@ async function postData<T>(endpoint: string, body: object): Promise<T> {
 // --- 用户体系API ---
 
 /**
- * 接引道友（注册或登录）。
+ * 接引新道友（注册）。
+ * @param userName - 道号
+ * @param password - 凭证
+ * @returns 返回用户信息
+ */
+export const registerUser = (userName: string, password: string): Promise<User> => {
+  return postData<User>('register', { user_name: userName, password: password })
+}
+
+/**
+ * 道友登入。
+ * @param userName - 道号
+ * @param password - 凭证
+ * @returns 返回用户信息
+ */
+export const loginUser = (userName: string, password: string): Promise<User> => {
+  return postData<User>('login', { user_name: userName, password: password })
+}
+
+/**
+ * 根据道号（用户名）查询用户信息。
  * @param userName - 道号
  * @returns 返回用户信息
  */
-export const registerUser = (userName: string): Promise<User> => {
-  return postData<User>('register', { user_name: userName })
+export const getUserByUserName = (userName: string): Promise<User> => {
+  return fetchData<User>(`users/by-username/${userName}`)
 }
 
 // --- 世界体系API ---
@@ -120,30 +136,74 @@ export const createCharacter = (payload: CharacterCreatePayload): Promise<Charac
   return postData<CharacterResponse>('characters', payload)
 }
 
+/**
+ * 使用兑换码获取专属的角色创建数据
+ * @param code - 兑换码
+ * @returns 包含origins, talents, spiritRoots的自定义数据
+ */
+export const redeemCodeForCreationData = (code: string): Promise<{ origins: Origin[]; talents: Talent[]; spiritRoots: SpiritRoot[] }> => {
+  return postData<{ origins: Origin[]; talents: Talent[]; spiritRoots: SpiritRoot[] }>('redemption/redeem', { code });
+}
+
+/**
+ * 验证兑换码是否有效
+ * @param code - 兑换码
+ * @returns 验证结果
+ */
+export const validateRedemptionCode = (code: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: { origins: Origin[]; talents: Talent[]; spiritRoots: SpiritRoot[] };
+}> => {
+  return postData('redemption/validate', { code });
+}
+
 // --- 核心规则API ---
 
 /**
  * 探查所有可选的【出身】
  * @returns 返回一个包含所有出身的数组 Promise
  */
-export const getOrigins = (): Promise<Origin[]> => {
-  return fetchData<Origin[]>('rules/origins')
+export const getOrigins = async (): Promise<Origin[]> => {
+  const data = await fetchData<any[]>('rules/origins');
+  return data.map(origin => ({
+    ...origin,
+    attributeModifiers: origin.attribute_modifiers,
+    attribute_modifiers: undefined, // remove old key
+  }));
 }
 
 /**
  * 探查所有可选的【天赋】
  * @returns 返回一个包含所有天赋的数组 Promise
  */
-export const getTalents = (): Promise<Talent[]> => {
-  return fetchData<Talent[]>('rules/talents')
+export const getTalents = async (): Promise<Talent[]> => {
+  const data = await fetchData<any[]>('rules/talents');
+  return data.map(talent => ({
+    ...talent,
+    // Ensure effects is a string if it's an object
+    effects: typeof talent.effects === 'object' ? JSON.stringify(talent.effects) : talent.effects,
+  }));
 }
 
 /**
  * 探查所有可选的【灵根】
  * @returns 返回一个包含所有灵根的数组 Promise
  */
-export const getSpiritRoots = (): Promise<SpiritRoot[]> => {
-  return fetchData<SpiritRoot[]>('rules/spirit-roots')
+export const getSpiritRoots = async (): Promise<SpiritRoot[]> => {
+  const data = await fetchData<any[]>('rules/spirit-roots');
+  return data.map(root => ({
+    ...root,
+    effects: root.effects || null, // Ensure effects property exists
+  }));
+}
+
+/**
+ * 探查所有可选的【世界背景】
+ * @returns 返回一个包含所有世界背景的数组 Promise
+ */
+export const getWorldBackgrounds = (): Promise<World[]> => {
+  return fetchData<World[]>('worlds')
 }
 
 /**
@@ -156,7 +216,7 @@ export const submitUgcTalent = (payload: {
   description: string
   redemption_code: string
   author_name: string
-}): Promise<{ message: string }> => {
+}): Promise<{ message: string; talent?: Talent }> => {
   console.log('正在向天宫提交自创天赋...', payload)
   // 此处为前端占位实现，待后端接口完成后再行对接
   // return postData('ugc/talents', payload);
@@ -170,4 +230,24 @@ export const submitUgcTalent = (payload: {
 /**
  * `saveCharacter` 是 `createCharacter` 的别名，为旧法兼容。
  */
-export const saveCharacter = createCharacter
+export const saveCharacter = (payload: CharacterCreatePayload): Promise<CharacterResponse> => {
+  return createCharacter(payload);
+};
+
+/**
+ * 获取核心游戏设定
+ * @returns 返回核心设定
+ */
+export const getCoreSettings = (): Promise<any> => {
+  return fetchData('rules/settings');
+};
+
+/**
+ * 请求AI生成内容。
+ * @param prompt - 提供给AI的提示
+ * @returns - 返回AI生成的JSON字符串
+ */
+export const generateAIContent = async (prompt: string): Promise<string> => {
+  const response = await postData<string>('ai/generate', { prompt });
+  return response;
+};

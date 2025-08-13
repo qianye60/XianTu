@@ -8,7 +8,9 @@
         :class="{
           active: currentStep === index + 1,
           completed: currentStep > index + 1,
+          clickable: index + 1 <= currentStep
         }"
+       @click="selectStep(index + 1)"
       >
         <div class="step-node-wrapper">
           <div class="step-node">
@@ -37,6 +39,18 @@ const props = defineProps<{
   steps: Step[]
   currentStep: number
 }>()
+
+const emit = defineEmits<{
+  (e: 'update:currentStep', value: number): void
+}>()
+
+const selectStep = (stepNumber: number) => {
+  // For now, only allow navigating to steps that are already completed or the current active one.
+  // This prevents skipping ahead.
+  if (stepNumber <= props.currentStep) {
+    emit('update:currentStep', stepNumber)
+  }
+}
 
 const progressWidth = computed(() => {
   if (props.steps.length <= 1) {
@@ -114,6 +128,18 @@ const progressWidth = computed(() => {
   font-size: 0.9rem;
   font-family: var(--font-family-serif);
   transition: all 0.3s;
+}
+
+.step-item.clickable {
+  cursor: pointer;
+}
+
+.step-item.clickable:hover .step-label {
+  color: var(--color-primary-hover);
+}
+
+.step-item.clickable:hover .step-node {
+    border-color: var(--color-primary-hover);
 }
 
 /* --- States --- */

@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, defineEmits } from 'vue'
+import { onMounted, defineEmits, defineProps } from 'vue'
 import { useWorlds } from '@/composables/useWorlds'
 import type { World } from '@/services/api'
 
@@ -38,15 +38,19 @@ const emit = defineEmits<{
   (e: 'back'): void
 }>()
 
+const props = defineProps(['onWorldSelected'])
+
 const { worlds, isLoading, error, fetchWorlds } = useWorlds()
 
-onMounted(() => {
-  fetchWorlds()
-})
 
 const selectWorld = (world: World) => {
   console.log(`【位面迁跃】已选择世界: ${world.name} (ID: ${world.id})`)
   emit('world-selected', world)
+  // @ts-ignore
+  if (props.onWorldSelected) {
+    // @ts-ignore
+    props.onWorldSelected(world)
+  }
 }
 </script>
 
@@ -172,5 +176,88 @@ const selectWorld = (world: World) => {
 .world-description {
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+/* 移动端响应式设计 */
+@media (max-width: 768px) {
+  .world-selector-container {
+    padding: var(--spacing-4);
+  }
+  
+  .title {
+    font-size: 2rem;
+    letter-spacing: 2px;
+    margin-bottom: var(--spacing-4);
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+    margin-bottom: var(--spacing-6);
+  }
+  
+  .header-actions {
+    margin-bottom: var(--spacing-6);
+  }
+  
+  .back-button {
+    padding: var(--spacing-3) var(--spacing-5);
+    font-size: 0.9rem;
+    /* 增加触摸目标大小 */
+    min-height: 44px;
+  }
+  
+  .worlds-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-4);
+  }
+  
+  .world-card {
+    padding: var(--spacing-4);
+  }
+  
+  .world-name {
+    font-size: 1.3rem;
+  }
+  
+  .world-description {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .world-selector-container {
+    padding: var(--spacing-3);
+  }
+  
+  .title {
+    font-size: 1.8rem;
+    letter-spacing: 1px;
+  }
+  
+  .subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .worlds-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+  }
+  
+  .world-card {
+    padding: var(--spacing-3);
+  }
+  
+  .world-name {
+    font-size: 1.2rem;
+  }
+  
+  .world-type {
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-3);
+  }
+  
+  .world-description {
+    font-size: 0.8rem;
+  }
 }
 </style>

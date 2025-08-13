@@ -1,110 +1,101 @@
-import pymysql
-import json
-from .. import database
+from typing import List, Dict, Any, Optional, Tuple
 
-def seed_core_rules():
-    """
-    天道铭刻之术：为核心规则表注入初始数据。
-    此术会检查表是否为空，若为空，则注入一批权威的、符合世界观的默认规则。
-    """
-    conn = database.get_db_connection()
-    if not conn:
-        print("!!! 数据库连接失败，天道铭刻失败。")
-        return
+from server.models import Origin, Talent, SpiritRoot
+from server.schemas import schema
 
-    # --- 初始道法定义 ---
-    core_origins_data = [
-        {'name': '孤儿', 'description': '天地为父母，四海为家。你的童年充满了艰辛，但也磨练了你坚韧不拔的意志。', 'attribute_modifiers': json.dumps({'CON': 2, 'LUK': 1})},
-        {'name': '书香门第', 'description': '你的家族世代为官，书香传家。你自幼饱读诗书，对天地至理有自己独到的见解。', 'attribute_modifiers': json.dumps({'INT': 2, 'CHA': 1})},
-        {'name': '商贾之家', 'description': '你的家族富甲一方，善于经商。你从小耳濡目染，精于计算，深谙人情世故。', 'attribute_modifiers': json.dumps({'BKG': 2, 'SPI': 1})},
-        {'name': '将门之后', 'description': '你的先祖曾是叱咤风云的将军。你继承了先祖的勇武，体魄强健，杀伐果断。', 'attribute_modifiers': json.dumps({'CON': 2, 'SPI': 1})},
-    ]
+# --- Origins ---
 
-    core_talents_data = [
-        {'name': '天生道体', 'description': '你天生亲近大道，修行速度远超常人。', 'effects': json.dumps({'training_speed_multiplier': 1.2})},
-        {'name': '丹道宗师', 'description': '你对药理有超凡的领悟力，炼丹时成功率更高，丹药品质也更好。', 'effects': json.dumps({'alchemy_success_rate': 1.1, 'alchemy_quality_bonus': 1})},
-        {'name': '剑心通明', 'description': '你的剑道天赋无人能及，学习任何剑法都能迅速掌握其精髓。', 'effects': json.dumps({'sword_art_mastery_speed': 1.5})},
-        {'name': '气运之子', 'description': '你仿佛被天地所眷顾，时常能遇到意想不到的机缘。', 'effects': json.dumps({'random_event_luck_bonus': 5})},
-    ]
+async def get_origins() -> List[Origin]:
+    """获取所有出身"""
+    return await Origin.all()
 
-    core_spirit_roots_data = [
-        {'name': '废品灵根', 'description': '五行杂乱，灵气难以入体，修行之路崎岖坎坷。', 'base_multiplier': 0.5},
-        {'name': '五行灵根', 'description': '五行俱全，虽无专精，但胜在平和，可修行任何属性的功法。', 'base_multiplier': 1.0},
-        {'name': '天品单灵根', 'description': '五行之中专精其一，修行该属性功法时，速度一日千里。', 'base_multiplier': 2.0},
-    ]
+async def create_origin(origin: schema.OriginCreate) -> Origin:
+    """创建新出身"""
+    return await Origin.create(**origin.model_dump())
 
-    try:
-        with conn.cursor() as cursor:
-            # 1. 铭刻出身
-            cursor.execute("SELECT COUNT(*) as count FROM core_origins")
-            if cursor.fetchone()['count'] == 0:
-                print("--- `core_origins` 为空，开始铭刻初始出身... ---")
-                sql = "INSERT INTO core_origins (name, description, attribute_modifiers) VALUES (%s, %s, %s)"
-                for origin in core_origins_data:
-                    cursor.execute(sql, (origin['name'], origin['description'], origin['attribute_modifiers']))
-                print(f"--- 成功铭刻 {len(core_origins_data)} 条出身。 ---")
+# --- Talents ---
 
-            # 2. 铭刻天赋
-            cursor.execute("SELECT COUNT(*) as count FROM core_talents")
-            if cursor.fetchone()['count'] == 0:
-                print("--- `core_talents` 为空，开始铭刻初始天赋... ---")
-                sql = "INSERT INTO core_talents (name, description, effects) VALUES (%s, %s, %s)"
-                for talent in core_talents_data:
-                    cursor.execute(sql, (talent['name'], talent['description'], talent['effects']))
-                print(f"--- 成功铭刻 {len(core_talents_data)} 条天赋。 ---")
+async def get_talents() -> List[Talent]:
+    """获取所有天赋"""
+    return await Talent.all()
 
-            # 3. 铭刻灵根
-            cursor.execute("SELECT COUNT(*) as count FROM core_spirit_roots")
-            if cursor.fetchone()['count'] == 0:
-                print("--- `core_spirit_roots` 为空，开始铭刻初始灵根... ---")
-                sql = "INSERT INTO core_spirit_roots (name, description, base_multiplier) VALUES (%s, %s, %s)"
-                for root in core_spirit_roots_data:
-                    cursor.execute(sql, (root['name'], root['description'], root['base_multiplier']))
-                print(f"--- 成功铭刻 {len(core_spirit_roots_data)} 条灵根。 ---")
-            
-            conn.commit()
-    except pymysql.MySQLError as e:
-        print(f"!!! 天道铭刻途中遭遇混沌乱流: {e}")
-        conn.rollback()
-    finally:
-        if conn:
-            conn.close()
+async def get_talent(talent_id: int) -> Optional[Talent]:
+    """获取单个天赋"""
+    return await Talent.get_or_none(id=talent_id)
 
-def get_core_origins():
-    """获取所有核心出身"""
-    conn = database.get_db_connection()
-    if not conn: return None, "数据库连接失败"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id, name, description, attribute_modifiers FROM core_origins")
-            return cursor.fetchall(), "出身列表获取成功"
-    except pymysql.MySQLError as e:
-        return None, f"获取出身列表失败: {e}"
-    finally:
-        if conn: conn.close()
+async def create_talent(talent: schema.TalentCreate) -> Talent:
+    """创建新天赋"""
+    return await Talent.create(**talent.model_dump())
 
-def get_core_talents():
-    """获取所有核心天赋"""
-    conn = database.get_db_connection()
-    if not conn: return None, "数据库连接失败"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id, name, description, effects FROM core_talents")
-            return cursor.fetchall(), "天赋列表获取成功"
-    except pymysql.MySQLError as e:
-        return None, f"获取天赋列表失败: {e}"
-    finally:
-        if conn: conn.close()
+async def update_talent(talent_id: int, talent_update: schema.TalentCreate) -> Optional[Talent]:
+    """更新天赋"""
+    talent = await Talent.get_or_none(id=talent_id)
+    if talent:
+        talent.name = talent_update.name
+        talent.description = talent_update.description
+        talent.effects = talent_update.effects
+        await talent.save()
+    return talent
 
-def get_core_spirit_roots():
-    """获取所有核心灵根"""
-    conn = database.get_db_connection()
-    if not conn: return None, "数据库连接失败"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id, name, description, base_multiplier FROM core_spirit_roots")
-            return cursor.fetchall(), "灵根列表获取成功"
-    except pymysql.MySQLError as e:
-        return None, f"获取灵根列表失败: {e}"
-    finally:
-        if conn: conn.close()
+async def delete_talent(talent_id: int) -> bool:
+    """删除天赋"""
+    talent = await Talent.get_or_none(id=talent_id)
+    if talent:
+        await talent.delete()
+        return True
+    return False
+
+# --- Spirit Roots ---
+
+async def get_spirit_roots() -> List[SpiritRoot]:
+    """获取所有灵根"""
+    return await SpiritRoot.all()
+
+async def get_spirit_root(spirit_root_id: int) -> Optional[SpiritRoot]:
+    """获取单个灵根"""
+    return await SpiritRoot.get_or_none(id=spirit_root_id)
+
+async def create_spirit_root(spirit_root: schema.SpiritRootCreate) -> SpiritRoot:
+    """创建新灵根"""
+    return await SpiritRoot.create(**spirit_root.model_dump())
+
+async def update_spirit_root(spirit_root_id: int, spirit_root_update: schema.SpiritRootCreate) -> Optional[SpiritRoot]:
+    """更新灵根"""
+    spirit_root = await SpiritRoot.get_or_none(id=spirit_root_id)
+    if spirit_root:
+        spirit_root.name = spirit_root_update.name
+        spirit_root.description = spirit_root_update.description
+        spirit_root.base_multiplier = spirit_root_update.base_multiplier
+        await spirit_root.save()
+    return spirit_root
+
+async def delete_spirit_root(spirit_root_id: int) -> bool:
+    """删除灵根"""
+    spirit_root = await SpiritRoot.get_or_none(id=spirit_root_id)
+    if spirit_root:
+        await spirit_root.delete()
+        return True
+    return False
+
+
+# --- Core Settings (Not from DB) ---
+
+async def get_core_settings() -> Dict[str, Any]:
+    """获取核心游戏设定"""
+    settings = {
+        "attributes": {
+            "CON": "根骨 - 影响生命值和防御力",
+            "INT": "悟性 - 影响学习速度和技能效果",
+            "SPI": "神识 - 影响法术强度和感知能力",
+            "LUK": "气运 - 影响幸运事件的发生概率",
+            "CHA": "仪容 - 影响社交互动和他人反应",
+            "BKG": "家世 - 影响初始资源和背景关系"
+        },
+        "cultivation_elements": [
+            "金、木、水、火、土五行",
+            "阴阳",
+            "风、雷、冰等变异灵根",
+            "剑道、丹道、器道等修炼方向"
+        ]
+    }
+    return settings

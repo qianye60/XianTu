@@ -74,16 +74,27 @@ export interface Origin {
   type: 'origin'
 }
 
+export interface AttributeModifierEffect {
+  type: 'ATTRIBUTE_MODIFIER';
+  target: CoreAttribute | string;
+  value: number;
+}
+
 // =================================================================
 // 【天赋】天道垂青
 // 有大气运者，天生便得天道一丝垂青，化为天赋神通。
 // =================================================================
 export interface Talent {
-  id: string
-  name: string
-  description: string
-  effects: string
-  type: 'talent'
+  id: string;
+  name: string;
+  description: string;
+  effects: string; // This can be a JSON string of AttributeModifier[] or a custom string
+  type: 'talent';
+  // For UI state management, not part of the core data model
+  effectType?: 'ATTRIBUTE_MODIFIER' | 'SKILL_BONUS' | 'PASSIVE_EFFECT' | string;
+  attributeTarget?: CoreAttribute | string;
+  effectValue?: number;
+  customEffect?: string;
 }
 
 // =================================================================
@@ -91,17 +102,27 @@ export interface Talent {
 // 灵根乃修士吐纳天地元气之根本，定修行坦途或崎岖。
 // =================================================================
 export interface SpiritRoot {
-  id: string
-  name: string
-  description: string
-  aptitude: number // 资质
-  type: 'spirit_root'
+  id: string;
+  name: string;
+  description: string;
+  aptitude: number; // 资质
+  type: 'spirit_root';
+  base_multiplier?: number; // For custom spirit roots
+  effects?: any; // Effects can be a JSON string or other formats
 }
 
 // =================================================================
 // 【命盘】&【世界】
 // 命盘一定，便入此方世界，开始一段观沧海、问长生的道途。
 // =================================================================
+export interface World {
+  id: number
+  name: string
+  type: string | null
+  description: string | null
+  features?: string[]
+  cultivation_bonus?: string
+}
 export interface AttributeDistribution {
   attributes: Record<CoreAttribute, number>
   pointsSpent: number

@@ -1,80 +1,73 @@
-import pymysql
-from .. import database
+from typing import List, Optional, Tuple
 
-def get_worlds():
+from server.models import World, AdminAccount
+from server.schemas import schema
+
+async def get_world_by_name(name: str) -> Optional[World]:
+    """
+    按名称查找世界。
+    """
+    return await World.get_or_none(name=name)
+
+async def get_world_by_id(world_id: int) -> Optional[World]:
+    """
+    按ID查找世界。
+    """
+    return await World.get_or_none(id=world_id)
+
+async def get_worlds() -> List[World]:
     """
     获取所有已创建的世界列表。
     """
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = "SELECT id, name, type, description FROM worlds"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql)
-            worlds = cursor.fetchall()
-            return worlds, "世界列表获取成功"
-    except pymysql.MySQLError as e:
-        print(f"!!! 获取世界列表失败: {e}")
-        return None, f"未知错误: {e}"
-    finally:
-        if conn:
-            conn.close()
+    return await World.all().prefetch_related("creator")
 
-def create_world(name: str, world_type: str, description: str, author_id: int):
+async def create_world(world: schema.WorldCreate) -> Tuple[Optional[World], str]:
     """
     开辟一个新的世界。
     """
-    conn = database.get_db_connection()
-    if not conn:
-        return None, "数据库连接失败"
-    
-    sql = "INSERT INTO worlds (name, type, description, author_id) VALUES (%s, %s, %s, %s)"
+    # 验证创建者是否存在
+    creator = await AdminAccount.get_or_none(id=world.creator_id)
+    if not creator:
+        return None, "指定的创世仙官不存在。"
+        
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql, (name, world_type, description, author_id))
-            conn.commit()
-            new_world_id = cursor.lastrowid
-            return {"id": new_world_id, "name": name, "type": world_type, "description": description, "author_id": author_id}, "新世界开辟成功！"
-    except pymysql.MySQLError as e:
-        conn.rollback()
-        print(f"!!! 开辟世界失败: {e}")
+        # 注意：我们将 creator 对象直接传递给外键字段
+        new_world = await World.create(
+            name=world.name,
+            description=world.description,
+            era=world.era,
+            core_rules=world.core_rules,
+            creator=creator
+        )
+        return new_world, "新世界开辟成功！"
+    except Exception as e:
+        # 更通用的异常捕获
         return None, f"未知错误: {e}"
-    finally:
-        if conn:
-            conn.close()
 
-def ensure_default_world_exists():
+async def update_world(world_id: int, world_update: schema.WorldUpdate) -> Tuple[Optional[World], str]:
     """
-    确保名为“朝天大陆”的默认主世界存在。
-    若不存在，则自动创建。
+    更新一个已存在的世界的信息。
     """
-    conn = database.get_db_connection()
-    if not conn:
-        print("!!! 数据库连接失败，无法确保主世界存在。")
-        return
+    world = await World.get_or_none(id=world_id)
+    if not world:
+        return None, "未找到指定的世界。"
 
-    try:
-        with conn.cursor() as cursor:
-            # 检查主世界是否存在
-            cursor.execute("SELECT id FROM worlds WHERE name = %s", ("朝天大陆",))
-            result = cursor.fetchone()
-            
-            if result:
-                print("--- 主世界“朝天大陆”已存在，无需衍化。 ---")
-            else:
-                # 如果不存在，则创建
-                print("--- 主世界“朝天大陆”不存在，正在衍化... ---")
-                sql = "INSERT INTO worlds (name, type, description, author_id) VALUES (%s, %s, %s, %s)"
-                # author_id=1 代表系统/管理员
-                cursor.execute(sql, ("朝天大陆", "仙侠", "万道之始，众生朝天之界。", 1))
-                conn.commit()
-                print("--- 主世界“朝天大陆”衍化成功！ ---")
+    update_data = world_update.model_dump(exclude_unset=True)
+    if not update_data:
+        return world, "没有提供需要更新的数据。"
 
-    except pymysql.MySQLError as e:
-        print(f"!!! 确保主世界存在时出错: {e}")
-        conn.rollback()
-    finally:
-        if conn:
-            conn.close()
+    for key, value in update_data.items():
+        setattr(world, key, value)
+    
+    await world.save()
+    return world, "世界信息更新成功。"
+
+async def delete_world(world_id: int) -> bool:
+    """
+    删除一个世界。
+    """
+    world = await World.get_or_none(id=world_id)
+    if world:
+        await world.delete()
+        return True
+    return False
