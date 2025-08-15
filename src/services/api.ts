@@ -1,4 +1,4 @@
-import type { Origin, Talent, SpiritRoot, World } from '@/core/rules/characterCreation'
+import type { Origin, Talent, SpiritRoot, World, TalentTier, CharacterBaseCreate, CharacterBase } from '@/core/rules/characterCreation'
 
 // --- 类型定义 ---
 // 与后端 main.py 中的 Pydantic 模型保持同步
@@ -34,7 +34,7 @@ export interface CharacterResponse {
 }
 
 // 此乃与后台灵脉沟通的根基法阵地址
-const BASE_URL = 'http://127.0.0.1:12345'
+const BASE_URL = 'http://127.0.0.1:12349'
 
 /**
  * 通用获取神通，用于从后台灵脉中获取各类数据。
@@ -251,3 +251,41 @@ export const generateAIContent = async (prompt: string): Promise<string> => {
   const response = await postData<string>('ai/generate', { prompt });
   return response;
 };
+
+/**
+ * 获取所有天资等级
+ * @returns 返回天资等级列表
+ */
+export const getTalentTiers = (): Promise<TalentTier[]> => {
+  return fetchData<TalentTier[]>('talent_tiers');
+}
+
+/**
+ * 获取角色创建所需的基础数据（包含出身、灵根、天赋）
+ * @param worldId - 世界ID
+ * @returns 返回创建数据
+ */
+export const getCreationData = (worldId: number): Promise<{
+  origins: Origin[];
+  spirit_roots: SpiritRoot[];
+  talents: Talent[];
+}> => {
+  return fetchData(`creation_data?world_id=${worldId}`);
+}
+
+/**
+ * 使用新的字符基础创建系统创建角色
+ * @param characterData - 角色基础创建数据
+ * @returns 返回创建的角色基础信息
+ */
+export const createCharacterBase = (characterData: CharacterBaseCreate): Promise<CharacterBase> => {
+  return postData<CharacterBase>('create', characterData);
+}
+
+/**
+ * 获取当前用户的所有角色
+ * @returns 返回角色列表
+ */
+export const getMyCharacters = (): Promise<CharacterBase[]> => {
+  return fetchData<CharacterBase[]>('my');
+}

@@ -51,21 +51,24 @@ onUnmounted(() => {
   z-index: 9999;
   width: 50px;
   height: 50px;
-  background-color: rgba(var(--color-surface-rgb), 0.8);
-  border: 1px solid var(--color-border);
+  /* 固定深色背景，不随主题变化 */
+  background-color: rgba(30, 40, 50, 0.85);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
   border-radius: 50%;
-  color: var(--color-text);
+  color: rgba(255, 255, 255, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(8px);
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .fullscreen-btn:hover {
-  background-color: rgba(var(--color-primary-rgb), 0.2);
+  /* 悬浮时只改变边框和光晕，背景色保持不变 */
+  background-color: rgba(30, 40, 50, 0.95);
+  border-color: var(--color-primary);
   color: var(--color-primary);
   transform: scale(1.1);
   box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.4);

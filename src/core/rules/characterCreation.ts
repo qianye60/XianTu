@@ -5,21 +5,21 @@ import type { Ref } from 'vue'
 // 六司者，定人之天命根基。
 // =================================================================
 export enum CoreAttribute {
-  CON = 'CON', // 根骨 (Constitution)
-  INT = 'INT', // 悟性 (Intelligence)
-  SPI = 'SPI', // 神识 (Spirit)
-  LUK = 'LUK', // 气运 (Luck)
-  CHA = 'CHA', // 仪容 (Charisma)
-  BKG = 'BKG', // 家世 (Background)
+  ROOT_BONE = 'root_bone', // 根骨 (Constitution)
+  SPIRITUALITY = 'spirituality', // 灵性 (Spirituality)
+  COMPREHENSION = 'comprehension', // 悟性 (Comprehension)
+  FORTUNE = 'fortune', // 福缘 (Fortune)
+  CHARM = 'charm', // 魅力 (Charm)
+  TEMPERAMENT = 'temperament', // 心性 (Temperament)
 }
 
 export const CORE_ATTRIBUTES: Record<CoreAttribute, string> = {
-  [CoreAttribute.CON]: '根骨',
-  [CoreAttribute.INT]: '悟性',
-  [CoreAttribute.SPI]: '神识',
-  [CoreAttribute.LUK]: '气运',
-  [CoreAttribute.CHA]: '仪容',
-  [CoreAttribute.BKG]: '家世',
+  [CoreAttribute.ROOT_BONE]: '根骨',
+  [CoreAttribute.SPIRITUALITY]: '灵性',
+  [CoreAttribute.COMPREHENSION]: '悟性',
+  [CoreAttribute.FORTUNE]: '福缘',
+  [CoreAttribute.CHARM]: '魅力',
+  [CoreAttribute.TEMPERAMENT]: '心性',
 }
 
 export interface AttributeDefinition {
@@ -31,34 +31,34 @@ export interface AttributeDefinition {
 // 此为天道显化之规则，为创生之基石。
 export const ATTRIBUTE_RULES: AttributeDefinition[] = [
   {
-    id: CoreAttribute.CON,
+    id: CoreAttribute.ROOT_BONE,
     name: '根骨',
     description: '气血之本，体魄之基。根骨佳者，能承载更浑厚的真元，于斗法中更为坚韧。',
   },
   {
-    id: CoreAttribute.INT,
+    id: CoreAttribute.SPIRITUALITY,
+    name: '灵性',
+    description: '天赋异禀，灵性越高者，对天地灵气的感知越敏锐，修炼之路越顺畅。',
+  },
+  {
+    id: CoreAttribute.COMPREHENSION,
     name: '悟性',
     description: '道法之门，通玄之匙。悟性高者，参悟功法神通，往往能举一反三，事半功倍。',
   },
   {
-    id: CoreAttribute.SPI,
-    name: '神识',
-    description: '元神之用，感应之凭。神识强者，可洞察幽微，鉴宝识人，亦能抵御心魔幻境。',
+    id: CoreAttribute.FORTUNE,
+    name: '福缘',
+    description: '命数之显，机缘之引。福缘深厚者，常能逢凶化吉，于绝境中觅得一线生机。',
   },
   {
-    id: CoreAttribute.LUK,
-    name: '气运',
-    description: '命数之显，机缘之引。气运加身者，常能逢凶化吉，于绝境中觅得一线生机。',
+    id: CoreAttribute.CHARM,
+    name: '魅力',
+    description: '风姿之表，人格魅力。魅力出众者，行走于世，易得他人好感，化解无端之恶。',
   },
   {
-    id: CoreAttribute.CHA,
-    name: '仪容',
-    description: '风姿之表，第一印象。仪容出众者，行走于世，易得他人好感，化解无端之恶。',
-  },
-  {
-    id: CoreAttribute.BKG,
-    name: '家世',
-    description: '出身之阶，初始之助。家世显赫者，或有长辈庇护，或有功法财货，修行之路更为平坦。',
+    id: CoreAttribute.TEMPERAMENT,
+    name: '心性',
+    description: '道心之基，意志之本。心性坚定者，能抵御心魔诱惑，于修行路上不易迷失。',
   },
 ]
 
@@ -67,10 +67,12 @@ export const ATTRIBUTE_RULES: AttributeDefinition[] = [
 // 众生皆苦，出身各异，此乃入道第一重考验。
 // =================================================================
 export interface Origin {
-  id: string
+  id: number
   name: string
   description: string
   attributeModifiers: Partial<Record<CoreAttribute, number>>
+  rarity: number
+  talent_cost: number
   type: 'origin'
 }
 
@@ -81,14 +83,30 @@ export interface AttributeModifierEffect {
 }
 
 // =================================================================
+// 【天资等级】先天禀赋
+// 众生皆有不同天资，决定修行起点与潜力上限。
+// =================================================================
+export interface TalentTier {
+  id: number;
+  name: string;
+  total_points: number;
+  rarity: number;
+  color: string;
+  description?: string;
+}
+
+// =================================================================
 // 【天赋】天道垂青
 // 有大气运者，天生便得天道一丝垂青，化为天赋神通。
 // =================================================================
 export interface Talent {
-  id: string;
+  id: number;
   name: string;
   description: string;
   effects: string; // This can be a JSON string of AttributeModifier[] or a custom string
+  rarity: number;
+  talent_cost: number;
+  max_uses?: number;
   type: 'talent';
   // For UI state management, not part of the core data model
   effectType?: 'ATTRIBUTE_MODIFIER' | 'SKILL_BONUS' | 'PASSIVE_EFFECT' | string;
@@ -102,13 +120,14 @@ export interface Talent {
 // 灵根乃修士吐纳天地元气之根本，定修行坦途或崎岖。
 // =================================================================
 export interface SpiritRoot {
-  id: string;
+  id: number;
   name: string;
   description: string;
   aptitude: number; // 资质
-  type: 'spirit_root';
+  talent_cost: number;
   base_multiplier?: number; // For custom spirit roots
   effects?: any; // Effects can be a JSON string or other formats
+  type: 'spirit_root';
 }
 
 // =================================================================
@@ -160,6 +179,43 @@ export interface WorldState {
 // =================================================================
 // 【数据传输】前后端交互之契约
 // =================================================================
+
+// 角色基础创建请求
+export interface CharacterBaseCreate {
+  character_name: string;
+  world_id: number;
+  talent_tier_id: number;
+  root_bone: number;
+  spirituality: number;
+  comprehension: number;
+  fortune: number;
+  charm: number;
+  temperament: number;
+  origin_id?: number;
+  spirit_root_id?: number;
+  selected_talent_ids?: number[];
+}
+
+// 角色基础数据（后端返回）
+export interface CharacterBase {
+  id: number;
+  player_id: number;
+  world_id: number;
+  talent_tier_id: number;
+  character_name: string;
+  root_bone: number;
+  spirituality: number;
+  comprehension: number;
+  fortune: number;
+  charm: number;
+  temperament: number;
+  origin_id?: number;
+  spirit_root_id?: number;
+  selected_talent_ids?: number[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Character {
   userName: string
   name: string

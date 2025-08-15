@@ -2,7 +2,7 @@ import { ref, onMounted, watch } from 'vue'
 
 type Theme = 'light' | 'dark'
 
-const theme = ref<Theme>('light')
+const theme = ref<Theme>('dark') // 遵道友法旨，默认为“月映寒潭”（暗色主题）
 
 export function useTheme() {
   const initializeTheme = () => {
@@ -11,9 +11,8 @@ export function useTheme() {
     if (storedTheme) {
       theme.value = storedTheme
     } else {
-      // Auto-detect based on time of day (e.g., 6 PM to 6 AM is dark)
-      const currentHour = new Date().getHours()
-      theme.value = currentHour >= 18 || currentHour < 6 ? 'dark' : 'light'
+      // 遵道友法旨，若无记忆，则此界默认为“月映寒潭”（暗色主题）
+      theme.value = 'dark'
     }
   }
 

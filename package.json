@@ -5,7 +5,7 @@
   "scripts": {
     "build": "webpack --mode production",
     "watch": "webpack --mode development --watch",
-    "serve": "webpack-dev-server --mode development -- --output-public-path=/",
+    "serve": "webpack-dev-server --mode development",
     "lint": "eslint . --ext .ts,.vue --fix",
     "type-check": "tsc --noEmit"
   },

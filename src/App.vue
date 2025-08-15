@@ -2,12 +2,14 @@
   <div id="app-container">
     <video src="http://38.55.124.252:13145/1394774d3043156d.mp4" autoplay loop muted playsinline class="background-video"></video>
     <div class="content-wrapper">
-      <div v-if="isGameStateLoading || isChangingView || isLoadingView" class="loading-overlay">
+      <!-- 优化：只在真正需要加载时显示遮罩 -->
+      <div v-if="isInitialLoading || isLoadingView" class="loading-overlay">
         <div class="spinner"></div>
         天机推演中，请稍候...
       </div>
-      <transition v-else name="fade" mode="out-in">
-        <component :is="currentView" />
+      <!-- 优化：移除 mode="out-in" 减少切换延迟 -->
+      <transition v-else name="fade">
+        <component :is="currentView" :key="currentView.name" />
       </transition>
       <FullscreenButton />
     </div>
@@ -44,12 +46,12 @@ const { initializeAuth } = useAuth()
 const { initializeTheme } = useTheme() // 获取主题初始化法咒
 
 // --- 核心流程控制 ---
-const isChangingView = ref(false) // 仍然保留，用于加载遮罩
+const isInitialLoading = ref(false) // 优化：仅用于初始加载
 
 // --- 生命周期钩子 ---
 
 onMounted(async () => {
-  isChangingView.value = true
+  isInitialLoading.value = true
   try {
     // 初始化核心服务
     initializeTheme() // 启动主题心法！
@@ -62,7 +64,7 @@ onMounted(async () => {
     //   TavernHelper.setBackground(CHENWU_WHITE_BACKGROUND)
     // }
   } finally {
-    isChangingView.value = false
+    isInitialLoading.value = false
   }
 })
 
@@ -156,9 +158,10 @@ html, body {
 
 /* 响应式适配不再需要，交由具体内容面板处理 */
 
+/* 优化：加快过渡动画速度 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.1s ease;
+  transition: opacity 0.05s ease; /* 从0.1s减少到0.05s */
 }
 
 .fade-enter-from,

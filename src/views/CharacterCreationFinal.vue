@@ -6,6 +6,7 @@
     :origins="characterData.origins"
     :talents="characterData.talents"
     :spirit-roots="characterData.spiritRoots"
+    :talent-tiers="characterData.talentTiers"
     :is-loading="isLoading"
     loading-text="天机推演中，正在为您开辟洞天，请稍候..."
     @finalize="handleFinalize"
@@ -32,7 +33,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { getOrigins, getTalents, getSpiritRoots, getWorldBackgrounds } from '@/services/api'
+import { getOrigins, getTalents, getSpiritRoots, getWorldBackgrounds, getTalentTiers } from '@/services/api'
 import {
   DEFAULT_WORLDS,
   EXTENDED_ORIGINS,
@@ -40,7 +41,7 @@ import {
   EXTENDED_SPIRIT_ROOTS,
 } from '@/core/data/database_seed'
 import { useGameMode } from '@/composables/useGameMode'
-import { type World, type Origin, type Talent, type SpiritRoot, type CharacterSheet, type WorldState } from '@/core/rules/characterCreation'
+import { type World, type Origin, type Talent, type SpiritRoot, type CharacterSheet, type WorldState, type TalentTier } from '@/core/rules/characterCreation'
 import { getUserInfo } from '@/services/tavern'
 import { useGameState } from '@/composables/useGameState'
 
@@ -69,11 +70,13 @@ const characterData = reactive<{
   origins: Origin[]
   talents: Talent[]
   spiritRoots: SpiritRoot[]
+  talentTiers: TalentTier[]
 }>({
   worlds: [],
   origins: [],
   talents: [],
-  spiritRoots: []
+  spiritRoots: [],
+  talentTiers: []
 })
 
 const handleFinalize = (finalSheet: CharacterSheet) => {
@@ -100,16 +103,18 @@ const handleBack = () => {
 const loadServerData = async () => {
   isLoadingServerData.value = true
   try {
-    const [worldsData, originsData, talentsData, spiritRootsData] = await Promise.all([
+    const [worldsData, originsData, talentsData, spiritRootsData, talentTiersData] = await Promise.all([
       getWorldBackgrounds(),
       getOrigins(),
       getTalents(),
       getSpiritRoots(),
+      getTalentTiers(),
     ])
     characterData.worlds = worldsData
     characterData.origins = originsData
     characterData.talents = talentsData
     characterData.spiritRoots = spiritRootsData
+    characterData.talentTiers = talentTiersData
     isUsingLocalData.value = false
     console.log('成功从天宫灵脉获取修行数据！');
   } catch (error) {
@@ -125,6 +130,14 @@ const useLocalData = () => {
   characterData.origins = EXTENDED_ORIGINS
   characterData.talents = EXTENDED_TALENTS
   characterData.spiritRoots = EXTENDED_SPIRIT_ROOTS
+  // 创建默认天资等级数据作为本地备用
+  characterData.talentTiers = [
+    { id: 1, name: '下品', total_points: 10, rarity: 1, color: '#8B4513', description: '天资平平，修行如履薄冰' },
+    { id: 2, name: '中品', total_points: 15, rarity: 2, color: '#708090', description: '天资尚可，修行略有小成' },
+    { id: 3, name: '上品', total_points: 20, rarity: 3, color: '#4169E1', description: '天资不俗，修行事半功倍' },
+    { id: 4, name: '极品', total_points: 25, rarity: 4, color: '#9932CC', description: '天资卓越，万中无一之才' },
+    { id: 5, name: '神品', total_points: 30, rarity: 5, color: '#FFD700', description: '天资逆天，千古难遇之姿' }
+  ]
   isUsingLocalData.value = true
 }
 

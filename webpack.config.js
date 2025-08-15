@@ -17,6 +17,7 @@ module.exports = (env, argv) => {
       path: path.resolve(__dirname, 'dist'),
       filename: 'bundle.js',
       clean: true,
+      publicPath: '/',  // 添加publicPath配置
     },
     devtool: isProduction ? false : 'eval-source-map',
     resolve: {

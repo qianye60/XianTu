@@ -85,13 +85,14 @@ export function useGameMode() {
     }
   }
 
-  // 清除游戏模式
+  // 清除游戏模式 - 优化版：瞬时切换，无需加载状态
   const clearGameMode = () => {
+    console.log('[GameMode] 执行清除游戏模式，返回道途选择')
     gameMode.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('gameMode')
     }
-    isInitialized.value = false
+    // 直接切换视图，无需设置加载状态
     currentView.value = ModeSelector
   }
 

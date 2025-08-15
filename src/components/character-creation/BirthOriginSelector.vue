@@ -1,31 +1,6 @@
 <template>
   <div class="birth-origin-selector">
     <h3 class="selector-title">【 选择出身 】</h3>
-    <div class="custom-section">
-      <button @click="toggleCustomPanel" class="toggle-btn">
-        {{ isCustomPanelOpen ? '收起自定义' : '展开自定义' }}
-      </button>
-      <div v-if="isCustomPanelOpen" class="custom-panel">
-        <div class="section-actions">
-          <button @click="generateAIOrigins" class="btn btn-ai" :disabled="isGenerating">
-            {{ isGenerating ? 'AI生成中...' : 'AI生成出身' }}
-          </button>
-          <button @click="addCustomOrigin" class="btn btn-sm">手动添加</button>
-        </div>
-        <div v-if="customOrigins.length > 0" class="custom-items">
-          <div v-for="(origin, index) in customOrigins" :key="index" class="custom-item">
-            <input v-model="origin.name" placeholder="出身名称" class="item-input" />
-            <textarea
-              v-model="origin.description"
-              placeholder="出身描述"
-              class="item-textarea"
-            ></textarea>
-            <button @click="removeCustomOrigin(index)" class="btn btn-danger btn-sm">删除</button>
-          </div>
-        </div>
-        <button @click="applyCustomOrigins" class="btn btn-primary">应用自定义出身</button>
-      </div>
-    </div>
     <div class="origins-grid">
       <div
         v-for="origin in origins"
@@ -57,58 +32,6 @@ const emit = defineEmits<{
 
 const selectOrigin = (origin: Origin) => {
   emit('update:modelValue', origin)
-}
-
-const isCustomPanelOpen = ref(false)
-const isGenerating = ref(false)
-const customOrigins = ref<Partial<Origin>[]>([])
-
-const toggleCustomPanel = () => {
-  isCustomPanelOpen.value = !isCustomPanelOpen.value
-}
-
-const generateAIOrigins = async () => {
-  if (isGenerating.value) return
-  isGenerating.value = true
-  try {
-    const settings = await getCoreSettings();
-    const prompt = `根据以下游戏设定，生成三个仙侠风格的角色出身：\n\n**属性说明:**\n${JSON.stringify(settings.attributes, null, 2)}\n\n**修仙元素:**\n${settings.cultivation_elements.join(', ')}\n\n每个出身需包含名称(name)、描述(description)和属性修正(attributeModifiers)，例如：{ INT: 2, SPI: 1, LUK: 1 }。以JSON数组格式返回。`;
-    const aiResult = await generateAIContent(prompt);
-    const aiOrigins = JSON.parse(aiResult);
-    customOrigins.value.push(...aiOrigins);
-  } catch (error) {
-    console.error('AI生成出身失败:', error)
-  } finally {
-    isGenerating.value = false
-  }
-}
-
-const addCustomOrigin = () => {
-  customOrigins.value.push({
-    name: '',
-    description: '',
-    attributeModifiers: {},
-  })
-}
-
-const removeCustomOrigin = (index: number) => {
-  customOrigins.value.splice(index, 1)
-}
-
-const applyCustomOrigins = () => {
-  const validOrigins: Origin[] = customOrigins.value
-    .filter(o => o.name && o.description)
-    .map((o, index) => ({
-      id: `custom-${Date.now()}-${index}`,
-      name: o.name!,
-      description: o.description!,
-      attributeModifiers: o.attributeModifiers || {},
-      type: 'origin',
-    }))
-
-  emit('update:origins', [...(props.origins || []), ...validOrigins])
-  customOrigins.value = []
-  isCustomPanelOpen.value = false
 }
 </script>
 

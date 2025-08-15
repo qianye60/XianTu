@@ -19,7 +19,7 @@ class TavernLiveReloadPlugin {
         if (!this.port) {
           const configFile = fs.readFileSync('config.yaml', 'utf8')
           const config = yaml.parse(configFile)
-          this.port = config.port || 6621
+          this.port = config.port || 6620
         }
       } catch (e) {
         console.warn(

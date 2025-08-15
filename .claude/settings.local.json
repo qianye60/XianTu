@@ -1,8 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(del app.js)",
+      "Bash(del styles.css)",
+      "Bash(aerich migrate:*)",
+      "Bash(aerich:*)",
+      "Bash(python:*)",
+      "Bash(ping:*)",
+      "Bash(del \"server\\core\\seed.py\")",
+      "Bash(uvicorn:*)",
+      "Bash(curl:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

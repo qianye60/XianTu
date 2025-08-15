@@ -1,25 +1,25 @@
 <template>
-  <div class="p-6 bg-surface/75 border border-primary/40 rounded-lg">
-    <h3 class="text-center text-primary mb-6 text-2xl font-serif">【 先天六司，点化灵犀 】</h3>
-    <div class="text-center mb-6 text-xl text-text-secondary">
-      剩余点数: <span class="text-primary font-bold">{{ remainingPoints }}</span>
+  <div class="attribute-allocator">
+    <h3 class="allocator-title">【 先天六司，点化灵犀 】</h3>
+    <div class="points-display">
+      剩余点数: <span class="points-value">{{ remainingPoints }}</span>
     </div>
-    <div class="grid grid-cols-1 gap-4">
-      <div v-for="(attr, key) in CORE_ATTRIBUTES" :key="key" class="flex justify-between items-center bg-black/20 p-3 rounded-md">
-        <span class="text-lg font-medium">{{ attr }}</span>
-        <div class="flex items-center gap-4">
+    <div class="attributes-grid">
+      <div v-for="(attr, key) in CORE_ATTRIBUTES" :key="key" class="attribute-row">
+        <span class="attribute-name">{{ attr }}</span>
+        <div class="attribute-controls">
           <button
             @click="decrement(key as CoreAttribute)"
-            :disabled="attributes.attributes[key as CoreAttribute] <= 10 + (birthOriginModifiers[key as CoreAttribute] || 0)"
-            class="w-[30px] h-[30px] rounded-full border border-primary bg-transparent text-primary text-2xl cursor-pointer flex justify-center items-center leading-none transition-colors hover:bg-primary hover:text-background disabled:border-muted disabled:text-muted disabled:cursor-not-allowed"
+            :disabled="!canDecrement(key as CoreAttribute)"
+            class="control-btn decrease"
           >
             -
           </button>
-          <span class="text-xl font-bold text-white min-w-[30px] text-center">{{ attributes.attributes[key as CoreAttribute] }}</span>
+          <span class="attribute-value">{{ attributes.attributes[key as CoreAttribute] }}</span>
           <button 
             @click="increment(key as CoreAttribute)" 
             :disabled="remainingPoints <= 0"
-            class="w-[30px] h-[30px] rounded-full border border-primary bg-transparent text-primary text-2xl cursor-pointer flex justify-center items-center leading-none transition-colors hover:bg-primary hover:text-background disabled:border-muted disabled:text-muted disabled:cursor-not-allowed"
+            class="control-btn increase"
           >
             +
           </button>
@@ -35,29 +35,169 @@ import {
   CORE_ATTRIBUTES,
   type CoreAttribute,
   type AttributeDistribution,
+  type CharacterSheet,
 } from '@/core/rules/characterCreation'
 
 const props = defineProps<{
-  totalPoints: number
-  initialAttributes: AttributeDistribution
-  birthOriginModifiers: Partial<Record<CoreAttribute, number>>
+  modelValue?: AttributeDistribution | null
+  characterData?: CharacterSheet
+  talentTier?: { total_points: number } | null
 }>()
 
 const emit = defineEmits<{
-  'update:attributes': [value: AttributeDistribution]
+  'update:modelValue': [value: AttributeDistribution]
 }>()
 
-const attributes = ref<AttributeDistribution>({ ...props.initialAttributes })
+// 初始化属性值
+const initializeAttributes = (): AttributeDistribution => {
+  const baseAttributes: Record<CoreAttribute, number> = {
+    ROOT_BONE: 10,
+    SPIRITUALITY: 10,
+    COMPREHENSION: 10,
+    FORTUNE: 10,
+    CHARM: 10,
+    TEMPERAMENT: 10,
+  }
+
+  // 如果有出身加成，应用它们
+  if (props.characterData?.origin?.attributeModifiers) {
+    const bonuses = props.characterData.origin.attributeModifiers
+    Object.keys(bonuses).forEach((key) => {
+      if (key in baseAttributes) {
+        baseAttributes[key as CoreAttribute] += bonuses[key as CoreAttribute] || 0
+      }
+    })
+  }
+
+  // 如果有灵根加成，应用它们（灵根通常通过effects字段影响属性）
+  if (props.characterData?.spiritRoot?.effects) {
+    // 灵根的effects可能是字符串或对象，需要解析
+    let effects = props.characterData.spiritRoot.effects
+    if (typeof effects === 'string') {
+      try {
+        effects = JSON.parse(effects)
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+    
+    if (effects && typeof effects === 'object') {
+      const effectsArray = Array.isArray(effects) ? effects : [effects]
+      effectsArray.forEach(effect => {
+        if (effect.type === 'ATTRIBUTE_MODIFIER' && effect.target in baseAttributes) {
+          baseAttributes[effect.target as CoreAttribute] += effect.value || 0
+        }
+      })
+    }
+  }
+
+  // 如果有天赋加成，应用它们
+  if (props.characterData?.talents) {
+    props.characterData.talents.forEach(talent => {
+      if (talent.effects) {
+        let effects = talent.effects
+        if (typeof effects === 'string') {
+          try {
+            effects = JSON.parse(effects)
+          } catch (e) {
+            return
+          }
+        }
+        
+        const effectsArray = Array.isArray(effects) ? effects : [effects]
+        effectsArray.forEach(effect => {
+          if (effect.type === 'ATTRIBUTE_MODIFIER' && effect.target in baseAttributes) {
+            baseAttributes[effect.target as CoreAttribute] += effect.value || 0
+          }
+        })
+      }
+    })
+  }
+
+  return {
+    attributes: baseAttributes,
+    pointsSpent: 0
+  }
+}
+
+const attributes = ref<AttributeDistribution>(
+  props.modelValue || initializeAttributes()
+)
+
+const totalPoints = computed(() => {
+  // 从天资等级获取总点数，默认20点
+  return props.talentTier?.total_points || 20
+})
+
+const getBaseValue = (key: CoreAttribute): number => {
+  let base = 10
+  
+  // 出身加成
+  if (props.characterData?.origin?.attributeModifiers) {
+    base += props.characterData.origin.attributeModifiers[key] || 0
+  }
+  
+  // 灵根加成（通过effects字段）
+  if (props.characterData?.spiritRoot?.effects) {
+    let effects = props.characterData.spiritRoot.effects
+    if (typeof effects === 'string') {
+      try {
+        effects = JSON.parse(effects)
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+    
+    if (effects && typeof effects === 'object') {
+      const effectsArray = Array.isArray(effects) ? effects : [effects]
+      effectsArray.forEach(effect => {
+        if (effect.type === 'ATTRIBUTE_MODIFIER' && effect.target === key) {
+          base += effect.value || 0
+        }
+      })
+    }
+  }
+  
+  // 天赋加成
+  if (props.characterData?.talents) {
+    props.characterData.talents.forEach(talent => {
+      if (talent.effects) {
+        let effects = talent.effects
+        if (typeof effects === 'string') {
+          try {
+            effects = JSON.parse(effects)
+          } catch (e) {
+            return
+          }
+        }
+        
+        const effectsArray = Array.isArray(effects) ? effects : [effects]
+        effectsArray.forEach(effect => {
+          if (effect.type === 'ATTRIBUTE_MODIFIER' && effect.target === key) {
+            base += effect.value || 0
+          }
+        })
+      }
+    })
+  }
+  
+  return base
+}
 
 const pointsSpent = computed(() => {
   return Object.keys(CORE_ATTRIBUTES).reduce((sum, key) => {
     const attrKey = key as CoreAttribute
-    const baseValue = 10 + (props.birthOriginModifiers[attrKey] || 0)
+    const baseValue = getBaseValue(attrKey)
     return sum + (attributes.value.attributes[attrKey] - baseValue)
   }, 0)
 })
 
-const remainingPoints = computed(() => props.totalPoints - pointsSpent.value)
+const remainingPoints = computed(() => totalPoints.value - pointsSpent.value)
+
+const canDecrement = (key: CoreAttribute): boolean => {
+  const baseValue = getBaseValue(key)
+  return attributes.value.attributes[key] > baseValue
+}
 
 const increment = (key: CoreAttribute) => {
   if (remainingPoints.value > 0) {
@@ -66,8 +206,7 @@ const increment = (key: CoreAttribute) => {
 }
 
 const decrement = (key: CoreAttribute) => {
-  const baseValue = 10 + (props.birthOriginModifiers[key] || 0)
-  if (attributes.value.attributes[key] > baseValue) {
+  if (canDecrement(key)) {
     attributes.value.attributes[key]--
   }
 }
@@ -75,7 +214,7 @@ const decrement = (key: CoreAttribute) => {
 watch(
   attributes,
   (newValue) => {
-    emit('update:attributes', {
+    emit('update:modelValue', {
       attributes: newValue.attributes,
       pointsSpent: pointsSpent.value,
     })
@@ -83,21 +222,146 @@ watch(
   { deep: true },
 )
 
+// 监听角色数据变化，重新初始化
 watch(
-  () => props.initialAttributes,
-  (newVal) => {
-    attributes.value = { ...newVal }
+  () => props.characterData,
+  () => {
+    attributes.value = initializeAttributes()
   },
-  { deep: true },
+  { deep: true }
 )
+
+// 如果没有初始值，立即发送一个
+if (!props.modelValue) {
+  emit('update:modelValue', attributes.value)
+}
 </script>
 
-<style>
-/* 
-  此处的样式已通过原子化CSS（如 `p-6`, `bg-surface/75`, `text-primary` 等）直接应用于模板中。
-  这些原子类应由您的UI框架（如TailwindCSS, UnoCSS）或在全局样式表中定义。
-  例如，.text-primary { color: var(--color-primary); }
-  此举遵循了 "心法一：万法归一" 中的原子化CSS优先原则，以及 "心法五：匠心独运" 的道法自然原则。
-  <style> 块已被移除，使组件更加纯净、可移植。
-*/
+<style scoped>
+.attribute-allocator {
+  padding: 2rem;
+  background: rgba(30, 40, 50, 0.7);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.4);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.allocator-title {
+  text-align: center;
+  color: var(--color-primary);
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-family: var(--font-family-serif);
+}
+
+.points-display {
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.2rem;
+  color: var(--color-text-secondary);
+}
+
+.points-value {
+  color: var(--color-primary);
+  font-weight: bold;
+  font-size: 1.4rem;
+}
+
+.attributes-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.attribute-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.attribute-row:hover {
+  background: rgba(0, 0, 0, 0.4);
+  transform: translateX(5px);
+}
+
+.attribute-name {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text);
+  font-family: var(--font-family-serif);
+  min-width: 80px;
+}
+
+.attribute-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.control-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease;
+  font-weight: bold;
+}
+
+.control-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-background);
+  transform: scale(1.1);
+}
+
+.control-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.control-btn:disabled {
+  border-color: var(--color-border);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.attribute-value {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--color-text);
+  min-width: 40px;
+  text-align: center;
+  font-family: monospace;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .attribute-allocator {
+    padding: 1.5rem;
+  }
+  
+  .attributes-grid {
+    max-width: 100%;
+  }
+  
+  .attribute-row {
+    padding: 0.8rem 1rem;
+  }
+  
+  .attribute-controls {
+    gap: 1rem;
+  }
+}
 </style>

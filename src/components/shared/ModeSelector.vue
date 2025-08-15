@@ -6,7 +6,7 @@
       </div>
       <header class="panel-header">
         <div class="header-content">
-          <h2 class="title">【 道途选择 】</h2>
+          <h2 class="title">道途选择</h2>
           <ThemeSwitcher />
         </div>
         <p class="subtitle">道友，请择汝之修行模式</p>
@@ -125,28 +125,31 @@ const confirmMode = () => {
   width: 100vw;
   height: 100vh;
   background: transparent; /* 移除背景，让下层天幕显现 */
-  overflow: auto; /* 改为auto，以防面板过长时无法滚动整个页面 */
+  overflow-y: auto; /* 允许垂直滚动 */
+  overflow-x: hidden; /* 禁止横向滚动 */
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start; /* 改为顶部对齐，避免内容过长时被截断 */
   z-index: 1000;
-  /* padding: 2rem; -- 遵道友法旨，移除内边距 */
+  padding: 2rem 1rem; /* 添加适当的内边距 */
   box-sizing: border-box; /* 确保padding不会导致溢出 */
 }
 
 .mode-selector-panel {
     position: relative;
     z-index: 10;
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    /* 深色半透明背景，确保在任何主题下文字都清晰 */
+    background: linear-gradient(145deg, rgba(30, 40, 50, 0.9) 0%, rgba(20, 30, 40, 0.95) 100%);
+    border: 1px solid rgba(var(--color-primary-rgb), 0.3);
     border-radius: 20px;
     padding: 3rem;
     max-width: 900px;
     width: 100%;
+    margin: auto 0; /* 垂直居中，但不会导致内容被截断 */
     box-shadow:
-      0 25px 50px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+      0 25px 50px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(15px);
     animation: slideUp 0.6s ease-out 0.2s both;
 }
 
@@ -209,14 +212,14 @@ const confirmMode = () => {
   font-size: 2.5rem;
   color: var(--color-primary);
   margin-bottom: 1rem;
-  text-shadow: 0 0 20px rgba(140, 115, 90, 0.6);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(var(--color-primary-rgb), 0.3);
   letter-spacing: 0.1em;
 }
 
 .subtitle {
   font-size: 1.2rem;
-  color: var(--color-text-secondary);
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .mode-options {
@@ -227,14 +230,15 @@ const confirmMode = () => {
 }
 
 .mode-card {
-  background: var(--color-surface-light); /* 修正：白昼模式下，与选中状态颜色对调 */
-  border: 2px solid var(--color-border); /* 使用清晰的边框颜色 */
+  background: rgba(40, 50, 60, 0.8);
+  border: 2px solid rgba(var(--color-primary-rgb), 0.2);
   border-radius: 16px;
   padding: 2.5rem;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(5px);
 }
 
 .mode-card::before {
@@ -254,17 +258,19 @@ const confirmMode = () => {
 
 .mode-card:hover {
   transform: translateY(-8px);
+  background: rgba(50, 60, 70, 0.9);
+  border-color: var(--color-primary);
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .mode-card.selected {
-  border-color: var(--color-primary); /* 选中时使用主色边框 */
-  background: var(--color-surface); /* 修正：白昼模式下，与未选中状态颜色对调 */
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.25);
   box-shadow:
-    0 0 20px rgba(var(--color-primary-rgb), 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 0 30px rgba(var(--color-primary-rgb), 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transform: translateY(-4px);
 }
 
@@ -290,14 +296,15 @@ const confirmMode = () => {
 
 .mode-title {
   font-size: 1.5rem;
-  color: var(--color-primary); /* 改为月华金 */
+  color: var(--color-primary);
   margin-bottom: 1rem;
   text-align: center;
   font-weight: 600;
+  text-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
 }
 
 .mode-description {
-  color: var(--color-text); /* 改为星辉白，提升亮度 */
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.6;
   margin-bottom: 1.5rem;
   text-align: center;
@@ -306,7 +313,8 @@ const confirmMode = () => {
 .privacy-note {
   color: var(--color-accent);
   font-style: italic;
-  opacity: 0.8;
+  opacity: 0.9;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
 }
 
 .mode-features {
@@ -317,12 +325,12 @@ const confirmMode = () => {
 }
 
 .feature {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--color-primary-rgb), 0.15);
   padding: 0.5rem 1rem;
   border-radius: 20px;
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
 }
 
 .panel-footer {

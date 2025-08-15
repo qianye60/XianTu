@@ -1,6 +1,6 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
-  /* --- 新配色灵脉: "水墨青松" (日照松间) --- */
+  /* --- 初始配色灵脉: "水墨青松" (日照松间) --- */
   /* 主色调 */
   --color-primary: #4a6c6f; /* 松烟色 - 沉静、苍翠的青绿色 */
   --color-primary-rgb: 74, 108, 111;
@@ -36,7 +36,7 @@
   --scrollbar-track: rgba(10, 15, 24, 0.5); /* 透明轨道 */
 }
 
-/* --- 暗色主题 "水墨青松" (月映寒潭) --- */
+/* --- 初始配色灵脉: "水墨青松" (月映寒潭) --- */
 body.dark-theme {
   /* 主色调 */
   --color-primary: #88c0d0; /* 月下碧 - 冷静、清澈的淡蓝色 */
@@ -73,8 +73,8 @@ body {
   font-family: var(--font-family-sans);
   background-color: transparent; /* 移除背景色，让视频透出 */
   color: var(--color-text);
-  /* 以四向重影之法，为文字描绘轮廓，确保其在任何光影下都清晰可辨 */
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7), -1px -1px 3px rgba(0, 0, 0, 0.7), 1px -1px 3px rgba(0, 0, 0, 0.7), -1px 1px 3px rgba(0, 0, 0, 0.7);
+  /* 遵道友法旨，去除所有文字阴影，返璞归真。 */
+  text-shadow: none;
 }
 
 #app {

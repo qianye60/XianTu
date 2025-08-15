@@ -35,16 +35,29 @@
             :origins="props.origins"
             :spirit-roots="props.spiritRoots"
             :talents="props.talents"
+            :talent-tiers="props.talentTiers"
+            :talent-tier="stepModels['talent-tier']"
             :character-data="finalCharacterSheet"
           />
         </section>
       </main>
 
       <footer class="creation-footer">
-        <button @click="handleBack" class="btn btn-secondary">
+        <button
+          @click="handleBack"
+          class="btn btn-secondary"
+          :disabled="isLoading"
+        >
           {{ currentStep === 1 ? '返回道途' : '上一步' }}
         </button>
-        <button v-if="currentStep < steps.length" @click="currentStep++" class="btn">下一步</button>
+        <button
+          v-if="currentStep < steps.length"
+          @click="currentStep++"
+          class="btn"
+          :disabled="isLoading"
+        >
+          下一步
+        </button>
         <button
           v-if="currentStep === steps.length"
           class="btn btn-complete"
@@ -67,6 +80,7 @@ import {
   type Talent,
   type SpiritRoot,
   type CharacterSheet,
+  type TalentTier,
 } from '@/core/rules/characterCreation'
 
 // Import modular components
@@ -77,6 +91,7 @@ import CharacterPreview from '@/components/character-creation/CharacterPreview.v
 import StepIndicator from '@/components/shared/StyledStepIndicator.vue'
 import WorldBackgroundSelector from '@/components/character-creation/WorldBackgroundSelector.vue'
 import AttributeAllocatorImproved from '@/components/character-creation/AttributeAllocatorImproved.vue'
+import TalentTierSelector from '@/components/character-creation/TalentTierSelector.vue'
 import ThemeSwitcher from '@/components/shared/ThemeSwitcher.vue'
 
 // --- Props & Emits ---
@@ -87,6 +102,7 @@ const props = defineProps<{
   origins: Origin[]
   talents: Talent[]
   spiritRoots: SpiritRoot[]
+  talentTiers: TalentTier[]
   isLoading?: boolean
   loadingText?: string
 }>()
@@ -99,6 +115,7 @@ const emit = defineEmits<{
 // --- Component Map ---
 const componentMap: Record<string, Component> = {
   world: WorldBackgroundSelector,
+  'talent-tier': TalentTierSelector,
   origin: BirthOriginSelector,
   'spirit-root': SpiritRootSelector,
   talents: TalentSelectorImproved,
@@ -113,6 +130,7 @@ const componentKey = ref(0)
 // --- Form State Models ---
 interface StepModels {
   world: World | null;
+  'talent-tier': TalentTier | null;
   origin: Origin | null;
   'spirit-root': SpiritRoot | null;
   talents: Talent[];
@@ -122,6 +140,7 @@ interface StepModels {
 
 const stepModels = reactive<StepModels>({
   world: null,
+  'talent-tier': null,
   origin: null,
   'spirit-root': null,
   talents: [],
@@ -174,6 +193,19 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => props.talentTiers,
+  (newTiers) => {
+    if (newTiers && newTiers.length > 0 && !stepModels['talent-tier']) {
+      // Select the most common tier (highest rarity number) by default
+      const defaultTier = [...newTiers].sort((a, b) => b.rarity - a.rarity)[0]
+      stepModels['talent-tier'] = defaultTier;
+      componentKey.value++;
+    }
+  },
+  { immediate: true }
+)
+
 // --- Use the Character Sheet Builder Composable ---
 const { finalCharacterSheet, isCreationComplete } = useCharacterSheetBuilder(
   toRef(props, 'characterName'),
@@ -194,6 +226,7 @@ const handleBack = () => {
   if (currentStep.value > 1) {
     currentStep.value--
   } else {
+    // 立即触发返回，无需额外延迟
     emit('back')
   }
 }
@@ -209,27 +242,50 @@ const onFinalize = () => {
 .creation-container {
   display: flex;
   flex-direction: column;
-  justify-content: center; /* 垂直居中 */
+  justify-content: flex-start; /* 改为顶部对齐，避免内容过长时居中导致顶部被截断 */
   align-items: center; /* 水平居中 */
   width: 100%;
   min-height: 100vh; /* 确保容器至少与视口等高 */
-  /* padding: 2rem; -- 遵道友法旨，移除内边距 */
+  padding: 2rem 1rem; /* 添加适当的内边距 */
   box-sizing: border-box;
+  overflow-y: auto; /* 允许垂直滚动 */
+  overflow-x: hidden; /* 禁止横向滚动 */
   /* 背景已由 App.vue 的视频天幕接管，此处不再需要 */
+}
+
+/* 美化滚动条 */
+.creation-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.creation-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.creation-container::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.creation-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 .creation-content {
   width: 100%;
   max-width: 960px;
-  /* 移除固定的高度限制，让其随内容自适应 */
+  max-height: calc(100vh - 4rem); /* 限制最大高度，留出上下边距 */
   padding: 2rem;
-  background-color: rgba(var(--color-surface-rgb), 0.85);
-  border: 1px solid rgba(var(--color-border-rgb), 0.5);
+  /* 深色半透明背景，确保文字在任何主题下都清晰 */
+  background: linear-gradient(135deg, rgba(30, 40, 50, 0.9) 0%, rgba(20, 30, 40, 0.95) 100%);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(15px);
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 .loading-overlay {
@@ -275,25 +331,47 @@ const onFinalize = () => {
   font-size: 2.2rem;
   color: var(--color-primary);
   margin: 0 0 0.5rem 0;
-  text-shadow: 0 0 20px var(--color-primary-hover);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(var(--color-primary-rgb), 0.3);
 }
 
 .subtitle-text {
   font-size: 1.1rem;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   margin: 0;
 }
 
 .creation-steps {
   flex-grow: 1; /* 仍然占据主要空间 */
-  /* 移除 overflow-y: auto，不再需要内部滚动 */
+  overflow-y: auto; /* 允许内容区域滚动 */
+  overflow-x: hidden; /* 禁止横向滚动 */
   min-height: 0; /* Flexbox hack for overflow */
+  padding-right: 0.5rem; /* 为滚动条留出空间 */
+}
+
+/* 美化步骤区域的滚动条 */
+.creation-steps::-webkit-scrollbar {
+  width: 6px;
+}
+
+.creation-steps::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.creation-steps::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 3px;
+}
+
+.creation-steps::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 .step-section {
   padding-top: 1rem;
   padding-bottom: 2rem;
-  animation: fadeIn 0.6s ease-out;
+  animation: fadeIn 0.3s ease-out; /* 气机流转更为迅捷，缩短动画时长 */
 }
 
 @keyframes fadeIn {

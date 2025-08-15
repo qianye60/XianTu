@@ -34,53 +34,53 @@ export function useCharacterCalculations(
 
   /**
    * 推演气血上限
-   * @param strength - 根骨
+   * @param root_bone - 根骨
    * 基础气血100点，每点根骨额外提供20点气血。
    */
   const maxHealth = computed(() => {
     const baseHealth = 100
-    const healthFromStrength = (characterSheet.value.attributes[CoreAttribute.CON] || 0) * 20
+    const healthFromStrength = (characterSheet.value.attributes[CoreAttribute.ROOT_BONE] || 0) * 20
     return baseHealth + healthFromStrength
   })
 
   /**
    * 推演灵气上限
-   * @param intelligence - 悟性
+   * @param comprehension - 悟性
    * 基础灵气80点，每点悟性额外提供15点灵气。
    */
   const maxMana = computed(() => {
     const baseMana = 80
-    const manaFromIntelligence = (characterSheet.value.attributes[CoreAttribute.INT] || 0) * 15
+    const manaFromIntelligence = (characterSheet.value.attributes[CoreAttribute.COMPREHENSION] || 0) * 15
     return baseMana + manaFromIntelligence
   })
 
   /**
    * 推演神识强度
-   * @param spirit - 神魂
-   * 基础神识50点，每点神魂额外提供10点神识。
+   * @param spirituality - 灵性
+   * 基础神识50点，每点灵性额外提供10点神识。
    */
   const spiritPower = computed(() => {
     const baseSpirit = 50
-    const spiritFromSoul = (characterSheet.value.attributes[CoreAttribute.SPI] || 0) * 10
-    return baseSpirit + spiritFromSoul
+    const spiritFromSpirituality = (characterSheet.value.attributes[CoreAttribute.SPIRITUALITY] || 0) * 10
+    return baseSpirit + spiritFromSpirituality
   })
 
   /**
    * 推演修炼速度加成
-   * @param intelligence - 悟性
+   * @param comprehension - 悟性
    * 每点悟性提供 5% 的修炼速度加成。
    */
   const cultivationSpeedBonus = computed(() => {
-    return (characterSheet.value.attributes[CoreAttribute.INT] || 0) * 5
+    return (characterSheet.value.attributes[CoreAttribute.COMPREHENSION] || 0) * 5
   })
 
   /**
    * 推演暴击率
-   * @param luck - 气运
-   * 每点气运提供 0.5% 的暴击率。
+   * @param fortune - 福缘
+   * 每点福缘提供 0.5% 的暴击率。
    */
   const criticalChance = computed(() => {
-    return (characterSheet.value.attributes[CoreAttribute.LUK] || 0) * 0.5
+    return (characterSheet.value.attributes[CoreAttribute.FORTUNE] || 0) * 0.5
   })
 
   // 将所有推演结果归一，方便外部调用
@@ -163,23 +163,23 @@ export function useCharacterSheetBuilder(
 
       let attrVerdict = ''
       switch (highestAttr) {
-        case CoreAttribute.CON:
+        case CoreAttribute.ROOT_BONE:
           attrVerdict = '然其命数之中，【根骨】二字最为耀眼，此乃肉身成圣之兆。'
           break
-        case CoreAttribute.INT:
+        case CoreAttribute.COMPREHENSION:
           attrVerdict = '其魂魄深处，【悟性】之光独占鳌头，此乃天生道子。'
           break
-        case CoreAttribute.SPI:
-          attrVerdict = '此子【神识】天生强大，远超同辈，一切虚妄幻象，皆无所遁形。'
+        case CoreAttribute.SPIRITUALITY:
+          attrVerdict = '此子【灵性】天生强大，远超同辈，一切虚妄幻象，皆无所遁形。'
           break
-        case CoreAttribute.LUK:
-          attrVerdict = '冥冥之中，【气运】二字与汝纠缠最深，乃是福缘深厚之人。'
+        case CoreAttribute.FORTUNE:
+          attrVerdict = '冥冥之中，【福缘】二字与汝纠缠最深，乃是福缘深厚之人。'
           break
-        case CoreAttribute.CHA:
-          attrVerdict = '其【仪容】风姿，令人见之忘俗，如谪仙临尘。'
+        case CoreAttribute.CHARM:
+          attrVerdict = '其【魅力】风姿，令人见之忘俗，如谪仙临尘。'
           break
-        case CoreAttribute.BKG:
-          attrVerdict = '其【家世】渊源，虽未明言，却已在命数中留下浓墨重彩的一笔。'
+        case CoreAttribute.TEMPERAMENT:
+          attrVerdict = '其【心性】如磐石寿山，任风雨不动，乃是道心坚定之象。'
           break
       }
       verdict += ` ${attrVerdict}`

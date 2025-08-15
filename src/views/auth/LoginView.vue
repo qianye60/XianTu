@@ -86,8 +86,13 @@
             神识连接中...
           </span>
         </button>
-        <button @click="handleClose" class="btn btn-secondary mt-4">
-          暂不登录，返回
+        <button
+          @click="handleClose"
+          class="btn btn-secondary mt-4"
+          :disabled="isLoading"
+        >
+          <span v-if="!isLoading">暂不登录，返回</span>
+          <span v-else>返回中...</span>
         </button>
       </footer>
     </div>
@@ -173,7 +178,16 @@ const handleSubmit = async () => {
 }
 
 const handleClose = () => {
-  clearGameMode()
+  // 立即禁用按钮，提供即时反馈
+  isLoading.value = true
+  // 使用 nextTick 确保 DOM 更新后再执行跳转
+  nextTick(() => {
+    clearGameMode()
+    // 跳转后自动恢复状态
+    setTimeout(() => {
+      isLoading.value = false
+    }, 100)
+  })
 }
 </script>
 
@@ -244,7 +258,12 @@ const handleClose = () => {
   width: 100%;
   max-width: 600px;
   padding: 3rem;
-  /* 外观样式已被 .card-panel 取代，此处只保留布局和动画 */
+  /* 深色半透明背景，确保文字清晰 */
+  background: linear-gradient(135deg, rgba(30, 40, 50, 0.9) 0%, rgba(20, 30, 40, 0.95) 100%);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(15px);
   animation: slideUp 0.6s ease-out 0.2s both;
 }
 
@@ -436,10 +455,10 @@ const handleClose = () => {
   display: flex;
   justify-content: center;
   margin-bottom: 1.5rem;
-  background-color: var(--color-background);
+  background-color: rgba(20, 30, 40, 0.5);
   border-radius: 8px;
   padding: 4px;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
 }
 
 .tab-button {
@@ -448,21 +467,21 @@ const handleClose = () => {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .tab-button:hover {
-  color: var(--color-text);
-  background-color: rgba(var(--color-primary-rgb), 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(var(--color-primary-rgb), 0.2);
 }
 
 .tab-button.active {
   color: var(--color-primary);
-  background-color: var(--color-surface);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: rgba(var(--color-primary-rgb), 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .title {
@@ -470,11 +489,13 @@ const handleClose = () => {
   font-size: 2rem;
   color: var(--color-primary);
   margin-bottom: 0.75rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(var(--color-primary-rgb), 0.3);
 }
 
 .subtitle {
   font-size: 1rem;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .input-group {
@@ -487,18 +508,19 @@ const handleClose = () => {
 .input-label {
   display: block;
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.8);
   margin-bottom: 0.5rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .input-field {
   width: 90%;
   padding: 0.75rem 1rem;
   font-size: 1rem;
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border-hover);
+  background-color: rgba(20, 30, 40, 0.6);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
   border-radius: 8px;
-  color: var(--color-text);
+  color: rgba(255, 255, 255, 0.9);
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
