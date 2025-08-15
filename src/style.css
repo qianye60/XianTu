@@ -36,24 +36,24 @@
   --scrollbar-track: rgba(10, 15, 24, 0.5); /* 透明轨道 */
 }
 
-/* --- 初始配色灵脉: "水墨青松" (月映寒潭) --- */
-body.dark-theme {
-  /* 主色调 */
-  --color-primary: #88c0d0; /* 月下碧 - 冷静、清澈的淡蓝色 */
-  --color-primary-rgb: 136, 192, 208;
-  --color-primary-hover: #a0d3e2;
-  --color-primary-active: #6faabb;
+/* --- 暗色主题灵脉: "月映寒潭" (通过 data-theme 属性激活) --- */
+:root[data-theme='dark'] {
+/* 主色调 */
+--color-primary: #88c0d0; /* 月下碧 - 冷静、清澈的淡蓝色 */
+--color-primary-rgb: 136, 192, 208;
+--color-primary-hover: #a0d3e2;
+--color-primary-active: #6faabb;
 
-  --color-accent: #e5c07b; /* 星辉金 - 温和、明亮的点缀 */
-  --color-accent-hover: #f1d592;
+--color-accent: #e5c07b; /* 星辉金 - 温和、明亮的点缀 */
+--color-accent-hover: #f1d592;
 
-  /* 背景与表面 */
-  --color-background: #2e3440; /* 永夜 - 带有蓝调的深灰色 */
-  --color-surface: rgba(46, 52, 64, 0.75); /* 玄石 - 半透明的深色表面 */
-  --color-surface-light: rgba(59, 66, 82, 0.6); /* 墨玉 - 更通透的次级表面 */
+/* 背景与表面 */
+--color-background: #2e3440; /* 暮夜 - 更亮的背景 */
+--color-surface: rgba(46, 52, 64, 0.85); /* 玄石 - 更亮的表面 */
+--color-surface-light: rgba(59, 66, 82, 0.7); /* 月石 - 更亮的次级表面 */
 
-  /* 文字与边框 */
-  --color-text: #d8dee9; /* 月光 - 柔和的白色 */
+/* 文字与边框 */
+--color-text: #e5e9f0; /* 新月 - 更明亮的文字 */
   --color-text-secondary: #a3b1c2; /* 霜华 - 稍暗的灰色 */
   --color-border: rgba(136, 192, 208, 0.25); /* 碧水描边 - 与主色调和谐统一 */
   --color-border-hover: rgba(189, 174, 147, 0.5); /* 悬停时的边框色 */
@@ -275,4 +275,153 @@ body {
   font-size: 1.5rem;
   border-width: 2px;
   animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+/* --- 新增样式：道途选择界面 --- */
+.mode-selection-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-text);
+  padding: 2vh 0; /* Add a small vertical padding for breathing room */
+}
+
+.video-background {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translate(-50%, -50%);
+  z-index: -2;
+}
+
+.video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* 默认遮罩，暗色主题下可调整 */
+  z-index: -1;
+}
+
+:root[data-theme='dark'] .video-overlay {
+    background-color: rgba(10, 15, 24, 0.4); /* 降低遮罩透明度，让背景更亮 */
+}
+
+
+.selection-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  background: var(--color-surface-light);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: 90%;
+  max-width: 1200px;
+}
+
+.main-title {
+  font-family: var(--font-family-serif);
+  font-size: 3rem;
+  font-weight: 500;
+  margin-bottom: 2.5rem;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.4);
+}
+
+.paths-container {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  width: 100%;
+}
+
+.path-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  border-radius: 1rem;
+  border: 2px solid var(--color-primary);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.path-card:hover {
+  transform: translateY(-10px);
+  background: rgba(var(--color-primary-rgb), 0.4);
+}
+
+.path-card .path-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: var(--color-primary);
+    transition: var(--transition-fast);
+}
+
+.path-card:hover .path-icon {
+    color: var(--color-accent);
+    transform: scale(1.1);
+}
+
+
+.path-title {
+  font-family: var(--font-family-serif);
+  font-size: 1.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.path-description {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  max-width: 300px;
+}
+
+.bottom-actions {
+  position: fixed;
+  z-index: 100; /* Ensure it's on top of everything */
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.action-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.5rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  backdrop-filter: blur(5px);
+}
+
+.action-btn:hover {
+  background-color: var(--color-surface-light);
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
+  transform: scale(1.1);
 }
