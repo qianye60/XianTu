@@ -5,6 +5,7 @@
     :worlds="characterData.worlds"
     :origins="characterData.origins"
     :talents="characterData.talents"
+    :talent-tiers="characterData.talentTiers"
     :spirit-roots="characterData.spiritRoots"
     :is-loading="isLoading"
     loading-text="正在连接天宫灵脉，请稍候..."
@@ -33,6 +34,7 @@ import {
   getWorldBackgrounds,
   getOrigins,
   getTalents,
+  getTalentTiers,
   getSpiritRoots,
   createCharacter,
   redeemCodeForCreationData,
@@ -40,7 +42,7 @@ import {
 } from '@/services/api'
 import { useGameMode } from '@/composables/useGameMode'
 import { useAuth } from '@/composables/useAuth'
-import type { World, Origin, Talent, SpiritRoot } from '@/core/rules/characterCreation'
+import type { World, Origin, Talent, SpiritRoot, TalentTier } from '@/core/rules/characterCreation'
 
 import CharacterCreationCore from '@/components/character-creation/CharacterCreationCore.vue'
 
@@ -66,6 +68,7 @@ const characterData = reactive<{
   worlds: World[]
   origins: Origin[]
   talents: Talent[]
+  talentTiers: TalentTier[]
   spiritRoots: SpiritRoot[]
   name: string
   selectedWorld: World | null
@@ -76,6 +79,7 @@ const characterData = reactive<{
   worlds: [],
   origins: [],
   talents: [],
+  talentTiers: [],
   spiritRoots: [],
   name: '',
   selectedWorld: null,
@@ -162,15 +166,17 @@ onMounted(async () => {
     userName.value = currentUser.value.user_name
   }
   try {
-    const [worldsData, originsData, talentsData, spiritRootsData] = await Promise.all([
+    const [worldsData, originsData, talentsData, talentTiersData, spiritRootsData] = await Promise.all([
       getWorldBackgrounds(),
       getOrigins(),
       getTalents(),
+      getTalentTiers(),
       getSpiritRoots(),
     ])
     characterData.worlds = worldsData
     characterData.origins = originsData
     characterData.talents = talentsData
+    characterData.talentTiers = talentTiersData
     characterData.spiritRoots = spiritRootsData
   } catch (error) {
     console.error('Failed to load creation data:', error)
