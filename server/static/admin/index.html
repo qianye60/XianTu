@@ -498,7 +498,7 @@
         let currentUser = null;
         let currentTab = 'players';
         let currentEditItem = null;
-        const API_BASE = 'http://127.0.0.1:12349/api/v1';
+        const API_BASE = '/api/v1';
 
         // DOM 元素
         const loginContainer = document.getElementById('loginContainer');
@@ -673,12 +673,20 @@
         async function loadTabData(tabName) {
             showLoading();
 
+            if (!authToken) {
+                console.error("无授权令牌，无法加载数据。");
+                showTableError("授权已失效，请重新登录。");
+                // 延迟一小段时间后强制登出
+                setTimeout(handleLogout, 1500);
+                return;
+            }
+
             try {
                 let endpoint, columns, formatRow;
 
                 switch(tabName) {
                     case 'players':
-                        endpoint = '/users';
+                        endpoint = '/users/';
                         columns = ['ID', '用户名', '创建时间', '状态', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
@@ -701,7 +709,7 @@
                         break;
 
                     case 'admins':
-                        endpoint = '/admin/accounts';
+                        endpoint = '/admin/accounts/';
                         columns = ['ID', '仙官道号', '品阶', '授印时间', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin' || currentUser?.id === item.id;
@@ -724,8 +732,8 @@
                         break;
 
                     case 'worlds':
-                        endpoint = '/worlds';
-                        columns = ['ID', '世界名称', '类型', '时代', '创建时间', '操作'];
+                        endpoint = '/worlds/';
+                        columns = ['ID', '世界名称', '时代', '创建时间', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
                             const canDelete = currentUser?.role === 'super_admin';
@@ -739,7 +747,6 @@
                             return [
                                 item.id,
                                 item.name,
-                                item.type || '-',
                                 item.era || '-',
                                 new Date(item.created_at).toLocaleString('zh-CN'),
                                 `<div class="action-buttons">${actions}</div>`
@@ -748,8 +755,8 @@
                         break;
 
                     case 'origins':
-                        endpoint = '/rules/origins';
-                        columns = ['ID', '出身名称', '稀有度', '描述', '操作'];
+                        endpoint = '/origins/';
+                        columns = ['ID', '出身名称', '稀有度', '花费点数', '描述', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
                             const canDelete = currentUser?.role === 'super_admin';
@@ -764,6 +771,7 @@
                                 item.id,
                                 item.name,
                                 item.rarity || '-',
+                                item.talent_cost || 0,
                                 item.description ? (item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description) : '-',
                                 `<div class="action-buttons">${actions}</div>`
                             ];
@@ -771,8 +779,8 @@
                         break;
 
                     case 'talents':
-                        endpoint = '/rules/talents';
-                        columns = ['ID', '天赋名称', '稀有度', '花费点数', '最大使用次数', '描述', '操作'];
+                        endpoint = '/talents/';
+                        columns = ['ID', '天赋名称', '稀有度', '花费点数', '描述', '操作'];
                         formatRow = (item) => {
                             const canManage = currentUser?.role === 'super_admin';
                             let actions = '';
@@ -785,7 +793,6 @@
                                 item.name,
                                 item.rarity || '-',
                                 item.talent_cost || 0,
-                                item.max_uses || 1,
                                 item.description ? (item.description.length > 30 ? item.description.substring(0, 30) + '...' : item.description) : '-',
                                 `<div class="action-buttons">${actions}</div>`
                             ];
@@ -793,7 +800,7 @@
                         break;
 
                     case 'spirit_roots':
-                        endpoint = '/rules/spirit-roots';
+                        endpoint = '/spirit_roots/';
                         columns = ['ID', '灵根名称', '基础倍率', '花费点数', '描述', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
@@ -817,7 +824,7 @@
                         break;
 
                     case 'codes':
-                        endpoint = '/admin/codes';
+                        endpoint = '/admin/codes/';
                         columns = ['ID', '兑换码', '类型', '使用次数', '创建时间', '操作'];
                         formatRow = (item) => {
                             const canManage = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
@@ -981,25 +988,25 @@
                 let endpoint = '';
                 switch(tabName) {
                     case 'admins':
-                        endpoint = `/admin/accounts/${itemId}`;
+                        endpoint = `/admin/accounts/${itemId}/`;
                         break;
                     case 'codes':
-                        endpoint = `/admin/codes/${itemId}`;
+                        endpoint = `/admin/codes/${itemId}/`;
                         break;
                     case 'talents':
-                        endpoint = `/rules/talents/${itemId}`;
+                        endpoint = `/talents/${itemId}/`;
                         break;
                     case 'players':
-                        endpoint = `/users/${itemId}`;
+                        endpoint = `/users/${itemId}/`;
                         break;
                     case 'worlds':
-                        endpoint = `/worlds/${itemId}`;
+                        endpoint = `/worlds/${itemId}/`;
                         break;
                     case 'origins':
-                        endpoint = `/rules/origins/${itemId}`;
+                        endpoint = `/origins/${itemId}/`;
                         break;
                     case 'spirit_roots':
-                        endpoint = `/rules/spirit-roots/${itemId}`;
+                        endpoint = `/spirit_roots/${itemId}/`;
                         break;
                     default:
                         return;
@@ -1083,10 +1090,6 @@
                             <input type="number" name="talent_cost" class="form-input" value="${item.talent_cost || 1}">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">最大使用次数</label>
-                            <input type="number" name="max_uses" class="form-input" value="${item.max_uses || 1}">
-                        </div>
-                        <div class="form-group">
                             <label class="form-label">描述</label>
                             <textarea name="description" class="form-input" rows="3">${item.description || ''}</textarea>
                         </div>
@@ -1141,6 +1144,10 @@
                             <input type="number" name="rarity" class="form-input" value="${item.rarity || 3}">
                         </div>
                         <div class="form-group">
+                            <label class="form-label">花费点数</label>
+                            <input type="number" name="talent_cost" class="form-input" value="${item.talent_cost || 0}">
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">描述</label>
                             <textarea name="description" class="form-input" rows="3">${item.description || ''}</textarea>
                         </div>
@@ -1183,27 +1190,77 @@
             if (!currentEditItem) return;
 
             const formData = new FormData(e.target);
-            const updates = {};
+            let payload = {};
             
-            // 正确处理表单数据
-            for (let [key, value] of formData.entries()) {
-                if (key === 'password' && !value) {
-                    // 空密码不更新
-                    continue;
-                } else if (key === 'current_password') {
-                    // 当前密码总是包含（如果提供）
-                    if (value) {
-                        updates[key] = value;
+            // 根据 tabName 构建特定的 payload
+            const tabName = currentEditItem.tabName;
+            
+            switch(tabName) {
+                case 'admins':
+                    payload = {
+                        user_name: formData.get('user_name'),
+                        role: formData.get('role')
+                    };
+                    if (formData.get('password')) {
+                        payload.password = formData.get('password');
                     }
-                } else if (key === 'is_banned') {
-                    updates[key] = value === 'true';
-                } else if (key === 'talent_cost' || key === 'max_uses' || key === 'rarity') {
-                    updates[key] = parseInt(value) || 0;
-                } else if (key === 'base_multiplier') {
-                    updates[key] = parseFloat(value) || 1.0;
-                } else {
-                    updates[key] = value; // 包括空字符串
-                }
+                    if (currentEditItem.itemId && (formData.get('password') || formData.get('user_name') !== currentEditItem.data.user_name)) {
+                        payload.current_password = formData.get('current_password');
+                    }
+                    break;
+                case 'codes':
+                    payload = {
+                        code: formData.get('code'),
+                        type: formData.get('type'),
+                        max_uses: parseInt(formData.get('max_uses')) || 1
+                    };
+                    break;
+                case 'talents':
+                    payload = {
+                        name: formData.get('name'),
+                        rarity: parseInt(formData.get('rarity')) || 2,
+                        talent_cost: parseInt(formData.get('talent_cost')) || 1,
+                        description: formData.get('description')
+                    };
+                    break;
+                case 'players':
+                     payload = {
+                        user_name: formData.get('user_name'),
+                        is_banned: formData.get('is_banned') === 'true'
+                    };
+                    if (formData.get('password')) {
+                        payload.password = formData.get('password');
+                    }
+                    break;
+                case 'worlds':
+                    payload = {
+                        name: formData.get('name'),
+                        era: formData.get('era'),
+                        description: formData.get('description')
+                    };
+                    break;
+                case 'origins':
+                    payload = {
+                        name: formData.get('name'),
+                        rarity: parseInt(formData.get('rarity')) || 3,
+                        talent_cost: parseInt(formData.get('talent_cost')) || 0,
+                        description: formData.get('description')
+                    };
+                    break;
+                case 'spirit_roots':
+                    payload = {
+                        name: formData.get('name'),
+                        base_multiplier: parseFloat(formData.get('base_multiplier')) || 1.0,
+                        talent_cost: parseInt(formData.get('talent_cost')) || 0,
+                        description: formData.get('description')
+                    };
+                    break;
+                default:
+                    // Fallback for any other case
+                    for (let [key, value] of formData.entries()) {
+                        payload[key] = value;
+                    }
+                    break;
             }
 
             try {
@@ -1211,56 +1268,28 @@
                 let method = 'PUT';
                 
                 if (currentEditItem.itemId) {
-                    // 编辑现有项目
-                    switch(currentEditItem.tabName) {
-                        case 'admins':
-                            endpoint = `/admin/accounts/${currentEditItem.itemId}`;
-                            break;
-                        case 'codes':
-                            endpoint = `/admin/codes/${currentEditItem.itemId}`;
-                            break;
-                        case 'talents':
-                            endpoint = `/rules/talents/${currentEditItem.itemId}`;
-                            break;
-                        case 'players':
-                            endpoint = `/users/${currentEditItem.itemId}`;
-                            break;
-                        case 'worlds':
-                            endpoint = `/worlds/${currentEditItem.itemId}`;
-                            break;
-                        case 'origins':
-                            endpoint = `/rules/origins/${currentEditItem.itemId}`;
-                            break;
-                        case 'spirit_roots':
-                            endpoint = `/rules/spirit-roots/${currentEditItem.itemId}`;
-                            break;
+                    // 编辑
+                    method = 'PUT';
+                    switch(tabName) {
+                        case 'admins': endpoint = `/admin/accounts/${currentEditItem.itemId}`; break;
+                        case 'codes': endpoint = `/admin/codes/${currentEditItem.itemId}`; break;
+                        case 'talents': endpoint = `/talents/${currentEditItem.itemId}`; break;
+                        case 'players': endpoint = `/users/${currentEditItem.itemId}`; break;
+                        case 'worlds': endpoint = `/worlds/${currentEditItem.itemId}`; break;
+                        case 'origins': endpoint = `/origins/${currentEditItem.itemId}`; break;
+                        case 'spirit_roots': endpoint = `/spirit_roots/${currentEditItem.itemId}`; break;
                     }
                 } else {
-                    // 创建新项目
+                    // 创建
                     method = 'POST';
-                    switch(currentEditItem.tabName) {
-                        case 'admins':
-                            endpoint = '/admin/accounts';
-                            break;
-                        case 'codes':
-                            endpoint = '/admin/create';
-                            updates.payload = { description: updates.type };
-                            break;
-                        case 'talents':
-                            endpoint = '/rules/talents';
-                            break;
-                        case 'players':
-                            endpoint = '/register';
-                            break;
-                        case 'worlds':
-                            endpoint = '/worlds';
-                            break;
-                        case 'origins':
-                            endpoint = '/rules/origins';
-                            break;
-                        case 'spirit_roots':
-                            endpoint = '/rules/spirit-roots';
-                            break;
+                    switch(tabName) {
+                        case 'admins': endpoint = '/admin/accounts'; break;
+                        case 'codes': endpoint = '/admin/codes'; break;
+                        case 'talents': endpoint = '/talents'; break;
+                        case 'players': endpoint = '/register'; break;
+                        case 'worlds': endpoint = '/worlds'; break;
+                        case 'origins': endpoint = '/origins'; break;
+                        case 'spirit_roots': endpoint = '/spirit_roots'; break;
                     }
                 }
 
@@ -1270,7 +1299,7 @@
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(updates)
+                    body: JSON.stringify(payload)
                 });
 
                 if (response.ok) {
@@ -1301,7 +1330,7 @@
                         endpoint = `/admin/codes/${itemId}`;
                         break;
                     case 'talents':
-                        endpoint = `/rules/talents/${itemId}`;
+                        endpoint = `/talents/${itemId}`;
                         break;
                     case 'players':
                         endpoint = `/users/${itemId}`;
@@ -1310,10 +1339,10 @@
                         endpoint = `/worlds/${itemId}`;
                         break;
                     case 'origins':
-                        endpoint = `/rules/origins/${itemId}`;
+                        endpoint = `/origins/${itemId}`;
                         break;
                     case 'spirit_roots':
-                        endpoint = `/rules/spirit-roots/${itemId}`;
+                        endpoint = `/spirit_roots/${itemId}`;
                         break;
                 }
 
@@ -1403,10 +1432,6 @@
                             <input type="number" name="talent_cost" class="form-input" value="1">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">最大使用次数</label>
-                            <input type="number" name="max_uses" class="form-input" value="1">
-                        </div>
-                        <div class="form-group">
                             <label class="form-label">描述</label>
                             <textarea name="description" class="form-input" rows="3"></textarea>
                         </div>
@@ -1452,6 +1477,10 @@
                         <div class="form-group">
                             <label class="form-label">稀有度</label>
                             <input type="number" name="rarity" class="form-input" value="3">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">花费点数</label>
+                            <input type="number" name="talent_cost" class="form-input" value="0">
                         </div>
                         <div class="form-group">
                             <label class="form-label">描述</label>

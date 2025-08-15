@@ -1,5 +1,16 @@
 # --- 灵脉参数 (数据库配置) ---
 import os
+from typing import AsyncGenerator
+from tortoise.backends.base.client import BaseDBAsyncClient
+from tortoise import Tortoise
+
+async def get_db() -> AsyncGenerator[BaseDBAsyncClient, None]:
+    """获取数据库连接"""
+    try:
+        conn = Tortoise.get_connection("default")
+        yield conn
+    finally:
+        pass  # Connection will be automatically managed by Tortoise ORM
 
 # 环境变量配置，默认使用远程数据库
 USE_LOCAL_DB = os.getenv('USE_LOCAL_DB', 'false').lower() == 'true'

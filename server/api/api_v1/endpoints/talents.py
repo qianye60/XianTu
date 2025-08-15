@@ -9,7 +9,7 @@ from server.models import AdminAccount
 
 router = APIRouter()
 
-@router.post("/", response_model=schema.Talent, tags=["核心规则"])
+@router.post("", response_model=schema.Talent, tags=["核心规则"])
 async def create_talent_endpoint(
     talent: schema.TalentCreate,
     current_admin: AdminAccount = Depends(deps.get_super_admin_user)
@@ -32,14 +32,12 @@ async def get_talent_endpoint(talent_id: int):
 
 @router.put("/{talent_id}", response_model=schema.Talent, tags=["核心规则"])
 async def update_talent_endpoint(
-    talent_id: int, 
-    talent_data: dict,
+    talent_id: int,
+    talent_data: schema.TalentUpdate,
     current_admin: AdminAccount = Depends(deps.get_super_admin_user)
 ):
     """更新核心天赋（仅超级管理员）"""
-    # 将dict转换为TalentCreate对象
-    talent_create = schema.TalentCreate(**talent_data)
-    updated_talent = await crud_rule.update_talent(talent_id, talent_create)
+    updated_talent = await crud_rule.update_talent(talent_id, talent_data)
     if not updated_talent:
         raise HTTPException(status_code=404, detail="天赋不存在或更新失败")
     return updated_talent

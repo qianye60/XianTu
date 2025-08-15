@@ -1,7 +1,7 @@
 """出身体系的异步增删改查操作"""
 from typing import List, Optional
 from server.models import Origin
-from server.schemas.schema import OriginCreate
+from server.schemas.schema import OriginCreate, OriginUpdate
 
 async def create_origin(origin: OriginCreate) -> Origin:
     """创建新出身"""
@@ -17,10 +17,19 @@ async def get_origins() -> List[Origin]:
     """获取所有出身"""
     return await Origin.all().order_by("name")
 
-async def update_origin(origin_id: int, origin_data: OriginCreate) -> Optional[Origin]:
+async def update_origin(origin_id: int, origin_data: OriginUpdate) -> Optional[Origin]:
     """更新出身"""
-    await Origin.filter(id=origin_id).update(**origin_data.model_dump())
-    return await get_origin(origin_id)
+    origin = await get_origin(origin_id)
+    if not origin:
+        return None
+    
+    update_data = origin_data.model_dump(exclude_unset=True)
+    
+    for key, value in update_data.items():
+        setattr(origin, key, value)
+        
+    await origin.save()
+    return origin
 
 async def delete_origin(origin_id: int) -> bool:
     """删除出身"""

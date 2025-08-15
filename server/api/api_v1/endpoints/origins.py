@@ -1,7 +1,7 @@
 """出身相关的API端点 (已重构为异步)"""
 from typing import List
 from fastapi import APIRouter, HTTPException
-from server.schemas.schema import Origin, OriginCreate
+from server.schemas.schema import Origin, OriginCreate, OriginUpdate
 from server.crud import crud_origins
 
 router = APIRouter()
@@ -25,7 +25,7 @@ async def get_origin_endpoint(origin_id: int):
     return db_origin
 
 @router.put("/{origin_id}", response_model=Origin, tags=["核心规则"])
-async def update_origin_endpoint(origin_id: int, origin: OriginCreate):
+async def update_origin_endpoint(origin_id: int, origin: OriginUpdate):
     """更新出身"""
     updated_origin = await crud_origins.update_origin(origin_id, origin)
     if not updated_origin:

@@ -26,7 +26,7 @@ async def get_spirit_root_endpoint(spirit_root_id: int):
     return spirit_root
 
 @router.put("/{spirit_root_id}", response_model=schema.SpiritRoot, tags=["核心规则"])
-async def update_spirit_root_endpoint(spirit_root_id: int, spirit_root: schema.SpiritRootCreate):
+async def update_spirit_root_endpoint(spirit_root_id: int, spirit_root: schema.SpiritRootUpdate):
     """更新核心灵根"""
     updated_spirit_root = await crud_rule.update_spirit_root(spirit_root_id, spirit_root)
     if not updated_spirit_root:

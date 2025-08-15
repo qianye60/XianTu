@@ -67,7 +67,7 @@ async def list_redemption_codes(
     codes = await crud_redemption.get_all_codes(skip=skip, limit=limit)
     return codes
 
-@router.post("/admin/create", response_model=schema.RedemptionCode, tags=["兑换码管理"])
+@router.post("/admin/codes", response_model=schema.RedemptionCode, tags=["兑换码管理"])
 async def create_redemption_code(
     request: schema.RedemptionCodeAdminCreate,
     current_admin: AdminAccount = Depends(deps.get_current_active_admin_user)

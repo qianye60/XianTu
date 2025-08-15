@@ -1,171 +1,119 @@
 <template>
   <div id="app-container">
-    <video src="http://38.55.124.252:13145/1394774d3043156d.mp4" autoplay loop muted playsinline class="background-video"></video>
-    <div class="content-wrapper">
-      <!-- 优化：只在真正需要加载时显示遮罩 -->
-      <div v-if="isInitialLoading || isLoadingView" class="loading-overlay">
-        <div class="spinner"></div>
-        天机推演中，请稍候...
-      </div>
-      <!-- 优化：移除 mode="out-in" 减少切换延迟 -->
-      <transition v-else name="fade">
-        <component :is="currentView" :key="currentView.name" />
-      </transition>
-      <FullscreenButton />
+    <div class="global-actions">
+      <button @click="toggleTheme" class="theme-toggle">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+      <button @click="toggleFullscreen" class="fullscreen-toggle">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+      </button>
     </div>
+    <component
+      :is="activeView"
+      @path-selected="handlePathSelection"
+      @back="switchView('ModeSelection')"
+      @loggedIn="switchView('CharacterCreation')"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, ref } from 'vue'
-import FullscreenButton from '@/components/shared/FullscreenButton.vue'
-import { useGameState } from '@/composables/useGameState'
-import { useGameMode } from '@/composables/useGameMode'
-import { useTheme } from '@/composables/useTheme' // 导入主题心法
-import { useAuth } from '@/composables/useAuth'
-import { initializeMemoryManager } from '@/services/MemoryManager'
+import { shallowRef, ref, onMounted } from 'vue'
+import ModeSelection from './views/ModeSelection.vue'
+import CharacterCreation from './views/CharacterCreation.vue'
+import Login from './views/Login.vue'
+import './style.css'
+import { useCharacterCreationStore } from './stores/characterCreationStore'
 
-import { CHENWU_WHITE_BACKGROUND } from '@/assets/backgrounds'
-import '@/style.css'
 
-declare const TavernHelper: {
-  toastr: {
-    success: (message: string) => void
+// --- 核心视图管理 ---
+const views = {
+  ModeSelection,
+  CharacterCreation,
+  Login,
+}
+type ViewName = keyof typeof views;
+const activeView = shallowRef<typeof ModeSelection | typeof CharacterCreation | typeof Login>(views.ModeSelection)
+
+const store = useCharacterCreationStore();
+
+const switchView = (viewName: ViewName) => {
+  const component = views[viewName]
+  if (component) {
+    activeView.value = component
+  } else {
+    activeView.value = ModeSelection
   }
-  setBackground: (background: string | null) => void
 }
 
-// --- 核心状态管理 ---
-const {
-  activeCharacter,
-  isLoading: isGameStateLoading,
-  loadGameState,
-} = useGameState()
-const { initializeGameMode, currentView, isLoadingView } = useGameMode()
-const { initializeAuth } = useAuth()
-const { initializeTheme } = useTheme() // 获取主题初始化法咒
-
-// --- 核心流程控制 ---
-const isInitialLoading = ref(false) // 优化：仅用于初始加载
-
-// --- 生命周期钩子 ---
-
-onMounted(async () => {
-  isInitialLoading.value = true
-  try {
-    // 初始化核心服务
-    initializeTheme() // 启动主题心法！
-    initializeAuth()
-    await initializeGameMode() // 改为 await
-    await loadGameState()
-
-    // if (typeof TavernHelper !== 'undefined') {
-    //   // 贫道注：此处原为设置静态背景图，现已由视频天幕替代。
-    //   TavernHelper.setBackground(CHENWU_WHITE_BACKGROUND)
-    // }
-  } finally {
-    isInitialLoading.value = false
-  }
-})
-
-onUnmounted(() => {
-  TavernHelper.setBackground(null)
-})
-
-// 监视当前角色状态，为其注入神识
-watch(
-  activeCharacter,
-  (newCharacter) => {
-    if (newCharacter) {
-      console.log('【天道枢纽】检测到命盘激活，为识海洞天注灵...')
-      initializeMemoryManager(activeCharacter)
+const handlePathSelection = (mode: 'single' | 'multi') => {
+    store.setMode(mode);
+    if (mode === 'single') {
+        switchView('CharacterCreation');
+    } else {
+        switchView('Login');
     }
-  },
-  { immediate: true },
-)
+}
+
+// --- 主题切换 ---
+const isDarkMode = ref(true);
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value;
+  document.documentElement.setAttribute('data-theme', isDarkMode.value ? 'dark' : 'light');
+}
+onMounted(() => {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  // Reset store on initial load
+  store.reset();
+})
+
+
+// --- 全屏切换 ---
+const toggleFullscreen = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+}
 </script>
 
 <style>
-/* 移除 scoped，让样式成为全局法则 */
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden; /* 防止根元素出现滚动条 */
-}
-
-.background-video {
-  position: fixed;
+#app-container {
+  position: absolute;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  object-fit: cover;
-  z-index: 0; /* 作为基座 */
-  filter: brightness(0.4); /* 再次调暗，为文字提供更稳定的背景 */
-}
-
-#app-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.content-wrapper {
-  position: relative;
-  z-index: 1; /* 浮于天幕之上 */
-  width: 100%;
-  height: 100%;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  overflow: auto;
-  box-sizing: border-box;
 }
-
-.loading-overlay {
+.global-actions {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
   display: flex;
-  flex-direction: column; /* 让文字在转圈动画下方 */
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.8); /* 加深背景遮罩 */
-  color: var(--color-accent); /* 使用醒目的强调色作为文字颜色 */
-  font-size: 1.5rem;
-  font-family: var(--font-family-serif);
-  z-index: 10000; /* 确保在最顶层 */
+  gap: 0.5rem;
 }
-
-.spinner {
-  margin-bottom: 20px; /* 让文字和转圈动画有间距 */
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top: 4px solid var(--color-accent);
+.global-actions button {
+  background: rgba(40, 40, 40, 0.7);
+  border: 1px solid #555;
+  color: #c8ccd4;
   width: 40px;
   height: 40px;
-  animation: spin 1s linear infinite;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease;
 }
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* 响应式适配不再需要，交由具体内容面板处理 */
-
-/* 优化：加快过渡动画速度 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.05s ease; /* 从0.1s减少到0.05s */
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.global-actions button:hover {
+  background: #e5c07b;
+  color: #1a1a1a;
 }
 </style>

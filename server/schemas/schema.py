@@ -157,6 +157,13 @@ class OriginCreate(BaseModel):
     rarity: int = 3
     talent_cost: int = 0
 
+class OriginUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    attribute_modifiers: Optional[Dict[str, Any]] = None
+    rarity: Optional[int] = None
+    talent_cost: Optional[int] = None
+
 class Talent(BaseModel):
     id: int
     name: str
@@ -173,6 +180,13 @@ class TalentCreate(BaseModel):
     rarity: int = 2
     talent_cost: int = 1
 
+class TalentUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    effects: Optional[Any] = None
+    rarity: Optional[int] = None
+    talent_cost: Optional[int] = None
+
 class SpiritRoot(BaseModel):
     id: int
     name: str
@@ -186,6 +200,12 @@ class SpiritRootCreate(BaseModel):
     description: Optional[str] = None
     base_multiplier: float
     talent_cost: int = 0
+
+class SpiritRootUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    base_multiplier: Optional[float] = None
+    talent_cost: Optional[int] = None
 
 # --- 通用修仙元素 ---
 

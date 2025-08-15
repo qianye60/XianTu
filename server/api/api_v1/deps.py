@@ -42,7 +42,7 @@ def get_current_active_user(current_user: PlayerAccount = Depends(get_current_us
     return current_user
 
 
-async def get_current_admin(token: str = Depends(reusable_oauth2)) -> AdminAccount:
+async def get_current_admin(token: str = Depends(admin_oauth2)) -> AdminAccount:
     """
     获取当前管理员用户（从普通用户token中验证）
     """

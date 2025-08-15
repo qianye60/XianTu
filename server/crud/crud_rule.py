@@ -27,13 +27,13 @@ async def create_talent(talent: schema.TalentCreate) -> Talent:
     """创建新天赋"""
     return await Talent.create(**talent.model_dump())
 
-async def update_talent(talent_id: int, talent_update: schema.TalentCreate) -> Optional[Talent]:
+async def update_talent(talent_id: int, talent_update: schema.TalentUpdate) -> Optional[Talent]:
     """更新天赋"""
     talent = await Talent.get_or_none(id=talent_id)
     if talent:
-        talent.name = talent_update.name
-        talent.description = talent_update.description
-        talent.effects = talent_update.effects
+        update_data = talent_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(talent, key, value)
         await talent.save()
     return talent
 
@@ -59,13 +59,13 @@ async def create_spirit_root(spirit_root: schema.SpiritRootCreate) -> SpiritRoot
     """创建新灵根"""
     return await SpiritRoot.create(**spirit_root.model_dump())
 
-async def update_spirit_root(spirit_root_id: int, spirit_root_update: schema.SpiritRootCreate) -> Optional[SpiritRoot]:
+async def update_spirit_root(spirit_root_id: int, spirit_root_update: schema.SpiritRootUpdate) -> Optional[SpiritRoot]:
     """更新灵根"""
     spirit_root = await SpiritRoot.get_or_none(id=spirit_root_id)
     if spirit_root:
-        spirit_root.name = spirit_root_update.name
-        spirit_root.description = spirit_root_update.description
-        spirit_root.base_multiplier = spirit_root_update.base_multiplier
+        update_data = spirit_root_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(spirit_root, key, value)
         await spirit_root.save()
     return spirit_root
 
