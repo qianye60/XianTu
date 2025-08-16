@@ -490,7 +490,7 @@
                 <div id="editError" class="error-message hidden"></div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="hideEditModal()">取消</button>
-                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="submit" id="editModalSubmitBtn" class="btn btn-primary">保存</button>
                 </div>
             </form>
         </div>
@@ -721,7 +721,7 @@
                           (tabName === 'origins' && currentUser?.role === 'super_admin') ||
                           (tabName === 'spirit_roots' && currentUser?.role === 'super_admin') ||
                           (tabName === 'characters' && currentUser?.role === 'super_admin') ||
-                          (tabName === 'ban_records' && (currentUser?.role === 'super_admin' || currentUser?.role === 'admin'));
+                          (tabName === 'ban_records' && currentUser?.role === 'super_admin');
             
             if (canAdd) {
                 addBtn.classList.remove('hidden');
@@ -766,7 +766,7 @@
                         columns = ['ID', '用户名', '创建时间', '状态', '角色数量', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
-                            const canBan = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+                            const canBan = currentUser?.role === 'super_admin';
                             let actions = '';
                             if (canEdit) {
                                 actions += `<button class="action-btn edit" onclick="editItem('${tabName}', ${item.id})">编辑</button>`;
@@ -1486,6 +1486,7 @@
                         player_id: parseInt(formData.get('player_id')),
                         world_id: parseInt(formData.get('world_id')),
                         talent_tier_id: parseInt(formData.get('talent_tier_id')),
+                        birth_age: parseInt(formData.get('birth_age')) || 16,
                         origin_id: formData.get('origin_id') ? parseInt(formData.get('origin_id')) : null,
                         spirit_root_id: formData.get('spirit_root_id') ? parseInt(formData.get('spirit_root_id')) : null,
                         selected_talent_ids: selectedTalentIds,
@@ -1534,7 +1535,7 @@
                         case 'worlds': endpoint = '/worlds'; break;
                         case 'origins': endpoint = '/origins'; break;
                         case 'spirit_roots': endpoint = '/spirit_roots'; break;
-                        case 'characters': endpoint = '/admin/create'; break;
+                        case 'characters': endpoint = '/characters/create_by_admin'; break;
                     }
                 }
 
@@ -1820,6 +1821,13 @@
                         <div class="form-group">
                             <label class="form-label">灵根ID（可选）</label>
                             <input type="number" name="spirit_root_id" class="form-input" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">初始年龄</label>
+                            <input type="number" name="birth_age" class="form-input" min="0" max="18" value="16" required>
+                            <small style="color: var(--text-light); display: block; margin-top: 5px;">
+                                设置角色的初始年龄（0-18岁）
+                            </small>
                         </div>
                         <div class="form-group">
                             <h4>先天六司配置</h4>
@@ -2155,10 +2163,11 @@
                     }
 
                     // 创建选择界面
+                    // 创建选择界面
                     let html = `
                         <div class="form-group">
                             <label class="form-label">选择要封禁的玩家</label>
-                            <select id="selectPlayerToBan" class="form-select" required>
+                            <select id="selectPlayerToBan" name="player_to_ban" class="form-select" required>
                                 <option value="">请选择玩家</option>
                     `;
                     
@@ -2169,14 +2178,15 @@
                     html += `
                             </select>
                         </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-secondary" onclick="hideEditModal()">取消</button>
-                            <button type="button" class="btn btn-danger" onclick="proceedToBan()">下一步</button>
-                        </div>
                     `;
 
                     document.getElementById('editModalTitle').textContent = '选择要封禁的玩家';
                     document.getElementById('editFormFields').innerHTML = html;
+                    
+                    const submitBtn = document.getElementById('editModalSubmitBtn');
+                    submitBtn.textContent = '下一步';
+                    submitBtn.className = 'btn btn-danger'; // 更改按钮样式
+                    
                     document.getElementById('editModal').classList.remove('hidden');
                 }
             } catch (error) {
@@ -2186,15 +2196,23 @@
 
         function proceedToBan() {
             const selectElement = document.getElementById('selectPlayerToBan');
+            if (!selectElement) return;
+
             const playerId = selectElement.value;
-            const playerName = selectElement.options[selectElement.selectedIndex].dataset.name;
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
             
-            if (!playerId) {
+            if (!playerId || !selectedOption) {
                 alert('请选择要封禁的玩家');
                 return;
             }
+            const playerName = selectedOption.dataset.name;
 
             hideEditModal();
+            // 恢复按钮默认状态
+            const submitBtn = document.getElementById('editModalSubmitBtn');
+            submitBtn.textContent = '保存';
+            submitBtn.className = 'btn btn-primary';
+            
             banPlayer(playerId, playerName);
         }
 

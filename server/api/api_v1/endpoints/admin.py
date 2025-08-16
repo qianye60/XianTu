@@ -9,6 +9,11 @@ from server.core import security
 
 router = APIRouter(prefix="/admin", tags=["后台管理"])
 
+@router.get("/", summary="测试管理员路由")
+async def get_admin_root():
+    """确认管理员路由是否成功加载"""
+    return {"message": "仙官府邸可达，灵脉畅通。"}
+
 @router.get("/characters", tags=["仙官管理"])
 async def get_all_characters_admin(current_admin: AdminAccount = Depends(deps.get_current_admin)):
     """

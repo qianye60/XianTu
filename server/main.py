@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
         await crud_user.ensure_admin_account_exists()
         print("--- 开始初始化种子数据... ---")
         await initialize_database()  # 初始化种子数据
-        print("--- 世界根基稳固，灵脉畅通。---")
+        print("--- 世界根基稳固，灵脉畅通---\n\t(后台启动)\t\n=== 大 - 道 - 朝 - 天 ===")
     except Exception as e:
         print(f"--- 种子数据初始化失败: {str(e)[:100]} ---")
         print("--- 服务器将以基础模式运行。 ---")

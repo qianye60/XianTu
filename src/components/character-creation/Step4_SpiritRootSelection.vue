@@ -10,7 +10,7 @@
           <div
             class="spirit-root-item"
             :class="{
-              selected: isRandomSelected
+              selected: isRandomSelected,
             }"
             @click="selectRandomSpiritRoot"
           >
@@ -24,7 +24,7 @@
             class="spirit-root-item"
             :class="{
               selected: store.selectedSpiritRoot?.id === root.id,
-              disabled: !canSelectSpiritRoot(root)
+              disabled: !canSelectSpiritRoot(root),
             }"
             @click="selectSpiritRoot(root)"
           >
@@ -36,7 +36,11 @@
         <!-- 功能按钮 -->
         <div class="single-actions-container">
           <div class="divider"></div>
-          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
+          <button
+            v-if="store.mode === 'single'"
+            @click="isCustomModalVisible = true"
+            class="action-item shimmer-on-hover"
+          >
             <span class="action-name">自定义灵根</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
@@ -52,13 +56,9 @@
           <div class="description-scroll">
             <p>{{ selectedDescription }}</p>
           </div>
-          <div class="cost-display">
-            消耗天道点: {{ selectedCost }}
-          </div>
+          <div class="cost-display">消耗天道点: {{ selectedCost }}</div>
         </div>
-        <div v-else class="placeholder">
-          请选择一种灵根，或听天由命。
-        </div>
+        <div v-else class="placeholder">请选择一种灵根，或听天由命。</div>
       </div>
     </div>
 
@@ -70,33 +70,32 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useCharacterCreationStore, type SpiritRoot } from '../../stores/characterCreationStore';
-import { LOCAL_SPIRIT_ROOTS } from '../../data/localData';
-import { request } from '../../services/request';
-import CustomCreationModal from './CustomCreationModal.vue';
-import { generateSpiritRootWithTavernAI, validateCustomData } from '../../utils/tavernAI';
-import { toast } from '../../utils/toast';
+import { ref, onMounted, computed } from 'vue'
+import { useCharacterCreationStore, type SpiritRoot } from '../../stores/characterCreationStore'
+import { LOCAL_SPIRIT_ROOTS } from '../../data/localData'
+import { request } from '../../services/request'
+import CustomCreationModal from './CustomCreationModal.vue'
+import { generateSpiritRootWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import { toast } from '../../utils/toast'
 
-const emit = defineEmits(['ai-generate']);
-const store = useCharacterCreationStore();
-const spiritRoots = ref<SpiritRoot[]>([]);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const isRandomSelected = ref(false);
-const isCustomModalVisible = ref(false);
+const emit = defineEmits(['ai-generate'])
+const store = useCharacterCreationStore()
+const spiritRoots = ref<SpiritRoot[]>([])
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const isRandomSelected = ref(false)
+const isCustomModalVisible = ref(false)
 
 const customSpiritRootFields = [
   { key: 'name', label: '灵根名称', type: 'text', placeholder: '例如：混沌灵根' },
   { key: 'description', label: '灵根描述', type: 'textarea', placeholder: '描述这个灵根的特性...' },
   { key: 'base_multiplier', label: '修炼倍率', type: 'text', placeholder: '例如：1.5' },
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：10' },
-] as const;
+] as const
 
 function handleCustomSubmit(data: any) {
   const newRoot: SpiritRoot = {
@@ -105,144 +104,155 @@ function handleCustomSubmit(data: any) {
     description: data.description,
     base_multiplier: parseFloat(data.base_multiplier) || 1.0,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
-  };
-  spiritRoots.value.unshift(newRoot);
-  selectSpiritRoot(newRoot);
+  }
+  spiritRoots.value.unshift(newRoot)
+  selectSpiritRoot(newRoot)
 }
 
 const selectedDisplayName = computed(() => {
-  if (isRandomSelected.value) return '随机灵根';
-  return store.selectedSpiritRoot?.name || '';
-});
+  if (isRandomSelected.value) return '随机灵根'
+  return store.selectedSpiritRoot?.name || ''
+})
 
 const selectedDescription = computed(() => {
-  if (isRandomSelected.value) return '大道五十，天衍四九，人遁其一。选择此项，你的灵根将完全随机生成，可能一步登天，亦可能平庸无奇。';
-  return store.selectedSpiritRoot?.description || '灵根信息不明。';
-});
+  if (isRandomSelected.value)
+    return '大道五十，天衍四九，人遁其一。选择此项，你的灵根将完全随机生成，可能一步登天，亦可能平庸无奇。'
+  return store.selectedSpiritRoot?.description || '灵根信息不明。'
+})
 
 const selectedCost = computed(() => {
-  if (isRandomSelected.value) return 0;
-  return store.selectedSpiritRoot?.talent_cost || 0;
-});
+  if (isRandomSelected.value) return 0
+  return store.selectedSpiritRoot?.talent_cost || 0
+})
 
 async function fetchSpiritRoots() {
   // 单机模式使用本地数据
   if (store.mode === 'single') {
     try {
-      spiritRoots.value = LOCAL_SPIRIT_ROOTS.map(r => ({
+      spiritRoots.value = LOCAL_SPIRIT_ROOTS.map((r) => ({
         id: r.id,
         name: r.name,
         description: r.description,
         base_multiplier: r.base_multiplier,
-        talent_cost: r.talent_cost
-      }));
+        talent_cost: r.talent_cost,
+      }))
 
       setTimeout(() => {
-        isLoading.value = false;
-      }, 300);
+        isLoading.value = false
+      }, 300)
     } catch (e: any) {
-      error.value = '加载本地数据失败';
-      isLoading.value = false;
+      error.value = '加载本地数据失败'
+      isLoading.value = false
     }
   } else {
     // 联机模式请求后端
     if (!store.selectedWorld) {
-      error.value = "尚未选择世界，无法获取灵根数据。";
-      isLoading.value = false;
-      return;
+      error.value = '尚未选择世界，无法获取灵根数据。'
+      isLoading.value = false
+      return
     }
 
     try {
-      const data = await request<any>(`/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
-      spiritRoots.value = data.spirit_roots || [];
+      const data = await request<any>(
+        `/api/v1/characters/creation_data?world_id=${store.selectedWorld.id}`,
+      )
+      spiritRoots.value = data.spirit_roots || []
     } catch (e: any) {
-      error.value = e.message;
+      error.value = e.message
     } finally {
-      isLoading.value = false;
+      isLoading.value = false
     }
   }
 }
 
 const canSelectSpiritRoot = (root: SpiritRoot) => {
   if (store.mode === 'multi') {
-    return true; // In multi mode, server handles validation
+    return true // 联机模式由服务器处理验证
   }
+  // 如果是当前选中的，允许取消选择
   if (store.selectedSpiritRoot?.id === root.id) {
-    return true; // Always allow deselecting
+    return true
   }
-  const currentCost = store.selectedSpiritRoot?.talent_cost ?? 0;
-  const availablePoints = store.remainingTalentPoints + currentCost;
-  return availablePoints >= root.talent_cost;
-};
+  // 随机灵根总是可选的，因为不消耗点数
+  if (root.talent_cost === 0) {
+    return true
+  }
+  // 计算选择新灵根后剩余的点数
+  const currentCost = store.selectedSpiritRoot?.talent_cost ?? 0
+  const availablePoints = store.remainingTalentPoints + currentCost
+  const afterPoints = availablePoints - root.talent_cost
+  // 选择后点数不能为负
+  return afterPoints >= 0
+}
 
 function selectSpiritRoot(root: SpiritRoot) {
   if (store.mode === 'single' && !canSelectSpiritRoot(root)) {
-    toast.warning("天道点不足，无法选择此灵根。");
-    return;
+    toast.warning('天道点不足，无法选择此灵根。')
+    return
   }
-  store.selectedSpiritRoot = root;
-  isRandomSelected.value = false;
+  store.selectedSpiritRoot = root
+  isRandomSelected.value = false
 }
 
 function selectRandomSpiritRoot() {
-  isRandomSelected.value = true;
-  store.selectedSpiritRoot = null;
+  isRandomSelected.value = true
+  store.selectedSpiritRoot = null
 }
 
 async function _handleLocalAIGenerate() {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
   try {
-    const newRoot = await generateSpiritRootWithTavernAI();
-    spiritRoots.value.unshift(newRoot);
-    selectSpiritRoot(newRoot);
+    const newRoot = await generateSpiritRootWithTavernAI()
+    spiritRoots.value.unshift(newRoot)
+    selectSpiritRoot(newRoot)
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
-    toast.error(error.value);
+    error.value = `AI推演失败: ${e.message}`
+    toast.error(error.value)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
 function handleAIGenerate() {
   if (store.mode === 'single') {
-    _handleLocalAIGenerate();
+    _handleLocalAIGenerate()
   } else {
-    emit('ai-generate');
+    emit('ai-generate')
   }
 }
 
 async function handleAIGenerateWithCode(code: string) {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
   try {
     const newRoot = await request<SpiritRoot>('/api/v1/ai_redeem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, type: 'spirit_root' }),
-    });
-    spiritRoots.value.unshift(newRoot);
-    selectSpiritRoot(newRoot);
-    toast.success('天机接引成功！');
+    })
+    spiritRoots.value.unshift(newRoot)
+    selectSpiritRoot(newRoot)
+    toast.success('天机接引成功！')
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
+    error.value = `AI推演失败: ${e.message}`
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
 defineExpose({
   handleAIGenerateWithCode,
-  fetchData: fetchSpiritRoots,  // 暴露数据获取方法
-});
+  fetchData: fetchSpiritRoots, // 暴露数据获取方法
+})
 
 onMounted(() => {
-  fetchSpiritRoots();
+  fetchSpiritRoots()
   // Check if random was previously selected
   if (!store.selectedSpiritRoot) {
-    isRandomSelected.value = true;
+    isRandomSelected.value = true
   }
-});
+})
 </script>
 
 <style scoped>
@@ -253,7 +263,9 @@ onMounted(() => {
   position: relative;
 }
 
-.loading-state, .error-state, .placeholder {
+.loading-state,
+.error-state,
+.placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -350,12 +362,7 @@ onMounted(() => {
 
 .divider {
   height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(136, 192, 208, 0.3),
-    transparent
-  );
+  background: linear-gradient(to right, transparent, rgba(136, 192, 208, 0.3), transparent);
   margin: 0.5rem 0;
 }
 

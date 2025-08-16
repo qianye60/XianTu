@@ -37,9 +37,10 @@ async def create_character_base(
         return None, "天资等级不存在。"
     
     # 验证属性分配是否合理
-    total_allocated = root_bone + spirituality + comprehension + fortune + charm + temperament
-    if total_allocated != talent_tier.total_points:
-        return None, f"属性分配不正确，应分配 {talent_tier.total_points} 点，实际分配 {total_allocated} 点。"
+    # NOTE: 详细的验证（包括出身、灵根、天赋）已在API层完成，此处不再重复验证，避免逻辑冲突。
+    # total_allocated = root_bone + spirituality + comprehension + fortune + charm + temperament
+    # if total_allocated > talent_tier.total_points:
+    #     return None, f"属性点分配超出上限，最多可分配 {talent_tier.total_points} 点，实际分配 {total_allocated} 点。"
 
     try:
         new_char = await CharacterBase.create(

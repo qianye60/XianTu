@@ -87,8 +87,8 @@ async def create_character_base(
             raise HTTPException(status_code=400, detail=f"{attr_name}不能超过10点")
     
     # 验证世界是否存在
-    from server.models import WorldBackground
-    world = await WorldBackground.get_or_none(id=character_data.world_id)
+    from server.models import World
+    world = await World.get_or_none(id=character_data.world_id)
     if not world:
         raise HTTPException(status_code=404, detail="指定的世界不存在")
     
@@ -107,14 +107,14 @@ async def create_character_base(
     
     # 计算出身消耗
     if character_data.origin_id:
-        origin = await crud_origins.get_origin_by_id(character_data.origin_id)
+        origin = await crud_origins.get_origin(character_data.origin_id)
         if not origin:
             raise HTTPException(status_code=404, detail="出身不存在")
         total_cost += origin.talent_cost
     
     # 计算灵根消耗
     if character_data.spirit_root_id:
-        spirit_root = await crud_spirit_roots.get_spirit_root_by_id(character_data.spirit_root_id)
+        spirit_root = await crud_spirit_roots.get_spirit_root(character_data.spirit_root_id)
         if not spirit_root:
             raise HTTPException(status_code=404, detail="灵根不存在")
         total_cost += spirit_root.talent_cost
@@ -122,7 +122,7 @@ async def create_character_base(
     # 计算天赋消耗
     if character_data.selected_talent_ids:
         for talent_id in character_data.selected_talent_ids:
-            talent = await crud_talents.get_talent_by_id(talent_id)
+            talent = await crud_talents.get_talent(talent_id)
             if not talent:
                 raise HTTPException(status_code=404, detail=f"天赋ID {talent_id} 不存在")
             total_cost += talent.talent_cost
@@ -155,7 +155,7 @@ async def create_character_base(
     
     # 根据先天六司计算核心属性
     from server.core.character_calculation import calculate_core_attributes
-    core_attrs = await calculate_core_attributes(
+    core_attrs = calculate_core_attributes(
         root_bone=character_data.root_bone,
         spirituality=character_data.spirituality,
         comprehension=character_data.comprehension,
@@ -165,16 +165,10 @@ async def create_character_base(
         birth_age=character_data.birth_age
     )
     
-    # 初始化空的背包物品栏系统
-    from server.core.item_system import get_initial_equipment
-    initial_inventory = {}  # 空背包
-    initial_equipment = get_initial_equipment()  # 空装备栏
-    
-    # 创建角色游戏状态并应用计算出的属性和空物品栏
+    # 创建角色游戏状态
+    # core_attrs 已经包含了初始化的背包和装备
     game_state = await CharacterGameState.create(
         character_id=new_character.id,
-        inventory=initial_inventory,
-        equipped_items=initial_equipment,
         **core_attrs
     )
     
@@ -214,7 +208,7 @@ async def create_character_base(
     
     return character_dict
 
-@router.post("/admin/create", response_model=schema.CharacterBase, tags=["角色/存档体系"])
+@router.post("/create_by_admin", response_model=schema.CharacterBase, tags=["角色/存档体系"])
 async def admin_create_character(
     character_data: schema.CharacterBaseCreate,
     current_admin: AdminAccount = Depends(deps.get_current_admin_direct)
@@ -257,8 +251,8 @@ async def admin_create_character(
             raise HTTPException(status_code=400, detail=f"{attr_name}不能超过10点")
     
     # 验证世界是否存在
-    from server.models import WorldBackground
-    world = await WorldBackground.get_or_none(id=character_data.world_id)
+    from server.models import World
+    world = await World.get_or_none(id=character_data.world_id)
     if not world:
         raise HTTPException(status_code=404, detail="指定的世界不存在")
     
@@ -277,14 +271,14 @@ async def admin_create_character(
     
     # 计算出身消耗
     if character_data.origin_id:
-        origin = await crud_origins.get_origin_by_id(character_data.origin_id)
+        origin = await crud_origins.get_origin(character_data.origin_id)
         if not origin:
             raise HTTPException(status_code=404, detail="出身不存在")
         total_cost += origin.talent_cost
     
     # 计算灵根消耗
     if character_data.spirit_root_id:
-        spirit_root = await crud_spirit_roots.get_spirit_root_by_id(character_data.spirit_root_id)
+        spirit_root = await crud_spirit_roots.get_spirit_root(character_data.spirit_root_id)
         if not spirit_root:
             raise HTTPException(status_code=404, detail="灵根不存在")
         total_cost += spirit_root.talent_cost
@@ -292,7 +286,7 @@ async def admin_create_character(
     # 计算天赋消耗
     if character_data.selected_talent_ids:
         for talent_id in character_data.selected_talent_ids:
-            talent = await crud_talents.get_talent_by_id(talent_id)
+            talent = await crud_talents.get_talent(talent_id)
             if not talent:
                 raise HTTPException(status_code=404, detail=f"天赋ID {talent_id} 不存在")
             total_cost += talent.talent_cost
@@ -325,7 +319,7 @@ async def admin_create_character(
     
     # 根据先天六司计算核心属性
     from server.core.character_calculation import calculate_core_attributes
-    core_attrs = await calculate_core_attributes(
+    core_attrs = calculate_core_attributes(
         root_bone=character_data.root_bone,
         spirituality=character_data.spirituality,
         comprehension=character_data.comprehension,
@@ -335,16 +329,10 @@ async def admin_create_character(
         birth_age=character_data.birth_age
     )
     
-    # 初始化空的背包物品栏系统
-    from server.core.item_system import get_initial_equipment
-    initial_inventory = {}  # 空背包
-    initial_equipment = get_initial_equipment()  # 空装备栏
-    
-    # 创建角色游戏状态并应用计算出的属性和空物品栏
+    # 创建角色游戏状态
+    # core_attrs 已经包含了初始化的背包和装备
     game_state = await CharacterGameState.create(
         character_id=new_character.id,
-        inventory=initial_inventory,
-        equipped_items=initial_equipment,
         **core_attrs
     )
     
@@ -432,6 +420,37 @@ async def activate_character(
     
     return character
 
+@router.get("/all", response_model=List[dict], tags=["角色/存档体系"])
+async def get_all_characters(request: Request):
+    """
+    获取所有角色列表（管理员专用）
+    """
+    # 手动验证管理员权限
+    current_admin = await verify_admin_token(request)
+    
+    characters = await CharacterBase.filter().prefetch_related('player', 'world')
+    
+    # 转换为响应格式，添加玩家名称和世界名称
+    character_list = []
+    for char in characters:
+        char_data = {
+            "id": char.id,
+            "character_name": char.character_name,
+            "player_id": char.player_id,
+            "player_name": char.player.user_name,
+            "world_id": char.world_id,
+            "world_name": char.world.name,
+            "is_active": char.is_active,
+            "is_deleted": char.is_deleted,
+            "is_accessible": not char.player.is_banned and not char.is_deleted,
+            "last_played": char.last_played,
+            "play_time_minutes": char.play_time_minutes,
+            "created_at": char.created_at
+        }
+        character_list.append(char_data)
+    
+    return character_list
+
 @router.get("/{character_id}", response_model=schema.CharacterBase)
 async def get_character(
     character_id: int,
@@ -462,7 +481,7 @@ async def delete_character(
     current_user: PlayerAccount = Depends(deps.get_current_active_user)
 ):
     """
-    删除角色（软删除）
+    删除角色（硬删除）
     """
     if current_user.is_banned:
         raise HTTPException(status_code=403, detail="账号已被封禁")
@@ -471,15 +490,10 @@ async def delete_character(
     if not character:
         raise HTTPException(status_code=404, detail="角色不存在")
     
-    if character.is_deleted:
-        raise HTTPException(status_code=400, detail="角色已删除")
+    # 硬删除，由于 on_delete=CASCADE，关联的 CharacterGameState 也会被删除
+    await character.delete()
     
-    # 软删除
-    character.is_deleted = True
-    character.is_active = False
-    await character.save()
-    
-    return {"message": "角色删除成功"}
+    return {"message": "角色已彻底删除"}
 
 @router.get("/{character_id}/game_state", response_model=schema.CharacterGameState)
 async def get_character_game_state(
@@ -742,33 +756,3 @@ async def get_all_characters_for_admin():
     except Exception as e:
         return {"error": f"获取角色列表失败: {str(e)}"}
 
-@router.get("/all", response_model=List[dict], tags=["角色/存档体系"])
-async def get_all_characters(request: Request):
-    """
-    获取所有角色列表（管理员专用）
-    """
-    # 手动验证管理员权限
-    current_admin = await verify_admin_token(request)
-    
-    characters = await CharacterBase.filter().prefetch_related('player', 'world')
-    
-    # 转换为响应格式，添加玩家名称和世界名称
-    character_list = []
-    for char in characters:
-        char_data = {
-            "id": char.id,
-            "character_name": char.character_name,
-            "player_id": char.player_id,
-            "player_name": char.player.user_name,
-            "world_id": char.world_id,
-            "world_name": char.world.name,
-            "is_active": char.is_active,
-            "is_deleted": char.is_deleted,
-            "is_accessible": not char.player.is_banned and not char.is_deleted,
-            "last_played": char.last_played,
-            "play_time_minutes": char.play_time_minutes,
-            "created_at": char.created_at
-        }
-        character_list.append(char_data)
-    
-    return character_list

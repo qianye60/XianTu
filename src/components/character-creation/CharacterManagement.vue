@@ -160,7 +160,7 @@ const loadStaticData = async () => {
   try {
     // Assuming these endpoints exist
     const [worlds, talentTiers] = await Promise.all([
-      request.get<World[]>('/api/v1/characters/worlds'),
+      request.get<World[]>('/api/v1/worlds/worlds'),
       request.get<TalentTier[]>('/api/v1/characters/talent_tiers')
     ])
     staticData.value = { worlds, talentTiers }

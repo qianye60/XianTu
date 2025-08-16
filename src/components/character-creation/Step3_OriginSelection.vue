@@ -13,7 +13,7 @@
             class="origin-item"
             :class="{
               selected: store.selectedOrigin?.id === origin.id,
-              disabled: !canSelectOrigin(origin)
+              disabled: !canSelectOrigin(origin),
             }"
             @click="selectOrigin(origin)"
           >
@@ -25,7 +25,11 @@
         <!-- 功能按钮 -->
         <div class="single-actions-container">
           <div class="divider"></div>
-          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
+          <button
+            v-if="store.mode === 'single'"
+            @click="isCustomModalVisible = true"
+            class="action-item shimmer-on-hover"
+          >
             <span class="action-name">自定义出身</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
@@ -41,13 +45,9 @@
           <div class="description-scroll">
             <p>{{ store.selectedOrigin.description || '身世如谜，过往一片空白。' }}</p>
           </div>
-          <div class="cost-display">
-            消耗天道点: {{ store.selectedOrigin.talent_cost }}
-          </div>
+          <div class="cost-display">消耗天道点: {{ store.selectedOrigin.talent_cost }}</div>
         </div>
-        <div v-else class="placeholder">
-          请选择一处出身。
-        </div>
+        <div v-else class="placeholder">请选择一处出身。</div>
       </div>
     </div>
 
@@ -59,33 +59,37 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useCharacterCreationStore, type Origin } from '../../stores/characterCreationStore';
-import { LOCAL_ORIGINS } from '../../data/localData';
-import { request } from '../../services/request';
-import CustomCreationModal from './CustomCreationModal.vue';
-import { generateOriginWithTavernAI, validateCustomData } from '../../utils/tavernAI';
-import { toast } from '../../utils/toast';
+import { ref, onMounted, computed } from 'vue'
+import { useCharacterCreationStore, type Origin } from '../../stores/characterCreationStore'
+import { LOCAL_ORIGINS } from '../../data/localData'
+import { request } from '../../services/request'
+import CustomCreationModal from './CustomCreationModal.vue'
+import { generateOriginWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import { toast } from '../../utils/toast'
 
-const emit = defineEmits(['ai-generate']);
-const store = useCharacterCreationStore();
-const origins = ref<Origin[]>([]);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const isCustomModalVisible = ref(false);
+const emit = defineEmits(['ai-generate'])
+const store = useCharacterCreationStore()
+const origins = ref<Origin[]>([])
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const isCustomModalVisible = ref(false)
 
-const creationData = ref<any>(null);
+const creationData = ref<any>(null)
 
 const customOriginFields = [
   { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
-  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事...' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0' }
-] as const;
+  {
+    key: 'description',
+    label: '出身描述',
+    type: 'textarea',
+    placeholder: '描述此出身的背景故事...',
+  },
+  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0' },
+] as const
 
 function handleCustomSubmit(data: any) {
   const newOrigin: Origin = {
@@ -94,9 +98,9 @@ function handleCustomSubmit(data: any) {
     description: data.description,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
     attribute_modifiers: null,
-  };
-  origins.value.unshift(newOrigin);
-  selectOrigin(newOrigin);
+  }
+  origins.value.unshift(newOrigin)
+  selectOrigin(newOrigin)
 }
 
 async function fetchCreationData() {
@@ -105,123 +109,128 @@ async function fetchCreationData() {
     // 单机模式不需要检查是否选择了世界，使用本地数据即可
     try {
       // 使用本地的出身数据（从localData.ts导入）
-      const localOrigins: Origin[] = LOCAL_ORIGINS.map(o => ({
+      const localOrigins: Origin[] = LOCAL_ORIGINS.map((o) => ({
         id: o.id,
         name: o.name,
         description: o.description,
         attribute_modifiers: o.attribute_modifiers,
-        talent_cost: o.talent_cost
-      }));
+        talent_cost: o.talent_cost,
+      }))
 
-      creationData.value = { origins: localOrigins };
-      origins.value = localOrigins;
+      creationData.value = { origins: localOrigins }
+      origins.value = localOrigins
 
       // 模拟加载延迟
       setTimeout(() => {
-        isLoading.value = false;
-      }, 500);
+        isLoading.value = false
+      }, 500)
     } catch (e: any) {
-      error.value = '加载本地数据失败';
-      isLoading.value = false;
+      error.value = '加载本地数据失败'
+      isLoading.value = false
     }
   } else {
     // 联机模式才请求后端
     if (!store.selectedWorld) {
-      error.value = "尚未选择世界，无法获取出身数据。";
-      isLoading.value = false;
-      return;
+      error.value = '尚未选择世界，无法获取出身数据。'
+      isLoading.value = false
+      return
     }
 
     try {
-      const data = await request<any>(`/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
-      creationData.value = data;
-      origins.value = data.origins || [];
+      const data = await request<any>(
+        `/api/v1/characters/creation_data?world_id=${store.selectedWorld.id}`,
+      )
+      creationData.value = data
+      origins.value = data.origins || []
     } catch (e: any) {
-      error.value = e.message;
+      error.value = e.message
     } finally {
-      isLoading.value = false;
+      isLoading.value = false
     }
   }
 }
 
 const canSelectOrigin = (origin: Origin) => {
   if (store.mode === 'multi') {
-    return true; // In multi mode, server handles validation
+    return true // 联机模式由服务器处理验证
   }
+  // 如果是当前选中的，允许取消选择
   if (store.selectedOrigin?.id === origin.id) {
-    return true; // Always allow deselecting the current one
+    return true
   }
-  const currentCost = store.selectedOrigin?.talent_cost ?? 0;
-  const availablePoints = store.remainingTalentPoints + currentCost;
-  return availablePoints >= origin.talent_cost;
-};
+  // 计算选择新出身后剩余的点数
+  const currentCost = store.selectedOrigin?.talent_cost ?? 0
+  const availablePoints = store.remainingTalentPoints + currentCost
+  const afterPoints = availablePoints - origin.talent_cost
+  // 选择后点数不能为负
+  return afterPoints >= 0
+}
 
 function selectOrigin(origin: Origin) {
   if (store.mode === 'single' && !canSelectOrigin(origin)) {
-    toast.warning("天道点不足，无法选择此出身。");
-    return;
+    toast.warning('天道点不足，无法选择此出身。')
+    return
   }
-  store.selectedOrigin = origin;
+  store.selectedOrigin = origin
 }
 
 async function _handleLocalAIGenerate() {
   if (!store.selectedWorld) {
-    error.value = "请先选择一个世界，方能推演相应出身。";
-    toast.error(error.value);
-    return;
+    error.value = '请先选择一个世界，方能推演相应出身。'
+    toast.error(error.value)
+    return
   }
 
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
   try {
-    const newOrigin = await generateOriginWithTavernAI(store.selectedWorld);
-    origins.value.unshift(newOrigin);
+    const newOrigin = await generateOriginWithTavernAI(store.selectedWorld)
+    origins.value.unshift(newOrigin)
     // AI生成的出身，直接选中，不校验点数
-    store.selectedOrigin = newOrigin;
+    store.selectedOrigin = newOrigin
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
-    toast.error(error.value);
+    error.value = `AI推演失败: ${e.message}`
+    toast.error(error.value)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
 function handleAIGenerate() {
   if (store.mode === 'single') {
-    _handleLocalAIGenerate();
+    _handleLocalAIGenerate()
   } else {
-    emit('ai-generate');
+    emit('ai-generate')
   }
 }
 
 async function handleAIGenerateWithCode(code: string) {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
   try {
     const newOrigin = await request<Origin>('/api/v1/ai_redeem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, type: 'origin' }),
-    });
-    origins.value.unshift(newOrigin);
-    store.selectedOrigin = newOrigin;
-    toast.success('天机接引成功！');
+    })
+    origins.value.unshift(newOrigin)
+    store.selectedOrigin = newOrigin
+    toast.success('天机接引成功！')
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
+    error.value = `AI推演失败: ${e.message}`
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
-
 onMounted(() => {
-  fetchCreationData();
-});
+  fetchCreationData()
+})
 
 defineExpose({
   handleAIGenerateWithCode,
-  fetchData: fetchCreationData,  // 暴露数据获取方法
-});
+  fetchData: fetchCreationData, // 暴露数据获取方法
+})
 </script>
 
 <style scoped>
@@ -232,7 +241,9 @@ defineExpose({
   position: relative;
 }
 
-.loading-state, .error-state, .placeholder {
+.loading-state,
+.error-state,
+.placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -380,48 +391,43 @@ defineExpose({
 
 /* 单机模式功能按钮样式 */
 .single-actions-container {
-    border-top: 1px solid var(--color-border);
-    background: rgba(0, 0, 0, 0.3);
-    padding: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem;
 }
 
 .divider {
-    height: 1px;
-    background: linear-gradient(
-      to right,
-      transparent,
-      rgba(229, 192, 123, 0.3),
-      transparent
-    );
-    margin: 0.5rem 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(229, 192, 123, 0.3), transparent);
+  margin: 0.5rem 0;
 }
 
 .action-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.8rem 1rem;
-    margin-bottom: 0.5rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    border: none;
-    background: transparent;
-    color: var(--color-text);
-    width: 100%;
-    text-align: left;
-    font-size: 1rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  width: 100%;
+  text-align: left;
+  font-size: 1rem;
 }
 
 .action-item:hover {
-    background: rgba(var(--color-primary-rgb), 0.1);
+  background: rgba(var(--color-primary-rgb), 0.1);
 }
 
 .action-name {
-    font-weight: 500;
-    color: var(--color-primary);
+  font-weight: 500;
+  color: var(--color-primary);
 }
 
 .action-cost {
-    color: var(--color-accent);
+  color: var(--color-accent);
 }
 </style>

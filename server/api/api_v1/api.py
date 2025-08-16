@@ -1,19 +1,18 @@
 from fastapi import APIRouter
 
-from .endpoints import worlds, characters, rules, elements, auth, redemption, admin, talents, spirit_roots, origins, ai, talent_tiers, users, ban_management, test_characters
+from .endpoints import worlds, characters, rules, elements, auth, redemption, admin, talents, spirit_roots, origins, ai, talent_tiers, users, ban_management
 
 api_router = APIRouter()
 
 # Include each of the endpoint routers
 api_router.include_router(users.router, prefix="/users", tags=["用户体系"])
-api_router.include_router(worlds.router, tags=["世界体系"])
-api_router.include_router(characters.router, tags=["角色/存档体系"])
-api_router.include_router(test_characters.router, prefix="/test_characters", tags=["测试角色"])
-api_router.include_router(rules.router, tags=["核心规则"])
-api_router.include_router(elements.router)
+api_router.include_router(worlds.router, prefix="/worlds", tags=["世界体系"])
+api_router.include_router(characters.router, prefix="/characters", tags=["角色/存档体系"])
+api_router.include_router(rules.router, prefix="/rules", tags=["核心规则"])
+api_router.include_router(elements.router, prefix="/elements", tags=["元素体系"])
 api_router.include_router(auth.router, prefix="/auth", tags=["认证体系"])
-api_router.include_router(redemption.router)
-api_router.include_router(admin.router)
+api_router.include_router(redemption.router, prefix="/redemption", tags=["兑换码"])
+api_router.include_router(admin.router) # admin.py has its own prefix, so no prefix here
 api_router.include_router(talents.router, prefix="/talents", tags=["天赋体系"])
 api_router.include_router(spirit_roots.router, prefix="/spirit_roots", tags=["灵根体系"])
 api_router.include_router(origins.router, prefix="/origins", tags=["出身体系"])

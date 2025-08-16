@@ -11,7 +11,7 @@ router = APIRouter()
 @router.post("/ban_player", response_model=schema.PlayerBanRecord, tags=["封号管理"])
 async def ban_player(
     ban_data: schema.PlayerBanCreate,
-    current_admin: AdminAccount = Depends(deps.get_current_admin)
+    current_admin: AdminAccount = Depends(deps.get_super_admin_user)
 ):
     """
     封禁玩家账号
@@ -53,7 +53,7 @@ async def ban_player(
 @router.post("/unban_player/{player_id}", tags=["封号管理"])
 async def unban_player(
     player_id: int,
-    current_admin: AdminAccount = Depends(deps.get_current_admin)
+    current_admin: AdminAccount = Depends(deps.get_super_admin_user)
 ):
     """
     解封玩家账号

@@ -3,15 +3,9 @@
 基于先天六司计算核心属性
 """
 
-async def get_mortal_realm_id():
-    """获取凡人境界的ID"""
-    from server.models import Realm
-    mortal_realm = await Realm.get_or_none(name="凡人")
-    return mortal_realm.id if mortal_realm else None
-
-async def calculate_core_attributes(
+def calculate_core_attributes(
     root_bone: int,
-    spirituality: int, 
+    spirituality: int,
     comprehension: int,
     fortune: int,  # 气运（原福缘）
     charm: int,
@@ -65,10 +59,10 @@ async def calculate_core_attributes(
     
     # 使用传入的出生年龄
     current_age = birth_age
-    
+
     # 获取凡人境界ID
-    mortal_realm_id = await get_mortal_realm_id()
-    
+    mortal_realm_id = 1  # 默认为1，凡人境界
+
     return {
         # 核心属性上限
         "max_health_points": max_health,
@@ -80,7 +74,7 @@ async def calculate_core_attributes(
         "health_points": max_health,
         "spiritual_power": max_spiritual,
         "spirit_sense": max_spirit,
-        "current_age": current_age,
+        "current_age": birth_age, # 修正：确保使用传入的 birth_age
         
         # 恢复速度基础值（将与时间挂钩）
         "health_recovery_rate": round(health_recovery_rate, 2),

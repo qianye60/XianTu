@@ -14,7 +14,10 @@
       "Bash(rg:*)",
       "Bash(cat:*)",
       "Bash(timeout:*)",
-      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\test_inventory.py\")"
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\test_inventory.py\")",
+      "Bash(findstr:*)",
+      "Bash(grep:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
