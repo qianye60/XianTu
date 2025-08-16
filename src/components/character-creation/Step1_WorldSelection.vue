@@ -167,7 +167,7 @@ async function fetchWorlds() {
   } else {
     // 联机模式才请求后端
     try {
-      worlds.value = await request<World[]>('/api/v1/worlds');
+      worlds.value = await request<World[]>('/api/v1/worlds/worlds');
 
       // 默认选择第一个世界
       if (worlds.value.length > 0 && !store.selectedWorld) {

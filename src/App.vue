@@ -85,7 +85,7 @@ const toggleTheme = () => {
 const checkInitialLoginStatus = async () => {
   isLoggedIn.value = await verifyStoredToken();
   if (isLoggedIn.value) {
-    toast.info('检测到有效身份令牌。');
+    toast.info('检测到有效身份令牌');
   }
 };
 
@@ -93,7 +93,7 @@ const checkInitialLoginStatus = async () => {
 onMounted(() => {
   document.documentElement.setAttribute('data-theme', 'dark');
   store.reset();
-  
+
   // 在后台检查初始登录状态，不阻塞UI
   checkInitialLoginStatus();
 

@@ -13,7 +13,7 @@
             class="talent-item"
             :class="{
               selected: isSelected(talent),
-              disabled: !canSelect(talent)
+              disabled: !canSelect(talent),
             }"
             @click="toggleTalent(talent)"
           >
@@ -25,7 +25,11 @@
         <!-- 功能按钮 -->
         <div class="single-actions-container">
           <div class="divider"></div>
-          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
+          <button
+            v-if="store.mode === 'single'"
+            @click="isCustomModalVisible = true"
+            class="action-item shimmer-on-hover"
+          >
             <span class="action-name">自定义天赋</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
@@ -40,13 +44,9 @@
           <div class="description-scroll">
             <p>{{ activeTalent.description || '此天赋之玄妙，需自行领悟。' }}</p>
           </div>
-          <div class="cost-display">
-            消耗天道点: {{ activeTalent.talent_cost }}
-          </div>
+          <div class="cost-display">消耗天道点: {{ activeTalent.talent_cost }}</div>
         </div>
-        <div v-else class="placeholder">
-          请选择天赋。
-        </div>
+        <div v-else class="placeholder">请选择天赋。</div>
       </div>
     </div>
 
@@ -58,32 +58,31 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useCharacterCreationStore, type Talent } from '../../stores/characterCreationStore';
-import { LOCAL_TALENTS } from '../../data/localData';
-import { request } from '../../services/request';
-import CustomCreationModal from './CustomCreationModal.vue';
-import { generateTalentWithTavernAI, validateCustomData } from '../../utils/tavernAI';
-import { toast } from '../../utils/toast';
+import { ref, onMounted } from 'vue'
+import { useCharacterCreationStore, type Talent } from '../../stores/characterCreationStore'
+import { LOCAL_TALENTS } from '../../data/localData'
+import { request } from '../../services/request'
+import CustomCreationModal from './CustomCreationModal.vue'
+import { generateTalentWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import { toast } from '../../utils/toast'
 
-const emit = defineEmits(['ai-generate']);
-const store = useCharacterCreationStore();
-const talents = ref<Talent[]>([]);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const activeTalent = ref<Talent | null>(null);
-const isCustomModalVisible = ref(false);
+const emit = defineEmits(['ai-generate'])
+const store = useCharacterCreationStore()
+const talents = ref<Talent[]>([])
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const activeTalent = ref<Talent | null>(null)
+const isCustomModalVisible = ref(false)
 
 const customTalentFields = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
   { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的效果...' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' }
-] as const;
+  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' },
+] as const
 
 function handleCustomSubmit(data: any) {
   const newTalent: Talent = {
@@ -92,139 +91,145 @@ function handleCustomSubmit(data: any) {
     description: data.description,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
     effects: null,
-    rarity: 1
-  };
-  talents.value.unshift(newTalent);
+    rarity: 1,
+  }
+  talents.value.unshift(newTalent)
   // Custom talents are not auto-selected to avoid complex point validation here
-  activeTalent.value = newTalent;
+  activeTalent.value = newTalent
 }
 
 async function fetchTalents() {
   // 单机模式使用本地数据
   if (store.mode === 'single') {
     try {
-      console.log('Loading local talents:', LOCAL_TALENTS);
-      const localTalents: Talent[] = LOCAL_TALENTS.map(t => ({
+      console.log('Loading local talents:', LOCAL_TALENTS)
+      const localTalents: Talent[] = LOCAL_TALENTS.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description || null,
         talent_cost: t.talent_cost,
         effects: t.effects || null,
-        rarity: 1 // 默认稀有度
-      }));
+        rarity: 1, // 默认稀有度
+      }))
 
-      talents.value = localTalents;
-      console.log('Talents loaded:', talents.value);
+      talents.value = localTalents
+      console.log('Talents loaded:', talents.value)
 
       // 模拟加载延迟
       setTimeout(() => {
-        isLoading.value = false;
-      }, 300);
+        isLoading.value = false
+      }, 300)
     } catch (e: any) {
-      console.error('Failed to load talents:', e);
-      error.value = '加载本地数据失败: ' + e.message;
-      isLoading.value = false;
+      console.error('Failed to load talents:', e)
+      error.value = '加载本地数据失败: ' + e.message
+      isLoading.value = false
     }
-    return;
+    return
   }
 
   // 联机模式请求后端
   if (!store.selectedWorld) {
-    error.value = "尚未选择世界，无法获取天赋数据。";
-    isLoading.value = false;
-    return;
+    error.value = '尚未选择世界，无法获取天赋数据。'
+    isLoading.value = false
+    return
   }
   try {
-    const data = await request<any>(`/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
-    talents.value = data.talents || [];
+    const data = await request<any>(
+      `/api/v1/characters/creation_data?world_id=${store.selectedWorld.id}`,
+    )
+    talents.value = data.talents || []
   } catch (e: any) {
-    error.value = e.message;
+    error.value = e.message
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
 const isSelected = (talent: Talent) => {
-  return store.selectedTalents.some(t => t.id === talent.id);
-};
+  return store.selectedTalents.some((t) => t.id === talent.id)
+}
 
 const canSelect = (talent: Talent) => {
   if (store.mode === 'multi') {
-    return true; // In multi mode, server handles validation
+    return true // 联机模式由服务器处理验证
   }
+  // 如果已选中，允许取消选择
   if (isSelected(talent)) {
-    return true; // Always allow deselecting
+    return true
   }
-  return store.remainingTalentPoints >= talent.talent_cost;
-};
+  // 计算选择新天赋后剩余的点数
+  const afterPoints = store.remainingTalentPoints - talent.talent_cost
+  // 选择后点数不能为负
+  return afterPoints >= 0
+}
 
 function toggleTalent(talent: Talent) {
-  activeTalent.value = talent;
-  const index = store.selectedTalents.findIndex(t => t.id === talent.id);
+  activeTalent.value = talent
+  const index = store.selectedTalents.findIndex((t) => t.id === talent.id)
   if (index > -1) {
     // Deselect
-    store.selectedTalents.splice(index, 1);
+    store.selectedTalents.splice(index, 1)
   } else {
     // Select if possible
     if (store.mode === 'single' && !canSelect(talent)) {
-      toast.warning("天道点不足，无法选择此天赋。");
-      return;
+      toast.warning('天道点不足，无法选择此天赋。')
+      return
     }
-    store.selectedTalents.push(talent);
+    store.selectedTalents.push(talent)
   }
 }
 
 async function _handleLocalAIGenerate() {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
   try {
-    const newTalent = await generateTalentWithTavernAI();
-    talents.value.unshift(newTalent);
+    const newTalent = await generateTalentWithTavernAI()
+    talents.value.unshift(newTalent)
     // AI generated talents are not auto-selected
-    activeTalent.value = newTalent;
+    activeTalent.value = newTalent
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
-    toast.error(error.value);
+    error.value = `AI推演失败: ${e.message}`
+    toast.error(error.value)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
 async function handleAIGenerateWithCode(code: string) {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
   try {
     const newTalent = await request<Talent>('/api/v1/ai_redeem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, type: 'talent' }),
-    });
-    talents.value.unshift(newTalent);
-    activeTalent.value = newTalent; // Show the new talent in details view
-    toast.success('天机接引成功！');
+    })
+    talents.value.unshift(newTalent)
+    activeTalent.value = newTalent // Show the new talent in details view
+    toast.success('天机接引成功！')
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
+    error.value = `AI推演失败: ${e.message}`
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
 
 function handleAIGenerate() {
   if (store.mode === 'single') {
-    _handleLocalAIGenerate();
+    _handleLocalAIGenerate()
   } else {
-    emit('ai-generate');
+    emit('ai-generate')
   }
 }
 
 defineExpose({
   handleAIGenerateWithCode,
-  fetchData: fetchTalents,  // 暴露数据获取方法
-});
+  fetchData: fetchTalents, // 暴露数据获取方法
+})
 
 onMounted(() => {
-  fetchTalents();
-});
+  fetchTalents()
+})
 </script>
 
 <style scoped>
@@ -234,7 +239,9 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.loading-state, .error-state, .placeholder {
+.loading-state,
+.error-state,
+.placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -390,12 +397,7 @@ onMounted(() => {
 
 .divider {
   height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(180, 142, 173, 0.3),
-    transparent
-  );
+  background: linear-gradient(to right, transparent, rgba(180, 142, 173, 0.3), transparent);
   margin: 0.5rem 0;
 }
 

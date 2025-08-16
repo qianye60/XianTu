@@ -10,6 +10,20 @@
         <input type="text" id="characterName" v-model="store.characterName" />
       </div>
 
+      <!-- Birth Age -->
+      <div class="preview-item age-item">
+        <label for="birthAge">转世因果·初始年龄:</label>
+        <input 
+          type="number" 
+          id="birthAge" 
+          v-model.number="store.birthAge" 
+          min="0" 
+          max="18" 
+          placeholder="16"
+        />
+        <span class="age-hint">0-18岁</span>
+      </div>
+
       <!-- World -->
       <div class="preview-item">
         <h3>所选世界</h3>
@@ -118,26 +132,47 @@ const store = useCharacterCreationStore();
 }
 
 .name-item {
-  grid-column: 1 / -1;
+  grid-column: 1 / 3;
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.name-item label {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #e5c07b;
+.age-item {
+  grid-column: 3 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.name-item input {
+.name-item label,
+.age-item label {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #e5c07b;
+  white-space: nowrap;
+}
+
+.name-item input,
+.age-item input {
   flex-grow: 1;
   background: #2a2a2a;
   border: 1px solid #555;
   color: white;
   padding: 0.8rem;
   border-radius: 6px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+}
+
+.age-item input {
+  max-width: 80px;
+  text-align: center;
+}
+
+.age-hint {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
 }
 
 .talents-item, .attributes-item {

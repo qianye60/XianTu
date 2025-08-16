@@ -71,6 +71,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   };
   
   const characterName = ref(getCharacterName());
+  const birthAge = ref(16); // 初始年龄，默认16岁
   const selectedWorld = ref<World | null>(null);
   const selectedTalentTier = ref<TalentTier | null>(null);
   const selectedOrigin = ref<Origin | null>(null);
@@ -116,6 +117,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   function reset() {
       currentStep.value = 1;
       characterName.value = getCharacterName(); // 重新获取道号
+      birthAge.value = 16; // 重置初始年龄
       selectedWorld.value = null;
       selectedTalentTier.value = null;
       selectedOrigin.value = null;
@@ -153,6 +155,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       currentStep,
     totalSteps,
     characterName,
+    birthAge,
     selectedWorld,
     selectedTalentTier,
     selectedOrigin,
