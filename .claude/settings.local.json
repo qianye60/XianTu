@@ -12,7 +12,9 @@
       "Bash(uvicorn:*)",
       "Bash(curl:*)",
       "Bash(rg:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(timeout:*)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\test_inventory.py\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

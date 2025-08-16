@@ -114,20 +114,43 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   }
 
   function reset() {
-    currentStep.value = 1;
-    characterName.value = getCharacterName(); // 重新获取道号
-    selectedWorld.value = null;
-    selectedTalentTier.value = null;
-    selectedOrigin.value = null;
-    selectedSpiritRoot.value = null;
-    selectedTalents.value = [];
-    talentPoints.value = 0;
-    attributes.value = { root_bone: 0, spirituality: 0, comprehension: 0, luck: 0, charm: 0, temperament: 0 };
-  }
-
-  return {
-    mode,
-    currentStep,
+      currentStep.value = 1;
+      characterName.value = getCharacterName(); // 重新获取道号
+      selectedWorld.value = null;
+      selectedTalentTier.value = null;
+      selectedOrigin.value = null;
+      selectedSpiritRoot.value = null;
+      selectedTalents.value = [];
+      talentPoints.value = 0;
+      attributes.value = { root_bone: 0, spirituality: 0, comprehension: 0, luck: 0, charm: 0, temperament: 0 };
+    }
+  
+    function applyRedemptionData(data: any) {
+      // 根据兑换码返回的数据，有选择性地覆盖当前状态
+      // 这里假设返回的数据结构是 { origins?: Origin[], talents?: Talent[] ... }
+      if (data.origins && data.origins.length > 0) {
+        // 简单起见，我们只取第一个作为“天赐出身”
+        selectedOrigin.value = data.origins[0];
+      }
+      if (data.talents && data.talents.length > 0) {
+        // 将兑换的天赋添加到已选天赋中，或进行替换
+        selectedTalents.value = [...selectedTalents.value, ...data.talents];
+      }
+      if (data.spirit_roots && data.spirit_roots.length > 0) {
+        selectedSpiritRoot.value = data.spirit_roots[0];
+      }
+      if (data.talent_tiers && data.talent_tiers.length > 0) {
+          selectedTalentTier.value = data.talent_tiers[0];
+          talentPoints.value = data.talent_tiers[0].total_points;
+      }
+      if (data.world_backgrounds && data.world_backgrounds.length > 0) {
+          selectedWorld.value = data.world_backgrounds[0];
+      }
+    }
+  
+    return {
+      mode,
+      currentStep,
     totalSteps,
     characterName,
     selectedWorld,
@@ -143,5 +166,6 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     prevStep,
     goToStep,
     reset,
+    applyRedemptionData,
   };
 });

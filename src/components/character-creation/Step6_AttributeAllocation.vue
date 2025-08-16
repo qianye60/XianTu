@@ -16,7 +16,7 @@
         <div class="attribute-controls">
           <button @click="decrement(key as AttributeKey)" :disabled="value <= minValue || store.mode === 'multi'">-</button>
           <span class="attribute-value">{{ value }}</span>
-          <button @click="increment(key as AttributeKey)" :disabled="store.remainingTalentPoints <= 0 || store.mode === 'multi'">+</button>
+          <button @click="increment(key as AttributeKey)" :disabled="store.remainingTalentPoints <= 0 || value >= maxValue || store.mode === 'multi'">+</button>
         </div>
       </div>
     </div>
@@ -32,6 +32,7 @@ import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 const store = useCharacterCreationStore();
 
 const minValue = 0;
+const maxValue = 10;
 
 const attributeNames = {
   root_bone: '根骨',
@@ -54,7 +55,7 @@ const attributeDescriptions = {
 type AttributeKey = keyof typeof attributeNames;
 
 function increment(key: AttributeKey) {
-  if (store.remainingTalentPoints > 0) {
+  if (store.remainingTalentPoints > 0 && store.attributes[key] < maxValue) {
     store.attributes[key]++;
   }
 }

@@ -3,13 +3,13 @@
     <div class="login-panel">
       <h2 class="title">{{ isRegisterMode ? '初入道门' : '登入洞天' }}</h2>
       <p class="subtitle">{{ isRegisterMode ? '注册新道号，踏入修仙之路。' : '验证道友身份，以便同步云端天机。' }}</p>
-      
+
       <form @submit.prevent="isRegisterMode ? handleRegister() : handleLogin()">
         <div class="form-group">
           <label for="username">道号</label>
           <input type="text" id="username" v-model="username" placeholder="请输入您的道号" required />
         </div>
-        
+
         <div class="form-group">
           <label for="password">令牌</label>
           <input type="password" id="password" v-model="password" placeholder="请输入您的身份令牌" required />
@@ -19,7 +19,10 @@
           <label for="confirmPassword">确认令牌</label>
           <input type="password" id="confirmPassword" v-model="confirmPassword" placeholder="请再次输入令牌" required />
         </div>
-        
+
+        <!-- Cloudflare Turnstile Widget -->
+        <div ref="turnstileContainer" class="form-group turnstile-container"></div>
+
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
@@ -46,8 +49,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { toast } from '../utils/toast';
+import { request } from '../services/request';
+
+declare global {
+  interface Window {
+    turnstile: {
+      render: (container: HTMLElement, options: {
+        sitekey: string;
+        callback: (token: string) => void;
+        'expired-callback': () => void;
+      }) => string | undefined;
+      reset: (widgetId: string) => void;
+    };
+    onTurnstileLoad: () => void;
+  }
+}
 
 const emit = defineEmits(['loggedIn', 'back']);
 
@@ -58,6 +76,47 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
 const isRegisterMode = ref(false);
+const turnstileToken = ref<string | null>(null);
+const turnstileContainer = ref<HTMLElement | null>(null);
+const turnstileWidgetId = ref<string | null>(null);
+const isDev = process.env.NODE_ENV === 'development';
+
+const renderTurnstile = () => {
+  if (turnstileContainer.value && window.turnstile) {
+    // 如果已有部件，先重置
+    if (turnstileWidgetId.value) {
+      window.turnstile.reset(turnstileWidgetId.value);
+    } else {
+      const widgetId = window.turnstile.render(turnstileContainer.value, {
+        sitekey: isDev ? '1x00000000000000000000AA' : '0x4AAAAAABsSt_IBcfz18lmt', // 开发环境使用测试密钥
+        callback: (token) => {
+          turnstileToken.value = token;
+        },
+        'expired-callback': () => {
+          turnstileToken.value = null;
+        },
+      });
+      turnstileWidgetId.value = widgetId || null;
+    }
+  }
+};
+
+onMounted(() => {
+  // Define the global callback
+  window.onTurnstileLoad = () => {
+    renderTurnstile();
+  };
+
+  // If the script is already loaded, render it immediately
+  if (window.turnstile) {
+    renderTurnstile();
+  }
+});
+
+onUnmounted(() => {
+  // Clean up the global callback
+  (window as any).onTurnstileLoad = undefined;
+});
 
 const toggleMode = () => {
   isRegisterMode.value = !isRegisterMode.value;
@@ -65,6 +124,14 @@ const toggleMode = () => {
   successMessage.value = null;
   password.value = '';
   confirmPassword.value = '';
+  turnstileToken.value = null;
+
+  // Reset the widget on mode toggle
+  nextTick(() => {
+     if (turnstileWidgetId.value && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId.value);
+     }
+  });
 };
 
 const handleRegister = async () => {
@@ -73,78 +140,89 @@ const handleRegister = async () => {
     return;
   }
 
+  if (!turnstileToken.value && !isDev) {
+    error.value = '请先完成人机验证。';
+    toast.error('请先完成人机验证。');
+    return;
+  }
+
   isLoading.value = true;
   error.value = null;
   successMessage.value = null;
-  
+
   try {
-    const response = await fetch('http://127.0.0.1:12345/api/v1/auth/register', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username.value,
-            password: password.value,
-        }),
+    const resData = await request<any>('/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_name: username.value,
+        password: password.value,
+        turnstile_token: turnstileToken.value,
+      }),
     });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || '注册失败，请重试。');
-    }
-    
-    const data = await response.json();
     successMessage.value = '注册成功！正在为您登入...';
     toast.success('道号注册成功，欢迎踏入修仙之路！');
-    
+
     // 自动登录
     setTimeout(() => {
       handleLogin();
     }, 1000);
 
-  } catch (e: any) {
-    error.value = e.message;
-    toast.error(e.message);
+  } catch (e: unknown) {
+    let errorMessage = '一个未知的错误发生了';
+    if (typeof e === 'object' && e !== null) {
+      if ('detail' in e && typeof (e as any).detail === 'string') {
+        errorMessage = (e as any).detail;
+      } else if ('message' in e && typeof (e as any).message === 'string') {
+        errorMessage = (e as any).message;
+      }
+    }
+    error.value = errorMessage;
+    toast.error(errorMessage);
   } finally {
     isLoading.value = false;
   }
 };
 
 const handleLogin = async () => {
+  if (!turnstileToken.value && !isDev) {
+    error.value = '请先完成人机验证。';
+    toast.error('请先完成人机验证。');
+    return;
+  }
+
   isLoading.value = true;
   error.value = null;
   successMessage.value = null;
-  
+
   try {
-    const response = await fetch('http://127.0.0.1:12345/api/v1/auth/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username.value,
-            password: password.value,
-        }),
+    const data = await request<any>('/api/v1/auth/token', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: username.value,
+        password: password.value,
+        turnstile_token: turnstileToken.value,
+      }),
     });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || '道号或令牌错误，请重试。');
-    }
-    
-    const data = await response.json();
-    
     // 保存token和用户名到localStorage
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('username', username.value);
-    
+
     toast.success('登入成功，天机已连通！');
     emit('loggedIn');
 
-  } catch (e: any) {
-    error.value = e.message;
-    toast.error(e.message);
+  } catch (e: unknown) {
+    let errorMessage = '一个未知的错误发生了';
+    if (typeof e === 'object' && e !== null) {
+      if ('detail' in e && typeof (e as any).detail === 'string') {
+        errorMessage = (e as any).detail;
+      } else if ('message' in e && typeof (e as any).message === 'string') {
+        errorMessage = (e as any).message;
+      }
+    }
+    error.value = errorMessage;
+    toast.error(errorMessage);
   } finally {
     isLoading.value = false;
   }
@@ -213,6 +291,13 @@ const handleLogin = async () => {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.turnstile-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
 
 .error-message {

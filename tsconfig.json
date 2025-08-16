@@ -16,5 +16,5 @@
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
-  "exclude": ["node_modules", "src/components/character-creation/CustomSettingsPanel.vue"]
+  "exclude": ["node_modules"]
 }

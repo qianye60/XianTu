@@ -6,14 +6,14 @@
     <div v-else class="origin-layout">
       <!-- 左侧栏：列表和操作按钮 -->
       <div class="origin-left-panel">
-        <div class="origin-list-container" :class="{ 'multi-mode': store.mode === 'multi' }">
+        <div class="origin-list-container">
           <div
             v-for="origin in origins"
             :key="origin.id"
             class="origin-item"
             :class="{
               selected: store.selectedOrigin?.id === origin.id,
-              disabled: !canSelectOrigin(origin) || store.mode === 'multi'
+              disabled: !canSelectOrigin(origin)
             }"
             @click="selectOrigin(origin)"
           >
@@ -22,13 +22,13 @@
           </div>
         </div>
 
-        <!-- 单机模式功能按钮 -->
-        <div v-if="store.mode === 'single'" class="single-actions-container">
+        <!-- 功能按钮 -->
+        <div class="single-actions-container">
           <div class="divider"></div>
-          <button @click="customOrigin" class="action-item">
+          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
             <span class="action-name">自定义出身</span>
           </button>
-          <button @click="aiGenerateOrigin" class="action-item">
+          <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">AI推演</span>
           </button>
         </div>
@@ -51,13 +51,15 @@
       </div>
     </div>
 
-    <!-- 联机模式兑换码 -->
-    <div v-if="store.mode === 'multi'" class="redemption-container">
-        <div class="redemption-code">
-            <input type="text" v-model="redemptionCode" placeholder="输入兑换码以接引天机" />
-            <button @click="redeemCode" class="btn">兑换</button>
-        </div>
-    </div>
+    <CustomCreationModal
+      :visible="isCustomModalVisible"
+      title="自定义出身"
+      :fields="customOriginFields"
+      :validationFn="(data) => validateCustomData('origin', data)"
+      @close="isCustomModalVisible = false"
+      @submit="handleCustomSubmit"
+    />
+
   </div>
 </template>
 
@@ -65,15 +67,37 @@
 import { ref, onMounted, computed } from 'vue';
 import { useCharacterCreationStore, type Origin } from '../../stores/characterCreationStore';
 import { LOCAL_ORIGINS } from '../../data/localData';
-import { API_BASE_URL } from '../../services/api';
+import { request } from '../../services/request';
+import CustomCreationModal from './CustomCreationModal.vue';
+import { generateOriginWithTavernAI, validateCustomData } from '../../utils/tavernAI';
+import { toast } from '../../utils/toast';
 
+const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
 const origins = ref<Origin[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
-const redemptionCode = ref('');
+const isCustomModalVisible = ref(false);
 
 const creationData = ref<any>(null);
+
+const customOriginFields = [
+  { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
+  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事...' },
+  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0' }
+] as const;
+
+function handleCustomSubmit(data: any) {
+  const newOrigin: Origin = {
+    id: Date.now(),
+    name: data.name,
+    description: data.description,
+    talent_cost: parseInt(data.talent_cost, 10) || 0,
+    attribute_modifiers: null,
+  };
+  origins.value.unshift(newOrigin);
+  selectOrigin(newOrigin);
+}
 
 async function fetchCreationData() {
   // 单机模式使用本地数据
@@ -109,11 +133,7 @@ async function fetchCreationData() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
-      if (!response.ok) {
-        throw new Error(`天网灵脉响应异常: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await request<any>(`/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
       creationData.value = data;
       origins.value = data.origins || [];
     } catch (e: any) {
@@ -125,6 +145,9 @@ async function fetchCreationData() {
 }
 
 const canSelectOrigin = (origin: Origin) => {
+  if (store.mode === 'multi') {
+    return true; // In multi mode, server handles validation
+  }
   if (store.selectedOrigin?.id === origin.id) {
     return true; // Always allow deselecting the current one
   }
@@ -134,144 +157,70 @@ const canSelectOrigin = (origin: Origin) => {
 };
 
 function selectOrigin(origin: Origin) {
-  if (store.mode === 'multi' || !canSelectOrigin(origin)) {
-    if (store.mode !== 'multi') {
-      console.warn("天道点不足，无法选择此出身。");
-    }
+  if (store.mode === 'single' && !canSelectOrigin(origin)) {
+    toast.warning("天道点不足，无法选择此出身。");
     return;
   }
   store.selectedOrigin = origin;
 }
 
-function customOrigin() {
-  // Placeholder for custom origin logic
-  alert("自定义出身功能正在建设中。");
-}
+async function _handleLocalAIGenerate() {
+  if (!store.selectedWorld) {
+    error.value = "请先选择一个世界，方能推演相应出身。";
+    toast.error(error.value);
+    return;
+  }
 
-async function aiGenerateOrigin() {
-  if (store.mode === 'single') {
-    // 单机模式使用本地AI生成逻辑
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-      // 模拟AI生成，随机创建一个独特的出身
-      const aiTemplates = [
-        { name: '神秘来客', description: '来历不明，身上带着异界的气息。没有人知道你从何而来，但所有人都能感受到你身上那股不属于此界的神秘力量。' },
-        { name: '轮回转世', description: '前世乃是大能修士，今生虽然记忆模糊，但修炼天赋惊人。偶尔会有零星的记忆闪现，指引着修炼的方向。' },
-        { name: '天选之子', description: '出生时天现异象，紫气东来三千里。被认为是应劫而生的天命之人，身负重任却不自知。' },
-        { name: '魔道遗孤', description: '父母曾是魔道巨擘，虽已陨落，但血脉中潜藏着惊人的力量。需要强大的意志来驾驭这股力量。' },
-        { name: '灵兽化形', description: '本是灵兽，机缘巧合下化为人形。保留了兽类的某些特质，对天地灵气有着异常的敏感。' },
-        { name: '时空旅者', description: '来自另一个时空，携带着未来的记忆。对这个世界的发展有着模糊的预知，但因果纠缠让一切充满变数。' },
-        { name: '道体天成', description: '天生道体，与天地大道契合。修炼速度远超常人，但也更容易遭受天劫考验。' }
-      ];
-
-      const template = aiTemplates[Math.floor(Math.random() * aiTemplates.length)];
-      const generatedOrigin: Origin = {
-        id: Date.now(),
-        name: template.name,
-        description: template.description,
-        talent_cost: 0, // AI生成的出身不消耗点数
-        attribute_modifiers: null
-      };
-
-      // 模拟生成延迟
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // 添加到列表顶部
-      origins.value.unshift(generatedOrigin);
-      // 自动选择
-      store.selectedOrigin = generatedOrigin;
-
-    } catch (e: any) {
-      error.value = 'AI推演失败';
-    } finally {
-      isLoading.value = false;
-    }
-  } else {
-    // 联机模式请求后端
-    isLoading.value = true;
-    error.value = null;
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/ai/generate_origin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ world_id: store.selectedWorld?.id })
-      });
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'AI推演失败');
-      }
-      const generatedOrigin = await response.json();
-
-      // Check if this origin already exists in our list
-      const existingOrigin = origins.value.find(o => o.id === generatedOrigin.id);
-      if (!existingOrigin) {
-        origins.value.unshift(generatedOrigin); // Add to the top
-      }
-
-      // Automatically select it, ignoring cost for AI generation
-      store.selectedOrigin = generatedOrigin;
-
-    } catch (e: any) {
-      error.value = `AI推演异常: ${e.message}`;
-    } finally {
-      isLoading.value = false;
-    }
+  isLoading.value = true;
+  error.value = null;
+  try {
+    const newOrigin = await generateOriginWithTavernAI(store.selectedWorld);
+    origins.value.unshift(newOrigin);
+    // AI生成的出身，直接选中，不校验点数
+    store.selectedOrigin = newOrigin;
+  } catch (e: any) {
+    error.value = `AI推演失败: ${e.message}`;
+    toast.error(error.value);
+  } finally {
+    isLoading.value = false;
   }
 }
 
-async function redeemCode() {
-    if (!redemptionCode.value) {
-        error.value = "请输入兑换码。";
-        return;
-    }
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/redeem`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: redemptionCode.value })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || '兑换码无效或已使用。');
-        }
-
-        const redeemedData = await response.json();
-
-        // --- 将接引的天机注入坤舆宝库 ---
-        store.selectedOrigin = redeemedData.origin;
-        store.selectedSpiritRoot = redeemedData.spirit_root;
-        store.selectedTalents = redeemedData.talents;
-        store.talentPoints = redeemedData.talent_tier.total_points;
-        store.selectedTalentTier = redeemedData.talent_tier;
-
-        // 注入六司属性
-        if (redeemedData.attributes) {
-            store.attributes.root_bone = redeemedData.attributes.root_bone;
-            store.attributes.spirituality = redeemedData.attributes.spirituality;
-            store.attributes.comprehension = redeemedData.attributes.comprehension;
-            store.attributes.luck = redeemedData.attributes.luck;
-            store.attributes.charm = redeemedData.attributes.charm;
-            store.attributes.temperament = redeemedData.attributes.temperament;
-        }
-
-        // 牵引至最终预览
-        store.goToStep(store.totalSteps);
-
-    } catch (e: any) {
-        error.value = `兑换失败: ${e.message}`;
-    } finally {
-        isLoading.value = false;
-    }
+function handleAIGenerate() {
+  if (store.mode === 'single') {
+    _handleLocalAIGenerate();
+  } else {
+    emit('ai-generate');
+  }
 }
+
+async function handleAIGenerateWithCode(code: string) {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    const newOrigin = await request<Origin>('/api/v1/ai_redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, type: 'origin' }),
+    });
+    origins.value.unshift(newOrigin);
+    store.selectedOrigin = newOrigin;
+    toast.success('天机接引成功！');
+  } catch (e: any) {
+    error.value = `AI推演失败: ${e.message}`;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 
 onMounted(() => {
   fetchCreationData();
+});
+
+defineExpose({
+  handleAIGenerateWithCode,
+  fetchData: fetchCreationData,  // 暴露数据获取方法
 });
 </script>
 
@@ -335,17 +284,6 @@ onMounted(() => {
   background: rgba(229, 192, 123, 0.5);
 }
 
-.origin-list-container.multi-mode {
-    opacity: 0.6;
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 10px,
-      rgba(var(--color-primary-rgb), 0.05) 10px,
-      rgba(var(--color-primary-rgb), 0.05) 20px
-    );
-}
-
 .origin-item {
   display: flex;
   justify-content: space-between;
@@ -388,6 +326,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .origin-details {
@@ -483,41 +423,5 @@ onMounted(() => {
 
 .action-cost {
     color: var(--color-accent);
-}
-
-/* 联机模式兑换码样式 */
-.redemption-container {
-    position: absolute;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-}
-
-.redemption-code {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    padding: 1rem;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.redemption-code input[type="text"] {
-    padding: 0.75rem 1rem;
-    background: rgba(0,0,0,0.2);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    color: var(--color-text);
-    font-size: 1rem;
-    min-width: 250px;
-}
-
-.redemption-code input[type="text"]:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
 }
 </style>

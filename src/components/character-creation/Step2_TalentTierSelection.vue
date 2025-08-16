@@ -20,13 +20,13 @@
           </div>
         </div>
 
-        <!-- 单机模式功能按钮 -->
-        <div v-if="store.mode === 'single'" class="single-actions-container">
+        <!-- 功能按钮 -->
+        <div class="single-actions-container">
           <div class="divider"></div>
-          <button @click="customTalentTier" class="action-item">
+          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
             <span class="action-name">自定义天资</span>
           </button>
-          <button @click="aiGenerateTalentTier" class="action-item">
+          <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">AI推演</span>
           </button>
         </div>
@@ -41,114 +41,164 @@
           <div class="description-scroll">
             <p>{{ store.selectedTalentTier.description }}</p>
           </div>
-          <div class="points-display">
-            天道点: {{ store.selectedTalentTier.total_points }}
-          </div>
+          <div class="points-display">天道点: {{ store.selectedTalentTier.total_points }}</div>
         </div>
-        <div v-else class="placeholder">
-          请选择你的天资等级，这将决定你的起点。
-        </div>
+        <div v-else class="placeholder">请选择你的天资等级，这将决定你的起点。</div>
       </div>
     </div>
+
+    <CustomCreationModal
+      :visible="isCustomModalVisible"
+      title="自定义天资"
+      :fields="customTierFields"
+      :validationFn="(data) => validateCustomData('talent_tier', data)"
+      @close="isCustomModalVisible = false"
+      @submit="handleCustomSubmit"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useCharacterCreationStore, type TalentTier } from '../../stores/characterCreationStore';
-import { LOCAL_TALENT_TIERS } from '../../data/localData';
-import { API_BASE_URL } from '../../services/api';
+import { ref, onMounted } from 'vue'
+import { useCharacterCreationStore, type TalentTier } from '../../stores/characterCreationStore'
+import { LOCAL_TALENT_TIERS } from '../../data/localData'
+import { request } from '../../services/request'
+import CustomCreationModal from './CustomCreationModal.vue'
+import { generateTalentTierWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import { toast } from '../../utils/toast'
 
-const store = useCharacterCreationStore();
-const talentTiers = ref<TalentTier[]>([]);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-
-function customTalentTier() {
-  // 自定义天资功能
-  alert("自定义天资功能正在建设中。");
+interface CustomTierData {
+  name: string
+  description: string
+  total_points: string
+  color: string
 }
 
-async function aiGenerateTalentTier() {
-  // AI推演天资
+const emit = defineEmits(['ai-generate'])
+const store = useCharacterCreationStore()
+const talentTiers = ref<TalentTier[]>([])
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const isCustomModalVisible = ref(false)
+
+const customTierFields = [
+  { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },
+  {
+    key: 'description',
+    label: '天资描述',
+    type: 'textarea',
+    placeholder: '描述此天资的特点...',
+  },
+  { key: 'total_points', label: '天道点', type: 'text', placeholder: '例如：10' },
+  { key: 'color', label: '辉光颜色', type: 'text', placeholder: '例如：#808080' },
+] as const
+
+function handleCustomSubmit(data: CustomTierData) {
+  const newTier: TalentTier = {
+    id: Date.now(),
+    name: data.name,
+    description: data.description,
+    total_points: parseInt(data.total_points, 10) || 10,
+    color: data.color || '#808080',
+    rarity: 0,
+  }
+  talentTiers.value.unshift(newTier)
+  selectTalentTier(newTier)
+}
+
+async function _handleLocalAIGenerate() {
+  isLoading.value = true
+  error.value = null
+  try {
+    const newTier = await generateTalentTierWithTavernAI()
+    talentTiers.value.unshift(newTier)
+    selectTalentTier(newTier)
+  } catch (err: Error | unknown) {
+    const message = err instanceof Error ? err.message : '未知错误'
+    error.value = `AI推演失败: ${message}`
+    toast.error(error.value)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function handleAIGenerate() {
+  if (store.mode === 'single') {
+    _handleLocalAIGenerate()
+  } else {
+    emit('ai-generate')
+  }
+}
+
+async function handleAIGenerateWithCode(code: string) {
   isLoading.value = true;
   error.value = null;
-
   try {
-    // 这里应该调用SillyTavern的AI接口
-    // 暂时使用模拟数据
-    const aiGeneratedTier: TalentTier = {
-      id: Date.now(),
-      name: '天命之子',
-      description: 'AI推演结果：你是天道眷顾之人，生而知之，天赋异禀。修行路上必定一帆风顺，前途不可限量。',
-      total_points: 35,
-      color: '#9400D3',
-      rarity: 0
-    };
-
-    // 添加到列表顶部
-    talentTiers.value.unshift(aiGeneratedTier);
-    // 自动选择
-    store.selectedTalentTier = aiGeneratedTier;
-    store.talentPoints = aiGeneratedTier.total_points;
-
-    setTimeout(() => {
-      isLoading.value = false;
-    }, 1000);
+    const newTier = await request<TalentTier>('/api/v1/ai_redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, type: 'talent_tier' }),
+    });
+    talentTiers.value.unshift(newTier);
+    selectTalentTier(newTier);
+    toast.success('天机接引成功！');
   } catch (e: any) {
-    error.value = 'AI推演失败';
+    error.value = `AI推演失败: ${e.message}`;
+  } finally {
     isLoading.value = false;
   }
 }
+
+defineExpose({
+  handleAIGenerateWithCode,
+  fetchData: fetchTalentTiers,  // 暴露数据获取方法
+});
 
 async function fetchTalentTiers() {
   // 单机模式使用本地数据
   if (store.mode === 'single') {
     try {
       // 使用本地的天资等级数据
-      const tiers: TalentTier[] = LOCAL_TALENT_TIERS.map(t => ({
+      const tiers: TalentTier[] = LOCAL_TALENT_TIERS.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
         total_points: t.total_points,
         color: t.color,
-        rarity: 0 // 本地数据不需要rarity，设置默认值
-      }));
-      talentTiers.value = tiers;
+        rarity: 0, // 本地数据不需要rarity，设置默认值
+      }))
+      talentTiers.value = tiers
 
       // 模拟加载延迟
       setTimeout(() => {
-        isLoading.value = false;
-      }, 300);
-    } catch (e: any) {
-      error.value = '加载本地数据失败';
-      isLoading.value = false;
+        isLoading.value = false
+      }, 300)
+    } catch (_: unknown) {
+      error.value = '加载本地数据失败'
+      isLoading.value = false
     }
   } else {
     // 联机模式请求后端
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/talent_tiers/`);
-      if (!response.ok) {
-        throw new Error(`天网灵脉响应异常: ${response.status}`);
-      }
-      const tiers: TalentTier[] = await response.json();
-      talentTiers.value = tiers.sort((a, b) => a.rarity - b.rarity);
-    } catch (e: any) {
-      error.value = e.message;
+      const tiers = await request<TalentTier[]>('/api/v1/talent_tiers/')
+      talentTiers.value = tiers.sort((a, b) => a.rarity - b.rarity)
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : '未知错误'
     } finally {
-      isLoading.value = false;
+      isLoading.value = false
     }
   }
 }
 
 function selectTalentTier(tier: TalentTier) {
-  store.selectedTalentTier = tier;
-  store.talentPoints = tier.total_points;
+  store.selectedTalentTier = tier
+  store.talentPoints = tier.total_points
 }
 
 onMounted(() => {
-  fetchTalentTiers();
-});
+  fetchTalentTiers()
+})
 </script>
 
 <style scoped>
@@ -159,7 +209,9 @@ onMounted(() => {
   position: relative;
 }
 
-.loading-state, .error-state, .placeholder {
+.loading-state,
+.error-state,
+.placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -250,12 +302,7 @@ onMounted(() => {
 
 .divider {
   height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(229, 192, 123, 0.3),
-    transparent
-  );
+  background: linear-gradient(to right, transparent, rgba(229, 192, 123, 0.3), transparent);
   margin: 0.5rem 0;
 }
 
@@ -291,7 +338,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: 100%;
+  padding: 1rem;
+  flex: 1;
+  min-height: 0;
 }
 
 .tier-details {
@@ -357,7 +406,7 @@ onMounted(() => {
 
 /* 为不同天资等级设置颜色变量 */
 .tier-item:nth-child(1) {
-  --tier-glow-color: #8B4513;
+  --tier-glow-color: #8b4513;
   --tier-glow-color-rgb: 139, 69, 19;
 }
 
@@ -367,22 +416,22 @@ onMounted(() => {
 }
 
 .tier-item:nth-child(3) {
-  --tier-glow-color: #4169E1;
+  --tier-glow-color: #4169e1;
   --tier-glow-color-rgb: 65, 105, 225;
 }
 
 .tier-item:nth-child(4) {
-  --tier-glow-color: #9932CC;
+  --tier-glow-color: #9932cc;
   --tier-glow-color-rgb: 153, 50, 204;
 }
 
 .tier-item:nth-child(5) {
-  --tier-glow-color: #FFD700;
+  --tier-glow-color: #ffd700;
   --tier-glow-color-rgb: 255, 215, 0;
 }
 
 .tier-item:nth-child(6) {
-  --tier-glow-color: #FF0000;
+  --tier-glow-color: #ff0000;
   --tier-glow-color-rgb: 255, 0, 0;
 }
 </style>

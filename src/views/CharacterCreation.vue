@@ -15,11 +15,11 @@
       <div class="step-content">
         <transition name="fade-step" mode="out-in">
           <div :key="store.currentStep" class="step-wrapper">
-             <Step1_WorldSelection v-if="store.currentStep === 1" />
-             <Step2_TalentTierSelection v-else-if="store.currentStep === 2" />
-             <Step3_OriginSelection v-else-if="store.currentStep === 3" />
-             <Step4_SpiritRootSelection v-else-if="store.currentStep === 4" />
-             <Step5_TalentSelection v-else-if="store.currentStep === 5" />
+             <Step1_WorldSelection v-if="store.currentStep === 1" ref="step1Ref" @ai-generate="handleAIGenerateClick" />
+             <Step2_TalentTierSelection v-else-if="store.currentStep === 2" ref="step2Ref" @ai-generate="handleAIGenerateClick" />
+             <Step3_OriginSelection v-else-if="store.currentStep === 3" ref="step3Ref" @ai-generate="handleAIGenerateClick" />
+             <Step4_SpiritRootSelection v-else-if="store.currentStep === 4" ref="step4Ref" @ai-generate="handleAIGenerateClick" />
+             <Step5_TalentSelection v-else-if="store.currentStep === 5" ref="step5Ref" @ai-generate="handleAIGenerateClick" />
              <Step6_AttributeAllocation v-else-if="store.currentStep === 6" />
              <Step7_Preview v-else-if="store.currentStep === 7" />
           </div>
@@ -54,6 +54,21 @@
         </button>
       </div>
     </div>
+
+    <!-- 仙缘信物按钮 - 只在联机模式下点击AI推演时显示 -->
+
+    <RedemptionCodeModal
+      :visible="isCodeModalVisible"
+      title="使用仙缘信物"
+      @close="isCodeModalVisible = false"
+      @submit="handleCodeSubmit"
+    />
+
+    <!-- AI生成等待弹窗 -->
+    <LoadingModal
+      :visible="isGenerating"
+      :message="loadingMessage"
+    />
   </div>
 </template>
 
@@ -66,9 +81,29 @@ import Step4_SpiritRootSelection from '../components/character-creation/Step4_Sp
 import Step5_TalentSelection from '../components/character-creation/Step5_TalentSelection.vue';
 import Step6_AttributeAllocation from '../components/character-creation/Step6_AttributeAllocation.vue';
 import Step7_Preview from '../components/character-creation/Step7_Preview.vue';
+import RedemptionCodeModal from '../components/character-creation/RedemptionCodeModal.vue';
+import LoadingModal from '../components/LoadingModal.vue';
+import { request } from '../services/request';
+import { toast } from '../utils/toast';
+import { ref } from 'vue';
 
 const emit = defineEmits(['back']);
 const store = useCharacterCreationStore();
+const isCodeModalVisible = ref(false);
+const isGenerating = ref(false);
+const loadingMessage = ref('天机推演中...');
+
+// 处理AI推演按钮点击 - 在联机模式下显示兑换码弹窗
+function handleAIGenerateClick() {
+  if (store.mode === 'multi') {
+    isCodeModalVisible.value = true;
+  }
+}
+
+// 暴露给步骤组件调用
+defineExpose({
+  handleAIGenerateClick
+});
 
 const stepLabels = ['诸天问道', '仙缘初定', '转世因果', '测灵问道', '神通择定', '命格天成', '窥天算命'];
 
@@ -100,48 +135,252 @@ async function handleNext() {
     }
 }
 
+const step1Ref = ref<any>(null);
+const step2Ref = ref<any>(null);
+const step3Ref = ref<any>(null);
+const step4Ref = ref<any>(null);
+const step5Ref = ref<any>(null);
+
+async function handleCodeSubmit(code: string) {
+  // 1. 检查登录状态
+  const token = localStorage.getItem('access_token');
+  if (!token) {
+    toast.error("身份凭证缺失，请先登录再记录天机。");
+    isCodeModalVisible.value = false;
+    return;
+  }
+
+  // 2. 验证兑换码格式
+  if (!code || code.trim().length < 6) {
+    toast.error("请输入有效的仙缘信物！");
+    return;
+  }
+
+  // 3. 确定内容类型
+  let type = '';
+  let currentStepRef: any = null;
+
+  switch(store.currentStep) {
+    case 1: type = 'world'; currentStepRef = step1Ref.value; break;
+    case 2: type = 'talent_tier'; currentStepRef = step2Ref.value; break;
+    case 3: type = 'origin'; currentStepRef = step3Ref.value; break;
+    case 4: type = 'spirit_root'; currentStepRef = step4Ref.value; break;
+    case 5: type = 'talent'; currentStepRef = step5Ref.value; break;
+    default:
+      toast.error("当前步骤不支持AI生成！");
+      return;
+  }
+
+  // 4. 先验证兑换码是否可用（可选，如果想在生成前就验证）
+  try {
+    loadingMessage.value = '正在验证仙缘信物...';
+    isGenerating.value = true;
+    isCodeModalVisible.value = false;
+    
+    const validateResponse = await request<any>(`/api/v1/validate/${code}`, {
+      method: 'POST'
+    });
+    
+    if (!validateResponse || validateResponse.is_used) {
+      toast.error("仙缘信物已被使用或无效！");
+      isGenerating.value = false;
+      return;
+    }
+  } catch (error) {
+    // 如果验证接口不存在或失败，继续执行（向后兼容）
+    console.warn('兑换码预验证失败，继续执行:', error);
+  }
+
+  try {
+
+    // 5. 开始AI生成
+    loadingMessage.value = '正在推演玄妙...';
+    
+    let generatedContent: any = null;
+    
+    if (type === 'world') {
+      const { generateWorldWithTavernAI } = await import('../utils/tavernAI');
+      generatedContent = await generateWorldWithTavernAI();
+      if (generatedContent) store.selectedWorld = generatedContent;
+    } else if (type === 'talent_tier') {
+      const { generateTalentTierWithTavernAI } = await import('../utils/tavernAI');
+      generatedContent = await generateTalentTierWithTavernAI();
+      if (generatedContent) store.selectedTalentTier = generatedContent;
+    } else if (type === 'origin') {
+      if (!store.selectedWorld) {
+        toast.error('请先选择世界！');
+        return;
+      }
+      const { generateOriginWithTavernAI } = await import('../utils/tavernAI');
+      generatedContent = await generateOriginWithTavernAI(store.selectedWorld);
+      if (generatedContent) store.selectedOrigin = generatedContent;
+    } else if (type === 'spirit_root') {
+      const { generateSpiritRootWithTavernAI } = await import('../utils/tavernAI');
+      generatedContent = await generateSpiritRootWithTavernAI();
+      if (generatedContent) store.selectedSpiritRoot = generatedContent;
+    } else if (type === 'talent') {
+      const { generateTalentWithTavernAI } = await import('../utils/tavernAI');
+      generatedContent = await generateTalentWithTavernAI();
+      if (generatedContent) {
+        if (!store.selectedTalents) store.selectedTalents = [];
+        store.selectedTalents.push(generatedContent);
+      }
+    }
+
+    if (!generatedContent) {
+      toast.error('天机推演失败，请重试。');
+      return;
+    }
+
+    // 6. 保存到云端并消耗兑换码
+    loadingMessage.value = '正在将结果铭刻于云端...';
+
+    const saveResult = await request<any>('/api/v1/ai/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: code.trim().toUpperCase(), // 统一转大写
+        type,
+        content: generatedContent
+      })
+    });
+
+    // 只有在明确收到成功响应时才显示成功消息
+    if (saveResult && saveResult.message) {
+      if (saveResult.code_used) {
+        toast.success(`天机已成功记录！信物使用次数：${saveResult.code_used}`);
+      } else {
+        toast.success('天机已成功记录于云端！');
+      }
+      
+      if (currentStepRef && currentStepRef.fetchData) {
+        loadingMessage.value = '正在同步云端数据...';
+        await currentStepRef.fetchData();
+        toast.success('云端数据同步完成！');
+      }
+    }
+    
+  } catch (error: any) {
+    if (error.message?.includes('兑换码') || error.message?.includes('信物')) {
+      toast.error(error.message);
+    } else if (error.message?.includes('登录')) {
+      toast.error('身份验证失败，请重新登录！');
+    } else {
+      toast.error('天机紊乱：' + (error.message || '未知错误'));
+    }
+  } finally {
+    isGenerating.value = false;
+  }
+}
+
 async function createCharacter() {
     try {
+        // 确保有角色名
+        if (!store.characterName) {
+            toast.error('请输入道号！');
+            return;
+        }
+
+        // 单机模式：计算属性并更新酒馆角色名
+        if (store.mode === 'single') {
+            // 导入本地计算函数
+            const { calculateCoreAttributes } = await import('../utils/characterCalculation');
+            
+            // 计算核心属性
+            const coreAttrs = calculateCoreAttributes(
+                store.attributes.root_bone,
+                store.attributes.spirituality,
+                store.attributes.comprehension,
+                store.attributes.luck,
+                store.attributes.charm,
+                store.attributes.temperament
+            );
+            
+            // 保存角色数据到本地存储
+            const characterData = {
+                characterName: store.characterName,
+                world: store.selectedWorld,
+                talentTier: store.selectedTalentTier,
+                origin: store.selectedOrigin,
+                spiritRoot: store.selectedSpiritRoot,
+                talents: store.selectedTalents,
+                attributes: {
+                    rootBone: store.attributes.root_bone,
+                    spirituality: store.attributes.spirituality,
+                    comprehension: store.attributes.comprehension,
+                    fortune: store.attributes.luck,
+                    charm: store.attributes.charm,
+                    temperament: store.attributes.temperament
+                },
+                coreAttributes: coreAttrs,
+                createdAt: new Date().toISOString()
+            };
+            
+            // 保存到localStorage
+            localStorage.setItem('currentCharacter', JSON.stringify(characterData));
+            
+            // 调用酒馆的 /rename-char 命令来更新角色名
+            if (window.SillyTavern?.executeSlashCommands) {
+                try {
+                    await window.SillyTavern.executeSlashCommands(`/rename-char ${store.characterName}`);
+                    toast.success(`道号 "${store.characterName}" 设定成功！仙途即将开启！`);
+                } catch (e) {
+                    console.error('执行酒馆命令失败:', e);
+                    toast.warning('道号设定失败，但您可以在酒馆中手动修改。');
+                }
+            } else {
+                toast.success(`角色创建成功！\\n\\n道号: ${store.characterName}\\n\\n请在酒馆中手动修改角色名为: ${store.characterName}`);
+            }
+            
+            // 重置并返回
+            store.reset();
+            emit('back');
+            return;
+        }
+
+        // 联机模式：调用后端API创建角色
         const payload = {
-            name: store.characterName,
+            character_name: store.characterName,
             world_id: store.selectedWorld?.id,
             talent_tier_id: store.selectedTalentTier?.id,
             origin_id: store.selectedOrigin?.id,
-            spirit_root_id: store.selectedSpiritRoot?.id, // Can be null for random
-            talent_ids: store.selectedTalents.map(t => t.id),
-            attributes: {
-                root_bone: store.attributes.root_bone,
-                spirituality: store.attributes.spirituality,
-                comprehension: store.attributes.comprehension,
-                luck: store.attributes.luck,
-                charm: store.attributes.charm,
-                temperament: store.attributes.temperament,
-            }
+            spirit_root_id: store.selectedSpiritRoot?.id,
+            selected_talent_ids: store.selectedTalents.map(t => t.id),
+            root_bone: store.attributes.root_bone,
+            spirituality: store.attributes.spirituality,
+            comprehension: store.attributes.comprehension,
+            fortune: store.attributes.luck,
+            charm: store.attributes.charm,
+            temperament: store.attributes.temperament,
         };
 
-        const response = await fetch('http://127.0.0.1:12345/api/v1/create', {
+        const characterData = await request<any>('/api/v1/characters/create', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`洞天开辟失败: ${errorData.detail || response.status}`);
+        // 联机模式下也尝试更新酒馆角色名
+        if (window.SillyTavern?.executeSlashCommands) {
+            try {
+                await window.SillyTavern.executeSlashCommands(`/rename-char ${store.characterName}`);
+            } catch (e) {
+                console.error('执行酒馆命令失败:', e);
+            }
         }
-
-        const characterData = await response.json();
-        alert(`角色 ${characterData.name} 创建成功！`);
-        // Here you would typically redirect to the game view
-        // For now, we can just reset the creation process
+        
+        // 显示角色创建成功信息（不显示具体数值）
+        if (characterData.game_state) {
+            toast.success(`角色 ${characterData.character_name} 创建成功！仙途即将开启！`);
+        } else {
+            toast.success(`角色 ${characterData.character_name} 创建成功！`);
+        }
         store.reset();
-        emit('back'); // Go back to mode selection
+        emit('back');
 
     } catch (error: any) {
+        // request函数已处理toast.error
         console.error("创建角色时发生错误:", error);
-        alert(`错误: ${error.message}`);
     }
 }
 </script>
@@ -318,5 +557,12 @@ async function createCharacter() {
 
 button {
   /* Now using the .btn class from style.css */
+}
+
+.code-redeem-fab {
+  position: absolute;
+  bottom: 2rem;
+  left: 2rem;
+  z-index: 10;
 }
 </style>

@@ -7,7 +7,7 @@
   --color-primary-hover: #5a8a8e;
   --color-primary-active: #3a5a5d;
 
-  --color-accent: #c0a47c; /* 古铜金 - 古朴、典雅的强调色 */
+  --color-accent: #ffdd62; /* 古铜金 - 古朴、典雅的强调色 */
   --color-accent-hover: #d4b890;
 
   /* 背景与表面 */
@@ -131,6 +131,33 @@ body {
   color: var(--color-border);
   border-color: var(--color-border);
   box-shadow: none;
+}
+
+/* --- 流光特效 --- */
+.shimmer-on-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-on-hover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 75%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  transition: left 0.6s ease-in-out;
+}
+
+.shimmer-on-hover:hover::after {
+  left: 150%;
 }
 
 /* --- Button Variants --- */

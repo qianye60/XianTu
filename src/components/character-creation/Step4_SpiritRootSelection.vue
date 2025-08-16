@@ -6,12 +6,11 @@
     <div v-else class="spirit-root-layout">
       <!-- 左侧面板：列表和操作按钮 -->
       <div class="spirit-root-left-panel">
-        <div class="spirit-root-list-container" :class="{ 'multi-mode': store.mode === 'multi' }">
+        <div class="spirit-root-list-container">
           <div
             class="spirit-root-item"
             :class="{
-              selected: isRandomSelected,
-              disabled: store.mode === 'multi'
+              selected: isRandomSelected
             }"
             @click="selectRandomSpiritRoot"
           >
@@ -25,7 +24,7 @@
             class="spirit-root-item"
             :class="{
               selected: store.selectedSpiritRoot?.id === root.id,
-              disabled: !canSelectSpiritRoot(root) || store.mode === 'multi'
+              disabled: !canSelectSpiritRoot(root)
             }"
             @click="selectSpiritRoot(root)"
           >
@@ -33,14 +32,14 @@
             <span class="spirit-root-cost">{{ root.talent_cost }} 点</span>
           </div>
         </div>
-        
-        <!-- 单机模式功能按钮 -->
-        <div v-if="store.mode === 'single'" class="single-actions-container">
+
+        <!-- 功能按钮 -->
+        <div class="single-actions-container">
           <div class="divider"></div>
-          <button @click="showCustomPanel = true" class="action-item">
+          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
             <span class="action-name">自定义灵根</span>
           </button>
-          <button @click="aiGenerateSpiritRoot" class="action-item">
+          <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">AI推演</span>
           </button>
         </div>
@@ -63,28 +62,15 @@
       </div>
     </div>
 
-    <!-- 自定义灵根面板 -->
-    <div v-if="showCustomPanel" class="custom-panel-overlay" @click.self="showCustomPanel = false">
-      <div class="custom-panel">
-        <h2>自定义灵根</h2>
-        <div class="form-group">
-          <label>灵根名称</label>
-          <input v-model="customRoot.name" type="text" placeholder="例如：混沌灵根" />
-        </div>
-        <div class="form-group">
-          <label>灵根描述</label>
-          <textarea v-model="customRoot.description" placeholder="描述这个灵根的特性..." rows="4"></textarea>
-        </div>
-        <div class="form-group">
-          <label>倍率加成</label>
-          <input v-model.number="customRoot.base_multiplier" type="number" step="0.1" min="0.1" max="10" />
-        </div>
-        <div class="form-actions">
-          <button @click="showCustomPanel = false" class="btn btn-secondary">取消</button>
-          <button @click="confirmCustomRoot" class="btn">确认</button>
-        </div>
-      </div>
-    </div>
+    <CustomCreationModal
+      :visible="isCustomModalVisible"
+      title="自定义灵根"
+      :fields="customSpiritRootFields"
+      :validationFn="(data) => validateCustomData('spirit_root', data)"
+      @close="isCustomModalVisible = false"
+      @submit="handleCustomSubmit"
+    />
+
   </div>
 </template>
 
@@ -92,20 +78,37 @@
 import { ref, onMounted, computed } from 'vue';
 import { useCharacterCreationStore, type SpiritRoot } from '../../stores/characterCreationStore';
 import { LOCAL_SPIRIT_ROOTS } from '../../data/localData';
-import { API_BASE_URL } from '../../services/api';
+import { request } from '../../services/request';
+import CustomCreationModal from './CustomCreationModal.vue';
+import { generateSpiritRootWithTavernAI, validateCustomData } from '../../utils/tavernAI';
+import { toast } from '../../utils/toast';
 
+const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
 const spiritRoots = ref<SpiritRoot[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 const isRandomSelected = ref(false);
-const showCustomPanel = ref(false);
+const isCustomModalVisible = ref(false);
 
-const customRoot = ref({
-  name: '',
-  description: '',
-  base_multiplier: 1.0
-});
+const customSpiritRootFields = [
+  { key: 'name', label: '灵根名称', type: 'text', placeholder: '例如：混沌灵根' },
+  { key: 'description', label: '灵根描述', type: 'textarea', placeholder: '描述这个灵根的特性...' },
+  { key: 'base_multiplier', label: '修炼倍率', type: 'text', placeholder: '例如：1.5' },
+  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：10' },
+] as const;
+
+function handleCustomSubmit(data: any) {
+  const newRoot: SpiritRoot = {
+    id: Date.now(),
+    name: data.name,
+    description: data.description,
+    base_multiplier: parseFloat(data.base_multiplier) || 1.0,
+    talent_cost: parseInt(data.talent_cost, 10) || 0,
+  };
+  spiritRoots.value.unshift(newRoot);
+  selectSpiritRoot(newRoot);
+}
 
 const selectedDisplayName = computed(() => {
   if (isRandomSelected.value) return '随机灵根';
@@ -133,7 +136,7 @@ async function fetchSpiritRoots() {
         base_multiplier: r.base_multiplier,
         talent_cost: r.talent_cost
       }));
-      
+
       setTimeout(() => {
         isLoading.value = false;
       }, 300);
@@ -148,13 +151,9 @@ async function fetchSpiritRoots() {
       isLoading.value = false;
       return;
     }
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
-      if (!response.ok) {
-        throw new Error(`天网灵脉响应异常: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await request<any>(`/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
       spiritRoots.value = data.spirit_roots || [];
     } catch (e: any) {
       error.value = e.message;
@@ -165,6 +164,9 @@ async function fetchSpiritRoots() {
 }
 
 const canSelectSpiritRoot = (root: SpiritRoot) => {
+  if (store.mode === 'multi') {
+    return true; // In multi mode, server handles validation
+  }
   if (store.selectedSpiritRoot?.id === root.id) {
     return true; // Always allow deselecting
   }
@@ -174,10 +176,8 @@ const canSelectSpiritRoot = (root: SpiritRoot) => {
 };
 
 function selectSpiritRoot(root: SpiritRoot) {
-  if (store.mode === 'multi' || !canSelectSpiritRoot(root)) {
-    if(store.mode !== 'multi') {
-      console.warn("天道点不足，无法选择此灵根。");
-    }
+  if (store.mode === 'single' && !canSelectSpiritRoot(root)) {
+    toast.warning("天道点不足，无法选择此灵根。");
     return;
   }
   store.selectedSpiritRoot = root;
@@ -185,71 +185,56 @@ function selectSpiritRoot(root: SpiritRoot) {
 }
 
 function selectRandomSpiritRoot() {
-  if (store.mode === 'multi') return;
   isRandomSelected.value = true;
   store.selectedSpiritRoot = null;
 }
 
-async function aiGenerateSpiritRoot() {
+async function _handleLocalAIGenerate() {
   isLoading.value = true;
   error.value = null;
-  
   try {
-    // AI生成灵根
-    const aiTemplates = [
-      { name: '时空灵根', description: '极其罕见的变异灵根，能够感知时空之力，修炼速度超乎想象。', base_multiplier: 3.0 },
-      { name: '阴阳灵根', description: '天生阴阳同体，可同时修炼阴阳两种属性的功法，威力倍增。', base_multiplier: 2.5 },
-      { name: '血脉灵根', description: '血脉中蕴含着古老的力量，随着修为提升会逐渐觉醒。', base_multiplier: 2.0 }
-    ];
-    
-    const template = aiTemplates[Math.floor(Math.random() * aiTemplates.length)];
-    const generatedRoot: SpiritRoot = {
-      id: Date.now(),
-      name: template.name,
-      description: template.description,
-      base_multiplier: template.base_multiplier,
-      talent_cost: 0
-    };
-    
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    spiritRoots.value.unshift(generatedRoot);
-    store.selectedSpiritRoot = generatedRoot;
-    isRandomSelected.value = false;
-    
+    const newRoot = await generateSpiritRootWithTavernAI();
+    spiritRoots.value.unshift(newRoot);
+    selectSpiritRoot(newRoot);
   } catch (e: any) {
-    error.value = 'AI推演失败';
+    error.value = `AI推演失败: ${e.message}`;
+    toast.error(error.value);
   } finally {
     isLoading.value = false;
   }
 }
 
-function confirmCustomRoot() {
-  if (!customRoot.value.name) {
-    alert('请输入灵根名称');
-    return;
+function handleAIGenerate() {
+  if (store.mode === 'single') {
+    _handleLocalAIGenerate();
+  } else {
+    emit('ai-generate');
   }
-  
-  const newRoot: SpiritRoot = {
-    id: Date.now(),
-    name: customRoot.value.name,
-    description: customRoot.value.description || '自定义灵根',
-    base_multiplier: customRoot.value.base_multiplier,
-    talent_cost: 0
-  };
-  
-  spiritRoots.value.unshift(newRoot);
-  store.selectedSpiritRoot = newRoot;
-  isRandomSelected.value = false;
-  showCustomPanel.value = false;
-  
-  // 重置表单
-  customRoot.value = {
-    name: '',
-    description: '',
-    base_multiplier: 1.0
-  };
 }
+
+async function handleAIGenerateWithCode(code: string) {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    const newRoot = await request<SpiritRoot>('/api/v1/ai_redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, type: 'spirit_root' }),
+    });
+    spiritRoots.value.unshift(newRoot);
+    selectSpiritRoot(newRoot);
+    toast.success('天机接引成功！');
+  } catch (e: any) {
+    error.value = `AI推演失败: ${e.message}`;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+defineExpose({
+  handleAIGenerateWithCode,
+  fetchData: fetchSpiritRoots,  // 暴露数据获取方法
+});
 
 onMounted(() => {
   fetchSpiritRoots();
@@ -299,17 +284,6 @@ onMounted(() => {
   overflow-y: auto;
   padding: 0.5rem;
   transition: var(--transition-fast);
-}
-
-.spirit-root-list-container.multi-mode {
-  opacity: 0.6;
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 10px,
-    rgba(var(--color-primary-rgb), 0.05) 10px,
-    rgba(var(--color-primary-rgb), 0.05) 20px
-  );
 }
 
 /* 美化滚动条 */
@@ -417,7 +391,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .spirit-root-details {

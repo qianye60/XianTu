@@ -11,8 +11,8 @@
     <component
       :is="activeView"
       @path-selected="handlePathSelection"
-      @back="switchView('ModeSelection')"
-      @loggedIn="switchView('CharacterCreation')"
+      @back="handleBack"
+      @loggedIn="handleLoggedIn"
     />
   </div>
 </template>
@@ -21,19 +21,22 @@
 import { shallowRef, ref, onMounted } from 'vue'
 import ModeSelection from './views/ModeSelection.vue'
 import CharacterCreation from './views/CharacterCreation.vue'
-import Login from './views/Login.vue'
+import LoginView from './views/LoginView.vue'
 import './style.css'
 import { useCharacterCreationStore } from './stores/characterCreationStore'
+import { verifyStoredToken } from './services/request'
+import { toast } from './utils/toast'
 
+const isLoggedIn = ref(false);
 
 // --- 核心视图管理 ---
 const views = {
   ModeSelection,
   CharacterCreation,
-  Login,
+  Login: LoginView,
 }
 type ViewName = keyof typeof views;
-const activeView = shallowRef<typeof ModeSelection | typeof CharacterCreation | typeof Login>(views.ModeSelection)
+const activeView = shallowRef<typeof ModeSelection | typeof CharacterCreation | typeof LoginView>(views.ModeSelection)
 
 const store = useCharacterCreationStore();
 
@@ -51,8 +54,25 @@ const handlePathSelection = (mode: 'single' | 'multi') => {
     if (mode === 'single') {
         switchView('CharacterCreation');
     } else {
-        switchView('Login');
+        // 联机模式：检查登录状态
+        if (isLoggedIn.value) {
+            toast.success('身份已验证，欢迎回来！');
+            switchView('CharacterCreation');
+        } else {
+            // 立即切换到登录视图，不阻塞UI
+            switchView('Login');
+        }
     }
+}
+
+const handleBack = () => {
+  store.reset();
+  switchView('ModeSelection');
+}
+
+const handleLoggedIn = () => {
+  isLoggedIn.value = true;
+  switchView('CharacterCreation');
 }
 
 // --- 主题切换 ---
@@ -61,10 +81,36 @@ const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value;
   document.documentElement.setAttribute('data-theme', isDarkMode.value ? 'dark' : 'light');
 }
+
+const checkInitialLoginStatus = async () => {
+  isLoggedIn.value = await verifyStoredToken();
+  if (isLoggedIn.value) {
+    toast.info('检测到有效身份令牌。');
+  }
+};
+
+
 onMounted(() => {
   document.documentElement.setAttribute('data-theme', 'dark');
-  // Reset store on initial load
   store.reset();
+  
+  // 在后台检查初始登录状态，不阻塞UI
+  checkInitialLoginStatus();
+
+  // 启动心跳阵法，每小时检查一次令牌状态
+  setInterval(async () => {
+    // 只在联机模式且非登录界面时检查
+    if (store.mode === 'multi' && activeView.value !== views.Login) {
+      const isValid = await verifyStoredToken();
+      if (!isValid) {
+        isLoggedIn.value = false;
+        toast.error('身份令牌已失效，请重新登入。');
+        switchView('Login');
+      } else {
+        isLoggedIn.value = true;
+      }
+    }
+  }, 3600 * 1000); // 1小时
 })
 
 
