@@ -309,12 +309,14 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  max-height: 800px; /* 限制最大高度适应iframe */
   overflow-y: auto;
   color: var(--color-text);
   display: flex;
   flex-direction: column;
   align-items: center; /* 水平居中 */
-  padding: 2rem 0; /* 内部垂直边距 */
+  justify-content: center; /* 垂直居中 */
+  padding: 1rem 0; /* 减小内部垂直边距 */
   box-sizing: border-box; /* 确保 padding 不会导致溢出 */
 }
 
@@ -350,14 +352,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
+  padding: 1.5rem;
   background: var(--color-surface-light);
   border-radius: 16px;
   border: 1px solid var(--color-border);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   width: 90%;
-  max-width: 1200px;
+  max-width: 1000px;
+  max-height: calc(100% - 2rem); /* 确保不超出容器 */
+  overflow-y: auto; /* 允许内容滚动 */
   /* 移除 margin，由父容器的 padding 控制间距 */
 }
 

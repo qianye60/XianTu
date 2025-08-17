@@ -32,7 +32,7 @@
 import { shallowRef, ref, onMounted, computed } from 'vue'
 import ModeSelection from './views/ModeSelection.vue'
 import CharacterCreation from './views/CharacterCreation.vue'
-import CharacterManagement from './components/character-creation/CharacterManagement.vue'
+import CharacterManagementView from './views/CharacterManagementView.vue'
 import LoginView from './views/LoginView.vue'
 import GameView from './views/GameView.vue'
 import MapView from './views/MapView.vue' // 引入坤舆图志
@@ -55,7 +55,7 @@ const creationSummary = ref<{ name: string; origin: string; spiritRoot: string; 
 const views = {
   ModeSelection,
   CharacterCreation,
-  CharacterManagement,
+  CharacterManagement: CharacterManagementView,
   Login: LoginView,
   GameView,
   MapView, // 注册坤舆图志
@@ -220,6 +220,7 @@ const toggleFullscreen = () => {
 <style>
 #app-container {
   width: 100%;
+  height: 100%;
   min-height: 0;
   display: flex;
   justify-content: center;
