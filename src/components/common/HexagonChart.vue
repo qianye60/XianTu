@@ -79,7 +79,7 @@ const statNames: Record<AttributeKey, string> = {
 };
 
 const getHexagonPoints = (scale = 1) => {
-  const points = [];
+  const points: string[] = [];
   for (let i = 0; i < 6; i++) {
     const angle = Math.PI / 2 + (Math.PI / 3) * i;
     const x = Math.cos(angle) * radius.value * scale;
@@ -105,7 +105,7 @@ const dataPathPoints = computed(() => {
 });
 
 const dataPoints = computed(() => {
-  const points = [];
+  const points: string[] = [];
   statOrder.forEach((key, i) => {
     const value = props.stats[key] ?? 0;
     const scale = Math.max(0, Math.min(1, value / props.maxValue));
@@ -118,7 +118,7 @@ const dataPoints = computed(() => {
 });
 
 const axisPoints = computed(() => {
-  const points = [];
+  const points: { x: number; y: number }[] = [];
   for (let i = 0; i < 6; i++) {
     const angle = Math.PI / 2 + (Math.PI / 3) * i;
     points.push({
