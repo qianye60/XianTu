@@ -16,12 +16,11 @@
         <input
           type="number"
           id="birthAge"
-          v-model.number="store.characterPayload.birth_age"
+          v-model="birthAge"
           min="0"
           max="18"
-          placeholder="16"
+          placeholder="0-18"
         />
-        <span class="age-hint">0-18岁</span>
       </div>
 
       <!-- World -->
@@ -76,8 +75,27 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 const store = useCharacterCreationStore()
+
+const birthAge = computed({
+  get: () => store.characterPayload.birth_age,
+  set: (value) => {
+    let numValue = Number(value);
+    if (isNaN(numValue)) {
+      // 如果输入无效，则暂时不更新或设置为一个默认值，例如当前值
+      // 避免输入 "abc" 时跳到0
+      return;
+    }
+    // 将值限制在0到18之间，并取整
+    const clampedValue = Math.max(0, Math.min(18, Math.floor(numValue)));
+    
+    if (store.characterPayload.birth_age !== clampedValue) {
+      store.characterPayload.birth_age = clampedValue;
+    }
+  }
+});
 </script>
 
 <style scoped>

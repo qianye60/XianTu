@@ -17,7 +17,8 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\test_inventory.py\")",
       "Bash(findstr:*)",
       "Bash(grep:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

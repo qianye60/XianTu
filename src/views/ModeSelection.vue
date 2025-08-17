@@ -1,58 +1,71 @@
+<!-- src/views/ModeSelection.vue -->
 <template>
   <div class="mode-selection-container">
     <video autoplay muted loop playsinline class="video-background" src="http://38.55.124.252:13145/1394774d3043156d.mp4"></video>
     <div class="video-overlay"></div>
 
     <div class="selection-content">
-      <h1 class="main-title">天 命 昭 始</h1>
-      <p class="sub-title">一念之差，道途分野</p>
+      <div class="title-container">
+        <h1 class="main-title">大 道 朝 天</h1>
+        <span class="version-tag">V0.5 Alpha</span>
+      </div>
+      <p class="sub-title">大道朝天，各走一边</p>
 
-      <div class="astrolabe-container">
-        <!-- Left Path: Single Player -->
-        <div class="path-half left-path" @click="selectPath('single')">
-          <div class="path-icon">
-            <!-- Icon: Moon -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      <div class="gate-container">
+        <!-- Left Gate: Single Player -->
+        <div class="gate-card left-gate" @click="selectPath('single')">
+          <div class="gate-icon">
+            <!-- Icon: 独修闭关 -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/>
+              <path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/>
+              <path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/>
+            </svg>
           </div>
-          <div class="path-text">
-            <h2 class="path-title">独步寻道</h2>
-            <p class="path-description">闭关清修，自成一界</p>
+          <div class="gate-text">
+            <h2 class="gate-title">单机闭关</h2>
+            <p class="gate-description">避世清修·心无旁骛</p>
+            <p class="gate-detail">独居洞府，专心致志炼就大道根基<br/>所有进度本地存储，断网亦可修行</p>
           </div>
         </div>
 
-        <!-- Separator -->
-        <div class="astrolabe-separator"></div>
-
-        <!-- Right Path: Multiplayer -->
-        <div class="path-half right-path" @click="selectPath('multi')">
-          <div class="path-icon">
-            <!-- Icon: Stars -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 19.07-1.41-1.41"/><path d="m6.34 6.34-1.41-1.41"/><circle cx="12" cy="12" r="2"/><path d="M12 8a4 4 0 1 0 4 4"/></svg>
+        <!-- Right Gate: Multiplayer -->
+        <div class="gate-card right-gate" @click="selectPath('cloud')">
+          <div class="gate-icon">
+            <!-- Icon: 联机共修 -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
           </div>
-          <div class="path-text">
-            <h2 class="path-title">携缘入世</h2>
-            <p class="path-description">入世历劫，广结仙缘</p>
+          <div class="gate-text">
+            <h2 class="gate-title">联机共修</h2>
+            <p class="gate-description">入世历练·与道友论道</p>
+            <p class="gate-detail">云端同修，可遇其他修士切磋论道<br/>法身数据云端保存，随处可续前缘</p>
           </div>
         </div>
       </div>
 
+      <!-- 隐私说明 -->
+      <div class="privacy-notice">
+        <p>本境界谨遵天道法则：<strong>不存储任何对话记录</strong></p>
+        <p>仅保留法身属性、境界进度等修行要素，确保道友隐私清净无染</p>
+      </div>
+
       <button class="scroll-btn" @click="enterCharacterSelection">
-        <span>唤 醒 旧 识</span>
+        <span>续 前 世 因 缘</span>
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { CharacterData } from '@/types';
-
 const emit = defineEmits<{
-  (e: 'start-creation', mode: 'single' | 'multi'): void;
+  (e: 'start-creation', mode: 'single' | 'cloud'): void;
   (e: 'show-character-list'): void;
-  (e: 'game-start', character: CharacterData): void;
 }>();
 
-const selectPath = (mode: 'single' | 'multi') => {
+const selectPath = (mode: 'single' | 'cloud') => {
   emit('start-creation', mode);
 };
 
@@ -62,106 +75,141 @@ const enterCharacterSelection = () => {
 </script>
 
 <style scoped>
+.mode-selection-container {
+  /* container styles are inherited */
+}
+
+.selection-content {
+  /* content alignment styles are inherited */
+}
+
+.title-container {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.version-tag {
+  font-size: 1rem;
+  font-family: 'Consolas', 'monospace';
+  color: var(--color-warning);
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--color-warning);
+  border-radius: 4px;
+  opacity: 0.7;
+  font-weight: bold;
+}
+
 .main-title {
   font-family: var(--font-family-serif);
-  font-size: 3rem;
+  font-size: 3.5rem;
   font-weight: 500;
   letter-spacing: 0.5em;
   color: var(--color-text);
-  text-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.5);
-  margin-bottom: 0.5rem;
+  text-shadow: 0 0 25px rgba(var(--color-primary-rgb), 0.5);
+  margin: 0; /* Margin is now on the container */
 }
 
 .sub-title {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: var(--color-text-secondary);
-  margin-bottom: 3rem;
+  margin-bottom: 4rem;
   letter-spacing: 0.1em;
   opacity: 0.9;
 }
 
-.astrolabe-container {
+.gate-container {
   display: flex;
+  gap: 2rem;
   width: 100%;
-  max-width: 800px;
-  height: 300px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 150px; /* Make it oval */
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 0 30px rgba(0,0,0,0.3);
-}
-
-.path-half {
-  flex: 1;
-  display: flex;
-  align-items: center;
+  max-width: 900px;
   justify-content: center;
-  padding: 2rem;
+}
+
+.gate-card {
+  flex: 1;
+  max-width: 300px;
+  padding: 1.5rem 1.5rem;
+  background: var(--color-surface-translucent);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
   cursor: pointer;
-  transition: background-color 0.4s ease, color 0.4s ease;
-  position: relative;
-  z-index: 2;
+  text-align: center;
+  transition: all 0.4s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.left-path {
-  justify-content: flex-start;
-  padding-left: 4rem;
+.gate-card:hover {
+  transform: translateY(-10px);
+  border-color: var(--color-primary);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 20px rgba(var(--color-primary-rgb), 0.3);
+  background: var(--color-surface);
 }
 
-.right-path {
-  justify-content: flex-end;
-  padding-right: 4rem;
-  text-align: right;
-}
-
-.path-half:hover {
-  background-color: rgba(var(--color-primary-rgb), 0.2);
-}
-
-.path-icon {
+.gate-icon {
   color: var(--color-primary);
-  margin: 0 1.5rem;
-  transition: transform 0.4s ease, color 0.4s ease;
+  margin-bottom: 1.5rem;
+  transition: all 0.4s ease;
 }
-
-.path-half:hover .path-icon {
+.gate-card:hover .gate-icon {
   transform: scale(1.1);
   color: var(--color-accent);
+  filter: drop-shadow(0 0 10px rgba(var(--color-accent-rgb), 0.7));
 }
 
-.path-title {
+.gate-title {
   font-family: var(--font-family-serif);
-  font-size: 2rem;
+  font-size: 1.6rem;
   margin: 0 0 0.5rem 0;
+  color: var(--color-text);
 }
 
-.path-description {
+.gate-description {
   font-size: 1rem;
   color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
 }
 
-.astrolabe-separator {
-  width: 1px;
-  height: 60%;
-  background: var(--color-border);
-  position: absolute;
-  left: 50%;
-  top: 20%;
-  transform: translateX(-50%);
-  z-index: 1;
+.gate-detail {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+.privacy-notice {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  border-radius: 8px;
+  max-width: 600px;
+  text-align: center;
+}
+
+.privacy-notice p {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+.privacy-notice strong {
+  color: var(--color-warning);
 }
 
 .scroll-btn {
-  margin-top: 3rem;
+  margin-top: 2rem;
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   font-family: var(--font-family-serif);
-  font-size: 1.2rem;
+  font-size: 1rem;
   letter-spacing: 0.3em;
-  padding: 0.8rem 2rem;
+  padding: 0.6rem 2rem;
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -176,35 +224,31 @@ const enterCharacterSelection = () => {
 
 @media (max-width: 768px) {
   .main-title {
-    font-size: 2rem;
+    font-size: 2.5rem;
   }
   .sub-title {
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
   }
-  .astrolabe-container {
+  .gate-container {
     flex-direction: column;
-    height: auto;
-    border-radius: 20px;
+    align-items: center;
+    gap: 1.5rem;
   }
-  .astrolabe-separator {
-    width: 60%;
-    height: 1px;
-    top: 50%;
-    left: 20%;
-    transform: translateY(-50%);
+  .gate-card {
+    width: 100%;
+    max-width: 350px;
+    padding: 2rem 1.5rem;
   }
-  .path-half {
-    flex-direction: column;
-    text-align: center;
-    padding: 2rem 1rem;
+  .gate-detail {
+    font-size: 0.8rem;
   }
-  .left-path, .right-path {
-    justify-content: center;
-    padding: 2rem 1rem;
-    text-align: center;
+  .privacy-notice {
+    margin-top: 2rem;
+    padding: 1rem;
+    max-width: 100%;
   }
-  .path-icon {
-    margin-bottom: 1rem;
+  .privacy-notice p {
+    font-size: 0.85rem;
   }
   .scroll-btn {
     margin-top: 2rem;
