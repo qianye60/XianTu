@@ -1,7 +1,7 @@
 <template>
   <transition name="modal-fade">
     <div v-if="visible" class="modal-overlay" @click.self="close">
-      <div class="modal-content">
+      <div class="modal-dialog">
         <h2 class="modal-title">{{ title }}</h2>
         
         <div class="form-fields">
@@ -95,14 +95,9 @@ function submit() {
   z-index: 1000;
 }
 
-.modal-content {
-  background: var(--color-surface);
-  border: 1px solid var(--color-primary);
-  border-radius: 12px;
-  padding: 2rem;
+.modal-dialog {
   width: 90%;
   max-width: 600px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
 }
@@ -132,7 +127,7 @@ function submit() {
 .form-group textarea {
   width: 100%;
   padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--color-text);

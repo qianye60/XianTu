@@ -146,6 +146,8 @@
     <CharacterDetailsModal
       v-if="selectedCharacter"
       :character="selectedCharacter"
+      :worlds="staticData.worlds"
+      :talent-tiers="staticData.talentTiers"
       @close="selectedCharacter = null"
       @updated="loadCharacters"
     />
@@ -175,7 +177,7 @@ const syncStates = ref<Map<number, { has_unsaved_data: boolean, last_sync_time?:
 const loadStaticData = async () => {
   try {
     const [worlds, talentTiers] = await Promise.all([
-      request.get<World[]>('/api/v1/worlds/worlds'),
+      request.get<World[]>('/api/v1/worlds/'),
       request.get<TalentTier[]>('/api/v1/talent_tiers/')
     ])
     staticData.value = { worlds, talentTiers }

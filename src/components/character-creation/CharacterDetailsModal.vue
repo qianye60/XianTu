@@ -1,6 +1,6 @@
 <template>
   <div class="modal-overlay" @click="closeModal">
-    <div class="modal-content" @click.stop>
+    <div class="modal-dialog" @click.stop>
       <div class="modal-header">
         <h2>{{ character.character_name }} - 详细信息</h2>
         <button @click="closeModal" class="close-btn">×</button>
@@ -213,8 +213,12 @@ interface SyncInfo {
   character_last_played?: string
 }
 
+import { toast } from '@/utils/toast';
+
 const props = defineProps<{
   character: CharacterData
+  worlds: World[]
+  talentTiers: TalentTier[]
 }>()
 
 const emit = defineEmits<{
@@ -237,13 +241,20 @@ const syncStatusText = computed(() => {
 })
 
 const loadGameState = async () => {
+  // 云端角色才有游戏状态
+  if (props.character.source !== 'cloud') return;
+
   try {
-    const response = await request.get<GameState>(`/api/v1/characters/${props.character.id}/game_state`)
-    gameState.value = response
+    // FIX: API路径需要 world_id
+    const response = await request.get<GameState>(`/api/v1/worlds/${props.character.world_id}/characters/${props.character.id}/game_state`);
+    gameState.value = response;
   } catch (error) {
-    console.error('加载游戏状态失败:', error)
+    console.error('加载游戏状态失败:', error);
+    // 根据用户要求，静默失败，不弹出toast
+    // toast.error('获取角色修炼状态失败');
   }
 }
+
 
 const loadSyncInfo = async () => {
   try {
@@ -259,10 +270,10 @@ const syncCharacter = async () => {
   try {
     await request.post(`/api/v1/characters/${props.character.id}/sync`)
     await loadSyncInfo()
-    alert('同步成功')
+    toast.success('同步成功')
   } catch (error) {
     console.error('同步失败:', error)
-    alert('同步失败')
+    toast.error('同步失败')
   } finally {
     syncing.value = false
   }
@@ -279,7 +290,7 @@ const activateCharacter = async () => {
     emit('close')
   } catch (error) {
     console.error('激活角色失败:', error)
-    alert('激活角色失败')
+    toast.error('激活角色失败')
   }
 }
 
@@ -289,11 +300,11 @@ const closeModal = () => {
 
 // 辅助函数
 const getWorldName = (worldId: number) => {
-  return `世界${worldId}`
+  return props.worlds.find(w => w.id === worldId)?.name || `未知世界`
 }
 
 const getTalentTierName = (tierId: number) => {
-  return `天资等级${tierId}`
+  return props.talentTiers.find(t => t.id === tierId)?.name || `未知天资`
 }
 
 const formatDate = (dateStr: string) => {
@@ -332,54 +343,56 @@ onMounted(async () => {
   z-index: 1000;
 }
 
-.modal-content {
-  background: #24283b;
-  color: #c0caf5;
-  border-radius: 12px;
+.modal-dialog {
+  /* The global .modal-dialog class handles background, color, border, etc. */
+  /* We only define layout-specific overrides here. */
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  border: 1px solid #414868;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 30px;
-  border-bottom: 1px solid #414868;
-  color: #bb9af7;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-primary);
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 1.5rem;
   cursor: pointer;
-  color: #999;
+  color: var(--color-text-secondary);
   padding: 0;
   width: 30px;
   height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color 0.2s ease;
+}
+.close-btn:hover {
+    color: var(--color-text);
 }
 
 .modal-body {
-  padding: 30px;
+  padding: 1.5rem;
 }
 
 .info-section {
-  margin-bottom: 30px;
+  margin-bottom: 2rem;
 }
 
 .info-section h3 {
-  margin-bottom: 15px;
-  color: #e0af68;
-  border-bottom: 2px solid #e0af68;
-  padding-bottom: 5px;
+  margin-bottom: 1rem;
+  color: var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+  padding-bottom: 0.5rem;
+  font-family: var(--font-family-serif);
 }
 
 .info-grid {
@@ -391,18 +404,19 @@ onMounted(async () => {
 .info-item {
   display: flex;
   justify-content: space-between;
-  padding: 10px 15px;
-  background: #1e202e;
+  padding: 0.75rem 1rem;
+  background: var(--color-background);
   border-radius: 8px;
+  border: 1px solid var(--color-border);
 }
 
 .label {
-  color: #787c99;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .value {
-  color: #c0caf5;
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -414,11 +428,11 @@ onMounted(async () => {
 
 .attr-card {
   text-align: center;
-  padding: 15px;
-  background: #1e202e;
-  color: #c0caf5;
+  padding: 1rem;
+  background: var(--color-background);
+  color: var(--color-text);
   border-radius: 10px;
-  border: 1px solid #414868;
+  border: 1px solid var(--color-border);
 }
 
 .attr-name {
@@ -447,21 +461,23 @@ onMounted(async () => {
 .state-item, .core-stats-grid .stat-item {
   display: flex;
   justify-content: space-between;
-  padding: 10px 15px;
-  background: #1e202e;
+  padding: 0.75rem 1rem;
+  background: var(--color-background);
   border-radius: 8px;
-  border-left: 4px solid #7aa2f7;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
 }
 
 .realm-value {
-  color: #bb9af7;
+  color: var(--color-accent);
   font-weight: bold;
 }
 
 .sync-section {
-  background: #1e202e;
-  padding: 20px;
+  background: var(--color-background);
+  padding: 1.25rem;
   border-radius: 8px;
+  border: 1px solid var(--color-border);
 }
 
 .sync-status-display {
@@ -472,17 +488,17 @@ onMounted(async () => {
 }
 
 .sync-clean {
-  color: #4caf50;
+  color: var(--color-nature);
   font-weight: 600;
 }
 
 .sync-dirty {
-  color: #ff9800;
+  color: var(--color-accent);
   font-weight: 600;
 }
 
 .sync-unknown {
-  color: #999;
+  color: var(--color-text-secondary);
   font-weight: 600;
 }
 
@@ -492,55 +508,61 @@ onMounted(async () => {
 }
 
 .sync-btn, .refresh-btn {
-  padding: 8px 16px;
-  border: none;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
   border-radius: 5px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.9rem;
   font-weight: 500;
+  background: transparent;
+  color: var(--color-text);
+  transition: all 0.2s ease;
 }
-
-.sync-btn {
-  background: #607d8b;
-  color: white;
-}
-
-.refresh-btn {
-  background: #9e9e9e;
-  color: white;
+.sync-btn:hover, .refresh-btn:hover {
+    background: var(--color-surface-light);
+    border-color: var(--color-primary);
 }
 
 .sync-details {
-  font-size: 14px;
-  color: #a9b1d6;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 15px;
-  padding: 20px 30px;
-  border-top: 1px solid #414868;
-  background: #1e202e;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background);
   border-radius: 0 0 12px 12px;
 }
 
 .btn-cancel {
-  padding: 10px 20px;
-  border: 1px solid #414868;
+  padding: 0.6rem 1.2rem;
   border-radius: 6px;
-  background: #414868;
-  color: #c0caf5;
   cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+}
+.btn-cancel:hover {
+    background: var(--color-surface-light);
 }
 
 .btn-activate {
-  padding: 10px 20px;
-  border: none;
+  padding: 0.6rem 1.2rem;
   border-radius: 6px;
-  background: #9ece6a;
-  color: #1a1b26;
   cursor: pointer;
   font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid var(--color-nature);
+  background: var(--color-nature);
+  color: var(--color-background);
+}
+.btn-activate:hover {
+    opacity: 0.8;
 }
 </style>

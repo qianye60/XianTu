@@ -1,6 +1,6 @@
 <template>
   <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-panel">
+    <div class="modal-dialog">
       <h2 class="modal-title">{{ title }}</h2>
       <p class="modal-subtitle">请输入兑换码以接引天机进行AI推演。</p>
       <form @submit.prevent="submitCode">
@@ -78,14 +78,9 @@ const submitCode = () => {
   backdrop-filter: blur(5px);
 }
 
-.modal-panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 2rem;
+.modal-dialog {
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .modal-title {
@@ -109,7 +104,7 @@ const submitCode = () => {
 .code-input {
   width: 100%;
   padding: 0.8rem 1rem;
-  background: rgba(0,0,0,0.2);
+  background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   color: var(--color-text);

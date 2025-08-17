@@ -122,7 +122,7 @@ import LoadingModal from '../components/LoadingModal.vue'
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { renameCurrentCharacter } from '../utils/tavern';
+import { renameCurrentCharacter, createWorldLorebookEntry } from '../utils/tavern';
 
 import { saveLocalCharacter, type LocalCharacterWithGameData } from '../data/localData'
 import { calculateInitialCoreAttributes } from '../utils/characterCalculation'
@@ -298,8 +298,7 @@ const isNextDisabled = computed(() => {
   // You can add validation logic here for each step
   if (store.currentStep === 1 && !store.selectedWorld) return true
   if (store.currentStep === 2 && !store.selectedTalentTier) return true
-  if (store.currentStep === 3 && !store.selectedOrigin) return true
-  // Step 4 allows random, so no validation needed if nothing is selected
+  // Step 3 & 4 allow random selection (null), so no validation needed if nothing is selected.
   return false
 })
 
@@ -368,12 +367,22 @@ async function createCharacter() {
 
     let newCharacter: LocalCharacterWithGameData;
 
+    // 准备创角选择数据，以便注入
+    const creationChoicesData = {
+       origin: store.selectedOrigin ?? undefined,
+       spiritRoot: store.selectedSpiritRoot ?? undefined,
+       talents: store.selectedTalents,
+       world: store.selectedWorld ? { id: store.selectedWorld.id, name: store.selectedWorld.name } : undefined,
+    };
+
     // 3. 根据模式分别处理
     if (store.isLocalCreation) {
       loadingMessage.value = '正在本地洞天开辟存档...';
       newCharacter = {
+        creationChoices: creationChoicesData,
         id: Date.now(),
         character_name: store.characterPayload.character_name,
+        birth_age: store.characterPayload.birth_age,
         world_id: store.selectedWorld.id,
         talent_tier_id: store.selectedTalentTier.id,
         ...baseAttributes,
@@ -413,8 +422,10 @@ async function createCharacter() {
 
       // 按照用户要求，联机角色也在本地开辟一份存档
       newCharacter = {
+          creationChoices: creationChoicesData,
           id: cloudCharacter.id,
           character_name: cloudCharacter.character_name,
+          birth_age: cloudCharacter.birth_age,
           world_id: cloudCharacter.world_id,
           talent_tier_id: cloudCharacter.talent_tier_id,
           ...baseAttributes,
@@ -443,8 +454,9 @@ async function createCharacter() {
 
     // 4. 后续处理
     loadingMessage.value = '仙途即将开启...';
-    store.resetCharacter();
+    // 关键修正：必须先 emit，再 reset。否则 App.vue 收到的 store 是空的。
     emit('creation-complete', newCharacter);
+    store.resetCharacter();
 
   } catch (error: any) {
     console.error('创建角色时发生错误:', error);

@@ -8,33 +8,46 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
       </button>
     </div>
+    
+    <!-- 创世加载结界：通过 :visible 属性控制，并绑定动态消息 -->
+    <LoadingModal :visible="isInitializing" :message="loadingMessage" />
+
+    <!-- 主视图容器 -->
     <component
+          v-show="!isInitializing"
           :is="activeView"
           @start-creation="handleStartCreation"
           @show-character-list="handleShowCharacterList"
           :onBack="handleBack"
           @loggedIn="handleLoggedIn"
           @creation-complete="handleCreationComplete"
-          :character="activeCharacter"
+          :character-id="activeCharacterId"
+          :summary="creationSummary"
         />
   </div>
 </template>
 
 <script setup lang="ts">
-import { shallowRef, ref, onMounted } from 'vue'
+import { shallowRef, ref, onMounted, computed } from 'vue'
 import ModeSelection from './views/ModeSelection.vue'
 import CharacterCreation from './views/CharacterCreation.vue'
 import CharacterManagement from './components/character-creation/CharacterManagement.vue'
 import LoginView from './views/LoginView.vue'
 import GameView from './views/GameView.vue'
+import MapView from './views/MapView.vue' // 引入坤舆图志
+import LoadingModal from './components/LoadingModal.vue' // 引入加载组件
 import './style.css'
 import { useCharacterCreationStore } from './stores/characterCreationStore'
 import { verifyStoredToken } from './services/request'
+import { initializeGameSession } from './services/gameInitializer' // 引入创世引擎
 import { toast } from './utils/toast'
 import type { LocalCharacterWithGameData } from './data/localData'
 
 const isLoggedIn = ref(false);
-const activeCharacter = ref<LocalCharacterWithGameData | null>(null);
+const isInitializing = ref(false); // 创世加载状态
+const loadingMessage = ref('正在开天辟地，衍化万物...'); // 创世加载信息
+const activeCharacterId = ref<number | null>(null); // **【精炼信标】**
+const creationSummary = ref<{ name: string; origin: string; spiritRoot: string; age: number; } | null>(null);
 
 // --- 核心视图管理 ---
 const views = {
@@ -43,6 +56,7 @@ const views = {
   CharacterManagement,
   Login: LoginView,
   GameView,
+  MapView, // 注册坤舆图志
 }
 type ViewName = keyof typeof views;
 const activeView = shallowRef<any>(views.ModeSelection)
@@ -58,18 +72,30 @@ const switchView = (viewName: ViewName) => {
   }
 }
 
-const handleStartCreation = (mode: 'single' | 'cloud') => {
-  store.setMode(mode);
-  if (mode === 'single') {
-    switchView('CharacterCreation');
-  } else {
-    // 联机创角，必须登录
-    if (isLoggedIn.value) {
+const handleStartCreation = async (mode: 'single' | 'cloud') => {
+  isInitializing.value = true;
+  loadingMessage.value = '正在连接天地法则...';
+  try {
+    store.setMode(mode);
+    await store.initializeStore(mode); // 在切换视图前，先初始化数据
+
+    if (mode === 'single') {
       switchView('CharacterCreation');
     } else {
-      toast.error('联机共修需先登入道籍！');
-      switchView('Login');
+      // 联机创角，必须登录
+      if (isLoggedIn.value) {
+        switchView('CharacterCreation');
+      } else {
+        toast.error('联机共修需先登入道籍！');
+        switchView('Login');
+      }
     }
+  } catch (error) {
+    console.error("Failed to initialize creation data:", error);
+    toast.error("初始化创角数据失败，请稍后重试。");
+    switchView('ModeSelection'); // 如果失败，返回模式选择
+  } finally {
+    isInitializing.value = false;
   }
 }
 
@@ -95,9 +121,44 @@ const handleLoggedIn = () => {
   switchView('ModeSelection');
 }
 
-const handleCreationComplete = (character: LocalCharacterWithGameData) => {
-  activeCharacter.value = character;
-  switchView('GameView');
+const handleCreationComplete = async (character: LocalCharacterWithGameData) => {
+  // 1. 开启创世结界
+  isInitializing.value = true;
+  loadingMessage.value = '准备开天辟地...'; // 设置初始消息
+
+  try {
+    // 2. 构建创世契约 (Payload)
+    if (!store.selectedWorld) {
+      toast.error("创世失败：未选择世界背景！");
+      throw new Error("Missing selectedWorld in store.");
+    }
+    const payload = {
+      character: character,
+      world: store.selectedWorld,
+      mode: store.mode,
+      selectedOrigin: store.selectedOrigin,
+      selectedSpiritRoot: store.selectedSpiritRoot,
+      // TODO: 将来可以把天赋等其他选择也放进来
+    };
+
+    // 3. 启动创世引擎，并传入进度回调
+    await initializeGameSession(payload, (msg: string) => {
+      loadingMessage.value = msg;
+    });
+
+    // 4. 创世成功，记录信标并传送
+    activeCharacterId.value = character.id; // **【调整仪式】**
+    switchView('GameView');
+
+  } catch (error) {
+    console.error("处理角色创建完成时出错:", error);
+    toast.error("创世失败，请返回重试。");
+    // 如果失败，返回到模式选择界面
+    switchView('ModeSelection');
+  } finally {
+    // 5. 无论成败，都撤去结界
+    isInitializing.value = false;
+  }
 }
 
 // --- 主题切换 ---

@@ -35,11 +35,11 @@ withDefaults(defineProps<Props>(), {
 .loading-indicator {
   display: flex;
   align-items: center;
-  background-color: rgba(20, 25, 40, 0.9);
-  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  color: var(--color-text);
   padding: 0.75rem 1.5rem;
   border-radius: 50px;
-  border: 1px solid var(--color-primary-light);
+  border: 1px solid var(--color-border);
   box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.2);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -48,7 +48,7 @@ withDefaults(defineProps<Props>(), {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 3px solid rgba(var(--color-primary-rgb), 0.3);
+  border: 3px solid var(--color-border);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;

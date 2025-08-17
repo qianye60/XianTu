@@ -8,6 +8,15 @@
       <div class="origin-left-panel">
         <div class="origin-list-container">
           <div
+           class="origin-item"
+           :class="{ selected: isRandomSelected }"
+           @click="handleSelectRandom"
+          >
+           <span class="origin-name">随机出身</span>
+           <span class="origin-cost">0 点</span>
+          </div>
+          <div class="divider"></div>
+          <div
             v-for="origin in store.creationData.origins"
             :key="origin.id"
             class="origin-item"
@@ -39,14 +48,14 @@
 
       <!-- 右侧详情 -->
       <div class="origin-details-container">
-        <div v-if="store.selectedOrigin" class="origin-details">
-          <h2>{{ store.selectedOrigin.name }}</h2>
+        <div v-if="store.selectedOrigin || isRandomSelected" class="origin-details">
+          <h2>{{ selectedDisplayName }}</h2>
           <div class="description-scroll">
-            <p>{{ store.selectedOrigin.description || '身世如谜，过往一片空白。' }}</p>
+            <p>{{ selectedDescription }}</p>
           </div>
-          <div class="cost-display">消耗天道点: {{ store.selectedOrigin.talent_cost }}</div>
+          <div class="cost-display">消耗天道点: {{ selectedCost }}</div>
         </div>
-        <div v-else class="placeholder">请选择一处出身。</div>
+        <div v-else class="placeholder">请选择一处出身，或听天由命。</div>
       </div>
     </div>
 
@@ -64,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Origin } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
@@ -164,6 +173,28 @@ function handleSelectOrigin(origin: Origin) {
   store.selectOrigin(newOriginId);
 }
 
+function handleSelectRandom() {
+ store.selectOrigin(null);
+}
+
+const isRandomSelected = computed(() => store.characterPayload.origin_id === null);
+
+const selectedDisplayName = computed(() => {
+ if (isRandomSelected.value) return '随机出身'
+ return store.selectedOrigin?.name || ''
+});
+
+const selectedDescription = computed(() => {
+ if (isRandomSelected.value)
+   return '天道无常，造化弄人。选择此项，你的出身将完全随机生成。是生于帝王之家，或为山野遗孤，皆在天道一念之间。'
+ return store.selectedOrigin?.description || '身世如谜，过往一片空白。'
+});
+
+const selectedCost = computed(() => {
+ if (isRandomSelected.value) return 0
+ return store.selectedOrigin?.talent_cost || 0
+});
+
 // fetchData 和 defineExpose 不再需要
 </script>
 
@@ -254,11 +285,18 @@ function handleSelectOrigin(origin: Origin) {
   color: var(--color-accent);
 }
 
+.divider {
+ height: 1px;
+ background: linear-gradient(to right, transparent, rgba(var(--color-primary-rgb), 0.2), transparent);
+ margin: 0.5rem 0;
+}
+
 .single-actions-container {
   border-top: 1px solid var(--color-border);
   background: rgba(0, 0, 0, 0.3);
   padding: 0.5rem;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
