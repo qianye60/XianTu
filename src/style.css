@@ -310,11 +310,12 @@ body {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   color: var(--color-text);
-  padding: 2vh 0; /* Add a small vertical padding for breathing room */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* 水平居中 */
+  padding: 2rem 0; /* 内部垂直边距 */
+  box-sizing: border-box; /* 确保 padding 不会导致溢出 */
 }
 
 .video-background {
@@ -357,6 +358,7 @@ body {
   -webkit-backdrop-filter: blur(10px);
   width: 90%;
   max-width: 1200px;
+  /* 移除 margin，由父容器的 padding 控制间距 */
 }
 
 .main-title {

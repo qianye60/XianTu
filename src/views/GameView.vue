@@ -30,7 +30,6 @@ import { ref, onMounted, computed, shallowRef, type Component } from 'vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
 import { loadLocalCharacters, loadWorldInstance, saveLocalCharacter, type LocalCharacterWithGameData, type WorldInstanceData } from '../data/localData';
 import { toast } from '@/utils/toast';
-import { handleMeditate } from '@/utils/ActionHandler';
 
 // 引入所有新组件
 import GameLayout from '@/components/game-view/GameLayout.vue';
@@ -64,6 +63,16 @@ const characterStatus = computed<CharacterStatus | null>(() => {
     spirit: `${character.value.spirit} / ${character.value.spirit_max}`,
     lifespan: character.value.lifespan,
     reputation: character.value.reputation,
+    // 注入修为数据
+    cultivation_exp: character.value.cultivation_exp,
+    cultivation_exp_max: character.value.cultivation_exp_max,
+    // 注入六维命格
+    root_bone: character.value.root_bone,
+    spirituality: character.value.spirituality,
+    comprehension: character.value.comprehension,
+    fortune: character.value.fortune,
+    charm: character.value.charm,
+    temperament: character.value.temperament,
   };
 });
 
@@ -95,14 +104,6 @@ const handleInteraction = async (actionId: string) => {
         mainViewComponent.value = MessagePanel;
         toast.info('返回通天玄镜...');
       }
-      break;
-      
-    case 'meditate':
-      const meditateResult = handleMeditate(character.value);
-      character.value = meditateResult.updatedCharacter;
-      messages.value.push(meditateResult.feedbackMessage);
-      await saveLocalCharacter(character.value);
-      toast.success('修行有成，存档已固化。');
       break;
       
     default:

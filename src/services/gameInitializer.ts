@@ -117,18 +117,96 @@ async function writeToLorebook(world: World, onProgress: (message: string) => vo
  */
 async function generateWorldMap(world: World, onProgress: (message: string) => void): Promise<any> {
   onProgress('天条三：衍化山河...');
-  try {
-    const geoJsonData = await generateMapFromWorld(world);
-    if (!geoJsonData) throw new Error('AI未能返回有效的地图数据。');
+  
+  // 遵循新的天道法则，不再调用AI，直接根据 4096x4096 像素画卷构建世界
+  return new Promise((resolve) => {
+    const worldName = world.name || "朝天大陆";
+
+    const geoJsonData = {
+      type: "FeatureCollection",
+      features: [
+        // 1. 中州大陆 (Continent)
+        {
+          type: "Feature",
+          properties: {
+            name: "中州大陆",
+            description: "此方世界的核心大陆，物产丰饶，灵气充沛。",
+            type: "continent"
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [500, 400], [1200, 300], [2500, 500], [3600, 900],
+                [3800, 2000], [3500, 3500], [2800, 3800], [1500, 3900],
+                [800, 3400], [400, 2500], [450, 1500], [500, 400]
+              ]
+            ]
+          }
+        },
+        // 2. 昆仑龙脉 (Mountain Range)
+        {
+          type: "Feature",
+          properties: {
+            name: "昆仑龙脉",
+            description: "横贯大陆的巨大山脉，传闻是世界灵气的发源地。",
+            type: "mountain_range"
+          },
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [900, 3300], [1500, 2800], [2000, 3000], [2500, 2500], [2800, 2200]
+            ]
+          }
+        },
+        // 3. 忘川 (River)
+        {
+          type: "Feature",
+          properties: {
+            name: "忘川",
+            description: "发源于昆仑，蜿蜒向东南，最终汇入无尽之海。",
+            type: "river"
+          },
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [2500, 2480], [2800, 1800], [3200, 1500], [3700, 1000]
+            ]
+          }
+        },
+        // 4. 青山宗 (Sect)
+        {
+          type: "Feature",
+          properties: {
+            name: "青山宗",
+            description: "九大仙门之一，以剑道闻名于世，坐落于昆仑龙脉的灵穴之上。",
+            type: "sect"
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [1600, 2900]
+          }
+        },
+        // 5. 朝歌城 (City)
+        {
+          type: "Feature",
+          properties: {
+            name: "朝歌城",
+            description: "中州最大的凡人城池，商贸繁华，鱼龙混杂。",
+            type: "city"
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [2900, 1400]
+          }
+        }
+      ]
+    };
     
-    console.log('【玄光镜】地图数据已从天机阁获取');
+    console.log(`【玄光镜】已根据 ${worldName} 的法则，在 4096x4096 的画卷上衍化出世界舆图。`);
     toast.success('世界舆图已衍化。');
-    return geoJsonData;
-  } catch (error) {
-    console.error('生成地图失败:', error);
-    toast.error('衍化山河失败，天机阁无响应。');
-    throw error;
-  }
+    resolve(geoJsonData);
+  });
 }
 
 /**

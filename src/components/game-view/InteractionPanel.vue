@@ -23,7 +23,6 @@ const emit = defineEmits<{
 }>();
 
 const interactionButtons = ref([
-  { id: 'meditate', label: '打坐修行' },
   { id: 'explore', label: '探索周边' },
   { id: 'inventory', label: '查看背包' },
   { id: 'status', label: '检视自身' },

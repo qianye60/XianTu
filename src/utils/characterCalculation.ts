@@ -42,5 +42,7 @@ export function calculateInitialCoreAttributes(attrs: FullAttributes): Omit<Loca
     spirit: max_spirit,
     spirit_max: max_spirit,
     lifespan: max_lifespan,
+    cultivation_exp: 0,
+    cultivation_exp_max: 100, // 凡人突破所需修为
   };
 }

@@ -3,60 +3,43 @@
     <video autoplay muted loop playsinline class="video-background" src="http://38.55.124.252:13145/1394774d3043156d.mp4"></video>
     <div class="video-overlay"></div>
 
-    <!-- 道途选择 -->
     <div class="selection-content">
-      <h1 class="main-title">
-        <span class="title-char">道</span>
-        <span class="title-char">途</span>
-        <span class="title-char">选</span>
-        <span class="title-char">择</span>
-      </h1>
-      <p class="sub-title">大道朝天，各走一边</p>
+      <h1 class="main-title">天 命 昭 始</h1>
+      <p class="sub-title">一念之差，道途分野</p>
 
-      <button class="portal-btn" @click="enterCharacterSelection">
-        <span class="portal-text">登入仙途</span>
-        <span class="portal-subtext">选择已有法身</span>
+      <div class="astrolabe-container">
+        <!-- Left Path: Single Player -->
+        <div class="path-half left-path" @click="selectPath('single')">
+          <div class="path-icon">
+            <!-- Icon: Moon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          </div>
+          <div class="path-text">
+            <h2 class="path-title">独步寻道</h2>
+            <p class="path-description">闭关清修，自成一界</p>
+          </div>
+        </div>
+
+        <!-- Separator -->
+        <div class="astrolabe-separator"></div>
+
+        <!-- Right Path: Multiplayer -->
+        <div class="path-half right-path" @click="selectPath('multi')">
+          <div class="path-icon">
+            <!-- Icon: Stars -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 19.07-1.41-1.41"/><path d="m6.34 6.34-1.41-1.41"/><circle cx="12" cy="12" r="2"/><path d="M12 8a4 4 0 1 0 4 4"/></svg>
+          </div>
+          <div class="path-text">
+            <h2 class="path-title">携缘入世</h2>
+            <p class="path-description">入世历劫，广结仙缘</p>
+          </div>
+        </div>
+      </div>
+
+      <button class="scroll-btn" @click="enterCharacterSelection">
+        <span>唤 醒 旧 识</span>
       </button>
-
-      <div class="divider">
-        <span>或，开辟新法身</span>
-      </div>
-
-      <div class="paths-container">
-        <div class="path-card single-path" @click="selectPath('single')">
-          <div class="path-glow"></div>
-          <div class="path-icon">
-            <!-- Lucide Icon: user-round -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
-          </div>
-          <h2 class="path-title">新游戏：单机闭关</h2>
-          <p class="path-description">
-            所有数据存于本地洞府
-          </p>
-          <div class="features">
-            <span class="feature-tag">本地存储</span>
-            <span class="feature-tag">无需联网</span>
-          </div>
-        </div>
-
-        <div class="path-card multi-path" @click="selectPath('multi')">
-          <div class="path-glow"></div>
-          <div class="path-icon">
-            <!-- Lucide Icon: network -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>
-          </div>
-          <h2 class="path-title">新游戏：联机共修</h2>
-          <p class="path-description">
-            数据实时云端同步
-          </p>
-           <div class="features">
-            <span class="feature-tag">云端同步</span>
-            <span class="feature-tag">跨设备访问</span>
-          </div>
-        </div>
-      </div>
     </div>
-
   </div>
 </template>
 
@@ -79,182 +62,152 @@ const enterCharacterSelection = () => {
 </script>
 
 <style scoped>
-/* ... (previous styles) ... */
+.main-title {
+  font-family: var(--font-family-serif);
+  font-size: 3rem;
+  font-weight: 500;
+  letter-spacing: 0.5em;
+  color: var(--color-text);
+  text-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.5);
+  margin-bottom: 0.5rem;
+}
+
 .sub-title {
   font-size: 1.1rem;
   color: var(--color-text-secondary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 3rem;
   letter-spacing: 0.1em;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
-.features {
-  margin-top: 1rem;
+.astrolabe-container {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.feature-tag {
-  display: inline-block;
-  padding: 0.3rem 0.8rem;
-  font-size: 0.75rem;
-  background: rgba(136, 192, 208, 0.1);
-  border: 1px solid rgba(136, 192, 208, 0.2);
-  border-radius: 12px;
-  color: #88c0d0;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  transition: all 0.3s ease;
-}
-
-.portal-btn {
+  width: 100%;
+  max-width: 800px;
+  height: 300px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 150px; /* Make it oval */
   position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 30px rgba(0,0,0,0.3);
+}
+
+.path-half {
+  flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  max-width: 320px;
-  height: 100px;
-  margin-bottom: 1.5rem;
-  background: radial-gradient(ellipse at center, rgba(14, 22, 39, 0.8) 0%, rgba(14, 22, 39, 0.95) 100%);
-  border: 2px solid rgba(136, 192, 208, 0.3);
-  border-radius: 12px;
-  color: #d8dee9;
+  padding: 2rem;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-  overflow: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
+  position: relative;
+  z-index: 2;
 }
 
-.portal-btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: radial-gradient(circle, rgba(229, 192, 123, 0.3) 0%, rgba(229, 192, 123, 0) 70%);
-  border-radius: 50%;
-  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-  transform: translate(-50%, -50%);
+.left-path {
+  justify-content: flex-start;
+  padding-left: 4rem;
 }
 
-.portal-btn:hover::before {
-  width: 300px;
-  height: 300px;
+.right-path {
+  justify-content: flex-end;
+  padding-right: 4rem;
+  text-align: right;
 }
 
-.portal-btn:hover {
-  border-color: rgba(229, 192, 123, 0.7);
-  box-shadow: 0 0 40px rgba(229, 192, 123, 0.3);
-  transform: translateY(-5px);
+.path-half:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.2);
 }
 
-.portal-text {
-  font-size: 1.8rem;
-  font-weight: bold;
-  letter-spacing: 0.2em;
-  text-shadow: 0 0 10px rgba(229, 192, 123, 0.5);
-  transition: all 0.3s ease;
-  z-index: 1;
+.path-icon {
+  color: var(--color-primary);
+  margin: 0 1.5rem;
+  transition: transform 0.4s ease, color 0.4s ease;
 }
 
-.portal-subtext {
-  font-size: 0.9rem;
-  color: #88c0d0;
-  letter-spacing: 0.1em;
-  transition: all 0.3s ease;
-  z-index: 1;
-  opacity: 0.8;
+.path-half:hover .path-icon {
+  transform: scale(1.1);
+  color: var(--color-accent);
 }
 
-.portal-btn:hover .portal-text {
-  color: #e5c07b;
-  text-shadow: 0 0 15px #e5c07b;
+.path-title {
+  font-family: var(--font-family-serif);
+  font-size: 2rem;
+  margin: 0 0 0.5rem 0;
 }
 
-.portal-btn:hover .portal-subtext {
-  color: #e5c07b;
-  opacity: 1;
-}
-
-.divider {
-  width: 100%;
-  max-width: 500px;
-  text-align: center;
-  border-bottom: 1px solid var(--color-border);
-  line-height: 0.1em;
-  margin: 1.5rem 0;
-}
-
-.divider span {
-  background: var(--color-surface-translucent);
-  padding: 0 15px;
+.path-description {
+  font-size: 1rem;
   color: var(--color-text-secondary);
 }
 
-.start-game-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(229, 192, 123, 0.4);
+.astrolabe-separator {
+  width: 1px;
+  height: 60%;
+  background: var(--color-border);
+  position: absolute;
+  left: 50%;
+  top: 20%;
+  transform: translateX(-50%);
+  z-index: 1;
 }
 
-.character-selection-wrapper {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
+.scroll-btn {
+  margin-top: 3rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-serif);
+  font-size: 1.2rem;
+  letter-spacing: 0.3em;
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-
-.path-card:hover .feature-tag {
-  background: rgba(229, 192, 123, 0.15);
-  border-color: rgba(229, 192, 123, 0.3);
-  color: #e5c07b;
+.scroll-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
 }
 
-/* ... (rest of the styles) ... */
-/* 响应式布局 - 身法自如 */
 @media (max-width: 768px) {
-  .selection-content {
-    padding: 1.5rem 1rem; /* 减小左右内边距 */
-    width: 95%; /* 稍微加宽以利用空间 */
-  }
-
   .main-title {
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
-
   .sub-title {
-    font-size: 1rem;
     margin-bottom: 2rem;
   }
-
-  .paths-container {
+  .astrolabe-container {
     flex-direction: column;
-    gap: 1.5rem;
+    height: auto;
+    border-radius: 20px;
   }
-
-  .path-card {
-    border-radius: 1rem;
-    padding: 1.2rem; /* 减小卡片内边距 */
+  .astrolabe-separator {
+    width: 60%;
+    height: 1px;
+    top: 50%;
+    left: 20%;
+    transform: translateY(-50%);
   }
-
-  .path-title {
-    font-size: 1.4rem;
+  .path-half {
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem 1rem;
   }
-
-  .path-description {
-    font-size: 0.9rem;
+  .left-path, .right-path {
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
   }
-
-  .bottom-actions {
-    bottom: 1rem;
-    right: 1rem;
+  .path-icon {
+    margin-bottom: 1rem;
   }
-  .action-btn{
-    z-index: 10;
+  .scroll-btn {
+    margin-top: 2rem;
   }
 }
 </style>

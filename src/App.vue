@@ -8,7 +8,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
       </button>
     </div>
-    
+
     <!-- 创世加载结界：通过 :visible 属性控制，并绑定动态消息 -->
     <LoadingModal :visible="isInitializing" :message="loadingMessage" />
 
@@ -21,6 +21,7 @@
           :onBack="handleBack"
           @loggedIn="handleLoggedIn"
           @creation-complete="handleCreationComplete"
+          @select="handleCharacterSelect"
           :character-id="activeCharacterId"
           :summary="creationSummary"
         />
@@ -42,6 +43,7 @@ import { verifyStoredToken } from './services/request'
 import { initializeGameSession } from './services/gameInitializer' // 引入创世引擎
 import { toast } from './utils/toast'
 import type { LocalCharacterWithGameData } from './data/localData'
+import type { CharacterData } from './types'
 
 const isLoggedIn = ref(false);
 const isInitializing = ref(false); // 创世加载状态
@@ -82,7 +84,8 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
     if (mode === 'single') {
       switchView('CharacterCreation');
     } else {
-      // 联机创角，必须登录
+      // 联机模式，需要按需验证登录
+      isLoggedIn.value = await verifyStoredToken();
       if (isLoggedIn.value) {
         switchView('CharacterCreation');
       } else {
@@ -99,8 +102,9 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
   }
 }
 
-const handleShowCharacterList = () => {
-  // 查看角色列表（尤其是联机），必须登录
+const handleShowCharacterList = async () => {
+  // 按需验证登录
+  isLoggedIn.value = await verifyStoredToken();
   if (isLoggedIn.value) {
     switchView('CharacterManagement');
   } else {
@@ -119,6 +123,11 @@ const handleLoggedIn = () => {
   isLoggedIn.value = true;
   // 登录后不应自动跳转到创角，而是返回模式选择，让用户决定是创角还是读档
   switchView('ModeSelection');
+}
+
+const handleCharacterSelect = (character: CharacterData) => {
+  activeCharacterId.value = character.id;
+  switchView('GameView');
 }
 
 const handleCreationComplete = async (character: LocalCharacterWithGameData) => {
@@ -179,9 +188,6 @@ const checkInitialLoginStatus = async () => {
 onMounted(() => {
   document.documentElement.setAttribute('data-theme', 'dark');
 
-  // 在后台检查初始登录状态，不阻塞UI
-  checkInitialLoginStatus();
-
   // 启动心跳阵法，每小时检查一次令牌状态
   setInterval(async () => {
     // 只在联机模式且非登录界面时检查
@@ -213,14 +219,12 @@ const toggleFullscreen = () => {
 
 <style>
 #app-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 0;
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow-x: hidden; /* 强制禁止水平滚动条 */
 }
 .global-actions {
   position: fixed;

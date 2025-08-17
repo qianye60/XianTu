@@ -31,6 +31,16 @@ export interface CharacterStatus {
   spirit: string;
   lifespan: number;
   reputation: number;
+  // 新增：修为
+  cultivation_exp: number;
+  cultivation_exp_max: number;
+  // 新增：六维命格
+  root_bone: number;
+  spirituality: number;
+  comprehension: number;
+  fortune: number;
+  charm: number;
+  temperament: number;
 }
 
 const props = defineProps<{

@@ -107,6 +107,8 @@ export interface LocalCharacter {
   spirit: number;
   spirit_max: number;
   lifespan: number; // 寿命
+  cultivation_exp: number; // 当前修为
+  cultivation_exp_max: number; // 突破所需修为
 
   // 基础六维
   root_bone: number;
