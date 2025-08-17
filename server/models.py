@@ -33,7 +33,7 @@ class World(Model):
     description = fields.TextField(null=True, description="世界描述")
     era = fields.CharField(max_length=50, null=True, description="时代背景")
     core_rules = fields.JSONField(null=True, description="核心规则设定")
-    creator = fields.ForeignKeyField("models.AdminAccount", related_name="created_worlds", description="创世仙官")
+    creator = fields.ForeignKeyField("models.AdminAccount", related_name="created_worlds", null=True, on_delete=fields.SET_NULL, description="创世仙官")
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
@@ -132,6 +132,7 @@ class CharacterGameState(Model):
     cultivation_methods = fields.JSONField(default=list, description="修炼功法")
     
     # 关系和声望
+    reputation = fields.IntField(default=0, description="总声望")
     relationships = fields.JSONField(default=dict, description="人物关系")
     faction_reputation = fields.JSONField(default=dict, description="门派声望")
     

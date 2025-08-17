@@ -116,6 +116,19 @@ class CharacterBase(BaseModel):
     created_at: datetime.datetime
     model_config = ConfigDict(from_attributes=True)
 
+class CharacterWithState(CharacterBase):
+    """用于角色列表的完整角色信息模型"""
+    # 来自 CharacterGameState 的字段
+    realm: Optional[str] = "凡人"
+    reputation: int = 0
+    qi_blood: int
+    max_qi_blood: int
+    spiritual_power: int
+    max_spiritual_power: int
+    spirit_sense: int
+    max_spirit_sense: int
+    max_lifespan: int
+
 class CharacterGameState(BaseModel):
     id: int
     character_id: int

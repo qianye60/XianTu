@@ -1,19 +1,19 @@
 <template>
   <div class="talent-tier-selection">
-    <div v-if="isLoading" class="loading-state">感应天道，测算天资...</div>
-    <div v-else-if="error" class="error-state">天机混沌，无法测算：{{ error }}</div>
+    <div v-if="store.isLoading" class="loading-state">感应天道，测算天资...</div>
+    <div v-else-if="store.error" class="error-state">天机混沌：{{ store.error }}</div>
 
     <div v-else class="tier-layout">
       <!-- 左侧面板：列表和操作按钮 -->
       <div class="tier-left-panel">
         <div class="tiers-list-container">
           <div
-            v-for="tier in talentTiers"
+            v-for="tier in store.creationData.talentTiers"
             :key="tier.id"
             class="tier-item"
-            :class="{ selected: store.selectedTalentTier?.id === tier.id }"
-            :style="{ '--tier-glow-color': tier.color }"
-            @click="selectTalentTier(tier)"
+            :class="{ selected: store.characterPayload.talent_tier_id === tier.id }"
+            :style="{ '--tier-glow-color': tier.color, '--tier-glow-color-rgb': hexToRgb(tier.color) }"
+            @click="handleSelectTalentTier(tier)"
           >
             <span class="tier-name">{{ tier.name }}</span>
             <span class="tier-points">{{ tier.total_points }} 点</span>
@@ -22,8 +22,7 @@
 
         <!-- 功能按钮 -->
         <div class="single-actions-container">
-          <div class="divider"></div>
-          <button v-if="store.mode === 'single'" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
+          <button v-if="store.isLocalCreation" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
             <span class="action-name">自定义天资</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
@@ -51,22 +50,25 @@
       :visible="isCustomModalVisible"
       title="自定义天资"
       :fields="customTierFields"
-      :validationFn="(data) => validateCustomData('talent_tier', data)"
+      :validationFn="validateCustomTier"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
 
+    <!-- AI生成等待弹窗 -->
+    <LoadingModal :visible="isGeneratingAI" message="天机推演中..." />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useCharacterCreationStore, type TalentTier } from '../../stores/characterCreationStore'
-import { LOCAL_TALENT_TIERS } from '../../data/localData'
-import { request } from '../../services/request'
+import { ref } from 'vue'
+import { useCharacterCreationStore } from '../../stores/characterCreationStore'
+import type { TalentTier } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
-import { generateTalentTierWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
+import { generateTalentTierWithTavernAI } from '../../utils/tavernAI'
+import { saveGameData } from '../../utils/tavern';
 
 interface CustomTierData {
   name: string
@@ -77,128 +79,82 @@ interface CustomTierData {
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
-const talentTiers = ref<TalentTier[]>([])
-const isLoading = ref(true)
-const error = ref<string | null>(null)
 const isCustomModalVisible = ref(false)
+const isGeneratingAI = ref(false)
 
 const customTierFields = [
   { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },
-  {
-    key: 'description',
-    label: '天资描述',
-    type: 'textarea',
-    placeholder: '描述此天资的特点...',
-  },
+  { key: 'description', label: '天资描述', type: 'textarea', placeholder: '描述此天资的特点...' },
   { key: 'total_points', label: '天道点', type: 'text', placeholder: '例如：10' },
   { key: 'color', label: '辉光颜色', type: 'text', placeholder: '例如：#808080' },
 ] as const
 
-function handleCustomSubmit(data: CustomTierData) {
+function validateCustomTier(data: any) {
+    const errors: Record<string, string> = {};
+    if (!data.name?.trim()) errors.name = '天资名称不可为空';
+    const points = Number(data.total_points);
+    if (isNaN(points) || points < 0 || points > 100) errors.total_points = '天道点必须是0-100的数字';
+    return {
+        valid: Object.keys(errors).length === 0,
+        errors: Object.values(errors),
+    };
+}
+
+async function handleCustomSubmit(data: CustomTierData) {
   const newTier: TalentTier = {
     id: Date.now(),
     name: data.name,
     description: data.description,
     total_points: parseInt(data.total_points, 10) || 10,
     color: data.color || '#808080',
-    rarity: 0,
+    rarity: 1, // Custom tiers have a default rarity
   }
-  talentTiers.value.unshift(newTier)
-  selectTalentTier(newTier)
+  
+  try {
+    store.addTalentTier(newTier);
+    await saveGameData(store.creationData);
+    handleSelectTalentTier(newTier);
+    isCustomModalVisible.value = false;
+    toast.success(`自定义天资 "${newTier.name}" 已保存！`);
+  } catch (e) {
+    console.error('保存自定义天资失败:', e);
+    toast.error('保存自定义天资失败！');
+  }
 }
 
 async function _handleLocalAIGenerate() {
-  isLoading.value = true
-  error.value = null
+  isGeneratingAI.value = true
   try {
     const newTier = await generateTalentTierWithTavernAI()
-    talentTiers.value.unshift(newTier)
-    selectTalentTier(newTier)
-  } catch (err: Error | unknown) {
-    const message = err instanceof Error ? err.message : '未知错误'
-    error.value = `AI推演失败: ${message}`
-    toast.error(error.value)
+    store.addTalentTier(newTier)
+    await saveGameData(store.creationData);
+    handleSelectTalentTier(newTier)
+    toast.success(`AI推演天资 "${newTier.name}" 已保存！`);
+  } catch (e: any) {
+    // Error toast handled in tavernAI
   } finally {
-    isLoading.value = false
+    isGeneratingAI.value = false
   }
 }
 
 function handleAIGenerate() {
-  if (store.mode === 'single') {
+  if (store.isLocalCreation) {
     _handleLocalAIGenerate()
   } else {
     emit('ai-generate')
   }
 }
 
-async function handleAIGenerateWithCode(code: string) {
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const newTier = await request<TalentTier>('/api/v1/ai_redeem', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, type: 'talent_tier' }),
-    });
-    talentTiers.value.unshift(newTier);
-    selectTalentTier(newTier);
-    toast.success('天机接引成功！');
-  } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`;
-  } finally {
-    isLoading.value = false;
-  }
+function handleSelectTalentTier(tier: TalentTier) {
+  store.selectTalentTier(tier.id)
 }
 
-defineExpose({
-  handleAIGenerateWithCode,
-  fetchData: fetchTalentTiers,  // 暴露数据获取方法
-});
-
-async function fetchTalentTiers() {
-  // 单机模式使用本地数据
-  if (store.mode === 'single') {
-    try {
-      // 使用本地的天资等级数据
-      const tiers: TalentTier[] = LOCAL_TALENT_TIERS.map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: t.description,
-        total_points: t.total_points,
-        color: t.color,
-        rarity: 0, // 本地数据不需要rarity，设置默认值
-      }))
-      talentTiers.value = tiers
-
-      // 模拟加载延迟
-      setTimeout(() => {
-        isLoading.value = false
-      }, 300)
-    } catch (_: unknown) {
-      error.value = '加载本地数据失败'
-      isLoading.value = false
-    }
-  } else {
-    // 联机模式请求后端
-    try {
-      const tiers = await request<TalentTier[]>('/api/v1/talent_tiers/')
-      talentTiers.value = tiers.sort((a, b) => a.rarity - b.rarity)
-    } catch (err: unknown) {
-      error.value = err instanceof Error ? err.message : '未知错误'
-    } finally {
-      isLoading.value = false
-    }
-  }
+function hexToRgb(hex: string): string {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '229, 192, 123';
 }
 
-function selectTalentTier(tier: TalentTier) {
-  store.selectedTalentTier = tier
-  store.talentPoints = tier.total_points
-}
-
-onMounted(() => {
-  fetchTalentTiers()
-})
+// fetchData 和 defineExpose 不再需要，因为父组件会处理初始化
 </script>
 
 <style scoped>
@@ -206,7 +162,6 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
 .loading-state,
@@ -217,7 +172,7 @@ onMounted(() => {
   align-items: center;
   height: 100%;
   font-size: 1.2rem;
-  color: #888;
+  color: var(--color-text-secondary);
 }
 
 .tier-layout {
@@ -228,44 +183,30 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* 左侧面板容器 */
 .tier-left-panel {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   overflow: hidden;
+  background: var(--color-surface);
 }
 
 .tiers-list-container {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
-  transition: var(--transition-fast);
 }
 
-/* 美化滚动条 */
-.tiers-list-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.tiers-list-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.tiers-list-container::-webkit-scrollbar-thumb {
-  background: rgba(229, 192, 123, 0.3);
-  border-radius: 4px;
-}
-
-.tiers-list-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(229, 192, 123, 0.5);
-}
+.tiers-list-container::-webkit-scrollbar { width: 8px; }
+.tiers-list-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.tiers-list-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
+.tiers-list-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
 .tier-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.8rem 1rem;
   margin-bottom: 0.5rem;
   border-radius: 6px;
@@ -282,69 +223,63 @@ onMounted(() => {
   background: rgba(var(--tier-glow-color-rgb, 229, 192, 123), 0.2);
   color: var(--tier-glow-color, #e5c07b);
   border-left: 3px solid var(--tier-glow-color, #e5c07b);
+  box-shadow: 0 0 15px rgba(var(--tier-glow-color-rgb, 229, 192, 123), 0.3);
 }
 
 .tier-name {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--tier-glow-color, inherit);
 }
 
 .tier-points {
   color: var(--color-accent);
+  font-weight: 500;
 }
 
-/* 单机模式功能按钮样式 */
 .single-actions-container {
   border-top: 1px solid var(--color-border);
   background: rgba(0, 0, 0, 0.3);
   padding: 0.5rem;
-}
-
-.divider {
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(229, 192, 123, 0.3), transparent);
-  margin: 0.5rem 0;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .action-item {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
   padding: 0.8rem 1rem;
-  margin-bottom: 0.5rem;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
   color: var(--color-text);
-  width: 100%;
-  text-align: left;
   font-size: 1rem;
 }
 
 .action-item:hover {
-  background: rgba(var(--color-primary-rgb), 0.1);
+  background: var(--color-surface-lighter);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .action-name {
   font-weight: 500;
-  color: var(--color-primary);
 }
 
-/* 右侧详情容器 */
 .tier-details-container {
-  border: 1px solid #444;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 1rem;
-  flex: 1;
-  min-height: 0;
+  padding: 1.5rem;
+  background: var(--color-surface);
 }
 
 .tier-details {
-  padding: 1rem;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -365,73 +300,28 @@ onMounted(() => {
   overflow-y: auto;
   line-height: 1.6;
   padding-right: 0.5rem;
-  padding-bottom: 0.5rem;
   min-height: 0;
 }
 
 .description-scroll p {
   margin: 0;
   white-space: pre-wrap;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-text-secondary);
 }
 
-/* 美化详情容器滚动条 */
-.description-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.description-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.description-scroll::-webkit-scrollbar-thumb {
-  background: rgba(229, 192, 123, 0.3);
-  border-radius: 4px;
-}
-
-.description-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(229, 192, 123, 0.5);
-}
+.description-scroll::-webkit-scrollbar { width: 8px; }
+.description-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.description-scroll::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
+.description-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
 .points-display {
   text-align: center;
   font-weight: bold;
   color: var(--color-accent);
   font-size: 1.2rem;
-  padding: 1rem;
-  background: rgba(var(--color-primary-rgb), 0.1);
+  padding-top: 1rem;
+  margin-top: 1rem;
   border-top: 1px solid var(--color-border);
-}
-
-/* 为不同天资等级设置颜色变量 */
-.tier-item:nth-child(1) {
-  --tier-glow-color: #8b4513;
-  --tier-glow-color-rgb: 139, 69, 19;
-}
-
-.tier-item:nth-child(2) {
-  --tier-glow-color: #808080;
-  --tier-glow-color-rgb: 128, 128, 128;
-}
-
-.tier-item:nth-child(3) {
-  --tier-glow-color: #4169e1;
-  --tier-glow-color-rgb: 65, 105, 225;
-}
-
-.tier-item:nth-child(4) {
-  --tier-glow-color: #9932cc;
-  --tier-glow-color-rgb: 153, 50, 204;
-}
-
-.tier-item:nth-child(5) {
-  --tier-glow-color: #ffd700;
-  --tier-glow-color-rgb: 255, 215, 0;
-}
-
-.tier-item:nth-child(6) {
-  --tier-glow-color: #ff0000;
-  --tier-glow-color-rgb: 255, 0, 0;
+  flex-shrink: 0;
 }
 </style>

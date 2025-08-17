@@ -57,6 +57,9 @@ async def save_ai_content(
     """
     Save AI-generated content to database and consume redemption code within a transaction.
     """
+    if not request.code or not request.code.strip():
+        raise HTTPException(status_code=400, detail="仙缘信物不可为空！")
+        
     try:
         async with in_transaction():
             # 1. 验证兑换码

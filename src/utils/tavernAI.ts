@@ -1,262 +1,361 @@
-/**
- * 酒馆AI通信法门
- * 用于与酒馆助手的AI生成功能进行交互
- */
-
-import type { World, Origin, TalentTier, SpiritRoot, Talent } from '../stores/characterCreationStore';
 import { toast } from './toast';
+import type { Talent, World, TalentTier, Origin, SpiritRoot } from '../types';
 
-// 定义TavernHelper的接口，与 types.d.ts 保持一致
-type RolePrompt = {
-    role: 'system' | 'assistant' | 'user';
-    content: string;
-};
-
-type BuiltinPrompt =
-  | 'world_info_before'
-  | 'persona_description'
-  | 'char_description'
-  | 'char_personality'
-  | 'scenario'
-  | 'world_info_after'
-  | 'dialogue_examples'
-  | 'chat_history'
-  | 'user_input';
-
-interface GenerateRawConfig {
-  should_stream?: boolean;
-  ordered_prompts?: (BuiltinPrompt | RolePrompt)[];
-}
-
-interface TavernHelper {
-  generateRaw: (config: GenerateRawConfig) => Promise<string>;
-}
-
-// 检查是否在酒馆环境中
-// 由于应用运行在iframe中，需要从parent访问TavernHelper
-export function isTavernEnvironment(): boolean {
-  try {
-    // 检查parent window（酒馆助手的前端渲染是在iframe中）
-    if (typeof window !== 'undefined' && window.parent && (window.parent as any).TavernHelper !== undefined) {
-      return true;
-    }
-    // 备用：检查当前window
-    if (typeof window !== 'undefined' && (window as any).TavernHelper !== undefined) {
-      return true;
-    }
-    return false;
-  } catch {
-    // 可能因为跨域等原因无法访问parent
-    return false;
-  }
-}
-
-// 获取酒馆助手实例
-// 由于应用运行在iframe中，需要从parent获取TavernHelper
-function getTavernHelper(): TavernHelper | null {
-  try {
-    // 优先从parent window获取（酒馆助手的前端渲染是在iframe中）
-    if (typeof window !== 'undefined' && window.parent && (window.parent as any).TavernHelper !== undefined) {
-      return (window.parent as any).TavernHelper;
-    }
-    // 备用：从当前window获取
-    if (typeof window !== 'undefined' && (window as any).TavernHelper !== undefined) {
-      return (window as any).TavernHelper;
-    }
-    console.warn('未检测到酒馆环境，AI功能不可用。');
-    return null;
-  } catch {
-    console.warn('无法访问酒馆环境，可能存在跨域问题。');
-    return null;
-  }
-}
+// =======================================================================
+//                           核心：酒馆上下文获取
+// =======================================================================
 
 /**
- * 统一的AI生成调用
- * @param prompt 提示词
- * @returns AI生成的原始文本
+ * 获取SillyTavern助手API，适配iframe环境。
+ * @returns {any} - 返回TavernHelper对象
  */
-async function callTavernGenerate(prompt: string): Promise<string> {
-    const TavernHelper = getTavernHelper();
-    if (!TavernHelper) {
-        throw new Error('非酒馆环境，无法连接至AI。请在SillyTavern环境中运行此扩展。');
-    }
-
-    if (typeof TavernHelper.generateRaw !== 'function') {
-        throw new Error('当前环境的 TavernHelper 不支持 generateRaw 方法。');
-    }
-
-    const config = {
-        should_stream: false,
-        ordered_prompts: [{ role: 'user' as const, content: prompt }],
-    };
-
-    try {
-        const result = await TavernHelper.generateRaw(config);
-
-        if (typeof result !== 'string' || result.trim() === '') {
-            throw new Error('AI返回结果为空或格式不正确。');
-        }
-        return result;
-    } catch (error) {
-        console.error('调用 TavernHelper.generateRaw 失败:', error);
-        throw new Error(`调用AI生成失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
+function getTavernHelper(): any {
+  // @ts-ignore
+  if (window.parent?.TavernHelper?.generateRaw) {
+    // @ts-ignore
+    return window.parent.TavernHelper;
+  }
+  toast.error('感应酒馆助手灵脉失败，请确认在SillyTavern环境中运行！');
+  throw new Error('TavernHelper API not found in window.parent.');
 }
 
+
+// =======================================================================
+//                                提示词定义
+// =======================================================================
+
+// 通用指令：扮演专家角色，并严格遵循JSON格式
+const ROLE_PLAY_INSTRUCTION = `
+# **一、 角色扮演**
+你是一位精通东方玄幻设定的“天机阁”推演大师。你的任务是创造独特、有趣且符合逻辑的修仙世界元素。
+
+# **二、 输出格式 (至关重要)**
+**你必须严格按照任务指定的JSON格式输出，绝对不能包含任何JSON格式之外的解释、注释或任何额外文本。**
+`;
+
+// 1. 世界生成提示词
+const WORLD_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：开辟鸿蒙**
+请生成一个独特的修仙世界设定。
+
+## **具体要求：**
+1.  **世界命名:** 起一个富有修仙世界古典的名字 (例如: 玄黄大界, 沧澜古陆, 碎星天域)。
+2.  **世界描述:** 用200-400字，描绘这个世界的宏观背景、独特的修炼体系、能量来源或重大历史事件。使其感觉独一无二。
+3.  **时代背景:** 定义当前所处的时代特征 (例如: 上古遗迹频出，黄金大世 / 仙路断绝，末法时代 / 灵气复苏，都市修仙 / 魔族入侵，烽烟四起)。
+
+## **四、 JSON输出格式**
+\`\`\`json
+{
+  "name": "世界名称",
+  "description": "详细的世界背景描述...",
+  "era": "当前时代背景"
+}
+\`\`\`
+`;
+
+// 2. 天资等级生成提示词
+const TALENT_TIER_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：天定仙缘**
+请生成一个独特的天资等级。
+
+## **具体要求：**
+1.  **天资命名:** 起一个富有层次感的名字 (例如: 凡夫俗子, 中人之姿, 天生灵秀, 气运之子, 大道亲和)。
+2.  **天资描述:** 简要描述该天资等级的特点。
+3.  **总点数:** 设定一个介于10到50之间的整数，作为该天资等级可分配的天道点数。
+4.  **稀有度:** 设定一个1到5的整数（1最常见，5最稀有）。
+5.  **颜色:** 提供一个十六进制颜色代码，用于UI显示。
+
+## **四、 JSON输出格式**
+\`\`\`json
+{
+  "name": "天资名称",
+  "description": "天资特点描述",
+  "total_points": 25,
+  "rarity": 3,
+  "color": "#A020F0"
+}
+\`\`\`
+`;
+
+// 3. 出身背景生成提示词
+const ORIGIN_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：轮回之始**
+请生成一个独特的出身背景。
+
+## **具体要求：**
+1.  **出身命名:** 起一个能体现其阶级或特点的名字 (例如: 边陲猎户, 书香门第, 没落王孙, 宗门弃徒)。
+2.  **背景故事:** 用100-200字，生动地描述这个出身的经历和故事。
+3.  **天道点消耗:** 设定一个介于-10到10之间的整数。正面出身消耗点数，负面出身提供点数。
+4.  **稀有度:** 设定一个1到5的整数（1最常见，5最稀有）。
+
+## **四、 JSON输出格式**
+\`\`\`json
+{
+  "name": "出身名称",
+  "description": "生动的背景故事...",
+  "talent_cost": 5,
+  "rarity": 2
+}
+\`\`\`
+`;
+
+// 4. 灵根生成提示词
+const SPIRIT_ROOT_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：灵根天定**
+请生成一种独特的灵根。
+
+## **具体要求：**
+1.  **灵根命名:** 起一个独特的名字，可以不是传统的五行灵根 (例如: 废灵根, 混沌灵根, 太阴灵根, 剑心通明)。
+2.  **特点描述:** 描述该灵根的修炼特性、优缺点。
+3.  **基础倍率:** 设定一个0.1到5.0之间的小数，代表基础修炼速度倍率。
+4.  **天道点消耗:** 设定一个介于-10到20之间的整数。
+
+## **四、 JSON输出格式**
+\`\`\`json
+{
+  "name": "灵根名称",
+  "description": "灵根的修炼特性、优缺点",
+  "base_multiplier": 1.5,
+  "talent_cost": 10
+}
+\`\`\`
+`;
+
+// 5. 天赋生成提示词
+const TALENT_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：命格造化**
+请生成一个独特的修仙天赋。
+
+## **具体要求：**
+1.  **天赋命名:** 起一个言简意赅且有趣的名字 (例如: 老而弥坚, 丹毒免疫, 话痨, 一诺千金)。
+2.  **效果描述:** 清晰地描述天赋带来的正面或负面效果。
+3.  **天道点消耗:** 设定一个介于-10到10之间的整数。正面天赋消耗点数，负面天赋提供点数。
+
+## **四、 JSON输出格式**
+\`\`\`json
+{
+  "name": "天赋名称",
+  "description": "清晰的天赋效果描述",
+  "talent_cost": 3
+}
+\`\`\`
+`;
+
+
+// 6. 世界书（大陆及势力）生成提示词
+const WORLD_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：大陆格局**
+请基于东方玄幻世界观，随机生成一个独特凡界大陆的初始势力格局。
+
+## **世界观基石 (必须严格遵守)**
+*   **能量体系:** 核心能量是“灵气”。“灵脉”是灵气的脉络。
+*   **社会结构:** 修仙者以“宗门”和“世家”为主，凡人建立“王朝”。
+*   **阵营划分:** 分为“正道”、“邪修”、“魔修”和“中立”。
+*   **境界水平:** 凡界最高战力通常为“化神”或“炼虚”期。
+
+## **具体要求：**
+1.  **大陆命名与描述：**
+    *   为大陆起一个富有东方玄幻色彩的名字。
+    *   用2-3句话简要描述大陆的宏观地理特征。
+2.  **核心势力生成 (5-7个)：**
+    *   确保势力类型多样化，至少包含：**2个宗门，1个修仙世家，1个凡俗王朝**。
+    *   确保阵营分布均衡，至少包含：**1个正道领袖，1个邪道/魔道巨擘**。
+    *   为势力之间构建一些基础的**敌对或同盟关系**。
+
+## **四、 JSON输出格式**
+\`\`\`json
+{
+  "continentName": "大陆名称",
+  "continentDescription": "大陆的宏观地理描述。",
+  "factions": [
+    {
+      "name": "势力名称",
+      "type": "势力类型 (宗门/修仙世家/凡俗王朝/散修联盟/魔修/邪修)",
+      "alignment": "阵营 (正道/邪修/魔修/中立)",
+      "location": "地理位置 (例如：坐落于大陆东部，青云山脉)",
+      "powerLevel": "实力等级 (例如：大陆霸主/一流势力/中坚力量/崛起新秀)",
+      "description": "一段精炼的描述，包括其核心理念、擅长的功法/技艺、以及当前的主要目标或困境。"
+    }
+  ]
+}
+\`\`\`
+`;
+
+
+// =======================================================================
+//                           通用AI生成器 (最终版)
+// =======================================================================
+
 /**
- * 解析AI返回的JSON
- * @param result AI返回的原始字符串
- * @returns 解析后的对象
- */
-function parseAIResponse(result: string): Record<string, any> {
+* 通用AI生成器 (使用 TavernHelper.generateRaw)
+* @param prompt - 提示词
+* @param typeName - 类型名称 (用于日志)
+* @returns {Promise<any>} 解析后的JSON对象
+*/
+async function generateItemWithTavernAI<T>(prompt: string, typeName: string): Promise<Partial<T>> {
+  try {
+    const helper = getTavernHelper();
+    toast.info(`天机运转，推演${typeName}...`);
+
+    // 使用 TavernHelper.generateRaw API，并提高温度以增加随机性
+    const rawResult = await helper.generateRaw({
+      ordered_prompts: [{ role: 'system', content: prompt }],
+      generation_args: {
+        temperature: 1.2, // 提高温度，让结果更多样化
+        max_new_tokens: 512, // 限制最大长度
+      }
+    });
+
+    if (!rawResult || typeof rawResult !== 'string') {
+      throw new Error(`AI未返回任何有效的${typeName}文本。`);
+    }
+
+    // 尝试从返回结果中提取JSON字符串
+    const jsonMatch = rawResult.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error(`原始AI输出 (${typeName}):`, rawResult);
+      throw new Error(`AI返回内容中未找到有效的JSON结构。`);
+    }
+    const jsonString = jsonMatch[0];
+
     try {
-        // AI可能返回被```json ... ```包裹的代码块，需要提取出来
-        const jsonMatch = result.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
-        }
-        throw new Error('未在AI返回中找到有效的JSON格式');
+      const parsedData = JSON.parse(jsonString);
+      return parsedData as Partial<T>;
     } catch (parseError) {
-        console.error('解析AI返回结果失败:', result, parseError);
-        toast.error(`天机解析失败: ${parseError instanceof Error ? parseError.message : '未知错误'}`);
-        throw new Error('天机解析失败，请检查AI返回格式或重试');
+      console.error(`无法解析的JSON (${typeName}):`, jsonString);
+      console.error(`原始AI输出 (${typeName}):`, rawResult);
+      throw new Error(`AI返回的${typeName}格式错乱，无法解析。`);
     }
+
+  } catch (error: any) {
+    console.error(`调用酒馆AI生成${typeName}失败:`, error);
+    toast.error(`${typeName}推演失败: ${error.message}`);
+    throw error;
+  }
 }
 
-// --- 后备函数，仅在AI生成或解析彻底失败时调用 ---
-
-function createFallbackWorld(): World {
-  toast.error('AI生成世界失败，已启用后备数据。');
-  return { id: Date.now(), name: '幻梦界', era: '混沌初开', description: '一片由忆念与道则交织而成的虚幻之界。' };
-}
-
-function createFallbackOrigin(): Origin {
-  toast.error('AI生成出身失败，已启用后备数据。');
-  return { id: Date.now(), name: '山野之人', description: '天机难测，暂为山野之人。', talent_cost: 0, attribute_modifiers: null };
-}
-
-function createFallbackTalentTier(): TalentTier {
-  toast.error('AI生成天资失败，已启用后备数据。');
-  return { id: Date.now(), name: '凡夫俗子', description: '天机难测，暂为凡俗之辈。', total_points: 10, color: '#808080', rarity: 0 };
-}
-
-function createFallbackSpiritRoot(): SpiritRoot {
-  toast.error('AI生成灵根失败，已启用后备数据。');
-  return { id: Date.now(), name: '凡品灵根', description: '天机难测，暂为凡品灵根。', base_multiplier: 1.0, talent_cost: 0 };
-}
-
-function createFallbackTalent(): Talent {
-  toast.error('AI生成天赋失败，已启用后备数据。');
-  return { id: Date.now(), name: '平平无奇', description: '天机难测，此乃凡俗天赋。', talent_cost: 0, effects: null, rarity: 1 };
-}
-
-// --- AI Generation Functions ---
+// =======================================================================
+//                            具体类型的AI生成函数
+// =======================================================================
 
 export async function generateWorldWithTavernAI(): Promise<World> {
-  const prompt = `请为一款修仙主题应用生成一个独特的世界设定。要求：1. 世界名称：大气磅礴，2-6个字。2. 时代背景：简短描述。3. 描述：200-600字。请严格按照以下JSON格式返回，不要包含任何额外文本或解释：\n{\n  "name": "世界名称",\n  "era": "时代背景",\n  "description": "详细的世界描述"\n}`;
-  try {
-    const result = await callTavernGenerate(prompt);
-    const parsed = parseAIResponse(result);
-    return { id: Date.now(), name: parsed.name, era: parsed.era, description: parsed.description };
-  } catch (error) {
-    console.error('AI生成世界失败:', error);
-    return createFallbackWorld();
-  }
-}
-
-export async function generateOriginWithTavernAI(world: World): Promise<Origin> {
-  const prompt = `在一个名为【${world.name}】(${world.era})的修仙世界中，为角色生成一个独特的出身背景。要求：1. 出身名称：2-6个字。2. 描述：50-150字，与世界背景相关。3. 消耗天道点：0到15的整数。请严格按照以下JSON格式返回，不要包含任何额外文本或解释：\n{\n  "name": "出身名称",\n  "description": "详细的出身描述",\n  "talent_cost": 整数\n}`;
-  try {
-    const result = await callTavernGenerate(prompt);
-    const parsed = parseAIResponse(result);
-    return { id: Date.now(), name: parsed.name, description: parsed.description, talent_cost: parsed.talent_cost, attribute_modifiers: null };
-  } catch (error) {
-    console.error('AI生成出身失败:', error);
-    return createFallbackOrigin();
-  }
+  const parsed = await generateItemWithTavernAI<World>(WORLD_ITEM_GENERATION_PROMPT, '世界');
+  return {
+    id: Date.now(),
+    name: parsed.name || '未知世界',
+    description: parsed.description || '',
+    era: parsed.era || '未知时代',
+  };
 }
 
 export async function generateTalentTierWithTavernAI(): Promise<TalentTier> {
-  const prompt = `请为一款修仙主题应用生成一个独特的天资等级。要求：1. 名称：2-4个字。2. 描述：50-150字。3. 天道点：5到30的整数。4. 辉光颜色：十六进制颜色码。请严格按照以下JSON格式返回，不要包含任何额外文本或解释：\n{\n  "name": "天资名称",\n  "description": "详细的天资描述",\n  "total_points": 整数,\n  "color": "十六进制颜色码"\n}`;
-  try {
-    const result = await callTavernGenerate(prompt);
-    const parsed = parseAIResponse(result);
-    return { id: Date.now(), name: parsed.name, description: parsed.description, total_points: parsed.total_points, color: parsed.color, rarity: 0 };
-  } catch (error) {
-    console.error('AI生成天资失败:', error);
-    return createFallbackTalentTier();
-  }
+  const parsed = await generateItemWithTavernAI<TalentTier>(TALENT_TIER_ITEM_GENERATION_PROMPT, '天资');
+  return {
+    id: Date.now(),
+    name: parsed.name || '凡俗之资',
+    description: parsed.description || '',
+    total_points: parsed.total_points || 10,
+    rarity: parsed.rarity || 1,
+    color: parsed.color || '#FFFFFF',
+  };
+}
+
+export async function generateOriginWithTavernAI(): Promise<Origin> {
+  const parsed = await generateItemWithTavernAI<Origin>(ORIGIN_ITEM_GENERATION_PROMPT, '出身');
+  return {
+    id: Date.now(),
+    name: parsed.name || '平凡人家',
+    description: parsed.description || '',
+    talent_cost: parsed.talent_cost || 0,
+    rarity: parsed.rarity || 1,
+    attribute_modifiers: null, // AI不生成复杂属性
+  };
 }
 
 export async function generateSpiritRootWithTavernAI(): Promise<SpiritRoot> {
-  const prompt = `请为一款修仙主题应用生成一个独特的灵根。要求：1. 名称：2-4个字。2. 描述：50-150字。3. 修炼倍率：1.0到3.0之间，最多一位小数。4. 消耗天道点：0到20的整数。请严格按照以下JSON格式返回，不要包含任何额外文本或解释：\n{\n  "name": "灵根名称",\n  "description": "详细的灵根描述",\n  "base_multiplier": 数字,\n  "talent_cost": 整数\n}`;
-  try {
-    const result = await callTavernGenerate(prompt);
-    const parsed = parseAIResponse(result);
-    return { id: Date.now(), name: parsed.name, description: parsed.description, base_multiplier: parsed.base_multiplier, talent_cost: parsed.talent_cost };
-  } catch (error) {
-    console.error('AI生成灵根失败:', error);
-    return createFallbackSpiritRoot();
-  }
+  const parsed = await generateItemWithTavernAI<SpiritRoot>(SPIRIT_ROOT_ITEM_GENERATION_PROMPT, '灵根');
+  return {
+    id: Date.now(),
+    name: parsed.name || '凡人灵根',
+    description: parsed.description || '',
+    base_multiplier: parsed.base_multiplier || 1.0,
+    talent_cost: parsed.talent_cost || 0,
+  };
 }
 
 export async function generateTalentWithTavernAI(): Promise<Talent> {
-  const prompt = `请为一款修仙主题应用生成一个独特的天赋。要求：1. 名称：2-4个字。2. 描述：50-150字。3. 消耗天道点：0到10的整数。请严格按照以下JSON格式返回，不要包含任何额外文本或解释：\n{\n  "name": "天赋名称",\n  "description": "详细的天赋描述",\n  "talent_cost": 整数\n}`;
-  try {
-    const result = await callTavernGenerate(prompt);
-    const parsed = parseAIResponse(result);
-    return { id: Date.now(), name: parsed.name, description: parsed.description, talent_cost: parsed.talent_cost, effects: null, rarity: 1 };
-  } catch (error) {
-    console.error('AI生成天赋失败:', error);
-    return createFallbackTalent();
-  }
+    const parsed = await generateItemWithTavernAI<Talent>(TALENT_GENERATION_PROMPT, '天赋');
+    return {
+        id: Date.now(),
+        name: parsed.name || '平平无奇',
+        description: parsed.description || '没有任何特殊之处。',
+        talent_cost: parsed.talent_cost || 0,
+        effects: null,
+        rarity: 3,
+    };
 }
 
-// --- Validation Function ---
 
-export function validateCustomData(type: 'world' | 'origin' | 'talent_tier' | 'spirit_root' | 'talent', data: Record<string, any>): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
+// =======================================================================
+//                           世界书相关函数
+// =======================================================================
 
-  if (!data.name || String(data.name).trim().length === 0) {
-    errors.push('名称不能为空');
-  } else if (String(data.name).length > 20) {
-    errors.push('名称不能超过20个字符');
-  }
-
-  if (!data.description || String(data.description).trim().length === 0) {
-    errors.push('描述不能为空');
-  } else if (String(data.description).length > 500) {
-    errors.push('描述不能超过500个字符');
-  }
-
-  if (type === 'world' && (!data.era || String(data.era).trim().length === 0)) {
-      errors.push('时代背景不能为空');
-  }
-
-  if (type === 'talent_tier') {
-    if (data.total_points == null || isNaN(parseInt(data.total_points, 10))) {
-      errors.push('天道点必须是有效的数字');
+/**
+ * 调用酒馆AI生成世界地图和势力信息，并直接更新到世界书
+ */
+export async function generateAndSetupWorldBook(): Promise<void> {
+    const worldData = await generateItemWithTavernAI<any>(WORLD_GENERATION_PROMPT, '大陆格局');
+    if (worldData && worldData.continentName) {
+        await updateWorldBook(worldData);
+    } else {
+        toast.error('生成的大陆格局数据不完整，无法更新世界书。');
     }
-    if (!data.color || !/^#[0-9A-Fa-f]{6}$/i.test(data.color)) {
-      errors.push('请输入有效的十六进制颜色代码 (例如: #FFD700)');
+}
+
+/**
+ * 将生成的世界信息更新到酒馆的世界书中
+ * @param worldData 从AI生成并解析后的世界数据对象
+ */
+export async function updateWorldBook(worldData: any): Promise<void> {
+  try {
+    // SillyTavern的sendSystemMessage在主上下文，而非TavernHelper
+    // @ts-ignore
+    if (!window.parent?.SillyTavern?.getContext) {
+        toast.error('无法连接酒馆主灵脉，更新世界书失败！');
+        return;
     }
-  }
+    // @ts-ignore
+    const context = window.parent.SillyTavern.getContext();
 
-  if (type === 'spirit_root') {
-    if (data.base_multiplier == null || isNaN(parseFloat(data.base_multiplier))) {
-      errors.push('修炼倍率必须是有效的数字');
+    if (!context.sendSystemMessage) {
+      toast.error('无法访问酒馆言灵法术，更新世界书失败！');
+      return;
     }
-  }
 
-  if (type === 'origin' || type === 'spirit_root' || type === 'talent') {
-      if (data.talent_cost == null || isNaN(parseInt(data.talent_cost, 10))) {
-          errors.push('天道点消耗必须是有效的数字');
-      }
-  }
+    const bookName = 'DAD_World_Data';
+    const entryKey = worldData.continentName || '世界总览';
 
-  return {
-    valid: errors.length === 0,
-    errors
-  };
+    let content = `## ${worldData.continentName}\n\n`;
+    content += `${worldData.continentDescription}\n\n`;
+    content += `### **核心势力**\n\n`;
+
+    for (const faction of worldData.factions) {
+      content += `**${faction.name}**\n`;
+      content += `- **类型:** ${faction.type} (${faction.alignment})\n`;
+      content += `- **实力:** ${faction.powerLevel}\n`;
+      content += `- **位置:** ${faction.location}\n`;
+      content += `- **简介:** ${faction.description}\n\n`;
+    }
+
+    // 使用/setvar和/setentryfield命令来更新世界书
+    await context.sendSystemMessage('slash', `/setvar key=worldBookContent "${content.replace(/"/g, '\\"')}"`);
+    await context.sendSystemMessage('slash', `/setentryfield file="${bookName}" key="${entryKey}" content={{getvar::worldBookContent}}`);
+    await context.sendSystemMessage('slash', `/flushvar worldBookContent`);
+
+    toast.success(`世界设定已成功录入《${bookName}》`);
+
+  } catch (error: any) {
+    console.error('更新世界书失败:', error);
+    toast.error(`更新世界书失败: ${error.message}`);
+  }
 }

@@ -9,11 +9,14 @@
       </button>
     </div>
     <component
-      :is="activeView"
-      @path-selected="handlePathSelection"
-      @back="handleBack"
-      @loggedIn="handleLoggedIn"
-    />
+          :is="activeView"
+          @start-creation="handleStartCreation"
+          @show-character-list="handleShowCharacterList"
+          :onBack="handleBack"
+          @loggedIn="handleLoggedIn"
+          @creation-complete="handleCreationComplete"
+          :character="activeCharacter"
+        />
   </div>
 </template>
 
@@ -21,22 +24,28 @@
 import { shallowRef, ref, onMounted } from 'vue'
 import ModeSelection from './views/ModeSelection.vue'
 import CharacterCreation from './views/CharacterCreation.vue'
+import CharacterManagement from './components/character-creation/CharacterManagement.vue'
 import LoginView from './views/LoginView.vue'
+import GameView from './views/GameView.vue'
 import './style.css'
 import { useCharacterCreationStore } from './stores/characterCreationStore'
 import { verifyStoredToken } from './services/request'
 import { toast } from './utils/toast'
+import type { LocalCharacterWithGameData } from './data/localData'
 
 const isLoggedIn = ref(false);
+const activeCharacter = ref<LocalCharacterWithGameData | null>(null);
 
 // --- 核心视图管理 ---
 const views = {
   ModeSelection,
   CharacterCreation,
+  CharacterManagement,
   Login: LoginView,
+  GameView,
 }
 type ViewName = keyof typeof views;
-const activeView = shallowRef<typeof ModeSelection | typeof CharacterCreation | typeof LoginView>(views.ModeSelection)
+const activeView = shallowRef<any>(views.ModeSelection)
 
 const store = useCharacterCreationStore();
 
@@ -49,30 +58,46 @@ const switchView = (viewName: ViewName) => {
   }
 }
 
-const handlePathSelection = (mode: 'single' | 'multi') => {
-    store.setMode(mode);
-    if (mode === 'single') {
-        switchView('CharacterCreation');
+const handleStartCreation = (mode: 'single' | 'cloud') => {
+  store.setMode(mode);
+  if (mode === 'single') {
+    switchView('CharacterCreation');
+  } else {
+    // 联机创角，必须登录
+    if (isLoggedIn.value) {
+      switchView('CharacterCreation');
     } else {
-        // 联机模式：检查登录状态
-        if (isLoggedIn.value) {
-            toast.success('身份已验证，欢迎回来！');
-            switchView('CharacterCreation');
-        } else {
-            // 立即切换到登录视图，不阻塞UI
-            switchView('Login');
-        }
+      toast.error('联机共修需先登入道籍！');
+      switchView('Login');
     }
+  }
+}
+
+const handleShowCharacterList = () => {
+  // 查看角色列表（尤其是联机），必须登录
+  if (isLoggedIn.value) {
+    switchView('CharacterManagement');
+  } else {
+    toast.error('查看云端法身需先登入道籍！');
+    switchView('Login');
+  }
 }
 
 const handleBack = () => {
-  store.reset();
+  // 只重置角色创建的进度，而不是整个 store
+  store.resetCharacter();
   switchView('ModeSelection');
 }
 
 const handleLoggedIn = () => {
   isLoggedIn.value = true;
-  switchView('CharacterCreation');
+  // 登录后不应自动跳转到创角，而是返回模式选择，让用户决定是创角还是读档
+  switchView('ModeSelection');
+}
+
+const handleCreationComplete = (character: LocalCharacterWithGameData) => {
+  activeCharacter.value = character;
+  switchView('GameView');
 }
 
 // --- 主题切换 ---
@@ -92,7 +117,6 @@ const checkInitialLoginStatus = async () => {
 
 onMounted(() => {
   document.documentElement.setAttribute('data-theme', 'dark');
-  store.reset();
 
   // 在后台检查初始登录状态，不阻塞UI
   checkInitialLoginStatus();
@@ -100,7 +124,7 @@ onMounted(() => {
   // 启动心跳阵法，每小时检查一次令牌状态
   setInterval(async () => {
     // 只在联机模式且非登录界面时检查
-    if (store.mode === 'multi' && activeView.value !== views.Login) {
+    if (store.mode === 'cloud' && activeView.value !== views.Login) {
       const isValid = await verifyStoredToken();
       if (!isValid) {
         isLoggedIn.value = false;

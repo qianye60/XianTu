@@ -21,31 +21,54 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${url}`, config);
+    const fullUrl = `${API_BASE_URL}${url}`;
+    console.log(`[Request] 发起请求: ${config.method || 'GET'} ${fullUrl}`);
+    const response = await fetch(fullUrl, config);
 
     // 如果响应是空的 (例如 204 No Content), 直接返回
     if (response.status === 204) {
+      console.log(`[Request] 收到 204 No Content 响应 from ${fullUrl}`);
       return null as T;
     }
 
-    const data = await response.json();
+    // 先获取原始文本，以便在JSON解析失败时也能看到内容
+    const rawText = await response.text();
 
     if (!response.ok) {
-      // 从后端错误信息中提取 detail
-      const errorMessage = data.detail || '未知服务器错误';
+      console.error(`[Request] 请求失败! Status: ${response.status} ${response.statusText} from ${fullUrl}`);
+      console.error('[Request] 原始响应体:', rawText);
+      
+      let errorMessage = `服务器错误 ${response.status}`;
+      try {
+        const errorJson = JSON.parse(rawText);
+        errorMessage = errorJson.detail || JSON.stringify(errorJson);
+      } catch (e) {
+        // 如果响应不是JSON，就使用原始文本的前100个字符作为错误信息
+        errorMessage = rawText.substring(0, 100) || '无法解析服务器响应。';
+      }
+      
       toast.error(errorMessage);
       throw new Error(errorMessage);
     }
 
-    return data as T;
-  } catch (error) {
-    console.error('请求失败:', error);
-    const errorMessage = error instanceof Error ? error.message : '网络连接失败，请检查天网灵脉。';
-    // 只在不是已经处理过的错误时才显示toast
-    if (!error || !(error instanceof Error) || !error.message.includes('未知服务器错误')) {
-      // 避免重复显示相同的错误
+    try {
+      const data = JSON.parse(rawText);
+      return data as T;
+    } catch (e) {
+      console.error(`[Request] JSON 解析失败 from ${fullUrl}. 原始响应体:`, rawText);
+      throw new Error('解析服务器响应失败，返回的不是有效的JSON格式。');
     }
-    throw new Error(errorMessage);
+
+  } catch (error) {
+    console.error(`[Request] 网络层或未知错误 for url: ${url}`, error);
+    const errorMessage = error instanceof Error ? error.message : '网络连接失败，请检查天网灵脉。';
+    
+    // 避免重复显示由 !response.ok 块已经处理过的错误
+    if (!errorMessage.includes('服务器错误')) {
+      toast.error(errorMessage);
+    }
+    
+    throw error; // 重新抛出原始错误，以便调用者可以进一步处理
   }
 }
 

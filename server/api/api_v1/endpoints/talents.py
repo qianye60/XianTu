@@ -9,7 +9,7 @@ from server.models import AdminAccount
 
 router = APIRouter()
 
-@router.post("", response_model=schema.Talent, tags=["核心规则"])
+@router.post("/", response_model=schema.Talent, tags=["核心规则"])
 async def create_talent_endpoint(
     talent: schema.TalentCreate,
     current_admin: AdminAccount = Depends(deps.get_super_admin_user)

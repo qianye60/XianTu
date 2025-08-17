@@ -1,21 +1,22 @@
 <template>
   <div class="talent-selection-container">
-    <div v-if="isLoading" class="loading-state">于时光长河中搜寻天赋...</div>
-    <div v-else-if="error" class="error-state">天机紊乱，无法搜寻：{{ error }}</div>
+    <div v-if="store.isLoading" class="loading-state">于时光长河中搜寻天赋...</div>
+    <div v-else-if="store.error" class="error-state">天机紊乱：{{ store.error }}</div>
 
     <div v-else class="talent-layout">
       <!-- 左侧面板：列表和操作按钮 -->
       <div class="talent-left-panel">
         <div class="talent-list-container">
           <div
-            v-for="talent in talents"
+            v-for="talent in store.creationData.talents"
             :key="talent.id"
             class="talent-item"
             :class="{
               selected: isSelected(talent),
               disabled: !canSelect(talent),
             }"
-            @click="toggleTalent(talent)"
+            @click="handleToggleTalent(talent)"
+            @mouseover="activeTalent = talent"
           >
             <span class="talent-name">{{ talent.name }}</span>
             <span class="talent-cost">{{ talent.talent_cost }} 点</span>
@@ -24,9 +25,8 @@
 
         <!-- 功能按钮 -->
         <div class="single-actions-container">
-          <div class="divider"></div>
           <button
-            v-if="store.mode === 'single'"
+            v-if="store.isLocalCreation"
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
@@ -54,29 +54,30 @@
       :visible="isCustomModalVisible"
       title="自定义天赋"
       :fields="customTalentFields"
-      :validationFn="(data) => validateCustomData('talent', data)"
+      :validationFn="validateCustomTalent"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
+
+    <LoadingModal :visible="isGeneratingAI" message="天机推演中..." />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useCharacterCreationStore, type Talent } from '../../stores/characterCreationStore'
-import { LOCAL_TALENTS } from '../../data/localData'
-import { request } from '../../services/request'
+import { ref } from 'vue'
+import { useCharacterCreationStore } from '../../stores/characterCreationStore'
+import type { Talent } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
-import { generateTalentWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
+import { generateTalentWithTavernAI } from '../../utils/tavernAI'
+import { saveGameData } from '../../utils/tavern';
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
-const talents = ref<Talent[]>([])
-const isLoading = ref(true)
-const error = ref<string | null>(null)
-const activeTalent = ref<Talent | null>(null)
+const activeTalent = ref<Talent | null>(null) // For details view on hover/click
 const isCustomModalVisible = ref(false)
+const isGeneratingAI = ref(false)
 
 const customTalentFields = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
@@ -84,152 +85,81 @@ const customTalentFields = [
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' },
 ] as const
 
-function handleCustomSubmit(data: any) {
+function validateCustomTalent(data: any) {
+    const errors: Record<string, string> = {};
+    if (!data.name?.trim()) errors.name = '天赋名称不可为空';
+    const cost = Number(data.talent_cost);
+    if (isNaN(cost) || cost < 0) errors.talent_cost = '消耗点数必须为非负数';
+    return {
+        valid: Object.keys(errors).length === 0,
+        errors: Object.values(errors),
+    };
+}
+
+async function handleCustomSubmit(data: any) {
   const newTalent: Talent = {
     id: Date.now(),
     name: data.name,
-    description: data.description,
+    description: data.description || '',
     talent_cost: parseInt(data.talent_cost, 10) || 0,
     effects: null,
     rarity: 1,
   }
-  talents.value.unshift(newTalent)
-  // Custom talents are not auto-selected to avoid complex point validation here
-  activeTalent.value = newTalent
-}
 
-async function fetchTalents() {
-  // 单机模式使用本地数据
-  if (store.mode === 'single') {
-    try {
-      console.log('Loading local talents:', LOCAL_TALENTS)
-      const localTalents: Talent[] = LOCAL_TALENTS.map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: t.description || null,
-        talent_cost: t.talent_cost,
-        effects: t.effects || null,
-        rarity: 1, // 默认稀有度
-      }))
-
-      talents.value = localTalents
-      console.log('Talents loaded:', talents.value)
-
-      // 模拟加载延迟
-      setTimeout(() => {
-        isLoading.value = false
-      }, 300)
-    } catch (e: any) {
-      console.error('Failed to load talents:', e)
-      error.value = '加载本地数据失败: ' + e.message
-      isLoading.value = false
-    }
-    return
-  }
-
-  // 联机模式请求后端
-  if (!store.selectedWorld) {
-    error.value = '尚未选择世界，无法获取天赋数据。'
-    isLoading.value = false
-    return
-  }
   try {
-    const data = await request<any>(
-      `/api/v1/characters/creation_data?world_id=${store.selectedWorld.id}`,
-    )
-    talents.value = data.talents || []
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    isLoading.value = false
+    store.addTalent(newTalent);
+    await saveGameData(store.creationData);
+    isCustomModalVisible.value = false;
+    toast.success(`自定义天赋 "${newTalent.name}" 已保存！`);
+  } catch (e) {
+    console.error('保存自定义天赋失败:', e);
+    toast.error('保存自定义天赋失败！');
   }
 }
 
-const isSelected = (talent: Talent) => {
-  return store.selectedTalents.some((t) => t.id === talent.id)
+const isSelected = (talent: Talent): boolean => {
+  return store.characterPayload.selected_talent_ids.includes(talent.id);
 }
 
-const canSelect = (talent: Talent) => {
-  if (store.mode === 'multi') {
-    return true // 联机模式由服务器处理验证
-  }
-  // 如果已选中，允许取消选择
+const canSelect = (talent: Talent): boolean => {
   if (isSelected(talent)) {
-    return true
+    return true; // Always allow deselecting
   }
-  // 计算选择新天赋后剩余的点数
-  const afterPoints = store.remainingTalentPoints - talent.talent_cost
-  // 选择后点数不能为负
-  return afterPoints >= 0
+  return store.remainingTalentPoints >= talent.talent_cost;
 }
 
-function toggleTalent(talent: Talent) {
-  activeTalent.value = talent
-  const index = store.selectedTalents.findIndex((t) => t.id === talent.id)
-  if (index > -1) {
-    // Deselect
-    store.selectedTalents.splice(index, 1)
-  } else {
-    // Select if possible
-    if (store.mode === 'single' && !canSelect(talent)) {
-      toast.warning('天道点不足，无法选择此天赋。')
-      return
-    }
-    store.selectedTalents.push(talent)
+function handleToggleTalent(talent: Talent) {
+  activeTalent.value = talent;
+  if (!canSelect(talent)) {
+    toast.warning('天道点不足，无法选择此天赋。');
+    return;
   }
+  store.toggleTalent(talent.id);
 }
 
 async function _handleLocalAIGenerate() {
-  isLoading.value = true
-  error.value = null
+  isGeneratingAI.value = true;
   try {
-    const newTalent = await generateTalentWithTavernAI()
-    talents.value.unshift(newTalent)
-    // AI generated talents are not auto-selected
-    activeTalent.value = newTalent
+    const newTalent = await generateTalentWithTavernAI();
+    store.addTalent(newTalent);
+    await saveGameData(store.creationData);
+    toast.success(`AI推演天赋 "${newTalent.name}" 已保存！`);
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`
-    toast.error(error.value)
+    // Error handled in tavernAI
   } finally {
-    isLoading.value = false
-  }
-}
-
-async function handleAIGenerateWithCode(code: string) {
-  isLoading.value = true
-  error.value = null
-  try {
-    const newTalent = await request<Talent>('/api/v1/ai_redeem', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, type: 'talent' }),
-    })
-    talents.value.unshift(newTalent)
-    activeTalent.value = newTalent // Show the new talent in details view
-    toast.success('天机接引成功！')
-  } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`
-  } finally {
-    isLoading.value = false
+    isGeneratingAI.value = false;
   }
 }
 
 function handleAIGenerate() {
-  if (store.mode === 'single') {
-    _handleLocalAIGenerate()
+  if (store.isLocalCreation) {
+    _handleLocalAIGenerate();
   } else {
-    emit('ai-generate')
+    emit('ai-generate');
   }
 }
 
-defineExpose({
-  handleAIGenerateWithCode,
-  fetchData: fetchTalents, // 暴露数据获取方法
-})
-
-onMounted(() => {
-  fetchTalents()
-})
+// fetchData 和 defineExpose 不再需要
 </script>
 
 <style scoped>
@@ -247,7 +177,7 @@ onMounted(() => {
   align-items: center;
   height: 100%;
   font-size: 1.2rem;
-  color: #888;
+  color: var(--color-text-secondary);
 }
 
 .talent-layout {
@@ -258,44 +188,30 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* 左侧面板容器 */
 .talent-left-panel {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   overflow: hidden;
+  background: var(--color-surface);
 }
 
 .talent-list-container {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
-  transition: var(--transition-fast);
 }
 
-/* 美化滚动条 */
-.talent-list-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.talent-list-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.talent-list-container::-webkit-scrollbar-thumb {
-  background: rgba(180, 142, 173, 0.3);
-  border-radius: 4px;
-}
-
-.talent-list-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(180, 142, 173, 0.5);
-}
+.talent-list-container::-webkit-scrollbar { width: 8px; }
+.talent-list-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.talent-list-container::-webkit-scrollbar-thumb { background: rgba(180, 142, 173, 0.3); border-radius: 4px; }
+.talent-list-container::-webkit-scrollbar-thumb:hover { background: rgba(180, 142, 173, 0.5); }
 
 .talent-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.8rem 1rem;
   margin-bottom: 0.5rem;
   border-radius: 6px;
@@ -312,13 +228,17 @@ onMounted(() => {
   background: rgba(180, 142, 173, 0.2);
   color: #b48ead;
   border-left: 3px solid #b48ead;
+  font-weight: 600;
 }
 
 .talent-item.disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: transparent;
-  color: #888;
+  color: var(--color-text-disabled);
+}
+.talent-item.disabled:hover {
+  background: var(--color-surface-danger);
 }
 
 .talent-name {
@@ -329,18 +249,50 @@ onMounted(() => {
   color: var(--color-accent);
 }
 
+.single-actions-container {
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-item {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.action-item:hover {
+  background: var(--color-surface-lighter);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.action-name {
+  font-weight: 500;
+}
+
 .talent-details-container {
-  border: 1px solid #444;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex: 1;
-  min-height: 0;
+  padding: 1.5rem;
+  background: var(--color-surface);
 }
 
 .talent-details {
-  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -362,67 +314,21 @@ onMounted(() => {
   padding-right: 0.5rem;
 }
 
-/* 美化详情滚动条 */
-.description-scroll::-webkit-scrollbar {
-  width: 8px;
+.description-scroll p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--color-text-secondary);
 }
 
-.description-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.description-scroll::-webkit-scrollbar-thumb {
-  background: rgba(180, 142, 173, 0.3);
-  border-radius: 4px;
-}
-
-.description-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(180, 142, 173, 0.5);
-}
+.description-scroll::-webkit-scrollbar { width: 8px; }
+.description-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.description-scroll::-webkit-scrollbar-thumb { background: rgba(180, 142, 173, 0.3); border-radius: 4px; }
+.description-scroll::-webkit-scrollbar-thumb:hover { background: rgba(180, 142, 173, 0.5); }
 
 .cost-display {
   text-align: right;
   font-weight: bold;
   color: var(--color-accent);
   flex-shrink: 0;
-}
-
-/* 单机模式功能按钮样式 */
-.single-actions-container {
-  border-top: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem;
-}
-
-.divider {
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(180, 142, 173, 0.3), transparent);
-  margin: 0.5rem 0;
-}
-
-.action-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.8rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border: none;
-  background: transparent;
-  color: var(--color-text);
-  width: 100%;
-  text-align: left;
-  font-size: 1rem;
-}
-
-.action-item:hover {
-  background: rgba(var(--color-primary-rgb), 0.1);
-}
-
-.action-name {
-  font-weight: 500;
-  color: var(--color-primary);
 }
 </style>

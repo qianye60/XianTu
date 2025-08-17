@@ -1,21 +1,21 @@
 <template>
   <div class="origin-selection-container">
-    <div v-if="isLoading" class="loading-state">追溯过往，探寻出身...</div>
-    <div v-else-if="error" class="error-state">因果不明，无法探寻：{{ error }}</div>
+    <div v-if="store.isLoading" class="loading-state">追溯过往，探寻出身...</div>
+    <div v-else-if="store.error" class="error-state">因果不明：{{ store.error }}</div>
 
     <div v-else class="origin-layout">
       <!-- 左侧栏：列表和操作按钮 -->
       <div class="origin-left-panel">
         <div class="origin-list-container">
           <div
-            v-for="origin in origins"
+            v-for="origin in store.creationData.origins"
             :key="origin.id"
             class="origin-item"
             :class="{
-              selected: store.selectedOrigin?.id === origin.id,
-              disabled: !canSelectOrigin(origin),
+              selected: store.characterPayload.origin_id === origin.id,
+              disabled: !canSelect(origin),
             }"
-            @click="selectOrigin(origin)"
+            @click="handleSelectOrigin(origin)"
           >
             <span class="origin-name">{{ origin.name }}</span>
             <span class="origin-cost">{{ origin.talent_cost }} 点</span>
@@ -24,9 +24,8 @@
 
         <!-- 功能按钮 -->
         <div class="single-actions-container">
-          <div class="divider"></div>
           <button
-            v-if="store.mode === 'single'"
+            v-if="store.isLocalCreation"
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
@@ -55,182 +54,117 @@
       :visible="isCustomModalVisible"
       title="自定义出身"
       :fields="customOriginFields"
-      :validationFn="(data) => validateCustomData('origin', data)"
+      :validationFn="validateCustomOrigin"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
+    
+    <LoadingModal :visible="isGeneratingAI" message="天机推演中..." />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useCharacterCreationStore, type Origin } from '../../stores/characterCreationStore'
-import { LOCAL_ORIGINS } from '../../data/localData'
-import { request } from '../../services/request'
+import { ref } from 'vue'
+import { useCharacterCreationStore } from '../../stores/characterCreationStore'
+import type { Origin } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
-import { generateOriginWithTavernAI, validateCustomData } from '../../utils/tavernAI'
+import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
+import { generateOriginWithTavernAI } from '../../utils/tavernAI'
+import { saveGameData } from '../../utils/tavern';
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
-const origins = ref<Origin[]>([])
-const isLoading = ref(true)
-const error = ref<string | null>(null)
 const isCustomModalVisible = ref(false)
-
-const creationData = ref<any>(null)
+const isGeneratingAI = ref(false)
 
 const customOriginFields = [
   { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
-  {
-    key: 'description',
-    label: '出身描述',
-    type: 'textarea',
-    placeholder: '描述此出身的背景故事...',
-  },
+  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事...' },
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0' },
 ] as const
 
-function handleCustomSubmit(data: any) {
+function validateCustomOrigin(data: any) {
+    const errors: Record<string, string> = {};
+    if (!data.name?.trim()) errors.name = '出身名称不可为空';
+    const cost = Number(data.talent_cost);
+    if (isNaN(cost) || cost < 0) errors.talent_cost = '消耗点数必须为非负数';
+    return {
+        valid: Object.keys(errors).length === 0,
+        errors: Object.values(errors),
+    };
+}
+
+async function handleCustomSubmit(data: any) {
   const newOrigin: Origin = {
     id: Date.now(),
     name: data.name,
-    description: data.description,
+    description: data.description || '',
     talent_cost: parseInt(data.talent_cost, 10) || 0,
     attribute_modifiers: null,
+    rarity: 1,
   }
-  origins.value.unshift(newOrigin)
-  selectOrigin(newOrigin)
-}
 
-async function fetchCreationData() {
-  // 单机模式使用本地数据
-  if (store.mode === 'single') {
-    // 单机模式不需要检查是否选择了世界，使用本地数据即可
-    try {
-      // 使用本地的出身数据（从localData.ts导入）
-      const localOrigins: Origin[] = LOCAL_ORIGINS.map((o) => ({
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        attribute_modifiers: o.attribute_modifiers,
-        talent_cost: o.talent_cost,
-      }))
-
-      creationData.value = { origins: localOrigins }
-      origins.value = localOrigins
-
-      // 模拟加载延迟
-      setTimeout(() => {
-        isLoading.value = false
-      }, 500)
-    } catch (e: any) {
-      error.value = '加载本地数据失败'
-      isLoading.value = false
-    }
-  } else {
-    // 联机模式才请求后端
-    if (!store.selectedWorld) {
-      error.value = '尚未选择世界，无法获取出身数据。'
-      isLoading.value = false
-      return
-    }
-
-    try {
-      const data = await request<any>(
-        `/api/v1/characters/creation_data?world_id=${store.selectedWorld.id}`,
-      )
-      creationData.value = data
-      origins.value = data.origins || []
-    } catch (e: any) {
-      error.value = e.message
-    } finally {
-      isLoading.value = false
-    }
+  try {
+    store.addOrigin(newOrigin);
+    await saveGameData(store.creationData);
+    handleSelectOrigin(newOrigin);
+    isCustomModalVisible.value = false;
+    toast.success(`自定义出身 "${newOrigin.name}" 已保存！`);
+  } catch (e) {
+    console.error('保存自定义出身失败:', e);
+    toast.error('保存自定义出身失败！');
   }
-}
-
-const canSelectOrigin = (origin: Origin) => {
-  if (store.mode === 'multi') {
-    return true // 联机模式由服务器处理验证
-  }
-  // 如果是当前选中的，允许取消选择
-  if (store.selectedOrigin?.id === origin.id) {
-    return true
-  }
-  // 计算选择新出身后剩余的点数
-  const currentCost = store.selectedOrigin?.talent_cost ?? 0
-  const availablePoints = store.remainingTalentPoints + currentCost
-  const afterPoints = availablePoints - origin.talent_cost
-  // 选择后点数不能为负
-  return afterPoints >= 0
-}
-
-function selectOrigin(origin: Origin) {
-  if (store.mode === 'single' && !canSelectOrigin(origin)) {
-    toast.warning('天道点不足，无法选择此出身。')
-    return
-  }
-  store.selectedOrigin = origin
 }
 
 async function _handleLocalAIGenerate() {
   if (!store.selectedWorld) {
-    error.value = '请先选择一个世界，方能推演相应出身。'
-    toast.error(error.value)
-    return
+    toast.error('请先择一方大千世界，方可推演出身。');
+    return;
   }
-
-  isLoading.value = true
-  error.value = null
+  isGeneratingAI.value = true
   try {
-    const newOrigin = await generateOriginWithTavernAI(store.selectedWorld)
-    origins.value.unshift(newOrigin)
-    // AI生成的出身，直接选中，不校验点数
-    store.selectedOrigin = newOrigin
+    const newOrigin = await generateOriginWithTavernAI()
+    store.addOrigin(newOrigin);
+    await saveGameData(store.creationData);
+    handleSelectOrigin(newOrigin);
+    toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`);
   } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`
-    toast.error(error.value)
+    // Error handled in tavernAI
   } finally {
-    isLoading.value = false
+    isGeneratingAI.value = false
   }
 }
 
 function handleAIGenerate() {
-  if (store.mode === 'single') {
+  if (store.isLocalCreation) {
     _handleLocalAIGenerate()
   } else {
     emit('ai-generate')
   }
 }
 
-async function handleAIGenerateWithCode(code: string) {
-  isLoading.value = true
-  error.value = null
-  try {
-    const newOrigin = await request<Origin>('/api/v1/ai_redeem', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, type: 'origin' }),
-    })
-    origins.value.unshift(newOrigin)
-    store.selectedOrigin = newOrigin
-    toast.success('天机接引成功！')
-  } catch (e: any) {
-    error.value = `AI推演失败: ${e.message}`
-  } finally {
-    isLoading.value = false
+const canSelect = (origin: Origin): boolean => {
+  // If it's already selected, we can always deselect it
+  if (store.characterPayload.origin_id === origin.id) {
+    return true;
   }
+  const currentCost = store.selectedOrigin?.talent_cost ?? 0;
+  const availablePoints = store.remainingTalentPoints + currentCost;
+  return availablePoints >= origin.talent_cost;
 }
 
-onMounted(() => {
-  fetchCreationData()
-})
+function handleSelectOrigin(origin: Origin) {
+  if (!canSelect(origin)) {
+    toast.warning('天道点不足，无法选择此出身。')
+    return
+  }
+  // Toggle selection
+  const newOriginId = store.characterPayload.origin_id === origin.id ? null : origin.id;
+  store.selectOrigin(newOriginId);
+}
 
-defineExpose({
-  handleAIGenerateWithCode,
-  fetchData: fetchCreationData, // 暴露数据获取方法
-})
+// fetchData 和 defineExpose 不再需要
 </script>
 
 <style scoped>
@@ -238,7 +172,6 @@ defineExpose({
   height: 100%;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
 .loading-state,
@@ -249,7 +182,7 @@ defineExpose({
   align-items: center;
   height: 100%;
   font-size: 1.2rem;
-  color: #888;
+  color: var(--color-text-secondary);
 }
 
 .origin-layout {
@@ -260,44 +193,30 @@ defineExpose({
   overflow: hidden;
 }
 
-/* 左侧面板容器 */
 .origin-left-panel {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   overflow: hidden;
+  background: var(--color-surface);
 }
 
 .origin-list-container {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
-  transition: var(--transition-fast);
 }
 
-/* 美化滚动条 */
-.origin-list-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.origin-list-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.origin-list-container::-webkit-scrollbar-thumb {
-  background: rgba(229, 192, 123, 0.3);
-  border-radius: 4px;
-}
-
-.origin-list-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(229, 192, 123, 0.5);
-}
+.origin-list-container::-webkit-scrollbar { width: 8px; }
+.origin-list-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.origin-list-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
+.origin-list-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
 .origin-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.8rem 1rem;
   margin-bottom: 0.5rem;
   border-radius: 6px;
@@ -307,20 +226,24 @@ defineExpose({
 }
 
 .origin-item:hover {
-  background: rgba(229, 192, 123, 0.1);
+  background: var(--color-surface-light);
 }
 
 .origin-item.selected {
-  background: rgba(229, 192, 123, 0.2);
-  color: #e5c07b;
-  border-left: 3px solid #e5c07b;
+  background: rgba(var(--color-primary-rgb), 0.2);
+  color: var(--color-primary);
+  font-weight: 600;
+  border-left: 3px solid var(--color-primary);
 }
 
 .origin-item.disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: transparent;
-  color: #888;
+  color: var(--color-text-disabled);
+}
+.origin-item.disabled:hover {
+  background: var(--color-surface-danger);
 }
 
 .origin-name {
@@ -331,18 +254,50 @@ defineExpose({
   color: var(--color-accent);
 }
 
+.single-actions-container {
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-item {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.action-item:hover {
+  background: var(--color-surface-lighter);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.action-name {
+  font-weight: 500;
+}
+
 .origin-details-container {
-  border: 1px solid #444;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex: 1;
-  min-height: 0;
+  padding: 1.5rem;
+  background: var(--color-surface);
 }
 
 .origin-details {
-  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -352,7 +307,7 @@ defineExpose({
 .origin-details h2 {
   margin-top: 0;
   margin-bottom: 1rem;
-  color: #e5c07b;
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -364,70 +319,21 @@ defineExpose({
   padding-right: 0.5rem;
 }
 
-/* 美化详情容器滚动条 */
-.description-scroll::-webkit-scrollbar {
-  width: 8px;
+.description-scroll p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--color-text-secondary);
 }
 
-.description-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.description-scroll::-webkit-scrollbar-thumb {
-  background: rgba(229, 192, 123, 0.3);
-  border-radius: 4px;
-}
-
-.description-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(229, 192, 123, 0.5);
-}
+.description-scroll::-webkit-scrollbar { width: 8px; }
+.description-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.description-scroll::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
+.description-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
 .cost-display {
   text-align: right;
   font-weight: bold;
   color: var(--color-accent);
-}
-
-/* 单机模式功能按钮样式 */
-.single-actions-container {
-  border-top: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem;
-}
-
-.divider {
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(229, 192, 123, 0.3), transparent);
-  margin: 0.5rem 0;
-}
-
-.action-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.8rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border: none;
-  background: transparent;
-  color: var(--color-text);
-  width: 100%;
-  text-align: left;
-  font-size: 1rem;
-}
-
-.action-item:hover {
-  background: rgba(var(--color-primary-rgb), 0.1);
-}
-
-.action-name {
-  font-weight: 500;
-  color: var(--color-primary);
-}
-
-.action-cost {
-  color: var(--color-accent);
+  flex-shrink: 0;
 }
 </style>

@@ -105,8 +105,39 @@
             </div>
           </div>
 
-          <!-- 同步状态 -->
-          <div v-if="character.is_active" class="info-section">
+          <!-- 修炼状态 (本地角色) -->
+          <div v-if="'realm' in character" class="info-section">
+            <h3>修行状态</h3>
+             <div class="core-stats-grid">
+              <div class="stat-item">
+                <span class="label">境界:</span>
+                <span class="value realm-value">{{ character.realm }}</span>
+              </div>
+               <div class="stat-item">
+                <span class="label">声望:</span>
+                <span class="value">{{ character.reputation }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="label">寿命:</span>
+                <span class="value">{{ character.lifespan }}</span>
+              </div>
+               <div class="stat-item">
+                <span class="label">气血:</span>
+                <span class="value">{{ character.hp }}/{{ character.hp_max }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="label">灵气:</span>
+                <span class="value">{{ character.mana }}/{{ character.mana_max }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="label">神识:</span>
+                <span class="value">{{ character.spirit }}/{{ character.spirit_max }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 同步状态 (云端角色) -->
+          <div v-if="'is_active' in character && character.is_active" class="info-section">
             <h3>同步状态</h3>
             <div class="sync-section">
               <div class="sync-status-display">
@@ -131,8 +162,8 @@
 
       <div class="modal-footer">
         <button @click="closeModal" class="btn-cancel">关闭</button>
-        <button 
-          v-if="!character.is_active && character.is_accessible"
+        <button
+          v-if="'is_active' in character && !character.is_active && character.is_accessible"
           @click="activateCharacter"
           class="btn-activate"
         >
@@ -146,27 +177,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { request } from '@/services/request'
+import type { CharacterData, World, TalentTier } from '@/types'
 
-interface Character {
-  id: number
-  character_name: string
-  world_id: number
-  talent_tier_id: number
-  root_bone: number
-  spirituality: number
-  comprehension: number
-  fortune: number
-  charm: number
-  temperament: number
-  is_active: boolean
-  is_deleted: boolean
-  is_accessible: boolean
-  last_played?: string
-  play_time_minutes: number
-  created_at: string
-}
-
+// GameState and SyncInfo can remain as local interfaces if not used elsewhere
 interface GameState {
+  // ... (content remains the same)
   id: number
   character_id: number
   current_realm_id?: number
@@ -199,7 +214,7 @@ interface SyncInfo {
 }
 
 const props = defineProps<{
-  character: Character
+  character: CharacterData
 }>()
 
 const emit = defineEmits<{
@@ -293,9 +308,12 @@ const formatPlayTime = (minutes: number) => {
 }
 
 onMounted(async () => {
-  await loadGameState()
-  if (props.character.is_active) {
-    await loadSyncInfo()
+  // Only load game state from cloud for cloud characters
+  if ('is_active' in props.character) {
+    await loadGameState()
+    if (props.character.is_active) {
+      await loadSyncInfo()
+    }
   }
 })
 </script>
@@ -315,13 +333,15 @@ onMounted(async () => {
 }
 
 .modal-content {
-  background: white;
+  background: #24283b;
+  color: #c0caf5;
   border-radius: 12px;
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid #414868;
 }
 
 .modal-header {
@@ -329,7 +349,8 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 30px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #414868;
+  color: #bb9af7;
 }
 
 .close-btn {
@@ -356,8 +377,8 @@ onMounted(async () => {
 
 .info-section h3 {
   margin-bottom: 15px;
-  color: #333;
-  border-bottom: 2px solid #4caf50;
+  color: #e0af68;
+  border-bottom: 2px solid #e0af68;
   padding-bottom: 5px;
 }
 
@@ -371,17 +392,17 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   padding: 10px 15px;
-  background: #f9f9f9;
+  background: #1e202e;
   border-radius: 8px;
 }
 
 .label {
-  color: #666;
+  color: #787c99;
   font-weight: 500;
 }
 
 .value {
-  color: #333;
+  color: #c0caf5;
   font-weight: 600;
 }
 
@@ -394,9 +415,10 @@ onMounted(async () => {
 .attr-card {
   text-align: center;
   padding: 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #1e202e;
+  color: #c0caf5;
   border-radius: 10px;
+  border: 1px solid #414868;
 }
 
 .attr-name {
@@ -422,17 +444,22 @@ onMounted(async () => {
   gap: 15px;
 }
 
-.state-item {
+.state-item, .core-stats-grid .stat-item {
   display: flex;
   justify-content: space-between;
   padding: 10px 15px;
-  background: #e3f2fd;
+  background: #1e202e;
   border-radius: 8px;
-  border-left: 4px solid #2196f3;
+  border-left: 4px solid #7aa2f7;
+}
+
+.realm-value {
+  color: #bb9af7;
+  font-weight: bold;
 }
 
 .sync-section {
-  background: #f5f5f5;
+  background: #1e202e;
   padding: 20px;
   border-radius: 8px;
 }
@@ -485,7 +512,7 @@ onMounted(async () => {
 
 .sync-details {
   font-size: 14px;
-  color: #666;
+  color: #a9b1d6;
 }
 
 .modal-footer {
@@ -493,16 +520,17 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 15px;
   padding: 20px 30px;
-  border-top: 1px solid #eee;
-  background: #f9f9f9;
+  border-top: 1px solid #414868;
+  background: #1e202e;
   border-radius: 0 0 12px 12px;
 }
 
 .btn-cancel {
   padding: 10px 20px;
-  border: 1px solid #ccc;
+  border: 1px solid #414868;
   border-radius: 6px;
-  background: white;
+  background: #414868;
+  color: #c0caf5;
   cursor: pointer;
 }
 
@@ -510,8 +538,8 @@ onMounted(async () => {
   padding: 10px 20px;
   border: none;
   border-radius: 6px;
-  background: #4caf50;
-  color: white;
+  background: #9ece6a;
+  color: #1a1b26;
   cursor: pointer;
   font-weight: 500;
 }

@@ -43,14 +43,14 @@ import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 
 const store = useCharacterCreationStore()
 
-const minValue = 0
-const maxValue = 10
+const minValue = 0 // 属性基础值
+const maxValue = 10 // 属性最大值
 
 const attributeNames = {
   root_bone: '根骨',
   spirituality: '灵性',
   comprehension: '悟性',
-  luck: '气运',
+  fortune: '气运',
   charm: '魅力',
   temperament: '心性',
 }
@@ -59,7 +59,7 @@ const attributeDescriptions = {
   root_bone: '决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力。',
   spirituality: '决定灵气上限、吸收效率。影响修炼速度、法术威力。',
   comprehension: '决定神识上限、学习效率。影响功法领悟、技能掌握速度。',
-  luck: '决定奇遇概率、物品掉落品质。影响天材地宝获取、贵人相助。',
+  fortune: '决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助。',
   charm: '决定初始好感度、社交加成。影响NPC互动、门派声望获取。',
   temperament: '决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择。',
 }
@@ -67,49 +67,45 @@ const attributeDescriptions = {
 type AttributeKey = keyof typeof attributeNames
 
 function increment(key: AttributeKey) {
-  // 如果已经不能再增加点数了，就不要增加
-  if (store.remainingTalentPoints <= 0) {
-    return
+  if (store.remainingTalentPoints > 0 && store.attributes[key] < maxValue) {
+    store.setAttribute(key, store.attributes[key] + 1)
   }
-  // 检查属性值是否达到上限
-  if (store.attributes[key] >= maxValue) {
-    return
-  }
-  store.attributes[key]++
 }
 
 function decrement(key: AttributeKey) {
   if (store.attributes[key] > minValue) {
-    store.attributes[key]--
+    store.setAttribute(key, store.attributes[key] - 1)
   }
 }
 
 function resetPoints() {
-  // 重置所有属性为最小值
+  // 重置所有属性为最小值 0
   Object.keys(store.attributes).forEach((key) => {
-    store.attributes[key as AttributeKey] = minValue
+    store.setAttribute(key as AttributeKey, 0)
   })
 }
 
 function randomizePoints() {
-  // 先重置所有属性
+  // 先重置所有属性为基础值
   resetPoints()
 
-  // 获取可用点数
-  const availablePoints = store.remainingTalentPoints
-  let remainingPoints = availablePoints
+  // 获取可用于分配的点数 (初始天道点)
+  let pointsToAllocate = store.remainingTalentPoints
   const attributeKeys = Object.keys(store.attributes) as AttributeKey[]
 
   // 随机分配点数
-  while (remainingPoints > 0) {
+  while (pointsToAllocate > 0) {
     const randomKey = attributeKeys[Math.floor(Math.random() * attributeKeys.length)]
-    if (store.attributes[randomKey] < maxValue) {
-      store.attributes[randomKey]++
-      remainingPoints--
+    const currentValue = store.attributes[randomKey]
+    
+    if (currentValue < maxValue) {
+      store.setAttribute(randomKey, currentValue + 1)
+      pointsToAllocate--
     }
 
     // 防止死循环：如果所有属性都达到最大值则停止
-    if (attributeKeys.every((key) => store.attributes[key] >= maxValue)) {
+    const allMaxed = attributeKeys.every((key) => store.attributes[key] >= maxValue)
+    if (allMaxed) {
       break
     }
   }
@@ -126,19 +122,21 @@ function balancePoints() {
   // 计算每个属性应分配的基础点数
   const attributeCount = Object.keys(store.attributes).length
   const pointsPerAttribute = Math.floor(availablePoints / attributeCount)
-  const extraPoints = availablePoints % attributeCount
+  let extraPoints = availablePoints % attributeCount
 
   // 均衡分配点数
   const attributeKeys = Object.keys(store.attributes) as AttributeKey[]
-  attributeKeys.forEach((key, index) => {
+  attributeKeys.forEach((key) => {
     // 基础分配
-    let points = pointsPerAttribute
+    let pointsToAdd = pointsPerAttribute
     // 如果有余数，前面几个属性多分配1点
-    if (index < extraPoints) {
-      points++
+    if (extraPoints > 0) {
+      pointsToAdd++
+      extraPoints--
     }
-    // 确保不超过最大值也不小于最小值
-    store.attributes[key] = Math.min(Math.max(points, minValue), maxValue)
+    // 确保不超过最大值
+    const finalValue = Math.min(minValue + pointsToAdd, maxValue)
+    store.setAttribute(key, finalValue)
   })
 }
 </script>

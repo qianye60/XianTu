@@ -991,7 +991,7 @@
                         break;
 
                     case 'codes':
-                        endpoint = '/admin/codes/';
+                        endpoint = '/redemption/admin/codes/';
                         columns = ['ID', '兑换码', '类型', '使用次数', '创建时间', '操作'];
                         formatRow = (item) => {
                             const canManage = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
@@ -1158,7 +1158,7 @@
                         endpoint = `/admin/accounts/${itemId}/`;
                         break;
                     case 'codes':
-                        endpoint = `/admin/codes/${itemId}/`;
+                        endpoint = `/redemption/admin/codes/${itemId}/`;
                         break;
                     case 'talents':
                         endpoint = `/talents/${itemId}/`;
@@ -1520,7 +1520,7 @@
                     method = 'PUT';
                     switch(tabName) {
                         case 'admins': endpoint = `/admin/accounts/${currentEditItem.itemId}`; break;
-                        case 'codes': endpoint = `/admin/codes/${currentEditItem.itemId}`; break;
+                        case 'codes': endpoint = `/redemption/admin/codes/${currentEditItem.itemId}`; break;
                         case 'talents': endpoint = `/talents/${currentEditItem.itemId}`; break;
                         case 'talent_tiers': endpoint = `/talent_tiers/${currentEditItem.itemId}`; break;
                         case 'players': endpoint = `/users/${currentEditItem.itemId}`; break;
@@ -1533,7 +1533,7 @@
                     method = 'POST';
                     switch(tabName) {
                         case 'admins': endpoint = '/admin/accounts'; break;
-                        case 'codes': endpoint = '/admin/codes'; break;
+                        case 'codes': endpoint = '/redemption/admin/codes'; break;
                         case 'talents': endpoint = '/talents'; break;
                         case 'talent_tiers': endpoint = '/talent_tiers'; break;
                         case 'players': endpoint = '/register'; break;
@@ -1578,7 +1578,7 @@
                         endpoint = `/admin/accounts/${itemId}`;
                         break;
                     case 'codes':
-                        endpoint = `/admin/codes/${itemId}`;
+                        endpoint = `/redemption/admin/codes/${itemId}`;
                         break;
                     case 'talents':
                         endpoint = `/talents/${itemId}`;

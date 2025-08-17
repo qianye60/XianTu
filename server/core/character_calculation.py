@@ -49,13 +49,10 @@ def calculate_core_attributes(
     max_spirit = base_spirit + (comprehension * spirit_per_point)
     spirit_recovery_rate = 1.0 + (comprehension * 0.08)  # 每点悟性增加8%恢复速度
     
-    # 寿元系统（基于根骨，从0开始）
-    base_lifespan = 0  # 基础寿命改为0
-    lifespan_per_bone = 8  # 每点根骨增加的寿命
+    # 寿元系统（基于根骨）
+    base_lifespan = 60  # 凡人基础寿命
+    lifespan_per_bone = 10 # 每点根骨增加10年寿命
     max_lifespan = base_lifespan + (root_bone * lifespan_per_bone)
-    # 如果寿命为0，设置一个最小值
-    if max_lifespan <= 0:
-        max_lifespan = 80  # 最低80年寿命
     
     # 使用传入的出生年龄
     current_age = birth_age

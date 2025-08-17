@@ -11,9 +11,10 @@
     <div class="video-overlay"></div>
     <div class="creation-scroll">
       <!-- 进度条 -->
-      <div class="progress-steps">
-        <div
-          v-for="step in store.totalSteps"
+      <div class="header-container">
+        <div class="progress-steps">
+          <div
+            v-for="step in store.totalSteps"
           :key="step"
           class="step"
           :class="{ active: store.currentStep >= step }"
@@ -21,6 +22,7 @@
         >
           <div class="step-circle">{{ step }}</div>
           <div class="step-label">{{ stepLabels[step - 1] }}</div>
+        </div>
         </div>
       </div>
 
@@ -106,7 +108,8 @@
 </template>
 
 <script setup lang="ts">
-import { useCharacterCreationStore } from '../stores/characterCreationStore'
+import { useCharacterCreationStore } from '../stores/characterCreationStore';
+import { useUserStore } from '../stores/userStore';
 import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
 import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
 import Step3_OriginSelection from '../components/character-creation/Step3_OriginSelection.vue'
@@ -118,19 +121,153 @@ import RedemptionCodeModal from '../components/character-creation/RedemptionCode
 import LoadingModal from '../components/LoadingModal.vue'
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { renameCurrentCharacter } from '../utils/tavern';
 
-const emit = defineEmits(['back'])
-const store = useCharacterCreationStore()
+import { saveLocalCharacter, type LocalCharacterWithGameData } from '../data/localData'
+import { calculateInitialCoreAttributes } from '../utils/characterCalculation'
+
+const props = defineProps<{
+  onBack: () => void;
+}>();
+
+const emit = defineEmits<{
+  (e: 'creation-complete', character: LocalCharacterWithGameData): void;
+}>()
+const store = useCharacterCreationStore();
+const userStore = useUserStore();
 const isCodeModalVisible = ref(false)
 const isGenerating = ref(false)
 const loadingMessage = ref('天机推演中...')
 
-// 处理AI推演按钮点击 - 在联机模式下显示兑换码弹窗
+onMounted(async () => {
+  // 1. 模式已由外部 Store Action 设定，此处直接使用
+  await store.initializeStore(store.isLocalCreation ? 'single' : 'cloud');
+
+  // 2. 获取用户名作为默认道号
+  if (!userStore.user) {
+    await userStore.loadUserInfo();
+  }
+  if (userStore.user) {
+    store.characterPayload.character_name = userStore.user.user_name;
+  } else if (store.isLocalCreation) {
+    // 仅在本地模式且无法获取用户信息时，才使用角色卡名作为备用方案
+    store.characterPayload.character_name = '无名者';
+    console.warn("无法获取用户信息，本地模式下道号设为'无名者'");
+  } else {
+    // 联机模式下获取不到用户信息是严重错误
+    store.characterPayload.character_name = '';
+    toast.error('无法获取用户信息，请重新登录！');
+  }
+});
+
+onUnmounted(() => {
+  store.resetOnExit();
+});
+
+// 此函数只处理联机模式的AI生成（需要消耗信物）
+async function executeCloudAiGeneration(code: string) {
+  let type = ''
+  switch (store.currentStep) {
+    case 1: type = 'world'; break
+    case 2: type = 'talent_tier'; break
+    case 3: type = 'origin'; break
+    case 4: type = 'spirit_root'; break
+    case 5: type = 'talent'; break
+    default:
+      toast.error('当前步骤不支持AI生成！')
+      return
+  }
+
+  isGenerating.value = true
+  loadingMessage.value = '天机推演中...'
+
+  try {
+    // 1. 验证兑换码
+    loadingMessage.value = '正在验证仙缘信物...'
+    // 预验证逻辑可以保留，作为一道防线
+    try {
+      const validateResponse = await request<any>(`/api/v1/redemption/validate/${code}`, { method: 'POST' })
+      if (!validateResponse || validateResponse.is_used) {
+        toast.error('仙缘信物已被使用或无效！')
+        isGenerating.value = false;
+        return
+      }
+    } catch (error) {
+      console.warn('兑换码预验证失败，继续执行:', error)
+    }
+
+    // 2. 开始AI生成
+    loadingMessage.value = '正在推演玄妙...'
+    const aiModule = await import('../utils/tavernAI');
+    let generatedContent: any = null;
+    switch (type) {
+        case 'world':
+            generatedContent = await aiModule.generateWorldWithTavernAI();
+            break;
+        case 'talent_tier':
+            generatedContent = await aiModule.generateTalentTierWithTavernAI();
+            break;
+        case 'origin':
+            if (!store.selectedWorld) {
+                toast.error('请先选择世界！');
+                return;
+            }
+            generatedContent = await aiModule.generateOriginWithTavernAI();
+            break;
+        case 'spirit_root':
+            generatedContent = await aiModule.generateSpiritRootWithTavernAI();
+            break;
+        case 'talent':
+            generatedContent = await aiModule.generateTalentWithTavernAI();
+            break;
+    }
+
+    if (!generatedContent) {
+      toast.error('天机推演失败，请重试。')
+      return
+    }
+
+    // 3. 保存到云端
+    loadingMessage.value = '正在将结果铭刻于云端...'
+    const saveResult = await request<any>('/api/v1/ai/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: code.trim().toUpperCase(),
+        type,
+        content: generatedContent,
+      }),
+    })
+
+    if (saveResult && saveResult.message) {
+      store.addGeneratedData(type, generatedContent);
+      if (saveResult.code_used) {
+        toast.success(`天机已成功记录！信物使用次数：${saveResult.code_used}`)
+      } else {
+        toast.success('天机已成功记录于云端！')
+      }
+    }
+  } catch (error: any) {
+    const message = error.message || '未知错误';
+    if (message.includes('兑换码') || message.includes('信物')) {
+      toast.error(message)
+    } else if (message.includes('登录')) {
+      toast.error('身份验证失败，请重新登录！')
+    } else {
+      toast.error('天机紊乱：' + message)
+    }
+  } finally {
+    isGenerating.value = false
+  }
+}
+
+// 父组件的AI生成处理器，只响应来自子组件的"联机"请求
 function handleAIGenerateClick() {
-  if (store.mode === 'multi') {
+  if (!store.isLocalCreation) {
     isCodeModalVisible.value = true
   }
+  // 本地模式的点击事件由子组件自行处理，此处无需操作
 }
 
 // 暴露给步骤组件调用
@@ -148,13 +285,12 @@ const stepLabels = [
   '窥天算命',
 ]
 
-import { computed } from 'vue'
 
 const handleBack = () => {
   if (store.currentStep > 1) {
     store.prevStep()
   } else {
-    emit('back')
+    props.onBack();
   }
 }
 
@@ -182,261 +318,139 @@ const step3Ref = ref<any>(null)
 const step4Ref = ref<any>(null)
 const step5Ref = ref<any>(null)
 
+// 处理仙缘信物提交 (仅联机模式)
 async function handleCodeSubmit(code: string) {
-  // 1. 检查登录状态
   const token = localStorage.getItem('access_token')
   if (!token) {
-    toast.error('身份凭证缺失，请先登录再记录天机。')
+    toast.error('身份凭证缺失，请先登录再使用信物。')
     isCodeModalVisible.value = false
     return
   }
 
-  // 2. 验证兑换码格式
   if (!code || code.trim().length < 6) {
     toast.error('请输入有效的仙缘信物！')
     return
   }
 
-  // 3. 确定内容类型
-  let type = ''
-  let currentStepRef: any = null
-
-  switch (store.currentStep) {
-    case 1:
-      type = 'world'
-      currentStepRef = step1Ref.value
-      break
-    case 2:
-      type = 'talent_tier'
-      currentStepRef = step2Ref.value
-      break
-    case 3:
-      type = 'origin'
-      currentStepRef = step3Ref.value
-      break
-    case 4:
-      type = 'spirit_root'
-      currentStepRef = step4Ref.value
-      break
-    case 5:
-      type = 'talent'
-      currentStepRef = step5Ref.value
-      break
-    default:
-      toast.error('当前步骤不支持AI生成！')
-      return
-  }
-
-  // 4. 先验证兑换码是否可用（可选，如果想在生成前就验证）
-  try {
-    loadingMessage.value = '正在验证仙缘信物...'
-    isGenerating.value = true
-    isCodeModalVisible.value = false
-
-    const validateResponse = await request<any>(`/api/v1/redemption/validate/${code}`, {
-      method: 'POST',
-    })
-
-    if (!validateResponse || validateResponse.is_used) {
-      toast.error('仙缘信物已被使用或无效！')
-      isGenerating.value = false
-      return
-    }
-  } catch (error) {
-    // 如果验证接口不存在或失败，继续执行（向后兼容）
-    console.warn('兑换码预验证失败，继续执行:', error)
-  }
-
-  try {
-    // 5. 开始AI生成
-    loadingMessage.value = '正在推演玄妙...'
-
-    let generatedContent: any = null
-
-    if (type === 'world') {
-      const { generateWorldWithTavernAI } = await import('../utils/tavernAI')
-      generatedContent = await generateWorldWithTavernAI()
-      if (generatedContent) store.selectedWorld = generatedContent
-    } else if (type === 'talent_tier') {
-      const { generateTalentTierWithTavernAI } = await import('../utils/tavernAI')
-      generatedContent = await generateTalentTierWithTavernAI()
-      if (generatedContent) store.selectedTalentTier = generatedContent
-    } else if (type === 'origin') {
-      if (!store.selectedWorld) {
-        toast.error('请先选择世界！')
-        return
-      }
-      const { generateOriginWithTavernAI } = await import('../utils/tavernAI')
-      generatedContent = await generateOriginWithTavernAI(store.selectedWorld)
-      if (generatedContent) store.selectedOrigin = generatedContent
-    } else if (type === 'spirit_root') {
-      const { generateSpiritRootWithTavernAI } = await import('../utils/tavernAI')
-      generatedContent = await generateSpiritRootWithTavernAI()
-      if (generatedContent) store.selectedSpiritRoot = generatedContent
-    } else if (type === 'talent') {
-      const { generateTalentWithTavernAI } = await import('../utils/tavernAI')
-      generatedContent = await generateTalentWithTavernAI()
-      if (generatedContent) {
-        if (!store.selectedTalents) store.selectedTalents = []
-        store.selectedTalents.push(generatedContent)
-      }
-    }
-
-    if (!generatedContent) {
-      toast.error('天机推演失败，请重试。')
-      return
-    }
-
-    // 6. 保存到云端并消耗兑换码
-    loadingMessage.value = '正在将结果铭刻于云端...'
-
-    const saveResult = await request<any>('/api/v1/ai/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code: code.trim().toUpperCase(), // 统一转大写
-        type,
-        content: generatedContent,
-      }),
-    })
-
-    // 只有在明确收到成功响应时才显示成功消息
-    if (saveResult && saveResult.message) {
-      if (saveResult.code_used) {
-        toast.success(`天机已成功记录！信物使用次数：${saveResult.code_used}`)
-      } else {
-        toast.success('天机已成功记录于云端！')
-      }
-
-      if (currentStepRef && currentStepRef.fetchData) {
-        loadingMessage.value = '正在同步云端数据...'
-        await currentStepRef.fetchData()
-        toast.success('云端数据同步完成！')
-      }
-    }
-  } catch (error: any) {
-    if (error.message?.includes('兑换码') || error.message?.includes('信物')) {
-      toast.error(error.message)
-    } else if (error.message?.includes('登录')) {
-      toast.error('身份验证失败，请重新登录！')
-    } else {
-      toast.error('天机紊乱：' + (error.message || '未知错误'))
-    }
-  } finally {
-    isGenerating.value = false
-  }
+  isCodeModalVisible.value = false
+  await executeCloudAiGeneration(code)
 }
 
 async function createCharacter() {
+  isGenerating.value = true;
+  loadingMessage.value = '正在为您凝聚法身...';
   try {
-    // 确保有角色名
-    if (!store.characterName) {
-      toast.error('请输入道号！')
-      return
+    // 1. 数据校验
+    if (!store.characterPayload.character_name) {
+      toast.error('请输入道号！');
+      return;
     }
 
-    // 单机模式：计算属性并更新酒馆角色名
-    if (store.mode === 'single') {
-      // 导入本地计算函数
-      const { calculateCoreAttributes } = await import('../utils/characterCalculation')
+    // 在创建角色前，将最终道号同步回酒馆
+    loadingMessage.value = '正在同步道号至酒馆...';
+    await renameCurrentCharacter(store.characterPayload.character_name);
+    loadingMessage.value = '正在为您凝聚法身...';
+    if (!store.selectedWorld || !store.selectedTalentTier) {
+        toast.error('世界或天资信息不完整！');
+        return;
+    }
 
-      // 计算核心属性
-      const coreAttrs = calculateCoreAttributes(
-        store.attributes.root_bone,
-        store.attributes.spirituality,
-        store.attributes.comprehension,
-        store.attributes.luck,
-        store.attributes.charm,
-        store.attributes.temperament,
-      )
+    // 2. 构造基础角色对象
+    const baseAttributes = {
+        root_bone: store.attributes.root_bone,
+        spirituality: store.attributes.spirituality,
+        comprehension: store.attributes.comprehension,
+        fortune: store.attributes.fortune,
+        charm: store.attributes.charm,
+        temperament: store.attributes.temperament,
+    };
+    const coreAttributes = calculateInitialCoreAttributes(baseAttributes);
 
-      // 保存角色数据到本地存储
-      const characterData = {
-        characterName: store.characterName,
-        world: store.selectedWorld,
-        talentTier: store.selectedTalentTier,
-        origin: store.selectedOrigin,
-        spiritRoot: store.selectedSpiritRoot,
-        talents: store.selectedTalents,
-        attributes: {
-          rootBone: store.attributes.root_bone,
-          spirituality: store.attributes.spirituality,
-          comprehension: store.attributes.comprehension,
-          fortune: store.attributes.luck,
-          charm: store.attributes.charm,
-          temperament: store.attributes.temperament,
+    let newCharacter: LocalCharacterWithGameData;
+
+    // 3. 根据模式分别处理
+    if (store.isLocalCreation) {
+      loadingMessage.value = '正在本地洞天开辟存档...';
+      newCharacter = {
+        id: Date.now(),
+        character_name: store.characterPayload.character_name,
+        world_id: store.selectedWorld.id,
+        talent_tier_id: store.selectedTalentTier.id,
+        ...baseAttributes,
+        ...coreAttributes,
+        play_time_minutes: 0,
+        created_at: new Date().toISOString(),
+        source: 'local',
+        // 初始化世界数据
+        worldData: {
+          continentName: null,
+          continentDescription: null,
+          factions: [],
+          mapInfo: null
         },
-        coreAttributes: coreAttrs,
-        createdAt: new Date().toISOString(),
-      }
+      };
+      await saveLocalCharacter(newCharacter);
+      toast.success(`本地法身 "${store.characterPayload.character_name}" 凝聚成功！`);
 
-      // 保存到localStorage
-      localStorage.setItem('currentCharacter', JSON.stringify(characterData))
+    } else { // 联机模式
+      loadingMessage.value = '正在与云端仙界同步...';
+      const payload = {
+        character_name: store.characterPayload.character_name,
+        world_id: store.selectedWorld.id,
+        talent_tier_id: store.selectedTalentTier.id,
+        origin_id: store.selectedOrigin?.id,
+        spirit_root_id: store.selectedSpiritRoot?.id,
+        selected_talent_ids: store.selectedTalents.map((t) => t.id),
+        birth_age: store.characterPayload.birth_age,
+        ...baseAttributes,
+      };
 
-      // 调用酒馆的 /rename-char 命令来更新角色名
-      if (window.SillyTavern?.executeSlashCommands) {
-        try {
-          await window.SillyTavern.executeSlashCommands(`/rename-char ${store.characterName}`)
-          toast.success(`道号 "${store.characterName}" 设定成功！仙途即将开启！`)
-        } catch (e) {
-          console.error('执行酒馆命令失败:', e)
-          toast.warning('道号设定失败，但您可以在酒馆中手动修改。')
-        }
-      } else {
-        toast.success(
-          `角色创建成功！\\n\\n道号: ${store.characterName}\\n\\n请在酒馆中手动修改角色名为: ${store.characterName}`,
-        )
-      }
+      const cloudCharacter = await request<any>('/api/v1/characters/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-      // 重置并返回
-      store.reset()
-      emit('back')
-      return
+      // 按照用户要求，联机角色也在本地开辟一份存档
+      newCharacter = {
+          id: cloudCharacter.id,
+          character_name: cloudCharacter.character_name,
+          world_id: cloudCharacter.world_id,
+          talent_tier_id: cloudCharacter.talent_tier_id,
+          ...baseAttributes,
+          realm: cloudCharacter.realm || '凡人',
+          reputation: cloudCharacter.reputation || 0,
+          hp: cloudCharacter.qi_blood,
+          hp_max: cloudCharacter.max_qi_blood,
+          mana: cloudCharacter.spiritual_power,
+          mana_max: cloudCharacter.max_spiritual_power,
+          spirit: cloudCharacter.spirit_sense,
+          spirit_max: cloudCharacter.max_spirit_sense,
+          lifespan: cloudCharacter.max_lifespan,
+          play_time_minutes: 0,
+          created_at: cloudCharacter.created_at,
+          source: 'cloud',
+          worldData: {
+            continentName: null,
+            continentDescription: null,
+            factions: [],
+            mapInfo: null
+          },
+      };
+      await saveLocalCharacter(newCharacter);
+      toast.success(`云端法身 "${store.characterPayload.character_name}" 同步成功！`);
     }
 
-    // 联机模式：调用后端API创建角色
-    const payload = {
-      character_name: store.characterName,
-      world_id: store.selectedWorld?.id,
-      talent_tier_id: store.selectedTalentTier?.id,
-      origin_id: store.selectedOrigin?.id,
-      spirit_root_id: store.selectedSpiritRoot?.id,
-      selected_talent_ids: store.selectedTalents.map((t) => t.id),
-      birth_age: store.birthAge, // 添加初始年龄
-      root_bone: store.attributes.root_bone,
-      spirituality: store.attributes.spirituality,
-      comprehension: store.attributes.comprehension,
-      fortune: store.attributes.luck,
-      charm: store.attributes.charm,
-      temperament: store.attributes.temperament,
-    }
+    // 4. 后续处理
+    loadingMessage.value = '仙途即将开启...';
+    store.resetCharacter();
+    emit('creation-complete', newCharacter);
 
-    const characterData = await request<any>('/api/v1/characters/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-
-    // 联机模式下也尝试更新酒馆角色名
-    if (window.SillyTavern?.executeSlashCommands) {
-      try {
-        await window.SillyTavern.executeSlashCommands(`/rename-char ${store.characterName}`)
-      } catch (e) {
-        console.error('执行酒馆命令失败:', e)
-      }
-    }
-
-    // 显示角色创建成功信息（不显示具体数值）
-    if (characterData.game_state) {
-      toast.success(`角色 ${characterData.character_name} 创建成功！仙途即将开启！`)
-    } else {
-      toast.success(`角色 ${characterData.character_name} 创建成功！`)
-    }
-    store.reset()
-    emit('back')
   } catch (error: any) {
+    console.error('创建角色时发生错误:', error);
     // request函数已处理toast.error
-    console.error('创建角色时发生错误:', error)
+  } finally {
+    isGenerating.value = false;
   }
 }
 </script>
@@ -509,10 +523,15 @@ async function createCharacter() {
   z-index: 1;
 }
 
+.header-container {
+  /* This container no longer needs flex properties */
+  margin-bottom: 2rem;
+}
+
 .progress-steps {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 2rem;
+  justify-content: space-between; /* Distribute steps evenly across the full width */
+  width: 100%; /* Ensure the container spans the full width */
 }
 
 .step {

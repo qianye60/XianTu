@@ -172,41 +172,39 @@ async def create_character_base(
         **core_attrs
     )
     
-    # 返回角色信息和游戏状态
-    character_dict = {
-        "id": new_character.id,
-        "character_name": new_character.character_name,
-        "player_id": new_character.player_id,
-        "world_id": new_character.world_id,
-        "talent_tier_id": new_character.talent_tier_id,
-        "root_bone": new_character.root_bone,
-        "spirituality": new_character.spirituality,
-        "comprehension": new_character.comprehension,
-        "fortune": new_character.fortune,
-        "charm": new_character.charm,
-        "temperament": new_character.temperament,
-        "origin_id": new_character.origin_id,
-        "spirit_root_id": new_character.spirit_root_id,
-        "selected_talents": new_character.selected_talents,
-        "is_active": new_character.is_active,
-        "is_deleted": new_character.is_deleted,
-        "created_at": new_character.created_at,
-        "game_state": {
-            "qi_blood": game_state.qi_blood,
-            "max_qi_blood": game_state.max_qi_blood,
-            "spiritual_power": game_state.spiritual_power,
-            "max_spiritual_power": game_state.max_spiritual_power,
-            "spirit_sense": game_state.spirit_sense,
-            "max_spirit_sense": game_state.max_spirit_sense,
-            "current_age": game_state.current_age,
-            "max_lifespan": game_state.max_lifespan,
-            "spiritual_stones": game_state.spiritual_stones,
-            "current_realm_id": game_state.current_realm_id,
-            "cultivation_progress": game_state.cultivation_progress
-        }
-    }
-    
-    return character_dict
+    # 重新加载角色以获取关联数据
+    await new_character.fetch_related('game_state', 'game_state__current_realm')
+    game_state = new_character.game_state
+
+    # 构建并返回 CharacterWithState 响应
+    return schema.CharacterWithState(
+        id=new_character.id,
+        character_name=new_character.character_name,
+        world_id=new_character.world_id,
+        talent_tier_id=new_character.talent_tier_id,
+        root_bone=new_character.root_bone,
+        spirituality=new_character.spirituality,
+        comprehension=new_character.comprehension,
+        fortune=new_character.fortune,
+        charm=new_character.charm,
+        temperament=new_character.temperament,
+        is_active=new_character.is_active,
+        is_deleted=new_character.is_deleted,
+        last_played=new_character.last_played,
+        play_time_minutes=new_character.play_time_minutes,
+        is_accessible=not current_user.is_banned,
+        created_at=new_character.created_at,
+        # 游戏状态数据
+        realm=game_state.current_realm.name if game_state.current_realm else "凡人",
+        reputation=game_state.reputation,
+        qi_blood=game_state.qi_blood,
+        max_qi_blood=game_state.max_qi_blood,
+        spiritual_power=game_state.spiritual_power,
+        max_spiritual_power=game_state.max_spiritual_power,
+        spirit_sense=game_state.spirit_sense,
+        max_spirit_sense=game_state.max_spirit_sense,
+        max_lifespan=game_state.max_lifespan,
+    )
 
 @router.post("/create_by_admin", response_model=schema.CharacterBase, tags=["角色/存档体系"])
 async def admin_create_character(

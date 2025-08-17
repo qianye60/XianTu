@@ -32,7 +32,7 @@
         </div>
 
         <div class="form-actions">
-           <button type="button" @click="$emit('back')" class="btn btn-secondary">返回</button>
+           <button type="button" @click="props.onBack" class="btn btn-secondary">返回</button>
            <button type="submit" class="btn" :class="{ 'is-loading': isLoading }" :disabled="isLoading">
              <span class="btn-text">{{ isRegisterMode ? '注册' : '登入' }}</span>
            </button>
@@ -67,7 +67,11 @@ declare global {
   }
 }
 
-const emit = defineEmits(['loggedIn', 'back']);
+const props = defineProps<{
+  onBack: () => void;
+}>();
+
+const emit = defineEmits(['loggedIn']);
 
 const username = ref('');
 const password = ref('');
@@ -196,13 +200,18 @@ const handleLogin = async () => {
   successMessage.value = null;
 
   try {
+    const body = {
+      username: username.value,
+      password: password.value,
+      turnstile_token: turnstileToken.value,
+    };
+
     const data = await request<any>('/api/v1/auth/token', {
       method: 'POST',
-      body: JSON.stringify({
-        username: username.value,
-        password: password.value,
-        turnstile_token: turnstileToken.value,
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     });
 
     // 保存token和用户名到localStorage

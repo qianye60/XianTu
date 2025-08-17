@@ -7,7 +7,7 @@
       <!-- Character Name -->
       <div class="preview-item name-item">
         <label for="characterName">道号:</label>
-        <input type="text" id="characterName" class="named" v-model="store.characterName" />
+        <input type="text" id="characterName" class="named" v-model="store.characterPayload.character_name" />
       </div>
 
       <!-- Birth Age -->
@@ -16,7 +16,7 @@
         <input
           type="number"
           id="birthAge"
-          v-model.number="store.birthAge"
+          v-model.number="store.characterPayload.birth_age"
           min="0"
           max="18"
           placeholder="16"
@@ -66,7 +66,7 @@
           <li>根骨: {{ store.attributes.root_bone }}</li>
           <li>灵性: {{ store.attributes.spirituality }}</li>
           <li>悟性: {{ store.attributes.comprehension }}</li>
-          <li>气运: {{ store.attributes.luck }}</li>
+          <li>气运: {{ store.attributes.fortune }}</li>
           <li>魅力: {{ store.attributes.charm }}</li>
           <li>心性: {{ store.attributes.temperament }}</li>
         </ul>
