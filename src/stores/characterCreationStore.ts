@@ -10,7 +10,7 @@ import type {
   CharacterCreationPayload,
   AttributeKey,
 } from '../types';
-import { loadGameData, saveGameData } from '../utils/tavern';
+import { loadCustomData, saveCustomData, type DADCustomData } from '../data/localData';
 import { request } from '../services/request';
 import {
   LOCAL_WORLDS,
@@ -46,6 +46,8 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   // UI 状态
   const currentStep = ref(1);
   const isLocalCreation = ref(true); // 全局开关，决定创角行为是本地还是联机
+  const initialGameMessage = ref<string | null>(null); // **【开辟消息中枢】**
+  const mapData = ref<any | null>(null); // **【开辟舆图灵脉】**
 
   // =======================================================================
   //                                GETTERS
@@ -105,6 +107,18 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   //                                ACTIONS
   // =======================================================================
 
+  // 辅助函数，用于将更新后的自定义数据保存到LocalStorage
+  function persistCustomData() {
+    const dataToSave: DADCustomData = {
+      worlds: creationData.value.worlds,
+      talentTiers: creationData.value.talentTiers,
+      origins: creationData.value.origins,
+      spiritRoots: creationData.value.spiritRoots,
+      talents: creationData.value.talents,
+    };
+    saveCustomData(dataToSave);
+  }
+
   function createEmptyPayload(): CharacterCreationPayload {
     return {
       character_name: '',
@@ -162,11 +176,11 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     };
 
     try {
-      const savedData = await loadGameData();
+      const savedData = loadCustomData(); // 从LocalStorage加载自定义数据
 
       if (mode === 'single') {
         console.log('Initializing store for single player mode.');
-        // 单人模式：合并本地预设数据和玩家在酒馆中AI生成的数据
+        // 单人模式：合并本地预设数据和玩家在LocalStorage中保存的数据
         creationData.value.worlds = mergeAndDeduplicate(savedData.worlds, LOCAL_WORLDS);
         creationData.value.talentTiers = mergeAndDeduplicate(savedData.talentTiers, LOCAL_TALENT_TIERS);
         creationData.value.origins = mergeAndDeduplicate(savedData.origins, LOCAL_ORIGINS);
@@ -195,7 +209,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         const markSource = <T>(items: T[], source: string): (T & { source: string })[] =>
           items.map(item => ({ ...item, source }));
 
-        // 合并公共数据（来自云端）和私有数据（来自酒馆存储）
+        // 合并公共数据（来自云端）和私有数据（来自LocalStorage）
         creationData.value.worlds = mergeAndDeduplicate(savedData.worlds, markSource(publicWorlds, 'cloud'));
         creationData.value.talentTiers = mergeAndDeduplicate(savedData.talentTiers, markSource(publicTalentTiers, 'cloud'));
         creationData.value.origins = mergeAndDeduplicate(savedData.origins, markSource(publicOrigins, 'cloud'));
@@ -219,18 +233,23 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   // --- Data Persistence Actions ---
   function addWorld(world: World) {
     creationData.value.worlds.unshift(world);
+    persistCustomData();
   }
   function addTalentTier(tier: TalentTier) {
     creationData.value.talentTiers.unshift(tier);
+    persistCustomData();
   }
   function addOrigin(origin: Origin) {
     creationData.value.origins.unshift(origin);
+    persistCustomData();
   }
   function addSpiritRoot(root: SpiritRoot) {
     creationData.value.spiritRoots.unshift(root);
+    persistCustomData();
   }
   function addTalent(talent: Talent) {
     creationData.value.talents.unshift(talent);
+    persistCustomData();
   }
 
   // --- Generic Action for AI-generated data ---
@@ -322,6 +341,14 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     isLocalCreation.value = !isLocalCreation.value;
   }
 
+  function setInitialGameMessage(message: string) {
+    initialGameMessage.value = message;
+  }
+
+  function setMapData(data: any) {
+    mapData.value = data;
+  }
+
   // 当用户退出创角流程时调用，以防止状态污染
   function resetOnExit() {
     resetCharacter(); // 重置角色选择和步骤
@@ -353,6 +380,8 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     characterPayload,
     currentStep,
     isLocalCreation,
+    initialGameMessage,
+    mapData,
     // Getters
     totalSteps,
     attributes,
@@ -382,6 +411,8 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     goToStep,
     setMode,
     toggleLocalCreation,
+    setInitialGameMessage,
+    setMapData,
     resetOnExit,
     startLocalCreation,
     startCloudCreation,

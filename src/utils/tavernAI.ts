@@ -1,5 +1,7 @@
 import { toast } from './toast';
-import type { Talent, World, TalentTier, Origin, SpiritRoot } from '../types';
+import type { Talent, World, TalentTier, Origin, SpiritRoot, CharacterData } from '../types';
+import type { GM_Request, GM_Response } from '../types/AIGameMaster';
+import { buildGmRequest } from './AIGameMaster';
 
 // =======================================================================
 //                           核心：酒馆上下文获取
@@ -142,41 +144,85 @@ const TALENT_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 `;
 
 
-// 6. 世界书（大陆及势力）生成提示词
-const WORLD_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
-# **三、 生成任务：大陆格局**
-请基于东方玄幻世界观，随机生成一个独特凡界大陆的初始势力格局。
+// 6. 地图生成提示词 (坤舆图志) v2
+const MAP_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：开辟坤舆图志**
+你是一位名为“天机阁舆图师”的地理与气运专家。你的任务是为一方新生的修仙世界，生成其核心的地理、势力分布及秘境信息，并以 **GeoJSON** 格式进行输出。
 
 ## **世界观基石 (必须严格遵守)**
-*   **能量体系:** 核心能量是“灵气”。“灵脉”是灵气的脉络。
-*   **社会结构:** 修仙者以“宗门”和“世家”为主，凡人建立“王朝”。
-*   **阵营划分:** 分为“正道”、“邪修”、“魔修”和“中立”。
-*   **境界水平:** 凡界最高战力通常为“化神”或“炼虚”期。
+*   **坐标系:** 经纬度坐标系。经度范围 [-180, 180], 纬度范围 [-90, 90]。
+*   **地理逻辑:** 势力范围 (\`Polygon\`) 应当符合地理逻辑。秘境、城市 (\`Point\`) 等应坐落于合理的地理位置上。
+*   **气运显化:** 势力的颜色 (\`style.color\`) 代表其气运或属性。例如，魔道宗门可用暗色系（#6b21a8），正道大派可用明亮色系（#1d4ed8）。
+*   **世界尺度:** **请确保生成的地理要素分布广泛，坐标横跨万里（例如，经纬度差值达到数十上百），以体现世界的广袤无垠与苍茫古老之感。**
 
-## **具体要求：**
-1.  **大陆命名与描述：**
-    *   为大陆起一个富有东方玄幻色彩的名字。
-    *   用2-3句话简要描述大陆的宏观地理特征。
-2.  **核心势力生成 (5-7个)：**
-    *   确保势力类型多样化，至少包含：**2个宗门，1个修仙世家，1个凡俗王朝**。
-    *   确保阵营分布均衡，至少包含：**1个正道领袖，1个邪道/魔道巨擘**。
-    *   为势力之间构建一些基础的**敌对或同盟关系**。
+## **生成步骤 (总计10-15个Features)：**
 
-## **四、 JSON输出格式**
+### **第一步：开辟大陆（1-2个Features）**
+*   生成1到2个宏大的 **大洲**。
+*   \`geometry.type\`: "Polygon"
+*   \`properties.featureType\`: "continent"
+*   \`properties.name\`: 大洲名称 (例如: 东胜神洲, 南瞻部洲)
+*   \`properties.description\`: 对该大洲的宏观描述。
+
+### **第二步：衍化万象（8-13个Features）**
+在已生成的大洲内部，创造多样化的势力和地点。
+
+1.  **生成势力范围 (\`Polygon\`, 3-4个):**
+    *   \`properties.featureType\`: "faction_territory"
+    *   \`properties.name\`: 势力名称 (例如: 青云宗, 万魔窟)
+    *   \`properties.factionType\`: 势力类型，应当多样化，例如 '宗门', '修仙世家', '凡俗王朝', '散修联盟' 等。
+    *   \`properties.description\`: 势力描述。
+    *   \`properties.style\`: 必须包含 \`color\`, \`fillColor\`, \`fillOpacity\` (0.3-0.6), \`weight\` (1-3)。
+    *   **\`properties.continent\`: (关键) 其值必须是该势力所在大洲的名称。**
+
+2.  **生成兴趣点 (\`Point\`, 5-7个):**
+    *   \`properties.featureType\`: 必须是 "secret_realm" (秘境), "city" (城市), 或 "landmark" (奇观) 中的一种。
+    *   \`properties.name\`: 地点名称 (例如: 万剑冢, 云来城, 不周山)
+    *   \`properties.description\`: 地点描述。
+    *   \`properties.icon\`: 一个代表其类型的英文标识符 (例如: 'sword-cave', 'city-gate', 'mountain-peak')。
+    *   **\`properties.continent\`: (关键) 其值必须是该地点所在大洲的名称。**
+
+## **四、 JSON输出格式 (GeoJSON FeatureCollection)**
+**你必须严格遵循下面的GeoJSON格式，这是唯一允许的输出格式。**
 \`\`\`json
 {
-  "continentName": "大陆名称",
-  "continentDescription": "大陆的宏观地理描述。",
-  "factions": [
-    {
-      "name": "势力名称",
-      "type": "势力类型 (宗门/修仙世家/凡俗王朝/散修联盟/魔修/邪修)",
-      "alignment": "阵营 (正道/邪修/魔修/中立)",
-      "location": "地理位置 (例如：坐落于大陆东部，青云山脉)",
-      "powerLevel": "实力等级 (例如：大陆霸主/一流势力/中坚力量/崛起新秀)",
-      "description": "一段精炼的描述，包括其核心理念、擅长的功法/技艺、以及当前的主要目标或困境。"
-    }
-  ]
+  "mapData": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": { "type": "Polygon", "coordinates": [ [ [80, 20], [120, 20], [120, 50], [80, 50], [80, 20] ] ] },
+        "properties": {
+          "featureType": "continent",
+          "name": "东胜神洲",
+          "description": "灵气充裕，人杰地灵，乃正道宗门汇聚之地。"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { "type": "Polygon", "coordinates": [ [ [102, 25], [105, 25], [105, 28], [102, 28], [102, 25] ] ] },
+        "properties": {
+          "featureType": "faction_territory",
+          "continent": "东胜神洲",
+          "name": "青云宗",
+          "factionType": "宗门",
+          "description": "东胜神洲第一大宗，剑修圣地，山门连绵八百里。",
+          "style": { "color": "#1d4ed8", "fillColor": "#1d4ed8", "fillOpacity": 0.4, "weight": 2 }
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { "type": "Point", "coordinates": [103.5, 26.5] },
+        "properties": {
+          "featureType": "city",
+          "continent": "东胜神洲",
+          "name": "云来城",
+          "description": "青云宗山脚下的凡人城市，商贸繁荣。",
+          "icon": "city-gate"
+        }
+      }
+    ]
+  }
 }
 \`\`\`
 `;
@@ -301,61 +347,233 @@ export async function generateTalentWithTavernAI(): Promise<Talent> {
 // =======================================================================
 
 /**
- * 调用酒馆AI生成世界地图和势力信息，并直接更新到世界书
+ * 根据世界背景，调用AI生成地图信息（创世流程专用）
+ * 此版本直接使用专业的 MAP_GENERATION_PROMPT，并将世界描述注入其中。
+ * @param world 包含世界描述的世界对象
  */
-export async function generateAndSetupWorldBook(): Promise<void> {
-    const worldData = await generateItemWithTavernAI<any>(WORLD_GENERATION_PROMPT, '大陆格局');
-    if (worldData && worldData.continentName) {
-        await updateWorldBook(worldData);
-    } else {
-        toast.error('生成的大陆格局数据不完整，无法更新世界书。');
+export async function generateMapFromWorld(world: World): Promise<any> {
+    const prompt = `You are a fantasy world map generator. Based on the following world description, generate a valid GeoJSON FeatureCollection.
+
+World: ${world.name}
+Era: ${world.era}
+Description: ${world.description}
+
+Requirements:
+1. Create 1-2 continents as Polygon features
+2. Create 3-4 faction territories within the continents
+3. Create 5-7 points of interest (cities, secret realms, landmarks)
+4. Use coordinates that span a wide range to show a vast world
+5. Each feature must have appropriate properties
+
+Output a valid GeoJSON FeatureCollection JSON object directly, without any markdown formatting or explanations.
+
+Example structure:
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Polygon", "coordinates": [[[80,20],[120,20],[120,50],[80,50],[80,20]]]},
+      "properties": {"featureType": "continent", "name": "Eastern Continent", "description": "A vast land"}
+    }
+  ]
+}`;
+    
+    try {
+        const helper = getTavernHelper();
+        
+        console.log("【神识印记】准备向天机阁问询舆图...");
+        console.log("【神识印记】世界信息:", { name: world.name, era: world.era });
+        
+        // 使用正确的 generateRaw API
+        const rawResult = await helper.generateRaw({
+            ordered_prompts: [{ role: 'system', content: prompt }],
+            generation_args: {
+                temperature: 0.8,
+                max_new_tokens: 1024, // 地图数据需要更多token
+            }
+        });
+        
+        console.log("【神识印记】天机阁已回应舆图信息，开始解析...");
+
+        if (!rawResult || typeof rawResult !== 'string') {
+            console.error('【神识印记】天机阁回应为空或非字符串:', rawResult);
+            throw new Error('天机阁未返回有效的舆图数据。');
+        }
+
+        // 尝试从返回结果中提取JSON
+        let geoJsonData;
+        try {
+            // 清理可能的markdown标记
+            const cleanedText = rawResult
+                .replace(/```json\s*/g, '')
+                .replace(/```\s*/g, '')
+                .trim();
+            
+            // 尝试找到JSON对象
+            const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                console.error('【神识印记】无法在回应中找到JSON:', rawResult);
+                throw new Error('天机阁回应中未包含有效的JSON数据。');
+            }
+            
+            geoJsonData = JSON.parse(jsonMatch[0]);
+            console.log("【神识印记】成功解析舆图数据:", geoJsonData);
+            
+        } catch (e) {
+            console.error('【神识印记-衍化山河失败根源】解析失败:', e);
+            console.error('【神识印记】原始回应内容:', rawResult);
+            throw new Error('天机阁回应的舆图格式无法解析。');
+        }
+
+        // 验证GeoJSON结构
+        if (geoJsonData && geoJsonData.type === 'FeatureCollection' && Array.isArray(geoJsonData.features)) {
+            console.log("【神识印记】舆图验证通过，包含", geoJsonData.features.length, "个地理要素");
+            return geoJsonData;
+        } else {
+            console.error('【神识印记-衍化山河失败根源】舆图结构无效:', geoJsonData);
+            throw new Error('天机阁生成的舆图不符合GeoJSON规范。');
+        }
+
+    } catch (error: any) {
+        console.error('【神识印记-衍化山河失败根源】与天机阁沟通失败:', error);
+        console.error('【神识印记】错误详情:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        
+        // 生成一个默认的简单地图作为后备方案
+        console.log("【神识印记】启用备用舆图方案...");
+        return {
+            type: "FeatureCollection",
+            features: [
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        coordinates: [[[100, 20], [140, 20], [140, 50], [100, 50], [100, 20]]]
+                    },
+                    properties: {
+                        featureType: "continent",
+                        name: world.name || "神州大陆",
+                        description: world.description || "一片广袤的修仙大陆"
+                    }
+                },
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [120, 35]
+                    },
+                    properties: {
+                        featureType: "city",
+                        continent: world.name || "神州大陆",
+                        name: "凌云城",
+                        description: "大陆中心的繁华修仙城市",
+                        icon: "city-gate"
+                    }
+                }
+            ]
+        };
     }
 }
 
+
 /**
- * 将生成的世界信息更新到酒馆的世界书中
- * @param worldData 从AI生成并解析后的世界数据对象
+ * 调用酒馆AI生成世界地图信息 (完整版，可用于手动刷新或扩展)
  */
-export async function updateWorldBook(worldData: any): Promise<void> {
-  try {
-    // SillyTavern的sendSystemMessage在主上下文，而非TavernHelper
-    // @ts-ignore
-    if (!window.parent?.SillyTavern?.getContext) {
-        toast.error('无法连接酒馆主灵脉，更新世界书失败！');
-        return;
+export async function generateMapData(): Promise<any> {
+    const result = await generateItemWithTavernAI<any>(MAP_GENERATION_PROMPT, '舆图');
+    // AI应返回 { mapData: GeoJSONObject } 结构
+    if (result && result.mapData && result.mapData.type === 'FeatureCollection') {
+        return result.mapData; // 直接返回GeoJSON对象
+    } else {
+        console.error('从AI返回的舆图数据结构无效:', result);
+        toast.error('AI生成的舆图数据格式不符合GeoJSON规范。');
+        return null;
     }
-    // @ts-ignore
-    const context = window.parent.SillyTavern.getContext();
+}
 
-    if (!context.sendSystemMessage) {
-      toast.error('无法访问酒馆言灵法术，更新世界书失败！');
-      return;
+
+// =======================================================================
+//                           初始消息生成 (GM v2)
+// =======================================================================
+
+const INITIAL_MESSAGE_PROMPT = `${ROLE_PLAY_INSTRUCTION}
+# **三、 生成任务：道友降世 (GM)**
+你现在是此方世界的“天道主宰”，一个智能游戏主控(GM)。你的任务是为一名新生的道友，生成其降世的完整初始状态。
+
+## **输入信息 (Input):**
+你将收到一个 **GM_Request** 格式的JSON对象，包含了角色和世界的全部初始信息。示例如下：
+\`\`\`json
+INPUT_PLACEHOLDER
+\`\`\`
+
+## **核心任务:**
+1.  **推演过往 (Handle Age):** 如果角色年龄不为0，你必须根据其出身、天赋、灵根和气运，在返回的 \`text\` 字段中，简要叙述从其出生到当前年龄的关键经历。
+2.  **选定或创造降生点 (Select Spawn Point):** 根据角色的气运，从地图中选择一个合理的初始位置。
+3.  **赋予初始状态 (Grant Initial State):** 根据角色的出身和推演的过往经历，使用 \`tavern_commands\` 指令集，为其赋予合理的初始状态。例如：
+    *   猎户出身，可使用 \`push\` 指令向 \`chat.inventory\` 数组添加一把“旧猎弓”。
+    *   若经历过奇遇，可使用 \`set\` 指令为角色添加一个新状态，如 \`chat.character.skills.ancient_reading = true\`。
+    *   必须在 \`text\` 字段中，将降生场景和获得的初始状态自然地描绘出来。
+
+## **四、 输出格式 (Output - 必须严格遵守):**
+你 **必须** 返回一个 **GM_Response** 格式的JSON对象，其中必须包含 \`tavern_commands\` 数组。
+
+\`\`\`json
+{
+  "text": "你在一阵颠簸中醒来，发现自己正躺在一辆摇晃的马车上。空气中弥漫着草木与泥土的芬芳。你记起来，你是【书香门第】的次子，因不喜仕途，年仅十六便外出游学。昨日路遇山匪，幸被一位路过的修士所救，他见你颇有灵性，便赠予你一枚【纳戒】，并指点你前往【青云宗】尝试拜山门。\\n\\n你低头看去，一枚古朴的戒指正戴在你的手指上。",
+  "around": "一辆简陋的马车，车外是崎岖的山路，远处可见连绵的山脉轮廓。",
+  "tavern_commands": [
+    {
+      "action": "set",
+      "scope": "chat",
+      "key": "character.location",
+      "value": "青云宗山下"
+    },
+    {
+      "action": "push",
+      "scope": "chat",
+      "key": "inventory",
+      "value": { "name": "纳戒", "type": "法宝", "description": "一枚最基础的储物戒指，内有三尺见方的空间。" }
     }
+  ]
+}
+\`\`\`
+`;
 
-    const bookName = 'DAD_World_Data';
-    const entryKey = worldData.continentName || '世界总览';
+/**
+ * 调用酒馆AI生成初始降世消息 (GM模式)
+ * @param character 基础角色数据对象
+ * @param creationDetails 包含年龄和描述来源的创建详情
+ * @param mapData AI生成的GeoJSON地图数据
+ */
+export async function generateInitialMessage(
+  character: CharacterData,
+  creationDetails: { age: number; originName: string; spiritRootName: string; },
+  mapData: any
+): Promise<GM_Response> {
+  // 1. 构造AI需要的、带有附加信息 CharacterData 对象
+  const characterForAI = {
+    ...character,
+    age: creationDetails.age,
+    description: `出身于${creationDetails.originName}，拥有${creationDetails.spiritRootName}。`,
+  };
 
-    let content = `## ${worldData.continentName}\n\n`;
-    content += `${worldData.continentDescription}\n\n`;
-    content += `### **核心势力**\n\n`;
+  // 2. 构建标准GM请求
+  const request = buildGmRequest(characterForAI, mapData);
 
-    for (const faction of worldData.factions) {
-      content += `**${faction.name}**\n`;
-      content += `- **类型:** ${faction.type} (${faction.alignment})\n`;
-      content += `- **实力:** ${faction.powerLevel}\n`;
-      content += `- **位置:** ${faction.location}\n`;
-      content += `- **简介:** ${faction.description}\n\n`;
-    }
+  // 3. 将请求对象注入到提示词模板中
+  const prompt = INITIAL_MESSAGE_PROMPT
+    .replace(
+      'INPUT_PLACEHOLDER',
+      JSON.stringify(request, null, 2) // 格式化JSON以便AI更好地阅读
+    );
 
-    // 使用/setvar和/setentryfield命令来更新世界书
-    await context.sendSystemMessage('slash', `/setvar key=worldBookContent "${content.replace(/"/g, '\\"')}"`);
-    await context.sendSystemMessage('slash', `/setentryfield file="${bookName}" key="${entryKey}" content={{getvar::worldBookContent}}`);
-    await context.sendSystemMessage('slash', `/flushvar worldBookContent`);
+  // 4. 调用通用生成器，并期望返回GM_Response格式
+  const result = await generateItemWithTavernAI<GM_Response>(prompt, '初始消息');
 
-    toast.success(`世界设定已成功录入《${bookName}》`);
-
-  } catch (error: any) {
-    console.error('更新世界书失败:', error);
-    toast.error(`更新世界书失败: ${error.message}`);
-  }
+  // 5. 返回结构化的响应
+  return result as GM_Response;
 }

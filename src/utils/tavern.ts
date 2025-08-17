@@ -7,7 +7,7 @@ const GAME_DATA_VAR = 'DAD_gamedata';
  * 获取TavernHelper API，适配iframe环境。
  * @returns {any} - 返回TavernHelper对象
  */
-function getTavernHelper(): any {
+export function getTavernHelper(): any {
   // @ts-ignore
   if (window.parent?.TavernHelper) {
     // @ts-ignore
@@ -130,5 +130,63 @@ export async function renameCurrentCharacter(newName: string): Promise<void> {
   } catch (error) {
     console.error('重命名酒馆角色时出错:', error);
     toast.error('更改道号失败！');
+  }
+}
+
+/**
+ * 在酒馆中为指定世界创建或更新世界书条目。
+ * @param {string} worldName - 世界的名称，将作为条目的标题(comment)和关键词(key)。
+ * @param {string} worldDescription - 世界的详细描述，将作为条目的内容(content)。
+ */
+// 为酒馆世界书条目定义一个最小化的接口以确保类型安全
+interface LorebookEntry {
+  uid: number;
+  comment: string;
+  keys: string[];
+}
+
+export async function createWorldLorebookEntry(worldName: string, worldDescription: string): Promise<void> {
+  const helper = getTavernHelper();
+  if (!helper) {
+    toast.error('连接酒馆失败，无法铭刻世界法则。');
+    return;
+  }
+
+  const LOREBOOK_NAME = '【世界】';
+
+  try {
+    // 1. 检查世界书是否存在，不存在则创建
+    const lorebooks = await helper.getLorebooks();
+    if (!lorebooks.includes(LOREBOOK_NAME)) {
+      await helper.createLorebook(LOREBOOK_NAME);
+      toast.info(`已为您开辟新的世界书卷宗：《${LOREBOOK_NAME}》`);
+    }
+
+    // 2. 检查是否已存在同名条目
+    const entries: LorebookEntry[] = await helper.getLorebookEntries(LOREBOOK_NAME);
+    const existingEntry = entries.find(entry => entry.comment === worldName || entry.keys.includes(worldName));
+
+    if (existingEntry) {
+      // 3. 更新现有条目
+      await helper.setLorebookEntries(LOREBOOK_NAME, [{
+        uid: existingEntry.uid,
+        content: worldDescription,
+      }]);
+      toast.success(`《${LOREBOOK_NAME}》中关于“${worldName}”的记载已更新。`);
+    } else {
+      // 4. 创建新条目
+      await helper.createLorebookEntries(LOREBOOK_NAME, [{
+        comment: worldName, // 条目标题
+        keys: [worldName], // 关键词
+        content: worldDescription, // 条目内容
+        enabled: true,
+        position: 'before_character_definition', // 一个合理的默认位置
+      }]);
+      toast.success(`新的世界法则“${worldName}”已成功铭刻于《${LOREBOOK_NAME}》`);
+    }
+
+  } catch (error) {
+    console.error('铭刻世界法则时出错:', error);
+    toast.error('铭刻世界法则失败！');
   }
 }

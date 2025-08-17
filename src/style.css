@@ -452,3 +452,17 @@ body {
   border-color: var(--color-border-hover);
   transform: scale(1.1);
 }
+
+/* --- 通用法器样式：模态对话框/弹窗 (须弥芥子) --- */
+.modal-dialog {
+  background-color: var(--color-surface);
+  color: var(--color-text); /* 显式设置文字颜色，防止继承问题 */
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme='dark'] .modal-dialog {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
