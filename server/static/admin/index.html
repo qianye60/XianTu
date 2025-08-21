@@ -632,6 +632,7 @@
                 localStorage.removeItem('admin_token');
                 authToken = null;
                 showLogin();
+                showError('自动登录失败或令牌已过期，请重新登录。');
             }
         }
 
@@ -759,7 +760,7 @@
                 switch(tabName) {
                     case 'players':
                         endpoint = '/users/';
-                        columns = ['ID', '用户名', '创建时间', '状态', '角色数量', '操作'];
+                        columns = ['ID', '用户名', '创建时间', '状态', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
                             const canBan = currentUser?.role === 'super_admin';
@@ -782,7 +783,6 @@
                                 item.user_name,
                                 new Date(item.created_at).toLocaleString('zh-CN'),
                                 `<span class="status-badge ${item.is_banned ? 'status-banned' : 'status-active'}">${item.is_banned ? '已封禁' : '正常'}</span>`,
-                                item.character_count || 0,
                                 `<div class="action-buttons">${actions}</div>`
                             ];
                         };
@@ -790,25 +790,28 @@
 
                     case 'characters':
                         endpoint = '/admin/characters';
-                        columns = ['ID', '角色名', '玩家', '世界', '状态', '最后游戏时间', '操作'];
+                        columns = ['ID', '角色名', '玩家', '世界', '状态', '最后同步时间', '操作'];
                         formatRow = (item) => {
                             const canView = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
                             let actions = '';
                             if (canView) {
                                 actions += `<button class="action-btn edit" onclick="viewCharacterDetails(${item.id})">详情</button>`;
                                 if (item.is_deleted) {
-                                    actions += `<button class="action-btn" style="background: var(--success)" onclick="restoreCharacter(${item.id})">恢复</button>`;
+                                    // 恢复功能待定
+                                    // actions += `<button class="action-btn" style="background: var(--success)" onclick="restoreCharacter(${item.id})">恢复</button>`;
                                 } else {
                                     actions += `<button class="action-btn delete" onclick="deleteCharacter(${item.id})">删除</button>`;
                                 }
                             }
+                            const baseInfo = item.base_info || {};
+                            const saveInfo = item.game_save || {};
                             return [
                                 item.id,
-                                item.character_name,
+                                baseInfo.名字 || '未知',
                                 item.player_name || `用户${item.player_id}`,
-                                item.world_name || `世界${item.world_id}`,
-                                `<span class="status-badge ${item.is_active ? 'status-active' : ''}">${item.is_active ? '激活' : ''}${item.is_deleted ? ' 已删除' : ''}</span>`,
-                                item.last_played ? new Date(item.last_played).toLocaleString('zh-CN') : '从未游戏',
+                                baseInfo.世界 || '未知',
+                                `<span class="status-badge ${item.is_deleted ? 'status-banned' : 'status-active'}">${item.is_deleted ? '已删除' : '正常'}</span>`,
+                                saveInfo.last_sync_time ? new Date(saveInfo.last_sync_time).toLocaleString('zh-CN') : '从未同步',
                                 `<div class="action-buttons">${actions}</div>`
                             ];
                         };
@@ -882,7 +885,7 @@
 
                     case 'worlds':
                         endpoint = '/worlds/';
-                        columns = ['ID', '世界名称', '时代', '创建时间', '操作'];
+                        columns = ['ID', '世界名称', '时代', '创建者', '创建时间', '操作'];
                         formatRow = (item) => {
                             const canEdit = currentUser?.role === 'super_admin';
                             const canDelete = currentUser?.role === 'super_admin';
@@ -897,6 +900,7 @@
                                 item.id,
                                 item.name,
                                 item.era || '-',
+                                item.creator ? item.creator.user_name : '-',
                                 new Date(item.created_at).toLocaleString('zh-CN'),
                                 `<div class="action-buttons">${actions}</div>`
                             ];
@@ -1193,7 +1197,7 @@
                 if (response.ok) {
                     const item = await response.json();
                     currentEditItem = { tabName, itemId, data: item };
-                    renderEditForm(tabName, item);
+                    await renderEditForm(tabName, item);
                     document.getElementById('editModal').classList.remove('hidden');
                 }
             } catch (error) {
@@ -1201,7 +1205,7 @@
             }
         }
 
-        function renderEditForm(tabName, item) {
+        async function renderEditForm(tabName, item) {
             let fields = '';
             let title = '';
 
@@ -1240,7 +1244,13 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">类型</label>
-                            <input type="text" name="type" class="form-input" value="${item.type || ''}" required>
+                            <select name="type" class="form-select" required>
+                                <option value="world" ${item.type === 'world' ? 'selected' : ''}>🌍 世界通行证</option>
+                                <option value="talent_tier" ${item.type === 'talent_tier' ? 'selected' : ''}>⭐ 天资卷轴</option>
+                                <option value="origin" ${item.type === 'origin' ? 'selected' : ''}>👑 出身令牌</option>
+                                <option value="spirit_root" ${item.type === 'spirit_root' ? 'selected' : ''}>🌟 灵根玉简</option>
+                                <option value="talent" ${item.type === 'talent' ? 'selected' : ''}>💎 天赋秘籍</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label class="form-label">最大使用次数</label>
@@ -1400,7 +1410,6 @@
             const formData = new FormData(e.target);
             let payload = {};
             
-            // 根据 tabName 构建特定的 payload
             const tabName = currentEditItem.tabName;
             
             switch(tabName) {
@@ -1465,6 +1474,10 @@
                         era: formData.get('era'),
                         description: formData.get('description')
                     };
+                    // Add creator_id for world creation
+                    if (!currentEditItem.itemId) {
+                        payload.creator_id = parseInt(formData.get('creator_id'));
+                    }
                     break;
                 case 'origins':
                     payload = {
@@ -1483,32 +1496,29 @@
                     };
                     break;
                 case 'characters':
-                    // 处理天赋ID列表
-                    const talentIdsStr = formData.get('selected_talent_ids');
-                    let selectedTalentIds = [];
-                    if (talentIdsStr && talentIdsStr.trim()) {
-                        selectedTalentIds = talentIdsStr.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-                    }
-                    
+                    // 创建角色的新逻辑
                     payload = {
-                        character_name: formData.get('character_name'),
                         player_id: parseInt(formData.get('player_id')),
-                        world_id: parseInt(formData.get('world_id')),
-                        talent_tier_id: parseInt(formData.get('talent_tier_id')),
-                        current_age: parseInt(formData.get('current_age')) || 16,
-                        origin_id: formData.get('origin_id') ? parseInt(formData.get('origin_id')) : null,
-                        spirit_root_id: formData.get('spirit_root_id') ? parseInt(formData.get('spirit_root_id')) : null,
-                        selected_talent_ids: selectedTalentIds,
-                        root_bone: parseInt(formData.get('root_bone')),
-                        spirituality: parseInt(formData.get('spirituality')),
-                        comprehension: parseInt(formData.get('comprehension')),
-                        fortune: parseInt(formData.get('fortune')),
-                        charm: parseInt(formData.get('charm')),
-                        temperament: parseInt(formData.get('temperament'))
+                        base_info: {
+                            名字: formData.get('character_name'),
+                            年龄: parseInt(formData.get('current_age')) || 16,
+                            世界: formData.get('world'), // 从 select 获取
+                            天资: formData.get('talent_tier'),
+                            出生: formData.get('origin'),
+                            灵根: formData.get('spirit_root'),
+                            先天六司: {
+                                根骨: parseInt(formData.get('root_bone')),
+                                灵性: parseInt(formData.get('spirituality')),
+                                悟性: parseInt(formData.get('comprehension')),
+                                福缘: parseInt(formData.get('fortune')),
+                                魅力: parseInt(formData.get('charm')),
+                                心性: parseInt(formData.get('temperament')),
+                            },
+                            声望: parseInt(formData.get('reputation')) || 0
+                        }
                     };
                     break;
                 default:
-                    // Fallback for any other case
                     for (let [key, value] of formData.entries()) {
                         payload[key] = value;
                     }
@@ -1621,13 +1631,17 @@
         }
 
         // 添加功能
-        function showAddItemModal() {
-            currentEditItem = { tabName: currentTab, itemId: null, data: {} };
-            renderAddForm(currentTab);
-            document.getElementById('editModal').classList.remove('hidden');
+        async function showAddItemModal() {
+            if (currentTab === 'ban_records') {
+                banPlayer();
+            } else {
+                currentEditItem = { tabName: currentTab, itemId: null, data: {} };
+                await renderAddForm(currentTab);
+                document.getElementById('editModal').classList.remove('hidden');
+            }
         }
 
-        function renderAddForm(tabName) {
+        async function renderAddForm(tabName) {
             let fields = '';
             let title = '';
 
@@ -1751,6 +1765,7 @@
                             <label class="form-label">世界描述</label>
                             <textarea name="description" class="form-input" rows="4"></textarea>
                         </div>
+                        <input type="hidden" name="creator_id" value="${currentUser.id}">
                     `;
                     break;
                 case 'origins':
@@ -1797,6 +1812,19 @@
                     break;
                 case 'characters':
                     title = '创建新角色';
+                    // 异步获取下拉列表数据
+                    let worlds = [], talentTiers = [], origins = [], spiritRoots = [];
+                    try {
+                        [worlds, talentTiers, origins, spiritRoots] = await Promise.all([
+                            fetch(`${API_BASE}/worlds/`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json()),
+                            fetch(`${API_BASE}/talent_tiers/`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json()),
+                            fetch(`${API_BASE}/origins/`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json()),
+                            fetch(`${API_BASE}/spirit_roots/`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json())
+                        ]);
+                    } catch (e) { console.error("Failed to load creation options", e); }
+                    
+                    const createOptions = (items, nameKey = 'name') => items.map(item => `<option value="${item[nameKey]}">${item[nameKey]}</option>`).join('');
+
                     fields = `
                         <div class="form-group">
                             <label class="form-label">角色道号</label>
@@ -1805,77 +1833,41 @@
                         <div class="form-group">
                             <label class="form-label">所属玩家ID</label>
                             <input type="number" name="player_id" class="form-input" min="1" required>
-                            <small style="color: var(--text-light); display: block; margin-top: 5px;">
-                                输入玩家的用户ID，该角色将归属于此玩家
-                            </small>
+                        </div>
+                         <div class="form-group">
+                            <label class="form-label">世界</label>
+                            <select name="world" class="form-select" required>${createOptions(worlds)}</select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">世界ID</label>
-                            <input type="number" name="world_id" class="form-input" min="1" required>
-                            <small style="color: var(--text-light); display: block; margin-top: 5px;">
-                                选择角色所在的世界背景
-                            </small>
+                            <label class="form-label">天资</label>
+                            <select name="talent_tier" class="form-select" required>${createOptions(talentTiers)}</select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">天资等级ID</label>
-                            <input type="number" name="talent_tier_id" class="form-input" min="1" required>
-                            <small style="color: var(--text-light); display: block; margin-top: 5px;">
-                                选择角色的天资等级
-                            </small>
+                            <label class="form-label">出身</label>
+                            <select name="origin" class="form-select" required>${createOptions(origins)}</select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">出身ID（可选）</label>
-                            <input type="number" name="origin_id" class="form-input" min="1">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">灵根ID（可选）</label>
-                            <input type="number" name="spirit_root_id" class="form-input" min="1">
+                            <label class="form-label">灵根</label>
+                            <select name="spirit_root" class="form-select" required>${createOptions(spiritRoots)}</select>
                         </div>
                         <div class="form-group">
                             <label class="form-label">当前年龄</label>
                             <input type="number" name="current_age" class="form-input" min="0" max="18" value="16" required>
-                            <small style="color: var(--text-light); display: block; margin-top: 5px;">
-                                设置角色的当前年龄（0-18岁）
-                            </small>
                         </div>
                         <div class="form-group">
-                            <h4>先天六司配置</h4>
-                            <small style="color: var(--text-light); display: block; margin-bottom: 10px;">
-                                每项属性值范围：0-10点
-                            </small>
+                            <h4>先天六司配置 (0-10)</h4>
                         </div>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                            <div class="form-group">
-                                <label class="form-label">根骨</label>
-                                <input type="number" name="root_bone" class="form-input" min="0" max="10" value="5" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">灵性</label>
-                                <input type="number" name="spirituality" class="form-input" min="0" max="10" value="5" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">悟性</label>
-                                <input type="number" name="comprehension" class="form-input" min="0" max="10" value="5" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">福缘</label>
-                                <input type="number" name="fortune" class="form-input" min="0" max="10" value="5" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">魅力</label>
-                                <input type="number" name="charm" class="form-input" min="0" max="10" value="5" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">心性</label>
-                                <input type="number" name="temperament" class="form-input" min="0" max="10" value="5" required>
-                            </div>
+                            <div class="form-group"><label class="form-label">根骨</label><input type="number" name="root_bone" class="form-input" min="0" max="10" value="5" required></div>
+                            <div class="form-group"><label class="form-label">灵性</label><input type="number" name="spirituality" class="form-input" min="0" max="10" value="5" required></div>
+                            <div class="form-group"><label class="form-label">悟性</label><input type="number" name="comprehension" class="form-input" min="0" max="10" value="5" required></div>
+                            <div class="form-group"><label class="form-label">福缘</label><input type="number" name="fortune" class="form-input" min="0" max="10" value="5" required></div>
+                            <div class="form-group"><label class="form-label">魅力</label><input type="number" name="charm" class="form-input" min="0" max="10" value="5" required></div>
+                            <div class="form-group"><label class="form-label">心性</label><input type="number" name="temperament" class="form-input" min="0" max="10" value="5" required></div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">天赋ID列表（可选）</label>
-                            <input type="text" name="selected_talent_ids" class="form-input" placeholder="例如：1,2,3">
-                            <small style="color: var(--text-light); display: block; margin-top: 5px;">
-                                多个天赋ID用逗号分隔，留空表示不选择任何天赋
-                            </small>
+                             <label class="form-label">初始声望</label>
+                             <input type="number" name="reputation" class="form-input" min="0" value="0" required>
                         </div>
                     `;
                     break;
@@ -2085,99 +2077,90 @@
         // 角色管理功能
         async function viewCharacterDetails(characterId) {
             try {
-                const response = await fetch(`${API_BASE}/characters/${characterId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
+                // 获取角色基础信息
+                const baseResponse = await fetch(`${API_BASE}/admin/characters/${characterId}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
-
-                if (response.ok) {
-                    const character = await response.json();
-                    
-                    // 获取游戏状态
-                    const stateResponse = await fetch(`${API_BASE}/characters/${characterId}/game_state`, {
-                        headers: {
-                            'Authorization': `Bearer ${authToken}`
-                        }
-                    });
-                    
-                    let gameState = null;
-                    if (stateResponse.ok) {
-                        gameState = await stateResponse.json();
-                    }
-
-                    displayCharacterDetails(character, gameState);
-                    document.getElementById('characterModal').classList.remove('hidden');
-                } else {
-                    alert('获取角色详情失败');
+                
+                if (!baseResponse.ok) throw new Error('获取角色基础信息失败');
+                const character = await baseResponse.json();
+                
+                // 获取游戏状态
+                const stateResponse = await fetch(`${API_BASE}/admin/characters/${characterId}/gamestate`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                let gameState = null;
+                if (stateResponse.ok) {
+                    gameState = await stateResponse.json();
                 }
+
+                displayCharacterDetails(character, gameState);
+                document.getElementById('characterModal').classList.remove('hidden');
+
             } catch (error) {
-                alert('网络错误');
+                console.error("获取角色详情失败:", error);
+                alert(`获取角色详情失败: ${error.message}`);
             }
         }
 
         function displayCharacterDetails(character, gameState) {
-            document.getElementById('characterModalTitle').textContent = `${character.character_name} - 详细信息`;
+            const baseInfo = character.base_info || {};
+            document.getElementById('characterModalTitle').textContent = `${baseInfo.名字 || '未知角色'} - 详细信息`;
 
-            // “补天之术”：如果 gameState 不完整，就在前端计算核心属性作为兜底
-            let finalState = gameState || {};
-            if (typeof finalState.qi_blood === 'undefined' || finalState.qi_blood === null) {
-                console.log(`检测到角色 ${character.id} 的游戏状态不完整，正在前端推演...`);
-                const calculateInitialStats = (attrs, birthAge = 16) => {
-                    const stats = {};
-                    stats.max_qi_blood = 50 + attrs.root_bone * 10;
-                    stats.qi_blood = stats.max_qi_blood;
-                    stats.max_spiritual_power = 100 + attrs.spirituality * 10;
-                    stats.spiritual_power = stats.max_spiritual_power;
-                    stats.max_spirit_sense = 10 + attrs.comprehension * 2;
-                    stats.spirit_sense = stats.max_spirit_sense;
-                    stats.max_lifespan = 60 + attrs.root_bone * 2 + attrs.fortune;
-                    stats.current_age = birthAge;
-                    stats.cultivation_experience = 0;
-                    stats.cultivation_progress = 0.0;
-                    stats.spiritual_stones = 10 * attrs.fortune;
-                    return stats;
-                };
-                const calculatedState = calculateInitialStats(character);
-                // 合并数据，后端传来的有效数据会覆盖计算出的默认值
-                finalState = { ...calculatedState, ...finalState };
-            }
+            const sixAttrs = baseInfo.先天六司 || {};
+            const saveData = gameState ? (gameState.save_data || {}) : {};
+            const playerState = saveData.player_state || {};
             
+            if (!gameState || !gameState.save_data) {
+                console.log(`角色 ${character.id} 的游戏状态为空, 前端推演默认值。`);
+                playerState.max_qi_blood = 50 + (sixAttrs.根骨 || 5) * 10;
+                playerState.qi_blood = playerState.max_qi_blood;
+                playerState.max_spiritual_power = 100 + (sixAttrs.灵性 || 5) * 10;
+                playerState.spiritual_power = playerState.max_spiritual_power;
+                playerState.max_spirit_sense = 10 + (sixAttrs.悟性 || 5) * 2;
+                playerState.spirit_sense = playerState.max_spirit_sense;
+                playerState.max_lifespan = 60 + (sixAttrs.根骨 || 5) * 2 + (sixAttrs.福缘 || 5);
+                playerState.current_age = baseInfo.年龄 || 16;
+                playerState.spiritual_stones = 10 * (sixAttrs.福缘 || 5);
+            }
+
             let html = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
                     <div>
                         <h4>基础信息</h4>
                         <p><strong>角色ID:</strong> ${character.id}</p>
-                        <p><strong>角色名:</strong> ${character.character_name}</p>
-                        <p><strong>世界ID:</strong> ${character.world_id}</p>
-                        <p><strong>天资等级ID:</strong> ${character.talent_tier_id}</p>
+                        <p><strong>角色名:</strong> ${baseInfo.名字}</p>
+                        <p><strong>世界:</strong> ${baseInfo.世界}</p>
+                        <p><strong>天资:</strong> ${baseInfo.天资}</p>
+                        <p><strong>出身:</strong> ${baseInfo.出生}</p>
+                        <p><strong>灵根:</strong> ${baseInfo.灵根}</p>
+                        <p><strong>声望:</strong> ${baseInfo.声望 || 0}</p>
                         <p><strong>创建时间:</strong> ${new Date(character.created_at).toLocaleString('zh-CN')}</p>
-                        <p><strong>最后游戏:</strong> ${character.last_played ? new Date(character.last_played).toLocaleString('zh-CN') : '从未游戏'}</p>
-                        <p><strong>游戏时长:</strong> ${Math.floor(character.play_time_minutes / 60)}小时${character.play_time_minutes % 60}分钟</p>
-                        <p><strong>状态:</strong> ${character.is_active ? '激活' : '未激活'} ${character.is_deleted ? '(已删除)' : ''}</p>
+                        <p><strong>状态:</strong> ${character.is_deleted ? '(已删除)' : '正常'}</p>
                     </div>
                     <div>
                         <h4>先天六司</h4>
-                        <p><strong>根骨:</strong> ${character.root_bone}</p>
-                        <p><strong>灵性:</strong> ${character.spirituality}</p>
-                        <p><strong>悟性:</strong> ${character.comprehension}</p>
-                        <p><strong>福缘:</strong> ${character.fortune}</p>
-                        <p><strong>魅力:</strong> ${character.charm}</p>
-                        <p><strong>心性:</strong> ${character.temperament}</p>
+                        <p><strong>根骨:</strong> ${sixAttrs.根骨}</p>
+                        <p><strong>灵性:</strong> ${sixAttrs.灵性}</p>
+                        <p><strong>悟性:</strong> ${sixAttrs.悟性}</p>
+                        <p><strong>福缘:</strong> ${sixAttrs.福缘}</p>
+                        <p><strong>魅力:</strong> ${sixAttrs.魅力}</p>
+                        <p><strong>心性:</strong> ${sixAttrs.心性}</p>
                     </div>
                     <div>
                         <h4>游戏状态</h4>
-                        <p><strong>当前境界:</strong> ${finalState.current_realm_id || '凡人'}</p>
-                        <p><strong>修炼进度:</strong> ${(finalState.cultivation_progress || 0).toFixed(1)}%</p>
-                        <p><strong>修炼经验:</strong> ${(finalState.cultivation_experience || 0).toLocaleString()}</p>
-                        <p><strong>当前位置:</strong> ${finalState.current_location || '未知'}</p>
-                        <p><strong>灵石:</strong> ${(finalState.spiritual_stones || 0).toLocaleString()}</p>
-                        <p><strong>气血:</strong> ${finalState.qi_blood} / ${finalState.max_qi_blood}</p>
-                        <p><strong>灵气:</strong> ${finalState.spiritual_power} / ${finalState.max_spiritual_power}</p>
-                        <p><strong>神识:</strong> ${finalState.spirit_sense} / ${finalState.max_spirit_sense}</p>
-                        <p><strong>寿元:</strong> ${finalState.current_age} / ${finalState.max_lifespan}</p>
-                        <p><strong>最后同步:</strong> ${finalState.last_sync_time ? new Date(finalState.last_sync_time).toLocaleString('zh-CN') : '从未同步'}</p>
-                        <p><strong>数据版本:</strong> ${finalState.version || 0}</p>
+                        <p><strong>当前境界:</strong> ${playerState.current_realm_name || '凡人'}</p>
+                        <p><strong>修炼进度:</strong> ${(playerState.cultivation_progress || 0).toFixed(1)}%</p>
+                        <p><strong>修炼经验:</strong> ${(playerState.cultivation_experience || 0).toLocaleString()}</p>
+                        <p><strong>当前位置:</strong> ${playerState.current_location_name || '未知'}</p>
+                        <p><strong>灵石:</strong> ${(playerState.spiritual_stones || 0).toLocaleString()}</p>
+                        <p><strong>气血:</strong> ${playerState.qi_blood || 'N/A'} / ${playerState.max_qi_blood || 'N/A'}</p>
+                        <p><strong>灵气:</strong> ${playerState.spiritual_power || 'N/A'} / ${playerState.max_spiritual_power || 'N/A'}</p>
+                        <p><strong>神识:</strong> ${playerState.spirit_sense || 'N/A'} / ${playerState.max_spirit_sense || 'N/A'}</p>
+                        <p><strong>寿元:</strong> ${playerState.current_age || 'N/A'} / ${playerState.max_lifespan || 'N/A'}</p>
+                        <p><strong>最后同步:</strong> ${gameState && gameState.last_sync_time ? new Date(gameState.last_sync_time).toLocaleString('zh-CN') : '从未同步'}</p>
+                        <p><strong>数据版本:</strong> ${gameState ? gameState.version : 0}</p>
                     </div>
                 </div>
             `;
@@ -2190,10 +2173,10 @@
         }
 
         async function deleteCharacter(characterId) {
-            if (!confirm('确定要删除此角色吗？')) return;
+            if (!confirm('确定要删除此角色吗？此操作为软删除。')) return;
 
             try {
-                const response = await fetch(`${API_BASE}/characters/${characterId}`, {
+                const response = await fetch(`${API_BASE}/admin/characters/${characterId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${authToken}`
@@ -2214,25 +2197,8 @@
 
         async function restoreCharacter(characterId) {
             if (!confirm('确定要恢复此角色吗？')) return;
-
-            try {
-                // 这里需要添加恢复角色的API端点
-                alert('恢复功能待实现');
-            } catch (error) {
-                alert('网络错误');
-            }
-        }
-
-        // 扩展添加项目功能以支持封号
-        function showAddItemModal() {
-            if (currentTab === 'ban_records') {
-                // Now directly opens the ban modal for player selection
-                banPlayer();
-            } else {
-                currentEditItem = { tabName: currentTab, itemId: null, data: {} };
-                renderAddForm(currentTab);
-                document.getElementById('editModal').classList.remove('hidden');
-            }
+            // 待后端实现恢复接口
+            alert('恢复功能待实现');
         }
 
     </script>

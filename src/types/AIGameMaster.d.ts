@@ -166,7 +166,7 @@ export interface GameCharacter {
     conditions: string[];
     location: string;
     activity: string;
-    mood: string;
+    mood?: string; // 心情，可选
   };
 }
 
@@ -209,4 +209,8 @@ export interface GM_Response {
    * 前端需要解析并执行这些指令。
    */
   tavern_commands?: TavernCommand[];
+  /** 新增：用于承载关键记忆的烙印，将被注入到中期记忆中。 */
+  mid_term_memory?: string;
+  /** 新增：用于承载AI返回的结构化数据，例如生成的物品、角色等。 */
+  json?: any;
 }

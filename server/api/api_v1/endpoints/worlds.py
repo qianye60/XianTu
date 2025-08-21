@@ -44,7 +44,10 @@ async def update_world(world_id: int, world_data: schema.WorldUpdate):
     """
     updated_world, message = await crud_world.update_world(world_id, world_data)
     if not updated_world:
-        raise HTTPException(status_code=404, detail="世界不存在")
+        # 根据 crud 函数返回的消息提供更详细的错误
+        # 注意：这里我们假设更新失败主要是因为找不到世界或数据库错误
+        status_code = 404 if "未找到" in message else 500
+        raise HTTPException(status_code=status_code, detail=f"更新世界失败: {message}")
     return updated_world
 
 @router.delete("/{world_id}", tags=["世界体系"])

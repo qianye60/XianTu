@@ -79,8 +79,7 @@ import type { SpiritRoot } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
 import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
-import { generateSpiritRootWithTavernAI } from '../../utils/tavernAI'
-import { saveGameData } from '../../utils/tavern';
+import { generateSpiritRoot } from '../../utils/tavernAI'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
@@ -90,7 +89,7 @@ const isGeneratingAI = ref(false)
 const filteredSpiritRoots = computed(() => {
   if (store.isLocalCreation) {
     return store.creationData.spiritRoots.filter(root => 
-      root.source === 'local' || root.source === 'tavern'
+      root.source === 'local'
     );
   } else {
     return store.creationData.spiritRoots.filter(root => 
@@ -128,7 +127,7 @@ async function handleCustomSubmit(data: any) {
 
   try {
     store.addSpiritRoot(newRoot);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectSpiritRoot(newRoot);
     isCustomModalVisible.value = false;
     toast.success(`自定义灵根 "${newRoot.name}" 已保存！`);
@@ -181,9 +180,9 @@ function handleSelectRandom() {
 async function _handleLocalAIGenerate() {
   isGeneratingAI.value = true
   try {
-    const newRoot = await generateSpiritRootWithTavernAI()
+    const newRoot = await generateSpiritRoot()
     store.addSpiritRoot(newRoot);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectSpiritRoot(newRoot);
     toast.success(`AI推演灵根 "${newRoot.name}" 已保存！`);
   } catch (e: any) {

@@ -6,7 +6,7 @@
 import { toast } from './toast';
 import { getTavernHelper } from './tavern';
 import type { CharacterData } from '../types';
-import { syncCharacterAttribute } from '../services/characterSync';
+import { useCharacterStore } from '@/stores/characterStore';
 import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
 
 /**
@@ -105,6 +105,8 @@ export function buildGmRequest(
  * @param character - 当前正在操作的角色对象，用于判断是否需要后端同步。
  */
 export async function processGmResponse(response: GM_Response, character: CharacterData) {
+  const characterStore = useCharacterStore(); // 获取Store实例
+
   if (!character) {
     toast.error("执行指令失败：未提供角色上下文。");
     return;
@@ -176,19 +178,12 @@ export async function processGmResponse(response: GM_Response, character: Charac
 
       // [核心改造] 天道同步法则
       // 在执行完指令后，检查是否需要同步到后端
-      if (character.id && character.source === 'cloud' && command.scope === 'chat' && command.key.startsWith('character.')) {
-        const attributeKey = command.key.substring('character.'.length);
-        // 调用同步服务，此为异步操作，但不阻塞后续指令执行
-        syncCharacterAttribute(character.id, attributeKey, command.value)
-          .then(() => {
-            console.log(`[SYNC] 属性 ${attributeKey} 已成功触发后端同步。`);
-          })
-          .catch(syncError => {
-            console.error(`[SYNC-ERROR] 同步属性 ${attributeKey} 失败:`, syncError);
-            toast.error(`同步角色属性 ${attributeKey} 至云端失败。`);
-          });
-      }
+      // 【已废除】云同步逻辑已移除
     }
+
+    // 【核心改造】在所有指令执行完毕后，将AI响应中的核心状态更新到本地存档
+    // 【已废除】map_data 逻辑已移除
+
   } catch (error: any) {
     console.error("执行AI指令时发生错误:", error);
     toast.error(`执行天道法旨失败: ${error.message}`);

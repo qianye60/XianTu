@@ -7,7 +7,16 @@
       <!-- 左侧面板 -->
       <div class="left-panel">
         <div class="list-container">
-          <div
+          <div v-if="worldsList.length === 0" class="no-worlds-message">
+            <div class="no-worlds-icon">🌌</div>
+            <div class="no-worlds-text">
+              {{ store.isLocalCreation ? '暂无本地世界数据' : '暂无云端世界数据' }}
+            </div>
+            <div v-if="!store.isLocalCreation" class="no-worlds-hint">
+              请检查网络连接或联系管理员
+            </div>
+          </div>
+          <div v-else
             v-for="world in worldsList"
             :key="world.id"
             class="list-item"
@@ -64,7 +73,7 @@ import type { World } from '../../types';
 import CustomCreationModal from './CustomCreationModal.vue';
 import LoadingModal from '../LoadingModal.vue';
 import { toast } from '../../utils/toast';
-import { generateWorldWithTavernAI } from '../../utils/tavernAI';
+import { generateWorld } from '../../utils/tavernAI';
 
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
@@ -72,14 +81,29 @@ const isCustomModalVisible = ref(false);
 const isGeneratingAI = ref(false); // Local loading state for AI generation
 
 const worldsList = computed(() => {
+  const allWorlds = store.creationData.worlds;
+  console.log("【世界选择】所有世界数据:", allWorlds);
+  console.log("【世界选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
+  
   if (store.isLocalCreation) {
-    return store.creationData.worlds.filter(world => 
-      world.source === 'local' || world.source === 'tavern'
+    const localWorlds = allWorlds.filter(world => 
+      world.source === 'local'
     );
+    console.log("【世界选择】本地模式世界列表:", localWorlds);
+    return localWorlds;
   } else {
-    return store.creationData.worlds.filter(world => 
+    const cloudWorlds = allWorlds.filter(world => 
       world.source === 'cloud'
     );
+    console.log("【世界选择】联机模式世界列表:", cloudWorlds);
+    console.log("【世界选择】云端世界数量:", cloudWorlds.length);
+    
+    if (cloudWorlds.length === 0) {
+      console.warn("【世界选择】警告：联机模式下没有找到云端世界数据！");
+      console.log("【世界选择】尝试查看所有世界的source字段:", allWorlds.map(w => ({ name: w.name, source: w.source, id: w.id })));
+    }
+    
+    return cloudWorlds;
   }
 });
 
@@ -110,7 +134,7 @@ async function handleCustomSubmit(data: any) {
 
   try {
     store.addWorld(newWorld);
-    await saveGameData(store.creationData); // 手动保存
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectWorld(newWorld); // Auto-select the newly created world
     isCustomModalVisible.value = false;
     toast.success(`自定义世界 "${newWorld.name}" 已成功保存！`);
@@ -120,15 +144,13 @@ async function handleCustomSubmit(data: any) {
   }
 }
 
-import { saveGameData } from '../../utils/tavern';
-
 async function _handleLocalAIGenerate() {
   isGeneratingAI.value = true;
   try {
-    const newWorld = await generateWorldWithTavernAI();
+    const newWorld = await generateWorld();
     if (newWorld) {
       store.addWorld(newWorld); // 只更新内存
-      await saveGameData(store.creationData); // 手动保存完整数据
+      // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
       handleSelectWorld(newWorld); // 自动选中
       toast.success(`AI推演世界 "${newWorld.name}" 已保存！`);
     }
@@ -279,6 +301,34 @@ function handleSelectWorld(world: World) {
 .list-container::-webkit-scrollbar-thumb:hover,
 .description-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--color-primary-rgb), 0.5);
+}
+
+/* 无世界数据时的显示 */
+.no-worlds-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.no-worlds-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.no-worlds-text {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.no-worlds-hint {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .single-actions-container {

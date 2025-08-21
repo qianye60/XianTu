@@ -25,9 +25,19 @@
       "Bash(npm run:*)",
       "Bash(npx webpack-dev-server:*)",
       "Bash(npm install:*)",
-      "Bash(rmdir:*)"
+      "Bash(rmdir:*)",
+      "Bash(mkdir:*)",
+      "Bash(del \"c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\MainPanel.vue\")",
+      "Bash(rm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\AttributePanel.vue\")"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\character-creation",
+      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard",
+      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天"
+    ]
   }
 }

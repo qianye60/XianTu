@@ -1,5 +1,6 @@
 import { toast } from '../utils/toast';
 import { API_BASE_URL } from './api';
+import type { World } from '@/types';
 
 // 统一的请求函数
 export async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -120,5 +121,112 @@ export async function verifyStoredToken(): Promise<boolean> {
     // localStorage.removeItem('username');
     console.warn('[验证令牌] 注意：暂时保留令牌，不自动清除');
     return false;
+  }
+}
+
+/**
+ * 从服务器获取所有可用的世界列表
+ */
+export async function fetchWorlds(): Promise<World[]> {
+  try {
+    const worlds = await request.get<World[]>('/api/v1/worlds/');
+    console.log('[API] 成功获取世界列表:', worlds);
+    return worlds || [];
+  } catch (error) {
+    console.error('[API] 获取世界列表失败:', error);
+    toast.error('获取世界列表失败，请检查网络或联系管理员。');
+    return []; // 返回空数组以避免页面崩溃
+  }
+}
+
+/**
+ * 从服务器获取所有天资等级
+ */
+export async function fetchTalentTiers(): Promise<any[]> {
+  try {
+    const talentTiers = await request.get<any[]>('/api/v1/talent_tiers/');
+    console.log('[API] 成功获取天资等级列表:', talentTiers);
+    return talentTiers || [];
+  } catch (error) {
+    console.error('[API] 获取天资等级失败:', error);
+    toast.error('获取天资等级失败，请检查网络或联系管理员。');
+    return [];
+  }
+}
+
+/**
+ * 从服务器获取所有出身选项
+ */
+export async function fetchOrigins(): Promise<any[]> {
+  try {
+    const origins = await request.get<any[]>('/api/v1/origins/');
+    console.log('[API] 成功获取出身列表:', origins);
+    return origins || [];
+  } catch (error) {
+    console.error('[API] 获取出身列表失败:', error);
+    toast.error('获取出身列表失败，请检查网络或联系管理员。');
+    return [];
+  }
+}
+
+/**
+ * 从服务器获取所有灵根选项
+ */
+export async function fetchSpiritRoots(): Promise<any[]> {
+  try {
+    const spiritRoots = await request.get<any[]>('/api/v1/spirit_roots/');
+    console.log('[API] 成功获取灵根列表:', spiritRoots);
+    return spiritRoots || [];
+  } catch (error) {
+    console.error('[API] 获取灵根列表失败:', error);
+    toast.error('获取灵根列表失败，请检查网络或联系管理员。');
+    return [];
+  }
+}
+
+/**
+ * 从服务器获取所有天赋选项
+ */
+export async function fetchTalents(): Promise<any[]> {
+  try {
+    const talents = await request.get<any[]>('/api/v1/talents/');
+    console.log('[API] 成功获取天赋列表:', talents);
+    return talents || [];
+  } catch (error) {
+    console.error('[API] 获取天赋列表失败:', error);
+    toast.error('获取天赋列表失败，请检查网络或联系管理员。');
+    return [];
+  }
+}
+
+/**
+ * 向后端提交角色创建信息
+ */
+export async function createCharacter(characterData: any): Promise<any> {
+  try {
+    console.log('[API] 正在向后端提交角色创建信息:', characterData);
+    const result = await request.post<any>('/api/v1/characters/create', characterData);
+    console.log('[API] 角色创建成功，后端返回:', result);
+    return result;
+  } catch (error) {
+    console.error('[API] 角色创建失败:', error);
+    toast.error('角色创建失败，请检查网络或联系管理员。');
+    throw error;
+  }
+}
+
+/**
+ * 更新角色存档数据到云端
+ */
+export async function updateCharacterSave(charId: string, saveData: any): Promise<any> {
+  try {
+    console.log('[API] 正在向云端同步存档数据:', { charId, saveData });
+    const result = await request.put<any>(`/api/v1/characters/${charId}/save`, saveData);
+    console.log('[API] 存档同步成功，后端返回:', result);
+    return result;
+  } catch (error) {
+    console.error('[API] 存档同步失败:', error);
+    toast.error('存档同步失败，请检查网络或联系管理员。');
+    throw error;
   }
 }

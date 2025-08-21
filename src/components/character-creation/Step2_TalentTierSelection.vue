@@ -67,8 +67,7 @@ import type { TalentTier } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
 import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
-import { generateTalentTierWithTavernAI } from '../../utils/tavernAI'
-import { saveGameData } from '../../utils/tavern';
+import { generateTalentTier } from '../../utils/tavernAI'
 
 interface CustomTierData {
   name: string
@@ -83,14 +82,33 @@ const isCustomModalVisible = ref(false)
 const isGeneratingAI = ref(false)
 
 const filteredTalentTiers = computed(() => {
+  const allTiers = store.creationData.talentTiers;
+  console.log("【天资选择】所有天资数据:", allTiers);
+  console.log("【天资选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
+  console.log("【天资选择】数据明细:", allTiers.map(t => ({ name: t.name, source: t.source, id: t.id })));
+  
   if (store.isLocalCreation) {
-    return store.creationData.talentTiers.filter(tier => 
-      tier.source === 'local' || tier.source === 'tavern'
+    const localTiers = allTiers.filter(tier => 
+      tier.source === 'local'
     );
+    console.log("【天资选择】本地模式天资列表:", localTiers);
+    return localTiers;
   } else {
-    return store.creationData.talentTiers.filter(tier => 
+    const cloudTiers = allTiers.filter(tier => 
       tier.source === 'cloud'
     );
+    console.log("【天资选择】联机模式天资列表:", cloudTiers);
+    console.log("【天资选择】云端天资数量:", cloudTiers.length);
+    
+    if (cloudTiers.length === 0) {
+      console.warn("【天资选择】警告：联机模式下没有找到云端天资数据！");
+      console.log("【天资选择】所有天资的source分布:", allTiers.reduce((acc: any, t) => {
+        acc[t.source] = (acc[t.source] || 0) + 1;
+        return acc;
+      }, {}));
+    }
+    
+    return cloudTiers;
   }
 });
 
@@ -124,7 +142,7 @@ async function handleCustomSubmit(data: CustomTierData) {
   
   try {
     store.addTalentTier(newTier);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectTalentTier(newTier);
     isCustomModalVisible.value = false;
     toast.success(`自定义天资 "${newTier.name}" 已保存！`);
@@ -137,9 +155,9 @@ async function handleCustomSubmit(data: CustomTierData) {
 async function _handleLocalAIGenerate() {
   isGeneratingAI.value = true
   try {
-    const newTier = await generateTalentTierWithTavernAI()
+    const newTier = await generateTalentTier()
     store.addTalentTier(newTier)
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectTalentTier(newTier)
     toast.success(`AI推演天资 "${newTier.name}" 已保存！`);
   } catch (e: any) {

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from . import seed_worlds, seed_rules, seed_talent_tiers, seed_realms
+from . import seed_worlds, seed_rules, seed_talent_tiers
 
 async def initialize_database():
     """
@@ -7,10 +7,10 @@ async def initialize_database():
     """
     print("---==[ 天道演化开始：检查并铭刻核心法则 (ORM) ]==---")
     
-    await seed_worlds.seed()
-    await seed_rules.seed() 
+    # 必须先铭刻天资等级，因为天赋依赖它
     await seed_talent_tiers.seed_talent_tiers()
-    await seed_realms.seed_realms()
+    await seed_worlds.seed()
+    await seed_rules.seed()
 
     print("---==[ 天道演化完毕 (ORM) ]==---")
 

@@ -21,7 +21,7 @@ async def get_all_characters_admin(current_admin: AdminAccount = Depends(deps.ge
     """
     from server.models import CharacterBase
     
-    characters = await CharacterBase.filter().prefetch_related('player', 'world')
+    characters = await CharacterBase.filter().prefetch_related('player')
     
     # 转换为响应格式，添加玩家名称和世界名称
     character_list = []

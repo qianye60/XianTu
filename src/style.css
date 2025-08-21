@@ -1,62 +1,77 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
-  /* --- 初始配色灵脉: "水墨青松" (日照松间) --- */
+  /* --- 更新配色灵脉: "白玉金字" (光明易读) --- */
   /* 主色调 */
-  --color-primary: #4a6c6f; /* 松烟色 - 沉静、苍翠的青绿色 */
-  --color-primary-rgb: 74, 108, 111;
-  --color-primary-hover: #5a8a8e;
-  --color-primary-active: #3a5a5d;
+  --color-primary: #b8860b; /* 暗金色 - 典雅的金色主调 */
+  --color-primary-rgb: 184, 134, 11;
+  --color-primary-hover: #daa520;
+  --color-primary-active: #996f07;
+  --color-primary-dark: #8b7209;
 
-  --color-accent: #ffdd62; /* 古铜金 - 古朴、典雅的强调色 */
-  --color-accent-hover: #d4b890;
+  --color-accent: #cd853f; /* 沙金色 - 温暖的强调色 */
+  --color-accent-rgb: 205, 133, 63;
+  --color-accent-hover: #d4af37;
 
   /* 背景与表面 */
-  --color-background: #f5f5f5; /* 宣纸白 - 带有温度的白色 */
-  --color-surface: rgba(255, 255, 255, 0.7); /* 琼华玉 - 半透明白，更显仙气 */
-  --color-surface-light: rgba(245, 245, 245, 0.6); /* 素纱玉 - 更通透的次级表面 */
+  --color-background: #ffffff; /* 纯白背景 */
+  --color-background-transparent: rgba(255, 255, 255, 0.95);
+  --color-surface: rgba(255, 255, 255, 0.9); /* 半透明白色表面 */
+  --color-surface-transparent: rgba(255, 255, 255, 0.85);
+  --color-surface-light: rgba(250, 250, 250, 0.8); /* 更通透的次级表面 */
+  --color-surface-rgb: 255, 255, 255;
 
   /* 文字与边框 */
-  --color-text: #1a1a1a; /* 纯墨 - 极致对比度 */
-  --color-text-secondary: #4d4d4d; /* 淡墨 */
-  --color-border: #e0e0e0; /* 银丝线 */
-  --color-border-hover: #adb5bd; /* 悬停时的边框色 */
+  --color-text: #8b4513; /* 深金棕色 - 主要文字 */
+  --color-text-secondary: #a0522d; /* 中金棕色 - 次要文字 */
+  --color-border: #ddd; /* 浅灰边框 */
+  --color-border-rgb: 221, 221, 221;
+  --color-border-hover: #b8860b; /* 悬停时的金色边框 */
 
   /* 功能性颜色 */
+  --color-success: #228b22; /* 森林绿 */
+  --color-success-rgb: 34, 139, 34;
+  --color-info: #4682b4; /* 钢蓝色 */
+  --color-info-rgb: 70, 130, 180;
+  --color-warning: #daa520; /* 金黄色 */
+  --color-warning-rgb: 218, 165, 32;
+  --color-error: #dc143c; /* 深红色 */
+  --color-error-rgb: 220, 20, 60;
+
   --color-spiritual: #868e96; /* 禅定灰 - 中性、平和的灰色 */
   --color-nature: #7fb069; /* 青竹色 - 保留，生机感 */
   --color-danger: #c65552; /* 朱砂色 - 保留，警示感 */
 
   /* 字体与过渡 */
-  --font-family-serif: 'Noto Serif SC', 'STSong', 'KaiTi', 'STKaiti', serif;
-  --font-family-sans-serif: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', 'Noto Serif SC', 'KaiTi', 'STKaiti', serif;
+  --font-family-sans-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --transition-fast: all 0.2s ease-in-out;
 
   /* 滚动条颜色 */
-  --scrollbar-thumb: #4b5563; /* 暗灰色滑块 */
-  --scrollbar-track: rgba(10, 15, 24, 0.5); /* 透明轨道 */
+  --scrollbar-thumb: #b8860b; /* 金色滑块 */
+  --scrollbar-track: rgba(255, 255, 255, 0.5); /* 透明轨道 */
 }
 
-/* --- 暗色主题灵脉: "月映寒潭" (通过 data-theme 属性激活) --- */
+/* --- 暗色主题灵脉: "松烟玄墨" (通过 data-theme 属性激活) --- */
 :root[data-theme='dark'] {
-/* 主色调 */
---color-primary: #88c0d0; /* 月下碧 - 冷静、清澈的淡蓝色 */
---color-primary-rgb: 136, 192, 208;
---color-primary-hover: #a0d3e2;
---color-primary-active: #6faabb;
+  /* 主色调 */
+  --color-primary: #4a6c6f; /* 松烟色 - 沉静、苍翠的青绿色 */
+  --color-primary-rgb: 74, 108, 111;
+  --color-primary-hover: #5a8a8e; /* 更亮的松烟色 */
+  --color-primary-active: #3a5a5d; /* 更深的松烟色 */
 
---color-accent: #e5c07b; /* 星辉金 - 温和、明亮的点缀 */
---color-accent-hover: #f1d592;
+  --color-accent: #d4b890; /* 赭石色 - 温暖的土黄色，与松烟色形成对比 */
+  --color-accent-hover: #e0c8a3; /* 更亮的赭石色 */
 
-/* 背景与表面 */
---color-background: #2e3440; /* 暮夜 - 更亮的背景 */
---color-surface: rgba(46, 52, 64, 0.85); /* 玄石 - 更亮的表面 */
---color-surface-light: rgba(59, 66, 82, 0.7); /* 月石 - 更亮的次级表面 */
+  /* 背景与表面 */
+  --color-background: #1a1a1a; /* 玄黑 - 深邃的黑色背景 */
+  --color-surface: rgba(30, 30, 30, 0.85); /* 墨玉 - 半透明深灰表面 */
+  --color-surface-light: rgba(45, 45, 45, 0.7); /* 青石 - 层次更浅的表面 */
 
-/* 文字与边框 */
---color-text: #e5e9f0; /* 新月 - 更明亮的文字 */
-  --color-text-secondary: #a3b1c2; /* 霜华 - 稍暗的灰色 */
-  --color-border: rgba(136, 192, 208, 0.25); /* 碧水描边 - 与主色调和谐统一 */
-  --color-border-hover: rgba(189, 174, 147, 0.5); /* 悬停时的边框色 */
+  /* 文字与边框 */
+  --color-text: #f0f0f0; /* 月白 - 柔和的白色 */
+  --color-text-secondary: #a0a0a0; /* 银灰 - 中性灰 */
+  --color-border: rgba(74, 108, 111, 0.4); /* 松烟描边 - 与主色调统一 */
+  --color-border-hover: rgba(212, 184, 144, 0.6); /* 赭石描边 - 悬停时使用强调色 */
 
   /* 功能性颜色 */
   --color-spiritual: #4a5568; /* 混沌灰 */
@@ -70,7 +85,7 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden; /* 防止宿主环境滚动条影响 */
-  font-family: var(--font-family-sans);
+  font-family: var(--font-family-serif);
   background-color: transparent; /* 移除背景色，让视频透出 */
   color: var(--color-text);
   /* 遵道友法旨，去除所有文字阴影，返璞归真。 */
@@ -471,4 +486,53 @@ body {
 
 :root[data-theme='dark'] .modal-dialog {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* --- 全局操作按钮样式 --- */
+.global-actions {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.global-actions button {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.global-actions button:hover {
+  background: var(--color-primary);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.global-actions button:active {
+  transform: scale(0.95);
+}
+
+/* 暗色主题下的按钮优化 */
+:root[data-theme='dark'] .global-actions button {
+  background: rgba(46, 52, 64, 0.8);
+  border-color: rgba(136, 192, 208, 0.3);
+}
+
+:root[data-theme='dark'] .global-actions button:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }

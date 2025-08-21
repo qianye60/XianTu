@@ -3,7 +3,28 @@
 **版本：v1.0.0 天道定稿**
 **用途：供AI理解世界规则、生成内容、判定结果之唯一典籍**
 **密级：天机·核心**
-
+还有背包物品的品级
+interface ItemQualitySystem {
+  // 品质等级（神、仙、天、地、玄、黄、凡）
+  qualities: {
+    神: { color: "#9932CC", rarity: "举世无有", glow: "紫金神光" }
+    仙: { color: "#FFD700", rarity: "顶级圣地", glow: "金色仙芒" }
+    天: { color: "#FF69B4", rarity: "超级势力", glow: "粉色天光" }
+    地: { color: "#00CED1", rarity: "地级宗门", glow: "青色地气" }
+    玄: { color: "#9370DB", rarity: "玄门秘宝", glow: "紫色玄光" }
+    黄: { color: "#FFD700", rarity: "黄级珍品", glow: "淡金黄芒" }
+    凡: { color: "#808080", rarity: "凡品", glow: "无光效" }
+  }
+  
+  // 品级（0残缺，1-3下品，4-6中品，7-9上品，10极品）
+  grades: {
+    0: "残缺 - 破损效果"
+    "1-3": "下品 - 淡色光效"
+    "4-6": "中品 - 中等光效" 
+    "7-9": "上品 - 强烈光效"
+    10: "极品 - 炫目特效"
+  }
+}
 ---
 
 ## 📖 目录
@@ -58,160 +79,7 @@
 
 ```typescript
 // 角色/NPC 完整数据结构 (Ultimate Version)
-interface Character {
-  // ==================== 基础信息 ====================
-  identity: {
-    name: string;                    // 姓名
-    title?: string;                  // 称号，如"剑狂"、"毒手药王"
-    age: number;                     // 实际年龄
-    apparent_age: number;            // 外表年龄（修士驻颜）
-    gender: string;                  // 性别
-    description: string;             // 外貌描述
-  };
 
-  // ==================== 修为境界 ====================
-  cultivation: {
-    realm: string;                   // 当前境界，如"金丹后期"
-    realm_progress: number;          // 境界进度 0-100
-    lifespan_remaining: number;      // 剩余寿元（年）
-    breakthrough_bottleneck?: string;// 突破瓶颈描述
-  };
-
-  // ==================== 六维根骨 ====================
-  attributes: {
-    STR: number;    // 力量 - 物理攻击、负重
-    CON: number;    // 体质 - 生命、防御、抗性
-    DEX: number;    // 身法 - 速度、闪避、精准
-    INT: number;    // 悟性 - 学习速度、技艺成功率
-    SPI: number;    // 神魂 - 法力、神识、法术威力
-    LUK: number;    // 气运 - 影响一切随机事件
-  };
-
-  // ==================== 三大资源 ====================
-  resources: {
-    qi: { current: number; max: number };      // 气血
-    ling: { current: number; max: number };    // 灵气
-    shen: { current: number; max: number };    // 神识
-  };
-
-  // ==================== 天赋资质 ====================
-  qualities: {
-    origin: {
-      name: string;        // 出身，如"书香门第"、"将门虎子"
-      effects: string[];   // 出身带来的影响
-    };
-    spiritRoot: {
-      name: string;        // 灵根类型，如"五行灵根"、"天道灵根"
-      quality: string;     // 品质：废灵根/伪灵根/真灵根/天灵根/仙灵根
-      attributes: string[];// 属性亲和，如["火", "雷"]
-    };
-    physique?: {
-      name: string;        // 特殊体质，如"先天道体"、"九阴绝脉"
-      effects: string[];   // 体质效果
-    };
-    talents: Array<{
-      name: string;        // 天赋名称
-      type: string;        // 类型：战斗/修炼/技艺/特殊
-      effects: string[];   // 具体效果
-    }>;
-  };
-
-  // ==================== 修仙百艺 ====================
-  skills: {
-    combat: {
-      level: number;       // 战斗技巧等级 1-10
-      specialties: string[];// 擅长武器/战法
-    };
-    alchemy: {
-      level: number;       // 炼丹等级 0-10
-      rank: string;        // 品阶：学徒/丹师/大师/宗师
-      known_recipes: string[]; // 掌握的丹方
-      success_rate: number;    // 成功率加成
-    };
-    crafting: {
-      level: number;       // 炼器等级 0-10
-      rank: string;        // 品阶
-      specialization: string; // 专精：兵器/防具/饰品/阵盘
-    };
-    formation: {
-      level: number;       // 阵法等级 0-10
-      rank: string;        // 品阶
-      known_formations: string[]; // 掌握的阵法
-    };
-    talisman: {
-      level: number;       // 符箓等级 0-10
-      rank: string;        // 品阶
-      drawing_speed: number;  // 绘制速度加成
-    };
-    beast_taming: {
-      level: number;       // 御兽等级 0-10
-      max_contracts: number;  // 最大契约数
-      affinity: string[];     // 亲和种类
-    };
-  };
-
-  // ==================== 功法装备 ====================
-  cultivation_arts: {
-    main_technique: {
-      name: string;        // 主修功法
-      rank: string;        // 品阶：凡品/玄品/地品/天品/仙品
-      proficiency: number; // 熟练度 0-100
-      special_effects: string[]; // 特殊效果
-    };
-    combat_techniques: Array<{
-      name: string;
-      type: string;        // 攻击/防御/身法/秘术
-      cost: number;        // 灵气消耗
-      cooldown: number;    // 冷却回合数
-    }>;
-    auxiliary_techniques: string[]; // 辅助功法
-  };
-
-  equipment: {
-    weapon?: Item;
-    armor?: Item;
-    accessories: Item[];   // 饰品（最多3件）
-    treasures: Item[];     // 法宝
-    consumables: Item[];   // 消耗品（丹药、符箓等）
-  };
-
-  // ==================== 社交关系 ====================
-  social: {
-    faction?: string;      // 所属势力
-    position?: string;     // 职位身份
-    master?: string;       // 师承
-    disciples?: string[];  // 弟子
-    dao_companion?: string;// 道侣
-    relationships: Record<string, {
-      value: number;       // 好感度 -100 到 100
-      type: string;        // 关系类型：仇敌/陌生/相识/好友/生死之交
-    }>;
-    reputation: Record<string, number>; // 各势力声望
-  };
-
-  // ==================== 隐藏状态 ====================
-  hidden_state: {
-    karma: {
-      righteous: number;   // 善业
-      demonic: number;     // 恶业
-      heavenly_favor: number; // 天道青睐度
-    };
-    dao_heart: {
-      stability: number;   // 道心稳固度 0-100
-      demons: string[];    // 心魔列表
-      enlightenment: number; // 悟道值
-    };
-    special_marks: string[]; // 特殊标记（如被大能关注、身负诅咒等）
-  };
-
-  // ==================== 当前状态 ====================
-  status: {
-    conditions: string[];  // 状态效果：中毒、重伤、顿悟、闭关等
-    location: string;      // 当前位置
-    activity: string;      // 当前活动：战斗/修炼/炼丹/探索等
-    mood: string;         // 情绪状态
-  };
-}
 ```
 
 ---
@@ -223,31 +91,9 @@ interface Character {
 ```typescript
 class CombatCalculator {
   /**
-   * 计算综合战力值（用于快速判断）
    */
   calculateCombatPower(character: Character): number {
-    // 1. 根骨基础值
-    const basePower = 
-      character.attributes.STR * 1.2 +
-      character.attributes.CON * 1.5 +
-      character.attributes.DEX * 1.0 +
-      character.attributes.INT * 0.8 +
-      character.attributes.SPI * 1.3 +
-      character.attributes.LUK * 0.5;
-
-    // 2. 境界加成（核心）
-    const realmMultiplier = this.getRealmMultiplier(character.cultivation.realm);
-
-    // 3. 天骄加成
-    const prodigyBonus = this.getProdigyBonus(character.qualities);
-
-    // 4. 功法品质加成
-    const techniqueBonus = this.getTechniqueBonus(character.cultivation_arts);
-
-    // 5. 法宝加成
-    const treasureBonus = this.getTreasureBonus(character.equipment);
-
-    return Math.floor(basePower * realmMultiplier * prodigyBonus * techniqueBonus * treasureBonus);
+    return ;
   }
 
   // 境界倍率表
@@ -273,40 +119,21 @@ class AlchemySystem {
    * 炼丹成功率计算
    */
   calculateSuccess(
-    alchemist: Character,
-    recipe: DanRecipe,
-    materials: Material[],
-    environment: Environment
   ): AlchemyResult {
     // 基础成功率
     let successRate = 0.5;
   
     // 1. 炼丹等级影响
-    const levelDiff = alchemist.skills.alchemy.level - recipe.difficulty;
-    successRate += levelDiff * 0.1;
   
     // 2. 悟性加成（INT）
-    successRate += alchemist.attributes.INT * 0.005;
   
     // 3. 神魂加成（SPI）- 控火需要神识
-    successRate += alchemist.attributes.SPI * 0.003;
   
     // 4. 气运影响（LUK）
-    const luckRoll = Math.random() * (alchemist.attributes.LUK / 100);
-    successRate += luckRoll;
   
     // 5. 材料品质
-    const materialQuality = this.evaluateMaterials(materials, recipe);
-    successRate *= materialQuality;
-  
-    // 6. 环境因素
-    if (environment.has_alchemy_room) successRate *= 1.2;
-    if (environment.spiritual_density > 0.7) successRate *= 1.1;
   
     // 7. 特殊天赋
-    if (alchemist.qualities.talents.some(t => t.name === "丹道天赋")) {
-      successRate *= 1.5;
-    }
   
     // 最终判定
     successRate = Math.max(0.01, Math.min(0.99, successRate));
@@ -346,31 +173,7 @@ class AlchemySystem {
   /**
    * 失败结果判定
    */
-  private determineFailure(roll: number, environment: Environment): AlchemyResult {
-    if (roll > 0.95) {
-      // 炸炉（5%概率）
-      return {
-        success: false,
-        result: "炸炉",
-        damage: Math.floor(Math.random() * 50 + 30), // 30-80点伤害
-        description: "炉鼎爆炸，你被炸得灰头土脸，丹房一片狼藉"
-      };
-    } else if (roll > 0.85) {
-      // 成毒（10%概率）
-      return {
-        success: false,
-        result: "成毒",
-        product: "毒丹",
-        description: "药性冲突，练成了毒丹，误食会中毒"
-      };
-    } else {
-      // 成废（普通失败）
-      return {
-        success: false,
-        result: "成废",
-        description: "火候不当，药材化为黑炭"
-      };
-    }
+  
   }
 }
 
@@ -400,53 +203,8 @@ class CraftingSystem {
    * 炼器成功率与品质判定
    */
   craftItem(
-    crafter: Character,
-    blueprint: Blueprint,
-    materials: Material[],
-    techniques: string[]
   ): CraftingResult {
-    // 基础成功率
-    let successRate = 0.4;
-  
-    // 1. 炼器等级
-    successRate += crafter.skills.crafting.level * 0.08;
-  
-    // 2. 力量影响（锻造需要）
-    successRate += crafter.attributes.STR * 0.002;
-  
-    // 3. 神魂影响（刻画阵纹）
-    successRate += crafter.attributes.SPI * 0.004;
-  
-    // 4. 特殊技法加成
-    techniques.forEach(tech => {
-      if (crafter.cultivation_arts.auxiliary_techniques.includes(tech)) {
-        successRate += 0.1;
-      }
-    });
-  
-    // 判定结果
-    const roll = Math.random();
-    if (roll < successRate) {
-      // 成功，判定品质和词条
-      const quality = this.determineItemQuality(successRate, crafter);
-      const attributes = this.generateItemAttributes(quality, blueprint, crafter.attributes.LUK);
-    
-      return {
-        success: true,
-        item: {
-          name: blueprint.name,
-          quality: quality,
-          attributes: attributes,
-          durability: 100
-        }
-      };
-    } else {
-      return {
-        success: false,
-        materials_lost: roll > 0.2, // 80%概率材料损失
-        crafter_injured: roll > 0.9  // 10%概率受伤
-      };
-    }
+   
   }
 
   /**

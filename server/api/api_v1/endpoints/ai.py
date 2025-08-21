@@ -88,25 +88,33 @@ async def save_ai_content(
                 world_create = schema.WorldCreate(**content_data)
                 saved_item, msg = await crud_world.create_world(world=world_create)
                 if not saved_item:
-                    raise Exception(f"创建世界失败: {msg}")
+                    raise HTTPException(status_code=400, detail=msg)
             
             elif content_type == 'origin':
+                # 假设 crud_origins.create_origin 也可能失败并返回 None
                 origin_create = schema.OriginCreate(**content_data)
                 saved_item = await crud_origins.create_origin(origin=origin_create)
-            
+                if not saved_item:
+                    raise HTTPException(status_code=400, detail=f"创建出身 '{origin_create.name}' 失败，可能名称已存在。")
+
             elif content_type == 'spirit_root':
                 spirit_root_create = schema.SpiritRootCreate(**content_data)
                 saved_item = await crud_spirit_roots.create_spirit_root(spirit_root=spirit_root_create)
-            
+                if not saved_item:
+                    raise HTTPException(status_code=400, detail=f"创建灵根 '{spirit_root_create.name}' 失败，可能名称已存在。")
+
             elif content_type == 'talent':
                 talent_create = schema.TalentCreate(**content_data)
                 saved_item = await crud_talents.create_talent(talent=talent_create)
-            
+                if not saved_item:
+                    raise HTTPException(status_code=400, detail=f"创建天赋 '{talent_create.name}' 失败，可能名称已存在。")
+
             else:
                 raise HTTPException(status_code=400, detail=f"未知的内容类型: {content_type}")
 
-            if not saved_item:
-                raise Exception("保存内容失败，未能创建记录")
+            # 此处检查是多余的，因为每个分支内部都已经处理了创建失败的情况
+            # if not saved_item:
+            #     raise Exception("保存内容失败，未能创建记录")
 
             # 3. 在所有内容成功保存后，才消耗兑换码
             result, use_message = await crud_redemption.use_code(code_str=request.code, user_id=current_user.id)

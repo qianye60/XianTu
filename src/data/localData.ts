@@ -1,333 +1,121 @@
-import type { LocalCharacter, World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+// src/data/localData.ts
+/**
+ * 本地数据服务层 (V2)
+ * 这一层是应用逻辑与底层存储实现之间的桥梁。
+ * 它封装了与 localStorageManager 的交互，为上层应用提供清晰、简单的API。
+ * 所有操作都以角色为中心。
+ */
+import { getTavernHelper } from '@/utils/tavern';
+import { loadRootData, saveRootData } from '@/utils/localStorageManager';
+import type { CharacterProfile, LocalStorageRoot } from '@/types/game';
 import { toast } from '@/utils/toast';
-import * as storage from '../utils/localStorageManager';
-
-// =======================================================================
-//                           核心数据结构定义
-// =======================================================================
-
-// =======================================================================
-
-// 单个势力的结构
-export interface Faction {
-  name: string;
-  type: string;
-  alignment: string;
-  location: string;
-  powerLevel: string;
-  description: string;
-}
-
-
-// GeoJSON 的基础类型定义，用于替代 any
-export interface GeoJSONFeature {
-  type: "Feature";
-  properties: Record<string, unknown>;
-  geometry: {
-    type: string;
-    coordinates: unknown[];
-  };
-}
-
-export interface GeoJSONFeatureCollection {
-  type: "FeatureCollection";
-  features: GeoJSONFeature[];
-}
-// 扩展后的本地角色，不再直接包含世界数据
-export interface LocalCharacterWithGameData extends LocalCharacter {
-  current_age: number; // 新增：当前年龄
-  creationChoices: {
-    origin?: Origin;
-    spiritRoot?: SpiritRoot;
-    talents?: Talent[];
-    world?: { id: number; name: string; };
-  };
-  worldData: WorldInstanceData; // 新增：坤舆图志数据
-}
-
-// 单个世界实例的演化数据 (坤舆图志)
-export interface WorldInstanceData {
-  id: number; // 对应 World.id
-  continentName: string | null;
-  continentDescription: string | null;
-  factions: Faction[];
-  mapInfo: GeoJSONFeatureCollection | null; // 用于存储未来的Leaflet地图数据 (例如 GeoJSON)
-}
-
-// 自定义的创世设定数据结构 (存储于LocalStorage)
-export type DADCustomData = {
-  worlds: World[];
-  talentTiers: TalentTier[];
-  origins: Origin[];
-  spiritRoots: SpiritRoot[];
-  talents: Talent[];
-};
-
-// 酒馆变量中存储的完整游戏数据结构
-export interface DADGameData {
-  characters: Record<number, LocalCharacterWithGameData>;
-  worldInstances: Record<number, WorldInstanceData>; // 新增：世界实例数据
-  version: string;
-  lastUpdated: string;
-}
-
-const GAME_DATA_KEY = 'DAD_gamedata';
-const CURRENT_VERSION = '1.0.0';
-
-// =======================================================================
-//                           核心数据操作函数
-// =======================================================================
 
 /**
- * 获取一个默认的、空的本地游戏数据结构
+ * 保存指定角色的游戏会话 (聊天记录)。
+ * 这是一个“快照”操作，将当前Tavern的聊天记录存入该角色的Profile中。
+ * @param characterName - 要为其保存游戏的角色的名称
+ * @returns 返回更新后的所有角色档案，以便UI可以响应式地更新。
  */
-function getEmptyGameData(): DADGameData {
-  return {
-    characters: {},
-    worldInstances: {},
-    version: CURRENT_VERSION,
-    lastUpdated: new Date().toISOString(),
-  };
-}
-
-/**
- * 从酒馆变量中加载完整的本地游戏数据
- * @returns {DADGameData}
- */
-export function loadGameData(): DADGameData {
-  try {
-    let gameDataString: string | undefined;
-    
-    // 优先使用TavernHelper API
-    if ((window.parent as any)?.TavernHelper?.getVariables) {
-      console.log('【玄光镜】使用TavernHelper API加载数据...');
-      const allGlobalVars = (window.parent as any).TavernHelper.getVariables({ type: 'global' });
-      gameDataString = allGlobalVars?.[GAME_DATA_KEY];
-    } else if (window.SillyTavern?.getContext) {
-      // 备用方案
-      console.log('【玄光镜】使用备用方案加载数据...');
-      const context = window.SillyTavern.getContext();
-      gameDataString = context.vars[GAME_DATA_KEY];
-    } else {
-      console.warn('非酒馆环境，无法加载本地数据。');
-      return getEmptyGameData();
-    }
-    
-    if (gameDataString) {
-      try {
-        const gameData = JSON.parse(gameDataString);
-        console.log('【玄光镜】成功加载游戏数据:', gameData);
-        
-        // 验证数据结构，确保必要字段存在
-        const validatedGameData: DADGameData = {
-          characters: gameData.characters || {},
-          worldInstances: gameData.worldInstances || {},
-          version: gameData.version || CURRENT_VERSION,
-          lastUpdated: gameData.lastUpdated || new Date().toISOString(),
-        };
-        
-        console.log('【玄光镜】验证后的游戏数据:', validatedGameData);
-        return validatedGameData;
-      } catch (parseError) {
-        console.error('【玄光镜】解析游戏数据失败:', parseError);
-        console.error('【玄光镜】原始数据字符串:', gameDataString);
-        toast.error('存档数据损坏，已重置为空存档。');
-        return getEmptyGameData();
-      }
-    }
-    
-    console.log('【玄光镜】未找到已保存的游戏数据，返回空数据。');
-    return getEmptyGameData();
-  } catch (error) {
-    console.error('加载本地游戏数据失败:', error);
-    toast.error('读取本地洞天存档失败，可能已损坏。');
-    return getEmptyGameData();
+export async function saveGame(characterId: string, slotId: string): Promise<LocalStorageRoot> {
+  if (!characterId || !slotId) {
+    throw new Error('必须提供角色ID和存档槽位ID才能存档。');
   }
-}
 
-/**
- * 将完整的本地游戏数据保存到酒馆变量
- * @param {DADGameData} gameData
- */
-export async function saveGameData(gameData: DADGameData): Promise<void> {
-  try {
-    gameData.lastUpdated = new Date().toISOString();
-    
-    console.log('【玄光镜】准备铭刻入酒馆洞天的数据:', JSON.parse(JSON.stringify(gameData))); // 使用深拷贝打印，避免循环引用问题干扰日志本身
-    
-    const gameDataString = JSON.stringify(gameData);
-    
-    // 使用正确的TavernHelper API来保存数据
-    if ((window.parent as any)?.TavernHelper?.insertOrAssignVariables) {
-      console.log('【玄光镜】使用TavernHelper API保存数据...');
-      await (window.parent as any).TavernHelper.insertOrAssignVariables({ [GAME_DATA_KEY]: gameDataString }, { type: 'global' });
-      console.log('【玄光镜】成功将数据铭刻于酒馆洞天（通过TavernHelper）。');
-    } else if (window.SillyTavern?.getContext) {
-      // 备用方案：如果TavernHelper不可用，尝试直接设置
-      console.log('【玄光镜】使用备用方案保存数据...');
-      const context = window.SillyTavern.getContext();
-      context.vars[GAME_DATA_KEY] = gameDataString;
-      // 尝试触发保存
-      if (context.saveGlobalVariable) {
-        await context.saveGlobalVariable(GAME_DATA_KEY, gameDataString);
-      }
-      console.log('【玄光镜】成功将数据铭刻于酒馆洞天（备用方案）。');
-    } else {
-      console.warn('非酒馆环境，无法保存本地数据。');
-      return;
-    }
-    
-  } catch (error) {
-    console.error('【玄光镜】保存本地游戏数据失败! 具体错误:', error);
-    console.error('【玄光镜】导致失败的数据结构:', gameData);
-    toast.error('本地洞天存档失败！请检查控制台获取详细错误。');
-    throw error;
+  const helper = getTavernHelper();
+  if (!helper) {
+    throw new Error('无法连接到Tavern，存档失败。');
   }
+
+  const chatSnapshot = await helper.getChatHistory();
+  if (!chatSnapshot) {
+    console.error('【本地数据】无法获取当前聊天记录，存档失败。');
+    throw new Error('无法获取当前聊天记录。');
+  }
+
+  const rootData = loadRootData();
+  const character = rootData.角色列表[characterId];
+
+  if (!character) {
+    console.error(`【本地数据】找不到ID为 "${characterId}" 的角色档案，无法存档。`);
+    throw new Error(`找不到角色: ${characterId}`);
+  }
+
+  if (character.存档列表 && character.存档列表[slotId]) {
+    // 假设聊天记录存在 SaveData 的某个地方，这里暂时放在一个临时字段
+    // @ts-expect-error - 临时存储聊天记录字段
+    character.存档列表[slotId].存档数据.聊天记录 = chatSnapshot;
+    character.存档列表[slotId].保存时间 = new Date().toISOString();
+  } else {
+    // 处理存档槽不存在的情况
+    throw new Error(`角色 ${characterId} 没有找到存档槽 ${slotId}`);
+  }
+  
+  saveRootData(rootData);
+  
+  console.log(`【本地数据】游戏已成功保存到角色: ${characterId} 的存档槽: ${slotId}`);
+  toast.success(`为角色 "${character.角色基础信息.名字}" 的存档 "${slotId}" 成功！`);
+  return rootData;
 }
 
 /**
- * 获取所有本地角色列表
- * @returns {Promise<LocalCharacterWithGameData[]>}
+ * 从指定的角色档案加载游戏会話 (聊天记录) 到Tavern。
+ * @param characterName - 要加载其存档的角色名称
  */
-export async function loadLocalCharacters(): Promise<LocalCharacterWithGameData[]> {
-    const gameData = loadGameData();
-    return Object.values(gameData.characters);
+export async function loadGame(characterId: string, slotId: string): Promise<void> {
+  const helper = getTavernHelper();
+  if (!helper) {
+    throw new Error('无法连接到Tavern，读档失败。');
+  }
+
+  const rootData = loadRootData();
+  const character = rootData.角色列表[characterId];
+
+  if (!character || !character.存档列表 || !character.存档列表[slotId] || !character.存档列表[slotId].存档数据) {
+    console.error(`【本地数据】找不到角色 "${characterId}" 的存档槽 "${slotId}"。`);
+    throw new Error(`找不到存档: ${characterId} - ${slotId}`);
+  }
+
+  // @ts-expect-error - 临时存储聊天记录字段
+  const chatHistory = character.存档列表[slotId].存档数据.聊天记录;
+  if (!chatHistory) {
+      throw new Error(`存档 ${slotId} 中没有聊天记录。`);
+  }
+
+  await helper.setChatHistory(chatHistory);
+  console.log(`【本地数据】已成功从角色 "${characterId}" 的存档槽 "${slotId}" 加载游戏。`);
+  toast.success(`已成功加载角色 "${character.角色基础信息.名字}" 的存档 "${slotId}"！`);
 }
 
 /**
- * 添加或更新一个本地角色
- * @param {LocalCharacterWithGameData} character
+ * 列出所有拥有存档的角色档案。
+ * @returns 返回一个包含所有拥有存档的角色Profile的数组。
  */
-export async function saveLocalCharacter(character: LocalCharacterWithGameData): Promise<void> {
-    try {
-        const gameData = loadGameData();
-        
-        // 确保characters对象存在
-        if (!gameData.characters) {
-            gameData.characters = {};
-        }
-        
-        gameData.characters[character.id] = character;
-        await saveGameData(gameData);
-        console.log('【玄光镜】角色数据已成功保存，ID:', character.id);
-    } catch (error) {
-        console.error('【玄光镜】保存角色数据失败:', error);
-        console.error('【玄光镜】角色数据:', character);
-        throw error; // 重新抛出错误，让调用者处理
-    }
+export function listSavedCharacters(): CharacterProfile[] {
+    const rootData = loadRootData();
+    return Object.values(rootData.角色列表).filter(profile =>
+        profile.存档列表 && Object.values(profile.存档列表).some(slot => slot.存档数据 !== null)
+    );
 }
 
 /**
- * 删除一个本地角色
- * @param {number} characterId
+ * 删除一个指定角色的存档（将其设置为null）。
+ * 这不会删除角色本身。
+ * @param characterName - 要删除其存档的角色名称
+ * @returns 返回更新后的所有角色档案，如果角色不存在则返回 undefined。
  */
-export async function deleteLocalCharacter(characterId: number): Promise<void> {
-    const gameData = loadGameData();
-    if (gameData.characters[characterId]) {
-        delete gameData.characters[characterId];
-        await saveGameData(gameData);
-    }
-}
+export function deleteSave(characterId: string, slotId: string): LocalStorageRoot | undefined {
+  const rootData = loadRootData();
+  const character = rootData.角色列表[characterId];
 
-/**
- * 清理localStorage中可能存在的重复数据
- * 这个函数用于修复历史数据问题
- */
-export function cleanupDuplicateCustomData(): void {
-    console.log('【玄光镜】开始清理重复的自定义数据...');
-    
-    // 先获取当前数据
-    const currentData = loadCustomData();
-    
-    // 去重处理
-    const cleanedData: DADCustomData = {
-        worlds: removeDuplicates(currentData.worlds, 'id', 'name'),
-        talentTiers: removeDuplicates(currentData.talentTiers, 'id', 'name'),
-        origins: removeDuplicates(currentData.origins, 'id', 'name'),
-        spiritRoots: removeDuplicates(currentData.spiritRoots, 'id', 'name'),
-        talents: removeDuplicates(currentData.talents, 'id', 'name'),
-    };
-    
-    // 检查是否有重复数据
-    const hasDuplicates = Object.keys(currentData).some(key => {
-        const originalCount = currentData[key as keyof DADCustomData].length;
-        const cleanedCount = cleanedData[key as keyof DADCustomData].length;
-        return originalCount !== cleanedCount;
-    });
-    
-    if (hasDuplicates) {
-        console.log('【玄光镜】发现重复数据，正在清理...');
-        console.log('清理前:', currentData);
-        console.log('清理后:', cleanedData);
-        
-        // 保存清理后的数据
-        storage.setItem(storage.DAD_CUSTOM_DATA_KEY, cleanedData);
-        console.log('【玄光镜】重复数据已清理完成。');
-    } else {
-        console.log('【玄光镜】未发现重复数据。');
-    }
-}
-
-/**
- * 通用去重函数
- */
-function removeDuplicates<T extends { id?: number; name?: string }>(
-    items: T[], 
-    ...keys: (keyof T)[]
-): T[] {
-    const seen = new Set<string>();
-    return items.filter(item => {
-        const key = keys.map(k => item[k]).join('|');
-        if (seen.has(key)) {
-            return false;
-        }
-        seen.add(key);
-        return true;
-    });
-}
-
-/**
- * 加载所有自定义数据 (从LocalStorage)
- */
-export function loadCustomData(): DADCustomData {
-    const data = storage.getItem<DADCustomData>(storage.DAD_CUSTOM_DATA_KEY);
-    // 如果没有数据，返回一个空的默认结构
-    return data || {
-        worlds: [],
-        talentTiers: [],
-        origins: [],
-        spiritRoots: [],
-        talents: [],
-    };
-}
-
-/**
- * 保存所有自定义数据 (到LocalStorage)
- * @param {Partial<DADCustomData>} customDataUpdate
- */
-export function saveCustomData(customDataUpdate: Partial<DADCustomData>): void {
-    const currentData = loadCustomData();
-    const newData = { ...currentData, ...customDataUpdate };
-    storage.setItem(storage.DAD_CUSTOM_DATA_KEY, newData);
-    toast.success('创世设定已保存至本地。');
-}
-
-/**
- * 加载指定ID的世界实例数据
- * @param {number} worldId
- * @returns {WorldInstanceData | null}
- */
-export function loadWorldInstance(worldId: number): WorldInstanceData | null {
-    const gameData = loadGameData();
-    return gameData.worldInstances[worldId] || null;
-}
-
-/**
- * 保存一个世界实例数据
- * @param {WorldInstanceData} worldInstance
- */
-export async function saveWorldInstance(worldInstance: WorldInstanceData): Promise<void> {
-    const gameData = loadGameData();
-    gameData.worldInstances[worldInstance.id] = worldInstance;
-    await saveGameData(gameData);
+  if (character && character.存档列表 && character.存档列表[slotId]) {
+    character.存档列表[slotId].存档数据 = null;
+    character.存档列表[slotId].保存时间 = null;
+    saveRootData(rootData);
+    console.log(`【本地数据】已删除角色 "${characterId}" 的存档槽 "${slotId}"。`);
+    toast.success(`角色 "${character.角色基础信息.名字}" 的存档 "${slotId}" 已删除。`);
+    return rootData;
+  } else {
+    console.warn(`【本地数据】尝试删除一个不存在的存档: ${characterId} - ${slotId}`);
+    return undefined;
+  }
 }

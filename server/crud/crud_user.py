@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, Tuple
+from tortoise.exceptions import IntegrityError
 from server import auth
 from server.schemas import schema
 from server.models import PlayerAccount, AdminAccount
@@ -18,26 +19,34 @@ async def get_all_players():
     """获取所有修者列表。"""
     return await PlayerAccount.all()
 
-async def update_player(player_id: int, player_data: schema.PlayerAccountUpdate):
+async def update_player(player_id: int, player_data: schema.PlayerAccountUpdate) -> Tuple[Optional[PlayerAccount], str]:
     """更新修者信息。"""
-    player = await PlayerAccount.get_or_none(id=player_id)
+    player = await get_player_by_id(player_id)
     if not player:
-        return None
-    
-    update_data = {}
-    if player_data.user_name is not None:
-        update_data["user_name"] = player_data.user_name
-    if player_data.password is not None:
-        update_data["password"] = auth.get_password_hash(player_data.password)
-    
-    if update_data:
-        await PlayerAccount.filter(id=player_id).update(**update_data)
-        # 重新获取更新后的数据
-        player = await PlayerAccount.get(id=player_id)
-    
-    return player
+        return None, "未找到指定的修者。"
 
-async def delete_player(player_id: int):
+    update_data = player_data.model_dump(exclude_unset=True)
+    if not update_data:
+        return player, "没有提供需要更新的数据。"
+
+    if "user_name" in update_data and update_data["user_name"] != player.user_name:
+        if await get_player_by_username(update_data["user_name"]):
+            return None, f"道号 '{update_data['user_name']}' 已被占用。"
+
+    try:
+        if "password" in update_data and update_data["password"]:
+            player.password = auth.get_password_hash(update_data["password"])
+        if "user_name" in update_data and update_data["user_name"]:
+            player.user_name = update_data["user_name"]
+        
+        await player.save()
+        return player, "修者信息更新成功。"
+    except IntegrityError:
+        return None, "数据冲突，更新失败。"
+    except Exception as e:
+        return None, f"数据库错误: {e}"
+
+async def delete_player(player_id: int) -> bool:
     """删除修者账号。"""
     player = await PlayerAccount.get_or_none(id=player_id)
     if player:
@@ -45,15 +54,17 @@ async def delete_player(player_id: int):
         return True
     return False
 
-async def change_password(player_id: int, new_password: str):
+async def change_password(player_id: int, new_password: str) -> Tuple[bool, str]:
     """修改修者密码。"""
+    player = await get_player_by_id(player_id)
+    if not player:
+        return False, "未找到指定的修者。"
     try:
-        hashed_password = auth.get_password_hash(new_password)
-        await PlayerAccount.filter(id=player_id).update(password=hashed_password)
-        return True
+        player.password = auth.get_password_hash(new_password)
+        await player.save()
+        return True, "密码修改成功。"
     except Exception as e:
-        print(f"!!! 修改密码失败: {e}")
-        return False
+        return False, f"修改密码失败: {e}"
 
 async def authenticate_admin(user_name: str, password: str) -> Optional[AdminAccount]:
     """
@@ -81,9 +92,10 @@ async def create_player(player_data: schema.PlayerAccountCreate):
             password=hashed_password,
         )
         return new_player, "道友接引成功！"
+    except IntegrityError:
+        return None, "数据冲突，可能道号已被占用。"
     except Exception as e:
-        print(f"!!! 创建修者账号失败: {e}")
-        return None, f"未知错误: {e}"
+        return None, f"数据库错误: {e}"
 
 # --- 仙官 (Admin) 相关 ---
 

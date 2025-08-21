@@ -1,3 +1,4 @@
+import logging
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
@@ -85,10 +86,12 @@ async def get_current_admin(token: str = Depends(admin_oauth2)) -> AdminAccount:
     """
     获取当前管理员用户（从管理员token中验证）
     """
+    logging.debug(f"接收到管理员Token: {token[:30]}...") # 打印部分token用于调试
     try:
         payload = security.decode_access_token(token)
         token_data = schema.TokenPayload(**payload)
-    except (jwt.JWTError, ValidationError):
+    except (jwt.JWTError, ValidationError) as e:
+        logging.error(f"管理员Token验证失败: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="仙官凭证无法验证，请重新登录。",

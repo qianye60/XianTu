@@ -55,7 +55,7 @@ TORTOISE_ORM = {
                 "charset": "utf8mb4",
                 "autocommit": True,
                 "connect_timeout": 30,
-                "pool_recycle": 3600,
+                "pool_recycle": 600,
                 "echo": False,
             }
         }

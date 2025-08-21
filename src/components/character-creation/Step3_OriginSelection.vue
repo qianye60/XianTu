@@ -79,8 +79,7 @@ import type { Origin } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
 import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
-import { generateOriginWithTavernAI } from '../../utils/tavernAI'
-import { saveGameData } from '../../utils/tavern';
+import { generateOrigin } from '../../utils/tavernAI'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
@@ -88,14 +87,32 @@ const isCustomModalVisible = ref(false)
 const isGeneratingAI = ref(false)
 
 const filteredOrigins = computed(() => {
+  const allOrigins = store.creationData.origins;
+  console.log("【出身选择】所有出身数据:", allOrigins);
+  console.log("【出身选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
+  
   if (store.isLocalCreation) {
-    return store.creationData.origins.filter(origin => 
-      origin.source === 'local' || origin.source === 'tavern'
+    const localOrigins = allOrigins.filter(origin => 
+      origin.source === 'local'
     );
+    console.log("【出身选择】本地模式出身列表:", localOrigins);
+    return localOrigins;
   } else {
-    return store.creationData.origins.filter(origin => 
+    const cloudOrigins = allOrigins.filter(origin => 
       origin.source === 'cloud'
     );
+    console.log("【出身选择】联机模式出身列表:", cloudOrigins);
+    console.log("【出身选择】云端出身数量:", cloudOrigins.length);
+    
+    if (cloudOrigins.length === 0) {
+      console.warn("【出身选择】警告：联机模式下没有找到云端出身数据！");
+      console.log("【出身选择】所有出身的source分布:", allOrigins.reduce((acc: any, o) => {
+        acc[o.source] = (acc[o.source] || 0) + 1;
+        return acc;
+      }, {}));
+    }
+    
+    return cloudOrigins;
   }
 });
 
@@ -128,7 +145,7 @@ async function handleCustomSubmit(data: any) {
 
   try {
     store.addOrigin(newOrigin);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectOrigin(newOrigin);
     isCustomModalVisible.value = false;
     toast.success(`自定义出身 "${newOrigin.name}" 已保存！`);
@@ -145,9 +162,9 @@ async function _handleLocalAIGenerate() {
   }
   isGeneratingAI.value = true
   try {
-    const newOrigin = await generateOriginWithTavernAI()
+    const newOrigin = await generateOrigin()
     store.addOrigin(newOrigin);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectOrigin(newOrigin);
     toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`);
   } catch (e: any) {

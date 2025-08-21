@@ -1,13 +1,12 @@
 <!-- src/views/ModeSelection.vue -->
 <template>
   <div class="mode-selection-container">
-    <video autoplay muted loop playsinline class="video-background" src="http://38.55.124.252:13145/1394774d3043156d.mp4"></video>
-    <div class="video-overlay"></div>
+    <VideoBackground />
 
     <div class="selection-content">
       <div class="title-container">
         <h1 class="main-title">大 道 朝 天</h1>
-        <span class="version-tag">V0.5 Alpha</span>
+        <span class="version-tag">V0.1 Alpha</span>
       </div>
       <p class="sub-title">大道朝天，各走一边</p>
 
@@ -48,7 +47,7 @@
 
       <!-- 隐私说明 -->
       <div class="privacy-notice">
-        <p>本境界谨遵天道法则：<strong>不存储任何对话记录</strong></p>
+        <p>本联机谨遵天道法则：<strong>不存储任何对话记录</strong></p>
         <p>仅保留法身属性、境界进度等修行要素，确保道友隐私清净无染</p>
       </div>
 
@@ -60,6 +59,8 @@
 </template>
 
 <script setup lang="ts">
+import VideoBackground from '@/components/common/VideoBackground.vue';
+
 const emit = defineEmits<{
   (e: 'start-creation', mode: 'single' | 'cloud'): void;
   (e: 'show-character-list'): void;
@@ -68,7 +69,7 @@ const emit = defineEmits<{
 const selectPath = (mode: 'single' | 'cloud') => {
   // 检测环境并给出建议
   const hasTavernAI = !!(window.parent?.TavernHelper);
-  
+
   if (mode === 'cloud' && !hasTavernAI) {
     // 联机模式但没有TavernAI环境
     const confirmed = confirm(
@@ -80,7 +81,7 @@ const selectPath = (mode: 'single' | 'cloud') => {
       return; // 用户取消，不继续
     }
   }
-  
+
   emit('start-creation', mode);
 };
 
@@ -95,7 +96,14 @@ const enterCharacterSelection = () => {
 }
 
 .selection-content {
-  /* content alignment styles are inherited */
+  /* 添加透明磨砂效果 */
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 2rem;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .title-container {
@@ -124,7 +132,7 @@ const enterCharacterSelection = () => {
   letter-spacing: 0.5em;
   color: var(--color-text);
   text-shadow: 0 0 25px rgba(var(--color-primary-rgb), 0.5);
-  margin: 0; /* Margin is now on the container */
+  margin: 0;
 }
 
 .sub-title {
@@ -147,7 +155,7 @@ const enterCharacterSelection = () => {
   flex: 1;
   max-width: 300px;
   padding: 1.5rem 1.5rem;
-  background: var(--color-surface-translucent);
+  background: var(--color-surface-transparent);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   cursor: pointer;

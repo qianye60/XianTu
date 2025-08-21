@@ -1,14 +1,6 @@
 <template>
   <div class="creation-container">
-    <video
-      autoplay
-      muted
-      loop
-      playsinline
-      class="video-background"
-      src="http://38.55.124.252:13145/1394774d3043156d.mp4"
-    ></video>
-    <div class="video-overlay"></div>
+    <VideoBackground />
     <div class="creation-scroll">
       <!-- 进度条 -->
       <div class="header-container">
@@ -18,7 +10,6 @@
           :key="step"
           class="step"
           :class="{ active: store.currentStep >= step }"
-          @click="store.goToStep(step)"
         >
           <div class="step-circle">{{ step }}</div>
           <div class="step-label">{{ stepLabels[step - 1] }}</div>
@@ -111,8 +102,11 @@
 </template>
 
 <script setup lang="ts">
+import VideoBackground from '@/components/common/VideoBackground.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
+import { useCharacterStore } from '../stores/characterStore';
 import { useUserStore } from '../stores/userStore';
+import type { CharacterProfile } from '../types/index';
 import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
 import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
 import Step3_OriginSelection from '../components/character-creation/Step3_OriginSelection.vue'
@@ -125,17 +119,15 @@ import LoadingModal from '../components/LoadingModal.vue'
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { renameCurrentCharacter, createWorldLorebookEntry, getCurrentCharacterName } from '../utils/tavern';
+import { renameCurrentCharacter, getCurrentCharacterName } from '../utils/tavern';
 
-import { saveLocalCharacter, type LocalCharacterWithGameData } from '../data/localData'
-import { calculateInitialCoreAttributes } from '../utils/characterCalculation'
 
 const props = defineProps<{
   onBack: () => void;
 }>();
 
 const emit = defineEmits<{
-  (e: 'creation-complete', payload: any): void;
+  (e: 'creation-complete', payload: CharacterProfile): void;
 }>()
 const store = useCharacterCreationStore();
 const userStore = useUserStore();
@@ -144,7 +136,25 @@ const isGenerating = ref(false)
 const loadingMessage = ref('天机推演中...')
 
 onMounted(async () => {
-  // 1. 模式已由外部 Store Action 设定，此处直接使用
+  // 1. 初始化创世神殿（确保数据已加载）
+  if (!store.isLocalCreation) {
+    // 联机模式下，确保云端数据已加载
+    const cloudWorlds = store.creationData.worlds.filter(w => w.source === 'cloud');
+    if (cloudWorlds.length === 0) {
+      console.log('【角色创建】联机模式下缺少云端世界数据，重新获取...');
+      await store.fetchAllCloudData();
+      
+      // 再次检查，如果还是没有数据则显示错误
+      const retryCloudWorlds = store.creationData.worlds.filter(w => w.source === 'cloud');
+      if (retryCloudWorlds.length === 0) {
+        toast.error('无法获取云端创世数据，请返回重试');
+        props.onBack();
+        return;
+      }
+    }
+  }
+  
+  // 2. 模式已由外部 Store Action 设定，初始化创世神殿
   await store.initializeStore(store.isLocalCreation ? 'single' : 'cloud');
 
   // 2. 获取角色名字作为默认道号 - 优先使用酒馆角色卡名字
@@ -229,26 +239,26 @@ async function executeCloudAiGeneration(code: string) {
     // 2. 开始AI生成
     loadingMessage.value = '正在推演玄妙...'
     const aiModule = await import('../utils/tavernAI');
-    let generatedContent: any = null;
+    let generatedContent: unknown = null;
     switch (type) {
         case 'world':
-            generatedContent = await aiModule.generateWorldWithTavernAI();
+            generatedContent = await aiModule.generateWorld();
             break;
         case 'talent_tier':
-            generatedContent = await aiModule.generateTalentTierWithTavernAI();
+            generatedContent = await aiModule.generateTalentTier();
             break;
         case 'origin':
             if (!store.selectedWorld) {
                 toast.error('请先选择世界！');
                 return;
             }
-            generatedContent = await aiModule.generateOriginWithTavernAI();
+            generatedContent = await aiModule.generateOrigin(store.selectedWorld);
             break;
         case 'spirit_root':
-            generatedContent = await aiModule.generateSpiritRootWithTavernAI();
+            generatedContent = await aiModule.generateSpiritRoot();
             break;
         case 'talent':
-            generatedContent = await aiModule.generateTalentWithTavernAI();
+            generatedContent = await aiModule.generateTalent();
             break;
     }
 
@@ -259,7 +269,7 @@ async function executeCloudAiGeneration(code: string) {
 
     // 3. 保存到云端
     loadingMessage.value = '正在将结果铭刻于云端...'
-    const saveResult = await request<any>('/api/v1/ai/save', {
+    const saveResult = await request<{ message: string; code_used?: number }>('/api/v1/ai/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -277,7 +287,7 @@ async function executeCloudAiGeneration(code: string) {
         toast.success('天机已成功记录于云端！')
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = error.message || '未知错误';
     if (message.includes('兑换码') || message.includes('信物')) {
       toast.error(message)
@@ -370,7 +380,7 @@ async function handleCodeSubmit(code: string) {
 }
 
 async function createCharacter() {
-  if (isGenerating.value) return; // 防止重复点击
+  if (isGenerating.value) return;
   console.log('[CharacterCreation.vue] createCharacter() called.');
 
   // 1. 数据校验
@@ -382,7 +392,6 @@ async function createCharacter() {
     toast.error('世界或天资信息不完整！');
     return;
   }
-  // 联机模式需要提前检查环境
   if (!store.isLocalCreation && !window.parent?.TavernHelper) {
     toast.error('联机模式需要在SillyTavern扩展中运行。');
     return;
@@ -392,31 +401,61 @@ async function createCharacter() {
   loadingMessage.value = '正在为您凝聚法身...';
 
   try {
-    // 2. 将最终道号同步回酒馆 (这是UI交互的一部分，可以保留)
+    // 2. 将最终道号同步回酒馆
     await renameCurrentCharacter(store.characterPayload.character_name);
 
-    // 3. 准备呈报给“创世神殿”的“仙缘录” (Payload)
-    const payload = {
-      isLocalCreation: store.isLocalCreation,
+    // 3. 构造 CharacterBaseInfo
+    const baseInfo = {
+      名字: store.characterPayload.character_name,
+      性别: store.characterPayload.gender,
+      世界: store.selectedWorld.name,
+      天资: store.selectedTalentTier.name,
+      出生: store.selectedOrigin?.name || '凡人',
+      灵根: store.selectedSpiritRoot?.name || '凡品灵根',
+      天赋: store.selectedTalents.map(t => t.name),
+      先天六司: {
+        根骨: store.attributes.root_bone,
+        灵性: store.attributes.spirituality,
+        悟性: store.attributes.comprehension,
+        气运: store.attributes.fortune,
+        魅力: store.attributes.charm,
+        心性: store.attributes.temperament,
+      },
+    };
+
+    // 5. 构造完整的创建载荷并发射creation-complete事件
+    const creationPayload = {
+      charId: `char_${Date.now()}`,
       characterName: store.characterPayload.character_name,
-      birthAge: store.characterPayload.current_age,
-      baseAttributes: { ...store.attributes },
       world: store.selectedWorld,
       talentTier: store.selectedTalentTier,
       origin: store.selectedOrigin,
       spiritRoot: store.selectedSpiritRoot,
       talents: store.selectedTalents,
-      userId: userStore.user?.id, // 传递用户ID给联机模式
+      角色基础信息: baseInfo,
+      baseAttributes: {
+        root_bone: store.attributes.root_bone,
+        spirituality: store.attributes.spirituality,
+        comprehension: store.attributes.comprehension,
+        fortune: store.attributes.fortune,
+        charm: store.attributes.charm,
+        temperament: store.attributes.temperament,
+      },
+      mode: (store.isLocalCreation ? '单机' : '联机') as '单机' | '联机',
+      age: store.characterPayload.current_age,
+      gender: store.characterPayload.gender,
     };
 
-    console.log('[CharacterCreation.vue] Emitting creation-complete event with payload:', payload);
-    emit('creation-complete', payload);
-    // isGenerating 状态将由 App.vue 在创世完成后控制
+    console.log('发射creation-complete事件，载荷:', creationPayload);
+    
+    // 发射事件让App.vue处理创建逻辑
+    emit('creation-complete', creationPayload);
 
-  } catch (error: any) {
-    console.error('准备创角数据时发生错误:', error);
-    toast.error('凝聚法身失败：' + error.message);
-    isGenerating.value = false; // 只在准备阶段发生错误时关闭加载状态
+  } catch (error: unknown) {
+    console.error('创建角色时发生严重错误:', error);
+    toast.error('凝聚法身时遭遇天劫：' + error.message);
+  } finally {
+    isGenerating.value = false;
   }
 }
 </script>
@@ -446,29 +485,8 @@ async function createCharacter() {
   align-items: center;
   position: relative;
   overflow: hidden;
-  padding: 1rem; /* 添加内边距，避免贴边 */
+  padding: 0; /* 移除内边距，充满屏幕 */
   box-sizing: border-box;
-}
-
-.video-background {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: translate(-50%, -50%);
-  z-index: -2;
-}
-
-.video-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(10, 15, 24, 0.6);
-  z-index: -1;
 }
 
 .creation-scroll {
@@ -476,7 +494,7 @@ async function createCharacter() {
   max-width: 1400px; /* 增加最大宽度 */
   height: 92vh; /* 增加高度利用率 */
   max-height: 900px; /* 增加最大高度 */
-  background: var(--color-surface-light);
+  background: var(--color-surface-transparent);
   border: 1px solid var(--color-border);
   border-radius: 15px;
   box-shadow: 0 0 40px rgba(var(--color-primary-rgb), 0.3);
@@ -504,7 +522,6 @@ async function createCharacter() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  cursor: pointer;
   opacity: 0.5;
   transition: opacity 0.3s ease;
 }
@@ -543,9 +560,17 @@ async function createCharacter() {
   flex-grow: 1;
   overflow-y: auto;
   padding: 2rem 1rem; /* 增加内边距，内容更舒适 */
-  margin: 1rem 0;
+  margin: 0; /* 移除margin避免多余空间 */
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Chrome, Safari and Opera */
+.step-content::-webkit-scrollbar {
+  display: none;
 }
 
 .navigation-buttons {
@@ -599,10 +624,6 @@ async function createCharacter() {
   50% {
     opacity: 0.6;
   }
-}
-
-button {
-  /* Now using the .btn class from style.css */
 }
 
 .code-redeem-fab {

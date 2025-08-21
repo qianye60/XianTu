@@ -1,6 +1,4 @@
 [tool.aerich]
-
-tortoise_orm = "aerich_config.TORTOISE_ORM"
-location = "./migrations"
-
+tortoise_orm = "server.aerich_config.TORTOISE_ORM"
+location = "server/migrations"
 src_folder = "./."

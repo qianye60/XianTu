@@ -70,8 +70,7 @@ import type { Talent } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
 import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
-import { generateTalentWithTavernAI } from '../../utils/tavernAI'
-import { saveGameData } from '../../utils/tavern';
+import { generateTalent } from '../../utils/tavernAI'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
@@ -82,7 +81,7 @@ const isGeneratingAI = ref(false)
 const filteredTalents = computed(() => {
   if (store.isLocalCreation) {
     return store.creationData.talents.filter(talent => 
-      talent.source === 'local' || talent.source === 'tavern'
+      talent.source === 'local'
     );
   } else {
     return store.creationData.talents.filter(talent => 
@@ -120,7 +119,7 @@ async function handleCustomSubmit(data: any) {
 
   try {
     store.addTalent(newTalent);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     isCustomModalVisible.value = false;
     toast.success(`自定义天赋 "${newTalent.name}" 已保存！`);
   } catch (e) {
@@ -152,9 +151,9 @@ function handleToggleTalent(talent: Talent) {
 async function _handleLocalAIGenerate() {
   isGeneratingAI.value = true;
   try {
-    const newTalent = await generateTalentWithTavernAI();
+    const newTalent = await generateTalent();
     store.addTalent(newTalent);
-    await saveGameData(store.creationData);
+    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     toast.success(`AI推演天赋 "${newTalent.name}" 已保存！`);
   } catch (e: any) {
     // Error handled in tavernAI

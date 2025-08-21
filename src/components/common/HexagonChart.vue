@@ -44,19 +44,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { AttributeKey } from '@/types';
-
-interface Stats {
-  root_bone: number;
-  spirituality: number;
-  comprehension: number;
-  fortune: number;
-  charm: number;
-  temperament: number;
-}
+import type { AttributeKey, InnateAttributesEnglish } from '@/types/game';
 
 const props = withDefaults(defineProps<{
-  stats: Partial<Stats>;
+  stats: Partial<InnateAttributesEnglish>;
   size?: number;
   maxValue?: number;
 }>(), {
@@ -143,7 +134,6 @@ const labels = computed(() => {
 });
 
 const getLabelAnchor = (index: number, forValue = false) => {
-    const offset = forValue ? -1 : 1;
     if (index === 0 || index === 3) return 'middle';
     if (index === 1 || index === 2) return forValue ? 'end' : 'start';
     return forValue ? 'start' : 'end';
@@ -164,40 +154,62 @@ const getLabelBaseline = (index: number, forValue = false) => {
   align-items: center;
 }
 
+/* 浅色主题 - 仙气飘渺 */
 .grid-line {
   fill: none;
-  stroke: var(--color-border);
+  stroke: #7986cb;
   stroke-width: 1;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .data-polygon {
-  fill: rgba(var(--color-primary-rgb), 0.3);
-  stroke: var(--color-primary);
+  fill: rgba(121, 134, 203, 0.2);
+  stroke: #7986cb;
   stroke-width: 2;
-  transition: points 0.3s ease-in-out;
+  transition: fill 0.3s ease;
 }
 
 .data-point {
-  fill: var(--color-primary);
-  stroke: var(--color-surface);
+  fill: #9c27b0;
+  stroke: rgba(255, 255, 255, 0.8);
   stroke-width: 2;
 }
 
 .data-value-text {
-  fill: var(--color-text);
+  fill: #5c6bc0;
   font-size: 11px;
   font-weight: bold;
-  paint-order: stroke;
-  stroke: var(--color-background);
-  stroke-width: 2px;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
+  font-family: 'SimSun', 'NSimSun', 'STSong', '宋体', serif;
 }
 
 .label-text {
-  fill: var(--color-text-secondary);
+  fill: #7986cb;
   font-size: 12px;
-  font-family: var(--font-family-sans-serif);
+  font-weight: 600;
+  font-family: 'SimSun', 'NSimSun', 'STSong', '宋体', serif;
+}
+
+/* 深色主题 - 夜空星辰 */
+[data-theme="dark"] .grid-line {
+  stroke: #64b5f6;
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .data-polygon {
+  fill: rgba(100, 181, 246, 0.2);
+  stroke: #64b5f6;
+}
+
+[data-theme="dark"] .data-point {
+  fill: #ba68c8;
+  stroke: rgba(30, 30, 60, 0.8);
+}
+
+[data-theme="dark"] .data-value-text {
+  fill: #e1e4e8;
+}
+
+[data-theme="dark"] .label-text {
+  fill: #64b5f6;
 }
 </style>

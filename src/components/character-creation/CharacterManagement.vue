@@ -1,561 +1,1775 @@
 <template>
-  <div class="character-management">
-    <div class="header">
-      <h2>选择已有法身</h2>
+  <div class="character-management-fullscreen">
+    <!-- 自定义对话框 -->
+    <div v-if="modalState.show" class="dialog-overlay" @click="handleModalCancel">
+      <div class="dialog-box" @click.stop>
+        <h3 class="dialog-title">{{ modalState.title }}</h3>
+        <p class="dialog-message">{{ modalState.message }}</p>
+        
+        <input
+          v-if="modalState.type === 'prompt'"
+          v-model="modalState.inputValue"
+          :placeholder="modalState.placeholder"
+          class="dialog-input"
+          ref="promptInput"
+        />
 
-      <div class="header-actions">
+        <div class="dialog-actions">
+          <button
+            v-if="modalState.type !== 'alert'"
+            @click="handleModalCancel"
+            class="btn-dialog-cancel"
+          >
+            取消
+          </button>
+          <button @click="handleModalConfirm" class="btn-dialog-confirm">
+            确认
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 头部 -->
+    <header class="top-header">
+      <div class="header-content">
+        <div class="header-left-side">
+          <button @click="toggleCharacterPanel" class="btn-toggle-panel">
+            <span class="hamburger-icon"></span>
+          </button>
+          <h1 class="page-title">角色管理</h1>
+        </div>
         <button @click="goBack" class="btn-back">
-          返回道途
+          <span>←</span> 返回道途
         </button>
       </div>
-    </div>
+    </header>
 
-    <!-- 封号提示 -->
-    <div v-if="userStore.user?.is_banned" class="ban-notice">
-      <h3>账号已被封禁</h3>
-      <p>您的账号已被封禁，无法访问或创建角色。如有疑问请联系管理员。</p>
-      <button @click="checkBanStatus" class="check-ban-btn">检查封禁状态</button>
-    </div>
+    <!-- 主体区域 -->
+    <main class="main-content">
+      <!-- 遮罩层 -->
+      <div v-if="isCharacterPanelOpen" class="panel-overlay" @click="toggleCharacterPanel"></div>
 
-    <!-- 角色列表 -->
-    <div v-else class="character-grid">
-      <div
-        v-for="character in characters"
-        :key="character.id"
-        class="character-card"
-        :class="{
-          'active': 'is_active' in character && character.is_active,
-          'inaccessible': 'is_accessible' in character && !character.is_accessible
-        }"
-      >
-        <div class="character-header">
-          <h3>{{ character.character_name }}</h3>
-          <div class="status-tags">
-            <span class="status-tag mode-tag" :class="`mode-${character.source}`">
-              {{ character.source === 'cloud' ? '联机共修' : '单机闭关' }}
-            </span>
-            <span v-if="character.source === 'cloud'" class="status-tag user-tag" :class="userStore.user?.is_banned ? 'status-banned' : 'status-ok'">
-              {{ userStore.user?.is_banned ? '账号封禁' : '道籍正常' }}
-            </span>
+      <!-- 无角色提示 -->
+      <div v-if="Object.keys(characterStore.rootState.角色列表).length === 0" class="empty-state">
+        <div class="empty-icon">🌟</div>
+        <h2>道途未启</h2>
+        <p>尚未创建任何法身，请返回道途开启修仙之旅</p>
+        <button @click="goBack" class="btn-create">踏入仙途</button>
+      </div>
+
+      <!-- 角色管理界面 -->
+      <div v-else class="management-layout">
+        <!-- 左侧：角色列表 -->
+        <section class="characters-panel" :class="{ 'is-open': isCharacterPanelOpen }">
+          <div class="panel-header">
+            <h2>角色列表</h2>
+            <div class="character-count">{{ allCharacterCount }} 个角色</div>
           </div>
-        </div>
 
-        <div class="character-attributes">
-          <div class="realm-info">
-            <span class="realm-tag">{{ 'realm' in character ? character.realm : '??' }}</span>
-            <span class="reputation-tag">声望: {{ 'reputation' in character ? character.reputation : '??' }}</span>
-          </div>
-          <div class="core-stats-grid">
-            <div class="stat-item">
-              <div class="stat-header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                <span class="stat-name">气血</span>
+          <div class="characters-grid">
+            <div v-for="(profile, charId) in characterStore.rootState.角色列表"
+                 :key="charId"
+                 class="character-card"
+                 :class="{
+                   'active': selectedCharId === charId,
+                   'single-mode': profile.模式 === '单机',
+                   'online-mode': profile.模式 === '联机'
+                 }"
+                 @click="selectCharacter(charId)">
+
+              <!-- 卡片头部 -->
+              <div class="card-header">
+                <div class="char-avatar" :class="profile.模式">
+                  <span class="avatar-text">{{ profile.角色基础信息.名字[0] }}</span>
+                  <div class="mode-indicator">{{ profile.模式 === '单机' ? '单' : '联' }}</div>
+                </div>
+                <div class="char-info">
+                  <h3 class="char-name">{{ profile.角色基础信息.名字 }}</h3>
+                  <div class="char-meta">
+                    <span class="world">{{ profile.角色基础信息.世界 }}</span>
+                    <span class="talent">{{ profile.角色基础信息.天资 }}</span>
+                  </div>
+                </div>
+                <div class="save-count">
+                  <span class="count">{{ getSaveCount(profile) }}</span>
+                  <span class="label">存档</span>
+                </div>
               </div>
-              <span class="stat-value">{{ 'hp' in character ? character.hp : '??' }}/{{ 'hp_max' in character ? character.hp_max : '??' }}</span>
-            </div>
-            <div class="stat-item">
-              <div class="stat-header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z"/></svg>
-                <span class="stat-name">灵气</span>
+
+              <!-- 卡片底部操作 -->
+              <div class="card-actions">
+                <button @click.stop="showCharacterDetails(charId)" class="btn-details">详情</button>
+                <button @click.stop="handleDeleteCharacter(charId)" class="btn-delete">删除</button>
               </div>
-              <span class="stat-value">{{ 'mana' in character ? character.mana : '??' }}/{{ 'mana_max' in character ? character.mana_max : '??' }}</span>
-            </div>
-            <div class="stat-item">
-              <div class="stat-header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon"><path d="M12 2a10 10 0 0 0-2 19.5A10 10 0 0 0 22 12h-2a8 8 0 0 1-8 8 8 8 0 0 1-8-8 8 8 0 0 1 8-8V2zM12 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"/></svg>
-                <span class="stat-name">神识</span>
-              </div>
-              <span class="stat-value">{{ 'spirit' in character ? character.spirit : '??' }}/{{ 'spirit_max' in character ? character.spirit_max : '??' }}</span>
-            </div>
-            <div class="stat-item">
-              <div class="stat-header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
-                <span class="stat-name">寿命</span>
-              </div>
-              <span class="stat-value">{{ 'lifespan' in character ? character.lifespan : '??' }}</span>
             </div>
           </div>
-          <div class="attribute-grid">
-            <div class="attr-item"><span class="attr-name">根骨</span><span class="attr-value">{{ character.root_bone }}</span></div>
-            <div class="attr-item"><span class="attr-name">灵性</span><span class="attr-value">{{ character.spirituality }}</span></div>
-            <div class="attr-item"><span class="attr-name">悟性</span><span class="attr-value">{{ character.comprehension }}</span></div>
-            <div class="attr-item"><span class="attr-name">气运</span><span class="attr-value">{{ character.fortune }}</span></div>
-            <div class="attr-item"><span class="attr-name">魅力</span><span class="attr-value">{{ character.charm }}</span></div>
-            <div class="attr-item"><span class="attr-name">心性</span><span class="attr-value">{{ character.temperament }}</span></div>
+        </section>
+
+        <!-- 右侧：存档详情 -->
+        <section class="saves-panel">
+          <div class="panel-header">
+            <h2>存档管理</h2>
+            <div v-if="selectedCharacter" class="selected-char-info">
+              {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}模式
+            </div>
           </div>
+
+          <!-- 未选择角色 -->
+          <div v-if="!selectedCharacter" class="no-selection">
+            <div class="no-selection-icon">📋</div>
+            <p>请选择左侧角色查看存档详情</p>
+          </div>
+
+          <!-- 单机模式存档 -->
+          <div v-else-if="selectedCharacter.模式 === '单机'" class="saves-container">
+            <div class="saves-section">
+              <!-- 自动存档区 -->
+              <div class="auto-saves-section">
+                <h3>自动存档</h3>
+                <div class="auto-saves-grid">
+                  <!-- 上次对话存档 -->
+                  <div class="save-card auto-save" 
+                       :class="{ 'has-data': selectedCharacter.存档列表?.['上次对话']?.存档数据 }"
+                       @click="handleSelect(selectedCharId!, '上次对话', !!selectedCharacter.存档列表?.['上次对话']?.存档数据)">
+                    <div v-if="selectedCharacter.存档列表?.['上次对话']?.存档数据" class="save-data">
+                      <div class="save-header">
+                        <h4 class="save-name">上次对话</h4>
+                        <div class="save-badges">
+                          <span class="realm-badge">{{ getRealmName(selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.境界) }}</span>
+                          <span class="age-badge">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
+                        </div>
+                      </div>
+
+                      <div class="save-stats">
+                        <div class="stat-grid">
+                          <div class="stat">
+                            <span class="label">气血</span>
+                            <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">灵气</span>
+                            <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">神识</span>
+                            <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">声望</span>
+                            <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.声望 || 0 }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="save-footer">
+                        <span class="location">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                        <span class="save-time">{{ formatTime(selectedCharacter.存档列表['上次对话'].保存时间) }}</span>
+                      </div>
+                    </div>
+
+                    <div v-else class="save-empty">
+                      <div class="empty-slot-icon">🤖</div>
+                      <span class="empty-text">暂无自动存档</span>
+                      <span class="auto-save-desc">对话前将自动保存</span>
+                    </div>
+                  </div>
+
+                  <!-- 快速存档 -->
+                  <div class="save-card auto-save" 
+                       :class="{ 'has-data': selectedCharacter.存档列表?.['自动存档']?.存档数据 }"
+                       @click="handleSelect(selectedCharId!, '自动存档', !!selectedCharacter.存档列表?.['自动存档']?.存档数据)">
+                    <div v-if="selectedCharacter.存档列表?.['自动存档']?.存档数据" class="save-data">
+                      <div class="save-header">
+                        <h4 class="save-name">自动存档</h4>
+                        <div class="save-badges">
+                          <span class="realm-badge">{{ getRealmName(selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.境界) }}</span>
+                          <span class="age-badge">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
+                        </div>
+                      </div>
+
+                      <div class="save-stats">
+                        <div class="stat-grid">
+                          <div class="stat">
+                            <span class="label">气血</span>
+                            <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">灵气</span>
+                            <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">神识</span>
+                            <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">声望</span>
+                            <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.声望 || 0 }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="save-footer">
+                        <span class="location">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                        <span class="save-time">{{ formatTime(selectedCharacter.存档列表['自动存档'].保存时间) }}</span>
+                      </div>
+                    </div>
+
+                    <div v-else class="save-empty">
+                      <div class="empty-slot-icon">💾</div>
+                      <span class="empty-text">暂无自动存档</span>
+                      <span class="auto-save-desc">系统自动保存</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 手动存档区 - 仅单机模式显示 -->
+              <div v-if="selectedCharacter.模式 === '单机'" class="manual-saves-section">
+                <div class="manual-saves-header">
+                  <h3>手动存档</h3>
+                  <button @click="handleCreateNewSave" class="btn-add-save">
+                    <span class="add-icon">+</span>
+                    新建存档
+                  </button>
+                </div>
+                
+                <div class="manual-saves-grid">
+                  <div v-for="(slot, slotKey) in getManualSaves(selectedCharacter)" 
+                       :key="slotKey"
+                       class="save-card manual-save"
+                       :class="{ 'has-data': slot.存档数据 }"
+                       @click="handleSelect(selectedCharId!, String(slotKey), !!slot.存档数据)">
+
+                     <div v-if="slot.存档数据" class="save-data">
+                       <div class="save-header">
+                         <h4 class="save-name">{{ slot.存档名 || slotKey }}</h4>
+                        <div class="save-actions">
+                          <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))" 
+                                  class="btn-edit-save" 
+                                  title="重命名">编</button>
+                          <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))" 
+                                  class="btn-delete-save" 
+                                  title="删除存档">删</button>
+                        </div>
+                      </div>
+
+                      <div class="save-badges">
+                        <span class="realm-badge">{{ getRealmName(slot.存档数据.玩家角色状态?.境界) }}</span>
+                        <span class="age-badge">{{ slot.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
+                      </div>
+
+                      <div class="save-stats">
+                        <div class="stat-grid">
+                          <div class="stat">
+                            <span class="label">气血</span>
+                            <span class="value">{{ slot.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">灵气</span>
+                            <span class="value">{{ slot.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">神识</span>
+                            <span class="value">{{ slot.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                          </div>
+                          <div class="stat">
+                            <span class="label">声望</span>
+                            <span class="value">{{ slot.存档数据.玩家角色状态?.声望 || 0 }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="save-footer">
+                        <span class="location">{{ slot.存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                        <span class="save-time">{{ formatTime(slot.保存时间) }}</span>
+                      </div>
+                    </div>
+
+                    <div v-else class="save-empty" @click.stop="handleSelect(selectedCharId!, String(slotKey), false)">
+                      <div class="empty-slot-icon">📁</div>
+                      <span class="empty-text">{{ slot.存档名 || slotKey }}</span>
+                      <button class="btn-create-save">开始游戏</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 联机模式存档 -->
+          <div v-else-if="selectedCharacter.模式 === '联机'" class="online-saves-container">
+            <div v-if="!isLoggedIn" class="login-prompt">
+              <div class="login-icon">🔐</div>
+              <h3>需要登录</h3>
+              <p>请先登录以管理联机角色存档</p>
+              <button @click="handleLogin" class="btn-login">登入道籍</button>
+            </div>
+
+            <div v-else-if="selectedCharacter.存档" class="online-save-card">
+              <div v-if="selectedCharacter.存档.存档数据" class="save-data">
+                <div class="save-header">
+                  <h4 class="save-name">云端存档</h4>
+                  <div class="save-badges">
+                    <span class="realm-badge">{{ getRealmName(selectedCharacter.存档.存档数据.玩家角色状态?.境界) }}</span>
+                    <span class="age-badge">{{ selectedCharacter.存档.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
+                  </div>
+                </div>
+
+                <div class="save-stats">
+                  <div class="stat-grid">
+                    <div class="stat">
+                      <span class="label">气血</span>
+                      <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                    </div>
+                    <div class="stat">
+                      <span class="label">灵气</span>
+                      <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                    </div>
+                    <div class="stat">
+                      <span class="label">神识</span>
+                      <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                    </div>
+                    <div class="stat">
+                      <span class="label">声望</span>
+                      <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.声望 || 0 }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="save-footer">
+                  <span class="location">{{ selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                  <div class="sync-info">
+                    <span class="sync-status" :class="{ 'synced': !selectedCharacter.存档.云端同步信息?.需要同步 }">
+                      {{ selectedCharacter.存档.云端同步信息?.需要同步 ? '待同步' : '已同步' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="online-actions">
+                  <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">进入游戏</button>
+                  <button v-if="selectedCharacter.存档.云端同步信息?.需要同步" class="btn-sync">同步云端</button>
+                </div>
+              </div>
+
+              <div v-else class="save-empty">
+                <div class="empty-slot-icon">☁️</div>
+                <span class="empty-text">尚未开始修行</span>
+                <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">开始游戏</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- 角色详情弹窗 -->
+    <div v-if="showDetailsModal" class="modal-overlay" @click="closeDetailsModal">
+      <div class="details-modal" @click.stop>
+        <div class="modal-header">
+          <h3>{{ detailsCharacter?.角色基础信息.名字 }} - 详细信息</h3>
+          <button @click="closeDetailsModal" class="btn-close">×</button>
         </div>
 
-        <div class="character-info">
-          <p><strong>世界:</strong> {{ getWorldName(character.world_id) }}</p>
-          <p><strong>天资:</strong> {{ getTalentTierName(character.talent_tier_id) }}</p>
-          <p><strong>创建时间:</strong> {{ formatDate(character.created_at) }}</p>
-        </div>
+        <div v-if="detailsCharacter" class="modal-content">
+          <div class="details-grid">
+            <div class="detail-section">
+              <h4>基础信息</h4>
+              <div class="detail-items">
+                <div class="detail-item">
+                  <span class="label">道号</span>
+                  <span class="value">{{ detailsCharacter.角色基础信息.名字 }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">世界</span>
+                  <span class="value">{{ detailsCharacter.角色基础信息.世界 }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">天资</span>
+                  <span class="value">{{ detailsCharacter.角色基础信息.天资 }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">出身</span>
+                  <span class="value">{{ detailsCharacter.角色基础信息.出生 }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">灵根</span>
+                  <span class="value">{{ detailsCharacter.角色基础信息.灵根 }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">模式</span>
+                  <span class="value">{{ detailsCharacter.模式 }}</span>
+                </div>
+              </div>
+            </div>
 
-        <div class="character-actions">
-          <button
-            v-if="!('is_accessible' in character) || character.is_accessible"
-            @click="selectCharacter(character)"
-            class="btn btn-select"
-          >
-            登入仙途
-          </button>
+            <div class="detail-section">
+              <h4>先天六司</h4>
+              <div class="attributes-display">
+                <HexagonChart
+                  v-if="detailsCharacter.角色基础信息.先天六司"
+                  :stats="convertToStats(detailsCharacter.角色基础信息.先天六司)"
+                  :size="150"
+                  :maxValue="10"
+                />
+              </div>
+            </div>
 
-          <button
-            v-if="character.source === 'cloud' && 'is_active' in character && !character.is_active && character.is_accessible"
-            @click="activateCharacter(character.id)"
-            class="btn btn-activate"
-          >
-            激活
-          </button>
-          <button
-            @click="setTavernCharacterName(character.character_name)"
-            class="btn btn-tavern"
-          >
-            同步酒馆
-          </button>
-          <button
-            @click="viewCharacterDetails(character)"
-            class="btn btn-details"
-          >
-            详情
-          </button>
-          <button
-            @click="deleteCharacter(character)"
-            class="btn btn-delete"
-          >
-            删除
-          </button>
-        </div>
-
-        <!-- 同步状态 (仅联机) -->
-        <div v-if="'is_active' in character && character.is_active" class="sync-status">
-          <div class="sync-info">
-            <span :class="getSyncStatusClass(character.id)">
-              {{ getSyncStatusText(character.id) }}
-            </span>
-            <button @click="syncCharacter(character.id)" class="btn-sync">
-              手动同步
-            </button>
+            <div class="detail-section">
+              <h4>天赋神通</h4>
+              <div class="talents-list">
+                <div v-if="detailsCharacter.角色基础信息.天赋?.length" class="talent-items">
+                  <span v-for="talent in detailsCharacter.角色基础信息.天赋" :key="talent" class="talent-tag">
+                    {{ talent }}
+                  </span>
+                </div>
+                <span v-else class="no-talents">暂无天赋</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-
-
-    <!-- 角色详情模态框 -->
-    <CharacterDetailsModal
-      v-if="selectedCharacter"
-      :character="selectedCharacter"
-      :worlds="staticData.worlds"
-      :talent-tiers="staticData.talentTiers"
-      @close="selectedCharacter = null"
-      @updated="loadCharacters"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { request } from '@/services/request'
-import CharacterDetailsModal from './CharacterDetailsModal.vue'
-import { useUserStore } from '@/stores/userStore'
-import type { Character, World, TalentTier, CharacterData, LocalCharacter } from '@/types'
-import { loadLocalCharacters, deleteLocalCharacter } from '@/data/localData'
-import { toast } from '@/utils/toast'
+import { computed, ref, nextTick } from 'vue';
+import { useCharacterStore } from '@/stores/characterStore';
+import { verifyStoredToken } from '@/services/request';
+import HexagonChart from '@/components/common/HexagonChart.vue';
+import type { CharacterProfile, SaveSlot } from '@/types/game';
 
 const emit = defineEmits<{
-  (e: 'select', character: CharacterData): void;
+  (e: 'select', data: { charId: string, slotKey: string }): void;
   (e: 'back'): void;
+  (e: 'login'): void;
 }>()
 
-const staticData = ref<{ worlds: World[], talentTiers: TalentTier[] }>({ worlds: [], talentTiers: [] })
-const userStore = useUserStore()
-const characters = ref<CharacterData[]>([])
-const selectedCharacter = ref<CharacterData | null>(null)
-const syncStates = ref<Map<number, { has_unsaved_data: boolean, last_sync_time?: string }>>(new Map())
+const characterStore = useCharacterStore();
+const isLoggedIn = ref(false);
+const selectedCharId = ref<string | null>(null);
+const showDetailsModal = ref(false);
+const detailsCharacter = ref<CharacterProfile | null>(null);
+const promptInput = ref<HTMLInputElement | null>(null);
+const isCharacterPanelOpen = ref(false);
 
-const loadStaticData = async () => {
-  try {
-    const [worlds, talentTiers] = await Promise.all([
-      request.get<World[]>('/api/v1/worlds/'),
-      request.get<TalentTier[]>('/api/v1/talent_tiers/')
-    ])
-    staticData.value = { worlds, talentTiers }
-  } catch (error) {
-    console.error('加载静态数据失败:', error)
-    toast.error('世界法则加载失败，部分信息可能无法显示。')
-  }
-}
+// 自定义对话框状态
+const modalState = ref({
+  show: false,
+  type: 'alert' as 'alert' | 'confirm' | 'prompt',
+  title: '',
+  message: '',
+  inputValue: '',
+  placeholder: '',
+  onConfirm: (value?: string) => {},
+  onCancel: () => {}
+});
 
-const loadCharacters = async () => {
-  const allCharacters: CharacterData[] = [];
 
-  const [localResult, cloudResult] = await Promise.allSettled([
-    loadLocalCharacters(),
-    request.get<Character[]>('/api/v1/characters/my')
-  ]);
+// 检查登录状态
+verifyStoredToken().then(result => {
+  isLoggedIn.value = result;
+});
 
-  if (localResult.status === 'fulfilled') {
-    const localChars = localResult.value.map(c => ({ ...c, source: 'local' as const }));
-    allCharacters.push(...localChars);
+// 计算属性
+const allCharacterCount = computed(() => Object.keys(characterStore.rootState.角色列表).length);
+
+const selectedCharacter = computed(() => {
+  if (!selectedCharId.value) return null;
+  return characterStore.rootState.角色列表[selectedCharId.value];
+});
+
+// 方法
+const toggleCharacterPanel = () => {
+  isCharacterPanelOpen.value = !isCharacterPanelOpen.value;
+};
+
+const selectCharacter = (charId: string) => {
+  selectedCharId.value = charId;
+  isCharacterPanelOpen.value = false; // 在移动端选择后自动关闭面板
+};
+
+const getSaveCount = (profile: CharacterProfile) => {
+  if (profile.模式 === '单机') {
+    const saves = Object.values(profile.存档列表 || {}).filter((slot: SaveSlot) => slot.存档数据);
+    return saves.length;
   } else {
-    console.error('加载本地角色失败:', localResult.reason);
-    toast.error('本地洞府存档加载失败。');
+    return profile.存档?.存档数据 ? 1 : 0;
   }
+};
 
-  if (cloudResult.status === 'fulfilled') {
-    const cloudChars = cloudResult.value.map(c => ({ ...c, source: 'cloud' as const }));
-    allCharacters.push(...cloudChars);
-    const activeCharacter = cloudResult.value.find(c => c.is_active);
-    if (activeCharacter) {
-      await setTavernCharacterName(activeCharacter.character_name, true);
-      await loadSyncStatus(activeCharacter.id);
+const showCharacterDetails = (charId: string) => {
+  detailsCharacter.value = characterStore.rootState.角色列表[charId];
+  showDetailsModal.value = true;
+};
+
+const closeDetailsModal = () => {
+  showDetailsModal.value = false;
+  detailsCharacter.value = null;
+};
+
+const handleSelect = async (charId: string, slotKey: string, hasData: boolean) => {
+  // 如果点击的是有数据的存档，或者空存档里的“开始游戏”按钮，则直接进入
+  if (hasData || !hasData) { // 逻辑简化：按钮点击已通过 @click.stop 和特定参数处理
+    const character = characterStore.rootState.角色列表[charId];
+    // 对于空存档，点击卡片本身不触发，只有点击内部按钮才触发
+    if (!hasData) {
+      // 这是一个新游戏
+      showConfirm(
+        '开启新征程',
+        `是否在存档位 "${slotKey}" 开始一段新的修行？`,
+        async () => {
+          await characterStore.setActiveCharacterInTavern(charId);
+          emit('select', { charId, slotKey });
+        }
+      );
+      return;
     }
-  } else {
-    console.error('加载云端角色失败:', cloudResult.reason);
-    toast.warning('云端角色同步失败，可能无法连接仙界。');
+    // 对于有数据的存档，直接进入
+    await characterStore.setActiveCharacterInTavern(charId);
+    emit('select', { charId, slotKey });
   }
+  // 点击空存档的卡片区域（非按钮）将不执行任何操作
+};
 
-  characters.value = allCharacters;
-}
-
-const loadSyncStatus = async (characterId: number) => {
-  try {
-    const data = await request.get<{ has_unsaved_data: boolean, last_sync_time?: string }>(`/api/v1/characters/${characterId}/sync_status`)
-    syncStates.value.set(characterId, data)
-  } catch (error) {
-    console.error(`加载角色 ${characterId} 同步状态失败:`, error)
-  }
-}
-
-const activateCharacter = async (characterId: number) => {
-  try {
-    await request.post(`/api/v1/characters/${characterId}/activate`)
-    await loadCharacters()
-  } catch (error) {
-    console.error('激活角色失败:', error)
-  }
-}
-
-const syncCharacter = async (characterId: number) => {
-  try {
-    await request.post(`/api/v1/characters/${characterId}/sync`)
-    await loadSyncStatus(characterId)
-    toast.success('同步成功！')
-  } catch (error) {
-    console.error('同步失败:', error)
-    toast.error('同步失败！')
-  }
-}
-
-const deleteCharacter = async (character: CharacterData) => {
-  if (confirm(`确定要删除角色"${character.character_name}"吗？此操作不可恢复。`)) {
-    if (character.source === 'local') {
-      await deleteLocalCharacter(character.id);
-      toast.success('本地角色已删除。');
-    } else {
-      try {
-        await request.delete(`/api/v1/characters/${character.id}`)
-        toast.success('云端角色已删除。');
-      } catch (error) {
-        console.error('删除角色失败:', error)
+const handleDeleteCharacter = (charId: string) => {
+  const charName = characterStore.rootState.角色列表[charId]?.角色基础信息.名字;
+  showConfirm(
+    '删除角色',
+    `确定要彻底删除角色"${charName}"及其所有修行记录吗？此操作不可恢复。`,
+    () => {
+      characterStore.deleteCharacter(charId);
+      if (selectedCharId.value === charId) {
+        selectedCharId.value = null;
       }
     }
-    // 无论成功与否，都重新加载以刷新列表
-    await loadCharacters();
-  }
-}
+  );
+};
 
-const checkBanStatus = async () => {
-  try {
-    const response = await request.get<{ message: string, is_banned: boolean }>('/api/v1/ban/check_ban_status')
-    if (!response.is_banned) {
-      await userStore.loadUserInfo()
+const handleDeleteSave = (charId: string, slotKey: string) => {
+  const charName = characterStore.rootState.角色列表[charId]?.角色基础信息.名字;
+  const saveName = slotKey === '上次对话' ? '上次对话存档' : slotKey === '自动存档' ? '自动存档' : slotKey;
+  
+  showConfirm(
+    '删除存档',
+    `确定要删除角色"${charName}"的"${saveName}"吗？此操作不可恢复。`,
+    () => {
+      characterStore.deleteSave(charId, slotKey);
     }
-  } catch (error) {
-    console.error('检查封禁状态失败:', error)
-  }
-}
+  );
+};
 
-const viewCharacterDetails = (character: CharacterData) => {
-  selectedCharacter.value = character
-}
+const getManualSaves = (character: CharacterProfile | null) => {
+  if (!character?.存档列表) return {};
+  
+  const manualSaves: Record<string, any> = {};
+  
+  // 过滤出手动存档（排除自动存档）
+  Object.entries(character.存档列表).forEach(([key, value]) => {
+    if (key !== '上次对话' && key !== '自动存档') {
+      manualSaves[key] = value;
+    }
+  });
+  
+  return manualSaves;
+};
 
-const setTavernCharacterName = async (characterName: string, silent = false) => {
-  if (window.SillyTavern?.executeSlashCommands) {
-    try {
-      await window.SillyTavern.executeSlashCommands(`/rename-char ${characterName}`)
-      if (!silent) {
-        // toast(`酒馆角色名已设置为: ${characterName}`)
-      }
-      console.log(`酒馆角色名已设置为: ${characterName}`)
-    } catch (error) {
-      console.error('设置酒馆角色名失败:', error)
-      if (!silent) {
-        // toast.error('设置酒馆角色名失败')
+const handleCreateNewSave = () => {
+  if (!selectedCharId.value) return;
+  
+  showPrompt(
+    '新建存档',
+    '请输入存档名称：',
+    '',
+    '例如：初入江湖',
+    (saveName) => {
+      if (saveName && saveName.trim()) {
+        const cleanName = saveName.trim();
+        
+        if (selectedCharacter.value?.存档列表?.[cleanName]) {
+          showAlert('创建失败', '存档名称已存在，请使用其他名称。');
+          return;
+        }
+        
+        characterStore.createNewSave(selectedCharId.value!, cleanName);
       }
     }
-  } else if (!silent) {
-    // toast.warn('请在SillyTavern环境中使用此功能')
-  }
-}
+  );
+};
 
-
-const selectCharacter = (character: CharacterData) => {
-  emit('select', character)
-}
+const handleEditSaveName = (charId: string, slotKey: string) => {
+  const currentSave = characterStore.rootState.角色列表[charId]?.存档列表?.[slotKey];
+  const currentName = currentSave?.存档名 || slotKey;
+  
+  showPrompt(
+    '重命名存档',
+    '请输入新的存档名称：',
+    currentName,
+    '',
+    (newName) => {
+      if (newName && newName.trim() && newName.trim() !== currentName) {
+        const cleanName = newName.trim();
+        
+        const existingSaves = characterStore.rootState.角色列表[charId]?.存档列表;
+        if (existingSaves && cleanName !== slotKey && existingSaves[cleanName]) {
+          showAlert('重命名失败', '存档名称已存在，请使用其他名称。');
+          return;
+        }
+        
+        characterStore.renameSave(charId, slotKey, cleanName);
+      }
+    }
+  );
+};
 
 const goBack = () => {
-  emit('back')
-}
+  emit('back');
+};
 
-const getSyncStatusClass = (characterId: number) => {
-  const state = syncStates.value.get(characterId)
-  if (!state) return 'sync-unknown'
-  return state.has_unsaved_data ? 'sync-dirty' : 'sync-clean'
-}
+const handleLogin = () => {
+  emit('login');
+};
 
-const getSyncStatusText = (characterId: number) => {
-  const state = syncStates.value.get(characterId)
-  if (!state) return '同步状态未知'
-  return state.has_unsaved_data ? '有未保存数据' : '已同步'
-}
+// 境界名称映射
+const getRealmName = (realm: unknown): string => {
+  let level: number;
 
-// 辅助函数
-const getWorldName = (worldId: number) => {
-  return staticData.value.worlds.find(w => w.id === worldId)?.name || `未知世界`
-}
+  if (typeof realm === 'object' && realm !== null) {
+    level = (realm as Record<string, unknown>).level as number ||
+           (realm as Record<string, unknown>).等级 as number ||
+           (realm as Record<string, unknown>).境界 as number || 0;
+  } else if (typeof realm === 'number') {
+    level = realm;
+  } else {
+    level = parseInt(String(realm)) || 0;
+  }
 
-const getTalentTierName = (tierId: number) => {
-  return staticData.value.talentTiers.find(t => t.id === tierId)?.name || `未知天资`
-}
+  const realms = [
+    '凡人', '炼气', '筑基', '金丹', '元婴',
+    '化神', '炼虚', '合体', '渡劫期'
+  ];
+  return realms[level] || `境界${level}`;
+};
 
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('zh-CN')
-}
+// 格式化时间
+const formatTime = (timeStr: string | null): string => {
+  if (!timeStr) return '未保存';
+  const date = new Date(timeStr);
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
-const formatPlayTime = (minutes: number) => {
-  if (minutes < 60) return `${minutes}分钟`
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  return `${hours}小时${mins}分钟`
-}
+// 转换先天六司
+const convertToStats = (innateAttrs: Record<string, number>) => {
+  return {
+    root_bone: innateAttrs['根骨'] || 0,
+    spirituality: innateAttrs['灵性'] || 0,
+    comprehension: innateAttrs['悟性'] || 0,
+    fortune: innateAttrs['气运'] || 0,
+    charm: innateAttrs['魅力'] || 0,
+    temperament: innateAttrs['心性'] || 0
+  };
+};
 
-onMounted(async () => {
-  await userStore.loadUserInfo()
-  await loadStaticData()
-  await loadCharacters()
-})
+// --- 自定义对话框逻辑 ---
+
+const showAlert = (title: string, message: string, onConfirm?: () => void) => {
+  modalState.value = {
+    show: true,
+    type: 'alert',
+    title,
+    message,
+    inputValue: '',
+    placeholder: '',
+    onConfirm: () => {
+      if (onConfirm) onConfirm();
+      closeModal();
+    },
+    onCancel: closeModal
+  };
+};
+
+const showConfirm = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
+  modalState.value = {
+    show: true,
+    type: 'confirm',
+    title,
+    message,
+    inputValue: '',
+    placeholder: '',
+    onConfirm: () => {
+      onConfirm();
+      closeModal();
+    },
+    onCancel: () => {
+      if (onCancel) onCancel();
+      closeModal();
+    }
+  };
+};
+
+const showPrompt = (title: string, message: string, initialValue = '', placeholder = '', onConfirm: (value: string) => void, onCancel?: () => void) => {
+  modalState.value = {
+    show: true,
+    type: 'prompt',
+    title,
+    message,
+    inputValue: initialValue,
+    placeholder,
+    onConfirm: (value) => {
+      onConfirm(value || '');
+      closeModal();
+    },
+    onCancel: () => {
+      if (onCancel) onCancel();
+      closeModal();
+    }
+  };
+  nextTick(() => {
+    promptInput.value?.focus();
+  });
+};
+
+const handleModalConfirm = () => {
+  modalState.value.onConfirm(modalState.value.inputValue);
+};
+
+const handleModalCancel = () => {
+  modalState.value.onCancel();
+};
+
+const closeModal = () => {
+  modalState.value.show = false;
+};
 </script>
 
 <style scoped>
-.character-management {
-  padding: 20px;
-  border-radius: 2rem;
-  min-width: 80vw;
-  border: 2px rgba(187, 154, 247, 0.5);
-  background-color: #1a1b26;
-  background-image: radial-gradient(circle at 10% 10%, rgba(122, 162, 247, 0.05), transparent 30%),
-                    radial-gradient(circle at 90% 80%, rgba(187, 154, 247, 0.05), transparent 30%);
-  color: #c0caf5;
-  min-height: 80vh;
+/* --- 自定义对话框样式 --- */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 20, 30, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  transition: opacity 0.3s ease;
 }
 
-.header {
+.dialog-box {
+  background: var(--color-surface-transparent);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  color: var(--color-text);
+  transform: scale(0.95);
+  opacity: 0;
+  animation: dialog-fade-in 0.3s forwards;
+}
+
+@keyframes dialog-fade-in {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.dialog-title {
+  font-size: 1.5rem;
+  color: var(--color-accent);
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.dialog-message {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: var(--color-background-transparent);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.dialog-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.btn-dialog-confirm,
+.btn-dialog-cancel {
+  padding: 0.6rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-dialog-confirm {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-dialog-confirm:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+}
+
+.btn-dialog-cancel {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn-dialog-cancel:hover {
+  background: var(--color-background);
+}
+
+
+/* 全屏布局 */
+.character-management-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--color-background-transparent);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 头部 */
+.top-header {
+  flex-shrink: 0;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(15px);
+  border-bottom: 1px solid var(--color-border);
+  padding: 1rem 2rem;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
-}
-.header h2 {
-  color: #bb9af7;
-  text-shadow: 0 0 5px rgba(187, 154, 247, 0.5);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.header-actions { display: flex; align-items: center; gap: 1rem; }
+.header-left-side {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 
-.create-character-btn, .btn-back {
-  background: linear-gradient(135deg, #c43ffc 0%, hsl(276, 100%, 24%) 100%);
+.page-title {
+  font-size: 1.8rem;
+  color: var(--color-accent);
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.btn-back {
+  padding: 0.6rem 1.2rem;
+  background: var(--color-primary);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 10px 20px;
-  border-radius: 8px;
+  border: 1px solid var(--color-primary);
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
 }
-.create-character-btn:hover, .btn-back:hover {
-  box-shadow: 0 0 15px rgba(129, 129, 129, 0.785);
+
+.btn-back:hover {
+  background: var(--color-primary-dark);
   transform: translateY(-2px);
 }
-.create-character-btn:disabled {
-  background: #414868;
-  color: #565f89;
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
 
-.ban-notice {
-  background: rgba(247, 118, 142, 0.1);
-  border: 1px solid #f7768e;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-  color: #f7768e;
-}
-
-.character-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
-}
-
-.character-card {
-  border: 1px solid transparent;
-  background-image: linear-gradient(#24283b, #24283b), linear-gradient(135deg, #414868, #7aa2f7);
-  background-origin: border-box;
-  background-clip: content-box, border-box;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  transition: all 0.3s ease;
-  color: #c0caf5;
+/* 主体内容 */
+.main-content {
+  flex: 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.character-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(122, 162, 247, 0.3);
-  background-image: linear-gradient(#24283b, #24283b), linear-gradient(135deg, #7aa2f7, #bb9af7);
-}
-.character-card.active {
-  background-image: linear-gradient(#24283b, #24283b), linear-gradient(135deg, #9ece6a, #e0af68);
-  box-shadow: 0 0 20px rgba(158, 206, 106, 0.4);
-}
 
-.character-header {
+/* 空状态 */
+.empty-state {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 15px;
-}
-.character-header h3 {
-  color: #e0af68;
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  text-shadow: 0 0 8px rgba(224, 175, 104, 0.5);
-}
-
-.status-tags { display: flex; gap: 0.5rem; flex-shrink: 0; }
-.status-tag {
-  padding: 0.2rem 0.6rem;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: white;
-}
-.mode-tag.mode-multi { background: linear-gradient(135deg, #2196f3, #21cbf3); }
-.mode-tag.mode-single { background: linear-gradient(135deg, #4caf50, #81c784); }
-.user-tag.status-ok { background: #78909c; }
-.user-tag.status-banned { background: #f7768e; }
-
-.character-attributes { margin-bottom: 15px; }
-.realm-info {
-  display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid;
-  border-image-slice: 1;
-  border-image-source: linear-gradient(to right, transparent, #414868, transparent);
-}
-.realm-tag {
-  background-color: #bb9af7;
-  color: #1a1b26;
-  padding: 4px 10px;
-  border-radius: 15px;
-  font-weight: bold;
-}
-.reputation-tag { color: #e0af68; font-size: 14px; }
-
-.core-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(30, 32, 46, 0.8);
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-.stat-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.stat-icon {
-  color: #7aa2f7;
-  flex-shrink: 0;
-}
-.stat-name { color: #a9b1d6; }
-.stat-value { font-weight: 600; color: #c0caf5; font-family: 'Consolas', 'monospace'; }
-
-.attribute-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.attr-item { display: flex; justify-content: space-between; padding: 5px 8px; background: #1e202e; border-radius: 4px; font-size: 13px; }
-.attr-name { color: #787c99; }
-.attr-value { font-weight: 600; color: #c0caf5; }
-
-.character-info {
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid;
-  border-image-slice: 1;
-  border-image-source: linear-gradient(to right, transparent, #414868, transparent);
-}
-.character-info p { margin: 4px 0; font-size: 13px; color: #a9b1d6; }
-.character-info strong { color: #787c99; }
-
-.character-actions { display: flex; gap: 10px; margin-top: auto; flex-wrap: wrap; }
-.btn {
-  flex-grow: 1;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #414868;
-  cursor: pointer;
-  font-weight: 500;
+  justify-content: center;
   text-align: center;
-  transition: all 0.2s ease;
-  font-size: 13px;
+  padding: 2rem;
 }
-.btn-select {
-  background: linear-gradient(135deg, #9ece6a, #b9f27c);
-  color: #1a1b26;
-  border-color: #9ece6a;
-  box-shadow: 0 2px 10px rgba(158, 206, 106, 0.3);
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
 }
-.btn-select:hover {
-  box-shadow: 0 4px 15px rgba(185, 242, 124, 0.5);
+
+.empty-state h2 {
+  color: var(--color-accent);
+  margin-bottom: 0.5rem;
+}
+
+.btn-create {
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, var(--color-success), var(--color-info));
+  color: white;
+  border: 1px solid var(--color-success);
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.3s;
+}
+
+.btn-create:hover {
   transform: scale(1.05);
 }
-.btn-activate { background: #7aa2f7; color: #1a1b26; }
-.btn-tavern { background: #e0af68; color: #1a1b26; }
-.btn-details { background: #414868; color: #c0caf5; }
-.btn-details:hover { background: #565f89; }
-.btn-delete { background: #f7768e; color: #1a1b26; }
 
-.sync-status { margin-top: 15px; padding-top: 15px; border-top: 1px solid #414868; }
-.sync-info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-.sync-clean { color: #9ece6a; }
-.sync-dirty { color: #e0af68; }
-.btn-sync {
-  background: none;
-  border: 1px solid #787c99;
-  color: #a9b1d6;
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 4px;
+/* 管理布局 */
+.management-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* 面板通用样式 */
+.panel-header {
+  padding: 1.5rem 2rem;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.character-count, .selected-char-info {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+/* 左侧角色面板 */
+.characters-panel {
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(15px);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.characters-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+/* 角色卡片 */
+.character-card {
+  background: var(--color-background-transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
   cursor: pointer;
+  transition: all 0.3s ease;
+  color: var(--color-text);
+}
+
+.character-card:hover {
+  border-color: var(--color-primary);
+  transform: translateX(6px);
+  box-shadow: 0 6px 20px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.character-card.active {
+  border-color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.1);
+  transform: translateX(6px);
+}
+
+.character-card.single-mode {
+  border-left: 4px solid var(--color-success);
+}
+
+.character-card.online-mode {
+  border-left: 4px solid var(--color-primary);
+}
+
+/* 卡片头部 */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.char-avatar {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-success), var(--color-info));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.char-avatar.联机 {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+}
+
+.mode-indicator {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(102, 101, 101, 0.342);
+  color: var(--color-warning);
+  border-radius: 50%;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.char-info {
+  flex: 1;
+}
+
+.char-name {
+  margin: 0 0 0.3rem 0;
+  font-size: 1.1rem;
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.char-meta {
+  display: flex;
+  gap: 0.8rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.save-count {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.save-count .count {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.save-count .label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+/* 卡片操作 */
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.btn-details, .btn-delete {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s;
+}
+
+.btn-details {
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-info);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
+}
+
+.btn-details:hover {
+  background: rgba(var(--color-info-rgb), 0.2);
+}
+
+.btn-delete {
+  background: rgba(var(--color-error-rgb), 0.1);
+  color: var(--color-error);
+  border: 1px solid rgba(var(--color-error-rgb), 0.3);
+}
+
+.btn-delete:hover {
+  background: rgba(var(--color-error-rgb), 0.2);
+}
+
+/* 右侧存档面板 */
+.saves-panel {
+  background: var(--color-background-transparent);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 无选择状态 */
+.no-selection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.no-selection-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* 存档容器 */
+.saves-container, .online-saves-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem;
+  max-height: calc(100vh - 200px);
+}
+
+.saves-section {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+}
+
+.manual-saves-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.manual-saves-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.manual-saves-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.manual-saves-grid::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 3px;
+}
+
+.manual-saves-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
+}
+
+.auto-saves-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* 存档卡片 */
+.save-card, .online-save-card {
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: var(--color-text);
+}
+
+.save-card:hover, .online-save-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.save-card.has-data {
+  border-left: 4px solid var(--color-success);
+}
+
+/* 存档数据 */
+.save-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.save-name {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.save-badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.realm-badge, .age-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.realm-badge {
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+}
+
+.age-badge {
+  background: rgba(var(--color-accent-rgb), 0.15);
+  color: var(--color-accent);
+}
+
+/* 存档统计 */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.stat .label {
+  color: var(--color-text-secondary);
+}
+
+.stat .value {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 存档底部 */
+.save-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.sync-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.sync-status.synced {
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+}
+
+/* 空存档 */
+.save-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-secondary);
+  min-height: 120px;
+}
+
+.empty-slot-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
+}
+
+.empty-text {
+  margin-bottom: 0.8rem;
+}
+
+.btn-create-save, .btn-start, .btn-play, .btn-sync {
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s;
+}
+
+.btn-create-save:hover, .btn-start:hover, .btn-play:hover, .btn-sync:hover {
+  background: var(--color-primary-dark);
+}
+
+/* 自动存档区域 */
+.auto-saves-section {
+  margin-bottom: 2rem;
+}
+
+.auto-saves-section h3 {
+  margin: 0 0 1rem 0;
+  color: var(--color-warning);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.auto-saves-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* 手动存档区域 */
+.manual-saves-section {
+  margin-bottom: 1rem;
+}
+
+.manual-saves-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.manual-saves-header h3 {
+  margin: 0;
+  color: var(--color-warning);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.btn-add-save {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-success);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s;
+}
+
+.btn-add-save:hover {
+  background: var(--color-success-dark);
+  transform: translateY(-1px);
+}
+
+.add-icon {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.manual-saves-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+/* 存档操作按钮 */
+.save-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-edit-save,
+.btn-delete-save {
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-edit-save {
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-color: rgba(var(--color-info-rgb), 0.3);
+  color: var(--color-info);
+}
+
+.btn-edit-save:hover {
+  background: rgba(var(--color-info-rgb), 0.2);
+  border-color: rgba(var(--color-info-rgb), 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(var(--color-info-rgb), 0.2);
+}
+
+.btn-delete-save {
+  background: rgba(var(--color-error-rgb), 0.1);
+  border-color: rgba(var(--color-error-rgb), 0.3);
+  color: var(--color-error);
+}
+
+.btn-delete-save:hover {
+  background: rgba(var(--color-error-rgb), 0.2);
+  border-color: rgba(var(--color-error-rgb), 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(var(--color-error-rgb), 0.2);
+}
+
+.auto-save-desc {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-top: 0.3rem;
+}
+.online-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* 登录提示 */
+.login-prompt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.login-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.btn-login {
+  padding: 0.8rem 1.5rem;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+/* 详情弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.details-modal {
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(20px);
+  border-radius: 15px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: var(--color-accent);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  padding: 2rem;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.detail-section {
+  background: linear-gradient(135deg, 
+    rgba(var(--color-primary-rgb), 0.08), 
+    rgba(var(--color-accent-rgb), 0.06)
+  );
+  border: 1px solid rgba(var(--color-primary-rgb), 0.15);
+  border-radius: 10px;
+  padding: 1.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.detail-section h4 {
+  margin: 0 0 1rem 0;
+  color: var(--color-warning);
+}
+
+.detail-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.3);
+}
+
+.detail-item .label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.detail-item .value {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.attributes-display {
+  display: flex;
+  justify-content: center;
+}
+
+.talents-list {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.talent-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.talent-tag {
+  background: rgba(var(--color-accent-rgb), 0.15);
+  color: var(--color-accent);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.no-talents {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  text-align: center;
+}
+
+.btn-toggle-panel {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger-icon {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--color-text);
+  position: relative;
+  transition: background 0.2s;
+}
+.hamburger-icon::before,
+.hamburger-icon::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 2px;
+  background: var(--color-text);
+  left: 0;
+  transition: transform 0.2s;
+}
+.hamburger-icon::before {
+  top: -6px;
+}
+.hamburger-icon::after {
+  bottom: -6px;
+}
+
+.panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1199;
+}
+
+
+/* 响应式 */
+@media (max-width: 1200px) {
+  .management-layout {
+    grid-template-columns: 350px 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    padding: 0 1rem;
+  }
+  .btn-toggle-panel {
+    display: flex;
+  }
+
+  .management-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .characters-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 80%;
+    max-width: 320px;
+    z-index: 1200;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface); /* Use a solid background */
+  }
+
+  .characters-panel.is-open {
+    transform: translateX(0);
+  }
+
+  .panel-header {
+    padding: 1rem;
+  }
+
+  .saves-container {
+    padding: 1rem;
+  }
+
+  .auto-saves-grid,
+  .manual-saves-grid,
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-content {
+    padding: 1rem;
+  }
 }
 </style>

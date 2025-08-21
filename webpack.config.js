@@ -61,7 +61,7 @@ module.exports = (env, argv) => {
       }),
       new HtmlInlineScriptPlugin(),
       new HtmlInlineCssWebpackPlugin(),
-      !isProduction ? new TavernLiveReloadPlugin() : null,
+      !isProduction ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
     ].filter(Boolean),
     devServer: {
       static: {

@@ -13,6 +13,7 @@
     "@ant-design/icons-vue": "^7.0.1",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.11.0",
+    "echarts": "^6.0.0",
     "leaflet.markercluster": "^1.5.3",
     "ol": "^10.6.1",
     "pinia": "^2.3.1",

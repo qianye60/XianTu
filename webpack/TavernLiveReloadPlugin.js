@@ -19,14 +19,14 @@ class TavernLiveReloadPlugin {
         if (!this.port) {
           const configFile = fs.readFileSync('config.yaml', 'utf8')
           const config = yaml.parse(configFile)
-          this.port = config.port || 6620
+          this.port = config.port || 6621
         }
       } catch (e) {
         console.warn(
           '[Tavern-Reload] Could not read config.yaml, using default port 6621.',
           e.message,
         )
-        this.port = 6620
+        this.port = 6621
       }
 
       const httpServer = http.createServer()
