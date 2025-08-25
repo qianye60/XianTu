@@ -73,14 +73,17 @@
 
         <button
           type="button"
-          @click.prevent="handleNext"
+          @click.prevent="(event: Event) => { console.log('[DEBUG] 开启仙途按钮被点击!'); handleNext(event); }"
           :disabled="
             isGenerating ||
             isNextDisabled ||
             (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           "
           class="btn"
-          :class="{ 'btn-complete': store.currentStep === store.totalSteps }"
+          :class="{ 
+            'btn-complete': store.currentStep === store.totalSteps,
+            'disabled': isGenerating || isNextDisabled || (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
+          }"
         >
           {{ store.currentStep === store.totalSteps ? '开启仙途' : '下一步' }}
         </button>
@@ -104,9 +107,8 @@
 <script setup lang="ts">
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
-import { useCharacterStore } from '../stores/characterStore';
 import { useUserStore } from '../stores/userStore';
-import type { CharacterProfile } from '../types/index';
+import type { CharacterCreationPayload } from '../types/index';
 import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
 import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
 import Step3_OriginSelection from '../components/character-creation/Step3_OriginSelection.vue'
@@ -127,7 +129,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'creation-complete', payload: CharacterProfile): void;
+  (e: 'creation-complete', payload: CharacterCreationPayload): void;
 }>()
 const store = useCharacterCreationStore();
 const userStore = useUserStore();
@@ -226,7 +228,7 @@ async function executeCloudAiGeneration(code: string) {
     loadingMessage.value = '正在验证仙缘信物...'
     // 预验证逻辑可以保留，作为一道防线
     try {
-      const validateResponse = await request<any>(`/api/v1/redemption/validate/${code}`, { method: 'POST' })
+      const validateResponse = await request<{is_used: boolean}>(`/api/v1/redemption/validate/${code}`, { method: 'POST' })
       if (!validateResponse || validateResponse.is_used) {
         toast.error('仙缘信物已被使用或无效！')
         isGenerating.value = false;
@@ -252,7 +254,7 @@ async function executeCloudAiGeneration(code: string) {
                 toast.error('请先选择世界！');
                 return;
             }
-            generatedContent = await aiModule.generateOrigin(store.selectedWorld);
+            generatedContent = await aiModule.generateOrigin();
             break;
         case 'spirit_root':
             generatedContent = await aiModule.generateSpiritRoot();
@@ -288,7 +290,7 @@ async function executeCloudAiGeneration(code: string) {
       }
     }
   } catch (error: unknown) {
-    const message = error.message || '未知错误';
+    const message = error instanceof Error ? error.message : '未知错误';
     if (message.includes('兑换码') || message.includes('信物')) {
       toast.error(message)
     } else if (message.includes('登录')) {
@@ -334,32 +336,57 @@ const handleBack = () => {
 }
 
 const isNextDisabled = computed(() => {
+  const currentStep = store.currentStep;
+  const totalSteps = store.totalSteps;
+  const selectedWorld = store.selectedWorld;
+  const selectedTalentTier = store.selectedTalentTier;
+  const remainingPoints = store.remainingTalentPoints;
+  const generating = isGenerating.value;
+  
+  console.log('[DEBUG] 按钮状态检查 - 当前步骤:', currentStep, '/', totalSteps);
+  console.log('[DEBUG] 按钮状态检查 - isGenerating:', generating);
+  console.log('[DEBUG] 按钮状态检查 - 选中的世界:', selectedWorld?.name);
+  console.log('[DEBUG] 按钮状态检查 - 选中的天资:', selectedTalentTier?.name);
+  console.log('[DEBUG] 按钮状态检查 - 剩余天赋点:', remainingPoints);
+  
   // You can add validation logic here for each step
-  if (store.currentStep === 1 && !store.selectedWorld) return true
-  if (store.currentStep === 2 && !store.selectedTalentTier) return true
-  // Step 3 & 4 allow random selection (null), so no validation needed if nothing is selected.
-  return false
+  if (currentStep === 1 && !selectedWorld) {
+    console.log('[DEBUG] 按钮被禁用：第1步未选择世界');
+    return true;
+  }
+  if (currentStep === 2 && !selectedTalentTier) {
+    console.log('[DEBUG] 按钮被禁用：第2步未选择天资');
+    return true;
+  }
+  
+  console.log('[DEBUG] 按钮状态：启用');
+  return false;
 })
 
 async function handleNext(event?: Event) {
+  console.log('[DEBUG] handleNext 被调用，当前步骤:', store.currentStep, '总步骤:', store.totalSteps);
+  
   if (event) {
     event.preventDefault();
     event.stopPropagation();
+    console.log('[DEBUG] 事件已阻止默认行为');
   }
   
   if (store.currentStep < store.totalSteps) {
+    console.log('[DEBUG] 执行下一步');
     store.nextStep()
   } else {
     // Final step: Create Character
+    console.log('[DEBUG] 最后一步，准备创建角色');
     await createCharacter()
   }
 }
 
-const step1Ref = ref<any>(null)
-const step2Ref = ref<any>(null)
-const step3Ref = ref<any>(null)
-const step4Ref = ref<any>(null)
-const step5Ref = ref<any>(null)
+const step1Ref = ref<InstanceType<typeof Step1_WorldSelection> | null>(null)
+const step2Ref = ref<InstanceType<typeof Step2_TalentTierSelection> | null>(null)
+const step3Ref = ref<InstanceType<typeof Step3_OriginSelection> | null>(null)
+const step4Ref = ref<InstanceType<typeof Step4_SpiritRootSelection> | null>(null)
+const step5Ref = ref<InstanceType<typeof Step5_TalentSelection> | null>(null)
 
 // 处理仙缘信物提交 (仅联机模式)
 async function handleCodeSubmit(code: string) {
@@ -380,23 +407,43 @@ async function handleCodeSubmit(code: string) {
 }
 
 async function createCharacter() {
+  console.log('[DEBUG] createCharacter 开始执行');
+  console.log('[DEBUG] isGenerating.value:', isGenerating.value);
+  
   if (isGenerating.value) return;
   console.log('[CharacterCreation.vue] createCharacter() called.');
 
-  // 1. 数据校验
+  // 1. 统一数据校验
+  console.log('[DEBUG] 开始数据校验');
+  console.log('[DEBUG] 角色名:', store.characterPayload.character_name);
+  console.log('[DEBUG] 选中的世界:', store.selectedWorld);
+  console.log('[DEBUG] 选中的天资:', store.selectedTalentTier);
+  console.log('[DEBUG] 选中的出身:', store.selectedOrigin);
+  console.log('[DEBUG] 选中的灵根:', store.selectedSpiritRoot);
+  
   if (!store.characterPayload.character_name) {
+    console.log('[DEBUG] 验证失败：缺少角色名');
     toast.error('请输入道号！');
     return;
   }
   if (!store.selectedWorld || !store.selectedTalentTier) {
-    toast.error('世界或天资信息不完整！');
+    console.log('[DEBUG] 验证失败：缺少必需选择项');
+    console.log('[DEBUG] selectedWorld:', store.selectedWorld);
+    console.log('[DEBUG] selectedTalentTier:', store.selectedTalentTier);
+    toast.error('创建数据不完整，请检查世界和天资选择！');
     return;
   }
+  
+  // 出身和灵根可以为空（表示随机选择）
+  console.log('[DEBUG] selectedOrigin:', store.selectedOrigin, '(可为空，表示随机出生)');
+  console.log('[DEBUG] selectedSpiritRoot:', store.selectedSpiritRoot, '(可为空，表示随机灵根)');
   if (!store.isLocalCreation && !window.parent?.TavernHelper) {
+    console.log('[DEBUG] 验证失败：联机模式但非SillyTavern环境');
     toast.error('联机模式需要在SillyTavern扩展中运行。');
     return;
   }
 
+  console.log('[DEBUG] 数据校验通过，开始创建角色');
   isGenerating.value = true;
   loadingMessage.value = '正在为您凝聚法身...';
 
@@ -410,8 +457,8 @@ async function createCharacter() {
       性别: store.characterPayload.gender,
       世界: store.selectedWorld.name,
       天资: store.selectedTalentTier.name,
-      出生: store.selectedOrigin?.name || '凡人',
-      灵根: store.selectedSpiritRoot?.name || '凡品灵根',
+      出生: store.selectedOrigin?.name || '随机出身',
+      灵根: store.selectedSpiritRoot?.name || '随机灵根',
       天赋: store.selectedTalents.map(t => t.name),
       先天六司: {
         根骨: store.attributes.root_bone,
@@ -423,7 +470,7 @@ async function createCharacter() {
       },
     };
 
-    // 5. 构造完整的创建载荷并发射creation-complete事件
+    // 4. 构造完整的创建载荷并发射creation-complete事件
     const creationPayload = {
       charId: `char_${Date.now()}`,
       characterName: store.characterPayload.character_name,
@@ -453,7 +500,8 @@ async function createCharacter() {
 
   } catch (error: unknown) {
     console.error('创建角色时发生严重错误:', error);
-    toast.error('凝聚法身时遭遇天劫：' + error.message);
+    const message = error instanceof Error ? error.message : '未知错误';
+    toast.error('凝聚法身时遭遇天劫：' + message);
   } finally {
     isGenerating.value = false;
   }

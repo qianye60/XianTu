@@ -15,6 +15,7 @@
     "axios": "^1.11.0",
     "echarts": "^6.0.0",
     "leaflet.markercluster": "^1.5.3",
+    "lucide-vue-next": "^0.541.0",
     "ol": "^10.6.1",
     "pinia": "^2.3.1",
     "rbush": "^4.0.1",

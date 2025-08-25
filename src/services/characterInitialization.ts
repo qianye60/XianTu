@@ -30,7 +30,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
   const 基础寿命 = 80; // 凡人基础寿命
   const 根骨寿命系数 = 5; // 每点根骨增加5年寿命
   const 最大寿命 = 基础寿命 + 根骨 * 根骨寿命系数;
-  
+
   console.log(`[角色初始化] 计算结果: 气血=${初始气血}, 灵气=${初始灵气}, 神识=${初始神识}, 年龄=${age}/${最大寿命}`);
   console.log(`[角色初始化] 先天六司: 根骨=${根骨}, 灵性=${灵性}, 悟性=${悟性}`);
 
@@ -61,7 +61,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
  */
 function initializeTalentProgress(talents: string[]): Record<string, TalentProgress> {
   const talentProgress: Record<string, TalentProgress> = {};
-  
+
   // 为每个天赋初始化进度
   talents.forEach(talentName => {
     talentProgress[talentName] = {
@@ -90,6 +90,18 @@ export async function initializeCharacter(
   if (!helper) throw new Error('无法连接到酒馆助手');
 
   try {
+    // 0. 清空酒馆chat变量，防止旧数据残留
+    toast.info('天道清明：正在清除旧数据残留...');
+    try {
+      // 清空所有chat变量
+      await helper.insertOrAssignVariables({}, { type: 'chat' });
+      console.log('[角色初始化] 酒馆chat变量已清空');
+      toast.success('旧数据清除完成！');
+    } catch (err) {
+      console.warn('[角色初始化] 清空酒馆变量失败:', err);
+      toast.warning('清除旧数据失败，但不影响游戏进行');
+    }
+
     // 1. 计算基础属性
     const playerStatus = calculateInitialAttributes(baseInfo, age);
 
@@ -97,13 +109,13 @@ export async function initializeCharacter(
     const saveData: SaveData = {
       玩家角色状态: playerStatus,
       装备栏: { 法宝1: null, 法宝2: null, 法宝3: null, 法宝4: null, 法宝5: null, 法宝6: null },
-      功法技能: { 
-        主修功法: null, 
-        已学技能: [], 
+      功法技能: {
+        主修功法: null,
+        已学技能: [],
         技能熟练度: {},
         天赋进度: initializeTalentProgress(baseInfo.天赋)
       },
-      背包: { 灵石: { 下品: 10, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
+      背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
       人物关系: {},
       记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] }
     };
@@ -133,15 +145,40 @@ export async function initializeCharacter(
       toast.warning('世界背景载入失败，但不影响游戏进行');
     }
 
-    // 4. 第一步AI生成：衍化世界舆图
+    // 4. AI生成：衍化世界舆图（只尝试1次）
     toast.info('天道推演：正在衍化世界舆图...');
     const mapResponse = await generateMapFromWorld(world);
-    await processGmResponse(mapResponse, {} as CharacterData); // 第二个参数暂时传入空对象
+    
+    // 构造临时的CharacterData对象用于processGmResponse
+    const tempCharacterData: CharacterData = {
+      character_name: baseInfo.名字,
+      id: Date.now(), // 使用时间戳作为临时ID
+      world_id: 1, // 默认世界ID
+      created_at: new Date().toISOString(),
+      inventory: {
+        items: [],
+        capacity: 100,
+        expansions: [],
+        currency: { low: 0, mid: 0, high: 0, supreme: 0 }
+      },
+      talents: [],
+      reputation: 0,
+      // 添加其他必要的默认属性
+      root_bone: baseInfo.先天六司?.根骨 || 0,
+      spirituality: baseInfo.先天六司?.灵性 || 0,
+      comprehension: baseInfo.先天六司?.悟性 || 0,
+      fortune: baseInfo.先天六司?.气运 || 0,
+      charm: baseInfo.先天六司?.魅力 || 0,
+      temperament: baseInfo.先天六司?.心性 || 0,
+      source: 'local' as const
+    };
+    
+    await processGmResponse(mapResponse, tempCharacterData);
     const allVarsAfterMapGen = await helper.getVariables({ type: 'chat' }) || {};
     const worldMap = allVarsAfterMapGen['world.mapData'] || {};
     toast.success('世界舆图衍化完成！');
 
-    // 5. 第二步AI生成：生成开局剧情与状态
+    // 5. AI生成：生成开局剧情与状态（只尝试1次）
     toast.info('天道赋格：正在生成命运轨迹...');
 
     // 5.1 构建包含所有描述性名称的 creationDetails，供AI生成剧情
@@ -163,21 +200,46 @@ export async function initializeCharacter(
 
     const initialMessageResponse = await generateInitialMessage(initialGameDataForAI, worldMap);
 
-    // 5.3 将开局剧情直接存入记忆
+    // 5.3 将完整的开局剧情信息存入记忆
     const openingStory = initialMessageResponse.text || "你睁开双眼，发现自己身处在一个古色古香的房间里。";
+    const aroundDescription = initialMessageResponse.around || "";
     const storySummary = initialMessageResponse.mid_term_memory || (openingStory.substring(0, 70) + '...');
 
-    saveData.记忆.短期记忆.push(openingStory);
+    // 构建完整的开局消息，包含环境描述
+    let fullOpeningMessage = openingStory;
+    if (aroundDescription) {
+      fullOpeningMessage += `\n\n【周围环境】\n${aroundDescription}`;
+    }
+
+    // 保存到记忆系统
+    saveData.记忆.短期记忆.push(fullOpeningMessage);
     saveData.记忆.中期记忆.push(storySummary);
+    
+    console.log('[角色初始化] 保存的完整开局消息:', fullOpeningMessage.substring(0, 200));
 
     // 5.4 调用 processGmResponse 来执行AI返回的其他指令（如设置物品等）
-    // 注意：processGmResponse 需要 CharacterData，我们从 saveData 中提取并转换
-    const characterDataForGm: Partial<CharacterData> = {
-      character_name: baseInfo.名字,
-      // ... 如果需要，可以从 saveData.玩家角色状态 中映射更多字段
-    };
-    await processGmResponse(initialMessageResponse, characterDataForGm as CharacterData);
+    // 使用我们之前构造的完整CharacterData对象
+    await processGmResponse(initialMessageResponse, tempCharacterData);
     toast.success('命运轨迹已定！');
+
+    // 5.5 检查AI是否生成了具体的随机灵根和随机出身，并更新到baseInfo
+    const postAIVars = await helper.getVariables({ type: 'chat' }) || {};
+    
+    // 更新随机生成的出身
+    if (baseInfo.出生 === '随机出身' && postAIVars['character.origin.name']) {
+      const generatedOrigin = String(postAIVars['character.origin.name']);
+      console.log(`[角色初始化] 检测到AI生成的出身: ${generatedOrigin}`);
+      baseInfo.出生 = generatedOrigin;
+      toast.info(`出身已确定：${baseInfo.出生}`);
+    }
+    
+    // 更新随机生成的灵根
+    if (baseInfo.灵根 === '随机灵根' && postAIVars['character.spiritRoot.name']) {
+      const generatedSpiritRoot = String(postAIVars['character.spiritRoot.name']);
+      console.log(`[角色初始化] 检测到AI生成的灵根: ${generatedSpiritRoot}`);
+      baseInfo.灵根 = generatedSpiritRoot;
+      toast.info(`灵根已确定：${baseInfo.灵根}`);
+    }
 
     // ================= 数据整合与持久化 =================
 
@@ -188,7 +250,7 @@ export async function initializeCharacter(
 
     // 7. 优化数据结构并统一存储
     const DAD_GameData = {
-      characterInfo: baseInfo,
+      characterInfo: baseInfo, // 使用更新后的baseInfo（包含AI生成的具体出身和灵根）
       saveData: finalSaveData,
       worldMap: finalWorldMap,
       version: '1.0.0'

@@ -41,12 +41,12 @@ export function buildGmRequest(
       breakthrough_bottleneck: '未曾修行',
     },
     attributes: { // 直接从创建数据中获取
-      STR: 'root_bone' in initialCharacter ? initialCharacter.root_bone : 10,
-      CON: 'temperament' in initialCharacter ? initialCharacter.temperament : 10,
-      DEX: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 10,
-      INT: 'comprehension' in initialCharacter ? initialCharacter.comprehension : 10,
-      SPI: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 10, // 神魂暂用灵性替代
-      LUK: 'fortune' in initialCharacter ? initialCharacter.fortune : 10,
+      STR: 'root_bone' in initialCharacter ? initialCharacter.root_bone : 0,
+      CON: 'temperament' in initialCharacter ? initialCharacter.temperament : 0,
+      DEX: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 0,
+      INT: 'comprehension' in initialCharacter ? initialCharacter.comprehension : 0,
+      SPI: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 0, // 神魂暂用灵性替代
+      LUK: 'fortune' in initialCharacter ? initialCharacter.fortune : 0,
     },
     resources: {
       qi: { current: 100, max: 100 }, // 气血

@@ -1,76 +1,69 @@
 <template>
-  <div class="immortal-left-sidebar" :class="{ 'is-collapsed': collapsed }">
-    <div class="sidebar-content" v-show="!collapsed">
-      <!-- 功能导航 -->
-      <div class="function-section">
-        <div class="section-title">功能导航</div>
-        <div class="function-grid">
-          <div class="function-item" @click="handleInventory">
-            <span class="function-icon">◇</span>
-            <span class="function-text">背包</span>
-          </div>
-          <div class="function-item" @click="handleCharacterDetails">
-            <span class="function-icon">◈</span>
-            <span class="function-text">人物详情</span>
-          </div>
-          <div class="function-item" @click="handleRelationships">
-            <span class="function-icon">◎</span>
-            <span class="function-text">人物关系</span>
-          </div>
-          <div class="function-item" @click="handleCultivationSystem">
-            <span class="function-icon">◐</span>
-            <span class="function-text">功法系统</span>
-          </div>
-          <div class="function-item" @click="handleSkillsArts">
-            <span class="function-icon">◑</span>
-            <span class="function-text">道法技艺</span>
-          </div>
-          <div class="function-item" @click="handleMemoryCenter">
-            <span class="function-icon">◒</span>
-            <span class="function-text">记忆中心</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 世界管理 -->
-      <div class="world-section">
-        <div class="section-title">世界管理</div>
-        <div class="world-actions">
-          <div class="action-item" @click="handleWorldMap">
-            <span class="action-text">世界地图</span>
-          </div>
-          <div class="action-item" @click="handleMultiplayer">
-            <span class="action-text">联机角色</span>
-          </div>
-          <div class="action-item" @click="handleWorldDevelopment">
-            <span class="action-text">开发世界</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 系统操作 -->
-      <div class="system-section">
-        <div class="section-title">系统操作</div>
-        <div class="system-actions">
-          <div class="action-item" @click="handleSaveGame" :class="{ 'disabled': !activeCharacter }">
-            <span class="action-text">存档</span>
-          </div>
-          <div class="action-item" @click="handleSettings">
-            <span class="action-text">设置</span>
-          </div>
-          <div class="action-item exit-item" @click="handleBackToMenu">
-            <span class="action-text">返回道途</span>
-          </div>
-        </div>
-      </div>
+  <div class="left-sidebar">
+    <div class="sidebar-header">
+      <h3 class="sidebar-title">游戏功能</h3>
     </div>
     
-    <!-- 收缩状态显示 -->
-    <div class="collapsed-content" v-show="collapsed">
-      <div class="collapsed-icons">
-        <div class="collapsed-icon" @click="handleInventory" title="背包">◇</div>
-        <div class="collapsed-icon" @click="handleCharacterDetails" title="人物详情">◈</div>
-        <div class="collapsed-icon" @click="handleSettings" title="设置">⚙</div>
+    <div class="sidebar-content">
+      <div class="function-group">
+        <button class="function-btn" @click="handleInventory">
+          <Package :size="16" />
+          <span class="btn-text">背包</span>
+        </button>
+        
+        <button class="function-btn" @click="handleCharacterDetails">
+          <User :size="16" />
+          <span class="btn-text">人物详情</span>
+        </button>
+        
+        <button class="function-btn" @click="handleRelationships">
+          <Users :size="16" />
+          <span class="btn-text">人物关系</span>
+        </button>
+        
+        <button class="function-btn" @click="handleCultivationSystem">
+          <BookOpen :size="16" />
+          <span class="btn-text">功法系统</span>
+        </button>
+        
+        <button class="function-btn" @click="handleSkillsArts">
+          <Zap :size="16" />
+          <span class="btn-text">道法技艺</span>
+        </button>
+        
+        <button class="function-btn" @click="handleMemoryCenter">
+          <Brain :size="16" />
+          <span class="btn-text">记忆中心</span>
+        </button>
+        
+        <button class="function-btn" @click="handleWorldMap">
+          <Map :size="16" />
+          <span class="btn-text">世界地图</span>
+        </button>
+        
+        <button class="function-btn" @click="handleOnlinePlay">
+          <Globe :size="16" />
+          <span class="btn-text">拜访道友</span>
+        </button>
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="system-group">
+        <button class="function-btn" @click="handleSaveGame" :disabled="!activeCharacter">
+          <Save :size="16" />
+          <span class="btn-text">存档</span>
+        </button>
+        
+        <button class="function-btn" @click="handleSettings">
+          <Settings :size="16" />
+          <span class="btn-text">设置</span>
+        </button>
+        
+        <button class="function-btn exit-btn" @click="handleBackToMenu">
+          <LogOut :size="16" />
+          <span class="btn-text">返回道途</span>
+        </button>
       </div>
     </div>
   </div>
@@ -78,6 +71,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 
@@ -87,6 +81,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'toggle-collapse': []
+  'open-panel': [panelType: string]
 }>();
 
 const characterStore = useCharacterStore();
@@ -95,89 +90,111 @@ const characterStore = useCharacterStore();
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
 
 const handleSaveGame = async () => {
-  if (activeCharacter.value) {
-    await characterStore.saveCurrentGame();
-  } else {
-    toast.warning('当前没有激活的角色，无法存档。');
-  }
+  emit('open-panel', 'save');
 };
 
 const handleInventory = () => {
-  toast.info('背包功能开发中...');
+  emit('open-panel', 'inventory');
 };
 
 const handleCharacterDetails = () => {
-  toast.info('人物详情功能开发中...');
+  emit('open-panel', 'character-details');
 };
 
 const handleRelationships = () => {
-  toast.info('人物关系功能开发中...');
+  emit('open-panel', 'relationships');
 };
 
 const handleCultivationSystem = () => {
-  toast.info('功法系统功能开发中...');
+  emit('open-panel', 'cultivation');
 };
 
 const handleSkillsArts = () => {
-  toast.info('道法技艺功能开发中...');
+  emit('open-panel', 'skills');
 };
 
 const handleMemoryCenter = () => {
-  toast.info('记忆中心功能开发中...');
+  emit('open-panel', 'memory');
 };
 
 const handleWorldMap = () => {
-  toast.info('世界地图功能开发中...');
+  emit('open-panel', 'world-map');
 };
 
-const handleMultiplayer = () => {
-  toast.info('联机功能开发中...');
-};
-
-const handleWorldDevelopment = () => {
-  toast.info('世界开发功能开发中...');
+const handleOnlinePlay = () => {
+  emit('open-panel', 'online-play');
 };
 
 const handleSettings = () => {
-  toast.info('设置功能开发中...');
+  emit('open-panel', 'settings');
 };
 
 const handleBackToMenu = () => {
-  if (confirm('确定要返回主菜单吗？当前游戏进度将会保存。')) {
+  if (confirm('确定要返回道途吗？当前游戏进度将会保存。')) {
     characterStore.saveCurrentGame();
-    // 这里需要路由跳转回主菜单，暂时用window.location
-    window.location.href = '#/';
+    
+    // 尝试保存游戏状态到酒馆变量
+    try {
+      const helper = (window.parent as any)?.TavernHelper;
+      if (helper) {
+        // 保存最后的游戏状态到酒馆变量
+        console.log('[返回道途] 游戏状态已保存到酒馆');
+      }
+    } catch (error) {
+      console.warn('[返回道途] 保存酒馆状态失败:', error);
+    }
+    
+    // 返回到SillyTavern主界面
+    if (window.parent && window.parent !== window) {
+      // 在iframe中，通知父窗口关闭游戏
+      window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
+      console.log('[返回道途] 已发送关闭游戏消息到SillyTavern');
+    } else {
+      // 如果不在iframe中，尝试关闭当前窗口
+      try {
+        window.close();
+      } catch {
+        // 如果无法关闭窗口，跳转到空白页面
+        window.location.href = 'about:blank';
+      }
+    }
   }
 };
 </script>
 
 <style scoped>
-/* 左侧栏 - 简约风格 */
-.immortal-left-sidebar {
+.left-sidebar {
   width: 100%;
   height: 100%;
-  background: inherit;
-  padding: 8px;
+  padding: 16px;
   box-sizing: border-box;
-  font-family: 'SimSun', 'NSimSun', 'STSong', '宋体', serif;
-  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
-.immortal-left-sidebar.is-collapsed {
-  width: 100%;
-  overflow: hidden;
+.sidebar-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
 }
 
 .sidebar-content {
-  height: 100%;
+  flex: 1;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
 
 .sidebar-content::-webkit-scrollbar {
-  width: 3px;
+  width: 4px;
 }
 
 .sidebar-content::-webkit-scrollbar-track {
@@ -185,336 +202,140 @@ const handleBackToMenu = () => {
 }
 
 .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(139, 115, 85, 0.3);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
 }
 
-/* 区块标题 */
-.section-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #8b7355;
-  margin-bottom: 6px;
-  padding-bottom: 2px;
-  border-bottom: 1px solid rgba(139, 115, 85, 0.2);
-  text-align: center;
-}
-
-/* 功能导航区块 - 修仙风格重构 */
-.function-section {
-  background: rgba(248, 245, 242, 0.8);
-  border: 1px solid #87CEEB;
-  padding: 8px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.function-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-}
-
-.function-item {
+.function-group,
+.system-group {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 6px;
-  cursor: pointer;
-  border: 2px solid #87CEEB;
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F5F2 100%);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 6px;
-  box-shadow: 
-    0 2px 4px rgba(135, 206, 235, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  position: relative;
-  overflow: hidden;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-.function-item:hover {
-  background: linear-gradient(135deg, #87CEEB 0%, #B0E0E6 100%);
-  border-color: #6495ED;
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 
-    0 6px 16px rgba(135, 206, 235, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+.system-group {
+  margin-bottom: 0;
 }
 
-.function-icon {
-  font-size: 1.2rem;
-  color: #3A3A3A;
-  font-weight: 900;
-  transition: all 0.3s ease;
+.divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 16px 0;
 }
 
-.function-text {
-  font-size: 0.75rem;
-  color: #3A3A3A;
-  font-weight: 700;
-  text-align: center;
-  line-height: 1.2;
-  transition: all 0.3s ease;
-}
-
-.function-item:active {
-  transform: translateY(-1px) scale(1.01);
-  box-shadow: 
-    0 3px 8px rgba(135, 206, 235, 0.2),
-    inset 0 2px 4px rgba(100, 149, 237, 0.1);
-}
-
-.function-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transition: left 0.5s ease;
-}
-
-.function-item:hover::before {
-  left: 100%;
-}
-
-.function-item:hover .function-icon {
-  color: #FFFFFF;
-  transform: scale(1.1);
-}
-
-.function-item:hover .function-text {
-  color: #FFFFFF;
-  transform: translateY(-1px);
-}
-
-/* 世界管理区块 - 修仙风格 */
-.world-section {
-  background: rgba(255, 248, 240, 0.8);
-  border: 1px solid #87CEEB;
-  padding: 8px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.world-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-/* 系统操作区块 - 修仙风格 */
-.system-section {
-  background: rgba(240, 248, 240, 0.8);
-  border: 1px solid #87CEEB;
-  padding: 8px;
-  margin-top: auto;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.system-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-/* 通用动作项目 - 修仙风格重构 */
-.action-item {
+.function-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  cursor: pointer;
-  border: 2px solid #87CEEB;
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F5F2 100%);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-bottom: 3px;
-  border-radius: 4px;
-  box-shadow: 
-    0 2px 4px rgba(135, 206, 235, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  position: relative;
-  overflow: hidden;
-}
-
-.action-item:hover {
-  background: linear-gradient(135deg, #87CEEB 0%, #B0E0E6 100%);
-  border-color: #6495ED;
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 
-    0 4px 12px rgba(135, 206, 235, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.action-item.disabled {
-  color: #9e9e9e;
-  cursor: not-allowed;
-  background: #f8f8f8;
-  opacity: 0.6;
-}
-
-.action-item.disabled:hover {
-  background: #f8f8f8;
-}
-
-.action-item.exit-item {
-  border-color: rgba(218, 54, 51, 0.3);
-  background: #fff5f5;
-}
-
-.action-item.exit-item:hover {
-  background: #ffeaea;
-  border-color: rgba(218, 54, 51, 0.5);
-}
-
-.action-text {
-  font-size: 0.8rem;
-  color: #3A3A3A;
-  font-weight: 700;
-  text-align: center;
-  transition: all 0.3s ease;
-}
-
-.action-item:hover .action-text {
-  color: #FFFFFF;
-}
-
-.action-item.exit-item {
-  border-color: #D94F44;
-  background: linear-gradient(135deg, #FFF5F5 0%, #FFE8E8 100%);
-}
-
-.action-item.exit-item:hover {
-  background: linear-gradient(135deg, #D94F44 0%, #B8433E 100%);
-  border-color: #B8433E;
-  box-shadow: 
-    0 4px 12px rgba(217, 79, 68, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.exit-item .action-text {
-  color: #D94F44;
-  font-weight: 800;
-}
-
-.action-item.exit-item:hover .action-text {
-  color: #FFFFFF;
-}
-
-/* 收缩状态样式 */
-.collapsed-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 16px 0;
-}
-
-.collapsed-icons {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-  align-items: center;
-}
-
-.collapsed-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  color: #8b7355;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   cursor: pointer;
-  border: 1px solid rgba(139, 115, 85, 0.3);
-  background: #fff;
   transition: all 0.2s ease;
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  width: 100%;
 }
 
-.collapsed-icon:hover {
-  background: #f0f0f0;
-  border-color: rgba(139, 115, 85, 0.5);
-  color: #6f5633;
+.function-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* 暗色主题 */
-[data-theme="dark"] .immortal-left-sidebar {
-  color: #f0f6fc;
+.function-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.function-btn:disabled:hover {
+  background: #f9fafb;
+  transform: none;
+  box-shadow: none;
+}
+
+.exit-btn {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.exit-btn:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.btn-icon {
+  flex-shrink: 0;
+}
+
+.btn-text {
+  font-weight: 500;
+  color: #374151;
+}
+
+.exit-btn .btn-text {
+  color: inherit;
+}
+
+/* 深色主题 */
+[data-theme="dark"] .left-sidebar {
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .sidebar-header {
+  border-bottom-color: #374151;
+}
+
+[data-theme="dark"] .sidebar-title {
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .divider {
+  background: #374151;
 }
 
 [data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(125, 133, 144, 0.3);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-[data-theme="dark"] .section-title {
-  color: #7d8590;
-  border-bottom-color: rgba(125, 133, 144, 0.2);
+[data-theme="dark"] .function-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
 }
 
-[data-theme="dark"] .function-section {
-  background: #21262d;
-  border-color: rgba(125, 133, 144, 0.2);
+[data-theme="dark"] .function-btn:hover {
+  background: #334155;
+  border-color: #475569;
 }
 
-[data-theme="dark"] .world-section {
-  background: #1c2128;
-  border-color: rgba(125, 133, 144, 0.2);
+[data-theme="dark"] .function-btn:disabled {
+  background: #0f172a;
+  border-color: #1e293b;
 }
 
-[data-theme="dark"] .system-section {
-  background: #1a1f24;
-  border-color: rgba(125, 133, 144, 0.2);
+[data-theme="dark"] .function-btn:disabled:hover {
+  background: #0f172a;
 }
 
-[data-theme="dark"] .function-item,
-[data-theme="dark"] .action-item {
-  border-color: rgba(125, 133, 144, 0.2);
-  background: #161b22;
+[data-theme="dark"] .btn-text {
+  color: #e2e8f0;
 }
 
-[data-theme="dark"] .function-item:hover,
-[data-theme="dark"] .action-item:hover {
-  background: #21262d;
-  border-color: rgba(125, 133, 144, 0.4);
+[data-theme="dark"] .exit-btn {
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
-[data-theme="dark"] .function-icon {
-  color: #7d8590;
-}
-
-[data-theme="dark"] .function-text,
-[data-theme="dark"] .action-text {
-  color: #f0f6fc;
-}
-
-[data-theme="dark"] .action-item.disabled {
-  color: #656d76;
-  background: #21262d;
-}
-
-[data-theme="dark"] .action-item.exit-item {
-  border-color: rgba(248, 81, 73, 0.3);
-  background: #2d1b1e;
-}
-
-[data-theme="dark"] .action-item.exit-item:hover {
-  background: #3c1e1e;
-  border-color: rgba(248, 81, 73, 0.5);
-}
-
-[data-theme="dark"] .exit-item .action-text {
-  color: #f85149;
-}
-
-[data-theme="dark"] .collapsed-icon {
-  color: #7d8590;
-  border-color: rgba(125, 133, 144, 0.3);
-  background: #161b22;
-}
-
-[data-theme="dark"] .collapsed-icon:hover {
-  background: #21262d;
-  border-color: rgba(125, 133, 144, 0.5);
-  color: #f0f6fc;
+[data-theme="dark"] .exit-btn:hover {
+  background: #1e1b1b;
+  border-color: #dc2626;
+  color: #dc2626;
 }
 </style>

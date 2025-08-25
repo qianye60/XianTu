@@ -145,10 +145,32 @@ const handleGoToLogin = () => {
 };
 
 // 统一的角色/存档选择处理器
-const handleCharacterSelect = (selection: { charId: string, slotKey: string }) => {
+const handleCharacterSelect = async (selection: { charId: string, slotKey: string }) => {
   console.log(`接收到选择指令... 角色ID: ${selection.charId}, 存档槽: ${selection.slotKey}`);
-  characterStore.loadGame(selection.charId, selection.slotKey);
-  switchView('GameView');
+  
+  // 显示加载状态
+  isInitializing.value = true;
+  loadingMessage.value = '正在进入世界...';
+  
+  try {
+    const success = await characterStore.loadGame(selection.charId, selection.slotKey);
+    
+    if (success) {
+      console.log('存档加载成功，切换到游戏视图');
+      // 确保数据已完全加载后再切换视图
+      await new Promise(resolve => setTimeout(resolve, 500));
+      switchView('GameView');
+    } else {
+      console.error('存档加载失败');
+      toast.error('存档加载失败，请重试');
+      // 加载失败时留在角色管理界面
+    }
+  } catch (error) {
+    console.error('存档加载过程出错:', error);
+    toast.error('进入游戏时发生错误：' + (error instanceof Error ? error.message : '未知错误'));
+  } finally {
+    isInitializing.value = false;
+  }
 };
 
 const handleCreationComplete = async (rawPayload: any) => {
@@ -189,8 +211,8 @@ const handleCreationComplete = async (rawPayload: any) => {
       性别: rawPayload.gender || '男',
       世界: rawPayload.world?.name || '未知世界',
       天资: rawPayload.talentTier?.name || '凡品',
-      出生: rawPayload.origin?.name || '平凡',
-      灵根: rawPayload.spiritRoot?.name || '杂灵根',
+      出生: rawPayload.origin?.name || '随机出身',
+      灵根: rawPayload.spiritRoot?.name || '随机灵根',
       天赋: rawPayload.talents?.map((t: any) => t.name) || [],
       先天六司: convertedAttributes,
     };
@@ -341,8 +363,8 @@ onMounted(async () => {
   // 预加载视频背景
   try {
     console.log('[App] 开始预加载视频背景...');
-    const { VideoCache } = await import('@/utils/videoCache');
-    VideoCache.getInstance(); // 这会自动开始预加载默认视频
+    // const { VideoCache } = await import('@/utils/videoCache');
+    // VideoCache.getInstance(); // 这会自动开始预加载默认视频
     console.log('[App] 视频背景预加载已启动');
   } catch (error) {
     console.warn('[App] 视频背景预加载失败:', error);

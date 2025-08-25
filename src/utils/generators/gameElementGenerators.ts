@@ -57,6 +57,12 @@ export async function generateMapFromWorld(world: any): Promise<GM_Response> {
     const prompt = MAP_GENERATION_PROMPT + uniquePrompt;
 
     // 1. 直接让AI生成GeoJSON
+    console.log('【地图生成-调试】准备调用generateItemWithTavernAI');
+    console.log('【地图生成-调试】MAP_GENERATION_PROMPT长度:', MAP_GENERATION_PROMPT.length);
+    console.log('【地图生成-调试】MAP_GENERATION_PROMPT前200字符:', MAP_GENERATION_PROMPT.substring(0, 200));
+    console.log('【地图生成-调试】完整prompt长度:', prompt.length);
+    console.log('【地图生成-调试】完整prompt前300字符:', prompt.substring(0, 300));
+    
     const geoJson = await generateItemWithTavernAI<any>(prompt, '世界舆图GeoJSON', false);
 
     if (!geoJson || !geoJson.type || !geoJson.features) {

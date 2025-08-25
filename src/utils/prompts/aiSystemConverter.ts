@@ -10,110 +10,148 @@ import type { MemorySystem, LocationContext } from './comprehensiveAISystem';
 /**
  * 将存档数据转换为AI系统需要的角色数据
  */
-export function convertSaveDataToGameCharacter(saveData: SaveData): GameCharacter {
+export function convertSaveDataToGameCharacter(saveData: SaveData, characterProfile?: { 角色基础信息?: any }): GameCharacter {
   const playerStatus = saveData.玩家角色状态;
-  const baseInfo = (saveData as any).角色基础信息;
+  
+  // 从角色档案或存档数据中获取基础信息
+  const baseInfo = characterProfile?.角色基础信息 || (saveData as any).角色基础信息;
+  
+  if (!baseInfo || !playerStatus) {
+    console.error('[AI转换器] 缺少必要的角色数据:', { baseInfo, playerStatus });
+    throw new Error('缺少必要的角色数据，无法转换为AI系统格式');
+  }
+  
   const equipment = saveData.装备栏;
   const skills = saveData.功法技能;
   const bag = saveData.背包;
 
   return {
     identity: {
-      name: baseInfo.名字,
-      title: playerStatus.声望 > 100 ? `${baseInfo.名字}真人` : undefined,
-      age: playerStatus.寿命.当前,
-      apparent_age: playerStatus.寿命.当前,
-      gender: '男', // 默认值，可以从基础信息扩展
-      description: `来自${baseInfo.世界}的修士，出身${baseInfo.出生}`,
+      name: baseInfo.名字 || '无名道友',
+      title: playerStatus.声望 && playerStatus.声望 > 100 ? `${baseInfo.名字 || '无名'}真人` : undefined,
+      age: playerStatus.寿命?.当前 || 18,
+      apparent_age: playerStatus.寿命?.当前 || 18,
+      gender: baseInfo.性别 || '男',
+      description: `来自${baseInfo.世界 || '未知之地'}的修士，出身${baseInfo.出生 || '平凡'}`,
     },
 
     cultivation: {
-      realm: (typeof playerStatus.境界 === 'number' ? 
-        getRealmName(playerStatus.境界) : 
-        playerStatus.境界) as string,
-      realm_progress: 0, // 可以从修为进度计算
-      lifespan_remaining: playerStatus.寿命.最大 - playerStatus.寿命.当前,
-      breakthrough_bottleneck: undefined // 可以根据境界判断
+      realm: playerStatus.境界?.名称 || '凡人',
+      realm_progress: playerStatus.境界?.当前进度 || 0,
+      lifespan_remaining: playerStatus.寿命?.当前 || 100,
+      breakthrough_bottleneck: playerStatus.境界?.突破描述
     },
-
     attributes: {
-      STR: baseInfo.先天六司.根骨,
-      CON: baseInfo.先天六司.根骨,
-      DEX: baseInfo.先天六司.根骨, // 身法可能需要单独定义
-      INT: baseInfo.先天六司.悟性,
-      SPI: baseInfo.先天六司.灵性,
-      LUK: baseInfo.先天六司.福缘
+      STR: baseInfo.先天六司?.根骨 || 10,  // 力量（根骨）
+      CON: baseInfo.先天六司?.根骨 || 10,  // 体质（根骨）
+      DEX: baseInfo.先天六司?.灵性 || 10,  // 身法（灵性）
+      INT: baseInfo.先天六司?.悟性 || 10,  // 悟性
+      SPI: baseInfo.先天六司?.心性 || 10,  // 神魂（心性）
+      LUK: baseInfo.先天六司?.气运 || 10   // 气运
     },
-
     resources: {
       qi: {
-        current: playerStatus.气血.当前,
-        max: playerStatus.气血.最大
+        current: playerStatus.气血?.当前 || 100,
+        max: playerStatus.气血?.最大 || 100
       },
       ling: {
-        current: playerStatus.灵气.当前,
-        max: playerStatus.灵气.最大
+        current: playerStatus.灵气?.当前 || 100,
+        max: playerStatus.灵气?.最大 || 100
       },
       shen: {
-        current: playerStatus.神识.当前,
-        max: playerStatus.神识.最大
+        current: playerStatus.神识?.当前 || 50,
+        max: playerStatus.神识?.最大 || 50
       }
     },
 
     qualities: {
       origin: {
-        name: baseInfo.出生,
-        effects: [] // 可以根据出身类型添加效果
+        name: baseInfo.出生 || '平凡',
+        effects: []
       },
       spiritRoot: {
-        name: baseInfo.灵根,
-        quality: getSpiritRootQuality(baseInfo.灵根),
-        attributes: getSpiritRootAttributes(baseInfo.灵根)
+        name: baseInfo.灵根?.名称 || '五行灵根',
+        quality: baseInfo.灵根?.品质 || '下品',
+        attributes: baseInfo.灵根?.属性 || ['五行']
       },
-      physique: baseInfo.天资 ? {
-        name: baseInfo.天资,
+      physique: baseInfo.体质 ? {
+        name: baseInfo.体质,
         effects: []
       } : undefined,
-      talents: baseInfo.天赋?.map((talent: any) => ({
-        name: talent,
+      talents: baseInfo.天赋 ? Object.entries(baseInfo.天赋).map(([name, effect]: [string, any]) => ({
+        name,
         type: '天赋',
-        effects: []
-      })) || []
+        effects: Array.isArray(effect) ? effect : [String(effect)]
+      })) : []
     },
 
-    skills: convertSkillsData(skills),
+    skills: skills?.技能熟练度 ? Object.entries(skills.技能熟练度).reduce((acc, [skillName, skillData]: [string, any]) => {
+      acc[skillName] = {
+        level: skillData?.等级 || 1,
+        rank: '入门', // 技能熟练度中没有品阶信息，使用默认值
+        experience: skillData?.经验 || 0
+      };
+      return acc;
+    }, {} as Record<string, any>) : {},
+
+    equipment: {
+      weapon: equipment?.法宝1 ? { 
+        name: equipment.法宝1, 
+        type: '武器',
+        description: '修仙者的武器法宝'
+      } : undefined,
+      armor: equipment?.法宝2 ? { 
+        name: equipment.法宝2, 
+        type: '防具',
+        description: '修仙者的防护法宝'
+      } : undefined,
+      accessories: [equipment?.法宝3, equipment?.法宝4, equipment?.法宝5, equipment?.法宝6].filter(Boolean).map(name => ({ 
+        name: name!, 
+        type: '饰品',
+        description: '修仙者的辅助法宝'
+      })),
+      treasures: [],
+      consumables: bag?.物品 ? Object.values(bag.物品).filter(item => item.类型 === '消耗品').map(item => ({
+        name: item.名称 || '未知物品',
+        type: item.类型 || '消耗品',
+        description: item.描述 || '修仙者的消耗品'
+      })) : []
+    },
 
     cultivation_arts: {
-      main_technique: skills.主修功法 ? {
+      main_technique: skills?.主修功法 ? {
         name: skills.主修功法,
-        rank: '未知',
-        proficiency: 0,
+        rank: '初级',
+        proficiency: skills?.技能熟练度?.[skills.主修功法]?.经验 || 0,
         special_effects: []
       } : undefined,
-      combat_techniques: [],
-      auxiliary_techniques: skills.已学技能 || []
+      combat_techniques: skills?.已学技能?.map(skillId => ({
+        name: skillId,
+        type: '功法',
+        cost: 10,
+        cooldown: 0
+      })) || [],
+      auxiliary_techniques: []
     },
 
-    equipment: convertEquipmentData(equipment, bag),
-
     social: {
-      faction: undefined,
+      faction: baseInfo.门派 || undefined,
       position: undefined,
       master: undefined,
       disciples: [],
       dao_companion: undefined,
       relationships: convertRelationshipsData(saveData.人物关系),
-      reputation: { '默认': playerStatus.声望 }
+      reputation: { '默认': playerStatus.声望 || 0 }
     },
 
     hidden_state: {
       karma: {
         righteous: 0,
         demonic: 0,
-        heavenly_favor: baseInfo.先天六司.福缘
+        heavenly_favor: baseInfo.先天六司?.福缘 || 10
       },
       dao_heart: {
-        stability: baseInfo.先天六司.心性 * 10,
+        stability: (baseInfo.先天六司?.心性 || 10) * 10,
         demons: [],
         enlightenment: 0
       },
@@ -122,8 +160,8 @@ export function convertSaveDataToGameCharacter(saveData: SaveData): GameCharacte
 
     status: {
       conditions: (playerStatus.状态效果 || []).map((effect: any) => effect.名称 || String(effect)),
-      location: playerStatus.位置.描述,
-      activity: playerStatus.位置.描述.includes('修炼') ? '修炼' : '待机',
+      location: playerStatus.位置?.描述 || '未知位置',
+      activity: (playerStatus.位置?.描述 || '').includes('修炼') ? '修炼' : '待机',
       mood: undefined
     }
   };
@@ -150,236 +188,80 @@ export function convertSaveDataToMemorySystem(saveData: SaveData): MemorySystem 
         };
       }
       return acc;
-    }, {} as MemorySystem['npc_interactions'])
+    }, {} as Record<string, any>)
   };
 }
 
 /**
- * 将存档数据转换为位置上下文
+ * 将存档数据转换为位置上下文格式
  */
 export function convertSaveDataToLocationContext(saveData: SaveData): LocationContext {
   const playerStatus = saveData.玩家角色状态;
-  const worldMap = (saveData as any).世界地图 || {};
+  const location = playerStatus?.位置;
 
   return {
     current_location: {
-      name: playerStatus.位置.描述,
-      description: playerStatus.位置.描述,
-      coordinates: playerStatus.位置.坐标 ? { x: playerStatus.位置.坐标.X || 0, y: playerStatus.位置.坐标.Y || 0 } : { x: 0, y: 0 },
-      type: inferLocationType(playerStatus.位置.描述),
-      spirit_density: inferSpiritDensity(playerStatus.位置.描述),
-      danger_level: inferDangerLevel(playerStatus.位置.描述),
+      name: location?.描述 || '未知位置',
+      description: location?.描述 || '一个神秘的地方',
+      coordinates: { 
+        x: location?.坐标?.X || 0, 
+        y: location?.坐标?.Y || 0 
+      },
+      type: '普通区域',
+      spirit_density: 50,
+      danger_level: 0,
       special_effects: []
     },
-    nearby_npcs: getNearbyNPCs(saveData, playerStatus.位置),
-    available_actions: getAvailableActions(playerStatus.位置.描述),
-    environmental_factors: getEnvironmentalFactors(playerStatus.位置.描述)
+    nearby_npcs: [],
+    available_actions: ['观察周围', '离开'],
+    environmental_factors: ['晴朗天气']
   };
 }
 
 /**
- * 创建完整的GM请求对象
+ * 辅助函数：转换人物关系数据
  */
-export function createGMRequest(
-  saveData: SaveData, 
-  userMessage: string,
-  additionalMemory?: {
-    short_term?: string[];
-    mid_term?: string[];
-    long_term?: string[];
-  }
-): GM_Request {
-  const character = convertSaveDataToGameCharacter(saveData);
-  const memory = convertSaveDataToMemorySystem(saveData);
-  
-  // 合并额外的记忆
-  if (additionalMemory) {
-    if (additionalMemory.short_term) {
-      memory.short_term.push(...additionalMemory.short_term);
-    }
-    if (additionalMemory.mid_term) {
-      memory.mid_term.push(...additionalMemory.mid_term);
-    }
-    if (additionalMemory.long_term) {
-      memory.long_term.push(...additionalMemory.long_term);
-    }
+function convertRelationshipsData(relationshipsData: Record<string, any> | undefined): Record<string, {
+  value: number;
+  type: string;
+  description: string;
+}> {
+  if (!relationshipsData || typeof relationshipsData !== 'object') {
+    return {};
   }
 
-  return {
-    character,
-    world: {
-      lorebook: '修仙世界', // 可以从世界数据获取
-      mapInfo: (saveData as any).世界地图 || {},
-      time: typeof saveData.游戏时间 === 'string' ? saveData.游戏时间 : (saveData.游戏时间 ? String(saveData.游戏时间) : '未知时间')
-    },
-    memory
-  };
-}
-
-// =======================================================================
-//                           辅助函数
-// =======================================================================
-
-function getRealmName(realmLevel: number): string {
-  const realms = ['凡人', '炼气', '筑基', '结丹', '元婴', '化神', '合体', '大乘', '渡劫'];
-  return realms[realmLevel] || '未知境界';
-}
-
-function getSpiritRootQuality(spiritRoot: string): string {
-  if (spiritRoot.includes('天品')) return '天品';
-  if (spiritRoot.includes('地品')) return '地品';
-  if (spiritRoot.includes('人品')) return '人品';
-  return '凡品';
-}
-
-function getSpiritRootAttributes(spiritRoot: string): string[] {
-  const attributes = [];
-  if (spiritRoot.includes('金')) attributes.push('金');
-  if (spiritRoot.includes('木')) attributes.push('木');
-  if (spiritRoot.includes('水')) attributes.push('水');
-  if (spiritRoot.includes('火')) attributes.push('火');
-  if (spiritRoot.includes('土')) attributes.push('土');
-  if (spiritRoot.includes('风')) attributes.push('风');
-  if (spiritRoot.includes('雷')) attributes.push('雷');
-  if (spiritRoot.includes('冰')) attributes.push('冰');
-  return attributes;
-}
-
-function convertSkillsData(skills: any): { [key: string]: { level: number; rank: string; [key: string]: any } } {
-  if (!skills || !skills.技能熟练度) return {};
-  
-  return Object.entries(skills.技能熟练度).reduce((acc, [skillId, skillData]) => {
-    if (typeof skillData === 'object' && skillData !== null) {
-      acc[skillId] = {
-        level: (skillData as any)['等级'] || 1,
-        rank: getRankFromLevel((skillData as any)['等级'] || 1),
-        experience: (skillData as any)['经验'] || 0
-      };
-    }
-    return acc;
-  }, {} as any);
-}
-
-function getRankFromLevel(level: number): string {
-  if (level >= 10) return '宗师';
-  if (level >= 8) return '大师';
-  if (level >= 6) return '专家';
-  if (level >= 4) return '熟练';
-  if (level >= 2) return '入门';
-  return '初学';
-}
-
-function convertEquipmentData(equipment: any, bag: any): any {
-  const result = {
-    weapon: null,
-    armor: null,
-    accessories: [],
-    treasures: [],
-    consumables: []
-  };
-
-  if (!equipment || !bag) return result;
-
-  // 转换装备栏物品
-  Object.entries(equipment as any).forEach(([slot, itemId]) => {
-    if (itemId && bag.物品 && (bag.物品 as any)[itemId]) {
-      const item = (bag.物品 as any)[itemId];
-      if ((item as any).类型 === '法宝' && slot === '武器') {
-        result.weapon = item;
-      } else if ((item as any).类型 === '防具') {
-        result.armor = item;
-      }
-    }
-  });
-
-  // 添加消耗品
-  if (bag.物品) {
-    Object.values(bag.物品).forEach((item: any) => {
-      if ((item as any).类型 === '丹药' || (item as any).类型 === '消耗品') {
-        (result.consumables as any[]).push(item);
-      }
-    });
-  }
-
-  return result;
-}
-
-function convertRelationshipsData(relationships: any): Record<string, { value: number; type: string }> {
-  if (!relationships) return {};
-  
-  return Object.entries(relationships).reduce((acc, [npcName, npcData]) => {
+  return Object.entries(relationshipsData).reduce((acc, [npcName, npcData]) => {
     if (typeof npcData === 'object' && npcData !== null) {
       acc[npcName] = {
-        value: (npcData as any)['人物好感度'] || 0,
-        type: (npcData as any)['人物关系'] || '普通'
+        value: (npcData as any)['好感度'] || 0,
+        type: (npcData as any)['关系类型'] || '普通',
+        description: (npcData as any)['关系描述'] || ''
       };
     }
     return acc;
-  }, {} as any);
+  }, {} as Record<string, { value: number; type: string; description: string }>);
 }
 
-function inferLocationType(locationDesc: string): string {
-  if (locationDesc.includes('宗门') || locationDesc.includes('门派')) return '宗门';
-  if (locationDesc.includes('城') || locationDesc.includes('镇')) return '城镇';
-  if (locationDesc.includes('山') || locationDesc.includes('林')) return '野外';
-  if (locationDesc.includes('洞府') || locationDesc.includes('洞穴')) return '洞府';
-  return '未知';
-}
-
-function inferSpiritDensity(locationDesc: string): number {
-  if (locationDesc.includes('圣地') || locationDesc.includes('仙境')) return 9;
-  if (locationDesc.includes('宗门') || locationDesc.includes('灵地')) return 7;
-  if (locationDesc.includes('山脉') || locationDesc.includes('森林')) return 5;
-  if (locationDesc.includes('城镇') || locationDesc.includes('集市')) return 3;
-  return 2;
-}
-
-function inferDangerLevel(locationDesc: string): number {
-  if (locationDesc.includes('魔域') || locationDesc.includes('禁地')) return 9;
-  if (locationDesc.includes('深山') || locationDesc.includes('古迹')) return 6;
-  if (locationDesc.includes('野外') || locationDesc.includes('荒郊')) return 4;
-  if (locationDesc.includes('城镇') || locationDesc.includes('宗门')) return 2;
-  return 1;
-}
-
-function getNearbyNPCs(saveData: SaveData, location: any): string[] {
-  const relationships = saveData.人物关系 || {};
-  const currentLocation = location.描述;
-  
-  return Object.entries(relationships)
-    .filter(([_, npcData]: [string, any]) => {
-      return npcData?.角色存档信息?.位置?.描述?.includes(currentLocation.split(' ')[0]);
-    })
-    .map(([npcName, _]) => npcName);
-}
-
-function getAvailableActions(locationDesc: string): string[] {
-  const actions = ['观察周围', '休息'];
-  
-  if (locationDesc.includes('宗门')) {
-    actions.push('拜访长辈', '修炼功法', '查看任务');
-  }
-  if (locationDesc.includes('城镇')) {
-    actions.push('逛街购物', '打听消息', '寻找客栈');
-  }
-  if (locationDesc.includes('野外')) {
-    actions.push('探索', '采集', '寻找机缘');
-  }
-  if (locationDesc.includes('洞府')) {
-    actions.push('深入探索', '寻找宝物', '修炼');
-  }
-  
-  return actions;
-}
-
-function getEnvironmentalFactors(locationDesc: string): string[] {
-  const factors = [];
-  
-  if (locationDesc.includes('夜晚')) factors.push('视线受限');
-  if (locationDesc.includes('雨')) factors.push('道路泥泞');
-  if (locationDesc.includes('雾')) factors.push('能见度低');
-  if (locationDesc.includes('寒冷')) factors.push('消耗体力');
-  if (locationDesc.includes('炎热')) factors.push('口渴加剧');
-  
-  return factors;
+/**
+ * 将数据转换为GM请求格式
+ */
+export function createGMRequest(
+  character: GameCharacter,
+  memory: MemorySystem,
+  location: LocationContext,
+  userMessage: string
+): GM_Request {
+  return {
+    character: character,
+    world: {
+      lorebook: '修仙世界设定',
+      mapInfo: location,
+      time: '未知时间'
+    },
+    memory: {
+      short_term: memory.short_term || [],
+      mid_term: memory.mid_term || [],
+      long_term: memory.long_term || []
+    }
+  };
 }

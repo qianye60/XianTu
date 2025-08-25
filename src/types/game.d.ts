@@ -61,7 +61,7 @@ export type AttributeKey = keyof InnateAttributesEnglish;
 export interface Item {
   物品ID: string;
   名称: string;
-  类型: '法宝' | '功法' | '消耗品' | '材料' | '其他' |string;
+  类型: '法宝' | '功法' | '其他' |string;
   品质: ItemQuality; // 使用新的品质系统
   装备增幅?: {
     气血上限?: number;
@@ -91,6 +91,7 @@ export interface Inventory {
 export interface SkillProficiency {
   等级: number;
   经验: number;
+  下级所需?: number; // 添加下级所需经验字段
 }
 
 /** 天赋进度系统 */
@@ -278,6 +279,16 @@ export interface GameTime {
 
 // --- 存档数据核心 ---
 
+export interface GameMessage {
+  type: 'user' | 'ai' | 'system' | 'player' | 'gm';
+  content: string;
+  time: string;
+  metadata?: {
+    commands?: any[];
+    around?: string;
+  };
+}
+
 export interface SaveData {
   玩家角色状态: PlayerStatus;
   装备栏: Equipment;
@@ -286,6 +297,8 @@ export interface SaveData {
   人物关系: Record<string, NpcProfile>; // 以NPC名字或唯一ID为key
   记忆: Memory;
   游戏时间?: GameTime; // 添加游戏时间字段
+  短期记忆?: string[]; // 短期记忆数组
+  对话历史?: GameMessage[]; // 对话历史数组
 }
 
 
@@ -304,12 +317,98 @@ export interface SaveSlot {
 export interface CharacterBaseInfo {
   名字: string;
   性别: string;
+  年龄?: number; // 添加可选的年龄字段
   世界: string;
   天资: string;
   出生: string;
   灵根: string;
   天赋: string[];
   先天六司: InnateAttributes;
+  创建时间?: string; // 添加创建时间字段
+  描述?: string; // 添加描述字段
+}
+
+// --- 新物品系统类型定义 ---
+
+/** 新物品系统的品质枚举 */
+export type NewItemQuality = '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神';
+
+/** 新物品系统的类型枚举 */
+export type NewItemType = '武器' | '防具' | '配饰' | '消耗品' | '材料' | '功法' | '丹药' | '法宝' | '书籍' | '其他';
+
+/** 新物品系统的属性类型 */
+export type AttributeType = '攻击力' | '防御力' | '气血' | '灵气' | '神识' | '速度' | '暴击' | '命中' | '闪避' | '特殊';
+
+/** 新物品系统的属性接口 */
+export interface NewItemAttribute {
+  type: AttributeType;
+  value: number;
+  percentage?: boolean;
+  description?: string;
+}
+
+/** 新物品系统的物品接口 */
+export interface NewGameItem {
+  id: string;
+  name: string;
+  type: NewItemType;
+  quality: NewItemQuality;
+  level: number; // 0-10级
+  description: string;
+  attributes: NewItemAttribute[];
+  requirements?: {
+    realm?: string;
+    level?: number;
+    attributes?: Record<string, number>;
+  };
+  effects?: {
+    type: 'active' | 'passive' | 'triggered';
+    description: string;
+    cooldown?: number;
+    duration?: number;
+  }[];
+  stackSize: number;
+  sellValue: number;
+  origin?: string;
+  bindType?: '绑定' | '装备绑定' | '不绑定';
+  durability?: {
+    current: number;
+    max: number;
+  };
+  enchantments?: string[];
+  setBonus?: {
+    setName: string;
+    pieces: number;
+    totalPieces: number;
+    bonus: NewItemAttribute[];
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 新背包槽位接口 */
+export interface NewInventorySlot {
+  item: NewGameItem | null;
+  quantity: number;
+  locked?: boolean;
+}
+
+/** 装备槽位枚举 */
+export type EquipSlot = '武器' | '头部' | '胸甲' | '腿甲' | '足部' | '戒指1' | '戒指2' | '项链' | '配饰';
+
+/** 装备信息接口 */
+export interface EquippedItem {
+  slot: EquipSlot;
+  item: NewGameItem;
+  equippedAt: string;
+}
+
+/** 货币类型 */
+export interface Currency {
+  下品灵石: number;
+  中品灵石: number;
+  上品灵石: number;
+  极品灵石: number;
 }
 
 // --- 角色档案 (动静合一) ---

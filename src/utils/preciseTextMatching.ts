@@ -36,7 +36,7 @@ export interface PreciseMatchRule {
 /**
  * 精准文字匹配规则数据库
  */
-export class PreciseMatchRules {
+class PreciseMatchRules {
   private static rules: PreciseMatchRule[] = [
     
     // === 战斗类 - 可程序化计算 ===
@@ -392,7 +392,7 @@ export class PreciseMatchRules {
 /**
  * 程序化计算引擎
  */
-export class ProgrammaticCalculationEngine {
+class ProgrammaticCalculationEngine {
   
   /**
    * 执行程序化计算
@@ -501,7 +501,7 @@ export class ProgrammaticCalculationEngine {
     
     // 境界越高突破越难
     const difficultyMultiplier = Math.pow(1.5, currentRealm);
-    let baseRate = Math.max(10, 80 - difficultyMultiplier);
+    const baseRate = Math.max(10, 80 - difficultyMultiplier);
     
     // 阶段影响
     const stageBonus = this.getBreakthroughStageBonus(playerData.stage);

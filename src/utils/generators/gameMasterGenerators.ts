@@ -2,6 +2,7 @@ import { generateItemWithTavernAI } from '../tavernCore';
 import { INITIAL_MESSAGE_PROMPT } from '../prompts/gameMasterPrompts';
 import { buildGmRequest } from '../AIGameMaster';
 import type { GM_Response } from '../../types/AIGameMaster';
+import type { CharacterData } from '../../types';
 
 /**
  * 调用酒馆AI生成初始降世消息 (GM模式)
@@ -17,15 +18,54 @@ export async function generateInitialMessage(
 
   try {
     // 1. 构建GM_Request对象，展示给AI看
+    // 构造CharacterData对象用于buildGmRequest
+    const characterDataForGm: CharacterData = {
+      character_name: initialGameData.baseInfo.名字,
+      id: Date.now(), // 使用时间戳作为临时ID
+      world_id: 1, // 默认世界ID
+      created_at: new Date().toISOString(),
+      inventory: {
+        items: [],
+        capacity: 100,
+        expansions: [],
+        currency: { low: 0, mid: 0, high: 0, supreme: 0 }
+      },
+      talents: [],
+      reputation: 0,
+      root_bone: initialGameData.baseInfo.先天六司?.根骨 || 0,
+      spirituality: initialGameData.baseInfo.先天六司?.灵性 || 0,
+      comprehension: initialGameData.baseInfo.先天六司?.悟性 || 0,
+      fortune: initialGameData.baseInfo.先天六司?.气运 || 0,
+      charm: initialGameData.baseInfo.先天六司?.魅力 || 0,
+      temperament: initialGameData.baseInfo.先天六司?.心性 || 0,
+      source: 'local' as const
+    };
+    
+    // 构造creationDetails对象
+    const creationDetails = {
+      age: initialGameData.creationDetails.age,
+      originName: initialGameData.creationDetails.originName,
+      spiritRootName: initialGameData.creationDetails.spiritRootName
+    };
+    
     const gmRequest = buildGmRequest(
-      initialGameData.baseInfo, 
-      initialGameData.saveData, 
+      characterDataForGm, 
+      creationDetails, 
       mapData
     );
     console.log('【神识印记】构建的GM_Request:', gmRequest);
 
     // 2. 替换提示词中的占位符，然后调用AI
     const prompt = INITIAL_MESSAGE_PROMPT.replace('INPUT_PLACEHOLDER', JSON.stringify(gmRequest, null, 2));
+    
+    console.log('【角色初始化-调试】准备调用generateItemWithTavernAI');
+    console.log('【角色初始化-调试】INITIAL_MESSAGE_PROMPT长度:', INITIAL_MESSAGE_PROMPT.length);
+    console.log('【角色初始化-调试】INITIAL_MESSAGE_PROMPT前200字符:', INITIAL_MESSAGE_PROMPT.substring(0, 200));
+    console.log('【角色初始化-调试】完整prompt长度:', prompt.length);
+    console.log('【角色初始化-调试】完整prompt前300字符:', prompt.substring(0, 300));
+    console.log('【神识印记-调试】构建的完整prompt:', prompt);
+    console.log('【神识印记-调试】prompt长度:', prompt.length);
+    console.log('【神识印记-调试】GM_Request数据:', gmRequest);
     
     // 3. 调用通用生成器，并期望返回GM_Response格式
     const result = await generateItemWithTavernAI<GM_Response>(prompt, '天道初言', false);

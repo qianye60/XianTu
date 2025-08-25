@@ -139,7 +139,7 @@ async function handleCustomSubmit(data: any) {
     name: data.name,
     description: data.description || '',
     talent_cost: parseInt(data.talent_cost, 10) || 0,
-    attribute_modifiers: null,
+    attribute_modifiers: {},
     rarity: 1,
   }
 

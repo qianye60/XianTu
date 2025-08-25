@@ -49,7 +49,7 @@ export function getTavernHelper(): any {
 }
 
 /**
- * 通用AI生成函数，支持重试机制
+ * 通用AI生成函数，使用SillyTavern原生斜杠命令绕过系统提示词覆盖
  */
 export async function generateItemWithTavernAI<T = any>(
   prompt: string,
@@ -58,6 +58,10 @@ export async function generateItemWithTavernAI<T = any>(
   retries: number = 2
 ): Promise<T | null> {
   let lastError: any = null;
+  
+  console.log(`【神识印记】开始生成${typeName}，使用原生/genraw命令`);
+  console.log(`【神识印记-调试】提示词长度: ${prompt?.length || 0} 字符`);
+  console.log(`【神识印记-调试】提示词前500字符:`, prompt.substring(0, 500));
 
   for (let i = 0; i <= retries; i++) {
     try {
@@ -71,14 +75,68 @@ export async function generateItemWithTavernAI<T = any>(
         toast.info(`天机运转，推演${typeName}...`);
       }
 
-      console.log(`【神识印记】开始调用TavernHelper.generateRaw，类型: ${typeName}`);
-
-      const rawResult = await helper.generateRaw({
-        prompt,
-        max_tokens: 9000,
-        temperature: 0.7,
-        top_p: 0.9
-      });
+      console.log(`【神识印记】使用SillyTavern原生/genraw斜杠命令`);
+      
+      // 使用SillyTavern的原生/genraw命令，它支持instruct=off来禁用指令模板，system参数来设置系统提示词
+      // 参考：/genraw [lock=on|off]? [instruct=on|off]?=on [stop=list]? [as=system|char]? [system=string]? [length=number]? (string)
+      
+      let rawResult;
+      
+      // 方法1：使用/genraw命令，禁用指令模板，使用我们自己的系统提示词
+      try {
+        console.log(`【神识印记】方法1：使用/genraw instruct=off system=""`);
+        
+        // 构建genraw命令：禁用指令模板，清空系统提示词，直接使用我们的提示词
+        const genrawCommand = `/genraw instruct=off system="" ${prompt}`;
+        
+        rawResult = await helper.triggerSlash(genrawCommand);
+        
+        if (rawResult && typeof rawResult === 'string' && rawResult.trim()) {
+          console.log(`【神识印记】方法1成功，结果长度:`, rawResult.length);
+        } else {
+          throw new Error('方法1返回空结果');
+        }
+      } catch (error1) {
+        console.log(`【神识印记】方法1失败:`, error1?.message || error1);
+        
+        // 方法2：使用/genraw命令，设置系统提示词为我们的提示词
+        try {
+          console.log(`【神识印记】方法2：使用/genraw system设定`);
+          
+          // 将我们的提示词作为system参数传递
+          const escapedPrompt = prompt.replace(/"/g, '\\"');
+          const genrawCommand = `/genraw instruct=off system="${escapedPrompt}" 请按照系统指令执行。`;
+          
+          rawResult = await helper.triggerSlash(genrawCommand);
+          
+          if (rawResult && typeof rawResult === 'string' && rawResult.trim()) {
+            console.log(`【神识印记】方法2成功`);
+          } else {
+            throw new Error('方法2返回空结果');
+          }
+        } catch (error2) {
+          console.log(`【神识印记】方法2失败:`, error2?.message || error2);
+          
+          // 方法3：直接使用generateRaw但用简化参数
+          try {
+            console.log(`【神识印记】方法3：使用generateRaw简化参数`);
+            
+            // 根据@types.txt，generateRaw只支持temperature, top_p, max_tokens参数
+            rawResult = await helper.generateRaw(prompt, {
+              temperature: 0.1,  // 降低随机性，提高一致性
+              max_tokens: 4000
+            });
+            
+            console.log(`【神识印记】方法3成功`);
+          } catch (error3) {
+            console.log(`【神识印记】方法3失败:`, error3?.message || error3);
+            
+            // 方法4：回退到最基础的generateRaw调用
+            console.log(`【神识印记】方法4：最基础的generateRaw调用`);
+            rawResult = await helper.generateRaw(prompt);
+          }
+        }
+      }
 
       diagnoseAIResponse(rawResult, typeName);
 
@@ -115,6 +173,23 @@ export async function generateItemWithTavernAI<T = any>(
           return parsed;
         } catch {
           console.warn(`【神识印记】响应中未找到JSON代码块，且无法直接解析为JSON: ${text}`);
+          
+          // 如果是生成初始消息，尝试构造一个基本的GM_Response结构
+          if (typeName.includes('天道初言') || typeName.includes('初始消息')) {
+            console.log(`【神识印记】尝试从纯文本构造GM_Response结构`);
+            const fallbackResponse = {
+              text: text.trim(),
+              around: "周围环境静谧，空气中弥漫着淡淡的灵气波动。",
+              mid_term_memory: "【初始刻印】\n- 角色已进入修仙世界\n- 开始修行之路",
+              tavern_commands: []
+            } as T;
+            console.log(`【神识印记】构造的fallback响应:`, fallbackResponse);
+            if (showToast) {
+              toast.warning(`${typeName}格式异常，已采用兼容处理`);
+            }
+            return fallbackResponse;
+          }
+          
           throw new Error(`响应格式无效：缺少JSON代码块或无法解析的内容`);
         }
       }

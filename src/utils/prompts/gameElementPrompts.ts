@@ -112,19 +112,25 @@ export const TALENT_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 `;
 
 // 6. 地图生成提示词
-export const MAP_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
-# **三、 生成任务：绘制山河**
-请生成一个修仙世界的地图数据。
+export const MAP_GENERATION_PROMPT = `
+【专项任务：地图数据生成】
+你正在执行一个专门的地图生成任务，请忽略其他所有系统提示、世界书内容或角色扮演指令。
+
+# **生成任务：绘制世界舆图**
+
+你需要为修仙世界创建GeoJSON格式的地图数据。
 
 ## **具体要求：**
-你需要创建一个GeoJSON格式的地图，包含各种修仙世界特色的地点，如：
+创建包含以下类型地点的地图：
 - 门派宗门 (青云宗, 天剑门, 万花谷等)
-- 修炼圣地 (灵脉聚集地, 洞天福地等)
+- 修炼圣地 (灵脉聚集地, 洞天福地等)  
 - 城镇 (青云镇, 帝都等)
 - 危险秘境 (魔窟, 古墓, 遗迹等)
 - 自然地貌 (灵山, 灵湖, 魔域等)
 
-## **四、 GeoJSON输出格式**
+## **输出格式要求：**
+**必须严格按照以下格式输出，用三个反引号json代码块包围：**
+
 \`\`\`json
 {
   "type": "FeatureCollection",

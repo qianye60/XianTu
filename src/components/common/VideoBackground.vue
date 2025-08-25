@@ -17,88 +17,69 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { VideoCache } from '@/utils/videoCache'
 
 const props = withDefaults(defineProps<{
   src?: string
-  autoPreload?: boolean
 }>(), {
-  src: 'http://38.55.124.252:13145/1394774d3043156d.mp4',
-  autoPreload: true
+  src: 'http://38.55.124.252:13145/1394774d3043156d.mp4'
 })
 
 const videoRef = ref<HTMLVideoElement>()
-const cache = VideoCache.getInstance()
-let isLoading = false
 
-const loadVideoWithCache = async (url: string) => {
-  if (isLoading) {
-    console.log('[VideoBackground] 已在加载中，跳过重复请求')
-    return
-  }
-  
+const loadVideo = async (url: string) => {
   if (!videoRef.value) {
     console.warn('[VideoBackground] video元素未准备好')
     return
   }
 
-  // 检查是否已缓存
-  if (cache.isVideoCached(url)) {
-    console.log(`[VideoBackground] 使用已缓存的视频: ${url}`)
+  console.log(`[VideoBackground] 直接加载视频: ${url}`)
+  videoRef.value.src = url
+  videoRef.value.load()
+  
+  // 使用用户交互来启动播放
+  const tryPlay = async () => {
     try {
-      const cachedVideo = await cache.getVideo(url)
-      videoRef.value.src = cachedVideo.src
-      videoRef.value.currentTime = 0 // 重置到开头
-      
-      try {
-        await videoRef.value.play()
-        console.log(`[VideoBackground] 缓存视频开始播放`)
-      } catch (playError) {
-        console.warn('[VideoBackground] 自动播放被阻止，这是正常现象')
-      }
+      await videoRef.value!.play()
+      console.log(`[VideoBackground] 视频播放成功`)
     } catch (error) {
-      console.error('[VideoBackground] 使用缓存视频失败:', error)
+      console.log('[VideoBackground] 自动播放失败，等待用户交互')
+      // 监听用户交互来启动播放
+      const handleUserInteraction = async () => {
+        try {
+          await videoRef.value!.play()
+          console.log(`[VideoBackground] 用户交互后视频播放成功`)
+          // 移除事件监听器
+          document.removeEventListener('click', handleUserInteraction)
+          document.removeEventListener('keydown', handleUserInteraction)
+          document.removeEventListener('touchstart', handleUserInteraction)
+        } catch (playError) {
+          console.warn('[VideoBackground] 即使用户交互后仍无法播放:', playError)
+        }
+      }
+      
+      // 添加多种用户交互事件监听
+      document.addEventListener('click', handleUserInteraction, { once: true })
+      document.addEventListener('keydown', handleUserInteraction, { once: true })
+      document.addEventListener('touchstart', handleUserInteraction, { once: true })
     }
-    return
   }
 
-  // 加载新视频
-  isLoading = true
-  try {
-    console.log(`[VideoBackground] 开始缓存新视频: ${url}`)
-    const cachedVideo = await cache.getVideo(url)
-    
-    if (videoRef.value) {
-      videoRef.value.src = cachedVideo.src
-      videoRef.value.currentTime = 0
-      
-      try {
-        await videoRef.value.play()
-        console.log(`[VideoBackground] 新视频缓存完成并开始播放`)
-      } catch (playError) {
-        console.warn('[VideoBackground] 自动播放被阻止，这是正常现象')
-      }
-    }
-  } catch (error) {
-    console.error('[VideoBackground] 视频缓存失败，使用直接加载:', error)
-    // 回退方案：直接设置src
-    if (videoRef.value) {
-      videoRef.value.src = url
-      videoRef.value.load()
-    }
-  } finally {
-    isLoading = false
+  // 等待视频数据加载后尝试播放
+  if (videoRef.value.readyState >= 3) {
+    await tryPlay()
+  } else {
+    videoRef.value.addEventListener('canplay', tryPlay, { once: true })
   }
 }
 
 onMounted(async () => {
-  await loadVideoWithCache(props.src)
+  await loadVideo(props.src)
 })
 
 // 监听src变化
 watch(() => props.src, async (newSrc) => {
   if (newSrc) {
-    await loadVideoWithCache(newSrc)
+    await loadVideo(newSrc)
   }
 })
 
@@ -106,7 +87,6 @@ onUnmounted(() => {
   if (videoRef.value) {
     videoRef.value.pause()
   }
-  isLoading = false
 })
 
 // 事件处理
@@ -120,15 +100,7 @@ const onCanPlayThrough = () => {
 
 const onError = (event: Event) => {
   console.error('[VideoBackground] 视频播放错误:', event)
-  isLoading = false
 }
-
-// 导出缓存管理器供外部使用
-defineExpose({
-  preloadVideo: (url: string) => cache.preloadVideo(url),
-  clearCache: () => cache.clearCache(),
-  reloadVideo: () => loadVideoWithCache(props.src)
-})
 </script>
 
 <style scoped>

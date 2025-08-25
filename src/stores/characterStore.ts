@@ -212,10 +212,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param slotKey 存档槽位关键字 (e.g., "存档1")
    */
   const loadGame = async (charId: string, slotKey: string) => {
+    console.log('[存档加载] 开始加载游戏，角色ID:', charId, '存档槽:', slotKey);
+    
     const profile = rootState.value.角色列表[charId];
     if (!profile) {
+      console.error('[存档加载] 找不到要加载的角色:', charId);
       toast.error('找不到要加载的角色！');
-      return;
+      return false;
     }
 
     let targetSlot: SaveSlot | undefined | null;
@@ -226,20 +229,50 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
     
     if (!targetSlot) {
+      console.error('[存档加载] 找不到指定的存档槽位:', slotKey);
       toast.error('找不到指定的存档槽位！');
-      return;
+      return false;
     }
 
-    // TODO: 此处应从 targetSlot.存档数据 中提取聊天记录并推送到Tavern
-    // const chatHistory = targetSlot.存档数据?.聊天记录; // 假设存档数据中有聊天记录
-    // const helper = getTavernHelper();
-    // if (helper && chatHistory) {
-    //   await helper.setChatHistory(chatHistory);
-    // }
-    
-    rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
-    commitToStorage();
-    toast.success(`已成功加载角色【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名}`);
+    try {
+      // 1. 先设置激活存档
+      console.log('[存档加载] 设置当前激活存档');
+      rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
+      commitToStorage();
+
+      // 2. 同步角色档案到酒馆
+      console.log('[存档加载] 同步角色档案到酒馆');
+      await setActiveCharacterInTavern(charId);
+
+      // 3. 如果存档有数据，加载存档内容到酒馆
+      if (targetSlot.存档数据) {
+        console.log('[存档加载] 加载存档数据到酒馆');
+        const helper = getTavernHelper();
+        if (helper) {
+          // 将存档数据写入酒馆变量
+          const gameVariables = {
+            'character.saveData': targetSlot.存档数据,
+            'character.name': profile.角色基础信息.名字,
+            'character.realm': targetSlot.存档数据.玩家角色状态?.境界 || '凡人',
+            'character.location': targetSlot.存档数据.玩家角色状态?.位置?.描述 || '新手村'
+          };
+          
+          await helper.insertOrAssignVariables(gameVariables, { type: 'chat' });
+          console.log('[存档加载] 游戏变量已设置到酒馆');
+        }
+      } else {
+        console.log('[存档加载] 这是一个新存档，无需加载存档数据');
+      }
+
+      console.log('[存档加载] 加载完成');
+      toast.success(`已成功加载角色【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名 || slotKey}`);
+      return true;
+      
+    } catch (error) {
+      console.error('[存档加载] 加载过程出错:', error);
+      toast.error('存档加载失败：' + (error instanceof Error ? error.message : '未知错误'));
+      return false;
+    }
   };
 
   /**

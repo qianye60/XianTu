@@ -159,6 +159,31 @@ export type CharacterData = Character & {
   gameState?: CharacterGameState;
 };
 
+/**
+ * 角色创建时的载荷类型
+ */
+export interface CharacterCreationPayload {
+  charId: string;
+  characterName: string;
+  world: World;
+  talentTier: TalentTier;
+  origin: Origin | null;  // 允许为null，表示随机出身
+  spiritRoot: SpiritRoot | null;  // 允许为null，表示随机灵根
+  talents: Talent[];
+  角色基础信息: any;
+  baseAttributes: {
+    root_bone: number;
+    spirituality: number;
+    comprehension: number;
+    fortune: number;
+    charm: number;
+    temperament: number;
+  };
+  mode: '单机' | '联机';
+  age: number;
+  gender: string;
+}
+
 // --- 创角自定义数据结构 ---
 
 export type DADCustomData = {

@@ -16,6 +16,20 @@
         overflow: auto;
       }
     </style>
+    <script>
+      // 全局定义Turnstile回调
+      window.turnstileCallbacks = [];
+      window.onTurnstileLoad = function() {
+        console.log('[Turnstile] SDK已加载，调用所有回调');
+        window.turnstileCallbacks.forEach(function(callback) {
+          try {
+            callback();
+          } catch (error) {
+            console.error('[Turnstile] 回调执行失败:', error);
+          }
+        });
+      };
+    </script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script>
   </head>
   <body>

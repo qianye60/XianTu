@@ -4,23 +4,23 @@
  */
 
 import { getTavernHelper } from '@/utils/tavern';
-import { processGmResponse, buildGmRequest } from '@/utils/AIGameMaster';
-import { generateComprehensiveAIPrompt, generateOptimizedPrompt, type MemorySystem, type LocationContext } from '@/utils/prompts/comprehensiveAISystem';
-import { convertSaveDataToGameCharacter, convertSaveDataToMemorySystem, convertSaveDataToLocationContext, createGMRequest } from '@/utils/prompts/aiSystemConverter';
+import { processGmResponse } from '@/utils/AIGameMaster';
+import { generateComprehensiveAIPrompt, generateOptimizedPrompt, type MemorySystem } from '@/utils/prompts/comprehensiveAISystem';
+import { convertSaveDataToGameCharacter, convertSaveDataToMemorySystem, convertSaveDataToLocationContext } from '@/utils/prompts/aiSystemConverter';
+import { PromptRouter, ActionAnalyzer, PromptQualityAssessor } from '@/utils/prompts/smartPromptRouter';
 import { SettingsManager } from '@/utils/settings/settingsManager';
 import { AIMemoryManager } from '@/utils/settings/memoryManager';
 import { toast } from '@/utils/toast';
 import type { GM_Response, GameCharacter } from '@/types/AIGameMaster';
-import type { CharacterProfile, SaveData } from '@/types/game';
+import type { CharacterProfile, SaveData, GameMessage, GameTime } from '@/types/game';
 
-export interface GameMessage {
-  type: 'system' | 'player' | 'game' | 'ai';
-  content: string;
-  time: string;
-  metadata?: {
-    commands?: any[];
-    around?: string;
-  };
+/**
+ * 将 GameTime 对象转换为字符串格式
+ */
+function formatGameTime(time: string | GameTime | undefined): string {
+  if (!time) return '未知时间';
+  if (typeof time === 'string') return time;
+  return `${time.年}年${time.月}月${time.日}日 ${time.小时}:${String(time.分钟).padStart(2, '0')}`;
 }
 
 export class GameAIService {
@@ -168,7 +168,7 @@ export class GameAIService {
   }
 
   /**
-   * 构建综合AI提示词
+   * 构建智能优化的AI提示词
    */
   private buildComprehensivePrompt(userMessage: string, characterProfile: CharacterProfile): string {
     const saveData = this.getSaveData(characterProfile);
@@ -179,7 +179,7 @@ export class GameAIService {
 
     try {
       // 转换存档数据为AI系统格式
-      const character = convertSaveDataToGameCharacter(saveData);
+      const character = convertSaveDataToGameCharacter(saveData, characterProfile);
       const memory = convertSaveDataToMemorySystem(saveData);
       const location = convertSaveDataToLocationContext(saveData);
 
@@ -187,22 +187,79 @@ export class GameAIService {
       this.mergeMemorySystems(memory, this.memorySystem);
 
       // 添加当前用户消息到短期记忆
+      const settings = this.settingsManager.getSettings();
       memory.short_term.unshift(`玩家行动: ${userMessage}`);
-      if (memory.short_term.length > 3) {
-        memory.short_term = memory.short_term.slice(0, 3);
+      if (memory.short_term.length > settings.memory.shortTerm.maxLength) {
+        memory.short_term = memory.short_term.slice(0, settings.memory.shortTerm.maxLength);
+      }
+
+      // 使用智能路由系统选择最佳提示词
+      console.log('[AI服务] 使用智能提示词路由系统');
+      
+      // 分析用户行动
+      const actionAnalysis = ActionAnalyzer.analyzeAction(userMessage);
+      console.log('[AI服务] 行动分析结果:', actionAnalysis);
+
+      // 选择最优提示词
+      const optimizedPrompt = PromptRouter.selectOptimalPrompt({
+        character,
+        memory,
+        location,
+        userAction: userMessage,
+        worldTime: formatGameTime(saveData.游戏时间),
+        difficulty: this.currentDifficulty
+      });
+
+      // 评估提示词质量
+      const qualityAssessment = PromptQualityAssessor.assessPromptQuality(optimizedPrompt, {
+        actionType: actionAnalysis.primaryType,
+        complexity: actionAnalysis.confidence,
+        characterLevel: character.cultivation?.realm_progress || 1
+      });
+
+      console.log('[AI服务] 提示词质量评估:', qualityAssessment);
+
+      // 如果质量评分较低，添加改进建议
+      if (qualityAssessment.score < 60) {
+        console.warn('[AI服务] 提示词质量偏低，建议:', qualityAssessment.suggestions);
+      }
+
+      return optimizedPrompt;
+
+    } catch (error) {
+      console.error('[AI服务] 智能提示词生成失败，回退到综合版本:', error);
+      return this.buildComprehensivePromptFallback(userMessage, characterProfile, saveData);
+    }
+  }
+
+  /**
+   * 备用的综合提示词构建方法
+   */
+  private buildComprehensivePromptFallback(userMessage: string, characterProfile: CharacterProfile, saveData: SaveData): string {
+    try {
+      const character = convertSaveDataToGameCharacter(saveData, characterProfile);
+      const memory = convertSaveDataToMemorySystem(saveData);
+      const location = convertSaveDataToLocationContext(saveData);
+
+      this.mergeMemorySystems(memory, this.memorySystem);
+
+      const settings = this.settingsManager.getSettings();
+      memory.short_term.unshift(`玩家行动: ${userMessage}`);
+      if (memory.short_term.length > settings.memory.shortTerm.maxLength) {
+        memory.short_term = memory.short_term.slice(0, settings.memory.shortTerm.maxLength);
       }
 
       return generateComprehensiveAIPrompt({
         character,
         memory,
         location,
-        worldTime: saveData.游戏时间 || '未知时间',
+        worldTime: formatGameTime(saveData.游戏时间),
         difficulty: this.currentDifficulty,
         isMultiplayer: characterProfile.模式 === '联机',
         includeAntiCheat: characterProfile.模式 === '联机'
       });
     } catch (error) {
-      console.error('[AI服务] 构建综合提示词失败，回退到简化版本:', error);
+      console.error('[AI服务] 备用提示词构建也失败，使用简化版本:', error);
       return this.buildSimplePrompt(userMessage, characterProfile);
     }
   }
@@ -317,23 +374,35 @@ export class GameAIService {
    * 更新记忆系统
    */
   private updateMemorySystem(userMessage: string, midTermMemory: string): void {
+    const settings = this.settingsManager.getSettings();
+    
     // 添加到中期记忆
-    this.memorySystem.mid_term.unshift(midTermMemory);
-    if (this.memorySystem.mid_term.length > 10) {
-      // 最旧的中期记忆转入长期记忆
-      const oldMemory = this.memorySystem.mid_term.pop();
-      if (oldMemory && this.isImportantMemory(oldMemory)) {
-        this.memorySystem.long_term.unshift(oldMemory);
-        if (this.memorySystem.long_term.length > 20) {
-          this.memorySystem.long_term = this.memorySystem.long_term.slice(0, 20);
+    if (settings.memory.midTerm.enabled) {
+      this.memorySystem.mid_term.unshift(midTermMemory);
+      
+      // 检查是否需要转换为长期记忆
+      if (this.memorySystem.mid_term.length > settings.memory.midTerm.maxLength) {
+        // 转换最旧的中期记忆到长期记忆
+        const oldMemory = this.memorySystem.mid_term.pop();
+        if (oldMemory && this.isImportantMemory(oldMemory) && settings.memory.longTerm.enabled) {
+          this.memorySystem.long_term.unshift(oldMemory);
+          
+          // 检查长期记忆限制
+          if (!settings.memory.longTerm.unlimited && settings.memory.longTerm.maxLength) {
+            if (this.memorySystem.long_term.length > settings.memory.longTerm.maxLength) {
+              this.memorySystem.long_term = this.memorySystem.long_term.slice(0, settings.memory.longTerm.maxLength);
+            }
+          }
         }
       }
     }
 
     // 更新短期记忆
-    this.memorySystem.short_term.unshift(`用户: ${userMessage}`);
-    if (this.memorySystem.short_term.length > 3) {
-      this.memorySystem.short_term = this.memorySystem.short_term.slice(0, 3);
+    if (settings.memory.shortTerm.enabled) {
+      this.memorySystem.short_term.unshift(`用户: ${userMessage}`);
+      if (this.memorySystem.short_term.length > settings.memory.shortTerm.maxLength) {
+        this.memorySystem.short_term = this.memorySystem.short_term.slice(0, settings.memory.shortTerm.maxLength);
+      }
     }
   }
 
@@ -424,7 +493,8 @@ export class GameAIService {
       await processGmResponse(response, characterData as any);
       
       // 如果AI响应包含角色数据更新，应用到角色商店
-      if (response.character_updates) {
+      // 注意：character_updates 目前不在 GM_Response 接口中定义
+      if ('character_updates' in response && response.character_updates) {
         const { useCharacterStore } = await import('@/stores/characterStore');
         const characterStore = useCharacterStore();
         characterStore.updateCharacterData(response.character_updates);
@@ -449,5 +519,68 @@ export class GameAIService {
    */
   isCurrentlyProcessing(): boolean {
     return this.isProcessing;
+  }
+
+  /**
+   * 获取记忆设置
+   */
+  getMemorySettings() {
+    return this.settingsManager.getSettings().memory;
+  }
+
+  /**
+   * 生成初始游戏消息
+   */
+  async generateInitialGameMessage(characterProfile: CharacterProfile, saveSlot: any): Promise<{ message: string }> {
+    try {
+      console.log('[AI服务] 开始生成初始游戏消息');
+      
+      const helper = getTavernHelper();
+      if (!helper) {
+        throw new Error('SillyTavern助手未可用');
+      }
+
+      // 构建初始消息的提示词
+      const baseInfo = characterProfile.角色基础信息;
+      const playerStatus = saveSlot?.存档数据?.玩家角色状态;
+      
+      const initialPrompt = `【天道初言生成】
+请为一位刚刚踏入修仙世界的角色生成开场故事。
+
+角色信息：
+- 道号：${baseInfo.名字}
+- 性别：${baseInfo.性别}
+- 世界：${baseInfo.世界}
+- 天资：${baseInfo.天资}
+- 出身：${baseInfo.出生}
+- 灵根：${baseInfo.灵根}
+- 天赋：${baseInfo.天赋?.join('、') || '无'}
+- 当前境界：${playerStatus?.境界?.名称 || '凡人'}
+
+要求：
+1. 生成一段200-400字的开场描述
+2. 要体现角色的出身背景和世界观
+3. 要有代入感和沉浸感
+4. 要符合修仙题材的氛围
+5. 结尾要引导玩家进行第一个选择
+
+请直接输出开场故事，不要包含其他格式。`;
+
+      // 发送给AI
+      const response = await helper.generateRaw(initialPrompt);
+      
+      if (!response || typeof response !== 'string') {
+        throw new Error('AI返回了无效的响应');
+      }
+
+      const cleanedMessage = response.trim().replace(/^【[^】]*】\s*/, '');
+      
+      console.log('[AI服务] 初始消息生成成功');
+      return { message: cleanedMessage };
+      
+    } catch (error) {
+      console.error('[AI服务] 生成初始游戏消息失败:', error);
+      throw error;
+    }
   }
 }
