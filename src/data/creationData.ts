@@ -46,17 +46,97 @@ export const LOCAL_ORIGINS: Omit<Origin, 'source'>[] = [
 ];
 
 // =======================================================================
-//                           本地灵根数据 (预留)
+//                           本地灵根数据 (完整版本)
 // =======================================================================
 export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
-  { id: 1, name: '金灵根', description: '操控金铁，锋锐无匹。修行金系功法事半功倍，攻击至上。', base_multiplier: 1.5, talent_cost: 10 },
-  { id: 2, name: '木灵根', description: '亲和草木，生机盎然。修行木系功法极快，擅长治疗与控制。', base_multiplier: 1.5, talent_cost: 10 },
-  { id: 3, name: '水灵根', description: '御水之脉，绵延不绝。修行水系功法，法力悠长，变化多端。', base_multiplier: 1.5, talent_cost: 10 },
-  { id: 4, name: '火灵根', description: '天生火脉，焚尽八荒。修行火系功法，威力绝伦，爆发力强。', base_multiplier: 1.5, talent_cost: 10 },
-  { id: 5, name: '土灵根', description: '大地之子，厚德载物。修行土系功法，防御惊人，稳如泰山。', base_multiplier: 1.5, talent_cost: 10 },
-  { id: 6, name: '混沌灵根', description: '万法归一，包容万象。可修行所有属性功法，无瓶颈，但初期进展缓慢。', base_multiplier: 2.0, talent_cost: 20 },
-  { id: 7, name: '天妒之体', description: '天道所妒，灵气不亲。修行速度极为缓慢，但一旦突破，根基无比扎实。', base_multiplier: 0.5, talent_cost: -5 },
-  { id: 8, name: '凡人灵根', description: '五行皆有，却驳杂不堪，修炼速度慢如龟爬。', base_multiplier: 1.0, talent_cost: 0 },
+  {
+    id: 1,
+    name: '金灵根',
+    tier: '上品',
+    description: '操控金铁，锋锐无匹。修行金系功法事半功倍，攻击至上。',
+    cultivation_speed: '1.5x',
+    special_effects: ['金系法术威力+50%', '器物亲和+30%', '金属感知'],
+    base_multiplier: 1.5,
+    talent_cost: 10,
+    rarity: 3
+  },
+  {
+    id: 2,
+    name: '木灵根',
+    tier: '上品',
+    description: '亲和草木，生机盎然。修行木系功法极快，擅长治疗与控制。',
+    cultivation_speed: '1.5x',
+    special_effects: ['木系法术威力+50%', '生命力恢复+40%', '植物沟通'],
+    base_multiplier: 1.5,
+    talent_cost: 10,
+    rarity: 3
+  },
+  {
+    id: 3,
+    name: '水灵根',
+    tier: '上品',
+    description: '御水之脉，绵延不绝。修行水系功法，法力悠长，变化多端。',
+    cultivation_speed: '1.5x',
+    special_effects: ['水系法术威力+50%', '灵气恢复+40%', '水体感知'],
+    base_multiplier: 1.5,
+    talent_cost: 10,
+    rarity: 3
+  },
+  {
+    id: 4,
+    name: '火灵根',
+    tier: '上品',
+    description: '天生火脉，焚尽八荒。修行火系功法，威力绝伦，爆发力强。',
+    cultivation_speed: '1.5x',
+    special_effects: ['火系法术威力+50%', '爆发伤害+60%', '火焰免疫'],
+    base_multiplier: 1.5,
+    talent_cost: 10,
+    rarity: 3
+  },
+  {
+    id: 5,
+    name: '土灵根',
+    tier: '上品',
+    description: '大地之子，厚德载物。修行土系功法，防御惊人，稳如泰山。',
+    cultivation_speed: '1.5x',
+    special_effects: ['土系法术威力+50%', '防御力+40%', '大地感知'],
+    base_multiplier: 1.5,
+    talent_cost: 10,
+    rarity: 3
+  },
+  {
+    id: 6,
+    name: '混沌灵根',
+    tier: '天品',
+    description: '万法归一，包容万象。可修行所有属性功法，无瓶颈，但初期进展缓慢。',
+    cultivation_speed: '0.8x(前期) → 2.5x(后期)',
+    special_effects: ['全系法术亲和', '无属性限制', '越阶战斗+50%', '突破概率+30%'],
+    base_multiplier: 2.0,
+    talent_cost: 20,
+    rarity: 5
+  },
+  {
+    id: 7,
+    name: '天妒之体',
+    tier: '特殊',
+    description: '天道所妒，灵气不亲。修行速度极为缓慢，但一旦突破，根基无比扎实。',
+    cultivation_speed: '0.5x',
+    special_effects: ['根基极其稳固', '突破后实力暴增+100%', '天劫抗性+80%', '逆天改命'],
+    base_multiplier: 0.5,
+    talent_cost: -5,
+    rarity: 4
+  },
+  {
+    id: 8,
+    name: '凡人灵根',
+    tier: '凡品',
+    description: '五行皆有，却驳杂不堪，修炼速度慢如龟爬。',
+    cultivation_speed: '1.0x',
+    special_effects: ['平凡之道', '大器晚成'],
+    base_multiplier: 1.0,
+    talent_cost: 0,
+    rarity: 1
+  },
 ];
 
 

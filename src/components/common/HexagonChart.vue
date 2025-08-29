@@ -1,6 +1,19 @@
 <template>
   <div class="hexagon-chart-container">
     <svg :width="size" :height="size" :viewBox="`0 0 ${size} ${size}`">
+      <!-- 定义渐变 -->
+      <defs>
+        <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="rgba(255, 215, 0, 0.3)" />
+          <stop offset="50%" stop-color="rgba(218, 165, 32, 0.25)" />
+          <stop offset="100%" stop-color="rgba(255, 223, 0, 0.2)" />
+        </linearGradient>
+        <linearGradient id="darkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="rgba(100, 181, 246, 0.3)" />
+          <stop offset="100%" stop-color="rgba(100, 181, 246, 0.1)" />
+        </linearGradient>
+      </defs>
+      
       <g :transform="`translate(${center}, ${center})`">
         <!-- Hexagon Grid Lines -->
         <polygon v-for="level in gridLevels" :key="`grid-${level}`" :points="getHexagonPoints(level / gridLevels)" class="grid-line" />
@@ -154,39 +167,47 @@ const getLabelBaseline = (index: number, forValue = false) => {
   align-items: center;
 }
 
-/* 浅色主题 - 仙气飘渺 */
+/* 浅色主题 - 金辉仙光 */
 .grid-line {
   fill: none;
-  stroke: #7986cb;
+  stroke: var(--color-primary);
   stroke-width: 1;
-  opacity: 0.4;
+  opacity: 0.2;
 }
 
 .data-polygon {
-  fill: rgba(121, 134, 203, 0.2);
-  stroke: #7986cb;
-  stroke-width: 2;
-  transition: fill 0.3s ease;
+  fill: url(#goldGradient);
+  stroke: var(--color-primary);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 8px rgba(218, 165, 32, 0.3));
+  transition: all 0.3s ease;
+}
+
+.data-polygon:hover {
+  filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.5));
 }
 
 .data-point {
-  fill: #9c27b0;
-  stroke: rgba(255, 255, 255, 0.8);
+  fill: var(--color-accent);
+  stroke: rgba(255, 255, 255, 0.9);
   stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgba(255, 140, 0, 0.4));
 }
 
 .data-value-text {
-  fill: #5c6bc0;
-  font-size: 11px;
+  fill: var(--color-text);
+  font-size: 12px;
   font-weight: bold;
-  font-family: 'SimSun', 'NSimSun', 'STSong', '宋体', serif;
+  font-family: var(--font-family-serif);
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .label-text {
-  fill: #7986cb;
-  font-size: 12px;
+  fill: var(--color-primary);
+  font-size: 13px;
   font-weight: 600;
-  font-family: 'SimSun', 'NSimSun', 'STSong', '宋体', serif;
+  font-family: var(--font-family-serif);
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.9);
 }
 
 /* 深色主题 - 夜空星辰 */
@@ -196,7 +217,7 @@ const getLabelBaseline = (index: number, forValue = false) => {
 }
 
 [data-theme="dark"] .data-polygon {
-  fill: rgba(100, 181, 246, 0.2);
+  fill: url(#darkGradient);
   stroke: #64b5f6;
 }
 

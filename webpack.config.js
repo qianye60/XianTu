@@ -1,13 +1,18 @@
-const webpack = require('webpack')
-const path = require('path')
-const { VueLoaderPlugin } = require('vue-loader')
-const HtmlWebpackPlugin = require('html-webpack-plugin')
-const HtmlInlineScriptPlugin = require('html-inline-script-webpack-plugin')
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const HtmlInlineCssWebpackPlugin = require('html-inline-css-webpack-plugin').default
-const TavernLiveReloadPlugin = require('./webpack/TavernLiveReloadPlugin')
+import webpack from 'webpack'
+import path from 'path'
+import { VueLoaderPlugin } from 'vue-loader'
+import HtmlWebpackPlugin from 'html-webpack-plugin'
+import HtmlInlineScriptPlugin from 'html-inline-script-webpack-plugin'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import HtmlInlineCssWebpackPlugin from 'html-inline-css-webpack-plugin'
+const { default: HtmlInlineCssPlugin } = HtmlInlineCssWebpackPlugin
+import TavernLiveReloadPlugin from './webpack/TavernLiveReloadPlugin.js'
+import { fileURLToPath } from 'url'
 
-module.exports = (env, argv) => {
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+export default (env, argv) => {
   const isProduction = argv.mode === 'production'
 
   return {
@@ -60,8 +65,8 @@ module.exports = (env, argv) => {
         inject: 'body',
       }),
       new HtmlInlineScriptPlugin(),
-      new HtmlInlineCssWebpackPlugin(),
-      !isProduction ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
+      new HtmlInlineCssPlugin(),
+      !isProduction ? new TavernLiveReloadPlugin() : null,
     ].filter(Boolean),
     devServer: {
       static: {

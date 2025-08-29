@@ -93,27 +93,27 @@ export const GM_RESPONSE_FORMAT_GUIDE = `
 #### **角色初始化模式**:
 \`\`\`json
 [
-  {"action": "set", "scope": "chat", "key": "character.identity.description", "value": "具体外观描述"},
-  {"action": "set", "scope": "chat", "key": "character.cultivation.realm", "value": "境界名称"},
-  {"action": "set", "scope": "chat", "key": "character.cultivation.realm_level", "value": "数字"},
-  {"action": "set", "scope": "chat", "key": "character.resources.qi_blood", "value": {"current": "数值", "max": "数值"}}
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.描述", "value": "具体位置名称"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.名称", "value": "境界名称"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.等级", "value": "数字"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.气血", "value": {"当前": "数值", "最大": "数值"}}
 ]
 \`\`\`
 
 #### **状态变化模式**:
 \`\`\`json
 [
-  {"action": "add", "scope": "chat", "key": "character.resources.qi_blood.current", "value": "变化量"},
-  {"action": "push", "scope": "chat", "key": "character.status.effects", "value": "状态对象"},
-  {"action": "set", "scope": "chat", "key": "character.status.location", "value": "新位置"}
+  {"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.气血.当前", "value": "变化量"},
+  {"action": "push", "scope": "chat", "key": "character.saveData.玩家角色状态.状态效果", "value": "状态对象"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.描述", "value": "新位置"}
 ]
 \`\`\`
 
 #### **获得物品模式**:
 \`\`\`json
 [
-  {"action": "push", "scope": "chat", "key": "character.equipment.consumables", "value": "物品对象"},
-  {"action": "add", "scope": "chat", "key": "character.social.reputation.某势力", "value": "声望变化"}
+  {"action": "push", "scope": "chat", "key": "character.saveData.背包.物品", "value": "物品对象"},
+  {"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.声望", "value": "声望变化"}
 ]
 \`\`\`
 

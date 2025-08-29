@@ -1,5 +1,4 @@
 import { toast } from './toast';
-import type { GM_Response } from '../types/AIGameMaster';
 
 // =======================================================================
 //                           核心：酒馆上下文获取
@@ -8,7 +7,9 @@ import type { GM_Response } from '../types/AIGameMaster';
 /**
  * 诊断AI响应问题的辅助函数
  */
-export function diagnoseAIResponse(rawResult: any, typeName: string): void {
+export function diagnoseAIResponse(rawResult: unknown, typeName: string): void {
+  const aiResponse = rawResult as AIResponse;
+  
   console.log(`【神识印记-诊断】开始诊断${typeName}的AI响应:`, {
     type: typeof rawResult,
     isNull: rawResult === null,
@@ -16,16 +17,16 @@ export function diagnoseAIResponse(rawResult: any, typeName: string): void {
     isString: typeof rawResult === 'string',
     isEmpty: typeof rawResult === 'string' && rawResult.trim() === '',
     length: typeof rawResult === 'string' ? rawResult.length : 'N/A',
-    hasChoices: rawResult && rawResult.choices,
-    choicesLength: rawResult && rawResult.choices ? rawResult.choices.length : 'N/A'
+    hasChoices: aiResponse && aiResponse.choices,
+    choicesLength: aiResponse && aiResponse.choices ? aiResponse.choices.length : 'N/A'
   });
 
   // 检查是否是OpenAI格式的响应
-  if (rawResult && typeof rawResult === 'object' && rawResult.choices) {
-    console.log(`【神识印记-诊断】检测到OpenAI格式响应，choices:`, rawResult.choices);
-    if (rawResult.choices.length > 0 && rawResult.choices[0].message) {
-      console.log(`【神识印记-诊断】第一个choice的消息内容:`, rawResult.choices[0].message.content);
-      if (!rawResult.choices[0].message.content || rawResult.choices[0].message.content.trim() === '') {
+  if (aiResponse && typeof aiResponse === 'object' && aiResponse.choices) {
+    console.log(`【神识印记-诊断】检测到OpenAI格式响应，choices:`, aiResponse.choices);
+    if (aiResponse.choices.length > 0 && aiResponse.choices[0].message) {
+      console.log(`【神识印记-诊断】第一个choice的消息内容:`, aiResponse.choices[0].message.content);
+      if (!aiResponse.choices[0].message.content || aiResponse.choices[0].message.content.trim() === '') {
         console.warn(`【神识印记-诊断】AI返回了空的content，这通常表示模型配置问题或提示词过于复杂`);
       }
     }
@@ -33,14 +34,35 @@ export function diagnoseAIResponse(rawResult: any, typeName: string): void {
 }
 
 /**
- * 获取SillyTavern助手API，适配iframe环境。
- * @returns {any} - 返回TavernHelper对象
+ * TavernHelper API 接口定义
  */
-export function getTavernHelper(): any {
+interface TavernHelper {
+  generateRaw: (prompt: string, options?: {
+    temperature?: number;
+    top_p?: number;
+    max_tokens?: number;
+  }) => Promise<unknown>;
+  triggerSlash: (command: string) => Promise<unknown>;
+}
+
+/**
+ * 扩展 Window 接口以包含 TavernHelper
+ */
+interface WindowWithTavernHelper extends Window {
+  TavernHelper?: TavernHelper;
+}
+
+/**
+ * 获取SillyTavern助手API，适配iframe环境。
+ * @returns {TavernHelper} - 返回TavernHelper对象
+ */
+
+export function getTavernHelper(): TavernHelper {
   console.log('【神识印记】开始检查TavernHelper可用性...');
-  if (window.parent && (window.parent as any).TavernHelper?.generateRaw) {
+  const parentWindow = window.parent as WindowWithTavernHelper;
+  if (parentWindow && parentWindow.TavernHelper?.generateRaw) {
     console.log('【神识印记】TavernHelper检查通过，返回对象');
-    return (window.parent as any).TavernHelper;
+    return parentWindow.TavernHelper;
   }
 
   console.error('【神识印记】TavernHelper检查失败');
@@ -49,15 +71,27 @@ export function getTavernHelper(): any {
 }
 
 /**
+ * AI响应的可能格式
+ */
+interface AIResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+    text?: string;
+  }>;
+}
+
+/**
  * 通用AI生成函数，使用SillyTavern原生斜杠命令绕过系统提示词覆盖
  */
-export async function generateItemWithTavernAI<T = any>(
+export async function generateItemWithTavernAI<T = unknown>(
   prompt: string,
   typeName: string,
   showToast: boolean = true,
   retries: number = 2
 ): Promise<T | null> {
-  let lastError: any = null;
+  let lastError: Error | null = null;
   
   console.log(`【神识印记】开始生成${typeName}，使用原生/genraw命令`);
   console.log(`【神识印记-调试】提示词长度: ${prompt?.length || 0} 字符`);
@@ -97,7 +131,8 @@ export async function generateItemWithTavernAI<T = any>(
           throw new Error('方法1返回空结果');
         }
       } catch (error1) {
-        console.log(`【神识印记】方法1失败:`, error1?.message || error1);
+        const errorMsg = error1 instanceof Error ? error1.message : String(error1);
+        console.log(`【神识印记】方法1失败:`, errorMsg);
         
         // 方法2：使用/genraw命令，设置系统提示词为我们的提示词
         try {
@@ -115,7 +150,8 @@ export async function generateItemWithTavernAI<T = any>(
             throw new Error('方法2返回空结果');
           }
         } catch (error2) {
-          console.log(`【神识印记】方法2失败:`, error2?.message || error2);
+          const errorMsg = error2 instanceof Error ? error2.message : String(error2);
+          console.log(`【神识印记】方法2失败:`, errorMsg);
           
           // 方法3：直接使用generateRaw但用简化参数
           try {
@@ -129,7 +165,8 @@ export async function generateItemWithTavernAI<T = any>(
             
             console.log(`【神识印记】方法3成功`);
           } catch (error3) {
-            console.log(`【神识印记】方法3失败:`, error3?.message || error3);
+            const errorMsg = error3 instanceof Error ? error3.message : String(error3);
+            console.log(`【神识印记】方法3失败:`, errorMsg);
             
             // 方法4：回退到最基础的generateRaw调用
             console.log(`【神识印记】方法4：最基础的generateRaw调用`);
@@ -142,8 +179,9 @@ export async function generateItemWithTavernAI<T = any>(
 
       // 处理OpenAI格式的响应
       let text: string = '';
-      if (rawResult && typeof rawResult === 'object' && rawResult.choices && rawResult.choices.length > 0) {
-        text = rawResult.choices[0].message?.content || rawResult.choices[0].text || '';
+      const aiResponse = rawResult as AIResponse;
+      if (aiResponse && typeof aiResponse === 'object' && aiResponse.choices && aiResponse.choices.length > 0) {
+        text = aiResponse.choices[0].message?.content || aiResponse.choices[0].text || '';
       } else if (typeof rawResult === 'string') {
         text = rawResult;
       } else {
@@ -204,15 +242,17 @@ export async function generateItemWithTavernAI<T = any>(
           toast.success(`${typeName}推演完成！`);
         }
         return parsed;
-      } catch (parseError: any) {
+      } catch (parseError) {
+        const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
         console.error(`【神识印记】JSON解析失败:`, parseError);
         console.error(`【神识印记】原始JSON字符串:`, jsonStr);
-        throw new Error(`JSON解析失败: ${parseError.message}`);
+        throw new Error(`JSON解析失败: ${errorMsg}`);
       }
 
-    } catch (error: any) {
-      lastError = error;
-      console.error(`【神识印记】第 ${i} 次尝试失败:`, error.message);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`【神识印记】第 ${i} 次尝试失败:`, errorMsg);
 
       if (i < retries) {
         console.log(`【神识印记】准备重试，剩余尝试次数: ${retries - i}`);

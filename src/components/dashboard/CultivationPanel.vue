@@ -21,43 +21,36 @@
       </div>
     </div>
 
-    <!-- 境界状态卡片 -->
-    <div class="realm-status-card">
-      <div class="status-header">
-        <div class="realm-info">
-          <h4 class="current-realm">{{ realmData.name }}</h4>
-          <div class="realm-progress">
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+    <!-- 功法修炼概要卡片 -->
+    <div class="cultivation-overview-card">
+      <div class="overview-content">
+        <div class="overview-stats">
+          <div class="stat-item">
+            <div class="stat-icon">📚</div>
+            <div class="stat-info">
+              <span class="stat-value">{{ totalSkillsCount }}</span>
+              <span class="stat-label">已学功法</span>
             </div>
-            <span class="progress-text">{{ realmData.progress }} / {{ realmData.required }}</span>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-info">
+              <span class="stat-value">{{ mainTechnique ? '1' : '0' }}</span>
+              <span class="stat-label">主修功法</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-info">
+              <span class="stat-value">{{ learnedSkills.length }}</span>
+              <span class="stat-label">辅助技能</span>
+            </div>
           </div>
         </div>
         
-        <div class="realm-stats">
-          <div class="stat-item">
-            <span class="stat-label">修为</span>
-            <span class="stat-value">{{ cultivationExp.current }} / {{ cultivationExp.max }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">进度</span>
-            <span class="stat-value">{{ Math.round(progressPercent) }}%</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="status-details">
-        <div class="detail-item">
-          <span class="detail-label">突破描述</span>
-          <span class="detail-value">{{ realmData.description || '持续修炼' }}</span>
-        </div>
-        <div v-if="characterBaseInfo.灵根" class="detail-item">
-          <span class="detail-label">灵根</span>
-          <span class="detail-value">{{ characterBaseInfo.灵根 }}</span>
-        </div>
-        <div v-if="characterBaseInfo.天资" class="detail-item">
-          <span class="detail-label">天资</span>
-          <span class="detail-value">{{ characterBaseInfo.天资 }}</span>
+        <div class="cultivation-hint">
+          <div class="hint-icon">💡</div>
+          <div class="hint-text">专注修炼功法技能，提升战力与修为进度</div>
         </div>
       </div>
     </div>
@@ -211,38 +204,30 @@
       </div>
     </div>
 
-    <!-- 天赋进度卡片 -->
-    <div class="talents-progress-card">
+    <!-- 天赋显示卡片（根据实际数据结构修改） -->
+    <div class="talents-display-card">
       <div class="card-header">
-        <h4>天赋进度</h4>
+        <h4>先天天赋</h4>
         <div class="talent-count">{{ talentsCount }}项天赋</div>
       </div>
       
-      <div v-if="talentProgresses.length > 0" class="talents-list">
+      <div v-if="characterBaseInfo.天赋 && characterBaseInfo.天赋.length > 0" class="talents-list">
         <div 
-          v-for="talent in talentProgresses" 
-          :key="talent.name"
+          v-for="talent in characterBaseInfo.天赋" 
+          :key="talent"
           class="talent-item"
         >
           <div class="talent-icon">🌟</div>
           <div class="talent-info">
-            <div class="talent-name">{{ talent.name }}</div>
-            <div class="talent-progress">
-              <div class="progress-bar-mini">
-                <div class="progress-fill-mini" :style="{ width: talent.progressPercent + '%' }"></div>
-              </div>
-              <span class="progress-text-mini">Lv.{{ talent.level }}</span>
-            </div>
-          </div>
-          <div class="talent-exp">
-            <span class="exp-text">{{ talent.currentExp }} / {{ talent.nextLevelExp }}</span>
+            <div class="talent-name">{{ talent }}</div>
+            <div class="talent-description">先天天赋，无法修炼提升</div>
           </div>
         </div>
       </div>
       
       <div v-else class="empty-talents">
         <div class="empty-icon">⭐</div>
-        <div class="empty-text">暂无天赋进度记录</div>
+        <div class="empty-text">道友尚未觉醒特殊天赋，勤修苦练终有所成</div>
       </div>
     </div>
   </div>
@@ -272,15 +257,15 @@ interface SkillItem {
   } | null;
 }
 
-// 天赋进度接口
-interface TalentProgressItem {
-  name: string;
-  level: number;
-  currentExp: number;
-  nextLevelExp: number;
-  totalExp: number;
-  progressPercent: number;
-}
+// 天赋进度接口（删除，因为天赋是固定的）
+// interface TalentProgressItem {
+//   name: string;
+//   level: number;
+//   currentExp: number;
+//   nextLevelExp: number;
+//   totalExp: number;
+//   progressPercent: number;
+// }
 
 const characterStore = useCharacterStore();
 
@@ -288,7 +273,7 @@ const characterStore = useCharacterStore();
 const loading = ref(false);
 const mainTechnique = ref<string | null>(null);
 const learnedSkills = ref<SkillItem[]>([]);
-const talentProgresses = ref<TalentProgressItem[]>([]);
+// const talentProgresses = ref<TalentProgressItem[]>([]); // 删除，天赋不需要进度
 const selectedSkill = ref<SkillItem | null>(null);
 
 // 计算属性
@@ -319,30 +304,6 @@ const cultivationSkills = computed((): CultivationSkills | null => {
   return activeSave?.存档数据?.功法技能 || null;
 });
 
-const realmData = computed(() => {
-  const status = playerStatus.value;
-  if (!status) return { name: '凡人', progress: 0, required: 10, description: '凡人境界' };
-  
-  return {
-    name: status.境界?.名称 || '凡人',
-    progress: status.境界?.当前进度 || 0,
-    required: status.境界?.下一级所需 || 10,
-    description: status.境界?.突破描述 || '持续修炼'
-  };
-});
-
-const cultivationExp = computed(() => {
-  const status = playerStatus.value;
-  return {
-    current: status?.修为?.当前 || 0,
-    max: status?.修为?.最大 || 10
-  };
-});
-
-const progressPercent = computed(() => {
-  const realm = realmData.value;
-  return realm.required > 0 ? (realm.progress / realm.required) * 100 : 0;
-});
 
 const totalSkillsCount = computed(() => {
   let count = 0;
@@ -351,7 +312,8 @@ const totalSkillsCount = computed(() => {
   return count;
 });
 
-const talentsCount = computed(() => talentProgresses.value.length);
+// 删除天赋进度相关代码，根据存档结构，天赋是在角色基础信息中的固定数组
+const talentsCount = computed(() => characterBaseInfo.value.天赋?.length || 0);
 
 const displaySkills = computed(() => learnedSkills.value.slice(0, 20));
 
@@ -470,17 +432,17 @@ const loadCultivationData = async () => {
       // 设置主修功法
       mainTechnique.value = skills.主修功法;
       
-      // 构建已学技能列表
-      const skillsList: SkillItem[] = skills.已学技能.map(skillId => {
-        const proficiency = skills.技能熟练度[skillId];
+      // 构建已学技能列表（简化，直接使用已学技能数组）
+      const skillsList: SkillItem[] = (skills.已学技能 || []).map(skillId => {
+        const proficiency = skills.技能熟练度?.[skillId];
         let proficiencyData = null;
         
-        if (proficiency) {
-          const percent = (proficiency.下级所需 ?? 0) > 0 ? (proficiency.经验 / (proficiency.下级所需 ?? 0)) * 100 : 0;
+        if (proficiency && proficiency.等级 !== undefined) {
+          const percent = proficiency.等级 * 10; // 简单计算进度百分比
           proficiencyData = {
-            current: proficiency.经验,
-            max: proficiency.下级所需 ?? 0,
-            level: getProficiencyLevel(proficiency.等级),
+            current: proficiency.经验 || 0,
+            max: proficiency.下级所需 || 100,
+            level: getProficiencyLevel(proficiency.等级 || 0),
             percent
           };
         }
@@ -489,27 +451,12 @@ const loadCultivationData = async () => {
           id: skillId,
           name: skillId,
           type: '功法技能',
+          level: proficiency?.等级,
           proficiency: proficiencyData
         };
       });
       
       learnedSkills.value = skillsList;
-      
-      // 构建天赋进度列表
-      const talentsList: TalentProgressItem[] = Object.entries(skills.天赋进度).map(([talentName, progress]) => {
-        const progressPercent = progress.下级所需 > 0 ? (progress.当前经验 / progress.下级所需) * 100 : 0;
-        
-        return {
-          name: talentName,
-          level: progress.等级,
-          currentExp: progress.当前经验,
-          nextLevelExp: progress.下级所需,
-          totalExp: progress.总经验,
-          progressPercent
-        };
-      });
-      
-      talentProgresses.value = talentsList;
     }
 
     // 尝试从酒馆变量获取更新的数据
@@ -584,8 +531,7 @@ const loadCultivationData = async () => {
     
     console.log('[功法系统] 加载完成:', {
       主修功法: mainTechnique.value,
-      已学技能数: learnedSkills.value.length,
-      天赋进度数: talentProgresses.value.length
+      已学技能数: learnedSkills.value.length
     });
     
   } catch (error) {
@@ -604,9 +550,30 @@ onMounted(() => {
   flex-direction: column;
   gap: 1rem;
   height: 100%;
-  background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-  overflow: hidden;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  overflow-y: auto;
   padding: 1rem;
+  /* 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: #0ea5e9 transparent;
+}
+
+.cultivation-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cultivation-panel::-webkit-scrollbar-track {
+  background: rgba(14, 165, 233, 0.1);
+  border-radius: 3px;
+}
+
+.cultivation-panel::-webkit-scrollbar-thumb {
+  background: rgba(14, 165, 233, 0.5);
+  border-radius: 3px;
+}
+
+.cultivation-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 165, 233, 0.8);
 }
 
 /* 头部 */
@@ -617,7 +584,7 @@ onMounted(() => {
   padding: 1rem;
   background: white;
   border-radius: 0.75rem;
-  border: 1px solid #fde68a;
+  border: 1px solid #bae6fd;
   flex-shrink: 0;
 }
 
@@ -641,12 +608,12 @@ onMounted(() => {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #d97706;
+  color: #0369a1;
 }
 
 .cultivation-count {
   font-size: 0.875rem;
-  color: #f59e0b;
+  color: #0ea5e9;
 }
 
 .header-actions {
@@ -654,84 +621,80 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-/* 境界状态卡片 */
-.realm-status-card {
+/* 功法修炼概要卡片 */
+.cultivation-overview-card {
   background: white;
   border-radius: 0.75rem;
-  border: 1px solid #fde68a;
+  border: 1px solid #bae6fd;
   padding: 1.25rem;
   flex-shrink: 0;
 }
 
-.status-header {
+.overview-content {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.realm-info {
-  flex: 1;
-  min-width: 0;
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
 }
 
-.current-realm {
-  margin: 0 0 0.75rem 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #d97706;
-}
-
-.realm-progress {
+.overview-stats .stat-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: 1rem;
+  background: #fefce8;
+  border-radius: 0.5rem;
+  border: 1px solid #fde68a;
 }
 
-.progress-bar {
-  flex: 1;
-  height: 8px;
-  background: #fef3c7;
-  border-radius: 4px;
-  overflow: hidden;
+.overview-stats .stat-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #d97706);
-  transition: width 0.3s ease;
+.overview-stats .stat-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.progress-text {
-  font-size: 0.875rem;
-  font-weight: 600;
+.overview-stats .stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
   color: #d97706;
-  white-space: nowrap;
+  line-height: 1;
 }
 
-.realm-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.stat-label {
+.overview-stats .stat-label {
   font-size: 0.75rem;
   color: #92400e;
+  margin-top: 0.25rem;
 }
 
-.stat-value {
+.cultivation-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #fefce8 0%, #fde68a 100%);
+  border-radius: 0.5rem;
+  border: 1px solid #fcd34d;
+}
+
+.hint-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.hint-text {
   font-size: 0.875rem;
-  font-weight: 600;
   color: #d97706;
+  font-weight: 500;
 }
 
 /* 按钮样式 */
@@ -741,10 +704,10 @@ onMounted(() => {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #fde68a;
+  border: 1px solid #bae6fd;
   border-radius: 0.5rem;
   background: white;
-  color: #d97706;
+  color: #0369a1;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -753,7 +716,7 @@ onMounted(() => {
 }
 
 .action-btn:hover:not(:disabled) {
-  background: #fefce8;
+  background: #f0f9ff;
   transform: translateY(-1px);
 }
 
@@ -763,22 +726,22 @@ onMounted(() => {
 }
 
 .action-btn.primary {
-  background: #f59e0b;
+  background: #0ea5e9;
   color: white;
-  border-color: #f59e0b;
+  border-color: #0ea5e9;
 }
 
 .action-btn.primary:hover:not(:disabled) {
-  background: #d97706;
+  background: #0284c7;
 }
 
 .action-btn.secondary {
   background: white;
-  color: #d97706;
+  color: #0369a1;
 }
 
 .action-btn.secondary:hover:not(:disabled) {
-  background: #fefce8;
+  background: #f0f9ff;
 }
 
 .action-btn.mini {
@@ -1037,7 +1000,7 @@ onMounted(() => {
   gap: 0.75rem;
   overflow-y: auto;
   padding-right: 0.5rem;
-  padding-bottom: 2rem;
+  padding-bottom: 4rem;
   
   /* 改进的滚动条样式 */
   scrollbar-width: thin;
@@ -1339,8 +1302,8 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-/* 天赋进度卡片 */
-.talents-progress-card {
+/* 天赋显示卡片 */
+.talents-display-card {
   background: white;
   border-radius: 0.75rem;
   border: 1px solid #fde68a;
@@ -1391,10 +1354,10 @@ onMounted(() => {
   margin-bottom: 0.25rem;
 }
 
-.talent-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.talent-description {
+  font-size: 0.75rem;
+  color: #92400e;
+  font-style: italic;
 }
 
 .progress-bar-mini {
@@ -1454,7 +1417,7 @@ onMounted(() => {
 }
 
 [data-theme="dark"] .panel-header,
-[data-theme="dark"] .realm-status-card,
+[data-theme="dark"] .cultivation-overview-card,
 [data-theme="dark"] .main-technique-card,
 [data-theme="dark"] .skills-container,
 [data-theme="dark"] .skill-detail-panel,

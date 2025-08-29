@@ -325,9 +325,9 @@ const getFilterCount = (filterKey: string): number => {
 
 // 获取空状态文本
 const getEmptyText = (): string => {
-  if (activeFilter.value === 'all') return '储物袋空空如也';
+  if (activeFilter.value === 'all') return '储物袋空空如也，踏上修仙路寻觅宝物吧';
   const filter = itemFilters.find(f => f.key === activeFilter.value);
-  return `暂无${filter?.name}类物品`;
+  return `道友尚未获得${filter?.name}类物品，继续修行必有所得`;
 };
 
 // 获取货币类名

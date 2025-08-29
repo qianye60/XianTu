@@ -47,9 +47,13 @@ export interface Origin {
 export interface SpiritRoot {
   id: number;
   name: string;
+  tier?: string;
   description: string;
+  cultivation_speed?: string;
+  special_effects?: string[];
   base_multiplier: number;
   talent_cost: number;
+  rarity?: number;
   source?: 'local' | 'cloud';
 }
 

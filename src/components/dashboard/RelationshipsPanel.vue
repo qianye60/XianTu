@@ -21,23 +21,6 @@
       </div>
     </div>
 
-    <!-- 关系分类筛选 -->
-    <div class="filter-section">
-      <div class="filter-tabs">
-        <button 
-          v-for="filter in relationshipFilters" 
-          :key="filter.key"
-          class="filter-tab"
-          :class="{ active: activeFilter === filter.key }"
-          @click="setActiveFilter(filter.key)"
-        >
-          <span class="tab-icon">{{ filter.icon }}</span>
-          <span class="tab-name">{{ filter.name }}</span>
-          <span class="tab-count">{{ getFilterCount(filter.key) }}</span>
-        </button>
-      </div>
-    </div>
-
     <!-- 人物关系列表 -->
     <div class="relationships-container">
       <div v-if="loading" class="loading-state">
@@ -45,9 +28,9 @@
         <div class="loading-text">正在读取人际网络...</div>
       </div>
       
-      <div v-else-if="filteredRelationships.length === 0" class="empty-state">
+      <div v-else-if="relationships.length === 0" class="empty-state">
         <div class="empty-icon">👥</div>
-        <div class="empty-text">{{ getEmptyText() }}</div>
+        <div class="empty-text">独行修士一路孤寂，结识道友共话天道</div>
         <div class="empty-hint">在游戏中与NPC互动后，关系信息会显示在这里</div>
       </div>
 
@@ -209,7 +192,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { RefreshCw, BarChart, MessageCircle, Clock, X } from 'lucide-vue-next';
-import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 
@@ -233,88 +215,63 @@ interface RelationshipPerson {
   firstMet?: string;
 }
 
-const characterStore = useCharacterStore();
-
 // 响应式数据
 const loading = ref(false);
-const activeFilter = ref('all');
 const selectedPerson = ref<RelationshipPerson | null>(null);
 const showSummary = ref(false);
 const relationships = ref<RelationshipPerson[]>([]);
 
-// 筛选器配置
-const relationshipFilters = [
-  { key: 'all', name: '全部', icon: '👥' },
-  { key: '家族', name: '家族', icon: '🏠' },
-  { key: '朋友', name: '朋友', icon: '😊' },
-  { key: '师门', name: '师门', icon: '🎓' },
-  { key: '仇人', name: '仇人', icon: '⚔️' },
-  { key: '恋人', name: '恋人', icon: '💕' },
-  { key: '同门', name: '同门', icon: '🤝' },
-  { key: '其他', name: '其他', icon: '👤' },
-];
-
 // 计算属性
 const totalRelationships = computed(() => relationships.value.length);
 
-const filteredRelationships = computed(() => {
-  if (activeFilter.value === 'all') return relationships.value;
-  return relationships.value.filter(person => person.type === activeFilter.value);
-});
-
 const displayRelationships = computed(() => {
-  return filteredRelationships.value.slice(0, 50); // 限制显示数量
+  return relationships.value.slice(0, 50); // 限制显示数量
 });
 
 const relationshipStats = computed(() => {
-  const stats = relationshipFilters.filter(f => f.key !== 'all').map(filter => ({
-    type: filter.key,
-    name: filter.name,
-    icon: filter.icon,
-    count: relationships.value.filter(p => p.type === filter.key).length
+  const typeCount: Record<string, number> = {};
+  relationships.value.forEach(person => {
+    const type = person.type || '其他';
+    typeCount[type] = (typeCount[type] || 0) + 1;
+  });
+  
+  return Object.entries(typeCount).map(([type, count]) => ({
+    type,
+    name: type,
+    icon: getTypeIcon(type),
+    count
   }));
-  return stats.filter(s => s.count > 0);
 });
 
-// 获取筛选器数量
-const getFilterCount = (filterKey: string): number => {
-  if (filterKey === 'all') return relationships.value.length;
-  return relationships.value.filter(person => person.type === filterKey).length;
+// 根据关系类型获取图标
+const getTypeIcon = (type: string): string => {
+  const iconMap: Record<string, string> = {
+    '友好': '😊',
+    '长辈': '🧙‍♂️',
+    '同门': '🤝',
+    '恋人': '💕',
+    '仇人': '⚔️',
+    '师父': '👨‍🏫',
+    '弟子': '🎓',
+    '敌对': '😡',
+    '中立': '😐'
+  };
+  return iconMap[type] || '👤';
 };
 
-// 获取空状态文本
-const getEmptyText = (): string => {
-  if (activeFilter.value === 'all') return '尚未建立任何人际关系';
-  const filter = relationshipFilters.find(f => f.key === activeFilter.value);
-  return `暂无${filter?.name || '此类'}关系`;
-};
-
-// 获取关系类型样式
+// 获取关系类型样式（动态适配）
 const getRelationshipType = (type: string): string => {
-  const typeMap: Record<string, string> = {
-    '家族': 'family',
-    '朋友': 'friend', 
-    '师门': 'mentor',
-    '仇人': 'enemy',
-    '恋人': 'lover',
-    '同门': 'peer',
-    '其他': 'other'
-  };
-  return typeMap[type] || 'other';
+  if (type.includes('友') || type.includes('好')) return 'friend';
+  if (type.includes('长辈') || type.includes('师')) return 'elder';
+  if (type.includes('恋') || type.includes('爱')) return 'lover';
+  if (type.includes('仇') || type.includes('敌')) return 'enemy';
+  if (type.includes('同门') || type.includes('师兄') || type.includes('师弟')) return 'peer';
+  return 'other';
 };
 
-// 获取人物表情符号
+// 获取人物表情符号（动态适配）
 const getPersonEmoji = (person: RelationshipPerson): string => {
-  const typeEmojis: Record<string, string> = {
-    '家族': '👨‍👩‍👧‍👦',
-    '朋友': '😊',
-    '师门': '👨‍🏫', 
-    '仇人': '😡',
-    '恋人': '💖',
-    '同门': '👫',
-    '其他': '👤'
-  };
-  return typeEmojis[person.type] || '👤';
+  return getTypeIcon(person.type || '其他');
 };
 
 // 获取亲密度样式
@@ -361,12 +318,6 @@ const getRelationshipDuration = (person: RelationshipPerson): string => {
   }
 };
 
-// 设置筛选器
-const setActiveFilter = (filterKey: string) => {
-  activeFilter.value = filterKey;
-  selectedPerson.value = null;
-};
-
 // 选择人物
 const selectPerson = (person: RelationshipPerson) => {
   selectedPerson.value = selectedPerson.value?.id === person.id ? null : person;
@@ -406,107 +357,34 @@ const refreshRelationships = async () => {
 // 加载关系数据
 const loadRelationshipData = async () => {
   try {
-    // 首先从角色存档中加载
-    const activeSave = characterStore.activeSaveSlot;
-    if (activeSave?.存档数据?.人物关系) {
-      const relationshipData = activeSave.存档数据.人物关系;
-      
-      // 转换存档中的关系数据格式
-      const relationshipList: RelationshipPerson[] = Object.entries(relationshipData).map(([id, npcProfile]: [string, any]) => {
-        return {
-          id,
-          name: npcProfile.角色基础信息?.名字 || id,
-          type: npcProfile.人物关系 || '其他',
-          intimacy: npcProfile.人物好感度 || 0,
-          description: npcProfile.角色基础信息?.描述,
-          location: npcProfile.角色存档信息?.位置?.描述,
-          status: getPersonStatus(npcProfile),
-          interactionCount: npcProfile.互动次数 || 0,
-          lastInteraction: npcProfile.最后互动时间,
-          memories: npcProfile.人物记忆 ? npcProfile.人物记忆.map((m: any) => ({ content: m })) : [],
-          firstMet: npcProfile.首次相遇时间
-        };
-      });
-      
-      relationships.value = relationshipList;
-    }
-
-    // 尝试从酒馆变量获取更新的数据
+    // 直接从酒馆获取数据
     const helper = getTavernHelper();
     if (helper) {
       const chatVars = await helper.getVariables({ type: 'chat' });
+      const gameData = chatVars?.DAD_GameData as any; // 临时使用 any 类型
       
-      // 检查是否有酒馆中的关系数据
-      if (chatVars['character.social.relationships']) {
-        const tavernRelationships = chatVars['character.social.relationships'];
+      if (gameData?.saveData?.人物关系) {
+        const relationshipData = gameData.saveData.人物关系;
         
-        // 合并或更新关系数据
-        if (Array.isArray(tavernRelationships)) {
-          const updatedRelationships = tavernRelationships.map((rel: any) => ({
-            id: rel.id || rel.name || `rel_${Date.now()}`,
-            name: rel.name || '未知',
-            type: rel.type || rel.关系类型 || '其他',
-            intimacy: rel.intimacy || rel.好感度 || rel.亲密度 || 0,
-            description: rel.description || rel.描述,
-            personality: rel.personality || rel.性格,
-            background: rel.background || rel.背景,
-            location: rel.location || rel.位置,
-            status: rel.status || rel.状态,
-            interactionCount: rel.interactionCount || rel.互动次数 || 0,
-            lastInteraction: rel.lastInteraction || rel.最后互动时间,
-            memories: rel.memories || rel.记忆 || [],
-            firstMet: rel.firstMet || rel.首次相遇
-          }));
-          
-          // 合并数据，优先使用酒馆中的最新数据
-          const existingIds = new Set(relationships.value.map(r => r.id));
-          updatedRelationships.forEach((rel: RelationshipPerson) => {
-            const existingIndex = relationships.value.findIndex(r => r.id === rel.id || r.name === rel.name);
-            if (existingIndex >= 0) {
-              // 更新现有关系
-              relationships.value[existingIndex] = { ...relationships.value[existingIndex], ...rel };
-            } else {
-              // 添加新关系
-              relationships.value.push(rel);
-            }
-          });
-        }
-      }
-      
-      // 检查是否有其他格式的关系数据
-      const relationshipKeys = Object.keys(chatVars).filter(key => 
-        key.startsWith('character.social.relationships.') || 
-        key.includes('relationship') || 
-        key.includes('npc') ||
-        key.includes('人物关系')
-      );
-      
-      relationshipKeys.forEach(key => {
-        const value = chatVars[key];
-        if (value && typeof value === 'object') {
-          // 处理单个关系数据
-          const relationshipId = key.split('.').pop() || `rel_${Date.now()}`;
-          const existingIndex = relationships.value.findIndex(r => r.id === relationshipId);
-          
-          const relationshipData: RelationshipPerson = {
-            id: relationshipId,
-            name: value.name || value.名字 || relationshipId,
-            type: value.type || value.关系类型 || '其他',
-            intimacy: value.intimacy || value.好感度 || 0,
-            description: value.description || value.描述,
-            location: value.location || value.位置,
-            interactionCount: value.interactionCount || value.互动次数 || 0,
-            lastInteraction: value.lastInteraction || value.最后互动时间,
-            memories: value.memories || []
+        // 转换为RelationshipPerson格式
+        const relationshipList: RelationshipPerson[] = Object.entries(relationshipData).map(([id, npcProfile]: [string, any]) => {
+          return {
+            id,
+            name: npcProfile.角色基础信息?.名字 || id,
+            type: npcProfile.人物关系 || '其他',
+            intimacy: npcProfile.人物好感度 || 0,
+            description: npcProfile.角色基础信息?.描述,
+            location: npcProfile.角色存档信息?.位置?.描述,
+            status: getPersonStatus(npcProfile),
+            interactionCount: npcProfile.互动次数 || 0,
+            lastInteraction: npcProfile.最后互动时间,
+            memories: npcProfile.人物记忆 ? npcProfile.人物记忆.map((m: any) => ({ content: m })) : [],
+            firstMet: npcProfile.首次相遇时间
           };
-          
-          if (existingIndex >= 0) {
-            relationships.value[existingIndex] = { ...relationships.value[existingIndex], ...relationshipData };
-          } else {
-            relationships.value.push(relationshipData);
-          }
-        }
-      });
+        });
+        
+        relationships.value = relationshipList;
+      }
     }
     
     console.log('[人物关系] 加载完成，共', relationships.value.length, '个关系');
@@ -588,71 +466,13 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-/* 筛选器 */
-.filter-section {
-  padding: 0.75rem 1rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fed7aa;
-  flex-shrink: 0;
-}
-
-.filter-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.filter-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #fed7aa;
-  border-radius: 1.5rem;
-  background: white;
-  color: #ea580c;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.filter-tab:hover {
-  background: #fef3e2;
-}
-
-.filter-tab.active {
-  background: #ea580c;
-  color: white;
-}
-
-.tab-count {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 0.75rem;
-  padding: 0.125rem 0.375rem;
-  font-size: 0.75rem;
-  min-width: 1.25rem;
-  text-align: center;
-}
-
-.filter-tab.active .tab-count {
-  background: rgba(255, 255, 255, 0.2);
-}
-
 /* 关系容器 */
 .relationships-container {
   flex: 1;
-  padding: 0 1rem 1rem 1rem;
+  padding: 0 1rem;
   overflow-y: auto;
   min-height: 0;
-  padding-bottom: 3rem;
+  padding-bottom: 4rem;
   
   /* 改进的滚动条样式 */
   scrollbar-width: thin;
@@ -1089,7 +909,7 @@ onMounted(() => {
   padding: 1.5rem;
   max-width: 500px;
   width: 90%;
-  max-height: 80vh;
+  max-height: 500px;
   overflow-y: auto;
 }
 

@@ -12,7 +12,8 @@ import type { CharacterData } from '../../types';
  */
 export async function generateInitialMessage(
   initialGameData: any, 
-  mapData: any
+  mapData: any,
+  additionalPrompt?: string
 ): Promise<GM_Response> {
   console.log('【神识印记】准备调用AI生成天道初言，数据:', { initialGameData, mapData });
 
@@ -56,7 +57,7 @@ export async function generateInitialMessage(
     console.log('【神识印记】构建的GM_Request:', gmRequest);
 
     // 2. 替换提示词中的占位符，然后调用AI
-    const prompt = INITIAL_MESSAGE_PROMPT.replace('INPUT_PLACEHOLDER', JSON.stringify(gmRequest, null, 2));
+    const prompt = (INITIAL_MESSAGE_PROMPT + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(gmRequest, null, 2));
     
     console.log('【角色初始化-调试】准备调用generateItemWithTavernAI');
     console.log('【角色初始化-调试】INITIAL_MESSAGE_PROMPT长度:', INITIAL_MESSAGE_PROMPT.length);
@@ -121,7 +122,7 @@ export async function generateInitialMessage(
         {
           action: "set",
           scope: "chat",
-          key: "character.status.location",
+          key: "character.saveData.玩家角色状态.位置.描述",
           value: "修仙世界边缘"
         },
         {

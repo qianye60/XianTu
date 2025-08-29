@@ -81,6 +81,12 @@ def read_root():
     """ 根路径，确认服务是否正常运转 """
     return {"message": "大道重塑，灵气归元。版本: 3.0.0"}
 
+@app.get("/api/health")
+@app.head("/api/health")
+def health_check():
+    """ 健康检查端点 """
+    return {"status": "healthy", "message": "服务运行正常"}
+
 # 挂载静态文件 - 管理后台（检查目录存在）
 static_admin_path = os.path.join(os.path.dirname(__file__), "static", "admin")
 

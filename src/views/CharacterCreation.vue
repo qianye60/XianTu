@@ -4,6 +4,19 @@
     <div class="creation-scroll">
       <!-- 进度条 -->
       <div class="header-container">
+        <div class="header-top">
+          <!-- 左侧：模式指示 -->
+          <div class="mode-indicator">
+            {{ store.isLocalCreation ? '单机模式' : '联机模式' }}
+          </div>
+          
+          <!-- 右侧：云端同步按钮（仅单机模式显示） -->
+          <div v-if="store.isLocalCreation" class="cloud-sync-container">
+            <CloudDataSync @sync-completed="onSyncCompleted" variant="compact" size="small" />
+            <DataClearButtons variant="horizontal" size="small" @data-cleared="onDataCleared" />
+          </div>
+        </div>
+        
         <div class="progress-steps">
           <div
             v-for="step in store.totalSteps"
@@ -94,6 +107,7 @@
 
     <RedemptionCodeModal
       :visible="isCodeModalVisible"
+      :type="currentAIType"
       title="使用仙缘信物"
       @close="isCodeModalVisible = false"
       @submit="handleCodeSubmit"
@@ -106,6 +120,8 @@
 
 <script setup lang="ts">
 import VideoBackground from '@/components/common/VideoBackground.vue';
+import CloudDataSync from '@/components/common/CloudDataSync.vue';
+import DataClearButtons from '@/components/common/DataClearButtons.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
 import { useUserStore } from '../stores/userStore';
 import type { CharacterCreationPayload } from '../types/index';
@@ -136,6 +152,7 @@ const userStore = useUserStore();
 const isCodeModalVisible = ref(false)
 const isGenerating = ref(false)
 const loadingMessage = ref('天机推演中...')
+const currentAIType = ref<'world' | 'talent_tier' | 'origin' | 'spirit_root' | 'talent'>('world')
 
 onMounted(async () => {
   // 1. 初始化创世神殿（确保数据已加载）
@@ -207,7 +224,7 @@ onUnmounted(() => {
 });
 
 // 此函数只处理联机模式的AI生成（需要消耗信物）
-async function executeCloudAiGeneration(code: string) {
+async function executeCloudAiGeneration(code: string, userPrompt?: string) {
   let type = ''
   switch (store.currentStep) {
     case 1: type = 'world'; break
@@ -238,30 +255,57 @@ async function executeCloudAiGeneration(code: string) {
       console.warn('兑换码预验证失败，继续执行:', error)
     }
 
-    // 2. 开始AI生成
-    loadingMessage.value = '正在推演玄妙...'
+    // 2. 开始AI生成（使用自定义提示词）
+    loadingMessage.value = userPrompt ? '基于你的心愿推演玄妙...' : '正在推演玄妙...'
     const aiModule = await import('../utils/tavernAI');
     let generatedContent: unknown = null;
-    switch (type) {
+    
+    // 如果有自定义提示词，则使用带提示词的生成函数
+    if (userPrompt) {
+      switch (type) {
         case 'world':
-            generatedContent = await aiModule.generateWorld();
-            break;
+          generatedContent = await aiModule.generateWorldWithPrompt(userPrompt);
+          break;
         case 'talent_tier':
-            generatedContent = await aiModule.generateTalentTier();
-            break;
+          generatedContent = await aiModule.generateTalentTierWithPrompt(userPrompt);
+          break;
         case 'origin':
-            if (!store.selectedWorld) {
-                toast.error('请先选择世界！');
-                return;
-            }
-            generatedContent = await aiModule.generateOrigin();
-            break;
+          if (!store.selectedWorld) {
+            toast.error('请先选择世界！');
+            return;
+          }
+          generatedContent = await aiModule.generateOriginWithPrompt(userPrompt);
+          break;
         case 'spirit_root':
-            generatedContent = await aiModule.generateSpiritRoot();
-            break;
+          generatedContent = await aiModule.generateSpiritRootWithPrompt(userPrompt);
+          break;
         case 'talent':
-            generatedContent = await aiModule.generateTalent();
-            break;
+          generatedContent = await aiModule.generateTalentWithPrompt(userPrompt);
+          break;
+      }
+    } else {
+      // 使用默认生成函数
+      switch (type) {
+        case 'world':
+          generatedContent = await aiModule.generateWorld();
+          break;
+        case 'talent_tier':
+          generatedContent = await aiModule.generateTalentTier();
+          break;
+        case 'origin':
+          if (!store.selectedWorld) {
+            toast.error('请先选择世界！');
+            return;
+          }
+          generatedContent = await aiModule.generateOrigin();
+          break;
+        case 'spirit_root':
+          generatedContent = await aiModule.generateSpiritRoot();
+          break;
+        case 'talent':
+          generatedContent = await aiModule.generateTalent();
+          break;
+      }
     }
 
     if (!generatedContent) {
@@ -278,6 +322,7 @@ async function executeCloudAiGeneration(code: string) {
         code: code.trim().toUpperCase(),
         type,
         content: generatedContent,
+        user_prompt: userPrompt || null, // 保存用户提示词
       }),
     })
 
@@ -305,6 +350,17 @@ async function executeCloudAiGeneration(code: string) {
 
 // 父组件的AI生成处理器，只响应来自子组件的"联机"请求
 function handleAIGenerateClick() {
+  // 根据当前步骤设置AI推演类型
+  const typeMap = {
+    1: 'world' as const,
+    2: 'talent_tier' as const,
+    3: 'origin' as const,
+    4: 'spirit_root' as const,
+    5: 'talent' as const
+  };
+  
+  currentAIType.value = typeMap[store.currentStep as keyof typeof typeMap] || 'world';
+  
   if (!store.isLocalCreation) {
     isCodeModalVisible.value = true
   }
@@ -389,7 +445,7 @@ const step4Ref = ref<InstanceType<typeof Step4_SpiritRootSelection> | null>(null
 const step5Ref = ref<InstanceType<typeof Step5_TalentSelection> | null>(null)
 
 // 处理仙缘信物提交 (仅联机模式)
-async function handleCodeSubmit(code: string) {
+async function handleCodeSubmit(data: { code: string; prompt?: string }) {
   const token = localStorage.getItem('access_token')
   if (!token) {
     toast.error('身份凭证缺失，请先登录再使用信物。')
@@ -397,13 +453,13 @@ async function handleCodeSubmit(code: string) {
     return
   }
 
-  if (!code || code.trim().length < 6) {
+  if (!data.code || data.code.trim().length < 6) {
     toast.error('请输入有效的仙缘信物！')
     return
   }
 
   isCodeModalVisible.value = false
-  await executeCloudAiGeneration(code)
+  await executeCloudAiGeneration(data.code, data.prompt)
 }
 
 async function createCharacter() {
@@ -506,6 +562,24 @@ async function createCharacter() {
     isGenerating.value = false;
   }
 }
+
+// 处理云端同步完成事件
+function onSyncCompleted(result: { success: boolean; newItemsCount: number; message: string }) {
+  console.log('[角色创建] 云端同步完成:', result);
+  if (result.success && result.newItemsCount > 0) {
+    toast.success(`已更新 ${result.newItemsCount} 项云端数据`);
+  }
+}
+
+// 处理数据清除完成事件
+function onDataCleared(type: string, count: number) {
+  console.log('[角色创建] 数据清除完成:', { type, count });
+  // 清除数据后可能需要重置当前选择
+  if (count > 0) {
+    // 如果清除的数据包含当前选中的项目，重置选择
+    store.resetCharacter();
+  }
+}
 </script>
 
 <style>
@@ -558,6 +632,28 @@ async function createCharacter() {
 .header-container {
   /* This container no longer needs flex properties */
   margin-bottom: 2rem;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.mode-indicator {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  padding: 0.25rem 0.75rem;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid var(--color-primary);
+  border-radius: 15px;
+}
+
+.cloud-sync-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .progress-steps {

@@ -86,27 +86,36 @@ export interface Inventory {
   物品: Record<string, Item>; // 以物品唯一ID为key
 }
 
-// --- 功法与技能 ---
+// --- 三千大道系统 ---
 
-export interface SkillProficiency {
-  等级: number;
-  经验: number;
-  下级所需?: number; // 添加下级所需经验字段
+/** 大道阶段定义 */
+export interface DaoStage {
+  名称: string;
+  描述: string;
+  突破经验: number; // 突破到下一阶段需要的经验
 }
 
-/** 天赋进度系统 */
-export interface TalentProgress {
-  等级: number;
+/** 大道路径定义 */
+export interface DaoPath {
+  道名: string;
+  描述: string;
+  阶段列表: DaoStage[];
+}
+
+/** 大道修炼进度 */
+export interface DaoProgress {
+  道名: string;
+  当前阶段: number; // 阶段索引，0为"未门"
   当前经验: number;
-  下级所需: number;
   总经验: number;
+  是否解锁: boolean;
 }
 
-export interface CultivationSkills {
-  主修功法: string | null; // 技能ID
-  已学技能: string[]; // 技能ID数组
-  技能熟练度: Record<string, SkillProficiency>; // 以技能ID为key
-  天赋进度: Record<string, TalentProgress>; // 以天赋名称为key
+/** 三千大道系统数据 */
+export interface ThousandDaoSystem {
+  已解锁大道: string[]; // 解锁的大道名称列表
+  大道进度: Record<string, DaoProgress>; // 以大道名称为key
+  大道路径定义: Record<string, DaoPath>; // 所有大道的定义
 }
 
 // --- 装备 ---
@@ -292,7 +301,7 @@ export interface GameMessage {
 export interface SaveData {
   玩家角色状态: PlayerStatus;
   装备栏: Equipment;
-  功法技能: CultivationSkills;
+  三千大道: ThousandDaoSystem;
   背包: Inventory;
   人物关系: Record<string, NpcProfile>; // 以NPC名字或唯一ID为key
   记忆: Memory;
@@ -305,9 +314,16 @@ export interface SaveData {
 // --- 单个存档槽位 ---
 
 export interface SaveSlot {
+  id?: string;
   存档名: string;
   保存时间: string | null;
+  最后保存时间?: string | null; // 兼容旧代码，改为可为 null
   游戏内时间?: string;
+  游戏时长?: number; // 游戏时长（秒）
+  角色名字?: string; // 角色名字
+  境界?: string; // 当前境界
+  位置?: string; // 当前位置
+  修为进度?: number; // 修为进度
   世界地图?: WorldMap;
   存档数据: SaveData | null;
 }
@@ -326,6 +342,12 @@ export interface CharacterBaseInfo {
   先天六司: InnateAttributes;
   创建时间?: string; // 添加创建时间字段
   描述?: string; // 添加描述字段
+  // 新增：保存完整的详细信息对象
+  世界详情?: any; // World 对象
+  天资详情?: any; // TalentTier 对象
+  出身详情?: any; // Origin 对象
+  灵根详情?: any; // SpiritRoot 对象，包含 cultivation_speed, special_effects 等
+  天赋详情?: any[]; // Talent[] 对象数组
 }
 
 // --- 新物品系统类型定义 ---
@@ -334,7 +356,7 @@ export interface CharacterBaseInfo {
 export type NewItemQuality = '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神';
 
 /** 新物品系统的类型枚举 */
-export type NewItemType = '武器' | '防具' | '配饰' | '消耗品' | '材料' | '功法' | '丹药' | '法宝' | '书籍' | '其他';
+export type NewItemType = '法宝'| '功法' | '其他';
 
 /** 新物品系统的属性类型 */
 export type AttributeType = '攻击力' | '防御力' | '气血' | '灵气' | '神识' | '速度' | '暴击' | '命中' | '闪避' | '特殊';

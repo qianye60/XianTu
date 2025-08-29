@@ -109,7 +109,7 @@ class GameStateManagerClass {
   private updateCallbacks: Map<string, (event: StateChangeEvent) => void> = new Map();
 
   // 境界系统配置
-  private realmSystem = {
+  private realmSystem: Record<string, { level: number; category: RealmInfo['category']; maxProgress: number }> = {
     '凡人': { level: 0, category: 'mortal' as const, maxProgress: 100 },
     '练气一层': { level: 1, category: 'qi_gathering' as const, maxProgress: 200 },
     '练气二层': { level: 2, category: 'qi_gathering' as const, maxProgress: 300 },
@@ -660,6 +660,87 @@ class GameStateManagerClass {
 
     return summary;
   }
+
+  /**
+   * 更新整个游戏状态
+   */
+  public updateState(newState: any): void {
+    try {
+      const oldState = { ...this.currentState };
+
+      if (newState.realm) {
+        this.updateRealm(newState.realm);
+      }
+
+      if (newState.attributes) {
+        Object.entries(newState.attributes).forEach(([attr, changes]) => {
+          if (['hp', 'mana', 'spirit', 'cultivation'].includes(attr)) {
+            this.updateAttribute(attr as any, changes as Partial<AttributeStatus>);
+          }
+        });
+      }
+
+      if (newState.location) {
+        this.updateLocation(newState.location);
+      }
+
+      if (newState.statusEffects) {
+        this.currentState.statusEffects = newState.statusEffects;
+        this.syncToTavern();
+      }
+
+      if (newState.cultivation) {
+        this.updateCultivation(newState.cultivation);
+      }
+
+      this.recordStateChange('realm', oldState, this.currentState, 'Bulk state update');
+      
+    } catch (error) {
+      console.error('[状态管理] 状态更新失败:', error);
+    }
+  }
+
+  /**
+   * 应用状态变更集合
+   */
+  public async applyStateChanges(stateChanges: any): Promise<void> {
+    try {
+      if (!stateChanges) return;
+
+      if (stateChanges.realm) {
+        this.updateRealm(stateChanges.realm);
+      }
+
+      if (stateChanges.attributes) {
+        Object.entries(stateChanges.attributes).forEach(([attr, changes]) => {
+          if (['hp', 'mana', 'spirit', 'cultivation'].includes(attr)) {
+            this.updateAttribute(attr as any, changes as Partial<AttributeStatus>);
+          }
+        });
+      }
+
+      if (stateChanges.location) {
+        this.updateLocation(stateChanges.location);
+      }
+
+      if (stateChanges.statusEffects) {
+        if (Array.isArray(stateChanges.statusEffects)) {
+          stateChanges.statusEffects.forEach((effect: StatusEffect) => {
+            this.addStatusEffect(effect);
+          });
+        }
+      }
+
+      if (stateChanges.cultivation) {
+        this.updateCultivation(stateChanges.cultivation);
+      }
+
+      console.log('[状态管理] 状态变更应用完成');
+    } catch (error) {
+      console.error('[状态管理] 应用状态变更失败:', error);
+      throw error;
+    }
+  }
 }
 
 // 单例模式实现
@@ -676,7 +757,19 @@ class GameStateManagerSingleton {
 
 // 导出单例访问器
 export const GameStateManager = {
-  getInstance: () => GameStateManagerSingleton.getInstance()
+  getInstance: () => GameStateManagerSingleton.getInstance(),
+  updateLocation: (location: Partial<LocationStatus>) => GameStateManagerSingleton.getInstance().updateLocation(location),
+  getCurrentState: () => GameStateManagerSingleton.getInstance().getCurrentState(),
+  updateRealm: (realm: Partial<RealmInfo>) => GameStateManagerSingleton.getInstance().updateRealm(realm),
+  updateAttribute: (attribute: 'hp' | 'mana' | 'spirit' | 'cultivation', changes: Partial<AttributeStatus>) => 
+    GameStateManagerSingleton.getInstance().updateAttribute(attribute, changes),
+  addStatusEffect: (effect: StatusEffect) => GameStateManagerSingleton.getInstance().addStatusEffect(effect),
+  removeStatusEffect: (effectName: string) => GameStateManagerSingleton.getInstance().removeStatusEffect(effectName),
+  updateCultivation: (changes: Partial<CultivationProgress>) => GameStateManagerSingleton.getInstance().updateCultivation(changes),
+  subscribe: (id: string, callback: (event: StateChangeEvent) => void) => GameStateManagerSingleton.getInstance().subscribe(id, callback),
+  unsubscribe: (id: string) => GameStateManagerSingleton.getInstance().unsubscribe(id),
+  getChangeHistory: () => GameStateManagerSingleton.getInstance().getChangeHistory(),
+  getStateSummary: () => GameStateManagerSingleton.getInstance().getStateSummary(),
 };
 
 export default GameStateManager;

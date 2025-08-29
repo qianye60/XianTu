@@ -28,9 +28,14 @@
         </div>
         <!-- 功能按钮 -->
         <div class="single-actions-container">
-          <button v-if="store.isLocalCreation" @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
-            <span class="action-name">自定义世界</span>
-          </button>
+          <!-- 单机模式下的按钮 -->
+          <template v-if="store.isLocalCreation">
+            <button @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
+              <span class="action-name">自定义世界</span>
+            </button>
+          </template>
+          
+          <!-- AI推演按钮（两种模式都有） -->
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">AI推演</span>
           </button>
@@ -362,5 +367,16 @@ function handleSelectWorld(world: World) {
 
 .action-name {
   font-weight: 500;
+  margin-left: 0.25rem;
+}
+
+.action-icon {
+  font-size: 1.1em;
+  vertical-align: middle;
+}
+
+.action-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

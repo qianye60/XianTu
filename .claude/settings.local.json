@@ -42,7 +42,15 @@
       "Bash(.\\.node_modules\\.bin\\vue-tsc.cmd:*)",
       "Bash(node_modules/.bin/vue-tsc:*)",
       "Bash(find:*)",
-      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\character-creation\\CharacterDetailsModal.vue\")"
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\character-creation\\CharacterDetailsModal.vue\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\ai-enhanced-right-sidebar.vue\")",
+      "Bash(node_modules.binvue-tsc:*)",
+      "Bash(..node_modules.binvue-tsc.cmd --noEmit)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\combatAttributeSystem.ts\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\worldGeneration\\factionGenerator.ts\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\dialogueSystemExample.ts\")",
+      "Bash(taskkill:*)",
+      "WebFetch(domain:docs.sillytavern.app)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

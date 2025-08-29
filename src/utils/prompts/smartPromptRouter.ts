@@ -15,6 +15,7 @@ import {
   generateWorldEventPrompt
 } from './optimizedInteractionPrompts';
 import { generateComprehensiveAIPrompt } from './comprehensiveAISystem';
+import { WorldAwareGMPrompts } from './worldAwarePrompts';
 import type { GameCharacter, GM_Request } from '../../types/AIGameMaster';
 
 /**
@@ -229,7 +230,7 @@ export class PromptRouter {
   /**
    * 根据行动分析选择最佳提示词
    */
-  static selectOptimalPrompt(config: PromptConfig): string {
+  static async selectOptimalPrompt(config: PromptConfig): Promise<string> {
     const analysis = ActionAnalyzer.analyzeAction(config.userAction);
     
     console.log(`[提示词路由] 行动分析结果:`, {
@@ -239,22 +240,48 @@ export class PromptRouter {
       keywords: analysis.keywords
     });
 
+    // 先生成基础提示词
+    let basePrompt: string;
+
     // 根据分析结果选择相应的专精提示词
     switch (analysis.primaryType) {
       case 'cultivation':
-        return this.generateCultivationPrompt(analysis, config);
+        basePrompt = this.generateCultivationPrompt(analysis, config);
+        break;
       
       case 'interaction':
-        return this.generateInteractionPrompt(analysis, config);
+        basePrompt = this.generateInteractionPrompt(analysis, config);
+        break;
       
       case 'exploration':
-        return this.generateExplorationPrompt(analysis, config);
+        basePrompt = this.generateExplorationPrompt(analysis, config);
+        break;
       
       case 'combat':
-        return this.generateCombatPrompt(analysis, config);
+        basePrompt = this.generateCombatPrompt(analysis, config);
+        break;
       
       default:
-        return this.generateGeneralPrompt(config);
+        basePrompt = this.generateGeneralPrompt(config);
+        break;
+    }
+
+    // 使用世界感知系统增强提示词
+    try {
+      console.log('[提示词路由] 应用世界感知增强...');
+      const enhancedPrompt = await WorldAwareGMPrompts.generateWorldAwarePrompt({
+        userAction: config.userAction,
+        characterData: config.character,
+        basePrompt: basePrompt
+      });
+      
+      console.log('[提示词路由] 世界感知增强完成');
+      return enhancedPrompt;
+      
+    } catch (error) {
+      console.error('[提示词路由] 世界感知增强失败:', error);
+      // 如果世界感知失败，返回基础提示词
+      return basePrompt;
     }
   }
 

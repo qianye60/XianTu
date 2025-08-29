@@ -528,6 +528,76 @@ ${messagesText}
       toast.warning('没有可供总结的短期记忆');
     }
   }
+
+  /**
+   * 处理记忆更新（从AI响应中处理记忆相关更新）
+   */
+  public async processMemoryUpdates(memoryUpdates: any): Promise<void> {
+    try {
+      if (!memoryUpdates) return;
+
+      // 处理新增的短期记忆
+      if (memoryUpdates.shortTermAdditions && Array.isArray(memoryUpdates.shortTermAdditions)) {
+        for (const messageContent of memoryUpdates.shortTermAdditions) {
+          const message: ChatMessage = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            role: 'system',
+            content: messageContent,
+            timestamp: new Date().toISOString(),
+          };
+          this.addMessage(message);
+        }
+      }
+
+      // 处理直接添加的记忆消息
+      if (memoryUpdates.messages && Array.isArray(memoryUpdates.messages)) {
+        for (const message of memoryUpdates.messages) {
+          if (message.role && message.content) {
+            const chatMessage: ChatMessage = {
+              id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              role: message.role,
+              content: message.content,
+              timestamp: message.timestamp || new Date().toISOString(),
+              metadata: message.metadata,
+            };
+            this.addMessage(chatMessage);
+          }
+        }
+      }
+
+      // 处理长期记忆更新
+      if (memoryUpdates.longTermMemories && Array.isArray(memoryUpdates.longTermMemories)) {
+        for (const ltMemory of memoryUpdates.longTermMemories) {
+          const longTermMemory: LongTermMemory = {
+            id: ltMemory.id || `long_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            title: ltMemory.title || '重要事件',
+            description: ltMemory.description || '',
+            timestamp: ltMemory.timestamp || new Date().toISOString(),
+            category: ltMemory.category || 'event',
+            importance: ltMemory.importance || 5,
+            relatedMemories: ltMemory.relatedMemories || [],
+            tags: ltMemory.tags || [],
+          };
+          this.longTermMemories.push(longTermMemory);
+        }
+      }
+
+      // 处理配置更新
+      if (memoryUpdates.configUpdate) {
+        this.updateConfig(memoryUpdates.configUpdate);
+      }
+
+      // 如果有强制摘要请求
+      if (memoryUpdates.triggerSummary) {
+        await this.triggerManualSummary();
+      }
+
+      console.log('[记忆系统] 记忆更新处理完成');
+    } catch (error) {
+      console.error('[记忆系统] 处理记忆更新失败:', error);
+      throw error;
+    }
+  }
 }
 
 // 单例模式实现

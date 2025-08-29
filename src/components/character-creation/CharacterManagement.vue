@@ -130,7 +130,8 @@
                   <!-- 上次对话存档 -->
                   <div class="save-card auto-save" 
                        :class="{ 'has-data': selectedCharacter.存档列表?.['上次对话']?.存档数据 }"
-                       @click="handleSelect(selectedCharId!, '上次对话', !!selectedCharacter.存档列表?.['上次对话']?.存档数据)">
+                       @click="handleSelect(selectedCharId!, '上次对话', !!selectedCharacter.存档列表?.['上次对话']?.存档数据)"
+                       style="cursor: pointer;">
                     <div v-if="selectedCharacter.存档列表?.['上次对话']?.存档数据" class="save-data">
                       <div class="save-header">
                         <h4 class="save-name">上次对话</h4>
@@ -170,14 +171,15 @@
                     <div v-else class="save-empty">
                       <div class="empty-slot-icon">🤖</div>
                       <span class="empty-text">暂无自动存档</span>
-                      <span class="auto-save-desc">对话前将自动保存</span>
+                      <span class="auto-save-desc">点击可创建新存档</span>
                     </div>
                   </div>
 
                   <!-- 快速存档 -->
                   <div class="save-card auto-save" 
                        :class="{ 'has-data': selectedCharacter.存档列表?.['自动存档']?.存档数据 }"
-                       @click="handleSelect(selectedCharId!, '自动存档', !!selectedCharacter.存档列表?.['自动存档']?.存档数据)">
+                       @click="handleSelect(selectedCharId!, '自动存档', !!selectedCharacter.存档列表?.['自动存档']?.存档数据)"
+                       style="cursor: pointer;">
                     <div v-if="selectedCharacter.存档列表?.['自动存档']?.存档数据" class="save-data">
                       <div class="save-header">
                         <h4 class="save-name">自动存档</h4>
@@ -217,7 +219,7 @@
                     <div v-else class="save-empty">
                       <div class="empty-slot-icon">💾</div>
                       <span class="empty-text">暂无自动存档</span>
-                      <span class="auto-save-desc">系统自动保存</span>
+                      <span class="auto-save-desc">点击可创建新存档</span>
                     </div>
                   </div>
                 </div>
@@ -249,7 +251,9 @@
                                   title="重命名">编</button>
                           <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))" 
                                   class="btn-delete-save" 
-                                  title="删除存档">删</button>
+                                  :class="{ 'disabled': !canDeleteSave(selectedCharacter, String(slotKey)) }"
+                                  :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
+                                  :title="canDeleteSave(selectedCharacter, String(slotKey)) ? '删除存档' : '无法删除：至少需要保留一个存档'">删</button>
                         </div>
                       </div>
 
@@ -509,27 +513,29 @@ const closeDetailsModal = () => {
 };
 
 const handleSelect = async (charId: string, slotKey: string, hasData: boolean) => {
-  // 如果点击的是有数据的存档，或者空存档里的“开始游戏”按钮，则直接进入
-  if (hasData || !hasData) { // 逻辑简化：按钮点击已通过 @click.stop 和特定参数处理
-    const character = characterStore.rootState.角色列表[charId];
-    // 对于空存档，点击卡片本身不触发，只有点击内部按钮才触发
-    if (!hasData) {
-      // 这是一个新游戏
-      showConfirm(
-        '开启新征程',
-        `是否在存档位 "${slotKey}" 开始一段新的修行？`,
-        async () => {
-          await characterStore.setActiveCharacterInTavern(charId);
-          emit('select', { charId, slotKey });
-        }
-      );
-      return;
-    }
+  const character = characterStore.rootState.角色列表[charId];
+  
+  if (hasData) {
     // 对于有数据的存档，直接进入
     await characterStore.setActiveCharacterInTavern(charId);
     emit('select', { charId, slotKey });
+  } else {
+    // 对于空存档，显示确认对话框
+    const isAutoSave = slotKey === '上次对话' || slotKey === '自动存档';
+    const title = isAutoSave ? '创建新存档' : '开启新征程';
+    const message = isAutoSave 
+      ? `是否在【${slotKey}】位置创建新的存档开始游戏？`
+      : `是否在存档位 "${slotKey}" 开始一段新的修行？`;
+    
+    showConfirm(
+      title,
+      message,
+      async () => {
+        await characterStore.setActiveCharacterInTavern(charId);
+        emit('select', { charId, slotKey });
+      }
+    );
   }
-  // 点击空存档的卡片区域（非按钮）将不执行任何操作
 };
 
 const handleDeleteCharacter = (charId: string) => {
@@ -547,8 +553,18 @@ const handleDeleteCharacter = (charId: string) => {
 };
 
 const handleDeleteSave = (charId: string, slotKey: string) => {
-  const charName = characterStore.rootState.角色列表[charId]?.角色基础信息.名字;
+  const character = characterStore.rootState.角色列表[charId];
+  const charName = character?.角色基础信息.名字;
   const saveName = slotKey === '上次对话' ? '上次对话存档' : slotKey === '自动存档' ? '自动存档' : slotKey;
+  
+  // 检查是否可以删除存档
+  if (!canDeleteSave(character, slotKey)) {
+    showAlert(
+      '无法删除存档', 
+      '无法删除该存档：角色至少需要保留一个存档。如需删除，请先创建其他存档或删除整个角色。'
+    );
+    return;
+  }
   
   showConfirm(
     '删除存档',
@@ -557,6 +573,32 @@ const handleDeleteSave = (charId: string, slotKey: string) => {
       characterStore.deleteSave(charId, slotKey);
     }
   );
+};
+
+// 检查是否可以删除存档的逻辑
+const canDeleteSave = (character: CharacterProfile | null, slotKey: string): boolean => {
+  if (!character || character.模式 === '联机') {
+    // 联机模式不允许删除存档
+    return false;
+  }
+  
+  // 统计当前有数据的存档数量
+  let saveCount = 0;
+  const savesList = character.存档列表 || {};
+  
+  Object.entries(savesList).forEach(([key, save]) => {
+    if (save.存档数据) {
+      saveCount++;
+    }
+  });
+  
+  // 如果要删除的存档有数据，且总共只有1个有数据的存档，则不允许删除
+  const targetSave = savesList[slotKey];
+  if (targetSave?.存档数据 && saveCount <= 1) {
+    return false;
+  }
+  
+  return true;
 };
 
 const getManualSaves = (character: CharacterProfile | null) => {
@@ -1485,11 +1527,23 @@ const closeModal = () => {
   color: var(--color-error);
 }
 
-.btn-delete-save:hover {
+.btn-delete-save:hover:not(.disabled):not(:disabled) {
   background: rgba(var(--color-error-rgb), 0.2);
   border-color: rgba(var(--color-error-rgb), 0.5);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(var(--color-error-rgb), 0.2);
+}
+
+/* 禁用状态样式 */
+.btn-delete-save.disabled,
+.btn-delete-save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(128, 128, 128, 0.1) !important;
+  border-color: rgba(128, 128, 128, 0.2) !important;
+  color: #888 !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .auto-save-desc {

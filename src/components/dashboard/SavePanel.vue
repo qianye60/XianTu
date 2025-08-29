@@ -43,11 +43,11 @@
           <div class="save-stats">
             <div class="stat-item">
               <span class="stat-label">游戏时间</span>
-              <span class="stat-value">{{ formatPlayTime(currentSave.游戏时长) }}</span>
+              <span class="stat-value">{{ formatPlayTime(currentSave.游戏时长 || 0) }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">最后保存</span>
-              <span class="stat-value">{{ formatTime(currentSave.最后保存时间) }}</span>
+              <span class="stat-value">{{ formatTime(currentSave.最后保存时间 || currentSave.保存时间 || '') }}</span>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@
 
         <div v-else-if="savesList.length === 0" class="empty-state">
           <div class="empty-icon">📂</div>
-          <div class="empty-text">暂无存档</div>
+          <div class="empty-text">修仙路上尚未留存，创建存档记录道途</div>
           <div class="empty-hint">开始游戏后可以创建存档</div>
         </div>
 
@@ -84,7 +84,7 @@
                 <div class="preview-avatar small">{{ save.角色名字?.[0] || '道' }}</div>
                 <div class="preview-info">
                   <div class="character-name">{{ save.角色名字 || `存档${index + 1}` }}</div>
-                  <div class="save-time">{{ formatTime(save.最后保存时间) }}</div>
+                  <div class="save-time">{{ formatTime(save.最后保存时间 || save.保存时间 || '') }}</div>
                 </div>
               </div>
               <div class="card-actions">
@@ -118,16 +118,16 @@
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">时长:</span>
-                  <span class="detail-value">{{ formatPlayTime(save.游戏时长) }}</span>
+                  <span class="detail-value">{{ formatPlayTime(save.游戏时长 || 0) }}</span>
                 </div>
               </div>
               
-              <div class="save-progress" v-if="save.修为进度">
+              <div class="save-progress" v-if="save.修为进度 !== undefined">
                 <div class="progress-label">修为进度</div>
                 <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: save.修为进度 + '%' }"></div>
+                  <div class="progress-fill" :style="{ width: (save.修为进度 || 0) + '%' }"></div>
                 </div>
-                <div class="progress-text">{{ save.修为进度 }}%</div>
+                <div class="progress-text">{{ save.修为进度 || 0 }}%</div>
               </div>
             </div>
           </div>
@@ -177,6 +177,7 @@ import { ref, computed, onMounted } from 'vue';
 import { RefreshCw, Save, Play, Trash2, Download, Upload } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
+import type { SaveSlot } from '@/types/game';
 
 const characterStore = useCharacterStore();
 const loading = ref(false);
@@ -184,7 +185,7 @@ const fileInput = ref<HTMLInputElement>();
 
 // 获取存档列表
 const savesList = computed(() => {
-  return characterStore.saveSlots.filter(slot => slot !== null) as any[];
+  return characterStore.saveSlots.filter((slot: SaveSlot) => slot !== null);
 });
 
 // 获取当前存档
@@ -231,17 +232,17 @@ const quickSave = async () => {
 };
 
 // 选择存档
-const selectSave = (save: any) => {
+const selectSave = (save: SaveSlot) => {
   console.log('[存档] 选择存档:', save);
 };
 
 // 加载存档
-const loadSave = async (save: any) => {
+const loadSave = async (save: SaveSlot) => {
   if (!save) return;
   
   loading.value = true;
   try {
-    await characterStore.loadGame(save.id);
+    await characterStore.loadGameById(save.id!);
     toast.success(`已加载存档: ${save.角色名字 || '存档'}`);
   } catch (error) {
     console.error('[存档] 加载失败:', error);
@@ -252,14 +253,14 @@ const loadSave = async (save: any) => {
 };
 
 // 删除存档
-const deleteSave = async (save: any) => {
+const deleteSave = async (save: SaveSlot) => {
   if (!confirm(`确定要删除存档"${save.角色名字 || '存档'}"吗？此操作不可撤销。`)) {
     return;
   }
 
   loading.value = true;
   try {
-    await characterStore.deleteSave(save.id);
+    await characterStore.deleteSaveById(save.id!);
     toast.success('存档已删除');
   } catch (error) {
     console.error('[存档] 删除失败:', error);
@@ -354,7 +355,7 @@ const clearAllSaves = async () => {
 };
 
 // 格式化时间
-const formatTime = (timestamp: number | string): string => {
+const formatTime = (timestamp: number | string | null | undefined): string => {
   if (!timestamp) return '未知';
   
   const date = new Date(timestamp);
@@ -376,7 +377,7 @@ const formatTime = (timestamp: number | string): string => {
 };
 
 // 格式化游戏时长
-const formatPlayTime = (minutes: number): string => {
+const formatPlayTime = (minutes: number | undefined): string => {
   if (!minutes || minutes < 1) return '少于1分钟';
   
   const hours = Math.floor(minutes / 60);

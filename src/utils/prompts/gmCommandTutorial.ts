@@ -1,7 +1,9 @@
 /**
  * @fileoverview GM指令操作教学系统
- * 教AI在不同游戏情况下如何操作角色数据
+ * 教AI在不同游戏情况下如何操作角色数据，包含三千大道系统
  */
+
+import { THOUSAND_DAO_SYSTEM_PROMPT, THOUSAND_DAO_INITIALIZATION_PROMPT } from './thousandDaoPrompts';
 
 /**
  * GM指令操作教学提示词
@@ -13,7 +15,9 @@ export const GM_COMMAND_TUTORIAL = `
 
 你作为GM，需要根据游戏情况动态更新角色数据。以下是完整的操作指南：
 
-### **🔧 基础指令类型**
+${THOUSAND_DAO_SYSTEM_PROMPT}
+
+## **🔧 基础指令类型**
 
 #### **1. SET - 设置/更新数据**
 \`\`\`json
@@ -61,35 +65,32 @@ export const GM_COMMAND_TUTORIAL = `
 
 **受到伤害:**
 \`\`\`json
-{"action": "add", "scope": "chat", "key": "character.resources.qi_blood.current", "value": -30}
+{"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.气血.当前", "value": -30}
 \`\`\`
 
 **消耗灵气释放法术:**
 \`\`\`json
-{"action": "add", "scope": "chat", "key": "character.resources.ling.current", "value": -50}
+{"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.灵气.当前", "value": -50}
 \`\`\`
 
 **获得战斗状态:**
 \`\`\`json
-{"action": "push", "scope": "chat", "key": "character.status.effects", "value": {
+{"action": "push", "scope": "chat", "key": "character.saveData.玩家角色状态.状态效果", "value": {
   "状态名称": "战斗专注",
   "类型": "BUFF",
-  "时间": "三回合",
-  "状态描述": "战斗中精神高度集中，反应力提升",
-  "强度": 5,
-  "来源": "战斗状态"
+  "持续时间": "三回合"
 }}
 \`\`\`
 
 **获得战利品:**
 \`\`\`json
-{"action": "push", "scope": "chat", "key": "character.equipment.consumables", "value": {
-  "name": "疗伤丹",
-  "type": "丹药",
-  "description": "能够快速恢复外伤的基础丹药",
-  "quality": "黄",
-  "grade": 3,
-  "数量": 2
+{"action": "push", "scope": "chat", "key": "character.saveData.背包.物品", "value": {
+  "疗伤丹": {
+    "type": "消耗品",
+    "description": "能够快速恢复外伤的基础丹药",
+    "quality": "黄品",
+    "数量": 2
+  }
 }}
 \`\`\`
 
@@ -97,34 +98,31 @@ export const GM_COMMAND_TUTORIAL = `
 
 **修为进度增加:**
 \`\`\`json
-{"action": "add", "scope": "chat", "key": "character.cultivation.realm_progress", "value": 10}
+{"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.修为.当前", "value": 10}
 \`\`\`
 
 **突破境界:**
 \`\`\`json
 [
-  {"action": "set", "scope": "chat", "key": "character.cultivation.realm", "value": "炼气二层"},
-  {"action": "set", "scope": "chat", "key": "character.cultivation.realm_level", "value": 1},
-  {"action": "set", "scope": "chat", "key": "character.cultivation.realm_progress", "value": 0},
-  {"action": "set", "scope": "chat", "key": "character.cultivation.lifespan_max", "value": 130},
-  {"action": "set", "scope": "chat", "key": "character.resources.ling.max", "value": 120}
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.名称", "value": "炼气二层"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.等级", "value": 1},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.修为.当前", "value": 0},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.寿命.最大", "value": 130},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.灵气.最大", "value": 120}
 ]
 \`\`\`
 
 **修炼消耗时间:**
 \`\`\`json
-{"action": "add", "scope": "chat", "key": "character.cultivation.lifespan_current", "value": 0.1}
+{"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.寿命.当前", "value": 0.1}
 \`\`\`
 
 **获得修炼感悟:**
 \`\`\`json
-{"action": "push", "scope": "chat", "key": "character.status.effects", "value": {
+{"action": "push", "scope": "chat", "key": "character.saveData.玩家角色状态.状态效果", "value": {
   "状态名称": "修炼感悟",
   "类型": "BUFF", 
-  "时间": "七日",
-  "状态描述": "近期修炼有所感悟，修炼效率提升20%",
-  "强度": 7,
-  "来源": "修炼顿悟"
+  "持续时间": "七日"
 }}
 \`\`\`
 
@@ -132,17 +130,18 @@ export const GM_COMMAND_TUTORIAL = `
 
 **结识新NPC:**
 \`\`\`json
-{"action": "push", "scope": "chat", "key": "character.social.relationships", "value": {
-  "NPC名字": "李师兄",
-  "关系类型": "同门师兄",
-  "好感度": 60,
-  "关系描述": "青云宗的内门弟子，对你颇为照顾"
+{"action": "push", "scope": "chat", "key": "character.saveData.人物关系", "value": {
+  "李师兄": {
+    "关系类型": "同门师兄",
+    "好感度": 60,
+    "关系描述": "青云宗的内门弟子，对你颇为照顾"
+  }
 }}
 \`\`\`
 
 **获得声望:**
 \`\`\`json
-{"action": "add", "scope": "chat", "key": "character.social.reputation.青云宗", "value": 10}
+{"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.声望", "value": 10}
 \`\`\`
 
 **加入宗门:**
@@ -159,26 +158,27 @@ export const GM_COMMAND_TUTORIAL = `
 **改变位置:**
 \`\`\`json
 [
-  {"action": "set", "scope": "chat", "key": "character.status.location", "value": "青云宗后山"},
-  {"action": "set", "scope": "chat", "key": "character.status.activity", "value": "探索"}
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.描述", "value": "青云宗后山"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.坐标.X", "value": 1250},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.坐标.Y", "value": 890}
 ]
 \`\`\`
 
 **发现宝物:**
 \`\`\`json
-{"action": "push", "scope": "chat", "key": "character.equipment.treasures", "value": {
-  "name": "青木护心镜",
-  "type": "防具",
-  "description": "以千年青木制成的护心镜，能抵御法术攻击",
-  "quality": "玄",
-  "grade": 5,
-  "装备效果": {"防御": +15, "抗法": +10}
+{"action": "push", "scope": "chat", "key": "character.saveData.装备栏", "value": {
+  "法宝1": {
+    "名称": "青木护心镜",
+    "类型": "防具",
+    "品质": "玄品",
+    "效果": "防御+15，抗法+10"
+  }
 }}
 \`\`\`
 
 **遭遇危险:**
 \`\`\`json
-{"action": "push", "scope": "chat", "key": "character.status.conditions", "value": "轻伤"}
+{"action": "push", "scope": "chat", "key": "character.saveData.玩家角色状态.状态效果", "value": "轻伤状态"}
 \`\`\`
 
 ### **🍃 日常场景**
@@ -186,29 +186,26 @@ export const GM_COMMAND_TUTORIAL = `
 **购买物品:**
 \`\`\`json
 [
-  {"action": "add", "scope": "chat", "key": "character.resources.spirit_stones.下品", "value": -50},
-  {"action": "push", "scope": "chat", "key": "character.equipment.consumables", "value": {
-    "name": "回气丹",
-    "type": "丹药", 
-    "description": "恢复灵气的常用丹药",
-    "quality": "黄",
-    "grade": 2,
-    "数量": 5
+  {"action": "add", "scope": "chat", "key": "character.saveData.背包.灵石.下品", "value": -50},
+  {"action": "push", "scope": "chat", "key": "character.saveData.背包.物品", "value": {
+    "回气丹": {
+      "type": "丹药", 
+      "description": "恢复灵气的常用丹药",
+      "quality": "黄品",
+      "数量": 5
+    }
   }}
 ]
 \`\`\`
 
 **时间流逝:**
 \`\`\`json
-[
-  {"action": "add", "scope": "chat", "key": "character.identity.age", "value": 1},
-  {"action": "add", "scope": "chat", "key": "character.cultivation.lifespan_current", "value": 1}
-]
+{"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.寿命.当前", "value": 1}
 \`\`\`
 
 **状态效果到期:**
 \`\`\`json
-{"action": "pull", "scope": "chat", "key": "character.status.effects", "value": "药力未散"}
+{"action": "pull", "scope": "chat", "key": "character.saveData.玩家角色状态.状态效果", "value": "药力未散"}
 \`\`\`
 
 ---
@@ -319,7 +316,7 @@ export const SCENARIO_OPERATION_TEMPLATES = {
     addCombatBuff: (name: string, description: string, duration: string, intensity: number) => ({
       action: "push",
       scope: "chat",
-      key: "character.status.effects",
+      key: "character.saveData.玩家角色状态.状态效果",
       value: {
         "状态名称": name,
         "类型": "BUFF",

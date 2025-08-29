@@ -52,7 +52,6 @@
       </div>
 
       <div v-else class="memory-list">
-        <!-- 为了测试滚动条，我会添加更多内容 -->
         <div 
           v-for="(memory, index) in filteredMemories" 
           :key="index"
@@ -72,24 +71,6 @@
           
           <div v-if="memory.importance" class="memory-importance">
             重要程度: {{ memory.importance }}/10
-          </div>
-        </div>
-
-        <!-- 添加一些示例内容来测试滚动 -->
-        <div v-for="n in 20" :key="`demo-${n}`" class="memory-card memory-demo">
-          <div class="memory-header">
-            <div class="memory-type-badge badge-short">
-              🧠 短期记忆
-            </div>
-            <div class="memory-time">{{ formatTime(Date.now() - n * 60000) }}</div>
-          </div>
-          
-          <div class="memory-content">
-            示例记忆内容 {{ n }}：这是一条测试记忆，用于验证滚动条功能。记忆内容可能包含人物对话、重要事件、获得的物品、学习的技能等各种信息。通过多层记忆系统，重要的记忆会被长期保存，而不太重要的记忆会逐渐淡化。
-          </div>
-          
-          <div class="memory-importance">
-            重要程度: {{ Math.floor(Math.random() * 10) + 1 }}/10
           </div>
         </div>
       </div>
@@ -135,22 +116,19 @@ const filteredMemories = computed(() => {
 });
 
 // 总记忆数量
-const totalMemoryCount = computed(() => memories.value.length + 20); // +20 for demo content
+const totalMemoryCount = computed(() => memories.value.length);
 
 // 获取类型数量
 const getTypeCount = (type: string): number => {
   if (type === 'all') return totalMemoryCount.value;
-  const realCount = memories.value.filter(memory => memory.type === type).length;
-  // Add demo content count
-  if (type === 'short') return realCount + 20;
-  return realCount;
+  return memories.value.filter(memory => memory.type === type).length;
 };
 
 // 获取空状态文本
 const getEmptyText = (): string => {
-  if (activeFilter.value === 'all') return '暂无记忆记录';
+  if (activeFilter.value === 'all') return '心境空明如镜，尚未记录修行感悟';
   const type = memoryTypes.find(t => t.key === activeFilter.value);
-  return `暂无${type?.name}记忆`;
+  return `此类${type?.name}记忆如流水无痕，待道友体验后方可显现`;
 };
 
 // 获取类型图标
@@ -552,10 +530,6 @@ onMounted(() => {
   font-size: 0.75rem;
   color: #92400e;
   font-weight: 500;
-}
-
-.memory-demo {
-  opacity: 0.8;
 }
 
 /* 响应式设计 */

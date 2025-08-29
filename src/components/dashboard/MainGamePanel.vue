@@ -8,7 +8,7 @@
         <ChevronRight v-else :size="16" class="memory-icon" />
       </div>
       
-      <!-- 下拉悬浯的记忆内容 -->
+      <!-- 下拉悬浮的记忆内容 -->
       <Transition name="memory-dropdown">
         <div v-if="memoryExpanded" class="memory-dropdown">
           <div class="memory-content">
@@ -16,7 +16,7 @@
               {{ memory }}
             </div>
             <div v-if="recentMemories.length === 0" class="no-memory">
-              暂无短期记忆...
+              脑海中一片清净，尚未留下修行痕迹...
             </div>
           </div>
         </div>
@@ -43,6 +43,14 @@
     <!-- 输入区域 -->
     <div class="input-section">
       <div class="input-wrapper">
+        <button 
+          @click="showActionSelector" 
+          class="action-selector-btn"
+          :disabled="!hasActiveCharacter"
+          title="快捷行动"
+        >
+          <ChevronDown :size="16" />
+        </button>
         <textarea
           v-model="inputText"
           @focus="isInputFocused = true"
@@ -63,21 +71,115 @@
           <Send v-else :size="16" />
         </button>
       </div>
+      
+      <!-- 行动选择弹窗 -->
+      <div v-if="showActionModal" class="action-modal-overlay" @click.self="hideActionSelector">
+        <div class="action-modal">
+          <div class="modal-header">
+            <h3>选择行动</h3>
+            <button @click="hideActionSelector" class="close-btn">×</button>
+          </div>
+          <div class="action-categories">
+            <div 
+              v-for="category in actionCategories" 
+              :key="category.name"
+              class="action-category"
+            >
+              <h4 class="category-title">{{ category.icon }} {{ category.name }}</h4>
+              <div class="action-buttons">
+                <button
+                  v-for="action in category.actions"
+                  :key="action.name"
+                  @click="selectAction(action)"
+                  class="action-btn"
+                  :class="action.type"
+                >
+                  <span class="action-icon">{{ action.icon }}</span>
+                  <span class="action-name">{{ action.name }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 行动配置弹窗 -->
+      <div v-if="selectedAction" class="action-config-overlay" @click.self="cancelAction">
+        <div class="action-config-modal">
+          <div class="config-header">
+            <h3>{{ selectedAction.icon }} {{ selectedAction.name }}</h3>
+            <button @click="cancelAction" class="close-btn">×</button>
+          </div>
+          <div class="config-content">
+            <p class="action-description">{{ selectedAction.description }}</p>
+            
+            <!-- 时间配置 -->
+            <div v-if="selectedAction.timeRequired" class="config-section">
+              <label class="config-label">修炼时间</label>
+              <div class="time-selector">
+                <button 
+                  v-for="timeOption in timeOptions" 
+                  :key="timeOption.value"
+                  @click="selectedTime = timeOption.value"
+                  class="time-btn"
+                  :class="{ active: selectedTime === timeOption.value }"
+                >
+                  {{ timeOption.label }}
+                </button>
+              </div>
+              <div class="time-custom">
+                <label>自定义：</label>
+                <input 
+                  v-model.number="customTime" 
+                  type="number" 
+                  min="1" 
+                  max="365"
+                  class="time-input"
+                /> 天
+              </div>
+            </div>
+            
+            <!-- 其他配置选项 -->
+            <div v-if="selectedAction.options" class="config-section">
+              <label class="config-label">选项</label>
+              <div class="action-options">
+                <label 
+                  v-for="option in selectedAction.options" 
+                  :key="option.key"
+                  class="option-item"
+                >
+                  <input 
+                    type="radio" 
+                    :name="'option-' + selectedAction.name"
+                    :value="option.key"
+                    v-model="selectedOption"
+                  />
+                  <span>{{ option.label }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="config-actions">
+            <button @click="cancelAction" class="cancel-btn">取消</button>
+            <button @click="confirmAction" class="confirm-btn">确认</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed, watch } from 'vue';
-import { Send, Loader2, ChevronDown, ChevronRight, Sparkles } from 'lucide-vue-next';
+import { ref, onMounted, nextTick, computed } from 'vue';
+import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
-import { GameAIService } from '@/services/gameAIService';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { GameStateManager } from '@/utils/GameStateManager';
 import { RuntimeReasonabilityValidator, type DifficultyLevel, type AuditResult } from '@/utils/prompts/reasonabilityAudit';
 import { toast } from '@/utils/toast';
 import type { GameMessage } from '@/types/game';
+import type { GM_Response } from '@/types/AIGameMaster';
 
 const inputText = ref('');
 const isInputFocused = ref(false);
@@ -87,8 +189,24 @@ const contentAreaRef = ref<HTMLDivElement>();
 const memoryExpanded = ref(false);
 const showMemorySection = ref(true);
 
+// 行动选择相关
+const showActionModal = ref(false);
+const selectedAction = ref<ActionItem | null>(null);
+const selectedTime = ref(1);
+const customTime = ref(1);
+const selectedOption = ref('');
+
+// 行动类型定义
+interface ActionItem {
+  name: string;
+  icon: string;
+  type: string;
+  description: string;
+  timeRequired?: boolean;
+  options?: Array<{ key: string; label: string }>;
+}
+
 const characterStore = useCharacterStore();
-const aiService = GameAIService.getInstance();
 const memorySystem = MultiLayerMemorySystem.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
 const gameStateManager = GameStateManager.getInstance();
@@ -117,6 +235,176 @@ const hasActiveCharacter = computed(() => {
 const characterName = computed(() => {
   return characterStore.activeCharacterProfile?.角色基础信息.名字 || '无名道友';
 });
+
+// 时间选项
+const timeOptions = ref([
+  { label: '1天', value: 1 },
+  { label: '3天', value: 3 },
+  { label: '7天', value: 7 },
+  { label: '30天', value: 30 }
+]);
+
+// 行动分类数据
+const actionCategories = ref([
+  {
+    name: '修炼',
+    icon: '🧘',
+    actions: [
+      {
+        name: '基础修炼',
+        icon: '⚡',
+        type: 'cultivation',
+        description: '进行基础的修为修炼，提升境界',
+        timeRequired: true
+      },
+      {
+        name: '炼体',
+        icon: '💪',
+        type: 'cultivation',
+        description: '锻炼肉身，增强体质',
+        timeRequired: true
+      },
+      {
+        name: '冥想',
+        icon: '🌟',
+        type: 'cultivation',
+        description: '静心冥想，稳固心境',
+        timeRequired: true
+      }
+    ]
+  },
+  {
+    name: '探索',
+    icon: '🗺️',
+    actions: [
+      {
+        name: '野外探索',
+        icon: '🌲',
+        type: 'exploration',
+        description: '前往野外探索，寻找机缘',
+        options: [
+          { key: 'nearby', label: '附近区域' },
+          { key: 'far', label: '远方区域' },
+          { key: 'dangerous', label: '危险区域' }
+        ]
+      },
+      {
+        name: '城镇逛街',
+        icon: '🏛️',
+        type: 'exploration',
+        description: '在城镇中闲逛，了解信息',
+        options: [
+          { key: 'market', label: '集市' },
+          { key: 'tavern', label: '酒楼' },
+          { key: 'shop', label: '商铺' }
+        ]
+      }
+    ]
+  },
+  {
+    name: '交流',
+    icon: '💬',
+    actions: [
+      {
+        name: '拜访朋友',
+        icon: '👥',
+        type: 'social',
+        description: '拜访认识的朋友',
+        options: [
+          { key: 'random', label: '随机拜访' },
+          { key: 'close', label: '亲密朋友' }
+        ]
+      },
+      {
+        name: '结交新友',
+        icon: '🤝',
+        type: 'social',
+        description: '主动结交新的朋友'
+      }
+    ]
+  },
+  {
+    name: '其他',
+    icon: '⚙️',
+    actions: [
+      {
+        name: '休息',
+        icon: '😴',
+        type: 'other',
+        description: '好好休息，恢复精神',
+        timeRequired: true
+      },
+      {
+        name: '查看状态',
+        icon: '📊',
+        type: 'other',
+        description: '查看当前的详细状态'
+      }
+    ]
+  }
+]);
+
+// 行动选择器函数
+const showActionSelector = () => {
+  showActionModal.value = true;
+};
+
+const hideActionSelector = () => {
+  showActionModal.value = false;
+};
+
+const selectAction = (action: ActionItem) => {
+  selectedAction.value = action;
+  showActionModal.value = false;
+  
+  // 重置选择
+  selectedTime.value = 1;
+  customTime.value = 1;
+  selectedOption.value = '';
+  
+  // 如果不需要配置，直接执行
+  if (!action.timeRequired && !action.options) {
+    confirmAction();
+  }
+};
+
+const cancelAction = () => {
+  selectedAction.value = null;
+  selectedTime.value = 1;
+  customTime.value = 1;
+  selectedOption.value = '';
+};
+
+const confirmAction = () => {
+  if (!selectedAction.value) return;
+  
+  let actionText = selectedAction.value.name;
+  
+  // 添加时间信息
+  if (selectedAction.value.timeRequired) {
+    const time = customTime.value > 0 ? customTime.value : selectedTime.value;
+    actionText += `（${time}天）`;
+  }
+  
+  // 添加选项信息
+  if (selectedOption.value && selectedAction.value.options) {
+    const option = selectedAction.value.options.find(opt => opt.key === selectedOption.value);
+    if (option) {
+      actionText += `（${option.label}）`;
+    }
+  }
+  
+  // 填充到输入框
+  inputText.value = actionText;
+  
+  // 清理状态
+  cancelAction();
+  
+  // 聚焦输入框
+  nextTick(() => {
+    inputRef.value?.focus();
+  });
+};
 
 // 短期记忆相关 - 优化版本  
 const recentMemories = computed(() => {
@@ -152,7 +440,7 @@ const toggleMemory = () => {
 
 // 执行合理性审查
 const performReasonabilityAudit = async (
-  gmResponse: any, 
+  gmResponse: GM_Response, 
   character: any, 
   userAction: string
 ): Promise<AuditResult> => {
@@ -186,12 +474,6 @@ const performReasonabilityAudit = async (
   }
 };
 
-// 设置审查难度
-const setAuditDifficulty = (difficulty: DifficultyLevel) => {
-  auditDifficulty.value = difficulty;
-  localStorage.setItem('audit-difficulty', difficulty);
-  toast.info(`合理性审查难度已设置为: ${difficulty}`);
-};
 const handleStreamingResponse = (chunk: string) => {
   if (streamingMessageIndex.value !== null) {
     streamingContent.value += chunk;
@@ -258,73 +540,92 @@ const sendMessage = async () => {
     });
     
     // 使用优化的AI请求系统进行双向交互
-    // const aiResponse = await bidirectionalSystem.processPlayerAction(
-    //   userMessage,
-    //   character,
-    //   gameState,
-    //   {
-    //     onStreamChunk: handleStreamingResponse,
-    //     onProgressUpdate: (progress: string) => {
-    //       // 显示处理进度
-    //       console.log('[AI进度]', progress);
-    //     },
-    //     onStateChange: (newState: any) => {
-    //       // 处理游戏状态变化
-    //       gameStateManager.updateState(newState);
-    //     }
-    //   }
-    // );
+    let aiResponse: Record<string, unknown> | null = null;
     
-    // 临时简化处理 - 直接显示用户消息的回应
-    const aiResponse = {
-      finalContent: `【系统响应】收到玩家行动："${userMessage}"，天道正在计算后续变化...`
-    };
-    
-    // 合理性审查检查
-    if (aiResponse.gmResponse) {
-      const auditResult = await performReasonabilityAudit(aiResponse.gmResponse, character, userMessage);
-      if (!auditResult.isValid) {
-        console.warn('[合理性审查] 检测到不合理内容:', auditResult.issues);
-        
-        // 如果有调整后的响应，使用调整后的版本
-        if (auditResult.adjustedResponse) {
-          aiResponse.gmResponse = auditResult.adjustedResponse;
-          toast.info('AI响应已根据游戏规则进行调整');
-        } else {
-          // 如果无法修正，显示警告但继续
-          toast.warning('AI响应可能不完全合理，已记录审查结果');
+    try {
+      aiResponse = await bidirectionalSystem.processPlayerAction(
+        userMessage,
+        character,
+        gameState,
+        {
+          onStreamChunk: handleStreamingResponse,
+          onProgressUpdate: (progress: string) => {
+            console.log('[AI进度]', progress);
+          },
+          onStateChange: (newState: Record<string, unknown>) => {
+            try {
+              gameStateManager.updateState(newState);
+            } catch (error) {
+              console.error('[状态更新] 更新失败:', error);
+            }
+          }
         }
-      } else {
-        console.log('[合理性审查] 响应通过审查，可信度:', auditResult.confidence.toFixed(2));
+      );
+      
+      // 合理性审查检查
+      if (aiResponse.gmResponse) {
+        const auditResult = await performReasonabilityAudit(
+          aiResponse.gmResponse as GM_Response, 
+          character, 
+          userMessage
+        );
+        if (!auditResult.isValid) {
+          console.warn('[合理性审查] 检测到不合理内容:', auditResult.issues);
+          
+          if (auditResult.adjustedResponse) {
+            aiResponse.gmResponse = auditResult.adjustedResponse;
+            toast.info('AI响应已根据游戏规则进行调整');
+          } else {
+            toast.warning('AI响应可能不完全合理，已记录审查结果');
+          }
+        } else {
+          console.log('[合理性审查] 响应通过审查，可信度:', auditResult.confidence.toFixed(2));
+        }
       }
-    }
-    
-    // 完成流式输出
-    streamingMessageIndex.value = null;
-    
-    // 处理AI返回的完整响应
-    if (aiResponse.finalContent) {
+      
+      // 完成流式输出
+      streamingMessageIndex.value = null;
+      
+      // 处理AI返回的完整响应
+      if (aiResponse.finalContent && typeof aiResponse.finalContent === 'string') {
+        const finalMessage = gameMessages.value[streamingMessageIndex_local];
+        if (finalMessage) {
+          finalMessage.content = aiResponse.finalContent;
+        }
+      }
+      
+      // 处理游戏状态更新
+      if (aiResponse.stateChanges) {
+        await gameStateManager.applyStateChanges(aiResponse.stateChanges);
+        characterStore.updateCharacterData(aiResponse.stateChanges);
+      }
+      
+      // 处理记忆更新
+      if (aiResponse.memoryUpdates) {
+        await memorySystem.processMemoryUpdates(aiResponse.memoryUpdates);
+      }
+      
+    } catch (aiError) {
+      console.error('[AI处理失败]', aiError);
+      
+      // 回退到简化处理
+      const fallbackResponse = await generateFallbackResponse(userMessage);
+      
       const finalMessage = gameMessages.value[streamingMessageIndex_local];
       if (finalMessage) {
-        finalMessage.content = aiResponse.finalContent;
+        finalMessage.content = fallbackResponse;
       }
+      
+      streamingMessageIndex.value = null;
+      toast.warning('AI系统繁忙，使用备用响应');
+      
+      // 创建空的响应对象以避免后续错误
+      aiResponse = { systemMessages: [], finalContent: '', stateChanges: null, memoryUpdates: null };
     }
     
-    // 处理游戏状态更新
-    // if (aiResponse.stateChanges) {
-    //   await gameStateManager.applyStateChanges(aiResponse.stateChanges);
-    //   // 更新角色存储
-    //   characterStore.updateCharacterFromState(aiResponse.stateChanges);
-    // }
-    
-    // 处理记忆更新
-    // if (aiResponse.memoryUpdates) {
-    //   await memorySystem.processMemoryUpdates(aiResponse.memoryUpdates);
-    // }
-    
     // 添加系统消息（如果有）
-    if (aiResponse.systemMessages && aiResponse.systemMessages.length > 0) {
-      aiResponse.systemMessages.forEach(msg => {
+    if (aiResponse && aiResponse.systemMessages && Array.isArray(aiResponse.systemMessages)) {
+      aiResponse.systemMessages.forEach((msg: string) => {
         addMessage({
           type: 'system',
           content: msg,
@@ -382,6 +683,23 @@ function formatCurrentTime(): string {
   const now = new Date();
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 }
+
+// 生成回退响应的函数
+const generateFallbackResponse = async (userMessage: string): Promise<string> => {
+  const responses = [
+    `系统正在处理"${userMessage}"，请稍候...`,
+    `收到道友的请求，天道正在感应中...`,
+    `道友的行动已记录，正在计算因果变化...`,
+    `系统繁忙，但你的修行之路依然继续...`,
+    `天道无常，此时无法给出完整回应，请稍后再试。`
+  ];
+  
+  // 模拟异步处理延迟
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+  return randomResponse;
+};
 
 // 键盘事件处理
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -462,27 +780,6 @@ const syncGameState = async () => {
     const character = characterStore.activeCharacterProfile;
     if (!character) return;
     
-    // 从角色数据同步到游戏状态管理器
-    const currentState = {
-      character: {
-        name: character.角色基础信息.名字,
-        realm: '凡人', // 临时硬编码
-        level: 1, // 临时硬编码
-        location: '新手村', // 临时硬编码
-        attributes: {}, // 临时空对象
-      },
-      world: {
-        time: new Date().toISOString(),
-        weather: '晴朗',
-        temperature: 20
-      },
-      player: {
-        experience: 0, // 临时硬编码
-        inventory: [], // 临时空数组
-      }
-    };
-    
-    // await gameStateManager.updateState(currentState);
     console.log('[主面板] 游戏状态同步完成');
   } catch (error) {
     console.error('[主面板] 游戏状态同步失败:', error);
@@ -517,7 +814,7 @@ const generateAndShowInitialMessage = async () => {
     if (!initialMessage) {
       console.log('[主面板] 存档中未找到初始消息，尝试从酒馆变量获取...');
       try {
-        const helper = (window.parent as any)?.TavernHelper;
+        const helper = (window.parent as Window & { TavernHelper?: Record<string, unknown> })?.TavernHelper;
         if (helper) {
           const chatVars = await helper.getVariables({ type: 'chat' });
           const gameData = chatVars?.DAD_GameData;
@@ -597,7 +894,6 @@ const saveConversationHistory = async () => {
       }));
       
       // 同时更新到记忆系统
-      const recentMessages = gameMessages.value.slice(-5).map(msg => msg.content).join(' ');
       // await memorySystem.addShortTermMemory(recentMessages, 'conversation');
       
       console.log(`[主面板] 已保存 ${gameMessages.value.length} 条对话历史`);
@@ -609,6 +905,16 @@ const saveConversationHistory = async () => {
 </script>
 
 <style scoped>
+.main-game-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
 /* 短期记忆区域 */
 .memory-section {
   padding: 12px 20px;
@@ -616,6 +922,7 @@ const saveConversationHistory = async () => {
   border-bottom: 1px solid #e2e8f0;
   position: relative;
   z-index: 20;
+  flex-shrink: 0;
 }
 
 .memory-header {
@@ -645,7 +952,7 @@ const saveConversationHistory = async () => {
   transition: transform 0.2s ease;
 }
 
-/* 下拉悬浯效果 */
+/* 下拉悬浮效果 */
 .memory-dropdown {
   position: absolute;
   top: 100%;
@@ -657,7 +964,7 @@ const saveConversationHistory = async () => {
   border-radius: 0 0 12px 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   z-index: 19;
-  max-height: 60vh;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -704,129 +1011,14 @@ const saveConversationHistory = async () => {
   transform: translateY(-10px);
 }
 
-/* 悬浮弹窗 */
-.memory-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  z-index: 1000;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 80px;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.memory-popup {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  min-width: 400px;
-  max-width: 600px;
-  max-height: 70vh;
-  overflow: hidden;
-  animation: slideDown 0.3s ease-out;
-}
-
-.popup-header {
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.popup-header h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 24px;
-  cursor: pointer;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.popup-content {
-  padding: 20px;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.memory-item {
-  font-size: 0.85rem;
-  color: #374151;
-  margin-bottom: 12px;
-  padding: 12px 16px;
-  background: rgba(99, 102, 241, 0.05);
-  border-radius: 8px;
-  border-left: 3px solid #6366f1;
-  line-height: 1.5;
-}
-
-.memory-item:last-child {
-  margin-bottom: 0;
-}
-
-.no-memory {
-  font-size: 0.9rem;
-  color: #9ca3af;
-  font-style: italic;
-  text-align: center;
-  padding: 20px;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.main-game-panel {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  overflow: hidden;
-}
-
 .content-area {
   flex: 1;
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  box-sizing: border-box;
+  min-height: 200px;
 }
 
 .content-area::-webkit-scrollbar {
@@ -947,6 +1139,8 @@ const saveConversationHistory = async () => {
   padding: 16px 20px;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .input-wrapper {
@@ -1127,29 +1321,6 @@ const saveConversationHistory = async () => {
   color: #64748b;
 }
 
-[data-theme="dark"] .memory-overlay {
-  background: rgba(0, 0, 0, 0.6);
-}
-
-[data-theme="dark"] .memory-popup {
-  background: #1e293b;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-[data-theme="dark"] .popup-header {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-}
-
-[data-theme="dark"] .popup-content {
-  background: #1e293b;
-}
-
-[data-theme="dark"] .memory-item {
-  background: rgba(129, 140, 248, 0.1);
-  border-left-color: #818cf8;
-  color: #e2e8f0;
-}
-
 [data-theme="dark"] .memory-dropdown {
   background: #1e293b;
   border-color: #475569;
@@ -1164,5 +1335,377 @@ const saveConversationHistory = async () => {
 
 [data-theme="dark"] .no-memory {
   color: #64748b;
+}
+
+/* 行动选择器样式 */
+.action-selector-btn {
+  width: 40px;
+  height: 44px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.action-selector-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.action-selector-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 行动选择弹窗 */
+.action-modal-overlay,
+.action-config-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.action-modal,
+.action-config-modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 600px;
+  max-height: 80%;
+  width: 90%;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header,
+.config-header {
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3,
+.config-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.action-categories {
+  padding: 20px;
+}
+
+.action-category {
+  margin-bottom: 24px;
+}
+
+.action-category:last-child {
+  margin-bottom: 0;
+}
+
+.category-title {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.action-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.action-btn:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.action-btn.cultivation {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.action-btn.exploration {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.action-btn.social {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.action-btn.other {
+  border-color: rgba(156, 163, 175, 0.3);
+  background: rgba(156, 163, 175, 0.05);
+}
+
+.action-icon {
+  font-size: 1.5rem;
+}
+
+.action-name {
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+}
+
+/* 配置弹窗内容 */
+.config-content {
+  padding: 20px;
+}
+
+.action-description {
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.config-section {
+  margin-bottom: 20px;
+}
+
+.config-section:last-child {
+  margin-bottom: 0;
+}
+
+.config-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.time-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.time-btn {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.time-btn:hover {
+  border-color: #3b82f6;
+}
+
+.time-btn.active {
+  border-color: #3b82f6;
+  background: #3b82f6;
+  color: white;
+}
+
+.time-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.time-input {
+  width: 80px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.action-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.option-item:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.option-item input[type="radio"] {
+  margin: 0;
+}
+
+.config-actions {
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancel-btn,
+.confirm-btn {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+}
+
+.cancel-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.confirm-btn {
+  border: 1px solid #3b82f6;
+  background: #3b82f6;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .action-selector-btn {
+  background: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .action-selector-btn:hover:not(:disabled) {
+  background: #4b5563;
+  border-color: #6b7280;
+}
+
+[data-theme="dark"] .action-modal,
+[data-theme="dark"] .action-config-modal {
+  background: #1f2937;
+}
+
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .config-header,
+[data-theme="dark"] .config-actions {
+  border-color: #374151;
+}
+
+[data-theme="dark"] .modal-header h3,
+[data-theme="dark"] .config-header h3,
+[data-theme="dark"] .category-title,
+[data-theme="dark"] .config-label,
+[data-theme="dark"] .action-name {
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .close-btn {
+  background: #374151;
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .close-btn:hover {
+  background: #4b5563;
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .action-btn {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+[data-theme="dark"] .action-btn:hover {
+  border-color: #3b82f6;
+  background: #1f2937;
+}
+
+[data-theme="dark"] .time-btn,
+[data-theme="dark"] .option-item {
+  background: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .time-input {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .cancel-btn {
+  background: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .cancel-btn:hover {
+  background: #4b5563;
 }
 </style>

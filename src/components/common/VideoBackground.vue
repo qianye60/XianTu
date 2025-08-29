@@ -35,7 +35,7 @@ const loadVideo = async (url: string) => {
   console.log(`[VideoBackground] 直接加载视频: ${url}`)
   videoRef.value.src = url
   videoRef.value.load()
-  
+
   // 使用用户交互来启动播放
   const tryPlay = async () => {
     try {
@@ -56,7 +56,7 @@ const loadVideo = async (url: string) => {
           console.warn('[VideoBackground] 即使用户交互后仍无法播放:', playError)
         }
       }
-      
+
       // 添加多种用户交互事件监听
       document.addEventListener('click', handleUserInteraction, { once: true })
       document.addEventListener('keydown', handleUserInteraction, { once: true })
@@ -105,13 +105,15 @@ const onError = (event: Event) => {
 
 <style scoped>
 .video-background-container {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
-  z-index: -2;
+  z-index: -10;
+  pointer-events: none;
+  background-color: #1a1b26; /* 简单的暗色背景作为备用 */
 }
 
 .video-background {
@@ -131,7 +133,7 @@ const onError = (event: Event) => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(10, 15, 24, 0.2);
+  background-color: rgba(10, 15, 24, 0);
   z-index: -1;
 }
 </style>

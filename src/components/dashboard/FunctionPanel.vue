@@ -10,11 +10,13 @@
       </button>
     </div>
     <div class="panel-body">
-      <slot>
-        <div class="placeholder-content">
-          <p>{{ title }}功能开发中...</p>
-        </div>
-      </slot>
+      <div class="panel-content-wrapper">
+        <slot>
+          <div class="placeholder-content">
+            <p>{{ title }}功能开发中...</p>
+          </div>
+        </slot>
+      </div>
     </div>
   </div>
 </template>
@@ -71,8 +73,36 @@ defineEmits<{
 
 .panel-body {
   flex: 1;
-  overflow: hidden; /* 移除overflow-y: auto，让子组件自己处理滚动 */
-  /* 移除padding，让子组件自己控制内边距 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  /* 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.panel-content-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content-wrapper::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 3px;
+}
+
+.panel-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 3px;
+}
+
+.panel-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.8);
 }
 
 .placeholder-content {
@@ -80,7 +110,6 @@ defineEmits<{
   color: #64748b;
   font-size: 1rem;
   margin-top: 40px;
-  padding: 20px; /* 为placeholder内容添加内边距 */
 }
 
 /* 深色主题 */

@@ -12,10 +12,26 @@ export async function generateWorld(): Promise<any> {
 }
 
 /**
+ * AI生成世界设定（带用户提示词）
+ */
+export async function generateWorldWithPrompt(userPrompt: string): Promise<any> {
+  const enhancedPrompt = `${WORLD_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的世界设定。`;
+  return await generateItemWithTavernAI(enhancedPrompt, '世界设定');
+}
+
+/**
  * AI生成天资等级
  */
 export async function generateTalentTier(): Promise<any> {
   return await generateItemWithTavernAI(TALENT_TIER_ITEM_GENERATION_PROMPT, '天资等级');
+}
+
+/**
+ * AI生成天资等级（带用户提示词）
+ */
+export async function generateTalentTierWithPrompt(userPrompt: string): Promise<any> {
+  const enhancedPrompt = `${TALENT_TIER_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的天资等级。`;
+  return await generateItemWithTavernAI(enhancedPrompt, '天资等级');
 }
 
 /**
@@ -26,6 +42,14 @@ export async function generateOrigin(): Promise<any> {
 }
 
 /**
+ * AI生成出身背景（带用户提示词）
+ */
+export async function generateOriginWithPrompt(userPrompt: string): Promise<any> {
+  const enhancedPrompt = `${ORIGIN_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的出身背景。`;
+  return await generateItemWithTavernAI(enhancedPrompt, '出身背景');
+}
+
+/**
  * AI生成灵根类型
  */
 export async function generateSpiritRoot(): Promise<any> {
@@ -33,10 +57,26 @@ export async function generateSpiritRoot(): Promise<any> {
 }
 
 /**
+ * AI生成灵根类型（带用户提示词）
+ */
+export async function generateSpiritRootWithPrompt(userPrompt: string): Promise<any> {
+  const enhancedPrompt = `${SPIRIT_ROOT_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的灵根类型。`;
+  return await generateItemWithTavernAI(enhancedPrompt, '灵根类型');
+}
+
+/**
  * AI生成天赋技能
  */
 export async function generateTalent(): Promise<any> {
   return await generateItemWithTavernAI(TALENT_ITEM_GENERATION_PROMPT, '天赋技能');
+}
+
+/**
+ * AI生成天赋技能（带用户提示词）
+ */
+export async function generateTalentWithPrompt(userPrompt: string): Promise<any> {
+  const enhancedPrompt = `${TALENT_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的天赋技能。`;
+  return await generateItemWithTavernAI(enhancedPrompt, '天赋技能');
 }
 
 /**

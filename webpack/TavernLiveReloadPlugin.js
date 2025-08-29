@@ -1,7 +1,7 @@
-const { Server } = require('socket.io')
-const yaml = require('yaml')
-const fs = require('fs')
-const http = require('http')
+import { Server } from 'socket.io'
+import yaml from 'yaml'
+import fs from 'fs'
+import http from 'http'
 
 class TavernLiveReloadPlugin {
   constructor(options = {}) {
@@ -19,7 +19,7 @@ class TavernLiveReloadPlugin {
         if (!this.port) {
           const configFile = fs.readFileSync('config.yaml', 'utf8')
           const config = yaml.parse(configFile)
-          this.port = config.port || 6621
+          this.port = config.port || 6620
         }
       } catch (e) {
         console.warn(
@@ -60,4 +60,4 @@ class TavernLiveReloadPlugin {
   }
 }
 
-module.exports = TavernLiveReloadPlugin
+export default TavernLiveReloadPlugin

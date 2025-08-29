@@ -13,7 +13,13 @@ export {
   generateOrigin, 
   generateSpiritRoot, 
   generateTalent, 
-  generateMapFromWorld 
+  generateMapFromWorld,
+  // 带提示词的生成函数
+  generateWorldWithPrompt,
+  generateTalentTierWithPrompt,
+  generateOriginWithPrompt,
+  generateSpiritRootWithPrompt,
+  generateTalentWithPrompt
 } from './generators/gameElementGenerators';
 
 // 重新导出游戏大师生成器

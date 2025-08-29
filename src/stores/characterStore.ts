@@ -49,6 +49,41 @@ export const useCharacterStore = defineStore('characterV3', () => {
     return null;
   });
 
+  // 获取存档槽位列表
+  const saveSlots = computed((): SaveSlot[] => {
+    const profile = activeCharacterProfile.value;
+    if (!profile) return [];
+
+    if (profile.模式 === '单机' && profile.存档列表) {
+      // 为每个存档添加必要的展示信息
+      return Object.entries(profile.存档列表).map(([key, slot]) => {
+        const enhancedSlot = {
+          ...slot,
+          id: key,
+          角色名字: profile.角色基础信息.名字,
+          境界: slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
+          位置: slot.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+          游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
+          最后保存时间: slot.保存时间
+        };
+        return enhancedSlot;
+      });
+    }
+    if (profile.模式 === '联机' && profile.存档) {
+      const enhancedSlot = {
+        ...profile.存档,
+        id: 'online_save',
+        角色名字: profile.角色基础信息.名字,
+        境界: profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
+        位置: profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+        游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
+        最后保存时间: profile.存档.保存时间
+      };
+      return [enhancedSlot];
+    }
+    return [];
+  });
+
   // --- 核心行动 (Actions) ---
 
   /**
@@ -291,8 +326,44 @@ export const useCharacterStore = defineStore('characterV3', () => {
         toast.error('酒馆连接尚未建立！');
         return;
       }
-      // 将完整的 CharacterProfile 写入酒馆变量
-      await helper.insertOrAssignVariables({ 'DAD_GameData': profile }, { type: 'global' });
+      
+      // 设置全局变量（基础信息，不变）
+      const globalVars = {
+        'character.name': profile.角色基础信息.名字,
+        'character.gender': profile.角色基础信息.性别,
+        'character.world': profile.角色基础信息.世界,
+        'character.talent_tier': profile.角色基础信息.天资,
+        'character.origin': profile.角色基础信息.出生,
+        'character.spirit_root': profile.角色基础信息.灵根,
+        'character.talents': profile.角色基础信息.天赋,
+        'character.innate_attributes': {
+          root_bone: profile.角色基础信息.先天六司?.根骨 || 10,
+          spirituality: profile.角色基础信息.先天六司?.灵性 || 10,
+          comprehension: profile.角色基础信息.先天六司?.悟性 || 10,
+          fortune: profile.角色基础信息.先天六司?.气运 || 10,
+          charm: profile.角色基础信息.先天六司?.魅力 || 10,
+          temperament: profile.角色基础信息.先天六司?.心性 || 10
+        },
+        'character.creation_time': profile.角色基础信息.创建时间 || new Date().toISOString(),
+        // 新增：灵根详细信息
+        'character.spirit_root_details': profile.角色基础信息.灵根详情 || null,
+        'character.world_details': profile.角色基础信息.世界详情 || null,
+        'character.talent_tier_details': profile.角色基础信息.天资详情 || null,
+        'character.origin_details': profile.角色基础信息.出身详情 || null,
+        'character.talents_details': profile.角色基础信息.天赋详情 || []
+      };
+      await helper.insertOrAssignVariables(globalVars, { type: 'global' });
+      
+      // 获取当前激活的存档数据
+      const currentSlot = activeSaveSlot.value;
+      if (currentSlot && currentSlot.存档数据) {
+        // 设置聊天变量（动态数据）
+        const chatVars = {
+          'character.saveData': currentSlot.存档数据
+        };
+        await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
+      }
+      
       toast.success(`已将【${profile.角色基础信息.名字}】的档案同步至酒馆。`);
     } catch (error) {
       console.error('同步角色档案至酒馆失败:', error);
@@ -302,7 +373,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
   /**
    * [核心] 从酒馆加载当前激活的角色档案
-   * 读取 DAD_GameData 变量并用其更新 store
+   * 从全局变量和聊天变量分别读取角色信息并更新store
    */
   const syncWithTavern = async () => {
     try {
@@ -312,24 +383,62 @@ export const useCharacterStore = defineStore('characterV3', () => {
         toast.error('酒馆连接尚未建立！');
         return;
       }
-      const tavernVars = await helper.getVariables({ type: 'global' });
-      const activeProfile = tavernVars['DAD_GameData'] as CharacterProfile | undefined;
+      
+      // 读取全局变量（基础信息）
+      const globalVars = await helper.getVariables({ type: 'global' });
+      const characterName = globalVars['character.name'];
+      const characterGender = globalVars['character.gender'];
+      const characterWorld = globalVars['character.world'];
+      const characterTalents = globalVars['character.talents'] || [];
+      const innateAttributes = globalVars['character.innate_attributes'] || {};
+      
+      // 读取聊天变量（动态数据）
+      const chatVars = await helper.getVariables({ type: 'chat' });
+      const saveData = chatVars['character.saveData'];
 
-      if (activeProfile && activeProfile.角色基础信息) {
-        // 为了兼容现有的多角色结构，我们动态地构建一个只包含当前角色的 rootState
-        const charId = `char_${Date.now()}`; // 生成一个临时的ID
-        rootState.value.角色列表 = { [charId]: activeProfile };
+      if (characterName && (saveData || Object.keys(globalVars).some(key => key.startsWith('character.')))) {
+        // 构建角色基础信息
+        const baseInfo: CharacterBaseInfo = {
+          名字: (characterName as string),
+          性别: (characterGender as string) || '未知',
+          世界: (characterWorld as string) || '未知世界',
+          天资: (globalVars['character.talent_tier'] as string) || '普通',
+          出生: (globalVars['character.origin'] as string) || '未知出身',
+          灵根: (globalVars['character.spirit_root'] as string) || '未知灵根',
+          天赋: (characterTalents as string[]),
+          先天六司: {
+            根骨: (innateAttributes as any).root_bone || 10,
+            灵性: (innateAttributes as any).spirituality || 10,
+            悟性: (innateAttributes as any).comprehension || 10,
+            气运: (innateAttributes as any).fortune || 10,
+            魅力: (innateAttributes as any).charm || 10,
+            心性: (innateAttributes as any).temperament || 10
+          },
+          创建时间: (globalVars['character.creation_time'] as string) || new Date().toISOString()
+        };
         
-        // 确定存档槽位
-        const slotKey = activeProfile.模式 === '单机' ? '存档1' : '存档'; // 假设总是加载第一个或唯一的存档
-        rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
+        // 构建角色档案
+        const charId = `char_${Date.now()}`;
+        const newProfile: CharacterProfile = {
+          模式: '单机', // 默认单机模式
+          角色基础信息: baseInfo,
+          存档列表: {
+            '当前存档': {
+              存档名: '当前存档',
+              保存时间: new Date().toISOString(),
+              存档数据: (saveData as SaveData) || null
+            }
+          }
+        };
         
-        commitToStorage(); // 将加载的角色也缓存到本地
-        toast.success(`已从酒馆加载【${activeProfile.角色基础信息.名字}】`);
+        rootState.value.角色列表 = { [charId]: newProfile };
+        rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: '当前存档' };
+        
+        commitToStorage();
+        toast.success(`已从酒馆加载【${characterName}】`);
         console.log('【角色神殿】加载完成。', rootState.value);
       } else {
         console.log('【角色神殿】酒馆中无激活的角色档案。');
-        // 清空当前激活存档，避免显示旧数据
         rootState.value.当前激活存档 = null;
         commitToStorage();
       }
@@ -521,6 +630,118 @@ export const useCharacterStore = defineStore('characterV3', () => {
     console.log('[角色商店] 角色数据已更新:', characterUpdates);
   };
 
+  /**
+   * 加载存档列表（兼容方法）
+   */
+  const loadSaves = async () => {
+    // 这个方法主要用于刷新存档数据，实际上存档数据已经在 computed 中自动计算
+    reloadFromStorage();
+  };
+
+  /**
+   * 根据存档 ID 加载游戏
+   * @param saveId 存档 ID
+   */
+  const loadGameById = async (saveId: string) => {
+    const profile = activeCharacterProfile.value;
+    if (!profile) {
+      toast.error('没有激活的角色');
+      return false;
+    }
+
+    const charId = rootState.value.当前激活存档?.角色ID;
+    if (!charId) {
+      toast.error('无法确定角色ID');
+      return false;
+    }
+
+    if (profile.模式 === '单机') {
+      return await loadGame(charId, saveId);
+    } else {
+      // 联机模式只有一个存档
+      return await loadGame(charId, '存档');
+    }
+  };
+
+  /**
+   * 根据存档 ID 删除存档
+   * @param saveId 存档 ID
+   */
+  const deleteSaveById = async (saveId: string) => {
+    const charId = rootState.value.当前激活存档?.角色ID;
+    if (!charId) {
+      toast.error('无法确定角色ID');
+      return;
+    }
+
+    return deleteSave(charId, saveId);
+  };
+
+  /**
+   * 导入存档数据
+   * @param saveData 要导入的存档数据
+   */
+  const importSave = async (saveData: SaveSlot) => {
+    const profile = activeCharacterProfile.value;
+    const charId = rootState.value.当前激活存档?.角色ID;
+    
+    if (!profile || !charId) {
+      toast.error('没有激活的角色，无法导入存档');
+      return;
+    }
+
+    if (profile.模式 !== '单机') {
+      toast.error('联机模式不支持存档导入');
+      return;
+    }
+
+    if (!profile.存档列表) {
+      profile.存档列表 = {};
+    }
+
+    // 生成新的存档名称，避免冲突
+    let importName = saveData.存档名 || '导入存档';
+    let counter = 1;
+    while (profile.存档列表[importName]) {
+      importName = `${saveData.存档名 || '导入存档'}_${counter}`;
+      counter++;
+    }
+
+    profile.存档列表[importName] = {
+      ...saveData,
+      存档名: importName
+    };
+
+    commitToStorage();
+    toast.success(`存档【${importName}】导入成功`);
+  };
+
+  /**
+   * 清空所有存档
+   */
+  const clearAllSaves = async () => {
+    const profile = activeCharacterProfile.value;
+    const charId = rootState.value.当前激活存档?.角色ID;
+    
+    if (!profile || !charId) {
+      toast.error('没有激活的角色');
+      return;
+    }
+
+    if (profile.模式 === '单机' && profile.存档列表) {
+      profile.存档列表 = {};
+    } else if (profile.模式 === '联机' && profile.存档) {
+      profile.存档.存档数据 = null;
+      profile.存档.保存时间 = null;
+    }
+
+    // 清空当前激活存档
+    rootState.value.当前激活存档 = null;
+    
+    commitToStorage();
+    toast.success('所有存档已清空');
+  };
+
   return {
     // State
     rootState,
@@ -528,16 +749,22 @@ export const useCharacterStore = defineStore('characterV3', () => {
     allCharacterProfiles,
     activeCharacterProfile,
     activeSaveSlot,
+    saveSlots,
     // Actions
     reloadFromStorage,
     createNewCharacter,
     deleteCharacter,
     deleteSave,
+    deleteSaveById,
     createNewSave,
     renameSave,
     loadGame,
+    loadGameById,
     saveCurrentGame,
     updateCharacterData,
+    loadSaves,
+    importSave,
+    clearAllSaves,
     commitToStorage, // 导出给外部使用
     syncWithTavern,
     setActiveCharacterInTavern,

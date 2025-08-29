@@ -16,6 +16,32 @@
           <span class="btn-text">人物详情</span>
         </button>
         
+        <button 
+          class="function-btn" 
+          @click="handleQuests"
+          :class="{ disabled: !isQuestSystemEnabled }"
+          :disabled="!isQuestSystemEnabled"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10,9 9,10 8,9"/>
+          </svg>
+          <span class="btn-text">任务系统</span>
+          <span v-if="!isQuestSystemEnabled" class="disabled-hint">需在设置中启用</span>
+        </button>
+        
+        <button class="function-btn" @click="handleSect">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 21h18"/>
+            <path d="M5 21V7l8-4v18"/>
+            <path d="m13 7 8 4v10"/>
+          </svg>
+          <span class="btn-text">宗门</span>
+        </button>
+        
         <button class="function-btn" @click="handleRelationships">
           <Users :size="16" />
           <span class="btn-text">人物关系</span>
@@ -86,6 +112,20 @@ const emit = defineEmits<{
 
 const characterStore = useCharacterStore();
 
+// 检查任务系统是否启用
+const isQuestSystemEnabled = computed(() => {
+  try {
+    const savedSettings = localStorage.getItem('dad_game_settings');
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      return settings.enableQuestSystem || false;
+    }
+  } catch (error) {
+    console.warn('[左侧栏] 无法读取任务系统设置:', error);
+  }
+  return false;
+});
+
 // 使用 store 的 getters 获取数据
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
 
@@ -99,6 +139,18 @@ const handleInventory = () => {
 
 const handleCharacterDetails = () => {
   emit('open-panel', 'character-details');
+};
+
+const handleQuests = () => {
+  if (isQuestSystemEnabled.value) {
+    emit('open-panel', 'quests');
+  } else {
+    toast.warning('任务系统未启用，请在设置中开启');
+  }
+};
+
+const handleSect = () => {
+  emit('open-panel', 'sect');
 };
 
 const handleRelationships = () => {
@@ -257,6 +309,20 @@ const handleBackToMenu = () => {
   background: #f9fafb;
   transform: none;
   box-shadow: none;
+}
+
+.function-btn.disabled {
+  position: relative;
+  opacity: 0.6;
+}
+
+.disabled-hint {
+  position: absolute;
+  right: 8px;
+  font-size: 0.6rem;
+  color: #9ca3af;
+  font-weight: 400;
+  font-style: italic;
 }
 
 .exit-btn {

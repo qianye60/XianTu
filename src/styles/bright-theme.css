@@ -1,0 +1,247 @@
+/* 角色选择页面和创建页面的额外明亮样式 */
+
+/* 角色管理页面背景优化 */
+.character-management-fullscreen {
+  background: 
+    radial-gradient(circle at 10% 20%, rgba(255, 223, 0, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(255, 165, 0, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255, 248, 220, 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #fffaf0 0%, #fff8e1 50%, #fff5ee 100%);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* 角色创建页面背景优化 */
+.character-creation-container {
+  background: 
+    radial-gradient(ellipse at top left, rgba(255, 215, 0, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(255, 140, 0, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at center, rgba(255, 250, 240, 0.3) 0%, transparent 70%),
+    linear-gradient(135deg, #fffdf5 0%, #fff9e6 50%, #fff5e0 100%);
+  min-height: 100vh;
+  animation: gentleGlow 10s ease-in-out infinite;
+}
+
+@keyframes gentleGlow {
+  0%, 100% {
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    filter: brightness(1.03) saturate(1.05);
+  }
+}
+
+/* 增强卡片的视觉效果 */
+.character-card,
+.creation-step-card,
+.panel-card {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 253, 245, 0.95) 50%,
+    rgba(255, 250, 240, 0.92) 100%);
+  border: 2px solid var(--color-border-light);
+  box-shadow: 
+    0 10px 30px rgba(218, 165, 32, 0.12),
+    0 5px 15px rgba(255, 215, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.character-card:hover,
+.creation-step-card:hover,
+.panel-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 
+    0 15px 40px rgba(218, 165, 32, 0.18),
+    0 8px 20px rgba(255, 215, 0, 0.12),
+    0 0 20px rgba(255, 223, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border-color: var(--color-primary);
+}
+
+/* 优化面板背景 */
+.panel,
+.modal-content,
+.dialog-box {
+  background: linear-gradient(135deg,
+    rgba(255, 253, 248, 0.98) 0%,
+    rgba(255, 250, 245, 0.96) 100%);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  border: 2px solid var(--color-border-light);
+  box-shadow: 
+    0 20px 50px rgba(218, 165, 32, 0.15),
+    0 10px 25px rgba(255, 215, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* 增强按钮视觉效果 */
+.btn-primary,
+.btn-action,
+.btn-create {
+  background: var(--gradient-primary);
+  border: 2px solid var(--color-primary);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: 
+    0 4px 15px rgba(218, 165, 32, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary::before,
+.btn-action::before,
+.btn-create::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%);
+  transition: left 0.6s;
+}
+
+.btn-primary:hover::before,
+.btn-action:hover::before,
+.btn-create:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover,
+.btn-action:hover,
+.btn-create:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(218, 165, 32, 0.35),
+    0 0 25px rgba(255, 215, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  filter: brightness(1.05);
+}
+
+/* 文字增强对比度 */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.title,
+.panel-title,
+.card-title {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+/* 输入框优化 */
+input,
+textarea,
+select {
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid var(--color-border-light);
+  color: var(--color-text);
+  transition: all 0.3s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  background: rgba(255, 255, 255, 1);
+  border-color: var(--color-primary);
+  box-shadow: 
+    0 0 0 3px rgba(218, 165, 32, 0.1),
+    inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  outline: none;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 250, 240, 0.5);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary);
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* 添加微妙的动画 */
+@keyframes floatAnimation {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.floating-element {
+  animation: floatAnimation 3s ease-in-out infinite;
+}
+
+/* 光晕效果装饰 */
+.glow-decoration {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle,
+    rgba(255, 215, 0, 0.2) 0%,
+    rgba(255, 215, 0, 0.1) 30%,
+    transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* 增强空状态页面 */
+.empty-state {
+  background: linear-gradient(135deg,
+    rgba(255, 253, 245, 0.98) 0%,
+    rgba(255, 250, 240, 0.95) 100%);
+  border-radius: 20px;
+  padding: 4rem 3rem;
+  box-shadow: 
+    0 20px 60px rgba(218, 165, 32, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border: 2px solid var(--color-border-light);
+}
+
+.empty-state .empty-icon {
+  font-size: 5rem;
+  animation: floatAnimation 3s ease-in-out infinite;
+  filter: drop-shadow(0 10px 20px rgba(218, 165, 32, 0.3));
+}
+
+/* 视频背景优化（如果有） */
+.video-background {
+  opacity: 0.4;
+  filter: brightness(1.2) saturate(0.8);
+}

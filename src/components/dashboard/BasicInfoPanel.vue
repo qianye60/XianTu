@@ -102,18 +102,29 @@
         <span>先天六司</span>
       </div>
       
-      <div class="attributes-grid">
-        <div 
-          v-for="(attr, key) in characterData?.attributes" 
-          :key="key"
-          class="attribute-item"
-          :class="`quality-${attr.color}`"
-        >
-          <div class="attr-icon">{{ getAttributeIcon(key) }}</div>
-          <div class="attr-content">
-            <div class="attr-name">{{ attr.name }}</div>
-            <div class="attr-value">{{ attr.value }}</div>
-            <div class="attr-quality" :class="`quality-${attr.color}`">{{ attr.quality }}</div>
+      <div class="hexagon-wrapper">
+        <!-- 六维图展示 -->
+        <HexagonChart 
+          :stats="hexagonStats" 
+          :size="200" 
+          :max-value="10"
+        />
+        
+        <!-- 属性详情列表 -->
+        <div class="attributes-detail">
+          <div 
+            v-for="(attr, key) in characterData?.attributes" 
+            :key="key"
+            class="attribute-detail-item"
+          >
+            <div class="attr-detail-icon">{{ getAttributeIcon(key) }}</div>
+            <div class="attr-detail-name">{{ attr.name }}</div>
+            <div class="attr-detail-value" :class="`quality-${attr.color}`">
+              {{ attr.value }}
+            </div>
+            <div class="attr-detail-quality" :class="`quality-${attr.color}`">
+              {{ attr.quality }}
+            </div>
           </div>
         </div>
       </div>
@@ -124,9 +135,35 @@
 <script setup lang="ts">
 import { User, Activity, Zap } from 'lucide-vue-next';
 import DashboardPanel from '@/components/common/DashboardPanel.vue';
+import HexagonChart from '@/components/common/HexagonChart.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { computed } from 'vue';
 
 const { characterData } = useUnifiedCharacterData();
+
+// 计算六维图数据
+const hexagonStats = computed(() => {
+  if (!characterData.value?.attributes) return {};
+  
+  const stats: any = {};
+  const attributeMapping: { [key: string]: string } = {
+    '根骨': 'root_bone',
+    '灵性': 'spirituality',
+    '悟性': 'comprehension',
+    '气运': 'fortune',
+    '魅力': 'charm',
+    '心性': 'temperament'
+  };
+  
+  Object.entries(characterData.value.attributes).forEach(([key, attr]) => {
+    const englishKey = attributeMapping[key];
+    if (englishKey && attr) {
+      stats[englishKey] = attr.value || 0;
+    }
+  });
+  
+  return stats;
+});
 
 // 方法
 const getAvatarClass = () => {
@@ -385,6 +422,67 @@ const getAttributeIcon = (key: string | number) => {
 }
 
 /* 先天六司 */
+.hexagon-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.5) 0%, rgba(255, 250, 240, 0.3) 100%);
+  border-radius: 12px;
+  border: 1px solid var(--color-border-light);
+}
+
+.attributes-detail {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.attribute-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.attribute-detail-item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateX(4px);
+}
+
+.attr-detail-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+}
+
+.attr-detail-name {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.attr-detail-value {
+  font-size: 1rem;
+  font-weight: 700;
+  min-width: 30px;
+  text-align: center;
+}
+
+.attr-detail-quality {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 兼容旧的样式类，但已经不使用了 */
 .attributes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

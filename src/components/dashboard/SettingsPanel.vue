@@ -35,7 +35,7 @@
               <span class="setting-desc">选择明亮或暗黑主题</span>
             </div>
             <div class="setting-control">
-              <select v-model="settings.theme" class="setting-select">
+              <select v-model="settings.theme" class="setting-select" @change="onSettingChange">
                 <option value="light">明亮</option>
                 <option value="dark">暗黑</option>
                 <option value="auto">跟随系统</option>
@@ -141,6 +141,53 @@
         </div>
       </div>
 
+      <!-- 游戏功能 -->
+      <div class="settings-section">
+        <div class="section-header">
+          <h4 class="section-title">🎮 游戏功能</h4>
+        </div>
+        <div class="settings-list">
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">任务系统</label>
+              <span class="setting-desc">启用任务追踪和完成系统</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.enableQuestSystem">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.enableQuestSystem">
+            <div class="setting-info">
+              <label class="setting-name">任务提醒</label>
+              <span class="setting-desc">新任务和完成时的通知提醒</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.questNotifications">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.enableQuestSystem">
+            <div class="setting-info">
+              <label class="setting-name">自动接取任务</label>
+              <span class="setting-desc">自动接取适合等级的任务</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.autoAcceptQuests">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 高级设置 -->
       <div class="settings-section">
         <div class="section-header">
@@ -205,10 +252,20 @@ const settings = reactive({
   autoSaveInterval: 5,
   fastAnimations: false,
   showHints: true,
-  debugMode: false
+  debugMode: false,
+  // 任务系统相关设置
+  enableQuestSystem: false,
+  questNotifications: true,
+  autoAcceptQuests: false
 });
 
 const loading = ref(false);
+const hasUnsavedChanges = ref(false);
+
+// 设置变更处理
+const onSettingChange = () => {
+  hasUnsavedChanges.value = true;
+};
 
 // 加载设置
 const loadSettings = () => {
@@ -227,11 +284,15 @@ const loadSettings = () => {
 const saveSettings = async () => {
   loading.value = true;
   try {
+    // 先保存到localStorage
     localStorage.setItem('dad_game_settings', JSON.stringify(settings));
     
-    // 应用设置
-    applySettings();
+    // 延迟应用设置，避免UI冲突
+    setTimeout(() => {
+      applySettings();
+    }, 50);
     
+    hasUnsavedChanges.value = false;
     toast.success('设置已保存');
   } catch (error) {
     console.error('[设置] 保存设置失败:', error);
@@ -252,7 +313,11 @@ const resetSettings = () => {
       autoSaveInterval: 5,
       fastAnimations: false,
       showHints: true,
-      debugMode: false
+      debugMode: false,
+      // 任务系统默认设置
+      enableQuestSystem: false,
+      questNotifications: true,
+      autoAcceptQuests: false
     });
     
     saveSettings();
@@ -262,33 +327,43 @@ const resetSettings = () => {
 
 // 应用设置
 const applySettings = () => {
-  // 应用主题
-  if (settings.theme === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  } else if (settings.theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-  } else {
-    // 跟随系统
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  }
-  
-  // 应用UI缩放
-  document.documentElement.style.setProperty('--ui-scale', `${settings.uiScale / 100}`);
-  
-  // 应用文字大小
-  const fontSizeMap = {
-    small: '0.875rem',
-    medium: '1rem',
-    large: '1.125rem'
-  };
-  document.documentElement.style.setProperty('--base-font-size', fontSizeMap[settings.fontSize]);
-  
-  // 应用动画设置
-  if (settings.fastAnimations) {
-    document.documentElement.style.setProperty('--animation-speed', '0.5');
-  } else {
-    document.documentElement.style.setProperty('--animation-speed', '1');
+  try {
+    console.log('[设置] 设置已保存，但暂不应用到DOM以避免冲突:', settings);
+    
+    // 暂时注释掉DOM操作，避免界面冲突
+    /*
+    // 应用主题
+    if (settings.theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else if (settings.theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      // 跟随系统
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    }
+    
+    // 应用UI缩放（安全地设置CSS变量）
+    const scaleValue = Math.min(Math.max(settings.uiScale, 80), 120) / 100;
+    document.documentElement.style.setProperty('--ui-scale', scaleValue.toString());
+    
+    // 应用文字大小
+    const fontSizeMap: Record<string, string> = {
+      small: '0.875rem',
+      medium: '1rem',
+      large: '1.125rem'
+    };
+    const fontSize = fontSizeMap[settings.fontSize] || '1rem';
+    document.documentElement.style.setProperty('--base-font-size', fontSize);
+    
+    // 应用动画设置
+    const animationSpeed = settings.fastAnimations ? '0.5' : '1';
+    document.documentElement.style.setProperty('--animation-speed', animationSpeed);
+    */
+    
+  } catch (error) {
+    console.error('[设置] 应用设置时出错:', error);
+    toast.error('应用设置失败，请刷新页面重试');
   }
 };
 
@@ -341,7 +416,11 @@ const exportSettings = () => {
 
 onMounted(() => {
   loadSettings();
-  applySettings();
+  // 暂时不在挂载时应用设置，避免UI冲突
+  // setTimeout(() => {
+  //   applySettings();
+  // }, 100);
+  console.log('[设置] 组件已加载，设置功能已就绪');
 });
 </script>
 

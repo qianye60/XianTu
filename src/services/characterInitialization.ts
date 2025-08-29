@@ -5,10 +5,13 @@
 
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, TalentProgress } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus } from '@/types/game';
 import type { CharacterData, World } from '@/types';
 import { generateInitialMessage, generateMapFromWorld } from '@/utils/tavernAI';
 import { processGmResponse } from '@/utils/AIGameMaster';
+import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
+import { GAME_START_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
+import { WorldGenerationConfig, BirthplaceGenerator } from '@/utils/worldGeneration/gameWorldConfig';
 
 /**
  * 计算角色的初始属性值
@@ -44,7 +47,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     },
     声望: 0,
     位置: {
-      描述: "未知之地",
+      描述: "新手村", // 改为更合适的默认位置
       坐标: { X: Math.floor(Math.random() * 1000), Y: Math.floor(Math.random() * 1000) }
     },
     气血: { 当前: 初始气血, 最大: 初始气血 },
@@ -52,7 +55,9 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     神识: { 当前: 初始神识, 最大: 初始神识 },
     寿命: { 当前: age, 最大: 最大寿命 }, // 当前寿命就是年龄
     修为: { 当前: 0, 最大: 10 }, // 凡人初始修为
-    状态效果: [] // 使用新的StatusEffect数组格式
+    状态效果: [], // 使用新的StatusEffect数组格式
+    当前活动: "初入修仙",
+    心境状态: "好奇与忐忑"
   };
 }
 
@@ -105,16 +110,70 @@ export async function initializeCharacter(
     // 1. 计算基础属性
     const playerStatus = calculateInitialAttributes(baseInfo, age);
 
+    // 0.5. 生成修仙世界（新增）
+    toast.info('天道造化：正在生成修仙世界...');
+    try {
+      // 创建世界生成配置，根据角色背景调整
+      const worldConfig = new WorldGenerationConfig('classic_cultivation');
+      if (baseInfo.出身) {
+        worldConfig.adjustForCharacterBackground(baseInfo.出身);
+      }
+
+      // 创建世界生成器并生成世界
+      const worldGenerator = new CultivationWorldGenerator(
+        worldConfig.getSettings(),
+        baseInfo.出身
+      );
+
+      await worldGenerator.generateWorld();
+      
+      // 等待世界生成完成
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      toast.success('修仙世界生成完成！');
+      console.log('[角色初始化] 修仙世界已生成并保存到酒馆变量');
+      
+      // 0.6. 生成角色出生地（新增）
+      toast.info('天道定位：正在确定出生地点...');
+      try {
+        const variables = await helper.getVariables({ type: 'chat' });
+        const worldFactions = variables['world_factions'] || [];
+        
+        // 生成出生地
+        const birthplace = BirthplaceGenerator.generateBirthplace(
+          baseInfo.出身,
+          worldConfig.getSettings()
+        );
+        
+        // 保存出生地信息到酒馆变量
+        await helper.insertOrAssignVariables({
+          'character_birthplace': birthplace
+        }, { type: 'chat' });
+        
+        // 更新玩家初始位置
+        playerStatus.位置 = {
+          描述: birthplace.name,
+          坐标: birthplace.coordinates
+        };
+        
+        toast.success(`出生地确定：${birthplace.name}`);
+        console.log('[角色初始化] 角色出生地已生成:', birthplace);
+        
+      } catch (birthplaceError) {
+        console.error('[角色初始化] 出生地生成失败:', birthplaceError);
+        toast.warning('出生地生成失败，将使用默认位置');
+      }
+      
+    } catch (worldGenError) {
+      console.error('[角色初始化] 世界生成失败:', worldGenError);
+      toast.warning('世界生成失败，将使用默认配置');
+    }
+
     // 2. 创建基础存档结构
     const saveData: SaveData = {
       玩家角色状态: playerStatus,
       装备栏: { 法宝1: null, 法宝2: null, 法宝3: null, 法宝4: null, 法宝5: null, 法宝6: null },
-      功法技能: {
-        主修功法: null,
-        已学技能: [],
-        技能熟练度: {},
-        天赋进度: initializeTalentProgress(baseInfo.天赋)
-      },
+      三千大道: createEmptyThousandDaoSystem(),
       背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
       人物关系: {},
       记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] }
@@ -198,7 +257,7 @@ export async function initializeCharacter(
       creationDetails,
     };
 
-    const initialMessageResponse = await generateInitialMessage(initialGameDataForAI, worldMap);
+    const initialMessageResponse = await generateInitialMessage(initialGameDataForAI, worldMap, GAME_START_INITIALIZATION_PROMPT);
 
     // 5.3 将完整的开局剧情信息存入记忆
     const openingStory = initialMessageResponse.text || "你睁开双眼，发现自己身处在一个古色古香的房间里。";
@@ -220,25 +279,49 @@ export async function initializeCharacter(
     // 5.4 调用 processGmResponse 来执行AI返回的其他指令（如设置物品等）
     // 使用我们之前构造的完整CharacterData对象
     await processGmResponse(initialMessageResponse, tempCharacterData);
+    
+    // 5.5 尝试从AI生成的内容中提取位置信息并更新
+    await updateLocationFromAIResponse(initialMessageResponse, saveData, helper);
+    
     toast.success('命运轨迹已定！');
 
-    // 5.5 检查AI是否生成了具体的随机灵根和随机出身，并更新到baseInfo
+    // 5.6 检查并更新AI生成的角色信息（不论是否选择随机）
     const postAIVars = await helper.getVariables({ type: 'chat' }) || {};
     
-    // 更新随机生成的出身
-    if (baseInfo.出生 === '随机出身' && postAIVars['character.origin.name']) {
-      const generatedOrigin = String(postAIVars['character.origin.name']);
+    // 更新AI生成的出身（优先AI生成的内容）
+    if (postAIVars['character.qualities.origin.name']) {
+      const generatedOrigin = String(postAIVars['character.qualities.origin.name']);
       console.log(`[角色初始化] 检测到AI生成的出身: ${generatedOrigin}`);
       baseInfo.出生 = generatedOrigin;
+      toast.info(`出身已更新：${baseInfo.出生}`);
+    } else if (baseInfo.出生 === '随机出身') {
+      // AI未生成出身时的后备逻辑
+      const fallbackOrigins = ['平民出身', '商贾之家', '农家子弟', '书香门第', '武者后代', '山村野民'];
+      const randomOrigin = fallbackOrigins[Math.floor(Math.random() * fallbackOrigins.length)];
+      console.log(`[角色初始化] AI未生成出身，使用后备方案: ${randomOrigin}`);
+      baseInfo.出生 = randomOrigin;
       toast.info(`出身已确定：${baseInfo.出生}`);
     }
     
-    // 更新随机生成的灵根
-    if (baseInfo.灵根 === '随机灵根' && postAIVars['character.spiritRoot.name']) {
-      const generatedSpiritRoot = String(postAIVars['character.spiritRoot.name']);
+    // 更新AI生成的灵根（优先AI生成的内容）
+    if (postAIVars['character.qualities.spiritRoot.name']) {
+      const generatedSpiritRoot = String(postAIVars['character.qualities.spiritRoot.name']);
       console.log(`[角色初始化] 检测到AI生成的灵根: ${generatedSpiritRoot}`);
       baseInfo.灵根 = generatedSpiritRoot;
+      toast.info(`灵根已更新：${baseInfo.灵根}`);
+    } else if (baseInfo.灵根 === '随机灵根') {
+      // AI未生成灵根时的后备逻辑
+      const fallbackRoots = ['金灵根', '木灵根', '水灵根', '火灵根', '土灵根', '风灵根', '雷灵根', '冰灵根', '毒灵根'];
+      const randomRoot = fallbackRoots[Math.floor(Math.random() * fallbackRoots.length)];
+      console.log(`[角色初始化] AI未生成灵根，使用后备方案: ${randomRoot}`);
+      baseInfo.灵根 = randomRoot;
       toast.info(`灵根已确定：${baseInfo.灵根}`);
+    }
+
+    // 同样更新其他可能被AI改变的信息
+    if (postAIVars['character.identity.description']) {
+      // 如果AI提供了新的角色描述，也更新它
+      console.log('[角色初始化] 更新AI生成的角色描述');
     }
 
     // ================= 数据整合与持久化 =================
@@ -248,22 +331,40 @@ export async function initializeCharacter(
     const finalSaveData = finalVars.DAD_SaveData || saveData; // 获取可能被AI修改的存档
     const finalWorldMap = finalVars['world.mapData'] || worldMap;
 
-    // 7. 优化数据结构并统一存储
-    const DAD_GameData = {
-      characterInfo: baseInfo, // 使用更新后的baseInfo（包含AI生成的具体出身和灵根）
-      saveData: finalSaveData,
-      worldMap: finalWorldMap,
-      version: '1.0.0'
-    };
-
+    // 7. 按照正确的数据架构分别存储
     toast.info(`正在为【${baseInfo.名字}】铸造法身并同步天机...`);
     try {
-      await helper.insertOrAssignVariables({
-        'DAD_GameData': DAD_GameData,
+      // 设置全局变量（基础信息，不变）
+      const globalVars = {
         'character.name': baseInfo.名字,
-        'world.name': world.name || '未知世界'
-      }, { type: 'chat' });
-      console.log('角色及游戏数据已通过统一结构保存到酒馆变量系统');
+        'character.gender': baseInfo.性别,
+        'character.world': baseInfo.世界,
+        'character.talent_tier': baseInfo.天资,
+        'character.origin': baseInfo.出生,
+        'character.spirit_root': baseInfo.灵根,
+        'character.talents': baseInfo.天赋,
+        'character.innate_attributes': {
+          root_bone: baseInfo.先天六司?.根骨 || 10,
+          spirituality: baseInfo.先天六司?.灵性 || 10,
+          comprehension: baseInfo.先天六司?.悟性 || 10,
+          fortune: baseInfo.先天六司?.气运 || 10,
+          charm: baseInfo.先天六司?.魅力 || 10,
+          temperament: baseInfo.先天六司?.心性 || 10
+        },
+        'world.name': world.name || '未知世界',
+        'world.description': world.description || '',
+        'character.creation_time': new Date().toISOString()
+      };
+      await helper.insertOrAssignVariables(globalVars, { type: 'global' });
+      
+      // 设置聊天变量（动态数据）
+      const chatVars = {
+        'character.saveData': finalSaveData,
+        '三千大道': createEmptyThousandDaoSystem()
+      };
+      await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
+      
+      console.log('角色基础信息已保存到全局变量，游戏数据已保存到聊天变量');
     } catch (err) {
       console.warn('保存游戏数据至酒馆失败，但不影响本地游戏开始:', err);
       toast.warning('同步天机失败，部分信息可能无法在AI交互中体现。');
@@ -296,4 +397,92 @@ export async function createNewSaveSlot(
   toast.success(`新存档【${slotName}】创建成功！`);
 
   return saveData;
+}
+
+/**
+ * 从AI响应中提取位置信息并更新存档数据
+ */
+async function updateLocationFromAIResponse(
+  aiResponse: any, 
+  saveData: SaveData, 
+  helper: any
+): Promise<void> {
+  try {
+    console.log('[位置更新] 开始从AI响应中提取位置信息...');
+    
+    // 1. 从酒馆变量中获取可能的位置信息
+    const allVars = await helper.getVariables({ type: 'chat' }) || {};
+    
+    // 检查各种可能的位置变量
+    let newLocation: string | null = null;
+    
+    // 尝试从不同的变量中获取位置信息
+    if (allVars['character.location']) {
+      newLocation = String(allVars['character.location']);
+      console.log('[位置更新] 从 character.location 获取到位置:', newLocation);
+    } else if (allVars['player.location']) {
+      newLocation = String(allVars['player.location']);
+      console.log('[位置更新] 从 player.location 获取到位置:', newLocation);
+    } else if (allVars['world.currentLocation']) {
+      newLocation = String(allVars['world.currentLocation']);
+      console.log('[位置更新] 从 world.currentLocation 获取到位置:', newLocation);
+    }
+    
+    // 2. 如果没有从变量中获取到，尝试从AI响应文本中解析
+    if (!newLocation && aiResponse.text) {
+      const locationPatterns = [
+        /(?:你(?:发现)?(?:自己)?(?:身处|位于|来到)(?:在)?(?:一个|一座)?)([^。，,.\n]*(?:村|镇|城|山|谷|林|洞|府|宫|寺|庙|院|楼|阁|亭|台|殿|堂|室|屋|房|店|铺|坊|市|街|巷|路|桥|河|湖|海|岛|峰|岭|崖|洞天|福地|秘境|遗迹|古迹))/,
+        /(?:这里是|此处乃是|眼前是)([^。，,.\n]*)/,
+        /(?:周围|四周|附近)(?:是|为)([^。，,.\n]*)/
+      ];
+      
+      for (const pattern of locationPatterns) {
+        const match = aiResponse.text.match(pattern);
+        if (match && match[1]) {
+          newLocation = match[1].trim();
+          console.log('[位置更新] 从AI文本中解析到位置:', newLocation);
+          break;
+        }
+      }
+    }
+    
+    // 3. 如果还是没有找到，根据世界背景生成一个合适的默认位置
+    if (!newLocation) {
+      // 从世界地图数据中获取一个起始位置
+      const worldMapData = allVars['world.mapData'];
+      if (worldMapData && typeof worldMapData === 'object') {
+        // 尝试找到一个适合的起始位置
+        const locations = Object.keys(worldMapData);
+        const startingLocations = locations.filter(loc => 
+          loc.includes('村') || loc.includes('镇') || loc.includes('新手') || loc.includes('起始')
+        );
+        
+        if (startingLocations.length > 0) {
+          newLocation = startingLocations[0];
+          console.log('[位置更新] 从地图数据中选择起始位置:', newLocation);
+        } else if (locations.length > 0) {
+          newLocation = locations[0];
+          console.log('[位置更新] 从地图数据中选择首个位置:', newLocation);
+        }
+      }
+    }
+    
+    // 4. 最后的后备方案 - 总是生成一个修仙风格的位置
+    if (!newLocation || newLocation === '新手村' || newLocation === '未知之地') {
+      const fallbackLocations = ['青云山下', '碧水谷中', '翠竹林间', '紫霞峰顶', '仙雾洞天', '流云村', '灵泉镇', '天音坊', '望月楼', '听风阁'];
+      newLocation = fallbackLocations[Math.floor(Math.random() * fallbackLocations.length)];
+      console.log('[位置更新] 使用随机修仙位置:', newLocation);
+    }
+    
+    // 5. 更新存档数据中的位置 - 总是更新到AI生成或随机位置
+    if (newLocation && newLocation !== saveData.玩家角色状态.位置.描述) {
+      console.log(`[位置更新] 将位置从 "${saveData.玩家角色状态.位置.描述}" 更新为 "${newLocation}"`);
+      saveData.玩家角色状态.位置.描述 = newLocation;
+      console.log('[位置更新] 位置信息已更新到存档数据');
+    }
+    
+  } catch (error) {
+    console.error('[位置更新] 更新位置时发生错误:', error);
+    // 不抛出错误，避免影响整个初始化流程
+  }
 }

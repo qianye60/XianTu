@@ -2,6 +2,7 @@
   "name": "-",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "webpack --mode production",
     "watch": "webpack --mode development --watch",
