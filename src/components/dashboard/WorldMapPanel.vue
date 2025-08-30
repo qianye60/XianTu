@@ -1,24 +1,14 @@
 <template>
   <div class="map-panel">
-    <!-- 地图控制面板 -->
-    <div class="map-header">
-      <div class="header-left">
-        <div class="header-icon">🗺️</div>
-        <div class="header-info">
-          <h3 class="panel-title">坤舆图志</h3>
-          <span class="map-status">{{ mapStatus }}</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="refreshMapData" :disabled="loading">
-          <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
-          <span class="btn-text">刷新地图</span>
-        </button>
-        <button class="action-btn" @click="centerToPlayer">
-          <Target :size="16" />
-          <span class="btn-text">定位</span>
-        </button>
-      </div>
+    <!-- 地图控制按钮 -->
+    <div class="map-controls">
+      <button class="control-btn" @click="refreshMapData" :disabled="loading" title="重新生成世界">
+        <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
+      </button>
+      <button class="control-btn" @click="centerToPlayer" title="定位到玩家位置">
+        <Target :size="16" />
+      </button>
+      <div class="map-status-mini">{{ mapStatus }}</div>
     </div>
 
     <!-- 自定义修仙世界地图容器 -->
