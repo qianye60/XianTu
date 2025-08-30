@@ -1,12 +1,12 @@
 <template>
-  <div class="memory-center-panel">
+  <div class="memory-center-panel game-panel">
     <!-- 头部 -->
     <div class="panel-header">
       <div class="header-left">
         <div class="header-icon">🧠</div>
         <div class="header-info">
           <h3 class="panel-title">记忆中心</h3>
-          <span class="memory-count">{{ totalMemoryCount }}条记忆</span>
+          <span class="panel-subtitle">{{ totalMemoryCount }}条记忆</span>
         </div>
       </div>
       <div class="header-actions">
@@ -14,7 +14,7 @@
           <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
           <span class="btn-text">刷新</span>
         </button>
-        <button class="action-btn" @click="clearMemory">
+        <button class="action-btn danger" @click="clearMemory">
           <Trash2 :size="16" />
           <span class="btn-text">清理</span>
         </button>
@@ -39,7 +39,7 @@
     </div>
 
     <!-- 记忆列表 -->
-    <div class="memory-container">
+    <div class="panel-content">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner">⏳</div>
         <div class="loading-text">正在读取记忆...</div>
@@ -253,215 +253,10 @@ onMounted(() => {
 
 <style scoped>
 .memory-center-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: linear-gradient(135deg, #fef7cd 0%, #fef3c7 100%);
-  overflow: hidden;
-  padding: 1rem;
-  gap: 1rem;
-  position: relative;
+  /* 使用统一的 game-panel 基础样式 */
 }
 
-/* 头部 */
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fde68a;
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.header-icon {
-  font-size: 1.5rem;
-}
-
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #92400e;
-}
-
-.memory-count {
-  font-size: 0.875rem;
-  color: #a16207;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid #fde68a;
-  border-radius: 0.5rem;
-  background: white;
-  color: #92400e;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.action-btn:hover {
-  background: #fefce8;
-  border-color: #a16207;
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* 筛选器 */
-.filter-section {
-  padding: 0.75rem 1rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fde68a;
-  flex-shrink: 0;
-}
-
-.filter-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.filter-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #fde68a;
-  border-radius: 1.5rem;
-  background: white;
-  color: #a16207;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.filter-tab:hover {
-  background: #fefce8;
-}
-
-.filter-tab.active {
-  background: #a16207;
-  color: white;
-}
-
-.tab-count {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 0.75rem;
-  padding: 0.125rem 0.375rem;
-  font-size: 0.75rem;
-  min-width: 1.25rem;
-  text-align: center;
-}
-
-.filter-tab.active .tab-count {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* 记忆容器 - 确保能看到滚动条 */
-.memory-container {
-  flex: 1;
-  padding: 0 1rem 1rem 1rem;
-  overflow-y: auto;
-  min-height: 0;
-  padding-bottom: 3rem;
-  
-  /* 改进的滚动条样式 */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(161, 98, 7, 0.3) rgba(243, 244, 246, 0.5);
-}
-
-/* Webkit 滚动条样式 */
-.memory-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.memory-container::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
-  border-radius: 4px;
-}
-
-.memory-container::-webkit-scrollbar-thumb {
-  background: rgba(161, 98, 7, 0.3);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-.memory-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(161, 98, 7, 0.5);
-}
-
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  text-align: center;
-}
-
-.loading-spinner,
-.empty-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.loading-text,
-.empty-text {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #92400e;
-  margin-bottom: 0.5rem;
-}
-
-.empty-hint {
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-/* 记忆列表 */
+/* 记忆卡片特定样式 */
 .memory-list {
   display: flex;
   flex-direction: column;
@@ -470,16 +265,18 @@ onMounted(() => {
 
 .memory-card {
   padding: 1rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fde68a;
-  transition: all 0.2s ease;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  transition: var(--transition-fast);
+  cursor: pointer;
 }
 
 .memory-card:hover {
-  background: #fefce8;
+  background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(161, 98, 7, 0.15);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
 }
 
 .memory-header {
@@ -494,42 +291,56 @@ onMounted(() => {
   border-radius: 1rem;
   font-size: 0.75rem;
   font-weight: 500;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
 }
 
 .badge-short {
-  background: #fef3c7;
-  color: #a16207;
-  border: 1px solid #fde68a;
+  border-color: rgba(var(--color-warning-rgb), 0.3);
+  background: rgba(var(--color-warning-rgb), 0.1);
+  color: var(--color-warning);
 }
 
 .badge-medium {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #bbf7d0;
+  border-color: rgba(var(--color-success-rgb), 0.3);
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
 }
 
 .badge-long {
-  background: #ede9fe;
-  color: #7c3aed;
-  border: 1px solid #c4b5fd;
+  border-color: rgba(var(--color-info-rgb), 0.3);
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-info);
 }
 
 .memory-time {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .memory-content {
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text);
   line-height: 1.5;
   margin-bottom: 0.5rem;
 }
 
 .memory-importance {
   font-size: 0.75rem;
-  color: #92400e;
+  color: var(--color-accent);
   font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  background: rgba(var(--color-accent-rgb), 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
+  display: inline-block;
+}
+
+.empty-hint {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 
 /* 响应式设计 */
@@ -541,60 +352,5 @@ onMounted(() => {
   .header-actions .btn-text {
     display: none;
   }
-}
-
-/* 深色主题 */
-[data-theme="dark"] .memory-center-panel {
-  background: linear-gradient(135deg, #422006 0%, #451a03 100%);
-}
-
-[data-theme="dark"] .panel-header,
-[data-theme="dark"] .filter-section,
-[data-theme="dark"] .memory-card {
-  background: #451a03;
-  border-color: #78350f;
-}
-
-[data-theme="dark"] .panel-title {
-  color: #fbbf24;
-}
-
-[data-theme="dark"] .memory-count {
-  color: #f59e0b;
-}
-
-[data-theme="dark"] .action-btn,
-[data-theme="dark"] .filter-tab {
-  background: #78350f;
-  border-color: #92400e;
-  color: #fbbf24;
-}
-
-[data-theme="dark"] .action-btn:hover,
-[data-theme="dark"] .filter-tab:hover {
-  background: #92400e;
-}
-
-[data-theme="dark"] .filter-tab.active {
-  background: #fbbf24;
-  color: #451a03;
-}
-
-[data-theme="dark"] .memory-card:hover {
-  background: #78350f;
-}
-
-[data-theme="dark"] .badge-short {
-  background: #78350f;
-  color: #fbbf24;
-  border-color: #92400e;
-}
-
-[data-theme="dark"] .memory-content {
-  color: #d1d5db;
-}
-
-[data-theme="dark"] .memory-importance {
-  color: #fbbf24;
 }
 </style>

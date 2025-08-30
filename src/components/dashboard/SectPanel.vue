@@ -1,5 +1,5 @@
 <template>
-  <div class="sect-panel">
+  <div class="sect-panel game-panel">
     <!-- 头部信息 -->
     <div class="panel-header">
       <div class="header-left">
@@ -78,7 +78,7 @@
     </div>
 
     <!-- 内容区域 -->
-    <div class="sect-content" v-if="currentSect">
+    <div class="panel-content" v-if="currentSect">
       <!-- 兑换商店 -->
       <div v-if="activeTab === 'exchange'" class="exchange-content">
         <div class="exchange-header">
@@ -358,20 +358,19 @@ onMounted(() => {
 
 <style scoped>
 .sect-panel {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  /* 使用统一的 game-panel 基础样式 */
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 2px solid rgba(59, 130, 246, 0.1);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(37, 99, 235, 0.05));
+  padding: 1rem;
+  background: var(--color-surface);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  margin: 1rem 1rem 0 1rem;
 }
 
 .header-left {
@@ -393,18 +392,14 @@ onMounted(() => {
 
 .panel-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #374151;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-primary);
 }
 
 .sect-status {
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: 0.875rem;
+  color: var(--color-accent);
 }
 
 .header-actions {

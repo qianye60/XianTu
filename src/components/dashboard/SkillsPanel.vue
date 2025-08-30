@@ -1,5 +1,5 @@
 <template>
-  <div class="dao-panel">
+  <div class="dao-panel game-panel">
     <!-- 头部统计 -->
     <div class="panel-header">
       <div class="header-left">
@@ -35,7 +35,7 @@
     </div>
 
     <!-- 大道列表 -->
-    <div class="dao-container">
+    <div class="panel-content">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner">⏳</div>
         <div class="loading-text">正在加载大道数据...</div>
@@ -314,12 +314,7 @@ onMounted(() => {
 
 <style scoped>
 .dao-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: linear-gradient(135deg, #fff9f0 0%, #fffaf5 100%);
-  overflow: hidden;
-  position: relative;
+  /* 使用统一的 game-panel 基础样式 */
 }
 
 /* 头部 */
@@ -534,15 +529,16 @@ onMounted(() => {
   gap: 1rem;
   padding: 1.25rem;
   background: var(--color-surface);
-  border-radius: 0.75rem;
   border: 1px solid var(--color-border);
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
   min-height: fit-content;
 }
 
 .dao-card:hover {
   background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
 }
@@ -554,7 +550,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-surface-light);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -570,7 +567,7 @@ onMounted(() => {
 .dao-name {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--color-primary);
+  color: var(--color-text);
   line-height: 1.2;
   word-wrap: break-word;
 }
@@ -597,9 +594,9 @@ onMounted(() => {
 }
 
 .progress-bar {
-  height: 0.5rem;
-  background: var(--color-border-light);
-  border-radius: 0.25rem;
+  height: 6px;
+  background: rgba(var(--color-border-rgb), 0.3);
+  border-radius: 3px;
   overflow: hidden;
   flex-shrink: 0;
   min-width: 120px;
@@ -622,44 +619,27 @@ onMounted(() => {
 /* 大道等级样式 */
 .dao-card.locked { 
   opacity: 0.5;
-  border-left: 4px solid #6b7280; 
+  border-left: 4px solid var(--color-text-secondary); 
 }
 .dao-card.not-started { 
   border-left: 4px solid var(--color-border); 
 }
 .dao-card.beginner { 
-  border-left: 4px solid #84cc16; 
+  border-left: 4px solid var(--color-success); 
 }
 .dao-card.intermediate { 
-  border-left: 4px solid #06b6d4; 
+  border-left: 4px solid var(--color-info); 
 }
 .dao-card.advanced { 
-  border-left: 4px solid #8b5cf6; 
+  border-left: 4px solid var(--color-accent); 
 }
 .dao-card.master { 
-  border-left: 4px solid var(--color-accent);
-  box-shadow: 0 0 20px rgba(var(--color-accent-rgb), 0.3);
+  border-left: 4px solid var(--color-warning);
+  box-shadow: 0 0 20px rgba(var(--color-warning-rgb), 0.3);
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .dao-panel {
-    padding: 0;
-  }
-  
-  .panel-header {
-    margin: 0.5rem;
-    padding: 0.75rem;
-  }
-  
-  .filter-section {
-    margin: 0.5rem;
-  }
-  
-  .dao-container {
-    margin: 0 0.5rem 0.5rem 0.5rem;
-  }
-  
   .dao-card {
     flex-direction: column;
     gap: 0.75rem;

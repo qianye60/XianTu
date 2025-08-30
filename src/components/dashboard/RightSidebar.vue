@@ -96,15 +96,18 @@
           <div
             v-for="talent in characterInfo.talents"
             :key="talent"
-            class="talent-item"
+            class="talent-card clickable"
             @click="showTalentDetail(talent)"
           >
-            <div class="talent-content">
-              <div class="talent-name">{{ talent }}</div>
-              <div class="talent-level">Lv.{{ getTalentLevel(talent) }}/{{ getTalentMaxLevel(talent) }}</div>
+            <div class="talent-header">
+              <span class="talent-name">{{ talent }}</span>
+              <span class="talent-level">Lv.{{ getTalentLevel(talent) }}</span>
             </div>
-            <div class="talent-progress-bar">
-              <div class="progress-fill talent" :style="{ width: getTalentProgress(talent) + '%' }"></div>
+            <div class="talent-progress">
+              <div class="progress-bar">
+                <div class="progress-fill talent" :style="{ width: getTalentProgress(talent) + '%' }"></div>
+              </div>
+              <span class="progress-text">{{ getTalentExp(talent) }} / {{ getTalentMaxExp(talent) }}</span>
             </div>
           </div>
         </div>
@@ -124,19 +127,23 @@
           <div v-if="statusEffects.length === 0" class="empty-status">
             <span class="empty-text">清净无为</span>
           </div>
-          <div v-else>
+          <div v-else class="status-grid">
             <div
-              class="status-item"
               v-for="effect in statusEffects"
               :key="effect.状态名称"
+              class="status-effect-card clickable"
               :class="[effect.类型 === 'BUFF' ? 'buff' : 'debuff']"
               @click="showStatusDetail(effect)"
             >
-              <div class="status-content">
-                <div class="status-name">{{ effect.状态名称 }}</div>
-                <div class="status-time">{{ formatTimeDisplay(effect.时间) }}</div>
+              <div class="effect-header">
+                <div class="effect-info">
+                  <span class="effect-name">{{ effect.状态名称 }}</span>
+                </div>
+                <div class="effect-data">
+                  <span v-if="effect.强度" class="effect-intensity">强度 {{ effect.强度 }}</span>
+                  <span class="effect-time">{{ formatTimeDisplay(effect.时间) }}</span>
+                </div>
               </div>
-              <div v-if="effect.强度" class="status-intensity">{{ effect.强度 }}</div>
             </div>
           </div>
         </div>
@@ -926,150 +933,76 @@ onMounted(async () => {
 }
 
 /* 天赋神通特定样式 */
-.talents-section {
-  border: 1px solid rgba(168, 85, 247, 0.2);
-  background: rgba(168, 85, 247, 0.1);
-}
-
-.talents-section .section-header {
-  background: rgba(168, 85, 247, 0.05);
-}
-
 .talents-list {
-  padding: 0 16px 16px 16px;
+  padding: 0 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
-
 /* 状态效果特定样式 */
-.status-section {
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  background: rgba(34, 197, 94, 0.1);
-  margin-bottom: 16px;
-  padding: 0;
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-}
-
-.status-section .section-header {
-  background: rgba(34, 197, 94, 0.05);
-}
-
 .status-effects {
-  padding: 0 16px 16px 16px;
-  display: flex;
-  flex-direction: column;
+  padding: 0 16px 16px;
+}
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
-
 .empty-status {
   padding: 20px;
   text-align: center;
 }
-
 .empty-text {
   font-size: 0.8rem;
   color: #64748b;
   font-style: italic;
 }
-
 /* 状态效果卡片样式 */
 .status-effect-card {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   transition: all 0.3s ease;
-  cursor: pointer;
 }
-
-.status-effect-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
 .status-effect-card.buff {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.15);
+  border-left: 3px solid #22c55e;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
 }
-
-.status-effect-card.buff:hover {
-  background: rgba(34, 197, 94, 0.25);
-  border-color: rgba(34, 197, 94, 0.5);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
-}
-
 .status-effect-card.debuff {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.15);
+  border-left: 3px solid #ef4444;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
 }
-
-.status-effect-card.debuff:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.5);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-}
-
 .effect-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
 }
-
-.effect-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.effect-name {
+.effect-info .effect-name {
   font-size: 0.8rem;
   font-weight: 600;
   color: #e2e8f0;
 }
-
 .effect-data {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
 }
-
 .effect-intensity {
   font-size: 0.7rem;
   color: #fbbf24;
   font-weight: 500;
-  background: rgba(251, 191, 36, 0.2);
-  padding: 2px 6px;
-  border-radius: 10px;
 }
-
 .effect-time {
   font-size: 0.7rem;
   color: #94a3b8;
 }
-
-.effect-description {
-  font-size: 0.75rem;
-  color: #cbd5e1;
-  margin-bottom: 4px;
-  line-height: 1.3;
-}
-
-.effect-source {
-  font-size: 0.7rem;
-  color: #94a3b8;
-  font-style: italic;
-}
-
 .section-title {
-  margin: 0 0 10px 0;
+  margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
   color: #e2e8f0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 6px;
 }
 
@@ -1078,100 +1011,44 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
 .clickable:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateX(2px);
-}
-
-.click-hint {
-  font-size: 0.6rem;
-  opacity: 0.7;
-  margin-left: 4px;
-}
-
-.talent-tag.clickable {
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.talent-tag.clickable:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: rgba(168, 85, 247, 0.5);
 }
 
 /* 天赋卡片样式 */
 .talent-card {
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-left: 3px solid #a855f7;
   border-radius: 8px;
   padding: 12px;
-  margin-bottom: 8px;
-  cursor: pointer;
   transition: all 0.3s ease;
 }
-
-.talent-card:hover {
-  background: rgba(139, 92, 246, 0.25);
-  border-color: rgba(139, 92, 246, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
-}
-
 .talent-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
 }
-
 .talent-name {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #a855f7;
+  color: #d8b4fe;
 }
-
 .talent-level {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: #fbbf24;
   font-weight: 500;
-  background: rgba(251, 191, 36, 0.2);
-  padding: 2px 6px;
+  background: rgba(251, 191, 36, 0.15);
+  padding: 2px 8px;
   border-radius: 10px;
 }
-
 .talent-progress {
-  margin-bottom: 6px;
+  margin-top: 8px;
 }
-
 .progress-fill.talent {
-  background: linear-gradient(90deg, #7c3aed, #a855f7);
-}
-
-.talent-card .click-hint {
-  font-size: 0.6rem;
-  opacity: 0.8;
-  color: #cbd5e1;
-}
-
-/* 天赋标签 */
-.talents-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.talent-tag {
-  font-size: 0.7rem;
-  padding: 4px 8px;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  color: white;
-  border-radius: 12px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 24px;
+  background: linear-gradient(90deg, #8b5cf6, #c084fc);
 }
 
 /* 生命体征样式 */

@@ -1,5 +1,5 @@
 <template>
-  <div class="relationships-panel">
+  <div class="relationships-panel game-panel">
     <!-- 头部统计 -->
     <div class="panel-header">
       <div class="header-left">
@@ -22,7 +22,7 @@
     </div>
 
     <!-- 人物关系列表 -->
-    <div class="relationships-container">
+    <div class="panel-content">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner">⏳</div>
         <div class="loading-text">正在读取人际网络...</div>
@@ -412,13 +412,7 @@ onMounted(() => {
 
 <style scoped>
 .relationships-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  height: 100%;
-  background: linear-gradient(135deg, #fff8f0 0%, #fef3e2 100%);
-  overflow: hidden;
-  padding: 1rem;
+  /* 使用统一的 game-panel 基础样式 */
 }
 
 /* 头部 */
@@ -427,10 +421,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.75rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid var(--color-border);
   flex-shrink: 0;
+  margin: 1rem 1rem 0 1rem;
 }
 
 .header-left {
@@ -453,12 +448,12 @@ onMounted(() => {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #c2410c;
+  color: var(--color-primary);
 }
 
 .relationship-count {
   font-size: 0.875rem;
-  color: #ea580c;
+  color: var(--color-accent);
 }
 
 .header-actions {
@@ -467,36 +462,35 @@ onMounted(() => {
 }
 
 /* 关系容器 */
-.relationships-container {
+.panel-content {
   flex: 1;
-  padding: 0 1rem;
+  margin: 0 1rem 1rem 1rem;
   overflow-y: auto;
   min-height: 0;
-  padding-bottom: 4rem;
   
   /* 改进的滚动条样式 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(234, 88, 12, 0.3) rgba(243, 244, 246, 0.5);
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) rgba(var(--color-border-rgb), 0.5);
 }
 
 /* Webkit 滚动条样式 */
-.relationships-container::-webkit-scrollbar {
+.panel-content::-webkit-scrollbar {
   width: 8px;
 }
 
-.relationships-container::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
+.panel-content::-webkit-scrollbar-track {
+  background: rgba(var(--color-border-rgb), 0.5);
   border-radius: 4px;
 }
 
-.relationships-container::-webkit-scrollbar-thumb {
-  background: rgba(234, 88, 12, 0.3);
+.panel-content::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
   border-radius: 4px;
   transition: background 0.2s ease;
 }
 
-.relationships-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(234, 88, 12, 0.5);
+.panel-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 .loading-state,
@@ -519,13 +513,13 @@ onMounted(() => {
 .empty-text {
   font-size: 1rem;
   font-weight: 600;
-  color: #c2410c;
+  color: var(--color-primary);
   margin-bottom: 0.5rem;
 }
 
 .empty-hint {
   font-size: 0.875rem;
-  color: #9ca3af;
+  color: var(--color-text-secondary);
 }
 
 /* 关系列表 */
@@ -540,23 +534,23 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.75rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .relationship-card:hover {
-  background: #fef3e2;
+  background: var(--color-surface-light);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.15);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
 }
 
 .relationship-card.selected {
-  background: #fef3e2;
-  border-color: #ea580c;
-  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+  background: var(--color-surface-light);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
 }
 
 .person-avatar {
@@ -570,12 +564,12 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fed7aa, #fdba74);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
-  border: 2px solid white;
+  border: 2px solid var(--color-background);
 }
 
 .relationship-indicator {
@@ -594,10 +588,10 @@ onMounted(() => {
   border: 2px solid white;
 }
 
-.relationship-indicator.intimacy-high { background: #22c55e; }
-.relationship-indicator.intimacy-medium { background: #f59e0b; }
-.relationship-indicator.intimacy-low { background: #ef4444; }
-.relationship-indicator.intimacy-none { background: #6b7280; }
+.relationship-indicator.intimacy-high { background: var(--color-success); }
+.relationship-indicator.intimacy-medium { background: var(--color-warning); }
+.relationship-indicator.intimacy-low { background: var(--color-error); }
+.relationship-indicator.intimacy-none { background: var(--color-text-secondary); }
 
 .person-info {
   flex: 1;
@@ -607,7 +601,7 @@ onMounted(() => {
 .person-name {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text);
   margin-bottom: 0.25rem;
 }
 
@@ -619,20 +613,21 @@ onMounted(() => {
 
 .relationship-type {
   font-size: 0.75rem;
-  color: #ea580c;
-  background: #fef3e2;
+  color: var(--color-accent);
+  background: rgba(var(--color-accent-rgb), 0.1);
   padding: 0.125rem 0.5rem;
   border-radius: 0.75rem;
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .person-location {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .person-status {
   font-size: 0.75rem;
-  color: #059669;
+  color: var(--color-success);
 }
 
 .interaction-info {
@@ -646,7 +641,7 @@ onMounted(() => {
 .last-interaction,
 .interaction-count {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* 详情面板 */
@@ -656,8 +651,8 @@ onMounted(() => {
   right: 0;
   width: 320px;
   height: 100%;
-  background: white;
-  border-left: 1px solid #fed7aa;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -677,7 +672,7 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem;
-  border-bottom: 1px solid #fed7aa;
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -695,7 +690,7 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #c2410c;
+  color: var(--color-text);
 }
 
 .detail-badges {
@@ -712,8 +707,9 @@ onMounted(() => {
 }
 
 .type-badge {
-  background: #fef3e2;
-  color: #ea580c;
+  background: rgba(var(--color-accent-rgb), 0.1);
+  color: var(--color-accent);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .close-btn {
@@ -721,18 +717,18 @@ onMounted(() => {
   height: 2rem;
   border: none;
   border-radius: 50%;
-  background: #fed7aa;
-  color: #c2410c;
+  background: var(--color-surface-light);
+  color: var(--color-text);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .close-btn:hover {
-  background: #fdba74;
+  background: var(--color-border-hover);
 }
 
 .detail-content {
@@ -749,14 +745,14 @@ onMounted(() => {
   margin: 0 0 0.75rem 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #c2410c;
+  color: var(--color-text);
 }
 
 .detail-section p {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .personality-tags {
@@ -768,10 +764,10 @@ onMounted(() => {
 .personality-tag {
   font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
-  background: #f0fdf4;
-  color: #166534;
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
   border-radius: 0.75rem;
-  border: 1px solid #bbf7d0;
+  border: 1px solid rgba(var(--color-success-rgb), 0.3);
 }
 
 .memories-list {
@@ -784,21 +780,21 @@ onMounted(() => {
 
 .memory-item {
   padding: 0.75rem;
-  background: #fffbeb;
+  background: var(--color-surface-light);
   border-radius: 0.5rem;
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid var(--color-warning);
 }
 
 .memory-content {
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text);
   line-height: 1.4;
   margin-bottom: 0.25rem;
 }
 
 .memory-time {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--color-text-secondary);
 }
 
 .relationship-stats {
@@ -811,20 +807,21 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  background: #fef3e2;
+  background: var(--color-surface-light);
   border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #c2410c;
+  color: var(--color-primary);
 }
 
 .detail-actions {
@@ -832,7 +829,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #fed7aa;
+  border-top: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -904,13 +901,14 @@ onMounted(() => {
 }
 
 .summary-content {
-  background: white;
+  background: var(--color-surface);
   border-radius: 1rem;
   padding: 1.5rem;
   max-width: 500px;
   width: 90%;
   max-height: 500px;
   overflow-y: auto;
+  border: 1px solid var(--color-border);
 }
 
 .summary-header {
@@ -924,7 +922,7 @@ onMounted(() => {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: #c2410c;
+  color: var(--color-primary);
 }
 
 .summary-stats {
@@ -938,9 +936,9 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: #fef3e2;
+  background: var(--color-surface-light);
   border-radius: 0.75rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid var(--color-border);
 }
 
 .stat-icon {
@@ -956,12 +954,12 @@ onMounted(() => {
 .stat-number {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #ea580c;
+  color: var(--color-primary);
 }
 
 .stat-name {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .animate-spin {
@@ -973,65 +971,7 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 深色主题适配 */
-[data-theme="dark"] .relationships-panel {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-}
-
-[data-theme="dark"] .panel-header,
-[data-theme="dark"] .filter-section,
-[data-theme="dark"] .relationship-card,
-[data-theme="dark"] .person-detail-panel,
-[data-theme="dark"] .summary-content {
-  background: #1e293b;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .panel-title,
-[data-theme="dark"] .detail-name,
-[data-theme="dark"] .summary-header h3 {
-  color: #f1f5f9;
-}
-
-[data-theme="dark"] .relationship-card:hover {
-  background: #334155;
-}
-
-[data-theme="dark"] .avatar-bg {
-  background: linear-gradient(135deg, #475569, #64748b);
-}
-
-[data-theme="dark"] .action-btn {
-  background: #334155;
-  border-color: #475569;
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .action-btn:hover {
-  background: #475569;
-}
-
-[data-theme="dark"] .action-btn.primary {
-  background: #ea580c;
-  color: white;
-}
-
-[data-theme="dark"] .filter-tab {
-  background: #334155;
-  border-color: #475569;
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .filter-tab:hover {
-  background: #475569;
-}
-
-[data-theme="dark"] .stat-item,
-[data-theme="dark"] .memory-item,
-[data-theme="dark"] .stat-card {
-  background: #334155;
-  border-color: #475569;
-}
+/* 使用统一的CSS变量主题系统 */
 
 /* 响应式设计 */
 @media (max-width: 480px) {

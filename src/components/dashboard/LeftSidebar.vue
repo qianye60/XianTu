@@ -220,22 +220,24 @@ const handleBackToMenu = () => {
   height: 100%;
   padding: 16px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-family-sans-serif);
   display: flex;
   flex-direction: column;
+  background: var(--color-surface);
 }
 
 .sidebar-header {
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sidebar-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text);
+  text-align: center;
 }
 
 .sidebar-content {
@@ -244,18 +246,18 @@ const handleBackToMenu = () => {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
-
 .sidebar-content::-webkit-scrollbar {
   width: 4px;
 }
-
 .sidebar-content::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .sidebar-content::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 2px;
+}
+[data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .function-group,
@@ -272,7 +274,7 @@ const handleBackToMenu = () => {
 
 .divider {
   height: 1px;
-  background: #e2e8f0;
+  background: var(--color-border);
   margin: 16px 0;
 }
 
@@ -281,32 +283,33 @@ const handleBackToMenu = () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
   font-family: inherit;
   font-size: 0.875rem;
   text-align: left;
   width: 100%;
+  position: relative;
 }
 
 .function-btn:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
 }
 
 .function-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: #f9fafb;
+  background: var(--color-surface-light);
 }
 
 .function-btn:disabled:hover {
-  background: #f9fafb;
+  background: var(--color-surface-light);
   transform: none;
   box-shadow: none;
 }
@@ -320,88 +323,30 @@ const handleBackToMenu = () => {
   position: absolute;
   right: 8px;
   font-size: 0.6rem;
-  color: #9ca3af;
+  color: var(--color-text-secondary);
   font-weight: 400;
   font-style: italic;
 }
 
 .exit-btn {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .exit-btn:hover {
-  background: #fef2f2;
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-.btn-icon {
-  flex-shrink: 0;
+  background: rgba(var(--color-error-rgb), 0.05);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .btn-text {
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text);
 }
 
 .exit-btn .btn-text {
   color: inherit;
 }
 
-/* 深色主题 */
-[data-theme="dark"] .left-sidebar {
-  color: #f3f4f6;
-}
-
-[data-theme="dark"] .sidebar-header {
-  border-bottom-color: #374151;
-}
-
-[data-theme="dark"] .sidebar-title {
-  color: #f3f4f6;
-}
-
-[data-theme="dark"] .divider {
-  background: #374151;
-}
-
-[data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-[data-theme="dark"] .function-btn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .function-btn:hover {
-  background: #334155;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .function-btn:disabled {
-  background: #0f172a;
-  border-color: #1e293b;
-}
-
-[data-theme="dark"] .function-btn:disabled:hover {
-  background: #0f172a;
-}
-
-[data-theme="dark"] .btn-text {
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .exit-btn {
-  border-color: #ef4444;
-  color: #ef4444;
-}
-
-[data-theme="dark"] .exit-btn:hover {
-  background: #1e1b1b;
-  border-color: #dc2626;
-  color: #dc2626;
-}
+/* 移除深色主题硬编码，使用CSS变量自动适配 */
 </style>

@@ -1,12 +1,12 @@
 <template>
-  <div class="cultivation-panel">
+  <div class="cultivation-panel game-panel">
     <!-- 头部统计 -->
     <div class="panel-header">
       <div class="header-left">
         <div class="header-icon">⚡</div>
         <div class="header-info">
           <h3 class="panel-title">功法系统</h3>
-          <span class="cultivation-count">{{ totalSkillsCount }}门功法</span>
+          <span class="panel-subtitle">{{ totalSkillsCount }}门功法</span>
         </div>
       </div>
       <div class="header-actions">
@@ -21,128 +21,157 @@
       </div>
     </div>
 
-    <!-- 功法修炼概要卡片 -->
-    <div class="cultivation-overview-card">
-      <div class="overview-content">
-        <div class="overview-stats">
-          <div class="stat-item">
-            <div class="stat-icon">📚</div>
-            <div class="stat-info">
-              <span class="stat-value">{{ totalSkillsCount }}</span>
-              <span class="stat-label">已学功法</span>
+    <div class="panel-content">
+      <!-- 功法修炼概要卡片 -->
+      <div class="detail-section cultivation-overview-card">
+        <div class="overview-content">
+          <div class="overview-stats">
+            <div class="stat-item">
+              <div class="stat-icon">📚</div>
+              <div class="stat-info">
+                <span class="stat-value">{{ totalSkillsCount }}</span>
+                <span class="stat-label">已学功法</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">⚡</div>
+              <div class="stat-info">
+                <span class="stat-value">{{ mainTechnique ? '1' : '0' }}</span>
+                <span class="stat-label">主修功法</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">🎯</div>
+              <div class="stat-info">
+                <span class="stat-value">{{ learnedSkills.length }}</span>
+                <span class="stat-label">辅助技能</span>
+              </div>
             </div>
           </div>
-          <div class="stat-item">
-            <div class="stat-icon">⚡</div>
-            <div class="stat-info">
-              <span class="stat-value">{{ mainTechnique ? '1' : '0' }}</span>
-              <span class="stat-label">主修功法</span>
+          
+          <div class="cultivation-hint">
+            <div class="hint-icon">💡</div>
+            <div class="hint-text">专注修炼功法技能，提升战力与修为进度</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 主修功法卡片 -->
+      <div class="detail-section main-technique-card">
+        <div class="detail-header">
+          <h4 class="detail-title">主修功法</h4>
+          <button v-if="!mainTechnique" class="action-btn primary" @click="chooseTechnique('主修功法')">
+            <Plus :size="16" />
+            选择功法
+          </button>
+        </div>
+        
+        <div v-if="mainTechnique" class="technique-display">
+          <div class="technique-icon">⚡</div>
+          <div class="technique-info">
+            <div class="technique-name">{{ mainTechnique }}</div>
+            <div class="technique-stats">
+              <div class="proficiency-info">
+                <span class="proficiency-label">熟练度</span>
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: mainTechniqueProficiency.percent + '%' }"></div>
+                </div>
+                <span class="proficiency-text">{{ mainTechniqueProficiency.level }}</span>
+              </div>
             </div>
           </div>
-          <div class="stat-item">
-            <div class="stat-icon">🎯</div>
-            <div class="stat-info">
-              <span class="stat-value">{{ learnedSkills.length }}</span>
-              <span class="stat-label">辅助技能</span>
+          <div class="technique-actions">
+            <button class="action-btn" @click="practiceTechnique(mainTechnique)">
+              <BookOpen :size="16" />
+              修炼
+            </button>
+            <button class="action-btn secondary" @click="chooseTechnique('主修功法')">
+              <RefreshCw :size="16" />
+              更换
+            </button>
+          </div>
+        </div>
+        
+        <div v-else class="empty-state">
+          <div class="empty-icon">📜</div>
+          <div class="empty-text">尚未选择主修功法</div>
+          <div class="empty-hint">选择一门适合的功法开始修炼之路</div>
+        </div>
+      </div>
+
+      <!-- 已学技能列表 -->
+      <div class="detail-section skills-container">
+        <div class="detail-header">
+          <h4 class="detail-title">已学技能</h4>
+          <div class="skill-count">{{ learnedSkills.length }}项</div>
+        </div>
+
+        <div v-if="loading" class="loading-state">
+          <div class="loading-spinner">⏳</div>
+          <div class="loading-text">正在读取功法技能...</div>
+        </div>
+        
+        <div v-else-if="learnedSkills.length === 0" class="empty-state">
+          <div class="empty-icon">🎯</div>
+          <div class="empty-text">尚未习得任何技能</div>
+          <div class="empty-hint">通过修炼和历练来学习新的技能</div>
+        </div>
+
+        <div v-else class="skills-list">
+          <div 
+            v-for="skill in displaySkills" 
+            :key="skill.id"
+            class="skill-card"
+            :class="{ selected: selectedSkill?.id === skill.id }"
+            @click="selectSkill(skill)"
+          >
+            <div class="skill-icon">{{ getSkillIcon(skill.name) }}</div>
+            <div class="skill-info">
+              <div class="skill-name">{{ skill.name }}</div>
+              <div class="skill-meta">
+                <span class="skill-type">{{ skill.type || '通用技能' }}</span>
+                <span v-if="skill.level" class="skill-level">Lv.{{ skill.level }}</span>
+              </div>
+              <div v-if="skill.proficiency" class="skill-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: skill.proficiency.percent + '%' }"></div>
+                </div>
+                <span class="progress-text">{{ skill.proficiency.current }}/{{ skill.proficiency.max }}</span>
+              </div>
+            </div>
+            <div class="skill-actions">
+              <button class="action-btn" @click.stop="practiceSkill(skill)">
+                <Zap :size="14" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 天赋显示卡片 -->
+      <div class="detail-section talents-display-card">
+        <div class="detail-header">
+          <h4 class="detail-title">先天天赋</h4>
+          <div class="talent-count">{{ talentsCount }}项天赋</div>
+        </div>
+        
+        <div v-if="characterBaseInfo.天赋 && characterBaseInfo.天赋.length > 0" class="talents-list">
+          <div 
+            v-for="talent in characterBaseInfo.天赋" 
+            :key="talent"
+            class="talent-item"
+          >
+            <div class="talent-icon">🌟</div>
+            <div class="talent-info">
+              <div class="talent-name">{{ talent }}</div>
+              <div class="talent-description">先天天赋，无法修炼提升</div>
             </div>
           </div>
         </div>
         
-        <div class="cultivation-hint">
-          <div class="hint-icon">💡</div>
-          <div class="hint-text">专注修炼功法技能，提升战力与修为进度</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 主修功法卡片 -->
-    <div class="main-technique-card">
-      <div class="card-header">
-        <h4>主修功法</h4>
-        <button v-if="!mainTechnique" class="choose-btn" @click="chooseTechnique('主修功法')">
-          <Plus :size="16" />
-          选择功法
-        </button>
-      </div>
-      
-      <div v-if="mainTechnique" class="technique-display">
-        <div class="technique-icon">⚡</div>
-        <div class="technique-info">
-          <div class="technique-name">{{ mainTechnique }}</div>
-          <div class="technique-stats">
-            <div class="proficiency-info">
-              <span class="proficiency-label">熟练度</span>
-              <div class="proficiency-bar">
-                <div class="proficiency-fill" :style="{ width: mainTechniqueProficiency.percent + '%' }"></div>
-              </div>
-              <span class="proficiency-text">{{ mainTechniqueProficiency.level }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="technique-actions">
-          <button class="action-btn" @click="practiceTechnique(mainTechnique)">
-            <BookOpen :size="16" />
-            修炼
-          </button>
-          <button class="action-btn secondary" @click="chooseTechnique('主修功法')">
-            <RefreshCw :size="16" />
-            更换
-          </button>
-        </div>
-      </div>
-      
-      <div v-else class="empty-technique">
-        <div class="empty-icon">📜</div>
-        <div class="empty-text">尚未选择主修功法</div>
-        <div class="empty-hint">选择一门适合的功法开始修炼之路</div>
-      </div>
-    </div>
-
-    <!-- 已学技能列表 -->
-    <div class="skills-container">
-      <div class="section-header">
-        <h4>已学技能</h4>
-        <div class="skill-count">{{ learnedSkills.length }}项</div>
-      </div>
-
-      <div v-if="loading" class="loading-state">
-        <div class="loading-spinner">⏳</div>
-        <div class="loading-text">正在读取功法技能...</div>
-      </div>
-      
-      <div v-else-if="learnedSkills.length === 0" class="empty-state">
-        <div class="empty-icon">🎯</div>
-        <div class="empty-text">尚未习得任何技能</div>
-        <div class="empty-hint">通过修炼和历练来学习新的技能</div>
-      </div>
-
-      <div v-else class="skills-list">
-        <div 
-          v-for="skill in displaySkills" 
-          :key="skill.id"
-          class="skill-card"
-          :class="{ selected: selectedSkill?.id === skill.id }"
-          @click="selectSkill(skill)"
-        >
-          <div class="skill-icon">{{ getSkillIcon(skill.name) }}</div>
-          <div class="skill-info">
-            <div class="skill-name">{{ skill.name }}</div>
-            <div class="skill-meta">
-              <span class="skill-type">{{ skill.type || '通用技能' }}</span>
-              <span v-if="skill.level" class="skill-level">Lv.{{ skill.level }}</span>
-            </div>
-            <div v-if="skill.proficiency" class="skill-progress">
-              <div class="progress-bar-small">
-                <div class="progress-fill-small" :style="{ width: skill.proficiency.percent + '%' }"></div>
-              </div>
-              <span class="progress-text-small">{{ skill.proficiency.current }}/{{ skill.proficiency.max }}</span>
-            </div>
-          </div>
-          <div class="skill-actions">
-            <button class="action-btn mini" @click.stop="practiceSkill(skill)">
-              <Zap :size="14" />
-            </button>
-          </div>
+        <div v-else class="empty-state">
+          <div class="empty-icon">⭐</div>
+          <div class="empty-text">道友尚未觉醒特殊天赋，勤修苦练终有所成</div>
         </div>
       </div>
     </div>
@@ -158,7 +187,7 @@
             <span v-if="selectedSkill.level" class="level-badge">Lv.{{ selectedSkill.level }}</span>
           </div>
         </div>
-        <button class="close-btn" @click="selectedSkill = null">
+        <button class="action-btn" @click="selectedSkill = null">
           <X :size="20" />
         </button>
       </div>
@@ -176,8 +205,8 @@
               <span class="current-proficiency">{{ selectedSkill.proficiency.current }} / {{ selectedSkill.proficiency.max }}</span>
               <span class="proficiency-level-text">{{ selectedSkill.proficiency.level || '初学' }}</span>
             </div>
-            <div class="progress-bar-large">
-              <div class="progress-fill-large" :style="{ width: selectedSkill.proficiency.percent + '%' }"></div>
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: selectedSkill.proficiency.percent + '%' }"></div>
             </div>
           </div>
         </div>
@@ -201,33 +230,6 @@
           <Info :size="16" />
           详细了解
         </button>
-      </div>
-    </div>
-
-    <!-- 天赋显示卡片（根据实际数据结构修改） -->
-    <div class="talents-display-card">
-      <div class="card-header">
-        <h4>先天天赋</h4>
-        <div class="talent-count">{{ talentsCount }}项天赋</div>
-      </div>
-      
-      <div v-if="characterBaseInfo.天赋 && characterBaseInfo.天赋.length > 0" class="talents-list">
-        <div 
-          v-for="talent in characterBaseInfo.天赋" 
-          :key="talent"
-          class="talent-item"
-        >
-          <div class="talent-icon">🌟</div>
-          <div class="talent-info">
-            <div class="talent-name">{{ talent }}</div>
-            <div class="talent-description">先天天赋，无法修炼提升</div>
-          </div>
-        </div>
-      </div>
-      
-      <div v-else class="empty-talents">
-        <div class="empty-icon">⭐</div>
-        <div class="empty-text">道友尚未觉醒特殊天赋，勤修苦练终有所成</div>
       </div>
     </div>
   </div>
@@ -546,90 +548,10 @@ onMounted(() => {
 
 <style scoped>
 .cultivation-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  height: 100%;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  overflow-y: auto;
-  padding: 1rem;
-  /* 滚动条样式 */
-  scrollbar-width: thin;
-  scrollbar-color: #0ea5e9 transparent;
+  /* 使用统一的 game-panel 基础样式 */
 }
 
-.cultivation-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.cultivation-panel::-webkit-scrollbar-track {
-  background: rgba(14, 165, 233, 0.1);
-  border-radius: 3px;
-}
-
-.cultivation-panel::-webkit-scrollbar-thumb {
-  background: rgba(14, 165, 233, 0.5);
-  border-radius: 3px;
-}
-
-.cultivation-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(14, 165, 233, 0.8);
-}
-
-/* 头部 */
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #bae6fd;
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.header-icon {
-  font-size: 1.5rem;
-}
-
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #0369a1;
-}
-
-.cultivation-count {
-  font-size: 0.875rem;
-  color: #0ea5e9;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-/* 功法修炼概要卡片 */
-.cultivation-overview-card {
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #bae6fd;
-  padding: 1.25rem;
-  flex-shrink: 0;
-}
-
+/* 概要统计 */
 .overview-content {
   display: flex;
   flex-direction: column;
@@ -647,9 +569,15 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: #fefce8;
-  border-radius: 0.5rem;
-  border: 1px solid #fde68a;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  transition: var(--transition-fast);
+}
+
+.overview-stats .stat-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
 }
 
 .overview-stats .stat-icon {
@@ -666,13 +594,13 @@ onMounted(() => {
 .overview-stats .stat-value {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #d97706;
+  color: var(--color-primary);
   line-height: 1;
 }
 
 .overview-stats .stat-label {
   font-size: 0.75rem;
-  color: #92400e;
+  color: var(--color-text-secondary);
   margin-top: 0.25rem;
 }
 
@@ -681,167 +609,39 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: linear-gradient(135deg, #fefce8 0%, #fde68a 100%);
-  border-radius: 0.5rem;
-  border: 1px solid #fcd34d;
+  background: rgba(var(--color-accent-rgb), 0.1);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
+  border-radius: 6px;
 }
 
 .hint-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
+  color: var(--color-accent);
 }
 
 .hint-text {
   font-size: 0.875rem;
-  color: #d97706;
+  color: var(--color-accent);
   font-weight: 500;
 }
 
-/* 按钮样式 */
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #bae6fd;
-  border-radius: 0.5rem;
-  background: white;
-  color: #0369a1;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: #f0f9ff;
-  transform: translateY(-1px);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-btn.primary {
-  background: #0ea5e9;
-  color: white;
-  border-color: #0ea5e9;
-}
-
-.action-btn.primary:hover:not(:disabled) {
-  background: #0284c7;
-}
-
-.action-btn.secondary {
-  background: white;
-  color: #0369a1;
-}
-
-.action-btn.secondary:hover:not(:disabled) {
-  background: #f0f9ff;
-}
-
-.action-btn.mini {
-  padding: 0.5rem;
-  min-width: 2rem;
-}
-
-.btn-text {
-  display: inline;
-}
-
-@media (max-width: 768px) {
-  .btn-text {
-    display: none;
-  }
-}
-
-.status-details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
-}
-
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background: #fefce8;
-  border-radius: 0.5rem;
-}
-
-.detail-label {
-  font-size: 0.875rem;
-  color: #92400e;
-}
-
-.detail-value {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #d97706;
-}
-
-/* 主修功法卡片 */
-.main-technique-card {
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fde68a;
-  padding: 1.25rem;
-  flex-shrink: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.card-header h4 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #d97706;
-}
-
-.choose-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #f59e0b;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.choose-btn:hover {
-  background: #d97706;
-  transform: translateY(-1px);
-}
-
+/* 主修功法 */
 .technique-display {
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: #fefce8;
-  border-radius: 0.5rem;
-  border: 1px solid #fde68a;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
 .technique-icon {
   font-size: 2rem;
   width: 3rem;
   text-align: center;
+  color: var(--color-primary);
 }
 
 .technique-info {
@@ -852,7 +652,7 @@ onMounted(() => {
 .technique-name {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #d97706;
+  color: var(--color-text);
   margin-bottom: 0.5rem;
 }
 
@@ -870,28 +670,14 @@ onMounted(() => {
 
 .proficiency-label {
   font-size: 0.875rem;
-  color: #92400e;
+  color: var(--color-text-secondary);
   white-space: nowrap;
-}
-
-.proficiency-bar {
-  flex: 1;
-  height: 6px;
-  background: #fde68a;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.proficiency-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
-  transition: width 0.3s ease;
 }
 
 .proficiency-text {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #059669;
+  color: var(--color-success);
   white-space: nowrap;
 }
 
@@ -901,130 +687,24 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-.empty-technique {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.6;
-}
-
-.empty-text {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #92400e;
-  margin-bottom: 0.5rem;
-}
-
-.empty-hint {
-  font-size: 0.875rem;
-  color: #a3a3a3;
-}
-
-/* 技能容器 - 修复滚动 */
-.skills-container {
-  flex: 1;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fde68a;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  flex-shrink: 0;
-}
-
-.section-header h4 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #d97706;
-}
-
-.skill-count {
-  font-size: 0.75rem;
-  color: #92400e;
-  background: #fefce8;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.75rem;
-}
-
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  text-align: center;
-}
-
-.loading-spinner,
-.empty-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.loading-text,
-.empty-text {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #d97706;
-  margin-bottom: 0.5rem;
-}
-
-.empty-hint {
-  font-size: 0.875rem;
-  color: #a3a3a3;
-}
-
+/* 技能卡片 */
 .skills-list {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   overflow-y: auto;
   padding-right: 0.5rem;
-  padding-bottom: 4rem;
-  
-  /* 改进的滚动条样式 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(245, 158, 11, 0.3) rgba(243, 244, 246, 0.5);
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-/* Webkit 滚动条样式 */
 .skills-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.skills-list::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
-  border-radius: 4px;
+  width: 6px;
 }
 
 .skills-list::-webkit-scrollbar-thumb {
-  background: rgba(245, 158, 11, 0.3);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-.skills-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.5);
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
 }
 
 .skill-card {
@@ -1032,24 +712,24 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: #fefce8;
-  border: 1px solid #fde68a;
-  border-radius: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .skill-card:hover {
-  background: white;
-  border-color: #f59e0b;
+  background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.15);
 }
 
 .skill-card.selected {
-  background: white;
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  background: var(--color-surface-light);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
 }
 
 .skill-icon {
@@ -1067,7 +747,7 @@ onMounted(() => {
 .skill-name {
   font-size: 1rem;
   font-weight: 600;
-  color: #d97706;
+  color: var(--color-text);
   margin-bottom: 0.25rem;
 }
 
@@ -1086,13 +766,15 @@ onMounted(() => {
 }
 
 .skill-type {
-  background: #fde68a;
-  color: #92400e;
+  background: rgba(var(--color-accent-rgb), 0.1);
+  color: var(--color-accent);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .skill-level {
-  background: #dcfce7;
-  color: #166534;
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+  border: 1px solid rgba(var(--color-success-rgb), 0.3);
 }
 
 .skill-progress {
@@ -1101,23 +783,9 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-.progress-bar-small {
-  flex: 1;
-  height: 4px;
-  background: #fde68a;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill-small {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
-  transition: width 0.3s ease;
-}
-
-.progress-text-small {
+.progress-text {
   font-size: 0.75rem;
-  color: #92400e;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
@@ -1127,6 +795,15 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.skill-count {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-light);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
 /* 技能详情面板 */
 .skill-detail-panel {
   position: absolute;
@@ -1134,11 +811,12 @@ onMounted(() => {
   right: 0;
   width: 320px;
   height: 100%;
-  background: white;
-  border-left: 1px solid #fde68a;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   z-index: 10;
+  backdrop-filter: blur(10px);
 }
 
 @media (max-width: 768px) {
@@ -1150,19 +828,6 @@ onMounted(() => {
   }
 }
 
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-bottom: 1px solid #fde68a;
-  flex-shrink: 0;
-}
-
-.detail-icon {
-  font-size: 2rem;
-}
-
 .detail-info {
   flex: 1;
   min-width: 0;
@@ -1172,7 +837,7 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #d97706;
+  color: var(--color-text);
 }
 
 .detail-badges {
@@ -1189,32 +854,15 @@ onMounted(() => {
 }
 
 .type-badge {
-  background: #fefce8;
-  color: #d97706;
+  background: rgba(var(--color-accent-rgb), 0.1);
+  color: var(--color-accent);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .level-badge {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.close-btn {
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 50%;
-  background: #fde68a;
-  color: #d97706;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-}
-
-.close-btn:hover {
-  background: #fcd34d;
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+  border: 1px solid rgba(var(--color-success-rgb), 0.3);
 }
 
 .detail-content {
@@ -1223,22 +871,18 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.detail-section {
-  margin-bottom: 1.5rem;
-}
-
 .detail-section h5 {
   margin: 0 0 0.75rem 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #d97706;
+  color: var(--color-text);
 }
 
 .detail-section p {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .proficiency-progress {
@@ -1256,27 +900,13 @@ onMounted(() => {
 .current-proficiency {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text);
 }
 
 .proficiency-level-text {
   font-size: 0.875rem;
-  color: #10b981;
+  color: var(--color-success);
   font-weight: 600;
-}
-
-.progress-bar-large {
-  width: 100%;
-  height: 8px;
-  background: #f3f4f6;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill-large {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
-  transition: width 0.3s ease;
 }
 
 .effects-list {
@@ -1287,10 +917,11 @@ onMounted(() => {
 
 .effect-item {
   padding: 0.5rem 0.75rem;
-  background: #fefce8;
-  border-radius: 0.375rem;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
   font-size: 0.8125rem;
-  color: #d97706;
+  color: var(--color-text);
 }
 
 .detail-actions {
@@ -1298,33 +929,19 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #fde68a;
+  border-top: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
-/* 天赋显示卡片 */
-.talents-display-card {
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #fde68a;
-  padding: 1.25rem;
-  flex-shrink: 0;
-}
-
-.talent-count {
-  font-size: 0.75rem;
-  color: #92400e;
-  background: #fefce8;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.75rem;
-}
-
+/* 天赋列表 */
 .talents-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   max-height: 200px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .talent-item {
@@ -1332,14 +949,15 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: #fefce8;
-  border-radius: 0.5rem;
-  border: 1px solid #fde68a;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
 .talent-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
+  color: var(--color-warning);
 }
 
 .talent-info {
@@ -1350,58 +968,26 @@ onMounted(() => {
 .talent-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #d97706;
+  color: var(--color-text);
   margin-bottom: 0.25rem;
 }
 
 .talent-description {
   font-size: 0.75rem;
-  color: #92400e;
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
-.progress-bar-mini {
-  flex: 1;
-  height: 4px;
-  background: #fde68a;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill-mini {
-  height: 100%;
-  background: linear-gradient(90deg, #a855f7, #7c3aed);
-  transition: width 0.3s ease;
-}
-
-.progress-text-mini {
+.talent-count {
   font-size: 0.75rem;
-  font-weight: 600;
-  color: #7c3aed;
-  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-light);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
 }
 
-.talent-exp {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.exp-text {
-  font-size: 0.75rem;
-  color: #92400e;
-}
-
-.empty-talents {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
-  text-align: center;
-}
-
+/* 动画 */
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -1411,53 +997,14 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 深色主题适配 */
-[data-theme="dark"] .cultivation-panel {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-}
-
-[data-theme="dark"] .panel-header,
-[data-theme="dark"] .cultivation-overview-card,
-[data-theme="dark"] .main-technique-card,
-[data-theme="dark"] .skills-container,
-[data-theme="dark"] .skill-detail-panel,
-[data-theme="dark"] .talents-progress-card {
-  background: #1e293b;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .panel-title,
-[data-theme="dark"] .current-realm,
-[data-theme="dark"] .card-header h4,
-[data-theme="dark"] .section-header h4,
-[data-theme="dark"] .detail-name {
-  color: #f1f5f9;
-}
-
-[data-theme="dark"] .detail-item,
-[data-theme="dark"] .technique-display,
-[data-theme="dark"] .skill-card,
-[data-theme="dark"] .talent-item {
-  background: #334155;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .skill-card:hover {
-  background: #1e293b;
-}
-
-[data-theme="dark"] .action-btn {
-  background: #334155;
-  border-color: #475569;
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .action-btn:hover {
-  background: #475569;
-}
-
-[data-theme="dark"] .action-btn.primary {
-  background: #f59e0b;
-  color: white;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .btn-text {
+    display: none;
+  }
+  
+  .overview-stats {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
