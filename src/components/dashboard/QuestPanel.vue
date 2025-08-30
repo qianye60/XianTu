@@ -1,5 +1,5 @@
 <template>
-  <div class="quest-panel">
+  <div class="quest-panel game-panel">
     <!-- 头部信息 -->
     <div class="panel-header">
       <div class="header-left">
@@ -38,7 +38,7 @@
     </div>
 
     <!-- 任务列表容器 -->
-    <div class="quest-container">
+    <div class="panel-content">
       <div v-if="isLoading" class="quest-loading">
         <div class="loading-spinner"></div>
         <p>正在加载任务...</p>
@@ -216,20 +216,19 @@ onMounted(() => {
 
 <style scoped>
 .quest-panel {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  /* 使用统一的 game-panel 基础样式 */
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 2px solid rgba(139, 92, 246, 0.1);
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(168, 85, 247, 0.05));
+  padding: 1rem;
+  background: var(--color-surface);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  margin: 1rem 1rem 0 1rem;
 }
 
 .header-left {
@@ -251,18 +250,14 @@ onMounted(() => {
 
 .panel-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #374151;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-primary);
 }
 
 .quest-summary {
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: 0.875rem;
+  color: var(--color-accent);
 }
 
 .header-actions {

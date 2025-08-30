@@ -35,9 +35,10 @@ defineEmits<{
 .function-panel {
   width: 100%;
   height: 100%;
-  background: white;
+  background: var(--color-background);
   display: flex;
   flex-direction: column;
+  font-family: var(--font-family-sans-serif);
 }
 
 .panel-header {
@@ -45,30 +46,32 @@ defineEmits<{
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  backdrop-filter: blur(10px);
 }
 
 .panel-header h2 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .close-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 8px;
   border-radius: 6px;
-  color: #64748b;
-  transition: all 0.2s ease;
+  color: var(--color-text-secondary);
+  transition: var(--transition-fast);
 }
 
 .close-btn:hover {
-  background: #e2e8f0;
-  color: #334155;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-text);
+  transform: scale(1.05);
 }
 
 .panel-body {
@@ -82,9 +85,10 @@ defineEmits<{
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  /* 滚动条样式 */
+  background: var(--color-background);
+  /* 优化的滚动条样式 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .panel-content-wrapper::-webkit-scrollbar {
@@ -92,50 +96,30 @@ defineEmits<{
 }
 
 .panel-content-wrapper::-webkit-scrollbar-track {
-  background: rgba(148, 163, 184, 0.1);
+  background: rgba(var(--color-border-rgb), 0.1);
   border-radius: 3px;
 }
 
 .panel-content-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
+  opacity: 0.6;
 }
 
 .panel-content-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.8);
+  opacity: 0.8;
 }
 
 .placeholder-content {
   text-align: center;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 1rem;
   margin-top: 40px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-light);
 }
 
-/* 深色主题 */
-[data-theme="dark"] .function-panel {
-  background: #1e293b;
-}
-
-[data-theme="dark"] .panel-header {
-  background: #334155;
-  border-bottom-color: #475569;
-}
-
-[data-theme="dark"] .panel-header h2 {
-  color: #f1f5f9;
-}
-
-[data-theme="dark"] .close-btn {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .close-btn:hover {
-  background: #475569;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .placeholder-content {
-  color: #94a3b8;
-}
+/* 移除深色主题硬编码，使用CSS变量自动适配 */
 </style>

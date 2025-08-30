@@ -1,5 +1,5 @@
 <template>
-  <div class="character-details-panel">
+  <div class="character-details-panel game-panel">
     <!-- 角色头像卡片 -->
     <div class="character-header-card">
       <div class="card-gradient"></div>
@@ -60,202 +60,204 @@
       </div>
     </div>
 
-    <!-- 先天六司卡片 -->
-    <div class="innate-attributes-card">
-      <div class="card-header">
-        <div class="header-icon">⚡</div>
-        <h3 class="card-title">先天六司</h3>
-        <div class="attributes-summary">{{ getTotalAttributes() }}点</div>
-      </div>
-      <div class="attributes-grid">
-        <div 
-          v-for="(value, key) in characterData.先天六司" 
-          :key="key" 
-          class="attribute-card"
-          :class="getAttributeQuality(value)"
-        >
-          <div class="attribute-icon">{{ getAttributeIcon(key) }}</div>
-          <div class="attribute-info">
-            <div class="attribute-name">{{ key }}</div>
-            <div class="attribute-value">{{ value }}</div>
-            <div class="attribute-rating">{{ getAttributeRating(value) }}</div>
-          </div>
+    <div class="panel-content">
+      <!-- 先天六司卡片 -->
+      <div class="detail-section innate-attributes-card">
+        <div class="detail-header">
+          <div class="header-icon">⚡</div>
+          <h3 class="detail-title">先天六司</h3>
+          <div class="attributes-summary">{{ getTotalAttributes() }}点</div>
         </div>
-      </div>
-    </div>
-
-    <!-- 实时状态卡片 -->
-    <div class="status-card">
-      <div class="card-header">
-        <div class="header-icon">❤️</div>
-        <h3 class="card-title">实时状态</h3>
-        <button class="refresh-btn" @click="refreshStatus" :disabled="loading">
-          <RefreshCw :size="14" :class="{ 'animate-spin': loading }" />
-        </button>
-      </div>
-      <div class="status-bars">
-        <div class="status-bar-item">
-          <div class="bar-header">
-            <span class="bar-label">气血</span>
-            <span class="bar-value">{{ playerStatus.气血?.当前 || 0 }}/{{ playerStatus.气血?.最大 || 100 }}</span>
-          </div>
-          <div class="progress-bar">
-            <div 
-              class="progress-fill hp" 
-              :style="{ width: getProgressPercent(playerStatus.气血) + '%' }"
-            ></div>
-          </div>
-        </div>
-        
-        <div class="status-bar-item">
-          <div class="bar-header">
-            <span class="bar-label">灵气</span>
-            <span class="bar-value">{{ playerStatus.灵气?.当前 || 0 }}/{{ playerStatus.灵气?.最大 || 100 }}</span>
-          </div>
-          <div class="progress-bar">
-            <div 
-              class="progress-fill mana" 
-              :style="{ width: getProgressPercent(playerStatus.灵气) + '%' }"
-            ></div>
-          </div>
-        </div>
-        
-        <div class="status-bar-item">
-          <div class="bar-header">
-            <span class="bar-label">神识</span>
-            <span class="bar-value">{{ playerStatus.神识?.当前 || 0 }}/{{ playerStatus.神识?.最大 || 100 }}</span>
-          </div>
-          <div class="progress-bar">
-            <div 
-              class="progress-fill spirit" 
-              :style="{ width: getProgressPercent(playerStatus.神识) + '%' }"
-            ></div>
-          </div>
-        </div>
-        
-        <div class="status-bar-item">
-          <div class="bar-header">
-            <span class="bar-label">寿命</span>
-            <span class="bar-value">{{ playerStatus.寿命?.当前 || 0 }}/{{ playerStatus.寿命?.最大 || 100 }}年</span>
-          </div>
-          <div class="progress-bar">
-            <div 
-              class="progress-fill lifespan" 
-              :style="{ width: getProgressPercent(playerStatus.寿命) + '%' }"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 修炼信息卡片 -->
-    <div class="cultivation-info-card">
-      <div class="card-header">
-        <div class="header-icon">🔥</div>
-        <h3 class="card-title">修炼信息</h3>
-      </div>
-      <div class="cultivation-content">
-        <div class="realm-section">
-          <div class="realm-info">
-            <div class="current-realm">
-              <span class="realm-name">{{ currentRealm.名称 }}</span>
-              <div class="realm-progress-info">
-                <span class="progress-text">{{ currentRealm.当前进度 }}/{{ currentRealm.下一级所需 }}</span>
-                <span class="progress-percent">{{ getRealmProgressPercent() }}%</span>
-              </div>
+        <div class="attributes-grid">
+          <div 
+            v-for="(value, key) in characterData.先天六司" 
+            :key="key" 
+            class="attribute-card"
+            :class="getAttributeQuality(value)"
+          >
+            <div class="attribute-icon">{{ getAttributeIcon(key) }}</div>
+            <div class="attribute-info">
+              <div class="attribute-name">{{ key }}</div>
+              <div class="attribute-value">{{ value }}</div>
+              <div class="attribute-rating">{{ getAttributeRating(value) }}</div>
             </div>
-            <div class="realm-progress-bar">
+          </div>
+        </div>
+      </div>
+
+      <!-- 实时状态卡片 -->
+      <div class="detail-section status-card">
+        <div class="detail-header">
+          <div class="header-icon">❤️</div>
+          <h3 class="detail-title">实时状态</h3>
+          <button class="action-btn" @click="refreshStatus" :disabled="loading">
+            <RefreshCw :size="14" :class="{ 'animate-spin': loading }" />
+          </button>
+        </div>
+        <div class="status-bars">
+          <div class="status-bar-item">
+            <div class="bar-header">
+              <span class="bar-label">气血</span>
+              <span class="bar-value">{{ playerStatus.气血?.当前 || 0 }}/{{ playerStatus.气血?.最大 || 100 }}</span>
+            </div>
+            <div class="progress-bar">
               <div 
-                class="realm-progress-fill" 
-                :style="{ width: getRealmProgressPercent() + '%' }"
+                class="progress-fill hp" 
+                :style="{ width: getProgressPercent(playerStatus.气血) + '%' }"
               ></div>
             </div>
           </div>
-          <div class="breakthrough-desc">
-            <span class="desc-label">突破描述：</span>
-            <span class="desc-content">{{ currentRealm.突破描述 || '继续修炼，积累修为' }}</span>
+          
+          <div class="status-bar-item">
+            <div class="bar-header">
+              <span class="bar-label">灵气</span>
+              <span class="bar-value">{{ playerStatus.灵气?.当前 || 0 }}/{{ playerStatus.灵气?.最大 || 100 }}</span>
+            </div>
+            <div class="progress-bar">
+              <div 
+                class="progress-fill mana" 
+                :style="{ width: getProgressPercent(playerStatus.灵气) + '%' }"
+              ></div>
+            </div>
           </div>
-        </div>
-        
-        <div class="cultivation-stats">
-          <div class="stat-item">
-            <span class="stat-label">声望</span>
-            <span class="stat-value reputation">{{ playerStatus.声望 || 0 }}</span>
+          
+          <div class="status-bar-item">
+            <div class="bar-header">
+              <span class="bar-label">神识</span>
+              <span class="bar-value">{{ playerStatus.神识?.当前 || 0 }}/{{ playerStatus.神识?.最大 || 100 }}</span>
+            </div>
+            <div class="progress-bar">
+              <div 
+                class="progress-fill spirit" 
+                :style="{ width: getProgressPercent(playerStatus.神识) + '%' }"
+              ></div>
+            </div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">位置</span>
-            <span class="stat-value location">{{ playerStatus.位置?.描述 || '未知' }}</span>
+          
+          <div class="status-bar-item">
+            <div class="bar-header">
+              <span class="bar-label">寿命</span>
+              <span class="bar-value">{{ playerStatus.寿命?.当前 || 0 }}/{{ playerStatus.寿命?.最大 || 100 }}年</span>
+            </div>
+            <div class="progress-bar">
+              <div 
+                class="progress-fill lifespan" 
+                :style="{ width: getProgressPercent(playerStatus.寿命) + '%' }"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 天赋灵根卡片 -->
-    <div class="talent-spiritual-root-card">
-      <div class="card-header">
-        <div class="header-icon">🌿</div>
-        <h3 class="card-title">天赋与灵根</h3>
+      <!-- 修炼信息卡片 -->
+      <div class="detail-section cultivation-info-card">
+        <div class="detail-header">
+          <div class="header-icon">🔥</div>
+          <h3 class="detail-title">修炼信息</h3>
+        </div>
+        <div class="cultivation-content">
+          <div class="realm-section">
+            <div class="realm-info">
+              <div class="current-realm">
+                <span class="realm-name">{{ currentRealm.名称 }}</span>
+                <div class="realm-progress-info">
+                  <span class="progress-text">{{ currentRealm.当前进度 }}/{{ currentRealm.下一级所需 }}</span>
+                  <span class="progress-percent">{{ getRealmProgressPercent() }}%</span>
+                </div>
+              </div>
+              <div class="realm-progress-bar">
+                <div 
+                  class="realm-progress-fill" 
+                  :style="{ width: getRealmProgressPercent() + '%' }"
+                ></div>
+              </div>
+            </div>
+            <div class="breakthrough-desc">
+              <span class="desc-label">突破描述：</span>
+              <span class="desc-content">{{ currentRealm.突破描述 || '继续修炼，积累修为' }}</span>
+            </div>
+          </div>
+          
+          <div class="cultivation-stats">
+            <div class="stat-item">
+              <span class="stat-label">声望</span>
+              <span class="stat-value reputation">{{ playerStatus.声望 || 0 }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">位置</span>
+              <span class="stat-value location">{{ playerStatus.位置?.描述 || '未知' }}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="talent-root-content">
-        <div class="talents-section">
-          <div class="section-title">天赋</div>
-          <div class="talents-list">
-            <div 
-              v-for="talent in characterData.天赋" 
-              :key="talent"
-              class="talent-badge"
-            >
-              {{ talent }}
-            </div>
-            <div v-if="!characterData.天赋?.length" class="empty-talents">
-              暂无特殊天赋
-            </div>
-          </div>
-        </div>
-        
-        <div class="spiritual-root-section">
-          <div class="section-title">灵根</div>
-          <div class="spiritual-root-info">
-            <div class="root-name">{{ characterData.灵根 }}</div>
-            <div class="root-description">{{ getSpiritualRootDescription() }}</div>
-          </div>
-        </div>
-        
-        <div class="aptitude-section">
-          <div class="section-title">天资</div>
-          <div class="aptitude-info">
-            <div class="aptitude-value" :class="getAptitudeClass()">
-              {{ characterData.天资 }}
-            </div>
-            <div class="aptitude-description">{{ getAptitudeDescription() }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 状态效果卡片 -->
-    <div v-if="statusEffects.length > 0" class="status-effects-card">
-      <div class="card-header">
-        <div class="header-icon">✨</div>
-        <h3 class="card-title">状态效果</h3>
-        <div class="effects-count">{{ statusEffects.length }}个</div>
-      </div>
-      <div class="effects-list">
-        <div 
-          v-for="effect in statusEffects" 
-          :key="effect.状态名称"
-          class="effect-item"
-          :class="effect.类型 === 'BUFF' ? 'buff' : 'debuff'"
-        >
-          <div class="effect-icon">
-            {{ effect.类型 === 'BUFF' ? '⬆️' : '⬇️' }}
+      <!-- 天赋灵根卡片 -->
+      <div class="detail-section talent-spiritual-root-card">
+        <div class="detail-header">
+          <div class="header-icon">🌿</div>
+          <h3 class="detail-title">天赋与灵根</h3>
+        </div>
+        <div class="talent-root-content">
+          <div class="talents-section">
+            <div class="section-title">天赋</div>
+            <div class="talents-list">
+              <div 
+                v-for="talent in characterData.天赋" 
+                :key="talent"
+                class="talent-badge"
+              >
+                {{ talent }}
+              </div>
+              <div v-if="!characterData.天赋?.length" class="empty-talents">
+                暂无特殊天赋
+              </div>
+            </div>
           </div>
-          <div class="effect-info">
-            <div class="effect-name">{{ effect.状态名称 }}</div>
-            <div class="effect-desc">{{ effect.状态描述 }}</div>
-            <div class="effect-meta">
-              <span class="effect-time">{{ effect.时间 }}</span>
-              <span v-if="effect.强度" class="effect-strength">强度:{{ effect.强度 }}</span>
+          
+          <div class="spiritual-root-section">
+            <div class="section-title">灵根</div>
+            <div class="spiritual-root-info">
+              <div class="root-name">{{ characterData.灵根 }}</div>
+              <div class="root-description">{{ getSpiritualRootDescription() }}</div>
+            </div>
+          </div>
+          
+          <div class="aptitude-section">
+            <div class="section-title">天资</div>
+            <div class="aptitude-info">
+              <div class="aptitude-value" :class="getAptitudeClass()">
+                {{ characterData.天资 }}
+              </div>
+              <div class="aptitude-description">{{ getAptitudeDescription() }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 状态效果卡片 -->
+      <div v-if="statusEffects.length > 0" class="detail-section status-effects-card">
+        <div class="detail-header">
+          <div class="header-icon">✨</div>
+          <h3 class="detail-title">状态效果</h3>
+          <div class="effects-count">{{ statusEffects.length }}个</div>
+        </div>
+        <div class="effects-list">
+          <div 
+            v-for="effect in statusEffects" 
+            :key="effect.状态名称"
+            class="effect-item"
+            :class="effect.类型 === 'BUFF' ? 'buff' : 'debuff'"
+          >
+            <div class="effect-icon">
+              {{ effect.类型 === 'BUFF' ? '⬆️' : '⬇️' }}
+            </div>
+            <div class="effect-info">
+              <div class="effect-name">{{ effect.状态名称 }}</div>
+              <div class="effect-desc">{{ effect.状态描述 }}</div>
+              <div class="effect-meta">
+                <span class="effect-time">{{ effect.时间 }}</span>
+                <span v-if="effect.强度" class="effect-strength">强度:{{ effect.强度 }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -492,48 +494,17 @@ onMounted(() => {
 
 <style scoped>
 .character-details-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  height: 100%;
-  min-height: 0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  overflow-y: auto;
-  padding: 1rem;
-  padding-bottom: 3rem; /* 增加底部边距确保能滚动到底 */
-  
-  /* 改进的滚动条样式 */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(59, 130, 246, 0.3) rgba(243, 244, 246, 0.5);
-}
-
-/* Webkit 滚动条样式 */
-.character-details-panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.character-details-panel::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
-  border-radius: 4px;
-}
-
-.character-details-panel::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.3);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-.character-details-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.5);
+  /* 使用统一的 game-panel 基础样式 */
 }
 
 /* 角色头像卡片 */
 .character-header-card {
-  background: white;
-  border-radius: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #e5e7eb;
   flex-shrink: 0;
+  backdrop-filter: blur(10px);
 }
 
 .avatar-section {
@@ -552,15 +523,18 @@ onMounted(() => {
   justify-content: center;
   font-weight: 700;
   font-size: 1.25rem;
-  color: white;
+  color: var(--color-background);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  border: 2px solid rgba(var(--color-primary-rgb), 0.2);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
 }
 
 .character-avatar.male {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, var(--color-info), var(--color-info-hover));
 }
 
 .character-avatar.female {
-  background: linear-gradient(135deg, #ec4899, #be185d);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
 }
 
 .character-basic-info {
@@ -571,14 +545,14 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e293b;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8), 0 0 10px rgba(59, 130, 246, 0.3);
-  background: linear-gradient(135deg, #1e293b, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  /* 提供fallback颜色以防渐变失效 */
-  position: relative;
+  color: var(--color-text);
+  text-shadow: 0 2px 4px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.character-subtitle {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
 }
 
 .character-details {
@@ -595,13 +569,13 @@ onMounted(() => {
 }
 
 .detail-label {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .detail-value {
-  color: #111827;
-  font-weight: 700;
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 .status-indicators {
@@ -615,9 +589,9 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  border: 1px solid #f3f4f6;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
 .status-icon {
@@ -632,56 +606,41 @@ onMounted(() => {
 
 .status-label {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .status-value.realm {
-  color: #dc2626;
+  color: var(--color-error);
   font-weight: 700;
 }
 
 .status-value.age {
-  color: #059669;
+  color: var(--color-success);
   font-weight: 600;
 }
 
-/* 先天六司卡片 */
-.innate-attributes-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  flex-shrink: 0;
+.progress-mini {
+  height: 4px;
+  background: rgba(var(--color-border-rgb), 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.25rem;
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f3f4f6;
+.progress-fill-mini {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+  transition: width 0.3s ease;
 }
 
-.header-icon {
-  font-size: 1.25rem;
+.progress-text-mini {
+  font-size: 0.625rem;
+  color: var(--color-text-secondary);
+  margin-left: 0.25rem;
 }
 
-.card-title {
-  flex: 1;
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #111827;
-}
-
-.attributes-summary {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-weight: 500;
-}
-
+/* 属性网格 */
 .attributes-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -693,15 +652,37 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  transition: var(--transition-fast);
 }
 
-.attribute-card.common { background: #f9fafb; }
-.attribute-card.uncommon { background: #f0f9ff; border-color: #bae6fd; }
-.attribute-card.rare { background: #f0fdf4; border-color: #bbf7d0; }
-.attribute-card.epic { background: #fdf4ff; border-color: #f3e8ff; }
-.attribute-card.legendary { background: #fef3c7; border-color: #fde68a; }
+.attribute-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.attribute-card.common { 
+  border-left: 3px solid var(--color-text-secondary);
+}
+.attribute-card.uncommon { 
+  border-left: 3px solid var(--color-info);
+  background: rgba(var(--color-info-rgb), 0.05);
+}
+.attribute-card.rare { 
+  border-left: 3px solid var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.05);
+}
+.attribute-card.epic { 
+  border-left: 3px solid var(--color-accent);
+  background: rgba(var(--color-accent-rgb), 0.05);
+}
+.attribute-card.legendary { 
+  border-left: 3px solid var(--color-warning);
+  background: rgba(var(--color-warning-rgb), 0.05);
+  box-shadow: 0 0 15px rgba(var(--color-warning-rgb), 0.2);
+}
 
 .attribute-icon {
   font-size: 1.25rem;
@@ -716,62 +697,29 @@ onMounted(() => {
 
 .attribute-name {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .attribute-value {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text);
 }
 
 .attribute-rating {
   font-size: 0.625rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
-/* 实时状态卡片 */
-.status-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  flex-shrink: 0;
+.attributes-summary {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
-.refresh-btn {
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  background: #f3f4f6;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.refresh-btn:hover {
-  background: #e5e7eb;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
+/* 状态条 */
 .status-bars {
   display: flex;
   flex-direction: column;
@@ -793,19 +741,19 @@ onMounted(() => {
 .bar-label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text);
 }
 
 .bar-value {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .progress-bar {
-  height: 0.5rem;
-  background: #f3f4f6;
-  border-radius: 0.25rem;
+  height: 8px;
+  background: rgba(var(--color-border-rgb), 0.3);
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -814,18 +762,16 @@ onMounted(() => {
   transition: width 0.3s ease;
 }
 
-.progress-fill.hp { background: linear-gradient(90deg, #dc2626, #ef4444); }
-.progress-fill.mana { background: linear-gradient(90deg, #2563eb, #3b82f6); }
-.progress-fill.spirit { background: linear-gradient(90deg, #7c3aed, #8b5cf6); }
-.progress-fill.lifespan { background: linear-gradient(90deg, #059669, #10b981); }
+.progress-fill.hp { background: linear-gradient(90deg, var(--color-error), var(--color-danger)); }
+.progress-fill.mana { background: linear-gradient(90deg, var(--color-info), var(--color-info-hover)); }
+.progress-fill.spirit { background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover)); }
+.progress-fill.lifespan { background: linear-gradient(90deg, var(--color-success), var(--color-success-hover)); }
 
-/* 修炼信息卡片 */
-.cultivation-info-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  flex-shrink: 0;
+/* 修炼信息 */
+.cultivation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .realm-section {
@@ -846,7 +792,7 @@ onMounted(() => {
 .realm-name {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #dc2626;
+  color: var(--color-primary);
 }
 
 .realm-progress-info {
@@ -858,31 +804,31 @@ onMounted(() => {
 
 .progress-text {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .progress-percent {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #059669;
+  color: var(--color-success);
 }
 
 .realm-progress-bar {
-  height: 0.75rem;
-  background: #f3f4f6;
-  border-radius: 0.375rem;
+  height: 8px;
+  background: rgba(var(--color-border-rgb), 0.3);
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .realm-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #d97706);
+  background: linear-gradient(90deg, var(--color-warning), var(--color-warning-hover));
   transition: width 0.3s ease;
 }
 
 .breakthrough-desc {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
@@ -891,7 +837,7 @@ onMounted(() => {
 }
 
 .desc-content {
-  color: #374151;
+  color: var(--color-text);
 }
 
 .cultivation-stats {
@@ -899,7 +845,7 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--color-border);
 }
 
 .stat-item {
@@ -907,36 +853,28 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  background: #f9fafb;
-  border-radius: 0.5rem;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .stat-value.reputation {
-  color: #dc2626;
+  color: var(--color-error);
   font-weight: 600;
 }
 
 .stat-value.location {
-  color: #3b82f6;
-  font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  color: var(--color-info);
+  font-weight: 600;
 }
 
-/* 天赋灵根卡片 */
-.talent-spiritual-root-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  flex-shrink: 0;
-}
-
+/* 天赋灵根内容 */
 .talent-root-content {
   display: flex;
   flex-direction: column;
@@ -946,7 +884,7 @@ onMounted(() => {
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text);
   margin-bottom: 0.5rem;
 }
 
@@ -958,16 +896,16 @@ onMounted(() => {
 
 .talent-badge {
   padding: 0.375rem 0.75rem;
-  background: #f0f9ff;
-  color: #1e40af;
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-info);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
   border-radius: 1rem;
   font-size: 0.75rem;
   font-weight: 500;
-  border: 1px solid #bfdbfe;
 }
 
 .empty-talents {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-style: italic;
 }
@@ -983,36 +921,30 @@ onMounted(() => {
 .aptitude-value {
   font-size: 1rem;
   font-weight: 600;
+  color: var(--color-text);
 }
 
-.aptitude-value.common { color: #6b7280; }
-.aptitude-value.uncommon { color: #2563eb; }
-.aptitude-value.rare { color: #059669; }
-.aptitude-value.epic { color: #7c3aed; }
-.aptitude-value.legendary { color: #dc2626; }
+.aptitude-value.common { color: var(--color-text-secondary); }
+.aptitude-value.uncommon { color: var(--color-info); }
+.aptitude-value.rare { color: var(--color-success); }
+.aptitude-value.epic { color: var(--color-accent); }
+.aptitude-value.legendary { color: var(--color-warning); }
 
 .root-description,
 .aptitude-description {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
-/* 状态效果卡片 */
-.status-effects-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  flex-shrink: 0;
-}
-
+/* 状态效果 */
 .effects-count {
   font-size: 0.75rem;
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-light);
   padding: 0.25rem 0.5rem;
   border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
 }
 
 .effects-list {
@@ -1021,6 +953,17 @@ onMounted(() => {
   gap: 0.75rem;
   max-height: 12rem;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.effects-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.effects-list::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 2px;
 }
 
 .effect-item {
@@ -1028,18 +971,19 @@ onMounted(() => {
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
 }
 
 .effect-item.buff {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  border-left: 3px solid var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.05);
 }
 
 .effect-item.debuff {
-  background: #fef2f2;
-  border-color: #fecaca;
+  border-left: 3px solid var(--color-error);
+  background: rgba(var(--color-error-rgb), 0.05);
 }
 
 .effect-icon {
@@ -1056,12 +1000,12 @@ onMounted(() => {
 .effect-name {
   font-weight: 600;
   font-size: 0.875rem;
-  color: #111827;
+  color: var(--color-text);
 }
 
 .effect-desc {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
@@ -1069,129 +1013,17 @@ onMounted(() => {
   display: flex;
   gap: 0.75rem;
   font-size: 0.625rem;
-  color: #9ca3af;
+  color: var(--color-text-secondary);
 }
 
-/* 操作按钮 */
-.action-buttons {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem;
-  flex-shrink: 0;
+/* 动画 */
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex: 1;
-}
-
-.action-btn.primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.action-btn.primary:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
-
-.action-btn.secondary {
-  background: #f9fafb;
-  color: #374151;
-  border: 1px solid #e5e7eb;
-}
-
-.action-btn.secondary:hover {
-  background: #f3f4f6;
-  transform: translateY(-1px);
-}
-
-/* 深色主题适配 */
-[data-theme="dark"] .character-details-panel {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-}
-
-[data-theme="dark"] .character-header-card,
-[data-theme="dark"] .innate-attributes-card,
-[data-theme="dark"] .status-card,
-[data-theme="dark"] .cultivation-info-card,
-[data-theme="dark"] .talent-spiritual-root-card,
-[data-theme="dark"] .status-effects-card {
-  background: #1e293b;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .character-name,
-[data-theme="dark"] .card-title,
-[data-theme="dark"] .detail-value,
-[data-theme="dark"] .attribute-value,
-[data-theme="dark"] .bar-label,
-[data-theme="dark"] .realm-name,
-[data-theme="dark"] .section-title,
-[data-theme="dark"] .effect-name {
-  color: #f1f5f9;
-}
-
-/* 深色主题下的角色姓名特殊处理 */
-[data-theme="dark"] .character-name {
-  color: #f1f5f9;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 10px rgba(130, 163, 245, 0.5);
-  background: linear-gradient(135deg, #f1f5f9, #82a3f5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-[data-theme="dark"] .card-header {
-  border-color: #374151;
-}
-
-[data-theme="dark"] .status-item,
-[data-theme="dark"] .attribute-card,
-[data-theme="dark"] .stat-item {
-  background: #374151;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .progress-bar,
-[data-theme="dark"] .realm-progress-bar {
-  background: #374151;
-}
-
-[data-theme="dark"] .talent-badge {
-  background: #1e293b;
-  border-color: #475569;
-  color: #93c5fd;
-}
-
-[data-theme="dark"] .effect-item.buff {
-  background: #1e293b;
-  border-color: #374151;
-}
-
-[data-theme="dark"] .effect-item.debuff {
-  background: #1e293b;
-  border-color: #374151;
-}
-
-[data-theme="dark"] .action-btn.secondary {
-  background: #374151;
-  border-color: #475569;
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .action-btn.secondary:hover {
-  background: #475569;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* 响应式设计 */
@@ -1212,11 +1044,6 @@ onMounted(() => {
     gap: 0.5rem;
   }
   
-  .action-buttons {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
   .effects-list {
     max-height: 8rem;
   }
@@ -1230,11 +1057,7 @@ onMounted(() => {
   }
   
   .character-header-card,
-  .innate-attributes-card,
-  .status-card,
-  .cultivation-info-card,
-  .talent-spiritual-root-card,
-  .status-effects-card {
+  .detail-section {
     padding: 1rem;
   }
 }
