@@ -34,7 +34,7 @@
               <span class="action-name">自定义世界</span>
             </button>
           </template>
-          
+
           <!-- AI推演按钮（两种模式都有） -->
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">AI推演</span>
@@ -89,26 +89,26 @@ const worldsList = computed(() => {
   const allWorlds = store.creationData.worlds;
   console.log("【世界选择】所有世界数据:", allWorlds);
   console.log("【世界选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
-  
+
   if (store.isLocalCreation) {
     // 单机模式显示本地数据和云端同步的数据
-    const availableWorlds = allWorlds.filter(world => 
+    const availableWorlds = allWorlds.filter(world =>
       world.source === 'local' || world.source === 'cloud'
     );
     console.log("【世界选择】单机模式可用世界列表:", availableWorlds);
     return availableWorlds;
   } else {
-    const cloudWorlds = allWorlds.filter(world => 
+    const cloudWorlds = allWorlds.filter(world =>
       world.source === 'cloud'
     );
     console.log("【世界选择】联机模式世界列表:", cloudWorlds);
     console.log("【世界选择】云端世界数量:", cloudWorlds.length);
-    
+
     if (cloudWorlds.length === 0) {
       console.warn("【世界选择】警告：联机模式下没有找到云端世界数据！");
       console.log("【世界选择】尝试查看所有世界的source字段:", allWorlds.map(w => ({ name: w.name, source: w.source, id: w.id })));
     }
-    
+
     return cloudWorlds;
   }
 });
@@ -227,7 +227,6 @@ function handleSelectWorld(world: World) {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  border-left: 3px solid transparent;
 }
 
 .list-item:hover {
