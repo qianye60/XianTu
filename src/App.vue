@@ -43,42 +43,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router'; // 导入 useRouter
-import ToastContainer from './components/common/ToastContainer.vue'; // 导入 Toast 容器
-import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue'; // 导入全局加载遮罩
-// 不再需要直接导入视图组件
-// import ModeSelection from './views/ModeSelection.vue';
-// import CharacterCreation from './views/CharacterCreation.vue';
-// import LoginView from './views/LoginView.vue';
-// import GameView from './views/GameView.vue';
-// import CharacterManagement from './components/character-creation/CharacterManagement.vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import $ from 'jquery'; // 导入 jQuery
+import ToastContainer from './components/common/ToastContainer.vue';
+import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
-import { useUIStore } from './stores/uiStore'; // 导入UI Store
+import { useUIStore } from './stores/uiStore';
 import { verifyStoredToken } from './services/request';
 import { toast } from './utils/toast';
 import type { CharacterBaseInfo, InnateAttributes, SaveData } from '@/types/game';
 import { initializeCharacter } from '@/services/characterInitialization';
 
+// --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
-
-// 添加全局按钮引用
+const isDarkMode = ref(true);
 const globalThemeCheckbox = ref<HTMLInputElement>();
 const globalFullscreenCheckbox = ref<HTMLInputElement>();
 
-// --- 核心视图管理 (已重构为路由) ---
-const router = useRouter(); // 获取路由实例
-
-// 定义视图名称类型，以便旧代码兼容
+// --- 路由与视图管理 ---
+const router = useRouter();
+const route = useRoute();
 type ViewName = 'ModeSelection' | 'CharacterCreation' | 'Login' | 'CharacterManagement' | 'GameView';
 
-const creationStore = useCharacterCreationStore();
-const characterStore = useCharacterStore();
-const uiStore = useUIStore();
+const activeView = computed(() => {
+  const routeName = String(route.name || '');
+  return routeName as ViewName;
+});
 
-// 重构 switchView 函数，使其驱动路由而不是内部状态
 const switchView = (viewName: ViewName) => {
   const routeMap: Record<ViewName, string> = {
     ModeSelection: '/',
@@ -96,33 +90,31 @@ const switchView = (viewName: ViewName) => {
   }
 };
 
+// --- Pinia Stores ---
+const creationStore = useCharacterCreationStore();
+const characterStore = useCharacterStore();
+const uiStore = useUIStore();
+
+// --- 事件处理器 ---
 const handleStartCreation = async (mode: 'single' | 'cloud') => {
   try {
     creationStore.setMode(mode);
-    // await creationStore.initializeStore(mode); // 假设创角store有初始化逻辑
-
     if (mode === 'single') {
       switchView('CharacterCreation');
     } else {
       isLoggedIn.value = await verifyStoredToken();
       if (isLoggedIn.value) {
         try {
-          // 首先获取所有云端数据
           await creationStore.fetchAllCloudData();
-          
-          // 检查是否成功获取到云端世界数据
           const cloudWorlds = creationStore.creationData.worlds.filter(w => w.source === 'cloud');
           if (cloudWorlds.length === 0) {
             throw new Error('未获取到任何云端世界数据');
           }
-          
           console.log('【应用】云端创世数据获取完成');
-          // 然后再进入创角界面
           switchView('CharacterCreation');
         } catch (fetchError) {
           console.error("获取云端数据失败:", fetchError);
           toast.error("无法连接到服务器获取创世数据，请检查网络连接后重试。");
-          // 获取失败时返回模式选择界面
           switchView('ModeSelection');
         }
       } else {
@@ -134,7 +126,6 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
     console.error("Failed to initialize creation data:", error);
     toast.error("初始化创角数据失败，请稍后重试。");
     switchView('ModeSelection');
-  } finally {
   }
 };
 
@@ -156,37 +147,28 @@ const handleGoToLogin = () => {
  switchView('Login');
 };
 
-// 统一的角色/存档选择处理器
 const handleCharacterSelect = async (selection: { charId: string, slotKey: string }) => {
   console.log(`接收到选择指令... 角色ID: ${selection.charId}, 存档槽: ${selection.slotKey}`);
-  
   try {
     const success = await characterStore.loadGame(selection.charId, selection.slotKey);
-    
     if (success) {
       console.log('存档加载成功，切换到游戏视图');
-      // 确保数据已完全加载后再切换视图
       await new Promise(resolve => setTimeout(resolve, 500));
       switchView('GameView');
     } else {
       console.error('存档加载失败');
       toast.error('存档加载失败，请重试');
-      // 加载失败时留在角色管理界面
     }
   } catch (error) {
     console.error('存档加载过程出错:', error);
     toast.error('进入游戏时发生错误：' + (error instanceof Error ? error.message : '未知错误'));
-  } finally {
   }
 };
 
 const handleCreationComplete = async (rawPayload: any) => {
   console.log('接收到创角指令...', rawPayload);
   uiStore.startLoading('开始铸造法身...');
-
   try {
-    // 1. 将原始数据转换为 CharacterBaseInfo 结构
-    // 重要：需要将英文键名转换为中文键名
     const convertedAttributes = rawPayload.baseAttributes ? {
       根骨: rawPayload.baseAttributes.root_bone || 5,
       灵性: rawPayload.baseAttributes.spirituality || 5,
@@ -195,15 +177,8 @@ const handleCreationComplete = async (rawPayload: any) => {
       魅力: rawPayload.baseAttributes.charm || 5,
       心性: rawPayload.baseAttributes.temperament || 5
     } : {
-      根骨: 5,
-      灵性: 5,
-      悟性: 5,
-      气运: 5,
-      魅力: 5,
-      心性: 5
+      根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5
     };
-
-    console.log('转换后的先天六司属性：', convertedAttributes);
 
     const baseInfo: CharacterBaseInfo = {
       名字: rawPayload.characterName || '无名道友',
@@ -216,7 +191,6 @@ const handleCreationComplete = async (rawPayload: any) => {
       先天六司: convertedAttributes,
     };
 
-    // 2. 准备 store 需要的 CreationPayload
     const charId = `char_${Date.now()}`;
     const creationPayload = {
       charId: charId,
@@ -226,214 +200,175 @@ const handleCreationComplete = async (rawPayload: any) => {
       age: rawPayload.age,
     };
 
-    // 3. 调用 store 创建角色基础档案（注意：这是异步函数！）
     const createdBaseInfo = await characterStore.createNewCharacter(creationPayload);
-
     if (!createdBaseInfo) {
-      console.error("角色创建失败，请检查 characterStore 的日志。");
-      toast.error("角色创建失败");
-      return;
+      throw new Error("角色创建失败，请检查 characterStore 的日志。");
     }
 
-    // 4. 注意：createNewCharacter 已经包含了初始化和保存逻辑
-    // 不需要再重复执行，否则会覆盖数据
-
-    // 5. 只需要确保激活存档已设置
-    console.log('角色创建完成，当前rootState:', characterStore.rootState);
-
-    // 验证角色是否真的创建成功
     const profile = characterStore.rootState.角色列表[charId];
     if (!profile) {
-      console.error('严重错误：角色创建后无法在角色列表中找到！');
-      toast.error('角色数据保存失败');
-      switchView('ModeSelection');
-      return;
+      throw new Error('严重错误：角色创建后无法在角色列表中找到！');
     }
-
-    console.log('成功找到创建的角色:', profile);
-
-    // 6. 设置当前激活存档（不调用loadGame避免异步问题）
-    const slotKey = profile?.模式 === '单机' ? '存档1' : '存档';
+    
+    const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
     characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
     characterStore.commitToStorage();
-
-    // 7. 延迟一下确保数据保存完成，然后进入游戏
+    
     await new Promise(resolve => setTimeout(resolve, 500));
-
-    // 8. 确保所有数据都已保存并生成完毕后，才进入游戏
     toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
-
-    // 9. 最后切换到游戏视图
     switchView('GameView');
-
   } catch (error) {
     console.error("角色创建过程出错：", error);
-    toast.error("法身铸造过程中出现意外，请重试");
-    // 失败后返回模式选择页面
+    const errorMessage = error instanceof Error ? error.message : "法身铸造过程中出现意外，请重试";
+    toast.error(errorMessage);
     switchView('ModeSelection');
   } finally {
-    // 10. 无论成功失败，都关闭加载状态
     uiStore.stopLoading();
   }
 };
 
 // --- 主题与全屏 ---
-const isDarkMode = ref(true);
-
 const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value;
   const theme = isDarkMode.value ? 'dark' : 'light';
-
-  // 设置根元素主题
   document.documentElement.setAttribute('data-theme', theme);
-
-  // 更新全局按钮状态
-  if (globalThemeCheckbox.value) {
-    globalThemeCheckbox.value.checked = theme === 'light';
-  }
-
-  // 设置CSS变量以适配所有页面
-  const root = document.documentElement;
-  if (isDarkMode.value) {
-    // 暗色主题 (参照图片风格)
-    root.style.setProperty('--color-background', '#1a1b26'); // 深邃的背景，以防视频加载失败
-    root.style.setProperty('--color-background-transparent', 'rgba(26, 27, 38, 0.85)');
-    root.style.setProperty('--color-surface', '#293348');
-    root.style.setProperty('--color-surface-transparent', 'rgba(41, 51, 72, 0.6)'); // 调整透明度以匹配参考图
-    root.style.setProperty('--color-surface-light', '#414868');
-    root.style.setProperty('--color-primary', '#82a3f5'); // 图片中的图标和点缀色
-    root.style.setProperty('--color-primary-rgb', '130, 163, 245');
-    root.style.setProperty('--color-accent', '#c0caf5'); // 用于主要标题
-    root.style.setProperty('--color-text', '#ffffff'); // 纯白色文字
-    root.style.setProperty('--color-text-secondary', '#d0d0d0'); // 浅灰色次要文字
-    root.style.setProperty('--color-border', 'rgba(173, 216, 230, 0.5)'); // 增强发光边框
-    root.style.setProperty('--color-success', '#9ece6a');
-    root.style.setProperty('--color-warning', '#ffd500');
-    root.style.setProperty('--color-error', '#f7768e');
-    root.style.setProperty('--color-info', '#7dcfff');
-  } else {
-    // 亮色主题 (纯净透明)
-    root.style.setProperty('--color-background', '#f0f0f0');
-    root.style.setProperty('--color-background-transparent', 'rgba(240, 240, 240, 0.85)');
-    root.style.setProperty('--color-surface', '#ffffff');
-    root.style.setProperty('--color-surface-transparent', 'rgba(255, 255, 255, 0.75)'); // 纯白透明
-    root.style.setProperty('--color-surface-light', '#e5e6eb');
-    root.style.setProperty('--color-primary', '#2e5cb8');
-    root.style.setProperty('--color-primary-rgb', '46, 92, 184');
-    root.style.setProperty('--color-accent', '#7c4dff');
-    root.style.setProperty('--color-text', '#1a1a1a');
-    root.style.setProperty('--color-text-secondary', '#666666');
-    root.style.setProperty('--color-border', 'rgba(0, 0, 0, 0.1)'); // 清晰的灰色边框
-    root.style.setProperty('--color-success', '#4caf50');
-    root.style.setProperty('--color-warning', '#ff9800');
-    root.style.setProperty('--color-error', '#f44336');
-    root.style.setProperty('--color-info', '#2196f3');
-  }
-
-  // 保存主题偏好到本地存储
   localStorage.setItem('theme', theme);
+
+  if (globalThemeCheckbox.value) {
+    globalThemeCheckbox.value.checked = !isDarkMode.value;
+  }
+  
+  // 应用颜色变量
+  applyThemeColors(theme);
+};
+
+const applyThemeColors = (theme: 'dark' | 'light') => {
+  const root = document.documentElement;
+  const colors = {
+    dark: {
+      '--color-background': '#1a1b26',
+      '--color-background-transparent': 'rgba(26, 27, 38, 0.85)',
+      '--color-surface': '#293348',
+      '--color-surface-transparent': 'rgba(41, 51, 72, 0.6)',
+      '--color-surface-light': '#414868',
+      '--color-primary': '#82a3f5',
+      '--color-primary-rgb': '130, 163, 245',
+      '--color-accent': '#c0caf5',
+      '--color-text': '#ffffff',
+      '--color-text-secondary': '#d0d0d0',
+      '--color-border': 'rgba(173, 216, 230, 0.5)',
+      '--color-success': '#9ece6a',
+      '--color-warning': '#ffd500',
+      '--color-error': '#f7768e',
+      '--color-info': '#7dcfff',
+    },
+    light: {
+      '--color-background': '#f0f0f0',
+      '--color-background-transparent': 'rgba(240, 240, 240, 0.85)',
+      '--color-surface': '#ffffff',
+      '--color-surface-transparent': 'rgba(255, 255, 255, 0.75)',
+      '--color-surface-light': '#e5e6eb',
+      '--color-primary': '#2e5cb8',
+      '--color-primary-rgb': '46, 92, 184',
+      '--color-accent': '#7c4dff',
+      '--color-text': '#1a1a1a',
+      '--color-text-secondary': '#666666',
+      '--color-border': 'rgba(0, 0, 0, 0.1)',
+      '--color-success': '#4caf50',
+      '--color-warning': '#ff9800',
+      '--color-error': '#f44336',
+      '--color-info': '#2196f3',
+    }
+  };
+  
+  const themeColors = colors[theme];
+  for (const [key, value] of Object.entries(themeColors)) {
+    root.style.setProperty(key, value);
+  }
 };
 
 const toggleFullscreen = () => {
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().then(() => {
-      if (globalFullscreenCheckbox.value) {
-        globalFullscreenCheckbox.value.checked = true;
-      }
-    }).catch(err => {
+    document.documentElement.requestFullscreen().catch(err => {
       console.error('无法进入全屏模式:', err);
     });
   } else if (document.exitFullscreen) {
-    document.exitFullscreen().then(() => {
-      if (globalFullscreenCheckbox.value) {
-        globalFullscreenCheckbox.value.checked = false;
-      }
-    }).catch(err => {
+    document.exitFullscreen().catch(err => {
       console.error('无法退出全屏模式:', err);
     });
   }
 };
 
-onMounted(async () => {
-  // 预加载视频背景
-  try {
-    console.log('[App] 开始预加载视频背景...');
-    // const { VideoCache } = await import('@/utils/videoCache');
-    // VideoCache.getInstance(); // 这会自动开始预加载默认视频
-    console.log('[App] 视频背景预加载已启动');
-  } catch (error) {
-    console.warn('[App] 视频背景预加载失败:', error);
-  }
+// --- 生命周期钩子 ---
+onMounted(() => {
+  // 1. Iframe 高度适配 (主动查询父窗口模式)
+  const updateHeight = () => {
+    try {
+      // 检查是否在 iframe 中
+      if (window.parent === window) {
+        return;
+      }
+      
+      const externalDiv = $('#chat', parent.document);
+      if (externalDiv.length > 0) {
+        const height = externalDiv.height();
+        if (height) {
+          const calculatedHeight = height * 0.9;
+          const newMinHeight = `${calculatedHeight}px`;
+          document.documentElement.style.minHeight = newMinHeight;
+          console.log(`[App.vue] 主动查询父窗口#chat高度成功，应用min-height: ${newMinHeight}`);
+        }
+      } else {
+        console.warn('[App.vue] 在父窗口中未找到 #chat 元素，无法自动调整高度。');
+      }
+    } catch (e) {
+      console.error('[App.vue] 访问父窗口DOM失败，可能是跨域限制。请确保iframe与父页面同源。', e);
+      // 如果跨域，则停止后续尝试
+      $(parent.window).off('resize', updateHeight);
+    }
+  };
 
-  // 默认深色主题
+  // 初始化并监听父窗口大小变化
+  updateHeight();
+  $(parent.window).on('resize', updateHeight);
+  
+  // 2. 初始化主题
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme === 'light') {
     isDarkMode.value = false;
-    document.documentElement.setAttribute('data-theme', 'light');
-  } else {
-    isDarkMode.value = true;
-    document.documentElement.setAttribute('data-theme', 'dark');
-    localStorage.setItem('theme', 'dark'); // 确保保存
   }
-  
-  // 初始化全局按钮状态
-  if (globalThemeCheckbox.value) {
-    globalThemeCheckbox.value.checked = !isDarkMode.value;
-  }
-  if (globalFullscreenCheckbox.value) {
-    globalFullscreenCheckbox.value.checked = !!document.fullscreenElement;
-  }
-  
-  // 监听全屏状态变化
-  const handleFullscreenChange = () => {
+  toggleTheme(); // 应用初始主题
+
+  // 3. 全屏状态同步
+  const syncFullscreenState = () => {
     if (globalFullscreenCheckbox.value) {
       globalFullscreenCheckbox.value.checked = !!document.fullscreenElement;
     }
   };
   
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
-  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-  document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-  document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+  document.addEventListener('fullscreenchange', syncFullscreenState);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+  document.addEventListener('mozfullscreenchange', syncFullscreenState);
+  document.addEventListener('MSFullscreenChange', syncFullscreenState);
   
-  // 应用主题样式
-  const theme = isDarkMode.value ? 'dark' : 'light';
-  const root = document.documentElement;
-  if (isDarkMode.value) {
-    // 暗色主题 (参照图片风格)
-    root.style.setProperty('--color-background', '#1a1b26'); // 深邃的背景，以防视频加载失败
-    root.style.setProperty('--color-background-transparent', 'rgba(26, 27, 38, 0.85)');
-    root.style.setProperty('--color-surface', '#293348');
-    root.style.setProperty('--color-surface-transparent', 'rgba(41, 51, 72, 0.6)'); // 调整透明度以匹配参考图
-    root.style.setProperty('--color-surface-light', '#414868');
-    root.style.setProperty('--color-primary', '#82a3f5'); // 图片中的图标和点缀色
-    root.style.setProperty('--color-primary-rgb', '130, 163, 245');
-    root.style.setProperty('--color-accent', '#c0caf5'); // 用于主要标题
-    root.style.setProperty('--color-text', '#ffffff'); // 纯白色文字
-    root.style.setProperty('--color-text-secondary', '#d0d0d0'); // 浅灰色次要文字
-    root.style.setProperty('--color-border', 'rgba(173, 216, 230, 0.5)'); // 增强发光边框
-    root.style.setProperty('--color-success', '#9ece6a');
-    root.style.setProperty('--color-warning', '#ffd500');
-    root.style.setProperty('--color-error', '#f7768e');
-    root.style.setProperty('--color-info', '#7dcfff');
-  } else {
-    // 亮色主题 (纯净透明)
-    root.style.setProperty('--color-background', '#f0f0f0');
-    root.style.setProperty('--color-background-transparent', 'rgba(240, 240, 240, 0.85)');
-    root.style.setProperty('--color-surface', '#ffffff');
-    root.style.setProperty('--color-surface-transparent', 'rgba(255, 255, 255, 0.75)'); // 纯白透明
-    root.style.setProperty('--color-surface-light', '#e5e6eb');
-    root.style.setProperty('--color-primary', '#2e5cb8');
-    root.style.setProperty('--color-primary-rgb', '46, 92, 184');
-    root.style.setProperty('--color-accent', '#7c4dff');
-    root.style.setProperty('--color-text', '#1a1a1a');
-    root.style.setProperty('--color-text-secondary', '#666666');
-    root.style.setProperty('--color-border', 'rgba(0, 0, 0, 0.1)'); // 清晰的灰色边框
-    root.style.setProperty('--color-success', '#4caf50');
-    root.style.setProperty('--color-warning', '#ff9800');
-    root.style.setProperty('--color-error', '#f44336');
-    root.style.setProperty('--color-info', '#2196f3');
-  }
+  syncFullscreenState(); // 初始检查
+
+  // 统一的清理逻辑
+  onUnmounted(() => {
+    // 清理父窗口resize监听
+    if (window.parent !== window) {
+      try {
+        $(parent.window).off('resize', updateHeight);
+      } catch (e) {
+        // 忽略跨域错误
+      }
+    }
+    // 清理全屏监听
+    document.removeEventListener('fullscreenchange', syncFullscreenState);
+    document.removeEventListener('webkitfullscreenchange', syncFullscreenState);
+    document.removeEventListener('mozfullscreenchange', syncFullscreenState);
+    document.removeEventListener('MSFullscreenChange', syncFullscreenState);
+  });
 });
 </script>
 

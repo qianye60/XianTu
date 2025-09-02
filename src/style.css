@@ -81,7 +81,7 @@
 /* --- Base Styles --- */
 html,
 body {
-  height: 100%;
+  /* 高度将由 App.vue 中的脚本动态设置，此处不应有 height 或 min-height */
   margin: 0;
   padding: 0;
   /* 移除 overflow: hidden; 应用内滚动由 #app 控制 */
