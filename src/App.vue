@@ -24,46 +24,35 @@
       </label>
     </div>
 
-    <template v-if="activeView === 'ModeSelection'">
-      <ModeSelection
-        @start-creation="handleStartCreation"
-        @show-character-list="handleShowCharacterList"
-      />
-    </template>
-    <template v-else-if="activeView === 'CharacterCreation'">
-      <CharacterCreation
-        @back="handleBack"
-        @creation-complete="handleCreationComplete"
-      />
-    </template>
-    <template v-else-if="activeView === 'Login'">
-      <LoginView
-        @loggedIn="handleLoggedIn"
-        @back="handleBack"
-      />
-    </template>
-    <template v-else-if="activeView === 'CharacterManagement'">
-      <CharacterManagement
-        @select="handleCharacterSelect"
-        @back="handleBack"
-        @login="handleGoToLogin"
-      />
-    </template>
-    <template v-else-if="activeView === 'GameView'">
-      <GameView />
-    </template>
+    <!-- 路由视图将在这里渲染所有页面 -->
+    <router-view v-slot="{ Component }">
+      <transition name="fade" mode="out-in">
+        <component :is="Component"
+          @start-creation="handleStartCreation"
+          @show-character-list="handleShowCharacterList"
+          @back="handleBack"
+          @creation-complete="handleCreationComplete"
+          @loggedIn="handleLoggedIn"
+          @select="handleCharacterSelect"
+          @login="handleGoToLogin"
+        />
+      </transition>
+    </router-view>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { shallowRef, ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router'; // 导入 useRouter
 import ToastContainer from './components/common/ToastContainer.vue'; // 导入 Toast 容器
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue'; // 导入全局加载遮罩
-import ModeSelection from './views/ModeSelection.vue';
-import CharacterCreation from './views/CharacterCreation.vue';
-import LoginView from './views/LoginView.vue';
-import GameView from './views/GameView.vue';
-import CharacterManagement from './components/character-creation/CharacterManagement.vue';
+// 不再需要直接导入视图组件
+// import ModeSelection from './views/ModeSelection.vue';
+// import CharacterCreation from './views/CharacterCreation.vue';
+// import LoginView from './views/LoginView.vue';
+// import GameView from './views/GameView.vue';
+// import CharacterManagement from './components/character-creation/CharacterManagement.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
@@ -79,26 +68,31 @@ const isLoggedIn = ref(false);
 const globalThemeCheckbox = ref<HTMLInputElement>();
 const globalFullscreenCheckbox = ref<HTMLInputElement>();
 
-// --- 核心视图管理 ---
-const views = {
-  ModeSelection,
-  CharacterCreation,
-  Login: LoginView,
-  CharacterManagement,
-  GameView,
-};
-type ViewName = keyof typeof views;
-const activeView = ref<ViewName>('ModeSelection');
+// --- 核心视图管理 (已重构为路由) ---
+const router = useRouter(); // 获取路由实例
+
+// 定义视图名称类型，以便旧代码兼容
+type ViewName = 'ModeSelection' | 'CharacterCreation' | 'Login' | 'CharacterManagement' | 'GameView';
 
 const creationStore = useCharacterCreationStore();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
 
+// 重构 switchView 函数，使其驱动路由而不是内部状态
 const switchView = (viewName: ViewName) => {
-  if (views[viewName]) {
-    activeView.value = viewName;
+  const routeMap: Record<ViewName, string> = {
+    ModeSelection: '/',
+    CharacterCreation: '/creation',
+    Login: '/login',
+    CharacterManagement: '/management',
+    GameView: '/game',
+  };
+  const path = routeMap[viewName];
+  if (path) {
+    router.push(path);
   } else {
-    activeView.value = 'ModeSelection';
+    console.warn(`未知的视图名称: ${viewName}，将导航至首页。`);
+    router.push('/');
   }
 };
 
@@ -444,6 +438,16 @@ onMounted(async () => {
 </script>
 
 <style>
+/* 添加页面切换过渡效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 #app-container {
   width: 100%;
   height: 100%;

@@ -1,0 +1,30 @@
+name: sync_template
+
+on:
+  schedule:
+    - cron: 0 3 * * *
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  repository-projects: read
+
+jobs:
+  sync_template:
+    if: github.repository != 'StageDog/tavern_helper_template'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: AndreasAugustin/actions-template-sync@v2
+        with:
+          source_repo_path: StageDog/tavern_helper_template
+          pr_title: '[bot] 同步模板仓库的更新'
+          pr_commit_msg: '[bot] bump template repository update'
+          is_pr_cleanup: true
+          template_sync_ignore_file_path: .github/.templatesyncignore
+          is_force_deletion: true
+          git_remote_pull_params: --allow-unrelated-histories --strategy=recursive --no-edit -X diff-algorithm=minimal -X ignore-all-space -X patience -X renormalize

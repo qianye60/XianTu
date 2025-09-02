@@ -1,0 +1,7 @@
+{
+  "id": "a33d4634-788a-4fb2-9bb6-ce054e8065d6",
+  "name": "脚本-实时修改",
+  "content": "import 'http://localhost:5500/dist/脚本示例/index.js'",
+  "info": "",
+  "buttons": []
+}

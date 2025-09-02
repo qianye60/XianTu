@@ -22,7 +22,7 @@ export default (env, argv) => {
       path: path.resolve(__dirname, 'dist'),
       filename: 'bundle.js',
       clean: true,
-      publicPath: '/',  // 添加publicPath配置
+      publicPath: '/',
     },
     devtool: isProduction ? false : 'eval-source-map',
     resolve: {
@@ -31,6 +31,39 @@ export default (env, argv) => {
         '@': path.resolve(__dirname, 'src/'),
       },
     },
+    externals: [
+      ({ context, request }, callback) => {
+        if (!context || !request) {
+          return callback();
+        }
+
+        // 检查是否是本地文件引用
+        if (
+          request.startsWith('.') ||
+          request.startsWith('/') ||
+          path.isAbsolute(request)
+        ) {
+          return callback();
+        }
+
+        const builtin = {
+          jquery: '$',
+          lodash: '_',
+          toastr: 'toastr',
+          vue: 'Vue',
+          'vue-router': 'VueRouter',
+          yaml: 'YAML',
+          zod: 'z',
+        };
+
+        if (request in builtin) {
+          return callback(null, 'var ' + builtin[request]);
+        }
+
+        // 对于不在 builtin 列表中的其他npm包，正常打包，不作为外部依赖处理
+        return callback();
+      },
+    ],
     module: {
       rules: [
         {
