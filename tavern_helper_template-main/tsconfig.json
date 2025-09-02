@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "types": [
+      "jquery",
+      "jqueryui",
+      "lodash",
+      "toastr",
+      "type-fest",
+      "yaml",
+      "zod",
+    ],
+    "target": "ESNext",
+    "module": "ESNext",
+    "outDir": "dist",
+    "baseUrl": "src",
+    "paths": {},
+    "moduleDetection": "auto",
+    "moduleResolution": "bundler",
+    "allowUmdGlobalAccess": true,
+    "allowSyntheticDefaultImports": true,
+    "strictBindCallApply": true,
+    "allowJs": true,
+    "checkJs": false,
+    "sourceMap": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "@types",
+    "src",
+    "global.d.ts",
+  ],
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**",
+  ]
+}

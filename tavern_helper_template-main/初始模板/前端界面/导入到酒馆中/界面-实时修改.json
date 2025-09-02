@@ -1,0 +1,15 @@
+{
+  "id": "8ff7ac03-7deb-4040-b00b-e65c462e3cf5",
+  "scriptName": "界面-实时修改",
+  "findRegex": ".*",
+  "replaceString": "```text\n<body>\n<script>\n$('body').load('http://localhost:5500/dist/界面示例/index.html')\n</script>\n</body>\n```",
+  "trimStrings": [],
+  "placement": [1, 2],
+  "disabled": true,
+  "markdownOnly": true,
+  "promptOnly": false,
+  "runOnEdit": false,
+  "substituteRegex": 0,
+  "minDepth": null,
+  "maxDepth": null
+}
