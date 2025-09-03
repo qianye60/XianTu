@@ -4,7 +4,7 @@
     <TopBar />
 
     <!-- 主要内容区域 -->
-    <div class="game-content">
+    <div class="game-content" :class="{ 'panel-mode': isPanelOpen }">
       <!-- 左侧功能栏 -->
       <div class="left-sidebar" :class="{ collapsed: leftSidebarCollapsed }">
         <div class="sidebar-wrapper">
@@ -13,7 +13,11 @@
       </div>
 
       <!-- 左侧收缩按钮 -->
-      <button class="collapse-btn left" @click="leftSidebarCollapsed = !leftSidebarCollapsed">
+      <button 
+        class="collapse-btn left" 
+        v-show="!isPanelOpen"
+        @click="leftSidebarCollapsed = !leftSidebarCollapsed"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline :points="leftSidebarCollapsed ? '9,18 15,12 9,6' : '15,18 9,12 15,6'"/>
         </svg>
@@ -21,18 +25,41 @@
 
       <!-- 主游戏区域 -->
       <div class="main-content">
-        <router-view />
+        <!-- 功能面板覆盖层 -->
+        <div v-if="isPanelOpen" class="panel-overlay">
+          <div class="panel-header">
+            <h2 class="panel-title">{{ currentPanelTitle }}</h2>
+            <button class="panel-close-btn" @click="closePanel" title="关闭面板">
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="panel-content">
+            <router-view />
+          </div>
+        </div>
+        
+        <!-- 正常路由视图 -->
+        <router-view v-else />
       </div>
 
       <!-- 右侧收缩按钮 -->
-      <button class="collapse-btn right" :class="{ collapsed: rightSidebarCollapsed }" @click="rightSidebarCollapsed = !rightSidebarCollapsed">
+      <button 
+        class="collapse-btn right" 
+        :class="{ collapsed: rightSidebarCollapsed }" 
+        v-show="!isPanelOpen"
+        @click="rightSidebarCollapsed = !rightSidebarCollapsed"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline :points="rightSidebarCollapsed ? '15,18 9,12 15,6' : '9,18 15,12 9,6'"/>
         </svg>
       </button>
 
       <!-- 右侧区域: 角色信息栏 -->
-      <div class="right-panel-area" :class="{ collapsed: rightSidebarCollapsed }">
+      <div 
+        class="right-panel-area" 
+        :class="{ collapsed: rightSidebarCollapsed }"
+        v-show="!isPanelOpen"
+      >
         <div class="sidebar-wrapper">
           <RightSidebar :collapsed="rightSidebarCollapsed" />
         </div>
@@ -42,20 +69,81 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useCharacterStore } from '@/stores/characterStore';
+import { useRouter, useRoute } from 'vue-router';
+import { X } from 'lucide-vue-next';
 import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 
 const characterStore = useCharacterStore();
+const router = useRouter();
+const route = useRoute();
 
 // 侧边栏收缩状态
 const leftSidebarCollapsed = ref(false);
 const rightSidebarCollapsed = ref(false);
 
+// 面板状态管理
+const panelRoutes = new Set([
+  'Inventory', 'CharacterDetails', 'Memory', 'Relationships', 
+  'Cultivation', 'Skills', 'Settings', 'Save', 'WorldMap', 
+  'Quests', 'Sect'
+]);
+
+// 左侧功能面板（不应该影响左侧收缩按钮）
+const leftPanelRoutes = new Set([
+  'Inventory', 'CharacterDetails', 'Quests', 'WorldMap'
+]);
+
+// 右侧相关面板（应该影响右侧收缩按钮）  
+const rightPanelRoutes = new Set([
+  'Memory', 'Relationships', 'Cultivation', 'Skills', 'Settings', 'Save', 'Sect'
+]);
+
+const panelTitles: Record<string, string> = {
+  'Inventory': '物品背包',
+  'CharacterDetails': '角色详情', 
+  'Memory': '记忆中心',
+  'Relationships': '人物关系',
+  'Cultivation': '功法修炼',
+  'Skills': '道法技艺', 
+  'Settings': '系统设置',
+  'Save': '存档管理',
+  'WorldMap': '世界地图',
+  'Quests': '任务系统',
+  'Sect': '宗门事务'
+};
+
+const isPanelOpen = computed(() => {
+  return panelRoutes.has(String(route.name));
+});
+
+const currentPanelTitle = computed(() => {
+  const routeName = String(route.name);
+  return panelTitles[routeName] || '功能面板';
+});
+
+const closePanel = () => {
+  router.push('/game');
+};
+
 const isDataReady = computed(() => {
   return !!characterStore.activeCharacterProfile && !!characterStore.activeSaveSlot?.存档数据;
+});
+
+// 监听面板状态变化，智能调整布局
+watch(isPanelOpen, (isOpen) => {
+  if (isOpen) {
+    const currentRoute = String(route.name);
+    // 只有右侧相关面板才收起右侧边栏
+    if (rightPanelRoutes.has(currentRoute)) {
+      rightSidebarCollapsed.value = true;
+    }
+    // 左侧功能面板不影响侧边栏状态
+  }
+  // 注意：我们不在面板关闭时自动展开侧边栏，让用户保持之前的偏好
 });
 </script>
 
@@ -183,6 +271,96 @@ const isDataReady = computed(() => {
 .right-panel-area.collapsed {
   width: 0;
   overflow: hidden;
+}
+
+/* 面板覆盖模式样式 - 只隐藏右侧栏，保留左侧栏 */
+.game-content.panel-mode .right-panel-area {
+  display: none;
+}
+
+.panel-overlay {
+  width: 100%;
+  height: 100%;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0; /* 只有标题栏直角 */
+  flex-shrink: 0;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.panel-close-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-close-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: var(--color-primary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.3s ease;
+  opacity: 0.1;
+  z-index: -1;
+}
+
+.panel-close-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.panel-close-btn:hover::before {
+  width: 100%;
+  height: 100%;
+}
+
+.panel-close-btn:active {
+  transform: scale(0.95);
+}
+
+.panel-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 面板模式下隐藏右侧栏 */
+.game-content.panel-mode .right-panel-area {
+  display: none;
 }
 
 /* 深色主题 */

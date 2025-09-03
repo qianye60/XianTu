@@ -130,8 +130,8 @@
                   <!-- 上次对话存档 -->
                   <div class="save-card auto-save" 
                        :class="{ 'has-data': selectedCharacter.存档列表?.['上次对话']?.存档数据 }"
-                       @click="handleSelect(selectedCharId!, '上次对话', !!selectedCharacter.存档列表?.['上次对话']?.存档数据)"
-                       style="cursor: pointer;">
+                       @click="selectedCharacter.存档列表?.['上次对话']?.存档数据 && handleSelect(selectedCharId!, '上次对话', true)"
+                       :style="{ cursor: selectedCharacter.存档列表?.['上次对话']?.存档数据 ? 'pointer' : 'default' }">
                     <div v-if="selectedCharacter.存档列表?.['上次对话']?.存档数据" class="save-data">
                       <div class="save-header">
                         <h4 class="save-name">上次对话</h4>
@@ -171,15 +171,15 @@
                     <div v-else class="save-empty">
                       <div class="empty-slot-icon">🤖</div>
                       <span class="empty-text">暂无自动存档</span>
-                      <span class="auto-save-desc">点击可创建新存档</span>
+                      <span class="auto-save-desc">游戏会自动保存</span>
                     </div>
                   </div>
 
                   <!-- 快速存档 -->
                   <div class="save-card auto-save" 
                        :class="{ 'has-data': selectedCharacter.存档列表?.['自动存档']?.存档数据 }"
-                       @click="handleSelect(selectedCharId!, '自动存档', !!selectedCharacter.存档列表?.['自动存档']?.存档数据)"
-                       style="cursor: pointer;">
+                       @click="selectedCharacter.存档列表?.['自动存档']?.存档数据 && handleSelect(selectedCharId!, '自动存档', true)"
+                       :style="{ cursor: selectedCharacter.存档列表?.['自动存档']?.存档数据 ? 'pointer' : 'default' }">
                     <div v-if="selectedCharacter.存档列表?.['自动存档']?.存档数据" class="save-data">
                       <div class="save-header">
                         <h4 class="save-name">自动存档</h4>
@@ -219,7 +219,7 @@
                     <div v-else class="save-empty">
                       <div class="empty-slot-icon">💾</div>
                       <span class="empty-text">暂无自动存档</span>
-                      <span class="auto-save-desc">点击可创建新存档</span>
+                      <span class="auto-save-desc">游戏会自动保存</span>
                     </div>
                   </div>
                 </div>
@@ -229,10 +229,9 @@
               <div v-if="selectedCharacter.模式 === '单机'" class="manual-saves-section">
                 <div class="manual-saves-header">
                   <h3>手动存档</h3>
-                  <button @click="handleCreateNewSave" class="btn-add-save">
-                    <span class="add-icon">+</span>
-                    新建存档
-                  </button>
+                  <div class="save-info-text">
+                    <span>存档通过游戏内保存功能创建</span>
+                  </div>
                 </div>
                 
                 <div class="manual-saves-grid">
@@ -240,7 +239,8 @@
                        :key="slotKey"
                        class="save-card manual-save"
                        :class="{ 'has-data': slot.存档数据 }"
-                       @click="handleSelect(selectedCharId!, String(slotKey), !!slot.存档数据)">
+                       @click="slot.存档数据 && handleSelect(selectedCharId!, String(slotKey), true)"
+                       :style="{ cursor: slot.存档数据 ? 'pointer' : 'default' }">
 
                      <div v-if="slot.存档数据" class="save-data">
                        <div class="save-header">
@@ -289,10 +289,10 @@
                       </div>
                     </div>
 
-                    <div v-else class="save-empty" @click.stop="handleSelect(selectedCharId!, String(slotKey), false)">
+                    <div v-else class="save-empty">
                       <div class="empty-slot-icon">📁</div>
-                      <span class="empty-text">{{ slot.存档名 || slotKey }}</span>
-                      <button class="btn-create-save">开始游戏</button>
+                      <span class="empty-text">空存档槽</span>
+                      <span class="empty-desc">通过游戏内保存创建</span>
                     </div>
                   </div>
                 </div>
@@ -633,29 +633,6 @@ const getManualSaves = (character: CharacterProfile | null) => {
   });
   
   return manualSaves;
-};
-
-const handleCreateNewSave = () => {
-  if (!selectedCharId.value) return;
-  
-  showPrompt(
-    '新建存档',
-    '请输入存档名称：',
-    '',
-    '例如：初入江湖',
-    (saveName) => {
-      if (saveName && saveName.trim()) {
-        const cleanName = saveName.trim();
-        
-        if (selectedCharacter.value?.存档列表?.[cleanName]) {
-          showAlert('创建失败', '存档名称已存在，请使用其他名称。');
-          return;
-        }
-        
-        characterStore.createNewSave(selectedCharId.value!, cleanName);
-      }
-    }
-  );
 };
 
 const handleEditSaveName = (charId: string, slotKey: string) => {
@@ -1426,7 +1403,13 @@ const closeModal = () => {
   margin-bottom: 0.8rem;
 }
 
-.btn-create-save, .btn-start, .btn-play, .btn-sync {
+.empty-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+.btn-start, .btn-play, .btn-sync {
   padding: 0.5rem 1rem;
   background: var(--color-primary);
   color: white;
@@ -1437,7 +1420,7 @@ const closeModal = () => {
   transition: all 0.3s;
 }
 
-.btn-create-save:hover, .btn-start:hover, .btn-play:hover, .btn-sync:hover {
+.btn-start:hover, .btn-play:hover, .btn-sync:hover {
   background: var(--color-primary-dark);
 }
 
@@ -1478,28 +1461,10 @@ const closeModal = () => {
   font-weight: 600;
 }
 
-.btn-add-save {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: var(--color-success);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.3s;
-}
-
-.btn-add-save:hover {
-  background: var(--color-success-dark);
-  transform: translateY(-1px);
-}
-
-.add-icon {
-  font-size: 1rem;
-  font-weight: bold;
+.save-info-text {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 .manual-saves-grid {
