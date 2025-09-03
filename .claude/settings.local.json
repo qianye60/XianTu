@@ -51,7 +51,9 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\dialogueSystemExample.ts\")",
       "Bash(taskkill:*)",
       "WebFetch(domain:docs.sillytavern.app)",
-      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\check_data.py\")"
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\check_data.py\")",
+      "Bash(del nul)",
+      "Bash(git add -A)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

@@ -498,31 +498,27 @@ const showStatusDetail = (effect: StatusEffect) => {
   height: 100%;
   padding: 16px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-family-sans-serif);
   display: flex;
   flex-direction: column;
+  background: var(--color-surface);
 }
 
 .sidebar-header {
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sidebar-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text);
+  text-align: center;
 }
 
-[data-theme="dark"] .sidebar-header {
-  border-bottom-color: #374151;
-}
-
-[data-theme="dark"] .sidebar-title {
-  color: #f3f4f6;
-}
+/* 移除深色主题硬编码，使用CSS变量自动适配 */
 
 .sidebar-content {
   flex: 1;

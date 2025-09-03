@@ -4,11 +4,13 @@
     <VideoBackground />
 
     <div class="selection-content">
-      <div class="title-container">
-        <h1 class="main-title">大 道 朝 天</h1>
-        <span class="version-tag">V0.1 Alpha</span>
+      <div class="header-container">
+        <div class="title-version-row">
+          <h1 class="main-title">大 道 朝 天</h1>
+          <span class="version-tag">{{ appVersion }}</span>
+        </div>
+        <p class="sub-title">大道朝天，各走一边</p>
       </div>
-      <p class="sub-title">大道朝天，各走一边</p>
 
       <div class="gate-container">
         <!-- Left Gate: Single Player -->
@@ -59,7 +61,26 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
+import { API_BASE_URL } from '@/services/api';
+
+const appVersion = ref('...');
+
+onMounted(async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/version`);
+    if (response.ok) {
+      const data = await response.json();
+      appVersion.value = `V${data.version}`;
+    } else {
+      appVersion.value = 'V_.__._';
+    }
+  } catch (error) {
+    console.error('Failed to fetch app version:', error);
+    appVersion.value = 'N/A';
+  }
+});
 
 const emit = defineEmits<{
   (e: 'start-creation', mode: 'single' | 'cloud'): void;
@@ -106,16 +127,28 @@ const enterCharacterSelection = () => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-.title-container {
+.header-container {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 3rem;
+}
+
+.title-version-row {
+  position: relative;
+  display: flex;
+  justify-content: center; /* Center the title */
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.5rem; /* Space between title row and subtitle */
 }
 
 .version-tag {
-  font-size: 1rem;
+  position: absolute;
+  right: 0;
+  top: 0; /* Align to the top of the container */
+  font-size: 0.8rem; /* Adjusted size */
   font-family: 'Consolas', 'monospace';
   color: var(--color-warning);
   padding: 0.2rem 0.6rem;
@@ -133,14 +166,17 @@ const enterCharacterSelection = () => {
   color: var(--color-text);
   text-shadow: 0 0 25px rgba(var(--color-primary-rgb), 0.5);
   margin: 0;
+  text-align: center;
+  /* Add padding to compensate for letter-spacing and ensure true centering */
+  padding-left: 0.5em; 
 }
 
 .sub-title {
   font-size: 1.2rem;
   color: var(--color-text-secondary);
-  margin-bottom: 4rem;
   letter-spacing: 0.1em;
   opacity: 0.9;
+  margin: 0;
 }
 
 .gate-container {
@@ -251,8 +287,8 @@ const enterCharacterSelection = () => {
   .main-title {
     font-size: 2.5rem;
   }
-  .sub-title {
-    margin-bottom: 3rem;
+  .header-container {
+    margin-bottom: 2.5rem;
   }
   .gate-container {
     flex-direction: column;

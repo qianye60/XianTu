@@ -97,6 +97,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
@@ -105,11 +106,7 @@ const props = defineProps<{
   collapsed?: boolean;
 }>();
 
-const emit = defineEmits<{
-  'toggle-collapse': []
-  'open-panel': [panelType: string]
-}>();
-
+const router = useRouter();
 const characterStore = useCharacterStore();
 
 // 检查任务系统是否启用
@@ -130,55 +127,56 @@ const isQuestSystemEnabled = computed(() => {
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
 
 const handleSaveGame = async () => {
-  emit('open-panel', 'save');
+  router.push('/game/save');
 };
 
 const handleInventory = () => {
-  emit('open-panel', 'inventory');
+  router.push('/game/inventory');
 };
 
 const handleCharacterDetails = () => {
-  emit('open-panel', 'character-details');
+  router.push('/game/character-details');
 };
 
 const handleQuests = () => {
   if (isQuestSystemEnabled.value) {
-    emit('open-panel', 'quests');
+    router.push('/game/quests');
   } else {
     toast.warning('任务系统未启用，请在设置中开启');
   }
 };
 
 const handleSect = () => {
-  emit('open-panel', 'sect');
+  router.push('/game/sect');
 };
 
 const handleRelationships = () => {
-  emit('open-panel', 'relationships');
+  router.push('/game/relationships');
 };
 
 const handleCultivationSystem = () => {
-  emit('open-panel', 'cultivation');
+  router.push('/game/cultivation');
 };
 
 const handleSkillsArts = () => {
-  emit('open-panel', 'skills');
+  router.push('/game/skills');
 };
 
 const handleMemoryCenter = () => {
-  emit('open-panel', 'memory');
+  router.push('/game/memory');
 };
 
 const handleWorldMap = () => {
-  emit('open-panel', 'world-map');
+  router.push('/game/world-map');
 };
 
 const handleOnlinePlay = () => {
-  emit('open-panel', 'online-play');
+  // 这个功能保持原样，因为不是真正的面板
+  toast.info('联机功能开发中...');
 };
 
 const handleSettings = () => {
-  emit('open-panel', 'settings');
+  router.push('/game/settings');
 };
 
 const handleBackToMenu = () => {
