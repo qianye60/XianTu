@@ -436,6 +436,7 @@
                 <button class="tab-btn" data-tab="talent_tiers">天资管理</button>
                 <button class="tab-btn" data-tab="spirit_roots">灵根管理</button>
                 <button class="tab-btn" data-tab="codes">兑换码管理</button>
+                <button class="tab-btn" data-tab="system">⚙️ 系统设置</button>
             </nav>
 
             <div class="tab-content">
@@ -1018,6 +1019,10 @@
                             ];
                         };
                         break;
+
+                   case 'system':
+                       renderSystemSettings();
+                       return; //  直接返回，不走下面的表格渲染逻辑
 
                     default:
                         throw new Error('未知的标签页');
@@ -2201,6 +2206,83 @@
             alert('恢复功能待实现');
         }
 
+       // 系统设置
+       async function renderSystemSettings() {
+           showLoading();
+           try {
+               const response = await fetch(`${API_BASE}/version`);
+               let version = '1.0.0'; // 默认值
+               if (response.ok) {
+                   const data = await response.json();
+                   version = data.version;
+               } else {
+                   console.warn("无法获取当前版本号，将使用默认值。")
+               }
+
+               tableContainer.innerHTML = `
+                   <div class="form-group">
+                       <label class="form-label">应用版本号 (APP_VERSION)</label>
+                       <input type="text" id="appVersionInput" class="form-input" value="${version}">
+                       <small style="color: var(--text-light); display: block; margin-top: 5px;">
+                           此版本号将显示在应用主界面。
+                       </small>
+                   </div>
+                   <div class="form-group" style="margin-top: 20px;">
+                        <button id="saveVersionBtn" class="btn btn-primary">保存设置</button>
+                   </div>
+                   <div id="settingsSaveStatus" class="hidden" style="margin-top: 15px;"></div>
+               `;
+
+               document.getElementById('saveVersionBtn').addEventListener('click', handleSaveVersion);
+
+           } catch (error) {
+               showTableError(`加载系统设置失败: ${error.message}`);
+           }
+       }
+
+       async function handleSaveVersion() {
+           const newVersion = document.getElementById('appVersionInput').value;
+           const saveStatus = document.getElementById('settingsSaveStatus');
+
+           if (!newVersion) {
+               alert('版本号不能为空');
+               return;
+           }
+           
+           const saveBtn = document.getElementById('saveVersionBtn');
+           saveBtn.disabled = true;
+           saveBtn.textContent = '保存中...';
+
+           try {
+               const response = await fetch(`${API_BASE}/admin/version`, {
+                   method: 'PUT',
+                   headers: {
+                       'Authorization': `Bearer ${authToken}`,
+                       'Content-Type': 'application/json'
+                   },
+                   body: JSON.stringify({ value: newVersion })
+               });
+
+               if (response.ok) {
+                   saveStatus.textContent = '✅ 保存成功！';
+                   saveStatus.className = 'status-badge status-active';
+               } else {
+                   const error = await response.json();
+                   saveStatus.textContent = `❌ 保存失败: ${error.detail || '未知错误'}`;
+                   saveStatus.className = 'error-message';
+               }
+               saveStatus.classList.remove('hidden');
+
+           } catch (error) {
+               saveStatus.textContent = `❌ 网络错误: ${error.message}`;
+               saveStatus.className = 'error-message';
+               saveStatus.classList.remove('hidden');
+           } finally {
+               saveBtn.disabled = false;
+               saveBtn.textContent = '保存设置';
+                setTimeout(() => saveStatus.classList.add('hidden'), 5000);
+           }
+       }
     </script>
 </body>
 </html>

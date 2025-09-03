@@ -268,3 +268,18 @@ class RedemptionCodeAdminCreate(BaseModel):
     type: str
     payload: Dict[str, Any]
     max_uses: int = 1
+
+# --- 系统配置 ---
+
+class SystemConfigBase(BaseModel):
+   key: str
+   value: Any
+
+class SystemConfigCreate(SystemConfigBase):
+   pass
+
+class SystemConfigUpdate(BaseModel):
+   value: Any
+
+class SystemConfig(SystemConfigBase):
+   model_config = ConfigDict(from_attributes=True)

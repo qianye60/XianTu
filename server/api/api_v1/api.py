@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from .endpoints import worlds, characters, rules, auth, redemption, admin, talents, spirit_roots, origins, ai, talent_tiers, users, ban_management
+from .endpoints import worlds, characters, rules, auth, redemption, admin, talents, spirit_roots, origins, ai, talent_tiers, users, ban_management, system
 
 api_router = APIRouter()
 
 # Include each of the endpoint routers
+api_router.include_router(system.router, tags=["系统"]) # System endpoints like version
 api_router.include_router(users.router, prefix="/users", tags=["用户体系"])
 api_router.include_router(worlds.router, prefix="/worlds", tags=["世界体系"])
 api_router.include_router(characters.router, prefix="/characters", tags=["角色/存档体系"])

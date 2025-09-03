@@ -438,17 +438,18 @@
 
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import { verifyStoredToken } from '@/services/request';
 import HexagonChart from '@/components/common/HexagonChart.vue';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
 
 const emit = defineEmits<{
-  (e: 'select', data: { charId: string, slotKey: string }): void;
   (e: 'back'): void;
   (e: 'login'): void;
 }>()
 
+const router = useRouter();
 const characterStore = useCharacterStore();
 const isLoggedIn = ref(false);
 const selectedCharId = ref<string | null>(null);
@@ -513,12 +514,23 @@ const closeDetailsModal = () => {
 };
 
 const handleSelect = async (charId: string, slotKey: string, hasData: boolean) => {
+  console.log('选择存档:', charId, slotKey, hasData);
   const character = characterStore.rootState.角色列表[charId];
   
   if (hasData) {
     // 对于有数据的存档，直接进入
+    console.log('设置活跃角色...');
     await characterStore.setActiveCharacterInTavern(charId);
-    emit('select', { charId, slotKey });
+    console.log('加载存档...');
+    // 加载存档并跳转到游戏
+    const success = await characterStore.loadGame(charId, slotKey);
+    console.log('加载结果:', success);
+    if (success) {
+      console.log('跳转到游戏界面...');
+      router.push('/game');
+    } else {
+      console.error('存档加载失败');
+    }
   } else {
     // 对于空存档，显示确认对话框
     const isAutoSave = slotKey === '上次对话' || slotKey === '自动存档';
@@ -531,8 +543,15 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
       title,
       message,
       async () => {
+        console.log('确认创建新存档...');
         await characterStore.setActiveCharacterInTavern(charId);
-        emit('select', { charId, slotKey });
+        // 加载存档并跳转到游戏
+        const success = await characterStore.loadGame(charId, slotKey);
+        console.log('新存档加载结果:', success);
+        if (success) {
+          console.log('跳转到游戏界面...');
+          router.push('/game');
+        }
       }
     );
   }
@@ -777,11 +796,16 @@ const showPrompt = (title: string, message: string, initialValue = '', placehold
 };
 
 const handleModalConfirm = () => {
-  modalState.value.onConfirm(modalState.value.inputValue);
+  if (modalState.value.type === 'prompt') {
+    modalState.value.onConfirm(modalState.value.inputValue);
+  } else {
+    modalState.value.onConfirm();
+  }
 };
 
 const handleModalCancel = () => {
   modalState.value.onCancel();
+  closeModal();
 };
 
 const closeModal = () => {

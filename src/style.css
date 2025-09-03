@@ -1,81 +1,52 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
-  /* --- 更新配色灵脉: "白玉金字" (光明易读) --- */
-  /* 主色调 */
-  --color-primary: #b8860b; /* 暗金色 - 典雅的金色主调 */
-  --color-primary-rgb: 184, 134, 11;
-  --color-primary-hover: #daa520;
-  --color-primary-active: #996f07;
-  --color-primary-dark: #8b7209;
-
-  --color-accent: #cd853f; /* 沙金色 - 温暖的强调色 */
-  --color-accent-rgb: 205, 133, 63;
-  --color-accent-hover: #d4af37;
-
-  /* 背景与表面 */
-  --color-background: #ffffff; /* 纯白背景 */
-  --color-background-transparent: rgba(255, 255, 255, 0.95);
-  --color-surface: rgba(255, 255, 255, 0.9); /* 半透明白色表面 */
-  --color-surface-transparent: rgba(255, 255, 255, 0.85);
-  --color-surface-light: rgba(250, 250, 250, 0.8); /* 更通透的次级表面 */
-  --color-surface-rgb: 255, 255, 255;
-
-  /* 文字与边框 */
-  --color-text: #8b4513; /* 深金棕色 - 主要文字 */
-  --color-text-secondary: #a0522d; /* 中金棕色 - 次要文字 */
-  --color-border: #ddd; /* 浅灰边框 */
-  --color-border-rgb: 221, 221, 221;
-  --color-border-hover: #b8860b; /* 悬停时的金色边框 */
-
-  /* 功能性颜色 */
-  --color-success: #228b22; /* 森林绿 */
-  --color-success-rgb: 34, 139, 34;
-  --color-info: #4682b4; /* 钢蓝色 */
-  --color-info-rgb: 70, 130, 180;
-  --color-warning: #daa520; /* 金黄色 */
-  --color-warning-rgb: 218, 165, 32;
-  --color-error: #dc143c; /* 深红色 */
-  --color-error-rgb: 220, 20, 60;
-
-  --color-spiritual: #868e96; /* 禅定灰 - 中性、平和的灰色 */
-  --color-nature: #7fb069; /* 青竹色 - 保留，生机感 */
-  --color-danger: #c65552; /* 朱砂色 - 保留，警示感 */
+  /* --- Light Theme Colors --- */
+  --color-background: #f0f0f0;
+  --color-background-transparent: rgba(240, 240, 240, 0.85);
+  --color-surface: #ffffff;
+  --color-surface-transparent: rgba(255, 255, 255, 0.75);
+  --color-surface-light: #e5e6eb;
+  --color-primary: #2e5cb8;
+  --color-primary-rgb: 46, 92, 184;
+  --color-accent: #7c4dff;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #666666;
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-success: #4caf50;
+  --color-warning: #ff9800;
+  --color-error: #f44336;
+  --color-info: #2196f3;
+  --scrollbar-track-color: rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb-color: rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.4);
 
   /* 字体与过渡 */
   --font-family-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', 'Noto Serif SC', 'KaiTi', 'STKaiti', serif;
   --font-family-sans-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --transition-fast: all 0.2s ease-in-out;
-
-  /* 滚动条颜色 */
-  --scrollbar-thumb: #b8860b; /* 金色滑块 */
-  --scrollbar-track: rgba(255, 255, 255, 0.5); /* 透明轨道 */
 }
 
 /* --- 暗色主题灵脉: "松烟玄墨" (通过 data-theme 属性激活) --- */
 :root[data-theme='dark'] {
-  /* 主色调 */
-  --color-primary: #4a6c6f; /* 松烟色 - 沉静、苍翠的青绿色 */
-  --color-primary-rgb: 74, 108, 111;
-  --color-primary-hover: #5a8a8e; /* 更亮的松烟色 */
-  --color-primary-active: #3a5a5d; /* 更深的松烟色 */
-
-  --color-accent: #d4b890; /* 赭石色 - 温暖的土黄色，与松烟色形成对比 */
-  --color-accent-hover: #e0c8a3; /* 更亮的赭石色 */
-
-  /* 背景与表面 */
-  --color-background: #1a1a1a; /* 玄黑 - 深邃的黑色背景 */
-  --color-surface: rgba(30, 30, 30, 0.85); /* 墨玉 - 半透明深灰表面 */
-  --color-surface-light: rgba(45, 45, 45, 0.7); /* 青石 - 层次更浅的表面 */
-
-  /* 文字与边框 */
-  --color-text: #f0f0f0; /* 月白 - 柔和的白色 */
-  --color-text-secondary: #a0a0a0; /* 银灰 - 中性灰 */
-  --color-border: rgba(74, 108, 111, 0.4); /* 松烟描边 - 与主色调统一 */
-  --color-border-hover: rgba(212, 184, 144, 0.6); /* 赭石描边 - 悬停时使用强调色 */
-
-  /* 功能性颜色 */
-  --color-spiritual: #4a5568; /* 混沌灰 */
-  --color-danger: #c65552; /* 朱砂色 */
+  /* --- Dark Theme Colors --- */
+  --color-background: #1a1b26;
+  --color-background-transparent: rgba(26, 27, 38, 0.85);
+  --color-surface: #293348;
+  --color-surface-transparent: rgba(41, 51, 72, 0.6);
+  --color-surface-light: #414868;
+  --color-primary: #82a3f5;
+  --color-primary-rgb: 130, 163, 245;
+  --color-accent: #c0caf5;
+  --color-text: #ffffff;
+  --color-text-secondary: #d0d0d0;
+  --color-border: rgba(173, 216, 230, 0.5);
+  --color-success: #9ece6a;
+  --color-warning: #ffd500;
+  --color-error: #f7768e;
+  --color-info: #7dcfff;
+  --scrollbar-track-color: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.4);
 }
 
 /* --- Base Styles --- */
@@ -213,25 +184,33 @@ body {
   }
 }
 
-/* 滚动条样式 - 修仙主题 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* --- 全局滚动条美化 (兼容 WebKit & Firefox) --- */
+/* WebKit browsers (Chrome, Safari, Edge) */
+#app::-webkit-scrollbar {
+  width: 10px; /* 稍微加宽以获得更好的点击区域 */
+  height: 10px;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-  border-radius: 4px;
+#app::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-color);
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 4px;
-  transition: background 0.3s;
+#app::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-color);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.3s ease-in-out;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border);
+#app::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover-color);
+}
+
+/* Firefox */
+#app {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
 }
 
 /* --- 通用法器样式：卡片/面板 (浮空术) --- */
@@ -493,51 +472,171 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
-/* --- 全局操作按钮样式 --- */
+/* --- 全局操作按钮样式 (新版) --- */
 .global-actions {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 9999;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
   display: flex;
-  gap: 0.5rem;
+  gap: 12px;
+  pointer-events: auto;
 }
 
-.global-actions button {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.theme-toggle,
+.fullscreen-toggle {
+  --color: #a5a5b0;
+  --size: 24px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  color: var(--color);
+  font-size: var(--size);
+  user-select: none;
+  fill: var(--color);
+}
+
+.theme-toggle:hover,
+.fullscreen-toggle:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.theme-toggle:active,
+.fullscreen-toggle:active {
+  transform: translateY(0);
+}
+
+/* 主题切换图标 */
+.theme-toggle .moon {
+  position: absolute;
+  animation: keyframes-fill .5s;
+  width: 24px;
+  height: 24px;
+}
+
+.theme-toggle .sun {
+  position: absolute;
+  display: none;
+  animation: keyframes-fill .5s;
+  width: 24px;
+  height: 24px;
+}
+
+.theme-toggle input:checked ~ .moon {
+  display: none;
+}
+
+.theme-toggle input:checked ~ .sun {
+  display: block;
+}
+
+/* 全屏切换图标 */
+.fullscreen-toggle .expand {
+  position: absolute;
+  animation: fullscreen-fill .5s;
+  width: 24px;
+  height: 24px;
+}
+
+.fullscreen-toggle .compress {
+  position: absolute;
+  display: none;
+  animation: fullscreen-fill .5s;
+  width: 24px;
+  height: 24px;
+}
+
+.fullscreen-toggle input:checked ~ .expand {
+  display: none;
+}
+
+.fullscreen-toggle input:checked ~ .compress {
+  display: block;
+}
+
+/* 隐藏checkbox */
+.theme-toggle input,
+.fullscreen-toggle input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+/* 动画效果 */
+@keyframes keyframes-fill {
+  0% {
+    transform: rotate(-360deg) scale(0);
+    opacity: 0;
+  }
+  75% {
+    transform: rotate(25deg);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fullscreen-fill {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 暗色主题适配 */
+[data-theme="dark"] .theme-toggle,
+[data-theme="dark"] .fullscreen-toggle {
+  background: rgba(41, 51, 72, 0.9);
+  --color: #82A3F5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .theme-toggle:hover,
+[data-theme="dark"] .fullscreen-toggle:hover {
+  background: rgba(41, 51, 72, 0.95);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+
+/* --- App Root & Transitions --- */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+#app-container {
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.global-actions button:hover {
-  background: var(--color-primary);
-  color: var(--color-text);
-  border-color: var(--color-primary);
-  transform: scale(1.1);
-  box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
-}
-
-.global-actions button:active {
-  transform: scale(0.95);
-}
-
-/* 暗色主题下的按钮优化 */
-:root[data-theme='dark'] .global-actions button {
-  background: rgba(46, 52, 64, 0.8);
-  border-color: rgba(136, 192, 208, 0.3);
-}
-
-:root[data-theme='dark'] .global-actions button:hover {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  overflow-x: hidden;
+  position: relative;
 }

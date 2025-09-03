@@ -2,8 +2,8 @@
   <div id="app-container">
     <ToastContainer />
     <GlobalLoadingOverlay />
-    <!-- 全局操作按钮 - 只在非GameView页面显示 -->
-    <div v-if="activeView !== 'GameView'" class="global-actions">
+    <!-- 全局操作按钮 - 只在非游戏界面显示 -->
+    <div v-if="!isInGameView" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
         <input type="checkbox" ref="globalThemeCheckbox" :checked="!isDarkMode">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="moon">
@@ -22,6 +22,9 @@
           <path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V64zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32H96v64c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32H32zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V64zM320 320c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32s32-14.3 32-32V384h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320z"></path>
         </svg>
       </label>
+      <button class="theme-toggle" @click="showHelp" title="帮助">
+        <HelpCircle :size="24" />
+      </button>
     </div>
 
     <!-- 路由视图将在这里渲染所有页面 -->
@@ -33,7 +36,6 @@
           @back="handleBack"
           @creation-complete="handleCreationComplete"
           @loggedIn="handleLoggedIn"
-          @select="handleCharacterSelect"
           @login="handleGoToLogin"
         />
       </transition>
@@ -43,9 +45,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
+import { HelpCircle } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import './style.css';
@@ -59,7 +62,7 @@ import { initializeCharacter } from '@/services/characterInitialization';
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
-const isDarkMode = ref(true);
+const isDarkMode = ref(localStorage.getItem('theme') !== 'light');
 const globalThemeCheckbox = ref<HTMLInputElement>();
 const globalFullscreenCheckbox = ref<HTMLInputElement>();
 
@@ -71,6 +74,11 @@ type ViewName = 'ModeSelection' | 'CharacterCreation' | 'Login' | 'CharacterMana
 const activeView = computed(() => {
   const routeName = String(route.name || '');
   return routeName as ViewName;
+});
+
+// 判断是否在游戏界面（包括所有游戏子路由）
+const isInGameView = computed(() => {
+  return route.path.startsWith('/game');
 });
 
 const switchView = (viewName: ViewName) => {
@@ -147,24 +155,6 @@ const handleGoToLogin = () => {
  switchView('Login');
 };
 
-const handleCharacterSelect = async (selection: { charId: string, slotKey: string }) => {
-  console.log(`接收到选择指令... 角色ID: ${selection.charId}, 存档槽: ${selection.slotKey}`);
-  try {
-    const success = await characterStore.loadGame(selection.charId, selection.slotKey);
-    if (success) {
-      console.log('存档加载成功，切换到游戏视图');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      switchView('GameView');
-    } else {
-      console.error('存档加载失败');
-      toast.error('存档加载失败，请重试');
-    }
-  } catch (error) {
-    console.error('存档加载过程出错:', error);
-    toast.error('进入游戏时发生错误：' + (error instanceof Error ? error.message : '未知错误'));
-  }
-};
-
 const handleCreationComplete = async (rawPayload: any) => {
   console.log('接收到创角指令...', rawPayload);
   uiStore.startLoading('开始铸造法身...');
@@ -216,7 +206,8 @@ const handleCreationComplete = async (rawPayload: any) => {
     
     await new Promise(resolve => setTimeout(resolve, 500));
     toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
-    switchView('GameView');
+    // 跳转到游戏主界面路由
+    router.push('/game');
   } catch (error) {
     console.error("角色创建过程出错：", error);
     const errorMessage = error instanceof Error ? error.message : "法身铸造过程中出现意外，请重试";
@@ -228,63 +219,18 @@ const handleCreationComplete = async (rawPayload: any) => {
 };
 
 // --- 主题与全屏 ---
-const toggleTheme = () => {
-  isDarkMode.value = !isDarkMode.value;
+watchEffect(() => {
   const theme = isDarkMode.value ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
-
+  
   if (globalThemeCheckbox.value) {
     globalThemeCheckbox.value.checked = !isDarkMode.value;
   }
-  
-  // 应用颜色变量
-  applyThemeColors(theme);
-};
+});
 
-const applyThemeColors = (theme: 'dark' | 'light') => {
-  const root = document.documentElement;
-  const colors = {
-    dark: {
-      '--color-background': '#1a1b26',
-      '--color-background-transparent': 'rgba(26, 27, 38, 0.85)',
-      '--color-surface': '#293348',
-      '--color-surface-transparent': 'rgba(41, 51, 72, 0.6)',
-      '--color-surface-light': '#414868',
-      '--color-primary': '#82a3f5',
-      '--color-primary-rgb': '130, 163, 245',
-      '--color-accent': '#c0caf5',
-      '--color-text': '#ffffff',
-      '--color-text-secondary': '#d0d0d0',
-      '--color-border': 'rgba(173, 216, 230, 0.5)',
-      '--color-success': '#9ece6a',
-      '--color-warning': '#ffd500',
-      '--color-error': '#f7768e',
-      '--color-info': '#7dcfff',
-    },
-    light: {
-      '--color-background': '#f0f0f0',
-      '--color-background-transparent': 'rgba(240, 240, 240, 0.85)',
-      '--color-surface': '#ffffff',
-      '--color-surface-transparent': 'rgba(255, 255, 255, 0.75)',
-      '--color-surface-light': '#e5e6eb',
-      '--color-primary': '#2e5cb8',
-      '--color-primary-rgb': '46, 92, 184',
-      '--color-accent': '#7c4dff',
-      '--color-text': '#1a1a1a',
-      '--color-text-secondary': '#666666',
-      '--color-border': 'rgba(0, 0, 0, 0.1)',
-      '--color-success': '#4caf50',
-      '--color-warning': '#ff9800',
-      '--color-error': '#f44336',
-      '--color-info': '#2196f3',
-    }
-  };
-  
-  const themeColors = colors[theme];
-  for (const [key, value] of Object.entries(themeColors)) {
-    root.style.setProperty(key, value);
-  }
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value;
 };
 
 const toggleFullscreen = () => {
@@ -298,6 +244,13 @@ const toggleFullscreen = () => {
     });
   }
 };
+
+const showHelp = () => {
+  // TODO: Implement help panel logic
+  console.log('Help button clicked. Panel/modal to be implemented.');
+  toast.info('教程功能正在开发中，敬请期待！');
+};
+
 
 // --- 生命周期钩子 ---
 onMounted(() => {
@@ -332,12 +285,7 @@ onMounted(() => {
   updateHeight();
   $(parent.window).on('resize', updateHeight);
   
-  // 2. 初始化主题
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'light') {
-    isDarkMode.value = false;
-  }
-  toggleTheme(); // 应用初始主题
+  // 2. 主题已由 watchEffect 处理，此处无需操作
 
   // 3. 全屏状态同步
   const syncFullscreenState = () => {
@@ -371,172 +319,3 @@ onMounted(() => {
   });
 });
 </script>
-
-<style>
-/* 添加页面切换过渡效果 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-#app-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow-x: hidden;
-  position: relative;
-}
-
-/* 全局操作按钮样式 */
-.global-actions {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  display: flex;
-  gap: 12px;
-  pointer-events: auto;
-}
-
-.theme-toggle,
-.fullscreen-toggle {
-  --color: #a5a5b0;
-  --size: 24px;
-  width: 48px;
-  height: 48px;
-  border: none;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  color: var(--color);
-  font-size: var(--size);
-  user-select: none;
-  fill: var(--color);
-}
-
-.theme-toggle:hover,
-.fullscreen-toggle:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.theme-toggle:active,
-.fullscreen-toggle:active {
-  transform: translateY(0);
-}
-
-/* 主题切换图标 */
-.theme-toggle .moon {
-  position: absolute;
-  animation: keyframes-fill .5s;
-  width: 24px;
-  height: 24px;
-}
-
-.theme-toggle .sun {
-  position: absolute;
-  display: none;
-  animation: keyframes-fill .5s;
-  width: 24px;
-  height: 24px;
-}
-
-.theme-toggle input:checked ~ .moon {
-  display: none;
-}
-
-.theme-toggle input:checked ~ .sun {
-  display: block;
-}
-
-/* 全屏切换图标 */
-.fullscreen-toggle .expand {
-  position: absolute;
-  animation: fullscreen-fill .5s;
-  width: 24px;
-  height: 24px;
-}
-
-.fullscreen-toggle .compress {
-  position: absolute;
-  display: none;
-  animation: fullscreen-fill .5s;
-  width: 24px;
-  height: 24px;
-}
-
-.fullscreen-toggle input:checked ~ .expand {
-  display: none;
-}
-
-.fullscreen-toggle input:checked ~ .compress {
-  display: block;
-}
-
-/* 隐藏checkbox */
-.theme-toggle input,
-.fullscreen-toggle input {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-  height: 0;
-  width: 0;
-}
-
-/* 动画效果 */
-@keyframes keyframes-fill {
-  0% {
-    transform: rotate(-360deg) scale(0);
-    opacity: 0;
-  }
-  75% {
-    transform: rotate(25deg);
-  }
-  100% {
-    transform: rotate(0deg) scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes fullscreen-fill {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* 暗色主题适配 */
-[data-theme="dark"] .theme-toggle,
-[data-theme="dark"] .fullscreen-toggle {
-  background: rgba(41, 51, 72, 0.9);
-  --color: #82A3F5;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .theme-toggle:hover,
-[data-theme="dark"] .fullscreen-toggle:hover {
-  background: rgba(41, 51, 72, 0.95);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-}
-</style>

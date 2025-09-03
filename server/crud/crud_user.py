@@ -102,9 +102,11 @@ async def create_player(player_data: schema.PlayerAccountCreate):
 async def ensure_admin_account_exists():
     """
     确保天帝（默认管理员）账号存在。
+    基于权限唯一性判断，只要有super_admin就不再创建。
     """
-    admin_user = await AdminAccount.get_or_none(user_name="admin")
-    if not admin_user:
+    # 检查是否已存在超级管理员账号
+    super_admin = await AdminAccount.get_or_none(role="super_admin")
+    if not super_admin:
         print("--- 未发现天帝账号，正在册封... ---")
         hashed_password = auth.get_password_hash("admin") # 默认密码为 admin
         await AdminAccount.create(

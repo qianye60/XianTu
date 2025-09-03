@@ -186,3 +186,10 @@ class RedemptionCode(Model):
 
     class Meta:
         table = "redemption_codes"
+
+class SystemConfig(Model):
+   key = fields.CharField(max_length=100, pk=True, description="配置键")
+   value = fields.JSONField(description="配置值")
+
+   class Meta:
+       table = "system_config"

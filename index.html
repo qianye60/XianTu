@@ -1,6 +1,20 @@
 <!doctype html>
 <html lang="">
   <head>
+    <script>
+      // IIFE to set the initial theme and prevent FOUC
+      (function() {
+        try {
+          const theme = localStorage.getItem('theme');
+          // If theme is not 'light', default to 'dark'
+          if (theme !== 'light') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          }
+        } catch (e) {
+          console.warn('Could not set initial theme from localStorage:', e);
+        }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>大道朝天</title>
