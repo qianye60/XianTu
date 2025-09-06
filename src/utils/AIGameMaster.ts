@@ -50,13 +50,13 @@ export function buildGmRequest(
       lifespan_remaining: 80 - creationDetails.age, // 凡人基础寿命
       breakthrough_bottleneck: '未曾修行',
     },
-    attributes: { // 直接从创建数据中获取
-      STR: baseInfo.先天六司.根骨,
-      CON: baseInfo.先天六司.心性,
-      DEX: baseInfo.先天六司.灵性,
-      INT: baseInfo.先天六司.悟性,
-      SPI: baseInfo.先天六司.灵性, // 神魂暂用灵性替代
-      LUK: baseInfo.先天六司.气运,
+    attributes: { // 直接从创建数据中获取，添加安全访问
+      STR: baseInfo.先天六司?.根骨 || 10,
+      CON: baseInfo.先天六司?.心性 || 10,
+      DEX: baseInfo.先天六司?.灵性 || 10,
+      INT: baseInfo.先天六司?.悟性 || 10,
+      SPI: baseInfo.先天六司?.灵性 || 10, // 神魂暂用灵性替代
+      LUK: baseInfo.先天六司?.气运 || 10,
     },
     resources: {
       qi: { current: 100, max: 100 }, // 气血

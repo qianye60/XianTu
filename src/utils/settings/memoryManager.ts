@@ -319,7 +319,10 @@ ${memories.map((memory, index) => `${index + 1}. ${memory}`).join('\n')}
       throw new Error('无法连接到SillyTavern主API');
     }
 
-    return helper.generateRaw(prompt);
+    return helper.generateRaw({
+      user_input: prompt,
+      max_tokens: 8000
+    });
   }
 
   /**
@@ -332,9 +335,10 @@ ${memories.map((memory, index) => `${index + 1}. ${memory}`).join('\n')}
     }
 
     // 使用较低的参数设置进行后台任务
-    return helper.generateRaw(prompt, {
+    return helper.generateRaw({
+      user_input: prompt,
       temperature: this.settings.api.secondaryAPI.temperature || 0.3,
-      max_tokens: this.settings.api.secondaryAPI.maxTokens || 1000
+      max_tokens: this.settings.api.secondaryAPI.maxTokens || 8000
     });
   }
 

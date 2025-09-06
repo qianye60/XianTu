@@ -1,7 +1,10 @@
 <template>
   <div class="right-sidebar">
     <div class="sidebar-header">
-      <h3 class="sidebar-title">角色状态</h3>
+      <h3 class="sidebar-title">
+        <Activity :size="18" class="title-icon" />
+        角色状态
+      </h3>
     </div>
 
     <div v-if="isDataLoaded && characterInfo" class="sidebar-content">
@@ -167,6 +170,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { Activity } from 'lucide-vue-next';
 import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -516,6 +520,15 @@ const showStatusDetail = (effect: StatusEffect) => {
   font-weight: 600;
   color: var(--color-text);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.title-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 /* 移除深色主题硬编码，使用CSS变量自动适配 */

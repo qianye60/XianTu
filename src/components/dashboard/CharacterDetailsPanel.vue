@@ -51,10 +51,46 @@
         </div>
       </div>
 
+      <!-- 属性显示卡片 -->
       <div class="info-card attributes-card">
-        <h4 class="card-title">先天六司</h4>
-        <div class="attributes-grid">
-          <div v-for="(value, key) in baseInfo.先天六司" :key="key" class="attribute-item">
+        <h4 class="card-title">六司属性</h4>
+        <div v-if="attributeData" class="attributes-container">
+          <!-- 最终属性显示 -->
+          <div class="final-attributes">
+            <h5 class="attribute-section-title">总计</h5>
+            <div class="attributes-grid">
+              <div v-for="(value, key) in attributeData.最终六司" :key="`final-${key}`" class="attribute-item final">
+                <span class="attribute-name">{{ key }}</span>
+                <span class="attribute-value">{{ value }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 先天与后天分解 -->
+          <div class="attribute-breakdown">
+            <div class="innate-section">
+              <h5 class="attribute-section-title">先天</h5>
+              <div class="attributes-grid compact">
+                <div v-for="(value, key) in attributeData.先天六司" :key="`innate-${key}`" class="attribute-item compact">
+                  <span class="attribute-name">{{ key }}</span>
+                  <span class="attribute-value innate">{{ value }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="acquired-section" v-if="hasAcquiredBonuses">
+              <h5 class="attribute-section-title">后天</h5>
+              <div class="attributes-grid compact">
+                <div v-for="(value, key) in attributeData.后天六司" :key="`acquired-${key}`" class="attribute-item compact" v-show="value > 0">
+                  <span class="attribute-name">{{ key }}</span>
+                  <span class="attribute-value acquired">+{{ value }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="attributes-grid">
+          <div v-for="(value, key) in baseInfo?.先天六司 || {}" :key="key" class="attribute-item">
             <span class="attribute-name">{{ key }}</span>
             <span class="attribute-value">{{ value }}</span>
           </div>
@@ -90,10 +126,28 @@
 import { computed } from 'vue';
 import { useCharacterStore } from '../../stores/characterStore';
 import ProgressBar from '../shared/ProgressBar.vue';
+import { calculateFinalAttributes } from '../../utils/attributeCalculation';
 
 const characterStore = useCharacterStore();
 const baseInfo = computed(() => characterStore.activeCharacterProfile?.角色基础信息);
 const playerStatus = computed(() => characterStore.activeSaveSlot?.存档数据?.玩家角色状态);
+const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
+
+// 计算先天、后天和最终属性
+const attributeData = computed(() => {
+  if (!baseInfo.value?.先天六司 || !saveData.value) {
+    return null;
+  }
+  
+  return calculateFinalAttributes(baseInfo.value.先天六司, saveData.value);
+});
+
+// 检查是否有后天加成
+const hasAcquiredBonuses = computed(() => {
+  if (!attributeData.value) return false;
+  
+  return Object.values(attributeData.value.后天六司).some(value => value > 0);
+});
 
 type VitalData = {
   label: string;
@@ -227,11 +281,42 @@ const vitalsData = computed<VitalData[]>(() => {
   gap: 16px;
 }
 
+/* 属性显示样式 */
+.attributes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.attribute-section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--color-text-secondary);
+}
+
+.final-attributes {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.attribute-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 .attributes-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
 }
+
+.attributes-grid.compact {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 .attribute-item {
   display: flex;
   justify-content: space-between;
@@ -239,11 +324,30 @@ const vitalsData = computed<VitalData[]>(() => {
   background-color: var(--color-surface-hover);
   border-radius: 4px;
 }
+
+.attribute-item.compact {
+  padding: 6px 8px;
+}
+
+.attribute-item.final {
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+}
+
 .attribute-name {
   color: var(--color-text-secondary);
 }
+
 .attribute-value {
   font-weight: bold;
+}
+
+.attribute-value.innate {
+  color: var(--color-text);
+}
+
+.attribute-value.acquired {
+  color: var(--color-success);
 }
 
 /* Right Column */
@@ -333,6 +437,10 @@ const vitalsData = computed<VitalData[]>(() => {
    .right-column { grid-row: 3; }
    
    .attributes-grid {
+    grid-template-columns: 1fr;
+   }
+   
+   .attribute-breakdown {
     grid-template-columns: 1fr;
    }
 }

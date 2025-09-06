@@ -22,12 +22,14 @@ export interface ValuePair<T> {
 }
 
 /** 物品品质信息 - 新版本 */
+
 export interface ItemQuality {
   quality: QualityType; // 品质等级：神、仙、天、地、玄、黄、凡
   grade: GradeType; // 品级：0-10
 }
 
 /** 物品品质信息 - 兼容旧版本 */
+
 export interface Quality {
   阶位: '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神' |string;
   品级: number;
@@ -45,6 +47,7 @@ export interface InnateAttributes {
 }
 
 /** 英文键名的先天六司，用于组件传参 */
+
 export interface InnateAttributesEnglish {
   root_bone: number;
   spirituality: number;
@@ -89,6 +92,7 @@ export interface Inventory {
 // --- 三千大道系统 ---
 
 /** 大道阶段定义 */
+
 export interface DaoStage {
   名称: string;
   描述: string;
@@ -96,6 +100,7 @@ export interface DaoStage {
 }
 
 /** 大道路径定义 */
+
 export interface DaoPath {
   道名: string;
   描述: string;
@@ -103,6 +108,7 @@ export interface DaoPath {
 }
 
 /** 大道修炼进度 */
+
 export interface DaoProgress {
   道名: string;
   当前阶段: number; // 阶段索引，0为"未门"
@@ -112,6 +118,7 @@ export interface DaoProgress {
 }
 
 /** 天赋进度 */
+
 export interface TalentProgress {
   等级: number;
   当前经验: number;
@@ -120,6 +127,7 @@ export interface TalentProgress {
 }
 
 /** 三千大道系统数据 */
+
 export interface ThousandDaoSystem {
   已解锁大道: string[]; // 解锁的大道名称列表
   大道进度: Record<string, DaoProgress>; // 以大道名称为key

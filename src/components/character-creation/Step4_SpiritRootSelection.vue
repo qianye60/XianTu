@@ -103,18 +103,27 @@ const customSpiritRootFields = [
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：10' },
 ] as const
 
-function validateCustomSpiritRoot(data: any) {
+// 为自定义灵根数据定义类型
+type CustomSpiritRootData = {
+  name: string;
+  description: string;
+  base_multiplier: string;
+  talent_cost: string;
+};
+
+
+function validateCustomSpiritRoot(data: Partial<CustomSpiritRootData>) {
     const errors: Record<string, string> = {};
     if (!data.name?.trim()) errors.name = '灵根名称不可为空';
-    if (isNaN(parseFloat(data.base_multiplier))) errors.base_multiplier = '修炼倍率必须为数字';
-    if (isNaN(parseInt(data.talent_cost, 10))) errors.talent_cost = '消耗点数必须为数字';
+    if (data.base_multiplier === undefined || isNaN(parseFloat(data.base_multiplier))) errors.base_multiplier = '修炼倍率必须为数字';
+    if (data.talent_cost === undefined || isNaN(parseInt(data.talent_cost, 10))) errors.talent_cost = '消耗点数必须为数字';
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
     };
 }
 
-async function handleCustomSubmit(data: any) {
+async function handleCustomSubmit(data: CustomSpiritRootData) {
   const newRoot: SpiritRoot = {
     id: Date.now(),
     name: data.name,
@@ -180,10 +189,15 @@ async function _handleLocalAIGenerate() {
   toast.loading('天机推演中，请稍候...', { id: toastId });
   try {
     const newRoot = await generateSpiritRoot()
-    store.addSpiritRoot(newRoot);
-    handleSelectSpiritRoot(newRoot);
-    toast.success(`AI推演灵根 "${newRoot.name}" 已保存！`, { id: toastId });
-  } catch (e: any) {
+    if (newRoot) {
+      store.addSpiritRoot(newRoot);
+      handleSelectSpiritRoot(newRoot);
+      toast.success(`AI推演灵根 "${newRoot.name}" 已保存！`, { id: toastId });
+    } else {
+      toast.error('AI未能成功推演灵根，请稍后再试。', { id: toastId });
+    }
+  } catch (e: unknown) {
+    console.error("AI灵根推演时发生意外错误:", e);
     // Error handled in tavernAI, just dismiss loading
     toast.hide(toastId);
   }
@@ -375,5 +389,256 @@ function handleAIGenerate() {
   color: var(--color-accent);
   flex-shrink: 0;
   margin-top: 1rem;
+}
+
+/* 响应式适配 - 手机端优化 */
+@media (max-width: 1200px) {
+  .spirit-root-layout {
+    grid-template-columns: 1fr 1.8fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .spirit-root-layout {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.2rem;
+  }
+  
+  .spirit-root-details h2 {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .spirit-root-layout {
+    /* 改为垂直堆叠布局 */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 1rem;
+    height: auto;
+    overflow: visible;
+    padding: 0.8rem;
+  }
+  
+  .spirit-root-left-panel {
+    order: 1;
+    max-height: 40vh;
+  }
+  
+  .spirit-root-details-container {
+    order: 2;
+    min-height: 300px;
+  }
+  
+  .spirit-root-list-container {
+    max-height: 35vh;
+    /* 添加触摸滚动优化 */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  /* 优化触摸体验 */
+  .spirit-root-item,
+  .action-item {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 640px) {
+  .spirit-root-layout {
+    gap: 0.8rem;
+    padding: 0.6rem;
+  }
+  
+  .spirit-root-left-panel {
+    max-height: 35vh;
+  }
+  
+  .spirit-root-list-container {
+    max-height: 30vh;
+    padding: 0.5rem;
+  }
+  
+  .spirit-root-item {
+    padding: 0.7rem;
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .single-actions-container {
+    padding: 0.5rem;
+    gap: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .spirit-root-details-container {
+    padding: 1.2rem;
+    min-height: 250px;
+  }
+  
+  .spirit-root-details h2 {
+    font-size: 1.4rem;
+    margin-bottom: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .spirit-root-selection-container {
+    padding: 0.4rem;
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .spirit-root-layout {
+    gap: 0.6rem;
+    padding: 0;
+    height: auto;
+    min-height: calc(100vh - 2rem);
+  }
+  
+  .spirit-root-left-panel {
+    max-height: 30vh;
+    border-radius: 6px;
+  }
+  
+  .spirit-root-list-container {
+    max-height: 26vh;
+    padding: 0.4rem;
+  }
+  
+  .spirit-root-item {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+    border-radius: 4px;
+  }
+  
+  .spirit-root-name {
+    font-size: 0.9rem;
+  }
+  
+  .spirit-root-cost {
+    font-size: 0.8rem;
+  }
+  
+  .divider {
+    margin: 0.3rem 0;
+  }
+  
+  .single-actions-container {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+  }
+  
+  .spirit-root-details-container {
+    padding: 1rem;
+    min-height: 200px;
+    border-radius: 6px;
+  }
+  
+  .spirit-root-details h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.6rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-right: 0.3rem;
+  }
+  
+  .cost-display {
+    font-size: 1rem;
+    text-align: center;
+    margin-top: 0.8rem;
+  }
+  
+  .placeholder {
+    font-size: 1rem;
+    padding: 1rem;
+    text-align: center;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .spirit-root-selection-container {
+    padding: 0.3rem;
+  }
+  
+  .spirit-root-layout {
+    gap: 0.4rem;
+  }
+  
+  .spirit-root-left-panel {
+    max-height: 28vh;
+  }
+  
+  .spirit-root-list-container {
+    max-height: 24vh;
+    padding: 0.3rem;
+  }
+  
+  .spirit-root-item {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .spirit-root-name {
+    font-size: 0.8rem;
+  }
+  
+  .spirit-root-cost {
+    font-size: 0.75rem;
+  }
+  
+  .spirit-root-details-container {
+    padding: 0.8rem;
+    min-height: 180px;
+  }
+  
+  .spirit-root-details h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  
+  .cost-display {
+    font-size: 0.9rem;
+    margin-top: 0.6rem;
+  }
+  
+  .action-item {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .placeholder {
+    font-size: 0.9rem;
+    padding: 0.8rem;
+    min-height: 120px;
+  }
 }
 </style>

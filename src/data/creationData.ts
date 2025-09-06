@@ -144,16 +144,134 @@ export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
 //                           本地天赋数据 (预留)
 // =======================================================================
 export const LOCAL_TALENTS: Omit<Talent, 'source'>[] = [
-  { id: 1, name: '天命主角', description: '气运惊人，总是能在绝境中逢生，获得意想不到的机缘。', talent_cost: 15, rarity: 5, effects: null },
-  { id: 2, name: '剑道独尊', description: '天生剑心通明，任何剑法一看便会，且威力倍增。', talent_cost: 12, rarity: 5, effects: null },
-  { id: 3, name: '丹道圣手', description: '对药理有超凡的领悟力，炼丹成功率与品质大幅提升。', talent_cost: 12, rarity: 5, effects: null },
-  { id: 4, name: '阵法大师', description: '对阵法有极高的天赋，学习和布置阵法的效率大大提高。', talent_cost: 8, rarity: 4, effects: null },
-  { id: 5, name: '炼器鬼才', description: '天生对各种材料有敏锐的感知，炼器时更容易出现极品。', talent_cost: 8, rarity: 4, effects: null },
-  { id: 6, name: '多宝童子', description: '出门历练时，更容易发现天材地宝。', talent_cost: 7, rarity: 4, effects: null },
-  { id: 7, name: '体修奇才', description: '肉身天生强横，气血旺盛，适合修炼体修功法。', talent_cost: 5, rarity: 3, effects: null },
-  { id: 8, name: '神识过人', description: '天生神识强大，不易被心魔入侵，施展神识秘术效果更佳。', talent_cost: 5, rarity: 3, effects: null },
-  { id: 9, name: '身法鬼魅', description: '身法飘逸，战斗中闪避能力更强。', talent_cost: 4, rarity: 3, effects: null },
-  { id: 10, name: '农夫之子', description: '出身凡人，心性坚韧，对灵植有额外的亲和力。', talent_cost: 2, rarity: 2, effects: null },
-  { id: 11, name: '过目不忘', description: '记忆力超群，学习功法秘籍速度加快。', talent_cost: 2, rarity: 2, effects: null },
-  { id: 12, name: '老实人', description: '与人交易时，不容易被欺骗。', talent_cost: 1, rarity: 1, effects: null },
+  { 
+    id: 1, 
+    name: '天命主角', 
+    description: '气运惊人，总是能在绝境中逢生，获得意想不到的机缘。', 
+    talent_cost: 15, 
+    rarity: 5, 
+    effects: [
+      { 类型: '后天六司', 目标: '气运', 数值: 8 },
+      { 类型: '特殊能力', 名称: '逢凶化吉', 数值: 0.1 }
+    ]
+  },
+  {
+    id: 2, 
+    name: '剑道独尊', 
+    description: '天生剑心通明，任何剑法一看便会，且威力倍增。', 
+    talent_cost: 12, 
+    rarity: 5, 
+    effects: [
+      { 类型: '技能加成', 技能: '剑法', 数值: 0.2 },
+      { 类型: '后天六司', 目标: '根骨', 数值: 3 }
+    ]
+  },
+  {
+    id: 3,
+    name: '丹道圣手',
+    description: '对药理有超凡的领悟力，炼丹成功率与品质大幅提升。',
+    talent_cost: 12,
+    rarity: 5,
+    effects: [
+      { 类型: '技能加成', 技能: '炼丹', 数值: 0.15 },
+      { 类型: '后天六司', 目标: '悟性', 数值: 2 }
+    ]
+  },
+  {
+    id: 4,
+    name: '阵法大师',
+    description: '对阵法有极高的天赋，学习和布置阵法的效率大大提高。',
+    talent_cost: 8,
+    rarity: 4,
+    effects: [
+      { 类型: '技能加成', 技能: '阵法', 数值: 0.12 },
+      { 类型: '后天六司', 目标: '悟性', 数值: 2 }
+    ]
+  },
+  {
+    id: 5,
+    name: '炼器鬼才',
+    description: '天生对各种材料有敏锐的感知，炼器时更容易出现极品。',
+    talent_cost: 8,
+    rarity: 4,
+    effects: [
+      { 类型: '技能加成', 技能: '炼器', 数值: 0.1 },
+      { 类型: '特殊能力', 名称: '材料感知', 数值: 1 }
+    ]
+  },
+  {
+    id: 6,
+    name: '多宝童子',
+    description: '出门历练时，更容易发现天材地宝。',
+    talent_cost: 7,
+    rarity: 4,
+    effects: [
+      { 类型: '后天六司', 目标: '气运', 数值: 3 },
+      { 类型: '特殊能力', 名称: '寻宝天赋', 数值: 0.15 }
+    ]
+  },
+  {
+    id: 7,
+    name: '体修奇才',
+    description: '肉身天生强横，气血旺盛，适合修炼体修功法。',
+    talent_cost: 5,
+    rarity: 3,
+    effects: [
+      { 类型: '后天六司', 目标: '根骨', 数值: 3 },
+      { 类型: '特殊能力', 名称: '体修天赋', 数值: 0.1 }
+    ]
+  },
+  {
+    id: 8,
+    name: '神识过人',
+    description: '天生神识强大，不易被心魔入侵，施展神识秘术效果更佳。',
+    talent_cost: 5,
+    rarity: 3,
+    effects: [
+      { 类型: '后天六司', 目标: '悟性', 数值: 3 },
+      { 类型: '特殊能力', 名称: '心魔抗性', 数值: 0.1 }
+    ]
+  },
+  {
+    id: 9,
+    name: '身法鬼魅',
+    description: '身法飘逸，战斗中闪避能力更强。',
+    talent_cost: 4,
+    rarity: 3,
+    effects: [
+      { 类型: '后天六司', 目标: '灵性', 数值: 2 },
+      { 类型: '特殊能力', 名称: '闪避天赋', 数值: 0.08 }
+    ]
+  },
+  {
+    id: 10,
+    name: '农夫之子',
+    description: '出身凡人，心性坚韧，对灵植有额外的亲和力。',
+    talent_cost: 2,
+    rarity: 2,
+    effects: [
+      { 类型: '后天六司', 目标: '心性', 数值: 1 },
+      { 类型: '特殊能力', 名称: '灵植亲和', 数值: 0.1 }
+    ]
+  },
+  {
+    id: 11,
+    name: '过目不忘',
+    description: '记忆力超群，学习功法秘籍速度加快。',
+    talent_cost: 2,
+    rarity: 2,
+    effects: [
+      { 类型: '后天六司', 目标: '悟性', 数值: 2 }
+    ]
+  },
+  {
+    id: 12,
+    name: '老实人',
+    description: '与人交易时，不容易被欺骗。',
+    talent_cost: 1,
+    rarity: 1,
+    effects: [
+      { 类型: '特殊能力', 名称: '防欺诈', 数值: 1 }
+    ]
+  },
 ];

@@ -110,6 +110,16 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const currentStep = ref(1);
   const isLocalCreation = ref(true);
   const initialGameMessage = ref<string | null>(null);
+  
+  // 世界生成配置
+  const worldGenerationConfig = ref({
+    majorFactionsCount: 7,
+    totalLocations: 25,
+    secretRealmsCount: 8,
+    hasImmortalEmpires: false,
+    hasDemonicFactions: true,
+    hasAncientSects: true
+  });
 
   // --- GETTERS ---
   const totalSteps = computed(() => TOTAL_STEPS);
@@ -499,16 +509,21 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   function setMode(newMode: 'single' | 'cloud') { mode.value = newMode; isLocalCreation.value = (newMode === 'single'); }
   function toggleLocalCreation() { isLocalCreation.value = !isLocalCreation.value; }
   function setInitialGameMessage(message: string) { initialGameMessage.value = message; }
+  
+  // 设置世界生成配置
+  function setWorldGenerationConfig(config: any) {
+    worldGenerationConfig.value = { ...worldGenerationConfig.value, ...config };
+  }
   async function resetOnExit() { await resetCharacter(); mode.value = 'single'; isLocalCreation.value = true; }
   async function startLocalCreation() { await resetCharacter(); isLocalCreation.value = true; mode.value = 'single'; }
   async function startCloudCreation() { await resetCharacter(); isLocalCreation.value = false; mode.value = 'cloud'; }
 
   return {
-    mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage,
+    mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig,
     totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
     selectWorld, selectTalentTier, selectOrigin, selectSpiritRoot, toggleTalent, setAttribute,
-    resetCharacter, nextStep, prevStep, goToStep, setMode, toggleLocalCreation, setInitialGameMessage,
+    resetCharacter, nextStep, prevStep, goToStep, setMode, toggleLocalCreation, setInitialGameMessage, setWorldGenerationConfig,
     resetOnExit, startLocalCreation, startCloudCreation, persistCustomData,
   };
 });

@@ -35,8 +35,8 @@ class ToastManager {
    * @param options - 选项，包含 duration 和 id
    */
   private show(type: MessageType, message: string, options: { duration?: number; id?: string } = {}) {
-    // 默认显示时间延长至5秒
-    const { duration = 5000, id } = options;
+    // 减少默认显示时间到2.5秒
+    const { duration = 2500, id } = options;
 
     // 如果提供了 id，则尝试查找并更新现有 toast
     if (id) {

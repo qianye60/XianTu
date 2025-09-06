@@ -118,9 +118,15 @@ export class GameAIService {
       const systemPrompt = await this.buildComprehensivePrompt(userMessage, characterProfile);
       
       console.log('[AI服务] 使用酒馆预设生成，系统提示词:', systemPrompt);
+      console.log('[AI服务] 系统提示词长度:', systemPrompt.length);
+      console.log('[AI服务] 系统提示词前500字符:', systemPrompt.substring(0, 500));
 
       // 使用酒馆的generateRaw函数和预设（按用户要求）
-      const aiResponse = await helper.generateRaw(systemPrompt);
+      const aiResponse = await helper.generateRaw({
+        user_input: systemPrompt,
+        temperature: 0.7,
+        max_tokens: 8000
+      });
 
       console.log('[AI服务] 酒馆返回的原始响应:', aiResponse);
 
@@ -590,7 +596,11 @@ export class GameAIService {
 请直接输出开场故事，不要包含其他格式。`;
 
       // 发送给AI
-      const response = await helper.generateRaw(initialPrompt);
+      const response = await helper.generateRaw({
+        user_input: initialPrompt,
+        temperature: 0.8,
+        max_tokens: 8000
+      });
       
       if (!response || typeof response !== 'string') {
         throw new Error('AI返回了无效的响应');

@@ -125,7 +125,7 @@ ${GM_COMMAND_TUTORIAL}
 每次回复必须包含以下结构的JSON对象：
 
 \`\`\`json
-` + JSON.stringify({
+{
   "text": "主要叙事内容，描述场景和事件发展",
   "around": "周围环境的详细描述",
   "mid_term_memory": "本轮的关键信息，将被记录到中期记忆",
@@ -136,7 +136,7 @@ ${GM_COMMAND_TUTORIAL}
     "location": "新位置名称",
     "coordinates": {"x": 0, "y": 0}
   }
-}, null, 2) + `
+}
 \`\`\`
 
 #### **判定流程:**

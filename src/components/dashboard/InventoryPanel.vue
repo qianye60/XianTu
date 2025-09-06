@@ -28,13 +28,15 @@
         </div>
         <div class="filter-buttons">
           <select v-model="selectedCategory" class="filter-select">
-            <option value="all">全部</option>
-            <option v-for="cat in itemCategories" :key="cat" :value="cat">{{ cat }}</option>
+            <option value="all">全部物品</option>
+            <option v-for="cat in itemCategories" :key="cat" :value="cat">
+              {{ cat === '法宝' ? '⚔️ 法宝' : cat === '功法' ? '📖 功法' : cat === '其他' ? '📦 其他' : cat }}
+            </option>
           </select>
           <select v-model="sortBy" class="filter-select">
-            <option value="default">默认</option>
-            <option value="quality">品质</option>
-            <option value="name">名称</option>
+            <option value="default">默认排序</option>
+            <option value="quality">品质排序</option>
+            <option value="name">名称排序</option>
           </select>
         </div>
       </div>
@@ -85,7 +87,14 @@
           </div>
           <div v-else-if="filteredItems.length === 0" class="grid-placeholder">
             <BoxSelect :size="48" />
-            <p>空空如也</p>
+            <p v-if="selectedCategory === 'all'">空空如也</p>
+            <p v-else-if="selectedCategory === '法宝'">暂无法宝</p>
+            <p v-else-if="selectedCategory === '功法'">暂无功法</p>
+            <p v-else-if="selectedCategory === '其他'">暂无其他物品</p>
+            <p v-else>暂无{{ selectedCategory }}</p>
+            <span v-if="selectedCategory !== 'all'" class="filter-tip">
+              可以试试搜索其他分类
+            </span>
           </div>
           <div
             v-else
@@ -218,8 +227,31 @@ const inventory = computed<Inventory>(() => characterStore.activeSaveSlot?.存�
 const itemList = computed<Item[]>(() => Object.values(inventory.value.物品 || {}));
 
 const itemCategories = computed(() => {
-  const categories = new Set(itemList.value.map(item => item.类型));
-  return Array.from(categories);
+  // 基于数据结构的固定分类：法宝、功法、其他
+  const predefinedCategories = ['法宝', '功法', '其他'];
+  const existingCategories: string[] = [];
+  
+  // 只显示背包中实际存在的分类
+  predefinedCategories.forEach(category => {
+    const hasItems = itemList.value.some(item => item.类型 === category);
+    if (hasItems) {
+      existingCategories.push(category);
+    }
+  });
+  
+  // 检查是否有其他string类型的物品（数据结构允许的扩展）
+  const customCategories = new Set<string>();
+  itemList.value.forEach(item => {
+    if (!predefinedCategories.includes(item.类型)) {
+      customCategories.add(item.类型);
+    }
+  });
+  
+  if (customCategories.size > 0) {
+    existingCategories.push(...Array.from(customCategories));
+  }
+  
+  return existingCategories;
 });
 
 const qualityOrder: { [key: string]: number } = { '凡': 1, '人': 2, '地': 3, '天': 4, '仙': 5, '神': 6 };
@@ -246,7 +278,14 @@ const filteredItems = computed(() => {
 
 const getItemIconComponent = (item: Item | null): Component => {
   if (!item) return Box;
-  const typeMap: { [key: string]: Component } = { '法宝': Sword, '功法': Book, '丹药': Pill, '防具': Shield };
+  
+  const typeMap: { [key: string]: Component } = { 
+    '法宝': Sword, 
+    '功法': Book, 
+    '其他': Package
+  };
+  
+  // 如果有对应的图标就用，否则使用默认图标
   return typeMap[item.类型] || Box;
 };
 
@@ -604,6 +643,13 @@ onMounted(() => {
   padding: 40px;
   color: var(--color-text-secondary);
   text-align: center;
+}
+
+.filter-tip {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  opacity: 0.8;
 }
 
 .loading-spinner {

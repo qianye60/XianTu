@@ -83,18 +83,70 @@ export async function generateTalentWithPrompt(userPrompt: string): Promise<Tale
 /**
  * 根据世界背景，调用AI生成地图信息，并返回包含指令的GM_Response
  */
-export async function generateMapFromWorld(world: any): Promise<GM_Response> {
+export async function generateMapFromWorld(world: any, userConfig?: { majorFactionsCount?: number; totalLocations?: number; secretRealmsCount?: number }, characterInfo?: { origin?: string; age?: number; birthplace?: string }): Promise<GM_Response> {
     const worldName = world.name || world.名称 || '未知世界';
     const worldEra = world.era || world.时代 || world.时代背景 || '未知时代';
     const worldDesc = world.description || world.描述 || world.世界描述 || '未知描述';
 
     console.log('【神识印记】准备生成地图，世界信息:', { worldName, worldEra, worldDesc });
+    console.log('【神识印记】用户配置信息:', userConfig);
+    console.log('【神识印记】角色信息:', characterInfo);
 
     // 添加随机种子以确保每次生成不同
     const randomSeed = Math.floor(Math.random() * 1000000);
     const timestamp = Date.now();
-    const worldInfo = `\n\n## **当前世界信息**\n世界名称: ${worldName}\n时代背景: ${worldEra}\n世界描述: ${worldDesc}\n\n请基于以上世界信息生成对应的地图。`;
-    const uniquePrompt = `${worldInfo}\n\n随机种子: ${randomSeed}\n生成时间: ${timestamp}\n\n请确保每次生成的地图都有所不同，包含不同的地点、特色和布局。`;
+    
+    // 构建包含用户配置的世界信息
+    let worldInfo = `
+
+## **当前世界信息**
+世界名称: ${worldName}
+时代背景: ${worldEra}
+世界描述: ${worldDesc}`;
+    
+    // 如果有用户配置，添加到提示词中
+    if (userConfig) {
+        worldInfo += `
+
+## **用户生成配置要求**
+- 主要势力数量: ${userConfig.majorFactionsCount || 7}个
+- 地点总数: ${userConfig.totalLocations || 25}个
+- 秘境数量: ${userConfig.secretRealmsCount || 8}个
+
+**请严格按照上述配置生成对应数量的势力范围和地点。**`;
+    }
+    
+    // 如果有角色信息，添加角色相关地点要求
+    if (characterInfo) {
+        const age = characterInfo.age || 18;
+        const origin = characterInfo.origin || characterInfo.birthplace || '未知出身';
+        
+        worldInfo += `
+
+## **角色背景相关地点要求**
+- 角色出身: ${origin}
+- 角色年龄: ${age}岁
+- 游戏开始位置: 需要根据角色出身安排合适的起始地点
+
+**重要要求：**
+1. **必须生成角色出生地**: 根据角色出身"${origin}"，在地图中创建对应的出生地点（如：门派、村落、城镇等）
+2. **必须生成早期活动地点**: 根据角色${age}岁的年龄，生成角色在成长过程中可能接触过的地方（如：附近的城镇、集市、修炼地等）
+3. **起始位置标记**: 将其中一个地点设为游戏开始位置，通常是角色出身相关的地点
+4. **地点关联性**: 确保生成的角色相关地点在地理位置上有合理的关联性
+
+**地点生成建议：**
+- 如果是门派出身：生成对应宗门、附近的城镇、修炼场所
+- 如果是世家出身：生成家族府邸、管辖城市、商业据点  
+- 如果是散修出身：生成村落、集市、野外修炼地
+- 如果是皇室出身：生成皇城、行宫、重要城池`;
+    }
+    
+    const uniquePrompt = `${worldInfo}
+
+随机种子: ${randomSeed}
+生成时间: ${timestamp}
+
+请基于以上世界信息、配置要求和角色背景生成对应的地图，确保每次生成的地图都有所不同，并且包含角色相关的重要地点。`;
     const prompt = MAP_GENERATION_PROMPT + uniquePrompt;
 
     // 1. 直接让AI生成GeoJSON

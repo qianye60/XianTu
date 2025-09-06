@@ -17,6 +17,10 @@
     </div>
     
     <div class="right-section">
+      <button @click="returnToModeSelection" class="return-btn" title="返回道途选择">
+        <ArrowLeft :size="16" />
+        <span>返回道途</span>
+      </button>
       <button @click="toggleFullscreen" class="fullscreen-btn">
         <Maximize v-if="!isFullscreen" :size="16" />
         <Minimize v-else :size="16" />
@@ -27,10 +31,12 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
-import { Maximize, Minimize } from 'lucide-vue-next'
+import { Maximize, Minimize, ArrowLeft } from 'lucide-vue-next'
 import { useCharacterStore } from '@/stores/characterStore'
+import { useRouter } from 'vue-router'
 
 const characterStore = useCharacterStore()
+const router = useRouter()
 const isFullscreen = ref(false)
 
 
@@ -69,6 +75,11 @@ const toggleFullscreen = () => {
       console.error('无法退出全屏模式:', err)
     })
   }
+}
+
+const returnToModeSelection = () => {
+  // 返回到模式选择页面
+  router.push('/')
 }
 
 onMounted(() => {
@@ -178,6 +189,32 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
+.return-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #64748b;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.return-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+  transform: translateX(-2px);
+}
+
+.return-btn span {
+  font-size: 0.875rem;
+}
+
 .fullscreen-btn {
   width: 32px;
   height: 32px;
@@ -243,6 +280,15 @@ onMounted(() => {
   
   .time-value {
     font-size: 0.7rem;
+  }
+  
+  .return-btn {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  
+  .return-btn span {
+    font-size: 0.75rem;
   }
   
   .fullscreen-btn {
@@ -320,6 +366,18 @@ onMounted(() => {
 
 [data-theme="dark"] .time-value {
   color: #cbd5e1;
+}
+
+[data-theme="dark"] .return-btn {
+  background: transparent;
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .return-btn:hover {
+  background: #334155;
+  border-color: #64748b;
+  color: #e2e8f0;
 }
 
 [data-theme="dark"] .fullscreen-btn {

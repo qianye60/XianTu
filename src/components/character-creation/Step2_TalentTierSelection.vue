@@ -112,7 +112,7 @@ const customTierFields = [
   { key: 'color', label: '辉光颜色', type: 'text', placeholder: '例如：#808080' },
 ] as const
 
-function validateCustomTier(data: any) {
+function validateCustomTier(data: Partial<CustomTierData>) {
     const errors: Record<string, string> = {};
     if (!data.name?.trim()) errors.name = '天资名称不可为空';
     const points = Number(data.total_points);
@@ -150,10 +150,15 @@ async function _handleLocalAIGenerate() {
   toast.loading('天机推演中，请稍候...', { id: toastId });
   try {
     const newTier = await generateTalentTier()
-    store.addTalentTier(newTier)
-    handleSelectTalentTier(newTier)
-    toast.success(`AI推演天资 "${newTier.name}" 已保存！`, { id: toastId });
-  } catch (e: any) {
+    if (newTier) {
+      store.addTalentTier(newTier);
+      handleSelectTalentTier(newTier);
+      toast.success(`AI推演天资 "${newTier.name}" 已保存！`, { id: toastId });
+    } else {
+      toast.error('AI未能成功推演天资，请稍后再试。', { id: toastId });
+    }
+  } catch (e: unknown) {
+    console.error("AI天资推演时发生意外错误:", e);
     // Error toast handled in tavernAI, just dismiss loading
     toast.hide(toastId);
   }
@@ -345,5 +350,259 @@ function hexToRgb(hex: string): string {
   margin-top: 1rem;
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
+}
+
+/* 响应式适配 - 手机端优化 */
+@media (max-width: 1200px) {
+  .tier-layout {
+    grid-template-columns: 1fr 1.8fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .tier-layout {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.2rem;
+  }
+  
+  .tier-details h2 {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .tier-layout {
+    /* 改为垂直堆叠布局 */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 1rem;
+    height: auto;
+    overflow: visible;
+    padding: 0.8rem;
+  }
+  
+  .tier-left-panel {
+    order: 1;
+    max-height: 40vh;
+  }
+  
+  .tier-details-container {
+    order: 2;
+    min-height: 300px;
+  }
+  
+  .tiers-list-container {
+    max-height: 35vh;
+    /* 添加触摸滚动优化 */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  /* 优化触摸体验 */
+  .tier-item,
+  .action-item {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 640px) {
+  .tier-layout {
+    gap: 0.8rem;
+    padding: 0.6rem;
+  }
+  
+  .tier-left-panel {
+    max-height: 35vh;
+  }
+  
+  .tiers-list-container {
+    max-height: 30vh;
+    padding: 0.5rem;
+  }
+  
+  .tier-item {
+    padding: 0.7rem;
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .single-actions-container {
+    padding: 0.5rem;
+    gap: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .tier-details-container {
+    padding: 1.2rem;
+    min-height: 250px;
+  }
+  
+  .tier-details h2 {
+    font-size: 1.6rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .points-display {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .talent-tier-selection {
+    padding: 0.4rem;
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tier-layout {
+    gap: 0.6rem;
+    padding: 0;
+    height: auto;
+    min-height: calc(100vh - 2rem);
+  }
+  
+  .tier-left-panel {
+    max-height: 30vh;
+    border-radius: 6px;
+  }
+  
+  .tiers-list-container {
+    max-height: 26vh;
+    padding: 0.4rem;
+  }
+  
+  .tier-item {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+    border-radius: 4px;
+  }
+  
+  .tier-name {
+    font-size: 0.9rem;
+  }
+  
+  .tier-points {
+    font-size: 0.8rem;
+  }
+  
+  .single-actions-container {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+  }
+  
+  .tier-details-container {
+    padding: 1rem;
+    min-height: 200px;
+    border-radius: 6px;
+  }
+  
+  .tier-details h2 {
+    font-size: 1.4rem;
+    margin-bottom: 0.6rem;
+    text-align: center;
+  }
+  
+  .description-scroll {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-right: 0.3rem;
+  }
+  
+  .points-display {
+    font-size: 1rem;
+    text-align: center;
+    padding-top: 0.8rem;
+    margin-top: 0.8rem;
+  }
+  
+  .placeholder {
+    font-size: 1rem;
+    padding: 1rem;
+    text-align: center;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .talent-tier-selection {
+    padding: 0.3rem;
+  }
+  
+  .tier-layout {
+    gap: 0.4rem;
+  }
+  
+  .tier-left-panel {
+    max-height: 28vh;
+  }
+  
+  .tiers-list-container {
+    max-height: 24vh;
+    padding: 0.3rem;
+  }
+  
+  .tier-item {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .tier-name {
+    font-size: 0.8rem;
+  }
+  
+  .tier-points {
+    font-size: 0.75rem;
+  }
+  
+  .tier-details-container {
+    padding: 0.8rem;
+    min-height: 180px;
+  }
+  
+  .tier-details h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  
+  .points-display {
+    font-size: 0.9rem;
+    padding-top: 0.6rem;
+    margin-top: 0.6rem;
+  }
+  
+  .action-item {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .placeholder {
+    font-size: 0.9rem;
+    padding: 0.8rem;
+    min-height: 120px;
+  }
 }
 </style>

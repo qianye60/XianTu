@@ -189,9 +189,10 @@ export async function generateItemWithTavernAI<T = unknown>(
             console.log(`【神识印记】方法3：使用generateRaw简化参数`);
             
             // 根据@types.txt，generateRaw只支持temperature, top_p, max_tokens参数
-            rawResult = await helper.generateRaw(prompt, {
+            rawResult = await helper.generateRaw({
+              user_input: prompt,
               temperature: 0.1,  // 降低随机性，提高一致性
-              max_tokens: 4000
+              max_tokens: 8000
             });
             
             console.log(`【神识印记】方法3成功`);
@@ -201,7 +202,10 @@ export async function generateItemWithTavernAI<T = unknown>(
             
             // 方法4：回退到最基础的generateRaw调用
             console.log(`【神识印记】方法4：最基础的generateRaw调用`);
-            rawResult = await helper.generateRaw(prompt);
+            rawResult = await helper.generateRaw({
+              user_input: prompt,
+              max_tokens: 8000
+            });
           }
         }
       }

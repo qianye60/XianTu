@@ -1,19 +1,22 @@
 <template>
   <div class="map-panel">
-    <!-- 自定义修仙世界地图容器 -->
+    <!-- 修仙世界地图容器 -->
     <div class="custom-map-container" ref="mapContainer">
-      <!-- 地图内控制按钮 -->
-      <div class="map-controls-overlay">
-        <button class="control-btn" @click="refreshMapData" :disabled="loading" title="重新生成世界">
-          <RefreshCw :size="14" :class="{ 'animate-spin': loading }" />
-        </button>
+      <!-- 地图内控制按钮 (左侧) -->
+      <div class="map-controls-left">
         <button class="control-btn" @click="centerToPlayer" title="定位到玩家位置">
           <Target :size="14" />
+        </button>
+        <button class="control-btn" @click="toggleFullscreen" title="全屏显示">
+          <Maximize2 :size="14" />
+        </button>
+        <button class="control-btn" @click="debugMapData" title="调试地图数据">
+          📊
         </button>
         <div class="map-status-mini">{{ mapStatus }}</div>
       </div>
 
-      <!-- SVG 地图画布 -->
+      <!-- SVG 修仙世界地图 -->
       <svg 
         class="world-map-svg" 
         :viewBox="`0 0 ${mapWidth} ${mapHeight}`"
@@ -22,26 +25,16 @@
         @mousemove="handlePan"
         @mouseup="endPan"
         @mouseleave="endPan"
+        style="user-select: none; -webkit-user-select: none; -moz-user-select: none;"
       >
-        <!-- 地图背景网格 -->
+        <!-- 地图定义和效果 -->
         <defs>
           <pattern id="gridPattern" patternUnits="userSpaceOnUse" width="50" height="50">
             <rect width="50" height="50" fill="none" stroke="#E5E7EB" stroke-width="0.5" opacity="0.3"/>
           </pattern>
           
-          <!-- 地形纹理 -->
-          <pattern id="mountainPattern" patternUnits="userSpaceOnUse" width="20" height="20">
-            <rect width="20" height="20" fill="#F3F4F6"/>
-            <path d="M0 15 L5 8 L10 12 L15 5 L20 10 L20 20 L0 20 Z" fill="#E5E7EB"/>
-          </pattern>
-          
-          <pattern id="waterPattern" patternUnits="userSpaceOnUse" width="30" height="30">
-            <rect width="30" height="30" fill="#DBEAFE"/>
-            <path d="M0 15 Q7.5 10 15 15 T30 15" stroke="#3B82F6" stroke-width="1" fill="none" opacity="0.4"/>
-          </pattern>
-          
-          <!-- 势力光辉效果 -->
-          <filter id="factionGlow">
+          <!-- 地点光辉效果 -->
+          <filter id="locationGlow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
@@ -50,129 +43,150 @@
           </filter>
         </defs>
 
-        <!-- 世界背景 -->
+        <!-- 世界背景网格 -->
         <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.1"/>
         
-        
-        <!-- 地图内容组 -->
+        <!-- 地图内容组 (支持平移和缩放) -->
         <g :transform="`translate(${panX}, ${panY}) scale(${zoomLevel})`">
           
-          <!-- 地形背景层 -->
-          <g class="terrain-background">
-            <!-- 山脉区域 -->
-            <ellipse 
-              cx="300" cy="200" rx="120" ry="80" 
-              fill="url(#mountainPattern)" 
-              opacity="0.3"
-              transform="rotate(-15 300 200)"
-            />
-            <ellipse 
-              cx="800" cy="300" rx="100" ry="60" 
-              fill="url(#mountainPattern)" 
-              opacity="0.3"
-              transform="rotate(25 800 300)"
-            />
-            
-            <!-- 水域 -->
-            <ellipse 
-              cx="600" cy="600" rx="150" ry="100" 
-              fill="url(#waterPattern)" 
-              opacity="0.4"
-            />
-          </g>
-          
-          
-          <!-- 势力领土边界层 -->
-          <g class="territory-boundary-layer">
-            <g v-for="territory in factionTerritories" :key="'territory-' + territory.id">
-              <path 
-                :d="territory.boundary" 
-                :fill="territory.color" 
-                :stroke="territory.borderColor" 
-                stroke-width="2" 
-                fill-opacity="0.15" 
-                class="territory-boundary"
-                filter="url(#factionGlow)"
-                @click="selectTerritory(territory)"
+          <!-- 势力范围层 -->
+          <g class="territory-bounds-layer">
+            <g v-for="location in cultivationLocations.filter(loc => loc.isTerritory && loc.territoryBounds)" :key="'territory-' + location.id">
+              <!-- 势力范围多边形 -->
+              <polygon 
+                :points="location.territoryBounds.map(point => `${point.x},${point.y}`).join(' ')"
+                :fill="location.color"
+                :stroke="location.iconColor"
+                stroke-width="2"
+                fill-opacity="0.15"
+                stroke-opacity="0.6"
+                class="territory-polygon"
+                @click="selectLocation(location)"
+                @mouseenter="onLocationHover(location)"
+                @mouseleave="onLocationLeave"
               />
               
-              <!-- 势力核心标记 -->
-              <g :transform="`translate(${territory.centerX}, ${territory.centerY})`">
-                <!-- 势力标志背景 -->
-                <circle 
-                  r="25" 
-                  :fill="territory.color" 
-                  :stroke="territory.borderColor" 
-                  stroke-width="2"
-                  opacity="0.9"
-                />
-                <!-- 势力标志文字 -->
-                <text 
-                  class="faction-emblem-text"
-                  text-anchor="middle" 
-                  dy="6"
-                  :fill="territory.textColor"
-                >
-                  {{ territory.emblem }}
-                </text>
-              </g>
-              
-                <!-- 势力名称 -->
-                <text 
-                  :x="territory.centerX" 
-                  :y="territory.centerY - 35" 
-                  class="faction-name-text"
-                  text-anchor="middle"
-                  :fill="territory.textColor"
-                >
-                  {{ territory.name }}
-                </text>
+              <!-- 势力名称标签 (在范围中心) -->
+              <text 
+                :x="getTerritoryCenter(location.territoryBounds).x"
+                :y="getTerritoryCenter(location.territoryBounds).y"
+                class="territory-name-label"
+                text-anchor="middle"
+                :fill="location.iconColor"
+                font-weight="bold"
+                font-size="14px"
+              >
+                {{ location.name }}
+              </text>
             </g>
           </g>
           
           <!-- 地点标记层 -->
           <g class="location-markers-layer">
-            <g v-for="location in worldLocations" :key="'location-' + location.id">
+            <g v-for="location in cultivationLocations.filter(loc => !loc.isTerritory)" :key="'location-' + location.id">
               <g 
-                :transform="`translate(${location.x}, ${location.y})`"
-                @click="selectLocation(location)"
+                :transform="`translate(${location.coordinates.x}, ${location.coordinates.y})`"
                 class="location-marker"
+                @click="selectLocation(location)"
+                @mouseenter="onLocationHover(location)"
+                @mouseleave="onLocationLeave"
               >
                 <!-- 地点类型图标 -->
-                <g v-if="location.type === 'major_city'">
-                  <rect x="-8" y="-8" width="16" height="16" :fill="location.color" rx="2"/>
-                  <rect x="-6" y="-6" width="5" height="5" fill="white" opacity="0.8"/>
-                  <rect x="1" y="-6" width="5" height="5" fill="white" opacity="0.8"/>
-                  <rect x="-6" y="1" width="5" height="5" fill="white" opacity="0.8"/>
-                  <rect x="1" y="1" width="5" height="5" fill="white" opacity="0.8"/>
-                </g>
-                
-                <g v-else-if="location.type === 'sect_headquarters'">
-                  <polygon points="0,-12 -8,8 8,8" :fill="location.color" stroke="#FFD700" stroke-width="1"/>
-                  <circle r="3" fill="#FFD700"/>
-                </g>
-                
-                <g v-else-if="location.type === 'trade_center'">
-                  <rect x="-6" y="-6" width="12" height="12" :fill="location.color" rx="1"/>
-                  <text class="location-icon-text" text-anchor="middle" dy="3" fill="white">市</text>
-                </g>
-                
-                <g v-else-if="location.type === 'secret_realm'">
-                  <circle r="8" fill="#8B5CF6" opacity="0.8"/>
-                  <path d="M-4,-4 L0,4 L4,-4 Z" fill="#A855F7"/>
-                  <circle r="2" fill="white"/>
-                </g>
-                
-                <g v-else>
-                  <circle r="4" :fill="location.color" stroke="white" stroke-width="1"/>
+                <g class="location-icon-group">
+                  <!-- 门派宗门 -->
+                  <g v-if="location.type === 'sect_headquarters'">
+                    <polygon points="0,-12 -8,8 8,8" :fill="location.iconColor" stroke="#FFD700" stroke-width="1.5"/>
+                    <circle r="3" fill="#FFD700"/>
+                    <circle r="1.5" fill="white"/>
+                  </g>
+                  
+                  <!-- 城镇 -->
+                  <g v-else-if="location.type === 'major_city'">
+                    <rect x="-8" y="-8" width="16" height="16" :fill="location.iconColor" rx="2"/>
+                    <rect x="-6" y="-6" width="5" height="5" fill="white" opacity="0.9"/>
+                    <rect x="1" y="-6" width="5" height="5" fill="white" opacity="0.9"/>
+                    <rect x="-6" y="1" width="5" height="5" fill="white" opacity="0.9"/>
+                    <rect x="1" y="1" width="5" height="5" fill="white" opacity="0.9"/>
+                  </g>
+                  
+                  <!-- 危险秘境 -->
+                  <g v-else-if="location.type === 'secret_realm'">
+                    <circle r="8" :fill="location.iconColor" opacity="0.8"/>
+                    <path d="M-4,-4 L0,4 L4,-4 Z" fill="#FBBF24"/>
+                    <circle r="2.5" fill="white" opacity="0.9">
+                      <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                  </g>
+                  
+                  <!-- 自然地貌 -->
+                  <g v-else-if="location.type === 'mountain'">
+                    <path d="M-6,-6 L0,-12 L6,-6 L4,6 L-4,6 Z" :fill="location.iconColor"/>
+                    <path d="M-4,-4 L0,-8 L4,-4" stroke="white" stroke-width="1" fill="none"/>
+                  </g>
+                  
+                  <!-- 修炼胜地 -->
+                  <g v-else-if="location.type === 'cultivation_site'">
+                    <circle r="6" :fill="location.iconColor" opacity="0.7"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="8px">修</text>
+                  </g>
+                  
+                  <!-- 传承洞府 -->
+                  <g v-else-if="location.type === 'inheritance_cave'">
+                    <rect x="-6" y="-6" width="12" height="12" :fill="location.iconColor" rx="2"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="7px">传</text>
+                  </g>
+                  
+                  <!-- 古战场遗迹 -->
+                  <g v-else-if="location.type === 'battlefield_ruins'">
+                    <polygon points="-6,-6 6,-6 5,6 -5,6" :fill="location.iconColor" stroke="#000" stroke-width="1"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="6px">战</text>
+                  </g>
+                  
+                  <!-- 天材地宝产地 -->
+                  <g v-else-if="location.type === 'treasure_source'">
+                    <circle r="7" :fill="location.iconColor" stroke="#FFD700" stroke-width="1.5"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="6px">宝</text>
+                  </g>
+                  
+                  <!-- 灵兽栖息地 -->
+                  <g v-else-if="location.type === 'spirit_beast_habitat'">
+                    <ellipse rx="8" ry="5" :fill="location.iconColor" opacity="0.8"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="6px">兽</text>
+                  </g>
+                  
+                  <!-- 跨界传送阵 -->
+                  <g v-else-if="location.type === 'teleportation_array'">
+                    <circle r="6" :fill="location.iconColor" stroke="white" stroke-width="1.5"/>
+                    <circle r="3" fill="none" stroke="white" stroke-width="0.8"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="5px">阵</text>
+                  </g>
+                  
+                  <!-- 魔域入口 -->
+                  <g v-else-if="location.type === 'demon_realm_gate'">
+                    <path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#DC2626" stroke-width="2"/>
+                    <circle r="4" :fill="location.iconColor" opacity="0.7"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="5px">魔</text>
+                  </g>
+                  
+                  <!-- 仙人遗府 -->
+                  <g v-else-if="location.type === 'immortal_mansion'">
+                    <rect x="-7" y="-7" width="14" height="14" :fill="location.iconColor" rx="1.5" opacity="0.9"/>
+                    <circle r="2.5" fill="#FFD700"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="black" font-size="5px">仙</text>
+                  </g>
+                  
+                  <!-- 默认图标 -->
+                  <g v-else>
+                    <circle r="4" :fill="location.iconColor" stroke="white" stroke-width="1"/>
+                  </g>
                 </g>
                 
                 <!-- 地点名称标签 -->
                 <text 
                   class="location-name-label"
                   text-anchor="middle"
-                  y="20"
-                  :fill="location.color"
+                  y="18"
+                  :fill="location.iconColor"
                 >
                   {{ location.name }}
                 </text>
@@ -183,7 +197,7 @@
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
             <g :transform="`translate(${playerPosition.x}, ${playerPosition.y})`">
-              <!-- 玩家光环动画 -->
+              <!-- 玩家灵气光环 -->
               <circle class="player-aura" r="15" fill="#EF4444" opacity="0.4">
                 <animate attributeName="r" values="10;20;10" dur="3s" repeatCount="indefinite"/>
                 <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3s" repeatCount="indefinite"/>
@@ -206,65 +220,52 @@
           </g>
           
         </g>
-        
       </svg>
     </div>
     
-    <!-- 地图图例 -->
-    <div class="map-legend">
-      <div class="legend-title">坤舆图志</div>
-      
-      <!-- 选中详情显示 -->
-      <div v-if="selectedInfo" class="selected-info">
+    <!-- 选中详情显示面板 (动态位置在地点顶部) -->
+    <div v-if="selectedInfo" class="selected-info-overlay" :style="getPopupPosition()">
+      <div class="selected-info">
         <div class="info-header">
           <h4>{{ selectedInfo.name }}</h4>
           <button @click="selectedInfo = null" class="close-info">×</button>
         </div>
         <div class="info-content">
-          <p class="info-type">{{ selectedInfo.type }}</p>
+          <p class="info-type">{{ internalTypeToChineseName(selectedInfo.type) }}</p>
           <p class="info-desc">{{ selectedInfo.description }}</p>
-          <div v-if="selectedInfo.population" class="info-detail">
-            <strong>人口：</strong>{{ selectedInfo.population }}
+          <div v-if="selectedInfo.danger_level" class="info-detail">
+            <strong>危险等级：</strong>{{ selectedInfo.danger_level }}
           </div>
-          <div v-if="selectedInfo.features" class="info-features">
-            <strong>特色：</strong>
-            <ul>
-              <li v-for="feature in selectedInfo.features" :key="feature">{{ feature }}</li>
-            </ul>
+          <div v-if="selectedInfo.suitable_for" class="info-detail">
+            <strong>适合：</strong>{{ selectedInfo.suitable_for }}
           </div>
         </div>
       </div>
-      
-      <div class="legend-sections">
-        <div class="legend-section">
-          <h4>势力范围</h4>
-          <div class="legend-items">
-            <div v-for="faction in majorFactions" :key="faction.id" class="legend-item">
-              <div class="legend-icon" :style="{ backgroundColor: faction.color }"></div>
-              <span>{{ faction.name }}</span>
-            </div>
-          </div>
+    </div>
+    
+    <!-- 地图图例 (右下角) -->
+    <div class="map-legend">
+      <div class="legend-title">图例</div>
+      <div class="legend-items">
+        <div class="legend-item">
+          <div class="legend-icon sect-icon">⛩️</div>
+          <span>门派宗门</span>
         </div>
-        <div class="legend-section">
-          <h4>地点类型</h4>
-          <div class="legend-items">
-            <div class="legend-item">
-              <div class="legend-icon sect-icon">🏛️</div>
-              <span>宗门</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-icon city-icon">🏘️</div>
-              <span>城市</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-icon secret-icon">✨</div>
-              <span>秘境</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-icon player-icon">🧙‍♂️</div>
-              <span>当前位置</span>
-            </div>
-          </div>
+        <div class="legend-item">
+          <div class="legend-icon city-icon">🏘️</div>
+          <span>城镇</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon secret-icon">💎</div>
+          <span>危险秘境</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon nature-icon">🏔️</div>
+          <span>自然地貌</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon practice-icon">🧘</div>
+          <span>修炼圣地</span>
         </div>
       </div>
     </div>
@@ -273,40 +274,44 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { RefreshCw, Target } from 'lucide-vue-next';
+import { Target, Maximize2 } from 'lucide-vue-next';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import type { SaveData } from '@/types/game';
-import { useCharacterStore } from '@/stores/characterStore';
-import {
-  WorldLocation,
-  LocationType
-} from '@/types/location';
-import {
-  Faction,
-  TerritoryData,
-} from '@/types/worldMap';
-import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
-import { CultivationWorldGenerator } from '@/utils/worldGeneration/cultivationWorldGenerator';
 
 // --- 类型定义 ---
 
-/** AI返回的地点数据结构 */
-interface AILocationData {
-  id?: string;
-  name?: string;
-  type?: LocationType;
-  coordinates?: { x: number; y: number };
-  importance?: number;
-  controlledBy?: string;
-  description?: string;
-  population?: string;
-  features?: string[];
+/** GeoJSON格式的地点接口 */
+interface CultivationLocation {
+  id: string;
+  name: string;
+  type: string;
+  coordinates: { x: number; y: number };
+  description: string;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  iconColor: string;
+  iconSize: 'small' | 'medium' | 'large';
+  danger_level?: string;
+  suitable_for?: string;
+  // 势力范围相关属性
+  territoryBounds?: { x: number; y: number }[]; // 势力边界点
+  headquarters?: { x: number; y: number }; // 总部位置
+  isTerritory?: boolean; // 是否显示为势力范围
 }
 
 // 地图尺寸配置
-const mapWidth = ref(1200);
-const mapHeight = ref(800);
+const mapWidth = ref(2000);
+const mapHeight = ref(1400);
+
+// 地图边界限制 - 防止过度缩放和平移
+const minZoom = 0.2;
+const maxZoom = 5.0;
+// 动态计算平移范围，基于缩放级别
+const getMaxPanX = () => Math.max(1000, mapWidth.value * zoomLevel.value * 0.8);
+const getMaxPanY = () => Math.max(700, mapHeight.value * zoomLevel.value * 0.8);
 
 // 地图交互状态
 const zoomLevel = ref(1);
@@ -314,160 +319,101 @@ const panX = ref(0);
 const panY = ref(0);
 const isPanning = ref(false);
 const lastPanPoint = ref({ x: 0, y: 0 });
+const dragDistance = ref(0); // 拖拽距离，用于区分点击和拖拽
 
 // 选中信息显示
 const selectedInfo = ref<{
+  id?: string;
   name: string;
   type: string;
   description: string;
-  population?: string;
-  features?: string[];
+  danger_level?: string;
+  suitable_for?: string;
+  screenPosition?: { x: number; y: number }; // 屏幕位置
 } | null>(null);
 
 // 组件状态
 const mapContainer = ref<HTMLElement | null>(null);
 const loading = ref(false);
-const mapStatus = ref('正在加载地图...');
+const mapStatus = ref('正在加载修仙世界...');
 const playerName = ref('');
 const playerLocation = ref('');
 
+// 修仙世界数据 - 只从酒馆变量加载
+const cultivationLocations = ref<CultivationLocation[]>([]);
+const isGeneratingWorld = ref(false);
+const tavernVariables = ref<any>({});
 
-// 主要势力数据 - 从酒馆变量获取
-const majorFactions = ref<Faction[]>([]);
-const isGeneratingFactions = ref(false);
-
-// 世界地点数据
-const worldLocations = ref<WorldLocation[]>([
-  // 青云宗势力范围
-  { id: 'qy_main', name: '青云主峰', type: 'sect', x: 300, y: 200, size: 8, color: '#2563EB', faction: 'qingyun', description: '青云宗山门，剑气冲霄', population: '弟子三万' },
-  { id: 'qy_city1', name: '青云城', type: 'city', x: 280, y: 240, size: 6, color: '#3B82F6', faction: 'qingyun', description: '青云宗山脚繁华城市', population: '十万人' },
-  { id: 'qy_market', name: '天剑坊', type: 'market', x: 320, y: 220, size: 4, color: '#60A5FA', faction: 'qingyun', description: '专门打造法剑的市集' },
-  
-  // 天魔宗势力范围
-  { id: 'tm_main', name: '血魔殿', type: 'sect', x: 350, y: 600, size: 8, color: '#DC2626', faction: 'tianmo', description: '天魔宗总坛，魔气森森', population: '魔徒两万' },
-  { id: 'tm_city1', name: '魔渊城', type: 'city', x: 320, y: 580, size: 6, color: '#EF4444', faction: 'tianmo', description: '魔道修士聚集地', population: '八万人' },
-  { id: 'tm_secret1', name: '万魔窟', type: 'secret_realm', x: 380, y: 620, size: 5, color: '#F87171', faction: 'tianmo', description: '古魔传承之地，危险重重' },
-  
-  // 无极剑宗势力范围
-  { id: 'wj_main', name: '剑谷', type: 'sect', x: 150, y: 400, size: 8, color: '#7C3AED', faction: 'wuji', description: '万剑朝宗，剑意冲天', population: '剑修一万五千' },
-  { id: 'wj_city1', name: '剑心城', type: 'city', x: 180, y: 420, size: 6, color: '#8B5CF6', faction: 'wuji', description: '剑修云集的城市', population: '六万人' },
-  { id: 'wj_secret1', name: '剑冢', type: 'secret_realm', x: 120, y: 380, size: 5, color: '#A855F7', faction: 'wuji', description: '历代剑修埋剑之地，剑意不灭' },
-  
-  // 玄天道宗势力范围
-  { id: 'xt_main', name: '玄天观', type: 'sect', x: 600, y: 150, size: 8, color: '#059669', faction: 'xuantian', description: '道法自然，玄机无穷', population: '道士八千' },
-  { id: 'xt_city1', name: '天机城', type: 'city', x: 580, y: 180, size: 6, color: '#10B981', faction: 'xuantian', description: '精通占卜推演的城市', population: '五万人' },
-  
-  // 万法塔势力范围
-  { id: 'wf_main', name: '万法塔', type: 'sect', x: 500, y: 400, size: 8, color: '#D97706', faction: 'wanfa', description: '法术研究圣地，藏书万卷', population: '法师五千' },
-  { id: 'wf_city1', name: '学府城', type: 'city', x: 480, y: 430, size: 6, color: '#F59E0B', faction: 'wanfa', description: '学者和法师聚集地', population: '七万人' },
-  
-  // 碧霄宫势力范围
-  { id: 'bx_main', name: '碧霄宫', type: 'sect', x: 450, y: 650, size: 8, color: '#EC4899', faction: 'bixiao', description: '仙子云集，美若天仙', population: '女修三千' },
-  { id: 'bx_city1', name: '花都', type: 'city', x: 420, y: 680, size: 6, color: '#F472B6', faction: 'bixiao', description: '花海中的美丽城市', population: '四万人' },
-  
-  // 中立地区
-  { id: 'neutral1', name: '天下第一楼', type: 'market', x: 400, y: 350, size: 5, color: '#6B7280', description: '中立贸易集市，各派云集', population: '流动人口三万' },
-  { id: 'neutral2', name: '散修联盟', type: 'city', x: 250, y: 350, size: 5, color: '#9CA3AF', description: '散修聚集地', population: '散修两万' },
-  
-  // 秘境
-  { id: 'secret1', name: '上古遗迹', type: 'secret_realm', x: 350, y: 300, size: 4, color: '#8B5CF6', description: '上古修士留下的神秘遗迹' },
-  { id: 'secret2', name: '龙骨山', type: 'secret_realm', x: 550, y: 500, size: 4, color: '#8B5CF6', description: '传说中的真龙陨落之地' },
-  { id: 'secret3', name: '幽冥谷', type: 'secret_realm', x: 200, y: 600, size: 4, color: '#8B5CF6', description: '鬼修出没的危险之地' }
-]);
-
-// 势力范围数据
-const factionTerritories = computed<TerritoryData[]>(() => [
-  {
-    id: 'territory_qingyun',
-    factionId: 'qingyun',
-    name: '青云宗',
-    boundary: 'M200,100 Q350,120 400,200 Q380,280 320,300 Q250,290 200,250 Q180,180 200,100 Z',
-    centerX: 290,
-    centerY: 200,
-    color: '#2563EB',
-    borderColor: '#1D4ED8',
-    textColor: '#FFFFFF',
-    emblem: '青'
-  },
-  {
-    id: 'territory_tianmo',
-    factionId: 'tianmo',
-    name: '天魔宗',
-    boundary: 'M280,520 Q400,540 420,620 Q400,700 350,720 Q280,700 260,650 Q270,580 280,520 Z',
-    centerX: 340,
-    centerY: 620,
-    color: '#DC2626',
-    borderColor: '#B91C1C',
-    textColor: '#FFFFFF',
-    emblem: '魔'
-  },
-  {
-    id: 'territory_wuji',
-    factionId: 'wuji',
-    name: '无极剑宗',
-    boundary: 'M80,320 Q180,340 220,400 Q200,480 150,500 Q100,480 80,420 Q70,370 80,320 Z',
-    centerX: 150,
-    centerY: 410,
-    color: '#7C3AED',
-    borderColor: '#6D28D9',
-    textColor: '#FFFFFF',
-    emblem: '剑'
-  },
-  {
-    id: 'territory_xuantian',
-    factionId: 'xuantian',
-    name: '玄天道宗',
-    boundary: 'M520,80 Q650,100 680,180 Q660,240 600,260 Q540,240 520,200 Q510,140 520,80 Z',
-    centerX: 600,
-    centerY: 170,
-    color: '#059669',
-    borderColor: '#047857',
-    textColor: '#FFFFFF',
-    emblem: '道'
-  },
-  {
-    id: 'territory_wanfa',
-    factionId: 'wanfa',
-    name: '万法塔',
-    boundary: 'M420,320 Q550,340 570,420 Q550,480 500,500 Q450,480 430,440 Q415,380 420,320 Z',
-    centerX: 495,
-    centerY: 410,
-    color: '#D97706',
-    borderColor: '#B45309',
-    textColor: '#FFFFFF',
-    emblem: '塔'
-  },
-  {
-    id: 'territory_bixiao',
-    factionId: 'bixiao',
-    name: '碧霄宫',
-    boundary: 'M380,620 Q480,640 500,700 Q480,760 430,780 Q380,760 360,720 Q370,670 380,620 Z',
-    centerX: 440,
-    centerY: 700,
-    color: '#EC4899',
-    borderColor: '#DB2777',
-    textColor: '#FFFFFF',
-    emblem: '宫'
-  }
-]);
-
-
-// 玩家位置相关 
+// 玩家位置 - 从酒馆变量获取
 const playerPosition = computed(() => {
-  // 这里可以根据需要从saveData中获取玩家位置
-  return { x: 400, y: 350 }; // 默认位置（天下第一楼）
+  // 从酒馆获取SaveData中的玩家位置
+  if (!tavernVariables.value?.['character.saveData']?.玩家角色状态?.位置?.坐标) {
+    return null;
+  }
+  
+  const coords = tavernVariables.value['character.saveData'].玩家角色状态.位置.坐标;
+  console.log('[玩家定位] 原始坐标数据:', coords);
+  
+  // 处理不同的坐标格式
+  let longitude: number | undefined, latitude: number | undefined;
+  
+  // Vector2格式 (X,Y大写) - 这是正确的数据结构格式
+  if (coords.X !== undefined && coords.Y !== undefined) {
+    // 如果是虚拟坐标，直接返回
+    return { x: coords.X, y: coords.Y };
+  }
+  // x,y格式 (小写) - 兼容处理
+  else if (coords.x !== undefined && coords.y !== undefined) {
+    return { x: coords.x, y: coords.y };
+  }
+  // 地理坐标格式
+  else if (coords.longitude && coords.latitude) {
+    longitude = coords.longitude;
+    latitude = coords.latitude;
+  }
+  
+  // 转换地理坐标到虚拟坐标
+  if (longitude !== undefined && latitude !== undefined) {
+    const virtualPos = geoToVirtual(longitude, latitude);
+    console.log('[玩家定位] 转换结果:', virtualPos);
+    return virtualPos;
+  }
+  
+  console.warn('[玩家定位] 无法解析坐标格式:', coords);
+  return null;
 });
 
-// 地图交互处理
+// 延迟显示Toast消息，确保视觉间隔
+let toastDelayCounter = 0;
+const showToastWithDelay = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+  // 每个消息增加200ms延迟，确保视觉错开
+  setTimeout(() => {
+    toast[type](message);
+  }, toastDelayCounter * 200);
+  toastDelayCounter++;
+  
+  // 重置计数器，避免累积过多延迟
+  if (toastDelayCounter > 5) {
+    toastDelayCounter = 0;
+  }
+};
+
+// 地图交互处理 - 增加边界限制
 const handleZoom = (event: WheelEvent) => {
   event.preventDefault();
   const delta = event.deltaY > 0 ? -0.1 : 0.1;
-  zoomLevel.value = Math.max(0.5, Math.min(3, zoomLevel.value + delta));
+  zoomLevel.value = Math.max(minZoom, Math.min(maxZoom, zoomLevel.value + delta));
 };
 
 const startPan = (event: MouseEvent) => {
   isPanning.value = true;
   lastPanPoint.value = { x: event.clientX, y: event.clientY };
+  dragDistance.value = 0; // 重置拖拽距离
+  
+  // 开始拖拽时关闭弹窗
+  if (selectedInfo.value) {
+    selectedInfo.value = null;
+  }
 };
 
 const handlePan = (event: MouseEvent) => {
@@ -476,8 +422,16 @@ const handlePan = (event: MouseEvent) => {
   const deltaX = event.clientX - lastPanPoint.value.x;
   const deltaY = event.clientY - lastPanPoint.value.y;
   
-  panX.value += deltaX;
-  panY.value += deltaY;
+  // 累计拖拽距离
+  dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
+  
+  // 动态计算平移范围限制
+  const maxPanX = getMaxPanX();
+  const maxPanY = getMaxPanY();
+  
+  // 限制平移范围
+  panX.value = Math.max(-maxPanX, Math.min(maxPanX, panX.value + deltaX));
+  panY.value = Math.max(-maxPanY, Math.min(maxPanY, panY.value + deltaY));
   
   lastPanPoint.value = { x: event.clientX, y: event.clientY };
 };
@@ -486,325 +440,718 @@ const endPan = () => {
   isPanning.value = false;
 };
 
-const selectTerritory = (territory: TerritoryData) => {
-  console.log('选中势力:', territory.name);
-  const faction = majorFactions.value.find(f => f.id === territory.factionId);
-  selectedInfo.value = {
-    name: territory.name,
-    type: '势力范围',
-    description: faction?.description || '强大的修仙势力，统治着广阔的疆域。',
-    population: faction?.memberCount || '未知',
-    features: faction?.specialties || []
-  };
+const toggleFullscreen = () => {
+  if (mapContainer.value) {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      mapContainer.value.requestFullscreen();
+    }
+  }
 };
 
-const selectLocation = (location: WorldLocation) => {
-  console.log('选中地点:', location.name);
+// 鼠标悬浮处理 - 修复样式抽搐问题
+const hoveredLocation = ref<string | null>(null);
+
+const onLocationHover = (location: CultivationLocation) => {
+  hoveredLocation.value = location.id;
+};
+
+const onLocationLeave = () => {
+  hoveredLocation.value = null;
+};
+
+// 选择处理 - 只有在没有明显拖动时才触发
+const selectLocation = (location: CultivationLocation) => {
+  // 如果正在拖动或拖动距离超过阈值，不触发选择
+  if (isPanning.value || dragDistance.value > 5) {
+    return;
+  }
+  
+  console.log('[坤舆图志] 选中地点:', location.name);
+  
+  // 计算地点在屏幕上的位置
+  const screenPosition = calculateScreenPosition(location.coordinates.x, location.coordinates.y);
+  
   selectedInfo.value = {
+    id: location.id,
     name: location.name,
-    type: getLocationTypeName(location.type),
+    type: location.type,
     description: location.description,
-    population: location.population,
-    features: location.specialFeatures
+    danger_level: location.danger_level,
+    suitable_for: location.suitable_for,
+    screenPosition: screenPosition
   };
 };
 
-const getLocationTypeName = (type: LocationType): string => {
-  const typeMap: { [key: string]: string } = {
-    'major_city': '大城',
-    'sect_headquarters': '宗门',
-    'trade_center': '商会',
-    'secret_realm': '秘境',
-    'city': '城市',
-    'sect': '宗门',
-    'market': '市集',
-    'village': '村落'
+// 计算地点在屏幕上的坐标
+const calculateScreenPosition = (worldX: number, worldY: number): { x: number; y: number } => {
+  if (!mapContainer.value) {
+    return { x: 0, y: 0 };
+  }
+  
+  const containerRect = mapContainer.value.getBoundingClientRect();
+  
+  // 考虑平移和缩放的影响
+  const transformedX = (worldX * zoomLevel.value) + panX.value;
+  const transformedY = (worldY * zoomLevel.value) + panY.value;
+  
+  // 转换为相对于容器的坐标
+  const relativeX = (transformedX / mapWidth.value) * containerRect.width;
+  const relativeY = (transformedY / mapHeight.value) * containerRect.height;
+  
+  return {
+    x: relativeX,
+    y: relativeY
   };
-  return typeMap[type] || '未知';
 };
 
-// 初始化地图 - 只从character.saveData获取
-const initializeMap = async () => {
-  try {
-    mapStatus.value = '正在加载地图数据...';
-    
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[坤舆图志] 酒馆Helper不可用');
-      await loadDefaultFactions();
-      await loadDefaultLocations();
-      mapStatus.value = '地图加载完成（默认数据）';
-      return;
-    }
-
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    const globalVars = await helper.getVariables({ type: 'global' });
-    const saveData = chatVars['character.saveData'] as SaveData;
-    
-    // 从全局变量获取玩家基础信息
-    playerName.value = (globalVars['character.name'] as string) || '';
-    
-    if (saveData && typeof saveData === 'object') {
-      // 从character.saveData获取玩家位置
-      if (saveData.玩家角色状态?.位置?.描述) {
-        playerLocation.value = saveData.玩家角色状态.位置.描述;
-      } else {
-        playerLocation.value = '';
-      }
-      
-      console.log('[坤舆图志] 从character.saveData加载地图数据');
-    }
-    
-    await loadDefaultFactions();
-    await loadDefaultLocations();
-    mapStatus.value = '地图加载完成';
-    toast.success('坤舆图志已就绪');
-    
-  } catch (error) {
-    console.error('[坤舆图志] 地图初始化失败:', error);
-    mapStatus.value = '地图加载失败';
-    toast.error('地图初始化失败');
-    await loadDefaultFactions();
-    await loadDefaultLocations();
+// 计算势力范围中心点
+const getTerritoryCenter = (bounds: { x: number; y: number }[]): { x: number; y: number } => {
+  if (!bounds || bounds.length === 0) {
+    return { x: 0, y: 0 };
   }
-};
-
-// 生成世界势力
-const generateWorldFactions = async () => {
-  if (isGeneratingFactions.value) return;
   
-  isGeneratingFactions.value = true;
+  const sumX = bounds.reduce((sum, point) => sum + point.x, 0);
+  const sumY = bounds.reduce((sum, point) => sum + point.y, 0);
   
-  try {
-    const tavern = getTavernHelper();
-    if (!tavern) {
-      throw new Error('酒馆系统不可用');
-    }
-
-    // 检查是否已有世界势力数据
-    const variables = await tavern.getVariables({ type: 'chat' });
-    const existingFactions = variables['world_factions'] as Faction[];
-    if (existingFactions && Array.isArray(existingFactions) && existingFactions.length > 0) {
-      console.log('[坤舆图志] 发现现有势力数据，直接加载');
-      loadFactionsFromTavern(existingFactions);
-      return;
-    }
-
-    // 获取角色信息
-    const characterStore = useCharacterStore();
-    const activeCharacter = characterStore.activeCharacterProfile;
-    const characterBackground = activeCharacter?.角色基础信息?.出生;
-    
-    console.log('[坤舆图志] 开始生成真实修仙世界...');
-    
-    // 创建世界生成配置（使用经典修仙预设）
-    const worldConfig = new WorldGenerationConfig('classic_cultivation');
-    
-    // 根据角色出身调整世界设置
-    if (characterBackground) {
-      worldConfig.adjustForCharacterBackground(characterBackground);
-    }
-    
-    // 创建世界生成器
-    const worldGenerator = new CultivationWorldGenerator(
-      worldConfig.getSettings(), 
-      characterBackground
-    );
-    
-    // 生成世界
-    await worldGenerator.generateWorld();
-    
-    // 等待数据保存完成后重新加载
-    setTimeout(async () => {
-      const newVariables = await tavern.getVariables({ type: 'chat' });
-      const newFactions = newVariables['world_factions'] as Faction[];
-      
-      if (newFactions && Array.isArray(newFactions) && newFactions.length > 0) {
-        loadFactionsFromTavern(newFactions);
-        await loadWorldLocations(); // 同时加载世界地点
-        toast.success(`成功生成 ${newFactions.length} 个修仙势力的真实世界`);
-      } else {
-        await loadDefaultFactions();
-        toast.warning('使用默认势力数据');
-      }
-    }, 2000); // 增加等待时间，确保AI完成数据保存
-    
-  } catch (error) {
-    console.error('[坤舆图志] 势力生成失败:', error);
-    await loadDefaultFactions();
-    toast.warning('使用默认势力数据');
-  } finally {
-    isGeneratingFactions.value = false;
-  }
+  return {
+    x: sumX / bounds.length,
+    y: sumY / bounds.length
+  };
 };
 
-// 加载世界地点数据
-const loadWorldLocations = async () => {
-  try {
-    const tavern = getTavernHelper();
-    if (!tavern) return;
-    
-    const variables = await tavern.getVariables({ type: 'chat' });
-    const locations = variables['world_locations'] as AILocationData[];
-    
-    if (locations && Array.isArray(locations)) {
-      // 将AI生成的地点数据映射到地图显示格式
-      worldLocations.value = locations.map((location: AILocationData) => ({
-        id: location.id || `loc_${Date.now()}`,
-        name: location.name || '未知地点',
-        type: location.type || 'city',
-        x: location.coordinates?.x || Math.random() * 800 + 200,
-        y: location.coordinates?.y || Math.random() * 600 + 100,
-        size: location.importance || 5,
-        color: getLocationColor(location.type || 'village'),
-        faction: location.controlledBy,
-        description: location.description || '神秘的地点',
-        population: location.population,
-        specialFeatures: location.features
-      }));
-      
-      console.log(`[坤舆图志] 加载了 ${worldLocations.value.length} 个世界地点`);
-    }
-  } catch (error) {
-    console.error('[坤舆图志] 加载世界地点失败:', error);
+// 计算弹窗位置样式
+const getPopupPosition = (): Record<string, string> => {
+  if (!selectedInfo.value?.screenPosition) {
+    return {
+      position: 'absolute',
+      top: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)'
+    };
   }
+  
+  const { x, y } = selectedInfo.value.screenPosition;
+  const popupWidth = 350; // 弹窗预估宽度
+  const popupHeight = 200; // 弹窗预估高度
+  
+  // 确保弹窗不会超出容器边界
+  let popupX = x - popupWidth / 2;
+  let popupY = y - popupHeight - 30; // 在地点顶部30px处显示
+  
+  // 边界检查
+  if (popupX < 10) popupX = 10;
+  if (popupX + popupWidth > (mapContainer.value?.clientWidth || 800) - 10) {
+    popupX = (mapContainer.value?.clientWidth || 800) - popupWidth - 10;
+  }
+  
+  if (popupY < 10) {
+    popupY = y + 30; // 如果顶部放不下，显示在地点下方
+  }
+  
+  return {
+    position: 'absolute',
+    left: `${popupX}px`,
+    top: `${popupY}px`,
+    transform: 'none'
+  };
+};
+
+// GeoJSON坐标到虚拟坐标的转换 (基于实际数据范围)
+const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
+  // 修仙世界蜀中仙域坐标范围
+  const lngMin = 102.0, lngMax = 109.0;
+  const latMin = 27.5, latMax = 33.0;
+  
+  // 保留边距，确保所有点都在可视范围内
+  const margin = 100;
+  const x = ((lng - lngMin) / (lngMax - lngMin)) * (mapWidth.value - 2 * margin) + margin;
+  const y = ((latMax - lat) / (latMax - latMin)) * (mapHeight.value - 2 * margin) + margin;
+  
+  return {
+    x: Math.max(margin, Math.min(mapWidth.value - margin, x)),
+    y: Math.max(margin, Math.min(mapHeight.value - margin, y))
+  };
+};
+
+// 地图类型转换
+const mapLocationTypeToInternal = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    '门派宗门': 'sect_headquarters',
+    '城镇': 'major_city', 
+    '危险秘境': 'secret_realm',
+    '自然地貌': 'mountain',
+    '修炼圣地': 'cultivation_site',
+    '古战场遗迹': 'battlefield_ruins',
+    '天材地宝产地': 'treasure_source',
+    '灵兽栖息地': 'spirit_beast_habitat', 
+    '传承洞府': 'inheritance_cave',
+    '跨界传送阵': 'teleportation_array',
+    '魔域入口': 'demon_realm_gate',
+    '仙人遗府': 'immortal_mansion'
+  };
+  return typeMap[type] || 'village';
+};
+
+// 内部类型转换为中文显示
+const internalTypeToChineseName = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    'sect_headquarters': '门派宗门',
+    'major_city': '主要城市',
+    'secret_realm': '危险秘境',
+    'mountain': '自然地貌',
+    'cultivation_site': '修炼圣地',
+    'trade_center': '贸易中心',
+    'village': '村镇',
+    'neutral_zone': '中立区域',
+    'immortal_empire': '仙朝帝国',
+    'orthodox_sect': '正道宗门',
+    'demonic_cult': '魔道势力',
+    'immortal_family': '修仙世家',
+    'merchant_guild': '商会组织',
+    'neutral_academy': '中立学院',
+    'rogue_alliance': '散修联盟',
+    'demon_tribe': '妖族部落',
+    // 新增特殊地点类型
+    'battlefield_ruins': '古战场遗迹',
+    'treasure_source': '天材地宝产地',
+    'spirit_beast_habitat': '灵兽栖息地',
+    'inheritance_cave': '传承洞府',
+    'teleportation_array': '跨界传送阵',
+    'demon_realm_gate': '魔域入口',
+    'immortal_mansion': '仙人遗府'
+  };
+  return typeMap[type] || type;
+};
+
+const getLocationSize = (type: string): number => {
+  const sizeMap: Record<string, number> = {
+    '门派宗门': 10,
+    '城镇': 8,
+    '危险秘境': 6,
+    '自然地貌': 4,
+    '修炼圣地': 5
+  };
+  return sizeMap[type] || 4;
+};
+
+const getLocationIconSize = (type: string): 'small' | 'medium' | 'large' => {
+  if (type === '门派宗门') return 'large';
+  if (type === '城镇' || type === '危险秘境') return 'medium';
+  return 'small';
 };
 
 // 根据地点类型获取颜色
 const getLocationColor = (type: string): string => {
-  const colorMap: { [key: string]: string } = {
-    'major_city': '#DC2626',
+  const colorMap: Record<string, string> = {
     'sect_headquarters': '#7C3AED', 
-    'trade_center': '#059669',
+    'major_city': '#DC2626',
     'secret_realm': '#EC4899',
-    'city': '#DC2626',
-    'sect': '#7C3AED',
-    'market': '#059669',
-    'village': '#6B7280'
+    'mountain': '#8B5A2B',
+    'cultivation_site': '#059669',
+    'village': '#6B7280',
+    // 新增特殊地点颜色
+    'battlefield_ruins': '#7F1D1D',      // 古战场 - 暗红
+    'treasure_source': '#F59E0B',        // 天材地宝 - 金黄
+    'spirit_beast_habitat': '#16A34A',   // 灵兽栖息地 - 绿色
+    'inheritance_cave': '#9333EA',       // 传承洞府 - 紫色
+    'teleportation_array': '#0EA5E9',    // 传送阵 - 蓝色
+    'demon_realm_gate': '#991B1B',       // 魔域入口 - 深红
+    'immortal_mansion': '#CA8A04'        // 仙人遗府 - 金色
   };
   
   return colorMap[type] || '#6B7280';
 };
 
-// 从酒馆变量加载势力数据
-const loadFactionsFromTavern = (factionsData: Faction[]) => {
+// 初始化地图 - 从酒馆变量加载完整的修仙世界数据
+const initializeMap = async () => {
   try {
-    majorFactions.value = factionsData.map(faction => ({
-      id: faction.id || `faction_${Date.now()}`,
-      name: faction.name || '未知势力',
-      color: faction.color || '#6B7280',
-      borderColor: faction.borderColor || '#4B5563', 
-      textColor: faction.textColor || '#FFFFFF',
-      emblem: faction.emblem || '势',
-      description: faction.description || '神秘的修炼势力',
-      strength: faction.strength || 50,
-      territory: faction.territory || '未知区域'
-    }));
+    mapStatus.value = '正在从天机阁加载世界数据...';
     
-    console.log(`[坤舆图志] 从酒馆变量加载了 ${majorFactions.value.length} 个势力`);
-    updateFactionTerritories();
+    const helper = getTavernHelper();
+    if (!helper) {
+      console.warn('[坤舆图志] 酒馆Helper不可用');
+      mapStatus.value = '酒馆系统不可用';
+      
+      // 添加一些测试数据来验证地图显示
+      addTestData();
+      return;
+    }
+
+    const chatVars = await helper.getVariables({ type: 'chat' });
+    const globalVars = await helper.getVariables({ type: 'global' });
+    
+    // 更新tavernVariables供playerPosition使用
+    tavernVariables.value = { ...chatVars, ...globalVars };
+    
+    // 从全局变量获取玩家信息
+    playerName.value = (globalVars['character.name'] as string) || '道友';
+    
+    // 加载修仙世界数据
+    await loadCultivationWorldFromTavern(chatVars);
+    
+    // 如果没有加载到数据，添加测试数据
+    if (cultivationLocations.value.length === 0) {
+      console.log('[坤舆图志] 没有找到世界数据，加载测试数据');
+      addTestData();
+    }
+    
+    mapStatus.value = '修仙世界加载完成';
+    showToastWithDelay('坤舆图志已连通天机', 'success');
+    
   } catch (error) {
-    console.error('[坤舆图志] 加载酒馆势力数据失败:', error);
-    loadDefaultFactions();
+    console.error('[坤舆图志] 地图初始化失败:', error);
+    mapStatus.value = '天机阁连接失败';
+    showToastWithDelay('世界数据加载失败: ' + (error as Error).message, 'error');
+    
+    // 出错时也添加测试数据
+    addTestData();
   }
 };
 
-// 加载默认势力数据
-const loadDefaultFactions = async () => {
-  majorFactions.value = [
+// 添加测试数据用于验证地图功能
+const addTestData = () => {
+  console.log('[坤舆图志] 添加测试数据');
+  
+  // 测试势力范围数据
+  const testFactions: CultivationLocation[] = [
     {
-      id: 'qingyun',
+      id: 'test_faction_1',
       name: '青云宗',
+      type: 'orthodox_sect',
+      coordinates: geoToVirtual(104.5, 30.8),
+      description: '蜀中第一大正道宗门，以剑道闻名天下',
+      x: 0, y: 0,
+      size: 15,
       color: '#2563EB',
-      borderColor: '#1D4ED8',
-      textColor: '#FFFFFF',
-      emblem: '青',
-      description: '东荒第一大宗，剑修圣地',
-      strength: 95,
-      territory: '东荒北部'
+      iconColor: '#2563EB',
+      iconSize: 'large',
+      isTerritory: true,
+      territoryBounds: [
+        geoToVirtual(103.8, 31.2),
+        geoToVirtual(105.2, 31.2), 
+        geoToVirtual(105.5, 30.4),
+        geoToVirtual(104.8, 29.8),
+        geoToVirtual(103.5, 30.2)
+      ],
+      headquarters: geoToVirtual(104.5, 30.8)
     },
     {
-      id: 'tianmo',
-      name: '天魔宗',
+      id: 'test_faction_2', 
+      name: '血魔教',
+      type: 'demonic_cult',
+      coordinates: geoToVirtual(106.5, 29.2),
+      description: '邪恶的魔道势力，以血炼之术称霸西南',
+      x: 0, y: 0,
+      size: 15,
       color: '#DC2626',
-      borderColor: '#B91C1C',
-      textColor: '#FFFFFF',
-      emblem: '魔',
-      description: '魔道圣地，与青云宗世代为敌',
-      strength: 90,
-      territory: '东荒南部'
-    },
-    {
-      id: 'wuji',
-      name: '无极剑宗',
-      color: '#7C3AED',
-      borderColor: '#6D28D9',
-      textColor: '#FFFFFF',
-      emblem: '剑',
-      description: '剑道至尊，万剑朝宗',
-      strength: 88,
-      territory: '西荒剑谷'
+      iconColor: '#DC2626', 
+      iconSize: 'large',
+      isTerritory: true,
+      territoryBounds: [
+        geoToVirtual(105.9, 29.8),
+        geoToVirtual(107.1, 29.8),
+        geoToVirtual(107.3, 28.6),
+        geoToVirtual(106.2, 28.4),
+        geoToVirtual(105.7, 28.9)
+      ],
+      headquarters: geoToVirtual(106.5, 29.2)
     }
   ];
   
-  updateFactionTerritories();
-};
-
-// 更新势力范围数据
-const updateFactionTerritories = () => {
-  // 这里可以根据AI生成的势力数据动态创建势力范围
-  // 暂时保持现有的静态数据结构
-};
-
-// 加载默认地点数据
-const loadDefaultLocations = async () => {
-  console.log('[坤舆图志] 使用默认地点数据');
-  // worldLocations已经在ref中定义了默认数据，无需额外加载
-};
-
-// 刷新地图数据
-const refreshMapData = async () => {
-  loading.value = true;
-  mapStatus.value = '正在重新生成世界...';
+  // 测试地点数据
+  const testLocations: CultivationLocation[] = [
+    {
+      id: 'test_city_1',
+      name: '成都仙城',
+      type: 'major_city',
+      coordinates: geoToVirtual(104.0, 30.6),
+      description: '蜀中最大的修士聚集地，商贾云集',
+      x: 0, y: 0,
+      size: 10,
+      color: '#059669',
+      iconColor: '#059669',
+      iconSize: 'medium',
+      isTerritory: false
+    },
+    {
+      id: 'test_realm_1',
+      name: '九天秘境',
+      type: 'secret_realm', 
+      coordinates: geoToVirtual(107.5, 31.8),
+      description: '传说中的上古秘境，危险重重但宝物众多',
+      x: 0, y: 0,
+      size: 8,
+      color: '#EC4899',
+      iconColor: '#EC4899',
+      iconSize: 'medium',
+      danger_level: '极高',
+      suitable_for: '元婴期以上修士',
+      isTerritory: false
+    }
+  ];
   
+  // 更新坐标
+  [...testFactions, ...testLocations].forEach(loc => {
+    loc.x = loc.coordinates.x;
+    loc.y = loc.coordinates.y;
+  });
+  
+  cultivationLocations.value = [...testFactions, ...testLocations];
+  console.log('[坤舆图志] ✅ 测试数据加载完成，共', cultivationLocations.value.length, '个地点');
+  
+  // 打印坐标信息
+  cultivationLocations.value.forEach(loc => {
+    console.log(`[坤舆图志] ${loc.name}: (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}) 类型:${loc.isTerritory ? '势力范围' : '地点'}`);
+  });
+};
+
+// 从酒馆变量加载GeoJSON格式的修仙世界数据 - 根据实际SaveData结构
+const loadCultivationWorldFromTavern = async (variables: any) => {
   try {
-    // 重新生成世界势力
-    await generateWorldFactions();
-    toast.success('世界势力已重新生成');
-    mapStatus.value = '地图数据最新';
+    console.log('[坤舆图志] 开始加载酒馆世界数据...');
+    console.log('[坤舆图志] 接收到的variables:', variables);
+    
+    // 清空现有数据
+    cultivationLocations.value = [];
+    
+    // 加载势力数据
+    await loadFactionsData(variables);
+    
+    // 加载地点数据
+    await loadLocationsData(variables);
+    
+    if (cultivationLocations.value.length === 0) {
+      showToastWithDelay('所有地点数据都无效，无法加载', 'error');
+    } else {
+      showToastWithDelay(`✅ 成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
+      mapStatus.value = `已加载 ${cultivationLocations.value.length} 个地点`;
+    }
+    
   } catch (error) {
-    console.error('[坤舆图志] 刷新失败:', error);
-    toast.error('刷新地图失败');
-    mapStatus.value = '刷新失败';
-  } finally {
-    loading.value = false;
+    console.error('[坤舆图志] 加载修仙世界数据失败:', error);
+    mapStatus.value = '数据加载失败';
+    showToastWithDelay('加载世界数据失败: ' + (error as Error).message, 'error');
   }
 };
 
+// 加载势力数据
+const loadFactionsData = async (variables: any) => {
+  try {
+    const factionsData = variables['world_factions'] || [];
+    console.log('[坤舆图志] 加载势力数据:', factionsData);
+    
+    if (Array.isArray(factionsData)) {
+      factionsData.forEach((faction: any, index: number) => {
+        try {
+          // 处理势力范围边界
+          let territoryBounds: { x: number; y: number }[] = [];
+          if (faction.territoryBounds && Array.isArray(faction.territoryBounds)) {
+            territoryBounds = faction.territoryBounds.map((point: any) => {
+              const virtualCoords = geoToVirtual(point.longitude, point.latitude);
+              return { x: virtualCoords.x, y: virtualCoords.y };
+            });
+          }
+          
+          // 总部位置
+          let headquarters: { x: number; y: number } | undefined;
+          if (faction.headquarters) {
+            headquarters = geoToVirtual(faction.headquarters.longitude, faction.headquarters.latitude);
+          }
+          
+          const location: CultivationLocation = {
+            id: faction.id || `faction_${index}`,
+            name: faction.name,
+            type: faction.type,
+            coordinates: headquarters || getTerritoryCenter(territoryBounds),
+            description: faction.description || '',
+            x: headquarters?.x || getTerritoryCenter(territoryBounds).x,
+            y: headquarters?.y || getTerritoryCenter(territoryBounds).y,
+            size: 15, // 势力范围大一些
+            color: faction.color || getLocationColor(faction.type),
+            iconColor: faction.color || getLocationColor(faction.type),
+            iconSize: 'large',
+            isTerritory: true,
+            territoryBounds: territoryBounds,
+            headquarters: headquarters
+          };
+          
+          cultivationLocations.value.push(location);
+          console.log(`[坤舆图志] ✅ 已加载势力: ${location.name} (${location.type})`);
+          
+        } catch (factionError) {
+          console.error(`[坤舆图志] 处理势力${index + 1}时出错:`, factionError);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[坤舆图志] 加载势力数据失败:', error);
+  }
+};
+
+// 加载地点数据
+const loadLocationsData = async (variables: any) => {
+  try {
+    // 查找世界地点数据
+    const locationsData = variables['world_locations'] || [];
+    console.log('[坤舆图志] 加载地点数据:', locationsData);
+    
+    if (Array.isArray(locationsData)) {
+      locationsData.forEach((location: any, index: number) => {
+        try {
+          const virtualCoords = geoToVirtual(location.coordinates.longitude, location.coordinates.latitude);
+          
+          const locationObj: CultivationLocation = {
+            id: location.id || `location_${index}`,
+            name: location.name,
+            type: mapLocationTypeToInternal(location.type),
+            coordinates: virtualCoords,
+            description: location.description || '',
+            x: virtualCoords.x,
+            y: virtualCoords.y,
+            size: getLocationSize(location.type),
+            color: getLocationColor(mapLocationTypeToInternal(location.type)),
+            iconColor: getLocationColor(mapLocationTypeToInternal(location.type)),
+            iconSize: getLocationIconSize(location.type),
+            danger_level: location.danger_level,
+            suitable_for: location.suitable_for,
+            isTerritory: false
+          };
+          
+          cultivationLocations.value.push(locationObj);
+          console.log(`[坤舆图志] ✅ 已加载地点: ${locationObj.name} (${locationObj.type})`);
+          
+        } catch (locationError) {
+          console.error(`[坤舆图志] 处理地点${index + 1}时出错:`, locationError);
+        }
+      });
+    }
+    
+    // 旧的GeoJSON格式兼容处理
+    const searchPaths = [
+      { path: ['world'], desc: '直接world变量' },
+      { path: ['character.saveData', '世界舆图'], desc: 'character.saveData.世界舆图' },
+      { path: ['character.saveData', '世界信息'], desc: 'character.saveData.世界信息' },
+      { path: ['character.saveData', 'world'], desc: 'character.saveData.world' },
+      { path: ['character.saveData'], desc: 'character.saveData根级别', checkMapData: true },
+      { path: ['世界信息'], desc: '世界信息变量' },
+      { path: ['世界舆图'], desc: '世界舆图变量' },
+      { path: ['worldData'], desc: 'worldData变量' }
+    ];
+    
+    let worldData = null;
+    let dataPath = '';
+    
+    // 遍历搜索路径查找旧格式数据
+    for (const search of searchPaths) {
+      let current = variables;
+      let pathValid = true;
+      
+      for (const segment of search.path) {
+        if (current && typeof current === 'object' && current[segment] !== undefined) {
+          current = current[segment];
+        } else {
+          pathValid = false;
+          break;
+        }
+      }
+      
+      if (pathValid && current) {
+        if (search.checkMapData && typeof current === 'object') {
+          for (const [key, value] of Object.entries(current)) {
+            if (value && typeof value === 'object' && value.mapData) {
+              worldData = value;
+              dataPath = `character.saveData.${key}`;
+              break;
+            }
+          }
+          if (worldData) break;
+        }
+        
+        if (current.mapData && current.mapData.type === 'FeatureCollection') {
+          worldData = current;
+          dataPath = search.desc;
+          break;
+        }
+      }
+    }
+    
+    // 处理旧格式的GeoJSON数据
+    if (worldData && worldData.mapData && worldData.mapData.features) {
+      console.log(`[坤舆图志] ✅ 从"${dataPath}"找到 ${worldData.mapData.features.length} 个旧格式地点`);
+      
+      worldData.mapData.features.forEach((feature: any, index: number) => {
+        try {
+          if (!feature.geometry || !feature.properties) return;
+          
+          // 处理Point类型的地点
+          if (feature.geometry.type === 'Point') {
+            const coords = feature.geometry.coordinates;
+            if (!coords || !Array.isArray(coords) || coords.length < 2) return;
+            
+            const virtualCoords = geoToVirtual(coords[0], coords[1]);
+            
+            const location: CultivationLocation = {
+              id: `old_loc_${feature.properties.name}_${index}`,
+              name: feature.properties.name,
+              type: mapLocationTypeToInternal(feature.properties.type),
+              coordinates: virtualCoords,
+              description: feature.properties.description,
+              x: virtualCoords.x,
+              y: virtualCoords.y,
+              size: getLocationSize(feature.properties.type),
+              color: getLocationColor(mapLocationTypeToInternal(feature.properties.type)),
+              iconColor: getLocationColor(mapLocationTypeToInternal(feature.properties.type)),
+              iconSize: getLocationIconSize(feature.properties.type),
+              danger_level: feature.properties.danger_level,
+              suitable_for: feature.properties.suitable_for,
+              isTerritory: false
+            };
+            
+            cultivationLocations.value.push(location);
+          }
+          
+          // 处理Polygon类型的势力范围
+          else if (feature.geometry.type === 'Polygon' && feature.properties.type === 'faction_territory') {
+            const polygonCoords = feature.geometry.coordinates[0]; // 外环坐标
+            if (!polygonCoords || !Array.isArray(polygonCoords) || polygonCoords.length < 3) return;
+            
+            // 转换多边形坐标到虚拟坐标系
+            const territoryBounds = polygonCoords.map(([lng, lat]: [number, number]) => {
+              return geoToVirtual(lng, lat);
+            });
+            
+            // 计算中心点作为总部位置
+            const centerX = territoryBounds.reduce((sum, point) => sum + point.x, 0) / territoryBounds.length;
+            const centerY = territoryBounds.reduce((sum, point) => sum + point.y, 0) / territoryBounds.length;
+            const headquarters = { x: centerX, y: centerY };
+            
+            const factionLocation: CultivationLocation = {
+              id: `old_faction_${feature.properties.name}_${index}`,
+              name: feature.properties.name,
+              type: feature.properties.faction_type || 'orthodox_sect',
+              coordinates: headquarters,
+              description: feature.properties.description,
+              x: headquarters.x,
+              y: headquarters.y,
+              size: 15, // 势力标记稍大
+              color: getLocationColor(feature.properties.faction_type || 'orthodox_sect'),
+              iconColor: getLocationColor(feature.properties.faction_type || 'orthodox_sect'),
+              iconSize: 'large',
+              danger_level: feature.properties.danger_level,
+              suitable_for: feature.properties.suitable_for,
+              isTerritory: true,
+              territoryBounds: territoryBounds,
+              headquarters: headquarters
+            };
+            
+            cultivationLocations.value.push(factionLocation);
+            console.log(`[坤舆图志] ✅ 已加载势力范围: ${factionLocation.name} (${territoryBounds.length}个边界点)`);
+          }
+          
+        } catch (featureError) {
+          console.error(`[坤舆图志] 处理旧格式地点${index + 1}时出错:`, featureError);
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('[坤舆图志] 加载地点数据失败:', error);
+  }
+};
+
+// 调试地图数据 - 详细检查变量结构
+const debugMapData = async () => {
+  try {
+    const helper = getTavernHelper();
+    if (!helper) {
+      showToastWithDelay('酒馆系统不可用', 'error');
+      return;
+    }
+
+    // 测试坐标转换函数
+    console.log('[调试] ===== 测试坐标转换 =====');
+    const testCoords = [
+      { lng: 102.0, lat: 27.5, desc: '西南角' },
+      { lng: 109.0, lat: 33.0, desc: '东北角' },
+      { lng: 104.0, lat: 30.0, desc: '中心点' },
+      { lng: 105.5, lat: 31.5, desc: '偏东北' }
+    ];
+    
+    testCoords.forEach(test => {
+      const virtual = geoToVirtual(test.lng, test.lat);
+      console.log(`[调试] ${test.desc} (${test.lng}, ${test.lat}) -> (${virtual.x.toFixed(1)}, ${virtual.y.toFixed(1)})`);
+    });
+
+    // 获取所有类型的变量进行对比
+    console.log('[调试] ===== 开始详细调试 =====');
+    
+    const chatVars = await helper.getVariables({ type: 'chat' });
+    const globalVars = await helper.getVariables({ type: 'global' });
+    
+    console.log('[调试] Chat变量键值:', Object.keys(chatVars));
+    console.log('[调试] Global变量键值:', Object.keys(globalVars));
+    
+    // 检查势力和地点数据
+    if (chatVars['world_factions']) {
+      console.log('[调试] ===== 找到势力数据 =====');
+      console.log('[调试] world_factions:', chatVars['world_factions']);
+    }
+    
+    if (chatVars['world_locations']) {
+      console.log('[调试] ===== 找到地点数据 ====='); 
+      console.log('[调试] world_locations:', chatVars['world_locations']);
+    }
+    
+    // 检查所有聊天变量的详细结构
+    console.log('[调试] ===== Chat变量详细内容 =====');
+    Object.entries(chatVars).forEach(([key, value]) => {
+      console.log(`[调试] "${key}":`, typeof value, value);
+      
+      // 特别检查可能包含world数据的变量
+      if (value && typeof value === 'object') {
+        const valueKeys = Object.keys(value);
+        console.log(`[调试] "${key}" 的属性:`, valueKeys);
+        
+        if (valueKeys.includes('world')) {
+          console.log(`[调试] "${key}.world":`, value.world);
+        }
+        if (valueKeys.includes('mapData')) {
+          console.log(`[调试] "${key}.mapData":`, value.mapData);
+        }
+      }
+    });
+    
+    // 尝试重新加载数据
+    await loadCultivationWorldFromTavern(chatVars);
+    
+  } catch (error) {
+    console.error('[调试] 调试过程出错:', error);
+    showToastWithDelay('调试失败: ' + (error as Error).message, 'error');
+  }
+};
+
+
 // 定位到玩家
 const centerToPlayer = () => {
-  if (!playerPosition.value) return;
+  if (!playerPosition.value) {
+    showToastWithDelay('无法定位玩家位置', 'warning');
+    return;
+  }
   
   // 将玩家位置居中显示
   panX.value = (mapWidth.value / 2) - playerPosition.value.x * zoomLevel.value;
   panY.value = (mapHeight.value / 2) - playerPosition.value.y * zoomLevel.value;
   zoomLevel.value = 1.5;
   
-  toast.success('已定位到当前位置');
+  showToastWithDelay('已定位到当前位置', 'success');
 };
 
 // 地图生命周期
 onMounted(async () => {
   await initializeMap();
 });
-
-
-
-
-
-
-
-
 
 </script>
 
@@ -816,12 +1163,13 @@ onMounted(async () => {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
 }
 
-/* 地图内控制按钮 */
-.map-controls-overlay {
+/* 地图内控制按钮 (左侧) */
+.map-controls-left {
   position: absolute;
   top: 12px;
-  right: 12px;
+  left: 12px;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   z-index: 1000;
 }
@@ -844,6 +1192,8 @@ onMounted(async () => {
   background: white;
   border-color: #3b82f6;
   color: #3b82f6;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
 .control-btn:disabled {
@@ -860,6 +1210,7 @@ onMounted(async () => {
   color: #64748b;
   font-weight: 500;
   white-space: nowrap;
+  writing-mode: vertical-rl;
 }
 
 /* 地图容器 */
@@ -869,80 +1220,183 @@ onMounted(async () => {
   overflow: hidden;
   border-radius: 8px;
   border: 2px solid #e2e8f0;
-  background: #f8fafc;
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
-/* 选中信息显示 */
+/* SVG地图样式 */
+.world-map-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.world-map-svg:active {
+  cursor: grabbing;
+}
+
+/* 势力范围样式 */
+.territory-bounds-layer .territory-polygon {
+  cursor: pointer;
+  transition: fill-opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+.territory-bounds-layer .territory-polygon:hover {
+  fill-opacity: 0.25;
+  stroke-width: 3;
+}
+
+.territory-name-label {
+  font-size: 14px;
+  font-weight: bold;
+  font-family: '微软雅黑', 'SimHei', sans-serif;
+  text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.headquarters-marker {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+/* 地点标记样式 - 修复抽搐问题 */
+.location-marker {
+  cursor: pointer;
+  transition: none; /* 移除transition避免抽搐 */
+}
+
+.location-marker:hover .location-icon-group {
+  transform: scale(1.1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.location-icon-group {
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+/* 选中详情显示面板 (动态位置在地点顶部) */
+.selected-info-overlay {
+  position: absolute;
+  z-index: 1001;
+  pointer-events: none; /* 允许点击穿透到地图 */
+}
+
 .selected-info {
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
   border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 16px;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  max-width: 400px;
+  pointer-events: auto; /* 弹窗内容可以交互 */
 }
 
 .info-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .info-header h4 {
   margin: 0;
   color: #1e40af;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .close-info {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: #64748b;
-  font-size: 1rem;
+  font-size: 1.2rem;
   border-radius: 4px;
   transition: all 0.2s ease;
 }
 
 .close-info:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: #374151;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
 }
 
 .info-content {
-  font-size: 0.75rem;
-  line-height: 1.4;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .info-type {
   color: #6366f1;
-  font-weight: 500;
-  margin: 0 0 6px 0;
+  font-weight: 600;
+  margin: 0 0 8px 0;
 }
 
 .info-desc {
   color: #4b5563;
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
 }
 
 .info-detail {
   color: #6b7280;
-  margin: 4px 0;
+  margin: 6px 0;
+  font-size: 0.8rem;
 }
 
-.info-features ul {
-  margin: 4px 0 0 16px;
-  padding: 0;
+/* 地图图例 (右下角) */
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 12px;
+  z-index: 1000;
+  min-width: 140px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.legend-title {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
   color: #6b7280;
+  padding: 2px;
 }
 
-.info-features li {
-  margin: 2px 0;
+.legend-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
+/* 动画效果 */
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -952,363 +1406,101 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* SVG 地图样式 */
-.world-map-svg {
-  width: 100%;
-  height: 100%;
-  cursor: grab;
-}
-
-.world-map-svg:active {
-  cursor: grabbing;
-}
-
-/* 移除所有hover特效 */
-.territory-boundary {
-  cursor: pointer;
-  transition: none;
-}
-
-.location-marker {
-  cursor: pointer;
-  transition: none;
-}
-
-/* 地图图例样式 */
-.custom-map-container {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  border-radius: 8px;
-  border: 2px solid #e2e8f0;
-  background: #f8fafc;
-}
-
-.map-legend {
-  position: absolute;
-  top: 80px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 1.25rem;
-  z-index: 1000;
-  max-width: 220px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.world-map-svg {
-  width: 100%;
-  height: 100%;
-  cursor: grab;
-}
-
-.world-map-svg:active {
-  cursor: grabbing;
-}
-
-.legend-title {
-  font-weight: 700;
-  color: #1e40af;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  text-align: center;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 0.5rem;
-}
-
-.legend-section {
-  margin-bottom: 1rem;
-}
-
-.legend-section h4 {
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.legend-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.8rem;
-  color: #6b7280;
-  padding: 0.25rem;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s ease;
-}
-
-.legend-item:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-.legend-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-/* SVG地图元素样式 */
-.faction-emblem-text {
-  font-size: 14px;
-  font-weight: 700;
-  font-family: '微软雅黑', sans-serif;
-}
-
-.faction-name-text {
-  font-size: 12px;
-  font-weight: 600;
-  font-family: '微软雅黑', sans-serif;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.location-marker {
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.location-marker:hover {
-  transform: scale(1.1);
-}
-
+/* SVG元素样式 */
 .location-name-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  font-family: '微软雅黑', sans-serif;
+  font-family: '微软雅黑', 'SimHei', sans-serif;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+  pointer-events: none; /* 防止标签干扰鼠标事件 */
 }
 
 .location-icon-text {
-  font-size: 8px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: bold;
+  font-family: '微软雅黑', sans-serif;
+  pointer-events: none;
 }
 
 .player-name-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.9);
-}
-
-.terrain-layer {
-  opacity: 0.8;
-}
-
-.terrain-label {
   font-size: 12px;
-  font-weight: 600;
-  text-anchor: middle;
-  pointer-events: none;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
-}
-
-.mountain-label {
-  fill: #7c2d12;
-}
-
-.forest-label {
-  fill: #14532d;
-}
-
-.water-label {
-  fill: #1e3a8a;
-}
-
-.territory-boundary {
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.territory-boundary:hover {
-  fill-opacity: 0.4;
-  stroke-width: 4;
-  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
-}
-
-.territory-name {
-  font-size: 16px;
   font-weight: 700;
-  text-anchor: middle;
-  pointer-events: none;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   font-family: '微软雅黑', sans-serif;
-}
-
-.faction-emblem {
-  font-size: 12px;
-  font-weight: 900;
-  fill: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-.location-name {
-  font-size: 11px;
-  font-weight: 600;
-  pointer-events: none;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.9);
-  font-family: '微软雅黑', sans-serif;
-}
-
-.location-name.city {
-  fill: #dc2626;
-}
-
-.location-name.sect {
-  fill: #7c3aed;
-}
-
-.location-name.secret_realm {
-  fill: #ec4899;
-}
-
-.market-emblem {
-  font-size: 10px;
-  font-weight: 900;
-  pointer-events: none;
-}
-
-.location-name.market {
-  fill: #059669;
-}
-
-.city-marker {
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.city-marker:hover {
-  r: 8;
-  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.4));
-}
-
-.player-aura {
-  cursor: pointer;
-}
-
-.player-name {
-  font-size: 12px;
-  font-weight: 700;
-  fill: #dc2626;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.9);
-  pointer-events: none;
-}
-
-.info-title {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.info-text {
-  font-size: 10px;
+  text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.9);
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .map-legend {
-    position: static;
-    margin: 1rem;
+    bottom: 10px;
+    right: 10px;
+    padding: 8px;
+    min-width: 120px;
+  }
+  
+  .map-controls-left {
+    top: 8px;
+    left: 8px;
+    gap: 4px;
+  }
+  
+  .control-btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .selected-info-overlay {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+  }
+  
+  .selected-info {
+    min-width: auto;
     max-width: none;
   }
-  
-  .header-actions .btn-text {
-    display: none;
-  }
-  
-  .territory-name {
-    font-size: 14px;
-  }
-  
-  .location-name {
-    font-size: 10px;
-  }
-}
-</style>
-
-<style>
-/* 全局样式 - 自定义地图图标 */
-.custom-icon-wrapper {
-  background: none !important;
-  border: none !important;
 }
 
-.custom-map-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  border: 2px solid #3388ff;
+/* 全屏模式优化 */
+.map-panel:fullscreen {
+  background: #1a1a2e;
 }
 
-.icon-emoji {
-  font-size: 16px;
-  line-height: 1;
+.map-panel:fullscreen .custom-map-container {
+  border: none;
+  border-radius: 0;
 }
 
-/* 自定义弹窗样式 */
-.custom-popup .leaflet-popup-content {
-  margin: 0;
-  padding: 0;
+.map-panel:fullscreen .map-legend {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
 }
 
-.map-popup {
-  padding: 1rem;
-  min-width: 200px;
+.map-panel:fullscreen .selected-info {
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: white !important;
+  pointer-events: auto !important;
+  z-index: 9999 !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
-.popup-title {
-  margin: 0 0 0.5rem 0;
-  color: #1e40af;
-  font-size: 1rem;
-  font-weight: 600;
+.map-panel:fullscreen .selected-info-overlay {
+  z-index: 9999 !important;
+  pointer-events: none !important;
+  position: fixed !important;
 }
 
-.popup-type {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  background: #e0f2fe;
-  color: #0369a1;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
+.map-panel:fullscreen .selected-info-overlay .selected-info {
+  pointer-events: auto !important;
 }
 
-.popup-description {
-  margin: 0.5rem 0 0 0;
-  color: #64748b;
-  font-size: 0.875rem;
-  line-height: 1.5;
+.map-panel:fullscreen .close-info {
+  color: white !important;
 }
 
-.player-popup {
-  padding: 1rem;
-  min-width: 200px;
-}
-
-.player-popup h4 {
-  margin: 0 0 0.5rem 0;
-  color: #dc2626;
-  font-size: 1rem;
-}
-
-.player-popup p {
-  margin: 0.25rem 0;
-  font-size: 0.875rem;
-  color: #64748b;
+.map-panel:fullscreen .close-info:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ff6b6b !important;
 }
 </style>

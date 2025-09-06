@@ -29,7 +29,7 @@ import { toasts } from '@/utils/toast';
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 16px;
 }
 
 .toast {
@@ -43,7 +43,7 @@ import { toasts } from '@/utils/toast';
   border: 1px solid var(--color-border);
   min-width: 250px;
   max-width: 400px;
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  margin-bottom: 8px;
 }
 
 .toast-icon {

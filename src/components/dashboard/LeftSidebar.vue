@@ -1,95 +1,183 @@
 <template>
   <div class="left-sidebar">
     <div class="sidebar-header">
-      <h3 class="sidebar-title">游戏功能</h3>
+      <h3 class="sidebar-title">
+        <Compass :size="20" class="title-icon" />
+        游戏功能
+      </h3>
     </div>
     
     <div class="sidebar-content">
-      <div class="function-group">
-        <button class="function-btn" @click="handleInventory">
-          <Package :size="16" />
-          <span class="btn-text">背包</span>
-        </button>
-        
-        <button class="function-btn" @click="handleCharacterDetails">
-          <User :size="16" />
-          <span class="btn-text">人物详情</span>
-        </button>
-        
-        <button 
-          class="function-btn" 
-          @click="handleQuests"
-          :class="{ disabled: !isQuestSystemEnabled }"
-          :disabled="!isQuestSystemEnabled"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14,2 14,8 20,8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10,9 9,10 8,9"/>
-          </svg>
-          <span class="btn-text">任务系统</span>
-          <span v-if="!isQuestSystemEnabled" class="disabled-hint">需在设置中启用</span>
-        </button>
-        
-        <button class="function-btn" @click="handleSect">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 21h18"/>
-            <path d="M5 21V7l8-4v18"/>
-            <path d="m13 7 8 4v10"/>
-          </svg>
-          <span class="btn-text">宗门</span>
-        </button>
-        
-        <button class="function-btn" @click="handleRelationships">
-          <Users :size="16" />
-          <span class="btn-text">人物关系</span>
-        </button>
-        
-        <button class="function-btn" @click="handleCultivationSystem">
-          <BookOpen :size="16" />
-          <span class="btn-text">功法系统</span>
-        </button>
-        
-        <button class="function-btn" @click="handleSkillsArts">
-          <Zap :size="16" />
-          <span class="btn-text">道法技艺</span>
-        </button>
-        
-        <button class="function-btn" @click="handleMemoryCenter">
-          <Brain :size="16" />
-          <span class="btn-text">记忆中心</span>
-        </button>
-        
-        <button class="function-btn" @click="handleWorldMap">
-          <Map :size="16" />
-          <span class="btn-text">世界地图</span>
-        </button>
-        
-        <button class="function-btn" @click="handleOnlinePlay">
-          <Globe :size="16" />
-          <span class="btn-text">拜访道友</span>
-        </button>
+      <!-- 主要功能区 -->
+      <div class="function-section">
+        <div class="section-title">修行管理</div>
+        <div class="function-group">
+          <button class="function-btn primary" @click="handleInventory">
+            <div class="btn-icon">
+              <Package :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">背包物品</span>
+              <span class="btn-desc">查看道具装备</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn primary" @click="handleCharacterDetails">
+            <div class="btn-icon">
+              <User :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">人物详情</span>
+              <span class="btn-desc">查看修为境界</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn primary" @click="handleCultivationSystem">
+            <div class="btn-icon">
+              <BookOpen :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">修炼功法</span>
+              <span class="btn-desc">修炼心法功法</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn primary" @click="handleThousandDao">
+            <div class="btn-icon">
+              <Zap :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">三千大道</span>
+              <span class="btn-desc">修炼万法道途</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+        </div>
+      </div>
+
+      <!-- 社交功能区 -->
+      <div class="function-section">
+        <div class="section-title">江湖事务</div>
+        <div class="function-group">
+          <button class="function-btn secondary" @click="handleRelationships">
+            <div class="btn-icon">
+              <Users :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">江湖人脉</span>
+              <span class="btn-desc">江湖人脉网络</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn secondary" @click="handleSect">
+            <div class="btn-icon">
+              <Home :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">宗门事务</span>
+              <span class="btn-desc">宗门任务管理</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button 
+            class="function-btn secondary" 
+            @click="handleQuests"
+            :class="{ disabled: !isQuestSystemEnabled }"
+            :disabled="!isQuestSystemEnabled"
+          >
+            <div class="btn-icon">
+              <Scroll :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">任务系统</span>
+              <span class="btn-desc" v-if="isQuestSystemEnabled">进行中任务</span>
+              <span class="btn-desc disabled-text" v-else>需在设置中启用</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" v-if="isQuestSystemEnabled" />
+          </button>
+        </div>
+      </div>
+
+      <!-- 探索功能区 -->
+      <div class="function-section">
+        <div class="section-title">世界探索</div>
+        <div class="function-group">
+          <button class="function-btn accent" @click="handleWorldMap">
+            <div class="btn-icon">
+              <Map :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">世界地图</span>
+              <span class="btn-desc">查看修仙大陆</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn accent" @click="handleMemoryCenter">
+            <div class="btn-icon">
+              <Brain :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">记忆中心</span>
+              <span class="btn-desc">回顾修行历程</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn accent" @click="handleOnlinePlay">
+            <div class="btn-icon">
+              <Globe :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">论道交友</span>
+              <span class="btn-desc">与道友论道</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+        </div>
       </div>
       
       <div class="divider"></div>
       
-      <div class="system-group">
-        <button class="function-btn" @click="handleSaveGame" :disabled="!activeCharacter">
-          <Save :size="16" />
-          <span class="btn-text">存档</span>
-        </button>
-        
-        <button class="function-btn" @click="handleSettings">
-          <Settings :size="16" />
-          <span class="btn-text">设置</span>
-        </button>
-        
-        <button class="function-btn exit-btn" @click="handleBackToMenu">
-          <LogOut :size="16" />
-          <span class="btn-text">返回道途</span>
-        </button>
+      <!-- 系统功能区 -->
+      <div class="system-section">
+        <div class="function-group">
+          <button class="function-btn system" @click="handleSaveGame" :disabled="!activeCharacter">
+            <div class="btn-icon">
+              <Save :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">保存游戏</span>
+              <span class="btn-desc">保存修行进度</span>
+            </div>
+          </button>
+          
+          <button class="function-btn system" @click="handleSettings">
+            <div class="btn-icon">
+              <Settings :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">系统设置</span>
+              <span class="btn-desc">调整游戏选项</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+          
+          <button class="function-btn exit-btn" @click="handleBackToMenu">
+            <div class="btn-icon">
+              <LogOut :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">返回道途</span>
+              <span class="btn-desc">退出当前游戏</span>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -98,7 +186,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 
@@ -158,8 +246,8 @@ const handleCultivationSystem = () => {
   router.push('/game/cultivation');
 };
 
-const handleSkillsArts = () => {
-  router.push('/game/skills');
+const handleThousandDao = () => {
+  router.push('/game/thousand-dao');
 };
 
 const handleMemoryCenter = () => {
@@ -236,6 +324,14 @@ const handleBackToMenu = () => {
   font-weight: 600;
   color: var(--color-text);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.title-icon {
+  color: var(--color-primary);
 }
 
 .sidebar-content {
@@ -243,7 +339,9 @@ const handleBackToMenu = () => {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  padding-right: 4px;
 }
+
 .sidebar-content::-webkit-scrollbar {
   width: 4px;
 }
@@ -258,16 +356,30 @@ const handleBackToMenu = () => {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.function-group,
-.system-group {
+/* 功能分区样式 */
+.function-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+  padding: 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.function-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
 }
 
-.system-group {
-  margin-bottom: 0;
+.system-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
 }
 
 .divider {
@@ -276,30 +388,139 @@ const handleBackToMenu = () => {
   margin: 16px 0;
 }
 
+/* 增强的按钮样式 */
 .function-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 12px 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: inherit;
-  font-size: 0.875rem;
   text-align: left;
   width: 100%;
   position: relative;
+  overflow: hidden;
+}
+
+.function-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.function-btn:hover::before {
+  left: 100%;
 }
 
 .function-btn:hover {
   background: var(--color-surface-light);
-  border-color: var(--color-border-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.15);
 }
 
+.function-btn:active {
+  transform: translateY(-1px) scale(0.98);
+  transition: all 0.1s ease;
+}
+
+/* 按钮图标区域 */
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--color-background);
+  margin-right: 12px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* 按钮内容区域 */
+.btn-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.btn-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  line-height: 1.1;
+}
+
+/* 按钮箭头 */
+.btn-arrow {
+  color: var(--color-text-muted);
+  transition: all 0.3s ease;
+  margin-left: 8px;
+}
+
+.function-btn:hover .btn-arrow {
+  color: var(--color-primary);
+  transform: translateX(2px);
+}
+
+/* 分类颜色主题 */
+.function-btn.primary .btn-icon {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.function-btn.primary:hover .btn-icon {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.function-btn.secondary .btn-icon {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.function-btn.secondary:hover .btn-icon {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.function-btn.accent .btn-icon {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.function-btn.accent:hover .btn-icon {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.function-btn.system .btn-icon {
+  background: rgba(107, 114, 128, 0.1);
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.function-btn.system:hover .btn-icon {
+  background: rgba(107, 114, 128, 0.15);
+  border-color: rgba(107, 114, 128, 0.3);
+}
+
+/* 禁用状态样式 */
 .function-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -310,6 +531,17 @@ const handleBackToMenu = () => {
   background: var(--color-surface-light);
   transform: none;
   box-shadow: none;
+  border-color: var(--color-border);
+}
+
+.function-btn:disabled .btn-icon {
+  background: var(--color-background);
+  border-color: var(--color-border);
+}
+
+.function-btn:disabled .btn-arrow {
+  opacity: 0.3;
+  transform: none;
 }
 
 .function-btn.disabled {
@@ -317,34 +549,62 @@ const handleBackToMenu = () => {
   opacity: 0.6;
 }
 
-.disabled-hint {
-  position: absolute;
-  right: 8px;
-  font-size: 0.6rem;
-  color: var(--color-text-secondary);
-  font-weight: 400;
+.disabled-text {
   font-style: italic;
+  opacity: 0.7;
 }
 
+/* 退出按钮特殊样式 */
 .exit-btn {
   border-color: var(--color-error);
-  color: var(--color-error);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .exit-btn:hover {
-  background: rgba(var(--color-error-rgb), 0.05);
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
-.btn-text {
-  font-weight: 500;
-  color: var(--color-text);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--color-error);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
 }
 
 .exit-btn .btn-text {
-  color: inherit;
+  color: var(--color-error);
 }
 
-/* 移除深色主题硬编码，使用CSS变量自动适配 */
+.exit-btn .btn-desc {
+  color: rgba(239, 68, 68, 0.7);
+}
+
+.exit-btn .btn-icon {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.exit-btn:hover .btn-icon {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+  .left-sidebar {
+    padding: 12px;
+  }
+  
+  .function-btn {
+    padding: 10px 14px;
+  }
+  
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .btn-text {
+    font-size: 0.85rem;
+  }
+  
+  .btn-desc {
+    font-size: 0.7rem;
+  }
+}
 </style>

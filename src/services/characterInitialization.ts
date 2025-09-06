@@ -17,11 +17,10 @@ import { WorldGenerationConfig, BirthplaceGenerator } from '@/utils/worldGenerat
 import { CultivationWorldGenerator } from '@/utils/worldGeneration/cultivationWorldGenerator';
 
 /**
- * 创建一个可重试的AI调用包装器
+ * 创建一个可重试的AI调用包装器，包含用户确认功能
  * @param aiFunction 要调用的AI生成函数
  * @param validator 验证AI响应是否有效的函数
- * @param maxRetries 最大重试次数
- * @param toastId 用于更新状态的toast ID
+ * @param maxRetries 最大自动重试次数
  * @param progressMessage 重试时显示的toast消息
  * @returns AI函数的返回结果
  */
@@ -33,6 +32,8 @@ async function retryableAICall<T>(
 ): Promise<T> {
   const uiStore = useUIStore();
   let lastError: Error | null = null;
+  
+  // 先进行自动重试
   for (let i = 0; i <= maxRetries; i++) {
     try {
       if (i > 0) {
@@ -46,14 +47,76 @@ async function retryableAICall<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.warn(`[AI重试机制] 第 ${i} 次尝试失败:`, lastError.message);
-      if (i === maxRetries) {
-        toast.error(`${progressMessage}失败，请稍后再试`);
-        throw new Error(`AI调用在 ${maxRetries} 次重试后失败: ${lastError.message}`);
+      if (i < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 递增延迟
       }
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 递增延迟
     }
   }
-  throw new Error('重试逻辑错误，不应到达此处');
+  
+  // 自动重试耗尽后，询问用户是否继续
+  const shouldRetry = await askUserForRetry(progressMessage, lastError?.message || '未知错误');
+  if (shouldRetry) {
+    // 用户选择继续，进行额外的重试
+    return await retryableAICallWithUserChoice(aiFunction, validator, progressMessage);
+  } else {
+    // 用户选择不重试，抛出错误
+    throw new Error(`${progressMessage}失败，用户选择不继续重试: ${lastError?.message}`);
+  }
+}
+
+/**
+ * 询问用户是否继续重试
+ */
+async function askUserForRetry(taskName: string, errorMessage: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const uiStore = useUIStore();
+    
+    // 显示错误和询问
+    uiStore.showRetryDialog({
+      title: `${taskName}失败`,
+      message: `${taskName}多次尝试后仍然失败。\n\n错误信息：${errorMessage}\n\n是否继续重试？选择"否"将使用默认内容。`,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false)
+    });
+  });
+}
+
+/**
+ * 用户确认后的重试逻辑
+ */
+async function retryableAICallWithUserChoice<T>(
+  aiFunction: () => Promise<T>,
+  validator: (response: T) => boolean,
+  progressMessage: string
+): Promise<T> {
+  const uiStore = useUIStore();
+  
+  // 用户确认后进行额外的重试
+  for (let i = 1; i <= 3; i++) {
+    try {
+      uiStore.updateLoadingText(`${progressMessage} (用户确认第 ${i} 次重试)`);
+      const response = await aiFunction();
+      if (validator(response)) {
+        return response;
+      }
+      throw new Error('AI响应格式无效');
+    } catch (error) {
+      console.warn(`[用户确认重试] 第 ${i} 次尝试失败:`, error);
+      if (i < 3) {
+        await new Promise(resolve => setTimeout(resolve, 2000 * i)); // 更长的延迟
+      }
+    }
+  }
+  
+  // 最终失败，再次询问用户
+  const shouldContinueRetry = await askUserForRetry(progressMessage, '多次重试仍然失败');
+  if (shouldContinueRetry) {
+    // 递归继续重试
+    return await retryableAICallWithUserChoice(aiFunction, validator, progressMessage);
+  } else {
+    // 用户最终放弃
+    throw new Error(`${progressMessage}最终失败，用户选择放弃重试`);
+  }
 }
 
 /**
@@ -157,11 +220,16 @@ export async function initializeCharacter(
         baseInfo.出生
       );
 
-      await worldGenerator.generateWorld();
-
-      // 等待世界生成完成
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 缩短等待时间
-      console.log('[角色初始化] 修仙世界已生成并保存到酒馆变量');
+      try {
+        await worldGenerator.generateWorld();
+        // 等待世界生成完成
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('[角色初始化] 修仙世界已生成并保存到酒馆变量');
+      } catch (worldGenError) {
+        console.warn('[角色初始化] 世界生成API调用失败，使用默认配置:', worldGenError);
+        uiStore.updateLoadingText('世界生成失败，将使用默认配置继续...');
+        // 不抛出错误，继续使用默认配置
+      }
 
       // 0.6. 生成角色出生地（新增）
       uiStore.updateLoadingText('天道定位：正在为您寻找降生之所...');
@@ -223,8 +291,21 @@ export async function initializeCharacter(
 
     // 4. AI生成：衍化世界舆图（带重试机制）
     uiStore.updateLoadingText('天道推演：正在为您绘制山川地理...');
+    
+    // 获取用户的世界生成配置
+    const userWorldConfig = store.worldGenerationConfig;
+    console.log('【角色初始化】使用用户世界生成配置:', userWorldConfig);
+    
+    // 构建角色背景信息
+    const characterInfo = {
+      origin: baseInfo.出生,
+      age: age,
+      birthplace: baseInfo.出生 // 出生地信息
+    };
+    console.log('【角色初始化】角色背景信息:', characterInfo);
+    
     const mapResponse = await retryableAICall(
-      () => generateMapFromWorld(world),
+      () => generateMapFromWorld(world, userWorldConfig, characterInfo),
       (res) => res && typeof res === 'object', // 验证响应是否为非空对象
       2, // 最大重试次数
       '绘制山川地理'
@@ -253,14 +334,20 @@ export async function initializeCharacter(
       creationDetails,
     };
 
-    const initialMessageResponse = await retryableAICall(
-      () => generateInitialMessage(initialGameDataForAI, worldMap, GAME_START_INITIALIZATION_PROMPT),
-      (res) => res && typeof res.text === 'string' && res.text.trim() !== '', // 验证响应文本是否有效
-      2, // 最大重试次数
-      '谱写命运之初'
-    );
+    // 5.2 生成初始消息（带自动fallback）
+    const initialMessageResponse = await generateInitialMessage(initialGameDataForAI, worldMap, GAME_START_INITIALIZATION_PROMPT);
 
-    // 5.3 将完整的开局剧情信息存入记忆
+    // 5.3 使用AI返回的具体化设定更新baseInfo
+    if (initialMessageResponse.processedOrigin && initialMessageResponse.processedOrigin !== baseInfo.出生) {
+      baseInfo.出生 = initialMessageResponse.processedOrigin;
+      console.log('[角色初始化] 更新出身为:', baseInfo.出生);
+    }
+    if (initialMessageResponse.processedSpiritRoot && initialMessageResponse.processedSpiritRoot !== baseInfo.灵根) {
+      baseInfo.灵根 = initialMessageResponse.processedSpiritRoot;
+      console.log('[角色初始化] 更新灵根为:', baseInfo.灵根);
+    }
+
+    // 5.4 将完整的开局剧情信息存入记忆
     const openingStory = initialMessageResponse.text || "你睁开双眼，发现自己身处在一个古色古香的房间里。";
     const aroundDescription = initialMessageResponse.around || "";
     const storySummary = initialMessageResponse.mid_term_memory || (openingStory.substring(0, 70) + '...');
@@ -277,26 +364,12 @@ export async function initializeCharacter(
 
     console.log('[角色初始化] 保存的完整开局消息:', fullOpeningMessage.substring(0, 200));
 
-    // 5.4 调用 processGmResponse 来执行AI返回的其他指令（如设置物品等）
+    // 5.5 调用 processGmResponse 来执行AI返回的其他指令（如设置物品等）
     currentSaveData = await processGmResponse(initialMessageResponse, currentSaveData);
-
-    // [核心改造] AI生成的信息现在直接写入了 currentSaveData，我们从那里读取并更新 baseInfo
-    // 这确保了 baseInfo 和 saveData 的一致性
-    const finalOrigin = get(currentSaveData, '角色基础信息.出身详情.name', baseInfo.出生);
-    if (finalOrigin !== baseInfo.出生) {
-      baseInfo.出生 = finalOrigin;
-      uiStore.updateLoadingText(`天命择主：AI已为您选定出身【${baseInfo.出生}】`);
-    }
-
-    const finalSpiritRoot = get(currentSaveData, '角色基础信息.灵根详情.name', baseInfo.灵根);
-    if (finalSpiritRoot !== baseInfo.灵根) {
-      baseInfo.灵根 = finalSpiritRoot;
-      uiStore.updateLoadingText(`仙缘天定：AI已为您选定灵根【${baseInfo.灵根}】`);
-    }
     
     // ================= 数据整合与持久化 =================
     
-    // 7. 按照正确的数据架构分别存储
+    // 6. 按照正确的数据架构分别存储
     uiStore.updateLoadingText(`天机同步：正在将【${baseInfo.名字}】的命格写入大道...`);
     try {
       // [核心重构] 设置全局变量，只保留最核心的、不变的标识符

@@ -104,7 +104,7 @@ const filteredOrigins = computed(() => {
     
     if (cloudOrigins.length === 0) {
       console.warn("【出身选择】警告：联机模式下没有找到云端出身数据！");
-      console.log("【出身选择】所有出身的source分布:", allOrigins.reduce((acc: any, o) => {
+      console.log("【出身选择】所有出身的source分布:", allOrigins.reduce((acc: Record<string, number>, o) => {
         acc[o.source] = (acc[o.source] || 0) + 1;
         return acc;
       }, {}));
@@ -120,7 +120,15 @@ const customOriginFields = [
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0' },
 ] as const
 
-function validateCustomOrigin(data: any) {
+// 为自定义出身数据定义类型
+type CustomOriginData = {
+  name: string;
+  description: string;
+  talent_cost: string;
+};
+
+
+function validateCustomOrigin(data: Partial<CustomOriginData>) {
     const errors: Record<string, string> = {};
     if (!data.name?.trim()) errors.name = '出身名称不可为空';
     const cost = Number(data.talent_cost);
@@ -131,7 +139,7 @@ function validateCustomOrigin(data: any) {
     };
 }
 
-async function handleCustomSubmit(data: any) {
+async function handleCustomSubmit(data: CustomOriginData) {
   const newOrigin: Origin = {
     id: Date.now(),
     name: data.name,
@@ -162,10 +170,16 @@ async function _handleLocalAIGenerate() {
   toast.loading('天机推演中，请稍候...', { id: toastId });
   try {
     const newOrigin = await generateOrigin()
-    store.addOrigin(newOrigin);
-    handleSelectOrigin(newOrigin);
-    toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`, { id: toastId });
-  } catch (e: any) {
+    if (newOrigin) {
+      store.addOrigin(newOrigin);
+      handleSelectOrigin(newOrigin);
+      toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`, { id: toastId });
+    } else {
+      // 如果 newOrigin 为 null，也需要隐藏加载提示
+      toast.error('AI未能成功推演出身，请稍后再试。', { id: toastId });
+    }
+  } catch (e: unknown) {
+    console.error("AI出身推演时发生意外错误:", e);
     // Error handled in tavernAI, just dismiss loading
     toast.hide(toastId);
   }
@@ -399,5 +413,256 @@ const selectedCost = computed(() => {
   font-weight: bold;
   color: var(--color-accent);
   flex-shrink: 0;
+}
+
+/* 响应式适配 - 手机端优化 */
+@media (max-width: 1200px) {
+  .origin-layout {
+    grid-template-columns: 1fr 1.8fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .origin-layout {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.2rem;
+  }
+  
+  .origin-details h2 {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .origin-layout {
+    /* 改为垂直堆叠布局 */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 1rem;
+    height: auto;
+    overflow: visible;
+    padding: 0.8rem;
+  }
+  
+  .origin-left-panel {
+    order: 1;
+    max-height: 40vh;
+  }
+  
+  .origin-details-container {
+    order: 2;
+    min-height: 300px;
+  }
+  
+  .origin-list-container {
+    max-height: 35vh;
+    /* 添加触摸滚动优化 */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  /* 优化触摸体验 */
+  .origin-item,
+  .action-item {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 640px) {
+  .origin-layout {
+    gap: 0.8rem;
+    padding: 0.6rem;
+  }
+  
+  .origin-left-panel {
+    max-height: 35vh;
+  }
+  
+  .origin-list-container {
+    max-height: 30vh;
+    padding: 0.5rem;
+  }
+  
+  .origin-item {
+    padding: 0.7rem;
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .single-actions-container {
+    padding: 0.5rem;
+    gap: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .origin-details-container {
+    padding: 1.2rem;
+    min-height: 250px;
+  }
+  
+  .origin-details h2 {
+    font-size: 1.4rem;
+    margin-bottom: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .origin-selection-container {
+    padding: 0.4rem;
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .origin-layout {
+    gap: 0.6rem;
+    padding: 0;
+    height: auto;
+    min-height: calc(100vh - 2rem);
+  }
+  
+  .origin-left-panel {
+    max-height: 30vh;
+    border-radius: 6px;
+  }
+  
+  .origin-list-container {
+    max-height: 26vh;
+    padding: 0.4rem;
+  }
+  
+  .origin-item {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+    border-radius: 4px;
+  }
+  
+  .origin-name {
+    font-size: 0.9rem;
+  }
+  
+  .origin-cost {
+    font-size: 0.8rem;
+  }
+  
+  .divider {
+    margin: 0.3rem 0;
+  }
+  
+  .single-actions-container {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+  }
+  
+  .origin-details-container {
+    padding: 1rem;
+    min-height: 200px;
+    border-radius: 6px;
+  }
+  
+  .origin-details h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.6rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-right: 0.3rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .cost-display {
+    font-size: 1rem;
+    text-align: center;
+  }
+  
+  .placeholder {
+    font-size: 1rem;
+    padding: 1rem;
+    text-align: center;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .origin-selection-container {
+    padding: 0.3rem;
+  }
+  
+  .origin-layout {
+    gap: 0.4rem;
+  }
+  
+  .origin-left-panel {
+    max-height: 28vh;
+  }
+  
+  .origin-list-container {
+    max-height: 24vh;
+    padding: 0.3rem;
+  }
+  
+  .origin-item {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .origin-name {
+    font-size: 0.8rem;
+  }
+  
+  .origin-cost {
+    font-size: 0.75rem;
+  }
+  
+  .origin-details-container {
+    padding: 0.8rem;
+    min-height: 180px;
+  }
+  
+  .origin-details h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-bottom: 0.6rem;
+  }
+  
+  .cost-display {
+    font-size: 0.9rem;
+  }
+  
+  .action-item {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .placeholder {
+    font-size: 0.9rem;
+    padding: 0.8rem;
+    min-height: 120px;
+  }
 }
 </style>

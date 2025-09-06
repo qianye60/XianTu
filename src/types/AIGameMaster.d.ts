@@ -211,4 +211,8 @@ export interface GM_Response {
   mid_term_memory?: string;
   /** 新增：用于承载AI返回的结构化数据，例如生成的物品、角色等。 */
   json?: any;
+  /** 处理后的具体出身（从随机出身转化而来） */
+  processedOrigin?: string;
+  /** 处理后的具体灵根（从随机灵根转化而来） */
+  processedSpiritRoot?: string;
 }

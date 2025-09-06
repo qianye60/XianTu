@@ -952,9 +952,10 @@ ${actualDifficulty === '困难' ? `
       console.log('[AI双向系统] 发送提示词到酒馆AI:', prompt.substring(0, 200) + '...');
       
       // 使用酒馆的generateRaw方法生成回复
-      const response = await this.tavernHelper.generateRaw(prompt, {
+      const response = await this.tavernHelper.generateRaw({
+        user_input: prompt,
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 8000
       });
 
       console.log('[AI双向系统] 收到酒馆AI响应:', response.substring(0, 200) + '...');

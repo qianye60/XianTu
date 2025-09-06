@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@vuemap/vue-amap": "^2.1.17",
+    "@vuemap/vue-amap-loca": "^2.1.2",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.11.0",
     "echarts": "^6.0.0",

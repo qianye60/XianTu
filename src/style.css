@@ -43,7 +43,7 @@
   --color-success: #9ece6a;
   --color-warning: #ffd500;
   --color-error: #f7768e;
-  --color-info: #7dcfff;
+  --color-info: #77cdfe;
   --scrollbar-track-color: rgba(255, 255, 255, 0.05);
   --scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
   --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.4);
@@ -145,6 +145,7 @@ body {
   );
   transform: skewX(-25deg);
   transition: left 0.6s ease-in-out;
+  will-change: left;
 }
 
 .shimmer-on-hover:hover::after {

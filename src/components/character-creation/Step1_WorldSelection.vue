@@ -4,7 +4,7 @@
     <div v-else-if="store.error" class="error-state">天机紊乱：{{ store.error }}</div>
 
     <div v-else class="world-layout">
-      <!-- 左侧面板 -->
+      <!-- 左侧面板：世界列表 -->
       <div class="left-panel">
         <div class="list-container">
           <div v-if="worldsList.length === 0" class="no-worlds-message">
@@ -42,7 +42,43 @@
         </div>
       </div>
 
-      <!-- 右侧详情 -->
+      <!-- 中间面板：世界配置 -->
+      <div class="config-panel">
+        <h3>世界生成配置</h3>
+        <div class="config-content">
+          <div class="config-item">
+            <label>势力数量</label>
+            <select v-model="worldConfig.majorFactionsCount" class="config-select">
+              <option value="4">精简 (4个)</option>
+              <option value="7">标准 (7个)</option>
+              <option value="12">丰富 (12个)</option>
+              <option value="15">史诗 (15个)</option>
+            </select>
+            <small class="config-hint">最多15个，避免生成失败</small>
+          </div>
+          
+          <div class="config-item">
+            <label>地点总数</label>
+            <select v-model="worldConfig.totalLocations" class="config-select">
+              <option value="15">少量 (15个地点)</option>
+              <option value="25">适中 (25个地点)</option>
+              <option value="35">丰富 (35个地点)</option>
+            </select>
+            <small class="config-hint">包含城镇、秘境等所有地点</small>
+          </div>
+          
+          <div class="config-item">
+            <label>秘境数量</label>
+            <select v-model="worldConfig.secretRealmsCount" class="config-select">
+              <option value="3">少量 (3个)</option>
+              <option value="8">适中 (8个)</option>
+              <option value="15">丰富 (15个)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧面板：世界详情 -->
       <div class="details-container">
         <div v-if="store.selectedWorld" class="world-details">
           <h2>{{ store.selectedWorld.name }}</h2>
@@ -81,6 +117,13 @@ import { generateWorld } from '../../utils/tavernAI';
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
 const isCustomModalVisible = ref(false);
+
+// 世界生成配置
+const worldConfig = ref({
+  majorFactionsCount: 7,
+  totalLocations: 25,
+  secretRealmsCount: 8
+});
 
 const worldsList = computed(() => {
   const allWorlds = store.creationData.worlds;
@@ -178,6 +221,8 @@ function handleAIGenerate() {
 
 function handleSelectWorld(world: World) {
   store.selectWorld(world.id);
+  // 保存世界生成配置到store，供后续使用
+  store.setWorldGenerationConfig(worldConfig.value);
 }
 
 // fetchData 方法已不再需要，组件现在通过计算属性自动响应store的变化
@@ -201,8 +246,8 @@ function handleSelectWorld(world: World) {
 
 .world-layout {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 2rem;
+  grid-template-columns: 1fr 280px 1.5fr;
+  gap: 1.5rem;
   height: 100%;
   overflow: hidden;
 }
@@ -379,5 +424,390 @@ function handleSelectWorld(world: World) {
 .action-item:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 世界配置面板样式 */
+.config-panel {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.config-panel h3 {
+  margin: 0 0 1rem 0;
+  color: var(--color-primary);
+  font-size: 1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.5rem;
+}
+
+.config-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.config-item label {
+  font-weight: 500;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.config-select {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.config-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.config-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+/* 响应式适配 - 优化的手机端适配，确保三栏内容完整显示 */
+@media (max-width: 1400px) {
+  .world-layout {
+    grid-template-columns: 1fr 260px 1.3fr;
+    gap: 1.2rem;
+  }
+}
+
+@media (max-width: 1200px) {
+  .world-layout {
+    grid-template-columns: 1fr 240px 1.2fr;
+    gap: 1rem;
+  }
+  
+  .config-panel {
+    padding: 0.8rem;
+  }
+  
+  .details-container {
+    padding: 1.2rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .world-layout {
+    grid-template-columns: 0.8fr 220px 1fr;
+    gap: 0.8rem;
+  }
+  
+  .config-panel h3 {
+    font-size: 0.9rem;
+  }
+  
+  .config-item label {
+    font-size: 0.85rem;
+  }
+  
+  .config-select {
+    font-size: 0.85rem;
+    padding: 0.4rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .world-layout {
+    /* 改为垂直堆叠布局，确保所有三个面板都能显示 */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    gap: 1rem;
+    height: auto;
+    overflow: visible;
+    padding: 0.8rem;
+  }
+  
+  .left-panel {
+    order: 1;
+    max-height: 40vh;
+  }
+  
+  .config-panel {
+    order: 2;
+    padding: 1rem;
+  }
+  
+  .details-container {
+    order: 3;
+    min-height: 200px;
+    flex: 1;
+  }
+  
+  .list-container {
+    max-height: 35vh;
+    /* 添加触摸滚动优化 */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  .config-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.8rem;
+  }
+  
+  .config-item {
+    gap: 0.3rem;
+  }
+  
+  /* 优化触摸体验 */
+  .list-item,
+  .action-item,
+  .config-select {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 640px) {
+  .world-layout {
+    gap: 0.8rem;
+    padding: 0.6rem;
+  }
+  
+  .config-content {
+    /* 在小屏幕上改为单列布局 */
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  
+  .left-panel {
+    max-height: 35vh;
+  }
+  
+  .list-container {
+    max-height: 30vh;
+    padding: 0.5rem;
+  }
+  
+  .list-item {
+    padding: 0.7rem;
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .single-actions-container {
+    padding: 0.5rem;
+    gap: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .config-panel {
+    padding: 0.9rem;
+  }
+  
+  .details-container {
+    padding: 1rem;
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .world-selection-container {
+    padding: 0.4rem;
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .world-layout {
+    gap: 0.6rem;
+    padding: 0;
+    height: auto;
+    min-height: calc(100vh - 2rem);
+  }
+  
+  .left-panel {
+    max-height: 32vh;
+    border-radius: 6px;
+  }
+  
+  .list-container {
+    max-height: 28vh;
+    padding: 0.4rem;
+  }
+  
+  .list-item {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+    border-radius: 4px;
+  }
+  
+  .config-panel {
+    padding: 0.8rem;
+    border-radius: 6px;
+  }
+  
+  .config-panel h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .config-item {
+    gap: 0.4rem;
+  }
+  
+  .config-item label {
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  
+  .config-select {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+  }
+  
+  .config-hint {
+    font-size: 0.7rem;
+  }
+  
+  .details-container {
+    padding: 1rem;
+    min-height: 150px;
+    border-radius: 6px;
+  }
+  
+  .world-details h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .world-details .era {
+    font-size: 0.9rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-right: 0.3rem;
+  }
+  
+  .single-actions-container {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.4rem;
+  }
+  
+  .action-item {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+  }
+  
+  .placeholder {
+    font-size: 1rem;
+    padding: 1rem;
+    text-align: center;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .world-selection-container {
+    padding: 0.3rem;
+  }
+  
+  .world-layout {
+    gap: 0.4rem;
+    padding: 0;
+  }
+  
+  .left-panel {
+    max-height: 28vh;
+  }
+  
+  .list-container {
+    max-height: 24vh;
+    padding: 0.3rem;
+  }
+  
+  .list-item {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .config-panel {
+    padding: 0.6rem;
+  }
+  
+  .config-panel h3 {
+    font-size: 0.8rem;
+    margin-bottom: 0.6rem;
+  }
+  
+  .config-item label {
+    font-size: 0.75rem;
+  }
+  
+  .config-select {
+    font-size: 0.75rem;
+    padding: 0.4rem;
+  }
+  
+  .config-hint {
+    font-size: 0.65rem;
+  }
+  
+  .details-container {
+    padding: 0.8rem;
+    min-height: 120px;
+  }
+  
+  .world-details h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .world-details .era {
+    font-size: 0.8rem;
+    margin-bottom: 0.6rem;
+  }
+  
+  .description-scroll {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  
+  .action-item {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .placeholder {
+    font-size: 0.9rem;
+    padding: 0.8rem;
+  }
 }
 </style>

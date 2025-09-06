@@ -258,10 +258,12 @@ export const LOCATION_TEMPLATES: { [key: string]: LocationTemplate } = {
 export class CultivationWorldGenerator {
   private worldSettings: CultivationWorldSettings;
   private characterBackground?: string;
+  private userConfig?: any; // 用户自定义配置
   
-  constructor(settings: CultivationWorldSettings, characterBackground?: string) {
+  constructor(settings: CultivationWorldSettings, characterBackground?: string, userConfig?: any) {
     this.worldSettings = settings;
     this.characterBackground = characterBackground;
+    this.userConfig = userConfig;
   }
 
   /**
@@ -278,9 +280,10 @@ export class CultivationWorldGenerator {
 
     try {
       // 调用AI生成世界
-      const response = await tavern.generateRaw(worldPrompt, {
+      const response = await tavern.generateRaw({
+        user_input: worldPrompt,
         temperature: 0.8,
-        max_tokens: 6000
+        max_tokens: 8000
       });
 
       console.log('[修仙世界生成器] AI响应:', response);
@@ -311,7 +314,7 @@ export class CultivationWorldGenerator {
     return `
 # **🌍 修仙世界生成任务**
 
-请为修仙世界生成 ${factionCount} 个主要势力，创造一个真实完整的修仙世界。
+请为修仙世界生成 ${this.getFactionCount()} 个主要势力，创造一个真实完整的修仙世界。
 
 ## **🎯 世界设定**
 - **世界规模:** ${this.getScaleDescription()}
@@ -337,16 +340,32 @@ ${this.buildFactionTemplateGuide()}
 ## **🗺️ 世界地理要求**
 
 请同时生成以下地理信息：
-- 主要城市: ${this.worldSettings.majorCitiesCount}个
-- 贸易重镇: ${this.worldSettings.tradingHubsCount}个
-- 秘境: ${this.worldSettings.secretRealmsCount}个
-- 中立区域: ${this.worldSettings.neutralZonesCount}个
+- 主要城市: ${this.getLocationCount('cities')}个
+- 贸易重镇: ${this.getLocationCount('trading')}个  
+- 秘境: ${this.getLocationCount('realms')}个
+- 中立区域: ${this.getLocationCount('neutral')}个
+- 其他特殊地点: ${this.getLocationCount('special')}个（可自由创造各种修仙世界特色地点）
 
 ${this.getCharacterBirthplaceRequirement()}
 
 ## **📤 输出格式**
 
 请返回以下JSON格式，**必须**通过tavern_commands保存所有数据:
+
+**🗺️ 地理坐标说明：**
+修仙世界映射到蜀中仙域（四川盆地及周边山区）:
+- 经度范围：102.0° - 109.0° E
+- 纬度范围：27.5° - 33.0° N  
+- 中心点：成都平原 (104.0°E, 30.0°N)
+- **重要：所有坐标必须严格在此范围内**
+
+**🎯 势力范围生成要求：**
+- 势力总部坐标要合理分散，避免重叠
+- 势力范围边界要形成封闭多边形，至少4-6个点
+- 势力范围大小应根据势力实力调整（强势力范围更大）
+- 相邻势力边界可以接壤但不能重叠
+- 地点坐标要考虑地形和势力控制关系
+- 经纬度数值保留3位小数精度
 
 \`\`\`json
 {
@@ -361,21 +380,33 @@ ${this.getCharacterBirthplaceRequirement()}
       "value": [
         {
           "id": "势力唯一ID",
-          "name": "势力名称",
-          "type": "势力类型",
+          "name": "势力名称", 
+          "type": "势力类型(orthodox_sect/demonic_cult/immortal_family/immortal_empire/merchant_guild等)",
           "strength": 实力数值,
           "territory": "势力范围描述",
           "description": "势力详细描述",
           "philosophy": "核心理念",
           "specialties": ["专长1", "专长2"],
           "color": "#颜色代码",
-          "borderColor": "#边框颜色",
+          "borderColor": "#边框颜色", 
           "textColor": "#FFFFFF",
           "emblem": "势力标志",
+          "headquarters": {
+            "longitude": 经度数值,
+            "latitude": 纬度数值
+          },
+          "territoryBounds": [
+            {"longitude": 经度1, "latitude": 纬度1},
+            {"longitude": 经度2, "latitude": 纬度2},
+            {"longitude": 经度3, "latitude": 纬度3},
+            {"longitude": 经度4, "latitude": 纬度4},
+            {"longitude": 经度5, "latitude": 纬度5}
+          ],
+          "controlledAreas": ["控制区域1", "控制区域2"],
           "leaders": [
             {
               "name": "领袖姓名",
-              "title": "职位头衔",
+              "title": "职位头衔", 
               "realm": "修炼境界",
               "age": 年龄,
               "personality": ["性格特点"],
@@ -384,7 +415,7 @@ ${this.getCharacterBirthplaceRequirement()}
           ],
           "resources": {
             "disciples": 弟子数量,
-            "territory_size": 领土大小,
+            "territory_size": "领土大小描述",
             "wealth": 财富等级,
             "artifacts": ["重要法宝"],
             "techniques": ["功法秘籍"],
@@ -399,33 +430,70 @@ ${this.getCharacterBirthplaceRequirement()}
     },
     {
       "action": "set",
-      "scope": "chat",
+      "scope": "chat", 
       "key": "world_locations",
       "value": [
         {
           "id": "地点ID",
           "name": "地点名称",
-          "type": "地点类型",
-          "coordinates": {"x": x坐标, "y": y坐标},
+          "type": "地点类型(major_city/sect_headquarters/trade_center/secret_realm/cultivation_site等)",
+          "coordinates": {
+            "longitude": 经度数值,
+            "latitude": 纬度数值
+          },
           "description": "地点描述",
           "importance": 重要性等级,
           "controlledBy": "控制势力ID",
-          "features": ["地点特征"]
+          "population": "人口描述",
+          "features": ["地点特征"],
+          "iconColor": "#图标颜色",
+          "iconSize": "small/medium/large",
+          "specialBuildings": ["特殊建筑"],
+          "danger_level": "危险等级(如果适用)",
+          "suitable_for": "适合人群(如果适用)",
+          "notableNPCs": [
+            {
+              "name": "重要NPC姓名", 
+              "title": "职位头衔",
+              "realm": "修炼境界",
+              "description": "NPC描述"
+            }
+          ],
+          "resources": {
+            "spiritStones": 灵石数量,
+            "herbs": ["灵草类型"],
+            "materials": ["材料类型"],
+            "techniques": ["可获得功法"]
+          }
         }
       ]
     },
     {
       "action": "set",
       "scope": "chat",
-      "key": "player_birthplace",
+      "key": "player_birthplace", 
       "value": {
         "name": "出生地名称",
         "type": "出生地类型",
-        "coordinates": {"x": x坐标, "y": y坐标},
+        "coordinates": {
+          "longitude": 经度数值,
+          "latitude": 纬度数值
+        },
         "description": "出生地详细描述",
         "factionAffiliation": "所属势力",
         "initialConnections": ["初始关系"],
-        "specialFeatures": ["特殊特征"]
+        "specialFeatures": ["特殊特征"],
+        "startingResources": {
+          "spiritStones": 初始灵石,
+          "basicItems": ["基础物品"],
+          "connections": [
+            {
+              "name": "关系人姓名",
+              "relationship": "关系类型",
+              "influence": 影响力数值
+            }
+          ]
+        }
       }
     },
     {
@@ -441,7 +509,22 @@ ${this.getCharacterBirthplaceRequirement()}
         "generationTime": "当前时间",
         "characterBackground": "${this.characterBackground || '无'}",
         "majorConflicts": ["主要冲突1", "主要冲突2"],
-        "worldThemes": ["世界主题1", "世界主题2"]
+        "worldThemes": ["世界主题1", "世界主题2"],
+        "geoBounds": {
+          "northEast": {"longitude": 109.0, "latitude": 33.0},
+          "southWest": {"longitude": 102.0, "latitude": 27.5},
+          "centerPoint": {"longitude": 104.0, "latitude": 30.0}
+        }
+      }
+    },
+    {
+      "action": "set", 
+      "scope": "chat",
+      "key": "map_view_settings",
+      "value": {
+        "center": {"longitude": 104.0, "latitude": 30.0},
+        "zoom": 8,
+        "mapStyle": "normal"
       }
     }
   ]
@@ -454,9 +537,71 @@ ${this.getCharacterBirthplaceRequirement()}
 3. **平衡性** - 势力强弱分布合理
 4. **关联性** - 势力间有复杂的关系网络
 5. **成长性** - 为角色发展留下充分空间
+6. **地理真实性** - 使用真实经纬度坐标，合理分布在蜀中仙域
+7. **坐标精确性** - 所有坐标必须在指定经纬度范围内，符合地理逻辑
+
+**重要提醒：**
+- **大势力分散**：仙朝帝国、顶级宗门等大势力适当分散布局
+- **从属关系**：小宗门、世家可以在大势力范围内发展，体现政治附属
+- **独立势力**：部分中等宗门可以拥有独立领土和影响范围
+- 势力范围边界要形成封闭多边形，至少5-8个点，确保形成合理的势力领土
+- **允许重叠**：势力范围可以重叠或包含，反映真实的政治复杂性
+- **所有经纬度数值必须严格在 经度102.0-109.0°，纬度27.5-33.0° 范围内**
+- 经纬度数值保留3位小数精度
+- 势力范围大小应根据势力实力和类型调整：
+  - 仙朝帝国：最大范围，经纬度跨度可达2-3度
+  - 正道大宗门：中等范围，经纬度跨度1-2度  
+  - 修仙世家：较小范围，经纬度跨度0.5-1度
+  - 小宗门：可能无独立范围，依附于大势力
 
 现在开始生成这个真实的修仙世界！
 `;
+  }
+  
+  /**
+   * 根据用户配置计算地点数量
+   */
+  private getLocationCount(type: string): number {
+    const baseCount = {
+      cities: this.worldSettings.majorCitiesCount,
+      trading: this.worldSettings.tradingHubsCount,
+      realms: this.worldSettings.secretRealmsCount,
+      neutral: this.worldSettings.neutralZonesCount,
+      special: 8
+    };
+    
+    // 使用新的配置格式
+    if (this.userConfig?.totalLocations) {
+      // 根据总地点数和秘境数量计算其他地点分配
+      const totalLocations = Math.min(this.userConfig.totalLocations, 25);
+      const secretRealms = Math.min(this.userConfig.secretRealmsCount || 8, 15);
+      
+      // 分配策略：秘境固定，其他地点按比例分配
+      const otherLocations = totalLocations - secretRealms;
+      
+      const allocation = {
+        cities: Math.max(2, Math.ceil(otherLocations * 0.3)),    // 30% 城市
+        trading: Math.max(2, Math.ceil(otherLocations * 0.25)),  // 25% 贸易重镇
+        neutral: Math.max(1, Math.ceil(otherLocations * 0.15)),  // 15% 中立区域
+        realms: secretRealms,                                     // 固定秘境数量
+        special: Math.max(1, Math.floor(otherLocations * 0.3))   // 30% 特殊地点
+      };
+      
+      return allocation[type as keyof typeof allocation] || 8;
+    }
+    
+    return baseCount[type as keyof typeof baseCount] || 8;
+  }
+  
+  /**
+   * 根据用户配置计算势力数量
+   */
+  private getFactionCount(): number {
+    if (this.userConfig?.majorFactionsCount) {
+      // 限制势力范围最多15个
+      return Math.min(this.userConfig.majorFactionsCount, 15);
+    }
+    return Math.min(this.worldSettings.majorFactionsCount, 15);
   }
 
   // 辅助方法

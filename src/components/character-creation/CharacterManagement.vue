@@ -5,7 +5,7 @@
       <div class="dialog-box" @click.stop>
         <h3 class="dialog-title">{{ modalState.title }}</h3>
         <p class="dialog-message">{{ modalState.message }}</p>
-        
+
         <input
           v-if="modalState.type === 'prompt'"
           v-model="modalState.inputValue"
@@ -128,7 +128,7 @@
                 <h3>自动存档</h3>
                 <div class="auto-saves-grid">
                   <!-- 上次对话存档 -->
-                  <div class="save-card auto-save" 
+                  <div class="save-card auto-save"
                        :class="{ 'has-data': selectedCharacter.存档列表?.['上次对话']?.存档数据 }"
                        @click="selectedCharacter.存档列表?.['上次对话']?.存档数据 && handleSelect(selectedCharId!, '上次对话', true)"
                        :style="{ cursor: selectedCharacter.存档列表?.['上次对话']?.存档数据 ? 'pointer' : 'default' }">
@@ -176,7 +176,7 @@
                   </div>
 
                   <!-- 快速存档 -->
-                  <div class="save-card auto-save" 
+                  <div class="save-card auto-save"
                        :class="{ 'has-data': selectedCharacter.存档列表?.['自动存档']?.存档数据 }"
                        @click="selectedCharacter.存档列表?.['自动存档']?.存档数据 && handleSelect(selectedCharId!, '自动存档', true)"
                        :style="{ cursor: selectedCharacter.存档列表?.['自动存档']?.存档数据 ? 'pointer' : 'default' }">
@@ -233,9 +233,9 @@
                     <span>存档通过游戏内保存功能创建</span>
                   </div>
                 </div>
-                
+
                 <div class="manual-saves-grid">
-                  <div v-for="(slot, slotKey) in getManualSaves(selectedCharacter)" 
+                  <div v-for="(slot, slotKey) in getManualSaves(selectedCharacter)"
                        :key="slotKey"
                        class="save-card manual-save"
                        :class="{ 'has-data': slot.存档数据 }"
@@ -246,11 +246,11 @@
                        <div class="save-header">
                          <h4 class="save-name">{{ slot.存档名 || slotKey }}</h4>
                         <div class="save-actions">
-                          <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))" 
-                                  class="btn-edit-save" 
+                          <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
+                                  class="btn-edit-save"
                                   title="重命名">编</button>
-                          <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))" 
-                                  class="btn-delete-save" 
+                          <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))"
+                                  class="btn-delete-save"
                                   :class="{ 'disabled': !canDeleteSave(selectedCharacter, String(slotKey)) }"
                                   :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
                                   :title="canDeleteSave(selectedCharacter, String(slotKey)) ? '删除存档' : '无法删除：至少需要保留一个存档'">删</button>
@@ -437,12 +437,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick } from 'vue';
+import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import { verifyStoredToken } from '@/services/request';
 import HexagonChart from '@/components/common/HexagonChart.vue';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
+import "@/style.css";
 
 const emit = defineEmits<{
   (e: 'back'): void;
@@ -457,6 +458,27 @@ const showDetailsModal = ref(false);
 const detailsCharacter = ref<CharacterProfile | null>(null);
 const promptInput = ref<HTMLInputElement | null>(null);
 const isCharacterPanelOpen = ref(false);
+
+// 响应式屏幕尺寸检测
+const screenWidth = ref(window.innerWidth);
+
+// 监听屏幕尺寸变化
+const updateScreenWidth = () => {
+  screenWidth.value = window.innerWidth;
+  // 在768px-480px之间时默认展开面板
+  if (screenWidth.value > 480 && screenWidth.value <= 768) {
+    isCharacterPanelOpen.value = true;
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('resize', updateScreenWidth);
+  updateScreenWidth(); // 初始化时设置
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateScreenWidth);
+});
 
 // 自定义对话框状态
 const modalState = ref({
@@ -516,7 +538,7 @@ const closeDetailsModal = () => {
 const handleSelect = async (charId: string, slotKey: string, hasData: boolean) => {
   console.log('选择存档:', charId, slotKey, hasData);
   const character = characterStore.rootState.角色列表[charId];
-  
+
   if (hasData) {
     // 对于有数据的存档，直接进入
     console.log('设置活跃角色...');
@@ -535,10 +557,10 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
     // 对于空存档，显示确认对话框
     const isAutoSave = slotKey === '上次对话' || slotKey === '自动存档';
     const title = isAutoSave ? '创建新存档' : '开启新征程';
-    const message = isAutoSave 
+    const message = isAutoSave
       ? `是否在【${slotKey}】位置创建新的存档开始游戏？`
       : `是否在存档位 "${slotKey}" 开始一段新的修行？`;
-    
+
     showConfirm(
       title,
       message,
@@ -575,16 +597,16 @@ const handleDeleteSave = (charId: string, slotKey: string) => {
   const character = characterStore.rootState.角色列表[charId];
   const charName = character?.角色基础信息.名字;
   const saveName = slotKey === '上次对话' ? '上次对话存档' : slotKey === '自动存档' ? '自动存档' : slotKey;
-  
+
   // 检查是否可以删除存档
   if (!canDeleteSave(character, slotKey)) {
     showAlert(
-      '无法删除存档', 
+      '无法删除存档',
       '无法删除该存档：角色至少需要保留一个存档。如需删除，请先创建其他存档或删除整个角色。'
     );
     return;
   }
-  
+
   showConfirm(
     '删除存档',
     `确定要删除角色"${charName}"的"${saveName}"吗？此操作不可恢复。`,
@@ -600,45 +622,45 @@ const canDeleteSave = (character: CharacterProfile | null, slotKey: string): boo
     // 联机模式不允许删除存档
     return false;
   }
-  
+
   // 统计当前有数据的存档数量
   let saveCount = 0;
   const savesList = character.存档列表 || {};
-  
+
   Object.entries(savesList).forEach(([key, save]) => {
     if (save.存档数据) {
       saveCount++;
     }
   });
-  
+
   // 如果要删除的存档有数据，且总共只有1个有数据的存档，则不允许删除
   const targetSave = savesList[slotKey];
   if (targetSave?.存档数据 && saveCount <= 1) {
     return false;
   }
-  
+
   return true;
 };
 
 const getManualSaves = (character: CharacterProfile | null) => {
   if (!character?.存档列表) return {};
-  
+
   const manualSaves: Record<string, any> = {};
-  
+
   // 过滤出手动存档（排除自动存档）
   Object.entries(character.存档列表).forEach(([key, value]) => {
     if (key !== '上次对话' && key !== '自动存档') {
       manualSaves[key] = value;
     }
   });
-  
+
   return manualSaves;
 };
 
 const handleEditSaveName = (charId: string, slotKey: string) => {
   const currentSave = characterStore.rootState.角色列表[charId]?.存档列表?.[slotKey];
   const currentName = currentSave?.存档名 || slotKey;
-  
+
   showPrompt(
     '重命名存档',
     '请输入新的存档名称：',
@@ -647,13 +669,13 @@ const handleEditSaveName = (charId: string, slotKey: string) => {
     (newName) => {
       if (newName && newName.trim() && newName.trim() !== currentName) {
         const cleanName = newName.trim();
-        
+
         const existingSaves = characterStore.rootState.角色列表[charId]?.存档列表;
         if (existingSaves && cleanName !== slotKey && existingSaves[cleanName]) {
           showAlert('重命名失败', '存档名称已存在，请使用其他名称。');
           return;
         }
-        
+
         characterStore.renameSave(charId, slotKey, cleanName);
       }
     }
@@ -920,6 +942,8 @@ const closeModal = () => {
   backdrop-filter: blur(15px);
   border-bottom: 1px solid var(--color-border);
   padding: 1rem 2rem;
+  z-index: 1001;
+  position: relative;
 }
 
 .header-content {
@@ -1054,6 +1078,27 @@ const closeModal = () => {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  /* 移动端滚动优化 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.characters-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.characters-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.characters-grid::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 3px;
+}
+
+.characters-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 /* 角色卡片 */
@@ -1067,12 +1112,23 @@ const closeModal = () => {
   cursor: pointer;
   transition: all 0.3s ease;
   color: var(--color-text);
+  /* 移动端触摸优化 */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .character-card:hover {
   border-color: var(--color-primary);
   transform: translateX(6px);
   box-shadow: 0 6px 20px rgba(var(--color-primary-rgb), 0.2);
+}
+
+/* 移动端触摸反馈 */
+@media (hover: none) and (pointer: coarse) {
+  .character-card:active {
+    transform: scale(0.98) translateX(3px);
+    transition: transform 0.1s ease;
+  }
 }
 
 .character-card.active {
@@ -1189,7 +1245,7 @@ const closeModal = () => {
 .btn-details {
   background: rgba(var(--color-info-rgb), 0.1);
   color: var(--color-info);
-  border: 1px solid rgba(var(--color-info-rgb), 0.3);
+  border: 1px solid #3fff19;
 }
 
 .btn-details:hover {
@@ -1199,7 +1255,7 @@ const closeModal = () => {
 .btn-delete {
   background: rgba(var(--color-error-rgb), 0.1);
   color: var(--color-error);
-  border: 1px solid rgba(var(--color-error-rgb), 0.3);
+  border: 1px solid #ff0000;
 }
 
 .btn-delete:hover {
@@ -1235,6 +1291,31 @@ const closeModal = () => {
   overflow-x: hidden;
   padding: 1.5rem;
   max-height: calc(100vh - 200px);
+  /* 移动端滚动优化 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.saves-container::-webkit-scrollbar,
+.online-saves-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.saves-container::-webkit-scrollbar-track,
+.online-saves-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.saves-container::-webkit-scrollbar-thumb,
+.online-saves-container::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 3px;
+}
+
+.saves-container::-webkit-scrollbar-thumb:hover,
+.online-saves-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 .saves-section {
@@ -1251,6 +1332,9 @@ const closeModal = () => {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0.5rem 0;
+  /* 优化滚动体验 */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
 }
@@ -1276,6 +1360,8 @@ const closeModal = () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+  /* 移动端优化 */
+  min-height: fit-content;
 }
 
 /* 存档卡片 */
@@ -1288,12 +1374,23 @@ const closeModal = () => {
   cursor: pointer;
   transition: all 0.3s;
   color: var(--color-text);
+  /* 移动端触摸优化 */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .save-card:hover, .online-save-card:hover {
   border-color: var(--color-primary);
   transform: translateY(-3px);
   box-shadow: 0 6px 20px rgba(var(--color-primary-rgb), 0.15);
+}
+
+/* 移动端触摸反馈 */
+@media (hover: none) and (pointer: coarse) {
+  .save-card:active, .online-save-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
 }
 
 .save-card.has-data {
@@ -1639,8 +1736,8 @@ const closeModal = () => {
 }
 
 .detail-section {
-  background: linear-gradient(135deg, 
-    rgba(var(--color-primary-rgb), 0.08), 
+  background: linear-gradient(135deg,
+    rgba(var(--color-primary-rgb), 0.08),
     rgba(var(--color-accent-rgb), 0.06)
   );
   border: 1px solid rgba(var(--color-primary-rgb), 0.15);
@@ -1759,23 +1856,162 @@ const closeModal = () => {
 }
 
 
-/* 响应式 */
+/* 响应式 - 优化的手机端适配 */
 @media (max-width: 1200px) {
   .management-layout {
     grid-template-columns: 350px 1fr;
   }
+  
+  .manual-saves-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .management-layout {
+    grid-template-columns: 320px 1fr;
+  }
+  
+  .top-header {
+    padding: 0.8rem 1.5rem;
+  }
+  
+  .page-title {
+    font-size: 1.6rem;
+  }
+  
+  .details-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
 }
 
 @media (max-width: 768px) {
-  .header-content {
-    padding: 0 1rem;
+  .top-header {
+    padding: 0.8rem 1rem;
   }
+  
+  .header-content {
+    padding: 0;
+  }
+  
+  .page-title {
+    font-size: 1.4rem;
+  }
+  
   .btn-toggle-panel {
     display: flex;
   }
 
   .management-layout {
+    /* 保持双栏布局，但调整比例 */
+    grid-template-columns: 280px 1fr;
+    gap: 0;
+  }
+
+  .characters-panel {
+    /* 在平板模式下仍然显示，但可以通过按钮控制 */
+    position: relative;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    z-index: auto;
+    box-shadow: none;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface-transparent);
+    /* 添加折叠功能 */
+    transition: margin-left 0.3s ease-in-out;
+  }
+  
+  .characters-panel:not(.is-open) {
+    margin-left: -280px;
+  }
+
+  .characters-panel.is-open {
+    margin-left: 0;
+  }
+  
+  /* 当左侧面板隐藏时，右侧面板占满宽度 */
+  .saves-panel {
+    transition: margin-left 0.3s ease-in-out;
+  }
+
+  .panel-header {
+    padding: 1rem;
+  }
+
+  .saves-container, .online-saves-container {
+    padding: 1rem;
+    max-height: calc(100vh - 150px);
+  }
+
+  .auto-saves-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+  }
+  
+  .manual-saves-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.8rem;
+    max-height: 50vh;
+  }
+
+  .modal-content {
+    padding: 1rem;
+  }
+  
+  .details-modal {
+    width: 95%;
+    max-height: 85vh;
+  }
+  
+  .dialog-box {
+    width: 95%;
+    max-width: 400px;
+    padding: 1.5rem;
+  }
+  
+  .characters-grid {
+    padding: 0.8rem;
+  }
+  
+  .character-card {
+    padding: 1rem;
+  }
+  
+  .card-header {
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  
+  .char-info {
+    min-width: 120px;
+  }
+  
+  .char-meta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-header {
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .page-title {
+    font-size: 1.2rem;
+  }
+  
+  .btn-back {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  /* 在真正的手机屏幕上才使用固定定位侧滑 */
+  .management-layout {
     grid-template-columns: 1fr;
+    position: relative;
   }
 
   .characters-panel {
@@ -1783,36 +2019,160 @@ const closeModal = () => {
     top: 0;
     left: 0;
     bottom: 0;
-    width: 80%;
-    max-width: 320px;
+    width: 90%;
+    max-width: 280px;
     z-index: 1200;
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     box-shadow: 4px 0 20px rgba(0,0,0,0.3);
     border-right: 1px solid var(--color-border);
-    background: var(--color-surface); /* Use a solid background */
+    background: var(--color-surface);
+    margin-left: 0; /* 重置margin */
   }
-
+  
   .characters-panel.is-open {
     transform: translateX(0);
   }
-
-  .panel-header {
-    padding: 1rem;
+  
+  /* 重置saves-panel的margin */
+  .saves-panel {
+    margin-left: 0;
+  }
+  
+  .characters-grid {
+    padding: 0.5rem;
   }
 
-  .saves-container {
-    padding: 1rem;
+  .character-card {
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .card-header {
+    margin-bottom: 0.8rem;
+  }
+  
+  .char-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+  
+  .mode-indicator {
+    width: 16px;
+    height: 16px;
+    font-size: 0.6rem;
+  }
+  
+  .char-name {
+    font-size: 1rem;
+  }
+  
+  .char-meta {
+    font-size: 0.8rem;
   }
 
-  .auto-saves-grid,
-  .manual-saves-grid,
+  .saves-container, .online-saves-container {
+    padding: 0.8rem;
+    max-height: calc(100vh - 120px);
+  }
+  
+  .auto-saves-grid {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  
+  .manual-saves-grid {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    max-height: 45vh;
+  }
+  
+  .save-card, .online-save-card {
+    padding: 1rem;
+  }
+  
+  .stat-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .save-footer {
+    flex-direction: column;
+    gap: 0.3rem;
+    align-items: flex-start;
+  }
+  
+  .dialog-box {
+    width: 95%;
+    padding: 1.2rem;
+  }
+  
+  .dialog-title {
+    font-size: 1.3rem;
+  }
+  
+  .dialog-actions {
+    flex-direction: column-reverse;
+    gap: 0.8rem;
+  }
+  
+  .btn-dialog-confirm,
+  .btn-dialog-cancel {
+    width: 100%;
+    padding: 0.8rem;
+  }
+  
   .details-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
-
-  .modal-content {
+  
+  .detail-section {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .top-header {
+    padding: 0.5rem;
+  }
+  
+  .header-left-side {
+    gap: 0.5rem;
+  }
+  
+  .page-title {
+    font-size: 1.1rem;
+  }
+  
+  .btn-back {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .characters-panel {
+    width: 95%;
+    max-width: 260px;
+  }
+  
+  .character-card {
+    padding: 0.6rem;
+  }
+  
+  .save-card {
+    padding: 0.8rem;
+  }
+  
+  .save-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .save-badges {
+    align-self: stretch;
+    justify-content: flex-start;
   }
 }
 </style>

@@ -28,7 +28,10 @@
         <!-- 功能面板覆盖层 -->
         <div v-if="isPanelOpen" class="panel-overlay">
           <div class="panel-header">
-            <h2 class="panel-title">{{ currentPanelTitle }}</h2>
+            <h2 class="panel-title">
+              <component :is="currentPanelIcon" :size="20" class="panel-title-icon" />
+              {{ currentPanelTitle }}
+            </h2>
             <button class="panel-close-btn" @click="closePanel" title="关闭面板">
               <X :size="20" />
             </button>
@@ -61,7 +64,7 @@
         v-show="!isPanelOpen"
       >
         <div class="sidebar-wrapper">
-          <RightSidebar :collapsed="rightSidebarCollapsed" />
+          <RightSidebar />
         </div>
       </div>
     </div>
@@ -72,7 +75,7 @@
 import { computed, ref, watch } from 'vue'
 import { useCharacterStore } from '@/stores/characterStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box } from 'lucide-vue-next';
 import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
@@ -102,18 +105,18 @@ const rightPanelRoutes = new Set([
   'Memory', 'Relationships', 'Cultivation', 'Skills', 'Settings', 'Save', 'Sect'
 ]);
 
-const panelTitles: Record<string, string> = {
-  'Inventory': '物品背包',
-  'CharacterDetails': '角色详情', 
-  'Memory': '记忆中心',
-  'Relationships': '人物关系',
-  'Cultivation': '功法修炼',
-  'Skills': '道法技艺', 
-  'Settings': '系统设置',
-  'Save': '存档管理',
-  'WorldMap': '世界地图',
-  'Quests': '任务系统',
-  'Sect': '宗门事务'
+const panelTitles: Record<string, { title: string; icon: string }> = {
+  'Inventory': { title: '背包物品', icon: 'Package' },
+  'CharacterDetails': { title: '人物详情', icon: 'User' }, 
+  'Memory': { title: '记忆中心', icon: 'Brain' },
+  'Relationships': { title: '江湖人脉', icon: 'Users' },
+  'Cultivation': { title: '修炼功法', icon: 'BookOpen' },
+  'Skills': { title: '三千大道', icon: 'Zap' }, 
+  'Settings': { title: '系统设置', icon: 'Settings' },
+  'Save': { title: '保存游戏', icon: 'Save' },
+  'WorldMap': { title: '世界地图', icon: 'Map' },
+  'Quests': { title: '任务系统', icon: 'Scroll' },
+  'Sect': { title: '宗门事务', icon: 'Home' }
 };
 
 const isPanelOpen = computed(() => {
@@ -122,11 +125,21 @@ const isPanelOpen = computed(() => {
 
 const currentPanelTitle = computed(() => {
   const routeName = String(route.name);
-  return panelTitles[routeName] || '功能面板';
+  const panelInfo = panelTitles[routeName];
+  return panelInfo?.title || '功能面板';
+});
+
+const currentPanelIcon = computed(() => {
+  const routeName = String(route.name);
+  const panelInfo = panelTitles[routeName];
+  return panelInfo?.icon || 'Box';
 });
 
 const closePanel = () => {
-  router.push('/game');
+  // 关闭面板时返回到主游戏面板，而不是重复路由到/game
+  if (route.name !== 'GameMain') {
+    router.push('/game');
+  }
 };
 
 const isDataReady = computed(() => {
@@ -303,6 +316,14 @@ watch(isPanelOpen, (isOpen) => {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 .panel-close-btn {

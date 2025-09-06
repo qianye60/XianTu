@@ -53,7 +53,10 @@
       "WebFetch(domain:docs.sillytavern.app)",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\check_data.py\")",
       "Bash(del nul)",
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\types\\cultivationMap.ts\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\cultivationMapAI.ts\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\.env.example\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

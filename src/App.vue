@@ -2,6 +2,7 @@
   <div id="app-container">
     <ToastContainer />
     <GlobalLoadingOverlay />
+    <RetryConfirmDialog />
     <!-- 全局操作按钮 - 只在非游戏界面显示 -->
     <div v-if="!isInGameView" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
@@ -51,6 +52,7 @@ import $ from 'jquery'; // 导入 jQuery
 import { HelpCircle } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
+import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
