@@ -46,7 +46,7 @@ interface LorebookEntry {
  */
 export interface TavernHelper {
   // 核心生成与命令
-  generateRaw: (prompt: string, options?: { temperature?: number; top_p?: number; max_tokens?: number }) => Promise<unknown>;
+  generateRaw: (config: any) => Promise<unknown>; // 更改为接受配置对象
   triggerSlash: (command: string) => Promise<unknown>;
   
   // 变量操作

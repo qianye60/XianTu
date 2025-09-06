@@ -1245,7 +1245,7 @@ const closeModal = () => {
 .btn-details {
   background: rgba(var(--color-info-rgb), 0.1);
   color: var(--color-info);
-  border: 1px solid #3fff19;
+  border: 2px solid #19f7ff;
 }
 
 .btn-details:hover {
@@ -1255,7 +1255,7 @@ const closeModal = () => {
 .btn-delete {
   background: rgba(var(--color-error-rgb), 0.1);
   color: var(--color-error);
-  border: 1px solid #ff0000;
+  border: 2px solid #ff0000;
 }
 
 .btn-delete:hover {
@@ -1861,7 +1861,7 @@ const closeModal = () => {
   .management-layout {
     grid-template-columns: 350px 1fr;
   }
-  
+
   .manual-saves-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
@@ -1871,15 +1871,15 @@ const closeModal = () => {
   .management-layout {
     grid-template-columns: 320px 1fr;
   }
-  
+
   .top-header {
     padding: 0.8rem 1.5rem;
   }
-  
+
   .page-title {
     font-size: 1.6rem;
   }
-  
+
   .details-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -1890,15 +1890,15 @@ const closeModal = () => {
   .top-header {
     padding: 0.8rem 1rem;
   }
-  
+
   .header-content {
     padding: 0;
   }
-  
+
   .page-title {
     font-size: 1.4rem;
   }
-  
+
   .btn-toggle-panel {
     display: flex;
   }
@@ -1922,7 +1922,7 @@ const closeModal = () => {
     /* 添加折叠功能 */
     transition: margin-left 0.3s ease-in-out;
   }
-  
+
   .characters-panel:not(.is-open) {
     margin-left: -280px;
   }
@@ -1930,7 +1930,7 @@ const closeModal = () => {
   .characters-panel.is-open {
     margin-left: 0;
   }
-  
+
   /* 当左侧面板隐藏时，右侧面板占满宽度 */
   .saves-panel {
     transition: margin-left 0.3s ease-in-out;
@@ -1949,7 +1949,7 @@ const closeModal = () => {
     grid-template-columns: 1fr 1fr;
     gap: 0.8rem;
   }
-  
+
   .manual-saves-grid {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 0.8rem;
@@ -1959,35 +1959,35 @@ const closeModal = () => {
   .modal-content {
     padding: 1rem;
   }
-  
+
   .details-modal {
     width: 95%;
     max-height: 85vh;
   }
-  
+
   .dialog-box {
     width: 95%;
     max-width: 400px;
     padding: 1.5rem;
   }
-  
+
   .characters-grid {
     padding: 0.8rem;
   }
-  
+
   .character-card {
     padding: 1rem;
   }
-  
+
   .card-header {
     flex-wrap: wrap;
     gap: 0.8rem;
   }
-  
+
   .char-info {
     min-width: 120px;
   }
-  
+
   .char-meta {
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -1998,11 +1998,11 @@ const closeModal = () => {
   .top-header {
     padding: 0.6rem 0.8rem;
   }
-  
+
   .page-title {
     font-size: 1.2rem;
   }
-  
+
   .btn-back {
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
@@ -2029,16 +2029,16 @@ const closeModal = () => {
     background: var(--color-surface);
     margin-left: 0; /* 重置margin */
   }
-  
+
   .characters-panel.is-open {
     transform: translateX(0);
   }
-  
+
   /* 重置saves-panel的margin */
   .saves-panel {
     margin-left: 0;
   }
-  
+
   .characters-grid {
     padding: 0.5rem;
   }
@@ -2047,27 +2047,27 @@ const closeModal = () => {
     padding: 0.8rem;
     margin-bottom: 0.8rem;
   }
-  
+
   .card-header {
     margin-bottom: 0.8rem;
   }
-  
+
   .char-avatar {
     width: 40px;
     height: 40px;
     font-size: 1.1rem;
   }
-  
+
   .mode-indicator {
     width: 16px;
     height: 16px;
     font-size: 0.6rem;
   }
-  
+
   .char-name {
     font-size: 1rem;
   }
-  
+
   .char-meta {
     font-size: 0.8rem;
   }
@@ -2076,58 +2076,58 @@ const closeModal = () => {
     padding: 0.8rem;
     max-height: calc(100vh - 120px);
   }
-  
+
   .auto-saves-grid {
     grid-template-columns: 1fr;
     gap: 0.6rem;
   }
-  
+
   .manual-saves-grid {
     grid-template-columns: 1fr;
     gap: 0.6rem;
     max-height: 45vh;
   }
-  
+
   .save-card, .online-save-card {
     padding: 1rem;
   }
-  
+
   .stat-grid {
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
-  
+
   .save-footer {
     flex-direction: column;
     gap: 0.3rem;
     align-items: flex-start;
   }
-  
+
   .dialog-box {
     width: 95%;
     padding: 1.2rem;
   }
-  
+
   .dialog-title {
     font-size: 1.3rem;
   }
-  
+
   .dialog-actions {
     flex-direction: column-reverse;
     gap: 0.8rem;
   }
-  
+
   .btn-dialog-confirm,
   .btn-dialog-cancel {
     width: 100%;
     padding: 0.8rem;
   }
-  
+
   .details-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .detail-section {
     padding: 1rem;
   }
@@ -2137,39 +2137,39 @@ const closeModal = () => {
   .top-header {
     padding: 0.5rem;
   }
-  
+
   .header-left-side {
     gap: 0.5rem;
   }
-  
+
   .page-title {
     font-size: 1.1rem;
   }
-  
+
   .btn-back {
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
   }
-  
+
   .characters-panel {
     width: 95%;
     max-width: 260px;
   }
-  
+
   .character-card {
     padding: 0.6rem;
   }
-  
+
   .save-card {
     padding: 0.8rem;
   }
-  
+
   .save-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
   }
-  
+
   .save-badges {
     align-self: stretch;
     justify-content: flex-start;

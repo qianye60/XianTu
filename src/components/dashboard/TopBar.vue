@@ -78,8 +78,31 @@ const toggleFullscreen = () => {
 }
 
 const returnToModeSelection = () => {
-  // 返回到模式选择页面
-  router.push('/')
+  // 使用与LeftSidebar相同的退出逻辑
+  if (confirm('确定要返回道途吗？当前游戏进度将会保存。')) {
+    characterStore.saveCurrentGame();
+    
+    // 尝试保存游戏状态到酒馆变量
+    try {
+      const helper = (window.parent as any)?.TavernHelper;
+      if (helper) {
+        // 保存最后的游戏状态到酒馆变量
+        console.log('[TopBar返回道途] 游戏状态已保存到酒馆');
+      }
+    } catch (error) {
+      console.warn('[TopBar返回道途] 保存酒馆状态失败:', error);
+    }
+    
+    // 返回到SillyTavern主界面
+    if (window.parent && window.parent !== window) {
+      // 在iframe中，通知父窗口关闭游戏
+      window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
+      console.log('[TopBar返回道途] 已发送关闭游戏消息到SillyTavern');
+    } else {
+      // 在独立窗口中，返回到角色创建页面
+      router.push('/');
+    }
+  }
 }
 
 onMounted(() => {

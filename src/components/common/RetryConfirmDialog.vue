@@ -14,7 +14,7 @@
       
       <div class="dialog-actions">
         <button class="btn-secondary" @click="handleCancel">
-          使用默认内容
+          取消创建
         </button>
         <button class="btn-primary" @click="handleConfirm">
           继续重试
@@ -51,7 +51,7 @@ const handleCancel = () => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 9999;
+  z-index: 99999; /* 设置为最高层，确保在所有元素之上 */
   display: flex;
   align-items: center;
   justify-content: center;

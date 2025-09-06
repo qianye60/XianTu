@@ -124,8 +124,9 @@ export class GameAIService {
       // 使用酒馆的generateRaw函数和预设（按用户要求）
       const aiResponse = await helper.generateRaw({
         user_input: systemPrompt,
-        temperature: 0.7,
-        max_tokens: 8000
+        custom_api: {
+          temperature: 0.7
+        }
       });
 
       console.log('[AI服务] 酒馆返回的原始响应:', aiResponse);
@@ -598,8 +599,9 @@ export class GameAIService {
       // 发送给AI
       const response = await helper.generateRaw({
         user_input: initialPrompt,
-        temperature: 0.8,
-        max_tokens: 8000
+        custom_api: {
+          temperature: 0.8
+        }
       });
       
       if (!response || typeof response !== 'string') {

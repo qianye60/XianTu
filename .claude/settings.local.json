@@ -56,14 +56,17 @@
       "Bash(git add -A)",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\types\\cultivationMap.ts\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\cultivationMapAI.ts\")",
-      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\.env.example\")"
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\.env.example\")",
+      "Bash(mv:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\character-creation",
       "c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard",
-      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天"
+      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天",
+      "C:\\c\\Users\\15385\\Documents\\编程项目"
     ]
   }
 }

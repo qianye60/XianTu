@@ -4,7 +4,7 @@
  * 包含提示词生成和运行时验证功能
  */
 
-import type { GM_Response, GM_Command } from '../../types/AIGameMaster';
+import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
 import type { SaveData } from '@/types/game';
 
 export type DifficultyLevel = 'normal' | 'medium' | 'hard';
@@ -394,7 +394,7 @@ export class RuntimeReasonabilityValidator {
 
         // 修为变化检查
         if (command.key.includes('cultivation') || command.key.includes('修为')) {
-          const realmLevel = this.getRealmLevel(character.角色状态?.境界?.名称 || '凡人');
+          const realmLevel = this.getRealmLevel(character.玩家角色状态?.境界?.名称 || '凡人');
           const maxGain = realmLevel * 10 * config.maxRewardMultiplier;
           
           if (change > maxGain) {
@@ -430,7 +430,7 @@ export class RuntimeReasonabilityValidator {
 
     for (const change of realmChanges) {
       if (change.action === 'set') {
-        const currentLevel = this.getRealmLevel(character.角色状态?.境界?.名称 || '凡人');
+        const currentLevel = this.getRealmLevel(character.玩家角色状态?.境界?.名称 || '凡人');
         const newLevel = this.getRealmLevel(change.value as string);
         
         if (newLevel > currentLevel + 1) {

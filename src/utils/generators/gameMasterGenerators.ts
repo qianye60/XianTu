@@ -95,14 +95,9 @@ export async function generateInitialMessage(
     
     // 4. 验证结果结构
     if (!result || !result.text || !result.tavern_commands || result.tavern_commands.length === 0) {
-      console.warn('【神识印记】AI返回的初始消息结构无效，将使用fallback:', result);
-      // 不再抛出错误，直接使用fallback
-      const fallbackResponse = createFallbackResponse(initialGameData, processedOrigin, processedSpiritRoot);
-      return {
-        ...fallbackResponse,
-        processedOrigin,
-        processedSpiritRoot
-      };
+      console.warn('【神识印记】AI返回的初始消息结构无效，将抛出错误以触发重试:', result);
+      // 抛出错误让重试机制处理，而不是直接使用fallback
+      throw new Error('AI生成的初始消息格式无效或内容缺失');
     }
     
     // 5. 确保tavern_commands是数组 (以防万一)
@@ -122,29 +117,9 @@ export async function generateInitialMessage(
     return finalResult as GM_Response;
     
   } catch (error: any) {
-    console.warn('【神识印记】生成天道初言失败，使用默认内容:', error);
-
-    // 确保在catch块中重新声明变量
-    let processedOrigin = initialGameData.creationDetails.originName;
-    let processedSpiritRoot = initialGameData.creationDetails.spiritRootName;
-    
-    if (processedOrigin === '随机出身') {
-      const possibleOrigins = ['世家子弟', '宗门弟子', '平民出身', '商贾之家', '猎户人家', '书香门第', '孤儿出身'];
-      processedOrigin = possibleOrigins[Math.floor(Math.random() * possibleOrigins.length)];
-    }
-    
-    if (processedSpiritRoot === '随机灵根') {
-      const possibleRoots = ['五行灵根', '金灵根', '木灵根', '水灵根', '火灵根', '土灵根', '冰灵根', '雷灵根', '风灵根'];
-      processedSpiritRoot = possibleRoots[Math.floor(Math.random() * possibleRoots.length)];
-    }
-
-    // 不再抛出错误，直接使用fallback
-    const fallbackResponse = createFallbackResponse(initialGameData, processedOrigin, processedSpiritRoot);
-    return {
-      ...fallbackResponse,
-      processedOrigin,
-      processedSpiritRoot
-    };
+    console.warn('【神识印记】生成天道初言失败，抛出错误以触发重试:', error);
+    // 不再使用fallback，让重试机制处理
+    throw error;
   }
 }
 

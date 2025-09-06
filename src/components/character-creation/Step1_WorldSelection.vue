@@ -47,33 +47,45 @@
         <h3>世界生成配置</h3>
         <div class="config-content">
           <div class="config-item">
-            <label>势力数量</label>
+            <label>势力规模</label>
             <select v-model="worldConfig.majorFactionsCount" class="config-select">
-              <option value="4">精简 (4个)</option>
-              <option value="7">标准 (7个)</option>
-              <option value="12">丰富 (12个)</option>
-              <option value="15">史诗 (15个)</option>
+              <option value="3">小型世界 (约3个势力)</option>
+              <option value="5">标准世界 (约5个势力)</option>
+              <option value="7">大型世界 (约7个势力)</option>
+              <option value="10">庞大世界 (约10个势力)</option>
             </select>
-            <small class="config-hint">最多15个，避免生成失败</small>
+            <small class="config-hint">影响世界政治复杂度</small>
           </div>
           
           <div class="config-item">
-            <label>地点总数</label>
+            <label>地理密度</label>
             <select v-model="worldConfig.totalLocations" class="config-select">
-              <option value="15">少量 (15个地点)</option>
-              <option value="25">适中 (25个地点)</option>
-              <option value="35">丰富 (35个地点)</option>
+              <option value="10">稀疏 (约10个地点)</option>
+              <option value="15">适中 (约15个地点)</option>
+              <option value="20">密集 (约20个地点)</option>
+              <option value="25">超密集 (约25个地点)</option>
             </select>
-            <small class="config-hint">包含城镇、秘境等所有地点</small>
+            <small class="config-hint">决定世界地点的丰富程度</small>
           </div>
           
           <div class="config-item">
-            <label>秘境数量</label>
+            <label>特殊属性</label>
             <select v-model="worldConfig.secretRealmsCount" class="config-select">
-              <option value="3">少量 (3个)</option>
-              <option value="8">适中 (8个)</option>
-              <option value="15">丰富 (15个)</option>
+              <option value="2">稀少 (约2个)</option>
+              <option value="4">常见 (约4个)</option>
+              <option value="6">丰富 (约6个)</option>
+              <option value="8">大量 (约8个)</option>
             </select>
+            <small class="config-hint">为部分地点添加特殊属性(机遇/传承/危险)</small>
+          </div>
+          
+          <div class="config-actions">
+            <button @click="randomizeConfig" class="random-config-btn">
+              🎲 随机配置
+            </button>
+            <button @click="resetConfig" class="reset-config-btn">
+              🔄 重置默认
+            </button>
           </div>
         </div>
       </div>
@@ -107,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import type { World } from '../../types';
 import CustomCreationModal from './CustomCreationModal.vue';
@@ -120,10 +132,16 @@ const isCustomModalVisible = ref(false);
 
 // 世界生成配置
 const worldConfig = ref({
-  majorFactionsCount: 7,
-  totalLocations: 25,
-  secretRealmsCount: 8
+  majorFactionsCount: 5,
+  totalLocations: 15,
+  secretRealmsCount: 4
 });
+
+// 监听配置变化并自动保存到store
+watch(worldConfig, (newConfig) => {
+  store.setWorldGenerationConfig(newConfig);
+  console.log('[世界配置] 配置已更新:', newConfig);
+}, { deep: true });
 
 const worldsList = computed(() => {
   const allWorlds = store.creationData.worlds;
@@ -225,6 +243,36 @@ function handleSelectWorld(world: World) {
   store.setWorldGenerationConfig(worldConfig.value);
 }
 
+// 随机配置功能
+function randomizeConfig() {
+  const factionOptions = [3, 5, 7, 10];
+  const locationOptions = [10, 15, 20, 25];
+  const realmOptions = [2, 4, 6, 8];
+  
+  worldConfig.value = {
+    majorFactionsCount: factionOptions[Math.floor(Math.random() * factionOptions.length)],
+    totalLocations: locationOptions[Math.floor(Math.random() * locationOptions.length)],
+    secretRealmsCount: realmOptions[Math.floor(Math.random() * realmOptions.length)]
+  };
+  
+  // 立即保存配置到store
+  store.setWorldGenerationConfig(worldConfig.value);
+  toast.info('已随机生成世界配置');
+}
+
+// 重置为默认配置
+function resetConfig() {
+  worldConfig.value = {
+    majorFactionsCount: 5,
+    totalLocations: 15,
+    secretRealmsCount: 4
+  };
+  
+  // 立即保存配置到store
+  store.setWorldGenerationConfig(worldConfig.value);
+  toast.info('已重置为默认配置');
+}
+
 // fetchData 方法已不再需要，组件现在通过计算属性自动响应store的变化
 </script>
 
@@ -246,7 +294,7 @@ function handleSelectWorld(world: World) {
 
 .world-layout {
   display: grid;
-  grid-template-columns: 1fr 280px 1.5fr;
+  grid-template-columns: 1fr 320px 1.5fr;
   gap: 1.5rem;
   height: 100%;
   overflow: hidden;
@@ -434,6 +482,8 @@ function handleSelectWorld(world: World) {
   padding: 1rem;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .config-panel h3 {
@@ -449,27 +499,33 @@ function handleSelectWorld(world: World) {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .config-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .config-item label {
   font-weight: 500;
   color: var(--color-text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
 }
 
 .config-select {
-  padding: 0.5rem;
+  padding: 0.4rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  min-height: 32px;
 }
 
 .config-select:focus {
@@ -479,22 +535,63 @@ function handleSelectWorld(world: World) {
 
 .config-hint {
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  margin-top: 0.2rem;
   font-style: italic;
+  line-height: 1.3;
+}
+
+/* 配置操作按钮 */
+.config-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.random-config-btn,
+.reset-config-btn {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 32px;
+}
+
+.random-config-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.reset-config-btn:hover {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
 }
 
 /* 响应式适配 - 优化的手机端适配，确保三栏内容完整显示 */
 @media (max-width: 1400px) {
   .world-layout {
-    grid-template-columns: 1fr 260px 1.3fr;
+    grid-template-columns: 1fr 300px 1.3fr;
     gap: 1.2rem;
   }
 }
 
 @media (max-width: 1200px) {
   .world-layout {
-    grid-template-columns: 1fr 240px 1.2fr;
+    grid-template-columns: 1fr 280px 1.2fr;
     gap: 1rem;
   }
   
@@ -509,7 +606,7 @@ function handleSelectWorld(world: World) {
 
 @media (max-width: 1024px) {
   .world-layout {
-    grid-template-columns: 0.8fr 220px 1fr;
+    grid-template-columns: 0.8fr 260px 1fr;
     gap: 0.8rem;
   }
   
@@ -518,12 +615,18 @@ function handleSelectWorld(world: World) {
   }
   
   .config-item label {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
   
   .config-select {
-    font-size: 0.85rem;
-    padding: 0.4rem;
+    font-size: 0.8rem;
+    padding: 0.35rem;
+  }
+  
+  .random-config-btn,
+  .reset-config-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.5rem;
   }
 }
 
@@ -571,6 +674,19 @@ function handleSelectWorld(world: World) {
     gap: 0.3rem;
   }
   
+  .config-actions {
+    grid-column: 1 / -1;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+  }
+  
+  .random-config-btn,
+  .reset-config-btn {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
+  
   /* 优化触摸体验 */
   .list-item,
   .action-item,
@@ -590,6 +706,18 @@ function handleSelectWorld(world: World) {
     /* 在小屏幕上改为单列布局 */
     grid-template-columns: 1fr;
     gap: 0.6rem;
+  }
+  
+  .config-actions {
+    grid-column: 1;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  
+  .random-config-btn,
+  .reset-config-btn {
+    font-size: 0.85rem;
+    padding: 0.6rem;
   }
   
   .left-panel {

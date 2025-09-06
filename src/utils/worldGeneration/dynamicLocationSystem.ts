@@ -237,8 +237,8 @@ export class DynamicLocationSystem {
     try {
       // 获取动态位置数据
       const variables = await tavern.getVariables({ type: 'chat' });
-      const dynamicLocations = variables['dynamic_locations'] || [];
-      const dynamicFactions = variables['dynamic_factions'] || [];
+      const dynamicLocations = Array.isArray(variables['dynamic_locations']) ? variables['dynamic_locations'] : [];
+      const dynamicFactions = Array.isArray(variables['dynamic_factions']) ? variables['dynamic_factions'] : [];
 
       console.log(`[动态位置系统] 发现 ${dynamicLocations.length} 个动态位置，${dynamicFactions.length} 个动态势力`);
       
@@ -286,7 +286,7 @@ export class DynamicLocationSystem {
 
       // 获取现有位置列表
       const variables = await tavern.getVariables({ type: 'chat' });
-      const existingLocations = variables['dynamic_locations'] || [];
+      const existingLocations = Array.isArray(variables['dynamic_locations']) ? variables['dynamic_locations'] : [];
       
       // 添加新位置
       existingLocations.push(completeLocation);
@@ -317,8 +317,8 @@ export class DynamicLocationSystem {
 
     try {
       const variables = await tavern.getVariables({ type: 'chat' });
-      const locations = variables['dynamic_locations'] || [];
-      const factions = variables['dynamic_factions'] || [];
+      const locations = Array.isArray(variables['dynamic_locations']) ? variables['dynamic_locations'] : [];
+      const factions = Array.isArray(variables['dynamic_factions']) ? variables['dynamic_factions'] : [];
       
       const now = new Date();
       const maxAge = 7 * 24 * 60 * 60 * 1000; // 7天
@@ -387,7 +387,7 @@ export class DynamicLocationSystem {
    * 获取位置类型的显示信息
    */
   getLocationTypeInfo(type: string) {
-    const typeInfo = {
+    const typeInfo: Record<string, { icon: string; color: string; name: string }> = {
       'small_sect': { icon: '🏛️', color: '#7C3AED', name: '小宗门' },
       'village': { icon: '🏘️', color: '#059669', name: '村落' },
       'cave': { icon: '🕳️', color: '#6B7280', name: '洞穴' },

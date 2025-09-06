@@ -17,8 +17,8 @@
       </div>
 
       <!-- SVG 修仙世界地图 -->
-      <svg 
-        class="world-map-svg" 
+      <svg
+        class="world-map-svg"
         :viewBox="`0 0 ${mapWidth} ${mapHeight}`"
         @wheel="handleZoom"
         @mousedown="startPan"
@@ -32,7 +32,7 @@
           <pattern id="gridPattern" patternUnits="userSpaceOnUse" width="50" height="50">
             <rect width="50" height="50" fill="none" stroke="#E5E7EB" stroke-width="0.5" opacity="0.3"/>
           </pattern>
-          
+
           <!-- 地点光辉效果 -->
           <filter id="locationGlow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -45,16 +45,53 @@
 
         <!-- 世界背景网格 -->
         <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.1"/>
-        
+
         <!-- 地图内容组 (支持平移和缩放) -->
         <g :transform="`translate(${panX}, ${panY}) scale(${zoomLevel})`">
-          
+
+          <!-- 大洲层 -->
+          <g class="continent-layer">
+            <g v-for="continent in cultivationContinents" :key="'continent-' + continent.id">
+              <!-- 大洲范围多边形 -->
+              <polygon
+                v-if="continent.continent_bounds && continent.continent_bounds.length > 0"
+                :points="continent.continent_bounds.map((point: any) => {
+                  const coords = geoToVirtual(point.longitude, point.latitude);
+                  return `${coords.x},${coords.y}`;
+                }).join(' ')"
+                fill="rgba(59, 130, 246, 0.08)"
+                stroke="#3B82F6"
+                stroke-width="2"
+                stroke-dasharray="10,5"
+                fill-opacity="0.08"
+                stroke-opacity="0.7"
+                class="continent-polygon"
+                @click="selectContinent(continent)"
+              />
+              
+              <!-- 大洲名称标签 -->
+              <text
+                v-if="continent.continent_bounds && continent.continent_bounds.length > 0"
+                :x="getContinentCenter(continent.continent_bounds).x"
+                :y="getContinentCenter(continent.continent_bounds).y"
+                class="continent-name-label"
+                text-anchor="middle"
+                fill="#3B82F6"
+                font-weight="bold"
+                font-size="18px"
+                opacity="0.8"
+              >
+                {{ continent.name }}
+              </text>
+            </g>
+          </g>
+
           <!-- 势力范围层 -->
           <g class="territory-bounds-layer">
-            <g v-for="location in cultivationLocations.filter(loc => loc.isTerritory && loc.territoryBounds)" :key="'territory-' + location.id">
+            <g v-for="location in cultivationLocations.filter(loc => loc.isTerritory && loc.territoryBounds && loc.territoryBounds.length > 0)" :key="'territory-' + location.id">
               <!-- 势力范围多边形 -->
-              <polygon 
-                :points="location.territoryBounds.map(point => `${point.x},${point.y}`).join(' ')"
+              <polygon
+                :points="(location.territoryBounds || []).map(point => `${point.x},${point.y}`).join(' ')"
                 :fill="location.color"
                 :stroke="location.iconColor"
                 stroke-width="2"
@@ -65,11 +102,11 @@
                 @mouseenter="onLocationHover(location)"
                 @mouseleave="onLocationLeave"
               />
-              
+
               <!-- 势力名称标签 (在范围中心) -->
-              <text 
-                :x="getTerritoryCenter(location.territoryBounds).x"
-                :y="getTerritoryCenter(location.territoryBounds).y"
+              <text
+                :x="getTerritoryCenter(location.territoryBounds || []).x"
+                :y="getTerritoryCenter(location.territoryBounds || []).y"
                 class="territory-name-label"
                 text-anchor="middle"
                 :fill="location.iconColor"
@@ -80,11 +117,11 @@
               </text>
             </g>
           </g>
-          
+
           <!-- 地点标记层 -->
           <g class="location-markers-layer">
             <g v-for="location in cultivationLocations.filter(loc => !loc.isTerritory)" :key="'location-' + location.id">
-              <g 
+              <g
                 :transform="`translate(${location.coordinates.x}, ${location.coordinates.y})`"
                 class="location-marker"
                 @click="selectLocation(location)"
@@ -93,96 +130,85 @@
               >
                 <!-- 地点类型图标 -->
                 <g class="location-icon-group">
-                  <!-- 门派宗门 -->
-                  <g v-if="location.type === 'sect_headquarters'">
-                    <polygon points="0,-12 -8,8 8,8" :fill="location.iconColor" stroke="#FFD700" stroke-width="1.5"/>
-                    <circle r="3" fill="#FFD700"/>
-                    <circle r="1.5" fill="white"/>
+                  <!-- ⛰️ 名山大川 -->
+                  <g v-if="location.type === 'natural_landmark'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Mountain :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 城镇 -->
-                  <g v-else-if="location.type === 'major_city'">
-                    <rect x="-8" y="-8" width="16" height="16" :fill="location.iconColor" rx="2"/>
-                    <rect x="-6" y="-6" width="5" height="5" fill="white" opacity="0.9"/>
-                    <rect x="1" y="-6" width="5" height="5" fill="white" opacity="0.9"/>
-                    <rect x="-6" y="1" width="5" height="5" fill="white" opacity="0.9"/>
-                    <rect x="1" y="1" width="5" height="5" fill="white" opacity="0.9"/>
+
+                  <!-- 🏛️ 宗门势力 -->
+                  <g v-else-if="location.type === 'sect_power'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Building2 :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 危险秘境 -->
-                  <g v-else-if="location.type === 'secret_realm'">
-                    <circle r="8" :fill="location.iconColor" opacity="0.8"/>
-                    <path d="M-4,-4 L0,4 L4,-4 Z" fill="#FBBF24"/>
-                    <circle r="2.5" fill="white" opacity="0.9">
-                      <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
-                    </circle>
+
+                  <!-- 🏮 城镇坊市 -->
+                  <g v-else-if="location.type === 'city_town'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Home :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 自然地貌 -->
-                  <g v-else-if="location.type === 'mountain'">
-                    <path d="M-6,-6 L0,-12 L6,-6 L4,6 L-4,6 Z" :fill="location.iconColor"/>
-                    <path d="M-4,-4 L0,-8 L4,-4" stroke="white" stroke-width="1" fill="none"/>
+
+                  <!-- ⛩️ 洞天福地 -->
+                  <g v-else-if="location.type === 'blessed_land'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Sparkles :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 修炼胜地 -->
-                  <g v-else-if="location.type === 'cultivation_site'">
-                    <circle r="6" :fill="location.iconColor" opacity="0.7"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="8px">修</text>
+
+                  <!-- 💰 奇珍异地 -->
+                  <g v-else-if="location.type === 'treasure_land'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Gem :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 传承洞府 -->
-                  <g v-else-if="location.type === 'inheritance_cave'">
-                    <rect x="-6" y="-6" width="12" height="12" :fill="location.iconColor" rx="2"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="7px">传</text>
+
+                  <!-- ☠️ 凶险之地 -->
+                  <g v-else-if="location.type === 'dangerous_area'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Skull :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="14" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 古战场遗迹 -->
-                  <g v-else-if="location.type === 'battlefield_ruins'">
-                    <polygon points="-6,-6 6,-6 5,6 -5,6" :fill="location.iconColor" stroke="#000" stroke-width="1"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="6px">战</text>
+
+                  <!-- 🌟 其他特殊 -->
+                  <g v-else-if="location.type === 'special_other'">
+                    <foreignObject x="-8" y="-8" width="16" height="16">
+                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                        <Zap :size="16" :color="location.iconColor" />
+                      </div>
+                    </foreignObject>
+                    <text class="location-icon-text" text-anchor="middle" y="14" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
-                  
-                  <!-- 天材地宝产地 -->
-                  <g v-else-if="location.type === 'treasure_source'">
-                    <circle r="7" :fill="location.iconColor" stroke="#FFD700" stroke-width="1.5"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="6px">宝</text>
-                  </g>
-                  
-                  <!-- 灵兽栖息地 -->
-                  <g v-else-if="location.type === 'spirit_beast_habitat'">
-                    <ellipse rx="8" ry="5" :fill="location.iconColor" opacity="0.8"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="6px">兽</text>
-                  </g>
-                  
-                  <!-- 跨界传送阵 -->
-                  <g v-else-if="location.type === 'teleportation_array'">
-                    <circle r="6" :fill="location.iconColor" stroke="white" stroke-width="1.5"/>
-                    <circle r="3" fill="none" stroke="white" stroke-width="0.8"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="5px">阵</text>
-                  </g>
-                  
-                  <!-- 魔域入口 -->
-                  <g v-else-if="location.type === 'demon_realm_gate'">
-                    <path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#DC2626" stroke-width="2"/>
-                    <circle r="4" :fill="location.iconColor" opacity="0.7"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="white" font-size="5px">魔</text>
-                  </g>
-                  
-                  <!-- 仙人遗府 -->
-                  <g v-else-if="location.type === 'immortal_mansion'">
-                    <rect x="-7" y="-7" width="14" height="14" :fill="location.iconColor" rx="1.5" opacity="0.9"/>
-                    <circle r="2.5" fill="#FFD700"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="1.5" fill="black" font-size="5px">仙</text>
-                  </g>
-                  
+
                   <!-- 默认图标 -->
                   <g v-else>
-                    <circle r="4" :fill="location.iconColor" stroke="white" stroke-width="1"/>
+                    <circle r="6" :fill="location.iconColor" stroke="white" stroke-width="1"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="8px">?</text>
                   </g>
                 </g>
-                
+
                 <!-- 地点名称标签 -->
-                <text 
+                <text
                   class="location-name-label"
                   text-anchor="middle"
                   y="18"
@@ -193,7 +219,7 @@
               </g>
             </g>
           </g>
-          
+
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
             <g :transform="`translate(${playerPosition.x}, ${playerPosition.y})`">
@@ -206,11 +232,11 @@
               <polygon points="0,-10 -6,6 6,6" fill="#DC2626" stroke="white" stroke-width="2"/>
               <circle r="2" fill="white"/>
             </g>
-            
+
             <!-- 玩家名称 -->
-            <text 
-              :x="playerPosition.x" 
-              :y="playerPosition.y + 25" 
+            <text
+              :x="playerPosition.x"
+              :y="playerPosition.y + 25"
               class="player-name-label"
               text-anchor="middle"
               fill="#DC2626"
@@ -218,11 +244,11 @@
               {{ playerName }}
             </text>
           </g>
-          
+
         </g>
       </svg>
     </div>
-    
+
     <!-- 选中详情显示面板 (动态位置在地点顶部) -->
     <div v-if="selectedInfo" class="selected-info-overlay" :style="getPopupPosition()">
       <div class="selected-info">
@@ -231,41 +257,73 @@
           <button @click="selectedInfo = null" class="close-info">×</button>
         </div>
         <div class="info-content">
-          <p class="info-type">{{ internalTypeToChineseName(selectedInfo.type) }}</p>
+          <p class="info-type">{{ selectedInfo.type === '大洲' ? '大洲' : internalTypeToChineseName(selectedInfo.type) }}</p>
           <p class="info-desc">{{ selectedInfo.description }}</p>
           <div v-if="selectedInfo.danger_level" class="info-detail">
             <strong>危险等级：</strong>{{ selectedInfo.danger_level }}
           </div>
           <div v-if="selectedInfo.suitable_for" class="info-detail">
-            <strong>适合：</strong>{{ selectedInfo.suitable_for }}
+            <strong>适合：</strong>{{ Array.isArray(selectedInfo.suitable_for) ? selectedInfo.suitable_for.join('、') : selectedInfo.suitable_for }}
+          </div>
+          <!-- 大洲特有信息 -->
+          <div v-if="selectedInfo.climate" class="info-detail">
+            <strong>气候类型：</strong>{{ selectedInfo.climate }}
+          </div>
+          <div v-if="selectedInfo.terrain_features && selectedInfo.terrain_features.length > 0" class="info-detail">
+            <strong>地形特征：</strong>{{ Array.isArray(selectedInfo.terrain_features) ? selectedInfo.terrain_features.join('、') : selectedInfo.terrain_features }}
+          </div>
+          <div v-if="selectedInfo.natural_barriers && selectedInfo.natural_barriers.length > 0" class="info-detail">
+            <strong>天然屏障：</strong>{{ Array.isArray(selectedInfo.natural_barriers) ? selectedInfo.natural_barriers.join('、') : selectedInfo.natural_barriers }}
           </div>
         </div>
       </div>
     </div>
-    
+
     <!-- 地图图例 (右下角) -->
     <div class="map-legend">
-      <div class="legend-title">图例</div>
+      <div class="legend-title">修仙世界图例</div>
       <div class="legend-items">
         <div class="legend-item">
-          <div class="legend-icon sect-icon">⛩️</div>
-          <span>门派宗门</span>
+          <div class="legend-icon">
+            <Mountain :size="16" color="#2D7D32" />
+          </div>
+          <span>名山大川</span>
         </div>
         <div class="legend-item">
-          <div class="legend-icon city-icon">🏘️</div>
-          <span>城镇</span>
+          <div class="legend-icon">
+            <Building2 :size="16" color="#1565C0" />
+          </div>
+          <span>宗门势力</span>
         </div>
         <div class="legend-item">
-          <div class="legend-icon secret-icon">💎</div>
-          <span>危险秘境</span>
+          <div class="legend-icon">
+            <Home :size="16" color="#F57C00" />
+          </div>
+          <span>城镇坊市</span>
         </div>
         <div class="legend-item">
-          <div class="legend-icon nature-icon">🏔️</div>
-          <span>自然地貌</span>
+          <div class="legend-icon">
+            <Sparkles :size="16" color="#7B1FA2" />
+          </div>
+          <span>洞天福地</span>
         </div>
         <div class="legend-item">
-          <div class="legend-icon practice-icon">🧘</div>
-          <span>修炼圣地</span>
+          <div class="legend-icon">
+            <Gem :size="16" color="#388E3C" />
+          </div>
+          <span>奇珍异地</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon">
+            <Skull :size="16" color="#D32F2F" />
+          </div>
+          <span>凶险之地</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon">
+            <Zap :size="16" color="#6B7280" />
+          </div>
+          <span>其他特殊</span>
         </div>
       </div>
     </div>
@@ -274,10 +332,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { Target, Maximize2 } from 'lucide-vue-next';
+import { Target, Maximize2, Mountain, Building2, Home, Sparkles, Gem, Skull, Zap } from 'lucide-vue-next';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
-import type { SaveData } from '@/types/game';
 
 // --- 类型定义 ---
 
@@ -334,29 +391,45 @@ const selectedInfo = ref<{
 
 // 组件状态
 const mapContainer = ref<HTMLElement | null>(null);
-const loading = ref(false);
 const mapStatus = ref('正在加载修仙世界...');
 const playerName = ref('');
-const playerLocation = ref('');
 
 // 修仙世界数据 - 只从酒馆变量加载
 const cultivationLocations = ref<CultivationLocation[]>([]);
-const isGeneratingWorld = ref(false);
-const tavernVariables = ref<any>({});
+const cultivationContinents = ref<any[]>([]);
+const tavernVariables = ref<Record<string, any>>({});
 
 // 玩家位置 - 从酒馆变量获取
 const playerPosition = computed(() => {
-  // 从酒馆获取SaveData中的玩家位置
+  // 方法1：尝试从player_location_marker获取位置（新的位置标点系统）
+  const locationMarker = tavernVariables.value?.['player_location_marker'];
+  if (locationMarker && locationMarker.coordinates) {
+    console.log('[玩家定位] 从位置标点获取坐标:', locationMarker.coordinates);
+
+    const coords = locationMarker.coordinates;
+    // 地理坐标格式转换
+    if (coords.longitude !== undefined && coords.latitude !== undefined) {
+      const virtualPos = geoToVirtual(coords.longitude, coords.latitude);
+      console.log('[玩家定位] 标点转换结果:', virtualPos);
+      return virtualPos;
+    }
+    // 虚拟坐标格式
+    else if (coords.x !== undefined && coords.y !== undefined) {
+      return { x: coords.x, y: coords.y };
+    }
+  }
+
+  // 方法2：从SaveData中的玩家位置获取（原有逻辑）
   if (!tavernVariables.value?.['character.saveData']?.玩家角色状态?.位置?.坐标) {
     return null;
   }
-  
+
   const coords = tavernVariables.value['character.saveData'].玩家角色状态.位置.坐标;
   console.log('[玩家定位] 原始坐标数据:', coords);
-  
+
   // 处理不同的坐标格式
   let longitude: number | undefined, latitude: number | undefined;
-  
+
   // Vector2格式 (X,Y大写) - 这是正确的数据结构格式
   if (coords.X !== undefined && coords.Y !== undefined) {
     // 如果是虚拟坐标，直接返回
@@ -371,14 +444,14 @@ const playerPosition = computed(() => {
     longitude = coords.longitude;
     latitude = coords.latitude;
   }
-  
+
   // 转换地理坐标到虚拟坐标
   if (longitude !== undefined && latitude !== undefined) {
     const virtualPos = geoToVirtual(longitude, latitude);
     console.log('[玩家定位] 转换结果:', virtualPos);
     return virtualPos;
   }
-  
+
   console.warn('[玩家定位] 无法解析坐标格式:', coords);
   return null;
 });
@@ -391,7 +464,7 @@ const showToastWithDelay = (message: string, type: 'success' | 'error' | 'warnin
     toast[type](message);
   }, toastDelayCounter * 200);
   toastDelayCounter++;
-  
+
   // 重置计数器，避免累积过多延迟
   if (toastDelayCounter > 5) {
     toastDelayCounter = 0;
@@ -409,7 +482,7 @@ const startPan = (event: MouseEvent) => {
   isPanning.value = true;
   lastPanPoint.value = { x: event.clientX, y: event.clientY };
   dragDistance.value = 0; // 重置拖拽距离
-  
+
   // 开始拖拽时关闭弹窗
   if (selectedInfo.value) {
     selectedInfo.value = null;
@@ -418,21 +491,21 @@ const startPan = (event: MouseEvent) => {
 
 const handlePan = (event: MouseEvent) => {
   if (!isPanning.value) return;
-  
+
   const deltaX = event.clientX - lastPanPoint.value.x;
   const deltaY = event.clientY - lastPanPoint.value.y;
-  
+
   // 累计拖拽距离
   dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
-  
+
   // 动态计算平移范围限制
   const maxPanX = getMaxPanX();
   const maxPanY = getMaxPanY();
-  
+
   // 限制平移范围
   panX.value = Math.max(-maxPanX, Math.min(maxPanX, panX.value + deltaX));
   panY.value = Math.max(-maxPanY, Math.min(maxPanY, panY.value + deltaY));
-  
+
   lastPanPoint.value = { x: event.clientX, y: event.clientY };
 };
 
@@ -467,12 +540,12 @@ const selectLocation = (location: CultivationLocation) => {
   if (isPanning.value || dragDistance.value > 5) {
     return;
   }
-  
+
   console.log('[坤舆图志] 选中地点:', location.name);
-  
+
   // 计算地点在屏幕上的位置
   const screenPosition = calculateScreenPosition(location.coordinates.x, location.coordinates.y);
-  
+
   selectedInfo.value = {
     id: location.id,
     name: location.name,
@@ -484,22 +557,47 @@ const selectLocation = (location: CultivationLocation) => {
   };
 };
 
+// 选择大洲
+const selectContinent = (continent: any) => {
+  // 如果正在拖动或拖动距离超过阈值，不触发选择
+  if (isPanning.value || dragDistance.value > 5) {
+    return;
+  }
+
+  console.log('[坤舆图志] 选中大洲:', continent.name);
+
+  // 计算大洲中心在屏幕上的位置
+  const center = getContinentCenter(continent.continent_bounds);
+  const screenPosition = calculateScreenPosition(center.x, center.y);
+
+  selectedInfo.value = {
+    id: continent.id,
+    name: continent.name,
+    type: '大洲',
+    description: continent.description || '广阔的修仙大陆',
+    climate: continent.climate,
+    terrain_features: continent.terrain_features,
+    natural_barriers: continent.natural_barriers,
+    screenPosition: screenPosition
+  };
+};
+
 // 计算地点在屏幕上的坐标
 const calculateScreenPosition = (worldX: number, worldY: number): { x: number; y: number } => {
   if (!mapContainer.value) {
     return { x: 0, y: 0 };
   }
-  
+
   const containerRect = mapContainer.value.getBoundingClientRect();
-  
+
   // 考虑平移和缩放的影响
   const transformedX = (worldX * zoomLevel.value) + panX.value;
   const transformedY = (worldY * zoomLevel.value) + panY.value;
-  
+
   // 转换为相对于容器的坐标
   const relativeX = (transformedX / mapWidth.value) * containerRect.width;
   const relativeY = (transformedY / mapHeight.value) * containerRect.height;
-  
+
   return {
     x: relativeX,
     y: relativeY
@@ -511,14 +609,29 @@ const getTerritoryCenter = (bounds: { x: number; y: number }[]): { x: number; y:
   if (!bounds || bounds.length === 0) {
     return { x: 0, y: 0 };
   }
-  
+
   const sumX = bounds.reduce((sum, point) => sum + point.x, 0);
   const sumY = bounds.reduce((sum, point) => sum + point.y, 0);
-  
+
   return {
     x: sumX / bounds.length,
     y: sumY / bounds.length
   };
+};
+
+// 计算大洲范围中心点
+const getContinentCenter = (bounds: { longitude: number; latitude: number }[]): { x: number; y: number } => {
+  if (!bounds || bounds.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const sumLng = bounds.reduce((sum, point) => sum + point.longitude, 0);
+  const sumLat = bounds.reduce((sum, point) => sum + point.latitude, 0);
+  
+  const centerLng = sumLng / bounds.length;
+  const centerLat = sumLat / bounds.length;
+
+  return geoToVirtual(centerLng, centerLat);
 };
 
 // 计算弹窗位置样式
@@ -531,25 +644,25 @@ const getPopupPosition = (): Record<string, string> => {
       transform: 'translateX(-50%)'
     };
   }
-  
+
   const { x, y } = selectedInfo.value.screenPosition;
   const popupWidth = 350; // 弹窗预估宽度
   const popupHeight = 200; // 弹窗预估高度
-  
+
   // 确保弹窗不会超出容器边界
   let popupX = x - popupWidth / 2;
   let popupY = y - popupHeight - 30; // 在地点顶部30px处显示
-  
+
   // 边界检查
   if (popupX < 10) popupX = 10;
   if (popupX + popupWidth > (mapContainer.value?.clientWidth || 800) - 10) {
     popupX = (mapContainer.value?.clientWidth || 800) - popupWidth - 10;
   }
-  
+
   if (popupY < 10) {
     popupY = y + 30; // 如果顶部放不下，显示在地点下方
   }
-  
+
   return {
     position: 'absolute',
     left: `${popupX}px`,
@@ -563,12 +676,12 @@ const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
   // 修仙世界蜀中仙域坐标范围
   const lngMin = 102.0, lngMax = 109.0;
   const latMin = 27.5, latMax = 33.0;
-  
+
   // 保留边距，确保所有点都在可视范围内
   const margin = 100;
   const x = ((lng - lngMin) / (lngMax - lngMin)) * (mapWidth.value - 2 * margin) + margin;
   const y = ((latMax - lat) / (latMax - latMin)) * (mapHeight.value - 2 * margin) + margin;
-  
+
   return {
     x: Math.max(margin, Math.min(mapWidth.value - margin, x)),
     y: Math.max(margin, Math.min(mapHeight.value - margin, y))
@@ -578,51 +691,95 @@ const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
 // 地图类型转换
 const mapLocationTypeToInternal = (type: string): string => {
   const typeMap: Record<string, string> = {
-    '门派宗门': 'sect_headquarters',
-    '城镇': 'major_city', 
-    '危险秘境': 'secret_realm',
-    '自然地貌': 'mountain',
-    '修炼圣地': 'cultivation_site',
-    '古战场遗迹': 'battlefield_ruins',
-    '天材地宝产地': 'treasure_source',
-    '灵兽栖息地': 'spirit_beast_habitat', 
-    '传承洞府': 'inheritance_cave',
-    '跨界传送阵': 'teleportation_array',
-    '魔域入口': 'demon_realm_gate',
-    '仙人遗府': 'immortal_mansion'
+    // 新的标准类型标识（直接映射）
+    'natural_landmark': 'natural_landmark',
+    'sect_power': 'sect_power',
+    'city_town': 'city_town',
+    'blessed_land': 'blessed_land',
+    'treasure_land': 'treasure_land',
+    'dangerous_area': 'dangerous_area',
+    'special_other': 'special_other',
+
+    // 中文类型映射（向后兼容）
+    '名山大川': 'natural_landmark',
+    '宗门势力': 'sect_power',
+    '城镇坊市': 'city_town',
+    '洞天福地': 'blessed_land',
+    '奇珍异地': 'treasure_land',
+    '凶险之地': 'dangerous_area',
+    '其他特殊': 'special_other',
+
+    // 旧类型兼容映射
+    '门派宗门': 'sect_power',
+    '城镇': 'city_town',
+    '危险秘境': 'blessed_land',
+    '自然地貌': 'natural_landmark',
+    '修炼圣地': 'blessed_land',
+    '古战场遗迹': 'dangerous_area',
+    '天材地宝产地': 'treasure_land',
+    '灵兽栖息地': 'dangerous_area',
+    '传承洞府': 'blessed_land',
+    '跨界传送阵': 'special_other',
+    '魔域入口': 'dangerous_area',
+    '仙人遗府': 'blessed_land',
+
+    // AI生成的通用类型映射
+    'major_city': 'city_town',
+    'sect_headquarters': 'sect_power',
+    'secret_realm': 'blessed_land',
+    'cultivation_site': 'blessed_land',
+    'mountain': 'natural_landmark',
+    'village': 'city_town',
+    'battlefield_ruins': 'dangerous_area',
+    'treasure_source': 'treasure_land',
+    'spirit_beast_habitat': 'dangerous_area',
+    'inheritance_cave': 'blessed_land',
+    'teleportation_array': 'special_other',
+    'demon_realm_gate': 'dangerous_area',
+    'immortal_mansion': 'blessed_land'
   };
-  return typeMap[type] || 'village';
+  return typeMap[type] || 'special_other'; // 默认归类为其他特殊
 };
 
 // 内部类型转换为中文显示
 const internalTypeToChineseName = (type: string): string => {
   const typeMap: Record<string, string> = {
-    'sect_headquarters': '门派宗门',
-    'major_city': '主要城市',
-    'secret_realm': '危险秘境',
-    'mountain': '自然地貌',
-    'cultivation_site': '修炼圣地',
-    'trade_center': '贸易中心',
-    'village': '村镇',
-    'neutral_zone': '中立区域',
-    'immortal_empire': '仙朝帝国',
-    'orthodox_sect': '正道宗门',
-    'demonic_cult': '魔道势力',
-    'immortal_family': '修仙世家',
-    'merchant_guild': '商会组织',
-    'neutral_academy': '中立学院',
-    'rogue_alliance': '散修联盟',
-    'demon_tribe': '妖族部落',
+    // 新的修仙世界图例类型
+    'natural_landmark': '名山大川',
+    'sect_power': '宗门势力',
+    'city_town': '城镇坊市',
+    'blessed_land': '洞天福地',
+    'treasure_land': '奇珍异地',
+    'dangerous_area': '凶险之地',
+    'special_other': '其他特殊',
+
+    // 旧类型兼容
+    'sect_headquarters': '宗门势力',
+    'major_city': '城镇坊市',
+    'secret_realm': '洞天福地',
+    'mountain': '名山大川',
+    'cultivation_site': '洞天福地',
+    'trade_center': '城镇坊市',
+    'village': '城镇坊市',
+    'neutral_zone': '其他特殊',
+    'immortal_empire': '宗门势力',
+    'orthodox_sect': '宗门势力',
+    'demonic_cult': '宗门势力',
+    'immortal_family': '宗门势力',
+    'merchant_guild': '宗门势力',
+    'neutral_academy': '宗门势力',
+    'rogue_alliance': '宗门势力',
+    'demon_tribe': '宗门势力',
     // 新增特殊地点类型
-    'battlefield_ruins': '古战场遗迹',
-    'treasure_source': '天材地宝产地',
-    'spirit_beast_habitat': '灵兽栖息地',
-    'inheritance_cave': '传承洞府',
-    'teleportation_array': '跨界传送阵',
-    'demon_realm_gate': '魔域入口',
-    'immortal_mansion': '仙人遗府'
+    'battlefield_ruins': '凶险之地',
+    'treasure_source': '奇珍异地',
+    'spirit_beast_habitat': '凶险之地',
+    'inheritance_cave': '洞天福地',
+    'teleportation_array': '其他特殊',
+    'demon_realm_gate': '凶险之地',
+    'immortal_mansion': '洞天福地'
   };
-  return typeMap[type] || type;
+  return typeMap[type] || '其他特殊';
 };
 
 const getLocationSize = (type: string): number => {
@@ -645,22 +802,31 @@ const getLocationIconSize = (type: string): 'small' | 'medium' | 'large' => {
 // 根据地点类型获取颜色
 const getLocationColor = (type: string): string => {
   const colorMap: Record<string, string> = {
-    'sect_headquarters': '#7C3AED', 
-    'major_city': '#DC2626',
-    'secret_realm': '#EC4899',
-    'mountain': '#8B5A2B',
-    'cultivation_site': '#059669',
-    'village': '#6B7280',
-    // 新增特殊地点颜色
-    'battlefield_ruins': '#7F1D1D',      // 古战场 - 暗红
-    'treasure_source': '#F59E0B',        // 天材地宝 - 金黄
-    'spirit_beast_habitat': '#16A34A',   // 灵兽栖息地 - 绿色
-    'inheritance_cave': '#9333EA',       // 传承洞府 - 紫色
-    'teleportation_array': '#0EA5E9',    // 传送阵 - 蓝色
-    'demon_realm_gate': '#991B1B',       // 魔域入口 - 深红
-    'immortal_mansion': '#CA8A04'        // 仙人遗府 - 金色
+    // 新的修仙世界图例颜色
+    'natural_landmark': '#2D7D32',    // 🏔️ 名山大川 - 深绿
+    'sect_power': '#1565C0',          // 🏯 宗门势力 - 深蓝
+    'city_town': '#F57C00',           // 🏘️ 城镇坊市 - 橙色
+    'blessed_land': '#7B1FA2',        // ⛩️ 洞天福地 - 紫色
+    'treasure_land': '#388E3C',       // 💎 奇珍异地 - 绿色
+    'dangerous_area': '#D32F2F',      // ⚔️ 凶险之地 - 红色
+    'special_other': '#6B7280',       // 🌟 其他特殊 - 灰色
+
+    // 旧类型兼容映射
+    'sect_headquarters': '#1565C0',   // 映射到宗门势力
+    'major_city': '#F57C00',          // 映射到城镇坊市
+    'secret_realm': '#7B1FA2',        // 映射到洞天福地
+    'mountain': '#2D7D32',            // 映射到名山大川
+    'cultivation_site': '#7B1FA2',    // 映射到洞天福地
+    'village': '#F57C00',             // 映射到城镇坊市
+    'battlefield_ruins': '#D32F2F',   // 映射到凶险之地
+    'treasure_source': '#388E3C',     // 映射到奇珍异地
+    'spirit_beast_habitat': '#D32F2F', // 映射到凶险之地
+    'inheritance_cave': '#7B1FA2',    // 映射到洞天福地
+    'teleportation_array': '#6B7280', // 映射到其他特殊
+    'demon_realm_gate': '#D32F2F',    // 映射到凶险之地
+    'immortal_mansion': '#7B1FA2'     // 映射到洞天福地
   };
-  
+
   return colorMap[type] || '#6B7280';
 };
 
@@ -668,12 +834,12 @@ const getLocationColor = (type: string): string => {
 const initializeMap = async () => {
   try {
     mapStatus.value = '正在从天机阁加载世界数据...';
-    
+
     const helper = getTavernHelper();
     if (!helper) {
       console.warn('[坤舆图志] 酒馆Helper不可用');
       mapStatus.value = '酒馆系统不可用';
-      
+
       // 添加一些测试数据来验证地图显示
       addTestData();
       return;
@@ -681,30 +847,30 @@ const initializeMap = async () => {
 
     const chatVars = await helper.getVariables({ type: 'chat' });
     const globalVars = await helper.getVariables({ type: 'global' });
-    
+
     // 更新tavernVariables供playerPosition使用
     tavernVariables.value = { ...chatVars, ...globalVars };
-    
+
     // 从全局变量获取玩家信息
     playerName.value = (globalVars['character.name'] as string) || '道友';
-    
+
     // 加载修仙世界数据
     await loadCultivationWorldFromTavern(chatVars);
-    
+
     // 如果没有加载到数据，添加测试数据
     if (cultivationLocations.value.length === 0) {
       console.log('[坤舆图志] 没有找到世界数据，加载测试数据');
       addTestData();
     }
-    
+
     mapStatus.value = '修仙世界加载完成';
     showToastWithDelay('坤舆图志已连通天机', 'success');
-    
+
   } catch (error) {
     console.error('[坤舆图志] 地图初始化失败:', error);
     mapStatus.value = '天机阁连接失败';
     showToastWithDelay('世界数据加载失败: ' + (error as Error).message, 'error');
-    
+
     // 出错时也添加测试数据
     addTestData();
   }
@@ -713,7 +879,7 @@ const initializeMap = async () => {
 // 添加测试数据用于验证地图功能
 const addTestData = () => {
   console.log('[坤舆图志] 添加测试数据');
-  
+
   // 测试势力范围数据
   const testFactions: CultivationLocation[] = [
     {
@@ -730,7 +896,7 @@ const addTestData = () => {
       isTerritory: true,
       territoryBounds: [
         geoToVirtual(103.8, 31.2),
-        geoToVirtual(105.2, 31.2), 
+        geoToVirtual(105.2, 31.2),
         geoToVirtual(105.5, 30.4),
         geoToVirtual(104.8, 29.8),
         geoToVirtual(103.5, 30.2)
@@ -738,7 +904,7 @@ const addTestData = () => {
       headquarters: geoToVirtual(104.5, 30.8)
     },
     {
-      id: 'test_faction_2', 
+      id: 'test_faction_2',
       name: '血魔教',
       type: 'demonic_cult',
       coordinates: geoToVirtual(106.5, 29.2),
@@ -746,7 +912,7 @@ const addTestData = () => {
       x: 0, y: 0,
       size: 15,
       color: '#DC2626',
-      iconColor: '#DC2626', 
+      iconColor: '#DC2626',
       iconSize: 'large',
       isTerritory: true,
       territoryBounds: [
@@ -759,7 +925,7 @@ const addTestData = () => {
       headquarters: geoToVirtual(106.5, 29.2)
     }
   ];
-  
+
   // 测试地点数据
   const testLocations: CultivationLocation[] = [
     {
@@ -778,7 +944,7 @@ const addTestData = () => {
     {
       id: 'test_realm_1',
       name: '九天秘境',
-      type: 'secret_realm', 
+      type: 'secret_realm',
       coordinates: geoToVirtual(107.5, 31.8),
       description: '传说中的上古秘境，危险重重但宝物众多',
       x: 0, y: 0,
@@ -791,16 +957,16 @@ const addTestData = () => {
       isTerritory: false
     }
   ];
-  
+
   // 更新坐标
   [...testFactions, ...testLocations].forEach(loc => {
     loc.x = loc.coordinates.x;
     loc.y = loc.coordinates.y;
   });
-  
+
   cultivationLocations.value = [...testFactions, ...testLocations];
   console.log('[坤舆图志] ✅ 测试数据加载完成，共', cultivationLocations.value.length, '个地点');
-  
+
   // 打印坐标信息
   cultivationLocations.value.forEach(loc => {
     console.log(`[坤舆图志] ${loc.name}: (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}) 类型:${loc.isTerritory ? '势力范围' : '地点'}`);
@@ -812,27 +978,52 @@ const loadCultivationWorldFromTavern = async (variables: any) => {
   try {
     console.log('[坤舆图志] 开始加载酒馆世界数据...');
     console.log('[坤舆图志] 接收到的variables:', variables);
-    
+
     // 清空现有数据
     cultivationLocations.value = [];
-    
+    cultivationContinents.value = [];
+
+    // 加载大洲数据
+    await loadContinentsData(variables);
+
     // 加载势力数据
     await loadFactionsData(variables);
-    
+
     // 加载地点数据
     await loadLocationsData(variables);
-    
+
     if (cultivationLocations.value.length === 0) {
       showToastWithDelay('所有地点数据都无效，无法加载', 'error');
     } else {
-      showToastWithDelay(`✅ 成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
+      showToastWithDelay(`成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
       mapStatus.value = `已加载 ${cultivationLocations.value.length} 个地点`;
     }
-    
+
   } catch (error) {
     console.error('[坤舆图志] 加载修仙世界数据失败:', error);
     mapStatus.value = '数据加载失败';
     showToastWithDelay('加载世界数据失败: ' + (error as Error).message, 'error');
+  }
+};
+
+// 加载大洲数据
+const loadContinentsData = async (variables: any) => {
+  try {
+    const continentsData = variables['world_continents'] || [];
+    console.log('[坤舆图志] 加载大洲数据:', continentsData);
+
+    if (Array.isArray(continentsData)) {
+      continentsData.forEach((continent: any, index: number) => {
+        try {
+          console.log(`[坤舆图志] ✅ 已加载大洲: ${continent.name}`);
+          cultivationContinents.value.push(continent);
+        } catch (continentError) {
+          console.error(`[坤舆图志] 处理大洲${index + 1}时出错:`, continentError);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[坤舆图志] 加载大洲数据失败:', error);
   }
 };
 
@@ -841,25 +1032,27 @@ const loadFactionsData = async (variables: any) => {
   try {
     const factionsData = variables['world_factions'] || [];
     console.log('[坤舆图志] 加载势力数据:', factionsData);
-    
+
     if (Array.isArray(factionsData)) {
       factionsData.forEach((faction: any, index: number) => {
         try {
           // 处理势力范围边界
           let territoryBounds: { x: number; y: number }[] = [];
-          if (faction.territoryBounds && Array.isArray(faction.territoryBounds)) {
-            territoryBounds = faction.territoryBounds.map((point: any) => {
+          // 兼容两种字段名：territory_bounds (AI生成) 和 territoryBounds (旧格式)
+          const territoryData = faction.territory_bounds || faction.territoryBounds;
+          if (territoryData && Array.isArray(territoryData)) {
+            territoryBounds = territoryData.map((point: any) => {
               const virtualCoords = geoToVirtual(point.longitude, point.latitude);
               return { x: virtualCoords.x, y: virtualCoords.y };
             });
           }
-          
+
           // 总部位置
           let headquarters: { x: number; y: number } | undefined;
           if (faction.headquarters) {
             headquarters = geoToVirtual(faction.headquarters.longitude, faction.headquarters.latitude);
           }
-          
+
           const location: CultivationLocation = {
             id: faction.id || `faction_${index}`,
             name: faction.name,
@@ -876,10 +1069,10 @@ const loadFactionsData = async (variables: any) => {
             territoryBounds: territoryBounds,
             headquarters: headquarters
           };
-          
+
           cultivationLocations.value.push(location);
           console.log(`[坤舆图志] ✅ 已加载势力: ${location.name} (${location.type})`);
-          
+
         } catch (factionError) {
           console.error(`[坤舆图志] 处理势力${index + 1}时出错:`, factionError);
         }
@@ -896,12 +1089,12 @@ const loadLocationsData = async (variables: any) => {
     // 查找世界地点数据
     const locationsData = variables['world_locations'] || [];
     console.log('[坤舆图志] 加载地点数据:', locationsData);
-    
+
     if (Array.isArray(locationsData)) {
       locationsData.forEach((location: any, index: number) => {
         try {
           const virtualCoords = geoToVirtual(location.coordinates.longitude, location.coordinates.latitude);
-          
+
           const locationObj: CultivationLocation = {
             id: location.id || `location_${index}`,
             name: location.name,
@@ -918,16 +1111,16 @@ const loadLocationsData = async (variables: any) => {
             suitable_for: location.suitable_for,
             isTerritory: false
           };
-          
+
           cultivationLocations.value.push(locationObj);
           console.log(`[坤舆图志] ✅ 已加载地点: ${locationObj.name} (${locationObj.type})`);
-          
+
         } catch (locationError) {
           console.error(`[坤舆图志] 处理地点${index + 1}时出错:`, locationError);
         }
       });
     }
-    
+
     // 旧的GeoJSON格式兼容处理
     const searchPaths = [
       { path: ['world'], desc: '直接world变量' },
@@ -939,15 +1132,15 @@ const loadLocationsData = async (variables: any) => {
       { path: ['世界舆图'], desc: '世界舆图变量' },
       { path: ['worldData'], desc: 'worldData变量' }
     ];
-    
+
     let worldData = null;
     let dataPath = '';
-    
+
     // 遍历搜索路径查找旧格式数据
     for (const search of searchPaths) {
       let current = variables;
       let pathValid = true;
-      
+
       for (const segment of search.path) {
         if (current && typeof current === 'object' && current[segment] !== undefined) {
           current = current[segment];
@@ -956,42 +1149,42 @@ const loadLocationsData = async (variables: any) => {
           break;
         }
       }
-      
+
       if (pathValid && current) {
         if (search.checkMapData && typeof current === 'object') {
           for (const [key, value] of Object.entries(current)) {
-            if (value && typeof value === 'object' && value.mapData) {
-              worldData = value;
+            if (value && typeof value === 'object' && (value as any).mapData) {
+              worldData = value as { mapData: any };
               dataPath = `character.saveData.${key}`;
               break;
             }
           }
           if (worldData) break;
         }
-        
-        if (current.mapData && current.mapData.type === 'FeatureCollection') {
-          worldData = current;
+
+        if ((current as any).mapData && (current as any).mapData.type === 'FeatureCollection') {
+          worldData = current as { mapData: any };
           dataPath = search.desc;
           break;
         }
       }
     }
-    
+
     // 处理旧格式的GeoJSON数据
     if (worldData && worldData.mapData && worldData.mapData.features) {
       console.log(`[坤舆图志] ✅ 从"${dataPath}"找到 ${worldData.mapData.features.length} 个旧格式地点`);
-      
+
       worldData.mapData.features.forEach((feature: any, index: number) => {
         try {
           if (!feature.geometry || !feature.properties) return;
-          
+
           // 处理Point类型的地点
           if (feature.geometry.type === 'Point') {
             const coords = feature.geometry.coordinates;
             if (!coords || !Array.isArray(coords) || coords.length < 2) return;
-            
+
             const virtualCoords = geoToVirtual(coords[0], coords[1]);
-            
+
             const location: CultivationLocation = {
               id: `old_loc_${feature.properties.name}_${index}`,
               name: feature.properties.name,
@@ -1008,25 +1201,25 @@ const loadLocationsData = async (variables: any) => {
               suitable_for: feature.properties.suitable_for,
               isTerritory: false
             };
-            
+
             cultivationLocations.value.push(location);
           }
-          
+
           // 处理Polygon类型的势力范围
           else if (feature.geometry.type === 'Polygon' && feature.properties.type === 'faction_territory') {
             const polygonCoords = feature.geometry.coordinates[0]; // 外环坐标
             if (!polygonCoords || !Array.isArray(polygonCoords) || polygonCoords.length < 3) return;
-            
+
             // 转换多边形坐标到虚拟坐标系
             const territoryBounds = polygonCoords.map(([lng, lat]: [number, number]) => {
               return geoToVirtual(lng, lat);
             });
-            
+
             // 计算中心点作为总部位置
             const centerX = territoryBounds.reduce((sum, point) => sum + point.x, 0) / territoryBounds.length;
             const centerY = territoryBounds.reduce((sum, point) => sum + point.y, 0) / territoryBounds.length;
             const headquarters = { x: centerX, y: centerY };
-            
+
             const factionLocation: CultivationLocation = {
               id: `old_faction_${feature.properties.name}_${index}`,
               name: feature.properties.name,
@@ -1045,17 +1238,17 @@ const loadLocationsData = async (variables: any) => {
               territoryBounds: territoryBounds,
               headquarters: headquarters
             };
-            
+
             cultivationLocations.value.push(factionLocation);
             console.log(`[坤舆图志] ✅ 已加载势力范围: ${factionLocation.name} (${territoryBounds.length}个边界点)`);
           }
-          
+
         } catch (featureError) {
           console.error(`[坤舆图志] 处理旧格式地点${index + 1}时出错:`, featureError);
         }
       });
     }
-    
+
   } catch (error) {
     console.error('[坤舆图志] 加载地点数据失败:', error);
   }
@@ -1078,7 +1271,7 @@ const debugMapData = async () => {
       { lng: 104.0, lat: 30.0, desc: '中心点' },
       { lng: 105.5, lat: 31.5, desc: '偏东北' }
     ];
-    
+
     testCoords.forEach(test => {
       const virtual = geoToVirtual(test.lng, test.lat);
       console.log(`[调试] ${test.desc} (${test.lng}, ${test.lat}) -> (${virtual.x.toFixed(1)}, ${virtual.y.toFixed(1)})`);
@@ -1086,46 +1279,76 @@ const debugMapData = async () => {
 
     // 获取所有类型的变量进行对比
     console.log('[调试] ===== 开始详细调试 =====');
-    
+
     const chatVars = await helper.getVariables({ type: 'chat' });
     const globalVars = await helper.getVariables({ type: 'global' });
-    
+
     console.log('[调试] Chat变量键值:', Object.keys(chatVars));
     console.log('[调试] Global变量键值:', Object.keys(globalVars));
-    
+
     // 检查势力和地点数据
     if (chatVars['world_factions']) {
       console.log('[调试] ===== 找到势力数据 =====');
       console.log('[调试] world_factions:', chatVars['world_factions']);
     }
-    
+
     if (chatVars['world_locations']) {
-      console.log('[调试] ===== 找到地点数据 ====='); 
+      console.log('[调试] ===== 找到地点数据 =====');
       console.log('[调试] world_locations:', chatVars['world_locations']);
     }
-    
+
     // 检查所有聊天变量的详细结构
     console.log('[调试] ===== Chat变量详细内容 =====');
     Object.entries(chatVars).forEach(([key, value]) => {
       console.log(`[调试] "${key}":`, typeof value, value);
-      
+
       // 特别检查可能包含world数据的变量
       if (value && typeof value === 'object') {
         const valueKeys = Object.keys(value);
         console.log(`[调试] "${key}" 的属性:`, valueKeys);
-        
+
         if (valueKeys.includes('world')) {
-          console.log(`[调试] "${key}.world":`, value.world);
+          console.log(`[调试] "${key}.world":`, (value as any).world);
         }
         if (valueKeys.includes('mapData')) {
-          console.log(`[调试] "${key}.mapData":`, value.mapData);
+          console.log(`[调试] "${key}.mapData":`, (value as any).mapData);
         }
       }
     });
-    
+
     // 尝试重新加载数据
     await loadCultivationWorldFromTavern(chatVars);
     
+    // 调试坐标数据
+    console.log('[调试] ===== 当前加载的地点坐标 =====');
+    cultivationLocations.value.forEach((location, index) => {
+      console.log(`[调试] ${index + 1}. ${location.name}:`);
+      console.log(`  - 原始坐标: ${JSON.stringify(location.coordinates)}`);
+      console.log(`  - 显示坐标: (${location.x}, ${location.y})`);
+      console.log(`  - 类型: ${location.type}, 是否势力: ${location.isTerritory}`);
+    });
+    
+    console.log('[调试] ===== 坐标范围统计 =====');
+    const xCoords = cultivationLocations.value.map(loc => loc.x);
+    const yCoords = cultivationLocations.value.map(loc => loc.y);
+    console.log(`[调试] X坐标范围: ${Math.min(...xCoords).toFixed(1)} - ${Math.max(...xCoords).toFixed(1)}`);
+    console.log(`[调试] Y坐标范围: ${Math.min(...yCoords).toFixed(1)} - ${Math.max(...yCoords).toFixed(1)}`);
+    
+    const uniqueX = new Set(xCoords.map(x => x.toFixed(1)));
+    const uniqueY = new Set(yCoords.map(y => y.toFixed(1)));
+    console.log(`[调试] 不同X坐标数量: ${uniqueX.size}/${xCoords.length}`);
+    console.log(`[调试] 不同Y坐标数量: ${uniqueY.size}/${yCoords.length}`);
+    
+    if (uniqueX.size === 1 && uniqueY.size === 1) {
+      console.error('[调试] ❌ 发现问题：所有地点都在同一个坐标！');
+      console.log('[调试] 可能的原因：');
+      console.log('[调试] 1. AI生成的坐标超出了geoToVirtual函数的处理范围');
+      console.log('[调试] 2. 坐标转换函数有bug');
+      console.log('[调试] 3. 数据解析有问题');
+    } else {
+      console.log(`[调试] ✅ 坐标分布正常，有${uniqueX.size}个不同X坐标，${uniqueY.size}个不同Y坐标`);
+    }
+
   } catch (error) {
     console.error('[调试] 调试过程出错:', error);
     showToastWithDelay('调试失败: ' + (error as Error).message, 'error');
@@ -1139,12 +1362,12 @@ const centerToPlayer = () => {
     showToastWithDelay('无法定位玩家位置', 'warning');
     return;
   }
-  
+
   // 将玩家位置居中显示
   panX.value = (mapWidth.value / 2) - playerPosition.value.x * zoomLevel.value;
   panY.value = (mapHeight.value / 2) - playerPosition.value.y * zoomLevel.value;
   zoomLevel.value = 1.5;
-  
+
   showToastWithDelay('已定位到当前位置', 'success');
 };
 
@@ -1232,6 +1455,26 @@ onMounted(async () => {
 
 .world-map-svg:active {
   cursor: grabbing;
+}
+
+/* 大洲层样式 */
+.continent-layer .continent-polygon {
+  cursor: pointer;
+  transition: fill-opacity 0.3s ease, stroke-width 0.3s ease, stroke-opacity 0.3s ease;
+}
+
+.continent-layer .continent-polygon:hover {
+  fill-opacity: 0.15;
+  stroke-width: 3;
+  stroke-opacity: 0.9;
+  stroke-dasharray: 8,3;
+}
+
+.continent-name-label {
+  font-family: '微软雅黑', 'SimHei', sans-serif;
+  text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* 势力范围样式 */
@@ -1437,25 +1680,25 @@ onMounted(async () => {
     padding: 8px;
     min-width: 120px;
   }
-  
+
   .map-controls-left {
     top: 8px;
     left: 8px;
     gap: 4px;
   }
-  
+
   .control-btn {
     width: 28px;
     height: 28px;
   }
-  
+
   .selected-info-overlay {
     top: 10px;
     left: 10px;
     right: 10px;
     transform: none;
   }
-  
+
   .selected-info {
     min-width: auto;
     max-width: none;

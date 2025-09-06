@@ -221,3 +221,159 @@ export async function generateMapFromWorld(world: any, userConfig?: { majorFacti
     console.log("【神识印记】成功在本地封装舆图法旨:", gmResponse);
     return gmResponse;
 }
+
+/**
+ * 生成角色位置标点，用于在地图上标记角色位置
+ */
+export async function generatePlayerLocation(
+    baseInfo: any, 
+    characterInfo: any, 
+    enhancedWorldConfig: any
+): Promise<GM_Response> {
+    console.log('【角色位置生成】开始生成角色位置标点...');
+    console.log('【角色位置生成】角色基础信息:', baseInfo);
+    console.log('【角色位置生成】角色详细信息:', characterInfo);
+    console.log('【角色位置生成】世界配置:', enhancedWorldConfig);
+
+    // 构建角色位置生成提示词
+    const locationPrompt = `# 角色位置标点生成任务
+
+你需要为刚刚踏入修仙世界的角色生成一个精确的位置标点，用于在世界地图上显示角色的当前位置。
+
+## 角色信息
+- 姓名: ${baseInfo.名字}
+- 年龄: ${characterInfo.age}岁
+- 出身: ${characterInfo.origin}
+- 出生地: ${characterInfo.birthplace || characterInfo.origin}
+- 世界背景: ${characterInfo.worldBackground}
+- 世界时代: ${characterInfo.worldEra}
+- 世界名称: ${characterInfo.worldName}
+
+## 要求
+
+1. **根据角色出身确定合适的起始位置**
+   - 如果是门派弟子：应该在对应宗门附近
+   - 如果是世家子弟：应该在家族势力范围内
+   - 如果是散修：可能在城镇、村落或野外
+   - 如果是皇室：应该在皇城或行宫附近
+
+2. **生成位置坐标**
+   - 经度范围：115.0 - 120.0
+   - 纬度范围：35.0 - 42.0
+   - 确保坐标合理，不要过于偏僻
+
+3. **输出格式要求**
+
+必须严格按照以下JSON格式输出，作为酒馆命令：
+
+\`\`\`json
+{
+  "text": "天机定位完成，${baseInfo.名字}的位置已锁定。",
+  "around": "你发现自己正身处[具体位置描述]，周围[环境描述]。",
+  "tavern_commands": [
+    {
+      "action": "set",
+      "scope": "chat", 
+      "key": "player_location_marker",
+      "value": {
+        "id": "player_start_position",
+        "name": "${baseInfo.名字}的位置",
+        "type": "player_location",
+        "coordinates": {
+          "longitude": [具体经度数值],
+          "latitude": [具体纬度数值]
+        },
+        "description": "角色${baseInfo.名字}的当前位置",
+        "marker_style": {
+          "color": "#DC2626",
+          "icon": "player",
+          "size": "medium"
+        }
+      }
+    }
+  ]
+}
+\`\`\`
+
+请根据角色的出身背景生成合适的位置标点。`;
+
+    try {
+        // 调用AI生成位置标点
+        const result = await generateItemWithTavernAI<GM_Response>(
+            locationPrompt, 
+            '角色位置标点', 
+            true, 
+            2
+        );
+
+        if (!result) {
+            console.warn('【角色位置生成】AI生成失败，使用默认位置');
+            // 生成默认位置
+            const defaultResponse: GM_Response = {
+                text: `天机定位完成，${baseInfo.名字}的位置已锁定。`,
+                around: `你发现自己正身处一处${characterInfo.origin === '散修' ? '幽静山谷' : '安全区域'}，周围灵气淡薄但环境宜人。`,
+                tavern_commands: [
+                    {
+                        action: "set",
+                        scope: "chat",
+                        key: "player_location_marker", 
+                        value: {
+                            id: "player_start_position",
+                            name: `${baseInfo.名字}的位置`,
+                            type: "player_location",
+                            coordinates: {
+                                longitude: 117.5 + (Math.random() - 0.5) * 2, // 116.5 - 118.5
+                                latitude: 38.5 + (Math.random() - 0.5) * 2   // 37.5 - 39.5
+                            },
+                            description: `角色${baseInfo.名字}的当前位置`,
+                            marker_style: {
+                                color: "#DC2626",
+                                icon: "player", 
+                                size: "medium"
+                            }
+                        }
+                    }
+                ]
+            };
+            
+            console.log('【角色位置生成】使用默认位置标点:', defaultResponse);
+            return defaultResponse;
+        }
+
+        console.log('【角色位置生成】成功生成位置标点:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('【角色位置生成】生成过程中出错:', error);
+        
+        // 错误时返回基础位置
+        const fallbackResponse: GM_Response = {
+            text: `虽遇天机扰动，但${baseInfo.名字}的大致位置已确定。`,
+            around: "你发现自己身处一个陌生但相对安全的地方。",
+            tavern_commands: [
+                {
+                    action: "set",
+                    scope: "chat",
+                    key: "player_location_marker",
+                    value: {
+                        id: "player_start_position",
+                        name: `${baseInfo.名字}的位置`,
+                        type: "player_location", 
+                        coordinates: {
+                            longitude: 117.0,
+                            latitude: 38.0
+                        },
+                        description: `角色${baseInfo.名字}的当前位置`,
+                        marker_style: {
+                            color: "#DC2626",
+                            icon: "player",
+                            size: "medium"
+                        }
+                    }
+                }
+            ]
+        };
+        
+        return fallbackResponse;
+    }
+}

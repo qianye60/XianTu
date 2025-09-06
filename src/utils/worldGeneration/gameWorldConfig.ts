@@ -423,18 +423,36 @@ export class BirthplaceGenerator {
   }
   
   /**
-   * 生成默认出生地
+   * 生成默认出生地 - 现在也是动态随机的
    */
   private static generateDefaultBirthplace(): any {
+    // 默认出生地配置
+    const defaultConfig = {
+      background: '凡人出身',
+      requiredFactionTypes: ['neutral_territory'],
+      preferredRegion: '边境地区',
+      birthplaceType: '普通村庄',
+      birthplaceRank: '偏远小村',
+      initialConnections: ['村长', '村民', '邻里乡亲'],
+      worldInfluence: {}
+    };
+
+    // 使用动态生成名称和坐标，而不是硬编码
+    const dynamicName = this.generateLocationName(defaultConfig);
+    const dynamicCoords = this.generateCoordinates();
+    const dynamicDescription = this.generateLocationDescription(defaultConfig);
+
+    console.log('[出生地生成器] 动态生成默认出生地:', dynamicName, dynamicCoords);
+
     return {
-      type: '普通村庄',
-      rank: '偏远小村',
-      region: '边境地区',
-      name: '青石村',
-      description: '一个普通的小村庄，位于修仙界边缘',
-      coordinates: { x: 400, y: 400 },
-      connections: ['村长', '村民'],
-      specialFeatures: []
+      type: defaultConfig.birthplaceType,
+      rank: defaultConfig.birthplaceRank,
+      region: defaultConfig.preferredRegion,
+      name: dynamicName,
+      description: dynamicDescription,
+      coordinates: dynamicCoords,
+      connections: defaultConfig.initialConnections,
+      specialFeatures: ['民风淳朴', '远离是非']
     };
   }
   
@@ -442,7 +460,7 @@ export class BirthplaceGenerator {
    * 生成地点名称
    */
   private static generateLocationName(config: BirthplaceGeneration): string {
-    const prefixes = {
+    const prefixes: Record<string, string[]> = {
       '世家府邸': ['青云', '玄天', '紫霄', '碧海'],
       '将军府': ['镇国', '护国', '定远', '威武'],
       '普通城镇': ['青石', '白云', '流水', '明月'],
@@ -452,7 +470,7 @@ export class BirthplaceGenerator {
       '普通村庄': ['青石', '白水', '草木', '安宁']
     };
     
-    const suffixes = {
+    const suffixes: Record<string, string[]> = {
       '世家府邸': ['世家', '府', '庄园'],
       '将军府': ['将军府', '侯府', '公府'],
       '普通城镇': ['镇', '城', '市'],
@@ -476,7 +494,7 @@ export class BirthplaceGenerator {
    * 生成地点描述
    */
   private static generateLocationDescription(config: BirthplaceGeneration): string {
-    const descriptions = {
+    const descriptions: Record<string, string> = {
       '世家府邸': '传承数百年的修仙世家府邸，青砖黛瓦，院落深深，处处透着书香门第的风雅',
       '将军府': '威严的将军府邸，红墙绿瓦，旌旗猎猎，彰显着军门世家的赫赫威名',
       '普通城镇': '热闹的边境小镇，商贾云集，人来人往，是连接修仙界与凡俗的重要枢纽',
