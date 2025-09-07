@@ -257,12 +257,123 @@ const clearMemory = () => {
 // 加载记忆数据
 const loadMemoryData = async () => {
   try {
-    // 从角色存档中加载
-    const activeSave = characterStore.activeSaveSlot;
-    if (activeSave?.存档数据?.记忆) {
-      const memoryData = activeSave.存档数据.记忆;
+    console.log('[记忆中心] 开始加载记忆数据...');
+    
+    const loadedMemories: Memory[] = [];
+
+    // 首先尝试从酒馆变量获取数据
+    const helper = getTavernHelper();
+    if (helper) {
+      const chatVars = await helper.getVariables({ type: 'chat' });
+      console.log('[记忆中心] 酒馆变量键:', Object.keys(chatVars));
       
-      const loadedMemories: Memory[] = [];
+      // 检查是否有mid_term_memory字段（新格式的中期记忆）
+      if (chatVars['mid_term_memory']) {
+        const midTermMemory = chatVars['mid_term_memory'];
+        console.log('[记忆中心] 找到mid_term_memory:', midTermMemory.substring(0, 100) + '...');
+        
+        if (typeof midTermMemory === 'string' && midTermMemory.trim()) {
+          const newMemory: Memory = {
+            type: 'medium',
+            content: midTermMemory,
+            time: '初始刻印',
+            importance: 10,
+            parsedContent: parseMemoryContent(midTermMemory)
+          };
+          
+          loadedMemories.push(newMemory);
+          console.log('[记忆中心] 已添加mid_term_memory到记忆列表');
+        }
+      }
+      
+      // 检查character.saveData中的记忆数据
+      if (chatVars['character.saveData']) {
+        const saveData = chatVars['character.saveData'];
+        if (saveData.记忆) {
+          console.log('[记忆中心] 找到saveData记忆:', Object.keys(saveData.记忆));
+          const memoryData = saveData.记忆;
+          
+          // 短期记忆
+          if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
+            memoryData.短期记忆.forEach((content: string, index: number) => {
+              const memory: Memory = {
+                type: 'short',
+                content,
+                time: formatTime(Date.now() - index * 300000) // 5分钟间隔
+              };
+              
+              // 尝试解析结构化内容
+              const parsed = parseMemoryContent(content);
+              if (parsed.format || Object.keys(parsed.sections).length > 0) {
+                memory.parsedContent = parsed;
+              }
+              
+              loadedMemories.push(memory);
+            });
+            console.log('[记忆中心] 已加载', memoryData.短期记忆.length, '条短期记忆');
+          }
+          
+          // 中期记忆 - 支持新的结构化格式
+          if (memoryData.中期记忆) {
+            if (Array.isArray(memoryData.中期记忆)) {
+              // 旧的数组格式
+              memoryData.中期记忆.forEach((content: string, index: number) => {
+                const memory: Memory = {
+                  type: 'medium',
+                  content,
+                  time: formatTime(Date.now() - (index + 10) * 3600000) // 1小时间隔
+                };
+                
+                const parsed = parseMemoryContent(content);
+                if (parsed.format || Object.keys(parsed.sections).length > 0) {
+                  memory.parsedContent = parsed;
+                }
+                
+                loadedMemories.push(memory);
+              });
+              console.log('[记忆中心] 已加载', memoryData.中期记忆.length, '条中期记忆(数组)');
+            } else if (typeof memoryData.中期记忆 === 'string') {
+              // 新的结构化格式 - 单个记忆条目
+              const memory: Memory = {
+                type: 'medium',
+                content: memoryData.中期记忆,
+                time: '存档记忆',
+                importance: 8
+              };
+              
+              memory.parsedContent = parseMemoryContent(memoryData.中期记忆);
+              loadedMemories.push(memory);
+              console.log('[记忆中心] 已加载存档中期记忆(字符串)');
+            }
+          }
+          
+          // 长期记忆
+          if (memoryData.长期记忆 && Array.isArray(memoryData.长期记忆)) {
+            memoryData.长期记忆.forEach((content: string, index: number) => {
+              const memory: Memory = {
+                type: 'long',
+                content,
+                time: formatTime(Date.now() - (index + 20) * 86400000) // 1天间隔
+              };
+              
+              const parsed = parseMemoryContent(content);
+              if (parsed.format || Object.keys(parsed.sections).length > 0) {
+                memory.parsedContent = parsed;
+              }
+              
+              loadedMemories.push(memory);
+            });
+            console.log('[记忆中心] 已加载', memoryData.长期记忆.length, '条长期记忆');
+          }
+        }
+      }
+    }
+    
+    // 从角色存档中加载（作为备选）
+    const activeSave = characterStore.activeSaveSlot;
+    if (activeSave?.存档数据?.记忆 && loadedMemories.length === 0) {
+      console.log('[记忆中心] 从角色存档加载记忆...');
+      const memoryData = activeSave.存档数据.记忆;
       
       // 短期记忆
       if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
@@ -270,10 +381,9 @@ const loadMemoryData = async () => {
           const memory: Memory = {
             type: 'short',
             content,
-            time: formatTime(Date.now() - index * 300000) // 5分钟间隔
+            time: formatTime(Date.now() - index * 300000)
           };
           
-          // 尝试解析结构化内容
           const parsed = parseMemoryContent(content);
           if (parsed.format || Object.keys(parsed.sections).length > 0) {
             memory.parsedContent = parsed;
@@ -283,15 +393,14 @@ const loadMemoryData = async () => {
         });
       }
       
-      // 中期记忆 - 支持新的结构化格式
+      // 中期记忆
       if (memoryData.中期记忆) {
         if (Array.isArray(memoryData.中期记忆)) {
-          // 旧的数组格式
           memoryData.中期记忆.forEach((content: string, index: number) => {
             const memory: Memory = {
               type: 'medium',
               content,
-              time: formatTime(Date.now() - (index + 10) * 3600000) // 1小时间隔
+              time: formatTime(Date.now() - (index + 10) * 3600000)
             };
             
             const parsed = parseMemoryContent(content);
@@ -302,12 +411,11 @@ const loadMemoryData = async () => {
             loadedMemories.push(memory);
           });
         } else if (typeof memoryData.中期记忆 === 'string') {
-          // 新的结构化格式 - 单个记忆条目
           const memory: Memory = {
             type: 'medium',
             content: memoryData.中期记忆,
-            time: '初始刻印',
-            importance: 10
+            time: '角色记忆',
+            importance: 6
           };
           
           memory.parsedContent = parseMemoryContent(memoryData.中期记忆);
@@ -321,7 +429,7 @@ const loadMemoryData = async () => {
           const memory: Memory = {
             type: 'long',
             content,
-            time: formatTime(Date.now() - (index + 20) * 86400000) // 1天间隔
+            time: formatTime(Date.now() - (index + 20) * 86400000)
           };
           
           const parsed = parseMemoryContent(content);
@@ -332,37 +440,10 @@ const loadMemoryData = async () => {
           loadedMemories.push(memory);
         });
       }
-      
-      memories.value = loadedMemories;
     }
 
-    // 尝试从酒馆变量获取数据
-    const helper = getTavernHelper();
-    if (helper) {
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      
-      // 检查是否有mid_term_memory字段（新格式的中期记忆）
-      if (chatVars['mid_term_memory']) {
-        const midTermMemory = chatVars['mid_term_memory'];
-        if (typeof midTermMemory === 'string' && midTermMemory.trim()) {
-          // 找到现有的中期记忆并替换或添加
-          const existingIndex = memories.value.findIndex(m => m.type === 'medium');
-          const newMemory: Memory = {
-            type: 'medium',
-            content: midTermMemory,
-            time: '初始刻印',
-            importance: 10,
-            parsedContent: parseMemoryContent(midTermMemory)
-          };
-          
-          if (existingIndex >= 0) {
-            memories.value[existingIndex] = newMemory;
-          } else {
-            memories.value.unshift(newMemory);
-          }
-        }
-      }
-    }
+    memories.value = loadedMemories;
+    console.log('[记忆中心] 记忆加载完成，总计:', loadedMemories.length, '条记忆');
 
   } catch (error) {
     console.error('[记忆中心] 加载数据失败:', error);

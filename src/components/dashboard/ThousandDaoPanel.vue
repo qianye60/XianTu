@@ -3,7 +3,9 @@
     <!-- 标题区域 -->
     <div class="dao-header">
       <div class="header-left">
-        <div class="header-icon">🌌</div>
+        <div class="header-icon">
+          <Zap :size="24" />
+        </div>
         <div class="header-info">
           <h3 class="panel-title">三千大道</h3>
           <span class="panel-subtitle">大道至简，殊途同归</span>
@@ -158,8 +160,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { RotateCcw, X } from 'lucide-vue-next';
+import { RotateCcw, X, Zap } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
+import type { DaoProgress } from '@/types/game.d.ts';
 
 const characterStore = useCharacterStore();
 const loading = ref(false);
@@ -177,7 +180,7 @@ const daoStats = computed(() => {
 const unlockedDaos = computed(() => {
   const daos = daoStats.value.已解锁大道 || [];
   return daos.map(daoName => {
-    return daoStats.value.大道进度?.[daoName] || {
+    return (daoStats.value.大道进度 as Record<string, DaoProgress>)?.[daoName] || {
       道名: daoName,
       当前阶段: 0,
       当前经验: 0,
@@ -190,7 +193,7 @@ const unlockedDaos = computed(() => {
 // 选中的大道数据
 const selectedDaoData = computed(() => {
   if (!selectedDao.value) return null;
-  return daoStats.value.大道进度?.[selectedDao.value] || null;
+  return (daoStats.value.大道进度 as Record<string, DaoProgress>)?.[selectedDao.value] || null;
 });
 
 // 总修行经验
@@ -204,7 +207,7 @@ const completedDaoCount = computed(() => {
 });
 
 // 获取大道进度百分比
-const getDaoProgress = (dao: any): number => {
+const getDaoProgress = (dao: DaoProgress): number => {
   const currentExp = dao.当前经验 || 0;
   const stage = dao.当前阶段 || 0;
   const nextStageExp = (stage + 1) * 100; // 简单的经验计算

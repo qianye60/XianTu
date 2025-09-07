@@ -140,13 +140,18 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
 };
 
 const handleShowCharacterList = () => {
-  if (route.path !== '/game') {
-    router.push('/game').then(() => {
-      uiStore.openCharacterManagement();
-    });
-  } else {
-    uiStore.openCharacterManagement();
-  }
+  // 导航到角色管理页面
+  router.push('/management');
+};
+
+const handleCharacterManagementClose = () => {
+  // 从角色管理页面返回到首页
+  router.push('/');
+};
+
+const handleCharacterSelected = (character: any) => {
+  // 角色选择后进入游戏
+  router.push('/game');
 };
 
 const handleBack = () => {
