@@ -88,7 +88,7 @@
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
-              <template v-else>
+              <template v-else-if="selectedItem">
                 <button class="action-btn use-btn" @click="useItem(selectedItem)">使用</button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
               </template>
@@ -171,8 +171,8 @@
               </template>
               <!-- 其他物品：使用和丢弃 -->
               <template v-else>
-                <button class="action-btn use-btn" @click="useItem(selectedItem)">使用</button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+                <button class="action-btn use-btn" @click="useItem(selectedItem!)">使用</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem!)">丢弃</button>
               </template>
             </div>
           </div>
@@ -229,11 +229,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, Component } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Search, BoxSelect, Gem, Package, X, RotateCcw } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { Item, Inventory } from '@/types/game';
 import { toast } from '@/utils/toast';
+import { debug } from '@/utils/debug';
 
 const characterStore = useCharacterStore();
 const loading = ref(false);
@@ -257,9 +258,9 @@ const tabs = computed(() => [
 ]);
 
 const inventory = computed<Inventory>(() => {
-  console.log('[背包面板] 调试 - activeSaveSlot:', characterStore.activeSaveSlot);
-  console.log('[背包面板] 调试 - 存档数据:', characterStore.activeSaveSlot?.存档数据);
-  console.log('[背包面板] 调试 - 背包数据:', characterStore.activeSaveSlot?.存档数据?.背包);
+  debug.log('背包面板', '调试-activeSaveSlot', characterStore.activeSaveSlot);
+  debug.log('背包面板', '调试-存档数据', characterStore.activeSaveSlot?.存档数据);
+  debug.log('背包面板', '调试-背包数据', characterStore.activeSaveSlot?.存档数据?.背包);
   
   return characterStore.activeSaveSlot?.存档数据?.背包 || { 
     灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 
@@ -308,7 +309,7 @@ const filteredItems = computed(() => {
 });
 
 // 格式化物品属性显示
-const formatItemAttributes = (attributes: any): string => {
+const formatItemAttributes = (attributes: Record<string, any>): string => {
   if (!attributes || typeof attributes !== 'object') {
     return '无特殊属性';
   }
@@ -366,7 +367,7 @@ const removeItemFromInventory = async (item: Item) => {
   delete characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID];
   await characterStore.commitToStorage();
   
-  console.log('[背包面板] 物品移除成功:', item.名称);
+  debug.log('背包面板', '物品移除成功', item.名称);
   
   // 如果当前选中的是被移除的物品，清除选择
   if (selectedItem.value?.物品ID === item.物品ID) {
@@ -383,13 +384,13 @@ const removeItemFromInventory = async (item: Item) => {
 const syncToTavernVariables = async () => {
   try {
     if (typeof window === 'undefined' || !window.parent?.TavernHelper) {
-      console.warn('[背包面板] 酒馆环境不可用，跳过同步');
+      debug.warn('背包面板', '酒馆环境不可用，跳过同步');
       return;
     }
     
     const saveData = characterStore.activeSaveSlot?.存档数据;
     if (!saveData) {
-      console.warn('[背包面板] 存档数据不存在，跳过同步');
+      debug.warn('背包面板', '存档数据不存在，跳过同步');
       return;
     }
     
@@ -408,9 +409,9 @@ const syncToTavernVariables = async () => {
       window.parent.TavernHelper.setVariableValue('修炼功法数据', JSON.stringify(saveData.修炼功法));
     }
     
-    console.log('[背包面板] 数据已同步到酒馆变量');
+    debug.log('背包面板', '数据已同步到酒馆变量');
   } catch (error) {
-    console.error('[背包面板] 同步酒馆变量失败:', error);
+    debug.error('背包面板', '同步酒馆变量失败', error);
   }
 };
 
@@ -432,7 +433,7 @@ const cultivateItem = async (item: Item) => {
     return;
   }
   
-  console.log('[背包面板] 修炼功法:', item.名称);
+  debug.log('背包面板', '修炼功法', item.名称);
   
   try {
     // 检查存档数据是否存在
@@ -468,7 +469,7 @@ const cultivateItem = async (item: Item) => {
           功法技能: previousSkill.功法技能 || {},
           数量: 1
         };
-        console.log('[背包面板] 之前的功法已放回背包:', previousSkill.名称);
+        debug.log('背包面板', '之前的功法已放回背包', previousSkill.名称);
       }
     }
     
@@ -499,7 +500,7 @@ const cultivateItem = async (item: Item) => {
     // 同步到酒馆变量
     await syncToTavernVariables();
     
-    console.log('[背包面板] 功法修炼成功，已同步到酒馆变量:', item.名称);
+    debug.log('背包面板', `功法修炼成功，已同步到酒馆变量: ${item.名称}`);
     toast.success(`开始修炼《${item.名称}》`);
     
     // 关闭弹窗
@@ -509,7 +510,7 @@ const cultivateItem = async (item: Item) => {
     selectedItem.value = null;
     
   } catch (error) {
-    console.error('[背包面板] 修炼失败:', error);
+    debug.error('背包面板', '修炼失败', error);
     toast.error('修炼功法失败');
   }
 };
@@ -520,7 +521,7 @@ const useItem = async (item: Item) => {
     return;
   }
   
-  console.log('[背包面板] 使用物品:', item.名称);
+  debug.log('背包面板', '使用物品', item.名称);
   
   try {
     if (item.使用效果) {
@@ -556,7 +557,7 @@ const useItem = async (item: Item) => {
     selectedItem.value = null;
     
   } catch (error) {
-    console.error('[背包面板] 使用失败:', error);
+    debug.error('背包面板', '使用失败', error);
     toast.error('使用物品失败');
   }
 };
@@ -568,13 +569,13 @@ const discardItem = async (item: Item) => {
   }
   
   // 确认丢弃
-  const itemQuality = item.品质?.quality || '凡';
-  const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}品】`;
+  const itemQuality = item.品质?.quality || '凡阶';
+  const qualityColor = itemQuality === '凡阶' ? '' : `【${itemQuality}】`;
   if (!confirm(`确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`)) {
     return;
   }
   
-  console.log('[背包面板] 丢弃物品:', item.名称);
+  debug.log('背包面板', '丢弃物品', item.名称);
   
   try {
     await removeItemFromInventory(item);
@@ -587,7 +588,7 @@ const discardItem = async (item: Item) => {
     selectedItem.value = null;
     
   } catch (error) {
-    console.error('[背包面板] 丢弃失败:', error);
+    debug.error('背包面板', '丢弃失败', error);
     toast.error('丢弃物品失败');
   }
 };
@@ -597,7 +598,7 @@ const equipItem = async (item: Item) => {
     return;
   }
   
-  console.log('[背包面板] 装备法宝:', item.名称);
+  debug.log('背包面板', '装备法宝', item.名称);
   
   try {
     // 检查存档数据是否存在
@@ -617,14 +618,13 @@ const equipItem = async (item: Item) => {
     
     // 找到空的法宝位置
     let equipped = false;
-    let replacedItem = null;
     
     for (let i = 1; i <= 6; i++) {
       const slotKey = `法宝${i}` as keyof typeof equipmentSlot;
       if (!equipmentSlot[slotKey]) {
         equipmentSlot[slotKey] = item.物品ID;
         equipped = true;
-        console.log(`[背包面板] 法宝装备到${slotKey}:`, item.名称);
+        debug.log('背包面板', `法宝装备到${slotKey}`, item.名称);
         toast.success(`《${item.名称}》已装备到${slotKey}`);
         break;
       }
@@ -634,7 +634,7 @@ const equipItem = async (item: Item) => {
       // 装备栏已满，询问是否替换
       const confirm = window.confirm('装备栏已满，是否替换法宝1的装备？');
       if (confirm) {
-        const oldItemId = equipmentSlot.法宝1;
+        // const oldItemId = equipmentSlot.法宝1; // 以后用于实现替换装备回背包
         equipmentSlot.法宝1 = item.物品ID;
         toast.success(`《${item.名称}》已替换装备到法宝1`);
         
@@ -654,7 +654,7 @@ const equipItem = async (item: Item) => {
     // 同步到酒馆变量
     await syncToTavernVariables();
     
-    console.log('[背包面板] 法宝装备成功，已同步到酒馆变量');
+    debug.log('背包面板', '法宝装备成功，已同步到酒馆变量');
     
     // 关闭弹窗
     if (isMobile.value) {
@@ -663,7 +663,7 @@ const equipItem = async (item: Item) => {
     selectedItem.value = null;
     
   } catch (error) {
-    console.error('[背包面板] 装备失败:', error);
+    debug.error('背包面板', '装备失败', error);
     toast.error('装备法宝失败');
   }
 };
@@ -761,23 +761,23 @@ const refreshFromTavern = async () => {
   
   refreshing.value = true;
   try {
-    console.log('[背包面板] 手动刷新酒馆数据...');
+    debug.log('背包面板', '手动刷新酒馆数据');
     await characterStore.syncFromTavern();
   } catch (error) {
-    console.error('[背包面板] 刷新数据失败:', error);
+    debug.error('背包面板', '刷新数据失败', error);
   } finally {
     refreshing.value = false;
   }
 };
 
 onMounted(async () => {
-  console.log('[背包面板] 组件挂载，开始同步酒馆数据...');
+  debug.log('背包面板', '组件挂载，开始同步酒馆数据');
   
   try {
     // 从酒馆同步最新数据
     await characterStore.syncFromTavern();
   } catch (error) {
-    console.error('[背包面板] 同步酒馆数据失败:', error);
+    debug.error('背包面板', '同步酒馆数据失败', error);
   }
   
   if (!selectedItem.value && filteredItems.value.length > 0) {
@@ -1233,6 +1233,7 @@ onMounted(async () => {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 /* 物品数量显示 */

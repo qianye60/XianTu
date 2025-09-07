@@ -192,20 +192,20 @@
                 <div class="innate-attrs">
                   <h4 class="attribute-group-title">先天属性</h4>
                   <div class="attributes-grid compact">
-                    <div v-for="(value, key) in baseInfo.先天六司" :key="key" class="attribute-item innate">
+                    <div v-for="(value, key) in innateAttributesWithDefaults" :key="key" class="attribute-item innate">
                       <span class="attr-name">{{ key }}</span>
                       <span class="attr-value">{{ value }}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div class="acquired-attrs" v-if="hasAcquiredBonus">
+                <div class="acquired-attrs">
                   <h4 class="attribute-group-title">后天加成</h4>
                   <div class="attributes-grid compact">
-                    <div v-for="(value, key) in acquiredAttributes" :key="key"
-                         class="attribute-item acquired" v-show="value && value > 0">
+                    <div v-for="(value, key) in acquiredAttributes" :key="key" class="attribute-item acquired" 
+                         :class="{ 'has-bonus': value > 0 }">
                       <span class="attr-name">{{ key }}</span>
-                      <span class="attr-value">+{{ value }}</span>
+                      <span class="attr-value">{{ value > 0 ? `+${value}` : value }}</span>
                     </div>
                   </div>
                 </div>
@@ -571,6 +571,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
+import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { DaoProgress, Item, SkillInfo, InnateAttributes } from '@/types/game.d.ts';
 import { 
@@ -635,17 +636,40 @@ const vitalsData = computed(() => {
   ];
 });
 
-// 属性计算
-const finalAttributes = computed((): Partial<InnateAttributes> => {
-  if (!baseInfo.value?.先天六司 || !saveData.value) return {};
-  const result = calculateFinalAttributes(baseInfo.value.先天六司, saveData.value);
-  return result?.最终六司 || {};
+// 默认六司属性结构
+const defaultAttributes: InnateAttributes = {
+  根骨: 0,
+  灵性: 0,
+  悟性: 0,
+  气运: 0,
+  魅力: 0,
+  心性: 0
+};
+
+// 获取完整的先天六司（含默认值）
+const innateAttributesWithDefaults = computed((): InnateAttributes => {
+  const innate = baseInfo.value?.先天六司 || {} as Partial<InnateAttributes>;
+  return {
+    根骨: innate.根骨 ?? 0,
+    灵性: innate.灵性 ?? 0,
+    悟性: innate.悟性 ?? 0,
+    气运: innate.气运 ?? 0,
+    魅力: innate.魅力 ?? 0,
+    心性: innate.心性 ?? 0
+  };
 });
 
-const acquiredAttributes = computed((): Partial<InnateAttributes> => {
-  if (!baseInfo.value?.先天六司 || !saveData.value) return {};
-  const result = calculateFinalAttributes(baseInfo.value.先天六司, saveData.value);
-  return result?.后天六司 || {};
+// 属性计算
+const finalAttributes = computed((): InnateAttributes => {
+  if (!saveData.value) return innateAttributesWithDefaults.value;
+  const result = calculateFinalAttributes(innateAttributesWithDefaults.value, saveData.value);
+  return result?.最终六司 || innateAttributesWithDefaults.value;
+});
+
+const acquiredAttributes = computed((): InnateAttributes => {
+  if (!saveData.value) return defaultAttributes;
+  const result = calculateFinalAttributes(innateAttributesWithDefaults.value, saveData.value);
+  return result?.后天六司 || defaultAttributes;
 });
 
 const hasAcquiredBonus = computed(() => {
@@ -858,14 +882,14 @@ const refreshData = async () => {
   try {
     await characterStore.syncFromTavern();
   } catch (error) {
-    console.error('[人物详情] 刷新数据失败:', error);
+    debug.error('人物详情', '刷新数据失败', error);
   } finally {
     isLoading.value = false;
   }
 };
 
 onMounted(async () => {
-  console.log('[人物详情] 组件挂载，同步数据...');
+  debug.log('人物详情', '组件挂载，同步数据');
   await refreshData();
 });
 </script>
@@ -1253,6 +1277,7 @@ onMounted(async () => {
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
 .attributes-grid {
@@ -1273,6 +1298,7 @@ onMounted(async () => {
   padding: 10px 12px;
   border-radius: 8px;
   background: var(--color-surface-light);
+  min-height: 44px;
 }
 
 .attribute-item.final {
@@ -1286,20 +1312,28 @@ onMounted(async () => {
 }
 
 .attribute-item.acquired {
+  background: rgba(var(--color-border-rgb), 0.1);
+}
+
+.attribute-item.acquired.has-bonus {
   background: rgba(var(--color-success-rgb), 0.1);
+  border: 1px solid rgba(var(--color-success-rgb), 0.2);
 }
 
 .attr-name {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .attr-value {
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
-.attribute-item.acquired .attr-value {
+.attribute-item.acquired.has-bonus .attr-value {
   color: var(--color-success);
 }
 
@@ -2011,6 +2045,7 @@ onMounted(async () => {
   .content-grid {
     grid-template-columns: 1fr;
     padding: 16px;
+    gap: 16px;
   }
   
   .right-column {
@@ -2021,8 +2056,67 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
   
+  .attributes-grid.compact {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .attribute-breakdown {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
   .equipment-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .stones-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .relationship-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  /* 确保文字不会换行 */
+  .attr-name, .attr-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .attribute-item {
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .avatar-circle {
+    width: 60px;
+    height: 60px;
+    font-size: 2rem;
+  }
+  
+  .character-name {
+    font-size: 1.5rem;
+  }
+  
+  .attributes-grid.compact {
+    grid-template-columns: 1fr;
+  }
+  
+  .attribute-item {
+    padding: 8px;
+    min-height: 36px;
+  }
+  
+  .attr-name {
+    font-size: 0.85rem;
+  }
+  
+  .attr-value {
+    font-size: 0.9rem;
   }
 }
 

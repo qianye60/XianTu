@@ -197,13 +197,52 @@
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">调试模式</label>
-              <span class="setting-desc">启用开发者调试信息</span>
+              <span class="setting-desc">启用开发者调试信息和详细日志</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.debugMode">
+                <input type="checkbox" v-model="settings.debugMode" @change="onSettingChange">
                 <span class="switch-slider"></span>
               </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.debugMode">
+            <div class="setting-info">
+              <label class="setting-name">控制台调试</label>
+              <span class="setting-desc">在浏览器控制台显示详细调试信息</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.consoleDebug" @change="onSettingChange">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.debugMode">
+            <div class="setting-info">
+              <label class="setting-name">性能监控</label>
+              <span class="setting-desc">监控组件性能和加载时间</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.performanceMonitor" @change="onSettingChange">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">导入设置</label>
+              <span class="setting-desc">从文件恢复设置配置</span>
+            </div>
+            <div class="setting-control">
+              <button class="utility-btn" @click="importSettings">
+                <Upload :size="16" />
+                导入
+              </button>
             </div>
           </div>
 
@@ -239,28 +278,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { Save, RotateCcw, Trash2, Download } from 'lucide-vue-next';
+import { ref, reactive, onMounted, watch } from 'vue';
+import { Save, RotateCcw, Trash2, Download, Upload } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
+import { debug } from '@/utils/debug';
 
 // 设置数据结构
 const settings = reactive({
-  theme: 'light',
+  // 显示设置
+  theme: 'auto',
   uiScale: 100,
   fontSize: 'medium',
+  
+  // 游戏设置
   autoSave: true,
   autoSaveInterval: 5,
   fastAnimations: false,
   showHints: true,
+  
+  // 高级设置
   debugMode: false,
+  consoleDebug: false,
+  performanceMonitor: false,
+  
   // 任务系统相关设置
-  enableQuestSystem: false,
+  enableQuestSystem: true,
   questNotifications: true,
-  autoAcceptQuests: false
+  autoAcceptQuests: false,
+  
+  // 游戏体验
+  enableSoundEffects: true,
+  backgroundMusic: true,
+  notificationSounds: true,
+  
+  // 数据同步
+  autoSyncTavern: true,
+  validateData: true,
+  backupBeforeSave: true
 });
 
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
+
+// 监听所有设置变化
+watch(settings, () => {
+  hasUnsavedChanges.value = true;
+}, { deep: true });
+
+// 监听调试模式变化
+watch(() => settings.debugMode, (newValue) => {
+  debug.setMode(newValue);
+  debug.log('设置面板', `调试模式${newValue ? '已启用' : '已禁用'}`);
+});
 
 // 设置变更处理
 const onSettingChange = () => {
@@ -269,158 +338,303 @@ const onSettingChange = () => {
 
 // 加载设置
 const loadSettings = () => {
+  debug.timeStart('加载设置');
   try {
     const savedSettings = localStorage.getItem('dad_game_settings');
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
       Object.assign(settings, parsed);
+      debug.log('设置面板', '设置加载成功', parsed);
+    } else {
+      debug.log('设置面板', '使用默认设置');
     }
   } catch (error) {
-    console.error('[设置] 加载设置失败:', error);
+    debug.error('设置面板', '加载设置失败', error);
+    toast.error('加载设置失败，将使用默认设置');
+  } finally {
+    debug.timeEnd('加载设置');
   }
 };
 
 // 保存设置
 const saveSettings = async () => {
+  if (loading.value) return;
+  
   loading.value = true;
+  debug.timeStart('保存设置');
+  
   try {
-    // 先保存到localStorage
-    localStorage.setItem('dad_game_settings', JSON.stringify(settings));
+    // 验证设置
+    validateSettings();
     
-    // 延迟应用设置，避免UI冲突
-    setTimeout(() => {
-      applySettings();
-    }, 50);
+    // 保存到localStorage
+    localStorage.setItem('dad_game_settings', JSON.stringify(settings));
+    debug.log('设置面板', '设置已保存到localStorage', settings);
+    
+    // 应用设置
+    await applySettings();
     
     hasUnsavedChanges.value = false;
-    toast.success('设置已保存');
+    toast.success('设置已保存并应用');
+    
   } catch (error) {
-    console.error('[设置] 保存设置失败:', error);
-    toast.error('保存设置失败');
+    debug.error('设置面板', '保存设置失败', error);
+    toast.error(`保存设置失败: ${error instanceof Error ? error.message : '未知错误'}`);
   } finally {
     loading.value = false;
+    debug.timeEnd('保存设置');
   }
 };
 
-// 重置设置
-const resetSettings = () => {
-  if (confirm('确定要重置所有设置为默认值吗？')) {
-    Object.assign(settings, {
-      theme: 'light',
-      uiScale: 100,
-      fontSize: 'medium',
-      autoSave: true,
-      autoSaveInterval: 5,
-      fastAnimations: false,
-      showHints: true,
-      debugMode: false,
-      // 任务系统默认设置
-      enableQuestSystem: false,
-      questNotifications: true,
-      autoAcceptQuests: false
-    });
+// 验证设置
+const validateSettings = () => {
+  debug.group('设置验证');
+  
+  try {
+    // 验证UI缩放
+    if (settings.uiScale < 50 || settings.uiScale > 200) {
+      settings.uiScale = Math.max(50, Math.min(200, settings.uiScale));
+      debug.warn('设置面板', `UI缩放值已修正为: ${settings.uiScale}%`);
+    }
     
-    saveSettings();
-    toast.info('设置已重置为默认值');
+    // 验证自动存档间隔
+    const validIntervals = [1, 5, 10, 15, 30];
+    if (!validIntervals.includes(settings.autoSaveInterval)) {
+      settings.autoSaveInterval = 5;
+      debug.warn('设置面板', '自动存档间隔已重置为5分钟');
+    }
+    
+    debug.log('设置面板', '设置验证完成');
+  } catch (error) {
+    debug.error('设置面板', '设置验证失败', error);
+    throw new Error('设置验证失败');
+  } finally {
+    debug.groupEnd();
   }
 };
 
 // 应用设置
-const applySettings = () => {
+const applySettings = async () => {
+  debug.group('应用设置');
+  
   try {
-    console.log('[设置] 设置已保存，但暂不应用到DOM以避免冲突:', settings);
-    
-    // 暂时注释掉DOM操作，避免界面冲突
-    /*
     // 应用主题
-    if (settings.theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else if (settings.theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-    } else {
-      // 跟随系统
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    }
+    applyTheme();
     
-    // 应用UI缩放（安全地设置CSS变量）
-    const scaleValue = Math.min(Math.max(settings.uiScale, 80), 120) / 100;
-    document.documentElement.style.setProperty('--ui-scale', scaleValue.toString());
+    // 应用UI缩放
+    applyUIScale();
     
-    // 应用文字大小
-    const fontSizeMap: Record<string, string> = {
-      small: '0.875rem',
-      medium: '1rem',
-      large: '1.125rem'
-    };
-    const fontSize = fontSizeMap[settings.fontSize] || '1rem';
-    document.documentElement.style.setProperty('--base-font-size', fontSize);
+    // 应用字体大小
+    applyFontSize();
     
     // 应用动画设置
-    const animationSpeed = settings.fastAnimations ? '0.5' : '1';
-    document.documentElement.style.setProperty('--animation-speed', animationSpeed);
-    */
+    applyAnimationSettings();
     
+    // 应用调试模式
+    debug.setMode(settings.debugMode);
+    
+    debug.log('设置面板', '所有设置已应用');
   } catch (error) {
-    console.error('[设置] 应用设置时出错:', error);
-    toast.error('应用设置失败，请刷新页面重试');
+    debug.error('设置面板', '应用设置时出错', error);
+    throw error;
+  } finally {
+    debug.groupEnd();
   }
 };
 
+// 应用主题
+const applyTheme = () => {
+  let targetTheme = settings.theme;
+  
+  if (settings.theme === 'auto') {
+    targetTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  
+  document.documentElement.setAttribute('data-theme', targetTheme);
+  debug.log('设置面板', `主题已应用: ${targetTheme}`);
+};
+
+// 应用UI缩放
+const applyUIScale = () => {
+  const scaleValue = settings.uiScale / 100;
+  document.documentElement.style.setProperty('--ui-scale', scaleValue.toString());
+  debug.log('设置面板', `UI缩放已应用: ${settings.uiScale}%`);
+};
+
+// 应用字体大小
+const applyFontSize = () => {
+  const fontSizeMap: Record<string, string> = {
+    small: '0.875rem',
+    medium: '1rem',
+    large: '1.125rem'
+  };
+  
+  const fontSize = fontSizeMap[settings.fontSize] || '1rem';
+  document.documentElement.style.setProperty('--base-font-size', fontSize);
+  debug.log('设置面板', `字体大小已应用: ${settings.fontSize} (${fontSize})`);
+};
+
+// 应用动画设置
+const applyAnimationSettings = () => {
+  const animationSpeed = settings.fastAnimations ? '0.5' : '1';
+  document.documentElement.style.setProperty('--animation-speed', animationSpeed);
+  debug.log('设置面板', `动画速度已应用: ${animationSpeed}x`);
+};
+
+// 重置设置
+const resetSettings = () => {
+  const confirmed = confirm('确定要重置所有设置为默认值吗？这将清除所有自定义配置。');
+  if (!confirmed) return;
+  
+  debug.log('设置面板', '开始重置设置');
+  
+  Object.assign(settings, {
+    theme: 'auto',
+    uiScale: 100,
+    fontSize: 'medium',
+    autoSave: true,
+    autoSaveInterval: 5,
+    fastAnimations: false,
+    showHints: true,
+    debugMode: false,
+    consoleDebug: false,
+    performanceMonitor: false,
+    enableQuestSystem: true,
+    questNotifications: true,
+    autoAcceptQuests: false,
+    enableSoundEffects: true,
+    backgroundMusic: true,
+    notificationSounds: true,
+    autoSyncTavern: true,
+    validateData: true,
+    backupBeforeSave: true
+  });
+  
+  saveSettings();
+  toast.info('设置已重置为默认值');
+};
+
 // 清理缓存
-const clearCache = () => {
-  if (confirm('确定要清理缓存吗？这将删除临时数据但不会影响存档。')) {
-    try {
-      // 清理特定的缓存项
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('dad_cache_') || key.startsWith('temp_'))) {
-          keysToRemove.push(key);
-        }
+const clearCache = async () => {
+  const confirmed = confirm('确定要清理缓存吗？这将删除临时数据但不会影响存档。');
+  if (!confirmed) return;
+  
+  debug.log('设置面板', '开始清理缓存');
+  
+  try {
+    // 清理特定的缓存项
+    const keysToRemove: string[] = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('dad_cache_') || 
+        key.startsWith('temp_') ||
+        key.startsWith('debug_') ||
+        key.includes('_temp')
+      )) {
+        keysToRemove.push(key);
       }
-      
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-      
-      toast.success(`已清理 ${keysToRemove.length} 项缓存数据`);
-    } catch (error) {
-      console.error('[设置] 清理缓存失败:', error);
-      toast.error('清理缓存失败');
     }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // 清理会话存储
+    sessionStorage.clear();
+    
+    debug.log('设置面板', `缓存清理完成，共清理 ${keysToRemove.length} 项数据`);
+    toast.success(`已清理 ${keysToRemove.length} 项缓存数据`);
+    
+  } catch (error) {
+    debug.error('设置面板', '清理缓存失败', error);
+    toast.error('清理缓存失败');
   }
 };
 
 // 导出设置
 const exportSettings = () => {
+  debug.log('设置面板', '开始导出设置');
+  
   try {
-    const settingsData = {
+    const exportData = {
       settings: settings,
-      exportTime: new Date().toISOString(),
-      version: '1.0.0'
+      exportInfo: {
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        userAgent: navigator.userAgent,
+        gameVersion: '大道朝天 v1.0.0'
+      }
     };
     
-    const dataStr = JSON.stringify(settingsData, null, 2);
+    const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `大道朝天-设置备份-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.download = `大道朝天-设置备份-${dateStr}.json`;
     
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(link.href);
+    
+    debug.log('设置面板', '设置导出成功');
     toast.success('设置已导出');
+    
   } catch (error) {
-    console.error('[设置] 导出设置失败:', error);
+    debug.error('设置面板', '导出设置失败', error);
     toast.error('导出设置失败');
   }
 };
 
+// 导入设置
+const importSettings = () => {
+  debug.log('设置面板', '开始导入设置');
+  
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = async (event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+      
+      if (importData.settings) {
+        // 验证导入的设置
+        const validatedSettings = { ...settings, ...importData.settings };
+        Object.assign(settings, validatedSettings);
+        
+        await saveSettings();
+        
+        debug.log('设置面板', '设置导入成功', importData);
+        toast.success('设置导入成功并已应用');
+      } else {
+        throw new Error('无效的设置文件格式');
+      }
+    } catch (error) {
+      debug.error('设置面板', '导入设置失败', error);
+      toast.error('导入设置失败，请检查文件格式');
+    }
+  };
+  
+  input.click();
+};
+
+// 组件挂载时加载设置
 onMounted(() => {
+  debug.log('设置面板', '组件已加载');
   loadSettings();
-  // 暂时不在挂载时应用设置，避免UI冲突
-  // setTimeout(() => {
-  //   applySettings();
-  // }, 100);
-  console.log('[设置] 组件已加载，设置功能已就绪');
+  
+  // 延迟应用设置，避免初始加载冲突
+  setTimeout(() => {
+    applySettings();
+  }, 100);
 });
 </script>
 
@@ -775,5 +989,15 @@ input:checked + .switch-slider:before {
 
 [data-theme="dark"] .switch-slider {
   background-color: #4b5563;
+}
+
+/* 旋转动画 */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

@@ -598,7 +598,6 @@ export async function initializeCharacter(
             生成时间: new Date().toISOString(),
             世界背景: world.description,
             世界纪元: world.era,
-            主要冲突: [],
             特殊设定: [],
             版本: '1.0'
           }

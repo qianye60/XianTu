@@ -312,7 +312,6 @@ export interface WorldGenerationInfo {
   生成时间: string;
   世界背景: string;
   世界纪元: string;
-  主要冲突: string[];
   特殊设定: string[];
   版本: string;
 }
