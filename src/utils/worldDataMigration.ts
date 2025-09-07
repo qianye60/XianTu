@@ -184,7 +184,6 @@ export class WorldDataMigrator {
           生成时间: legacyGenerationInfo.generation_time || new Date().toISOString(),
           世界背景: legacyGenerationInfo.world_background || '',
           世界纪元: legacyGenerationInfo.world_era || '修仙纪元',
-          主要冲突: legacyGenerationInfo.main_conflicts || [],
           特殊设定: legacyGenerationInfo.special_settings || [],
           版本: '1.0-migrated'
         }

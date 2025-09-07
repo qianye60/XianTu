@@ -129,6 +129,7 @@ import { RefreshCw, Trash2 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
+import { debug } from '@/utils/debug';
 import { parseMemoryContent, type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
 
 interface Memory {
@@ -239,7 +240,7 @@ const refreshMemory = async () => {
     await loadMemoryData();
     toast.success('记忆数据已刷新');
   } catch (error) {
-    console.error('[记忆中心] 刷新失败:', error);
+    debug.error('记忆中心', '刷新失败', error);
     toast.error('刷新失败');
   } finally {
     loading.value = false;
@@ -257,7 +258,7 @@ const clearMemory = () => {
 // 加载记忆数据
 const loadMemoryData = async () => {
   try {
-    console.log('[记忆中心] 开始加载记忆数据...');
+    debug.log('记忆中心', '开始加载记忆数据');
     
     const loadedMemories: Memory[] = [];
 
@@ -265,7 +266,7 @@ const loadMemoryData = async () => {
     const helper = getTavernHelper();
     if (helper) {
       const chatVars = await helper.getVariables({ type: 'chat' });
-      console.log('[记忆中心] 酒馆变量键:', Object.keys(chatVars));
+      debug.log('记忆中心', '酒馆变量键', Object.keys(chatVars));
       
       // 检查是否有mid_term_memory字段（新格式的中期记忆）
       if (chatVars['mid_term_memory']) {

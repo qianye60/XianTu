@@ -214,7 +214,6 @@ export class CultivationWorldGenerator {
         生成信息: {
           生成时间: new Date().toISOString(),
           世界纪元: worldData.world_era || this.userConfig?.worldEra || '修仙纪元',
-          主要冲突: worldData.main_conflicts || [],
           特殊设定: worldData.special_settings || [],
           版本: '1.0'
         } as WorldGenerationInfo

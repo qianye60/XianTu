@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { toast } from '@/utils/toast';
+import { debug } from '@/utils/debug';
 import { useUIStore } from './uiStore'; // 导入UI Store
 import * as storage from '@/utils/localStorageManager';
 import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
@@ -100,7 +101,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
    */
   const reloadFromStorage = () => {
     rootState.value = storage.loadRootData();
-    console.log('【角色神殿】已从乾坤宝库重新同步所有数据。');
+    debug.log('角色商店', '已从乾坤宝库重新同步所有数据');
   };
 
   /**
@@ -142,12 +143,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
             }
           };
           
-          console.log('[角色创建] 向后端提交的数据:', characterSubmissionData);
+          debug.log('角色商店', '向后端提交的数据', characterSubmissionData);
           const backendResult = await createCharacterAPI(characterSubmissionData);
-          console.log('[角色创建] 后端返回结果:', backendResult);
+          debug.log('角色商店', '后端返回结果', backendResult);
           uiStore.updateLoadingText('角色信息已成功提交至云端！');
         } catch (error) {
-          console.error('[角色创建] 向后端提交失败:', error);
+          debug.error('角色商店', '向后端提交失败', error);
           toast.warning('向云端提交角色信息失败，将继续本地创建流程'); // 保留一个toast警告
           // 不要抛出错误，允许继续本地创建流程
         }
@@ -213,11 +214,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
             game_time: '修仙元年 春'
           };
           
-          console.log('[角色存档] 准备同步到云端的存档数据:', saveDataToSync);
+          debug.log('角色商店', '准备同步到云端的存档数据', saveDataToSync);
           await updateCharacterSave(charId, saveDataToSync);
           uiStore.updateLoadingText('完整存档已成功同步到云端！');
         } catch (error) {
-          console.warn('[角色存档] 同步存档数据到云端失败:', error);
+          debug.warn('角色商店', '同步存档数据到云端失败', error);
           const errorMessage = error instanceof Error ? error.message : '未知错误';
           toast.warning(`存档同步失败: ${errorMessage}`);
           // 不要抛出错误，允许角色创建继续完成
@@ -227,7 +228,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 最终的成功提示由App.vue处理
       return baseInfo;
     } catch (error) {
-      console.error('角色创建失败:', error);
+      debug.error('角色商店', '角色创建失败', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       // 错误也由App.vue处理
       throw new Error(`角色创建失败: ${errorMessage}`);
@@ -257,12 +258,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param slotKey 存档槽位关键字 (e.g., "存档1")
    */
   const loadGame = async (charId: string, slotKey: string) => {
-      console.log('[存档加载] 开始加载游戏，角色ID:', charId, '存档槽:', slotKey);
+      debug.log('角色商店', `开始加载游戏，角色ID: ${charId}, 存档槽: ${slotKey}`);
       const uiStore = useUIStore();
       
       const profile = rootState.value.角色列表[charId];
       if (!profile) {
-        console.error('[存档加载] 找不到要加载的角色:', charId);
+        debug.error('角色商店', '找不到要加载的角色', charId);
         toast.error('找不到要加载的角色！');
         return false;
       }
@@ -275,7 +276,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
       
       if (!targetSlot) {
-        console.error('[存档加载] 找不到指定的存档槽位:', slotKey);
+        debug.error('角色商店', '找不到指定的存档槽位', slotKey);
         toast.error('找不到指定的存档槽位！');
         return false;
       }
@@ -289,20 +290,20 @@ export const useCharacterStore = defineStore('characterV3', () => {
         uiStore.updateLoadingText('天机重置完毕，正在加载存档...');
         
         // 2. 设置激活存档
-        console.log('[存档加载] 设置当前激活存档');
+        debug.log('角色商店', '设置当前激活存档');
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       commitToStorage(); // 立即保存激活状态
 
       // 3. 将激活的存档数据同步到酒馆
-      console.log('[存档加载] 同步角色档案到酒馆');
+      debug.log('角色商店', '同步角色档案到酒馆');
       await setActiveCharacterInTavern(charId);
       
-      console.log('[存档加载] 加载完成');
+      debug.log('角色商店', '加载完成');
       toast.success(`已成功加载【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名 || slotKey}`);
       return true;
       
     } catch (error) {
-      console.error('[存档加载] 加载过程出错:', error);
+      debug.error('角色商店', '加载过程出错', error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast.error(`存档加载失败：${errorMessage}`);
       return false;
@@ -326,7 +327,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     const currentSlot = activeSaveSlot.value;
     if (!currentSlot || !currentSlot.存档数据) {
       // 这是一个警告而不是错误，因为新角色可能还没有存档数据
-      console.warn(`[存档核心] 角色 ${charId} 没有可用的存档数据来同步到酒馆。`);
+      debug.warn('角色商店', `角色 ${charId} 没有可用的存档数据来同步到酒馆`);
       return;
     }
     
@@ -343,11 +344,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
       
       await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
       
-      console.log(`[存档核心] 已将【${profile.角色基础信息.名字}】的激活存档同步至酒馆 'character.saveData'。`);
+      debug.log('角色商店', `已将【${profile.角色基础信息.名字}】的激活存档同步至酒馆`);
       // toast.info(`已将【${profile.角色基础信息.名字}】的档案同步至酒馆。`); // 由调用者处理通知
 
     } catch (error) {
-      console.error('同步角色档案至酒馆失败:', error);
+      debug.error('角色商店', '同步角色档案至酒馆失败', error);
       toast.error('同步角色档案至酒馆失败，请检查控制台。');
       // 重新抛出错误，以便调用堆栈可以捕获它
       throw error;
@@ -364,7 +365,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     const slot = activeSaveSlot.value;
 
     if (!active || !profile || !slot) {
-      console.warn('[存档核心] 没有激活的存档，无法从酒馆同步数据');
+      debug.warn('角色商店', '没有激活的存档，无法从酒馆同步数据');
       return;
     }
 
@@ -386,27 +387,27 @@ export const useCharacterStore = defineStore('characterV3', () => {
         
         // 修复数据重复问题：检查是否有嵌套的character.saveData
         if (cleanedSaveData.character && cleanedSaveData.character.saveData) {
-          console.log('[存档核心] 检测到嵌套的character.saveData结构，进行数据修复');
+          debug.log('角色商店', '检测到嵌套的character.saveData结构，进行数据修复');
           const nestedSaveData = cleanedSaveData.character.saveData;
           
           // 如果嵌套数据的背包物品更完整，使用嵌套数据
           if (nestedSaveData.背包 && nestedSaveData.背包.物品 && 
               Object.keys(nestedSaveData.背包.物品).length > 0 &&
               (!cleanedSaveData.背包?.物品 || Object.keys(cleanedSaveData.背包.物品).length === 0)) {
-            console.log('[存档核心] 使用嵌套数据中的背包信息，物品数量:', Object.keys(nestedSaveData.背包.物品).length);
+            debug.log('角色商店', `使用嵌套数据中的背包信息，物品数量: ${Object.keys(nestedSaveData.背包.物品).length}`);
             cleanedSaveData.背包 = nestedSaveData.背包;
           }
           
           // 如果嵌套数据有世界信息而顶层没有，使用嵌套数据
           if (nestedSaveData.世界信息 && !cleanedSaveData.世界信息) {
-            console.log('[存档核心] 使用嵌套数据中的世界信息');
+            debug.log('角色商店', '使用嵌套数据中的世界信息');
             cleanedSaveData.世界信息 = nestedSaveData.世界信息;
           }
           
           // 如果嵌套数据有人物关系而顶层没有，使用嵌套数据
           if (nestedSaveData.人物关系 && Object.keys(nestedSaveData.人物关系).length > 0 &&
               (!cleanedSaveData.人物关系 || Object.keys(cleanedSaveData.人物关系).length === 0)) {
-            console.log('[存档核心] 使用嵌套数据中的人物关系');
+            debug.log('角色商店', '使用嵌套数据中的人物关系');
             cleanedSaveData.人物关系 = nestedSaveData.人物关系;
           }
           
@@ -417,31 +418,31 @@ export const useCharacterStore = defineStore('characterV3', () => {
         // 修复物品数据问题：确保背包物品数据正确
         if (cleanedSaveData.背包 && typeof cleanedSaveData.背包.物品 === 'object') {
           if (Object.keys(cleanedSaveData.背包.物品).length === 0) {
-            console.log('[存档核心] 检测到空的背包.物品数据');
+            debug.log('角色商店', '检测到空的背包.物品数据');
           } else {
-            console.log('[存档核心] 背包中有', Object.keys(cleanedSaveData.背包.物品).length, '个物品');
+            debug.log('角色商店', `背包中有${Object.keys(cleanedSaveData.背包.物品).length}个物品`);
           }
         }
         
         // 确保世界信息数据存在
         if (!cleanedSaveData.世界信息) {
-          console.warn('[存档核心] 缺少世界信息数据，可能需要重新生成地图');
+          debug.warn('角色商店', '缺少世界信息数据，可能需要重新生成地图');
         } else {
-          console.log('[存档核心] 世界信息数据正常');
+          debug.log('角色商店', '世界信息数据正常');
         }
         
         // 更新本地存档数据
         slot.存档数据 = cleanedSaveData;
         slot.保存时间 = new Date().toISOString();
         commitToStorage();
-        console.log('[存档核心] 已从酒馆同步最新存档数据');
-        console.log('[存档核心] 最终背包物品数量:', Object.keys(cleanedSaveData.背包?.物品 || {}).length);
-        console.log('[存档核心] 是否有世界信息:', !!cleanedSaveData.世界信息);
+        debug.log('角色商店', '已从酒馆同步最新存档数据');
+        debug.log('角色商店', `最终背包物品数量: ${Object.keys(cleanedSaveData.背包?.物品 || {}).length}`);
+        debug.log('角色商店', `是否有世界信息: ${!!cleanedSaveData.世界信息}`);
       } else {
-        console.warn('[存档核心] 酒馆中没有找到character.saveData数据');
+        debug.warn('角色商店', '酒馆中没有找到character.saveData数据');
       }
     } catch (error) {
-      console.error('[存档核心] 从酒馆同步数据失败:', error);
+      debug.error('角色商店', '从酒馆同步数据失败', error);
     }
   };
 
@@ -513,7 +514,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           }
 
         } catch (error) {
-          console.error('[云端同步] 保存时同步失败:', error);
+          debug.error('角色商店', '云端同步-保存时同步失败', error);
           const errorMessage = error instanceof Error ? error.message : '未知错误';
           toast.error(`云端同步失败: ${errorMessage}`, { id: saveId });
           // 标记为需要同步
@@ -530,7 +531,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
     } catch (error) {
-      console.error('[存档保存] 过程出错:', error);
+      debug.error('角色商店', '存档保存过程出错', error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast.error(`存档保存失败：${errorMessage}`, { id: saveId });
     }
@@ -658,7 +659,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
   const updateCharacterData = (characterUpdates: Partial<SaveData>) => {
     const save = activeSaveSlot.value;
     if (!save?.存档数据) {
-      console.warn('[角色商店] 没有激活的存档，无法更新角色数据');
+      debug.warn('角色商店', '没有激活的存档，无法更新角色数据');
       return;
     }
 
@@ -674,7 +675,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     save.保存时间 = new Date().toISOString();
     commitToStorage();
     
-    console.log('[角色商店] 角色数据已更新:', characterUpdates);
+    debug.log('角色商店', '角色数据已更新', characterUpdates);
   };
 
   /**

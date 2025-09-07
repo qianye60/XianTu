@@ -177,6 +177,7 @@ import { ref, computed, onMounted } from 'vue';
 import { RefreshCw, Save, Play, Trash2, Download, Upload } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
+import { debug } from '@/utils/debug';
 import type { SaveSlot } from '@/types/game';
 
 const characterStore = useCharacterStore();
@@ -205,7 +206,7 @@ const refreshSaves = async () => {
     await characterStore.loadSaves();
     toast.success('存档列表已刷新');
   } catch (error) {
-    console.error('[存档] 刷新失败:', error);
+    debug.error('存档面板', '刷新失败', error);
     toast.error('刷新存档列表失败');
   } finally {
     loading.value = false;
@@ -224,7 +225,7 @@ const quickSave = async () => {
     await characterStore.saveCurrentGame();
     toast.success('快速存档完成');
   } catch (error) {
-    console.error('[存档] 快速存档失败:', error);
+    debug.error('存档面板', '快速存档失败', error);
     toast.error('快速存档失败');
   } finally {
     loading.value = false;
@@ -233,7 +234,7 @@ const quickSave = async () => {
 
 // 选择存档
 const selectSave = (save: SaveSlot) => {
-  console.log('[存档] 选择存档:', save);
+  debug.log('存档面板', '选择存档', save);
 };
 
 // 加载存档
@@ -245,7 +246,7 @@ const loadSave = async (save: SaveSlot) => {
     await characterStore.loadGameById(save.id!);
     toast.success(`已加载存档: ${save.角色名字 || '存档'}`);
   } catch (error) {
-    console.error('[存档] 加载失败:', error);
+    debug.error('存档面板', '加载失败', error);
     toast.error('加载存档失败');
   } finally {
     loading.value = false;
@@ -263,7 +264,7 @@ const deleteSave = async (save: SaveSlot) => {
     await characterStore.deleteSaveById(save.id!);
     toast.success('存档已删除');
   } catch (error) {
-    console.error('[存档] 删除失败:', error);
+    debug.error('存档面板', '删除失败', error);
     toast.error('删除存档失败');
   } finally {
     loading.value = false;
@@ -289,7 +290,7 @@ const exportSaves = () => {
 
     toast.success('存档已导出');
   } catch (error) {
-    console.error('[存档] 导出失败:', error);
+    debug.error('存档面板', '导出失败', error);
     toast.error('导出存档失败');
   }
 };
@@ -321,7 +322,7 @@ const handleImportFile = async (event: Event) => {
     await refreshSaves();
     toast.success(`成功导入 ${data.saves.length} 个存档`);
   } catch (error) {
-    console.error('[存档] 导入失败:', error);
+    debug.error('存档面板', '导入失败', error);
     toast.error('导入存档失败: ' + (error as Error).message);
   } finally {
     loading.value = false;
@@ -347,7 +348,7 @@ const clearAllSaves = async () => {
     await characterStore.clearAllSaves();
     toast.success('所有存档已清空');
   } catch (error) {
-    console.error('[存档] 清空失败:', error);
+    debug.error('存档面板', '清空失败', error);
     toast.error('清空存档失败');
   } finally {
     loading.value = false;
