@@ -12,7 +12,8 @@ import CharacterDetailsPanel from '../components/dashboard/CharacterDetailsPanel
 import InventoryPanel from '../components/dashboard/InventoryPanel.vue';
 import RelationshipsPanel from '../components/dashboard/RelationshipsPanel.vue';
 import CultivationPanel from '../components/dashboard/CultivationPanel.vue';
-import SkillsPanel from '../components/dashboard/SkillsPanel.vue';
+import SkillsPanel from '../components/dashboard/SkillsPanel.vue'; // 现在是功法面板
+import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue'; // 新的三千大道面板
 import SettingsPanel from '../components/dashboard/SettingsPanel.vue';
 import SavePanel from '../components/dashboard/SavePanel.vue';
 import WorldMapPanel from '../components/dashboard/WorldMapPanel.vue';
@@ -71,9 +72,14 @@ const routes = [
         component: CultivationPanel,
       },
       {
-        path: 'skills',
-        name: 'Skills',
-        component: SkillsPanel,
+        path: 'techniques',
+        name: 'Techniques',
+        component: SkillsPanel, // 功法面板
+      },
+      {
+        path: 'thousand-dao',
+        name: 'ThousandDao', 
+        component: ThousandDaoPanel, // 三千大道面板
       },
       {
         path: 'settings',

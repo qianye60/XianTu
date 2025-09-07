@@ -65,3 +65,22 @@ export interface TradeRoute {
   from: string;
   to: string;
 }
+
+/**
+ * Represents a continent in the world
+ */
+export interface CultivationContinent {
+  id: string;
+  name?: string;
+  名称?: string;
+  description?: string;
+  描述?: string;
+  continent_bounds?: { longitude: number; latitude: number }[];
+  大洲边界?: { longitude: number; latitude: number }[];
+  climate?: string;
+  气候?: string;
+  terrain_features?: string[];
+  地理特征?: string[];
+  natural_barriers?: string[];
+  天然屏障?: string[];
+}

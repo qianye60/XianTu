@@ -14,6 +14,15 @@ export const useUIStore = defineStore('ui', () => {
   const showRetryDialogState = ref(false);
   const retryDialogConfig = ref<RetryDialogConfig | null>(null);
   const wasLoadingBeforeDialog = ref(false); // 记录显示弹窗前的loading状态
+  const showCharacterManagement = ref(false);
+
+  function openCharacterManagement() {
+    showCharacterManagement.value = true;
+  }
+
+  function closeCharacterManagement() {
+    showCharacterManagement.value = false;
+  }
 
   function startLoading(text = '正在加载...') {
     isLoading.value = true;
@@ -79,5 +88,8 @@ export const useUIStore = defineStore('ui', () => {
     hideRetryDialog,
     confirmRetry,
     cancelRetry,
+    showCharacterManagement,
+    openCharacterManagement,
+    closeCharacterManagement,
   };
 });
