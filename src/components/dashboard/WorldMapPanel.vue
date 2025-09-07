@@ -39,6 +39,22 @@
             <rect width="50" height="50" fill="none" stroke="#E5E7EB" stroke-width="0.5" opacity="0.3"/>
           </pattern>
 
+          <!-- 简洁混沌虚空背景 -->
+          <radialGradient id="chaosVoid" cx="50%" cy="50%">
+            <stop offset="0%" style="stop-color:#374151;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1f2937;stop-opacity:1" />
+          </radialGradient>
+
+          <!-- 简化的混沌效果 -->
+          <filter id="chaosEffect" x="0%" y="0%" width="100%" height="100%">
+            <feTurbulence baseFrequency="0.005 0.005" numOctaves="1" result="turbulence"/>
+            <feColorMatrix in="turbulence" type="saturate" values="0" result="grayscale"/>
+            <feComponentTransfer in="grayscale">
+              <feFuncA type="discrete" tableValues="0 0.1 0.2"/>
+            </feComponentTransfer>
+            <feComposite in2="SourceGraphic" operator="multiply" result="composite"/>
+          </filter>
+
           <!-- 地点光辉效果 -->
           <filter id="locationGlow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -49,8 +65,11 @@
           </filter>
         </defs>
 
-        <!-- 世界背景网格 -->
-        <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.1"/>
+        <!-- 白色背景 -->
+        <rect width="100%" height="100%" fill="white"/>
+        
+        <!-- 世界边界网格 (仅在大陆区域显示) -->
+        <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.05"/>
 
         <!-- 地图内容组 (支持平移和缩放) -->
         <g :transform="`translate(${panX}, ${panY}) scale(${zoomLevel})`">
@@ -60,8 +79,8 @@
             <g v-for="continent in cultivationContinents" :key="'continent-' + continent.id">
               <!-- 大洲范围多边形 - 优化紧密分布的显示效果 -->
               <polygon
-                v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界).length > 0"
-                :points="(continent.continent_bounds || continent.大洲边界).map((point: any) => {
+                v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界)!.length > 0"
+                :points="(continent.continent_bounds || continent.大洲边界)!.map((point: { longitude: number; latitude: number; }) => {
                   const coords = geoToVirtual(point.longitude, point.latitude);
                   return `${coords.x},${coords.y}`;
                 }).join(' ')"
@@ -77,9 +96,9 @@
               
               <!-- 大洲名称标签 -->
               <text
-                v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界).length > 0"
-                :x="getContinentCenter(continent.continent_bounds || continent.大洲边界).x"
-                :y="getContinentCenter(continent.continent_bounds || continent.大洲边界).y"
+                v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界)!.length > 0"
+                :x="getContinentCenter(continent.continent_bounds || continent.大洲边界 || []).x"
+                :y="getContinentCenter(continent.continent_bounds || continent.大洲边界 || []).y"
                 class="continent-name-label"
                 text-anchor="middle"
                 fill="#3B82F6"
@@ -128,7 +147,7 @@
           <g class="location-markers-layer">
             <g v-for="location in cultivationLocations.filter(loc => !loc.isTerritory)" :key="'location-' + location.id">
               <g
-                :transform="`translate(${location.coordinates.x}, ${location.coordinates.y})`"
+                :transform="`translate(${location.coordinates?.x || 0}, ${location.coordinates?.y || 0})`"
                 class="location-marker"
                 @click="selectLocation(location)"
                 @mouseenter="onLocationHover(location)"
@@ -138,78 +157,134 @@
                 <g class="location-icon-group">
                   <!-- ⛰️ 名山大川 -->
                   <g v-if="location.type === 'natural_landmark'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Mountain :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Mountain :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 🏛️ 宗门势力 -->
                   <g v-else-if="location.type === 'sect_power'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Building2 :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Building2 :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 🏮 城镇坊市 -->
                   <g v-else-if="location.type === 'city_town'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Home :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Home :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- ⛩️ 洞天福地 -->
                   <g v-else-if="location.type === 'blessed_land'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Sparkles :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Sparkles :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 💰 奇珍异地 -->
                   <g v-else-if="location.type === 'treasure_land'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Gem :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Gem :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="12" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- ☠️ 凶险之地 -->
                   <g v-else-if="location.type === 'dangerous_area'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Skull :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Skull :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="14" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 🌟 其他特殊 -->
                   <g v-else-if="location.type === 'special_other'">
-                    <foreignObject x="-8" y="-8" width="16" height="16">
-                      <div style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                        <Zap :size="16" :color="location.iconColor" />
+                    <foreignObject 
+                      :x="-getIconSize(location.type).offset" 
+                      :y="-getIconSize(location.type).offset" 
+                      :width="getIconSize(location.type).size" 
+                      :height="getIconSize(location.type).size"
+                    >
+                      <div 
+                        style="display: flex; align-items: center; justify-content: center;" 
+                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
+                      >
+                        <Zap :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" y="14" fill="#374151" font-size="6px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
+                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 默认图标 -->
                   <g v-else>
-                    <circle r="6" :fill="location.iconColor" stroke="white" stroke-width="1"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="8px">?</text>
+                    <circle :r="getIconSize('default').offset - 2" :fill="location.iconColor" stroke="white" stroke-width="1"/>
+                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="10px">?</text>
                   </g>
                 </g>
 
@@ -293,14 +368,14 @@
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
             <g :transform="`translate(${playerPosition.x}, ${playerPosition.y})`">
-              <!-- 玩家灵气光环 -->
-              <circle class="player-aura" r="15" fill="#EF4444" opacity="0.4">
-                <animate attributeName="r" values="10;20;10" dur="3s" repeatCount="indefinite"/>
+              <!-- 玩家灵气光环 (扩大) -->
+              <circle class="player-aura" r="20" fill="#EF4444" opacity="0.4">
+                <animate attributeName="r" values="15;25;15" dur="3s" repeatCount="indefinite"/>
                 <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3s" repeatCount="indefinite"/>
               </circle>
-              <!-- 玩家标记 -->
-              <polygon points="0,-10 -6,6 6,6" fill="#DC2626" stroke="white" stroke-width="2"/>
-              <circle r="2" fill="white"/>
+              <!-- 玩家标记 (扩大) -->
+              <polygon points="0,-12 -8,8 8,8" fill="#DC2626" stroke="white" stroke-width="2"/>
+              <circle r="3" fill="white"/>
             </g>
 
             <!-- 玩家名称 -->
@@ -425,29 +500,11 @@ import { ref, onMounted, computed } from 'vue';
 import { Target, Maximize2, Mountain, Building2, Home, Sparkles, Gem, Skull, Zap } from 'lucide-vue-next';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
+import type { WorldLocation } from '@/types/location';
+import type { CultivationContinent } from '@/types/worldMap';
 
 // --- 类型定义 ---
-
-/** GeoJSON格式的地点接口 */
-interface CultivationLocation {
-  id: string;
-  name: string;
-  type: string;
-  coordinates: { x: number; y: number };
-  description: string;
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  iconColor: string;
-  iconSize: 'small' | 'medium' | 'large';
-  danger_level?: string;
-  suitable_for?: string;
-  // 势力范围相关属性
-  territoryBounds?: { x: number; y: number }[]; // 势力边界点
-  headquarters?: { x: number; y: number }; // 总部位置
-  isTerritory?: boolean; // 是否显示为势力范围
-}
+// Note: Local CultivationLocation interface is removed, using WorldLocation from types.
 
 // 地图尺寸配置
 const mapWidth = ref(3000);  // 扩大地图宽度 2000 -> 3000
@@ -469,19 +526,24 @@ const lastPanPoint = ref({ x: 0, y: 0 });
 const dragDistance = ref(0); // 拖拽距离，用于区分点击和拖拽
 
 // 选中信息显示
-const selectedInfo = ref<{
+const selectedInfo = ref<({
   id?: string;
   name: string;
   type: string;
   description: string;
   danger_level?: string;
   suitable_for?: string;
-  screenPosition?: { x: number; y: number }; // 屏幕位置
+  screenPosition?: { x: number; y: number };
   // 大洲特有属性
   climate?: string;
   terrain_features?: string[];
   natural_barriers?: string[];
-} | null>(null);
+  // 出生地特有属性
+  population?: string;
+  governance?: string;
+  features?: string[];
+  landmarks?: string[];
+}) | null>(null);
 
 // 组件状态
 const mapContainer = ref<HTMLElement | null>(null);
@@ -489,8 +551,8 @@ const mapStatus = ref('正在加载修仙世界...');
 const playerName = ref('');
 
 // 修仙世界数据 - 只从酒馆变量加载
-const cultivationLocations = ref<CultivationLocation[]>([]);
-const cultivationContinents = ref<any[]>([]);
+const cultivationLocations = ref<WorldLocation[]>([]);
+const cultivationContinents = ref<CultivationContinent[]>([]);
 
 // 世界信息计算属性
 const worldName = computed(() => {
@@ -662,7 +724,7 @@ const toggleFullscreen = () => {
 // 鼠标悬浮处理 - 修复样式抽搐问题
 const hoveredLocation = ref<string | null>(null);
 
-const onLocationHover = (location: CultivationLocation) => {
+const onLocationHover = (location: WorldLocation) => {
   hoveredLocation.value = location.id;
 };
 
@@ -698,7 +760,7 @@ const selectBirthplace = () => {
 };
 
 // 选择处理 - 只有在没有明显拖动时才触发
-const selectLocation = (location: CultivationLocation) => {
+const selectLocation = (location: WorldLocation) => {
   // 如果正在拖动或拖动距离超过阈值，不触发选择
   if (isPanning.value || dragDistance.value > 5) {
     return;
@@ -707,7 +769,7 @@ const selectLocation = (location: CultivationLocation) => {
   console.log('[坤舆图志] 选中地点:', location.name);
 
   // 计算地点在屏幕上的位置
-  const screenPosition = calculateScreenPosition(location.coordinates.x, location.coordinates.y);
+  const screenPosition = calculateScreenPosition(location.coordinates?.x || 0, location.coordinates?.y || 0);
 
   selectedInfo.value = {
     id: location.id,
@@ -721,7 +783,7 @@ const selectLocation = (location: CultivationLocation) => {
 };
 
 // 选择大洲
-const selectContinent = (continent: any) => {
+const selectContinent = (continent: CultivationContinent) => {
   // 如果正在拖动或拖动距离超过阈值，不触发选择
   if (isPanning.value || dragDistance.value > 5) {
     return;
@@ -730,13 +792,13 @@ const selectContinent = (continent: any) => {
   console.log('[坤舆图志] 选中大洲:', continent.name || continent.名称);
 
   // 计算大洲中心在屏幕上的位置，兼容中英文字段名
-  const bounds = continent.continent_bounds || continent.大洲边界;
+  const bounds = continent.continent_bounds || continent.大洲边界 || [];
   const center = getContinentCenter(bounds);
   const screenPosition = calculateScreenPosition(center.x, center.y);
 
   selectedInfo.value = {
     id: continent.id,
-    name: continent.name || continent.名称,
+    name: continent.name || continent.名称 || '未知大洲',
     type: '大洲',
     description: continent.description || continent.描述 || '广阔的修仙大陆',
     climate: continent.climate || continent.气候,
@@ -1076,7 +1138,7 @@ const addTestData = () => {
   console.log('[坤舆图志] 添加测试数据');
 
   // 测试地点数据 - 明确分布在不同坐标
-  const testLocations: CultivationLocation[] = [
+  const testLocations: WorldLocation[] = [
     // 左上角
     {
       id: 'test_1',
@@ -1131,8 +1193,8 @@ const addTestData = () => {
 
   // 更新坐标
   testLocations.forEach(loc => {
-    loc.x = loc.coordinates.x;
-    loc.y = loc.coordinates.y;
+    loc.x = loc.coordinates?.x || 0;
+    loc.y = loc.coordinates?.y || 0;
     console.log(`[测试数据] ${loc.name}: 地理坐标未知 -> 虚拟坐标(${loc.x.toFixed(1)}, ${loc.y.toFixed(1)})`);
   });
 
@@ -1141,7 +1203,7 @@ const addTestData = () => {
 };
 
 // 从酒馆变量加载GeoJSON格式的修仙世界数据 - 根据实际SaveData结构
-const loadCultivationWorldFromTavern = async (variables: any) => {
+const loadCultivationWorldFromTavern = async (variables: Record<string, unknown>) => {
   try {
     console.log('[坤舆图志] 开始加载酒馆世界数据...');
     console.log('[坤舆图志] 接收到的variables:', variables);
@@ -1190,7 +1252,7 @@ const loadCultivationWorldFromTavern = async (variables: any) => {
 };
 
 // 加载大洲数据 - 从character.saveData.世界信息读取
-const loadContinentsData = async (variables: any) => {
+const loadContinentsData = async (variables: Record<string, any>) => {
   try {
     console.log('🏔️ [大陆加载] 开始加载大陆数据，可用变量:', Object.keys(variables));
     
@@ -1225,7 +1287,7 @@ const loadContinentsData = async (variables: any) => {
 };
 
 // 加载势力数据 - 从character.saveData.世界信息读取
-const loadFactionsData = async (variables: any) => {
+const loadFactionsData = async (variables: Record<string, any>) => {
   try {
     console.log('⚔️ [势力加载] 开始加载势力数据');
     
@@ -1266,7 +1328,7 @@ const loadFactionsData = async (variables: any) => {
           const factionName = faction.名称 || faction.name || `势力${index + 1}`;
           const factionType = faction.类型 || faction.type || '中立宗门';
 
-          const location: CultivationLocation = {
+          const location: WorldLocation = {
             id: faction.id || `faction_${index}`,
             name: factionName,
             type: factionType,
@@ -1297,7 +1359,7 @@ const loadFactionsData = async (variables: any) => {
 };
 
 // 加载地点数据 - 从character.saveData.世界信息读取
-const loadLocationsData = async (variables: any) => {
+const loadLocationsData = async (variables: Record<string, any>) => {
   try {
     console.log('🏯 [地点加载] 开始加载地点数据');
     
@@ -1336,7 +1398,7 @@ const loadLocationsData = async (variables: any) => {
           const locationName = location.名称 || location.name || `地点${index + 1}`;
           const locationType = location.类型 || location.type || '其他';
 
-          const locationObj: CultivationLocation = {
+          const locationObj: WorldLocation = {
             id: location.id || `location_${index}`,
             name: locationName,
             type: mapLocationTypeToInternal(locationType),
@@ -1548,6 +1610,27 @@ const centerToPlayer = () => {
   showToastWithDelay('已定位到当前位置', 'success');
 };
 
+// 根据地点类型计算图标尺寸
+const getIconSize = (locationType: string) => {
+  const iconSizes = {
+    // 大型地理实体 (比较大的图标)
+    'natural_landmark': { size: 20, offset: 10 },  // 名山大川 - 大
+    'sect_power': { size: 18, offset: 9 },         // 宗门势力 - 较大  
+    'city_town': { size: 18, offset: 9 },          // 城镇坊市 - 较大
+    
+    // 中型地理实体 (中等图标)
+    'blessed_land': { size: 16, offset: 8 },       // 洞天福地 - 中等
+    'treasure_land': { size: 16, offset: 8 },      // 奇珍异地 - 中等
+    'dangerous_area': { size: 16, offset: 8 },     // 凶险之地 - 中等
+    
+    // 小型地理实体 (较小图标)
+    'special_other': { size: 14, offset: 7 },      // 其他特殊 - 小
+    'default': { size: 16, offset: 8 }             // 默认 - 中等
+  };
+  
+  return iconSizes[locationType as keyof typeof iconSizes] || iconSizes.default;
+};
+
 // 地图生命周期
 onMounted(async () => {
   await initializeMap();
@@ -1676,7 +1759,6 @@ onMounted(async () => {
 
 .continent-name-label {
   font-family: '微软雅黑', 'SimHei', sans-serif;
-  text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.9);
   pointer-events: none;
   user-select: none;
   font-size: 16px; /* 稍微增大字体以更好地显示紧密大陆名称 */
@@ -1698,7 +1780,6 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: bold;
   font-family: '微软雅黑', 'SimHei', sans-serif;
-  text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.9);
   pointer-events: none;
 }
 
@@ -1859,7 +1940,6 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: 600;
   font-family: '微软雅黑', 'SimHei', sans-serif;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
   pointer-events: auto;
   cursor: pointer;
 }
@@ -1886,7 +1966,6 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: 600;
   font-family: '微软雅黑', 'SimHei', sans-serif;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
   pointer-events: none; /* 防止标签干扰鼠标事件 */
 }
 
@@ -1901,7 +1980,6 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: 700;
   font-family: '微软雅黑', sans-serif;
-  text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.9);
 }
 
 /* 响应式设计 */

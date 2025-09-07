@@ -34,13 +34,13 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
-          <button class="function-btn primary" @click="handleCultivationSystem">
+          <button class="function-btn primary" @click="handleTechniques">
             <div class="btn-icon">
               <BookOpen :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">修炼功法</span>
-              <span class="btn-desc">修炼心法功法</span>
+              <span class="btn-desc">功法修炼技能</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -242,8 +242,8 @@ const handleRelationships = () => {
   router.push('/game/relationships');
 };
 
-const handleCultivationSystem = () => {
-  router.push('/game/cultivation');
+const handleTechniques = () => {
+  router.push('/game/techniques');
 };
 
 const handleThousandDao = () => {

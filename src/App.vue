@@ -140,7 +140,13 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
 };
 
 const handleShowCharacterList = () => {
-  switchView('CharacterManagement');
+  if (route.path !== '/game') {
+    router.push('/game').then(() => {
+      uiStore.openCharacterManagement();
+    });
+  } else {
+    uiStore.openCharacterManagement();
+  }
 };
 
 const handleBack = () => {

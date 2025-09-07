@@ -42,7 +42,23 @@
         </div>
         
         <!-- 正常路由视图 -->
-        <router-view v-else />
+        <router-view v-else-if="!uiStore.showCharacterManagement" />
+
+        <!-- 角色管理面板 -->
+        <div v-if="uiStore.showCharacterManagement" class="panel-overlay">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <Users2 :size="20" class="panel-title-icon" />
+              角色管理
+            </h2>
+            <button class="panel-close-btn" @click="uiStore.closeCharacterManagement()" title="关闭面板">
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="panel-content">
+            <CharacterManagement @back="uiStore.closeCharacterManagement" />
+          </div>
+        </div>
       </div>
 
       <!-- 右侧收缩按钮 -->
@@ -74,13 +90,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useCharacterStore } from '@/stores/characterStore';
+import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2 } from 'lucide-vue-next';
 import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
+import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
 
 const characterStore = useCharacterStore();
+const uiStore = useUIStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -91,7 +110,7 @@ const rightSidebarCollapsed = ref(false);
 // 面板状态管理
 const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships', 
-  'Cultivation', 'Skills', 'Settings', 'Save', 'WorldMap', 
+  'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap', 
   'Quests', 'Sect'
 ]);
 
@@ -102,7 +121,7 @@ const leftPanelRoutes = new Set([
 
 // 右侧相关面板（应该影响右侧收缩按钮）  
 const rightPanelRoutes = new Set([
-  'Memory', 'Relationships', 'Cultivation', 'Skills', 'Settings', 'Save', 'Sect'
+  'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'Sect'
 ]);
 
 const panelTitles: Record<string, { title: string; icon: string }> = {
@@ -110,8 +129,9 @@ const panelTitles: Record<string, { title: string; icon: string }> = {
   'CharacterDetails': { title: '人物详情', icon: 'User' }, 
   'Memory': { title: '记忆中心', icon: 'Brain' },
   'Relationships': { title: '江湖人脉', icon: 'Users' },
-  'Cultivation': { title: '修炼功法', icon: 'BookOpen' },
-  'Skills': { title: '三千大道', icon: 'Zap' }, 
+  'Cultivation': { title: '修炼系统', icon: 'BookOpen' },
+  'Techniques': { title: '修炼功法', icon: 'Zap' }, 
+  'ThousandDao': { title: '三千大道', icon: 'Scroll' },
   'Settings': { title: '系统设置', icon: 'Settings' },
   'Save': { title: '保存游戏', icon: 'Save' },
   'WorldMap': { title: '世界地图', icon: 'Map' },

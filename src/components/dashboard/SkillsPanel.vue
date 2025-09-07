@@ -1,80 +1,144 @@
 <template>
-  <div class="dao-panel game-panel">
-    <!-- 头部统计 -->
-    <div class="panel-header">
-      <div class="header-left">
-        <div class="header-icon">🌌</div>
-        <div class="header-info">
-          <h3 class="panel-title">三千大道</h3>
-          <span class="dao-count">{{ totalDaoCount }}条大道</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="refreshDaoData" :disabled="loading">
-          <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
-          <span class="btn-text">刷新</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- 大道分类筛选 -->
-    <div class="filter-section">
-      <div class="filter-tabs">
-        <button 
-          v-for="category in daoCategories" 
-          :key="category.key"
-          class="filter-tab"
-          :class="{ active: activeFilter === category.key }"
-          @click="setActiveFilter(category.key)"
-        >
-          <span class="tab-icon">{{ category.icon }}</span>
-          <span class="tab-name">{{ category.name }}</span>
-          <span class="tab-count">{{ getCategoryCount(category.key) }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- 大道列表 -->
-    <div class="panel-content">
-      <div v-if="loading" class="loading-state">
-        <div class="loading-spinner">⏳</div>
-        <div class="loading-text">正在加载大道数据...</div>
+  <div class="skills-content">
+    <!-- 修炼心法功法区域 -->
+    <div class="cultivation-section">
+      <div class="section-header">
+        <h3>修炼功法</h3>
+        <span class="section-subtitle">当前修炼的功法技能</span>
       </div>
       
-      <div v-else-if="filteredDaoPaths.length === 0" class="empty-state">
-        <div class="empty-icon">📿</div>
-        <div class="empty-text"></div>
-        <div class="empty-hint"></div>
-      </div>
-
-      <div v-else class="dao-list">
-        <div 
-          v-for="dao in filteredDaoPaths" 
-          :key="dao.道名"
-          class="dao-card"
-          :class="getDaoLevelClass(dao.道名)"
-          @click="selectDao(dao.道名)"
-        >
-          <div class="dao-icon">{{ getDaoIcon(dao.道名) }}</div>
-          
-          <div class="dao-info">
-            <div class="dao-name">{{ dao.道名 }}</div>
-            <div class="dao-stage">{{ getCurrentStageName(dao.道名) }}</div>
-            <div class="dao-description">{{ dao.描述 }}</div>
-            
-            <div class="progress-section">
-              <div class="progress-bar">
-                <div 
-                  class="progress-fill" 
-                  :style="{ width: getProgressPercent(dao.道名) + '%' }"
-                ></div>
+      <div class="skill-slots-grid">
+        <!-- 功法槽位 -->
+        <div class="skill-slot-group">
+          <h4 class="slot-group-title">功法</h4>
+          <div 
+            class="skill-slot technique-method"
+            :class="{ 'has-skill': cultivationSkills.功法 }"
+            @click="selectSkill(cultivationSkills.功法, '功法')"
+          >
+            <div v-if="cultivationSkills.功法" class="skill-info">
+              <div class="skill-icon" :class="getSkillQualityClass(cultivationSkills.功法)">
+                <span class="skill-type-text">功</span>
               </div>
-              <div class="progress-text">
-                {{ getCurrentExp(dao.道名) }} / {{ getNextStageRequirement(dao.道名) }}
+              <div class="skill-details">
+                <div class="skill-name" :class="getSkillQualityClass(cultivationSkills.功法, 'text')">
+                  {{ cultivationSkills.功法.名称 }}
+                </div>
+                <div class="skill-progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill" :style="{ width: `${cultivationSkills.功法.修炼进度 || 0}%` }"></div>
+                  </div>
+                  <span class="progress-text">{{ cultivationSkills.功法.修炼进度 || 0 }}%</span>
+                </div>
               </div>
+            </div>
+            <div v-else class="empty-slot">
+              <div class="empty-icon">⚡</div>
+              <span>功法槽位</span>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 功法详情侧边栏 -->
+    <div class="skill-details-sidebar">
+      <div v-if="selectedSkillData" class="skill-details-content">
+        <div class="details-header">
+          <div class="details-icon-large" :class="getSkillQualityClass(selectedSkillData)">
+            <span class="skill-type-text-large">{{ getSkillTypeIcon(selectedSkillSlot) }}</span>
+          </div>
+          <div class="details-title-area">
+            <h3 :class="getSkillQualityClass(selectedSkillData, 'text')">{{ selectedSkillData.名称 }}</h3>
+            <div class="details-meta">{{ selectedSkillSlot }} / {{ selectedSkillData.品质?.quality || '凡品' }}</div>
+          </div>
+        </div>
+        
+        <div class="details-body">
+          <p class="details-description">{{ selectedSkillData.描述 }}</p>
+          
+          <!-- 功法等级 -->
+          <div class="technique-level-section">
+            <h4>功法品质</h4>
+            <div class="quality-display" :class="getSkillQualityClass(selectedSkillData, 'text')">
+              {{ selectedSkillData.品质?.quality || '凡' }}品{{ selectedSkillData.品质?.grade || 0 }}级
+            </div>
+          </div>
+          
+          <!-- 修炼进度 -->
+          <div class="cultivation-progress-section">
+            <h4>修炼进度</h4>
+            <div class="progress-container">
+              <div class="progress-bar-large">
+                <div class="progress-fill" :style="{ width: `${selectedSkillData.修炼进度 || 0}%` }"></div>
+              </div>
+              <span class="progress-percentage">{{ selectedSkillData.修炼进度 || 0 }}%</span>
+            </div>
+            <div v-if="cultivationSkills.熟练度" class="proficiency-info">
+              熟练度: {{ cultivationSkills.熟练度 }}%
+            </div>
+          </div>
+          
+          <!-- 功法效果 -->
+          <div v-if="selectedSkillData.功法效果" class="skill-effects-section">
+            <h4>功法效果</h4>
+            <div class="effect-details">
+              <div v-if="selectedSkillData.功法效果.修炼速度加成" class="effect-item">
+                <span class="effect-label">修炼速度:</span>
+                <span class="effect-value">+{{ (selectedSkillData.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+              </div>
+              <div v-if="selectedSkillData.功法效果.属性加成" class="effect-item">
+                <span class="effect-label">属性加成:</span>
+                <span class="effect-value">{{ formatAttributeBonus(selectedSkillData.功法效果.属性加成) }}</span>
+              </div>
+              <div v-if="selectedSkillData.功法效果.特殊能力?.length" class="effect-item">
+                <span class="effect-label">特殊能力:</span>
+                <div class="special-abilities">
+                  <span v-for="ability in selectedSkillData.功法效果.特殊能力" :key="ability" class="ability-tag">
+                    {{ ability }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 功法技能 -->
+          <div v-if="selectedSkillData.功法技能 && Object.keys(selectedSkillData.功法技能).length > 0" class="technique-skills-section">
+            <h4>功法技能</h4>
+            <div class="skills-list">
+              <div v-for="(skill, skillName) in selectedSkillData.功法技能" :key="skillName" class="skill-item">
+                <div class="skill-header">
+                  <span class="skill-name">{{ skillName }}</span>
+                  <span class="skill-type" :class="`type-${skill.技能类型}`">{{ skill.技能类型 }}</span>
+                </div>
+                <div class="skill-description">{{ skill.技能描述 }}</div>
+                <div class="skill-unlock">{{ skill.解锁条件 }}</div>
+                <div v-if="unlockedSkillsMap.has(String(skillName))" class="skill-status unlocked">已解锁</div>
+                <div v-else class="skill-status locked">未解锁</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 已解锁技能 -->
+          <div v-if="cultivationSkills.已解锁技能?.length" class="unlocked-skills-section">
+            <h4>已掌握技能</h4>
+            <div class="unlocked-skills">
+              <span v-for="skill in cultivationSkills.已解锁技能" :key="skill" class="unlocked-skill-tag">
+                {{ skill }}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="details-actions">
+          <button class="action-btn cultivate-btn" @click="cultivateSkill">深度修炼</button>
+          <button class="action-btn unequip-btn" @click="unequipSkill">卸下功法</button>
+        </div>
+      </div>
+      <div v-else class="details-placeholder">
+        <div class="placeholder-icon">🧘</div>
+        <p>选择功法查看详情</p>
+        <span class="placeholder-tip">从背包中装备功法开始修炼</span>
       </div>
     </div>
   </div>
@@ -82,576 +146,811 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { RefreshCw } from 'lucide-vue-next';
-import { getTavernHelper } from '@/utils/tavern';
-import { toast } from '@/utils/toast';
-import type { ThousandDaoSystem, DaoPath, DaoProgress, SaveData } from '@/types/game';
+import { useCharacterStore } from '@/stores/characterStore';
 
-const loading = ref(false);
-const activeFilter = ref('all');
+// 定义功法技能接口
+interface TechniqueSkill {
+  解锁条件: string;
+  技能描述: string;
+  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+}
 
-// 三千大道数据
-const daoSystemData = ref<ThousandDaoSystem | null>(null);
+const characterStore = useCharacterStore();
+const selectedSkillData = ref<any | null>(null);
+const selectedSkillSlot = ref<string>('');
 
-// 大道分类
-const daoCategories = [
-  { key: 'all', name: '全部', icon: '🌌' },
-  { key: 'unlocked', name: '已解锁', icon: '✨' },
-  { key: 'progressing', name: '修炼中', icon: '🔥' },
-  { key: 'mastered', name: '已精通', icon: '👑' },
-];
-
-// 解析大道数据
-const allDaoPaths = computed((): DaoPath[] => {
-  if (!daoSystemData.value?.大道路径定义) {
-    return [];
+// 修炼功法数据
+const cultivationSkills = computed(() => {
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+  if (!saveData?.修炼功法) {
+    return {
+      功法: null
+    };
   }
-  
-  return Object.values(daoSystemData.value.大道路径定义);
+  return saveData.修炼功法;
 });
 
-// 筛选后的大道
-const filteredDaoPaths = computed(() => {
-  const allPaths = allDaoPaths.value;
-  
-  switch (activeFilter.value) {
-    case 'unlocked':
-      return allPaths.filter(path => isUnlocked(path.道名));
-    case 'progressing':
-      return allPaths.filter(path => isProgressing(path.道名));
-    case 'mastered':
-      return allPaths.filter(path => isMastered(path.道名));
-    default:
-      return allPaths;
+// 选择技能
+const selectSkill = (skill: any, slotName: string) => {
+  selectedSkillData.value = skill;
+  selectedSkillSlot.value = slotName;
+};
+
+// 获取功法品质样式类
+const getSkillQualityClass = (skill: any, type: 'border' | 'text' = 'border'): string => {
+  if (!skill) return '';
+  const quality = skill.品质?.quality || '凡';
+  return `${type}-quality-${quality}`;
+};
+
+// 获取功法类型图标
+const getSkillTypeIcon = (slotName: string): string => {
+  if (slotName === '功法') return '功';
+  return '技';
+};
+
+// 格式化功法效果
+const formatSkillEffects = (effects: any): string => {
+  if (!effects || typeof effects !== 'object') {
+    return '无特殊效果';
   }
+  
+  const effectsArray = Object.entries(effects).map(([key, value]) => `${key}: ${value}`);
+  return effectsArray.join('、') || '无特殊效果';
+};
+
+// 格式化属性加成
+const formatAttributeBonus = (bonus: any): string => {
+  if (!bonus || typeof bonus !== 'object') {
+    return '无';
+  }
+  
+  const bonusArray = Object.entries(bonus).map(([key, value]) => `${key}+${value}`);
+  return bonusArray.join('、') || '无';
+};
+
+// 计算已解锁技能的 Set，优化查询性能
+const unlockedSkillsMap = computed(() => {
+  return new Set(cultivationSkills.value.已解锁技能 || []);
 });
 
-// 总大道数量
-const totalDaoCount = computed(() => daoSystemData.value?.已解锁大道.length || 0);
-
-// 判断大道状态
-const isUnlocked = (daoName: string): boolean => {
-  return daoSystemData.value?.已解锁大道.includes(daoName) || false;
-};
-
-const isProgressing = (daoName: string): boolean => {
-  const progress = daoSystemData.value?.大道进度[daoName];
-  return progress ? progress.当前阶段 > 0 && progress.当前阶段 < getMaxStage(daoName) : false;
-};
-
-const isMastered = (daoName: string): boolean => {
-  const progress = daoSystemData.value?.大道进度[daoName];
-  return progress ? progress.当前阶段 >= getMaxStage(daoName) : false;
-};
-
-// 获取大道最大阶段
-const getMaxStage = (daoName: string): number => {
-  const daoPath = daoSystemData.value?.大道路径定义[daoName];
-  return daoPath ? daoPath.阶段列表.length - 1 : 0;
-};
-
-// 获取当前阶段名称
-const getCurrentStageName = (daoName: string): string => {
-  const progress = daoSystemData.value?.大道进度[daoName];
-  const daoPath = daoSystemData.value?.大道路径定义[daoName];
+// 检查是否可以解锁新技能
+const checkSkillUnlock = (skillName: string, unlockCondition: string): boolean => {
+  const currentProgress = selectedSkillData.value?.修炼进度 || 0;
+  const currentProficiency = cultivationSkills.value.熟练度 || 0;
   
-  if (!progress || !daoPath) return '';
-  
-  const stageIndex = progress.当前阶段;
-  return daoPath.阶段列表[stageIndex]?.名称 || '';
-};
-
-// 获取当前经验
-const getCurrentExp = (daoName: string): number => {
-  const progress = daoSystemData.value?.大道进度[daoName];
-  return progress?.当前经验 || 0;
-};
-
-// 获取下一阶段经验需求
-const getNextStageRequirement = (daoName: string): number => {
-  const progress = daoSystemData.value?.大道进度[daoName];
-  const daoPath = daoSystemData.value?.大道路径定义[daoName];
-  
-  if (!progress || !daoPath) return 0;
-  
-  const currentStage = daoPath.阶段列表[progress.当前阶段];
-  return currentStage?.突破经验 || 0;
-};
-
-// 获取进度百分比
-const getProgressPercent = (daoName: string): number => {
-  const currentExp = getCurrentExp(daoName);
-  const required = getNextStageRequirement(daoName);
-  
-  if (required === 0) return 100;
-  return Math.min(100, (currentExp / required) * 100);
-};
-
-// 获取分类数量
-const getCategoryCount = (category: string): number => {
-  switch (category) {
-    case 'all': 
-      return allDaoPaths.value.length;
-    case 'unlocked':
-      return allDaoPaths.value.filter(path => isUnlocked(path.道名)).length;
-    case 'progressing':
-      return allDaoPaths.value.filter(path => isProgressing(path.道名)).length;
-    case 'mastered':
-      return allDaoPaths.value.filter(path => isMastered(path.道名)).length;
-    default:
-      return 0;
-  }
-};
-
-// 获取空状态文本
-const getEmptyText = (): string => {
-  switch (activeFilter.value) {
-    case 'unlocked':
-      return '尚未解锁任何大道';
-    case 'progressing':
-      return '当前没有修炼中的大道';
-    case 'mastered':
-      return '尚未精通任何大道';
-    default:
-      return '大道茫茫，机缘未至';
-  }
-};
-
-// 获取大道图标
-const getDaoIcon = (daoName: string): string => {
-  const iconMap: Record<string, string> = {
-    '丹道': '💊', '器道': '⚔️', '符道': '📜', '阵道': '🔮',
-    '剑道': '⚔️', '刀道': '🔪', '拳道': '👊', '身法道': '🏃',
-    '音律道': '🎵', '画道': '🎨', '茶道': '🍃', '医道': '⚕️',
-    '占卜道': '🔮', '傀儡道': '🎭', '毒道': '☠️', '兽道': '🦅'
-  };
-  return iconMap[daoName] || '✨';
-};
-
-// 获取大道等级样式
-const getDaoLevelClass = (daoName: string): string => {
-  const progress = daoSystemData.value?.大道进度[daoName];
-  if (!progress) return 'locked';
-  
-  const stageIndex = progress.当前阶段;
-  if (stageIndex === 0) return 'not-started';
-  if (stageIndex <= 2) return 'beginner';
-  if (stageIndex <= 4) return 'intermediate';
-  if (stageIndex <= 6) return 'advanced';
-  return 'master';
-};
-
-// 设置活跃筛选器
-const setActiveFilter = (filterKey: string) => {
-  activeFilter.value = filterKey;
-};
-
-// 选择大道
-const selectDao = (daoName: string) => {
-  toast.info(`查看${daoName}详情`);
-};
-
-// 刷新大道数据
-const refreshDaoData = async () => {
-  loading.value = true;
-  try {
-    await loadDaoData();
-    toast.success('大道数据已刷新');
-  } catch (error) {
-    console.error('[三千大道] 刷新失败:', error);
-    toast.error('刷新失败');
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 加载大道数据 - 只从character.saveData获取
-const loadDaoData = async () => {
-  try {
-    loading.value = true;
-    
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[三千大道] 酒馆Helper不可用');
-      return;
+  // 简单的解锁条件解析
+  if (unlockCondition.includes('熟练度达到')) {
+    const match = unlockCondition.match(/熟练度达到(\d+)%/);
+    if (match) {
+      const required = parseInt(match[1]);
+      return currentProficiency >= required;
     }
-
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    const saveData = chatVars['character.saveData'] as SaveData;
-    
-    if (saveData && typeof saveData === 'object' && saveData.三千大道) {
-      daoSystemData.value = saveData.三千大道;
-      console.log('[三千大道] 从character.saveData加载数据:', daoSystemData.value);
-    } else {
-      console.log('[三千大道] character.saveData中无三千大道数据，使用默认数据');
-      daoSystemData.value = {
-        已解锁大道: [],
-        大道进度: {},
-        大道路径定义: {},
-      };
+  }
+  
+  if (unlockCondition.includes('修炼进度达到')) {
+    const match = unlockCondition.match(/修炼进度达到(\d+)%/);
+    if (match) {
+      const required = parseInt(match[1]);
+      return currentProgress >= required;
     }
+  }
+  
+  return false;
+};
 
+// 深度修炼功法
+const cultivateSkill = async () => {
+  if (!selectedSkillData.value || !selectedSkillSlot.value) {
+    return;
+  }
+  
+  console.log('[技能面板] 深度修炼:', selectedSkillData.value.名称);
+  
+  try {
+    // 增加修炼进度（这里是示例逻辑）
+    const currentProgress = selectedSkillData.value.修炼进度 || 0;
+    const newProgress = Math.min(100, currentProgress + 10); // 每次增加10%
+    
+    // 更新存档数据
+    if (characterStore.activeSaveSlot?.存档数据?.修炼功法) {
+      const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
+      if (skillSlots.功法) {
+        // 更新功法修炼进度
+        skillSlots.功法.修炼进度 = newProgress;
+        
+        // 更新熟练度 (基于修炼进度计算)
+        const newProficiency = Math.min(100, (skillSlots.熟练度 || 0) + 5);
+        skillSlots.熟练度 = newProficiency;
+        
+        // 检查是否可以解锁新技能
+        if (selectedSkillData.value.功法技能) {
+          const unlockedSkills = skillSlots.已解锁技能 || [];
+          
+          for (const [skillName, skill] of Object.entries(selectedSkillData.value.功法技能)) {
+            const skillData = skill as TechniqueSkill;
+            if (!unlockedSkills.includes(skillName) && checkSkillUnlock(skillName, skillData.解锁条件)) {
+              unlockedSkills.push(skillName);
+              console.log(`[技能面板] 解锁新技能: ${skillName}`);
+            }
+          }
+          
+          skillSlots.已解锁技能 = unlockedSkills;
+        }
+      }
+      
+      await characterStore.commitToStorage();
+      console.log('[技能面板] 修炼进度提升至:', newProgress);
+    }
+    
   } catch (error) {
-    console.error('[三千大道] 加载数据失败:', error);
-  } finally {
-    loading.value = false;
+    console.error('[技能面板] 修炼失败:', error);
   }
 };
 
-onMounted(() => {
-  loadDaoData();
+// 卸下功法
+const unequipSkill = async () => {
+  if (!selectedSkillData.value || !selectedSkillSlot.value) {
+    return;
+  }
+  
+  // 确认卸下
+  if (!confirm(`确定要卸下 ${selectedSkillData.value.名称} 吗？`)) {
+    return;
+  }
+  
+  console.log('[技能面板] 卸下功法:', selectedSkillData.value.名称);
+  
+  try {
+    // 从修炼槽位移除
+    if (characterStore.activeSaveSlot?.存档数据?.修炼功法) {
+      const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
+      skillSlots.功法 = null;
+      
+      await characterStore.commitToStorage();
+      console.log('[技能面板] 功法卸下成功');
+      
+      // 清除选择
+      selectedSkillData.value = null;
+      selectedSkillSlot.value = '';
+    }
+    
+  } catch (error) {
+    console.error('[技能面板] 卸下失败:', error);
+  }
+};
+
+onMounted(async () => {
+  console.log('[技能面板] 组件挂载，同步酒馆数据...');
+  
+  try {
+    await characterStore.syncFromTavern();
+  } catch (error) {
+    console.error('[技能面板] 同步数据失败:', error);
+  }
 });
 </script>
 
 <style scoped>
-.dao-panel {
-  /* 使用统一的 game-panel 基础样式 */
-}
-
-/* 头部 */
-.panel-header {
+.skills-content {
+  width: 100%;
+  height: 100%;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: var(--color-surface);
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-  margin: 1rem 1rem 0 1rem;
+  background: var(--color-background);
+  overflow: hidden;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.header-icon {
-  font-size: 1.5rem;
-}
-
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.dao-count {
-  font-size: 0.875rem;
-  color: var(--color-accent);
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-  color: var(--color-primary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.action-btn:hover {
-  background: var(--color-surface-light);
-  border-color: var(--color-primary);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* 筛选器 */
-.filter-section {
-  margin: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--color-surface);
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.filter-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.filter-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 1.5rem;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 0.875rem;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.filter-tab:hover {
-  background: var(--color-surface-light);
-}
-
-.filter-tab.active {
-  background: var(--color-primary);
-  color: var(--color-background);
-}
-
-.tab-count {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 0.75rem;
-  padding: 0.125rem 0.375rem;
-  font-size: 0.75rem;
-  min-width: 1.25rem;
-  text-align: center;
-}
-
-.filter-tab.active .tab-count {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* 大道容器 */
-.panel-content {
+/* 修炼区域 */
+.cultivation-section {
   flex: 1;
-  margin: 0 1rem 1rem 1rem;
+  padding: 20px;
   overflow-y: auto;
-  min-height: 0;
-  
-  /* 改进的滚动条样式 */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) rgba(243, 244, 246, 0.5);
 }
 
-/* Webkit 滚动条样式 */
-.panel-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.panel-content::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
-  border-radius: 4px;
-}
-
-.panel-content::-webkit-scrollbar-thumb {
-  background: rgba(var(--color-primary-rgb), 0.3);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-.panel-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--color-primary-rgb), 0.5);
-}
-
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
+.section-header {
+  margin-bottom: 24px;
   text-align: center;
 }
 
-.loading-spinner,
-.empty-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.loading-text,
-.empty-text {
-  font-size: 1rem;
+.section-header h3 {
+  margin: 0 0 4px 0;
+  color: var(--color-warning);
+  font-size: 1.5rem;
   font-weight: 600;
-  color: var(--color-primary);
-  margin-bottom: 0.5rem;
 }
 
-.empty-hint {
-  font-size: 0.875rem;
+.section-subtitle {
   color: var(--color-text-secondary);
+  font-size: 0.9rem;
 }
 
-/* 大道列表 */
-.dao-list {
+/* 技能槽位网格 */
+.skill-slots-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 24px;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
-.dao-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1.25rem;
+.skill-slot-group {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.slot-group-title {
+  margin: 0 0 16px 0;
+  color: var(--color-accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 8px;
+}
+
+/* 技能槽位 */
+.skill-slot {
+  background: var(--color-background);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
   cursor: pointer;
-  transition: var(--transition-fast);
-  min-height: fit-content;
+  transition: all 0.3s ease;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
 }
 
-.dao-card:hover {
-  background: var(--color-surface-light);
-  border-color: var(--color-border-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
+.skill-slot:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
 }
 
-.dao-icon {
-  font-size: 2rem;
-  width: 3rem;
-  height: 3rem;
+.skill-slot.has-skill {
+  border-color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.05);
+}
+
+/* 技能信息 */
+.skill-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.skill-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
-  border-radius: 50%;
+  background: var(--color-surface);
   flex-shrink: 0;
+  font-weight: bold;
+  color: var(--color-text);
 }
 
-.dao-info {
+.skill-type-text {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.skill-details {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
 }
 
-.dao-name {
-  font-size: 1.125rem;
+.skill-name {
   font-weight: 600;
-  color: var(--color-text);
-  line-height: 1.2;
-  word-wrap: break-word;
+  font-size: 1rem;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dao-stage {
-  font-size: 0.875rem;
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-.dao-description {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-  word-wrap: break-word;
-  flex: 1;
-}
-
-.progress-section {
+/* 进度条 */
+.skill-progress {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  margin-top: auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .progress-bar {
+  flex: 1;
   height: 6px;
-  background: rgba(var(--color-border-rgb), 0.3);
+  background: var(--color-border);
   border-radius: 3px;
   overflow: hidden;
-  flex-shrink: 0;
-  min-width: 120px;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-primary));
-  transition: width 0.3s ease;
-  min-width: 2px;
+  background: linear-gradient(90deg, var(--color-success), var(--color-info));
+  border-radius: 3px;
+  transition: width 0.5s ease;
 }
 
 .progress-text {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
-  text-align: center;
-  white-space: nowrap;
+  font-weight: 600;
+  min-width: 35px;
 }
 
-/* 大道等级样式 */
-.dao-card.locked { 
+/* 空槽位 */
+.empty-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-secondary);
+  width: 100%;
+  gap: 8px;
+}
+
+.empty-icon {
+  font-size: 2rem;
   opacity: 0.5;
-  border-left: 4px solid var(--color-text-secondary); 
+  margin-bottom: 4px;
 }
-.dao-card.not-started { 
-  border-left: 4px solid var(--color-border); 
+
+/* 详情侧边栏 */
+.skill-details-sidebar {
+  width: 320px;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
 }
-.dao-card.beginner { 
-  border-left: 4px solid var(--color-success); 
+
+.skill-details-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-.dao-card.intermediate { 
-  border-left: 4px solid var(--color-info); 
+
+.details-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
-.dao-card.advanced { 
-  border-left: 4px solid var(--color-accent); 
+
+.details-icon-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background);
+  flex-shrink: 0;
+  font-weight: bold;
 }
-.dao-card.master { 
-  border-left: 4px solid var(--color-warning);
-  box-shadow: 0 0 20px rgba(var(--color-warning-rgb), 0.3);
+
+.skill-type-text-large {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.details-title-area h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.details-meta {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.details-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.details-description {
+  color: var(--color-text);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+/* 修炼进度部分 */
+.cultivation-progress-section {
+  margin-bottom: 20px;
+}
+
+.cultivation-progress-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar-large {
+  flex: 1;
+  height: 12px;
+  background: var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-percentage {
+  font-weight: 600;
+  color: var(--color-success);
+  min-width: 40px;
+}
+
+/* 功法效果部分 */
+.skill-effects-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.effect-text {
+  background: var(--color-background);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+/* 占位符 */
+.details-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.placeholder-tip {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  opacity: 0.8;
+}
+
+/* 操作按钮 */
+.details-actions {
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.cultivate-btn {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: white;
+}
+
+.cultivate-btn:hover {
+  background: var(--color-info-hover);
+}
+
+.unequip-btn {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+  color: white;
+}
+
+.unequip-btn:hover {
+  background: var(--color-warning-hover);
+}
+
+/* 品质样式 */
+.border-quality-神 { border-color: #ef4444 !important; }
+.border-quality-仙 { border-color: #f59e0b !important; }
+.border-quality-天 { border-color: #8b5cf6 !important; }
+.border-quality-地 { border-color: #3b82f6 !important; }
+.border-quality-人 { border-color: #10b981 !important; }
+.border-quality-凡 { border-color: var(--color-border) !important; }
+
+.text-quality-神 { color: #ef4444 !important; }
+.text-quality-仙 { color: #f59e0b !important; }
+.text-quality-天 { color: #8b5cf6 !important; }
+.text-quality-地 { color: #3b82f6 !important; }
+.text-quality-人 { color: #10b981 !important; }
+.text-quality-凡 { color: var(--color-text) !important; }
+
+/* 功法等级显示 */
+.technique-level-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.quality-display {
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--color-surface-light);
+  text-align: center;
+  border: 2px solid transparent;
+}
+
+.quality-display.text-quality-神 { 
+  background: rgba(239, 68, 68, 0.1); 
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.quality-display.text-quality-仙 { 
+  background: rgba(245, 158, 11, 0.1); 
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.quality-display.text-quality-天 { 
+  background: rgba(139, 92, 246, 0.1); 
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.quality-display.text-quality-地 { 
+  background: rgba(59, 130, 246, 0.1); 
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.quality-display.text-quality-人 { 
+  background: rgba(16, 185, 129, 0.1); 
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* 熟练度信息 */
+.proficiency-info {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--color-info);
+  font-weight: 500;
+}
+
+/* 功法效果详情 */
+.effect-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.effect-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.effect-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 80px;
+}
+
+.effect-value {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.special-abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ability-tag {
+  background: var(--color-info);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* 功法技能列表 */
+.technique-skills-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-item {
+  background: var(--color-background);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s ease;
+}
+
+.skill-item:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.skill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.skill-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.skill-type {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.type-攻击 { background: #fee2e2; color: #dc2626; }
+.type-防御 { background: #dbeafe; color: #2563eb; }
+.type-辅助 { background: #ecfccb; color: #65a30d; }
+.type-移动 { background: #fef3c7; color: #d97706; }
+.type-其他 { background: #f3f4f6; color: #6b7280; }
+
+.skill-description {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.skill-unlock {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.skill-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.skill-status.unlocked {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.skill-status.locked {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* 已解锁技能 */
+.unlocked-skills-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.unlocked-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unlocked-skill-tag {
+  background: var(--color-success);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .dao-card {
+  .skills-content {
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1rem;
   }
   
-  .dao-icon {
-    align-self: center;
+  .skill-details-sidebar {
+    width: 100%;
+    max-height: 300px;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
   }
   
-  .progress-bar {
-    min-width: 100px;
+  .cultivation-section {
+    padding: 16px;
   }
   
-  .header-actions .btn-text {
-    display: none;
+  .skill-slot {
+    min-height: 60px;
+    padding: 12px;
   }
   
-  .filter-tabs {
-    justify-content: center;
-    flex-wrap: wrap;
+  .skill-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .skill-type-text {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header h3 {
+    font-size: 1.3rem;
+  }
+  
+  .skill-slot-group {
+    padding: 16px;
+  }
+  
+  .skill-info {
+    gap: 8px;
+  }
+  
+  .details-header {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .details-icon-large {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .skill-type-text-large {
+    font-size: 20px;
   }
 }
 </style>

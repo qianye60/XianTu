@@ -77,6 +77,25 @@ export interface Item {
   数量: number;
   耐久度?: ValuePair<number>;
   描述?: string; // 物品描述
+  // 功法特有属性
+  功法效果?: {
+    修炼速度加成?: number; // 修炼速度倍数
+    属性加成?: Partial<InnateAttributes>; // 修炼后获得的属性加成
+    特殊能力?: string[]; // 特殊能力描述
+    前置要求?: {
+      最低境界?: string;
+      必需属性?: Partial<InnateAttributes>;
+      灵根要求?: string[];
+    };
+  };
+  功法技能?: { // 功法包含的技能
+    [技能名称: string]: {
+      解锁条件: string; // 如"熟练度达到30%"
+      技能描述: string;
+      技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+    };
+  };
+  修炼进度?: number; // 当前修炼进度 (0-100)
 }
 
 export interface Inventory {
@@ -414,6 +433,13 @@ export interface SaveData {
     spiritRoots: any[];
     talents: any[];
   }; // 角色创建时的数据缓存
+  修炼功法?: {
+    功法: Item | null;
+    熟练度?: number; // 0-100
+    已解锁技能?: string[]; // 从功法中学会的技能
+    修炼时间?: number; // 总修炼时间（小时）
+    突破次数?: number; // 功法境界突破次数
+  };
 }
 
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="character-management-fullscreen">
+  <div class="character-management-panel">
     <!-- 自定义对话框 -->
     <div v-if="modalState.show" class="dialog-overlay" @click="handleModalCancel">
       <div class="dialog-box" @click.stop>
@@ -28,21 +28,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 头部 -->
-    <header class="top-header">
-      <div class="header-content">
-        <div class="header-left-side">
-          <button @click="toggleCharacterPanel" class="btn-toggle-panel">
-            <span class="hamburger-icon"></span>
-          </button>
-          <h1 class="page-title">角色管理</h1>
-        </div>
-        <button @click="goBack" class="btn-back">
-          <span>←</span> 返回道途
-        </button>
-      </div>
-    </header>
 
     <!-- 主体区域 -->
     <main class="main-content">
@@ -683,7 +668,7 @@ const handleEditSaveName = (charId: string, slotKey: string) => {
 };
 
 const goBack = () => {
-  emit('back');
+  emit('back'); // Still emit for internal logic, but also close via store
 };
 
 const handleLogin = () => {
@@ -920,15 +905,10 @@ const closeModal = () => {
 
 
 /* 全屏布局 */
-.character-management-fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100vw;
-  height: 100vh;
-  background: var(--color-background-transparent);
+.character-management-panel {
+  width: 100%;
+  height: 100%;
+  background: var(--color-background);
   color: var(--color-text);
   display: flex;
   flex-direction: column;
@@ -1077,28 +1057,33 @@ const closeModal = () => {
 .characters-grid {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
   /* 移动端滚动优化 */
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+  scrollbar-color: rgba(59, 130, 246, 0.6) rgba(229, 231, 235, 0.2);
 }
 
 .characters-grid::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  background: rgba(229, 231, 235, 0.2);
+  border-radius: 4px;
 }
 
 .characters-grid::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(229, 231, 235, 0.2);
+  border-radius: 4px;
 }
 
 .characters-grid::-webkit-scrollbar-thumb {
-  background: rgba(var(--color-primary-rgb), 0.3);
-  border-radius: 3px;
+  background: rgba(59, 130, 246, 0.6);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .characters-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--color-primary-rgb), 0.5);
+  background: rgba(59, 130, 246, 0.8);
 }
 
 /* 角色卡片 */

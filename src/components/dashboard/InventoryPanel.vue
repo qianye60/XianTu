@@ -30,7 +30,7 @@
           <select v-model="selectedCategory" class="filter-select">
             <option value="all">全部物品</option>
             <option v-for="cat in itemCategories" :key="cat" :value="cat">
-              {{ cat === '法宝' ? '⚔️ 法宝' : cat === '功法' ? '📖 功法' : cat === '其他' ? '📦 其他' : cat }}
+              {{ cat }}
             </option>
           </select>
           <select v-model="sortBy" class="filter-select">
@@ -64,26 +64,34 @@
               </button>
             </div>
             <div class="modal-content">
-              <div class="modal-icon" :class="getItemQualityClass(selectedItem)">
-                <component :is="getItemIconComponent(selectedItem)" :size="48" />
+              <div class="modal-icon-simple" :class="getItemQualityClass(selectedItem)">
+                <div class="item-type-text">{{ selectedItem?.类型 }}</div>
               </div>
               <div class="modal-info">
                 <div class="modal-meta">{{ selectedItem?.类型 }} / {{ selectedItem?.品质?.quality || '凡品' }}</div>
                 <p class="modal-description">{{ selectedItem?.描述 }}</p>
                 <div v-if="selectedItem?.装备增幅" class="modal-attributes">
                   <h4>装备增幅</h4>
-                  <div class="attribute-list">
-                    <div v-for="(value, key) in selectedItem.装备增幅" :key="key" class="attribute-item">
-                      <span>{{ key }}</span>
-                      <span>+{{ value }}</span>
-                    </div>
-                  </div>
+                  <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
                 </div>
               </div>
             </div>
             <div class="modal-actions">
-              <button class="action-btn use-btn">使用</button>
-              <button class="action-btn discard-btn">丢弃</button>
+              <!-- 法宝：装备和丢弃 -->
+              <template v-if="selectedItem?.类型 === '法宝'">
+                <button class="action-btn equip-btn" @click="equipItem(selectedItem)">装备</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+              </template>
+              <!-- 功法：修炼和丢弃 -->
+              <template v-else-if="selectedItem?.类型 === '功法'">
+                <button class="action-btn cultivate-btn" @click="cultivateItem(selectedItem)">修炼</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+              </template>
+              <!-- 其他物品：使用和丢弃 -->
+              <template v-else>
+                <button class="action-btn use-btn" @click="useItem(selectedItem)">使用</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+              </template>
             </div>
           </div>
         </div>
@@ -111,9 +119,10 @@
             class="item-card"
             :class="[getItemQualityClass(item)]"
             @click="selectItem(item)"
+            @dblclick="handleDoubleClick(item)"
           >
-            <div class="item-icon-wrapper">
-              <component :is="getItemIconComponent(item)" :size="isMobile ? 28 : 32" />
+            <div class="item-info-wrapper">
+              <div class="item-type-badge" :class="getItemTypeClass(item.类型)">{{ item.类型 }}</div>
               <div class="item-quantity" v-if="item.数量 > 1">{{ item.数量 }}</div>
             </div>
             <div class="item-name">{{ item.名称 }}</div>
@@ -125,7 +134,7 @@
           <div v-if="selectedItem" class="details-content">
             <div class="details-header">
               <div class="details-icon-large" :class="getItemQualityClass(selectedItem)">
-                <component :is="getItemIconComponent(selectedItem)" :size="40" />
+                <div class="item-type-text-large">{{ selectedItem.类型 }}</div>
               </div>
               <div class="details-title-area">
                 <h3 :class="getItemQualityClass(selectedItem, 'text')">{{ selectedItem.名称 }}</h3>
@@ -136,17 +145,25 @@
               <p class="details-description">{{ selectedItem.描述 }}</p>
               <div v-if="selectedItem.装备增幅" class="details-attributes">
                 <h4>装备增幅</h4>
-                <div class="attribute-list">
-                  <div v-for="(value, key) in selectedItem.装备增幅" :key="key" class="attribute-item">
-                    <span>{{ key }}</span>
-                    <span>+{{ value }}</span>
-                  </div>
-                </div>
+                <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
             </div>
             <div class="details-actions">
-              <button class="action-btn use-btn">使用</button>
-              <button class="action-btn discard-btn">丢弃</button>
+              <!-- 法宝：装备和丢弃 -->
+              <template v-if="selectedItem?.类型 === '法宝'">
+                <button class="action-btn equip-btn" @click="equipItem(selectedItem)">装备</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+              </template>
+              <!-- 功法：修炼和丢弃 -->
+              <template v-else-if="selectedItem?.类型 === '功法'">
+                <button class="action-btn cultivate-btn" @click="cultivateItem(selectedItem)">修炼</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+              </template>
+              <!-- 其他物品：使用和丢弃 -->
+              <template v-else>
+                <button class="action-btn use-btn" @click="useItem(selectedItem)">使用</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+              </template>
             </div>
           </div>
           <div v-else class="details-placeholder">
@@ -203,7 +220,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, Component } from 'vue';
-import { Search, Sword, Book, Box, BoxSelect, Gem, Package, X, RotateCcw } from 'lucide-vue-next';
+import { Search, BoxSelect, Gem, Package, X, RotateCcw } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { Item, Inventory } from '@/types/game';
 
@@ -242,7 +259,7 @@ const inventory = computed<Inventory>(() => {
 const itemList = computed<Item[]>(() => Object.values(inventory.value.物品 || {}));
 
 const itemCategories = computed(() => {
-  // 基于数据结构的固定分类：法宝、功法、其他
+  // 固定三个分类：法宝、功法、其他
   const predefinedCategories = ['法宝', '功法', '其他'];
   const existingCategories: string[] = [];
   
@@ -253,18 +270,6 @@ const itemCategories = computed(() => {
       existingCategories.push(category);
     }
   });
-  
-  // 检查是否有其他string类型的物品（数据结构允许的扩展）
-  const customCategories = new Set<string>();
-  itemList.value.forEach(item => {
-    if (!predefinedCategories.includes(item.类型)) {
-      customCategories.add(item.类型);
-    }
-  });
-  
-  if (customCategories.size > 0) {
-    existingCategories.push(...Array.from(customCategories));
-  }
   
   return existingCategories;
 });
@@ -291,17 +296,224 @@ const filteredItems = computed(() => {
   return items;
 });
 
-const getItemIconComponent = (item: Item | null): Component => {
-  if (!item) return Box;
+// 格式化物品属性显示
+const formatItemAttributes = (attributes: any): string => {
+  if (!attributes || typeof attributes !== 'object') {
+    return '无特殊属性';
+  }
   
-  const typeMap: { [key: string]: Component } = { 
-    '法宝': Sword, 
-    '功法': Book, 
-    '其他': Package
+  // 将属性对象转换为简洁的文本显示
+  const attrArray = Object.entries(attributes).map(([key, value]) => `${key}+${value}`);
+  return attrArray.join('、') || '无特殊属性';
+};
+
+// 获取物品类型样式
+const getItemTypeClass = (type: string): string => {
+  const typeClasses: Record<string, string> = {
+    '法宝': 'type-artifact',
+    '功法': 'type-technique', 
+    '其他': 'type-other'
   };
   
-  // 如果有对应的图标就用，否则使用默认图标
-  return typeMap[item.类型] || Box;
+  return typeClasses[type] || 'type-other';
+};
+
+// 双击处理
+const handleDoubleClick = (item: Item) => {
+  if (item.类型 === '法宝') {
+    equipItem(item);
+  } else if (item.类型 === '功法') {
+    cultivateItem(item);
+  } else {
+    useItem(item);
+  }
+};
+
+// 功法修炼功能
+const cultivateItem = async (item: Item) => {
+  if (!item || item.类型 !== '功法') {
+    return;
+  }
+  
+  console.log('[背包面板] 修炼功法:', item.名称);
+  
+  try {
+    // 检查存档数据是否存在
+    if (!characterStore.activeSaveSlot?.存档数据) {
+      console.warn('[背包面板] 存档数据不存在');
+      return;
+    }
+    
+    // 检查是否有修炼功法数据结构
+    if (!characterStore.activeSaveSlot.存档数据.修炼功法) {
+      console.warn('[背包面板] 修炼功法槽位不存在，暂时跳过修炼功能');
+      return;
+    }
+    
+    // 将功法添加到修炼功法槽位中
+    const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
+    
+    // 找到空的功法位置
+    let cultivated = false;
+    const slotKey = '功法';
+    
+    if (!skillSlots[slotKey] || skillSlots[slotKey] === null) {
+      // 装备功法到修炼槽位 - 创建完整的功法数据
+      const skillData = {
+        物品ID: item.物品ID || '',
+        名称: item.名称,
+        类型: item.类型,
+        品质: item.品质,
+        描述: item.描述,
+        功法效果: item.功法效果 || {},
+        功法技能: item.功法技能 || {},
+        修炼进度: 0,
+        数量: 1
+      };
+      skillSlots[slotKey] = skillData;
+      
+      // 初始化修炼数据
+      if (!skillSlots.熟练度) skillSlots.熟练度 = 0;
+      if (!skillSlots.已解锁技能) skillSlots.已解锁技能 = [];
+      
+      cultivated = true;
+      console.log(`[背包面板] 功法装备到${slotKey}:`, item.名称);
+    }
+    
+    if (!cultivated) {
+      console.warn('[背包面板] 修炼槽位已满，无法修炼');
+      return;
+    }
+    
+    // 保存数据到存储
+    await characterStore.commitToStorage();
+    
+    console.log('[背包面板] 功法修炼成功');
+    
+    // 关闭弹窗
+    if (isMobile.value) {
+      showItemModal.value = false;
+    }
+    selectedItem.value = null;
+    
+  } catch (error) {
+    console.error('[背包面板] 修炼失败:', error);
+  }
+};
+
+// 使用物品功能
+const useItem = async (item: Item) => {
+  if (!item) {
+    return;
+  }
+  
+  console.log('[背包面板] 使用物品:', item.名称);
+  
+  try {
+    // 这里可以根据物品类型实现不同的使用逻辑
+    // 比如消耗品直接使用并减少数量
+    console.log('[背包面板] 使用物品功能待实现');
+    
+    // 关闭弹窗
+    if (isMobile.value) {
+      showItemModal.value = false;
+    }
+    selectedItem.value = null;
+    
+  } catch (error) {
+    console.error('[背包面板] 使用失败:', error);
+  }
+};
+
+// 丢弃物品功能
+const discardItem = async (item: Item) => {
+  if (!item) {
+    return;
+  }
+  
+  // 确认丢弃
+  if (!confirm(`确定要丢弃 ${item.名称} 吗？`)) {
+    return;
+  }
+  
+  console.log('[背包面板] 丢弃物品:', item.名称);
+  
+  try {
+    // 从背包中移除物品
+    if (characterStore.activeSaveSlot?.存档数据?.背包?.物品) {
+      delete characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID];
+      await characterStore.commitToStorage();
+      console.log('[背包面板] 物品丢弃成功');
+      
+      // 如果当前选中的是被丢弃的物品，清除选择
+      if (selectedItem.value?.物品ID === item.物品ID) {
+        selectedItem.value = null;
+      }
+      
+      // 关闭弹窗
+      if (isMobile.value) {
+        showItemModal.value = false;
+      }
+    }
+    
+  } catch (error) {
+    console.error('[背包面板] 丢弃失败:', error);
+  }
+};
+const equipItem = async (item: Item) => {
+  if (!item || item.类型 !== '法宝') {
+    return;
+  }
+  
+  console.log('[背包面板] 装备法宝:', item.名称);
+  
+  try {
+    // 检查存档数据是否存在
+    if (!characterStore.activeSaveSlot?.存档数据) {
+      console.warn('[背包面板] 存档数据不存在');
+      return;
+    }
+    
+    // 检查是否有装备栏数据结构
+    if (!characterStore.activeSaveSlot.存档数据.装备栏) {
+      console.warn('[背包面板] 装备栏不存在，暂时跳过装备功能');
+      return;
+    }
+    
+    // 将物品添加到装备栏中 - 简单实现
+    const equipmentSlot = characterStore.activeSaveSlot.存档数据.装备栏;
+    
+    // 找到空的法宝位置
+    let equipped = false;
+    for (let i = 1; i <= 6; i++) {
+      const slotKey = `法宝${i}` as keyof typeof equipmentSlot;
+      if (!equipmentSlot[slotKey]) {
+        equipmentSlot[slotKey] = item.物品ID;
+        equipped = true;
+        console.log(`[背包面板] 法宝装备到${slotKey}:`, item.名称);
+        break;
+      }
+    }
+    
+    if (!equipped) {
+      console.warn('[背包面板] 装备栏已满，无法装备');
+      return;
+    }
+    
+    // 保存数据到存储
+    await characterStore.commitToStorage();
+    
+    console.log('[背包面板] 法宝装备成功');
+    
+    // 关闭弹窗
+    if (isMobile.value) {
+      showItemModal.value = false;
+    }
+    selectedItem.value = null;
+    
+  } catch (error) {
+    console.error('[背包面板] 装备失败:', error);
+  }
 };
 
 const getItemQualityClass = (item: Item | null, type: 'border' | 'text' = 'border'): string => {
@@ -342,6 +554,7 @@ const spiritStoneGrades = [
     exchangeUp: '中品'
   },
 ] as const;
+
 
 // 选择物品
 const selectItem = (item: Item) => {
@@ -507,7 +720,7 @@ onMounted(async () => {
   text-align: center;
 }
 
-.modal-icon {
+.modal-icon-simple {
   width: 80px;
   height: 80px;
   border-radius: 12px;
@@ -517,6 +730,9 @@ onMounted(async () => {
   justify-content: center;
   margin-bottom: 16px;
   background: var(--color-surface-hover);
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--color-text);
 }
 
 .modal-info {
@@ -758,11 +974,6 @@ onMounted(async () => {
   border-color: var(--color-primary);
 }
 
-.item-icon-wrapper {
-  position: relative;
-  margin-bottom: 8px;
-}
-
 .item-quantity {
   position: absolute;
   bottom: -4px;
@@ -822,6 +1033,9 @@ onMounted(async () => {
   justify-content: center;
   background: var(--color-background);
   flex-shrink: 0;
+  font-weight: bold;
+  font-size: 12px;
+  color: var(--color-text);
 }
 
 .details-title-area h3 {
@@ -1031,30 +1245,84 @@ onMounted(async () => {
   background: var(--color-error-hover);
 }
 
-/* 通用属性列表 */
-.attribute-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.attribute-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
+/* 属性文本显示 */
+.attribute-text {
   background: var(--color-background);
   border-radius: 6px;
+  padding: 12px;
   font-size: 0.9rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  word-break: break-all;
 }
 
-.attribute-item span:first-child {
-  color: var(--color-text-secondary);
+.item-info-wrapper {
+  position: relative;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.attribute-item span:last-child {
-  color: var(--color-primary);
+.item-type-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
   font-weight: 600;
+  text-align: center;
+  min-width: 36px;
+}
+
+.type-artifact {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.type-technique {
+  background: #dbeafe;
+  color: #2563eb;
+  border: 1px solid #93c5fd;
+}
+
+.type-other {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.item-type-text {
+  font-size: 10px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.item-type-text-large {
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.cultivate-btn {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: white;
+}
+
+.cultivate-btn:hover {
+  background: var(--color-info-hover);
+}
+
+.equip-btn {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.equip-btn:hover {
+  background: var(--color-success-hover);
 }
 
 /* 品质样式 */

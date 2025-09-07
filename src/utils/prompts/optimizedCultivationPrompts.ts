@@ -39,7 +39,11 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeStatusEffect: true })}
 - **道友姓名:** ${characterName}
 - **当前境界:** ${currentRealm}
 - **境界进度:** ${realmProgress}%
-- **主修功法:** ${mainSkill ? mainSkill.name : '未选择'}
+- **主修功法:** ${mainSkill ? `${mainSkill.name || mainSkill.名称} (${mainSkill.品质?.quality || '未知'}阶${mainSkill.品质?.grade || 0}级)` : '未选择'}
+- **修炼进度:** ${mainSkill ? `${mainSkill.修炼进度 || 0}%` : '0%'}
+- **熟练度:** ${mainSkill && mainSkill.熟练度 ? `${mainSkill.熟练度}%` : '0%'}
+- **已解锁技能:** ${mainSkill && mainSkill.已解锁技能?.length ? mainSkill.已解锁技能.join('、') : '无'}
+- **功法效果:** ${mainSkill && mainSkill.功法效果 ? `修炼速度+${((mainSkill.功法效果.修炼速度加成 || 1) * 100).toFixed(0)}%` : '无加成'}
 - **修炼地点:** ${currentLocation}
 - **灵气浓度:** ${spiritDensity}/10
 
@@ -61,16 +65,42 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeStatusEffect: true })}
 
 #### **3. 功法特色体现:**
 - 突出主修功法的独特运行路径和特效
-- 描述功法与个人体质、天赋的适配程度
+- 描述功法与个人体质、天赋的适配程度  
 - 展现功法层次提升带来的新变化
+- 体现功法技能的运用和效果
+- 根据熟练度展现修炼的深度变化
+- 根据功法效果中的属性加成影响修炼结果
+- 特殊能力在修炼过程中的体现和作用
+- 功法前置要求对修炼效果的影响
+- 灵根匹配度对功法修炼的加成效果
+
+#### **4. 技能解锁与进步:**
+- 检查修炼进度是否达到新技能解锁条件
+- 描述技能领悟的过程和感悟
+- 展现技能熟练度的提升
+- 体现功法境界的层次感
+- 根据功法技能数据结构生成对应的技能效果
+- 不同品质功法的技能威力差异化展现
+
+#### **5. 功法特殊效果体现:**
+- 根据功法效果中的属性加成影响修炼结果
+- 特殊能力在修炼过程中的体现和作用
+- 功法前置要求对修炼效果的影响
+- 灵根匹配度对功法修炼的加成效果
 
 ### **⚡ 修炼结果计算公式:**
 
 #### **基础进展计算:**
 \`\`\`
 基础收益 = (灵气浓度 × 0.1) + (功法适配度 × 0.15) + (专注程度随机值 0.5-1.5)
-实际经验 = 基础收益 × 修炼时长系数 × 环境加成 × 随机偏差(0.8-1.2)
+功法加成 = ${mainSkill && mainSkill.功法效果?.修炼速度加成 ? mainSkill.功法效果.修炼速度加成 : 1.0}
+实际经验 = 基础收益 × 修炼时长系数 × 环境加成 × 功法加成 × 随机偏差(0.8-1.2)
 \`\`\`
+
+#### **功法技能解锁检查:**
+- 根据当前修炼进度和熟练度检查是否满足技能解锁条件
+- 解锁新技能时提供详细的领悟过程描述
+- 体现功法品质对技能威力的影响
 
 #### **特殊事件触发概率:**
 - **小顿悟:** 5% (经验加成 1.5倍)
@@ -88,6 +118,9 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeStatusEffect: true })}
   "cultivation_result": {
     "experience_gained": "具体经验数值",
     "breakthrough_progress": "突破进度百分比",
+    "technique_progress": "功法修炼进度增加值",
+    "proficiency_gained": "熟练度增加值",
+    "unlocked_skills": ["本次解锁的技能列表"],
     "special_events": ["特殊事件列表"],
     "insights": "修炼感悟内容"
   },
@@ -95,6 +128,8 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeStatusEffect: true })}
   "mid_term_memory": "本次修炼的关键收获记录",
   "tavern_commands": [
     {"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.修为.当前", "value": "获得的经验值"},
+    {"action": "add", "scope": "chat", "key": "character.saveData.修炼功法.功法.修炼进度", "value": "功法进度增加值"},
+    {"action": "add", "scope": "chat", "key": "character.saveData.修炼功法.熟练度", "value": "熟练度增加值"},
     {"action": "set", "scope": "chat", "key": "character.last_cultivation_time", "value": "当前时间"}
   ]
 }
