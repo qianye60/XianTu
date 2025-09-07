@@ -379,11 +379,64 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const tavernSaveData = chatVars['character.saveData'] as SaveData | undefined;
       
       if (tavernSaveData) {
+        // 数据整合和清理：确保数据结构一致性
+        let cleanedSaveData = {
+          ...tavernSaveData
+        };
+        
+        // 修复数据重复问题：检查是否有嵌套的character.saveData
+        if (cleanedSaveData.character && cleanedSaveData.character.saveData) {
+          console.log('[存档核心] 检测到嵌套的character.saveData结构，进行数据修复');
+          const nestedSaveData = cleanedSaveData.character.saveData;
+          
+          // 如果嵌套数据的背包物品更完整，使用嵌套数据
+          if (nestedSaveData.背包 && nestedSaveData.背包.物品 && 
+              Object.keys(nestedSaveData.背包.物品).length > 0 &&
+              (!cleanedSaveData.背包?.物品 || Object.keys(cleanedSaveData.背包.物品).length === 0)) {
+            console.log('[存档核心] 使用嵌套数据中的背包信息，物品数量:', Object.keys(nestedSaveData.背包.物品).length);
+            cleanedSaveData.背包 = nestedSaveData.背包;
+          }
+          
+          // 如果嵌套数据有世界信息而顶层没有，使用嵌套数据
+          if (nestedSaveData.世界信息 && !cleanedSaveData.世界信息) {
+            console.log('[存档核心] 使用嵌套数据中的世界信息');
+            cleanedSaveData.世界信息 = nestedSaveData.世界信息;
+          }
+          
+          // 如果嵌套数据有人物关系而顶层没有，使用嵌套数据
+          if (nestedSaveData.人物关系 && Object.keys(nestedSaveData.人物关系).length > 0 &&
+              (!cleanedSaveData.人物关系 || Object.keys(cleanedSaveData.人物关系).length === 0)) {
+            console.log('[存档核心] 使用嵌套数据中的人物关系');
+            cleanedSaveData.人物关系 = nestedSaveData.人物关系;
+          }
+          
+          // 清理嵌套结构
+          delete cleanedSaveData.character;
+        }
+        
+        // 修复物品数据问题：确保背包物品数据正确
+        if (cleanedSaveData.背包 && typeof cleanedSaveData.背包.物品 === 'object') {
+          if (Object.keys(cleanedSaveData.背包.物品).length === 0) {
+            console.log('[存档核心] 检测到空的背包.物品数据');
+          } else {
+            console.log('[存档核心] 背包中有', Object.keys(cleanedSaveData.背包.物品).length, '个物品');
+          }
+        }
+        
+        // 确保世界信息数据存在
+        if (!cleanedSaveData.世界信息) {
+          console.warn('[存档核心] 缺少世界信息数据，可能需要重新生成地图');
+        } else {
+          console.log('[存档核心] 世界信息数据正常');
+        }
+        
         // 更新本地存档数据
-        slot.存档数据 = tavernSaveData;
+        slot.存档数据 = cleanedSaveData;
         slot.保存时间 = new Date().toISOString();
         commitToStorage();
         console.log('[存档核心] 已从酒馆同步最新存档数据');
+        console.log('[存档核心] 最终背包物品数量:', Object.keys(cleanedSaveData.背包?.物品 || {}).length);
+        console.log('[存档核心] 是否有世界信息:', !!cleanedSaveData.世界信息);
       } else {
         console.warn('[存档核心] 酒馆中没有找到character.saveData数据');
       }

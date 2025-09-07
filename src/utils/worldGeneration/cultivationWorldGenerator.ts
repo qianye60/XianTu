@@ -220,6 +220,78 @@ export class CultivationWorldGenerator {
         } as WorldGenerationInfo
       };
 
+      console.log('🎯 [玩家出生地处理] 检查AI返回的玩家出生数据:', worldData.player_spawn);
+      
+      // 处理玩家出生地数据
+      if (worldData.player_spawn && worldData.player_spawn.birth_location) {
+        const birthLocation = worldData.player_spawn.birth_location;
+        console.log('🎯 [玩家出生地处理] 找到出生地数据:', birthLocation);
+        
+        // 验证出生地坐标是否在大陆内部
+        const isValidCoordinate = this.validateBirthLocationInContinent(
+          birthLocation.coordinates,
+          worldData.player_spawn.continent_id,
+          worldData.continents
+        );
+        
+        if (!isValidCoordinate) {
+          console.warn('🎯 [玩家出生地处理] 出生地坐标不在指定大陆内部，尝试调整坐标');
+          // 如果坐标不在大陆内，尝试使用大陆中心点附近的坐标
+          const adjustedCoords = this.adjustBirthLocationToContinent(
+            worldData.player_spawn.continent_id,
+            worldData.continents
+          );
+          if (adjustedCoords) {
+            birthLocation.coordinates = adjustedCoords;
+            console.log('🎯 [玩家出生地处理] 已调整出生地坐标为:', adjustedCoords);
+          }
+        }
+        
+        // 保存玩家出生地信息
+        (worldInfo as any).玩家出生地 = {
+          大陆ID: worldData.player_spawn.continent_id,
+          出生地名称: birthLocation.name,
+          出生地类型: birthLocation.type,
+          坐标: birthLocation.coordinates,
+          描述: birthLocation.description,
+          安全等级: birthLocation.safety_level,
+          显著特征: birthLocation.notable_features || [],
+          附近地标: birthLocation.nearby_landmarks || [],
+          人口规模: birthLocation.population,
+          管辖情况: birthLocation.governance
+        };
+      } else {
+        console.warn('🎯 [玩家出生地处理] AI未生成玩家出生地数据，将使用默认设置');
+        
+        // 创建默认出生地点，尝试放在第一个大陆的中心附近
+        let defaultCoords = { longitude: 110.5, latitude: 35.0 };
+        if (worldData.continents && worldData.continents.length > 0) {
+          const firstContinent = worldData.continents[0];
+          if (firstContinent.continent_bounds && Array.isArray(firstContinent.continent_bounds)) {
+            // 计算第一个大陆的中心点
+            const bounds = firstContinent.continent_bounds;
+            const centerLng = bounds.reduce((sum: number, p: any) => sum + p.longitude, 0) / bounds.length;
+            const centerLat = bounds.reduce((sum: number, p: any) => sum + p.latitude, 0) / bounds.length;
+            defaultCoords = { longitude: centerLng, latitude: centerLat };
+            console.log('🎯 [玩家出生地处理] 使用第一个大陆的中心点作为默认出生地:', defaultCoords);
+          }
+        }
+        
+        // 创建默认出生地点
+        (worldInfo as any).玩家出生地 = {
+          大陆ID: worldData.continents?.[0]?.id || 'unknown',
+          出生地名称: '无名村落',
+          出生地类型: 'village',
+          坐标: defaultCoords,
+          描述: '一个偏远的无名村落，民风淳朴，远离修仙界的纷争',
+          安全等级: '安全',
+          显著特征: ['民风淳朴', '远离纷争', '环境宁静'],
+          附近地标: [],
+          人口规模: '数十户人家',
+          管辖情况: '无人管辖的自治村落'
+        };
+      }
+
       // 初始化时直接删除现有的character.saveData，创建全新的完整架构
       console.log('[修仙世界生成器] 正在清除现有数据并创建全新的完整角色架构');
       
@@ -263,8 +335,10 @@ export class CultivationWorldGenerator {
           },
           声望: 0,
           位置: {
-            描述: '',
-            坐标: { X: 0, Y: 0 }
+            描述: (worldInfo as any).玩家出生地?.出生地名称 || '',
+            坐标: (worldInfo as any).玩家出生地?.坐标 ? 
+              { X: (worldInfo as any).玩家出生地.坐标.longitude, Y: (worldInfo as any).玩家出生地.坐标.latitude } :
+              { X: 0, Y: 0 }
           },
           气血: { 当前: 100, 最大: 100 },
           灵气: { 当前: 50, 最大: 50 },
@@ -384,5 +458,80 @@ export class CultivationWorldGenerator {
       console.log('[修仙世界生成器] 原始响应内容:', response);
       throw new Error(`世界数据解析失败: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+  
+  /**
+   * 验证出生地坐标是否在指定大陆内部
+   */
+  private validateBirthLocationInContinent(
+    coordinates: {longitude: number, latitude: number},
+    continentId: string,
+    continents: any[]
+  ): boolean {
+    if (!coordinates || !continentId || !continents) return false;
+    
+    const targetContinent = continents.find(c => c.id === continentId);
+    if (!targetContinent || !targetContinent.continent_bounds) return false;
+    
+    // 使用简单的点在多边形内算法（射线法）
+    return this.pointInPolygon(coordinates, targetContinent.continent_bounds);
+  }
+  
+  /**
+   * 点在多边形内判断（射线法）
+   */
+  private pointInPolygon(point: {longitude: number, latitude: number}, polygon: any[]): boolean {
+    const x = point.longitude;
+    const y = point.latitude;
+    let inside = false;
+    
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].longitude;
+      const yi = polygon[i].latitude;
+      const xj = polygon[j].longitude;
+      const yj = polygon[j].latitude;
+      
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    
+    return inside;
+  }
+  
+  /**
+   * 调整出生地坐标到大陆内部
+   */
+  private adjustBirthLocationToContinent(
+    continentId: string,
+    continents: any[]
+  ): {longitude: number, latitude: number} | null {
+    if (!continentId || !continents) return null;
+    
+    const targetContinent = continents.find(c => c.id === continentId);
+    if (!targetContinent || !targetContinent.continent_bounds) return null;
+    
+    const bounds = targetContinent.continent_bounds;
+    
+    // 计算大陆的中心点
+    const centerLng = bounds.reduce((sum: number, p: any) => sum + p.longitude, 0) / bounds.length;
+    const centerLat = bounds.reduce((sum: number, p: any) => sum + p.latitude, 0) / bounds.length;
+    
+    // 在中心点附近随机偏移一小段距离，确保在内部
+    const offsetLng = (Math.random() - 0.5) * 0.2; // ±0.1度的随机偏移
+    const offsetLat = (Math.random() - 0.5) * 0.2;
+    
+    const adjustedCoords = {
+      longitude: centerLng + offsetLng,
+      latitude: centerLat + offsetLat
+    };
+    
+    // 验证调整后的坐标是否在多边形内
+    if (this.pointInPolygon(adjustedCoords, bounds)) {
+      return adjustedCoords;
+    }
+    
+    // 如果随机偏移后仍然不在内部，直接返回中心点
+    return { longitude: centerLng, latitude: centerLat };
   }
 }

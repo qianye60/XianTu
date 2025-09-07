@@ -267,7 +267,7 @@ const handleSettings = () => {
   router.push('/game/settings');
 };
 
-const handleBackToMenu = () => {
+const handleBackToMenu = async () => {
   if (confirm('确定要返回道途吗？当前游戏进度将会保存。')) {
     // 保存当前游戏状态
     characterStore.saveCurrentGame();
@@ -291,7 +291,22 @@ const handleBackToMenu = () => {
     } else {
       // 在独立窗口中，返回到角色选择页面
       console.log('[返回道途] 独立窗口，跳转到角色选择页面');
-      router.push('/');
+      try {
+        // 确保路由跳转完成
+        await router.push('/');
+        console.log('[返回道途] 路由跳转完成');
+      } catch (error) {
+        console.error('[返回道途] 路由跳转失败:', error);
+        // 如果路由跳转失败，尝试使用 replace
+        try {
+          await router.replace('/');
+          console.log('[返回道途] 使用 replace 跳转成功');
+        } catch (replaceError) {
+          console.error('[返回道途] replace 跳转也失败:', replaceError);
+          // 最后尝试直接修改 window.location
+          window.location.href = '/';
+        }
+      }
     }
   }
 };

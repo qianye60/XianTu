@@ -58,19 +58,19 @@
           <!-- 大洲层 -->
           <g class="continent-layer">
             <g v-for="continent in cultivationContinents" :key="'continent-' + continent.id">
-              <!-- 大洲范围多边形 -->
+              <!-- 大洲范围多边形 - 优化紧密分布的显示效果 -->
               <polygon
                 v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界).length > 0"
                 :points="(continent.continent_bounds || continent.大洲边界).map((point: any) => {
                   const coords = geoToVirtual(point.longitude, point.latitude);
                   return `${coords.x},${coords.y}`;
                 }).join(' ')"
-                fill="rgba(59, 130, 246, 0.08)"
+                fill="rgba(59, 130, 246, 0.12)"
                 stroke="#3B82F6"
-                stroke-width="2"
-                stroke-dasharray="10,5"
-                fill-opacity="0.08"
-                stroke-opacity="0.7"
+                stroke-width="2.5"
+                stroke-dasharray="8,4"
+                fill-opacity="0.12"
+                stroke-opacity="0.8"
                 class="continent-polygon"
                 @click="selectContinent(continent)"
               />
@@ -226,6 +226,70 @@
             </g>
           </g>
 
+          <!-- 玩家出生地层 -->
+          <g v-if="playerBirthplace" class="birthplace-layer">
+            <g :transform="`translate(${playerBirthplace.coordinates.x}, ${playerBirthplace.coordinates.y})`">
+              <!-- 出生地光环效果 -->
+              <circle class="birthplace-aura" r="20" fill="#10B981" opacity="0.2">
+                <animate attributeName="r" values="15;25;15" dur="4s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.3;0.1;0.3" dur="4s" repeatCount="indefinite"/>
+              </circle>
+              
+              <!-- 出生地标记 -->
+              <g class="birthplace-marker">
+                <!-- 出生地类型图标 -->
+                <g v-if="playerBirthplace.type === 'village'">
+                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
+                  <foreignObject x="-6" y="-6" width="12" height="12">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+                      <Home :size="12" color="white" />
+                    </div>
+                  </foreignObject>
+                </g>
+                <g v-else-if="playerBirthplace.type === 'town'">
+                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
+                  <foreignObject x="-6" y="-6" width="12" height="12">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+                      <Building2 :size="12" color="white" />
+                    </div>
+                  </foreignObject>
+                </g>
+                <g v-else-if="playerBirthplace.type === 'sect_outskirts'">
+                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
+                  <foreignObject x="-6" y="-6" width="12" height="12">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+                      <Mountain :size="12" color="white" />
+                    </div>
+                  </foreignObject>
+                </g>
+                <g v-else-if="playerBirthplace.type === 'wilderness'">
+                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
+                  <foreignObject x="-6" y="-6" width="12" height="12">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+                      <Sparkles :size="12" color="white" />
+                    </div>
+                  </foreignObject>
+                </g>
+                <g v-else>
+                  <!-- 默认出生地图标 -->
+                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
+                  <text class="birthplace-icon-text" text-anchor="middle" dy="2" fill="white" font-size="8px">🏠</text>
+                </g>
+              </g>
+
+              <!-- 出生地名称标签 -->
+              <text
+                class="birthplace-name-label"
+                text-anchor="middle"
+                y="20"
+                fill="#10B981"
+                @click="selectBirthplace"
+              >
+                {{ playerBirthplace.name }}
+              </text>
+            </g>
+          </g>
+
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
             <g :transform="`translate(${playerPosition.x}, ${playerPosition.y})`">
@@ -263,14 +327,28 @@
           <button @click="selectedInfo = null" class="close-info">×</button>
         </div>
         <div class="info-content">
-          <p class="info-type">{{ selectedInfo.type === '大洲' ? '大洲' : internalTypeToChineseName(selectedInfo.type) }}</p>
+          <p class="info-type">{{ selectedInfo.type === '大洲' ? '大洲' : selectedInfo.type === '出生地' ? '出生地' : internalTypeToChineseName(selectedInfo.type) }}</p>
           <p class="info-desc">{{ selectedInfo.description }}</p>
           <div v-if="selectedInfo.danger_level" class="info-detail">
-            <strong>危险等级：</strong>{{ selectedInfo.danger_level }}
+            <strong>安全等级：</strong>{{ selectedInfo.danger_level }}
           </div>
-          <div v-if="selectedInfo.suitable_for" class="info-detail">
-            <strong>适合：</strong>{{ Array.isArray(selectedInfo.suitable_for) ? selectedInfo.suitable_for.join('、') : selectedInfo.suitable_for }}
+          
+          <!-- 出生地特有信息 -->
+          <div v-if="selectedInfo.type === '出生地'">
+            <div v-if="selectedInfo.population" class="info-detail">
+              <strong>人口规模：</strong>{{ selectedInfo.population }}
+            </div>
+            <div v-if="selectedInfo.governance" class="info-detail">
+              <strong>管辖情况：</strong>{{ selectedInfo.governance }}
+            </div>
+            <div v-if="selectedInfo.features && selectedInfo.features.length > 0" class="info-detail">
+              <strong>显著特征：</strong>{{ Array.isArray(selectedInfo.features) ? selectedInfo.features.join('、') : selectedInfo.features }}
+            </div>
+            <div v-if="selectedInfo.landmarks && selectedInfo.landmarks.length > 0" class="info-detail">
+              <strong>附近地标：</strong>{{ Array.isArray(selectedInfo.landmarks) ? selectedInfo.landmarks.join('、') : selectedInfo.landmarks }}
+            </div>
           </div>
+          
           <!-- 大洲特有信息 -->
           <div v-if="selectedInfo.climate" class="info-detail">
             <strong>气候类型：</strong>{{ selectedInfo.climate }}
@@ -331,6 +409,12 @@
           </div>
           <span>其他特殊</span>
         </div>
+        <div class="legend-item">
+          <div class="legend-icon" style="background-color: #10B981; border-radius: 50%;">
+            <Home :size="14" color="white" />
+          </div>
+          <span>出生地</span>
+        </div>
       </div>
     </div>
   </div>
@@ -366,8 +450,8 @@ interface CultivationLocation {
 }
 
 // 地图尺寸配置
-const mapWidth = ref(2000);
-const mapHeight = ref(1400);
+const mapWidth = ref(3000);  // 扩大地图宽度 2000 -> 3000
+const mapHeight = ref(2100); // 扩大地图高度 1400 -> 2100 (保持3:2.1比例)
 
 // 地图边界限制 - 防止过度缩放和平移
 const minZoom = 0.2;
@@ -420,6 +504,35 @@ const worldBackground = computed(() => {
   const worldInfo = variables['character.saveData']?.世界信息;
   return worldInfo?.世界背景 || '';
 });
+
+// 玩家出生地信息
+const playerBirthplace = computed(() => {
+  const variables = tavernVariables.value;
+  const worldInfo = variables['character.saveData']?.世界信息;
+  const birthplace = worldInfo?.玩家出生地;
+  
+  if (!birthplace) return null;
+  
+  // 转换坐标
+  const coords = birthplace.坐标;
+  if (coords && coords.longitude !== undefined && coords.latitude !== undefined) {
+    const virtualPos = geoToVirtual(coords.longitude, coords.latitude);
+    return {
+      name: birthplace.出生地名称 || '出生地',
+      type: birthplace.出生地类型 || 'birthplace',
+      coordinates: virtualPos,
+      description: birthplace.描述 || '玩家角色的出生地',
+      safetyLevel: birthplace.安全等级 || '安全',
+      features: birthplace.显著特征 || [],
+      landmarks: birthplace.附近地标 || [],
+      population: birthplace.人口规模 || '未知',
+      governance: birthplace.管辖情况 || '未知'
+    };
+  }
+  
+  return null;
+});
+
 const tavernVariables = ref<Record<string, any>>({});
 
 // 玩家位置 - 从酒馆变量获取
@@ -555,6 +668,33 @@ const onLocationHover = (location: CultivationLocation) => {
 
 const onLocationLeave = () => {
   hoveredLocation.value = null;
+};
+
+// 选择出生地
+const selectBirthplace = () => {
+  if (!playerBirthplace.value) return;
+  
+  console.log('[坤舆图志] 选中玩家出生地:', playerBirthplace.value.name);
+  
+  // 计算出生地在屏幕上的位置
+  const screenPosition = calculateScreenPosition(
+    playerBirthplace.value.coordinates.x, 
+    playerBirthplace.value.coordinates.y
+  );
+  
+  selectedInfo.value = {
+    id: 'player_birthplace',
+    name: playerBirthplace.value.name,
+    type: '出生地',
+    description: playerBirthplace.value.description,
+    danger_level: playerBirthplace.value.safetyLevel,
+    // 添加出生地特有信息
+    population: playerBirthplace.value.population,
+    governance: playerBirthplace.value.governance,
+    features: playerBirthplace.value.features,
+    landmarks: playerBirthplace.value.landmarks,
+    screenPosition: screenPosition
+  };
 };
 
 // 选择处理 - 只有在没有明显拖动时才触发
@@ -697,19 +837,50 @@ const getPopupPosition = (): Record<string, string> => {
 
 // GeoJSON坐标到虚拟坐标的转换 (基于实际数据范围)
 const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
-  // 修仙世界蜀中仙域坐标范围
-  const lngMin = 102.0, lngMax = 109.0;
-  const latMin = 27.5, latMax = 33.0;
-
-  // 保留边距，确保所有点都在可视范围内
-  const margin = 100;
-  const x = ((lng - lngMin) / (lngMax - lngMin)) * (mapWidth.value - 2 * margin) + margin;
-  const y = ((latMax - lat) / (latMax - latMin)) * (mapHeight.value - 2 * margin) + margin;
-
-  return {
-    x: Math.max(margin, Math.min(mapWidth.value - margin, x)),
-    y: Math.max(margin, Math.min(mapHeight.value - margin, y))
-  };
+  // 动态计算实际数据的坐标范围 - 针对紧密分布的大陆优化
+  let minLng = 107.0, maxLng = 114.0, minLat = 33.0, maxLat = 38.0;
+  
+  // 如果有大陆数据，使用实际的最小最大值
+  if (cultivationContinents.value.length > 0) {
+    const allCoords: {longitude: number, latitude: number}[] = [];
+    
+    cultivationContinents.value.forEach(continent => {
+      const bounds = continent.continent_bounds || continent.大洲边界;
+      if (bounds && Array.isArray(bounds)) {
+        bounds.forEach((point: any) => {
+          if (point.longitude && point.latitude) {
+            allCoords.push({
+              longitude: point.longitude,
+              latitude: point.latitude
+            });
+          }
+        });
+      }
+    });
+    
+    if (allCoords.length > 0) {
+      minLng = Math.min(...allCoords.map(c => c.longitude));
+      maxLng = Math.max(...allCoords.map(c => c.longitude));
+      minLat = Math.min(...allCoords.map(c => c.latitude));
+      maxLat = Math.max(...allCoords.map(c => c.latitude));
+      
+      // 为紧密分布的大陆减少边距，让大陆占据更多空间 - 从5%进一步减少到2%
+      const lngPadding = (maxLng - minLng) * 0.02; // 从5%减少到2%
+      const latPadding = (maxLat - minLat) * 0.02;
+      minLng -= lngPadding;
+      maxLng += lngPadding;
+      minLat -= latPadding;
+      maxLat += latPadding;
+    }
+  }
+  
+  // 映射到地图尺寸，为紧密大陆优化显示 - 让大陆占据更多屏幕空间
+  const x = ((lng - minLng) / (maxLng - minLng)) * (mapWidth.value * 0.96) + (mapWidth.value * 0.02);
+  const y = ((maxLat - lat) / (maxLat - minLat)) * (mapHeight.value * 0.96) + (mapHeight.value * 0.02);
+  
+  console.log(`[坐标转换] 范围(${minLng.toFixed(2)}-${maxLng.toFixed(2)}, ${minLat.toFixed(2)}-${maxLat.toFixed(2)}) 输入(${lng}, ${lat}) -> 输出(${x.toFixed(1)}, ${y.toFixed(1)})`);
+  
+  return { x, y };
 };
 
 // 地图类型转换
@@ -904,97 +1075,69 @@ const initializeMap = async () => {
 const addTestData = () => {
   console.log('[坤舆图志] 添加测试数据');
 
-  // 测试势力范围数据
-  const testFactions: CultivationLocation[] = [
-    {
-      id: 'test_faction_1',
-      name: '青云宗',
-      type: 'orthodox_sect',
-      coordinates: geoToVirtual(104.5, 30.8),
-      description: '蜀中第一大正道宗门，以剑道闻名天下',
-      x: 0, y: 0,
-      size: 15,
-      color: '#2563EB',
-      iconColor: '#2563EB',
-      iconSize: 'large',
-      isTerritory: true,
-      territoryBounds: [
-        geoToVirtual(103.8, 31.2),
-        geoToVirtual(105.2, 31.2),
-        geoToVirtual(105.5, 30.4),
-        geoToVirtual(104.8, 29.8),
-        geoToVirtual(103.5, 30.2)
-      ],
-      headquarters: geoToVirtual(104.5, 30.8)
-    },
-    {
-      id: 'test_faction_2',
-      name: '血魔教',
-      type: 'demonic_cult',
-      coordinates: geoToVirtual(106.5, 29.2),
-      description: '邪恶的魔道势力，以血炼之术称霸西南',
-      x: 0, y: 0,
-      size: 15,
-      color: '#DC2626',
-      iconColor: '#DC2626',
-      iconSize: 'large',
-      isTerritory: true,
-      territoryBounds: [
-        geoToVirtual(105.9, 29.8),
-        geoToVirtual(107.1, 29.8),
-        geoToVirtual(107.3, 28.6),
-        geoToVirtual(106.2, 28.4),
-        geoToVirtual(105.7, 28.9)
-      ],
-      headquarters: geoToVirtual(106.5, 29.2)
-    }
-  ];
-
-  // 测试地点数据
+  // 测试地点数据 - 明确分布在不同坐标
   const testLocations: CultivationLocation[] = [
+    // 左上角
     {
-      id: 'test_city_1',
-      name: '成都仙城',
-      type: 'major_city',
-      coordinates: geoToVirtual(104.0, 30.6),
-      description: '蜀中最大的修士聚集地，商贾云集',
+      id: 'test_1',
+      name: '西北山脉',
+      type: 'natural_landmark',
+      coordinates: geoToVirtual(102.0, 48.0),
+      description: '测试地点1 - 西北角',
       x: 0, y: 0,
-      size: 10,
-      color: '#059669',
-      iconColor: '#059669',
-      iconSize: 'medium',
-      isTerritory: false
+      size: 8, color: '#2D7D32', iconColor: '#2D7D32', iconSize: 'medium', isTerritory: false
     },
+    // 右上角
     {
-      id: 'test_realm_1',
-      name: '九天秘境',
-      type: 'secret_realm',
-      coordinates: geoToVirtual(107.5, 31.8),
-      description: '传说中的上古秘境，危险重重但宝物众多',
+      id: 'test_2',
+      name: '东北城市',
+      type: 'city_town',
+      coordinates: geoToVirtual(107.0, 47.0),
+      description: '测试地点2 - 东北角',
       x: 0, y: 0,
-      size: 8,
-      color: '#EC4899',
-      iconColor: '#EC4899',
-      iconSize: 'medium',
-      danger_level: '极高',
-      suitable_for: '元婴期以上修士',
-      isTerritory: false
+      size: 10, color: '#F57C00', iconColor: '#F57C00', iconSize: 'medium', isTerritory: false
+    },
+    // 左下角
+    {
+      id: 'test_3',
+      name: '西南宗门',
+      type: 'sect_power',
+      coordinates: geoToVirtual(103.0, 42.0),
+      description: '测试地点3 - 西南角',
+      x: 0, y: 0,
+      size: 12, color: '#1565C0', iconColor: '#1565C0', iconSize: 'large', isTerritory: false
+    },
+    // 右下角
+    {
+      id: 'test_4',
+      name: '东南秘境',
+      type: 'blessed_land',
+      coordinates: geoToVirtual(106.0, 41.0),
+      description: '测试地点4 - 东南角',
+      x: 0, y: 0,
+      size: 8, color: '#7B1FA2', iconColor: '#7B1FA2', iconSize: 'medium', isTerritory: false
+    },
+    // 中心点
+    {
+      id: 'test_5',
+      name: '中央之地',
+      type: 'special_other',
+      coordinates: geoToVirtual(104.5, 44.5),
+      description: '测试地点5 - 中心位置',
+      x: 0, y: 0,
+      size: 15, color: '#6B7280', iconColor: '#6B7280', iconSize: 'large', isTerritory: false
     }
   ];
 
   // 更新坐标
-  [...testFactions, ...testLocations].forEach(loc => {
+  testLocations.forEach(loc => {
     loc.x = loc.coordinates.x;
     loc.y = loc.coordinates.y;
+    console.log(`[测试数据] ${loc.name}: 地理坐标未知 -> 虚拟坐标(${loc.x.toFixed(1)}, ${loc.y.toFixed(1)})`);
   });
 
-  cultivationLocations.value = [...testFactions, ...testLocations];
+  cultivationLocations.value = testLocations;
   console.log('[坤舆图志] ✅ 测试数据加载完成，共', cultivationLocations.value.length, '个地点');
-
-  // 打印坐标信息
-  cultivationLocations.value.forEach(loc => {
-    console.log(`[坤舆图志] ${loc.name}: (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}) 类型:${loc.isTerritory ? '势力范围' : '地点'}`);
-  });
 };
 
 // 从酒馆变量加载GeoJSON格式的修仙世界数据 - 根据实际SaveData结构
@@ -1104,7 +1247,7 @@ const loadFactionsData = async (variables: any) => {
           // 处理势力范围边界
           let territoryBounds: { x: number; y: number }[] = [];
           // 兼容多种字段名格式
-          const territoryData = faction.territory_bounds || faction.territoryBounds || faction.势力范围边界;
+          const territoryData = faction.势力范围 || faction.territory_bounds || faction.territoryBounds;
           if (territoryData && Array.isArray(territoryData)) {
             territoryBounds = territoryData.map((point: any) => {
               const virtualCoords = geoToVirtual(point.longitude, point.latitude);
@@ -1114,8 +1257,8 @@ const loadFactionsData = async (variables: any) => {
 
           // 总部位置
           let headquarters: { x: number; y: number } | undefined;
-          if (faction.headquarters || faction.总部位置) {
-            const hqData = faction.headquarters || faction.总部位置;
+          const hqData = faction.位置 || faction.headquarters || faction.总部位置;
+          if (hqData && hqData.longitude !== undefined && hqData.latitude !== undefined) {
             headquarters = geoToVirtual(hqData.longitude, hqData.latitude);
           }
 
@@ -1518,17 +1661,17 @@ onMounted(async () => {
   cursor: grabbing;
 }
 
-/* 大洲层样式 */
+/* 大洲层样式 - 针对紧密分布优化 */
 .continent-layer .continent-polygon {
   cursor: pointer;
   transition: fill-opacity 0.3s ease, stroke-width 0.3s ease, stroke-opacity 0.3s ease;
 }
 
 .continent-layer .continent-polygon:hover {
-  fill-opacity: 0.15;
+  fill-opacity: 0.18; /* 稍微提高以更好地显示紧密分布的大陆 */
   stroke-width: 3;
-  stroke-opacity: 0.9;
-  stroke-dasharray: 8,3;
+  stroke-opacity: 1.0;
+  stroke-dasharray: 6,2; /* 缩短虚线间距以更好地显示边界 */
 }
 
 .continent-name-label {
@@ -1536,6 +1679,8 @@ onMounted(async () => {
   text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.9);
   pointer-events: none;
   user-select: none;
+  font-size: 16px; /* 稍微增大字体以更好地显示紧密大陆名称 */
+  font-weight: bold;
 }
 
 /* 势力范围样式 */
@@ -1698,6 +1843,32 @@ onMounted(async () => {
   justify-content: center;
   font-size: 10px;
   flex-shrink: 0;
+}
+
+/* 出生地标记样式 */
+.birthplace-layer .birthplace-marker {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.birthplace-layer .birthplace-marker:hover {
+  transform: scale(1.1);
+}
+
+.birthplace-name-label {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: '微软雅黑', 'SimHei', sans-serif;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.birthplace-icon-text {
+  font-size: 8px;
+  font-weight: bold;
+  font-family: '微软雅黑', sans-serif;
+  pointer-events: none;
 }
 
 /* 动画效果 */

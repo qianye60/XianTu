@@ -285,7 +285,7 @@ export class WorldGenerationConfig {
       minorFactionsCount: 5,
       neutralZonesCount: 3,
       secretRealmsCount: 8,
-      continentCount: 1,
+      continentCount: Math.floor(Math.random() * 6) + 6, // 6-11个大陆，增加板块数量
       majorCitiesCount: 12,
       tradingHubsCount: 4,
       hasAncientSects: true,
