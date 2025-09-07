@@ -60,7 +60,8 @@
       "Bash(mv:*)",
       "Bash(node:*)",
       "Bash(del \"src\\utils\\worldGeneration\\cultivationWorldGeneratorOld.ts\")",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\views\\CharacterSelection.vue\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

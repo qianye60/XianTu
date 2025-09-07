@@ -1,5 +1,7 @@
 <template>
-  <div class="character-management-panel">
+  <div class="character-management-panel" :class="{ 'fullscreen': isFullscreen }">
+    <VideoBackground v-if="isFullscreen" />
+    
     <!-- 自定义对话框 -->
     <div v-if="modalState.show" class="dialog-overlay" @click="handleModalCancel">
       <div class="dialog-box" @click.stop>
@@ -30,7 +32,19 @@
     </div>
 
     <!-- 主体区域 -->
-    <main class="main-content">
+    <main class="main-content" :class="{ 'fullscreen-content': isFullscreen }">
+      <!-- 返回按钮 - 仅在全屏模式显示 -->
+      <div v-if="isFullscreen" class="fullscreen-header">
+        <button @click="handleClose" class="fullscreen-back-btn">
+          <ArrowLeft :size="20" />
+          <span>返回道途</span>
+        </button>
+        <div class="fullscreen-title">
+          <h1>续前世因缘</h1>
+          <p>择一法身，入道重修</p>
+        </div>
+      </div>
+      
       <!-- 遮罩层 -->
       <div v-if="isCharacterPanelOpen" class="panel-overlay" @click="toggleCharacterPanel"></div>
 
@@ -427,13 +441,27 @@ import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import { verifyStoredToken } from '@/services/request';
 import HexagonChart from '@/components/common/HexagonChart.vue';
+import VideoBackground from '@/components/common/VideoBackground.vue';
+import { ArrowLeft } from 'lucide-vue-next';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
 import "@/style.css";
+
+interface Props {
+  fullscreen?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  fullscreen: false
+});
 
 const emit = defineEmits<{
   (e: 'back'): void;
   (e: 'login'): void;
-}>()
+  (e: 'close'): void;
+  (e: 'character-selected', character: any): void;
+}>();
+
+const isFullscreen = computed(() => props.fullscreen);
 
 const router = useRouter();
 const characterStore = useCharacterStore();
@@ -534,7 +562,11 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
     console.log('加载结果:', success);
     if (success) {
       console.log('跳转到游戏界面...');
-      router.push('/game');
+      if (props.fullscreen) {
+        emit('character-selected', character);
+      } else {
+        router.push('/game');
+      }
     } else {
       console.error('存档加载失败');
     }
@@ -557,7 +589,11 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
         console.log('新存档加载结果:', success);
         if (success) {
           console.log('跳转到游戏界面...');
-          router.push('/game');
+          if (props.fullscreen) {
+            emit('character-selected', character);
+          } else {
+            router.push('/game');
+          }
         }
       }
     );
@@ -669,6 +705,14 @@ const handleEditSaveName = (charId: string, slotKey: string) => {
 
 const goBack = () => {
   emit('back'); // Still emit for internal logic, but also close via store
+};
+
+const handleClose = () => {
+  if (props.fullscreen) {
+    emit('close');
+  } else {
+    goBack();
+  }
 };
 
 const handleLogin = () => {
@@ -912,6 +956,77 @@ const closeModal = () => {
   color: var(--color-text);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* 全屏模式样式 */
+.character-management-panel.fullscreen {
+  background: var(--color-background);
+}
+
+/* 全屏模式头部 */
+.fullscreen-header {
+  position: relative;
+  z-index: 10;
+  padding: 2rem;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fullscreen-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.fullscreen-back-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.fullscreen-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.fullscreen-title h1 {
+  font-family: var(--font-family-serif);
+  font-size: 2.5rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  color: var(--color-text);
+  text-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.4);
+  margin: 0 0 0.5rem 0;
+  padding-left: 0.3em;
+}
+
+.fullscreen-title p {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  margin: 0;
+}
+
+/* 全屏内容区域 */
+.main-content.fullscreen-content {
+  position: relative;
+  flex: 1;
   overflow: hidden;
 }
 

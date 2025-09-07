@@ -3,7 +3,31 @@ import ModeSelection from '../views/ModeSelection.vue';
 import CharacterCreation from '../views/CharacterCreation.vue';
 import LoginView from '../views/LoginView.vue';
 import GameView from '../views/GameView.vue';
+
+// 创建一个包装组件来传递fullscreen属性
+import { h } from 'vue';
+import { useRouter } from 'vue-router';
 import CharacterManagement from '../components/character-creation/CharacterManagement.vue';
+
+const FullscreenCharacterManagement = {
+  setup() {
+    const router = useRouter();
+    
+    const handleClose = () => {
+      router.push('/');
+    };
+    
+    const handleCharacterSelected = (character: any) => {
+      router.push('/game');
+    };
+    
+    return () => h(CharacterManagement, { 
+      fullscreen: true,
+      onClose: handleClose,
+      onCharacterSelected: handleCharacterSelected
+    });
+  }
+};
 
 // 静态导入所有组件，避免代码分割
 import MainGamePanel from '../components/dashboard/MainGamePanel.vue';
@@ -111,7 +135,7 @@ const routes = [
   {
     path: '/management',
     name: 'CharacterManagement',
-    component: CharacterManagement,
+    component: FullscreenCharacterManagement,
   },
 ];
 

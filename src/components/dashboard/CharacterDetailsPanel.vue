@@ -27,13 +27,13 @@
           <div class="character-details">
             <div class="detail-item">
               <span class="label">境界</span>
-              <span class="value realm" :class="`realm-${playerStatus.境界?.名称}`">
-                {{ playerStatus.境界?.名称 }} 第{{ playerStatus.境界?.等级 }}层
+              <span class="value realm" :class="`realm-${playerStatus?.境界?.名称}`">
+                {{ playerStatus?.境界?.名称 }} 第{{ playerStatus?.境界?.等级 }}层
               </span>
             </div>
             <div class="detail-item">
               <span class="label">年龄</span>
-              <span class="value">{{ playerStatus.寿命?.当前 }}岁</span>
+              <span class="value">{{ playerStatus?.寿命?.当前 }}岁</span>
             </div>
             <div class="detail-item">
               <span class="label">出身</span>
@@ -41,18 +41,18 @@
             </div>
             <div class="detail-item">
               <span class="label">位置</span>
-              <span class="value">{{ playerStatus.位置?.描述 }}</span>
+              <span class="value">{{ playerStatus?.位置?.描述 }}</span>
             </div>
           </div>
         </div>
         <div class="character-stats">
           <div class="stat-item">
             <span class="stat-label">声望</span>
-            <span class="stat-value">{{ playerStatus.声望 || 0 }}</span>
+            <span class="stat-value">{{ playerStatus?.声望 || 0 }}</span>
           </div>
           <div class="stat-item">
             <span class="stat-label">修为</span>
-            <span class="stat-value">{{ playerStatus.修为?.当前 || 0 }}/{{ playerStatus.修为?.最大 || 100 }}</span>
+            <span class="stat-value">{{ playerStatus?.修为?.当前 || 0 }}/{{ playerStatus?.修为?.最大 || 100 }}</span>
           </div>
         </div>
       </div>
@@ -146,14 +146,14 @@
               </div>
               状态效果
             </h3>
-            <div v-if="!playerStatus.状态效果?.length" class="empty-state">
+            <div v-if="!playerStatus?.状态效果?.length" class="empty-state">
               <div class="empty-icon">
                 <Bird :size="32" />
               </div>
               <span>当前无状态效果</span>
             </div>
             <div v-else class="effects-list">
-              <div v-for="effect in playerStatus.状态效果" :key="effect.状态名称" 
+              <div v-for="effect in playerStatus.状态效果" :key="effect.状态名称"
                    class="effect-item" :class="`effect-${effect.类型}`">
                 <div class="effect-header">
                   <span class="effect-name">{{ effect.状态名称 }}</span>
@@ -202,8 +202,8 @@
                 <div class="acquired-attrs" v-if="hasAcquiredBonus">
                   <h4 class="attribute-group-title">后天加成</h4>
                   <div class="attributes-grid compact">
-                    <div v-for="(value, key) in acquiredAttributes" :key="key" 
-                         class="attribute-item acquired" v-show="value > 0">
+                    <div v-for="(value, key) in acquiredAttributes" :key="key"
+                         class="attribute-item acquired" v-show="value && value > 0">
                       <span class="attr-name">{{ key }}</span>
                       <span class="attr-value">+{{ value }}</span>
                     </div>
@@ -229,14 +229,53 @@
             </div>
             <div v-else class="cultivation-display">
               <div class="technique-info">
-                <div class="technique-header">
-                  <h4 class="technique-name" :class="getItemQualityClass(cultivationData.功法, 'text')">
-                    {{ cultivationData.功法.名称 }}
-                  </h4>
-                  <div class="technique-quality">
-                    {{ cultivationData.功法.品质?.quality || '凡' }}品{{ cultivationData.功法.品质?.grade || 0 }}级
+                <div class="technique-header" @click="toggleTechniqueDetails">
+                  <div class="technique-main">
+                    <h4 class="technique-name" :class="getItemQualityClass(cultivationData.功法, 'text')">
+                      {{ cultivationData.功法.名称 }}
+                    </h4>
+                    <div class="technique-quality">
+                      {{ cultivationData.功法.品质?.quality || '凡' }}品{{ cultivationData.功法.品质?.grade || 0 }}级
+                    </div>
+                  </div>
+                  <div class="technique-toggle">
+                    <ChevronDown 
+                      :size="16" 
+                      :class="{ 'rotated': showTechniqueDetails }"
+                      class="toggle-icon"
+                    />
                   </div>
                 </div>
+                
+                <!-- 功法详情（可折叠） -->
+                <div v-show="showTechniqueDetails" class="technique-details">
+                  <div class="technique-description">
+                    <p>{{ cultivationData.功法.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
+                  </div>
+                  
+                  <div v-if="cultivationData.功法.功法效果" class="technique-effects">
+                    <h5 class="effects-title">功法效果</h5>
+                    <div class="effects-list">
+                      <div v-if="cultivationData.功法.功法效果.修炼速度加成" class="effect-item">
+                        <span class="effect-label">修炼加成：</span>
+                        <span class="effect-value">{{ (cultivationData.功法.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+                      </div>
+                      <div v-if="cultivationData.功法.功法效果.属性加成" class="effect-item">
+                        <span class="effect-label">属性提升：</span>
+                        <div class="attribute-bonuses">
+                          <span 
+                            v-for="(value, attr) in cultivationData.功法.功法效果.属性加成" 
+                            :key="attr"
+                            class="bonus-tag"
+                          >
+                            {{ attr }} +{{ value }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <div class="technique-progress">
                   <div class="progress-item">
                     <span class="progress-label">修炼进度</span>
@@ -256,12 +295,76 @@
               </div>
               
               <!-- 已学技能 -->
-              <div v-if="cultivationData.已解锁技能?.length" class="learned-skills">
-                <h4 class="skills-title">已掌握技能</h4>
-                <div class="skills-list">
-                  <span v-for="skill in cultivationData.已解锁技能" :key="skill" class="skill-tag">
-                    {{ skill }}
-                  </span>
+              <div v-if="cultivationData.已解锁技能?.length || skillsList.length" class="learned-skills">
+                <div class="skills-header" @click="toggleSkillsDetails">
+                  <h4 class="skills-title">已掌握技能</h4>
+                  <div class="skills-count">({{ totalSkillsCount }}个)</div>
+                  <ChevronDown 
+                    :size="14" 
+                    :class="{ 'rotated': showSkillsDetails }"
+                    class="toggle-icon"
+                  />
+                </div>
+                
+                <div v-show="!showSkillsDetails" class="skills-preview">
+                  <div class="skills-list-compact">
+                    <span 
+                      v-for="skill in (cultivationData.已解锁技能 || []).slice(0, 3)" 
+                      :key="skill" 
+                      class="skill-tag compact"
+                    >
+                      {{ skill }}
+                    </span>
+                    <span 
+                      v-for="skill in skillsList.slice(0, 3 - (cultivationData.已解锁技能?.length || 0))" 
+                      :key="skill.name" 
+                      class="skill-tag compact"
+                    >
+                      {{ skill.name }}
+                    </span>
+                    <span v-if="totalSkillsCount > 3" class="more-skills">...</span>
+                  </div>
+                </div>
+                
+                <div v-show="showSkillsDetails" class="skills-details">
+                  <!-- 从功法直接学会的技能 -->
+                  <div v-if="cultivationData.已解锁技能?.length" class="skill-category">
+                    <h5 class="category-title">修炼习得</h5>
+                    <div class="skills-grid">
+                      <div 
+                        v-for="skillName in cultivationData.已解锁技能" 
+                        :key="skillName"
+                        class="skill-card"
+                        @click="showSkillDetails(skillName)"
+                      >
+                        <div class="skill-name">{{ skillName }}</div>
+                        <div class="skill-source">功法修炼</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 从功法定义中学会的技能 -->
+                  <div v-if="skillsList.length" class="skill-category">
+                    <h5 class="category-title">功法传承</h5>
+                    <div class="skills-grid">
+                      <div 
+                        v-for="skill in skillsList" 
+                        :key="skill.name"
+                        class="skill-card"
+                        :class="{ 'skill-locked': !skill.unlocked }"
+                        @click="showSkillDetails(skill)"
+                      >
+                        <div class="skill-name">{{ skill.name }}</div>
+                        <div class="skill-type">{{ skill.type }}</div>
+                        <div class="skill-unlock" v-if="!skill.unlocked">
+                          {{ skill.unlockCondition }}
+                        </div>
+                        <div class="skill-status" v-else>
+                          <Star :size="12" class="unlock-icon" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -285,16 +388,71 @@
               <span>尚未解锁大道</span>
             </div>
             <div v-else class="dao-list">
-              <div v-for="daoName in daoData.已解锁大道" :key="daoName" class="dao-item">
-                <div class="dao-header">
-                  <span class="dao-name">{{ daoName }}</span>
-                  <span class="dao-stage">第{{ getDaoStage(daoName) }}阶段</span>
+              <div class="dao-header-section">
+                <div class="dao-summary">
+                  <span class="dao-count">已解锁 {{ daoData.已解锁大道.length }} 条大道</span>
+                  <button class="dao-expand-btn" @click="toggleDaoDetails">
+                    <span>{{ showDaoDetails ? '收起' : '展开' }}</span>
+                    <ChevronDown 
+                      :size="14" 
+                      :class="{ 'rotated': showDaoDetails }"
+                      class="toggle-icon"
+                    />
+                  </button>
                 </div>
-                <div class="dao-progress">
-                  <div class="progress-bar small">
-                    <div class="progress-fill" :style="{ width: getDaoProgress(daoName) + '%' }"></div>
+              </div>
+
+              <div v-show="!showDaoDetails" class="dao-preview">
+                <div 
+                  v-for="daoName in daoData.已解锁大道.slice(0, 2)" 
+                  :key="daoName" 
+                  class="dao-item compact"
+                  @click="showDaoInfo(daoName)"
+                >
+                  <div class="dao-header">
+                    <span class="dao-name">{{ daoName }}</span>
+                    <span class="dao-stage">第{{ getDaoStage(daoName) }}阶段</span>
                   </div>
-                  <span class="progress-text small">{{ getDaoProgress(daoName) }}%</span>
+                  <div class="dao-progress">
+                    <div class="progress-bar small">
+                      <div class="progress-fill" :style="{ width: getDaoProgress(daoName) + '%' }"></div>
+                    </div>
+                    <span class="progress-text small">{{ getDaoProgress(daoName) }}%</span>
+                  </div>
+                </div>
+                <div v-if="daoData.已解锁大道.length > 2" class="more-dao">
+                  还有 {{ daoData.已解锁大道.length - 2 }} 条大道...
+                </div>
+              </div>
+
+              <div v-show="showDaoDetails" class="dao-details">
+                <div 
+                  v-for="daoName in daoData.已解锁大道" 
+                  :key="daoName" 
+                  class="dao-item detailed"
+                  @click="showDaoInfo(daoName)"
+                >
+                  <div class="dao-header">
+                    <span class="dao-name">{{ daoName }}</span>
+                    <span class="dao-stage">第{{ getDaoStage(daoName) }}阶段</span>
+                  </div>
+                  <div class="dao-progress">
+                    <div class="progress-bar small">
+                      <div class="progress-fill" :style="{ width: getDaoProgress(daoName) + '%' }"></div>
+                    </div>
+                    <span class="progress-text small">{{ getDaoProgress(daoName) }}%</span>
+                  </div>
+                  
+                  <div class="dao-stats">
+                    <div class="stat-item">
+                      <span class="stat-label">当前经验</span>
+                      <span class="stat-value">{{ getDaoCurrentExp(daoName) }}</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">总经验</span>
+                      <span class="stat-value">{{ getDaoTotalExp(daoName) }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -366,7 +524,7 @@
                   <div v-for="grade in spiritStoneGrades" :key="grade.name" 
                        class="stone-item" :class="grade.class">
                     <span class="stone-name">{{ grade.name }}</span>
-                    <span class="stone-count">{{ getSpiritStoneCount(grade.name) }}</span>
+                    <span class="stone-count">{{ getSpiritStoneCount(grade.name as '下品' | '中品' | '上品' | '极品') }}</span>
                   </div>
                 </div>
               </div>
@@ -374,7 +532,7 @@
           </div>
 
           <!-- 宗门信息 -->
-          <div class="info-section" v-if="playerStatus.宗门信息">
+          <div class="info-section" v-if="playerStatus?.宗门信息">
             <h3 class="section-title">
               <div class="title-icon">
                 <Mountain :size="18" />
@@ -383,22 +541,22 @@
             </h3>
             <div class="sect-info">
               <div class="sect-header">
-                <h4 class="sect-name">{{ playerStatus.宗门信息.name }}</h4>
-                <span class="sect-type">{{ playerStatus.宗门信息.type }}</span>
+                <h4 class="sect-name">{{ playerStatus?.宗门信息?.name }}</h4>
+                <span class="sect-type">{{ playerStatus?.宗门信息?.type }}</span>
               </div>
               <div class="sect-details">
                 <div class="detail-row">
                   <span class="detail-label">职位</span>
-                  <span class="detail-value">{{ playerStatus.宗门信息.position }}</span>
+                  <span class="detail-value">{{ playerStatus?.宗门信息?.position }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">贡献度</span>
-                  <span class="detail-value">{{ playerStatus.宗门信息.contribution }}</span>
+                  <span class="detail-value">{{ playerStatus?.宗门信息?.contribution }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">关系</span>
-                  <span class="detail-value" :class="`relationship-${playerStatus.宗门信息.relationship}`">
-                    {{ playerStatus.宗门信息.relationship }}
+                  <span class="detail-value" :class="`relationship-${playerStatus?.宗门信息?.relationship}`">
+                    {{ playerStatus?.宗门信息?.relationship }}
                   </span>
                 </div>
               </div>
@@ -414,13 +572,19 @@
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
+import type { DaoProgress, Item, SkillInfo, InnateAttributes } from '@/types/game.d.ts';
 import { 
   AlertCircle, Heart, Sparkles, Sword, Star, BarChart3, BookOpen, 
-  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake 
+  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown 
 } from 'lucide-vue-next';
 
 const characterStore = useCharacterStore();
 const isLoading = ref(false);
+
+// 界面状态
+const showTechniqueDetails = ref(false);
+const showSkillsDetails = ref(false);
+const showDaoDetails = ref(false);
 
 // 基础数据
 const baseInfo = computed(() => characterStore.activeCharacterProfile?.角色基础信息);
@@ -472,13 +636,13 @@ const vitalsData = computed(() => {
 });
 
 // 属性计算
-const finalAttributes = computed(() => {
+const finalAttributes = computed((): Partial<InnateAttributes> => {
   if (!baseInfo.value?.先天六司 || !saveData.value) return {};
   const result = calculateFinalAttributes(baseInfo.value.先天六司, saveData.value);
   return result?.最终六司 || {};
 });
 
-const acquiredAttributes = computed(() => {
+const acquiredAttributes = computed((): Partial<InnateAttributes> => {
   if (!baseInfo.value?.先天六司 || !saveData.value) return {};
   const result = calculateFinalAttributes(baseInfo.value.先天六司, saveData.value);
   return result?.后天六司 || {};
@@ -488,19 +652,62 @@ const hasAcquiredBonus = computed(() => {
   return Object.values(acquiredAttributes.value).some(value => value > 0);
 });
 
-// 装备槽位
-const equipmentSlots = computed(() => {
-  const equipment = saveData.value?.装备栏 || {};
-  const inventory = saveData.value?.背包?.物品 || {};
+// 技能相关计算属性
+const skillsList = computed((): SkillInfo[] => {
+  if (!cultivationData.value.功法?.功法技能) return [];
   
-  return [
-    { name: '法宝1', item: equipment.法宝1 ? inventory[equipment.法宝1] : null },
-    { name: '法宝2', item: equipment.法宝2 ? inventory[equipment.法宝2] : null },
-    { name: '法宝3', item: equipment.法宝3 ? inventory[equipment.法宝3] : null },
-    { name: '法宝4', item: equipment.法宝4 ? inventory[equipment.法宝4] : null },
-    { name: '法宝5', item: equipment.法宝5 ? inventory[equipment.法宝5] : null },
-    { name: '法宝6', item: equipment.法宝6 ? inventory[equipment.法宝6] : null },
-  ];
+  const technique = cultivationData.value.功法;
+  if (!technique?.功法技能) return [];
+
+  const currentProgress = cultivationData.value.熟练度 || 0;
+  const skills: SkillInfo[] = [];
+  
+  for (const [skillName, skillInfo] of Object.entries(technique.功法技能)) {
+    const unlockCondition = skillInfo.解锁条件;
+    let unlocked = false;
+    
+    // 简单的解锁条件判断
+    if (unlockCondition.includes('修炼进度')) {
+      const requiredProgress = parseInt(unlockCondition.match(/\d+/)?.[0] || '0');
+      unlocked = (technique.修炼进度 || 0) >= requiredProgress;
+    } else if (unlockCondition.includes('熟练度')) {
+      const requiredProgress = parseInt(unlockCondition.match(/\d+/)?.[0] || '0');
+      unlocked = currentProgress >= requiredProgress;
+    }
+    
+    skills.push({
+      name: skillName,
+      description: skillInfo.技能描述,
+      type: skillInfo.技能类型,
+      unlockCondition,
+      unlocked
+    });
+  }
+  
+  return skills;
+});
+
+const totalSkillsCount = computed(() => {
+  return (cultivationData.value.已解锁技能?.length || 0) + skillsList.value.length;
+});
+
+// 装备槽位
+const equipmentSlots = computed((): { name: string; item: Item | null }[] => {
+  const equipment = saveData.value?.装备栏;
+  const inventory = saveData.value?.背包?.物品;
+
+  const slotNames = ['法宝1', '法宝2', '法宝3', '法宝4', '法宝5', '法宝6'];
+
+  if (!equipment || !inventory) {
+    return slotNames.map(name => ({ name, item: null }));
+  }
+
+  return slotNames.map(slotKey => {
+    const key = slotKey as keyof typeof equipment;
+    const itemId = equipment[key];
+    const item = itemId ? (inventory[itemId] || null) : null;
+    return { name: slotKey, item };
+  });
 });
 
 // 人际关系统计
@@ -550,18 +757,19 @@ const getPercentage = (current: number, max: number): number => {
   return Math.round((current / max) * 100);
 };
 
-const getItemQualityClass = (item: any, type: 'border' | 'text' = 'border'): string => {
+const getItemQualityClass = (item: Item | null, type: 'border' | 'text' = 'border'): string => {
   if (!item) return '';
   const quality = item.品质?.quality || '凡';
   return `${type}-quality-${quality}`;
 };
 
 const getDaoStage = (daoName: string): number => {
-  return daoData.value.大道进度?.[daoName]?.当前阶段 || 0;
+  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
+  return progress?.当前阶段 || 0;
 };
 
 const getDaoProgress = (daoName: string): number => {
-  const progress = daoData.value.大道进度?.[daoName];
+  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
   if (!progress) return 0;
   const currentExp = progress.当前经验 || 0;
   const stage = progress.当前阶段 || 0;
@@ -569,13 +777,23 @@ const getDaoProgress = (daoName: string): number => {
   return Math.min(100, Math.round((currentExp / nextStageExp) * 100));
 };
 
-const getItemTypeCount = (type: string): number => {
-  const items = saveData.value?.背包?.物品 || {};
-  return Object.values(items).filter((item: any) => item.类型 === type).length;
+const getDaoCurrentExp = (daoName: string): number => {
+  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
+  return progress?.当前经验 || 0;
 };
 
-const getSpiritStoneCount = (grade: string): number => {
-  return saveData.value?.背包?.灵石?.[grade as keyof typeof saveData.value.背包.灵石] || 0;
+const getDaoTotalExp = (daoName: string): number => {
+  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
+  return progress?.总经验 || 0;
+};
+
+const getItemTypeCount = (type: string): number => {
+  const items = saveData.value?.背包?.物品 || {};
+  return Object.values(items).filter((item: Item) => item.类型 === type).length;
+};
+
+const getSpiritStoneCount = (grade: '下品' | '中品' | '上品' | '极品'): number => {
+  return saveData.value?.背包?.灵石?.[grade] || 0;
 };
 
 const getRelationshipName = (type: string): string => {
@@ -593,6 +811,46 @@ const getRelationshipName = (type: string): string => {
     '其他': '其他'
   };
   return nameMap[type] || type;
+};
+
+// 界面交互方法
+const toggleTechniqueDetails = () => {
+  showTechniqueDetails.value = !showTechniqueDetails.value;
+};
+
+const toggleSkillsDetails = () => {
+  showSkillsDetails.value = !showSkillsDetails.value;
+};
+
+const toggleDaoDetails = () => {
+  showDaoDetails.value = !showDaoDetails.value;
+};
+
+const showDaoInfo = (daoName: string) => {
+  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
+  if (!progress) {
+    alert(`大道：${daoName}\n\n状态：已解锁\n当前进度：初始阶段\n说明：此大道已解锁，但尚未开始修炼。`);
+    return;
+  }
+  
+  const stage = progress.当前阶段 || 0;
+  const currentExp = progress.当前经验 || 0;
+  const totalExp = progress.总经验 || 0;
+  const progressPercent = getDaoProgress(daoName);
+  
+  alert(`${daoName}\n\n当前阶段：第${stage}阶段\n当前经验：${currentExp}\n总经验：${totalExp}\n进度：${progressPercent}%\n\n修炼感悟：此道深奥玄妙，需持之以恒方能有所成就。`);
+};
+
+const showSkillDetails = (skill: SkillInfo | string) => {
+  if (typeof skill === 'string') {
+    // 简单技能名称
+    alert(`技能：${skill}\n\n来源：功法修炼\n说明：通过修炼功法获得的技能`);
+  } else {
+    // 详细技能信息
+    const status = skill.unlocked ? '已解锁' : '未解锁';
+    const condition = skill.unlocked ? '修炼完成' : skill.unlockCondition;
+    alert(`${skill.name}\n\n类型：${skill.type}\n状态：${status}\n条件：${condition}\n\n${skill.description}`);
+  }
 };
 
 const refreshData = async () => {
@@ -1051,6 +1309,246 @@ onMounted(async () => {
   gap: 20px;
 }
 
+/* 功法系统交互样式 */
+.technique-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.technique-header:hover {
+  background: var(--color-surface-hover);
+}
+
+.technique-main {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.technique-toggle {
+  margin-left: 12px;
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+  color: var(--color-text-secondary);
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.technique-details {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--color-surface-light);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.technique-description {
+  margin-bottom: 16px;
+}
+
+.technique-description p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.technique-effects {
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+}
+
+.effects-title {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.effects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.effect-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.effect-label {
+  color: var(--color-text-secondary);
+  min-width: 80px;
+}
+
+.effect-value {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.attribute-bonuses {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.bonus-tag {
+  padding: 2px 6px;
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(var(--color-success-rgb), 0.3);
+}
+
+/* 技能系统样式 */
+.skills-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.skills-header:hover {
+  background: var(--color-surface-hover);
+}
+
+.skills-count {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+
+.skills-preview {
+  margin-top: 12px;
+}
+
+.skills-list-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.skill-tag.compact {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+.more-skills {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+}
+
+.skills-details {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--color-surface-light);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.skill-category {
+  margin-bottom: 20px;
+}
+
+.skill-category:last-child {
+  margin-bottom: 0;
+}
+
+.category-title {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.2);
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.skill-card {
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.skill-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.skill-card.skill-locked {
+  opacity: 0.6;
+  border-color: var(--color-border);
+  border-style: dashed;
+}
+
+.skill-card.skill-locked:hover {
+  border-color: var(--color-warning);
+}
+
+.skill-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.skill-type {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.skill-source {
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  font-style: italic;
+}
+
+.skill-unlock {
+  font-size: 0.75rem;
+  color: var(--color-warning);
+  font-style: italic;
+}
+
+.skill-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unlock-icon {
+  color: var(--color-success);
+}
+
 /* 修炼功法 */
 .cultivation-display {
   display: flex;
@@ -1074,6 +1572,7 @@ onMounted(async () => {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
+  cursor: pointer;
 }
 
 .technique-quality {
@@ -1155,7 +1654,55 @@ onMounted(async () => {
 .dao-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+.dao-header-section {
+  margin-bottom: 12px;
+}
+
+.dao-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.dao-count {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.dao-expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--color-border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dao-expand-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.dao-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dao-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .dao-item {
@@ -1163,6 +1710,62 @@ onMounted(async () => {
   background: var(--color-surface-light);
   border-radius: 8px;
   border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dao-item:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.dao-item.compact {
+  padding: 8px 10px;
+}
+
+.dao-item.detailed {
+  padding: 16px;
+}
+
+.more-dao {
+  padding: 8px 12px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-style: italic;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-light);
+}
+
+.dao-stats {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--color-border-rgb), 0.5);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dao-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.dao-stats .stat-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+}
+
+.dao-stats .stat-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .dao-header {

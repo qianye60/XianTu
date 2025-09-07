@@ -108,6 +108,15 @@ export interface Inventory {
   物品: Record<string, Item>; // 以物品唯一ID为key
 }
 
+/** 功法中的技能信息 */
+export interface SkillInfo {
+  name: string;
+  description: string;
+  type: '攻击' | '防御' | '辅助' | '移动' | '其他';
+  unlockCondition: string;
+  unlocked: boolean;
+}
+
 // --- 三千大道系统 ---
 
 /** 大道阶段定义 */
@@ -156,12 +165,12 @@ export interface ThousandDaoSystem {
 // --- 装备 ---
 
 export interface Equipment {
-  法宝1: string | null; // 物品ID
-  法宝2: string | null;
-  法宝3: string | null;
-  法宝4: string | null;
-  法宝5: string | null;
-  法宝6: string | null;
+  法宝1?: string | null; // 物品ID
+  法宝2?: string | null;
+  法宝3?: string | null;
+  法宝4?: string | null;
+  法宝5?: string | null;
+  法宝6?: string | null;
 }
 
 // --- 状态效果 ---
