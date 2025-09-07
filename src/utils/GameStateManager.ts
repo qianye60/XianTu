@@ -56,6 +56,15 @@ export interface LocationStatus {
   spiritual_energy: number; // 1-10，灵气浓度
 }
 
+// 寿命状态
+export interface LifespanStatus {
+  current: number;
+  max: number;
+  base_max: number;
+  bonus_max: number;
+  last_updated: string;
+}
+
 // 修炼进度
 export interface CultivationProgress {
   total_points: number;
@@ -86,6 +95,7 @@ class GameStateManagerClass {
       spirit: AttributeStatus;
       cultivation: AttributeStatus;
     };
+    lifespan: LifespanStatus;
     location: LocationStatus | null;
     statusEffects: StatusEffect[];
     cultivation: CultivationProgress | null;
@@ -97,6 +107,13 @@ class GameStateManagerClass {
       mana: this.createDefaultAttribute(100),
       spirit: this.createDefaultAttribute(100),
       cultivation: this.createDefaultAttribute(0),
+    },
+    lifespan: {
+        current: 18,
+        max: 100,
+        base_max: 100,
+        bonus_max: 0,
+        last_updated: new Date().toISOString(),
     },
     location: null,
     statusEffects: [],
@@ -186,6 +203,20 @@ class GameStateManagerClass {
       if (variables['character.cultivation'] || variables['修炼进度']) {
         const cultData = variables['character.cultivation'] || variables['修炼进度'];
         this.currentState.cultivation = this.parseCultivationData(cultData);
+      }
+
+      // 加载寿命信息
+      if (variables['character.lifespan']) {
+        const lifespanData = variables['character.lifespan'];
+        if (typeof lifespanData === 'object' && lifespanData.current !== undefined) {
+            this.currentState.lifespan = {
+                current: lifespanData.current || 18,
+                max: lifespanData.max || 100,
+                base_max: lifespanData.base_max || lifespanData.max || 100,
+                bonus_max: lifespanData.bonus_max || 0,
+                last_updated: new Date().toISOString(),
+            };
+        }
       }
 
       this.currentState.lastUpdated = new Date().toISOString();

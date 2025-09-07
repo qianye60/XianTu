@@ -94,7 +94,7 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeStatusEffect: true })}
   "around": "修炼后周围环境的状态变化",
   "mid_term_memory": "本次修炼的关键收获记录",
   "tavern_commands": [
-    {"action": "add", "scope": "chat", "key": "character.cultivation.experience", "value": "获得的经验值"},
+    {"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.修为.当前", "value": "获得的经验值"},
     {"action": "set", "scope": "chat", "key": "character.last_cultivation_time", "value": "当前时间"}
   ]
 }
@@ -298,8 +298,8 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeStatusEffect: true })}
   "around": "突破后环境的变化",
   "mid_term_memory": "突破经历记录",
   "tavern_commands": [
-    {"action": "set", "scope": "chat", "key": "character.cultivation.realm", "value": "新境界"},
-    {"action": "add", "scope": "chat", "key": "character.cultivation.breakthrough_count", "value": 1}
+    {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.名称", "value": "新境界"},
+    {"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.突破次数", "value": 1}
   ]
 }
 \`\`\`

@@ -15,38 +15,7 @@ export interface WorldPromptConfig {
 }
 
 export class EnhancedWorldPromptBuilder {
-  /**
-   * 根据世界背景获取命名风格
-   */
-  private static getWorldStyle(worldBackground?: string): string {
-    if (!worldBackground) {
-      return '传统古风修仙';
-    }
-    
-    const background = worldBackground.toLowerCase();
-    
-    if (background.includes('都市') || background.includes('现代') || background.includes('城市')) {
-      return '现代都市修仙';
-    }
-    
-    if (background.includes('科幻') || background.includes('星际') || background.includes('未来')) {
-      return '科幻未来修仙';
-    }
-    
-    if (background.includes('武侠') || background.includes('江湖')) {
-      return '武侠江湖修仙';
-    }
-    
-    if (background.includes('神话') || background.includes('上古') || background.includes('洪荒')) {
-      return '神话古典修仙';
-    }
-    
-    return '传统古风修仙';
-  }
-
   static buildPrompt(config: WorldPromptConfig): string {
-    // 根据世界背景调整命名风格
-    const worldBackgroundStyle = this.getWorldStyle(config.worldBackground);
     
     // 使用用户配置的精确数量，不添加随机变化避免数量失控
     // 严格按照配置值生成，确保AI看到的数字是正确的
@@ -80,20 +49,51 @@ export class EnhancedWorldPromptBuilder {
     const worldNameInfo = config.worldName ? 
       `\n世界名称: ${config.worldName}` : '';
 
+    // 生成真正随机的坐标范围 - 每次生成都不同
+    const baseMinLng = 100 + Math.random() * 20;  // 100-120 范围随机选择基础经度
+    const baseMaxLng = baseMinLng + 5 + Math.random() * 10; // 基础经度 + 5-15 度
+    const baseMinLat = 25 + Math.random() * 15;  // 25-40 范围随机选择基础纬度  
+    const baseMaxLat = baseMinLat + 3 + Math.random() * 8; // 基础纬度 + 3-11 度
+    
+    // 四舍五入到一位小数，便于阅读
+    const minLng = Math.round(baseMinLng * 10) / 10;
+    const maxLng = Math.round(baseMaxLng * 10) / 10;
+    const minLat = Math.round(baseMinLat * 10) / 10;
+    const maxLat = Math.round(baseMaxLat * 10) / 10;
+
     // 生成唯一的随机种子确保每次都不同
     const uniqueSeed = Date.now() + Math.floor(Math.random() * 1000000);
     const sessionId = Math.random().toString(36).substring(7);
+    
+    // 生成大洲形状变化指导
+    const continentShapes = [
+      '狭长型（如南北向的长条形）',
+      '椭圆型（东西向的宽椭圆）',
+      '不规则多角形（8-12个随机分布的顶点）',
+      '群岛型（多个连接的岛屿）',
+      '半月型（弯曲的月牙形状）',
+      '三角形（大致呈三角形分布）',
+      '葫芦型（两个圆形区域连接）',
+      '星形（从中心向外延伸的多个尖角）'
+    ];
+    
+    // 随机选择几种形状用于不同大洲
+    const selectedShapes = continentShapes.sort(() => Math.random() - 0.5).slice(0, 4);
 
     // 调试日志
     console.log('[增强世界生成器] 最终数量 - 势力:', finalFactionCount, '地点:', finalLocationCount, '特殊属性:', finalSecretRealmCount);
+    console.log('[增强世界生成器] 随机坐标范围:', `经度${minLng}-${maxLng}, 纬度${minLat}-${maxLat}`);
     console.log('[增强世界生成器] 生成种子:', uniqueSeed, '会话ID:', sessionId);
+    console.log('[增强世界生成器] 选择的大洲形状:', selectedShapes);
 
     return `
 # 诸天万界势力地图生成任务
 
 **生成会话ID**: ${sessionId}
 **随机种子**: ${uniqueSeed}
+**坐标范围**: 经度${minLng}-${maxLng}, 纬度${minLat}-${maxLat}
 **关键要求**: 创造独特多样的修仙世界，每次生成必须显著不同，避免重复固化的势力和地名
+**边界随机性**: 严格要求每个大洲和势力的边界形状都必须随机生成，绝不能重复之前的多边形形状！
 **数量限制**: 严格按照配置生成，势力${finalFactionCount}个、地点${finalLocationCount}个，绝不可超出此数量
 
 ## 世界设定信息
@@ -101,12 +101,10 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 
 ## 🎯 核心生成原则
 
-### 1. 【修仙世界适配】- ${worldBackgroundStyle}风格
+### 1. 【修仙世界基础】
 
-当前世界背景为**${worldBackgroundStyle}**，所有生成内容必须符合修仙体系并结合背景特色：
+核心要求：
 - **核心体系**: 修仙、境界、功法、丹药、法宝等传统修仙元素
-- **背景融合**: 根据世界背景调整势力类型和地点风格
-- **命名风格**: 符合背景设定的命名方式
 - **权力结构**: 强者为尊的修仙世界等级秩序
 
 ### 2. 【多样性第一】- 避免固化模式
@@ -134,11 +132,16 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 
 **大洲创造要求**：
 - **数量随机**: 根据势力数量和世界背景，自由决定创造2-8个大洲
-- **命名创新**: 根据${worldBackgroundStyle}风格创造独特的大洲名称，避免使用"东西南北"等方位词
+- **命名创新**: 创造独特的大洲名称，避免使用"东西南北"等方位词
 - **地理特色**: 每个大洲要有独特的地理特征（如：雪域、沙漠、森林、海岛等）
 - **势力分布**: 每个大洲包含1-3个主要势力，形成地缘政治格局
-- **边界设计**: 大洲边界用大型不规则多边形表示（8-15个坐标点），形状要有变化
+- **边界设计**: 大洲边界用大型不规则多边形表示（8-15个坐标点），形状要有显著变化
 - **屏障设置**: 大洲之间要有天然屏障（山脉、海峡、瘴气、结界等）
+
+**本次大洲形状指导**（每个大洲选择不同的形状类型）:
+${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\n')}
+
+**重要**: 每次生成时，每个大洲的边界形状都必须有显著差异，不能生成相似的多边形！
 
 **大洲示例风格**：
 - 传统修仙：如"青霞大陆"、"紫薇星域"、"九天玄境"
@@ -161,7 +164,7 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 - 可以有1-2个绝顶势力(95-100分)，其余势力实力自然分布
 
 **势力类型和实力要求**:
-1. **背景适配**: 所有势力类型必须符合${worldBackgroundStyle}，但保持修仙本质
+1. **背景适配**: 所有势力类型必须符合修仙本质
 2. **避免重复**: 绝对不能生成相同或相似的势力名称
 3. **风格统一**: 采用符合世界背景的命名风格
 4. **修仙核心**: 所有势力都要有修仙体系相关的专长和特色
@@ -181,7 +184,7 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 - ⚠️ **危险区域**: ${dangerZones}个
 - 🌄 **自然景观**: ${otherSites}个
 
-**地点类型** (必须使用以下7种标准类型，但内容要符合${worldBackgroundStyle}):
+**地点类型** (必须使用以下7种标准类型):
 1. **natural_landmark** - 🏔️ 自然地标 (符合背景的自然景观)
 2. **sect_power** - 🏯 势力总部 (各修仙势力的总部)
 3. **city_town** - 🏘️ 城镇聚居地 (符合背景风格的城镇)  
@@ -205,6 +208,14 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 3. **地理布局**: 不同的势力分布模式
 4. **专长重点**: 相同类型势力也要有不同的专长侧重
 5. **冲突关系**: 各势力间的恩怨情仇要有变化
+6. **⭐ 边界形状**: 每个大洲和势力的边界形状都必须完全不同，使用以下随机化策略：
+   - 随机选择顶点数量（8-15个顶点）
+   - 随机分布顶点位置（不要规律排列）
+   - 根据指定的形状类型生成对应的边界
+   - 每个坐标点都要在指定范围内随机选择，不要固定数值
+   - 同一世界内的不同大洲边界形状差异要非常明显
+
+**重要**: 使用随机种子 ${uniqueSeed} 来确保所有随机选择都是不同的！
 
 ## 📋 JSON输出格式 (严格数量控制)
 
@@ -219,29 +230,32 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 
 \`\`\`json
 {
+  "world_name": "${config.worldName || '修仙界'}",
+  "world_background": "${config.worldBackground || ''}",
+  "world_era": "${config.worldEra || ''}",
   "generation_info": {
     "session_id": "${sessionId}",
     "seed": ${uniqueSeed},
-    "world_type": "${worldBackgroundStyle}",
+    "world_type": "修仙世界",
     "generation_notes": "本次生成的独特特色和创新点"
   },
   "continents": [
     {
       "id": "continent_1",
-      "name": "符合${worldBackgroundStyle}的大洲名称",
+      "name": "大洲名称",
       "description": "大洲地理特征和文化描述",
       "climate": "气候类型",
       "terrain_features": ["主要地貌特征"],
       "natural_barriers": ["与其他大洲的天然屏障"],
       "continent_bounds": [
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0}
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}}
       ],
       "dominant_factions": ["在此大洲的主要势力ID列表"]
     }
@@ -249,7 +263,7 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
   "factions": [
     {
       "id": "faction_1",
-      "name": "符合${worldBackgroundStyle}的势力名称",
+      "name": "势力名称",
       "type": "势力类型",
       "description": "势力背景描述，体现独特文化",
       "territory": "控制的地域范围",
@@ -260,23 +274,23 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
       "continent_id": "所属大洲的ID",
       "headquarters": {
         "name": "总部名称",
-        "coordinates": {"longitude": 102.0-109.0, "latitude": 27.5-33.0}
+        "coordinates": {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}}
       },
       "territory_bounds": [
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
-        {"longitude": 102.0-109.0, "latitude": 27.5-33.0}
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
+        {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}}
       ]
     }
   ],
   "locations": [
     {
       "id": "loc_1",
-      "name": "符合${worldBackgroundStyle}的地点名称",
+      "name": "地点名称",
       "type": "7种标准类型之一",
-      "coordinates": {"longitude": 102.0-109.0, "latitude": 27.5-33.0},
+      "coordinates": {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
       "description": "地点详细描述", 
       "danger_level": "安全/普通/危险/极危险",
       "suitable_for": ["适合群体"],
@@ -289,13 +303,12 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 \`\`\`
 
 ## ⚠️ 最终检查要求
-- ✅ 所有名称完全符合${worldBackgroundStyle}风格
 - ✅ 避免重复或相似的势力/地点名称
 - ✅ 保持修仙体系核心，强者为尊
 - ✅ 势力类型和专长符合修仙背景
-- ✅ JSON格式完整，坐标在指定范围内 (经度102.0-109.0，纬度27.5-33.0)
+- ✅ JSON格式完整，坐标在指定范围内 (经度${minLng}-${maxLng}，纬度${minLat}-${maxLat})
 
-**核心目标**: 创造一个独一无二、符合${worldBackgroundStyle}、保持修仙本质的世界！
+**核心目标**: 创造一个独一无二的修仙世界！
 `;
   }
 }

@@ -25,7 +25,7 @@ import { toasts } from '@/utils/toast';
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 9999;
+  z-index: 20000; /* 提高到比加载遮罩(10000)更高的层级 */
   display: flex;
   flex-direction: column;
   align-items: flex-end;

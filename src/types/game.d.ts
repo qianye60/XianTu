@@ -238,6 +238,76 @@ export interface CharacterStatusForDisplay {
   temperament: number;
 }
 
+// --- 世界数据类型定义 ---
+
+/** 世界大陆信息 */
+export interface WorldContinent {
+  名称: string;
+  描述: string;
+  地理特征?: string[];
+  修真环境?: string;
+  气候?: string;
+  天然屏障?: string[];
+  大洲边界?: { longitude: number; latitude: number }[];
+}
+
+/** 世界势力信息 */
+export interface WorldFaction {
+  名称: string;
+  类型: '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '家族' | '散修联盟' | '秘境' | string;
+  等级: '一流' | '二流' | '三流' | '不入流' | string;
+  位置: string;
+  势力范围: string[];
+  描述: string;
+  特色: string;
+  实力评估: string;
+  与玩家关系?: '敌对' | '中立' | '友好' | '盟友' | string;
+  声望值?: number;
+}
+
+/** 世界地点信息 */
+export interface WorldLocation {
+  名称: string;
+  类型: '城池' | '宗门' | '秘境' | '险地' | '商会' | '坊市' | '洞府' | string;
+  位置: string;
+  coordinates?: { longitude: number; latitude: number }; // 原始坐标数据
+  描述: string;
+  特色: string;
+  安全等级: '安全' | '较安全' | '危险' | '极危险' | string;
+  开放状态: '开放' | '限制' | '封闭' | '未发现' | string;
+  相关势力?: string[];
+  特殊功能?: string[];
+}
+
+/** 世界生成信息 */
+export interface WorldGenerationInfo {
+  生成时间: string;
+  世界背景: string;
+  世界纪元: string;
+  主要冲突: string[];
+  特殊设定: string[];
+  版本: string;
+}
+
+/** 完整的世界信息数据结构 */
+export interface WorldInfo {
+  世界名称: string;
+  世界背景: string;
+  大陆信息: WorldContinent[];
+  势力信息: WorldFaction[];
+  地点信息: WorldLocation[];
+  生成信息: WorldGenerationInfo;
+}
+
+/** 世界地图数据 */
+export interface WorldMapData {
+  当前位置: string;
+  已探索地点: string[];
+  可到达地点: string[];
+  地点关系图: Record<string, string[]>; // 地点之间的连接关系
+  特殊标记: Record<string, any>; // 地图上的特殊标记
+}
+
 // --- 世界地图 ---
 
 export interface MapEvent {
@@ -336,8 +406,7 @@ export interface SaveData {
   对话历史?: GameMessage[]; // 对话历史数组
   // --- [核心重构] 新增字段，用于统一存储所有动态数据 ---
   角色基础信息?: CharacterBaseInfo;
-  世界信息?: any; // World 类型
-  世界舆图?: any; // MapData 类型
+  世界信息?: WorldInfo; // 世界基础信息
   创建数据?: {
     worlds: any[];
     talentTiers: any[];

@@ -147,9 +147,9 @@ ${THOUSAND_DAO_SYSTEM_PROMPT}
 **加入宗门:**
 \`\`\`json
 [
-  {"action": "set", "scope": "chat", "key": "character.social.faction", "value": "青云宗"},
-  {"action": "set", "scope": "chat", "key": "character.social.position", "value": "外门弟子"},
-  {"action": "set", "scope": "chat", "key": "character.identity.title", "value": "青云宗外门弟子"}
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.所属势力", "value": "青云宗"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.职位", "value": "外门弟子"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.称号", "value": "青云宗外门弟子"}
 ]
 \`\`\`
 
@@ -333,7 +333,7 @@ export const SCENARIO_OPERATION_TEMPLATES = {
     gainProgress: (progress: number) => ({
       action: "add",
       scope: "chat",
-      key: "character.cultivation.realm_progress",
+      key: "character.saveData.玩家角色状态.境界.当前进度",
       value: progress
     }),
     
@@ -341,19 +341,19 @@ export const SCENARIO_OPERATION_TEMPLATES = {
       {
         action: "set",
         scope: "chat", 
-        key: "character.cultivation.realm",
+        key: "character.saveData.玩家角色状态.境界.名称",
         value: newRealm
       },
       {
         action: "set",
         scope: "chat",
-        key: "character.cultivation.realm_level", 
+        key: "character.saveData.玩家角色状态.境界.名称_level", 
         value: newLevel
       },
       {
         action: "set",
         scope: "chat",
-        key: "character.cultivation.lifespan_max",
+        key: "character.saveData.玩家角色状态.寿元.最大",
         value: newLifespan
       },
       {

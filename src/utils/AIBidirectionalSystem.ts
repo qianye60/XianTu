@@ -13,6 +13,8 @@
 import { getTavernHelper } from './tavern';
 import { toast } from './toast';
 import { MultiLayerMemorySystem } from './MultiLayerMemorySystem';
+import { generateInGameResponse } from './generators/gameMasterGenerators';
+import type { GM_Response } from '../types/AIGameMaster';
 
 // 合理性审查相关类型
 export type DifficultyLevel = '普通' | '中等' | '困难';
@@ -450,10 +452,101 @@ class AIBidirectionalSystemClass {
   }
 
   /**
-   * 处理玩家行动的核心方法
+   * 处理玩家行动的核心方法 - 使用新的GM提示词系统
    * 整合AI交互、状态管理和记忆系统
    */
   public async processPlayerAction(
+    userMessage: string,
+    character: any,
+    gameState: any,
+    options?: {
+      onStreamChunk?: (chunk: string) => void;
+      onProgressUpdate?: (progress: string) => void;
+      onStateChange?: (newState: any) => void;
+      rationalityConfig?: RationalityConfig;
+      memoryFormatId?: string;
+    }
+  ): Promise<{
+    finalContent: string;
+    gmResponse?: GM_Response;
+    stateChanges?: any;
+    memoryUpdates?: any;
+    systemMessages?: string[];
+  }> {
+    try {
+      options?.onProgressUpdate?.('正在准备游戏数据...');
+      
+      // 构建当前游戏数据（现在包含完整的酒馆chat变量）
+      const currentGameData = await this.buildCurrentGameData(character, gameState);
+      
+      options?.onProgressUpdate?.('正在生成AI响应...');
+      
+      // 统一使用完整的游戏GM响应
+      const gmResponse = await generateInGameResponse(
+        currentGameData,
+        userMessage,
+        undefined, // 不使用场景类型检测
+        options?.memoryFormatId
+      );
+      
+      options?.onProgressUpdate?.('正在处理游戏指令...');
+      
+      // 处理GM响应中的tavern_commands
+      const stateChangeLog = await this.processGMCommands(gmResponse.tavern_commands || []);
+      
+      options?.onProgressUpdate?.('正在更新游戏状态...');
+      
+      // 如果有状态变化，通知回调
+      if (stateChangeLog && options?.onStateChange) {
+        const newState = this.buildStateFromChanges(stateChangeLog);
+        options.onStateChange(newState);
+      }
+
+      // 更新记忆系统 - 使用GM响应中的记忆更新
+      let memoryUpdates = null;
+      if (gmResponse.mid_term_memory && gmResponse.mid_term_memory.trim()) {
+        memoryUpdates = {
+          mid_term_memory: gmResponse.mid_term_memory,
+          source: 'gm_response'
+        };
+        
+        if (this.memorySystem) {
+          await this.memorySystem.processMemoryUpdates(memoryUpdates);
+        }
+      }
+      
+      // 构建最终响应
+      let finalContent = '';
+      if (gmResponse.text) {
+        finalContent += gmResponse.text;
+      }
+      
+      // 添加环境描述
+      if (gmResponse.around) {
+        finalContent += '\n\n' + gmResponse.around;
+      }
+      
+      return {
+        finalContent,
+        gmResponse,
+        stateChanges: stateChangeLog,
+        memoryUpdates,
+        systemMessages: []
+      };
+      
+    } catch (error) {
+      console.error('[AI双向系统] 玩家行动处理失败:', error);
+      
+      // 如果新系统失败，回退到旧系统
+      console.warn('[AI双向系统] 回退到旧系统处理');
+      return this.processPlayerActionLegacy(userMessage, character, gameState, options);
+    }
+  }
+
+  /**
+   * 旧版本的玩家行动处理 - 作为回退方案
+   */
+  private async processPlayerActionLegacy(
     userMessage: string,
     character: any,
     gameState: any,
@@ -522,14 +615,150 @@ class AIBidirectionalSystemClass {
       };
       
     } catch (error) {
-      console.error('[AI双向系统] 玩家行动处理失败:', error);
+      console.error('[AI双向系统] 旧版本处理也失败:', error);
       throw error;
     }
   }
 
   /**
-   * 构建游戏上下文
+   * 构建当前游戏数据 - 用于新的GM系统，所有数据都通过character.saveData提供
    */
+  private async buildCurrentGameData(character: any, gameState: any): Promise<any> {
+    const currentData: any = {
+      角色基础信息: character?.角色基础信息 || {},
+      当前状态: {},
+      游戏世界: {},
+      最近行动: '',
+      时间戳: new Date().toISOString()
+    };
+
+    try {
+      // 从酒馆获取完整的chat变量数据
+      if (this.tavernHelper) {
+        console.log('【数据构建】正在获取完整的酒馆chat变量数据...');
+        const chatVariables = await this.tavernHelper.getVariables({ type: 'chat' });
+        
+        if (chatVariables) {
+          console.log('【数据构建】成功获取酒馆数据，键数量:', Object.keys(chatVariables).length);
+          
+          // 优先使用酒馆中的character.saveData作为当前状态
+          if (chatVariables['character.saveData']) {
+            currentData.当前状态 = chatVariables['character.saveData'];
+            console.log('【数据构建】使用酒馆中的character.saveData作为当前状态');
+          } else if (chatVariables['character']) {
+            // 兼容旧的数据结构
+            currentData.当前状态 = chatVariables['character'];
+            console.log('【数据构建】使用酒馆中的character数据');
+          }
+        } else {
+          console.warn('【数据构建】未能从酒馆获取chat变量数据');
+        }
+      } else {
+        console.warn('【数据构建】酒馆连接不可用');
+      }
+    } catch (error) {
+      console.error('【数据构建】获取酒馆数据失败:', error);
+    }
+
+    // 如果酒馆数据获取失败，回退到角色存档数据
+    if (Object.keys(currentData.当前状态).length === 0) {
+      console.log('【数据构建】回退使用角色存档数据');
+      if (character?.存档?.存档数据) {
+        const saveData = character.存档.存档数据;
+        currentData.当前状态 = {
+          玩家角色状态: saveData.玩家角色状态 || {},
+          背包: saveData.背包 || {},
+          装备栏: saveData.装备栏 || {},
+          人物关系: saveData.人物关系 || {},
+          记忆: saveData.记忆 || {},
+          三千大道: saveData.三千大道 || {},
+          游戏时间: saveData.游戏时间 || {},
+          世界信息: saveData.世界信息 || {}
+        };
+      }
+    }
+
+    // 添加游戏状态信息
+    if (gameState) {
+      currentData.游戏世界 = gameState;
+    }
+
+    return currentData;
+  }
+
+  /**
+   * 处理GM命令 - 专门处理新GM系统返回的指令
+   */
+  private async processGMCommands(commands: any[]): Promise<any> {
+    if (!commands || commands.length === 0) {
+      return null;
+    }
+
+    console.log('🔧 [GM命令处理] 开始执行GM命令，总数量:', commands.length);
+    console.log('📋 [GM命令列表]:', commands.map((cmd, idx) => `${idx + 1}. ${cmd.action} ${cmd.key} = ${JSON.stringify(cmd.value).substring(0, 50)}${JSON.stringify(cmd.value).length > 50 ? '...' : ''}`));
+
+    const results: ExecutionResult[] = [];
+    
+    for (const command of commands) {
+      try {
+        // 转换GM命令格式到内部格式
+        // 确保所有指令都指向正确的变量和路径
+        let variable = command.key;
+        let path = undefined;
+        
+        // 如果key包含character.saveData路径，则正确处理
+        if (variable && variable.startsWith('character.saveData.')) {
+          // 将character.saveData.xxx的格式转换为变量character.saveData，路径xxx
+          variable = 'character.saveData';
+          path = command.key.replace('character.saveData.', '');
+        }
+        
+        const tavernCommand: TavernCommand = {
+          operation: command.action || 'set',
+          variable: variable,
+          value: command.value,
+          path: path
+        };
+
+        console.log('【GM命令处理】转换命令:', command, '→', tavernCommand);
+        const result = await this.executeCommand(tavernCommand);
+        results.push(result);
+        
+        // 添加每个命令的执行结果日志
+        if (result.success) {
+          console.log(`✅ [GM命令执行] ${command.action} ${command.key} 成功`);
+        } else {
+          console.log(`❌ [GM命令执行] ${command.action} ${command.key} 失败: ${result.error}`);
+        }
+        
+      } catch (error) {
+        console.error('[AI双向系统] GM命令执行失败:', error);
+        results.push({
+          success: false,
+          command: command,
+          error: error instanceof Error ? error.message : '未知错误'
+        });
+      }
+    }
+
+    // 创建状态变更日志
+    const changeLog: StateChangeLog = {
+      timestamp: new Date().toISOString(),
+      commands: results,
+      gameContext: {
+        position: '未知',
+        realm: '未知'
+      }
+    };
+
+    // 保存到变更历史
+    this.changeHistory.push(changeLog);
+    
+    // 更新已知状态
+    await this.updateLastKnownState();
+
+    return changeLog;
+  }
   private buildGameContext(character: any, gameState: any): string {
     let context = '[当前游戏状态]\n';
     

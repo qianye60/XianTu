@@ -263,15 +263,49 @@ export async function initializeCharacter(
 
       try {
         // 使用 retryableAICall 包装世界生成，确保有重试机制和用户确认功能
+        console.log('[角色初始化] 开始调用CultivationWorldGenerator');
+        
         const worldGenerationResult = await retryableAICall(
-          () => worldGenerator.generateWorld(),
-          (result) => result && result.success, // 验证世界生成是否成功
+          async () => {
+            console.log('[角色初始化] 执行worldGenerator.generateWorld()');
+            const result = await worldGenerator.generateWorld();
+            console.log('[角色初始化] 世界生成结果:', result);
+            return result;
+          },
+          (result) => {
+            console.log('[角色初始化] 验证世界生成结果:', result);
+            return result && result.success;
+          },
           2, // 最大重试次数  
           '天道造化：衍化世界法则'
         );
         
+        console.log('[角色初始化] 世界生成完成:', worldGenerationResult);
+        
         // 等待世界生成完成
         await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // [数据同步] 获取CultivationWorldGenerator保存的完整世界数据，并同步到当前SaveData
+        let worldDataFromGenerator = null;
+        try {
+          const variables = await helper.getVariables({ type: 'chat' });
+          const generatedSaveData = variables['character.saveData'] as any;
+          if (generatedSaveData && generatedSaveData.世界信息) {
+            // 保存生成器创建的世界信息，以便后续使用
+            worldDataFromGenerator = generatedSaveData.世界信息;
+            console.log('[角色初始化] 已获取CultivationWorldGenerator生成的完整世界信息:', {
+              世界名称: worldDataFromGenerator.世界名称,
+              大陆数量: worldDataFromGenerator.大陆信息?.length || 0,
+              势力数量: worldDataFromGenerator.势力信息?.length || 0,
+              地点数量: worldDataFromGenerator.地点信息?.length || 0
+            });
+          } else {
+            console.warn('[角色初始化] 未从CultivationWorldGenerator获取到完整世界信息');
+          }
+        } catch (syncError) {
+          console.error('[角色初始化] 同步世界数据失败:', syncError);
+        }
+        
         console.log('[角色初始化] 修仙世界已生成并保存到酒馆变量');
       } catch (worldGenError) {
         console.error('[角色初始化] 世界生成API调用失败:', worldGenError);
@@ -465,21 +499,9 @@ export async function initializeCharacter(
 
     // 4. 世界地图数据已在前面的CultivationWorldGenerator中生成完成
     // [核心改造] 新系统已经生成了完整的世界数据，无需重复调用旧的地图生成系统
-    let currentSaveData = saveData;
+    let currentSaveData = saveData; // saveData现在已经包含了同步的完整世界信息
 
-    // 4.5 生成角色位置标点（新增）
-    uiStore.updateLoadingText('定位：正在标记您的位置...');
-    
-    const playerLocationResponse = await retryableAICall(
-      () => generatePlayerLocation(baseInfo, characterInfo, enhancedWorldConfig),
-      (res) => res && typeof res === 'object', // 验证响应是否为非空对象
-      2, // 最大重试次数
-      '标记角色位置'
-    );
-
-    // 处理角色位置标点生成的响应
-    currentSaveData = await processGmResponse(playerLocationResponse, currentSaveData);
-
+    // 位置生成已经在初始化消息中完成，无需单独生成位置标点
     uiStore.updateLoadingText('天道赋格：正在为您谱写命运之初...');
 
     // 5.1 构建包含所有描述性名称的 creationDetails，供AI生成剧情
@@ -501,6 +523,7 @@ export async function initializeCharacter(
 
     // 5.2 生成初始消息（带重试机制）
     // 注意：世界地图数据已由CultivationWorldGenerator保存到酒馆变量，传递null即可
+    // 但需要传递保存的世界数据以便保护
     const initialMessageResponse = await retryableAICall(
       () => generateInitialMessage(initialGameDataForAI, null, GAME_START_INITIALIZATION_PROMPT),
       (response) => Boolean(response && response.text && Array.isArray(response.tavern_commands)), // 验证响应是否有效
@@ -550,10 +573,40 @@ export async function initializeCharacter(
       };
       await helper.insertOrAssignVariables(globalVars, { type: 'global' });
 
-      // [核心重構] 將所有動態數據，包括世界信息和地圖，全部整合到唯一的 saveData 變量中
-      // 在此阶段，currentSaveData 已经是最新、最完整的状态
+      // [核心重构] 世界数据优先级处理
+      // 1. 优先使用AI返回的缓存世界数据（最完整）
+      // 2. 其次使用生成器直接获取的数据
+      // 3. 最后使用基本备份数据
       currentSaveData.角色基础信息 = baseInfo;
-      currentSaveData.世界信息 = world;
+      
+      if (initialMessageResponse.cachedWorldData) {
+        console.log('[角色初始化] 使用AI缓存的世界信息（最优先级）');
+        currentSaveData.世界信息 = initialMessageResponse.cachedWorldData;
+      } else if (worldDataFromGenerator) {
+        console.log('[角色初始化] 使用CultivationWorldGenerator生成的世界信息');
+        currentSaveData.世界信息 = worldDataFromGenerator;
+      } else if (!currentSaveData.世界信息) {
+        // 只有在既没有缓存数据，也没有生成器数据，也没有现有世界信息时，才使用基本备份
+        console.warn('[角色初始化] 未找到完整世界信息，使用基本世界数据作为备份');
+        currentSaveData.世界信息 = {
+          世界名称: world.name,
+          世界背景: world.description,
+          大陆信息: [],
+          势力信息: [],
+          地点信息: [],
+          生成信息: {
+            生成时间: new Date().toISOString(),
+            世界背景: world.description,
+            世界纪元: world.era,
+            主要冲突: [],
+            特殊设定: [],
+            版本: '1.0'
+          }
+        };
+      } else {
+        console.log('[角色初始化] 保留现有的世界信息数据');
+      }
+      
       // 世界舆图已经在 processGmResponse 流程中被写入 currentSaveData
 
       const chatVars = {
