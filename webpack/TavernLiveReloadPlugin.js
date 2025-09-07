@@ -23,10 +23,10 @@ class TavernLiveReloadPlugin {
         }
       } catch (e) {
         console.warn(
-          '[Tavern-Reload] Could not read config.yaml, using default port 6621.',
+          '[Tavern-Reload] Could not read config.yaml, using default port 6620.',
           e.message,
         )
-        this.port = 6621
+        this.port = 6620
       }
 
       const httpServer = http.createServer()

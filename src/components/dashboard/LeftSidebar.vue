@@ -269,6 +269,7 @@ const handleSettings = () => {
 
 const handleBackToMenu = () => {
   if (confirm('确定要返回道途吗？当前游戏进度将会保存。')) {
+    // 保存当前游戏状态
     characterStore.saveCurrentGame();
     
     // 尝试保存游戏状态到酒馆变量
@@ -282,19 +283,15 @@ const handleBackToMenu = () => {
       console.warn('[返回道途] 保存酒馆状态失败:', error);
     }
     
-    // 返回到SillyTavern主界面
+    // 检查是否在iframe中运行（SillyTavern环境）
     if (window.parent && window.parent !== window) {
       // 在iframe中，通知父窗口关闭游戏
       window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
       console.log('[返回道途] 已发送关闭游戏消息到SillyTavern');
     } else {
-      // 如果不在iframe中，尝试关闭当前窗口
-      try {
-        window.close();
-      } catch {
-        // 如果无法关闭窗口，跳转到空白页面
-        window.location.href = 'about:blank';
-      }
+      // 在独立窗口中，返回到角色选择页面
+      console.log('[返回道途] 独立窗口，跳转到角色选择页面');
+      router.push('/');
     }
   }
 };

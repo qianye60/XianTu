@@ -1,5 +1,6 @@
 import { generateItemWithTavernAI } from '../tavernCore';
 import { INITIAL_MESSAGE_PROMPT } from '../prompts/gameMasterPrompts';
+import { getRandomizedInGamePrompt, createSceneSpecificPrompt } from '../prompts/inGameGMPrompts';
 import { buildGmRequest } from '../AIGameMaster';
 import type { GM_Response } from '../../types/AIGameMaster';
 import type { CharacterData } from '../../types';
@@ -18,6 +19,45 @@ export async function generateInitialMessage(
   console.log('【神识印记】准备调用AI生成天道初言，数据:', { initialGameData, mapData });
 
   try {
+    // 0. 缓存已生成的世界数据，避免在AI处理过程中丢失
+    console.log('【数据缓存】缓存现有世界数据...');
+    const { getTavernHelper } = await import('../tavern');
+    const tavernHelper = getTavernHelper();
+    
+    let cachedWorldData = null;
+    if (tavernHelper) {
+      try {
+        // 获取并缓存现有的世界数据
+        const existingVars = await tavernHelper.getVariables({ type: 'chat' });
+        const existingSaveData = existingVars['character.saveData'] as any;
+        
+        if (existingSaveData && existingSaveData.世界信息) {
+          cachedWorldData = JSON.parse(JSON.stringify(existingSaveData.世界信息)); // 深拷贝避免引用问题
+          console.log('【数据缓存】已缓存世界数据:', {
+            世界名称: cachedWorldData.世界名称,
+            大陆数量: cachedWorldData.大陆信息?.length || 0,
+            势力数量: cachedWorldData.势力信息?.length || 0,
+            地点数量: cachedWorldData.地点信息?.length || 0
+          });
+        } else {
+          console.log('【数据缓存】未发现现有世界数据');
+        }
+        
+        // 清理chat变量为AI生成做准备，但保留缓存
+        console.log('【数据清理】清理chat变量，为AI生成做准备...');
+        const allVars = Object.keys(existingVars);
+        for (const varName of allVars) {
+          await tavernHelper.deleteVariable(varName, { type: 'chat' });
+        }
+        console.log('【数据清理】已清理所有chat变量，数据已缓存到内存中');
+        
+      } catch (error) {
+        console.warn('【数据缓存】缓存过程中出现警告:', error);
+      }
+    } else {
+      console.warn('【数据缓存】酒馆连接不可用，跳过数据缓存');
+    }
+
     // 1. 处理随机出身和随机灵根，具体化为实际设定
     let processedOrigin = initialGameData.creationDetails.originName;
     let processedSpiritRoot = initialGameData.creationDetails.spiritRootName;
@@ -108,11 +148,39 @@ export async function generateInitialMessage(
     
     console.log('【神识印记】成功生成天道初言，命令数量:', result.tavern_commands?.length || 0);
     
-    // 6. 返回结构化的响应，并包含处理后的具体设定
+    // 5.5. 将缓存的世界数据植入到AI生成结果中
+    if (cachedWorldData) {
+      console.log('【数据植入】将缓存的世界数据植入AI生成结果');
+      
+      // 移除AI可能生成的world相关命令，避免冲突
+      const originalCommandCount = result.tavern_commands.length;
+      result.tavern_commands = result.tavern_commands.filter((cmd: any) => 
+        !cmd.key || (!cmd.key.includes('世界信息') && !cmd.key.includes('world_') && cmd.key !== 'character.saveData')
+      );
+      
+      if (originalCommandCount !== result.tavern_commands.length) {
+        console.log('【数据植入】已过滤AI生成的世界相关命令，避免数据冲突');
+      }
+      
+      // 添加植入世界数据的命令
+      result.tavern_commands.push({
+        action: "set",
+        scope: "chat",
+        key: "character.saveData.世界信息",
+        value: cachedWorldData
+      });
+      
+      console.log('【数据植入】已添加世界数据植入命令，确保世界数据完整保存');
+    } else {
+      console.log('【数据植入】无缓存的世界数据，使用AI生成的默认数据');
+    }
+    
+    // 6. 返回结构化的响应，并包含处理后的具体设定和缓存的世界数据
     const finalResult = {
       ...result,
       processedOrigin,
-      processedSpiritRoot
+      processedSpiritRoot,
+      cachedWorldData // 传递缓存的世界数据供后续使用
     };
     return finalResult as GM_Response;
     
@@ -124,7 +192,7 @@ export async function generateInitialMessage(
 }
 
 /**
- * 创建fallback响应的辅助函数
+ * 创建fallback响应的辅助函数 - 已废弃，现在直接抛出错误让重试机制处理
  */
 function createFallbackResponse(initialGameData: any, processedOrigin: string, processedSpiritRoot: string): GM_Response {
   return {
@@ -158,94 +226,186 @@ ${processedOrigin === '世家子弟' ? '雕梁画栋的建筑彰显着家族的�
         {
           action: "set",
           scope: "chat",
-          key: "character.cultivation.realm",
+          key: "character.saveData.玩家角色状态.境界.名称",
           value: "凡人"
         },
         {
           action: "set",
           scope: "chat",
-          key: "character.cultivation.realm_level",
+          key: "character.saveData.玩家角色状态.境界.等级",
           value: 0
         },
         {
           action: "set",
           scope: "chat",
-          key: "character.cultivation.realm_progress",
+          key: "character.saveData.玩家角色状态.境界.当前进度",
           value: 0
         },
         {
           action: "set",
           scope: "chat",
           key: "character.saveData.玩家角色状态.位置.描述",
-          value: "修仙世界边缘"
+          value: processedOrigin === '世家子弟' ? "青云世家祖宅" : processedOrigin === '宗门弟子' ? "九霄宗外门" : "未知起点"
         },
         {
           action: "set",
           scope: "chat",
-          key: "character.cultivation.lifespan_current",
+          key: "character.saveData.玩家角色状态.寿元.当前",
           value: 18
         },
         {
           action: "set",
           scope: "chat",
-          key: "character.cultivation.lifespan_max",
+          key: "character.saveData.玩家角色状态.寿元.最大",
           value: 100
         },
+        // 人物关系初始化 - 由AI根据角色出身随机生成合适的关系
         {
           action: "set",
           scope: "chat",
-          key: "character.saveData.玩家角色状态.位置.描述",
-          value: processedOrigin === '世家子弟' ? "青云世家祖宅" : processedOrigin === '宗门弟子' ? "九霄宗外门" : "故乡小镇"
-        },
-        // 家庭成员初始化
-        {
-          action: "set",
-          scope: "chat",
-          key: "relationships.父亲",
-          value: {
-            name: `${initialGameData.baseInfo.名字}父`,
-            relationship: "父亲",
-            trust_level: 90,
-            influence: 85,
-            description: processedOrigin === '世家子弟' ? "家族长者，修为不俗，对家族传承极为看重" : processedOrigin === '商贾之家' ? "精明的商人，为家族积累了不少财富" : processedOrigin === '书香门第' ? "饱读诗书的学者，教导有方" : "勤劳朴实的普通人，为家庭默默奉献",
-            current_status: "健在",
-            location: processedOrigin === '世家子弟' ? "青云世家祖宅" : processedOrigin === '宗门弟子' ? "九霄宗外门" : "故乡小镇",
-            age: 45,
-            cultivation_level: processedOrigin === '世家子弟' ? "筑基期" : "凡人"
-          }
-        },
-        {
-          action: "set", 
-          scope: "chat",
-          key: "relationships.母亲",
-          value: {
-            name: `${initialGameData.baseInfo.名字}母`,
-            relationship: "母亲",
-            trust_level: 95,
-            influence: 90,
-            description: "温柔慈爱的母亲，对孩子关怀备至，总是默默支持着家人的决定",
-            current_status: "健在",
-            location: processedOrigin === '世家子弟' ? "青云世家祖宅" : processedOrigin === '宗门弟子' ? "九霄宗外门" : "故乡小镇",
-            age: 42,
-            cultivation_level: processedOrigin === '世家子弟' ? "练气期" : "凡人"
-          }
-        },
-        {
-          action: "set",
-          scope: "chat", 
-          key: "relationships.青梅竹马",
-          value: {
-            name: `小${processedOrigin === '世家子弟' ? '月' : processedOrigin === '宗门弟子' ? '雪' : '花'}`,
-            relationship: "青梅竹马",
-            trust_level: 80,
-            influence: 70,
-            description: "邻家的同龄女孩，从小一起长大，彼此青涩的感情",
-            current_status: "健在",
-            location: processedOrigin === '世家子弟' ? "青云世家附近" : processedOrigin === '宗门弟子' ? "九霄宗外门" : "故乡小镇",
-            age: 17,
-            romantic_potential: true
-          }
+          key: "character.saveData.人物关系",
+          value: {} // 空对象，由AI初始化消息时自行生成合适的人物关系
         }
       ]
     };
+}
+
+/**
+ * 生成正式游戏中的GM响应 - 用于剧情推进
+ * @param currentGameData 当前游戏状态数据
+ * @param playerAction 玩家的行动或选择
+ * @param sceneType 可选的场景类型，用于生成特定场景的提示词
+ * @param memoryFormatId 可选的指定记忆格式ID
+ */
+export async function generateInGameResponse(
+  currentGameData: any,
+  playerAction?: string,
+  sceneType?: '战斗' | '修炼' | '社交' | '探索' | '传承',
+  memoryFormatId?: string
+): Promise<GM_Response> {
+  console.log('【剧情推进】准备生成游戏GM响应，数据:', { currentGameData, playerAction, sceneType });
+
+  try {
+    // 构建当前游戏状态的GM请求对象
+    const gmRequest = {
+      ...currentGameData,
+      playerAction: playerAction || '继续当前活动',
+      requestType: 'in_game_progression',
+      timestamp: new Date().toISOString()
+    };
+    
+    // 根据场景类型选择合适的提示词
+    let prompt: string;
+    if (sceneType) {
+      prompt = createSceneSpecificPrompt(sceneType, memoryFormatId);
+      console.log('【剧情推进】使用场景特定提示词:', sceneType);
+    } else {
+      prompt = getRandomizedInGamePrompt();
+      console.log('【剧情推进】使用随机化提示词');
+    }
+    
+    // 替换提示词中的占位符
+    const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(gmRequest, null, 2));
+    
+    console.log('【剧情推进】最终提示词长度:', finalPrompt.length);
+    console.log('【剧情推进】GM请求数据:', gmRequest);
+    
+    // 调用AI生成响应
+    const result = await generateItemWithTavernAI<GM_Response>(
+      finalPrompt, 
+      sceneType ? `${sceneType}剧情推进` : '剧情推进', 
+      false
+    );
+    
+    // 验证结果结构
+    if (!result || !result.text) {
+      console.warn('【剧情推进】AI返回的响应结构无效:', result);
+      throw new Error('AI生成的游戏响应格式无效或内容缺失');
+    }
+    
+    // 确保tavern_commands是数组
+    if (!Array.isArray(result.tavern_commands)) {
+      console.warn('【剧情推进】AI未返回tavern_commands数组，设置为空数组');
+      result.tavern_commands = [];
+    }
+    
+    console.log('【剧情推进】成功生成响应，命令数量:', result.tavern_commands?.length || 0);
+    
+    return result as GM_Response;
+    
+  } catch (error: any) {
+    console.error('【剧情推进】生成游戏响应失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 生成快速游戏响应 - 用于简单的玩家行动反馈
+ * @param currentState 当前角色状态
+ * @param action 玩家行动
+ */
+export async function generateQuickResponse(
+  currentState: any,
+  action: string
+): Promise<GM_Response> {
+  console.log('【快速响应】生成简单反馈，行动:', action);
+  
+  try {
+    const quickRequest = {
+      currentState,
+      action,
+      requestType: 'quick_response',
+      timestamp: new Date().toISOString()
+    };
+    
+    // 使用简化的提示词进行快速生成
+    const quickPrompt = `
+# 快速游戏响应生成
+
+根据玩家行动"${action}"，生成简短的游戏反馈。
+
+**要求**:
+- text字段: 200-500字符的简短反馈
+- around字段: 100-300字符的环境描述
+- mid_term_memory字段: 如有重要变化则更新，否则可为空
+- tavern_commands: 仅在必要时更新数据
+
+**输入数据**:
+\`\`\`json
+${JSON.stringify(quickRequest, null, 2)}
+\`\`\`
+
+**输出格式**:
+\`\`\`json
+{
+  "text": "简短的反馈内容",
+  "around": "环境描述", 
+  "mid_term_memory": "记忆更新或空字符串",
+  "tavern_commands": []
+}
+\`\`\`
+`;
+    
+    const result = await generateItemWithTavernAI<GM_Response>(quickPrompt, '快速响应', false);
+    
+    if (!result || !result.text) {
+      throw new Error('快速响应生成失败');
+    }
+    
+    result.tavern_commands = result.tavern_commands || [];
+    
+    console.log('【快速响应】生成完成');
+    return result as GM_Response;
+    
+  } catch (error: any) {
+    console.error('【快速响应】生成失败:', error);
+    
+    // 提供极简的fallback响应
+    return {
+      text: `你${action}。周围的环境没有发生明显变化，一切都按部就班地继续着。`,
+      around: "环境保持原状，你可以继续你的行动。",
+      mid_term_memory: "",
+      tavern_commands: []
+    };
+  }
 }

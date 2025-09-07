@@ -116,8 +116,8 @@ ${previousInteractions.map((interaction, index) => `${index + 1}. ${interaction}
   "around": "互动过程中周围环境和其他人的反应",
   "mid_term_memory": "本次互动的关键信息记录",
   "tavern_commands": [
-    {"action": "set", "scope": "chat", "key": "character.relationships.${npcName}.favor", "value": "新的好感度"},
-    {"action": "push", "scope": "chat", "key": "character.relationships.${npcName}.interactions", "value": "本次互动记录"}
+    {"action": "set", "scope": "chat", "key": "character.saveData.人物关系.${npcName}.favor", "value": "新的好感度"},
+    {"action": "push", "scope": "chat", "key": "character.saveData.人物关系.${npcName}.interactions", "value": "本次互动记录"}
   ]
 }
 \`\`\`
@@ -283,7 +283,7 @@ export function generateWorldEventPrompt(config: {
   "mid_term_memory": "重大事件的历史记录",
   "tavern_commands": [
     {"action": "set", "scope": "global", "key": "world_events.${eventType}_event", "value": "事件详情"},
-    {"action": "add", "scope": "chat", "key": "character.witnessed_events", "value": "事件见证记录"}
+    {"action": "add", "scope": "chat", "key": "character.saveData.记忆.见证事件", "value": "事件见证记录"}
   ]
 }
 \`\`\`

@@ -355,6 +355,44 @@ export const useCharacterStore = defineStore('characterV3', () => {
   };
 
   /**
+   * [核心] 从酒馆同步最新的存档数据到本地store
+   * 用于在游戏过程中获取AI更新的数据
+   */
+  const syncFromTavern = async () => {
+    const active = rootState.value.当前激活存档;
+    const profile = activeCharacterProfile.value;
+    const slot = activeSaveSlot.value;
+
+    if (!active || !profile || !slot) {
+      console.warn('[存档核心] 没有激活的存档，无法从酒馆同步数据');
+      return;
+    }
+
+    try {
+      const helper = getTavernHelper();
+      if (!helper) {
+        throw new Error('酒馆连接尚未建立！');
+      }
+
+      // 从酒馆获取最新数据
+      const chatVars = await helper.getVariables({ type: 'chat' });
+      const tavernSaveData = chatVars['character.saveData'] as SaveData | undefined;
+      
+      if (tavernSaveData) {
+        // 更新本地存档数据
+        slot.存档数据 = tavernSaveData;
+        slot.保存时间 = new Date().toISOString();
+        commitToStorage();
+        console.log('[存档核心] 已从酒馆同步最新存档数据');
+      } else {
+        console.warn('[存档核心] 酒馆中没有找到character.saveData数据');
+      }
+    } catch (error) {
+      console.error('[存档核心] 从酒馆同步数据失败:', error);
+    }
+  };
+
+  /**
    * [核心改造] 保存当前游戏进度到激活的存档槽
    * 新逻辑: 从酒馆的 `character.saveData` 变量读取完整状态，然后写入 Pinia store
    */
@@ -723,5 +761,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
     clearAllSaves,
     commitToStorage, // 导出给外部使用
     setActiveCharacterInTavern,
+    syncFromTavern,
   };
 });

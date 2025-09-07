@@ -58,7 +58,9 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\cultivationMapAI.ts\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\.env.example\")",
       "Bash(mv:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(del \"src\\utils\\worldGeneration\\cultivationWorldGeneratorOld.ts\")",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

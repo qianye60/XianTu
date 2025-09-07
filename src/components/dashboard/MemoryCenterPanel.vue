@@ -66,7 +66,52 @@
           </div>
           
           <div class="memory-content">
-            {{ memory.content }}
+            <div v-if="memory.parsedContent && memory.parsedContent.format" class="structured-memory">
+              <div class="memory-title" v-if="memory.parsedContent.title">
+                【{{ memory.parsedContent.title }}】
+              </div>
+              
+              <div 
+                v-for="section in memory.parsedContent.format.sections" 
+                :key="section.key"
+                v-if="memory.parsedContent.sections && memory.parsedContent.sections[section.key]"
+                class="memory-section-group"
+              >
+                <div class="memory-section">
+                  <span class="memory-icon">{{ section.icon }}</span>
+                  <span class="memory-section-title">{{ section.title }}</span>
+                </div>
+                <div 
+                  v-for="item in memory.parsedContent.sections[section.key]" 
+                  :key="item"
+                  class="memory-item"
+                >
+                  {{ item }}
+                </div>
+              </div>
+              
+              <!-- 未识别的通用内容 -->
+              <div 
+                v-if="memory.parsedContent.sections['general']"
+                class="memory-section-group"
+              >
+                <div class="memory-section">
+                  <span class="memory-icon">📝</span>
+                  <span class="memory-section-title">其他记录</span>
+                </div>
+                <div 
+                  v-for="item in memory.parsedContent.sections['general']" 
+                  :key="item"
+                  class="memory-item"
+                >
+                  {{ item }}
+                </div>
+              </div>
+            </div>
+            
+            <div v-else class="simple-memory">
+              {{ memory.content }}
+            </div>
           </div>
           
           <div v-if="memory.importance" class="memory-importance">
@@ -84,12 +129,18 @@ import { RefreshCw, Trash2 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
+import { parseMemoryContent, type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
   content: string;
   time: string;
   importance?: number;
+  parsedContent?: {
+    title?: string;
+    sections: { [key: string]: string[] };
+    format?: MemoryFormatConfig;
+  };
 }
 
 const characterStore = useCharacterStore();
@@ -157,6 +208,25 @@ const formatTime = (timestamp: number): string => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 };
 
+// 判断是否为结构化记忆
+const isStructuredMemory = (content: string): boolean => {
+  return content.includes('【') && content.includes('】') && 
+         (content.includes('🏠') || content.includes('💫') || content.includes('🗺️') || content.includes('⚡') || content.includes('💭'));
+};
+
+// 格式化结构化记忆
+const formatStructuredMemory = (content: string): string => {
+  return content
+    // 处理标题
+    .replace(/【([^】]+)】/g, '<div class="memory-title">【$1】</div>')
+    // 处理分类标题
+    .replace(/(🏠|💫|🗺️|⚡|💭)\s*\*\*([^*]+)\*\*/g, '<div class="memory-section"><span class="memory-icon">$1</span><span class="memory-section-title">$2</span></div>')
+    // 处理列表项
+    .replace(/^-\s+(.+)$/gm, '<div class="memory-item">• $1</div>')
+    // 处理换行
+    .replace(/\n/g, '<br/>');
+};
+
 // 设置活跃筛选器
 const setActiveFilter = (filterKey: string) => {
   activeFilter.value = filterKey;
@@ -197,33 +267,69 @@ const loadMemoryData = async () => {
       // 短期记忆
       if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
         memoryData.短期记忆.forEach((content: string, index: number) => {
-          loadedMemories.push({
+          const memory: Memory = {
             type: 'short',
             content,
             time: formatTime(Date.now() - index * 300000) // 5分钟间隔
-          });
+          };
+          
+          // 尝试解析结构化内容
+          const parsed = parseMemoryContent(content);
+          if (parsed.format || Object.keys(parsed.sections).length > 0) {
+            memory.parsedContent = parsed;
+          }
+          
+          loadedMemories.push(memory);
         });
       }
       
-      // 中期记忆
-      if (memoryData.中期记忆 && Array.isArray(memoryData.中期记忆)) {
-        memoryData.中期记忆.forEach((content: string, index: number) => {
-          loadedMemories.push({
-            type: 'medium',
-            content,
-            time: formatTime(Date.now() - (index + 10) * 3600000) // 1小时间隔
+      // 中期记忆 - 支持新的结构化格式
+      if (memoryData.中期记忆) {
+        if (Array.isArray(memoryData.中期记忆)) {
+          // 旧的数组格式
+          memoryData.中期记忆.forEach((content: string, index: number) => {
+            const memory: Memory = {
+              type: 'medium',
+              content,
+              time: formatTime(Date.now() - (index + 10) * 3600000) // 1小时间隔
+            };
+            
+            const parsed = parseMemoryContent(content);
+            if (parsed.format || Object.keys(parsed.sections).length > 0) {
+              memory.parsedContent = parsed;
+            }
+            
+            loadedMemories.push(memory);
           });
-        });
+        } else if (typeof memoryData.中期记忆 === 'string') {
+          // 新的结构化格式 - 单个记忆条目
+          const memory: Memory = {
+            type: 'medium',
+            content: memoryData.中期记忆,
+            time: '初始刻印',
+            importance: 10
+          };
+          
+          memory.parsedContent = parseMemoryContent(memoryData.中期记忆);
+          loadedMemories.push(memory);
+        }
       }
       
       // 长期记忆
       if (memoryData.长期记忆 && Array.isArray(memoryData.长期记忆)) {
         memoryData.长期记忆.forEach((content: string, index: number) => {
-          loadedMemories.push({
+          const memory: Memory = {
             type: 'long',
             content,
             time: formatTime(Date.now() - (index + 20) * 86400000) // 1天间隔
-          });
+          };
+          
+          const parsed = parseMemoryContent(content);
+          if (parsed.format || Object.keys(parsed.sections).length > 0) {
+            memory.parsedContent = parsed;
+          }
+          
+          loadedMemories.push(memory);
         });
       }
       
@@ -235,9 +341,26 @@ const loadMemoryData = async () => {
     if (helper) {
       const chatVars = await helper.getVariables({ type: 'chat' });
       
-      if (chatVars['character.memory'] || chatVars['记忆']) {
-        // 处理酒馆中的记忆数据
-        console.log('[记忆中心] 从酒馆获取记忆数据');
+      // 检查是否有mid_term_memory字段（新格式的中期记忆）
+      if (chatVars['mid_term_memory']) {
+        const midTermMemory = chatVars['mid_term_memory'];
+        if (typeof midTermMemory === 'string' && midTermMemory.trim()) {
+          // 找到现有的中期记忆并替换或添加
+          const existingIndex = memories.value.findIndex(m => m.type === 'medium');
+          const newMemory: Memory = {
+            type: 'medium',
+            content: midTermMemory,
+            time: '初始刻印',
+            importance: 10,
+            parsedContent: parseMemoryContent(midTermMemory)
+          };
+          
+          if (existingIndex >= 0) {
+            memories.value[existingIndex] = newMemory;
+          } else {
+            memories.value.unshift(newMemory);
+          }
+        }
       }
     }
 
@@ -324,6 +447,64 @@ onMounted(() => {
   color: var(--color-text);
   line-height: 1.5;
   margin-bottom: 0.5rem;
+}
+
+.simple-memory {
+  /* 简单记忆样式，保持原样 */
+}
+
+.structured-memory {
+  /* 结构化记忆的特殊样式 */
+}
+
+.memory-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 0.75rem;
+  text-align: center;
+  padding: 0.5rem;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.1), rgba(var(--color-accent-rgb), 0.05));
+  border-radius: 6px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+}
+
+.memory-section {
+  display: flex;
+  align-items: center;
+  margin: 0.75rem 0 0.5rem 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.3);
+}
+
+.memory-icon {
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
+}
+
+.memory-section-title {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.memory-item {
+  margin: 0.3rem 0;
+  padding-left: 1rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  position: relative;
+}
+
+.memory-item::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.6rem;
+  width: 3px;
+  height: 3px;
+  background: var(--color-accent);
+  border-radius: 50%;
 }
 
 .memory-importance {

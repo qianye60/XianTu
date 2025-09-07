@@ -38,6 +38,14 @@
             <option value="quality">品质排序</option>
             <option value="name">名称排序</option>
           </select>
+          <button 
+            class="refresh-btn"
+            @click="refreshFromTavern"
+            :disabled="refreshing"
+            title="从酒馆同步最新数据"
+          >
+            <RotateCcw :size="16" :class="{ 'spinning': refreshing }" />
+          </button>
         </div>
       </div>
     </div>
@@ -195,12 +203,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, Component } from 'vue';
-import { Search, Sword, Book, Pill, Shield, Box, BoxSelect, Gem, Package, X } from 'lucide-vue-next';
+import { Search, Sword, Book, Box, BoxSelect, Gem, Package, X, RotateCcw } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { Item, Inventory } from '@/types/game';
 
 const characterStore = useCharacterStore();
 const loading = ref(false);
+const refreshing = ref(false);
 const selectedItem = ref<Item | null>(null);
 const searchQuery = ref('');
 const selectedCategory = ref('all');
@@ -219,9 +228,15 @@ const tabs = computed(() => [
   { id: 'currency', label: '灵石', icon: Gem }
 ]);
 
-const inventory = computed<Inventory>(() => characterStore.activeSaveSlot?.存档数据?.背包 || { 
-  灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 
-  物品: {} 
+const inventory = computed<Inventory>(() => {
+  console.log('[背包面板] 调试 - activeSaveSlot:', characterStore.activeSaveSlot);
+  console.log('[背包面板] 调试 - 存档数据:', characterStore.activeSaveSlot?.存档数据);
+  console.log('[背包面板] 调试 - 背包数据:', characterStore.activeSaveSlot?.存档数据?.背包);
+  
+  return characterStore.activeSaveSlot?.存档数据?.背包 || { 
+    灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 
+    物品: {} 
+  };
 });
 
 const itemList = computed<Item[]>(() => Object.values(inventory.value.物品 || {}));
@@ -342,7 +357,7 @@ const closeModal = () => {
 };
 
 // 灵石兑换功能
-const handleExchange = (currentGrade: string, direction: 'up' | 'down') => {
+const handleExchange = (currentGrade: '下品' | '中品' | '上品' | '极品', direction: 'up' | 'down') => {
   const gradeInfo = spiritStoneGrades.find(g => g.name === currentGrade);
   if (!gradeInfo) return;
 
@@ -352,9 +367,10 @@ const handleExchange = (currentGrade: string, direction: 'up' | 'down') => {
     if (currentAmount >= 100) {
       // 更新存档数据
       if (characterStore.activeSaveSlot?.存档数据?.背包?.灵石) {
-        characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] = currentAmount - 100;
-        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[gradeInfo.exchangeUp] || 0;
-        characterStore.activeSaveSlot.存档数据.背包.灵石[gradeInfo.exchangeUp] = targetAmount + 1;
+        (characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] as number) = currentAmount - 100;
+        const targetGrade = gradeInfo.exchangeUp as '下品' | '中品' | '上品' | '极品';
+        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0;
+        (characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) = targetAmount + 1;
         characterStore.commitToStorage();
       }
     }
@@ -364,16 +380,41 @@ const handleExchange = (currentGrade: string, direction: 'up' | 'down') => {
     if (currentAmount >= 1) {
       // 更新存档数据
       if (characterStore.activeSaveSlot?.存档数据?.背包?.灵石) {
-        characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] = currentAmount - 1;
-        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[gradeInfo.exchangeDown] || 0;
-        characterStore.activeSaveSlot.存档数据.背包.灵石[gradeInfo.exchangeDown] = targetAmount + 100;
+        (characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] as number) = currentAmount - 1;
+        const targetGrade = gradeInfo.exchangeDown as '下品' | '中品' | '上品' | '极品';
+        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0;
+        (characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) = targetAmount + 100;
         characterStore.commitToStorage();
       }
     }
   }
 };
 
-onMounted(() => {
+// 手动刷新数据
+const refreshFromTavern = async () => {
+  if (refreshing.value) return;
+  
+  refreshing.value = true;
+  try {
+    console.log('[背包面板] 手动刷新酒馆数据...');
+    await characterStore.syncFromTavern();
+  } catch (error) {
+    console.error('[背包面板] 刷新数据失败:', error);
+  } finally {
+    refreshing.value = false;
+  }
+};
+
+onMounted(async () => {
+  console.log('[背包面板] 组件挂载，开始同步酒馆数据...');
+  
+  try {
+    // 从酒馆同步最新数据
+    await characterStore.syncFromTavern();
+  } catch (error) {
+    console.error('[背包面板] 同步酒馆数据失败:', error);
+  }
+  
   if (!selectedItem.value && filteredItems.value.length > 0) {
     selectedItem.value = filteredItems.value[0];
   }
@@ -612,6 +653,36 @@ onMounted(() => {
   min-width: 80px;
 }
 
+.refresh-btn {
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
 /* 标签内容 */
 .tab-content {
   flex: 1;
@@ -715,6 +786,7 @@ onMounted(() => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
 }
 
 /* 桌面端详情侧边栏 */

@@ -1,5 +1,11 @@
 <template>
   <div class="map-panel">
+    <!-- 世界信息显示区域 (顶部) -->
+    <div v-if="worldBackground" class="world-info-header">
+      <div class="world-name">{{ worldName }}</div>
+      <div class="world-background">{{ worldBackground }}</div>
+    </div>
+    
     <!-- 修仙世界地图容器 -->
     <div class="custom-map-container" ref="mapContainer">
       <!-- 地图内控制按钮 (左侧) -->
@@ -54,8 +60,8 @@
             <g v-for="continent in cultivationContinents" :key="'continent-' + continent.id">
               <!-- 大洲范围多边形 -->
               <polygon
-                v-if="continent.continent_bounds && continent.continent_bounds.length > 0"
-                :points="continent.continent_bounds.map((point: any) => {
+                v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界).length > 0"
+                :points="(continent.continent_bounds || continent.大洲边界).map((point: any) => {
                   const coords = geoToVirtual(point.longitude, point.latitude);
                   return `${coords.x},${coords.y}`;
                 }).join(' ')"
@@ -71,9 +77,9 @@
               
               <!-- 大洲名称标签 -->
               <text
-                v-if="continent.continent_bounds && continent.continent_bounds.length > 0"
-                :x="getContinentCenter(continent.continent_bounds).x"
-                :y="getContinentCenter(continent.continent_bounds).y"
+                v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界).length > 0"
+                :x="getContinentCenter(continent.continent_bounds || continent.大洲边界).x"
+                :y="getContinentCenter(continent.continent_bounds || continent.大洲边界).y"
                 class="continent-name-label"
                 text-anchor="middle"
                 fill="#3B82F6"
@@ -81,7 +87,7 @@
                 font-size="18px"
                 opacity="0.8"
               >
-                {{ continent.name }}
+                {{ continent.name || continent.名称 }}
               </text>
             </g>
           </g>
@@ -281,7 +287,7 @@
 
     <!-- 地图图例 (右下角) -->
     <div class="map-legend">
-      <div class="legend-title">修仙世界图例</div>
+      <div class="legend-title">{{ worldName }}图例</div>
       <div class="legend-items">
         <div class="legend-item">
           <div class="legend-icon">
@@ -387,6 +393,10 @@ const selectedInfo = ref<{
   danger_level?: string;
   suitable_for?: string;
   screenPosition?: { x: number; y: number }; // 屏幕位置
+  // 大洲特有属性
+  climate?: string;
+  terrain_features?: string[];
+  natural_barriers?: string[];
 } | null>(null);
 
 // 组件状态
@@ -397,6 +407,19 @@ const playerName = ref('');
 // 修仙世界数据 - 只从酒馆变量加载
 const cultivationLocations = ref<CultivationLocation[]>([]);
 const cultivationContinents = ref<any[]>([]);
+
+// 世界信息计算属性
+const worldName = computed(() => {
+  const variables = tavernVariables.value;
+  const worldInfo = variables['character.saveData']?.世界信息;
+  return worldInfo?.世界名称 || '修仙界';
+});
+
+const worldBackground = computed(() => {
+  const variables = tavernVariables.value;
+  const worldInfo = variables['character.saveData']?.世界信息;
+  return worldInfo?.世界背景 || '';
+});
 const tavernVariables = ref<Record<string, any>>({});
 
 // 玩家位置 - 从酒馆变量获取
@@ -564,20 +587,21 @@ const selectContinent = (continent: any) => {
     return;
   }
 
-  console.log('[坤舆图志] 选中大洲:', continent.name);
+  console.log('[坤舆图志] 选中大洲:', continent.name || continent.名称);
 
-  // 计算大洲中心在屏幕上的位置
-  const center = getContinentCenter(continent.continent_bounds);
+  // 计算大洲中心在屏幕上的位置，兼容中英文字段名
+  const bounds = continent.continent_bounds || continent.大洲边界;
+  const center = getContinentCenter(bounds);
   const screenPosition = calculateScreenPosition(center.x, center.y);
 
   selectedInfo.value = {
     id: continent.id,
-    name: continent.name,
+    name: continent.name || continent.名称,
     type: '大洲',
-    description: continent.description || '广阔的修仙大陆',
-    climate: continent.climate,
-    terrain_features: continent.terrain_features,
-    natural_barriers: continent.natural_barriers,
+    description: continent.description || continent.描述 || '广阔的修仙大陆',
+    climate: continent.climate || continent.气候,
+    terrain_features: continent.terrain_features || continent.地理特征,
+    natural_barriers: continent.natural_barriers || continent.天然屏障,
     screenPosition: screenPosition
   };
 };
@@ -993,10 +1017,26 @@ const loadCultivationWorldFromTavern = async (variables: any) => {
     await loadLocationsData(variables);
 
     if (cultivationLocations.value.length === 0) {
-      showToastWithDelay('所有地点数据都无效，无法加载', 'error');
+      showToastWithDelay('未找到有效的地点数据，将显示测试数据', 'warning');
+      addTestData(); // 添加测试数据以便调试
     } else {
       showToastWithDelay(`成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
       mapStatus.value = `已加载 ${cultivationLocations.value.length} 个地点`;
+      
+      // 打印加载的数据供调试
+      console.log('[坤舆图志] 加载完成的数据统计:', {
+        大陆数量: cultivationContinents.value.length,
+        地点数量: cultivationLocations.value.length,
+        前5个大陆: cultivationContinents.value.slice(0, 5).map(c => ({
+          名称: c.名称 || c.name,
+          边界点数: (c.大洲边界 || c.continent_bounds)?.length || 0
+        })),
+        前5个地点: cultivationLocations.value.slice(0, 5).map(l => ({
+          名称: l.name,
+          类型: l.type,
+          坐标: l.coordinates
+        }))
+      });
     }
 
   } catch (error) {
@@ -1006,16 +1046,30 @@ const loadCultivationWorldFromTavern = async (variables: any) => {
   }
 };
 
-// 加载大洲数据
+// 加载大洲数据 - 从character.saveData.世界信息读取
 const loadContinentsData = async (variables: any) => {
   try {
-    const continentsData = variables['world_continents'] || [];
-    console.log('[坤舆图志] 加载大洲数据:', continentsData);
+    console.log('🏔️ [大陆加载] 开始加载大陆数据，可用变量:', Object.keys(variables));
+    
+    const worldInfo = variables['character.saveData']?.世界信息;
+    const continentsData = worldInfo?.大陆信息 || [];
+    
+    console.log('🏔️ [大陆加载] 从世界信息读取到大陆数量:', continentsData.length);
+    console.log('🏔️ [大陆加载] 世界信息结构:', worldInfo);
+    
+    if (continentsData.length === 0) {
+      console.warn('🏔️ [大陆加载] 没有找到大陆数据');
+      return;
+    }
+    
+    console.log('🏔️ [大陆加载] 最终大陆数据:', continentsData);
 
     if (Array.isArray(continentsData)) {
       continentsData.forEach((continent: any, index: number) => {
         try {
-          console.log(`[坤舆图志] ✅ 已加载大洲: ${continent.name}`);
+          // 处理不同的数据结构格式
+          const continentName = continent.名称 || continent.name || `大陆${index + 1}`;
+          console.log(`[坤舆图志] ✅ 已加载大洲: ${continentName}`);
           cultivationContinents.value.push(continent);
         } catch (continentError) {
           console.error(`[坤舆图志] 处理大洲${index + 1}时出错:`, continentError);
@@ -1027,19 +1081,30 @@ const loadContinentsData = async (variables: any) => {
   }
 };
 
-// 加载势力数据
+// 加载势力数据 - 从character.saveData.世界信息读取
 const loadFactionsData = async (variables: any) => {
   try {
-    const factionsData = variables['world_factions'] || [];
-    console.log('[坤舆图志] 加载势力数据:', factionsData);
+    console.log('⚔️ [势力加载] 开始加载势力数据');
+    
+    const worldInfo = variables['character.saveData']?.世界信息;
+    const factionsData = worldInfo?.势力信息 || [];
+    
+    console.log('⚔️ [势力加载] 从世界信息读取到势力数量:', factionsData.length);
+    
+    if (factionsData.length === 0) {
+      console.warn('⚔️ [势力加载] 没有找到势力数据');
+      return;
+    }
+    
+    console.log('⚔️ [势力加载] 最终势力数据:', factionsData);
 
     if (Array.isArray(factionsData)) {
       factionsData.forEach((faction: any, index: number) => {
         try {
           // 处理势力范围边界
           let territoryBounds: { x: number; y: number }[] = [];
-          // 兼容两种字段名：territory_bounds (AI生成) 和 territoryBounds (旧格式)
-          const territoryData = faction.territory_bounds || faction.territoryBounds;
+          // 兼容多种字段名格式
+          const territoryData = faction.territory_bounds || faction.territoryBounds || faction.势力范围边界;
           if (territoryData && Array.isArray(territoryData)) {
             territoryBounds = territoryData.map((point: any) => {
               const virtualCoords = geoToVirtual(point.longitude, point.latitude);
@@ -1049,21 +1114,26 @@ const loadFactionsData = async (variables: any) => {
 
           // 总部位置
           let headquarters: { x: number; y: number } | undefined;
-          if (faction.headquarters) {
-            headquarters = geoToVirtual(faction.headquarters.longitude, faction.headquarters.latitude);
+          if (faction.headquarters || faction.总部位置) {
+            const hqData = faction.headquarters || faction.总部位置;
+            headquarters = geoToVirtual(hqData.longitude, hqData.latitude);
           }
+
+          // 处理不同的数据结构格式
+          const factionName = faction.名称 || faction.name || `势力${index + 1}`;
+          const factionType = faction.类型 || faction.type || '中立宗门';
 
           const location: CultivationLocation = {
             id: faction.id || `faction_${index}`,
-            name: faction.name,
-            type: faction.type,
+            name: factionName,
+            type: factionType,
             coordinates: headquarters || getTerritoryCenter(territoryBounds),
-            description: faction.description || '',
+            description: faction.描述 || faction.description || '',
             x: headquarters?.x || getTerritoryCenter(territoryBounds).x,
             y: headquarters?.y || getTerritoryCenter(territoryBounds).y,
             size: 15, // 势力范围大一些
-            color: faction.color || getLocationColor(faction.type),
-            iconColor: faction.color || getLocationColor(faction.type),
+            color: faction.color || getLocationColor(factionType),
+            iconColor: faction.color || getLocationColor(factionType),
             iconSize: 'large',
             isTerritory: true,
             territoryBounds: territoryBounds,
@@ -1083,32 +1153,60 @@ const loadFactionsData = async (variables: any) => {
   }
 };
 
-// 加载地点数据
+// 加载地点数据 - 从character.saveData.世界信息读取
 const loadLocationsData = async (variables: any) => {
   try {
-    // 查找世界地点数据
-    const locationsData = variables['world_locations'] || [];
-    console.log('[坤舆图志] 加载地点数据:', locationsData);
+    console.log('🏯 [地点加载] 开始加载地点数据');
+    
+    const worldInfo = variables['character.saveData']?.世界信息;
+    const locationsData = worldInfo?.地点信息 || [];
+    
+    console.log('🏯 [地点加载] 从世界信息读取到地点数量:', locationsData.length);
+    
+    if (locationsData.length === 0) {
+      console.warn('🏯 [地点加载] 没有找到地点数据');
+      return;
+    }
+    
+    console.log('🏯 [地点加载] 最终地点数据:', locationsData);
 
     if (Array.isArray(locationsData)) {
       locationsData.forEach((location: any, index: number) => {
         try {
-          const virtualCoords = geoToVirtual(location.coordinates.longitude, location.coordinates.latitude);
+          // 处理坐标 - 兼容不同的数据格式
+          let coordinates: { x: number; y: number };
+          if (location.coordinates && location.coordinates.longitude !== undefined) {
+            // WorldLocation中的coordinates字段：{ coordinates: { longitude, latitude } }
+            coordinates = geoToVirtual(location.coordinates.longitude, location.coordinates.latitude);
+            console.log(`🏯 [地点加载] 使用coordinates字段加载地点: ${location.名称 || location.name}`, location.coordinates);
+          } else if (location.位置 && typeof location.位置 === 'object' && location.位置.longitude !== undefined) {
+            // 新格式：{ 位置: { longitude, latitude } }
+            coordinates = geoToVirtual(Number(location.位置.longitude), Number(location.位置.latitude));
+            console.log(`🏯 [地点加载] 使用位置字段加载地点: ${location.名称 || location.name}`, location.位置);
+          } else {
+            // 随机生成坐标作为备用
+            coordinates = { x: Math.random() * mapWidth.value, y: Math.random() * mapHeight.value };
+            console.warn(`🏯 [地点加载] 地点坐标缺失，使用随机坐标: ${location.名称 || location.name}`, location);
+          }
+
+          // 处理不同的数据结构格式
+          const locationName = location.名称 || location.name || `地点${index + 1}`;
+          const locationType = location.类型 || location.type || '其他';
 
           const locationObj: CultivationLocation = {
             id: location.id || `location_${index}`,
-            name: location.name,
-            type: mapLocationTypeToInternal(location.type),
-            coordinates: virtualCoords,
-            description: location.description || '',
-            x: virtualCoords.x,
-            y: virtualCoords.y,
-            size: getLocationSize(location.type),
-            color: getLocationColor(mapLocationTypeToInternal(location.type)),
-            iconColor: getLocationColor(mapLocationTypeToInternal(location.type)),
-            iconSize: getLocationIconSize(location.type),
-            danger_level: location.danger_level,
-            suitable_for: location.suitable_for,
+            name: locationName,
+            type: mapLocationTypeToInternal(locationType),
+            coordinates: coordinates,
+            description: location.描述 || location.description || '',
+            x: coordinates.x,
+            y: coordinates.y,
+            size: getLocationSize(locationType),
+            color: getLocationColor(mapLocationTypeToInternal(locationType)),
+            iconColor: getLocationColor(mapLocationTypeToInternal(locationType)),
+            iconSize: getLocationIconSize(locationType),
+            danger_level: location.安全等级 || location.danger_level || '较安全',
+            suitable_for: location.适合境界 || location.suitable_for || [],
             isTerritory: false
           };
 
@@ -1121,16 +1219,9 @@ const loadLocationsData = async (variables: any) => {
       });
     }
 
-    // 旧的GeoJSON格式兼容处理
+    // 主要数据结构检查 - 只检查character.saveData.世界信息
     const searchPaths = [
-      { path: ['world'], desc: '直接world变量' },
-      { path: ['character.saveData', '世界舆图'], desc: 'character.saveData.世界舆图' },
-      { path: ['character.saveData', '世界信息'], desc: 'character.saveData.世界信息' },
-      { path: ['character.saveData', 'world'], desc: 'character.saveData.world' },
-      { path: ['character.saveData'], desc: 'character.saveData根级别', checkMapData: true },
-      { path: ['世界信息'], desc: '世界信息变量' },
-      { path: ['世界舆图'], desc: '世界舆图变量' },
-      { path: ['worldData'], desc: 'worldData变量' }
+      { path: ['character.saveData', '世界信息'], desc: 'character.saveData.世界信息' }
     ];
 
     let worldData = null;
@@ -1151,102 +1242,21 @@ const loadLocationsData = async (variables: any) => {
       }
 
       if (pathValid && current) {
-        if (search.checkMapData && typeof current === 'object') {
-          for (const [key, value] of Object.entries(current)) {
-            if (value && typeof value === 'object' && (value as any).mapData) {
-              worldData = value as { mapData: any };
-              dataPath = `character.saveData.${key}`;
-              break;
-            }
-          }
-          if (worldData) break;
-        }
-
-        if ((current as any).mapData && (current as any).mapData.type === 'FeatureCollection') {
-          worldData = current as { mapData: any };
+        // 检查是否是世界信息数据
+        if ((current as any).地点信息 && Array.isArray((current as any).地点信息)) {
+          worldData = current as any;
           dataPath = search.desc;
           break;
         }
       }
     }
 
-    // 处理旧格式的GeoJSON数据
-    if (worldData && worldData.mapData && worldData.mapData.features) {
-      console.log(`[坤舆图志] ✅ 从"${dataPath}"找到 ${worldData.mapData.features.length} 个旧格式地点`);
-
-      worldData.mapData.features.forEach((feature: any, index: number) => {
-        try {
-          if (!feature.geometry || !feature.properties) return;
-
-          // 处理Point类型的地点
-          if (feature.geometry.type === 'Point') {
-            const coords = feature.geometry.coordinates;
-            if (!coords || !Array.isArray(coords) || coords.length < 2) return;
-
-            const virtualCoords = geoToVirtual(coords[0], coords[1]);
-
-            const location: CultivationLocation = {
-              id: `old_loc_${feature.properties.name}_${index}`,
-              name: feature.properties.name,
-              type: mapLocationTypeToInternal(feature.properties.type),
-              coordinates: virtualCoords,
-              description: feature.properties.description,
-              x: virtualCoords.x,
-              y: virtualCoords.y,
-              size: getLocationSize(feature.properties.type),
-              color: getLocationColor(mapLocationTypeToInternal(feature.properties.type)),
-              iconColor: getLocationColor(mapLocationTypeToInternal(feature.properties.type)),
-              iconSize: getLocationIconSize(feature.properties.type),
-              danger_level: feature.properties.danger_level,
-              suitable_for: feature.properties.suitable_for,
-              isTerritory: false
-            };
-
-            cultivationLocations.value.push(location);
-          }
-
-          // 处理Polygon类型的势力范围
-          else if (feature.geometry.type === 'Polygon' && feature.properties.type === 'faction_territory') {
-            const polygonCoords = feature.geometry.coordinates[0]; // 外环坐标
-            if (!polygonCoords || !Array.isArray(polygonCoords) || polygonCoords.length < 3) return;
-
-            // 转换多边形坐标到虚拟坐标系
-            const territoryBounds = polygonCoords.map(([lng, lat]: [number, number]) => {
-              return geoToVirtual(lng, lat);
-            });
-
-            // 计算中心点作为总部位置
-            const centerX = territoryBounds.reduce((sum, point) => sum + point.x, 0) / territoryBounds.length;
-            const centerY = territoryBounds.reduce((sum, point) => sum + point.y, 0) / territoryBounds.length;
-            const headquarters = { x: centerX, y: centerY };
-
-            const factionLocation: CultivationLocation = {
-              id: `old_faction_${feature.properties.name}_${index}`,
-              name: feature.properties.name,
-              type: feature.properties.faction_type || 'orthodox_sect',
-              coordinates: headquarters,
-              description: feature.properties.description,
-              x: headquarters.x,
-              y: headquarters.y,
-              size: 15, // 势力标记稍大
-              color: getLocationColor(feature.properties.faction_type || 'orthodox_sect'),
-              iconColor: getLocationColor(feature.properties.faction_type || 'orthodox_sect'),
-              iconSize: 'large',
-              danger_level: feature.properties.danger_level,
-              suitable_for: feature.properties.suitable_for,
-              isTerritory: true,
-              territoryBounds: territoryBounds,
-              headquarters: headquarters
-            };
-
-            cultivationLocations.value.push(factionLocation);
-            console.log(`[坤舆图志] ✅ 已加载势力范围: ${factionLocation.name} (${territoryBounds.length}个边界点)`);
-          }
-
-        } catch (featureError) {
-          console.error(`[坤舆图志] 处理旧格式地点${index + 1}时出错:`, featureError);
-        }
-      });
+    // 如果找到世界信息数据，输出调试信息
+    if (worldData && worldData.地点信息) {
+      console.log(`[坤舆图志] ✅ 从"${dataPath}"找到 ${worldData.地点信息.length} 个地点信息`);
+      console.log('[坤舆图志] 地点数据详情:', worldData.地点信息);
+    } else {
+      console.warn('[坤舆图志] 未找到有效的地点数据');
     }
 
   } catch (error) {
@@ -1286,15 +1296,39 @@ const debugMapData = async () => {
     console.log('[调试] Chat变量键值:', Object.keys(chatVars));
     console.log('[调试] Global变量键值:', Object.keys(globalVars));
 
-    // 检查势力和地点数据
+    // 检查势力和地点数据 - 优先检查新数据结构
+    const saveData = chatVars['character.saveData'] as any;
+    if (saveData?.世界信息) {
+      console.log('[调试] ===== 找到新的世界数据结构 =====');
+      console.log('[调试] character.saveData.世界信息:', saveData.世界信息);
+      
+      if (saveData.世界信息.大陆信息) {
+        console.log('[调试] 大陆信息数量:', saveData.世界信息.大陆信息.length);
+      }
+      if (saveData.世界信息.势力信息) {
+        console.log('[调试] 势力信息数量:', saveData.世界信息.势力信息.length);
+      }
+      if (saveData.世界信息.地点信息) {
+        console.log('[调试] 地点信息数量:', saveData.世界信息.地点信息.length);
+      }
+    } else {
+      console.log('[调试] ===== 未找到新的世界数据结构，检查旧格式 =====');
+    }
+
+    // 检查旧格式数据
     if (chatVars['world_factions']) {
-      console.log('[调试] ===== 找到势力数据 =====');
+      console.log('[调试] ===== 找到旧格式势力数据 =====');
       console.log('[调试] world_factions:', chatVars['world_factions']);
     }
 
     if (chatVars['world_locations']) {
-      console.log('[调试] ===== 找到地点数据 =====');
+      console.log('[调试] ===== 找到旧格式地点数据 =====');
       console.log('[调试] world_locations:', chatVars['world_locations']);
+    }
+
+    if (chatVars['world_continents']) {
+      console.log('[调试] ===== 找到旧格式大陆数据 =====');
+      console.log('[调试] world_continents:', chatVars['world_continents']);
     }
 
     // 检查所有聊天变量的详细结构
@@ -1384,6 +1418,33 @@ onMounted(async () => {
   flex-direction: column;
   height: 100%;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+/* 世界信息头部 */
+.world-info-header {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+}
+
+.world-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e40af;
+  text-shadow: 0 1px 2px rgba(30, 64, 175, 0.1);
+}
+
+.world-background {
+  font-size: 0.85rem;
+  color: #64748b;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 地图内控制按钮 (左侧) */

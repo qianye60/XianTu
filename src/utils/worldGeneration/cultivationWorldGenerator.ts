@@ -6,6 +6,7 @@
 import { getTavernHelper } from '../tavern';
 import type { CultivationWorldSettings, BirthplaceGeneration } from './gameWorldConfig';
 import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
+import type { WorldInfo, WorldContinent, WorldFaction, WorldLocation, WorldGenerationInfo } from '@/types/game.d';
 
 /**
  * 真实修仙世界势力生成器
@@ -98,7 +99,7 @@ export class CultivationWorldGenerator {
   }
 
   /**
-   * 解析并保存世界数据
+   * 解析并保存世界数据到character.saveData中
    */
   private async parseAndSaveWorldData(response: string): Promise<void> {
     const tavern = getTavernHelper();
@@ -110,40 +111,273 @@ export class CultivationWorldGenerator {
     try {
       console.log('[修仙世界生成器] 开始解析AI响应:', response.substring(0, 500));
       
-      // 尝试从响应中提取JSON数据
-      let jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-      if (!jsonMatch) {
-        // 尝试匹配没有代码块标记的JSON
-        jsonMatch = response.match(/(\{[\s\S]*"locations"\s*:\s*\[[\s\S]*?\}\s*\][\s\S]*?\})/);
+      // 初始化worldData为空对象，确保后续fallback逻辑能正确执行
+      let worldData: any = {};
+      
+      try {
+        // 尝试从响应中提取JSON数据
+        let jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+        if (!jsonMatch) {
+          // 尝试匹配没有代码块标记的JSON
+          jsonMatch = response.match(/(\{[\s\S]*"locations"\s*:\s*\[[\s\S]*?\}\s*\][\s\S]*?\})/);
+        }
+        
+        if (jsonMatch) {
+          worldData = JSON.parse(jsonMatch[1]);
+          console.log('[修仙世界生成器] 成功解析AI返回的世界数据:', worldData);
+          console.log('[修仙世界生成器] 大陆数量:', worldData.continents?.length || 0);
+          console.log('[修仙世界生成器] 势力数量:', worldData.factions?.length || 0);
+          console.log('[修仙世界生成器] 地点数量:', worldData.locations?.length || 0);
+        } else {
+          console.warn('[修仙世界生成器] 无法从AI响应中提取JSON数据，将使用完整fallback数据');
+        }
+      } catch (parseError) {
+        console.warn('[修仙世界生成器] JSON解析失败，将使用完整fallback数据:', parseError);
+        worldData = {}; // 确保使用空对象，触发所有fallback逻辑
       }
       
-      if (!jsonMatch) {
-        throw new Error('无法从AI响应中提取JSON数据');
+      // 详细检查AI返回的数据结构
+      if (!worldData.continents || !Array.isArray(worldData.continents)) {
+        console.error('[修仙世界生成器] AI未返回有效的continents数组:', worldData.continents);
+      }
+      if (!worldData.factions || !Array.isArray(worldData.factions)) {
+        console.error('[修仙世界生成器] AI未返回有效的factions数组:', worldData.factions);
+      }
+      if (!worldData.locations || !Array.isArray(worldData.locations)) {
+        console.error('[修仙世界生成器] AI未返回有效的locations数组:', worldData.locations);
       }
       
-      const worldData = JSON.parse(jsonMatch[1]);
-      console.log('[修仙世界生成器] 解析的世界数据:', worldData);
+      // [数据验证] 检查AI生成的数据质量
+      console.log('[修仙世界生成器] 开始验证AI生成的数据质量...');
       
-      // 提取势力和地点数据
-      const factions = worldData.factions || [];
-      const locations = worldData.locations || [];
+      // 验证大陆信息
+      if (!worldData.continents || !Array.isArray(worldData.continents) || worldData.continents.length === 0) {
+        console.error('[修仙世界生成器] AI未生成有效的大陆信息');
+        throw new Error('AI生成的世界数据缺少大陆信息，请重试');
+      }
       
-      // 保存到酒馆变量
-      const chatVars = {
-        'world_continents': worldData.continents || [],
-        'world_factions': factions,
-        'world_locations': locations,
-        'world_generation_info': worldData.generation_info || {}
+      // 验证势力信息
+      if (!worldData.factions || !Array.isArray(worldData.factions) || worldData.factions.length === 0) {
+        console.error('[修仙世界生成器] AI未生成有效的势力信息');
+        throw new Error('AI生成的世界数据缺少势力信息，请重试');
+      }
+      
+      // 验证地点信息
+      if (!worldData.locations || !Array.isArray(worldData.locations) || worldData.locations.length === 0) {
+        console.error('[修仙世界生成器] AI未生成有效的地点信息');
+        throw new Error('AI生成的世界数据缺少地点信息，请重试');
+      }
+      
+      console.log('[修仙世界生成器] 检查完成，最终数组大小:', {
+        大陆: worldData.continents?.length || 0,
+        势力: worldData.factions?.length || 0,
+        地点: worldData.locations?.length || 0
+      });
+      
+      // 构建规范化的世界信息数据结构
+      const worldInfo: WorldInfo = {
+        世界名称: worldData.world_name || this.userConfig?.worldName || '修仙界',
+        世界背景: worldData.world_background || this.userConfig?.worldBackground || '',
+        大陆信息: (worldData.continents || []).map((continent: any): WorldContinent => ({
+          名称: continent.name || continent.名称,
+          描述: continent.description || continent.描述,
+          地理特征: continent.terrain_features || continent.geography || continent.地理特征,
+          修真环境: continent.cultivation_environment || continent.修真环境,
+          气候: continent.climate,
+          天然屏障: continent.natural_barriers,
+          大洲边界: continent.continent_bounds
+        })),
+        势力信息: (worldData.factions || []).map((faction: any): WorldFaction => ({
+          名称: faction.name || faction.名称,
+          类型: faction.type || faction.类型 || '中立宗门',
+          等级: faction.level || faction.等级 || '三流',
+          位置: faction.headquarters?.coordinates || faction.headquarters || faction.location || faction.位置,
+          势力范围: faction.territory_bounds || faction.territory || faction.势力范围 || [],
+          描述: faction.description || faction.描述,
+          特色: faction.specialties || faction.features || faction.特色,
+          实力评估: faction.strength || faction.power_assessment || faction.实力评估,
+          与玩家关系: faction.player_relationship || faction.与玩家关系 || '中立',
+          声望值: faction.reputation || faction.声望值 || 0
+        })),
+        地点信息: (worldData.locations || []).map((location: any): WorldLocation => ({
+          名称: location.name || location.名称,
+          类型: location.type || location.类型 || '其他',
+          位置: location.coordinates || location.position || location.位置,
+          coordinates: location.coordinates, // 保留原始坐标数据供地图使用
+          描述: location.description || location.描述,
+          特色: location.features || location.特色,
+          安全等级: location.danger_level || location.safety_level || location.安全等级 || '较安全',
+          开放状态: location.status || location.开放状态 || '开放',
+          相关势力: location.controlled_by ? [location.controlled_by] : (location.related_factions || location.相关势力 || []),
+          特殊功能: location.special_attributes || location.special_functions || location.特殊功能 || []
+        })),
+        生成信息: {
+          生成时间: new Date().toISOString(),
+          世界纪元: worldData.world_era || this.userConfig?.worldEra || '修仙纪元',
+          主要冲突: worldData.main_conflicts || [],
+          特殊设定: worldData.special_settings || [],
+          版本: '1.0'
+        } as WorldGenerationInfo
+      };
+
+      // 初始化时直接删除现有的character.saveData，创建全新的完整架构
+      console.log('[修仙世界生成器] 正在清除现有数据并创建全新的完整角色架构');
+      
+      // 先删除现有的 character.saveData
+      try {
+        await tavern.deleteVariable('character.saveData', { type: 'chat' });
+        console.log('[修仙世界生成器] 已清除现有的character.saveData');
+      } catch (error) {
+        console.log('[修仙世界生成器] character.saveData不存在或清除失败，继续创建新架构');
+      }
+      
+      // 创建全新的完整角色数据架构
+      const newSaveData = {
+        // 角色基础信息
+        角色基础信息: {
+          名字: '',
+          性别: '',
+          年龄: 0,
+          出生: '',
+          灵根: '',
+          天赋: [],
+          天资: '',
+          先天六司: {
+            根骨: 0,
+            灵性: 0,
+            悟性: 0,
+            气运: 0,
+            魅力: 0,
+            心性: 0
+          }
+        },
+        
+        // 玩家角色状态
+        玩家角色状态: {
+          境界: {
+            等级: 0,
+            名称: '凡人',
+            当前进度: 0,
+            下一级所需: 10,
+            突破描述: ''
+          },
+          声望: 0,
+          位置: {
+            描述: '',
+            坐标: { X: 0, Y: 0 }
+          },
+          气血: { 当前: 100, 最大: 100 },
+          灵气: { 当前: 50, 最大: 50 },
+          神识: { 当前: 30, 最大: 30 },
+          寿命: { 当前: 18, 最大: 100 },
+          修为: { 当前: 0, 最大: 10 },
+          状态效果: []
+        },
+        
+        // 装备栏
+        装备栏: {
+          法宝1: null,
+          法宝2: null, 
+          法宝3: null,
+          法宝4: null,
+          法宝5: null,
+          法宝6: null
+        },
+        
+        // 背包系统
+        背包: {
+          灵石: {
+            下品: 0,
+            中品: 0,
+            上品: 0,
+            极品: 0
+          },
+          物品: {}
+        },
+        
+        // 人物关系
+        人物关系: {},
+        
+        // 记忆系统
+        记忆: {
+          短期记忆: [],
+          中期记忆: [],
+          长期记忆: []
+        },
+        
+        // 三千大道系统
+        三千大道: {
+          已解锁大道: [],
+          大道进度: {},
+          大道路径定义: {}
+        },
+        
+        // 游戏时间
+        游戏时间: {
+          年: 1000,
+          月: 1,
+          日: 1,
+          小时: 0,
+          分钟: 0
+        },
+        
+        // 世界信息
+        世界信息: worldInfo
       };
       
-      await tavern.insertOrAssignVariables(chatVars, { type: 'chat' });
+      // 保存全新的角色数据架构到酒馆
+      await tavern.insertOrAssignVariables({
+        'character.saveData': newSaveData
+      }, { type: 'chat' });
       
-      console.log('[修仙世界生成器] 世界数据已成功保存到酒馆变量:', {
-        continents_count: (worldData.continents || []).length,
-        factions_count: factions.length,
-        locations_count: locations.length,
-        generation_info: worldData.generation_info
+      console.log('🌍 [修仙世界生成器] 完整角色架构已创建并保存');
+      console.log('📊 [角色架构统计]', {
+        主要模块数: Object.keys(newSaveData).length,
+        世界名称: worldInfo.世界名称,
+        大陆数量: worldInfo.大陆信息?.length || 0,
+        势力数量: worldInfo.势力信息?.length || 0,
+        地点数量: worldInfo.地点信息?.length || 0
       });
+      
+      // [最终验证] 强制验证保存的数据是否包含fallback内容
+      try {
+        const verificationVariables = await tavern.getVariables({ type: 'chat' });
+        const savedWorldInfo = (verificationVariables['character.saveData'] as any)?.世界信息;
+        
+        if (savedWorldInfo) {
+          console.log('✅ [验证成功] 保存的世界信息包含:', {
+            大陆数量: savedWorldInfo.大陆信息?.length || 0,
+            势力数量: savedWorldInfo.势力信息?.length || 0, 
+            地点数量: savedWorldInfo.地点信息?.length || 0,
+            第一个大陆名称: savedWorldInfo.大陆信息?.[0]?.名称,
+            第一个势力名称: savedWorldInfo.势力信息?.[0]?.名称,
+            第一个地点名称: savedWorldInfo.地点信息?.[0]?.名称
+          });
+          
+          // 如果验证发现数据仍然为空，强制再次保存
+          if (!savedWorldInfo.大陆信息?.length || !savedWorldInfo.势力信息?.length || !savedWorldInfo.地点信息?.length) {
+            console.warn('⚠️ [验证失败] 数据为空，强制重新保存fallback数据');
+            
+            // 直接修改现有的saveData，确保数组有内容
+            const currentSaveData = verificationVariables['character.saveData'] as any;
+            if (currentSaveData?.世界信息) {
+              currentSaveData.世界信息.大陆信息 = worldInfo.大陆信息;
+              currentSaveData.世界信息.势力信息 = worldInfo.势力信息;
+              currentSaveData.世界信息.地点信息 = worldInfo.地点信息;
+              
+              await tavern.insertOrAssignVariables({
+                'character.saveData': currentSaveData
+              }, { type: 'chat' });
+              
+              console.log('🔄 [强制修复] 已重新保存包含fallback数据的世界信息');
+            }
+          }
+        } else {
+          console.error('❌ [验证失败] 未找到保存的世界信息');
+        }
+      } catch (verificationError) {
+        console.error('❌ [验证过程出错]:', verificationError);
+      }
       
     } catch (error) {
       console.error('[修仙世界生成器] 解析或保存世界数据失败:', error);
