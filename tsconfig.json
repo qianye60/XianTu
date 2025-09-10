@@ -39,9 +39,7 @@
     "env.d.ts"
   ],
   "exclude": [
-    "node_modules",
-    "src/components/dashboard/BottomBar.vue",
-    "src/components/dashboard/MainPanel.vue"
+    "node_modules"
   ]
   // Force TS server reload
 }

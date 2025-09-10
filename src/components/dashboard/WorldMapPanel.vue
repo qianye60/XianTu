@@ -1415,8 +1415,15 @@ const loadLocationsData = async (variables: Record<string, any>) => {
           console.error(`[坤舆图志] 处理地点${index + 1}时出错:`, locationError);
         }
       });
-      // 过滤掉名称为两字的普通地点，避免标签重复堆叠（保留势力范围类条目）
-      cultivationLocations.value = cultivationLocations.value.filter(loc => loc.isTerritory || (loc.name && loc.name.length > 2));
+      // 过滤掉名称为两字的普通地点，避免标签堆叠；
+      // 若AI标注了重要性（importance/重要/is_key），则放行两字名称。
+      cultivationLocations.value = cultivationLocations.value.filter(loc => {
+        const anyLoc: any = loc as any;
+        const important = Boolean(anyLoc?.importance) || Boolean(anyLoc?.重要) || Boolean(anyLoc?.is_key) || Boolean(anyLoc?.isKey);
+        if (loc.isTerritory) return true;
+        if (important) return true;
+        return Boolean(loc.name && (loc.name as string).length > 2);
+      });
     }
 
     // 主要数据结构检查 - 只检查character.saveData.世界信息

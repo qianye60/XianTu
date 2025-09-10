@@ -555,7 +555,11 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
   if (hasData) {
     // 对于有数据的存档，直接进入
     console.log('设置活跃角色...');
-    await characterStore.setActiveCharacterInTavern(charId);
+    try {
+      await characterStore.setActiveCharacterInTavern(charId);
+    } catch (e) {
+      console.warn('跳过酒馆同步（单机环境）', e);
+    }
     console.log('加载存档...');
     // 加载存档并跳转到游戏
     const success = await characterStore.loadGame(charId, slotKey);
@@ -583,7 +587,11 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
       message,
       async () => {
         console.log('确认创建新存档...');
-        await characterStore.setActiveCharacterInTavern(charId);
+        try {
+          await characterStore.setActiveCharacterInTavern(charId);
+        } catch (e) {
+          console.warn('跳过酒馆同步（单机环境）', e);
+        }
         // 加载存档并跳转到游戏
         const success = await characterStore.loadGame(charId, slotKey);
         console.log('新存档加载结果:', success);

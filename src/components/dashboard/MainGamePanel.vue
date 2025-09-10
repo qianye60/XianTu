@@ -23,19 +23,17 @@
       </Transition>
     </div>
 
-    <!-- 文本显示区域 -->
+    <!-- 文本显示区域 - 只显示当前AI回复 -->
     <div class="content-area" ref="contentAreaRef">
-      <div class="message-container">
-        <div 
-          v-for="(message, index) in gameMessages" 
-          :key="index" 
-          class="message" 
-          :class="`message-${message.type}`"
-        >
-          <div class="message-meta">
-            <span class="message-time">{{ message.time }}</span>
+      <div class="current-narrative">
+        <div v-if="currentNarrative" class="narrative-content">
+          <div class="narrative-meta">
+            <span class="narrative-time">{{ currentNarrative.time }}</span>
           </div>
-          <div class="message-text">{{ message.content }}</div>
+          <div class="narrative-text">{{ currentNarrative.content }}</div>
+        </div>
+        <div v-else class="empty-narrative">
+          静待天机变化...
         </div>
       </div>
     </div>
@@ -215,6 +213,13 @@ const streamingContent = ref('');
 const auditDifficulty = ref<DifficultyLevel>('normal');
 
 const gameMessages = ref<GameMessage[]>([]);
+
+// 当前显示的叙述内容（只显示最新的AI回复）
+const currentNarrative = ref<GameMessage | null>(null);
+
+// 短期记忆设置
+const maxShortTermMemories = ref(10); // 最大短期记忆数量
+const maxMidTermMemories = ref(50); // 最大中期记忆数量
 
 // 计算属性：检查是否有激活的角色
 const hasActiveCharacter = computed(() => {
@@ -668,8 +673,19 @@ const sendMessage = async () => {
   }
 };
 
-// 添加消息并滚动到底部
+// 添加消息 - 新的记忆管理机制
 const addMessage = (message: GameMessage) => {
+  // 将旧的当前叙述移入短期记忆
+  if (currentNarrative.value && (message.type === 'ai' || message.type === 'gm')) {
+    addToShortTermMemory(currentNarrative.value.content);
+  }
+  
+  // 更新当前显示的叙述（显示AI和GM消息）
+  if (message.type === 'ai' || message.type === 'gm') {
+    currentNarrative.value = message;
+  }
+  
+  // 保存到完整消息历史
   gameMessages.value.push(message);
   
   // 自动保存对话历史
@@ -681,6 +697,79 @@ const addMessage = (message: GameMessage) => {
       contentAreaRef.value.scrollTop = contentAreaRef.value.scrollHeight;
     }
   });
+};
+
+// 添加到短期记忆
+const addToShortTermMemory = (content: string) => {
+  try {
+    const save = characterStore.activeSaveSlot;
+    if (save?.存档数据) {
+      // 确保短期记忆数组存在
+      if (!save.存档数据.记忆) {
+        save.存档数据.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      }
+      if (!save.存档数据.记忆.短期记忆) {
+        save.存档数据.记忆.短期记忆 = [];
+      }
+      if (!save.存档数据.记忆.中期记忆) {
+        save.存档数据.记忆.中期记忆 = [];
+      }
+      
+      // 添加到短期记忆开头
+      save.存档数据.记忆.短期记忆.unshift(content);
+      
+      // 检查短期记忆是否超出限制
+      if (save.存档数据.记忆.短期记忆.length > maxShortTermMemories.value) {
+        // 将超出的记忆转移到中期记忆
+        const overflow = save.存档数据.记忆.短期记忆.splice(maxShortTermMemories.value);
+        
+        // 简化内容后加入中期记忆
+        overflow.forEach(memory => {
+          const summarized = summarizeForMidTerm(memory);
+          if (summarized) {
+            save.存档数据.记忆.中期记忆.unshift(summarized);
+          }
+        });
+        
+        // 限制中期记忆数量
+        if (save.存档数据.记忆.中期记忆.length > maxMidTermMemories.value) {
+          save.存档数据.记忆.中期记忆.splice(maxMidTermMemories.value);
+        }
+        
+        console.log(`[记忆管理] 短期记忆达到限制，转移${overflow.length}条到中期记忆`);
+      }
+    }
+  } catch (error) {
+    console.warn('[记忆管理] 添加短期记忆失败:', error);
+  }
+};
+
+// 将长内容总结为中期记忆格式
+const summarizeForMidTerm = (content: string): string => {
+  if (content.length <= 200) return content;
+  
+  // 提取关键信息：时间、地点、人物、事件
+  const lines = content.split('\n').filter(line => line.trim());
+  const firstLine = lines[0] || '';
+  const keyElements = [];
+  
+  // 简单的关键词提取
+  const timeMatch = content.match(/(\\d+年|今日|此时|当下|片刻后)/);
+  if (timeMatch) keyElements.push(`时间:${timeMatch[1]}`);
+  
+  const locationMatch = content.match(/(在|于|位于)([^，。！？]{2,10})[，。！？]/);
+  if (locationMatch) keyElements.push(`地点:${locationMatch[2]}`);
+  
+  const actionMatch = content.match(/(修炼|战斗|探索|遇见|获得|学会)([^，。！？]{2,20})[，。！？]/);
+  if (actionMatch) keyElements.push(`事件:${actionMatch[1]}${actionMatch[2]}`);
+  
+  // 如果提取不到关键信息，使用首句+末句
+  if (keyElements.length === 0) {
+    const lastLine = lines[lines.length - 1] || '';
+    return `${firstLine.substring(0, 100)}...${lastLine.substring(-50)}`;
+  }
+  
+  return keyElements.join(' | ');
 };
 
 // 格式化当前时间
@@ -856,11 +945,15 @@ const generateAndShowInitialMessage = async () => {
     }
     
     // 显示初始消息
-    addMessage({
-      type: 'gm',
+    const gmMessage = {
+      type: 'gm' as const,
       content: initialMessage,
       time: formatCurrentTime()
-    });
+    };
+    
+    // 直接设置为当前叙述，不触发记忆转移
+    currentNarrative.value = gmMessage;
+    gameMessages.value.push(gmMessage);
     
     console.log('[主面板] 初始消息加载完成');
     
@@ -868,11 +961,15 @@ const generateAndShowInitialMessage = async () => {
     console.error('[主面板] 加载初始消息失败:', error);
     
     // 添加默认开局消息
-    addMessage({
-      type: 'gm',
+    const defaultMessage = {
+      type: 'gm' as const,
       content: `【${characterName.value}】你睁开双眼，发现自己身处在一个全新的修仙世界中。周围的一切都显得古朴而神秘，空气中弥漫着淡淡的灵气。你感受到体内有着一股前所未有的力量在涌动，这是属于修仙者的开始...`,
       time: formatCurrentTime()
-    });
+    };
+    
+    // 直接设置为当前叙述
+    currentNarrative.value = defaultMessage;
+    gameMessages.value.push(defaultMessage);
   }
 };
 
@@ -1059,101 +1156,50 @@ const saveConversationHistory = async () => {
   background: rgba(0, 0, 0, 0.3);
 }
 
-.message-container {
+/* 当前叙述显示区域 */
+.current-narrative {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 100%;
-  max-width: none;
 }
 
-.message {
-  padding: 16px 20px;
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  animation: messageSlideIn 0.3s ease-out;
-  position: relative;
-  overflow: hidden;
+.narrative-content {
+  padding: 20px;
+  line-height: 1.8;
+  color: #1f2937;
+  font-size: 0.95rem;
+  background: white;
 }
 
-@keyframes messageSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.narrative-meta {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
-.message-system {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
-  border-left: 4px solid #94a3b8;
-  color: #475569;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+.narrative-time {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
 }
 
-.message-ai {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 1px solid #bae6fd;
-  border-left: 4px solid #0ea5e9;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+.narrative-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  text-align: justify;
+  text-indent: 2em;
+  margin: 0;
 }
 
-.message-game {
-  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-  border: 1px solid #bbf7d0;
-  border-left: 4px solid #22c55e;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
-}
-
-.message-player {
-  background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-  border: 1px solid #fde68a;
-  border-left: 4px solid #eab308;
-  color: #0f172a;
-  margin-left: 10%;
-  margin-right: 5%;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.1);
-  position: relative;
-}
-
-.message-player::before {
-  content: "💭";
-  position: absolute;
-  top: -8px;
-  right: 16px;
-  background: #f59e0b;
-  color: white;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
+.empty-narrative {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.message-meta {
-  margin-bottom: 6px;
-}
-
-.message-time {
-  font-size: 0.75rem;
-  color: #64748b;
-  font-family: 'Courier New', monospace;
-}
-
-.message-text {
+  height: 100%;
+  color: #9ca3af;
+  font-style: italic;
   font-size: 0.9rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .input-section {
@@ -1258,32 +1304,22 @@ const saveConversationHistory = async () => {
   background: rgba(255, 255, 255, 0.3);
 }
 
-[data-theme="dark"] .message-system {
-  background: #334155;
-  border-left-color: #64748b;
+/* 叙述内容深色主题 */
+[data-theme="dark"] .narrative-content {
+  background: #1e293b;
   color: #e2e8f0;
 }
 
-[data-theme="dark"] .message-ai {
-  background: #1e3a8a;
-  border-left-color: #3b82f6;
-  color: #e2e8f0;
+[data-theme="dark"] .narrative-meta {
+  border-bottom-color: #374151;
 }
 
-[data-theme="dark"] .message-game {
-  background: #14532d;
-  border-left-color: #22c55e;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .message-player {
-  background: #422006;
-  border-left-color: #eab308;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .message-time {
+[data-theme="dark"] .narrative-time {
   color: #94a3b8;
+}
+
+[data-theme="dark"] .empty-narrative {
+  color: #6b7280;
 }
 
 [data-theme="dark"] .input-section {

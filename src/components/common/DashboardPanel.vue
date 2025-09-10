@@ -80,6 +80,8 @@ const toggleCollapse = () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* 防止操作区过多导致溢出，允许换行 */
+  flex-wrap: wrap;
 }
 
 .header-icon {
@@ -107,6 +109,14 @@ const toggleCollapse = () => {
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
 }
 
 .collapse-btn {

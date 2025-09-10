@@ -55,6 +55,10 @@
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--color-text);
+  /* 防止标题在紧凑布局中撑破布局 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-subtitle {
@@ -65,6 +69,10 @@
 .header-actions {
   display: flex;
   gap: 0.5rem;
+  /* 允许按钮自动换行，避免溢出 */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
 }
 
 /* === 动作按钮 === */
@@ -78,10 +86,13 @@
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.875rem;
+  /* 行为：默认不换行，但容器可多行显示 */
   white-space: nowrap;
   cursor: pointer;
   transition: var(--transition-fast);
-  flex-shrink: 0;
+  /* 允许在需要时收缩，避免容器被撑破 */
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .action-btn:hover {
@@ -434,10 +445,32 @@
   
   .panel-header {
     padding: 0.75rem;
+    /* 小屏时头部内容纵向排列，避免左右挤压 */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.5rem;
+  }
+
+  .header-left {
+    min-width: 0;
+    flex: 1 1 auto;
   }
   
   .header-actions .btn-text {
     display: none;
+  }
+
+  .header-actions {
+    /* 头部操作按钮独占一行并可换行 */
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.375rem;
+  }
+
+  .action-btn {
+    /* 移动端更紧凑的按钮尺寸 */
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8125rem;
   }
   
   .items-grid {
@@ -447,6 +480,21 @@
   
   .info-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* 详情区域按钮在窄屏堆叠，避免溢出 */
+  .details-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .details-actions .action-btn,
+  .details-actions .dialog-btn,
+  .details-actions .operation-btn,
+  .details-actions .card-btn {
+    flex: 1 1 100%;
+    max-width: 100%;
   }
 }
 

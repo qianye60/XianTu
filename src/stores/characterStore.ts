@@ -6,6 +6,7 @@ import { useUIStore } from './uiStore'; // 导入UI Store
 import * as storage from '@/utils/localStorageManager';
 import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
+import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
 import type { World } from '@/types';
 import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData } from '@/types/game';
@@ -163,7 +164,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 3. 使用AI增强的初始化服务创建完整的存档数据
-      const initialSaveData = await initializeCharacter(charId, baseInfo, world, age);
+      let initialSaveData: SaveData | null = null;
+      try {
+        initialSaveData = await initializeCharacter(charId, baseInfo, world, age);
+      } catch (e) {
+        if (mode === '单机') { // 单机
+          initialSaveData = await initializeCharacterOffline(charId, baseInfo, world, age);
+        } else {
+          throw e;
+        }
+      }
 
       let newProfile: CharacterProfile;
       if (mode === '单机') {

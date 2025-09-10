@@ -64,7 +64,9 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\views\\CharacterSelection.vue\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\RelationshipsPanel.vue\")",
       "Bash(touch:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\prompts\\optimizedPrompts.ts\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\BasicInfoPanel.vue\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

@@ -269,8 +269,15 @@ const handleSettings = () => {
 
 const handleBackToMenu = async () => {
   if (confirm('确定要返回道途吗？当前游戏进度将会保存。')) {
+    console.log('[返回道途] 用户确认返回，开始处理...');
+    
     // 保存当前游戏状态
-    characterStore.saveCurrentGame();
+    try {
+      await characterStore.saveCurrentGame();
+      console.log('[返回道途] 游戏状态保存完成');
+    } catch (error) {
+      console.warn('[返回道途] 保存游戏状态失败:', error);
+    }
     
     // 尝试保存游戏状态到酒馆变量
     try {
@@ -286,28 +293,35 @@ const handleBackToMenu = async () => {
     // 检查是否在iframe中运行（SillyTavern环境）
     if (window.parent && window.parent !== window) {
       // 在iframe中，通知父窗口关闭游戏
+      console.log('[返回道途] 检测到iframe环境，发送关闭消息');
       window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
       console.log('[返回道途] 已发送关闭游戏消息到SillyTavern');
     } else {
       // 在独立窗口中，返回到角色选择页面
-      console.log('[返回道途] 独立窗口，跳转到角色选择页面');
+      console.log('[返回道途] 独立窗口环境，执行路由跳转');
+      console.log('[返回道途] 当前路由:', router.currentRoute.value.path);
+      console.log('[返回道途] 目标路由: /');
+      
       try {
         // 确保路由跳转完成
         await router.push('/');
-        console.log('[返回道途] 路由跳转完成');
+        console.log('[返回道途] 路由跳转到 / 完成，当前路由:', router.currentRoute.value.path);
       } catch (error) {
         console.error('[返回道途] 路由跳转失败:', error);
         // 如果路由跳转失败，尝试使用 replace
         try {
           await router.replace('/');
-          console.log('[返回道途] 使用 replace 跳转成功');
+          console.log('[返回道途] 使用 replace 跳转成功，当前路由:', router.currentRoute.value.path);
         } catch (replaceError) {
           console.error('[返回道途] replace 跳转也失败:', replaceError);
           // 最后尝试直接修改 window.location
+          console.log('[返回道途] 尝试使用 window.location.href 跳转');
           window.location.href = '/';
         }
       }
     }
+  } else {
+    console.log('[返回道途] 用户取消返回');
   }
 };
 </script>
