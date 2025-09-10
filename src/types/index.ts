@@ -12,6 +12,7 @@ export interface GM_Response {
   narrative: string; // AI生成的旁白
   map_data: any; // AI生成的地图数据
   mid_term_memory: string; // AI总结的中期记忆
+  cachedWorldData?: any; // AI缓存的世界数据
 }
 
 // --- 创角核心类型定义 ---

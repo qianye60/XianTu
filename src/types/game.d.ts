@@ -117,6 +117,81 @@ export interface SkillInfo {
   unlocked: boolean;
 }
 
+// --- 宗门系统相关类型 ---
+
+/** 宗门类型 */
+export type SectType = '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '世家' | '散修联盟';
+
+/** 宗门职位 */
+export type SectPosition = '散修' | '外门弟子' | '内门弟子' | '核心弟子' | '传承弟子' | '执事' | '长老' | '副掌门' | '掌门';
+
+/** 宗门关系 */
+export type SectRelationship = '仇敌' | '敌对' | '冷淡' | '中立' | '友好' | '盟友' | '附庸';
+
+/** 修为境界等级 */
+export type RealmLevel = '练气' | '筑基' | '金丹' | '元婴' | '化神' | '炼虚' | '合体' | '大乘' | '渡劫' | '真仙';
+
+/** 宗门成员信息 */
+export interface SectMemberInfo {
+  sectName: string; // 宗门名称
+  sectType: SectType; // 宗门类型
+  position: SectPosition; // 在宗门中的职位
+  contribution: number; // 贡献点数
+  relationship: SectRelationship; // 与宗门的关系
+  reputation: number; // 在宗门中的声望
+  joinDate: string; // 加入日期
+  description?: string; // 描述
+  // 新增字段（简化版）
+  师父?: string; // 师父姓名
+  同门关系?: string[]; // 同门师兄弟姓名列表
+  宗门职务?: string[]; // 当前承担的宗门职务
+}
+
+/** 宗门基础信息 */
+export interface SectInfo {
+  name: string; // 宗门名称
+  type: SectType; // 宗门类型
+  level: '一流' | '二流' | '三流' | '末流'; // 宗门等级
+  location?: string; // 总部位置
+  description: string; // 宗门描述
+  specialties: string[]; // 宗门特色
+  powerRating: number; // 实力评估 (0-100)
+  memberCount: SectMemberCount; // 成员数量统计
+  relationshipToPlayer: SectRelationship; // 与玩家的关系
+  reputation: number; // 玩家在该宗门的声望
+  canJoin: boolean; // 是否可以加入
+  joinRequirements?: string[]; // 加入条件
+  benefits?: string[]; // 加入后的好处
+  // 新增：宗门领导和实力展示
+  leadership?: {
+    宗主: string; // 宗主姓名
+    宗主修为: string; // 如"元婴后期"
+    副宗主?: string; // 副宗主姓名（如有）
+    长老数量: number; // 长老总数
+    最强修为: string; // 宗门内最强修为
+  };
+  // 新增：简化的势力范围信息
+  territoryInfo?: {
+    controlledAreas: string[]; // 控制的区域，如：["青云城", "望月镇", "灵石矿"]
+    influenceRange: string; // 影响范围的简单描述，如："方圆百里"
+    strategicValue: number; // 战略价值 (1-10)
+  };
+}
+
+/** 宗门成员数量统计 */
+export interface SectMemberCount {
+  total: number; // 总成员数
+  byRealm: Record<RealmLevel, number>; // 按境界统计
+  byPosition: Record<SectPosition, number>; // 按职位统计
+}
+
+/** 宗门系统数据 */
+export interface SectSystemData {
+  availableSects: SectInfo[]; // 可用的宗门列表
+  sectRelationships: Record<string, number>; // 与各宗门的关系值
+  sectHistory: string[]; // 宗门历史记录 (修复拼写错误)
+}
+
 // --- 三千大道系统 ---
 
 /** 大道阶段定义 */
@@ -165,21 +240,21 @@ export interface ThousandDaoSystem {
 // --- 装备 ---
 
 export interface Equipment {
-  法宝1?: string | null; // 物品ID
-  法宝2?: string | null;
-  法宝3?: string | null;
-  法宝4?: string | null;
-  法宝5?: string | null;
-  法宝6?: string | null;
+  法宝1?: Item | string | null; // 物品对象或物品ID（兼容性）
+  法宝2?: Item | string | null;
+  法宝3?: Item | string | null;
+  法宝4?: Item | string | null;
+  法宝5?: Item | string | null;
+  法宝6?: Item | string | null;
 }
 
 // --- 状态效果 ---
 
-export type StatusEffectType = 'BUFF' | 'DEBUFF';
+export type StatusEffectType = 'buff' | 'debuff'; // 统一小写
 
 export interface StatusEffect {
   状态名称: string;
-  类型: StatusEffectType;
+  类型: 'buff' | 'debuff'; // 统一小写
   时间: string; // "没解毒前永远存留" 或具体时间
   状态描述: string;
   强度?: number; // 1-10，表示状态效果的强度
@@ -225,6 +300,7 @@ export interface RealmDefinition {
 export interface PlayerStatus {
   境界: Realm;
   声望: number;
+  出生地?: string; // 添加出生地字段
   位置: {
     描述: string;
     坐标: Vector2;
@@ -235,15 +311,7 @@ export interface PlayerStatus {
   寿命: ValuePair<number>;
   修为: ValuePair<number>; // 新增修为经验值
   状态效果: StatusEffect[];
-  宗门信息?: {
-    name: string;
-    type: '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '家族';
-    position: '外门弟子' | '内门弟子' | '核心弟子' | '长老' | '掌门';
-    contribution: number;
-    relationship: '恶劣' | '一般' | '良好' | '亲密';
-    reputation: number;
-    description: string;
-  }; // 宗门信息
+  宗门信息?: SectMemberInfo; // 宗门信息
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -279,7 +347,7 @@ export interface WorldContinent {
   大洲边界?: { longitude: number; latitude: number }[];
 }
 
-/** 世界势力信息 */
+/** 世界势力信息 - 统一的宗门/势力数据结构 */
 export interface WorldFaction {
   名称: string;
   类型: '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '家族' | '散修联盟' | '秘境' | string;
@@ -291,6 +359,38 @@ export interface WorldFaction {
   实力评估: string;
   与玩家关系?: '敌对' | '中立' | '友好' | '盟友' | string;
   声望值?: number;
+  
+  // 宗门系统扩展字段 - 只对宗门类型势力有效
+  powerRating?: number; // 实力评估 (0-100)，替代 实力评估 字符串
+  specialties?: string[]; // 宗门特色列表，替代 特色 字符串
+  
+  // 宗门成员统计
+  memberCount?: {
+    total: number;
+    byRealm: Record<RealmLevel, number>;
+    byPosition: Record<SectPosition, number>;
+  };
+  
+  // 宗门领导层
+  leadership?: {
+    宗主: string;
+    宗主修为: string;
+    副宗主?: string;
+    长老数量: number;
+    最强修为: string;
+  };
+  
+  // 势力范围详情
+  territoryInfo?: {
+    controlledAreas: string[]; // 替代 势力范围 字符串数组
+    influenceRange: string;
+    strategicValue: number; // 1-10
+  };
+  
+  // 加入相关
+  canJoin?: boolean;
+  joinRequirements?: string[];
+  benefits?: string[];
 }
 
 /** 世界地点信息 */
@@ -360,6 +460,8 @@ export interface NpcAiBehavior {
 
 export interface NpcProfile {
   角色基础信息: CharacterBaseInfo;
+  // 简化：只保留最核心的外貌描述
+  外貌描述?: string; // 简单的一句话描述，如"身材高大的中年男子，仙风道骨，手持拂尘"
   角色存档信息: {
     时间: string;
     装备: Record<string, string | null>;
@@ -427,9 +529,9 @@ export interface SaveData {
   三千大道: ThousandDaoSystem;
   背包: Inventory;
   人物关系: Record<string, NpcProfile>; // 以NPC名字或唯一ID为key
+  宗门系统: SectSystemData; // 宗门系统数据，改为必需
   记忆: Memory;
-  游戏时间?: GameTime; // 添加游戏时间字段
-  短期记忆?: string[]; // 短期记忆数组
+  游戏时间: GameTime; // 游戏时间字段，改为必需
   对话历史?: GameMessage[]; // 对话历史数组
   // --- [核心重构] 新增字段，用于统一存储所有动态数据 ---
   角色基础信息?: CharacterBaseInfo;
@@ -441,13 +543,13 @@ export interface SaveData {
     spiritRoots: any[];
     talents: any[];
   }; // 角色创建时的数据缓存
-  修炼功法?: {
+  修炼功法: {
     功法: Item | null;
-    熟练度?: number; // 0-100
-    已解锁技能?: string[]; // 从功法中学会的技能
-    修炼时间?: number; // 总修炼时间（小时）
-    突破次数?: number; // 功法境界突破次数
-  };
+    熟练度: number; // 0-100，改为必需
+    已解锁技能: string[]; // 从功法中学会的技能，改为必需
+    修炼时间: number; // 总修炼时间（小时），改为必需
+    突破次数: number; // 功法境界突破次数，改为必需
+  }; // 修炼功法改为必需
 }
 
 

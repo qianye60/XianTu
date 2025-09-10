@@ -844,7 +844,15 @@ const generateAndShowInitialMessage = async () => {
     // 如果还是没有，使用默认消息
     if (!initialMessage) {
       console.log('[主面板] 未找到保存的初始消息，使用默认开局');
-      initialMessage = `【${profile.角色基础信息.名字}】睁开双眼，发现自己身处在一个陌生而神秘的修仙世界中。作为一名${profile.角色基础信息.出生}出身的修士，拥有${profile.角色基础信息.灵根}，你感受到了体内微弱的灵气波动。修仙之路漫漫，从这一刻开始，你将踏上寻求长生大道的征途。`;
+      const activeSlot = characterStore.activeSaveSlot;
+      let birthplaceName = '';
+      try {
+        const worldInfo = activeSlot?.存档数据?.世界信息 as any;
+        const birthplace = worldInfo?.玩家出生地 || {};
+        birthplaceName = birthplace.出生地名称 || birthplace.名称 || birthplace.name || '';
+      } catch {}
+      const birthplaceText = birthplaceName ? `你出生于【${birthplaceName}】。` : '';
+      initialMessage = `【${profile.角色基础信息.名字}】${birthplaceText}发现自己身处在一个陌生而神秘的修仙世界中。作为一名${profile.角色基础信息.出生}出身的修士，拥有${profile.角色基础信息.灵根}，你感受到了体内微弱的灵气波动。修仙之路漫漫，从这一刻开始，你将踏上寻求长生大道的征途。`;
     }
     
     // 显示初始消息

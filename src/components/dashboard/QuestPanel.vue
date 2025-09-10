@@ -216,7 +216,129 @@ onMounted(() => {
 
 <style scoped>
 .quest-panel {
-  /* 使用统一的 game-panel 基础样式 */
+  background: linear-gradient(135deg, 
+    rgba(139, 69, 19, 0.1), 
+    rgba(160, 82, 45, 0.05),
+    rgba(205, 133, 63, 0.02)
+  );
+  background-size: 200% 200%;
+  animation: questBgMove 8s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.quest-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(255, 215, 0, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(139, 69, 19, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+@keyframes questBgMove {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.panel-header {
+  background: linear-gradient(135deg, 
+    rgba(139, 69, 19, 0.2),
+    rgba(160, 82, 45, 0.15),
+    rgba(205, 133, 63, 0.1)
+  );
+  border: 2px solid rgba(139, 69, 19, 0.3);
+  box-shadow: 
+    0 4px 12px rgba(139, 69, 19, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 215, 0, 0.1),
+    transparent
+  );
+  animation: headerShine 3s ease-in-out infinite;
+}
+
+@keyframes headerShine {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.header-icon {
+  background: linear-gradient(135deg, 
+    rgba(255, 215, 0, 0.2), 
+    rgba(255, 193, 7, 0.3)
+  );
+  border-radius: 50%;
+  padding: 8px;
+  border: 2px solid rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+.panel-title {
+  color: #8b4513;
+  text-shadow: 0 2px 4px rgba(139, 69, 19, 0.3);
+  font-weight: 700;
+}
+
+.quest-summary {
+  color: #a0522d;
+}
+
+.action-btn {
+  background: linear-gradient(135deg, 
+    rgba(139, 69, 19, 0.15), 
+    rgba(160, 82, 45, 0.2)
+  );
+  border: 1px solid rgba(139, 69, 19, 0.4);
+  color: #8b4513;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 215, 0, 0.2),
+    transparent
+  );
+  transition: left 0.3s ease;
+}
+
+.action-btn:hover::before {
+  left: 100%;
+}
+
+.action-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(139, 69, 19, 0.25), 
+    rgba(160, 82, 45, 0.3)
+  );
+  border-color: rgba(139, 69, 19, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3);
 }
 
 .panel-header {

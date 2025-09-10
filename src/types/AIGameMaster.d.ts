@@ -215,4 +215,6 @@ export interface GM_Response {
   processedOrigin?: string;
   /** 处理后的具体灵根（从随机灵根转化而来） */
   processedSpiritRoot?: string;
+  /** AI缓存的世界数据 */
+  cachedWorldData?: any;
 }

@@ -92,8 +92,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * [核心] 保存当前状态到本地存储
    * 确保任何修改后都能持久化
    */
-  const commitToStorage = () => {
-    storage.saveRootData(rootState.value);
+  const commitToStorage = async (): Promise<void> => {
+    try {
+      storage.saveRootData(rootState.value);
+      // 可以在这里添加额外的异步操作，例如与后端同步
+      // await someAsyncApiCall();
+    } catch (error) {
+      debug.error('角色商店', '持久化到本地存储失败', error);
+      // 向上抛出错误，以便调用者可以处理
+      throw error;
+    }
   };
 
   /**
@@ -386,9 +394,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
         };
         
         // 修复数据重复问题：检查是否有嵌套的character.saveData
-        if (cleanedSaveData.character && cleanedSaveData.character.saveData) {
+        if ((cleanedSaveData as any).character && (cleanedSaveData as any).character.saveData) {
           debug.log('角色商店', '检测到嵌套的character.saveData结构，进行数据修复');
-          const nestedSaveData = cleanedSaveData.character.saveData;
+          const nestedSaveData = (cleanedSaveData as any).character.saveData;
           
           // 如果嵌套数据的背包物品更完整，使用嵌套数据
           if (nestedSaveData.背包 && nestedSaveData.背包.物品 && 
@@ -412,7 +420,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           }
           
           // 清理嵌套结构
-          delete cleanedSaveData.character;
+          delete (cleanedSaveData as any).character;
         }
         
         // 修复物品数据问题：确保背包物品数据正确

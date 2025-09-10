@@ -22,7 +22,7 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
   }
   
   const equipment = saveData.装备栏;
-  const skills = saveData.功法技能;
+  const cultivationArts = saveData.修炼功法; // 修正：使用修炼功法而不是功法技能
   const bag = saveData.背包;
 
   return {
@@ -85,11 +85,11 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
       })) : []
     },
 
-    skills: skills?.技能熟练度 ? Object.entries(skills.技能熟练度).reduce((acc, [skillName, skillData]: [string, any]) => {
+    skills: cultivationArts?.已解锁技能 ? cultivationArts.已解锁技能.reduce((acc: any, skillName: string) => {
       acc[skillName] = {
-        level: skillData?.等级 || 1,
-        rank: '入门', // 技能熟练度中没有品阶信息，使用默认值
-        experience: skillData?.经验 || 0
+        level: 1,
+        rank: '入门', 
+        experience: 0
       };
       return acc;
     }, {} as Record<string, any>) : {},
@@ -119,15 +119,15 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
     },
 
     cultivation_arts: {
-      main_technique: skills?.主修功法 ? {
-        name: skills.主修功法,
-        rank: '初级',
-        proficiency: skills?.技能熟练度?.[skills.主修功法]?.经验 || 0,
-        special_effects: []
+      main_technique: cultivationArts?.功法 ? {
+        name: cultivationArts.功法.名称 || '未知功法',
+        rank: (cultivationArts.功法.品质 as any)?.阶位 || '凡', // 临时处理品质类型
+        proficiency: cultivationArts.熟练度 || 0,
+        special_effects: cultivationArts.功法.装备特效 || []
       } : undefined,
-      combat_techniques: skills?.已学技能?.map(skillId => ({
-        name: skillId,
-        type: '功法',
+      combat_techniques: cultivationArts?.已解锁技能?.map((skillName: string) => ({
+        name: skillName,
+        type: '功法技能',
         cost: 10,
         cooldown: 0
       })) || [],

@@ -170,7 +170,6 @@
                         <Mountain :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 🏛️ 宗门势力 -->
@@ -188,7 +187,6 @@
                         <Building2 :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 🏮 城镇坊市 -->
@@ -206,7 +204,6 @@
                         <Home :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- ⛩️ 洞天福地 -->
@@ -224,7 +221,6 @@
                         <Sparkles :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 💰 奇珍异地 -->
@@ -242,7 +238,6 @@
                         <Gem :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- ☠️ 凶险之地 -->
@@ -260,7 +255,6 @@
                         <Skull :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 🌟 其他特殊 -->
@@ -278,7 +272,6 @@
                         <Zap :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
                       </div>
                     </foreignObject>
-                    <text class="location-icon-text" text-anchor="middle" :y="getIconSize(location.type).offset + 6" fill="#374151" font-size="7px" font-weight="bold">{{ location.name.substring(0, 2) }}</text>
                   </g>
 
                   <!-- 默认图标 -->
@@ -1422,6 +1415,8 @@ const loadLocationsData = async (variables: Record<string, any>) => {
           console.error(`[坤舆图志] 处理地点${index + 1}时出错:`, locationError);
         }
       });
+      // 过滤掉名称为两字的普通地点，避免标签重复堆叠（保留势力范围类条目）
+      cultivationLocations.value = cultivationLocations.value.filter(loc => loc.isTerritory || (loc.name && loc.name.length > 2));
     }
 
     // 主要数据结构检查 - 只检查character.saveData.世界信息

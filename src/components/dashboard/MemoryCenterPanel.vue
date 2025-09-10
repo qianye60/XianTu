@@ -14,6 +14,10 @@
           <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
           <span class="btn-text">刷新</span>
         </button>
+        <button class="action-btn info" @click="testMemoryConversion" title="添加测试记忆触发转化">
+          <span class="btn-icon">🧪</span>
+          <span class="btn-text">测试转化</span>
+        </button>
         <button class="action-btn danger" @click="clearMemory">
           <Trash2 :size="16" />
           <span class="btn-text">清理</span>
@@ -35,6 +39,31 @@
           <span class="tab-name">{{ type.name }}</span>
           <span class="tab-count">{{ getTypeCount(type.key) }}</span>
         </button>
+      </div>
+      
+      <!-- 记忆容量状态提示 -->
+      <div class="memory-status">
+        <div class="status-item" :class="{ warning: shortTermMemories.length >= MEMORY_CONFIG.SHORT_TERM_LIMIT * 0.8 }">
+          <span class="status-label">短期</span>
+          <span class="status-bar">
+            <span class="status-fill" :style="{ width: `${(shortTermMemories.length / MEMORY_CONFIG.SHORT_TERM_LIMIT) * 100}%` }"></span>
+          </span>
+          <span class="status-text">{{ shortTermMemories.length }}/{{ MEMORY_CONFIG.SHORT_TERM_LIMIT }}</span>
+        </div>
+        <div class="status-item" :class="{ warning: mediumTermMemories.length >= MEMORY_CONFIG.MEDIUM_TERM_LIMIT * 0.8 }">
+          <span class="status-label">中期</span>
+          <span class="status-bar">
+            <span class="status-fill" :style="{ width: `${(mediumTermMemories.length / MEMORY_CONFIG.MEDIUM_TERM_LIMIT) * 100}%` }"></span>
+          </span>
+          <span class="status-text">{{ mediumTermMemories.length }}/{{ MEMORY_CONFIG.MEDIUM_TERM_LIMIT }}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">长期</span>
+          <span class="status-bar">
+            <span class="status-fill" :style="{ width: `${Math.min((longTermMemories.length / MEMORY_CONFIG.LONG_TERM_LIMIT) * 100, 100)}%` }"></span>
+          </span>
+          <span class="status-text">{{ longTermMemories.length }}/{{ MEMORY_CONFIG.LONG_TERM_LIMIT }}</span>
+        </div>
       </div>
     </div>
 
@@ -71,12 +100,11 @@
                 【{{ memory.parsedContent.title }}】
               </div>
               
-              <div 
-                v-for="section in memory.parsedContent.format.sections" 
-                :key="section.key"
-                v-if="memory.parsedContent.sections && memory.parsedContent.sections[section.key]"
-                class="memory-section-group"
-              >
+              <template v-for="section in memory.parsedContent.format.sections" :key="section.key">
+                <div 
+                  v-if="memory.parsedContent.sections && memory.parsedContent.sections[section.key]"
+                  class="memory-section-group"
+                >
                 <div class="memory-section">
                   <span class="memory-icon">{{ section.icon }}</span>
                   <span class="memory-section-title">{{ section.title }}</span>
@@ -89,6 +117,7 @@
                   {{ item }}
                 </div>
               </div>
+              </template>
               
               <!-- 未识别的通用内容 -->
               <div 
@@ -142,14 +171,38 @@ interface Memory {
     sections: { [key: string]: string[] };
     format?: MemoryFormatConfig;
   };
+  // 新增字段用于记忆转化逻辑
+  originalIndex?: number; // 原始索引位置
+  isConverted?: boolean; // 是否是转化后的记忆
 }
 
 const characterStore = useCharacterStore();
 const loading = ref(false);
 const activeFilter = ref('all');
 
-// 记忆数据
-const memories = ref<Memory[]>([]);
+// 记忆转化配置
+const MEMORY_CONFIG = {
+  SHORT_TERM_LIMIT: 5, // 短期记忆上限
+  MEDIUM_TERM_LIMIT: 20, // 中期记忆上限
+  LONG_TERM_LIMIT: 50, // 长期记忆上限
+  CONVERT_THRESHOLD: 0.8 // 转化阈值（达到上限的80%就开始转化）
+};
+
+// 记忆数据 - 按类型分类存储
+const shortTermMemories = ref<Memory[]>([]);
+const mediumTermMemories = ref<Memory[]>([]);
+const longTermMemories = ref<Memory[]>([]);
+
+// 合并所有记忆用于显示
+const memories = computed(() => {
+  const allMemories = [
+    ...longTermMemories.value,
+    ...mediumTermMemories.value,
+    ...shortTermMemories.value
+  ];
+  return allMemories.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+});
+
 
 // 记忆类型
 const memoryTypes = [
@@ -164,16 +217,29 @@ const filteredMemories = computed(() => {
   if (activeFilter.value === 'all') {
     return memories.value;
   }
-  return memories.value.filter(memory => memory.type === activeFilter.value);
+  
+  switch (activeFilter.value) {
+    case 'short': return shortTermMemories.value;
+    case 'medium': return mediumTermMemories.value;
+    case 'long': return longTermMemories.value;
+    default: return memories.value;
+  }
 });
 
 // 总记忆数量
-const totalMemoryCount = computed(() => memories.value.length);
+const totalMemoryCount = computed(() => 
+  shortTermMemories.value.length + mediumTermMemories.value.length + longTermMemories.value.length
+);
 
 // 获取类型数量
 const getTypeCount = (type: string): number => {
   if (type === 'all') return totalMemoryCount.value;
-  return memories.value.filter(memory => memory.type === type).length;
+  switch (type) {
+    case 'short': return shortTermMemories.value.length;
+    case 'medium': return mediumTermMemories.value.length;
+    case 'long': return longTermMemories.value.length;
+    default: return 0;
+  }
 };
 
 // 获取空状态文本
@@ -209,23 +275,84 @@ const formatTime = (timestamp: number): string => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 };
 
-// 判断是否为结构化记忆
-const isStructuredMemory = (content: string): boolean => {
-  return content.includes('【') && content.includes('】') && 
-         (content.includes('🏠') || content.includes('💫') || content.includes('🗺️') || content.includes('⚡') || content.includes('💭'));
+// 记忆转化功能
+const convertMemories = () => {
+  let hasConversion = false;
+  
+  // 检查短期记忆是否达到转化阈值
+  if (shortTermMemories.value.length >= MEMORY_CONFIG.SHORT_TERM_LIMIT) {
+    debug.log('记忆中心', '短期记忆达到上限，开始转化为中期记忆');
+    
+    // 取最早的短期记忆转化为中期记忆
+    const oldestShort = shortTermMemories.value.shift();
+    if (oldestShort) {
+      const convertedMemory: Memory = {
+        ...oldestShort,
+        type: 'medium',
+        time: `转化于${formatTime(Date.now())}`,
+        isConverted: true
+      };
+      mediumTermMemories.value.push(convertedMemory);
+      hasConversion = true;
+    }
+  }
+  
+  // 检查中期记忆是否达到转化阈值
+  if (mediumTermMemories.value.length >= MEMORY_CONFIG.MEDIUM_TERM_LIMIT) {
+    debug.log('记忆中心', '中期记忆达到上限，开始转化为长期记忆');
+    
+    // 取最早的中期记忆转化为长期记忆
+    const oldestMedium = mediumTermMemories.value.shift();
+    if (oldestMedium) {
+      const convertedMemory: Memory = {
+        ...oldestMedium,
+        type: 'long',
+        time: `归档于${formatTime(Date.now())}`,
+        importance: Math.max(oldestMedium.importance || 5, 7), // 长期记忆重要性至少为7
+        isConverted: true
+      };
+      longTermMemories.value.push(convertedMemory);
+      hasConversion = true;
+    }
+  }
+  
+  // 检查长期记忆是否超限
+  if (longTermMemories.value.length > MEMORY_CONFIG.LONG_TERM_LIMIT) {
+    // 按重要性排序，保留重要的
+    longTermMemories.value.sort((a, b) => (b.importance || 5) - (a.importance || 5));
+    const removed = longTermMemories.value.splice(MEMORY_CONFIG.LONG_TERM_LIMIT);
+    debug.log('记忆中心', `长期记忆超限，移除${removed.length}条低重要性记忆`);
+  }
+  
+  if (hasConversion) {
+    toast.success('记忆已重新整理，旧记忆已转化');
+  }
 };
 
-// 格式化结构化记忆
-const formatStructuredMemory = (content: string): string => {
-  return content
-    // 处理标题
-    .replace(/【([^】]+)】/g, '<div class="memory-title">【$1】</div>')
-    // 处理分类标题
-    .replace(/(🏠|💫|🗺️|⚡|💭)\s*\*\*([^*]+)\*\*/g, '<div class="memory-section"><span class="memory-icon">$1</span><span class="memory-section-title">$2</span></div>')
-    // 处理列表项
-    .replace(/^-\s+(.+)$/gm, '<div class="memory-item">• $1</div>')
-    // 处理换行
-    .replace(/\n/g, '<br/>');
+// 添加记忆的功能
+const addMemory = (type: 'short' | 'medium' | 'long', content: string, importance: number = 5, parsedContent?: any) => {
+  const memory: Memory = {
+    type,
+    content,
+    time: formatTime(Date.now()),
+    importance,
+    parsedContent
+  };
+  
+  switch (type) {
+    case 'short':
+      shortTermMemories.value.push(memory);
+      break;
+    case 'medium':
+      mediumTermMemories.value.push(memory);
+      break;
+    case 'long':
+      longTermMemories.value.push(memory);
+      break;
+  }
+  
+  // 检查是否需要转化
+  convertMemories();
 };
 
 // 设置活跃筛选器
@@ -250,9 +377,27 @@ const refreshMemory = async () => {
 // 清理记忆
 const clearMemory = () => {
   if (confirm('确定要清理所有记忆吗？此操作不可撤销。')) {
-    memories.value = [];
+    shortTermMemories.value = [];
+    mediumTermMemories.value = [];
+    longTermMemories.value = [];
     toast.success('记忆已清理');
   }
+};
+
+// 测试记忆转化功能
+const testMemoryConversion = () => {
+  const testMessages = [
+    '今日在练功房修炼《太极心经》，有所感悟',
+    '与师兄切磋武艺，招式精进不少',
+    '在藏书阁阅读古籍，了解到远古修真历史',
+    '炼制了几枚回气丹，成功率提升',
+    '探索后山秘境，发现奇异灵草'
+  ];
+  
+  const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
+  addMemory('short', randomMessage, Math.floor(Math.random() * 5) + 5);
+  
+  toast.success(`已添加测试记忆: ${randomMessage.substring(0, 20)}...`);
 };
 
 // 加载记忆数据
@@ -260,194 +405,173 @@ const loadMemoryData = async () => {
   try {
     debug.log('记忆中心', '开始加载记忆数据');
     
-    const loadedMemories: Memory[] = [];
+    const loadedShortMemories: Memory[] = [];
+    const loadedMediumMemories: Memory[] = [];
+    const loadedLongMemories: Memory[] = [];
 
     // 首先尝试从酒馆变量获取数据
     const helper = getTavernHelper();
     if (helper) {
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      debug.log('记忆中心', '酒馆变量键', Object.keys(chatVars));
-      
-      // 检查是否有mid_term_memory字段（新格式的中期记忆）
-      if (chatVars['mid_term_memory']) {
-        const midTermMemory = chatVars['mid_term_memory'];
-        console.log('[记忆中心] 找到mid_term_memory:', midTermMemory.substring(0, 100) + '...');
+      try {
+        const chatVars = await helper.getVariables({ type: 'chat' });
+        debug.log('记忆中心', '酒馆变量键', Object.keys(chatVars));
         
-        if (typeof midTermMemory === 'string' && midTermMemory.trim()) {
-          const newMemory: Memory = {
-            type: 'medium',
-            content: midTermMemory,
-            time: '初始刻印',
-            importance: 10,
-            parsedContent: parseMemoryContent(midTermMemory)
-          };
+        // 检查是否有mid_term_memory字段（新格式的中期记忆）
+        // 注意：初始化时的中期记忆应该作为短期记忆处理
+        if (chatVars['mid_term_memory']) {
+          const midTermMemory = chatVars['mid_term_memory'];
+          debug.log('记忆中心', '找到mid_term_memory:', typeof midTermMemory === 'string' ? midTermMemory.substring(0, 100) + '...' : String(midTermMemory));
           
-          loadedMemories.push(newMemory);
-          console.log('[记忆中心] 已添加mid_term_memory到记忆列表');
-        }
-      }
-      
-      // 检查character.saveData中的记忆数据
-      if (chatVars['character.saveData']) {
-        const saveData = chatVars['character.saveData'];
-        if (saveData.记忆) {
-          console.log('[记忆中心] 找到saveData记忆:', Object.keys(saveData.记忆));
-          const memoryData = saveData.记忆;
-          
-          // 短期记忆
-          if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
-            memoryData.短期记忆.forEach((content: string, index: number) => {
-              const memory: Memory = {
-                type: 'short',
-                content,
-                time: formatTime(Date.now() - index * 300000) // 5分钟间隔
-              };
-              
-              // 尝试解析结构化内容
-              const parsed = parseMemoryContent(content);
-              if (parsed.format || Object.keys(parsed.sections).length > 0) {
-                memory.parsedContent = parsed;
-              }
-              
-              loadedMemories.push(memory);
-            });
-            console.log('[记忆中心] 已加载', memoryData.短期记忆.length, '条短期记忆');
+          if (typeof midTermMemory === 'string' && midTermMemory.trim()) {
+            // 初始化生成的中期记忆实际上应该作为短期记忆，等短期记忆满了才转化为中期记忆
+            const newMemory: Memory = {
+              type: 'short', // 改为短期记忆
+              content: midTermMemory,
+              time: '初始记录',
+              importance: 8,
+              parsedContent: parseMemoryContent(midTermMemory)
+            };
+            
+            loadedShortMemories.push(newMemory); // 添加到短期记忆
+            debug.log('记忆中心', '已添加mid_term_memory到短期记忆列表（等待转化）');
           }
-          
-          // 中期记忆 - 支持新的结构化格式
-          if (memoryData.中期记忆) {
-            if (Array.isArray(memoryData.中期记忆)) {
-              // 旧的数组格式
-              memoryData.中期记忆.forEach((content: string, index: number) => {
-                const memory: Memory = {
-                  type: 'medium',
-                  content,
-                  time: formatTime(Date.now() - (index + 10) * 3600000) // 1小时间隔
-                };
+        }
+        
+        // 检查character.saveData中的记忆数据
+        if (chatVars['character.saveData']) {
+          const saveData = chatVars['character.saveData'] as any;
+          if (saveData?.记忆) {
+            debug.log('记忆中心', '找到saveData记忆:', Object.keys(saveData.记忆));
+            const memoryData = saveData.记忆 as Record<string, any>;
+            
+            // 处理各类型记忆...
+            (['短期记忆', '中期记忆', '长期记忆'] as const).forEach(memoryType => {
+              if (memoryData[memoryType]) {
+                const typeMap: Record<string, 'short' | 'medium' | 'long'> = { '短期记忆': 'short', '中期记忆': 'medium', '长期记忆': 'long' };
+                const englishType = typeMap[memoryType];
                 
-                const parsed = parseMemoryContent(content);
-                if (parsed.format || Object.keys(parsed.sections).length > 0) {
-                  memory.parsedContent = parsed;
+                if (Array.isArray(memoryData[memoryType])) {
+                  (memoryData[memoryType] as string[]).forEach((content: string, index: number) => {
+                    const memory: Memory = {
+                      type: englishType,
+                      content,
+                      time: formatTime(Date.now() - index * (englishType === 'short' ? 300000 : englishType === 'medium' ? 3600000 : 86400000))
+                    };
+                    
+                    const parsed = parseMemoryContent(content);
+                    if (parsed.format || Object.keys(parsed.sections).length > 0) {
+                      memory.parsedContent = parsed;
+                    }
+                    
+                    // 按类型分类存储
+                    switch (englishType) {
+                      case 'short': loadedShortMemories.push(memory); break;
+                      case 'medium': loadedMediumMemories.push(memory); break;
+                      case 'long': loadedLongMemories.push(memory); break;
+                    }
+                  });
+                  debug.log('记忆中心', `已加载${(memoryData[memoryType] as string[]).length}条${memoryType}(数组)`);
+                } else if (typeof memoryData[memoryType] === 'string' && memoryType === '中期记忆') {
+                  const memory: Memory = {
+                    type: 'medium',
+                    content: memoryData[memoryType] as string,
+                    time: '存档记忆',
+                    importance: 8,
+                    parsedContent: parseMemoryContent(memoryData[memoryType] as string)
+                  };
+                  loadedMediumMemories.push(memory);
+                  debug.log('记忆中心', '已加载存档中期记忆(字符串)');
                 }
-                
-                loadedMemories.push(memory);
-              });
-              console.log('[记忆中心] 已加载', memoryData.中期记忆.length, '条中期记忆(数组)');
-            } else if (typeof memoryData.中期记忆 === 'string') {
-              // 新的结构化格式 - 单个记忆条目
-              const memory: Memory = {
-                type: 'medium',
-                content: memoryData.中期记忆,
-                time: '存档记忆',
-                importance: 8
-              };
-              
-              memory.parsedContent = parseMemoryContent(memoryData.中期记忆);
-              loadedMemories.push(memory);
-              console.log('[记忆中心] 已加载存档中期记忆(字符串)');
-            }
-          }
-          
-          // 长期记忆
-          if (memoryData.长期记忆 && Array.isArray(memoryData.长期记忆)) {
-            memoryData.长期记忆.forEach((content: string, index: number) => {
-              const memory: Memory = {
-                type: 'long',
-                content,
-                time: formatTime(Date.now() - (index + 20) * 86400000) // 1天间隔
-              };
-              
-              const parsed = parseMemoryContent(content);
-              if (parsed.format || Object.keys(parsed.sections).length > 0) {
-                memory.parsedContent = parsed;
               }
-              
-              loadedMemories.push(memory);
             });
-            console.log('[记忆中心] 已加载', memoryData.长期记忆.length, '条长期记忆');
           }
         }
+      } catch (tavernError) {
+        debug.error('记忆中心', '酒馆API调用失败', tavernError);
       }
+    } else {
+      debug.warn('记忆中心', '酒馆助手不可用');
     }
     
     // 从角色存档中加载（作为备选）
     const activeSave = characterStore.activeSaveSlot;
-    if (activeSave?.存档数据?.记忆 && loadedMemories.length === 0) {
-      console.log('[记忆中心] 从角色存档加载记忆...');
-      const memoryData = activeSave.存档数据.记忆;
+    if (activeSave?.存档数据?.记忆 && (loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length) === 0) {
+      debug.log('记忆中心', '从角色存档加载记忆...');
+      const memoryData = activeSave.存档数据.记忆 as Record<string, any>;
       
-      // 短期记忆
-      if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
-        memoryData.短期记忆.forEach((content: string, index: number) => {
-          const memory: Memory = {
-            type: 'short',
-            content,
-            time: formatTime(Date.now() - index * 300000)
-          };
+      // 处理各类型记忆
+      (['短期记忆', '中期记忆', '长期记忆'] as const).forEach(memoryType => {
+        if (memoryData[memoryType]) {
+          const typeMap: Record<string, 'short' | 'medium' | 'long'> = { '短期记忆': 'short', '中期记忆': 'medium', '长期记忆': 'long' };
+          const englishType = typeMap[memoryType];
           
-          const parsed = parseMemoryContent(content);
-          if (parsed.format || Object.keys(parsed.sections).length > 0) {
-            memory.parsedContent = parsed;
-          }
-          
-          loadedMemories.push(memory);
-        });
-      }
-      
-      // 中期记忆
-      if (memoryData.中期记忆) {
-        if (Array.isArray(memoryData.中期记忆)) {
-          memoryData.中期记忆.forEach((content: string, index: number) => {
+          if (Array.isArray(memoryData[memoryType])) {
+            (memoryData[memoryType] as string[]).forEach((content: string, index: number) => {
+              const memory: Memory = {
+                type: englishType,
+                content,
+                time: formatTime(Date.now() - index * (englishType === 'short' ? 300000 : englishType === 'medium' ? 3600000 : 86400000))
+              };
+              
+              const parsed = parseMemoryContent(content);
+              if (parsed.format || Object.keys(parsed.sections).length > 0) {
+                memory.parsedContent = parsed;
+              }
+              
+              // 按类型分类存储
+              switch (englishType) {
+                case 'short': loadedShortMemories.push(memory); break;
+                case 'medium': loadedMediumMemories.push(memory); break;
+                case 'long': loadedLongMemories.push(memory); break;
+              }
+            });
+          } else if (typeof memoryData[memoryType] === 'string' && memoryType === '中期记忆') {
             const memory: Memory = {
               type: 'medium',
-              content,
-              time: formatTime(Date.now() - (index + 10) * 3600000)
+              content: memoryData[memoryType] as string,
+              time: '角色记忆',
+              importance: 6,
+              parsedContent: parseMemoryContent(memoryData[memoryType] as string)
             };
-            
-            const parsed = parseMemoryContent(content);
-            if (parsed.format || Object.keys(parsed.sections).length > 0) {
-              memory.parsedContent = parsed;
-            }
-            
-            loadedMemories.push(memory);
-          });
-        } else if (typeof memoryData.中期记忆 === 'string') {
-          const memory: Memory = {
-            type: 'medium',
-            content: memoryData.中期记忆,
-            time: '角色记忆',
-            importance: 6
-          };
-          
-          memory.parsedContent = parseMemoryContent(memoryData.中期记忆);
-          loadedMemories.push(memory);
-        }
-      }
-      
-      // 长期记忆
-      if (memoryData.长期记忆 && Array.isArray(memoryData.长期记忆)) {
-        memoryData.长期记忆.forEach((content: string, index: number) => {
-          const memory: Memory = {
-            type: 'long',
-            content,
-            time: formatTime(Date.now() - (index + 20) * 86400000)
-          };
-          
-          const parsed = parseMemoryContent(content);
-          if (parsed.format || Object.keys(parsed.sections).length > 0) {
-            memory.parsedContent = parsed;
+            loadedMediumMemories.push(memory);
           }
-          
-          loadedMemories.push(memory);
-        });
-      }
+        }
+      });
     }
 
-    memories.value = loadedMemories;
-    console.log('[记忆中心] 记忆加载完成，总计:', loadedMemories.length, '条记忆');
+    // 如果仍然没有数据，添加示例数据以便测试界面
+    if ((loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length) === 0) {
+      debug.warn('记忆中心', '未找到记忆数据，添加示例数据');
+      loadedMediumMemories.push({
+        type: 'medium',
+        content: '【初入仙途】\n\n🏠 **居所环境**\n- 茅屋简陋，但清净无扰\n- 门前有竹林，常有清风徐来\n\n💫 **修行感悟**\n- 今日观竹有所感悟，心境渐明\n- 体内灵气流转更加顺畅\n\n⚡ **特殊事件**\n- 遇见神秘老者，获得修行指导',
+        time: '初入此界',
+        importance: 8
+      });
+    }
+
+    // 分类赋值到对应的记忆类型
+    shortTermMemories.value = loadedShortMemories;
+    mediumTermMemories.value = loadedMediumMemories;
+    longTermMemories.value = loadedLongMemories;
+    
+    const totalLoaded = loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length;
+    debug.log('记忆中心', `记忆加载完成，总计: ${totalLoaded} 条记忆，短期:${loadedShortMemories.length}, 中期:${loadedMediumMemories.length}, 长期:${loadedLongMemories.length}`);
+    
+    // 检查是否需要转化记忆
+    convertMemories();
 
   } catch (error) {
-    console.error('[记忆中心] 加载数据失败:', error);
+    debug.error('记忆中心', '加载数据失败:', error);
+    // 确保即使出错也有基本显示
+    if ((shortTermMemories.value.length + mediumTermMemories.value.length + longTermMemories.value.length) === 0) {
+      shortTermMemories.value = [{
+        type: 'short',
+        content: '记忆系统初始化中...',
+        time: '系统记录',
+        importance: 5
+      }];
+    }
   }
 };
 
@@ -457,8 +581,75 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.memory-center-panel {
-  /* 使用统一的 game-panel 基础样式 */
+/* 记忆状态条样式 */
+.memory-status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(var(--color-surface-rgb), 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 120px;
+  flex: 1;
+}
+
+.status-item.warning {
+  color: var(--color-warning);
+}
+
+.status-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  min-width: 2rem;
+}
+
+.status-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(var(--color-border-rgb), 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.status-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-success), var(--color-warning), var(--color-danger));
+  border-radius: 3px;
+  transition: var(--transition-fast);
+}
+
+.status-item.warning .status-fill {
+  background: var(--color-warning);
+}
+
+.status-text {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  min-width: 3rem;
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
+.action-btn.info {
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-color: rgba(var(--color-info-rgb), 0.3);
+  color: var(--color-info);
+}
+
+.action-btn.info:hover {
+  background: rgba(var(--color-info-rgb), 0.2);
+  border-color: var(--color-info);
 }
 
 /* 记忆卡片特定样式 */
@@ -529,14 +720,6 @@ onMounted(() => {
   color: var(--color-text);
   line-height: 1.5;
   margin-bottom: 0.5rem;
-}
-
-.simple-memory {
-  /* 简单记忆样式，保持原样 */
-}
-
-.structured-memory {
-  /* 结构化记忆的特殊样式 */
 }
 
 .memory-title {

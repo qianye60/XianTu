@@ -1,359 +1,410 @@
 <template>
-  <div class="sect-panel game-panel">
-    <!-- 头部信息 -->
-    <div class="panel-header">
-      <div class="header-left">
-        <div class="header-icon">🏛️</div>
-        <div class="header-info">
-          <h3 class="panel-title">宗门大观</h3>
-          <span class="world-status">{{ worldStatus }}</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="refreshWorldData" :disabled="isLoading">
-          <div class="spinner" v-if="isLoading"></div>
-          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-            <path d="M21 3v5h-5"/>
-            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-            <path d="M3 21v-5h5"/>
-          </svg>
-          <span class="btn-text">刷新</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- 当前宗门状态 -->
-    <div class="current-sect-card" v-if="playerSectInfo">
-      <div class="sect-banner" :style="{ background: getSectGradient(playerSectInfo.type) }">
-        <div class="sect-info">
-          <h4 class="sect-name">{{ playerSectInfo.name }}</h4>
-          <span class="sect-type">{{ playerSectInfo.type }}</span>
-          <span class="sect-level">{{ playerSectInfo.等级 }}</span>
-        </div>
-        <div class="sect-emblem">{{ getSectEmblem(playerSectInfo.type) }}</div>
-      </div>
-      
-      <div class="sect-details">
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="label">职位</span>
-            <span class="value position" :class="playerSectInfo.position">{{ playerSectInfo.position || '未知' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">贡献</span>
-            <span class="value contribution">{{ playerSectInfo.contribution || 0 }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">关系</span>
-            <span class="value relationship" :class="playerSectInfo.relationship">{{ playerSectInfo.relationship || '中立' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">声望</span>
-            <span class="value reputation">{{ playerSectInfo.声望值 || 0 }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 未加入宗门状态 -->
-    <div v-else class="no-sect-card">
-      <div class="no-sect-icon">🌟</div>
-      <h4 class="no-sect-title">独行修士</h4>
-      <p class="no-sect-desc">大道三千，条条通天。散修虽无宗门庇护，却有无限可能。</p>
-      <div class="sect-discovery">
-        <span class="discovery-text">已发现 {{ allSects.length }} 个宗门势力</span>
-      </div>
-    </div>
-
-    <!-- 功能选项卡 -->
-    <div class="sect-tabs">
-      <button 
-        v-for="tab in sectTabs"
-        :key="tab.key"
-        class="sect-tab"
-        :class="{ active: activeTab === tab.key }"
-        @click="activeTab = tab.key"
-      >
-        <span class="tab-icon">{{ tab.icon }}</span>
-        <span class="tab-name">{{ tab.name }}</span>
-        <span v-if="tab.count" class="tab-count">{{ tab.count }}</span>
-      </button>
-    </div>
-
-    <!-- 内容区域 -->
+  <div class="sect-panel">
     <div class="panel-content">
-      <!-- 宗门总览 -->
-      <div v-if="activeTab === 'overview'" class="overview-content">
-        <div class="world-summary">
-          <h5>天下大势</h5>
-          <div class="world-stats">
-            <div class="stat-item">
-              <span class="stat-label">宗门势力</span>
-              <span class="stat-value">{{ sectCount }}个</span>
+      <div class="sect-container">
+        <!-- 左侧：宗门列表 -->
+        <div class="sect-list">
+          <div class="list-header">
+            <h3 class="panel-title">宗门事务</h3>
+            <div class="search-bar">
+              <Search :size="16" />
+              <input 
+                v-model="searchQuery" 
+                placeholder="搜索宗门..." 
+                class="search-input"
+              />
             </div>
-            <div class="stat-item">
-              <span class="stat-label">城镇据点</span>
-              <span class="stat-value">{{ cityCount }}个</span>
+          </div>
+
+          <div class="list-content">
+            <div v-if="isLoading" class="loading-state">
+              <Loader2 :size="32" class="animate-spin" />
+              <p>正在读取宗门信息...</p>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">危险禁地</span>
-              <span class="stat-value">{{ dangerousCount }}个</span>
+            <div v-else-if="filteredSects.length === 0" class="empty-state">
+              <Building :size="48" class="empty-icon" />
+              <p class="empty-text">暂无宗门信息</p>
+              <p class="empty-hint">宗门信息将由AI根据游戏进程生成</p>
+            </div>
+            <div v-else class="sect-list-content">
+              <div
+                v-for="sect in filteredSects"
+                :key="sect.名称"
+                class="sect-card"
+                :class="{ 
+                  selected: selectedSect?.名称 === sect.名称,
+                  [`type-${getSectTypeClass(sect.类型)}`]: true,
+                  'can-join': sect.canJoin
+                }"
+                @click="selectSect(sect)"
+              >
+                <div class="sect-icon">
+                  <span class="sect-emoji">{{ getSectEmoji(sect.类型) }}</span>
+                  <div class="sect-level" :class="`level-${sect.等级}`">
+                    {{ sect.等级 }}
+                  </div>
+                </div>
+
+                <div class="sect-info">
+                  <div class="sect-name">{{ sect.名称 }}</div>
+                  <div class="sect-meta">
+                    <span class="sect-type">{{ sect.类型 }}</span>
+                  </div>
+                  <div class="sect-stats">
+                    <span class="member-count">{{ sect.memberCount?.total || 0 }} 人</span>
+                    <span class="power-rating">实力 {{ sect.powerRating || extractPowerFromDescription(sect.实力评估) || '未知' }}</span>
+                  </div>
+                </div>
+                <ChevronRight :size="16" class="arrow-icon" />
+              </div>
             </div>
           </div>
         </div>
-        
-        <div class="sects-list">
-          <h5>天下宗门</h5>
-          <div class="sects-grid">
-            <div 
-              v-for="sect in allSects"
-              :key="sect.名称"
-              class="sect-card"
-              :class="getSectClass(sect)"
-              @click="selectSect(sect)"
-            >
-              <div class="card-header">
-                <div class="sect-emblem small">{{ getSectEmblem(sect.类型) }}</div>
-                <div class="sect-basic-info">
-                  <h6 class="sect-name">{{ sect.名称 }}</h6>
-                  <span class="sect-type">{{ sect.类型 }}</span>
-                </div>
-                <div class="sect-level-badge" :class="`level-${sect.等级}`">
-                  {{ sect.等级 }}
+
+        <!-- 右侧：宗门详情 -->
+        <div class="sect-detail">
+          <div v-if="selectedSect" class="detail-content">
+            <!-- 详情头部 -->
+            <div class="detail-header">
+              <div class="detail-icon">
+                <span class="sect-emoji-large">{{ getSectEmoji(selectedSect.类型) }}</span>
+              </div>
+              <div class="detail-info">
+                <h3 class="detail-name">{{ selectedSect.名称 }}</h3>
+                <div class="detail-badges">
+                  <span class="type-badge" :class="`type-${getSectTypeClass(selectedSect.类型)}`">
+                    {{ selectedSect.类型 }}
+                  </span>
+                  <span class="level-badge" :class="`level-${selectedSect.等级}`">
+                    {{ selectedSect.等级 }}宗门
+                  </span>
+                  <span class="power-badge">
+                    实力 {{ selectedSect.powerRating || extractPowerFromDescription(selectedSect.实力评估) || '未知' }}
+                  </span>
                 </div>
               </div>
-              
-              <div class="card-body">
-                <p class="sect-desc">{{ sect.描述 }}</p>
-                <div class="sect-features">
-                  <span v-for="feature in sect.特色" :key="feature" class="feature-tag">
-                    {{ feature }}
-                  </span>
+            </div>
+
+            <!-- 详情主体 -->
+            <div class="detail-body">
+              <!-- 基础信息 -->
+              <div class="detail-section">
+                <h5 class="section-title">
+                  <Building :size="16" />
+                  <span>基础信息</span>
+                </h5>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <span class="info-label">宗门类型</span>
+                    <span class="info-value">{{ selectedSect.类型 }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">宗门等级</span>
+                    <span class="info-value">{{ selectedSect.等级 }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">总部位置</span>
+                    <span class="info-value">{{ selectedSect.位置 || '未知' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">实力评估</span>
+                    <span class="info-value">{{ selectedSect.powerRating || selectedSect.实力评估 || '未知' }}</span>
+                  </div>
                 </div>
                 
-                <div class="sect-stats">
-                  <div class="stat-group">
-                    <span class="stat-label">实力</span>
-                    <div class="power-bar">
-                      <div class="power-fill" :style="{ width: sect.实力评估 + '%' }"></div>
-                    </div>
-                    <span class="stat-value">{{ sect.实力评估 }}</span>
-                  </div>
+                <!-- 宗门领导层 -->
+                <div v-if="selectedSect.leadership || hasLeadershipInfo(selectedSect)" class="leadership-info">
+                  <h6 class="leadership-title">宗门领导</h6>
                   
-                  <div class="relationship-status">
-                    <span class="relation-label">与我关系：</span>
-                    <span class="relation-value" :class="`relation-${sect.与玩家关系}`">
-                      {{ sect.与玩家关系 }}
+                  <!-- 使用 leadership 数据 -->
+                  <template v-if="selectedSect.leadership">
+                    <div class="leader-grid">
+                      <div class="leader-item primary-leader">
+                        <span class="leader-role">宗主</span>
+                        <span class="leader-name">{{ selectedSect.leadership.宗主 }}</span>
+                        <span class="leader-realm" v-if="selectedSect.leadership.宗主修为">{{ selectedSect.leadership.宗主修为 }}</span>
+                      </div>
+                      <div v-if="selectedSect.leadership.副宗主" class="leader-item">
+                        <span class="leader-role">副宗主</span>
+                        <span class="leader-name">{{ selectedSect.leadership.副宗主 }}</span>
+                      </div>
+                    </div>
+                    
+                    <div class="sect-strength">
+                      <div class="strength-item">
+                        <span class="strength-label">长老数量</span>
+                        <span class="strength-value">{{ selectedSect.leadership.长老数量 }}位</span>
+                      </div>
+                      <div class="strength-item">
+                        <span class="strength-label">最强修为</span>
+                        <span class="strength-value peak-power">{{ selectedSect.leadership.最强修为 }}</span>
+                      </div>
+                    </div>
+                  </template>
+                  
+                  <!-- 回退显示：从描述中提取信息 -->
+                  <template v-else>
+                    <div class="fallback-leadership">
+                      <p class="leadership-description">{{ selectedSect.描述 || selectedSect.实力评估 }}</p>
+                      <div class="sect-strength" v-if="selectedSect.特色">
+                        <div class="strength-item">
+                          <span class="strength-label">宗门特色</span>
+                          <span class="strength-value">{{ selectedSect.特色 }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                
+                <div class="sect-description">
+                  <h6 class="desc-title">宗门描述</h6>
+                  <p class="desc-text">{{ selectedSect.描述 }}</p>
+                </div>
+
+                <!-- 宗门特色 -->
+                <div class="sect-specialties" v-if="selectedSect.specialties?.length || selectedSect.特色">
+                  <h6 class="specialties-title">宗门特色</h6>
+                  <div class="specialties-tags">
+                    <!-- 新格式：数组形式 -->
+                    <template v-if="selectedSect.specialties?.length">
+                      <span 
+                        v-for="specialty in selectedSect.specialties" 
+                        :key="specialty" 
+                        class="specialty-tag"
+                      >
+                        {{ specialty }}
+                      </span>
+                    </template>
+                    <!-- 旧格式：字符串形式 -->
+                    <template v-else-if="selectedSect.特色">
+                      <span class="specialty-tag">{{ selectedSect.特色 }}</span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 成员统计 -->
+              <div class="detail-section">
+                <h5 class="section-title">
+                  <Users :size="16" />
+                  <span>成员统计</span>
+                </h5>
+                
+                <div class="member-overview">
+                  <div class="total-members">
+                    <span class="total-number">{{ selectedSect.memberCount?.total || 0 }}</span>
+                    <span class="total-label">总成员数</span>
+                  </div>
+                </div>
+
+                <!-- 按境界统计 -->
+                <div class="member-breakdown" v-if="selectedSect.memberCount?.byRealm">
+                  <h6 class="breakdown-title">境界分布</h6>
+                  <div class="realm-stats">
+                    <template v-for="(realmCount, realmName) in selectedSect.memberCount.byRealm" :key="realmName">
+                      <div 
+                        class="realm-stat"
+                        v-if="Number(realmCount) > 0"
+                      >
+                        <span class="realm-name">{{ realmName }}</span>
+                        <div class="realm-bar">
+                          <div 
+                            class="realm-fill" 
+                            :style="{ width: (Number(realmCount) / (selectedSect.memberCount?.total || 1) * 100) + '%' }"
+                          ></div>
+                        </div>
+                        <span class="realm-count">{{ Number(realmCount) }}</span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- 按职位统计 -->
+                <div class="member-breakdown" v-if="selectedSect.memberCount?.byPosition">
+                  <h6 class="breakdown-title">职位分布</h6>
+                  <div class="position-stats">
+                    <template v-for="(positionCount, positionName) in selectedSect.memberCount.byPosition" :key="positionName">
+                      <div 
+                        class="position-stat"
+                        v-if="Number(positionCount) > 0"
+                      >
+                        <span class="position-name">{{ positionName }}</span>
+                        <div class="position-bar">
+                          <div 
+                            class="position-fill" 
+                            :style="{ width: (Number(positionCount) / (selectedSect.memberCount?.total || 1) * 100) + '%' }"
+                          ></div>
+                        </div>
+                        <span class="position-count">{{ Number(positionCount) }}</span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 关系状态 -->
+              <div class="detail-section">
+                <h5 class="section-title">
+                  <Heart :size="16" />
+                  <span>关系状态</span>
+                </h5>
+                <div class="relationship-info">
+                  <div class="relationship-item">
+                    <span class="relationship-label">与你的关系</span>
+                    <span class="relationship-value" :class="getRelationshipClass(selectedSect.与玩家关系 || '中立')">
+                      {{ selectedSect.与玩家关系 || '中立' }}
                     </span>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 地理分布 -->
-      <div v-else-if="activeTab === 'geography'" class="geography-content">
-        <div class="continent-overview">
-          <h5>大陆分布</h5>
-          <div class="continents-grid">
-            <div 
-              v-for="continent in continentData" 
-              :key="continent.name"
-              class="continent-card"
-              @click="selectContinent(continent)"
-              :class="{ active: selectedContinent?.name === continent.name }"
-            >
-              <h6 class="continent-name">{{ continent.name }}</h6>
-              <div class="continent-stats">
-                <span class="sect-count">{{ continent.sectCount }}个宗门</span>
-                <span class="location-count">{{ continent.locationCount }}处要地</span>
-              </div>
-              <div class="continent-features">
-                <span v-for="feature in continent.特征" :key="feature" class="feature-tag small">
-                  {{ feature }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="selectedContinent" class="continent-details">
-          <h5>{{ selectedContinent.name }}详情</h5>
-          <div class="continent-description">
-            <p>{{ selectedContinent.描述 }}</p>
-          </div>
-          
-          <div class="locations-in-continent">
-            <h6>主要据点</h6>
-            <div class="locations-list">
-              <div 
-                v-for="location in getContinentLocations(selectedContinent.name)"
-                :key="location.名称"
-                class="location-item"
-                :class="getLocationClass(location)"
-              >
-                <div class="location-info">
-                  <span class="location-name">{{ location.名称 }}</span>
-                  <span class="location-type">{{ location.类型 }}</span>
-                  <span class="location-safety" :class="`safety-${location.安全等级?.replace(/\s+/g, '')}`">
-                    {{ location.安全等级 }}
-                  </span>
-                </div>
-                <p class="location-desc">{{ location.描述 }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 关系网络 -->
-      <div v-else-if="activeTab === 'relations'" class="relations-content">
-        <div class="relations-overview">
-          <h5>势力关系</h5>
-          <div class="relations-summary">
-            <div class="relation-stats">
-              <div class="stat-item friendly">
-                <span class="stat-count">{{ relationshipStats.友好 }}</span>
-                <span class="stat-label">友好势力</span>
-              </div>
-              <div class="stat-item neutral">
-                <span class="stat-count">{{ relationshipStats.中立 }}</span>
-                <span class="stat-label">中立势力</span>
-              </div>
-              <div class="stat-item hostile">
-                <span class="stat-count">{{ relationshipStats.敌对 }}</span>
-                <span class="stat-label">敌对势力</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="my-relations">
-          <h6>我的关系网</h6>
-          <div v-if="playerRelations.length === 0" class="no-relations">
-            <p>暂无建立的势力关系</p>
-            <small>随着游戏进程发展，将建立与各大势力的复杂关系</small>
-          </div>
-          <div v-else class="relations-list">
-            <div 
-              v-for="relation in playerRelations" 
-              :key="relation.sectName"
-              class="relation-item"
-              :class="`relation-${relation.status}`"
-            >
-              <div class="relation-header">
-                <span class="sect-name">{{ relation.sectName }}</span>
-                <span class="relation-status">{{ relation.status }}</span>
-              </div>
-              <div class="relation-details">
-                <div class="detail-row">
-                  <span class="detail-label">声望值：</span>
-                  <span class="detail-value">{{ relation.reputation }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">影响因子：</span>
-                  <span class="detail-value">{{ relation.influence }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 宗门档案 -->
-      <div v-else-if="activeTab === 'archives'" class="archives-content">
-        <div class="selected-sect-details" v-if="selectedSect">
-          <div class="sect-header-detail">
-            <div class="sect-banner-large" :style="{ background: getSectGradient(selectedSect.类型) }">
-              <div class="banner-content">
-                <div class="sect-emblem large">{{ getSectEmblem(selectedSect.类型) }}</div>
-                <div class="sect-main-info">
-                  <h3 class="sect-name-large">{{ selectedSect.名称 }}</h3>
-                  <div class="sect-meta">
-                    <span class="sect-type-large">{{ selectedSect.类型 }}</span>
-                    <span class="sect-level-large">{{ selectedSect.等级 }}势力</span>
+                  <div class="relationship-item">
+                    <span class="relationship-label">声望值</span>
+                    <span class="relationship-value">{{ selectedSect.声望值 || 0 }}</span>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div class="sect-full-info">
-            <div class="info-section">
-              <h6>宗门简介</h6>
-              <p class="sect-description-full">{{ selectedSect.描述 }}</p>
-            </div>
-
-            <div class="info-section">
-              <h6>宗门特色</h6>
-              <div class="features-grid">
-                <div v-for="feature in selectedSect.特色" :key="feature" class="feature-detail">
-                  <span class="feature-name">{{ feature }}</span>
-                  <p class="feature-desc">{{ getFeatureDescription(feature) }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="info-section">
-              <h6>实力评估</h6>
-              <div class="power-analysis">
-                <div class="power-overview">
-                  <div class="power-score">
-                    <span class="score-value">{{ selectedSect.实力评估 }}</span>
-                    <span class="score-max">/100</span>
+              <!-- 势力范围 -->
+              <div class="detail-section" v-if="selectedSect.territoryInfo">
+                <h5 class="section-title">
+                  <Map :size="16" />
+                  <span>势力范围</span>
+                </h5>
+                <div class="territory-info">
+                  <div class="influence-description">
+                    <strong>影响范围：</strong>{{ selectedSect.territoryInfo.influenceRange || '未知' }}
                   </div>
-                  <div class="power-level">{{ getPowerLevel(selectedSect.实力评估) }}</div>
-                </div>
-                <div class="power-breakdown">
-                  <div class="power-bar-container">
-                    <div class="power-bar-full">
-                      <div class="power-fill-full" :style="{ width: selectedSect.实力评估 + '%' }"></div>
+                  
+                  <div v-if="selectedSect.territoryInfo.controlledAreas?.length" class="controlled-areas">
+                    <strong>控制区域：</strong>
+                    <div class="areas-list">
+                      <span 
+                        v-for="area in selectedSect.territoryInfo.controlledAreas" 
+                        :key="area"
+                        class="area-tag"
+                      >
+                        {{ area }}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div class="strategic-value">
+                    <strong>战略价值：</strong>
+                    <div class="value-display">
+                      <div class="value-bar">
+                        <div 
+                          class="value-fill" 
+                          :style="{ width: `${(selectedSect.territoryInfo.strategicValue || 5) * 10}%` }"
+                        ></div>
+                      </div>
+                      <span class="value-text">{{ selectedSect.territoryInfo.strategicValue || 5 }}/10</span>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div class="info-section">
-              <h6>地理位置</h6>
-              <div class="location-info">
-                <div class="coordinates">
-                  <span class="coord-label">坐标：</span>
-                  <span class="coord-value">
-                    {{ selectedSect.位置?.longitude.toFixed(2) }}, {{ selectedSect.位置?.latitude.toFixed(2) }}
-                  </span>
+              <!-- 加入条件 -->
+              <div class="detail-section" v-if="selectedSect.canJoin">
+                <h5 class="section-title">
+                  <UserPlus :size="16" />
+                  <span>加入条件</span>
+                </h5>
+                <div class="join-requirements">
+                  <div v-if="selectedSect.joinRequirements?.length" class="requirements-list">
+                    <div 
+                      v-for="requirement in selectedSect.joinRequirements" 
+                      :key="requirement"
+                      class="requirement-item"
+                    >
+                      <CheckCircle :size="14" class="requirement-icon" />
+                      <span class="requirement-text">{{ requirement }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="no-requirements">
+                    <p>暂无特殊加入条件</p>
+                  </div>
                 </div>
-                <div class="territory-info" v-if="selectedSect.势力范围">
-                  <span class="territory-label">势力范围：</span>
-                  <span class="territory-desc">
-                    经度 {{ getTerritorySummary(selectedSect.势力范围).lonRange }}，
-                    纬度 {{ getTerritorySummary(selectedSect.势力范围).latRange }}
-                  </span>
+
+                <!-- 加入好处 -->
+                <div v-if="selectedSect.benefits?.length" class="join-benefits">
+                  <h6 class="benefits-title">加入好处</h6>
+                  <div class="benefits-list">
+                    <div 
+                      v-for="benefit in selectedSect.benefits" 
+                      :key="benefit"
+                      class="benefit-item"
+                    >
+                      <Gift :size="14" class="benefit-icon" />
+                      <span class="benefit-text">{{ benefit }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 加入按钮 -->
+                <div class="join-actions">
+                  <button class="join-btn" @click="requestJoinSect(selectedSect)">
+                    <UserPlus :size="16" />
+                    <span>申请加入</span>
+                  </button>
                 </div>
               </div>
-            </div>
 
-            <div class="info-section">
-              <h6>与我的关系</h6>
-              <div class="player-relation-detail">
-                <div class="relation-status-large" :class="`status-${selectedSect.与玩家关系}`">
-                  {{ selectedSect.与玩家关系 }}
+              <!-- 已加入宗门信息 -->
+              <div class="detail-section" v-if="isCurrentSect(selectedSect)">
+                <h5 class="section-title">
+                  <Crown :size="16" />
+                  <span>我的宗门身份</span>
+                </h5>
+                <div class="current-member-info">
+                  <div class="member-status">
+                    <div class="status-item">
+                      <span class="status-label">职位</span>
+                      <span class="status-value position">{{ playerSectInfo?.position || '散修' }}</span>
+                    </div>
+                    <div class="status-item">
+                      <span class="status-label">贡献点</span>
+                      <span class="status-value contribution">{{ playerSectInfo?.contribution || 0 }}</span>
+                    </div>
+                    <div class="status-item">
+                      <span class="status-label">声望</span>
+                      <span class="status-value reputation">{{ playerSectInfo?.reputation || 0 }}</span>
+                    </div>
+                    <div class="status-item">
+                      <span class="status-label">加入时间</span>
+                      <span class="status-value join-date">{{ formatJoinDate(playerSectInfo?.joinDate) }}</span>
+                    </div>
+                  </div>
                 </div>
-                <div class="relation-reputation">
-                  <span class="rep-label">声望值：</span>
-                  <span class="rep-value">{{ selectedSect.声望值 || 0 }}</span>
+
+                <!-- 宗门任务 -->
+                <div class="sect-actions">
+                  <h6 class="actions-title">宗门事务</h6>
+                  <div class="action-buttons">
+                    <button class="sect-action-btn" @click="showSectMissions">
+                      <Scroll :size="16" />
+                      <span>宗门任务</span>
+                    </button>
+                    <button class="sect-action-btn" @click="showContribution">
+                      <Coins :size="16" />
+                      <span>贡献兑换</span>
+                    </button>
+                    <button class="sect-action-btn" @click="showSectLibrary">
+                      <Book :size="16" />
+                      <span>宗门藏书</span>
+                    </button>
+                    <button class="sect-action-btn" @click="showSectMembers">
+                      <Users :size="16" />
+                      <span>同门师兄弟</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div v-else class="no-selection">
-          <div class="no-selection-icon">📋</div>
-          <p>请从宗门总览中选择一个宗门查看详细档案</p>
+          <div v-else class="no-selection">
+            <Building :size="64" class="placeholder-icon" />
+            <p class="placeholder-text">选择一个宗门查看详细信息</p>
+            <p class="placeholder-hint">江湖中的宗门势力等你探索</p>
+          </div>
         </div>
       </div>
     </div>
@@ -363,313 +414,169 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
+import type { WorldFaction, SectMemberInfo } from '@/types/game';
+import { 
+  Building, Users, Heart, UserPlus, Crown, CheckCircle, 
+  Gift, Scroll, Coins, Book, Search, RefreshCw, Loader2, 
+  ChevronRight, Map
+} from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
-
-// 从酒馆数据结构提取的接口定义
-interface SectInfo {
-  名称: string;
-  类型: string;
-  等级: string;
-  位置: {
-    longitude: number;
-    latitude: number;
-  };
-  势力范围?: Array<{ longitude: number; latitude: number; }>;
-  描述: string;
-  特色: string[];
-  实力评估: number;
-  与玩家关系: string;
-  声望值: number;
-}
-
-interface LocationInfo {
-  名称: string;
-  类型: string;
-  位置: {
-    longitude: number;
-    latitude: number;
-  };
-  描述: string;
-  安全等级: string;
-  开放状态: string;
-  相关势力?: string[];
-  特殊功能?: string[];
-}
 
 const characterStore = useCharacterStore();
 const isLoading = ref(false);
-const activeTab = ref('overview');
-const selectedSect = ref<SectInfo | null>(null);
-const selectedContinent = ref<any>(null);
+const selectedSect = ref<WorldFaction | null>(null);
+const searchQuery = ref('');
+const activeFilter = ref('all');
 
-// 获取世界信息
-const worldInfo = computed(() => {
+// 获取世界中的宗门势力数据 - 统一数据源
+const sectSystemData = computed(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
-  return saveData?.世界信息 || null;
+  const worldInfo = saveData?.世界信息;
+  
+  if (!worldInfo?.势力信息) {
+    return { availableSects: [] };
+  }
+  
+  // 筛选出宗门类型的势力 - 扩大筛选范围
+  const sectTypes = ['正道宗门', '魔道宗门', '中立宗门', '商会', '世家', '散修联盟', '家族', '宗门', '门派'];
+  const availableSects = worldInfo.势力信息.filter(faction => {
+    // 更宽松的匹配逻辑
+    return sectTypes.some(type => 
+      faction.类型.includes(type) || 
+      type.includes(faction.类型) ||
+      faction.类型.toLowerCase().includes('宗') ||
+      faction.类型.toLowerCase().includes('门') ||
+      faction.类型.toLowerCase().includes('派') ||
+      faction.类型.toLowerCase().includes('会') ||
+      faction.类型.toLowerCase().includes('家')
+    );
+  });
+  
+  console.log('[宗门系统] 势力信息总数:', worldInfo.势力信息.length);
+  console.log('[宗门系统] 筛选后宗门数量:', availableSects.length);
+  console.log('[宗门系统] 所有势力类型:', worldInfo.势力信息.map(f => f.类型));
+  
+  return { availableSects };
 });
 
-const worldStatus = computed(() => {
-  if (!worldInfo.value) return '未知世界';
-  return `${worldInfo.value.世界名称} • ${worldInfo.value.生成信息?.世界纪元 || '时间未知'}`;
-});
-
-// 获取玩家当前宗门信息
-const playerSectInfo = computed(() => {
+// 玩家的宗门信息
+const playerSectInfo = computed((): SectMemberInfo | undefined => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
-  const sectInfo = saveData?.玩家角色状态?.宗门信息;
-  if (!sectInfo) return null;
-  
-  return {
-    name: sectInfo.name,
-    type: sectInfo.type,
-    等级: '未知',
-    position: sectInfo.position,
-    contribution: sectInfo.contribution,
-    relationship: sectInfo.relationship,
-    声望值: sectInfo.reputation || 0
-  };
+  return saveData?.玩家角色状态?.宗门信息;
 });
 
-// 从世界信息中提取所有宗门
-const allSects = computed((): SectInfo[] => {
-  if (!worldInfo.value?.势力信息) return [];
-  
-  return worldInfo.value.势力信息.map((sect: any) => ({
-    名称: sect.名称,
-    类型: sect.类型,
-    等级: sect.等级,
-    位置: sect.位置,
-    势力范围: sect.势力范围,
-    描述: sect.描述,
-    特色: sect.特色 || [],
-    实力评估: sect.实力评估 || 0,
-    与玩家关系: sect.与玩家关系 || '中立',
-    声望值: sect.声望值 || 0
-  }));
+// 宗门状态文字
+const sectStatusText = computed(() => {
+  if (playerSectInfo.value) {
+    return `${playerSectInfo.value.sectName} ${playerSectInfo.value.position}`;
+  }
+  return `散修 · 可加入 ${sectSystemData.value.availableSects.filter(s => s.canJoin).length} 个宗门`;
 });
 
-// 从世界信息中提取所有地点
-const allLocations = computed((): LocationInfo[] => {
-  if (!worldInfo.value?.地点信息) return [];
-  
-  return worldInfo.value.地点信息.map((location: any) => ({
-    名称: location.名称,
-    类型: location.类型,
-    位置: location.位置 || location.coordinates,
-    描述: location.描述,
-    安全等级: location.安全等级,
-    开放状态: location.开放状态,
-    相关势力: location.相关势力,
-    特殊功能: location.特殊功能
-  }));
-});
+// 获取所有宗门列表
+const allSects = computed(() => sectSystemData.value.availableSects);
 
-// 大陆数据
-const continentData = computed(() => {
-  if (!worldInfo.value?.大陆信息) return [];
-  
-  return worldInfo.value.大陆信息.map((continent: any) => {
-    const continentSects = allSects.value.filter(sect => 
-      isInContinent(sect.位置, continent.大洲边界)
+// 过滤后的宗门列表（只保留搜索功能）
+const filteredSects = computed(() => {
+  let filtered = [...allSects.value];
+
+  // 搜索过滤
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(sect => 
+      sect.名称.toLowerCase().includes(query) ||
+      sect.类型.toLowerCase().includes(query) ||
+      (sect.描述 && sect.描述.toLowerCase().includes(query))
     );
-    const continentLocations = allLocations.value.filter(location => 
-      isInContinent(location.位置, continent.大洲边界)
-    );
-    
-    return {
-      name: continent.名称,
-      描述: continent.描述,
-      特征: continent.地理特征 || [],
-      sectCount: continentSects.length,
-      locationCount: continentLocations.length,
-      大洲边界: continent.大洲边界
-    };
+  }
+
+  // 按实力排序 - 优先使用powerRating，如果没有则尝试解析实力评估字符串
+  return filtered.sort((a, b) => {
+    const aPower = a.powerRating || extractPowerFromDescription(a.实力评估) || 0;
+    const bPower = b.powerRating || extractPowerFromDescription(b.实力评估) || 0;
+    return bPower - aPower;
   });
 });
 
-// 统计数据
-const sectCount = computed(() => allSects.value.length);
-const cityCount = computed(() => 
-  allLocations.value.filter(loc => loc.类型 === 'city_town').length
-);
-const dangerousCount = computed(() => 
-  allLocations.value.filter(loc => loc.安全等级 === '极危险' || loc.安全等级 === '危险').length
-);
+// 从实力评估字符串中提取数值的辅助函数
+const extractPowerFromDescription = (description: string | undefined): number => {
+  if (!description) return 0;
+  const match = description.match(/(\d+)/);
+  return match ? parseInt(match[1]) : 0;
+};
 
-// 关系统计
-const relationshipStats = computed(() => {
-  const stats = { 友好: 0, 中立: 0, 敌对: 0 };
-  allSects.value.forEach(sect => {
-    if (sect.与玩家关系 === '友好' || sect.与玩家关系 === '盟友') {
-      stats.友好++;
-    } else if (sect.与玩家关系 === '敌对' || sect.与玩家关系 === '仇敌') {
-      stats.敌对++;
-    } else {
-      stats.中立++;
-    }
-  });
-  return stats;
-});
-
-const playerRelations = computed(() => {
-  return allSects.value
-    .filter(sect => sect.与玩家关系 !== '中立' && sect.声望值 !== 0)
-    .map(sect => ({
-      sectName: sect.名称,
-      status: sect.与玩家关系,
-      reputation: sect.声望值,
-      influence: Math.floor(sect.实力评估 * (sect.声望值 / 100))
-    }));
-});
-
-// 选项卡配置
-const sectTabs = computed(() => [
-  { key: 'overview', name: '总览', icon: '🌐', count: allSects.value.length },
-  { key: 'geography', name: '分布', icon: '🗺️', count: continentData.value.length },
-  { key: 'relations', name: '关系', icon: '🤝', count: playerRelations.value.length },
-  { key: 'archives', name: '档案', icon: '📚', count: null }
-]);
+// 检查是否有领导层信息
+const hasLeadershipInfo = (sect: WorldFaction): boolean => {
+  return !!(sect.描述 || sect.实力评估 || sect.特色);
+};
 
 // 工具函数
-const getSectGradient = (type: string) => {
-  const gradients = {
-    '修仙宗门': 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-    '正道宗门': 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
-    '魔道宗门': 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-    '魔道势力': 'linear-gradient(135deg, #7c2d12 0%, #451a03 100%)',
-    '修仙世家': 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-    '散修联盟': 'linear-gradient(135deg, #d97706 0%, #92400e 100%)',
-    '中立势力': 'linear-gradient(135deg, #6b7280 0%, #374151 100%)'
+const getSectEmoji = (type: string): string => {
+  const emojiMap: Record<string, string> = {
+    '正道宗门': '⛩️',
+    '魔道宗门': '🏴',
+    '中立宗门': '🏯',
+    '商会': '🏪',
+    '世家': '🏘️',
+    '散修联盟': '🤝'
   };
-  return gradients[type as keyof typeof gradients] || gradients['中立势力'];
+  return emojiMap[type] || '🏛️';
 };
 
-const getSectEmblem = (type: string) => {
-  const emblems = {
-    '修仙宗门': '⚔️',
-    '正道宗门': '🏛️',
-    '魔道宗门': '🔥',
-    '魔道势力': '💀',
-    '修仙世家': '🏰',
-    '散修联盟': '⚡',
-    '中立势力': '⚖️'
+const getSectTypeClass = (type: string): string => {
+  const classMap: Record<string, string> = {
+    '正道宗门': 'righteous',
+    '魔道宗门': 'demonic',
+    '中立宗门': 'neutral',
+    '商会': 'merchant',
+    '世家': 'family',
+    '散修联盟': 'alliance'
   };
-  return emblems[type as keyof typeof emblems] || '🏛️';
+  return classMap[type] || 'neutral';
 };
 
-const getSectClass = (sect: SectInfo) => {
-  const classes = [`sect-type-${sect.类型?.replace(/\s+/g, '')}`];
-  
-  if (sect.等级 === '一流') classes.push('tier-top');
-  else if (sect.等级 === '二流') classes.push('tier-high');
-  else if (sect.等级 === '三流') classes.push('tier-medium');
-  
-  if (sect.与玩家关系 !== '中立') classes.push('has-relation');
-  
-  return classes.join(' ');
-};
-
-const getLocationClass = (location: LocationInfo) => {
-  const classes = [`location-type-${location.类型}`];
-  
-  if (location.安全等级) {
-    classes.push(`safety-${location.安全等级.replace(/\s+/g, '')}`);
-  }
-  
-  return classes.join(' ');
-};
-
-const getPowerLevel = (power: number) => {
-  if (power >= 95) return '震古烁今';
-  if (power >= 90) return '绝世强者';
-  if (power >= 80) return '一方霸主';
-  if (power >= 70) return '名门大派';
-  if (power >= 60) return '中坚力量';
-  if (power >= 40) return '新兴势力';
-  return '初创宗门';
-};
-
-const getFeatureDescription = (feature: string) => {
-  const descriptions = {
-    '无情剑道': '以绝情绝义之心修剑道，剑气如霜',
-    '天机推演': '窥探天机，推演未来吉凶祸福',
-    '血祭秘法': '以生灵精血为祭，修炼邪门功法',
-    '炼魂成幡': '炼化魂魄，制作魂幡类法宝',
-    '阴阳合气之术': '调和阴阳二气，修炼特殊功法',
-    '血脉传承': '依靠血脉之力传承神通秘术',
-    '海战之法': '精通海上作战和水系法术',
-    '情报交易': '收集买卖各种情报消息',
-    '傀儡机关术': '制作操控各种机关傀儡',
-    '阵法营造': '精通各种阵法的布置和破解'
+const getRelationshipClass = (relationship: string): string => {
+  const classMap: Record<string, string> = {
+    '仇敌': 'enemy',
+    '敌对': 'hostile',
+    '冷淡': 'cold',
+    '中立': 'neutral',
+    '友好': 'friendly',
+    '盟友': 'ally',
+    '附庸': 'vassal'
   };
-  return descriptions[feature as keyof typeof descriptions] || '该宗门的独特技艺';
+  return classMap[relationship] || 'neutral';
 };
 
-const getTerritorySummary = (territory: Array<{ longitude: number; latitude: number; }>) => {
-  if (!territory || territory.length === 0) return { lonRange: '未知', latRange: '未知' };
-  
-  const lons = territory.map(t => t.longitude);
-  const lats = territory.map(t => t.latitude);
-  
-  return {
-    lonRange: `${Math.min(...lons).toFixed(1)}°-${Math.max(...lons).toFixed(1)}°`,
-    latRange: `${Math.min(...lats).toFixed(1)}°-${Math.max(...lats).toFixed(1)}°`
-  };
+const isCurrentSect = (sect: WorldFaction): boolean => {
+  return playerSectInfo.value?.sectName === sect.名称;
 };
 
-const isInContinent = (position: { longitude: number; latitude: number; }, boundary: Array<{ longitude: number; latitude: number; }>) => {
-  if (!position || !boundary || boundary.length < 3) return false;
-  
-  // 简单的点在多边形内判断（射线法）
-  const { longitude: x, latitude: y } = position;
-  let inside = false;
-  
-  for (let i = 0, j = boundary.length - 1; i < boundary.length; j = i++) {
-    const xi = boundary[i].longitude, yi = boundary[i].latitude;
-    const xj = boundary[j].longitude, yj = boundary[j].latitude;
-    
-    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
-      inside = !inside;
-    }
-  }
-  
-  return inside;
-};
-
-const getContinentLocations = (continentName: string) => {
-  const continent = continentData.value.find(c => c.name === continentName);
-  if (!continent) return [];
-  
-  return allLocations.value.filter(location => 
-    isInContinent(location.位置, continent.大洲边界)
-  );
-};
-
-// 交互函数
-const selectSect = (sect: SectInfo) => {
-  selectedSect.value = sect;
-  activeTab.value = 'archives';
-};
-
-const selectContinent = (continent: any) => {
-  selectedContinent.value = selectedContinent.value?.name === continent.name ? null : continent;
-};
-
-const refreshWorldData = async () => {
-  isLoading.value = true;
+const formatJoinDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return '未知';
   try {
-    await characterStore.syncFromTavern();
-    toast.success('世界数据已更新');
-  } catch (error) {
-    console.error('[宗门系统] 刷新数据失败:', error);
-    toast.error('刷新失败');
-  } finally {
-    isLoading.value = false;
+    return new Date(dateStr).toLocaleDateString('zh-CN');
+  } catch {
+    return '未知';
   }
 };
+
+const selectSect = (sect: WorldFaction) => {
+  selectedSect.value = selectedSect.value?.名称 === sect.名称 ? null : sect;
+};
+
+// 占位函数
+const requestJoinSect = (sect: WorldFaction) => {
+  toast.info(`申请加入 ${sect.名称}（功能开发中）`);
+};
+
+const showSectMissions = () => toast.info('宗门任务（功能开发中）');
+const showContribution = () => toast.info('贡献兑换（功能开发中）');
+const showSectLibrary = () => toast.info('宗门藏书（功能开发中）');
+const showSectMembers = () => toast.info('同门师兄弟（功能开发中）');
 
 onMounted(() => {
-  console.log('[宗门系统] 宗门大观已载入');
+  console.log('[宗门系统] 宗门事务面板已载入');
 });
 </script>
 
@@ -678,1051 +585,882 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--color-background);
+  padding: 1rem;
 }
 
-/* 头部样式 */
-.panel-header {
+.panel-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.sect-container {
+  height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
   background: var(--color-surface);
   border-radius: 0.75rem;
   border: 1px solid var(--color-border);
-  flex-shrink: 0;
-  margin: 1rem 1rem 0 1rem;
+  overflow: hidden;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-icon {
-  font-size: 1.5rem;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.header-info {
+.sect-list {
+  width: 350px;
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+}
+
+.list-header {
+  padding: 1.5rem 1rem 1rem 1rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .panel-title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--color-primary);
+  text-align: center;
 }
 
-.world-status {
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.search-bar svg {
+  color: var(--color-text-secondary);
+  margin-right: 0.5rem;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
   font-size: 0.875rem;
-  color: var(--color-accent);
 }
 
-.header-actions {
-  display: flex;
-  gap: 8px;
+.list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
 }
 
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 6px;
-  color: #3b82f6;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.action-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--color-border);
-  border-top: 2px solid var(--color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-/* 当前宗门卡片 */
-.current-sect-card {
-  margin: 16px;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.sect-banner {
-  padding: 16px 20px;
-  color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sect-info {
+.loading-state, .empty-state {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  text-align: center;
+  color: var(--color-text-secondary);
 }
 
-.sect-name {
-  margin: 0;
-  font-size: 1.1rem;
+.empty-icon {
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.empty-text {
   font-weight: 600;
+  margin-bottom: 0.5rem;
 }
 
-.sect-type {
+.empty-hint {
   font-size: 0.8rem;
-  opacity: 0.9;
-}
-
-.sect-level {
-  font-size: 0.75rem;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 2px 8px;
-  border-radius: 10px;
-  display: inline-block;
-  width: fit-content;
-}
-
-.sect-emblem {
-  font-size: 2rem;
   opacity: 0.8;
 }
 
-.sect-details {
-  padding: 16px 20px;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.detail-item {
+.sect-list-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.label {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.value {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-/* 未加入宗门状态 */
-.no-sect-card {
-  margin: 16px;
-  padding: 32px 20px;
-  background: white;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.no-sect-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-
-.no-sect-title {
-  margin: 0 0 8px 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.no-sect-desc {
-  margin: 0 0 16px 0;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-.sect-discovery {
-  padding: 8px 16px;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 8px;
-  color: var(--color-primary);
-  font-size: 0.85rem;
-}
-
-/* 选项卡 */
-.sect-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-  margin: 0 16px;
-}
-
-.sect-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  position: relative;
-}
-
-.sect-tab:hover {
-  background: rgba(59, 130, 246, 0.05);
-  color: var(--color-text);
-}
-
-.sect-tab.active {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--color-primary);
-  font-weight: 600;
-  border-bottom: 2px solid var(--color-primary);
-}
-
-.tab-icon {
-  font-size: 1rem;
-}
-
-.tab-count {
-  background: var(--color-primary);
-  color: white;
-  font-size: 0.7rem;
-  padding: 1px 5px;
-  border-radius: 8px;
-  min-width: 16px;
-  text-align: center;
-}
-
-/* 内容区域 */
-.panel-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-}
-
-/* 总览内容 */
-.world-summary {
-  background: white;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.world-summary h5 {
-  margin: 0 0 12px 0;
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.world-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-/* 宗门列表 */
-.sects-list h5 {
-  margin: 0 0 16px 0;
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.sects-grid {
-  display: grid;
-  gap: 16px;
+  gap: 0.5rem;
 }
 
 .sect-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: var(--color-background);
   border: 1px solid var(--color-border);
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .sect-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: #9333ea;
+  box-shadow: 0 2px 8px rgba(147, 51, 234, 0.1);
   transform: translateY(-1px);
-  border-color: var(--color-primary);
 }
 
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
+.sect-card.selected {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(168, 85, 247, 0.1));
+  border-color: #9333ea;
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.15);
 }
 
-.sect-emblem.small {
-  font-size: 1.5rem;
+.sect-card.can-join {
+  border-left: 3px solid #22c55e;
+}
+
+.sect-icon {
+  position: relative;
+  margin-right: 0.75rem;
   flex-shrink: 0;
 }
 
-.sect-basic-info {
+.sect-emoji {
+  font-size: 2rem;
+  display: block;
+}
+
+.sect-level {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  padding: 1px 4px;
+  border-radius: 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: white;
+}
+
+.level-一流 { background: #ef4444; }
+.level-二流 { background: #f59e0b; }
+.level-三流 { background: #3b82f6; }
+.level-末流 { background: #6b7280; }
+
+.sect-info {
   flex: 1;
   min-width: 0;
 }
 
-.sect-basic-info .sect-name {
-  margin: 0 0 4px 0;
-  font-size: 1rem;
+.sect-name {
   font-weight: 600;
   color: var(--color-text);
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
 }
 
-.sect-basic-info .sect-type {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
+.sect-meta {
+  margin-bottom: 0.5rem;
 }
 
-.sect-level-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.level-一流 {
-  background: linear-gradient(45deg, #ffd700, #ffed4e);
-  color: #92400e;
-}
-
-.level-二流 {
-  background: linear-gradient(45deg, #c0c0c0, #e5e7eb);
-  color: #374151;
-}
-
-.level-三流 {
-  background: linear-gradient(45deg, #cd7f32, #d97706);
-  color: white;
-}
-
-.card-body .sect-desc {
-  margin: 0 0 12px 0;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-.sect-features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.feature-tag {
+.sect-type {
+  background: rgba(147, 51, 234, 0.1);
+  color: #9333ea;
   padding: 2px 8px;
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--color-primary);
   border-radius: 12px;
   font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .sect-stats {
-  border-top: 1px solid var(--color-border);
-  padding-top: 12px;
-}
-
-.stat-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.stat-group .stat-label {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  min-width: 30px;
-}
-
-.power-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--color-border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.power-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-danger), var(--color-warning), var(--color-success));
-  transition: width 0.3s ease;
-}
-
-.stat-group .stat-value {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-text);
-  min-width: 25px;
-}
-
-.relationship-status {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.8rem;
-}
-
-.relation-label {
+  gap: 0.5rem;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
 }
 
-.relation-value {
+.member-count {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  padding: 2px 6px;
+  border-radius: 3px;
   font-weight: 500;
 }
 
-.relation-中立 { color: var(--color-text-secondary); }
-.relation-友好 { color: var(--color-success); }
-.relation-敌对 { color: var(--color-danger); }
-.relation-盟友 { color: var(--color-info); }
+.power-rating {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
 
-/* 地理分布内容 */
-.continent-overview h5 {
-  margin: 0 0 16px 0;
+.arrow-icon {
+  color: var(--color-border-hover);
+  transition: transform 0.2s;
+}
+
+.sect-card.selected .arrow-icon {
+  transform: rotate(90deg);
+  color: #9333ea;
+}
+
+.sect-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-content {
+  height: 100%;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.detail-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #9333ea, #7c3aed);
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(147, 51, 234, 0.3);
+}
+
+.sect-emoji-large {
+  font-size: 2rem;
+}
+
+.detail-info {
+  flex: 1;
+}
+
+.detail-name {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.detail-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.type-badge, .level-badge, .power-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.type-badge.type-righteous { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.type-badge.type-demonic { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.type-badge.type-neutral { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
+.type-badge.type-merchant { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+
+.level-badge { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+.power-badge { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.detail-section {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.section-title {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 0.875rem;
   color: var(--color-text);
   font-weight: 600;
 }
 
-.continents-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+.sect-description {
+  margin-top: 1rem;
 }
 
-.continent-card {
-  background: white;
-  border: 1px solid var(--color-border);
+.desc-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.desc-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.sect-specialties {
+  margin-top: 1rem;
+}
+
+.specialties-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.specialties-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.specialty-tag {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(147, 51, 234, 0.1));
+  color: #9333ea;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(147, 51, 234, 0.2);
+}
+
+.member-overview {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.total-members {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.total-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #9333ea;
+}
+
+.total-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.member-breakdown {
+  margin-bottom: 1.5rem;
+}
+
+.breakdown-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.realm-stats, .position-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.realm-stat, .position-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.realm-name, .position-name {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  min-width: 60px;
+}
+
+.realm-bar, .position-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.realm-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9333ea, #7c3aed);
+  transition: width 0.3s ease;
+}
+
+.position-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  transition: width 0.3s ease;
+}
+
+.realm-count, .position-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 30px;
+  text-align: right;
+}
+
+.relationship-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.relationship-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.relationship-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.relationship-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.join-requirements {
+  margin-bottom: 1rem;
+}
+
+.requirements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.requirement-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.requirement-icon {
+  color: #22c55e;
+}
+
+.requirement-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.no-requirements {
+  text-align: center;
+  padding: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.join-benefits {
+  margin-bottom: 1rem;
+}
+
+.benefits-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.benefit-icon {
+  color: #3b82f6;
+}
+
+.benefit-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.join-actions {
+  text-align: center;
+}
+
+.join-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
   border-radius: 8px;
-  padding: 12px;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.continent-card:hover {
-  border-color: var(--color-primary);
+.join-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
-.continent-card.active {
-  border-color: var(--color-primary);
-  background: rgba(59, 130, 246, 0.05);
+.current-member-info {
+  margin-bottom: 1.5rem;
 }
 
-.continent-name {
-  margin: 0 0 8px 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text);
+.member-status {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
 }
 
-.continent-stats {
+.status-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 0.25rem;
 }
 
-.sect-count, .location-count {
+.status-label {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
-}
-
-.continent-features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.feature-tag.small {
-  padding: 1px 6px;
-  font-size: 0.7rem;
-}
-
-/* 大陆详情 */
-.continent-details {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.continent-details h5 {
-  margin: 0 0 12px 0;
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.continent-description p {
-  margin: 0 0 16px 0;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.locations-in-continent h6 {
-  margin: 0 0 12px 0;
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.locations-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.location-item {
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 12px;
-}
-
-.location-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-
-.location-name {
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.location-type {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-}
-
-.location-safety {
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 0.7rem;
   font-weight: 500;
 }
 
-.safety-安全 {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--color-success);
+.status-value {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  font-weight: 600;
 }
 
-.safety-普通 {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--color-primary);
+.status-value.position {
+  color: #9333ea;
 }
 
-.safety-危险 {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-warning);
+.status-value.contribution {
+  color: #f59e0b;
 }
 
-.safety-极危险 {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--color-danger);
+.status-value.reputation {
+  color: #3b82f6;
 }
 
-.location-desc {
-  margin: 0;
+.sect-actions {
+  margin-top: 1rem;
+}
+
+.actions-title {
+  margin: 0 0 0.75rem 0;
   font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-/* 关系网络内容 */
-.relations-overview h5 {
-  margin: 0 0 16px 0;
-  color: var(--color-text);
   font-weight: 600;
+  color: var(--color-text);
 }
 
-.relations-summary {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.relation-stats {
+.action-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
 }
 
-.relation-stats .stat-item {
-  text-align: center;
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.stat-item.friendly {
-  background: rgba(16, 185, 129, 0.1);
-}
-
-.stat-item.neutral {
-  background: rgba(107, 114, 128, 0.1);
-}
-
-.stat-item.hostile {
-  background: rgba(220, 38, 38, 0.1);
-}
-
-.stat-count {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.stat-item.friendly .stat-count {
-  color: var(--color-success);
-}
-
-.stat-item.neutral .stat-count {
-  color: var(--color-text-secondary);
-}
-
-.stat-item.hostile .stat-count {
-  color: var(--color-danger);
-}
-
-.my-relations h6 {
-  margin: 0 0 12px 0;
+.sect-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   color: var(--color-text);
-  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.no-relations {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.sect-action-btn:hover {
+  border-color: #9333ea;
+  background: rgba(147, 51, 234, 0.05);
 }
 
-.no-relations p {
-  margin: 0 0 8px 0;
-  color: var(--color-text-secondary);
-}
-
-.no-relations small {
-  color: var(--color-text-muted);
-}
-
-.relations-list {
+.no-selection {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--color-text-secondary);
 }
 
-.relation-item {
-  background: white;
-  border: 1px solid var(--color-border);
+.placeholder-icon {
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.placeholder-text {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.placeholder-hint {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* 势力范围相关样式 */
+.territory-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* 宗门领导层样式 */
+.leadership-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(var(--color-primary-rgb), 0.05);
   border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.1);
 }
 
-.relation-header {
+.leadership-title {
+  margin: 0 0 1rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.leader-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.leader-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.leader-item.primary-leader {
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.1), rgba(var(--color-accent-rgb), 0.05));
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+}
+
+.leader-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.leader-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.leader-realm {
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  background: rgba(var(--color-accent-rgb), 0.1);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.sect-strength {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  padding: 0.75rem;
+  background: rgba(var(--color-success-rgb), 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(var(--color-success-rgb), 0.1);
 }
 
-.relation-header .sect-name {
+.strength-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.strength-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.strength-value {
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
 }
 
-.relation-status {
-  padding: 2px 8px;
-  border-radius: 12px;
+.strength-value.peak-power {
+  color: var(--color-accent);
+  text-shadow: 0 0 4px rgba(var(--color-accent-rgb), 0.3);
+}
+
+.influence-description {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.controlled-areas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.areas-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.area-tag {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
+  color: #3b82f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.relation-details {
+.strategic-value {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.detail-row {
-  font-size: 0.8rem;
-}
-
-.detail-label {
-  color: var(--color-text-secondary);
-}
-
-.detail-value {
-  color: var(--color-text);
-  font-weight: 500;
-}
-
-/* 宗门档案内容 */
-.selected-sect-details {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.sect-banner-large {
-  padding: 24px;
-  color: white;
-  position: relative;
-}
-
-.banner-content {
+.value-display {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 0.75rem;
 }
 
-.sect-emblem.large {
-  font-size: 3rem;
-  opacity: 0.9;
-}
-
-.sect-name-large {
-  margin: 0 0 8px 0;
-  font-size: 1.8rem;
-  font-weight: 700;
-}
-
-.sect-meta {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.sect-type-large {
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  font-size: 0.9rem;
-}
-
-.sect-level-large {
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-  font-size: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.sect-full-info {
-  padding: 20px;
-}
-
-.info-section {
-  margin-bottom: 24px;
-}
-
-.info-section h6 {
-  margin: 0 0 12px 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.sect-description-full {
-  margin: 0;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  font-size: 0.95rem;
-}
-
-.features-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.feature-detail {
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.feature-name {
-  font-weight: 600;
-  color: var(--color-text);
-  display: block;
-  margin-bottom: 4px;
-}
-
-.feature-desc {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-.power-analysis {
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.power-overview {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.power-score {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-}
-
-.score-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.score-max {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
-}
-
-.power-level {
-  font-size: 0.9rem;
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-.power-bar-full {
+.value-bar {
+  flex: 1;
   height: 8px;
   background: var(--color-border);
   border-radius: 4px;
   overflow: hidden;
 }
 
-.power-fill-full {
+.value-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-danger), var(--color-warning), var(--color-success));
+  background: linear-gradient(90deg, #22c55e, #16a34a);
   transition: width 0.3s ease;
 }
 
-.location-info {
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.coordinates, .territory-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.coordinates:last-child, .territory-info:last-child {
-  margin-bottom: 0;
-}
-
-.coord-label, .territory-label {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  min-width: 50px;
-}
-
-.coord-value, .territory-desc {
-  font-size: 0.85rem;
-  color: var(--color-text);
-  font-family: monospace;
-}
-
-.player-relation-detail {
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.relation-status-large {
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.status-中立 {
-  background: rgba(107, 114, 128, 0.1);
-  color: var(--color-text-secondary);
-}
-
-.status-友好 {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--color-success);
-}
-
-.status-敌对 {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--color-danger);
-}
-
-.relation-reputation {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.rep-label {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-}
-
-.rep-value {
-  font-size: 0.9rem;
+.value-text {
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
+  min-width: 40px;
 }
 
-.no-selection {
-  background: white;
+/* 回退显示样式 */
+.fallback-leadership {
+  padding: 1rem;
+  background: rgba(var(--color-warning-rgb), 0.05);
   border-radius: 8px;
-  padding: 40px 20px;
-  text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.1);
 }
 
-.no-selection-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-
-.no-selection p {
-  margin: 0;
-  color: var(--color-text-secondary);
+.leadership-description {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
   line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .panel-header {
-    padding: 12px;
-    margin: 8px;
-  }
-  
-  .current-sect-card, .no-sect-card {
-    margin: 8px;
-  }
-  
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .sect-tabs {
-    margin: 0 8px;
-  }
-  
-  .panel-content {
-    padding: 8px;
-  }
-  
-  .world-stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .continents-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .relation-stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .banner-content {
-    flex-direction: column;
-    text-align: center;
-    gap: 12px;
-  }
-  
-  .sect-meta {
-    justify-content: center;
-  }
-  
-  .power-overview {
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .player-relation-detail {
-    flex-direction: column;
-    text-align: center;
-    gap: 12px;
-  }
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
+  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .sect-container {
+    flex-direction: column;
+  }
+  
+  .sect-list {
+    width: 100%;
+    height: 300px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .member-status {
+    grid-template-columns: 1fr;
+  }
+  
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

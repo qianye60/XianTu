@@ -7,11 +7,9 @@ import { getTavernHelper } from '@/utils/tavern';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, TalentProgress } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, TalentProgress, WorldInfo, WorldLocation } from '@/types/game';
 import type { World } from '@/types';
-import { get } from 'lodash';
 import { generateInitialMessage } from '@/utils/tavernAI';
-import { generatePlayerLocation } from '@/utils/generators/gameElementGenerators';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { GAME_START_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
@@ -168,27 +166,6 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
 }
 
 /**
- * 初始化天赋进度系统
- */
-function initializeTalentProgress(talents: string[]): Record<string, TalentProgress> {
-  const talentProgress: Record<string, TalentProgress> = {};
-
-  // 为每个天赋初始化进度
-  talents.forEach(talentName => {
-    talentProgress[talentName] = {
-      等级: 1,        // 初始等级为1
-      当前经验: 0,    // 初始经验为0
-      下级所需: 100,  // 下一级需要100经验
-      总经验: 0       // 总共获得的经验
-    };
-  });
-
-  console.log(`[天赋初始化] 已为${talents.length}个天赋初始化进度:`, talentProgress);
-  return talentProgress;
-}
-
-
-/**
  * 完整的角色初始化流程 (AI驱动版)
  */
 export async function initializeCharacter(
@@ -200,6 +177,8 @@ export async function initializeCharacter(
   const uiStore = useUIStore();
   const helper = getTavernHelper();
   if (!helper) throw new Error('无法连接到酒馆助手');
+
+  let worldDataFromGenerator: WorldInfo | null = null; // 声明在函数作用域
 
   try {
     uiStore.updateLoadingText('天道清明：正在为您准备一方新天地...');
@@ -286,10 +265,9 @@ export async function initializeCharacter(
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         // [数据同步] 获取CultivationWorldGenerator保存的完整世界数据，并同步到当前SaveData
-        let worldDataFromGenerator = null;
         try {
           const variables = await helper.getVariables({ type: 'chat' });
-          const generatedSaveData = variables['character.saveData'] as any;
+          const generatedSaveData = variables['character.saveData'] as SaveData;
           if (generatedSaveData && generatedSaveData.世界信息) {
             // 保存生成器创建的世界信息，以便后续使用
             worldDataFromGenerator = generatedSaveData.世界信息;
@@ -320,7 +298,6 @@ export async function initializeCharacter(
           async () => {
             // 获取已生成的世界数据以便更好地整合出生地
             const variables = await helper.getVariables({ type: 'chat' });
-            const worldFactions = Array.isArray(variables['world_factions']) ? variables['world_factions'] : [];
             const worldLocations = Array.isArray(variables['world_locations']) ? variables['world_locations'] : [];
             
             console.log('[角色初始化] 可用世界地点数:', worldLocations.length);
@@ -415,7 +392,7 @@ export async function initializeCharacter(
                 if (baseInfo.出生?.includes('随机')) {
                   // 按起点优势排序：宗门势力 > 洞天福地 > 奇珍异地 > 城镇坊市 > 其他
                   const priorityOrder = ['sect_power', 'blessed_land', 'treasure_land', 'city_town'];
-                  suitableLocations.sort((a: any, b: any) => {
+                  suitableLocations.sort((a: any, b: any) => { // TODO: 需要匹配WorldLocation类型的属性名
                     const aPriority = priorityOrder.indexOf(a.type);
                     const bPriority = priorityOrder.indexOf(b.type);
                     return (aPriority >= 0 ? aPriority : 999) - (bPriority >= 0 ? bPriority : 999);
@@ -450,6 +427,9 @@ export async function initializeCharacter(
           描述: birthplaceResult.name,
           坐标: birthplaceResult.coordinates
         };
+        
+        // 添加出生地字段到角色状态
+        playerStatus.出生地 = birthplaceResult.name;
 
         console.log('[角色初始化] 最终出生地已确定:', {
           name: birthplaceResult.name,
@@ -476,21 +456,26 @@ export async function initializeCharacter(
       三千大道: createEmptyThousandDaoSystem(),
       背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
       人物关系: {},
-      记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] }
+      宗门系统: {
+        availableSects: [], // 保留为兼容性，实际数据将存储在世界信息中
+        sectRelationships: {},
+        sectHistory: []
+      },
+      记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
+      游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: 0, 分钟: 0 },
+      修炼功法: {
+        功法: null,
+        熟练度: 0,
+        已解锁技能: [],
+        修炼时间: 0,
+        突破次数: 0
+      }
     };
 
     // ================= AI 动态生成部分 =================
 
     // 3. 添加世界背景到酒馆世界书
     try {
-      const worldBookEntry = {
-        name: `【世界】${world.name || '未知世界'}`,
-        description: world.description || `这是【${baseInfo.名字}】所选择的修仙世界`,
-        content: JSON.stringify(world, null, 2),
-        order: 1,
-        enabled: true
-      };
-
       // 数据整合：世界背景信息将直接存入saveData，不再创建独立的世界书条目变量
       console.log(`世界背景【${world.name}】已准备就绪，将整合至存档。`);
     } catch (err) {
@@ -551,6 +536,13 @@ export async function initializeCharacter(
     if (aroundDescription) {
       fullOpeningMessage += `\n\n【周围环境】\n${aroundDescription}`;
     }
+    // 加入出生地信息
+    try {
+      const birthplaceName = (playerStatus as any)?.出生地 || (currentSaveData as any)?.世界信息?.玩家出生地?.出生地名称;
+      if (birthplaceName) {
+        fullOpeningMessage = `【出生地】你出生于${birthplaceName}。\n` + fullOpeningMessage;
+      }
+    } catch {}
 
     // 保存到记忆系统
     currentSaveData.记忆.短期记忆.push(fullOpeningMessage);

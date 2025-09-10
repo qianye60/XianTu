@@ -34,7 +34,7 @@ import MainGamePanel from '../components/dashboard/MainGamePanel.vue';
 import MemoryCenterPanel from '../components/dashboard/MemoryCenterPanel.vue';
 import CharacterDetailsPanel from '../components/dashboard/CharacterDetailsPanel.vue';
 import InventoryPanel from '../components/dashboard/InventoryPanel.vue';
-import RelationshipsPanel from '../components/dashboard/RelationshipsPanel.vue';
+import RelationshipNetworkPanel from '../components/dashboard/RelationshipNetworkPanel.vue';
 import CultivationPanel from '../components/dashboard/CultivationPanel.vue';
 import SkillsPanel from '../components/dashboard/SkillsPanel.vue'; // 现在是功法面板
 import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue'; // 新的三千大道面板
@@ -88,7 +88,7 @@ const routes = [
       {
         path: 'relationships',
         name: 'Relationships',
-        component: RelationshipsPanel,
+        component: RelationshipNetworkPanel,
       },
       {
         path: 'cultivation',

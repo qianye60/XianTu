@@ -61,7 +61,10 @@
       "Bash(node:*)",
       "Bash(del \"src\\utils\\worldGeneration\\cultivationWorldGeneratorOld.ts\")",
       "Bash(echo:*)",
-      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\views\\CharacterSelection.vue\")"
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\views\\CharacterSelection.vue\")",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\RelationshipsPanel.vue\")",
+      "Bash(touch:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

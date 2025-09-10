@@ -4,7 +4,7 @@
       <div class="loading-spinner"></div>
       <p>加载角色数据中...</p>
     </div>
-    
+
     <div v-else-if="!baseInfo || !saveData" class="error-container">
       <div class="error-icon">
         <AlertCircle :size="48" />
@@ -12,7 +12,7 @@
       <p>无法加载角色数据</p>
       <button class="retry-btn" @click="refreshData">重试</button>
     </div>
-    
+
     <div v-else class="character-details-content">
       <!-- 顶部角色基本信息 -->
       <div class="character-header">
@@ -48,11 +48,18 @@
         <div class="character-stats">
           <div class="stat-item">
             <span class="stat-label">声望</span>
-            <span class="stat-value">{{ playerStatus?.声望 || 0 }}</span>
+            <div class="stat-display">
+              <span class="stat-value reputation">{{ playerStatus?.声望 || 0 }}</span>
+            </div>
           </div>
           <div class="stat-item">
             <span class="stat-label">修为</span>
-            <span class="stat-value">{{ playerStatus?.修为?.当前 || 0 }}/{{ playerStatus?.修为?.最大 || 100 }}</span>
+            <div class="stat-display cultivation">
+              <div class="cultivation-bar">
+                <div class="cultivation-progress" :style="{ width: getCultivationProgress() + '%' }"></div>
+              </div>
+              <span class="cultivation-text">{{ playerStatus?.修为?.当前 || 0 }}/{{ playerStatus?.修为?.最大 || 100 }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -74,8 +81,8 @@
                 <div class="vital-label">{{ vital.label }}</div>
                 <div class="vital-bar">
                   <div class="bar-container">
-                    <div 
-                      class="bar-fill" 
+                    <div
+                      class="bar-fill"
                       :class="`bar-${vital.color}`"
                       :style="{ width: getPercentage(vital.current, vital.max) + '%' }"
                     ></div>
@@ -109,31 +116,6 @@
                     {{ talent }}
                   </span>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 装备与法宝 -->
-          <div class="info-section">
-            <h3 class="section-title">
-              <div class="title-icon">
-                <Sword :size="18" />
-              </div>
-              装备法宝
-            </h3>
-            <div class="equipment-grid">
-              <div 
-                v-for="(slot, index) in equipmentSlots" 
-                :key="index" 
-                class="equipment-slot"
-                :class="{ 'has-equipment': slot.item }"
-              >
-                <div class="slot-name">{{ slot.name }}</div>
-                <div v-if="slot.item" class="equipment-item" :class="getItemQualityClass(slot.item)">
-                  <div class="item-name">{{ slot.item.名称 }}</div>
-                  <div class="item-quality">{{ slot.item.品质?.quality || '凡' }}品{{ slot.item.品质?.grade || 0 }}级</div>
-                </div>
-                <div v-else class="empty-slot">空</div>
               </div>
             </div>
           </div>
@@ -186,7 +168,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- 属性详情 -->
               <div class="attribute-breakdown">
                 <div class="innate-attrs">
@@ -198,11 +180,11 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <div class="acquired-attrs">
                   <h4 class="attribute-group-title">后天加成</h4>
                   <div class="attributes-grid compact">
-                    <div v-for="(value, key) in acquiredAttributes" :key="key" class="attribute-item acquired" 
+                    <div v-for="(value, key) in acquiredAttributes" :key="key" class="attribute-item acquired"
                          :class="{ 'has-bonus': value > 0 }">
                       <span class="attr-name">{{ key }}</span>
                       <span class="attr-value">{{ value > 0 ? `+${value}` : value }}</span>
@@ -239,20 +221,20 @@
                     </div>
                   </div>
                   <div class="technique-toggle">
-                    <ChevronDown 
-                      :size="16" 
+                    <ChevronDown
+                      :size="16"
                       :class="{ 'rotated': showTechniqueDetails }"
                       class="toggle-icon"
                     />
                   </div>
                 </div>
-                
+
                 <!-- 功法详情（可折叠） -->
                 <div v-show="showTechniqueDetails" class="technique-details">
                   <div class="technique-description">
                     <p>{{ cultivationData.功法.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
                   </div>
-                  
+
                   <div v-if="cultivationData.功法.功法效果" class="technique-effects">
                     <h5 class="effects-title">功法效果</h5>
                     <div class="effects-list">
@@ -263,8 +245,8 @@
                       <div v-if="cultivationData.功法.功法效果.属性加成" class="effect-item">
                         <span class="effect-label">属性提升：</span>
                         <div class="attribute-bonuses">
-                          <span 
-                            v-for="(value, attr) in cultivationData.功法.功法效果.属性加成" 
+                          <span
+                            v-for="(value, attr) in cultivationData.功法.功法效果.属性加成"
                             :key="attr"
                             class="bonus-tag"
                           >
@@ -275,49 +257,42 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <div class="technique-progress">
                   <div class="progress-item">
                     <span class="progress-label">修炼进度</span>
                     <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: (cultivationData.功法.修炼进度 || 0) + '%' }"></div>
+                      <div class="progress-fill" :style="{ width: Math.max(2, cultivationData.功法.修炼进度 || 0) + '%' }"></div>
                     </div>
                     <span class="progress-text">{{ cultivationData.功法.修炼进度 || 0 }}%</span>
                   </div>
                   <div class="progress-item">
                     <span class="progress-label">熟练度</span>
                     <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: (cultivationData.熟练度 || 0) + '%' }"></div>
+                      <div class="progress-fill" :style="{ width: Math.max(2, cultivationData.熟练度 || 0) + '%' }"></div>
                     </div>
                     <span class="progress-text">{{ cultivationData.熟练度 || 0 }}%</span>
                   </div>
                 </div>
               </div>
-              
+
               <!-- 已学技能 -->
-              <div v-if="cultivationData.已解锁技能?.length || skillsList.length" class="learned-skills">
+              <div v-if="cultivationData.已解锁技能?.length || allLearnedSkills.length" class="learned-skills">
                 <div class="skills-header" @click="toggleSkillsDetails">
                   <h4 class="skills-title">已掌握技能</h4>
                   <div class="skills-count">({{ totalSkillsCount }}个)</div>
-                  <ChevronDown 
-                    :size="14" 
+                  <ChevronDown
+                    :size="14"
                     :class="{ 'rotated': showSkillsDetails }"
                     class="toggle-icon"
                   />
                 </div>
-                
+
                 <div v-show="!showSkillsDetails" class="skills-preview">
                   <div class="skills-list-compact">
-                    <span 
-                      v-for="skill in (cultivationData.已解锁技能 || []).slice(0, 3)" 
-                      :key="skill" 
-                      class="skill-tag compact"
-                    >
-                      {{ skill }}
-                    </span>
-                    <span 
-                      v-for="skill in skillsList.slice(0, 3 - (cultivationData.已解锁技能?.length || 0))" 
-                      :key="skill.name" 
+                    <span
+                      v-for="skill in allLearnedSkills.slice(0, 3)"
+                      :key="skill.name"
                       class="skill-tag compact"
                     >
                       {{ skill.name }}
@@ -325,42 +300,45 @@
                     <span v-if="totalSkillsCount > 3" class="more-skills">...</span>
                   </div>
                 </div>
-                
+
                 <div v-show="showSkillsDetails" class="skills-details">
-                  <!-- 从功法直接学会的技能 -->
-                  <div v-if="cultivationData.已解锁技能?.length" class="skill-category">
-                    <h5 class="category-title">修炼习得</h5>
+                  <!-- 所有已掌握的技能 -->
+                  <div v-if="allLearnedSkills.length" class="skill-category">
+                    <h5 class="category-title">所有技能</h5>
                     <div class="skills-grid">
-                      <div 
-                        v-for="skillName in cultivationData.已解锁技能" 
-                        :key="skillName"
-                        class="skill-card"
-                        @click="showSkillDetails(skillName)"
-                      >
-                        <div class="skill-name">{{ skillName }}</div>
-                        <div class="skill-source">功法修炼</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- 从功法定义中学会的技能 -->
-                  <div v-if="skillsList.length" class="skill-category">
-                    <h5 class="category-title">功法传承</h5>
-                    <div class="skills-grid">
-                      <div 
-                        v-for="skill in skillsList" 
+                      <div
+                        v-for="skill in allLearnedSkills"
                         :key="skill.name"
                         class="skill-card"
-                        :class="{ 'skill-locked': !skill.unlocked }"
                         @click="showSkillDetails(skill)"
                       >
                         <div class="skill-name">{{ skill.name }}</div>
                         <div class="skill-type">{{ skill.type }}</div>
-                        <div class="skill-unlock" v-if="!skill.unlocked">
-                          {{ skill.unlockCondition }}
+                        <div class="skill-source">{{ skill.source }}</div>
+                        <div class="skill-proficiency-mini">
+                          熟练度: {{ skill.proficiency }}%
                         </div>
-                        <div class="skill-status" v-else>
+                        <div class="skill-status">
                           <Star :size="12" class="unlock-icon" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 未解锁的功法技能 -->
+                  <div v-if="skillsList.some(s => !s.unlocked)" class="skill-category">
+                    <h5 class="category-title">未解锁技能</h5>
+                    <div class="skills-grid">
+                      <div
+                        v-for="skill in skillsList.filter(s => !s.unlocked)"
+                        :key="skill.name"
+                        class="skill-card skill-locked"
+                        @click="showSkillDetails(skill)"
+                      >
+                        <div class="skill-name">{{ skill.name }}</div>
+                        <div class="skill-type">{{ skill.type }}</div>
+                        <div class="skill-unlock">
+                          {{ skill.unlockCondition }}
                         </div>
                       </div>
                     </div>
@@ -393,8 +371,8 @@
                   <span class="dao-count">已解锁 {{ daoData.已解锁大道.length }} 条大道</span>
                   <button class="dao-expand-btn" @click="toggleDaoDetails">
                     <span>{{ showDaoDetails ? '收起' : '展开' }}</span>
-                    <ChevronDown 
-                      :size="14" 
+                    <ChevronDown
+                      :size="14"
                       :class="{ 'rotated': showDaoDetails }"
                       class="toggle-icon"
                     />
@@ -403,9 +381,9 @@
               </div>
 
               <div v-show="!showDaoDetails" class="dao-preview">
-                <div 
-                  v-for="daoName in daoData.已解锁大道.slice(0, 2)" 
-                  :key="daoName" 
+                <div
+                  v-for="daoName in daoData.已解锁大道.slice(0, 2)"
+                  :key="daoName"
                   class="dao-item compact"
                   @click="showDaoInfo(daoName)"
                 >
@@ -426,9 +404,9 @@
               </div>
 
               <div v-show="showDaoDetails" class="dao-details">
-                <div 
-                  v-for="daoName in daoData.已解锁大道" 
-                  :key="daoName" 
+                <div
+                  v-for="daoName in daoData.已解锁大道"
+                  :key="daoName"
                   class="dao-item detailed"
                   @click="showDaoInfo(daoName)"
                 >
@@ -442,7 +420,7 @@
                     </div>
                     <span class="progress-text small">{{ getDaoProgress(daoName) }}%</span>
                   </div>
-                  
+
                   <div class="dao-stats">
                     <div class="stat-item">
                       <span class="stat-label">当前经验</span>
@@ -483,12 +461,6 @@
                   <span class="stat-value">{{ averageFavorability }}%</span>
                 </div>
               </div>
-              <div class="relationship-categories">
-                <div v-for="category in relationshipCategories" :key="category.type" class="category-item">
-                  <span class="category-name">{{ category.name }}</span>
-                  <span class="category-count">{{ category.count }}人</span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -517,11 +489,11 @@
                   </div>
                 </div>
               </div>
-              
+
               <div class="spirit-stones">
                 <h4 class="stones-title">灵石储备</h4>
                 <div class="stones-grid">
-                  <div v-for="grade in spiritStoneGrades" :key="grade.name" 
+                  <div v-for="grade in spiritStoneGrades" :key="grade.name"
                        class="stone-item" :class="grade.class">
                     <span class="stone-name">{{ grade.name }}</span>
                     <span class="stone-count">{{ getSpiritStoneCount(grade.name as '下品' | '中品' | '上品' | '极品') }}</span>
@@ -541,8 +513,8 @@
             </h3>
             <div class="sect-info">
               <div class="sect-header">
-                <h4 class="sect-name">{{ playerStatus?.宗门信息?.name }}</h4>
-                <span class="sect-type">{{ playerStatus?.宗门信息?.type }}</span>
+                <h4 class="sect-name">{{ playerStatus?.宗门信息?.sectName }}</h4>
+                <span class="sect-type">{{ playerStatus?.宗门信息?.sectType }}</span>
               </div>
               <div class="sect-details">
                 <div class="detail-row">
@@ -565,6 +537,88 @@
         </div>
       </div>
     </div>
+
+    <!-- 技能详情弹窗 -->
+    <div v-if="showSkillModal" class="modal-overlay" @click="closeModals">
+      <div class="skill-modal" @click.stop>
+        <div class="modal-header">
+          <h3>{{ getSkillModalContent()?.name }}</h3>
+          <button class="modal-close-btn" @click="closeModals">
+            <X :size="20" />
+          </button>
+        </div>
+        <div class="modal-content">
+          <div class="skill-detail-grid">
+            <div class="skill-detail-item">
+              <span class="detail-label">类型</span>
+              <span class="detail-value">{{ getSkillModalContent()?.type }}</span>
+            </div>
+            <div class="skill-detail-item">
+              <span class="detail-label">状态</span>
+              <span class="detail-value" :class="`status-${getSkillModalContent()?.status === '已解锁' ? 'unlocked' : 'locked'}`">
+                {{ getSkillModalContent()?.status }}
+              </span>
+            </div>
+            <div class="skill-detail-item">
+              <span class="detail-label">熟练度</span>
+              <span class="detail-value">{{ getSkillModalContent()?.proficiency ? getSkillModalContent()?.proficiency + '%' : '未知' }}</span>
+            </div>
+            <div class="skill-detail-item">
+              <span class="detail-label">解锁条件</span>
+              <span class="detail-value">{{ getSkillModalContent()?.condition }}</span>
+            </div>
+            <div class="skill-detail-item">
+              <span class="detail-label">技能来源</span>
+              <span class="detail-value">{{ getSkillModalContent()?.source }}</span>
+            </div>
+          </div>
+          <div class="skill-description">
+            <h4>技能描述</h4>
+            <p>{{ getSkillModalContent()?.description }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 大道详情弹窗 -->
+    <div v-if="showDaoModal" class="modal-overlay" @click="closeModals">
+      <div class="dao-modal" @click.stop>
+        <div class="modal-header">
+          <h3>{{ getDaoModalContent()?.name }}</h3>
+          <button class="modal-close-btn" @click="closeModals">
+            <X :size="20" />
+          </button>
+        </div>
+        <div class="modal-content">
+          <div class="dao-progress-section">
+            <div class="dao-stage-info">
+              <span class="stage-label">当前阶段</span>
+              <span class="stage-value">{{ getDaoModalContent()?.stage }}</span>
+            </div>
+            <div class="dao-progress-bar">
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" :style="{ width: (getDaoModalContent()?.progressPercent || 0) + '%' }"></div>
+              </div>
+              <span class="progress-text">{{ getDaoModalContent()?.progressPercent }}%</span>
+            </div>
+          </div>
+          <div class="dao-stats-grid">
+            <div class="dao-stat-item">
+              <span class="stat-label">当前经验</span>
+              <span class="stat-value">{{ getDaoModalContent()?.currentExp }}</span>
+            </div>
+            <div class="dao-stat-item">
+              <span class="stat-label">总经验</span>
+              <span class="stat-value">{{ getDaoModalContent()?.totalExp }}</span>
+            </div>
+          </div>
+          <div class="dao-description">
+            <h4>修炼感悟</h4>
+            <p>{{ getDaoModalContent()?.description }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -574,9 +628,9 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { DaoProgress, Item, SkillInfo, InnateAttributes } from '@/types/game.d.ts';
-import { 
-  AlertCircle, Heart, Sparkles, Sword, Star, BarChart3, BookOpen, 
-  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown 
+import {
+  AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
+  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X
 } from 'lucide-vue-next';
 
 const characterStore = useCharacterStore();
@@ -586,6 +640,10 @@ const isLoading = ref(false);
 const showTechniqueDetails = ref(false);
 const showSkillsDetails = ref(false);
 const showDaoDetails = ref(false);
+const showSkillModal = ref(false);
+const showDaoModal = ref(false);
+const selectedSkill = ref<SkillInfo | string | null>(null);
+const selectedDao = ref<string | null>(null);
 
 // 基础数据
 const baseInfo = computed(() => characterStore.activeCharacterProfile?.角色基础信息);
@@ -619,19 +677,19 @@ const vitalsData = computed(() => {
       label: '气血',
       current: playerStatus.value.气血?.当前 || 0,
       max: playerStatus.value.气血?.最大 || 1,
-      color: 'danger'
+      color: 'red'
     },
     {
       label: '灵气',
       current: playerStatus.value.灵气?.当前 || 0,
       max: playerStatus.value.灵气?.最大 || 1,
-      color: 'info'
+      color: 'blue'
     },
     {
       label: '神识',
       current: playerStatus.value.神识?.当前 || 0,
       max: playerStatus.value.神识?.最大 || 1,
-      color: 'accent'
+      color: 'gold'
     }
   ];
 });
@@ -678,60 +736,120 @@ const hasAcquiredBonus = computed(() => {
 
 // 技能相关计算属性
 const skillsList = computed((): SkillInfo[] => {
-  if (!cultivationData.value.功法?.功法技能) return [];
-  
   const technique = cultivationData.value.功法;
+  const cultivationInfo = cultivationData.value;
+
   if (!technique?.功法技能) return [];
 
-  const currentProgress = cultivationData.value.熟练度 || 0;
   const skills: SkillInfo[] = [];
-  
+
   for (const [skillName, skillInfo] of Object.entries(technique.功法技能)) {
-    const unlockCondition = skillInfo.解锁条件;
-    let unlocked = false;
-    
-    // 简单的解锁条件判断
-    if (unlockCondition.includes('修炼进度')) {
-      const requiredProgress = parseInt(unlockCondition.match(/\d+/)?.[0] || '0');
-      unlocked = (technique.修炼进度 || 0) >= requiredProgress;
-    } else if (unlockCondition.includes('熟练度')) {
-      const requiredProgress = parseInt(unlockCondition.match(/\d+/)?.[0] || '0');
-      unlocked = currentProgress >= requiredProgress;
-    }
-    
+    // 检查是否已解锁
+    const unlocked = checkSkillUnlocked(skillName, technique, cultivationInfo);
+
     skills.push({
       name: skillName,
       description: skillInfo.技能描述,
       type: skillInfo.技能类型,
-      unlockCondition,
+      unlockCondition: skillInfo.解锁条件,
       unlocked
     });
   }
-  
+
   return skills;
 });
 
-const totalSkillsCount = computed(() => {
-  return (cultivationData.value.已解锁技能?.length || 0) + skillsList.value.length;
-});
+// 已学技能（所有已掌握的技能）
+const allLearnedSkills = computed(() => {
+  const technique = cultivationData.value.功法;
+  const cultivationInfo = cultivationData.value;
 
-// 装备槽位
-const equipmentSlots = computed((): { name: string; item: Item | null }[] => {
-  const equipment = saveData.value?.装备栏;
-  const inventory = saveData.value?.背包?.物品;
+  if (!technique && !cultivationInfo?.已解锁技能?.length) return [];
 
-  const slotNames = ['法宝1', '法宝2', '法宝3', '法宝4', '法宝5', '法宝6'];
+  const skills: any[] = [];
+  const skillNameSet = new Set(); // 防止重复添加技能
 
-  if (!equipment || !inventory) {
-    return slotNames.map(name => ({ name, item: null }));
+  // 从已解锁技能获取（直接学会的技能）
+  if (cultivationInfo?.已解锁技能?.length) {
+    cultivationInfo.已解锁技能.forEach(skillName => {
+      if (!skillNameSet.has(skillName)) {
+        skillNameSet.add(skillName);
+        skills.push({
+          name: skillName,
+          proficiency: getPersistentProficiency(skillName, 'direct'),
+          source: '修炼习得',
+          type: '主动技能',
+          description: '通过修炼功法直接掌握的技能',
+          unlocked: true
+        });
+      }
+    });
   }
 
-  return slotNames.map(slotKey => {
-    const key = slotKey as keyof typeof equipment;
-    const itemId = equipment[key];
-    const item = itemId ? (inventory[itemId] || null) : null;
-    return { name: slotKey, item };
-  });
+  // 从功法技能定义获取（达到条件解锁的技能）
+  if (technique?.功法技能) {
+    Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
+      if (!skillNameSet.has(skillName)) {
+        // 检查是否已解锁
+        const unlocked = checkSkillUnlocked(skillName, technique, cultivationInfo);
+        if (unlocked) {
+          skillNameSet.add(skillName);
+          skills.push({
+            name: skillName,
+            proficiency: getPersistentProficiency(skillName, 'technique'),
+            source: '功法传承',
+            type: skillInfo.技能类型 || '主动技能',
+            description: skillInfo.技能描述 || '通过功法修炼掌握的技能',
+            unlocked: true
+          });
+        }
+      }
+    });
+  }
+
+  return skills;
+});
+
+// 获取持久化的熟练度（根据技能名和来源生成固定熟练度）
+const getPersistentProficiency = (skillName: string, source: string): number => {
+  // 使用技能名和来源生成一个固定的种子
+  const seed = skillName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + source.length;
+  // 基于种子生成 30-95 之间的固定值
+  return 30 + (seed % 66);
+};
+
+// 检查技能是否已解锁
+const checkSkillUnlocked = (skillName: string, technique: any, cultivationInfo: any): boolean => {
+  if (!technique.功法技能?.[skillName]) return false;
+
+  const skillInfo = technique.功法技能[skillName];
+  const unlockCondition = skillInfo.解锁条件 || '';
+
+  // 解析解锁条件
+  if (unlockCondition.includes('修炼进度达到')) {
+    const match = unlockCondition.match(/修炼进度达到(\d+)%/);
+    const requiredProgress = parseInt(match?.[1] || '0');
+    return (technique.修炼进度 || 0) >= requiredProgress;
+  }
+
+  if (unlockCondition.includes('熟练度达到')) {
+    const match = unlockCondition.match(/熟练度达到(\d+)%/);
+    const requiredProficiency = parseInt(match?.[1] || '0');
+    return (cultivationInfo.熟练度 || 0) >= requiredProficiency;
+  }
+
+  if (unlockCondition.includes('突破次数')) {
+    const match = unlockCondition.match(/突破次数达到(\d+)/);
+    const requiredBreakthroughs = parseInt(match?.[1] || '0');
+    return (cultivationInfo.突破次数 || 0) >= requiredBreakthroughs;
+  }
+
+  // 如果没有明确条件，默认已解锁
+  return true;
+};
+
+const totalSkillsCount = computed(() => {
+  return allLearnedSkills.value.length;
 });
 
 // 人际关系统计
@@ -743,7 +861,7 @@ const averageFavorability = computed(() => {
   const relationships = saveData.value?.人物关系 || {};
   const relations = Object.values(relationships);
   if (relations.length === 0) return 0;
-  
+
   const total = relations.reduce((sum, rel) => sum + (rel.人物好感度 || 0), 0);
   return Math.round(total / relations.length);
 });
@@ -751,12 +869,12 @@ const averageFavorability = computed(() => {
 const relationshipCategories = computed(() => {
   const relationships = saveData.value?.人物关系 || {};
   const categories: Record<string, number> = {};
-  
+
   Object.values(relationships).forEach(rel => {
     const relation = rel.人物关系 || '其他';
     categories[relation] = (categories[relation] || 0) + 1;
   });
-  
+
   return Object.entries(categories).map(([type, count]) => ({
     type,
     name: getRelationshipName(type),
@@ -777,6 +895,12 @@ const spiritStoneGrades = [
 ];
 
 // 方法
+const getCultivationProgress = (): number => {
+  const current = playerStatus.value?.修为?.当前 || 0;
+  const max = playerStatus.value?.修为?.最大 || 100;
+  return Math.round((current / max) * 100);
+};
+
 const getPercentage = (current: number, max: number): number => {
   return Math.round((current / max) * 100);
 };
@@ -851,30 +975,91 @@ const toggleDaoDetails = () => {
 };
 
 const showDaoInfo = (daoName: string) => {
-  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
-  if (!progress) {
-    alert(`大道：${daoName}\n\n状态：已解锁\n当前进度：初始阶段\n说明：此大道已解锁，但尚未开始修炼。`);
-    return;
-  }
-  
-  const stage = progress.当前阶段 || 0;
-  const currentExp = progress.当前经验 || 0;
-  const totalExp = progress.总经验 || 0;
-  const progressPercent = getDaoProgress(daoName);
-  
-  alert(`${daoName}\n\n当前阶段：第${stage}阶段\n当前经验：${currentExp}\n总经验：${totalExp}\n进度：${progressPercent}%\n\n修炼感悟：此道深奥玄妙，需持之以恒方能有所成就。`);
+  selectedDao.value = daoName;
+  showDaoModal.value = true;
 };
 
 const showSkillDetails = (skill: SkillInfo | string) => {
-  if (typeof skill === 'string') {
-    // 简单技能名称
-    alert(`技能：${skill}\n\n来源：功法修炼\n说明：通过修炼功法获得的技能`);
-  } else {
-    // 详细技能信息
-    const status = skill.unlocked ? '已解锁' : '未解锁';
-    const condition = skill.unlocked ? '修炼完成' : skill.unlockCondition;
-    alert(`${skill.name}\n\n类型：${skill.type}\n状态：${status}\n条件：${condition}\n\n${skill.description}`);
+  selectedSkill.value = skill;
+  showSkillModal.value = true;
+};
+
+const closeModals = () => {
+  showSkillModal.value = false;
+  showDaoModal.value = false;
+  selectedSkill.value = null;
+  selectedDao.value = null;
+};
+
+const getDaoModalContent = () => {
+  if (!selectedDao.value) return null;
+
+  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[selectedDao.value];
+  if (!progress) {
+    return {
+      name: selectedDao.value,
+      stage: '初始阶段',
+      currentExp: 0,
+      totalExp: 0,
+      progressPercent: 0,
+      description: '此大道已解锁，但尚未开始修炼。'
+    };
   }
+
+  const stage = progress.当前阶段 || 0;
+  const currentExp = progress.当前经验 || 0;
+  const totalExp = progress.总经验 || 0;
+  const progressPercent = getDaoProgress(selectedDao.value);
+
+  return {
+    name: selectedDao.value,
+    stage: `第${stage}阶段`,
+    currentExp,
+    totalExp,
+    progressPercent,
+    description: '此道深奥玄妙，需持之以恒方能有所成就。'
+  };
+};
+
+const getSkillModalContent = () => {
+  if (!selectedSkill.value) return null;
+
+  // 处理已掌握技能
+  if (typeof selectedSkill.value === 'object' && 'proficiency' in selectedSkill.value) {
+    const skill = selectedSkill.value as any;
+    return {
+      name: skill.name,
+      type: skill.type,
+      status: '已解锁',
+      condition: '已掌握',
+      description: skill.description,
+      source: skill.source,
+      proficiency: skill.proficiency
+    };
+  }
+
+  // 处理字符串技能名（向后兼容）
+  if (typeof selectedSkill.value === 'string') {
+    return {
+      name: selectedSkill.value,
+      type: '功法技能',
+      status: '已解锁',
+      condition: '修炼完成',
+      description: '通过修炼功法获得的技能',
+      source: '功法修炼'
+    };
+  }
+
+  // 处理功法技能对象
+  const skill = selectedSkill.value as SkillInfo;
+  return {
+    name: skill.name,
+    type: skill.type,
+    status: skill.unlocked ? '已解锁' : '未解锁',
+    condition: skill.unlocked ? '修炼完成' : skill.unlockCondition,
+    description: skill.description,
+    source: '功法传承'
+  };
 };
 
 const refreshData = async () => {
@@ -937,14 +1122,27 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* 角色头部信息 */
+/* 角色头部信息优化 */
 .character-header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 24px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  gap: 32px;
+  padding: 32px;
+  background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-primary-rgb), 0.05));
+  border-bottom: 2px solid var(--color-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.character-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 100%;
+  background: linear-gradient(45deg, transparent, rgba(var(--color-primary-rgb), 0.1), transparent);
+  pointer-events: none;
 }
 
 .character-avatar {
@@ -952,22 +1150,42 @@ onMounted(async () => {
 }
 
 .avatar-circle {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: bold;
   color: white;
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.4);
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.avatar-circle::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: rotate(45deg);
+  animation: avatar-shine 3s ease-in-out infinite;
+}
+
+@keyframes avatar-shine {
+  0%, 100% { transform: rotate(45deg) translateX(-200%); }
+  50% { transform: rotate(45deg) translateX(200%); }
 }
 
 .gender-女 .avatar-circle {
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
-  box-shadow: 0 4px 12px rgba(var(--color-accent-rgb), 0.3);
+  box-shadow: 0 8px 24px rgba(var(--color-accent-rgb), 0.4);
 }
 
 .character-info {
@@ -1012,7 +1230,8 @@ onMounted(async () => {
 .character-stats {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  min-width: 120px;
 }
 
 .stat-item {
@@ -1020,18 +1239,61 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  gap: 8px;
 }
 
 .stat-label {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
-  margin-bottom: 4px;
+  font-weight: 500;
 }
 
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+.stat-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-value.reputation {
+  color: var(--color-warning);
+  text-shadow: 0 1px 2px rgba(245, 158, 11, 0.3);
+}
+
+.stat-display.cultivation {
+  width: 100%;
+  min-width: 100px;
+}
+
+.cultivation-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.cultivation-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-info), var(--color-success));
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.3);
+}
+
+.cultivation-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-info);
+  white-space: nowrap;
 }
 
 /* 内容网格 */
@@ -1042,30 +1304,65 @@ onMounted(async () => {
   padding: 24px;
 }
 
-/* 信息区块 */
+/* 信息区块优化 */
 .info-section {
-  background: var(--color-surface);
+  background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-surface-rgb), 0.8));
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.info-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-success));
+}
+
+.info-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
 }
 
 .section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 16px 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  gap: 12px;
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--color-text);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(var(--color-border-rgb), 0.3);
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
 }
 
 .title-icon {
   color: var(--color-primary);
   flex-shrink: 0;
+  padding: 8px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: 8px;
 }
 
 /* 生命状态 */
@@ -1106,9 +1403,23 @@ onMounted(async () => {
   transition: width 0.3s ease;
 }
 
-.bar-danger { background: var(--color-danger); }
-.bar-info { background: var(--color-info); }
-.bar-accent { background: var(--color-accent); }
+.bar-danger { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.bar-info { background: linear-gradient(90deg, #2563eb, #3b82f6); }
+.bar-accent { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+/* 生命状态颜色 - 红蓝金三色 */
+.bar-red {
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+.bar-blue {
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+.bar-gold {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
 
 .vital-text {
   font-size: 0.85rem;
@@ -1172,53 +1483,6 @@ onMounted(async () => {
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 500;
-}
-
-/* 装备网格 */
-.equipment-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.equipment-slot {
-  padding: 12px;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  text-align: center;
-  transition: all 0.2s ease;
-}
-
-.equipment-slot.has-equipment {
-  border-color: var(--color-success);
-  background: rgba(var(--color-success-rgb), 0.05);
-}
-
-.slot-name {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 6px;
-}
-
-.equipment-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.item-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.item-quality {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-}
-
-.empty-slot {
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
 }
 
 /* 状态效果 */
@@ -1567,6 +1831,16 @@ onMounted(async () => {
   font-style: italic;
 }
 
+.skill-proficiency-mini {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  padding: 2px 4px;
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-radius: 4px;
+  width: fit-content;
+}
+
 .skill-unlock {
   font-size: 0.75rem;
   color: var(--color-warning);
@@ -1637,16 +1911,20 @@ onMounted(async () => {
 
 .progress-bar {
   flex: 1;
-  height: 8px;
-  background: var(--color-border);
-  border-radius: 4px;
+  height: 12px; /* 增加高度让进度条更明显 */
+  background: #e2e8f0; /* 使用更明显的背景色 */
+  border: 1px solid #cbd5e1; /* 添加边框增强可见性 */
+  border-radius: 6px;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); /* 添加内阴影增强立体感 */
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-success), var(--color-info));
+  min-width: 2px; /* 确保即使在0%时也有最小宽度显示 */
+  background: linear-gradient(90deg, #22c55e, #3b82f6); /* 使用明确的绿蓝渐变 */
   transition: width 0.3s ease;
+  border-radius: 4px; /* 稍微圆润的角 */
 }
 
 .progress-text {
@@ -2017,14 +2295,14 @@ onMounted(async () => {
     grid-template-columns: 1fr 1fr;
     gap: 16px;
   }
-  
+
   .right-column {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 20px;
   }
-  
+
   .right-column .info-section {
     margin-bottom: 0;
   }
@@ -2036,55 +2314,51 @@ onMounted(async () => {
     text-align: center;
     gap: 16px;
   }
-  
+
   .character-details {
     grid-template-columns: 1fr;
     text-align: center;
   }
-  
+
   .content-grid {
     grid-template-columns: 1fr;
     padding: 16px;
     gap: 16px;
   }
-  
+
   .right-column {
     grid-template-columns: 1fr;
   }
-  
+
   .attributes-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .attributes-grid.compact {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
-  
+
   .attribute-breakdown {
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  
-  .equipment-grid {
-    grid-template-columns: 1fr;
-  }
-  
+
   .stones-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .relationship-stats {
     grid-template-columns: 1fr;
   }
-  
+
   /* 确保文字不会换行 */
   .attr-name, .attr-value {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
+
   .attribute-item {
     min-height: 40px;
     padding: 8px 10px;
@@ -2097,30 +2371,341 @@ onMounted(async () => {
     height: 60px;
     font-size: 2rem;
   }
-  
+
   .character-name {
     font-size: 1.5rem;
   }
-  
+
   .attributes-grid.compact {
     grid-template-columns: 1fr;
   }
-  
+
   .attribute-item {
     padding: 8px;
     min-height: 36px;
   }
-  
+
   .attr-name {
     font-size: 0.85rem;
   }
-  
+
   .attr-value {
     font-size: 0.9rem;
   }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* 自定义弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(8px);
+  animation: overlay-fade-in 0.3s ease-out;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.skill-modal, .dao-modal {
+  background: var(--color-surface);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+  animation: modal-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px 20px 28px;
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(135deg, var(--color-surface-light), rgba(var(--color-primary-rgb), 0.05));
+  position: relative;
+}
+
+.modal-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-success));
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  background: linear-gradient(135deg, var(--color-text), var(--color-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.modal-close-btn {
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.3s ease;
+}
+
+.modal-close-btn:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+  transform: scale(1.1);
+}
+
+.modal-content {
+  padding: 24px 28px 28px 28px;
+  overflow-y: auto;
+  max-height: calc(80vh - 80px);
+}
+
+/* 技能详情样式 */
+.skill-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.skill-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--color-surface-light);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s ease;
+}
+
+.skill-detail-item:hover {
+  background: var(--color-surface-hover);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+}
+
+.detail-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.detail-value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.status-unlocked {
+  color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.1);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.status-locked {
+  color: var(--color-warning);
+  background: rgba(var(--color-warning-rgb), 0.1);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.skill-description {
+  background: linear-gradient(135deg, var(--color-surface-light), rgba(var(--color-info-rgb), 0.05));
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid var(--color-info);
+}
+
+.skill-description h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-info);
+}
+
+.skill-description p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* 大道详情样式 */
+.dao-progress-section {
+  margin-bottom: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--color-surface-light), rgba(var(--color-success-rgb), 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(var(--color-success-rgb), 0.2);
+}
+
+.dao-stage-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stage-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.stage-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.1);
+  padding: 4px 12px;
+  border-radius: 16px;
+}
+
+.dao-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar-bg {
+  flex: 1;
+  height: 12px;
+  background: var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-success), var(--color-info));
+  border-radius: 6px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(var(--color-success-rgb), 0.4);
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-success);
+  min-width: 45px;
+  text-align: right;
+}
+
+.dao-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.dao-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: var(--color-surface-light);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.dao-stat-item:hover {
+  background: var(--color-surface-hover);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+  transform: translateY(-2px);
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.dao-description {
+  background: linear-gradient(135deg, var(--color-surface-light), rgba(var(--color-warning-rgb), 0.05));
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid var(--color-warning);
+}
+
+.dao-description h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
+.dao-description p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .skill-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dao-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-content {
+    padding: 20px 24px 24px 24px;
+  }
+
+  .modal-header {
+    padding: 20px 24px 16px 24px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.2rem;
+  }
 }
 </style>

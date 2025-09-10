@@ -54,6 +54,25 @@
     <div class="tab-content">
       <!-- 物品标签 -->
       <div v-if="activeTab === 'items'" class="items-tab">
+        <!-- 自定义确认弹窗 -->
+        <div v-if="showCustomConfirm" class="custom-confirm-overlay" @click="showCustomConfirm = false">
+          <div class="custom-confirm-modal" @click.stop>
+            <div class="confirm-header">
+              <h3>{{ confirmTitle }}</h3>
+              <button class="confirm-close-btn" @click="showCustomConfirm = false">
+                <X :size="20" />
+              </button>
+            </div>
+            <div class="confirm-content">
+              <p>{{ confirmMessage }}</p>
+            </div>
+            <div class="confirm-actions">
+              <button class="confirm-btn cancel-btn" @click="showCustomConfirm = false">取消</button>
+              <button class="confirm-btn confirm-btn" @click="handleConfirm">确定</button>
+            </div>
+          </div>
+        </div>
+
         <!-- 移动端：模态框详情 -->
         <div v-if="showItemModal && isMobile" class="item-modal-overlay" @click="closeModal">
           <div class="item-modal" @click.stop>
@@ -68,7 +87,12 @@
                 <div class="item-type-text">{{ selectedItem?.类型 }}</div>
               </div>
               <div class="modal-info">
-                <div class="modal-meta">{{ selectedItem?.类型 }} / {{ selectedItem?.品质?.quality || '凡品' }}</div>
+                <div class="modal-meta">
+                  {{ selectedItem?.类型 }} / {{ selectedItem?.品质?.quality || '凡品' }}
+                  <span v-if="selectedItem?.品质?.grade !== undefined" class="grade-display" :class="getGradeClass(selectedItem.品质.grade)">
+                    {{ getGradeText(selectedItem.品质.grade) }}({{ selectedItem.品质.grade }})
+                  </span>
+                </div>
                 <p class="modal-description">{{ selectedItem?.描述 }}</p>
                 <div v-if="selectedItem?.装备增幅" class="modal-attributes">
                   <h4>装备增幅</h4>
@@ -117,23 +141,32 @@
             v-for="item in filteredItems"
             :key="item.物品ID"
             class="item-card"
-            :class="[getItemQualityClass(item), getItemTypeClass(item.类型, 'card')]"
+            :class="getItemQualityClass(item, 'card')"
             @click="selectItem(item)"
-            @dblclick="handleDoubleClick(item)"
           >
-            <div class="item-header">
-              <div class="item-type-badge" :class="getItemTypeClass(item.类型)">{{ item.类型 }}</div>
-              <div class="item-quality-badge" :class="getItemQualityClass(item, 'badge')">
-                {{ getItemQualityText(item) }}
+            <!-- 物品图标和品质 -->
+            <div class="item-top-section">
+              <div class="item-icon-area" :class="getItemQualityClass(item, 'border')">
+                <div class="item-type-icon">{{ getItemTypeIcon(item.类型) }}</div>
+                <div class="item-quality-badge" :class="getItemQualityClass(item, 'text')">
+                  {{ item.品质?.quality || '凡' }}
+                </div>
               </div>
             </div>
-            <div class="item-body">
+            
+            <!-- 数量显示 -->
+            <div v-if="item.数量 > 1" class="item-quantity-display">×{{ item.数量 }}</div>
+            
+            <!-- 物品名称 -->
+            <div class="item-name-section">
               <div class="item-name" :title="item.名称">{{ item.名称 }}</div>
-              <div class="item-meta">
-                <div class="item-quantity" v-if="item.数量 > 1">x{{ item.数量 }}</div>
-                <div class="item-grade" v-if="item.品质?.grade">
-                  {{ item.品质.grade }}
-                </div>
+            </div>
+            
+            <!-- 底部信息：类型和品级 -->
+            <div class="item-bottom-section">
+              <div class="item-type-label">{{ item.类型 }}</div>
+              <div v-if="item.品质?.grade !== undefined" class="item-grade-info" :class="getGradeClass(item.品质.grade)">
+                {{ getGradeText(item.品质.grade) }}({{ item.品质.grade }})
               </div>
             </div>
           </div>
@@ -148,7 +181,12 @@
               </div>
               <div class="details-title-area">
                 <h3 :class="getItemQualityClass(selectedItem, 'text')">{{ selectedItem.名称 }}</h3>
-                <div class="details-meta">{{ selectedItem.类型 }} / {{ selectedItem.品质?.quality || '凡品' }}</div>
+                <div class="details-meta">
+                  {{ selectedItem.类型 }} / {{ selectedItem.品质?.quality || '凡品' }}
+                  <span v-if="selectedItem.品质?.grade !== undefined" class="grade-display" :class="getGradeClass(selectedItem.品质.grade)">
+                    {{ getGradeText(selectedItem.品质.grade) }}({{ selectedItem.品质.grade }})
+                  </span>
+                </div>
               </div>
             </div>
             <div class="details-body">
@@ -183,6 +221,61 @@
         </div>
       </div>
 
+      <!-- 装备标签 -->
+      <div v-if="activeTab === 'equipment'" class="equipment-tab">
+        <div class="equipment-content">
+          <div class="equipment-grid">
+            <div 
+              v-for="(slot, index) in equipmentSlots" 
+              :key="index" 
+              class="equipment-slot"
+              :class="{ 'has-equipment': slot.item, 'empty-slot': !slot.item }"
+            >
+              <div class="slot-header">
+                <div class="slot-name">{{ slot.name }}</div>
+                <div v-if="slot.item" class="slot-actions">
+                  <button class="action-btn unequip-btn" @click="unequipItem(slot)" title="卸下装备">
+                    <X :size="12" />
+                  </button>
+                </div>
+              </div>
+              
+              <div v-if="slot.item" class="equipment-item" :class="getItemQualityClass(slot.item)">
+                <div class="item-icon" :class="getItemQualityClass(slot.item, 'border')">
+                  <div class="item-type-text">法宝</div>
+                </div>
+                <div class="item-info">
+                  <div class="item-name" :class="getItemQualityClass(slot.item, 'text')" :title="slot.item.名称">
+                    {{ slot.item.名称 }}
+                  </div>
+                  <div class="item-quality">
+                    {{ slot.item.品质?.quality || '凡' }}品
+                    <span v-if="slot.item.品质?.grade !== undefined" class="item-grade" :class="getGradeClass(slot.item.品质.grade)">
+                      {{ getGradeText(slot.item.品质.grade) }}({{ slot.item.品质.grade }})
+                    </span>
+                  </div>
+                  <div v-if="slot.item.描述" class="item-description" :title="slot.item.描述">
+                    {{ slot.item.描述 }}
+                  </div>
+                  <div v-if="slot.item.装备增幅" class="item-effects">
+                    <div class="effects-title">增幅效果：</div>
+                    <div class="effects-text">{{ formatItemAttributes(slot.item.装备增幅) }}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-else class="empty-equipment-slot">
+                <div class="empty-icon">
+                  <Package :size="24" />
+                </div>
+                <div class="empty-text">空槽位</div>
+                <div class="empty-hint">可装备法宝</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 灵石标签 -->
       <div v-if="activeTab === 'currency'" class="currency-tab">
         <div class="currency-grid">
@@ -193,7 +286,7 @@
             :class="grade.colorClass"
           >
             <div class="currency-card-top">
-              <div class="currency-icon">
+              <div class="currency-icon" :class="`icon-${grade.colorClass}`">
                 <Gem :size="isMobile ? 32 : 40" />
               </div>
               <div class="currency-info">
@@ -230,7 +323,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { Search, BoxSelect, Gem, Package, X, RotateCcw } from 'lucide-vue-next';
+import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { Item, Inventory } from '@/types/game';
 import { toast } from '@/utils/toast';
@@ -244,7 +337,11 @@ const searchQuery = ref('');
 const selectedCategory = ref('all');
 const sortBy = ref('default');
 const activeTab = ref('items');
+const showCustomConfirm = ref(false);
+const confirmTitle = ref('');
+const confirmMessage = ref('');
 const showItemModal = ref(false);
+const confirmCallback = ref<(() => void) | null>(null);
 
 // 响应式检测
 const isMobile = computed(() => {
@@ -254,6 +351,7 @@ const isMobile = computed(() => {
 // 标签配置
 const tabs = computed(() => [
   { id: 'items', label: '物品', icon: Package },
+  { id: 'equipment', label: '装备', icon: Sword },
   { id: 'currency', label: '灵石', icon: Gem }
 ]);
 
@@ -268,22 +366,82 @@ const inventory = computed<Inventory>(() => {
   };
 });
 
+// 装备槽位
+const equipmentSlots = computed(() => {
+  const equipment = characterStore.activeSaveSlot?.存档数据?.装备栏;
+  const slotNames = ['法宝1', '法宝2', '法宝3', '法宝4', '法宝5', '法宝6'];
+  
+  if (!equipment) {
+    return slotNames.map(name => ({ name, item: null }));
+  }
+  
+  return slotNames.map(slotKey => {
+    const key = slotKey as keyof typeof equipment;
+    const equippedItem = equipment[key];
+    
+    // 如果装备栏存储的是物品对象，直接返回；如果是ID或空，返回null
+    const item = (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem) 
+      ? equippedItem 
+      : null;
+      
+    return { name: slotKey, item };
+  });
+});
+
+// 已装备数量
+const equippedCount = computed(() => {
+  return equipmentSlots.value.filter(slot => slot.item).length;
+});
+
+// 卸下装备功能
+const unequipItem = async (slot: { name: string; item: Item | null }) => {
+  if (!slot.item) return;
+  
+  debug.log('背包面板', '卸下装备', slot.item.名称);
+  
+  try {
+    // 检查存档数据是否存在
+    if (!characterStore.activeSaveSlot?.存档数据?.装备栏) {
+      toast.error('装备栏数据不存在');
+      return;
+    }
+
+    // 检查背包是否存在
+    if (!characterStore.activeSaveSlot.存档数据.背包?.物品) {
+      toast.error('背包数据不存在');
+      return;
+    }
+
+    // 将装备放回背包
+    const equipment = characterStore.activeSaveSlot.存档数据.装备栏;
+    const slotKey = slot.name as keyof typeof equipment;
+    
+    // 将装备放回背包
+    characterStore.activeSaveSlot.存档数据.背包.物品[slot.item.物品ID] = slot.item;
+    
+    // 清空装备槽位
+    (equipment[slotKey] as any) = null;
+    
+    // 保存数据
+    await characterStore.commitToStorage();
+    
+    // 同步到酒馆变量
+    await syncToTavernVariables();
+    
+    toast.success(`已卸下《${slot.item.名称}》`);
+    debug.log('背包面板', '装备卸下成功', slot.item.名称);
+    
+  } catch (error) {
+    debug.error('背包面板', '卸下装备失败', error);
+    toast.error('卸下装备失败');
+  }
+};
+
 const itemList = computed<Item[]>(() => Object.values(inventory.value.物品 || {}));
 
 const itemCategories = computed(() => {
   // 固定三个分类：法宝、功法、其他
-  const predefinedCategories = ['法宝', '功法', '其他'];
-  const existingCategories: string[] = [];
-  
-  // 只显示背包中实际存在的分类
-  predefinedCategories.forEach(category => {
-    const hasItems = itemList.value.some(item => item.类型 === category);
-    if (hasItems) {
-      existingCategories.push(category);
-    }
-  });
-  
-  return existingCategories;
+  return ['法宝', '功法', '其他'];
 });
 
 const qualityOrder: { [key: string]: number } = { '凡': 1, '人': 2, '地': 3, '天': 4, '仙': 5, '神': 6 };
@@ -291,12 +449,22 @@ const qualityOrder: { [key: string]: number } = { '凡': 1, '人': 2, '地': 3, 
 const filteredItems = computed(() => {
   let items = [...itemList.value];
 
+  // 标准化物品类型：只允许法宝、功法、其他三种类型
+  items = items.map(item => ({
+    ...item,
+    类型: item.类型 === '法宝' || item.类型 === '功法' ? item.类型 : '其他'
+  }));
+
   if (searchQuery.value) {
     items = items.filter(item => item.名称.includes(searchQuery.value));
   }
 
   if (selectedCategory.value !== 'all') {
-    items = items.filter(item => item.类型 === selectedCategory.value);
+    items = items.filter(item => {
+      // 确保过滤时也使用标准化的类型
+      const normalizedType = item.类型 === '法宝' || item.类型 === '功法' ? item.类型 : '其他';
+      return normalizedType === selectedCategory.value;
+    });
   }
 
   if (sortBy.value === 'quality') {
@@ -319,8 +487,23 @@ const formatItemAttributes = (attributes: Record<string, any>): string => {
   return attrArray.join('、') || '无特殊属性';
 };
 
+// 获取物品类型图标
+const getItemTypeIcon = (type: string): string => {
+  const typeIcons: Record<string, string> = {
+    '法宝': '⚔️',
+    '功法': '📜',
+    '其他': '📦'
+  };
+  
+  const normalizedType = type === '法宝' || type === '功法' ? type : '其他';
+  return typeIcons[normalizedType] || '📦';
+};
+
 // 获取物品类型样式
 const getItemTypeClass = (type: string, variant: string = 'badge'): string => {
+  // 标准化物品类型
+  const normalizedType = type === '法宝' || type === '功法' ? type : '其他';
+  
   const typeClasses: Record<string, Record<string, string>> = {
     '法宝': {
       badge: 'type-artifact',
@@ -336,7 +519,41 @@ const getItemTypeClass = (type: string, variant: string = 'badge'): string => {
     }
   };
   
-  return typeClasses[type]?.[variant] || (variant === 'card' ? 'card-other' : 'type-other');
+  return typeClasses[normalizedType]?.[variant] || (variant === 'card' ? 'card-other' : 'type-other');
+};
+
+// 获取品级文本显示
+const getGradeText = (grade: number): string => {
+  if (grade === 0) return '残缺';
+  if (grade >= 1 && grade <= 3) return '下品';
+  if (grade >= 4 && grade <= 6) return '中品';
+  if (grade >= 7 && grade <= 9) return '上品';
+  if (grade === 10) return '极品';
+  return '未知';
+};
+
+// 获取品级样式
+const getGradeClass = (grade: number): string => {
+  if (grade === 0) return 'grade-broken';
+  if (grade >= 1 && grade <= 3) return 'grade-low';
+  if (grade >= 4 && grade <= 6) return 'grade-mid';
+  if (grade >= 7 && grade <= 9) return 'grade-high';
+  if (grade === 10) return 'grade-perfect';
+  return 'grade-unknown';
+};
+
+// 获取品质详细描述
+const getQualityDescription = (quality: string): string => {
+  const qualityDescriptions: Record<string, string> = {
+    '神': '举世无有',
+    '仙': '顶级圣地至宝',
+    '天': '顶级圣地传承',
+    '地': '大势力珍藏',
+    '玄': '门派传承',
+    '黄': '寻常宝物',
+    '凡': '普通物品'
+  };
+  return qualityDescriptions[quality] || '未知品质';
 };
 
 // 获取物品品质文本
@@ -515,7 +732,7 @@ const cultivateItem = async (item: Item) => {
   }
 };
 
-// 使用物品功能
+// 使用物品功能 - 自定义弹窗
 const useItem = async (item: Item) => {
   if (!item) {
     return;
@@ -524,37 +741,45 @@ const useItem = async (item: Item) => {
   debug.log('背包面板', '使用物品', item.名称);
   
   try {
+    let messageText = '';
+    let effectMessage = '';
+    
     if (item.使用效果) {
-      // 有明确使用效果的物品
-      const confirm = window.confirm(`确定要使用《${item.名称}》吗？\n\n效果：${item.使用效果}`);
-      if (!confirm) return;
-      
-      // 这里可以根据物品的使用效果实现具体逻辑
-      // 比如恢复气血、提升修为等
-      
-      // 减少物品数量
-      if (item.数量 > 1) {
-        item.数量 -= 1;
-        await characterStore.commitToStorage();
-        toast.success(`使用了《${item.名称}》，剩余${item.数量}个`);
-      } else {
-        // 数量为1时，使用后移除物品
-        await removeItemFromInventory(item);
-        toast.success(`使用了《${item.名称}》，物品已用完`);
-      }
+      effectMessage = `效果：${item.使用效果}`;
+      messageText = `确定要使用《${item.名称}》吗？
+
+${effectMessage}`;
     } else {
-      // 没有明确使用效果的物品
-      const confirm = window.confirm(`《${item.名称}》暂无特殊效果，确定要使用吗？`);
-      if (!confirm) return;
-      
-      toast.info(`使用了《${item.名称}》，但似乎没有产生明显效果`);
+      effectMessage = '暂无特殊效果';
+      messageText = `《${item.名称}》暂无特殊效果，确定要使用吗？`;
     }
     
-    // 关闭弹窗
-    if (isMobile.value) {
-      showItemModal.value = false;
-    }
-    selectedItem.value = null;
+    // 显示自定义确认弹窗
+    showCustomConfirm.value = true;
+    confirmTitle.value = '使用物品';
+    confirmMessage.value = messageText;
+    confirmCallback.value = async () => {
+      if (item.使用效果) {
+        // 减少物品数量
+        if (item.数量 > 1) {
+          item.数量 -= 1;
+          await characterStore.commitToStorage();
+          toast.success(`使用了《${item.名称}》，剩余${item.数量}个`);
+        } else {
+          // 数量为1时，使用后移除物品
+          await removeItemFromInventory(item);
+          toast.success(`使用了《${item.名称}》，物品已用完`);
+        }
+      } else {
+        toast.info(`使用了《${item.名称}》，但似乎没有产生明显效果`);
+      }
+      
+      // 关闭弹窗
+      if (isMobile.value) {
+        showItemModal.value = false;
+      }
+      selectedItem.value = null;
+    };
     
   } catch (error) {
     debug.error('背包面板', '使用失败', error);
@@ -622,7 +847,7 @@ const equipItem = async (item: Item) => {
     for (let i = 1; i <= 6; i++) {
       const slotKey = `法宝${i}` as keyof typeof equipmentSlot;
       if (!equipmentSlot[slotKey]) {
-        equipmentSlot[slotKey] = item.物品ID;
+        equipmentSlot[slotKey] = item; // 存储完整物品对象而不是ID
         equipped = true;
         debug.log('背包面板', `法宝装备到${slotKey}`, item.名称);
         toast.success(`《${item.名称}》已装备到${slotKey}`);
@@ -635,7 +860,7 @@ const equipItem = async (item: Item) => {
       const confirm = window.confirm('装备栏已满，是否替换法宝1的装备？');
       if (confirm) {
         // const oldItemId = equipmentSlot.法宝1; // 以后用于实现替换装备回背包
-        equipmentSlot.法宝1 = item.物品ID;
+        equipmentSlot.法宝1 = item; // 存储完整物品对象而不是ID
         toast.success(`《${item.名称}》已替换装备到法宝1`);
         
         // 可以考虑将被替换的装备放回背包，这里先跳过
@@ -668,7 +893,7 @@ const equipItem = async (item: Item) => {
   }
 };
 
-const getItemQualityClass = (item: Item | null, type: 'border' | 'text' | 'badge' = 'border'): string => {
+const getItemQualityClass = (item: Item | null, type: 'border' | 'text' | 'badge' | 'card' = 'border'): string => {
   if (!item) return '';
   const quality = item.品质?.quality || '凡';
   return `${type}-quality-${quality}`;
@@ -714,6 +939,14 @@ const selectItem = (item: Item) => {
   if (isMobile.value) {
     showItemModal.value = true;
   }
+};
+
+// 处理确认回调
+const handleConfirm = () => {
+  if (confirmCallback.value) {
+    confirmCallback.value();
+  }
+  showCustomConfirm.value = false;
 };
 
 // 关闭模态框
@@ -794,6 +1027,111 @@ onMounted(async () => {
   flex-direction: column;
   background: var(--color-background);
   overflow: hidden;
+}
+
+/* 自定义确认弹窗样式 */
+.custom-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.custom-confirm-modal {
+  background: var(--color-surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modal-appear 0.3s ease-out;
+}
+
+.confirm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+}
+
+.confirm-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.confirm-close-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.confirm-close-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.confirm-content {
+  padding: 24px;
+}
+
+.confirm-content p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px 24px 24px;
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.cancel-btn {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+.cancel-btn:hover {
+  background: var(--color-surface-light);
+  color: var(--color-text);
+}
+
+.confirm-btn.confirm-btn {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.confirm-btn.confirm-btn:hover {
+  background: var(--color-primary-hover);
 }
 
 /* 移动端模态框 */
@@ -895,6 +1233,56 @@ onMounted(async () => {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grade-display {
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+/* 品级颜色样式 */
+.grade-display.grade-broken {
+  background: #6b7280;
+  color: white;
+  border-color: #6b7280;
+}
+
+.grade-display.grade-low {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.grade-display.grade-mid {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+.grade-display.grade-high {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.grade-display.grade-perfect {
+  background: #ec4899;
+  color: white;
+  border-color: #ec4899;
+}
+
+.grade-display.grade-unknown {
+  background: #9ca3af;
+  color: white;
+  border-color: #9ca3af;
 }
 
 .modal-description {
@@ -1065,12 +1453,13 @@ onMounted(async () => {
 
 .items-grid {
   flex: 1;
-  padding: 16px;
+  padding: 20px;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
   align-content: start;
+  background: var(--color-background);
 }
 
 .grid-placeholder {
@@ -1105,187 +1494,201 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
+/* 物品卡片 - 重新设计美观布局 */
 .item-card {
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
   padding: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  aspect-ratio: 1;
+  height: 140px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .item-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--color-surface-light);
 }
 
-/* 物品卡片头部 */
-.item-header {
+/* 顶部区域：图标和品质 */
+.item-top-section {
+  position: relative;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  width: 100%;
-  margin-bottom: 4px;
-}
-
-/* 物品卡片主体 */
-.item-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   justify-content: center;
-  align-items: center;
-  width: 100%;
+  align-items: flex-start;
+  margin-bottom: 8px;
 }
 
-/* 物品底部元信息 */
-.item-meta {
+.item-icon-area {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 100%;
-  margin-top: 4px;
-  font-size: 10px;
+  justify-content: center;
+  background: var(--color-background);
+  position: relative;
 }
 
-/* 物品类型徽章 - 不同类型不同颜色 */
-.item-type-badge {
-  font-size: 8px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.item-type-icon {
+  font-size: 24px;
+  opacity: 0.9;
 }
 
-.type-artifact { 
-  background: rgba(255, 215, 0, 0.2); 
-  color: #FFD700; 
-  border: 1px solid rgba(255, 215, 0, 0.4);
-}
-
-.type-technique { 
-  background: rgba(138, 43, 226, 0.2); 
-  color: #8A2BE2; 
-  border: 1px solid rgba(138, 43, 226, 0.4);
-}
-
-.type-other { 
-  background: rgba(169, 169, 169, 0.2); 
-  color: #A9A9A9; 
-  border: 1px solid rgba(169, 169, 169, 0.4);
-}
-
-/* 物品品质徽章 - 不同品质不同颜色 */
 .item-quality-badge {
-  font-size: 7px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.badge-quality-凡 { background: rgba(128, 128, 128, 0.2); color: #808080; }
-.badge-quality-黄 { background: rgba(255, 215, 0, 0.2); color: #DAA520; }
-.badge-quality-玄 { background: rgba(75, 0, 130, 0.2); color: #9370DB; }
-.badge-quality-地 { background: rgba(139, 69, 19, 0.2); color: #A0522D; }
-.badge-quality-天 { background: rgba(30, 144, 255, 0.2); color: #1E90FF; }
-.badge-quality-仙 { background: rgba(255, 20, 147, 0.2); color: #FF1493; }
-.badge-quality-神 { background: rgba(255, 0, 0, 0.2); color: #DC143C; }
-
-/* 物品卡片边框品质颜色 */
-.border-quality-凡 { border-color: #808080; }
-.border-quality-黄 { border-color: #DAA520; }
-.border-quality-玄 { border-color: #9370DB; }
-.border-quality-地 { border-color: #A0522D; }
-.border-quality-天 { border-color: #1E90FF; }
-.border-quality-仙 { border-color: #FF1493; }
-.border-quality-神 { border-color: #DC143C; }
-
-/* 物品卡片整体背景色根据类型 */
-.card-artifact { 
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), var(--color-surface)); 
-}
-.card-technique { 
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.05), var(--color-surface)); 
-}
-.card-other { 
-  background: var(--color-surface); 
-}
-
-/* 物品名称 */
-.item-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 2px 0;
-  text-align: center;
-  line-height: 1.2;
-  word-break: break-word;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-/* 物品数量显示 */
-.item-quantity {
-  background: rgba(var(--color-primary-rgb), 0.8);
-  color: white;
-  border-radius: 3px;
-  padding: 1px 3px;
-  font-size: 9px;
-  font-weight: 600;
-  min-width: 16px;
-  text-align: center;
-}
-
-/* 物品等级/品阶显示 */
-.item-grade {
-  font-size: 9px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.item-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: var(--color-primary);
-}
-
-.item-quantity {
   position: absolute;
-  bottom: -4px;
-  right: -4px;
-  background: var(--color-primary);
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 12px;
+  top: -6px;
+  right: -6px;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--color-surface);
+  border: 1px solid currentColor;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
   min-width: 20px;
   text-align: center;
 }
 
+/* 数量显示 - 更大更显眼 */
+.item-quantity-display {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 4;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* 名称区域 */
+.item-name-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 4px;
+}
+
 .item-name {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text);
   line-height: 1.3;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-clamp: 2;
+  word-break: break-word;
 }
+
+/* 底部区域：类型和品级 */
+.item-bottom-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.item-type-label {
+  font-size: 9px;
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.item-grade-info {
+  font-size: 8px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+/* 品级样式 - 简化版本 */
+.grade-broken {
+  background: #6b7280;
+  color: white;
+}
+
+.grade-low {
+  background: #f59e0b;
+  color: white;
+}
+
+.grade-mid {
+  background: #8b5cf6;
+  color: white;
+}
+
+.grade-high {
+  background: #ef4444;
+  color: white;
+}
+
+.grade-perfect {
+  background: #ec4899;
+  color: white;
+}
+
+.grade-unknown {
+  background: #9ca3af;
+  color: white;
+}
+
+/* 灵石品质样式 - 颜色递增 */
+.grade-common { 
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  border-color: #9ca3af;
+  color: white;
+  box-shadow: 0 2px 8px rgba(156, 163, 175, 0.3);
+}
+
+.grade-rare { 
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-color: #3b82f6;
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.grade-epic { 
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  border-color: #8b5cf6;
+  color: white;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.grade-legend { 
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: #f59e0b;
+  color: white;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.5);
+}
+
 
 /* 桌面端详情侧边栏 */
 .item-details-sidebar {
@@ -1335,6 +1738,10 @@ onMounted(async () => {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .details-body {
@@ -1387,7 +1794,7 @@ onMounted(async () => {
 
 .currency-card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   border-radius: 12px;
   padding: 20px;
   display: flex;
@@ -1395,11 +1802,44 @@ onMounted(async () => {
   gap: 12px;
   transition: all 0.3s ease;
   cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.currency-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.currency-card.grade-common::before {
+  background: linear-gradient(90deg, #9ca3af, #6b7280);
+}
+
+.currency-card.grade-rare::before {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.currency-card.grade-epic::before {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+}
+
+.currency-card.grade-legend::before {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
 }
 
 .currency-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.currency-card:hover::before {
+  opacity: 1;
 }
 
 .currency-card-top {
@@ -1410,6 +1850,25 @@ onMounted(async () => {
 
 .currency-icon {
   flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: color 0.3s ease;
+}
+
+/* 灵石图标颜色 */
+.icon-grade-common {
+  color: #9ca3af;
+}
+
+.icon-grade-rare {
+  color: #3b82f6;
+}
+
+.icon-grade-epic {
+  color: #8b5cf6;
+}
+
+.icon-grade-legend {
+  color: #f59e0b;
 }
 
 .currency-info {
@@ -1543,54 +2002,7 @@ onMounted(async () => {
   word-break: break-all;
 }
 
-.item-info-wrapper {
-  position: relative;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 4px;
-}
 
-.item-type-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 600;
-  text-align: center;
-  min-width: 36px;
-}
-
-.type-artifact {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fca5a5;
-}
-
-.type-technique {
-  background: #dbeafe;
-  color: #2563eb;
-  border: 1px solid #93c5fd;
-}
-
-.type-other {
-  background: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
-}
-
-.item-type-text {
-  font-size: 10px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.item-type-text-large {
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-}
 
 .cultivate-btn {
   background: var(--color-info);
@@ -1612,22 +2024,309 @@ onMounted(async () => {
   background: var(--color-success-hover);
 }
 
-/* 品质样式 */
-.border-quality-神, .grade-legend { border-color: #ef4444 !important; color: #ef4444; }
-.border-quality-仙, .grade-epic { border-color: #f59e0b !important; color: #f59e0b; }
-.border-quality-天, .grade-rare { border-color: #8b5cf6 !important; color: #8b5cf6; }
-.border-quality-地, .grade-uncommon { border-color: #3b82f6 !important; color: #3b82f6; }
-.border-quality-人, .grade-common { border-color: #10b981 !important; color: #10b981; }
-.border-quality-凡 { border-color: var(--color-border) !important; }
+/* 品质样式系统 - 修复颜色显示 */
+.text-quality-神 { 
+  color: white !important; 
+  background: #dc2626 !important;
+}
 
-.text-quality-神 { color: #ef4444 !important; }
-.text-quality-仙 { color: #f59e0b !important; }
-.text-quality-天 { color: #8b5cf6 !important; }
-.text-quality-地 { color: #3b82f6 !important; }
-.text-quality-人 { color: #10b981 !important; }
-.text-quality-凡 { color: var(--color-text) !important; }
+.text-quality-仙 { 
+  color: white !important; 
+  background: #ec4899 !important;
+}
 
-/* 移动端适配 */
+.text-quality-天 { 
+  color: white !important; 
+  background: #3b82f6 !important;
+}
+
+.text-quality-地 { 
+  color: white !important; 
+  background: #f59e0b !important;
+}
+
+.text-quality-玄 { 
+  color: white !important; 
+  background: #8b5cf6 !important;
+}
+
+.text-quality-黄 { 
+  color: white !important; 
+  background: #eab308 !important;
+}
+
+.text-quality-凡 { 
+  color: white !important; 
+  background: #6b7280 !important;
+}
+
+/* 边框样式也需要修复 */
+.border-quality-神 { 
+  border-color: #dc2626 !important;
+}
+
+.border-quality-仙 { 
+  border-color: #ec4899 !important;
+}
+
+.border-quality-天 { 
+  border-color: #3b82f6 !important;
+}
+
+.border-quality-地 { 
+  border-color: #f59e0b !important;
+}
+
+.border-quality-玄 { 
+  border-color: #8b5cf6 !important;
+}
+
+.border-quality-凡 { 
+  border-color: #6b7280 !important;
+}
+
+.border-quality-凡 { 
+  border-color: #6b7280 !important;
+}
+
+/* 装备标签页样式 */
+.equipment-tab {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.equipment-content {
+  padding: 20px;
+}
+
+.equipment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.equipment-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.equipment-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.equipment-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.equipment-stats .stat-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.equipment-stats .stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* 装备网格 */
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.equipment-slot {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  min-height: 160px;
+  position: relative;
+}
+
+.equipment-slot.has-equipment {
+  border-color: var(--color-success);
+  box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.1);
+}
+
+.equipment-slot.has-equipment:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(var(--color-success-rgb), 0.2);
+}
+
+.equipment-slot.empty-slot {
+  border-style: dashed;
+  border-color: var(--color-border);
+}
+
+.slot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.slot-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+  background: var(--color-surface-light);
+  border-radius: 6px;
+}
+
+.slot-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.unequip-btn {
+  padding: 4px;
+  background: var(--color-danger);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.unequip-btn:hover {
+  background: var(--color-danger-hover);
+  transform: scale(1.1);
+}
+
+/* 装备物品显示 */
+.equipment-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.item-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-light);
+  flex-shrink: 0;
+}
+
+.item-type-text {
+  font-size: 10px;
+  font-weight: bold;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.item-quality {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-description {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin-bottom: 8px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.item-effects {
+  background: var(--color-surface-light);
+  padding: 8px;
+  border-radius: 6px;
+  border-left: 3px solid var(--color-info);
+}
+
+.effects-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-info);
+  margin-bottom: 4px;
+}
+
+.effects-text {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+/* 空装备槽位 */
+.empty-equipment-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 120px;
+  gap: 8px;
+}
+
+.empty-icon {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.empty-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* 移动端适配 - 优化卡片显示 */
 @media (max-width: 768px) {
   .tabs-header {
     padding: 12px;
@@ -1652,18 +2351,37 @@ onMounted(async () => {
   }
   
   .items-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    padding: 12px;
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    padding: 16px;
+    gap: 12px;
   }
   
   .item-card {
-    padding: 10px;
-    aspect-ratio: 0.85;
+    height: 130px;
+    padding: 6px;
+  }
+  
+  .item-icon-area {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .item-type-icon {
+    font-size: 20px;
   }
   
   .item-name {
     font-size: 11px;
+  }
+  
+  .item-type-label {
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+  
+  .item-grade-info {
+    font-size: 7px;
+    padding: 1px 3px;
   }
   
   .currency-grid {
@@ -1678,6 +2396,27 @@ onMounted(async () => {
   .currency-amount {
     font-size: 1.25rem;
   }
+  
+  /* 装备页面移动端适配 */
+  .equipment-content {
+    padding: 12px;
+  }
+  
+  .equipment-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .equipment-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .equipment-slot {
+    min-height: 140px;
+    padding: 12px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1691,7 +2430,47 @@ onMounted(async () => {
   }
   
   .items-grid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    padding: 12px;
+  }
+  
+  .item-card {
+    height: 120px;
+    padding: 5px;
+  }
+  
+  .item-icon-area {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .item-type-icon {
+    font-size: 16px;
+  }
+  
+  .item-name {
+    font-size: 10px;
+  }
+  
+  .item-type-label {
+    font-size: 7px;
+    padding: 1px 3px;
+  }
+  
+  .item-grade-info {
+    font-size: 6px;
+    padding: 1px 2px;
+  }
+  
+  .item-quality-badge {
+    font-size: 6px;
+    padding: 1px 2px;
+  }
+  
+  .item-quantity-badge {
+    font-size: 8px;
+    padding: 1px 4px;
   }
   
   .currency-grid {
