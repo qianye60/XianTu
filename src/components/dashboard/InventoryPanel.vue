@@ -325,11 +325,14 @@
 import { ref, computed, onMounted } from 'vue';
 import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { Item, Inventory } from '@/types/game';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
+import { validateAndFixSaveData, cleanTavernDuplicates } from '@/utils/dataValidation';
 
 const characterStore = useCharacterStore();
+const actionQueue = useActionQueueStore();
 const loading = ref(false);
 const refreshing = ref(false);
 const selectedItem = ref<Item | null>(null);
@@ -388,10 +391,6 @@ const equipmentSlots = computed(() => {
   });
 });
 
-// 已装备数量
-const equippedCount = computed(() => {
-  return equipmentSlots.value.filter(slot => slot.item).length;
-});
 
 // 卸下装备功能
 const unequipItem = async (slot: { name: string; item: Item | null }) => {
@@ -420,13 +419,21 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
     characterStore.activeSaveSlot.存档数据.背包.物品[slot.item.物品ID] = slot.item;
     
     // 清空装备槽位
-    (equipment[slotKey] as any) = null;
+    equipment[slotKey] = null;
     
     // 保存数据
     await characterStore.commitToStorage();
     
     // 同步到酒馆变量
     await syncToTavernVariables();
+    
+    // 添加到操作队列
+    actionQueue.addAction({
+      type: 'unequip',
+      itemName: slot.item.名称,
+      itemType: slot.item.类型,
+      description: `卸下了《${slot.item.名称}》装备，放回背包`
+    });
     
     toast.success(`已卸下《${slot.item.名称}》`);
     debug.log('背包面板', '装备卸下成功', slot.item.名称);
@@ -476,15 +483,30 @@ const filteredItems = computed(() => {
   return items;
 });
 
-// 格式化物品属性显示
-const formatItemAttributes = (attributes: Record<string, any>): string => {
+// 格式化物品属性显示（支持嵌套对象，如「后天六司」）
+const formatItemAttributes = (attributes: Record<string, unknown>): string => {
   if (!attributes || typeof attributes !== 'object') {
     return '无特殊属性';
   }
-  
-  // 将属性对象转换为简洁的文本显示
-  const attrArray = Object.entries(attributes).map(([key, value]) => `${key}+${value}`);
-  return attrArray.join('、') || '无特殊属性';
+
+  const parts: string[] = [];
+
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value === null || value === undefined) continue;
+
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      // 处理如「后天六司」这类嵌套对象
+      const nested = Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => typeof v === 'number' || typeof v === 'string')
+        .map(([k, v]) => `${k}+${v}`)
+        .join('、');
+      if (nested) parts.push(`${key}(${nested})`);
+    } else {
+      parts.push(`${key}+${value}`);
+    }
+  }
+
+  return parts.length ? parts.join('、') : '无特殊属性';
 };
 
 // 获取物品类型图标
@@ -499,28 +521,6 @@ const getItemTypeIcon = (type: string): string => {
   return typeIcons[normalizedType] || '📦';
 };
 
-// 获取物品类型样式
-const getItemTypeClass = (type: string, variant: string = 'badge'): string => {
-  // 标准化物品类型
-  const normalizedType = type === '法宝' || type === '功法' ? type : '其他';
-  
-  const typeClasses: Record<string, Record<string, string>> = {
-    '法宝': {
-      badge: 'type-artifact',
-      card: 'card-artifact'
-    },
-    '功法': {
-      badge: 'type-technique',
-      card: 'card-technique'
-    },
-    '其他': {
-      badge: 'type-other', 
-      card: 'card-other'
-    }
-  };
-  
-  return typeClasses[normalizedType]?.[variant] || (variant === 'card' ? 'card-other' : 'type-other');
-};
 
 // 获取品级文本显示
 const getGradeText = (grade: number): string => {
@@ -542,37 +542,7 @@ const getGradeClass = (grade: number): string => {
   return 'grade-unknown';
 };
 
-// 获取品质详细描述
-const getQualityDescription = (quality: string): string => {
-  const qualityDescriptions: Record<string, string> = {
-    '神': '举世无有',
-    '仙': '顶级圣地至宝',
-    '天': '顶级圣地传承',
-    '地': '大势力珍藏',
-    '玄': '门派传承',
-    '黄': '寻常宝物',
-    '凡': '普通物品'
-  };
-  return qualityDescriptions[quality] || '未知品质';
-};
 
-// 获取物品品质文本
-const getItemQualityText = (item: Item | null): string => {
-  if (!item || !item.品质) return '凡';
-  
-  const quality = item.品质.quality;
-  const qualityMap: Record<string, string> = {
-    '凡': '凡品',
-    '黄': '黄品',
-    '玄': '玄品',
-    '地': '地品',
-    '天': '天品',
-    '仙': '仙品',
-    '神': '神品'
-  };
-  
-  return qualityMap[quality] || '凡品';
-};
 
 // 从背包中移除物品的辅助函数
 const removeItemFromInventory = async (item: Item) => {
@@ -605,25 +575,39 @@ const syncToTavernVariables = async () => {
       return;
     }
     
+    // 首先清理重复变量
+    await cleanTavernDuplicates(window.parent.TavernHelper);
+    
     const saveData = characterStore.activeSaveSlot?.存档数据;
     if (!saveData) {
       debug.warn('背包面板', '存档数据不存在，跳过同步');
       return;
     }
     
+    // 验证和修复数据
+    const cleanedSaveData = validateAndFixSaveData(saveData);
+    
+    // 构建要同步的变量对象
+    const variablesToSync: Record<string, string> = {};
+    
     // 同步背包数据
-    if (saveData.背包) {
-      window.parent.TavernHelper.setVariableValue('背包数据', JSON.stringify(saveData.背包));
+    if (cleanedSaveData.背包) {
+      variablesToSync['背包数据'] = JSON.stringify(cleanedSaveData.背包);
     }
     
     // 同步装备栏数据
-    if (saveData.装备栏) {
-      window.parent.TavernHelper.setVariableValue('装备栏数据', JSON.stringify(saveData.装备栏));
+    if (cleanedSaveData.装备栏) {
+      variablesToSync['装备栏数据'] = JSON.stringify(cleanedSaveData.装备栏);
     }
     
     // 同步修炼功法数据
-    if (saveData.修炼功法) {
-      window.parent.TavernHelper.setVariableValue('修炼功法数据', JSON.stringify(saveData.修炼功法));
+    if (cleanedSaveData.修炼功法) {
+      variablesToSync['修炼功法数据'] = JSON.stringify(cleanedSaveData.修炼功法);
+    }
+    
+    // 使用正确的API方法批量同步
+    if (Object.keys(variablesToSync).length > 0) {
+      await window.parent.TavernHelper.insertOrAssignVariables(variablesToSync, { type: 'chat' });
     }
     
     debug.log('背包面板', '数据已同步到酒馆变量');
@@ -632,16 +616,6 @@ const syncToTavernVariables = async () => {
   }
 };
 
-// 双击处理
-const handleDoubleClick = (item: Item) => {
-  if (item.类型 === '法宝') {
-    equipItem(item);
-  } else if (item.类型 === '功法') {
-    cultivateItem(item);
-  } else {
-    useItem(item);
-  }
-};
 
 // 功法修炼功能
 const cultivateItem = async (item: Item) => {
@@ -717,6 +691,14 @@ const cultivateItem = async (item: Item) => {
     // 同步到酒馆变量
     await syncToTavernVariables();
     
+    // 添加到操作队列
+    actionQueue.addAction({
+      type: 'cultivate',
+      itemName: item.名称,
+      itemType: item.类型,
+      description: `开始修炼《${item.名称}》功法，提升修为和技能熟练度`
+    });
+    
     debug.log('背包面板', `功法修炼成功，已同步到酒馆变量: ${item.名称}`);
     toast.success(`开始修炼《${item.名称}》`);
     
@@ -770,8 +752,24 @@ ${effectMessage}`;
           await removeItemFromInventory(item);
           toast.success(`使用了《${item.名称}》，物品已用完`);
         }
+        
+        // 添加到操作队列
+        actionQueue.addAction({
+          type: 'use',
+          itemName: item.名称,
+          itemType: item.类型,
+          description: `使用了《${item.名称}》，${item.使用效果 || '产生了特殊效果'}`
+        });
       } else {
         toast.info(`使用了《${item.名称}》，但似乎没有产生明显效果`);
+        
+        // 即使没有效果也添加到操作队列
+        actionQueue.addAction({
+          type: 'use',
+          itemName: item.名称,
+          itemType: item.类型,
+          description: `使用了《${item.名称}》，但没有产生明显效果`
+        });
       }
       
       // 关闭弹窗
@@ -878,6 +876,14 @@ const equipItem = async (item: Item) => {
     
     // 同步到酒馆变量
     await syncToTavernVariables();
+    
+    // 添加到操作队列
+    actionQueue.addAction({
+      type: 'equip',
+      itemName: item.名称,
+      itemType: item.类型,
+      description: `装备了《${item.名称}》法宝，获得其增幅效果`
+    });
     
     debug.log('背包面板', '法宝装备成功，已同步到酒馆变量');
     
@@ -1594,6 +1600,7 @@ onMounted(async () => {
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   word-break: break-word;
 }
@@ -2024,40 +2031,68 @@ onMounted(async () => {
   background: var(--color-success-hover);
 }
 
-/* 品质样式系统 - 修复颜色显示 */
-.text-quality-神 { 
+/* 品质样式系统 - 完整的等阶颜色系统 */
+/* 神阶 - 深红色（最高品质） */
+.text-quality-神, .text-quality-神阶 { 
   color: white !important; 
-  background: #dc2626 !important;
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  border: 1px solid #dc2626 !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
-.text-quality-仙 { 
+/* 仙阶 - 粉紫色 */
+.text-quality-仙, .text-quality-仙阶 { 
   color: white !important; 
-  background: #ec4899 !important;
+  background: linear-gradient(135deg, #ec4899, #db2777) !important;
+  border: 1px solid #ec4899 !important;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
-.text-quality-天 { 
+/* 天阶 - 蓝色 */
+.text-quality-天, .text-quality-天阶 { 
   color: white !important; 
-  background: #3b82f6 !important;
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  border: 1px solid #3b82f6 !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
-.text-quality-地 { 
+/* 地阶 - 橙色 */
+.text-quality-地, .text-quality-地阶 { 
   color: white !important; 
-  background: #f59e0b !important;
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border: 1px solid #f59e0b !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
-.text-quality-玄 { 
+/* 玄阶 - 紫色 */
+.text-quality-玄, .text-quality-玄阶 { 
   color: white !important; 
-  background: #8b5cf6 !important;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+  border: 1px solid #8b5cf6 !important;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
-.text-quality-黄 { 
+/* 黄阶 - 金黄色 */
+.text-quality-黄, .text-quality-黄阶 { 
   color: white !important; 
-  background: #eab308 !important;
+  background: linear-gradient(135deg, #eab308, #ca8a04) !important;
+  border: 1px solid #eab308 !important;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
-.text-quality-凡 { 
+/* 凡阶 - 灰色（最低品质） */
+.text-quality-凡, .text-quality-凡阶 { 
   color: white !important; 
-  background: #6b7280 !important;
+  background: linear-gradient(135deg, #6b7280, #4b5563) !important;
+  border: 1px solid #6b7280 !important;
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* 边框样式也需要修复 */
@@ -2253,8 +2288,8 @@ onMounted(async () => {
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .item-quality {
@@ -2274,8 +2309,8 @@ onMounted(async () => {
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .item-effects {

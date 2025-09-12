@@ -24,7 +24,32 @@
             <div v-else-if="filteredSects.length === 0" class="empty-state">
               <Building :size="48" class="empty-icon" />
               <p class="empty-text">暂无宗门信息</p>
-              <p class="empty-hint">宗门信息将由AI根据游戏进程生成</p>
+              <p class="empty-hint">世界信息将由AI根据游戏进程生成</p>
+              <!-- 调试信息显示 -->
+              <div class="debug-info" style="margin-top: 1rem; font-size: 0.8rem; color: #666; text-align: left;">
+                <details>
+                  <summary style="cursor: pointer;">调试信息 (点击展开)</summary>
+                  <div style="margin-top: 0.5rem;">
+                    <p>存档数据存在: {{ !!characterStore.activeSaveSlot?.存档数据 }}</p>
+                    <p>存档数据字段: {{ characterStore.activeSaveSlot?.存档数据 ? Object.keys(characterStore.activeSaveSlot.存档数据).join(', ') : '无' }}</p>
+                    <p>世界信息存在: {{ !!characterStore.activeSaveSlot?.存档数据?.世界信息 }}</p>
+                    <p>世界信息.势力信息存在: {{ !!characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息 }}</p>
+                    <p>世界信息.势力信息数量: {{ characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息?.length || 0 }}</p>
+                    <p>宗门系统存在: {{ !!(characterStore.activeSaveSlot?.存档数据 as any)?.宗门系统 }}</p>
+                    <p>宗门系统.availableSects数量: {{ (characterStore.activeSaveSlot?.存档数据 as any)?.宗门系统?.availableSects?.length || 0 }}</p>
+                    <p>筛选后数量: {{ filteredSects.length }}</p>
+                    <button @click="loadTestData" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #9333ea; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                      加载测试数据
+                    </button>
+                    <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
+                      从酒馆同步数据
+                    </button>
+                    <button @click="forceRefresh" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
+                      强制刷新
+                    </button>
+                  </div>
+                </details>
+              </div>
             </div>
             <div v-else class="sect-list-content">
               <div
@@ -40,9 +65,6 @@
               >
                 <div class="sect-icon">
                   <span class="sect-emoji">{{ getSectEmoji(sect.类型) }}</span>
-                  <div class="sect-level" :class="`level-${sect.等级}`">
-                    {{ sect.等级 }}
-                  </div>
                 </div>
 
                 <div class="sect-info">
@@ -76,7 +98,7 @@
                     {{ selectedSect.类型 }}
                   </span>
                   <span class="level-badge" :class="`level-${selectedSect.等级}`">
-                    {{ selectedSect.等级 }}宗门
+                    {{ formatSectLevel(selectedSect.等级) }}
                   </span>
                   <span class="power-badge">
                     实力 {{ selectedSect.powerRating || extractPowerFromDescription(selectedSect.实力评估) || '未知' }}
@@ -104,7 +126,7 @@
                   </div>
                   <div class="info-item">
                     <span class="info-label">总部位置</span>
-                    <span class="info-value">{{ selectedSect.位置 || '未知' }}</span>
+                    <span class="info-value">{{ getLocationName(selectedSect) }}</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">实力评估</span>
@@ -113,47 +135,31 @@
                 </div>
                 
                 <!-- 宗门领导层 -->
-                <div v-if="selectedSect.leadership || hasLeadershipInfo(selectedSect)" class="leadership-info">
+                <div v-if="selectedSect.leadership" class="leadership-info">
                   <h6 class="leadership-title">宗门领导</h6>
                   
-                  <!-- 使用 leadership 数据 -->
-                  <template v-if="selectedSect.leadership">
-                    <div class="leader-grid">
-                      <div class="leader-item primary-leader">
-                        <span class="leader-role">宗主</span>
-                        <span class="leader-name">{{ selectedSect.leadership.宗主 }}</span>
-                        <span class="leader-realm" v-if="selectedSect.leadership.宗主修为">{{ selectedSect.leadership.宗主修为 }}</span>
-                      </div>
-                      <div v-if="selectedSect.leadership.副宗主" class="leader-item">
-                        <span class="leader-role">副宗主</span>
-                        <span class="leader-name">{{ selectedSect.leadership.副宗主 }}</span>
-                      </div>
+                  <div class="leader-grid">
+                    <div class="leader-item primary-leader">
+                      <span class="leader-role">宗主</span>
+                      <span class="leader-name">{{ selectedSect.leadership.宗主 }}</span>
+                      <span class="leader-realm" v-if="selectedSect.leadership.宗主修为">{{ selectedSect.leadership.宗主修为 }}</span>
                     </div>
-                    
-                    <div class="sect-strength">
-                      <div class="strength-item">
-                        <span class="strength-label">长老数量</span>
-                        <span class="strength-value">{{ selectedSect.leadership.长老数量 }}位</span>
-                      </div>
-                      <div class="strength-item">
-                        <span class="strength-label">最强修为</span>
-                        <span class="strength-value peak-power">{{ selectedSect.leadership.最强修为 }}</span>
-                      </div>
+                    <div v-if="selectedSect.leadership.副宗主" class="leader-item">
+                      <span class="leader-role">副宗主</span>
+                      <span class="leader-name">{{ selectedSect.leadership.副宗主 }}</span>
                     </div>
-                  </template>
+                  </div>
                   
-                  <!-- 回退显示：从描述中提取信息 -->
-                  <template v-else>
-                    <div class="fallback-leadership">
-                      <p class="leadership-description">{{ selectedSect.描述 || selectedSect.实力评估 }}</p>
-                      <div class="sect-strength" v-if="selectedSect.特色">
-                        <div class="strength-item">
-                          <span class="strength-label">宗门特色</span>
-                          <span class="strength-value">{{ selectedSect.特色 }}</span>
-                        </div>
-                      </div>
+                  <div class="sect-strength">
+                    <div class="strength-item">
+                      <span class="strength-label">长老数量</span>
+                      <span class="strength-value">{{ selectedSect.leadership.长老数量 }}位</span>
                     </div>
-                  </template>
+                    <div class="strength-item">
+                      <span class="strength-label">最强修为</span>
+                      <span class="strength-value peak-power">{{ selectedSect.leadership.最强修为 }}</span>
+                    </div>
+                  </div>
                 </div>
                 
                 <div class="sect-description">
@@ -162,23 +168,16 @@
                 </div>
 
                 <!-- 宗门特色 -->
-                <div class="sect-specialties" v-if="selectedSect.specialties?.length || selectedSect.特色">
+                <div class="sect-specialties" v-if="getSectSpecialties(selectedSect).length > 0">
                   <h6 class="specialties-title">宗门特色</h6>
                   <div class="specialties-tags">
-                    <!-- 新格式：数组形式 -->
-                    <template v-if="selectedSect.specialties?.length">
-                      <span 
-                        v-for="specialty in selectedSect.specialties" 
-                        :key="specialty" 
-                        class="specialty-tag"
-                      >
-                        {{ specialty }}
-                      </span>
-                    </template>
-                    <!-- 旧格式：字符串形式 -->
-                    <template v-else-if="selectedSect.特色">
-                      <span class="specialty-tag">{{ selectedSect.特色 }}</span>
-                    </template>
+                    <span 
+                      v-for="specialty in getSectSpecialties(selectedSect)" 
+                      :key="specialty" 
+                      class="specialty-tag"
+                    >
+                      {{ specialty }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -417,7 +416,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import type { WorldFaction, SectMemberInfo } from '@/types/game';
 import { 
   Building, Users, Heart, UserPlus, Crown, CheckCircle, 
-  Gift, Scroll, Coins, Book, Search, RefreshCw, Loader2, 
+  Gift, Scroll, Coins, Book, Search, Loader2, 
   ChevronRight, Map
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
@@ -426,51 +425,80 @@ const characterStore = useCharacterStore();
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');
-const activeFilter = ref('all');
 
-// 获取世界中的宗门势力数据 - 统一数据源
+// 获取世界中的宗门势力数据 - 统一数据源，支持多种数据结构
 const sectSystemData = computed(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
-  const worldInfo = saveData?.世界信息;
   
-  if (!worldInfo?.势力信息) {
+  console.log('[宗门系统] 开始获取数据');
+  console.log('[宗门系统] saveData存在:', !!saveData);
+  console.log('[宗门系统] 完整存档数据结构:', Object.keys(saveData || {}));
+  
+  if (!saveData) {
+    console.log('[宗门系统] 存档数据不存在，返回空数组');
     return { availableSects: [] };
   }
   
-  // 筛选出宗门类型的势力 - 扩大筛选范围
-  const sectTypes = ['正道宗门', '魔道宗门', '中立宗门', '商会', '世家', '散修联盟', '家族', '宗门', '门派'];
-  const availableSects = worldInfo.势力信息.filter(faction => {
-    // 更宽松的匹配逻辑
-    return sectTypes.some(type => 
-      faction.类型.includes(type) || 
-      type.includes(faction.类型) ||
-      faction.类型.toLowerCase().includes('宗') ||
-      faction.类型.toLowerCase().includes('门') ||
-      faction.类型.toLowerCase().includes('派') ||
-      faction.类型.toLowerCase().includes('会') ||
-      faction.类型.toLowerCase().includes('家')
-    );
+  let availableSects: any[] = [];
+  
+  // 方案1：从世界信息.势力信息中获取宗门数据
+  const worldInfo = saveData.世界信息;
+  if (worldInfo?.势力信息) {
+    console.log('[宗门系统] 发现世界信息.势力信息，数量:', worldInfo.势力信息.length);
+    console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: any) => f.类型));
+    
+    // 筛选出宗门类型的势力
+    const sectFactions = worldInfo.势力信息.filter((faction: any) => {
+      if (!faction.类型) return false;
+      
+      const type = faction.类型.toLowerCase();
+      // 排除明显不是宗门的类型
+      const excludeTypes = ['秘境', '遗迹', '禁地', '森林', '山脉', '湖泊', '城池'];
+      const shouldExclude = excludeTypes.some(exclude => type.includes(exclude.toLowerCase()));
+      
+      if (shouldExclude) {
+        console.log('[宗门系统] 排除非宗门势力:', faction.名称, faction.类型);
+        return false;
+      }
+      
+      console.log('[宗门系统] 包含势力:', faction.名称, faction.类型);
+      return true;
+    });
+    
+    availableSects = sectFactions;
+  }
+  
+  // 方案2：从宗门系统.availableSects中获取数据
+  const sectSystem = (saveData as any).宗门系统;
+  if (sectSystem?.availableSects && sectSystem.availableSects.length > 0) {
+    console.log('[宗门系统] 发现宗门系统.availableSects，数量:', sectSystem.availableSects.length);
+    availableSects = [...availableSects, ...sectSystem.availableSects];
+  }
+  
+  // 方案3：检查是否有直接的宗门相关字段
+  Object.keys(saveData).forEach(key => {
+    const lowerKey = key.toLowerCase();
+    if ((lowerKey.includes('宗门') || lowerKey.includes('sect')) && Array.isArray((saveData as any)[key])) {
+      console.log('[宗门系统] 发现可能的宗门数据字段:', key, '数量:', (saveData as any)[key].length);
+      availableSects = [...availableSects, ...(saveData as any)[key]];
+    }
   });
   
-  console.log('[宗门系统] 势力信息总数:', worldInfo.势力信息.length);
-  console.log('[宗门系统] 筛选后宗门数量:', availableSects.length);
-  console.log('[宗门系统] 所有势力类型:', worldInfo.势力信息.map(f => f.类型));
+  // 去重
+  const uniqueSects = availableSects.filter((sect, index, arr) => 
+    arr.findIndex(s => s.名称 === sect.名称) === index
+  );
   
-  return { availableSects };
+  console.log('[宗门系统] 最终宗门数量:', uniqueSects.length);
+  console.log('[宗门系统] 最终宗门列表:', uniqueSects.map((s: any) => s.名称));
+  
+  return { availableSects: uniqueSects };
 });
 
 // 玩家的宗门信息
 const playerSectInfo = computed((): SectMemberInfo | undefined => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
   return saveData?.玩家角色状态?.宗门信息;
-});
-
-// 宗门状态文字
-const sectStatusText = computed(() => {
-  if (playerSectInfo.value) {
-    return `${playerSectInfo.value.sectName} ${playerSectInfo.value.position}`;
-  }
-  return `散修 · 可加入 ${sectSystemData.value.availableSects.filter(s => s.canJoin).length} 个宗门`;
 });
 
 // 获取所有宗门列表
@@ -499,25 +527,89 @@ const filteredSects = computed(() => {
 });
 
 // 从实力评估字符串中提取数值的辅助函数
-const extractPowerFromDescription = (description: string | undefined): number => {
-  if (!description) return 0;
+const extractPowerFromDescription = (description: string | number | undefined): number => {
+  if (typeof description === 'number') return description;
+  if (!description || typeof description !== 'string') return 0;
   const match = description.match(/(\d+)/);
   return match ? parseInt(match[1]) : 0;
 };
 
-// 检查是否有领导层信息
+// 获取位置名称
+const getLocationName = (sect: any): string => {
+  // 检查是否有直接的位置名称
+  if (sect.位置名称 && typeof sect.位置名称 === 'string') {
+    return sect.位置名称;
+  }
+  
+  // 从宗门名称推断位置（基于参考数据）
+  const locationMap: Record<string, string> = {
+    '太素道宫': '太素山',
+    '问剑崖': '洗剑池',
+    '万魂幡': '幽魂岛',  
+    '东方世家': '长春谷',
+    '四海通会': '通天城'
+  };
+  
+  if (sect.名称 && locationMap[sect.名称]) {
+    return locationMap[sect.名称];
+  }
+  
+  // 格式化坐标位置
+  return formatLocation(sect.位置);
+};
+
+// 格式化位置信息
+const formatLocation = (location: any): string => {
+  if (!location) return '未知';
+  if (typeof location === 'string') return location;
+  if (typeof location === 'object') {
+    // 如果是坐标对象，返回简单的描述
+    if (location.longitude && location.latitude) {
+      return `经度: ${location.longitude}, 纬度: ${location.latitude}`;
+    }
+  }
+  return '未知';
+};
+
+// 获取宗门特色列表
+const getSectSpecialties = (sect: any): string[] => {
+  const specialties: string[] = [];
+  
+  // 新格式：specialties数组
+  if (sect.specialties && Array.isArray(sect.specialties)) {
+    specialties.push(...sect.specialties);
+  }
+  
+  // 旧格式：特色字段（可能是数组或字符串）
+  if (sect.特色) {
+    if (Array.isArray(sect.特色)) {
+      specialties.push(...sect.特色);
+    } else if (typeof sect.特色 === 'string') {
+      specialties.push(sect.特色);
+    }
+  }
+  
+  // 去重
+  return Array.from(new Set(specialties));
+};
+
+// 检查是否有领导层信息（已简化，现在只检查leadership字段）
 const hasLeadershipInfo = (sect: WorldFaction): boolean => {
-  return !!(sect.描述 || sect.实力评估 || sect.特色);
+  return !!(sect.leadership);
 };
 
 // 工具函数
 const getSectEmoji = (type: string): string => {
   const emojiMap: Record<string, string> = {
     '正道宗门': '⛩️',
+    '修仙宗门': '⛩️',
     '魔道宗门': '🏴',
+    '魔道势力': '🏴',
     '中立宗门': '🏯',
-    '商会': '🏪',
+    '修仙世家': '🏘️',
     '世家': '🏘️',
+    '商会': '🏪',
+    '商会组织': '🏪',
     '散修联盟': '🤝'
   };
   return emojiMap[type] || '🏛️';
@@ -526,10 +618,14 @@ const getSectEmoji = (type: string): string => {
 const getSectTypeClass = (type: string): string => {
   const classMap: Record<string, string> = {
     '正道宗门': 'righteous',
+    '修仙宗门': 'righteous',
     '魔道宗门': 'demonic',
+    '魔道势力': 'demonic',
     '中立宗门': 'neutral',
-    '商会': 'merchant',
+    '修仙世家': 'family',
     '世家': 'family',
+    '商会': 'merchant',
+    '商会组织': 'merchant',
     '散修联盟': 'alliance'
   };
   return classMap[type] || 'neutral';
@@ -561,6 +657,15 @@ const formatJoinDate = (dateStr: string | undefined): string => {
   }
 };
 
+// 格式化宗门等级，避免重复显示"宗门"
+const formatSectLevel = (level: string): string => {
+  if (!level) return '未知';
+  // 如果等级已经包含"宗门"，直接返回
+  if (level.includes('宗门')) return level;
+  // 否则添加"宗门"后缀
+  return level + '宗门';
+};
+
 const selectSect = (sect: WorldFaction) => {
   selectedSect.value = selectedSect.value?.名称 === sect.名称 ? null : sect;
 };
@@ -575,8 +680,165 @@ const showContribution = () => toast.info('贡献兑换（功能开发中）');
 const showSectLibrary = () => toast.info('宗门藏书（功能开发中）');
 const showSectMembers = () => toast.info('同门师兄弟（功能开发中）');
 
+// 测试数据加载函数
+const loadTestData = () => {
+  if (!characterStore.activeSaveSlot?.存档数据) {
+    toast.warning('没有激活的存档数据');
+    return;
+  }
+
+  const testSects = [
+    {
+      名称: '太素道宫',
+      类型: '修仙宗门',
+      等级: '三流',
+      位置: '太素山',
+      势力范围: ['太素山', '周边地区'],
+      描述: '传承万载的古老宗门，讲求清静无为，道法自然。门人弟子不多，但个个根基扎实，尤擅符箓阵法，其护山大阵"两仪微尘阵"号称万法不侵。',
+      特色: '符箓之道',
+      实力评估: '96',
+      与玩家关系: '中立',
+      声望值: 0,
+      powerRating: 96,
+      specialties: ['符箓之道', '阵法禁制'],
+      memberCount: {
+        total: 800,
+        byRealm: {
+          练气: 500,
+          筑基: 200,
+          金丹: 80,
+          元婴: 15,
+          化神: 4,
+          炼虚: 1,
+          合体: 0,
+          大乘: 0,
+          渡劫: 0,
+          真仙: 0
+        },
+        byPosition: {
+          散修: 0,
+          外门弟子: 500,
+          内门弟子: 200,
+          核心弟子: 80,
+          传承弟子: 15,
+          执事: 3,
+          长老: 1,
+          副掌门: 0,
+          掌门: 1
+        }
+      },
+      leadership: {
+        宗主: '太素真人',
+        宗主修为: '化神中期',
+        长老数量: 1,
+        最强修为: '化神中期'
+      }
+    },
+    {
+      名称: '问剑崖',
+      类型: '修仙宗门',
+      等级: '三流',
+      位置: '神霄洲',
+      势力范围: ['洗剑池', '剑意谷'],
+      描述: '神霄洲的剑修圣地，门人皆是好勇斗狠之辈。其道统核心为"以战养战"，认为唯有在生死搏杀中方能勘破剑道真意。行事霸道，护短至极。',
+      特色: '庚金剑诀',
+      实力评估: '94',
+      与玩家关系: '中立',
+      声望值: 0,
+      powerRating: 94,
+      specialties: ['庚金剑诀', '剑意淬体'],
+      memberCount: {
+        total: 600,
+        byRealm: {
+          练气: 400,
+          筑基: 150,
+          金丹: 40,
+          元婴: 8,
+          化神: 2,
+          炼虚: 0,
+          合体: 0,
+          大乘: 0,
+          渡劫: 0,
+          真仙: 0
+        },
+        byPosition: {
+          散修: 0,
+          外门弟子: 400,
+          内门弟子: 150,
+          核心弟子: 40,
+          传承弟子: 8,
+          执事: 1,
+          长老: 1,
+          副掌门: 0,
+          掌门: 1
+        }
+      }
+    }
+  ];
+
+  // 直接注入测试数据
+  if (!characterStore.activeSaveSlot?.存档数据?.世界信息) {
+    if (characterStore.activeSaveSlot?.存档数据) {
+      characterStore.activeSaveSlot.存档数据.世界信息 = {
+        世界名称: '朝天大陆',
+        世界背景: '此方世界名为"朝天大陆"，乃是一处天道完整、灵气充沛的上善之地。其核心法则是"万灵竞渡，一步登天"，无论是人、妖、精、怪，皆有缘法踏上修行之路，叩问长生。',
+        大陆信息: [],
+        势力信息: [],
+        地点信息: [],
+        生成信息: {
+          生成时间: new Date().toISOString(),
+          世界背景: '此方世界名为"朝天大陆"，乃是一处天道完整、灵气充沛的上善之地。',
+          世界纪元: '朝天历元年',
+          特殊设定: [],
+          版本: '1.0'
+        }
+      };
+    }
+  }
+  if (characterStore.activeSaveSlot?.存档数据?.世界信息) {
+    characterStore.activeSaveSlot.存档数据.世界信息.势力信息 = testSects;
+  }
+  
+  // 立即保存
+  characterStore.commitToStorage();
+  toast.success('测试数据已加载！');
+};
+
+// 从酒馆同步数据
+const syncFromTavern = async () => {
+  try {
+    await characterStore.syncFromTavern();
+    toast.success('已从酒馆同步数据');
+  } catch (error) {
+    console.error('[宗门系统] 同步失败:', error);
+    toast.error('同步失败: ' + (error instanceof Error ? error.message : '未知错误'));
+  }
+};
+
+// 强制刷新
+const forceRefresh = () => {
+  characterStore.reloadFromStorage();
+  toast.info('已强制刷新数据');
+};
+
 onMounted(() => {
   console.log('[宗门系统] 宗门事务面板已载入');
+  console.log('[宗门系统] characterStore状态:', characterStore);
+  console.log('[宗门系统] activeSaveSlot:', characterStore.activeSaveSlot);
+  console.log('[宗门系统] 存档数据:', characterStore.activeSaveSlot?.存档数据);
+  console.log('[宗门系统] 世界信息:', characterStore.activeSaveSlot?.存档数据?.世界信息);
+  console.log('[宗门系统] 势力信息:', characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息);
+  console.log('[宗门系统] sectSystemData:', sectSystemData.value);
+  console.log('[宗门系统] filteredSects:', filteredSects.value);
+  
+  // 添加数据监控
+  setInterval(() => {
+    console.log('[宗门系统] 定时检查 - 筛选后宗门数量:', filteredSects.value?.length || 0);
+    console.log('[宗门系统] 定时检查 - 是否加载中:', isLoading.value);
+    console.log('[宗门系统] 定时检查 - 存档数据存在:', !!characterStore.activeSaveSlot?.存档数据);
+    console.log('[宗门系统] 定时检查 - 世界信息存在:', !!characterStore.activeSaveSlot?.存档数据?.世界信息);
+    console.log('[宗门系统] 定时检查 - 势力信息存在:', !!characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息);
+  }, 5000);
 });
 </script>
 
@@ -862,6 +1124,8 @@ onMounted(() => {
 .type-badge.type-demonic { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 .type-badge.type-neutral { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
 .type-badge.type-merchant { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.type-badge.type-family { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+.type-badge.type-alliance { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
 
 .level-badge { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
 .power-badge { background: rgba(34, 197, 94, 0.1); color: #22c55e; }

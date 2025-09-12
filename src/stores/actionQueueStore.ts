@@ -1,0 +1,158 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+
+export interface GameAction {
+  id: string;
+  type: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'custom';
+  itemName: string;
+  itemType?: string;
+  description: string;
+  timestamp: number;
+}
+
+/**
+ * 操作行动暂存系统
+ * 用于存储玩家的游戏操作（如修炼功法、装备法宝等），
+ * 在下次发送AI消息时作为附加提示词发送
+ */
+export const useActionQueueStore = defineStore('actionQueue', () => {
+  // 操作队列
+  const pendingActions = ref<GameAction[]>([]);
+  
+  /**
+   * 添加操作到队列
+   */
+  const addAction = (action: Omit<GameAction, 'id' | 'timestamp'>) => {
+    const newAction: GameAction = {
+      ...action,
+      id: generateActionId(),
+      timestamp: Date.now()
+    };
+    
+    // 检查是否已经有相同类型的操作，如果有则替换
+    const existingIndex = pendingActions.value.findIndex(
+      a => a.type === action.type && a.itemName === action.itemName
+    );
+    
+    if (existingIndex !== -1) {
+      pendingActions.value[existingIndex] = newAction;
+    } else {
+      pendingActions.value.push(newAction);
+    }
+    
+    console.log('[操作队列] 添加操作:', newAction);
+    saveToStorage();
+  };
+  
+  /**
+   * 移除特定操作
+   */
+  const removeAction = (actionId: string) => {
+    const index = pendingActions.value.findIndex(a => a.id === actionId);
+    if (index !== -1) {
+      const removed = pendingActions.value.splice(index, 1)[0];
+      console.log('[操作队列] 移除操作:', removed);
+      saveToStorage();
+      return removed;
+    }
+    return null;
+  };
+  
+  /**
+   * 清空所有操作
+   */
+  const clearActions = () => {
+    console.log('[操作队列] 清空操作队列，共', pendingActions.value.length, '个操作');
+    pendingActions.value = [];
+    saveToStorage();
+  };
+  
+  /**
+   * 获取格式化的操作提示词
+   */
+  const getActionPrompt = (): string => {
+    if (pendingActions.value.length === 0) {
+      return '';
+    }
+    
+    const actionTexts = pendingActions.value.map(action => {
+      switch (action.type) {
+        case 'cultivate':
+          return `修炼了《${action.itemName}》功法`;
+        case 'equip':
+          return `装备了《${action.itemName}》${action.itemType || '法宝'}`;
+        case 'use':
+          return `使用了《${action.itemName}》`;
+        case 'unequip':
+          return `卸下了《${action.itemName}》装备`;
+        case 'discard':
+          return `丢弃了《${action.itemName}》`;
+        case 'custom':
+          return action.description;
+        default:
+          return action.description;
+      }
+    });
+    
+    return `\n\n【玩家最近操作】\n在本轮对话前，玩家进行了以下操作：\n${actionTexts.map(text => `• ${text}`).join('\n')}\n\n请在回应中适当反映这些操作的效果和结果。`;
+  };
+  
+  /**
+   * 消费操作队列（获取提示词后清空）
+   */
+  const consumeActions = (): string => {
+    const prompt = getActionPrompt();
+    if (prompt) {
+      clearActions();
+    }
+    return prompt;
+  };
+  
+  /**
+   * 生成操作ID
+   */
+  const generateActionId = (): string => {
+    return `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+  
+  /**
+   * 保存到localStorage
+   */
+  const saveToStorage = () => {
+    try {
+      localStorage.setItem('dao_action_queue', JSON.stringify(pendingActions.value));
+    } catch (error) {
+      console.warn('[操作队列] 保存到localStorage失败:', error);
+    }
+  };
+  
+  /**
+   * 从localStorage加载
+   */
+  const loadFromStorage = () => {
+    try {
+      const stored = localStorage.getItem('dao_action_queue');
+      if (stored) {
+        const actions = JSON.parse(stored) as GameAction[];
+        // 过滤掉过老的操作（超过1小时）
+        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        pendingActions.value = actions.filter(action => action.timestamp > oneHourAgo);
+        console.log('[操作队列] 从存储加载', pendingActions.value.length, '个操作');
+      }
+    } catch (error) {
+      console.warn('[操作队列] 从localStorage加载失败:', error);
+    }
+  };
+  
+  // 初始化时加载存储的数据
+  loadFromStorage();
+  
+  return {
+    pendingActions,
+    addAction,
+    removeAction,
+    clearActions,
+    getActionPrompt,
+    consumeActions
+  };
+});

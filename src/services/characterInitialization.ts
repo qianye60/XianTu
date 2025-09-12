@@ -153,8 +153,8 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     },
     声望: 0,
     位置: {
-      描述: "", // 初始为空，由后续逻辑填充
-      坐标: { X: Math.floor(Math.random() * 1000), Y: Math.floor(Math.random() * 1000) }
+      描述: "安静的山村", // 初始描述，会被后续的世界生成覆盖
+      坐标: { X: 120, Y: 30 } // 使用合理的默认坐标，会被后续的世界生成覆盖
     },
     气血: { 当前: 初始气血, 最大: 初始气血 },
     灵气: { 当前: 初始灵气, 最大: 初始灵气 }, // 开局灵气为满
@@ -565,18 +565,37 @@ export async function initializeCharacter(
       };
       await helper.insertOrAssignVariables(globalVars, { type: 'global' });
 
-      // [核心重构] 世界数据优先级处理
+      // [核心重构] 世界数据优先级处理和角色世界匹配验证
       // 1. 优先使用AI返回的缓存世界数据（最完整）
       // 2. 其次使用生成器直接获取的数据
       // 3. 最后使用基本备份数据
       currentSaveData.角色基础信息 = baseInfo;
       
+      // 确保角色世界信息与用户选择一致
+      if (baseInfo.世界 !== world.name) {
+        console.warn('[角色初始化] 角色基础信息.世界与选择的world.name不一致，进行修正');
+        console.warn(`[角色初始化] 角色世界: ${baseInfo.世界}, 选择世界: ${world.name}`);
+        baseInfo.世界 = world.name; // 修正角色世界信息
+      }
+      
       if (initialMessageResponse.cachedWorldData) {
         console.log('[角色初始化] 使用AI缓存的世界信息（最优先级）');
         currentSaveData.世界信息 = initialMessageResponse.cachedWorldData;
+        
+        // 确保世界信息中的世界名称与用户选择一致
+        if (currentSaveData.世界信息 && currentSaveData.世界信息.世界名称 !== world.name) {
+          console.log('[角色初始化] 修正AI缓存世界信息中的世界名称');
+          currentSaveData.世界信息.世界名称 = world.name;
+        }
       } else if (worldDataFromGenerator) {
         console.log('[角色初始化] 使用CultivationWorldGenerator生成的世界信息');
         currentSaveData.世界信息 = worldDataFromGenerator;
+        
+        // 确保世界信息中的世界名称与用户选择一致
+        if (currentSaveData.世界信息 && currentSaveData.世界信息.世界名称 !== world.name) {
+          console.log('[角色初始化] 修正生成器世界信息中的世界名称');
+          currentSaveData.世界信息.世界名称 = world.name;
+        }
       } else if (!currentSaveData.世界信息) {
         // 只有在既没有缓存数据，也没有生成器数据，也没有现有世界信息时，才使用基本备份
         console.warn('[角色初始化] 未找到完整世界信息，使用基本世界数据作为备份');
@@ -595,7 +614,11 @@ export async function initializeCharacter(
           }
         };
       } else {
-        console.log('[角色初始化] 保留现有的世界信息数据');
+        console.log('[角色初始化] 保留现有的世界信息数据，但修正世界名称');
+        // 确保现有世界信息的名称与选择一致
+        if (currentSaveData.世界信息 && currentSaveData.世界信息.世界名称 !== world.name) {
+          currentSaveData.世界信息.世界名称 = world.name;
+        }
       }
       
       // 世界舆图已经在 processGmResponse 流程中被写入 currentSaveData

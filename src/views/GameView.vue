@@ -260,7 +260,6 @@ watch(isPanelOpen, (isOpen) => {
   height: 48px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 0 8px 8px 0;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -276,26 +275,27 @@ watch(isPanelOpen, (isOpen) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* 左侧收缩按钮 */
 .collapse-btn.left {
   left: 240px;
   border-radius: 0 8px 8px 0;
+  transition: left 0.3s ease, background 0.2s ease;
 }
 
-.collapse-btn.right {
-  right: 280px;
-  border-radius: 8px 0 0 8px;
-}
-
-.left-sidebar.collapsed + .collapse-btn.left {
+/* 左侧栏收缩时，按钮移动到最左侧 */
+.left-sidebar.collapsed ~ .collapse-btn.left {
   left: 0;
 }
 
-/* 右侧收缩按钮位置调整 */
+/* 右侧收缩按钮 */
 .collapse-btn.right {
   right: 280px;
   border-radius: 8px 0 0 8px;
+  transition: right 0.3s ease, background 0.2s ease;
 }
 
+/* 右侧栏收缩时，按钮移动到最右侧 */
+.right-panel-area.collapsed ~ .collapse-btn.right,
 .collapse-btn.right.collapsed {
   right: 0;
 }
@@ -437,6 +437,46 @@ watch(isPanelOpen, (isOpen) => {
 
 [data-theme="dark"] .collapse-btn.collapsed:hover {
   background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+}
+
+/* 移动端适配 - 隐藏收缩按钮 */
+@media (max-width: 768px) {
+  .collapse-btn {
+    display: none;
+  }
+  
+  .left-sidebar {
+    width: 200px;
+  }
+  
+  .right-panel-area {
+    width: 240px;
+  }
+  
+  .game-content {
+    gap: 0;
+  }
+}
+
+/* 超小屏幕适配 */
+@media (max-width: 480px) {
+  .left-sidebar {
+    width: 180px;
+  }
+  
+  .right-panel-area {
+    width: 200px;
+  }
+  
+  /* 小屏幕上面板全屏显示 */
+  .panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+  }
 }
 
 [data-theme="dark"] .mobile-nav {

@@ -53,7 +53,7 @@ export const GM_COMMAND_TUTORIAL = `
 
 // 新增重要地点（可选）
 {"action":"push","path":"character.saveData.世界信息.地点信息","value":{
-  "名称":"妻家","类型":"city_town","描述":"初次登门","位置":{"longitude":105.12,"latitude":31.98},"重要":true
+  "名称":"重要地点名称","类型":"city_town","描述":"地点描述","位置":{"longitude":105.12,"latitude":31.98},"重要":true
 }}
 \`\`\`
 
@@ -63,13 +63,13 @@ export const GM_COMMAND_TUTORIAL = `
 {"action": "modify", "path": "character.saveData.玩家角色状态.气血.当前", "value": "+50"}
 
 // 位置更新  
-{"action": "set", "path": "character.saveData.玩家角色状态.位置", "value": {"描述": "青云宗后山", "坐标": {"X": 1250, "Y": 890}}}
+{"action": "set", "path": "character.saveData.玩家角色状态.位置", "value": {"描述": "宗门后山", "坐标": {"经度": 1250, "纬度": 890}}}
 
 // 获得物品
-{"action": "add", "path": "character.saveData.背包.物品", "value": {"名称": "回复丹", "品质": "黄品5级", "数量": 3}}
+{"action": "add", "path": "character.saveData.背包.物品", "value": {"名称": "疗伤丹药", "品质": "黄品5级", "数量": 3}}
 
 // 更新关系
-{"action": "set", "path": "character.saveData.人物关系.张三", "value": {"好感度": 75, "关系类型": "朋友"}}
+{"action": "set", "path": "character.saveData.人物关系.人物姓名", "value": {"好感度": 75, "关系类型": "朋友"}}
 
 // 战力计算更新
 {"action": "set", "path": "character.saveData.战力评估", "value": {"总战力": 1350, "基础战力": 950, "装备加成": 300, "状态加成": 100}}

@@ -399,7 +399,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       
       if (tavernSaveData) {
         // 数据整合和清理：确保数据结构一致性
-        let cleanedSaveData = {
+        const cleanedSaveData = {
           ...tavernSaveData
         };
         
@@ -408,12 +408,22 @@ export const useCharacterStore = defineStore('characterV3', () => {
           debug.log('角色商店', '检测到嵌套的character.saveData结构，进行数据修复');
           const nestedSaveData = (cleanedSaveData as any).character.saveData;
           
-          // 如果嵌套数据的背包物品更完整，使用嵌套数据
-          if (nestedSaveData.背包 && nestedSaveData.背包.物品 && 
-              Object.keys(nestedSaveData.背包.物品).length > 0 &&
-              (!cleanedSaveData.背包?.物品 || Object.keys(cleanedSaveData.背包.物品).length === 0)) {
-            debug.log('角色商店', `使用嵌套数据中的背包信息，物品数量: ${Object.keys(nestedSaveData.背包.物品).length}`);
-            cleanedSaveData.背包 = nestedSaveData.背包;
+          // 修复背包数据重复问题：嵌套数据的背包更完整且有实际物品时，优先使用嵌套数据
+          if (nestedSaveData.背包) {
+            const nestedItems = Object.keys(nestedSaveData.背包.物品 || {}).length;
+            const nestedSpirit = (nestedSaveData.背包.灵石?.下品 || 0) + (nestedSaveData.背包.灵石?.中品 || 0) + 
+                                (nestedSaveData.背包.灵石?.上品 || 0) + (nestedSaveData.背包.灵石?.极品 || 0);
+            const topItems = Object.keys(cleanedSaveData.背包?.物品 || {}).length;
+            const topSpirit = (cleanedSaveData.背包?.灵石?.下品 || 0) + (cleanedSaveData.背包?.灵石?.中品 || 0) + 
+                             (cleanedSaveData.背包?.灵石?.上品 || 0) + (cleanedSaveData.背包?.灵石?.极品 || 0);
+            
+            if ((nestedItems > 0 || nestedSpirit > 0) && (topItems === 0 && topSpirit === 0)) {
+              debug.log('角色商店', `使用嵌套数据中的背包信息 - 物品: ${nestedItems}个, 灵石: ${nestedSpirit}个`);
+              cleanedSaveData.背包 = nestedSaveData.背包;
+            } else if (nestedItems > topItems || nestedSpirit > topSpirit) {
+              debug.log('角色商店', `嵌套数据背包更完整，替换顶层背包数据 - 嵌套物品: ${nestedItems}, 顶层物品: ${topItems}`);
+              cleanedSaveData.背包 = nestedSaveData.背包;
+            }
           }
           
           // 如果嵌套数据有世界信息而顶层没有，使用嵌套数据

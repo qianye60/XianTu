@@ -350,13 +350,13 @@ export interface WorldContinent {
 /** 世界势力信息 - 统一的宗门/势力数据结构 */
 export interface WorldFaction {
   名称: string;
-  类型: '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '家族' | '散修联盟' | '秘境' | string;
-  等级: '一流' | '二流' | '三流' | '不入流' | string;
-  位置: string;
-  势力范围: string[];
+  类型: '修仙宗门' | '魔道宗门' | '中立宗门' | '修仙世家' | '魔道势力' | '商会组织' | '散修联盟' | string;
+  等级: '超级' | '一流' | '二流' | '三流' | string;
+  位置?: string | { longitude: number; latitude: number }; // 支持字符串描述或坐标
+  势力范围?: string[] | { longitude: number; latitude: number }[]; // 支持字符串数组或坐标数组  
   描述: string;
-  特色: string;
-  实力评估: string;
+  特色: string | string[]; // 支持字符串或字符串数组
+  实力评估: string | number; // 支持字符串描述或数字评分
   与玩家关系?: '敌对' | '中立' | '友好' | '盟友' | string;
   声望值?: number;
   
@@ -371,20 +371,23 @@ export interface WorldFaction {
     byPosition: Record<SectPosition, number>;
   };
   
-  // 宗门领导层
+  // 宗门领导层 - 新增必需字段
   leadership?: {
     宗主: string;
-    宗主修为: string;
+    宗主修为: string; // 如"化神中期"、"元婴后期"等
     副宗主?: string;
     长老数量: number;
-    最强修为: string;
+    最强修为: string; // 宗门内最高修为境界
+    核心弟子数?: number;
+    内门弟子数?: number;
+    外门弟子数?: number;
   };
   
   // 势力范围详情
   territoryInfo?: {
-    controlledAreas: string[]; // 替代 势力范围 字符串数组
-    influenceRange: string;
-    strategicValue: number; // 1-10
+    controlledAreas?: string[]; // 替代 势力范围 字符串数组
+    influenceRange?: string;
+    strategicValue?: number; // 1-10
   };
   
   // 加入相关

@@ -25,6 +25,40 @@ ${generateSystemPrompt({ includeRealmSystem: true, includeItemQuality: false })}
 
 ${ITEM_QUALITY_SYSTEM}
 
+## **宗门势力系统**
+**势力等级划分**:
+- 🏔️ **超级宗门** (95-100分): 统治一方的霸主级势力，拥有化神期以上强者，成员2000-5000人
+- ⭐ **一流宗门** (85-94分): 实力雄厚的顶级宗门，拥有元婴期强者坐镇，成员1000-3000人
+- 🔥 **二流宗门** (70-84分): 有一定影响力的知名宗门，拥有金丹期强者，成员500-1500人  
+- 📿 **三流宗门** (60-69分): 地方性小宗门，主要以筑基期修士为主，成员200-800人
+
+**宗门组织架构**:
+- **领导层**: 宗主(掌门)、副宗主、长老团
+- **弟子体系**: 外门弟子→内门弟子→核心弟子→传承弟子
+- **职务体系**: 普通弟子→执事→长老→副掌门→掌门
+- **修为分布**: 按境界统计各级修士数量
+
+**更新宗门数据时的字段结构**:
+\`\`\`json
+{
+  "名称": "宗门名称",
+  "类型": "修仙宗门/修仙世家/魔道势力", 
+  "等级": "超级/一流/二流/三流",
+  "实力评估": 数字分数,
+  "leadership": {
+    "宗主": "姓名",
+    "宗主修为": "境界",
+    "长老数量": 数字,
+    "最强修为": "最高境界"
+  },
+  "memberCount": {
+    "total": 总人数,
+    "byRealm": {"练气": 数量, "筑基": 数量, "金丹": 数量, "元婴": 数量, "化神": 数量, ...},
+    "byPosition": {"外门弟子": 数量, "内门弟子": 数量, "核心弟子": 数量, "长老": 数量, ...}
+  }
+}
+\`\`\`
+
 ${GM_COMMAND_TUTORIAL}
 
 ## 位置与地图更新简则（请严格遵守）
@@ -47,9 +81,9 @@ ${GM_COMMAND_TUTORIAL}
 \`\`\`json
 "update": [
   {"action":"set","path":"player_location_marker.coordinates","value":{"longitude":105.12,"latitude":31.98}},
-  {"action":"set","path":"character.saveData.玩家角色状态.位置.描述","value":"初次到访妻家"},
+  {"action":"set","path":"character.saveData.玩家角色状态.位置.描述","value":"初次到访重要地点"},
   {"action":"push","path":"character.saveData.世界信息.地点信息","value":
-    {"名称":"妻家","类型":"city_town","描述":"婚后常驻的家门前","位置":{"longitude":105.12,"latitude":31.98},"重要":true}
+    {"名称":"重要地点名称","类型":"city_town","描述":"地点描述","位置":{"longitude":105.12,"latitude":31.98},"重要":true}
   }
 ]
 \`\`\`
@@ -127,9 +161,9 @@ export const MAP_LOCATION_GUIDE = `
 \`\`\`json
 "tavern_commands": [
   {"action":"set","scope":"chat","key":"player_location_marker.coordinates","value":{"longitude":105.12,"latitude":31.98}},
-  {"action":"set","scope":"chat","key":"character.saveData.玩家角色状态.位置.描述","value":"初次到访妻家"},
+  {"action":"set","scope":"chat","key":"character.saveData.玩家角色状态.位置.描述","value":"初次到访重要地点"},
   {"action":"push","scope":"chat","key":"character.saveData.世界信息.地点信息","value":
-    {"名称":"妻家","类型":"city_town","描述":"婚后常驻的家门前","位置":{"longitude":105.12,"latitude":31.98},"重要":true}
+    {"名称":"重要地点名称","类型":"city_town","描述":"地点描述","位置":{"longitude":105.12,"latitude":31.98},"重要":true}
   }
 ]
 \`\`\``;

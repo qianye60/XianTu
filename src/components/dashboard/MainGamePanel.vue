@@ -166,6 +166,7 @@
 import { ref, onMounted, nextTick, computed } from 'vue';
 import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
@@ -201,6 +202,7 @@ interface ActionItem {
 }
 
 const characterStore = useCharacterStore();
+const actionQueue = useActionQueueStore();
 const memorySystem = MultiLayerMemorySystem.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
 const gameStateManager = GameStateManager.getInstance();
@@ -514,9 +516,16 @@ const sendMessage = async () => {
   }
   
   const userMessage = inputText.value.trim();
+  
+  // 获取并消费操作队列中的提示词
+  const actionPrompt = actionQueue.consumeActions();
+  
+  // 将操作提示词附加到用户消息
+  const finalUserMessage = actionPrompt ? userMessage + actionPrompt : userMessage;
+  
   inputText.value = '';
   
-  // 添加用户消息
+  // 添加用户消息（显示原始消息）
   addMessage({
     type: 'player',
     content: userMessage,
@@ -554,7 +563,7 @@ const sendMessage = async () => {
     
     try {
       aiResponse = await bidirectionalSystem.processPlayerAction(
-        userMessage,
+        finalUserMessage,
         character,
         gameState,
         {

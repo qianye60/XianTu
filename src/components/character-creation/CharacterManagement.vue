@@ -45,8 +45,30 @@
         </div>
       </div>
       
+      <!-- 移动端头部导航 -->
+      <div class="mobile-header">
+        <button 
+          class="mobile-menu-btn"
+          @click="toggleCharacterPanel"
+          :class="{ 'active': isCharacterPanelOpen }"
+        >
+          <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span class="menu-text">角色列表</span>
+        </button>
+        <div class="mobile-title">
+          <h2>角色管理</h2>
+          <div v-if="selectedCharacter" class="selected-info">
+            {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}模式
+          </div>
+        </div>
+      </div>
+      
       <!-- 遮罩层 -->
-      <div v-if="isCharacterPanelOpen" class="panel-overlay" @click="toggleCharacterPanel"></div>
+      <div v-if="isCharacterPanelOpen && isMobile" class="panel-overlay" @click="isCharacterPanelOpen = false"></div>
 
       <!-- 无角色提示 -->
       <div v-if="Object.keys(characterStore.rootState.角色列表).length === 0" class="empty-state">
@@ -478,9 +500,14 @@ const screenWidth = ref(window.innerWidth);
 // 监听屏幕尺寸变化
 const updateScreenWidth = () => {
   screenWidth.value = window.innerWidth;
-  // 在768px-480px之间时默认展开面板
-  if (screenWidth.value > 480 && screenWidth.value <= 768) {
+  
+  // 根据屏幕尺寸调整面板状态
+  if (screenWidth.value > 768) {
+    // 桌面端：始终显示面板
     isCharacterPanelOpen.value = true;
+  } else if (screenWidth.value <= 480) {
+    // 小屏手机：默认关闭面板，避免遮挡主要内容
+    isCharacterPanelOpen.value = false;
   }
 };
 
@@ -519,6 +546,9 @@ const selectedCharacter = computed(() => {
   return characterStore.rootState.角色列表[selectedCharId.value];
 });
 
+// 移动端判断
+const isMobile = computed(() => screenWidth.value <= 768);
+
 // 方法
 const toggleCharacterPanel = () => {
   isCharacterPanelOpen.value = !isCharacterPanelOpen.value;
@@ -526,7 +556,11 @@ const toggleCharacterPanel = () => {
 
 const selectCharacter = (charId: string) => {
   selectedCharId.value = charId;
-  isCharacterPanelOpen.value = false; // 在移动端选择后自动关闭面板
+  
+  // 在移动端选择角色后自动关闭面板
+  if (isMobile.value) {
+    isCharacterPanelOpen.value = false;
+  }
 };
 
 const getSaveCount = (profile: CharacterProfile) => {
@@ -1964,6 +1998,92 @@ const closeModal = () => {
 }
 
 
+/* 移动端头部导航 */
+.mobile-header {
+  display: none;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  padding: 1rem;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.mobile-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.mobile-menu-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.mobile-menu-btn.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 16px;
+  height: 12px;
+}
+
+.hamburger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: currentColor;
+  border-radius: 1px;
+  transition: transform 0.2s ease;
+}
+
+.mobile-menu-btn.active .hamburger span:nth-child(1) {
+  transform: rotate(45deg) translate(3px, 3px);
+}
+
+.mobile-menu-btn.active .hamburger span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-btn.active .hamburger span:nth-child(3) {
+  transform: rotate(-45deg) translate(3px, -3px);
+}
+
+.mobile-title {
+  flex: 1;
+}
+
+.mobile-title h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.mobile-title .selected-info {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.2rem;
+}
+
 /* 响应式 - 优化的手机端适配 */
 @media (max-width: 1200px) {
   .management-layout {
@@ -1994,7 +2114,12 @@ const closeModal = () => {
   }
 }
 
+/* 平板适配 - 768px及以下 */
 @media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+  }
+
   .top-header {
     padding: 0.8rem 1rem;
   }
@@ -2007,61 +2132,55 @@ const closeModal = () => {
     font-size: 1.4rem;
   }
 
-  .btn-toggle-panel {
-    display: flex;
-  }
-
   .management-layout {
-    /* 保持双栏布局，但调整比例 */
-    grid-template-columns: 280px 1fr;
-    gap: 0;
+    grid-template-columns: 1fr;
+    position: relative;
+    overflow: hidden;
   }
 
   .characters-panel {
-    /* 在平板模式下仍然显示，但可以通过按钮控制 */
-    position: relative;
-    transform: none;
-    width: 100%;
-    max-width: none;
-    z-index: auto;
-    box-shadow: none;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface-transparent);
-    /* 添加折叠功能 */
-    transition: margin-left 0.3s ease-in-out;
-  }
-
-  .characters-panel:not(.is-open) {
-    margin-left: -280px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 320px;
+    z-index: 1200;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+    border: none;
+    background: var(--color-surface);
+    backdrop-filter: blur(20px);
   }
 
   .characters-panel.is-open {
-    margin-left: 0;
+    transform: translateX(0);
   }
 
-  /* 当左侧面板隐藏时，右侧面板占满宽度 */
   .saves-panel {
-    transition: margin-left 0.3s ease-in-out;
+    width: 100%;
+    border-left: none;
   }
 
   .panel-header {
-    padding: 1rem;
+    padding: 1rem 1.2rem;
   }
 
   .saves-container, .online-saves-container {
-    padding: 1rem;
-    max-height: calc(100vh - 150px);
+    padding: 1rem 1.2rem;
+    max-height: calc(100vh - 200px);
   }
 
   .auto-saves-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 0.8rem;
   }
 
   .manual-saves-grid {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: 1fr;
     gap: 0.8rem;
-    max-height: 50vh;
+    max-height: 60vh;
   }
 
   .modal-content {
@@ -2080,11 +2199,12 @@ const closeModal = () => {
   }
 
   .characters-grid {
-    padding: 0.8rem;
+    padding: 1rem;
   }
 
   .character-card {
     padding: 1rem;
+    margin-bottom: 0.8rem;
   }
 
   .card-header {
@@ -2102,53 +2222,73 @@ const closeModal = () => {
   }
 }
 
-@media (max-width: 480px) {
-  .top-header {
-    padding: 0.6rem 0.8rem;
+/* 大屏手机适配 - 640px及以下 */
+@media (max-width: 640px) {
+  .mobile-header {
+    padding: 0.8rem 1rem;
   }
 
-  .page-title {
-    font-size: 1.2rem;
+  .mobile-menu-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
   }
 
-  .btn-back {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
+  .mobile-title h2 {
+    font-size: 1.1rem;
   }
 
-  /* 在真正的手机屏幕上才使用固定定位侧滑 */
-  .management-layout {
-    grid-template-columns: 1fr;
-    position: relative;
+  .mobile-title .selected-info {
+    font-size: 0.75rem;
   }
 
   .characters-panel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
     width: 90%;
+    max-width: 300px;
+  }
+
+  .character-card {
+    padding: 0.9rem;
+  }
+
+  .save-card, .online-save-card {
+    padding: 1rem;
+  }
+
+  .auto-saves-grid {
+    gap: 0.6rem;
+  }
+
+  .manual-saves-grid {
+    gap: 0.6rem;
+  }
+}
+
+/* 小屏手机适配 - 480px及以下 */
+@media (max-width: 480px) {
+  .mobile-header {
+    padding: 0.6rem 0.8rem;
+  }
+
+  .mobile-menu-btn {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .mobile-title h2 {
+    font-size: 1rem;
+  }
+
+  .hamburger {
+    width: 14px;
+    height: 10px;
+  }
+
+  .characters-panel {
+    width: 95%;
     max-width: 280px;
-    z-index: 1200;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease-in-out;
-    box-shadow: 4px 0 20px rgba(0,0,0,0.3);
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface);
-    margin-left: 0; /* 重置margin */
-  }
-
-  .characters-panel.is-open {
-    transform: translateX(0);
-  }
-
-  /* 重置saves-panel的margin */
-  .saves-panel {
-    margin-left: 0;
   }
 
   .characters-grid {
-    padding: 0.5rem;
+    padding: 0.8rem;
   }
 
   .character-card {
@@ -2158,6 +2298,7 @@ const closeModal = () => {
 
   .card-header {
     margin-bottom: 0.8rem;
+    gap: 0.6rem;
   }
 
   .char-avatar {
@@ -2182,22 +2323,11 @@ const closeModal = () => {
 
   .saves-container, .online-saves-container {
     padding: 0.8rem;
-    max-height: calc(100vh - 120px);
-  }
-
-  .auto-saves-grid {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-  }
-
-  .manual-saves-grid {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-    max-height: 45vh;
+    max-height: calc(100vh - 140px);
   }
 
   .save-card, .online-save-card {
-    padding: 1rem;
+    padding: 0.9rem;
   }
 
   .stat-grid {
@@ -2241,26 +2371,27 @@ const closeModal = () => {
   }
 }
 
+/* 超小屏适配 - 360px及以下 */
 @media (max-width: 360px) {
-  .top-header {
+  .mobile-header {
     padding: 0.5rem;
   }
 
-  .header-left-side {
-    gap: 0.5rem;
+  .mobile-menu-btn {
+    padding: 0.3rem 0.4rem;
+    gap: 0.3rem;
   }
 
-  .page-title {
-    font-size: 1.1rem;
+  .mobile-title h2 {
+    font-size: 0.95rem;
   }
 
-  .btn-back {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
+  .mobile-title .selected-info {
+    font-size: 0.7rem;
   }
 
   .characters-panel {
-    width: 95%;
+    width: 100%;
     max-width: 260px;
   }
 
@@ -2268,7 +2399,7 @@ const closeModal = () => {
     padding: 0.6rem;
   }
 
-  .save-card {
+  .save-card, .online-save-card {
     padding: 0.8rem;
   }
 
