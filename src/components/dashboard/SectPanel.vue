@@ -8,9 +8,9 @@
             <h3 class="panel-title">宗门事务</h3>
             <div class="search-bar">
               <Search :size="16" />
-              <input 
-                v-model="searchQuery" 
-                placeholder="搜索宗门..." 
+              <input
+                v-model="searchQuery"
+                placeholder="搜索宗门..."
                 class="search-input"
               />
             </div>
@@ -56,7 +56,7 @@
                 v-for="sect in filteredSects"
                 :key="sect.名称"
                 class="sect-card"
-                :class="{ 
+                :class="{
                   selected: selectedSect?.名称 === sect.名称,
                   [`type-${getSectTypeClass(sect.类型)}`]: true,
                   'can-join': sect.canJoin
@@ -73,7 +73,6 @@
                     <span class="sect-type">{{ sect.类型 }}</span>
                   </div>
                   <div class="sect-stats">
-                    <span class="member-count">{{ sect.memberCount?.total || 0 }} 人</span>
                     <span class="power-rating">实力 {{ sect.powerRating || extractPowerFromDescription(sect.实力评估) || '未知' }}</span>
                   </div>
                 </div>
@@ -133,11 +132,11 @@
                     <span class="info-value">{{ selectedSect.powerRating || selectedSect.实力评估 || '未知' }}</span>
                   </div>
                 </div>
-                
+
                 <!-- 宗门领导层 -->
                 <div v-if="selectedSect.leadership" class="leadership-info">
                   <h6 class="leadership-title">宗门领导</h6>
-                  
+
                   <div class="leader-grid">
                     <div class="leader-item primary-leader">
                       <span class="leader-role">宗主</span>
@@ -149,7 +148,7 @@
                       <span class="leader-name">{{ selectedSect.leadership.副宗主 }}</span>
                     </div>
                   </div>
-                  
+
                   <div class="sect-strength">
                     <div class="strength-item">
                       <span class="strength-label">长老数量</span>
@@ -161,7 +160,7 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <div class="sect-description">
                   <h6 class="desc-title">宗门描述</h6>
                   <p class="desc-text">{{ selectedSect.描述 }}</p>
@@ -171,72 +170,13 @@
                 <div class="sect-specialties" v-if="getSectSpecialties(selectedSect).length > 0">
                   <h6 class="specialties-title">宗门特色</h6>
                   <div class="specialties-tags">
-                    <span 
-                      v-for="specialty in getSectSpecialties(selectedSect)" 
-                      :key="specialty" 
+                    <span
+                      v-for="specialty in getSectSpecialties(selectedSect)"
+                      :key="specialty"
                       class="specialty-tag"
                     >
                       {{ specialty }}
                     </span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 成员统计 -->
-              <div class="detail-section">
-                <h5 class="section-title">
-                  <Users :size="16" />
-                  <span>成员统计</span>
-                </h5>
-                
-                <div class="member-overview">
-                  <div class="total-members">
-                    <span class="total-number">{{ selectedSect.memberCount?.total || 0 }}</span>
-                    <span class="total-label">总成员数</span>
-                  </div>
-                </div>
-
-                <!-- 按境界统计 -->
-                <div class="member-breakdown" v-if="selectedSect.memberCount?.byRealm">
-                  <h6 class="breakdown-title">境界分布</h6>
-                  <div class="realm-stats">
-                    <template v-for="(realmCount, realmName) in selectedSect.memberCount.byRealm" :key="realmName">
-                      <div 
-                        class="realm-stat"
-                        v-if="Number(realmCount) > 0"
-                      >
-                        <span class="realm-name">{{ realmName }}</span>
-                        <div class="realm-bar">
-                          <div 
-                            class="realm-fill" 
-                            :style="{ width: (Number(realmCount) / (selectedSect.memberCount?.total || 1) * 100) + '%' }"
-                          ></div>
-                        </div>
-                        <span class="realm-count">{{ Number(realmCount) }}</span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-
-                <!-- 按职位统计 -->
-                <div class="member-breakdown" v-if="selectedSect.memberCount?.byPosition">
-                  <h6 class="breakdown-title">职位分布</h6>
-                  <div class="position-stats">
-                    <template v-for="(positionCount, positionName) in selectedSect.memberCount.byPosition" :key="positionName">
-                      <div 
-                        class="position-stat"
-                        v-if="Number(positionCount) > 0"
-                      >
-                        <span class="position-name">{{ positionName }}</span>
-                        <div class="position-bar">
-                          <div 
-                            class="position-fill" 
-                            :style="{ width: (Number(positionCount) / (selectedSect.memberCount?.total || 1) * 100) + '%' }"
-                          ></div>
-                        </div>
-                        <span class="position-count">{{ Number(positionCount) }}</span>
-                      </div>
-                    </template>
                   </div>
                 </div>
               </div>
@@ -271,12 +211,12 @@
                   <div class="influence-description">
                     <strong>影响范围：</strong>{{ selectedSect.territoryInfo.influenceRange || '未知' }}
                   </div>
-                  
+
                   <div v-if="selectedSect.territoryInfo.controlledAreas?.length" class="controlled-areas">
                     <strong>控制区域：</strong>
                     <div class="areas-list">
-                      <span 
-                        v-for="area in selectedSect.territoryInfo.controlledAreas" 
+                      <span
+                        v-for="area in selectedSect.territoryInfo.controlledAreas"
                         :key="area"
                         class="area-tag"
                       >
@@ -284,13 +224,13 @@
                       </span>
                     </div>
                   </div>
-                  
+
                   <div class="strategic-value">
                     <strong>战略价值：</strong>
                     <div class="value-display">
                       <div class="value-bar">
-                        <div 
-                          class="value-fill" 
+                        <div
+                          class="value-fill"
                           :style="{ width: `${(selectedSect.territoryInfo.strategicValue || 5) * 10}%` }"
                         ></div>
                       </div>
@@ -308,8 +248,8 @@
                 </h5>
                 <div class="join-requirements">
                   <div v-if="selectedSect.joinRequirements?.length" class="requirements-list">
-                    <div 
-                      v-for="requirement in selectedSect.joinRequirements" 
+                    <div
+                      v-for="requirement in selectedSect.joinRequirements"
                       :key="requirement"
                       class="requirement-item"
                     >
@@ -326,8 +266,8 @@
                 <div v-if="selectedSect.benefits?.length" class="join-benefits">
                   <h6 class="benefits-title">加入好处</h6>
                   <div class="benefits-list">
-                    <div 
-                      v-for="benefit in selectedSect.benefits" 
+                    <div
+                      v-for="benefit in selectedSect.benefits"
                       :key="benefit"
                       class="benefit-item"
                     >
@@ -414,9 +354,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { WorldFaction, SectMemberInfo } from '@/types/game';
-import { 
-  Building, Users, Heart, UserPlus, Crown, CheckCircle, 
-  Gift, Scroll, Coins, Book, Search, Loader2, 
+import {
+  Building, Users, Heart, UserPlus, Crown, CheckCircle,
+  Gift, Scroll, Coins, Book, Search, Loader2,
   ChevronRight, Map
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
@@ -429,52 +369,52 @@ const searchQuery = ref('');
 // 获取世界中的宗门势力数据 - 统一数据源，支持多种数据结构
 const sectSystemData = computed(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
-  
+
   console.log('[宗门系统] 开始获取数据');
   console.log('[宗门系统] saveData存在:', !!saveData);
   console.log('[宗门系统] 完整存档数据结构:', Object.keys(saveData || {}));
-  
+
   if (!saveData) {
     console.log('[宗门系统] 存档数据不存在，返回空数组');
     return { availableSects: [] };
   }
-  
+
   let availableSects: any[] = [];
-  
+
   // 方案1：从世界信息.势力信息中获取宗门数据
   const worldInfo = saveData.世界信息;
   if (worldInfo?.势力信息) {
     console.log('[宗门系统] 发现世界信息.势力信息，数量:', worldInfo.势力信息.length);
     console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: any) => f.类型));
-    
+
     // 筛选出宗门类型的势力
     const sectFactions = worldInfo.势力信息.filter((faction: any) => {
       if (!faction.类型) return false;
-      
+
       const type = faction.类型.toLowerCase();
       // 排除明显不是宗门的类型
       const excludeTypes = ['秘境', '遗迹', '禁地', '森林', '山脉', '湖泊', '城池'];
       const shouldExclude = excludeTypes.some(exclude => type.includes(exclude.toLowerCase()));
-      
+
       if (shouldExclude) {
         console.log('[宗门系统] 排除非宗门势力:', faction.名称, faction.类型);
         return false;
       }
-      
+
       console.log('[宗门系统] 包含势力:', faction.名称, faction.类型);
       return true;
     });
-    
+
     availableSects = sectFactions;
   }
-  
+
   // 方案2：从宗门系统.availableSects中获取数据
   const sectSystem = (saveData as any).宗门系统;
   if (sectSystem?.availableSects && sectSystem.availableSects.length > 0) {
     console.log('[宗门系统] 发现宗门系统.availableSects，数量:', sectSystem.availableSects.length);
     availableSects = [...availableSects, ...sectSystem.availableSects];
   }
-  
+
   // 方案3：检查是否有直接的宗门相关字段
   Object.keys(saveData).forEach(key => {
     const lowerKey = key.toLowerCase();
@@ -483,15 +423,15 @@ const sectSystemData = computed(() => {
       availableSects = [...availableSects, ...(saveData as any)[key]];
     }
   });
-  
+
   // 去重
-  const uniqueSects = availableSects.filter((sect, index, arr) => 
+  const uniqueSects = availableSects.filter((sect, index, arr) =>
     arr.findIndex(s => s.名称 === sect.名称) === index
   );
-  
+
   console.log('[宗门系统] 最终宗门数量:', uniqueSects.length);
   console.log('[宗门系统] 最终宗门列表:', uniqueSects.map((s: any) => s.名称));
-  
+
   return { availableSects: uniqueSects };
 });
 
@@ -511,7 +451,7 @@ const filteredSects = computed(() => {
   // 搜索过滤
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(sect => 
+    filtered = filtered.filter(sect =>
       sect.名称.toLowerCase().includes(query) ||
       sect.类型.toLowerCase().includes(query) ||
       (sect.描述 && sect.描述.toLowerCase().includes(query))
@@ -540,20 +480,20 @@ const getLocationName = (sect: any): string => {
   if (sect.位置名称 && typeof sect.位置名称 === 'string') {
     return sect.位置名称;
   }
-  
+
   // 从宗门名称推断位置（基于参考数据）
   const locationMap: Record<string, string> = {
     '太素道宫': '太素山',
     '问剑崖': '洗剑池',
-    '万魂幡': '幽魂岛',  
+    '万魂幡': '幽魂岛',
     '东方世家': '长春谷',
     '四海通会': '通天城'
   };
-  
+
   if (sect.名称 && locationMap[sect.名称]) {
     return locationMap[sect.名称];
   }
-  
+
   // 格式化坐标位置
   return formatLocation(sect.位置);
 };
@@ -574,12 +514,12 @@ const formatLocation = (location: any): string => {
 // 获取宗门特色列表
 const getSectSpecialties = (sect: any): string[] => {
   const specialties: string[] = [];
-  
+
   // 新格式：specialties数组
   if (sect.specialties && Array.isArray(sect.specialties)) {
     specialties.push(...sect.specialties);
   }
-  
+
   // 旧格式：特色字段（可能是数组或字符串）
   if (sect.特色) {
     if (Array.isArray(sect.特色)) {
@@ -588,7 +528,7 @@ const getSectSpecialties = (sect: any): string[] => {
       specialties.push(sect.特色);
     }
   }
-  
+
   // 去重
   return Array.from(new Set(specialties));
 };
@@ -798,7 +738,7 @@ const loadTestData = () => {
   if (characterStore.activeSaveSlot?.存档数据?.世界信息) {
     characterStore.activeSaveSlot.存档数据.世界信息.势力信息 = testSects;
   }
-  
+
   // 立即保存
   characterStore.commitToStorage();
   toast.success('测试数据已加载！');
@@ -830,7 +770,7 @@ onMounted(() => {
   console.log('[宗门系统] 势力信息:', characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息);
   console.log('[宗门系统] sectSystemData:', sectSystemData.value);
   console.log('[宗门系统] filteredSects:', filteredSects.value);
-  
+
   // 添加数据监控
   setInterval(() => {
     console.log('[宗门系统] 定时检查 - 筛选后宗门数量:', filteredSects.value?.length || 0);
@@ -1709,20 +1649,20 @@ onMounted(() => {
   .sect-container {
     flex-direction: column;
   }
-  
+
   .sect-list {
     width: 100%;
     height: 300px;
   }
-  
+
   .info-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .member-status {
     grid-template-columns: 1fr;
   }
-  
+
   .action-buttons {
     grid-template-columns: 1fr;
   }
