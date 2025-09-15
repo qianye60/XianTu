@@ -78,8 +78,8 @@
               <Home :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">宗门事务</span>
-              <span class="btn-desc">宗门任务管理</span>
+              <span class="btn-text">宗门势力</span>
+              <span class="btn-desc">势力与宗门展示</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>

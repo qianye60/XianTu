@@ -431,8 +431,11 @@ const recentMemories = computed(() => {
     let backupMemories: string[] = [];
     if (save?.存档数据?.记忆?.短期记忆) {
       backupMemories = save.存档数据.记忆.短期记忆;
-    } else if (save?.存档数据?.短期记忆) {
-      backupMemories = save.存档数据.短期记忆;
+    } else {
+      const legacyShort = (save?.存档数据 as any)?.短期记忆;
+      if (Array.isArray(legacyShort)) {
+        backupMemories = legacyShort;
+      }
     }
     
     if (Array.isArray(backupMemories) && backupMemories.length > 0) {
@@ -582,10 +585,11 @@ const sendMessage = async () => {
       );
       
       // 合理性审查检查
-      if (aiResponse.gmResponse && characterStore.activeSaveSlot?.存档数据) {
+      const sdForAudit = characterStore.activeSaveSlot?.存档数据;
+      if (aiResponse.gmResponse && sdForAudit) {
         const auditResult = await performReasonabilityAudit(
           aiResponse.gmResponse as GM_Response,
-          characterStore.activeSaveSlot.存档数据,
+          sdForAudit,
           userMessage
         );
         if (!auditResult.isValid) {
@@ -712,37 +716,38 @@ const addMessage = (message: GameMessage) => {
 const addToShortTermMemory = (content: string) => {
   try {
     const save = characterStore.activeSaveSlot;
-    if (save?.存档数据) {
+    const sd = save?.存档数据;
+    if (sd) {
       // 确保短期记忆数组存在
-      if (!save.存档数据.记忆) {
-        save.存档数据.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      if (!sd.记忆) {
+        sd.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
       }
-      if (!save.存档数据.记忆.短期记忆) {
-        save.存档数据.记忆.短期记忆 = [];
+      if (!sd.记忆.短期记忆) {
+        sd.记忆.短期记忆 = [];
       }
-      if (!save.存档数据.记忆.中期记忆) {
-        save.存档数据.记忆.中期记忆 = [];
+      if (!sd.记忆.中期记忆) {
+        sd.记忆.中期记忆 = [];
       }
       
       // 添加到短期记忆开头
-      save.存档数据.记忆.短期记忆.unshift(content);
+      sd.记忆.短期记忆.unshift(content);
       
       // 检查短期记忆是否超出限制
-      if (save.存档数据.记忆.短期记忆.length > maxShortTermMemories.value) {
+      if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
         // 将超出的记忆转移到中期记忆
-        const overflow = save.存档数据.记忆.短期记忆.splice(maxShortTermMemories.value);
+        const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value);
         
         // 简化内容后加入中期记忆
         overflow.forEach(memory => {
           const summarized = summarizeForMidTerm(memory);
           if (summarized) {
-            save.存档数据.记忆.中期记忆.unshift(summarized);
+            sd.记忆.中期记忆.unshift(summarized);
           }
         });
         
         // 限制中期记忆数量
-        if (save.存档数据.记忆.中期记忆.length > maxMidTermMemories.value) {
-          save.存档数据.记忆.中期记忆.splice(maxMidTermMemories.value);
+        if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
+          sd.记忆.中期记忆.splice(maxMidTermMemories.value);
         }
         
         console.log(`[记忆管理] 短期记忆达到限制，转移${overflow.length}条到中期记忆`);
@@ -908,9 +913,12 @@ const generateAndShowInitialMessage = async () => {
     if (saveData.存档数据?.记忆?.短期记忆?.[0]) {
       initialMessage = saveData.存档数据.记忆.短期记忆[0];
       console.log('[主面板] 从存档记忆中加载到初始消息（记忆路径）:', initialMessage.substring(0, 100));
-    } else if (saveData.存档数据?.短期记忆?.[0]) {
-      initialMessage = saveData.存档数据.短期记忆[0];
-      console.log('[主面板] 从存档记忆中加载到初始消息（短期记忆路径）:', initialMessage.substring(0, 100));
+    } else {
+      const legacyShort = (saveData.存档数据 as any)?.短期记忆;
+      if (legacyShort?.[0]) {
+        initialMessage = legacyShort[0];
+        console.log('[主面板] 从存档记忆中加载到初始消息（短期记忆路径）:', initialMessage.substring(0, 100));
+      }
     }
     
     // 如果存档中没有初始消息，尝试从酒馆变量中获取
@@ -942,15 +950,7 @@ const generateAndShowInitialMessage = async () => {
     // 如果还是没有，使用默认消息
     if (!initialMessage) {
       console.log('[主面板] 未找到保存的初始消息，使用默认开局');
-      const activeSlot = characterStore.activeSaveSlot;
-      let birthplaceName = '';
-      try {
-        const worldInfo = activeSlot?.存档数据?.世界信息 as any;
-        const birthplace = worldInfo?.玩家出生地 || {};
-        birthplaceName = birthplace.出生地名称 || birthplace.名称 || birthplace.name || '';
-      } catch {}
-      const birthplaceText = birthplaceName ? `你出生于【${birthplaceName}】。` : '';
-      initialMessage = `【${profile.角色基础信息.名字}】${birthplaceText}发现自己身处在一个陌生而神秘的修仙世界中。作为一名${profile.角色基础信息.出生}出身的修士，拥有${profile.角色基础信息.灵根}，你感受到了体内微弱的灵气波动。修仙之路漫漫，从这一刻开始，你将踏上寻求长生大道的征途。`;
+      initialMessage = `【${profile.角色基础信息.名字}】发现自己身处在一个陌生而神秘的修仙世界中。作为一名${profile.角色基础信息.出生}出身的修士，拥有${profile.角色基础信息.灵根}，你感受到了体内微弱的灵气波动。修仙之路漫漫，从这一刻开始，你将踏上寻求长生大道的征途。`;
     }
     
     // 显示初始消息
@@ -986,8 +986,9 @@ const generateAndShowInitialMessage = async () => {
 const loadConversationHistory = async () => {
   try {
     const save = characterStore.activeSaveSlot;
-    if (save?.存档数据?.对话历史) {
-      const history = save.存档数据.对话历史;
+    const sd = save?.存档数据;
+    if (sd?.对话历史) {
+      const history = sd.对话历史;
       if (Array.isArray(history) && history.length > 0) {
         // 清空当前消息，加载历史消息
         gameMessages.value = [];
@@ -1012,9 +1013,10 @@ const loadConversationHistory = async () => {
 const saveConversationHistory = async () => {
   try {
     const save = characterStore.activeSaveSlot;
-    if (save?.存档数据) {
+    const sd = save?.存档数据;
+    if (sd) {
       // 保存到角色存档
-      save.存档数据.对话历史 = gameMessages.value.map(msg => ({
+      sd.对话历史 = gameMessages.value.map(msg => ({
         type: msg.type,
         content: msg.content,
         time: msg.time

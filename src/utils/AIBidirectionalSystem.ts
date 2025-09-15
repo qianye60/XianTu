@@ -521,11 +521,6 @@ class AIBidirectionalSystemClass {
         finalContent += gmResponse.text;
       }
       
-      // 添加环境描述
-      if (gmResponse.around) {
-        finalContent += '\n\n' + gmResponse.around;
-      }
-      
       return {
         finalContent,
         gmResponse,

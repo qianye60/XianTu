@@ -41,32 +41,6 @@
       const backgroundInfo = config.characterBackground ? 
         `\n角色出身: ${config.characterBackground}` : '';
       
-      // 根据角色背景生成出生地点类型指导
-      let birthplaceGuidance = '\n\n## 🏠 **玩家出生地点生成要求**\n\n';
-      
-      if (config.characterBackground) {
-        const backgroundMap: Record<string, string> = {
-          '修仙世家': '必须生成一个修仙世家的府邸或庄园，位于某个大陆的安全区域',
-          '将门之后': '必须生成一个将军府或军事重镇，通常靠近大陆的战略要地',  
-          '散修出身': '必须生成一个边境小镇或偏远村落，远离主要势力中心',
-          '宗门弟子': '必须生成一个宗门附近的小村庄或山村，便于被宗门发现',
-          '商贾之家': '必须生成一个贸易城镇或商业重镇，位于交通便利的地方',
-          '妖族血脉': '必须生成一个隐蔽的村落或深山中的聚居地，远离人族聚集区',
-          '凡人出身': '必须生成一个普通的村庄或小镇，位于相对安全但不起眼的地方'
-        };
-        
-        birthplaceGuidance += `**根据角色出身"${config.characterBackground}"生成对应出生地**:\n`;
-        birthplaceGuidance += `- ${backgroundMap[config.characterBackground] || '生成一个符合角色背景的出生地点'}\n`;
-        birthplaceGuidance += `- 出生地点必须有具体的名称、描述和准确的坐标\n`;
-        birthplaceGuidance += `- 坐标必须在选定大陆的边界内部，距离边界至少0.1度\n`;
-        birthplaceGuidance += `- 出生地点要符合修仙世界的设定，不能过于现代化\n\n`;
-      } else {
-        birthplaceGuidance += `**默认出生地要求**:\n`;
-        birthplaceGuidance += `- 生成一个普通的村庄、小镇或自然地点作为出生地\n`;
-        birthplaceGuidance += `- 可以是村庄、城镇、宗门外围、荒郊野外等任何合理地点\n`;
-        birthplaceGuidance += `- 必须有具体的名称和详细描述\n`;
-        birthplaceGuidance += `- 坐标要在某个大陆内部且不能太靠近边界\n\n`;
-      }
       
       // 世界背景信息
       const worldBackgroundInfo = config.worldBackground ? 
@@ -123,9 +97,25 @@
   **边界随机性**: 严格要求每个大洲和势力的边界形状都必须随机生成，绝不能重复之前的多边形形状！
   **数量限制**: 严格按照配置生成，势力${finalFactionCount}个、地点${finalLocationCount}个，绝不可超出此数量
   
+  ## ⚠️ 绝对禁止的内容 - 严格执行
+  **禁止生成以下任何名称或相似变体**:
+  - 太上忘情道、血影楼、万法归元宗、听风陆氏、四海通宝阁
+  - 太素道宫、问剑崖、万魂幡、东方世家、四海通会
+  - 任何包含"太上"、"万法"、"四海"、"血影"等固定词汇的组合
+  
+  **强制创新要求**:
+  - 每个势力名称必须独创，不得使用任何常见的修仙小说套路名称
+  - 宗门名称必须体现独特的文化背景和修炼理念  
+  - 绝对不允许生成任何曾经出现过的势力名称
+  - 使用随机种子${uniqueSeed}确保完全不同的创意方向
+  - 必须使用以下命名策略确保唯一性：
+    * 方位类：融合独特地理特征（如：寒霜峡、赤炎岭、碧海潮音）
+    * 理念类：体现修炼哲学（如：虚无归一、万象更新、道心不变）
+    * 传承类：展现历史底蕴（如：远古遗承、九代相传、千年道统）
+    * 神秘类：富含玄幻色彩（如：星辰秘典、混元造化、太虚幻境）
+  
   ## 世界设定信息
   ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
-  ${birthplaceGuidance}
   
   ## 🎯 核心生成原则
   
@@ -167,7 +157,6 @@
   - **紧密分布**: 🔥**关键要求**🔥 大洲之间必须紧密相邻，几乎无缝连接，形成完整连贯的世界地图
   - **屏障设置**: 大洲之间的天然屏障（山脉、海峡、瘴气、结界等）应该是狭窄的分界线，而不是大片空白区域
   - **🚫 重叠禁令**: 绝对禁止大陆边界重叠！但要求边界尽可能接近，形成紧密贴合的拼图效果
-  - **🎯 玩家出生**: 必须在某个大陆内部生成玩家角色的具体出生地点，坐标必须在大陆边界内部
   
   **本次大洲形状指导**（每个大洲选择不同的形状类型）:
   ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\n')}
@@ -404,6 +393,12 @@
      - 每个坐标点都要在指定范围内随机选择，不要固定数值
      - 同一世界内的不同大洲边界形状差异要非常明显
   
+  **⚠️ 反重复检查机制**:
+  - 生成前必须确认没有使用禁止列表中的任何名称
+  - 势力名称不得包含常见的修仙网文套路词汇
+  - 每个势力的特色和专长必须独特，避免雷同
+  - 实力分布要有层次，不能全部势力实力相近
+  
   **重要**: 使用随机种子 ${uniqueSeed} 来确保所有随机选择都是不同的！
   
   ## 📋 JSON输出格式 (严格数量控制)
@@ -414,14 +409,10 @@
   - ✅ locations数组包含${finalLocationCount}个地点对象
   - ✅ 其中${finalSecretRealmCount}个地点有special_attributes
   - ✅ 每个势力都分配到某个大洲
-  - 🎯 **玩家角色出生地必须在某个大陆内部，坐标符合边界检查**
   
   **重要提醒**: 
   - factions数组必须恰好包含${finalFactionCount}个元素，locations数组必须恰好包含${finalLocationCount}个元素！
   - 大陆边界绝对不能重叠，必须相互独立且保持安全距离
-  - **🎯 玩家出生地坐标必须严格位于所选大陆的边界多边形内部**，不能在边界上或边界外
-  - 使用点在多边形内的几何判断，确保出生地坐标真正在大陆内部
-  - 出生地距离大陆边界应保持适当距离，避免过于接近边缘
   
   \`\`\`json
   {
@@ -435,19 +426,7 @@
       "generation_notes": "本次生成的独特特色和创新点"
     },
     "player_spawn": {
-      "continent_id": "选择的玩家出生大陆ID",
-      "birth_location": {
-        "name": "出生地具体名称（如：青石村、天工坊、深山野居等）",
-        "type": "出生地类型（village/town/sect_outskirts/wilderness/manor等）",
-        "coordinates": {"longitude": ${minLng}-${maxLng}, "latitude": ${minLat}-${maxLat}},
-        "description": "详细的出生地描述，包括环境特色和背景故事",
-        "safety_level": "安全等级（安全/普通/危险）",
-        "notable_features": ["出生地的显著特征1", "特征2", "特征3"],
-        "nearby_landmarks": ["附近的地标或势力"],
-        "population": "人口规模描述",
-        "governance": "管辖情况（如：某某势力管辖、无人管辖等）"
-      },
-      "spawn_verification": "确认该坐标在指定大陆边界内部且距离边界至少0.1度"
+      "note": "本版本已移除玩家出生地生成功能"
     },
     "continents": [
       {

@@ -1,6 +1,6 @@
-import { generateItemWithTavernAI } from '../tavernCore';
+﻿import { generateItemWithTavernAI } from '../tavernCore';
 import { INITIAL_MESSAGE_PROMPT } from '../prompts/gameMasterPrompts';
-import { getRandomizedInGamePrompt, createSceneSpecificPrompt } from '../prompts/inGameGMPrompts';
+import { getRandomizedInGamePrompt, createSceneSpecificPrompt } from '../prompts/inGameGMPromptsV2';
 import { buildGmRequest } from '../AIGameMaster';
 import type { GM_Response } from '../../types/AIGameMaster';
 import type { CharacterData } from '../../types';
@@ -25,10 +25,12 @@ export async function generateInitialMessage(
     const tavernHelper = getTavernHelper();
     
     let cachedWorldData = null;
+    let chatVariablesForPrompt: Record<string, unknown> | null = null;
     if (tavernHelper) {
       try {
         // 获取并缓存现有的世界数据
         const existingVars = await tavernHelper.getVariables({ type: 'chat' });
+        chatVariablesForPrompt = existingVars || {};
         const existingSaveData = existingVars['character.saveData'] as any;
         
         if (existingSaveData && existingSaveData.世界信息) {
@@ -42,14 +44,7 @@ export async function generateInitialMessage(
         } else {
           console.log('【数据缓存】未发现现有世界数据');
         }
-        
-        // 清理chat变量为AI生成做准备，但保留缓存
-        console.log('【数据清理】清理chat变量，为AI生成做准备...');
-        const allVars = Object.keys(existingVars);
-        for (const varName of allVars) {
-          await tavernHelper.deleteVariable(varName, { type: 'chat' });
-        }
-        console.log('【数据清理】已清理所有chat变量，数据已缓存到内存中');
+        // 不再清理chat变量：全部提供给AI作路径参考
         
       } catch (error) {
         console.warn('【数据缓存】缓存过程中出现警告:', error);
@@ -119,7 +114,14 @@ export async function generateInitialMessage(
     console.log('【神识印记】构建的GM_Request:', gmRequest);
 
     // 2. 替换提示词中的占位符，然后调用AI
-    const prompt = (INITIAL_MESSAGE_PROMPT + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(gmRequest, null, 2));
+    const promptInput = {
+      gmRequest,
+      reference: {
+        chatVariables: chatVariablesForPrompt || {},
+        note: '所有路径请统一以 character.saveData. 开头，并严格匹配参考中已有字段结构。'
+      }
+    };
+    const prompt = (INITIAL_MESSAGE_PROMPT + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
     
     console.log('【角色初始化-调试】准备调用generateItemWithTavernAI');
     console.log('【角色初始化-调试】INITIAL_MESSAGE_PROMPT长度:', INITIAL_MESSAGE_PROMPT.length);
@@ -133,18 +135,83 @@ export async function generateInitialMessage(
     // 3. 调用通用生成器，并期望返回GM_Response格式
     const result = await generateItemWithTavernAI<GM_Response>(prompt, '天道初言', false);
     
-    // 4. 验证结果结构
-    if (!result || !result.text || !result.tavern_commands || result.tavern_commands.length === 0) {
+    console.log('【神识印记-调试】AI原始返回结果:', JSON.stringify(result, null, 2));
+    
+    // 4. 验证结果结构并修复格式问题
+    if (!result || typeof result !== 'object') {
       console.warn('【神识印记】AI返回的初始消息结构无效，将抛出错误以触发重试:', result);
-      // 抛出错误让重试机制处理，而不是直接使用fallback
       throw new Error('AI生成的初始消息格式无效或内容缺失');
     }
-    
-    // 5. 确保tavern_commands是数组 (以防万一)
-    if (!Array.isArray(result.tavern_commands)) {
-      console.warn('【神识印记】AI未返回tavern_commands数组，设置为空数组');
+
+    // 4.1 基本字段验证（不兜底）：缺少text则抛错并重试
+    if (!result.text || typeof result.text !== 'string' || !result.text.trim()) {
+      console.warn('【神识印记】AI返回的消息缺少text字段或空:', result);
+      throw new Error('AI生成的初始消息缺少必需字段text');
+    }
+
+    // 4.3 修复并验证 tavern_commands
+    if (result.tavern_commands && !Array.isArray(result.tavern_commands) && typeof (result as any).tavern_commands === 'object') {
+      // 将对象格式的 tavern_commands 映射为数组
+      const obj: any = (result as any).tavern_commands;
+      const arr: any[] = [];
+      const pushPairs = (section: any, action: string) => {
+        if (!section) return;
+        if (Array.isArray(section)) {
+          for (const it of section) {
+            if (!it) continue;
+            const key = it.key || it.path || it.target;
+            if (key) arr.push({ action, scope: it.scope || 'chat', key, value: it.value });
+            else if (Array.isArray(it)) { const [k, v] = it; arr.push({ action, scope: 'chat', key: k, value: v }); }
+          }
+        } else if (typeof section === 'object') {
+          for (const k of Object.keys(section)) arr.push({ action, scope: 'chat', key: k, value: section[k] });
+        }
+      };
+      ['set','add','push','pull','delete'].forEach(op => pushPairs(obj[op], op));
+      (result as any).tavern_commands = arr;
+    }
+
+    if (!result.tavern_commands) {
+      console.warn('【神识印记】AI未返回tavern_commands，设置为空数组');
       result.tavern_commands = [];
     }
+
+    // 4.4 规范化 tavern_commands 数组
+    if (Array.isArray(result.tavern_commands)) {
+      console.log('【神识印记】验证tavern_commands格式');
+      result.tavern_commands = result.tavern_commands.map((cmd: any) => {
+        // 确保必需字段存在
+        if (!cmd) return null;
+        if (!cmd.action) cmd.action = 'set';
+        const k = cmd.key || cmd.path || cmd.target;
+        if (!k) { console.warn('【神识印记】缺少key/path/target，跳过:', cmd); return null; }
+        cmd.key = String(k);
+        delete cmd.path; delete cmd.target;
+        
+        // 添加必需的scope字段
+        if (!cmd.scope) {
+          cmd.scope = 'chat';
+        }
+
+        // 修复常见错误路径
+        if (cmd.key.startsWith('character.saveData.物品')) {
+          cmd.key = cmd.key.replace('character.saveData.物品', 'character.saveData.背包.物品');
+        }
+        if (cmd.key.startsWith('character.saveData.') === false && cmd.key.startsWith('character.') ) {
+          // 兼容 character.* → character.saveData.玩家角色状态.*
+          cmd.key = cmd.key.replace('character.', 'character.saveData.玩家角色状态.');
+        }
+
+        return cmd;
+      }).filter(cmd => cmd !== null); // 过滤掉无效命令
+      
+      console.log('【神识印记】有效的tavern_commands数量:', result.tavern_commands.length);
+    } else {
+      console.warn('【神识印记】AI返回的tavern_commands不是数组格式，设置为空数组');
+      result.tavern_commands = [];
+    }
+
+    // 不再添加默认mid_term_memory；由AI提供
     
     console.log('【神识印记】成功生成天道初言，命令数量:', result.tavern_commands?.length || 0);
     
@@ -191,84 +258,6 @@ export async function generateInitialMessage(
   }
 }
 
-/**
- * 创建fallback响应的辅助函数 - 已废弃，现在直接抛出错误让重试机制处理
- */
-function createFallbackResponse(initialGameData: any, processedOrigin: string, processedSpiritRoot: string): GM_Response {
-  return {
-      text: `【${initialGameData.baseInfo.名字}的修仙之路】
-
-十八年前，${processedOrigin}的一个${processedOrigin === '世家子弟' ? '雅致庭院' : processedOrigin === '宗门弟子' ? '宗门侧院' : '普通人家'}里，随着一声嘹亮的啼哭声，${initialGameData.baseInfo.名字}来到了这个世界。
-
-那一夜，${processedOrigin === '世家子弟' ? '家族老祖感应到一股不凡的灵气波动' : processedOrigin === '宗门弟子' ? '山门护山大阵微微震动' : '村里的老槐树开出了不合时节的花朵'}，仿佛预示着这个孩子的不凡命运。
-
-童年时光里，${initialGameData.baseInfo.名字}在家人的呵护下健康成长。父亲是个${processedOrigin === '商贾之家' ? '精明的商人' : processedOrigin === '书香门第' ? '博学的书生' : processedOrigin === '世家子弟' ? '修为不俗的族人' : '勤劳的普通人'}，母亲温柔贤良，一家人其乐融融。
-
-${processedOrigin === '世家子弟' ? '七岁时，家族为其进行了正式的灵根检测，确认了' + processedSpiritRoot + '的天赋，从此开始接受家族的修炼教导。' : processedOrigin === '宗门弟子' ? '作为宗门子弟，从小就接受基础的修炼启蒙，' + processedSpiritRoot + '的天赋在早期的训练中逐渐显现。' : '在平凡的成长过程中，' + initialGameData.baseInfo.名字 + '展现出了一些与众不同的特质，虽然不知道这是否与传说中的灵根有关。'}
-
-从那时起，${initialGameData.baseInfo.名字}就知道，自己${processedOrigin === '世家子弟' || processedOrigin === '宗门弟子' ? '注定要走上修仙之路' : '对那个充满传奇色彩的修炼世界充满了向往'}。
-
-如今十八岁的${initialGameData.baseInfo.名字}，带着家人的期望和自己的梦想，${processedOrigin === '宗门弟子' ? '准备参与内门考核' : processedOrigin === '世家子弟' ? '即将踏出家族庇护开始独立修行' : '即将踏出家门寻找修仙机缘'}......`,
-      around: `你现在身处${processedOrigin === '世家子弟' ? '一座古朴典雅的府邸庭院中' : processedOrigin === '宗门弟子' ? '宗门的外门弟子居所里' : '家中简朴但温馨的小屋内'}。
-
-${processedOrigin === '世家子弟' ? '雕梁画栋的建筑彰显着家族的底蕴，庭院中种植着珍贵的灵草，空气中弥漫着淡淡的灵气。远处可见家族的修炼场，偶有族中长辈飞剑掠过。' : processedOrigin === '宗门弟子' ? '四周是同门师兄弟的居所，远处传来晨练的喝彩声，山间灵气清新怡人。宗门的钟声悠扬，提醒着弟子们修炼的时间。' : '虽然家境普通，但处处透露着家人的用心，窗外的小菜园生机勃勃，邻里间的炊烟袅袅升起。偶尔能听到远山传来的奇异鸣叫，暗示着这个世界的不凡。'}
-
-一缕晨光透过窗棂洒在地面上，新的一天即将开始，而你的修仙之路也即将拉开序幕......`,
-      mid_term_memory: `【初始刻印】
-- ${initialGameData.baseInfo.名字}，${processedOrigin}出身，现年18岁
-- ${processedOrigin === '世家子弟' ? '家族子弟，从小接受良好教育' : processedOrigin === '宗门弟子' ? '宗门培养的弟子，接受基础修炼训练' : '平民出身，过着普通人的生活，对修炼世界充满好奇'}
-- 家庭成员：慈爱的父母，${processedOrigin === '世家子弟' ? '显赫的家族背景' : processedOrigin === '宗门弟子' ? '宗门长辈的关照' : '和睦的平民家庭氛围'}  
-- 童年好友：邻家的青梅竹马，彼此青涩的感情
-- 掌握技能：基础文字、简单武艺、${processedOrigin === '书香门第' ? '琴棋书画' : processedOrigin === '商贾之家' ? '算账理财' : processedOrigin === '世家子弟' ? '家族武学' : processedOrigin === '宗门弟子' ? '宗门基础功' : '农耕劳作'}
-- 当前状态：身体健康，${processedOrigin === '世家子弟' || processedOrigin === '宗门弟子' ? '已开始修炼启蒙' : '怀着修仙梦想'}，即将踏上人生新阶段
-- 人生目标：踏上修仙大道，追求长生不老之境，${processedOrigin === '世家子弟' ? '光耀门楣' : processedOrigin === '宗门弟子' ? '为宗门争光' : '改变家族命运'}`,
-      tavern_commands: [
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.玩家角色状态.境界.名称",
-          value: "凡人"
-        },
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.玩家角色状态.境界.等级",
-          value: 0
-        },
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.玩家角色状态.境界.当前进度",
-          value: 0
-        },
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.玩家角色状态.位置.描述",
-          value: processedOrigin === '世家子弟' ? "青云世家祖宅" : processedOrigin === '宗门弟子' ? "九霄宗外门" : "未知起点"
-        },
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.玩家角色状态.寿元.当前",
-          value: 18
-        },
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.玩家角色状态.寿元.最大",
-          value: 100
-        },
-        // 人物关系初始化 - 由AI根据角色出身随机生成合适的关系
-        {
-          action: "set",
-          scope: "chat",
-          key: "character.saveData.人物关系",
-          value: {} // 空对象，由AI初始化消息时自行生成合适的人物关系
-        }
-      ]
-    };
-}
 
 /**
  * 生成正式游戏中的GM响应 - 用于剧情推进
@@ -286,6 +275,76 @@ export async function generateInGameResponse(
   console.log('【剧情推进】准备生成游戏GM响应，数据:', { currentGameData, playerAction, sceneType });
 
   try {
+    // 注入当前chat变量，作为参考上下文
+    let chatVariablesForPrompt: Record<string, unknown> | null = null;
+    try {
+      const { getTavernHelper } = await import('../tavern');
+      const helper = getTavernHelper();
+      if (helper) {
+        chatVariablesForPrompt = await helper.getVariables({ type: 'chat' });
+      }
+    } catch (e) {
+      console.warn('【剧情推进】获取chat变量作为参考失败（可忽略）:', e);
+    }
+
+    // 从存档计算导出指标（战斗值/BUFF汇总/装备与生命体征摘要），便于AI做出更贴近系统的数据驱动决策
+    const computeDerived = (vars: Record<string, unknown> | null) => {
+      try {
+        const save = (vars?.['character.saveData'] as any) || {};
+        const status = save?.玩家角色状态 || {};
+        const realmLevel = Number(status?.境界?.等级 || 0);
+        const vit = {
+          hp: status?.气血 || { 当前: 0, 最大: 0 },
+          mp: status?.灵气 || { 当前: 0, 最大: 0 },
+          spirit: status?.神识 || { 当前: 0, 最大: 0 },
+          lifespan: status?.寿命 || { 当前: 0, 最大: 0 }
+        };
+        const afterSix = save?.角色基础信息?.先天六司 || {};
+        const sixSum = ['根骨','灵性','悟性','气运','魅力','心性'].reduce((acc, k) => acc + Number(afterSix?.[k] || 0), 0);
+        // 简化版战斗值：境界等级*100 + 气血最大*0.5 + 灵气最大*0.3 + 神识最大*0.2 + 先天六司总和*2 + 装备增幅粗略加成
+        const eq = save?.装备栏 || {};
+        const slots = ['法宝1','法宝2','法宝3','法宝4','法宝5','法宝6'];
+        let eqBonus = 0;
+        const eqNames: string[] = [];
+        slots.forEach((sk: string) => {
+          const it = eq?.[sk];
+          if (it && typeof it === 'object') {
+            eqNames.push(it.名称 || sk);
+            const aug = it.装备增幅 || {};
+            eqBonus += Number(aug?.气血上限 || 0) * 0.5;
+            eqBonus += Number(aug?.灵气上限 || 0) * 0.3;
+            eqBonus += Number(aug?.神识上限 || 0) * 0.2;
+            if (aug?.后天六司) {
+              const s = Object.values(aug.后天六司).reduce((a: number, v: any) => a + Number(v || 0), 0);
+              eqBonus += s * 2;
+            }
+          }
+        });
+        const hpMax = Number(vit.hp?.最大 || 0);
+        const mpMax = Number(vit.mp?.最大 || 0);
+        const spMax = Number(vit.spirit?.最大 || 0);
+        const battlePower = Math.round(realmLevel * 100 + hpMax * 0.5 + mpMax * 0.3 + spMax * 0.2 + sixSum * 2 + eqBonus);
+        const buffs = Array.isArray(status?.状态效果) ? status.状态效果.filter((e: any) => String(e?.类型).toLowerCase() === 'buff') : [];
+        return {
+          battle_power: battlePower,
+          realm_level: realmLevel,
+          location: status?.位置?.描述 || '未知',
+          vitals: {
+            hp: vit.hp,
+            mp: vit.mp,
+            spirit: vit.spirit,
+            lifespan: vit.lifespan
+          },
+          active_buffs_count: buffs.length,
+          active_buffs: buffs.map((b: any) => b?.状态名称).filter(Boolean).slice(0, 10),
+          equipment_names: eqNames
+        };
+      } catch {
+        return null;
+      }
+    };
+    const derived = computeDerived(chatVariablesForPrompt);
+
     // 构建当前游戏状态的GM请求对象
     const gmRequest = {
       ...currentGameData,
@@ -297,7 +356,7 @@ export async function generateInGameResponse(
     // 根据场景类型选择合适的提示词
     let prompt: string;
     if (sceneType) {
-      prompt = createSceneSpecificPrompt(sceneType, memoryFormatId);
+      prompt = createSceneSpecificPrompt(sceneType);
       console.log('【剧情推进】使用场景特定提示词:', sceneType);
     } else {
       prompt = getRandomizedInGamePrompt();
@@ -305,7 +364,15 @@ export async function generateInGameResponse(
     }
     
     // 替换提示词中的占位符
-    const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(gmRequest, null, 2));
+    const promptInput = {
+      gmRequest,
+      reference: {
+        chatVariables: chatVariablesForPrompt || {},
+        note: '所有路径请统一以 character.saveData. 开头，并严格匹配参考中已有字段结构。'
+      },
+      derived
+    };
+    const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
     
     console.log('【剧情推进】最终提示词长度:', finalPrompt.length);
     console.log('【剧情推进】GM请求数据:', gmRequest);
@@ -366,7 +433,6 @@ export async function generateQuickResponse(
 
 **要求**:
 - text字段: 200-500字符的简短反馈
-- around字段: 100-300字符的环境描述
 - mid_term_memory字段: 如有重要变化则更新，否则可为空
 - tavern_commands: 仅在必要时更新数据
 
@@ -379,7 +445,6 @@ ${JSON.stringify(quickRequest, null, 2)}
 \`\`\`json
 {
   "text": "简短的反馈内容",
-  "around": "环境描述", 
   "mid_term_memory": "记忆更新或空字符串",
   "tavern_commands": []
 }
@@ -403,7 +468,6 @@ ${JSON.stringify(quickRequest, null, 2)}
     // 提供极简的fallback响应
     return {
       text: `你${action}。周围的环境没有发生明显变化，一切都按部就班地继续着。`,
-      around: "环境保持原状，你可以继续你的行动。",
       mid_term_memory: "",
       tavern_commands: []
     };

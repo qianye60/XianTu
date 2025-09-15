@@ -200,8 +200,6 @@ export interface GM_Request {
 export interface GM_Response {
   /** AI生成的主要叙事内容，用于展示给用户。 */
   text: string;
-  /** 对周围环境、人物、声音的详细描述。 */
-  around?: string;
   /**
    * 一个包含所有状态变更指令的数组。
    * 前端需要解析并执行这些指令。

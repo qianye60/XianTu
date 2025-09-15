@@ -126,18 +126,26 @@ ${GM_COMMAND_TUTORIAL}
 
 \`\`\`json
 {
-  "text": "主要叙事内容，描述场景和事件发展",
-  "around": "周围环境的详细描述",
+  "text": "主要叙事内容，描述场景和事件发展，包含周围环境的详细描述",
   "mid_term_memory": "本轮的关键信息，将被记录到中期记忆",
-  "tavern_commands": [
-    {"action": "set/add/push", "scope": "chat", "key": "数据路径", "value": "新值"}
-  ],
+  "tavern_commands": {
+    "set": {"character.saveData.路径": "值"},
+    "add": {"character.saveData.路径": 数值},
+    "push": [{"key": "character.saveData.路径", "value": "值"}],
+    "pull": [],
+    "delete": []
+  },
   "position_update": {
-    "location": "新位置名称",
+    "location": "新位置名称", 
     "coordinates": {"x": 0, "y": 0}
   }
 }
 \`\`\`
+
+**格式要求:**
+- text: 必须是字符串类型，不能为null或undefined
+- mid_term_memory: 必须是字符串类型(非空时)，不能是数组或对象
+- tavern_commands: 必须是对象类型，包含set/add/push/pull/delete字段，不能是数组
 
 #### **判定流程:**
 1. **接收用户输入** → 分析合理性
@@ -259,7 +267,7 @@ export function generateOptimizedPrompt(config: {
 **最近记忆:**
 ${recentMemory.map(m => `- ${m}`).join('\n')}
 
-**要求:** 基于角色能力判定结果，返回JSON格式包含text、around、mid_term_memory、tavern_commands字段。
+**要求:** 基于角色能力判定结果，返回JSON格式包含text、mid_term_memory、tavern_commands字段。
 
 ${difficulty === 'hard' ? '**困难模式:** 严格数值判定，低奇遇概率，真实后果。' : ''}
 `;

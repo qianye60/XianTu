@@ -294,69 +294,6 @@
             </g>
           </g>
 
-          <!-- 玩家出生地层 -->
-          <g v-if="playerBirthplace" class="birthplace-layer">
-            <g :transform="`translate(${playerBirthplace.coordinates.x}, ${playerBirthplace.coordinates.y})`">
-              <!-- 出生地光环效果 -->
-              <circle class="birthplace-aura" r="20" fill="#10B981" opacity="0.2">
-                <animate attributeName="r" values="15;25;15" dur="4s" repeatCount="indefinite"/>
-                <animate attributeName="opacity" values="0.3;0.1;0.3" dur="4s" repeatCount="indefinite"/>
-              </circle>
-              
-              <!-- 出生地标记 -->
-              <g class="birthplace-marker">
-                <!-- 出生地类型图标 -->
-                <g v-if="playerBirthplace.type === 'village'">
-                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
-                  <foreignObject x="-6" y="-6" width="12" height="12">
-                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-                      <Home :size="12" color="white" />
-                    </div>
-                  </foreignObject>
-                </g>
-                <g v-else-if="playerBirthplace.type === 'town'">
-                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
-                  <foreignObject x="-6" y="-6" width="12" height="12">
-                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-                      <Building2 :size="12" color="white" />
-                    </div>
-                  </foreignObject>
-                </g>
-                <g v-else-if="playerBirthplace.type === 'sect_outskirts'">
-                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
-                  <foreignObject x="-6" y="-6" width="12" height="12">
-                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-                      <Mountain :size="12" color="white" />
-                    </div>
-                  </foreignObject>
-                </g>
-                <g v-else-if="playerBirthplace.type === 'wilderness'">
-                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
-                  <foreignObject x="-6" y="-6" width="12" height="12">
-                    <div style="display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-                      <Sparkles :size="12" color="white" />
-                    </div>
-                  </foreignObject>
-                </g>
-                <g v-else>
-                  <!-- 默认出生地图标 -->
-                  <circle r="8" fill="#10B981" stroke="white" stroke-width="2"/>
-                  <text class="birthplace-icon-text" text-anchor="middle" dy="2" fill="white" font-size="8px">🏠</text>
-                </g>
-              </g>
-
-              <!-- 出生地名称标签 -->
-              <text
-                class="birthplace-name-label"
-                text-anchor="middle"
-                y="20"
-                fill="#10B981"
-                @click="selectBirthplace"
-              >
-                {{ playerBirthplace.name }}
-              </text>
-            </g>
-          </g>
 
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
@@ -395,27 +332,12 @@
           <button @click="selectedInfo = null" class="close-info">×</button>
         </div>
         <div class="info-content">
-          <p class="info-type">{{ selectedInfo.type === '大洲' ? '大洲' : selectedInfo.type === '出生地' ? '出生地' : internalTypeToChineseName(selectedInfo.type) }}</p>
+          <p class="info-type">{{ selectedInfo.type === '大洲' ? '大洲' : internalTypeToChineseName(selectedInfo.type) }}</p>
           <p class="info-desc">{{ selectedInfo.description }}</p>
           <div v-if="selectedInfo.danger_level" class="info-detail">
             <strong>安全等级：</strong>{{ selectedInfo.danger_level }}
           </div>
           
-          <!-- 出生地特有信息 -->
-          <div v-if="selectedInfo.type === '出生地'">
-            <div v-if="selectedInfo.population" class="info-detail">
-              <strong>人口规模：</strong>{{ selectedInfo.population }}
-            </div>
-            <div v-if="selectedInfo.governance" class="info-detail">
-              <strong>管辖情况：</strong>{{ selectedInfo.governance }}
-            </div>
-            <div v-if="selectedInfo.features && selectedInfo.features.length > 0" class="info-detail">
-              <strong>显著特征：</strong>{{ Array.isArray(selectedInfo.features) ? selectedInfo.features.join('、') : selectedInfo.features }}
-            </div>
-            <div v-if="selectedInfo.landmarks && selectedInfo.landmarks.length > 0" class="info-detail">
-              <strong>附近地标：</strong>{{ Array.isArray(selectedInfo.landmarks) ? selectedInfo.landmarks.join('、') : selectedInfo.landmarks }}
-            </div>
-          </div>
           
           <!-- 大洲特有信息 -->
           <div v-if="selectedInfo.climate" class="info-detail">
@@ -476,12 +398,6 @@
             <Zap :size="16" color="#6B7280" />
           </div>
           <span>其他特殊</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-icon" style="background-color: #10B981; border-radius: 50%;">
-            <Home :size="14" color="white" />
-          </div>
-          <span>出生地</span>
         </div>
       </div>
     </div>
@@ -560,33 +476,6 @@ const worldBackground = computed(() => {
   return worldInfo?.世界背景 || '';
 });
 
-// 玩家出生地信息
-const playerBirthplace = computed(() => {
-  const variables = tavernVariables.value;
-  const worldInfo = variables['character.saveData']?.世界信息;
-  const birthplace = worldInfo?.玩家出生地;
-  
-  if (!birthplace) return null;
-  
-  // 转换坐标
-  const coords = birthplace.坐标;
-  if (coords && coords.longitude !== undefined && coords.latitude !== undefined) {
-    const virtualPos = geoToVirtual(coords.longitude, coords.latitude);
-    return {
-      name: birthplace.出生地名称 || '出生地',
-      type: birthplace.出生地类型 || 'birthplace',
-      coordinates: virtualPos,
-      description: birthplace.描述 || '玩家角色的出生地',
-      safetyLevel: birthplace.安全等级 || '安全',
-      features: birthplace.显著特征 || [],
-      landmarks: birthplace.附近地标 || [],
-      population: birthplace.人口规模 || '未知',
-      governance: birthplace.管辖情况 || '未知'
-    };
-  }
-  
-  return null;
-});
 
 const tavernVariables = ref<Record<string, any>>({});
 
@@ -725,32 +614,6 @@ const onLocationLeave = () => {
   hoveredLocation.value = null;
 };
 
-// 选择出生地
-const selectBirthplace = () => {
-  if (!playerBirthplace.value) return;
-  
-  console.log('[坤舆图志] 选中玩家出生地:', playerBirthplace.value.name);
-  
-  // 计算出生地在屏幕上的位置
-  const screenPosition = calculateScreenPosition(
-    playerBirthplace.value.coordinates.x, 
-    playerBirthplace.value.coordinates.y
-  );
-  
-  selectedInfo.value = {
-    id: 'player_birthplace',
-    name: playerBirthplace.value.name,
-    type: '出生地',
-    description: playerBirthplace.value.description,
-    danger_level: playerBirthplace.value.safetyLevel,
-    // 添加出生地特有信息
-    population: playerBirthplace.value.population,
-    governance: playerBirthplace.value.governance,
-    features: playerBirthplace.value.features,
-    landmarks: playerBirthplace.value.landmarks,
-    screenPosition: screenPosition
-  };
-};
 
 // 选择处理 - 只有在没有明显拖动时才触发
 const selectLocation = (location: WorldLocation) => {
@@ -1928,30 +1791,6 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-/* 出生地标记样式 */
-.birthplace-layer .birthplace-marker {
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.birthplace-layer .birthplace-marker:hover {
-  transform: scale(1.1);
-}
-
-.birthplace-name-label {
-  font-size: 11px;
-  font-weight: 600;
-  font-family: '微软雅黑', 'SimHei', sans-serif;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.birthplace-icon-text {
-  font-size: 8px;
-  font-weight: bold;
-  font-family: '微软雅黑', sans-serif;
-  pointer-events: none;
-}
 
 /* 动画效果 */
 .animate-spin {

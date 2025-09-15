@@ -274,7 +274,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 1rem;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -354,8 +354,8 @@ onMounted(async () => {
 /* 大道统计 */
 .dao-stats {
   display: flex;
-  gap: 16px;
-  padding: 20px;
+  gap: 1rem;
+  padding: 1rem;
   background: var(--color-surface-light);
 }
 
@@ -389,12 +389,12 @@ onMounted(async () => {
 /* 大道章节 */
 .dao-sections {
   flex: 1;
-  padding: 20px;
+  padding: 1rem;
   overflow-y: auto;
 }
 
 .dao-section {
-  margin-bottom: 30px;
+  margin-bottom: 2rem;
 }
 
 .section-title {
@@ -674,23 +674,142 @@ onMounted(async () => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .thousand-dao-content {
+    padding: 0;
+  }
+
+  .dao-header {
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--color-surface);
+  }
+
+  .header-left {
+    gap: 0.5rem;
+  }
+
+  .panel-title {
+    font-size: 1.1rem;
+  }
+
+  .panel-subtitle {
+    display: none;
+  }
+
+  .refresh-btn {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
   .dao-main {
     flex-direction: column;
+    padding: 0;
+  }
+  
+  .dao-stats {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .stat-icon {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .dao-sections {
+    padding: 1rem;
+  }
+
+  .dao-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .dao-card {
+    padding: 1rem;
+  }
+
+  .dao-card-header {
+    margin-bottom: 0.75rem;
+  }
+
+  .dao-name {
+    font-size: 0.95rem;
+  }
+
+  .dao-stage {
+    font-size: 0.7rem;
   }
   
   .dao-details-sidebar {
     width: 100%;
-    max-height: 300px;
+    max-height: 60vh;
     border-left: none;
     border-top: 1px solid var(--color-border);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
   }
-  
-  .dao-stats {
-    flex-direction: column;
+
+  .details-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 1rem 1rem 0 0;
   }
-  
-  .dao-grid {
-    grid-template-columns: 1fr;
+
+  .details-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .details-content {
+    padding: 1rem;
+    max-height: calc(60vh - 120px);
+    overflow-y: auto;
+  }
+
+  .detail-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .detail-section h4 {
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .details-actions {
+    padding: 1rem;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .cultivate-dao {
+    padding: 0.75rem;
+    font-size: 0.9rem;
   }
 }
 </style>

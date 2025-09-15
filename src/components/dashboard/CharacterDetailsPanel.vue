@@ -37,7 +37,7 @@
             </div>
             <div class="detail-item">
               <span class="label">出身</span>
-              <span class="value">{{ baseInfo.出生 }}</span>
+              <span class="value">{{ getOriginDisplay(baseInfo.出生) }}</span>
             </div>
             <div class="detail-item">
               <span class="label">位置</span>
@@ -108,13 +108,26 @@
               </div>
               <div class="talent-item">
                 <span class="talent-label">灵根属性</span>
-                <span class="talent-value spirit-root" :class="`root-${baseInfo.灵根}`">{{ baseInfo.灵根 }}</span>
-              </div>
-              <div class="talent-list" v-if="baseInfo.天赋?.length">
-                <div class="talent-tags">
-                  <span v-for="talent in baseInfo.天赋" :key="talent" class="talent-tag">
-                    {{ talent }}
+                <div class="spirit-root-display">
+                  <span class="talent-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
+                    {{ getSpiritRootDisplay(baseInfo.灵根) }}
                   </span>
+                  <span v-if="getSpiritRootQuality(baseInfo.灵根)" class="spirit-root-quality" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
+                    {{ getSpiritRootQuality(baseInfo.灵根) }}
+                  </span>
+                  <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="spirit-root-desc">
+                    {{ getSpiritRootDescription(baseInfo.灵根) }}
+                  </div>
+                </div>
+              </div>
+              <div class="talent-list" v-if="getTalentList(baseInfo.天赋)?.length">
+                <div class="talent-tags">
+                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.名称 || talent" class="talent-tag" :title="talent.描述">
+                    {{ talent.名称 || talent }}
+                    <div v-if="talent.描述" class="talent-description">
+                      {{ talent.描述 }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -901,6 +914,47 @@ const getCultivationProgress = (): number => {
   return Math.round((current / max) * 100);
 };
 
+// 处理结构化数据的辅助函数
+const getOriginDisplay = (origin: string | { 名称: string; 描述: string } | undefined): string => {
+  if (!origin) return '未知';
+  if (typeof origin === 'string') return origin;
+  return origin.名称 || '未知';
+};
+
+const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
+  if (!spiritRoot) return '未知';
+  if (typeof spiritRoot === 'string') return spiritRoot;
+  return spiritRoot.名称 || '未知';
+};
+
+const getSpiritRootQuality = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
+  if (!spiritRoot || typeof spiritRoot === 'string') return '';
+  return spiritRoot.品质 || '';
+};
+
+const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
+  if (!spiritRoot || typeof spiritRoot === 'string') return '';
+  return spiritRoot.描述 || '';
+};
+
+const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
+  const display = getSpiritRootDisplay(spiritRoot);
+  return display.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+const getTalentList = (talents: string[] | Array<{ 名称: string; 描述: string }> | undefined): Array<{ 名称: string; 描述?: string }> => {
+  if (!talents) return [];
+  if (Array.isArray(talents)) {
+    return talents.map(talent => {
+      if (typeof talent === 'string') {
+        return { 名称: talent };
+      }
+      return talent;
+    });
+  }
+  return [];
+};
+
 const getPercentage = (current: number, max: number): number => {
   return Math.round((current / max) * 100);
 };
@@ -1438,7 +1492,7 @@ onMounted(async () => {
 .talent-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 12px;
   background: var(--color-surface-light);
   border-radius: 8px;
@@ -1447,6 +1501,7 @@ onMounted(async () => {
 .talent-label {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  margin-right: 1rem;
 }
 
 .talent-value {
@@ -2707,5 +2762,79 @@ onMounted(async () => {
   .modal-header h3 {
     font-size: 1.2rem;
   }
+}
+
+/* 新的结构化数据样式 */
+.spirit-root-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.spirit-root-quality {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.quality-天品 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; }
+.quality-地品 { background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: white; }
+.quality-玄品 { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; }
+.quality-黄品 { background: linear-gradient(135deg, #34d399, #10b981); color: white; }
+.quality-凡品 { background: linear-gradient(135deg, #9ca3af, #6b7280); color: white; }
+
+.spirit-root-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  max-width: 200px;
+  text-align: right;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
+.talent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  flex-direction: column;
+}
+
+.talent-tag {
+  position: relative;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(147, 51, 234, 0.1));
+  color: #9333ea;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  cursor: help;
+}
+
+.talent-description {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  max-width: 200px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  white-space: normal;
+}
+
+.talent-tag:hover .talent-description {
+  opacity: 1;
 }
 </style>

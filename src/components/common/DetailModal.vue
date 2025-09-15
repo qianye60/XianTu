@@ -3,7 +3,10 @@
     <div class="detail-modal-overlay" v-if="modelValue" @click="closeModal">
       <div class="detail-modal" @click.stop>
         <div class="modal-header">
-          <div class="modal-icon">{{ icon }}</div>
+          <div class="modal-icon" v-if="icon || iconComponent">
+            <component v-if="iconComponent" :is="iconComponent" :size="24" />
+            <template v-else>{{ icon }}</template>
+          </div>
           <h3 class="modal-title">{{ title }}</h3>
           <button class="close-btn" @click="closeModal">
             <X :size="20" />
@@ -70,6 +73,7 @@ const props = defineProps<{
   modelValue: boolean;
   title: string;
   icon?: string;
+  iconComponent?: any; // 支持lucide图标组件
   content?: string | ContentSection[];
   showFooter?: boolean;
 }>();

@@ -24,12 +24,8 @@ export async function initializeCharacterOffline(
     背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} } as any,
     人物关系: {} as any,
     记忆: {
-      短期记忆: [
-        `${baseInfo.名字}的修仙之路自此展开。你身处一处宁静之所，灵气微动，天地广阔。`
-      ],
-      中期记忆: [
-        `【初始刻印】\n- ${baseInfo.名字}，${baseInfo.出生}，灵根：${baseInfo.灵根}\n- 心怀大道之志`
-      ],
+      短期记忆: [],
+      中期记忆: [],
       长期记忆: []
     } as any,
     世界信息: {
@@ -53,4 +49,3 @@ export async function initializeCharacterOffline(
 
   return saveData;
 }
-

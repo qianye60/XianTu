@@ -188,6 +188,111 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
   if (!saveData.人物关系) {
     saveData.人物关系 = {};
   }
+
+  // 5. 迁移异常的 "角色物品" 到 背包.物品（兼容部分AI返回的错误路径）
+  try {
+    const anySave: any = saveData as any;
+    const src = anySave.角色物品;
+    if (src && typeof src === 'object') {
+      if (!saveData.背包) saveData.背包 = { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} } as any;
+      if (!saveData.背包.物品) saveData.背包.物品 = {} as any;
+
+      const mapType = (t: any): '法宝' | '功法' | '其他' => {
+        const s = String(t || '').trim();
+        const weapon = ['武器','兵器','法器','灵器','宝物','剑','刀','飞剑','木剑','装备'];
+        const gongfa = ['功法','心法','秘籍','法诀','经书','法门','内功','刀法','剑法'];
+        const other = ['消耗品','丹药','草药','材料','资源','道具'];
+        if (s === '法宝' || weapon.includes(s)) return '法宝';
+        if (s === '功法' || gongfa.includes(s)) return '功法';
+        if (other.includes(s)) return '其他';
+        return '其他';
+      };
+
+      const importArray = (arr: any[]) => {
+        if (!Array.isArray(arr)) return;
+        for (const it of arr) {
+          if (!it) continue;
+          const name = it.名称 || it.name || '未命名物品';
+          const type = mapType(it.类型 || it.type);
+          const qty = typeof it.数量 === 'number' ? it.数量 : (typeof it.quantity === 'number' ? it.quantity : 1);
+          const desc = it.描述 || it.description || '';
+          const idBase = String(name).replace(/[^a-zA-Z0-9一-龥]/g, '');
+          const id = `item_${idBase}_${Math.floor(Math.random()*1e6)}`;
+          (saveData.背包.物品 as any)[id] = {
+            物品ID: id,
+            名称: name,
+            类型: type,
+            品质: { quality: '凡', grade: 1 },
+            数量: qty,
+            描述: desc
+          };
+        }
+      };
+
+      // 遍历各分类数组并导入
+      Object.keys(src).forEach(k => {
+        if (Array.isArray(src[k])) importArray(src[k]);
+      });
+
+      // 迁移完成后移除源字段
+      delete anySave.角色物品;
+      console.log('[数据验证] 已迁移 角色物品 → 背包.物品');
+    }
+  } catch (e) {
+    console.warn('[数据验证] 迁移角色物品失败:', e);
+  }
+
+  // 6. 合并/清理异常的 "角色状态" 到 玩家角色状态
+  try {
+    const anySave: any = saveData as any;
+    const extraState = anySave.角色状态;
+    if (extraState && typeof extraState === 'object') {
+      const ps = saveData.玩家角色状态 as any;
+      if (extraState.当前位置 && (!ps?.位置?.描述 || ps.位置.描述 === '未知')) {
+        ps.位置 = ps.位置 || { 描述: '', 坐标: { X: 0, Y: 0 } };
+        ps.位置.描述 = extraState.当前位置;
+      }
+      if (extraState.情绪 && !ps?.心情) {
+        ps.心情 = extraState.情绪;
+      }
+      // 移除杂项，避免污染
+      delete anySave.角色状态;
+      console.log('[数据验证] 已清理 角色状态 (合并必要字段后移除)');
+    }
+  } catch (e) {
+    console.warn('[数据验证] 合并角色状态失败:', e);
+  }
+  // 规范化人物关系为最小NpcProfile，方便前端展示
+  if (saveData.人物关系 && typeof saveData.人物关系 === 'object') {
+    const worldName = (saveData as any)?.角色基础信息?.世界 || '未知';
+    for (const [k, v] of Object.entries(saveData.人物关系)) {
+      const name = k;
+      const val: any = v;
+      if (!val || typeof val !== 'object' || (val && !('角色基础信息' in val))) {
+        (saveData.人物关系 as any)[k] = {
+          角色基础信息: {
+            名字: name,
+            性别: val?.性别 || '未知',
+            年龄: val?.年龄,
+            世界: worldName,
+            天资: '未知',
+            出生: '未知',
+            灵根: '未知',
+            天赋: [],
+            先天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 }
+          },
+          外貌描述: val?.外貌描述 || '',
+          角色存档信息: undefined,
+          人物关系: val?.人物关系 || val?.type || '相识',
+          人物好感度: typeof val?.人物好感度 === 'number' ? val.人物好感度 : (typeof val?.好感度 === 'number' ? val.好感度 : (typeof val?.value === 'number' ? val.value : 0)),
+          人物记忆: Array.isArray(val?.人物记忆) ? val.人物记忆 : (Array.isArray(val?.memories) ? val.memories : []),
+          互动次数: typeof val?.互动次数 === 'number' ? val.互动次数 : 0,
+          最后互动时间: (val?.最后互动时间 || new Date().toISOString()),
+          特殊标记: Array.isArray(val?.特殊标记) ? val.特殊标记 : []
+        } as any;
+      }
+    }
+  }
   
   if (!saveData.记忆) {
     saveData.记忆 = {

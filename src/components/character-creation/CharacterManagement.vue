@@ -480,7 +480,7 @@ const emit = defineEmits<{
   (e: 'back'): void;
   (e: 'login'): void;
   (e: 'close'): void;
-  (e: 'character-selected', character: any): void;
+  (e: 'character-selected', character: CharacterProfile): void;
 }>();
 
 const isFullscreen = computed(() => props.fullscreen);
@@ -528,7 +528,7 @@ const modalState = ref({
   message: '',
   inputValue: '',
   placeholder: '',
-  onConfirm: (value?: string) => {},
+  onConfirm: ((...args: any[]) => {}) as (() => void) | ((value: string) => void),
   onCancel: () => {}
 });
 
@@ -690,7 +690,7 @@ const canDeleteSave = (character: CharacterProfile | null, slotKey: string): boo
   let saveCount = 0;
   const savesList = character.存档列表 || {};
 
-  Object.entries(savesList).forEach(([key, save]) => {
+  Object.entries(savesList).forEach(([, save]) => {
     if (save.存档数据) {
       saveCount++;
     }
@@ -705,15 +705,15 @@ const canDeleteSave = (character: CharacterProfile | null, slotKey: string): boo
   return true;
 };
 
-const getManualSaves = (character: CharacterProfile | null) => {
-  if (!character?.存档列表) return {};
+const getManualSaves = (character: CharacterProfile | null): Record<string, SaveSlot> => {
+  if (!character?.存档列表) return {} as Record<string, SaveSlot>;
 
-  const manualSaves: Record<string, any> = {};
+  const manualSaves: Record<string, SaveSlot> = {};
 
   // 过滤出手动存档（排除自动存档）
   Object.entries(character.存档列表).forEach(([key, value]) => {
     if (key !== '上次对话' && key !== '自动存档') {
-      manualSaves[key] = value;
+      manualSaves[key] = value as SaveSlot;
     }
   });
 
@@ -851,7 +851,7 @@ const showPrompt = (title: string, message: string, initialValue = '', placehold
     message,
     inputValue: initialValue,
     placeholder,
-    onConfirm: (value) => {
+    onConfirm: (value: string) => {
       onConfirm(value || '');
       closeModal();
     },
@@ -867,9 +867,9 @@ const showPrompt = (title: string, message: string, initialValue = '', placehold
 
 const handleModalConfirm = () => {
   if (modalState.value.type === 'prompt') {
-    modalState.value.onConfirm(modalState.value.inputValue);
+    (modalState.value.onConfirm as (value: string) => void)(modalState.value.inputValue);
   } else {
-    modalState.value.onConfirm();
+    (modalState.value.onConfirm as () => void)();
   }
 };
 

@@ -120,8 +120,87 @@ export async function generateItemWithTavernAI<T = unknown>(
   prompt: string,
   typeName: string,
   showToast: boolean = true,
-  retries: number = 2
+  retries: number = 3
 ): Promise<T | null> {
+  // 内部：对GM_Response进行严格校验，避免“嵌套读取/关键词修正”，让AI自行修正
+  const ensureValidGMResponse = (data: any): any => {
+    try {
+      if (!data || typeof data !== 'object') return data;
+      // 仅当看起来像GM响应时才校验（包含text和tavern_commands字段）
+      const hasText = Object.prototype.hasOwnProperty.call(data, 'text');
+      const hasCmds = Object.prototype.hasOwnProperty.call(data, 'tavern_commands');
+      if (!hasText || !hasCmds) return data;
+
+      const allowed = new Set(['set', 'add', 'delete', 'push', 'pull']);
+      const scopes = new Set(['global', 'chat', 'character', 'message']);
+
+      const toArray = (tc: any): any[] => {
+        if (Array.isArray(tc)) return tc;
+        // 支持对象格式 { set: {...}, add: {...}, push: [...], pull: [...], delete: [...] }
+        if (tc && typeof tc === 'object') {
+          const arr: any[] = [];
+          const pushFromObject = (obj: any, action: string) => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const k of Object.keys(obj)) {
+              arr.push({ action, scope: 'chat', key: k, value: obj[k] });
+            }
+          };
+          const pushFromArray = (list: any, action: string) => {
+            if (!Array.isArray(list)) return;
+            for (const it of list) {
+              if (!it) continue;
+              if (Array.isArray(it)) {
+                const [k, v] = it;
+                if (typeof k === 'string') arr.push({ action, scope: 'chat', key: k, value: v });
+              } else if (typeof it === 'object') {
+                const k = (it as any).key;
+                if (typeof k === 'string') arr.push({ action, scope: (it as any).scope || 'chat', key: k, value: (it as any).value });
+              } else if (typeof it === 'string' && action === 'delete') {
+                arr.push({ action, scope: 'chat', key: it });
+              }
+            }
+          };
+          if ('set' in tc) pushFromObject(tc.set, 'set');
+          if ('add' in tc) pushFromObject(tc.add, 'add');
+          if ('push' in tc) pushFromArray(tc.push, 'push');
+          if ('pull' in tc) pushFromArray(tc.pull, 'pull');
+          if ('delete' in tc) pushFromArray(tc.delete, 'delete');
+          console.log('【神识印记|校验】tavern_commands 对象格式已展开为数组，长度:', arr.length);
+          return arr;
+        }
+        console.warn('【神识印记|校验】tavern_commands 类型异常，非数组/对象，类型:', typeof tc);
+        return [];
+      };
+
+      let cmds = (data as any).tavern_commands;
+      cmds = toArray(cmds);
+
+      if (!Array.isArray(cmds)) {
+        throw new Error('tavern_commands 必须为数组');
+      }
+
+      // 逐条严格校验
+      const normalized: any[] = [];
+      for (const c of cmds) {
+        if (!c || typeof c !== 'object') throw new Error('命令项必须为对象');
+        const action = String(c.action || '').trim();
+        const scope = String((c.scope || 'chat')).trim();
+        const key = String(c.key || '').trim();
+        if (!allowed.has(action)) throw new Error('存在非法action');
+        if (!scopes.has(scope)) throw new Error('存在非法scope');
+        if (!key) throw new Error('存在非法key');
+        normalized.push({ action, scope, key, value: (c as any).value });
+      }
+
+      (data as any).tavern_commands = normalized;
+      console.log('【神识印记|校验】tavern_commands 通过校验，数量:', normalized.length);
+      return data;
+    } catch (e) {
+      // 抛出错误以触发上一层重试（重新生成）
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`GM响应校验失败: ${msg}`);
+    }
+  };
   let lastError: Error | null = null;
   
   console.log(`【神识印记】开始生成${typeName}，使用原生/genraw命令`);
@@ -240,10 +319,11 @@ export async function generateItemWithTavernAI<T = unknown>(
         // 尝试直接解析整个响应为JSON
         try {
           const parsed = JSON.parse(text.trim());
+          const checked = ensureValidGMResponse(parsed);
           if (showToast) {
             toast.success(`${typeName}推演完成！`);
           }
-          return parsed;
+          return checked;
         } catch {
           console.warn(`【神识印记】响应中未找到JSON代码块，且无法直接解析为JSON: ${text}`);
           
@@ -252,8 +332,7 @@ export async function generateItemWithTavernAI<T = unknown>(
             console.log(`【神识印记】尝试从纯文本构造GM_Response结构`);
             const fallbackResponse = {
               text: text.trim(),
-              around: "周围环境静谧，空气中弥漫着淡淡的灵气波动。",
-              mid_term_memory: "【初始刻印】\n- 角色已进入修仙世界\n- 开始修行之路",
+              mid_term_memory: "",
               tavern_commands: []
             } as T;
             console.log(`【神识印记】构造的fallback响应:`, fallbackResponse);
@@ -276,7 +355,8 @@ export async function generateItemWithTavernAI<T = unknown>(
         if (showToast) {
           toast.success(`${typeName}推演完成！`);
         }
-        return parsed;
+        const checked = ensureValidGMResponse(parsed);
+        return checked;
       } catch (parseError) {
         const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
         console.error(`【神识印记】JSON解析失败:`, parseError);

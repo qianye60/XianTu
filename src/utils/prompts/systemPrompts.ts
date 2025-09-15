@@ -56,6 +56,96 @@ export const CULTIVATION_WORLD_SETTING = `## **修仙世界通用设定:**
 - **道之巅峰**: 至高境界，接近天道本源`;
 
 /**
+ * NPC系统完整说明
+ */
+export const NPC_SYSTEM_PROMPT = `## **NPC系统说明:**
+
+### **NPC数据结构(NpcProfile类型):**
+所有NPC必须严格遵循以下结构:
+- **角色基础信息**: CharacterBaseInfo类型
+  * 名字: string (必需)
+  * 性别: string (必需)
+  * 年龄?: number
+  * 世界?: string
+  * 天资?: string
+  * 出生?: string | {名称,描述}
+  * 灵根?: string | {名称,品质,描述}
+  * 天赋?: string[] | {名称,描述}[]
+  * 先天六司: {根骨,灵性,悟性,气运,魅力,心性}
+  
+- **外貌描述?**: string (10-20字简短特征)
+
+- **角色存档信息**: 
+  * 时间: ISO字符串
+  * 装备: Record<string, string | null>
+  * 功法: {主修功法: string|null, 已学技能: string[]}
+  * 状态: StatusEffect[]
+  * 境界: number (0-8对应凡人到渡劫)
+  * 声望: number
+  * 位置: {描述: string, 坐标: {X,Y}}
+  * 气血/灵气/神识/寿命: 当前值和最大值
+  * 背包: Inventory类型(同玩家)
+
+- **AI行为**: 
+  * 行为模式: string
+  * 日常路线: [{时间,位置,行为}]
+
+- **交互数据**:
+  * 人物关系: string (描述与玩家关系)
+  * 人物好感度: number (-100到100)
+  * 人物记忆: string[] (格式:"[日期][地点]事件")
+  * 最后互动时间: string | null
+
+- **背包?** (可选，商人/重要NPC):
+  * 物品: Record<string, Item>
+  * Item格式与玩家完全一致
+
+### **NPC交互系统:**
+- **交易**: 双方背包物品交换
+- **赠送**: 物品从一方转移到另一方
+- **偷窃**: 成功后转移物品，影响好感度
+- **对话**: 增加记忆，可能触发任务
+- **战斗**: 影响关系，可能掉落物品
+
+### **NPC生成原则:**
+- 根据剧情自然生成，不强制数量
+- 商人NPC必须有背包和物品
+- 重要NPC应有详细的AI行为
+- 记忆系统遵循统一格式`;
+
+/**
+ * 游戏数据结构完整说明
+ */
+export const GAME_DATA_STRUCTURE_PROMPT = `## **游戏数据结构说明:**
+
+### **SaveData存档结构:**
+- **玩家角色状态**: PlayerStatus类型
+- **装备栏**: Equipment类型(法宝1-6)
+- **三千大道**: ThousandDaoSystem类型
+- **背包**: Inventory类型
+  * 灵石: {下品,中品,上品,极品}
+  * 物品: Record<string, Item>
+- **人物关系**: Record<string, NpcProfile>
+- **宗门系统**: SectSystemData类型
+- **记忆**: Memory类型
+  * 短期记忆: string[] (格式:"[时辰][地点]事件")
+  * 中期记忆: string[] (格式:"[日期]核心事件")
+  * 长期记忆: string[] (重要事件)
+- **游戏时间**: GameTime类型
+- **修炼功法**: {功法,熟练度,已解锁技能,修炼时间,突破次数}
+
+### **物品系统(Item类型):**
+- **基础字段**: 物品ID,名称,类型,品质,数量,描述
+- **类型枚举**: 法宝|功法|其他
+- **品质系统**: {quality:凡/黄/玄/地/天/仙/神, grade:0-10}
+- **可选字段**: 装备增幅,装备特效,使用效果,功法效果,功法技能
+
+### **状态效果(StatusEffect类型):**
+- **必需字段**: 状态名称,类型(buff|debuff),时间,状态描述
+- **可选字段**: 强度(1-10),来源,剩余时间
+- **时间格式**: 具体值如"30分钟"|"1小时"|"3天"|"永久"`;
+
+/**
  * 角色状态效果系统说明
  */
 export const STATUS_EFFECT_SYSTEM = `## **状态效果系统:**
@@ -88,12 +178,16 @@ export function generateSystemPrompt(options: {
   includeItemQuality?: boolean;
   includeCultivationSetting?: boolean;
   includeStatusEffect?: boolean;
+  includeNPCSystem?: boolean;
+  includeDataStructure?: boolean;
 } = {}): string {
   const {
     includeRealmSystem = true,
     includeItemQuality = true,
     includeCultivationSetting = false,
-    includeStatusEffect = false
+    includeStatusEffect = false,
+    includeNPCSystem = false,
+    includeDataStructure = false
   } = options;
 
   let prompt = '';
@@ -112,6 +206,14 @@ export function generateSystemPrompt(options: {
 
   if (includeStatusEffect) {
     prompt += STATUS_EFFECT_SYSTEM + '\n\n';
+  }
+
+  if (includeNPCSystem) {
+    prompt += NPC_SYSTEM_PROMPT + '\n\n';
+  }
+
+  if (includeDataStructure) {
+    prompt += GAME_DATA_STRUCTURE_PROMPT + '\n\n';
   }
 
   return prompt.trim();

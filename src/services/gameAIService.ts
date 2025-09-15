@@ -141,8 +141,7 @@ export class GameAIService {
         content: parsedResponse.text || String(aiResponse) || '...',
         time: this.formatGameTime(),
         metadata: {
-          commands: parsedResponse.tavern_commands || [],
-          around: parsedResponse.around
+          commands: parsedResponse.tavern_commands || []
         }
       };
       messages.push(gameMessage);
@@ -157,15 +156,6 @@ export class GameAIService {
         this.updateMemorySystem(userMessage, parsedResponse.mid_term_memory);
       }
 
-      // 如果有环境描述，添加系统消息
-      if (parsedResponse.around) {
-        const aroundMessage: GameMessage = {
-          type: 'system',
-          content: `[环境] ${parsedResponse.around}`,
-          time: this.formatGameTime()
-        };
-        messages.push(aroundMessage);
-      }
 
       toast.success('天道响应完成');
       
@@ -517,6 +507,11 @@ export class GameAIService {
     try {
       const { useCharacterStore } = await import('@/stores/characterStore');
       const characterStore = useCharacterStore();
+
+      // 兼容新格式：若存在 update 且缺少 tavern_commands，则桥接为 tavern_commands
+      if (!(response as any).tavern_commands && Array.isArray((response as any).update)) {
+        (response as any).tavern_commands = (response as any).update;
+      }
 
       // processGmResponse 会返回一个更新后的新对象
       const updatedProfile = await processGmResponse(response, characterProfile);

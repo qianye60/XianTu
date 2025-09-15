@@ -10,11 +10,17 @@
     <div v-if="isDataLoaded && characterInfo" class="sidebar-content">
       <!-- 修行状态 -->
       <div class="vitals-section">
-        <h3 class="section-title">修行状态</h3>
-        <div class="vitals-grid">
+        <h3 class="section-title">
+          <Heart :size="14" class="section-icon" />
+          <span>修行状态</span>
+        </h3>
+        <div class="vitals-list">
           <div class="vital-item">
             <div class="vital-info">
-              <span class="vital-name">🩸 气血</span>
+              <span class="vital-name">
+                <Droplet :size="12" class="vital-icon blood" />
+                <span>气血</span>
+              </span>
               <span class="vital-text">{{ playerStatus?.vitals.qiBlood.current }} / {{ playerStatus?.vitals.qiBlood.max }}</span>
             </div>
             <div class="progress-bar">
@@ -24,7 +30,10 @@
 
           <div class="vital-item">
             <div class="vital-info">
-              <span class="vital-name">✨ 灵气</span>
+              <span class="vital-name">
+                <Sparkles :size="12" class="vital-icon mana" />
+                <span>灵气</span>
+              </span>
               <span class="vital-text">{{ playerStatus?.vitals.lingQi.current }} / {{ playerStatus?.vitals.lingQi.max }}</span>
             </div>
             <div class="progress-bar">
@@ -34,7 +43,10 @@
 
           <div class="vital-item">
             <div class="vital-info">
-              <span class="vital-name">🧠 神识</span>
+              <span class="vital-name">
+                <Brain :size="12" class="vital-icon spirit" />
+                <span>神识</span>
+              </span>
               <span class="vital-text">{{ playerStatus?.vitals.shenShi.current }} / {{ playerStatus?.vitals.shenShi.max }}</span>
             </div>
             <div class="progress-bar">
@@ -44,7 +56,10 @@
 
           <div class="vital-item">
             <div class="vital-info">
-              <span class="vital-name">⏳ 寿元</span>
+              <span class="vital-name">
+                <Clock :size="12" class="vital-icon lifespan" />
+                <span>寿元</span>
+              </span>
               <span class="vital-text">{{ playerStatus?.lifespan.current }} / {{ playerStatus?.lifespan.max }}年</span>
             </div>
             <div class="progress-bar">
@@ -56,7 +71,10 @@
 
       <!-- 境界状态 -->
       <div class="cultivation-section">
-        <h3 class="section-title">境界状态</h3>
+        <h3 class="section-title">
+          <Star :size="14" class="section-icon" />
+          <span>境界状态</span>
+        </h3>
         <div class="realm-display">
           <div class="realm-info">
             <span class="realm-name">{{ playerStatus?.realm.name }}</span>
@@ -88,7 +106,10 @@
       <!-- 天赋神通 -->
       <div v-if="characterInfo?.talents && characterInfo.talents.length > 0" class="collapsible-section talents-section">
         <div class="section-header" @click="talentsCollapsed = !talentsCollapsed">
-          <h3 class="section-title">🌟 天赋神通</h3>
+          <h3 class="section-title">
+            <Star :size="14" class="section-icon gold" />
+            <span>天赋神通</span>
+          </h3>
           <button class="collapse-toggle" :class="{ 'collapsed': talentsCollapsed }">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 10l4-4H4l4 4z"/>
@@ -119,7 +140,10 @@
       <!-- 状态效果 -->
       <div class="collapsible-section status-section">
         <div class="section-header" @click="statusCollapsed = !statusCollapsed">
-          <h3 class="section-title">⚡ 状态效果</h3>
+          <h3 class="section-title">
+            <Zap :size="14" class="section-icon" />
+            <span>状态效果</span>
+          </h3>
           <button class="collapse-toggle" :class="{ 'collapsed': statusCollapsed }">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 10l4-4H4l4 4z"/>
@@ -135,7 +159,7 @@
               v-for="effect in statusEffects"
               :key="effect.状态名称"
               class="status-effect-card clickable"
-              :class="[effect.类型 === 'BUFF' ? 'buff' : 'debuff']"
+              :class="[(String(effect.类型).toLowerCase() === 'buff') ? 'buff' : 'debuff']"
               @click="showStatusDetail(effect)"
             >
               <div class="effect-header">
@@ -163,6 +187,7 @@
       v-model="showModal"
       :title="modalData.title"
       :icon="modalData.icon"
+      :iconComponent="modalData.iconComponent"
       :content="modalData.content"
     />
   </div>
@@ -170,7 +195,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Activity } from 'lucide-vue-next';
+import { Activity, Sparkles, AlertTriangle, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
 import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -217,16 +242,19 @@ const showModal = ref(false);
 const modalData = ref<{
   title: string;
   icon: string;
+  iconComponent?: any;
   content: (TextSection | ListSection | TableSection)[];
 }>({
   title: '',
   icon: '',
+  iconComponent: null,
   content: []
 });
 
 // 时间显示格式化
-const formatTimeDisplay = (time: string): string => {
-  if (!time || time === '永久') return '永久';
+const formatTimeDisplay = (time: string | undefined): string => {
+  if (!time || time === '未指定') return '';
+  if (time === '永久') return '永久';
 
   // 处理数字形式的时间（分钟）
   if (/^\d+$/.test(time)) {
@@ -350,7 +378,8 @@ const showTalentDetail = (talent: string) => {
 
   modalData.value = {
     title: `${talent} (Lv.${level})`,
-    icon: '✨',
+    icon: '',
+    iconComponent: Sparkles,
     content: [
       {
         type: 'text',
@@ -378,70 +407,23 @@ const showTalentDetail = (talent: string) => {
 
 // 显示状态效果详情
 const showStatusDetail = (effect: StatusEffect) => {
-  // 状态效果描述数据库
-  const effectDescriptions: Record<string, {
-    description: string;
-    effects: string[];
-    severity: string;
-    treatment: string;
-  }> = {
-    '中毒': {
-      description: '体内毒素侵蚀，持续损失气血。',
-      effects: ['每分钟减少气血5点', '移动速度降低20%', '修炼效率降低30%'],
-      severity: '严重',
-      treatment: '服用解毒丹、寻找医师治疗、修炼解毒功法'
-    },
-    '真气运行': {
-      description: '真气在经脉中有序运行，提升各项能力。',
-      effects: ['灵气恢复速度+30%', '修炼效率+20%', '抗毒能力+15%'],
-      severity: '轻微',
-      treatment: '无需治疗，自然状态'
-    },
-    '疲劳': {
-      description: '长时间活动导致的身体疲惫状态。',
-      effects: ['所有行动效率-25%', '修炼速度-40%', '容易受伤'],
-      severity: '一般',
-      treatment: '充足休息、服用补气丹、温泉浸泡'
-    },
-    '疗伤': {
-      description: '正在治疗伤势，身体机能逐渐恢复。',
-      effects: ['气血恢复速度+50%', '伤势愈合加速', '免疫部分负面状态'],
-      severity: '轻微',
-      treatment: '无需治疗，恢复中'
-    },
-    '入定': {
-      description: '深入冥想状态，心神专注于修炼。',
-      effects: ['神识恢复速度+40%', '修炼领悟+60%', '移动速度-50%'],
-      severity: '轻微',
-      treatment: '无需治疗，修炼状态'
-    },
-    '突破前兆': {
-      description: '即将突破当前境界的征兆，体内灵气波动剧烈。',
-      effects: ['修为获得翻倍', '突破成功率+30%', '容易引起天象异变'],
-      severity: '特殊',
-      treatment: '无需治疗，关键时期'
-    },
-    '心魔': {
-      description: '修炼时产生的心理障碍，影响修炼进度。',
-      effects: ['修炼效率-50%', '突破失败率+40%', '易产生幻觉'],
-      severity: '严重',
-      treatment: '心境调节、请教高人、历练红尘'
-    }
-  };
+  // 完全使用AI生成的数据，不使用预设数据
+  const descriptionText = (effect as any).状态描述 && String((effect as any).状态描述).trim()
+    ? String((effect as any).状态描述).trim()
+    : `${effect.状态名称}状态生效中`;
 
-  const effectInfo = effectDescriptions[effect.状态名称] || {
-    description: `状态效果【${effect.状态名称}】的详细信息暂未开放。`,
-    effects: ['效果未知'],
-    severity: '未知',
-    treatment: '无相关信息'
-  };
 
   // 从实际数据中获取更多信息
   const additionalInfo: { label: string; value: string | number }[] = [];
+  
+  // 效果强度 - 更详细的描述
   if (effect.强度) {
+    const strengthText = effect.强度 >= 8 ? `极强(${effect.强度}/10)` : 
+                         effect.强度 >= 5 ? `中等(${effect.强度}/10)` : 
+                         `轻微(${effect.强度}/10)`;
     additionalInfo.push({
       label: '效果强度',
-      value: effect.强度
+      value: strengthText
     });
   }
   if (effect.剩余时间) {
@@ -457,39 +439,50 @@ const showStatusDetail = (effect: StatusEffect) => {
     });
   }
 
-  const content: (TextSection | ListSection | TableSection)[] = [
-    {
-      type: 'text',
-      data: effectInfo.description
-    } as TextSection,
-    {
-      title: '状态效果',
-      type: 'list',
-      data: effectInfo.effects
-    } as ListSection,
-    {
-      title: '基本信息',
-      type: 'table',
-      data: [
-        { label: '类型', value: effect.类型 === 'BUFF' ? '增益效果' : '减益效果' },
-        { label: '持续时间', value: effect.时间 },
-        { label: '严重程度', value: effectInfo.severity },
-        ...additionalInfo
-      ]
-    } as TableSection
-  ];
-
-  if (effectInfo.treatment && effectInfo.treatment !== '无需治疗，自然状态' && effectInfo.treatment !== '无相关信息') {
+  const content: (TextSection | ListSection | TableSection)[] = [];
+  
+  // 添加描述
+  if (descriptionText) {
     content.push({
-      title: '处理建议',
       type: 'text',
-      data: effectInfo.treatment
+      data: descriptionText
     } as TextSection);
   }
+  
+  
+  // 构建基本信息表格，显示更多信息
+  const tableData: { label: string; value: string | number }[] = [];
+  
+  // 状态类型
+  const typeText = String(effect.类型).toLowerCase() === 'buff' ? '增益状态 ✨' : '负面状态 ⚠️';
+  tableData.push({ label: '状态类型', value: typeText });
+  
+  // 持续时间
+  const timeValue = formatTimeDisplay(effect.时间);
+  if (timeValue) {
+    tableData.push({ label: '持续时间', value: timeValue });
+  } else if (effect.时间) {
+    // 如果有时间字段但格式化失败，直接显示原始值
+    tableData.push({ label: '持续时间', value: effect.时间 });
+  }
+  
+  // 添加其他有效信息
+  tableData.push(...additionalInfo);
+  
+  // 只有当有数据时才添加表格
+  if (tableData.length > 0) {
+    content.push({
+      title: '基本信息',
+      type: 'table',
+      data: tableData
+    } as TableSection);
+  }
+
 
   modalData.value = {
     title: effect.状态名称,
-    icon: effect.类型 === 'BUFF' ? '⬆️' : '⬇️',
+    icon: '', // 不使用字符串图标
+    iconComponent: String(effect.类型).toLowerCase() === 'buff' ? Sparkles : AlertTriangle,
     content
   };
   showModal.value = true;
@@ -749,14 +742,16 @@ const showStatusDetail = (effect: StatusEffect) => {
   flex-direction: column;
   gap: 10px;
 }
+
 /* 状态效果特定样式 */
 .status-effects {
   padding: 0 16px 16px;
 }
+
 .status-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .empty-status {
   padding: 20px;
@@ -767,53 +762,164 @@ const showStatusDetail = (effect: StatusEffect) => {
   color: #64748b;
   font-style: italic;
 }
-/* 状态效果卡片样式 */
+/* 状态效果卡片样式 - 宽度拉满，轻微悬停效果 */
 .status-effect-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-height: 60px;
+  backdrop-filter: blur(8px);
+  width: 100%;
+}
+
+.status-effect-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
   transition: all 0.3s ease;
 }
+
+.status-effect-card.buff::before {
+  background: linear-gradient(to bottom, #22c55e, #16a34a);
+}
+
+.status-effect-card.debuff::before {
+  background: linear-gradient(to bottom, #ef4444, #dc2626);
+}
+
 .status-effect-card.buff {
-  border-left: 3px solid #22c55e;
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  background: linear-gradient(135deg, 
+    rgba(34, 197, 94, 0.15) 0%, 
+    rgba(34, 197, 94, 0.08) 50%, 
+    rgba(34, 197, 94, 0.05) 100%);
+  border-color: rgba(34, 197, 94, 0.3);
 }
+
 .status-effect-card.debuff {
-  border-left: 3px solid #ef4444;
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.15) 0%, 
+    rgba(239, 68, 68, 0.08) 50%, 
+    rgba(239, 68, 68, 0.05) 100%);
+  border-color: rgba(239, 68, 68, 0.3);
 }
+
+.status-effect-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.status-effect-card.buff:hover {
+  background: linear-gradient(135deg, 
+    rgba(34, 197, 94, 0.2) 0%, 
+    rgba(34, 197, 94, 0.12) 50%, 
+    rgba(34, 197, 94, 0.08) 100%);
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.15), 0 0 0 1px rgba(34, 197, 94, 0.2);
+}
+
+.status-effect-card.debuff:hover {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.2) 0%, 
+    rgba(239, 68, 68, 0.12) 50%, 
+    rgba(239, 68, 68, 0.08) 100%);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15), 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
 .effect-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
 }
+
+.effect-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .effect-info .effect-name {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #e2e8f0;
+  line-height: 1.3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
 .effect-data {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 4px;
+  flex-shrink: 0;
 }
+
 .effect-intensity {
   font-size: 0.7rem;
   color: #fbbf24;
-  font-weight: 500;
+  font-weight: 600;
+  background: rgba(251, 191, 36, 0.15);
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
 }
+
 .effect-time {
   font-size: 0.7rem;
   color: #94a3b8;
+  font-weight: 500;
 }
+/* 标题样式 - 图标和文字在一行 */
 .section-title {
   margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
   color: #e2e8f0;
   padding-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title span {
+  flex: 1;
+}
+
+.section-icon {
+  color: var(--color-primary);
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.section-icon.gold {
+  color: #fbbf24;
+}
+
+.vital-icon {
+  flex-shrink: 0;
+}
+
+.vital-icon.blood {
+  color: #ef4444;
+}
+
+.vital-icon.mana {
+  color: #3b82f6;
+}
+
+.vital-icon.spirit {
+  color: #fbbf24;
+}
+
+.vital-icon.lifespan {
+  color: #a78bfa;
 }
 
 /* 点击提示样式 */
@@ -827,68 +933,123 @@ const showStatusDetail = (effect: StatusEffect) => {
   border-color: rgba(168, 85, 247, 0.5);
 }
 
-/* 天赋卡片样式 */
+/* 天赋卡片样式 - 增强美观性 */
 .talent-card {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-left: 3px solid #a855f7;
-  border-radius: 8px;
-  padding: 12px;
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-left: 4px solid #a855f7;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
 }
+
+.talent-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.1) 0%, 
+    rgba(168, 85, 247, 0.05) 50%, 
+    rgba(139, 92, 246, 0.1) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.talent-card:hover::before {
+  opacity: 1;
+}
+
+.talent-card:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.15));
+  border-color: rgba(168, 85, 247, 0.5);
+  transform: translateX(6px) translateY(-2px);
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.25), 0 0 0 1px rgba(168, 85, 247, 0.2);
+}
+
 .talent-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  z-index: 1;
 }
+
 .talent-name {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #d8b4fe;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
 .talent-level {
   font-size: 0.75rem;
   color: #fbbf24;
-  font-weight: 500;
-  background: rgba(251, 191, 36, 0.15);
-  padding: 2px 8px;
-  border-radius: 10px;
+  font-weight: 600;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1));
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  backdrop-filter: blur(4px);
 }
+
 .talent-progress {
-  margin-top: 8px;
+  margin-top: 10px;
+  position: relative;
+  z-index: 1;
 }
+
 .progress-fill.talent {
-  background: linear-gradient(90deg, #8b5cf6, #c084fc);
+  background: linear-gradient(90deg, #8b5cf6, #c084fc, #d8b4fe);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 /* 生命体征样式 */
-.vitals-grid {
-  display: grid;
-  gap: 8px;
+.vitals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .vital-item {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  padding: 8px;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.vital-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .vital-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .vital-name {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #cbd5e1;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .vital-text {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: #94a3b8;
+  font-weight: 600;
 }
 
 .progress-bar {
@@ -896,12 +1057,40 @@ const showStatusDetail = (effect: StatusEffect) => {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
   overflow: hidden;
+  position: relative;
 }
 
 .progress-fill {
   height: 100%;
   border-radius: 3px;
-  transition: width 0.3s ease;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .progress-fill.health {
@@ -1019,6 +1208,138 @@ const showStatusDetail = (effect: StatusEffect) => {
   font-size: 0.9rem;
   color: #64748b;
   font-style: italic;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .right-sidebar {
+    padding: 12px;
+  }
+
+  .sidebar-title {
+    font-size: 0.9rem;
+  }
+
+  .section-title {
+    font-size: 0.8rem;
+  }
+
+  .vitals-list {
+    gap: 8px;
+  }
+
+  .vital-item {
+    padding: 6px;
+  }
+
+  .vital-name {
+    font-size: 0.7rem;
+  }
+
+  .vital-text {
+    font-size: 0.65rem;
+  }
+
+  .talent-card {
+    padding: 10px;
+  }
+
+  .talent-name {
+    font-size: 0.8rem;
+  }
+
+  .status-effect-card {
+    padding: 8px 10px;
+  }
+
+  .effect-name {
+    font-size: 0.75rem;
+  }
+
+  .detail-item {
+    padding: 5px 6px;
+    font-size: 0.7rem;
+  }
+
+  .realm-name {
+    font-size: 0.8rem;
+  }
+
+  .progress-bar {
+    height: 5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .right-sidebar {
+    padding: 8px;
+  }
+
+  .sidebar-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+
+  .vitals-section,
+  .cultivation-section,
+  .collapsible-section {
+    margin-bottom: 12px;
+    padding: 10px;
+  }
+
+  .status-details {
+    grid-template-columns: 1fr;
+  }
+
+  .talents-list {
+    padding: 0 12px 12px;
+  }
+
+  .status-effects {
+    padding: 0 12px 12px;
+  }
+}
+
+/* 平板设备优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .right-sidebar {
+    padding: 14px;
+  }
+
+  .vital-item {
+    padding: 7px;
+  }
+
+  .talent-card {
+    padding: 11px;
+  }
+}
+
+/* 大屏幕优化 */
+@media (min-width: 1440px) {
+  .right-sidebar {
+    padding: 20px;
+  }
+
+  .sidebar-title {
+    font-size: 1.1rem;
+  }
+
+  .section-title {
+    font-size: 0.9rem;
+  }
+
+  .vital-name {
+    font-size: 0.8rem;
+  }
+
+  .talent-name {
+    font-size: 0.9rem;
+  }
+
+  .effect-name {
+    font-size: 0.85rem;
+  }
 }
 
 /* 深色主题适配 */

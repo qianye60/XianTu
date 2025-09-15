@@ -12,13 +12,30 @@ export interface Toast {
 // 响应式状态，存储所有活动的 toast
 const toasts = ref<Toast[]>([]);
 
+// 短时去重：在很短时间窗口内阻止相同消息重复弹出
+const RECENT_WINDOW_MS = 1500;
+const recentToastMap: Map<string, number> = new Map();
+const makeDedupKey = (type: MessageType, message: string) => `${type}::${message}`;
+const shouldDedup = (type: MessageType, message: string) => {
+  const key = makeDedupKey(type, message);
+  const now = Date.now();
+  const last = recentToastMap.get(key) || 0;
+  if (now - last < RECENT_WINDOW_MS) return true;
+  recentToastMap.set(key, now);
+  // 清理过期记录
+  for (const [k, t] of recentToastMap) {
+    if (now - t > RECENT_WINDOW_MS * 4) recentToastMap.delete(k);
+  }
+  return false;
+};
+
 // --- 内部辅助函数 ---
 let toastCounter = 0;
 const generateId = () => `toast-${Date.now()}-${toastCounter++}`;
 
 /**
  * 移除一个 toast
- * @param id 要移除的 toast 的 ID
+ * @param id 要移除的 toast 的ID
  */
 const removeToast = (id: string) => {
   toasts.value = toasts.value.filter(t => t.id !== id);
@@ -32,11 +49,16 @@ class ToastManager {
    * 核心方法，用于显示或更新 Toast
    * @param type - 消息类型
    * @param content - 消息内容
-   * @param options - 选项，包含 duration 和 id
+   * @param options - 选项，包含 duration / id
    */
   private show(type: MessageType, message: string, options: { duration?: number; id?: string } = {}) {
-    // 减少默认显示时间到2.5秒
+    // 减少默认显示时间为2.5秒
     const { duration = 2500, id } = options;
+
+    // 去重：同类型同文案的消息在短时间内仅显示一次
+    if (!id && shouldDedup(type, message)) {
+      return;
+    }
 
     // 如果提供了 id，则尝试查找并更新现有 toast
     if (id) {

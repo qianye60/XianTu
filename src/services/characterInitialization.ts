@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview 角色初始化服务
  * 负责角色创建完成后的全套初始化流程，并集成AI动态生成。
  */
@@ -7,7 +7,8 @@ import { getTavernHelper } from '@/utils/tavern';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, TalentProgress, WorldInfo, WorldLocation } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, WorldLocation } from '@/types/game';
+import { validateAndFixSaveData } from '@/utils/dataValidation';
 import type { World } from '@/types';
 import { generateInitialMessage } from '@/utils/tavernAI';
 import { processGmResponse } from '@/utils/AIGameMaster';
@@ -15,6 +16,7 @@ import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { GAME_START_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
 import { WorldGenerationConfig, BirthplaceGenerator } from '@/utils/worldGeneration/gameWorldConfig';
 import { CultivationWorldGenerator } from '@/utils/worldGeneration/cultivationWorldGenerator';
+// Removed unused imports to satisfy eslint
 
 /**
  * 创建一个可重试的AI调用包装器，包含用户确认功能
@@ -32,7 +34,7 @@ async function retryableAICall<T>(
 ): Promise<T> {
   const uiStore = useUIStore();
   let lastError: Error | null = null;
-  
+
   // 先进行自动重试
   for (let i = 0; i <= maxRetries; i++) {
     try {
@@ -52,7 +54,7 @@ async function retryableAICall<T>(
       }
     }
   }
-  
+
   // 自动重试耗尽后，询问用户是否继续
   const shouldRetry = await askUserForRetry(progressMessage, lastError?.message || '未知错误');
   if (shouldRetry) {
@@ -70,7 +72,7 @@ async function retryableAICall<T>(
 async function askUserForRetry(taskName: string, errorMessage: string): Promise<boolean> {
   return new Promise((resolve) => {
     const uiStore = useUIStore();
-    
+
     // 显示错误和询问
     uiStore.showRetryDialog({
       title: `${taskName}失败`,
@@ -90,7 +92,7 @@ async function retryableAICallWithUserChoice<T>(
   progressMessage: string
 ): Promise<T> {
   const uiStore = useUIStore();
-  
+
   // 用户确认后进行额外的重试
   for (let i = 1; i <= 3; i++) {
     try {
@@ -107,7 +109,7 @@ async function retryableAICallWithUserChoice<T>(
       }
     }
   }
-  
+
   // 最终失败，再次询问用户
   const shouldContinueRetry = await askUserForRetry(progressMessage, '多次重试仍然失败');
   if (shouldContinueRetry) {
@@ -190,11 +192,11 @@ export async function initializeCharacter(
     const characterCreationStore = useCharacterCreationStore();
     const userWorldConfig = characterCreationStore.worldGenerationConfig;
     console.log('【角色初始化】使用用户世界生成配置:', userWorldConfig);
-    
+
     // 获取选择的世界信息
     const selectedWorld = characterCreationStore.selectedWorld;
     console.log('【角色初始化】选择的世界:', selectedWorld);
-    
+
     // 构建包含详细信息的角色背景信息
     const characterInfo = {
       origin: baseInfo.出生,
@@ -205,7 +207,7 @@ export async function initializeCharacter(
       worldName: selectedWorld?.name || world.name || '未知世界'
     };
     console.log('【角色初始化】角色背景信息:', characterInfo);
-    
+
     // 构建增强的世界配置，包含地图生成参数
     const enhancedWorldConfig = {
       ...userWorldConfig,
@@ -230,20 +232,21 @@ export async function initializeCharacter(
       // 创建世界生成配置，根据角色背景调整
       const worldConfig = new WorldGenerationConfig('classic_cultivation');
       if (baseInfo.出生) {
-        worldConfig.adjustForCharacterBackground(baseInfo.出生);
+        const originStr = typeof baseInfo.出生 === 'string' ? baseInfo.出生 : (baseInfo as any).出生?.名称 || String((baseInfo as any).出生);
+        worldConfig.adjustForCharacterBackground(originStr);
       }
 
       // 创建世界生成器并生成世界
       const worldGenerator = new CultivationWorldGenerator(
         worldConfig.getSettings(),
-        baseInfo.出生,
+        (typeof baseInfo.出生 === 'string' ? baseInfo.出生 : (baseInfo as any).出生?.名称 || String((baseInfo as any).出生)),
         enhancedWorldConfig // 传递增强的世界配置
       );
 
       try {
         // 使用 retryableAICall 包装世界生成，确保有重试机制和用户确认功能
         console.log('[角色初始化] 开始调用CultivationWorldGenerator');
-        
+
         const worldGenerationResult = await retryableAICall(
           async () => {
             console.log('[角色初始化] 执行worldGenerator.generateWorld()');
@@ -255,15 +258,15 @@ export async function initializeCharacter(
             console.log('[角色初始化] 验证世界生成结果:', result);
             return result && result.success;
           },
-          2, // 最大重试次数  
+          2, // 最大重试次数
           '天道造化：衍化世界法则'
         );
-        
+
         console.log('[角色初始化] 世界生成完成:', worldGenerationResult);
-        
+
         // 等待世界生成完成
         await new Promise(resolve => setTimeout(resolve, 1500));
-        
+
         // [数据同步] 获取CultivationWorldGenerator保存的完整世界数据，并同步到当前SaveData
         try {
           const variables = await helper.getVariables({ type: 'chat' });
@@ -283,7 +286,7 @@ export async function initializeCharacter(
         } catch (syncError) {
           console.error('[角色初始化] 同步世界数据失败:', syncError);
         }
-        
+
         console.log('[角色初始化] 修仙世界已生成并保存到酒馆变量');
       } catch (worldGenError) {
         console.error('[角色初始化] 世界生成API调用失败:', worldGenError);
@@ -299,120 +302,33 @@ export async function initializeCharacter(
             // 获取已生成的世界数据以便更好地整合出生地
             const variables = await helper.getVariables({ type: 'chat' });
             const worldLocations = Array.isArray(variables['world_locations']) ? variables['world_locations'] : [];
-            
+
             console.log('[角色初始化] 可用世界地点数:', worldLocations.length);
             console.log('[角色初始化] 角色出身:', baseInfo.出生);
-            
+
             const birthplace = BirthplaceGenerator.generateBirthplace(
-              baseInfo.出生,
+              (typeof baseInfo.出生 === 'string' ? baseInfo.出生 : (baseInfo as any).出生?.名称 || String((baseInfo as any).出生)),
               worldConfig.getSettings()
             );
 
             // 尝试将角色的出生地与已生成的世界地点关联
             let selectedLocation = null;
-            
+
             // 如果有合适的地点类型，优先使用世界中生成的地点
             if (worldLocations.length > 0) {
-              const suitableLocations = worldLocations.filter((loc: any) => {
-                // 根据角色出身匹配合适的地点类型（带气运和随机数多样化）
-                const origin = baseInfo.出生;
-                const fortune = baseInfo.先天六司?.气运 || 50; // 获取气运值，默认50
-                
-                // 多重随机数生成，增加随机性
-                const rand1 = Math.random();
-                const rand2 = Math.random(); 
-                const rand3 = Math.random();
-                
-                // 随机出生 - 基于气运属性和复合随机算法分配起点
-                if (origin?.includes('随机')) {
-                  const combinedRand = (rand1 + rand2 + rand3) / 3; // 平均值随机
-                  
-                  // 气运影响因子：气运越高，获得好起点的概率越高
-                  const fortuneBonus = Math.max(0, (fortune - 50) / 100); // 气运高于50时提供加成
-                  const adjustedRand = Math.max(0, combinedRand - fortuneBonus);
-                  
-                  // 基于调整后的随机值分配起点概率
-                  if (adjustedRand < 0.15) return loc.type === 'sect_power';      // 15% 宗门势力（顶级起点）
-                  if (adjustedRand < 0.35) return loc.type === 'blessed_land';    // 20% 洞天福地（高级起点）
-                  if (adjustedRand < 0.5) return loc.type === 'treasure_land';    // 15% 奇珍异地（稀有起点）
-                  if (adjustedRand < 0.75) return loc.type === 'city_town';       // 25% 城镇坊市（中等起点）
-                  if (adjustedRand < 0.9) return loc.danger_level === '安全';      // 15% 安全地点（普通起点）
-                  return loc.type === 'natural_landmark';                        // 10% 名山大川（自然起点）
-                }
-                
-                // 非随机出生也考虑气运影响，但权重较小
-                const fortuneInfluence = rand1 < (fortune / 200); // 气运影响概率
-                
-                // 世家子弟 - 气运高时有机会出生在更好的地方
-                if (origin?.includes('世家') || origin?.includes('望族') || origin?.includes('大族')) {
-                  if (fortuneInfluence && rand2 < 0.3) {
-                    return loc.type === 'sect_power' || loc.type === 'blessed_land'; // 气运好时可能在宗门势力或洞天福地
-                  }
-                  return loc.type === 'sect_power' || loc.type === 'city_town';
-                }
-                
-                // 宗门弟子 - 气运影响在宗门内的地位
-                if (origin?.includes('宗门') || origin?.includes('门派') || origin?.includes('弟子')) {
-                  if (fortuneInfluence && rand2 < 0.4) {
-                    return loc.type === 'blessed_land'; // 气运好时更可能在洞天福地修炼
-                  }
-                  return loc.type === 'sect_power' || loc.type === 'blessed_land';
-                }
-                
-                // 散修出身 - 气运高时可能遇到奇遇
-                if (origin?.includes('散修') || origin?.includes('孤儿') || origin?.includes('平民')) {
-                  if (fortuneInfluence && rand2 < 0.2) {
-                    return loc.type === 'treasure_land' || loc.type === 'blessed_land'; // 气运好时可能发现宝地或秘境
-                  }
-                  return loc.type === 'city_town' || (loc.danger_level === '安全' && loc.type !== 'dangerous_area');
-                }
-                
-                // 商贾之家 - 气运影响财富和商机
-                if (origin?.includes('商贾') || origin?.includes('商家') || origin?.includes('商人')) {
-                  if (fortuneInfluence && rand2 < 0.25) {
-                    return loc.type === 'treasure_land'; // 气运好时可能发现商机宝地
-                  }
-                  return loc.type === 'city_town';
-                }
-                
-                // 书香门第 - 气运影响学习机缘
-                if (origin?.includes('书香') || origin?.includes('学者') || origin?.includes('文人')) {
-                  if (fortuneInfluence && rand2 < 0.35) {
-                    return loc.type === 'blessed_land'; // 气运好时更容易接触修仙传承
-                  }
-                  return loc.type === 'city_town' || loc.type === 'blessed_land';
-                }
-                
-                // 默认：选择城镇坊市或安全地点，避免危险区域
-                return loc.type === 'city_town' || (loc.danger_level === '安全' && loc.type !== 'dangerous_area');
-              });
-
-              if (suitableLocations.length > 0) {
-                // 如果是随机出生，进一步按起点质量排序选择
-                if (baseInfo.出生?.includes('随机')) {
-                  // 按起点优势排序：宗门势力 > 洞天福地 > 奇珍异地 > 城镇坊市 > 其他
-                  const priorityOrder = ['sect_power', 'blessed_land', 'treasure_land', 'city_town'];
-                  suitableLocations.sort((a: any, b: any) => { // TODO: 需要匹配WorldLocation类型的属性名
-                    const aPriority = priorityOrder.indexOf(a.type);
-                    const bPriority = priorityOrder.indexOf(b.type);
-                    return (aPriority >= 0 ? aPriority : 999) - (bPriority >= 0 ? bPriority : 999);
-                  });
-                }
-                
-                // 随机选择一个合适的地点
-                selectedLocation = suitableLocations[Math.floor(Math.random() * suitableLocations.length)];
-                console.log('[角色初始化] 选择世界地点作为出生地:', selectedLocation.name, '类型:', selectedLocation.type);
-              } else {
-                console.log('[角色初始化] 未找到适合的世界地点，将使用默认生成的出生地');
-              }
+              // 简化：优先选择非危险地点，否则任意随机一个
+              const nonDanger = worldLocations.filter((loc: WorldLocation) => loc.类型 !== 'dangerous_area' && loc.安全等级 !== '极危险');
+              const pool = nonDanger.length > 0 ? nonDanger : worldLocations;
+              selectedLocation = pool[Math.floor(Math.random() * pool.length)];
+              console.log('[角色初始化] 采用世界地点作为出生地:', selectedLocation.名称, '类型:', selectedLocation.类型);
             }
 
             // 如果找到了合适的世界地点，使用它；否则使用生成的出生地
             const finalBirthplace = selectedLocation ? {
-              name: selectedLocation.name,
+              name: selectedLocation.名称,
               coordinates: selectedLocation.coordinates,
-              description: selectedLocation.description || birthplace.description,
-              type: selectedLocation.type || birthplace.type
+              description: selectedLocation.描述 || birthplace.description,
+              type: selectedLocation.类型 || birthplace.type
             } : birthplace;
 
             return finalBirthplace;
@@ -427,9 +343,6 @@ export async function initializeCharacter(
           描述: birthplaceResult.name,
           坐标: birthplaceResult.coordinates
         };
-        
-        // 添加出生地字段到角色状态
-        playerStatus.出生地 = birthplaceResult.name;
 
         console.log('[角色初始化] 最终出生地已确定:', {
           name: birthplaceResult.name,
@@ -526,35 +439,51 @@ export async function initializeCharacter(
       console.log('[角色初始化] 更新灵根为:', baseInfo.灵根);
     }
 
-    // 5.4 将完整的开局剧情信息存入记忆
-    const openingStory = initialMessageResponse.text || "你睁开双眼，发现自己身处在一个古色古香的房间里。";
-    const aroundDescription = initialMessageResponse.around || "";
-    const storySummary = initialMessageResponse.mid_term_memory || (openingStory.substring(0, 70) + '...');
+    // 5.4 将完整的开局剧情信息存入记忆（不使用默认占位）
+    const openingStory = String(initialMessageResponse.text || '');
 
-    // 构建完整的开局消息，包含环境描述
+    // 构建完整的开局消息（不再强行注入出生地前缀，避免与AI设定冲突）
     let fullOpeningMessage = openingStory;
-    if (aroundDescription) {
-      fullOpeningMessage += `\n\n【周围环境】\n${aroundDescription}`;
-    }
-    // 加入出生地信息
-    try {
-      const birthplaceName = (playerStatus as any)?.出生地 || (currentSaveData as any)?.世界信息?.玩家出生地?.出生地名称;
-      if (birthplaceName) {
-        fullOpeningMessage = `【出生地】你出生于${birthplaceName}。\n` + fullOpeningMessage;
-      }
-    } catch {}
+    // 不使用默认记忆写入：让AI的 tavern_commands 决定记忆
+    fullOpeningMessage = '';
+    (initialMessageResponse as any).mid_term_memory = '';
 
-    // 保存到记忆系统
-    currentSaveData.记忆.短期记忆.push(fullOpeningMessage);
-    currentSaveData.记忆.中期记忆.push(storySummary);
 
     console.log('[角色初始化] 保存的完整开局消息:', fullOpeningMessage.substring(0, 200));
 
+    // 写入短期/中期记忆（来源于AI的text与mid_term_memory）
+    try {
+      if (!currentSaveData.记忆) currentSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      if (!Array.isArray(currentSaveData.记忆.短期记忆)) currentSaveData.记忆.短期记忆 = [];
+      if (!Array.isArray(currentSaveData.记忆.中期记忆)) currentSaveData.记忆.中期记忆 = [];
+      if (fullOpeningMessage.trim()) {
+        const shortEntry = fullOpeningMessage.length > 2000 ? `${fullOpeningMessage.substring(0, 2000)}...` : fullOpeningMessage;
+        currentSaveData.记忆.短期记忆.push(shortEntry);
+      }
+      const mtm: any = (initialMessageResponse as any).mid_term_memory;
+      if (typeof mtm === 'string' && mtm.trim()) {
+        currentSaveData.记忆.中期记忆.push(mtm);
+      } else if (Array.isArray(mtm)) {
+        const merged = mtm.filter((s: any) => typeof s === 'string').join('\n');
+        if (merged.trim()) currentSaveData.记忆.中期记忆.push(merged);
+      }
+    } catch (e) {
+      console.warn('[角色初始化] 写入记忆失败（可忽略）:', e);
+    }
+
     // 5.5 调用 processGmResponse 来执行AI返回的其他指令（如设置物品等）
+    // 删除旧格式兼容 - 现在只支持数组格式
     currentSaveData = await processGmResponse(initialMessageResponse, currentSaveData);
-    
+
+    // 5.6 统一校验与修复（迁移异常字段如 角色物品/角色状态 等，修正装备栏/功法中的"null"字符串）
+    try {
+      currentSaveData = validateAndFixSaveData(currentSaveData as SaveData) as SaveData;
+    } catch (e) {
+      console.warn('[角色初始化] validateAndFixSaveData 调用失败，继续使用原数据', e);
+    }
+
     // ================= 数据整合与持久化 =================
-    
+
     // 6. 按照正确的数据架构分别存储
     uiStore.updateLoadingText(`天机同步：正在将【${baseInfo.名字}】的命格写入大道...`);
     try {
@@ -569,19 +498,33 @@ export async function initializeCharacter(
       // 1. 优先使用AI返回的缓存世界数据（最完整）
       // 2. 其次使用生成器直接获取的数据
       // 3. 最后使用基本备份数据
-      currentSaveData.角色基础信息 = baseInfo;
-      
+      // 合并角色基础信息：以AI已写入(currentSaveData.角色基础信息)为准，缺失再回填baseInfo
+      try {
+        const aiBase: any = (currentSaveData as any).角色基础信息 || {};
+        const bi: any = baseInfo as any;
+        (currentSaveData as any).角色基础信息 = {
+          ...bi,
+          ...aiBase,
+          先天六司: { ...(bi?.先天六司 || {}), ...(aiBase?.先天六司 || {}) },
+          灵根详情: { ...(bi?.灵根详情 || {}), ...(aiBase?.灵根详情 || {}) },
+          天赋: Array.isArray(aiBase?.天赋) ? aiBase.天赋 : (Array.isArray(bi?.天赋) ? bi.天赋 : []),
+          天赋详情: Array.isArray(aiBase?.天赋详情) ? aiBase.天赋详情 : (Array.isArray(bi?.天赋详情) ? bi.天赋详情 : [])
+        };
+      } catch {
+        currentSaveData.角色基础信息 = baseInfo;
+      }
+
       // 确保角色世界信息与用户选择一致
       if (baseInfo.世界 !== world.name) {
         console.warn('[角色初始化] 角色基础信息.世界与选择的world.name不一致，进行修正');
         console.warn(`[角色初始化] 角色世界: ${baseInfo.世界}, 选择世界: ${world.name}`);
         baseInfo.世界 = world.name; // 修正角色世界信息
       }
-      
+
       if (initialMessageResponse.cachedWorldData) {
         console.log('[角色初始化] 使用AI缓存的世界信息（最优先级）');
         currentSaveData.世界信息 = initialMessageResponse.cachedWorldData;
-        
+
         // 确保世界信息中的世界名称与用户选择一致
         if (currentSaveData.世界信息 && currentSaveData.世界信息.世界名称 !== world.name) {
           console.log('[角色初始化] 修正AI缓存世界信息中的世界名称');
@@ -590,7 +533,7 @@ export async function initializeCharacter(
       } else if (worldDataFromGenerator) {
         console.log('[角色初始化] 使用CultivationWorldGenerator生成的世界信息');
         currentSaveData.世界信息 = worldDataFromGenerator;
-        
+
         // 确保世界信息中的世界名称与用户选择一致
         if (currentSaveData.世界信息 && currentSaveData.世界信息.世界名称 !== world.name) {
           console.log('[角色初始化] 修正生成器世界信息中的世界名称');
@@ -620,7 +563,7 @@ export async function initializeCharacter(
           currentSaveData.世界信息.世界名称 = world.name;
         }
       }
-      
+
       // 世界舆图已经在 processGmResponse 流程中被写入 currentSaveData
 
       const chatVars = {
@@ -663,3 +606,5 @@ export async function createNewSaveSlot(
 
   return saveData;
 }
+
+

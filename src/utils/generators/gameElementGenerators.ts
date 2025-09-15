@@ -190,8 +190,10 @@ export async function generateMapFromWorld(world: any, userConfig?: { majorFacti
 
         // 2. 在代码中可靠地封装成GM_Response
         const gmResponse: GM_Response = {
-            text: `鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'${worldName}'的新生世界，定下山川脉络，划定万古基石。`,
-            around: "虚空中，一幅巨大的光幕缓缓展开，其上星罗棋布，正是这方世界的完整舆图。",
+            text: `鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'${worldName}'的新生世界，定下山川脉络，划定万古基石。
+
+虚空中，一幅巨大的光幕缓缓展开，其上星罗棋布，正是这方世界的完整舆图。万里山河尽收眼底，各方势力盘踞其间，静待道友的到来。`,
+            mid_term_memory: "【世界诞生】新生世界创建完成，地图数据已设定",
             tavern_commands: [
                 {
                     action: "set",
@@ -207,8 +209,10 @@ export async function generateMapFromWorld(world: any, userConfig?: { majorFacti
 
     // 2. 在代码中可靠地封装成GM_Response
     const gmResponse: GM_Response = {
-        text: `鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'${worldName}'的新生世界，定下山川脉络，划定万古基石。`,
-        around: "虚空中，一幅巨大的光幕缓缓展开，其上星罗棋布，正是这方世界的完整舆图。",
+        text: `鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'${worldName}'的新生世界，定下山川脉络，划定万古基石。
+
+虚空中，一幅巨大的光幕缓缓展开，其上星罗棋布，正是这方世界的完整舆图。万里山河尽收眼底，各方势力盘踞其间，静待道友的到来。`,
+        mid_term_memory: "【世界诞生】新生世界创建完成，地图数据已设定",
         tavern_commands: [
             {
                 action: "set",
@@ -268,8 +272,8 @@ export async function generatePlayerLocation(
 
 \`\`\`json
 {
-  "text": "天机定位完成，${baseInfo.名字}的位置已锁定。",
-  "around": "你发现自己正身处[具体位置描述]，周围[环境描述]。",
+  "text": "天机定位完成，${baseInfo.名字}的位置已锁定。你发现自己正身处[具体位置描述]，周围[环境描述]。",
+  "mid_term_memory": "【初始定位】角色位置已确定，开始修仙之旅",
   "tavern_commands": [
     {
       "action": "set",
@@ -310,8 +314,8 @@ export async function generatePlayerLocation(
             console.warn('【角色位置生成】AI生成失败，使用默认位置');
             // 生成默认位置
             const defaultResponse: GM_Response = {
-                text: `天机定位完成，${baseInfo.名字}的位置已锁定。`,
-                around: `你发现自己正身处一处${characterInfo.origin === '散修' ? '幽静山谷' : '安全区域'}，周围灵气淡薄但环境宜人。`,
+                text: `天机定位完成，${baseInfo.名字}的位置已锁定。你发现自己正身处一处${characterInfo.origin === '散修' ? '幽静山谷' : '安全区域'}，周围灵气淡薄但环境宜人。`,
+                mid_term_memory: "【初始定位】角色位置已确定，开始修仙之旅",
                 tavern_commands: [
                     {
                         action: "set",
@@ -348,8 +352,8 @@ export async function generatePlayerLocation(
         
         // 错误时返回基础位置
         const fallbackResponse: GM_Response = {
-            text: `虽遇天机扰动，但${baseInfo.名字}的大致位置已确定。`,
-            around: "你发现自己身处一个陌生但相对安全的地方。",
+            text: `虽遇天机扰动，但${baseInfo.名字}的大致位置已确定。你发现自己身处一个陌生但相对安全的地方。`,
+            mid_term_memory: "【位置确定】虽遇干扰，但已安全定位",
             tavern_commands: [
                 {
                     action: "set",

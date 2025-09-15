@@ -5,7 +5,7 @@
         <!-- 左侧：宗门列表 -->
         <div class="sect-list">
           <div class="list-header">
-            <h3 class="panel-title">宗门事务</h3>
+            <h3 class="panel-title">势力宗门</h3>
             <div class="search-bar">
               <Search :size="16" />
               <input
@@ -38,10 +38,7 @@
                     <p>宗门系统存在: {{ !!(characterStore.activeSaveSlot?.存档数据 as any)?.宗门系统 }}</p>
                     <p>宗门系统.availableSects数量: {{ (characterStore.activeSaveSlot?.存档数据 as any)?.宗门系统?.availableSects?.length || 0 }}</p>
                     <p>筛选后数量: {{ filteredSects.length }}</p>
-                    <button @click="loadTestData" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #9333ea; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                      加载测试数据
-                    </button>
-                    <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
+                    <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
                       从酒馆同步数据
                     </button>
                     <button @click="forceRefresh" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
@@ -177,6 +174,53 @@
                     >
                       {{ specialty }}
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 成员统计 -->
+              <div class="detail-section" v-if="selectedSect.memberCount">
+                <h5 class="section-title">
+                  <Users :size="16" />
+                  <span>成员统计</span>
+                </h5>
+                <div class="member-stats">
+                  <!-- 总体统计 -->
+                  <div class="total-members">
+                    <span class="total-label">总人数</span>
+                    <span class="total-value">{{ selectedSect.memberCount.total }}人</span>
+                  </div>
+
+                  <!-- 境界分布 -->
+                  <div class="realm-distribution" v-if="selectedSect.memberCount.byRealm">
+                    <h6 class="distribution-title">境界分布</h6>
+                    <div class="realm-stats">
+                      <div 
+                        v-for="(count, realm) in selectedSect.memberCount.byRealm" 
+                        :key="realm"
+                        class="realm-item"
+                        v-show="count > 0"
+                      >
+                        <span class="realm-name">{{ realm }}期</span>
+                        <span class="realm-count">{{ count }}人</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 职位分布 -->
+                  <div class="position-distribution" v-if="selectedSect.memberCount.byPosition">
+                    <h6 class="distribution-title">职位分布</h6>
+                    <div class="position-stats">
+                      <div 
+                        v-for="(count, position) in selectedSect.memberCount.byPosition" 
+                        :key="position"
+                        class="position-item"
+                        v-show="count > 0"
+                      >
+                        <span class="position-name">{{ position }}</span>
+                        <span class="position-count">{{ count }}人</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -620,130 +664,6 @@ const showContribution = () => toast.info('贡献兑换（功能开发中）');
 const showSectLibrary = () => toast.info('宗门藏书（功能开发中）');
 const showSectMembers = () => toast.info('同门师兄弟（功能开发中）');
 
-// 测试数据加载函数
-const loadTestData = () => {
-  if (!characterStore.activeSaveSlot?.存档数据) {
-    toast.warning('没有激活的存档数据');
-    return;
-  }
-
-  const testSects = [
-    {
-      名称: '太素道宫',
-      类型: '修仙宗门',
-      等级: '三流',
-      位置: '太素山',
-      势力范围: ['太素山', '周边地区'],
-      描述: '传承万载的古老宗门，讲求清静无为，道法自然。门人弟子不多，但个个根基扎实，尤擅符箓阵法，其护山大阵"两仪微尘阵"号称万法不侵。',
-      特色: '符箓之道',
-      实力评估: '96',
-      与玩家关系: '中立',
-      声望值: 0,
-      powerRating: 96,
-      specialties: ['符箓之道', '阵法禁制'],
-      memberCount: {
-        total: 800,
-        byRealm: {
-          练气: 500,
-          筑基: 200,
-          金丹: 80,
-          元婴: 15,
-          化神: 4,
-          炼虚: 1,
-          合体: 0,
-          大乘: 0,
-          渡劫: 0,
-          真仙: 0
-        },
-        byPosition: {
-          散修: 0,
-          外门弟子: 500,
-          内门弟子: 200,
-          核心弟子: 80,
-          传承弟子: 15,
-          执事: 3,
-          长老: 1,
-          副掌门: 0,
-          掌门: 1
-        }
-      },
-      leadership: {
-        宗主: '太素真人',
-        宗主修为: '化神中期',
-        长老数量: 1,
-        最强修为: '化神中期'
-      }
-    },
-    {
-      名称: '问剑崖',
-      类型: '修仙宗门',
-      等级: '三流',
-      位置: '神霄洲',
-      势力范围: ['洗剑池', '剑意谷'],
-      描述: '神霄洲的剑修圣地，门人皆是好勇斗狠之辈。其道统核心为"以战养战"，认为唯有在生死搏杀中方能勘破剑道真意。行事霸道，护短至极。',
-      特色: '庚金剑诀',
-      实力评估: '94',
-      与玩家关系: '中立',
-      声望值: 0,
-      powerRating: 94,
-      specialties: ['庚金剑诀', '剑意淬体'],
-      memberCount: {
-        total: 600,
-        byRealm: {
-          练气: 400,
-          筑基: 150,
-          金丹: 40,
-          元婴: 8,
-          化神: 2,
-          炼虚: 0,
-          合体: 0,
-          大乘: 0,
-          渡劫: 0,
-          真仙: 0
-        },
-        byPosition: {
-          散修: 0,
-          外门弟子: 400,
-          内门弟子: 150,
-          核心弟子: 40,
-          传承弟子: 8,
-          执事: 1,
-          长老: 1,
-          副掌门: 0,
-          掌门: 1
-        }
-      }
-    }
-  ];
-
-  // 直接注入测试数据
-  if (!characterStore.activeSaveSlot?.存档数据?.世界信息) {
-    if (characterStore.activeSaveSlot?.存档数据) {
-      characterStore.activeSaveSlot.存档数据.世界信息 = {
-        世界名称: '朝天大陆',
-        世界背景: '此方世界名为"朝天大陆"，乃是一处天道完整、灵气充沛的上善之地。其核心法则是"万灵竞渡，一步登天"，无论是人、妖、精、怪，皆有缘法踏上修行之路，叩问长生。',
-        大陆信息: [],
-        势力信息: [],
-        地点信息: [],
-        生成信息: {
-          生成时间: new Date().toISOString(),
-          世界背景: '此方世界名为"朝天大陆"，乃是一处天道完整、灵气充沛的上善之地。',
-          世界纪元: '朝天历元年',
-          特殊设定: [],
-          版本: '1.0'
-        }
-      };
-    }
-  }
-  if (characterStore.activeSaveSlot?.存档数据?.世界信息) {
-    characterStore.activeSaveSlot.存档数据.世界信息.势力信息 = testSects;
-  }
-
-  // 立即保存
-  characterStore.commitToStorage();
-  toast.success('测试数据已加载！');
-};
-
 // 从酒馆同步数据
 const syncFromTavern = async () => {
   try {
@@ -788,7 +708,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   background: var(--color-background);
-  padding: 1rem;
 }
 
 .panel-content {
@@ -800,8 +719,6 @@ onMounted(() => {
   height: 100%;
   display: flex;
   background: var(--color-surface);
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -813,7 +730,7 @@ onMounted(() => {
 }
 
 .list-header {
-  padding: 1.5rem 1rem 1rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -1007,7 +924,7 @@ onMounted(() => {
 
 .detail-content {
   height: 100%;
-  padding: 1.5rem;
+  padding: 1rem;
   overflow-y: auto;
 }
 
@@ -1461,6 +1378,75 @@ onMounted(() => {
   gap: 1rem;
 }
 
+/* 成员统计样式 */
+.member-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.total-members {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.1);
+}
+
+.total-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.total-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.distribution-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.realm-stats, .position-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+
+.realm-item, .position-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.realm-item:hover, .position-item:hover {
+  background: var(--color-surface);
+  border-color: rgba(var(--color-primary-rgb), 0.2);
+}
+
+.realm-name, .position-name {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.realm-count, .position-count {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
 /* 宗门领导层样式 */
 .leadership-info {
   margin-top: 1.5rem;
@@ -1646,25 +1632,155 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .sect-panel {
+    padding: 0;
+  }
+
+  .panel-content {
+    padding: 0;
+  }
+
   .sect-container {
     flex-direction: column;
+    border-radius: 0;
+    border: none;
   }
 
   .sect-list {
     width: 100%;
-    height: 300px;
+    height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .list-header {
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--color-surface);
+  }
+
+  .panel-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .search-bar {
+    padding: 0.5rem;
+  }
+
+  .search-input {
+    font-size: 0.9rem;
+  }
+
+  .list-content {
+    padding: 0.5rem;
+  }
+
+  .sect-card {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sect-name {
+    font-size: 0.95rem;
+  }
+
+  .sect-type {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+  }
+
+  .power-rating {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+  }
+
+  .sect-detail {
+    flex: 1;
+    min-height: 60vh;
+  }
+
+  .detail-content {
+    padding: 1rem;
+  }
+
+  .detail-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .detail-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .sect-emoji-large {
+    font-size: 1.5rem;
+  }
+
+  .detail-name {
+    font-size: 1.1rem;
   }
 
   .info-grid {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   .member-status {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   .action-buttons {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .sect-action-btn {
+    padding: 1rem;
+    font-size: 0.9rem;
+    justify-content: center;
+  }
+
+  .detail-section {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .realm-stats, .position-stats {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .leader-grid {
+    gap: 0.5rem;
+  }
+
+  .leader-item {
+    padding: 0.5rem;
+  }
+
+  .leader-role {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+    min-width: 2.5rem;
+  }
+
+  .leader-name {
+    font-size: 0.8rem;
+  }
+
+  .leader-realm {
+    font-size: 0.7rem;
   }
 }
 </style>

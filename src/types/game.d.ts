@@ -300,7 +300,6 @@ export interface RealmDefinition {
 export interface PlayerStatus {
   境界: Realm;
   声望: number;
-  出生地?: string; // 添加出生地字段
   位置: {
     描述: string;
     坐标: Vector2;
@@ -489,9 +488,11 @@ export interface NpcProfile {
   人物关系: string;
   人物好感度: number;
   人物记忆: string[];
-  互动次数: number;
   最后互动时间: string | null;
-  特殊标记: string[];
+  // NPC背包：与玩家背包格式一致，用于交易、赠送等互动
+  背包?: {
+    物品: Record<string, Item>;
+  };
 }
 
 
@@ -522,7 +523,6 @@ export interface GameMessage {
   time: string;
   metadata?: {
     commands?: any[];
-    around?: string;
   };
 }
 
@@ -581,9 +581,19 @@ export interface CharacterBaseInfo {
   年龄?: number; // 添加可选的年龄字段
   世界: string;
   天资: string;
-  出生: string;
-  灵根: string;
-  天赋: string[];
+  出生: string | {
+    名称: string;
+    描述: string;
+  };
+  灵根: string | {
+    名称: string;
+    品质: string;
+    描述: string;
+  };
+  天赋: string[] | Array<{
+    名称: string;
+    描述: string;
+  }>;
   先天六司: InnateAttributes;
   创建时间?: string; // 添加创建时间字段
   描述?: string; // 添加描述字段

@@ -189,24 +189,8 @@
                 <h5 class="section-title">互动统计</h5>
                 <div class="interaction-stats">
                   <div class="stat-item">
-                    <span class="stat-label">互动次数</span>
-                    <span class="stat-value">{{ selectedPerson.互动次数 || 0 }} 次</span>
-                  </div>
-                  <div class="stat-item">
                     <span class="stat-label">最后互动</span>
                     <span class="stat-value">{{ formatLastInteraction(selectedPerson.最后互动时间) }}</span>
-                  </div>
-                  <div class="stat-item" v-if="selectedPerson.特殊标记?.length">
-                    <span class="stat-label">特殊标记</span>
-                    <div class="special-tags">
-                      <span 
-                        v-for="tag in selectedPerson.特殊标记" 
-                        :key="tag" 
-                        class="special-tag"
-                      >
-                        {{ tag }}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -355,7 +339,6 @@ const deleteMemory = async (index: number) => {
   display: flex;
   flex-direction: column;
   background: var(--color-background);
-  padding: 1rem;
 }
 
 .panel-content {
@@ -367,8 +350,6 @@ const deleteMemory = async (index: number) => {
   height: 100%;
   display: flex;
   background: var(--color-surface);
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -380,7 +361,7 @@ const deleteMemory = async (index: number) => {
 }
 
 .list-header {
-  padding: 1.5rem 1rem 1rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -575,7 +556,7 @@ const deleteMemory = async (index: number) => {
 
 .detail-content {
   height: 100%;
-  padding: 1.5rem;
+  padding: 1rem;
   overflow-y: auto;
 }
 
@@ -876,21 +857,215 @@ const deleteMemory = async (index: number) => {
 }
 
 @media (max-width: 768px) {
+  .relationship-network-panel {
+    padding: 0;
+  }
+
+  .panel-content {
+    padding: 0;
+  }
+
   .relationships-container {
     flex-direction: column;
+    border-radius: 0;
+    border: none;
   }
   
   .relationship-list {
     width: 100%;
-    height: 300px;
+    height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
   }
-  
+
+  .list-header {
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--color-surface);
+  }
+
+  .panel-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .search-bar {
+    padding: 0.5rem;
+  }
+
+  .search-input {
+    font-size: 0.9rem;
+  }
+
+  .list-content {
+    padding: 0.5rem;
+  }
+
+  .person-card {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .person-avatar {
+    width: 40px;
+    height: 40px;
+    margin-right: 0.6rem;
+  }
+
+  .avatar-text {
+    font-size: 1rem;
+  }
+
+  .person-name {
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .relationship-type {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+  }
+
+  .intimacy-value {
+    font-size: 0.7rem;
+    min-width: 25px;
+  }
+
+  .relationship-detail {
+    flex: 1;
+    min-height: 60vh;
+  }
+
+  .detail-content {
+    padding: 1rem;
+  }
+
+  .detail-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .detail-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 1.25rem;
+  }
+
+  .detail-name {
+    font-size: 1.1rem;
+  }
+
   .info-grid {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
-  
-  .relationship-stats {
-    grid-template-columns: 1fr;
+
+  .info-item {
+    padding: 0.5rem;
+    background: var(--color-surface-light);
+    border-radius: 6px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .info-label {
+    font-size: 0.8rem;
+    margin-bottom: 0;
+  }
+
+  .info-value {
+    font-size: 0.85rem;
+  }
+
+  .talents-section, .attributes-section {
+    margin-top: 1rem;
+    padding: 0.75rem;
+  }
+
+  .subsection-title {
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .attributes-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .attribute-item {
+    padding: 0.4rem;
+  }
+
+  .attr-label {
+    font-size: 0.65rem;
+  }
+
+  .attr-value {
+    font-size: 0.9rem;
+  }
+
+  .talent-tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+
+  .memory-list.scrollable {
+    max-height: 150px;
+  }
+
+  .memory-item {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .memory-btn {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+
+  .detail-section {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .appearance-description {
+    padding: 0.75rem;
+  }
+
+  .description-text {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .interaction-stats {
+    gap: 0.75rem;
+  }
+
+  .stat-item {
+    padding: 0.6rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .stat-value {
+    font-size: 0.8rem;
+  }
+
+  .special-tag {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
   }
 }
 </style>

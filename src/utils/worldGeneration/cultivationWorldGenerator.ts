@@ -4,7 +4,7 @@
  */
 
 import { getTavernHelper } from '../tavern';
-import type { CultivationWorldSettings, BirthplaceGeneration } from './gameWorldConfig';
+import type { CultivationWorldSettings } from './gameWorldConfig';
 import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
 import type { WorldInfo, WorldContinent, WorldFaction, WorldLocation, WorldGenerationInfo } from '@/types/game.d';
 
@@ -219,10 +219,10 @@ export class CultivationWorldGenerator {
         } as WorldGenerationInfo
       };
 
-      console.log('🎯 [玩家出生地处理] 检查AI返回的玩家出生数据:', worldData.player_spawn);
+      console.log('🎯 [玩家出生地处理] 已禁用：地图生成阶段不处理玩家出生地');
       
       // 处理玩家出生地数据
-      if (worldData.player_spawn && worldData.player_spawn.birth_location) {
+      if (false && worldData.player_spawn && worldData.player_spawn.birth_location) {
         const birthLocation = worldData.player_spawn.birth_location;
         console.log('🎯 [玩家出生地处理] 找到出生地数据:', birthLocation);
         
@@ -246,20 +246,21 @@ export class CultivationWorldGenerator {
           }
         }
         
-        // 保存玩家出生地信息
-        (worldInfo as any).玩家出生地 = {
-          大陆ID: worldData.player_spawn.continent_id,
-          出生地名称: birthLocation.name,
-          出生地类型: birthLocation.type,
-          坐标: birthLocation.coordinates,
-          描述: birthLocation.description,
-          安全等级: birthLocation.safety_level,
-          显著特征: birthLocation.notable_features || [],
-          附近地标: birthLocation.nearby_landmarks || [],
-          人口规模: birthLocation.population,
-          管辖情况: birthLocation.governance
-        };
-      } else {
+        // 保存玩家出生地信息（已禁用）
+        // 保留样例结构，避免语法错误
+        // (worldInfo as any).玩家出生地 = {
+        //   大陆ID: worldData.player_spawn.continent_id,
+        //   出生地名称: birthLocation.name,
+        //   出生地类型: birthLocation.type,
+        //   坐标: birthLocation.coordinates,
+        //   描述: birthLocation.description,
+        //   安全等级: birthLocation.safety_level,
+        //   显著特征: birthLocation.notable_features || [],
+        //   附近地标: birthLocation.nearby_landmarks || [],
+        //   人口规模: birthLocation.population,
+        //   管辖情况: birthLocation.governance
+        // };
+      } else if (false) {
         console.warn('🎯 [玩家出生地处理] AI未生成玩家出生地数据，将使用默认设置');
         
         // 创建默认出生地点，尝试放在第一个大陆的中心附近
@@ -276,19 +277,19 @@ export class CultivationWorldGenerator {
           }
         }
         
-        // 创建默认出生地点
-        (worldInfo as any).玩家出生地 = {
-          大陆ID: worldData.continents?.[0]?.id || 'unknown',
-          出生地名称: '无名村落',
-          出生地类型: 'village',
-          坐标: defaultCoords,
-          描述: '一个偏远的无名村落，民风淳朴，远离修仙界的纷争',
-          安全等级: '安全',
-          显著特征: ['民风淳朴', '远离纷争', '环境宁静'],
-          附近地标: [],
-          人口规模: '数十户人家',
-          管辖情况: '无人管辖的自治村落'
-        };
+        // 创建默认出生地点（已禁用）
+        // (worldInfo as any).玩家出生地 = {
+        //   大陆ID: worldData.continents?.[0]?.id || 'unknown',
+        //   出生地名称: '无名村落',
+        //   出生地类型: 'village',
+        //   坐标: defaultCoords,
+        //   描述: '一个偏远的无名村落，民风淳朴，远离修仙界的纷争',
+        //   安全等级: '安全',
+        //   显著特征: ['民风淳朴', '远离纷争', '环境宁静'],
+        //   附近地标: [],
+        //   人口规模: '数十户人家',
+        //   管辖情况: '无人管辖的自治村落'
+        // };
       }
 
       // 初始化时直接删除现有的character.saveData，创建全新的完整架构
@@ -334,10 +335,8 @@ export class CultivationWorldGenerator {
           },
           声望: 0,
           位置: {
-            描述: (worldInfo as any).玩家出生地?.出生地名称 || '',
-            坐标: (worldInfo as any).玩家出生地?.坐标 ? 
-              { X: (worldInfo as any).玩家出生地.坐标.longitude, Y: (worldInfo as any).玩家出生地.坐标.latitude } :
-              { X: 0, Y: 0 }
+            描述: '',
+            坐标: { X: 0, Y: 0 }
           },
           气血: { 当前: 100, 最大: 100 },
           灵气: { 当前: 50, 最大: 50 },
