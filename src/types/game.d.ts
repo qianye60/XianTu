@@ -21,6 +21,12 @@ export interface ValuePair<T> {
   最大: T;
 }
 
+/** 英文字段名的ValuePair（用于vitals字段） */
+export interface EnglishValuePair<T> {
+  current: T;
+  max: T;
+}
+
 /** 物品品质信息 - 新版本 */
 
 export interface ItemQuality {
@@ -155,7 +161,7 @@ export interface SectInfo {
   location?: string; // 总部位置
   description: string; // 宗门描述
   specialties: string[]; // 宗门特色
-  powerRating: number; // 实力评估 (0-100)
+  // removed: 不再存储数值型“实力评估”
   memberCount: SectMemberCount; // 成员数量统计
   relationshipToPlayer: SectRelationship; // 与玩家的关系
   reputation: number; // 玩家在该宗门的声望
@@ -311,6 +317,12 @@ export interface PlayerStatus {
   修为: ValuePair<number>; // 新增修为经验值
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo; // 宗门信息
+  // 支持英文结构的生命状态数据（可选）
+  vitals?: {
+    qiBlood?: EnglishValuePair<number>; // 对应气血
+    lingQi?: EnglishValuePair<number>; // 对应灵气
+    shenShi?: EnglishValuePair<number>; // 对应神识
+  };
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -355,12 +367,12 @@ export interface WorldFaction {
   势力范围?: string[] | { longitude: number; latitude: number }[]; // 支持字符串数组或坐标数组  
   描述: string;
   特色: string | string[]; // 支持字符串或字符串数组
-  实力评估: string | number; // 支持字符串描述或数字评分
+  // 实力评估: string | number; // removed: 不再生成/存储该字段
   与玩家关系?: '敌对' | '中立' | '友好' | '盟友' | string;
   声望值?: number;
   
   // 宗门系统扩展字段 - 只对宗门类型势力有效
-  powerRating?: number; // 实力评估 (0-100)，替代 实力评估 字符串
+  // powerRating?: number; // removed: 不再生成/存储该字段
   specialties?: string[]; // 宗门特色列表，替代 特色 字符串
   
   // 宗门成员统计
@@ -377,6 +389,7 @@ export interface WorldFaction {
     副宗主?: string;
     长老数量: number;
     最强修为: string; // 宗门内最高修为境界
+    综合战力?: number; // 1-100的综合战力评估
     核心弟子数?: number;
     内门弟子数?: number;
     外门弟子数?: number;

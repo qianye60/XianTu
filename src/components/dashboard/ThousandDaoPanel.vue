@@ -1,23 +1,5 @@
 <template>
   <div class="thousand-dao-content">
-    <!-- 标题区域 -->
-    <div class="dao-header">
-      <div class="header-left">
-        <div class="header-icon">
-          <Zap :size="24" />
-        </div>
-        <div class="header-info">
-          <h3 class="panel-title">三千大道</h3>
-          <span class="panel-subtitle">大道至简，殊途同归</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="refresh-btn" @click="refreshDaoData" :disabled="loading">
-          <RotateCcw :size="16" :class="{ 'spinning': loading }" />
-          刷新
-        </button>
-      </div>
-    </div>
 
     <!-- 主要内容 -->
     <div class="dao-main">
@@ -163,6 +145,7 @@ import { ref, computed, onMounted } from 'vue';
 import { RotateCcw, X, Zap } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { DaoProgress } from '@/types/game.d.ts';
+import { panelBus } from '@/utils/panelBus';
 
 const characterStore = useCharacterStore();
 const loading = ref(false);
@@ -256,6 +239,7 @@ onMounted(async () => {
   } catch (error) {
     console.error('[三千大道面板] 同步数据失败:', error);
   }
+  panelBus.on('refresh', () => refreshDaoData());
 });
 </script>
 
@@ -268,6 +252,8 @@ onMounted(async () => {
   background: var(--color-background);
   overflow: hidden;
 }
+
+/* 顶栏动作统一处理 */
 
 /* 头部样式 */
 .dao-header {

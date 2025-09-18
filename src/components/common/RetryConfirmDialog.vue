@@ -14,10 +14,10 @@
       
       <div class="dialog-actions">
         <button class="btn-secondary" @click="handleCancel">
-          取消创建
+          {{ config?.cancelText || '取消创建' }}
         </button>
         <button class="btn-primary" @click="handleConfirm">
-          继续重试
+          {{ config?.confirmText || '继续重试' }}
         </button>
       </div>
     </div>

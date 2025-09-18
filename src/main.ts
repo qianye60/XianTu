@@ -2,12 +2,16 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import 'ol/ol.css';
+import 'ol/ol.css'
 import './style.css'
 import './styles/panel-theme.css'
+import './styles/theme-overrides.css'
+import './utils/consolePatch'
 
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.mount('#app')
+
+
 

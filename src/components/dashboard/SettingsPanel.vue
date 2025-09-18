@@ -57,6 +57,7 @@
                   max="120"
                   step="5"
                   class="setting-range"
+                  @input="applyUIScale"
                 >
                 <span class="range-value">{{ settings.uiScale }}%</span>
               </div>
@@ -481,74 +482,73 @@ const applyAnimationSettings = () => {
   debug.log('设置面板', `动画速度已应用: ${animationSpeed}x`);
 };
 
+import { useUIStore } from '@/stores/uiStore';
+const uiStore = useUIStore();
 // 重置设置
 const resetSettings = () => {
-  const confirmed = confirm('确定要重置所有设置为默认值吗？这将清除所有自定义配置。');
-  if (!confirmed) return;
-  
-  debug.log('设置面板', '开始重置设置');
-  
-  Object.assign(settings, {
-    theme: 'auto',
-    uiScale: 100,
-    fontSize: 'medium',
-    autoSave: true,
-    autoSaveInterval: 5,
-    fastAnimations: false,
-    showHints: true,
-    debugMode: false,
-    consoleDebug: false,
-    performanceMonitor: false,
-    enableQuestSystem: true,
-    questNotifications: true,
-    autoAcceptQuests: false,
-    enableSoundEffects: true,
-    backgroundMusic: true,
-    notificationSounds: true,
-    autoSyncTavern: true,
-    validateData: true,
-    backupBeforeSave: true
+  uiStore.showRetryDialog({
+    title: '重置设置',
+    message: '确定要重置所有设置为默认值吗？这将清除所有自定义配置。',
+    confirmText: '确认重置',
+    cancelText: '取消',
+    onConfirm: () => {
+      debug.log('设置面板', '开始重置设置');
+      Object.assign(settings, {
+        theme: 'auto',
+        uiScale: 100,
+        fontSize: 'medium',
+        autoSave: true,
+        autoSaveInterval: 5,
+        fastAnimations: false,
+        showHints: true,
+        debugMode: false,
+        consoleDebug: false,
+        performanceMonitor: false,
+        enableQuestSystem: true,
+        questNotifications: true,
+        autoAcceptQuests: false,
+        enableSoundEffects: true,
+        backgroundMusic: true,
+        notificationSounds: true,
+        autoSyncTavern: true,
+        validateData: true,
+        backupBeforeSave: true
+      });
+      saveSettings();
+      toast.info('设置已重置为默认值');
+    },
+    onCancel: () => {}
   });
-  
-  saveSettings();
-  toast.info('设置已重置为默认值');
 };
 
 // 清理缓存
 const clearCache = async () => {
-  const confirmed = confirm('确定要清理缓存吗？这将删除临时数据但不会影响存档。');
-  if (!confirmed) return;
-  
-  debug.log('设置面板', '开始清理缓存');
-  
-  try {
-    // 清理特定的缓存项
-    const keysToRemove: string[] = [];
-    
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (
-        key.startsWith('dad_cache_') || 
-        key.startsWith('temp_') ||
-        key.startsWith('debug_') ||
-        key.includes('_temp')
-      )) {
-        keysToRemove.push(key);
+  uiStore.showRetryDialog({
+    title: '清理缓存',
+    message: '确定要清理缓存吗？这将删除临时数据但不会影响存档。',
+    confirmText: '确认清理',
+    cancelText: '取消',
+    onConfirm: async () => {
+      debug.log('设置面板', '开始清理缓存');
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('dad_cache_') || key.startsWith('temp_') || key.startsWith('debug_') || key.includes('_temp'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        sessionStorage.clear();
+        debug.log('设置面板', `缓存清理完成，共清理 ${keysToRemove.length} 项数据`);
+        toast.success(`已清理 ${keysToRemove.length} 项缓存数据`);
+      } catch (error) {
+        debug.error('设置面板', '清理缓存失败', error);
+        toast.error('清理缓存失败');
       }
-    }
-    
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // 清理会话存储
-    sessionStorage.clear();
-    
-    debug.log('设置面板', `缓存清理完成，共清理 ${keysToRemove.length} 项数据`);
-    toast.success(`已清理 ${keysToRemove.length} 项缓存数据`);
-    
-  } catch (error) {
-    debug.error('设置面板', '清理缓存失败', error);
-    toast.error('清理缓存失败');
-  }
+    },
+    onCancel: () => {}
+  });
 };
 
 // 导出设置

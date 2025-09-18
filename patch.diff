@@ -1,0 +1,163 @@
+*** Begin Patch
+*** Update File: src/style.css
+@@
+-:root {
++:root {
+   /* --- Light Theme Colors --- */
+   --color-background: #f0f0f0;
+   --color-background-transparent: rgba(240, 240, 240, 0.85);
+   --color-surface: #ffffff;
+   --color-surface-transparent: rgba(255, 255, 255, 0.75);
+   --color-surface-light: #e5e6eb;
++  --color-surface-lighter: #f5f6fa;
++  --color-surface-hover: #f7f7f9;
++  --color-surface-rgb: 255, 255, 255;
++  --color-surface-danger: rgba(244, 67, 54, 0.08);
+ 
+   --color-primary: #2e5cb8;
+   --color-primary-rgb: 46, 92, 184;
++  --color-primary-light: #3b6ddb;
++  --color-primary-dark: #244a97;
++  --color-primary-hover: #3b6ddb;
++  --color-primary-active: #244a97;
+ 
+-  --color-accent: #7c4dff;
++  --color-accent: #7c4dff;
++  --color-accent-rgb: 124, 77, 255;
++  --color-accent-light: #8b63ff;
++  --color-accent-hover: #8b63ff;
+ 
+   --color-text: #1a1a1a;
+   --color-text-secondary: #666666;
++  --color-text-muted: #8a8f98;
++  --color-text-disabled: #b3b3b3;
++  --color-text-primary: #2e5cb8; /* alias of primary for emphasis */
+ 
+-  --color-border: rgba(0, 0, 0, 0.1);
++  --color-border: rgba(0, 0, 0, 0.1);
++  --color-border-hover: rgba(0, 0, 0, 0.2);
++  --color-border-light: #e5e7eb;
++  --color-border-rgb: 0, 0, 0;
+ 
+-  --color-success: #4caf50;
++  --color-success: #4caf50;
++  --color-success-rgb: 76, 175, 80;
++  --color-success-hover: #66bb6a;
++  --color-success-dark: #2e7d32;
+ 
+-  --color-warning: #ff9800;
++  --color-warning: #ff9800;
++  --color-warning-rgb: 255, 152, 0;
++  --color-warning-hover: #ffb547;
+ 
+-  --color-error: #f44336;
++  --color-error: #f44336;
++  --color-error-rgb: 244, 67, 54;
++  --color-error-hover: #ff6b6b;
++  /* Provide danger aliases */
++  --color-danger: var(--color-error);
++  --color-danger-rgb: var(--color-error-rgb);
++  --color-danger-hover: var(--color-error-hover);
+ 
+-  --color-info: #2196f3;
++  --color-info: #2196f3;
++  --color-info-rgb: 33, 150, 243;
++  --color-info-hover: #51adf6;
+ 
+-  --scrollbar-track-color: rgba(0, 0, 0, 0.05);
+-  --scrollbar-thumb-color: rgba(0, 0, 0, 0.2);
+-  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.4);
++  --scrollbar-track-color: rgba(0, 0, 0, 0.05);
++  --scrollbar-thumb-color: rgba(0, 0, 0, 0.2);
++  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.4);
++  /* Some components use this short name */
++  --scrollbar-thumb: var(--scrollbar-thumb-color);
++
++  /* Code/blocks */
++  --color-code-bg: #f5f7fa;
++
++  /* Common gradients */
++  --gradient-primary: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+ }
+@@
+-:root[data-theme='dark'] {
++:root[data-theme='dark'] {
+   /* --- Dark Theme Colors --- */
+   --color-background: #1a1b26;
+   --color-background-transparent: rgba(26, 27, 38, 0.85);
+-  --color-surface: #293348;
+-  --color-surface-transparent: rgba(41, 51, 72, 0.6);
+-  --color-surface-light: #414868;
+-  --color-primary: #82a3f5;
+-  --color-primary-rgb: 130, 163, 245;
+-  --color-accent: #c0caf5;
+-  --color-text: #ffffff;
+-  --color-text-secondary: #d0d0d0;
+-  --color-border: rgba(173, 216, 230, 0.5);
+-  --color-success: #9ece6a;
+-  --color-warning: #ffd500;
+-  --color-error: #f7768e;
+-  --color-info: #77cdfe;
+-  --scrollbar-track-color: rgba(255, 255, 255, 0.05);
+-  --scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
+-  --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.4);
++  --color-surface: #293348;
++  --color-surface-transparent: rgba(41, 51, 72, 0.6);
++  --color-surface-light: #414868;
++  --color-surface-lighter: #4a5270;
++  --color-surface-hover: #3a4460;
++  --color-surface-rgb: 41, 51, 72;
++  --color-surface-danger: rgba(247, 118, 142, 0.08);
++
++  --color-primary: #82a3f5;
++  --color-primary-rgb: 130, 163, 245;
++  --color-primary-light: #9bb7f7;
++  --color-primary-dark: #5e7fdb;
++  --color-primary-hover: #9bb7f7;
++  --color-primary-active: #5e7fdb;
++
++  --color-accent: #c0caf5;
++  --color-accent-rgb: 192, 202, 245;
++  --color-accent-light: #d7def8;
++  --color-accent-hover: #d7def8;
++
++  --color-text: #ffffff;
++  --color-text-secondary: #d0d0d0;
++  --color-text-muted: #b3b9c6;
++  --color-text-disabled: #8f95a2;
++  --color-text-primary: #c0caf5; /* alias for dark */
++
++  --color-border: rgba(173, 216, 230, 0.5);
++  --color-border-hover: rgba(173, 216, 230, 0.7);
++  --color-border-light: rgba(173, 216, 230, 0.3);
++  --color-border-rgb: 173, 216, 230;
++
++  --color-success: #9ece6a;
++  --color-success-rgb: 158, 206, 106;
++  --color-success-hover: #b5db8b;
++  --color-success-dark: #7cb74f;
++
++  --color-warning: #ffd500;
++  --color-warning-rgb: 255, 213, 0;
++  --color-warning-hover: #ffe066;
++
++  --color-error: #f7768e;
++  --color-error-rgb: 247, 118, 142;
++  --color-error-hover: #ff9aab;
++  --color-danger: var(--color-error);
++  --color-danger-rgb: var(--color-error-rgb);
++  --color-danger-hover: var(--color-error-hover);
++
++  --color-info: #77cdfe;
++  --color-info-rgb: 119, 205, 254;
++  --color-info-hover: #9ddafe;
++
++  --scrollbar-track-color: rgba(255, 255, 255, 0.05);
++  --scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
++  --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.4);
++  --scrollbar-thumb: var(--scrollbar-thumb-color);
++
++  --color-code-bg: #1f2937;
++  --gradient-primary: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+ }
+*** End Patch

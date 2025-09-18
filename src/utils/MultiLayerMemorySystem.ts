@@ -131,6 +131,30 @@ class MultiLayerMemorySystemClass {
   }
 
   /**
+   * 在发送正文请求前调用：
+   * 若累计消息数达到中期记忆阈值，则先执行一次中期记忆总结。
+   * 返回是否执行了总结。
+   */
+  public async ensureMidTermSummaryIfNeeded(): Promise<boolean> {
+    try {
+      const totalMessages = this.shortTermMemories.length +
+        this.midTermMemories.reduce((sum, mem) => sum + mem.messageCount, 0);
+
+      if (
+        this.config.autoSummaryEnabled &&
+        !this.summaryInProgress &&
+        totalMessages >= this.config.midTermTrigger
+      ) {
+        await this.triggerMidTermConversion();
+        return true;
+      }
+    } catch (error) {
+      console.error('[记忆系统] ensureMidTermSummaryIfNeeded 失败:', error);
+    }
+    return false;
+  }
+
+  /**
    * 触发中期记忆转化
    */
   private async triggerMidTermConversion(): Promise<void> {

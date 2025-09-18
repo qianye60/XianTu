@@ -1,29 +1,5 @@
 <template>
   <div class="memory-center-panel game-panel">
-    <!-- 头部 -->
-    <div class="panel-header">
-      <div class="header-left">
-        <div class="header-icon">🧠</div>
-        <div class="header-info">
-          <h3 class="panel-title">记忆中心</h3>
-          <span class="panel-subtitle">{{ totalMemoryCount }}条记忆</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="refreshMemory" :disabled="loading">
-          <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
-          <span class="btn-text">刷新</span>
-        </button>
-        <button class="action-btn info" @click="testMemoryConversion" title="添加测试记忆触发转化">
-          <span class="btn-icon">🧪</span>
-          <span class="btn-text">测试转化</span>
-        </button>
-        <button class="action-btn danger" @click="clearMemory">
-          <Trash2 :size="16" />
-          <span class="btn-text">清理</span>
-        </button>
-      </div>
-    </div>
 
     <!-- 记忆类型筛选 -->
     <div class="filter-section">
@@ -155,6 +131,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { RefreshCw, Trash2 } from 'lucide-vue-next';
+import { panelBus } from '@/utils/panelBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
@@ -374,14 +351,23 @@ const refreshMemory = async () => {
   }
 };
 
-// 清理记忆
+// 清理记忆（使用全局确认弹窗）
+import { useUIStore } from '@/stores/uiStore';
+const uiStore = useUIStore();
 const clearMemory = () => {
-  if (confirm('确定要清理所有记忆吗？此操作不可撤销。')) {
-    shortTermMemories.value = [];
-    mediumTermMemories.value = [];
-    longTermMemories.value = [];
-    toast.success('记忆已清理');
-  }
+  uiStore.showRetryDialog({
+    title: '清理记忆',
+    message: '确定要清理所有记忆吗？此操作不可撤销。',
+    confirmText: '确认清理',
+    cancelText: '取消',
+    onConfirm: () => {
+      shortTermMemories.value = [];
+      mediumTermMemories.value = [];
+      longTermMemories.value = [];
+      toast.success('记忆已清理');
+    },
+    onCancel: () => {}
+  });
 };
 
 // 测试记忆转化功能
@@ -416,25 +402,11 @@ const loadMemoryData = async () => {
         const chatVars = await helper.getVariables({ type: 'chat' });
         debug.log('记忆中心', '酒馆变量键', Object.keys(chatVars));
         
-        // 检查是否有mid_term_memory字段（新格式的中期记忆）
-        // 注意：初始化时的中期记忆应该作为短期记忆处理
+        // 检查是否有 mid_term_memory 字段（仅用于后续转化，不直接展示）
         if (chatVars['mid_term_memory']) {
           const midTermMemory = chatVars['mid_term_memory'];
-          debug.log('记忆中心', '找到mid_term_memory:', typeof midTermMemory === 'string' ? midTermMemory.substring(0, 100) + '...' : String(midTermMemory));
-          
-          if (typeof midTermMemory === 'string' && midTermMemory.trim()) {
-            // 初始化生成的中期记忆实际上应该作为短期记忆，等短期记忆满了才转化为中期记忆
-            const newMemory: Memory = {
-              type: 'short', // 改为短期记忆
-              content: midTermMemory,
-              time: '初始记录',
-              importance: 8,
-              parsedContent: parseMemoryContent(midTermMemory)
-            };
-            
-            loadedShortMemories.push(newMemory); // 添加到短期记忆
-            debug.log('记忆中心', '已添加mid_term_memory到短期记忆列表（等待转化）');
-          }
+          debug.log('记忆中心', '检测到 mid_term_memory（不直接展示，留待转化）');
+          // 不将其直接加入展示列表，遵循“所有消息先进入短期，再按规则转化”的流程
         }
         
         // 检查character.saveData中的记忆数据
@@ -577,10 +549,25 @@ const loadMemoryData = async () => {
 
 onMounted(() => {
   loadMemoryData();
+  // 绑定统一顶栏动作
+  panelBus.on('refresh', async () => {
+    loading.value = true;
+    try { await loadMemoryData(); } finally { loading.value = false; }
+  });
+  panelBus.on('test', () => {
+    addMemory('short', '【测试记忆】用于检验转化与渲染。');
+  });
+  panelBus.on('clear', () => {
+    shortTermMemories.value = [];
+    mediumTermMemories.value = [];
+    longTermMemories.value = [];
+    toast.success('已清理所有记忆');
+  });
 });
 </script>
 
 <style scoped>
+/* 顶栏动作统一处理，移除本地工具栏 */
 /* 记忆状态条样式 */
 .memory-status {
   margin-top: 1rem;
@@ -749,7 +736,7 @@ onMounted(() => {
 
 .memory-section-title {
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--color-text);
   font-size: 0.9rem;
 }
 

@@ -2,15 +2,10 @@
   <div class="skills-content">
     <!-- 修炼心法功法区域 -->
     <div class="cultivation-section">
-      <div class="section-header">
-        <h3>修炼功法</h3>
-        <span class="section-subtitle">当前修炼的功法技能</span>
-      </div>
 
       <div class="skill-slots-grid">
         <!-- 功法槽位 -->
         <div class="skill-slot-group">
-          <h4 class="slot-group-title">功法</h4>
           <div
             class="skill-slot technique-method"
             :class="{ 'has-skill': cultivationSkills.功法 }"
@@ -95,6 +90,32 @@
         <div class="details-body">
           <p class="details-description">{{ (selectedSkillData as { 描述?: string }).描述 }}</p>
 
+          <!-- 修炼概览 -->
+          <div v-if="selectedSkillSlot === '功法'" class="overview-section">
+            <h4>修炼概览</h4>
+            <div class="overview-grid">
+              <div class="overview-item">
+                <span class="label">熟练度</span>
+                <div class="value with-bar">
+                  <ProgressBar v-bind="{ value: Math.min(100, Math.max(0, cultivationSkills.熟练度 || 0)), max: 100, size: 'sm', showLabel: false }" />
+                  <span class="num">{{ Math.min(100, Math.max(0, cultivationSkills.熟练度 || 0)).toFixed(0) }}%</span>
+                </div>
+              </div>
+              <div class="overview-item">
+                <span class="label">修炼时间</span>
+                <span class="value">{{ formatHoursToReadable(cultivationSkills.修炼时间 || 0) }}</span>
+              </div>
+              <div class="overview-item">
+                <span class="label">突破次数</span>
+                <span class="value">{{ cultivationSkills.突破次数 || 0 }}</span>
+              </div>
+              <div class="overview-item" v-if="(selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能">
+                <span class="label">技能掌握</span>
+                <span class="value">{{ (cultivationSkills.已解锁技能?.length || 0) }} / {{ Object.keys(((selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能 || {})).length }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 功法等级 -->
           <div class="technique-level-section">
             <h4>功法品质</h4>
@@ -104,12 +125,12 @@
           </div>
 
           <!-- 修炼进度 -->
-          <div v-if="selectedSkillSlot === '功法'" class="cultivation-progress-section">
+          <div v-if="selectedSkillSlot === '功法' && cultivationSkills.功法" class="cultivation-progress-section">
             <h4>修炼进度</h4>
             <div class="progress-container">
               <ProgressBar
               v-bind="{
-                value: Math.min(100, Math.max(0, (selectedSkillData as { 熟练度?: number }).熟练度 || 0)),
+                value: Math.min(100, Math.max(0, (selectedSkillData as { 熟练度?: number }).熟练度 || cultivationSkills.熟练度 || 0)),
                 max: 100,
                 size: 'lg',
                 showLabel: true
@@ -159,7 +180,7 @@
           </div>
 
           <!-- 已解锁技能 -->
-          <div v-if="cultivationSkills.已解锁技能?.length" class="unlocked-skills-section">
+          <div v-if="selectedSkillSlot === '功法' && cultivationSkills.已解锁技能?.length" class="unlocked-skills-section">
             <h4>已掌握技能</h4>
             <div class="unlocked-skills">
               <span v-for="skill in cultivationSkills.已解锁技能" :key="skill" class="unlocked-skill-tag">
@@ -178,7 +199,7 @@
       <div v-else class="details-placeholder">
         <div class="placeholder-icon">🧘</div>
         <p>选择功法查看详情</p>
-        <span class="placeholder-tip">从背包中装备功法开始修炼</span>
+        <span class="placeholder-tip">点击功法卡片查看详细信息</span>
       </div>
     </div>
 
@@ -189,25 +210,25 @@
           <h3>深度修炼 - {{ (selectedSkillData as { 名称: string })?.名称 }}</h3>
           <button class="dialog-close" @click="closeDialog">×</button>
         </div>
-        
+
         <div class="dialog-content">
           <div class="cultivation-time-input">
             <h4>修炼时长</h4>
             <div class="time-input-group">
               <div class="input-row">
                 <label>年：</label>
-                <input 
-                  type="number" 
-                  v-model.number="inputYears" 
-                  min="0" 
+                <input
+                  type="number"
+                  v-model.number="inputYears"
+                  min="0"
                   max="100"
                   class="time-input"
                 />
                 <label>天：</label>
-                <input 
-                  type="number" 
-                  v-model.number="inputDays" 
-                  min="0" 
+                <input
+                  type="number"
+                  v-model.number="inputDays"
+                  min="0"
                   max="365"
                   class="time-input"
                 />
@@ -217,7 +238,7 @@
               </div>
             </div>
           </div>
-          
+
           <div class="cultivation-preview" v-if="getTotalDays() > 0">
             <h4>预期收益</h4>
             <div class="preview-stats">
@@ -232,7 +253,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="dialog-actions">
           <button class="dialog-btn cancel-btn" @click="closeDialog">取消</button>
           <button class="dialog-btn confirm-btn" @click="startCultivation" :disabled="getTotalDays() <= 0">
@@ -247,6 +268,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import type { Item } from '@/types/game';
 
@@ -258,6 +280,7 @@ interface TechniqueSkill {
 }
 
 const characterStore = useCharacterStore();
+const uiStore = useUIStore();
 const selectedSkillData = ref<unknown | null>(null);
 const selectedSkillSlot = ref<string>('');
 
@@ -326,11 +349,11 @@ const inventoryTechniques = computed(() => {
 
   if (!inventory) return [];
 
-  // 过滤出功法类型的物品
-  const techniques = Object.values(inventory).filter((item: unknown) => {
-    const typedItem = item as { 类型: string };
-    return typedItem.类型 === '功法';
-  });
+  // 过滤出功法类型的有效物品（忽略以_开头的内部键与非对象值）
+  const techniques = Object.entries(inventory)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
+    .map(([, val]) => val as { 类型?: string })
+    .filter(item => item.类型 === '功法');
   return techniques;
 });
 
@@ -445,6 +468,16 @@ const getTimeDescription = (days: number | null): string => {
   return `${Math.round(days / 365)}年`;
 };
 
+// 将小时数格式化为易读文本
+const formatHoursToReadable = (hours: number): string => {
+  if (!hours || hours <= 0) return '未修炼';
+  const days = Math.floor(hours / 24);
+  const remainHours = hours % 24;
+  if (days > 0 && remainHours > 0) return `${days}天${remainHours}小时`;
+  if (days > 0) return `${days}天`;
+  return `${remainHours}小时`;
+};
+
 // 开始修炼
 const startCultivation = async () => {
   const totalDays = getTotalDays();
@@ -495,10 +528,10 @@ const startCultivation = async () => {
         const saveData = characterStore.activeSaveSlot.存档数据;
         if (saveData?.游戏时间) {
           const currentTime = saveData.游戏时间;
-          
+
           // 添加天数到游戏时间
           currentTime.日 += totalDays;
-          
+
           // 处理月份进位
           while (currentTime.日 > 30) {
             currentTime.日 -= 30;
@@ -564,77 +597,50 @@ const equipTechnique = async () => {
     // 检查是否已经在修炼其他功法
     if (skillSlots.功法 && (skillSlots.功法 as { 物品ID?: string }).物品ID !== technique.物品ID) {
       const currentSkill = skillSlots.功法 as { 名称: string };
-      const confirm = window.confirm(`当前正在修炼《${currentSkill.名称}》，确定要切换到《${technique.名称}》吗？`);
-      if (!confirm) return;
-
-      // 将之前的功法放回背包
-      const previousSkill = skillSlots.功法 as {
-        物品ID?: string;
-        名称: string;
-        类型: string;
-        品质?: unknown;
-        描述?: string;
-        功法效果?: unknown;
-        功法技能?: unknown;
-      };
-
-      if (previousSkill.物品ID && saveData.背包?.物品) {
-        saveData.背包.物品[previousSkill.物品ID] = {
-          物品ID: previousSkill.物品ID,
-          名称: previousSkill.名称,
-          类型: previousSkill.类型,
-          品质: (previousSkill.品质 as { quality: "神阶" | "仙阶" | "天阶" | "地阶" | "玄阶" | "黄阶" | "凡阶"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡阶", grade: 0 },
-          描述: previousSkill.描述,
-          功法效果: previousSkill.功法效果 || {},
-          功法技能: (previousSkill.功法技能 || {}) as {
-            [技能名称: string]: {
-              解锁条件: string;
-              技能描述: string;
-              技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+      uiStore.showRetryDialog({
+        title: '切换功法',
+        message: `当前正在修炼《${currentSkill.名称}》，确定要切换到《${technique.名称}》吗？`,
+        confirmText: '确认切换',
+        cancelText: '取消',
+        onConfirm: async () => {
+          const prev = skillSlots.功法 as {
+            物品ID?: string;
+            名称: string;
+            类型: string;
+            品质?: unknown;
+            描述?: string;
+            功法效果?: unknown;
+            功法技能?: unknown;
+          };
+          if (prev?.物品ID && saveData.背包?.物品) {
+            saveData.背包.物品[prev.物品ID] = {
+              物品ID: prev.物品ID,
+              名称: prev.名称,
+              类型: prev.类型,
+              品质: (prev.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
+              描述: prev.描述,
+              功法效果: prev.功法效果 || {},
+              功法技能: (prev.功法技能 || {}) as {
+                [技能名称: string]: {
+                  解锁条件: string;
+                  技能描述: string;
+                  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+                };
+              },
+              数量: 1
             };
-          },
-          数量: 1
-        };
-        console.log('[技能面板] 之前的功法已放回背包:', previousSkill.名称);
-      }
+            console.log('[技能面板] 之前的功法已放回背包:', prev.名称);
+          }
+          // 确认后继续执行装备
+          await finalizeEquipTechnique(technique);
+        },
+        onCancel: () => {}
+      });
+      return;
     }
 
-    // 装备功法到修炼槽位
-    skillSlots.功法 = {
-      物品ID: technique.物品ID || '',
-      名称: technique.名称,
-      类型: technique.类型,
-      品质: (technique.品质 as { quality: "神阶" | "仙阶" | "天阶" | "地阶" | "玄阶" | "黄阶" | "凡阶"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡阶", grade: 0 },
-      描述: technique.描述,
-      功法效果: technique.功法效果 || {},
-      功法技能: (technique.功法技能 || {}) as {
-        [技能名称: string]: {
-          解锁条件: string;
-          技能描述: string;
-          技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
-        };
-      },
-      修炼进度: 0,
-      数量: 1
-    };
-
-    // 初始化修炼数据
-    if (!skillSlots.熟练度) skillSlots.熟练度 = 0;
-    if (!skillSlots.已解锁技能) skillSlots.已解锁技能 = [];
-
-    // 从背包移除已装备的功法
-    if (saveData.背包?.物品&& technique.物品ID) {
-      delete saveData.背包.物品[technique.物品ID];
-    }
-
-    // 保存数据到存储
-    await characterStore.commitToStorage();
-
-    console.log('[技能面板] 功法装备成功:', technique.名称);
-
-    // 更新界面选择为新装备的功法
-    selectedSkillData.value = skillSlots.功法;
-    selectedSkillSlot.value = '功法';
+    // 无冲突情况下直接完成装备
+    await finalizeEquipTechnique(technique);
 
   } catch (error) {
     console.error('[技能面板] 装备功法失败:', error);
@@ -649,30 +655,112 @@ const unequipSkill = async () => {
 
   const skillData = selectedSkillData.value as Item;
 
-  // 确认卸下
-  if (!confirm(`确定要卸下 ${skillData.名称} 吗？`)) {
-    return;
+  // 确认卸下（使用项目内确认弹窗）
+  uiStore.showRetryDialog({
+    title: '卸下功法',
+    message: `确定要卸下《${skillData.名称}》吗？`,
+    confirmText: '确认卸下',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        const saveData = characterStore.activeSaveSlot?.存档数据;
+        if (saveData?.修炼功法) {
+          const skillSlots = saveData.修炼功法;
+          const currentSkill = skillSlots.功法 as {
+            物品ID?: string;
+            名称: string;
+            类型: string;
+            品质?: unknown;
+            描述?: string;
+            功法效果?: unknown;
+            功法技能?: unknown;
+          };
+          
+          // 将功法放回背包
+          if (currentSkill && saveData.背包) {
+            if (!saveData.背包.物品) {
+              saveData.背包.物品 = {};
+            }
+            const itemId = currentSkill.物品ID || `功法_${currentSkill.名称}`;
+            saveData.背包.物品[itemId] = {
+              物品ID: itemId,
+              名称: currentSkill.名称,
+              类型: '功法',
+              品质: (currentSkill.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
+              描述: currentSkill.描述,
+              功法效果: currentSkill.功法效果 || {},
+              功法技能: (currentSkill.功法技能 || {}) as {
+                [技能名称: string]: {
+                  解锁条件: string;
+                  技能描述: string;
+                  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+                };
+              },
+              数量: 1
+            };
+            console.log('[技能面板] 功法已放回背包:', currentSkill.名称);
+          }
+          
+          // 清空功法槽位
+          skillSlots.功法 = null;
+          await characterStore.commitToStorage();
+          console.log('[技能面板] 功法卸下成功');
+          
+          // 清空选择状态
+          selectedSkillData.value = null;
+          selectedSkillSlot.value = '';
+        }
+      } catch (error) {
+        console.error('[技能面板] 卸下失败:', error);
+      }
+    },
+    onCancel: () => {}
+  });
+  return;
+};
+
+// 将功法装备到修炼槽位（封装）
+const finalizeEquipTechnique = async (technique: {
+  物品ID?: string;
+  名称: string;
+  类型: string;
+  品质?: unknown;
+  描述?: string;
+  功法效果?: unknown;
+  功法技能?: unknown;
+}) => {
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+  if (!saveData?.修炼功法) return;
+  const skillSlots = saveData.修炼功法;
+  skillSlots.功法 = {
+    物品ID: technique.物品ID || '',
+    名称: technique.名称,
+    类型: technique.类型,
+    品质: (technique.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
+    描述: technique.描述,
+    功法效果: technique.功法效果 || {},
+    功法技能: (technique.功法技能 || {}) as {
+      [技能名称: string]: {
+        解锁条件: string;
+        技能描述: string;
+        技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+      };
+    },
+    修炼进度: 0,
+    数量: 1
+  };
+
+  if (!skillSlots.熟练度) skillSlots.熟练度 = 0;
+  if (!skillSlots.已解锁技能) skillSlots.已解锁技能 = [];
+
+  if (saveData.背包?.物品 && technique.物品ID) {
+    delete saveData.背包.物品[technique.物品ID];
   }
 
-  console.log('[技能面板] 卸下功法:', skillData.名称);
-
-  try {
-    // 从修炼槽位移除
-    if (characterStore.activeSaveSlot?.存档数据?.修炼功法) {
-      const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
-      skillSlots.功法 = null;
-
-      await characterStore.commitToStorage();
-      console.log('[技能面板] 功法卸下成功');
-
-      // 清除选择
-      selectedSkillData.value = null;
-      selectedSkillSlot.value = '';
-    }
-
-  } catch (error) {
-    console.error('[技能面板] 卸下失败:', error);
-  }
+  await characterStore.commitToStorage();
+  console.log('[技能面板] 功法装备成功:', technique.名称);
+  selectedSkillData.value = skillSlots.功法;
+  selectedSkillSlot.value = '功法';
 };
 
 onMounted(async () => {
@@ -927,6 +1015,49 @@ onMounted(async () => {
   color: var(--color-text);
   line-height: 1.6;
   margin-bottom: 20px;
+}
+
+/* 修炼概览 */
+.overview-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.overview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overview-item .label {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  min-width: 72px;
+}
+
+.overview-item .value {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.overview-item .with-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overview-item .with-bar .num {
+  min-width: 40px;
+  color: var(--color-success);
+  font-weight: 600;
 }
 
 /* 修炼进度部分 */

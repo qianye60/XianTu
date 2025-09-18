@@ -160,6 +160,11 @@ export async function processGmResponse<T extends object>(response: GM_Response,
       const mapType = (t: any, name?: any): '法宝' | '功法' | '其他' => {
         const s = String(t || '').trim();
         const n = String(name || '').trim();
+        // 强化归类：可穿戴/可持用的基础装备与工具一律归为“法宝”
+        // 示例：旧锄头、粗布衣、布衣、草鞋、木棍、短杖、斗笠、披风、帽、头盔等
+        if (/(锄头|锄|布衣|粗布衣|衣|袍|披风|斗笠|帽|头盔|盔|护甲|铠甲|甲|护腕|手套|戒指|指环|项链|腰带|鞋|靴|草鞋|木棍|短杖)/.test(n)) {
+          return '法宝';
+        }
         const w = ['武器','兵器','法器','灵器','宝物','剑','刀','飞剑','木剑'];
         const wear = ['布衣','衣','衣物','甲','盔','头盔','盔甲','披风','护腕','靴','鞋','腰带','戒指','指环','项链','项饰','饰品'];
         const g = ['功法','心法','秘籍','法诀','经书','法门','内功','刀法','剑法','要诀','口诀','心诀','真经','经','诀'];
@@ -192,6 +197,31 @@ export async function processGmResponse<T extends object>(response: GM_Response,
           out.品质.grade = typeof g === 'number' ? g : 1;
         }
       }
+      // 规范化功法效果（若为功法且AI使用了不同键名）
+      if (out.类型 === '功法') {
+        const eff = out.功法效果 || out.technique_effect || out.effect || out.effects;
+        if (eff && typeof eff === 'object') {
+          const e: any = { ...eff };
+          const normEff: any = {};
+          // 修炼速度加成: 支持多种键名（数值 0-1 或 百分比）
+          const spd = e.修炼速度加成 ?? e.cultivation_speed ?? e.speed ?? e.speed_up ?? e.修炼速度;
+          if (typeof spd === 'number') {
+            normEff.修炼速度加成 = spd > 1 ? spd / 100 : spd; // 百分比转小数
+          }
+          // 属性加成：支持 attribute_bonus/attributes
+          const attrs = e.属性加成 ?? e.attribute_bonus ?? e.attributes ?? e.attr_bonus;
+          if (attrs && typeof attrs === 'object') {
+            normEff.属性加成 = { ...attrs };
+          }
+          // 特殊能力：支持 special_abilities/perks
+          const abilities = e.特殊能力 ?? e.special_abilities ?? e.perks;
+          if (Array.isArray(abilities)) {
+            normEff.特殊能力 = abilities.map((x: any) => String(x));
+          }
+          if (Object.keys(normEff).length > 0) out.功法效果 = normEff;
+        }
+      }
+
       return out;
     };
 
@@ -262,18 +292,29 @@ export async function processGmResponse<T extends object>(response: GM_Response,
                       : Array.isArray(val.memories) ? val.memories
                       : [];
 
-      return {
-        角色基础信息: {
-          名字: name,
-          性别: val.性别 || '未知',
-          年龄: val.年龄,
-          世界: current?.角色基础信息?.世界 || '未知',
-          天资: '未知',
-          出生: '未知',
-          灵根: '未知',
-          天赋: [],
-          先天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 }
-        },
+        const clamp = (n: any) => {
+          const v = Number(n || 0);
+          return Math.max(0, Math.min(10, isNaN(v) ? 0 : Math.round(v)));
+        };
+        return {
+          角色基础信息: {
+            名字: name,
+            性别: val.性别 || '未知',
+            年龄: val.年龄,
+            世界: current?.角色基础信息?.世界 || '未知',
+            天资: '未知',
+            出生: '未知',
+            灵根: '未知',
+            天赋: [],
+            先天六司: {
+              根骨: clamp((val.先天六司 as any)?.根骨),
+              灵性: clamp((val.先天六司 as any)?.灵性),
+              悟性: clamp((val.先天六司 as any)?.悟性),
+              气运: clamp((val.先天六司 as any)?.气运),
+              魅力: clamp((val.先天六司 as any)?.魅力),
+              心性: clamp((val.先天六司 as any)?.心性)
+            }
+          },
         外貌描述: val.外貌描述 || '',
         角色存档信息: undefined,
         人物关系: relType,
@@ -289,6 +330,11 @@ export async function processGmResponse<T extends object>(response: GM_Response,
         } : undefined
       };
     };
+
+    const protectedPaths = new Set([
+      '角色基础信息.性别',
+      '角色基础信息.名字'
+    ]);
 
     for (const command of commands) {
       // 规范化 key：允许 AI 返回以 character.saveData. 开头的绝对路径
@@ -480,6 +526,27 @@ export async function processGmResponse<T extends object>(response: GM_Response,
           set(newSaveData, normKey, fixed);
           continue;
         } catch (e) { console.error('人物关系处理错误', e); }
+      }
+
+      // 保护玩家创角选择：性别/名字始终保护；出生/灵根仅在非“随机”情况下保护
+      let skipChange = false;
+      if (protectedPaths.has(normKey)) {
+        skipChange = true;
+      } else if (normKey === '角色基础信息.出生') {
+        const cur = get(newSaveData as any, '角色基础信息.出生');
+        const isRandom = typeof cur === 'string' && cur.includes('随机');
+        skipChange = !isRandom;
+      } else if (normKey === '角色基础信息.灵根') {
+        const cur = get(newSaveData as any, '角色基础信息.灵根');
+        const isRandom = typeof cur === 'string' && cur.includes('随机');
+        skipChange = !isRandom;
+      } else if (normKey.startsWith('角色基础信息.先天六司')) {
+        // 先天六司禁止修改
+        skipChange = true;
+      }
+      if (skipChange) {
+        console.warn(`[PROCESS-GM] 跳过对受保护字段的修改: ${normKey}`);
+        continue;
       }
 
       console.log(`内存执行: ${command.action} ${normKey}`, command.value);

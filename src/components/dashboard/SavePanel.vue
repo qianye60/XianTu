@@ -1,25 +1,5 @@
 <template>
   <div class="save-panel">
-    <!-- 头部 -->
-    <div class="panel-header">
-      <div class="header-left">
-        <div class="header-icon">💾</div>
-        <div class="header-info">
-          <h3 class="panel-title">存档管理</h3>
-          <span class="save-subtitle">管理您的游戏进度</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="refreshSaves" :disabled="loading">
-          <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
-          <span class="btn-text">刷新</span>
-        </button>
-        <button class="action-btn primary" @click="quickSave" :disabled="loading || !canSave">
-          <Save :size="16" />
-          <span class="btn-text">快速存档</span>
-        </button>
-      </div>
-    </div>
 
     <!-- 存档容器 -->
     <div class="saves-container">
@@ -174,6 +154,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { panelBus } from '@/utils/panelBus';
 import { RefreshCw, Save, Play, Trash2, Download, Upload } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
@@ -254,21 +235,28 @@ const loadSave = async (save: SaveSlot) => {
 };
 
 // 删除存档
+import { useUIStore } from '@/stores/uiStore';
+const uiStore = useUIStore();
 const deleteSave = async (save: SaveSlot) => {
-  if (!confirm(`确定要删除存档"${save.角色名字 || '存档'}"吗？此操作不可撤销。`)) {
-    return;
-  }
-
-  loading.value = true;
-  try {
-    await characterStore.deleteSaveById(save.id!);
-    toast.success('存档已删除');
-  } catch (error) {
-    debug.error('存档面板', '删除失败', error);
-    toast.error('删除存档失败');
-  } finally {
-    loading.value = false;
-  }
+  uiStore.showRetryDialog({
+    title: '删除存档',
+    message: `确定要删除存档"${save.角色名字 || '存档'}"吗？此操作不可撤销。`,
+    confirmText: '确认删除',
+    cancelText: '取消',
+    onConfirm: async () => {
+      loading.value = true;
+      try {
+        await characterStore.deleteSaveById(save.id!);
+        toast.success('存档已删除');
+      } catch (error) {
+        debug.error('存档面板', '删除失败', error);
+        toast.error('删除存档失败');
+      } finally {
+        loading.value = false;
+      }
+    },
+    onCancel: () => {}
+  });
 };
 
 // 导出存档
@@ -335,24 +323,34 @@ const handleImportFile = async (event: Event) => {
 
 // 清空所有存档
 const clearAllSaves = async () => {
-  if (!confirm('确定要删除所有存档吗？此操作不可撤销！')) {
-    return;
-  }
-
-  if (!confirm('再次确认：这将永久删除所有存档数据！')) {
-    return;
-  }
-
-  loading.value = true;
-  try {
-    await characterStore.clearAllSaves();
-    toast.success('所有存档已清空');
-  } catch (error) {
-    debug.error('存档面板', '清空失败', error);
-    toast.error('清空存档失败');
-  } finally {
-    loading.value = false;
-  }
+  uiStore.showRetryDialog({
+    title: '清空所有存档',
+    message: '确定要删除所有存档吗？此操作不可撤销！',
+    confirmText: '继续',
+    cancelText: '取消',
+    onConfirm: () => {
+      uiStore.showRetryDialog({
+        title: '再次确认',
+        message: '再次确认：这将永久删除所有存档数据！',
+        confirmText: '确认清空',
+        cancelText: '取消',
+        onConfirm: async () => {
+          loading.value = true;
+          try {
+            await characterStore.clearAllSaves();
+            toast.success('所有存档已清空');
+          } catch (error) {
+            debug.error('存档面板', '清空失败', error);
+            toast.error('清空存档失败');
+          } finally {
+            loading.value = false;
+          }
+        },
+        onCancel: () => {}
+      });
+    },
+    onCancel: () => {}
+  });
 };
 
 // 格式化时间
@@ -392,6 +390,9 @@ const formatPlayTime = (minutes: number | undefined): string => {
 
 onMounted(() => {
   refreshSaves();
+  // 统一顶栏动作
+  panelBus.on('refresh', () => refreshSaves());
+  panelBus.on('save', () => quickSave());
 });
 </script>
 
@@ -406,6 +407,8 @@ onMounted(() => {
   gap: 1rem;
   position: relative;
 }
+
+/* 工具栏移除：统一到顶栏动作 */
 
 /* 头部 */
 .panel-header {

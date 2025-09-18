@@ -191,6 +191,49 @@
             </div>
             <div class="details-body">
               <p class="details-description">{{ selectedItem.描述 }}</p>
+              
+              <!-- 功法特有属性 -->
+              <template v-if="selectedItem.类型 === '功法'">
+                <!-- 功法效果 -->
+                <div v-if="selectedItem.功法效果" class="details-attributes">
+                  <h4>功法效果</h4>
+                  <div class="skill-effects">
+                    <div v-if="selectedItem.功法效果.修炼速度加成" class="effect-item">
+                      <span class="effect-label">修炼速度:</span>
+                      <span class="effect-value">+{{ (selectedItem.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+                    </div>
+                    <div v-if="selectedItem.功法效果.属性加成" class="effect-item">
+                      <span class="effect-label">属性加成:</span>
+                      <span class="effect-value">{{ formatAttributeBonus(selectedItem.功法效果.属性加成) }}</span>
+                    </div>
+                    <div v-if="selectedItem.功法效果.特殊能力?.length" class="effect-item">
+                      <span class="effect-label">特殊能力:</span>
+                      <div class="special-abilities">
+                        <span v-for="ability in selectedItem.功法效果.特殊能力" :key="ability" class="ability-tag">
+                          {{ ability }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 功法技能 -->
+                <div v-if="selectedItem.功法技能 && Object.keys(selectedItem.功法技能).length > 0" class="details-attributes">
+                  <h4>功法技能</h4>
+                  <div class="technique-skills">
+                    <div v-for="(skill, skillName) in selectedItem.功法技能" :key="skillName" class="skill-item">
+                      <div class="skill-header">
+                        <span class="skill-name">{{ skillName }}</span>
+                        <span class="skill-type" :class="`type-${skill.技能类型}`">{{ skill.技能类型 }}</span>
+                      </div>
+                      <div class="skill-description">{{ skill.技能描述 }}</div>
+                      <div class="skill-unlock">解锁条件：{{ skill.解锁条件 }}</div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              
+              <!-- 法宝装备增幅 -->
               <div v-if="selectedItem.装备增幅" class="details-attributes">
                 <h4>装备增幅</h4>
                 <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
@@ -462,7 +505,14 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
   }
 };
 
-const itemList = computed<Item[]>(() => Object.values(inventory.value.物品 || {}));
+const itemList = computed<Item[]>(() => {
+  const raw = inventory.value?.物品 || {};
+  // 仅保留有效物品：键不以下划线开头，值是对象且包含“名称/类型”字段
+  return Object.entries(raw)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
+    .map(([, val]) => val as Item)
+    .filter((it: any) => typeof it.名称 === 'string' && typeof it.类型 === 'string');
+});
 
 const itemCategories = computed(() => {
   // 固定三个分类：法宝、功法、其他
@@ -535,6 +585,20 @@ const formatItemAttributes = (attributes: Record<string, unknown>): string => {
   }
 
   return parts.length ? parts.join('、') : '无特殊属性';
+};
+
+// 格式化功法属性加成显示
+const formatAttributeBonus = (attributeBonus: any): string => {
+  if (!attributeBonus || typeof attributeBonus !== 'object') {
+    return '无属性加成';
+  }
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(attributeBonus)) {
+    if (value && typeof value === 'number') {
+      parts.push(`${key}+${value}`);
+    }
+  }
+  return parts.length > 0 ? parts.join('、') : '无属性加成';
 };
 
 // 获取物品类型图标
@@ -653,7 +717,7 @@ const syncToTavernVariables = async () => {
 
 
 // 功法修炼功能
-const cultivateItem = async (item: Item) => {
+const cultivateItem = async (item: Item, force = false) => {
   if (!item || item.类型 !== '功法') {
     toast.error('只能修炼功法类物品');
     return;
@@ -678,25 +742,29 @@ const cultivateItem = async (item: Item) => {
     const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
 
     // 检查是否已经在修炼其他功法
-    if (skillSlots.功法 && skillSlots.功法.物品ID !== item.物品ID) {
-      const confirm = window.confirm(`当前正在修炼《${skillSlots.功法.名称}》，确定要切换到《${item.名称}》吗？`);
-      if (!confirm) return;
-
-      // 将之前的功法放回背包
-      const previousSkill = skillSlots.功法;
-      if (previousSkill.物品ID && characterStore.activeSaveSlot.存档数据.背包?.物品) {
-        characterStore.activeSaveSlot.存档数据.背包.物品[previousSkill.物品ID] = {
-          物品ID: previousSkill.物品ID,
-          名称: previousSkill.名称,
-          类型: previousSkill.类型,
-          品质: previousSkill.品质,
-          描述: previousSkill.描述,
-          功法效果: previousSkill.功法效果 || {},
-          功法技能: previousSkill.功法技能 || {},
-          数量: 1
-        };
-        debug.log('背包面板', '之前的功法已放回背包', previousSkill.名称);
-      }
+    if (!force && skillSlots.功法 && skillSlots.功法.物品ID !== item.物品ID) {
+      const currentName = skillSlots.功法.名称;
+      confirmTitle.value = '切换功法';
+      confirmMessage.value = `当前正在修炼《${currentName}》，确定要切换到《${item.名称}》吗？`;
+      confirmCallback.value = async () => {
+        const previousSkill = skillSlots.功法!;
+        if (previousSkill.物品ID && characterStore.activeSaveSlot!.存档数据!.背包?.物品) {
+          characterStore.activeSaveSlot!.存档数据!.背包!.物品![previousSkill.物品ID] = {
+            物品ID: previousSkill.物品ID,
+            名称: previousSkill.名称,
+            类型: previousSkill.类型,
+            品质: previousSkill.品质,
+            描述: previousSkill.描述,
+            功法效果: previousSkill.功法效果 || {},
+            功法技能: previousSkill.功法技能 || {},
+            数量: 1
+          };
+          debug.log('背包面板', '之前的功法已放回背包', previousSkill.名称);
+        }
+        await cultivateItem(item, true);
+      };
+      showCustomConfirm.value = true;
+      return;
     }
 
     // 装备功法到修炼槽位 - 创建完整的功法数据
@@ -820,35 +888,31 @@ ${effectMessage}`;
   }
 };
 
-// 丢弃物品功能
+// 丢弃物品功能（使用自定义确认弹窗）
 const discardItem = async (item: Item) => {
   if (!item) {
     return;
   }
 
-  // 确认丢弃
-  const itemQuality = item.品质?.quality || '凡阶';
-  const qualityColor = itemQuality === '凡阶' ? '' : `【${itemQuality}】`;
-  if (!confirm(`确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`)) {
-    return;
-  }
-
-  debug.log('背包面板', '丢弃物品', item.名称);
-
-  try {
-    await removeItemFromInventory(item);
-    toast.success(`已丢弃《${item.名称}》`);
-
-    // 关闭弹窗
-    if (isMobile.value) {
-      showItemModal.value = false;
+  const itemQuality = item.品质?.quality || '凡';
+  const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`;
+  confirmTitle.value = '丢弃物品';
+  confirmMessage.value = `确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`;
+  confirmCallback.value = async () => {
+    debug.log('背包面板', '丢弃物品', item.名称);
+    try {
+      await removeItemFromInventory(item);
+      toast.success(`已丢弃《${item.名称}》`);
+      if (isMobile.value) {
+        showItemModal.value = false;
+      }
+      selectedItem.value = null;
+    } catch (error) {
+      debug.error('背包面板', '丢弃失败', error);
+      toast.error('丢弃物品失败');
     }
-    selectedItem.value = null;
-
-  } catch (error) {
-    debug.error('背包面板', '丢弃失败', error);
-    toast.error('丢弃物品失败');
-  }
+  };
+  showCustomConfirm.value = true;
 };
 const equipItem = async (item: Item) => {
   if (!item || item.类型 !== '法宝') {
@@ -889,40 +953,33 @@ const equipItem = async (item: Item) => {
     }
 
     if (!equipped) {
-      // 装备栏已满，询问是否替换
-      const confirm = window.confirm('装备栏已满，是否替换法宝1的装备？');
-      if (confirm) {
-        // const oldItemId = equipmentSlot.法宝1; // 以后用于实现替换装备回背包
-        equipmentSlot.法宝1 = item; // 存储完整物品对象而不是ID
+      // 装备栏已满，使用自定义确认弹窗
+      confirmTitle.value = '替换装备';
+      confirmMessage.value = '装备栏已满，是否替换法宝1的装备？';
+      confirmCallback.value = async () => {
+        equipmentSlot.法宝1 = item;
         toast.success(`《${item.名称}》已替换装备到法宝1`);
 
-        // 可以考虑将被替换的装备放回背包，这里先跳过
-      } else {
-        toast.info('取消装备操作');
-        return;
-      }
+        await removeItemFromInventory(item);
+        await characterStore.commitToStorage();
+        await syncToTavernVariables();
+        actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，获得其增幅效果` });
+        debug.log('背包面板', '法宝装备成功，已同步到酒馆变量');
+        if (isMobile.value) {
+          showItemModal.value = false;
+        }
+        selectedItem.value = null;
+      };
+      showCustomConfirm.value = true;
+      return;
     }
 
-    // 从背包移除已装备物品
+    // 从背包移除已装备物品（有空槽的情况）
     await removeItemFromInventory(item);
-
-    // 保存数据到存储
     await characterStore.commitToStorage();
-
-    // 同步到酒馆变量
     await syncToTavernVariables();
-
-    // 添加到操作队列
-    actionQueue.addAction({
-      type: 'equip',
-      itemName: item.名称,
-      itemType: item.类型,
-      description: `装备了《${item.名称}》法宝，获得其增幅效果`
-    });
-
+    actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，获得其增幅效果` });
     debug.log('背包面板', '法宝装备成功，已同步到酒馆变量');
-
-    // 关闭弹窗
     if (isMobile.value) {
       showItemModal.value = false;
     }
@@ -1606,16 +1663,18 @@ onMounted(async () => {
   position: absolute;
   top: 6px;
   right: 6px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
-  color: white;
+  /* 仅改变文字颜色，不改背景 */
+  background: transparent;
+  color: var(--color-accent, #7c4dff);
   font-size: 12px;
-  font-weight: bold;
-  padding: 4px 8px;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-weight: 700;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
   z-index: 4;
-  min-width: 24px;
-  text-align: center;
+  min-width: 0;
+  text-align: right;
 }
 
 /* 名称区域 */
@@ -2044,6 +2103,116 @@ onMounted(async () => {
   color: var(--color-text);
   line-height: 1.4;
   word-break: break-all;
+}
+
+/* 功法效果样式 */
+.skill-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.effect-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.effect-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 80px;
+}
+
+.effect-value {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.special-abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ability-tag {
+  background: var(--color-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 功法技能样式 */
+.technique-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-item {
+  background: var(--color-background);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+}
+
+.skill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.skill-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.skill-type {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.skill-type.type-攻击 {
+  background: var(--color-error);
+  color: white;
+}
+
+.skill-type.type-防御 {
+  background: var(--color-info);
+  color: white;
+}
+
+.skill-type.type-辅助 {
+  background: var(--color-success);
+  color: white;
+}
+
+.skill-type.type-移动 {
+  background: var(--color-warning);
+  color: white;
+}
+
+.skill-type.type-其他 {
+  background: var(--color-text-secondary);
+  color: white;
+}
+
+.skill-description {
+  color: var(--color-text);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.skill-unlock {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
 }
 
 

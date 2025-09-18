@@ -71,7 +71,8 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\worldGeneration\\gameWorldConfig_clean.ts\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\prompts\\inGameGMPrompts.ts\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\mobile\\MobileThousandDaoPanel.vue\")",
-      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\optimizedAIRequestSystem.ts\")"
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\optimizedAIRequestSystem.ts\")",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

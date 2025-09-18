@@ -126,15 +126,23 @@ export function useUnifiedCharacterData(): {
     const status: CharacterStatus = {
       realm: {
         name: realmData?.名称 || '凡人',
-        level: realmData?.等级 || 0,
-        progress: realmData?.当前进度 || 0,
-        maxProgress: realmData?.下一级所需 || 100,
-        progressPercent: Math.floor(((realmData?.当前进度 || 0) / (realmData?.下一级所需 || 100)) * 100)
+        level: typeof realmData?.等级 === 'number' ? realmData.等级 : 0,
+        progress: typeof realmData?.当前进度 === 'number' ? realmData.当前进度 : 0,
+        maxProgress: typeof realmData?.下一级所需 === 'number' ? realmData.下一级所需 : 0,
+        progressPercent: (() => {
+          const cur = typeof realmData?.当前进度 === 'number' ? realmData.当前进度 : 0;
+          const max = typeof realmData?.下一级所需 === 'number' ? realmData.下一级所需 : 0;
+          return max > 0 ? Math.floor((cur / max) * 100) : 0;
+        })()
       },
       lifespan: {
-        current: playerStatus?.寿命?.当前 || 18,
-        max: playerStatus?.寿命?.最大 || 80,
-        remaining: (playerStatus?.寿命?.最大 || 80) - (playerStatus?.寿命?.当前 || 18)
+        current: typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0,
+        max: typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0,
+        remaining: (() => {
+          const cur = typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0;
+          const max = typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0;
+          return Math.max(0, max - cur);
+        })()
       },
       reputation: {
         level: getReputationLevel(playerStatus?.声望 || 0),
@@ -220,13 +228,11 @@ export function useUnifiedCharacterData(): {
  */
 function formatVital(vital: any): { current: number; max: number; percent: number } {
   if (!vital || typeof vital !== 'object') {
-    return { current: 0, max: 100, percent: 0 };
+    return { current: 0, max: 0, percent: 0 };
   }
-
-  const current = vital.当前 || 0;
-  const max = vital.最大 || 100;
-  const percent = Math.min(100, Math.floor((current / max) * 100));
-
+  const current = typeof vital.当前 === 'number' ? vital.当前 : 0;
+  const max = typeof vital.最大 === 'number' ? vital.最大 : 0;
+  const percent = max > 0 ? Math.min(100, Math.floor((current / max) * 100)) : 0;
   return { current, max, percent };
 }
 

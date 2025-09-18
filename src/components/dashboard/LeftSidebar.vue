@@ -147,7 +147,7 @@
       <!-- 系统功能区 -->
       <div class="system-section">
         <div class="function-group">
-          <button class="function-btn system" @click="handleSaveGame" :disabled="!activeCharacter">
+          <button class="function-btn system no-arrow" @click="handleSaveGame" :disabled="!activeCharacter">
             <div class="btn-icon">
               <Save :size="18" />
             </div>
@@ -155,6 +155,17 @@
               <span class="btn-text">保存游戏</span>
               <span class="btn-desc">保存修行进度</span>
             </div>
+          </button>
+          
+          <button class="function-btn system" @click="handleTavernData">
+            <div class="btn-icon">
+              <Database :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">酒馆数据</span>
+              <span class="btn-desc">查看存储数据</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
           <button class="function-btn system" @click="handleSettings">
@@ -168,7 +179,7 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
-          <button class="function-btn exit-btn" @click="handleBackToMenu">
+          <button class="function-btn exit-btn no-arrow" @click="handleBackToMenu">
             <div class="btn-icon">
               <LogOut :size="18" />
             </div>
@@ -186,9 +197,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
+import { useUIStore } from '@/stores/uiStore';
 
 const props = defineProps<{
   collapsed?: boolean;
@@ -196,6 +208,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const characterStore = useCharacterStore();
+const uiStore = useUIStore();
 
 // 检查任务系统是否启用
 const isQuestSystemEnabled = computed(() => {
@@ -267,62 +280,104 @@ const handleSettings = () => {
   router.push('/game/settings');
 };
 
+const handleTavernData = () => {
+  router.push('/game/tavern-data');
+};
+
 const handleBackToMenu = async () => {
-  if (confirm('确定要返回道途吗？当前游戏进度将会保存。')) {
-    console.log('[返回道途] 用户确认返回，开始处理...');
-    
-    // 保存当前游戏状态
-    try {
-      await characterStore.saveCurrentGame();
-      console.log('[返回道途] 游戏状态保存完成');
-    } catch (error) {
-      console.warn('[返回道途] 保存游戏状态失败:', error);
-    }
-    
-    // 尝试保存游戏状态到酒馆变量
-    try {
-      const helper = (window.parent as any)?.TavernHelper;
-      if (helper) {
-        // 保存最后的游戏状态到酒馆变量
-        console.log('[返回道途] 游戏状态已保存到酒馆');
-      }
-    } catch (error) {
-      console.warn('[返回道途] 保存酒馆状态失败:', error);
-    }
-    
-    // 检查是否在iframe中运行（SillyTavern环境）
-    if (window.parent && window.parent !== window) {
-      // 在iframe中，通知父窗口关闭游戏
-      console.log('[返回道途] 检测到iframe环境，发送关闭消息');
-      window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
-      console.log('[返回道途] 已发送关闭游戏消息到SillyTavern');
-    } else {
-      // 在独立窗口中，返回到角色选择页面
-      console.log('[返回道途] 独立窗口环境，执行路由跳转');
-      console.log('[返回道途] 当前路由:', router.currentRoute.value.path);
-      console.log('[返回道途] 目标路由: /');
-      
+  uiStore.showRetryDialog({
+    title: '返回道途',
+    message: '确定要返回道途吗？当前游戏进度将会保存。',
+    confirmText: '保存并返回',
+    cancelText: '取消',
+    onConfirm: async () => {
+      console.log('[返回道途] 用户确认返回，开始处理...');
       try {
-        // 确保路由跳转完成
-        await router.push('/');
-        console.log('[返回道途] 路由跳转到 / 完成，当前路由:', router.currentRoute.value.path);
+        await characterStore.saveCurrentGame();
+        console.log('[返回道途] 游戏状态保存完成');
       } catch (error) {
-        console.error('[返回道途] 路由跳转失败:', error);
-        // 如果路由跳转失败，尝试使用 replace
+        console.warn('[返回道途] 保存游戏状态失败:', error);
+      }
+      try {
+        const helper = (window.parent as any)?.TavernHelper;
+        if (helper) {
+          console.log('[返回道途] 游戏状态已保存到酒馆');
+        }
+      } catch (error) {
+        console.warn('[返回道途] 保存酒馆状态失败:', error);
+      }
+      
+      // 检查是否在iframe环境中
+      if (window.parent && window.parent !== window) {
+        console.log('[返回道途] 检测到iframe环境，发送关闭消息');
+        window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
+        console.log('[返回道途] 已发送关闭游戏消息到SillyTavern');
+      } else {
+        console.log('[返回道途] 独立窗口环境，执行路由跳转');
+        
+        // 重置角色存储状态
         try {
-          await router.replace('/');
-          console.log('[返回道途] 使用 replace 跳转成功，当前路由:', router.currentRoute.value.path);
-        } catch (replaceError) {
-          console.error('[返回道途] replace 跳转也失败:', replaceError);
-          // 最后尝试直接修改 window.location
-          console.log('[返回道途] 尝试使用 window.location.href 跳转');
-          window.location.href = '/';
+          console.log('[返回道途] 重置角色存储状态');
+          // 清除当前存档数据 - 直接设置rootState
+          characterStore.rootState.当前激活存档 = null;
+          // 重置UI状态
+          uiStore.stopLoading();
+        } catch (error) {
+          console.warn('[返回道途] 重置状态失败:', error);
+        }
+        
+        // 强制跳转到模式选择页面
+        try {
+          console.log('[返回道途] 当前路由:', router.currentRoute.value.path);
+          console.log('[返回道途] 开始跳转到模式选择页面 (/)');
+          
+          // 使用 replace 跳转，清除当前路由历史
+          await router.replace({ name: 'ModeSelection' });
+          console.log('[返回道途] 路由跳转完成，当前路由:', router.currentRoute.value.path);
+          
+          // 验证跳转是否成功
+          await new Promise(resolve => setTimeout(resolve, 100)); // 等待100ms让路由生效
+          if (router.currentRoute.value.name !== 'ModeSelection') {
+            throw new Error(`路由跳转未生效，当前路由: ${String(router.currentRoute.value.name)}`);
+          }
+          
+          console.log('[返回道途] 路由跳转验证成功，页面应该已切换到模式选择');
+          
+        } catch (error) {
+          console.error('[返回道途] 路由跳转失败:', error);
+          console.log('[返回道途] 尝试使用路径跳转');
+          
+          try {
+            await router.replace('/');
+            console.log('[返回道途] 路径跳转成功，当前路由:', router.currentRoute.value.path);
+            
+            // 验证路径跳转是否成功
+            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('[返回道途] 路径跳转后验证，路由名称:', String(router.currentRoute.value.name));
+            
+          } catch (pathError) {
+            console.error('[返回道途] 路径跳转也失败:', pathError);
+            console.log('[返回道途] 尝试强制页面刷新');
+            
+            // 最后的备用方案：强制页面刷新
+            try {
+              const currentOrigin = window.location.origin;
+              const targetUrl = `${currentOrigin}/`;
+              console.log('[返回道途] 强制跳转到:', targetUrl);
+              window.location.href = targetUrl;
+            } catch (refreshError) {
+              console.error('[返回道途] 强制刷新也失败:', refreshError);
+              // 显示用户友好的错误信息
+              alert('返回模式选择页面失败，请手动刷新页面');
+            }
+          }
         }
       }
+    },
+    onCancel: () => {
+      console.log('[返回道途] 用户取消返回');
     }
-  } else {
-    console.log('[返回道途] 用户取消返回');
-  }
+  });
 };
 </script>
 
@@ -500,9 +555,15 @@ const handleBackToMenu = async () => {
   margin-left: 8px;
 }
 
+
 .function-btn:hover .btn-arrow {
   color: var(--color-primary);
   transform: translateX(2px);
+}
+
+/* 无箭头按钮的右边距补偿 */
+.function-btn.no-arrow .btn-content {
+  margin-right: 22px; /* 14px (箭头宽度) + 8px (margin-left) */
 }
 
 /* 分类颜色主题 */

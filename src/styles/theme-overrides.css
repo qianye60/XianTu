@@ -1,0 +1,369 @@
+﻿/* Theme overrides to improve light/dark readability (focused on dashboard sidebar) */
+
+/* Scrollbars follow theme */
+.right-sidebar .sidebar-content {
+  scrollbar-color: var(--scrollbar-thumb-color) transparent;
+}
+.right-sidebar .sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-color);
+}
+
+/* Containers use themed surfaces/borders */
+.right-sidebar .ai-chat-section,
+.right-sidebar .info-section,
+.right-sidebar .cultivation-section,
+.right-sidebar .vitals-section,
+.right-sidebar .attributes-section,
+.right-sidebar .location-section,
+.right-sidebar .wealth-section,
+.right-sidebar .collapsible-section {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Subtle hover */
+.right-sidebar .section-header:hover {
+  background: var(--color-surface-light) !important;
+}
+
+/* Text colors */
+.right-sidebar .sidebar-title,
+.right-sidebar .detail-value,
+.right-sidebar .vital-text,
+.right-sidebar .effect-name,
+.right-sidebar .realm-name {
+  color: var(--color-text) !important;
+}
+.right-sidebar .detail-label,
+.right-sidebar .state-label,
+.right-sidebar .state-text,
+.right-sidebar .progress-text,
+.right-sidebar .effect-time,
+.right-sidebar .empty-text,
+.right-sidebar .no-char-text,
+.right-sidebar .realm-level,
+.right-sidebar .vital-name {
+  color: var(--color-text-secondary) !important;
+}
+.right-sidebar .section-title { color: var(--color-text) !important; }
+.right-sidebar .section-icon { color: var(--color-primary) !important; }
+
+/* Collapsible toggle icon */
+.right-sidebar .collapse-toggle { color: var(--color-text-secondary) !important; }
+.right-sidebar .collapse-toggle:hover {
+  color: var(--color-text) !important;
+  background: var(--color-surface-light) !important;
+}
+
+/* Vital item cards */
+.right-sidebar .vital-item {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+}
+.right-sidebar .vital-item:hover {
+  background: var(--color-surface-light) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Progress bars */
+.right-sidebar .progress-bar { background: var(--color-surface-light) !important; border: 1px solid var(--color-border) !important; }
+.right-sidebar .progress-fill.health { background: linear-gradient(90deg, var(--color-error), var(--color-error)) !important; }
+.right-sidebar .progress-fill.mana { background: linear-gradient(90deg, var(--color-info), var(--color-info)) !important; }
+.right-sidebar .progress-fill.spirit { background: linear-gradient(90deg, var(--color-warning), var(--color-warning)) !important; }
+.right-sidebar .progress-fill.lifespan { background: linear-gradient(90deg, var(--color-accent), var(--color-accent)) !important; }
+.right-sidebar .progress-fill.cultivation { background: linear-gradient(90deg, var(--color-accent), var(--color-accent)) !important; }
+
+/* Status effect cards: neutral base, colored left bar */
+.right-sidebar .status-effect-card {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+}
+.right-sidebar .status-effect-card::before { background: var(--color-border) !important; }
+.right-sidebar .status-effect-card.buff::before { background: linear-gradient(to bottom, var(--color-success), var(--color-success)) !important; }
+.right-sidebar .status-effect-card.debuff::before { background: linear-gradient(to bottom, var(--color-error), var(--color-error)) !important; }
+
+/* Talent card simplified */
+.right-sidebar .talent-card {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-accent) !important;
+  border-left: 4px solid var(--color-accent) !important;
+}
+.right-sidebar .talent-name { color: var(--color-accent) !important; }
+.right-sidebar .talent-level {
+  color: var(--color-warning) !important;
+  background: var(--color-surface-light) !important;
+  border: 1px solid var(--color-warning) !important;
+}
+
+/* Icons by type */
+.right-sidebar .vital-icon.blood { color: var(--color-error) !important; }
+.right-sidebar .vital-icon.mana { color: var(--color-info) !important; }
+.right-sidebar .vital-icon.spirit { color: var(--color-warning) !important; }
+.right-sidebar .vital-icon.lifespan { color: var(--color-accent) !important; }
+
+/* Character summary sections keep a subtle primary/accents using existing rgb if available */
+.right-sidebar .character-info-section {
+  background: rgba(var(--color-primary-rgb), 0.06) !important;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.15) !important;
+}
+.right-sidebar .character-state-section {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Inventory item count badge: keep readable in both themes */
+.item-quantity-display { color: #f7f7f5 !important; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
+/* ===== 修复右侧面板颜色淡化问题 ===== */
+
+/* 移除可能导致白色遮罩的效果 */
+.right-sidebar,
+.right-panel-area {
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
+}
+
+/* 确保右侧面板的背景完全不透明 */
+.right-sidebar {
+  background: var(--color-surface) !important;
+}
+
+/* 移除任何可能的伪元素遮罩 */
+.right-sidebar::before,
+.right-sidebar::after,
+.right-panel-area::before,
+.right-panel-area::after {
+  display: none !important;
+}
+
+/* ===== 按钮文字溢出和居中修复 ===== */
+
+/* 通用按钮最小宽度和居中样式 */
+button {
+  min-width: fit-content;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* RetryConfirmDialog 按钮修复 */
+.retry-dialog .btn-primary,
+.retry-dialog .btn-secondary {
+  min-width: 100px !important; /* 确保最小宽度 */
+  padding: 12px 24px !important; /* 增加左右内边距防止文字溢出 */
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* DataClearButtons 按钮修复 */
+.clear-button {
+  min-width: 120px !important; /* 防止"清除自定义数据"等长文字溢出 */
+  padding: 0.4rem 1rem !important; /* 增加左右内边距 */
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.clear-button .clear-text {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* SavePanel 操作按钮修复 */
+.operation-btn {
+  min-width: 140px !important; /* 为"导出存档"、"导入存档"等按钮设置最小宽度 */
+  padding: 1rem 1.2rem !important;
+  text-align: center;
+}
+
+.operation-btn .btn-content {
+  width: 100%;
+  text-align: center;
+}
+
+.operation-btn .btn-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* MainGamePanel 中的快捷操作按钮修复 */
+.quick-action-btn {
+  min-width: 80px !important; /* 确保按钮最小宽度 */
+  min-height: 70px;
+  padding: 12px 10px !important; /* 增加左右内边距 */
+  text-align: center;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.quick-action-btn .action-text {
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+/* 配置弹窗按钮修复 */
+.cancel-btn,
+.confirm-btn {
+  min-width: 80px !important; /* 确保"取消"、"确认"按钮最小宽度 */
+  padding: 8px 24px !important; /* 增加左右内边距 */
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* LocalPromptModal 按钮修复 */
+.cancel-button {
+  min-width: 80px !important;
+  padding: 8px 24px !important;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 通用按钮文字居中修复 */
+.btn-text,
+.action-text,
+.btn-title {
+  text-align: center !important;
+  width: 100%;
+  display: block;
+}
+
+/* 修复LeftSidebar中的按钮 */
+.left-sidebar .nav-btn {
+  min-width: 100%;
+  text-align: left; /* LeftSidebar按钮应该左对齐 */
+}
+
+.left-sidebar .nav-btn .btn-text,
+.left-sidebar .nav-btn .btn-desc {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* TopBar中的全屏按钮 */
+.fullscreen-btn {
+  min-width: 32px !important;
+  min-height: 32px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 发送按钮修复 */
+.send-button {
+  min-width: 60px !important;
+  padding: 12px 24px !important;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 行动选择器按钮修复 */
+.action-selector-btn {
+  min-width: 44px !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .clear-button {
+    min-width: 100px !important;
+    padding: 0.3rem 0.8rem !important;
+  }
+  
+  .operation-btn {
+    min-width: 120px !important;
+    padding: 0.8rem 1rem !important;
+  }
+  
+  .quick-action-btn {
+    min-width: 70px !important;
+    min-height: 60px;
+    padding: 8px 6px !important;
+  }
+  
+  .cancel-btn,
+  .confirm-btn {
+    min-width: 70px !important;
+    padding: 6px 18px !important;
+  }
+  
+  .send-button {
+    min-width: 50px !important;
+    padding: 10px 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .clear-button {
+    min-width: 90px !important;
+    padding: 0.25rem 0.6rem !important;
+  }
+  
+  .operation-btn {
+    min-width: 100px !important;
+    padding: 0.6rem 0.8rem !important;
+  }
+  
+  .quick-action-btn {
+    min-width: 60px !important;
+    min-height: 50px;
+    padding: 6px 4px !important;
+  }
+  
+  .cancel-btn,
+  .confirm-btn {
+    min-width: 60px !important;
+    padding: 6px 15px !important;
+  }
+  
+  .send-button {
+    min-width: 45px !important;
+    padding: 8px 16px !important;
+  }
+}
+

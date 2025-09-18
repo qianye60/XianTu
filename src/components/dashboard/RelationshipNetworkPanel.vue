@@ -194,6 +194,53 @@
                   </div>
                 </div>
               </div>
+
+              <!-- NPC背包物品 -->
+              <div class="detail-section">
+                <h5 class="section-title">随身物品</h5>
+                <div class="npc-inventory">
+                  <div class="inventory-note">
+                    <Info :size="14" />
+                    <span>商人或重要人物可能携带物品进行交易</span>
+                  </div>
+                  <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
+                    <div
+                      v-for="(item, itemId) in (selectedPerson.背包?.物品 || {})"
+                      :key="itemId"
+                      class="npc-item-card"
+                      :class="getItemQualityClass(item.品质?.quality)"
+                    >
+                      <div class="item-header">
+                        <span class="item-name">{{ item.名称 || itemId }}</span>
+                        <span class="item-type">{{ item.类型 || '其他' }}</span>
+                      </div>
+                      <div class="item-quality" v-if="item.品质">
+                        <span class="quality-text">{{ item.品质.quality || '未知' }}品{{ getGradeText(item.品质.grade) }}</span>
+                      </div>
+                      <div class="item-quantity" v-if="item.数量 && item.数量 > 1">
+                        <span>x{{ item.数量 }}</span>
+                      </div>
+                      <div class="item-description" v-if="item.描述">
+                        <p>{{ item.描述 }}</p>
+                      </div>
+                      <div class="item-actions">
+                        <button 
+                          class="trade-btn" 
+                          @click="initiateTradeWithNpc(selectedPerson, item)"
+                          title="尝试交易此物品"
+                        >
+                          <ArrowRightLeft :size="12" />
+                          交易
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="empty-inventory">
+                    <Package :size="24" class="empty-icon" />
+                    <p>此人身上没有物品</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -214,7 +261,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import type { NpcProfile } from '@/types/game';
 import { 
   Users2, User, Brain, BarChart3, Tag, Search, 
-  RefreshCw, Loader2, ChevronRight 
+  RefreshCw, Loader2, ChevronRight, Info, Package, ArrowRightLeft
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 
@@ -227,8 +274,11 @@ const activeFilter = ref('all');
 const relationships = computed(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系) return [];
-  
-  return Object.values(saveData.人物关系).filter(person => person && person.角色基础信息);
+  // 仅保留有效NPC：键不以下划线开头，值是对象且包含角色基础信息
+  return Object.entries(saveData.人物关系)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
+    .map(([, val]) => val as NpcProfile)
+    .filter(person => (person as any)?.角色基础信息);
 });
 
 // 过滤后的关系列表（只保留搜索功能）
@@ -318,17 +368,53 @@ const editMemory = async (index: number) => {
   await characterStore.commitToStorage();
 };
 
+import { useUIStore } from '@/stores/uiStore';
+const uiStore = useUIStore();
 const deleteMemory = async (index: number) => {
   if (!selectedPerson.value) return;
-  if (!window.confirm('确定要删除这条记忆吗？')) return;
-  const name = selectedPerson.value.角色基础信息.名字;
-  const key = findRelationshipKeyByName(name);
-  if (!key) return;
-  const saveData = characterStore.activeSaveSlot?.存档数据 as any;
-  if (!saveData?.人物关系?.[key]?.人物记忆) return;
-  saveData.人物关系[key].人物记忆.splice(index, 1);
-  selectedPerson.value = saveData.人物关系[key] as NpcProfile;
-  await characterStore.commitToStorage();
+  uiStore.showRetryDialog({
+    title: '删除记忆',
+    message: '确定要删除这条记忆吗？',
+    confirmText: '删除',
+    cancelText: '取消',
+    onConfirm: async () => {
+      const name = selectedPerson.value!.角色基础信息.名字;
+      const key = findRelationshipKeyByName(name);
+      if (!key) return;
+      const saveData = characterStore.activeSaveSlot?.存档数据 as any;
+      if (!saveData?.人物关系?.[key]?.人物记忆) return;
+      saveData.人物关系[key].人物记忆.splice(index, 1);
+      selectedPerson.value = saveData.人物关系[key] as NpcProfile;
+      await characterStore.commitToStorage();
+    },
+    onCancel: () => {}
+  });
+};
+
+// NPC物品相关函数
+const hasNpcItems = (person: NpcProfile): boolean => {
+  return !!(person.背包?.物品 && Object.keys(person.背包.物品).length > 0);
+};
+
+const getItemQualityClass = (quality?: string): string => {
+  if (!quality) return 'quality-unknown';
+  return `quality-${quality.toLowerCase()}`;
+};
+
+const getGradeText = (grade?: number): string => {
+  if (grade === undefined || grade === null) return '';
+  if (grade === 0) return '残缺';
+  if (grade >= 1 && grade <= 3) return '下品';
+  if (grade >= 4 && grade <= 6) return '中品';  
+  if (grade >= 7 && grade <= 9) return '上品';
+  if (grade === 10) return '极品';
+  return '';
+};
+
+const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
+  toast.info(`正在与 ${npc.角色基础信息.名字} 交易 ${item.名称}...`);
+  // TODO: 实现具体的交易逻辑
+  console.log('发起交易:', { npc: npc.角色基础信息.名字, item: item.名称 });
 };
 
 </script>
@@ -354,7 +440,7 @@ const deleteMemory = async (index: number) => {
 }
 
 .relationship-list {
-  width: 350px;
+  width: 280px; /* 窄一点 */
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -437,7 +523,7 @@ const deleteMemory = async (index: number) => {
 .person-card {
   display: flex;
   align-items: center;
-  padding: 1rem;
+  padding: 0.75rem; /* 更紧凑 */
   background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -776,6 +862,170 @@ const deleteMemory = async (index: number) => {
   color: var(--color-primary);
 }
 
+/* NPC物品样式 */
+.npc-inventory {
+  margin-top: 0.75rem;
+}
+
+.inventory-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: #3b82f6;
+}
+
+.npc-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.75rem;
+}
+
+.npc-item-card {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.npc-item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.npc-item-card.quality-凡 {
+  border-left: 3px solid #6b7280;
+}
+
+.npc-item-card.quality-黄 {
+  border-left: 3px solid #f59e0b;
+}
+
+.npc-item-card.quality-玄 {
+  border-left: 3px solid #8b5cf6;
+}
+
+.npc-item-card.quality-地 {
+  border-left: 3px solid #06b6d4;
+}
+
+.npc-item-card.quality-天 {
+  border-left: 3px solid #ec4899;
+}
+
+.npc-item-card.quality-仙 {
+  border-left: 3px solid #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.npc-item-card.quality-神 {
+  border-left: 3px solid #9333ea;
+  box-shadow: 0 0 15px rgba(147, 51, 234, 0.4);
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.item-name {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.item-type {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.item-quality {
+  margin-bottom: 0.5rem;
+}
+
+.quality-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.item-quantity {
+  text-align: right;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  /* 使用主题主色，增强与卡片背景的对比度 */
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.item-description {
+  margin-bottom: 0.75rem;
+}
+
+.item-description p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.item-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.trade-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-btn:hover {
+  background: linear-gradient(135deg, #047857, #065f46);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+}
+
+.trade-btn:active {
+  transform: translateY(0);
+}
+
+.empty-inventory {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.empty-inventory .empty-icon {
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
 /* 互动统计样式 */
 .interaction-stats {
   display: flex;
@@ -873,7 +1123,9 @@ const deleteMemory = async (index: number) => {
   
   .relationship-list {
     width: 100%;
-    height: 40vh;
+    height: 30vh;
+    min-height: 250px;
+    max-height: 350px;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
@@ -935,38 +1187,40 @@ const deleteMemory = async (index: number) => {
 
   .relationship-detail {
     flex: 1;
-    min-height: 60vh;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .detail-content {
-    padding: 1rem;
+    padding: 0.75rem;
+    height: auto;
   }
 
   .detail-header {
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
-    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    gap: 0.5rem;
   }
 
   .detail-avatar {
-    width: 48px;
-    height: 48px;
-    font-size: 1.25rem;
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
   }
 
   .detail-name {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .info-grid {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .info-item {
-    padding: 0.5rem;
+    padding: 0.4rem 0.6rem;
     background: var(--color-surface-light);
-    border-radius: 6px;
+    border-radius: 4px;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;

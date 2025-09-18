@@ -30,7 +30,9 @@
           <div class="narrative-meta">
             <span class="narrative-time">{{ currentNarrative.time }}</span>
           </div>
-          <div class="narrative-text">{{ currentNarrative.content }}</div>
+          <div class="narrative-text">
+            <FormattedText :text="currentNarrative.content" />
+          </div>
         </div>
         <div v-else class="empty-narrative">
           静待天机变化...
@@ -173,6 +175,7 @@ import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { GameStateManager } from '@/utils/GameStateManager';
 import { RuntimeReasonabilityValidator, type DifficultyLevel, type AuditResult } from '@/utils/prompts/reasonabilityAudit';
 import { toast } from '@/utils/toast';
+import FormattedText from '@/components/common/FormattedText.vue';
 import type { GameMessage, SaveData } from '@/types/game';
 import type { GM_Response } from '@/types/AIGameMaster';
 
@@ -734,23 +737,17 @@ const addToShortTermMemory = (content: string) => {
       
       // 检查短期记忆是否超出限制
       if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
-        // 将超出的记忆转移到中期记忆
+        // 将超出的记忆批量转移到中期记忆（不逐条生成总结）
         const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value);
-        
-        // 简化内容后加入中期记忆
-        overflow.forEach(memory => {
-          const summarized = summarizeForMidTerm(memory);
-          if (summarized) {
-            sd.记忆.中期记忆.unshift(summarized);
-          }
-        });
-        
+        // 保持时间顺序：最旧的在前
+        overflow.reverse().forEach(mem => sd.记忆.中期记忆.unshift(mem));
+
         // 限制中期记忆数量
         if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
           sd.记忆.中期记忆.splice(maxMidTermMemories.value);
         }
-        
-        console.log(`[记忆管理] 短期记忆达到限制，转移${overflow.length}条到中期记忆`);
+
+        console.log(`[记忆管理] 短期记忆达到限制，转移${overflow.length}条到中期记忆（无总结）`);
       }
     }
   } catch (error) {
@@ -758,33 +755,7 @@ const addToShortTermMemory = (content: string) => {
   }
 };
 
-// 将长内容总结为中期记忆格式
-const summarizeForMidTerm = (content: string): string => {
-  if (content.length <= 200) return content;
-  
-  // 提取关键信息：时间、地点、人物、事件
-  const lines = content.split('\n').filter(line => line.trim());
-  const firstLine = lines[0] || '';
-  const keyElements = [];
-  
-  // 简单的关键词提取
-  const timeMatch = content.match(/(\\d+年|今日|此时|当下|片刻后)/);
-  if (timeMatch) keyElements.push(`时间:${timeMatch[1]}`);
-  
-  const locationMatch = content.match(/(在|于|位于)([^，。！？]{2,10})[，。！？]/);
-  if (locationMatch) keyElements.push(`地点:${locationMatch[2]}`);
-  
-  const actionMatch = content.match(/(修炼|战斗|探索|遇见|获得|学会)([^，。！？]{2,20})[，。！？]/);
-  if (actionMatch) keyElements.push(`事件:${actionMatch[1]}${actionMatch[2]}`);
-  
-  // 如果提取不到关键信息，使用首句+末句
-  if (keyElements.length === 0) {
-    const lastLine = lines[lines.length - 1] || '';
-    return `${firstLine.substring(0, 100)}...${lastLine.substring(-50)}`;
-  }
-  
-  return keyElements.join(' | ');
-};
+// （移除逐条总结逻辑）不再对溢出的短期记忆逐条生成总结
 
 // 格式化当前时间
 function formatCurrentTime(): string {
@@ -1196,11 +1167,7 @@ const saveConversationHistory = async () => {
 }
 
 .narrative-text {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  text-align: justify;
-  text-indent: 2em;
-  margin: 0;
+  /* 移除重复的样式，让内部FormattedText组件处理 */
 }
 
 .empty-narrative {

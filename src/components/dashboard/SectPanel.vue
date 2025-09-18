@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="sect-panel">
     <div class="panel-content">
       <div class="sect-container">
@@ -69,9 +69,7 @@
                   <div class="sect-meta">
                     <span class="sect-type">{{ sect.类型 }}</span>
                   </div>
-                  <div class="sect-stats">
-                    <span class="power-rating">实力 {{ sect.powerRating || extractPowerFromDescription(sect.实力评估) || '未知' }}</span>
-                  </div>
+                  
                 </div>
                 <ChevronRight :size="16" class="arrow-icon" />
               </div>
@@ -96,9 +94,7 @@
                   <span class="level-badge" :class="`level-${selectedSect.等级}`">
                     {{ formatSectLevel(selectedSect.等级) }}
                   </span>
-                  <span class="power-badge">
-                    实力 {{ selectedSect.powerRating || extractPowerFromDescription(selectedSect.实力评估) || '未知' }}
-                  </span>
+                  
                 </div>
               </div>
             </div>
@@ -124,10 +120,7 @@
                     <span class="info-label">总部位置</span>
                     <span class="info-value">{{ getLocationName(selectedSect) }}</span>
                   </div>
-                  <div class="info-item">
-                    <span class="info-label">实力评估</span>
-                    <span class="info-value">{{ selectedSect.powerRating || selectedSect.实力评估 || '未知' }}</span>
-                  </div>
+                  
                 </div>
 
                 <!-- 宗门领导层 -->
@@ -155,7 +148,21 @@
                       <span class="strength-label">最强修为</span>
                       <span class="strength-value peak-power">{{ selectedSect.leadership.最强修为 }}</span>
                     </div>
+                    <div v-if="selectedSect.leadership?.综合战力" class="strength-item">
+                      <span class="strength-label">综合战力</span>
+                      <span class="strength-value power-rating" :class="getPowerRatingClass(selectedSect.leadership.综合战力 || 0)">
+                        {{ selectedSect.leadership.综合战力 || 0 }}/100
+                        <span class="power-level">({{ getPowerLevel(selectedSect.leadership.综合战力 || 0) }})</span>
+                      </span>
+                    </div>
                   </div>
+                </div>
+
+                <!-- 领导层信息缺失提示 -->
+                <div v-else class="missing-data-notice">
+                  <h6 class="notice-title">宗门领导信息</h6>
+                  <p class="notice-text">暂无详细的宗门领导层信息</p>
+                  <p class="notice-hint">需要重新生成世界数据以获取完整信息</p>
                 </div>
 
                 <div class="sect-description">
@@ -225,6 +232,18 @@
                 </div>
               </div>
 
+              <!-- 成员统计缺失提示 -->
+              <div v-else class="detail-section missing-data-notice">
+                <h5 class="section-title">
+                  <Users :size="16" />
+                  <span>成员统计</span>
+                </h5>
+                <div class="notice-content">
+                  <p class="notice-text">暂无详细的成员统计信息</p>
+                  <p class="notice-hint">包括境界分布、职位分布等数据需要重新生成世界获取</p>
+                </div>
+              </div>
+
               <!-- 关系状态 -->
               <div class="detail-section">
                 <h5 class="section-title">
@@ -240,7 +259,10 @@
                   </div>
                   <div class="relationship-item">
                     <span class="relationship-label">声望值</span>
-                    <span class="relationship-value">{{ selectedSect.声望值 || 0 }}</span>
+                    <span class="relationship-value reputation-value" :class="getReputationClass(selectedSect.声望值 || 0)">
+                      {{ selectedSect.声望值 || 0 }}
+                      <span class="reputation-level">({{ getReputationLevel(selectedSect.声望值 || 0) }})</span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -502,21 +524,15 @@ const filteredSects = computed(() => {
     );
   }
 
-  // 按实力排序 - 优先使用powerRating，如果没有则尝试解析实力评估字符串
-  return filtered.sort((a, b) => {
-    const aPower = a.powerRating || extractPowerFromDescription(a.实力评估) || 0;
-    const bPower = b.powerRating || extractPowerFromDescription(b.实力评估) || 0;
-    return bPower - aPower;
-  });
+  // 仅按“等级（几流）”排序，不再使用数值实力
+  const order = ['超级', '一流', '二流', '三流', '末流'];
+  const rank = (lvl: string | undefined) => {
+    if (!lvl) return 999;
+    const idx = order.findIndex(k => lvl.includes(k));
+    return idx === -1 ? 999 : idx;
+  };
+  return filtered.sort((a, b) => rank(a.等级) - rank(b.等级));
 });
-
-// 从实力评估字符串中提取数值的辅助函数
-const extractPowerFromDescription = (description: string | number | undefined): number => {
-  if (typeof description === 'number') return description;
-  if (!description || typeof description !== 'string') return 0;
-  const match = description.match(/(\d+)/);
-  return match ? parseInt(match[1]) : 0;
-};
 
 // 获取位置名称
 const getLocationName = (sect: any): string => {
@@ -613,6 +629,44 @@ const getSectTypeClass = (type: string): string => {
     '散修联盟': 'alliance'
   };
   return classMap[type] || 'neutral';
+};
+
+const getPowerLevel = (power: number): string => {
+  if (power >= 90) return '天下无双';
+  if (power >= 80) return '称霸一方';
+  if (power >= 70) return '实力雄厚';
+  if (power >= 60) return '颇有实力';
+  if (power >= 50) return '中等水平';
+  if (power >= 40) return '略有实力';
+  return '实力一般';
+};
+
+const getPowerRatingClass = (power: number): string => {
+  if (power >= 90) return 'power-legendary';
+  if (power >= 80) return 'power-supreme';
+  if (power >= 70) return 'power-strong';
+  if (power >= 60) return 'power-good';
+  if (power >= 50) return 'power-average';
+  if (power >= 40) return 'power-weak';
+  return 'power-poor';
+};
+
+const getReputationLevel = (reputation: number): string => {
+  if (reputation >= 25) return '声名远扬';
+  if (reputation >= 20) return '享有盛誉';
+  if (reputation >= 15) return '名声在外';
+  if (reputation >= 10) return '小有名气';
+  if (reputation >= 5) return '略有声望';
+  return '默默无闻';
+};
+
+const getReputationClass = (reputation: number): string => {
+  if (reputation >= 25) return 'reputation-legendary';
+  if (reputation >= 20) return 'reputation-excellent';
+  if (reputation >= 15) return 'reputation-good';
+  if (reputation >= 10) return 'reputation-fair';
+  if (reputation >= 5) return 'reputation-low';
+  return 'reputation-none';
 };
 
 const getRelationshipClass = (relationship: string): string => {
@@ -723,7 +777,7 @@ onMounted(() => {
 }
 
 .sect-list {
-  width: 350px;
+  width: 280px; /* 窄一点 */
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -897,16 +951,7 @@ onMounted(() => {
   border-radius: 3px;
   font-weight: 500;
 }
-
-.power-rating {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.arrow-icon {
+\n/* .power-rating removed */\n.arrow-icon {
   color: var(--color-border-hover);
   transition: transform 0.2s;
 }
@@ -970,7 +1015,7 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.type-badge, .level-badge, .power-badge {
+.type-badge, .level-badge {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -985,7 +1030,6 @@ onMounted(() => {
 .type-badge.type-alliance { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
 
 .level-badge { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
-.power-badge { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
 
 .detail-body {
   display: flex;
@@ -1182,6 +1226,73 @@ onMounted(() => {
   color: var(--color-text);
 }
 
+.reputation-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reputation-level {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.reputation-legendary {
+  color: #f59e0b;
+}
+.reputation-legendary .reputation-level {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.reputation-excellent {
+  color: #8b5cf6;
+}
+.reputation-excellent .reputation-level {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.reputation-good {
+  color: #3b82f6;
+}
+.reputation-good .reputation-level {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.reputation-fair {
+  color: #22c55e;
+}
+.reputation-fair .reputation-level {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.reputation-low {
+  color: #6b7280;
+}
+.reputation-low .reputation-level {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.reputation-none {
+  color: var(--color-text-secondary);
+}
+.reputation-none .reputation-level {
+  background: rgba(var(--color-text-secondary-rgb), 0.1);
+  color: var(--color-text-secondary);
+  border: 1px solid rgba(var(--color-text-secondary-rgb), 0.2);
+}
+
 .join-requirements {
   margin-bottom: 1rem;
 }
@@ -1329,15 +1440,21 @@ onMounted(() => {
 .sect-action-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem;
+  padding: 0.75rem 0.5rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--color-text);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-align: center;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sect-action-btn:hover {
@@ -1546,6 +1663,103 @@ onMounted(() => {
   text-shadow: 0 0 4px rgba(var(--color-accent-rgb), 0.3);
 }
 
+.strength-value.power-rating {
+  color: var(--color-primary);
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.1), rgba(var(--color-accent-rgb), 0.05));
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.power-level {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.power-legendary {
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.3) !important;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(239, 68, 68, 0.05)) !important;
+}
+.power-legendary .power-level {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.power-supreme {
+  color: #7c3aed !important;
+  border-color: rgba(124, 58, 237, 0.3) !important;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(139, 92, 246, 0.05)) !important;
+}
+.power-supreme .power-level {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.power-strong {
+  color: #2563eb !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(59, 130, 246, 0.05)) !important;
+}
+.power-strong .power-level {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.power-good {
+  color: #059669 !important;
+  border-color: rgba(5, 150, 105, 0.3) !important;
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.1), rgba(16, 185, 129, 0.05)) !important;
+}
+.power-good .power-level {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+  border: 1px solid rgba(5, 150, 105, 0.2);
+}
+
+.power-average {
+  color: #d97706 !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(245, 158, 11, 0.05)) !important;
+}
+.power-average .power-level {
+  background: rgba(217, 119, 6, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.power-weak {
+  color: #6b7280 !important;
+  border-color: rgba(107, 114, 128, 0.3) !important;
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1), rgba(156, 163, 175, 0.05)) !important;
+}
+.power-weak .power-level {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.power-poor {
+  color: var(--color-text-secondary) !important;
+  border-color: rgba(var(--color-text-secondary-rgb), 0.3) !important;
+  background: linear-gradient(135deg, rgba(var(--color-text-secondary-rgb), 0.1), rgba(var(--color-text-secondary-rgb), 0.05)) !important;
+}
+.power-poor .power-level {
+  background: rgba(var(--color-text-secondary-rgb), 0.1);
+  color: var(--color-text-secondary);
+  border: 1px solid rgba(var(--color-text-secondary-rgb), 0.2);
+}
+
 .influence-description {
   font-size: 0.875rem;
   color: var(--color-text);
@@ -1622,6 +1836,42 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
+/* 数据缺失提示样式 */
+.missing-data-notice {
+  background: rgba(var(--color-warning-rgb), 0.05);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.notice-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
+.notice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.notice-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.notice-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-tertiary);
+  opacity: 0.8;
+}
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -1648,7 +1898,9 @@ onMounted(() => {
 
   .sect-list {
     width: 100%;
-    height: 40vh;
+    height: 30vh;
+    min-height: 250px;
+    max-height: 350px;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
@@ -1692,68 +1944,67 @@ onMounted(() => {
     padding: 1px 6px;
   }
 
-  .power-rating {
-    font-size: 0.7rem;
-    padding: 1px 6px;
-  }
+  /* .power-rating removed */
 
   .sect-detail {
     flex: 1;
-    min-height: 60vh;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .detail-content {
-    padding: 1rem;
+    padding: 0.75rem;
+    height: auto;
   }
 
   .detail-header {
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
   }
 
   .detail-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
   }
 
   .sect-emoji-large {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .detail-name {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .info-grid {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .member-status {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .action-buttons {
-    grid-template-columns: 1fr;
     gap: 0.5rem;
   }
 
+  .action-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+  }
+
   .sect-action-btn {
-    padding: 1rem;
-    font-size: 0.9rem;
+    padding: 0.6rem 0.4rem;
+    font-size: 0.75rem;
     justify-content: center;
   }
 
   .detail-section {
-    padding: 0.75rem;
-    margin-bottom: 1rem;
+    padding: 0.6rem;
+    margin-bottom: 0.75rem;
   }
 
   .section-title {
-    font-size: 0.85rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
   }
 
   .realm-stats, .position-stats {

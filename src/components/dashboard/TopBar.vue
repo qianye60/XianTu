@@ -84,14 +84,15 @@ onMounted(() => {
 <style scoped>
 .top-bar {
   width: 100%;
-  height: 60px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 16px;
   box-sizing: border-box;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -102,22 +103,9 @@ onMounted(() => {
   flex: 1;
 }
 
-.game-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0;
-}
+.game-title { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0; letter-spacing: 0.2px; }
 
-.character-quick-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: #f1f5f9;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-}
+.character-quick-info { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: rgba(241,245,249,0.8); border-radius: 14px; border: 1px solid #e2e8f0; }
 
 .character-name {
   font-size: 0.875rem;
@@ -140,16 +128,7 @@ onMounted(() => {
   justify-content: center;
 }
 
-.location-time-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  white-space: nowrap;
-}
+.location-time-info { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: rgba(248,250,252,0.75); border: 1px solid #e2e8f0; border-radius: 10px; white-space: nowrap; }
 
 .location-text {
   font-size: 0.9rem;
@@ -178,20 +157,7 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.fullscreen-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  color: #64748b;
-  transition: all 0.2s ease;
-}
+.fullscreen-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.6); border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 16px; color: #64748b; transition: all 0.2s ease; }
 
 .fullscreen-btn:hover {
   background: #f1f5f9;
@@ -201,10 +167,7 @@ onMounted(() => {
 
 /* 手机端适配 */
 @media (max-width: 767px) {
-  .top-bar {
-    padding: 0 12px;
-    height: 50px;
-  }
+  .top-bar { padding: 0 12px; height: 50px; }
   
   .game-title {
     font-size: 1rem;

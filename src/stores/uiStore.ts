@@ -6,6 +6,8 @@ interface RetryDialogConfig {
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmText?: string; // 可选：自定义确认按钮文本
+  cancelText?: string;  // 可选：自定义取消按钮文本
 }
 
 export const useUIStore = defineStore('ui', () => {

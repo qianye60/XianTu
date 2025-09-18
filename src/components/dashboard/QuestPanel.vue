@@ -1,44 +1,23 @@
 <template>
-  <div class="quest-panel game-panel">
-    <!-- 头部信息 -->
-    <div class="panel-header">
-      <div class="header-left">
-        <div class="header-icon">📋</div>
-        <div class="header-info">
-          <h3 class="panel-title">任务系统</h3>
-          <span class="quest-summary">{{ questSummary }}</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="refreshQuests">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-            <path d="M21 3v5h-5"/>
-            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-            <path d="M3 21v-5h5"/>
-          </svg>
-          <span class="btn-text">刷新</span>
-        </button>
-      </div>
-    </div>
+  <div class="quest-panel game-panel" :class="{ 'mobile-layout': isMobile }">
 
     <!-- 任务分类选项卡 -->
-    <div class="quest-tabs">
+    <div class="quest-tabs" :class="{ 'mobile-tabs': isMobile }">
       <button 
         v-for="tab in questTabs"
         :key="tab.key"
         class="quest-tab"
-        :class="{ active: activeTab === tab.key }"
+        :class="{ active: activeTab === tab.key, 'mobile-tab': isMobile }"
         @click="activeTab = tab.key"
       >
         <span class="tab-icon">{{ tab.icon }}</span>
-        <span class="tab-name">{{ tab.name }}</span>
-        <span class="tab-count">{{ tab.count }}</span>
+        <span class="tab-name" v-if="!isMobile || activeTab === tab.key">{{ tab.name }}</span>
+        <span class="tab-count" v-if="tab.count > 0">{{ tab.count }}</span>
       </button>
     </div>
 
     <!-- 任务列表容器 -->
-    <div class="panel-content">
+    <div class="panel-content" :class="{ 'mobile-content': isMobile }">
       <div v-if="isLoading" class="quest-loading">
         <div class="loading-spinner"></div>
         <p>正在加载任务...</p>
@@ -53,38 +32,95 @@
         </button>
       </div>
 
-      <div v-else class="quest-list">
+      <div v-else class="quest-list" :class="{ 'mobile-list': isMobile }">
         <div 
           v-for="quest in currentQuests"
           :key="quest.id"
           class="quest-card"
-          :class="[quest.type, quest.priority]"
+          :class="[quest.type, quest.priority, { 'mobile-card': isMobile }]"
           @click="viewQuestDetail(quest)"
         >
-          <div class="quest-header">
+          <div class="quest-header" :class="{ 'mobile-header': isMobile }">
             <div class="quest-info">
-              <h4 class="quest-title">{{ quest.title }}</h4>
-              <span class="quest-type-tag">{{ getQuestTypeLabel(quest.type) }}</span>
+              <h4 class="quest-title" :class="{ 'mobile-title': isMobile }">{{ quest.title }}</h4>
+              <span class="quest-type-tag" :class="{ 'mobile-tag': isMobile }">{{ getQuestTypeLabel(quest.type) }}</span>
             </div>
-            <div class="quest-status">
-              <span class="quest-progress">{{ quest.progress }}/{{ quest.maxProgress }}</span>
-              <div class="progress-bar">
+            <div class="quest-status" :class="{ 'mobile-status': isMobile }">
+              <span class="quest-progress" v-if="!isMobile || quest.progress !== quest.maxProgress">{{ quest.progress }}/{{ quest.maxProgress }}</span>
+              <div class="progress-bar" :class="{ 'mobile-progress': isMobile }">
                 <div class="progress-fill" :style="{ width: getQuestProgress(quest) + '%' }"></div>
               </div>
             </div>
           </div>
           
-          <p class="quest-description">{{ quest.description }}</p>
+          <p class="quest-description" :class="{ 'mobile-description': isMobile }" v-if="!isMobile">{{ quest.description }}</p>
           
-          <div class="quest-footer">
-            <div class="quest-rewards">
-              <span class="reward-label">奖励:</span>
+          <div class="quest-footer" :class="{ 'mobile-footer': isMobile }">
+            <div class="quest-rewards" :class="{ 'mobile-rewards': isMobile }">
+              <span class="reward-label" v-if="!isMobile">奖励:</span>
               <span class="reward-text">{{ quest.rewards.join(', ') }}</span>
             </div>
-            <div class="quest-time">
+            <div class="quest-time" :class="{ 'mobile-time': isMobile }">
               <span v-if="quest.timeLimit">⏰ {{ formatTimeLimit(quest.timeLimit) }}</span>
-              <span v-else class="no-limit">无时限</span>
+              <span v-else class="no-limit" v-if="!isMobile">无时限</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 移动端任务详情模态窗口 -->
+    <div v-if="showQuestModal && isMobile" class="quest-modal-overlay" @click="closeQuestModal">
+      <div class="quest-modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">{{ selectedQuest?.title }}</h3>
+          <button class="modal-close-btn" @click="closeQuestModal">
+            <X :size="20" />
+          </button>
+        </div>
+        
+        <div class="modal-content">
+          <div class="quest-type-section">
+            <span class="quest-type-tag">{{ getQuestTypeLabel(selectedQuest?.type) }}</span>
+            <span class="quest-priority-tag" :class="selectedQuest?.priority">{{ selectedQuest?.priority }}</span>
+          </div>
+          
+          <div class="quest-progress-section">
+            <div class="progress-header">
+              <span class="progress-label">任务进度</span>
+              <span class="progress-text">{{ selectedQuest?.progress }}/{{ selectedQuest?.maxProgress }}</span>
+            </div>
+            <div class="progress-bar-large">
+              <div class="progress-fill" :style="{ width: getQuestProgress(selectedQuest) + '%' }"></div>
+            </div>
+          </div>
+          
+          <div class="quest-description-section">
+            <h4>任务描述</h4>
+            <p class="quest-description-full">{{ selectedQuest?.description }}</p>
+          </div>
+          
+          <div class="quest-details-section">
+            <div class="detail-item">
+              <span class="detail-label">任务奖励</span>
+              <span class="detail-value">{{ selectedQuest?.rewards.join(', ') }}</span>
+            </div>
+            <div class="detail-item" v-if="selectedQuest?.timeLimit">
+              <span class="detail-label">时间限制</span>
+              <span class="detail-value">{{ formatTimeLimit(selectedQuest.timeLimit) }}</span>
+            </div>
+          </div>
+          
+          <div class="modal-actions">
+            <button v-if="selectedQuest?.status === 'completed'" class="quest-action-btn completed" disabled>
+              ✅ 已完成
+            </button>
+            <button v-else-if="selectedQuest?.status === 'failed'" class="quest-action-btn failed" disabled>
+              ❌ 已失败
+            </button>
+            <button v-else class="quest-action-btn primary" @click="completeQuest(selectedQuest?.id)">
+              完成任务
+            </button>
           </div>
         </div>
       </div>
@@ -94,6 +130,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { X } from 'lucide-vue-next';
+import { panelBus } from '@/utils/panelBus';
 
 // 任务数据类型（占位）
 interface Quest {
@@ -112,6 +150,14 @@ interface Quest {
 // 当前状态
 const activeTab = ref('active');
 const isLoading = ref(false);
+
+// 移动端相关状态
+const isMobile = computed(() => {
+  return window.innerWidth <= 768;
+});
+
+const showQuestModal = ref(false);
+const selectedQuest = ref<Quest | null>(null);
 
 // 占位数据
 const mockQuests: Quest[] = [];
@@ -206,15 +252,39 @@ const discoverQuests = () => {
 };
 
 const viewQuestDetail = (quest: Quest) => {
-  console.log('[任务系统] 查看任务详情 - 功能待实现', quest);
+  if (isMobile.value) {
+    selectedQuest.value = quest;
+    showQuestModal.value = true;
+  } else {
+    console.log('[任务系统] 查看任务详情 - 功能待实现', quest);
+  }
+};
+
+// 移动端模态窗口相关函数
+const closeQuestModal = () => {
+  showQuestModal.value = false;
+  selectedQuest.value = null;
+};
+
+const completeQuest = (questId?: string) => {
+  if (questId) {
+    console.log('[任务系统] 完成任务:', questId);
+    closeQuestModal();
+  }
 };
 
 onMounted(() => {
   console.log('[任务系统] 面板已挂载，等待功能实现');
 });
+
+// 统一顶栏动作
+panelBus.on('refresh', () => refreshQuests());
 </script>
 
 <style scoped>
+.panel-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
+.tool-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: var(--transition-fast); }
+.tool-btn:hover { background: var(--color-surface-hover); }
 .quest-panel {
   background: linear-gradient(135deg, 
     rgba(139, 69, 19, 0.1), 
@@ -719,5 +789,331 @@ onMounted(() => {
 
 [data-theme="dark"] .empty-quests {
   color: #94a3b8;
+}
+
+/* 移动端适配样式 */
+@media (max-width: 768px) {
+  .quest-panel.mobile-layout {
+    padding: 0;
+  }
+
+  .quest-tabs.mobile-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .quest-tabs.mobile-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quest-tab.mobile-tab {
+    min-width: 60px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .quest-tab.mobile-tab .tab-name {
+    display: none;
+  }
+
+  .quest-tab.mobile-tab.active .tab-name {
+    display: inline;
+    margin-left: 4px;
+  }
+
+  .panel-content.mobile-content {
+    padding: 8px;
+  }
+
+  .quest-list.mobile-list {
+    gap: 8px;
+  }
+
+  .quest-card.mobile-card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .quest-header.mobile-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .quest-title.mobile-title {
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .quest-type-tag.mobile-tag {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+
+  .quest-status.mobile-status {
+    width: 100%;
+  }
+
+  .progress-bar.mobile-progress {
+    height: 6px;
+    margin-top: 4px;
+  }
+
+  .quest-footer.mobile-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .quest-rewards.mobile-rewards {
+    font-size: 0.8rem;
+  }
+
+  .quest-time.mobile-time {
+    font-size: 0.75rem;
+    align-self: flex-end;
+  }
+}
+
+/* 移动端模态窗口样式 */
+.quest-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.quest-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.modal-content {
+  padding: 20px;
+}
+
+.quest-type-section {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quest-priority-tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.quest-priority-tag.high {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.quest-priority-tag.normal {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.quest-priority-tag.low {
+  background: #f7fee7;
+  color: #65a30d;
+}
+
+.quest-progress-section {
+  margin-bottom: 20px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progress-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.progress-bar-large {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.quest-description-section {
+  margin-bottom: 20px;
+}
+
+.quest-description-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.quest-description-full {
+  margin: 0;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.quest-details-section {
+  margin-bottom: 20px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.detail-value {
+  color: #6b7280;
+  text-align: right;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.quest-action-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quest-action-btn.primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.quest-action-btn.primary:hover {
+  background: #2563eb;
+}
+
+.quest-action-btn.completed {
+  background: #10b981;
+  color: white;
+  cursor: not-allowed;
+}
+
+.quest-action-btn.failed {
+  background: #ef4444;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* 暗色主题适配 */
+[data-theme="dark"] .quest-modal {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .modal-title {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .modal-close-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .modal-close-btn:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .progress-label,
+[data-theme="dark"] .quest-description-section h4,
+[data-theme="dark"] .detail-label {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .progress-text,
+[data-theme="dark"] .quest-description-full,
+[data-theme="dark"] .detail-value {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .progress-bar-large {
+  background: #374151;
+}
+
+[data-theme="dark"] .detail-item {
+  border-bottom-color: #374151;
 }
 </style>

@@ -3,7 +3,7 @@
     <div class="sidebar-header">
       <h3 class="sidebar-title">
         <Activity :size="18" class="title-icon" />
-        角色状态
+        <span>角色状态</span>
       </h3>
     </div>
 
@@ -78,9 +78,14 @@
         <div class="realm-display">
           <div class="realm-info">
             <span class="realm-name">{{ playerStatus?.realm.name }}</span>
-            <span class="realm-level">{{ playerStatus?.realm.level }}层</span>
+            <span v-if="playerStatus?.realm.name !== '凡人' && playerStatus?.realm.level" class="realm-level">{{ playerStatus?.realm.level }}层</span>
           </div>
-          <div class="realm-progress">
+          <!-- 凡人境界显示等待引气入体 -->
+          <div v-if="playerStatus?.realm.name === '凡人'" class="realm-mortal">
+            <span class="mortal-text">等待仙缘，引气入体</span>
+          </div>
+          <!-- 修炼境界显示进度条 -->
+          <div v-else class="realm-progress">
             <div class="progress-bar">
               <div class="progress-fill cultivation" :style="{ width: realmProgressPercent + '%' }"></div>
             </div>
@@ -154,23 +159,19 @@
           <div v-if="statusEffects.length === 0" class="empty-status">
             <span class="empty-text">清净无为</span>
           </div>
-          <div v-else class="status-grid">
+          <div v-else class="status-tags-container">
             <div
               v-for="effect in statusEffects"
               :key="effect.状态名称"
-              class="status-effect-card clickable"
+              class="status-tag clickable"
               :class="[(String(effect.类型).toLowerCase() === 'buff') ? 'buff' : 'debuff']"
               @click="showStatusDetail(effect)"
+              :title="`${effect.状态名称}${effect.强度 ? ` - 强度${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? ` - ${formatTimeDisplay(effect.时间)}` : ''}`"
             >
-              <div class="effect-header">
-                <div class="effect-info">
-                  <span class="effect-name">{{ effect.状态名称 }}</span>
-                </div>
-                <div class="effect-data">
-                  <span v-if="effect.强度" class="effect-intensity">强度 {{ effect.强度 }}</span>
-                  <span class="effect-time">{{ formatTimeDisplay(effect.时间) }}</span>
-                </div>
-              </div>
+              <span class="tag-icon">{{ String(effect.类型).toLowerCase() === 'buff' ? '✨' : '⚡' }}</span>
+              <span class="tag-name">{{ effect.状态名称 }}</span>
+              <span v-if="effect.强度" class="tag-intensity">{{ effect.强度 }}</span>
+              <span v-if="formatTimeDisplay(effect.时间)" class="tag-time">{{ formatTimeDisplay(effect.时间) }}</span>
             </div>
           </div>
         </div>
@@ -309,9 +310,9 @@ const getTalentMaxExp = (talent: string): number => {
   const daoPath = daoData.value?.大道路径定义[talent];
   // 确保 daoPath 和 阶段列表 存在
   if (daoPath && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
-    return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
+    return daoPath.阶段列表[currentStageIndex].突破经验 || 0;
   }
-  return 100;
+  return 0;
 };
 
 // 计算天赋进度百分比
@@ -426,12 +427,33 @@ const showStatusDetail = (effect: StatusEffect) => {
       value: strengthText
     });
   }
-  if (effect.剩余时间) {
+  
+  // 优先显示剩余时间，如果没有或与总时间相同，则显示总持续时间
+  const remainingTime = effect.剩余时间;
+  const totalTime = effect.时间;
+  
+  // 智能时间显示逻辑：避免重复显示相同的时间信息
+  if (remainingTime && totalTime && remainingTime !== totalTime) {
+    // 如果剩余时间和总时间都存在且不同，优先显示剩余时间
     additionalInfo.push({
       label: '剩余时间',
-      value: effect.剩余时间
+      value: remainingTime
+    });
+  } else if (remainingTime) {
+    // 如果只有剩余时间，显示为持续时间
+    additionalInfo.push({
+      label: '持续时间',
+      value: remainingTime
+    });
+  } else if (totalTime) {
+    // 如果只有总时间，格式化后显示
+    const timeValue = formatTimeDisplay(totalTime);
+    additionalInfo.push({
+      label: '持续时间',
+      value: timeValue || totalTime
     });
   }
+  
   if (effect.来源) {
     additionalInfo.push({
       label: '产生原因',
@@ -457,16 +479,7 @@ const showStatusDetail = (effect: StatusEffect) => {
   const typeText = String(effect.类型).toLowerCase() === 'buff' ? '增益状态 ✨' : '负面状态 ⚠️';
   tableData.push({ label: '状态类型', value: typeText });
   
-  // 持续时间
-  const timeValue = formatTimeDisplay(effect.时间);
-  if (timeValue) {
-    tableData.push({ label: '持续时间', value: timeValue });
-  } else if (effect.时间) {
-    // 如果有时间字段但格式化失败，直接显示原始值
-    tableData.push({ label: '持续时间', value: effect.时间 });
-  }
-  
-  // 添加其他有效信息
+  // 添加其他有效信息（包括已处理的时间信息）
   tableData.push(...additionalInfo);
   
   // 只有当有数据时才添加表格
@@ -501,27 +514,38 @@ const showStatusDetail = (effect: StatusEffect) => {
   background: var(--color-surface);
 }
 
-.sidebar-header {
+.sidebar-header { 
   margin-bottom: 16px;
-  padding-bottom: 12px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--color-border);
+  background: transparent;
 }
 
-.sidebar-title {
-  margin: 0;
-  font-size: 1rem;
+.sidebar-title { 
+  margin: 0; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  gap: 8px; 
+  font-size: 1rem; 
   font-weight: 600;
   color: var(--color-text);
   text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
-.title-icon {
+.title-icon { 
   color: var(--color-primary);
   flex-shrink: 0;
+}
+.title-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.2px;
 }
 
 /* 移除深色主题硬编码，使用CSS变量自动适配 */
@@ -554,10 +578,9 @@ const showStatusDetail = (effect: StatusEffect) => {
 .character-info-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  backdrop-filter: blur(10px);
 }
 
 .character-basic {
@@ -567,19 +590,19 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .character-basic .detail-item {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-surface-hover);
   border-radius: 6px;
   padding: 8px;
   font-size: 0.75rem;
 }
 
 .character-basic .detail-label {
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .character-basic .detail-value {
-  color: #e0e7ff;
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -587,10 +610,9 @@ const showStatusDetail = (effect: StatusEffect) => {
 .character-state-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  backdrop-filter: blur(10px);
 }
 
 .character-states {
@@ -600,14 +622,14 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .state-item {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-surface-hover);
   border-radius: 6px;
   padding: 8px;
 }
 
 .state-label {
   font-size: 0.75rem;
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
   font-weight: 500;
   margin-bottom: 4px;
   display: block;
@@ -621,7 +643,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 .state-text {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -633,9 +655,9 @@ const showStatusDetail = (effect: StatusEffect) => {
 .collapsible-section {
   margin-bottom: 16px;
   padding: 0;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  backdrop-filter: blur(10px);
 }
 
 .section-header {
@@ -649,13 +671,13 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .section-header:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-surface-hover);
 }
 
 .collapse-toggle {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -666,8 +688,8 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .collapse-toggle:hover {
-  color: #e2e8f0;
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+  background: var(--color-surface-hover);
 }
 
 .collapse-toggle svg {
@@ -705,18 +727,18 @@ const showStatusDetail = (effect: StatusEffect) => {
   justify-content: space-between;
   gap: 6px;
   padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-surface-hover);
   border-radius: 4px;
   font-size: 0.75rem;
 }
 
 .detail-label {
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .detail-value {
-  color: #f1f5f9;
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -730,9 +752,9 @@ const showStatusDetail = (effect: StatusEffect) => {
 .wealth-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  backdrop-filter: blur(10px);
 }
 
 /* 天赋神通特定样式 */
@@ -748,140 +770,102 @@ const showStatusDetail = (effect: StatusEffect) => {
   padding: 0 16px 16px;
 }
 
-.status-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 .empty-status {
   padding: 20px;
   text-align: center;
 }
 .empty-text {
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-style: italic;
 }
-/* 状态效果卡片样式 - 宽度拉满，轻微悬停效果 */
-.status-effect-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  padding: 14px 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
+
+/* 新的标签式状态效果样式 - 紧凑且美观 */
+.status-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  max-width: 100%;
   overflow: hidden;
-  min-height: 60px;
-  backdrop-filter: blur(8px);
-  width: 100%;
 }
 
-.status-effect-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  transition: all 0.3s ease;
-}
-
-.status-effect-card.buff::before {
-  background: linear-gradient(to bottom, #22c55e, #16a34a);
-}
-
-.status-effect-card.debuff::before {
-  background: linear-gradient(to bottom, #ef4444, #dc2626);
-}
-
-.status-effect-card.buff {
-  background: linear-gradient(135deg, 
-    rgba(34, 197, 94, 0.15) 0%, 
-    rgba(34, 197, 94, 0.08) 50%, 
-    rgba(34, 197, 94, 0.05) 100%);
-  border-color: rgba(34, 197, 94, 0.3);
-}
-
-.status-effect-card.debuff {
-  background: linear-gradient(135deg, 
-    rgba(239, 68, 68, 0.15) 0%, 
-    rgba(239, 68, 68, 0.08) 50%, 
-    rgba(239, 68, 68, 0.05) 100%);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-.status-effect-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-}
-
-.status-effect-card.buff:hover {
-  background: linear-gradient(135deg, 
-    rgba(34, 197, 94, 0.2) 0%, 
-    rgba(34, 197, 94, 0.12) 50%, 
-    rgba(34, 197, 94, 0.08) 100%);
+.status-tag.buff {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
   border-color: rgba(34, 197, 94, 0.4);
-  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.15), 0 0 0 1px rgba(34, 197, 94, 0.2);
+  color: #22c55e;
 }
 
-.status-effect-card.debuff:hover {
-  background: linear-gradient(135deg, 
-    rgba(239, 68, 68, 0.2) 0%, 
-    rgba(239, 68, 68, 0.12) 50%, 
-    rgba(239, 68, 68, 0.08) 100%);
+.status-tag.debuff {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
   border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15), 0 0 0 1px rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
 
-.effect-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+.status-tag:hover {
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.effect-info {
-  flex: 1;
-  min-width: 0;
+.status-tag.buff:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.15));
+  border-color: rgba(34, 197, 94, 0.6);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
-.effect-info .effect-name {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #e2e8f0;
-  line-height: 1.3;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.status-tag.debuff:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.15));
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-.effect-data {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+.tag-icon {
+  font-size: 0.8rem;
   flex-shrink: 0;
 }
 
-.effect-intensity {
-  font-size: 0.7rem;
-  color: #fbbf24;
+.tag-name {
   font-weight: 600;
-  background: rgba(251, 191, 36, 0.15);
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(251, 191, 36, 0.2);
+  flex-shrink: 0;
 }
 
-.effect-time {
-  font-size: 0.7rem;
-  color: #94a3b8;
-  font-weight: 500;
+.tag-intensity {
+  font-size: 0.65rem;
+  background: rgba(251, 191, 36, 0.8);
+  color: #1a1a1a;
+  padding: 1px 4px;
+  border-radius: 8px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tag-time {
+  font-size: 0.65rem;
+  opacity: 0.8;
+  font-weight: 400;
+  flex-shrink: 0;
 }
 /* 标题样式 - 图标和文字在一行 */
 .section-title {
   margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--color-text);
   padding-bottom: 6px;
   display: flex;
   align-items: center;
@@ -1018,16 +1002,16 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .vital-item {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-surface);
   border-radius: 8px;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-border);
   transition: all 0.2s ease;
 }
 
 .vital-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 .vital-info {
@@ -1039,7 +1023,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 .vital-name {
   font-size: 0.8rem;
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -1048,13 +1032,14 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 .vital-text {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--color-text);
   font-weight: 600;
 }
 
 .progress-bar {
   height: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   overflow: hidden;
   position: relative;
@@ -1112,7 +1097,8 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 /* 修为状态样式 */
 .realm-display {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 10px;
   margin-bottom: 10px;
@@ -1128,12 +1114,28 @@ const showStatusDetail = (effect: StatusEffect) => {
 .realm-name {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fbbf24;
+  color: var(--color-accent);
 }
 
 .realm-level {
   font-size: 0.75rem;
-  color: #d1d5db;
+  color: var(--color-text-secondary);
+}
+
+/* 凡人境界特殊样式 */
+.realm-mortal {
+  padding: 8px;
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border-radius: 4px;
+  text-align: center;
+  border: 1px dashed rgba(var(--color-primary-rgb), 0.3);
+}
+
+.mortal-text {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  opacity: 0.8;
 }
 
 .realm-progress {
@@ -1144,7 +1146,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 .progress-text {
   font-size: 0.65rem;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -1206,7 +1208,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 .no-char-text {
   font-size: 0.9rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
@@ -1255,6 +1257,26 @@ const showStatusDetail = (effect: StatusEffect) => {
   .effect-name {
     font-size: 0.75rem;
   }
+  
+  .status-tags-container {
+    gap: 6px;
+    padding: 8px;
+  }
+  
+  .status-tag {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  
+  .tag-intensity {
+    font-size: 0.6rem;
+    padding: 1px 3px;
+  }
+  
+  .tag-time {
+    font-size: 0.6rem;
+  }
 
   .detail-item {
     padding: 5px 6px;
@@ -1298,6 +1320,26 @@ const showStatusDetail = (effect: StatusEffect) => {
   .status-effects {
     padding: 0 12px 12px;
   }
+  
+  .status-tags-container {
+    gap: 4px;
+    padding: 6px;
+  }
+  
+  .status-tag {
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    gap: 3px;
+  }
+  
+  .tag-intensity {
+    font-size: 0.55rem;
+    padding: 1px 2px;
+  }
+  
+  .tag-time {
+    font-size: 0.55rem;
+  }
 }
 
 /* 平板设备优化 */
@@ -1340,6 +1382,16 @@ const showStatusDetail = (effect: StatusEffect) => {
   .effect-name {
     font-size: 0.85rem;
   }
+  
+  .status-tags-container {
+    gap: 10px;
+    padding: 16px;
+  }
+  
+  .status-tag {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
 }
 
 /* 深色主题适配 */
@@ -1357,6 +1409,38 @@ const showStatusDetail = (effect: StatusEffect) => {
   .location-section,
   .wealth-section {
     background: rgba(255, 255, 255, 0.05);
+  }
+  
+  /* 深色主题下的状态标签适配 */
+  .status-tag.buff {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.08));
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #34d399;
+  }
+
+  .status-tag.debuff {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08));
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+  }
+  
+  .status-tag.buff:hover {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.12));
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #10b981;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+  }
+
+  .status-tag.debuff:hover {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.12));
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  }
+  
+  .tag-intensity {
+    background: rgba(251, 191, 36, 0.9);
+    color: #000;
   }
 }
 </style>

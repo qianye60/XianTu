@@ -16,11 +16,11 @@
     <div v-else class="character-details-content">
       <!-- 顶部角色基本信息 -->
       <div class="character-header">
-        <div class="character-avatar" :class="`gender-${baseInfo.性别}`">
-          <div class="avatar-circle">
-            {{ baseInfo.名字?.charAt(0) }}
+        <div class="character-gender" :class="`gender-${baseInfo.性别}`">
+          <div class="gender-symbol">
+            {{ baseInfo.性别 === '女' ? '♀' : '♂' }}
           </div>
-          <div class="avatar-decoration"></div>
+          <div class="gender-text">{{ baseInfo.性别 }}</div>
         </div>
         <div class="character-info">
           <h1 class="character-name">{{ baseInfo.名字 }}</h1>
@@ -28,7 +28,7 @@
             <div class="detail-item">
               <span class="label">境界</span>
               <span class="value realm" :class="`realm-${playerStatus?.境界?.名称}`">
-                {{ playerStatus?.境界?.名称 }} 第{{ playerStatus?.境界?.等级 }}层
+                {{ formatRealmDisplay(playerStatus?.境界?.名称, playerStatus?.境界?.等级) }}
               </span>
             </div>
             <div class="detail-item">
@@ -36,8 +36,8 @@
               <span class="value">{{ playerStatus?.寿命?.当前 }}岁</span>
             </div>
             <div class="detail-item">
-              <span class="label">出身</span>
-              <span class="value">{{ getOriginDisplay(baseInfo.出生) }}</span>
+              <span class="label">性别</span>
+              <span class="value gender-value" :class="`gender-${baseInfo.性别}`">{{ baseInfo.性别 }}</span>
             </div>
             <div class="detail-item">
               <span class="label">位置</span>
@@ -52,7 +52,15 @@
               <span class="stat-value reputation">{{ playerStatus?.声望 || 0 }}</span>
             </div>
           </div>
-          <div class="stat-item">
+          <!-- 凡人境界显示等待引气入体 -->
+          <div v-if="playerStatus?.境界?.名称 === '凡人'" class="stat-item">
+            <span class="stat-label">修炼状态</span>
+            <div class="stat-display mortal-state">
+              <span class="mortal-hint">等待仙缘</span>
+            </div>
+          </div>
+          <!-- 修炼境界显示修为进度 -->
+          <div v-else class="stat-item">
             <span class="stat-label">修为</span>
             <div class="stat-display cultivation">
               <div class="cultivation-bar">
@@ -154,7 +162,7 @@
                   <span class="effect-name">{{ effect.状态名称 }}</span>
                   <span class="effect-duration">{{ effect.时间 }}</span>
                 </div>
-                <div class="effect-description">{{ effect.状态描述 }}</div>
+                <div class="effect-description">{{ getCleanEffectDescription(effect) }}</div>
               </div>
             </div>
           </div>
@@ -173,7 +181,7 @@
             <div class="attributes-display">
               <!-- 最终属性 -->
               <div class="final-attributes">
-                <h4 class="attribute-group-title">总计属性</h4>
+                <h4 class="attribute-group-title">最终六司</h4>
                 <div class="attributes-grid">
                   <div v-for="(value, key) in finalAttributes" :key="key" class="attribute-item final">
                     <span class="attr-name">{{ key }}</span>
@@ -185,7 +193,7 @@
               <!-- 属性详情 -->
               <div class="attribute-breakdown">
                 <div class="innate-attrs">
-                  <h4 class="attribute-group-title">先天属性</h4>
+                  <h4 class="attribute-group-title">先天六司</h4>
                   <div class="attributes-grid compact">
                     <div v-for="(value, key) in innateAttributesWithDefaults" :key="key" class="attribute-item innate">
                       <span class="attr-name">{{ key }}</span>
@@ -195,7 +203,7 @@
                 </div>
 
                 <div class="acquired-attrs">
-                  <h4 class="attribute-group-title">后天加成</h4>
+                  <h4 class="attribute-group-title">后天六司</h4>
                   <div class="attributes-grid compact">
                     <div v-for="(value, key) in acquiredAttributes" :key="key" class="attribute-item acquired"
                          :class="{ 'has-bonus': value > 0 }">
@@ -682,26 +690,63 @@ const daoData = computed(() => {
   };
 });
 
-// 生命状态数据
+// 生命状态数据 - 统一使用vitals结构
 const vitalsData = computed(() => {
   if (!playerStatus.value) return [];
+  
+  // 优先使用vitals结构，如果不存在则回退到旧的结构
+  const vitals = playerStatus.value.vitals;
+  if (vitals) {
+    const safe = (n: any) => (typeof n === 'number' ? n : Number(n || 0)) || 0;
+    const safeMax = (n: any) => {
+      const v = (typeof n === 'number' ? n : Number(n || 0));
+      return isNaN(v) ? 0 : Math.max(0, v);
+    };
+    return [
+      {
+        label: '气血',
+        current: safe(vitals.qiBlood?.current),
+        max: safeMax(vitals.qiBlood?.max),
+        color: 'red'
+      },
+      {
+        label: '灵气', 
+        current: safe(vitals.lingQi?.current),
+        max: safeMax(vitals.lingQi?.max),
+        color: 'blue'
+      },
+      {
+        label: '神识',
+        current: safe(vitals.shenShi?.current),
+        max: safeMax(vitals.shenShi?.max),
+        color: 'gold'
+      }
+    ];
+  }
+  
+  // 回退到旧的数据结构
+  const safe = (n: any) => (typeof n === 'number' ? n : Number(n || 0)) || 0;
+  const safeMax = (n: any) => {
+    const v = (typeof n === 'number' ? n : Number(n || 0));
+    return isNaN(v) ? 0 : Math.max(0, v);
+  };
   return [
     {
       label: '气血',
-      current: playerStatus.value.气血?.当前 || 0,
-      max: playerStatus.value.气血?.最大 || 1,
+      current: safe(playerStatus.value.气血?.当前),
+      max: safeMax(playerStatus.value.气血?.最大),
       color: 'red'
     },
     {
       label: '灵气',
-      current: playerStatus.value.灵气?.当前 || 0,
-      max: playerStatus.value.灵气?.最大 || 1,
+      current: safe(playerStatus.value.灵气?.当前),
+      max: safeMax(playerStatus.value.灵气?.最大),
       color: 'blue'
     },
     {
       label: '神识',
-      current: playerStatus.value.神识?.当前 || 0,
-      max: playerStatus.value.神识?.最大 || 1,
+      current: safe(playerStatus.value.神识?.当前),
+      max: safeMax(playerStatus.value.神识?.最大),
       color: 'gold'
     }
   ];
@@ -718,15 +763,21 @@ const defaultAttributes: InnateAttributes = {
 };
 
 // 获取完整的先天六司（含默认值）
+const clamp0to10 = (n: unknown): number => {
+  const v = typeof n === 'number' ? n : Number(n || 0);
+  if (isNaN(v)) return 0;
+  return Math.max(0, Math.min(10, Math.round(v)));
+};
+
 const innateAttributesWithDefaults = computed((): InnateAttributes => {
-  const innate = baseInfo.value?.先天六司 || {} as Partial<InnateAttributes>;
+  const innate = baseInfo.value?.先天六司 || ({} as Partial<InnateAttributes>);
   return {
-    根骨: innate.根骨 ?? 0,
-    灵性: innate.灵性 ?? 0,
-    悟性: innate.悟性 ?? 0,
-    气运: innate.气运 ?? 0,
-    魅力: innate.魅力 ?? 0,
-    心性: innate.心性 ?? 0
+    根骨: clamp0to10(innate.根骨),
+    灵性: clamp0to10(innate.灵性),
+    悟性: clamp0to10(innate.悟性),
+    气运: clamp0to10(innate.气运),
+    魅力: clamp0to10(innate.魅力),
+    心性: clamp0to10(innate.心性)
   };
 });
 
@@ -736,6 +787,14 @@ const finalAttributes = computed((): InnateAttributes => {
   const result = calculateFinalAttributes(innateAttributesWithDefaults.value, saveData.value);
   return result?.最终六司 || innateAttributesWithDefaults.value;
 });
+
+// 显示境界：凡人阶段不展示“第X层”层次，其它境界保留层次
+function formatRealmDisplay(name?: string, level?: number): string {
+  const realmName = name || '未知';
+  if (realmName === '凡人') return realmName;
+  if (typeof level === 'number' && level > 0) return `${realmName} 第${level}层`;
+  return realmName;
+}
 
 const acquiredAttributes = computed((): InnateAttributes => {
   if (!saveData.value) return defaultAttributes;
@@ -867,26 +926,34 @@ const totalSkillsCount = computed(() => {
 
 // 人际关系统计
 const relationshipCount = computed(() => {
-  return Object.keys(saveData.value?.人物关系 || {}).length;
+  const relations = saveData.value?.人物关系 || {};
+  // 仅统计有效NPC：键不以下划线开头，值为对象且有角色基础信息
+  return Object.entries(relations)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object' && (val as any).角色基础信息)
+    .length;
 });
 
 const averageFavorability = computed(() => {
-  const relationships = saveData.value?.人物关系 || {};
-  const relations = Object.values(relationships);
+  const relationsObj = saveData.value?.人物关系 || {};
+  const relations = Object.entries(relationsObj)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object' && (val as any).角色基础信息)
+    .map(([, val]) => val as any);
   if (relations.length === 0) return 0;
-
   const total = relations.reduce((sum, rel) => sum + (rel.人物好感度 || 0), 0);
   return Math.round(total / relations.length);
 });
 
 const relationshipCategories = computed(() => {
-  const relationships = saveData.value?.人物关系 || {};
+  const relationsObj = saveData.value?.人物关系 || {};
   const categories: Record<string, number> = {};
 
-  Object.values(relationships).forEach(rel => {
-    const relation = rel.人物关系 || '其他';
-    categories[relation] = (categories[relation] || 0) + 1;
-  });
+  Object.entries(relationsObj)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
+    .map(([, val]) => val as any)
+    .forEach(rel => {
+      const relation = rel.人物关系 || '其他';
+      categories[relation] = (categories[relation] || 0) + 1;
+    });
 
   return Object.entries(categories).map(([type, count]) => ({
     type,
@@ -897,7 +964,11 @@ const relationshipCategories = computed(() => {
 
 // 背包统计
 const inventoryItemCount = computed(() => {
-  return Object.keys(saveData.value?.背包?.物品 || {}).length;
+  const items = saveData.value?.背包?.物品 || {};
+  // 仅统计有效物品：键不以下划线开头，值为对象且包含名称
+  return Object.entries(items)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object' && typeof (val as any).名称 === 'string')
+    .length;
 });
 
 const spiritStoneGrades = [
@@ -991,7 +1062,10 @@ const getDaoTotalExp = (daoName: string): number => {
 
 const getItemTypeCount = (type: string): number => {
   const items = saveData.value?.背包?.物品 || {};
-  return Object.values(items).filter((item: Item) => item.类型 === type).length;
+  return Object.entries(items)
+    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
+    .map(([, val]) => val as Item)
+    .filter((item: Item) => item.类型 === type).length;
 };
 
 const getSpiritStoneCount = (grade: '下品' | '中品' | '上品' | '极品'): number => {
@@ -1013,6 +1087,28 @@ const getRelationshipName = (type: string): string => {
     '其他': '其他'
   };
   return nameMap[type] || type;
+};
+
+// 清理状态效果描述，去除重复的时间信息
+const getCleanEffectDescription = (effect: any): string => {
+  if (!effect || !effect.状态描述) return '';
+  
+  let description = effect.状态描述;
+  const duration = effect.时间;
+  
+  // 如果描述中包含了时间信息，则移除重复部分
+  if (duration && description.includes(duration)) {
+    // 移除包含时间信息的句子或短语
+    description = description
+      .replace(new RegExp(`[^。]*${duration}[^。]*。?`, 'g'), '')
+      .replace(new RegExp(`持续时间[：:][^。]*${duration}[^。]*。?`, 'g'), '')
+      .replace(new RegExp(`剩余时间[：:][^。]*${duration}[^。]*。?`, 'g'), '')
+      .replace(new RegExp(`时间[：:][^。]*${duration}[^。]*。?`, 'g'), '')
+      .trim()
+      .replace(/^[，。、\s]+|[，。、\s]+$/g, ''); // 清理开头和结尾的标点符号
+  }
+  
+  return description || '此状态效果正在生效中。';
 };
 
 // 界面交互方法
@@ -1176,70 +1272,56 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* 角色头部信息优化 */
+/* 角色头部信息简化版 */
 .character-header {
   display: flex;
   align-items: center;
-  gap: 32px;
-  padding: 32px;
-  background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-primary-rgb), 0.05));
-  border-bottom: 2px solid var(--color-border);
-  position: relative;
-  overflow: hidden;
+  gap: 24px;
+  padding: 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 12px 12px 0 0;
 }
 
-.character-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 200px;
-  height: 100%;
-  background: linear-gradient(45deg, transparent, rgba(var(--color-primary-rgb), 0.1), transparent);
-  pointer-events: none;
+.character-gender {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
 }
 
-.character-avatar {
-  position: relative;
-}
-
-.avatar-circle {
-  width: 100px;
-  height: 100px;
+.gender-symbol {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
+  font-size: 2rem;
   font-weight: bold;
   color: white;
-  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.4);
-  border: 4px solid rgba(255, 255, 255, 0.2);
-  position: relative;
-  overflow: hidden;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
 }
 
-.avatar-circle::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transform: rotate(45deg);
-  animation: avatar-shine 3s ease-in-out infinite;
+.gender-女 .gender-symbol {
+  background: linear-gradient(135deg, #ec4899, #be185d);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
 }
 
-@keyframes avatar-shine {
-  0%, 100% { transform: rotate(45deg) translateX(-200%); }
-  50% { transform: rotate(45deg) translateX(200%); }
+.gender-男 .gender-symbol {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.gender-女 .avatar-circle {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
-  box-shadow: 0 8px 24px rgba(var(--color-accent-rgb), 0.4);
+.gender-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-align: center;
 }
 
 .character-info {
@@ -1279,6 +1361,25 @@ onMounted(async () => {
 .realm {
   color: var(--color-warning);
   font-weight: 700;
+}
+
+.gender-value {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.gender-value.gender-女 {
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.gender-value.gender-男 {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .character-stats {
@@ -1325,6 +1426,21 @@ onMounted(async () => {
   min-width: 100px;
 }
 
+/* 凡人修炼状态样式 */
+.stat-display.mortal-state {
+  padding: 8px 16px;
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border-radius: 6px;
+  border: 1px dashed rgba(var(--color-primary-rgb), 0.3);
+}
+
+.mortal-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  opacity: 0.8;
+}
+
 .cultivation-bar {
   width: 100%;
   height: 8px;
@@ -1350,25 +1466,44 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-/* 内容网格 */
+/* 内容网格 - 改为更灵活的响应式布局 */
 .content-grid {
   display: grid;
-  grid-template-columns: 350px 1fr 320px;
-  gap: 24px;
-  padding: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 确保每个栏目都能适应容器 */
+.left-column,
+.middle-column, 
+.right-column {
+  min-width: 0; /* 防止内容溢出 */
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* 信息区块优化 */
 .info-section {
   background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-surface-rgb), 0.8));
   border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .info-section::before {
@@ -2345,17 +2480,24 @@ onMounted(async () => {
 .relationship-亲密 { color: var(--color-info) !important; }
 
 /* 响应式设计 */
+@media (max-width: 1400px) {
+  .content-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
 @media (max-width: 1200px) {
   .content-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
   }
 
   .right-column {
-    grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
   }
 
   .right-column .info-section {
@@ -2363,40 +2505,62 @@ onMounted(async () => {
   }
 }
 
+@media (max-width: 900px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 8px;
+  }
+  
+  .right-column {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 @media (max-width: 768px) {
   .character-header {
     flex-direction: column;
     text-align: center;
-    gap: 16px;
+    gap: 12px;
+    padding: 16px;
   }
 
   .character-details {
     grid-template-columns: 1fr;
     text-align: center;
+    gap: 8px;
   }
 
   .content-grid {
     grid-template-columns: 1fr;
-    padding: 16px;
-    gap: 16px;
+    padding: 8px;
+    gap: 12px;
   }
 
   .right-column {
     grid-template-columns: 1fr;
   }
 
+  .info-section {
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+  }
+
   .attributes-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .attributes-grid.compact {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 8px;
   }
 
   .attribute-breakdown {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 
   .stones-grid {
@@ -2415,37 +2579,92 @@ onMounted(async () => {
   }
 
   .attribute-item {
-    min-height: 40px;
-    padding: 8px 10px;
+    min-height: 36px;
+    padding: 8px;
+  }
+
+  .character-name {
+    font-size: 1.6rem;
+  }
+
+  .section-title {
+    font-size: 1rem;
   }
 }
 
 @media (max-width: 480px) {
-  .avatar-circle {
-    width: 60px;
-    height: 60px;
-    font-size: 2rem;
+  .character-details-wrapper {
+    font-size: 14px;
+  }
+
+  .character-header {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .gender-symbol {
+    width: 40px;
+    height: 40px;
+    font-size: 1.3rem;
   }
 
   .character-name {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
+  }
+
+  .content-grid {
+    padding: 6px;
+    gap: 8px;
+  }
+
+  .info-section {
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+  }
+
+  .section-title {
+    font-size: 0.9rem;
+    margin-bottom: 12px;
   }
 
   .attributes-grid.compact {
     grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .attribute-item {
-    padding: 8px;
-    min-height: 36px;
+    padding: 6px;
+    min-height: 32px;
   }
 
   .attr-name {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
 
   .attr-value {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .skill-card {
+    padding: 8px;
+  }
+
+  .dao-item {
+    padding: 8px;
+  }
+
+  .technique-progress {
+    gap: 8px;
+  }
+
+  .progress-item {
+    gap: 8px;
+  }
+
+  .progress-label {
+    min-width: 60px;
+    font-size: 0.8rem;
   }
 }
 

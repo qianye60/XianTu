@@ -146,7 +146,7 @@ function balancePoints() {
   height: 100%;
   display: flex;
   flex-direction: column;
-  color: #c8ccd4;
+  color: var(--color-text);
 }
 
 .header {
@@ -155,25 +155,26 @@ function balancePoints() {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .points-display .negative {
-  color: #ff6b6b !important;
+  color: var(--color-error) !important;
 }
 
 h2 {
   margin: 0;
-  color: #e5c07b;
+  color: var(--color-accent);
 }
 
 .points-display {
   font-size: 1.2rem;
+  color: var(--color-text-secondary);
 }
 
 .points-display span {
   font-weight: bold;
-  color: #88c0d0;
+  color: var(--color-primary);
   font-size: 1.5rem;
 }
 
@@ -187,7 +188,7 @@ h2 {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 0;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .attribute-item:last-child {
@@ -201,12 +202,12 @@ h2 {
 .attribute-name {
   font-size: 1.1rem;
   font-weight: 500;
-  color: #e5c07b;
+  color: var(--color-accent);
 }
 
 .attribute-desc {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--color-text-secondary);
   margin: 0.3rem 0 0 0;
   line-height: 1.4;
 }
@@ -221,9 +222,9 @@ h2 {
   width: 35px;
   height: 35px;
   border-radius: 50%;
-  background: #333;
-  border: 1px solid #555;
-  color: #e5c07b;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
   font-size: 1.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -233,17 +234,18 @@ h2 {
 }
 
 .attribute-controls button:hover:not(:disabled) {
-  background: #e5c07b;
-  color: #1a1a1a;
+  background: var(--color-accent);
+  color: var(--color-surface);
+  border-color: var(--color-accent);
 }
 
 .attribute-controls button:disabled,
 .attribute-controls button.disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  background: #444;
-  border-color: #666;
-  color: #999;
+  background: var(--color-surface-light);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 .attribute-value {
@@ -251,6 +253,7 @@ h2 {
   font-weight: bold;
   min-width: 30px;
   text-align: center;
+  color: var(--color-text);
 }
 
 .actions {
@@ -263,44 +266,133 @@ h2 {
 
 .actions button {
   padding: 0.5rem 1.5rem;
-  border: 1px solid #555;
-  background: #333;
-  color: #c8ccd4;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .actions button:hover {
-  background: #444;
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 .actions .btn-secondary {
-  border-color: #6c757d;
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .actions .btn-secondary:hover {
-  background: #6c757d;
-  color: white;
+  background: var(--color-text-secondary);
+  color: var(--color-surface);
 }
 
 .actions .btn-warning {
-  border-color: #f39c12;
-  color: #f39c12;
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }
 
 .actions .btn-warning:hover {
-  background: #f39c12;
-  color: #1a1a1a;
+  background: var(--color-warning);
+  color: var(--color-surface);
 }
 
 .actions .btn-success {
-  border-color: #27ae60;
-  color: #27ae60;
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .actions .btn-success:hover {
-  background: #27ae60;
-  color: white;
+  background: var(--color-success);
+  color: var(--color-surface);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .attribute-item {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem 0;
+  }
+  
+  .attribute-info {
+    flex-basis: auto;
+    text-align: center;
+  }
+  
+  .attribute-controls {
+    justify-content: center;
+    gap: 1.5rem;
+  }
+  
+  .attribute-controls button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.8rem;
+  }
+  
+  .attribute-value {
+    font-size: 1.6rem;
+    min-width: 40px;
+  }
+  
+  .actions {
+    gap: 1rem;
+  }
+  
+  .actions button {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .points-display {
+    font-size: 1rem;
+  }
+  
+  .points-display span {
+    font-size: 1.3rem;
+  }
+  
+  .attribute-name {
+    font-size: 1rem;
+  }
+  
+  .attribute-desc {
+    font-size: 0.8rem;
+  }
+  
+  .attribute-controls button {
+    width: 36px;
+    height: 36px;
+    font-size: 1.6rem;
+  }
+  
+  .attribute-value {
+    font-size: 1.4rem;
+  }
+  
+  .actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .actions button {
+    width: 100%;
+    max-width: 200px;
+  }
 }
 </style>

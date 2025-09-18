@@ -3,23 +3,49 @@
   /* --- Light Theme Colors --- */
   --color-background: #f0f0f0;
   --color-background-transparent: rgba(240, 240, 240, 0.85);
-  --color-surface: #ffffff;
-  --color-surface-transparent: rgba(255, 255, 255, 0.75);
-  --color-surface-light: #e5e6eb;
+  --color-surface: #faf9f7; /* 柔和的米白色，类似宣纸 */
+  --color-surface-transparent: rgba(250, 249, 247, 0.75);
+  --color-surface-light: #f1f0ee; /* 更柔和的浅色 */
+  /* Derived/interactive states (light) */
+  --color-surface-hover: #f5f4f2; /* 悬浮时的柔和色 */
   --color-primary: #2e5cb8;
   --color-primary-rgb: 46, 92, 184;
+  --color-primary-hover: #274f9d;
+  --color-primary-active: #1f3f80;
+  /* Lighten variant used by some components */
+  --color-primary-light: rgba(46, 92, 184, 0.12);
   --color-accent: #7c4dff;
+  --color-accent-hover: #6c3eff;
+  --color-accent-light: rgba(124, 77, 255, 0.15);
   --color-text: #1a1a1a;
   --color-text-secondary: #666666;
+  --color-text-muted: #8b8b8b; /* 新增：柔和的浅灰色文字 */
+  --color-white-soft: #faf9f7; /* 新增：柔和的白色，替代纯白 */
   --color-border: rgba(0, 0, 0, 0.1);
+  --color-border-hover: rgba(0, 0, 0, 0.2);
   --color-success: #4caf50;
+  --color-success-hover: #43a047;
   --color-warning: #ff9800;
+  --color-warning-hover: #fb8c00;
   --color-error: #f44336;
+  --color-error-hover: #e53935;
   --color-info: #2196f3;
+  --color-info-hover: #1e88e5;
+  /* Keep danger alias for components that expect it */
+  --color-danger: var(--color-error);
+  --color-danger-hover: #e53935;
+  /* Generic hover background alias used in components */
+  --color-hover: var(--color-surface-hover);
+  /* Code block background used in data views */
+  --color-code-bg: #0f172a0f; /* subtle deep slate with opacity */
   --scrollbar-track-color: rgba(0, 0, 0, 0.05);
   --scrollbar-thumb-color: rgba(0, 0, 0, 0.2);
   --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.4);
 
+  /* UI缩放变量 */
+  --ui-scale: 1;
+  --base-font-size: 1rem;
+  
   /* 字体与过渡 */
   --font-family-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', 'Noto Serif SC', 'KaiTi', 'STKaiti', serif;
   --font-family-sans-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -34,16 +60,34 @@
   --color-surface: #293348;
   --color-surface-transparent: rgba(41, 51, 72, 0.6);
   --color-surface-light: #414868;
+  /* Derived/interactive states (dark) */
+  --color-surface-hover: #33415f;
   --color-primary: #82a3f5;
   --color-primary-rgb: 130, 163, 245;
+  --color-primary-hover: #6f93f2;
+  --color-primary-active: #597ee6;
+  --color-primary-light: rgba(130, 163, 245, 0.18);
   --color-accent: #c0caf5;
-  --color-text: #ffffff;
+  --color-accent-hover: #a9b8f2;
+  --color-accent-light: rgba(192, 202, 245, 0.15);
+  --color-text: #f7f7f5; /* 柔和的暖白色，不那么刺眼 */
   --color-text-secondary: #d0d0d0;
+  --color-text-muted: #a0a0a0; /* 暗色主题下的柔和浅色文字 */
+  --color-white-soft: #f7f7f5; /* 暗色主题下的柔和白色 */
   --color-border: rgba(173, 216, 230, 0.5);
+  --color-border-hover: rgba(173, 216, 230, 0.8);
   --color-success: #9ece6a;
+  --color-success-hover: #88b85b;
   --color-warning: #ffd500;
+  --color-warning-hover: #e6c200;
   --color-error: #f7768e;
+  --color-error-hover: #e66a81;
   --color-info: #77cdfe;
+  --color-info-hover: #66bff4;
+  --color-danger: var(--color-error);
+  --color-danger-hover: #e66a81;
+  --color-hover: var(--color-surface-hover);
+  --color-code-bg: rgba(20, 26, 43, 0.6);
   --scrollbar-track-color: rgba(255, 255, 255, 0.05);
   --scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
   --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.4);
@@ -73,6 +117,10 @@ body {
   width: 100%;
   box-sizing: border-box;
   overflow: auto; /* 应用内的滚动由app自身管理 */
+  /* 应用UI缩放，使用zoom属性（Chrome, Safari等支持） */
+  zoom: var(--ui-scale);
+  /* 应用基础字体大小 */
+  font-size: var(--base-font-size);
 }
 
 /* --- Reusable Button Class (The Master's Touch) --- */
@@ -492,7 +540,7 @@ body {
   height: 48px;
   border: none;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(250, 249, 247, 0.9); /* 使用更柔和的背景色 */
   backdrop-filter: blur(10px);
   cursor: pointer;
   display: flex;
@@ -511,7 +559,7 @@ body {
 .fullscreen-toggle:hover {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(250, 249, 247, 0.95); /* 悬浮时也使用柔和背景色 */
 }
 
 .theme-toggle:active,

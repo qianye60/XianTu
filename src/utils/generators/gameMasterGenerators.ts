@@ -59,8 +59,28 @@ export async function generateInitialMessage(
     
     // 随机出身处理
     if (processedOrigin === '随机出身') {
-      const possibleOrigins = ['世家子弟', '宗门弟子', '平民出身', '商贾之家', '猎户人家', '书香门第', '孤儿出身'];
-      processedOrigin = possibleOrigins[Math.floor(Math.random() * possibleOrigins.length)];
+      // 更贴近常见人生样本：默认有家庭；“孤儿出身”仅作为低概率选项
+      type OriginWeight = { label: string; weight: number };
+      const originPool: OriginWeight[] = [
+        { label: '世家子弟', weight: 2 },
+        { label: '宗门弟子', weight: 2 },
+        { label: '平民出身', weight: 3 },
+        { label: '商贾之家', weight: 2 },
+        { label: '猎户人家', weight: 2 },
+        { label: '书香门第', weight: 2 },
+        { label: '官宦之家', weight: 1.5 },
+        { label: '农家子弟', weight: 2 },
+        { label: '手艺人家', weight: 2 },
+        { label: '散修出身', weight: 1 },
+        { label: '孤儿出身', weight: 0.2 }, // 极低概率，除非玩家明确选择
+      ];
+
+      const total = originPool.reduce((s, o) => s + o.weight, 0);
+      let roll = Math.random() * total;
+      for (const o of originPool) {
+        if ((roll -= o.weight) <= 0) { processedOrigin = o.label; break; }
+      }
+      if (!processedOrigin || processedOrigin === '随机出身') processedOrigin = '平民出身';
       console.log('【随机出身】已选定:', processedOrigin);
     }
     

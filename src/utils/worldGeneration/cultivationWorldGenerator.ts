@@ -6,6 +6,7 @@
 import { getTavernHelper } from '../tavern';
 import type { CultivationWorldSettings } from './gameWorldConfig';
 import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
+import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
 import type { WorldInfo, WorldContinent, WorldFaction, WorldLocation, WorldGenerationInfo } from '@/types/game.d';
 
 /**
@@ -187,18 +188,72 @@ export class CultivationWorldGenerator {
           天然屏障: continent.natural_barriers,
           大洲边界: continent.continent_bounds
         })),
-        势力信息: (worldData.factions || []).map((faction: any): WorldFaction => ({
-          名称: faction.name || faction.名称,
-          类型: faction.type || faction.类型 || '中立宗门',
-          等级: faction.level || faction.等级 || '三流',
-          位置: faction.headquarters?.coordinates || faction.headquarters || faction.location || faction.位置,
-          势力范围: faction.territory_bounds || faction.territory || faction.势力范围 || [],
-          描述: faction.description || faction.描述,
-          特色: faction.specialties || faction.features || faction.特色,
-          实力评估: faction.strength || faction.power_assessment || faction.实力评估,
-          与玩家关系: faction.player_relationship || faction.与玩家关系 || '中立',
-          声望值: faction.reputation || faction.声望值 || 0
-        })),
+        势力信息: (worldData.factions || []).map((faction: any): WorldFaction => {
+          // 先准备计算数据
+          const calcData: SectCalculationData = {
+            名称: faction.name || faction.名称,
+            类型: faction.type || faction.类型 || '中立宗门',
+            等级: faction.level || faction.等级 || '三流',
+            宗主修为: faction.leadership?.宗主修为,
+            最强修为: faction.leadership?.最强修为,
+            长老数量: faction.leadership?.长老数量,
+            核心弟子数: faction.leadership?.核心弟子数,
+            内门弟子数: faction.leadership?.内门弟子数,
+            外门弟子数: faction.leadership?.外门弟子数
+          };
+
+          // 使用算法计算声望值和战力
+          const calculatedData = calculateSectData(calcData);
+          
+          return {
+            名称: faction.name || faction.名称,
+            类型: faction.type || faction.类型 || '中立宗门',
+            等级: faction.level || faction.等级 || '三流',
+            位置: faction.headquarters?.coordinates || faction.headquarters || faction.location || faction.位置,
+            势力范围: faction.territory_bounds || faction.territory || faction.势力范围 || [],
+            描述: faction.description || faction.描述,
+            特色: faction.specialties || faction.features || faction.特色,
+            与玩家关系: faction.player_relationship || faction.与玩家关系 || '中立',
+            
+            // 使用算法计算的可靠数值
+            声望值: calculatedData.声望值,
+            
+            // 新增字段映射
+            specialties: faction.specialties || (Array.isArray(faction.特色) ? faction.特色 : [faction.特色].filter(Boolean)),
+            
+            // 成员统计
+            memberCount: faction.memberCount ? {
+              total: faction.memberCount.total || 0,
+              byRealm: faction.memberCount.byRealm || {},
+              byPosition: faction.memberCount.byPosition || {}
+            } : undefined,
+            
+            // 宗门领导层
+            leadership: faction.leadership ? {
+              宗主: faction.leadership.宗主,
+              宗主修为: faction.leadership.宗主修为,
+              副宗主: faction.leadership.副宗主,
+              长老数量: faction.leadership.长老数量 || 0,
+              最强修为: faction.leadership.最强修为,
+              综合战力: calculatedData.综合战力, // 使用算法计算的可靠数值
+              核心弟子数: faction.leadership.核心弟子数,
+              内门弟子数: faction.leadership.内门弟子数,
+              外门弟子数: faction.leadership.外门弟子数
+            } : undefined,
+            
+            // 势力范围详情
+            territoryInfo: faction.territoryInfo ? {
+              controlledAreas: faction.territoryInfo.controlledAreas || [],
+              influenceRange: faction.territoryInfo.influenceRange,
+              strategicValue: faction.territoryInfo.strategicValue
+            } : undefined,
+            
+            // 加入相关
+            canJoin: faction.canJoin !== undefined ? faction.canJoin : true,
+            joinRequirements: faction.joinRequirements || [],
+            benefits: faction.benefits || []
+          };
+        }),
         地点信息: (worldData.locations || []).map((location: any): WorldLocation => ({
           名称: location.name || location.名称,
           类型: location.type || location.类型 || '其他',

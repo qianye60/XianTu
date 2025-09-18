@@ -1,0 +1,1 @@
+options?.onProgressUpdate?.('正在整理记忆...');\n      try {\n        const summarizedLegacy = await this.memorySystem?.ensureMidTermSummaryIfNeeded?.();\n        if (summarizedLegacy) {\n          console.log('[AI双向系统] (旧流程) 已在发送前完成一次中期记忆摘要');\n        }\n      } catch (e) {\n        console.warn('[AI双向系统] (旧流程) 发送前整理记忆失败（不阻塞请求）:', e);\n      }\n      

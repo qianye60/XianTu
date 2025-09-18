@@ -43,6 +43,7 @@ import SavePanel from '../components/dashboard/SavePanel.vue';
 import WorldMapPanel from '../components/dashboard/WorldMapPanel.vue';
 import QuestPanel from '../components/dashboard/QuestPanel.vue';
 import SectPanel from '../components/dashboard/SectPanel.vue';
+import TavernDataPanel from '../components/dashboard/TavernDataPanel.vue';
 
 const routes = [
   {
@@ -129,6 +130,11 @@ const routes = [
         path: 'sect',
         name: 'Sect',
         component: SectPanel,
+      },
+      {
+        path: 'tavern-data',
+        name: 'TavernData',
+        component: TavernDataPanel,
       },
     ],
   },

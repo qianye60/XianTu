@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <Teleport to="body">
     <div class="detail-modal-overlay" v-if="modelValue" @click="closeModal">
       <div class="detail-modal" @click.stop>
@@ -28,7 +28,7 @@
                     </div>
                     <div v-else-if="section.type === 'list'" class="list-block">
                       <div v-for="item in section.data" :key="item" class="list-item">
-                        <span class="item-bullet">•</span>
+                        <span class="item-bullet" aria-hidden="true"></span>
                         <span class="item-text">{{ item }}</span>
                       </div>
                     </div>
@@ -36,6 +36,15 @@
                       <div v-for="row in section.data" :key="row.label" class="table-row">
                         <span class="row-label">{{ row.label }}:</span>
                         <span class="row-value">{{ row.value }}</span>
+                      </div>
+                    </div>
+                    <div v-else-if="section.type === 'progress'" class="progress-block">
+                      <div class="progress-header">
+                        <span class="progress-label">进度</span>
+                        <span class="progress-value">{{ Number(section.data) || 0 }}%</span>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill" :style="{ width: (Number(section.data) || 0) + '%' }"></div>
                       </div>
                     </div>
                   </div>
@@ -47,7 +56,7 @@
         
         <div class="modal-footer" v-if="showFooter">
           <slot name="footer">
-            <button class="modal-btn secondary" @click="closeModal">关闭</button>
+            <button class="modal-btn secondary" @click="closeModal">鍏抽棴</button>
           </slot>
         </div>
       </div>
@@ -60,7 +69,7 @@ import { X } from 'lucide-vue-next';
 
 interface ContentSection {
   title?: string;
-  type: 'text' | 'list' | 'table';
+  type: 'text' | 'list' | 'table' | 'progress';
   data: any;
 }
 
@@ -73,7 +82,7 @@ const props = defineProps<{
   modelValue: boolean;
   title: string;
   icon?: string;
-  iconComponent?: any; // 支持lucide图标组件
+  iconComponent?: any; // 鏀寔lucide鍥炬爣缁勪欢
   content?: string | ContentSection[];
   showFooter?: boolean;
 }>();
@@ -338,10 +347,13 @@ const closeModal = () => {
 }
 
 .item-bullet {
-  color: var(--color-primary);
-  font-weight: bold;
-  margin-top: 0.125rem;
-  font-size: 1.1rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 0.45rem;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+  flex-shrink: 0;
 }
 
 .item-text {
@@ -365,6 +377,20 @@ const closeModal = () => {
   border-radius: 8px;
   border: 1px solid var(--color-border);
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.table-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  background: var(--color-primary);
+  opacity: 0.6;
 }
 
 .table-row:hover {
@@ -377,6 +403,35 @@ const closeModal = () => {
   font-weight: 500;
   color: var(--color-text-secondary);
   font-size: 0.9rem;
+}
+
+/* Progress block */
+.progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.progress-bar {
+  height: 10px;
+  background: var(--color-surface-light);
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.3);
 }
 
 .row-value {
@@ -440,10 +495,10 @@ const closeModal = () => {
   transform: translateY(0);
 }
 
-/* 移动端适配 */
+/* 绉诲姩绔€傞厤 */
 @media (max-width: 640px) {
   .detail-modal {
-    max-width: calc(100vw - 1rem);
+    max-width: calc(100% - 1rem);
     max-height: 95vh;
     margin: 0.5rem;
     border-radius: 12px;

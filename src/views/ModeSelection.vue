@@ -64,6 +64,7 @@
 import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { API_BASE_URL } from '@/services/api';
+import { useUIStore } from '@/stores/uiStore';
 
 const appVersion = ref('...');
 
@@ -87,20 +88,22 @@ const emit = defineEmits<{
   (e: 'show-character-list'): void;
 }>();
 
+const uiStore = useUIStore();
 const selectPath = (mode: 'single' | 'cloud') => {
   // 检测环境并给出建议
   const hasTavernAI = !!(window.parent?.TavernHelper);
 
   if (mode === 'cloud' && !hasTavernAI) {
-    // 联机模式但没有TavernAI环境
-    const confirmed = confirm(
-      '联机模式需要在TavernAI中运行以保存数据和使用AI功能。\n\n' +
-      '当前环境未检测到TavernAI，建议选择单机模式。\n\n' +
-      '是否继续使用联机模式？（可能会遇到保存和AI功能问题）'
-    );
-    if (!confirmed) {
-      return; // 用户取消，不继续
-    }
+    // 联机模式但没有TavernAI环境 -> 使用项目弹窗
+    uiStore.showRetryDialog({
+      title: '环境提醒',
+      message: '联机模式需要在TavernAI中运行以保存数据和使用AI功能。\n\n当前环境未检测到TavernAI，建议选择单机模式。\n\n是否继续使用联机模式？（可能会遇到保存和AI功能问题）',
+      confirmText: '仍要联机',
+      cancelText: '返回',
+      onConfirm: () => emit('start-creation', mode),
+      onCancel: () => {}
+    });
+    return;
   }
 
   emit('start-creation', mode);
@@ -114,6 +117,14 @@ const enterCharacterSelection = () => {
 <style scoped>
 .mode-selection-container {
   /* container styles are inherited */
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+  /* 背景由 VideoBackground 提供 */
+  background: transparent;
 }
 
 .selection-content {
@@ -125,6 +136,12 @@ const enterCharacterSelection = () => {
   padding: 2rem;
   border: 1px solid var(--color-border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  /* 桌面端固定上限，避免全屏时继续变高 */
+  height: min(680px, calc(100vh - 4rem));
+  overflow-y: auto;  /* 内容超出时滚动 */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .header-container {
@@ -274,6 +291,14 @@ const enterCharacterSelection = () => {
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.3s ease;
+  /* Prevent squishing and keep text on one line */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  max-width: 100%;
 }
 
 .scroll-btn:hover {
@@ -284,35 +309,109 @@ const enterCharacterSelection = () => {
 }
 
 @media (max-width: 768px) {
+  .mode-selection-container {
+    padding: 1rem;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+  
+  .selection-content {
+    padding: 1.5rem;
+    height: auto;      /* 移动端允许自然增高以完整显示 */
+    justify-content: flex-start;
+    gap: 1.5rem;
+  }
+  
   .main-title {
     font-size: 2.5rem;
   }
+  
   .header-container {
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
+    flex-shrink: 0;
   }
+  
   .gate-container {
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
+    flex-shrink: 0;
   }
+  
   .gate-card {
     width: 100%;
     max-width: 350px;
     padding: 2rem 1.5rem;
   }
+  
   .gate-detail {
     font-size: 0.8rem;
   }
+  
   .privacy-notice {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
     padding: 1rem;
     max-width: 100%;
+    flex-shrink: 0;
   }
+  
   .privacy-notice p {
     font-size: 0.85rem;
   }
+  
   .scroll-btn {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    flex-shrink: 0;
+    padding: 0.8rem 2rem;
+    font-size: 0.95rem;
+  }
+}
+
+/* 超小屏幕优化（手机竖屏） */
+@media (max-width: 480px) {
+  .mode-selection-container {
+    padding: 0.5rem;
+  }
+  
+  .selection-content {
+    padding: 1rem;
+    border-radius: 15px;
+    gap: 1rem;
+  }
+  
+  .main-title {
+    font-size: 2rem;
+    letter-spacing: 0.3em;
+    padding-left: 0.3em;
+  }
+  
+  .header-container {
+    margin-bottom: 1.5rem;
+  }
+  
+  .gate-container {
+    gap: 1rem;
+  }
+  
+  .gate-card {
+    padding: 1.5rem 1rem;
+  }
+  
+  .gate-title {
+    font-size: 1.4rem;
+  }
+  
+  .privacy-notice {
+    margin-top: 1rem;
+    padding: 0.8rem;
+  }
+  
+  .scroll-btn {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    padding: 0.7rem 1.5rem;
+    font-size: 0.9rem;
   }
 }
 </style>

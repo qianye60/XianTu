@@ -415,6 +415,65 @@ import type { CultivationContinent } from '@/types/worldMap';
 // --- 类型定义 ---
 // Note: Local CultivationLocation interface is removed, using WorldLocation from types.
 
+// 额外的辅助类型，移除 any 使用，保证属性访问安全
+type LngLat = { longitude: number; latitude: number };
+
+// 酒馆变量：包含可能用到的已知键，其他键保持宽松
+type CharacterSaveData = {
+  世界信息?: {
+    世界名称?: string;
+    世界背景?: string;
+    大陆信息?: unknown[];
+    势力信息?: unknown[];
+    地点信息?: unknown[];
+  };
+  玩家角色状态?: {
+    位置?: {
+      坐标?: {
+        X?: number; Y?: number; x?: number; y?: number;
+        longitude?: number; latitude?: number;
+      }
+    }
+  };
+};
+
+type PlayerLocationMarker = {
+  coordinates?: { x?: number; y?: number; longitude?: number; latitude?: number };
+};
+
+type TavernVariables = Record<string, unknown> & {
+  ['character.saveData']?: CharacterSaveData;
+  ['player_location_marker']?: PlayerLocationMarker;
+};
+
+// 原始势力/地点输入的最小形状（只描述本组件访问到的字段）
+interface RawFaction {
+  id?: string;
+  name?: string; 名称?: string;
+  type?: string; 类型?: string;
+  color?: string;
+  描述?: string; description?: string;
+  位置?: LngLat | string;
+  headquarters?: LngLat | string;
+  总部位置?: LngLat | string;
+  势力范围?: LngLat[];
+  territory_bounds?: LngLat[];
+  territoryBounds?: LngLat[];
+}
+
+interface RawLocation {
+  id?: string;
+  name?: string; 名称?: string;
+  type?: string; 类型?: string;
+  描述?: string; description?: string;
+  coordinates?: LngLat | { x?: number; y?: number };
+  位置?: LngLat;
+  安全等级?: string; danger_level?: string;
+  适合境界?: string[]; suitable_for?: string[];
+}
+
+type MayHaveImportance = { importance?: unknown; 重要?: unknown; is_key?: unknown; isKey?: unknown };
+
 // 地图尺寸配置
 const mapWidth = ref(3000);  // 扩大地图宽度 2000 -> 3000
 const mapHeight = ref(2100); // 扩大地图高度 1400 -> 2100 (保持3:2.1比例)
@@ -477,7 +536,8 @@ const worldBackground = computed(() => {
 });
 
 
-const tavernVariables = ref<Record<string, any>>({});
+// 明确初始化类型，避免 {} 被推断为不完全的 Record 结构
+const tavernVariables = ref<TavernVariables>({} as TavernVariables);
 
 // 玩家位置 - 从酒馆变量获取
 const playerPosition = computed(() => {
@@ -623,9 +683,12 @@ const selectLocation = (location: WorldLocation) => {
   }
 
   console.log('[坤舆图志] 选中地点:', location.name);
+  console.log('[坤舆图志] 是否全屏模式:', !!document.fullscreenElement);
 
   // 计算地点在屏幕上的位置
   const screenPosition = calculateScreenPosition(location.coordinates?.x || 0, location.coordinates?.y || 0);
+  
+  console.log('[坤舆图志] 地点屏幕位置:', screenPosition);
 
   selectedInfo.value = {
     id: location.id,
@@ -636,6 +699,8 @@ const selectLocation = (location: WorldLocation) => {
     suitable_for: location.suitable_for,
     screenPosition: screenPosition
   };
+
+  console.log('[坤舆图志] 弹窗数据已设置，selectedInfo存在:', !!selectedInfo.value);
 };
 
 // 选择大洲
@@ -646,11 +711,14 @@ const selectContinent = (continent: CultivationContinent) => {
   }
 
   console.log('[坤舆图志] 选中大洲:', continent.name || continent.名称);
+  console.log('[坤舆图志] 是否全屏模式:', !!document.fullscreenElement);
 
   // 计算大洲中心在屏幕上的位置，兼容中英文字段名
   const bounds = continent.continent_bounds || continent.大洲边界 || [];
   const center = getContinentCenter(bounds);
   const screenPosition = calculateScreenPosition(center.x, center.y);
+  
+  console.log('[坤舆图志] 大洲屏幕位置:', screenPosition);
 
   selectedInfo.value = {
     id: continent.id,
@@ -723,7 +791,8 @@ const getPopupPosition = (): Record<string, string> => {
       position: 'absolute',
       top: '20px',
       left: '50%',
-      transform: 'translateX(-50%)'
+      transform: 'translateX(-50%)',
+      zIndex: '9999'
     };
   }
 
@@ -731,25 +800,46 @@ const getPopupPosition = (): Record<string, string> => {
   const popupWidth = 350; // 弹窗预估宽度
   const popupHeight = 200; // 弹窗预估高度
 
+  // 检查是否在全屏模式
+  const isFullscreen = !!document.fullscreenElement;
+  
+  // 根据全屏状态获取容器尺寸
+  let containerWidth: number;
+  let containerHeight: number;
+  
+  if (isFullscreen) {
+    // 全屏模式使用屏幕尺寸
+    containerWidth = window.innerWidth;
+    containerHeight = window.innerHeight;
+  } else {
+    // 普通模式使用容器尺寸
+    containerWidth = mapContainer.value?.clientWidth || 800;
+    containerHeight = mapContainer.value?.clientHeight || 600;
+  }
+
   // 确保弹窗不会超出容器边界
   let popupX = x - popupWidth / 2;
   let popupY = y - popupHeight - 30; // 在地点顶部30px处显示
 
   // 边界检查
   if (popupX < 10) popupX = 10;
-  if (popupX + popupWidth > (mapContainer.value?.clientWidth || 800) - 10) {
-    popupX = (mapContainer.value?.clientWidth || 800) - popupWidth - 10;
+  if (popupX + popupWidth > containerWidth - 10) {
+    popupX = containerWidth - popupWidth - 10;
   }
 
   if (popupY < 10) {
     popupY = y + 30; // 如果顶部放不下，显示在地点下方
   }
+  if (popupY + popupHeight > containerHeight - 10) {
+    popupY = containerHeight - popupHeight - 10;
+  }
 
   return {
-    position: 'absolute',
+    position: isFullscreen ? 'fixed' : 'absolute',
     left: `${popupX}px`,
     top: `${popupY}px`,
-    transform: 'none'
+    transform: 'none',
+    zIndex: isFullscreen ? '99999' : '1001'
   };
 };
 
@@ -765,7 +855,7 @@ const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
     cultivationContinents.value.forEach(continent => {
       const bounds = continent.continent_bounds || continent.大洲边界;
       if (bounds && Array.isArray(bounds)) {
-        bounds.forEach((point: any) => {
+        bounds.forEach((point: LngLat) => {
           if (point.longitude && point.latitude) {
             allCoords.push({
               longitude: point.longitude,
@@ -951,10 +1041,7 @@ const initializeMap = async () => {
     const helper = getTavernHelper();
     if (!helper) {
       console.warn('[坤舆图志] 酒馆Helper不可用');
-      mapStatus.value = '酒馆系统不可用';
-
-      // 添加一些测试数据来验证地图显示
-      addTestData();
+      mapStatus.value = '酒馆系统不可用，请重新生成世界后再打开地图';
       return;
     }
 
@@ -962,18 +1049,20 @@ const initializeMap = async () => {
     const globalVars = await helper.getVariables({ type: 'global' });
 
     // 更新tavernVariables供playerPosition使用
-    tavernVariables.value = { ...chatVars, ...globalVars };
+    // 合并聊天与全局变量；在类型上断言为 TavernVariables 以满足下游读取
+    tavernVariables.value = ((chatVars && globalVars) ? { ...chatVars, ...globalVars } : {}) as TavernVariables;
 
     // 从全局变量获取玩家信息
     playerName.value = (globalVars['character.name'] as string) || '道友';
 
     // 加载修仙世界数据
-    await loadCultivationWorldFromTavern(chatVars);
+    // chatVars 类型为 Record<string, unknown>，满足 TavernVariables 的结构要求
+    await loadCultivationWorldFromTavern(chatVars as TavernVariables);
 
-    // 如果没有加载到数据，添加测试数据
+    // 如果没有加载到数据，提示用户而非加载默认地图
     if (cultivationLocations.value.length === 0) {
-      console.log('[坤舆图志] 没有找到世界数据，加载测试数据');
-      addTestData();
+      console.warn('[坤舆图志] 未找到世界数据');
+      mapStatus.value = '未找到世界数据，请重新生成世界';
     }
 
     mapStatus.value = '修仙世界加载完成';
@@ -984,8 +1073,7 @@ const initializeMap = async () => {
     mapStatus.value = '天机阁连接失败';
     showToastWithDelay('世界数据加载失败: ' + (error as Error).message, 'error');
 
-    // 出错时也添加测试数据
-    addTestData();
+    // 出错时不再加载默认地图
   }
 };
 
@@ -1059,7 +1147,7 @@ const addTestData = () => {
 };
 
 // 从酒馆变量加载GeoJSON格式的修仙世界数据 - 根据实际SaveData结构
-const loadCultivationWorldFromTavern = async (variables: Record<string, unknown>) => {
+const loadCultivationWorldFromTavern = async (variables: TavernVariables) => {
   try {
     console.log('[坤舆图志] 开始加载酒馆世界数据...');
     console.log('[坤舆图志] 接收到的variables:', variables);
@@ -1108,7 +1196,7 @@ const loadCultivationWorldFromTavern = async (variables: Record<string, unknown>
 };
 
 // 加载大洲数据 - 从character.saveData.世界信息读取
-const loadContinentsData = async (variables: Record<string, any>) => {
+const loadContinentsData = async (variables: TavernVariables) => {
   try {
     console.log('🏔️ [大陆加载] 开始加载大陆数据，可用变量:', Object.keys(variables));
     
@@ -1126,12 +1214,13 @@ const loadContinentsData = async (variables: Record<string, any>) => {
     console.log('🏔️ [大陆加载] 最终大陆数据:', continentsData);
 
     if (Array.isArray(continentsData)) {
-      continentsData.forEach((continent: any, index: number) => {
+      continentsData.forEach((continent: unknown, index: number) => {
         try {
+          const continentObj = continent as CultivationContinent;
           // 处理不同的数据结构格式
-          const continentName = continent.名称 || continent.name || `大陆${index + 1}`;
+          const continentName = continentObj.名称 || continentObj.name || `大陆${index + 1}`;
           console.log(`[坤舆图志] ✅ 已加载大洲: ${continentName}`);
-          cultivationContinents.value.push(continent);
+          cultivationContinents.value.push(continentObj);
         } catch (continentError) {
           console.error(`[坤舆图志] 处理大洲${index + 1}时出错:`, continentError);
         }
@@ -1143,7 +1232,7 @@ const loadContinentsData = async (variables: Record<string, any>) => {
 };
 
 // 加载势力数据 - 从character.saveData.世界信息读取
-const loadFactionsData = async (variables: Record<string, any>) => {
+const loadFactionsData = async (variables: TavernVariables) => {
   try {
     console.log('⚔️ [势力加载] 开始加载势力数据');
     
@@ -1160,14 +1249,15 @@ const loadFactionsData = async (variables: Record<string, any>) => {
     console.log('⚔️ [势力加载] 最终势力数据:', factionsData);
 
     if (Array.isArray(factionsData)) {
-      factionsData.forEach((faction: any, index: number) => {
+      factionsData.forEach((faction: unknown, index: number) => {
         try {
+          const factionObj = faction as RawFaction;
           // 处理势力范围边界
           let territoryBounds: { x: number; y: number }[] = [];
           // 兼容多种字段名格式
-          const territoryData = faction.势力范围 || faction.territory_bounds || faction.territoryBounds;
-          if (territoryData && Array.isArray(territoryData)) {
-            territoryBounds = territoryData.map((point: any) => {
+          const territoryData = factionObj.势力范围 || factionObj.territory_bounds || factionObj.territoryBounds;
+          if (territoryData && Array.isArray(territoryData) && territoryData.length >= 3) {
+            territoryBounds = territoryData.map((point: LngLat) => {
               const virtualCoords = geoToVirtual(point.longitude, point.latitude);
               return { x: virtualCoords.x, y: virtualCoords.y };
             });
@@ -1175,26 +1265,53 @@ const loadFactionsData = async (variables: Record<string, any>) => {
 
           // 总部位置
           let headquarters: { x: number; y: number } | undefined;
-          const hqData = faction.位置 || faction.headquarters || faction.总部位置;
-          if (hqData && hqData.longitude !== undefined && hqData.latitude !== undefined) {
-            headquarters = geoToVirtual(hqData.longitude, hqData.latitude);
+          const hqData = factionObj.位置 || factionObj.headquarters || factionObj.总部位置;
+          if (hqData && typeof hqData === 'object' && 'longitude' in hqData && 'latitude' in hqData) {
+            const hqCoords = hqData as LngLat;
+            headquarters = geoToVirtual(hqCoords.longitude, hqCoords.latitude);
+          } else if (typeof hqData === 'string') {
+            const m = hqData.match(/(-?\d+\.?\d*)\D+(-?\d+\.?\d*)/);
+            if (m) {
+              const lng = parseFloat(m[1]);
+              const lat = parseFloat(m[2]);
+              const clampedLng = isFinite(lng) ? Math.min(114, Math.max(107, lng)) : 110;
+              const clampedLat = isFinite(lat) ? Math.min(38, Math.max(33, lat)) : 35;
+              headquarters = geoToVirtual(clampedLng, clampedLat);
+            }
+          }
+
+          // 如果仍无总部，使用全局回退经纬度生成一个
+          if (!headquarters) {
+            const v = geoToVirtual(110, 36);
+            headquarters = { x: v.x, y: v.y };
+          }
+
+          // 如果缺少势力范围，基于总部生成一个小多边形作为回退
+          if ((!territoryBounds || territoryBounds.length < 3) && headquarters) {
+            const hx = headquarters.x, hy = headquarters.y;
+            territoryBounds = [
+              { x: hx - 60, y: hy - 40 },
+              { x: hx + 70, y: hy - 20 },
+              { x: hx + 50, y: hy + 60 },
+              { x: hx - 50, y: hy + 40 }
+            ];
           }
 
           // 处理不同的数据结构格式
-          const factionName = faction.名称 || faction.name || `势力${index + 1}`;
-          const factionType = faction.类型 || faction.type || '中立宗门';
+          const factionName = factionObj.名称 || factionObj.name || `势力${index + 1}`;
+          const factionType = factionObj.类型 || factionObj.type || '中立宗门';
 
           const location: WorldLocation = {
-            id: faction.id || `faction_${index}`,
+            id: factionObj.id || `faction_${index}`,
             name: factionName,
             type: factionType,
             coordinates: headquarters || getTerritoryCenter(territoryBounds),
-            description: faction.描述 || faction.description || '',
+            description: factionObj.描述 || factionObj.description || '',
             x: headquarters?.x || getTerritoryCenter(territoryBounds).x,
             y: headquarters?.y || getTerritoryCenter(territoryBounds).y,
             size: 15, // 势力范围大一些
-            color: faction.color || getLocationColor(factionType),
-            iconColor: faction.color || getLocationColor(factionType),
+            color: factionObj.color || getLocationColor(factionType),
+            iconColor: factionObj.color || getLocationColor(factionType),
             iconSize: 'large',
             isTerritory: true,
             territoryBounds: territoryBounds,
@@ -1215,7 +1332,7 @@ const loadFactionsData = async (variables: Record<string, any>) => {
 };
 
 // 加载地点数据 - 从character.saveData.世界信息读取
-const loadLocationsData = async (variables: Record<string, any>) => {
+const loadLocationsData = async (variables: TavernVariables) => {
   try {
     console.log('🏯 [地点加载] 开始加载地点数据');
     
@@ -1232,47 +1349,54 @@ const loadLocationsData = async (variables: Record<string, any>) => {
     console.log('🏯 [地点加载] 最终地点数据:', locationsData);
 
     if (Array.isArray(locationsData)) {
-      locationsData.forEach((location: any, index: number) => {
+      locationsData.forEach((location: unknown, index: number) => {
         try {
+          const locationObj = location as RawLocation;
           // 处理坐标 - 兼容不同的数据格式
           let coordinates: { x: number; y: number };
-          if (location.coordinates && location.coordinates.longitude !== undefined) {
+          if (locationObj.coordinates && typeof locationObj.coordinates === 'object' && 'longitude' in locationObj.coordinates) {
             // WorldLocation中的coordinates字段：{ coordinates: { longitude, latitude } }
-            coordinates = geoToVirtual(location.coordinates.longitude, location.coordinates.latitude);
-            console.log(`🏯 [地点加载] 使用coordinates字段加载地点: ${location.名称 || location.name}`, location.coordinates);
-          } else if (location.位置 && typeof location.位置 === 'object' && location.位置.longitude !== undefined) {
+            const coords = locationObj.coordinates as LngLat;
+            coordinates = geoToVirtual(coords.longitude, coords.latitude);
+            console.log(`🏯 [地点加载] 使用coordinates字段加载地点: ${locationObj.名称 || locationObj.name}`, locationObj.coordinates);
+          } else if (locationObj.位置 && typeof locationObj.位置 === 'object' && 'longitude' in locationObj.位置) {
             // 新格式：{ 位置: { longitude, latitude } }
-            coordinates = geoToVirtual(Number(location.位置.longitude), Number(location.位置.latitude));
-            console.log(`🏯 [地点加载] 使用位置字段加载地点: ${location.名称 || location.name}`, location.位置);
+            const pos = locationObj.位置 as LngLat;
+            coordinates = geoToVirtual(Number(pos.longitude), Number(pos.latitude));
+            console.log(`🏯 [地点加载] 使用位置字段加载地点: ${locationObj.名称 || locationObj.name}`, locationObj.位置);
           } else {
-            // 随机生成坐标作为备用
-            coordinates = { x: Math.random() * mapWidth.value, y: Math.random() * mapHeight.value };
-            console.warn(`🏯 [地点加载] 地点坐标缺失，使用随机坐标: ${location.名称 || location.name}`, location);
+            // 生成合理经纬度范围再转换，避免像素随机导致分布失真
+            const fallbackLng = 107 + Math.random() * 7; // 107-114
+            const fallbackLat = 33 + Math.random() * 5;  // 33-38
+            coordinates = geoToVirtual(fallbackLng, fallbackLat);
+            console.warn(`🏯 [地点加载] 地点坐标缺失，使用经纬度回退: ${locationObj.名称 || locationObj.name}`, { longitude: fallbackLng, latitude: fallbackLat });
           }
 
           // 处理不同的数据结构格式
-          const locationName = location.名称 || location.name || `地点${index + 1}`;
-          const locationType = location.类型 || location.type || '其他';
+          const locationName = locationObj.名称 || locationObj.name || `地点${index + 1}`;
+          const locationType = locationObj.类型 || locationObj.type || '其他';
 
-          const locationObj: WorldLocation = {
-            id: location.id || `location_${index}`,
+          const worldLocation: WorldLocation = {
+            id: locationObj.id || `location_${index}`,
             name: locationName,
             type: mapLocationTypeToInternal(locationType),
             coordinates: coordinates,
-            description: location.描述 || location.description || '',
+            description: locationObj.描述 || locationObj.description || '',
             x: coordinates.x,
             y: coordinates.y,
             size: getLocationSize(locationType),
             color: getLocationColor(mapLocationTypeToInternal(locationType)),
             iconColor: getLocationColor(mapLocationTypeToInternal(locationType)),
             iconSize: getLocationIconSize(locationType),
-            danger_level: location.安全等级 || location.danger_level || '较安全',
-            suitable_for: location.适合境界 || location.suitable_for || [],
+            danger_level: locationObj.安全等级 || locationObj.danger_level || '较安全',
+            suitable_for: Array.isArray(locationObj.适合境界) ? locationObj.适合境界.join(', ') :
+                         Array.isArray(locationObj.suitable_for) ? locationObj.suitable_for.join(', ') :
+                         (locationObj.适合境界 || locationObj.suitable_for || ''),
             isTerritory: false
           };
 
-          cultivationLocations.value.push(locationObj);
-          console.log(`[坤舆图志] ✅ 已加载地点: ${locationObj.name} (${locationObj.type})`);
+          cultivationLocations.value.push(worldLocation);
+          console.log(`[坤舆图志] ✅ 已加载地点: ${worldLocation.name} (${worldLocation.type})`);
 
         } catch (locationError) {
           console.error(`[坤舆图志] 处理地点${index + 1}时出错:`, locationError);
@@ -1281,8 +1405,8 @@ const loadLocationsData = async (variables: Record<string, any>) => {
       // 过滤掉名称为两字的普通地点，避免标签堆叠；
       // 若AI标注了重要性（importance/重要/is_key），则放行两字名称。
       cultivationLocations.value = cultivationLocations.value.filter(loc => {
-        const anyLoc: any = loc as any;
-        const important = Boolean(anyLoc?.importance) || Boolean(anyLoc?.重要) || Boolean(anyLoc?.is_key) || Boolean(anyLoc?.isKey);
+        const extLoc = loc as unknown as MayHaveImportance;
+        const important = Boolean(extLoc?.importance) || Boolean(extLoc?.重要) || Boolean(extLoc?.is_key) || Boolean(extLoc?.isKey);
         if (loc.isTerritory) return true;
         if (important) return true;
         return Boolean(loc.name && (loc.name as string).length > 2);
@@ -1294,17 +1418,24 @@ const loadLocationsData = async (variables: Record<string, any>) => {
       { path: ['character.saveData', '世界信息'], desc: 'character.saveData.世界信息' }
     ];
 
-    let worldData = null;
+    type WorldInfoData = { 地点信息: unknown[] };
+    let worldData: WorldInfoData | null = null;
     let dataPath = '';
 
     // 遍历搜索路径查找旧格式数据
     for (const search of searchPaths) {
-      let current = variables;
+      let current: unknown = variables;
       let pathValid = true;
 
       for (const segment of search.path) {
-        if (current && typeof current === 'object' && current[segment] !== undefined) {
-          current = current[segment];
+        if (current && typeof current === 'object' && current !== null) {
+          const currentObj = current as Record<string, unknown>;
+          if (currentObj[segment] !== undefined) {
+            current = currentObj[segment];
+          } else {
+            pathValid = false;
+            break;
+          }
         } else {
           pathValid = false;
           break;
@@ -1313,10 +1444,14 @@ const loadLocationsData = async (variables: Record<string, any>) => {
 
       if (pathValid && current) {
         // 检查是否是世界信息数据
-        if ((current as any).地点信息 && Array.isArray((current as any).地点信息)) {
-          worldData = current as any;
-          dataPath = search.desc;
-          break;
+        if (typeof current === 'object' && current !== null) {
+          const currentObj = current as Record<string, unknown>;
+          const locs = currentObj['地点信息'];
+          if (Array.isArray(locs)) {
+            worldData = { 地点信息: locs as unknown[] };
+            dataPath = search.desc;
+            break;
+          }
         }
       }
     }
@@ -1367,7 +1502,7 @@ const debugMapData = async () => {
     console.log('[调试] Global变量键值:', Object.keys(globalVars));
 
     // 检查势力和地点数据 - 优先检查新数据结构
-    const saveData = chatVars['character.saveData'] as any;
+    const saveData = chatVars['character.saveData'] as CharacterSaveData | undefined;
     if (saveData?.世界信息) {
       console.log('[调试] ===== 找到新的世界数据结构 =====');
       console.log('[调试] character.saveData.世界信息:', saveData.世界信息);
@@ -1412,16 +1547,16 @@ const debugMapData = async () => {
         console.log(`[调试] "${key}" 的属性:`, valueKeys);
 
         if (valueKeys.includes('world')) {
-          console.log(`[调试] "${key}.world":`, (value as any).world);
+          console.log(`[调试] "${key}.world":`, (value as Record<string, unknown>)['world']);
         }
         if (valueKeys.includes('mapData')) {
-          console.log(`[调试] "${key}.mapData":`, (value as any).mapData);
+          console.log(`[调试] "${key}.mapData":`, (value as Record<string, unknown>)['mapData']);
         }
       }
     });
 
     // 尝试重新加载数据
-    await loadCultivationWorldFromTavern(chatVars);
+    await loadCultivationWorldFromTavern(chatVars as TavernVariables);
     
     // 调试坐标数据
     console.log('[调试] ===== 当前加载的地点坐标 =====');
@@ -1859,6 +1994,7 @@ onMounted(async () => {
 /* 全屏模式优化 */
 .map-panel:fullscreen {
   background: #1a1a2e;
+  z-index: 999999; /* 确保全屏容器在最高层 */
 }
 
 .map-panel:fullscreen .custom-map-container {
@@ -1869,24 +2005,27 @@ onMounted(async () => {
 .map-panel:fullscreen .map-legend {
   background: rgba(0, 0, 0, 0.8);
   color: white;
+  z-index: 999998;
 }
 
 .map-panel:fullscreen .selected-info {
   background: rgba(0, 0, 0, 0.9) !important;
   color: white !important;
   pointer-events: auto !important;
-  z-index: 9999 !important;
+  z-index: 999999 !important;
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  position: fixed !important; /* 确保在全屏模式下使用fixed定位 */
 }
 
 .map-panel:fullscreen .selected-info-overlay {
-  z-index: 9999 !important;
+  z-index: 999999 !important;
   pointer-events: none !important;
-  position: fixed !important;
+  position: fixed !important; /* 全屏模式下使用fixed定位 */
 }
 
 .map-panel:fullscreen .selected-info-overlay .selected-info {
   pointer-events: auto !important;
+  position: relative !important; /* 内部弹窗使用relative定位 */
 }
 
 .map-panel:fullscreen .close-info {
@@ -1896,5 +2035,14 @@ onMounted(async () => {
 .map-panel:fullscreen .close-info:hover {
   background: rgba(255, 255, 255, 0.2) !important;
   color: #ff6b6b !important;
+}
+
+/* 全屏模式下确保弹窗文本可见 */
+.map-panel:fullscreen .selected-info * {
+  color: white !important;
+}
+
+.map-panel:fullscreen .selected-info .info-header h4 {
+  color: #60a5fa !important; /* 蓝色标题在黑色背景下更明显 */
 }
 </style>
