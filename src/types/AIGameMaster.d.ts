@@ -22,17 +22,6 @@ export interface TavernCommand {
 //                           核心：角色与物品定义
 // =======================================================================
 
-/**
- * 基础物品定义
- */
-export interface Item {
-  name: string;
-  type: string; // 武器/防具/饰品/法宝/消耗品
-  description: string;
-  quality?: string; // 凡器/灵器/宝器/道器/仙器
-  effects?: string[];
-  [key: string]: any; // 其他动态属性
-}
 
 /**
  * 角色/NPC 完整数据结构 (Ultimate Version)

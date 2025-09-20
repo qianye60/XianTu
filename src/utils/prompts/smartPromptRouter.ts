@@ -3,17 +3,6 @@
  * 根据用户行动智能选择最合适的AI提示词，提升交互体验
  */
 
-import { 
-  generateCultivationPrompt, 
-  generateSkillLearningPrompt, 
-  generateBreakthroughPrompt,
-  generateCultivationInsightPrompt
-} from './optimizedCultivationPrompts';
-import { 
-  generateNPCInteractionPrompt, 
-  generateChoiceBranchPrompt,
-  generateWorldEventPrompt
-} from './optimizedInteractionPrompts';
 import { generateComprehensiveAIPrompt } from './comprehensiveAISystem';
 import { WorldAwareGMPrompts } from './worldAwarePrompts';
 import type { GameCharacter, GM_Request } from '../../types/AIGameMaster';
@@ -62,11 +51,11 @@ export class ActionAnalyzer {
 
   private static interactionKeywords = [
     '交谈', '对话', '询问', '请教', '拜访', '会面', '商议',
-    '寻找', '找', '见', '问', '说', '告诉', '求助'
+    '寻找', '找到', '见到', '遇到', '碰到', '告诉', '求助'
   ];
 
   private static explorationKeywords = [
-    '探索', '前往', '去', '移动', '行走', '飞行', '传送',
+    '探索', '前往', '去到', '移动', '行走', '飞行', '传送',
     '寻找', '搜索', '查看', '观察', '调查', '打探'
   ];
 
@@ -271,7 +260,7 @@ export class PromptRouter {
       console.log('[提示词路由] 应用世界感知增强...');
       const enhancedPrompt = await WorldAwareGMPrompts.generateWorldAwarePrompt({
         userAction: config.userAction,
-        characterData: config.character,
+        characterData: config.character as unknown as Record<string, unknown>,
         basePrompt: basePrompt
       });
       
@@ -293,7 +282,7 @@ export class PromptRouter {
     
     switch (analysis.subType) {
       case 'breakthrough':
-        return generateBreakthroughPrompt({
+        return this.generateBreakthroughPrompt({
           characterName: character.identity.name,
           currentRealm: character.cultivation?.realm || '凡人',
           nextRealm: this.getNextRealm(character.cultivation?.realm || '凡人'),
@@ -304,7 +293,7 @@ export class PromptRouter {
 
       case 'skill_learning':
         const skillName = this.extractSkillName(userAction);
-        return generateSkillLearningPrompt({
+        return this.generateSkillLearningPrompt({
           characterName: character.identity.name,
           skillName: skillName,
           skillType: this.inferSkillType(skillName),
@@ -314,7 +303,7 @@ export class PromptRouter {
         });
 
       case 'main_skill_cultivation':
-        return generateCultivationPrompt({
+        return this.generateBasicCultivationPrompt({
           characterName: character.identity.name,
           currentRealm: character.cultivation?.realm || '凡人',
           realmProgress: character.cultivation?.realm_progress || 0,
@@ -325,7 +314,7 @@ export class PromptRouter {
         });
 
       default:
-        return generateCultivationPrompt({
+        return this.generateBasicCultivationPrompt({
           characterName: character.identity.name,
           currentRealm: character.cultivation?.realm || '凡人',
           realmProgress: character.cultivation?.realm_progress || 0,
@@ -344,7 +333,7 @@ export class PromptRouter {
     
     if (analysis.subType === 'npc_interaction') {
       const npcName = this.extractNPCName(userAction);
-      return generateNPCInteractionPrompt({
+      return this.generateNPCInteractionPrompt({
         npcName: npcName,
         npcType: this.inferNPCType(npcName, userAction),
         relationshipLevel: this.getNPCRelationship(npcName, memory),
@@ -472,6 +461,53 @@ export class PromptRouter {
 
   private static getNPCInteractionHistory(npcName: string, memory: any): string[] {
     return memory?.npc_interactions?.[npcName]?.memories || [];
+  }
+
+  // 备用提示词生成方法
+  private static generateBreakthroughPrompt(config: any): string {
+    return `# 突破修炼提示词
+角色：${config.characterName}
+当前境界：${config.currentRealm}
+目标境界：${config.nextRealm}
+突破方法：${config.breakthroughMethod}
+环境加成：${config.environmentBonus}
+
+请基于以上信息生成突破修炼的剧情。`;
+  }
+
+  private static generateSkillLearningPrompt(config: any): string {
+    return `# 技能学习提示词
+角色：${config.characterName}
+技能：${config.skillName}
+技能类型：${config.skillType}
+学习方法：${config.learningMethod}
+角色天赋：${config.characterTalents.join('、')}
+悟性：${config.currentIntelligence}
+
+请基于以上信息生成技能学习的剧情。`;
+  }
+
+  private static generateBasicCultivationPrompt(config: any): string {
+    return `# 修炼提示词
+角色：${config.characterName}
+境界：${config.currentRealm}
+修炼进度：${config.realmProgress}
+修炼行动：${config.cultivationAction}
+位置：${config.currentLocation}
+灵气密度：${config.spiritDensity}
+
+请基于以上信息生成修炼的剧情。`;
+  }
+
+  private static generateNPCInteractionPrompt(config: any): string {
+    return `# NPC互动提示词
+NPC：${config.npcName}
+类型：${config.npcType}
+关系等级：${config.relationshipLevel}
+玩家行动：${config.playerAction}
+位置：${config.contextLocation}
+
+请基于以上信息生成NPC互动的剧情。`;
   }
 }
 

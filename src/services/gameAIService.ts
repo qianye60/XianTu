@@ -328,40 +328,181 @@ export class GameAIService {
 
   /**
    * 处理AI记忆更新 - 按照AI指令集方案
+   * 实现：消息接收之后短期正文要存入text，中期等短期达标范围了就转化
    */
   private processAIMemoryUpdates(gmResponse: GM_Response, userMessage: string): void {
     const settings = this.settingsManager.getSettings();
     
-    // 1. 处理AI的text字段作为短期记忆
+    // 1. 处理AI的text字段作为短期记忆 - 这是主要的记忆内容
     if (gmResponse.text && gmResponse.text.trim()) {
-      this.addToShortTermMemory(gmResponse.text);
+      console.log('[记忆系统] 将AI响应text存入短期记忆:', gmResponse.text.substring(0, 100) + '...');
+      this.addToShortTermMemory(`AI回应: ${gmResponse.text}`);
     }
     
-    // 2. 不直接展示/写入AI的 mid_term_memory（保留给后续转化使用）
-    // if (gmResponse.mid_term_memory && gmResponse.mid_term_memory.trim()) {
-    //   // 留空：不直接加入中期记忆
-    // }
+    // 2. 同时处理用户消息作为短期记忆的一部分
+    if (userMessage && userMessage.trim()) {
+      this.addToShortTermMemory(`玩家行动: ${userMessage}`);
+    }
     
-    // 3. 检查记忆转化（超出限制时自动转化）
+    // 3. 将当前交互通过MultiLayerMemorySystem处理
+    try {
+      const memorySystem = MultiLayerMemorySystem.getInstance();
+      
+      // 创建聊天消息记录
+      const chatMessages = [];
+      
+      if (userMessage) {
+        chatMessages.push({
+          id: `msg_${Date.now()}_user`,
+          role: 'user' as const,
+          content: userMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      if (gmResponse.text) {
+        chatMessages.push({
+          id: `msg_${Date.now()}_ai`,
+          role: 'assistant' as const,
+          content: gmResponse.text,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // 添加到多层记忆系统
+      chatMessages.forEach(msg => memorySystem.addMessage(msg));
+      
+      console.log('[记忆系统] 已将交互记录添加到多层记忆系统');
+    } catch (error) {
+      console.error('[记忆系统] 多层记忆系统处理失败:', error);
+    }
+    
+    // 4. 检查记忆转化（超出限制时自动转化）
     this.checkAndConvertMemories();
   }
   
   /**
    * 添加到短期记忆
+   * 实现将text内容存储到短期记忆，并在达标时触发中期记忆转化
    */
   private addToShortTermMemory(content: string): void {
     const settings = this.settingsManager.getSettings();
     if (!settings.memory.shortTerm.enabled) return;
     
-    this.memorySystem.short_term.unshift(content);
+    // 清理和格式化内容
+    const cleanContent = this.cleanMemoryContent(content);
     
-    // 检查是否超出短期记忆限制
-    if (this.memorySystem.short_term.length > settings.memory.shortTerm.maxLength) {
-      // 将超出的记忆批量转移到中期记忆（不逐条总结）
-      const overflow = this.memorySystem.short_term.splice(settings.memory.shortTerm.maxLength);
-      overflow.reverse().forEach(memory => this.addToMidTermMemory(memory));
-      console.log(`[AI服务] 短期记忆超限，转移${overflow.length}条到中期记忆（无总结）`);
+    // 添加到短期记忆
+    this.memorySystem.short_term.unshift(cleanContent);
+    
+    console.log(`[记忆系统] 添加到短期记忆: ${cleanContent.substring(0, 50)}...`);
+    console.log(`[记忆系统] 当前短期记忆数量: ${this.memorySystem.short_term.length}/${settings.memory.shortTerm.maxLength}`);
+    
+    // 检查是否需要转化到中期记忆
+    this.checkMidTermConversionThreshold();
+  }
+  
+  /**
+   * 检查中期记忆转化阈值
+   * 当短期记忆达到设定阈值时，自动触发转化
+   */
+  private checkMidTermConversionThreshold(): void {
+    const settings = this.settingsManager.getSettings();
+    const currentShortTermCount = this.memorySystem.short_term.length;
+    
+    // 设定转化阈值为短期记忆限制的80%
+    const conversionThreshold = Math.floor(settings.memory.shortTerm.maxLength * 0.8);
+    
+    if (currentShortTermCount >= conversionThreshold) {
+      console.log(`[记忆系统] 短期记忆达到转化阈值 ${currentShortTermCount}/${conversionThreshold}，开始中期记忆转化`);
+      this.triggerMidTermConversion();
     }
+  }
+  
+  /**
+   * 触发中期记忆转化
+   * 将短期记忆的前半部分转化为中期记忆摘要
+   */
+  private triggerMidTermConversion(): void {
+    const settings = this.settingsManager.getSettings();
+    
+    try {
+      // 取前一半的短期记忆进行转化
+      const conversionCount = Math.floor(this.memorySystem.short_term.length / 2);
+      const memoriesToConvert = this.memorySystem.short_term.splice(-conversionCount, conversionCount);
+      
+      if (memoriesToConvert.length > 0) {
+        // 生成中期记忆摘要
+        const summary = this.generateMidTermSummary(memoriesToConvert);
+        
+        // 添加到中期记忆
+        this.addToMidTermMemory(summary);
+        
+        console.log(`[记忆系统] 成功转化 ${memoriesToConvert.length} 条短期记忆为中期记忆`);
+        console.log(`[记忆系统] 当前记忆状态 - 短期: ${this.memorySystem.short_term.length}, 中期: ${this.memorySystem.mid_term.length}, 长期: ${this.memorySystem.long_term.length}`);
+      }
+    } catch (error) {
+      console.error('[记忆系统] 中期记忆转化失败:', error);
+    }
+  }
+  
+  /**
+   * 生成中期记忆摘要
+   * 将多条短期记忆压缩成一条摘要
+   */
+  private generateMidTermSummary(memories: string[]): string {
+    const timestamp = new Date().toLocaleString('zh-CN');
+    
+    // 提取关键信息
+    const keyEvents = [];
+    const characters = new Set<string>();
+    const locations = new Set<string>();
+    
+    for (const memory of memories) {
+      // 简单的关键词提取
+      if (memory.includes('突破') || memory.includes('修炼')) {
+        keyEvents.push('修炼进展');
+      }
+      if (memory.includes('获得') || memory.includes('发现')) {
+        keyEvents.push('物品收获');
+      }
+      if (memory.includes('遇到') || memory.includes('见到')) {
+        keyEvents.push('人物交互');
+      }
+      if (memory.includes('到达') || memory.includes('前往')) {
+        keyEvents.push('位置变化');
+      }
+      
+      // 提取可能的角色名和地点名（简化处理）
+      const charMatch = memory.match(/([^\s]{2,4}(?:道人|真人|师兄|师姐|长老|宗主))/g);
+      if (charMatch) charMatch.forEach(char => characters.add(char));
+      
+      const locMatch = memory.match(/([^\s]{2,6}(?:峰|山|城|镇|宗|门|洞|府))/g);
+      if (locMatch) locMatch.forEach(loc => locations.add(loc));
+    }
+    
+    // 构建摘要
+    let summary = `[${timestamp}] `;
+    
+    if (keyEvents.length > 0) {
+      summary += `主要事件: ${keyEvents.join('、')}。`;
+    }
+    
+    if (characters.size > 0) {
+      summary += ` 涉及人物: ${Array.from(characters).slice(0, 3).join('、')}。`;
+    }
+    
+    if (locations.size > 0) {
+      summary += ` 相关地点: ${Array.from(locations).slice(0, 2).join('、')}。`;
+    }
+    
+    // 如果摘要太短，添加原始记忆的简化版本
+    if (summary.length < 50) {
+      const firstMemory = memories[0];
+      summary += ` 详情: ${firstMemory.substring(0, 80)}${firstMemory.length > 80 ? '...' : ''}`;
+    }
+    
+    return summary;
   }
   
   /**
@@ -458,6 +599,31 @@ export class GameAIService {
   private isImportantMemory(memory: string): boolean {
     const importantKeywords = ['突破', '境界', '死亡', '重伤', '结识', '敌对', '获得', '法宝', '功法', '师父', '弟子'];
     return importantKeywords.some(keyword => memory.includes(keyword));
+  }
+
+  /**
+   * 清理和格式化记忆内容
+   * 确保存储到短期记忆的text内容格式一致
+   */
+  private cleanMemoryContent(content: string): string {
+    if (!content || typeof content !== 'string') {
+      return '';
+    }
+    
+    // 移除多余的空白字符
+    let cleaned = content.trim().replace(/\s+/g, ' ');
+    
+    // 移除常见的格式标记
+    cleaned = cleaned.replace(/```[a-z]*\n?/gi, '');
+    cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1');
+    cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
+    
+    // 限制长度，避免过长的记忆条目
+    if (cleaned.length > 200) {
+      cleaned = cleaned.substring(0, 200) + '...';
+    }
+    
+    return cleaned;
   }
 
   /**

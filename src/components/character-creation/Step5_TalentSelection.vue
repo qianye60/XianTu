@@ -298,6 +298,10 @@ function handleAIGenerate() {
   background: var(--color-surface-light);
   color: var(--color-text);
   font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .action-item:hover {
@@ -379,7 +383,7 @@ function handleAIGenerate() {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .talent-layout {
     /* 改为垂直堆叠布局 */
     grid-template-columns: 1fr;

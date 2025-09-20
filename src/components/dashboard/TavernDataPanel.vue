@@ -85,9 +85,6 @@ interface EditingItem {
   value: TavernVariableValue
 }
 
-
-
-
 // 状态管理
 const tavernConnected = ref(false)
 const isLoading = ref(false)
@@ -154,7 +151,8 @@ const refreshData = async () => {
     tavernConnected.value = true
     await refreshTavernData()
     lastUpdateTime.value = new Date().toLocaleString('zh-CN')
-    toast.success('数据刷新成功')
+    // 移除频繁的数据刷新成功提示，避免干扰正常操作
+    // toast.success('数据刷新成功')
   } catch (error) {
     console.error('[酒馆数据] 刷新失败:', error)
     toast.error('数据刷新失败: ' + (error instanceof Error ? error.message : '未知错误'))

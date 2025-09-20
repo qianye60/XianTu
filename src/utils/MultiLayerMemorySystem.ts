@@ -56,20 +56,45 @@ export interface MemoryConfig {
   shortTermLimit: number; // 短期记忆条数限制
   midTermTrigger: number; // 中期记忆转化触发条数
   midTermKeep: number; // 中期记忆转化时保留的最新条数
-  longTermLimit: number; // 长期记忆条数限制
   autoSummaryEnabled: boolean; // 是否启用自动总结
   summaryApiEndpoint?: string; // 总结API端点
+  midTermFormat?: string; // 中期记忆自定义格式
+  longTermFormat?: string; // 长期记忆自定义格式
 }
 
 class MultiLayerMemorySystemClass {
   private shortTermMemories: ChatMessage[] = [];
   private midTermMemories: MidTermMemory[] = [];
   private longTermMemories: LongTermMemory[] = [];
+  
+  // 默认中期记忆格式模板
+  private readonly DEFAULT_MID_TERM_FORMAT = `请将以下对话总结为中期记忆，使用此JSON格式：
+{
+  "summary": "核心事件概述(不超过50字)",
+  "keyEvents": ["关键事件1", "关键事件2"],
+  "characters": ["涉及人物1", "涉及人物2"], 
+  "locations": ["地点1", "地点2"],
+  "items": ["重要物品1", "重要物品2"],
+  "cultivation": "修炼相关进展",
+  "relationships": "人际关系变化",
+  "priority": 数字1-10
+}`;
+
+  // 默认长期记忆格式模板
+  private readonly DEFAULT_LONG_TERM_FORMAT = `请将以下中期记忆总结为长期记忆，使用此JSON格式：
+{
+  "title": "简洁标题(不超过20字)",
+  "category": "事件类型(cultivation/relationship/location/item/event)",
+  "essence": "核心内容(不超过30字)",
+  "impact": "重要影响(不超过20字)",
+  "tags": ["标签1", "标签2", "标签3"],
+  "importance": 数字1-10
+}`;
+
   private config: MemoryConfig = {
     shortTermLimit: 5,
     midTermTrigger: 20,
     midTermKeep: 8,
-    longTermLimit: 30,
     autoSummaryEnabled: true,
   };
 
@@ -95,10 +120,14 @@ class MultiLayerMemorySystemClass {
 
   /**
    * 添加新消息到短期记忆
+   * 实现：消息接收之后短期正文要存入text，中期等短期达标范围了就转化
    */
   public addMessage(message: ChatMessage): void {
     // 添加到短期记忆
     this.shortTermMemories.push(message);
+
+    console.log(`[多层记忆系统] 添加消息到短期记忆: ${message.content.substring(0, 50)}...`);
+    console.log(`[多层记忆系统] 当前短期记忆数量: ${this.shortTermMemories.length}/${this.config.shortTermLimit}`);
 
     // 维护短期记忆限制
     if (this.shortTermMemories.length > this.config.shortTermLimit) {
@@ -106,7 +135,7 @@ class MultiLayerMemorySystemClass {
         0, 
         this.shortTermMemories.length - this.config.shortTermLimit
       );
-      console.log('[记忆系统] 短期记忆溢出，移除消息:', removedMessages.length, '条');
+      console.log('[多层记忆系统] 短期记忆溢出，移除消息:', removedMessages.length, '条');
     }
 
     // 检查是否需要触发中期记忆转化
@@ -118,14 +147,17 @@ class MultiLayerMemorySystemClass {
 
   /**
    * 检查是否需要触发中期记忆转化
+   * 当总消息数达到用户设定的midTermTrigger阈值时自动触发转化
    */
   private checkMidTermTrigger(): void {
     const totalMessages = this.shortTermMemories.length + 
       this.midTermMemories.reduce((sum, mem) => sum + mem.messageCount, 0);
 
+    // 使用用户可配置的midTermTrigger阈值
     if (totalMessages >= this.config.midTermTrigger && 
         !this.summaryInProgress && 
         this.config.autoSummaryEnabled) {
+      console.log(`[多层记忆系统] 总消息数达到转化阈值 ${totalMessages}/${this.config.midTermTrigger}，触发中期记忆转化`);
       this.triggerMidTermConversion();
     }
   }
@@ -206,30 +238,20 @@ class MultiLayerMemorySystemClass {
         throw new Error('酒馆连接未建立');
       }
 
-      // 构建总结请求
+      // 构建对话文本
       const messagesText = messages.map(msg => 
         `[${msg.role}] ${msg.content}`
       ).join('\n\n');
 
-      const summaryPrompt = `
-请对以下对话内容进行总结，提取关键信息：
+      // 使用自定义格式或默认格式
+      const formatTemplate = this.config.midTermFormat || this.DEFAULT_MID_TERM_FORMAT;
+      
+      const summaryPrompt = `${formatTemplate}
 
+对话内容：
 ${messagesText}
 
-请按以下JSON格式返回总结：
-\`\`\`json
-{
-  "summary": "简洁的总结，包含主要事件和决策",
-  "keyEvents": ["事件1", "事件2", "事件3"],
-  "characters": ["角色1", "角色2"],
-  "locations": ["地点1", "地点2"],
-  "priority": 7
-}
-\`\`\`
-
-重点关注：修炼进展、人际关系变化、位置移动、重要决策、获得物品等。
-优先级评分标准：1-3(日常对话) 4-6(一般事件) 7-8(重要进展) 9-10(关键转折)
-`;
+请严格按照上述JSON格式返回，确保所有字段都有值，字符数不超过限制。`;
 
       // 发送总结请求
       const response = await this.sendSummaryRequest(summaryPrompt);
@@ -238,7 +260,7 @@ ${messagesText}
       if (summaryData) {
         const midTermMemory: MidTermMemory = {
           id: `mid_${Date.now()}`,
-          summary: summaryData.summary,
+          summary: summaryData.summary || '记忆摘要',
           timeRange: {
             start: messages[0]?.timestamp || new Date().toISOString(),
             end: messages[messages.length - 1]?.timestamp || new Date().toISOString(),
@@ -254,7 +276,7 @@ ${messagesText}
       }
 
     } catch (error) {
-      console.error('[记忆系统] 摘要生成失败:', error);
+      console.error('[记忆系统] 中期记忆生成失败:', error);
     }
 
     return null;
@@ -295,11 +317,8 @@ ${messagesText}
         mem => !highPriorityMemories.includes(mem)
       );
 
-      // 维护长期记忆限制
-      if (this.longTermMemories.length > this.config.longTermLimit) {
-        this.longTermMemories.sort((a, b) => b.importance - a.importance);
-        this.longTermMemories = this.longTermMemories.slice(0, this.config.longTermLimit);
-      }
+      // 维护长期记忆限制 - 移除，长期记忆不设限制
+      // 长期记忆会随着时间积累，体现游戏历程的完整性
 
       console.log('[记忆系统] 长期记忆转化完成');
 
@@ -313,7 +332,50 @@ ${messagesText}
    */
   private async generateLongTermMemory(midMem: MidTermMemory): Promise<LongTermMemory | null> {
     try {
-      // 简化版：基于中期记忆直接生成长期记忆
+      if (!this.tavernHelper) {
+        throw new Error('酒馆连接未建立');
+      }
+
+      // 构建中期记忆文本
+      const midTermText = `
+摘要: ${midMem.summary}
+关键事件: ${midMem.keyEvents.join(', ')}
+涉及人物: ${midMem.characters.join(', ')}
+相关地点: ${midMem.locations.join(', ')}
+重要程度: ${midMem.priority}/10
+时间范围: ${midMem.timeRange.start} 至 ${midMem.timeRange.end}
+`;
+
+      // 使用自定义格式或默认格式
+      const formatTemplate = this.config.longTermFormat || this.DEFAULT_LONG_TERM_FORMAT;
+      
+      const summaryPrompt = `${formatTemplate}
+
+中期记忆内容：
+${midTermText}
+
+请将上述中期记忆精炼为长期记忆，严格按照JSON格式返回，内容要简洁但保留核心信息。`;
+
+      // 发送总结请求
+      const response = await this.sendSummaryRequest(summaryPrompt);
+      const summaryData = this.parseSummaryResponse(response);
+
+      if (summaryData) {
+        const longTermMemory: LongTermMemory = {
+          id: `long_${Date.now()}`,
+          title: summaryData.title || this.generateMemoryTitle(midMem),
+          description: summaryData.essence || midMem.summary,
+          timestamp: midMem.timeRange.end,
+          category: (summaryData.category as LongTermMemory['category']) || this.categorizeMemory(midMem),
+          importance: summaryData.importance || Math.min(10, midMem.priority + 1),
+          relatedMemories: [],
+          tags: summaryData.tags || [...midMem.characters, ...midMem.locations, ...midMem.keyEvents.slice(0, 3)],
+        };
+
+        return longTermMemory;
+      }
+
+      // 回退到简单版本
       const category = this.categorizeMemory(midMem);
       
       const longTermMemory: LongTermMemory = {
@@ -512,7 +574,6 @@ ${messagesText}
       },
       longTerm: {
         count: this.longTermMemories.length,
-        limit: this.config.longTermLimit,
       },
       config: this.config,
     };

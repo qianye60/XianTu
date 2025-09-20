@@ -294,7 +294,6 @@
             </g>
           </g>
 
-
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
             <g :transform="`translate(${playerPosition.x}, ${playerPosition.y})`">
@@ -337,8 +336,7 @@
           <div v-if="selectedInfo.danger_level" class="info-detail">
             <strong>安全等级：</strong>{{ selectedInfo.danger_level }}
           </div>
-          
-          
+
           <!-- 大洲特有信息 -->
           <div v-if="selectedInfo.climate" class="info-detail">
             <strong>气候类型：</strong>{{ selectedInfo.climate }}
@@ -535,7 +533,6 @@ const worldBackground = computed(() => {
   return worldInfo?.世界背景 || '';
 });
 
-
 // 明确初始化类型，避免 {} 被推断为不完全的 Record 结构
 const tavernVariables = ref<TavernVariables>({} as TavernVariables);
 
@@ -673,7 +670,6 @@ const onLocationHover = (location: WorldLocation) => {
 const onLocationLeave = () => {
   hoveredLocation.value = null;
 };
-
 
 // 选择处理 - 只有在没有明显拖动时才触发
 const selectLocation = (location: WorldLocation) => {
@@ -1066,7 +1062,8 @@ const initializeMap = async () => {
     }
 
     mapStatus.value = '修仙世界加载完成';
-    showToastWithDelay('坤舆图志已连通天机', 'success');
+    // 移除频繁的地图加载成功提示，避免干扰正常操作
+    // showToastWithDelay('坤舆图志已连通天机', 'success');
 
   } catch (error) {
     console.error('[坤舆图志] 地图初始化失败:', error);
@@ -1169,7 +1166,7 @@ const loadCultivationWorldFromTavern = async (variables: TavernVariables) => {
       showToastWithDelay('未找到有效的地点数据，将显示测试数据', 'warning');
       addTestData(); // 添加测试数据以便调试
     } else {
-      showToastWithDelay(`成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
+      // showToastWithDelay(`成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
       mapStatus.value = `已加载 ${cultivationLocations.value.length} 个地点`;
       
       // 打印加载的数据供调试
@@ -1594,7 +1591,6 @@ const debugMapData = async () => {
   }
 };
 
-
 // 定位到玩家
 const centerToPlayer = () => {
   if (!playerPosition.value) {
@@ -1926,7 +1922,6 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-
 /* 动画效果 */
 .animate-spin {
   animation: spin 1s linear infinite;
@@ -1959,7 +1954,7 @@ onMounted(async () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .map-legend {
     bottom: 10px;
     right: 10px;

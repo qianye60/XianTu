@@ -567,7 +567,7 @@ watch(worldConfig, (newConfig) => {
   transform: translateY(-1px);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .world-generation-panel {
     padding: 1rem;
   }

@@ -419,7 +419,7 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+  background: var(--color-primary);
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -438,7 +438,7 @@
 }
 
 /* === 响应式适配 === */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .game-panel {
     gap: 0.5rem;
   }

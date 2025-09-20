@@ -185,7 +185,8 @@ const refreshSaves = async () => {
   loading.value = true;
   try {
     await characterStore.loadSaves();
-    toast.success('存档列表已刷新');
+    // 移除频繁的刷新成功提示，避免干扰正常操作
+    // toast.success('存档列表已刷新');
   } catch (error) {
     debug.error('存档面板', '刷新失败', error);
     toast.error('刷新存档列表失败');
@@ -865,7 +866,7 @@ onMounted(() => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .save-stats {
     gap: 1rem;
   }

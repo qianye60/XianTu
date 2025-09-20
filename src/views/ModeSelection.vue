@@ -116,15 +116,15 @@ const enterCharacterSelection = () => {
 
 <style scoped>
 .mode-selection-container {
-  /* container styles are inherited */
-  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
   box-sizing: border-box;
-  /* 背景由 VideoBackground 提供 */
   background: transparent;
+  overflow: hidden; /* 防止滚动条 */
 }
 
 .selection-content {
@@ -138,10 +138,18 @@ const enterCharacterSelection = () => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   /* 桌面端固定上限，避免全屏时继续变高 */
   height: min(680px, calc(100vh - 4rem));
-  overflow-y: auto;  /* 内容超出时滚动 */
+  overflow-y: auto;  /* 内容超出时才显示滚动条 */
+  /* 隐藏滚动条但保持滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+/* 隐藏Webkit浏览器的滚动条 */
+.selection-content::-webkit-scrollbar {
+  display: none;
 }
 
 .header-container {
@@ -314,18 +322,29 @@ const enterCharacterSelection = () => {
   box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .mode-selection-container {
     padding: 1rem;
-    min-height: 100vh;
-    overflow-y: auto;
+    height: 100vh;
+    align-items: flex-start;
+    padding-top: 2rem;
   }
   
   .selection-content {
     padding: 1.5rem;
-    height: auto;      /* 移动端允许自然增高以完整显示 */
+    height: auto;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    /* 隐藏滚动条但保持滚动功能 */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
     justify-content: flex-start;
     gap: 1.5rem;
+  }
+  
+  /* 移动端也隐藏滚动条 */
+  .selection-content::-webkit-scrollbar {
+    display: none;
   }
   
   .main-title {

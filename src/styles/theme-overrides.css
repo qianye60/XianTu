@@ -66,12 +66,12 @@
 }
 
 /* Progress bars */
-.right-sidebar .progress-bar { background: var(--color-surface-light) !important; border: 1px solid var(--color-border) !important; }
-.right-sidebar .progress-fill.health { background: linear-gradient(90deg, var(--color-error), var(--color-error)) !important; }
-.right-sidebar .progress-fill.mana { background: linear-gradient(90deg, var(--color-info), var(--color-info)) !important; }
-.right-sidebar .progress-fill.spirit { background: linear-gradient(90deg, var(--color-warning), var(--color-warning)) !important; }
-.right-sidebar .progress-fill.lifespan { background: linear-gradient(90deg, var(--color-accent), var(--color-accent)) !important; }
-.right-sidebar .progress-fill.cultivation { background: linear-gradient(90deg, var(--color-accent), var(--color-accent)) !important; }
+.right-sidebar .progress-bar { background: var(--color-surface-light) !important; }
+.right-sidebar .progress-fill.health { background: var(--vital-health) !important; }
+.right-sidebar .progress-fill.mana { background: var(--vital-lingqi) !important; }
+.right-sidebar .progress-fill.spirit { background: var(--vital-spirit) !important; }
+.right-sidebar .progress-fill.lifespan { background: var(--vital-lifespan) !important; }
+.right-sidebar .progress-fill.cultivation { background: var(--color-accent) !important; }
 
 /* Status effect cards: neutral base, colored left bar */
 .right-sidebar .status-effect-card {
@@ -96,10 +96,10 @@
 }
 
 /* Icons by type */
-.right-sidebar .vital-icon.blood { color: var(--color-error) !important; }
-.right-sidebar .vital-icon.mana { color: var(--color-info) !important; }
-.right-sidebar .vital-icon.spirit { color: var(--color-warning) !important; }
-.right-sidebar .vital-icon.lifespan { color: var(--color-accent) !important; }
+.right-sidebar .vital-icon.blood { color: var(--vital-health) !important; }
+.right-sidebar .vital-icon.mana { color: var(--vital-lingqi) !important; }
+.right-sidebar .vital-icon.spirit { color: var(--vital-spirit) !important; }
+.right-sidebar .vital-icon.lifespan { color: var(--vital-lifespan) !important; }
 
 /* Character summary sections keep a subtle primary/accents using existing rgb if available */
 .right-sidebar .character-info-section {
@@ -309,7 +309,7 @@ button {
 }
 
 /* 响应式调整 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .clear-button {
     min-width: 100px !important;
     padding: 0.3rem 0.8rem !important;
@@ -366,4 +366,3 @@ button {
     padding: 8px 16px !important;
   }
 }
-

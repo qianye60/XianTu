@@ -1,7 +1,7 @@
 import asyncio
 from tortoise import Tortoise, run_async
 
-from aerich_config import TORTOISE_ORM
+from server.database import TORTOISE_ORM
 
 async def run():
     """

@@ -286,95 +286,35 @@ const handleTavernData = () => {
   router.push('/game/tavern-data');
 };
 
-const handleBackToMenu = async () => {
+const handleBackToMenu = () => {
   uiStore.showRetryDialog({
     title: '返回道途',
     message: '确定要返回道途吗？当前游戏进度将会保存。',
     confirmText: '保存并返回',
     cancelText: '取消',
-    onConfirm: async () => {
-      console.log('[返回道途] 用户确认返回，开始处理...');
-      try {
-        await characterStore.saveCurrentGame();
-        console.log('[返回道途] 游戏状态保存完成');
-      } catch (error) {
-        console.warn('[返回道途] 保存游戏状态失败:', error);
-      }
-      try {
-        const helper = (window.parent as any)?.TavernHelper;
-        if (helper) {
-          console.log('[返回道途] 游戏状态已保存到酒馆');
-        }
-      } catch (error) {
-        console.warn('[返回道途] 保存酒馆状态失败:', error);
-      }
+    onConfirm: () => {
+      console.log('[返回道途] 用户确认返回，开始保存和跳转...');
       
-      // 检查是否在iframe环境中
-      if (window.parent && window.parent !== window) {
-        console.log('[返回道途] 检测到iframe环境，发送关闭消息');
-        window.parent.postMessage({ type: 'CLOSE_GAME' }, '*');
-        console.log('[返回道途] 已发送关闭游戏消息到SillyTavern');
-      } else {
-        console.log('[返回道途] 独立窗口环境，执行路由跳转');
+      // 先保存游戏
+      characterStore.saveCurrentGame().then(() => {
+        console.log('[返回道途] 游戏保存成功');
+      }).catch(error => {
+        console.warn('[返回道途] 游戏保存失败:', error);
+      }).finally(() => {
+        // 无论保存成功还是失败，都执行跳转
+        console.log('[返回道途] 开始路由跳转');
         
-        // 重置角色存储状态
-        try {
-          console.log('[返回道途] 重置角色存储状态');
-          // 清除当前存档数据 - 直接设置rootState
-          characterStore.rootState.当前激活存档 = null;
-          // 重置UI状态
-          uiStore.stopLoading();
-        } catch (error) {
-          console.warn('[返回道途] 重置状态失败:', error);
-        }
+        // 重置状态
+        characterStore.rootState.当前激活存档 = null;
+        uiStore.stopLoading();
         
-        // 强制跳转到模式选择页面
-        try {
-          console.log('[返回道途] 当前路由:', router.currentRoute.value.path);
-          console.log('[返回道途] 开始跳转到模式选择页面 (/)');
-          
-          // 使用 replace 跳转，清除当前路由历史
-          await router.replace({ name: 'ModeSelection' });
-          console.log('[返回道途] 路由跳转完成，当前路由:', router.currentRoute.value.path);
-          
-          // 验证跳转是否成功
-          await new Promise(resolve => setTimeout(resolve, 100)); // 等待100ms让路由生效
-          if (router.currentRoute.value.name !== 'ModeSelection') {
-            throw new Error(`路由跳转未生效，当前路由: ${String(router.currentRoute.value.name)}`);
-          }
-          
-          console.log('[返回道途] 路由跳转验证成功，页面应该已切换到模式选择');
-          
-        } catch (error) {
-          console.error('[返回道途] 路由跳转失败:', error);
-          console.log('[返回道途] 尝试使用路径跳转');
-          
-          try {
-            await router.replace('/');
-            console.log('[返回道途] 路径跳转成功，当前路由:', router.currentRoute.value.path);
-            
-            // 验证路径跳转是否成功
-            await new Promise(resolve => setTimeout(resolve, 100));
-            console.log('[返回道途] 路径跳转后验证，路由名称:', String(router.currentRoute.value.name));
-            
-          } catch (pathError) {
-            console.error('[返回道途] 路径跳转也失败:', pathError);
-            console.log('[返回道途] 尝试强制页面刷新');
-            
-            // 最后的备用方案：强制页面刷新
-            try {
-              const currentOrigin = window.location.origin;
-              const targetUrl = `${currentOrigin}/`;
-              console.log('[返回道途] 强制跳转到:', targetUrl);
-              window.location.href = targetUrl;
-            } catch (refreshError) {
-              console.error('[返回道途] 强制刷新也失败:', refreshError);
-              // 显示用户友好的错误信息
-              alert('返回模式选择页面失败，请手动刷新页面');
-            }
-          }
-        }
-      }
+        // 跳转到模式选择页面
+        router.push('/').then(() => {
+          console.log('[返回道途] 路由跳转成功');
+        }).catch(error => {
+          console.log('[返回道途] 路由跳转失败:', error);
+        });
+      });
     },
     onCancel: () => {
       console.log('[返回道途] 用户取消返回');
@@ -436,7 +376,7 @@ const handleBackToMenu = async () => {
   border-radius: 2px;
 }
 [data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-color);
 }
 
 /* 功能分区样式 */
@@ -495,7 +435,7 @@ const handleBackToMenu = async () => {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-surface-light), transparent);
   transition: left 0.5s ease;
 }
 
@@ -672,6 +612,8 @@ const handleBackToMenu = async () => {
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.3);
 }
+
+/* 深色主题无需额外适配：已统一使用主题变量 */
 
 /* 响应式适配 */
 @media (max-width: 768px) {

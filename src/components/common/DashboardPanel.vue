@@ -55,9 +55,9 @@ const toggleCollapse = () => {
 
 <style scoped>
 .dashboard-panel {
-  background: white;
+  background: var(--color-surface);
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   transition: all 0.2s ease;
@@ -111,7 +111,7 @@ const toggleCollapse = () => {
   margin-left: auto;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .header-actions {
     width: 100%;
     justify-content: flex-start;

@@ -281,7 +281,7 @@ const getDataType = (value: any): string => {
 }
 
 /* 手机端适配 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .variable-section {
     padding: 0.75rem;
   }

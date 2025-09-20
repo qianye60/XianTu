@@ -44,7 +44,8 @@ export class EnhancedWorldGenerator {
       maxRetries: this.config.maxRetries,
       retryDelay: this.config.retryDelay,
       validationRules: WORLD_INFO_VALIDATION_RULES,
-      promptTemplate: this.buildPrompt()
+      promptTemplate: this.buildPrompt(),
+      fallbackData: this.createFallbackWorldData() // 添加fallback数据
     };
     
     const result = await AIRetryGenerator.generateWithRetry(
@@ -183,19 +184,40 @@ export class EnhancedWorldGenerator {
       if (!jsonMatch) {
         jsonMatch = response.match(/(\{[\s\S]*"locations"\s*:\s*\[[\s\S]*?\}\s*\][\s\S]*?\})/);
       }
+      if (!jsonMatch) {
+        // 尝试查找任何JSON对象
+        jsonMatch = response.match(/(\{[\s\S]*?\})/);
+      }
       
       if (!jsonMatch) {
-        throw new Error('无法从AI响应中提取JSON数据');
+        console.error('[增强世界生成器] 无法从AI响应中提取JSON数据');
+        // 返回空结构，让验证器捕获错误
+        return {
+          world_name: this.config.worldName || '修仙界',
+          world_background: this.config.worldBackground || '',
+          factions: [],
+          locations: []
+        };
       }
       
       const worldData = JSON.parse(jsonMatch[1]);
       console.log('[增强世界生成器] JSON解析成功');
       
+      // 确保基本结构存在
+      if (!worldData.factions) worldData.factions = [];
+      if (!worldData.locations) worldData.locations = [];
+      
       return worldData;
       
     } catch (error: any) {
       console.error('[增强世界生成器] JSON解析失败:', error);
-      throw new Error(`JSON解析失败: ${error.message}`);
+      // 返回空结构而不是抛出错误，让验证器处理
+      return {
+        world_name: this.config.worldName || '修仙界',
+        world_background: this.config.worldBackground || '',
+        factions: [],
+        locations: []
+      };
     }
   }
   

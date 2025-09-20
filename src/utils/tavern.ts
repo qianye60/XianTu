@@ -44,29 +44,10 @@ export async function getCurrentCharacterName(): Promise<string | null> {
 }
 
 /**
- * 重命名当前酒馆角色。
- * @param {string} newName - 新的角色名称。
+ * [已移除] 重命名当前酒馆角色的功能已被移除
+ * 原因：应该直接使用酒馆的用户名，而不是修改角色卡名称
+ * 使用 getCurrentCharacterName() 获取用户名即可
  */
-export async function renameCurrentCharacter(newName: string): Promise<void> {
-  if (!newName || !newName.trim()) {
-    toast.warning('道号不可为空。');
-    return;
-  }
-
-  const helper = getTavernHelper();
-  if (!helper) {
-    toast.error('连接酒馆失败，无法更改道号。');
-    return;
-  }
-
-  try {
-    await helper.triggerSlash(`/rename-char "${newName.trim()}"`);
-    toast.success(`道号已成功更改为: ${newName.trim()}`);
-  } catch (error) {
-    console.error('重命名酒馆角色时出错:', error);
-    toast.error('更改道号失败！');
-  }
-}
 
 // 为酒馆世界书条目定义一个最小化的接口以确保类型安全
 interface LorebookEntry {

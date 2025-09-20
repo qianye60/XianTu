@@ -436,6 +436,7 @@ function resetConfig() {
   padding: 0.5rem;
   display: flex;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .action-item {
@@ -451,6 +452,9 @@ function resetConfig() {
   background: var(--color-surface-light);
   color: var(--color-text);
   font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .action-item:hover {
@@ -606,8 +610,13 @@ function resetConfig() {
 
 @media (max-width: 1024px) {
   .world-layout {
-    grid-template-columns: 0.8fr 260px 1fr;
+    grid-template-columns: 0.8fr 240px 1fr;
     gap: 0.8rem;
+  }
+  
+  .config-panel {
+    min-width: 240px;
+    padding: 0.7rem;
   }
   
   .config-panel h3 {
@@ -623,14 +632,19 @@ function resetConfig() {
     padding: 0.35rem;
   }
   
+  .config-hint {
+    font-size: 0.7rem;
+  }
+  
   .random-config-btn,
   .reset-config-btn {
     font-size: 0.75rem;
     padding: 0.4rem 0.5rem;
+    min-height: 28px;
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .world-layout {
     /* 改为垂直堆叠布局，确保所有三个面板都能显示 */
     grid-template-columns: 1fr;
@@ -666,7 +680,7 @@ function resetConfig() {
   
   .config-content {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 0.8rem;
   }
   

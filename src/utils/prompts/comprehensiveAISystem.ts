@@ -7,7 +7,7 @@ import { generateSystemPrompt } from './systemPrompts';
 import { CALCULATION_SYSTEM_PROMPT, generateNumericalStatusPrompt, generateEnvironmentPrompt } from './calculationSystem';
 import { generateReasonabilityAuditPrompt, generateAntiCheatPrompt, type DifficultyLevel } from './reasonabilityAudit';
 import { GM_COMMAND_TUTORIAL } from './gmCommandTutorial';
-import type { GM_Request, GameCharacter } from '../../types/AIGameMaster';
+import type { GameCharacter } from '../../types/AIGameMaster';
 
 /**
  * 记忆系统接口 - 与现有存档结构对接
@@ -267,7 +267,7 @@ export function generateOptimizedPrompt(config: {
 **最近记忆:**
 ${recentMemory.map(m => `- ${m}`).join('\n')}
 
-**要求:** 基于角色能力判定结果，返回JSON格式包含text、mid_term_memory、tavern_commands字段。
+**要求:** 🚨 **必须且只能返回JSON** - 不得有任何解释、对话、说明或其他文字。基于角色能力判定结果，返回JSON格式包含text、mid_term_memory、tavern_commands(数组)字段。
 
 ${difficulty === 'hard' ? '**困难模式:** 严格数值判定，低奇遇概率，真实后果。' : ''}
 `;
@@ -308,5 +308,6 @@ export function generateScenarioPrompt(scenario: 'battle' | 'cultivation' | 'soc
 `
   };
 
-  return scenarioPrompts[scenario];
+  const header = `\n**难度:** ${String(difficulty).toUpperCase()} — 按难度调整概率/收益/惩罚。\n`;
+  return header + scenarioPrompts[scenario];
 }

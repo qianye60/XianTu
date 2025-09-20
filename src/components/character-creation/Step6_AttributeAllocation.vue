@@ -310,7 +310,7 @@ h2 {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .header {
     flex-direction: column;
     gap: 1rem;

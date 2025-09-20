@@ -62,6 +62,10 @@
 
 本节用于规范“发送给 AI 的提示词”要求，确保 AI 进行状态感知与一致的路径写入。所有生成结果均需满足下述约定。
 
+重要提醒（示例名禁止照搬）
+- 文档中的具体名称（如功法/物品/地点/NPC名）仅用于“结构示例”，实际生成时必须根据上下文与世界设定自拟合理名称；严禁直接使用示例名。
+- 若需要占位，请使用抽象占位符（如“<入门功法>”“<草药材>”），生成时替换为符合世界观的专有名词。
+
 ### 4.1 通用格式要求
 
 - 输出唯一 JSON，包含字段：
@@ -83,7 +87,7 @@
 - 条目字段：
   - `action`: `set|add|push|pull|delete`；
   - `key`: 以 `character.saveData.` 开头的点状路径（禁止 `path/target`）；
-  - `value`: 任意 JSON（delete 可省略或传 `null`）。
+  - `value`: 任意 JSON（delete 可省略或传 `null`）。禁止在实际生成中照搬本规范中的示例名。
 
 ### 4.3 路径变量参考（必须遵循）
 
@@ -137,7 +141,7 @@
     "时间": "未指定",               
     "状态描述": "…",               
     "强度": 1,                     
-    "来源": "《引气决》修炼",
+    "来源": "《<入门功法>》修炼",
     "剩余时间": "…"
   }
   ```
@@ -186,7 +190,7 @@
       {"action":"set","key":"character.saveData.角色基础信息.出生","value":"书香门第"},
       {"action":"set","key":"character.saveData.玩家角色状态.位置.描述","value":"青石镇"},
       {"action":"set","key":"character.saveData.玩家角色状态.位置.坐标","value":{"X":120,"Y":35}},
-      {"action":"set","key":"character.saveData.背包.物品.引气决","value":{ "物品ID":"引气决","名称":"引气决","类型":"功法","品质":{"quality":"凡","grade":1},"数量":1,"描述":"修仙入门功法" }}
+      {"action":"set","key":"character.saveData.背包.物品.入门功法_示例","value":{ "物品ID":"入门功法_示例","名称":"<入门功法>","类型":"功法","品质":{"quality":"凡","grade":1},"数量":1,"描述":"入门功法（示例占位，实际名称请根据上下文生成）" }}
     ],
     "push": [
       {"action":"push","key":"character.saveData.记忆.短期记忆","value":"青石镇入门测试……"},
@@ -227,3 +231,15 @@
 ---
 
 以上约定与引擎容错已在代码中实现；如需扩展字段或增加新模块，请先在此文档补充结构与示例，再更新提示词与解析器映射。
+
+## 7. 命令增强（CRUD 扩展）
+
+在不改变 `tavern_commands` 基本分区（set/add/push/pull/delete）的前提下，新增可选动作与可选参数以增强“增删改查”的表达力与安全性：
+
+- 新增动作（可选）：`update | patch | ensure`，解析器不支持时将自动降级为 `set` 并使用合并策略或 `ifMissing` 语义。
+- 通用 options（可选）：`reason`（强烈建议填写），`idempotencyKey`，`ifMissing/ifExists/ifEquals/ifVersion`（CAS），`mergeStrategy`（replace/shallow/deep），`uniqueBy/dedupe/position/limit`，`softDelete/recycleBinKey/allowMissing/cascade`，`tags/ttl/expiresAt`，`expect`（提交后断言）。
+- 时间与任务：统一到 `character.saveData.时间.*`、`character.saveData.任务.*` 路径（详见《命令规范-增强版.md》）。
+
+详细规范与示例请参阅：
+- 想法资料/命令规范-增强版.md
+- 想法资料/提示词套件/01_命令规范_精简卡.md

@@ -81,7 +81,7 @@ defineProps<Props>()
 }
 
 /* 手机端适配 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .raw-data-section {
     padding: 0.75rem;
   }

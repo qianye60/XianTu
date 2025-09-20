@@ -126,12 +126,32 @@ export class GameDataValidator {
   private static validateRule(data: any, rule: ValidationRule): { error?: ValidationError; warning?: ValidationWarning } {
     const value = this.getValueByPath(data, rule.path);
     
+    // 处理数组元素验证
+    if (rule.path.includes('[]') && Array.isArray(value)) {
+      for (let i = 0; i < value.length; i++) {
+        const itemValue = value[i];
+        const itemResult = this.validateSingleValue(itemValue, rule, `${rule.path}[${i}]`);
+        if (itemResult.error) {
+          return itemResult;
+        }
+      }
+      return {}; // 所有数组元素都通过验证
+    }
+    
+    // 处理单个值验证
+    return this.validateSingleValue(value, rule, rule.path);
+  }
+  
+  /**
+   * 校验单个值
+   */
+  private static validateSingleValue(value: any, rule: ValidationRule, pathForError: string): { error?: ValidationError; warning?: ValidationWarning } {
     switch (rule.type) {
       case 'required':
         if (value === undefined || value === null || value === '') {
           return {
             error: {
-              path: rule.path,
+              path: pathForError,
               message: rule.message,
               expected: '非空值',
               received: value
@@ -144,7 +164,7 @@ export class GameDataValidator {
         if (typeof value !== rule.value) {
           return {
             error: {
-              path: rule.path,
+              path: pathForError,
               message: rule.message,
               expected: rule.value,
               received: typeof value
@@ -157,7 +177,7 @@ export class GameDataValidator {
         if (!Array.isArray(value)) {
           return {
             error: {
-              path: rule.path,
+              path: pathForError,
               message: rule.message,
               expected: 'array',
               received: typeof value
@@ -172,7 +192,7 @@ export class GameDataValidator {
           if (value < min || value > max) {
             return {
               error: {
-                path: rule.path,
+                path: pathForError,
                 message: rule.message,
                 expected: `${min}-${max}`,
                 received: value
@@ -186,7 +206,7 @@ export class GameDataValidator {
         if (rule.value && Array.isArray(rule.value) && !rule.value.includes(value)) {
           return {
             error: {
-              path: rule.path,
+              path: pathForError,
               message: rule.message,
               expected: rule.value.join(' | '),
               received: value
@@ -211,14 +231,13 @@ export class GameDataValidator {
       const array = this.getValueByPath(obj, arrayPath);
       if (!Array.isArray(array)) return undefined;
       
-      // 检查数组中的每个元素
+      // 对于数组元素验证，我们需要返回数组中所有元素的值进行逐一检查
+      const values = [];
       for (const item of array) {
         const itemValue = this.getValueByPath(item, itemPath);
-        if (itemValue === undefined || itemValue === null || itemValue === '') {
-          return undefined; // 有任何一个元素不符合要求就返回undefined
-        }
+        values.push(itemValue);
       }
-      return true; // 所有元素都符合要求
+      return values; // 返回所有元素的值数组
     }
     
     const keys = path.split('.');

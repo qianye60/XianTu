@@ -123,7 +123,6 @@ import CloudDataSync from '@/components/common/CloudDataSync.vue';
 import DataClearButtons from '@/components/common/DataClearButtons.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
 import { useUserStore } from '../stores/userStore';
-import type { CharacterCreationPayload } from '../types/index';
 import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
 import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
 import Step3_OriginSelection from '../components/character-creation/Step3_OriginSelection.vue'
@@ -135,7 +134,7 @@ import RedemptionCodeModal from '../components/character-creation/RedemptionCode
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { renameCurrentCharacter, getCurrentCharacterName } from '../utils/tavern';
+import { getCurrentCharacterName } from '../utils/tavern';
 
 
 const props = defineProps<{
@@ -143,7 +142,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'creation-complete', payload: any): void; // 允许传递错误对象
+  (e: 'creation-complete', payload: { error?: unknown; [key: string]: unknown }): void; // 允许传递错误对象
 }>()
 const store = useCharacterCreationStore();
 const userStore = useUserStore();
@@ -508,7 +507,7 @@ async function createCharacter() {
 
   try {
     // 2. 将最终道号同步回酒馆
-    await renameCurrentCharacter(store.characterPayload.character_name);
+    // await renameCurrentCharacter(store.characterPayload.character_name); // 功能暂时禁用
 
     // 3. 构造 CharacterBaseInfo
     const baseInfo = {

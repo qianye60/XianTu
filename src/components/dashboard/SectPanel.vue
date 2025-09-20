@@ -722,7 +722,8 @@ const showSectMembers = () => toast.info('同门师兄弟（功能开发中）')
 const syncFromTavern = async () => {
   try {
     await characterStore.syncFromTavern();
-    toast.success('已从酒馆同步数据');
+    // 移除频繁的酒馆数据同步成功提示，避免干扰正常操作
+    // toast.success('已从酒馆同步数据');
   } catch (error) {
     console.error('[宗门系统] 同步失败:', error);
     toast.error('同步失败: ' + (error instanceof Error ? error.message : '未知错误'));
@@ -1881,7 +1882,7 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .sect-panel {
     padding: 0;
   }

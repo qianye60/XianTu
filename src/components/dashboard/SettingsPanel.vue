@@ -656,9 +656,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.75rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -700,10 +700,10 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  background: white;
-  color: #475569;
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.875rem;
@@ -920,7 +920,7 @@ input:checked + .switch-slider:before {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .setting-item {
     flex-direction: column;
     align-items: flex-start;

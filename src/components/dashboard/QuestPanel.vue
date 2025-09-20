@@ -600,8 +600,8 @@ panelBus.on('refresh', () => refreshQuests());
 }
 
 .quest-card {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 16px;
   cursor: pointer;
@@ -792,7 +792,7 @@ panelBus.on('refresh', () => refreshQuests());
 }
 
 /* 移动端适配样式 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .quest-panel.mobile-layout {
     padding: 0;
   }
@@ -897,7 +897,7 @@ panelBus.on('refresh', () => refreshQuests());
 }
 
 .quest-modal {
-  background: white;
+  background: var(--color-surface);
   border-radius: 12px;
   width: 100%;
   max-width: 400px;

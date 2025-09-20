@@ -1,3 +1,4 @@
+﻿
 <template>
   <div class="right-sidebar">
     <div class="sidebar-header">
@@ -60,7 +61,7 @@
                 <Clock :size="12" class="vital-icon lifespan" />
                 <span>寿元</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.lifespan.current }} / {{ playerStatus?.lifespan.max }}年</span>
+              <span class="vital-text">{{ playerStatus?.lifespan.current }} / {{ playerStatus?.lifespan.max }}</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill lifespan" :style="{ width: getVitalPercent('lifespan') + '%' }"></div>
@@ -78,7 +79,7 @@
         <div class="realm-display">
           <div class="realm-info">
             <span class="realm-name">{{ playerStatus?.realm.name }}</span>
-            <span v-if="playerStatus?.realm.name !== '凡人' && playerStatus?.realm.level" class="realm-level">{{ playerStatus?.realm.level }}层</span>
+            <span v-if="playerStatus?.realm.name !== '凡人' && playerStatus?.realm.level" class="realm-level">{{ playerStatus?.realm.level }}</span>
           </div>
           <!-- 凡人境界显示等待引气入体 -->
           <div v-if="playerStatus?.realm.name === '凡人'" class="realm-mortal">
@@ -109,7 +110,7 @@
       </div>
 
       <!-- 天赋神通 -->
-      <div v-if="characterInfo?.talents && characterInfo.talents.length > 0" class="collapsible-section talents-section">
+      <div class="collapsible-section talents-section">
         <div class="section-header" @click="talentsCollapsed = !talentsCollapsed">
           <h3 class="section-title">
             <Star :size="14" class="section-icon gold" />
@@ -138,6 +139,12 @@
               </div>
               <span class="progress-text">{{ getTalentExp(talent) }} / {{ getTalentMaxExp(talent) }}</span>
             </div>
+          </div>
+
+          <!-- 空状态显示 -->
+          <div v-if="!characterInfo.talents || characterInfo.talents.length === 0" class="empty-talents">
+            <div class="empty-icon">✨</div>
+            <div class="empty-text">暂无天赋神通</div>
           </div>
         </div>
       </div>
@@ -168,7 +175,7 @@
               @click="showStatusDetail(effect)"
               :title="`${effect.状态名称}${effect.强度 ? ` - 强度${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? ` - ${formatTimeDisplay(effect.时间)}` : ''}`"
             >
-              <span class="tag-icon">{{ String(effect.类型).toLowerCase() === 'buff' ? '✨' : '⚡' }}</span>
+              <span class="tag-icon">{{ String(effect.类型).toLowerCase() === 'buff' ? '增' : '减' }}</span>
               <span class="tag-name">{{ effect.状态名称 }}</span>
               <span v-if="effect.强度" class="tag-intensity">{{ effect.强度 }}</span>
               <span v-if="formatTimeDisplay(effect.时间)" class="tag-time">{{ formatTimeDisplay(effect.时间) }}</span>
@@ -200,6 +207,7 @@ import { Activity, Sparkles, AlertTriangle, Heart, Droplet, Brain, Clock, Star, 
 import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
+import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { StatusEffect } from '@/types/game';
 
 type TextSection = {
@@ -351,7 +359,7 @@ const showTalentDetail = (talent: string) => {
       maxLevel: 7
     },
     '天灵根': {
-      description: '先天灵根纯净，修炼速度极快，容易引起天地共鸣。',
+      description: '先天灵根纯净，修炼速度极快，易引起天地共鸣。',
       effects: ['修炼速度+100%', '突破成功率+40%', '引雷渡劫概率+30%'],
       maxLevel: 5
     },
@@ -363,7 +371,7 @@ const showTalentDetail = (talent: string) => {
   };
 
   const talentInfo = talentDescriptions[talent] || {
-    description: `天赋【${talent}】的详细描述暂未开放，请期待后续更新。`,
+    description: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。`,
     effects: ['效果未知'],
     maxLevel: 10
   };
@@ -413,25 +421,24 @@ const showStatusDetail = (effect: StatusEffect) => {
     ? String((effect as any).状态描述).trim()
     : `${effect.状态名称}状态生效中`;
 
-
   // 从实际数据中获取更多信息
   const additionalInfo: { label: string; value: string | number }[] = [];
-  
+
   // 效果强度 - 更详细的描述
   if (effect.强度) {
-    const strengthText = effect.强度 >= 8 ? `极强(${effect.强度}/10)` : 
-                         effect.强度 >= 5 ? `中等(${effect.强度}/10)` : 
+    const strengthText = effect.强度 >= 8 ? `极强(${effect.强度}/10)` :
+                         effect.强度 >= 5 ? `中等(${effect.强度}/10)` :
                          `轻微(${effect.强度}/10)`;
     additionalInfo.push({
       label: '效果强度',
       value: strengthText
     });
   }
-  
+
   // 优先显示剩余时间，如果没有或与总时间相同，则显示总持续时间
   const remainingTime = effect.剩余时间;
   const totalTime = effect.时间;
-  
+
   // 智能时间显示逻辑：避免重复显示相同的时间信息
   if (remainingTime && totalTime && remainingTime !== totalTime) {
     // 如果剩余时间和总时间都存在且不同，优先显示剩余时间
@@ -453,7 +460,7 @@ const showStatusDetail = (effect: StatusEffect) => {
       value: timeValue || totalTime
     });
   }
-  
+
   if (effect.来源) {
     additionalInfo.push({
       label: '产生原因',
@@ -462,7 +469,7 @@ const showStatusDetail = (effect: StatusEffect) => {
   }
 
   const content: (TextSection | ListSection | TableSection)[] = [];
-  
+
   // 添加描述
   if (descriptionText) {
     content.push({
@@ -470,18 +477,17 @@ const showStatusDetail = (effect: StatusEffect) => {
       data: descriptionText
     } as TextSection);
   }
-  
-  
+
   // 构建基本信息表格，显示更多信息
   const tableData: { label: string; value: string | number }[] = [];
-  
+
   // 状态类型
-  const typeText = String(effect.类型).toLowerCase() === 'buff' ? '增益状态 ✨' : '负面状态 ⚠️';
+  const typeText = String(effect.类型).toLowerCase() === 'buff' ? '增益状态✅' : '负面状态⚠️';
   tableData.push({ label: '状态类型', value: typeText });
-  
+
   // 添加其他有效信息（包括已处理的时间信息）
   tableData.push(...additionalInfo);
-  
+
   // 只有当有数据时才添加表格
   if (tableData.length > 0) {
     content.push({
@@ -490,7 +496,6 @@ const showStatusDetail = (effect: StatusEffect) => {
       data: tableData
     } as TableSection);
   }
-
 
   modalData.value = {
     title: effect.状态名称,
@@ -514,26 +519,26 @@ const showStatusDetail = (effect: StatusEffect) => {
   background: var(--color-surface);
 }
 
-.sidebar-header { 
+.sidebar-header {
   margin-bottom: 16px;
   padding: 12px 0;
   border-bottom: 1px solid var(--color-border);
   background: transparent;
 }
 
-.sidebar-title { 
-  margin: 0; 
-  display: flex; 
-  align-items: center; 
+.sidebar-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 8px; 
-  font-size: 1rem; 
+  gap: 8px;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
   text-align: center;
 }
 
-.title-icon { 
+.title-icon {
   color: var(--color-primary);
   flex-shrink: 0;
 }
@@ -571,7 +576,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 [data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-color);
 }
 
 /* 角色基本信息样式 */
@@ -711,7 +716,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 .current-status {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--color-border);
 }
 
 .current-status .status-details {
@@ -765,6 +770,37 @@ const showStatusDetail = (effect: StatusEffect) => {
   gap: 10px;
 }
 
+/* 空状态样式 */
+.empty-talents {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.7;
+}
+
+.empty-text {
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.empty-hint {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  max-width: 200px;
+}
+
 /* 状态效果特定样式 */
 .status-effects {
   padding: 0 16px 16px;
@@ -806,15 +842,15 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .status-tag.buff {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
-  border-color: rgba(34, 197, 94, 0.4);
-  color: #22c55e;
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.2), rgba(var(--color-success-rgb), 0.1));
+  border-color: rgba(var(--color-success-rgb), 0.4);
+  color: var(--color-success);
 }
 
 .status-tag.debuff {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #ef4444;
+  background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.2), rgba(var(--color-error-rgb), 0.1));
+  border-color: rgba(var(--color-error-rgb), 0.4);
+  color: var(--color-danger);
 }
 
 .status-tag:hover {
@@ -823,15 +859,15 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .status-tag.buff:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.15));
-  border-color: rgba(34, 197, 94, 0.6);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.3), rgba(var(--color-success-rgb), 0.15));
+  border-color: rgba(var(--color-success-rgb), 0.6);
+  box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.3);
 }
 
 .status-tag.debuff:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.15));
-  border-color: rgba(239, 68, 68, 0.6);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.3), rgba(var(--color-error-rgb), 0.15));
+  border-color: rgba(var(--color-error-rgb), 0.6);
+  box-shadow: 0 4px 12px rgba(var(--color-error-rgb), 0.3);
 }
 
 .tag-icon {
@@ -846,8 +882,8 @@ const showStatusDetail = (effect: StatusEffect) => {
 
 .tag-intensity {
   font-size: 0.65rem;
-  background: rgba(251, 191, 36, 0.8);
-  color: #1a1a1a;
+  background: rgba(var(--color-warning-rgb), 0.8);
+  color: var(--color-text);
   padding: 1px 4px;
   border-radius: 8px;
   font-weight: 600;
@@ -883,28 +919,17 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .section-icon.gold {
-  color: #fbbf24;
+  color: var(--color-warning);
 }
 
 .vital-icon {
   flex-shrink: 0;
 }
 
-.vital-icon.blood {
-  color: #ef4444;
-}
-
-.vital-icon.mana {
-  color: #3b82f6;
-}
-
-.vital-icon.spirit {
-  color: #fbbf24;
-}
-
-.vital-icon.lifespan {
-  color: #a78bfa;
-}
+.vital-icon.blood { color: var(--vital-health); }
+.vital-icon.mana { color: var(--vital-lingqi); }
+.vital-icon.spirit { color: var(--vital-spirit); }
+.vital-icon.lifespan { color: var(--vital-lifespan); }
 
 /* 点击提示样式 */
 .clickable {
@@ -914,14 +939,14 @@ const showStatusDetail = (effect: StatusEffect) => {
 .clickable:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  border-color: rgba(168, 85, 247, 0.5);
+  border-color: rgba(var(--color-accent-rgb), 0.5);
 }
 
 /* 天赋卡片样式 - 增强美观性 */
 .talent-card {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-left: 4px solid #a855f7;
+  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-accent-rgb), 0.1));
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
+  border-left: 4px solid var(--color-accent);
   border-radius: 12px;
   padding: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -937,10 +962,10 @@ const showStatusDetail = (effect: StatusEffect) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(139, 92, 246, 0.1) 0%, 
-    rgba(168, 85, 247, 0.05) 50%, 
-    rgba(139, 92, 246, 0.1) 100%);
+  background: linear-gradient(135deg,
+    rgba(var(--color-accent-rgb), 0.1) 0%,
+    rgba(var(--color-accent-rgb), 0.05) 50%,
+    rgba(var(--color-accent-rgb), 0.1) 100%);
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -951,10 +976,10 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .talent-card:hover {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.15));
-  border-color: rgba(168, 85, 247, 0.5);
+  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.2), rgba(var(--color-accent-rgb), 0.15));
+  border-color: rgba(var(--color-accent-rgb), 0.5);
   transform: translateX(6px) translateY(-2px);
-  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.25), 0 0 0 1px rgba(168, 85, 247, 0.2);
+  box-shadow: 0 8px 32px rgba(var(--color-accent-rgb), 0.25), 0 0 0 1px rgba(var(--color-accent-rgb), 0.2);
 }
 
 .talent-header {
@@ -968,18 +993,18 @@ const showStatusDetail = (effect: StatusEffect) => {
 .talent-name {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #d8b4fe;
+  color: var(--color-accent);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .talent-level {
   font-size: 0.75rem;
-  color: #fbbf24;
+  color: var(--color-warning);
   font-weight: 600;
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1));
+  background: linear-gradient(135deg, rgba(var(--color-warning-rgb), 0.2), rgba(var(--color-warning-rgb), 0.1));
   padding: 4px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
   backdrop-filter: blur(4px);
 }
 
@@ -990,8 +1015,8 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 .progress-fill.talent {
-  background: linear-gradient(90deg, #8b5cf6, #c084fc, #d8b4fe);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover), rgba(var(--color-accent-rgb), 0.9));
+  box-shadow: 0 2px 8px rgba(var(--color-accent-rgb), 0.3);
 }
 
 /* 生命体征样式 */
@@ -1039,7 +1064,6 @@ const showStatusDetail = (effect: StatusEffect) => {
 .progress-bar {
   height: 6px;
   background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
   border-radius: 3px;
   overflow: hidden;
   position: relative;
@@ -1049,51 +1073,14 @@ const showStatusDetail = (effect: StatusEffect) => {
   height: 100%;
   border-radius: 3px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
 }
 
-.progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  animation: shimmer 2s infinite;
-}
 
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.progress-fill.health {
-  background: linear-gradient(90deg, #ef4444, #dc2626);
-}
-
-.progress-fill.mana {
-  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
-}
-
-.progress-fill.spirit {
-  background: linear-gradient(90deg, #ffd700, #f59e0b);
-}
-
-/* 寿元进度条使用渐变紫色 */
-.progress-fill.lifespan {
-  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
-}
+.progress-fill.health { background: var(--vital-health); }
+.progress-fill.mana { background: var(--vital-lingqi); }
+.progress-fill.spirit { background: var(--vital-spirit); }
+/* 寿元进度条统一紫色 */
+.progress-fill.lifespan { background: var(--vital-lifespan); }
 
 /* 修为状态样式 */
 .realm-display {
@@ -1213,7 +1200,7 @@ const showStatusDetail = (effect: StatusEffect) => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .right-sidebar {
     padding: 12px;
   }
@@ -1257,23 +1244,23 @@ const showStatusDetail = (effect: StatusEffect) => {
   .effect-name {
     font-size: 0.75rem;
   }
-  
+
   .status-tags-container {
     gap: 6px;
     padding: 8px;
   }
-  
+
   .status-tag {
     font-size: 0.7rem;
     padding: 4px 8px;
     gap: 4px;
   }
-  
+
   .tag-intensity {
     font-size: 0.6rem;
     padding: 1px 3px;
   }
-  
+
   .tag-time {
     font-size: 0.6rem;
   }
@@ -1320,23 +1307,23 @@ const showStatusDetail = (effect: StatusEffect) => {
   .status-effects {
     padding: 0 12px 12px;
   }
-  
+
   .status-tags-container {
     gap: 4px;
     padding: 6px;
   }
-  
+
   .status-tag {
     font-size: 0.65rem;
     padding: 3px 6px;
     gap: 3px;
   }
-  
+
   .tag-intensity {
     font-size: 0.55rem;
     padding: 1px 2px;
   }
-  
+
   .tag-time {
     font-size: 0.55rem;
   }
@@ -1382,65 +1369,59 @@ const showStatusDetail = (effect: StatusEffect) => {
   .effect-name {
     font-size: 0.85rem;
   }
-  
+
   .status-tags-container {
     gap: 10px;
     padding: 16px;
   }
-  
+
   .status-tag {
     font-size: 0.8rem;
     padding: 8px 12px;
   }
 }
 
-/* 深色主题适配 */
+/* 深色主题适配：使用CSS变量自动适配 */
 @media (prefers-color-scheme: dark) {
   .right-sidebar {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--color-surface);
   }
 
-  .ai-chat-section,
-  .info-section,
-  .cultivation-section,
   .vitals-section,
-  .attributes-section,
-  .status-section,
-  .location-section,
-  .wealth-section {
-    background: rgba(255, 255, 255, 0.05);
+  .cultivation-section,
+  .collapsible-section {
+    background: var(--color-surface-light);
   }
-  
-  /* 深色主题下的状态标签适配 */
+
   .status-tag.buff {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.08));
-    border-color: rgba(34, 197, 94, 0.3);
-    color: #34d399;
+    background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.15), rgba(var(--color-success-rgb), 0.08));
+    border-color: rgba(var(--color-success-rgb), 0.3);
+    color: var(--color-success);
   }
 
   .status-tag.debuff {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08));
-    border-color: rgba(239, 68, 68, 0.3);
-    color: #f87171;
+    background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.15), rgba(var(--color-error-rgb), 0.08));
+    border-color: rgba(var(--color-error-rgb), 0.3);
+    color: var(--color-danger);
   }
-  
+
   .status-tag.buff:hover {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.12));
-    border-color: rgba(34, 197, 94, 0.5);
-    color: #10b981;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.25), rgba(var(--color-success-rgb), 0.12));
+    border-color: rgba(var(--color-success-rgb), 0.5);
+    color: var(--color-success);
+    box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.2);
   }
 
   .status-tag.debuff:hover {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.12));
-    border-color: rgba(239, 68, 68, 0.5);
-    color: #ef4444;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+    background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.25), rgba(var(--color-error-rgb), 0.12));
+    border-color: rgba(var(--color-error-rgb), 0.5);
+    color: var(--color-danger);
+    box-shadow: 0 4px 12px rgba(var(--color-error-rgb), 0.2);
   }
-  
+
   .tag-intensity {
-    background: rgba(251, 191, 36, 0.9);
-    color: #000;
+    background: rgba(var(--color-warning-rgb), 0.9);
+    color: var(--color-text);
   }
 }
 </style>

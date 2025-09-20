@@ -414,40 +414,39 @@ class ItemSystemClass {
   }
 
   /**
-   * 生成物品名称
+   * 生成物品名称 - 使用通用描述让AI有更多发挥空间
    */
   private generateItemName(type: ItemType, quality: ItemQuality, level: number): string {
-    const prefixes = {
-      [ItemQuality.MORTAL]: ['普通的', '破旧的', '生锈的'],
-      [ItemQuality.YELLOW]: ['精良的', '锋利的', '坚固的'],
-      [ItemQuality.MYSTICAL]: ['神秘的', '古老的', '魔法的'],
-      [ItemQuality.EARTH]: ['地级的', '稀有的', '强大的'],
-      [ItemQuality.HEAVEN]: ['天级的', '传奇的', '神圣的'],
-      [ItemQuality.IMMORTAL]: ['仙级的', '不朽的', '超凡的'],
-      [ItemQuality.DIVINE]: ['神级的', '至尊的', '无上的'],
+    // 使用更加通用的品质描述词，避免固定的具体物品名称
+    const qualityDescriptors = {
+      [ItemQuality.MORTAL]: ['朴素', '简陋', '粗糙', '普通', '寻常'],
+      [ItemQuality.YELLOW]: ['精制', '优良', '坚实', '锋锐', '精巧'],
+      [ItemQuality.MYSTICAL]: ['玄妙', '神秘', '古朴', '灵动', '奇异'],
+      [ItemQuality.EARTH]: ['厚重', '深邃', '浑厚', '沉稳', '大地'],
+      [ItemQuality.HEAVEN]: ['天成', '灵秀', '超凡', '天工', '造化'],
+      [ItemQuality.IMMORTAL]: ['仙灵', '不朽', '永恒', '超脱', '飘逸'],
+      [ItemQuality.DIVINE]: ['神圣', '至尊', '无上', '天威', '神韵'],
     };
 
-    const typeNames = {
-      [ItemType.WEAPON]: ['剑', '刀', '枪', '斧', '锤'],
-      [ItemType.ARMOR]: ['甲', '袍', '靴', '盔'],
-      [ItemType.ACCESSORY]: ['戒指', '项链', '手镯', '护符'],
-      [ItemType.CONSUMABLE]: ['药水', '卷轴', '符咒'],
-      [ItemType.MATERIAL]: ['矿石', '草药', '兽骨'],
-      [ItemType.TECHNIQUE]: ['功法', '心诀', '秘籍'],
-      [ItemType.PILL]: ['丹药', '灵丹', '仙丹'],
-      [ItemType.TREASURE]: ['法宝', '灵器', '仙器'],
-      [ItemType.BOOK]: ['古书', '典籍', '经文'],
-      [ItemType.MISC]: ['奇物', '珍品', '宝物'],
+    // 使用更加通用的物品类型描述，让AI有更多发挥空间
+    const typeCategories = {
+      [ItemType.WEAPON]: ['兵刃', '武器', '兵器', '利器', '神兵'],
+      [ItemType.ARMOR]: ['护具', '防具', '甲胄', '衣物', '法衣'],
+      [ItemType.ACCESSORY]: ['饰品', '配饰', '灵饰', '宝饰', '法器'],
+      [ItemType.CONSUMABLE]: ['灵物', '宝物', '奇珍', '灵材', '珍品'],
+      [ItemType.MATERIAL]: ['材料', '灵材', '宝材', '天材', '异料'],
+      [ItemType.TECHNIQUE]: ['功法', '秘法', '心诀', '法门', '真诀'],
+      [ItemType.PILL]: ['丹药', '灵丹', '宝丹', '仙丹', '神丹'],
+      [ItemType.TREASURE]: ['法宝', '灵宝', '仙宝', '神宝', '至宝'],
+      [ItemType.BOOK]: ['典籍', '经书', '秘卷', '真经', '宝典'],
+      [ItemType.MISC]: ['奇物', '异宝', '灵物', '珍品', '宝物'],
     };
 
-    const prefix = prefixes[quality][Math.floor(Math.random() * prefixes[quality].length)];
-    const baseName = typeNames[type][Math.floor(Math.random() * typeNames[type].length)];
+    const descriptor = qualityDescriptors[quality][Math.floor(Math.random() * qualityDescriptors[quality].length)];
+    const category = typeCategories[type][Math.floor(Math.random() * typeCategories[type].length)];
     
-    if (level > 0) {
-      return `${prefix}${baseName}·${level}级`;
-    }
-    
-    return `${prefix}${baseName}`;
+    // 返回通用的品质+类型组合，让AI自由发挥具体名称
+    return `${descriptor}${category}`;
   }
 
   /**

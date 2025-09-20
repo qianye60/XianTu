@@ -72,7 +72,9 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\prompts\\inGameGMPrompts.ts\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard\\mobile\\MobileThousandDaoPanel.vue\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\optimizedAIRequestSystem.ts\")",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(./node_modules/.bin/vue-tsc.cmd:*)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\test_validation.js\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

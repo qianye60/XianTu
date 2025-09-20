@@ -452,7 +452,6 @@ const equipmentSlots = computed(() => {
   });
 });
 
-
 // 卸下装备功能
 const unequipItem = async (slot: { name: string; item: Item | null }) => {
   if (!slot.item) return;
@@ -611,7 +610,6 @@ const getItemTypeIcon = (type: string): string => {
   return typeIcons[type] || '📦';
 };
 
-
 // 质量等阶规范化（兼容 “凡阶/黄阶/…” 与 “凡/黄/…”；未知返回 '未知'）
 const getNormalizedQuality = (quality: unknown): string => {
   const raw = String(quality || '').trim();
@@ -640,8 +638,6 @@ const getGradeClass = (grade: number): string => {
   if (grade === 10) return 'grade-perfect';
   return 'grade-unknown';
 };
-
-
 
 // 从背包中移除物品的辅助函数
 const removeItemFromInventory = async (item: Item) => {
@@ -714,7 +710,6 @@ const syncToTavernVariables = async () => {
     debug.error('背包面板', '同步酒馆变量失败', error);
   }
 };
-
 
 // 功法修炼功能
 const cultivateItem = async (item: Item, force = false) => {
@@ -1030,7 +1025,6 @@ const spiritStoneGrades = [
     exchangeUp: '中品'
   },
 ] as const;
-
 
 // 选择物品
 const selectItem = (item: Item) => {
@@ -1791,7 +1785,6 @@ onMounted(async () => {
   box-shadow: 0 2px 12px rgba(245, 158, 11, 0.5);
 }
 
-
 /* 桌面端详情侧边栏 */
 .item-details-sidebar {
   width: 320px;
@@ -1835,7 +1828,6 @@ onMounted(async () => {
   font-size: 1.1rem;
   font-weight: 600;
 }
-
 
 .details-meta {
   font-size: 0.85rem;
@@ -2215,8 +2207,6 @@ onMounted(async () => {
   font-size: 0.8rem;
 }
 
-
-
 .cultivate-btn {
   background: var(--color-info);
   border-color: var(--color-info);
@@ -2567,7 +2557,7 @@ onMounted(async () => {
 }
 
 /* 移动端适配 - 优化卡片显示 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .tabs-header {
     padding: 12px;
   }
@@ -2722,10 +2712,4 @@ onMounted(async () => {
   }
 }
 
-@media (min-width: 1200px) {
-  .currency-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
-  }
-}
 </style>

@@ -1,5 +1,5 @@
 ﻿import { generateItemWithTavernAI } from '../tavernCore';
-import { INITIAL_MESSAGE_PROMPT } from '../prompts/gameMasterPrompts';
+import { INITIAL_MESSAGE_PROMPT, buildInitialMessagePrompt } from '../prompts/gameMasterPrompts';
 import { getRandomizedInGamePrompt, createSceneSpecificPrompt } from '../prompts/inGameGMPromptsV2';
 import { buildGmRequest } from '../AIGameMaster';
 import type { GM_Response } from '../../types/AIGameMaster';
@@ -126,31 +126,118 @@ export async function generateInitialMessage(
       {
         ...initialGameData.baseInfo,
         出生: processedOrigin,  // 使用处理后的具体出身
-        灵根: processedSpiritRoot  // 使用处理后的具体灵根
+        灵根: processedSpiritRoot,  // 使用处理后的具体灵根
+        性别: initialGameData.baseInfo.性别 || '男' // 确保传递性别信息
       },
       creationDetails, 
       mapData
     );
     console.log('【神识印记】构建的GM_Request:', gmRequest);
 
-    // 2. 替换提示词中的占位符，然后调用AI
+    // 1.5. 创建清理过的chat变量副本，供AI参考使用
+    const sanitizedChatVars: Record<string, unknown> = chatVariablesForPrompt ? JSON.parse(JSON.stringify(chatVariablesForPrompt)) : {};
+    
+    // 1.6. 提取上一条对话的AI/GM文本（用于连续性），在初始化阶段通常为空
+    let lastTextMemory = '';
+    try {
+      const saveFromChat = (chatVariablesForPrompt?.['character.saveData'] as any) || {};
+      const mem = saveFromChat?.['记忆'] || saveFromChat?.记忆;
+      const short = mem?.['短期记忆'] || mem?.短期记忆;
+      if (Array.isArray(short) && short.length > 0 && typeof short[short.length - 1] === 'string') {
+        lastTextMemory = String(short[short.length - 1]);
+      }
+    } catch (e) {
+      console.warn('【神识印记】提取上一条文本失败（可忽略）:', e);
+    }
+
+    // 2. 构建用户选择信息并使用动态提示词
+    const userSelections = {
+      name: initialGameData.baseInfo.名字 || '匿名',
+      gender: initialGameData.baseInfo.性别 || '男',
+      world: initialGameData.baseInfo.世界 || '未知世界',
+      talentTier: initialGameData.baseInfo.天资 || '普通',
+      origin: processedOrigin || '平民',
+      spiritRoot: processedSpiritRoot || '五行灵根',
+      talents: initialGameData.baseInfo.天赋 || [],
+      attributes: {
+        根骨: initialGameData.baseInfo.先天六司?.根骨 || 5,
+        灵性: initialGameData.baseInfo.先天六司?.灵性 || 5,
+        悟性: initialGameData.baseInfo.先天六司?.悟性 || 5,
+        气运: initialGameData.baseInfo.先天六司?.气运 || 5,
+        魅力: initialGameData.baseInfo.先天六司?.魅力 || 5,
+        心性: initialGameData.baseInfo.先天六司?.心性 || 5
+      }
+    };
+    
+    console.log('【神识印记】构建的用户选择信息:', userSelections);
+    
+    // 1.7. 基于先天六司做基础数值预计算（不含“修为”）
+    const ageYears = Number(initialGameData?.creationDetails?.age || 16);
+    const attrs = userSelections.attributes || { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 };
+    const hpMax = Math.max(30, 80 + attrs.根骨 * 6 + Math.floor(attrs.心性 * 2));
+    const lingMax = Math.max(0, attrs.灵性 * 6);
+    const shenMax = Math.max(10, 10 + attrs.悟性 * 2 + Math.floor(attrs.心性));
+    const lifeMax = Math.max(40, 80 + attrs.根骨 * 2 + attrs.气运 * 3);
+    const lifeCurrent = Math.max(0, lifeMax - ageYears);
+
+    const derivedStats = {
+      基线数值: {
+        气血: { 当前: hpMax, 最大: hpMax },
+        灵气: { 当前: 0, 最大: lingMax },
+        神识: { 当前: shenMax, 最大: shenMax },
+        寿命: { 当前: lifeCurrent, 最大: lifeMax }
+      },
+      先天六司: attrs,
+      天资: userSelections.talentTier,
+      灵根: userSelections.spiritRoot
+    };
+
+    // 1.8. 将预计算基线直接写入酒馆存档（仅写“最终数值”，不写计算过程），以便开局即正确展示
+    try {
+      const { getTavernHelper } = await import('../tavern');
+      const tv = getTavernHelper();
+      if (tv) {
+        const vars = await tv.getVariables({ type: 'chat' });
+        const saveData: any = (vars['character.saveData'] as any) || {};
+        saveData['玩家角色状态'] = saveData['玩家角色状态'] || {};
+        const st = saveData['玩家角色状态'];
+        st['气血'] = { 当前: hpMax, 最大: hpMax };
+        st['灵气'] = { 当前: 0, 最大: lingMax };
+        st['神识'] = { 当前: shenMax, 最大: shenMax };
+        st['寿命'] = { 当前: lifeCurrent, 最大: lifeMax };
+        await tv.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
+        console.log('[初始化基线] 已写入玩家角色状态基线: ', st);
+      }
+    } catch (e) {
+      console.warn('[初始化基线] 写入玩家角色状态基线失败（非致命）：', e);
+    }
+
     const promptInput = {
+      character_creation: {
+        selections: userSelections,
+        derived_stats: derivedStats
+      },
       gmRequest,
       reference: {
-        chatVariables: chatVariablesForPrompt || {},
+        chatVariables: sanitizedChatVars || {},
+        last_text: lastTextMemory,
         note: '所有路径请统一以 character.saveData. 开头，并严格匹配参考中已有字段结构。'
       }
     };
-    const prompt = (INITIAL_MESSAGE_PROMPT + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
+    
+    // 使用动态提示词而不是静态提示词
+    const dynamicPrompt = buildInitialMessagePrompt(userSelections);
+    const prompt = (dynamicPrompt + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
     
     console.log('【角色初始化-调试】准备调用generateItemWithTavernAI');
-    console.log('【角色初始化-调试】INITIAL_MESSAGE_PROMPT长度:', INITIAL_MESSAGE_PROMPT.length);
-    console.log('【角色初始化-调试】INITIAL_MESSAGE_PROMPT前200字符:', INITIAL_MESSAGE_PROMPT.substring(0, 200));
+    console.log('【角色初始化-调试】动态提示词长度:', dynamicPrompt.length);
+    console.log('【角色初始化-调试】动态提示词前200字符:', dynamicPrompt.substring(0, 200));
     console.log('【角色初始化-调试】完整prompt长度:', prompt.length);
     console.log('【角色初始化-调试】完整prompt前300字符:', prompt.substring(0, 300));
     console.log('【神识印记-调试】构建的完整prompt:', prompt);
     console.log('【神识印记-调试】prompt长度:', prompt.length);
     console.log('【神识印记-调试】GM_Request数据:', gmRequest);
+    console.log('【神识印记-调试】用户选择信息:', userSelections);
     
     // 3. 调用通用生成器，并期望返回GM_Response格式
     const result = await generateItemWithTavernAI<GM_Response>(prompt, '天道初言', false);
@@ -365,7 +452,49 @@ export async function generateInGameResponse(
     };
     const derived = computeDerived(chatVariablesForPrompt);
 
+    // 提取上一条对话的AI/GM文本（用于连续性）
+    let lastTextMemory = '';
+    try {
+      const saveFromChat = (chatVariablesForPrompt?.['character.saveData'] as any) || {};
+      const history = (saveFromChat?.['对话历史'] || saveFromChat?.对话历史) as any[] | undefined;
+      if (Array.isArray(history) && history.length > 0) {
+        for (let i = history.length - 1; i >= 0; i--) {
+          const m: any = history[i];
+          const t = String(m?.type || '').toLowerCase();
+          if ((t === 'ai' || t === 'gm') && typeof m?.content === 'string' && m.content.trim()) {
+            lastTextMemory = String(m.content);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('【提示词连续性】提取上一次对话文本失败（忽略）:', e);
+    }
+
     // 构建当前游戏状态的GM请求对象
+    // 优先使用短期记忆作为上一条文本，并从 chat 变量中去重避免重复
+    try {
+      const saveFromChat2 = (chatVariablesForPrompt?.['character.saveData'] as any) || {};
+      const mem2 = saveFromChat2?.['记忆'] || saveFromChat2?.记忆;
+      const short2 = mem2?.['短期记忆'] || mem2?.短期记忆;
+      if (Array.isArray(short2) && short2.length > 0 && typeof short2[short2.length - 1] === 'string') {
+        lastTextMemory = String(short2[short2.length - 1]);
+      }
+    } catch {}
+    const sanitizedChatVars: Record<string, unknown> = chatVariablesForPrompt ? JSON.parse(JSON.stringify(chatVariablesForPrompt)) : {};
+    try {
+      const saveSan = (sanitizedChatVars['character.saveData'] as any) || null;
+      const memSan = saveSan?.['记忆'] || saveSan?.记忆;
+      const shortSan = memSan?.['短期记忆'] || memSan?.短期记忆;
+      if (Array.isArray(shortSan) && typeof lastTextMemory === 'string' && lastTextMemory.trim()) {
+        const lastIdx = shortSan.length - 1;
+        if (typeof shortSan[lastIdx] === 'string' && String(shortSan[lastIdx]).trim() === lastTextMemory.trim()) {
+          shortSan.splice(lastIdx, 1);
+          if (memSan?.['短期记忆']) memSan['短期记忆'] = shortSan;
+          if (memSan?.短期记忆) memSan.短期记忆 = shortSan;
+        }
+      }
+    } catch {}
     const gmRequest = {
       ...currentGameData,
       playerAction: playerAction || '继续当前活动',
@@ -393,13 +522,19 @@ export async function generateInGameResponse(
       derived
     };
     const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
+    const previousBlock = lastTextMemory && typeof lastTextMemory === 'string' && lastTextMemory.trim()
+      ? `\n\n【上一条对话全文】\n${lastTextMemory}\n`
+      : '';
+    const continuityGuide = '\n\n【连续性要求】基于上一条对话全文（如上）作为上一条叙述的延续进行创作：不得重复或总结已给内容；保持文风一致，仅推进后续发展。';
+    const finalPromptWithContinuity = finalPrompt + previousBlock + continuityGuide;
+    console.log('【连续性】上一条对话字数:', typeof lastTextMemory === 'string' ? lastTextMemory.length : 0);
     
     console.log('【剧情推进】最终提示词长度:', finalPrompt.length);
     console.log('【剧情推进】GM请求数据:', gmRequest);
     
     // 调用AI生成响应
     const result = await generateItemWithTavernAI<GM_Response>(
-      finalPrompt, 
+      finalPromptWithContinuity, 
       sceneType ? `${sceneType}剧情推进` : '剧情推进', 
       false
     );

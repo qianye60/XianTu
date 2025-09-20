@@ -61,7 +61,7 @@ const getIconComponent = (iconName: string) => {
 }
 
 /* 手机端适配 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .data-type-selector {
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
@@ -98,7 +98,6 @@ const getIconComponent = (iconName: string) => {
   border-color: var(--color-primary);
   background: var(--color-primary-light);
 }
-
 
 .type-btn.active {
   background: var(--color-primary);
@@ -137,7 +136,7 @@ const getIconComponent = (iconName: string) => {
 }
 
 /* 手机端按钮适配 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .type-btn {
     padding: 0.4rem 0.6rem;
     font-size: 0.8rem;

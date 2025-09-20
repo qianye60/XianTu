@@ -59,6 +59,7 @@ import { useCharacterStore } from './stores/characterStore';
 import { useUIStore } from './stores/uiStore';
 import { verifyStoredToken } from './services/request';
 import { toast } from './utils/toast';
+import { getTavernHelper } from './utils/tavern'; // 添加导入
 import type { CharacterBaseInfo, InnateAttributes, SaveData } from '@/types/game';
 import { initializeCharacter } from '@/services/characterInitialization';
 
@@ -158,6 +159,21 @@ const handleCreationComplete = async (rawPayload: any) => {
   console.log('接收到创角指令...', rawPayload);
   uiStore.startLoading('开始铸造法身...');
   try {
+    // 从酒馆获取当前活跃的Persona名字
+    let personaName = '无名道友';
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        const vars = await helper.getVariables({ type: 'global' });
+        // 尝试获取当前Persona的名字
+        personaName = vars['persona.name'] || vars['name'] || rawPayload.characterName || '无名道友';
+        console.log('[创角完成] 从酒馆Personas获取名字:', personaName);
+      }
+    } catch (error) {
+      console.warn('[创角完成] 无法从酒馆获取Persona名字，使用用户输入:', error);
+      personaName = rawPayload.characterName || '无名道友';
+    }
+    
     const convertedAttributes = rawPayload.baseAttributes ? {
       根骨: rawPayload.baseAttributes.root_bone || 5,
       灵性: rawPayload.baseAttributes.spirituality || 5,
@@ -170,9 +186,9 @@ const handleCreationComplete = async (rawPayload: any) => {
     };
 
     const baseInfo: CharacterBaseInfo = {
-      名字: rawPayload.characterName || '无名道友',
+      名字: personaName, // 使用从酒馆获取的Persona名字
       性别: rawPayload.gender || '男',
-      世界: rawPayload.world?.name || '未知世界',
+      世界: rawPayload.world?.name || '未知世界', // 保持用户选择的世界
       天资: rawPayload.talentTier?.name || '凡品',
       出生: rawPayload.origin?.name || '随机出身',
       灵根: rawPayload.spiritRoot?.name || '随机灵根',
@@ -249,7 +265,6 @@ const showHelp = () => {
   console.log('Help button clicked. Panel/modal to be implemented.');
   toast.info('教程功能正在开发中，敬请期待！');
 };
-
 
 // --- 生命周期钩子 ---
 onMounted(() => {

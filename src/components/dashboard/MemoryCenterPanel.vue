@@ -15,36 +15,117 @@
           <span class="tab-name">{{ type.name }}</span>
           <span class="tab-count">{{ getTypeCount(type.key) }}</span>
         </button>
+        <button 
+          class="settings-toggle-btn"
+          @click="showSettings = !showSettings"
+          :class="{ active: showSettings }"
+          title="记忆系统设置"
+        >
+          <Settings :size="16" />
+        </button>
+      </div>
+    </div>
+
+    <!-- 记忆系统设置 -->
+    <div class="settings-section" v-if="showSettings">
+      <div class="settings-header">
+        <span class="settings-title">⚙️ 记忆系统配置</span>
+        <button 
+          class="settings-close-btn"
+          @click="showSettings = false"
+        >✕</button>
       </div>
       
-      <!-- 记忆容量状态提示 -->
-      <div class="memory-status">
-        <div class="status-item" :class="{ warning: shortTermMemories.length >= MEMORY_CONFIG.SHORT_TERM_LIMIT * 0.8 }">
-          <span class="status-label">短期</span>
-          <span class="status-bar">
-            <span class="status-fill" :style="{ width: `${(shortTermMemories.length / MEMORY_CONFIG.SHORT_TERM_LIMIT) * 100}%` }"></span>
-          </span>
-          <span class="status-text">{{ shortTermMemories.length }}/{{ MEMORY_CONFIG.SHORT_TERM_LIMIT }}</span>
+      <div class="settings-content">
+        <div class="setting-item">
+          <label class="setting-label">短期记忆限制 (条):</label>
+          <input 
+            type="number" 
+            v-model.number="memoryConfig.shortTermLimit"
+            min="3" 
+            max="10"
+            class="setting-input"
+          />
+          <span class="setting-hint">默认: 5</span>
         </div>
-        <div class="status-item" :class="{ warning: mediumTermMemories.length >= MEMORY_CONFIG.MEDIUM_TERM_LIMIT * 0.8 }">
-          <span class="status-label">中期</span>
-          <span class="status-bar">
-            <span class="status-fill" :style="{ width: `${(mediumTermMemories.length / MEMORY_CONFIG.MEDIUM_TERM_LIMIT) * 100}%` }"></span>
-          </span>
-          <span class="status-text">{{ mediumTermMemories.length }}/{{ MEMORY_CONFIG.MEDIUM_TERM_LIMIT }}</span>
+        
+        <div class="setting-item">
+          <label class="setting-label">中期记忆转化阈值 (条):</label>
+          <input 
+            type="number" 
+            v-model.number="memoryConfig.midTermTrigger"
+            min="10" 
+            max="50"
+            class="setting-input"
+          />
+          <span class="setting-hint">中期记忆积累达到此数量时转化为长期记忆，默认: 20</span>
         </div>
-        <div class="status-item">
-          <span class="status-label">长期</span>
-          <span class="status-bar">
-            <span class="status-fill" :style="{ width: `${Math.min((longTermMemories.length / MEMORY_CONFIG.LONG_TERM_LIMIT) * 100, 100)}%` }"></span>
-          </span>
-          <span class="status-text">{{ longTermMemories.length }}/{{ MEMORY_CONFIG.LONG_TERM_LIMIT }}</span>
+        
+        <div class="setting-item">
+          <label class="setting-label">中期记忆保留数量 (条):</label>
+          <input 
+            type="number" 
+            v-model.number="memoryConfig.midTermKeep"
+            min="3" 
+            max="15"
+            class="setting-input"
+          />
+          <span class="setting-hint">转化为长期记忆时保留最新的中期记忆数量，默认: 8</span>
+        </div>
+        
+        <div class="setting-item">
+          <label class="setting-label">
+            <input 
+              type="checkbox" 
+              v-model="memoryConfig.autoSummaryEnabled"
+              class="setting-checkbox"
+            />
+            启用自动记忆转化
+          </label>
+          <span class="setting-hint">开启后自动将中期记忆转化为长期记忆，关闭则不进行转化</span>
+        </div>
+        
+        <div class="setting-item">
+          <label class="setting-label">中期记忆自定义格式:</label>
+          <textarea 
+            v-model="memoryConfig.midTermFormat"
+            class="setting-textarea"
+            placeholder="留空使用默认格式。可自定义AI提示词来控制中期记忆的生成格式..."
+            rows="4"
+          ></textarea>
+          <span class="setting-hint">自定义中期记忆的AI提示词格式，留空使用系统默认</span>
+        </div>
+        
+        <div class="setting-item">
+          <label class="setting-label">长期记忆自定义格式:</label>
+          <textarea 
+            v-model="memoryConfig.longTermFormat"
+            class="setting-textarea"
+            placeholder="留空使用默认格式。可自定义AI提示词来控制长期记忆的生成格式..."
+            rows="4"
+          ></textarea>
+          <span class="setting-hint">自定义长期记忆的AI提示词格式，留空使用系统默认</span>
+        </div>
+        
+        <div class="settings-actions">
+          <button 
+            class="action-btn success"
+            @click="saveMemoryConfig"
+          >
+            💾 保存配置
+          </button>
+          <button 
+            class="action-btn info"
+            @click="resetMemoryConfig"
+          >
+            🔄 重置默认
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 记忆列表 -->
-    <div class="panel-content">
+    <div class="panel-content" v-if="!showSettings">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner">⏳</div>
         <div class="loading-text">正在读取记忆...</div>
@@ -53,7 +134,6 @@
       <div v-else-if="filteredMemories.length === 0" class="empty-state">
         <div class="empty-icon">🧠</div>
         <div class="empty-text">{{ getEmptyText() }}</div>
-        <div class="empty-hint">随着游戏进行，记忆会自动记录在这里</div>
       </div>
 
       <div v-else class="memory-list">
@@ -130,13 +210,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { RefreshCw, Trash2 } from 'lucide-vue-next';
+import { RefreshCw, Trash2, Settings } from 'lucide-vue-next';
 import { panelBus } from '@/utils/panelBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { parseMemoryContent, type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
+import MultiLayerMemorySystem from '@/utils/MultiLayerMemorySystem';
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
@@ -156,6 +237,20 @@ interface Memory {
 const characterStore = useCharacterStore();
 const loading = ref(false);
 const activeFilter = ref('all');
+const showSettings = ref(false);
+
+// MultiLayerMemorySystem实例
+const memorySystem = MultiLayerMemorySystem.getInstance();
+
+// 记忆系统配置
+const memoryConfig = ref({
+  shortTermLimit: 5,
+  midTermTrigger: 20,
+  midTermKeep: 8,
+  autoSummaryEnabled: true,
+  midTermFormat: '',
+  longTermFormat: '',
+});
 
 // 记忆转化配置
 const MEMORY_CONFIG = {
@@ -179,7 +274,6 @@ const memories = computed(() => {
   ];
   return allMemories.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 });
-
 
 // 记忆类型
 const memoryTypes = [
@@ -223,7 +317,7 @@ const getTypeCount = (type: string): number => {
 const getEmptyText = (): string => {
   if (activeFilter.value === 'all') return '心境空明如镜，尚未记录修行感悟';
   const type = memoryTypes.find(t => t.key === activeFilter.value);
-  return `此类${type?.name}记忆如流水无痕，待道友体验后方可显现`;
+  return `暂无${type?.name}记忆`;
 };
 
 // 获取类型图标
@@ -342,7 +436,8 @@ const refreshMemory = async () => {
   loading.value = true;
   try {
     await loadMemoryData();
-    toast.success('记忆数据已刷新');
+    // 移除频繁的记忆数据刷新成功提示，避免干扰正常操作
+    // toast.success('记忆数据已刷新');
   } catch (error) {
     debug.error('记忆中心', '刷新失败', error);
     toast.error('刷新失败');
@@ -354,17 +449,45 @@ const refreshMemory = async () => {
 // 清理记忆（使用全局确认弹窗）
 import { useUIStore } from '@/stores/uiStore';
 const uiStore = useUIStore();
-const clearMemory = () => {
+const clearMemory = async () => {
   uiStore.showRetryDialog({
     title: '清理记忆',
-    message: '确定要清理所有记忆吗？此操作不可撤销。',
+    message: '确定要清理所有记忆吗？此操作不可撤销，将同步清理酒馆数据。',
     confirmText: '确认清理',
     cancelText: '取消',
-    onConfirm: () => {
-      shortTermMemories.value = [];
-      mediumTermMemories.value = [];
-      longTermMemories.value = [];
-      toast.success('记忆已清理');
+    onConfirm: async () => {
+      try {
+        // 清理本地显示数据
+        shortTermMemories.value = [];
+        mediumTermMemories.value = [];
+        longTermMemories.value = [];
+        
+        // 同步清理酒馆存档数据
+        const characterStore = useCharacterStore();
+        const save = characterStore.activeSaveSlot;
+        if (save?.存档数据) {
+          // 清理存档中的记忆数据
+          if (save.存档数据.记忆) {
+            save.存档数据.记忆.短期记忆 = [];
+            save.存档数据.记忆.中期记忆 = [];
+            save.存档数据.记忆.长期记忆 = [];
+          }
+          
+          // 同步到酒馆
+          const helper = getTavernHelper();
+          if (helper) {
+            await helper.insertOrAssignVariables({
+              'character.saveData': save.存档数据
+            }, { type: 'chat' });
+            console.log('[记忆中心] 已同步清理酒馆记忆数据');
+          }
+        }
+        
+        toast.success('记忆已清理并同步到酒馆');
+      } catch (error) {
+        console.error('[记忆中心] 清理记忆失败:', error);
+        toast.error('清理记忆失败，请重试');
+      }
     },
     onCancel: () => {}
   });
@@ -547,8 +670,44 @@ const loadMemoryData = async () => {
   }
 };
 
+// 记忆配置管理功能
+const loadMemoryConfig = () => {
+  try {
+    const stats = memorySystem.getMemoryStats();
+    if (stats.config) {
+      memoryConfig.value = { ...memoryConfig.value, ...stats.config };
+    }
+  } catch (error) {
+    debug.error('记忆中心', '加载配置失败:', error);
+  }
+};
+
+const saveMemoryConfig = () => {
+  try {
+    memorySystem.updateConfig(memoryConfig.value);
+    toast.success('记忆系统配置已保存');
+    debug.log('记忆中心', '配置已保存:', memoryConfig.value);
+  } catch (error) {
+    debug.error('记忆中心', '保存配置失败:', error);
+    toast.error('保存配置失败');
+  }
+};
+
+const resetMemoryConfig = () => {
+  memoryConfig.value = {
+    shortTermLimit: 5,
+    midTermTrigger: 20,
+    midTermKeep: 8,
+    autoSummaryEnabled: true,
+    midTermFormat: '',
+    longTermFormat: '',
+  };
+  toast.success('配置已重置为默认值');
+};
+
 onMounted(() => {
   loadMemoryData();
+  loadMemoryConfig();
   // 绑定统一顶栏动作
   panelBus.on('refresh', async () => {
     loading.value = true;
@@ -557,80 +716,385 @@ onMounted(() => {
   panelBus.on('test', () => {
     addMemory('short', '【测试记忆】用于检验转化与渲染。');
   });
-  panelBus.on('clear', () => {
-    shortTermMemories.value = [];
-    mediumTermMemories.value = [];
-    longTermMemories.value = [];
-    toast.success('已清理所有记忆');
+  panelBus.on('clear', async () => {
+    await clearMemory();
   });
 });
 </script>
 
 <style scoped>
 /* 顶栏动作统一处理，移除本地工具栏 */
-/* 记忆状态条样式 */
-.memory-status {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: rgba(var(--color-surface-rgb), 0.5);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+/* 容器约束防止溢出 */
+.memory-center-panel {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  container-type: inline-size;
+  margin: 0;
+  padding: 1rem;
   display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
+  flex-direction: column;
 }
 
-.status-item {
+.filter-section {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  align-items: center;
+  margin: 0 0 1rem 0;
+  padding: 1rem;
+  background: rgba(var(--color-surface-rgb), 0.3);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.filter-tabs .filter-tab {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.filter-tabs .settings-toggle-btn {
+  margin-left: auto;
+}
+
+.filter-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  min-width: 120px;
-  flex: 1;
-}
-
-.status-item.warning {
-  color: var(--color-warning);
-}
-
-.status-label {
-  font-size: 0.75rem;
+  box-sizing: border-box;
+  font-size: 0.875rem;
   font-weight: 500;
-  min-width: 2rem;
-}
-
-.status-bar {
-  flex: 1;
-  height: 6px;
-  background: rgba(var(--color-border-rgb), 0.3);
-  border-radius: 3px;
-  overflow: hidden;
+  min-height: 40px;
   position: relative;
 }
 
-.status-fill {
+.filter-tab:hover {
+  background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-tab.active {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border-color: var(--color-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.filter-tab .tab-icon {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-tab .tab-name {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.filter-tab .tab-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-text);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1;
+}
+
+.filter-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.filter-section {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.panel-content {
+  width: 100%;
+  max-width: 100%;
+  height: calc(100% - 80px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 设置界面样式 */
+.settings-section {
+  margin: 0;
+  padding: 0;
+  background: rgba(var(--color-surface-rgb), 0.95);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  animation: fadeIn 0.3s ease-in-out;
+  max-width: 100%;
+  width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, var(--color-success), var(--color-warning), var(--color-danger));
-  border-radius: 3px;
+  max-height: calc(100% - 80px);
+  box-sizing: border-box;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0;
+  padding: 1rem 1rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.settings-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-close-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.2rem;
+  border-radius: 4px;
   transition: var(--transition-fast);
+  flex-shrink: 0;
 }
 
-.status-item.warning .status-fill {
-  background: var(--color-warning);
+.settings-close-btn:hover {
+  background: rgba(var(--color-danger-rgb), 0.1);
+  color: var(--color-danger);
 }
 
-.status-text {
+.settings-content {
+  display: block;
+  max-width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.settings-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+  background: rgba(var(--color-border-rgb), 0.1);
+  border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 100%;
+  overflow: visible;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+}
+
+.setting-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
+}
+
+.setting-input {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  width: 100px;
+  max-width: 120px;
+  transition: var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.setting-textarea {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  width: 100%;
+  max-width: 100%;
+  transition: var(--transition-fast);
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 100px;
+  font-family: monospace;
+  line-height: 1.4;
+}
+
+.setting-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.setting-textarea::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.setting-checkbox {
+  margin-right: 0.5rem;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.setting-hint {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
-  min-width: 3rem;
+  opacity: 0.8;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 
-.btn-icon {
-  font-size: 1rem;
+.settings-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  max-width: 100%;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
+/* 通用操作按钮基样式，确保有清晰边框 */
+.action-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action-btn.success {
+  background: rgba(var(--color-success-rgb), 0.1);
+  border: 1px solid rgba(var(--color-success-rgb), 0.3);
+  color: var(--color-success);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.action-btn.success:hover {
+  background: rgba(var(--color-success-rgb), 0.2);
+  border-color: var(--color-success);
+}
+
+/* 信息按钮，用于“重置默认”等操作 */
 .action-btn.info {
   background: rgba(var(--color-info-rgb), 0.1);
-  border-color: rgba(var(--color-info-rgb), 0.3);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
   color: var(--color-info);
 }
 
@@ -639,11 +1103,42 @@ onMounted(() => {
   border-color: var(--color-info);
 }
 
+.settings-toggle-btn {
+  background: rgba(var(--color-surface-rgb), 0.8);
+  border: 1px solid var(--color-border);
+  padding: 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
+}
+
+.settings-toggle-btn:hover,
+.settings-toggle-btn.active {
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+}
+
 /* 记忆卡片特定样式 */
 .memory-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .memory-card {
@@ -653,6 +1148,12 @@ onMounted(() => {
   border-radius: 8px;
   transition: var(--transition-fast);
   cursor: pointer;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .memory-card:hover {
@@ -707,6 +1208,11 @@ onMounted(() => {
   color: var(--color-text);
   line-height: 1.5;
   margin-bottom: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .memory-title {
@@ -746,6 +1252,11 @@ onMounted(() => {
   color: var(--color-text);
   line-height: 1.4;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .memory-item::before {
@@ -777,13 +1288,121 @@ onMounted(() => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .memory-center-panel {
     gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
   
   .header-actions .btn-text {
     display: none;
+  }
+  
+  .filter-tabs {
+    gap: 0.3rem;
+  }
+  
+  .filter-tab {
+    max-width: 120px;
+    font-size: 0.8rem;
+  }
+  
+  .memory-status {
+    gap: 0.5rem;
+    padding: 0.6rem;
+    flex-direction: column;
+  }
+  
+  .status-item {
+    min-width: 80px;
+    flex: 1 1 100px;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .status-text {
+    font-size: 0.7rem;
+    min-width: 2.5rem;
+  }
+  
+  .memory-card {
+    padding: 0.8rem;
+  }
+  
+  .memory-content {
+    font-size: 0.8rem;
+  }
+  
+  .memory-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  
+  .memory-type-badge {
+    align-self: flex-start;
+  }
+  
+  .memory-time {
+    align-self: flex-end;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .memory-center-panel {
+    gap: 0.5rem;
+  }
+  
+  .filter-tabs {
+    gap: 0.2rem;
+  }
+  
+  .filter-tab {
+    max-width: 100px;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+  
+  .memory-status {
+    padding: 0.5rem;
+  }
+  
+  .status-item {
+    gap: 0.3rem;
+  }
+  
+  .status-label {
+    font-size: 0.7rem;
+    min-width: 1.5rem;
+  }
+  
+  .status-bar {
+    height: 4px;
+  }
+  
+  .status-text {
+    font-size: 0.65rem;
+    min-width: 2rem;
+  }
+  
+  .memory-card {
+    padding: 0.6rem;
+  }
+  
+  .memory-content {
+    font-size: 0.75rem;
+  }
+  
+  .memory-section-title {
+    font-size: 0.8rem;
+  }
+  
+  .memory-item {
+    font-size: 0.75rem;
+    padding-left: 0.8rem;
   }
 }
 </style>

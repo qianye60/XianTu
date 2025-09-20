@@ -95,7 +95,7 @@ export class CultivationWorldGenerator {
       worldName: this.userConfig?.worldName
     };
     
-    // 使用增强提示词构建器
+    // 使用增强提示词构建器（按原样返回提示词内容）
     return EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
   }
 
@@ -219,12 +219,48 @@ export class CultivationWorldGenerator {
             return cleaned;
           };
 
+          // 统一“最强修为”和成员分布的一致性：以成员分布为准
+          const allowedOrder = ['练气','筑基','金丹','元婴','化神','炼虚','合体','渡劫'];
+          const realmIndex = (r: string) => {
+            const base = r.replace(/(初期|中期|后期|圆满|极境)/g, '');
+            const idx = allowedOrder.indexOf(base);
+            return idx === -1 ? -1 : idx;
+          };
+          const highestFromMembers = (byRealm: Record<string, number> | undefined): string | null => {
+            if (!byRealm) return null;
+            let highest: string | null = null;
+            let maxIdx = -1;
+            for (const [realm, count] of Object.entries(byRealm)) {
+              const idx = realmIndex(realm);
+              if ((Number(count) || 0) > 0 && idx > maxIdx) {
+                maxIdx = idx;
+                highest = realm;
+              }
+            }
+            if (highest) {
+              const base = highest.replace(/(初期|中期|后期|圆满|极境)/g, '');
+              return `${base}后期`;
+            }
+            return null;
+          };
+
           if (faction?.leadership) {
             faction.leadership.宗主修为 = sanitizeRealmName(faction.leadership.宗主修为);
             faction.leadership.最强修为 = sanitizeRealmName(faction.leadership.最强修为);
           }
           if (faction?.memberCount?.byRealm) {
             faction.memberCount.byRealm = sanitizeByRealm(faction.memberCount.byRealm);
+          }
+
+          // 校正“最强修为”与成员分布一致
+          const highest = highestFromMembers(faction?.memberCount?.byRealm);
+          if (highest) {
+            const currentMaxIdx = realmIndex(faction?.leadership?.最强修为 || '');
+            const memberMaxIdx = realmIndex(highest);
+            if (memberMaxIdx > currentMaxIdx) {
+              if (!faction.leadership) (faction as any).leadership = {};
+              (faction.leadership as any).最强修为 = highest;
+            }
           }
           // 先准备计算数据
           const calcData: SectCalculationData = {

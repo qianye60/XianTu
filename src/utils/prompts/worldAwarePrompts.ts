@@ -171,7 +171,7 @@ export class WorldAwareGMPrompts {
       return `${nearbyFactions[0].name}势力范围`;
     }
     
-    return '多方势力交界处';
+    return '多方势力交界区';
   }
 
   /**
@@ -224,7 +224,6 @@ ${eventInfo}
 ## **📋 势力数据操作指南**
 
 在需要更新势力相关信息时，请使用以下tavern_commands格式：
-
 \`\`\`json
 {
   "action": "set/add/push",
@@ -234,8 +233,7 @@ ${eventInfo}
 }
 \`\`\`
 
-现在请基于这个丰富的世界背景创造精彩的游戏体验！
-`;
+现在请基于这个丰富的世界背景创造精彩的游戏体验！`;
   }
 
   /**
@@ -316,19 +314,19 @@ ${eventInfo}
       return '多山地形，灵气充沛，适宜修炼';
     }
     
-    if (locationLower.includes('城') || locationLower.includes('坊')) {
+    if (locationLower.includes('城') || locationLower.includes('镇')) {
       return '繁华都市，人流密集，商贸兴盛';
     }
     
-    if (locationLower.includes('谷') || locationLower.includes('涧')) {
+    if (locationLower.includes('谷') || locationLower.includes('峡')) {
       return '幽静峡谷，易守难攻，常有隐秘';
     }
     
-    if (locationLower.includes('海') || locationLower.includes('湖')) {
+    if (locationLower.includes('湖') || locationLower.includes('河')) {
       return '水域丰富，水行灵气浓郁';
     }
     
-    if (locationLower.includes('荒') || locationLower.includes('漠')) {
+    if (locationLower.includes('荒') || locationLower.includes('野')) {
       return '地广人稀，充满未知和危险';
     }
     
@@ -341,20 +339,17 @@ ${eventInfo}
  */
 export function generateFactionAwareInitPrompt(characterData: Record<string, unknown>): Promise<string> {
   return WorldAwareGMPrompts.generateWorldAwarePrompt({
-    userAction: '开始修仙之旅',
+    userAction: '开始修仙之路',
     characterData,
     basePrompt: `
 # **🚀 修仙世界角色初始化**
 
 请为玩家创造一个精彩的修仙世界开局，考虑以下角色信息：
-
 **角色基础信息：**
 - 姓名：${(characterData as any)?.角色基础信息?.名字 || '无名'}
 - 出身：${(characterData as any)?.角色基础信息?.出身 || '未知'}
 - 年龄：${(characterData as any)?.角色基础信息?.年龄 || '未知'}岁
-
-请基于世界势力格局和角色背景，创造一个引人入胜的开局剧情。
-`
+请基于世界势力格局和角色背景，创造一个引人入胜的开局剧情。`
   });
 }
 
@@ -369,15 +364,13 @@ export function generateFactionAwareDialoguePrompt(config: {
   const basePrompt = `
 # **💬 修仙世界对话系统**
 
-请基于玩家的行动和对话历史，继续发展剧情：
-
+请基于玩家的行动和对话历史，继续发展剧情。
 **玩家行动：** ${config.userAction}
 
 **对话历史：**
 ${config.conversationHistory.slice(-5).join('\n')}
 
-请创造自然流畅的剧情发展。
-`;
+请创造自然流畅的剧情发展。`;
 
   return WorldAwareGMPrompts.generateWorldAwarePrompt({
     userAction: config.userAction,

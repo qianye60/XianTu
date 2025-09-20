@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
   // Use broad types here so TS doesn't over-restrict props in templates

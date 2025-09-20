@@ -100,13 +100,14 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
 import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3 } from 'lucide-vue-next';
-import { panelBus } from '@/utils/panelBus';
+import { panelBus, type PanelAction } from '@/utils/panelBus';
 import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
 import { getTavernHelper } from '@/utils/tavern';
 import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
+import type { SaveData, CharacterBaseInfo } from '@/types/game';
 
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
@@ -124,17 +125,15 @@ const panelRoutes = new Set([
   'Quests', 'Sect', 'TavernData'
 ]);
 
-// 左侧功能面板（不应该影响左侧收缩按钮）
-const leftPanelRoutes = new Set([
-  'Inventory', 'CharacterDetails', 'Quests', 'WorldMap', 'TavernData'
-]);
 
 // 右侧相关面板（应该影响右侧收缩按钮）  
 const rightPanelRoutes = new Set([
   'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'Sect'
 ]);
 
-const panelTitles: Record<string, { title: string; icon: any }> = {
+type IconComponent = typeof Package;
+
+const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   Inventory: { title: '背包物品', icon: Package },
   CharacterDetails: { title: '人物详情', icon: User },
   Memory: { title: '记忆中心', icon: Brain },
@@ -173,7 +172,7 @@ const closePanel = () => {
   }
 };
 
-const panelActionMap: Record<string, Array<{ key: string; title: string; icon: any; action: import('@/utils/panelBus').PanelAction }>> = {
+const panelActionMap: Record<string, Array<{ key: string; title: string; icon: IconComponent; action: PanelAction }>> = {
   Memory: [
     { key: 'refresh', title: '刷新', icon: RefreshCw, action: 'refresh' },
     { key: 'test', title: '测试转化', icon: FlaskConical, action: 'test' },
@@ -252,15 +251,15 @@ const applySettings = () => {
 // 组件挂载时应用设置
 onMounted(async () => {
   applySettings();
-  // 边玩边更：尝试刷新一次“天道演算”预计算，确保载入存档后也有数据
+  // 边玩边更：尝试刷新一次"天道演算"预计算，确保载入存档后也有数据
   try {
     const helper = getTavernHelper();
     if (helper) {
       const vars = await helper.getVariables({ type: 'chat' });
-      const saveData = vars['character.saveData'];
-      const baseInfo = saveData?.角色基础信息 || vars['character.baseInfo'] || null;
+      const saveData = vars['character.saveData'] as SaveData | undefined;
+      const baseInfo = (saveData as any)?.角色基础信息 || vars['character.baseInfo'] as CharacterBaseInfo | undefined || null;
       if (saveData && baseInfo) {
-        await syncHeavenlyPrecalcToTavern(saveData, baseInfo);
+        await syncHeavenlyPrecalcToTavern(saveData, baseInfo as CharacterBaseInfo);
         console.log('[GameView] 已刷新天道演算预计算');
       }
     }
@@ -287,7 +286,7 @@ watch(isPanelOpen, (isOpen) => {
 .game-view {
   width: 100%;
   height: 100%;
-  background: #f8fafc;
+  background: var(--color-background);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   display: flex;
@@ -298,12 +297,13 @@ watch(isPanelOpen, (isOpen) => {
   flex: 1;
   display: flex;
   align-items: stretch;
-  gap: 0; /* 移除缝隙 */
-  padding: 0; /* 移除内边距 */
+  gap: 0;
+  padding: 0;
   position: relative;
   min-height: 0;
   border-top: 1px solid var(--color-border);
-  height: calc(100vh - 60px); /* 明确设置高度，减去顶部栏高度 */
+  height: calc(100vh - 60px);
+  background: var(--color-background); /* 确保背景色填充 */
 }
 
 .left-sidebar {
@@ -347,11 +347,12 @@ watch(isPanelOpen, (isOpen) => {
 
 .main-content {
   flex: 1;
-  background: var(--color-background); /* 使用背景色 */
-  margin: 0; /* 移除左右margin */
+  background: var(--color-background);
+  margin: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative; /* 确保正确的定位上下文 */
 }
 
 /* 收缩按钮样式 */
@@ -463,40 +464,7 @@ watch(isPanelOpen, (isOpen) => {
   display: none;
 }
 
-/* 深色主题 */
-[data-theme="dark"] .game-view {
-  background: #0f172a;
-}
-
-[data-theme="dark"] .left-sidebar,
-[data-theme="dark"] .right-sidebar,
-[data-theme="dark"] .main-content {
-  background: #1e293b;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .collapse-btn {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  border-color: #475569;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .collapse-btn:hover {
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-  color: #e2e8f0;
-  background: linear-gradient(135deg, #334155 0%, #475569 100%);
-}
-
-[data-theme="dark"] .collapse-btn.collapsed {
-  color: #34d399;
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
-  border-color: #34d399;
-}
-
-[data-theme="dark"] .collapse-btn.collapsed:hover {
-  background: linear-gradient(135deg, #065f46 0%, #047857 100%);
-}
+/* 移除深色主题硬编码，完全使用CSS变量 */
 
 /* 移动端适配 - 隐藏收缩按钮 */
 @media (max-width: 768px) {
@@ -538,38 +506,5 @@ watch(isPanelOpen, (isOpen) => {
   }
 }
 
-[data-theme="dark"] .mobile-nav {
-  background: #1e293b;
-  border-top-color: #334155;
-}
-
-[data-theme="dark"] .nav-btn {
-  color: #94a3b8;
-  border-color: #334155;
-}
-
-[data-theme="dark"] .nav-btn:hover {
-  background: #334155;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .nav-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
-}
-
-[data-theme="dark"] .nav-btn.active:hover {
-  background: #2563eb;
-}
-
-[data-theme="dark"] .left-sidebar.mobile-overlay,
-[data-theme="dark"] .right-sidebar.mobile-overlay {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-[data-theme="dark"] .sidebar-wrapper {
-  background: #1e293b;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
+/* 移除所有深色主题硬编码的移动端样式 */
 </style>

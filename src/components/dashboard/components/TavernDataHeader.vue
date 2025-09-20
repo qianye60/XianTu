@@ -86,7 +86,7 @@ defineEmits<{
 }
 
 /* 手机端适配 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .panel-header {
     flex-direction: column;
     gap: 0.5rem;

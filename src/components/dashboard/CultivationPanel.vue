@@ -1101,7 +1101,7 @@ const refreshCultivationData = async () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .header-actions .btn-text {
     display: none;
   }

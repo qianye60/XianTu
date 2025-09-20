@@ -33,7 +33,6 @@ import { useCharacterStore } from '@/stores/characterStore'
 const characterStore = useCharacterStore()
 const isFullscreen = ref(false)
 
-
 const characterName = computed(() => {
   return characterStore.activeCharacterProfile?.角色基础信息?.名字 || ''
 })
@@ -90,9 +89,9 @@ onMounted(() => {
   justify-content: space-between;
   padding: 0 16px;
   box-sizing: border-box;
-  background: rgba(255,255,255,0.6);
+  background: var(--color-surface-transparent);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid var(--color-border);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -103,22 +102,22 @@ onMounted(() => {
   flex: 1;
 }
 
-.game-title { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0; letter-spacing: 0.2px; }
+.game-title { font-size: 1.1rem; font-weight: 700; color: var(--color-text); margin: 0; letter-spacing: 0.2px; }
 
-.character-quick-info { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: rgba(241,245,249,0.8); border-radius: 14px; border: 1px solid #e2e8f0; }
+.character-quick-info { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--color-surface-light); border-radius: 14px; border: 1px solid var(--color-border); }
 
 .character-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text);
 }
 
 .character-realm {
   font-size: 0.75rem;
-  color: #7c3aed;
+  color: var(--color-accent);
   font-weight: 500;
   padding: 2px 6px;
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-accent-light);
   border-radius: 10px;
 }
 
@@ -128,23 +127,23 @@ onMounted(() => {
   justify-content: center;
 }
 
-.location-time-info { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: rgba(248,250,252,0.75); border: 1px solid #e2e8f0; border-radius: 10px; white-space: nowrap; }
+.location-time-info { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--color-surface-light); border: 1px solid var(--color-border); border-radius: 10px; white-space: nowrap; }
 
 .location-text {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #059669;
+  color: var(--color-success);
 }
 
 .separator {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .time-value {
   font-size: 0.8rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-weight: 500;
   font-family: 'Courier New', monospace;
 }
@@ -157,12 +156,12 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.fullscreen-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.6); border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 16px; color: #64748b; transition: all 0.2s ease; }
+.fullscreen-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: var(--color-surface-light); border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; font-size: 16px; color: var(--color-text-secondary); transition: all 0.2s ease; }
 
 .fullscreen-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #334155;
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+  color: var(--color-text);
 }
 
 /* 手机端适配 */
@@ -226,7 +225,7 @@ onMounted(() => {
 }
 
 /* 平板适配 */
-@media (min-width: 768px) and (max-width: 1024px) {
+@media (min-width: 641px) and (max-width: 1024px) {
   .top-bar {
     padding: 0 16px;
   }

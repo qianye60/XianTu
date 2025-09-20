@@ -1,13 +1,13 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
   /* --- Light Theme Colors --- */
-  --color-background: #f0f0f0;
-  --color-background-transparent: rgba(240, 240, 240, 0.85);
-  --color-surface: #faf9f7; /* 柔和的米白色，类似宣纸 */
-  --color-surface-transparent: rgba(250, 249, 247, 0.75);
-  --color-surface-light: #f1f0ee; /* 更柔和的浅色 */
+  --color-background: #e8e6e3;
+  --color-background-transparent: rgba(232, 230, 227, 0.85);
+  --color-surface: #f2f1ee; /* 温润的米白色，类似古宣纸 */
+  --color-surface-transparent: rgba(242, 241, 238, 0.75);
+  --color-surface-light: #ebe9e6; /* 更温润的浅色 */
   /* Derived/interactive states (light) */
-  --color-surface-hover: #f5f4f2; /* 悬浮时的柔和色 */
+  --color-surface-hover: #eeede9; /* 悬浮时的温润色 */
   --color-primary: #2e5cb8;
   --color-primary-rgb: 46, 92, 184;
   --color-primary-hover: #274f9d;
@@ -20,15 +20,15 @@
   --color-text: #1a1a1a;
   --color-text-secondary: #666666;
   --color-text-muted: #8b8b8b; /* 新增：柔和的浅灰色文字 */
-  --color-white-soft: #faf9f7; /* 新增：柔和的白色，替代纯白 */
+  --color-white-soft: #f2f1ee; /* 新增：温润的白色，替代纯白 */
   --color-border: rgba(0, 0, 0, 0.1);
   --color-border-hover: rgba(0, 0, 0, 0.2);
   --color-success: #4caf50;
   --color-success-hover: #43a047;
   --color-warning: #ff9800;
   --color-warning-hover: #fb8c00;
-  --color-error: #f44336;
-  --color-error-hover: #e53935;
+  --color-error: #ff2929; /* 与气血统一，更红一些 */
+  --color-error-hover: #e6375a;
   --color-info: #2196f3;
   --color-info-hover: #1e88e5;
   /* Keep danger alias for components that expect it */
@@ -38,14 +38,31 @@
   --color-hover: var(--color-surface-hover);
   /* Code block background used in data views */
   --color-code-bg: #0f172a0f; /* subtle deep slate with opacity */
-  --scrollbar-track-color: rgba(0, 0, 0, 0.05);
-  --scrollbar-thumb-color: rgba(0, 0, 0, 0.2);
-  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.4);
+  /* Global scrollbar tokens (light) – hide track, show only thumb */
+  --scrollbar-track-color: transparent;
+  --scrollbar-thumb-color: rgba(0, 0, 0, 0.35);
+  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.5);
+
+  /* Vital colors (light theme) */
+  --vital-health: #ff2929;   /* 气血/健康（与 --color-error 保持一致） */
+  --vital-lingqi: #3b82f6;   /* 灵气(统一蓝) */
+  --vital-spirit: #ffeb00;   /* 神识(金色) */
+  --vital-lifespan: #c253ff; /* 寿元(紫色) */
+
+  /* Derived RGB triplets for rgba() usage (light) */
+  --color-background-rgb: 232, 230, 227;
+  --color-surface-rgb: 242, 241, 238;
+  --color-accent-rgb: 124, 77, 255;
+  --color-border-rgb: 0, 0, 0;
+  --color-success-rgb: 76, 175, 80;
+  --color-warning-rgb: 255, 152, 0;
+  --color-error-rgb: 255, 41, 41;
+  --color-info-rgb: 33, 150, 243;
 
   /* UI缩放变量 */
   --ui-scale: 1;
   --base-font-size: 1rem;
-  
+
   /* 字体与过渡 */
   --font-family-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', 'Noto Serif SC', 'KaiTi', 'STKaiti', serif;
   --font-family-sans-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -80,17 +97,34 @@
   --color-success-hover: #88b85b;
   --color-warning: #ffd500;
   --color-warning-hover: #e6c200;
-  --color-error: #f7768e;
-  --color-error-hover: #e66a81;
+  --color-error: #ff2f49; /* 暗色下更红一些 */
+  --color-error-hover: #e64470;
   --color-info: #77cdfe;
   --color-info-hover: #66bff4;
   --color-danger: var(--color-error);
   --color-danger-hover: #e66a81;
   --color-hover: var(--color-surface-hover);
   --color-code-bg: rgba(20, 26, 43, 0.6);
-  --scrollbar-track-color: rgba(255, 255, 255, 0.05);
-  --scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
-  --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.4);
+  /* Global scrollbar tokens (dark) – hide track, show only thumb */
+  --scrollbar-track-color: transparent;
+  --scrollbar-thumb-color: rgba(255, 255, 255, 0.35);
+  --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.5);
+
+  /* Vital colors (dark theme) */
+  --vital-health: #ff2f49;   /* 气血/健康（暗色，与 --color-error 保持一致） */
+  --vital-lingqi: #3b82f6;   /* 灵气(统一蓝) */
+  --vital-spirit: #ffeb00;   /* 神识(金色) */
+  --vital-lifespan: #c253ff; /* 寿元(紫色) */
+
+  /* Derived RGB triplets for rgba() usage (dark) */
+  --color-background-rgb: 26, 27, 38;
+  --color-surface-rgb: 41, 51, 72;
+  --color-accent-rgb: 192, 202, 245;
+  --color-border-rgb: 173, 216, 230;
+  --color-success-rgb: 158, 206, 106;
+  --color-warning-rgb: 255, 213, 0;
+  --color-error-rgb: 255, 47, 73;
+  --color-info-rgb: 119, 205, 254;
 }
 
 /* --- Base Styles --- */
@@ -172,33 +206,7 @@ body {
   box-shadow: none;
 }
 
-/* --- 流光特效 --- */
-.shimmer-on-hover {
-  position: relative;
-  overflow: hidden;
-}
-
-.shimmer-on-hover::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -150%;
-  width: 75%;
-  height: 100%;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: skewX(-25deg);
-  transition: left 0.6s ease-in-out;
-  will-change: left;
-}
-
-.shimmer-on-hover:hover::after {
-  left: 150%;
-}
+/* --- 移除流光特效 --- */
 
 /* --- Button Variants --- */
 .btn.btn-secondary {
@@ -393,7 +401,6 @@ body {
     background-color: rgba(10, 15, 24, 0.4); /* 降低遮罩透明度，让背景更亮 */
 }
 
-
 .selection-content {
   position: relative;
   z-index: 1;
@@ -460,7 +467,6 @@ body {
     color: var(--color-accent);
     transform: scale(1.1);
 }
-
 
 .path-title {
   font-family: var(--font-family-serif);
@@ -540,7 +546,7 @@ body {
   height: 48px;
   border: none;
   border-radius: 12px;
-  background: rgba(250, 249, 247, 0.9); /* 使用更柔和的背景色 */
+  background: rgba(242, 241, 238, 0.9); /* 使用更温润的背景色 */
   backdrop-filter: blur(10px);
   cursor: pointer;
   display: flex;
@@ -559,7 +565,7 @@ body {
 .fullscreen-toggle:hover {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  background: rgba(250, 249, 247, 0.95); /* 悬浮时也使用柔和背景色 */
+  background: rgba(242, 241, 238, 0.95); /* 悬浮时也使用温润背景色 */
 }
 
 .theme-toggle:active,
@@ -667,7 +673,6 @@ body {
   background: rgba(41, 51, 72, 0.95);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
-
 
 /* --- App Root & Transitions --- */
 .fade-enter-active,

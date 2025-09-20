@@ -16,12 +16,6 @@
     <div v-else class="character-details-content">
       <!-- 顶部角色基本信息 -->
       <div class="character-header">
-        <div class="character-gender" :class="`gender-${baseInfo.性别}`">
-          <div class="gender-symbol">
-            {{ baseInfo.性别 === '女' ? '♀' : '♂' }}
-          </div>
-          <div class="gender-text">{{ baseInfo.性别 }}</div>
-        </div>
         <div class="character-info">
           <h1 class="character-name">{{ baseInfo.名字 }}</h1>
           <div class="character-details">
@@ -35,10 +29,7 @@
               <span class="label">年龄</span>
               <span class="value">{{ playerStatus?.寿命?.当前 }}岁</span>
             </div>
-            <div class="detail-item">
-              <span class="label">性别</span>
-              <span class="value gender-value" :class="`gender-${baseInfo.性别}`">{{ baseInfo.性别 }}</span>
-            </div>
+            
             <div class="detail-item">
               <span class="label">位置</span>
               <span class="value">{{ playerStatus?.位置?.描述 }}</span>
@@ -1308,13 +1299,13 @@ onMounted(async () => {
 }
 
 .gender-女 .gender-symbol {
-  background: linear-gradient(135deg, #ec4899, #be185d);
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+  box-shadow: 0 4px 12px rgba(var(--color-accent-rgb), 0.3);
 }
 
 .gender-男 .gender-symbol {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, var(--color-info), var(--color-info-hover));
+  box-shadow: 0 4px 12px rgba(var(--color-info-rgb), 0.3);
 }
 
 .gender-text {
@@ -1371,15 +1362,15 @@ onMounted(async () => {
 }
 
 .gender-value.gender-女 {
-  background: rgba(236, 72, 153, 0.1);
-  color: #ec4899;
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  background: rgba(var(--color-accent-rgb), 0.1);
+  color: var(--color-accent);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .gender-value.gender-男 {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: transparent;
+  color: var(--color-text);
+  border: none;
 }
 
 .character-stats {
@@ -1493,33 +1484,23 @@ onMounted(async () => {
 
 /* 信息区块优化 */
 .info-section {
-  background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-surface-rgb), 0.8));
+  background: var(--color-surface-light);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  box-shadow: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
   min-width: 0;
 }
 
-.info-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-success));
-}
-
 .info-section:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  border-color: rgba(var(--color-primary-rgb), 0.3);
+  transform: none;
+  box-shadow: none;
+  border-color: var(--color-border-hover);
 }
 
 .section-title {
@@ -1592,23 +1573,14 @@ onMounted(async () => {
   transition: width 0.3s ease;
 }
 
-.bar-danger { background: linear-gradient(90deg, #dc2626, #ef4444); }
-.bar-info { background: linear-gradient(90deg, #2563eb, #3b82f6); }
-.bar-accent { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.bar-danger { background: linear-gradient(90deg, var(--color-danger), var(--color-danger-hover)); }
+.bar-info { background: linear-gradient(90deg, var(--color-info), var(--color-info-hover)); }
+.bar-accent { background: linear-gradient(90deg, var(--color-warning), var(--color-warning-hover)); }
 
 /* 生命状态颜色 - 红蓝金三色 */
-.bar-red {
-  background: linear-gradient(90deg, #dc2626, #ef4444);
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
-}
-.bar-blue {
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
-}
-.bar-gold {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
-}
+.bar-red { background: linear-gradient(90deg, var(--vital-health), var(--vital-health)); }
+.bar-blue { background: linear-gradient(90deg, var(--vital-lingqi), var(--vital-lingqi)); }
+.bar-gold { background: linear-gradient(90deg, var(--vital-spirit), var(--vital-spirit)); }
 
 .vital-text {
   font-size: 0.85rem;
@@ -1736,12 +1708,12 @@ onMounted(async () => {
 
 .attributes-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .attributes-grid.compact {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(80px, 1fr));
   gap: 8px;
 }
 
@@ -1753,6 +1725,9 @@ onMounted(async () => {
   border-radius: 8px;
   background: var(--color-surface-light);
   min-height: 44px;
+  min-width: 80px; /* 确保有足够空间显示完整属性名 */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .attribute-item.final {
@@ -1778,13 +1753,21 @@ onMounted(async () => {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: visible;
+  text-overflow: initial;
+  padding-right: 8px;
 }
 
 .attr-value {
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
+  overflow: visible;
+  text-overflow: initial;
+  flex-shrink: 0;
+  min-width: auto;
 }
 
 .attribute-item.acquired.has-bonus .attr-value {
@@ -1793,7 +1776,7 @@ onMounted(async () => {
 
 .attribute-breakdown {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 20px;
 }
 
@@ -2101,18 +2084,18 @@ onMounted(async () => {
 
 .progress-bar {
   flex: 1;
-  height: 12px; /* 增加高度让进度条更明显 */
-  background: #e2e8f0; /* 使用更明显的背景色 */
-  border: 1px solid #cbd5e1; /* 添加边框增强可见性 */
+  height: 12px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   overflow: hidden;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); /* 添加内阴影增强立体感 */
+  box-shadow: inset 0 1px 3px rgba(var(--color-border-rgb), 0.15);
 }
 
 .progress-fill {
   height: 100%;
   min-width: 2px; /* 确保即使在0%时也有最小宽度显示 */
-  background: linear-gradient(90deg, #22c55e, #3b82f6); /* 使用明确的绿蓝渐变 */
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
   transition: width 0.3s ease;
   border-radius: 4px; /* 稍微圆润的角 */
 }
@@ -2518,7 +2501,7 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .character-header {
     flex-direction: column;
     text-align: center;
@@ -2554,7 +2537,7 @@ onMounted(async () => {
   }
 
   .attributes-grid.compact {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(70px, 1fr));
     gap: 8px;
   }
 
@@ -2571,16 +2554,18 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
-  /* 确保文字不会换行 */
+  /* 确保文字显示完整 */
   .attr-name, .attr-value {
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: initial;
   }
 
   .attribute-item {
     min-height: 36px;
     padding: 8px;
+    min-width: 70px; /* 确保移动端也有足够空间 */
+    width: 100%;
   }
 
   .character-name {
@@ -2629,13 +2614,14 @@ onMounted(async () => {
   }
 
   .attributes-grid.compact {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(60px, 1fr));
     gap: 6px;
   }
 
   .attribute-item {
     padding: 6px;
     min-height: 32px;
+    min-width: 60px; /* 确保超小屏幕也有足够空间 */
   }
 
   .attr-name {
@@ -2961,7 +2947,7 @@ onMounted(async () => {
 }
 
 /* 响应式优化 */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .skill-detail-grid {
     grid-template-columns: 1fr;
   }

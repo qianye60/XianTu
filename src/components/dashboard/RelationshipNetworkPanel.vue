@@ -1106,7 +1106,7 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .relationship-network-panel {
     padding: 0;
   }
