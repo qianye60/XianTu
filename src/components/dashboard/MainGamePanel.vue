@@ -842,12 +842,12 @@ const adjustTextareaHeight = () => {
   const textarea = inputRef.value;
   if (textarea) {
     // 重置高度以获取正确的scrollHeight
-    textarea.style.height = '20px'; // 使用更小的初始值
+    textarea.style.height = 'auto'; // 让浏览器自动计算
 
     // 计算所需高度
     const scrollHeight = textarea.scrollHeight;
     const maxHeight = 120; // 与CSS中的max-height保持一致
-    const minHeight = 44; // 最小高度，对应单行
+    const minHeight = 32; // 更小的最小高度，真正对应单行
 
     // 设置新高度，但不超过最大高度
     const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
@@ -1201,7 +1201,8 @@ const saveConversationHistory = async () => {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb-color) transparent;
+  /* 显示可见的滚动拇指，但轨道透明 */
+  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
   box-sizing: border-box;
   min-height: 200px;
 }
@@ -1216,13 +1217,26 @@ const saveConversationHistory = async () => {
   background: transparent;
 }
 
+.content-area::-webkit-scrollbar-track-piece {
+  background: transparent;
+}
+
 .content-area::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background: var(--scrollbar-thumb-color);
+  background-color: rgba(148, 163, 184, 0.6);
+}
+
+/* 悬停时略微增强可见度 */
+.content-area:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.8);
 }
 
 .content-area::-webkit-scrollbar-button {
   display: none;
+}
+
+.content-area::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 
@@ -1336,7 +1350,7 @@ const saveConversationHistory = async () => {
   border-radius: 8px;
   background: var(--color-background);
   transition: all 0.2s ease;
-  min-height: 44px; /* 最小高度 */
+  min-height: 32px; /* 减小最小高度以对应单行 */
   max-width: 100%; /* 防止横向扩展 */
   overflow: hidden; /* 确保内容不会溢出容器 */
 }
@@ -1370,11 +1384,35 @@ const saveConversationHistory = async () => {
   /* 移除自动高度相关样式，用JS控制 */
   height: auto;
   line-height: 1.4;
+  /* 透明滚动条（Firefox） */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
 }
 
 .input-container .game-input:focus {
   border: none;
   box-shadow: none;
+}
+
+/* 透明滚动条（WebKit） */
+.input-container .game-input::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+
+.input-container .game-input::-webkit-scrollbar-track,
+.input-container .game-input::-webkit-scrollbar-track-piece,
+.input-container .game-input::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.input-container .game-input::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background-color: rgba(148, 163, 184, 0.6);
+}
+
+.input-container .game-input:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.8);
 }
 
 /* 输入框内部的流式传输选项 */
@@ -1393,7 +1431,7 @@ const saveConversationHistory = async () => {
   user-select: none;
   flex-shrink: 0;
   align-self: stretch; /* 垂直拉伸以匹配容器高度 */
-  min-height: 44px; /* 确保最小高度 */
+  min-height: 32px; /* 减小最小高度以对应单行 */
 }
 
 .stream-toggle-inside:hover {
@@ -1512,7 +1550,7 @@ const saveConversationHistory = async () => {
   transition: all 0.2s ease;
   flex-shrink: 0;
   font-family: inherit;
-  min-height: 44px; /* 确保最小高度与输入框一致 */
+  min-height: 32px; /* 减小最小高度以匹配输入框 */
   align-self: stretch; /* 垂直拉伸以匹配容器高度 */
   display: flex;
   align-items: center;
@@ -1686,7 +1724,7 @@ const saveConversationHistory = async () => {
 /* 行动选择器按钮 */
 .action-selector-btn {
   width: 44px;
-  min-height: 44px; /* 确保最小高度 */
+  min-height: 32px; /* 减小最小高度以匹配输入框 */
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;

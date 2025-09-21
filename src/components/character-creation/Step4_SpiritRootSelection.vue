@@ -11,6 +11,7 @@
             class="spirit-root-item"
             :class="{ selected: isRandomSelected }"
             @click="handleSelectRandom"
+            @mouseover="activeSpiritRoot = 'random'"
           >
             <span class="spirit-root-name">随机灵根</span>
             <span class="spirit-root-cost">0 点</span>
@@ -25,6 +26,7 @@
               disabled: !canSelect(root),
             }"
             @click="handleSelectSpiritRoot(root)"
+            @mouseover="activeSpiritRoot = root"
           >
             <span class="spirit-root-name">{{ root.name }}</span>
             <span class="spirit-root-cost">{{ root.talent_cost }} 点</span>
@@ -48,12 +50,12 @@
 
       <!-- 右侧详情 -->
       <div class="spirit-root-details-container">
-        <div v-if="store.selectedSpiritRoot || isRandomSelected" class="spirit-root-details">
-          <h2>{{ selectedDisplayName }}</h2>
+        <div v-if="activeSpiritRoot" class="spirit-root-details">
+          <h2>{{ activeDisplayName }}</h2>
           <div class="description-scroll">
-            <p>{{ selectedDescription }}</p>
+            <p>{{ activeDescription }}</p>
           </div>
-          <div class="cost-display">消耗天道点: {{ selectedCost }}</div>
+          <div class="cost-display">消耗天道点: {{ activeCost }}</div>
         </div>
         <div v-else class="placeholder">请选择一种灵根，或听天由命。</div>
       </div>
@@ -82,6 +84,7 @@ import { generateSpiritRoot } from '../../utils/tavernAI'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
+const activeSpiritRoot = ref<SpiritRoot | 'random' | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
 
 const filteredSpiritRoots = computed(() => {
@@ -160,6 +163,26 @@ const selectedCost = computed(() => {
   if (isRandomSelected.value) return 0
   return store.selectedSpiritRoot?.talent_cost || 0
 })
+
+// New computed properties for hover display
+const activeDisplayName = computed(() => {
+ if (activeSpiritRoot.value === 'random') return '随机灵根'
+ if (activeSpiritRoot.value && typeof activeSpiritRoot.value === 'object') return activeSpiritRoot.value.name
+ return ''
+});
+
+const activeDescription = computed(() => {
+ if (activeSpiritRoot.value === 'random')
+   return '大道五十，天衍四九，人遁其一。选择此项，你的灵根将完全随机生成，可能一步登天，亦可能平庸无奇。'
+ if (activeSpiritRoot.value && typeof activeSpiritRoot.value === 'object') return activeSpiritRoot.value.description || '灵根信息不明。'
+ return '灵根信息不明。'
+});
+
+const activeCost = computed(() => {
+ if (activeSpiritRoot.value === 'random') return 0
+ if (activeSpiritRoot.value && typeof activeSpiritRoot.value === 'object') return activeSpiritRoot.value.talent_cost || 0
+ return 0
+});
 
 const canSelect = (root: SpiritRoot): boolean => {
   if (store.characterPayload.spirit_root_id === root.id) {

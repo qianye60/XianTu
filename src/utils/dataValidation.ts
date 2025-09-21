@@ -136,8 +136,8 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
   if (saveData.装备栏) {
     const equipment = saveData.装备栏 as Equipment;
     
-    // 遍历所有法宝槽位，将字符串"null"转换为实际的null
-    (['法宝1', '法宝2', '法宝3', '法宝4', '法宝5', '法宝6'] as const).forEach(slot => {
+    // 遍历所有装备槽位，将字符串"null"转换为实际的null
+    (['装备1', '装备2', '装备3', '装备4', '装备5', '装备6'] as const).forEach(slot => {
       if (equipment[slot] === 'null' || equipment[slot] === 'undefined') {
         console.log(`[数据验证] 修复装备栏 ${slot}: "${equipment[slot]}" -> null`);
         equipment[slot] = null;
@@ -222,7 +222,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
             物品ID: id,
             名称: name,
             类型: type,
-            品质: { quality: '凡', grade: 1 },
+            品质: { quality: '凡品', grade: 1 },
             数量: qty,
             描述: desc
           };
@@ -265,9 +265,19 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
   // 规范化人物关系为最小NpcProfile，方便前端展示
   if (saveData.人物关系 && typeof saveData.人物关系 === 'object') {
     const worldName = (saveData as any)?.角色基础信息?.世界 || '未知';
+    const invalidKeys: string[] = [];
+    
     for (const [k, v] of Object.entries(saveData.人物关系)) {
       const name = k;
       const val: any = v;
+      
+      // 标记无效的临时NPC数据
+      if (String(k).startsWith('npc_init_') || !val || typeof val !== 'object' || !val.角色基础信息?.名字) {
+        console.log(`[数据验证] 发现无效NPC数据，标记删除: ${k}`);
+        invalidKeys.push(k);
+        continue;
+      }
+      
       if (!val || typeof val !== 'object' || (val && !('角色基础信息' in val))) {
         (saveData.人物关系 as any)[k] = {
           角色基础信息: {
@@ -291,6 +301,16 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
           特殊标记: Array.isArray(val?.特殊标记) ? val.特殊标记 : []
         } as any;
       }
+    }
+    
+    // 删除无效的NPC数据
+    invalidKeys.forEach(key => {
+      delete (saveData.人物关系 as any)[key];
+      console.log(`[数据验证] 已删除无效NPC: ${key}`);
+    });
+    
+    if (invalidKeys.length > 0) {
+      console.log(`[数据验证] 共清理了 ${invalidKeys.length} 个无效NPC数据`);
     }
   }
   

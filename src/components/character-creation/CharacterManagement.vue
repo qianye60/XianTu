@@ -186,7 +186,7 @@
                         </div>
 
                         <div class="save-footer">
-                          <span class="location">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                          <span class="location">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.位置?.描述 || '青云镇' }}</span>
                           <span class="save-time">{{ formatTime(selectedCharacter.存档列表['上次对话'].保存时间) }}</span>
                         </div>
                       </div>
@@ -234,7 +234,7 @@
                         </div>
 
                         <div class="save-footer">
-                          <span class="location">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                          <span class="location">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.位置?.描述 || '青云镇' }}</span>
                           <span class="save-time">{{ formatTime(selectedCharacter.存档列表['自动存档'].保存时间) }}</span>
                         </div>
                       </div>
@@ -307,7 +307,7 @@
                         </div>
 
                         <div class="save-footer">
-                          <span class="location">{{ slot.存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                          <span class="location">{{ slot.存档数据.玩家角色状态?.位置?.描述 || '青云镇' }}</span>
                           <span class="save-time">{{ formatTime(slot.保存时间) }}</span>
                         </div>
                       </div>
@@ -364,7 +364,7 @@
                   </div>
 
                   <div class="save-footer">
-                    <span class="location">{{ selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '未知之地' }}</span>
+                    <span class="location">{{ selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '青云镇' }}</span>
                     <div class="sync-info">
                       <span class="sync-status" :class="{ 'synced': !selectedCharacter.存档.云端同步信息?.需要同步 }">
                         {{ selectedCharacter.存档.云端同步信息?.需要同步 ? '待同步' : '已同步' }}

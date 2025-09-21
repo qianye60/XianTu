@@ -3,31 +3,31 @@
  * 根据用户行动智能选择最合适的AI提示词，提升交互体验
  */
 
-import { generateComprehensiveAIPrompt } from './comprehensiveAISystem';
-import { WorldAwareGMPrompts } from './worldAwarePrompts';
-import type { GameCharacter, GM_Request } from '../../types/AIGameMaster';
+import { generateComprehensiveAIPrompt } from './comprehensiveAISystem'
+import { WorldAwareGMPrompts } from './worldAwarePrompts'
+import type { GameCharacter, GM_Request } from '../../types/AIGameMaster'
 
 /**
  * 用户行动类型检测
  */
 export interface ActionAnalysis {
-  primaryType: 'cultivation' | 'interaction' | 'exploration' | 'combat' | 'general';
-  subType?: string;
-  confidence: number;
-  keywords: string[];
-  context: any;
+  primaryType: 'cultivation' | 'interaction' | 'exploration' | 'combat' | 'general'
+  subType?: string
+  confidence: number
+  keywords: string[]
+  context: any
 }
 
 /**
  * 提示词选择配置
  */
 interface PromptConfig {
-  character: GameCharacter;
-  memory: any;
-  location: any;
-  userAction: string;
-  worldTime: string;
-  difficulty: 'normal' | 'medium' | 'hard';
+  character: GameCharacter
+  memory: any
+  location: any
+  userAction: string
+  worldTime: string
+  difficulty: 'normal' | 'medium' | 'hard'
 }
 
 /**
@@ -35,110 +35,174 @@ interface PromptConfig {
  */
 export class ActionAnalyzer {
   private static cultivationKeywords = [
-    '修炼', '打坐', '炼气', '修行', '练功', '闭关', '静修', 
-    '运功', '调息', '冥想', '感悟', '顿悟', '专修'
-  ];
+    '修炼',
+    '打坐',
+    '炼气',
+    '修行',
+    '练功',
+    '闭关',
+    '静修',
+    '运功',
+    '调息',
+    '冥想',
+    '感悟',
+    '顿悟',
+    '专修',
+  ]
 
   private static skillKeywords = [
-    '学习', '修习', '练习', '研读', '领悟', '掌握', '功法', 
-    '秘籍', '心法', '武技', '法术', '神通'
-  ];
+    '学习',
+    '修习',
+    '练习',
+    '研读',
+    '领悟',
+    '掌握',
+    '功法',
+    '秘籍',
+    '心法',
+    '武技',
+    '法术',
+    '神通',
+  ]
 
   private static breakthroughKeywords = [
-    '突破', '进阶', '晋升', '跨越', '冲击', '境界', '瓶颈',
-    '冲关', '破境', '升级', '进级'
-  ];
+    '突破',
+    '进阶',
+    '晋升',
+    '跨越',
+    '冲击',
+    '境界',
+    '瓶颈',
+    '冲关',
+    '破境',
+    '升级',
+    '进级',
+  ]
 
   private static interactionKeywords = [
-    '交谈', '对话', '询问', '请教', '拜访', '会面', '商议',
-    '寻找', '找到', '见到', '遇到', '碰到', '告诉', '求助'
-  ];
+    '交谈',
+    '对话',
+    '询问',
+    '请教',
+    '拜访',
+    '会面',
+    '商议',
+    '寻找',
+    '找到',
+    '见到',
+    '遇到',
+    '碰到',
+    '告诉',
+    '求助',
+  ]
 
   private static explorationKeywords = [
-    '探索', '前往', '去到', '移动', '行走', '飞行', '传送',
-    '寻找', '搜索', '查看', '观察', '调查', '打探'
-  ];
+    '探索',
+    '前往',
+    '去到',
+    '移动',
+    '行走',
+    '飞行',
+    '传送',
+    '寻找',
+    '搜索',
+    '查看',
+    '观察',
+    '调查',
+    '打探',
+  ]
 
   private static combatKeywords = [
-    '攻击', '战斗', '打斗', '对战', '挑战', '比武', '决斗',
-    '施展', '使用', '释放', '发动', '反击', '防御'
-  ];
+    '攻击',
+    '战斗',
+    '打斗',
+    '对战',
+    '挑战',
+    '比武',
+    '决斗',
+    '施展',
+    '使用',
+    '释放',
+    '发动',
+    '反击',
+    '防御',
+  ]
 
   /**
    * 分析用户行动类型
    */
   static analyzeAction(userAction: string): ActionAnalysis {
-    const action = userAction.toLowerCase();
-    const analyses: ActionAnalysis[] = [];
+    const action = userAction.toLowerCase()
+    const analyses: ActionAnalysis[] = []
 
     // 检测修炼类行动
-    const cultivationMatch = this.checkKeywords(action, this.cultivationKeywords);
+    const cultivationMatch = this.checkKeywords(action, this.cultivationKeywords)
     if (cultivationMatch.count > 0) {
       analyses.push({
         primaryType: 'cultivation',
         subType: this.detectCultivationSubtype(action),
         confidence: Math.min(0.9, cultivationMatch.count * 0.3 + cultivationMatch.strength),
         keywords: cultivationMatch.matched,
-        context: { type: 'cultivation' }
-      });
+        context: { type: 'cultivation' },
+      })
     }
 
     // 检测技能学习
-    const skillMatch = this.checkKeywords(action, this.skillKeywords);
+    const skillMatch = this.checkKeywords(action, this.skillKeywords)
     if (skillMatch.count > 0) {
       analyses.push({
         primaryType: 'cultivation',
         subType: 'skill_learning',
         confidence: Math.min(0.85, skillMatch.count * 0.3 + skillMatch.strength),
         keywords: skillMatch.matched,
-        context: { type: 'skill_learning' }
-      });
+        context: { type: 'skill_learning' },
+      })
     }
 
     // 检测突破行动
-    const breakthroughMatch = this.checkKeywords(action, this.breakthroughKeywords);
+    const breakthroughMatch = this.checkKeywords(action, this.breakthroughKeywords)
     if (breakthroughMatch.count > 0) {
       analyses.push({
         primaryType: 'cultivation',
         subType: 'breakthrough',
         confidence: Math.min(0.95, breakthroughMatch.count * 0.4 + breakthroughMatch.strength),
         keywords: breakthroughMatch.matched,
-        context: { type: 'breakthrough' }
-      });
+        context: { type: 'breakthrough' },
+      })
     }
 
     // 检测互动行动
-    const interactionMatch = this.checkKeywords(action, this.interactionKeywords);
+    const interactionMatch = this.checkKeywords(action, this.interactionKeywords)
     if (interactionMatch.count > 0) {
       analyses.push({
         primaryType: 'interaction',
         subType: this.detectInteractionTarget(action),
         confidence: Math.min(0.8, interactionMatch.count * 0.25 + interactionMatch.strength),
         keywords: interactionMatch.matched,
-        context: { type: 'interaction' }
-      });
+        context: { type: 'interaction' },
+      })
     }
 
     // 检测探索行动
-    const explorationMatch = this.checkKeywords(action, this.explorationKeywords);
+    const explorationMatch = this.checkKeywords(action, this.explorationKeywords)
     if (explorationMatch.count > 0) {
       analyses.push({
         primaryType: 'exploration',
         confidence: Math.min(0.7, explorationMatch.count * 0.2 + explorationMatch.strength),
         keywords: explorationMatch.matched,
-        context: { type: 'exploration' }
-      });
+        context: { type: 'exploration' },
+      })
     }
 
     // 检测战斗行动
-    const combatMatch = this.checkKeywords(action, this.combatKeywords);
+    const combatMatch = this.checkKeywords(action, this.combatKeywords)
     if (combatMatch.count > 0) {
       analyses.push({
         primaryType: 'combat',
         confidence: Math.min(0.9, combatMatch.count * 0.35 + combatMatch.strength),
         keywords: combatMatch.matched,
-        context: { type: 'combat' }
-      });
+        context: { type: 'combat' },
+      })
     }
 
     // 如果没有明确匹配，返回通用类型
@@ -147,41 +211,44 @@ export class ActionAnalyzer {
         primaryType: 'general',
         confidence: 0.5,
         keywords: [],
-        context: { type: 'general' }
-      };
+        context: { type: 'general' },
+      }
     }
 
     // 返回置信度最高的分析结果
-    return analyses.sort((a, b) => b.confidence - a.confidence)[0];
+    return analyses.sort((a, b) => b.confidence - a.confidence)[0]
   }
 
   /**
    * 关键词匹配检测
    */
-  private static checkKeywords(text: string, keywords: string[]): {
-    count: number;
-    strength: number;
-    matched: string[];
+  private static checkKeywords(
+    text: string,
+    keywords: string[],
+  ): {
+    count: number
+    strength: number
+    matched: string[]
   } {
-    const matched: string[] = [];
-    let totalStrength = 0;
+    const matched: string[] = []
+    let totalStrength = 0
 
     for (const keyword of keywords) {
       if (text.includes(keyword)) {
-        matched.push(keyword);
+        matched.push(keyword)
         // 根据关键词长度和在文本中的位置计算权重
-        const position = text.indexOf(keyword);
-        const positionWeight = position === 0 ? 0.3 : position < 10 ? 0.2 : 0.1;
-        const lengthWeight = keyword.length * 0.05;
-        totalStrength += positionWeight + lengthWeight;
+        const position = text.indexOf(keyword)
+        const positionWeight = position === 0 ? 0.3 : position < 10 ? 0.2 : 0.1
+        const lengthWeight = keyword.length * 0.05
+        totalStrength += positionWeight + lengthWeight
       }
     }
 
     return {
       count: matched.length,
       strength: totalStrength,
-      matched
-    };
+      matched,
+    }
   }
 
   /**
@@ -189,26 +256,26 @@ export class ActionAnalyzer {
    */
   private static detectCultivationSubtype(action: string): string {
     if (this.checkKeywords(action, this.breakthroughKeywords).count > 0) {
-      return 'breakthrough';
+      return 'breakthrough'
     }
     if (this.checkKeywords(action, this.skillKeywords).count > 0) {
-      return 'skill_learning';
+      return 'skill_learning'
     }
     if (action.includes('专修') || action.includes('主修')) {
-      return 'main_skill_cultivation';
+      return 'main_skill_cultivation'
     }
-    return 'general_cultivation';
+    return 'general_cultivation'
   }
 
   /**
    * 检测互动目标
    */
   private static detectInteractionTarget(action: string): string {
-    const npcIndicators = ['师父', '长老', '师兄', '师妹', '掌门', '宗主', '前辈'];
-    if (npcIndicators.some(indicator => action.includes(indicator))) {
-      return 'npc_interaction';
+    const npcIndicators = ['师父', '长老', '师兄', '师妹', '掌门', '宗主', '前辈']
+    if (npcIndicators.some((indicator) => action.includes(indicator))) {
+      return 'npc_interaction'
     }
-    return 'general_interaction';
+    return 'general_interaction'
   }
 }
 
@@ -220,57 +287,56 @@ export class PromptRouter {
    * 根据行动分析选择最佳提示词
    */
   static async selectOptimalPrompt(config: PromptConfig): Promise<string> {
-    const analysis = ActionAnalyzer.analyzeAction(config.userAction);
-    
+    const analysis = ActionAnalyzer.analyzeAction(config.userAction)
+
     console.log(`[提示词路由] 行动分析结果:`, {
       type: analysis.primaryType,
       subType: analysis.subType,
       confidence: analysis.confidence,
-      keywords: analysis.keywords
-    });
+      keywords: analysis.keywords,
+    })
 
     // 先生成基础提示词
-    let basePrompt: string;
+    let basePrompt: string
 
     // 根据分析结果选择相应的专精提示词
     switch (analysis.primaryType) {
       case 'cultivation':
-        basePrompt = this.generateCultivationPrompt(analysis, config);
-        break;
-      
+        basePrompt = this.generateCultivationPrompt(analysis, config)
+        break
+
       case 'interaction':
-        basePrompt = this.generateInteractionPrompt(analysis, config);
-        break;
-      
+        basePrompt = this.generateInteractionPrompt(analysis, config)
+        break
+
       case 'exploration':
-        basePrompt = this.generateExplorationPrompt(analysis, config);
-        break;
-      
+        basePrompt = this.generateExplorationPrompt(analysis, config)
+        break
+
       case 'combat':
-        basePrompt = this.generateCombatPrompt(analysis, config);
-        break;
-      
+        basePrompt = this.generateCombatPrompt(analysis, config)
+        break
+
       default:
-        basePrompt = this.generateGeneralPrompt(config);
-        break;
+        basePrompt = this.generateGeneralPrompt(config)
+        break
     }
 
     // 使用世界感知系统增强提示词
     try {
-      console.log('[提示词路由] 应用世界感知增强...');
+      console.log('[提示词路由] 应用世界感知增强...')
       const enhancedPrompt = await WorldAwareGMPrompts.generateWorldAwarePrompt({
         userAction: config.userAction,
         characterData: config.character as unknown as Record<string, unknown>,
-        basePrompt: basePrompt
-      });
-      
-      console.log('[提示词路由] 世界感知增强完成');
-      return enhancedPrompt;
-      
+        basePrompt: basePrompt,
+      })
+
+      console.log('[提示词路由] 世界感知增强完成')
+      return enhancedPrompt
     } catch (error) {
-      console.error('[提示词路由] 世界感知增强失败:', error);
+      console.error('[提示词路由] 世界感知增强失败:', error)
       // 如果世界感知失败，返回基础提示词
-      return basePrompt;
+      return basePrompt
     }
   }
 
@@ -278,8 +344,8 @@ export class PromptRouter {
    * 生成修炼专精提示词
    */
   private static generateCultivationPrompt(analysis: ActionAnalysis, config: PromptConfig): string {
-    const { character, userAction, location } = config;
-    
+    const { character, userAction, location } = config
+
     switch (analysis.subType) {
       case 'breakthrough':
         return this.generateBreakthroughPrompt({
@@ -288,19 +354,19 @@ export class PromptRouter {
           nextRealm: this.getNextRealm(character.cultivation?.realm || '凡人'),
           accumulatedProgress: character.cultivation?.realm_progress || 0,
           breakthroughMethod: userAction,
-          environmentBonus: location?.current_location?.spirit_density || 5
-        });
+          environmentBonus: location?.current_location?.spirit_density || 5,
+        })
 
       case 'skill_learning':
-        const skillName = this.extractSkillName(userAction);
+        const skillName = this.extractSkillName(userAction)
         return this.generateSkillLearningPrompt({
           characterName: character.identity.name,
           skillName: skillName,
           skillType: this.inferSkillType(skillName),
           learningMethod: userAction,
-          characterTalents: character.qualities?.talents?.map(t => t.name) || [],
-          currentIntelligence: character.attributes?.INT || 5
-        });
+          characterTalents: character.qualities?.talents?.map((t) => t.name) || [],
+          currentIntelligence: character.attributes?.INT || 5,
+        })
 
       case 'main_skill_cultivation':
         return this.generateBasicCultivationPrompt({
@@ -310,8 +376,8 @@ export class PromptRouter {
           mainSkill: character.cultivation_arts?.main_technique,
           cultivationAction: userAction,
           currentLocation: location?.current_location?.name || '未知',
-          spiritDensity: location?.current_location?.spirit_density || 5
-        });
+          spiritDensity: location?.current_location?.spirit_density || 5,
+        })
 
       default:
         return this.generateBasicCultivationPrompt({
@@ -320,8 +386,8 @@ export class PromptRouter {
           realmProgress: character.cultivation?.realm_progress || 0,
           cultivationAction: userAction,
           currentLocation: location?.current_location?.name || '未知',
-          spiritDensity: location?.current_location?.spirit_density || 5
-        });
+          spiritDensity: location?.current_location?.spirit_density || 5,
+        })
     }
   }
 
@@ -329,22 +395,22 @@ export class PromptRouter {
    * 生成互动专精提示词
    */
   private static generateInteractionPrompt(analysis: ActionAnalysis, config: PromptConfig): string {
-    const { memory, userAction, location } = config;
-    
+    const { memory, userAction, location } = config
+
     if (analysis.subType === 'npc_interaction') {
-      const npcName = this.extractNPCName(userAction);
+      const npcName = this.extractNPCName(userAction)
       return this.generateNPCInteractionPrompt({
         npcName: npcName,
         npcType: this.inferNPCType(npcName, userAction),
         relationshipLevel: this.getNPCRelationship(npcName, memory),
         previousInteractions: this.getNPCInteractionHistory(npcName, memory),
         playerAction: userAction,
-        contextLocation: location?.current_location?.name || '未知'
-      });
+        contextLocation: location?.current_location?.name || '未知',
+      })
     }
 
     // 如果不是明确的NPC互动，使用综合AI提示词
-    return this.generateGeneralPrompt(config);
+    return this.generateGeneralPrompt(config)
   }
 
   /**
@@ -352,7 +418,7 @@ export class PromptRouter {
    */
   private static generateExplorationPrompt(analysis: ActionAnalysis, config: PromptConfig): string {
     // 探索类行动暂时使用通用提示词，可根据需要扩展
-    return this.generateGeneralPrompt(config);
+    return this.generateGeneralPrompt(config)
   }
 
   /**
@@ -360,7 +426,7 @@ export class PromptRouter {
    */
   private static generateCombatPrompt(analysis: ActionAnalysis, config: PromptConfig): string {
     // 战斗类行动暂时使用通用提示词，可根据需要扩展
-    return this.generateGeneralPrompt(config);
+    return this.generateGeneralPrompt(config)
   }
 
   /**
@@ -372,95 +438,85 @@ export class PromptRouter {
       memory: config.memory,
       location: config.location,
       worldTime: config.worldTime,
-      difficulty: config.difficulty
-    });
+      difficulty: config.difficulty,
+    })
   }
 
   // 辅助方法
   private static getNextRealm(currentRealm: string): string {
     const realmMap: { [key: string]: string } = {
-      '凡人': '炼气期',
-      '炼气期': '筑基期',
-      '筑基期': '金丹期',
-      '金丹期': '元婴期',
-      '元婴期': '化神期',
-      '化神期': '炼虚期',
-      '炼虚期': '合体期',
-      '合体期': '渡劫期'
-    };
-    return realmMap[currentRealm] || '未知境界';
+      凡人: '炼气期',
+      炼气期: '筑基期',
+      筑基期: '金丹期',
+      金丹期: '元婴期',
+      元婴期: '化神期',
+      化神期: '炼虚期',
+      炼虚期: '合体期',
+      合体期: '渡劫期',
+    }
+    return realmMap[currentRealm] || '未知境界'
   }
 
   private static extractSkillName(action: string): string {
     // 简单的技能名称提取逻辑，可根据需要完善
-    const skillPatterns = [
-      /学习(.+?)功法/,
-      /修习(.+?)心法/,
-      /练习(.+?)技能/,
-      /研读(.+?)秘籍/
-    ];
+    const skillPatterns = [/学习(.+?)功法/, /修习(.+?)心法/, /练习(.+?)技能/, /研读(.+?)秘籍/]
 
     for (const pattern of skillPatterns) {
-      const match = action.match(pattern);
+      const match = action.match(pattern)
       if (match && match[1]) {
-        return match[1].trim();
+        return match[1].trim()
       }
     }
 
-    return '未知功法';
+    return '未知功法'
   }
 
   private static inferSkillType(skillName: string): string {
     if (skillName.includes('剑') || skillName.includes('刀') || skillName.includes('拳')) {
-      return 'combat';
+      return 'combat'
     }
     if (skillName.includes('身法') || skillName.includes('轻功')) {
-      return 'movement';
+      return 'movement'
     }
     if (skillName.includes('炼气') || skillName.includes('导引')) {
-      return 'cultivation';
+      return 'cultivation'
     }
-    return 'auxiliary';
+    return 'auxiliary'
   }
 
   private static extractNPCName(action: string): string {
-    const npcPatterns = [
-      /找(.+?)师父/,
-      /见(.+?)长老/,
-      /拜访(.+?)前辈/,
-      /询问(.+?)师兄/
-    ];
+    const npcPatterns = [/找(.+?)师父/, /见(.+?)长老/, /拜访(.+?)前辈/, /询问(.+?)师兄/]
 
     for (const pattern of npcPatterns) {
-      const match = action.match(pattern);
+      const match = action.match(pattern)
       if (match && match[1]) {
-        return match[1].trim();
+        return match[1].trim()
       }
     }
 
     // 如果没有匹配到具体名称，尝试提取通用称谓
-    if (action.includes('师父')) return '师父';
-    if (action.includes('长老')) return '长老';
-    if (action.includes('掌门')) return '掌门';
-    
-    return '未知NPC';
+    if (action.includes('师父')) return '师父'
+    if (action.includes('长老')) return '长老'
+    if (action.includes('掌门')) return '掌门'
+
+    return '未知NPC'
   }
 
   private static inferNPCType(npcName: string, action: string): string {
-    if (npcName.includes('师父') || action.includes('师父')) return '师父';
-    if (npcName.includes('长老') || action.includes('长老')) return '长老';
-    if (npcName.includes('掌门') || action.includes('掌门')) return '掌门';
-    if (npcName.includes('师兄') || action.includes('师兄')) return '师兄';
-    if (npcName.includes('师妹') || action.includes('师妹')) return '师妹';
-    return '普通NPC';
+    if (npcName.includes('师父') || action.includes('师父')) return '师父'
+    if (npcName.includes('长老') || action.includes('长老')) return '长老'
+    if (npcName.includes('掌门') || action.includes('掌门')) return '掌门'
+    if (npcName.includes('师兄') || action.includes('师兄')) return '师兄'
+    if (npcName.includes('师妹') || action.includes('师妹')) return '师妹'
+    return '普通NPC'
   }
 
   private static getNPCRelationship(npcName: string, memory: any): number {
-    return memory?.npc_interactions?.[npcName]?.favor || 5;
+    return memory?.npc_interactions?.[npcName]?.favor || 5
   }
 
   private static getNPCInteractionHistory(npcName: string, memory: any): string[] {
-    return memory?.npc_interactions?.[npcName]?.memories || [];
+    return memory?.npc_interactions?.[npcName]?.memories || []
   }
 
   // 备用提示词生成方法
@@ -472,7 +528,7 @@ export class PromptRouter {
 突破方法：${config.breakthroughMethod}
 环境加成：${config.environmentBonus}
 
-请基于以上信息生成突破修炼的剧情。`;
+请基于以上信息生成突破修炼的剧情。`
   }
 
   private static generateSkillLearningPrompt(config: any): string {
@@ -484,7 +540,7 @@ export class PromptRouter {
 角色天赋：${config.characterTalents.join('、')}
 悟性：${config.currentIntelligence}
 
-请基于以上信息生成技能学习的剧情。`;
+请基于以上信息生成技能学习的剧情。`
   }
 
   private static generateBasicCultivationPrompt(config: any): string {
@@ -496,7 +552,7 @@ export class PromptRouter {
 位置：${config.currentLocation}
 灵气密度：${config.spiritDensity}
 
-请基于以上信息生成修炼的剧情。`;
+请基于以上信息生成修炼的剧情。`
   }
 
   private static generateNPCInteractionPrompt(config: any): string {
@@ -507,7 +563,7 @@ NPC：${config.npcName}
 玩家行动：${config.playerAction}
 位置：${config.contextLocation}
 
-请基于以上信息生成NPC互动的剧情。`;
+请基于以上信息生成NPC互动的剧情。`
   }
 }
 
@@ -518,55 +574,58 @@ export class PromptQualityAssessor {
   /**
    * 评估提示词质量
    */
-  static assessPromptQuality(prompt: string, context: {
-    actionType: string;
-    complexity: number;
-    characterLevel: number;
-  }): {
-    score: number;
-    suggestions: string[];
-    strongPoints: string[];
+  static assessPromptQuality(
+    prompt: string,
+    context: {
+      actionType: string
+      complexity: number
+      characterLevel: number
+    },
+  ): {
+    score: number
+    suggestions: string[]
+    strongPoints: string[]
   } {
-    const suggestions: string[] = [];
-    const strongPoints: string[] = [];
-    let score = 0;
+    const suggestions: string[] = []
+    const strongPoints: string[] = []
+    let score = 0
 
     // 检查提示词长度
     if (prompt.length > 1000) {
-      score += 20;
-      strongPoints.push('提示词长度充分，信息详尽');
+      score += 20
+      strongPoints.push('提示词长度充分，信息详尽')
     } else {
-      suggestions.push('考虑增加更多细节描述');
+      suggestions.push('考虑增加更多细节描述')
     }
 
     // 检查结构化程度
     if (prompt.includes('###') || prompt.includes('##')) {
-      score += 15;
-      strongPoints.push('提示词结构清晰');
+      score += 15
+      strongPoints.push('提示词结构清晰')
     } else {
-      suggestions.push('建议使用更清晰的结构化格式');
+      suggestions.push('建议使用更清晰的结构化格式')
     }
 
     // 检查JSON格式要求
     if (prompt.includes('```json')) {
-      score += 25;
-      strongPoints.push('包含明确的JSON输出格式要求');
+      score += 25
+      strongPoints.push('包含明确的JSON输出格式要求')
     } else {
-      suggestions.push('应包含具体的JSON输出格式示例');
+      suggestions.push('应包含具体的JSON输出格式示例')
     }
 
     // 检查角色特定信息
     if (prompt.includes('角色') || prompt.includes('character')) {
-      score += 20;
-      strongPoints.push('考虑了角色特定信息');
+      score += 20
+      strongPoints.push('考虑了角色特定信息')
     }
 
     // 检查上下文相关性
     if (prompt.includes('环境') || prompt.includes('位置')) {
-      score += 20;
-      strongPoints.push('包含环境和位置上下文');
+      score += 20
+      strongPoints.push('包含环境和位置上下文')
     }
 
-    return { score, suggestions, strongPoints };
+    return { score, suggestions, strongPoints }
   }
 }

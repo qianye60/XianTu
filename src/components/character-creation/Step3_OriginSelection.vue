@@ -11,6 +11,7 @@
            class="origin-item"
            :class="{ selected: isRandomSelected }"
            @click="handleSelectRandom"
+           @mouseover="activeOrigin = 'random'"
           >
            <span class="origin-name">随机出身</span>
            <span class="origin-cost">0 点</span>
@@ -25,6 +26,7 @@
               disabled: !canSelect(origin),
             }"
             @click="handleSelectOrigin(origin)"
+            @mouseover="activeOrigin = origin"
           >
             <span class="origin-name">{{ origin.name }}</span>
             <span class="origin-cost">{{ origin.talent_cost }} 点</span>
@@ -48,12 +50,12 @@
 
       <!-- 右侧详情 -->
       <div class="origin-details-container">
-        <div v-if="store.selectedOrigin || isRandomSelected" class="origin-details">
-          <h2>{{ selectedDisplayName }}</h2>
+        <div v-if="activeOrigin" class="origin-details">
+          <h2>{{ activeDisplayName }}</h2>
           <div class="description-scroll">
-            <p>{{ selectedDescription }}</p>
+            <p>{{ activeDescription }}</p>
           </div>
-          <div class="cost-display">消耗天道点: {{ selectedCost }}</div>
+          <div class="cost-display">消耗天道点: {{ activeCost }}</div>
         </div>
         <div v-else class="placeholder">请选择一处出身，或听天由命。</div>
       </div>
@@ -81,6 +83,7 @@ import { generateOrigin } from '../../utils/tavernAI'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
+const activeOrigin = ref<Origin | 'random' | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
 
 const filteredOrigins = computed(() => {
@@ -232,6 +235,26 @@ const selectedDescription = computed(() => {
 const selectedCost = computed(() => {
  if (isRandomSelected.value) return 0
  return store.selectedOrigin?.talent_cost || 0
+});
+
+// New computed properties for hover display
+const activeDisplayName = computed(() => {
+ if (activeOrigin.value === 'random') return '随机出身'
+ if (activeOrigin.value && typeof activeOrigin.value === 'object') return activeOrigin.value.name
+ return ''
+});
+
+const activeDescription = computed(() => {
+ if (activeOrigin.value === 'random')
+   return '天道无常，造化弄人。选择此项，你的出身将完全随机生成。是生于帝王之家，或为山野遗孤，皆在天道一念之间。'
+ if (activeOrigin.value && typeof activeOrigin.value === 'object') return activeOrigin.value.description || '身世如谜，过往一片空白。'
+ return '身世如谜，过往一片空白。'
+});
+
+const activeCost = computed(() => {
+ if (activeOrigin.value === 'random') return 0
+ if (activeOrigin.value && typeof activeOrigin.value === 'object') return activeOrigin.value.talent_cost || 0
+ return 0
 });
 
 // fetchData 和 defineExpose 不再需要

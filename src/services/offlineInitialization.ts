@@ -19,7 +19,7 @@ export async function initializeCharacterOffline(
 
   const saveData: SaveData = {
     玩家角色状态: status as any,
-    装备栏: { 法宝1: null, 法宝2: null, 法宝3: null, 法宝4: null, 法宝5: null, 法宝6: null } as any,
+    装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null } as any,
     三千大道: createEmptyThousandDaoSystem(),
     背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} } as any,
     人物关系: {} as any,

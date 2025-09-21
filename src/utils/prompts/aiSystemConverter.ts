@@ -95,20 +95,20 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
     }, {} as Record<string, any>) : {},
 
     equipment: {
-      weapon: equipment?.法宝1 ? { 
-        name: equipment.法宝1, 
+      weapon: equipment?.装备1 ? { 
+        name: equipment.装备1, 
         type: '武器',
-        description: '修仙者的武器法宝'
+        description: '修仙者的武器装备'
       } : undefined,
-      armor: equipment?.法宝2 ? { 
-        name: equipment.法宝2, 
+      armor: equipment?.装备2 ? { 
+        name: equipment.装备2, 
         type: '防具',
-        description: '修仙者的防护法宝'
+        description: '修仙者的防护装备'
       } : undefined,
-      accessories: [equipment?.法宝3, equipment?.法宝4, equipment?.法宝5, equipment?.法宝6].filter(Boolean).map(name => ({ 
+      accessories: [equipment?.装备3, equipment?.装备4, equipment?.装备5, equipment?.装备6].filter(Boolean).map(name => ({ 
         name: name!, 
         type: '饰品',
-        description: '修仙者的辅助法宝'
+        description: '修仙者的辅助装备'
       })),
       treasures: [],
       consumables: bag?.物品 ? Object.values(bag.物品).filter(item => item.类型 === '消耗品').map(item => ({

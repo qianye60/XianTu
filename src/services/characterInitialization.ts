@@ -156,7 +156,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     },
     声望: 0,
     位置: {
-      描述: "未知山脉", // 初始位置将被世界生成器覆盖
+      描述: "青云镇", // 统一默认位置
       坐标: { X: 120, Y: 30 } // 使用合理的默认坐标，将被世界生成器覆盖
     },
     气血: { 当前: 初始气血, 最大: 初始气血 },
@@ -440,14 +440,18 @@ export async function initializeCharacter(
         );
 
         // 更新玩家状态，将出生地信息直接写入playerStatus
+        const locationName = (birthplaceResult as any).name || '青云镇';
+        const locationDesc = (birthplaceResult as any).description || locationName;
+        
         playerStatus.位置 = {
-          描述: ((birthplaceResult as any).description || birthplaceResult.name),
-          坐标: birthplaceResult.coordinates
+          描述: locationDesc,
+          坐标: birthplaceResult.coordinates || { X: 120, Y: 30 }
         };
 
         console.log('[角色初始化] 出生地已确定:', {
-          name: birthplaceResult.name,
-          coordinates: birthplaceResult.coordinates,
+          名称: locationName,
+          描述: locationDesc,
+          坐标: playerStatus.位置.坐标,
           isFromWorld: !!birthplaceResult.coordinates
         });
 
@@ -466,10 +470,10 @@ export async function initializeCharacter(
     // 2. 创建基础存档结构（符合 SaveData 类型）
     const saveData: SaveData = {
       玩家角色状态: { ...playerStatus },
-      装备栏: { 法宝1: null, 法宝2: null, 法宝3: null, 法宝4: null, 法宝5: null, 法宝6: null },
+      装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
       三千大道: createEmptyThousandDaoSystem(),
       背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
-      人物关系: {},
+      人物关系: {}, // 将由AI在初始化流程中动态生成
       宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
       记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
       游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: 0, 分钟: 0 },

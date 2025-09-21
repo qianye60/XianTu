@@ -14,6 +14,7 @@
             :class="{ selected: store.characterPayload.talent_tier_id === tier.id }"
             :style="{ '--tier-glow-color': tier.color, '--tier-glow-color-rgb': hexToRgb(tier.color) }"
             @click="handleSelectTalentTier(tier)"
+            @mouseover="activeTier = tier"
           >
             <span class="tier-name">{{ tier.name }}</span>
             <span class="tier-points">{{ tier.total_points }} 点</span>
@@ -33,14 +34,14 @@
 
       <!-- 右侧详情 -->
       <div class="tier-details-container">
-        <div v-if="store.selectedTalentTier" class="tier-details">
-          <h2 :style="{ color: store.selectedTalentTier.color }">
-            {{ store.selectedTalentTier.name }}
+        <div v-if="activeTier" class="tier-details">
+          <h2 :style="{ color: activeTier.color }">
+            {{ activeTier.name }}
           </h2>
           <div class="description-scroll">
-            <p>{{ store.selectedTalentTier.description }}</p>
+            <p>{{ activeTier.description }}</p>
           </div>
-          <div class="points-display">天道点: {{ store.selectedTalentTier.total_points }}</div>
+          <div class="points-display">天道点: {{ activeTier.total_points }}</div>
         </div>
         <div v-else class="placeholder">请选择你的天资等级，这将决定你的起点。</div>
       </div>
@@ -76,6 +77,7 @@ interface CustomTierData {
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
+const activeTier = ref<TalentTier | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
 
 const filteredTalentTiers = computed(() => {

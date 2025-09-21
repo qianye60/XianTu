@@ -331,6 +331,10 @@ const closeModal = () => {
   color: var(--color-text);
   line-height: 1.6;
   font-size: 0.95rem;
+  padding: 0.75rem;
+  background: var(--color-surface-light);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
 }
 
 .list-block {

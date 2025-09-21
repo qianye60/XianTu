@@ -65,15 +65,19 @@ export function useTavernData() {
 
     if (chatVars) {
       const chat = (chatVars || {}) as Record<string, TavernVariableValue>
-      characterData.value = (chat['character'] ||
-                           chat['character.profile'] ||
-                           chat['character.baseInfo'] ||
-                           null) as TavernCharacterData | null
+      // 读取角色数据（优先从显式的 character 键，随后从 saveData.角色基础信息 回退）
+      const directCharacter = (chat['character'] ||
+                               chat['character.profile'] ||
+                               chat['character.baseInfo'] ||
+                               null) as TavernCharacterData | null
 
-      saveData.value = (chat['character.saveData'] || {}) as SaveData | Record<string, TavernVariableValue>
+      // 读取存档数据
+      const rawSaveData = (chat['character.saveData'] || {}) as SaveData | Record<string, TavernVariableValue>
+      saveData.value = rawSaveData
 
-      if (saveData.value && typeof saveData.value === 'object') {
-        const saveDataObj = saveData.value as Record<string, TavernVariableValue>
+      // 从存档解析世界与记忆
+      if (rawSaveData && typeof rawSaveData === 'object') {
+        const saveDataObj = rawSaveData as Record<string, TavernVariableValue>
         worldInfo.value = (saveDataObj['世界信息'] ||
                          saveDataObj['worldInfo'] ||
                          chat['worldInfo'] ||
@@ -88,6 +92,19 @@ export function useTavernData() {
       } else {
         worldInfo.value = (chat['worldInfo'] || chat['world.info'] || null) as TavernWorldInfo | null
         memoryData.value = (chat['memory'] || chat['character.memory'] || null) as Memory | null
+      }
+
+      // 若没有显式的 character 数据，但存档里有 角色基础信息，则回退使用它
+      if (!directCharacter && rawSaveData && typeof rawSaveData === 'object') {
+        const baseInfo = (rawSaveData as any)['角色基础信息']
+        if (baseInfo && typeof baseInfo === 'object') {
+          // 兼容显示组件：补充一个 name 字段
+          characterData.value = { ...baseInfo, name: (baseInfo.名字 ?? (baseInfo as any).name) }
+        } else {
+          characterData.value = null
+        }
+      } else {
+        characterData.value = directCharacter
       }
     }
   }

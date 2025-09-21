@@ -476,12 +476,12 @@ export class CultivationWorldGenerator {
         
         // 装备栏
         装备栏: {
-          法宝1: null,
-          法宝2: null, 
-          法宝3: null,
-          法宝4: null,
-          法宝5: null,
-          法宝6: null
+          装备1: null,
+          装备2: null, 
+          装备3: null,
+          装备4: null,
+          装备5: null,
+          装备6: null
         },
         
         // 背包系统

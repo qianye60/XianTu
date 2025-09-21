@@ -101,14 +101,26 @@
               </div>
             </div>
             <div class="modal-actions">
-              <!-- 法宝：装备和丢弃 -->
-              <template v-if="selectedItem?.类型 === '法宝'">
-                <button class="action-btn equip-btn" @click="equipItem(selectedItem)">装备</button>
+              <!-- 装备：装备和丢弃 -->
+              <template v-if="selectedItem?.类型 === '装备'">
+                <button
+                  class="action-btn"
+                  :class="isEquipped(selectedItem) ? 'unequip-btn' : 'equip-btn'"
+                  @click="toggleEquip(selectedItem)"
+                >
+                  {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
+                </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
               </template>
               <!-- 功法：修炼和丢弃 -->
               <template v-else-if="selectedItem?.类型 === '功法'">
-                <button class="action-btn cultivate-btn" @click="cultivateItem(selectedItem)">修炼</button>
+                <button
+                  class="action-btn"
+                  :class="isCultivating(selectedItem) ? 'stop-cultivate-btn' : 'cultivate-btn'"
+                  @click="toggleCultivate(selectedItem)"
+                >
+                  {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
+                </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
@@ -128,7 +140,7 @@
           <div v-else-if="filteredItems.length === 0" class="grid-placeholder">
             <BoxSelect :size="48" />
             <p v-if="selectedCategory === 'all'">空空如也</p>
-            <p v-else-if="selectedCategory === '法宝'">暂无法宝</p>
+            <p v-else-if="selectedCategory === '装备'">暂无装备</p>
             <p v-else-if="selectedCategory === '功法'">暂无功法</p>
             <p v-else-if="selectedCategory === '其他'">暂无其他物品</p>
             <p v-else>暂无{{ selectedCategory }}</p>
@@ -191,7 +203,7 @@
             </div>
             <div class="details-body">
               <p class="details-description">{{ selectedItem.描述 }}</p>
-              
+
               <!-- 功法特有属性 -->
               <template v-if="selectedItem.类型 === '功法'">
                 <!-- 功法效果 -->
@@ -216,7 +228,7 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <!-- 功法技能 -->
                 <div v-if="selectedItem.功法技能 && Object.keys(selectedItem.功法技能).length > 0" class="details-attributes">
                   <h4>功法技能</h4>
@@ -232,22 +244,34 @@
                   </div>
                 </div>
               </template>
-              
-              <!-- 法宝装备增幅 -->
+
+              <!-- 装备装备增幅 -->
               <div v-if="selectedItem.装备增幅" class="details-attributes">
                 <h4>装备增幅</h4>
                 <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
             </div>
             <div class="details-actions">
-              <!-- 法宝：装备和丢弃 -->
-              <template v-if="selectedItem?.类型 === '法宝'">
-                <button class="action-btn equip-btn" @click="equipItem(selectedItem)">装备</button>
+              <!-- 装备：装备和丢弃 -->
+              <template v-if="selectedItem?.类型 === '装备'">
+                <button
+                  class="action-btn"
+                  :class="isEquipped(selectedItem) ? 'unequip-btn' : 'equip-btn'"
+                  @click="toggleEquip(selectedItem)"
+                >
+                  {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
+                </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
               </template>
               <!-- 功法：修炼和丢弃 -->
               <template v-else-if="selectedItem?.类型 === '功法'">
-                <button class="action-btn cultivate-btn" @click="cultivateItem(selectedItem)">修炼</button>
+                <button
+                  class="action-btn"
+                  :class="isCultivating(selectedItem) ? 'stop-cultivate-btn' : 'cultivate-btn'"
+                  @click="toggleCultivate(selectedItem)"
+                >
+                  {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
+                </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
@@ -285,7 +309,7 @@
 
               <div v-if="slot.item" class="equipment-item" :class="getItemQualityClass(slot.item)">
                 <div class="item-icon" :class="getItemQualityClass(slot.item, 'border')">
-                  <div class="item-type-text">法宝</div>
+                  <div class="item-type-text">装备</div>
                 </div>
                 <div class="item-info">
                   <div class="item-name" :class="getItemQualityClass(slot.item, 'text')" :title="slot.item.名称">
@@ -312,7 +336,7 @@
                   <Package :size="24" />
                 </div>
                 <div class="empty-text">空槽位</div>
-                <div class="empty-hint">可装备法宝</div>
+                <div class="empty-hint">可装备装备</div>
               </div>
             </div>
           </div>
@@ -362,6 +386,19 @@
       </div>
     </div>
   </div>
+
+  <!-- 数量选择弹窗 -->
+  <QuantitySelectModal
+    :visible="showQuantityModal"
+    :item="quantityModalItem"
+    :title="quantityModalTitle"
+    :action-label="quantityModalActionLabel"
+    :action-type="quantityModalType"
+    :confirm-text="quantityModalConfirmText"
+    :description="quantityModalDescription"
+    @close="handleQuantityClose"
+    @confirm="handleQuantityConfirm"
+  />
 </template>
 
 <script setup lang="ts">
@@ -373,6 +410,7 @@ import type { Item, Inventory, SaveData } from '@/types/game';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { validateAndFixSaveData, cleanTavernDuplicates } from '@/utils/dataValidation';
+import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue';
 
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
@@ -386,6 +424,14 @@ const activeTab = ref('items');
 const showCustomConfirm = ref(false);
 const confirmTitle = ref('');
 const confirmMessage = ref('');
+const showQuantityModal = ref(false);
+const quantityModalItem = ref<Item | null>(null);
+const quantityModalTitle = ref('');
+const quantityModalActionLabel = ref('');
+const quantityModalType = ref<'use' | 'discard' | 'other'>('use');
+const quantityModalConfirmText = ref('');
+const quantityModalDescription = ref('');
+const quantityModalCallback = ref<((quantity: number) => void) | null>(null);
 const showItemModal = ref(false);
 const confirmCallback = ref<(() => void) | null>(null);
 
@@ -433,7 +479,7 @@ const inventory = computed<Inventory>(() => {
 // 装备槽位
 const equipmentSlots = computed(() => {
   const equipment = characterStore.activeSaveSlot?.存档数据?.装备栏;
-  const slotNames = ['法宝1', '法宝2', '法宝3', '法宝4', '法宝5', '法宝6'];
+  const slotNames = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6'];
 
   if (!equipment) {
     return slotNames.map(name => ({ name, item: null }));
@@ -455,8 +501,9 @@ const equipmentSlots = computed(() => {
 // 卸下装备功能
 const unequipItem = async (slot: { name: string; item: Item | null }) => {
   if (!slot.item) return;
+  const itemToUnequip = slot.item;
 
-  debug.log('背包面板', '卸下装备', slot.item.名称);
+  debug.log('背包面板', '卸下装备', itemToUnequip.名称);
 
   try {
     // 检查存档数据是否存在
@@ -476,7 +523,7 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
     const slotKey = slot.name as keyof typeof equipment;
 
     // 将装备放回背包
-    characterStore.activeSaveSlot.存档数据.背包.物品[slot.item.物品ID] = slot.item;
+    characterStore.activeSaveSlot.存档数据.背包.物品[itemToUnequip.物品ID] = itemToUnequip;
 
     // 清空装备槽位
     equipment[slotKey] = null;
@@ -490,13 +537,13 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
     // 添加到操作队列
     actionQueue.addAction({
       type: 'unequip',
-      itemName: slot.item.名称,
-      itemType: slot.item.类型,
-      description: `卸下了《${slot.item.名称}》装备，放回背包`
+      itemName: itemToUnequip.名称,
+      itemType: itemToUnequip.类型,
+      description: `卸下了《${itemToUnequip.名称}》装备，放回背包`
     });
 
-    toast.success(`已卸下《${slot.item.名称}》`);
-    debug.log('背包面板', '装备卸下成功', slot.item.名称);
+    toast.success(`已卸下《${itemToUnequip.名称}》`);
+    debug.log('背包面板', '装备卸下成功', itemToUnequip.名称);
 
   } catch (error) {
     debug.error('背包面板', '卸下装备失败', error);
@@ -510,12 +557,12 @@ const itemList = computed<Item[]>(() => {
   return Object.entries(raw)
     .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
     .map(([, val]) => val as Item)
-    .filter((it: any) => typeof it.名称 === 'string' && typeof it.类型 === 'string');
+    .filter((item: Item) => typeof item.名称 === 'string' && typeof item.类型 === 'string');
 });
 
 const itemCategories = computed(() => {
-  // 固定三个分类：法宝、功法、其他
-  return ['法宝', '功法', '其他'];
+  // 固定三个分类：装备、功法、其他
+  return ['装备', '功法', '其他'];
 });
 
 // 品质排序映射，兼容 "*阶" 与简写
@@ -532,11 +579,33 @@ const qualityOrder: { [key: string]: number } = {
 const filteredItems = computed(() => {
   let items = [...itemList.value];
 
-  // 标准化物品类型：只允许法宝、功法、其他三种类型
-  items = items.map(item => ({
-    ...item,
-    类型: item.类型 === '法宝' || item.类型 === '功法' ? item.类型 : '其他'
-  }));
+  // 标准化物品类型和品质：只允许装备、功法、其他三种类型，并确保品质格式正确
+  items = items.map(item => {
+    // 标准化类型
+    const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他';
+    
+    // 标准化品质字段
+    let normalizedQuality = item.品质;
+    if (!normalizedQuality || typeof normalizedQuality !== 'object') {
+      // 如果品质字段缺失或格式错误，设置默认值
+      normalizedQuality = { quality: '凡', grade: 1 };
+    } else {
+      // 确保quality字段正确
+      if (!normalizedQuality.quality || !['凡', '黄', '玄', '地', '天', '仙', '神'].includes(normalizedQuality.quality)) {
+        normalizedQuality.quality = '凡';
+      }
+      // 确保grade字段正确
+      if (typeof normalizedQuality.grade !== 'number' || normalizedQuality.grade < 0 || normalizedQuality.grade > 10) {
+        normalizedQuality.grade = 1;
+      }
+    }
+
+    return {
+      ...item,
+      类型: normalizedType,
+      品质: normalizedQuality
+    };
+  });
 
   if (searchQuery.value) {
     items = items.filter(item => item.名称.includes(searchQuery.value));
@@ -545,7 +614,7 @@ const filteredItems = computed(() => {
   if (selectedCategory.value !== 'all') {
     items = items.filter(item => {
       // 确保过滤时也使用标准化的类型
-      const normalizedType = item.类型 === '法宝' || item.类型 === '功法' ? item.类型 : '其他';
+      const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他';
       return normalizedType === selectedCategory.value;
     });
   }
@@ -587,7 +656,7 @@ const formatItemAttributes = (attributes: Record<string, unknown>): string => {
 };
 
 // 格式化功法属性加成显示
-const formatAttributeBonus = (attributeBonus: any): string => {
+const formatAttributeBonus = (attributeBonus: Record<string, unknown>): string => {
   if (!attributeBonus || typeof attributeBonus !== 'object') {
     return '无属性加成';
   }
@@ -603,9 +672,9 @@ const formatAttributeBonus = (attributeBonus: any): string => {
 // 获取物品类型图标
 const getItemTypeIcon = (type: string): string => {
   const typeIcons: Record<string, string> = {
-    '法宝': '⚔️',
+    '装备': '⚔️',
     '功法': '📜',
-    '其他': '📦'
+    '其他': '📦',
   };
   return typeIcons[type] || '📦';
 };
@@ -659,6 +728,24 @@ const removeItemFromInventory = async (item: Item) => {
   // 关闭弹窗
   if (isMobile.value) {
     showItemModal.value = false;
+  }
+};
+
+// 更新背包中物品的辅助函数
+const updateItemInInventory = async (item: Item) => {
+  if (!characterStore.activeSaveSlot?.存档数据?.背包?.物品) {
+    throw new Error('背包数据不存在');
+  }
+
+  // 更新背包中的物品
+  characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID] = item;
+  await characterStore.commitToStorage();
+
+  debug.log('背包面板', '物品更新成功', item.名称);
+
+  // 如果当前选中的是被更新的物品，更新选择
+  if (selectedItem.value?.物品ID === item.物品ID) {
+    selectedItem.value = item;
   }
 };
 
@@ -812,7 +899,56 @@ const cultivateItem = async (item: Item, force = false) => {
   }
 };
 
-// 使用物品功能 - 自定义弹窗
+// 停止修炼
+const stopCultivation = async (item: Item) => {
+  if (!characterStore.activeSaveSlot?.存档数据?.修炼功法?.功法) {
+    toast.error('当前没有正在修炼的功法');
+    return;
+  }
+
+  const techniqueToStop = characterStore.activeSaveSlot.存档数据.修炼功法.功法;
+  if (techniqueToStop.物品ID !== item.物品ID) {
+    toast.error('操作的功法与当前修炼的功法不符');
+    return;
+  }
+
+  debug.log('背包面板', '停止修炼', techniqueToStop.名称);
+
+  try {
+    // 将功法移回背包
+    if (!characterStore.activeSaveSlot.存档数据.背包) {
+      characterStore.activeSaveSlot.存档数据.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+    }
+    if (!characterStore.activeSaveSlot.存档数据.背包.物品) {
+      characterStore.activeSaveSlot.存档数据.背包.物品 = {};
+    }
+    characterStore.activeSaveSlot.存档数据.背包.物品[techniqueToStop.物品ID] = techniqueToStop;
+
+    // 清空修炼槽位
+    characterStore.activeSaveSlot.存档数据.修炼功法.功法 = null;
+
+    // 保存数据
+    await characterStore.commitToStorage();
+    
+    toast.success(`已停止修炼《${techniqueToStop.名称}》`);
+    debug.log('背包面板', '停止修炼成功', techniqueToStop.名称);
+
+  } catch (error) {
+    debug.error('背包面板', '停止修炼失败', error);
+    toast.error('停止修炼失败');
+  }
+};
+
+// 切换修炼状态
+const toggleCultivate = (item: Item) => {
+  if (isCultivating(item)) {
+    stopCultivation(item);
+  } else {
+    cultivateItem(item);
+  }
+};
+
+// 使用物品功能 - 数量选择弹窗
 const useItem = async (item: Item) => {
   if (!item) {
     return;
@@ -820,18 +956,36 @@ const useItem = async (item: Item) => {
 
   debug.log('背包面板', '使用物品', item.名称);
 
+  // 如果物品数量大于1，弹出数量选择弹窗
+  if (item.数量 > 1) {
+    quantityModalItem.value = item;
+    quantityModalTitle.value = '使用物品';
+    quantityModalActionLabel.value = '使用数量';
+    quantityModalType.value = 'use';
+    quantityModalConfirmText.value = '确定使用';
+    quantityModalDescription.value = item.使用效果 || '暂无特殊效果';
+    quantityModalCallback.value = (quantity: number) => useItemWithQuantity(item, quantity);
+    showQuantityModal.value = true;
+    return;
+  }
+
+  // 数量为1时直接使用
+  await useItemWithQuantity(item, 1);
+};
+
+const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
     let messageText = '';
     let effectMessage = '';
 
     if (item.使用效果) {
       effectMessage = `效果：${item.使用效果}`;
-      messageText = `确定要使用《${item.名称}》吗？
+      messageText = `确定要使用 ${quantity} 个《${item.名称}》吗？
 
 ${effectMessage}`;
     } else {
       effectMessage = '暂无特殊效果';
-      messageText = `《${item.名称}》暂无特殊效果，确定要使用吗？`;
+      messageText = `《${item.名称}》暂无特殊效果，确定要使用 ${quantity} 个吗？`;
     }
 
     // 显示自定义确认弹窗
@@ -841,14 +995,14 @@ ${effectMessage}`;
     confirmCallback.value = async () => {
       if (item.使用效果) {
         // 减少物品数量
-        if (item.数量 > 1) {
-          item.数量 -= 1;
+        if (item.数量 > quantity) {
+          item.数量 -= quantity;
           await characterStore.commitToStorage();
-          toast.success(`使用了《${item.名称}》，剩余${item.数量}个`);
+          toast.success(`使用了 ${quantity} 个《${item.名称}》，剩余${item.数量}个`);
         } else {
-          // 数量为1时，使用后移除物品
+          // 全部使用完时，移除物品
           await removeItemFromInventory(item);
-          toast.success(`使用了《${item.名称}》，物品已用完`);
+          toast.success(`使用了 ${quantity} 个《${item.名称}》，物品已用完`);
         }
 
         // 添加到操作队列
@@ -856,17 +1010,25 @@ ${effectMessage}`;
           type: 'use',
           itemName: item.名称,
           itemType: item.类型,
-          description: `使用了《${item.名称}》，${item.使用效果 || '产生了特殊效果'}`
+          description: `使用了 ${quantity} 个《${item.名称}》，${item.使用效果 || '产生了特殊效果'}`
         });
       } else {
-        toast.info(`使用了《${item.名称}》，但似乎没有产生明显效果`);
+        // 即使没有效果也要减少数量
+        if (item.数量 > quantity) {
+          item.数量 -= quantity;
+          await characterStore.commitToStorage();
+          toast.info(`使用了 ${quantity} 个《${item.名称}》，但似乎没有产生明显效果`);
+        } else {
+          await removeItemFromInventory(item);
+          toast.info(`使用了 ${quantity} 个《${item.名称}》，但似乎没有产生明显效果`);
+        }
 
         // 即使没有效果也添加到操作队列
         actionQueue.addAction({
           type: 'use',
           itemName: item.名称,
           itemType: item.类型,
-          description: `使用了《${item.名称}》，但没有产生明显效果`
+          description: `使用了 ${quantity} 个《${item.名称}》，但没有产生明显效果`
         });
       }
 
@@ -883,107 +1045,210 @@ ${effectMessage}`;
   }
 };
 
-// 丢弃物品功能（使用自定义确认弹窗）
+// 数量选择弹窗的处理函数
+const handleQuantityConfirm = async (quantity: number) => {
+  if (quantityModalCallback.value) {
+    await quantityModalCallback.value(quantity);
+  }
+  handleQuantityClose();
+};
+
+const handleQuantityClose = () => {
+  showQuantityModal.value = false;
+  quantityModalItem.value = null;
+  quantityModalTitle.value = '';
+  quantityModalActionLabel.value = '';
+  quantityModalType.value = 'use';
+  quantityModalConfirmText.value = '';
+  quantityModalDescription.value = '';
+  quantityModalCallback.value = null;
+};
+
+// 丢弃物品功能 - 支持数量选择
 const discardItem = async (item: Item) => {
   if (!item) {
     return;
   }
 
+  // 如果物品数量大于1，弹出数量选择弹窗
+  if (item.数量 > 1) {
+    const itemQuality = item.品质?.quality || '凡';
+    const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`;
+    
+    quantityModalItem.value = item;
+    quantityModalTitle.value = '丢弃物品';
+    quantityModalActionLabel.value = '丢弃数量';
+    quantityModalType.value = 'discard';
+    quantityModalConfirmText.value = '确定丢弃';
+    quantityModalDescription.value = `${qualityColor}${item.名称} - 此操作不可撤销！`;
+    quantityModalCallback.value = (quantity: number) => discardItemWithQuantity(item, quantity);
+    showQuantityModal.value = true;
+    return;
+  }
+
+  // 数量为1时使用确认弹窗
   const itemQuality = item.品质?.quality || '凡';
   const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`;
   confirmTitle.value = '丢弃物品';
   confirmMessage.value = `确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`;
   confirmCallback.value = async () => {
-    debug.log('背包面板', '丢弃物品', item.名称);
-    try {
-      await removeItemFromInventory(item);
-      toast.success(`已丢弃《${item.名称}》`);
-      if (isMobile.value) {
-        showItemModal.value = false;
-      }
-      selectedItem.value = null;
-    } catch (error) {
-      debug.error('背包面板', '丢弃失败', error);
-      toast.error('丢弃物品失败');
-    }
+    await discardItemWithQuantity(item, 1);
   };
   showCustomConfirm.value = true;
 };
+
+const discardItemWithQuantity = async (item: Item, quantity: number) => {
+  debug.log('背包面板', '丢弃物品', { 物品名称: item.名称, 数量: quantity });
+  try {
+    if (quantity >= item.数量) {
+      // 全部丢弃
+      await removeItemFromInventory(item);
+      toast.success(`已丢弃《${item.名称}》`);
+    } else {
+      // 部分丢弃，减少数量
+      const updatedItem = { ...item, 数量: item.数量 - quantity };
+      await updateItemInInventory(updatedItem);
+      toast.success(`已丢弃 ${quantity} 个《${item.名称}》`);
+    }
+    
+    if (isMobile.value) {
+      showItemModal.value = false;
+    }
+    selectedItem.value = null;
+  } catch (error) {
+    debug.error('背包面板', '丢弃失败', error);
+    toast.error('丢弃物品失败');
+  }
+};
 const equipItem = async (item: Item) => {
-  if (!item || item.类型 !== '法宝') {
-    toast.error('只能装备法宝类物品');
+  // 1. 类型校验
+  if (item.类型 !== '装备') {
+    toast.error(`《${item.名称}》是${item.类型}，不是装备，无法穿戴。`);
     return;
   }
 
-  debug.log('背包面板', '装备法宝', item.名称);
+  debug.log('背包面板', '装备装备', item.名称);
 
   try {
-    // 检查存档数据是否存在
+    // 检查存档数据
     if (!characterStore.activeSaveSlot?.存档数据) {
-      toast.error('存档数据不存在，无法装备法宝');
+      toast.error('存档数据不存在，无法装备');
       return;
     }
-
-    // 检查是否有装备栏数据结构
     if (!characterStore.activeSaveSlot.存档数据.装备栏) {
       toast.warning('装备栏未初始化');
       return;
     }
 
-    // 将物品添加到装备栏中
-    const equipmentSlot = characterStore.activeSaveSlot.存档数据.装备栏;
+    const equipmentSlotsData = characterStore.activeSaveSlot.存档数据.装备栏;
 
-    // 找到空的法宝位置
-    let equipped = false;
+    // 2. 唯一性检查
+    const isAlreadyEquipped = Object.values(equipmentSlotsData).some(equippedItem => equippedItem?.物品ID === item.物品ID);
+    if (isAlreadyEquipped) {
+      toast.info(`《${item.名称}》已经装备在身上了。`);
+      return;
+    }
 
+    // 查找空槽位
+    let emptySlotKey: keyof typeof equipmentSlotsData | null = null;
     for (let i = 1; i <= 6; i++) {
-      const slotKey = `法宝${i}` as keyof typeof equipmentSlot;
-      if (!equipmentSlot[slotKey]) {
-        equipmentSlot[slotKey] = item; // 存储完整物品对象而不是ID
-        equipped = true;
-        debug.log('背包面板', `法宝装备到${slotKey}`, item.名称);
-        toast.success(`《${item.名称}》已装备到${slotKey}`);
+      const slotKey = `装备${i}` as keyof typeof equipmentSlotsData;
+      if (!equipmentSlotsData[slotKey]) {
+        emptySlotKey = slotKey;
         break;
       }
     }
 
-    if (!equipped) {
-      // 装备栏已满，使用自定义确认弹窗
-      confirmTitle.value = '替换装备';
-      confirmMessage.value = '装备栏已满，是否替换法宝1的装备？';
-      confirmCallback.value = async () => {
-        equipmentSlot.法宝1 = item;
-        toast.success(`《${item.名称}》已替换装备到法宝1`);
+    if (emptySlotKey) {
+      // 有空槽位，直接装备
+      equipmentSlotsData[emptySlotKey] = item;
+      toast.success(`《${item.名称}》已装备到${emptySlotKey}`);
+    } else {
+      // 装备栏已满，提示替换
+      // (这里的替换逻辑可以更复杂，例如弹窗让用户选择替换哪一件，但目前保持简单，替换第一件)
+      const firstSlotKey: keyof typeof equipmentSlotsData = '装备1';
+      const replacedItem = equipmentSlotsData[firstSlotKey];
 
-        await removeItemFromInventory(item);
-        await characterStore.commitToStorage();
-        await syncToTavernVariables();
-        actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，获得其增幅效果` });
-        debug.log('背包面板', '法宝装备成功，已同步到酒馆变量');
-        if (isMobile.value) {
-          showItemModal.value = false;
-        }
-        selectedItem.value = null;
-      };
+      // 确保 replacedItem 是一个物品对象
+      if (replacedItem && typeof replacedItem === 'object' && '物品ID' in replacedItem) {
+        confirmTitle.value = '替换装备';
+        confirmMessage.value = `装备栏已满，是否用《${item.名称}》替换掉《${replacedItem.名称}》？`;
+        confirmCallback.value = async () => {
+          // 将被替换的装备放回背包
+          characterStore.activeSaveSlot!.存档数据!.背包!.物品![replacedItem.物品ID] = replacedItem;
+          
+          // 装备新物品
+          equipmentSlotsData[firstSlotKey] = item;
+          toast.success(`《${item.名称}》已替换装备到${firstSlotKey}`);
+          
+          // 从背包移除新装备
+          await removeItemFromInventory(item);
+          await characterStore.commitToStorage();
+          await syncToTavernVariables();
+          actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，替换了《${replacedItem.名称}》` });
+          debug.log('背包面板', '替换装备成功');
+          if (isMobile.value) showItemModal.value = false;
+          selectedItem.value = null;
+        };
+      } else {
+        // 如果第一个槽位为空或数据异常，直接覆盖
+        confirmTitle.value = '替换装备';
+        confirmMessage.value = `装备栏已满，是否用《${item.名称}》替换掉装备1的物品？`;
+        confirmCallback.value = async () => {
+          equipmentSlotsData[firstSlotKey] = item;
+          toast.success(`《${item.名称}》已装备到${firstSlotKey}`);
+          
+          await removeItemFromInventory(item);
+          await characterStore.commitToStorage();
+          await syncToTavernVariables();
+          actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝` });
+          debug.log('背包面板', '覆盖装备成功');
+          if (isMobile.value) showItemModal.value = false;
+          selectedItem.value = null;
+        };
+      }
       showCustomConfirm.value = true;
-      return;
+      return; // 等待用户确认
     }
 
-    // 从背包移除已装备物品（有空槽的情况）
+    // 从背包移除已装备物品
     await removeItemFromInventory(item);
     await characterStore.commitToStorage();
     await syncToTavernVariables();
     actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，获得其增幅效果` });
-    debug.log('背包面板', '法宝装备成功，已同步到酒馆变量');
-    if (isMobile.value) {
-      showItemModal.value = false;
-    }
+    debug.log('背包面板', '装备成功');
+    if (isMobile.value) showItemModal.value = false;
     selectedItem.value = null;
 
   } catch (error) {
     debug.error('背包面板', '装备失败', error);
-    toast.error('装备法宝失败');
+    toast.error('装备失败');
   }
+};
+
+// 切换装备状态
+const toggleEquip = (item: Item) => {
+  if (isEquipped(item)) {
+    const slot = equipmentSlots.value.find(s => s.item?.物品ID === item.物品ID);
+    if (slot) {
+      unequipItem(slot);
+    }
+  } else {
+    equipItem(item);
+  }
+};
+
+// 检查物品是否已装备
+const isEquipped = (item: Item | null): boolean => {
+  if (!item) return false;
+  return equipmentSlots.value.some(slot => slot.item?.物品ID === item.物品ID);
+};
+
+// 检查功法是否正在修炼
+const isCultivating = (item: Item | null): boolean => {
+  if (!item) return false;
+  const cultivatingSkill = characterStore.activeSaveSlot?.存档数据?.修炼功法?.功法;
+  return cultivatingSkill?.物品ID === item.物品ID;
 };
 
 const getItemQualityClass = (item: Item | null, type: 'border' | 'text' | 'badge' | 'card' = 'border'): string => {
@@ -1146,6 +1411,7 @@ onMounted(async () => {
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modal-appear 0.3s ease-out;
+  border: 1px solid var(--color-primary-border);
 }
 
 .confirm-header {
@@ -1154,7 +1420,7 @@ onMounted(async () => {
   align-items: center;
   padding: 20px 24px 16px 24px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-light);
+  background: var(--color-primary-light);
 }
 
 .confirm-header h3 {
@@ -1252,6 +1518,7 @@ onMounted(async () => {
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modal-appear 0.3s ease-out;
+  border: 1px solid var(--color-primary-border);
 }
 
 @keyframes modal-appear {
@@ -1271,7 +1538,7 @@ onMounted(async () => {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-light);
+  background: var(--color-primary-light);
 }
 
 .modal-header h3 {
@@ -1349,27 +1616,27 @@ onMounted(async () => {
 }
 
 .grade-display.grade-low {
-  background: #f59e0b;
+  background: #10b981; /* 绿色 - 下品 */
   color: white;
-  border-color: #f59e0b;
+  border-color: #10b981;
 }
 
 .grade-display.grade-mid {
-  background: #8b5cf6;
+  background: #3b82f6; /* 蓝色 - 中品 */
+  color: white;
+  border-color: #3b82f6;
+}
+
+.grade-display.grade-high {
+  background: #8b5cf6; /* 紫色 - 上品 */
   color: white;
   border-color: #8b5cf6;
 }
 
-.grade-display.grade-high {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
-}
-
 .grade-display.grade-perfect {
-  background: #ec4899;
+  background: #f59e0b; /* 金色 - 极品 */
   color: white;
-  border-color: #ec4899;
+  border-color: #f59e0b;
 }
 
 .grade-display.grade-unknown {
@@ -1732,22 +1999,22 @@ onMounted(async () => {
 }
 
 .grade-low {
-  background: #f59e0b;
+  background: #10b981; /* 绿色 - 下品 */
   color: white;
 }
 
 .grade-mid {
-  background: #8b5cf6;
+  background: #3b82f6; /* 蓝色 - 中品 */
   color: white;
 }
 
 .grade-high {
-  background: #ef4444;
+  background: #8b5cf6; /* 紫色 - 上品 */
   color: white;
 }
 
 .grade-perfect {
-  background: #ec4899;
+  background: #f59e0b; /* 金色 - 极品 */
   color: white;
 }
 

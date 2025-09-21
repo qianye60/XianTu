@@ -10,6 +10,7 @@
             class="skill-slot technique-method"
             :class="{ 'has-skill': cultivationSkills.功法 }"
             @click="selectSkill(cultivationSkills.功法, '功法')"
+            @mouseenter="onSkillHover(cultivationSkills.功法, '功法')"
           >
             <div v-if="cultivationSkills.功法" class="skill-info">
               <div class="skill-icon" :class="getSkillQualityClass(cultivationSkills.功法)">
@@ -56,6 +57,7 @@
               class="technique-card"
               :class="getSkillQualityClass(technique)"
               @click="selectInventoryTechnique(technique)"
+              @mouseenter="onSkillHover(technique, '背包功法')"
             >
               <div class="technique-icon" :class="getSkillQualityClass(technique)">
                 <span class="technique-type-text">功</span>
@@ -367,6 +369,17 @@ const selectSkill = (skill: unknown, slotName: string) => {
 const selectInventoryTechnique = (technique: unknown) => {
   selectedSkillData.value = technique;
   selectedSkillSlot.value = '背包功法';
+};
+
+// 桌面端：鼠标悬停预览（与点击选择一致，但不在移动端触发）
+const isMobile = computed(() => {
+  return typeof window !== 'undefined' && window.innerWidth <= 768;
+});
+
+const onSkillHover = (skill: unknown, slotName: string) => {
+  if (isMobile.value) return;
+  selectedSkillData.value = skill;
+  selectedSkillSlot.value = slotName;
 };
 
 // 获取功法品质样式类

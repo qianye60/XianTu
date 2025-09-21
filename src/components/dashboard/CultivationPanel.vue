@@ -49,21 +49,26 @@
                   {{ currentTechnique.品质?.quality || '凡' }}阶 {{ getGradeText(currentTechnique.品质?.grade || 0) }}({{ currentTechnique.品质?.grade || 0 }})
                 </div>
                 <div class="technique-progress">
-                  <div class="progress-bar">
-                    <div 
-                      class="progress-fill" 
-                      :style="{ width: Math.max(2, Math.min(100, Math.max(0, currentTechnique.修炼进度 || 0))) + '%' }"
-                    ></div>
+                    <div class="progress-bar">
+                      <div
+                        class="progress-fill"
+                        :style="{ width: Math.max(2, Math.min(100, Math.max(0, currentTechnique.修炼进度 || 0))) + '%' }"
+                      ></div>
+                    </div>
+                    <span class="progress-text">{{ Math.min(100, Math.max(0, currentTechnique.修炼进度 || 0)).toFixed(0) }}%</span>
                   </div>
-                  <span class="progress-text">{{ Math.min(100, Math.max(0, currentTechnique.修炼进度 || 0)).toFixed(0) }}%</span>
+                </div>
+                <div class="technique-actions">
+                  <button class="action-btn stop-cultivation-btn" @click="stopCultivation">
+                    停止修炼
+                  </button>
                 </div>
               </div>
-            </div>
-            
-            <!-- 已学技能列表 -->
-            <div v-if="learnedSkills.length > 0" class="skills-section">
-              <div class="skills-header">
-                <h5 class="skills-title">已掌握技能</h5>
+              
+              <!-- 已学技能列表 -->
+              <div v-if="learnedSkills.length > 0" class="skills-section">
+                <div class="skills-header">
+                  <h5 class="skills-title">已掌握技能</h5>
                 <div class="skills-count">({{ learnedSkills.length }}个)</div>
               </div>
               <div class="skills-list">
@@ -206,6 +211,7 @@ import { RefreshCw } from 'lucide-vue-next';
 import { useCharacterCultivationData, useCharacterBasicData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
+import { debug } from '@/utils/debug';
 
 const cultivationData = useCharacterCultivationData();
 const basicData = useCharacterBasicData();
@@ -408,12 +414,12 @@ const unlockedDaoList = computed(() => daoSystemData.value?.已解锁大道 || [
 const unlockedDaoCount = computed(() => unlockedDaoList.value.length);
 
 const equipmentSlots = computed(() => ({
-  '法宝1': equipmentData.value?.法宝1,
-  '法宝2': equipmentData.value?.法宝2,
-  '法宝3': equipmentData.value?.法宝3,
-  '法宝4': equipmentData.value?.法宝4,
-  '法宝5': equipmentData.value?.法宝5,
-  '法宝6': equipmentData.value?.法宝6
+  '装备1': equipmentData.value?.装备1,
+  '装备2': equipmentData.value?.装备2,
+  '装备3': equipmentData.value?.装备3,
+  '装备4': equipmentData.value?.装备4,
+  '装备5': equipmentData.value?.装备5,
+  '装备6': equipmentData.value?.装备6
 }));
 
 const equippedCount = computed(() => {
@@ -435,12 +441,12 @@ const getDaoIcon = (daoName: string): string => {
 // 获取装备图标
 const getEquipmentIcon = (slotName: string): string => {
   const iconMap: Record<string, string> = {
-    '法宝1': '⚔️',
-    '法宝2': '🛡️',
-    '法宝3': '💍',
-    '法宝4': '📿',
-    '法宝5': '👑',
-    '法宝6': '🦄'
+    '装备1': '⚔️',
+    '装备2': '🛡️',
+    '装备3': '💍',
+    '装备4': '📿',
+    '装备5': '👑',
+    '装备6': '🦄'
   };
   return iconMap[slotName] || '⚔️';
 };
@@ -478,6 +484,47 @@ const refreshCultivationData = async () => {
   // 数据是响应式的，理论上不需要手动刷新
   // 如果需要强制刷新，应该在 store 中实现
   toast.info('数据已通过中央存储自动更新');
+};
+
+// 停止修炼
+const stopCultivation = async () => {
+  if (!currentTechnique.value) {
+    toast.error('当前没有正在修炼的功法');
+    return;
+  }
+
+  const techniqueToStop = currentTechnique.value;
+  debug.log('修炼面板', '停止修炼', techniqueToStop.名称);
+
+  try {
+    // 检查存档数据
+    if (!characterStore.activeSaveSlot?.存档数据) {
+      toast.error('存档数据不存在');
+      return;
+    }
+
+    // 将功法移回背包
+    if (!characterStore.activeSaveSlot.存档数据.背包) {
+      characterStore.activeSaveSlot.存档数据.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+    }
+    if (!characterStore.activeSaveSlot.存档数据.背包.物品) {
+      characterStore.activeSaveSlot.存档数据.背包.物品 = {};
+    }
+    characterStore.activeSaveSlot.存档数据.背包.物品[techniqueToStop.物品ID] = techniqueToStop;
+
+    // 清空修炼槽位
+    characterStore.activeSaveSlot.存档数据.修炼功法.功法 = null;
+
+    // 保存数据
+    await characterStore.commitToStorage();
+    
+    toast.success(`已停止修炼《${techniqueToStop.名称}》`);
+    debug.log('修炼面板', '停止修炼成功', techniqueToStop.名称);
+
+  } catch (error) {
+    debug.error('修炼面板', '停止修炼失败', error);
+    toast.error('停止修炼失败');
+  }
 };
 </script>
 

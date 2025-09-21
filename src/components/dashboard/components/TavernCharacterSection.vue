@@ -7,7 +7,7 @@
       <div class="info-grid">
         <div class="info-item">
           <span class="info-label">角色名称:</span>
-          <span class="info-value">{{ characterData?.name || '未知' }}</span>
+          <span class="info-value">{{ characterData?.name || characterData?.名字 || '未知' }}</span>
         </div>
         <div class="info-item">
           <span class="info-label">角色ID:</span>

@@ -292,6 +292,7 @@ const getVitalPercent = (type: 'qiBlood' | 'lingQi' | 'shenShi' | 'lifespan') =>
   if (type === 'lifespan') {
     const lifespan = playerStatus.value.lifespan;
     if (!lifespan?.current || !lifespan?.max) return 0;
+    // 寿元进度条应该显示已度过的年龄占总寿命的百分比
     return Math.round((lifespan.current / lifespan.max) * 100);
   }
   const vitals = playerStatus.value.vitals[type as keyof typeof playerStatus.value.vitals];
@@ -299,28 +300,56 @@ const getVitalPercent = (type: 'qiBlood' | 'lingQi' | 'shenShi' | 'lifespan') =>
   return Math.round((vitals.current / vitals.max) * 100);
 };
 
+// 获取天赋数据
+const getTalentData = (talent: string) => {
+  // 首先从角色基础信息的天赋详情中查找
+  const baseInfo = saveData.value?.角色基础信息;
+  if (baseInfo?.天赋详情 && Array.isArray(baseInfo.天赋详情)) {
+    const talentDetail = baseInfo.天赋详情.find((t: any) => t.name === talent || t.名称 === talent);
+    if (talentDetail) {
+      return talentDetail;
+    }
+  }
+  
+  // 如果没有找到，从三千大道系统中查找（向后兼容）
+  const daoProgress = daoData.value?.大道进度[talent];
+  return daoProgress;
+};
+
 // 计算天赋等级
 const getTalentLevel = (talent: string): number => {
-  const daoProgress = daoData.value?.大道进度[talent];
-  return daoProgress?.当前阶段 || 1;
+  const talentData = getTalentData(talent);
+  if (talentData?.level !== undefined) {
+    return talentData.level;
+  }
+  // 向后兼容：从大道进度获取
+  return talentData?.当前阶段 || 1;
 };
 
 // 计算天赋经验
 const getTalentExp = (talent: string): number => {
-  const daoProgress = daoData.value?.大道进度[talent];
-  return daoProgress?.当前经验 || 0;
+  const talentData = getTalentData(talent);
+  if (talentData?.exp !== undefined) {
+    return talentData.exp;
+  }
+  // 向后兼容：从大道进度获取
+  return talentData?.当前经验 || 0;
 };
 
 // 计算天赋最大经验
 const getTalentMaxExp = (talent: string): number => {
-  const daoProgress = daoData.value?.大道进度[talent];
-  const currentStageIndex = daoProgress?.当前阶段 || 0;
+  const talentData = getTalentData(talent);
+  if (talentData?.exp_max !== undefined) {
+    return talentData.exp_max;
+  }
+  // 向后兼容：从大道进度获取
+  const currentStageIndex = talentData?.当前阶段 || 0;
   const daoPath = daoData.value?.大道路径定义[talent];
   // 确保 daoPath 和 阶段列表 存在
   if (daoPath && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
-    return daoPath.阶段列表[currentStageIndex].突破经验 || 0;
+    return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
   }
-  return 0;
+  return 100; // 默认值
 };
 
 // 计算天赋进度百分比
@@ -396,16 +425,21 @@ const showTalentDetail = (talent: string) => {
       } as TextSection,
       {
         title: '当前效果',
-        type: 'list',
-        data: enhancedEffects
-      } as ListSection,
+        type: 'table',
+        data: enhancedEffects.map((effect, index) => ({
+          label: `效果${index + 1}`,
+          value: effect
+        }))
+      } as TableSection,
       {
         title: '修炼进度',
         type: 'table',
         data: [
           { label: '当前等级', value: `Lv.${level}` },
-          { label: '当前经验', value: `${currentExp}/${maxExp}` },
-          { label: '进度', value: `${progress}%` },
+          { 
+            label: '经验进度', 
+            value: maxExp > 0 ? `${currentExp}/${maxExp} (${progress}%)` : '暂无进度数据'
+          },
           { label: '最高等级', value: `Lv.${talentInfo.maxLevel}` }
         ]
       } as TableSection

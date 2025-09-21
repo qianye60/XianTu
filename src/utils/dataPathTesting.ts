@@ -24,7 +24,7 @@ export function testDataPaths() {
       修为: { 当前: 0, 最大: 100 },
       状态效果: []
     },
-    装备栏: { 法宝1: null, 法宝2: null, 法宝3: null, 法宝4: null, 法宝5: null, 法宝6: null },
+    装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
     三千大道: { 已解锁大道: [], 大道进度: {}, 大道路径定义: {} },
     背包: { 
       灵石: { 下品: 10, 中品: 5, 上品: 0, 极品: 0 }, 
@@ -57,7 +57,7 @@ export function testDataPaths() {
     { path: '背包.物品.测试物品.名称', expected: '测试丹药' },
     
     // 装备路径
-    { path: '装备栏.法宝1', expected: null },
+    { path: '装备栏.装备1', expected: null },
     
     // 记忆路径
     { path: '记忆.短期记忆', expected: [] },

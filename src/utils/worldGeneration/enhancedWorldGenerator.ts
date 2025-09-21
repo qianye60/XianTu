@@ -13,6 +13,7 @@ import {
   type RetryConfig 
 } from '../gameDataValidator';
 import type { WorldInfo } from '@/types/game.d';
+import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
 
 export interface EnhancedWorldGenConfig {
   worldName?: string;
@@ -145,6 +146,27 @@ export class EnhancedWorldGenerator {
    - 描述 (至少50字的背景描述)
    - 特色 (数组格式，至少2个特色)
 
+   另外，必须补充以下结构，前端宗门页面直接依赖：
+   - leadership 对象（宗门领导层，字段皆为必填）：
+     {
+       "宗主": "姓名",
+       "宗主修为": "如：元婴后期/化神中期",
+       "副宗主": "姓名或null",
+       "长老数量": 数字,
+       "最强修为": "如：化神圆满",
+       "综合战力": 1-100 的数字,
+       "核心弟子数": 数字,
+       "内门弟子数": 数字,
+       "外门弟子数": 数字
+     }
+   - memberCount 对象（成员统计，字段皆为必填）：
+     {
+       "total": 数字,
+       "byRealm": {"练气": 数, "筑基": 数, "金丹": 数, "元婴": 数, "化神": 数, "炼虚": 数, "合体": 数, "渡劫": 数},
+       "byPosition": {"散修":0, "外门弟子": 数, "内门弟子": 数, "核心弟子": 数, "传承弟子": 数, "执事": 数, "长老": 数, "副掌门": 数, "掌门": 1}
+     }
+   - 数据一致性：memberCount.total 必须等于 byPosition 合计；byRealm 合计必须等于 total。
+
 ## 地点生成要求
 1. **地点类型分布**：
    - 势力总部: ${factionCount}个 (对应各势力)
@@ -237,20 +259,65 @@ export class EnhancedWorldGenerator {
         天然屏障: continent.natural_barriers || continent.天然屏障 || [],
         大洲边界: continent.continent_bounds || continent.大洲边界 || []
       })),
-      势力信息: (rawData.factions || []).map((faction: any) => ({
-        名称: faction.name || faction.名称,
-        类型: faction.type || faction.类型,
-        等级: faction.level || faction.等级,
-        位置: faction.location || faction.位置,
-        势力范围: faction.territory || faction.势力范围 || [],
-        描述: faction.description || faction.描述,
-        特色: faction.specialties || faction.features || faction.特色 || [],
-        与玩家关系: '中立',
-        声望值: Math.floor(Math.random() * 20) + 5, // 5-25随机值
-        canJoin: true,
-        joinRequirements: [],
-        benefits: []
-      })),
+      势力信息: (rawData.factions || []).map((faction: any) => {
+        // 计算声望与综合战力（若可）
+        const calcInput: SectCalculationData = {
+          名称: faction.name || faction.名称,
+          类型: faction.type || faction.类型 || '修仙宗门',
+          等级: faction.level || faction.等级 || '三流',
+          宗主修为: faction.leadership?.宗主修为,
+          最强修为: faction.leadership?.最强修为,
+          长老数量: faction.leadership?.长老数量,
+          核心弟子数: faction.leadership?.核心弟子数,
+          内门弟子数: faction.leadership?.内门弟子数,
+          外门弟子数: faction.leadership?.外门弟子数
+        };
+        const calculated = calculateSectData(calcInput);
+
+        return {
+          名称: faction.name || faction.名称,
+          类型: faction.type || faction.类型,
+          等级: faction.level || faction.等级,
+          位置: faction.location || faction.headquarters || faction.位置,
+          势力范围: faction.territory || faction.territory_bounds || faction.势力范围 || [],
+          描述: faction.description || faction.描述,
+          特色: faction.specialties || faction.features || faction.特色 || [],
+          与玩家关系: faction.player_relationship || faction.与玩家关系 || '中立',
+          声望值: calculated.声望值,
+          
+          // 组织架构（如果AI返回了则映射并补充）
+          leadership: faction.leadership ? {
+            宗主: faction.leadership.宗主,
+            宗主修为: faction.leadership.宗主修为,
+            副宗主: faction.leadership.副宗主,
+            长老数量: faction.leadership.长老数量 || 0,
+            最强修为: faction.leadership.最强修为 || faction.leadership.宗主修为,
+            综合战力: calculated.综合战力,
+            核心弟子数: faction.leadership.核心弟子数,
+            内门弟子数: faction.leadership.内门弟子数,
+            外门弟子数: faction.leadership.外门弟子数
+          } : undefined,
+          
+          // 成员统计（若存在则透传）
+          memberCount: faction.memberCount ? {
+            total: Number(faction.memberCount.total) || 0,
+            byRealm: faction.memberCount.byRealm || {},
+            byPosition: faction.memberCount.byPosition || {}
+          } : undefined,
+
+          // 势力范围详情（若存在）
+          territoryInfo: faction.territoryInfo ? {
+            controlledAreas: faction.territoryInfo.controlledAreas || [],
+            influenceRange: faction.territoryInfo.influenceRange,
+            strategicValue: faction.territoryInfo.strategicValue
+          } : undefined,
+
+          // 加入相关
+          canJoin: faction.canJoin !== undefined ? !!faction.canJoin : true,
+          joinRequirements: faction.joinRequirements || [],
+          benefits: faction.benefits || []
+        };
+      }),
       地点信息: (rawData.locations || []).map((location: any) => ({
         名称: location.name || location.名称,
         类型: location.type || location.类型,
@@ -405,20 +472,92 @@ export class EnhancedWorldGenerator {
       { name: '散修联盟', type: '散修联盟', level: '三流', desc: '散修抱团取暖的组织，成员众多' }
     ];
     
-    return factionTemplates.slice(0, this.config.factionCount).map((template, index) => ({
-      名称: template.name,
-      类型: template.type,
-      等级: template.level,
-      位置: `${template.name}总部`,
-      势力范围: [],
-      描述: template.desc,
-      特色: ['传承悠久', '实力强大'],
-      与玩家关系: '中立' as const,
-      声望值: Math.floor(Math.random() * 20) + 5,
-      canJoin: true,
-      joinRequirements: [],
-      benefits: []
-    }));
+    const buildFallbackStruct = (name: string, level: string) => {
+      // 默认职位分布模板
+      let byPosition: Record<string, number> = {};
+      let byRealm: Record<string, number> = {};
+      let leadership: any = {};
+      let total = 0;
+
+      const setTotals = (t: number) => { total = t; };
+
+      switch (level) {
+        case '超级': {
+          // 总人数3000
+          setTotals(3000);
+          byRealm = { 练气: 1400, 筑基: 900, 金丹: 400, 元婴: 200, 化神: 70, 炼虚: 20, 合体: 8, 渡劫: 2 } as any;
+          byPosition = { 散修: 0, 外门弟子: 1800, 内门弟子: 900, 核心弟子: 200, 传承弟子: 50, 执事: 30, 长老: 18, 副掌门: 1, 掌门: 1 } as any;
+          leadership = { 宗主: '玄真子', 宗主修为: '化神圆满', 副宗主: '清虚上人', 长老数量: 18, 最强修为: '炼虚中期', 核心弟子数: 200, 内门弟子数: 900, 外门弟子数: 1800 };
+          break;
+        }
+        case '一流': {
+          // 总人数1500
+          setTotals(1500);
+          byRealm = { 练气: 700, 筑基: 450, 金丹: 200, 元婴: 100, 化神: 40, 炼虚: 8, 合体: 2, 渡劫: 0 } as any;
+          byPosition = { 散修: 0, 外门弟子: 900, 内门弟子: 450, 核心弟子: 100, 传承弟子: 20, 执事: 15, 长老: 12, 副掌门: 2, 掌门: 1 } as any;
+          leadership = { 宗主: '青云子', 宗主修为: '元婴后期', 副宗主: '明月仙子', 长老数量: 12, 最强修为: '化神初期', 核心弟子数: 100, 内门弟子数: 450, 外门弟子数: 900 };
+          break;
+        }
+        case '二流': {
+          // 总人数800
+          setTotals(800);
+          byRealm = { 练气: 400, 筑基: 250, 金丹: 100, 元婴: 35, 化神: 10, 炼虚: 3, 合体: 1, 渡劫: 1 } as any;
+          byPosition = { 散修: 0, 外门弟子: 480, 内门弟子: 250, 核心弟子: 40, 传承弟子: 8, 执事: 10, 长老: 10, 副掌门: 1, 掌门: 1 } as any;
+          leadership = { 宗主: '东方弘', 宗主修为: '金丹圆满', 副宗主: '东方凌', 长老数量: 10, 最强修为: '元婴初期', 核心弟子数: 40, 内门弟子数: 250, 外门弟子数: 480 };
+          break;
+        }
+        default: { // 三流及其他
+          // 总人数400
+          setTotals(400);
+          byRealm = { 练气: 220, 筑基: 120, 金丹: 45, 元婴: 10, 化神: 3, 炼虚: 1, 合体: 1, 渡劫: 0 } as any;
+          byPosition = { 散修: 0, 外门弟子: 260, 内门弟子: 110, 核心弟子: 20, 传承弟子: 4, 执事: 2, 长老: 3, 副掌门: 0, 掌门: 1 } as any;
+          leadership = { 宗主: '商和子', 宗主修为: '筑基圆满', 副宗主: null, 长老数量: 3, 最强修为: '金丹初期', 核心弟子数: 20, 内门弟子数: 110, 外门弟子数: 260 };
+        }
+      }
+
+      // 计算声望与综合战力
+      const calc = calculateSectData({
+        名称: name,
+        类型: '修仙宗门',
+        等级: level as any,
+        宗主修为: leadership.宗主修为,
+        最强修为: leadership.最强修为,
+        长老数量: leadership.长老数量,
+        核心弟子数: leadership.核心弟子数,
+        内门弟子数: leadership.内门弟子数,
+        外门弟子数: leadership.外门弟子数
+      });
+
+      return { byPosition, byRealm, total, leadership, reputation: calc.声望值, power: calc.综合战力 };
+    };
+
+    return factionTemplates.slice(0, this.config.factionCount).map((template) => {
+      const base = buildFallbackStruct(template.name, template.level);
+      return {
+        名称: template.name,
+        类型: template.type,
+        等级: template.level,
+        位置: `${template.name}总部`,
+        势力范围: [],
+        描述: template.desc,
+        特色: ['传承悠久', '实力强大'],
+        与玩家关系: '中立' as const,
+        声望值: base.reputation,
+        specialties: ['传承悠久', '实力强大'],
+        leadership: {
+          ...base.leadership,
+          综合战力: base.power
+        },
+        memberCount: {
+          total: base.total,
+          byRealm: base.byRealm as any,
+          byPosition: base.byPosition as any
+        },
+        canJoin: true,
+        joinRequirements: [],
+        benefits: []
+      };
+    });
   }
   
   /**

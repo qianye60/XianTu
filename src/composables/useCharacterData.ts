@@ -139,9 +139,9 @@ export function useUnifiedCharacterData(): {
         current: typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0,
         max: typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0,
         remaining: (() => {
-          const cur = typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0;
-          const max = typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0;
-          return Math.max(0, max - cur);
+          const currentAge = typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0;
+          const maxLifespan = typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0;
+          return Math.max(0, maxLifespan - currentAge);
         })()
       },
       reputation: {
@@ -183,8 +183,8 @@ export function useUnifiedCharacterData(): {
 
     // 统一位置信息
     const location: CharacterLocation = {
-      name: playerStatus?.位置?.描述 || '未知之地',
-      description: playerStatus?.位置?.描述 || '未知之地',
+      name: playerStatus?.位置?.描述 || '青云镇',
+      description: playerStatus?.位置?.描述 || '青云镇',
       activity: '修行中',
       coordinates: playerStatus?.位置?.坐标 ? {
         x: playerStatus.位置.坐标.X,

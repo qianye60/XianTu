@@ -70,7 +70,7 @@ export type AttributeKey = keyof InnateAttributesEnglish;
 export interface Item {
   物品ID: string;
   名称: string;
-  类型: '法宝' | '功法' | '其他' |string;
+  类型: '装备' | '功法' | '其他' |string;
   品质: ItemQuality; // 使用新的品质系统
   装备增幅?: {
     气血上限?: number;
@@ -246,12 +246,12 @@ export interface ThousandDaoSystem {
 // --- 装备 ---
 
 export interface Equipment {
-  法宝1?: Item | string | null; // 物品对象或物品ID（兼容性）
-  法宝2?: Item | string | null;
-  法宝3?: Item | string | null;
-  法宝4?: Item | string | null;
-  法宝5?: Item | string | null;
-  法宝6?: Item | string | null;
+  装备1?: Item | string | null; // 物品对象或物品ID（兼容性）
+  装备2?: Item | string | null;
+  装备3?: Item | string | null;
+  装备4?: Item | string | null;
+  装备5?: Item | string | null;
+  装备6?: Item | string | null;
 }
 
 // --- 状态效果 ---
@@ -624,7 +624,7 @@ export interface CharacterBaseInfo {
 export type NewItemQuality = '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神';
 
 /** 新物品系统的类型枚举 */
-export type NewItemType = '法宝'| '功法' | '其他';
+export type NewItemType = '装备'| '功法' | '其他';
 
 /** 新物品系统的属性类型 */
 export type AttributeType = '攻击力' | '防御力' | '气血' | '灵气' | '神识' | '速度' | '暴击' | '命中' | '闪避' | '特殊';

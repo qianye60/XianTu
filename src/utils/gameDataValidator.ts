@@ -64,6 +64,9 @@ export const WORLD_INFO_VALIDATION_RULES: ValidationRule[] = [
   { path: '势力信息[].类型', type: 'required', message: '势力类型不能为空' },
   { path: '势力信息[].等级', type: 'enum', value: ['超级', '一流', '二流', '三流', '末流'], message: '势力等级必须是有效值' },
   { path: '势力信息[].描述', type: 'required', message: '势力描述不能为空' },
+  // 强化：宗门页面依赖的结构
+  { path: '势力信息[].leadership', type: 'required', message: '宗门领导层信息缺失（leadership）' },
+  { path: '势力信息[].memberCount', type: 'required', message: '宗门成员统计信息缺失（memberCount）' },
   { path: '地点信息[].名称', type: 'required', message: '地点名称不能为空' },
   { path: '地点信息[].类型', type: 'required', message: '地点类型不能为空' },
   { path: '地点信息[].描述', type: 'required', message: '地点描述不能为空' }

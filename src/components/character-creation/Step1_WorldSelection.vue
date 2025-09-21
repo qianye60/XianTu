@@ -22,6 +22,7 @@
             class="list-item"
             :class="{ selected: store.characterPayload.world_id === world.id }"
             @click="handleSelectWorld(world)"
+            @mouseover="activeWorld = world"
           >
             {{ world.name }}
           </div>
@@ -42,61 +43,61 @@
         </div>
       </div>
 
-      <!-- 中间面板：世界配置 -->
-      <div class="config-panel">
-        <h3>世界生成配置</h3>
-        <div class="config-content">
-          <div class="config-item">
-            <label>势力规模</label>
-            <select v-model="worldConfig.majorFactionsCount" class="config-select">
-              <option value="3">小型世界 (约3个势力)</option>
-              <option value="5">标准世界 (约5个势力)</option>
-              <option value="7">大型世界 (约7个势力)</option>
-              <option value="10">庞大世界 (约10个势力)</option>
-            </select>
-            <small class="config-hint">影响世界政治复杂度</small>
-          </div>
-          
-          <div class="config-item">
-            <label>地理密度</label>
-            <select v-model="worldConfig.totalLocations" class="config-select">
-              <option value="10">稀疏 (约10个地点)</option>
-              <option value="15">适中 (约15个地点)</option>
-              <option value="20">密集 (约20个地点)</option>
-              <option value="25">超密集 (约25个地点)</option>
-            </select>
-            <small class="config-hint">决定世界地点的丰富程度</small>
-          </div>
-          
-          <div class="config-item">
-            <label>特殊属性</label>
-            <select v-model="worldConfig.secretRealmsCount" class="config-select">
-              <option value="2">稀少 (约2个)</option>
-              <option value="4">常见 (约4个)</option>
-              <option value="6">丰富 (约6个)</option>
-              <option value="8">大量 (约8个)</option>
-            </select>
-            <small class="config-hint">为部分地点添加特殊属性(机遇/传承/危险)</small>
-          </div>
-          
-          <div class="config-actions">
-            <button @click="randomizeConfig" class="random-config-btn">
-              🎲 随机配置
-            </button>
-            <button @click="resetConfig" class="reset-config-btn">
-              🔄 重置默认
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右侧面板：世界详情 -->
+      <!-- 右侧面板：世界详情 + 地图生成选项 -->
       <div class="details-container">
-        <div v-if="store.selectedWorld" class="world-details">
-          <h2>{{ store.selectedWorld.name }}</h2>
-          <p class="era">【{{ store.selectedWorld.era || '时代未知' }}】</p>
-          <div class="description-scroll">
-            <p>{{ store.selectedWorld.description || '此界一片混沌，尚无描述。' }}</p>
+        <div v-if="activeWorld" class="world-details">
+          <div class="details-header">
+            <h2 class="details-title">{{ activeWorld.name }}</h2>
+            <button class="map-settings-btn" @click="showMapOptions = !showMapOptions" title="地图生成选项">
+              <Settings :size="16" />
+              <span class="btn-text">设置</span>
+            </button>
+          </div>
+          <p class="era">【{{ activeWorld.era || '时代未知' }}】</p>
+
+          <!-- 地图生成选项（移入右侧详情内，避免整体高度溢出） -->
+          <div class="map-options" v-show="showMapOptions">
+            <div class="map-options-header">地图生成选项</div>
+            <div class="map-options-grid">
+              <label class="option-item">
+                <span class="option-label">主要势力</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  step="1"
+                  v-model.number="worldConfig.majorFactionsCount"
+                />
+              </label>
+              <label class="option-item">
+                <span class="option-label">地点总数</span>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  v-model.number="worldConfig.totalLocations"
+                />
+              </label>
+              <label class="option-item">
+                <span class="option-label">秘境数量</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="1"
+                  v-model.number="worldConfig.secretRealmsCount"
+                />
+              </label>
+            </div>
+            <div class="map-options-actions">
+              <button class="opt-btn" @click="randomizeConfig">随机</button>
+              <button class="opt-btn" @click="resetConfig">重置</button>
+            </div>
+          </div>
+
+          <div class="description-scroll" v-show="!showMapOptions">
+            <p>{{ activeWorld.description || '此界一片混沌，尚无描述。' }}</p>
           </div>
         </div>
         <div v-else class="placeholder">
@@ -120,6 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { Settings } from 'lucide-vue-next';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import type { World } from '../../types';
 import CustomCreationModal from './CustomCreationModal.vue';
@@ -128,7 +130,9 @@ import { generateWorld } from '../../utils/tavernAI';
 
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
+const activeWorld = ref<World | null>(null); // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false);
+const showMapOptions = ref(false);
 
 // 世界生成配置
 const worldConfig = ref({
@@ -294,8 +298,8 @@ function resetConfig() {
 
 .world-layout {
   display: grid;
-  grid-template-columns: 1fr 320px 1.5fr;
-  gap: 1.5rem;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
   height: 100%;
   overflow: hidden;
 }
@@ -353,6 +357,34 @@ function resetConfig() {
   overflow: hidden;
 }
 
+.details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.details-title {
+  margin: 0;
+}
+
+.map-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.map-settings-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .world-details h2 {
   margin-top: 0;
   color: var(--color-primary);
@@ -377,6 +409,69 @@ function resetConfig() {
 .description-scroll p {
   margin: 0;
   white-space: pre-wrap;
+}
+
+/* 地图生成选项样式 */
+.map-options {
+  margin-top: 0.8rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: var(--color-surface);
+  /* 当显示设置时，该区域可占满并内部滚动 */
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.map-options-header {
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 0.6rem;
+}
+
+.map-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.option-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.option-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.option-item input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.map-options-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.opt-btn {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-light);
+  cursor: pointer;
+}
+
+.opt-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* Custom Scrollbar */
@@ -478,177 +573,19 @@ function resetConfig() {
   cursor: not-allowed;
 }
 
-/* 世界配置面板样式 */
-.config-panel {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.config-panel h3 {
-  margin: 0 0 1rem 0;
-  color: var(--color-primary);
-  font-size: 1rem;
-  text-align: center;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.5rem;
-}
-
-.config-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.config-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  flex-shrink: 0;
-}
-
-.config-item label {
-  font-weight: 500;
-  color: var(--color-text);
-  font-size: 0.85rem;
-  line-height: 1.2;
-}
-
-.config-select {
-  padding: 0.4rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 0.85rem;
-  min-height: 32px;
-}
-
-.config-select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.config-hint {
-  color: var(--color-text-secondary);
-  font-size: 0.7rem;
-  margin-top: 0.2rem;
-  font-style: italic;
-  line-height: 1.3;
-}
-
-/* 配置操作按钮 */
-.config-actions {
-  display: flex;
-  gap: 0.4rem;
-  margin-top: 0.8rem;
-  padding-top: 0.8rem;
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.random-config-btn,
-.reset-config-btn {
-  flex: 1;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  min-height: 32px;
-}
-
-.random-config-btn:hover {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.reset-config-btn:hover {
-  background: var(--color-accent);
-  color: white;
-  border-color: var(--color-accent);
-}
-
-/* 响应式适配 - 优化的手机端适配，确保三栏内容完整显示 */
-@media (max-width: 1400px) {
-  .world-layout {
-    grid-template-columns: 1fr 300px 1.3fr;
-    gap: 1.2rem;
-  }
-}
-
-@media (max-width: 1200px) {
-  .world-layout {
-    grid-template-columns: 1fr 280px 1.2fr;
-    gap: 1rem;
-  }
-  
-  .config-panel {
-    padding: 0.8rem;
-  }
-  
-  .details-container {
-    padding: 1.2rem;
-  }
-}
-
+/* 响应式适配 */
 @media (max-width: 1024px) {
   .world-layout {
-    grid-template-columns: 0.8fr 240px 1fr;
-    gap: 0.8rem;
-  }
-  
-  .config-panel {
-    min-width: 240px;
-    padding: 0.7rem;
-  }
-  
-  .config-panel h3 {
-    font-size: 0.9rem;
-  }
-  
-  .config-item label {
-    font-size: 0.8rem;
-  }
-  
-  .config-select {
-    font-size: 0.8rem;
-    padding: 0.35rem;
-  }
-  
-  .config-hint {
-    font-size: 0.7rem;
-  }
-  
-  .random-config-btn,
-  .reset-config-btn {
-    font-size: 0.75rem;
-    padding: 0.4rem 0.5rem;
-    min-height: 28px;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.2rem;
   }
 }
 
 @media (max-width: 640px) {
   .world-layout {
-    /* 改为垂直堆叠布局，确保所有三个面板都能显示 */
+    /* 改为垂直堆叠布局 */
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto 1fr;
     gap: 1rem;
     height: auto;
     overflow: visible;
@@ -660,15 +597,9 @@ function resetConfig() {
     max-height: 40vh;
   }
   
-  .config-panel {
-    order: 2;
-    padding: 1rem;
-  }
-  
   .details-container {
-    order: 3;
-    min-height: 200px;
-    flex: 1;
+    order: 2;
+    min-height: 300px;
   }
   
   .list-container {
@@ -678,59 +609,18 @@ function resetConfig() {
     scrollbar-width: thin;
   }
   
-  .config-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.8rem;
-  }
-  
-  .config-item {
-    gap: 0.3rem;
-  }
-  
-  .config-actions {
-    grid-column: 1 / -1;
-    gap: 0.6rem;
-    margin-top: 0.8rem;
-    padding-top: 0.8rem;
-  }
-  
-  .random-config-btn,
-  .reset-config-btn {
-    font-size: 0.8rem;
-    padding: 0.5rem;
-  }
-  
   /* 优化触摸体验 */
   .list-item,
-  .action-item,
-  .config-select {
+  .action-item {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
+  .map-options-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
   .world-layout {
     gap: 0.8rem;
-    padding: 0.6rem;
-  }
-  
-  .config-content {
-    /* 在小屏幕上改为单列布局 */
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-  }
-  
-  .config-actions {
-    grid-column: 1;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-  
-  .random-config-btn,
-  .reset-config-btn {
-    font-size: 0.85rem;
     padding: 0.6rem;
   }
   
@@ -757,10 +647,6 @@ function resetConfig() {
   .action-item {
     padding: 0.7rem 1rem;
     font-size: 0.9rem;
-  }
-  
-  .config-panel {
-    padding: 0.9rem;
   }
   
   .details-container {
@@ -799,35 +685,6 @@ function resetConfig() {
     font-size: 0.9rem;
     margin-bottom: 0.3rem;
     border-radius: 4px;
-  }
-  
-  .config-panel {
-    padding: 0.8rem;
-    border-radius: 6px;
-  }
-  
-  .config-panel h3 {
-    font-size: 0.9rem;
-    margin-bottom: 0.8rem;
-  }
-  
-  .config-item {
-    gap: 0.4rem;
-  }
-  
-  .config-item label {
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  
-  .config-select {
-    font-size: 0.8rem;
-    padding: 0.5rem;
-    border-radius: 4px;
-  }
-  
-  .config-hint {
-    font-size: 0.7rem;
   }
   
   .details-container {
@@ -898,28 +755,6 @@ function resetConfig() {
     padding: 0.5rem 0.6rem;
     font-size: 0.85rem;
     margin-bottom: 0.2rem;
-  }
-  
-  .config-panel {
-    padding: 0.6rem;
-  }
-  
-  .config-panel h3 {
-    font-size: 0.8rem;
-    margin-bottom: 0.6rem;
-  }
-  
-  .config-item label {
-    font-size: 0.75rem;
-  }
-  
-  .config-select {
-    font-size: 0.75rem;
-    padding: 0.4rem;
-  }
-  
-  .config-hint {
-    font-size: 0.65rem;
   }
   
   .details-container {

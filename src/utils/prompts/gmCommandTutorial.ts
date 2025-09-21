@@ -13,7 +13,7 @@ export const GM_COMMAND_TUTORIAL = [
   '',
   '### 物品规范',
   "- 仅 set 到 'character.saveData.背包.物品.<物品ID>'（对象键），禁止 set/push 整个 '物品'。",
-  '- 类型：仅允许 法宝 | 功法 | 其他。',
+  '- 类型：仅允许 装备 | 功法 | 其他。',
   '- 基础：物品ID/名称/类型/品质{quality,grade}/数量/描述(与 text 对应)。',
   '- 品质：quality 用游戏枚举(如 凡/黄/玄/地/天/仙/神)；grade=0..10。',
   '',

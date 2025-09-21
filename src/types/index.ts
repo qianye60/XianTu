@@ -206,3 +206,45 @@ export type DADCustomData = {
  * key是存档名称, value是聊天记录数组
  */
 export type AllSaves = Record<string, any[]>;
+
+// --- 新增的类型定义 ---
+
+export interface InitialGameData {
+  baseInfo: {
+    名字: string;
+    先天六司?: {
+      根骨?: number;
+      灵性?: number;
+      悟性?: number;
+      气运?: number;
+      魅力?: number;
+      心性?: number;
+    };
+    性别?: string;
+    世界?: string;
+    天资?: string;
+    天赋?: string[];
+  };
+  creationDetails: {
+    age: number;
+    originName: string;
+    spiritRootName: string;
+  };
+}
+
+export interface WorldInfo {
+  世界名称: string;
+  大陆信息?: any[];
+  势力信息?: any[];
+  地点信息?: any[];
+}
+
+export interface SaveData {
+  世界信息?: WorldInfo;
+  玩家角色状态?: any;
+  记忆?: {
+    短期记忆?: string[];
+  };
+  对话历史?: any[];
+  [key: string]: any;
+}
