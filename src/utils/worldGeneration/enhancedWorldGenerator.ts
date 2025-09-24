@@ -14,6 +14,7 @@ import {
 } from '../gameDataValidator';
 import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
+import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
 
 export interface EnhancedWorldGenConfig {
   worldName?: string;
@@ -45,8 +46,8 @@ export class EnhancedWorldGenerator {
       maxRetries: this.config.maxRetries,
       retryDelay: this.config.retryDelay,
       validationRules: WORLD_INFO_VALIDATION_RULES,
-      promptTemplate: this.buildPrompt(),
-      fallbackData: this.createFallbackWorldData() // 添加fallback数据
+      promptTemplate: this.buildPrompt()
+      // 移除fallbackData - 用户要求生成失败就不要开局
     };
     
     const result = await AIRetryGenerator.generateWithRetry(
@@ -118,6 +119,7 @@ export class EnhancedWorldGenerator {
 
 ## 基本要求
 - 世界名称: ${this.config.worldName || '修仙界'}
+- 重要约束：世界名称已由玩家选择固定，严禁另起名称。输出中的任意字段（如 world_name）必须等于上述世界名称。
 - 世界背景: ${this.config.worldBackground || '经典修仙世界'}
 - 世界纪元: ${this.config.worldEra || '修仙盛世'}
 - 势力数量: ${factionCount}个
@@ -199,31 +201,63 @@ export class EnhancedWorldGenerator {
    */
   private parseAIResponse(response: string): any {
     console.log('[增强世界生成器] 开始解析AI响应...');
+    console.log('[增强世界生成器] 响应前500字符:', response.substring(0, 500));
     
     try {
-      // 提取JSON
-      let jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-      if (!jsonMatch) {
-        jsonMatch = response.match(/(\{[\s\S]*"locations"\s*:\s*\[[\s\S]*?\}\s*\][\s\S]*?\})/);
-      }
-      if (!jsonMatch) {
-        // 尝试查找任何JSON对象
-        jsonMatch = response.match(/(\{[\s\S]*?\})/);
+      // 多种JSON提取策略
+      let jsonMatch = null;
+      let jsonText = '';
+      
+      // 策略1: 寻找完整的JSON代码块
+      jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+        console.log('[增强世界生成器] 使用策略1提取JSON');
       }
       
+      // 策略2: 寻找包含factions和locations的JSON对象
       if (!jsonMatch) {
+        jsonMatch = response.match(/(\{[\s\S]*?"factions"\s*:\s*\[[\s\S]*?"locations"\s*:\s*\[[\s\S]*?\})/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[1];
+          console.log('[增强世界生成器] 使用策略2提取JSON');
+        }
+      }
+      
+      // 策略3: 寻找任何JSON对象并检查是否包含必要字段
+      if (!jsonMatch) {
+        const jsonMatches = response.match(/\{[\s\S]*?\}/g);
+        if (jsonMatches) {
+          for (const match of jsonMatches) {
+            try {
+              const testParse = JSON.parse(match);
+              if (testParse.factions || testParse.locations) {
+                jsonText = match;
+                console.log('[增强世界生成器] 使用策略3提取JSON');
+                break;
+              }
+            } catch (e) {
+              continue;
+            }
+          }
+        }
+      }
+      
+      if (!jsonText) {
         console.error('[增强世界生成器] 无法从AI响应中提取JSON数据');
-        // 返回空结构，让验证器捕获错误
-        return {
-          world_name: this.config.worldName || '修仙界',
-          world_background: this.config.worldBackground || '',
-          factions: [],
-          locations: []
-        };
+        console.error('[增强世界生成器] 完整响应:', response);
+        throw new Error('无法解析AI响应中的JSON数据');
       }
       
-      const worldData = JSON.parse(jsonMatch[1]);
+      console.log('[增强世界生成器] 提取的JSON前200字符:', jsonText.substring(0, 200));
+      
+      const worldData = JSON.parse(jsonText);
       console.log('[增强世界生成器] JSON解析成功');
+      console.log('[增强世界生成器] 解析出的数据结构:', {
+        factions_count: worldData.factions?.length || 0,
+        locations_count: worldData.locations?.length || 0,
+        has_continents: !!worldData.continents
+      });
       
       // 确保基本结构存在
       if (!worldData.factions) worldData.factions = [];
@@ -233,13 +267,8 @@ export class EnhancedWorldGenerator {
       
     } catch (error: any) {
       console.error('[增强世界生成器] JSON解析失败:', error);
-      // 返回空结构而不是抛出错误，让验证器处理
-      return {
-        world_name: this.config.worldName || '修仙界',
-        world_background: this.config.worldBackground || '',
-        factions: [],
-        locations: []
-      };
+      console.error('[增强世界生成器] 响应内容:', response);
+      throw new Error(`JSON解析失败: ${error.message}`);
     }
   }
   
@@ -248,7 +277,7 @@ export class EnhancedWorldGenerator {
    */
   private convertToWorldInfo(rawData: any): WorldInfo {
     return {
-      世界名称: rawData.world_name || rawData.worldName || this.config.worldName || '修仙界',
+      世界名称: this.config.worldName || rawData.world_name || rawData.worldName || '修仙界',
       世界背景: rawData.world_background || rawData.worldBackground || this.config.worldBackground || '',
       大陆信息: (rawData.continents || []).map((continent: any) => ({
         名称: continent.name || continent.名称,
@@ -421,6 +450,16 @@ export class EnhancedWorldGenerator {
         message: '地点名称存在重复',
         expected: '所有名称唯一',
         received: '存在重复名称'
+      });
+    }
+    
+    // 世界名称与用户选择一致性
+    if (this.config.worldName && worldInfo.世界名称 !== this.config.worldName) {
+      result.errors.push({
+        path: '世界名称',
+        message: '世界名称必须与玩家选择一致',
+        expected: this.config.worldName,
+        received: worldInfo.世界名称
       });
     }
     
