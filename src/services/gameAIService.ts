@@ -7,7 +7,7 @@ import { getTavernHelper } from '@/utils/tavern';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { generateInGameResponse } from '@/utils/generators/gameMasterGenerators';
 import { convertSaveDataToGameCharacter, convertSaveDataToMemorySystem, convertSaveDataToLocationContext } from '@/utils/prompts/aiSystemConverter';
-import { ActionAnalyzer } from '@/utils/prompts/smartPromptRouter';
+// import { ActionAnalyzer } from '@/utils/prompts/smartPromptRouter'; // 已删除
 import { SettingsManager } from '@/utils/settings/settingsManager';
 import { AIMemoryManager } from '@/utils/settings/memoryManager';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
@@ -211,21 +211,21 @@ export class GameAIService {
         currentGameData.memory.short_term = currentGameData.memory.short_term.slice(0, settings.memory.shortTerm.maxLength);
       }
 
-      // 分析用户行动类型以选择合适的场景
-      const actionAnalysis = ActionAnalyzer.analyzeAction(userMessage);
-      console.log('[AI服务] 行动分析结果:', actionAnalysis);
+      // 分析用户行动类型以选择合适的场景（简化版）
+      // const actionAnalysis = ActionAnalyzer.analyzeAction(userMessage); // 已删除
+      console.log('[AI服务] 用户消息:', userMessage);
 
-      // 根据行动类型选择场景
+      // 根据关键词简单判断场景类型
       let sceneType: '战斗' | '修炼' | '社交' | '探索' | '传承' | undefined;
-      if (actionAnalysis.primaryType === 'combat') sceneType = '战斗';
-      else if (actionAnalysis.primaryType === 'cultivation') sceneType = '修炼';
-      else if (actionAnalysis.primaryType === 'interaction') sceneType = '社交';
-      else if (actionAnalysis.primaryType === 'exploration') sceneType = '探索';
+      if (userMessage.includes('战斗') || userMessage.includes('攻击') || userMessage.includes('战')) sceneType = '战斗';
+      else if (userMessage.includes('修炼') || userMessage.includes('打坐') || userMessage.includes('突破')) sceneType = '修炼';
+      else if (userMessage.includes('对话') || userMessage.includes('交谈') || userMessage.includes('交流')) sceneType = '社交';
+      else if (userMessage.includes('探索') || userMessage.includes('寻找') || userMessage.includes('前往')) sceneType = '探索';
       // 暂时没有对应的传承类型，使用general类型时不设置特定场景
 
       // 使用标准的GM生成器
       console.log('[AI服务] 使用标准GM生成器，场景类型:', sceneType || '通用');
-      const gmResponse = await generateInGameResponse(currentGameData, userMessage, sceneType);
+      const gmResponse = await generateInGameResponse(currentGameData, userMessage);
       
       return gmResponse;
 
@@ -279,8 +279,8 @@ export class GameAIService {
         shen: { current: 50, max: 50 }
       },
       qualities: {
-        origin: { name: baseInfo.出生 || '普通', effects: [] },
-        spiritRoot: { name: baseInfo.灵根 || '普通灵根', quality: '凡品', attributes: [] },
+        origin: { name: typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生?.名称 || '普通', effects: [] },
+        spiritRoot: { name: typeof baseInfo.灵根 === 'string' ? baseInfo.灵根 : baseInfo.灵根?.名称 || '普通灵根', quality: '凡品', attributes: [] },
         talents: []
       },
       skills: {},
@@ -769,12 +769,21 @@ export class GameAIService {
       const baseInfo = characterProfile.角色基础信息;
       const playerStatus = saveSlot?.存档数据?.玩家角色状态;
       
+      const normalizedBaseInfo = {
+        ...baseInfo,
+        天赋: Array.isArray(baseInfo.天赋) 
+          ? baseInfo.天赋.map(talent => 
+              typeof talent === 'string' ? talent : talent.名称
+            )
+          : baseInfo.天赋
+      };
+
       const initialGameData = {
-        baseInfo,
+        baseInfo: normalizedBaseInfo,
         creationDetails: {
           age: baseInfo.年龄 || 18,
-          originName: baseInfo.出生 || '普通出身',  
-          spiritRootName: baseInfo.灵根 || '普通灵根'
+          originName: typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生?.名称 || '普通出身',  
+          spiritRootName: typeof baseInfo.灵根 === 'string' ? baseInfo.灵根 : baseInfo.灵根?.名称 || '普通灵根'
         }
       };
       
@@ -797,21 +806,8 @@ export class GameAIService {
     } catch (error) {
       console.error('[AI服务] 生成初始游戏消息失败:', error);
       
-      // 提供一个基本的回退消息
-      const baseInfo = characterProfile.角色基础信息;
-      const fallbackMessage = `【世界初开】
-
-你是${baseInfo.名字}，一位来自${baseInfo.世界}的${baseInfo.性别}修士。
-
-你的天资为${baseInfo.天资}，出身于${baseInfo.出生}，拥有${baseInfo.灵根}。你的先天六司为：根骨${baseInfo.先天六司?.根骨}、灵性${baseInfo.先天六司?.灵性}、悟性${baseInfo.先天六司?.悟性}、气运${baseInfo.先天六司?.气运}、魅力${baseInfo.先天六司?.魅力}、心性${baseInfo.先天六司?.心性}。
-
-${baseInfo.天赋?.length > 0 ? `你拥有特殊天赋：${baseInfo.天赋.join('、')}。` : ''}
-
-现在，你站在修仙道路的起点，准备踏上这条充满机遇与挑战的大道。前方的路虽然未卜，但你的心中已经燃起了对仙道的渴望。
-
-你准备做些什么？`;
-      
-      return { message: fallbackMessage };
+      // 不再提供fallback消息，直接抛出错误让用户重试
+      throw new Error(`初始消息生成失败: ${error instanceof Error ? error.message : '未知错误'}。请重试角色创建流程。`);
     }
   }
 }

@@ -100,7 +100,7 @@
                   </div>
                   <div class="info-item">
                     <span class="info-label">灵根</span>
-                    <span class="info-value">{{ selectedPerson.角色基础信息.灵根 || '未知' }}</span>
+                    <span class="info-value">{{ formatSpiritRoot(selectedPerson.角色基础信息.灵根) }}</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">出生</span>
@@ -271,6 +271,34 @@ const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
 const activeFilter = ref('all');
 
+// 格式化灵根显示
+const formatSpiritRoot = (spiritRoot: any): string => {
+  if (!spiritRoot) return '未知';
+  
+  // 如果是字符串，直接返回
+  if (typeof spiritRoot === 'string') {
+    return spiritRoot;
+  }
+  
+  // 如果是对象，解析其内容
+  if (typeof spiritRoot === 'object') {
+    const name = spiritRoot.名称 || spiritRoot.name || '';
+    const grade = spiritRoot.品级 || spiritRoot.grade;
+    const quality = spiritRoot.品质 || spiritRoot.quality || '';
+    
+    let result = name;
+    
+    // 添加品质信息（NPC不显示品级）
+    if (quality) {
+      result = `${name}(${quality})`;
+    }
+    
+    return result || '未知';
+  }
+  
+  return '未知';
+};
+
 const relationships = computed(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系) return [];
@@ -339,8 +367,21 @@ const selectPerson = (person: NpcProfile) => {
     : person;
 };
 
-onMounted(() => {
-  console.log('[人脉系统] 江湖人脉面板已载入');
+onMounted(async () => {
+  console.log('[人脉系统] 江湖人脉面板已载入，开始同步数据');
+  isLoading.value = true;
+  try {
+    await characterStore.syncFromTavern();
+    // 默认选择第一个人物
+    if (filteredRelationships.value.length > 0) {
+      selectedPerson.value = filteredRelationships.value[0];
+    }
+  } catch (error) {
+    console.error('[人脉系统] 同步数据失败:', error);
+    toast.error('人脉数据同步失败');
+  } finally {
+    isLoading.value = false;
+  }
 });
 // -- 记忆编辑与删除 --
 const findRelationshipKeyByName = (name: string): string | null => {

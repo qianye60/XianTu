@@ -71,13 +71,14 @@ function smooth(x: number, k = 1.2, scale = 1): number {
 }
 
 // 计算成功率（0.02~0.98），attr 为派生属性，DC 按“难度门槛”的惯例
+// 调整：使用对数逻辑函数映射，极端值更平滑；气运偏移对称（-5%~+5%）。
 function successRate(attr: number, DC: number, luck: number, bonus = 0): number {
-  // 基础：50%，属性对抗门槛(DC*10)比值进入平滑函数，luck 提供小幅正偏
-  const ratio = (attr || 0) / Math.max(1, DC * 10);
-  const attrAdj = smooth(ratio - 1, 1.25, 0.35); // [-0.35, +0.35]
-  const luckAdj = Math.max(0, Math.min(10, luck || 0)) * 0.005; // [0, +0.05]
-  const raw = 0.5 + attrAdj + luckAdj + bonus; // 中心 0.5，向两侧偏移
-  return Math.min(0.98, Math.max(0.02, raw));
+  const ratio = (Math.max(0, attr) || 0) / Math.max(1, DC * 10);
+  const z = Math.log(Math.max(1e-6, ratio)) * 2.2; // 灵敏度
+  let p = 1 / (1 + Math.exp(-z));
+  const luckBias = ((Math.min(10, Math.max(0, luck || 0)) - 5) * 0.01); // [-0.05,+0.05]
+  p += luckBias + bonus;
+  return Math.min(0.98, Math.max(0.02, p));
 }
 
 // 从装备/背包或装备栏中抽取“速度/命中/暴击/闪避”倾向（尽量宽容地读取结构）
@@ -90,16 +91,27 @@ function aggregateEquipAffix(saveData: SaveData | any) {
 
     const collectFromItem = (it: any) => {
       if (!it || typeof it !== 'object') return;
-      // 新物品系统 attributes[]
+      // 新物品系统 attributes[] 与套装 setBonus
       const attrs = (it.attributes || it.属性 || []) as Array<{ type?: string; value?: number; percentage?: boolean; 描述?: string; }>;
+      const setAttrs = (it.setBonus?.bonus || []) as Array<{ type?: string; value?: number; percentage?: boolean; description?: string; }>;
       if (Array.isArray(attrs)) {
         for (const a of attrs) {
           const t = String((a.type || '')).trim();
           const v = n(a.value);
-          if (/命中/.test(t)) 命中 += v;
-          if (/闪避/.test(t)) 闪避 += v;
-          if (/暴击/.test(t)) 暴击 += (a.percentage ? v : v / 100);
-          if (/速度|移速|空速/.test(t)) 速度 += v;
+          if (/(命中|命中率|锐目|灵视)/.test(t)) 命中 += v;
+          if (/(闪避|闪避率|腾挪|回避)/.test(t)) 闪避 += v;
+          if (/(暴击|暴击率|会心)/.test(t)) 暴击 += (a.percentage ? v : v / 100);
+          if (/(速度|移速|空速|轻身|风行|雷步|敏捷)/.test(t)) 速度 += v;
+        }
+      }
+      if (Array.isArray(setAttrs)) {
+        for (const a of setAttrs) {
+          const t = String((a.type || '')).trim();
+          const v = n(a.value);
+          if (/(命中|命中率)/.test(t)) 命中 += v;
+          if (/(闪避|闪避率)/.test(t)) 闪避 += v;
+          if (/(暴击|暴击率)/.test(t)) 暴击 += (a.percentage ? v : v / 100);
+          if (/(速度|移速|空速)/.test(t)) 速度 += v;
         }
       }
       // 兼容旧字段
@@ -124,8 +136,8 @@ function aggregateEquipAffix(saveData: SaveData | any) {
       for (const key of Object.keys(bag)) {
         const it = bag[key];
         if (it?.装备特效 && Array.isArray(it.装备特效)) {
-          if (it.装备特效.some((s: string) => /身法|轻身|风行/.test(s))) 速度 += 2;
-          if (it.装备特效.some((s: string) => /杀机|锐目/.test(s))) 命中 += 2;
+          if (it.装备特效.some((s: string) => /(轻身|追风|风行|雷步)/.test(s))) 速度 += 2;
+          if (it.装备特效.some((s: string) => /(锐目|灵视|命中)/.test(s))) 命中 += 2;
         }
       }
     }
@@ -133,6 +145,33 @@ function aggregateEquipAffix(saveData: SaveData | any) {
   } catch { /* 忽略解析失败 */ }
 
   return { 命中, 闪避, 暴击: Math.max(0, Math.min(0.6, 暴击)), 速度 };
+}
+
+// 读取状态效果对派生属性的修正（更贴近实际战况）
+function computeStatusAdjustments(saveData: SaveData) {
+  const effects = (get(saveData, '玩家角色状态.状态效果', []) || []) as Array<any>;
+  let 法力 = 0, 神海 = 0, 道心 = 0, 空速 = 0;
+  for (const e of effects) {
+    const name = String(e?.状态名称 || e?.状态名 || e?.name || '').trim();
+    const type = String(e?.类型 || e?.type || '').toLowerCase();
+    const power = n(e?.强度, 1) || 1;
+    // 道心相关
+    if (/(心魔|恐惧|惊惧|畏缩|噬心)/.test(name) || (type === 'debuff' && /(心|意志)/.test(name))) {
+      道心 -= 5 * power;
+    }
+    if (/(禅定|清明|心如止水|凝神)/.test(name) || (type === 'buff' && /(心|意志)/.test(name))) {
+      道心 += 3 * power;
+    }
+    // 法力/神海相关
+    if (/(灵力充盈|灵气涌动|灵力澎湃)/.test(name)) 法力 += 15 * power;
+    if (/(灵力枯竭|灵气枯竭|乏力)/.test(name)) 法力 -= 20 * power;
+    if (/(冥想|专注|神游|凝神)/.test(name)) 神海 += 10 * power;
+    if (/(神识涣散|恍惚|分心)/.test(name)) 神海 -= 15 * power;
+    // 速度相关
+    if (/(迟缓|束缚|减速|负重|迟滞)/.test(name)) 空速 -= 5 * power;
+    if (/(迅捷|轻身|风行|追风|雷步)/.test(name)) 空速 += 5 * power;
+  }
+  return { 法力, 神海, 道心, 空速 };
 }
 
 // 提取先天与资源，映射到“检定强度”
@@ -199,7 +238,10 @@ function buildCurves(派生: { [k in HeavenlyCheckType]: number }, 境界倍率:
     const base = 派生[k];
     out[k] = DCs.map(DC => {
       const p = successRate(base * 境界倍率, DC, luck, 0);
-      return { DC, 成功率: Math.round(p * 1000) / 10, 临界区间: { 大成: 3, 大败: 98 } };
+      // 动态临界区间：熟练越高（p越大）大成窗口略增，大败窗口略缩
+      const 大成 = Math.max(1, Math.min(10, Math.round(3 + (p - 0.5) * 8)));
+      const 大败 = Math.max(90, Math.min(99, Math.round(98 - (p - 0.5) * 12)));
+      return { DC, 成功率: Math.round(p * 1000) / 10, 临界区间: { 大成, 大败 } };
     });
   });
   return out;
@@ -207,10 +249,19 @@ function buildCurves(派生: { [k in HeavenlyCheckType]: number }, 境界倍率:
 
 // 斗法基线
 function buildCombatBaselines(派生: { 法力: number; 神海: number; 道心: number; 空速: number }, affix: { 命中: number; 闪避: number; 暴击: number; 速度: number }) {
-  const 命中率基线 = Math.min(0.9, Math.max(0.2, 0.6 + smooth((派生.神海 - 300) / 300, 1.1, 0.2) + affix.命中 / 500));
-  const 闪避率基线 = Math.min(0.7, Math.max(0.05, 0.2 + smooth((派生.空速 - 200) / 250, 1.1, 0.25) + affix.闪避 / 600));
-  const 暴击率基线 = Math.min(0.5, Math.max(0.02, 0.05 + smooth((派生.神海 - 400) / 400, 1.0, 0.15) + affix.暴击));
-  const 伤害系数 = Math.max(0.8, 1.0 + smooth((派生.法力 - 400) / 400, 1.0, 0.5));
+  // 速度在对等情况下对命中/闪避都产生小幅影响
+  const 速度影响 = smooth((派生.空速 + affix.速度 - 200) / 300, 1.0, 0.12); // [-0.12, +0.12]
+  const 命中率基线 = Math.min(0.9, Math.max(0.2,
+    0.58 + smooth((派生.神海 - 320) / 280, 1.1, 0.22) + (affix.命中 / 500) + 速度影响 * 0.4
+  ));
+  const 闪避率基线 = Math.min(0.7, Math.max(0.05,
+    0.18 + smooth((派生.空速 - 220) / 260, 1.05, 0.26) + (affix.闪避 / 600) + 速度影响 * 0.6
+  ));
+  const 暴击率基线 = Math.min(0.5, Math.max(0.02,
+    0.05 + smooth((派生.神海 - 420) / 420, 1.0, 0.14) + affix.暴击
+  ));
+  // 伤害系数受法力为主，同时受暴击率小幅加权
+  const 伤害系数 = Math.max(0.8, 1.0 + smooth((派生.法力 - 400) / 400, 1.0, 0.5) + (暴击率基线 - 0.05) * 0.3);
   const 豁免强度 = Math.max(0.8, 1.0 + smooth((派生.道心 - 300) / 300, 1.0, 0.4));
   return { 命中率基线, 闪避率基线, 暴击率基线, 伤害系数, 豁免强度 };
 }
@@ -252,12 +303,13 @@ export function computeHeavenlyPrecalc(saveData: SaveData, baseInfo: CharacterBa
 
   const 派生核心 = deriveCore(saveData, baseInfo);
   const 装备汇总 = aggregateEquipAffix(saveData);
+  const 状态修正 = computeStatusAdjustments(saveData);
 
   const 派生属性 = {
-    法力: 派生核心.法力,
-    神海: 派生核心.神海,
-    道心: 派生核心.道心,
-    空速: Math.round(派生核心.空速 + 装备汇总.速度),
+    法力: Math.max(0, 派生核心.法力 + 状态修正.法力),
+    神海: Math.max(0, 派生核心.神海 + 状态修正.神海),
+    道心: Math.max(0, 派生核心.道心 + 状态修正.道心),
+    空速: Math.max(0, Math.round(派生核心.空速 + 装备汇总.速度 + 状态修正.空速)),
     气运: 派生核心.气运,
   } as Record<HeavenlyCheckType, number> & any;
 
@@ -316,4 +368,3 @@ export async function syncHeavenlyPrecalcToTavern(saveData: SaveData, baseInfo: 
     console.error('[天道演算] 同步到酒馆失败:', e);
   }
 }
-

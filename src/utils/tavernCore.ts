@@ -327,21 +327,7 @@ export async function generateItemWithTavernAI<T = unknown>(
         } catch {
           console.warn(`【神识印记】响应中未找到JSON代码块，且无法直接解析为JSON: ${text}`);
           
-          // 如果是生成初始消息，尝试构造一个基本的GM_Response结构
-          if (typeName.includes('天道初言') || typeName.includes('初始消息')) {
-            console.log(`【神识印记】尝试从纯文本构造GM_Response结构`);
-            const fallbackResponse = {
-              text: text.trim(),
-              mid_term_memory: "",
-              tavern_commands: []
-            } as T;
-            console.log(`【神识印记】构造的fallback响应:`, fallbackResponse);
-            if (showToast) {
-              toast.warning(`${typeName}格式异常，已采用兼容处理`);
-            }
-            return fallbackResponse;
-          }
-          
+          // 不再提供fallback响应，直接抛出错误让重试机制处理
           throw new Error(`响应格式无效：缺少JSON代码块或无法解析的内容`);
         }
       }

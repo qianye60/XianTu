@@ -44,7 +44,7 @@ const characterRealm = computed(() => {
 
 const currentLocation = computed(() => {
   const save = characterStore.activeSaveSlot
-  return save?.存档数据?.玩家角色状态?.位置?.描述 || '青云镇'
+  return save?.存档数据?.玩家角色状态?.位置?.描述 || '初始地'
 })
 
 const gameTime = computed(() => {

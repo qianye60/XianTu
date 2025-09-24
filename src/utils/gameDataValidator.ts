@@ -43,12 +43,12 @@ export const CHARACTER_BASE_VALIDATION_RULES: ValidationRule[] = [
   { path: '灵根', type: 'required', message: '灵根信息不能为空' },
   { path: '天赋', type: 'array', message: '天赋必须是数组' },
   { path: '先天六司', type: 'required', message: '先天六司不能为空' },
-  { path: '先天六司.根骨', type: 'range', value: [1, 100], message: '根骨数值必须在1-100之间' },
-  { path: '先天六司.灵性', type: 'range', value: [1, 100], message: '灵性数值必须在1-100之间' },
-  { path: '先天六司.悟性', type: 'range', value: [1, 100], message: '悟性数值必须在1-100之间' },
-  { path: '先天六司.气运', type: 'range', value: [1, 100], message: '气运数值必须在1-100之间' },
-  { path: '先天六司.魅力', type: 'range', value: [1, 100], message: '魅力数值必须在1-100之间' },
-  { path: '先天六司.心性', type: 'range', value: [1, 100], message: '心性数值必须在1-100之间' }
+  { path: '先天六司.根骨', type: 'range', value: [1, 10], message: '根骨数值必须在1-10之间' },
+  { path: '先天六司.灵性', type: 'range', value: [1, 10], message: '灵性数值必须在1-10之间' },
+  { path: '先天六司.悟性', type: 'range', value: [1, 10], message: '悟性数值必须在1-10之间' },
+  { path: '先天六司.气运', type: 'range', value: [1, 10], message: '气运数值必须在1-10之间' },
+  { path: '先天六司.魅力', type: 'range', value: [1, 10], message: '魅力数值必须在1-10之间' },
+  { path: '先天六司.心性', type: 'range', value: [1, 10], message: '心性数值必须在1-10之间' }
 ];
 
 /**
@@ -60,10 +60,21 @@ export const WORLD_INFO_VALIDATION_RULES: ValidationRule[] = [
   { path: '大陆信息', type: 'array', message: '大陆信息必须是数组' },
   { path: '势力信息', type: 'array', message: '势力信息必须是数组' },
   { path: '地点信息', type: 'array', message: '地点信息必须是数组' },
+  
+  // 大陆信息的关键字段验证
+  { path: '大陆信息[].名称', type: 'required', message: '大陆名称不能为空' },
+  { path: '大陆信息[].描述', type: 'required', message: '大陆描述不能为空' },
+  { path: '大陆信息[].地理特征', type: 'custom', message: '地理特征不能为空数组' },
+  { path: '大陆信息[].天然屏障', type: 'custom', message: '天然屏障不能为空数组' },
+  { path: '大陆信息[].大洲边界', type: 'custom', message: '大洲边界不能为空数组' },
+  
+  // 势力信息验证（增强）
   { path: '势力信息[].名称', type: 'required', message: '势力名称不能为空' },
   { path: '势力信息[].类型', type: 'required', message: '势力类型不能为空' },
   { path: '势力信息[].等级', type: 'enum', value: ['超级', '一流', '二流', '三流', '末流'], message: '势力等级必须是有效值' },
   { path: '势力信息[].描述', type: 'required', message: '势力描述不能为空' },
+  { path: '势力信息[].势力范围', type: 'custom', message: '势力范围不能为空数组' },
+  
   // 强化：宗门页面依赖的结构
   { path: '势力信息[].leadership', type: 'required', message: '宗门领导层信息缺失（leadership）' },
   { path: '势力信息[].memberCount', type: 'required', message: '宗门成员统计信息缺失（memberCount）' },
@@ -98,14 +109,14 @@ export const SAVE_DATA_VALIDATION_RULES: ValidationRule[] = [
  * 数据校验器类
  */
 export class GameDataValidator {
-  
+
   /**
    * 校验数据
    */
   static validate(data: any, rules: ValidationRule[]): ValidationResult {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
-    
+
     for (const rule of rules) {
       const result = this.validateRule(data, rule);
       if (result.error) {
@@ -115,20 +126,20 @@ export class GameDataValidator {
         warnings.push(result.warning);
       }
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors,
       warnings
     };
   }
-  
+
   /**
    * 校验单个规则
    */
   private static validateRule(data: any, rule: ValidationRule): { error?: ValidationError; warning?: ValidationWarning } {
     const value = this.getValueByPath(data, rule.path);
-    
+
     // 处理数组元素验证
     if (rule.path.includes('[]') && Array.isArray(value)) {
       for (let i = 0; i < value.length; i++) {
@@ -140,11 +151,11 @@ export class GameDataValidator {
       }
       return {}; // 所有数组元素都通过验证
     }
-    
+
     // 处理单个值验证
     return this.validateSingleValue(value, rule, rule.path);
   }
-  
+
   /**
    * 校验单个值
    */
@@ -162,7 +173,7 @@ export class GameDataValidator {
           };
         }
         break;
-        
+
       case 'type':
         if (typeof value !== rule.value) {
           return {
@@ -175,7 +186,7 @@ export class GameDataValidator {
           };
         }
         break;
-        
+
       case 'array':
         if (!Array.isArray(value)) {
           return {
@@ -188,7 +199,7 @@ export class GameDataValidator {
           };
         }
         break;
-        
+
       case 'range':
         if (typeof value === 'number' && rule.value && Array.isArray(rule.value)) {
           const [min, max] = rule.value;
@@ -204,7 +215,7 @@ export class GameDataValidator {
           }
         }
         break;
-        
+
       case 'enum':
         if (rule.value && Array.isArray(rule.value) && !rule.value.includes(value)) {
           return {
@@ -217,23 +228,40 @@ export class GameDataValidator {
           };
         }
         break;
+
+      case 'custom':
+        // 处理自定义验证逻辑
+        if (pathForError.includes('地理特征') || pathForError.includes('天然屏障') || pathForError.includes('势力范围') || pathForError.includes('大洲边界')) {
+          // 检查是否为空数组
+          if (!value || !Array.isArray(value) || value.length === 0) {
+            return {
+              error: {
+                path: pathForError,
+                message: rule.message,
+                expected: '非空数组（至少包含1个元素）',
+                received: Array.isArray(value) ? `空数组[长度:${value.length}]` : typeof value
+              }
+            };
+          }
+        }
+        break;
     }
-    
+
     return {};
   }
-  
+
   /**
    * 根据路径获取值
    */
   private static getValueByPath(obj: any, path: string): any {
     if (!obj || typeof obj !== 'object') return undefined;
-    
+
     // 处理数组路径，如 '势力信息[].名称'
     if (path.includes('[]')) {
       const [arrayPath, itemPath] = path.split('[].');
       const array = this.getValueByPath(obj, arrayPath);
       if (!Array.isArray(array)) return undefined;
-      
+
       // 对于数组元素验证，我们需要返回数组中所有元素的值进行逐一检查
       const values = [];
       for (const item of array) {
@@ -242,10 +270,10 @@ export class GameDataValidator {
       }
       return values; // 返回所有元素的值数组
     }
-    
+
     const keys = path.split('.');
     let current = obj;
-    
+
     for (const key of keys) {
       if (current && typeof current === 'object' && key in current) {
         current = current[key];
@@ -253,15 +281,15 @@ export class GameDataValidator {
         return undefined;
       }
     }
-    
+
     return current;
   }
-  
+
   /**
    * 格式化校验错误为可读文本
    */
   static formatErrors(errors: ValidationError[]): string {
-    return errors.map(error => 
+    return errors.map(error =>
       `路径: ${error.path}\n` +
       `错误: ${error.message}\n` +
       `期望: ${error.expected}\n` +
@@ -285,7 +313,7 @@ export interface RetryConfig {
  * AI重试生成器
  */
 export class AIRetryGenerator {
-  
+
   /**
    * 带重试的AI生成
    */
@@ -294,19 +322,19 @@ export class AIRetryGenerator {
     validator: (data: T) => ValidationResult,
     config: RetryConfig
   ): Promise<{ success: boolean; data?: T; errors?: string[] }> {
-    
+
     const errors: string[] = [];
-    
+
     for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
       console.log(`[AI重试生成] 第${attempt}次尝试...`);
-      
+
       try {
         // 生成数据
         const data = await generator();
-        
+
         // 校验数据
         const validation = validator(data);
-        
+
         if (validation.isValid) {
           console.log(`[AI重试生成] 第${attempt}次尝试成功！`);
           return { success: true, data };
@@ -314,35 +342,35 @@ export class AIRetryGenerator {
           const errorMsg = `第${attempt}次生成失败:\n${GameDataValidator.formatErrors(validation.errors)}`;
           console.warn(`[AI重试生成] ${errorMsg}`);
           errors.push(errorMsg);
-          
+
           // 如果不是最后一次尝试，等待后重试
           if (attempt < config.maxRetries) {
             await this.delay(config.retryDelay);
           }
         }
-        
+
       } catch (error: any) {
         const errorMsg = `第${attempt}次生成异常: ${error.message}`;
         console.error(`[AI重试生成] ${errorMsg}`);
         errors.push(errorMsg);
-        
+
         if (attempt < config.maxRetries) {
           await this.delay(config.retryDelay);
         }
       }
     }
-    
+
     console.error(`[AI重试生成] 所有尝试都失败了，共${config.maxRetries}次`);
-    
+
     // 如果有fallback数据，返回fallback
     if (config.fallbackData) {
       console.log(`[AI重试生成] 使用fallback数据`);
       return { success: true, data: config.fallbackData };
     }
-    
+
     return { success: false, errors };
   }
-  
+
   /**
    * 延迟函数
    */
@@ -355,7 +383,7 @@ export class AIRetryGenerator {
  * 增强提示词构建器
  */
 export class EnhancedPromptBuilder {
-  
+
   /**
    * 构建带数据校验要求的提示词
    */
@@ -365,15 +393,15 @@ export class EnhancedPromptBuilder {
     previousErrors?: string[]
   ): string {
     let prompt = basePrompt;
-    
+
     // 添加数据结构要求
     prompt += '\n\n## 🚨 数据结构严格要求\n\n';
     prompt += '**必须严格按照以下规则生成数据，违反规则的数据将被拒绝重新生成：**\n\n';
-    
+
     // 根据校验规则生成具体要求
     const requirements = this.generateRequirements(validationRules);
     prompt += requirements;
-    
+
     // 如果有之前的错误，添加错误修正指导
     if (previousErrors && previousErrors.length > 0) {
       prompt += '\n\n## ⚠️ 之前生成中发现的问题\n\n';
@@ -382,7 +410,7 @@ export class EnhancedPromptBuilder {
         prompt += `${index + 1}. ${error}\n\n`;
       });
     }
-    
+
     // 添加JSON格式严格要求
     prompt += '\n\n## 📋 JSON输出格式要求\n\n';
     prompt += '1. **必须是有效的JSON格式**，不能有语法错误\n';
@@ -392,21 +420,21 @@ export class EnhancedPromptBuilder {
     prompt += '5. **数组和对象必须正确嵌套**\n';
     prompt += '6. **不能有多余的逗号**\n';
     prompt += '7. **必须以```json开始，以```结束**\n\n';
-    
+
     return prompt;
   }
-  
+
   /**
    * 根据校验规则生成具体要求
    */
   private static generateRequirements(rules: ValidationRule[]): string {
     let requirements = '';
-    
+
     const groupedRules = this.groupRulesByPath(rules);
-    
+
     for (const [pathPrefix, pathRules] of Object.entries(groupedRules)) {
       requirements += `### ${pathPrefix}\n\n`;
-      
+
       for (const rule of pathRules) {
         switch (rule.type) {
           case 'required':
@@ -427,19 +455,19 @@ export class EnhancedPromptBuilder {
             break;
         }
       }
-      
+
       requirements += '\n';
     }
-    
+
     return requirements;
   }
-  
+
   /**
    * 按路径前缀分组规则
    */
   private static groupRulesByPath(rules: ValidationRule[]): Record<string, ValidationRule[]> {
     const grouped: Record<string, ValidationRule[]> = {};
-    
+
     for (const rule of rules) {
       const prefix = rule.path.split('.')[0] || 'Root';
       if (!grouped[prefix]) {
@@ -447,7 +475,7 @@ export class EnhancedPromptBuilder {
       }
       grouped[prefix].push(rule);
     }
-    
+
     return grouped;
   }
 }

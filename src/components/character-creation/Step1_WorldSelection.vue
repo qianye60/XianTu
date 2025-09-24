@@ -6,6 +6,20 @@
     <div v-else class="world-layout">
       <!-- 左侧面板：世界列表 -->
       <div class="left-panel">
+        <!-- 顶部功能按钮 -->
+        <div class="top-actions-container">
+          <button 
+            v-if="store.isLocalCreation"
+            @click="isCustomModalVisible = true" 
+            class="action-item shimmer-on-hover"
+          >
+            <span class="action-name">自定义世界</span>
+          </button>
+          <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
+            <span class="action-name">AI推演</span>
+          </button>
+        </div>
+
         <div class="list-container">
           <div v-if="worldsList.length === 0" class="no-worlds-message">
             <div class="no-worlds-icon">🌌</div>
@@ -26,20 +40,6 @@
           >
             {{ world.name }}
           </div>
-        </div>
-        <!-- 功能按钮 -->
-        <div class="single-actions-container">
-          <!-- 单机模式下的按钮 -->
-          <template v-if="store.isLocalCreation">
-            <button @click="isCustomModalVisible = true" class="action-item shimmer-on-hover">
-              <span class="action-name">自定义世界</span>
-            </button>
-          </template>
-
-          <!-- AI推演按钮（两种模式都有） -->
-          <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
-            <span class="action-name">AI推演</span>
-          </button>
         </div>
       </div>
 
@@ -281,6 +281,33 @@ function resetConfig() {
 </script>
 
 <style scoped>
+/* 顶部功能按钮 */
+.top-actions-container {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.1);
+  justify-content: flex-end;
+}
+
+.top-actions-container .action-item {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.top-actions-container .action-item:hover {
+  background: var(--color-surface-lighter);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 .world-selection-container {
   height: 100%;
   display: flex;

@@ -177,7 +177,7 @@ export class CultivationWorldGenerator {
       
       // 构建规范化的世界信息数据结构
       const worldInfo: WorldInfo = {
-        世界名称: worldData.world_name || this.userConfig?.worldName || '修仙界',
+        世界名称: this.userConfig?.worldName || worldData.world_name || '修仙界',
         世界背景: worldData.world_background || this.userConfig?.worldBackground || '',
         大陆信息: (worldData.continents || []).map((continent: any): WorldContinent => ({
           名称: continent.name || continent.名称,
@@ -283,7 +283,45 @@ export class CultivationWorldGenerator {
             类型: faction.type || faction.类型 || '中立宗门',
             等级: faction.level || faction.等级 || '三流',
             位置: faction.headquarters?.coordinates || faction.headquarters || faction.location || faction.位置,
-            势力范围: faction.territory_bounds || faction.territory || faction.势力范围 || [],
+            势力范围: (() => {
+              // 尝试获取势力范围数据
+              let territoryBounds = faction.territory_bounds || faction.territory || faction.势力范围;
+              
+              // 如果势力范围为空，生成默认的势力范围（基于势力位置的正方形区域）
+              if (!territoryBounds || !Array.isArray(territoryBounds) || territoryBounds.length === 0) {
+                console.warn(`[修仙世界生成器] 势力 ${faction.name || faction.名称} 缺少势力范围，生成默认范围`);
+                
+                const factionLocation = faction.headquarters?.coordinates || faction.headquarters || faction.location || faction.位置;
+                if (factionLocation && typeof factionLocation.longitude === 'number' && typeof factionLocation.latitude === 'number') {
+                  // 生成以势力位置为中心的正方形区域（大约1度x1度）
+                  const centerLng = factionLocation.longitude;
+                  const centerLat = factionLocation.latitude;
+                  const offset = 0.5; // ±0.5度的范围
+                  
+                  territoryBounds = [
+                    { longitude: centerLng - offset, latitude: centerLat - offset },
+                    { longitude: centerLng + offset, latitude: centerLat - offset },
+                    { longitude: centerLng + offset, latitude: centerLat + offset },
+                    { longitude: centerLng - offset, latitude: centerLat + offset },
+                    { longitude: centerLng - offset, latitude: centerLat - offset } // 封闭多边形
+                  ];
+                  
+                  console.log(`[修仙世界生成器] 为势力 ${faction.name || faction.名称} 生成默认势力范围:`, territoryBounds);
+                } else {
+                  // 如果连位置都没有，使用完全默认的范围
+                  territoryBounds = [
+                    { longitude: 105.0, latitude: 30.0 },
+                    { longitude: 106.0, latitude: 30.0 },
+                    { longitude: 106.0, latitude: 31.0 },
+                    { longitude: 105.0, latitude: 31.0 },
+                    { longitude: 105.0, latitude: 30.0 }
+                  ];
+                  console.warn(`[修仙世界生成器] 势力 ${faction.name || faction.名称} 缺少位置信息，使用完全默认势力范围`);
+                }
+              }
+              
+              return territoryBounds;
+            })(),
             描述: faction.description || faction.描述,
             特色: faction.specialties || faction.features || faction.特色,
             与玩家关系: faction.player_relationship || faction.与玩家关系 || '中立',

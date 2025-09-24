@@ -156,8 +156,8 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     },
     声望: 0,
     位置: {
-      描述: "青云镇", // 统一默认位置
-      坐标: { X: 120, Y: 30 } // 使用合理的默认坐标，将被世界生成器覆盖
+      描述: "位置生成失败", // 标记为错误状态而不是默认值
+      坐标: { X: 0, Y: 0 } // 错误坐标，提示需要重新生成
     },
     气血: { 当前: 初始气血, 最大: 初始气血 },
     灵气: { 当前: 初始灵气, 最大: 初始灵气 }, // 凡人灵气为零
@@ -292,43 +292,9 @@ export async function initializeCharacter(
           console.log('[角色初始化] 增强世界数据已保存到酒馆变量');
         } else {
           console.error('[角色初始化] 增强世界生成失败:', worldGenerationResult.errors);
-
-          // 如果增强生成器失败，回退到原始生成器
-          console.log('[角色初始化] 回退到原始CultivationWorldGenerator');
-
-          // 创建并使用原始世界生成器
-          const worldGenerator = new CultivationWorldGenerator(
-            worldConfig.getSettings(),
-            extractName(baseInfo.出生),
-            enhancedWorldConfig // 传递增强配置参数
-          );
-
-          await retryableAICall(
-            async () => {
-              console.log('[角色初始化] 执行fallback worldGenerator.generateWorld()');
-              const result = await worldGenerator.generateWorld();
-              console.log('[角色初始化] fallback世界生成结果:', result);
-              return result;
-            },
-            (result) => {
-              console.log('[角色初始化] 验证fallback世界生成结果:', result);
-              return result && result.success;
-            },
-            2, // 最大重试次数
-            '天道正在编织这个世界的命运（回退方案）'
-          );
-
-          // 获取回退方案生成的世界数据
-          try {
-            const variables = await helper.getVariables({ type: 'chat' });
-            const generatedSaveData = variables['character.saveData'] as SaveData;
-            if (generatedSaveData && generatedSaveData.世界信息) {
-              worldDataFromGenerator = generatedSaveData.世界信息;
-              console.log('[角色初始化] 回退方案已获取世界信息');
-            }
-          } catch (syncError) {
-            console.error('[角色初始化] 回退方案同步世界数据失败:', syncError);
-          }
+          
+          // 用户要求：生成失败就重新生成，不使用fallback数据
+          throw new Error(`世界生成失败：${worldGenerationResult.errors?.join(', ') || '未知错误'}。请重新开始角色创建流程。`);
         }
 
         // 等待世界生成完成
@@ -356,8 +322,17 @@ export async function initializeCharacter(
               const worldInfoAny: any = saveDataAny?.世界信息 || {};
               const locs: any[] = Array.isArray(worldInfoAny?.地点信息) ? worldInfoAny.地点信息 : [];
               const mapLonLatToXY = (lon: number, lat: number) => {
-                const X = Math.round((lon + 180) * 2);
-                const Y = Math.round((lat + 90) * 2);
+                // 使用与地图相同的坐标转换公式
+                const worldMinLng = 100.0, worldMaxLng = 130.0;
+                const worldMinLat = 25.0, worldMaxLat = 45.0;
+                const mapWidth = 3600, mapHeight = 2400;
+                
+                const clampedLng = Math.max(worldMinLng, Math.min(worldMaxLng, lon));
+                const clampedLat = Math.max(worldMinLat, Math.min(worldMaxLat, lat));
+                
+                const X = Math.round(((clampedLng - worldMinLng) / (worldMaxLng - worldMinLng)) * (mapWidth * 0.85) + (mapWidth * 0.075));
+                const Y = Math.round(((worldMaxLat - clampedLat) / (worldMaxLat - worldMinLat)) * (mapHeight * 0.85) + (mapHeight * 0.075));
+                
                 return { X, Y };
               };
               worldLocations = locs.map((l: any) => {
@@ -404,48 +379,110 @@ export async function initializeCharacter(
             // 校验 AI 返回是否有效（有名称和坐标选择/生成）
             const validAI = aiBirth && aiBirth.name && aiBirth.coordinates && typeof aiBirth.coordinates.X === 'number' && typeof aiBirth.coordinates.Y === 'number';
             if (validAI) {
+              // 验证坐标是否在大陆范围内
+              const coordinates = { X: Number(aiBirth.coordinates.X), Y: Number(aiBirth.coordinates.Y) };
+              
+              // 获取大陆信息来验证坐标
+              const saveDataAny: any = variables['character.saveData'] || {};
+              const worldInfoAny: any = saveDataAny?.世界信息 || {};
+              const continents: any[] = Array.isArray(worldInfoAny?.大陆信息) ? worldInfoAny.大陆信息 : [];
+              
+              let coordsValid = false;
+              if (continents.length > 0) {
+                // 使用正确的坐标转换函数来验证坐标
+                const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
+                  const worldMinLng = 100.0, worldMaxLng = 130.0;
+                  const worldMinLat = 25.0, worldMaxLat = 45.0;
+                  const mapWidth = 3600, mapHeight = 2400;
+                  
+                  const clampedLng = Math.max(worldMinLng, Math.min(worldMaxLng, lng));
+                  const clampedLat = Math.max(worldMinLat, Math.min(worldMaxLat, lat));
+                  
+                  const x = ((clampedLng - worldMinLng) / (worldMaxLng - worldMinLng)) * (mapWidth * 0.85) + (mapWidth * 0.075);
+                  const y = ((worldMaxLat - clampedLat) / (worldMaxLat - worldMinLat)) * (mapHeight * 0.85) + (mapHeight * 0.075);
+                  
+                  return { x, y };
+                };
+
+                // 检查坐标是否在任意一个大陆范围内
+                for (const continent of continents) {
+                  const bounds = continent.continent_bounds || continent.大洲边界;
+                  if (bounds && Array.isArray(bounds) && bounds.length > 0) {
+                    const longitudes = bounds.map((p: any) => p.longitude).filter((lng: any) => typeof lng === 'number');
+                    const latitudes = bounds.map((p: any) => p.latitude).filter((lat: any) => typeof lat === 'number');
+                    
+                    if (longitudes.length > 0 && latitudes.length > 0) {
+                      // 计算大陆的虚拟坐标边界框
+                      const minLng = Math.min(...longitudes);
+                      const maxLng = Math.max(...longitudes);
+                      const minLat = Math.min(...latitudes);
+                      const maxLat = Math.max(...latitudes);
+                      
+                      const minVirtual = geoToVirtual(minLng, maxLat); // 注意：纬度反转
+                      const maxVirtual = geoToVirtual(maxLng, minLat);
+                      
+                      // 检查坐标是否在虚拟边界框内
+                      if (coordinates.X >= minVirtual.x && coordinates.X <= maxVirtual.x && 
+                          coordinates.Y >= minVirtual.y && coordinates.Y <= maxVirtual.y) {
+                        coordsValid = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // 如果坐标不在任何大陆内，调整到第一个大陆的中心
+                if (!coordsValid && continents.length > 0) {
+                  console.warn('[角色初始化] AI生成的坐标不在大陆范围内，调整到大陆中心');
+                  const firstContinent = continents[0];
+                  const bounds = firstContinent.continent_bounds || firstContinent.大洲边界;
+                  
+                  if (bounds && Array.isArray(bounds) && bounds.length > 0) {
+                    const longitudes = bounds.map((p: any) => p.longitude).filter((lng: any) => typeof lng === 'number');
+                    const latitudes = bounds.map((p: any) => p.latitude).filter((lat: any) => typeof lat === 'number');
+                    
+                    if (longitudes.length > 0 && latitudes.length > 0) {
+                      const centerLng = longitudes.reduce((sum, lng) => sum + lng, 0) / longitudes.length;
+                      const centerLat = latitudes.reduce((sum, lat) => sum + lat, 0) / latitudes.length;
+                      
+                      // 使用正确的坐标转换
+                      const centerVirtual = geoToVirtual(centerLng, centerLat);
+                      coordinates.X = Math.round(centerVirtual.x);
+                      coordinates.Y = Math.round(centerVirtual.y);
+                      
+                      console.log('[角色初始化] 已调整坐标到大陆中心:', coordinates);
+                    }
+                  }
+                }
+              }
+              
               return {
                 name: String(aiBirth.name),
-                coordinates: { X: Number(aiBirth.coordinates.X), Y: Number(aiBirth.coordinates.Y) },
+                coordinates: coordinates,
                 description: String(aiBirth.description || ''),
                 type: String(aiBirth.type || 'unknown')
               };
             }
 
-            // 回退：随机确保地点；避免危险地点
-            let selectedLocation: any = null;
-            if (worldLocations.length > 0) {
-              const nonDanger = worldLocations.filter((loc: any) => loc.类型 !== 'dangerous_area' && (loc.安全等级 || '') !== '危险');
-              const pool = nonDanger.length > 0 ? nonDanger : worldLocations;
-              selectedLocation = pool[Math.floor(Math.random() * pool.length)];
-            }
-            if (selectedLocation) {
-              return {
-                name: selectedLocation.名称,
-                coordinates: selectedLocation.coordinates,
-                description: selectedLocation.描述 || '',
-                type: selectedLocation.类型 || 'unknown'
-              };
-            }
-            // 最后兜底，生成出生地生成器
-            const birthplace = BirthplaceGenerator.generateBirthplace(
-              extractName(baseInfo.出生),
-              worldSettingsForBirthplace
-            );
-            return birthplace;
+            // 用户要求：生成失败就重新生成，不使用fallback数据
+            throw new Error('AI未能根据世界数据生成有效的出生地。');
           },
-          (birthplace) => birthplace && birthplace.name, // 验证是否有出生地
+          (birthplace) => !!(birthplace && birthplace.name), // 验证是否有出生地
           2, // 最大重试次数
           '寻找降生之地'
         );
 
-        // 更新玩家状态，将出生地信息直接写入playerStatus
-        const locationName = (birthplaceResult as any).name || '青云镇';
-        const locationDesc = (birthplaceResult as any).description || locationName;
+        // 更新玩家状态，要求必须有有效的出生地信息
+        const locationName = (birthplaceResult as any).name;
+        const locationDesc = (birthplaceResult as any).description;
+        
+        if (!locationName || !locationDesc) {
+          throw new Error('出生地生成失败：缺少位置信息');
+        }
         
         playerStatus.位置 = {
           描述: locationDesc,
-          坐标: birthplaceResult.coordinates || { X: 120, Y: 30 }
+          坐标: birthplaceResult.coordinates || { X: 0, Y: 0 } // 使用错误坐标标记失败
         };
 
         console.log('[角色初始化] 出生地已确定:', {
@@ -500,15 +537,24 @@ export async function initializeCharacter(
     // 5.1 构建传递给角色初始化AI的 creationDetails（AI生成剧情）
     const creationDetails = {
       age: age,
-      originName: baseInfo.出生,
-      spiritRootName: baseInfo.灵根,
+      originName: typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生.名称,
+      spiritRootName: typeof baseInfo.灵根 === 'string' ? baseInfo.灵根 : baseInfo.灵根.名称,
       talentNames: baseInfo.天赋,
       talentTierName: baseInfo.天资
     };
 
     // 5.2 构建传递给初始游戏数据包给AI
+    const normalizedBaseInfo = {
+      ...baseInfo,
+      天赋: Array.isArray(baseInfo.天赋) 
+        ? baseInfo.天赋.map(talent => 
+            typeof talent === 'string' ? talent : talent.名称
+          )
+        : baseInfo.天赋
+    };
+
     const initialGameDataForAI = {
-      baseInfo,
+      baseInfo: normalizedBaseInfo,
       saveData: currentSaveData, // [重构更新] 使用更新了地图数据的saveData
       world,
       creationDetails,
@@ -518,7 +564,7 @@ export async function initializeCharacter(
     // 注意：由于地图数据由CultivationWorldGenerator保存到酒馆变量，传递null即可
     // 但需要根据变量数据以便保证
     const initialMessageResponse = await retryableAICall(
-      () => generateInitialMessage(initialGameDataForAI, null, GAME_START_INITIALIZATION_PROMPT),
+      () => generateInitialMessage(initialGameDataForAI, {}, GAME_START_INITIALIZATION_PROMPT),
       (response) => Boolean(response && response.text && Array.isArray(response.tavern_commands)), // 验证响应是否有效
       2, // 最大重试次数
       '天道正在书写命运之章'

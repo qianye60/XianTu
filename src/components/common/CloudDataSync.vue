@@ -4,6 +4,7 @@
     class="cloud-sync-button"
     :class="{ 'synced': hasSynced }"
     :disabled="isSyncing"
+    :title="getSyncButtonTooltip()"
   >
     <span class="sync-icon" v-if="isSyncing">⏳</span>
     <span class="sync-icon" v-else-if="hasSynced">✅</span>
@@ -39,8 +40,15 @@ const hasSynced = ref(false);
 
 // 获取同步按钮文本
 function getSyncButtonText() {
-  if (isSyncing.value) return '同步中...';
-  if (hasSynced.value) return '已获取云端';
+  if (isSyncing.value) return '同步中';
+  if (hasSynced.value) return '已获取';
+  return '获取云端';
+}
+
+// 获取按钮提示文本
+function getSyncButtonTooltip() {
+  if (isSyncing.value) return '正在同步云端数据...';
+  if (hasSynced.value) return '云端数据已获取';
   return '获取云端数据';
 }
 
@@ -95,15 +103,17 @@ async function handleSyncCloudData() {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0.8rem 1rem;
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   border: 1px solid var(--color-border);
   background: var(--color-surface-light);
   color: var(--color-text);
-  font-size: 1rem;
-  min-width: 140px;
+  font-size: 0.85rem;
+  min-width: 80px;
+  white-space: nowrap;
 }
 
 .cloud-sync-button:hover {
@@ -114,12 +124,11 @@ async function handleSyncCloudData() {
 
 .sync-text {
   font-weight: 500;
-  margin-left: 0.25rem;
 }
 
 .sync-icon {
-  font-size: 1.1em;
-  vertical-align: middle;
+  font-size: 1em;
+  flex-shrink: 0;
 }
 
 /* 已同步状态样式 */

@@ -15,12 +15,21 @@
               type="text"
             />
             <textarea 
-              v-if="field.type === 'textarea'"
+              v-else-if="field.type === 'textarea'"
               :id="field.key"
               v-model="formData[field.key]"
               :placeholder="field.placeholder"
               rows="5"
             ></textarea>
+            <select
+              v-else-if="field.type === 'select'"
+              :id="field.key"
+              v-model="formData[field.key]"
+            >
+              <option v-for="opt in field.options" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
           </div>
         </div>
 
@@ -40,15 +49,20 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 
+type BaseField = {
+  key: string;
+  label: string;
+  placeholder?: string;
+};
+
+type TextAreaField = BaseField & { type: 'text' | 'textarea' };
+type SelectField = BaseField & { type: 'select'; options: readonly { value: string; label: string }[] };
+type ModalField = TextAreaField | SelectField;
+
 const props = defineProps<{
   visible: boolean;
   title: string;
-  fields: readonly {
-    key: string;
-    label: string;
-    type: 'text' | 'textarea';
-    placeholder?: string;
-  }[];
+  fields: readonly ModalField[];
   validationFn: (data: any) => { valid: boolean; errors: string[] };
 }>();
 
@@ -61,7 +75,11 @@ const errors = ref<string[]>([]);
 watch(() => props.fields, (newFields) => {
   formData.value = {};
   newFields.forEach(field => {
-    formData.value[field.key] = '';
+    if (field.type === 'select') {
+      formData.value[field.key] = field.options?.[0]?.value ?? '';
+    } else {
+      formData.value[field.key] = '';
+    }
   });
 }, { immediate: true });
 
@@ -98,8 +116,13 @@ function submit() {
 .modal-dialog {
   width: 90%;
   max-width: 600px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 2rem;
+  overflow: hidden;
 }
 
 .modal-title {
@@ -107,6 +130,7 @@ function submit() {
   color: var(--color-primary);
   text-align: center;
   margin-bottom: 1.5rem;
+  flex-shrink: 0;
 }
 
 .form-fields {
@@ -114,6 +138,27 @@ function submit() {
   flex-direction: column;
   gap: 1rem;
   margin-bottom: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 0.5rem;
+}
+
+.form-fields::-webkit-scrollbar {
+  width: 8px;
+}
+
+.form-fields::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.form-fields::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.form-fields::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 .form-group label {
@@ -124,7 +169,8 @@ function submit() {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
   width: 100%;
   padding: 0.75rem;
   background: var(--color-background);
@@ -136,7 +182,8 @@ function submit() {
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
@@ -146,6 +193,7 @@ function submit() {
     color: var(--color-danger);
     margin-bottom: 1rem;
     font-size: 0.9rem;
+    flex-shrink: 0;
 }
 
 .modal-actions {
@@ -153,6 +201,7 @@ function submit() {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1rem;
+  flex-shrink: 0;
 }
 
 /* Transition styles */

@@ -1,9 +1,9 @@
 <template>
   <div class="data-status">
     <div class="status-item">
-      <span class="status-label">Connection</span>
+      <span class="status-label">连接状态:</span>
       <span class="status-value" :class="{ connected: tavernConnected, disconnected: !tavernConnected }">
-        {{ tavernConnected ? 'Connected' : 'Disconnected' }}
+        {{ tavernConnected ? '已连接' : '未连接' }}
       </span>
     </div>
     <div class="status-item">

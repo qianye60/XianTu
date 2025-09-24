@@ -36,28 +36,29 @@
         <!-- 地图定义和效果 -->
         <defs>
           <pattern id="gridPattern" patternUnits="userSpaceOnUse" width="50" height="50">
-            <rect width="50" height="50" fill="none" stroke="#E5E7EB" stroke-width="0.5" opacity="0.3"/>
+            <rect width="50" height="50" fill="none" stroke="#cbd5e1" stroke-width="0.3" opacity="0.4"/>
           </pattern>
 
-          <!-- 简洁混沌虚空背景 -->
+          <!-- 优雅的世界背景 -->
           <radialGradient id="chaosVoid" cx="50%" cy="50%">
-            <stop offset="0%" style="stop-color:#374151;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#1f2937;stop-opacity:1" />
+            <stop offset="0%" style="stop-color:#fefefe;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#f8fafc;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
           </radialGradient>
 
-          <!-- 简化的混沌效果 -->
+          <!-- 细致的纹理效果 -->
           <filter id="chaosEffect" x="0%" y="0%" width="100%" height="100%">
-            <feTurbulence baseFrequency="0.005 0.005" numOctaves="1" result="turbulence"/>
+            <feTurbulence baseFrequency="0.008 0.008" numOctaves="2" result="turbulence"/>
             <feColorMatrix in="turbulence" type="saturate" values="0" result="grayscale"/>
             <feComponentTransfer in="grayscale">
-              <feFuncA type="discrete" tableValues="0 0.1 0.2"/>
+              <feFuncA type="discrete" tableValues="0 0.05 0.1 0.15"/>
             </feComponentTransfer>
             <feComposite in2="SourceGraphic" operator="multiply" result="composite"/>
           </filter>
 
           <!-- 地点光辉效果 -->
           <filter id="locationGlow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
@@ -65,11 +66,23 @@
           </filter>
         </defs>
 
-        <!-- 白色背景 -->
-        <rect width="100%" height="100%" fill="white"/>
+        <!-- 世界背景与大气层效果 -->
+        <defs>
+          <radialGradient id="mapBackground" cx="50%" cy="50%" r="100%">
+            <stop offset="0%" stop-color="#fefefe"/>
+            <stop offset="70%" stop-color="#f8fafc"/>
+            <stop offset="100%" stop-color="#e1e7ef"/>
+          </radialGradient>
+          <radialGradient id="atmosphereGlow" cx="50%" cy="50%" r="100%">
+            <stop offset="0%" stop-color="rgba(59, 130, 246, 0.02)"/>
+            <stop offset="100%" stop-color="rgba(147, 51, 234, 0.04)"/>
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#mapBackground)"/>
+        <rect width="100%" height="100%" fill="url(#atmosphereGlow)"/>
         
         <!-- 世界边界网格 (仅在大陆区域显示) -->
-        <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.05"/>
+        <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.02"/>
 
         <!-- 地图内容组 (支持平移和缩放) -->
         <g :transform="`translate(${panX}, ${panY}) scale(${zoomLevel})`">
@@ -85,11 +98,11 @@
                   return `${coords.x},${coords.y}`;
                 }).join(' ')"
                 fill="rgba(59, 130, 246, 0.12)"
-                stroke="#3B82F6"
+                stroke="#2563eb"
                 stroke-width="2.5"
                 stroke-dasharray="8,4"
                 fill-opacity="0.12"
-                stroke-opacity="0.8"
+                stroke-opacity="0.75"
                 class="continent-polygon"
                 @click="selectContinent(continent)"
               />
@@ -101,10 +114,10 @@
                 :y="getContinentCenter(continent.continent_bounds || continent.大洲边界 || []).y"
                 class="continent-name-label"
                 text-anchor="middle"
-                fill="#3B82F6"
+                fill="#1e40af"
                 font-weight="bold"
                 font-size="18px"
-                opacity="0.8"
+                opacity="0.85"
               >
                 {{ continent.name || continent.名称 }}
               </text>
@@ -297,14 +310,19 @@
           <!-- 玩家位置层 -->
           <g v-if="playerPosition" class="player-position-layer">
             <g :transform="`translate(${playerPosition.x}, ${playerPosition.y})`">
-              <!-- 玩家灵气光环 (扩大) -->
-              <circle class="player-aura" r="20" fill="#EF4444" opacity="0.4">
+              <!-- 玩家灵气光环 -->
+              <circle class="player-aura" r="20" fill="#EF4444" opacity="0.25">
                 <animate attributeName="r" values="15;25;15" dur="3s" repeatCount="indefinite"/>
-                <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.4;0.1;0.4" dur="3s" repeatCount="indefinite"/>
               </circle>
-              <!-- 玩家标记 (扩大) -->
-              <polygon points="0,-12 -8,8 8,8" fill="#DC2626" stroke="white" stroke-width="2"/>
-              <circle r="3" fill="white"/>
+              <circle class="player-inner-aura" r="12" fill="#FBBF24" opacity="0.4">
+                <animate attributeName="r" values="8;16;8" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <!-- 玩家标记 -->
+              <polygon points="0,-12 -8,8 8,8" fill="#dc2626" stroke="#fef2f2" stroke-width="2"/>
+              <circle r="3" fill="#fef2f2"/>
+              <circle r="1.5" fill="#dc2626"/>
             </g>
 
             <!-- 玩家名称 -->
@@ -472,19 +490,20 @@ interface RawLocation {
 
 type MayHaveImportance = { importance?: unknown; 重要?: unknown; is_key?: unknown; isKey?: unknown };
 
-// 地图尺寸配置
-const mapWidth = ref(3000);  // 扩大地图宽度 2000 -> 3000
-const mapHeight = ref(2100); // 扩大地图高度 1400 -> 2100 (保持3:2.1比例)
+// 地图尺寸配置 - 优化大洲显示
+const mapWidth = ref(3600);  // 坐标系宽度
+const mapHeight = ref(2400); // 坐标系高度，3:2
 
-// 地图边界限制 - 防止过度缩放和平移
-const minZoom = 0.2;
-const maxZoom = 5.0;
-// 动态计算平移范围，基于缩放级别
-const getMaxPanX = () => Math.max(1000, mapWidth.value * zoomLevel.value * 0.8);
-const getMaxPanY = () => Math.max(700, mapHeight.value * zoomLevel.value * 0.8);
+// 缩放范围（默认更小显示一点，让“地图看起来更小”）
+const minZoom = 0.1;
+const maxZoom = 4.0;
 
-// 地图交互状态
-const zoomLevel = ref(1);
+// 取消拖拽范围限制：允许无限平移
+const getMaxPanX = () => Number.POSITIVE_INFINITY;
+const getMaxPanY = () => Number.POSITIVE_INFINITY;
+
+// 地图交互状态（默认缩小至 0.8）
+const zoomLevel = ref(0.8);
 const panX = ref(0);
 const panY = ref(0);
 const isPanning = ref(false);
@@ -635,13 +654,9 @@ const handlePan = (event: MouseEvent) => {
   // 累计拖拽距离
   dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
 
-  // 动态计算平移范围限制
-  const maxPanX = getMaxPanX();
-  const maxPanY = getMaxPanY();
-
-  // 限制平移范围
-  panX.value = Math.max(-maxPanX, Math.min(maxPanX, panX.value + deltaX));
-  panY.value = Math.max(-maxPanY, Math.min(maxPanY, panY.value + deltaY));
+  // 不再限制拖拽范围，直接累加偏移
+  panX.value = panX.value + deltaX;
+  panY.value = panY.value + deltaY;
 
   lastPanPoint.value = { x: event.clientX, y: event.clientY };
 };
@@ -740,13 +755,36 @@ const calculateScreenPosition = (worldX: number, worldY: number): { x: number; y
   const transformedX = (worldX * zoomLevel.value) + panX.value;
   const transformedY = (worldY * zoomLevel.value) + panY.value;
 
+  // 在全屏模式下，需要特殊处理坐标计算
+  const isFullscreen = !!document.fullscreenElement;
+  
+  let containerWidth: number;
+  let containerHeight: number;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (isFullscreen) {
+    // 全屏模式：使用整个屏幕尺寸
+    containerWidth = window.innerWidth;
+    containerHeight = window.innerHeight;
+    // 全屏模式下无需偏移
+    offsetX = 0;
+    offsetY = 0;
+  } else {
+    // 普通模式：使用容器尺寸和偏移
+    containerWidth = containerRect.width;
+    containerHeight = containerRect.height;
+    offsetX = containerRect.left;
+    offsetY = containerRect.top;
+  }
+
   // 转换为相对于容器的坐标
-  const relativeX = (transformedX / mapWidth.value) * containerRect.width;
-  const relativeY = (transformedY / mapHeight.value) * containerRect.height;
+  const relativeX = (transformedX / mapWidth.value) * containerWidth;
+  const relativeY = (transformedY / mapHeight.value) * containerHeight;
 
   return {
-    x: relativeX,
-    y: relativeY
+    x: relativeX + offsetX,
+    y: relativeY + offsetY
   };
 };
 
@@ -813,7 +851,8 @@ const getPopupPosition = (): Record<string, string> => {
     containerHeight = mapContainer.value?.clientHeight || 600;
   }
 
-  // 确保弹窗不会超出容器边界
+  // 在全屏模式下，坐标已经在calculateScreenPosition中处理过了
+  // 所以直接使用传入的x, y坐标
   let popupX = x - popupWidth / 2;
   let popupY = y - popupHeight - 30; // 在地点顶部30px处显示
 
@@ -830,6 +869,8 @@ const getPopupPosition = (): Record<string, string> => {
     popupY = containerHeight - popupHeight - 10;
   }
 
+  console.log(`[弹窗定位] 模式: ${isFullscreen ? '全屏' : '普通'}, 原始坐标: (${x}, ${y}), 弹窗位置: (${popupX}, ${popupY})`);
+
   return {
     position: isFullscreen ? 'fixed' : 'absolute',
     left: `${popupX}px`,
@@ -839,50 +880,24 @@ const getPopupPosition = (): Record<string, string> => {
   };
 };
 
-// GeoJSON坐标到虚拟坐标的转换 (基于实际数据范围)
+// GeoJSON坐标到虚拟坐标的转换 (基于实际数据范围) - 优化大洲显示
 const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
-  // 动态计算实际数据的坐标范围 - 针对紧密分布的大陆优化
-  let minLng = 107.0, maxLng = 114.0, minLat = 33.0, maxLat = 38.0;
+  // 使用与世界生成匹配的坐标系，但给大洲更多空间
+  const worldMinLng = 100.0, worldMaxLng = 130.0;  // 30度经度范围
+  const worldMinLat = 25.0, worldMaxLat = 45.0;    // 20度纬度范围
   
-  // 如果有大陆数据，使用实际的最小最大值
-  if (cultivationContinents.value.length > 0) {
-    const allCoords: {longitude: number, latitude: number}[] = [];
-    
-    cultivationContinents.value.forEach(continent => {
-      const bounds = continent.continent_bounds || continent.大洲边界;
-      if (bounds && Array.isArray(bounds)) {
-        bounds.forEach((point: LngLat) => {
-          if (point.longitude && point.latitude) {
-            allCoords.push({
-              longitude: point.longitude,
-              latitude: point.latitude
-            });
-          }
-        });
-      }
-    });
-    
-    if (allCoords.length > 0) {
-      minLng = Math.min(...allCoords.map(c => c.longitude));
-      maxLng = Math.max(...allCoords.map(c => c.longitude));
-      minLat = Math.min(...allCoords.map(c => c.latitude));
-      maxLat = Math.max(...allCoords.map(c => c.latitude));
-      
-      // 为紧密分布的大陆减少边距，让大陆占据更多空间 - 从5%进一步减少到2%
-      const lngPadding = (maxLng - minLng) * 0.02; // 从5%减少到2%
-      const latPadding = (maxLat - minLat) * 0.02;
-      minLng -= lngPadding;
-      maxLng += lngPadding;
-      minLat -= latPadding;
-      maxLat += latPadding;
-    }
+  // 裁剪输入坐标到世界边界
+  const clampedLng = Math.max(worldMinLng, Math.min(worldMaxLng, lng));
+  const clampedLat = Math.max(worldMinLat, Math.min(worldMaxLat, lat));
+  
+  if (Math.abs(clampedLng - lng) > 0.1 || Math.abs(clampedLat - lat) > 0.1) {
+    console.warn(`[地图边界] 坐标超出世界范围被裁剪: (${lng.toFixed(2)}, ${lat.toFixed(2)}) -> (${clampedLng.toFixed(2)}, ${clampedLat.toFixed(2)})`);
   }
   
-  // 映射到地图尺寸，为紧密大陆优化显示 - 让大陆占据更多屏幕空间
-  const x = ((lng - minLng) / (maxLng - minLng)) * (mapWidth.value * 0.96) + (mapWidth.value * 0.02);
-  const y = ((maxLat - lat) / (maxLat - minLat)) * (mapHeight.value * 0.96) + (mapHeight.value * 0.02);
-  
-  console.log(`[坐标转换] 范围(${minLng.toFixed(2)}-${maxLng.toFixed(2)}, ${minLat.toFixed(2)}-${maxLat.toFixed(2)}) 输入(${lng}, ${lat}) -> 输出(${x.toFixed(1)}, ${y.toFixed(1)})`);
+  // 映射到地图尺寸，使用85%画布空间，给大洲之间留出更多间距
+  // 这样可以避免大洲重叠，同时不会让它们距离太远
+  const x = ((clampedLng - worldMinLng) / (worldMaxLng - worldMinLng)) * (mapWidth.value * 0.85) + (mapWidth.value * 0.075);
+  const y = ((worldMaxLat - clampedLat) / (worldMaxLat - worldMinLat)) * (mapHeight.value * 0.85) + (mapHeight.value * 0.075);
   
   return { x, y };
 };
@@ -1254,10 +1269,18 @@ const loadFactionsData = async (variables: TavernVariables) => {
           // 兼容多种字段名格式
           const territoryData = factionObj.势力范围 || factionObj.territory_bounds || factionObj.territoryBounds;
           if (territoryData && Array.isArray(territoryData) && territoryData.length >= 3) {
-            territoryBounds = territoryData.map((point: LngLat) => {
-              const virtualCoords = geoToVirtual(point.longitude, point.latitude);
-              return { x: virtualCoords.x, y: virtualCoords.y };
+            const converted: { x: number; y: number }[] = [];
+            territoryData.forEach((point: any) => {
+              const lng = Number(point?.longitude);
+              const lat = Number(point?.latitude);
+              if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                const v = geoToVirtual(lng, lat);
+                converted.push({ x: v.x, y: v.y });
+              }
             });
+            if (converted.length >= 3) {
+              territoryBounds = converted;
+            }
           }
 
           // 总部位置
@@ -1354,7 +1377,7 @@ const loadLocationsData = async (variables: TavernVariables) => {
           if (locationObj.coordinates && typeof locationObj.coordinates === 'object' && 'longitude' in locationObj.coordinates) {
             // WorldLocation中的coordinates字段：{ coordinates: { longitude, latitude } }
             const coords = locationObj.coordinates as LngLat;
-            coordinates = geoToVirtual(coords.longitude, coords.latitude);
+            coordinates = geoToVirtual(Number((coords as any).longitude), Number((coords as any).latitude));
             console.log(`🏯 [地点加载] 使用coordinates字段加载地点: ${locationObj.名称 || locationObj.name}`, locationObj.coordinates);
           } else if (locationObj.位置 && typeof locationObj.位置 === 'object' && 'longitude' in locationObj.位置) {
             // 新格式：{ 位置: { longitude, latitude } }
@@ -1601,7 +1624,8 @@ const centerToPlayer = () => {
   // 将玩家位置居中显示
   panX.value = (mapWidth.value / 2) - playerPosition.value.x * zoomLevel.value;
   panY.value = (mapHeight.value / 2) - playerPosition.value.y * zoomLevel.value;
-  zoomLevel.value = 1.5;
+  // 定位到玩家时也保持较小的缩放
+  zoomLevel.value = 0.9;
 
   showToastWithDelay('已定位到当前位置', 'success');
 };

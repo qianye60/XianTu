@@ -8,6 +8,12 @@ import { toast } from './toast';
 import type { ThousandDaoSystem, DaoPath, DaoProgress } from '@/types/game';
 import { createEmptyThousandDaoSystem, createNewDaoProgress } from '@/data/thousandDaoData';
 
+// 定义存档数据的基本结构，以提供类型提示
+interface CharacterSaveData {
+  三千大道?: ThousandDaoSystem;
+  [key: string]: any; // 允许其他任意属性
+}
+
 export class ThousandDaoManager {
   private static instance: ThousandDaoManager;
   
@@ -31,10 +37,10 @@ export class ThousandDaoManager {
       }
 
       const chatVars = await helper.getVariables({ type: 'chat' });
-      const saveData = chatVars['character.saveData'];
+      const saveData = chatVars['character.saveData'] as CharacterSaveData | undefined;
       
       if (saveData?.三千大道) {
-        return saveData.三千大道 as ThousandDaoSystem;
+        return saveData.三千大道;
       } else {
         // 如果没有数据，返回空系统
         return createEmptyThousandDaoSystem();
@@ -57,7 +63,7 @@ export class ThousandDaoManager {
 
       // 获取当前存档数据
       const chatVars = await helper.getVariables({ type: 'chat' });
-      const saveData = chatVars['character.saveData'] || {};
+      const saveData: CharacterSaveData = chatVars['character.saveData'] || {};
       
       // 更新三千大道数据
       saveData.三千大道 = daoSystem;
@@ -94,7 +100,7 @@ export class ThousandDaoManager {
       // 添加大道路径定义
       currentSystem.大道路径定义[daoPath.道名] = daoPath;
       
-      // 创建初始进度（未门阶段）
+      // 创建初始进度（未闻阶段）
       currentSystem.大道进度[daoPath.道名] = createNewDaoProgress(daoPath.道名);
       
       // 保存到酒馆变量

@@ -6,10 +6,10 @@
         @click="clearCustomData" 
         class="clear-button custom"
         :disabled="!hasCustomData"
-        title="清除自定义和AI生成的数据，保留本地基础数据和云端数据"
+        title="清除自定义和AI生成的数据"
       >
         <span class="clear-icon">🗑️</span>
-        <span class="clear-text">清除自定义数据</span>
+        <span class="clear-text">清除自定义</span>
       </button>
 
       <!-- 清除云端数据，保留本地基础+自定义数据 -->
@@ -17,10 +17,10 @@
         @click="clearCloudData" 
         class="clear-button cloud"
         :disabled="!hasCloudData"
-        title="清除从云端获取的数据，保留本地基础数据和自定义数据"
+        title="清除从云端获取的数据"
       >
         <span class="clear-icon">☁️</span>
-        <span class="clear-text">清除云端数据</span>
+        <span class="clear-text">清除云端</span>
       </button>
     </div>
   </div>
@@ -171,36 +171,37 @@ function clearCloudData() {
 .clear-button {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.8rem;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-light);
   color: var(--color-text-secondary);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: auto;
+  min-width: 80px;
+  white-space: nowrap;
 }
 
 .clear-button:hover:not(:disabled) {
-  background: rgba(var(--color-danger-rgb), 0.2);
+  background: rgba(var(--color-danger-rgb), 0.1);
   border-color: var(--color-danger);
   color: var(--color-danger);
 }
 
 .clear-button:disabled {
-  opacity: 0.3;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .clear-icon {
-  font-size: 0.9em;
+  font-size: 1em;
+  flex-shrink: 0;
 }
 
 .clear-text {
-  font-size: 0.8rem;
-  white-space: nowrap;
+  font-weight: 500;
 }
 
 /* 不同类型按钮的特定样式 */

@@ -174,6 +174,41 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
   }
 
   const { action, key, value } = command;
+
+  // 规范化：当AI写入物品(尤其功法)时，自动校正品质与品级
+  const normalizeItemIfNeeded = (val: any) => {
+    try {
+      if (!val || typeof val !== 'object') return val;
+      const type = (val.类型 || '').trim();
+      if (!['装备', '功法', '其他'].includes(type)) return val;
+      const qualityMap: Record<string, string> = {
+        '凡品': '凡', '凡阶': '凡', '凡': '凡',
+        '黄品': '黄', '黄阶': '黄', '黄': '黄',
+        '玄品': '玄', '玄阶': '玄', '玄': '玄',
+        '地品': '地', '地阶': '地', '地': '地',
+        '天品': '天', '天阶': '天', '天': '天',
+        '仙品': '仙', '仙阶': '仙', '仙': '仙',
+        '神品': '神', '神阶': '神', '神': '神'
+      };
+      const gradeTextToNumber: Record<string, number> = {
+        '残缺': 0, '下品': 2, '中品': 5, '上品': 8, '极品': 10
+      };
+      const q = val.品质 || {};
+      const rawQ = String(q.quality ?? q.品质 ?? '').trim();
+      const normQuality = qualityMap[rawQ] || '凡';
+      const rawG: any = (q.grade ?? q.品级 ?? q.等级);
+      let normGrade = 1;
+      if (typeof rawG === 'number' && !Number.isNaN(rawG)) {
+        normGrade = Math.min(10, Math.max(0, Math.round(rawG)));
+      } else if (typeof rawG === 'string' && rawG.trim()) {
+        normGrade = gradeTextToNumber[rawG.trim()] ?? 1;
+      }
+      val.品质 = { quality: normQuality, grade: normGrade };
+      return val;
+    } catch {
+      return val;
+    }
+  };
   
   // 处理路径，移除 character.saveData. 前缀（如果存在）
   let path = key;
@@ -186,7 +221,12 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
   try {
     switch (action) {
       case 'set':
-        set(saveData, path, value);
+        // 若写入物品或功法，先做一次品质规范化
+        if (String(path).includes('背包.物品') || String(path).includes('修炼功法.功法')) {
+          set(saveData, path, normalizeItemIfNeeded(value));
+        } else {
+          set(saveData, path, value);
+        }
         break;
         
       case 'add':

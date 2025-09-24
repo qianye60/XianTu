@@ -106,6 +106,7 @@
                 <button
                   class="action-btn"
                   :class="isEquipped(selectedItem) ? 'unequip-btn' : 'equip-btn'"
+                  :disabled="equipBusy"
                   @click="toggleEquip(selectedItem)"
                 >
                   {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
@@ -117,6 +118,7 @@
                 <button
                   class="action-btn"
                   :class="isCultivating(selectedItem) ? 'stop-cultivate-btn' : 'cultivate-btn'"
+                  :disabled="cultivateBusy"
                   @click="toggleCultivate(selectedItem)"
                 >
                   {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
@@ -257,6 +259,7 @@
                 <button
                   class="action-btn"
                   :class="isEquipped(selectedItem) ? 'unequip-btn' : 'equip-btn'"
+                  :disabled="equipBusy"
                   @click="toggleEquip(selectedItem)"
                 >
                   {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
@@ -268,6 +271,7 @@
                 <button
                   class="action-btn"
                   :class="isCultivating(selectedItem) ? 'stop-cultivate-btn' : 'cultivate-btn'"
+                  :disabled="cultivateBusy"
                   @click="toggleCultivate(selectedItem)"
                 >
                   {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
@@ -301,7 +305,7 @@
               <div class="slot-header">
                 <div class="slot-name">{{ slot.name }}</div>
                 <div v-if="slot.item" class="slot-actions">
-                  <button class="action-btn unequip-btn" @click="unequipItem(slot)" title="卸下装备">
+                  <button class="action-btn unequip-btn" :disabled="equipBusy" @click="unequipItem(slot)" title="卸下装备">
                     <X :size="12" />
                   </button>
                 </div>
@@ -435,6 +439,10 @@ const quantityModalCallback = ref<((quantity: number) => void) | null>(null);
 const showItemModal = ref(false);
 const confirmCallback = ref<(() => void) | null>(null);
 
+// 操作锁，防止连点导致状态错乱或数据不同步
+const equipBusy = ref(false);
+const cultivateBusy = ref(false);
+
 // 响应式检测
 const isMobile = computed(() => {
   return window.innerWidth <= 768;
@@ -488,11 +496,39 @@ const equipmentSlots = computed(() => {
   return slotNames.map(slotKey => {
     const key = slotKey as keyof typeof equipment;
     const equippedItem = equipment[key];
+    let item: any = null;
 
-    // 如果装备栏存储的是物品对象，直接返回；如果是ID或空，返回null
-    const item = (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem)
-      ? equippedItem
-      : null;
+    // 1) 完整对象（包含名称）
+    if (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem) {
+      item = equippedItem;
+    } else {
+      // 2) 只有物品ID或不完整对象：尝试从背包补全
+      const bag = characterStore.activeSaveSlot?.存档数据?.背包?.物品 || {};
+      if (typeof equippedItem === 'string') {
+        // 装备栏里存的是物品ID字符串
+        const fromInv = bag[equippedItem];
+        item = (fromInv && typeof fromInv === 'object') ? fromInv : null;
+      } else if (equippedItem && typeof equippedItem === 'object' && '物品ID' in equippedItem) {
+        const id = (equippedItem as any).物品ID;
+        const fromInv = id ? bag[id] : null;
+        if (fromInv && typeof fromInv === 'object') {
+          item = fromInv;
+        } else {
+          // 构造一个最小可显示对象，避免UI判空
+          item = {
+            物品ID: id || '',
+            名称: (equippedItem as any).名称 || '未知装备',
+            类型: (equippedItem as any).类型 || '装备',
+            品质: (equippedItem as any).品质 || { quality: '凡', grade: 1 },
+            描述: (equippedItem as any).描述 || '',
+            数量: 1,
+            装备增幅: (equippedItem as any).装备增幅 || undefined
+          };
+        }
+      } else {
+        item = null;
+      }
+    }
 
     return { name: slotKey, item };
   });
@@ -500,7 +536,9 @@ const equipmentSlots = computed(() => {
 
 // 卸下装备功能
 const unequipItem = async (slot: { name: string; item: Item | null }) => {
+  if (equipBusy.value) return;
   if (!slot.item) return;
+  equipBusy.value = true;
   const itemToUnequip = slot.item;
 
   debug.log('背包面板', '卸下装备', itemToUnequip.名称);
@@ -548,6 +586,8 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
   } catch (error) {
     debug.error('背包面板', '卸下装备失败', error);
     toast.error('卸下装备失败');
+  } finally {
+    equipBusy.value = false;
   }
 };
 
@@ -814,14 +854,19 @@ const cultivateItem = async (item: Item, force = false) => {
       return;
     }
 
-    // 检查是否有修炼功法数据结构
+    // 确保修炼功法数据结构存在（若缺失则自动初始化）
     if (!characterStore.activeSaveSlot.存档数据.修炼功法) {
-      toast.warning('修炼功法槽位未初始化');
-      return;
+      characterStore.activeSaveSlot.存档数据.修炼功法 = {
+        功法: null,
+        熟练度: 0,
+        已解锁技能: [],
+        修炼时间: 0,
+        突破次数: 0
+      } as any;
     }
 
     // 将功法添加到修炼功法槽位中
-    const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
+    const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法 as any;
 
     // 检查是否已经在修炼其他功法
     if (!force && skillSlots.功法 && skillSlots.功法.物品ID !== item.物品ID) {
@@ -849,23 +894,76 @@ const cultivateItem = async (item: Item, force = false) => {
       return;
     }
 
-    // 装备功法到修炼槽位 - 创建完整的功法数据
+    // 规范化品质：缺失/非法则给出安全默认；支持文本品级
+    const normalizeQualityObject = (q: any) => {
+      const qualityMap: Record<string, string> = {
+        '凡品': '凡', '凡阶': '凡', '凡': '凡',
+        '黄品': '黄', '黄阶': '黄', '黄': '黄',
+        '玄品': '玄', '玄阶': '玄', '玄': '玄',
+        '地品': '地', '地阶': '地', '地': '地',
+        '天品': '天', '天阶': '天', '天': '天',
+        '仙品': '仙', '仙阶': '仙', '仙': '仙',
+        '神品': '神', '神阶': '神', '神': '神'
+      };
+      const gradeTextToNumber: Record<string, number> = {
+        '残缺': 0, '下品': 2, '中品': 5, '上品': 8, '极品': 10
+      };
+      let quality = '凡';
+      let grade = 1;
+      if (q && typeof q === 'object') {
+        const rawQ = String(q.quality ?? q.品质 ?? '').trim();
+        quality = qualityMap[rawQ] || quality;
+        const rawG: any = (q.grade ?? q.品级 ?? q.等级);
+        if (typeof rawG === 'number' && !Number.isNaN(rawG)) {
+          grade = Math.min(10, Math.max(0, Math.round(rawG)));
+          // 默认不要落在0（残缺）除非确实传入0
+          if (rawG === undefined || rawG === null) grade = 1;
+        } else if (typeof rawG === 'string' && rawG.trim()) {
+          grade = gradeTextToNumber[rawG.trim()] ?? 1;
+        }
+      }
+      return { quality, grade };
+    };
+
+    const computeDefaultSpeed = (grade: number): number => {
+      if (grade >= 10) return 0.25;
+      if (grade >= 7) return 0.2;
+      if (grade >= 4) return 0.15;
+      if (grade >= 1) return 0.1;
+      return 0.05; // 残缺
+    };
+
     const skillData = {
       物品ID: item.物品ID || '',
       名称: item.名称,
-      类型: item.类型,
-      品质: item.品质,
+      类型: '功法',
+      品质: normalizeQualityObject(item.品质),
       描述: item.描述,
-      功法效果: item.功法效果 || {},
-      功法技能: item.功法技能 || {},
+      功法效果: (() => {
+        const eff = (item as any).功法效果;
+        if (eff && typeof eff === 'object' && Object.keys(eff).length > 0) return eff;
+        // 若无功法效果，按品级给一个默认修炼速度加成
+        return { 修炼速度加成: computeDefaultSpeed(normalizeQualityObject(item.品质).grade) };
+      })(),
+      功法技能: (item as any).功法技能 || {},
       修炼进度: skillSlots.功法?.修炼进度 || 0,
       数量: 1
     };
     skillSlots.功法 = skillData;
 
+    // 轻提示：若功法缺少效果字段，提醒后续补全
+    try {
+      const effects = (item as any).功法效果;
+      if (!effects || (typeof effects === 'object' && Object.keys(effects).length === 0)) {
+        toast.info('提示：该功法暂未提供“功法效果”，可通过后续事件/AI生成补全');
+      }
+    } catch {}
+
     // 初始化修炼数据
-    if (!skillSlots.熟练度) skillSlots.熟练度 = 0;
-    if (!skillSlots.已解锁技能) skillSlots.已解锁技能 = [];
+    if (typeof skillSlots.熟练度 !== 'number') skillSlots.熟练度 = 0;
+    if (!Array.isArray(skillSlots.已解锁技能)) skillSlots.已解锁技能 = [];
+    if (typeof skillSlots.修炼时间 !== 'number') skillSlots.修炼时间 = 0;
+    if (typeof skillSlots.突破次数 !== 'number') skillSlots.突破次数 = 0;
 
     // 从背包移除已装备的功法
     await removeItemFromInventory(item);
@@ -929,6 +1027,7 @@ const stopCultivation = async (item: Item) => {
 
     // 保存数据
     await characterStore.commitToStorage();
+    await syncToTavernVariables();
     
     toast.success(`已停止修炼《${techniqueToStop.名称}》`);
     debug.log('背包面板', '停止修炼成功', techniqueToStop.名称);
@@ -940,11 +1039,18 @@ const stopCultivation = async (item: Item) => {
 };
 
 // 切换修炼状态
-const toggleCultivate = (item: Item) => {
-  if (isCultivating(item)) {
-    stopCultivation(item);
-  } else {
-    cultivateItem(item);
+const toggleCultivate = async (item: Item) => {
+  if (cultivateBusy.value) return;
+  cultivateBusy.value = true;
+  try {
+    if (isCultivating(item)) {
+      await stopCultivation(item);
+    } else {
+      await cultivateItem(item);
+    }
+  } finally {
+    // 注意：若进入切换确认流程，cultivateItem 内部会很快返回，此处解锁即可
+    cultivateBusy.value = false;
   }
 };
 
@@ -975,72 +1081,33 @@ const useItem = async (item: Item) => {
 
 const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
-    let messageText = '';
-    let effectMessage = '';
-
-    if (item.使用效果) {
-      effectMessage = `效果：${item.使用效果}`;
-      messageText = `确定要使用 ${quantity} 个《${item.名称}》吗？
-
-${effectMessage}`;
+    // 1. 减少或移除物品
+    if (item.数量 > quantity) {
+      item.数量 -= quantity;
+      await updateItemInInventory(item);
+      toast.success(`使用了 ${quantity} 个《${item.名称}》`);
     } else {
-      effectMessage = '暂无特殊效果';
-      messageText = `《${item.名称}》暂无特殊效果，确定要使用 ${quantity} 个吗？`;
+      await removeItemFromInventory(item);
+      toast.success(`已用完《${item.名称}》`);
     }
 
-    // 显示自定义确认弹窗
-    showCustomConfirm.value = true;
-    confirmTitle.value = '使用物品';
-    confirmMessage.value = messageText;
-    confirmCallback.value = async () => {
-      if (item.使用效果) {
-        // 减少物品数量
-        if (item.数量 > quantity) {
-          item.数量 -= quantity;
-          await characterStore.commitToStorage();
-          toast.success(`使用了 ${quantity} 个《${item.名称}》，剩余${item.数量}个`);
-        } else {
-          // 全部使用完时，移除物品
-          await removeItemFromInventory(item);
-          toast.success(`使用了 ${quantity} 个《${item.名称}》，物品已用完`);
-        }
+    // 2. 添加到操作队列，让AI来决定效果
+    // description 现在只是一个内部记录，AI提示词由 store 根据 type:'use' 和 itemName 自动生成
+    actionQueue.addAction({
+      type: 'use',
+      itemName: item.名称,
+      itemType: item.类型,
+      description: `使用了 ${quantity} 个《${item.名称}》` // description 简化
+    });
 
-        // 添加到操作队列
-        actionQueue.addAction({
-          type: 'use',
-          itemName: item.名称,
-          itemType: item.类型,
-          description: `使用了 ${quantity} 个《${item.名称}》，${item.使用效果 || '产生了特殊效果'}`
-        });
-      } else {
-        // 即使没有效果也要减少数量
-        if (item.数量 > quantity) {
-          item.数量 -= quantity;
-          await characterStore.commitToStorage();
-          toast.info(`使用了 ${quantity} 个《${item.名称}》，但似乎没有产生明显效果`);
-        } else {
-          await removeItemFromInventory(item);
-          toast.info(`使用了 ${quantity} 个《${item.名称}》，但似乎没有产生明显效果`);
-        }
-
-        // 即使没有效果也添加到操作队列
-        actionQueue.addAction({
-          type: 'use',
-          itemName: item.名称,
-          itemType: item.类型,
-          description: `使用了 ${quantity} 个《${item.名称}》，但没有产生明显效果`
-        });
-      }
-
-      // 关闭弹窗
-      if (isMobile.value) {
-        showItemModal.value = false;
-      }
-      selectedItem.value = null;
-    };
+    // 3. 更新UI状态
+    if (isMobile.value) {
+      showItemModal.value = false;
+    }
+    selectedItem.value = null;
 
   } catch (error) {
-    debug.error('背包面板', '使用失败', error);
+    debug.error('背包面板', '使用物品失败', error);
     toast.error('使用物品失败');
   }
 };
@@ -1131,20 +1198,24 @@ const equipItem = async (item: Item) => {
 
   try {
     // 检查存档数据
-    if (!characterStore.activeSaveSlot?.存档数据) {
+    const saveData = characterStore.activeSaveSlot?.存档数据;
+    if (!saveData) {
       toast.error('存档数据不存在，无法装备');
       return;
     }
-    if (!characterStore.activeSaveSlot.存档数据.装备栏) {
-      toast.warning('装备栏未初始化');
+    if (!saveData.装备栏) {
+      saveData.装备栏 = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
+      toast.warning('装备栏未初始化，已自动创建');
+    }
+    if (!saveData.背包 || !saveData.背包.物品) {
+      toast.error('背包数据异常');
       return;
     }
 
-    const equipmentSlotsData = characterStore.activeSaveSlot.存档数据.装备栏;
+    const equipmentSlotsData = saveData.装备栏;
 
-    // 2. 唯一性检查
-    const isAlreadyEquipped = Object.values(equipmentSlotsData).some(equippedItem => equippedItem?.物品ID === item.物品ID);
-    if (isAlreadyEquipped) {
+    // 2. 唯一性检查 (使用 isEquipped 函数)
+    if (isEquipped(item)) {
       toast.info(`《${item.名称}》已经装备在身上了。`);
       return;
     }
@@ -1164,18 +1235,16 @@ const equipItem = async (item: Item) => {
       equipmentSlotsData[emptySlotKey] = item;
       toast.success(`《${item.名称}》已装备到${emptySlotKey}`);
     } else {
-      // 装备栏已满，提示替换
-      // (这里的替换逻辑可以更复杂，例如弹窗让用户选择替换哪一件，但目前保持简单，替换第一件)
+      // 装备栏已满，提示替换第一个槽位的装备
       const firstSlotKey: keyof typeof equipmentSlotsData = '装备1';
       const replacedItem = equipmentSlotsData[firstSlotKey];
 
-      // 确保 replacedItem 是一个物品对象
       if (replacedItem && typeof replacedItem === 'object' && '物品ID' in replacedItem) {
         confirmTitle.value = '替换装备';
         confirmMessage.value = `装备栏已满，是否用《${item.名称}》替换掉《${replacedItem.名称}》？`;
         confirmCallback.value = async () => {
           // 将被替换的装备放回背包
-          characterStore.activeSaveSlot!.存档数据!.背包!.物品![replacedItem.物品ID] = replacedItem;
+          saveData.背包.物品[replacedItem.物品ID] = replacedItem;
           
           // 装备新物品
           equipmentSlotsData[firstSlotKey] = item;
@@ -1190,25 +1259,13 @@ const equipItem = async (item: Item) => {
           if (isMobile.value) showItemModal.value = false;
           selectedItem.value = null;
         };
+        showCustomConfirm.value = true;
+        return;
       } else {
-        // 如果第一个槽位为空或数据异常，直接覆盖
-        confirmTitle.value = '替换装备';
-        confirmMessage.value = `装备栏已满，是否用《${item.名称}》替换掉装备1的物品？`;
-        confirmCallback.value = async () => {
-          equipmentSlotsData[firstSlotKey] = item;
-          toast.success(`《${item.名称}》已装备到${firstSlotKey}`);
-          
-          await removeItemFromInventory(item);
-          await characterStore.commitToStorage();
-          await syncToTavernVariables();
-          actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝` });
-          debug.log('背包面板', '覆盖装备成功');
-          if (isMobile.value) showItemModal.value = false;
-          selectedItem.value = null;
-        };
+        // 理论上不应该发生，但作为保险
+        equipmentSlotsData[firstSlotKey] = item;
+        toast.success(`《${item.名称}》已装备到${firstSlotKey}`);
       }
-      showCustomConfirm.value = true;
-      return; // 等待用户确认
     }
 
     // 从背包移除已装备物品
@@ -1226,29 +1283,59 @@ const equipItem = async (item: Item) => {
   }
 };
 
-// 切换装备状态
-const toggleEquip = (item: Item) => {
-  if (isEquipped(item)) {
-    const slot = equipmentSlots.value.find(s => s.item?.物品ID === item.物品ID);
-    if (slot) {
-      unequipItem(slot);
+const toggleEquip = async (item: Item) => {
+  if (!item || equipBusy.value) return;
+  equipBusy.value = true;
+  
+  console.log('[装备按钮] 点击装备切换，物品:', item);
+  
+  try {
+    if (isEquipped(item)) {
+      console.log('[装备按钮] 物品已装备，执行卸下操作');
+      const itemId = item.物品ID;
+      if (!itemId) {
+        console.error('[装备按钮] 物品ID为空，无法卸下');
+        toast.error('物品ID缺失，无法卸下装备');
+        return;
+      }
+      const slot = equipmentSlots.value.find(s => s.item && s.item.物品ID && s.item.物品ID === itemId);
+      if (slot) {
+        await unequipItem(slot);
+      } else {
+        console.error('[装备按钮] 未找到对应装备槽位');
+        toast.error('未找到装备槽位');
+      }
+    } else {
+      console.log('[装备按钮] 物品未装备，执行装备操作');
+      await equipItem(item);
     }
-  } else {
-    equipItem(item);
+  } catch (error) {
+    console.error('[装备按钮] 装备切换失败:', error);
+    toast.error('装备操作失败，请稍后重试');
+  } finally {
+    equipBusy.value = false;
   }
 };
 
 // 检查物品是否已装备
 const isEquipped = (item: Item | null): boolean => {
   if (!item) return false;
-  return equipmentSlots.value.some(slot => slot.item?.物品ID === item.物品ID);
+  const id = item.物品ID;
+  if (!id || typeof id !== 'string') return false;
+  return equipmentSlots.value.some(slot => {
+    const sid = slot.item?.物品ID;
+    return !!sid && sid === id;
+  });
 };
 
 // 检查功法是否正在修炼
 const isCultivating = (item: Item | null): boolean => {
   if (!item) return false;
+  const id = item.物品ID;
+  if (!id || typeof id !== 'string') return false;
   const cultivatingSkill = characterStore.activeSaveSlot?.存档数据?.修炼功法?.功法;
-  return cultivatingSkill?.物品ID === item.物品ID;
+  const cid = cultivatingSkill?.物品ID;
+  return !!cid && cid === id;
 };
 
 const getItemQualityClass = (item: Item | null, type: 'border' | 'text' | 'badge' | 'card' = 'border'): string => {
@@ -2694,13 +2781,13 @@ onMounted(async () => {
 }
 
 .unequip-btn {
-  padding: 4px;
+  padding: 6px 10px;
   background: var(--color-danger);
-  border: none;
-  border-radius: 4px;
+  border: 1px solid var(--color-danger);
+  border-radius: 8px;
   color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2708,7 +2795,20 @@ onMounted(async () => {
 
 .unequip-btn:hover {
   background: var(--color-danger-hover);
-  transform: scale(1.1);
+}
+
+/* 详情区域的卸下按钮保持与其他 action-btn 一致且不上浮 */
+.action-btn.unequip-btn {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+  border-radius: 8px;
+}
+
+.action-btn.unequip-btn:hover {
+  background: var(--color-danger-hover);
+  transform: none;
+  box-shadow: none;
 }
 
 /* 装备物品显示 */

@@ -113,18 +113,16 @@ export class WorldGenerationConfig {
     const preset = presetName ? WORLD_GENERATION_PRESETS[presetName] : WORLD_GENERATION_PRESETS['classic_cultivation'];
     
     // 应用默认设置
+    // 根据世界规模设置基础数量
+    const worldScale = customSettings?.worldScale || preset?.worldScale || WorldScale.MEDIUM;
+    const baseConfig = this.getBaseConfigByScale(worldScale);
+    
     this.settings = {
       worldScale: WorldScale.MEDIUM,
       powerStructure: PowerStructure.BALANCED,
       worldAge: WorldAge.CLASSICAL,
       conflictLevel: ConflictLevel.TENSE,
-      majorFactionsCount: 7,
-      minorFactionsCount: 5,
-      neutralZonesCount: 3,
-      secretRealmsCount: 8,
-      continentCount: Math.floor(Math.random() * 6) + 6, // 6-11个大陆，增加板块数量
-      majorCitiesCount: 12,
-      tradingHubsCount: 4,
+      ...baseConfig, // 使用基于规模的基础配置
       hasAncientSects: true,
       hasDemonicFactions: true,
       hasImmortalEmpires: false,
@@ -140,22 +138,84 @@ export class WorldGenerationConfig {
   
   
   /**
-   * 根据世界规模调整数值
+   * 根据世界规模获取基础配置
+   */
+  private getBaseConfigByScale(scale: WorldScale): Partial<CultivationWorldSettings> {
+    switch (scale) {
+      case WorldScale.SMALL:
+        return {
+          majorFactionsCount: 4,
+          minorFactionsCount: 3,
+          neutralZonesCount: 2,
+          secretRealmsCount: 4,
+          continentCount: Math.floor(Math.random() * 2) + 2, // 2-3个大陆
+          majorCitiesCount: 6,
+          tradingHubsCount: 2,
+        };
+      
+      case WorldScale.MEDIUM:
+        return {
+          majorFactionsCount: 6,
+          minorFactionsCount: 4,
+          neutralZonesCount: 3,
+          secretRealmsCount: 6,
+          continentCount: Math.floor(Math.random() * 2) + 3, // 3-4个大陆
+          majorCitiesCount: 10,
+          tradingHubsCount: 3,
+        };
+      
+      case WorldScale.LARGE:
+        return {
+          majorFactionsCount: 9,
+          minorFactionsCount: 6,
+          neutralZonesCount: 4,
+          secretRealmsCount: 10,
+          continentCount: Math.floor(Math.random() * 3) + 4, // 4-6个大陆
+          majorCitiesCount: 15,
+          tradingHubsCount: 5,
+        };
+      
+      case WorldScale.EPIC:
+        return {
+          majorFactionsCount: 12,
+          minorFactionsCount: 8,
+          neutralZonesCount: 6,
+          secretRealmsCount: 15,
+          continentCount: Math.floor(Math.random() * 4) + 5, // 5-8个大陆
+          majorCitiesCount: 20,
+          tradingHubsCount: 7,
+        };
+      
+      default:
+        return {
+          majorFactionsCount: 6,
+          minorFactionsCount: 4,
+          neutralZonesCount: 3,
+          secretRealmsCount: 6,
+          continentCount: 3,
+          majorCitiesCount: 10,
+          tradingHubsCount: 3,
+        };
+    }
+  }
+
+  /**
+   * 根据世界规模调整数值（预留方法，现在由getBaseConfigByScale直接设置）
    */
   private adjustByWorldScale(): void {
-    const scaleMultipliers = {
-      [WorldScale.SMALL]: 0.6,
-      [WorldScale.MEDIUM]: 1.0,
-      [WorldScale.LARGE]: 1.5,
-      [WorldScale.EPIC]: 2.0
-    };
+    // 现在数量直接由 getBaseConfigByScale 根据规模设置
+    // 这个方法保留用于未来可能的微调需求
+    const scale = this.settings.worldScale;
     
-    const multiplier = scaleMultipliers[this.settings.worldScale];
+    // 可以在这里添加一些额外的调整逻辑
+    // 比如根据其他因素进行细微调整
     
-    this.settings.majorFactionsCount = Math.floor(this.settings.majorFactionsCount * multiplier);
-    this.settings.minorFactionsCount = Math.floor(this.settings.minorFactionsCount * multiplier);
-    this.settings.majorCitiesCount = Math.floor(this.settings.majorCitiesCount * multiplier);
-    this.settings.secretRealmsCount = Math.floor(this.settings.secretRealmsCount * multiplier);
+    // 确保最小值
+    this.settings.majorFactionsCount = Math.max(3, this.settings.majorFactionsCount);
+    this.settings.minorFactionsCount = Math.max(2, this.settings.minorFactionsCount);
+    this.settings.continentCount = Math.max(2, this.settings.continentCount);
+    this.settings.majorCitiesCount = Math.max(4, this.settings.majorCitiesCount);
+    this.settings.secretRealmsCount = Math.max(2, this.settings.secretRealmsCount);
   }
   
   /**
@@ -236,9 +296,9 @@ export class BirthplaceGenerator {
    * @returns 返回一个包含出生地信息的对象
    */
   static generateBirthplace(origin: string, worldSettings: CultivationWorldSettings) {
-    const villageNames = ['青溪村','松风镇','柳湾村','石桥村','清泉镇','安乐村','竹影镇'];
-    const townNames = ['望月镇','云水镇','落霞镇','青石镇'];
-    const cityNames = ['天枢城','青阳城','灵泉城','玉京城'];
+    const villageNames = ['溪水村','松风镇','柳湾村','石桥村','清泉镇','安乐村','竹影镇'];
+    const townNames = ['望月镇','云水镇','落霞镇','山石镇'];
+    const cityNames = ['天枢城','阳明城','灵泉城','玉京城'];
     let name = villageNames[Math.floor(Math.random()*villageNames.length)];
     let type = 'village';
     let description = '一个平凡而宁静的小村庄，炊烟袅袅，偶有修士路过。';
@@ -268,3 +328,53 @@ export class BirthplaceGenerator {
     };
   }
 }
+
+/**
+ * 角色背景与世界生成的映射关系
+ */
+export const BACKGROUND_WORLD_MAPPING: Record<string, {
+  birthplaceType: string;
+  requiredFactionTypes: string[];
+  initialConnections: string[];
+}> = {
+  '山野遗孤': {
+    birthplaceType: '山野村落',
+    requiredFactionTypes: ['散修组织', '小型宗门'],
+    initialConnections: ['村民关系']
+  },
+  '书香门第': {
+    birthplaceType: '文明城镇',
+    requiredFactionTypes: ['学院', '官府', '文人社团'],
+    initialConnections: ['世家关系', '学者网络']
+  },
+  '商贾之子': {
+    birthplaceType: '商业城池',
+    requiredFactionTypes: ['商会', '贸易组织'],
+    initialConnections: ['商业网络', '财富资源']
+  },
+  '将门之后': {
+    birthplaceType: '军事重镇',
+    requiredFactionTypes: ['军事势力', '武者组织'],
+    initialConnections: ['军方关系', '武者网络']
+  },
+  '宗门弟子': {
+    birthplaceType: '宗门山门',
+    requiredFactionTypes: ['修仙宗门', '道统传承'],
+    initialConnections: ['同门关系', '师长人脉']
+  },
+  '世家子弟': {
+    birthplaceType: '世家府邸',
+    requiredFactionTypes: ['修仙世家', '贵族势力'],
+    initialConnections: ['家族势力', '贵族圈子']
+  },
+  '散修': {
+    birthplaceType: '隐秘修炼地',
+    requiredFactionTypes: ['散修联盟', '独立势力'],
+    initialConnections: ['同道好友', '资源网络']
+  },
+  '皇室血脉': {
+    birthplaceType: '皇城宫殿',
+    requiredFactionTypes: ['皇室势力', '朝廷机构'],
+    initialConnections: ['皇室关系', '朝堂人脉']
+  }
+};

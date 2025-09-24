@@ -103,11 +103,13 @@ defineProps<Props>()
   background: var(--color-code-bg);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  max-height: 50vh;
+  max-height: 60vh;
   overflow: auto;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 0.85rem;
   line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .empty-state {
@@ -118,5 +120,39 @@ defineProps<Props>()
   gap: 1rem;
   padding: 3rem;
   color: var(--color-text-secondary);
+}
+
+/* 手机端适配 */
+@media (max-width: 768px) {
+  .code-pre {
+    max-height: 50vh;
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
+  
+  .character-section {
+    padding: 0.75rem;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .code-pre {
+    max-height: 40vh;
+    font-size: 0.75rem;
+    padding: 0.4rem;
+  }
+  
+  .character-section {
+    padding: 0.5rem;
+  }
+  
+  .empty-state {
+    padding: 2rem;
+  }
 }
 </style>

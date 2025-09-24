@@ -85,7 +85,7 @@ const getIconComponent = (iconName: string) => {
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   position: relative;
   overflow: visible;
   width: 100%;
@@ -97,6 +97,8 @@ const getIconComponent = (iconName: string) => {
 .type-btn:hover {
   border-color: var(--color-primary);
   background: var(--color-primary-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
 }
 
 .type-btn.active {
@@ -111,6 +113,8 @@ const getIconComponent = (iconName: string) => {
   background: var(--color-primary-hover);
   color: white;
   border-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(var(--color-primary-rgb), 0.25);
 }
 
 .type-btn svg {
@@ -119,6 +123,16 @@ const getIconComponent = (iconName: string) => {
 
 .type-btn:focus {
   outline: none;
+}
+
+.type-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.25);
+  border-color: var(--color-primary);
+}
+
+.type-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .count-badge {

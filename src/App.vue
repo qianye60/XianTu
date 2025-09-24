@@ -57,11 +57,9 @@ import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
 import { useUIStore } from './stores/uiStore';
-import { verifyStoredToken } from './services/request';
 import { toast } from './utils/toast';
 import { getTavernHelper } from './utils/tavern'; // 添加导入
-import type { CharacterBaseInfo, InnateAttributes, SaveData } from '@/types/game';
-import { initializeCharacter } from '@/services/characterInitialization';
+import type { CharacterBaseInfo } from '@/types/game';
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
@@ -73,11 +71,6 @@ const globalFullscreenCheckbox = ref<HTMLInputElement>();
 const router = useRouter();
 const route = useRoute();
 type ViewName = 'ModeSelection' | 'CharacterCreation' | 'Login' | 'CharacterManagement' | 'GameView';
-
-const activeView = computed(() => {
-  const routeName = String(route.name || '');
-  return routeName as ViewName;
-});
 
 // 判断是否在游戏界面（包括所有游戏子路由）
 const isInGameView = computed(() => {
@@ -131,16 +124,6 @@ const handleShowCharacterList = () => {
   router.push('/management');
 };
 
-const handleCharacterManagementClose = () => {
-  // 从角色管理页面返回到首页
-  router.push('/');
-};
-
-const handleCharacterSelected = (character: any) => {
-  // 角色选择后进入游戏
-  router.push('/game');
-};
-
 const handleBack = () => {
   creationStore.resetCharacter();
   switchView('ModeSelection');
@@ -173,7 +156,7 @@ const handleCreationComplete = async (rawPayload: any) => {
       console.warn('[创角完成] 无法从酒馆获取Persona名字，使用用户输入:', error);
       personaName = rawPayload.characterName || '无名道友';
     }
-    
+
     const convertedAttributes = rawPayload.baseAttributes ? {
       根骨: rawPayload.baseAttributes.root_bone || 5,
       灵性: rawPayload.baseAttributes.spirituality || 5,
@@ -214,11 +197,11 @@ const handleCreationComplete = async (rawPayload: any) => {
     if (!profile) {
       throw new Error('严重错误：角色创建后无法在角色列表中找到！');
     }
-    
+
     const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
     characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
     characterStore.commitToStorage();
-    
+
     await new Promise(resolve => setTimeout(resolve, 500));
     toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
     // 跳转到游戏主界面路由
@@ -238,7 +221,7 @@ watchEffect(() => {
   const theme = isDarkMode.value ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
-  
+
   if (globalThemeCheckbox.value) {
     globalThemeCheckbox.value.checked = !isDarkMode.value;
   }
@@ -275,7 +258,7 @@ onMounted(() => {
       if (window.parent === window) {
         return;
       }
-      
+
       const externalDiv = $('#chat', parent.document);
       if (externalDiv.length > 0) {
         const height = externalDiv.height();
@@ -298,7 +281,7 @@ onMounted(() => {
   // 初始化并监听父窗口大小变化
   updateHeight();
   $(parent.window).on('resize', updateHeight);
-  
+
   // 2. 主题已由 watchEffect 处理，此处无需操作
 
   // 3. 全屏状态同步
@@ -307,12 +290,12 @@ onMounted(() => {
       globalFullscreenCheckbox.value.checked = !!document.fullscreenElement;
     }
   };
-  
+
   document.addEventListener('fullscreenchange', syncFullscreenState);
   document.addEventListener('webkitfullscreenchange', syncFullscreenState);
   document.addEventListener('mozfullscreenchange', syncFullscreenState);
   document.addEventListener('MSFullscreenChange', syncFullscreenState);
-  
+
   syncFullscreenState(); // 初始检查
 
   // 统一的清理逻辑

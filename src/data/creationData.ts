@@ -46,17 +46,18 @@ export const LOCAL_ORIGINS: Omit<Origin, 'source'>[] = [
 ];
 
 // =======================================================================
-//                           本地灵根数据 (完整版本)
+//                           本地灵根数据 (品级优化版本)
 // =======================================================================
 export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
+  // 上品灵根 - 基础五行
   {
     id: 1,
     name: '金灵根',
     tier: '上品',
     description: '操控金铁，锋锐无匹。修行金系功法事半功倍，攻击至上。',
-    cultivation_speed: '1.5x',
+    cultivation_speed: '1.6x',
     special_effects: ['金系法术威力+50%', '器物亲和+30%', '金属感知'],
-    base_multiplier: 1.5,
+    base_multiplier: 1.6,
     talent_cost: 10,
     rarity: 3
   },
@@ -65,9 +66,9 @@ export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
     name: '木灵根',
     tier: '上品',
     description: '亲和草木，生机盎然。修行木系功法极快，擅长治疗与控制。',
-    cultivation_speed: '1.5x',
+    cultivation_speed: '1.6x',
     special_effects: ['木系法术威力+50%', '生命力恢复+40%', '植物沟通'],
-    base_multiplier: 1.5,
+    base_multiplier: 1.6,
     talent_cost: 10,
     rarity: 3
   },
@@ -76,9 +77,9 @@ export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
     name: '水灵根',
     tier: '上品',
     description: '御水之脉，绵延不绝。修行水系功法，法力悠长，变化多端。',
-    cultivation_speed: '1.5x',
+    cultivation_speed: '1.6x',
     special_effects: ['水系法术威力+50%', '灵气恢复+40%', '水体感知'],
-    base_multiplier: 1.5,
+    base_multiplier: 1.6,
     talent_cost: 10,
     rarity: 3
   },
@@ -87,9 +88,9 @@ export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
     name: '火灵根',
     tier: '上品',
     description: '天生火脉，焚尽八荒。修行火系功法，威力绝伦，爆发力强。',
-    cultivation_speed: '1.5x',
+    cultivation_speed: '1.6x',
     special_effects: ['火系法术威力+50%', '爆发伤害+60%', '火焰免疫'],
-    base_multiplier: 1.5,
+    base_multiplier: 1.6,
     talent_cost: 10,
     rarity: 3
   },
@@ -98,23 +99,75 @@ export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
     name: '土灵根',
     tier: '上品',
     description: '大地之子，厚德载物。修行土系功法，防御惊人，稳如泰山。',
-    cultivation_speed: '1.5x',
+    cultivation_speed: '1.6x',
     special_effects: ['土系法术威力+50%', '防御力+40%', '大地感知'],
-    base_multiplier: 1.5,
+    base_multiplier: 1.6,
     talent_cost: 10,
     rarity: 3
   },
+  
+  // 中品灵根 - 常见选择
+  {
+    id: 9,
+    name: '金灵根',
+    tier: '中品',
+    description: '金行资质尚可，修行金系功法有一定天赋。',
+    cultivation_speed: '1.3x',
+    special_effects: ['金系法术威力+25%', '器物亲和+15%'],
+    base_multiplier: 1.3,
+    talent_cost: 6,
+    rarity: 2
+  },
+  {
+    id: 10,
+    name: '火灵根',
+    tier: '中品',
+    description: '火行资质良好，对火系功法有不错的亲和力。',
+    cultivation_speed: '1.3x',
+    special_effects: ['火系法术威力+25%', '爆发伤害+30%'],
+    base_multiplier: 1.3,
+    talent_cost: 6,
+    rarity: 2
+  },
+  
+  // 极品灵根 - 稀有变异
+  {
+    id: 11,
+    name: '雷灵根',
+    tier: '极品',
+    description: '天生雷体，雷霆万钧。修行雷系功法速度极快，威力绝伦。',
+    cultivation_speed: '2.0x',
+    special_effects: ['雷系法术威力+80%', '雷霆免疫', '速度+50%', '穿透攻击'],
+    base_multiplier: 2.0,
+    talent_cost: 15,
+    rarity: 4
+  },
+  {
+    id: 12,
+    name: '冰灵根',
+    tier: '极品',
+    description: '冰霜之躯，万物凋零。修行冰系功法，控制力超凡。',
+    cultivation_speed: '2.0x',
+    special_effects: ['冰系法术威力+80%', '减速效果+100%', '冰霜免疫', '空间冻结'],
+    base_multiplier: 2.0,
+    talent_cost: 15,
+    rarity: 4
+  },
+  
+  // 神品灵根 - 传说级别
   {
     id: 6,
     name: '混沌灵根',
-    tier: '天品',
+    tier: '神品',
     description: '万法归一，包容万象。可修行所有属性功法，无瓶颈，但初期进展缓慢。',
-    cultivation_speed: '0.8x(前期) → 2.5x(后期)',
+    cultivation_speed: '0.8x(前期) → 2.8x(后期)',
     special_effects: ['全系法术亲和', '无属性限制', '越阶战斗+50%', '突破概率+30%'],
-    base_multiplier: 2.0,
-    talent_cost: 20,
+    base_multiplier: 2.8,
+    talent_cost: 25,
     rarity: 5
   },
+  
+  // 特殊灵根
   {
     id: 7,
     name: '天妒之体',
@@ -126,15 +179,28 @@ export const LOCAL_SPIRIT_ROOTS: Omit<SpiritRoot, 'source'>[] = [
     talent_cost: -5,
     rarity: 4
   },
+  
+  // 凡品和下品灵根
   {
     id: 8,
-    name: '凡人灵根',
+    name: '五行杂灵根',
     tier: '凡品',
     description: '五行皆有，却驳杂不堪，修炼速度慢如龟爬。',
     cultivation_speed: '1.0x',
     special_effects: ['平凡之道', '大器晚成'],
     base_multiplier: 1.0,
     talent_cost: 0,
+    rarity: 1
+  },
+  {
+    id: 13,
+    name: '风灵根',
+    tier: '下品',
+    description: '微风轻抚，虽然资质一般，但胜在灵活多变。',
+    cultivation_speed: '1.1x',
+    special_effects: ['风系法术威力+15%', '移动速度+20%'],
+    base_multiplier: 1.1,
+    talent_cost: 3,
     rarity: 1
   },
 ];

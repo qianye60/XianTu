@@ -129,7 +129,7 @@ export interface SkillInfo {
 export type SectType = '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '世家' | '散修联盟';
 
 /** 宗门职位 */
-export type SectPosition = '散修' | '外门弟子' | '内门弟子' | '核心弟子' | '传承弟子' | '执事' | '长老' | '副掌门' | '掌门';
+export type SectPosition = '散修' | '外门弟子' | '内门弟子' | '核心弟子' | '传承弟子' | '执事' | '长老' | '太上长老' | '副掌门' | '掌门';
 
 /** 宗门关系 */
 export type SectRelationship = '仇敌' | '敌对' | '冷淡' | '中立' | '友好' | '盟友' | '附庸';
@@ -178,7 +178,7 @@ export interface SectInfo {
   };
   // 新增：简化的势力范围信息
   territoryInfo?: {
-    controlledAreas: string[]; // 控制的区域，如：["青云城", "望月镇", "灵石矿"]
+    controlledAreas: string[]; // 控制的区域，如：["主城", "附属镇", "资源点"]
     influenceRange: string; // 影响范围的简单描述，如："方圆百里"
     strategicValue: number; // 战略价值 (1-10)
   };
@@ -308,7 +308,7 @@ export interface PlayerStatus {
   声望: number;
   位置: {
     描述: string;
-    坐标: Vector2;
+    坐标?: Vector2;
   };
   气血: ValuePair<number>;
   灵气: ValuePair<number>;
@@ -387,6 +387,8 @@ export interface WorldFaction {
     宗主: string;
     宗主修为: string; // 如"化神中期"、"元婴后期"等
     副宗主?: string;
+    太上长老?: string;
+    太上长老修为?: string;
     长老数量: number;
     最强修为: string; // 宗门内最高修为境界
     综合战力?: number; // 1-100的综合战力评估
@@ -600,7 +602,7 @@ export interface CharacterBaseInfo {
   };
   灵根: string | {
     名称: string;
-    品质: string;
+    品质: string; // 灵根品质：凡品、下品、中品、上品、极品、天品、神品、特殊
     描述: string;
   };
   天赋: string[] | Array<{

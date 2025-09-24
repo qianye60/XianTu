@@ -197,13 +197,15 @@ export function generateMemoryPromptTemplate(config: MemoryFormatConfig, title: 
 /**
  * 解析记忆内容，提取结构化信息
  */
-export function parseMemoryContent(content: string): {
+export interface ParsedMemory {
   title?: string;
   sections: { [key: string]: string[] };
   format?: MemoryFormatConfig;
-} {
-  const result = {
-    sections: {} as { [key: string]: string[] }
+}
+
+export function parseMemoryContent(content: string): ParsedMemory {
+  const result: ParsedMemory = {
+    sections: {}
   };
   
   // 提取标题

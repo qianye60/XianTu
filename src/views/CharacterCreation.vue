@@ -516,7 +516,12 @@ async function createCharacter() {
       世界: store.selectedWorld.name,
       天资: store.selectedTalentTier.name,
       出生: store.selectedOrigin?.name || '随机出身',
-      灵根: store.selectedSpiritRoot?.name || '随机灵根',
+      灵根: store.selectedSpiritRoot ? 
+        {
+          名称: store.selectedSpiritRoot.name,
+          品级: store.selectedSpiritRoot.tier || '',
+          描述: store.selectedSpiritRoot.description || ''
+        } : '随机灵根',
       天赋: store.selectedTalents.map(t => t.name),
       先天六司: {
         根骨: store.attributes.root_bone,
@@ -526,6 +531,12 @@ async function createCharacter() {
         魅力: store.attributes.charm,
         心性: store.attributes.temperament,
       },
+      // 保存完整的详细信息对象
+      世界详情: store.selectedWorld,
+      天资详情: store.selectedTalentTier,
+      出身详情: store.selectedOrigin,
+      灵根详情: store.selectedSpiritRoot, // 完整的SpiritRoot对象，包含修炼倍率等
+      天赋详情: store.selectedTalents,
     };
 
     // 4. 构造完整的创建载荷并发射creation-complete事件

@@ -300,5 +300,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   background: var(--color-background);
+  overflow: hidden;
 }
 </style>

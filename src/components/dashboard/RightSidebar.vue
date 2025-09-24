@@ -204,6 +204,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { Activity, Sparkles, AlertTriangle, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
+import { LOCAL_TALENTS } from '@/data/creationData';
 import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -366,40 +367,23 @@ const showTalentDetail = (talent: string) => {
   const maxExp = getTalentMaxExp(talent);
   const progress = getTalentProgress(talent);
 
-  // 天赋描述数据库
-  const talentDescriptions: Record<string, {
-    description: string;
-    effects: string[];
-    maxLevel: number;
-  }> = {
-    '天命主角': {
-      description: '天生主角命格，在危机时刻有更高的概率获得奇遇，化险为夷。',
-      effects: ['危险情况下触发幸运事件概率+30%', '获得稀有物品概率+20%', '死亡时有概率复活'],
-      maxLevel: 10
-    },
-    '慧根': {
-      description: '悟性超群，修炼功法和技艺时效率提升。',
-      effects: ['修炼速度+50%', '功法领悟成功率+25%', '技能经验获取+40%'],
-      maxLevel: 8
-    },
-    '灵眼': {
-      description: '能看破虚实，识别他人的境界和隐藏状态。',
-      effects: ['可识别他人真实境界', '发现隐藏物品概率+35%', '识破幻术能力+60%'],
-      maxLevel: 7
-    },
-    '天灵根': {
-      description: '先天灵根纯净，修炼速度极快，易引起天地共鸣。',
-      effects: ['修炼速度+100%', '突破成功率+40%', '引雷渡劫概率+30%'],
-      maxLevel: 5
-    },
-    '不朽体质': {
-      description: '拥有不朽之体，寿元增长，身体恢复能力极强。',
-      effects: ['最大寿元+500年', '伤势恢复速度+200%', '抗毒抗病能力+80%'],
-      maxLevel: 6
-    }
-  };
-
-  const talentInfo = talentDescriptions[talent] || {
+  // 从LOCAL_TALENTS中查找天赋信息
+  const localTalent = LOCAL_TALENTS.find(t => t.name === talent);
+  
+  const talentInfo = localTalent ? {
+    description: localTalent.description,
+    effects: localTalent.effects.map(effect => {
+      if (effect.类型 === '后天六司') {
+        return `${effect.目标}+${effect.数值}`;
+      } else if (effect.类型 === '特殊能力') {
+        return `${effect.名称}${typeof effect.数值 === 'number' && effect.数值 > 0 && effect.数值 < 1 ? ` ${(effect.数值 * 100).toFixed(0)}%` : ''}`;
+      } else if (effect.类型 === '技能加成') {
+        return `${effect.技能}技能效果+${(effect.数值 * 100).toFixed(0)}%`;
+      }
+      return `${effect.名称 || effect.类型}`;
+    }),
+    maxLevel: 10 // 默认最大等级
+  } : {
     description: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。`,
     effects: ['效果未知'],
     maxLevel: 10

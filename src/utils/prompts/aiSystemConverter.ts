@@ -1,11 +1,46 @@
 /**
  * @fileoverview AI系统数据转换器
- * 将现有的存档数据结构转换为综合AI系统所需的格式
+ * 将现有的存档数据结构转换为AI系统所需的格式
  */
 
 import type { SaveData } from '../../types/game';
 import type { GameCharacter, GM_Request } from '../../types/AIGameMaster';
-import type { MemorySystem, LocationContext } from './comprehensiveAISystem';
+
+/**
+ * 记忆系统接口
+ */
+export interface MemorySystem {
+  short_term: string[];
+  mid_term: string[];
+  long_term: string[];
+  npc_interactions: {
+    [npcName: string]: {
+      relationship: string;
+      favor: number;
+      memories: string[];
+      last_interaction: string;
+      interaction_count: number;
+    };
+  };
+}
+
+/**
+ * 位置信息系统
+ */
+export interface LocationContext {
+  current_location: {
+    name: string;
+    description: string;
+    coordinates: { x: number; y: number };
+    type: string;
+    spirit_density: number;
+    danger_level: number;
+    special_effects?: string[];
+  };
+  nearby_npcs?: string[];
+  available_actions?: string[];
+  environmental_factors?: string[];
+}
 
 /**
  * 将存档数据转换为AI系统需要的角色数据

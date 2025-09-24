@@ -170,7 +170,7 @@ class FactionSystemClass {
         influence: 98,
         reputation: 90,
         stability: 88,
-        controlledRegions: ['天玄山脉', '云雾峰'],
+        controlledRegions: ['天玄山脉', '灵雾峰'],
         influenceRegions: ['东域', '中州北部'],
         specialties: ['剑道', '阵法', '炼丹'],
         resources: ['上品灵石矿', '千年灵药', '玄铁'],

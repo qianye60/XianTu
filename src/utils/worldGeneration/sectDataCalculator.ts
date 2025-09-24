@@ -32,13 +32,11 @@ const REALM_POWER_MAP: Record<string, number> = {
   '化神初期': 115, '化神中期': 125, '化神后期': 135, '化神圆满': 145, '化神极境': 155,
   '炼虚初期': 160, '炼虚中期': 170, '炼虚后期': 180, '炼虚圆满': 190, '炼虚极境': 200,
   '合体初期': 210, '合体中期': 225, '合体后期': 240, '合体圆满': 255, '合体极境': 270,
-  '大乘初期': 280, '大乘中期': 300, '大乘后期': 320, '大乘圆满': 340, '大乘极境': 360,
-  '渡劫初期': 380, '渡劫中期': 410, '渡劫后期': 440, '渡劫圆满': 470, '渡劫极境': 500,
-  '真仙初期': 550, '真仙中期': 600, '真仙后期': 650, '真仙圆满': 700, '真仙极境': 750,
+  '渡劫初期': 280, '渡劫中期': 310, '渡劫后期': 340, '渡劫圆满': 370, '渡劫极境': 400,
   
   // 简化境界（兼容性）
   '练气': 10, '筑基': 25, '金丹': 55, '元婴': 90, '化神': 130,
-  '炼虚': 175, '合体': 235, '大乘': 310, '渡劫': 425, '真仙': 625
+  '炼虚': 175, '合体': 235, '渡劫': 325
 };
 
 /**
@@ -74,50 +72,106 @@ const SECT_TYPE_MODIFIER: Record<string, number> = {
 };
 
 /**
- * 计算宗门综合战力
+ * 计算宗门综合战力 - 重新设计更合理的评分系统
  */
 function calculateSectPower(data: SectCalculationData): number {
-  // 基础战力：主要看最强修为
-  let basePower = 50; // 默认基础值
+  // 1. 基础实力：主要看最强修为
+  let baseScore = 0;
+  const maxRealm = data.最强修为 || data.宗主修为 || '';
   
-  if (data.最强修为) {
-    basePower = REALM_POWER_MAP[data.最强修为] || 
-                REALM_POWER_MAP[data.最强修为.replace(/[初中后圆极][期满境]/g, '')] || 
-                50;
-  } else if (data.宗主修为) {
-    basePower = REALM_POWER_MAP[data.宗主修为] || 
-                REALM_POWER_MAP[data.宗主修为.replace(/[初中后圆极][期满境]/g, '')] || 
-                50;
-  }
+  // 基于境界的基础评分 (0-60分)
+  if (maxRealm.includes('练气')) baseScore = 5;
+  else if (maxRealm.includes('筑基')) baseScore = 15;
+  else if (maxRealm.includes('金丹')) baseScore = 25;
+  else if (maxRealm.includes('元婴')) baseScore = 35;
+  else if (maxRealm.includes('化神')) baseScore = 45;
+  else if (maxRealm.includes('炼虚')) baseScore = 55;
+  else if (maxRealm.includes('合体')) baseScore = 65;
+  else if (maxRealm.includes('渡劫')) baseScore = 75;
+  else baseScore = 20; // 默认值
   
-  // 规模修正：基于成员数量
-  let scaleFactor = 1.0;
-  const totalMembers = (data.核心弟子数 || 0) + (data.内门弟子数 || 0) + (data.外门弟子数 || 0);
+  // 2. 规模加成 (0-25分)
   const elderCount = data.长老数量 || 0;
+  const totalMembers = (data.核心弟子数 || 0) + (data.内门弟子数 || 0) + (data.外门弟子数 || 0);
   
-  if (totalMembers > 0) {
-    // 成员数量对战力的影响（对数关系，避免线性爆炸）
-    scaleFactor += Math.log10(Math.max(1, totalMembers)) * 0.1;
+  let scaleScore = 0;
+  // 长老数量影响 (0-15分)
+  if (elderCount >= 50) scaleScore += 15;
+  else if (elderCount >= 30) scaleScore += 12;
+  else if (elderCount >= 20) scaleScore += 10;
+  else if (elderCount >= 10) scaleScore += 7;
+  else if (elderCount >= 5) scaleScore += 4;
+  else scaleScore += Math.max(0, elderCount);
+  
+  // 总人数影响 (0-10分)
+  if (totalMembers >= 10000) scaleScore += 10;
+  else if (totalMembers >= 5000) scaleScore += 8;
+  else if (totalMembers >= 2000) scaleScore += 6;
+  else if (totalMembers >= 1000) scaleScore += 4;
+  else if (totalMembers >= 500) scaleScore += 2;
+  else scaleScore += Math.max(0, Math.floor(totalMembers / 250));
+  
+  // 3. 宗门等级修正 (0-10分)
+  let levelBonus = 0;
+  switch (data.等级) {
+    case '超级':
+    case '超级宗门':
+      levelBonus = 10;
+      break;
+    case '一流':
+    case '一流宗门':
+      levelBonus = 7;
+      break;
+    case '二流':
+    case '二流宗门':
+      levelBonus = 4;
+      break;
+    case '三流':
+    case '三流宗门':
+      levelBonus = 2;
+      break;
+    default:
+      levelBonus = 0;
   }
   
-  if (elderCount > 0) {
-    // 长老数量的影响
-    scaleFactor += Math.log10(Math.max(1, elderCount)) * 0.15;
+  // 4. 类型修正 (-5到+5分)
+  let typeBonus = 0;
+  switch (data.类型) {
+    case '魔道宗门':
+    case '魔道势力':
+      typeBonus = 3; // 魔道通常更强
+      break;
+    case '正道宗门':
+    case '修仙宗门':
+      typeBonus = 1;
+      break;
+    case '修仙世家':
+    case '世家':
+      typeBonus = -1; // 世家偏保守
+      break;
+    case '商会':
+    case '商会组织':
+      typeBonus = -3; // 商会重商轻武
+      break;
+    case '散修联盟':
+      typeBonus = -2; // 散修联盟松散
+      break;
+    default:
+      typeBonus = 0;
   }
   
-  // 宗门等级修正
-  const levelMultiplier = SECT_LEVEL_MULTIPLIER[data.等级] || 0.8;
+  // 5. 计算最终评分
+  let finalScore = baseScore + scaleScore + levelBonus + typeBonus;
   
-  // 宗门类型修正
-  const typeModifier = SECT_TYPE_MODIFIER[data.类型] || 1.0;
+  // 6. 合理性调整
+  // 确保不同境界的宗门有明显差距
+  if (maxRealm.includes('渡劫')) finalScore = Math.max(finalScore, 85);
+  else if (maxRealm.includes('合体')) finalScore = Math.max(finalScore, 75);
+  else if (maxRealm.includes('炼虚')) finalScore = Math.max(finalScore, 65);
+  else if (maxRealm.includes('化神')) finalScore = Math.max(finalScore, 55);
   
-  // 计算最终战力
-  let finalPower = basePower * scaleFactor * levelMultiplier * typeModifier;
-  
-  // 转换为1-100的评分系统
-  const powerScore = Math.min(100, Math.max(1, Math.round(finalPower / 8))); // 除8将500+的数值压缩到100以内
-  
-  return powerScore;
+  // 限制在1-100范围内
+  return Math.min(100, Math.max(1, Math.round(finalScore)));
 }
 
 /**

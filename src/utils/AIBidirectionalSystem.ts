@@ -16,6 +16,7 @@ import { getTavernHelper } from './tavern';
 import { toast } from './toast';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile } from '@/types/game';
+import { analyzeUserMessage, buildActionTendencyWrapper } from './promptGuard';
 
 type PlainObject = Record<string, unknown>;
 
@@ -66,6 +67,7 @@ class AIBidirectionalSystemClass {
     gmResponse?: GM_Response | null;
     stateChanges?: StateChangeLog | null;
     memoryUpdates?: PlainObject | null;
+    systemMessages?: string[] | null;
   }> {
     // 1. 记忆整理
     options?.onProgressUpdate?.('准备进行记忆整理…');
@@ -92,23 +94,48 @@ class AIBidirectionalSystemClass {
     options?.onProgressUpdate?.('获取当前状态快照…');
     const beforeState = await this.captureCurrentState(tavernHelper);
     
-    // 4. 构建游戏数据并调用AI生成
+    // 4. 构建游戏数据并调用AI生成（含用户提示词防护与“行动趋向”包装）
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
     let gmResponse: GM_Response;
-    
+    let guardSystemMessages: string[] | null = null;
+
     try {
+      // 对用户输入做提示词安全分析与包装
+      const analysis = analyzeUserMessage(String(userMessage || ''));
+      const tendencyWrapped = buildActionTendencyWrapper(analysis.tendencies, 'zh');
+      const userActionForAI = (analysis.sanitizedText && analysis.sanitizedText.trim()) ? analysis.sanitizedText.trim() : '继续当前活动';
+
+      const guardMsgsTemp: string[] = [];
+      // 将“行动趋向”作为一条单独的系统消息，突出显示
+      if (tendencyWrapped && tendencyWrapped.trim()) {
+        guardMsgsTemp.push(tendencyWrapped);
+      }
+      if (analysis.flaggedSegments.length > 0) {
+        guardMsgsTemp.push('检测到非正式提示词/越权语句，已转换为“行动趋向”并按过程推进。');
+      }
+      if (!analysis.isOfficialGamePrompt && /【|】/.test(userMessage)) {
+        guardMsgsTemp.push('检测到用户输入的“提示词样式”与游戏正式格式不匹配，已按意图方向处理。');
+      }
+      guardSystemMessages = guardMsgsTemp.length > 0 ? guardMsgsTemp : null;
+
       // 构建当前游戏状态数据
-      const currentGameData = this.buildGameStateData(character, gameState, userMessage);
+      const currentGameData = this.buildGameStateData(
+        character,
+        gameState,
+        userActionForAI,
+        { wrapper: tendencyWrapped, tendencies: analysis.tendencies }
+      );
       
       // 使用标准的GM生成器
       gmResponse = await generateInGameResponse(
-        currentGameData, 
-        userMessage
+        currentGameData,
+        userActionForAI
       );
       
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI生成器返回了无效的响应');
       }
+      // guardSystemMessages 已在上方准备
       
     } catch (err) {
       console.error('[AI双向系统] AI生成失败:', err);
@@ -164,7 +191,8 @@ class AIBidirectionalSystemClass {
       finalContent: finalText,
       gmResponse: gmResponse,
       stateChanges: stateChanges,
-      memoryUpdates: null // 记忆更新由GM生成器内部处理
+      memoryUpdates: null, // 记忆更新由GM生成器内部处理
+      systemMessages: guardSystemMessages
     };
   }
 
@@ -184,7 +212,12 @@ class AIBidirectionalSystemClass {
   /**
    * 构建游戏状态数据
    */
-  private buildGameStateData(character: CharacterProfile, gameState: any, userMessage: string): any {
+  private buildGameStateData(
+    character: CharacterProfile,
+    gameState: any,
+    userMessage: string,
+    actionTendency?: { wrapper: string; tendencies: string[] }
+  ): any {
     // 从角色配置中获取存档数据
     const saveData = character.模式 === '单机' 
       ? character.存档列表?.['存档1']?.存档数据 
@@ -195,6 +228,11 @@ class AIBidirectionalSystemClass {
       saveData: saveData,
       gameState: gameState,
       playerAction: userMessage,
+      action_tendency: actionTendency ? {
+        emphasized: true,
+        message: actionTendency.wrapper,
+        tendencies: actionTendency.tendencies,
+      } : undefined,
       timestamp: new Date().toISOString()
     };
   }

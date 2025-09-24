@@ -162,9 +162,8 @@ export async function generateMapFromWorld(world: any, userConfig?: { majorFacti
         console.error('【神识印记-衍化山河失败根源】AI未能生成有效的GeoJSON:', geoJson);
         console.warn('【神识印记-山河应急措施】使用默认的山河脉络');
         
-        // 随机生成不同的起始城镇
-        const startingCities = ['云雾村', '青石镇', '山泉村', '竹林镇', '飞瀑村', '清风镇', '紫霞村', '翠竹镇'];
-        const randomCity = startingCities[Math.floor(Math.random() * startingCities.length)];
+        // 使用通用的安全起始点，避免硬编码具体名称
+        const randomCity = `起始安全区域`;
         const randomX = (Math.random() - 0.5) * 0.1; // -0.05 到 0.05
         const randomY = (Math.random() - 0.5) * 0.1;
         

@@ -253,15 +253,15 @@
                 <div class="relationship-info">
                   <div class="relationship-item">
                     <span class="relationship-label">与你的关系</span>
-                    <span class="relationship-value" :class="getRelationshipClass(selectedSect.与玩家关系 || '中立')">
-                      {{ selectedSect.与玩家关系 || '中立' }}
+                    <span class="relationship-value" :class="getRelationshipClass(getRelationshipText(selectedSect.与玩家关系))">
+                      {{ getRelationshipText(selectedSect.与玩家关系) }}
                     </span>
                   </div>
                   <div class="relationship-item">
                     <span class="relationship-label">声望值</span>
-                    <span class="relationship-value reputation-value" :class="getReputationClass(selectedSect.声望值 || 0)">
-                      {{ selectedSect.声望值 || 0 }}
-                      <span class="reputation-level">({{ getReputationLevel(selectedSect.声望值 || 0) }})</span>
+                    <span class="relationship-value reputation-value" :class="getReputationClass(getReputationValue(selectedSect.声望值))">
+                      {{ getReputationValue(selectedSect.声望值) }}
+                      <span class="reputation-level">({{ getReputationLevel(getReputationValue(selectedSect.声望值)) }})</span>
                     </span>
                   </div>
                 </div>
@@ -426,6 +426,7 @@ import {
   ChevronRight, Map
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
+import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataValidator';
 
 const characterStore = useCharacterStore();
 const isLoading = ref(false);
@@ -490,15 +491,18 @@ const sectSystemData = computed(() => {
     }
   });
 
-  // 去重
+  // 去重并应用数据验证
   const uniqueSects = availableSects.filter((sect, index, arr) =>
     arr.findIndex(s => s.名称 === sect.名称) === index
   );
 
-  console.log('[宗门系统] 最终宗门数量:', uniqueSects.length);
-  console.log('[宗门系统] 最终宗门列表:', uniqueSects.map((s: any) => s.名称));
+  // 应用宗门数据验证和修复
+  const validatedSects = validateAndFixSectDataList(uniqueSects);
 
-  return { availableSects: uniqueSects };
+  console.log('[宗门系统] 最终宗门数量:', validatedSects.length);
+  console.log('[宗门系统] 最终宗门列表:', validatedSects.map((s: any) => s.名称));
+
+  return { availableSects: validatedSects };
 });
 
 // 玩家的宗门信息
@@ -596,6 +600,22 @@ const getSectSpecialties = (sect: any): string[] => {
 // 检查是否有领导层信息（已简化，现在只检查leadership字段）
 const hasLeadershipInfo = (sect: WorldFaction): boolean => {
   return !!(sect.leadership);
+};
+
+// 格式化关系文本
+const getRelationshipText = (relationship: any): string => {
+  if (typeof relationship === 'object' && relationship !== null && relationship.name) {
+    return relationship.name;
+  }
+  return relationship || '中立';
+};
+
+// 格式化声望值
+const getReputationValue = (reputation: any): number => {
+  if (typeof reputation === 'object' && reputation !== null && typeof reputation.value === 'number') {
+    return reputation.value;
+  }
+  return Number(reputation) || 0;
 };
 
 // 工具函数
@@ -1052,6 +1072,13 @@ onMounted(() => {
   color: var(--color-text);
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--color-border);
+  display: flex;            /* 图标与标题同一行 */
+  align-items: center;      /* 垂直居中对齐 */
+  gap: 8px;                 /* 图标与文字间距 */
+}
+
+.section-title svg {
+  flex-shrink: 0;           /* 防止图标被压缩换行 */
 }
 
 .info-grid {
@@ -1995,6 +2022,8 @@ onMounted(() => {
     padding: 0.6rem 0.4rem;
     font-size: 0.75rem;
     justify-content: center;
+    white-space: normal; /* 允许文本换行 */
+    height: 100%; /* 确保按钮在换行后高度一致 */
   }
 
   .detail-section {

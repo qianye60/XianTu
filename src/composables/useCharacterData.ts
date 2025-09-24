@@ -5,7 +5,7 @@
 
 import { computed, ComputedRef } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
-import type { ThousandDaoSystem, Equipment } from '@/types/game';
+import type { ThousandDaoSystem, Equipment, StatusEffect } from '@/types/game';
 
 /**
  * 角色基础信息接口
@@ -85,7 +85,7 @@ export interface UnifiedCharacterData {
   status: CharacterStatus;
   attributes: CharacterAttributes;
   location: CharacterLocation;
-  statusEffects: any[];
+  statusEffects: StatusEffect[];
   cultivation: CharacterCultivation;
 }
 
@@ -116,9 +116,9 @@ export function useUnifiedCharacterData(): {
       gender: baseInfo?.性别 || '未知',
       world: baseInfo?.世界 || '未知世界',
       talent: baseInfo?.天资 || '凡人资质',
-      birth: baseInfo?.出生 || '寻常出身',
-      spiritualRoots: baseInfo?.灵根 || '五行杂灵根',
-      talents: baseInfo?.天赋 || []
+      birth: (typeof baseInfo?.出生 === 'object' && baseInfo.出生 ? baseInfo.出生.名称 : baseInfo?.出生) || '寻常出身',
+      spiritualRoots: (typeof baseInfo?.灵根 === 'object' && baseInfo.灵根 ? baseInfo.灵根.名称 : baseInfo?.灵根) || '五行杂灵根',
+      talents: (baseInfo?.天赋 || []).map((t: string | { 名称: string; 描述: string; }) => (typeof t === 'object' && t ? t.名称 : t))
     };
 
     // 统一状态信息
@@ -183,8 +183,8 @@ export function useUnifiedCharacterData(): {
 
     // 统一位置信息
     const location: CharacterLocation = {
-      name: playerStatus?.位置?.描述 || '青云镇',
-      description: playerStatus?.位置?.描述 || '青云镇',
+      name: playerStatus?.位置?.描述 || '初始地',
+      description: playerStatus?.位置?.描述 || '修行地',
       activity: '修行中',
       coordinates: playerStatus?.位置?.坐标 ? {
         x: playerStatus.位置.坐标.X,
@@ -226,7 +226,8 @@ export function useUnifiedCharacterData(): {
 /**
  * 辅助函数：格式化生命值数据
  */
-function formatVital(vital: any): { current: number; max: number; percent: number } {
+type Vital = { '当前'?: number; '最大'?: number } | null | undefined;
+function formatVital(vital: Vital): { current: number; max: number; percent: number } {
   if (!vital || typeof vital !== 'object') {
     return { current: 0, max: 0, percent: 0 };
   }

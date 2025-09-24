@@ -1455,6 +1455,7 @@ const saveConversationHistory = async () => {
   display: flex;
   flex-direction: column;
   position: relative; /* 添加相对定位，让等待覆盖层能正确定位 */
+  background: var(--color-background); /* 确保整个区域背景一致 */
 }
 
 .narrative-content {
@@ -1605,6 +1606,11 @@ const saveConversationHistory = async () => {
 
 [data-theme="dark"] .empty-narrative {
   color: #6b7280;
+}
+
+/* 确保深色主题下当前叙述区域背景一致 */
+[data-theme="dark"] .current-narrative {
+  background: #1e293b;
 }
 
 [data-theme="dark"] .input-section {

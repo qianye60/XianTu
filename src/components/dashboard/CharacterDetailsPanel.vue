@@ -2,7 +2,7 @@
   <div class="character-details-wrapper">
     <div v-if="isLoading" class="loading-container">
       <div class="loading-spinner"></div>
-      <p>加载角色数据中...</p>
+      <p>加载角色数据�?..</p>
     </div>
 
     <div v-else-if="!baseInfo || !saveData" class="error-container">
@@ -14,7 +14,7 @@
     </div>
 
     <div v-else class="character-details-content">
-      <!-- 顶部角色基本信息（全新布局） -->
+      <!-- 顶部角色基本信息（全新布局）-->
       <div class="character-header header-modern">
         <div class="header-left">
           <div class="avatar-circle" :title="baseInfo.名字">
@@ -26,7 +26,7 @@
               <span class="meta-chip realm-chip" :class="`realm-${playerStatus?.境界?.名称}`">
                 {{ formatRealmDisplay(playerStatus?.境界?.名称, playerStatus?.境界?.等级) }}
               </span>
-              <span class="meta-chip">{{ playerStatus?.寿命?.当前 }}岁</span>
+              <span class="meta-chip">{{ playerStatus?.寿命?.当前 }}</span>
               <span v-if="playerStatus?.位置?.描述" class="meta-chip">{{ getLocationName(playerStatus?.位置?.描述) }}</span>
             </div>
           </div>
@@ -36,15 +36,18 @@
             <span class="rep-label">声望</span>
             <span class="rep-value">{{ playerStatus?.声望 || 0 }}</span>
           </div>
-          <div v-if="playerStatus?.境界?.名称 === '凡人'" class="cultivation-compact mortal">
-            <span class="mortal-hint">等待仙缘</span>
+          <div v-if="isAnimalStage(playerStatus?.境界?.名称)" class="cultivation-compact mortal">
+            <span class="mortal-hint">{{ getAnimalStageDisplay() }}</span>
           </div>
-          <div v-else class="cultivation-compact">
+          <div v-else-if="hasValidCultivation()" class="cultivation-compact">
             <span class="compact-label">修为</span>
             <div class="compact-bar" title="修为进度">
               <div class="compact-progress" :style="{ width: getCultivationProgress() + '%' }"></div>
             </div>
-            <span class="compact-text">{{ playerStatus?.修为?.当前 || 0 }}/{{ playerStatus?.修为?.最大 || 100 }}</span>
+            <span class="compact-text">{{ formatCultivationText() }}</span>
+          </div>
+          <div v-else class="cultivation-compact mortal">
+            <span class="mortal-hint">等待仙缘</span>
           </div>
         </div>
       </div>
@@ -78,6 +81,34 @@
             </div>
           </div>
 
+          <!-- 角色基础信息 -->
+          <div class="info-section">
+            <h3 class="section-title">
+              <div class="title-icon">
+                <Users :size="18" />
+              </div>
+              角色背景
+            </h3>
+            <div class="basic-info-grid">
+              <div class="basic-info-item">
+                <span class="info-label">性别</span>
+                <span class="info-value gender" :class="`gender-${baseInfo.性别}`">{{ baseInfo.性别 || '未知' }}</span>
+              </div>
+              <div class="basic-info-item">
+                <span class="info-label">年龄</span>
+                <span class="info-value">{{ baseInfo.年龄 || playerStatus?.寿命?.当前 || '未知' }}岁</span>
+              </div>
+              <div class="basic-info-item">
+                <span class="info-label">出生</span>
+                <span class="info-value origin">{{ getOriginDisplay(baseInfo.出生) }}</span>
+              </div>
+              <div v-if="baseInfo.世界" class="basic-info-item">
+                <span class="info-label">世界</span>
+                <span class="info-value world">{{ baseInfo.世界 }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 天赋与灵根 -->
           <div class="info-section">
             <h3 class="section-title">
@@ -94,14 +125,34 @@
               <div class="talent-item">
                 <span class="talent-label">灵根属性</span>
                 <div class="spirit-root-display">
-                  <span class="talent-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
-                    {{ getSpiritRootDisplay(baseInfo.灵根) }}
-                  </span>
-                  <span v-if="getSpiritRootQuality(baseInfo.灵根)" class="spirit-root-quality" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
-                    {{ getSpiritRootQuality(baseInfo.灵根) }}
-                  </span>
+                  <div class="spirit-root-main">
+                    <span class="talent-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
+                      {{ getSpiritRootDisplay(baseInfo.灵根) }}
+                    </span>
+                    <div class="spirit-root-badges">
+                      <span class="spirit-root-grade" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
+                        品级：{{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
+                      </span>
+                      <span v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'" class="spirit-root-quality" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
+                        {{ getSpiritRootQuality(baseInfo.灵根) }}
+                      </span>
+                      <!-- 修炼速度显示 -->
+                      <span class="spirit-root-speed">
+                        {{ getSpiritRootCultivationSpeed(baseInfo) }}
+                      </span>
+                    </div>
+                  </div>
                   <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="spirit-root-desc">
                     {{ getSpiritRootDescription(baseInfo.灵根) }}
+                  </div>
+                  <!-- 灵根特殊效果 -->
+                  <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="spirit-root-effects">
+                    <div class="effects-title">特殊效果</div>
+                    <div class="effects-list">
+                      <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag">
+                        {{ effect }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -167,7 +218,7 @@
                 </div>
               </div>
 
-              <!-- 属性详情 -->
+              <!-- 属性详�?-->
               <div class="attribute-breakdown">
                 <div class="innate-attrs">
                   <h4 class="attribute-group-title">先天六司</h4>
@@ -215,8 +266,7 @@
                       {{ cultivationData.功法.名称 }}
                     </h4>
                     <div class="technique-quality">
-                      {{ cultivationData.功法.品质?.quality || '凡' }}品{{ cultivationData.功法.品质?.grade || 0 }}阶
-                    </div>
+                      {{ cultivationData.功法.品质?.quality || '未知' }}品{{ cultivationData.功法.品质?.grade || 0 }}阶</div>
                   </div>
                   <div class="technique-toggle">
                     <ChevronDown
@@ -227,8 +277,8 @@
                   </div>
                 </div>
 
-                <!-- 功法详情（可折叠） -->
-                <div v-show="showTechniqueDetails" class="technique-details">
+                <!-- 功法详情（可折叠�?-->
+                <div class="technique-details">
                   <div class="technique-description">
                     <p>{{ cultivationData.功法.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
                   </div>
@@ -275,7 +325,7 @@
               </div>
 
               <!-- 已学技能 -->
-              <div v-if="cultivationData.已解锁技能?.length || allLearnedSkills.length" class="learned-skills">
+              <div v-if="cultivationData.已解锁技能.length || allLearnedSkills.length" class="learned-skills">
                 <div class="skills-header" @click="toggleSkillsDetails">
                   <h4 class="skills-title">已掌握技能</h4>
                   <div class="skills-count">({{ totalSkillsCount }}个)</div>
@@ -300,7 +350,7 @@
                 </div>
 
                 <div v-show="showSkillsDetails" class="skills-details">
-                  <!-- 所有已掌握的技能 -->
+                  <!-- 所有已掌握的技�?-->
                   <div v-if="allLearnedSkills.length" class="skill-category">
                     <h5 class="category-title">所有技能</h5>
                     <div class="skills-grid">
@@ -357,7 +407,7 @@
               </div>
               三千大道
             </h3>
-            <div v-if="!daoData.已解锁大道?.length" class="empty-state">
+            <div v-if="!daoData.已解锁大道.length" class="empty-state">
               <div class="empty-icon">
                 <Sprout :size="32" />
               </div>
@@ -366,7 +416,7 @@
             <div v-else class="dao-list">
               <div class="dao-header-section">
                 <div class="dao-summary">
-                  <span class="dao-count">已解 {{ daoData.已解锁大道?.length }} 条大道</span>
+                  <span class="dao-count">已解 {{ daoData.已解锁大道.length }} 条大道</span>
                   <button class="dao-expand-btn" @click="toggleDaoDetails">
                     <span>{{ showDaoDetails ? '收起' : '展开' }}</span>
                     <ChevronDown
@@ -380,7 +430,7 @@
 
               <div v-show="!showDaoDetails" class="dao-preview">
                 <div
-                  v-for="daoName in daoData.已解锁大道?.slice(0, 2)"
+                  v-for="daoName in daoData.已解锁大道.slice(0, 2)"
                   :key="daoName"
                   class="dao-item compact"
                   @click="showDaoInfo(daoName)"
@@ -396,8 +446,8 @@
                     <span class="progress-text small">{{ getDaoProgress(daoName) }}%</span>
                   </div>
                 </div>
-                <div v-if="daoData.已解锁大道?.length > 2" class="more-dao">
-                  还有 {{ daoData.已解锁大道?.length - 2 }} 条大道...
+                <div v-if="daoData.已解锁大道.length > 2" class="more-dao">
+                  还有 {{ daoData.已解锁大道.length - 2 }} 条大道..
                 </div>
               </div>
 
@@ -520,7 +570,7 @@
                   <span class="detail-value">{{ playerStatus?.宗门信息?.position }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">贡献度</span>
+                  <span class="detail-label">贡献值</span>
                   <span class="detail-value">{{ playerStatus?.宗门信息?.contribution }}</span>
                 </div>
                 <div class="detail-row">
@@ -625,7 +675,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile } from '@/types/game.d.ts';
+import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile } from '@/types/game.d.ts';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
   Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X
@@ -641,7 +691,7 @@ const showDaoDetails = ref(false);
 const showSkillModal = ref(false);
 const showDaoModal = ref(false);
 
-// 将 LearnedSkillDisplay 类型定义移到顶层作用域
+// 将LearnedSkillDisplay 类型定义移到顶层作用域
 type LearnedSkillDisplay = {
   name: string;
   type: string;
@@ -864,7 +914,7 @@ const relationshipCount = computed(() => {
   // 仅统计有效NPC：排除临时标识符和无效数据
   return Object.entries(relations)
     .filter(([key, val]) => {
-      // 排除以下划线开头或临时标识符的键
+      // 排除以下划线开头或临时标识符的项
       if (String(key).startsWith('_') || String(key).startsWith('npc_init_')) return false;
       // 必须是对象且有完整的角色基础信息
       if (!val || typeof val !== 'object') return false;
@@ -878,7 +928,7 @@ const averageFavorability = computed(() => {
   const relationsObj = saveData.value?.人物关系 || {};
   const relations = Object.entries(relationsObj)
     .filter(([key, val]) => {
-      // 排除以下划线开头或临时标识符的键
+      // 排除以下划线开头或临时标识符的项
       if (String(key).startsWith('_') || String(key).startsWith('npc_init_')) return false;
       // 必须是对象且有完整的角色基础信息
       if (!val || typeof val !== 'object') return false;
@@ -908,16 +958,64 @@ const spiritStoneGrades = [
 ];
 
 // 方法
+// 判断是否为凡人动物阶段（没有修为的阶段）
+const isAnimalStage = (realmName?: string): boolean => {
+  if (!realmName) return true;
+  const animalStages = ['凡人', '蛮兽', '灵兽', '动物', '凡物', '普通人'];
+  return animalStages.includes(realmName);
+};
+
+// 获取凡人/动物阶段的显示文本
+const getAnimalStageDisplay = (): string => {
+  const realmName = playerStatus.value?.境界?.名称;
+  switch (realmName) {
+    case '凡人':
+    case '普通人':
+      return '等待仙缘';
+    case '蛮兽':
+    case '灵兽':
+      return '野性本能';
+    case '动物':
+      return '自然状态';
+    default:
+      return '等待觉醒';
+  }
+};
+
+// 检查是否有有效的修为数据
+const hasValidCultivation = (): boolean => {
+  const current = playerStatus.value?.修为?.当前;
+  const max = playerStatus.value?.修为?.最大;
+  return typeof current === 'number' && typeof max === 'number' && max > 0;
+};
+
+// 格式化修为显示文本
+const formatCultivationText = (): string => {
+  const current = playerStatus.value?.修为?.当前 || 0;
+  const max = playerStatus.value?.修为?.最大 || 100;
+
+  // 如果数值很大，使用简化显示
+  if (max >= 10000) {
+    const currentK = Math.floor(current / 1000);
+    const maxK = Math.floor(max / 1000);
+    if (currentK > 0 && maxK > 0) {
+      return `${currentK}k/${maxK}k`;
+    }
+  }
+
+  return `${current}/${max}`;
+};
+
 // 显示境界：凡人阶段不展示"第X层"层次，其它境界保留层次
-function formatRealmDisplay(name?: string, level?: number): string {
-  const realmName = name || '未知';
+const formatRealmDisplay = (name?: string, level?: number): string => {
+  const realmName = name || '凡人';
   if (realmName === '凡人') return realmName;
   if (typeof level === 'number' && level > 0) return `${realmName} 第${level}层`;
   return realmName;
-}
+};
 
 // 提取位置名称：从描述中提取地名，去除多余的叙事内容
-function getLocationName(description: string): string {
+const getLocationName = (description: string): string => {
   if (!description) return '未知';
 
   // 尝试匹配常见的地名模式
@@ -945,26 +1043,6 @@ const getCultivationProgress = (): number => {
 };
 
 
-const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
-  if (!spiritRoot) return '未知';
-  if (typeof spiritRoot === 'string') return spiritRoot;
-  return spiritRoot.名称 || '未知';
-};
-
-const getSpiritRootQuality = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
-  if (!spiritRoot || typeof spiritRoot === 'string') return '';
-  return spiritRoot.品质 || '';
-};
-
-const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
-  if (!spiritRoot || typeof spiritRoot === 'string') return '';
-  return spiritRoot.描述 || '';
-};
-
-const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品质: string; 描述: string } | undefined): string => {
-  const display = getSpiritRootDisplay(spiritRoot);
-  return display.toLowerCase().replace(/[^a-z0-9]/g, '');
-};
 
 const getTalentList = (talents: string[] | Array<{ 名称: string; 描述: string }> | undefined): Array<{ 名称: string; 描述?: string }> => {
   if (!talents) return [];
@@ -985,7 +1063,7 @@ const getPercentage = (current: number, max: number): number => {
 
 const getItemQualityClass = (item: Item | null, type: 'border' | 'text' = 'border'): string => {
   if (!item) return '';
-  const quality = item.品质?.quality || '凡';
+  const quality = item.品质?.quality || '未知';
   return `${type}-quality-${quality}`;
 };
 
@@ -1044,7 +1122,7 @@ const getCleanEffectDescription = (effect: StatusEffect): string => {
       .replace(/^[，。、\s]+|[，。、\s]+$/g, ''); // 清理开头和结尾的标点符号
   }
 
-  return description || '此状态效果正在生效中。';
+  return description || '此状态效果正在生效中';
 };
 
 // 获取持久化的熟练度（根据技能名和来源生成固定熟练度）
@@ -1126,7 +1204,7 @@ const getDaoModalContent = () => {
       currentExp: 0,
       totalExp: 0,
       progressPercent: 0,
-      description: '此大道已解锁，但尚未开始修炼。'
+      description: '此大道已解锁，但尚未开始修炼'
     };
   }
 
@@ -1141,7 +1219,7 @@ const getDaoModalContent = () => {
     currentExp,
     totalExp,
     progressPercent,
-    description: '此道深奥玄妙，需持之以恒方能有所成就。'
+    description: '此道深奥玄妙，需持之以恒方能有所成就'
   };
 };
 
@@ -1201,6 +1279,140 @@ onMounted(async () => {
   debug.log('人物详情', '组件挂载，同步数据');
   await refreshData();
 });
+
+// 获取出生地显示文本
+const getOriginDisplay = (origin: string | { 名称: string; 描述: string } | undefined): string => {
+  if (!origin) return '待定';
+  if (typeof origin === 'string') return origin;
+  return origin.名称 || '待定';
+};
+
+// 增强的灵根系统 - 支持等级和品质
+const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined) => {
+  if (!spiritRoot) return { name: '未知', quality: '', grade: '', description: '' };
+
+  if (typeof spiritRoot === 'string') {
+    // 兼容旧的字符串格式的灵根，如"上品火灵根"、"随机灵根"
+    if (spiritRoot === '随机灵根') {
+      return { name: '随机灵根', quality: '', grade: '', description: '大道五十，天衍四九，人遁其一' };
+    }
+
+    const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
+    const grade = gradeMatch ? gradeMatch[1] : '';
+
+    let rootName = spiritRoot;
+    if (grade) {
+      rootName = spiritRoot.replace(grade, '').trim();
+    }
+
+    // 判断是否为变异灵根
+    let quality = '';
+    if (rootName.includes('变异') || rootName.includes('特')) {
+      quality = '变异';
+    } else if (rootName.includes('双') || rootName.includes('三') || rootName.includes('四') || rootName.includes('五')) {
+      quality = '复合';
+    } else if (rootName.includes('金') || rootName.includes('木') || rootName.includes('水')) {
+      quality = '传说';
+    } else {
+      quality = '普通';
+    }
+
+    return {
+      name: rootName,
+      quality: quality,
+      grade: grade,
+      description: `${grade}${quality === '普通' ? '' : quality}灵根`
+    };
+  }
+
+  // 处理新的对象格式：{ 名称, 品级, 描述 }
+  return {
+    name: spiritRoot.名称 || '未知',
+    quality: spiritRoot.品质 || '',
+    grade: spiritRoot.品级 !== undefined ? spiritRoot.品级.toString() : (spiritRoot.等级 || ''),
+    description: spiritRoot.描述 || ''
+  };
+};
+
+const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+  const parsed = parseSpiritRoot(spiritRoot);
+  let result = parsed.name;
+  
+  // 如果是对象格式的灵根，只显示品质信息（不显示品级）
+  if (typeof spiritRoot === 'object' && spiritRoot && parsed.quality) {
+    result += ` (${parsed.quality})`;
+  }
+  
+  return result;
+};
+
+const getSpiritRootQuality = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+  const parsed = parseSpiritRoot(spiritRoot);
+  return parsed.quality;
+};
+
+const getSpiritRootGrade = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+  const parsed = parseSpiritRoot(spiritRoot);
+  return parsed.grade || '';
+};
+
+const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+  const parsed = parseSpiritRoot(spiritRoot);
+  return parsed.description;
+};
+
+const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+  const parsed = parseSpiritRoot(spiritRoot);
+  const name = parsed.name.toLowerCase();
+  if (name.includes('火')) return 'fire';
+  if (name.includes('水')) return 'water';
+  if (name.includes('木')) return 'wood';
+  if (name.includes('金')) return 'metal';
+  if (name.includes('土')) return 'earth';
+  if (name.includes('风')) return 'wind';
+  if (name.includes('雷')) return 'thunder';
+  if (name.includes('冰')) return 'ice';
+  if (name.includes('光')) return 'light';
+  if (name.includes('暗')) return 'dark';
+  if (name.includes('双') || name.includes('三') || name.includes('四') || name.includes('五')) return 'multi';
+  if (name.includes('变异') || name.includes('特')) return 'mutant';
+  return 'unknown';
+};
+
+// 获取灵根修炼速度
+const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined): string => {
+  // 首先尝试从灵根详情中获取
+  if (baseInfo?.灵根详情?.base_multiplier) {
+    return `${baseInfo.灵根详情.base_multiplier}x`;
+  }
+  if (baseInfo?.灵根详情?.cultivation_speed) {
+    return baseInfo.灵根详情.cultivation_speed;
+  }
+
+  // 如果没有详情，根据品级推断基础修炼速度
+  const parsed = parseSpiritRoot(baseInfo?.灵根);
+  const grade = parsed.grade || '';
+
+  const speedMap: Record<string, string> = {
+    '凡品': '1.0x',
+    '下品': '1.1x',
+    '中品': '1.3x',
+    '上品': '1.6x',
+    '极品': '2.0x',
+    '神品': '2.8x',
+    '特殊': '特殊'
+  };
+
+  return speedMap[grade] || '1.0x';
+};
+
+// 获取灵根特殊效果
+const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[] => {
+  if (baseInfo?.灵根详情?.special_effects && Array.isArray(baseInfo.灵根详情.special_effects)) {
+    return baseInfo.灵根详情.special_effects;
+  }
+  return [];
+};
 </script>
 
 <style scoped>
@@ -1211,7 +1423,7 @@ onMounted(async () => {
   overflow-y: auto;
 }
 
-/* 加载和错误状态 */
+/* 加载和错误状�?*/
 .loading-container, .error-container {
   display: flex;
   flex-direction: column;
@@ -1350,40 +1562,51 @@ onMounted(async () => {
 .cultivation-compact {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cultivation-compact.mortal {
-  padding: 6px 10px;
-  background: rgba(var(--color-primary-rgb), 0.06);
-  border: 1px dashed rgba(var(--color-primary-rgb), 0.35);
-  border-radius: 10px;
+  padding: 4px 8px;
+  background: rgba(var(--color-text-tertiary-rgb), 0.08);
+  border: 1px dashed rgba(var(--color-text-tertiary-rgb), 0.25);
+  border-radius: 8px;
 }
 
 .compact-bar {
-  width: 160px;
-  height: 8px;
-  background: var(--color-border);
-  border-radius: 999px;
+  width: 120px;
+  height: 6px;
+  background: rgba(var(--color-border-rgb), 0.5);
+  border-radius: 3px;
   overflow: hidden;
+  position: relative;
 }
 
 .compact-progress {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-info), var(--color-success));
+  background: linear-gradient(90deg,
+    var(--color-info) 0%,
+    var(--color-success) 80%,
+    var(--color-warning) 100%
+  );
   width: 0%;
-  transition: width 0.4s ease;
+  transition: width 0.3s ease;
+  border-radius: 3px;
 }
 
 .compact-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
+  font-weight: 500;
+  min-width: 28px;
 }
 
 .compact-text {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-info);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  min-width: 45px;
+  text-align: right;
 }
 
 .character-gender {
@@ -1529,7 +1752,7 @@ onMounted(async () => {
   min-width: 100px;
 }
 
-/* 凡人修炼状态样式 */
+/* 凡人修炼状态样�?*/
 .stat-display.mortal-state {
   padding: 8px 16px;
   background: rgba(var(--color-primary-rgb), 0.05);
@@ -1538,10 +1761,10 @@ onMounted(async () => {
 }
 
 .mortal-hint {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  font-style: italic;
-  opacity: 0.8;
+  font-size: 0.8rem;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+  opacity: 0.9;
 }
 
 .cultivation-bar {
@@ -1647,7 +1870,7 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
-/* 生命状态 */
+/* 生命状�?*/
 .vitals-grid {
   display: flex;
   flex-direction: column;
@@ -1689,7 +1912,7 @@ onMounted(async () => {
 .bar-info { background: linear-gradient(90deg, var(--color-info), var(--color-info-hover)); }
 .bar-accent { background: linear-gradient(90deg, var(--color-warning), var(--color-warning-hover)); }
 
-/* 生命状态颜色 红蓝金三色 */
+/* 生命状态颜�?红蓝金三�?*/
 .bar-red { background: linear-gradient(90deg, var(--vital-health), var(--vital-health)); }
 .bar-blue { background: linear-gradient(90deg, var(--vital-lingqi), var(--vital-lingqi)); }
 .bar-gold { background: linear-gradient(90deg, var(--vital-spirit), var(--vital-spirit)); }
@@ -1701,7 +1924,7 @@ onMounted(async () => {
   min-width: 60px;
 }
 
-/* 天赋与灵根 */
+/* 天赋与灵�?*/
 .talent-grid {
   display: flex;
   flex-direction: column;
@@ -1759,7 +1982,7 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-/* 状态效果 */
+/* 状态效�?*/
 .effects-list {
   display: flex;
   flex-direction: column;
@@ -1803,7 +2026,52 @@ onMounted(async () => {
   line-height: 1.4;
 }
 
-/* 六司属性 */
+/* 六司属�?*/
+.basic-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.basic-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-surface-light);
+  border-radius: 6px;
+  min-height: 36px;
+}
+
+.basic-info-item .info-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.basic-info-item .info-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.basic-info-item .info-value.gender.gender-男 {
+  color: #3b82f6;
+}
+
+.basic-info-item .info-value.gender.gender-女 {
+  color: #ec4899;
+}
+
+.basic-info-item .info-value.origin {
+  color: var(--color-accent);
+}
+
+.basic-info-item .info-value.world {
+  color: var(--color-primary);
+}
+
+/* 六司属�?*/
 .attributes-display {
   display: flex;
   flex-direction: column;
@@ -1996,7 +2264,7 @@ onMounted(async () => {
   border: 1px solid rgba(var(--color-success-rgb), 0.3);
 }
 
-/* 技能系统样式 */
+/* 技能系统样�?*/
 .skills-header {
   display: flex;
   align-items: center;
@@ -2206,7 +2474,7 @@ onMounted(async () => {
 
 .progress-fill {
   height: 100%;
-  min-width: 2px; /* 确保即使0%时也有最小宽度显示 */
+  min-width: 2px; /* 确保即使0%时也有最小宽度显�?*/
   background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
   transition: width 0.3s ease;
   border-radius: 4px; /* 稍微圆润的角 */
@@ -2543,7 +2811,7 @@ onMounted(async () => {
   color: var(--color-text);
 }
 
-/* 空状态 */
+/* 空状�?*/
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -2560,13 +2828,13 @@ onMounted(async () => {
 }
 
 /* 品质颜色 */
-.border-quality-仙 .text-quality-仙 { color: #ef4444 !important; }
-.border-quality-天 .text-quality-天 { color: #f59e0b !important; }
-.border-quality-地 .text-quality-地 { color: #8b5cf6 !important; }
-.border-quality-玄 .text-quality-玄 { color: #3b82f6 !important; }
-.border-quality-黄 .text-quality-黄 { color: #10b981 !important; }
-.border-quality-凡 .text-quality-凡 { color: #84cc16 !important; }
-.border-quality-无 .text-quality-无 { color: var(--color-text) !important; }
+.border-quality-神品, .text-quality-神品 { color: #ef4444 !important; }
+.border-quality-极品, .text-quality-极品 { color: #f59e0b !important; }
+.border-quality-上品, .text-quality-上品 { color: #8b5cf6 !important; }
+.border-quality-中品, .text-quality-中品 { color: #3b82f6 !important; }
+.border-quality-下品, .text-quality-下品 { color: #10b981 !important; }
+.border-quality-凡品, .text-quality-凡品 { color: #84cc16 !important; }
+.border-quality-未知, .text-quality-未知 { color: var(--color-text) !important; }
 
 /* 宗门关系颜色 */
 .relationship-恶劣 { color: var(--color-danger) !important; }
@@ -2574,7 +2842,7 @@ onMounted(async () => {
 .relationship-良好 { color: var(--color-success) !important; }
 .relationship-亲密 { color: var(--color-info) !important; }
 
-/* 响应式设计 */
+/* 响应式设�?*/
 @media (max-width: 1400px) {
   .content-grid {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2679,7 +2947,7 @@ onMounted(async () => {
   .attribute-item {
     min-height: 36px;
     padding: 8px;
-    min-width: 70px; /* 确保移动端也有足够空间 */
+    min-width: 70px; /* 确保移动端也有足够空�?*/
     width: 100%;
   }
 
@@ -2769,7 +3037,7 @@ onMounted(async () => {
   }
 }
 
-/* 自定义弹窗样式 */
+/* 自定义弹窗样�?*/
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -2868,7 +3136,7 @@ onMounted(async () => {
   max-height: calc(80vh - 80px);
 }
 
-/* 技能详情样式 */
+/* 技能详情样�?*/
 .skill-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -3061,7 +3329,7 @@ onMounted(async () => {
   font-style: italic;
 }
 
-/* 响应式优化 */
+/* 响应式优�?*/
 @media (max-width: 640px) {
   .skill-detail-grid {
     grid-template-columns: 1fr;
@@ -3084,19 +3352,106 @@ onMounted(async () => {
   }
 }
 
-/* 新的结构化数据样式 */
+/* 新的结构化数据样�?*/
 .spirit-root-display {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
+  gap: 8px;
+  width: 100%;
+}
+
+.spirit-root-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.spirit-root-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.spirit-root-grade {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 32px;
+}
+
+.spirit-root-grade.grade-下品 {
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+  color: white;
+}
+
+.spirit-root-grade.grade-中品 {
+  background: linear-gradient(135deg, #3B82F6, #60A5FA);
+  color: white;
+}
+
+.spirit-root-grade.grade-上品 {
+  background: linear-gradient(135deg, #10B981, #34D399);
+  color: white;
+}
+
+.spirit-root-grade.grade-极品 {
+  background: linear-gradient(135deg, #F59E0B, #FBBF24);
+  color: white;
+}
+
+.spirit-root-grade.grade-神品 {
+  background: linear-gradient(135deg, #DC2626, #F87171);
+  color: white;
+}
+
+.spirit-root-grade.grade-天品 {
+  background: linear-gradient(135deg, #EF4444, #F87171);
+  color: white;
+}
+
+.spirit-root-grade.grade-圣品 {
+  background: linear-gradient(135deg, #EC4899, #F472B6);
+  color: white;
 }
 
 .spirit-root-quality {
   font-size: 0.75rem;
-  padding: 0.125rem 0.375rem;
+  padding: 2px 6px;
   border-radius: 4px;
-  font-weight: 500;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid;
+}
+
+.spirit-root-quality.quality-变异 {
+  background: rgba(139, 69, 19, 0.1);
+  color: #8B4513;
+  border-color: #8B4513;
+}
+
+.spirit-root-quality.quality-复合 {
+  background: rgba(75, 85, 99, 0.1);
+  color: #4B5563;
+  border-color: #4B5563;
+}
+
+.spirit-root-quality.quality-传说 {
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  color: white;
+  border: none;
+}
+
+.spirit-root-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  max-width: 200px;
+  text-align: right;
+  line-height: 1.4;
+  margin-top: 0.25rem;
 }
 
 .quality-天品 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; }
@@ -3105,13 +3460,43 @@ onMounted(async () => {
 .quality-黄品 { background: linear-gradient(135deg, #34d399, #10b981); color: white; }
 .quality-凡品 { background: linear-gradient(135deg, #9ca3af, #6b7280); color: white; }
 
-.spirit-root-desc {
+/* 修炼速度样式 */
+.spirit-root-speed {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+  border: none;
+  margin-left: 4px;
+}
+
+/* 灵根特殊效果样式 */
+.spirit-root-effects {
+  margin-top: 8px;
+}
+
+.effects-title {
   font-size: 0.8rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
-  max-width: 200px;
-  text-align: right;
-  line-height: 1.4;
-  margin-top: 0.25rem;
+  margin-bottom: 4px;
+}
+
+.effects-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.effect-tag {
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .talent-tags {

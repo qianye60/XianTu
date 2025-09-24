@@ -13,7 +13,7 @@
 
 import { MultiLayerMemorySystem } from './MultiLayerMemorySystem';
 import { GameStateManager } from './GameStateManager';
-import { ItemSystem, InventoryManager } from './ItemSystem';
+import { ItemSystem } from './ItemSystem';
 import { MapSystem } from './MapSystem';
 import { FactionSystem } from './FactionSystem';
 import { getTavernHelper } from './tavern';
@@ -114,7 +114,7 @@ class SaveManagerClass {
     cloudSyncEnabled: false,
   };
 
-  private tavernHelper: any = null;
+  private tavernHelper: ReturnType<typeof getTavernHelper> | null = null;
 
   constructor() {
     this.initializeSaveSystem();
@@ -523,11 +523,8 @@ class SaveManagerClass {
     return {
       metadata,
       gameState: GameStateManager.getCurrentState(),
-      inventory: InventoryManager.getInventoryStats(), // 简化版，实际需要完整数据
-      memory: {
-        // MultiLayerMemorySystem的状态
-        stats: MultiLayerMemorySystem.getMemoryStats(),
-      },
+      inventory: {}, // TODO: ItemSystem 需要提供获取完整背包状态的方法
+      memory: MultiLayerMemorySystem.getInstance(),
       mapData: MapSystem.getMapStats(),
       factionData: FactionSystem.getMapDisplayData(),
       chatHistory: [], // 需要从对话系统获取

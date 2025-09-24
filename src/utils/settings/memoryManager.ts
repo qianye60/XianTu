@@ -2,7 +2,7 @@
  * @fileoverview 记忆管理器 - 处理分层记忆和API调用
  */
 
-import type { MemorySystem } from '../prompts/comprehensiveAISystem';
+import type { MemorySystem } from '../prompts/aiSystemConverter';
 import type { AIMemorySettings } from './memorySettings';
 import { getTavernHelper } from '../tavern';
 import { toast } from '../toast';
@@ -319,10 +319,11 @@ ${memories.map((memory, index) => `${index + 1}. ${memory}`).join('\n')}
       throw new Error('无法连接到SillyTavern主API');
     }
 
-    return helper.generateRaw({
+    const result = await helper.generateRaw({
       user_input: prompt,
       max_tokens: 8000
     });
+    return String(result);
   }
 
   /**
@@ -335,11 +336,12 @@ ${memories.map((memory, index) => `${index + 1}. ${memory}`).join('\n')}
     }
 
     // 使用较低的参数设置进行后台任务
-    return helper.generateRaw({
+    const result = await helper.generateRaw({
       user_input: prompt,
       temperature: this.settings.api.secondaryAPI.temperature || 0.3,
       max_tokens: this.settings.api.secondaryAPI.maxTokens || 8000
     });
+    return String(result);
   }
 
   /**
