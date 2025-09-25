@@ -1,4 +1,3 @@
-﻿import { generateSystemPrompt } from './systemPrompts';
 
 /**
  * 游戏正文AI生成提示词 - 核心剧情推进系统
@@ -241,12 +240,7 @@ export const IN_GAME_MESSAGE_PROMPT = [
   '',
   '合理性审查(最高权限): 难度 normal|medium|hard；进入他人地图强制 hard；hard 下不得无因越界推进，消耗/收益/代价必须在 text 落实；对不合理变更自修正。',
   ''
-].join('\n') + '\n\n' + generateSystemPrompt({
-  includeRealmSystem: true,
-  includeItemQuality: true,
-  includeNPCSystem: true,
-  includeDataStructure: true
-});
+].join('\n');
 
 export function getRandomizedInGamePrompt(): string {
   return IN_GAME_MESSAGE_PROMPT;

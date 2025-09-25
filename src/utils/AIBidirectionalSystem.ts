@@ -13,10 +13,10 @@ import { generateInGameResponse } from './generators/gameMasterGenerators';
 import { processGmResponse } from './AIGameMaster';
 import { MultiLayerMemorySystem } from './MultiLayerMemorySystem';
 import { getTavernHelper } from './tavern';
+import type { TavernHelper } from './tavernCore';
 import { toast } from './toast';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile } from '@/types/game';
-import { analyzeUserMessage, buildActionTendencyWrapper } from './promptGuard';
 
 type PlainObject = Record<string, unknown>;
 
@@ -60,7 +60,7 @@ class AIBidirectionalSystemClass {
   public async processPlayerAction(
     userMessage: string,
     character: CharacterProfile,
-    gameState: any,
+    gameState: PlainObject,
     options?: ProcessOptions
   ): Promise<{
     finalContent: string;
@@ -81,10 +81,10 @@ class AIBidirectionalSystemClass {
     }
 
     // 2. 获取酒馆助手
-    let tavernHelper: any = null;
+    let tavernHelper: TavernHelper | null = null;
     try {
       tavernHelper = getTavernHelper();
-    } catch (e) {
+    } catch {
       const fallback = '当下灵机未至（未连接酒馆环境），请稍后再试。';
       options?.onStreamChunk?.(fallback);
       return { finalContent: fallback };
@@ -92,7 +92,7 @@ class AIBidirectionalSystemClass {
 
     // 3. 状态快照 - 记录执行前的状态
     options?.onProgressUpdate?.('获取当前状态快照…');
-    const beforeState = await this.captureCurrentState(tavernHelper);
+    const beforeState = await this.captureCurrentState(tavernHelper!);
     
     // 4. 构建游戏数据并调用AI生成（含用户提示词防护与“行动趋向”包装）
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
@@ -100,30 +100,18 @@ class AIBidirectionalSystemClass {
     let guardSystemMessages: string[] | null = null;
 
     try {
-      // 对用户输入做提示词安全分析与包装
-      const analysis = analyzeUserMessage(String(userMessage || ''));
-      const tendencyWrapped = buildActionTendencyWrapper(analysis.tendencies, 'zh');
-      const userActionForAI = (analysis.sanitizedText && analysis.sanitizedText.trim()) ? analysis.sanitizedText.trim() : '继续当前活动';
+      // 简化用户输入处理
+      const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';
 
-      const guardMsgsTemp: string[] = [];
-      // 将“行动趋向”作为一条单独的系统消息，突出显示
-      if (tendencyWrapped && tendencyWrapped.trim()) {
-        guardMsgsTemp.push(tendencyWrapped);
-      }
-      if (analysis.flaggedSegments.length > 0) {
-        guardMsgsTemp.push('检测到非正式提示词/越权语句，已转换为“行动趋向”并按过程推进。');
-      }
-      if (!analysis.isOfficialGamePrompt && /【|】/.test(userMessage)) {
-        guardMsgsTemp.push('检测到用户输入的“提示词样式”与游戏正式格式不匹配，已按意图方向处理。');
-      }
-      guardSystemMessages = guardMsgsTemp.length > 0 ? guardMsgsTemp : null;
+      // 简化处理，移除 promptGuard 依赖
+      guardSystemMessages = null;
 
       // 构建当前游戏状态数据
       const currentGameData = this.buildGameStateData(
         character,
         gameState,
         userActionForAI,
-        { wrapper: tendencyWrapped, tendencies: analysis.tendencies }
+        { wrapper: '', tendencies: [] }
       );
       
       // 使用标准的GM生成器
@@ -156,7 +144,7 @@ class AIBidirectionalSystemClass {
         await processGmResponse(gmResponse, character);
         
         // 获取执行后的状态
-        const afterState = await this.captureCurrentState(tavernHelper);
+        const afterState = await this.captureCurrentState(tavernHelper!);
         
         // 生成状态变更日志
         stateChanges = this.generateStateChangeLog(beforeState, afterState);
@@ -199,7 +187,7 @@ class AIBidirectionalSystemClass {
   /**
    * 捕获当前状态快照
    */
-  private async captureCurrentState(tavernHelper: any): Promise<PlainObject> {
+  private async captureCurrentState(tavernHelper: TavernHelper): Promise<PlainObject> {
     try {
       const chatVariables = await tavernHelper.getVariables({ type: 'chat' });
       return chatVariables || {};
@@ -214,13 +202,13 @@ class AIBidirectionalSystemClass {
    */
   private buildGameStateData(
     character: CharacterProfile,
-    gameState: any,
+    gameState: PlainObject,
     userMessage: string,
     actionTendency?: { wrapper: string; tendencies: string[] }
-  ): any {
+  ): PlainObject {
     // 从角色配置中获取存档数据
-    const saveData = character.模式 === '单机' 
-      ? character.存档列表?.['存档1']?.存档数据 
+    const saveData = character.模式 === '单机'
+      ? character.存档列表?.['存档1']?.存档数据
       : character.存档?.存档数据;
 
     return {
@@ -263,9 +251,9 @@ class AIBidirectionalSystemClass {
    * 递归比较对象差异
    */
   private compareObjects(
-    keyPrefix: string, 
-    before: any, 
-    after: any, 
+    keyPrefix: string,
+    before: PlainObject,
+    after: PlainObject,
     changes: Array<{key: string; action: string; oldValue: unknown; newValue: unknown}>
   ): void {
     // 检查新增和修改的键
@@ -285,9 +273,9 @@ class AIBidirectionalSystemClass {
           });
         } else if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
           // 修改
-          if (typeof beforeValue === 'object' && typeof afterValue === 'object') {
+          if (typeof beforeValue === 'object' && typeof afterValue === 'object' && beforeValue !== null && afterValue !== null) {
             // 递归比较对象
-            this.compareObjects(fullKey, beforeValue, afterValue, changes);
+            this.compareObjects(fullKey, beforeValue as PlainObject, afterValue as PlainObject, changes);
           } else {
             changes.push({
               key: fullKey,
