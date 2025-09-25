@@ -410,8 +410,9 @@ import { ref, computed, onMounted } from 'vue';
 import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { Item, Inventory, SaveData } from '@/types/game';
+import type { Item, Inventory, SaveData, CultivationTechniqueData } from '@/types/game';
 import { toast } from '@/utils/toast';
+import { getTavernHelper } from '@/utils/tavern';
 import { debug } from '@/utils/debug';
 import { validateAndFixSaveData, cleanTavernDuplicates } from '@/utils/dataValidation';
 import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue';
@@ -496,33 +497,34 @@ const equipmentSlots = computed(() => {
   return slotNames.map(slotKey => {
     const key = slotKey as keyof typeof equipment;
     const equippedItem = equipment[key];
-    let item: any = null;
+    let item: Item | null = null;
 
     // 1) 完整对象（包含名称）
     if (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem) {
-      item = equippedItem;
+      item = equippedItem as Item;
     } else {
       // 2) 只有物品ID或不完整对象：尝试从背包补全
       const bag = characterStore.activeSaveSlot?.存档数据?.背包?.物品 || {};
       if (typeof equippedItem === 'string') {
         // 装备栏里存的是物品ID字符串
         const fromInv = bag[equippedItem];
-        item = (fromInv && typeof fromInv === 'object') ? fromInv : null;
+        item = (fromInv && typeof fromInv === 'object') ? fromInv as Item : null;
       } else if (equippedItem && typeof equippedItem === 'object' && '物品ID' in equippedItem) {
-        const id = (equippedItem as any).物品ID;
+        const partialEquippedItem = equippedItem as Partial<Item>;
+        const id = partialEquippedItem.物品ID;
         const fromInv = id ? bag[id] : null;
         if (fromInv && typeof fromInv === 'object') {
-          item = fromInv;
+          item = fromInv as Item;
         } else {
           // 构造一个最小可显示对象，避免UI判空
           item = {
             物品ID: id || '',
-            名称: (equippedItem as any).名称 || '未知装备',
-            类型: (equippedItem as any).类型 || '装备',
-            品质: (equippedItem as any).品质 || { quality: '凡', grade: 1 },
-            描述: (equippedItem as any).描述 || '',
+            名称: partialEquippedItem.名称 || '未知装备',
+            类型: partialEquippedItem.类型 || '装备',
+            品质: partialEquippedItem.品质 || { quality: '凡', grade: 1 },
+            描述: partialEquippedItem.描述 || '',
             数量: 1,
-            装备增幅: (equippedItem as any).装备增幅 || undefined
+            装备增幅: partialEquippedItem.装备增幅 || undefined
           };
         }
       } else {
@@ -792,13 +794,14 @@ const updateItemInInventory = async (item: Item) => {
 // 同步数据到酒馆变量
 const syncToTavernVariables = async () => {
   try {
-    if (typeof window === 'undefined' || !window.parent?.TavernHelper) {
+    const TavernHelper = getTavernHelper();
+    if (!TavernHelper) {
       debug.warn('背包面板', '酒馆环境不可用，跳过同步');
       return;
     }
 
     // 首先清理重复变量
-    await cleanTavernDuplicates(window.parent.TavernHelper);
+    await cleanTavernDuplicates(TavernHelper);
 
     const saveData = characterStore.activeSaveSlot?.存档数据;
     if (!saveData) {
@@ -809,28 +812,8 @@ const syncToTavernVariables = async () => {
     // 验证和修复数据
     const cleanedSaveData = validateAndFixSaveData(saveData);
 
-    // 构建要同步的变量对象
-    const variablesToSync: Record<string, string> = {};
-
-    // 同步背包数据
-    if (cleanedSaveData.背包) {
-      variablesToSync['背包数据'] = JSON.stringify(cleanedSaveData.背包);
-    }
-
-    // 同步装备栏数据
-    if (cleanedSaveData.装备栏) {
-      variablesToSync['装备栏数据'] = JSON.stringify(cleanedSaveData.装备栏);
-    }
-
-    // 同步修炼功法数据
-    if (cleanedSaveData.修炼功法) {
-      variablesToSync['修炼功法数据'] = JSON.stringify(cleanedSaveData.修炼功法);
-    }
-
-    // 使用正确的API方法批量同步
-    if (Object.keys(variablesToSync).length > 0) {
-      await window.parent.TavernHelper.insertOrAssignVariables(variablesToSync, { type: 'chat' });
-    }
+    // 这些数据现在都统一保存在 character.saveData 中，不需要单独同步
+    // 数据已通过 characterStore.commitToStorage() 统一保存
 
     debug.log('背包面板', '数据已同步到酒馆变量');
   } catch (error) {
@@ -862,11 +845,11 @@ const cultivateItem = async (item: Item, force = false) => {
         已解锁技能: [],
         修炼时间: 0,
         突破次数: 0
-      } as any;
+      } as CultivationTechniqueData;
     }
 
     // 将功法添加到修炼功法槽位中
-    const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法 as any;
+    const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法 as CultivationTechniqueData;
 
     // 检查是否已经在修炼其他功法
     if (!force && skillSlots.功法 && skillSlots.功法.物品ID !== item.物品ID) {
@@ -895,8 +878,8 @@ const cultivateItem = async (item: Item, force = false) => {
     }
 
     // 规范化品质：缺失/非法则给出安全默认；支持文本品级
-    const normalizeQualityObject = (q: any) => {
-      const qualityMap: Record<string, string> = {
+    const normalizeQualityObject = (q: unknown): { quality: '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神', grade: number } => {
+      const qualityMap: Record<string, '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神'> = {
         '凡品': '凡', '凡阶': '凡', '凡': '凡',
         '黄品': '黄', '黄阶': '黄', '黄': '黄',
         '玄品': '玄', '玄阶': '玄', '玄': '玄',
@@ -908,12 +891,13 @@ const cultivateItem = async (item: Item, force = false) => {
       const gradeTextToNumber: Record<string, number> = {
         '残缺': 0, '下品': 2, '中品': 5, '上品': 8, '极品': 10
       };
-      let quality = '凡';
+      let quality: '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神' = '凡';
       let grade = 1;
       if (q && typeof q === 'object') {
-        const rawQ = String(q.quality ?? q.品质 ?? '').trim();
+        const qObj = q as Record<string, unknown>;
+        const rawQ = String(qObj.quality ?? qObj.品质 ?? '').trim();
         quality = qualityMap[rawQ] || quality;
-        const rawG: any = (q.grade ?? q.品级 ?? q.等级);
+        const rawG = (qObj.grade ?? qObj.品级 ?? qObj.等级);
         if (typeof rawG === 'number' && !Number.isNaN(rawG)) {
           grade = Math.min(10, Math.max(0, Math.round(rawG)));
           // 默认不要落在0（残缺）除非确实传入0
@@ -940,20 +924,20 @@ const cultivateItem = async (item: Item, force = false) => {
       品质: normalizeQualityObject(item.品质),
       描述: item.描述,
       功法效果: (() => {
-        const eff = (item as any).功法效果;
+        const eff = (item as Item & { 功法效果?: Record<string, unknown> }).功法效果;
         if (eff && typeof eff === 'object' && Object.keys(eff).length > 0) return eff;
         // 若无功法效果，按品级给一个默认修炼速度加成
         return { 修炼速度加成: computeDefaultSpeed(normalizeQualityObject(item.品质).grade) };
       })(),
-      功法技能: (item as any).功法技能 || {},
+      功法技能: (item as Item & { 功法技能?: Record<string, unknown> }).功法技能 || {},
       修炼进度: skillSlots.功法?.修炼进度 || 0,
       数量: 1
-    };
+    } as Item;
     skillSlots.功法 = skillData;
 
     // 轻提示：若功法缺少效果字段，提醒后续补全
     try {
-      const effects = (item as any).功法效果;
+      const effects = (item as Item & { 功法效果?: Record<string, unknown> }).功法效果;
       if (!effects || (typeof effects === 'object' && Object.keys(effects).length === 0)) {
         toast.info('提示：该功法暂未提供“功法效果”，可通过后续事件/AI生成补全');
       }
@@ -1092,12 +1076,11 @@ const useItemWithQuantity = async (item: Item, quantity: number) => {
     }
 
     // 2. 添加到操作队列，让AI来决定效果
-    // description 现在只是一个内部记录，AI提示词由 store 根据 type:'use' 和 itemName 自动生成
     actionQueue.addAction({
       type: 'use',
       itemName: item.名称,
       itemType: item.类型,
-      description: `使用了 ${quantity} 个《${item.名称}》` // description 简化
+      description: `使用了 ${quantity} 个《${item.名称}》。`
     });
 
     // 3. 更新UI状态

@@ -104,6 +104,15 @@ export interface Item {
   修炼进度?: number; // 当前修炼进度 (0-100)
 }
 
+/** 正在修炼的功法数据 */
+export interface CultivationTechniqueData {
+  功法: Item | null;
+  熟练度: number;
+  已解锁技能: string[];
+  修炼时间: number;
+  突破次数: number;
+}
+
 export interface Inventory {
   灵石: {
     下品: number;
@@ -561,13 +570,7 @@ export interface SaveData {
     spiritRoots: any[];
     talents: any[];
   }; // 角色创建时的数据缓存
-  修炼功法: {
-    功法: Item | null;
-    熟练度: number; // 0-100，改为必需
-    已解锁技能: string[]; // 从功法中学会的技能，改为必需
-    修炼时间: number; // 总修炼时间（小时），改为必需
-    突破次数: number; // 功法境界突破次数，改为必需
-  }; // 修炼功法改为必需
+  修炼功法: CultivationTechniqueData; // 修炼功法改为必需
 }
 
 

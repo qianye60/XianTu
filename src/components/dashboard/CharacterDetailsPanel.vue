@@ -126,20 +126,25 @@
                 <span class="talent-label">灵根属性</span>
                 <div class="spirit-root-display">
                   <div class="spirit-root-main">
-                    <span class="talent-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
-                      {{ getSpiritRootDisplay(baseInfo.灵根) }}
-                    </span>
+                    <div class="spirit-root-name-section">
+                      <span class="talent-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
+                        {{ getSpiritRootDisplay(baseInfo.灵根) }}
+                      </span>
+                    </div>
                     <div class="spirit-root-badges">
-                      <span class="spirit-root-grade" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
-                        品级：{{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
-                      </span>
-                      <span v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'" class="spirit-root-quality" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
-                        {{ getSpiritRootQuality(baseInfo.灵根) }}
-                      </span>
-                      <!-- 修炼速度显示 -->
-                      <span class="spirit-root-speed">
-                        {{ getSpiritRootCultivationSpeed(baseInfo) }}
-                      </span>
+                      <div class="badge-row">
+                        <span class="spirit-root-grade" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
+                          品级：{{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
+                        </span>
+                        <span class="spirit-root-speed">
+                          {{ getSpiritRootCultivationSpeed(baseInfo) }}
+                        </span>
+                      </div>
+                      <div v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'" class="badge-row">
+                        <span class="spirit-root-quality" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
+                          {{ getSpiritRootQuality(baseInfo.灵根) }}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="spirit-root-desc">
@@ -1311,8 +1316,6 @@ const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: number;
       quality = '变异';
     } else if (rootName.includes('双') || rootName.includes('三') || rootName.includes('四') || rootName.includes('五')) {
       quality = '复合';
-    } else if (rootName.includes('金') || rootName.includes('木') || rootName.includes('水')) {
-      quality = '传说';
     } else {
       quality = '普通';
     }
@@ -3362,14 +3365,26 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .spirit-root-main {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 8px;
+  width: 100%;
+}
+
+.spirit-root-name-section {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .spirit-root-badges {
   display: flex;
+  flex-direction: column;
   gap: 6px;
+  align-items: flex-end;
+}
+
+.badge-row {
+  display: flex;
+  gap: 8px;
   align-items: center;
 }
 

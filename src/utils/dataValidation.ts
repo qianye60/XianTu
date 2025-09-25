@@ -4,16 +4,18 @@
  */
 
 import type { SaveData, Equipment, Item, Inventory, NpcProfile } from '@/types/game.d';
+import type { TavernHelper } from './tavernCore';
 
 // 定义一个更具体的 Tavern 变量类型，避免过多的 any
 type TavernChatVariables = Record<string, unknown> & {
   'character.saveData'?: SaveData;
-  '背包'?: Inventory;
-  '装备栏'?: Equipment;
-  '修炼功法'?: SaveData['修炼功法'];
-  '人物关系'?: Record<string, NpcProfile>;
-  '宗门系统'?: SaveData['宗门系统'];
-  '玩家角色状态'?: SaveData['玩家角色状态'];
+  // 注意：以下字段已废弃，数据应统一存储在 character.saveData 中
+  // '背包'?: Inventory;
+  // '装备栏'?: Equipment;
+  // '修炼功法'?: SaveData['修炼功法'];
+  // '人物关系'?: Record<string, NpcProfile>;
+  // '宗门系统'?: SaveData['宗门系统'];
+  // '玩家角色状态'?: SaveData['玩家角色状态'];
 };
 
 // 识别明显的地名/建筑名（避免误被当作NPC）
@@ -42,71 +44,27 @@ export function cleanDuplicateData(chatVariables: TavernChatVariables): SaveData
   
   // 创建一个深拷贝以避免直接修改原始对象
   const cleanedData: SaveData = JSON.parse(JSON.stringify(characterSaveData));
-  let hasDuplicates = false;
   
-  // 检查背包数据重复
-  if (chatVariables.背包 && cleanedData.背包) {
-    const rootItemsCount = Object.keys(chatVariables.背包.物品 || {}).length;
-    const rootSpiritStones = chatVariables.背包.灵石;
-    const rootSpiritTotal = (rootSpiritStones?.下品 || 0) + (rootSpiritStones?.中品 || 0) + (rootSpiritStones?.上品 || 0) + (rootSpiritStones?.极品 || 0);
-
-    const saveDataItemsCount = Object.keys(cleanedData.背包.物品 || {}).length;
-    const saveDataSpiritStones = cleanedData.背包.灵石;
-    const saveDataSpiritTotal = (saveDataSpiritStones?.下品 || 0) + (saveDataSpiritStones?.中品 || 0) + (saveDataSpiritStones?.上品 || 0) + (saveDataSpiritStones?.极品 || 0);
-
-    console.log('[数据清理] 背包对比:', {
-      根路径: { 物品数: rootItemsCount, 灵石总数: rootSpiritTotal },
-      character路径: { 物品数: saveDataItemsCount, 灵石总数: saveDataSpiritTotal }
-    });
-
-    // 如果根路径的背包有内容，进行合并
-    if (rootItemsCount > 0 || rootSpiritTotal > 0) {
-      hasDuplicates = true;
-      console.log('[数据清理] 发现根路径背包数据，进行合并...');
-      
-      // 合并灵石 (取最大值)
-      if (rootSpiritStones && cleanedData.背包.灵石) {
-        cleanedData.背包.灵石.下品 = Math.max(rootSpiritStones.下品 || 0, cleanedData.背包.灵石.下品 || 0);
-        cleanedData.背包.灵石.中品 = Math.max(rootSpiritStones.中品 || 0, cleanedData.背包.灵石.中品 || 0);
-        cleanedData.背包.灵石.上品 = Math.max(rootSpiritStones.上品 || 0, cleanedData.背包.灵石.上品 || 0);
-        cleanedData.背包.灵石.极品 = Math.max(rootSpiritStones.极品 || 0, cleanedData.背包.灵石.极品 || 0);
-      }
-      
-      // 合并物品 (根路径覆盖)
-      if (chatVariables.背包.物品) {
-        for (const [itemId, item] of Object.entries(chatVariables.背包.物品)) {
-          if (item && typeof item === 'object') {
-            cleanedData.背包.物品[itemId] = item as Item;
-            console.log(`[数据清理] 合并物品: ${item.名称} (ID: ${itemId})`);
-          }
-        }
-      }
+  // 检查是否存在废弃的重复数据字段
+  const deprecatedFields = ['背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态'];
+  let hasDeprecatedData = false;
+  
+  for (const field of deprecatedFields) {
+    if (chatVariables[field]) {
+      console.warn(`[数据清理] 检测到废弃的重复数据字段: ${field}，数据应统一存储在 character.saveData 中`);
+      hasDeprecatedData = true;
     }
   }
   
-  // 检查其他可能的重复字段
-  const fieldsToCheck: (keyof TavernChatVariables)[] = ['装备栏', '修炼功法', '人物关系', '宗门系统'];
-  fieldsToCheck.forEach(field => {
-    if (chatVariables[field] && JSON.stringify(chatVariables[field]) !== JSON.stringify(cleanedData[field as keyof SaveData])) {
-      console.log(`[数据清理] 发现重复字段: ${field}`);
-      hasDuplicates = true;
-      // 可以在这里添加更复杂的合并逻辑，但目前只做记录
-    }
-  });
-  
-  if (hasDuplicates) {
-    console.log('[数据清理] 清理完成，发现并处理了重复数据。');
+  if (hasDeprecatedData) {
+    console.log('[数据清理] 发现废弃的重复数据字段，建议清理。');
   } else {
-    console.log('[数据清理] 未发现重复数据。');
+    console.log('[数据清理] 未发现重复数据，数据结构符合规范。');
   }
   
   return validateAndFixSaveData(cleanedData);
 }
 
-interface TavernHelper {
-  getVariables(options: { type: string }): Promise<TavernChatVariables>;
-  deleteVariable(key: string, options: { type: 'chat' }): Promise<void>;
-}
 
 /**
  * 清理酒馆变量中的重复数据
@@ -118,12 +76,13 @@ export async function cleanTavernDuplicates(tavernHelper: TavernHelper) {
   try {
     const chatVars = await tavernHelper.getVariables({ type: 'chat' });
     
-    const duplicateFields: (keyof TavernChatVariables)[] = ['背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态'];
+    // 这些字段是废弃的重复数据，应该被清理
+    const duplicateFields = ['背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态', '背包数据', '装备栏数据', '修炼功法数据'];
     const toDelete: string[] = [];
     
     for (const field of duplicateFields) {
-      if (chatVars[field] && chatVars['character.saveData']) {
-        console.log(`[数据清理] 发现重复字段，准备删除根路径的: ${field}`);
+      if (chatVars[field]) {
+        console.log(`[数据清理] 发现废弃的重复字段，准备删除: ${field}`);
         toDelete.push(field);
       }
     }
