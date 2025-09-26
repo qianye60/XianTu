@@ -36,7 +36,7 @@ export interface MidTermMemory {
   keyEvents: string[];
   characters: string[];
   locations: string[];
-  priority: number; // 重要性评分 1-10
+  priority: number;
 }
 
 // 长期记忆条目
@@ -46,9 +46,9 @@ export interface LongTermMemory {
   description: string;
   timestamp: string;
   category: 'character' | 'relationship' | 'location' | 'event' | 'cultivation' | 'item' | 'faction';
-  importance: number; // 重要性评分 1-10
   relatedMemories: string[]; // 相关记忆ID
   tags: string[];
+  importance: number;
 }
 
 // 记忆配置
@@ -98,7 +98,7 @@ class MultiLayerMemorySystemClass {
     autoSummaryEnabled: true,
   };
 
-  private tavernHelper: any = null;
+  private tavernHelper: Record<string, any> | null = null;
   private summaryInProgress = false;
 
   constructor() {
@@ -121,6 +121,7 @@ class MultiLayerMemorySystemClass {
   /**
    * 添加新消息到短期记忆
    * 实现：消息接收之后短期正文要存入text，中期等短期达标范围了就转化
+   * 支持0延迟转化：优先使用AI预生成的隐形中期记忆
    */
   public addMessage(message: ChatMessage): void {
     // 添加到短期记忆
@@ -136,6 +137,9 @@ class MultiLayerMemorySystemClass {
         this.shortTermMemories.length - this.config.shortTermLimit
       );
       console.log('[多层记忆系统] 短期记忆溢出，移除消息:', removedMessages.length, '条');
+      
+      // 0延迟转化：尝试使用AI预生成的中期记忆
+      this.tryZeroDelayConversion(removedMessages);
     }
 
     // 检查是否需要触发中期记忆转化
@@ -143,6 +147,76 @@ class MultiLayerMemorySystemClass {
 
     // 保存到存储
     this.saveMemoriesToStorage();
+  }
+
+  /**
+   * 0延迟转化：优先使用AI预生成的隐形中期记忆
+   * 这是用户要求的核心功能：避免重新生成，直接使用AI已经准备好的摘要
+   */
+  private tryZeroDelayConversion(removedMessages: ChatMessage[]): void {
+    try {
+      if (!this.tavernHelper) return;
+      
+      // 异步获取AI预生成的中期记忆
+      this.tavernHelper.getVariables({ type: 'chat' }).then((chatVars: Record<string, unknown>) => {
+        const hiddenMidTermMemory = chatVars['mid_term_memory'];
+        
+        if (hiddenMidTermMemory && typeof hiddenMidTermMemory === 'string') {
+          console.log('[0延迟转化] 发现AI预生成的中期记忆，直接使用');
+          
+          // 解析预生成的记忆内容
+          let parsedMemory: Record<string, any> | null = null;
+          try {
+            // 尝试解析JSON格式的记忆 - 直接处理不用正则
+            if (hiddenMidTermMemory.includes('{') && hiddenMidTermMemory.includes('}')) {
+              const startIndex = hiddenMidTermMemory.indexOf('{');
+              const lastIndex = hiddenMidTermMemory.lastIndexOf('}');
+              if (startIndex !== -1 && lastIndex !== -1 && lastIndex > startIndex) {
+                const jsonStr = hiddenMidTermMemory.substring(startIndex, lastIndex + 1);
+                parsedMemory = JSON.parse(jsonStr);
+              }
+            }
+          } catch {
+            console.warn('[0延迟转化] 解析AI记忆失败，使用纯文本格式');
+          }
+          
+          // 创建中期记忆条目
+          const midTermMemory: MidTermMemory = {
+            id: `mid_${Date.now()}_instant`,
+            summary: parsedMemory?.summary || hiddenMidTermMemory.substring(0, 100),
+            timeRange: {
+              start: removedMessages[0]?.timestamp || new Date().toISOString(),
+              end: removedMessages[removedMessages.length - 1]?.timestamp || new Date().toISOString(),
+            },
+            messageCount: removedMessages.length,
+            keyEvents: parsedMemory?.keyEvents || ['对话记录'],
+            characters: parsedMemory?.characters || [],
+            locations: parsedMemory?.locations || [],
+            priority: parsedMemory?.priority || 5,
+          };
+          
+          // 直接添加到中期记忆
+          this.midTermMemories.push(midTermMemory);
+          
+          // 清除酒馆中的预生成记忆，避免重复使用
+          if (this.tavernHelper) {
+            this.tavernHelper.insertOrAssignVariables({ 'mid_term_memory': null }, { type: 'chat' })
+              .catch((e: unknown) => console.warn('[0延迟转化] 清除预生成记忆失败:', e));
+          }
+          
+          console.log('[0延迟转化] 成功完成记忆转化:', midTermMemory.summary.substring(0, 50) + '...');
+          this.saveMemoriesToStorage();
+          return;
+        }
+        
+        console.log('[0延迟转化] 未找到AI预生成记忆，将在稍后进行标准转化');
+      }).catch((error: unknown) => {
+        console.warn('[0延迟转化] 获取预生成记忆失败:', error);
+      });
+      
+    } catch (error) {
+      console.error('[0延迟转化] 执行失败:', error);
+    }
   }
 
   /**
@@ -443,18 +517,26 @@ ${midTermText}
     }
 
     // 回退到酒馆API
-    const response = await this.tavernHelper.generateResponse(prompt);
-    return response;
+    if (this.tavernHelper) {
+      const response = await this.tavernHelper.generateResponse(prompt);
+      return response;
+    }
+    throw new Error('Tavern helper not initialized');
   }
 
   /**
-   * 解析总结响应
+   * 解析总结响应 - 简化版不用正则
    */
-  private parseSummaryResponse(response: string): any {
+  private parseSummaryResponse(response: string): Record<string, any> | null {
     try {
-      const jsonMatch = response.match(/```json\s*\n([\s\S]*?)\n```/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[1]);
+      // 查找 ```json 标记
+      const jsonStart = response.indexOf('```json');
+      const jsonEnd = response.indexOf('```', jsonStart + 7);
+      
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        // 提取JSON内容
+        const jsonContent = response.substring(jsonStart + 7, jsonEnd).trim();
+        return JSON.parse(jsonContent);
       }
 
       // 尝试直接解析
@@ -562,7 +644,7 @@ ${midTermText}
   /**
    * 获取记忆统计
    */
-  public getMemoryStats(): any {
+  public getMemoryStats(): Record<string, unknown> {
     return {
       shortTerm: {
         count: this.shortTermMemories.length,
@@ -617,7 +699,7 @@ ${midTermText}
   /**
    * 处理记忆更新（从AI响应中处理记忆相关更新）
    */
-  public async processMemoryUpdates(memoryUpdates: any): Promise<void> {
+  public async processMemoryUpdates(memoryUpdates: Record<string, any>): Promise<void> {
     try {
       if (!memoryUpdates) return;
 

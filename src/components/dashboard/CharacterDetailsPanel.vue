@@ -13,7 +13,7 @@
       <button class="retry-btn" @click="refreshData">重试</button>
     </div>
 
-    <div v-else class="character-details-content">
+    <div v-else-if="baseInfo" class="character-details-content">
       <!-- 顶部角色基本信息（全新布局）-->
       <div class="character-header header-modern">
         <div class="header-left">
@@ -32,10 +32,6 @@
           </div>
         </div>
         <div class="header-right">
-          <div class="reputation-badge" :title="'声望'">
-            <span class="rep-label">声望</span>
-            <span class="rep-value">{{ playerStatus?.声望 || 0 }}</span>
-          </div>
           <div v-if="isAnimalStage(playerStatus?.境界?.名称)" class="cultivation-compact mortal">
             <span class="mortal-hint">{{ getAnimalStageDisplay() }}</span>
           </div>
@@ -78,6 +74,15 @@
                   <div class="vital-text">{{ vital.current }}/{{ vital.max }}</div>
                 </div>
               </div>
+              <!-- 声望显示 -->
+              <div class="vital-item reputation-item">
+                <div class="vital-label">声望</div>
+                <div class="reputation-display">
+                  <span class="reputation-value">
+                    {{ playerStatus?.声望 || '籍籍无名' }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -117,57 +122,79 @@
               </div>
               天赋与灵根
             </h3>
-            <div class="talent-grid">
-              <div class="talent-item">
-                <span class="talent-label">天资等级</span>
-                <span class="talent-value tier" :class="`tier-${baseInfo.天资}`">{{ baseInfo.天资 }}</span>
+            <div class="talent-content">
+              <!-- 天资等级卡片 -->
+              <div class="talent-tier-card">
+                <div class="tier-header">
+                  <div class="tier-icon">🌟</div>
+                  <span class="tier-label">天资等级</span>
+                </div>
+                <div class="tier-value-display">
+                  <span class="tier-value" :class="`tier-${baseInfo.天资}`">{{ baseInfo.天资 }}</span>
+                </div>
               </div>
-              <div class="talent-item">
-                <span class="talent-label">灵根属性</span>
-                <div class="spirit-root-display">
-                  <div class="spirit-root-main">
-                    <div class="spirit-root-name-section">
-                      <span class="talent-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
-                        {{ getSpiritRootDisplay(baseInfo.灵根) }}
+
+              <!-- 灵根属性卡片 -->
+              <div class="spirit-root-card" @click="showSpiritRootDetails">
+                <div class="root-header">
+                  <div class="root-icon">⚡</div>
+                  <span class="root-label">灵根属性</span>
+                  <span class="click-hint">点击查看详情</span>
+                </div>
+                <div class="root-main-info">
+                  <div class="root-name-display">
+                    <span class="root-name" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
+                      {{ getSpiritRootDisplay(baseInfo.灵根) }}
+                    </span>
+                  </div>
+                  <div class="root-properties">
+                    <div class="property-badges">
+                      <span class="grade-badge" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
+                        {{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
                       </span>
-                    </div>
-                    <div class="spirit-root-badges">
-                      <div class="badge-row">
-                        <span class="spirit-root-grade" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
-                          品级：{{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
-                        </span>
-                        <span class="spirit-root-speed">
-                          {{ getSpiritRootCultivationSpeed(baseInfo) }}
-                        </span>
-                      </div>
-                      <div v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'" class="badge-row">
-                        <span class="spirit-root-quality" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
-                          {{ getSpiritRootQuality(baseInfo.灵根) }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="spirit-root-desc">
-                    {{ getSpiritRootDescription(baseInfo.灵根) }}
-                  </div>
-                  <!-- 灵根特殊效果 -->
-                  <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="spirit-root-effects">
-                    <div class="effects-title">特殊效果</div>
-                    <div class="effects-list">
-                      <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag">
-                        {{ effect }}
+                      <span class="speed-badge">
+                        {{ getSpiritRootCultivationSpeed(baseInfo) }}
+                      </span>
+                      <span v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'"
+                            class="quality-badge" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
+                        {{ getSpiritRootQuality(baseInfo.灵根) }}
                       </span>
                     </div>
                   </div>
                 </div>
+                <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="root-description">
+                  {{ getSpiritRootDescription(baseInfo.灵根) }}
+                </div>
+                <!-- 灵根特殊效果 -->
+                <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="root-effects">
+                  <div class="effects-header">特殊效果</div>
+                  <div class="effects-tags">
+                    <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag">
+                      {{ effect }}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div class="talent-list" v-if="getTalentList(baseInfo.天赋)?.length">
-                <div class="talent-tags">
-                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.名称 || talent" class="talent-tag" :title="talent.描述">
-                    {{ talent.名称 || talent }}
-                    <div v-if="talent.描述" class="talent-description">
+
+              <!-- 天赋列表卡片 -->
+              <div class="talents-card">
+                <div class="talents-header">
+                  <div class="talents-icon">✨</div>
+                  <span class="talents-label">天赋特质</span>
+                  <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
+                </div>
+                <div v-if="getTalentList(baseInfo.天赋)?.length" class="talents-container">
+                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.名称 || talent"
+                       class="talent-item" :title="talent.描述">
+                    <div class="talent-name">{{ talent.名称 || talent }}</div>
+                    <div v-if="talent.描述" class="talent-tooltip">
                       {{ talent.描述 }}
                     </div>
+                  </div>
+                </div>
+                <div v-else class="talents-container no-talents">
+                  <div class="talent-item no-talent">
+                    <div class="talent-name">无</div>
                   </div>
                 </div>
               </div>
@@ -589,90 +616,158 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 技能详情弹窗 -->
-    <div v-if="showSkillModal" class="modal-overlay" @click="closeModals">
-      <div class="skill-modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ getSkillModalContent()?.name }}</h3>
-          <button class="modal-close-btn" @click="closeModals">
-            <X :size="20" />
-          </button>
-        </div>
-        <div class="modal-content">
-          <div class="skill-detail-grid">
-            <div class="skill-detail-item">
-              <span class="detail-label">类型</span>
-              <span class="detail-value">{{ getSkillModalContent()?.type }}</span>
-            </div>
-            <div class="skill-detail-item">
-              <span class="detail-label">状态</span>
-              <span class="detail-value" :class="`status-${getSkillModalContent()?.status === '已解锁' ? 'unlocked' : 'locked'}`">
-                {{ getSkillModalContent()?.status }}
-              </span>
-            </div>
-            <div class="skill-detail-item">
-              <span class="detail-label">熟练度</span>
-              <span class="detail-value">{{ getSkillModalContent()?.proficiency ? getSkillModalContent()?.proficiency + '%' : '未知' }}</span>
-            </div>
-            <div class="skill-detail-item">
-              <span class="detail-label">解锁条件</span>
-              <span class="detail-value">{{ getSkillModalContent()?.condition }}</span>
-            </div>
-            <div class="skill-detail-item">
-              <span class="detail-label">技能来源</span>
-              <span class="detail-value">{{ getSkillModalContent()?.source }}</span>
-            </div>
+      <!-- 技能详情弹窗 -->
+      <div v-if="showSkillModal" class="modal-overlay" @click="closeModals">
+        <div class="skill-modal" @click.stop>
+          <div class="modal-header">
+            <h3>{{ getSkillModalContent()?.name }}</h3>
+            <button class="modal-close-btn" @click="closeModals">
+              <X :size="20" />
+            </button>
           </div>
-          <div class="skill-description">
-            <h4>技能描述</h4>
-            <p>{{ getSkillModalContent()?.description }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 大道详情弹窗 -->
-    <div v-if="showDaoModal" class="modal-overlay" @click="closeModals">
-      <div class="dao-modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ getDaoModalContent()?.name }}</h3>
-          <button class="modal-close-btn" @click="closeModals">
-            <X :size="20" />
-          </button>
-        </div>
-        <div class="modal-content">
-          <div class="dao-progress-section">
-            <div class="dao-stage-info">
-              <span class="stage-label">当前阶段</span>
-              <span class="stage-value">{{ getDaoModalContent()?.stage }}</span>
-            </div>
-            <div class="dao-progress-bar">
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" :style="{ width: (getDaoModalContent()?.progressPercent || 0) + '%' }"></div>
+          <div class="modal-content">
+            <div class="skill-detail-grid">
+              <div class="skill-detail-item">
+                <span class="detail-label">类型</span>
+                <span class="detail-value">{{ getSkillModalContent()?.type }}</span>
               </div>
-              <span class="progress-text">{{ getDaoModalContent()?.progressPercent }}%</span>
+              <div class="skill-detail-item">
+                <span class="detail-label">状态</span>
+                <span class="detail-value" :class="`status-${getSkillModalContent()?.status === '已解锁' ? 'unlocked' : 'locked'}`">
+                  {{ getSkillModalContent()?.status }}
+                </span>
+              </div>
+              <div class="skill-detail-item">
+                <span class="detail-label">熟练度</span>
+                <span class="detail-value">{{ getSkillModalContent()?.proficiency ? getSkillModalContent()?.proficiency + '%' : '未知' }}</span>
+              </div>
+              <div class="skill-detail-item">
+                <span class="detail-label">解锁条件</span>
+                <span class="detail-value">{{ getSkillModalContent()?.condition }}</span>
+              </div>
+              <div class="skill-detail-item">
+                <span class="detail-label">技能来源</span>
+                <span class="detail-value">{{ getSkillModalContent()?.source }}</span>
+              </div>
+            </div>
+            <div class="skill-description">
+              <h4>技能描述</h4>
+              <p>{{ getSkillModalContent()?.description }}</p>
             </div>
           </div>
-          <div class="dao-stats-grid">
-            <div class="dao-stat-item">
-              <span class="stat-label">当前经验</span>
-              <span class="stat-value">{{ getDaoModalContent()?.currentExp }}</span>
+        </div>
+      </div>
+
+      <!-- 大道详情弹窗 -->
+      <div v-if="showDaoModal" class="modal-overlay" @click="closeModals">
+        <div class="dao-modal" @click.stop>
+          <div class="modal-header">
+            <h3>{{ getDaoModalContent()?.name }}</h3>
+            <button class="modal-close-btn" @click="closeModals">
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="modal-content">
+            <div class="dao-progress-section">
+              <div class="dao-stage-info">
+                <span class="stage-label">当前阶段</span>
+                <span class="stage-value">{{ getDaoModalContent()?.stage }}</span>
+              </div>
+              <div class="dao-progress-bar">
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill" :style="{ width: (getDaoModalContent()?.progressPercent || 0) + '%' }"></div>
+                </div>
+                <span class="progress-text">{{ getDaoModalContent()?.progressPercent }}%</span>
+              </div>
             </div>
-            <div class="dao-stat-item">
-              <span class="stat-label">总经验</span>
-              <span class="stat-value">{{ getDaoModalContent()?.totalExp }}</span>
+            <div class="dao-stats-grid">
+              <div class="dao-stat-item">
+                <span class="stat-label">当前经验</span>
+                <span class="stat-value">{{ getDaoModalContent()?.currentExp }}</span>
+              </div>
+              <div class="dao-stat-item">
+                <span class="stat-label">总经验</span>
+                <span class="stat-value">{{ getDaoModalContent()?.totalExp }}</span>
+              </div>
+            </div>
+            <div class="dao-description">
+              <h4>修炼感悟</h4>
+              <p>{{ getDaoModalContent()?.description }}</p>
             </div>
           </div>
-          <div class="dao-description">
-            <h4>修炼感悟</h4>
-            <p>{{ getDaoModalContent()?.description }}</p>
+        </div>
+      </div>
+
+      <!-- 灵根详情弹窗 -->
+      <div v-if="showSpiritRootModal" class="modal-overlay" @click="closeModals">
+        <div class="spirit-root-modal" @click.stop>
+          <div class="modal-header">
+            <h3>{{ getSpiritRootDisplay(baseInfo.灵根) }} 详情</h3>
+            <button class="modal-close-btn" @click="closeModals">
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="modal-content">
+            <div class="spirit-root-detail-grid">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <span class="detail-icon">⚡</span>
+                  <span class="detail-title">灵根类型</span>
+                </div>
+                <div class="detail-value">{{ getSpiritRootDisplay(baseInfo.灵根) }}</div>
+              </div>
+
+              <div class="detail-card">
+                <div class="detail-header">
+                  <span class="detail-icon">⭐</span>
+                  <span class="detail-title">灵根品级</span>
+                </div>
+                <div class="detail-value">{{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}</div>
+              </div>
+
+              <div class="detail-card">
+                <div class="detail-header">
+                  <span class="detail-icon">🚀</span>
+                  <span class="detail-title">修炼速度</span>
+                </div>
+                <div class="detail-value">{{ getSpiritRootCultivationSpeed(baseInfo) }}</div>
+              </div>
+
+              </div>
+            </div>
+
+            <div v-if="getSpiritRootDescription(baseInfo.灵根) && getSpiritRootDescription(baseInfo.灵根).trim() !== ''" class="spirit-root-description">
+              <h4>灵根描述</h4>
+              <p>{{ getSpiritRootDescription(baseInfo.灵根) }}</p>
+            </div>
+
+            <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="spirit-root-effects-section">
+              <h4>特殊效果</h4>
+              <div class="effects-grid">
+                <div v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-item">
+                  {{ effect }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="baseInfo.灵根详情" class="advanced-details">
+              <h4>详细信息</h4>
+              <div class="advanced-grid">
+                <div v-if="baseInfo.灵根详情.base_multiplier" class="advanced-item">
+                  <span class="advanced-label">基础倍率:</span>
+                  <span class="advanced-value">{{ baseInfo.灵根详情.base_multiplier }}x</span>
+                </div>
+                <div v-if="baseInfo.灵根详情.cultivation_speed" class="advanced-item">
+                  <span class="advanced-label">修炼速度:</span>
+                  <span class="advanced-value">{{ baseInfo.灵根详情.cultivation_speed }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -695,6 +790,7 @@ const showSkillsDetails = ref(false);
 const showDaoDetails = ref(false);
 const showSkillModal = ref(false);
 const showDaoModal = ref(false);
+const showSpiritRootModal = ref(false);
 
 // 将LearnedSkillDisplay 类型定义移到顶层作用域
 type LearnedSkillDisplay = {
@@ -726,7 +822,9 @@ const cultivationData = computed(() => {
     熟练度: 0,
     已解锁技能: [],
     修炼时间: 0,
-    突破次数: 0
+    突破次数: 0,
+    正在修炼: false,
+    修炼进度: 0
   };
 });
 
@@ -1191,9 +1289,14 @@ const showSkillDetails = (skill: SkillInfo | LearnedSkillDisplay | string) => {
   showSkillModal.value = true;
 };
 
+const showSpiritRootDetails = () => {
+  showSpiritRootModal.value = true;
+};
+
 const closeModals = () => {
   showSkillModal.value = false;
   showDaoModal.value = false;
+  showSpiritRootModal.value = false;
   selectedSkill.value = null;
   selectedDao.value = null;
 };
@@ -1329,12 +1432,48 @@ const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: number;
   }
 
   // 处理新的对象格式：{ 名称, 品级, 描述 }
-  return {
+  const result = {
     name: spiritRoot.名称 || '未知',
     quality: spiritRoot.品质 || '',
     grade: spiritRoot.品级 !== undefined ? spiritRoot.品级.toString() : (spiritRoot.等级 || ''),
     description: spiritRoot.描述 || ''
   };
+
+  // 不自动生成描述，只有真正有描述时才返回
+  // 注释掉自动生成描述的逻辑
+  /*
+  // 如果没有描述，根据灵根信息生成基础描述
+  if (!result.description) {
+    let desc = '';
+    if (result.grade) {
+      desc += result.grade;
+    }
+    if (result.quality && result.quality !== '普通') {
+      desc += result.quality;
+    }
+    desc += '灵根';
+
+    // 根据灵根类型添加特性描述
+    const rootName = result.name.toLowerCase();
+    if (rootName.includes('火')) {
+      desc += '，蕴含炽热火焰之力，修炼火系功法事半功倍';
+    } else if (rootName.includes('水')) {
+      desc += '，蕴含柔和水流之力，修炼水系功法事半功倍';
+    } else if (rootName.includes('木')) {
+      desc += '，蕴含生机木元之力，修炼木系功法事半功倍';
+    } else if (rootName.includes('金')) {
+      desc += '，蕴含锋锐金气之力，修炼金系功法事半功倍';
+    } else if (rootName.includes('土')) {
+      desc += '，蕴含厚实土元之力，修炼土系功法事半功倍';
+    } else {
+      desc += '，具有独特的修炼加成';
+    }
+
+    result.description = desc;
+  }
+  */
+
+  return result;
 };
 
 const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
@@ -3555,5 +3694,292 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .talent-tag:hover .talent-description {
   opacity: 1;
+}
+
+/* 新的天赋与灵根卡片样式 */
+.talent-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 天赋容器样式 */
+.talents-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.talents-container.no-talents {
+  opacity: 0.7;
+}
+
+.talent-item.no-talent {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  background: var(--color-surface-light);
+  border-radius: 8px;
+  border: 1px dashed var(--color-border);
+}
+
+.talent-item.no-talent .talent-name {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.talent-tier-card,
+.spirit-root-card,
+.talents-card {
+  padding: 16px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.spirit-root-card {
+  cursor: pointer;
+}
+
+.spirit-root-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.talent-tier-card:hover,
+.talents-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+}
+
+/* 卡片头部样式 */
+.tier-header,
+.root-header,
+.talents-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.3);
+}
+
+.tier-icon,
+.root-icon,
+.talents-icon {
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tier-label,
+.root-label,
+.talents-label {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.click-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.talents-count {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+/* 声望显示样式 */
+.reputation-item .vital-label {
+  color: var(--color-warning);
+}
+
+.reputation-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.reputation-value {
+  padding: 4px 12px;
+  background: linear-gradient(135deg, rgba(var(--color-warning-rgb), 0.1), rgba(var(--color-warning-rgb), 0.05));
+  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  border-radius: 16px;
+  font-weight: 600;
+  color: var(--color-warning);
+  font-size: 0.85rem;
+}
+
+.reputation-number {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
+/* 灵根详情弹窗样式 */
+.spirit-root-modal {
+  background: var(--color-surface);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+  animation: modal-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.spirit-root-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.detail-card {
+  padding: 16px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.detail-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.3);
+}
+
+.detail-icon {
+  font-size: 1.2rem;
+}
+
+.detail-title {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.detail-value {
+  font-weight: 700;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.spirit-root-description,
+.spirit-root-effects-section,
+.advanced-details {
+  margin-bottom: 20px;
+}
+
+.spirit-root-description h4,
+.spirit-root-effects-section h4,
+.advanced-details h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.spirit-root-description p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.effects-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.effects-grid .effect-item {
+  padding: 4px 12px;
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid rgba(var(--color-success-rgb), 0.3);
+}
+
+.advanced-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.advanced-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-surface-light);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.advanced-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.advanced-value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* 响应式优化 */
+@media (max-width: 640px) {
+  .spirit-root-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .talent-content {
+    gap: 12px;
+  }
+
+  .talent-tier-card,
+  .spirit-root-card,
+  .talents-card {
+    padding: 12px;
+  }
+
+  .tier-value {
+    font-size: 1rem;
+    padding: 4px 12px;
+  }
+
+  .property-badges {
+    justify-content: center;
+    gap: 4px;
+  }
 }
 </style>

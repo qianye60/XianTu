@@ -94,15 +94,23 @@
           </div>
         </div>
 
-        <div class="status-details">
-          <div class="detail-item">
-            <span class="detail-label">声望</span>
-            <span class="detail-value">{{ playerStatus?.reputation.level }}</span>
+        <!-- 声望显示 -->
+        <div class="reputation-display">
+          <div class="reputation-item">
+            <div class="reputation-info">
+              <span class="reputation-label">
+                <Star :size="12" class="vital-icon reputation" />
+                <span>声望</span>
+              </span>
+              <span class="reputation-value">
+                {{ playerStatus?.reputation?.level || playerStatus?.reputation || '籍籍无名' }}
+                <span v-if="playerStatus?.reputation?.value !== undefined" class="reputation-number">({{ playerStatus.reputation.value }})</span>
+              </span>
+            </div>
           </div>
         </div>
-        <!-- 当前状态显示 -->
-        <!-- 隐藏活动和心境状态信息 -->
       </div>
+
 
       <!-- 天赋神通 -->
       <div class="collapsible-section talents-section">
@@ -203,7 +211,7 @@ import { LOCAL_TALENTS } from '@/data/creationData';
 import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
-import { calculateFinalAttributes } from '@/utils/attributeCalculation';
+import type { StatusEffect } from '@/types/game.d.ts';
 
 
 type TextSection = {
@@ -235,6 +243,7 @@ const playerStatus = computed(() => characterData.value?.status);
 const statusEffects = computed(() => characterData.value?.statusEffects || []);
 
 // 安全地访问存档数据
+const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
 
 // 位置详情（固定格式：世界 · 大州 · 区域 · 地点）
 const daoData = computed(() => saveData.value?.三千大道);
@@ -248,7 +257,7 @@ const showModal = ref(false);
 const modalData = ref<{
   title: string;
   icon: string;
-  iconComponent?: any;
+  iconComponent?: unknown;
   content: (TextSection | ListSection | TableSection)[];
 }>({
   title: '',
@@ -276,6 +285,8 @@ const formatTimeDisplay = (time: string | undefined): string => {
   return time;
 };
 
+
+
 // 计算百分比的工具方法
 const realmProgressPercent = computed(() => {
   if (!playerStatus.value) return 0;
@@ -302,7 +313,7 @@ const getTalentData = (talent: string) => {
   // 首先从角色基础信息的天赋详情中查找
   const baseInfo = saveData.value?.角色基础信息;
   if (baseInfo?.天赋详情 && Array.isArray(baseInfo.天赋详情)) {
-    const talentDetail = baseInfo.天赋详情.find((t: any) => t.name === talent || t.名称 === talent);
+    const talentDetail = baseInfo.天赋详情.find((t: { name: string; 名称: string; }) => t.name === talent || t.名称 === talent);
     if (talentDetail) {
       return talentDetail;
     }
@@ -368,7 +379,7 @@ const showTalentDetail = (talent: string) => {
   
   const talentInfo = localTalent ? {
     description: localTalent.description,
-    effects: localTalent.effects.map(effect => {
+    effects: localTalent.effects.map((effect: { 类型: string; 目标: string; 数值: number; 名称: string; 技能: string; }) => {
       if (effect.类型 === '后天六司') {
         return `${effect.目标}+${effect.数值}`;
       } else if (effect.类型 === '特殊能力') {
@@ -406,7 +417,7 @@ const showTalentDetail = (talent: string) => {
       {
         title: '当前效果',
         type: 'table',
-        data: enhancedEffects.map((effect, index) => ({
+        data: enhancedEffects.map((effect: string, index: number) => ({
           label: `效果${index + 1}`,
           value: effect
         }))
@@ -431,8 +442,8 @@ const showTalentDetail = (talent: string) => {
 // 显示状态效果详情
 const showStatusDetail = (effect: StatusEffect) => {
   // 完全使用AI生成的数据，不使用预设数据
-  const descriptionText = (effect as any).状态描述 && String((effect as any).状态描述).trim()
-    ? String((effect as any).状态描述).trim()
+  const descriptionText = (effect as unknown as { 状态描述: string }).状态描述 && String((effect as unknown as { 状态描述: string }).状态描述).trim()
+    ? String((effect as unknown as { 状态描述: string }).状态描述).trim()
     : `${effect.状态名称}状态生效中`;
 
   // 从实际数据中获取更多信息
@@ -761,6 +772,150 @@ const showStatusDetail = (effect: StatusEffect) => {
   font-weight: 600;
 }
 
+/* 六维灵根区域样式 */
+.attributes-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.attributes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.attribute-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.attribute-item:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+
+.attr-info {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.attr-name {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.attr-value {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.attr-quality {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+/* 属性品质颜色 */
+.quality-purple .attr-quality {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+.quality-orange .attr-quality {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.quality-blue .attr-quality {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.quality-green .attr-quality {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.quality-gray .attr-quality {
+  background: #6b7280;
+  color: white;
+  border-color: #6b7280;
+}
+
+/* 灵根和声望信息 */
+.spiritual-info {
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.info-row {
+  display: flex;
+}
+
+.info-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--color-surface);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.info-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.info-icon {
+  flex-shrink: 0;
+}
+
+.info-icon.spiritual {
+  color: var(--color-accent);
+}
+
+.info-icon.reputation {
+  color: var(--color-warning);
+}
+
+.info-value {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 图标颜色 */
+.section-icon.attributes {
+  color: var(--color-accent);
+}
+
 /* 通用区块样式 */
 .ai-chat-section,
 .info-section,
@@ -944,6 +1099,61 @@ const showStatusDetail = (effect: StatusEffect) => {
 .vital-icon.mana { color: var(--vital-lingqi); }
 .vital-icon.spirit { color: var(--vital-spirit); }
 .vital-icon.lifespan { color: var(--vital-lifespan); }
+.vital-icon.reputation { color: var(--color-warning); }
+
+/* 声望显示样式 */
+.reputation-display {
+  margin-top: 8px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+
+.reputation-item {
+  background: var(--color-surface);
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s ease;
+}
+
+.reputation-item:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+
+.reputation-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reputation-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reputation-value {
+  font-size: 0.8rem;
+  color: var(--color-warning);
+  font-weight: 600;
+  padding: 2px 6px;
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reputation-number {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
 
 /* 点击提示样式 */
 .clickable {
@@ -1284,6 +1494,32 @@ const showStatusDetail = (effect: StatusEffect) => {
     font-size: 0.7rem;
   }
 
+  .attributes-grid {
+    gap: 6px;
+  }
+
+  .attribute-item {
+    padding: 6px;
+  }
+
+  .attr-name {
+    font-size: 0.7rem;
+  }
+
+  .attr-value {
+    font-size: 0.8rem;
+  }
+
+  .attr-quality {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+  }
+
+  .info-item {
+    padding: 5px 6px;
+    font-size: 0.7rem;
+  }
+
   .realm-name {
     font-size: 0.8rem;
   }
@@ -1308,6 +1544,32 @@ const showStatusDetail = (effect: StatusEffect) => {
   .collapsible-section {
     margin-bottom: 12px;
     padding: 10px;
+  }
+
+  .attributes-section {
+    margin-bottom: 12px;
+    padding: 10px;
+  }
+
+  .attributes-grid {
+    gap: 4px;
+  }
+
+  .attribute-item {
+    padding: 5px;
+  }
+
+  .attr-name {
+    font-size: 0.65rem;
+  }
+
+  .attr-value {
+    font-size: 0.75rem;
+  }
+
+  .attr-quality {
+    font-size: 0.55rem;
+    padding: 1px 3px;
   }
 
   .status-details {

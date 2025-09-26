@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/utils/worldGeneration/gameWorldConfig.ts
 
+import type { WorldMapConfig } from '@/types/worldMap';
+
 // 枚举和接口定义
 export enum WorldScale {
   SMALL = 'small',
@@ -56,6 +58,9 @@ export interface CultivationWorldSettings {
   
   // 随机种子
   randomSeed: string;              // 世界生成种子
+  
+  // 地图配置
+  mapConfig?: WorldMapConfig;      // 地图生成配置
 }
 
 /**

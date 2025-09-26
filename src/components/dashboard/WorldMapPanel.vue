@@ -426,7 +426,7 @@ import { Target, Maximize2, Mountain, Building2, Home, Sparkles, Gem, Skull, Zap
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import type { WorldLocation } from '@/types/location';
-import type { CultivationContinent } from '@/types/worldMap';
+import type { CultivationContinent, WorldMapConfig } from '@/types/worldMap';
 
 // --- 类型定义 ---
 // Note: Local CultivationLocation interface is removed, using WorldLocation from types.
@@ -442,6 +442,7 @@ type CharacterSaveData = {
     大陆信息?: unknown[];
     势力信息?: unknown[];
     地点信息?: unknown[];
+    地图配置?: WorldMapConfig;
   };
   玩家角色状态?: {
     位置?: {
@@ -490,17 +491,16 @@ interface RawLocation {
 
 type MayHaveImportance = { importance?: unknown; 重要?: unknown; is_key?: unknown; isKey?: unknown };
 
-// 地图尺寸配置 - 优化大洲显示
+// 地图尺寸配置 - 支持动态配置
 const mapWidth = ref(3600);  // 坐标系宽度
 const mapHeight = ref(2400); // 坐标系高度，3:2
 
-// 缩放范围（默认更小显示一点，让“地图看起来更小”）
+// 地图配置 - 从世界信息中读取
+const mapConfig = ref<WorldMapConfig | null>(null);
+
+// 缩放范围（默认更小显示一点，让"地图看起来更小"）
 const minZoom = 0.1;
 const maxZoom = 4.0;
-
-// 取消拖拽范围限制：允许无限平移
-const getMaxPanX = () => Number.POSITIVE_INFINITY;
-const getMaxPanY = () => Number.POSITIVE_INFINITY;
 
 // 地图交互状态（默认缩小至 0.8）
 const zoomLevel = ref(0.8);
@@ -654,9 +654,32 @@ const handlePan = (event: MouseEvent) => {
   // 累计拖拽距离
   dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
 
-  // 不再限制拖拽范围，直接累加偏移
-  panX.value = panX.value + deltaX;
-  panY.value = panY.value + deltaY;
+  // 计算新的平移位置
+  const newPanX = panX.value + deltaX;
+  const newPanY = panY.value + deltaY;
+
+  // 计算平移边界限制
+  const containerRect = mapContainer.value?.getBoundingClientRect();
+  if (containerRect) {
+    // 计算地图在当前缩放下的实际尺寸
+    const scaledMapWidth = mapWidth.value * zoomLevel.value;
+    const scaledMapHeight = mapHeight.value * zoomLevel.value;
+    
+    // 计算允许的平移范围
+    // 当地图比容器小时，限制平移使地图不会完全移出视野
+    const minPanX = Math.min(0, containerRect.width - scaledMapWidth);
+    const maxPanX = Math.max(0, containerRect.width - scaledMapWidth);
+    const minPanY = Math.min(0, containerRect.height - scaledMapHeight);
+    const maxPanY = Math.max(0, containerRect.height - scaledMapHeight);
+    
+    // 应用边界限制
+    panX.value = Math.max(minPanX, Math.min(maxPanX, newPanX));
+    panY.value = Math.max(minPanY, Math.min(maxPanY, newPanY));
+  } else {
+    // 如果无法获取容器信息，则不限制平移
+    panX.value = newPanX;
+    panY.value = newPanY;
+  }
 
   lastPanPoint.value = { x: event.clientX, y: event.clientY };
 };
@@ -880,11 +903,18 @@ const getPopupPosition = (): Record<string, string> => {
   };
 };
 
-// GeoJSON坐标到虚拟坐标的转换 (基于实际数据范围) - 优化大洲显示
+// GeoJSON坐标到虚拟坐标的转换 - 支持动态配置
 const geoToVirtual = (lng: number, lat: number): { x: number; y: number } => {
-  // 使用与世界生成匹配的坐标系，但给大洲更多空间
-  const worldMinLng = 100.0, worldMaxLng = 130.0;  // 30度经度范围
-  const worldMinLat = 25.0, worldMaxLat = 45.0;    // 20度纬度范围
+  // 使用地图配置中的边界，如果没有配置则使用默认值
+  let worldMinLng = 100.0, worldMaxLng = 130.0;  // 30度经度范围
+  let worldMinLat = 25.0, worldMaxLat = 45.0;    // 20度纬度范围
+  
+  if (mapConfig.value) {
+    worldMinLng = mapConfig.value.minLng;
+    worldMaxLng = mapConfig.value.maxLng;
+    worldMinLat = mapConfig.value.minLat;
+    worldMaxLat = mapConfig.value.maxLat;
+  }
   
   // 裁剪输入坐标到世界边界
   const clampedLng = Math.max(worldMinLng, Math.min(worldMaxLng, lng));
@@ -1066,6 +1096,9 @@ const initializeMap = async () => {
     // 从全局变量获取玩家信息
     playerName.value = (globalVars['character.name'] as string) || '道友';
 
+    // 加载地图配置
+    await loadMapConfig(chatVars as TavernVariables);
+
     // 加载修仙世界数据
     // chatVars 类型为 Record<string, unknown>，满足 TavernVariables 的结构要求
     await loadCultivationWorldFromTavern(chatVars as TavernVariables);
@@ -1156,6 +1189,34 @@ const addTestData = () => {
 
   cultivationLocations.value = testLocations;
   console.log('[坤舆图志] ✅ 测试数据加载完成，共', cultivationLocations.value.length, '个地点');
+};
+
+// 加载地图配置
+const loadMapConfig = async (variables: TavernVariables) => {
+  try {
+    console.log('[地图配置] 开始加载地图配置...');
+    
+    const worldInfo = variables['character.saveData']?.世界信息;
+    const config = worldInfo?.地图配置;
+    
+    if (config) {
+      console.log('[地图配置] 找到地图配置:', config);
+      mapConfig.value = config;
+      
+      // 更新地图尺寸
+      if (config.width && config.height) {
+        mapWidth.value = config.width;
+        mapHeight.value = config.height;
+        console.log(`[地图配置] 地图尺寸已更新: ${config.width}x${config.height}`);
+      }
+    } else {
+      console.log('[地图配置] 未找到地图配置，使用默认值');
+      mapConfig.value = null;
+    }
+  } catch (error) {
+    console.error('[地图配置] 加载地图配置失败:', error);
+    mapConfig.value = null;
+  }
 };
 
 // 从酒馆变量加载GeoJSON格式的修仙世界数据 - 根据实际SaveData结构

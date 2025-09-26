@@ -93,7 +93,8 @@ export class CultivationWorldGenerator {
       characterBackground: this.characterBackground,
       worldBackground: this.userConfig?.worldBackground,
       worldEra: this.userConfig?.worldEra,
-      worldName: this.userConfig?.worldName
+      worldName: this.userConfig?.worldName,
+      mapConfig: this.userConfig?.mapConfig
     };
     
     // 使用增强提示词构建器（按原样返回提示词内容）
@@ -383,7 +384,8 @@ export class CultivationWorldGenerator {
           世界纪元: worldData.world_era || this.userConfig?.worldEra || '修仙纪元',
           特殊设定: worldData.special_settings || [],
           版本: '1.0'
-        } as WorldGenerationInfo
+        } as WorldGenerationInfo,
+        地图配置: this.userConfig?.mapConfig
       };
 
       console.log('🎯 [玩家出生地处理] 已禁用：地图生成阶段不处理玩家出生地');

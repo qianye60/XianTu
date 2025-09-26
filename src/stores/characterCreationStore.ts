@@ -119,7 +119,15 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     continentCount: Math.floor(Math.random() * 5) + 3, // 3-7 随机大陆数量
     hasImmortalEmpires: false,
     hasDemonicFactions: true,
-    hasAncientSects: true
+    hasAncientSects: true,
+    mapConfig: {
+      width: 3600,
+      height: 2400,
+      minLng: 100.0,
+      maxLng: 130.0,
+      minLat: 25.0,
+      maxLat: 45.0,
+    }
   });
 
   // --- GETTERS ---

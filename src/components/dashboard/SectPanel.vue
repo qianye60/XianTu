@@ -69,7 +69,7 @@
                   <div class="sect-meta">
                     <span class="sect-type">{{ sect.类型 }}</span>
                   </div>
-                  
+
                 </div>
                 <ChevronRight :size="16" class="arrow-icon" />
               </div>
@@ -94,7 +94,7 @@
                   <span class="level-badge" :class="`level-${selectedSect.等级}`">
                     {{ formatSectLevel(selectedSect.等级) }}
                   </span>
-                  
+
                 </div>
               </div>
             </div>
@@ -117,10 +117,14 @@
                     <span class="info-value">{{ selectedSect.等级 }}</span>
                   </div>
                   <div class="info-item">
-                    <span class="info-label">总部位置</span>
-                    <span class="info-value">{{ getLocationName(selectedSect) }}</span>
+                    <span class="info-label">所在大洲</span>
+                    <span class="info-value">{{ getContinentName(selectedSect) }}</span>
                   </div>
-                  
+                  <div class="info-item">
+                    <span class="info-label">主要资源</span>
+                    <span class="info-value">{{ getMainResources(selectedSect) }}</span>
+                  </div>
+
                 </div>
 
                 <!-- 宗门领导层 -->
@@ -202,8 +206,8 @@
                   <div class="realm-distribution" v-if="selectedSect.memberCount.byRealm">
                     <h6 class="distribution-title">境界分布</h6>
                     <div class="realm-stats">
-                      <div 
-                        v-for="(count, realm) in selectedSect.memberCount.byRealm" 
+                      <div
+                        v-for="(count, realm) in selectedSect.memberCount.byRealm"
                         :key="realm"
                         class="realm-item"
                         v-show="count > 0"
@@ -218,8 +222,8 @@
                   <div class="position-distribution" v-if="selectedSect.memberCount.byPosition">
                     <h6 class="distribution-title">职位分布</h6>
                     <div class="position-stats">
-                      <div 
-                        v-for="(count, position) in selectedSect.memberCount.byPosition" 
+                      <div
+                        v-for="(count, position) in selectedSect.memberCount.byPosition"
                         :key="position"
                         class="position-item"
                         v-show="count > 0"
@@ -381,7 +385,7 @@
 
                 <!-- 宗门任务 -->
                 <div class="sect-actions">
-                  <h6 class="actions-title">宗门事务</h6>
+                  <h6 class="actions-title">宗门势力</h6>
                   <div class="action-buttons">
                     <button class="sect-action-btn" @click="showSectMissions">
                       <Scroll :size="16" />
@@ -419,7 +423,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
-import type { WorldFaction, SectMemberInfo } from '@/types/game';
+import type { WorldFaction, SectMemberInfo, WorldInfo, SaveData } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
   Gift, Scroll, Coins, Book, Search, Loader2,
@@ -446,16 +450,16 @@ const sectSystemData = computed(() => {
     return { availableSects: [] };
   }
 
-  let availableSects: any[] = [];
+  let availableSects: WorldFaction[] = [];
 
   // 方案1：从世界信息.势力信息中获取宗门数据
-  const worldInfo = saveData.世界信息;
+  const worldInfo = saveData.世界信息 as WorldInfo | undefined;
   if (worldInfo?.势力信息) {
     console.log('[宗门系统] 发现世界信息.势力信息，数量:', worldInfo.势力信息.length);
-    console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: any) => f.类型));
+    console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: WorldFaction) => f.类型));
 
     // 筛选出宗门类型的势力
-    const sectFactions = worldInfo.势力信息.filter((faction: any) => {
+    const sectFactions = worldInfo.势力信息.filter((faction: WorldFaction) => {
       if (!faction.类型) return false;
 
       const type = faction.类型.toLowerCase();
@@ -476,18 +480,29 @@ const sectSystemData = computed(() => {
   }
 
   // 方案2：从宗门系统.availableSects中获取数据
-  const sectSystem = (saveData as any).宗门系统;
+  const sectSystem = (saveData as Partial<SaveData>)?.宗门系统;
   if (sectSystem?.availableSects && sectSystem.availableSects.length > 0) {
     console.log('[宗门系统] 发现宗门系统.availableSects，数量:', sectSystem.availableSects.length);
-    availableSects = [...availableSects, ...sectSystem.availableSects];
+    // 将SectInfo转换为WorldFaction
+    const sectsFromSystem = sectSystem.availableSects.map(s => ({
+      ...s,
+      名称: s.name,
+      类型: s.type,
+      等级: s.level,
+      描述: s.description,
+      特色: s.specialties,
+      与玩家关系: s.relationshipToPlayer,
+    })) as WorldFaction[];
+    availableSects = [...availableSects, ...sectsFromSystem];
   }
 
   // 方案3：检查是否有直接的宗门相关字段
   Object.keys(saveData).forEach(key => {
     const lowerKey = key.toLowerCase();
-    if ((lowerKey.includes('宗门') || lowerKey.includes('sect')) && Array.isArray((saveData as any)[key])) {
-      console.log('[宗门系统] 发现可能的宗门数据字段:', key, '数量:', (saveData as any)[key].length);
-      availableSects = [...availableSects, ...(saveData as any)[key]];
+    const potentialData = (saveData as Record<string, any>)[key];
+    if ((lowerKey.includes('宗门') || lowerKey.includes('sect')) && Array.isArray(potentialData)) {
+      console.log('[宗门系统] 发现可能的宗门数据字段:', key, '数量:', potentialData.length);
+      availableSects = [...availableSects, ...(potentialData as WorldFaction[])];
     }
   });
 
@@ -500,7 +515,7 @@ const sectSystemData = computed(() => {
   const validatedSects = validateAndFixSectDataList(uniqueSects);
 
   console.log('[宗门系统] 最终宗门数量:', validatedSects.length);
-  console.log('[宗门系统] 最终宗门列表:', validatedSects.map((s: any) => s.名称));
+  console.log('[宗门系统] 最终宗门列表:', validatedSects.map((s: WorldFaction) => s.名称));
 
   return { availableSects: validatedSects };
 });
@@ -538,45 +553,101 @@ const filteredSects = computed(() => {
   return filtered.sort((a, b) => rank(a.等级) - rank(b.等级));
 });
 
-// 获取位置名称
-const getLocationName = (sect: any): string => {
-  // 检查是否有直接的位置名称
-  if (sect.位置名称 && typeof sect.位置名称 === 'string') {
-    return sect.位置名称;
-  }
-
-  // 从宗门名称推断位置（基于参考数据）
-  const locationMap: Record<string, string> = {
-    '太素道宫': '太素山',
-    '问剑崖': '洗剑池',
-    '万魂幡': '幽魂岛',
-    '东方世家': '长春谷',
-    '四海通会': '通天城'
-  };
-
-  if (sect.名称 && locationMap[sect.名称]) {
-    return locationMap[sect.名称];
-  }
-
-  // 格式化坐标位置
-  return formatLocation(sect.位置);
-};
-
 // 格式化位置信息
-const formatLocation = (location: any): string => {
+const formatLocation = (location: unknown): string => {
   if (!location) return '未知';
   if (typeof location === 'string') return location;
-  if (typeof location === 'object') {
-    // 如果是坐标对象，返回简单的描述
-    if (location.longitude && location.latitude) {
-      return `经度: ${location.longitude}, 纬度: ${location.latitude}`;
+  if (typeof location === 'object' && location !== null) {
+    const loc = location as { 名称?: string; 大洲?: string; longitude?: number; latitude?: number };
+    // 如果有具体地名信息，优先显示
+    if (loc.名称 && loc.大洲) {
+      return `${loc.名称} (${loc.大洲})`;
+    }
+    if (loc.名称) {
+      return loc.名称;
+    }
+    if (loc.大洲) {
+      return `位于${loc.大洲}`;
+    }
+    // 如果只有坐标对象，不再显示具体坐标，而是显示一般位置描述
+    if (loc.longitude && loc.latitude) {
+      return '详细位置待探查';
     }
   }
   return '未知';
 };
 
+// 获取大洲名称
+const getContinentName = (sect: WorldFaction): string => {
+  // 优先使用大洲字段
+  if (sect.所在大洲) return sect.所在大洲;
+  
+  // 从世界信息中查找
+  const worldInfo = characterStore.activeSaveSlot?.存档数据?.世界信息 as WorldInfo | undefined;
+  const continents = worldInfo?.continents || worldInfo?.大陆信息;
+  if (continents) {
+    for (const continent of continents) {
+      if (sect.id && (continent.主要势力?.includes(sect.id) || continent.factions?.includes(sect.id))) {
+        return continent.名称 || continent.name || '未命名大洲';
+      }
+      if (continent.主要势力?.includes(sect.名称) || continent.factions?.includes(sect.名称)) {
+        return continent.名称 || continent.name || '未命名大洲';
+      }
+    }
+  }
+  
+  // 从世界信息的势力信息中查找
+  if (worldInfo?.势力信息) {
+    for (const faction of worldInfo.势力信息) {
+      if ((faction.id && sect.id && faction.id === sect.id) || (faction.名称 === sect.名称)) {
+        if (faction.所在大洲) {
+          return faction.所在大洲;
+        }
+      }
+    }
+  }
+  
+  // 如果都找不到，根据位置推测
+  if (sect.位置 && typeof sect.位置 === 'object' && 'longitude' in sect.位置 && 'latitude' in sect.位置) {
+    const lng = sect.位置.longitude;
+    const lat = sect.位置.latitude;
+    
+    // 简单的地理分区推测（可根据实际坐标范围调整）
+    if (lng < 110 && lat > 40) return '北境雪域';
+    if (lng < 110 && lat < 30) return '南疆荒漠'; 
+    if (lng > 120 && lat > 35) return '东海群岛';
+    if (lng > 120 && lat < 35) return '东南丛林';
+    return '中土大陆';
+  }
+  
+  return '未知大洲';
+};
+
+// 获取主要资源
+const getMainResources = (sect: WorldFaction): string => {
+  const sectAsAny = sect as any;
+  // 优先使用已有的资源信息
+  if (sectAsAny.主要资源 && Array.isArray(sectAsAny.主要资源)) {
+    return sectAsAny.主要资源.slice(0, 3).join('、');
+  }
+  if (sectAsAny.resources && Array.isArray(sectAsAny.resources)) {
+    return sectAsAny.resources.slice(0, 3).join('、');
+  }
+  
+  // 根据宗门类型推测资源
+  const type = sect.类型 || '';
+  if (type.includes('剑')) return '神铁、剑谱、磨剑石';
+  if (type.includes('丹')) return '灵药、丹炉、药圃';
+  if (type.includes('符') || type.includes('阵')) return '符纸、阵法、法器';
+  if (type.includes('魔') || type.includes('邪')) return '魔石、煞气、秘法';
+  if (type.includes('商')) return '灵石、珍宝、情报';
+  if (type.includes('世家')) return '传承、人脉、底蕴';
+  
+  return '灵石、功法、修炼资源';
+};
+
 // 获取宗门特色列表
-const getSectSpecialties = (sect: any): string[] => {
+const getSectSpecialties = (sect: WorldFaction): string[] => {
   const specialties: string[] = [];
 
   // 新格式：specialties数组
@@ -597,23 +668,18 @@ const getSectSpecialties = (sect: any): string[] => {
   return Array.from(new Set(specialties));
 };
 
-// 检查是否有领导层信息（已简化，现在只检查leadership字段）
-const hasLeadershipInfo = (sect: WorldFaction): boolean => {
-  return !!(sect.leadership);
-};
-
 // 格式化关系文本
-const getRelationshipText = (relationship: any): string => {
-  if (typeof relationship === 'object' && relationship !== null && relationship.name) {
-    return relationship.name;
+const getRelationshipText = (relationship: unknown): string => {
+  if (typeof relationship === 'object' && relationship !== null && 'name' in relationship) {
+    return String((relationship as { name: string }).name);
   }
-  return relationship || '中立';
+  return String(relationship || '中立');
 };
 
 // 格式化声望值
-const getReputationValue = (reputation: any): number => {
-  if (typeof reputation === 'object' && reputation !== null && typeof reputation.value === 'number') {
-    return reputation.value;
+const getReputationValue = (reputation: unknown): number => {
+  if (typeof reputation === 'object' && reputation !== null && 'value' in reputation) {
+    return Number((reputation as { value: number }).value);
   }
   return Number(reputation) || 0;
 };
@@ -757,7 +823,7 @@ const forceRefresh = () => {
 };
 
 onMounted(() => {
-  console.log('[宗门系统] 宗门事务面板已载入');
+  console.log('[宗门系统] 宗门势力面板已载入');
   console.log('[宗门系统] characterStore状态:', characterStore);
   console.log('[宗门系统] activeSaveSlot:', characterStore.activeSaveSlot);
   console.log('[宗门系统] 存档数据:', characterStore.activeSaveSlot?.存档数据);

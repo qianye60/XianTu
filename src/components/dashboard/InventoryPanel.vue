@@ -184,33 +184,6 @@
               </div>
             </div>
 
-            <!-- 快捷动作按钮 -->
-            <div class="item-quick-actions">
-              <button 
-                v-if="item.类型 === '装备'" 
-                @click.stop="addEquipActionToQueue(item)"
-                class="quick-action-btn equip-action"
-                title="添加装备动作到队列"
-              >
-                🔧
-              </button>
-              <button 
-                v-else-if="item.类型 === '功法'" 
-                @click.stop="addCultivateActionToQueue(item)"
-                class="quick-action-btn cultivate-action"
-                title="添加修炼动作到队列"
-              >
-                📖
-              </button>
-              <button 
-                v-else 
-                @click.stop="addUseActionToQueue(item)"
-                class="quick-action-btn use-action"
-                title="添加使用动作到队列"
-              >
-                ✨
-              </button>
-            </div>
           </div>
         </div>
 
@@ -439,7 +412,7 @@ import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
-import type { Item, Inventory, SaveData, CultivationTechniqueData } from '@/types/game';
+import type { Item, Inventory, SaveData } from '@/types/game';
 import { toast } from '@/utils/toast';
 import { getTavernHelper } from '@/utils/tavern';
 import { debug } from '@/utils/debug';
@@ -486,12 +459,25 @@ const tabs = computed(() => [
   { id: 'currency', label: '灵石', icon: Gem }
 ]);
 
-// 面板打开时，尝试迁移/修复一次存档，避免旧数据结构导致展示异常（如“角色物品”、“字符串null”等）
+// 面板打开时，尝试迁移/修复一次存档，避免旧数据结构导致展示异常（如"角色物品"、"字符串null"等）
 onMounted(async () => {
   try {
     const saveData = characterStore.activeSaveSlot?.存档数据 as SaveData;
     if (saveData) {
       const fixed = validateAndFixSaveData(saveData);
+
+      // 迁移修炼功法数据结构
+      if (fixed.修炼功法) {
+        // 确保新字段存在
+        if (typeof fixed.修炼功法.正在修炼 === 'undefined') {
+          // 如果有功法但没有修炼状态字段，根据是否有功法来判断
+          fixed.修炼功法.正在修炼 = !!fixed.修炼功法.功法;
+        }
+        if (typeof fixed.修炼功法.修炼进度 === 'undefined') {
+          fixed.修炼功法.修炼进度 = 0;
+        }
+      }
+
       // 简单判定是否有变化（避免无限写入）
       if (JSON.stringify(fixed) !== JSON.stringify(saveData)) {
         characterStore.activeSaveSlot!.存档数据 = fixed as SaveData;
@@ -515,9 +501,10 @@ const inventory = computed<Inventory>(() => {
   };
 });
 
-// 装备槽位
+// 装备槽位 - 修正位置：装备栏在存档数据根级别
 const equipmentSlots = computed(() => {
-  const equipment = characterStore.activeSaveSlot?.存档数据?.装备栏;
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+  const equipment = saveData?.装备栏;
   const slotNames = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6'];
 
   if (!equipment) {
@@ -529,12 +516,15 @@ const equipmentSlots = computed(() => {
     const equippedItem = equipment[key];
     let item: Item | null = null;
 
-    // 1) 完整对象（包含名称）
-    if (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem) {
+    // 处理字符串"null"的情况
+    if (equippedItem === "null" || equippedItem === null || equippedItem === undefined) {
+      item = null;
+    } else if (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem) {
+      // 1) 完整对象（包含名称）
       item = equippedItem as Item;
     } else {
       // 2) 只有物品ID或不完整对象：尝试从背包补全
-      const bag = characterStore.activeSaveSlot?.存档数据?.背包?.物品 || {};
+      const bag = saveData?.背包?.物品 || {};
       if (typeof equippedItem === 'string') {
         // 装备栏里存的是物品ID字符串
         const fromInv = bag[equippedItem];
@@ -577,26 +567,27 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
 
   try {
     // 检查存档数据是否存在
-    if (!characterStore.activeSaveSlot?.存档数据?.装备栏) {
+    const saveData = characterStore.activeSaveSlot?.存档数据;
+    if (!saveData?.装备栏) {
       toast.error('装备栏数据不存在');
       return;
     }
 
     // 检查背包是否存在
-    if (!characterStore.activeSaveSlot.存档数据.背包?.物品) {
+    if (!saveData.背包?.物品) {
       toast.error('背包数据不存在');
       return;
     }
 
-    // 将装备放回背包
-    const equipment = characterStore.activeSaveSlot.存档数据.装备栏;
-    const slotKey = slot.name as keyof typeof equipment;
-
-    // 将装备放回背包
-    characterStore.activeSaveSlot.存档数据.背包.物品[itemToUnequip.物品ID] = itemToUnequip;
-
     // 清空装备槽位
+    const equipment = saveData.装备栏;
+    const slotKey = slot.name as keyof typeof equipment;
     equipment[slotKey] = null;
+
+    // 清除物品的已装备标记
+    if (saveData.背包?.物品?.[itemToUnequip.物品ID]) {
+      saveData.背包.物品[itemToUnequip.物品ID].已装备 = false;
+    }
 
     // 保存数据
     await characterStore.commitToStorage();
@@ -609,7 +600,7 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
       type: 'unequip',
       itemName: itemToUnequip.名称,
       itemType: itemToUnequip.类型,
-      description: `卸下了《${itemToUnequip.名称}》装备，放回背包`
+      description: `卸下了《${itemToUnequip.名称}》装备`
     });
 
     toast.success(`已卸下《${itemToUnequip.名称}》`);
@@ -625,10 +616,33 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
 
 const itemList = computed<Item[]>(() => {
   const raw = inventory.value?.物品 || {};
-  // 仅保留有效物品：键不以下划线开头，值是对象且包含“名称/类型”字段
+  // 适配新的数据结构：支持最新的物品字段格式
   return Object.entries(raw)
     .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
-    .map(([, val]) => val as Item)
+    .map(([, val]) => {
+      const item = val as unknown as Record<string, unknown>;
+      // 支持新数据结构的字段映射
+      const baseInfo = (item as any)?.基本信息 || {};
+      const equipInfo = (item as any)?.装备信息 || {};
+      const consumableInfo = (item as any)?.消耗品信息 || {};
+      
+      return {
+        物品ID: item.物品ID || baseInfo?.物品ID || '',
+        名称: item.物品名称 || item.名称 || baseInfo?.物品名称 || '',
+        类型: item.物品类型 || item.类型 || baseInfo?.物品类型 || '',
+        品质: item.稀有度 ? { quality: item.稀有度 } : (item.品质 || baseInfo?.物品品质 || { quality: '普通' }),
+        描述: item.物品描述 || item.描述 || baseInfo?.物品描述 || '',
+        数量: item.物品数量 || item.数量 || baseInfo?.堆叠数量 || 1,
+        // 装备信息
+        装备部位: item.装备部位 || equipInfo?.装备类型 || '',
+        耐久度: item.耐久度 || equipInfo?.耐久度 || null,
+        装备增幅: item.装备增幅 || equipInfo?.属性加成 || null,
+        特殊效果: item.特殊效果 || equipInfo?.特殊效果 || null,
+        // 消耗品信息
+        使用效果: item.使用效果 || consumableInfo?.使用效果 || '',
+        冷却时间: item.冷却时间 || consumableInfo?.冷却时间 || 0
+      } as Item;
+    })
     .filter((item: Item) => typeof item.名称 === 'string' && typeof item.类型 === 'string');
 });
 
@@ -655,7 +669,7 @@ const filteredItems = computed(() => {
   items = items.map(item => {
     // 标准化类型
     const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他';
-    
+
     // 标准化品质字段
     let normalizedQuality = item.品质;
     if (!normalizedQuality || typeof normalizedQuality !== 'object') {
@@ -840,7 +854,7 @@ const syncToTavernVariables = async () => {
     }
 
     // 验证和修复数据
-    const cleanedSaveData = validateAndFixSaveData(saveData);
+    validateAndFixSaveData(saveData);
 
     // 这些数据现在都统一保存在 character.saveData 中，不需要单独同步
     // 数据已通过 characterStore.commitToStorage() 统一保存
@@ -848,207 +862,6 @@ const syncToTavernVariables = async () => {
     debug.log('背包面板', '数据已同步到酒馆变量');
   } catch (error) {
     debug.error('背包面板', '同步酒馆变量失败', error);
-  }
-};
-
-// 功法修炼功能
-const cultivateItem = async (item: Item, force = false) => {
-  if (!item || item.类型 !== '功法') {
-    toast.error('只能修炼功法类物品');
-    return;
-  }
-
-  debug.log('背包面板', '修炼功法', item.名称);
-
-  try {
-    // 检查存档数据是否存在
-    if (!characterStore.activeSaveSlot?.存档数据) {
-      toast.error('存档数据不存在，无法修炼功法');
-      return;
-    }
-
-    // 确保修炼功法数据结构存在（若缺失则自动初始化）
-    if (!characterStore.activeSaveSlot.存档数据.修炼功法) {
-      characterStore.activeSaveSlot.存档数据.修炼功法 = {
-        功法: null,
-        熟练度: 0,
-        已解锁技能: [],
-        修炼时间: 0,
-        突破次数: 0
-      } as CultivationTechniqueData;
-    }
-
-    // 将功法添加到修炼功法槽位中
-    const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法 as CultivationTechniqueData;
-
-    // 检查是否已经在修炼其他功法
-    if (!force && skillSlots.功法 && skillSlots.功法.物品ID !== item.物品ID) {
-      const currentName = skillSlots.功法.名称;
-      confirmTitle.value = '切换功法';
-      confirmMessage.value = `当前正在修炼《${currentName}》，确定要切换到《${item.名称}》吗？`;
-      confirmCallback.value = async () => {
-        const previousSkill = skillSlots.功法!;
-        if (previousSkill.物品ID && characterStore.activeSaveSlot!.存档数据!.背包?.物品) {
-          characterStore.activeSaveSlot!.存档数据!.背包!.物品![previousSkill.物品ID] = {
-            物品ID: previousSkill.物品ID,
-            名称: previousSkill.名称,
-            类型: previousSkill.类型,
-            品质: previousSkill.品质,
-            描述: previousSkill.描述,
-            功法效果: previousSkill.功法效果 || {},
-            功法技能: previousSkill.功法技能 || {},
-            数量: 1
-          };
-          debug.log('背包面板', '之前的功法已放回背包', previousSkill.名称);
-        }
-        await cultivateItem(item, true);
-      };
-      showCustomConfirm.value = true;
-      return;
-    }
-
-    // 规范化品质：缺失/非法则给出安全默认；支持文本品级
-    const normalizeQualityObject = (q: unknown): { quality: '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神', grade: number } => {
-      const qualityMap: Record<string, '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神'> = {
-        '凡品': '凡', '凡阶': '凡', '凡': '凡',
-        '黄品': '黄', '黄阶': '黄', '黄': '黄',
-        '玄品': '玄', '玄阶': '玄', '玄': '玄',
-        '地品': '地', '地阶': '地', '地': '地',
-        '天品': '天', '天阶': '天', '天': '天',
-        '仙品': '仙', '仙阶': '仙', '仙': '仙',
-        '神品': '神', '神阶': '神', '神': '神'
-      };
-      const gradeTextToNumber: Record<string, number> = {
-        '残缺': 0, '下品': 2, '中品': 5, '上品': 8, '极品': 10
-      };
-      let quality: '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神' = '凡';
-      let grade = 1;
-      if (q && typeof q === 'object') {
-        const qObj = q as Record<string, unknown>;
-        const rawQ = String(qObj.quality ?? qObj.品质 ?? '').trim();
-        quality = qualityMap[rawQ] || quality;
-        const rawG = (qObj.grade ?? qObj.品级 ?? qObj.等级);
-        if (typeof rawG === 'number' && !Number.isNaN(rawG)) {
-          grade = Math.min(10, Math.max(0, Math.round(rawG)));
-          // 默认不要落在0（残缺）除非确实传入0
-          if (rawG === undefined || rawG === null) grade = 1;
-        } else if (typeof rawG === 'string' && rawG.trim()) {
-          grade = gradeTextToNumber[rawG.trim()] ?? 1;
-        }
-      }
-      return { quality, grade };
-    };
-
-    const computeDefaultSpeed = (grade: number): number => {
-      if (grade >= 10) return 0.25;
-      if (grade >= 7) return 0.2;
-      if (grade >= 4) return 0.15;
-      if (grade >= 1) return 0.1;
-      return 0.05; // 残缺
-    };
-
-    const skillData = {
-      物品ID: item.物品ID || '',
-      名称: item.名称,
-      类型: '功法',
-      品质: normalizeQualityObject(item.品质),
-      描述: item.描述,
-      功法效果: (() => {
-        const eff = (item as Item & { 功法效果?: Record<string, unknown> }).功法效果;
-        if (eff && typeof eff === 'object' && Object.keys(eff).length > 0) return eff;
-        // 若无功法效果，按品级给一个默认修炼速度加成
-        return { 修炼速度加成: computeDefaultSpeed(normalizeQualityObject(item.品质).grade) };
-      })(),
-      功法技能: (item as Item & { 功法技能?: Record<string, unknown> }).功法技能 || {},
-      修炼进度: skillSlots.功法?.修炼进度 || 0,
-      数量: 1
-    } as Item;
-    skillSlots.功法 = skillData;
-
-    // 轻提示：若功法缺少效果字段，提醒后续补全
-    try {
-      const effects = (item as Item & { 功法效果?: Record<string, unknown> }).功法效果;
-      if (!effects || (typeof effects === 'object' && Object.keys(effects).length === 0)) {
-        toast.info('提示：该功法暂未提供“功法效果”，可通过后续事件/AI生成补全');
-      }
-    } catch {}
-
-    // 初始化修炼数据
-    if (typeof skillSlots.熟练度 !== 'number') skillSlots.熟练度 = 0;
-    if (!Array.isArray(skillSlots.已解锁技能)) skillSlots.已解锁技能 = [];
-    if (typeof skillSlots.修炼时间 !== 'number') skillSlots.修炼时间 = 0;
-    if (typeof skillSlots.突破次数 !== 'number') skillSlots.突破次数 = 0;
-
-    // 从背包移除已装备的功法
-    await removeItemFromInventory(item);
-
-    // 保存数据到存储
-    await characterStore.commitToStorage();
-
-    // 同步到酒馆变量
-    await syncToTavernVariables();
-
-    // 添加到操作队列
-    actionQueue.addAction({
-      type: 'cultivate',
-      itemName: item.名称,
-      itemType: item.类型,
-      description: `开始修炼《${item.名称}》功法，提升修为和技能熟练度`
-    });
-
-    debug.log('背包面板', `功法修炼成功，已同步到酒馆变量: ${item.名称}`);
-    toast.success(`开始修炼《${item.名称}》`);
-
-    // 关闭弹窗
-    if (isMobile.value) {
-      showItemModal.value = false;
-    }
-    selectedItem.value = null;
-
-  } catch (error) {
-    debug.error('背包面板', '修炼失败', error);
-    toast.error('修炼功法失败');
-  }
-};
-
-// 停止修炼
-const stopCultivation = async (item: Item) => {
-  if (!characterStore.activeSaveSlot?.存档数据?.修炼功法?.功法) {
-    toast.error('当前没有正在修炼的功法');
-    return;
-  }
-
-  const techniqueToStop = characterStore.activeSaveSlot.存档数据.修炼功法.功法;
-  if (techniqueToStop.物品ID !== item.物品ID) {
-    toast.error('操作的功法与当前修炼的功法不符');
-    return;
-  }
-
-  debug.log('背包面板', '停止修炼', techniqueToStop.名称);
-
-  try {
-    // 将功法移回背包
-    if (!characterStore.activeSaveSlot.存档数据.背包) {
-      characterStore.activeSaveSlot.存档数据.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
-    }
-    if (!characterStore.activeSaveSlot.存档数据.背包.物品) {
-      characterStore.activeSaveSlot.存档数据.背包.物品 = {};
-    }
-    characterStore.activeSaveSlot.存档数据.背包.物品[techniqueToStop.物品ID] = techniqueToStop;
-
-    // 清空修炼槽位
-    characterStore.activeSaveSlot.存档数据.修炼功法.功法 = null;
-
-    // 保存数据
-    await characterStore.commitToStorage();
-    await syncToTavernVariables();
-    
-    toast.success(`已停止修炼《${techniqueToStop.名称}》`);
-    debug.log('背包面板', '停止修炼成功', techniqueToStop.名称);
-
-  } catch (error) {
-    debug.error('背包面板', '停止修炼失败', error);
-    toast.error('停止修炼失败');
   }
 };
 
@@ -1096,7 +909,7 @@ const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
     // 使用增强版动作队列管理器
     await enhancedActionQueue.useItem(item, quantity);
-    
+
     // 更新UI状态
     if (isMobile.value) {
       showItemModal.value = false;
@@ -1140,7 +953,7 @@ const discardItem = async (item: Item) => {
   if (item.数量 > 1) {
     const itemQuality = item.品质?.quality || '凡';
     const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`;
-    
+
     quantityModalItem.value = item;
     quantityModalTitle.value = '丢弃物品';
     quantityModalActionLabel.value = '丢弃数量';
@@ -1176,7 +989,7 @@ const discardItemWithQuantity = async (item: Item, quantity: number) => {
       await updateItemInInventory(updatedItem);
       toast.success(`已丢弃 ${quantity} 个《${item.名称}》`);
     }
-    
+
     if (isMobile.value) {
       showItemModal.value = false;
     }
@@ -1186,106 +999,10 @@ const discardItemWithQuantity = async (item: Item, quantity: number) => {
     toast.error('丢弃物品失败');
   }
 };
-const equipItem = async (item: Item) => {
-  // 1. 类型校验
-  if (item.类型 !== '装备') {
-    toast.error(`《${item.名称}》是${item.类型}，不是装备，无法穿戴。`);
-    return;
-  }
-
-  debug.log('背包面板', '装备装备', item.名称);
-
-  try {
-    // 检查存档数据
-    const saveData = characterStore.activeSaveSlot?.存档数据;
-    if (!saveData) {
-      toast.error('存档数据不存在，无法装备');
-      return;
-    }
-    if (!saveData.装备栏) {
-      saveData.装备栏 = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
-      toast.warning('装备栏未初始化，已自动创建');
-    }
-    if (!saveData.背包 || !saveData.背包.物品) {
-      toast.error('背包数据异常');
-      return;
-    }
-
-    const equipmentSlotsData = saveData.装备栏;
-
-    // 2. 唯一性检查 (使用 isEquipped 函数)
-    if (isEquipped(item)) {
-      toast.info(`《${item.名称}》已经装备在身上了。`);
-      return;
-    }
-
-    // 查找空槽位
-    let emptySlotKey: keyof typeof equipmentSlotsData | null = null;
-    for (let i = 1; i <= 6; i++) {
-      const slotKey = `装备${i}` as keyof typeof equipmentSlotsData;
-      if (!equipmentSlotsData[slotKey]) {
-        emptySlotKey = slotKey;
-        break;
-      }
-    }
-
-    if (emptySlotKey) {
-      // 有空槽位，直接装备
-      equipmentSlotsData[emptySlotKey] = item;
-      toast.success(`《${item.名称}》已装备到${emptySlotKey}`);
-    } else {
-      // 装备栏已满，提示替换第一个槽位的装备
-      const firstSlotKey: keyof typeof equipmentSlotsData = '装备1';
-      const replacedItem = equipmentSlotsData[firstSlotKey];
-
-      if (replacedItem && typeof replacedItem === 'object' && '物品ID' in replacedItem) {
-        confirmTitle.value = '替换装备';
-        confirmMessage.value = `装备栏已满，是否用《${item.名称}》替换掉《${replacedItem.名称}》？`;
-        confirmCallback.value = async () => {
-          // 将被替换的装备放回背包
-          saveData.背包.物品[replacedItem.物品ID] = replacedItem;
-          
-          // 装备新物品
-          equipmentSlotsData[firstSlotKey] = item;
-          toast.success(`《${item.名称}》已替换装备到${firstSlotKey}`);
-          
-          // 从背包移除新装备
-          await removeItemFromInventory(item);
-          await characterStore.commitToStorage();
-          await syncToTavernVariables();
-          actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，替换了《${replacedItem.名称}》` });
-          debug.log('背包面板', '替换装备成功');
-          if (isMobile.value) showItemModal.value = false;
-          selectedItem.value = null;
-        };
-        showCustomConfirm.value = true;
-        return;
-      } else {
-        // 理论上不应该发生，但作为保险
-        equipmentSlotsData[firstSlotKey] = item;
-        toast.success(`《${item.名称}》已装备到${firstSlotKey}`);
-      }
-    }
-
-    // 从背包移除已装备物品
-    await removeItemFromInventory(item);
-    await characterStore.commitToStorage();
-    await syncToTavernVariables();
-    actionQueue.addAction({ type: 'equip', itemName: item.名称, itemType: item.类型, description: `装备了《${item.名称}》法宝，获得其增幅效果` });
-    debug.log('背包面板', '装备成功');
-    if (isMobile.value) showItemModal.value = false;
-    selectedItem.value = null;
-
-  } catch (error) {
-    debug.error('背包面板', '装备失败', error);
-    toast.error('装备失败');
-  }
-};
-
 const toggleEquip = async (item: Item) => {
   if (!item || equipBusy.value) return;
   equipBusy.value = true;
-  
+
   try {
     if (isEquipped(item)) {
       // 卸下装备
@@ -1302,25 +1019,34 @@ const toggleEquip = async (item: Item) => {
   }
 };
 
-// 检查物品是否已装备
+// 检查物品是否已装备 - 使用物品的已装备字段
 const isEquipped = (item: Item | null): boolean => {
   if (!item) return false;
-  const id = item.物品ID;
-  if (!id || typeof id !== 'string') return false;
-  return equipmentSlots.value.some(slot => {
-    const sid = slot.item?.物品ID;
-    return !!sid && sid === id;
-  });
+  
+  // 直接检查物品的已装备字段
+  return item.已装备 === true;
 };
 
-// 检查功法是否正在修炼
+// 检查功法是否正在修炼 - 改进版本，支持修炼状态判断
 const isCultivating = (item: Item | null): boolean => {
   if (!item) return false;
   const id = item.物品ID;
   if (!id || typeof id !== 'string') return false;
-  const cultivatingSkill = characterStore.activeSaveSlot?.存档数据?.修炼功法?.功法;
-  const cid = cultivatingSkill?.物品ID;
-  return !!cid && cid === id;
+
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+  const cultivationData = saveData?.修炼功法;
+
+  if (!cultivationData) return false;
+
+  // 检查是否有正在修炼的功法，且功法ID匹配，且修炼状态为true
+  const cultivatingSkill = cultivationData.功法;
+  const isCurrentlyPracticing = cultivationData.正在修炼 === true;
+
+  if (!cultivatingSkill || !isCurrentlyPracticing) return false;
+
+  // 匹配物品ID
+  const cultivatingId = cultivatingSkill.物品ID;
+  return !!cultivatingId && cultivatingId === id;
 };
 
 const getItemQualityClass = (item: Item | null, type: 'border' | 'text' | 'badge' | 'card' = 'border'): string => {
@@ -1448,18 +1174,6 @@ onMounted(async () => {
   }
 });
 
-// 添加快捷动作到队列的方法
-const addEquipActionToQueue = (item: Item) => {
-  ActionQueueManager.addEquipAction(item);
-};
-
-const addUseActionToQueue = async (item: Item) => {
-  await ActionQueueManager.addItemUseAction(item, 1);
-};
-
-const addCultivateActionToQueue = (item: Item) => {
-  ActionQueueManager.addPracticeAction(item, '30天');
-};
 </script>
 
 <style scoped>
@@ -1962,52 +1676,6 @@ const addCultivateActionToQueue = (item: Item) => {
   background: var(--color-surface-light);
 }
 
-/* 快捷动作按钮 */
-.item-quick-actions {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.item-card:hover .item-quick-actions {
-  opacity: 1;
-}
-
-.quick-action-btn {
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-}
-
-.quick-action-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.quick-action-btn.equip-action:hover {
-  background: #10b981;
-}
-
-.quick-action-btn.use-action:hover {
-  background: #3b82f6;
-}
-
-.quick-action-btn.cultivate-action:hover {
-  background: #8b5cf6;
-}
 
 /* 顶部区域：图标和品质 */
 .item-top-section {
@@ -2083,7 +1751,6 @@ const addCultivateActionToQueue = (item: Item) => {
 .item-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text);
   line-height: 1.3;
   overflow: hidden;
   display: -webkit-box;
@@ -2626,7 +2293,7 @@ const addCultivateActionToQueue = (item: Item) => {
   background: var(--color-success-hover);
 }
 
-/* 品质样式系统 - 完整的等阶颜色系统 */
+/* 品质样式系统 - 内联文字样式，不填充整行 */
 /* 神阶 - 深红色（最高品质） */
 .text-quality-神, .text-quality-神阶 {
   color: white !important;
@@ -2634,6 +2301,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #dc2626 !important;
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 仙阶 - 粉紫色 */
@@ -2643,6 +2314,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #ec4899 !important;
   box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 天阶 - 蓝色 */
@@ -2652,6 +2327,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #3b82f6 !important;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 地阶 - 橙色 */
@@ -2661,6 +2340,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #f59e0b !important;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 玄阶 - 紫色 */
@@ -2670,6 +2353,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #8b5cf6 !important;
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 黄阶 - 金黄色 */
@@ -2679,6 +2366,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #eab308 !important;
   box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 凡阶 - 灰色（最低品质） */
@@ -2688,6 +2379,10 @@ const addCultivateActionToQueue = (item: Item) => {
   border: 1px solid #6b7280 !important;
   box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3) !important;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  white-space: nowrap !important;
 }
 
 /* 边框样式也需要修复 */
@@ -2724,7 +2419,10 @@ const addCultivateActionToQueue = (item: Item) => {
   height: 100%;
   overflow-y: auto;
 }
-
+.item-grade{
+  border-radius: 5px;
+  border: 2px solid #9ca3af;
+}
 .equipment-content {
   padding: 20px;
 }
@@ -2818,6 +2516,8 @@ const addCultivateActionToQueue = (item: Item) => {
   color: var(--color-text-secondary);
   padding: 4px 8px;
   border-radius: 6px;
+  background: var(--color-surface-light);
+  display: inline-block;
 }
 
 .slot-actions {
@@ -2825,21 +2525,49 @@ const addCultivateActionToQueue = (item: Item) => {
   gap: 4px;
 }
 
+/* 卸下按钮样式优化 */
 .unequip-btn {
-  padding: 6px 10px;
-  background: var(--color-danger);
-  border: 1px solid var(--color-danger);
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: 1px solid #ef4444;
   border-radius: 8px;
   color: white;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.unequip-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
 }
 
 .unequip-btn:hover {
-  background: var(--color-danger-hover);
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+.unequip-btn:hover::before {
+  left: 100%;
+}
+
+.unequip-btn:active {
+  transform: translateY(0);
 }
 
 /* 详情区域的卸下按钮保持与其他 action-btn 一致且不上浮 */
@@ -2856,68 +2584,96 @@ const addCultivateActionToQueue = (item: Item) => {
   box-shadow: none;
 }
 
-/* 装备物品显示 */
+/* 装备物品显示 - 优化样式 */
 .equipment-item {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: flex-start;
+  background: var(--color-background);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.equipment-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
+  transform: translateY(-2px);
 }
 
 .item-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
-  border: 2px solid;
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  border: 3px solid;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-surface-light);
   flex-shrink: 0;
+  font-weight: bold;
+  transition: all 0.3s ease;
 }
 
 .item-type-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: bold;
   text-align: center;
   color: var(--color-text);
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .item-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .item-name {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0;
   line-height: 1.3;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
+  color: var(--color-text);
 }
 
 .item-quality {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--color-text-secondary);
-  margin-bottom: 6px;
+  border-radius: 6px;
+  margin-bottom: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  width: fit-content;
 }
 
 .item-description {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--color-text-secondary);
-  line-height: 1.4;
-  margin-bottom: 8px;
+  line-height: 1.5;
+  margin-bottom: 0;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
+  background: var(--color-surface-light);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--color-primary);
 }
 
 .item-effects {

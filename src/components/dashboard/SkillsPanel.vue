@@ -304,7 +304,9 @@ const initializeCultivationSkills = async (saveData: { 修炼功法?: unknown })
       熟练度: 0,
       已解锁技能: [],
       修炼时间: 0,
-      突破次数: 0
+      突破次数: 0,
+      正在修炼: false,
+      修炼进度: 0
     };
     try {
       // 异步保存，不阻塞界面
@@ -325,7 +327,9 @@ const cultivationSkills = computed(() => {
       熟练度: 0,
       已解锁技能: [],
       修炼时间: 0,
-      突破次数: 0
+      突破次数: 0,
+      正在修炼: false,
+      修炼进度: 0
     };
   }
 
@@ -340,7 +344,9 @@ const cultivationSkills = computed(() => {
     熟练度: 0,
     已解锁技能: [],
     修炼时间: 0,
-    突破次数: 0
+    突破次数: 0,
+    正在修炼: false,
+    修炼进度: 0
   };
 });
 
@@ -601,7 +607,9 @@ const equipTechnique = async () => {
         熟练度: 0,
         已解锁技能: [],
         修炼时间: 0,
-        突破次数: 0
+        突破次数: 0,
+        正在修炼: false,
+        修炼进度: 0
       };
     }
 

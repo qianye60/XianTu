@@ -168,33 +168,53 @@
 
               <!-- 人物记忆 -->
               <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
-                <h5 class="section-title">人物记忆</h5>
-                <div class="memory-list scrollable">
+                <div class="memory-header">
+                  <h5 class="section-title">人物记忆</h5>
+                  <div class="memory-count" v-if="totalMemoryPages > 1">
+                    {{ selectedPerson.人物记忆.length }} 条记忆
+                  </div>
+                </div>
+                
+                <div class="memory-list">
                   <div 
-                    v-for="(memory, index) in selectedPerson.人物记忆" 
+                    v-for="(memory, index) in paginatedMemory" 
                     :key="index" 
                     class="memory-item"
                   >
-                    <div class="memory-text">{{ memory }}</div>
+                    <div class="memory-content">
+                      <div class="memory-time">{{ getMemoryTime(memory) }}</div>
+                      <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+                    </div>
                     <div class="memory-actions">
-                      <button class="memory-btn edit" @click="editMemory(index)">编辑</button>
-                      <button class="memory-btn delete" @click="deleteMemory(index)">删除</button>
+                      <button class="memory-btn edit" @click="editMemory((currentMemoryPage - 1) * memoryPageSize + index)">编辑</button>
+                      <button class="memory-btn delete" @click="deleteMemory((currentMemoryPage - 1) * memoryPageSize + index)">删除</button>
                     </div>
                   </div>
                 </div>
-              </div>
-              
-              <!-- 互动统计 -->
-              <div class="detail-section">
-                <h5 class="section-title">互动统计</h5>
-                <div class="interaction-stats">
-                  <div class="stat-item">
-                    <span class="stat-label">最后互动</span>
-                    <span class="stat-value">{{ formatLastInteraction(selectedPerson.最后互动时间) }}</span>
+                
+                <!-- 分页控件 -->
+                <div class="memory-pagination" v-if="totalMemoryPages > 1">
+                  <button 
+                    class="pagination-btn"
+                    :disabled="currentMemoryPage <= 1"
+                    @click="goToMemoryPage(currentMemoryPage - 1)"
+                  >
+                    上一页
+                  </button>
+                  
+                  <div class="pagination-info">
+                    {{ currentMemoryPage }} / {{ totalMemoryPages }}
                   </div>
+                  
+                  <button 
+                    class="pagination-btn"
+                    :disabled="currentMemoryPage >= totalMemoryPages"
+                    @click="goToMemoryPage(currentMemoryPage + 1)"
+                  >
+                    下一页
+                  </button>
                 </div>
               </div>
-
               <!-- NPC背包物品 -->
               <div class="detail-section">
                 <h5 class="section-title">随身物品</h5>
@@ -205,7 +225,7 @@
                   </div>
                   <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
                     <div
-                      v-for="(item, itemId) in (selectedPerson.背包?.物品 || {})"
+                      v-for="(item, itemId) in selectedPerson.背包.物品"
                       :key="itemId"
                       class="npc-item-card"
                       :class="getItemQualityClass(item.品质?.quality)"
@@ -215,9 +235,9 @@
                         <span class="item-type">{{ item.类型 || '其他' }}</span>
                       </div>
                       <div class="item-quality" v-if="item.品质">
-                        <span class="quality-text">{{ item.品质.quality || '未知' }}品{{ getGradeText(item.品质.grade) }}</span>
+                        <span class="quality-text">{{ item.品质?.quality || '未知' }}{{ item.品质?.grade ? getGradeText(item.品质.grade) : '' }}</span>
                       </div>
-                      <div class="item-quantity" v-if="item.数量 && item.数量 > 1">
+                      <div class="item-quantity" v-if="item.数量 > 1">
                         <span>x{{ item.数量 }}</span>
                       </div>
                       <div class="item-description" v-if="item.描述">
@@ -275,10 +295,10 @@
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { NpcProfile } from '@/types/game';
-import { 
-  Users2, User, Brain, BarChart3, Tag, Search, 
-  RefreshCw, Loader2, ChevronRight, Info, Package, ArrowRightLeft
+import type { NpcProfile, Item, NpcMemoryItem } from '@/types/game';
+import {
+  Users2, Search,
+  Loader2, ChevronRight, Info, Package, ArrowRightLeft
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 
@@ -287,35 +307,67 @@ const actionQueue = useActionQueueStore();
 const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
-const activeFilter = ref('all');
+
+// 记忆分页相关
+const memoryPageSize = ref(5); // 每页显示的记忆数量
+const currentMemoryPage = ref(1); // 当前页码
+
+// 计算分页后的记忆
+const paginatedMemory = computed(() => {
+  if (!selectedPerson.value?.人物记忆?.length) return [];
+  
+  const memories = selectedPerson.value.人物记忆;
+  const startIndex = (currentMemoryPage.value - 1) * memoryPageSize.value;
+  const endIndex = startIndex + memoryPageSize.value;
+  
+  return memories.slice(startIndex, endIndex);
+});
+
+// 计算总页数
+const totalMemoryPages = computed(() => {
+  if (!selectedPerson.value?.人物记忆?.length) return 0;
+  return Math.ceil(selectedPerson.value.人物记忆.length / memoryPageSize.value);
+});
+
+// 切换记忆页面
+const goToMemoryPage = (page: number) => {
+  if (page >= 1 && page <= totalMemoryPages.value) {
+    currentMemoryPage.value = page;
+  }
+};
+
+// 重置分页状态当选择新人物时
+const resetMemoryPagination = () => {
+  currentMemoryPage.value = 1;
+};
+
+// 获取记忆时间，兼容新旧格式
+const getMemoryTime = (memory: any): string => {
+  if (typeof memory === 'string') {
+    return '未知时间';
+  } else if (memory && typeof memory === 'object') {
+    return memory.时间 || '未知时间';
+  }
+  return '未知时间';
+};
+
+// 获取记忆事件，兼容新旧格式
+const getMemoryEvent = (memory: any): string => {
+  if (typeof memory === 'string') {
+    return memory;
+  } else if (memory && typeof memory === 'object') {
+    return memory.事件 || '';
+  }
+  return '';
+};
 
 // 格式化灵根显示
-const formatSpiritRoot = (spiritRoot: any): string => {
+const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']): string => {
   if (!spiritRoot) return '未知';
-  
-  // 如果是字符串，直接返回
-  if (typeof spiritRoot === 'string') {
-    return spiritRoot;
-  }
-  
-  // 如果是对象，解析其内容
+  if (typeof spiritRoot === 'string') return spiritRoot;
   if (typeof spiritRoot === 'object') {
-    const name = spiritRoot.名称 || spiritRoot.name || '';
-    const grade = spiritRoot.品级 || spiritRoot.grade || '';
-    const quality = spiritRoot.品质 || spiritRoot.quality || '';
-    
-    let result = name;
-    
-    // 添加品质或品级信息，优先显示品级
-    if (grade) {
-      result = `${name}(${grade})`;
-    } else if (quality) {
-      result = `${name}(${quality})`;
-    }
-    
-    return result || '未知';
+    return `${spiritRoot.名称}(${spiritRoot.品质})`;
   }
-  
   return '未知';
 };
 
@@ -323,10 +375,8 @@ const relationships = computed(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系) return [];
   // 仅保留有效NPC：键不以下划线开头，值是对象且包含角色基础信息
-  return Object.entries(saveData.人物关系)
-    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
-    .map(([, val]) => val as NpcProfile)
-    .filter(person => (person as any)?.角色基础信息);
+  return Object.values(saveData.人物关系)
+    .filter(val => val && typeof val === 'object' && val.角色基础信息);
 });
 
 // 过滤后的关系列表（只保留搜索功能）
@@ -363,28 +413,16 @@ const getIntimacyClass = (intimacy: number | undefined): string => {
   return `intimacy-${getIntimacyLevel(intimacy)}`;
 };
 
-const formatLastInteraction = (timeStr: string | null | undefined): string => {
-  if (!timeStr) return '从未';
-  try {
-    const date = new Date(timeStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return '今天';
-    if (diffDays === 1) return '昨天';
-    if (diffDays < 7) return `${diffDays}天前`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`;
-    return `${Math.floor(diffDays / 30)}个月前`;
-  } catch {
-    return '未知';
-  }
-};
-
 const selectPerson = (person: NpcProfile) => {
+  const isNewSelection = selectedPerson.value?.角色基础信息.名字 !== person.角色基础信息.名字;
   selectedPerson.value = selectedPerson.value?.角色基础信息.名字 === person.角色基础信息.名字 
     ? null 
     : person;
+  
+  // 如果选择了新的人物，重置记忆分页
+  if (isNewSelection && selectedPerson.value) {
+    resetMemoryPagination();
+  }
 };
 
 onMounted(async () => {
@@ -405,13 +443,9 @@ onMounted(async () => {
 });
 // -- 记忆编辑与删除 --
 const findRelationshipKeyByName = (name: string): string | null => {
-  const saveData = characterStore.activeSaveSlot?.存档数据 as any;
+  const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系) return null;
-  for (const [key, val] of Object.entries(saveData.人物关系)) {
-    const npc = val as any;
-    if (npc?.角色基础信息?.名字 === name) return key;
-  }
-  return null;
+  return Object.keys(saveData.人物关系).find(key => saveData.人物关系[key]?.角色基础信息?.名字 === name) || null;
 };
 
 const editMemory = async (index: number) => {
@@ -419,13 +453,36 @@ const editMemory = async (index: number) => {
   const name = selectedPerson.value.角色基础信息.名字;
   const key = findRelationshipKeyByName(name);
   if (!key) return;
-  const saveData = characterStore.activeSaveSlot?.存档数据 as any;
+  const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系?.[key]?.人物记忆) return;
-  const current = saveData.人物关系[key].人物记忆[index] as string;
-  const updated = window.prompt('编辑人物记忆', current);
-  if (updated === null) return;
-  saveData.人物关系[key].人物记忆[index] = updated.trim();
-  selectedPerson.value = saveData.人物关系[key] as NpcProfile;
+  
+  const current = saveData.人物关系[key].人物记忆[index];
+  
+  // 支持旧格式（字符串）和新格式（对象）
+  let currentTime = '';
+  let currentEvent = '';
+  
+  if (typeof current === 'string') {
+    currentEvent = current;
+    currentTime = '未知时间';
+  } else if (current && typeof current === 'object') {
+    currentTime = current.时间 || '未知时间';
+    currentEvent = current.事件 || '';
+  }
+  
+  const newTime = window.prompt('编辑记忆时间', currentTime);
+  if (newTime === null) return;
+  
+  const newEvent = window.prompt('编辑记忆事件', currentEvent);
+  if (newEvent === null) return;
+  
+  saveData.人物关系[key].人物记忆[index] = {
+    时间: newTime.trim(),
+    事件: newEvent.trim()
+    // 注意：不再保存指令数据，只保留时间和事件
+  };
+  
+  selectedPerson.value = { ...saveData.人物关系[key] };
   await characterStore.commitToStorage();
 };
 
@@ -442,10 +499,10 @@ const deleteMemory = async (index: number) => {
       const name = selectedPerson.value!.角色基础信息.名字;
       const key = findRelationshipKeyByName(name);
       if (!key) return;
-      const saveData = characterStore.activeSaveSlot?.存档数据 as any;
+      const saveData = characterStore.activeSaveSlot?.存档数据;
       if (!saveData?.人物关系?.[key]?.人物记忆) return;
       saveData.人物关系[key].人物记忆.splice(index, 1);
-      selectedPerson.value = saveData.人物关系[key] as NpcProfile;
+      selectedPerson.value = { ...saveData.人物关系[key] };
       await characterStore.commitToStorage();
     },
     onCancel: () => {}
@@ -454,7 +511,8 @@ const deleteMemory = async (index: number) => {
 
 // NPC物品相关函数
 const hasNpcItems = (person: NpcProfile): boolean => {
-  return !!(person.背包?.物品 && Object.keys(person.背包.物品).length > 0);
+  const items = person.背包?.物品;
+  return items ? Object.keys(items).length > 0 : false;
 };
 
 const getItemQualityClass = (quality?: string): string => {
@@ -472,7 +530,7 @@ const getGradeText = (grade?: number): string => {
   return '';
 };
 
-const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
+const initiateTradeWithNpc = (npc: NpcProfile, item: Item) => {
   // NPC交互类操作只能加入队列等待AI响应，不能直接执行
   const actionDescription = `尝试与 ${npc.角色基础信息.名字} 交易 ${item.名称}`;
   
@@ -493,7 +551,7 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
 };
 
 // 向NPC索要物品
-const requestItemFromNpc = (npc: NpcProfile, item: any) => {
+const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
   const actionDescription = `向 ${npc.角色基础信息.名字} 索要 ${item.名称}`;
   
   // 添加到动作队列，等待AI处理
@@ -513,7 +571,7 @@ const requestItemFromNpc = (npc: NpcProfile, item: any) => {
 };
 
 // 尝试从NPC身上偷窃物品
-const attemptStealFromNpc = (npc: NpcProfile, item: any) => {
+const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   const actionDescription = `尝试从 ${npc.角色基础信息.名字} 身上偷取 ${item.名称}`;
   
   // 添加到动作队列，等待AI处理
@@ -864,17 +922,75 @@ const attemptStealFromNpc = (npc: NpcProfile, item: any) => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
-.memory-list.scrollable {
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
+.memory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.memory-header .section-title {
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.memory-count {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.memory-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.5rem;
+}
+
+.pagination-btn {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  min-width: 60px;
+  text-align: center;
 }
 
 .memory-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 0.75rem;
   background: var(--color-surface);
@@ -885,7 +1001,25 @@ const attemptStealFromNpc = (npc: NpcProfile, item: any) => {
   color: var(--color-text-secondary);
 }
 
-.memory-text { flex: 1; }
+.memory-content { 
+  flex: 1; 
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.memory-time {
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.memory-event {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
 
 .memory-actions { display: flex; gap: 6px; }
 

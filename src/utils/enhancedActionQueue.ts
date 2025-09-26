@@ -7,6 +7,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { Item, SaveData } from '@/types/game';
 import { toast } from './toast';
+import { getTavernHelper } from '@/utils/tavern';
 
 export interface UndoAction {
   type: 'equip' | 'unequip' | 'use' | 'discard' | 'cultivate';
@@ -28,6 +29,11 @@ export interface UndoAction {
 export class EnhancedActionQueueManager {
   private static instance: EnhancedActionQueueManager | null = null;
   private undoActions: UndoAction[] = [];
+  private readonly storageKey = 'dao_undo_actions';
+
+  constructor() {
+    this.loadUndoHistoryFromStorage();
+  }
   
   static getInstance(): EnhancedActionQueueManager {
     if (!this.instance) {
@@ -69,7 +75,8 @@ export class EnhancedActionQueueManager {
       
       for (let i = 1; i <= 6; i++) {
         const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-        if (!saveData.装备栏[slotKey]) {
+        const slotItem = saveData.装备栏[slotKey];
+        if (!slotItem || slotItem === "null") {
           targetSlot = slotKey;
           break;
         }
@@ -80,17 +87,31 @@ export class EnhancedActionQueueManager {
         targetSlot = '装备1';
         const slotKey = targetSlot as keyof typeof saveData.装备栏;
         replacedItem = saveData.装备栏[slotKey] as Item;
-        if (replacedItem) {
-          // 将被替换的装备放回背包
-          saveData.背包.物品[replacedItem.物品ID] = replacedItem;
-        }
+        // 注意：被替换的装备直接丢失，不放回背包
       }
       
       // 执行装备操作
       saveData.装备栏[targetSlot as keyof typeof saveData.装备栏] = item;
       
-      // 从背包移除
-      delete saveData.背包.物品[item.物品ID];
+      // 设置物品的已装备标记
+      if (saveData.背包?.物品?.[item.物品ID]) {
+        saveData.背包.物品[item.物品ID].已装备 = true;
+      }
+      
+      console.log('装备操作完成:', {
+        槽位: targetSlot,
+        物品: item,
+        装备栏状态: saveData.装备栏
+      });
+      
+      // 注意：不从背包中移除物品，装备和背包是独立的
+      // 被替换的装备也不放回背包，而是丢失（符合游戏逻辑）
+      
+      // 保存数据到存储
+      await characterStore.commitToStorage();
+      
+      // 同步到酒馆变量
+      await this.syncEquipmentToTavern(saveData);
       
       // 创建撤回数据
       const undoAction: UndoAction = {
@@ -103,6 +124,7 @@ export class EnhancedActionQueueManager {
         }
       };
       this.undoActions.push(undoAction);
+      this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
       actionQueue.addAction({
@@ -138,6 +160,12 @@ export class EnhancedActionQueueManager {
         return false;
       }
       
+      // 检查物品是否已装备
+      if (!this.isEquipped(item)) {
+        toast.info(`《${item.名称}》未装备，无法卸下`);
+        return false;
+      }
+      
       // 检查互斥操作：如果队列中有同一物品的装备操作，先移除它
       this.removeConflictingActions(item.物品ID, 'equip');
       
@@ -145,21 +173,46 @@ export class EnhancedActionQueueManager {
       let sourceSlot: string | null = null;
       for (let i = 1; i <= 6; i++) {
         const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-        const slotItem = saveData.装备栏[slotKey] as Item;
-        if (slotItem && slotItem.物品ID === item.物品ID) {
+        const slotItem = saveData.装备栏[slotKey];
+        if (slotItem && slotItem !== "null" && typeof slotItem === 'object' && slotItem.物品ID === item.物品ID) {
           sourceSlot = slotKey;
           break;
         }
       }
       
       if (!sourceSlot) {
-        toast.error('未找到装备位置');
-        return false;
+        toast.error('装备栏中未找到该装备，数据可能不一致');
+        // 即使装备栏中没找到，也要清除已装备标记
+        if (saveData.背包?.物品?.[item.物品ID]) {
+          saveData.背包.物品[item.物品ID].已装备 = false;
+        }
+        await characterStore.commitToStorage();
+        return true;
       }
       
       // 执行卸下操作
       saveData.装备栏[sourceSlot as keyof typeof saveData.装备栏] = null;
-      saveData.背包.物品[item.物品ID] = item;
+      
+      // 清除物品的已装备标记
+      if (saveData.背包?.物品?.[item.物品ID]) {
+        saveData.背包.物品[item.物品ID].已装备 = false;
+        console.log('卸下装备完成:', {
+          物品: item.名称,
+          物品ID: item.物品ID,
+          清空槽位: sourceSlot,
+          已装备状态: saveData.背包.物品[item.物品ID].已装备
+        });
+      } else {
+        console.warn('背包中未找到物品:', item.物品ID);
+      }
+      
+      // 注意：不需要将装备放回背包，因为装备从未从背包中移除
+      
+      // 保存数据到存储
+      await characterStore.commitToStorage();
+      
+      // 同步到酒馆变量
+      await this.syncEquipmentToTavern(saveData);
       
       // 创建撤回数据
       const undoAction: UndoAction = {
@@ -171,6 +224,7 @@ export class EnhancedActionQueueManager {
         }
       };
       this.undoActions.push(undoAction);
+      this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
       actionQueue.addAction({
@@ -232,6 +286,7 @@ export class EnhancedActionQueueManager {
         }
       };
       this.undoActions.push(undoAction);
+      this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
       actionQueue.addAction({
@@ -277,7 +332,9 @@ export class EnhancedActionQueueManager {
           熟练度: 0,
           已解锁技能: [],
           修炼时间: 0,
-          突破次数: 0
+          突破次数: 0,
+          正在修炼: false,
+          修炼进度: 0
         };
       }
       
@@ -317,8 +374,15 @@ export class EnhancedActionQueueManager {
       if (typeof skillSlots.修炼时间 !== 'number') skillSlots.修炼时间 = 0;
       if (typeof skillSlots.突破次数 !== 'number') skillSlots.突破次数 = 0;
       
-      // 从背包移除功法
-      delete saveData.背包.物品[item.物品ID];
+      // 关键：设置修炼状态为true
+      skillSlots.正在修炼 = true;
+      skillSlots.修炼进度 = skillSlots.修炼进度 || 0;
+      // 移除时间戳记录，简化逻辑
+      
+      // 注意：修炼功法不从背包移除，功法和背包是独立的
+      
+      // 同步到酒馆变量
+      await this.syncCultivationToTavern(saveData);
       
       // 创建撤回数据
       const undoAction: UndoAction = {
@@ -333,6 +397,7 @@ export class EnhancedActionQueueManager {
         }
       };
       this.undoActions.push(undoAction);
+      this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
       actionQueue.addAction({
@@ -363,7 +428,7 @@ export class EnhancedActionQueueManager {
     
     try {
       const saveData = characterStore.activeSaveSlot?.存档数据;
-      if (!saveData?.修炼功法?.功法) {
+      if (!saveData?.修炼功法?.功法 || !saveData.修炼功法.正在修炼) {
         toast.error('当前没有正在修炼的功法');
         return false;
       }
@@ -374,19 +439,15 @@ export class EnhancedActionQueueManager {
         return false;
       }
       
-      // 将功法移回背包
-      saveData.背包.物品[techniqueToStop.物品ID] = {
-        物品ID: techniqueToStop.物品ID,
-        名称: techniqueToStop.名称,
-        类型: '功法',
-        品质: techniqueToStop.品质,
-        数量: 1,
-        功法效果: techniqueToStop.功法效果 || {},
-        功法技能: techniqueToStop.功法技能 || {}
-      };
-      
-      // 清空修炼槽位
+      // 清空修炼槽位，设置修炼状态为false，但保留进度
       saveData.修炼功法.功法 = null;
+      saveData.修炼功法.正在修炼 = false;
+      // 不清空修炼进度，保留修炼成果
+      // saveData.修炼功法.修炼进度 = 0;  // 移除这行
+      // 注意：停止修炼功法不放回背包，功法和背包是独立的
+      
+      // 同步到酒馆变量
+      await this.syncCultivationToTavern(saveData);
       
       // 创建撤回数据
       const undoAction: UndoAction = {
@@ -401,6 +462,7 @@ export class EnhancedActionQueueManager {
         }
       };
       this.undoActions.push(undoAction);
+      this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
       actionQueue.addAction({
@@ -424,18 +486,7 @@ export class EnhancedActionQueueManager {
    * 检查物品是否已装备
    */
   private isEquipped(item: Item): boolean {
-    const characterStore = useCharacterStore();
-    const saveData = characterStore.activeSaveSlot?.存档数据;
-    if (!saveData?.装备栏) return false;
-    
-    for (let i = 1; i <= 6; i++) {
-      const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-      const slotItem = saveData.装备栏[slotKey] as Item;
-      if (slotItem && slotItem.物品ID === item.物品ID) {
-        return true;
-      }
-    }
-    return false;
+    return item.已装备 === true;
   }
   
   /**
@@ -443,11 +494,12 @@ export class EnhancedActionQueueManager {
    */
   async undoLastAction(): Promise<boolean> {
     if (this.undoActions.length === 0) {
-      toast.info('没有可撤回的动作');
+      toast.info('未找到可撤回的动作记录，可能已清空或刷新后丢失');
       return false;
     }
-    
+
     const lastAction = this.undoActions.pop()!;
+    this.saveUndoHistoryToStorage();
     const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
     
@@ -491,35 +543,99 @@ export class EnhancedActionQueueManager {
       return false;
     }
   }
+
+  /**
+   * 按动作类型与物品名撤回（用于从动作队列点击撤回时）
+   */
+  async undoByItemName(type: UndoAction['type'], itemName: string): Promise<boolean> {
+    if (this.undoActions.length === 0) {
+      toast.info('未找到可撤回的动作记录，可能已清空或刷新后丢失');
+      return false;
+    }
+
+    // 从后向前查找匹配的撤回记录
+    let index = -1;
+    for (let i = this.undoActions.length - 1; i >= 0; i--) {
+      const a = this.undoActions[i];
+      if (a.type === type && a.itemName === itemName) {
+        index = i;
+        break;
+      }
+    }
+
+    if (index === -1) {
+      toast.info('未找到该动作的撤回记录');
+      return false;
+    }
+
+    const action = this.undoActions.splice(index, 1)[0];
+    this.saveUndoHistoryToStorage();
+
+    try {
+      const characterStore = useCharacterStore();
+      const saveData = characterStore.activeSaveSlot?.存档数据 as SaveData | undefined;
+      if (!saveData) {
+        toast.error('当前存档不存在，无法撤回');
+        return false;
+      }
+
+      switch (action.type) {
+        case 'equip':
+          await this.undoEquip(action, saveData);
+          break;
+        case 'unequip':
+          await this.undoUnequip(action, saveData);
+          break;
+        case 'use':
+          await this.undoUse(action, saveData);
+          break;
+        case 'cultivate':
+          await this.undoCultivate(action, saveData);
+          break;
+        default:
+          break;
+      }
+
+      // 保存更新
+      await useCharacterStore().commitToStorage();
+      toast.success(`已撤回：${action.itemName}`);
+      return true;
+    } catch (error) {
+      console.error('按名称撤回失败:', error);
+      toast.error('撤回失败');
+      return false;
+    }
+  }
   
   private async undoEquip(action: UndoAction, saveData: SaveData): Promise<void> {
-    // 找到装备的位置并移回背包
+    // 找到装备的位置并卸下
     for (let i = 1; i <= 6; i++) {
       const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
       const slotItem = saveData.装备栏[slotKey] as Item;
       if (slotItem && slotItem.物品ID === action.itemId) {
-        // 移回背包
-        saveData.背包.物品[action.itemId] = slotItem;
+        // 卸下装备
         saveData.装备栏[slotKey] = null;
         
         // 如果有被替换的装备，恢复它
         if (action.restoreData?.replacedItem) {
           saveData.装备栏[slotKey] = action.restoreData.replacedItem;
-          delete saveData.背包.物品[action.restoreData.replacedItem.物品ID];
         }
+        
+        // 同步到酒馆变量
+        await this.syncEquipmentToTavern(saveData);
         break;
       }
     }
   }
   
   private async undoUnequip(action: UndoAction, saveData: SaveData): Promise<void> {
-    const item = saveData.背包.物品[action.itemId];
-    if (!item || !action.restoreData?.originalSlot) return;
+    // 由于卸下装备不涉及背包操作，撤回时需要从装备栏历史数据恢复
+    // 这里简化处理：如果有原始槽位信息，则重新装备
+    if (!action.restoreData?.originalSlot) return;
     
-    // 重新装备到原来的槽位
-    const slotKey = action.restoreData.originalSlot as keyof typeof saveData.装备栏;
-    saveData.装备栏[slotKey] = item;
-    delete saveData.背包.物品[action.itemId];
+    // 注意：由于我们不再在背包中存储卸下的装备，这里撤回操作有限制
+    // 实际游戏中可能需要更复杂的历史记录机制
+    toast.warning('装备撤回功能受限，卸下的装备无法完全恢复');
   }
   
   private async undoUse(action: UndoAction, saveData: SaveData): Promise<void> {
@@ -541,36 +657,20 @@ export class EnhancedActionQueueManager {
     const cultivationState = action.restoreData?.originalCultivationState;
     if (!cultivationState) return;
     
-    if (cultivationState.wasInInventory) {
-      // 原来在背包，恢复到背包
-      const currentTechnique = saveData.修炼功法?.功法;
-      if (currentTechnique && currentTechnique.物品ID === action.itemId) {
-        // 将当前修炼的功法移回背包
-        saveData.背包.物品[action.itemId] = {
-          物品ID: currentTechnique.物品ID,
-          名称: currentTechnique.名称,
-          类型: '功法',
-          品质: currentTechnique.品质,
-          数量: 1,
-          功法效果: currentTechnique.功法效果 || {},
-          功法技能: currentTechnique.功法技能 || {}
-        };
-        
-        // 恢复之前的修炼状态
-        if (cultivationState.previousTechnique) {
-          saveData.修炼功法.功法 = cultivationState.previousTechnique;
-          delete saveData.背包.物品[cultivationState.previousTechnique.物品ID];
-        } else {
-          saveData.修炼功法.功法 = null;
-        }
-      }
+    // 由于修炼功法不再涉及背包操作，撤回时只需要恢复修炼状态
+    if (cultivationState.previousTechnique) {
+      // 恢复之前的修炼功法
+      saveData.修炼功法.功法 = cultivationState.previousTechnique;
+      saveData.修炼功法.正在修炼 = true; // 恢复修炼状态
     } else {
-      // 原来在修炼，恢复修炼状态
-      if (cultivationState.previousTechnique) {
-        saveData.修炼功法.功法 = cultivationState.previousTechnique;
-        delete saveData.背包.物品[action.itemId];
-      }
+      // 清空修炼槽位
+      saveData.修炼功法.功法 = null;
+      saveData.修炼功法.正在修炼 = false; // 设置为未修炼状态
+      // 不清空修炼进度，保留修炼成果
     }
+    
+    // 同步到酒馆变量
+    await this.syncCultivationToTavern(saveData);
   }
   
   /**
@@ -578,6 +678,7 @@ export class EnhancedActionQueueManager {
    */
   clearUndoHistory(): void {
     this.undoActions = [];
+    this.saveUndoHistoryToStorage();
   }
   
   /**
@@ -608,6 +709,7 @@ export class EnhancedActionQueueManager {
     this.undoActions = this.undoActions.filter(undoAction => 
       !(undoAction.itemId === itemId && undoAction.type === conflictType)
     );
+    this.saveUndoHistoryToStorage();
     
     if (conflictingActions.length > 0) {
       toast.info('已移除冲突的操作');
@@ -641,5 +743,74 @@ export class EnhancedActionQueueManager {
     }
     
     return null;
+  }
+  
+  /**
+   * 同步装备栏到酒馆变量
+   */
+  private async syncEquipmentToTavern(saveData: SaveData): Promise<void> {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) {
+        console.warn('[装备同步] 酒馆助手不可用，跳过同步');
+        return;
+      }
+      
+      // 同步整个存档数据到酒馆，而不是单独同步装备栏
+      await helper.insertOrAssignVariables({
+        'character.saveData': saveData
+      }, { type: 'chat' });
+      
+      console.log('[装备同步] 装备栏已同步到酒馆变量');
+    } catch (error) {
+      console.warn('[装备同步] 同步装备栏到酒馆变量失败:', error);
+    }
+  }
+  
+  /**
+   * 同步修炼功法到酒馆变量
+   */
+  private async syncCultivationToTavern(saveData: SaveData): Promise<void> {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) {
+        console.warn('[修炼同步] 酒馆助手不可用，跳过同步');
+        return;
+      }
+      
+      // 更新修炼功法变量
+      await helper.insertOrAssignVariables({
+        'character.saveData.修炼功法': saveData.修炼功法 || null
+      }, { type: 'chat' });
+      
+      console.log('[修炼同步] 修炼功法已同步到酒馆变量');
+    } catch (error) {
+      console.warn('[修炼同步] 同步修炼功法到酒馆变量失败:', error);
+    }
+  }
+
+  /**
+   * 撤回历史持久化
+   */
+  private saveUndoHistoryToStorage(): void {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.undoActions));
+    } catch (e) {
+      console.warn('[撤回历史] 保存失败:', e);
+    }
+  }
+
+  private loadUndoHistoryFromStorage(): void {
+    try {
+      const raw = localStorage.getItem(this.storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          this.undoActions = parsed as UndoAction[];
+        }
+      }
+    } catch (e) {
+      console.warn('[撤回历史] 加载失败:', e);
+    }
   }
 }

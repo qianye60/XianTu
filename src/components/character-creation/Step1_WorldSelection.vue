@@ -117,6 +117,34 @@
                 />
                 <span class="config-hint">范围: 3-7</span>
               </label>
+              <label class="option-item">
+                <span class="option-label">地图宽度</span>
+                <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.width" />
+                <span class="config-hint">推荐: 3600</span>
+              </label>
+              <label class="option-item">
+                <span class="option-label">地图高度</span>
+                <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.height" />
+                <span class="config-hint">推荐: 2400</span>
+              </label>
+            </div>
+            <div class="map-options-grid geo-grid">
+              <label class="option-item">
+                <span class="option-label">经度范围</span>
+                <div class="range-inputs">
+                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLng" placeholder="最小经度" />
+                  <span>-</span>
+                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLng" placeholder="最大经度" />
+                </div>
+              </label>
+              <label class="option-item">
+                <span class="option-label">纬度范围</span>
+                <div class="range-inputs">
+                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLat" placeholder="最小纬度" />
+                  <span>-</span>
+                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLat" placeholder="最大纬度" />
+                </div>
+              </label>
             </div>
             <div class="map-options-actions">
               <button class="opt-btn" @click="randomizeConfig">随机</button>
@@ -162,12 +190,31 @@ const activeWorld = ref<World | null>(null); // For hover details view - 仿照�
 const isCustomModalVisible = ref(false);
 const showMapOptions = ref(false);
 
-// 世界生成配置
+// --- 世界生成配置 ---
+
+// 创建一个稳定的默认配置
+const createDefaultWorldConfig = () => ({
+  majorFactionsCount: 5,
+  totalLocations: 12,
+  secretRealmsCount: 5,
+  continentCount: 4,
+  mapConfig: {
+    width: 3600,
+    height: 2400,
+    minLng: 100.0,
+    maxLng: 130.0,
+    minLat: 25.0,
+    maxLat: 45.0,
+  }
+});
+
+// 初始时使用随机配置，但结构基于默认配置
 const worldConfig = ref({
   majorFactionsCount: Math.floor(Math.random() * 3) + 4, // 4-6
   totalLocations: Math.floor(Math.random() * 4) + 10, // 10-13
   secretRealmsCount: Math.floor(Math.random() * 3) + 4, // 4-6
-  continentCount: Math.floor(Math.random() * 3) + 3 // 3-5
+  continentCount: Math.floor(Math.random() * 3) + 3, // 3-5
+  mapConfig: { ...createDefaultWorldConfig().mapConfig }
 });
 
 // 监听配置变化并自动保存到store
@@ -276,44 +323,55 @@ function handleSelectWorld(world: World) {
   store.setWorldGenerationConfig(worldConfig.value);
 }
 
-// 随机配置功能
+// 随机配置功能（增强版）
 function randomizeConfig() {
-  const factionOptions = [3, 4, 5, 6];
-  const locationOptions = [8, 10, 12, 15];
-  const realmOptions = [3, 4, 5, 6];
-  const continentOptions = [3, 4, 5];
-  
+  const factionOptions = [3, 4, 5, 6, 7];
+  const locationOptions = [8, 10, 12, 15, 18];
+  const realmOptions = [3, 4, 5, 6, 8];
+  const continentOptions = [3, 4, 5, 6];
+
+  // 随机化地理坐标
+  const baseMinLng = 90 + Math.random() * 30; // 90-120
+  const lngRange = 20 + Math.random() * 20; // 20-40
+  const baseMinLat = 20 + Math.random() * 20; // 20-40
+  const latRange = 15 + Math.random() * 15; // 15-30
+
   worldConfig.value = {
     majorFactionsCount: factionOptions[Math.floor(Math.random() * factionOptions.length)],
     totalLocations: locationOptions[Math.floor(Math.random() * locationOptions.length)],
     secretRealmsCount: realmOptions[Math.floor(Math.random() * realmOptions.length)],
-    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)]
+    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)],
+    mapConfig: {
+      width: 3600,
+      height: 2400,
+      minLng: parseFloat(baseMinLng.toFixed(1)),
+      maxLng: parseFloat((baseMinLng + lngRange).toFixed(1)),
+      minLat: parseFloat(baseMinLat.toFixed(1)),
+      maxLat: parseFloat((baseMinLat + latRange).toFixed(1)),
+    }
   };
   
-  // 立即保存配置到store
   store.setWorldGenerationConfig(worldConfig.value);
   toast.info('已随机生成世界配置');
 }
 
-// 重置为默认配置
+// 重置为稳定的默认配置
 function resetConfig() {
-  worldConfig.value = {
-    majorFactionsCount: Math.floor(Math.random() * 3) + 4, // 4-6
-    totalLocations: Math.floor(Math.random() * 4) + 10, // 10-13
-    secretRealmsCount: Math.floor(Math.random() * 3) + 4, // 4-6
-    continentCount: Math.floor(Math.random() * 3) + 3 // 3-5
-  };
-  
-  // 立即保存配置到store
+  worldConfig.value = createDefaultWorldConfig();
   store.setWorldGenerationConfig(worldConfig.value);
-  toast.info('已重置为随机默认配置');
+  toast.info('已重置为默认配置');
 }
 
 // 检查配置是否存在风险
 const isConfigRisky = computed(() => {
+  const mapCfg = worldConfig.value.mapConfig;
   return worldConfig.value.majorFactionsCount > 8 ||
          worldConfig.value.totalLocations > 15 ||
-         worldConfig.value.secretRealmsCount > 10;
+         worldConfig.value.secretRealmsCount > 10 ||
+         mapCfg.width > 6000 ||
+         mapCfg.height > 6000 ||
+         mapCfg.minLng >= mapCfg.maxLng ||
+         mapCfg.minLat >= mapCfg.maxLat;
 });
 
 // fetchData 方法已不再需要，组件现在通过计算属性自动响应store的变化
@@ -553,8 +611,28 @@ const isConfigRisky = computed(() => {
 
 .map-options-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.8rem;
+}
+
+.geo-grid {
+  margin-top: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.range-inputs input {
+  flex: 1;
+  min-width: 0;
+}
+
+.range-inputs span {
+  color: var(--color-text-secondary);
 }
 
 .option-item {

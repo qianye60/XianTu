@@ -80,7 +80,8 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\InventoryManager.ts\")",
       "Bash(./node_modules/.bin/vue-tsc:*)",
       "Bash(\"./node_modules/.bin/vue-tsc\" --noEmit)",
-      "Bash(del \"@types (3).txt\" \"slash_command (4).txt\")"
+      "Bash(del \"@types (3).txt\" \"slash_command (4).txt\")",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

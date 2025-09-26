@@ -8,6 +8,7 @@
  */
 
 import type { QualityType, GradeType } from '@/data/itemQuality';
+import type { WorldMapConfig } from './worldMap';
 
 // --- 基础与通用类型 ---
 
@@ -34,12 +35,6 @@ export interface ItemQuality {
   grade: GradeType; // 品级：0-10
 }
 
-/** 物品品质信息 - 兼容旧版本 */
-
-export interface Quality {
-  阶位: '凡' | '黄' | '玄' | '地' | '天' | '仙' | '神' |string;
-  品级: number;
-}
 
 // --- 先天六司 ---
 
@@ -83,6 +78,7 @@ export interface Item {
   数量: number;
   耐久度?: ValuePair<number>;
   描述?: string; // 物品描述
+  已装备?: boolean; // 装备是否已装备
   // 功法特有属性
   功法效果?: {
     修炼速度加成?: number; // 修炼速度倍数
@@ -111,6 +107,9 @@ export interface CultivationTechniqueData {
   已解锁技能: string[];
   修炼时间: number;
   突破次数: number;
+  // 新增修炼状态字段
+  正在修炼: boolean; // 是否正在修炼状态
+  修炼进度: number; // 当前修炼进度（0-100）
 }
 
 export interface Inventory {
@@ -255,7 +254,7 @@ export interface ThousandDaoSystem {
 // --- 装备 ---
 
 export interface Equipment {
-  装备1?: Item | string | null; // 物品对象或物品ID（兼容性）
+  装备1?: Item | string | null;
   装备2?: Item | string | null;
   装备3?: Item | string | null;
   装备4?: Item | string | null;
@@ -359,19 +358,24 @@ export interface CharacterStatusForDisplay {
 /** 世界大陆信息 */
 export interface WorldContinent {
   名称: string;
+  name?: string; // 兼容英文名
   描述: string;
   地理特征?: string[];
   修真环境?: string;
   气候?: string;
   天然屏障?: string[];
   大洲边界?: { longitude: number; latitude: number }[];
+  主要势力?: (string | number)[]; // 兼容id和名称
+  factions?: (string | number)[]; // 兼容英文名
 }
 
 /** 世界势力信息 - 统一的宗门/势力数据结构 */
 export interface WorldFaction {
+  id?: string | number; // 增加可选的id字段
   名称: string;
   类型: '修仙宗门' | '魔道宗门' | '中立宗门' | '修仙世家' | '魔道势力' | '商会组织' | '散修联盟' | string;
   等级: '超级' | '一流' | '二流' | '三流' | string;
+  所在大洲?: string; // 增加可选的所在大洲字段
   位置?: string | { longitude: number; latitude: number }; // 支持字符串描述或坐标
   势力范围?: string[] | { longitude: number; latitude: number }[]; // 支持字符串数组或坐标数组  
   描述: string;
@@ -447,9 +451,11 @@ export interface WorldInfo {
   世界名称: string;
   世界背景: string;
   大陆信息: WorldContinent[];
+  continents?: WorldContinent[]; // 兼容旧数据
   势力信息: WorldFaction[];
   地点信息: WorldLocation[];
   生成信息: WorldGenerationInfo;
+  地图配置?: WorldMapConfig; // 新增地图配置
 }
 
 /** 世界地图数据 */
@@ -475,13 +481,28 @@ export interface WorldMap {
 }
 
 // --- NPC 模块 ---
-export interface NpcAiBehavior {
+export interface NpcBehavior {
   行为模式: string;
   日常路线: {
     时间: string;
     位置: string;
     行为: string;
   }[];
+}
+
+/** NPC记忆条目 - 时间·事件格式 */
+export interface NpcMemoryItem {
+  时间: string; // 时间描述，如"大乾纪元1000年春·三月初八"
+  事件: string; // 事件描述
+  指令数据?: TavernCommand[]; // 该事件对应的tavern_commands指令数据
+}
+
+/** Tavern指令结构 */
+export interface TavernCommand {
+  action: 'set' | 'add' | 'push' | 'pull' | 'delete';
+  scope: 'chat' | 'global';
+  key: string;
+  value?: any;
 }
 
 export interface NpcProfile {
@@ -506,17 +527,13 @@ export interface NpcProfile {
     当前灵气: number; 最大灵气: number;
     当前神识: number; 最大神识: number;
     当前寿命: number; 最大寿命: number;
-    背包: Inventory;
   };
-  AI行为: NpcAiBehavior;
+  NPC行为: NpcBehavior;
   人物关系: string;
   人物好感度: number;
-  人物记忆: string[];
-  最后互动时间: string | null;
-  // NPC背包：与玩家背包格式一致，用于交易、赠送等互动
-  背包?: {
-    物品: Record<string, Item>;
-  };
+  人物记忆: NpcMemoryItem[];
+  // NPC背包：与玩家背包格式一致
+  背包: Inventory;
 }
 
 
@@ -560,6 +577,10 @@ export interface SaveData {
   记忆: Memory;
   游戏时间: GameTime; // 游戏时间字段，改为必需
   对话历史?: GameMessage[]; // 对话历史数组
+  系统?: {
+    天道演算?: any; // 天道演算系统数据
+    [key: string]: any; // 其他系统数据
+  };
   // --- [核心重构] 新增字段，用于统一存储所有动态数据 ---
   角色基础信息?: CharacterBaseInfo;
   世界信息?: WorldInfo; // 世界基础信息

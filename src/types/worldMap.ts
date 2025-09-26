@@ -84,3 +84,15 @@ export interface CultivationContinent {
   natural_barriers?: string[];
   天然屏障?: string[];
 }
+
+/**
+ * Represents the configuration for the world map generation
+ */
+export interface WorldMapConfig {
+  width: number; // Virtual width of the map
+  height: number; // Virtual height of the map
+  minLng: number; // Minimum longitude for geo-to-virtual conversion
+  maxLng: number; // Maximum longitude
+  minLat: number; // Minimum latitude
+  maxLat: number; // Maximum latitude
+}

@@ -15,9 +15,10 @@ import {
 import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
 import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
-
-interface RawWorldData {
-  continents?: Record<string, any>[];
+import { WorldMapConfig } from '@/types/worldMap';
+ 
+ interface RawWorldData {
+   continents?: Record<string, any>[];
   factions?: Record<string, any>[];
   locations?: Record<string, any>[];
   [key: string]: any;
@@ -34,6 +35,7 @@ export interface EnhancedWorldGenConfig {
   maxRetries: number;
   retryDelay: number;
   characterBackground?: string;
+  mapConfig?: WorldMapConfig;
 }
 
 export class EnhancedWorldGenerator {
@@ -121,21 +123,22 @@ export class EnhancedWorldGenerator {
    * 构建基础提示词
    */
   private buildPrompt(): string {
-    const { factionCount, locationCount, secretRealmsCount, continentCount } = this.config;
-    
-    const promptConfig: WorldPromptConfig = {
-      factionCount,
-      totalLocations: locationCount,
-      secretRealms: secretRealmsCount,
-      continentCount,
-      characterBackground: this.config.characterBackground,
-      worldBackground: this.config.worldBackground,
-      worldEra: this.config.worldEra,
-      worldName: this.config.worldName
-    };
-    
-    return EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
-  }
+      const { factionCount, locationCount, secretRealmsCount, continentCount, mapConfig } = this.config;
+      
+      const promptConfig: WorldPromptConfig = {
+        factionCount,
+        totalLocations: locationCount,
+        secretRealms: secretRealmsCount,
+        continentCount,
+        characterBackground: this.config.characterBackground,
+        worldBackground: this.config.worldBackground,
+        worldEra: this.config.worldEra,
+        worldName: this.config.worldName,
+        mapConfig: mapConfig
+      };
+      
+      return EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
+    }
   
   /**
    * 解析AI响应

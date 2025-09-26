@@ -13,6 +13,18 @@ import type { SaveData, CharacterBaseInfo, Item } from '@/types/game';
 // 判定类型
 export type HeavenlyCheckType = '法力' | '神海' | '道心' | '空速' | '气运';
 
+// 交互参与者类型
+export type InteractionParticipant = '用户' | 'NPC' | '环境';
+
+// 交互模式
+export interface InteractionContext {
+  发起者: InteractionParticipant;
+  接受者: InteractionParticipant;
+  交互类型: '对话' | '斗法' | '比试' | '合作' | '交易' | '探索' | '修炼';
+  情境描述?: string;
+  难度调整?: number; // -5 到 +5 的难度修正
+}
+
 // 预计算结构
 export interface HeavenlyDerivedAttributes {
   版本: string;
@@ -58,6 +70,13 @@ export interface HeavenlyDerivedAttributes {
   输出模板: {
     通用判定: string; // 供AI套入占位符
     斗法判定: string;
+    用户对NPC: string; // 用户对NPC的交互模板
+    NPC对用户: string; // NPC对用户的交互模板
+    NPC对NPC: string;  // NPC对NPC的交互模板
+  };
+  交互支持: {
+    支持的交互类型: string[];
+    模式说明: Record<string, string>;
   };
   更新时间: string;
 }
@@ -294,6 +313,46 @@ function buildOutputTemplates() {
       '最终伤害: {伤害}',
       '结果: 【{战况}】{增幅词} {叙事}',
     ].join('\n'),
+    用户对NPC: [
+      '【交互：{{user}} → {NPC名称}】',
+      '交互类型: {交互类型} | 判定属性: {属性名}({属性值})',
+      '难度调整: {难度调整} | 投骰: [{骰点}] / 成功率: [{成功率}%]',
+      '结果: 【{等级}】{增幅词}',
+      'NPC反应: {NPC反应描述}',
+    ].join('\n'),
+    NPC对用户: [
+      '【交互：{NPC名称} → {{user}}】',
+      '交互类型: {交互类型} | NPC意图: {NPC意图}',
+      '用户应对: {应对属性}({属性值}) | 投骰: [{骰点}]',
+      '结果: 【{等级}】{增幅词}',
+      '后续影响: {影响描述}',
+    ].join('\n'),
+    NPC对NPC: [
+      '【交互：{NPC1名称} ⇄ {NPC2名称}】',
+      '交互类型: {交互类型} | 观察者: {{user}}',
+      '双方实力: {实力对比} | 情境: {情境描述}',
+      '结果: 【{结局}】{增幅词}',
+      '对{{user}}的影响: {对用户影响}',
+    ].join('\n'),
+  };
+}
+
+// 交互支持配置
+function buildInteractionSupport() {
+  return {
+    支持的交互类型: ['对话', '斗法', '比试', '合作', '交易', '探索', '修炼'],
+    模式说明: {
+      '用户对NPC': '用户主动与NPC进行交互，可能是对话、挑战、交易等',
+      'NPC对用户': 'NPC主动找用户交互，用户需要应对',
+      'NPC对NPC': '两个NPC之间的交互，用户作为观察者，可能受到影响',
+      '对话': '通过言语进行交流，主要判定道心、神海',
+      '斗法': '法术或武力对抗，主要判定法力、空速',
+      '比试': '技能或能力比拼，根据具体内容判定相应属性',
+      '合作': '协同完成任务，可能涉及多种属性',
+      '交易': '商业交换，主要判定道心、气运',
+      '探索': '探索未知区域，主要判定神海、空速、气运',
+      '修炼': '修炼提升，主要判定法力、神海、道心'
+    }
   };
 }
 
@@ -345,10 +404,81 @@ export function computeHeavenlyPrecalc(saveData: SaveData, baseInfo: CharacterBa
     斗法基线,
     文字增幅: buildAmplifiers(),
     输出模板: buildOutputTemplates(),
+    交互支持: buildInteractionSupport(),
     更新时间: new Date().toISOString(),
   };
 
   return 数据;
+}
+
+// 执行交互判定
+export function executeInteractionCheck(
+  context: InteractionContext,
+  checkType: HeavenlyCheckType,
+  DC: number,
+  precalc: HeavenlyDerivedAttributes
+): {
+  成功: boolean;
+  骰点: number;
+  成功率: number;
+  等级: string;
+  增幅词: string;
+  模板: string;
+} {
+  const 属性值 = precalc.派生属性[checkType];
+  const 气运 = precalc.派生属性.气运;
+  const 难度调整 = context.难度调整 || 0;
+  
+  // 计算成功率
+  const 基础成功率 = successRate(属性值, DC + 难度调整 * 5, 气运);
+  
+  // 模拟投骰
+  const 骰点 = Math.floor(Math.random() * 100) + 1;
+  const 成功 = 骰点 <= 基础成功率 * 100;
+  
+  // 判定等级
+  let 等级: string;
+  let 增幅词: string;
+  
+  if (骰点 <= 5) {
+    等级 = '大成';
+    增幅词 = precalc.文字增幅.完胜[Math.floor(Math.random() * precalc.文字增幅.完胜.length)];
+  } else if (骰点 >= 95) {
+    等级 = '大败';
+    增幅词 = precalc.文字增幅.反噬[Math.floor(Math.random() * precalc.文字增幅.反噬.length)];
+  } else if (成功) {
+    if (骰点 <= 基础成功率 * 50) {
+      等级 = '成功';
+      增幅词 = precalc.文字增幅.完胜[Math.floor(Math.random() * precalc.文字增幅.完胜.length)];
+    } else {
+      等级 = '险胜';
+      增幅词 = precalc.文字增幅.险胜[Math.floor(Math.random() * precalc.文字增幅.险胜.length)];
+    }
+  } else {
+    等级 = '失败';
+    增幅词 = precalc.文字增幅.失手[Math.floor(Math.random() * precalc.文字增幅.失手.length)];
+  }
+  
+  // 选择合适的模板
+  let 模板: string;
+  if (context.发起者 === '用户' && context.接受者 === 'NPC') {
+    模板 = precalc.输出模板.用户对NPC;
+  } else if (context.发起者 === 'NPC' && context.接受者 === '用户') {
+    模板 = precalc.输出模板.NPC对用户;
+  } else if (context.发起者 === 'NPC' && context.接受者 === 'NPC') {
+    模板 = precalc.输出模板.NPC对NPC;
+  } else {
+    模板 = precalc.输出模板.通用判定;
+  }
+  
+  return {
+    成功,
+    骰点,
+    成功率: Math.round(基础成功率 * 1000) / 10,
+    等级,
+    增幅词,
+    模板
+  };
 }
 
 // 写入到 Tavern 聊天变量
@@ -357,12 +487,16 @@ export async function syncHeavenlyPrecalcToTavern(saveData: SaveData, baseInfo: 
   if (!helper) return;
   try {
     const precalc = computeHeavenlyPrecalc(saveData, baseInfo);
+    
+    // 确保系统字段存在
+    if (!saveData.系统) {
+      saveData.系统 = {};
+    }
+    saveData.系统.天道演算 = precalc;
+    
+    // 同步整个存档数据，而不是创建分离的结构
     await helper.insertOrAssignVariables({
-      'character.saveData': {
-        系统: {
-          天道演算: precalc,
-        }
-      }
+      'character.saveData': saveData
     }, { type: 'chat' });
   } catch (e) {
     console.error('[天道演算] 同步到酒馆失败:', e);

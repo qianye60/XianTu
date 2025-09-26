@@ -3,11 +3,12 @@ import { ref } from 'vue';
 
 export interface GameAction {
   id: string;
-  type: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'custom';
+  type: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom';
   itemName: string;
   itemType?: string;
   description: string;
   timestamp: number;
+  [key: string]: any; // 允许其他字段
 }
 
 /**
@@ -28,15 +29,39 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
       id: generateActionId(),
       timestamp: Date.now()
     };
-    
+
+    // --- 冲突解决逻辑 ---
+    // 如果是装备操作，移除同一物品的卸下操作
+    if (newAction.type === 'equip') {
+      pendingActions.value = pendingActions.value.filter(
+        a => !(a.type === 'unequip' && a.itemName === newAction.itemName)
+      );
+    }
+    // 如果是卸下操作，移除同一物品的装备操作
+    else if (newAction.type === 'unequip') {
+      pendingActions.value = pendingActions.value.filter(
+        a => !(a.type === 'equip' && a.itemName === newAction.itemName)
+      );
+    }
+
+    // 确保任何时候只有一个修炼操作
+    // 如果添加新的修炼操作，则移除所有旧的
+    if (newAction.type === 'cultivate') {
+      pendingActions.value = pendingActions.value.filter(a => a.type !== 'cultivate');
+    }
+    // --- 冲突解决逻辑结束 ---
+
     // 检查是否已经有相同类型的操作，如果有则替换
     const existingIndex = pendingActions.value.findIndex(
       a => a.type === action.type && a.itemName === action.itemName
     );
     
     if (existingIndex !== -1) {
+      // 如果存在，则替换它。这对于可以“更新”的操作很有用，
+      // 例如再次点击同一物品的“修炼”。
       pendingActions.value[existingIndex] = newAction;
     } else {
+      // 否则，添加新操作。
       pendingActions.value.push(newAction);
     }
     
@@ -78,7 +103,11 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
     const actionTexts = pendingActions.value.map(action => {
       switch (action.type) {
         case 'cultivate':
-          return `修炼了《${action.itemName}》功法`;
+          if (action.itemType === '大道') {
+            return `感悟了《${action.itemName}》大道`;
+          } else {
+            return `修炼了《${action.itemName}》功法`;
+          }
         case 'equip':
           return `装备了《${action.itemName}》${action.itemType || '法宝'}`;
         case 'use':
@@ -87,6 +116,12 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
           return `卸下了《${action.itemName}》装备`;
         case 'discard':
           return `丢弃了《${action.itemName}》`;
+        case 'npc_trade':
+          return `尝试与 ${action.npcName} 交易 ${action.itemName}`;
+        case 'npc_request':
+          return `向 ${action.npcName} 索要 ${action.itemName}`;
+        case 'npc_steal':
+          return `尝试从 ${action.npcName} 身上偷取 ${action.itemName}`;
         case 'custom':
           return action.description;
         default:
@@ -94,7 +129,7 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
       }
     });
     
-    return `\n\n【玩家最近操作】\n在本轮对话前，玩家进行了以下操作：\n${actionTexts.map(text => `• ${text}`).join('\n')}\n\n请在回应中适当反映这些操作的效果和结果。`;
+    return `\n\n【玩家最近操作】\n在本轮对话前，玩家进行了以下操作：\n${actionTexts.map(text => `• ${text}`).join('\n')}\n\n⚠️ **重要提醒**：请优先基于这些玩家操作来生成回应！先处理和反映这些具体动作的结果，然后再回应用户输入的文本内容。这些操作具有更高的优先级，应该在叙事中得到明确体现。`;
   };
   
   /**

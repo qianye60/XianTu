@@ -118,7 +118,7 @@
             class="action-btn info"
             @click="resetMemoryConfig"
           >
-            🔄 重置默认
+            重置默认
           </button>
         </div>
       </div>
@@ -198,10 +198,6 @@
               {{ memory.content }}
             </div>
           </div>
-          
-          <div v-if="memory.importance" class="memory-importance">
-            重要程度: {{ memory.importance }}/10
-          </div>
         </div>
       </div>
     </div>
@@ -210,20 +206,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { RefreshCw, Trash2, Settings } from 'lucide-vue-next';
+import { Settings } from 'lucide-vue-next';
 import { panelBus } from '@/utils/panelBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
-import { parseMemoryContent, type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
+import { type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
 import MultiLayerMemorySystem from '@/utils/MultiLayerMemorySystem';
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
   content: string;
   time: string;
-  importance?: number;
   parsedContent?: {
     title?: string;
     sections: { [key: string]: string[] };
@@ -232,6 +227,7 @@ interface Memory {
   // 新增字段用于记忆转化逻辑
   originalIndex?: number; // 原始索引位置
   isConverted?: boolean; // 是否是转化后的记忆
+  importance?: number; // 记忆重要性（1-10）
 }
 
 const characterStore = useCharacterStore();
@@ -401,7 +397,7 @@ const convertMemories = () => {
 };
 
 // 添加记忆的功能
-const addMemory = (type: 'short' | 'medium' | 'long', content: string, importance: number = 5, parsedContent?: any) => {
+const addMemory = (type: 'short' | 'medium' | 'long', content: string, importance: number = 5, parsedContent?: Memory['parsedContent']) => {
   const memory: Memory = {
     type,
     content,
@@ -429,21 +425,6 @@ const addMemory = (type: 'short' | 'medium' | 'long', content: string, importanc
 // 设置活跃筛选器
 const setActiveFilter = (filterKey: string) => {
   activeFilter.value = filterKey;
-};
-
-// 刷新记忆
-const refreshMemory = async () => {
-  loading.value = true;
-  try {
-    await loadMemoryData();
-    // 移除频繁的记忆数据刷新成功提示，避免干扰正常操作
-    // toast.success('记忆数据已刷新');
-  } catch (error) {
-    debug.error('记忆中心', '刷新失败', error);
-    toast.error('刷新失败');
-  } finally {
-    loading.value = false;
-  }
 };
 
 // 清理记忆（使用全局确认弹窗）
@@ -493,23 +474,23 @@ const clearMemory = async () => {
   });
 };
 
-// 测试记忆转化功能
-const testMemoryConversion = () => {
-  const testMessages = [
-    '今日在练功房修炼《太极心经》，有所感悟',
-    '与师兄切磋武艺，招式精进不少',
-    '在藏书阁阅读古籍，了解到远古修真历史',
-    '炼制了几枚回气丹，成功率提升',
-    '探索后山秘境，发现奇异灵草'
-  ];
-  
-  const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
-  addMemory('short', randomMessage, Math.floor(Math.random() * 5) + 5);
-  
-  toast.success(`已添加测试记忆: ${randomMessage.substring(0, 20)}...`);
-};
+// 测试记忆转化功能（保留但不使用）
+// const testMemoryConversion = () => {
+//   const testMessages = [
+//     '今日在练功房修炼《太极心经》，有所感悟',
+//     '与师兄切磋武艺，招式精进不少',
+//     '在藏书阁阅读古籍，了解到远古修真历史',
+//     '炼制了几枚回气丹，成功率提升',
+//     '探索后山秘境，发现奇异灵草'
+//   ];
+//
+//   const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
+//   addMemory('short', randomMessage, Math.floor(Math.random() * 5) + 5);
+//
+//   toast.success(`已添加测试记忆: ${randomMessage.substring(0, 20)}...`);
+// };
 
-// 加载记忆数据
+// 加载记忆数据 - 简化版本：直接从存档数据读取字符串数组
 const loadMemoryData = async () => {
   try {
     debug.log('记忆中心', '开始加载记忆数据');
@@ -518,155 +499,75 @@ const loadMemoryData = async () => {
     const loadedMediumMemories: Memory[] = [];
     const loadedLongMemories: Memory[] = [];
 
-    // 首先尝试从酒馆变量获取数据
-    const helper = getTavernHelper();
-    if (helper) {
-      try {
-        const chatVars = await helper.getVariables({ type: 'chat' });
-        debug.log('记忆中心', '酒馆变量键', Object.keys(chatVars));
-        
-        // 检查是否有 mid_term_memory 字段（仅用于后续转化，不直接展示）
-        if (chatVars['mid_term_memory']) {
-          const midTermMemory = chatVars['mid_term_memory'];
-          debug.log('记忆中心', '检测到 mid_term_memory（不直接展示，留待转化）');
-          // 不将其直接加入展示列表，遵循“所有消息先进入短期，再按规则转化”的流程
-        }
-        
-        // 检查character.saveData中的记忆数据
-        if (chatVars['character.saveData']) {
-          const saveData = chatVars['character.saveData'] as any;
-          if (saveData?.记忆) {
-            debug.log('记忆中心', '找到saveData记忆:', Object.keys(saveData.记忆));
-            const memoryData = saveData.记忆 as Record<string, any>;
-            
-            // 处理各类型记忆...
-            (['短期记忆', '中期记忆', '长期记忆'] as const).forEach(memoryType => {
-              if (memoryData[memoryType]) {
-                const typeMap: Record<string, 'short' | 'medium' | 'long'> = { '短期记忆': 'short', '中期记忆': 'medium', '长期记忆': 'long' };
-                const englishType = typeMap[memoryType];
-                
-                if (Array.isArray(memoryData[memoryType])) {
-                  (memoryData[memoryType] as string[]).forEach((content: string, index: number) => {
-                    const memory: Memory = {
-                      type: englishType,
-                      content,
-                      time: formatTime(Date.now() - index * (englishType === 'short' ? 300000 : englishType === 'medium' ? 3600000 : 86400000))
-                    };
-                    
-                    const parsed = parseMemoryContent(content);
-                    if (parsed.format || Object.keys(parsed.sections).length > 0) {
-                      memory.parsedContent = parsed;
-                    }
-                    
-                    // 按类型分类存储
-                    switch (englishType) {
-                      case 'short': loadedShortMemories.push(memory); break;
-                      case 'medium': loadedMediumMemories.push(memory); break;
-                      case 'long': loadedLongMemories.push(memory); break;
-                    }
-                  });
-                  debug.log('记忆中心', `已加载${(memoryData[memoryType] as string[]).length}条${memoryType}(数组)`);
-                } else if (typeof memoryData[memoryType] === 'string' && memoryType === '中期记忆') {
-                  const memory: Memory = {
-                    type: 'medium',
-                    content: memoryData[memoryType] as string,
-                    time: '存档记忆',
-                    importance: 8,
-                    parsedContent: parseMemoryContent(memoryData[memoryType] as string)
-                  };
-                  loadedMediumMemories.push(memory);
-                  debug.log('记忆中心', '已加载存档中期记忆(字符串)');
-                }
-              }
-            });
-          }
-        }
-      } catch (tavernError) {
-        debug.error('记忆中心', '酒馆API调用失败', tavernError);
-      }
-    } else {
-      debug.warn('记忆中心', '酒馆助手不可用');
-    }
+    // 直接从存档数据获取记忆（字符串数组）
+    const save = characterStore.activeSaveSlot;
+    const memoryData = save?.存档数据?.记忆;
     
-    // 从角色存档中加载（作为备选）
-    const activeSave = characterStore.activeSaveSlot;
-    if (activeSave?.存档数据?.记忆 && (loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length) === 0) {
-      debug.log('记忆中心', '从角色存档加载记忆...');
-      const memoryData = activeSave.存档数据.记忆 as Record<string, any>;
+    if (memoryData) {
+      debug.log('记忆中心', '从存档数据加载记忆:', Object.keys(memoryData));
       
-      // 处理各类型记忆
-      (['短期记忆', '中期记忆', '长期记忆'] as const).forEach(memoryType => {
-        if (memoryData[memoryType]) {
-          const typeMap: Record<string, 'short' | 'medium' | 'long'> = { '短期记忆': 'short', '中期记忆': 'medium', '长期记忆': 'long' };
-          const englishType = typeMap[memoryType];
-          
-          if (Array.isArray(memoryData[memoryType])) {
-            (memoryData[memoryType] as string[]).forEach((content: string, index: number) => {
-              const memory: Memory = {
-                type: englishType,
-                content,
-                time: formatTime(Date.now() - index * (englishType === 'short' ? 300000 : englishType === 'medium' ? 3600000 : 86400000))
-              };
-              
-              const parsed = parseMemoryContent(content);
-              if (parsed.format || Object.keys(parsed.sections).length > 0) {
-                memory.parsedContent = parsed;
-              }
-              
-              // 按类型分类存储
-              switch (englishType) {
-                case 'short': loadedShortMemories.push(memory); break;
-                case 'medium': loadedMediumMemories.push(memory); break;
-                case 'long': loadedLongMemories.push(memory); break;
-              }
-            });
-          } else if (typeof memoryData[memoryType] === 'string' && memoryType === '中期记忆') {
+      // 短期记忆 - 字符串数组
+      if (Array.isArray(memoryData.短期记忆)) {
+        memoryData.短期记忆.forEach((content: string, index: number) => {
+          if (content && typeof content === 'string') {
             const memory: Memory = {
-              type: 'medium',
-              content: memoryData[memoryType] as string,
-              time: '角色记忆',
-              importance: 6,
-              parsedContent: parseMemoryContent(memoryData[memoryType] as string)
+              type: 'short',
+              content,
+              time: formatTime(Date.now() - index * 300000), // 5分钟间隔
+              importance: 5
+            };
+            loadedShortMemories.push(memory);
+          }
+        });
+      }
+      
+      // 中期记忆 - 字符串数组
+      if (Array.isArray(memoryData.中期记忆)) {
+        memoryData.中期记忆.forEach((content: string, index: number) => {
+          if (content && typeof content === 'string') {
+            const memory: Memory = {
+              type: 'medium', 
+              content,
+              time: formatTime(Date.now() - index * 3600000), // 1小时间隔
+              importance: 7
             };
             loadedMediumMemories.push(memory);
           }
-        }
-      });
+        });
+      }
+      
+      // 长期记忆 - 字符串数组
+      if (Array.isArray(memoryData.长期记忆)) {
+        memoryData.长期记忆.forEach((content: string, index: number) => {
+          if (content && typeof content === 'string') {
+            const memory: Memory = {
+              type: 'long',
+              content,
+              time: formatTime(Date.now() - index * 86400000), // 1天间隔
+              importance: 9
+            };
+            loadedLongMemories.push(memory);
+          }
+        });
+      }
+      
+      debug.log('记忆中心', `记忆加载完成: 短期${loadedShortMemories.length}, 中期${loadedMediumMemories.length}, 长期${loadedLongMemories.length}`);
+    } else {
+      debug.warn('记忆中心', '未找到存档记忆数据');
     }
-
-    // 如果仍然没有数据，添加示例数据以便测试界面
-    if ((loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length) === 0) {
-      debug.warn('记忆中心', '未找到记忆数据，添加示例数据');
-      loadedMediumMemories.push({
-        type: 'medium',
-        content: '【初入仙途】\n\n🏠 **居所环境**\n- 茅屋简陋，但清净无扰\n- 门前有修竹，常有山风徐来\n\n💫 **修行感悟**\n- 今日观竹有所感悟，心境渐明\n- 体内灵气流转更加顺畅\n\n⚡ **特殊事件**\n- 遇见神秘老者，获得修行指导',
-        time: '初入此界',
-        importance: 8
-      });
-    }
-
-    // 分类赋值到对应的记忆类型
+    
+    // 更新显示状态
     shortTermMemories.value = loadedShortMemories;
     mediumTermMemories.value = loadedMediumMemories;
     longTermMemories.value = loadedLongMemories;
     
-    const totalLoaded = loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length;
-    debug.log('记忆中心', `记忆加载完成，总计: ${totalLoaded} 条记忆，短期:${loadedShortMemories.length}, 中期:${loadedMediumMemories.length}, 长期:${loadedLongMemories.length}`);
+    // 统计各类型记忆数量
+    const totalMemories = loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length;
+    debug.log('记忆中心', `记忆加载完成：总计 ${totalMemories} 条记忆`);
     
-    // 检查是否需要转化记忆
-    convertMemories();
-
   } catch (error) {
-    debug.error('记忆中心', '加载数据失败:', error);
-    // 确保即使出错也有基本显示
-    if ((shortTermMemories.value.length + mediumTermMemories.value.length + longTermMemories.value.length) === 0) {
-      shortTermMemories.value = [{
-        type: 'short',
-        content: '记忆系统初始化中...',
-        time: '系统记录',
-        importance: 5
-      }];
-    }
+    debug.error('记忆中心', '加载记忆数据失败', error);
+    toast.error('加载记忆数据失败');
   }
 };
 

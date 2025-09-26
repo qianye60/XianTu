@@ -13,8 +13,8 @@
       </div>
 
       <!-- 左侧收缩按钮 -->
-      <button 
-        class="collapse-btn left" 
+      <button
+        class="collapse-btn left"
         v-show="!isPanelOpen"
         @click="leftSidebarCollapsed = !leftSidebarCollapsed"
       >
@@ -47,7 +47,7 @@
             <router-view />
           </div>
         </div>
-        
+
         <!-- 正常路由视图 -->
         <router-view v-else-if="!uiStore.showCharacterManagement" />
 
@@ -69,9 +69,9 @@
       </div>
 
       <!-- 右侧收缩按钮 -->
-      <button 
-        class="collapse-btn right" 
-        :class="{ collapsed: rightSidebarCollapsed }" 
+      <button
+        class="collapse-btn right"
+        :class="{ collapsed: rightSidebarCollapsed }"
         v-show="!isPanelOpen"
         @click="rightSidebarCollapsed = !rightSidebarCollapsed"
       >
@@ -81,8 +81,8 @@
       </button>
 
       <!-- 右侧区域: 角色信息栏 -->
-      <div 
-        class="right-panel-area" 
+      <div
+        class="right-panel-area"
         :class="{ collapsed: rightSidebarCollapsed }"
         v-show="!isPanelOpen"
       >
@@ -120,13 +120,13 @@ const rightSidebarCollapsed = ref(false);
 
 // 面板状态管理
 const panelRoutes = new Set([
-  'Inventory', 'CharacterDetails', 'Memory', 'Relationships', 
-  'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap', 
+  'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
+  'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
   'Quests', 'Sect', 'TavernData'
 ]);
 
 
-// 右侧相关面板（应该影响右侧收缩按钮）  
+// 右侧相关面板（应该影响右侧收缩按钮）
 const rightPanelRoutes = new Set([
   'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'Sect'
 ]);
@@ -145,7 +145,7 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   Save: { title: '保存游戏', icon: Save },
   WorldMap: { title: '世界地图', icon: Map },
   Quests: { title: '任务系统', icon: Scroll },
-  Sect: { title: '宗门事务', icon: Home },
+  Sect: { title: '宗门势力', icon: Home },
   TavernData: { title: '酒馆数据', icon: Database }
 };
 
@@ -216,13 +216,13 @@ const applySettings = () => {
     const savedSettings = localStorage.getItem('dad_game_settings');
     if (savedSettings) {
       const settings = JSON.parse(savedSettings);
-      
+
       // 应用UI缩放
       if (settings.uiScale) {
         const scaleValue = settings.uiScale / 100;
         document.documentElement.style.setProperty('--ui-scale', scaleValue.toString());
       }
-      
+
       // 应用字体大小
       if (settings.fontSize) {
         const fontSizeMap: Record<string, string> = {
@@ -233,7 +233,7 @@ const applySettings = () => {
         const fontSize = fontSizeMap[settings.fontSize] || '1rem';
         document.documentElement.style.setProperty('--base-font-size', fontSize);
       }
-      
+
       // 应用主题
       if (settings.theme) {
         let targetTheme = settings.theme;
@@ -471,15 +471,15 @@ watch(isPanelOpen, (isOpen) => {
   .collapse-btn {
     display: none;
   }
-  
+
   .left-sidebar {
     width: 200px;
   }
-  
+
   .right-panel-area {
     width: 240px;
   }
-  
+
   .game-content {
     gap: 0;
   }
@@ -490,11 +490,11 @@ watch(isPanelOpen, (isOpen) => {
   .left-sidebar {
     width: 180px;
   }
-  
+
   .right-panel-area {
     width: 200px;
   }
-  
+
   /* 小屏幕上面板全屏显示 */
   .panel-overlay {
     position: fixed;

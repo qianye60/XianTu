@@ -167,7 +167,7 @@ const questTabs = computed(() => [
   { key: 'active', name: '进行中', icon: '⏳', count: 0 },
   { key: 'available', name: '可接取', icon: '📄', count: 0 },
   { key: 'completed', name: '已完成', icon: '✅', count: 0 },
-  { key: 'daily', name: '每日任务', icon: '🔄', count: 0 }
+  { key: 'daily', name: '每日任务', icon: '📅', count: 0 }
 ]);
 
 // 当前显示的任务列表

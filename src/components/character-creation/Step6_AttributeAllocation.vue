@@ -31,7 +31,7 @@
     </div>
 
     <div class="actions">
-      <button @click="resetPoints" class="btn btn-secondary">🔄 重置</button>
+      <button @click="resetPoints" class="btn btn-secondary">重置</button>
       <button @click="randomizePoints" class="btn btn-warning">🎲 随机</button>
       <button @click="balancePoints" class="btn btn-success">⚖️ 均衡</button>
     </div>
