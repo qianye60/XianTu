@@ -47,7 +47,7 @@ export interface AttributeStatus {
 // 位置状态
 export interface LocationStatus {
   description: string;
-  coordinates: { x: number; y: number };
+  // 移除坐标系统，文字游戏不需要坐标
   area: string;
   region: string;
   discovered_at: string;
@@ -314,7 +314,7 @@ class GameStateManagerClass {
     if (typeof locationData === 'string') {
       return {
         description: locationData,
-        coordinates: { x: 0, y: 0 },
+        // 移除坐标系统，文字游戏不需要坐标
         area: '未知区域',
         region: '未知地区',
         discovered_at: new Date().toISOString(),
@@ -325,7 +325,7 @@ class GameStateManagerClass {
     } else if (locationData && typeof locationData === 'object') {
       return {
         description: locationData.description || locationData.描述 || '未知位置',
-        coordinates: locationData.coordinates || locationData.坐标 || { x: 0, y: 0 },
+        // 移除坐标系统，文字游戏不需要坐标
         area: locationData.area || locationData.区域 || '未知区域',
         region: locationData.region || locationData.地区 || '未知地区',
         discovered_at: locationData.discovered_at || new Date().toISOString(),
@@ -337,7 +337,7 @@ class GameStateManagerClass {
 
     return {
       description: '未知位置',
-      coordinates: { x: 0, y: 0 },
+      // 移除坐标系统，文字游戏不需要坐标
       area: '未知区域',
       region: '未知地区',
       discovered_at: new Date().toISOString(),
@@ -450,7 +450,7 @@ class GameStateManagerClass {
     } else {
       this.currentState.location = {
         description: '未知位置',
-        coordinates: { x: 0, y: 0 },
+        // 移除坐标系统，文字游戏不需要坐标
         area: '未知区域',
         region: '未知地区',
         discovered_at: new Date().toISOString(),

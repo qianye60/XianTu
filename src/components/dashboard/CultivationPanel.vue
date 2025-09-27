@@ -221,7 +221,25 @@ const loading = computed(() => !cultivationData.value && !basicData.value);
 
 // 获取当前修炼功法
 const currentTechnique = computed(() => {
-  return characterStore.activeSaveSlot?.存档数据?.修炼功法?.功法 || null;
+  const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
+  if (!cultivationInfo?.功法) return null;
+  
+  const techniqueRef = cultivationInfo.功法;
+  const inventory = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
+  if (inventory && techniqueRef.物品ID && inventory[techniqueRef.物品ID]) {
+    return inventory[techniqueRef.物品ID];
+  }
+  
+  // 如果背包中找不到，构造一个最小对象
+  return {
+    物品ID: techniqueRef.物品ID,
+    名称: techniqueRef.名称,
+    类型: '功法',
+    品质: { quality: '凡', grade: 1 },
+    描述: '',
+    数量: 1,
+    修炼进度: cultivationInfo.修炼进度 || 0
+  };
 });
 
 // 获取已学技能列表
@@ -503,17 +521,29 @@ const stopCultivation = async () => {
       return;
     }
 
-    // 将功法移回背包
-    if (!characterStore.activeSaveSlot.存档数据.背包) {
-      characterStore.activeSaveSlot.存档数据.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+    const saveData = characterStore.activeSaveSlot.存档数据;
+    
+    // 将功法移回背包（如果背包中不存在）
+    if (!saveData.背包) {
+      saveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
     }
-    if (!characterStore.activeSaveSlot.存档数据.背包.物品) {
-      characterStore.activeSaveSlot.存档数据.背包.物品 = {};
+    if (!saveData.背包.物品) {
+      saveData.背包.物品 = {};
     }
-    characterStore.activeSaveSlot.存档数据.背包.物品[techniqueToStop.物品ID] = techniqueToStop;
+    
+    // 如果背包中不存在这个功法，添加进去
+    if (!saveData.背包.物品[techniqueToStop.物品ID]) {
+      saveData.背包.物品[techniqueToStop.物品ID] = techniqueToStop;
+    }
+    
+    // 清除功法的已装备标记
+    if (saveData.背包.物品[techniqueToStop.物品ID]) {
+      saveData.背包.物品[techniqueToStop.物品ID].已装备 = false;
+    }
 
     // 清空修炼槽位
-    characterStore.activeSaveSlot.存档数据.修炼功法.功法 = null;
+    saveData.修炼功法.功法 = null;
+    saveData.修炼功法.正在修炼 = false;
 
     // 保存数据
     await characterStore.commitToStorage();

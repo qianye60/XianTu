@@ -63,6 +63,17 @@ export interface CultivationWorldSettings {
   mapConfig?: WorldMapConfig;      // 地图生成配置
 }
 
+// Helper type for base configuration based on world scale
+type WorldCountSettings = Pick<CultivationWorldSettings,
+  'majorFactionsCount' |
+  'minorFactionsCount' |
+  'neutralZonesCount' |
+  'secretRealmsCount' |
+  'continentCount' |
+  'majorCitiesCount' |
+  'tradingHubsCount'
+>;
+
 /**
  * 预设的世界生成配置
  */
@@ -146,7 +157,7 @@ export class WorldGenerationConfig {
   /**
    * 根据世界规模获取基础配置
    */
-  private getBaseConfigByScale(scale: WorldScale): Partial<CultivationWorldSettings> {
+  private getBaseConfigByScale(scale: WorldScale): WorldCountSettings {
     switch (scale) {
       case WorldScale.SMALL:
         return {

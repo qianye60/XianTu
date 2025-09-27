@@ -4,20 +4,21 @@
  */
 
 import { getTavernHelper } from '@/utils/tavern';
-import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
+import { syncToTavern } from '@/utils/judgement/heavenlyRules';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, WorldLocation } from '@/types/game';
-import { validateAndFixSaveData } from '@/utils/dataValidation';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo } from '@/types/game';
 import type { World } from '@/types';
+import { validateAndFixSaveData } from '@/utils/dataValidation';
 import { generateInitialMessage } from '@/utils/tavernAI';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { GAME_START_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
-import { WorldGenerationConfig, BirthplaceGenerator } from '@/utils/worldGeneration/gameWorldConfig';
-import { CultivationWorldGenerator } from '@/utils/worldGeneration/cultivationWorldGenerator';
+// 移除未使用的旧生成器导入，改用增强版生成器
+// import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
+import { generateRandomSpiritRoot, isRandomSpiritRoot, formatSpiritRootObject } from '@/utils/spiritRootGenerator';
 
 /**
  * 创建一个可重试的AI调用包装器，支持用户确认功能
@@ -151,19 +152,18 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
       等级: 0,
       名称: "凡人",
       当前进度: 0,
-      下一级所需: 0, // 凡人无修炼等级，只是占位
-      突破描述: "凡人之身，尚未踏入修仙之道，需要寻找机缘踏上修炼之路。",
+      下一级所需: 100,
+      突破描述: "引气入体，开始修仙之路"
     },
-    声望: 0,
+    声望: 0, // 声望应该是数字类型
     位置: {
-      描述: "位置生成失败", // 标记为错误状态而不是默认值
-      坐标: { X: 0, Y: 0 } // 错误坐标，提示需要重新生成
+      描述: "位置生成失败" // 标记为错误状态而不是默认值
     },
     气血: { 当前: 初始气血, 最大: 初始气血 },
     灵气: { 当前: 初始灵气, 最大: 初始灵气 }, // 凡人灵气为零
     神识: { 当前: 初始神识, 最大: 初始神识 },
     寿命: { 当前: age, 最大: 最大寿命 }, // 当前年龄和最大寿命
-    修为: { 当前: 0, 最大: 10 }, // 凡人初始修为
+    修为: { 当前: 0, 最大: 100 }, // 修为应该是ValuePair类型
     状态效果: [] // 使用新的StatusEffect数组格式
   };
 }
@@ -185,6 +185,33 @@ export async function initializeCharacter(
 
   try {
     uiStore.updateLoadingText('天道正在为你准备一个崭新的世界...');
+
+    // 0. 智能灵根生成 - 如果选择了随机灵根，根据天资等级生成完整的灵根信息
+    if (isRandomSpiritRoot(baseInfo.灵根)) {
+      console.log('[灵根生成] 检测到随机灵根，开始智能生成');
+      try {
+        const generatedSpiritRoot = generateRandomSpiritRoot(baseInfo.天资 || '中人之姿');
+        const formattedSpiritRoot = formatSpiritRootObject(generatedSpiritRoot);
+
+        // 更新角色基础信息中的灵根
+        baseInfo.灵根 = formattedSpiritRoot;
+
+        console.log('[灵根生成] 智能生成完成:', {
+          名称: formattedSpiritRoot.名称,
+          品级: formattedSpiritRoot.品级,
+          修炼速度: generatedSpiritRoot.cultivation_speed,
+          特殊效果数量: generatedSpiritRoot.special_effects.length
+        });
+      } catch (error) {
+        console.warn('[灵根生成] 智能生成失败，使用默认灵根:', error);
+        // 如果生成失败，使用默认的五行灵根
+        baseInfo.灵根 = {
+          名称: '五行灵根',
+          品级: '凡品',
+          描述: '五行齐全的均衡灵根，修炼各系功法都有不错效果'
+        };
+      }
+    }
 
     // 1. 计算基础属性
     const playerStatus = calculateInitialAttributes(baseInfo, age);
@@ -227,9 +254,7 @@ export async function initializeCharacter(
     };
     console.log('角色初始化：增强的世界配置:', enhancedWorldConfig);
 
-    // 预先创建一个世界配置，用于获取出生地生成器设置（如果世界生成器未完成）
-    const worldConfig = new WorldGenerationConfig('classic_cultivation');
-    // 安全地从复杂对象中提取名称。原方法可能导致错误，使用 any
+    // 安全地从复杂对象中提取名称
     const extractName = (value: unknown): string => {
       if (typeof value === 'string') return value;
       if (value && typeof value === 'object' && '名称' in (value as Record<string, unknown>)) {
@@ -238,12 +263,7 @@ export async function initializeCharacter(
       }
       return String(value ?? '');
     };
-    if (baseInfo.出生) {
-      const originStr = extractName(baseInfo.出生);
-      worldConfig.adjustForCharacterBackground(originStr);
-    }
-    // 从配置生成出生地设置（异步操作可能失败，为了避免阻塞主流程，先获取设置）
-    const worldSettingsForBirthplace = worldConfig.getSettings();
+
 
     // 0.5. 世界生成（使用增强世界生成器）
     uiStore.updateLoadingText('天道正在编织这个世界的命运...');
@@ -294,7 +314,7 @@ export async function initializeCharacter(
           console.log('[角色初始化] 增强世界数据已保存到酒馆变量');
         } else {
           console.error('[角色初始化] 增强世界生成失败:', worldGenerationResult.errors);
-          
+
           // 用户要求：生成失败就重新生成，不使用fallback数据
           throw new Error(`世界生成失败：${worldGenerationResult.errors?.join(', ') || '未知错误'}。请重新开始角色创建流程。`);
         }
@@ -314,42 +334,22 @@ export async function initializeCharacter(
       try {
         // 获取用户描述的出生地名称
         const userBirthDescription = extractName(baseInfo.出生);
-        
-        // 使用地图中心附近的预设坐标，避免超出边界
-        const mapCenterX = 1800; // 地图中心X坐标 (3600/2)
-        const mapCenterY = 1200; // 地图中心Y坐标 (2400/2)
-        
-        // 在中心附近随机生成一个小范围的偏移，确保不超出边界
-        const offsetRange = 200; // 偏移范围
-        const randomOffsetX = Math.floor(Math.random() * offsetRange * 2) - offsetRange; // -200 到 +200
-        const randomOffsetY = Math.floor(Math.random() * offsetRange * 2) - offsetRange; // -200 到 +200
-        
-        // 计算最终坐标，确保在有效范围内
-        const finalX = Math.max(100, Math.min(3500, mapCenterX + randomOffsetX));
-        const finalY = Math.max(100, Math.min(2300, mapCenterY + randomOffsetY));
-        
-        const presetCoordinates = { X: finalX, Y: finalY };
-        
-        console.log(`[角色初始化] 使用预设坐标: ${userBirthDescription} (${presetCoordinates.X}, ${presetCoordinates.Y})`);
-        
-        // 直接设置玩家位置信息
+
+        // 设置玩家位置信息，位置描述将由AI根据角色背景生成
         playerStatus.位置 = {
-          描述: `${userBirthDescription} - ${baseInfo.名字}的出生之地`,
-          坐标: presetCoordinates
+          描述: '初始地' // 临时占位符，AI将根据角色背景生成具体位置
         };
 
         console.log('[角色初始化] 出生地已确定:', {
           名称: userBirthDescription,
-          描述: playerStatus.位置.描述,
-          坐标: playerStatus.位置.坐标
+          描述: playerStatus.位置.描述
         });
 
       } catch (birthplaceError) {
         console.error('[角色初始化] 出生地设置失败:', birthplaceError);
-        // 如果出错，使用默认中心坐标作为fallback
+        // 如果出错，使用默认位置作为fallback
         playerStatus.位置 = {
-          描述: `${extractName(baseInfo.出生)} - ${baseInfo.名字}的出生之地`,
-          坐标: { X: 1800, Y: 1200 } // 地图中心
+          描述: extractName(baseInfo.出生) || '初始地'
         };
       }
 
@@ -361,15 +361,29 @@ export async function initializeCharacter(
 
     // 2. 创建基础存档结构（符合 SaveData 类型）
     const saveData: SaveData = {
-      玩家角色状态: { ...playerStatus },
-      装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
-      三千大道: createEmptyThousandDaoSystem(),
-      背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
-      人物关系: {}, // 将由AI在初始化流程中动态生成
-      宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
-      记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
-      游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: 0, 分钟: 0 },
-      修炼功法: { 功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0 }
+        角色基础信息: baseInfo, // 初始时使用 baseInfo
+        玩家角色状态: playerStatus,
+        装备栏: {
+            装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null,
+        },
+        三千大道: createEmptyThousandDaoSystem(),
+        背包: {
+            灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
+            物品: {},
+        },
+        人物关系: {}, // 正确的字段名
+        宗门系统: {
+            availableSects: [], sectRelationships: {}, sectHistory: [],
+        },
+        记忆: {
+            短期记忆: [], 中期记忆: [], 长期记忆: [],
+        },
+        游戏时间: {
+            年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0,
+        },
+        修炼功法: {
+            功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0,
+        }
     };
 
     // ================= AI 动态生成部分 =================
@@ -401,8 +415,8 @@ export async function initializeCharacter(
     // 5.2 构建传递给初始游戏数据包给AI
     const normalizedBaseInfo = {
       ...baseInfo,
-      天赋: Array.isArray(baseInfo.天赋) 
-        ? baseInfo.天赋.map(talent => 
+      天赋: Array.isArray(baseInfo.天赋)
+        ? baseInfo.天赋.map(talent =>
             typeof talent === 'string' ? talent : talent.名称
           )
         : baseInfo.天赋
@@ -428,7 +442,7 @@ export async function initializeCharacter(
     // 5.3 严格保护用户选择的固定字段，避免被AI确认功能
     // 这些核心字段，除非用户确选择"随机"时才允许AI精细化
     console.log('[角色初始化] 开始验证用户选择的固定字段保护...');
-    
+
     // 验证并保护用户的核心信息
     const protectedFields = {
       名字: baseInfo.名字,
@@ -437,7 +451,7 @@ export async function initializeCharacter(
       先天六司: { ...baseInfo.先天六司 }
     };
     console.log('[角色初始化] 受保护的核心字段:', protectedFields);
-    
+
     // 只有当用户明确选择"随机"时才允许精细化响应处理
     if (
       initialMessageResponse.processedOrigin &&
@@ -446,10 +460,14 @@ export async function initializeCharacter(
     ) {
       baseInfo.出生 = initialMessageResponse.processedOrigin;
       console.log('[角色初始化] 出生已精细化为:', baseInfo.出生);
+
+      // 位置描述应该是具体的地理位置，不是出生背景
+      // 位置生成由后续的AI系统处理，这里不强制覆盖
+      console.log('[角色初始化] 位置描述将由AI系统生成具体地理位置');
     } else {
       console.log('[角色初始化] 出生字段已固定，不允许修改:', baseInfo.出生);
     }
-    
+
     if (
       initialMessageResponse.processedSpiritRoot &&
       typeof baseInfo.灵根 === 'string' &&
@@ -460,7 +478,7 @@ export async function initializeCharacter(
     } else {
       console.log('[角色初始化] 灵根字段已固定，不允许修改:', baseInfo.灵根);
     }
-    
+
     // 强制验证核心字段未被意外修改
     if (baseInfo.名字 !== protectedFields.名字) {
       console.error('[角色初始化] 检测到名字被意外修改，强制恢复:', protectedFields.名字);
@@ -474,15 +492,17 @@ export async function initializeCharacter(
       console.error('[角色初始化] 检测到年龄被意外修改，强制恢复:', protectedFields.年龄);
       baseInfo.年龄 = protectedFields.年龄;
     }
-    
+
     // 验证先天六司未被修改
     const current先天六司 = baseInfo.先天六司;
     const protected先天六司 = protectedFields.先天六司;
-    for (const [key, value] of Object.entries(protected先天六司)) {
-      if (current先天六司[key as keyof typeof current先天六司] !== value) {
-        console.error(`[角色初始化] 检测到先天六司.${key}被意外修改，强制恢复:`, value);
-        current先天六司[key as keyof typeof current先天六司] = value;
-      }
+    if (current先天六司 && protected先天六司) {
+        for (const [key, value] of Object.entries(protected先天六司)) {
+            if (current先天六司[key as keyof typeof current先天六司] !== value) {
+                console.error(`[角色初始化] 检测到先天六司.${key}被意外修改，强制恢复:`, value);
+                current先天六司[key as keyof typeof current先天六司] = value;
+            }
+        }
     }
 
     // 5.4 处理开场的开场信息和剧情（使用AI生成的数据，不重复）
@@ -532,62 +552,28 @@ export async function initializeCharacter(
       };
       await helper.insertOrAssignVariables(globalVars, { type: 'global' });
 
-      // [数据重构] 合并数据等级，将角色基础信息和AI生成匹配验证
-      // 1. 优先使用AI返回的基础数据，如果存在
-      // 2. 其次使用世界生成器直接获取数据
-      // 3. 最后使用用户输入数据
-      // 合并角色基础信息（以AI生成的(currentSaveData.角色基础信息)为准，缺失再回退baseInfo
-      type CharacterBaseInfoWithAI = CharacterBaseInfo & {
-        _AI说明?: string;
-        先天六司: CharacterBaseInfo['先天六司'] & {
-          _AI重要提醒?: string;
-          _AI修改规则?: string;
-        };
+      // [数据重构] 合并角色基础信息
+      const aiBase: Partial<CharacterBaseInfo> = currentSaveData.角色基础信息 ?? {};
+      const bi: CharacterBaseInfo = baseInfo;
+
+      const mergedBaseInfo: CharacterBaseInfo = {
+        ...bi,
+        ...aiBase,
+        名字: bi.名字,
+        性别: bi.性别,
+        年龄: bi.年龄,
+        先天六司: bi.先天六司,
+        出生: (typeof bi.出生 === 'string' && (bi.出生.includes('随机') || bi.出生 === '随机'))
+          ? (aiBase?.出生 || bi.出生)
+          : bi.出生,
+        灵根: (typeof bi.灵根 === 'string' && (bi.灵根.includes('随机') || bi.灵根 === '随机'))
+          ? (aiBase?.灵根 || bi.灵根)
+          : bi.灵根,
+        世界详情: { ...bi.世界详情, ...aiBase.世界详情 } as World,
+        天赋: Array.isArray(aiBase?.天赋) ? aiBase.天赋 : (Array.isArray(bi?.天赋) ? bi.天赋 : []),
+        天赋详情: Array.isArray(aiBase?.天赋详情) ? aiBase.天赋详情 : (Array.isArray(bi?.天赋详情) ? bi.天赋详情 : []),
       };
-      try {
-
-        const aiBase: Partial<CharacterBaseInfo> = currentSaveData.角色基础信息 ?? {};
-        const bi: CharacterBaseInfo = baseInfo;
-
-        const mergedBaseInfo: CharacterBaseInfoWithAI = {
-          ...bi,
-          ...aiBase,
-          // 强制保护用户选择的核心字段，AI数据不能覆盖
-          名字: bi.名字, // 强制使用用户选择的名字
-          性别: bi.性别, // 强制使用用户选择的性别
-          年龄: bi.年龄, // 强制使用用户选择的年龄
-          先天六司: {
-            // 强制使用用户的先天六司，AI数据不能修改
-            ...bi.先天六司,
-            _AI重要提醒: "玩家角色的先天六司不允许修改，这是角色创建时确定的固定数值",
-            _AI修改规则: "严禁对玩家的先天六司进行任何 set/add/push/pull 操作",
-          },
-          // 只有当用户选择"随机"时才能使用AI的精细化结果
-          出生: (typeof bi.出生 === 'string' && (bi.出生.includes('随机') || bi.出生 === '随机'))
-            ? (aiBase?.出生 || bi.出生)
-            : bi.出生,
-          灵根: (typeof bi.灵根 === 'string' && (bi.灵根.includes('随机') || bi.灵根 === '随机'))
-            ? (aiBase?.灵根 || bi.灵根)
-            : bi.灵根,
-          // 其他字段可以使用AI的增强数据
-          世界详情: { ...(bi?.世界详情 ?? {}), ...(aiBase?.世界详情 ?? {}) },
-          天赋: Array.isArray(aiBase?.天赋) ? aiBase.天赋 : (Array.isArray(bi?.天赋) ? bi.天赋 : []),
-          天赋详情: Array.isArray(aiBase?.天赋详情) ? aiBase.天赋详情 : (Array.isArray(bi?.天赋详情) ? bi.天赋详情 : []),
-          _AI说明: "角色创建时的基础信息，其中名字、性别、年龄、先天六司不允许修改，出生/灵根仅在用户选择随机时可精细化",
-        };
-        currentSaveData.角色基础信息 = mergedBaseInfo;
-      } catch {
-        const fallbackMerged: CharacterBaseInfoWithAI = {
-          ...baseInfo,
-          先天六司: {
-            ...baseInfo.先天六司,
-            _AI重要提醒: "玩家角色的先天六司不允许修改，这是角色创建时确定的固定数值",
-            _AI修改规则: "严禁对玩家的先天六司进行任何 set/add/push/pull 操作",
-          },
-          _AI说明: "角色创建时的基础信息，名字/性别/年龄/先天六司仅在用户选择随机时可精细化",
-        };
-        currentSaveData.角色基础信息 = fallbackMerged;
-      }
+      currentSaveData.角色基础信息 = mergedBaseInfo;
 
       // 确保角色基础信息与用户选择一致
       if (baseInfo.世界 !== world.name) {
@@ -626,7 +612,7 @@ export async function initializeCharacter(
           生成信息: {
             生成时间: new Date().toISOString(),
             世界背景: world.description,
-            世界纪元: world.era,
+            世界纪元: world.era || '未知纪元',
             特殊设定: [],
             版本: '1.0'
           }
@@ -646,12 +632,31 @@ export async function initializeCharacter(
       };
       await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
 
-      // 追加：计算并写入"天道规则 v4.2"预计算数据（直接判断直接调用）
+      // 追加：计算并写入"天道规则 v5.0"预计算数据（直接判断直接调用）
       try {
-        await syncHeavenlyPrecalcToTavern(currentSaveData as any, currentSaveData.角色基础信息 as any);
+        await syncToTavern(
+          currentSaveData,
+          currentSaveData.角色基础信息 || baseInfo
+        );
         console.log('[角色初始化] 已写入天道规则预计算数据');
       } catch (e) {
         console.warn('[角色初始化] 天道规则预计算写入失败，不影响游戏进行', e);
+      }
+
+      // 最终强制检查位置描述，清理"随机"字样
+      if (currentSaveData.玩家角色状态?.位置?.描述?.includes('随机')) {
+        // 设置一个合理的临时位置，等待AI生成具体位置
+        currentSaveData.玩家角色状态.位置.描述 = '初始地';
+        console.log('[角色初始化] 清理位置描述中的"随机"字样，等待AI生成具体位置');
+      }
+
+      // 最终强制检查并设置玩家位置，防止AI遗漏
+      if (!currentSaveData.玩家角色状态.位置 || currentSaveData.玩家角色状态.位置.描述 === "位置生成失败" || !currentSaveData.玩家角色状态.位置.描述) {
+        console.warn('[角色初始化] AI未成功生成玩家位置，强制使用本地预设位置。');
+        currentSaveData.玩家角色状态.位置 = playerStatus.位置;
+        // 顺便也更新一下存档中的位置信息
+        await helper.insertOrAssignVariables({ 'character.saveData.玩家角色状态.位置': playerStatus.位置 }, { type: 'chat' });
+        console.log('[角色初始化] 已强制写入玩家初始位置。');
       }
 
       console.log('角色基础信息已保存到全局变量，游戏数据已保存到聊天变量');

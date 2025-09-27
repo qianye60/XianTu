@@ -3,7 +3,7 @@
  * 将现有的存档数据结构转换为AI系统所需的格式
  */
 
-import type { SaveData } from '../../types/game';
+import type { SaveData, CharacterBaseInfo, Item, NpcProfile, StatusEffect, Realm } from '../../types/game';
 import type { GameCharacter, GM_Request } from '../../types/AIGameMaster';
 
 /**
@@ -31,7 +31,6 @@ export interface LocationContext {
   current_location: {
     name: string;
     description: string;
-    coordinates: { x: number; y: number };
     type: string;
     spirit_density: number;
     danger_level: number;
@@ -45,160 +44,147 @@ export interface LocationContext {
 /**
  * 将存档数据转换为AI系统需要的角色数据
  */
-export function convertSaveDataToGameCharacter(saveData: SaveData, characterProfile?: { 角色基础信息?: any }): GameCharacter {
+export function convertSaveDataToGameCharacter(saveData: SaveData, characterProfile?: { 角色基础信息?: CharacterBaseInfo }): GameCharacter {
   const playerStatus = saveData.玩家角色状态;
-  
-  // 从角色档案或存档数据中获取基础信息
-  const baseInfo = characterProfile?.角色基础信息 || (saveData as any).角色基础信息;
-  
-  if (!baseInfo || !playerStatus) {
-    console.error('[AI转换器] 缺少必要的角色数据:', { baseInfo, playerStatus });
+  const baseInfo = characterProfile?.角色基础信息 || saveData.角色基础信息;
+  const charAttributes = saveData.角色属性;
+
+  if (!baseInfo || !playerStatus || !charAttributes) {
+    console.error('[AI转换器] 缺少必要的角色数据:', { baseInfo, playerStatus, charAttributes });
     throw new Error('缺少必要的角色数据，无法转换为AI系统格式');
   }
-  
+
   const equipment = saveData.装备栏;
-  const cultivationArts = saveData.修炼功法; // 修正：使用修炼功法而不是功法技能
+  const cultivationArts = saveData.修炼功法;
   const bag = saveData.背包;
+
+  const getRealmName = (realm: string | Realm): string => {
+    return typeof realm === 'string' ? realm : realm.名称;
+  };
+
+  const getQi = (value: number | { 当前: number; 最大: number }): { current: number; max: number } => {
+    if (typeof value === 'number') return { current: value, max: value };
+    return { current: value.当前, max: value.最大 };
+  };
 
   return {
     identity: {
       name: baseInfo.名字 || '无名道友',
-      title: playerStatus.声望 && playerStatus.声望 > 100 ? `${baseInfo.名字 || '无名'}真人` : undefined,
-      age: playerStatus.寿命?.当前 || 18,
-      apparent_age: playerStatus.寿命?.当前 || 18,
-      gender: baseInfo.性别 || '男',
-      description: `来自${baseInfo.世界 || '未知之地'}的修士，出身${baseInfo.出生 || '平凡'}`,
+      title: typeof playerStatus.声望 === 'number' && playerStatus.声望 > 100 ? `${baseInfo.名字 || '无名'}真人` : undefined,
+      age: baseInfo.年龄,
+      apparent_age: baseInfo.年龄,
+      gender: baseInfo.性别,
+      description: `来自${baseInfo.世界 || '未知之地'}的${baseInfo.种族}修士，出身${typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生.名称}`,
     },
 
     cultivation: {
-      realm: playerStatus.境界?.名称 || '凡人',
-      realm_progress: playerStatus.境界?.当前进度 || 0,
-      lifespan_remaining: playerStatus.寿命?.当前 || 100,
-      breakthrough_bottleneck: playerStatus.境界?.突破描述
+      realm: getRealmName(charAttributes.境界),
+      realm_progress: typeof charAttributes.修为 === 'number' ? charAttributes.修为 : charAttributes.修为.当前,
+      lifespan_remaining: baseInfo.年龄, // 简化处理
+      breakthrough_bottleneck: typeof charAttributes.境界 === 'object' ? charAttributes.境界.突破描述 : undefined,
     },
     attributes: {
-      STR: baseInfo.先天六司?.根骨 || 10,  // 力量（根骨）
-      CON: baseInfo.先天六司?.根骨 || 10,  // 体质（根骨）
-      DEX: baseInfo.先天六司?.灵性 || 10,  // 身法（灵性）
-      INT: baseInfo.先天六司?.悟性 || 10,  // 悟性
-      SPI: baseInfo.先天六司?.心性 || 10,  // 神魂（心性）
-      LUK: baseInfo.先天六司?.气运 || 10   // 气运
+      STR: charAttributes.基础属性.力量,
+      CON: charAttributes.基础属性.体质,
+      DEX: charAttributes.基础属性.敏捷,
+      INT: charAttributes.基础属性.智力,
+      SPI: charAttributes.扩展属性.神识,
+      LUK: charAttributes.扩展属性.气运,
     },
     resources: {
-      qi: {
-        current: playerStatus.气血?.当前 || 100,
-        max: playerStatus.气血?.最大 || 100
-      },
-      ling: {
-        current: playerStatus.灵气?.当前 || 100,
-        max: playerStatus.灵气?.最大 || 100
-      },
+      qi: getQi(playerStatus.生命值),
+      ling: getQi(playerStatus.灵力值),
       shen: {
         current: playerStatus.神识?.当前 || 50,
-        max: playerStatus.神识?.最大 || 50
-      }
+        max: playerStatus.神识?.最大 || 50,
+      },
     },
 
     qualities: {
       origin: {
-        name: baseInfo.出生 || '平凡',
-        effects: []
+        name: typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生.名称,
+        effects: [],
       },
       spiritRoot: {
-        name: baseInfo.灵根?.名称 || '五行灵根',
-        quality: baseInfo.灵根?.品质 || '下品',
-        attributes: baseInfo.灵根?.属性 || ['五行']
+        name: typeof baseInfo.灵根 === 'string' ? baseInfo.灵根 : baseInfo.灵根.名称,
+        quality: typeof baseInfo.灵根 === 'object' ? baseInfo.灵根.品质 : '凡品',
+        attributes: [],
       },
-      physique: baseInfo.体质 ? {
-        name: baseInfo.体质,
-        effects: []
-      } : undefined,
-      talents: baseInfo.天赋 ? Object.entries(baseInfo.天赋).map(([name, effect]: [string, any]) => ({
-        name,
+      physique: undefined,
+      talents: baseInfo.天赋.map((talent) => ({
+        name: typeof talent === 'string' ? talent : talent.名称,
         type: '天赋',
-        effects: Array.isArray(effect) ? effect : [String(effect)]
-      })) : []
+        effects: typeof talent === 'string' ? [talent] : [talent.描述],
+      })),
     },
 
-    skills: cultivationArts?.已解锁技能 ? cultivationArts.已解锁技能.reduce((acc: any, skillName: string) => {
-      acc[skillName] = {
-        level: 1,
-        rank: '入门', 
-        experience: 0
-      };
+    skills: cultivationArts?.已解锁技能?.reduce((acc: Record<string, any>, skillName: string) => {
+      acc[skillName] = { level: 1, rank: '入门', experience: 0 };
       return acc;
-    }, {} as Record<string, any>) : {},
+    }, {}) || {},
 
     equipment: {
-      weapon: equipment?.装备1 ? { 
-        name: equipment.装备1, 
-        type: '武器',
-        description: '修仙者的武器装备'
-      } : undefined,
-      armor: equipment?.装备2 ? { 
-        name: equipment.装备2, 
-        type: '防具',
-        description: '修仙者的防护装备'
-      } : undefined,
-      accessories: [equipment?.装备3, equipment?.装备4, equipment?.装备5, equipment?.装备6].filter(Boolean).map(name => ({ 
-        name: name!, 
+      weapon: equipment?.装备1 ? { name: equipment.装备1.名称, type: '武器', description: equipment.装备1.描述 } : undefined,
+      armor: equipment?.装备2 ? { name: equipment.装备2.名称, type: '防具', description: equipment.装备2.描述 } : undefined,
+      accessories: [equipment?.装备3, equipment?.装备4, equipment?.装备5, equipment?.装备6].filter((item): item is Item => !!item).map(item => ({
+        name: item.名称,
         type: '饰品',
-        description: '修仙者的辅助装备'
+        description: item.描述,
       })),
       treasures: [],
-      consumables: bag?.物品 ? Object.values(bag.物品).filter(item => item.类型 === '消耗品').map(item => ({
-        name: item.名称 || '未知物品',
-        type: item.类型 || '消耗品',
-        description: item.描述 || '修仙者的消耗品'
-      })) : []
+      consumables: Object.values(bag.物品).filter(item => item.类型 === '消耗品').map(item => ({
+        name: item.名称,
+        type: item.类型,
+        description: item.描述,
+      })),
     },
 
     cultivation_arts: {
       main_technique: cultivationArts?.功法 ? {
-        name: cultivationArts.功法.名称 || '未知功法',
-        rank: (cultivationArts.功法.品质 as any)?.阶位 || '凡', // 临时处理品质类型
-        proficiency: cultivationArts.熟练度 || 0,
-        special_effects: cultivationArts.功法.装备特效 || []
+        name: cultivationArts.功法.名称,
+        rank: typeof cultivationArts.功法.品质 === 'string' ? cultivationArts.功法.品质 : cultivationArts.功法.品质.quality,
+        proficiency: cultivationArts.熟练度,
+        special_effects: cultivationArts.功法.装备特效 || [],
       } : undefined,
       combat_techniques: cultivationArts?.已解锁技能?.map((skillName: string) => ({
         name: skillName,
         type: '功法技能',
         cost: 10,
-        cooldown: 0
+        cooldown: 0,
       })) || [],
-      auxiliary_techniques: []
+      auxiliary_techniques: [],
     },
 
     social: {
-      faction: baseInfo.门派 || undefined,
+      faction: undefined,
       position: undefined,
       master: undefined,
       disciples: [],
       dao_companion: undefined,
-      relationships: convertRelationshipsData(saveData.人物关系),
-      reputation: { '默认': playerStatus.声望 || 0 }
+      relationships: convertRelationshipsData(saveData.人际关系),
+      reputation: { '默认': typeof playerStatus.声望 === 'number' ? playerStatus.声望 : (playerStatus.声望.江湖声望 + playerStatus.声望.宗门声望) },
     },
 
     hidden_state: {
       karma: {
         righteous: 0,
         demonic: 0,
-        heavenly_favor: baseInfo.先天六司?.福缘 || 10
+        heavenly_favor: charAttributes.扩展属性.气运,
       },
       dao_heart: {
         stability: (baseInfo.先天六司?.心性 || 10) * 10,
         demons: [],
-        enlightenment: 0
+        enlightenment: 0,
       },
-      special_marks: []
+      special_marks: [],
     },
 
     status: {
-      conditions: (playerStatus.状态效果 || []).map((effect: any) => effect.名称 || String(effect)),
+      conditions: (playerStatus.状态 || []).map((effect: StatusEffect | string) => typeof effect === 'string' ? effect : effect.名称),
       location: playerStatus.位置?.描述 || '未知位置',
       activity: (playerStatus.位置?.描述 || '').includes('修炼') ? '修炼' : '待机',
-      mood: undefined
-    }
+      mood: undefined,
+    },
   };
 }
 
@@ -209,21 +195,27 @@ export function convertSaveDataToMemorySystem(saveData: SaveData): MemorySystem 
   const relationships = saveData.人物关系 || {};
 
   return {
-    short_term: [], // 短期记忆需要从对话历史获取
-    mid_term: [], // 中期记忆需要从关键事件获取
-    long_term: [], // 长期记忆需要从角色成长轨迹获取
+    short_term: saveData.记忆.短期记忆,
+    mid_term: saveData.记忆.中期记忆,
+    long_term: saveData.记忆.长期记忆,
     npc_interactions: Object.entries(relationships).reduce((acc, [npcName, npcData]) => {
       if (typeof npcData === 'object' && npcData !== null) {
         acc[npcName] = {
-          relationship: (npcData as any)['人物关系'] || '普通',
-          favor: (npcData as any)['人物好感度'] || 0,
-          memories: (npcData as any)['人物记忆'] || [],
-          last_interaction: (npcData as any)['最后互动时间'] || '',
-          interaction_count: (npcData as any)['互动次数'] || 0
+          relationship: npcData.关系,
+          favor: npcData.好感度,
+          memories: [], // 简化处理
+          last_interaction: '',
+          interaction_count: 0,
         };
       }
       return acc;
-    }, {} as Record<string, any>)
+    }, {} as Record<string, {
+      relationship: string;
+      favor: number;
+      memories: string[];
+      last_interaction: string;
+      interaction_count: number;
+    }>),
   };
 }
 
@@ -238,43 +230,37 @@ export function convertSaveDataToLocationContext(saveData: SaveData): LocationCo
     current_location: {
       name: location?.描述 || '未知位置',
       description: location?.描述 || '一个神秘的地方',
-      coordinates: { 
-        x: location?.坐标?.X || 0, 
-        y: location?.坐标?.Y || 0 
-      },
       type: '普通区域',
       spirit_density: 50,
       danger_level: 0,
-      special_effects: []
+      special_effects: [],
     },
     nearby_npcs: [],
     available_actions: ['观察周围', '离开'],
-    environmental_factors: ['晴朗天气']
+    environmental_factors: ['晴朗天气'],
   };
 }
 
 /**
  * 辅助函数：转换人物关系数据
  */
-function convertRelationshipsData(relationshipsData: Record<string, any> | undefined): Record<string, {
+function convertRelationshipsData(relationshipsData: Record<string, NPC> | undefined): Record<string, {
   value: number;
   type: string;
   description: string;
 }> {
-  if (!relationshipsData || typeof relationshipsData !== 'object') {
+  if (!relationshipsData) {
     return {};
   }
 
-  return Object.entries(relationshipsData).reduce((acc, [npcName, npcData]) => {
-    if (typeof npcData === 'object' && npcData !== null) {
-      acc[npcName] = {
-        value: (npcData as any)['好感度'] || 0,
-        type: (npcData as any)['关系类型'] || '普通',
-        description: (npcData as any)['关系描述'] || ''
-      };
-    }
+  return Object.entries(relationshipsData).reduce<Record<string, { value: number; type: string; description: string }>>((acc, [npcName, npcData]) => {
+    acc[npcName] = {
+      value: npcData.好感度,
+      type: npcData.关系,
+      description: npcData.关系,
+    };
     return acc;
-  }, {} as Record<string, { value: number; type: string; description: string }>);
+  }, {});
 }
 
 /**
@@ -283,20 +269,19 @@ function convertRelationshipsData(relationshipsData: Record<string, any> | undef
 export function createGMRequest(
   character: GameCharacter,
   memory: MemorySystem,
-  location: LocationContext,
-  userMessage: string
+  location: LocationContext
 ): GM_Request {
   return {
     character: character,
     world: {
       lorebook: '修仙世界设定',
       mapInfo: location,
-      time: '未知时间'
+      time: '未知时间',
     },
     memory: {
-      short_term: memory.short_term || [],
-      mid_term: memory.mid_term || [],
-      long_term: memory.long_term || []
-    }
+      short_term: memory.short_term,
+      mid_term: memory.mid_term,
+      long_term: memory.long_term,
+    },
   };
 }

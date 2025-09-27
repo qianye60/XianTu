@@ -81,7 +81,10 @@
       "Bash(./node_modules/.bin/vue-tsc:*)",
       "Bash(\"./node_modules/.bin/vue-tsc\" --noEmit)",
       "Bash(del \"@types (3).txt\" \"slash_command (4).txt\")",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(del test_item_generation.js)",
+      "Bash(del test_duplicate_fields.js)",
+      "Bash(\".\\node_modules\\.bin\\vue-tsc.cmd\" --noEmit)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

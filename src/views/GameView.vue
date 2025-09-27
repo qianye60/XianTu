@@ -454,7 +454,7 @@ watch(isPanelOpen, (isOpen) => {
   flex-direction: column;
 }
 
-.panel-header.compact { padding: 6px 10px; position: sticky; top: 0; z-index: 2; }
+.panel-header.compact { padding: 6px 10px; position: sticky; top: 0; z-index: 2; background: var(--color-background); }
 .panel-content.compact { padding: 6px 10px 10px 10px; }
 
 /* 子面板将删除自身顶栏，无需再隐藏 */

@@ -59,6 +59,9 @@ function getRealmName(level: number): string {
   return names[level] || '未知境界';
 }
 
+// 导出getRealmName函数供其他模块使用
+export { getRealmName };
+
 export const REALM_DEFINITIONS: RealmDefinition[] = [
   {
     level: 0,

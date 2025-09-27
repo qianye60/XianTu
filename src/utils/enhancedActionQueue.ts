@@ -22,7 +22,10 @@ export interface UndoAction {
     // 使用/丢弃操作的恢复数据  
     originalQuantity?: number;
     // 功法修炼的恢复数据
-    originalCultivationState?: any;
+    originalCultivationState?: {
+      previousTechnique: { 物品ID: string; 名称: string; } | null;
+      wasInInventory: boolean;
+    };
   };
 }
 
@@ -60,8 +63,9 @@ export class EnhancedActionQueueManager {
         saveData.装备栏 = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
       }
       
-      // 检查是否已装备
-      if (this.isEquipped(item)) {
+      // 检查是否已装备 - 改为直接检查saveData中的状态
+      const inventoryItem = saveData.背包?.物品?.[item.物品ID];
+      if (inventoryItem && inventoryItem.已装备 === true) {
         toast.info(`《${item.名称}》已经装备在身上了`);
         return false;
       }
@@ -76,7 +80,7 @@ export class EnhancedActionQueueManager {
       for (let i = 1; i <= 6; i++) {
         const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
         const slotItem = saveData.装备栏[slotKey];
-        if (!slotItem || slotItem === "null") {
+        if (!slotItem || slotItem === null) {
           targetSlot = slotKey;
           break;
         }
@@ -86,16 +90,30 @@ export class EnhancedActionQueueManager {
         // 装备栏已满，替换第一个槽位
         targetSlot = '装备1';
         const slotKey = targetSlot as keyof typeof saveData.装备栏;
-        replacedItem = saveData.装备栏[slotKey] as Item;
-        // 注意：被替换的装备直接丢失，不放回背包
+        const existingSlotItem = saveData.装备栏[slotKey];
+        if (existingSlotItem && typeof existingSlotItem === 'object' && '物品ID' in existingSlotItem) {
+          // 获取被替换物品的完整信息
+          const replacedItemId = existingSlotItem.物品ID;
+          if (saveData.背包?.物品?.[replacedItemId]) {
+            replacedItem = saveData.背包.物品[replacedItemId];
+            // 清除被替换物品的已装备状态
+            saveData.背包.物品[replacedItemId].已装备 = false;
+          }
+        }
       }
       
-      // 执行装备操作
-      saveData.装备栏[targetSlot as keyof typeof saveData.装备栏] = item;
+      // 执行装备操作 - 存储引用格式而不是完整对象
+      saveData.装备栏[targetSlot as keyof typeof saveData.装备栏] = {
+        物品ID: item.物品ID,
+        名称: item.名称
+      };
       
-      // 设置物品的已装备标记
+      // 设置物品的已装备标记（使用对象扩展运算符确保响应式更新）
       if (saveData.背包?.物品?.[item.物品ID]) {
-        saveData.背包.物品[item.物品ID].已装备 = true;
+        const inventoryItem = saveData.背包.物品[item.物品ID];
+        if (inventoryItem && typeof inventoryItem === 'object') {
+          saveData.背包.物品[item.物品ID] = { ...inventoryItem, 已装备: true };
+        }
       }
       
       console.log('装备操作完成:', {
@@ -160,21 +178,36 @@ export class EnhancedActionQueueManager {
         return false;
       }
       
-      // 检查物品是否已装备
-      if (!this.isEquipped(item)) {
+      // 检查物品是否已装备 - 改为直接检查saveData中的状态
+      const inventoryItem = saveData.背包?.物品?.[item.物品ID];
+      if (!inventoryItem || inventoryItem.已装备 !== true) {
         toast.info(`《${item.名称}》未装备，无法卸下`);
+        // 即使物品状态已经是“未装备”，也尝试同步一下装备栏，以防数据不一致
+        // (例如，物品标记为未装备，但仍在装备栏里)
+        let foundInSlots = false;
+        for (let i = 1; i <= 6; i++) {
+          const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
+          const slotItem = saveData.装备栏[slotKey];
+          if (slotItem && typeof slotItem === 'object' && slotItem.物品ID === item.物品ID) {
+            saveData.装备栏[slotKey] = null; // 清理掉残留的装备槽位
+            foundInSlots = true;
+          }
+        }
+        if (foundInSlots) {
+          await characterStore.commitToStorage();
+        }
         return false;
       }
       
       // 检查互斥操作：如果队列中有同一物品的装备操作，先移除它
       this.removeConflictingActions(item.物品ID, 'equip');
       
-      // 找到物品在哪个槽位
+      // 找到物品在哪个槽位 - 只支持新的引用格式
       let sourceSlot: string | null = null;
       for (let i = 1; i <= 6; i++) {
         const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
         const slotItem = saveData.装备栏[slotKey];
-        if (slotItem && slotItem !== "null" && typeof slotItem === 'object' && slotItem.物品ID === item.物品ID) {
+        if (slotItem && typeof slotItem === 'object' && '物品ID' in slotItem && slotItem.物品ID === item.物品ID) {
           sourceSlot = slotKey;
           break;
         }
@@ -193,9 +226,12 @@ export class EnhancedActionQueueManager {
       // 执行卸下操作
       saveData.装备栏[sourceSlot as keyof typeof saveData.装备栏] = null;
       
-      // 清除物品的已装备标记
+      // 清除物品的已装备标记（使用对象扩展运算符确保响应式更新）
       if (saveData.背包?.物品?.[item.物品ID]) {
-        saveData.背包.物品[item.物品ID].已装备 = false;
+        const inventoryItem = saveData.背包.物品[item.物品ID];
+        if (inventoryItem && typeof inventoryItem === 'object') {
+          saveData.背包.物品[item.物品ID] = { ...inventoryItem, 已装备: false };
+        }
         console.log('卸下装备完成:', {
           物品: item.名称,
           物品ID: item.物品ID,
@@ -258,7 +294,7 @@ export class EnhancedActionQueueManager {
         return false;
       }
       
-      const inventoryItem = saveData.背包.物品[item.物品ID];
+      const inventoryItem = saveData.背包?.物品?.[item.物品ID];
       if (!inventoryItem || inventoryItem.数量 < quantity) {
         toast.error('物品数量不足');
         return false;
@@ -339,35 +375,42 @@ export class EnhancedActionQueueManager {
       }
       
       const skillSlots = saveData.修炼功法;
-      let previousTechnique: any = null;
+      let previousTechnique: { 物品ID: string; 名称: string; } | null = null;
       
       // 检查是否已经在修炼其他功法
-      if (skillSlots.功法 && skillSlots.功法.物品ID !== item.物品ID) {
-        previousTechnique = skillSlots.功法;
-        // 将之前的功法放回背包
-        saveData.背包.物品[previousTechnique.物品ID] = {
-          物品ID: previousTechnique.物品ID,
-          名称: previousTechnique.名称,
-          类型: '功法',
-          品质: previousTechnique.品质,
-          数量: 1,
-          功法效果: previousTechnique.功法效果 || {},
-          功法技能: previousTechnique.功法技能 || {}
-        };
+      const currentTechnique = skillSlots.功法;
+      if (currentTechnique && (typeof currentTechnique === 'string' ? currentTechnique : currentTechnique.物品ID) !== item.物品ID) {
+        if (typeof currentTechnique !== 'string') {
+          previousTechnique = currentTechnique;
+        }
+        
+        // 清除之前功法的已装备状态
+        const previousId = typeof currentTechnique === 'string' ? currentTechnique : currentTechnique.物品ID;
+        if (saveData.背包?.物品?.[previousId]) {
+          const previousInventoryItem = saveData.背包.物品[previousId];
+          if (previousInventoryItem.类型 === '功法') {
+            saveData.背包.物品[previousId] = { ...previousInventoryItem, 已装备: false, 修炼中: false };
+          } else {
+            saveData.背包.物品[previousId] = { ...previousInventoryItem, 已装备: false };
+          }
+        }
       }
       
-      // 设置修炼功法
+      // 设置修炼功法 - 使用引用格式
       skillSlots.功法 = {
         物品ID: item.物品ID,
         名称: item.名称,
-        类型: '功法',
-        品质: item.品质,
-        数量: 1,
-        描述: item.描述 || '',
-        功法效果: (item as any).功法效果 || {},
-        功法技能: (item as any).功法技能 || {},
-        修炼进度: skillSlots.功法?.修炼进度 || 0
       };
+      
+      // 设置功法的已装备和修炼中标记
+      if (saveData.背包?.物品?.[item.物品ID]) {
+        const inventoryItem = saveData.背包.物品[item.物品ID];
+        if (inventoryItem.类型 === '功法') {
+          saveData.背包.物品[item.物品ID] = { ...inventoryItem, 已装备: true, 修炼中: true };
+        } else {
+          saveData.背包.物品[item.物品ID] = { ...inventoryItem, 已装备: true };
+        }
+      }
       
       // 初始化修炼数据
       if (typeof skillSlots.熟练度 !== 'number') skillSlots.熟练度 = 0;
@@ -434,7 +477,10 @@ export class EnhancedActionQueueManager {
       }
       
       const techniqueToStop = saveData.修炼功法.功法;
-      if (techniqueToStop.名称 !== item.名称) {
+      const techniqueId = typeof techniqueToStop === 'string' ? techniqueToStop : techniqueToStop.物品ID;
+      const techniqueName = typeof techniqueToStop === 'string' ? saveData.背包?.物品[techniqueToStop]?.名称 : techniqueToStop.名称;
+
+      if (techniqueName !== item.名称) {
         toast.error('操作的功法与当前修炼的功法不符');
         return false;
       }
@@ -444,6 +490,17 @@ export class EnhancedActionQueueManager {
       saveData.修炼功法.正在修炼 = false;
       // 不清空修炼进度，保留修炼成果
       // saveData.修炼功法.修炼进度 = 0;  // 移除这行
+      
+      // 清除功法的已装备和修炼中标记
+      if (saveData.背包?.物品?.[techniqueId]) {
+        const inventoryItem = saveData.背包.物品[techniqueId];
+        if (inventoryItem.类型 === '功法') {
+          saveData.背包.物品[techniqueId] = { ...inventoryItem, 已装备: false, 修炼中: false };
+        } else {
+          saveData.背包.物品[techniqueId] = { ...inventoryItem, 已装备: false };
+        }
+      }
+      
       // 注意：停止修炼功法不放回背包，功法和背包是独立的
       
       // 同步到酒馆变量
@@ -456,7 +513,7 @@ export class EnhancedActionQueueManager {
         itemName: item.名称,
         restoreData: {
           originalCultivationState: {
-            previousTechnique: techniqueToStop,
+            previousTechnique: typeof techniqueToStop !== 'string' ? techniqueToStop : null,
             wasInInventory: false
           }
         }
@@ -480,13 +537,6 @@ export class EnhancedActionQueueManager {
       toast.error('停止修炼失败');
       return false;
     }
-  }
-  
-  /**
-   * 检查物品是否已装备
-   */
-  private isEquipped(item: Item): boolean {
-    return item.已装备 === true;
   }
   
   /**
@@ -611,14 +661,28 @@ export class EnhancedActionQueueManager {
     // 找到装备的位置并卸下
     for (let i = 1; i <= 6; i++) {
       const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-      const slotItem = saveData.装备栏[slotKey] as Item;
-      if (slotItem && slotItem.物品ID === action.itemId) {
+      const slotItem = saveData.装备栏[slotKey];
+      if (slotItem && typeof slotItem === 'object' && '物品ID' in slotItem && slotItem.物品ID === action.itemId) {
         // 卸下装备
         saveData.装备栏[slotKey] = null;
         
+        // 清除物品的已装备标记
+        if (saveData.背包?.物品?.[action.itemId]) {
+          const inventoryItem = saveData.背包.物品[action.itemId];
+          saveData.背包.物品[action.itemId] = { ...inventoryItem, 已装备: false };
+        }
+        
         // 如果有被替换的装备，恢复它
         if (action.restoreData?.replacedItem) {
-          saveData.装备栏[slotKey] = action.restoreData.replacedItem;
+          saveData.装备栏[slotKey] = {
+            物品ID: action.restoreData.replacedItem.物品ID,
+            名称: action.restoreData.replacedItem.名称
+          };
+          // 设置被替换物品的已装备标记
+          if (saveData.背包?.物品?.[action.restoreData.replacedItem.物品ID]) {
+            const replacedInventoryItem = saveData.背包.物品[action.restoreData.replacedItem.物品ID];
+            saveData.背包.物品[action.restoreData.replacedItem.物品ID] = { ...replacedInventoryItem, 已装备: true };
+          }
         }
         
         // 同步到酒馆变量
@@ -628,7 +692,7 @@ export class EnhancedActionQueueManager {
     }
   }
   
-  private async undoUnequip(action: UndoAction, saveData: SaveData): Promise<void> {
+  private async undoUnequip(action: UndoAction, _saveData: SaveData): Promise<void> {
     // 由于卸下装备不涉及背包操作，撤回时需要从装备栏历史数据恢复
     // 这里简化处理：如果有原始槽位信息，则重新装备
     if (!action.restoreData?.originalSlot) return;
@@ -643,7 +707,7 @@ export class EnhancedActionQueueManager {
     if (!originalQuantity) return;
     
     // 恢复物品数量
-    const existingItem = saveData.背包.物品[action.itemId];
+    const existingItem = saveData.背包?.物品?.[action.itemId];
     if (existingItem) {
       existingItem.数量 = originalQuantity;
     } else {
@@ -725,9 +789,11 @@ export class EnhancedActionQueueManager {
     if (!saveData) return null;
     
     // 在背包中查找
-    for (const item of Object.values(saveData.背包.物品)) {
-      if (item.名称 === itemName) {
-        return item;
+    if (saveData.背包?.物品) {
+      for (const item of Object.values(saveData.背包.物品)) {
+        if (item && typeof item === 'object' && item.名称 === itemName) {
+          return item;
+        }
       }
     }
     
@@ -735,9 +801,15 @@ export class EnhancedActionQueueManager {
     if (saveData.装备栏) {
       for (let i = 1; i <= 6; i++) {
         const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-        const item = saveData.装备栏[slotKey] as Item;
-        if (item && item.名称 === itemName) {
-          return item;
+        const slotItem = saveData.装备栏[slotKey];
+        if (slotItem && typeof slotItem === 'object' && '名称' in slotItem && slotItem.名称 === itemName) {
+          // 需要从背包中获取完整的物品数据
+          if (saveData.背包?.物品) {
+            const fullItem = Object.values(saveData.背包.物品).find(item => item.名称 === itemName);
+            if (fullItem) {
+              return fullItem;
+            }
+          }
         }
       }
     }

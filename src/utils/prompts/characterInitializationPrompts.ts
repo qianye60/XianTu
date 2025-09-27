@@ -3,12 +3,12 @@
  * 包含三千大道系统的初始化指导
  */
 
-import { 
-  COMMON_DAO_RULES, 
-  COMMON_NPC_RULES, 
-  COMMON_ITEM_RULES, 
+import {
+  COMMON_DAO_RULES,
+  COMMON_NPC_RULES,
+  COMMON_ITEM_RULES,
   CHARACTER_INITIALIZATION_RULES,
-  COMMON_CHARACTER_PROTECTION
+  COMMON_CORE_RULES
 } from './commonPromptRules';
 import { THOUSAND_DAO_INITIALIZATION_PROMPT } from './thousandDaoPrompts';
 
@@ -25,7 +25,14 @@ ${THOUSAND_DAO_INITIALIZATION_PROMPT}
 1. **欢迎玩家进入修仙世界**
    描述角色当前所在的环境、身份和状态
 
-2. **根据角色背景生成初始人脉**
+2. **⚠️ 重要：处理"随机出身"精细化**
+   - 如果角色出身为"随机出身"或包含"随机"字样，必须将其替换为具体的地名
+   - 🚨 严禁在最终输出中保留"随机"字样，必须生成具体的出生地名称
+   - 出生地必须符合"大洲名·地点名"的位置格式要求
+   - 大洲名必须使用世界地图中实际存在的大洲，不得编造
+   - 🚨 **重要**: 玩家的初始位置应该根据出生地合理设置，而不是直接等于出生地
+
+3. **根据角色背景生成初始人脉**
    - 仔细阅读角色的出身、经历、师承、家族等完整背景信息
    - 从背景文本中提取合理的人际关系，动态生成相应数量的初始NPC
    - 每个NPC都应该有完整的角色信息和与主角的具体关系描述
@@ -36,6 +43,7 @@ ${THOUSAND_DAO_INITIALIZATION_PROMPT}
 
 3. **AI动态生成起始物品**
    - 根据角色的出生背景、家境、年龄合理分配起始物品
+   - 🚨 **数量限制**: 初始物品总数不得超过3-5件，保持简洁
    - **使用GM指令添加物品**：
      使用tavern_commands格式：action为"set"，key为"背包.物品.物品ID"，value为完整的Item对象
      包含：物品ID、物品名称、物品类型、稀有度、物品描述、物品数量、使用效果、装备增幅、功法效果、功法技能等字段
@@ -78,12 +86,23 @@ ${COMMON_DAO_RULES}
 export const GAME_START_INITIALIZATION_PROMPT = `
 # 游戏开始 - 系统初始化完成
 
-${COMMON_CHARACTER_PROTECTION}
+${COMMON_CORE_RULES}
 
 ## 系统状态
 角色数据已全部载入，三千大道系统已初始化为空白状态。现在开始你的修仙之旅！
 
-详细规则请参考 commonPromptRules.ts 中的通用规则。
+## 天道演算系统 v4.2
+- 角色数据载入后，天道演算预计算数据已自动生成
+- 可通过 character.saveData.系统.天道演算 访问所有判定相关数据
+- 触发判定：使用【判定:{属性}|DC:{数值}】或【斗法|敌人:{名称}】格式
+- 死亡检查：当角色气血≤0时必须设置死亡标记并阻止游戏继续
+
+## 生命状态监控规则
+- **死亡判定**：当气血降至0或负数时，角色死亡
+  * 必须设置死亡标记：\`_.set("character.saveData.玩家角色状态.已死亡", true)\`
+  * 记录死亡时间：\`_.set("character.saveData.玩家角色状态.死亡时间", "当前游戏时间")\`
+  * 记录死亡原因：\`_.set("character.saveData.玩家角色状态.死亡原因", "具体原因")\`
+  * ⚠️ 死亡后游戏无法继续，必须在text中明确说明
 
 ## 技术要求
 记住使用酒馆变量系统来管理所有的大道数据和人物关系数据！

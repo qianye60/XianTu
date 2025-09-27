@@ -34,34 +34,34 @@ function isLikelyPlaceName(name: string): boolean {
  */
 export function cleanDuplicateData(chatVariables: TavernChatVariables): SaveData | null {
   console.log('[数据清理] 开始检查重复数据...');
-  
+
   const characterSaveData = chatVariables['character.saveData'];
-  
+
   if (!characterSaveData) {
     console.warn('[数据清理] 未找到character.saveData');
     return null;
   }
-  
+
   // 创建一个深拷贝以避免直接修改原始对象
   const cleanedData: SaveData = JSON.parse(JSON.stringify(characterSaveData));
-  
+
   // 检查是否存在废弃的重复数据字段
   const deprecatedFields = ['背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态'];
   let hasDeprecatedData = false;
-  
+
   for (const field of deprecatedFields) {
     if (chatVariables[field]) {
       console.warn(`[数据清理] 检测到废弃的重复数据字段: ${field}，数据应统一存储在 character.saveData 中`);
       hasDeprecatedData = true;
     }
   }
-  
+
   if (hasDeprecatedData) {
     console.log('[数据清理] 发现废弃的重复数据字段，建议清理。');
   } else {
     console.log('[数据清理] 未发现重复数据，数据结构符合规范。');
   }
-  
+
   return validateAndFixSaveData(cleanedData);
 }
 
@@ -72,21 +72,21 @@ export function cleanDuplicateData(chatVariables: TavernChatVariables): SaveData
  */
 export async function cleanTavernDuplicates(tavernHelper: TavernHelper) {
   console.log('[数据清理] 开始清理酒馆重复变量...');
-  
+
   try {
     const chatVars = await tavernHelper.getVariables({ type: 'chat' });
-    
+
     // 这些字段是废弃的重复数据，应该被清理
     const duplicateFields = ['背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态', '背包数据', '装备栏数据', '修炼功法数据'];
     const toDelete: string[] = [];
-    
+
     for (const field of duplicateFields) {
       if (chatVars[field]) {
         console.log(`[数据清理] 发现废弃的重复字段，准备删除: ${field}`);
         toDelete.push(field);
       }
     }
-    
+
     if (toDelete.length > 0) {
       for (const key of toDelete) {
         await tavernHelper.deleteVariable(key, { type: 'chat' });
@@ -96,7 +96,7 @@ export async function cleanTavernDuplicates(tavernHelper: TavernHelper) {
     } else {
       console.log('[数据清理] 未发现需要清理的重复变量。');
     }
-    
+
   } catch (error) {
     console.error('[数据清理] 清理酒馆重复数据失败:', error);
   }
@@ -109,7 +109,7 @@ export async function cleanTavernDuplicates(tavernHelper: TavernHelper) {
  */
 export function validateAndFixSaveData(saveData: SaveData): SaveData {
   console.log('[数据验证] 开始验证和修复存档数据...');
-  
+
   // 1. 修复装备栏中的 "null" 或 "undefined" 字符串问题
   if (saveData.装备栏) {
     const equipment = saveData.装备栏;
@@ -120,7 +120,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       }
     }
   }
-  
+
   // 2. 清理背包中的无效物品
   if (saveData.背包?.物品) {
     for (const itemId in saveData.背包.物品) {
@@ -131,7 +131,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       }
     }
   }
-  
+
   // 3. 修复修炼功法中的 "null" 字符串和确保数组存在
   if (saveData.修炼功法) {
     if ((saveData.修炼功法.功法 as unknown) === 'null' || (saveData.修炼功法.功法 as unknown) === 'undefined') {
@@ -142,7 +142,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       saveData.修炼功法.已解锁技能 = [];
     }
   }
-  
+
   // 4. 确保必要的对象和数组存在
   if (!saveData.玩家角色状态) {
     // 如果核心状态不存在，可能需要创建一个默认结构或抛出错误
@@ -180,10 +180,12 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
           for (const itemData of anySave.角色物品[category]) {
             if (!itemData || !itemData.名称) continue;
             const id = `migrated_${itemData.名称.replace(/\s/g, '')}_${Date.now()}`;
+            const itemType = mapItemType(itemData.类型);
             saveData.背包.物品[id] = {
               物品ID: id,
               名称: itemData.名称,
-              类型: mapItemType(itemData.类型),
+              类型: itemType,
+              可叠加: itemType !== '装备', // 装备通常不可叠加
               品质: { quality: '凡', grade: 1 },
               数量: typeof itemData.数量 === 'number' ? itemData.数量 : 1,
               描述: itemData.描述 || '',
@@ -203,7 +205,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     const playerStatus = saveData.玩家角色状态;
     if (playerStatus) {
       if (anySave.角色状态.当前位置 && (!playerStatus.位置?.描述 || playerStatus.位置.描述 === '未知')) {
-        if (!playerStatus.位置) playerStatus.位置 = { 描述: '', 坐标: { X: 0, Y: 0 } };
+        if (!playerStatus.位置) playerStatus.位置 = { 描述: '' };
         playerStatus.位置.描述 = anySave.角色状态.当前位置;
       }
       // 可以根据需要添加更多字段的合并
@@ -227,12 +229,12 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       if (!('人物好感度' in npc)) (npc as any).人物好感度 = 0;
     }
   }
-  
+
   // 8. 确保记忆模块存在
   if (!saveData.记忆) {
     saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
   }
-  
+
   console.log('[数据验证] 数据验证和修复完成。');
   return saveData;
 }
@@ -253,7 +255,7 @@ export interface ValidationReport {
  */
 export function generateValidationReport(saveData: SaveData): ValidationReport {
   const report: ValidationReport = { isValid: true, warnings: [], errors: [] };
-  
+
   if (!saveData.玩家角色状态) {
     report.errors.push('缺少玩家角色状态数据');
     report.isValid = false;
@@ -265,7 +267,7 @@ export function generateValidationReport(saveData: SaveData): ValidationReport {
       }
     });
   }
-  
+
   if (!saveData.背包) {
     report.errors.push('缺少背包数据');
     report.isValid = false;
@@ -273,7 +275,7 @@ export function generateValidationReport(saveData: SaveData): ValidationReport {
     if (!saveData.背包.灵石) report.warnings.push('背包中缺少灵石数据');
     if (!saveData.背包.物品) report.warnings.push('背包中缺少物品数据');
   }
-  
+
   if (saveData.修炼功法) {
     if (typeof saveData.修炼功法.熟练度 !== 'number') {
       report.warnings.push('修炼功法熟练度应为数字类型');
@@ -282,7 +284,7 @@ export function generateValidationReport(saveData: SaveData): ValidationReport {
       report.warnings.push('已解锁技能应为数组类型');
     }
   }
-  
+
   console.log('[数据验证] 生成验证报告完成:', report);
   return report;
 }

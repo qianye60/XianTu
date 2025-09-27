@@ -115,14 +115,14 @@ const customTierFields = [
   { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },
   { key: 'description', label: '天资描述', type: 'textarea', placeholder: '描述此天资的特点...' },
   { key: 'total_points', label: '天道点', type: 'text', placeholder: '例如：10' },
-  { key: 'color', label: '辉光颜色', type: 'text', placeholder: '例如：#808080' },
+  { key: 'color', label: '辉光颜色', type: 'color', placeholder: '例如：#808080' },
 ] as const
 
 function validateCustomTier(data: Partial<CustomTierData>) {
     const errors: Record<string, string> = {};
     if (!data.name?.trim()) errors.name = '天资名称不可为空';
     const points = Number(data.total_points);
-    if (isNaN(points) || points < 0 || points > 100) errors.total_points = '天道点必须是0-100的数字';
+    if (isNaN(points) || points < 0) errors.total_points = '天道点必须是非负数';
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),

@@ -2,9 +2,10 @@
 import { buildInitialMessagePrompt } from '../prompts/gameMasterPrompts';
 import { getRandomizedInGamePrompt, debugPromptInfo } from '../prompts/inGameGMPromptsV2';
 import { buildGmRequest } from '../AIGameMaster';
-/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+ 
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
 import type { InitialGameData, SaveData, WorldInfo } from '../../types';
+import { generateRandomSpiritRoot, isRandomSpiritRoot } from '../spiritRootGenerator';
 
 /**
  * 调用酒馆AI生成初始降世消息 (GM模式)
@@ -87,11 +88,25 @@ export async function generateInitialMessage(
       console.log('【随机出身】已选定:', processedOrigin);
     }
 
-    // 随机灵根处理
-    if (processedSpiritRoot === '随机灵根') {
-      const possibleRoots = ['五行灵根', '金灵根', '木灵根', '水灵根', '火灵根', '土灵根', '冰灵根', '雷灵根', '风灵根'];
-      processedSpiritRoot = possibleRoots[Math.floor(Math.random() * possibleRoots.length)];
-      console.log('【随机灵根】已选定:', processedSpiritRoot);
+    // 随机灵根处理 - 使用智能生成系统
+    if (processedSpiritRoot === '随机灵根' || isRandomSpiritRoot(processedSpiritRoot)) {
+      try {
+        console.log('【智能灵根生成】开始生成:', { 天资: initialGameData.baseInfo.天资 });
+        const generatedRoot = generateRandomSpiritRoot(initialGameData.baseInfo.天资 || '中人之姿');
+        processedSpiritRoot = generatedRoot.名称;
+        console.log('【智能灵根生成】已生成:', {
+          名称: generatedRoot.名称,
+          品级: generatedRoot.品级,
+          修炼速度: generatedRoot.cultivation_speed,
+          特殊效果: generatedRoot.special_effects
+        });
+      } catch (error) {
+        console.warn('【智能灵根生成】生成失败，使用简单随机:', error);
+        // 如果智能生成失败，回退到简单随机
+        const possibleRoots = ['五行灵根', '金灵根', '木灵根', '水灵根', '火灵根', '土灵根', '冰灵根', '雷灵根', '风灵根'];
+        processedSpiritRoot = possibleRoots[Math.floor(Math.random() * possibleRoots.length)];
+        console.log('【简单随机灵根】已选定:', processedSpiritRoot);
+      }
     }
 
     // 1.1 构建GM_Request对象，展示给AI看

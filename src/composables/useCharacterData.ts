@@ -66,7 +66,7 @@ export interface CharacterLocation {
   name: string;
   description: string;
   activity: string;
-  coordinates?: { x: number; y: number };
+  // 移除坐标系统，文字游戏不需要坐标
 }
 
 /**
@@ -185,11 +185,8 @@ export function useUnifiedCharacterData(): {
     const location: CharacterLocation = {
       name: playerStatus?.位置?.描述 || '初始地',
       description: playerStatus?.位置?.描述 || '修行地',
-      activity: '修行中',
-      coordinates: playerStatus?.位置?.坐标 ? {
-        x: playerStatus.位置.坐标.X,
-        y: playerStatus.位置.坐标.Y
-      } : undefined
+      activity: '修行中'
+      // 移除坐标系统，文字游戏不需要坐标
     };
 
     // 统一修炼信息

@@ -115,69 +115,63 @@
           </div>
 
           <!-- 天赋与灵根 -->
-          <div class="info-section">
-            <h3 class="section-title">
-              <div class="title-icon">
-                <Sparkles :size="18" />
-              </div>
-              天赋与灵根
-            </h3>
-            <div class="talent-content">
-              <!-- 天资等级卡片 -->
-              <div class="talent-tier-card">
-                <div class="tier-header">
-                  <div class="tier-icon">🌟</div>
-                  <span class="tier-label">天资等级</span>
-                </div>
-                <div class="tier-value-display">
-                  <span class="tier-value" :class="`tier-${baseInfo.天资}`">{{ baseInfo.天资 }}</span>
-                </div>
-              </div>
+      <div class="info-section">
+        <h3 class="section-title">
+          <div class="title-icon">
+            <Sparkles :size="18" />
+          </div>
+          天赋与灵根
+        </h3>
+        <div class="talent-content">
+          <!-- 天资等级卡片 -->
+          <div class="talent-tier-card">
+            <div class="tier-header">
+              <div class="tier-icon">🌟</div>
+              <span class="tier-label">天资等级</span>
+            </div>
+            <div class="tier-value-display">
+              <span class="tier-value" :class="`tier-${baseInfo.天资}`">{{ baseInfo.天资 }}</span>
+            </div>
+          </div>
 
-              <!-- 灵根属性卡片 -->
-              <div class="spirit-root-card" @click="showSpiritRootDetails">
-                <div class="root-header">
-                  <div class="root-icon">⚡</div>
-                  <span class="root-label">灵根属性</span>
-                  <span class="click-hint">点击查看详情</span>
-                </div>
-                <div class="root-main-info">
-                  <div class="root-name-display">
-                    <span class="root-name" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
-                      {{ getSpiritRootDisplay(baseInfo.灵根) }}
-                    </span>
-                  </div>
-                  <div class="root-properties">
-                    <div class="property-badges">
-                      <span class="grade-badge" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
-                        {{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
-                      </span>
-                      <span class="speed-badge">
-                        {{ getSpiritRootCultivationSpeed(baseInfo) }}
-                      </span>
-                      <span v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'"
-                            class="quality-badge" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
-                        {{ getSpiritRootQuality(baseInfo.灵根) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="root-description">
-                  {{ getSpiritRootDescription(baseInfo.灵根) }}
-                </div>
-                <!-- 灵根特殊效果 -->
-                <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="root-effects">
-                  <div class="effects-header">特殊效果</div>
-                  <div class="effects-tags">
-                    <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag">
-                      {{ effect }}
-                    </span>
-                  </div>
-                </div>
+          <!-- 灵根属性卡片 (Re-designed) -->
+          <div class="spirit-root-card" @click="showSpiritRootDetails">
+            <div class="root-header">
+              <div class="root-icon">⚡</div>
+              <span class="root-label">灵根属性</span>
+              <span class="click-hint">点击查看详情</span>
+            </div>
+            <div class="root-main-info">
+              <span class="root-name" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
+                {{ getSpiritRootDisplay(baseInfo.灵根) }}
+              </span>
+              <div class="property-badges">
+                <span class="prop-badge grade-badge" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
+                  {{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
+                </span>
+                <span class="prop-badge speed-badge">
+                  {{ getSpiritRootCultivationSpeed(baseInfo) }}
+                </span>
+                <span v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'"
+                      class="prop-badge quality-badge" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
+                  {{ getSpiritRootQuality(baseInfo.灵根) }}
+                </span>
               </div>
+            </div>
+            <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="root-description">
+              {{ getSpiritRootDescription(baseInfo.灵根) }}
+            </div>
+            <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="root-effects">
+              <div class="effects-tags">
+                <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag">
+                  {{ effect }}
+                </span>
+              </div>
+            </div>
+          </div>
 
-              <!-- 天赋列表卡片 -->
-              <div class="talents-card">
+          <!-- 天赋列表卡片 -->
+          <div class="talents-card">
                 <div class="talents-header">
                   <div class="talents-icon">✨</div>
                   <span class="talents-label">天赋特质</span>
@@ -294,11 +288,11 @@
               <div class="technique-info">
                 <div class="technique-header" @click="toggleTechniqueDetails">
                   <div class="technique-main">
-                    <h4 class="technique-name" :class="getItemQualityClass(cultivationData.功法, 'text')">
-                      {{ cultivationData.功法.名称 }}
+                    <h4 class="technique-name" :class="getItemQualityClass(fullTechnique, 'text')">
+                      {{ fullTechnique?.名称 }}
                     </h4>
                     <div class="technique-quality">
-                      {{ cultivationData.功法.品质?.quality || '未知' }}品{{ cultivationData.功法.品质?.grade || 0 }}阶</div>
+                      {{ fullTechnique?.品质?.quality || '未知' }}品{{ fullTechnique?.品质?.grade || 0 }}阶</div>
                   </div>
                   <div class="technique-toggle">
                     <ChevronDown
@@ -312,21 +306,21 @@
                 <!-- 功法详情（可折叠�?-->
                 <div class="technique-details">
                   <div class="technique-description">
-                    <p>{{ cultivationData.功法.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
+                    <p>{{ fullTechnique?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
                   </div>
 
-                  <div v-if="cultivationData.功法.功法效果" class="technique-effects">
+                  <div v-if="fullTechnique?.类型 === '功法' && fullTechnique.功法效果" class="technique-effects">
                     <h5 class="effects-title">功法效果</h5>
                     <div class="effects-list">
-                      <div v-if="cultivationData.功法.功法效果.修炼速度加成" class="effect-item">
+                      <div v-if="fullTechnique.功法效果.修炼速度加成" class="effect-item">
                         <span class="effect-label">修炼加成：</span>
-                        <span class="effect-value">{{ (cultivationData.功法.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+                        <span class="effect-value">{{ (fullTechnique.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
                       </div>
-                      <div v-if="cultivationData.功法.功法效果.属性加成" class="effect-item">
+                      <div v-if="fullTechnique.功法效果.属性加成" class="effect-item">
                         <span class="effect-label">属性提升：</span>
                         <div class="attribute-bonuses">
                           <span
-                            v-for="(value, attr) in cultivationData.功法.功法效果.属性加成"
+                            v-for="(value, attr) in fullTechnique.功法效果.属性加成"
                             :key="attr"
                             class="bonus-tag"
                           >
@@ -339,12 +333,12 @@
                 </div>
 
                 <div class="technique-progress">
-                  <div class="progress-item">
+                  <div class="progress-item" v-if="fullTechnique?.类型 === '功法'">
                     <span class="progress-label">修炼进度</span>
                     <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: Math.max(2, cultivationData.功法.修炼进度 || 0) + '%' }"></div>
+                      <div class="progress-fill" :style="{ width: Math.max(2, fullTechnique.修炼进度 || 0) + '%' }"></div>
                     </div>
-                    <span class="progress-text">{{ cultivationData.功法.修炼进度 || 0 }}%</span>
+                    <span class="progress-text">{{ fullTechnique.修炼进度 || 0 }}%</span>
                   </div>
                   <div class="progress-item">
                     <span class="progress-label">熟练度</span>
@@ -699,7 +693,7 @@
         </div>
       </div>
 
-      <!-- 灵根详情弹窗 -->
+      <!-- 灵根详情弹窗 (Re-designed) -->
       <div v-if="showSpiritRootModal" class="modal-overlay" @click="closeModals">
         <div class="spirit-root-modal" @click.stop>
           <div class="modal-header">
@@ -715,29 +709,31 @@
                   <span class="detail-icon">⚡</span>
                   <span class="detail-title">灵根类型</span>
                 </div>
-                <div class="detail-value">{{ getSpiritRootDisplay(baseInfo.灵根) }}</div>
+                <div class="detail-value type-value" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
+                  {{ getSpiritRootDisplay(baseInfo.灵根) }}
+                </div>
               </div>
-
               <div class="detail-card">
                 <div class="detail-header">
                   <span class="detail-icon">⭐</span>
                   <span class="detail-title">灵根品级</span>
                 </div>
-                <div class="detail-value">{{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}</div>
+                <div class="detail-value grade-value" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
+                  {{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
+                </div>
               </div>
-
               <div class="detail-card">
                 <div class="detail-header">
                   <span class="detail-icon">🚀</span>
                   <span class="detail-title">修炼速度</span>
                 </div>
-                <div class="detail-value">{{ getSpiritRootCultivationSpeed(baseInfo) }}</div>
-              </div>
-
+                <div class="detail-value speed-value">
+                  {{ getSpiritRootCultivationSpeed(baseInfo) }}
+                </div>
               </div>
             </div>
 
-            <div v-if="getSpiritRootDescription(baseInfo.灵根) && getSpiritRootDescription(baseInfo.灵根).trim() !== ''" class="spirit-root-description">
+            <div class="spirit-root-description">
               <h4>灵根描述</h4>
               <p>{{ getSpiritRootDescription(baseInfo.灵根) }}</p>
             </div>
@@ -745,9 +741,9 @@
             <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="spirit-root-effects-section">
               <h4>特殊效果</h4>
               <div class="effects-grid">
-                <div v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-item">
+                <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag-modal">
                   {{ effect }}
-                </div>
+                </span>
               </div>
             </div>
 
@@ -768,6 +764,7 @@
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -775,7 +772,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile } from '@/types/game.d.ts';
+import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
   Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X
@@ -826,6 +823,28 @@ const cultivationData = computed(() => {
     正在修炼: false,
     修炼进度: 0
   };
+});
+
+// 获取完整的功法对象
+const fullTechnique = computed((): TechniqueItem | Item | null => {
+  const techniqueRef = cultivationData.value.功法;
+  if (!techniqueRef || !saveData.value?.背包?.物品) return null;
+
+  let techniqueId: string | null = null;
+  if (typeof techniqueRef === 'string') {
+    techniqueId = techniqueRef;
+  } else if (typeof techniqueRef === 'object' && '物品ID' in techniqueRef) {
+    techniqueId = techniqueRef.物品ID;
+  }
+
+  if (techniqueId) {
+    const item = saveData.value.背包.物品[techniqueId];
+    if (item?.类型 === '功法') {
+      return item as TechniqueItem;
+    }
+    return item || null;
+  }
+  return null;
 });
 
 // 三千大道数据
@@ -934,16 +953,21 @@ const acquiredAttributes = computed((): InnateAttributes => {
 
 // 技能相关计算属性
 const skillsList = computed((): SkillInfo[] => {
-  const technique = cultivationData.value.功法;
+  const techniqueRef = cultivationData.value.功法;
   const cultivationInfo = cultivationData.value;
 
-  if (!technique?.功法技能) return [];
+  if (!techniqueRef || !saveData.value?.背包?.物品) return [];
+
+  // 从背包中获取完整的功法物品信息
+  const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
+  const fullTechnique = saveData.value.背包.物品[techniqueId];
+  if (fullTechnique?.类型 !== '功法' || !fullTechnique?.功法技能) return [];
 
   const skills: SkillInfo[] = [];
 
-  Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
+  Object.entries(fullTechnique.功法技能).forEach(([skillName, skillInfo]) => {
     // 检查是否已解锁
-    const unlocked = checkSkillUnlocked(skillName, technique, cultivationInfo);
+    const unlocked = checkSkillUnlocked(skillName, fullTechnique, cultivationInfo);
 
     skills.push({
       name: skillName,
@@ -959,13 +983,14 @@ const skillsList = computed((): SkillInfo[] => {
 
 // 已学技能（所有已掌握的技能）
 const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
-  const technique = cultivationData.value.功法;
+  const techniqueRef = cultivationData.value.功法;
   const cultivationInfo = cultivationData.value;
 
-  if (!technique && !cultivationInfo?.已解锁技能?.length) return [];
+  if (!techniqueRef && !cultivationInfo?.已解锁技能?.length) return [];
 
   const skills: LearnedSkillDisplay[] = [];
   const skillNameSet = new Set(); // 防止重复添加技能
+  
   // 从已解锁技能获取（直接学会的技能）
   if (cultivationInfo?.已解锁技能?.length) {
     cultivationInfo.已解锁技能.forEach(skillName => {
@@ -984,24 +1009,28 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   }
 
   // 从功法技能定义获取（达到条件解锁的技能）
-  if (technique?.功法技能) {
-    Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
-      if (!skillNameSet.has(skillName)) {
-        // 检查是否已解锁
-        const unlocked = checkSkillUnlocked(skillName, technique, cultivationInfo);
-        if (unlocked) {
-          skillNameSet.add(skillName);
-          skills.push({
-            name: skillName,
-            proficiency: getPersistentProficiency(skillName, 'technique'),
-            source: '功法传承',
-            type: skillInfo.技能类型 || '主动技能',
-            description: skillInfo.技能描述 || '通过功法修炼掌握的技能',
-            unlocked: true
-          });
+  if (techniqueRef && saveData.value?.背包?.物品) {
+    const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
+    const fullTechnique = saveData.value.背包.物品[techniqueId];
+    if (fullTechnique?.类型 === '功法' && fullTechnique?.功法技能) {
+      Object.entries(fullTechnique.功法技能).forEach(([skillName, skillInfo]) => {
+        if (!skillNameSet.has(skillName)) {
+          // 检查是否已解锁
+          const unlocked = checkSkillUnlocked(skillName, fullTechnique, cultivationInfo);
+          if (unlocked) {
+            skillNameSet.add(skillName);
+            skills.push({
+              name: skillName,
+              proficiency: getPersistentProficiency(skillName, 'technique'),
+              source: '功法传承',
+              type: skillInfo.技能类型 || '主动技能',
+              description: skillInfo.技能描述 || '通过功法修炼掌握的技能',
+              unlocked: true
+            });
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   return skills;
@@ -1237,7 +1266,7 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
 };
 
 // 检查技能是否已解锁
-const checkSkillUnlocked = (skillName: string, technique: Item, cultivationInfo: SaveData['修炼功法']): boolean => {
+const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: SaveData['修炼功法']): boolean => {
   if (!technique.功法技能?.[skillName]) return false;
 
   const skillInfo = technique.功法技能[skillName];
@@ -1395,14 +1424,14 @@ const getOriginDisplay = (origin: string | { 名称: string; 描述: string } | 
   return origin.名称 || '待定';
 };
 
-// 增强的灵根系统 - 支持等级和品质
-const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined) => {
-  if (!spiritRoot) return { name: '未知', quality: '', grade: '', description: '' };
+// 增强的灵根系统 - 简化版
+const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined) => {
+  if (!spiritRoot) return { name: '未知', grade: '', description: '' };
 
   if (typeof spiritRoot === 'string') {
     // 兼容旧的字符串格式的灵根，如"上品火灵根"、"随机灵根"
     if (spiritRoot === '随机灵根') {
-      return { name: '随机灵根', quality: '', grade: '', description: '大道五十，天衍四九，人遁其一' };
+      return { name: '随机灵根', grade: '', description: '大道五十，天衍四九，人遁其一' };
     }
 
     const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
@@ -1413,112 +1442,60 @@ const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: number;
       rootName = spiritRoot.replace(grade, '').trim();
     }
 
-    // 判断是否为变异灵根
-    let quality = '';
-    if (rootName.includes('变异') || rootName.includes('特')) {
-      quality = '变异';
-    } else if (rootName.includes('双') || rootName.includes('三') || rootName.includes('四') || rootName.includes('五')) {
-      quality = '复合';
-    } else {
-      quality = '普通';
-    }
-
     return {
       name: rootName,
-      quality: quality,
       grade: grade,
-      description: `${grade}${quality === '普通' ? '' : quality}灵根`
+      description: grade ? `${grade}灵根` : '灵根'
     };
   }
 
   // 处理新的对象格式：{ 名称, 品级, 描述 }
   const result = {
     name: spiritRoot.名称 || '未知',
-    quality: spiritRoot.品质 || '',
-    grade: spiritRoot.品级 !== undefined ? spiritRoot.品级.toString() : (spiritRoot.等级 || ''),
+    grade: spiritRoot.品级 || '',
     description: spiritRoot.描述 || ''
   };
 
-  // 不自动生成描述，只有真正有描述时才返回
-  // 注释掉自动生成描述的逻辑
-  /*
-  // 如果没有描述，根据灵根信息生成基础描述
-  if (!result.description) {
-    let desc = '';
-    if (result.grade) {
-      desc += result.grade;
-    }
-    if (result.quality && result.quality !== '普通') {
-      desc += result.quality;
-    }
-    desc += '灵根';
-
-    // 根据灵根类型添加特性描述
-    const rootName = result.name.toLowerCase();
-    if (rootName.includes('火')) {
-      desc += '，蕴含炽热火焰之力，修炼火系功法事半功倍';
-    } else if (rootName.includes('水')) {
-      desc += '，蕴含柔和水流之力，修炼水系功法事半功倍';
-    } else if (rootName.includes('木')) {
-      desc += '，蕴含生机木元之力，修炼木系功法事半功倍';
-    } else if (rootName.includes('金')) {
-      desc += '，蕴含锋锐金气之力，修炼金系功法事半功倍';
-    } else if (rootName.includes('土')) {
-      desc += '，蕴含厚实土元之力，修炼土系功法事半功倍';
-    } else {
-      desc += '，具有独特的修炼加成';
-    }
-
-    result.description = desc;
-  }
-  */
-
   return result;
 };
 
-const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
-  let result = parsed.name;
-
-  // 如果是对象格式的灵根，只显示品质信息（不显示品级）
-  if (typeof spiritRoot === 'object' && spiritRoot && parsed.quality) {
-    result += ` (${parsed.quality})`;
+  if (!parsed.name || parsed.name === '未知') return '未知';
+  // 仅当品级有效且不为凡品时，才在名称后附加品级
+  if (parsed.grade && parsed.grade !== '未知' && parsed.grade !== '凡品') {
+    return `${parsed.name}(${parsed.grade})`;
   }
-
-  return result;
+  return parsed.name;
 };
 
-const getSpiritRootQuality = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+const getSpiritRootQuality = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
-  return parsed.quality;
+  return parsed.grade || '未知';
 };
 
-const getSpiritRootGrade = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+const getSpiritRootGrade = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
-  return parsed.grade || '';
+  return parsed.grade || '凡品';
 };
 
-const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
-  return parsed.description;
+  return parsed.description || '未知';
 };
 
-const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
+const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
-  const name = parsed.name.toLowerCase();
-  if (name.includes('火')) return 'fire';
-  if (name.includes('水')) return 'water';
-  if (name.includes('木')) return 'wood';
-  if (name.includes('金')) return 'metal';
-  if (name.includes('土')) return 'earth';
-  if (name.includes('风')) return 'wind';
-  if (name.includes('雷')) return 'thunder';
-  if (name.includes('冰')) return 'ice';
-  if (name.includes('光')) return 'light';
-  if (name.includes('暗')) return 'dark';
-  if (name.includes('双') || name.includes('三') || name.includes('四') || name.includes('五')) return 'multi';
-  if (name.includes('变异') || name.includes('特')) return 'mutant';
-  return 'unknown';
+  const grade = parsed.grade?.toLowerCase() || '';
+  
+  if (grade.includes('神品')) return 'spirit-divine';
+  if (grade.includes('极品')) return 'spirit-supreme';
+  if (grade.includes('上品')) return 'spirit-superior';
+  if (grade.includes('中品')) return 'spirit-medium';
+  if (grade.includes('下品')) return 'spirit-inferior';
+  if (grade.includes('凡品')) return 'spirit-common';
+  
+  return 'spirit-unknown';
 };
 
 // 获取灵根修炼速度
@@ -3793,6 +3770,113 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.spirit-root-card:hover .click-hint {
+  opacity: 1;
+}
+
+/* 灵根卡片新样式 */
+.root-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.root-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.property-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prop-badge {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.grade-badge {
+  color: white;
+  border: none;
+}
+.grade-凡品 { background: #9ca3af; }
+.grade-下品 { background: #10b981; }
+.grade-中品 { background: #3b82f6; }
+.grade-上品 { background: #8b5cf6; }
+.grade-极品 { background: #f59e0b; }
+.grade-神品 { background: #ef4444; }
+.grade-特殊 { background: linear-gradient(45deg, #f59e0b, #ef4444); }
+
+
+.speed-badge {
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-info);
+  border-color: rgba(var(--color-info-rgb), 0.3);
+}
+
+.quality-badge {
+  background: rgba(var(--color-accent-rgb), 0.1);
+  color: var(--color-accent);
+  border-color: rgba(var(--color-accent-rgb), 0.3);
+}
+
+.root-description {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.root-effects {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--color-border-rgb), 0.3);
+}
+
+.effects-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.root-effects .effect-tag {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+  border-radius: 999px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+}
+
+/* 灵根弹窗新样式 */
+.detail-value.type-value,
+.detail-value.grade-value,
+.detail-value.speed-value {
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 1rem;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.detail-value.grade-value {
+  color: white;
+}
+
+.detail-value.speed-value {
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-info);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
 }
 
 .talents-count {
@@ -3920,14 +4004,20 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   gap: 8px;
 }
 
-.effects-grid .effect-item {
-  padding: 4px 12px;
+.effects-grid .effect-tag-modal {
+  padding: 6px 14px;
   background: rgba(var(--color-success-rgb), 0.1);
   color: var(--color-success);
-  border-radius: 16px;
-  font-size: 0.8rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
   font-weight: 500;
   border: 1px solid rgba(var(--color-success-rgb), 0.3);
+  transition: all 0.2s ease;
+}
+
+.effects-grid .effect-tag-modal:hover {
+  background: rgba(var(--color-success-rgb), 0.2);
+  transform: translateY(-1px);
 }
 
 .advanced-grid {

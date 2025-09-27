@@ -67,13 +67,13 @@
                   class="variable-updates-toggle"
                   :class="{
                     active: variableUpdatesExpanded,
-                    disabled: !lastStateChanges || lastStateChanges.changes.length === 0
+                    disabled: !currentNarrativeStateChanges || currentNarrativeStateChanges.changes.length === 0
                   }"
-                  :disabled="!lastStateChanges || lastStateChanges.changes.length === 0"
-                  :title="lastStateChanges && lastStateChanges.changes.length > 0 ? '查看本次对话的变量更新' : '暂无变量更新记录'"
+                  :disabled="!currentNarrativeStateChanges || currentNarrativeStateChanges.changes.length === 0"
+                  :title="currentNarrativeStateChanges && currentNarrativeStateChanges.changes.length > 0 ? '查看本次对话的变量更新' : '暂无变量更新记录'"
                 >
                   <Activity :size="16" />
-                  <span class="update-count">{{ lastStateChanges?.changes.length || 0 }}</span>
+                  <span class="update-count">{{ currentNarrativeStateChanges?.changes.length || 0 }}</span>
                 </button>
               </div>
               <div class="narrative-text">
@@ -90,21 +90,21 @@
 
     <!-- 悬浮的变量更新面板 -->
     <Transition name="variable-updates-modal">
-      <div v-if="variableUpdatesExpanded" 
-           class="variable-updates-overlay" 
+      <div v-if="variableUpdatesExpanded"
+           class="variable-updates-overlay"
            @click.self="variableUpdatesExpanded = false">
         <div class="variable-updates-modal">
           <div class="updates-header">
-            <h4>🔄 {{ lastStateChanges && lastStateChanges.changes.length > 0 ? '本次对话更新' : '变量更新记录' }}</h4>
+            <h4>🔄 {{ currentNarrativeStateChanges && currentNarrativeStateChanges.changes.length > 0 ? '本次对话更新' : '变量更新记录' }}</h4>
             <button @click="variableUpdatesExpanded = false" class="close-updates-btn">
               <ChevronRight :size="16" />
             </button>
           </div>
-          
+
           <div class="updates-content">
-            <div v-if="lastStateChanges && lastStateChanges.changes.length > 0" class="changes-list">
-              <div 
-                v-for="(change, index) in lastStateChanges.changes" 
+            <div v-if="currentNarrativeStateChanges && currentNarrativeStateChanges.changes.length > 0" class="changes-list">
+              <div
+                v-for="(change, index) in currentNarrativeStateChanges.changes"
                 :key="index"
                 class="change-item"
                 :class="change.action"
@@ -118,7 +118,7 @@
                   <div class="change-description">
                     {{ getChangeDescription(change) }}
                   </div>
-                  
+
                   <!-- 数值变化显示 -->
                   <div v-if="change.action === 'set' || change.action === 'update'" class="change-values">
                     <span class="old-value">{{ formatValue(change.oldValue) }}</span>
@@ -157,15 +157,15 @@
           </button>
         </div>
         <div class="queue-actions">
-          <div 
-            v-for="(action, index) in actionQueue.pendingActions" 
-            :key="action.id" 
+          <div
+            v-for="(action, index) in actionQueue.pendingActions"
+            :key="action.id"
             class="queue-action-item"
           >
             <span class="action-text">{{ action.description }}</span>
             <div class="action-controls">
-              <button 
-                @click="removeActionFromQueue(index)" 
+              <button
+                @click="removeActionFromQueue(index)"
                 class="remove-action-btn"
                 :title="isUndoableAction(action) ? '撤回并恢复' : '删除此动作'"
               >
@@ -311,6 +311,7 @@
 </template>
 
 <script setup lang="ts">
+import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
 import { ref, onMounted, nextTick, computed, watch } from 'vue';
 import { Send, Loader2, ChevronDown, ChevronRight, Activity } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -364,7 +365,7 @@ const persistAIProcessingState = () => {
 const restoreAIProcessingState = () => {
   const saved = sessionStorage.getItem('ai-processing-state');
   const timestamp = sessionStorage.getItem('ai-processing-timestamp');
-  
+
   if (saved === 'true' && timestamp) {
     const elapsed = Date.now() - parseInt(timestamp);
     // 如果超过5分钟，认为已超时，清除状态
@@ -418,11 +419,16 @@ const gameMessages = ref<GameMessage[]>([]);
 
 // 变量更新面板状态
 const variableUpdatesExpanded = ref(false);
-const lastStateChanges = ref<StateChangeLog | null>(null);
+
+// 计算属性：从当前叙述中获取状态变更
+const currentNarrativeStateChanges = computed(() => {
+  return currentNarrative.value?.stateChanges || null;
+});
 
 // 切换变量更新面板
 const toggleVariableUpdates = () => {
   variableUpdatesExpanded.value = !variableUpdatesExpanded.value;
+  console.log('[日志面板] Toggled variable updates visibility to:', variableUpdatesExpanded.value);
 };
 
 // 获取操作文本 - 增强版本，提供详细的中文说明
@@ -432,7 +438,7 @@ const getActionText = (action: string): string => {
     'set': '设定',
     'update': '更新',
     'remove': '删除',
-    'delete': '删除', 
+    'delete': '删除',
     'push': '添加',
     'pull': '移除',
     'inc': '递增',
@@ -456,61 +462,61 @@ const getVariableDisplayName = (key: string): string => {
     'character.saveData.角色属性.境界': '修炼境界',
     'character.saveData.角色属性.修为': '修为',
     'character.saveData.角色属性.经验值': '经验值',
-    
+
     // 背包相关
     'character.saveData.背包.灵石.下品': '下品灵石',
-    'character.saveData.背包.灵石.中品': '中品灵石', 
+    'character.saveData.背包.灵石.中品': '中品灵石',
     'character.saveData.背包.灵石.上品': '上品灵石',
     'character.saveData.背包.灵石.极品': '极品灵石',
     'character.saveData.背包.物品': '背包物品',
-    
+
     // 装备栏
     'character.saveData.装备栏': '装备栏',
     'character.saveData.装备栏.装备1': '装备栏1',
     'character.saveData.装备栏.装备2': '装备栏2',
     'character.saveData.装备栏.装备3': '装备栏3',
-    
+
     // 修炼功法
     'character.saveData.修炼功法.功法': '修炼功法',
     'character.saveData.修炼功法.熟练度': '功法熟练度',
     'character.saveData.修炼功法.修炼时间': '修炼时间',
-    
+
     // 游戏进度
     'character.saveData.游戏进度.当前章节': '当前章节',
     'character.saveData.游戏进度.完成任务': '完成任务',
     'character.saveData.游戏进度.解锁区域': '解锁区域',
-    
+
     // 人际关系
     'character.saveData.人际关系': '人际关系',
     'character.saveData.声望.宗门声望': '宗门声望',
     'character.saveData.声望.江湖声望': '江湖声望',
-    
+
     // 记忆系统
     'character.shortTermMemories': '短期记忆',
     'character.midTermMemories': '中期记忆',
     'character.longTermMemories': '长期记忆'
   };
-  
+
   // 如果有精确匹配，返回对应的中文名称
   if (nameMap[key]) {
     return nameMap[key];
   }
-  
+
   // 模式匹配 - 处理动态生成的键名
   if (key.includes('character.saveData.背包.物品.')) {
     const itemId = key.split('.').pop();
     return `物品: ${itemId?.substring(0, 10)}...`;
   }
-  
+
   if (key.includes('character.saveData.人际关系.')) {
     const npcName = key.split('.').pop();
     return `关系: ${npcName}`;
   }
-  
+
   if (key.includes('.装备')) {
     return '装备栏位';
   }
-  
+
   // 去除技术前缀，保留有意义的部分
   const simplifiedKey = key
     .replace('character.saveData.', '')
@@ -518,14 +524,14 @@ const getVariableDisplayName = (key: string): string => {
     .split('.')
     .slice(-2) // 取最后两段
     .join('.');
-    
+
   return simplifiedKey;
 };
 
 // 生成变更描述 - 提供上下文相关的详细说明
 const getChangeDescription = (change: { key: string; action: string; oldValue: unknown; newValue: unknown }): string => {
   const { key, action, oldValue, newValue } = change;
-  
+
   // 根据变量类型和操作类型生成描述
   if (key.includes('灵石')) {
     const stoneName = getVariableDisplayName(key);
@@ -538,7 +544,7 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       return `${stoneName}增加了 ${diff} 枚`;
     }
   }
-  
+
   if (key.includes('生命值') || key.includes('灵力值')) {
     const attrName = getVariableDisplayName(key);
     if (action === 'set') {
@@ -547,13 +553,13 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       return `${attrName}${direction}了 ${Math.abs(change)} 点`;
     }
   }
-  
+
   if (key.includes('境界') || key.includes('修为')) {
     if (action === 'set') {
       return `修炼境界从 ${formatValue(oldValue)} 提升到 ${formatValue(newValue)}`;
     }
   }
-  
+
   if (key.includes('背包.物品')) {
     if (action === 'add') {
       return `获得了新物品`;
@@ -563,7 +569,7 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       return `物品属性发生变化`;
     }
   }
-  
+
   if (key.includes('装备栏')) {
     if (action === 'set') {
       if (newValue && !oldValue) {
@@ -575,7 +581,7 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       }
     }
   }
-  
+
   if (key.includes('修炼功法')) {
     if (action === 'set') {
       if (newValue && !oldValue) {
@@ -587,7 +593,7 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       }
     }
   }
-  
+
   if (key.includes('人际关系')) {
     if (action === 'set') {
       const changeAmount = Number(newValue) - Number(oldValue);
@@ -600,7 +606,7 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       return `建立了新的人际关系`;
     }
   }
-  
+
   if (key.includes('记忆')) {
     if (action === 'add') {
       return `新增了记忆条目`;
@@ -608,11 +614,11 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
       return `记忆内容发生变化`;
     }
   }
-  
+
   // 默认描述
   const actionText = getActionText(action);
   const varName = getVariableDisplayName(key);
-  
+
   if (action === 'set' || action === 'update') {
     return `${actionText}了${varName}的数值`;
   } else if (action === 'add') {
@@ -620,18 +626,18 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
   } else if (action === 'remove') {
     return `${actionText}了${varName}`;
   }
-  
+
   return `对${varName}执行了${actionText}操作`;
 };
 const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '空';
   }
-  
+
   if (typeof value === 'boolean') {
     return value ? '是' : '否';
   }
-  
+
   if (typeof value === 'number') {
     // 格式化数字显示
     if (value >= 10000) {
@@ -641,7 +647,7 @@ const formatValue = (value: unknown): string => {
     }
     return value.toString();
   }
-  
+
   if (typeof value === 'string') {
     // 字符串长度控制和特殊值处理
     if (value.length === 0) return '空字符串';
@@ -650,7 +656,7 @@ const formatValue = (value: unknown): string => {
     }
     return value;
   }
-  
+
   if (Array.isArray(value)) {
     if (value.length === 0) return '空数组';
     if (value.length <= 3) {
@@ -658,7 +664,7 @@ const formatValue = (value: unknown): string => {
     }
     return `[${value.length}项数组]`;
   }
-  
+
   if (typeof value === 'object') {
     const keys = Object.keys(value);
     if (keys.length === 0) return '空对象';
@@ -667,7 +673,7 @@ const formatValue = (value: unknown): string => {
     }
     return `{${keys.length}个属性}`;
   }
-  
+
   return String(value);
 };
 
@@ -688,9 +694,9 @@ const loadMemorySettings = () => {
       const settings = JSON.parse(memorySettings);
       if (settings.maxShortTerm) maxShortTermMemories.value = settings.maxShortTerm;
       if (settings.maxMidTerm) maxMidTermMemories.value = settings.maxMidTerm;
-      console.log('[记忆设置] 已加载配置:', { 
-        短期记忆上限: maxShortTermMemories.value, 
-        中期记忆上限: maxMidTermMemories.value 
+      console.log('[记忆设置] 已加载配置:', {
+        短期记忆上限: maxShortTermMemories.value,
+        中期记忆上限: maxMidTermMemories.value
       });
     }
   } catch (error) {
@@ -721,9 +727,9 @@ const updateMemorySettings = (shortTerm?: number, midTerm?: number) => {
     maxMidTermMemories.value = midTerm;
   }
   saveMemorySettings();
-  console.log('[记忆设置] 配置已更新:', { 
-    短期记忆上限: maxShortTermMemories.value, 
-    中期记忆上限: maxMidTermMemories.value 
+  console.log('[记忆设置] 配置已更新:', {
+    短期记忆上限: maxShortTermMemories.value,
+    中期记忆上限: maxMidTermMemories.value
   });
 };
 
@@ -934,11 +940,11 @@ const confirmAction = () => {
 // 中期记忆临时数组
 const midTermMemoryBuffer = ref<string[]>([]);
 
-// 短期记忆获取 - 统一从酒馆变量获取
+// 短期记忆获取 - 直接从角色存档数据中获取
 const recentMemories = computed(() => {
   try {
     console.log('[短期记忆] 开始获取短期记忆数据...');
-    
+
     // 从存档数据获取短期记忆
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
@@ -947,7 +953,7 @@ const recentMemories = computed(() => {
       console.log('[短期记忆] 从存档数据获取:', memories.length, '条记忆');
       return memories;
     }
-    
+
     console.log('[短期记忆] 存档中未找到短期记忆数据');
     return [];
   } catch (error) {
@@ -957,57 +963,61 @@ const recentMemories = computed(() => {
 });
 
 // AI响应结构验证
-const validateAIResponse = (response: any): { isValid: boolean; errors: string[] } => {
+const validateAIResponse = (response: unknown): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
-  
+
   if (!response) {
     errors.push('AI响应为空');
     return { isValid: false, errors };
   }
-  
+
+  // 类型断言，确保response是对象
+  const resp = response as Record<string, unknown>;
+
   // 检查基本结构
-  if (!response.text || typeof response.text !== 'string') {
+  if (!resp.text || typeof resp.text !== 'string') {
     errors.push('缺少有效的text字段');
   }
-  
+
   // 检查mid_term_memory字段（可选）
-  if (response.mid_term_memory && typeof response.mid_term_memory !== 'string') {
+  if (resp.mid_term_memory && typeof resp.mid_term_memory !== 'string') {
     errors.push('mid_term_memory字段格式不正确');
   }
-  
+
   // 检查tavern_commands字段（可选）
-  if (response.tavern_commands) {
-    if (!Array.isArray(response.tavern_commands)) {
+  if (resp.tavern_commands) {
+    if (!Array.isArray(resp.tavern_commands)) {
       errors.push('tavern_commands字段必须是数组');
     } else {
       // 检查每个命令的基本结构
-      response.tavern_commands.forEach((cmd: any, index: number) => {
+      resp.tavern_commands.forEach((cmd: unknown, index: number) => {
+        const command = cmd as Record<string, unknown>;
         if (!cmd || typeof cmd !== 'object') {
           errors.push(`tavern_commands[${index}]不是有效对象`);
-        } else if (!cmd.command || !cmd.target) {
+        } else if (!command.command || !command.target) {
           errors.push(`tavern_commands[${index}]缺少必要字段(command/target)`);
         }
       });
     }
   }
-  
+
   return { isValid: errors.length === 0, errors };
 };
 
 // 重新请求AI响应（当结构验证失败时）
 const retryAIResponse = async (
-  userMessage: string, 
-  character: CharacterProfile, 
+  userMessage: string,
+  character: CharacterProfile,
   gameState: Record<string, unknown>,
   previousErrors: string[],
   maxRetries: number = 2
 ): Promise<Record<string, unknown> | null> => {
   console.log('[AI响应重试] 开始重试，之前的错误:', previousErrors);
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[AI响应重试] 第${attempt}次尝试`);
-      
+
       // 在用户消息中添加结构要求
       const enhancedMessage = `${userMessage}
 
@@ -1027,7 +1037,7 @@ const retryAIResponse = async (
         enhancedMessage,
         character,
         gameState,
-        { 
+        {
           onProgressUpdate: (progress: string) => {
             console.log('[AI重试进度]', progress);
           }
@@ -1048,7 +1058,7 @@ const retryAIResponse = async (
       console.error(`[AI响应重试] 第${attempt}次尝试出错:`, error);
     }
   }
-  
+
   console.error('[AI响应重试] 所有重试尝试都失败了');
   return null;
 };
@@ -1126,7 +1136,7 @@ const clearActionQueue = async () => {
 const removeActionFromQueue = async (index: number) => {
   if (index >= 0 && index < actionQueue.pendingActions.length) {
     const action = actionQueue.pendingActions[index];
-    
+
     // NPC交互类操作不支持撤回，只能删除
     const npcInteractionTypes = ['npc_trade', 'npc_request', 'npc_steal'];
     if (npcInteractionTypes.includes(action.type)) {
@@ -1134,16 +1144,16 @@ const removeActionFromQueue = async (index: number) => {
       toast.success('已移除NPC交互动作');
       return;
     }
-    
+
     // 如果是装备、卸下、使用或修炼类操作，尝试按名称精准撤回
     if (['equip', 'unequip', 'use', 'cultivate'].includes(action.type)) {
-      const success = await enhancedActionQueue.undoByItemName(action.type as any, action.itemName);
+      const success = await enhancedActionQueue.undoByItemName(action.type as 'equip' | 'unequip' | 'use' | 'cultivate', action.itemName);
       if (success) {
         toast.success('已撤回并恢复');
         return;
       }
     }
-    
+
     // 普通删除操作
     actionQueue.removeAction(action.id);
     toast.success('已移除动作');
@@ -1162,8 +1172,20 @@ const sendMessage = async () => {
     return;
   }
 
-  // 清空上一轮的状态变更记录，确保每次交互都只显示最新的变化
-  lastStateChanges.value = null;
+  // 检查角色死亡状态
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+  if (saveData) {
+    const deathStatus = checkCharacterDeath(saveData);
+    if (deathStatus.isDead) {
+      toast.error(`角色已死亡：${deathStatus.deathReason}。无法继续游戏，请重新开始或复活角色。`);
+      addMessage({
+        type: 'system',
+        content: `【死亡提示】${characterName.value}已经死亡（${deathStatus.deathReason}），修仙之路戛然而止。若要继续游戏，请选择其他角色或重新开始。`,
+        time: formatCurrentTime()
+      });
+      return;
+    }
+  }
 
   const userMessage = inputText.value.trim();
 
@@ -1189,6 +1211,8 @@ const sendMessage = async () => {
   // 不调用 addMessage 和 addToShortTermMemory
 
   isAIProcessing.value = true;
+  // 强制清空当前叙述，为流式响应或等待动画做准备，彻底避免内容重叠
+  currentNarrative.value = null;
 
   try {
     // 获取当前游戏状态
@@ -1233,7 +1257,7 @@ const sendMessage = async () => {
       if (useStreaming.value) {
         options.onStreamChunk = handleStreamingResponse;
       }
-      
+
       aiResponse = await bidirectionalSystem.processPlayerAction(
         finalUserMessage,
         character,
@@ -1247,7 +1271,7 @@ const sendMessage = async () => {
         if (!validation.isValid) {
           console.warn('[AI响应验证] 结构验证失败:', validation.errors);
           toast.warning('AI响应格式不正确，正在重试...');
-          
+
           // 尝试重新生成
           const retryResponse = await retryAIResponse(
             finalUserMessage,
@@ -1255,7 +1279,7 @@ const sendMessage = async () => {
             gameState,
             validation.errors
           );
-          
+
           if (retryResponse) {
             aiResponse = retryResponse;
             toast.success('AI响应重试成功');
@@ -1293,7 +1317,7 @@ const sendMessage = async () => {
       // 处理AI返回的完整响应 - 支持三种数据结构
       if (aiResponse.gmResponse) {
         const gmResp = aiResponse.gmResponse as GM_Response;
-        
+
         // 1. 处理正文内容 (text) - 用于短期记忆和显示
         let finalText = '';
         if (gmResp.text && typeof gmResp.text === 'string') {
@@ -1301,25 +1325,31 @@ const sendMessage = async () => {
         } else if (aiResponse.finalContent && typeof aiResponse.finalContent === 'string') {
           finalText = aiResponse.finalContent;
         }
-        
+
         if (finalText) {
           const finalMessage = gameMessages.value[streamingMessageIndex_local];
           if (finalMessage) {
             finalMessage.content = finalText;
+            // 确保每条AI消息都有状态变更数据结构
+            if (!finalMessage.stateChanges) {
+              finalMessage.stateChanges = { changes: [] };
+            }
           }
-          
+
+          // 缓存预生成的中期记忆总结到酒馆变量
+          if (gmResp.mid_term_memory && typeof gmResp.mid_term_memory === 'string') {
+            const summary = gmResp.mid_term_memory;
+            // 使用酒馆变量缓存系统
+            await characterStore.manageTavernMemoryCache.addSummary(finalText, summary);
+            console.log('[记忆管理] 预生成的中期记忆已缓存到酒馆变量');
+          }
+
           // 添加正文内容到短期记忆
           await addToShortTermMemory(finalText, 'assistant');
           console.log('[AI响应处理] 正文内容已添加到短期记忆');
         }
-        
-        // 2. 处理中期记忆 (mid_term_memory) - 作为预处理记忆，进入短期记忆流转
-        if (gmResp.mid_term_memory && typeof gmResp.mid_term_memory === 'string') {
-          // 按照设计，AI返回的mid_term_memory作为“预处理”的中期记忆，先进入短期记忆流转
-          await addToShortTermMemory(gmResp.mid_term_memory, 'assistant');
-          console.log('[AI响应处理] AI建议的中期记忆已添加到短期记忆流转:', gmResp.mid_term_memory.substring(0, 50));
-        }
-        
+
+
         // 3. tavern_commands 在 AIBidirectionalSystem 中已处理
         if (gmResp.tavern_commands && Array.isArray(gmResp.tavern_commands) && gmResp.tavern_commands.length > 0) {
           console.log('[AI响应处理] tavern_commands 已由AI双向系统处理:', gmResp.tavern_commands.length, '条指令');
@@ -1329,44 +1359,78 @@ const sendMessage = async () => {
         const finalMessage = gameMessages.value[streamingMessageIndex_local];
         if (finalMessage) {
           finalMessage.content = aiResponse.finalContent;
+          // 确保备用路径的消息也有状态变更数据结构
+          if (!finalMessage.stateChanges) {
+            finalMessage.stateChanges = { changes: [] };
+          }
         }
-        
+
         // 添加到短期记忆
         await addToShortTermMemory(aiResponse.finalContent, 'assistant');
         console.log('[AI响应处理] 备用路径：finalContent 已添加到短期记忆');
       }
 
-      // 处理游戏状态更新
-      if (aiResponse.stateChanges) {
-        await gameStateManager.applyStateChanges(aiResponse.stateChanges);
-        characterStore.updateCharacterData(aiResponse.stateChanges);
-        
-        // 更新变量更新面板显示
-        lastStateChanges.value = aiResponse.stateChanges as StateChangeLog;
-        console.log('[变量更新] 状态变更已记录:', lastStateChanges.value);
-      }
+    // 处理游戏状态更新（仅在有有效AI响应时执行）
+    if (aiResponse && aiResponse.stateChanges) {
+      await gameStateManager.applyStateChanges(aiResponse.stateChanges);
+      characterStore.updateCharacterData(aiResponse.stateChanges);
 
-      // 处理记忆更新
-      if (aiResponse.memoryUpdates) {
-        await memorySystem.processMemoryUpdates(aiResponse.memoryUpdates);
+      // 将状态变更附加到消息上
+      const finalMessage = gameMessages.value[streamingMessageIndex_local];
+      if (finalMessage) {
+        finalMessage.stateChanges = aiResponse.stateChanges as StateChangeLog;
       }
+      console.log('[日志面板] State changes received and attached to message:', aiResponse.stateChanges);
+      
+      // 检查角色死亡状态（在状态更新后）
+      const currentSaveData = characterStore.activeSaveSlot?.存档数据;
+      if (currentSaveData) {
+        const deathStatus = checkCharacterDeath(currentSaveData);
+        if (deathStatus.isDead) {
+          addMessage({
+            type: 'system',
+            content: `💀【死亡通知】${characterName.value}在此次行动中不幸死亡（${deathStatus.deathReason}）。修仙路断，生命已逝。`,
+            time: formatCurrentTime()
+          });
+          toast.error(`角色已死亡：${deathStatus.deathReason}`);
+        }
+      }
+    } else if (aiResponse) {
+      console.log('[日志面板] No state changes received in this response.');
+    }
+
+    // 处理记忆更新（仅在有有效AI响应时执行）
+    if (aiResponse && aiResponse.memoryUpdates) {
+      await memorySystem.processMemoryUpdates(aiResponse.memoryUpdates);
+    }
 
     } catch (aiError) {
       console.error('[AI处理失败]', aiError);
+      
+      // 清理流式输出状态
+      streamingMessageIndex.value = null;
+      streamingContent.value = '';
 
-      // 回退到简化处理
-      const fallbackResponse = await generateFallbackResponse(userMessage);
-
-      const finalMessage = gameMessages.value[streamingMessageIndex_local];
-      if (finalMessage) {
-        finalMessage.content = fallbackResponse;
+      // 移除占位消息，不添加任何内容
+      if (gameMessages.value.length > 0) {
+        gameMessages.value.pop();
       }
 
-      streamingMessageIndex.value = null;
-      toast.warning('AI系统繁忙，使用备用响应');
+      // 显示失败弹窗，明确告知用户生成失败
+      const errorMessage = aiError instanceof Error ? aiError.message : '未知错误';
+      toast.error(`AI生成失败：${errorMessage}`, { 
+        duration: 5000
+      });
 
-      // 创建空的响应对象以避免后续错误
-      aiResponse = { systemMessages: [], finalContent: '', stateChanges: null, memoryUpdates: null };
+      // 添加系统提示消息，说明失败情况
+      addMessage({
+        type: 'system',
+        content: `【生成失败】天道感应中断，未能生成有效回应。原有游戏状态未发生任何变化，请重新尝试。`,
+        time: formatCurrentTime()
+      });
+
+      // 重要：不设置任何响应对象，确保后续处理跳过
+      aiResponse = null;
     }
 
     // 添加系统消息（如果有）
@@ -1380,10 +1444,11 @@ const sendMessage = async () => {
       });
     }
 
-    // 保存对话历史
-    saveConversationHistory();
-
-    toast.success('天道已应');
+    // 保存对话历史（仅在有有效AI响应时）
+    if (aiResponse) {
+      saveConversationHistory();
+      toast.success('天道已应');
+    }
 
   } catch (error: unknown) {
     console.error('[AI交互] 处理失败:', error);
@@ -1413,13 +1478,19 @@ const sendMessage = async () => {
 
 // 添加消息 - 简化版本
 const addMessage = (message: GameMessage) => {
+  // 确保每条消息都有状态变更数据结构
+  const messageWithStateChanges = {
+    ...message,
+    stateChanges: message.stateChanges || { changes: [] }
+  };
+
   // 更新当前显示的叙述（显示AI和GM消息）
-  if (message.type === 'ai' || message.type === 'gm') {
-    currentNarrative.value = message;
+  if (messageWithStateChanges.type === 'ai' || messageWithStateChanges.type === 'gm') {
+    currentNarrative.value = messageWithStateChanges;
   }
 
   // 保存到完整消息历史
-  gameMessages.value.push(message);
+  gameMessages.value.push(messageWithStateChanges);
 
   // 自动保存对话历史
   saveConversationHistory();
@@ -1432,79 +1503,37 @@ const addMessage = (message: GameMessage) => {
   });
 };
 
-// 添加到中期记忆 - 直接添加，不经过短期记忆
-const addToMidTermMemory = async (content: string) => {
+// 添加到短期记忆 - 直接操作存档数据
+const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' = 'assistant') => {
   try {
+    console.log(`[记忆管理] 添加 ${role} 消息到短期记忆:`, content.substring(0, 50));
+
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
-    if (!sd) return;
+    if (!sd) {
+      console.warn('[记忆管理] 存档数据不可用，无法存储短期记忆');
+      return;
+    }
 
     // 确保记忆结构存在
     if (!sd.记忆) {
       sd.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
     }
-    if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
-
-    // 直接添加到中期记忆开头
-    sd.记忆.中期记忆.unshift(content);
-
-    console.log(`[记忆管理] 已直接添加AI返回的中期记忆`);
-
-    // 检查中期记忆是否超出限制
-    if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
-      await transferToLongTermMemory();
-    }
-  } catch (error) {
-    console.warn('[记忆管理] 添加中期记忆失败:', error);
-  }
-};
-
-// 添加到短期记忆 - 统一使用酒馆变量存储
-const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' = 'assistant') => {
-  try {
-    console.log(`[记忆管理] 添加${role}消息到短期记忆:`, content.substring(0, 50));
-    
-    // 获取酒馆助手
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[记忆管理] 酒馆助手不可用，无法存储短期记忆');
-      return;
-    }
-
-    // 从酒馆变量获取当前短期记忆
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    let currentMemories = chatVars['character.shortTermMemories'] as string[] | undefined;
-    if (!Array.isArray(currentMemories)) {
-      currentMemories = [];
+    if (!Array.isArray(sd.记忆.短期记忆)) {
+      sd.记忆.短期记忆 = [];
     }
 
     // 添加新记忆到开头
-    currentMemories.unshift(content);
+    sd.记忆.短期记忆.unshift(content);
+    console.log(`[记忆管理] 短期记忆已添加，当前数量: ${sd.记忆.短期记忆.length}`);
 
     // 检查是否需要转换到中期记忆
-    if (currentMemories.length > maxShortTermMemories.value) {
-      // 将超出的记忆转移到中期记忆处理
-      const overflow = currentMemories.splice(maxShortTermMemories.value);
+    if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
+      const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value);
       midTermMemoryBuffer.value.push(...overflow.reverse());
-      
-      // 处理中期记忆转换
+
+      console.log(`[记忆管理] ${overflow.length}条短期记忆溢出，准备转移到中期`);
       await transferToMidTermMemory();
-    }
-
-    // 更新酒馆变量中的短期记忆
-    await helper.insertOrAssignVariables({
-      'character.shortTermMemories': currentMemories
-    }, { type: 'chat' });
-
-    console.log(`[记忆管理] 已更新酒馆变量中的短期记忆，当前数量: ${currentMemories.length}`);
-    
-    // 同步更新存档数据（保持数据一致性）
-    const save = characterStore.activeSaveSlot;
-    if (save?.存档数据) {
-      if (!save.存档数据.记忆) {
-        save.存档数据.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
-      }
-      save.存档数据.记忆.短期记忆 = [...currentMemories];
     }
 
   } catch (error) {
@@ -1512,56 +1541,51 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
   }
 };
 
-// 转移到中期记忆 - 以酒馆变量为主
+// 转移到中期记忆 - 直接操作存档数据
 const transferToMidTermMemory = async () => {
   try {
+    if (midTermMemoryBuffer.value.length === 0) return;
+
     console.log('[记忆管理] 开始转移到中期记忆');
-    
-    // 如果没有待转移的记忆，直接返回
-    if (midTermMemoryBuffer.value.length === 0) {
+
+    const save = characterStore.activeSaveSlot;
+    const sd = save?.存档数据;
+    if (!sd) {
+      console.warn('[记忆管理] 存档数据不可用，无法处理中期记忆转移');
       return;
     }
 
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[记忆管理] 酒馆助手不可用，无法处理中期记忆转移');
-      return;
+    // 确保中期记忆结构存在
+    if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
+
+    // 使用预生成的总结替换原文
+    const summariesToAdd: string[] = [];
+    for (const narrative of midTermMemoryBuffer.value) {
+      // 从酒馆变量缓存获取预生成总结
+      const summary = await characterStore.manageTavernMemoryCache.getSummary(narrative);
+      if (summary) {
+        summariesToAdd.push(summary);
+        // 从酒馆变量缓存中清理已使用的总结
+        await characterStore.manageTavernMemoryCache.removeSummary(narrative);
+        console.log('[记忆管理] 使用预生成总结并已清理缓存');
+      } else {
+        // 如果找不到对应的总结，使用原文作为备用
+        console.warn(`[记忆管理] 未找到预生成的中期记忆，使用原文作为备用: ${narrative.substring(0, 50)}...`);
+        summariesToAdd.push(narrative);
+      }
     }
 
-    // 获取当前中期记忆
-    const midTermVars = await helper.getVariables({ type: 'chat' });
-    let currentMidTermMemories = midTermVars['character.midTermMemories'] as string[] | undefined;
-    if (!Array.isArray(currentMidTermMemories)) {
-      currentMidTermMemories = [];
-    }
+    // 添加总结到中期记忆
+    sd.记忆.中期记忆.unshift(...summariesToAdd);
 
-    // 添加缓冲区中的记忆到中期记忆
-    currentMidTermMemories.unshift(...midTermMemoryBuffer.value);
-    
-    // 检查中期记忆是否需要转换到长期记忆
-    if (currentMidTermMemories.length > maxMidTermMemories.value) {
-      await transferToLongTermMemory(currentMidTermMemories);
-      // 保留最新的中期记忆
-      currentMidTermMemories = currentMidTermMemories.slice(0, maxMidTermMemories.value);
-    }
+    console.log(`[记忆管理] 转移 ${summariesToAdd.length} 条总结到中期记忆，当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
 
-    // 更新酒馆变量
-    await helper.insertOrAssignVariables({
-      'character.midTermMemories': currentMidTermMemories
-    }, { type: 'chat' });
-
-    console.log(`[记忆管理] 转移${midTermMemoryBuffer.value.length}条到中期记忆，当前中期记忆数量: ${currentMidTermMemories.length}`);
-    
     // 清空缓冲区
     midTermMemoryBuffer.value = [];
-    
-    // 同步更新存档数据
-    const save = characterStore.activeSaveSlot;
-    if (save?.存档数据) {
-      if (!save.存档数据.记忆) {
-        save.存档数据.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
-      }
-      save.存档数据.记忆.中期记忆 = [...currentMidTermMemories];
+
+    // 检查中期记忆是否需要转换到长期记忆
+    if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
+      await transferToLongTermMemory();
     }
 
   } catch (error) {
@@ -1569,61 +1593,33 @@ const transferToMidTermMemory = async () => {
   }
 };
 
-// 转移到长期记忆 - 以酒馆变量为主
-const transferToLongTermMemory = async (midTermMemories?: string[]) => {
+// 转移到长期记忆 - 直接操作存档数据
+const transferToLongTermMemory = async () => {
   try {
     console.log('[记忆管理] 开始转移到长期记忆');
-    
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[记忆管理] 酒馆助手不可用，无法处理长期记忆转移');
+
+    const save = characterStore.activeSaveSlot;
+    const sd = save?.存档数据;
+    if (!sd?.记忆?.中期记忆) {
+      console.warn('[记忆管理] 存档或中期记忆数据不可用，无法处理长期记忆转移');
       return;
     }
 
-    // 获取需要总结的中期记忆
-    let toSummarize = midTermMemories;
-    if (!toSummarize) {
-      const midTermVars = await helper.getVariables({ type: 'chat' });
-      const midTermFromTavern = midTermVars['character.midTermMemories'] as string[] | undefined;
-      toSummarize = midTermFromTavern;
-      if (!Array.isArray(toSummarize)) {
-        toSummarize = [];
-      }
-    }
+    const excess = sd.记忆.中期记忆.length - maxMidTermMemories.value;
 
-    const excess = toSummarize.length - maxMidTermMemories.value;
-    
     if (excess > 0) {
-      const oldMemories = toSummarize.slice(-excess);
-      
+      const oldMemories = sd.记忆.中期记忆.splice(maxMidTermMemories.value);
+
       // 生成长期记忆总结
       const summary = await generateLongTermSummary(oldMemories);
       if (summary) {
-        // 获取当前长期记忆
-        const longTermVars = await helper.getVariables({ type: 'chat' });
-        let currentLongTermMemories = longTermVars['character.longTermMemories'] as string[] | undefined;
-        if (!Array.isArray(currentLongTermMemories)) {
-          currentLongTermMemories = [];
-        }
-        
+        // 确保长期记忆结构存在
+        if (!sd.记忆.长期记忆) sd.记忆.长期记忆 = [];
+
         // 添加新的总结到长期记忆开头
-        currentLongTermMemories.unshift(summary);
-        
-        // 更新酒馆变量
-        await helper.insertOrAssignVariables({
-          'character.longTermMemories': currentLongTermMemories
-        }, { type: 'chat' });
-        
-        console.log(`[记忆管理] 总结${oldMemories.length}条记忆到长期记忆，长期记忆总数: ${currentLongTermMemories.length}条`);
-        
-        // 同步更新存档数据
-        const save = characterStore.activeSaveSlot;
-        if (save?.存档数据) {
-          if (!save.存档数据.记忆) {
-            save.存档数据.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
-          }
-          save.存档数据.记忆.长期记忆 = [...currentLongTermMemories];
-        }
+        sd.记忆.长期记忆.unshift(summary);
+
+        console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${sd.记忆.长期记忆.length} 条`);
       }
     }
   } catch (error) {
@@ -1653,23 +1649,6 @@ const generateLongTermSummary = async (memories: string[]): Promise<string | nul
 const formatCurrentTime = (): string => {
   const now = new Date();
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-};
-
-// 生成回退响应的函数
-const generateFallbackResponse = async (userMessage: string): Promise<string> => {
-  const responses = [
-    `系统正在处理"${userMessage}"，请稍候...`,
-    `收到道友的请求，天道正在感应中...`,
-    `道友的行动已记录，正在计算因果变化...`,
-    `系统繁忙，但你的修行之路依然继续...`,
-    `天道无常，此时无法给出完整回应，请稍后再试。`
-  ];
-
-  // 模拟异步处理延迟
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-  return randomResponse;
 };
 
 // 键盘事件处理
@@ -1712,58 +1691,80 @@ const handleInput = () => {
   });
 };
 
-// 初始化时加载对话历史（增强版）
-onMounted(async () => {
+// 初始化/重新初始化面板以适应当前存档
+const initializePanelForSave = async () => {
+  console.log('[主面板] 为当前存档初始化面板...');
   try {
-    // 加载记忆配置
-    loadMemorySettings();
-    
-    // 恢复AI处理状态
-    restoreAIProcessingState();
-
-    // 初始化系统连接
-    await initializeSystemConnections();
-
-    // 初始化输入框高度
-    nextTick(() => {
-      adjustTextareaHeight();
-    });
-
-    // 加载审查配置
-    const savedDifficulty = localStorage.getItem('audit-difficulty') as DifficultyLevel;
-    if (savedDifficulty && ['normal', 'medium', 'hard'].includes(savedDifficulty)) {
-      auditDifficulty.value = savedDifficulty;
-    }
-
     if (hasActiveCharacter.value) {
-      // 尝试从存档恢复对话历史
       await loadConversationHistory();
-
-      // 如果没有对话历史，生成并显示初始消息
       if (gameMessages.value.length === 0) {
         await generateAndShowInitialMessage();
       }
-
-      // 同步游戏状态
       await syncGameState();
-
     } else {
+      gameMessages.value = [];
+      currentNarrative.value = null;
       addMessage({
         type: 'system',
         content: '【提示】请先选择或创建角色开始游戏。',
         time: formatCurrentTime()
       });
     }
-
-    // 滚动到底部
     nextTick(() => {
       if (contentAreaRef.value) {
         contentAreaRef.value.scrollTop = contentAreaRef.value.scrollHeight;
       }
     });
+  } catch (error) {
+    console.error('[主面板] 初始化存档数据失败:', error);
+    addMessage({
+      type: 'system',
+      content: '【系统】加载存档数据时遇到问题。',
+      time: formatCurrentTime()
+    });
+  }
+};
+
+// 重置面板状态以进行存档切换
+const resetPanelState = () => {
+  console.log('[主面板] 检测到存档切换，正在重置面板状态...');
+  actionQueue.clearActions();
+  gameMessages.value = [];
+  currentNarrative.value = null;
+  variableUpdatesExpanded.value = false;
+  inputText.value = '';
+  // 注意：isAIProcessing 状态由 restoreAIProcessingState 在 onMounted 中处理，
+  // 此处不重置以允许页面刷新后恢复状态。切换存档时，AI应已停止处理。
+};
+
+// 监听激活存档ID的变化
+watch(() => characterStore.rootState.当前激活存档, async (newSlotId, oldSlotId) => {
+  // 仅在实际发生切换时执行，忽略组件首次加载（oldSlotId为undefined）
+  if (newSlotId && newSlotId !== oldSlotId) {
+    console.log(`[主面板] 存档已切换: 从 ${oldSlotId || '无'} 到 ${newSlotId}`);
+    resetPanelState();
+    await initializePanelForSave();
+  }
+});
+
+// 组件挂载时执行一次性初始化
+onMounted(async () => {
+  try {
+    // 一次性设置
+    loadMemorySettings();
+    restoreAIProcessingState();
+    await initializeSystemConnections();
+    nextTick(adjustTextareaHeight);
+    const savedDifficulty = localStorage.getItem('audit-difficulty') as DifficultyLevel;
+    if (savedDifficulty && ['normal', 'medium', 'hard'].includes(savedDifficulty)) {
+      auditDifficulty.value = savedDifficulty;
+    }
+
+    // 为初始加载的存档初始化面板
+    await initializePanelForSave();
 
   } catch (error) {
-    console.error('[主面板] 初始化失败:', error);
+    console.error('[主面板] 首次挂载失败:', error);
     addMessage({
       type: 'system',
       content: '【系统】初始化遇到问题，请刷新页面重试。',
@@ -1851,18 +1852,55 @@ const generateAndShowInitialMessage = async () => {
       initialMessage = `【${profile.角色基础信息.名字}】发现自己身处在一个陌生而神秘的修仙世界中。作为一名${profile.角色基础信息.出生}出身的修士，拥有${profile.角色基础信息.灵根}，你感受到了体内微弱的灵气波动。修仙之路漫漫，从这一刻开始，你将踏上寻求长生大道的征途。`;
     }
 
+    // 生成初始化状态变更记录（展示初始状态）
+    const initialStateChanges: StateChangeLog = {
+      changes: [
+        {
+          key: 'character.saveData.玩家角色状态.境界',
+          action: 'set',
+          oldValue: '未知',
+          newValue: saveData.存档数据?.玩家角色状态?.境界?.名称 || '凡人'
+        },
+        {
+          key: 'character.saveData.玩家角色状态.气血',
+          action: 'set', 
+          oldValue: { 当前: 0, 最大: 0 },
+          newValue: saveData.存档数据?.玩家角色状态?.气血 || { 当前: 100, 最大: 100 }
+        },
+        {
+          key: 'character.saveData.玩家角色状态.灵气',
+          action: 'set',
+          oldValue: { 当前: 0, 最大: 0 },
+          newValue: saveData.存档数据?.玩家角色状态?.灵气 || { 当前: 100, 最大: 100 }
+        },
+        {
+          key: 'character.saveData.玩家角色状态.神识',
+          action: 'set',
+          oldValue: { 当前: 0, 最大: 0 },
+          newValue: saveData.存档数据?.玩家角色状态?.神识 || { 当前: 100, 最大: 100 }
+        },
+        {
+          key: 'character.saveData.玩家角色状态.位置',
+          action: 'set',
+          oldValue: '初始地',
+          newValue: saveData.存档数据?.玩家角色状态?.位置?.描述 || '初始地'
+        }
+      ]
+    };
+
     // 显示初始消息
     const gmMessage = {
       type: 'gm' as const,
       content: initialMessage,
-      time: formatCurrentTime()
+      time: formatCurrentTime(),
+      stateChanges: initialStateChanges // 添加初始状态变更
     };
 
     // 直接设置为当前叙述，不触发记忆转移
     currentNarrative.value = gmMessage;
     gameMessages.value.push(gmMessage);
 
-    console.log('[主面板] 初始消息加载完成');
+    console.log('[主面板] 初始消息加载完成，包含', initialStateChanges.changes.length, '项状态变更');
 
   } catch (error) {
     console.error('[主面板] 加载初始消息失败:', error);
@@ -1871,7 +1909,8 @@ const generateAndShowInitialMessage = async () => {
     const defaultMessage = {
       type: 'gm' as const,
       content: `【${characterName.value}】你睁开双眼，发现自己身处在一个全新的修仙世界中。周围的一切都显得古朴而神秘，空气中弥漫着淡淡的灵气。你感受到体内有着一股前所未有的力量在涌动，这是属于修仙者的开始...`,
-      time: formatCurrentTime()
+      time: formatCurrentTime(),
+      stateChanges: { changes: [] } // 即使是默认消息也提供空的状态变更
     };
 
     // 直接设置为当前叙述
@@ -1885,25 +1924,41 @@ const loadConversationHistory = async () => {
   try {
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
-    if (sd?.对话历史) {
-      const history = sd.对话历史;
-      if (Array.isArray(history) && history.length > 0) {
-        // 清空当前消息，加载历史消息
-        gameMessages.value = [];
-        history.forEach((msg: GameMessage) => {
-          if (msg.type && msg.content && msg.time) {
-            gameMessages.value.push({
-              type: msg.type,
-              content: msg.content,
-              time: msg.time
-            });
-          }
-        });
-        console.log(`[主面板] 已加载 ${history.length} 条对话历史`);
+    const history = sd?.对话历史;
+
+    if (Array.isArray(history) && history.length > 0) {
+      // 过滤无效消息并确保状态变更数据存在
+      gameMessages.value = history.filter(msg => msg.type && msg.content && msg.time).map(msg => ({
+        ...msg,
+        // 确保每条消息都有状态变更数据结构（即使为空）
+        stateChanges: msg.stateChanges || { changes: [] }
+      }));
+
+      // 从后往前查找最后一个 AI 或 GM 消息，并设为当前叙述
+      const lastNarrative = [...gameMessages.value].reverse().find(
+        msg => msg.type === 'ai' || msg.type === 'gm'
+      );
+
+      if (lastNarrative) {
+        currentNarrative.value = lastNarrative;
+        const stateChangesCount = lastNarrative.stateChanges?.changes?.length || 0;
+        console.log('[主面板] 已从历史记录中恢复当前叙述，包含', stateChangesCount, '项状态变更');
+      } else {
+        // 历史记录中没有叙述性消息
+        currentNarrative.value = null;
       }
+      console.log(`[主面板] 已加载 ${gameMessages.value.length} 条对话历史`);
+    } else {
+      // 如果没有历史记录或历史记录为空，则清空
+      gameMessages.value = [];
+      currentNarrative.value = null;
+      console.log('[主面板] 对话历史为空，已清空');
     }
   } catch (error) {
     console.warn('[主面板] 加载对话历史失败:', error);
+    // 出错时也清空状态
+    gameMessages.value = [];
+    currentNarrative.value = null;
   }
 };
 
@@ -1917,7 +1972,8 @@ const saveConversationHistory = async () => {
       sd.对话历史 = gameMessages.value.map(msg => ({
         type: msg.type,
         content: msg.content,
-        time: msg.time
+        time: msg.time,
+        stateChanges: msg.stateChanges // 确保持久化 stateChanges
       }));
 
       // 同时更新到记忆系统
@@ -2041,7 +2097,7 @@ const saveConversationHistory = async () => {
 /* 主内容包装器 */
 .main-content-wrapper {
   display: flex;
-  height: 100%;
+  flex: 1; /* 撑满父元素 .content-area */
   gap: 12px;
 }
 
@@ -2051,7 +2107,7 @@ const saveConversationHistory = async () => {
   display: flex;
   flex-direction: column;
   position: relative;
-  background: var(--color-background);
+  background: #ffffff; /* 设置明确的白色背景 */
   min-width: 0; /* 防止flex收缩问题 */
 }
 
@@ -2063,6 +2119,8 @@ const saveConversationHistory = async () => {
   scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
   box-sizing: border-box;
   min-height: 200px;
+  display: flex; /* 让子元素可以撑满高度 */
+  padding: 20px; /* <-- 应用到这里 */
 }
 
 /* WebKit滚动条样式 */
@@ -2101,7 +2159,7 @@ const saveConversationHistory = async () => {
 /* AI处理时的显示样式 */
 .ai-processing-display {
   width: 100%;
-  padding: 20px;
+  background: #ffffff; /* 确保AI处理区域也有白色背景 */
 }
 
 /* 流式内容显示 */
@@ -2321,15 +2379,14 @@ const saveConversationHistory = async () => {
   display: flex;
   flex-direction: column;
   position: relative; /* 添加相对定位，让等待覆盖层能正确定位 */
-  background: var(--color-background); /* 确保整个区域背景一致 */
+  background: #ffffff; /* 确保整个区域背景一致 */
 }
 
 .narrative-content {
-  padding: 20px;
   line-height: 1.8;
   color: #1f2937;
   font-size: 0.95rem;
-  background: var(--color-background);
+  background: #ffffff; /* 确保叙述内容区域背景一致 */
 }
 
 .narrative-meta {
@@ -2632,7 +2689,7 @@ const saveConversationHistory = async () => {
 }
 
 .input-section {
-  padding: 16px 20px;
+  padding: 16px 20px 20px 20px; /* 进一步增加底部内边距 */
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
   box-sizing: border-box;
@@ -2807,7 +2864,16 @@ const saveConversationHistory = async () => {
 
 /* 确保深色主题下当前叙述区域背景一致 */
 [data-theme="dark"] .current-narrative {
-  background: #1e293b;
+  background: #1e293b !important;
+}
+
+
+[data-theme="dark"] .ai-processing-display {
+  background: #1e293b !important;
+}
+
+[data-theme="dark"] .narrative-content {
+  background: #1e293b !important;
 }
 
 [data-theme="dark"] .input-section {

@@ -14,7 +14,7 @@
 import { computed } from 'vue'
 
 interface TextPart {
-  type: 'environment' | 'psychology' | 'dialogue' | 'normal'
+  type: 'environment' | 'psychology' | 'dialogue' | 'judgement' | 'normal'
   content: string
 }
 
@@ -89,9 +89,9 @@ const parsedText = computed(() => {
       }
     }
     // 中文引号
-    const zhDialogStart = processedText.indexOf('“', currentIndex)
+    const zhDialogStart = processedText.indexOf('"', currentIndex)
     if (zhDialogStart !== -1) {
-      const zhDialogEnd = processedText.indexOf('”', zhDialogStart + 1)
+      const zhDialogEnd = processedText.indexOf('"', zhDialogStart + 1)
       if (zhDialogEnd !== -1) {
         markers.push({ 
           start: zhDialogStart, 
@@ -99,6 +99,21 @@ const parsedText = computed(() => {
           type: 'dialogue' as const,
           contentStart: zhDialogStart + 1,
           contentEnd: zhDialogEnd
+        })
+      }
+    }
+    
+    // 判定结果 〖〗
+    const judgementStart = processedText.indexOf('〖', currentIndex)
+    if (judgementStart !== -1) {
+      const judgementEnd = processedText.indexOf('〗', judgementStart + 1)
+      if (judgementEnd !== -1) {
+        markers.push({ 
+          start: judgementStart, 
+          end: judgementEnd + 1, 
+          type: 'judgement' as const,
+          contentStart: judgementStart + 1,
+          contentEnd: judgementEnd
         })
       }
     }
@@ -152,6 +167,7 @@ const getPartClass = (type: string) => {
     'text-environment': type === 'environment',
     'text-psychology': type === 'psychology', 
     'text-dialogue': type === 'dialogue',
+    'text-judgement': type === 'judgement',
     'text-normal': type === 'normal'
   }
 }
@@ -165,6 +181,7 @@ const getPartClass = (type: string) => {
   text-indent: 2em;
   margin: 0;
   line-height: 1.8;
+  padding-bottom: 1.5rem;
 }
 
 /* 环境描写 - 青色 */
@@ -184,6 +201,16 @@ const getPartClass = (type: string) => {
 .text-dialogue {
   color: #ea580c;
   font-weight: 600;
+}
+
+/* 判定结果 - 金色高亮 */
+.text-judgement {
+  color: #f59e0b;
+  font-weight: 700;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
+  padding: 2px 4px;
+  border-radius: 4px;
+  border-left: 3px solid #f59e0b;
 }
 
 /* 普通文本 */

@@ -7,14 +7,14 @@
         <div class="form-fields">
           <div v-for="field in fields" :key="field.key" class="form-group">
             <label :for="field.key">{{ field.label }}</label>
-            <input 
-              v-if="field.type === 'text'"
+            <input
+              v-if="field.type === 'text' || field.type === 'color'"
               :id="field.key"
               v-model="formData[field.key]"
               :placeholder="field.placeholder"
-              type="text"
+              :type="field.type"
             />
-            <textarea 
+            <textarea
               v-else-if="field.type === 'textarea'"
               :id="field.key"
               v-model="formData[field.key]"
@@ -55,9 +55,9 @@ type BaseField = {
   placeholder?: string;
 };
 
-type TextAreaField = BaseField & { type: 'text' | 'textarea' };
+type InputField = BaseField & { type: 'text' | 'textarea' | 'color' };
 type SelectField = BaseField & { type: 'select'; options: readonly { value: string; label: string }[] };
-type ModalField = TextAreaField | SelectField;
+type ModalField = InputField | SelectField;
 
 const props = defineProps<{
   visible: boolean;
@@ -179,6 +179,16 @@ function submit() {
   color: var(--color-text);
   font-size: 1rem;
   transition: var(--transition-fast);
+}
+
+input[type="color"] {
+  padding: 0.25rem;
+  height: 2.5rem;
+}
+
+input[type="color"] {
+  padding: 0.25rem;
+  height: 2.5rem;
 }
 
 .form-group input:focus,

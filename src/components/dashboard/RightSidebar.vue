@@ -423,7 +423,7 @@ const showTalentDetail = (talent: string) => {
         }))
       } as TableSection,
       {
-        title: '修炼进度',
+        title: '感悟进度',
         type: 'table',
         data: [
           { label: '当前等级', value: `Lv.${level}` },

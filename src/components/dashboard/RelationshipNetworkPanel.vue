@@ -43,6 +43,10 @@
                   <div class="person-name">{{ person.角色基础信息.名字 }}</div>
                   <div class="person-meta">
                     <span class="relationship-type">{{ person.人物关系 || '相识' }}</span>
+                    <button class="attention-toggle" @click.stop.prevent="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
+                      <Eye v-if="isAttentionEnabled(person)" :size="14" class="attention-icon active" />
+                      <EyeOff v-else :size="14" class="attention-icon inactive" />
+                    </button>
                   </div>
                   <div class="intimacy-info">
                     <div class="intimacy-bar">
@@ -80,206 +84,177 @@
               </div>
             </div>
 
+            <!-- 标签页导航 -->
+            <div class="detail-tabs">
+              <button @click="activeTab = 'summary'" :class="{ active: activeTab === 'summary' }">摘要</button>
+              <button @click="activeTab = 'profile'" :class="{ active: activeTab === 'profile' }">档案</button>
+              <button @click="activeTab = 'memory'" :class="{ active: activeTab === 'memory' }">记忆</button>
+              <button @click="activeTab = 'inventory'" :class="{ active: activeTab === 'inventory' }">背包</button>
+              <button @click="activeTab = 'behavior'" :class="{ active: activeTab === 'behavior' }">行为</button>
+            </div>
+
             <!-- 详情主体 -->
             <div class="detail-body">
-              <!-- 基础信息 -->
-              <div class="detail-section">
-                <h5 class="section-title">基础信息</h5>
-                <div class="info-grid">
-                  <div class="info-item">
-                    <span class="info-label">性别</span>
-                    <span class="info-value">{{ selectedPerson.角色基础信息.性别 || '未知' }}</span>
-                  </div>
-                  <div class="info-item" v-if="selectedPerson.角色基础信息.年龄">
-                    <span class="info-label">年龄</span>
-                    <span class="info-value">{{ selectedPerson.角色基础信息.年龄 }}岁</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">天资</span>
-                    <span class="info-value">{{ selectedPerson.角色基础信息.天资 || '未知' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">灵根</span>
-                    <span class="info-value">{{ formatSpiritRoot(selectedPerson.角色基础信息.灵根) }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">出生</span>
-                    <span class="info-value">{{ selectedPerson.角色基础信息.出生 || '未知' }}</span>
-                  </div>
-                  <div class="info-item" v-if="selectedPerson.角色基础信息.世界">
-                    <span class="info-label">所在世界</span>
-                    <span class="info-value">{{ selectedPerson.角色基础信息.世界 }}</span>
+              <!-- 摘要 Tab -->
+              <div v-if="activeTab === 'summary'" class="tab-content">
+                <div class="detail-section">
+                  <h5 class="section-title">关键信息</h5>
+                  <div class="info-grid">
+                    <div class="info-item">
+                      <span class="info-label">境界</span>
+                      <span class="info-value">{{ formatRealm(selectedPerson.角色存档信息?.境界) }}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">位置</span>
+                      <span class="info-value">{{ selectedPerson.角色存档信息?.位置?.描述 || '未知' }}</span>
+                    </div>
                   </div>
                 </div>
-                
-                <!-- 天赋显示 -->
-                <div v-if="selectedPerson.角色基础信息.天赋?.length" class="talents-section">
+                <div class="detail-section" v-if="selectedPerson.外貌描述">
+                  <h5 class="section-title">外貌特征</h5>
+                  <div class="appearance-description">
+                    <p class="description-text">{{ selectedPerson.外貌描述 }}</p>
+                  </div>
+                </div>
+                <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
+                  <h5 class="section-title">最近记忆</h5>
+                  <div class="memory-list">
+                    <div v-for="(memory, index) in selectedPerson.人物记忆.slice(0, 3)" :key="index" class="memory-item">
+                       <div class="memory-content">
+                        <div class="memory-time">{{ getMemoryTime(memory) }}</div>
+                        <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 档案 Tab -->
+              <div v-if="activeTab === 'profile'" class="tab-content">
+                <div class="detail-section">
+                  <h5 class="section-title">基础信息</h5>
+                  <div class="info-grid">
+                    <div class="info-item">
+                      <span class="info-label">性别</span>
+                      <span class="info-value">{{ selectedPerson.角色基础信息.性别 || '未知' }}</span>
+                    </div>
+                    <div class="info-item" v-if="selectedPerson.角色基础信息.年龄">
+                      <span class="info-label">年龄</span>
+                      <span class="info-value">{{ selectedPerson.角色基础信息.年龄 }}岁</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">天资</span>
+                      <span class="info-value">{{ selectedPerson.角色基础信息.天资 || '未知' }}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">灵根</span>
+                      <span class="info-value">{{ formatSpiritRoot(selectedPerson.角色基础信息.灵根) }}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">出生</span>
+                      <span class="info-value">{{ selectedPerson.角色基础信息.出生 || '未知' }}</span>
+                    </div>
+                    <div class="info-item" v-if="selectedPerson.角色基础信息.世界">
+                      <span class="info-label">所在世界</span>
+                      <span class="info-value">{{ selectedPerson.角色基础信息.世界 }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="detail-section" v-if="selectedPerson.角色基础信息.天赋?.length">
                   <h6 class="subsection-title">天赋能力</h6>
                   <div class="talents-grid">
-                    <span 
-                      v-for="talent in selectedPerson.角色基础信息.天赋" 
-                      :key="talent" 
-                      class="talent-tag"
-                    >
-                      {{ talent }}
-                    </span>
+                    <span v-for="talent in selectedPerson.角色基础信息.天赋" :key="talent" class="talent-tag">{{ talent }}</span>
                   </div>
                 </div>
-                
-                <!-- 先天六司 -->
-                <div v-if="selectedPerson.角色基础信息.先天六司" class="attributes-section">
+                <div class="detail-section" v-if="selectedPerson.角色基础信息.先天六司">
                   <h6 class="subsection-title">先天六司</h6>
                   <div class="attributes-grid">
-                    <div class="attribute-item">
-                      <span class="attr-label">根骨</span>
-                      <span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.根骨 || 0 }}</span>
-                    </div>
-                    <div class="attribute-item">
-                      <span class="attr-label">灵性</span>
-                      <span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.灵性 || 0 }}</span>
-                    </div>
-                    <div class="attribute-item">
-                      <span class="attr-label">悟性</span>
-                      <span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.悟性 || 0 }}</span>
-                    </div>
-                    <div class="attribute-item">
-                      <span class="attr-label">气运</span>
-                      <span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.气运 || 0 }}</span>
-                    </div>
-                    <div class="attribute-item">
-                      <span class="attr-label">魅力</span>
-                      <span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.魅力 || 0 }}</span>
-                    </div>
-                    <div class="attribute-item">
-                      <span class="attr-label">心性</span>
-                      <span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.心性 || 0 }}</span>
-                    </div>
+                    <div class="attribute-item"><span class="attr-label">根骨</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.根骨 || 0 }}</span></div>
+                    <div class="attribute-item"><span class="attr-label">灵性</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.灵性 || 0 }}</span></div>
+                    <div class="attribute-item"><span class="attr-label">悟性</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.悟性 || 0 }}</span></div>
+                    <div class="attribute-item"><span class="attr-label">气运</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.气运 || 0 }}</span></div>
+                    <div class="attribute-item"><span class="attr-label">魅力</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.魅力 || 0 }}</span></div>
+                    <div class="attribute-item"><span class="attr-label">心性</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.心性 || 0 }}</span></div>
                   </div>
                 </div>
               </div>
 
-              <!-- 外貌描述 -->
-              <div class="detail-section" v-if="selectedPerson.外貌描述">
-                <h5 class="section-title">外貌特征</h5>
-                <div class="appearance-description">
-                  <p class="description-text">{{ selectedPerson.外貌描述 }}</p>
+              <!-- 记忆 Tab -->
+              <div v-if="activeTab === 'memory'" class="tab-content">
+                <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
+                  <div class="memory-header">
+                    <h5 class="section-title">人物记忆</h5>
+                    <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.人物记忆.length }} 条记忆</div>
+                  </div>
+                  <div class="memory-list">
+                    <div v-for="(memory, index) in paginatedMemory" :key="index" class="memory-item">
+                      <div class="memory-content">
+                        <div class="memory-time">{{ getMemoryTime(memory) }}</div>
+                        <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+                      </div>
+                      <div class="memory-actions">
+                        <button class="memory-btn edit" @click="editMemory((currentMemoryPage - 1) * memoryPageSize + index)">编辑</button>
+                        <button class="memory-btn delete" @click="deleteMemory((currentMemoryPage - 1) * memoryPageSize + index)">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="memory-pagination" v-if="totalMemoryPages > 1">
+                    <button class="pagination-btn" :disabled="currentMemoryPage <= 1" @click="goToMemoryPage(currentMemoryPage - 1)">上一页</button>
+                    <div class="pagination-info">{{ currentMemoryPage }} / {{ totalMemoryPages }}</div>
+                    <button class="pagination-btn" :disabled="currentMemoryPage >= totalMemoryPages" @click="goToMemoryPage(currentMemoryPage + 1)">下一页</button>
+                  </div>
+                </div>
+                 <div v-else class="empty-state-small">此人暂无记忆</div>
+              </div>
+
+              <!-- 背包 Tab -->
+              <div v-if="activeTab === 'inventory'" class="tab-content">
+                <div class="detail-section">
+                  <h5 class="section-title">随身物品</h5>
+                  <div class="npc-inventory">
+                    <div class="inventory-note"><Info :size="14" /><span>商人或重要人物可能携带物品进行交易</span></div>
+                    <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
+                      <div v-for="(item, itemId) in selectedPerson.背包.物品" :key="itemId" class="npc-item-card" :class="getItemQualityClass(item.品质?.quality)">
+                        <div class="item-header">
+                          <span class="item-name">{{ item.名称 || itemId }}</span>
+                          <span class="item-type">{{ item.类型 || '其他' }}</span>
+                        </div>
+                        <div class="item-quality" v-if="item.品质"><span class="quality-text">{{ item.品质?.quality || '未知' }}{{ item.品质?.grade ? getGradeText(item.品质.grade) : '' }}</span></div>
+                        <div class="item-quantity" v-if="item.数量 > 1"><span>x{{ item.数量 }}</span></div>
+                        <div class="item-description" v-if="item.描述"><p>{{ item.描述 }}</p></div>
+                        <div class="item-actions">
+                          <button class="trade-btn" @click="initiateTradeWithNpc(selectedPerson, item)" title="尝试交易此物品"><ArrowRightLeft :size="12" />交易</button>
+                          <button class="request-btn" @click="requestItemFromNpc(selectedPerson, item)" title="请求获得此物品">🙏 索要</button>
+                          <button class="steal-btn" @click="attemptStealFromNpc(selectedPerson, item)" title="尝试偷取此物品">🥷 偷窃</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="empty-inventory"><Package :size="24" class="empty-icon" /><p>此人身上没有物品</p></div>
+                  </div>
                 </div>
               </div>
 
-              <!-- 人物记忆 -->
-              <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
-                <div class="memory-header">
-                  <h5 class="section-title">人物记忆</h5>
-                  <div class="memory-count" v-if="totalMemoryPages > 1">
-                    {{ selectedPerson.人物记忆.length }} 条记忆
-                  </div>
-                </div>
-                
-                <div class="memory-list">
-                  <div 
-                    v-for="(memory, index) in paginatedMemory" 
-                    :key="index" 
-                    class="memory-item"
-                  >
-                    <div class="memory-content">
-                      <div class="memory-time">{{ getMemoryTime(memory) }}</div>
-                      <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+              <!-- 行为 Tab -->
+              <div v-if="activeTab === 'behavior'" class="tab-content">
+                 <div class="detail-section">
+                    <h5 class="section-title">行为模式</h5>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">当前模式</span>
+                            <span class="info-value">{{ selectedPerson.NPC行为?.行为模式 || '未知' }}</span>
+                        </div>
                     </div>
-                    <div class="memory-actions">
-                      <button class="memory-btn edit" @click="editMemory((currentMemoryPage - 1) * memoryPageSize + index)">编辑</button>
-                      <button class="memory-btn delete" @click="deleteMemory((currentMemoryPage - 1) * memoryPageSize + index)">删除</button>
+                 </div>
+                 <div class="detail-section">
+                    <h5 class="section-title">日常路线</h5>
+                    <div v-if="selectedPerson.NPC行为?.日常路线?.length">
+                        <!--  路线展示 -->
                     </div>
-                  </div>
-                </div>
-                
-                <!-- 分页控件 -->
-                <div class="memory-pagination" v-if="totalMemoryPages > 1">
-                  <button 
-                    class="pagination-btn"
-                    :disabled="currentMemoryPage <= 1"
-                    @click="goToMemoryPage(currentMemoryPage - 1)"
-                  >
-                    上一页
-                  </button>
-                  
-                  <div class="pagination-info">
-                    {{ currentMemoryPage }} / {{ totalMemoryPages }}
-                  </div>
-                  
-                  <button 
-                    class="pagination-btn"
-                    :disabled="currentMemoryPage >= totalMemoryPages"
-                    @click="goToMemoryPage(currentMemoryPage + 1)"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </div>
-              <!-- NPC背包物品 -->
-              <div class="detail-section">
-                <h5 class="section-title">随身物品</h5>
-                <div class="npc-inventory">
-                  <div class="inventory-note">
-                    <Info :size="14" />
-                    <span>商人或重要人物可能携带物品进行交易</span>
-                  </div>
-                  <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
-                    <div
-                      v-for="(item, itemId) in selectedPerson.背包.物品"
-                      :key="itemId"
-                      class="npc-item-card"
-                      :class="getItemQualityClass(item.品质?.quality)"
-                    >
-                      <div class="item-header">
-                        <span class="item-name">{{ item.名称 || itemId }}</span>
-                        <span class="item-type">{{ item.类型 || '其他' }}</span>
-                      </div>
-                      <div class="item-quality" v-if="item.品质">
-                        <span class="quality-text">{{ item.品质?.quality || '未知' }}{{ item.品质?.grade ? getGradeText(item.品质.grade) : '' }}</span>
-                      </div>
-                      <div class="item-quantity" v-if="item.数量 > 1">
-                        <span>x{{ item.数量 }}</span>
-                      </div>
-                      <div class="item-description" v-if="item.描述">
-                        <p>{{ item.描述 }}</p>
-                      </div>
-                      <div class="item-actions">
-                        <button 
-                          class="trade-btn" 
-                          @click="initiateTradeWithNpc(selectedPerson, item)"
-                          title="尝试交易此物品"
-                        >
-                          <ArrowRightLeft :size="12" />
-                          交易
-                        </button>
-                        <button 
-                          class="request-btn" 
-                          @click="requestItemFromNpc(selectedPerson, item)"
-                          title="请求获得此物品"
-                        >
-                          🙏
-                          索要
-                        </button>
-                        <button 
-                          class="steal-btn" 
-                          @click="attemptStealFromNpc(selectedPerson, item)"
-                          title="尝试偷取此物品"
-                        >
-                          🥷
-                          偷窃
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-else class="empty-inventory">
-                    <Package :size="24" class="empty-icon" />
-                    <p>此人身上没有物品</p>
-                  </div>
-                </div>
+                    <div v-else class="empty-state-small">暂无特定路线</div>
+                 </div>
               </div>
             </div>
           </div>
-
           <div v-else class="no-selection">
             <Users2 :size="64" class="placeholder-icon" />
             <p class="placeholder-text">选择一个人物查看详细信息</p>
@@ -292,21 +267,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { NpcProfile, Item, NpcMemoryItem } from '@/types/game';
+import type { NpcProfile, Item } from '@/types/game';
 import {
   Users2, Search,
-  Loader2, ChevronRight, Info, Package, ArrowRightLeft
+  Loader2, ChevronRight, Info, Package, ArrowRightLeft, Eye, EyeOff
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
+import { getRealmName } from '@/data/realms';
+import { getTavernHelper } from '@/utils/tavern';
 
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
+const activeTab = ref('summary'); // 'summary', 'profile', 'memory', 'inventory', 'behavior'
+
+// 酒馆变量状态
+const tavernVariables = ref<Record<string, any>>({});
 
 // 记忆分页相关
 const memoryPageSize = ref(5); // 每页显示的记忆数量
@@ -413,23 +394,58 @@ const getIntimacyClass = (intimacy: number | undefined): string => {
   return `intimacy-${getIntimacyLevel(intimacy)}`;
 };
 
+// 格式化境界显示
+const formatRealm = (realm: any): string => {
+  if (typeof realm === 'number') {
+    return getRealmName(realm);
+  }
+  if (typeof realm === 'string') {
+    return realm;
+  }
+  if (realm && typeof realm === 'object' && realm.名称) {
+    return realm.名称;
+  }
+  return '凡人';
+};
+
 const selectPerson = (person: NpcProfile) => {
   const isNewSelection = selectedPerson.value?.角色基础信息.名字 !== person.角色基础信息.名字;
-  selectedPerson.value = selectedPerson.value?.角色基础信息.名字 === person.角色基础信息.名字 
-    ? null 
+  selectedPerson.value = selectedPerson.value?.角色基础信息.名字 === person.角色基础信息.名字
+    ? null
     : person;
   
-  // 如果选择了新的人物，重置记忆分页
+  // 如果选择了新的人物，重置记忆分页和标签页
   if (isNewSelection && selectedPerson.value) {
     resetMemoryPagination();
+    activeTab.value = 'summary';
   }
 };
+
+watch(selectedPerson, (newPerson) => {
+  if (newPerson) {
+    activeTab.value = 'summary';
+    resetMemoryPagination();
+  }
+});
 
 onMounted(async () => {
   console.log('[人脉系统] 江湖人脉面板已载入，开始同步数据');
   isLoading.value = true;
   try {
     await characterStore.syncFromTavern();
+    
+    // 初始化酒馆变量状态
+    const helper = getTavernHelper();
+    if (helper) {
+      try {
+        const vars = await helper.getVariables({ type: 'chat' });
+        tavernVariables.value = vars || {};
+        console.log('[人脉系统] 酒馆变量已初始化');
+      } catch (error) {
+        console.warn('[人脉系统] 获取酒馆变量失败:', error);
+      }
+    }
+    
     // 默认选择第一个人物
     if (filteredRelationships.value.length > 0) {
       selectedPerson.value = filteredRelationships.value[0];
@@ -568,6 +584,67 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
   
   toast.success(`已将向 ${npc.角色基础信息.名字} 索要物品的请求加入动作队列`);
   console.log('已排队NPC索要:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'request' });
+};
+
+// 切换NPC关注状态
+const toggleAttention = async (person: NpcProfile) => {
+  console.log('[关注切换] 开始切换关注状态:', person.角色基础信息.名字);
+  try {
+    const helper = getTavernHelper();
+    if (!helper) {
+      console.warn('[关注切换] 酒馆助手不可用');
+      toast.error('无法连接到游戏核心，请重试');
+      return;
+    }
+
+    const npcName = person.角色基础信息.名字;
+    const attentionKey = `npc.attention.${npcName}`;
+    
+    // 获取当前关注状态（默认为false）
+    const isCurrentlyAttended = tavernVariables.value[attentionKey] || false;
+    
+    // 切换状态
+    const newState = !isCurrentlyAttended;
+    
+    // 直接修改酒馆变量
+    await helper.insertOrAssignVariables({ 
+      [attentionKey]: newState 
+    }, { type: 'chat' });
+    
+    // 更新本地状态
+    tavernVariables.value[attentionKey] = newState;
+    
+    if (newState) {
+      console.log('[关注切换] 已添加关注标记到酒馆变量');
+      toast.success(`已关注 ${npcName}`);
+    } else {
+      console.log('[关注切换] 已移除关注标记从酒馆变量');
+      toast.success(`已取消关注 ${npcName}`);
+    }
+    
+    console.log('[关注切换] 酒馆变量已更新');
+  } catch (error) {
+    console.error('[关注切换] 切换关注状态失败:', error);
+    toast.error('操作失败，请重试');
+  }
+};
+
+// 检查NPC是否被关注（从酒馆变量读取，默认为false）
+const isAttentionEnabled = (person: NpcProfile): boolean => {
+  try {
+    const helper = getTavernHelper();
+    if (!helper) return false;
+    
+    const npcName = person.角色基础信息.名字;
+    const attentionKey = `npc.attention.${npcName}`;
+    
+    // 同步获取酒馆变量状态
+    const currentState = tavernVariables.value;
+    return currentState?.[attentionKey] || false;
+  } catch (error) {
+    console.warn('[关注检查] 检查关注状态失败:', error);
+    return false; // 默认为未关注
+  }
 };
 
 // 尝试从NPC身上偷窃物品
@@ -749,6 +826,10 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
 .person-meta {
   margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .relationship-type {
@@ -758,6 +839,47 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 500;
+}
+
+.attention-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(156, 163, 175, 0.1);
+  border: 1px solid rgba(156, 163, 175, 0.2);
+  padding: 0;
+  outline: none;
+}
+
+.attention-toggle:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  transform: scale(1.1);
+}
+
+.attention-icon {
+  transition: all 0.2s ease;
+}
+
+.attention-icon.active {
+  color: #22c55e;
+}
+
+.attention-icon.inactive {
+  color: #9ca3af;
+}
+
+.attention-toggle:hover .attention-icon.inactive {
+  color: #3b82f6;
+}
+
+.attention-toggle:hover .attention-icon.active {
+  color: #16a34a;
 }
 
 .intimacy-info {
@@ -872,10 +994,54 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   color: var(--color-primary);
 }
 
+.detail-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.detail-tabs button {
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.detail-tabs button:hover {
+  color: var(--color-primary);
+}
+
+.detail-tabs button.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
 .detail-body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-state-small {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 .detail-section {
@@ -1622,5 +1788,32 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
     font-size: 0.65rem;
     padding: 0.15rem 0.35rem;
   }
+}
+
+/* 深色主题下的关注按钮样式 */
+[data-theme="dark"] .attention-toggle {
+  background: rgba(156, 163, 175, 0.1);
+  border-color: rgba(156, 163, 175, 0.2);
+}
+
+[data-theme="dark"] .attention-toggle:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .attention-icon.active {
+  color: #22c55e;
+}
+
+[data-theme="dark"] .attention-icon.inactive {
+  color: #64748b;
+}
+
+[data-theme="dark"] .attention-toggle:hover .attention-icon.inactive {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .attention-toggle:hover .attention-icon.active {
+  color: #16a34a;
 }
 </style>

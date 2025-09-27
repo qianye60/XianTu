@@ -21,7 +21,7 @@
             <div class="stat-icon">⚡</div>
             <div class="stat-info">
               <div class="stat-value">{{ totalDaoExperience }}</div>
-              <div class="stat-label">总修行经验</div>
+              <div class="stat-label">总感悟经验</div>
             </div>
           </div>
           <div class="stat-card">
@@ -44,7 +44,7 @@
             <div v-if="unlockedDaosCount === 0" class="empty-state">
               <div class="empty-icon">🌱</div>
               <p>尚未解锁任何大道</p>
-              <span class="empty-tip">通过修炼、感悟和机遇来解锁新的大道</span>
+              <span class="empty-tip">通过机缘、顿悟和修行来解锁新的大道</span>
             </div>
             <div v-else class="dao-grid">
               <div 
@@ -84,9 +84,9 @@
                 <div class="discover-icon">🌌</div>
                 <div class="discover-content">
                   <h5>无量大道，由心而生</h5>
-                  <p>大道三千，各有奥妙。通过修炼、感悟、机遇，可解锁更多大道路径。</p>
+                  <p>大道三千，各有奥妙。通过机缘、顿悟、修行，可解锁更多大道路径。</p>
                   <ul class="discover-methods">
-                    <li>🧘 深度修炼现有功法</li>
+                    <li>🧘 深度感悟现有功法</li>
                     <li>💫 感悟天地自然规律</li>
                     <li>🎁 获得特殊机缘造化</li>
                     <li>📚 研习古籍典藏</li>
@@ -108,7 +108,7 @@
         </div>
         <div class="details-content">
           <div class="detail-section">
-            <h4>修行境界</h4>
+            <h4>感悟境界</h4>
             <div class="stage-info">
               <div class="stage-display">
                 <span class="stage-name">{{ getCurrentStageName(selectedDao) }}</span>
@@ -131,7 +131,7 @@
           </div>
           
           <div class="detail-section">
-            <h4>修行统计</h4>
+            <h4>感悟统计</h4>
             <div class="dao-stats-detail">
               <div class="stat-row">
                 <span>当前经验:</span>
@@ -142,8 +142,8 @@
                 <span class="stat-highlight">{{ selectedDaoProgress.总经验 }}</span>
               </div>
               <div class="stat-row">
-                <span>修行状态:</span>
-                <span class="status-badge unlocked">正在修行</span>
+                <span>感悟状态:</span>
+                <span class="status-badge unlocked">正在感悟</span>
               </div>
               <div class="stat-row" v-if="getNextStageName(selectedDao)">
                 <span>下一境界:</span>
@@ -225,7 +225,7 @@ const selectedDaoProgress = computed((): DaoProgress | null => {
   return daoSystem.value.大道进度[selectedDao.value] || null;
 });
 
-// 总修行经验
+// 总感悟经验
 const totalDaoExperience = computed(() => {
   return Object.values(daoSystem.value.大道进度).reduce((total, progress) => {
     return total + (progress.总经验 || 0);
@@ -322,19 +322,19 @@ const selectDao = (daoName: string) => {
   selectedDao.value = selectedDao.value === daoName ? null : daoName;
 };
 
-// 修炼大道
+// 感悟大道
 const cultivateDao = (daoName: string) => {
   console.log('[三千大道面板] 开始感悟大道:', daoName);
   
-  // 添加修炼大道动作到队列
+  // 添加感悟大道动作到队列
   actionQueueStore.addAction({
-    type: 'cultivate',
+    type: 'comprehend',
     itemName: daoName,
     itemType: '大道',
     description: `深入感悟《${daoName}》，领悟其中奥义`
   });
   
-  console.log('[三千大道面板] 已将修炼大道动作加入队列');
+  console.log('[三千大道面板] 已将感悟大道动作加入队列');
 };
 
 // 刷新大道数据

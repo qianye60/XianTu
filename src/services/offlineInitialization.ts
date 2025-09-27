@@ -13,8 +13,8 @@ export async function initializeCharacterOffline(
   age: number
 ): Promise<SaveData> {
   const status = calculateInitialAttributes(baseInfo, age);
-  // 简单出生地与坐标
-  status.位置 = status.位置 || { 描述: '起点村落', 坐标: { X: Math.floor(Math.random() * 1000), Y: Math.floor(Math.random() * 1000) } } as any;
+  // 简单出生地
+  status.位置 = status.位置 || { 描述: '起点村落' } as any;
   (status as any).出生地 = (status as any).出生地 || baseInfo.出生;
 
   const saveData: SaveData = {

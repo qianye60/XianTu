@@ -181,6 +181,8 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
       if (!val || typeof val !== 'object') return val;
       const type = (val.类型 || '').trim();
       if (!['装备', '功法', '其他'].includes(type)) return val;
+      
+      // 品质规范化
       const qualityMap: Record<string, string> = {
         '凡品': '凡', '凡阶': '凡', '凡': '凡',
         '黄品': '黄', '黄阶': '黄', '黄': '黄',
@@ -204,6 +206,25 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         normGrade = gradeTextToNumber[rawG.trim()] ?? 1;
       }
       val.品质 = { quality: normQuality, grade: normGrade };
+      
+      // 确保装备类物品有已装备字段
+      if (type === '装备' || type === '功法') {
+        if (val.已装备 === undefined) {
+          val.已装备 = false;
+        }
+        
+        // 清理重复的装备状态字段，只保留"已装备"字段
+        if (val.是否装备 !== undefined) {
+          console.warn('[物品规范化] 发现重复的装备状态字段"是否装备"，已清理');
+          delete val.是否装备;
+        }
+      }
+      
+      // 确保有物品ID字段
+      if (!val.物品ID) {
+        val.物品ID = `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+      
       return val;
     } catch {
       return val;

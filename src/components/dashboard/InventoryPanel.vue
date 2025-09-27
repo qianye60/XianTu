@@ -44,7 +44,7 @@
             :disabled="refreshing"
             title="从酒馆同步最新数据"
           >
-            <RotateCcw :size="16" :class="{ 'spinning': refreshing }" />
+            <RotateCcw :size="16" :class="{ spinning: refreshing }" />
           </button>
         </div>
       </div>
@@ -55,7 +55,11 @@
       <!-- 物品标签 -->
       <div v-if="activeTab === 'items'" class="items-tab">
         <!-- 自定义确认弹窗 -->
-        <div v-if="showCustomConfirm" class="custom-confirm-overlay" @click="showCustomConfirm = false">
+        <div
+          v-if="showCustomConfirm"
+          class="custom-confirm-overlay"
+          @click="showCustomConfirm = false"
+        >
           <div class="custom-confirm-modal" @click.stop>
             <div class="confirm-header">
               <h3>{{ confirmTitle }}</h3>
@@ -67,7 +71,9 @@
               <p>{{ confirmMessage }}</p>
             </div>
             <div class="confirm-actions">
-              <button class="confirm-btn cancel-btn" @click="showCustomConfirm = false">取消</button>
+              <button class="confirm-btn cancel-btn" @click="showCustomConfirm = false">
+                取消
+              </button>
               <button class="confirm-btn confirm-btn" @click="handleConfirm">确定</button>
             </div>
           </div>
@@ -89,14 +95,23 @@
               <div class="modal-info">
                 <div class="modal-meta">
                   {{ selectedItem?.类型 }} / {{ selectedItem?.品质?.quality || '未知' }}
-                  <span v-if="selectedItem?.品质?.grade !== undefined" class="grade-display" :class="getGradeClass(selectedItem.品质.grade)">
+                  <span
+                    v-if="selectedItem?.品质?.grade !== undefined"
+                    class="grade-display"
+                    :class="getGradeClass(selectedItem.品质.grade)"
+                  >
                     {{ getGradeText(selectedItem.品质.grade) }}({{ selectedItem.品质.grade }})
                   </span>
                 </div>
                 <p class="modal-description">{{ selectedItem?.描述 }}</p>
-                <div v-if="selectedItem?.装备增幅" class="modal-attributes">
+                <div
+                  v-if="selectedItem?.类型 === '装备' && selectedItem?.装备增幅"
+                  class="modal-attributes"
+                >
                   <h4>装备增幅</h4>
-                  <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
+                  <div class="attribute-text">
+                    {{ formatItemAttributes(selectedItem.装备增幅) }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -111,7 +126,9 @@
                 >
                   {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
                 </button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
+                  丢弃
+                </button>
               </template>
               <!-- 功法：修炼和丢弃 -->
               <template v-else-if="selectedItem?.类型 === '功法'">
@@ -123,12 +140,16 @@
                 >
                   {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
                 </button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
+                  丢弃
+                </button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
               <template v-else-if="selectedItem">
                 <button class="action-btn use-btn" @click="useItem(selectedItem)">使用</button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
+                  丢弃
+                </button>
               </template>
             </div>
           </div>
@@ -146,9 +167,7 @@
             <p v-else-if="selectedCategory === '功法'">暂无功法</p>
             <p v-else-if="selectedCategory === '其他'">暂无其他物品</p>
             <p v-else>暂无{{ selectedCategory }}</p>
-            <span v-if="selectedCategory !== 'all'" class="filter-tip">
-              可以试试搜索其他分类
-            </span>
+            <span v-if="selectedCategory !== 'all'" class="filter-tip"> 可以试试搜索其他分类 </span>
           </div>
           <div
             v-else
@@ -179,11 +198,14 @@
             <!-- 底部信息：类型和品级 -->
             <div class="item-bottom-section">
               <div class="item-type-label">{{ item.类型 }}</div>
-              <div v-if="item.品质?.grade !== undefined" class="item-grade-info" :class="getGradeClass(item.品质.grade)">
+              <div
+                v-if="item.品质?.grade !== undefined"
+                class="item-grade-info"
+                :class="getGradeClass(item.品质.grade)"
+              >
                 {{ getGradeText(item.品质.grade) }}({{ item.品质.grade }})
               </div>
             </div>
-
           </div>
         </div>
 
@@ -198,7 +220,11 @@
                 <h3>{{ selectedItem.名称 }}</h3>
                 <div class="details-meta">
                   {{ selectedItem.类型 }} / {{ selectedItem.品质?.quality || '未知' }}
-                  <span v-if="selectedItem.品质?.grade !== undefined" class="grade-display" :class="getGradeClass(selectedItem.品质.grade)">
+                  <span
+                    v-if="selectedItem.品质?.grade !== undefined"
+                    class="grade-display"
+                    :class="getGradeClass(selectedItem.品质.grade)"
+                  >
                     {{ getGradeText(selectedItem.品质.grade) }}({{ selectedItem.品质.grade }})
                   </span>
                 </div>
@@ -215,16 +241,24 @@
                   <div class="skill-effects">
                     <div v-if="selectedItem.功法效果.修炼速度加成" class="effect-item">
                       <span class="effect-label">修炼速度:</span>
-                      <span class="effect-value">+{{ (selectedItem.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+                      <span class="effect-value"
+                        >+{{ (selectedItem.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span
+                      >
                     </div>
                     <div v-if="selectedItem.功法效果.属性加成" class="effect-item">
                       <span class="effect-label">属性加成:</span>
-                      <span class="effect-value">{{ formatAttributeBonus(selectedItem.功法效果.属性加成) }}</span>
+                      <span class="effect-value">{{
+                        formatAttributeBonus(selectedItem.功法效果.属性加成)
+                      }}</span>
                     </div>
                     <div v-if="selectedItem.功法效果.特殊能力?.length" class="effect-item">
                       <span class="effect-label">特殊能力:</span>
                       <div class="special-abilities">
-                        <span v-for="ability in selectedItem.功法效果.特殊能力" :key="ability" class="ability-tag">
+                        <span
+                          v-for="ability in selectedItem.功法效果.特殊能力"
+                          :key="ability"
+                          class="ability-tag"
+                        >
                           {{ ability }}
                         </span>
                       </div>
@@ -233,13 +267,22 @@
                 </div>
 
                 <!-- 功法技能 -->
-                <div v-if="selectedItem.功法技能 && Object.keys(selectedItem.功法技能).length > 0" class="details-attributes">
+                <div
+                  v-if="selectedItem.功法技能 && Object.keys(selectedItem.功法技能).length > 0"
+                  class="details-attributes"
+                >
                   <h4>功法技能</h4>
                   <div class="technique-skills">
-                    <div v-for="(skill, skillName) in selectedItem.功法技能" :key="skillName" class="skill-item">
+                    <div
+                      v-for="(skill, skillName) in selectedItem.功法技能"
+                      :key="skillName"
+                      class="skill-item"
+                    >
                       <div class="skill-header">
                         <span class="skill-name">{{ skillName }}</span>
-                        <span class="skill-type" :class="`type-${skill.技能类型}`">{{ skill.技能类型 }}</span>
+                        <span class="skill-type" :class="`type-${skill.技能类型}`">{{
+                          skill.技能类型
+                        }}</span>
                       </div>
                       <div class="skill-description">{{ skill.技能描述 }}</div>
                       <div class="skill-unlock">解锁条件：{{ skill.解锁条件 }}</div>
@@ -249,7 +292,10 @@
               </template>
 
               <!-- 装备装备增幅 -->
-              <div v-if="selectedItem.装备增幅" class="details-attributes">
+              <div
+                v-if="selectedItem.类型 === '装备' && selectedItem.装备增幅"
+                class="details-attributes"
+              >
                 <h4>装备增幅</h4>
                 <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
@@ -265,7 +311,9 @@
                 >
                   {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
                 </button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
+                  丢弃
+                </button>
               </template>
               <!-- 功法：修炼和丢弃 -->
               <template v-else-if="selectedItem?.类型 === '功法'">
@@ -277,12 +325,16 @@
                 >
                   {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
                 </button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">丢弃</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
+                  丢弃
+                </button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
               <template v-else>
                 <button class="action-btn use-btn" @click="useItem(selectedItem!)">使用</button>
-                <button class="action-btn discard-btn" @click="discardItem(selectedItem!)">丢弃</button>
+                <button class="action-btn discard-btn" @click="discardItem(selectedItem!)">
+                  丢弃
+                </button>
               </template>
             </div>
           </div>
@@ -306,7 +358,12 @@
               <div class="slot-header">
                 <div class="slot-name">{{ slot.name }}</div>
                 <div v-if="slot.item" class="slot-actions">
-                  <button class="action-btn unequip-btn" :disabled="equipBusy" @click="unequipItem(slot)" title="卸下装备">
+                  <button
+                    class="action-btn unequip-btn"
+                    :disabled="equipBusy"
+                    @click="unequipItem(slot)"
+                    title="卸下装备"
+                  >
                     <X :size="12" />
                   </button>
                 </div>
@@ -317,19 +374,27 @@
                   <div class="item-type-text">装备</div>
                 </div>
                 <div class="item-info">
-                  <div class="item-name" :class="getItemQualityClass(slot.item, 'text')" :title="slot.item.名称">
+                  <div
+                    class="item-name"
+                    :class="getItemQualityClass(slot.item, 'text')"
+                    :title="slot.item.名称"
+                  >
                     {{ slot.item.名称 }}
                   </div>
                   <div class="item-quality">
                     {{ slot.item.品质?.quality || '？' }}品
-                    <span v-if="slot.item.品质?.grade !== undefined" class="item-grade" :class="getGradeClass(slot.item.品质.grade)">
+                    <span
+                      v-if="slot.item.品质?.grade !== undefined"
+                      class="item-grade"
+                      :class="getGradeClass(slot.item.品质.grade)"
+                    >
                       {{ getGradeText(slot.item.品质.grade) }}({{ slot.item.品质.grade }})
                     </span>
                   </div>
                   <div v-if="slot.item.描述" class="item-description" :title="slot.item.描述">
                     {{ slot.item.描述 }}
                   </div>
-                  <div v-if="slot.item.装备增幅" class="item-effects">
+                  <div v-if="slot.item.类型 === '装备' && slot.item.装备增幅" class="item-effects">
                     <div class="effects-title">增幅效果：</div>
                     <div class="effects-text">{{ formatItemAttributes(slot.item.装备增幅) }}</div>
                   </div>
@@ -407,654 +472,703 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next';
-import { useCharacterStore } from '@/stores/characterStore';
-import { useActionQueueStore } from '@/stores/actionQueueStore';
-import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
-import type { Item, Inventory, SaveData } from '@/types/game';
-import { toast } from '@/utils/toast';
-import { getTavernHelper } from '@/utils/tavern';
-import { debug } from '@/utils/debug';
-import { validateAndFixSaveData, cleanTavernDuplicates } from '@/utils/dataValidation';
-import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue';
+import { ref, computed, onMounted } from 'vue'
+import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next'
+import { useCharacterStore } from '@/stores/characterStore'
+import { useActionQueueStore } from '@/stores/actionQueueStore'
+import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue'
+import type {
+  Item,
+  Inventory,
+  SaveData,
+} from '@/types/game'
+import { toast } from '@/utils/toast'
+import { getTavernHelper } from '@/utils/tavern'
+import { debug } from '@/utils/debug'
+import { validateAndFixSaveData, cleanTavernDuplicates } from '@/utils/dataValidation'
+import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue'
 
-const characterStore = useCharacterStore();
-const actionQueue = useActionQueueStore();
-const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
-const loading = ref(false);
-const refreshing = ref(false);
-const selectedItem = ref<Item | null>(null);
-const searchQuery = ref('');
-const selectedCategory = ref('all');
-const sortBy = ref('default');
-const activeTab = ref('items');
-const showCustomConfirm = ref(false);
-const confirmTitle = ref('');
-const confirmMessage = ref('');
-const showQuantityModal = ref(false);
-const quantityModalItem = ref<Item | null>(null);
-const quantityModalTitle = ref('');
-const quantityModalActionLabel = ref('');
-const quantityModalType = ref<'use' | 'discard' | 'other'>('use');
-const quantityModalConfirmText = ref('');
-const quantityModalDescription = ref('');
-const quantityModalCallback = ref<((quantity: number) => void) | null>(null);
-const showItemModal = ref(false);
-const confirmCallback = ref<(() => void) | null>(null);
+const characterStore = useCharacterStore()
+const actionQueue = useActionQueueStore()
+const enhancedActionQueue = EnhancedActionQueueManager.getInstance()
+const loading = ref(false)
+const refreshing = ref(false)
+const selectedItem = ref<Item | null>(null)
+const searchQuery = ref('')
+const selectedCategory = ref('all')
+const sortBy = ref('default')
+const activeTab = ref('items')
+const showCustomConfirm = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const showQuantityModal = ref(false)
+const quantityModalItem = ref<Item | null>(null)
+const quantityModalTitle = ref('')
+const quantityModalActionLabel = ref('')
+const quantityModalType = ref<'use' | 'discard' | 'other'>('use')
+const quantityModalConfirmText = ref('')
+const quantityModalDescription = ref('')
+const quantityModalCallback = ref<((quantity: number) => void) | null>(null)
+const showItemModal = ref(false)
+const confirmCallback = ref<(() => void) | null>(null)
 
 // 操作锁，防止连点导致状态错乱或数据不同步
-const equipBusy = ref(false);
-const cultivateBusy = ref(false);
+const equipBusy = ref(false)
+const cultivateBusy = ref(false)
 
 // 响应式检测
 const isMobile = computed(() => {
-  return window.innerWidth <= 768;
-});
+  return window.innerWidth <= 768
+})
 
 // 标签配置
 const tabs = computed(() => [
   { id: 'items', label: '物品', icon: Package },
   { id: 'equipment', label: '装备', icon: Sword },
-  { id: 'currency', label: '灵石', icon: Gem }
-]);
+  { id: 'currency', label: '灵石', icon: Gem },
+])
 
 // 面板打开时，尝试迁移/修复一次存档，避免旧数据结构导致展示异常（如"角色物品"、"字符串null"等）
 onMounted(async () => {
   try {
-    const saveData = characterStore.activeSaveSlot?.存档数据 as SaveData;
+    const saveData = characterStore.activeSaveSlot?.存档数据 as SaveData
     if (saveData) {
-      const fixed = validateAndFixSaveData(saveData);
+      const fixed = validateAndFixSaveData(saveData)
 
       // 迁移修炼功法数据结构
       if (fixed.修炼功法) {
         // 确保新字段存在
         if (typeof fixed.修炼功法.正在修炼 === 'undefined') {
           // 如果有功法但没有修炼状态字段，根据是否有功法来判断
-          fixed.修炼功法.正在修炼 = !!fixed.修炼功法.功法;
+          fixed.修炼功法.正在修炼 = !!fixed.修炼功法.功法
         }
         if (typeof fixed.修炼功法.修炼进度 === 'undefined') {
-          fixed.修炼功法.修炼进度 = 0;
+          fixed.修炼功法.修炼进度 = 0
         }
       }
 
       // 简单判定是否有变化（避免无限写入）
       if (JSON.stringify(fixed) !== JSON.stringify(saveData)) {
-        characterStore.activeSaveSlot!.存档数据 = fixed as SaveData;
-        await characterStore.commitToStorage();
-        debug.log('背包面板', '已迁移旧数据结构并保存');
+        characterStore.activeSaveSlot!.存档数据 = fixed as SaveData
+        await characterStore.commitToStorage()
+        debug.log('背包面板', '已迁移旧数据结构并保存')
       }
     }
   } catch (e) {
-    debug.warn('背包面板', '面板初始化迁移失败', e);
+    debug.warn('背包面板', '面板初始化迁移失败', e)
   }
-});
+})
 
 const inventory = computed<Inventory>(() => {
-  debug.log('背包面板', '调试-activeSaveSlot', characterStore.activeSaveSlot);
-  debug.log('背包面板', '调试-存档数据', characterStore.activeSaveSlot?.存档数据);
-  debug.log('背包面板', '调试-背包数据', characterStore.activeSaveSlot?.存档数据?.背包);
+  debug.log('背包面板', '调试-activeSaveSlot', characterStore.activeSaveSlot)
+  debug.log('背包面板', '调试-存档数据', characterStore.activeSaveSlot?.存档数据)
+  debug.log('背包面板', '调试-背包数据', characterStore.activeSaveSlot?.存档数据?.背包)
 
-  return characterStore.activeSaveSlot?.存档数据?.背包 || {
-    灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-    物品: {}
-  };
-});
+  return (
+    characterStore.activeSaveSlot?.存档数据?.背包 || {
+      灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
+      物品: {},
+    }
+  )
+})
 
 // 装备槽位 - 修正位置：装备栏在存档数据根级别
 const equipmentSlots = computed(() => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  const equipment = saveData?.装备栏;
-  const slotNames = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6'];
+  const saveData = characterStore.activeSaveSlot?.存档数据
+  const equipment = saveData?.装备栏
+  const slotNames = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6']
 
   if (!equipment) {
-    return slotNames.map(name => ({ name, item: null }));
+    return slotNames.map((name) => ({ name, item: null }))
   }
 
-  return slotNames.map(slotKey => {
-    const key = slotKey as keyof typeof equipment;
-    const equippedItem = equipment[key];
-    let item: Item | null = null;
+  return slotNames.map((slotKey) => {
+    const key = slotKey as keyof typeof equipment
+    const equippedItem = equipment[key]
+    let item: Item | null = null
 
-    // 处理字符串"null"的情况
-    if (equippedItem === "null" || equippedItem === null || equippedItem === undefined) {
-      item = null;
-    } else if (equippedItem && typeof equippedItem === 'object' && '名称' in equippedItem) {
-      // 1) 完整对象（包含名称）
-      item = equippedItem as Item;
-    } else {
-      // 2) 只有物品ID或不完整对象：尝试从背包补全
-      const bag = saveData?.背包?.物品 || {};
-      if (typeof equippedItem === 'string') {
-        // 装备栏里存的是物品ID字符串
-        const fromInv = bag[equippedItem];
-        item = (fromInv && typeof fromInv === 'object') ? fromInv as Item : null;
-      } else if (equippedItem && typeof equippedItem === 'object' && '物品ID' in equippedItem) {
-        const partialEquippedItem = equippedItem as Partial<Item>;
-        const id = partialEquippedItem.物品ID;
-        const fromInv = id ? bag[id] : null;
-        if (fromInv && typeof fromInv === 'object') {
-          item = fromInv as Item;
-        } else {
-          // 构造一个最小可显示对象，避免UI判空
-          item = {
-            物品ID: id || '',
-            名称: partialEquippedItem.名称 || '未知装备',
-            类型: partialEquippedItem.类型 || '装备',
-            品质: partialEquippedItem.品质 || { quality: '凡', grade: 1 },
-            描述: partialEquippedItem.描述 || '',
-            数量: 1,
-            装备增幅: partialEquippedItem.装备增幅 || undefined
-          };
-        }
+    // 只处理新的引用格式：{名称: string, 物品ID: string}
+    if (
+      equippedItem &&
+      typeof equippedItem === 'object' &&
+      '物品ID' in equippedItem &&
+      '名称' in equippedItem
+    ) {
+      // 从背包获取完整物品信息
+      const itemId = equippedItem.物品ID
+      const bag = saveData?.背包?.物品 || {}
+      const fromInv = bag[itemId]
+      if (fromInv && typeof fromInv === 'object') {
+        item = fromInv as Item
       } else {
-        item = null;
+        // 如果背包中没有找到，构造一个最小对象
+        item = {
+          物品ID: itemId,
+          名称: equippedItem.名称,
+          类型: '装备',
+          品质: { quality: '凡', grade: 1 },
+          描述: '装备数据缺失',
+          数量: 1,
+          已装备: true,
+        } as Item
       }
+    } else {
+      item = null
     }
 
-    return { name: slotKey, item };
-  });
-});
+    return { name: slotKey, item }
+  })
+})
 
 // 卸下装备功能
 const unequipItem = async (slot: { name: string; item: Item | null }) => {
-  if (equipBusy.value) return;
-  if (!slot.item) return;
-  equipBusy.value = true;
-  const itemToUnequip = slot.item;
+  if (equipBusy.value) return
+  if (!slot.item) return
+  equipBusy.value = true
+  const itemToUnequip = slot.item
 
-  debug.log('背包面板', '卸下装备', itemToUnequip.名称);
+  debug.log('背包面板', '卸下装备', itemToUnequip.名称)
 
   try {
     // 检查存档数据是否存在
-    const saveData = characterStore.activeSaveSlot?.存档数据;
+    const saveData = characterStore.activeSaveSlot?.存档数据
     if (!saveData?.装备栏) {
-      toast.error('装备栏数据不存在');
-      return;
+      toast.error('装备栏数据不存在')
+      return
     }
 
     // 检查背包是否存在
     if (!saveData.背包?.物品) {
-      toast.error('背包数据不存在');
-      return;
+      toast.error('背包数据不存在')
+      return
     }
 
-    // 清空装备槽位
-    const equipment = saveData.装备栏;
-    const slotKey = slot.name as keyof typeof equipment;
-    equipment[slotKey] = null;
+    // 清空装备槽位 - 更新为新的装备栏结构
+    const equipment = saveData.装备栏
+    const slotKey = slot.name as keyof typeof equipment
+    equipment[slotKey] = null // 设置为null
 
     // 清除物品的已装备标记
     if (saveData.背包?.物品?.[itemToUnequip.物品ID]) {
-      saveData.背包.物品[itemToUnequip.物品ID].已装备 = false;
+      saveData.背包.物品[itemToUnequip.物品ID].已装备 = false
     }
 
     // 保存数据
-    await characterStore.commitToStorage();
+    await characterStore.commitToStorage()
 
     // 同步到酒馆变量
-    await syncToTavernVariables();
+    await syncToTavernVariables()
 
     // 添加到操作队列
     actionQueue.addAction({
       type: 'unequip',
       itemName: itemToUnequip.名称,
       itemType: itemToUnequip.类型,
-      description: `卸下了《${itemToUnequip.名称}》装备`
-    });
+      description: `卸下了《${itemToUnequip.名称}》装备`,
+    })
 
-    toast.success(`已卸下《${itemToUnequip.名称}》`);
-    debug.log('背包面板', '装备卸下成功', itemToUnequip.名称);
-
+    toast.success(`已卸下《${itemToUnequip.名称}》`)
+    debug.log('背包面板', '装备卸下成功', itemToUnequip.名称)
   } catch (error) {
-    debug.error('背包面板', '卸下装备失败', error);
-    toast.error('卸下装备失败');
+    debug.error('背包面板', '卸下装备失败', error)
+    toast.error('卸下装备失败')
   } finally {
-    equipBusy.value = false;
+    equipBusy.value = false
   }
-};
+}
 
 const itemList = computed<Item[]>(() => {
-  const raw = inventory.value?.物品 || {};
+  const raw = inventory.value?.物品 || {}
   // 适配新的数据结构：支持最新的物品字段格式
   return Object.entries(raw)
     .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
     .map(([, val]) => {
-      const item = val as unknown as Record<string, unknown>;
+      const item = val as unknown as Record<string, unknown>
       // 支持新数据结构的字段映射
-      const baseInfo = (item as any)?.基本信息 || {};
-      const equipInfo = (item as any)?.装备信息 || {};
-      const consumableInfo = (item as any)?.消耗品信息 || {};
-      
+      const baseInfo =
+        ((item as Record<string, unknown>)?.基本信息 as Record<string, unknown>) || {}
+      const equipInfo =
+        ((item as Record<string, unknown>)?.装备信息 as Record<string, unknown>) || {}
+      const consumableInfo =
+        ((item as Record<string, unknown>)?.消耗品信息 as Record<string, unknown>) || {}
+
       return {
-        物品ID: item.物品ID || baseInfo?.物品ID || '',
-        名称: item.物品名称 || item.名称 || baseInfo?.物品名称 || '',
-        类型: item.物品类型 || item.类型 || baseInfo?.物品类型 || '',
-        品质: item.稀有度 ? { quality: item.稀有度 } : (item.品质 || baseInfo?.物品品质 || { quality: '普通' }),
-        描述: item.物品描述 || item.描述 || baseInfo?.物品描述 || '',
-        数量: item.物品数量 || item.数量 || baseInfo?.堆叠数量 || 1,
+        物品ID: String(item.物品ID || baseInfo?.物品ID || ''),
+        名称: String(item.物品名称 || item.名称 || baseInfo?.物品名称 || ''),
+        类型: String(item.物品类型 || item.类型 || baseInfo?.物品类型 || '') as
+          | '功法'
+          | '装备'
+          | '其他',
+        品质: item.稀有度
+          ? { quality: String(item.稀有度), grade: 1 }
+          : item.品质 || baseInfo?.物品品质 || { quality: '普通', grade: 1 },
+        描述: String(item.物品描述 || item.描述 || baseInfo?.物品描述 || ''),
+        数量: Number(item.物品数量 || item.数量 || baseInfo?.堆叠数量 || 1),
+        可叠加: Boolean(item.可叠加 ?? baseInfo?.可堆叠 ?? true),
+        // 装备状态
+        已装备: Boolean(item.已装备),
         // 装备信息
-        装备部位: item.装备部位 || equipInfo?.装备类型 || '',
+        装备部位: String(item.装备部位 || equipInfo?.装备类型 || ''),
         耐久度: item.耐久度 || equipInfo?.耐久度 || null,
         装备增幅: item.装备增幅 || equipInfo?.属性加成 || null,
-        特殊效果: item.特殊效果 || equipInfo?.特殊效果 || null,
+        装备特效: item.装备特效 || item.特殊效果 || equipInfo?.特殊效果 || null,
         // 消耗品信息
-        使用效果: item.使用效果 || consumableInfo?.使用效果 || '',
-        冷却时间: item.冷却时间 || consumableInfo?.冷却时间 || 0
-      } as Item;
+        使用效果: String(item.使用效果 || consumableInfo?.使用效果 || ''),
+        // 功法相关属性（可选）
+        功法效果: item.功法效果 || null,
+        功法技能: item.功法技能 || null,
+        修炼进度: Number(item.修炼进度 || 0),
+      } as Item
     })
-    .filter((item: Item) => typeof item.名称 === 'string' && typeof item.类型 === 'string');
-});
+    .filter((item: Item) => typeof item.名称 === 'string' && typeof item.类型 === 'string')
+})
 
 const itemCategories = computed(() => {
   // 固定三个分类：装备、功法、其他
-  return ['装备', '功法', '其他'];
-});
+  return ['装备', '功法', '其他']
+})
 
 // 品质排序映射，兼容 "*阶" 与简写
 const qualityOrder: { [key: string]: number } = {
-  '凡': 1, '凡阶': 1,
-  '黄': 2, '黄阶': 2,
-  '玄': 3, '玄阶': 3,
-  '地': 4, '地阶': 4,
-  '天': 5, '天阶': 5,
-  '仙': 6, '仙阶': 6,
-  '神': 7, '神阶': 7
-};
+  凡: 1,
+  凡阶: 1,
+  黄: 2,
+  黄阶: 2,
+  玄: 3,
+  玄阶: 3,
+  地: 4,
+  地阶: 4,
+  天: 5,
+  天阶: 5,
+  仙: 6,
+  仙阶: 6,
+  神: 7,
+  神阶: 7,
+}
 
 const filteredItems = computed(() => {
-  let items = [...itemList.value];
+  let items = [...itemList.value]
 
   // 标准化物品类型和品质：只允许装备、功法、其他三种类型，并确保品质格式正确
-  items = items.map(item => {
+  items = items.map((item) => {
     // 标准化类型
-    const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他';
+    const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他'
 
     // 标准化品质字段
-    let normalizedQuality = item.品质;
+    let normalizedQuality = item.品质
     if (!normalizedQuality || typeof normalizedQuality !== 'object') {
       // 如果品质字段缺失或格式错误，设置默认值
-      normalizedQuality = { quality: '凡', grade: 1 };
+      normalizedQuality = { quality: '凡', grade: 1 }
     } else {
       // 确保quality字段正确
-      if (!normalizedQuality.quality || !['凡', '黄', '玄', '地', '天', '仙', '神'].includes(normalizedQuality.quality)) {
-        normalizedQuality.quality = '凡';
+      if (
+        !normalizedQuality.quality ||
+        !['凡', '黄', '玄', '地', '天', '仙', '神'].includes(normalizedQuality.quality)
+      ) {
+        normalizedQuality.quality = '凡'
       }
       // 确保grade字段正确
-      if (typeof normalizedQuality.grade !== 'number' || normalizedQuality.grade < 0 || normalizedQuality.grade > 10) {
-        normalizedQuality.grade = 1;
+      if (
+        typeof normalizedQuality.grade !== 'number' ||
+        normalizedQuality.grade < 0 ||
+        normalizedQuality.grade > 10
+      ) {
+        normalizedQuality.grade = 1
       }
     }
 
     return {
       ...item,
       类型: normalizedType,
-      品质: normalizedQuality
-    };
-  });
+      品质: normalizedQuality,
+    }
+  })
 
   if (searchQuery.value) {
-    items = items.filter(item => item.名称.includes(searchQuery.value));
+    items = items.filter((item) => item.名称.includes(searchQuery.value))
   }
 
   if (selectedCategory.value !== 'all') {
-    items = items.filter(item => {
+    items = items.filter((item) => {
       // 确保过滤时也使用标准化的类型
-      const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他';
-      return normalizedType === selectedCategory.value;
-    });
+      const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他'
+      return normalizedType === selectedCategory.value
+    })
   }
 
   if (sortBy.value === 'quality') {
-    const rank = (q: unknown) => qualityOrder[String(q ?? '凡')] || 0;
-    items.sort((a, b) => rank(b.品质?.quality) - rank(a.品质?.quality));
+    const rank = (q: unknown) => qualityOrder[String(q ?? '凡')] || 0
+    items.sort((a, b) => rank(b.品质?.quality) - rank(a.品质?.quality))
   } else if (sortBy.value === 'name') {
-    items.sort((a, b) => a.名称.localeCompare(b.名称));
+    items.sort((a, b) => a.名称.localeCompare(b.名称))
   }
 
-  return items;
-});
+  return items
+})
 
 // 格式化物品属性显示（支持嵌套对象，如「后天六司」）
 const formatItemAttributes = (attributes: Record<string, unknown>): string => {
   if (!attributes || typeof attributes !== 'object') {
-    return '无特殊属性';
+    return '无特殊属性'
   }
 
-  const parts: string[] = [];
+  const parts: string[] = []
 
   for (const [key, value] of Object.entries(attributes)) {
-    if (value === null || value === undefined) continue;
+    if (value === null || value === undefined) continue
 
     if (typeof value === 'object' && !Array.isArray(value)) {
       // 处理如「后天六司」这类嵌套对象
       const nested = Object.entries(value as Record<string, unknown>)
         .filter(([, v]) => typeof v === 'number' || typeof v === 'string')
         .map(([k, v]) => `${k}+${v}`)
-        .join('、');
-      if (nested) parts.push(`${key}(${nested})`);
+        .join('、')
+      if (nested) parts.push(`${key}(${nested})`)
     } else {
-      parts.push(`${key}+${value}`);
+      parts.push(`${key}+${value}`)
     }
   }
 
-  return parts.length ? parts.join('、') : '无特殊属性';
-};
+  return parts.length ? parts.join('、') : '无特殊属性'
+}
 
 // 格式化功法属性加成显示
 const formatAttributeBonus = (attributeBonus: Record<string, unknown>): string => {
   if (!attributeBonus || typeof attributeBonus !== 'object') {
-    return '无属性加成';
+    return '无属性加成'
   }
-  const parts: string[] = [];
+  const parts: string[] = []
   for (const [key, value] of Object.entries(attributeBonus)) {
     if (value && typeof value === 'number') {
-      parts.push(`${key}+${value}`);
+      parts.push(`${key}+${value}`)
     }
   }
-  return parts.length > 0 ? parts.join('、') : '无属性加成';
-};
+  return parts.length > 0 ? parts.join('、') : '无属性加成'
+}
 
 // 获取物品类型图标
 const getItemTypeIcon = (type: string): string => {
   const typeIcons: Record<string, string> = {
-    '装备': '⚔️',
-    '功法': '📜',
-    '其他': '📦',
-  };
-  return typeIcons[type] || '📦';
-};
+    装备: '⚔️',
+    功法: '📜',
+    其他: '📦',
+  }
+  return typeIcons[type] || '📦'
+}
 
 // 质量等阶规范化（兼容 “凡阶/黄阶/…” 与 “凡/黄/…”；未知返回 '未知'）
 const getNormalizedQuality = (quality: unknown): string => {
-  const raw = String(quality || '').trim();
-  if (!raw) return '未知';
-  const s = raw.endsWith('阶') ? raw.slice(0, -1) : raw;
-  const allowed = ['凡', '黄', '玄', '地', '天', '仙', '神'];
-  return allowed.includes(s) ? s : '未知';
-};
+  const raw = String(quality || '').trim()
+  if (!raw) return '未知'
+  const s = raw.endsWith('阶') ? raw.slice(0, -1) : raw
+  const allowed = ['凡', '黄', '玄', '地', '天', '仙', '神']
+  return allowed.includes(s) ? s : '未知'
+}
 
 // 获取品级文本显示
 const getGradeText = (grade: number): string => {
-  if (grade === 0) return '残缺';
-  if (grade >= 1 && grade <= 3) return '下品';
-  if (grade >= 4 && grade <= 6) return '中品';
-  if (grade >= 7 && grade <= 9) return '上品';
-  if (grade === 10) return '极品';
-  return '未知';
-};
+  if (grade === 0) return '残缺'
+  if (grade >= 1 && grade <= 3) return '下品'
+  if (grade >= 4 && grade <= 6) return '中品'
+  if (grade >= 7 && grade <= 9) return '上品'
+  if (grade === 10) return '极品'
+  return '未知'
+}
 
 // 获取品级样式
 const getGradeClass = (grade: number): string => {
-  if (grade === 0) return 'grade-broken';
-  if (grade >= 1 && grade <= 3) return 'grade-low';
-  if (grade >= 4 && grade <= 6) return 'grade-mid';
-  if (grade >= 7 && grade <= 9) return 'grade-high';
-  if (grade === 10) return 'grade-perfect';
-  return 'grade-unknown';
-};
+  if (grade === 0) return 'grade-broken'
+  if (grade >= 1 && grade <= 3) return 'grade-low'
+  if (grade >= 4 && grade <= 6) return 'grade-mid'
+  if (grade >= 7 && grade <= 9) return 'grade-high'
+  if (grade === 10) return 'grade-perfect'
+  return 'grade-unknown'
+}
 
 // 从背包中移除物品的辅助函数
 const removeItemFromInventory = async (item: Item) => {
   if (!characterStore.activeSaveSlot?.存档数据?.背包?.物品) {
-    throw new Error('背包数据不存在');
+    throw new Error('背包数据不存在')
   }
 
   // 从背包中移除物品
-  delete characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID];
-  await characterStore.commitToStorage();
+  delete characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID]
+  await characterStore.commitToStorage()
 
-  debug.log('背包面板', '物品移除成功', item.名称);
+  debug.log('背包面板', '物品移除成功', item.名称)
 
   // 如果当前选中的是被移除的物品，清除选择
   if (selectedItem.value?.物品ID === item.物品ID) {
-    selectedItem.value = null;
+    selectedItem.value = null
   }
 
   // 关闭弹窗
   if (isMobile.value) {
-    showItemModal.value = false;
+    showItemModal.value = false
   }
-};
+}
 
 // 更新背包中物品的辅助函数
 const updateItemInInventory = async (item: Item) => {
   if (!characterStore.activeSaveSlot?.存档数据?.背包?.物品) {
-    throw new Error('背包数据不存在');
+    throw new Error('背包数据不存在')
   }
 
   // 更新背包中的物品
-  characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID] = item;
-  await characterStore.commitToStorage();
+  characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID] = item
+  await characterStore.commitToStorage()
 
-  debug.log('背包面板', '物品更新成功', item.名称);
+  debug.log('背包面板', '物品更新成功', item.名称)
 
   // 如果当前选中的是被更新的物品，更新选择
   if (selectedItem.value?.物品ID === item.物品ID) {
-    selectedItem.value = item;
+    selectedItem.value = item
   }
-};
+}
 
 // 同步数据到酒馆变量
 const syncToTavernVariables = async () => {
   try {
-    const TavernHelper = getTavernHelper();
+    const TavernHelper = getTavernHelper()
     if (!TavernHelper) {
-      debug.warn('背包面板', '酒馆环境不可用，跳过同步');
-      return;
+      debug.warn('背包面板', '酒馆环境不可用，跳过同步')
+      return
     }
 
     // 首先清理重复变量
-    await cleanTavernDuplicates(TavernHelper);
+    await cleanTavernDuplicates(TavernHelper)
 
-    const saveData = characterStore.activeSaveSlot?.存档数据;
+    const saveData = characterStore.activeSaveSlot?.存档数据
     if (!saveData) {
-      debug.warn('背包面板', '存档数据不存在，跳过同步');
-      return;
+      debug.warn('背包面板', '存档数据不存在，跳过同步')
+      return
     }
 
     // 验证和修复数据
-    validateAndFixSaveData(saveData);
+    validateAndFixSaveData(saveData)
 
     // 这些数据现在都统一保存在 character.saveData 中，不需要单独同步
     // 数据已通过 characterStore.commitToStorage() 统一保存
 
-    debug.log('背包面板', '数据已同步到酒馆变量');
+    debug.log('背包面板', '数据已同步到酒馆变量')
   } catch (error) {
-    debug.error('背包面板', '同步酒馆变量失败', error);
+    debug.error('背包面板', '同步酒馆变量失败', error)
   }
-};
+}
 
 // 切换修炼状态
 const toggleCultivate = async (item: Item) => {
-  if (cultivateBusy.value) return;
-  cultivateBusy.value = true;
+  if (cultivateBusy.value) return
+  if (item.类型 !== '功法') {
+    toast.error('只有功法才能修炼')
+    return
+  }
+  cultivateBusy.value = true
   try {
     if (isCultivating(item)) {
-      await enhancedActionQueue.stopCultivation(item);
+      await enhancedActionQueue.stopCultivation(item)
     } else {
-      await enhancedActionQueue.cultivateItem(item);
+      await enhancedActionQueue.cultivateItem(item)
     }
   } finally {
-    cultivateBusy.value = false;
+    cultivateBusy.value = false
   }
-};
+}
 
 // 使用物品功能 - 数量选择弹窗
 const useItem = async (item: Item) => {
   if (!item) {
-    return;
+    return
   }
 
-  debug.log('背包面板', '使用物品', item.名称);
+  debug.log('背包面板', '使用物品', item.名称)
 
   // 如果物品数量大于1，弹出数量选择弹窗
   if (item.数量 > 1) {
-    quantityModalItem.value = item;
-    quantityModalTitle.value = '使用物品';
-    quantityModalActionLabel.value = '使用数量';
-    quantityModalType.value = 'use';
-    quantityModalConfirmText.value = '确定使用';
-    quantityModalDescription.value = item.使用效果 || '暂无特殊效果';
-    quantityModalCallback.value = (quantity: number) => useItemWithQuantity(item, quantity);
-    showQuantityModal.value = true;
-    return;
+    quantityModalItem.value = item
+    quantityModalTitle.value = '使用物品'
+    quantityModalActionLabel.value = '使用数量'
+    quantityModalType.value = 'use'
+    quantityModalConfirmText.value = '确定使用'
+    quantityModalDescription.value = (item.类型 === '其他' ? item.使用效果 : '') || '暂无特殊效果'
+    quantityModalCallback.value = (quantity: number) => useItemWithQuantity(item, quantity)
+    showQuantityModal.value = true
+    return
   }
 
   // 数量为1时直接使用
-  await useItemWithQuantity(item, 1);
-};
+  await useItemWithQuantity(item, 1)
+}
 
 const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
+    if (item.类型 !== '其他') {
+      toast.error('该物品无法直接使用')
+      return
+    }
     // 使用增强版动作队列管理器
-    await enhancedActionQueue.useItem(item, quantity);
+    await enhancedActionQueue.useItem(item, quantity)
 
     // 更新UI状态
     if (isMobile.value) {
-      showItemModal.value = false;
+      showItemModal.value = false
     }
-    selectedItem.value = null;
+    selectedItem.value = null
 
-    debug.log('背包面板', '使用物品成功', item.名称);
-
+    debug.log('背包面板', '使用物品成功', item.名称)
   } catch (error) {
-    debug.error('背包面板', '使用物品失败', error);
-    toast.error('使用物品失败');
+    debug.error('背包面板', '使用物品失败', error)
+    toast.error('使用物品失败')
   }
-};
+}
 
 // 数量选择弹窗的处理函数
 const handleQuantityConfirm = async (quantity: number) => {
   if (quantityModalCallback.value) {
-    await quantityModalCallback.value(quantity);
+    await quantityModalCallback.value(quantity)
   }
-  handleQuantityClose();
-};
+  handleQuantityClose()
+}
 
 const handleQuantityClose = () => {
-  showQuantityModal.value = false;
-  quantityModalItem.value = null;
-  quantityModalTitle.value = '';
-  quantityModalActionLabel.value = '';
-  quantityModalType.value = 'use';
-  quantityModalConfirmText.value = '';
-  quantityModalDescription.value = '';
-  quantityModalCallback.value = null;
-};
+  showQuantityModal.value = false
+  quantityModalItem.value = null
+  quantityModalTitle.value = ''
+  quantityModalActionLabel.value = ''
+  quantityModalType.value = 'use'
+  quantityModalConfirmText.value = ''
+  quantityModalDescription.value = ''
+  quantityModalCallback.value = null
+}
 
 // 丢弃物品功能 - 支持数量选择
 const discardItem = async (item: Item) => {
   if (!item) {
-    return;
+    return
   }
 
   // 如果物品数量大于1，弹出数量选择弹窗
   if (item.数量 > 1) {
-    const itemQuality = item.品质?.quality || '凡';
-    const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`;
+    const itemQuality = item.品质?.quality || '凡'
+    const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`
 
-    quantityModalItem.value = item;
-    quantityModalTitle.value = '丢弃物品';
-    quantityModalActionLabel.value = '丢弃数量';
-    quantityModalType.value = 'discard';
-    quantityModalConfirmText.value = '确定丢弃';
-    quantityModalDescription.value = `${qualityColor}${item.名称} - 此操作不可撤销！`;
-    quantityModalCallback.value = (quantity: number) => discardItemWithQuantity(item, quantity);
-    showQuantityModal.value = true;
-    return;
+    quantityModalItem.value = item
+    quantityModalTitle.value = '丢弃物品'
+    quantityModalActionLabel.value = '丢弃数量'
+    quantityModalType.value = 'discard'
+    quantityModalConfirmText.value = '确定丢弃'
+    quantityModalDescription.value = `${qualityColor}${item.名称} - 此操作不可撤销！`
+    quantityModalCallback.value = (quantity: number) => discardItemWithQuantity(item, quantity)
+    showQuantityModal.value = true
+    return
   }
 
   // 数量为1时使用确认弹窗
-  const itemQuality = item.品质?.quality || '凡';
-  const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`;
-  confirmTitle.value = '丢弃物品';
-  confirmMessage.value = `确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`;
+  const itemQuality = item.品质?.quality || '凡'
+  const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`
+  confirmTitle.value = '丢弃物品'
+  confirmMessage.value = `确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`
   confirmCallback.value = async () => {
-    await discardItemWithQuantity(item, 1);
-  };
-  showCustomConfirm.value = true;
-};
+    await discardItemWithQuantity(item, 1)
+  }
+  showCustomConfirm.value = true
+}
 
 const discardItemWithQuantity = async (item: Item, quantity: number) => {
-  debug.log('背包面板', '丢弃物品', { 物品名称: item.名称, 数量: quantity });
+  debug.log('背包面板', '丢弃物品', { 物品名称: item.名称, 数量: quantity })
   try {
     if (quantity >= item.数量) {
       // 全部丢弃
-      await removeItemFromInventory(item);
-      toast.success(`已丢弃《${item.名称}》`);
+      await removeItemFromInventory(item)
+      toast.success(`已丢弃《${item.名称}》`)
     } else {
       // 部分丢弃，减少数量
-      const updatedItem = { ...item, 数量: item.数量 - quantity };
-      await updateItemInInventory(updatedItem);
-      toast.success(`已丢弃 ${quantity} 个《${item.名称}》`);
+      const updatedItem = { ...item, 数量: item.数量 - quantity }
+      await updateItemInInventory(updatedItem)
+      toast.success(`已丢弃 ${quantity} 个《${item.名称}》`)
     }
 
     if (isMobile.value) {
-      showItemModal.value = false;
+      showItemModal.value = false
     }
-    selectedItem.value = null;
+    selectedItem.value = null
   } catch (error) {
-    debug.error('背包面板', '丢弃失败', error);
-    toast.error('丢弃物品失败');
+    debug.error('背包面板', '丢弃失败', error)
+    toast.error('丢弃物品失败')
   }
-};
+}
 const toggleEquip = async (item: Item) => {
-  if (!item || equipBusy.value) return;
-  equipBusy.value = true;
+  if (!item || equipBusy.value) return
+  if (item.类型 !== '装备') {
+    toast.error('只有装备才能穿戴')
+    return
+  }
+  equipBusy.value = true
 
   try {
     if (isEquipped(item)) {
       // 卸下装备
-      await enhancedActionQueue.unequipItem(item);
+      await enhancedActionQueue.unequipItem(item)
     } else {
       // 装备物品
-      await enhancedActionQueue.equipItem(item);
+      await enhancedActionQueue.equipItem(item)
     }
   } catch (error) {
-    console.error('装备切换失败:', error);
-    toast.error('装备操作失败，请稍后重试');
+    console.error('装备切换失败:', error)
+    toast.error('装备操作失败，请稍后重试')
   } finally {
-    equipBusy.value = false;
+    equipBusy.value = false
   }
-};
+}
 
-// 检查物品是否已装备 - 使用物品的已装备字段
+// 检查物品是否已装备 - 改为直接从 characterStore 获取最新状态，确保响应性
 const isEquipped = (item: Item | null): boolean => {
-  if (!item) return false;
-  
-  // 直接检查物品的已装备字段
-  return item.已装备 === true;
-};
+  if (!item || !item.物品ID) return false
 
-// 检查功法是否正在修炼 - 改进版本，支持修炼状态判断
+  const inventoryItems = characterStore.activeSaveSlot?.存档数据?.背包?.物品
+  if (!inventoryItems) return false
+
+  const currentItemState = inventoryItems[item.物品ID]
+  if (!currentItemState) {
+    // 如果背包里找不到这个物品了（可能被丢弃等），那肯定没装备
+    return false
+  }
+
+  return currentItemState.已装备 === true
+}
+
+// 检查功法是否正在修炼
 const isCultivating = (item: Item | null): boolean => {
-  if (!item) return false;
-  const id = item.物品ID;
-  if (!id || typeof id !== 'string') return false;
+  if (!item) return false
+  const id = item.物品ID
+  if (!id || typeof id !== 'string') return false
 
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  const cultivationData = saveData?.修炼功法;
+  const saveData = characterStore.activeSaveSlot?.存档数据
+  const cultivationData = saveData?.修炼功法
 
-  if (!cultivationData) return false;
+  if (!cultivationData) return false
 
-  // 检查是否有正在修炼的功法，且功法ID匹配，且修炼状态为true
-  const cultivatingSkill = cultivationData.功法;
-  const isCurrentlyPracticing = cultivationData.正在修炼 === true;
+  // 检查是否有正在修炼的功法，且修炼状态为true
+  const cultivatingSkill = cultivationData.功法
+  const isCurrentlyPracticing = cultivationData.正在修炼 === true
 
-  if (!cultivatingSkill || !isCurrentlyPracticing) return false;
+  if (!cultivatingSkill || !isCurrentlyPracticing) return false
 
   // 匹配物品ID
-  const cultivatingId = cultivatingSkill.物品ID;
-  return !!cultivatingId && cultivatingId === id;
-};
+  const cultivatingItemId =
+    typeof cultivatingSkill === 'string' ? cultivatingSkill : (cultivatingSkill as Item)?.物品ID
+  return cultivatingItemId === id
+}
 
-const getItemQualityClass = (item: Item | null, type: 'border' | 'text' | 'badge' | 'card' = 'border'): string => {
-  if (!item) return '';
-  const q = getNormalizedQuality(item.品质?.quality);
-  if (q === '未知') return '';
-  return `${type}-quality-${q}`;
-};
+const getItemQualityClass = (
+  item: Item | null,
+  type: 'border' | 'text' | 'badge' | 'card' = 'border',
+): string => {
+  if (!item) return ''
+  const q = getNormalizedQuality(item.品质?.quality)
+  if (q === '未知') return ''
+  return `${type}-quality-${q}`
+}
 
 const spiritStoneGrades = [
   {
@@ -1062,7 +1176,7 @@ const spiritStoneGrades = [
     colorClass: 'grade-legend',
     canExchange: false, // 最高级，不能向上兑换
     canExchangeDown: true,
-    exchangeDown: '上品'
+    exchangeDown: '上品',
   },
   {
     name: '上品',
@@ -1070,7 +1184,7 @@ const spiritStoneGrades = [
     canExchange: true,
     canExchangeDown: true,
     exchangeUp: '极品',
-    exchangeDown: '中品'
+    exchangeDown: '中品',
   },
   {
     name: '中品',
@@ -1078,102 +1192,108 @@ const spiritStoneGrades = [
     canExchange: true,
     canExchangeDown: true,
     exchangeUp: '上品',
-    exchangeDown: '下品'
+    exchangeDown: '下品',
   },
   {
     name: '下品',
     colorClass: 'grade-common',
     canExchange: true,
     canExchangeDown: false, // 最低级，不能向下分解
-    exchangeUp: '中品'
+    exchangeUp: '中品',
   },
-] as const;
+] as const
 
 // 选择物品
 const selectItem = (item: Item) => {
-  selectedItem.value = item;
+  selectedItem.value = item
   if (isMobile.value) {
-    showItemModal.value = true;
+    showItemModal.value = true
   }
-};
+}
 
 // 处理确认回调
 const handleConfirm = () => {
   if (confirmCallback.value) {
-    confirmCallback.value();
+    confirmCallback.value()
   }
-  showCustomConfirm.value = false;
-};
+  showCustomConfirm.value = false
+}
 
 // 关闭模态框
 const closeModal = () => {
-  showItemModal.value = false;
-};
+  showItemModal.value = false
+}
 
 // 灵石兑换功能
-const handleExchange = (currentGrade: '下品' | '中品' | '上品' | '极品', direction: 'up' | 'down') => {
-  const gradeInfo = spiritStoneGrades.find(g => g.name === currentGrade);
-  if (!gradeInfo) return;
+const handleExchange = (
+  currentGrade: '下品' | '中品' | '上品' | '极品',
+  direction: 'up' | 'down',
+) => {
+  const gradeInfo = spiritStoneGrades.find((g) => g.name === currentGrade)
+  if (!gradeInfo) return
 
   if (direction === 'up' && gradeInfo.canExchange && gradeInfo.exchangeUp) {
     // 向上兑换：100个当前等级 → 1个高级
-    const currentAmount = inventory.value.灵石[currentGrade] || 0;
+    const currentAmount = inventory.value.灵石[currentGrade] || 0
     if (currentAmount >= 100) {
       // 更新存档数据
       if (characterStore.activeSaveSlot?.存档数据?.背包?.灵石) {
-        (characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] as number) = currentAmount - 100;
-        const targetGrade = gradeInfo.exchangeUp as '下品' | '中品' | '上品' | '极品';
-        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0;
-        (characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) = targetAmount + 1;
-        characterStore.commitToStorage();
+        ;(characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] as number) =
+          currentAmount - 100
+        const targetGrade = gradeInfo.exchangeUp as '下品' | '中品' | '上品' | '极品'
+        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0
+        ;(characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) =
+          targetAmount + 1
+        characterStore.commitToStorage()
       }
     }
   } else if (direction === 'down' && gradeInfo.canExchangeDown && gradeInfo.exchangeDown) {
     // 向下分解：1个当前等级 → 100个低级
-    const currentAmount = inventory.value.灵石[currentGrade] || 0;
+    const currentAmount = inventory.value.灵石[currentGrade] || 0
     if (currentAmount >= 1) {
       // 更新存档数据
       if (characterStore.activeSaveSlot?.存档数据?.背包?.灵石) {
-        (characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] as number) = currentAmount - 1;
-        const targetGrade = gradeInfo.exchangeDown as '下品' | '中品' | '上品' | '极品';
-        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0;
-        (characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) = targetAmount + 100;
-        characterStore.commitToStorage();
+        ;(characterStore.activeSaveSlot.存档数据.背包.灵石[currentGrade] as number) =
+          currentAmount - 1
+        const targetGrade = gradeInfo.exchangeDown as '下品' | '中品' | '上品' | '极品'
+        const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0
+        ;(characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) =
+          targetAmount + 100
+        characterStore.commitToStorage()
       }
     }
   }
-};
+}
 
 // 手动刷新数据
 const refreshFromTavern = async () => {
-  if (refreshing.value) return;
+  if (refreshing.value) return
 
-  refreshing.value = true;
+  refreshing.value = true
   try {
-    debug.log('背包面板', '手动刷新酒馆数据');
-    await characterStore.syncFromTavern();
+    debug.log('背包面板', '手动刷新酒馆数据')
+    await characterStore.syncFromTavern()
   } catch (error) {
-    debug.error('背包面板', '刷新数据失败', error);
+    debug.error('背包面板', '刷新数据失败', error)
   } finally {
-    refreshing.value = false;
+    refreshing.value = false
   }
-};
+}
 
 onMounted(async () => {
-  debug.log('背包面板', '组件挂载，开始同步酒馆数据');
+  debug.log('背包面板', '组件挂载，开始同步酒馆数据')
 
   try {
     // 从酒馆同步最新数据
-    await characterStore.syncFromTavern();
+    await characterStore.syncFromTavern()
   } catch (error) {
-    debug.error('背包面板', '同步酒馆数据失败', error);
+    debug.error('背包面板', '同步酒馆数据失败', error)
   }
 
   if (!selectedItem.value && filteredItems.value.length > 0) {
-    selectedItem.value = filteredItems.value[0];
+    selectedItem.value = filteredItems.value[0]
   }
-});
-
+})
 </script>
 
 <style scoped>
@@ -1650,7 +1770,9 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 物品卡片 - 重新设计美观布局 */
@@ -1675,7 +1797,6 @@ onMounted(async () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   background: var(--color-surface-light);
 }
-
 
 /* 顶部区域：图标和品质 */
 .item-top-section {
@@ -2295,7 +2416,8 @@ onMounted(async () => {
 
 /* 品质样式系统 - 内联文字样式，不填充整行 */
 /* 神阶 - 深红色（最高品质） */
-.text-quality-神, .text-quality-神阶 {
+.text-quality-神,
+.text-quality-神阶 {
   color: white !important;
   background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
   border: 1px solid #dc2626 !important;
@@ -2308,7 +2430,8 @@ onMounted(async () => {
 }
 
 /* 仙阶 - 粉紫色 */
-.text-quality-仙, .text-quality-仙阶 {
+.text-quality-仙,
+.text-quality-仙阶 {
   color: white !important;
   background: linear-gradient(135deg, #ec4899, #db2777) !important;
   border: 1px solid #ec4899 !important;
@@ -2321,7 +2444,8 @@ onMounted(async () => {
 }
 
 /* 天阶 - 蓝色 */
-.text-quality-天, .text-quality-天阶 {
+.text-quality-天,
+.text-quality-天阶 {
   color: white !important;
   background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
   border: 1px solid #3b82f6 !important;
@@ -2334,7 +2458,8 @@ onMounted(async () => {
 }
 
 /* 地阶 - 橙色 */
-.text-quality-地, .text-quality-地阶 {
+.text-quality-地,
+.text-quality-地阶 {
   color: white !important;
   background: linear-gradient(135deg, #f59e0b, #d97706) !important;
   border: 1px solid #f59e0b !important;
@@ -2347,7 +2472,8 @@ onMounted(async () => {
 }
 
 /* 玄阶 - 紫色 */
-.text-quality-玄, .text-quality-玄阶 {
+.text-quality-玄,
+.text-quality-玄阶 {
   color: white !important;
   background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
   border: 1px solid #8b5cf6 !important;
@@ -2360,7 +2486,8 @@ onMounted(async () => {
 }
 
 /* 黄阶 - 金黄色 */
-.text-quality-黄, .text-quality-黄阶 {
+.text-quality-黄,
+.text-quality-黄阶 {
   color: white !important;
   background: linear-gradient(135deg, #eab308, #ca8a04) !important;
   border: 1px solid #eab308 !important;
@@ -2373,7 +2500,8 @@ onMounted(async () => {
 }
 
 /* 凡阶 - 灰色（最低品质） */
-.text-quality-凡, .text-quality-凡阶 {
+.text-quality-凡,
+.text-quality-凡阶 {
   color: white !important;
   background: linear-gradient(135deg, #6b7280, #4b5563) !important;
   border: 1px solid #6b7280 !important;
@@ -2419,7 +2547,7 @@ onMounted(async () => {
   height: 100%;
   overflow-y: auto;
 }
-.item-grade{
+.item-grade {
   border-radius: 5px;
   border: 2px solid #9ca3af;
 }
@@ -2879,5 +3007,4 @@ onMounted(async () => {
     padding: 14px;
   }
 }
-
 </style>

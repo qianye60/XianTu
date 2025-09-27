@@ -42,7 +42,15 @@ export const LOCAL_ORIGINS: Omit<Origin, 'source'>[] = [
   { id: 1, name: '山野遗孤', description: '自幼在山野中长大，与猛兽为伴，磨练出坚韧的意志和过人的体魄。', talent_cost: 0, attribute_modifiers: { root_bone: 1 }, rarity: 3 },
   { id: 2, name: '书香门第', description: '出身于官宦世家，饱读诗书，对天地至理有超乎常人的理解力。', talent_cost: 2, attribute_modifiers: { comprehension: 2 }, rarity: 3 },
   { id: 3, name: '商贾之子', description: '生于富贵之家，精通人情世故，处事圆滑，魅力非凡。', talent_cost: 2, attribute_modifiers: { charm: 2 }, rarity: 3 },
-  { id: 4, name: '将门之后', description: '名将的后代，血脉中流淌着勇武与煞气，心性坚定。', talent_cost: 3, attribute_modifiers: { temperament: 2, root_bone: 1 }, rarity: 3 }
+  { id: 4, name: '将门之后', description: '名将的后代，血脉中流淌着勇武与煞气，心性坚定。', talent_cost: 3, attribute_modifiers: { temperament: 2, root_bone: 1 }, rarity: 3 },
+  { id: 5, name: '散修传人', description: '你的师父是一位游戏风尘的强大散修，你继承了他的部分衣钵和见识。', talent_cost: 4, attribute_modifiers: { comprehension: 1, temperament: 1 }, rarity: 4 },
+  { id: 6, name: '魔道卧底', description: '你出身名门正派，却被派往魔道执行卧底任务，心性远超常人。', talent_cost: 1, attribute_modifiers: { temperament: 3 }, rarity: 4 },
+  { id: 7, name: '重生者', description: '你保留着前世的记忆，虽然修为尽失，但对功法和未来的大事了如指掌。', talent_cost: 5, attribute_modifiers: { comprehension: 2, luck: 1 }, rarity: 5 },
+  { id: 8, name: '仙人后裔', description: '你的血脉中流淌着稀薄的仙人之血，天生灵性十足，修炼速度略快于常人。', talent_cost: 6, attribute_modifiers: { spirit: 2, root_bone: 1 }, rarity: 5 },
+  { id: 9, name: '夺舍老怪', description: '你是一名夺舍重生的老怪物，虽然占据了年轻的肉体，但灵魂中蕴含着庞大的神识力量。', talent_cost: 7, attribute_modifiers: { comprehension: 3, temperament: -1 }, rarity: 5 },
+  { id: 10, name: '山神庙祝', description: '你从小在山神庙长大，日夜与香火为伴，神魂受到滋养，对鬼神之事有特殊感应。', talent_cost: 2, attribute_modifiers: { spirit: 2 }, rarity: 3 },
+  { id: 11, name: '渔家少年', description: '常年在江河湖海中讨生活，水性极佳，体魄强健。', talent_cost: 1, attribute_modifiers: { root_bone: 2 }, rarity: 2 },
+  { id: 12, name: '王朝皇子', description: '生于凡人王朝的权力之巅，自幼享受锦衣玉食和最好的教育，但与修仙界的接触较少。', talent_cost: 3, attribute_modifiers: { charm: 2, temperament: 1 }, rarity: 4 }
 ];
 
 // =======================================================================
@@ -340,4 +348,37 @@ export const LOCAL_TALENTS: Omit<Talent, 'source'>[] = [
       { 类型: '特殊能力', 名称: '防欺诈', 数值: 1 }
     ]
   },
+  {
+    id: 13,
+    name: '一诺千金',
+    description: '你的承诺极具分量，更容易获得他人的信任与好感。',
+    talent_cost: 3,
+    rarity: 2,
+    effects: [
+      { 类型: '后天六司', 目标: '魅力', 数值: 2 }
+    ]
+  },
+  {
+    id: 14,
+    name: '天生毒体',
+    description: '百毒不侵，且能更好地驾驭毒功，但常人不敢轻易接近。',
+    talent_cost: 6,
+    rarity: 4,
+    effects: [
+      { 类型: '特殊能力', 名称: '毒素免疫', 数值: 1 },
+      { 类型: '技能加成', 技能: '毒术', 数值: 0.15 },
+      { 类型: '后天六司', 目标: '魅力', 数值: -2 }
+    ]
+  },
+  {
+    id: 15,
+    name: '画龙点睛',
+    description: '在制作符箓时，有一定几率产生意想不到的强大效果。',
+    talent_cost: 4,
+    rarity: 3,
+    effects: [
+      { 类型: '技能加成', 技能: '符箓', 数值: 0.1 },
+      { 类型: '特殊能力', 名称: '符箓变异', 数值: 0.05 }
+    ]
+  }
 ];

@@ -1,504 +1,561 @@
 /**
- * 天道演算 v4.2 — 判定预计算与规则核心
- * 目标：
- * - 提供高阶“检定/斗法”所需的派生属性与成功率曲线的预计算结果
- * - 将预计算结果写入 Tavern 聊天变量：`character.saveData.系统.天道演算`
- * - 供 AI 叙事在接到【判定请求】时直接引用，避免在模型侧重复推导
+ * 天道演算 v5.0 — 精简高效判定系统
+ * 核心原则：
+ * - 数值计算完全程序化，无文本匹配
+ * - 提示词精简高效，节约token
+ * - 支持通用判定（战斗、交互、修炼等）
+ * - 完善死亡机制和游戏阻断
  */
 
-import { get } from 'lodash';
+import { get, set, unset } from 'lodash';
 import { getTavernHelper } from '@/utils/tavern';
-import type { SaveData, CharacterBaseInfo, Item } from '@/types/game';
+import type { SaveData, CharacterBaseInfo, Item, NpcProfile, HeavenlyCalculation, CoreAttributes, DeathState } from '@/types/game';
 
 // 判定类型
-export type HeavenlyCheckType = '法力' | '神海' | '道心' | '空速' | '气运';
+export type CheckType = '攻击' | '防御' | '修炼' | '交互' | '探索' | '炼制';
 
-// 交互参与者类型
-export type InteractionParticipant = '用户' | 'NPC' | '环境';
+// 伤害类型
+export type DamageType = '物理' | '法术' | '心魔' | '天劫';
 
-// 交互模式
-export interface InteractionContext {
-  发起者: InteractionParticipant;
-  接受者: InteractionParticipant;
-  交互类型: '对话' | '斗法' | '比试' | '合作' | '交易' | '探索' | '修炼';
-  情境描述?: string;
-  难度调整?: number; // -5 到 +5 的难度修正
+// 判定结果等级
+export type ResultLevel = '大败' | '失败' | '成功' | '大成' | '完美';
+
+// 战斗结果
+export interface CombatResult {
+  命中: boolean;
+  暴击: boolean;
+  伤害: number;
+  防御减免: number;
+  最终伤害: number;
+  附加效果?: string[];
 }
 
-// 预计算结构
-export interface HeavenlyDerivedAttributes {
-  版本: string;
-  角色: {
-    名字: string;
-    世界?: string;
-    境界: { 名称: string; 等级: number };
-    年龄?: number;
-  };
-  派生属性: {
-    法力: number; // 基于灵气与装备映射
-    神海: number; // 基于神识与悟性映射
-    道心: number; // 基于心性/悟性/状态
-    空速: number; // 基于境界/装备“速度”
-    气运: number; // 基于先天六司.气运与状态
-  };
-  加权因子: {
-    境界倍率: number; // 用于将资源映射到“检定强度”尺度
-    装备命中: number; // 装备带来的命中加值（0-100线性）
-    装备闪避: number; // 装备带来的闪避加值（0-100线性）
-    装备暴击: number; // 装备带来的暴击几率（0-1）
-    装备速度: number; // 装备带来的移动/出手机动
-  };
-  特许: {
-    天道之眷标签: string[]; // 与本局角色绑定的“绝对优势”标签（示例：神品灵根-火、仙品体质-剑修）
-    触发提示: string; // 说明如何触发特许（供AI参考）
-  };
-  成功率曲线: Record<HeavenlyCheckType, Array<{ DC: number; 成功率: number; 临界区间: { 大成: number; 大败: number } }>>;
-  斗法基线: {
-    命中率基线: number; // 对等敌手下的命中率基线
-    闪避率基线: number; // 对等敌手下的闪避率基线
-    暴击率基线: number; // 对等敌手下的暴击率基线
-    伤害系数: number;   // 用于将“法力/神海”映射到伤害的系数
-    豁免强度: number;   // 防御方道心对伤害的减免曲线强度
-  };
-  文字增幅: {
-    天眷: string[];
-    完胜: string[];
-    险胜: string[];
-    失手: string[];
-    反噬: string[];
-  };
-  输出模板: {
-    通用判定: string; // 供AI套入占位符
-    斗法判定: string;
-    用户对NPC: string; // 用户对NPC的交互模板
-    NPC对用户: string; // NPC对用户的交互模板
-    NPC对NPC: string;  // NPC对NPC的交互模板
-  };
-  交互支持: {
-    支持的交互类型: string[];
-    模式说明: Record<string, string>;
-  };
-  更新时间: string;
-}
-
-// 安全提取数值
-function n(val: any, def = 0): number { const v = Number(val); return Number.isFinite(v) ? v : def; }
-
-// 平滑函数：受控幅度的双曲正切，用于边际递减
-function smooth(x: number, k = 1.2, scale = 1): number {
-  return Math.tanh(x * k) * scale;
-}
-
-// 计算成功率（0.02~0.98），attr 为派生属性，DC 按“难度门槛”的惯例
-// 调整：使用对数逻辑函数映射，极端值更平滑；气运偏移对称（-5%~+5%）。
-function successRate(attr: number, DC: number, luck: number, bonus = 0): number {
-  const ratio = (Math.max(0, attr) || 0) / Math.max(1, DC * 10);
-  const z = Math.log(Math.max(1e-6, ratio)) * 2.2; // 灵敏度
-  let p = 1 / (1 + Math.exp(-z));
-  const luckBias = ((Math.min(10, Math.max(0, luck || 0)) - 5) * 0.01); // [-0.05,+0.05]
-  p += luckBias + bonus;
-  return Math.min(0.98, Math.max(0.02, p));
-}
-
-// 从装备/背包或装备栏中抽取“速度/命中/暴击/闪避”倾向（尽量宽容地读取结构）
-function aggregateEquipAffix(saveData: SaveData | any) {
-  let 命中 = 0, 闪避 = 0, 暴击 = 0, 速度 = 0;
-
-  try {
-    const equip = get(saveData, '装备栏', {} as Record<string, Item | string | null>);
-    const bag = get(saveData, '背包.物品', {}) as Record<string, Item>;
-
-    const collectFromItem = (it: any) => {
-      if (!it || typeof it !== 'object') return;
-      // 新物品系统 attributes[] 与套装 setBonus
-      const attrs = (it.attributes || it.属性 || []) as Array<{ type?: string; value?: number; percentage?: boolean; 描述?: string; }>;
-      const setAttrs = (it.setBonus?.bonus || []) as Array<{ type?: string; value?: number; percentage?: boolean; description?: string; }>;
-      if (Array.isArray(attrs)) {
-        for (const a of attrs) {
-          const t = String((a.type || '')).trim();
-          const v = n(a.value);
-          if (/(命中|命中率|锐目|灵视)/.test(t)) 命中 += v;
-          if (/(闪避|闪避率|腾挪|回避)/.test(t)) 闪避 += v;
-          if (/(暴击|暴击率|会心)/.test(t)) 暴击 += (a.percentage ? v : v / 100);
-          if (/(速度|移速|空速|轻身|风行|雷步|敏捷)/.test(t)) 速度 += v;
-        }
-      }
-      if (Array.isArray(setAttrs)) {
-        for (const a of setAttrs) {
-          const t = String((a.type || '')).trim();
-          const v = n(a.value);
-          if (/(命中|命中率)/.test(t)) 命中 += v;
-          if (/(闪避|闪避率)/.test(t)) 闪避 += v;
-          if (/(暴击|暴击率)/.test(t)) 暴击 += (a.percentage ? v : v / 100);
-          if (/(速度|移速|空速)/.test(t)) 速度 += v;
-        }
-      }
-      // 兼容旧字段
-      if (it.装备增幅) {
-        const m = it.装备增幅 as any;
-        if (m.后天六司?.心性) 闪避 += n(m.后天六司.心性) * 0.5;
-        if (m.后天六司?.灵性) 命中 += n(m.后天六司.灵性) * 0.5;
-      }
-    };
-
-    // 装备栏
-    if (equip && typeof equip === 'object') {
-      for (const key of Object.keys(equip)) {
-        const ref = (equip as any)[key];
-        const item = (typeof ref === 'string') ? bag?.[ref] : ref;
-        collectFromItem(item);
-      }
-    }
-
-    // 背包中常驻增幅（被动饰品）
-    if (bag && typeof bag === 'object') {
-      for (const key of Object.keys(bag)) {
-        const it = bag[key];
-        if (it?.装备特效 && Array.isArray(it.装备特效)) {
-          if (it.装备特效.some((s: string) => /(轻身|追风|风行|雷步)/.test(s))) 速度 += 2;
-          if (it.装备特效.some((s: string) => /(锐目|灵视|命中)/.test(s))) 命中 += 2;
-        }
-      }
-    }
-
-  } catch { /* 忽略解析失败 */ }
-
-  return { 命中, 闪避, 暴击: Math.max(0, Math.min(0.6, 暴击)), 速度 };
-}
-
-// 读取状态效果对派生属性的修正（更贴近实际战况）
-function computeStatusAdjustments(saveData: SaveData) {
-  const effects = (get(saveData, '玩家角色状态.状态效果', []) || []) as Array<any>;
-  let 法力 = 0, 神海 = 0, 道心 = 0, 空速 = 0;
-  for (const e of effects) {
-    const name = String(e?.状态名称 || e?.状态名 || e?.name || '').trim();
-    const type = String(e?.类型 || e?.type || '').toLowerCase();
-    const power = n(e?.强度, 1) || 1;
-    // 道心相关
-    if (/(心魔|恐惧|惊惧|畏缩|噬心)/.test(name) || (type === 'debuff' && /(心|意志)/.test(name))) {
-      道心 -= 5 * power;
-    }
-    if (/(禅定|清明|心如止水|凝神)/.test(name) || (type === 'buff' && /(心|意志)/.test(name))) {
-      道心 += 3 * power;
-    }
-    // 法力/神海相关
-    if (/(灵力充盈|灵气涌动|灵力澎湃)/.test(name)) 法力 += 15 * power;
-    if (/(灵力枯竭|灵气枯竭|乏力)/.test(name)) 法力 -= 20 * power;
-    if (/(冥想|专注|神游|凝神)/.test(name)) 神海 += 10 * power;
-    if (/(神识涣散|恍惚|分心)/.test(name)) 神海 -= 15 * power;
-    // 速度相关
-    if (/(迟缓|束缚|减速|负重|迟滞)/.test(name)) 空速 -= 5 * power;
-    if (/(迅捷|轻身|风行|追风|雷步)/.test(name)) 空速 += 5 * power;
-  }
-  return { 法力, 神海, 道心, 空速 };
-}
-
-// 提取先天与资源，映射到“检定强度”
-function deriveCore(saveData: SaveData, baseInfo: CharacterBaseInfo) {
-  const realmName = get(saveData, '玩家角色状态.境界.名称', get(saveData, '玩家角色状态.境界', '凡人')) as string;
-  const realmLevel = n(get(saveData, '玩家角色状态.境界.等级', 0));
-
-  const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 0, 最大: 0 });
-  const 灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 0, 最大: 0 });
-  const 神识 = get(saveData, '玩家角色状态.神识', { 当前: 0, 最大: 0 });
-  const 年龄 = n(get(saveData, '玩家角色状态.寿命.当前', undefined), undefined);
-
-  const 根骨 = n(get(baseInfo, '先天六司.根骨', 10), 10);
-  const 灵性 = n(get(baseInfo, '先天六司.灵性', 10), 10);
-  const 悟性 = n(get(baseInfo, '先天六司.悟性', 10), 10);
-  const 心性 = n(get(baseInfo, '先天六司.心性', 10), 10);
-  const 气运 = n(get(baseInfo, '先天六司.气运', 5), 5);
-
-  // 境界倍率：贴近 GameStateManager 的加成曲线，但更温和
-  const 境界倍率 = 1 + realmLevel * 0.08;
-
-  // 派生属性映射：资源与先天混合映射为“检定强度”尺度（0-1000+）
-  const 法力 = Math.round((n(灵气.当前) * 0.8 + n(灵气.最大) * 0.4 + 灵性 * 6) * 境界倍率);
-  const 神海 = Math.round((n(神识.当前) * 0.9 + n(神识.最大) * 0.5 + 悟性 * 5) * 境界倍率);
-  const 道心 = Math.round((心性 * 10 + 悟性 * 6 + 根骨 * 4) * (1 + Math.min(0.2, (年龄 || 0) / 500)));
-  const 空速 = Math.round((20 + 灵性 * 2 + 根骨 * 1.5) * 境界倍率);
-  const 先天气运 = Math.max(0, Math.min(10, 气运));
-
-  return { realmName, realmLevel, 年龄, 法力, 神海, 道心, 空速, 气运: 先天气运, 境界倍率 };
-}
-
-// 识别“天道之眷”标签
-function scanHeavenlyFavors(baseInfo: CharacterBaseInfo): string[] {
-  const tags: string[] = [];
-  const talents = (baseInfo?.天赋详情 || baseInfo?.天赋 || []) as any[];
-  const spirit = baseInfo?.灵根详情 || baseInfo?.灵根;
-
-  const pushIf = (cond: boolean, label: string) => { if (cond) tags.push(label); };
-
-  try {
-    // 灵根品质/名称
-    const srName = typeof spirit === 'string' ? spirit : spirit?.名称 || spirit?.name || '';
-    const srQuality = spirit?.品质?.quality || spirit?.品质 || spirit?.阶位;
-    pushIf(/神|仙/.test(String(srQuality || '')), `灵根-${String(srQuality)}`);
-    pushIf(/火|雷|剑|金|木|水|土|风|冰/.test(String(srName || '')), `灵根-偏向:${String(srName)}`);
-
-    // 天赋条目
-    for (const t of talents) {
-      const name = (typeof t === 'string') ? t : (t?.名称 || t?.name || '');
-      pushIf(/神|仙/.test(String(name)), `天赋-${String(name)}`);
-    }
-  } catch { /* 忽略 */ }
-
-  return Array.from(new Set(tags));
-}
-
-// 生成成功率曲线（DC: 20,40,60,80,100）
-function buildCurves(派生: { [k in HeavenlyCheckType]: number }, 境界倍率: number, luck: number) {
-  const DCs = [20, 40, 60, 80, 100];
-  const out: Record<HeavenlyCheckType, Array<{ DC: number; 成功率: number; 临界区间: { 大成: number; 大败: number } }>> = {
-    法力: [], 神海: [], 道心: [], 空速: [], 气运: []
-  };
-  (Object.keys(out) as HeavenlyCheckType[]).forEach((k) => {
-    const base = 派生[k];
-    out[k] = DCs.map(DC => {
-      const p = successRate(base * 境界倍率, DC, luck, 0);
-      // 动态临界区间：熟练越高（p越大）大成窗口略增，大败窗口略缩
-      const 大成 = Math.max(1, Math.min(10, Math.round(3 + (p - 0.5) * 8)));
-      const 大败 = Math.max(90, Math.min(99, Math.round(98 - (p - 0.5) * 12)));
-      return { DC, 成功率: Math.round(p * 1000) / 10, 临界区间: { 大成, 大败 } };
-    });
-  });
-  return out;
-}
-
-// 斗法基线
-function buildCombatBaselines(派生: { 法力: number; 神海: number; 道心: number; 空速: number }, affix: { 命中: number; 闪避: number; 暴击: number; 速度: number }) {
-  // 速度在对等情况下对命中/闪避都产生小幅影响
-  const 速度影响 = smooth((派生.空速 + affix.速度 - 200) / 300, 1.0, 0.12); // [-0.12, +0.12]
-  const 命中率基线 = Math.min(0.9, Math.max(0.2,
-    0.58 + smooth((派生.神海 - 320) / 280, 1.1, 0.22) + (affix.命中 / 500) + 速度影响 * 0.4
-  ));
-  const 闪避率基线 = Math.min(0.7, Math.max(0.05,
-    0.18 + smooth((派生.空速 - 220) / 260, 1.05, 0.26) + (affix.闪避 / 600) + 速度影响 * 0.6
-  ));
-  const 暴击率基线 = Math.min(0.5, Math.max(0.02,
-    0.05 + smooth((派生.神海 - 420) / 420, 1.0, 0.14) + affix.暴击
-  ));
-  // 伤害系数受法力为主，同时受暴击率小幅加权
-  const 伤害系数 = Math.max(0.8, 1.0 + smooth((派生.法力 - 400) / 400, 1.0, 0.5) + (暴击率基线 - 0.05) * 0.3);
-  const 豁免强度 = Math.max(0.8, 1.0 + smooth((派生.道心 - 300) / 300, 1.0, 0.4));
-  return { 命中率基线, 闪避率基线, 暴击率基线, 伤害系数, 豁免强度 };
-}
-
-// 文字增幅词库
-function buildAmplifiers() {
-  return {
-    天眷: ['【天意归一】', '【大道垂怜】', '【气机圆满】', '【神运傍身】'],
-    完胜: ['【水到渠成】', '【顺势而为】', '【稳中取胜】', '【神来之笔】'],
-    险胜: ['【背水一战】', '【一线生机】', '【反手成势】', '【勉力而成】'],
-    失手: ['【力有未逮】', '【气机不顺】', '【道行尚浅】', '【时也命也】'],
-    反噬: ['【天机逆转】', '【灵机受挫】', '【心魔作祟】', '【天谴难逃】'],
-  };
-}
-
-// 输出模板
-function buildOutputTemplates() {
-  return {
-    通用判定: [
-      '【判定：{类型}检定】',
-      '角色: {{user}}',
-      '属性: {属性名} ({属性值}) | 难度(DC): {DC}',
-      '投骰: [{骰点}] / 成功率: [{成功率}%]',
-      '结果: 【{等级}】{增幅词} {叙事}',
-    ].join('\n'),
-    斗法判定: [
-      '【判定：斗法对抗】',
-      '攻方: {{user}} | 守方: {敌人}',
-      '[闪避] {闪避结果} | [命中] {命中结果} | [暴击] {暴击结果}',
-      '最终伤害: {伤害}',
-      '结果: 【{战况}】{增幅词} {叙事}',
-    ].join('\n'),
-    用户对NPC: [
-      '【交互：{{user}} → {NPC名称}】',
-      '交互类型: {交互类型} | 判定属性: {属性名}({属性值})',
-      '难度调整: {难度调整} | 投骰: [{骰点}] / 成功率: [{成功率}%]',
-      '结果: 【{等级}】{增幅词}',
-      'NPC反应: {NPC反应描述}',
-    ].join('\n'),
-    NPC对用户: [
-      '【交互：{NPC名称} → {{user}}】',
-      '交互类型: {交互类型} | NPC意图: {NPC意图}',
-      '用户应对: {应对属性}({属性值}) | 投骰: [{骰点}]',
-      '结果: 【{等级}】{增幅词}',
-      '后续影响: {影响描述}',
-    ].join('\n'),
-    NPC对NPC: [
-      '【交互：{NPC1名称} ⇄ {NPC2名称}】',
-      '交互类型: {交互类型} | 观察者: {{user}}',
-      '双方实力: {实力对比} | 情境: {情境描述}',
-      '结果: 【{结局}】{增幅词}',
-      '对{{user}}的影响: {对用户影响}',
-    ].join('\n'),
-  };
-}
-
-// 交互支持配置
-function buildInteractionSupport() {
-  return {
-    支持的交互类型: ['对话', '斗法', '比试', '合作', '交易', '探索', '修炼'],
-    模式说明: {
-      '用户对NPC': '用户主动与NPC进行交互，可能是对话、挑战、交易等',
-      'NPC对用户': 'NPC主动找用户交互，用户需要应对',
-      'NPC对NPC': '两个NPC之间的交互，用户作为观察者，可能受到影响',
-      '对话': '通过言语进行交流，主要判定道心、神海',
-      '斗法': '法术或武力对抗，主要判定法力、空速',
-      '比试': '技能或能力比拼，根据具体内容判定相应属性',
-      '合作': '协同完成任务，可能涉及多种属性',
-      '交易': '商业交换，主要判定道心、气运',
-      '探索': '探索未知区域，主要判定神海、空速、气运',
-      '修炼': '修炼提升，主要判定法力、神海、道心'
-    }
-  };
-}
-
-// 主入口：计算并返回完整的“天道演算”对象
-export function computeHeavenlyPrecalc(saveData: SaveData, baseInfo: CharacterBaseInfo): HeavenlyDerivedAttributes {
-  const 版本 = '4.2';
-
-  const 派生核心 = deriveCore(saveData, baseInfo);
-  const 装备汇总 = aggregateEquipAffix(saveData);
-  const 状态修正 = computeStatusAdjustments(saveData);
-
-  const 派生属性 = {
-    法力: Math.max(0, 派生核心.法力 + 状态修正.法力),
-    神海: Math.max(0, 派生核心.神海 + 状态修正.神海),
-    道心: Math.max(0, 派生核心.道心 + 状态修正.道心),
-    空速: Math.max(0, Math.round(派生核心.空速 + 装备汇总.速度 + 状态修正.空速)),
-    气运: 派生核心.气运,
-  } as Record<HeavenlyCheckType, number> & any;
-
-  const 成功率曲线 = buildCurves(派生属性, 1, 派生核心.气运);
-  const 斗法基线 = buildCombatBaselines(
-    { 法力: 派生属性.法力, 神海: 派生属性.神海, 道心: 派生属性.道心, 空速: 派生属性.空速 },
-    装备汇总
-  );
-
-  const 天眷标签 = scanHeavenlyFavors(baseInfo);
-
-  const 数据: HeavenlyDerivedAttributes = {
-    版本,
-    角色: {
-      名字: baseInfo.名字,
-      世界: baseInfo.世界,
-      境界: { 名称: 派生核心.realmName, 等级: 派生核心.realmLevel },
-      年龄: 派生核心.年龄,
-    },
-    派生属性,
-    加权因子: {
-      境界倍率: 派生核心.境界倍率,
-      装备命中: 装备汇总.命中,
-      装备闪避: 装备汇总.闪避,
-      装备暴击: 装备汇总.暴击,
-      装备速度: 装备汇总.速度,
-    },
-    特许: {
-      天道之眷标签: 天眷标签,
-      触发提示: '若“灵根/天赋”与检定类型强相关（如火灵根→法力/攻击），视为【天眷】，可直接判定大成或给予+20%成功率上限内修正',
-    },
-    成功率曲线,
-    斗法基线,
-    文字增幅: buildAmplifiers(),
-    输出模板: buildOutputTemplates(),
-    交互支持: buildInteractionSupport(),
-    更新时间: new Date().toISOString(),
-  };
-
-  return 数据;
-}
-
-// 执行交互判定
-export function executeInteractionCheck(
-  context: InteractionContext,
-  checkType: HeavenlyCheckType,
-  DC: number,
-  precalc: HeavenlyDerivedAttributes
-): {
+// 通用判定结果
+export interface CheckResult {
   成功: boolean;
-  骰点: number;
-  成功率: number;
-  等级: string;
-  增幅词: string;
-  模板: string;
-} {
-  const 属性值 = precalc.派生属性[checkType];
-  const 气运 = precalc.派生属性.气运;
-  const 难度调整 = context.难度调整 || 0;
-  
-  // 计算成功率
-  const 基础成功率 = successRate(属性值, DC + 难度调整 * 5, 气运);
-  
-  // 模拟投骰
-  const 骰点 = Math.floor(Math.random() * 100) + 1;
-  const 成功 = 骰点 <= 基础成功率 * 100;
-  
-  // 判定等级
-  let 等级: string;
-  let 增幅词: string;
-  
-  if (骰点 <= 5) {
-    等级 = '大成';
-    增幅词 = precalc.文字增幅.完胜[Math.floor(Math.random() * precalc.文字增幅.完胜.length)];
-  } else if (骰点 >= 95) {
-    等级 = '大败';
-    增幅词 = precalc.文字增幅.反噬[Math.floor(Math.random() * precalc.文字增幅.反噬.length)];
-  } else if (成功) {
-    if (骰点 <= 基础成功率 * 50) {
-      等级 = '成功';
-      增幅词 = precalc.文字增幅.完胜[Math.floor(Math.random() * precalc.文字增幅.完胜.length)];
-    } else {
-      等级 = '险胜';
-      增幅词 = precalc.文字增幅.险胜[Math.floor(Math.random() * precalc.文字增幅.险胜.length)];
+  等级: ResultLevel;
+  数值: number;
+  加成: number;
+  最终结果: number;
+}
+
+// 安全数值提取
+function safeNum(val: any, defaultVal = 0): number {
+  const num = Number(val);
+  return Number.isFinite(num) ? num : defaultVal;
+}
+
+// 计算核心属性（纯数值计算，无文本匹配）
+function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo): CoreAttributes {
+  // 基础属性
+  const 根骨 = safeNum(baseInfo?.先天六司?.根骨, 10);
+  const 灵性 = safeNum(baseInfo?.先天六司?.灵性, 10);
+  const 悟性 = safeNum(baseInfo?.先天六司?.悟性, 10);
+  const 心性 = safeNum(baseInfo?.先天六司?.心性, 10);
+  const 气运 = safeNum(baseInfo?.先天六司?.气运, 5);
+
+  // 资源状态
+  const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
+  const 灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
+  const 神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
+
+  // 境界等级
+  const 境界等级 = safeNum(get(saveData, '玩家角色状态.境界.等级', 0));
+  const 境界加成 = 1 + 境界等级 * 0.1;
+
+  // 装备数值加成（仅计算明确的数值字段）
+  const 装备加成 = calculateEquipmentBonus(saveData);
+
+  // 功法数值加成
+  const 功法加成 = calculateTechniqueBonus(saveData);
+
+  // 状态效果数值加成
+  const 状态加成 = calculateStatusBonus(saveData);
+
+  // 计算最终属性
+  const 攻击力 = Math.round((根骨 * 3 + 灵性 * 4 + safeNum(灵气.当前) * 0.5 + 装备加成.攻击 + 功法加成.攻击 + 状态加成.攻击) * 境界加成);
+  const 防御力 = Math.round((根骨 * 4 + 心性 * 3 + safeNum(气血.最大) * 0.3 + 装备加成.防御 + 功法加成.防御 + 状态加成.防御) * 境界加成);
+  const 灵识 = Math.round((悟性 * 4 + 灵性 * 3 + safeNum(神识.当前) * 0.6 + 装备加成.灵识 + 功法加成.灵识 + 状态加成.灵识) * 境界加成);
+  const 敏捷 = Math.round((灵性 * 3 + 根骨 * 2 + 装备加成.敏捷 + 功法加成.敏捷 + 状态加成.敏捷) * 境界加成);
+
+  return {
+    攻击力,
+    防御力,
+    灵识,
+    敏捷,
+    气运,
+    境界加成
+  };
+}
+
+// 计算装备数值加成（仅处理明确的数值字段）
+function calculateEquipmentBonus(saveData: SaveData) {
+  let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
+
+  try {
+    const 装备栏 = get(saveData, '装备栏', {});
+    const 背包物品 = get(saveData, '背包.物品', {});
+
+    // 遍历装备栏
+    Object.values(装备栏).forEach((equipRef: any) => {
+      if (!equipRef) return;
+
+      // 获取装备物品
+      let item: any = null;
+      if (typeof equipRef === 'string') {
+        item = (背包物品 as Record<string, Item>)[equipRef];
+      } else if (typeof equipRef === 'object' && equipRef.物品ID) {
+        item = (背包物品 as Record<string, Item>)[equipRef.物品ID];
+      } else {
+        item = equipRef;
+      }
+
+      if (!item || typeof item !== 'object') return;
+
+      // 只处理明确的数值字段
+      if (typeof item.攻击力 === 'number') 攻击 += item.攻击力;
+      if (typeof item.防御力 === 'number') 防御 += item.防御力;
+      if (typeof item.灵识 === 'number') 灵识 += item.灵识;
+      if (typeof item.敏捷 === 'number') 敏捷 += item.敏捷;
+
+      // 装备增幅中的数值加成
+      const 增幅 = item.装备增幅;
+      if (增幅 && typeof 增幅 === 'object') {
+        if (typeof 增幅.攻击力 === 'number') 攻击 += 增幅.攻击力;
+        if (typeof 增幅.防御力 === 'number') 防御 += 增幅.防御力;
+        if (typeof 增幅.灵识 === 'number') 灵识 += 增幅.灵识;
+        if (typeof 增幅.敏捷 === 'number') 敏捷 += 增幅.敏捷;
+      }
+    });
+
+  } catch (error) {
+    console.warn('[天道演算] 装备加成计算失败:', error);
+  }
+
+  return { 攻击, 防御, 灵识, 敏捷 };
+}
+
+// 计算功法数值加成
+function calculateTechniqueBonus(saveData: SaveData) {
+  let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
+
+  try {
+    const 功法数据 = get(saveData, '修炼功法', {}) as any;
+    const 熟练度 = safeNum(功法数据.熟练度, 0);
+
+    if (熟练度 > 0) {
+      // 基于熟练度的固定加成
+      const 基础加成 = Math.floor(熟练度 / 10);
+      攻击 += 基础加成 * 2;
+      防御 += 基础加成;
+      灵识 += 基础加成 * 1.5;
+      敏捷 += 基础加成 * 0.5;
+
+      // 功法引用的物品加成
+      const 功法引用 = 功法数据.功法;
+      if (功法引用?.物品ID) {
+        const 背包物品 = get(saveData, '背包.物品', {}) as Record<string, Item>;
+        const 功法物品 = 背包物品[功法引用.物品ID];
+        
+        if (功法物品?.功法效果) {
+          const 效果 = 功法物品.功法效果 as any;
+          if (typeof 效果.攻击加成 === 'number') 攻击 += 效果.攻击加成;
+          if (typeof 效果.防御加成 === 'number') 防御 += 效果.防御加成;
+          if (typeof 效果.灵识加成 === 'number') 灵识 += 效果.灵识加成;
+          if (typeof 效果.敏捷加成 === 'number') 敏捷 += 效果.敏捷加成;
+        }
+      }
     }
+
+  } catch (error) {
+    console.warn('[天道演算] 功法加成计算失败:', error);
+  }
+
+  return { 攻击, 防御, 灵识, 敏捷 };
+}
+
+// 计算状态效果数值加成
+function calculateStatusBonus(saveData: SaveData) {
+  let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
+
+  try {
+    const 状态列表 = get(saveData, '玩家角色状态.状态效果', []);
+    
+    状态列表.forEach((状态: any) => {
+      if (!状态 || typeof 状态 !== 'object') return;
+
+      const 强度 = safeNum(状态.强度, 1);
+
+      // 处理明确的数值字段
+      if (typeof 状态.攻击加成 === 'number') 攻击 += 状态.攻击加成 * 强度;
+      if (typeof 状态.防御加成 === 'number') 防御 += 状态.防御加成 * 强度;
+      if (typeof 状态.灵识加成 === 'number') 灵识 += 状态.灵识加成 * 强度;
+      if (typeof 状态.敏捷加成 === 'number') 敏捷 += 状态.敏捷加成 * 强度;
+
+      // 基于类型的简单计算
+      if (状态.类型 === 'buff') {
+        攻击 += 5 * 强度;
+        防御 += 3 * 强度;
+        灵识 += 4 * 强度;
+        敏捷 += 2 * 强度;
+      } else if (状态.类型 === 'debuff') {
+        攻击 -= 8 * 强度;
+        防御 -= 5 * 强度;
+        灵识 -= 6 * 强度;
+        敏捷 -= 4 * 强度;
+      }
+    });
+
+  } catch (error) {
+    console.warn('[天道演算] 状态加成计算失败:', error);
+  }
+
+  return { 攻击, 防御, 灵识, 敏捷 };
+}
+
+// 检查并更新死亡状态
+export function checkAndUpdateDeathState(saveData: SaveData): DeathState {
+  return checkAndUpdateDeathStateImpl(saveData);
+}
+
+// 兼容旧接口的函数
+export function checkCharacterDeath(saveData: SaveData): {
+  isDead: boolean;
+  deathReason?: string;
+  shouldBlockGame: boolean;
+} {
+  const deathState = checkAndUpdateDeathState(saveData);
+  return {
+    isDead: deathState.已死亡,
+    deathReason: deathState.死亡原因,
+    shouldBlockGame: deathState.已死亡
+  };
+}
+
+// 检查并更新死亡状态的实现
+function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
+  try {
+    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
+    const 寿命 = get(saveData, '玩家角色状态.寿命', { 当前: 100, 最大: 100 });
+    const 现有死亡状态 = get(saveData, '玩家角色状态.死亡状态', { 已死亡: false });
+
+    // 如果已经死亡，直接返回
+    if (现有死亡状态.已死亡) {
+      return 现有死亡状态;
+    }
+
+    const 当前气血 = safeNum(气血.当前, 100);
+    const 当前寿命 = safeNum(寿命.当前, 100);
+
+    // 检查死亡条件
+    let 死亡状态: DeathState = { 已死亡: false };
+
+    if (当前气血 <= 0) {
+      死亡状态 = {
+        已死亡: true,
+        死亡时间: getCurrentGameTime(saveData),
+        死亡原因: '气血耗尽',
+        死亡类型: '战斗死亡'
+      };
+    } else if (当前寿命 <= 0) {
+      死亡状态 = {
+        已死亡: true,
+        死亡时间: getCurrentGameTime(saveData),
+        死亡原因: '寿元耗尽',
+        死亡类型: '寿元耗尽'
+      };
+    }
+
+    // 更新死亡状态到存档
+    if (死亡状态.已死亡) {
+      set(saveData, '玩家角色状态.死亡状态', 死亡状态);
+      console.log('[死亡系统] 角色死亡:', 死亡状态);
+    }
+
+    return 死亡状态;
+
+  } catch (error) {
+    console.error('[死亡系统] 检查死亡状态失败:', error);
+    return { 已死亡: false };
+  }
+}
+
+// 获取当前游戏时间
+function getCurrentGameTime(saveData: SaveData): string {
+  const 游戏时间 = get(saveData, '游戏时间', {}) as any;
+  const 年 = safeNum(游戏时间.年, 1);
+  const 月 = safeNum(游戏时间.月, 1);
+  const 日 = safeNum(游戏时间.日, 1);
+  return `${年}年${月}月${日}日`;
+}
+
+// 执行通用判定
+export function executeCheck(
+  checkType: CheckType,
+  difficulty: number,
+  attributes: CoreAttributes,
+  气运调整 = 0
+): CheckResult {
+  // 根据判定类型选择主要属性
+  let 主属性: number;
+  switch (checkType) {
+    case '攻击':
+      主属性 = attributes.攻击力;
+      break;
+    case '防御':
+      主属性 = attributes.防御力;
+      break;
+    case '修炼':
+    case '炼制':
+      主属性 = attributes.灵识;
+      break;
+    case '交互':
+      主属性 = (attributes.灵识 + attributes.气运 * 5) / 2;
+      break;
+    case '探索':
+      主属性 = (attributes.敏捷 + attributes.灵识) / 2;
+      break;
+    default:
+      主属性 = attributes.灵识;
+  }
+
+  // 计算成功率
+  const 基础数值 = 主属性 + attributes.境界加成 * 10;
+  const 气运加成 = (attributes.气运 + 气运调整 - 5) * 2; // -10 到 +10
+  const 最终数值 = 基础数值 + 气运加成;
+
+  // 成功率计算（对数函数）
+  const 成功率 = Math.min(0.95, Math.max(0.05, 
+    1 / (1 + Math.exp(-(最终数值 - difficulty * 10) / 20))
+  ));
+
+  // 模拟投骰
+  const 随机值 = Math.random();
+  const 成功 = 随机值 < 成功率;
+
+  // 判定等级
+  let 等级: ResultLevel;
+  if (随机值 < 0.05) {
+    等级 = '完美';
+  } else if (随机值 < 成功率 * 0.3) {
+    等级 = '大成';
+  } else if (成功) {
+    等级 = '成功';
+  } else if (随机值 > 0.95) {
+    等级 = '大败';
   } else {
     等级 = '失败';
-    增幅词 = precalc.文字增幅.失手[Math.floor(Math.random() * precalc.文字增幅.失手.length)];
   }
-  
-  // 选择合适的模板
-  let 模板: string;
-  if (context.发起者 === '用户' && context.接受者 === 'NPC') {
-    模板 = precalc.输出模板.用户对NPC;
-  } else if (context.发起者 === 'NPC' && context.接受者 === '用户') {
-    模板 = precalc.输出模板.NPC对用户;
-  } else if (context.发起者 === 'NPC' && context.接受者 === 'NPC') {
-    模板 = precalc.输出模板.NPC对NPC;
-  } else {
-    模板 = precalc.输出模板.通用判定;
-  }
-  
+
   return {
     成功,
-    骰点,
-    成功率: Math.round(基础成功率 * 1000) / 10,
     等级,
-    增幅词,
-    模板
+    数值: Math.round(最终数值),
+    加成: Math.round(气运加成),
+    最终结果: Math.round(成功率 * 100)
   };
 }
 
-// 写入到 Tavern 聊天变量
-export async function syncHeavenlyPrecalcToTavern(saveData: SaveData, baseInfo: CharacterBaseInfo) {
+// 执行战斗判定
+export function executeCombat(
+  攻击方属性: CoreAttributes,
+  防御方属性: CoreAttributes,
+  攻击类型: DamageType = '物理'
+): CombatResult {
+  // 命中判定
+  const 命中检定 = executeCheck('攻击', 5, 攻击方属性);
+  const 闪避检定 = executeCheck('防御', 5, 防御方属性);
+  const 命中 = 命中检定.成功 && !闪避检定.成功;
+
+  if (!命中) {
+    return {
+      命中: false,
+      暴击: false,
+      伤害: 0,
+      防御减免: 0,
+      最终伤害: 0
+    };
+  }
+
+  // 暴击判定
+  const 暴击率 = Math.min(0.3, Math.max(0.05, 攻击方属性.敏捷 / 1000));
+  const 暴击 = Math.random() < 暴击率;
+
+  // 伤害计算
+  let 基础伤害 = 攻击方属性.攻击力 * (0.8 + Math.random() * 0.4);
+  if (暴击) {
+    基础伤害 *= 1.5 + (攻击方属性.气运 - 5) * 0.1;
+  }
+
+  // 防御减免
+  const 防御减免 = 防御方属性.防御力 * 0.5;
+  const 最终伤害 = Math.max(1, Math.round(基础伤害 - 防御减免));
+
+  return {
+    命中,
+    暴击,
+    伤害: Math.round(基础伤害),
+    防御减免: Math.round(防御减免),
+    最终伤害
+  };
+}
+
+// 应用伤害并检查死亡
+export function applyDamageAndCheckDeath(
+  saveData: SaveData,
+  伤害: number,
+  伤害类型: DamageType = '物理'
+): DeathState {
+  try {
+    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
+    const 当前气血 = safeNum(气血.当前, 100);
+    
+    // 根据伤害类型调整伤害
+    let 实际伤害 = 伤害;
+    switch (伤害类型) {
+      case '心魔':
+        实际伤害 = Math.round(伤害 * 1.2); // 心魔伤害更高
+        break;
+      case '天劫':
+        实际伤害 = Math.round(伤害 * 1.5); // 天劫伤害最高
+        break;
+    }
+
+    // 应用伤害
+    const 新气血 = Math.max(0, 当前气血 - 实际伤害);
+    set(saveData, '玩家角色状态.气血.当前', 新气血);
+
+    console.log(`[战斗系统] 造成${实际伤害}点${伤害类型}伤害，剩余气血: ${新气血}`);
+
+    // 检查死亡
+    return checkAndUpdateDeathState(saveData);
+
+  } catch (error) {
+    console.error('[战斗系统] 应用伤害失败:', error);
+    return { 已死亡: false };
+  }
+}
+
+// 应用伤害给NPC
+export function applyDamageToNpc(
+  npc: NpcProfile,
+  伤害: number,
+  伤害类型: DamageType = '物理'
+): boolean {
+  try {
+    if (!npc.角色存档信息) return false;
+
+    const 当前气血 = safeNum(npc.角色存档信息.当前气血, 100);
+    const 新气血 = Math.max(0, 当前气血 - 伤害);
+    
+    npc.角色存档信息.当前气血 = 新气血;
+    
+    console.log(`[战斗系统] NPC ${npc.角色基础信息.名字} 受到${伤害}点伤害，剩余气血: ${新气血}`);
+    
+    return 新气血 <= 0; // 返回是否死亡
+
+  } catch (error) {
+    console.error('[战斗系统] NPC受伤失败:', error);
+    return false;
+  }
+}
+
+// 重置死亡状态（复活）
+export function resetDeathState(saveData: SaveData): void {
+  try {
+    const 死亡状态: DeathState = { 已死亡: false };
+    set(saveData, '玩家角色状态.死亡状态', 死亡状态);
+
+    // 恢复最少气血
+    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 1, 最大: 100 });
+    const 最大气血 = safeNum(气血.最大, 100);
+    set(saveData, '玩家角色状态.气血.当前', Math.max(1, Math.floor(最大气血 * 0.1)));
+
+    console.log('[死亡系统] 角色已复活');
+
+  } catch (error) {
+    console.error('[死亡系统] 复活失败:', error);
+  }
+}
+
+// 计算并返回完整的天道演算结果
+export function computeHeavenlyCalculation(
+  saveData: SaveData,
+  baseInfo: CharacterBaseInfo
+): HeavenlyCalculation {
+  const 核心属性 = calculateCoreAttributes(saveData, baseInfo);
+  const 死亡状态 = checkAndUpdateDeathState(saveData);
+  const 境界等级 = safeNum(get(saveData, '玩家角色状态.境界.等级', 0));
+
+  return {
+    版本: '5.0',
+    角色名称: baseInfo.名字,
+    境界等级,
+    核心属性,
+    死亡状态,
+    更新时间: new Date().toISOString()
+  };
+}
+
+// 同步到Tavern
+export async function syncToTavern(saveData: SaveData, baseInfo: CharacterBaseInfo): Promise<void> {
   const helper = getTavernHelper();
   if (!helper) return;
+
   try {
-    const precalc = computeHeavenlyPrecalc(saveData, baseInfo);
+    // 1. 计算天道演算结果
+    const calculation = computeHeavenlyCalculation(saveData, baseInfo);
     
-    // 确保系统字段存在
-    if (!saveData.系统) {
-      saveData.系统 = {};
-    }
-    saveData.系统.天道演算 = precalc;
-    
-    // 同步整个存档数据，而不是创建分离的结构
+    // 2. 将结果直接存入 saveData
+    set(saveData, '玩家角色状态.heavenly', calculation);
+
+    // 3. 将更新后的完整 saveData 同步到酒馆
     await helper.insertOrAssignVariables({
       'character.saveData': saveData
     }, { type: 'chat' });
-  } catch (e) {
-    console.error('[天道演算] 同步到酒馆失败:', e);
+
+    console.log('[天道演算] 同步完成，天道演算结果已存入存档');
+
+  } catch (error) {
+    console.error('[天道演算] 同步失败:', error);
   }
+}
+
+// 兼容旧接口的同步函数
+export async function syncHeavenlyPrecalcToTavern(saveData: SaveData, baseInfo: CharacterBaseInfo): Promise<void> {
+  return syncToTavern(saveData, baseInfo);
+}
+
+// 生成精简判定提示词
+export function generateJudgmentPrompt(): string {
+  return `
+## 天道演算系统 v5.0
+
+### 判定规则
+角色数据已预计算，请直接使用 character.heavenlyCalculation 中的数值。
+
+#### 可用判定类型：
+- 攻击/防御（战斗）
+- 修炼/炼制（提升）  
+- 交互（社交）
+- 探索（冒险）
+
+#### 结果等级：
+- 完美(5%)：超凡表现，额外奖励
+- 大成(15%)：优秀结果，正常奖励
+- 成功(60%)：达成目标，基础奖励
+- 失败(15%)：未达目标，轻微惩罚
+- 大败(5%)：严重失误，重大惩罚
+
+#### 死亡机制：
+气血≤0时角色死亡，游戏结束。寿元≤0同样死亡。
+
+### 使用方式
+1. 根据行动选择判定类型
+2. 使用预计算数值执行判定
+3. 基于结果等级叙述后果
+4. 更新角色状态（伤害/奖励）
+
+**重要：严格按照数值计算，不得随意修改结果。**
+`;
 }

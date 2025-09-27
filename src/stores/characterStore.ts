@@ -65,7 +65,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           id: key,
           角色名字: profile.角色基础信息.名字,
           境界: slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
-          位置: slot.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+          位置: slot.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
           游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
           最后保存时间: slot.保存时间
         };
@@ -78,7 +78,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         id: 'online_save',
         角色名字: profile.角色基础信息.名字,
         境界: profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
-        位置: profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+        位置: profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
         游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
         最后保存时间: profile.存档.保存时间
       };
@@ -818,6 +818,118 @@ export const useCharacterStore = defineStore('characterV3', () => {
     toast.success('所有存档已清空');
   };
 
+  /**
+   * [核心] 酒馆变量缓存管理 - 预生成记忆总结队列
+   * 用于存储叙述原文和其对应总结的键值对，避免被当作提示词发送
+   */
+  const manageTavernMemoryCache = {
+    /**
+     * 添加预生成的中期记忆总结到酒馆变量缓存
+     */
+    async addSummary(narrative: string, summary: string): Promise<void> {
+      try {
+        const helper = getTavernHelper();
+        if (!helper) {
+          console.warn('[酒馆缓存] 酒馆连接不可用，无法缓存预生成记忆');
+          return;
+        }
+
+        // 获取当前缓存
+        const chatVars = await helper.getVariables({ type: 'chat' });
+        const currentCache = chatVars['character.memorySummaryCache'] as Record<string, string> || {};
+        
+        // 添加新的总结
+        currentCache[narrative] = summary;
+        
+        // 写回酒馆变量
+        await helper.insertOrAssignVariables({
+          'character.memorySummaryCache': currentCache
+        }, { type: 'chat' });
+        
+        console.log('[酒馆缓存] 预生成记忆总结已添加到缓存');
+      } catch (error) {
+        console.error('[酒馆缓存] 添加预生成记忆失败:', error);
+      }
+    },
+
+    /**
+     * 获取指定叙述的预生成总结
+     */
+    async getSummary(narrative: string): Promise<string | null> {
+      try {
+        const helper = getTavernHelper();
+        if (!helper) return null;
+
+        const chatVars = await helper.getVariables({ type: 'chat' });
+        const cache = chatVars['character.memorySummaryCache'] as Record<string, string> || {};
+        
+        return cache[narrative] || null;
+      } catch (error) {
+        console.error('[酒馆缓存] 获取预生成记忆失败:', error);
+        return null;
+      }
+    },
+
+    /**
+     * 移除已使用的预生成总结（当转移到中期记忆后）
+     */
+    async removeSummary(narrative: string): Promise<void> {
+      try {
+        const helper = getTavernHelper();
+        if (!helper) return;
+
+        const chatVars = await helper.getVariables({ type: 'chat' });
+        const currentCache = chatVars['character.memorySummaryCache'] as Record<string, string> || {};
+        
+        if (currentCache[narrative]) {
+          delete currentCache[narrative];
+          
+          await helper.insertOrAssignVariables({
+            'character.memorySummaryCache': currentCache
+          }, { type: 'chat' });
+          
+          console.log('[酒馆缓存] 已移除使用过的预生成记忆总结');
+        }
+      } catch (error) {
+        console.error('[酒馆缓存] 移除预生成记忆失败:', error);
+      }
+    },
+
+    /**
+     * 清空所有预生成记忆缓存
+     */
+    async clearCache(): Promise<void> {
+      try {
+        const helper = getTavernHelper();
+        if (!helper) return;
+
+        await helper.insertOrAssignVariables({
+          'character.memorySummaryCache': {}
+        }, { type: 'chat' });
+        
+        console.log('[酒馆缓存] 预生成记忆缓存已清空');
+      } catch (error) {
+        console.error('[酒馆缓存] 清空预生成记忆缓存失败:', error);
+      }
+    },
+
+    /**
+     * 获取缓存中的所有总结（用于调试）
+     */
+    async getAllSummaries(): Promise<Record<string, string>> {
+      try {
+        const helper = getTavernHelper();
+        if (!helper) return {};
+
+        const chatVars = await helper.getVariables({ type: 'chat' });
+        return chatVars['character.memorySummaryCache'] as Record<string, string> || {};
+      } catch (error) {
+        console.error('[酒馆缓存] 获取所有预生成记忆失败:', error);
+        return {};
+      }
+    }
+  };
+
   return {
     // State
     rootState,
@@ -844,5 +956,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     commitToStorage, // 导出给外部使用
     setActiveCharacterInTavern,
     syncFromTavern,
+    // 酒馆变量缓存管理
+    manageTavernMemoryCache,
   };
 });

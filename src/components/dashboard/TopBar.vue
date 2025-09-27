@@ -11,7 +11,7 @@
     <div class="center-section">
       <div class="location-time-info">
         <span class="location-text">{{ currentLocation }}</span>
-        <span class="separator">·</span>
+        <span class="separator">|</span>
         <span class="time-value">{{ gameTime }}</span>
       </div>
     </div>
