@@ -235,6 +235,58 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
   }
 
+  // 9. 装备状态双向同步与修复
+  if (saveData.背包?.物品 && saveData.装备栏) {
+    const inventoryItems = saveData.背包.物品;
+    const equipmentSlots = saveData.装备栏;
+    const equippedItemIds = new Set<string>();
+
+    // 从装备栏构建已装备物品ID集合，并清理无效引用
+    for (const slot in equipmentSlots) {
+      const slotItem = equipmentSlots[slot as keyof Equipment];
+      if (slotItem && typeof slotItem === 'object' && slotItem.物品ID) {
+        // 检查引用的物品是否存在于背包
+        if (inventoryItems[slotItem.物品ID]) {
+          equippedItemIds.add(slotItem.物品ID);
+        } else {
+          // 如果物品不存在，这是一个“幽灵”装备，清空该槽位
+          console.warn(`[数据验证] 修复：装备栏中的物品 ${slotItem.物品ID} 在背包中不存在，已移除。`);
+          equipmentSlots[slot as keyof Equipment] = null;
+        }
+      }
+    }
+
+    // 遍历背包，同步状态
+    for (const itemId in inventoryItems) {
+      const item = inventoryItems[itemId];
+      if (item && item.类型 === '装备') {
+        const isEquippedInSlots = equippedItemIds.has(itemId);
+        
+        // 情况1：物品标记为已装备，但不在装备栏中
+        if (item.已装备 && !isEquippedInSlots) {
+          console.warn(`[数据验证] 修复：物品 ${item.名称} (${itemId}) 标记为已装备但不在装备栏中。`);
+          // 尝试找到一个空槽位
+          const emptySlot = Object.keys(equipmentSlots).find(slot => !equipmentSlots[slot as keyof Equipment]);
+          if (emptySlot) {
+            equipmentSlots[emptySlot as keyof Equipment] = { 名称: item.名称, 物品ID: item.物品ID };
+            console.log(`[数据验证] -> 已将其放入空槽位 ${emptySlot}。`);
+          } else {
+            // 没有空槽位，取消其装备状态
+            item.已装备 = false;
+            console.log(`[数据验证] -> 装备栏已满，已取消其装备状态。`);
+          }
+        }
+        
+        // 情况2：物品未标记为已装备，但在装备栏中
+        else if (!item.已装备 && isEquippedInSlots) {
+          console.warn(`[数据验证] 修复：物品 ${item.名称} (${itemId}) 在装备栏中但未标记为已装备。`);
+          item.已装备 = true;
+          console.log(`[数据验证] -> 已将其状态更新为“已装备”。`);
+        }
+      }
+    }
+  }
+ 
   console.log('[数据验证] 数据验证和修复完成。');
   return saveData;
 }

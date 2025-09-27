@@ -985,12 +985,15 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0; /* 关键修复：允许flex项收缩，防止内容溢出 */
 }
 
 .detail-content {
   height: 100%;
   padding: 1rem;
   overflow-y: auto;
+  width: 100%; /* 确保内容宽度不会超出父容器 */
+  box-sizing: border-box; /* 确保padding不会导致溢出 */
 }
 
 .detail-header {

@@ -8,6 +8,7 @@ import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
+import { validateAndFixSaveData } from '@/utils/dataValidation';
 import type { World } from '@/types';
 import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData } from '@/types/game';
 
@@ -398,9 +399,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const tavernSaveData = chatVars['character.saveData'] as SaveData | undefined;
       
       if (tavernSaveData) {
+        // [核心修复] 使用增强的数据验证函数来清理和修复所有已知问题
+        const fixedSaveData = validateAndFixSaveData(JSON.parse(JSON.stringify(tavernSaveData)));
+
         // 数据整合和清理：确保数据结构一致性
         const cleanedSaveData = {
-          ...tavernSaveData
+          ...fixedSaveData
         };
         
         // 修复数据重复问题：检查是否有嵌套的character.saveData
