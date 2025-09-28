@@ -6,6 +6,7 @@
 import { getTavernHelper } from '@/utils/tavern';
 import { syncToTavern } from '@/utils/judgement/heavenlyRules';
 import { useUIStore } from '@/stores/uiStore';
+import { useCharacterStore } from '@/stores/characterStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
 import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo } from '@/types/game';
@@ -545,9 +546,15 @@ export async function initializeCharacter(
     // 删除格式检查 - 现在只支持数组格式
     console.log('--- [AI DEBUG] 即将处理AI指令 ---');
     console.log('[AI DEBUG] 处理前存档数据:', JSON.parse(JSON.stringify(currentSaveData)));
-    currentSaveData = await processGmResponse(initialMessageResponse, currentSaveData);
+    const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, currentSaveData);
+    currentSaveData = saveDataAfterCommands;
     console.log('--- [AI DEBUG] AI指令处理完成 ---');
     console.log('[AI DEBUG] 处理后存档数据:', JSON.parse(JSON.stringify(currentSaveData)));
+
+    // [新增] 将初始状态变更暂存到 characterStore
+    const characterStore = useCharacterStore();
+    characterStore.setInitialCreationStateChanges(stateChanges);
+    console.log('[角色初始化] 初始状态变更已暂存:', stateChanges);
 
     // 5.6 统一校验和修复异常字段（角色物品/角色状态 等），清理装备栏/背包中的"null"字符串等
     try {

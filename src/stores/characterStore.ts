@@ -11,7 +11,7 @@ import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/se
 import { validateAndFixSaveData } from '@/utils/dataValidation';
 import { validateGameData } from '@/utils/gameDataValidator'; // <-- 导入新的验证器
 import type { World } from '@/types';
-import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData } from '@/types/game';
+import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog } from '@/types/game';
 
 // 假设的创角数据包，实际应从创角流程获取
 interface CreationPayload {
@@ -26,6 +26,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
   // --- 状态 (State) ---
   // Store的核心状态直接镜像本地存储的根对象
   const rootState = ref<LocalStorageRoot>(storage.loadRootData());
+  // 新增：用于暂存角色创建时的初始状态变更
+  const initialCreationStateChanges = ref<StateChangeLog | null>(null);
 
   // --- 计算属性 (Getters) ---
 
@@ -105,6 +107,29 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 向上抛出错误，以便调用者可以处理
       throw error;
     }
+  };
+
+  /**
+   * [新增] 设置角色创建时的初始状态变更日志
+   * @param changes 从 characterInitialization 服务传递过来的变更日志
+   */
+  const setInitialCreationStateChanges = (changes: StateChangeLog) => {
+    debug.log('角色商店', '暂存初始角色创建的状态变更', changes);
+    initialCreationStateChanges.value = changes;
+  };
+
+  /**
+   * [新增] 消费（获取并清除）初始状态变更日志
+   * 这是一个“一次性”的 getter，确保日志只被主面板使用一次
+   * @returns 暂存的变更日志，如果没有则返回 null
+   */
+  const consumeInitialCreationStateChanges = (): StateChangeLog | null => {
+    const changes = initialCreationStateChanges.value;
+    if (changes) {
+      debug.log('角色商店', '消费初始状态变更日志', changes);
+      initialCreationStateChanges.value = null; // 获取后立即清除
+    }
+    return changes;
   };
 
   /**
@@ -970,7 +995,12 @@ const reinitializeCharacter = async (charId: string, slotKey: string) => {
     
     // 假设创角时使用的世界和年龄信息存储在profile的某个地方
     // 这里我们使用一个mock的世界对象和年龄，实际应用中需要获取真实数据
-    const world: World = { name: profile.角色基础信息.世界 || '未知世界', description: '世界信息已在修复中重新生成' };
+    const world: World = {
+      id: 0, // 提供默认ID
+      name: profile.角色基础信息.世界 || '未知世界',
+      era: '未知纪元', // 提供默认纪元
+      description: '世界信息已在修复中重新生成'
+    };
     const age = profile.角色基础信息.年龄 || 16;
 
     let newSaveData: SaveData | null = null;
@@ -1032,5 +1062,9 @@ return {
   reinitializeCharacter, // 暴露修复方法
   // 酒馆变量缓存管理
   manageTavernMemoryCache,
+  // 初始状态变更传递
+  initialCreationStateChanges,
+  setInitialCreationStateChanges,
+  consumeInitialCreationStateChanges,
 };
 });

@@ -6,6 +6,7 @@
 import { getTavernHelper } from './tavern';
 import { set, get, unset, cloneDeep } from 'lodash';
 import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
+import type { StateChangeLog } from '@/types/game';
 
 /**
  * 构建发送给AI Game Master的请求对象
@@ -117,32 +118,82 @@ export function buildGmRequest(
 }
 
 /**
+ * [新] 批量执行酒馆命令并记录状态变更
+ * @param commands 命令数组
+ * @param saveData 初始存档数据
+ * @returns 包含更新后存档和变更日志的对象
+ */
+export async function executeCommands(
+  commands: any[],
+  saveData: any
+): Promise<{ saveData: any; stateChanges: StateChangeLog }> {
+  let updatedSaveData = cloneDeep(saveData);
+  const changes: StateChangeLog['changes'] = [];
+
+  for (const command of commands) {
+    if (!command || !command.action || !command.key) continue;
+
+    const { action, key, value } = command;
+    
+    // 规范化路径
+    let path = key;
+    if (path.startsWith('character.saveData.')) {
+      path = path.substring('character.saveData.'.length);
+    }
+
+    const oldValue = cloneDeep(get(updatedSaveData, path));
+    
+    // 执行命令
+    updatedSaveData = await executeCommand(command, updatedSaveData);
+    
+    const newValue = cloneDeep(get(updatedSaveData, path));
+
+    // 简单比较来决定是否记录变更
+    if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+      changes.push({
+        key: path,
+        action,
+        oldValue,
+        newValue,
+      });
+    }
+  }
+
+  return {
+    saveData: updatedSaveData,
+    stateChanges: { changes },
+  };
+}
+
+
+/**
  * 处理AI Game Master的响应，执行其中的酒馆命令
  * @param response GM响应对象
  * @param currentSaveData 当前存档数据
- * @returns 更新后的存档数据
+ * @returns 包含更新后存档和变更日志的对象
  */
-export async function processGmResponse(response: GM_Response, currentSaveData: any): Promise<any> {
+export async function processGmResponse(
+  response: GM_Response,
+  currentSaveData: any
+): Promise<{ saveData: any; stateChanges: StateChangeLog }> {
   console.log('[processGmResponse] 开始处理GM响应');
   
+  const emptyChanges: StateChangeLog = { changes: [] };
+
   if (!response) {
     console.warn('[processGmResponse] 响应为空，返回原始数据');
-    return currentSaveData;
+    return { saveData: currentSaveData, stateChanges: emptyChanges };
   }
 
   let updatedSaveData = cloneDeep(currentSaveData);
+  let stateChanges: StateChangeLog = emptyChanges;
 
   // 处理tavern_commands
-  if (Array.isArray(response.tavern_commands)) {
+  if (Array.isArray(response.tavern_commands) && response.tavern_commands.length > 0) {
     console.log(`[processGmResponse] 处理 ${response.tavern_commands.length} 个酒馆命令`);
-    
-    for (const command of response.tavern_commands) {
-      try {
-        updatedSaveData = await executeCommand(command, updatedSaveData);
-      } catch (error) {
-        console.error('[processGmResponse] 执行命令失败:', command, error);
-      }
-    }
+    const result = await executeCommands(response.tavern_commands, updatedSaveData);
+    updatedSaveData = result.saveData;
+    stateChanges = result.stateChanges;
   }
 
   // 处理mid_term_memory
@@ -158,7 +209,7 @@ export async function processGmResponse(response: GM_Response, currentSaveData: 
   }
 
   console.log('[processGmResponse] GM响应处理完成');
-  return updatedSaveData;
+  return { saveData: updatedSaveData, stateChanges };
 }
 
 /**

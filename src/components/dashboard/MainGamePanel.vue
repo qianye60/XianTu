@@ -1655,8 +1655,23 @@ const initializePanelForSave = async () => {
       const isInitialLoad = memories && memories.length === 1;
 
       if (isInitialLoad) {
-        // 对于新角色，调用此函数以确保显示包含初始属性的“变更日志”。
-        await generateAndShowInitialMessage();
+        // [核心改造] 对于新角色，优先尝试从 characterStore 消费真实的初始状态变更
+        const initialChanges = characterStore.consumeInitialCreationStateChanges();
+        if (initialChanges && initialChanges.changes.length > 0) {
+          console.log('[主面板] 成功获取到真实的初始状态变更日志', initialChanges);
+          // 直接使用真实的日志，但需要加载开场白文本
+          const initialMessageContent = memories[0] || '欢迎来到修仙世界！';
+          currentNarrative.value = {
+            type: 'gm',
+            content: initialMessageContent,
+            time: formatCurrentTime(),
+            stateChanges: initialChanges,
+          };
+        } else {
+          // 如果没有真实的日志（作为兜底），才调用旧的伪造函数
+          console.log('[主面板] 未获取到初始状态变更，使用伪造的日志作为兜底');
+          await generateAndShowInitialMessage();
+        }
       } else if (memories && memories.length > 0) {
         // 对于已有进度的角色，加载最新记忆，此时不显示历史状态变更。
         currentNarrative.value = {
