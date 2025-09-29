@@ -202,6 +202,7 @@ import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings,
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
+import { getTavernHelper } from '@/utils/tavern';
 
 const props = defineProps<{
   collapsed?: boolean;
@@ -288,33 +289,45 @@ const handleTavernData = () => {
 
 const handleBackToMenu = () => {
   uiStore.showRetryDialog({
-    title: '返回道途',
-    message: '确定要返回道途吗？当前游戏进度将会保存。',
-    confirmText: '保存并返回',
+    title: '⚠️ 返回道途确认',
+    message: '确定要返回道途吗？这将会：\n\n• 保存当前游戏进度\n• 清理酒馆聊天上下文\n• 返回主菜单\n\n只有真正要退出游戏时才应该选择此操作！',
+    confirmText: '确认退出游戏',
     cancelText: '取消',
-    onConfirm: () => {
-      console.log('[返回道途] 用户确认返回，开始保存和跳转...');
+    onConfirm: async () => {
+      console.log('[返回道途] 用户确认返回，开始保存、清理和跳转...');
       
-      // 先保存游戏
-      characterStore.saveCurrentGame().then(() => {
+      try {
+        // 1. 保存游戏
+        await characterStore.saveCurrentGame();
         console.log('[返回道途] 游戏保存成功');
-      }).catch(error => {
+      } catch (error) {
         console.warn('[返回道途] 游戏保存失败:', error);
-      }).finally(() => {
-        // 无论保存成功还是失败，都执行跳转
-        console.log('[返回道途] 开始路由跳转');
+        toast.error('游戏保存失败，但仍会尝试返回。');
+      }
+
+      try {
+        // 2. 清理酒馆上下文
+        const helper = getTavernHelper();
+        if (helper) {
+          await helper.insertOrAssignVariables({ 'character.saveData': null }, { type: 'chat' });
+          console.log('[返回道途] 已从酒馆聊天上下文中清理 character.saveData。');
+        }
+      } catch (error) {
+        console.error('[返回道途] 清理酒馆 character.saveData 失败:', error);
+        toast.warning('清理会话上下文失败，可能会影响下次游戏。');
+      }
         
-        // 重置状态
-        characterStore.rootState.当前激活存档 = null;
-        uiStore.stopLoading();
-        
-        // 跳转到模式选择页面
-        router.push('/').then(() => {
-          console.log('[返回道途] 路由跳转成功');
-        }).catch(error => {
-          console.log('[返回道途] 路由跳转失败:', error);
-        });
-      });
+      // 3. 重置状态并跳转
+      console.log('[返回道途] 开始路由跳转');
+      characterStore.rootState.当前激活存档 = null;
+      uiStore.stopLoading();
+      
+      try {
+        await router.push('/');
+        console.log('[返回道途] 路由跳转成功');
+      } catch (error) {
+        console.log('[返回道途] 路由跳转失败:', error);
+      }
     },
     onCancel: () => {
       console.log('[返回道途] 用户取消返回');

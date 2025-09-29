@@ -14,7 +14,7 @@ import {
   ENHANCED_TIME_MANAGEMENT,
   ENHANCED_DATA_VALIDATION
 } from './commonPromptRules';
-import { DATA_STRUCTURE_TEMPLATES, UNIFIED_PROMPT_BUILDER } from './unifiedPromptSystem';
+import { UNIFIED_PROMPT_BUILDER } from './unifiedPromptSystem';
 
 export const CHARACTER_INITIALIZATION_PROMPT = `
 # 任务：角色初始化
@@ -26,6 +26,14 @@ export const CHARACTER_INITIALIZATION_PROMPT = `
 
 *   核心: 生成一段 800-1500 字的沉浸式开场故事。
 *   内容: 故事必须体现玩家选择的出身、天赋，并详细描绘角色当前所处的环境、心境和正在发生的事件。
+*   **最高优先级规则 1：严格遵守开局年龄**
+    *   **必须**从玩家选择的 \`开局年龄\` 精确开始叙事。
+    *   如果 \`开局年龄\` 为 0 岁，故事必须从角色**刚刚诞生**的时刻开始，例如描述出生时的异象、环境、家庭反应等。
+    *   **严禁**在开局故事中进行任何形式的时间跳跃（例如“一晃六年过去了”）。故事的起点必须是指定的年龄。
+*   **最高优先级规则 2：绝对的叙事一致性**
+    *   故事**必须**与玩家选择的**所有**核心设定（天资、出身、灵根、天赋）完全一致，并积极、正面地体现这些设定的优势。
+    *   **严禁**为了制造戏剧冲突而贬低、削弱或无视玩家选择的正面特质。例如，如果玩家选择了“神品灵根”，故事中就**绝对不能**出现“灵根是凡品”、“无法修炼”等负面描述。故事必须围绕这个“神品灵根”所带来的强大潜力和异象展开。
+    *   将玩家的选择作为故事的核心驱动力，而不是可有可无的背景板。
 *   要求: 遵循以下的通用叙事规则。
 ---
 
@@ -48,71 +56,9 @@ export const CHARACTER_INITIALIZATION_PROMPT = `
 *   要求: 遵循以下的通用数据操作和模块化规则。
 ---
 
-## NPC生成规范（初始化专用）
+## NPC生成规范（精简版）
 
-### ✅ 正确的初始化NPC格式：
-\`\`\`json
-{
-  "push": {
-    "character.saveData.人物关系.【NPC名字】": {
-      "角色基础信息": {
-        "名字": "NPC姓名",
-        "性别": "男/女",
-        "年龄": 数值,
-        "世界": "所在世界",
-        "天资": "盖世天骄/绝世天才等",
-        "灵根": {
-          "名称": "灵根名称",
-          "品级": "凡品/下品/中品/上品/极品/神品",
-          "描述": "详细的灵根描述"
-        },
-        "天赋": ["具体天赋名称"],
-        "先天六司": {
-          "根骨": 数值, "灵性": 数值, "悟性": 数值,
-          "气运": 数值, "魅力": 数值, "心性": 数值
-        }
-      },
-      "外貌描述": "详细的外观描述",
-      "人物关系": "师父/朋友/敌人/长辈",
-      "人物好感度": 数值0-100,
-      "人物记忆": [
-        {
-          "时间": "具体游戏时间",
-          "事件": "重要交互事件描述",
-          "重要度": "普通/重要/关键"
-        }
-      ],
-      "最后出现位置": {
-        "描述": "具体位置描述"
-      },
-      "背包": {
-        "灵石": {
-          "下品": 数值, "中品": 数值, "上品": 数值, "极品": 数值
-        },
-        "物品": [
-          {
-            "物品ID": "item_xxx",
-            "名称": "物品名称",
-            "类型": "装备/功法/其他",
-            "品质": {"quality": "品质", "grade": 等级},
-            "数量": 数值,
-            "描述": "物品描述"
-          }
-        ]
-      },
-      "性格特征": ["性格描述"],
-      "知名技能": ["技能名称"],
-      "势力归属": "所属势力"
-    }
-  }
-}
-\`\`\`
-
-### ❌ 严禁生成的复杂结构：
-- 禁止为NPC生成详细数值状态（当前气血/最大气血等）
-- 禁止为NPC生成装备栏管理系统
-- 禁止为NPC生成修炼进度详情
-- 禁止为NPC生成角色存档信息等玩家级别的复杂数据
+创建NPC时使用标准格式，包含基础信息、关系描述、好感度、背包等必要字段即可。
 
 ---
 
@@ -194,20 +140,36 @@ export function buildCharacterInitializationPrompt(userSelections: {
         const nameField = value.name || value.名称;
         let result = nameField ? `${nameField}\n` : '';
         
-        // 显示所有其他字段
+        // 显示所有其他字段（限制长度避免提示词爆炸）
         entries.forEach(([key, val]) => {
           if (key !== 'name' && key !== '名称' && val !== null && val !== undefined) {
-            result += `    *   **${key}**: ${typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val)}\n`;
+            let valueStr = '';
+            if (typeof val === 'object') {
+              // 限制对象序列化的长度，避免巨量文本
+              const jsonStr = JSON.stringify(val);
+              valueStr = jsonStr.length > 100 ? `${jsonStr.substring(0, 100)}...` : jsonStr;
+            } else {
+              valueStr = String(val);
+              // 限制字符串长度
+              if (valueStr.length > 200) {
+                valueStr = valueStr.substring(0, 200) + '...';
+              }
+            }
+            result += `    *   **${key}**: ${valueStr}\n`;
           }
         });
         
-        return result.trim() || JSON.stringify(value, null, 2);
+        const fallbackJson = JSON.stringify(value, null, 2);
+        return result.trim() || (fallbackJson.length > 500 ? `${fallbackJson.substring(0, 500)}...` : fallbackJson);
       }
     }
 
-    // === 最后防线：直接显示 JSON ===
+    // === 最后防线：直接显示 JSON（限制长度） ===
     console.warn('[formatItem] 使用JSON格式显示未识别的对象类型:', value);
-    return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+    const finalJson = JSON.stringify(value, null, 2);
+    return finalJson.length > 1000 ? 
+      `\`\`\`json\n${finalJson.substring(0, 1000)}...\n\`\`\`` : 
+      `\`\`\`json\n${finalJson}\n\`\`\``;
   };
 
   // === 格式化天赋列表 ===

@@ -159,6 +159,10 @@ export async function executeCommands(
     }
   }
 
+  // 🔥 关键修复：将更新后的数据同步回酒馆变量
+  console.log('[executeCommands] 同步数据到酒馆变量...');
+  await syncToTavern(updatedSaveData, 'chat');
+
   return {
     saveData: updatedSaveData,
     stateChanges: { changes },

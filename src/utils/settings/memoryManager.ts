@@ -189,22 +189,12 @@ export class AIMemoryManager {
    */
   private buildSummaryPrompt(memories: string[]): string {
     return `
-## **记忆整理任务**
+# 记忆整理任务
+将以下${memories.length}条记忆整理成简洁总结：
 
-你需要将以下${memories.length}条中期记忆整理成一份简洁的总结，保留关键信息：
-
-### **待整理的记忆:**
 ${memories.map((memory, index) => `${index + 1}. ${memory}`).join('\n')}
 
-### **整理要求:**
-- 保留重要的人物、地点、物品、技能信息
-- 突出关键决定和重要事件的结果
-- 删除重复和琐碎的细节
-- 保持时间顺序和因果关系
-- 字数控制在200字以内
-
-### **输出格式:**
-直接返回整理后的记忆总结，不要包含额外的解释或标记。
+**要求**: 保留关键人物、地点、事件结果，删除重复细节，200字内，直接返回总结。
 `;
   }
 

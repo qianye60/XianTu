@@ -147,7 +147,10 @@ export const DATA_STRUCTURE_TEMPLATES = `
   "名称": "境界名称字符串(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫)",
   "当前进度": 数字(当前境界内的修炼进度),
   "下一级所需": 数字(突破到下一境界所需的进度),
-  "突破描述": "突破条件和要求的详细描述字符串"
+  "突破描述": "突破条件和要求的详细描述字符串",
+  "子阶段": "初期|中期|后期|圆满|极境",
+  "修为倍率": 数字(修炼获得修为的倍率，如1.5表示150%),
+  "寿命增加": 数字(该境界提供的额外寿命)
 }
 \`\`\`
 
@@ -228,7 +231,7 @@ export const DATA_STRUCTURE_TEMPLATES = `
 - 灵根: {"类型": "天品"} (错误，应该用"品级")
 
 ✅ **正确格式**：
-- 境界: {"等级": 5, "名称": "化神", "当前进度": 1500, "下一级所需": 10000, "突破描述": "需领悟化神真意"}
+- 境界: {"等级": 5, "名称": "化神", "当前进度": 1500, "下一级所需": 10000, "突破描述": "需领悟化神真意", "子阶段": "初期", "修为倍率": 3.0, "寿命增加": 500}
 - 修为: {"当前": 1500, "最大": 10000}
 - 年龄: 25 (数字)
 - 灵根: {"名称": "废灵根", "品级": "凡品", "描述": "..."}
@@ -237,7 +240,7 @@ export const DATA_STRUCTURE_TEMPLATES = `
 
 生成任何数据前，请检查：
 1. 所有数字字段都是数字类型
-2. **玩家**境界信息包含完整的5个字段(等级、名称、当前进度、下一级所需、突破描述)
+2. **玩家**境界信息包含完整的8个字段(等级、名称、当前进度、下一级所需、突破描述、子阶段、修为倍率、寿命增加)
 3. **NPC**境界信息是简单数字(1=练气，2=筑基等)
 4. 修为进度已整合到境界对象中(当前进度/下一级所需)
 5. 所有必要字段都存在
@@ -258,36 +261,43 @@ export const UNIFIED_PROMPT_BUILDER = {
    */
   buildGamePrompt: (promptType: 'initialization' | 'gameplay' | 'npc_update') => {
     // 为了降低运行时提示词长度：
-    // - 初始化使用完整规则和模板
-    // - 剧情推进/更新时使用精简规则（不再内联庞大的数据模板）
+    // - 初始化使用精简规则（移除详细的数据模板）
+    // - 剧情推进/更新时使用最精简规则
     const baseRules = (() => {
       if (promptType === 'gameplay' || promptType === 'npc_update') {
         // 精简版规则：避免与 system.rules.bundle 重复
         return [
           '# 运行规则（精简）',
+          '- ⚠️ 先创建后修改：所有数据必须先存在才能修改',
           '- 严格遵守存档中各对象的 _AI说明/_AI重要提醒，与 character.saveData.系统.规则。',
           '- 所有变更通过 tavern_commands 实现；输出唯一 JSON（text/mid_term_memory/tavern_commands）。',
           '- 读取并遵守 先天六司上限与其他系统限制（见系统.规则）。'
         ].join('\n');
       }
-      // initialization 默认完整规则
+      // initialization 使用精简规则，不再加载庞大的数据模板
       return [
         COMMON_CORE_RULES,
         COMMON_NARRATIVE_RULES,
         COMMON_DATA_MANIPULATION_RULES,
-        DATA_STRUCTURE_TEMPLATES,
+        // DATA_STRUCTURE_TEMPLATES, // 移除庞大的数据模板
         ENHANCED_TIME_MANAGEMENT,
         ENHANCED_DATA_VALIDATION,
         '# 先天六司约束\n- 先天六司六项每项范围为0-10；NPC同样遵守。\n- 若生成/更新出现超限，必须在 tavern_commands 中写入裁剪后的值（如>10则写入10）。\n- 生成/更新前，应读取并遵守 character.saveData.系统.规则 中的限制（例如 属性上限.先天六司.每项上限）。',
-        COMMON_NPC_RULES,
-        COMMON_ITEM_RULES,
-        COMMON_DAO_RULES
+        // COMMON_NPC_RULES, // 移除详细NPC规则
+        // COMMON_ITEM_RULES, // 移除详细物品规则
+        // COMMON_DAO_RULES // 移除详细大道规则
       ].join('\n\n');
     })();
 
     const specificRules = {
       initialization: [
-        CHARACTER_INITIALIZATION_RULES,
+        // CHARACTER_INITIALIZATION_RULES, // 移除冗长的初始化规则
+        '# 角色初始化要点',
+        '- ⚠️ 先创建后修改：只创建新的NPC/物品/大道，不修改已有数据',
+        '- 严禁修改角色基础信息（姓名、性别、年龄、先天六司等）',
+        '- 必须生成具体的层级地理位置',
+        '- 创建1-3个初始NPC和2-5件初始物品',
+        '',
         '\n# ⚠️【关键提醒：严格输出格式要求】⚠️',
         '❌ 严禁使用任何非标准字段名，如：command, set_value, add_item, add_npc 等',
         '✅ 只能使用标准字段：action, scope, key, value',
@@ -298,7 +308,7 @@ export const UNIFIED_PROMPT_BUILDER = {
         '⚠️ 重要：必须使用标准的 action/scope/key/value 格式，不得使用 command 等别名',
         '- 仅输出一个 JSON 对象，不要输出多余文本；建议使用 ```json 代码块包裹。',
         '- 顶层字段：',
-        '  - text: string（800-1500 字开场叙事）',
+        '  - text: string（1500-3000字详细叙事）',
         '  - mid_term_memory: string（可为空字符串）',
         '  - tavern_commands: TavernCommand[]（严格的命令数组）',
         '\n# 【tavern_commands 规范（必须严格遵守）】',
@@ -350,9 +360,10 @@ export const UNIFIED_PROMPT_BUILDER = {
         '8) ✅ 未写入任何"未知/随机/占位符"等字样',
         '9) ✅ 开场物品/人物/NPC/大道写入符合各自结构要求',
         '10) ✅ 先天六司未被修改',
-        '11) ✅ 内容和路径与玩家选择一致、语义合理、无自相矛盾'
+        '11) ✅ 遵循"先创建后修改"原则，只创建新的NPC/物品/大道数据',
+        '12) ✅ 内容和路径与玩家选择一致、语义合理、无自相矛盾'
       ].join('\n'),
-      gameplay: '# 游戏进行中的特殊规则\n\n1. 每次回应必须推进故事情节\n2. 必须更新游戏时间\n3. 玩家行动必须有明确结果',
+      gameplay: '# 游戏进行中的特殊规则\n\n⚠️ **先创建后修改原则**：\n- 修改NPC数据前，该NPC必须已存在于人物关系中\n- 修改物品数量前，该物品必须已存在于背包中\n- 修改大道进度前，该大道必须已解锁\n- 只能对已存在的数据路径进行操作\n\n1. 每次回应必须推进故事情节\n2. 必须更新游戏时间\n3. 玩家行动必须有明确结果',
       npc_update: '# NPC更新规则\n\n1. 更新相关NPC状态\n2. 记录重要互动\n3. 调整好感度'
     };
 

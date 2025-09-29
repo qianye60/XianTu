@@ -1507,6 +1507,8 @@ const sendMessage = async () => {
       if (currentNarrative.value) {
         currentNarrative.value.stateChanges = aiResponse.stateChanges as StateChangeLog;
       }
+      // 持久化记录本次变更历史，便于跨页面/刷新后查看
+      try { uiStore.pushStateChangeHistory(aiResponse.stateChanges as any); } catch {}
       console.log('[日志面板] State changes received and attached to current narrative:', aiResponse.stateChanges);
 
       // 检查角色死亡状态（在状态更新后）
@@ -1572,10 +1574,15 @@ const sendMessage = async () => {
     if (aiResponse) {
       toast.success('天道已回');
       
-      // 确保数据已保存到本地存储
+      // 确保数据已保存到本地存储（使用超时保护）
       try {
         console.log('[AI响应处理] 确保最终数据持久化...');
-        await characterStore.commitToStorage();
+        await Promise.race([
+          characterStore.commitToStorage(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('存储超时')), 5000)
+          )
+        ]);
         console.log('[AI响应处理] 最终数据持久化完成');
       } catch (storageError) {
         console.error('[AI响应处理] 数据持久化失败:', storageError);
@@ -1627,7 +1634,7 @@ const midTermMemoryCache = {
         processed: false
       };
       
-      await helper.setVariable(cacheKey, currentCache);
+      await helper.insertOrAssignVariables({ [cacheKey]: currentCache }, { type: 'chat' });
       console.log('[中期记忆缓存] 已缓存待转换记忆，缓存数量:', Object.keys(currentCache).length);
       
       return currentCache;
@@ -1672,7 +1679,7 @@ const midTermMemoryCache = {
       });
       
       // 更新缓存状态
-      await helper.setVariable(cacheKey, cache);
+      await helper.insertOrAssignVariables({ [cacheKey]: cache }, { type: 'chat' });
       
       console.log('[中期记忆缓存] 已处理完成，生成', midTermMemories.length, '条中期记忆');
       return midTermMemories;
@@ -1695,7 +1702,7 @@ const midTermMemoryCache = {
         Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed)
       );
       
-      await helper.setVariable(cacheKey, unprocessedCache);
+      await helper.insertOrAssignVariables({ [cacheKey]: unprocessedCache }, { type: 'chat' });
       console.log('[中期记忆缓存] 已清除已处理的缓存条目');
     } catch (error) {
       console.error('[中期记忆缓存] 清除缓存失败:', error);
@@ -1802,10 +1809,20 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
       console.log(`[记忆管理] 验证: 最新记忆: ${verifyMemories[0].substring(0, 50)}...`);
     }
     
-    // 关键：立即持久化到本地存储
+    // 关键：立即持久化到本地存储（使用超时保护）
     console.log('[记忆管理] 开始持久化存档数据...');
-    await characterStore.commitToStorage();
-    console.log('[记忆管理] 存档数据已持久化到本地存储');
+    try {
+      await Promise.race([
+        characterStore.commitToStorage(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('存储超时')), 5000)
+        )
+      ]);
+      console.log('[记忆管理] 存档数据已持久化到本地存储');
+    } catch (error) {
+      console.error('[记忆管理] 存档数据持久化失败:', error);
+      toast.warning('数据保存可能不完整');
+    }
     
     // 关键：同步到酒馆变量
     console.log('[记忆管理] 开始同步数据到酒馆变量...');

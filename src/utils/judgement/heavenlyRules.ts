@@ -7,9 +7,20 @@
  * - 完善死亡机制和游戏阻断
  */
 
-import { get, set, unset } from 'lodash';
+import { get, set } from 'lodash';
 import { getTavernHelper } from '@/utils/tavern';
-import type { SaveData, CharacterBaseInfo, Item, NpcProfile, HeavenlyCalculation, CoreAttributes, DeathState } from '@/types/game';
+import type {
+  SaveData,
+  CharacterBaseInfo,
+  Item,
+  NpcProfile,
+  HeavenlyCalculation,
+  DeathState,
+  HeavenlySystem,
+  EquipmentItem,
+  TechniqueItem,
+  StatusEffect
+} from '@/types/game';
 
 // 判定类型
 export type CheckType = '攻击' | '防御' | '修炼' | '交互' | '探索' | '炼制';
@@ -45,8 +56,8 @@ function safeNum(val: any, defaultVal = 0): number {
   return Number.isFinite(num) ? num : defaultVal;
 }
 
-// 计算核心属性（纯数值计算，无文本匹配）
-function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo): CoreAttributes {
+// [重构] 计算核心属性，适配新的 HeavenlySystem 类型
+function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo): HeavenlySystem['核心属性'] {
   // 基础属性
   const 根骨 = safeNum(baseInfo?.先天六司?.根骨, 10);
   const 灵性 = safeNum(baseInfo?.先天六司?.灵性, 10);
@@ -63,7 +74,7 @@ function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo
   const 境界等级 = safeNum(get(saveData, '玩家角色状态.境界.等级', 0));
   const 境界加成 = 1 + 境界等级 * 0.1;
 
-  // 装备数值加成（仅计算明确的数值字段）
+  // 装备数值加成
   const 装备加成 = calculateEquipmentBonus(saveData);
 
   // 功法数值加成
@@ -88,46 +99,30 @@ function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo
   };
 }
 
-// 计算装备数值加成（仅处理明确的数值字段）
+// [重构] 计算装备数值加成，适配新的 Item 和 AttributeBonus 类型
 function calculateEquipmentBonus(saveData: SaveData) {
   let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
 
   try {
     const 装备栏 = get(saveData, '装备栏', {});
-    const 背包物品 = get(saveData, '背包.物品', {});
+    const 背包物品 = get(saveData, '背包.物品', []) as Item[];
 
-    // 遍历装备栏
-    Object.values(装备栏).forEach((equipRef: any) => {
-      if (!equipRef) return;
+    Object.values(装备栏).forEach((equipId: any) => {
+      if (!equipId) return;
 
-      // 获取装备物品
-      let item: any = null;
-      if (typeof equipRef === 'string') {
-        item = (背包物品 as Record<string, Item>)[equipRef];
-      } else if (typeof equipRef === 'object' && equipRef.物品ID) {
-        item = (背包物品 as Record<string, Item>)[equipRef.物品ID];
-      } else {
-        item = equipRef;
-      }
+      const item = 背包物品.find(i => i.物品ID === equipId);
 
-      if (!item || typeof item !== 'object') return;
-
-      // 只处理明确的数值字段
-      if (typeof item.攻击力 === 'number') 攻击 += item.攻击力;
-      if (typeof item.防御力 === 'number') 防御 += item.防御力;
-      if (typeof item.灵识 === 'number') 灵识 += item.灵识;
-      if (typeof item.敏捷 === 'number') 敏捷 += item.敏捷;
-
-      // 装备增幅中的数值加成
-      const 增幅 = item.装备增幅;
-      if (增幅 && typeof 增幅 === 'object') {
-        if (typeof 增幅.攻击力 === 'number') 攻击 += 增幅.攻击力;
-        if (typeof 增幅.防御力 === 'number') 防御 += 增幅.防御力;
-        if (typeof 增幅.灵识 === 'number') 灵识 += 增幅.灵识;
-        if (typeof 增幅.敏捷 === 'number') 敏捷 += 增幅.敏捷;
+      if (item && item.类型 === '装备') {
+        const equip = item as EquipmentItem;
+        const 增幅 = equip.装备增幅;
+        if (增幅) {
+          攻击 += safeNum(增幅.攻击力);
+          防御 += safeNum(增幅.防御力);
+          灵识 += safeNum(增幅.灵识);
+          敏捷 += safeNum(增幅.敏捷);
+        }
       }
     });
-
   } catch (error) {
     console.warn('[天道演算] 装备加成计算失败:', error);
   }
@@ -135,38 +130,41 @@ function calculateEquipmentBonus(saveData: SaveData) {
   return { 攻击, 防御, 灵识, 敏捷 };
 }
 
-// 计算功法数值加成
+// [重构] 计算功法数值加成，适配新的 TechniqueItem 和 TechniqueEffects 类型
 function calculateTechniqueBonus(saveData: SaveData) {
   let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
 
   try {
-    const 功法数据 = get(saveData, '修炼功法', {}) as any;
-    const 熟练度 = safeNum(功法数据.熟练度, 0);
+    const 功法数据 = get(saveData, '修炼功法');
+    if (!功法数据 || !功法数据.功法) return { 攻击, 防御, 灵识, 敏捷 };
 
+    const 熟练度 = safeNum(功法数据.熟练度, 0);
     if (熟练度 > 0) {
-      // 基于熟练度的固定加成
       const 基础加成 = Math.floor(熟练度 / 10);
       攻击 += 基础加成 * 2;
       防御 += 基础加成;
       灵识 += 基础加成 * 1.5;
       敏捷 += 基础加成 * 0.5;
+    }
 
-      // 功法引用的物品加成
-      const 功法引用 = 功法数据.功法;
-      if (功法引用?.物品ID) {
-        const 背包物品 = get(saveData, '背包.物品', {}) as Record<string, Item>;
-        const 功法物品 = 背包物品[功法引用.物品ID];
-        
-        if (功法物品?.功法效果) {
-          const 效果 = 功法物品.功法效果 as any;
-          if (typeof 效果.攻击加成 === 'number') 攻击 += 效果.攻击加成;
-          if (typeof 效果.防御加成 === 'number') 防御 += 效果.防御加成;
-          if (typeof 效果.灵识加成 === 'number') 灵识 += 效果.灵识加成;
-          if (typeof 效果.敏捷加成 === 'number') 敏捷 += 效果.敏捷加成;
+    const 功法引用 = 功法数据.功法;
+    const 功法ID = typeof 功法引用 === 'string' ? 功法引用 : 功法引用?.物品ID;
+
+    if (功法ID) {
+      const 背包物品 = get(saveData, '背包.物品', []) as Item[];
+      const 功法物品 = 背包物品.find(i => i.物品ID === 功法ID);
+
+      if (功法物品 && 功法物品.类型 === '功法') {
+        const technique = 功法物品 as TechniqueItem;
+        const 效果 = technique.功法效果;
+        if (效果?.属性加成) {
+          攻击 += safeNum(效果.属性加成.攻击力);
+          防御 += safeNum(效果.属性加成.防御力);
+          灵识 += safeNum(效果.属性加成.灵识);
+          敏捷 += safeNum(效果.属性加成.敏捷);
         }
       }
     }
-
   } catch (error) {
     console.warn('[天道演算] 功法加成计算失败:', error);
   }
@@ -174,25 +172,23 @@ function calculateTechniqueBonus(saveData: SaveData) {
   return { 攻击, 防御, 灵识, 敏捷 };
 }
 
-// 计算状态效果数值加成
+// [重构] 计算状态效果数值加成，适配新的 StatusEffect 类型
 function calculateStatusBonus(saveData: SaveData) {
   let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
 
   try {
-    const 状态列表 = get(saveData, '玩家角色状态.状态效果', []);
+    const 状态列表 = get(saveData, '玩家角色状态.状态效果', []) as StatusEffect[];
     
-    状态列表.forEach((状态: any) => {
-      if (!状态 || typeof 状态 !== 'object') return;
-
+    状态列表.forEach((状态) => {
+      if (!状态) return;
       const 强度 = safeNum(状态.强度, 1);
 
-      // 处理明确的数值字段
-      if (typeof 状态.攻击加成 === 'number') 攻击 += 状态.攻击加成 * 强度;
-      if (typeof 状态.防御加成 === 'number') 防御 += 状态.防御加成 * 强度;
-      if (typeof 状态.灵识加成 === 'number') 灵识 += 状态.灵识加成 * 强度;
-      if (typeof 状态.敏捷加成 === 'number') 敏捷 += 状态.敏捷加成 * 强度;
+      // 这里假设加成属性直接存在状态对象上，如果存在子对象需要修改
+      攻击 += safeNum((状态 as any).攻击加成) * 强度;
+      防御 += safeNum((状态 as any).防御加成) * 强度;
+      灵识 += safeNum((状态 as any).灵识加成) * 强度;
+      敏捷 += safeNum((状态 as any).敏捷加成) * 强度;
 
-      // 基于类型的简单计算
       if (状态.类型 === 'buff') {
         攻击 += 5 * 强度;
         防御 += 3 * 强度;
@@ -205,7 +201,6 @@ function calculateStatusBonus(saveData: SaveData) {
         敏捷 -= 4 * 强度;
       }
     });
-
   } catch (error) {
     console.warn('[天道演算] 状态加成计算失败:', error);
   }
@@ -232,22 +227,20 @@ export function checkCharacterDeath(saveData: SaveData): {
   };
 }
 
-// 检查并更新死亡状态的实现
+// [重构] 检查并更新死亡状态的实现，适配新的 DeathState 类型
 function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
   try {
     const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
     const 寿命 = get(saveData, '玩家角色状态.寿命', { 当前: 100, 最大: 100 });
     const 现有死亡状态 = get(saveData, '玩家角色状态.死亡状态', { 已死亡: false });
 
-    // 如果已经死亡，直接返回
-    if (现有死亡状态.已死亡) {
+    if (现有死亡状态?.已死亡) {
       return 现有死亡状态;
     }
 
     const 当前气血 = safeNum(气血.当前, 100);
     const 当前寿命 = safeNum(寿命.当前, 100);
 
-    // 检查死亡条件
     let 死亡状态: DeathState = { 已死亡: false };
 
     if (当前气血 <= 0) {
@@ -255,25 +248,21 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
         已死亡: true,
         死亡时间: getCurrentGameTime(saveData),
         死亡原因: '气血耗尽',
-        死亡类型: '战斗死亡'
       };
     } else if (当前寿命 <= 0) {
       死亡状态 = {
         已死亡: true,
         死亡时间: getCurrentGameTime(saveData),
         死亡原因: '寿元耗尽',
-        死亡类型: '寿元耗尽'
       };
     }
 
-    // 更新死亡状态到存档
     if (死亡状态.已死亡) {
       set(saveData, '玩家角色状态.死亡状态', 死亡状态);
       console.log('[死亡系统] 角色死亡:', 死亡状态);
     }
 
     return 死亡状态;
-
   } catch (error) {
     console.error('[死亡系统] 检查死亡状态失败:', error);
     return { 已死亡: false };
@@ -282,21 +271,17 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
 
 // 获取当前游戏时间
 function getCurrentGameTime(saveData: SaveData): string {
-  const 游戏时间 = get(saveData, '游戏时间', {}) as any;
-  const 年 = safeNum(游戏时间.年, 1);
-  const 月 = safeNum(游戏时间.月, 1);
-  const 日 = safeNum(游戏时间.日, 1);
-  return `${年}年${月}月${日}日`;
+  const 游戏时间 = get(saveData, '游戏时间', { 年: 1, 月: 1, 日: 1 });
+  return `${游戏时间.年}年${游戏时间.月}月${游戏时间.日}日`;
 }
 
-// 执行通用判定
+// [重构] 执行通用判定，适配新的 HeavenlySystem['核心属性'] 类型
 export function executeCheck(
   checkType: CheckType,
   difficulty: number,
-  attributes: CoreAttributes,
+  attributes: HeavenlySystem['核心属性'],
   气运调整 = 0
 ): CheckResult {
-  // 根据判定类型选择主要属性
   let 主属性: number;
   switch (checkType) {
     case '攻击':
@@ -319,33 +304,23 @@ export function executeCheck(
       主属性 = attributes.灵识;
   }
 
-  // 计算成功率
   const 基础数值 = 主属性 + attributes.境界加成 * 10;
-  const 气运加成 = (attributes.气运 + 气运调整 - 5) * 2; // -10 到 +10
+  const 气运加成 = (attributes.气运 + 气运调整 - 5) * 2;
   const 最终数值 = 基础数值 + 气运加成;
 
-  // 成功率计算（对数函数）
-  const 成功率 = Math.min(0.95, Math.max(0.05, 
+  const 成功率 = Math.min(0.95, Math.max(0.05,
     1 / (1 + Math.exp(-(最终数值 - difficulty * 10) / 20))
   ));
 
-  // 模拟投骰
   const 随机值 = Math.random();
   const 成功 = 随机值 < 成功率;
 
-  // 判定等级
   let 等级: ResultLevel;
-  if (随机值 < 0.05) {
-    等级 = '完美';
-  } else if (随机值 < 成功率 * 0.3) {
-    等级 = '大成';
-  } else if (成功) {
-    等级 = '成功';
-  } else if (随机值 > 0.95) {
-    等级 = '大败';
-  } else {
-    等级 = '失败';
-  }
+  if (随机值 < 0.05) 等级 = '完美';
+  else if (随机值 < 成功率 * 0.3) 等级 = '大成';
+  else if (成功) 等级 = '成功';
+  else if (随机值 > 0.95) 等级 = '大败';
+  else 等级 = '失败';
 
   return {
     成功,
@@ -356,38 +331,28 @@ export function executeCheck(
   };
 }
 
-// 执行战斗判定
+// [重构] 执行战斗判定，适配新的 HeavenlySystem['核心属性'] 类型
 export function executeCombat(
-  攻击方属性: CoreAttributes,
-  防御方属性: CoreAttributes,
+  攻击方属性: HeavenlySystem['核心属性'],
+  防御方属性: HeavenlySystem['核心属性'],
   攻击类型: DamageType = '物理'
 ): CombatResult {
-  // 命中判定
   const 命中检定 = executeCheck('攻击', 5, 攻击方属性);
   const 闪避检定 = executeCheck('防御', 5, 防御方属性);
   const 命中 = 命中检定.成功 && !闪避检定.成功;
 
   if (!命中) {
-    return {
-      命中: false,
-      暴击: false,
-      伤害: 0,
-      防御减免: 0,
-      最终伤害: 0
-    };
+    return { 命中: false, 暴击: false, 伤害: 0, 防御减免: 0, 最终伤害: 0 };
   }
 
-  // 暴击判定
   const 暴击率 = Math.min(0.3, Math.max(0.05, 攻击方属性.敏捷 / 1000));
   const 暴击 = Math.random() < 暴击率;
 
-  // 伤害计算
   let 基础伤害 = 攻击方属性.攻击力 * (0.8 + Math.random() * 0.4);
   if (暴击) {
     基础伤害 *= 1.5 + (攻击方属性.气运 - 5) * 0.1;
   }
 
-  // 防御减免
   const 防御减免 = 防御方属性.防御力 * 0.5;
   const 最终伤害 = Math.max(1, Math.round(基础伤害 - 防御减免));
 
@@ -410,54 +375,33 @@ export function applyDamageAndCheckDeath(
     const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
     const 当前气血 = safeNum(气血.当前, 100);
     
-    // 根据伤害类型调整伤害
     let 实际伤害 = 伤害;
     switch (伤害类型) {
-      case '心魔':
-        实际伤害 = Math.round(伤害 * 1.2); // 心魔伤害更高
-        break;
-      case '天劫':
-        实际伤害 = Math.round(伤害 * 1.5); // 天劫伤害最高
-        break;
+      case '心魔': 实际伤害 = Math.round(伤害 * 1.2); break;
+      case '天劫': 实际伤害 = Math.round(伤害 * 1.5); break;
     }
 
-    // 应用伤害
     const 新气血 = Math.max(0, 当前气血 - 实际伤害);
     set(saveData, '玩家角色状态.气血.当前', 新气血);
 
     console.log(`[战斗系统] 造成${实际伤害}点${伤害类型}伤害，剩余气血: ${新气血}`);
 
-    // 检查死亡
     return checkAndUpdateDeathState(saveData);
-
   } catch (error) {
     console.error('[战斗系统] 应用伤害失败:', error);
     return { 已死亡: false };
   }
 }
 
-// 应用伤害给NPC
+// [重构] 应用伤害给NPC，适配新的 NpcProfile 类型
 export function applyDamageToNpc(
   npc: NpcProfile,
   伤害: number,
   伤害类型: DamageType = '物理'
 ): boolean {
-  try {
-    if (!npc.角色存档信息) return false;
-
-    const 当前气血 = safeNum(npc.角色存档信息.当前气血, 100);
-    const 新气血 = Math.max(0, 当前气血 - 伤害);
-    
-    npc.角色存档信息.当前气血 = 新气血;
-    
-    console.log(`[战斗系统] NPC ${npc.角色基础信息.名字} 受到${伤害}点伤害，剩余气血: ${新气血}`);
-    
-    return 新气血 <= 0; // 返回是否死亡
-
-  } catch (error) {
-    console.error('[战斗系统] NPC受伤失败:', error);
-    return false;
-  }
+  // 简化：当前NPC结构没有血量，暂不处理
+  console.warn(`[战斗系统] 尝试对NPC ${npc.角色基础信息.名字} 造成伤害，但当前NPC结构不支持血量。`);
+  return false;
 }
 
 // 重置死亡状态（复活）
@@ -466,23 +410,21 @@ export function resetDeathState(saveData: SaveData): void {
     const 死亡状态: DeathState = { 已死亡: false };
     set(saveData, '玩家角色状态.死亡状态', 死亡状态);
 
-    // 恢复最少气血
     const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 1, 最大: 100 });
     const 最大气血 = safeNum(气血.最大, 100);
     set(saveData, '玩家角色状态.气血.当前', Math.max(1, Math.floor(最大气血 * 0.1)));
 
     console.log('[死亡系统] 角色已复活');
-
   } catch (error) {
     console.error('[死亡系统] 复活失败:', error);
   }
 }
 
-// 计算并返回完整的天道演算结果
+// [重构] 计算并返回完整的天道演算结果，适配新的 HeavenlySystem 类型
 export function computeHeavenlyCalculation(
   saveData: SaveData,
   baseInfo: CharacterBaseInfo
-): HeavenlyCalculation {
+): HeavenlySystem {
   const 核心属性 = calculateCoreAttributes(saveData, baseInfo);
   const 死亡状态 = checkAndUpdateDeathState(saveData);
   const 境界等级 = safeNum(get(saveData, '玩家角色状态.境界.等级', 0));
@@ -503,19 +445,14 @@ export async function syncToTavern(saveData: SaveData, baseInfo: CharacterBaseIn
   if (!helper) return;
 
   try {
-    // 1. 计算天道演算结果
     const calculation = computeHeavenlyCalculation(saveData, baseInfo);
-    
-    // 2. 将结果直接存入 saveData
     set(saveData, '玩家角色状态.heavenly', calculation);
 
-    // 3. 将更新后的完整 saveData 同步到酒馆
     await helper.insertOrAssignVariables({
       'character.saveData': saveData
     }, { type: 'chat' });
 
     console.log('[天道演算] 同步完成，天道演算结果已存入存档');
-
   } catch (error) {
     console.error('[天道演算] 同步失败:', error);
   }
@@ -532,11 +469,11 @@ export function generateJudgmentPrompt(): string {
 ## 天道演算系统 v5.0
 
 ### 判定规则
-角色数据已预计算，请直接使用 character.heavenlyCalculation 中的数值。
+角色数据已预计算，请直接使用 \`saveData.玩家角色状态.heavenly\` 中的数值。
 
 #### 可用判定类型：
 - 攻击/防御（战斗）
-- 修炼/炼制（提升）  
+- 修炼/炼制（提升）
 - 交互（社交）
 - 探索（冒险）
 
@@ -548,7 +485,7 @@ export function generateJudgmentPrompt(): string {
 - 大败(5%)：严重失误，重大惩罚
 
 #### 死亡机制：
-气血≤0时角色死亡，游戏结束。寿元≤0同样死亡。
+当 \`heavenly.死亡状态.已死亡\` 为 true 时，角色死亡，游戏结束。
 
 ### 使用方式
 1. 根据行动选择判定类型

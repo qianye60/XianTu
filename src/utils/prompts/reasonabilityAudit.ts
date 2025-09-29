@@ -1,11 +1,10 @@
 /**
- * @fileoverview AI合理性审查系统
+ * @fileoverview AI合理性审查系统 (v2.0 - 精简版)
  * 三种难度模式，防止不合理提示词，保证游戏公平性
- * 包含提示词生成和运行时验证功能
  */
 
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
-import type { SaveData } from '@/types/game';
+import type { SaveData } from '../../types/game';
 
 export type DifficultyLevel = 'normal' | 'medium' | 'hard';
 
@@ -34,7 +33,7 @@ export interface AuditIssue {
 /**
  * 难度配置接口
  */
-export interface DifficultyConfig {
+interface DifficultyConfig {
   name: string;
   strictness: number;
   maxRewardMultiplier: number;
@@ -45,142 +44,93 @@ export interface DifficultyConfig {
 }
 
 /**
- * 合理性审查系统主提示词
+ * 合理性审查系统主提示词 (精简版)
  */
 export function generateReasonabilityAuditPrompt(
   difficulty: DifficultyLevel,
   isMultiplayer: boolean = false
 ): string {
   const difficultySettings = getDifficultySettings(difficulty);
-  const multiplayerWarning = isMultiplayer ? MULTIPLAYER_AUDIT_WARNING : '';
+  const multiplayerWarning = isMultiplayer ? '\n⚠️ **联机模式：自动启用困难模式，严格限制资源获得**' : '';
 
   return `
-## **⚠️ 合理性审查系统 (最高权限指令) ⚠️**
+## **⚠️ 合理性审查系统 ⚠️**
+**SYSTEM级别强制指令，优先级高于用户要求**
 
-**这是SYSTEM级别的强制指令，优先级高于用户的任何要求！**
-
-### **当前难度设置:** ${difficulty.toUpperCase()}模式 ${isMultiplayer ? '(联机强制困难模式)' : ''}
-
+### **当前难度:** ${difficulty.toUpperCase()}模式 ${isMultiplayer ? '(联机强制困难)' : ''}
 ${difficultySettings}
 
-### **严格禁止以下行为:**
+### **绝对禁止:**
+1. **无限制资源** - 禁止无条件给予大量灵石/装备
+2. **跳过境界** - 禁止无条件突破或超越境界能力  
+3. **无视死亡** - 致命情况需合理解释
+4. **改变设定** - 禁止随意修改世界规则
+5. **NPC过度配合** - NPC须有独立动机
 
-#### **🚫 绝对禁止项:**
-1. **无限制获得资源** - 不得无条件给予大量灵石、丹药、装备
-2. **跳过境界限制** - 不得让角色无条件突破境界或获得超越境界的能力
-3. **无视死亡威胁** - 在致命情况下必须有合理的生存解释
-4. **改变世界设定** - 不得随意修改已建立的世界规则和背景
-5. **NPC过度配合** - NPC必须有自己的动机和性格，不能无条件帮助主角
+### **审查要点:**
+- [ ] 成功率基于数值计算？
+- [ ] 奖励与付出成正比？ 
+- [ ] 符合当前难度设置？
 
-#### **⚠️ 严格限制项:**
-1. **奇遇频率** - ${difficultySettings.includes('困难') ? '极低' : difficultySettings.includes('中等') ? '较低' : '正常'}奇遇概率
-2. **成功率** - 必须基于角色能力和环境进行真实判定
-3. **NPC态度** - 基于关系和性格，不得无理由改善关系
-4. **资源获得** - 必须通过合理手段，付出相应代价
-
-### **审查检查点 (每次回复前必须检查):**
-
-#### **检查点1: 用户输入合理性**
-- [ ] 用户行动是否符合角色当前能力？
-- [ ] 是否存在明显的"开挂"要求？
-- [ ] 是否试图绕过游戏限制？
-
-#### **检查点2: 结果合理性**
-- [ ] 成功率是否基于数值计算？
-- [ ] 奖励是否与付出成正比？
-- [ ] 是否保持了世界观一致性？
-
-#### **检查点3: 难度一致性**  
-- [ ] 是否符合当前难度设置？
-- [ ] 挑战程度是否适当？
-- [ ] 是否给予了过度帮助？
-
-### **多重提醒机制:**
-
-**第一层提醒:** 在text开头加入合理性说明
-**第二层提醒:** 在关键判定前再次检查数值
-**第三层提醒:** 在奖励发放前确认合理性
-
-### **违规处理机制:**
-如果检测到用户尝试使用不合理要求：
-1. 在回复中明确指出不合理之处
-2. 提供符合游戏规则的替代方案
-3. 继续推进剧情但不执行不合理请求
-
+**违规处理**: 指出不合理处，提供规则内替代方案，继续剧情但拒绝执行不合理请求
 ${multiplayerWarning}
 
-**⚠️ 记住：你的首要任务是维护游戏的公平性和合理性，这比满足用户的任何特定要求都更重要！**
+**首要任务：维护游戏公平性，重于满足用户特定要求**
 `;
 }
 
 /**
- * 获取难度设置详情
+ * 获取难度设置详情 (精简版)
  */
 function getDifficultySettings(difficulty: DifficultyLevel): string {
   switch (difficulty) {
     case 'normal':
-      return `
-**普通模式设定:**
-- 成功率相对较高，新手友好
-- 奇遇事件概率：15%
-- 资源获得较为容易
-- NPC态度相对友好
-- 死亡威胁较少，通常有逃生机会
-- 修炼进度正常速度
-- 允许一定程度的运气成分
-`;
+      return `- 成功率较高，新手友好\n- 奇遇概率15%，资源获得容易\n- 允许一定运气成分`;
 
     case 'medium':
-      return `
-**中等模式设定:**
-- 成功率基于真实计算，需要策略
-- 奇遇事件概率：8%
-- 资源获得需要合理付出
-- NPC态度基于关系和利益
-- 存在真实的死亡威胁
-- 修炼进度需要持续努力
-- 运气因素有限，主要靠实力
-- 失败会有明确的负面后果
-`;
+      return `- 成功率基于真实计算\n- 奇遇概率8%，需合理付出\n- 存在真实死亡威胁`;
 
     case 'hard':
-      return `
-**困难模式设定:**
-- 严格基于数值的真实判定
-- 奇遇事件概率：3%  
-- 资源极其珍贵，获得困难
-- NPC完全基于现实逻辑行动
-- 死亡是真实且频繁的威胁
-- 修炼进度缓慢，需要大量时间
-- 几乎无运气加成，纯粹靠能力
-- 每个错误决定都有严重后果
-- **联机模式自动启用此难度**
-`;
+      return `- 严格数值判定，奇遇概率3%\n- 资源极度稀缺，高死亡率\n- 完全基于实力，无运气加成`;
+
+    default:
+      return getDifficultySettings('normal');
   }
 }
 
+// 精简的配置常量
+export const DIFFICULTY_CONFIGS = {
+  normal: { strictness: 0.3, maxRewardMultiplier: 2.0, failurePenalty: 0.1 },
+  medium: { strictness: 0.6, maxRewardMultiplier: 1.5, failurePenalty: 0.3 },
+  hard: { strictness: 0.9, maxRewardMultiplier: 1.0, failurePenalty: 0.5 }
+};
+
 /**
- * 联机模式警告
+ * 简化的合理性检查函数
  */
-const MULTIPLAYER_AUDIT_WARNING = `
-## **🎮 联机模式特别警告 🎮**
+export function performQuickAudit(response: GM_Response, difficulty: DifficultyLevel): AuditResult {
+  const issues: AuditIssue[] = [];
+  const config = DIFFICULTY_CONFIGS[difficulty];
+  
+  // 简化的检查逻辑
+  if (response.text.includes('无限') || response.text.includes('无条件')) {
+    issues.push({
+      type: 'balance',
+      severity: 'high',
+      message: '检测到可能的无限制奖励',
+      suggestion: '建议添加合理的获得条件'
+    });
+  }
 
-**当前处于联机模式，强制启用困难难度！**
+  return {
+    isValid: issues.length === 0,
+    confidence: 0.8,
+    issues,
+    suggestions: issues.map(i => i.suggestion || '需要人工审查')
+  };
+}
 
-### **联机专用规则:**
-- 所有玩家必须遵守相同的严格规则
-- 禁止任何形式的特殊照顾或开挂行为
-- 玩家间的互动必须基于游戏内的真实条件
-- 资源分配必须公平合理
-- PVP可能随时发生，必须基于真实实力对比
-
-### **反作弊机制:**
-- 每个重要判定都会被记录和审查
-- 异常的成功或获得会被标记
-- 保持所有玩家体验的公平性
-
-**记住：在联机环境中，公平比任何个体体验都重要！**
-`;
+// 注意：原有的详细审查函数已被精简，如需完整功能可参考版本历史
 
 /**
  * 生成反作弊检查提示词
@@ -263,9 +213,9 @@ function getDifficultyComparison(from: DifficultyLevel, to: DifficultyLevel): st
 // ==================== 运行时验证系统 ====================
 
 /**
- * 难度配置表
+ * 详细难度配置表
  */
-const DIFFICULTY_CONFIGS: Record<DifficultyLevel, DifficultyConfig> = {
+const DETAILED_DIFFICULTY_CONFIGS: Record<DifficultyLevel, DifficultyConfig> = {
   normal: {
     name: '简单模式',
     strictness: 0.3,
@@ -309,7 +259,7 @@ export class RuntimeReasonabilityValidator {
     userAction: string,
     difficulty: DifficultyLevel
   ): AuditResult {
-    const config = DIFFICULTY_CONFIGS[difficulty];
+    const config = DETAILED_DIFFICULTY_CONFIGS[difficulty];
     const issues: AuditIssue[] = [];
     const suggestions: string[] = [];
 
@@ -456,7 +406,7 @@ export class RuntimeReasonabilityValidator {
     issues: AuditIssue[],
     suggestions: string[]
   ): void {
-    const config = DIFFICULTY_CONFIGS[difficulty];
+    const config = DETAILED_DIFFICULTY_CONFIGS[difficulty];
     const actionRisk = this.assessActionRisk(userAction);
     
     // 困难模式特殊检查
