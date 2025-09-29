@@ -1607,73 +1607,97 @@ const sendMessage = async () => {
 
 // 移除 addMessage 函数，不再需要
 
-// 独立的记忆存储系统 - 不会被发送给AI作为提示词
-const memoryStorage = {
-  // 存储到酒馆的隐藏变量中，不会被AI处理流程读取
-  async saveToHiddenStorage(content: string, type: 'short' | 'mid' | 'long' = 'short') {
+// 中期记忆转换缓存系统
+const midTermMemoryCache = {
+  // 缓存准备转换的中期记忆（临时存储，等待批量转换）
+  async cachePendingMidTermMemory(shortTermContent: string, midTermSummary: string) {
     try {
       const helper = getTavernHelper();
-      if (!helper) {
-        console.warn('[隐藏记忆] 酒馆连接不可用');
-        return;
-      }
+      if (!helper) return;
 
-      // 使用特殊前缀，确保不会被AI提示词系统读取
-      const storageKey = `_memory_${type}_term`;
-      const currentMemories = await helper.getVariable(storageKey) || [];
+      // 使用临时缓存键存储待转换的中期记忆
+      const cacheKey = '_pending_mid_term_cache';
+      const currentCache = await helper.getVariable(cacheKey) || {};
       
-      // 添加新记忆到开头
-      currentMemories.unshift({
-        content: content,
+      // 以短期记忆内容为键，中期记忆总结为值
+      currentCache[shortTermContent] = {
+        summary: midTermSummary,
         timestamp: new Date().toISOString(),
-        type: type
-      });
+        processed: false
+      };
       
-      // 限制记忆数量
-      const maxCount = type === 'short' ? 20 : type === 'mid' ? 50 : 100;
-      if (currentMemories.length > maxCount) {
-        currentMemories.splice(maxCount);
-      }
+      await helper.setVariable(cacheKey, currentCache);
+      console.log('[中期记忆缓存] 已缓存待转换记忆，缓存数量:', Object.keys(currentCache).length);
       
-      await helper.setVariable(storageKey, currentMemories);
-      console.log(`[隐藏记忆] 已保存${type}期记忆，当前数量:`, currentMemories.length);
-      
-      return currentMemories;
+      return currentCache;
     } catch (error) {
-      console.error('[隐藏记忆] 保存失败:', error);
+      console.error('[中期记忆缓存] 缓存失败:', error);
     }
   },
   
-  async getFromHiddenStorage(type: 'short' | 'mid' | 'long' = 'short') {
+  async getCachedMidTermSummary(shortTermContent: string) {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) return null;
+      
+      const cacheKey = '_pending_mid_term_cache';
+      const cache = await helper.getVariable(cacheKey) || {};
+      
+      return cache[shortTermContent]?.summary || null;
+    } catch (error) {
+      console.error('[中期记忆缓存] 读取失败:', error);
+      return null;
+    }
+  },
+  
+  async processPendingMidTermMemories() {
     try {
       const helper = getTavernHelper();
       if (!helper) return [];
       
-      const storageKey = `_memory_${type}_term`;
-      return await helper.getVariable(storageKey) || [];
+      const cacheKey = '_pending_mid_term_cache';
+      const cache = await helper.getVariable(cacheKey) || {};
+      const pendingEntries = Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed);
+      
+      if (pendingEntries.length === 0) return [];
+      
+      console.log('[中期记忆缓存] 开始处理', pendingEntries.length, '条待转换记忆');
+      
+      // 准备转换的中期记忆列表
+      const midTermMemories = pendingEntries.map(([shortContent, data]: [string, any]) => {
+        // 标记为已处理
+        cache[shortContent].processed = true;
+        return data.summary;
+      });
+      
+      // 更新缓存状态
+      await helper.setVariable(cacheKey, cache);
+      
+      console.log('[中期记忆缓存] 已处理完成，生成', midTermMemories.length, '条中期记忆');
+      return midTermMemories;
     } catch (error) {
-      console.error('[隐藏记忆] 读取失败:', error);
+      console.error('[中期记忆缓存] 处理失败:', error);
       return [];
     }
   },
   
-  async clearHiddenStorage(type?: 'short' | 'mid' | 'long') {
+  async clearProcessedCache() {
     try {
       const helper = getTavernHelper();
       if (!helper) return;
       
-      if (type) {
-        await helper.setVariable(`_memory_${type}_term`, []);
-      } else {
-        // 清除所有类型
-        await helper.setVariable('_memory_short_term', []);
-        await helper.setVariable('_memory_mid_term', []);
-        await helper.setVariable('_memory_long_term', []);
-      }
+      const cacheKey = '_pending_mid_term_cache';
+      const cache = await helper.getVariable(cacheKey) || {};
       
-      console.log('[隐藏记忆] 已清除记忆存储');
+      // 只清除已处理的条目
+      const unprocessedCache = Object.fromEntries(
+        Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed)
+      );
+      
+      await helper.setVariable(cacheKey, unprocessedCache);
+      console.log('[中期记忆缓存] 已清除已处理的缓存条目');
     } catch (error) {
-      console.error('[隐藏记忆] 清除失败:', error);
+      console.error('[中期记忆缓存] 清除缓存失败:', error);
     }
   }
 };
@@ -1683,13 +1707,6 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
     console.log(`[记忆管理] 内容长度: ${content.length}`);
     console.log(`[记忆管理] 内容预览: ${content.substring(0, 100)}...`);
 
-    // ===== 双存储策略 =====
-    
-    // 1. 保存到隐藏存储（不会被AI读取）
-    console.log('[记忆管理] 保存到隐藏存储...');
-    await memoryStorage.saveToHiddenStorage(content, 'short');
-    
-    // 2. 原有的存档数据存储（保留兼容性，但会被压缩）
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
     
@@ -1697,7 +1714,7 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
     console.log(`[记忆管理] 存档数据可用性:`, !!sd);
     
     if (!sd) {
-      console.warn('[记忆管理] 存档数据不可用，但隐藏存储已保存');
+      console.warn('[记忆管理] 存档数据不可用，无法存储短期记忆');
       return;
     }
 
@@ -1713,42 +1730,61 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
 
     console.log(`[记忆管理] 添加前短期记忆数量: ${sd.记忆.短期记忆.length}`);
 
-    // 只在存档中保存压缩版本，减少AI提示词负载
-    const compressedContent = content.length > 200 ? 
-      content.substring(0, 150) + '...[内容已压缩]' : content;
-    
-    sd.记忆.短期记忆.unshift(compressedContent);
-    console.log(`[记忆管理] 短期记忆已添加（压缩版），当前数量: ${sd.记忆.短期记忆.length}`);
+    // 检查是否有AI生成的中期记忆总结
+    const gmResp = (window as any).lastGmResponse; // 临时获取最新的AI响应
+    if (gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string' && gmResp.mid_term_memory.trim()) {
+      console.log('[记忆管理] 发现AI生成的中期记忆，缓存以备转换');
+      await midTermMemoryCache.cachePendingMidTermMemory(content, gmResp.mid_term_memory);
+    }
 
-    // 检查并处理短期记忆溢出（原子操作）
+    // 添加新记忆到短期记忆
+    sd.记忆.短期记忆.unshift(content);
+    console.log(`[记忆管理] 短期记忆已添加，当前数量: ${sd.记忆.短期记忆.length}`);
+
+    // 检查短期记忆是否超出限制，触发转换
     if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
+      console.log(`[记忆管理] 短期记忆超出限制（${maxShortTermMemories.value}），开始转换到中期记忆`);
+      
+      // 获取溢出的短期记忆
       const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value).reverse();
-      console.log(`[记忆管理] ${overflow.length}条短期记忆溢出，转移到中期`);
+      console.log(`[记忆管理] ${overflow.length}条短期记忆需要转换`);
 
       // 确保中期记忆结构存在
       if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
 
-      // 使用预生成的总结替换原文
+      // 处理转换：优先使用缓存的中期记忆总结
       const summariesToAdd: string[] = [];
       const gameTime = sd.游戏时间;
       const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
 
       for (const narrative of overflow) {
-        const summary = await characterStore.manageTavernMemoryCache.getSummary(narrative);
-        const contentToAdd = summary || narrative;
-        summariesToAdd.push(`${timeString} ${contentToAdd}`);
-
-        if (summary) {
-          await characterStore.manageTavernMemoryCache.removeSummary(narrative);
-          console.log('[记忆管理] 使用预生成总结并已清理缓存');
+        // 首先尝试从缓存获取中期记忆总结
+        const cachedSummary = await midTermMemoryCache.getCachedMidTermSummary(narrative);
+        
+        if (cachedSummary) {
+          console.log('[记忆管理] 使用缓存的中期记忆总结');
+          summariesToAdd.push(`${timeString} ${cachedSummary}`);
         } else {
-          console.warn(`[记忆管理] 未找到预生成的中期记忆，使用原文作为备用: ${narrative.substring(0, 50)}...`);
+          // 回退：尝试从旧的缓存系统获取
+          const summary = await characterStore.manageTavernMemoryCache.getSummary(narrative);
+          const contentToAdd = summary || narrative;
+          summariesToAdd.push(`${timeString} ${contentToAdd}`);
+          
+          if (summary) {
+            await characterStore.manageTavernMemoryCache.removeSummary(narrative);
+            console.log('[记忆管理] 使用旧缓存系统的总结');
+          } else {
+            console.warn(`[记忆管理] 未找到中期记忆总结，使用原文: ${narrative.substring(0, 50)}...`);
+          }
         }
       }
 
-      // 直接添加到存档的中期记忆
+      // 添加到中期记忆
       sd.记忆.中期记忆.unshift(...summariesToAdd);
-      console.log(`[记忆管理] 转移 ${summariesToAdd.length} 条总结到中期记忆，当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
+      console.log(`[记忆管理] 已转换 ${summariesToAdd.length} 条到中期记忆，当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
+
+      // 清理已处理的缓存
+      await midTermMemoryCache.clearProcessedCache();
 
       // 检查中期记忆是否需要转换到长期记忆
       if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
@@ -1756,7 +1792,7 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
       }
     }
     
-    console.log('[记忆管理] 短期记忆保存完成（双存储）');
+    console.log('[记忆管理] 短期记忆保存完成');
     
     // 立即验证保存结果
     const verifyMemories = sd.记忆.短期记忆;

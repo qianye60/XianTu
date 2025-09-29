@@ -1432,12 +1432,27 @@ const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string;
       return { name: '随机灵根', grade: '', description: '大道五十，天衍四九，人遁其一' };
     }
 
+    // 首先尝试匹配明确的品级词汇
     const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
-    const grade = gradeMatch ? gradeMatch[1] : '';
+    let grade = gradeMatch ? gradeMatch[1] : '';
+
+    // 如果没有明确品级，则根据灵根名称推断品级
+    if (!grade) {
+      const rootName = spiritRoot.toLowerCase();
+      if (rootName.includes('混沌') || rootName.includes('先天') || rootName.includes('太古') || rootName.includes('洪荒')) {
+        grade = '神品';
+      } else if (rootName.includes('天') || rootName.includes('仙') || rootName.includes('圣')) {
+        grade = '极品';
+      } else if (rootName.includes('玄') || rootName.includes('灵')) {
+        grade = '上品';
+      } else if (rootName.includes('真') || rootName.includes('元')) {
+        grade = '中品';
+      }
+    }
 
     let rootName = spiritRoot;
-    if (grade) {
-      rootName = spiritRoot.replace(grade, '').trim();
+    if (gradeMatch) {
+      rootName = spiritRoot.replace(gradeMatch[1], '').trim();
     }
 
     return {

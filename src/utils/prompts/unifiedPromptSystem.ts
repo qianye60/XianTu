@@ -259,14 +259,13 @@ export const UNIFIED_PROMPT_BUILDER = {
     // - 剧情推进/更新时使用精简规则（不再内联庞大的数据模板）
     const baseRules = (() => {
       if (promptType === 'gameplay' || promptType === 'npc_update') {
+        // 精简版规则：避免与 system.rules.bundle 重复
         return [
-          COMMON_CORE_RULES,
-          COMMON_NARRATIVE_RULES,
-          COMMON_DATA_MANIPULATION_RULES,
-          ENHANCED_TIME_MANAGEMENT,
-          ENHANCED_DATA_VALIDATION,
-          '# 先天六司约束\n- 先天六司六项每项范围为0-10；NPC同样遵守。\n- 若生成/更新出现超限，必须在 tavern_commands 中写入裁剪后的值（如>10则写入10）。\n- 生成/更新前，应读取并遵守 character.saveData.系统.规则 中的限制（例如 属性上限.先天六司.每项上限）。'
-        ].join('\n\n');
+          '# 运行规则（精简）',
+          '- 严格遵守存档中各对象的 _AI说明/_AI重要提醒，与 character.saveData.系统.规则。',
+          '- 所有变更通过 tavern_commands 实现；输出唯一 JSON（text/mid_term_memory/tavern_commands）。',
+          '- 读取并遵守 先天六司上限与其他系统限制（见系统.规则）。'
+        ].join('\n');
       }
       // initialization 默认完整规则
       return [
@@ -284,7 +283,42 @@ export const UNIFIED_PROMPT_BUILDER = {
     })();
 
     const specificRules = {
-      initialization: CHARACTER_INITIALIZATION_RULES,
+      initialization: [
+        CHARACTER_INITIALIZATION_RULES,
+        '\n# 【输出格式（初始化专用，必须严格遵守）}',
+        '- 仅输出一个 JSON 对象，不要输出多余文本；建议使用 ```json 代码块包裹。',
+        '- 顶层字段：',
+        '  - text: string（800-1500 字开场叙事）',
+        '  - mid_term_memory: string（可为空字符串）',
+        '  - tavern_commands: TavernCommand[]（严格的命令数组）',
+        '\n# 【tavern_commands 规范（必须）】',
+        '- 每个命令对象格式：',
+        '  {"action":"set|add|push|pull|delete","scope":"chat","key":"character.saveData.路径","value":值}',
+        '- 只允许的 action：set / add / push / pull / delete；严禁使用 update_time / update_character 等自定义命令名。',
+        '- scope 固定为 chat；key 必须以 character.saveData. 开头。',
+        '- 时间推进：优先对 分钟/小时 使用 add（必要时自行进位）。',
+        '\n# 【标准示例】',
+        '```json',
+        '{',
+        '  "text": "......",',
+        '  "mid_term_memory": "",',
+        '  "tavern_commands": [',
+        '    {"action":"set","scope":"chat","key":"character.saveData.玩家角色状态.位置.描述","value":"青云大陆·青云州·安德镇"},',
+        '    {"action":"add","scope":"chat","key":"character.saveData.游戏时间.分钟","value":10},',
+        '    {"action":"push","scope":"chat","key":"character.saveData.玩家角色状态.状态效果","value":{"状态名称":"病中虚弱","类型":"debuff","时间":"3天","状态描述":"气血与行动力下降"}}',
+        '  ]',
+        '}',
+        '```',
+        '\n# 【自检清单（提交前逐项确认）】',
+        '1) 顶层仅有 text/mid_term_memory/tavern_commands 三个字段；',
+        '2) tavern_commands 中 action 均为 set/add/push/pull/delete；',
+        '3) 所有 key 以 character.saveData. 开头；',
+        '4) 位置只写 位置.描述（不写坐标）；',
+        '5) 未写入任何“未知/随机/占位符”等字样；',
+        '6) 开场物品/人物/NPC/大道写入符合各自结构要求；',
+        '7) 先天六司未被修改；',
+        '8) 内容和路径与玩家选择一致、语义合理、无自相矛盾。'
+      ].join('\n'),
       gameplay: '# 游戏进行中的特殊规则\n\n1. 每次回应必须推进故事情节\n2. 必须更新游戏时间\n3. 玩家行动必须有明确结果',
       npc_update: '# NPC更新规则\n\n1. 更新相关NPC状态\n2. 记录重要互动\n3. 调整好感度'
     };

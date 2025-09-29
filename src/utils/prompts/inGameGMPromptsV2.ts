@@ -427,7 +427,41 @@ export const IN_GAME_MESSAGE_PROMPT = [
 ].join('\n')
 
 export function getRandomizedInGamePrompt(): string {
-  return IN_GAME_MESSAGE_PROMPT
+  const core = UNIFIED_PROMPT_BUILDER.buildGamePrompt('gameplay')
+  const lite = [
+    '【剧情推进】根据当前游戏状态推进叙事，并返回唯一 JSON。',
+    core,
+    '# 重要补充（二次声明）',
+    '- 输出唯一 JSON：text, mid_term_memory, tavern_commands',
+    '- 所有变更必须通过 tavern_commands 实现',
+    '- 每次推进必须更新时间；位置仅写 位置.描述',
+    '- 严格遵守 character.saveData.系统.规则 与各对象的 _AI说明/_AI重要提醒',
+    '- 禁止修改 记忆（短/中/长期）字段；禁止写入坐标',
+    '',
+    '【tavern_commands 规范（必须）】',
+    '- tavern_commands 是数组；每个元素为：',
+    '  {"action": "set|add|push|pull|delete", "scope": "chat", "key": "character.saveData.路径", "value": 值}',
+    '- 只允许 action：set/add/push/pull/delete；严禁使用 update_time/update_character 等自定义命令名',
+    '- key 必须以 character.saveData. 开头；scope 固定为 chat',
+    '- 时间推进：优先 add 到 分钟/小时 字段（必要时自行进位）',
+    '示例：',
+    '```json',
+    '[',
+    '  {"action":"add","scope":"chat","key":"character.saveData.游戏时间.分钟","value":5},',
+    '  {"action":"add","scope":"chat","key":"character.saveData.人物关系.赵瀚宇.人物好感度","value":-40},',
+    '  {"action":"set","scope":"chat","key":"character.saveData.人物关系.林雪岸.角色存档信息.最后出现位置.描述","value":"朝天大陆·玄清宗·听雨小筑"}',
+    ']',
+    '```',
+    '',
+    '【当前游戏状态】（JSON）',
+    'INPUT_PLACEHOLDER',
+    '',
+    '【输出格式】必须严格如下：',
+    '```json',
+    '{ "text": "...", "mid_term_memory": "", "tavern_commands": [] }',
+    '```'
+  ].join('\n')
+  return lite
 }
 
 // 调试函数：检查提示词完整性

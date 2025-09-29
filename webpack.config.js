@@ -3,7 +3,6 @@ import path from 'path'
 import fs from 'fs'
 import { VueLoaderPlugin } from 'vue-loader'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-import HtmlInlineScriptPlugin from 'html-inline-script-webpack-plugin'
 import TavernLiveReloadPlugin from './webpack/TavernLiveReloadPlugin.js'
 import { fileURLToPath } from 'url'
 
@@ -20,9 +19,9 @@ export default (env, argv) => {
     entry: './src/main.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: 'bundle.js',
+      filename: isProduction ? 'daodaochaotian.[contenthash:8].js' : 'daodaochaotian.js',
       clean: true,
-      publicPath: '/',
+      publicPath: './', // 使用相对路径，便于部署
     },
     devtool: isProduction ? false : 'eval-source-map',
     optimization: {
@@ -99,8 +98,19 @@ export default (env, argv) => {
       new HtmlWebpackPlugin({
         template: './index.html',
         inject: 'body',
+        minify: isProduction ? {
+          removeComments: true,
+          collapseWhitespace: true,
+          removeRedundantAttributes: true,
+          useShortDoctype: true,
+          removeEmptyAttributes: true,
+          removeStyleLinkTypeAttributes: true,
+          keepClosingSlash: true,
+          minifyJS: false, // 不在HTML中压缩JS，保持独立文件
+          minifyCSS: true,
+          minifyURLs: true,
+        } : false
       }),
-      new HtmlInlineScriptPlugin(),
       !isProduction ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
     ].filter(Boolean),
     devServer: {

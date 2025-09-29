@@ -703,17 +703,25 @@ export async function generateInGameResponse(
       return { 'character.saveData': compactSaveData };
     };
 
+    // 传输 Chat 变量，但为避免重复，将极大且重复的规则包从 prompt 透传中剔除（不影响实际 Chat 中的保存）
+    const dedupeChatVarsForPrompt = (vars: Record<string, unknown> | null) => {
+      if (!vars) return {} as Record<string, unknown>;
+      const copy: Record<string, unknown> = { ...vars };
+      // 去重：已通过 injects/system.rules.bundle 注入，不再在INPUT中重复传输
+      if ('system.rules.bundle' in copy) delete copy['system.rules.bundle'];
+      if ('system.rules.version' in copy) delete copy['system.rules.version'];
+      return copy;
+    };
+
     const promptInput = {
       gmRequest,
-      current_game_state: buildCompactGameState(chatVariablesForPrompt),
+      current_game_state: dedupeChatVarsForPrompt(chatVariablesForPrompt),
       derived
     };
     const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput));
-    const previousBlock = lastTextMemory && typeof lastTextMemory === 'string' && lastTextMemory.trim()
-      ? `\n\n【上一条对话全文】\n${lastTextMemory}\n`
-      : '';
-    const continuityGuide = '\n\n【连续性要求】基于上一条对话全文（如上）作为上一条叙述的延续进行创作：不得重复或总结已给内容；保持文风一致，仅推进后续发展。';
-    const finalPromptWithContinuity = finalPrompt + previousBlock + continuityGuide;
+    // 为避免提示词膨胀，不再内联“上一条对话全文”。改为指导语基于现有记忆/状态保持连续性。
+    const continuityGuide = '\n\n【连续性要求】请基于当前存档与记忆保持自然衔接，不重复上一条内容，不做总结，仅推进后续发展。';
+    const finalPromptWithContinuity = finalPrompt + continuityGuide;
     console.log('【连续性】上一条对话字数:', typeof lastTextMemory === 'string' ? lastTextMemory.length : 0);
 
     console.log('【剧情推进】最终提示词长度:', finalPromptWithContinuity.length);
