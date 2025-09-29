@@ -222,13 +222,17 @@ export interface InitialGameData {
     };
     性别?: string;
     世界?: string;
-    天资?: string;
-    天赋?: string[];
+    天资?: any; // 允许包含描述的复杂类型
+    天赋?: any[]; // 允许包含描述的复杂类型
+    出生?: any; // 允许包含描述的复杂类型
+    灵根?: any; // 允许包含描述的复杂类型
   };
   creationDetails: {
     age: number;
     originName: string;
     spiritRootName: string;
+    talentNames?: string[];
+    talentTierName?: string;
   };
 }
 

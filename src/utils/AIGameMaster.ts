@@ -226,6 +226,91 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
 
   const { action, key, value } = command;
 
+  // 工具：限制数值到0-10（用于先天六司）
+  const clamp = (n: unknown, min = 0, max = 10): number => {
+    const v = typeof n === 'number' ? n : parseFloat(String(n));
+    if (Number.isNaN(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  };
+
+  // 若是先天六司路径，按规则裁剪
+  const normalizeInnateSet = (p: string, val: any) => {
+    if (!String(p).includes('先天六司')) return val;
+    try {
+      // 整体对象写入
+      if (typeof val === 'object' && val !== null && (String(p).endsWith('先天六司') || String(p).endsWith('先天六司.')) ) {
+        const obj = { ...val } as any;
+        if ('根骨' in obj) obj['根骨'] = clamp(obj['根骨']);
+        if ('灵性' in obj) obj['灵性'] = clamp(obj['灵性']);
+        if ('悟性' in obj) obj['悟性'] = clamp(obj['悟性']);
+        if ('气运' in obj) obj['气运'] = clamp(obj['气运']);
+        if ('魅力' in obj) obj['魅力'] = clamp(obj['魅力']);
+        if ('心性' in obj) obj['心性'] = clamp(obj['心性']);
+        return obj;
+      }
+      // 单字段写入
+      if (typeof val === 'number') return clamp(val);
+      return val;
+    } catch { return val; }
+  };
+
+  // 位置描述规范化：将任意叙事式地点描述，统一为「大陆名·区域·地点」结构
+  const normalizeLocationDescription = (raw: any, dataRoot: any): any => {
+    const worldName = (dataRoot?.['角色基础信息']?.['世界']) || '朝天大陆';
+
+    const normalizeStr = (s: string): string => {
+      let t = String(s || '').trim();
+      if (!t) return `${worldName}·未知之地`;
+      // 统一分隔符为 ·
+      t = t
+        .replace(/[，,、/\\|>]+/g, '·')
+        .replace(/\s*[-—–]\s*/g, '·')
+        .replace(/\s*·\s*/g, '·')
+        .replace(/。/g, '')
+        .replace(/\.\s*/g, '·');
+
+      // 若仍无层级分隔，尽量从语句中抽取短语
+      if (!t.includes('·')) {
+        // 将句读转为层级，再去噪
+        t = t.replace(/\s+/g, '·');
+      }
+
+      // 去掉常见虚词与尾缀（仅处理末段，避免破坏地名）
+      const cleanup = (seg: string): string => {
+        let u = seg.trim();
+        u = u.replace(/的/g, '');
+        u = u.replace(/[之的]?([上中下里内外处间旁畔边]{1})$/g, '');
+        return u;
+      };
+
+      let parts = t.split('·').map(x => x.trim()).filter(Boolean).map(cleanup);
+      // 去重空段
+      parts = parts.filter(Boolean);
+
+      // 确保首段为大陆名
+      if (parts.length === 0) parts = ['未知之地'];
+      if (parts[0] !== worldName) {
+        parts.unshift(worldName);
+      }
+
+      // 限制总段数为 2~3（含大陆名）
+      if (parts.length > 3) {
+        parts = parts.slice(0, 3);
+      }
+
+      return parts.join('·');
+    };
+
+    // 支持直接字符串或对象 { 描述: string }
+    if (typeof raw === 'string') {
+      return normalizeStr(raw);
+    }
+    if (raw && typeof raw === 'object' && typeof raw['描述'] === 'string') {
+      return { ...raw, 描述: normalizeStr(raw['描述']) };
+    }
+    return raw;
+  };
+
   // 规范化：当AI写入物品(尤其功法)时，自动校正品质与品级
   const normalizeItemIfNeeded = (val: any) => {
     try {
@@ -297,7 +382,16 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         if (String(path).includes('背包.物品') || String(path).includes('修炼功法.功法')) {
           set(saveData, path, normalizeItemIfNeeded(value));
         } else {
-          set(saveData, path, value);
+          // 当写入位置时，做格式化：「大陆名·区域·地点」
+          if (String(path).endsWith('玩家角色状态.位置.描述') || String(path).endsWith('位置.描述')) {
+            set(saveData, path, normalizeLocationDescription(value, saveData));
+          } else if (String(path).endsWith('玩家角色状态.位置')) {
+            set(saveData, path, normalizeLocationDescription(value, saveData));
+          } else {
+            // 先天六司写入时裁剪到<=10（NPC与玩家均适用）
+            const finalVal = normalizeInnateSet(path, value);
+            set(saveData, path, finalVal);
+          }
         }
 
         // [特例修复] 当设置大道进度时，自动将其添加到已解锁大道数组中
@@ -318,7 +412,10 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         
       case 'add':
         const currentValue = get(saveData, path, 0);
-        set(saveData, path, Number(currentValue) + Number(value || 0));
+        let added = Number(currentValue) + Number(value || 0);
+        // 若针对先天六司，裁剪到<=10
+        if (String(path).includes('先天六司')) added = clamp(added);
+        set(saveData, path, added);
         break;
         
       case 'push':

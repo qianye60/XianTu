@@ -8,8 +8,9 @@ import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
-import { validateAndFixSaveData } from '@/utils/dataValidation';
 import { validateGameData } from '@/utils/gameDataValidator'; // <-- 导入新的验证器
+import { getAIDataRepairSystemPrompt } from '@/utils/prompts/dataRepairPrompts';
+import { typeDefs } from '@/types/typeDefs';
 import type { World } from '@/types';
 import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog } from '@/types/game';
 
@@ -334,9 +335,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
           uiStore.showDataValidationErrorDialog(
             validationResult.errors,
             () => {
-              // 用户确认后执行的修复操作
-              reinitializeCharacter(charId, slotKey);
-            }
+              // [核心改造] 用户确认后，调用AI进行智能修复
+              repairCharacterDataWithAI(charId, slotKey);
+            },
+            'loading' // [核心改造] 明确告知UI这是“加载”场景
           );
           return false; // 中断加载流程
         }
@@ -441,12 +443,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const tavernSaveData = chatVars['character.saveData'] as SaveData | undefined;
       
       if (tavernSaveData) {
-        // [核心修复] 使用增强的数据验证函数来清理和修复所有已知问题
-        const fixedSaveData = validateAndFixSaveData(JSON.parse(JSON.stringify(tavernSaveData)));
-
         // 数据整合和清理：确保数据结构一致性
         const cleanedSaveData = {
-          ...fixedSaveData
+          ...tavernSaveData
         };
         
         // 修复数据重复问题：检查是否有嵌套的character.saveData
@@ -976,62 +975,163 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
   };
 
-/**
- * 重新初始化角色存档
- * 当数据验证失败时，由用户触发此操作来修复存档
- * @param charId 角色ID
- * @param slotKey 存档槽位
- */
-const reinitializeCharacter = async (charId: string, slotKey: string) => {
-  const uiStore = useUIStore();
-  const profile = rootState.value.角色列表[charId];
-  if (!profile) {
-    toast.error('修复失败：找不到角色');
-    return;
-  }
 
-  try {
-    uiStore.startLoading('正在修复角色数据，请稍候...');
+  /**
+   * [内部辅助] 执行Tavern指令
+   * @param saveData 当前存档数据
+   * @param profile 当前角色档案
+   * @param commands 指令数组
+   */
+  const executeTavernCommands = async (saveData: SaveData, profile: CharacterProfile, commands: any[]): Promise<string[]> => {
+    const errors: string[] = [];
     
-    // 假设创角时使用的世界和年龄信息存储在profile的某个地方
-    // 这里我们使用一个mock的世界对象和年龄，实际应用中需要获取真实数据
-    const world: World = {
-      id: 0, // 提供默认ID
-      name: profile.角色基础信息.世界 || '未知世界',
-      era: '未知纪元', // 提供默认纪元
-      description: '世界信息已在修复中重新生成'
+    // 简化的路径解析和设置函数
+    const setNestedValue = (obj: any, path: string, value: any) => {
+      const keys = path.split('.');
+      let current = obj;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (current[keys[i]] === undefined || typeof current[keys[i]] !== 'object') {
+          current[keys[i]] = {};
+        }
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = value;
     };
-    const age = profile.角色基础信息.年龄 || 16;
 
-    let newSaveData: SaveData | null = null;
+    for (const command of commands) {
+      try {
+        const { action, key, value } = command;
+        if (!action || !key) {
+          errors.push(`无效指令: ${JSON.stringify(command)}`);
+          continue;
+        }
+
+        // 确定操作的根对象
+        let rootObject: any;
+        let relativeKey: string;
+
+        if (key.startsWith('character.profile.')) {
+          rootObject = profile;
+          relativeKey = key.substring('character.profile.'.length);
+        } else if (key.startsWith('character.saveData.')) {
+          rootObject = saveData;
+          relativeKey = key.substring('character.saveData.'.length);
+        } else {
+          errors.push(`无法解析指令key的根路径: ${key}`);
+          continue;
+        }
+
+        if (action === 'set') {
+          setNestedValue(rootObject, relativeKey, value);
+          debug.log('AI修复', `执行 set: ${key} =`, value);
+        } else {
+          debug.warn('AI修复', `暂不支持的指令 action: ${action}`);
+        }
+      } catch (e) {
+        errors.push(`执行指令失败: ${JSON.stringify(command)}`);
+        debug.error('AI修复', '执行指令时出错', e);
+      }
+    }
+    return errors;
+  };
+
+  /**
+   * [新增] 使用AI修复存档数据结构
+   * @param charId 角色ID
+   * @param slotKey 存档槽位
+   */
+  const repairCharacterDataWithAI = async (charId: string, slotKey: string) => {
+    const uiStore = useUIStore();
+    const profile = rootState.value.角色列表[charId];
+    if (!profile) {
+      toast.error('修复失败：找不到角色');
+      return;
+    }
+
+    let targetSlot: SaveSlot | undefined | null;
     if (profile.模式 === '单机') {
-      newSaveData = await initializeCharacterOffline(charId, profile.角色基础信息, world, age);
+      targetSlot = profile.存档列表?.[slotKey];
     } else {
-      newSaveData = await initializeCharacter(charId, profile.角色基础信息, world, age);
+      targetSlot = profile.存档;
     }
 
-    // 更新损坏的存档槽位
-    if (profile.模式 === '单机' && profile.存档列表) {
-      profile.存档列表[slotKey].存档数据 = newSaveData;
-      profile.存档列表[slotKey].保存时间 = new Date().toISOString();
-    } else if (profile.模式 === '联机' && profile.存档) {
-      profile.存档.存档数据 = newSaveData;
-      profile.存档.保存时间 = new Date().toISOString();
+    if (!targetSlot || !targetSlot.存档数据) {
+      toast.error('修复失败：找不到存档数据');
+      return;
     }
 
-    await commitToStorage();
-    toast.success('角色数据已修复！正在重新加载...');
-    
-    // 重新加载游戏
-    await loadGame(charId, slotKey);
+    try {
+      uiStore.startLoading('AI正在分析存档结构，请稍候...');
+      const corruptedData = targetSlot.存档数据;
 
-  } catch (error) {
-    debug.error('角色商店', '重新初始化角色失败', error);
-    toast.error('角色数据修复失败，请检查控制台获取详情。');
-  } finally {
-    uiStore.stopLoading();
-  }
-};
+      // 1. 生成修复提示词
+      const systemPrompt = getAIDataRepairSystemPrompt(corruptedData, typeDefs);
+      
+      // 2. 调用AI生成修复指令
+      const helper = getTavernHelper();
+      if (!helper) throw new Error('酒馆连接不可用');
+      
+      uiStore.updateLoadingText('天道正在推演修复方案...');
+      const aiResponse = await helper.generate({
+        user_input: systemPrompt,
+        overrides: {
+          temperature: 0.7,
+          max_context_length: 8000,
+          max_length: 2048,
+        }
+      });
+
+      if (!aiResponse) {
+        throw new Error('AI未能生成修复指令');
+      }
+
+      // 3. 解析AI响应
+      let commands: any[] = [];
+      try {
+        const jsonString = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsedResponse = JSON.parse(jsonString);
+        if (parsedResponse.tavern_commands && Array.isArray(parsedResponse.tavern_commands)) {
+          commands = parsedResponse.tavern_commands;
+        } else {
+          throw new Error('AI响应中缺少有效的 tavern_commands 数组');
+        }
+      } catch (e) {
+        debug.error('角色商店', '解析AI修复指令失败', { error: e, response: aiResponse });
+        throw new Error('解析AI修复指令失败');
+      }
+
+      if (commands.length === 0) {
+        toast.info('AI分析认为当前存档无需修复。');
+        await loadGame(charId, slotKey);
+        return;
+      }
+
+      uiStore.updateLoadingText(`AI已生成 ${commands.length} 条修复指令，正在应用...`);
+      
+      // 4. 执行修复指令
+      const executionErrors = await executeTavernCommands(targetSlot.存档数据, profile, commands);
+
+      if (executionErrors.length > 0) {
+        debug.error('角色商店', '执行AI修复指令时出错', executionErrors);
+        toast.error(`部分修复指令执行失败: ${executionErrors.join(', ')}`);
+      }
+
+      // 5. 保存并重新加载
+      targetSlot.保存时间 = new Date().toISOString();
+      await commitToStorage();
+      
+      toast.success('AI已完成存档修复！正在重新加载游戏...');
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadGame(charId, slotKey);
+
+    } catch (error) {
+      debug.error('角色商店', 'AI修复存档失败', error);
+      toast.error(`存档修复失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      uiStore.stopLoading();
+    }
+  };
 
 return {
   // State
@@ -1059,7 +1159,7 @@ return {
   commitToStorage, // 导出给外部使用
   setActiveCharacterInTavern,
   syncFromTavern,
-  reinitializeCharacter, // 暴露修复方法
+  repairCharacterDataWithAI, // 暴露新的AI修复方法
   // 酒馆变量缓存管理
   manageTavernMemoryCache,
   // 初始状态变更传递

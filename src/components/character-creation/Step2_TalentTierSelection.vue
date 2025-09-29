@@ -30,8 +30,18 @@
             @click="handleSelectTalentTier(tier)"
             @mouseover="activeTier = tier"
           >
-            <span class="tier-name">{{ tier.name }}</span>
-            <span class="tier-points">{{ tier.total_points }} 点</span>
+            <div class="item-content">
+              <span class="tier-name">{{ tier.name }}</span>
+              <span class="tier-points">{{ tier.total_points }} 点</span>
+            </div>
+            <div v-if="tier.source === 'cloud'" class="action-buttons">
+              <button @click.stop="openEditModal(tier)" class="edit-btn" title="编辑此项">
+                <Edit :size="14" />
+              </button>
+              <button @click.stop="store.removeTalentTier(tier.id)" class="delete-btn" title="删除此项">
+                <Trash2 :size="14" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -59,6 +69,17 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
+    
+    <!-- 编辑模态框 -->
+    <CustomCreationModal
+      :visible="isEditModalVisible"
+      title="编辑天资"
+      :fields="customTierFields"
+      :validationFn="validateCustomTier"
+      :initialData="editInitialData"
+      @close="isEditModalVisible = false; editingTier = null"
+      @submit="handleEditSubmit"
+    />
 
     <!-- AI生成逻辑已移至toast通知 -->
   </div>
@@ -66,6 +87,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { TalentTier } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
@@ -83,6 +105,8 @@ const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const activeTier = ref<TalentTier | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
+const isEditModalVisible = ref(false)
+const editingTier = ref<TalentTier | null>(null)
 
 const filteredTalentTiers = computed(() => {
   const allTiers = store.creationData.talentTiers;
@@ -187,6 +211,50 @@ function hexToRgb(hex: string): string {
     return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '229, 192, 123';
 }
 
+// 编辑功能
+function openEditModal(tier: TalentTier) {
+  editingTier.value = tier;
+  isEditModalVisible.value = true;
+}
+
+async function handleEditSubmit(data: CustomTierData) {
+  if (!editingTier.value) return;
+  
+  // 创建更新数据对象
+  const updateData: Partial<TalentTier> = {
+    name: data.name,
+    description: data.description,
+    total_points: parseInt(data.total_points, 10) || 10,
+    color: data.color || '#808080'
+  };
+
+  try {
+    const success = store.updateTalentTier(editingTier.value.id, updateData);
+    if (success) {
+      isEditModalVisible.value = false;
+      editingTier.value = null;
+      toast.success(`天资 "${updateData.name}" 已更新！`);
+    } else {
+      toast.error('更新天资失败！');
+    }
+  } catch (e) {
+    console.error('更新天资失败:', e);
+    toast.error('更新天资失败！');
+  }
+}
+
+// 编辑模态框的初始数据
+const editInitialData = computed(() => {
+  if (!editingTier.value) return {};
+  
+  return {
+    name: editingTier.value.name,
+    description: editingTier.value.description,
+    total_points: editingTier.value.total_points.toString(),
+    color: editingTier.value.color
+  };
+});
+
 // fetchData 和 defineExpose 不再需要，因为父组件会处理初始化
 </script>
 
@@ -273,6 +341,64 @@ function hexToRgb(hex: string): string {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   border-left: 3px solid transparent;
+}
+
+.item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+}
+
+/* 按钮组容器 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: 0.5rem;
+}
+
+.tier-item:hover .action-buttons {
+  opacity: 1;
+}
+
+/* 编辑按钮 */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.edit-btn:hover {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.delete-btn:hover {
+  color: var(--color-danger);
+  background-color: rgba(255, 0, 0, 0.1);
 }
 
 .tier-item:hover {

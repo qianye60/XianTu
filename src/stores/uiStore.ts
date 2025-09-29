@@ -22,6 +22,11 @@ export const useUIStore = defineStore('ui', () => {
   const showDataValidationError = ref(false);
   const dataValidationErrorMessages = ref<string[]>([]);
   const onDataValidationConfirm = ref<(() => void) | null>(null);
+  const dataValidationContext = ref<'creation' | 'loading'>('creation'); // 'creation' 或 'loading'
+
+  // --- 新增：状态变更日志查看器状态 ---
+  const showStateChangeViewer = ref(false);
+  const stateChangeLogToShow = ref<any | null>(null); // 存储要显示的日志
 
 
   function openCharacterManagement() {
@@ -85,9 +90,10 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // --- 新增：数据验证错误弹窗方法 ---
-  function showDataValidationErrorDialog(messages: string[], onConfirm: () => void) {
+  function showDataValidationErrorDialog(messages: string[], onConfirm: () => void, context: 'creation' | 'loading' = 'creation') {
     dataValidationErrorMessages.value = messages;
     onDataValidationConfirm.value = onConfirm;
+    dataValidationContext.value = context; // 设置上下文
     showDataValidationError.value = true;
   }
 
@@ -102,6 +108,17 @@ export const useUIStore = defineStore('ui', () => {
       onDataValidationConfirm.value();
     }
     hideDataValidationErrorDialog();
+  }
+
+  // --- 新增：状态变更日志查看器方法 ---
+  function openStateChangeViewer(log: any) {
+    stateChangeLogToShow.value = log;
+    showStateChangeViewer.value = true;
+  }
+
+  function closeStateChangeViewer() {
+    showStateChangeViewer.value = false;
+    stateChangeLogToShow.value = null;
   }
 
   return {
@@ -123,8 +140,15 @@ export const useUIStore = defineStore('ui', () => {
     // 暴露数据验证相关状态和方法
     showDataValidationError,
     dataValidationErrorMessages,
+    dataValidationContext, // 暴露上下文
     showDataValidationErrorDialog,
     hideDataValidationErrorDialog,
     confirmDataValidationError,
+
+    // 暴露状态变更日志查看器相关状态和方法
+    showStateChangeViewer,
+    stateChangeLogToShow,
+    openStateChangeViewer,
+    closeStateChangeViewer,
   };
 });

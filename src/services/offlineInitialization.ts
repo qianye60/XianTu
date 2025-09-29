@@ -1,11 +1,13 @@
-import type { CharacterBaseInfo, SaveData, WorldInfo, PlayerStatus } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus } from '@/types/game';
 import type { World } from '@/types';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { calculateInitialAttributes } from './characterInitialization';
+import { ITEM_QUALITY_SYSTEM } from '@/data/itemQuality';
 
 /**
  * 单机模式下的本地初始化（不依赖酒馆/AI）
  * 创建一个结构正确、包含基础物品的存档
+ * 注意：现在记忆为空，将在游戏主界面通过AI生成真正的开局文本
  */
 export async function initializeCharacterOffline(
   charId: string,
@@ -33,17 +35,19 @@ export async function initializeCharacterOffline(
       灵石: { 下品: 10, 中品: 0, 上品: 0, 极品: 0 }, // 给予10个下品灵石作为启动资金
       物品: [ // [REFACTORED] 物品现在是数组
         {
+          物品ID: 'consumable_xinshou_danyao_01',
           名称: '新手丹药',
-          类型: '丹药',
+          类型: '其他',
           数量: 3,
-          品级: '凡品',
+          品质: { quality: '凡', grade: 1 },
           描述: '一颗普通的丹药，能恢复少量气血。',
         },
         {
+          物品ID: 'equipment_cubuyi_01',
           名称: '粗布衣',
           类型: '装备',
           数量: 1,
-          品级: '凡品',
+          品质: { quality: '凡', grade: 1 },
           描述: '一件朴素的粗布衣服，能提供微不足道的防御。',
         }
       ],
@@ -53,7 +57,7 @@ export async function initializeCharacterOffline(
       availableSects: [], sectRelationships: {}, sectHistory: [],
     },
     记忆: {
-      短期记忆: ['你从一个宁静的村落开始了你的旅程，前路漫漫，道阻且长。'],
+      短期记忆: [], // 初始为空，让AI生成真正的开局文本
       中期记忆: [],
       长期记忆: [],
     },
@@ -63,9 +67,18 @@ export async function initializeCharacterOffline(
     修炼功法: {
       功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0,
     },
+    系统: {
+      规则: {
+        属性上限: {
+          先天六司: { 每项上限: 10 }
+        }
+      },
+      提示: [
+        '系统规则：先天六司每项上限为10（NPC同样适用），如超限需裁剪至上限。'
+      ]
+    },
     世界信息: {
       世界名称: world.name,
-      世界背景: world.description,
       大陆信息: [],
       势力信息: [],
       地点信息: [],

@@ -26,8 +26,8 @@
               <span class="meta-chip realm-chip" :class="`realm-${playerStatus?.境界?.名称}`">
                 {{ formatRealmDisplay(playerStatus?.境界?.名称, playerStatus?.境界?.等级) }}
               </span>
-              <span class="meta-chip">{{ playerStatus?.寿命?.当前 }}</span>
-              <span v-if="playerStatus?.位置?.描述" class="meta-chip">{{ getLocationName(playerStatus?.位置?.描述) }}</span>
+              <span class="meta-chip">{{ playerStatus?.寿命?.当前 }}岁</span>
+              <span v-if="playerStatus?.位置?.描述" class="meta-chip">{{ getLocationName(playerStatus.位置.描述) }}</span>
             </div>
           </div>
         </div>

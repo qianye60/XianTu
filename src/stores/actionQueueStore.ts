@@ -8,7 +8,7 @@ export interface GameAction {
   itemType?: string;
   description: string;
   timestamp: number;
-  [key: string]: any; // 允许其他字段
+  [key: string]: unknown; // 使用 unknown 替代 any，更安全
 }
 
 /**

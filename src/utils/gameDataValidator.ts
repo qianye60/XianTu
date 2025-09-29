@@ -15,10 +15,10 @@ export interface ValidationResult {
  * @param profile 角色配置
  * @returns ValidationResult 验证结果对象
  */
-export function validateGameData(saveData: SaveData, profile: CharacterProfile): ValidationResult {
+export function validateGameData(saveData: SaveData, profile: CharacterProfile, context: 'creation' | 'loading' = 'creation'): ValidationResult {
   const errors: string[] = [];
 
-  debug.log('数据验证', '开始检查数据骨架...');
+  debug.log('数据验证', `开始检查数据骨架 (上下文: ${context})...`);
 
   // 1. 检查背包物品 (Inventory)
   // 这是本次重构的核心，必须确保 `背包.物品` 是一个数组

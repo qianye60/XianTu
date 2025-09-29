@@ -51,34 +51,41 @@
       <!-- World -->
       <div class="preview-item">
         <h3>所选世界</h3>
-        <p>{{ store.selectedWorld?.name || '未选择' }}</p>
+        <h4>{{ store.selectedWorld?.name || '未选择' }}</h4>
+        <p class="item-description">{{ store.selectedWorld?.description || '暂无描述' }}</p>
       </div>
 
       <!-- Talent Tier -->
       <div class="preview-item">
         <h3>天资</h3>
-        <p :style="{ color: store.selectedTalentTier?.color || 'inherit' }">
+        <h4 :style="{ color: store.selectedTalentTier?.color || 'inherit' }">
           {{ store.selectedTalentTier?.name || '未选择' }}
-        </p>
+        </h4>
+        <p class="item-description">{{ store.selectedTalentTier?.description || '暂无描述' }}</p>
       </div>
 
       <!-- Origin -->
       <div class="preview-item">
         <h3>出身</h3>
-        <p>{{ store.selectedOrigin?.name || '随机出身' }}</p>
+        <h4>{{ store.selectedOrigin?.name || '随机出身' }}</h4>
+        <p class="item-description">{{ store.selectedOrigin?.description || '暂无描述' }}</p>
       </div>
 
       <!-- Spirit Root -->
       <div class="preview-item">
         <h3>灵根</h3>
-        <p>{{ store.selectedSpiritRoot?.name || '随机灵根' }}</p>
+        <h4>{{ store.selectedSpiritRoot?.name || '随机灵根' }}</h4>
+        <p class="item-description">{{ store.selectedSpiritRoot?.description || '暂无描述' }}</p>
       </div>
 
       <!-- Talents -->
       <div class="preview-item talents-item">
         <h3>天赋</h3>
         <ul v-if="store.selectedTalents.length">
-          <li v-for="talent in store.selectedTalents" :key="talent.id">{{ talent.name }}</li>
+          <li v-for="talent in store.selectedTalents" :key="talent.id">
+            <strong>{{ talent.name }}</strong>
+            <p class="item-description">{{ talent.description }}</p>
+          </li>
         </ul>
         <p v-else>未选择任何天赋</p>
       </div>
@@ -189,6 +196,26 @@ const decrementAge = () => {
   line-height: 1.5;
 }
 
+.preview-item h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.item-description {
+  font-size: 0.9rem !important;
+  color: var(--color-text-secondary) !important;
+  margin-top: 0.5rem !important;
+  opacity: 0.9;
+}
+
+.talents-item li .item-description {
+  margin-top: 0.25rem !important;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--color-border);
+}
+
 /* 名字输入 */
 .name-item {
   grid-column: 1 / -1;
@@ -296,12 +323,18 @@ const decrementAge = () => {
 }
 
 .preview-item li {
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
   background: var(--color-surface-light);
   border-radius: 4px;
   color: var(--color-text);
   line-height: 1.4;
+}
+
+.preview-item li strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--color-primary);
 }
 
 /* 云端信息 */

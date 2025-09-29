@@ -188,7 +188,7 @@
     "set": [
       {"action":"set","key":"character.saveData.角色基础信息.年龄","value":16},
       {"action":"set","key":"character.saveData.角色基础信息.出生","value":"书香门第"},
-      {"action":"set","key":"character.saveData.玩家角色状态.位置.描述","value":"青石镇"},
+      {"action":"set","key":"character.saveData.玩家角色状态.位置.描述","value":"青云大陆·青石镇"},
       {"action":"set","key":"character.saveData.玩家角色状态.位置.坐标","value":{"X":120,"Y":35}},
       {"action":"set","key":"character.saveData.背包.物品.入门功法_示例","value":{ "物品ID":"入门功法_示例","名称":"<入门功法>","类型":"功法","品质":{"quality":"凡","grade":1},"数量":1,"描述":"入门功法（示例占位，实际名称请根据上下文生成）" }}
     ],

@@ -42,8 +42,18 @@
             @click="handleSelectOrigin(origin)"
             @mouseover="activeOrigin = origin"
           >
-            <span class="origin-name">{{ origin.name }}</span>
-            <span class="origin-cost">{{ origin.talent_cost }} 点</span>
+            <div class="item-content">
+              <span class="origin-name">{{ origin.name }}</span>
+              <span class="origin-cost">{{ origin.talent_cost }} 点</span>
+            </div>
+            <div v-if="origin.source === 'cloud'" class="action-buttons">
+              <button @click.stop="openEditModal(origin)" class="edit-btn" title="编辑此项">
+                <Edit :size="14" />
+              </button>
+              <button @click.stop="store.removeOrigin(origin.id)" class="delete-btn" title="删除此项">
+                <Trash2 :size="14" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -69,12 +79,24 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
+    
+    <!-- 编辑模态框 -->
+    <CustomCreationModal
+      :visible="isEditModalVisible"
+      title="编辑出身"
+      :fields="customOriginFields"
+      :validationFn="validateCustomOrigin"
+      :initialData="editInitialData"
+      @close="isEditModalVisible = false; editingOrigin = null"
+      @submit="handleEditSubmit"
+    />
     <!-- AI生成逻辑已移至toast通知 -->
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Origin } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
@@ -85,6 +107,8 @@ const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const activeOrigin = ref<Origin | 'random' | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
+const isEditModalVisible = ref(false)
+const editingOrigin = ref<Origin | null>(null)
 
 const filteredOrigins = computed(() => {
   const allOrigins = store.creationData.origins;
@@ -117,24 +141,93 @@ const filteredOrigins = computed(() => {
   }
 });
 
-const customOriginFields = [
-  { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
-  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事...' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0' },
+// 先天属性选项 - 出身影响的是先天属性
+const attributeOptions = [
+  { value: 'root_bone', label: '先天根骨' },
+  { value: 'spirit', label: '先天灵性' },
+  { value: 'comprehension', label: '先天悟性' },
+  { value: 'luck', label: '先天气运' },
+  { value: 'charm', label: '先天魅力' },
+  { value: 'temperament', label: '先天心性' }
 ] as const
 
-// 为自定义出身数据定义类型
+// 调整数值选项
+const modifierOptions = [
+  { value: '-3', label: '-3' },
+  { value: '-2', label: '-2' },
+  { value: '-1', label: '-1' },
+  { value: '0', label: '0' },
+  { value: '1', label: '+1' },
+  { value: '2', label: '+2' },
+  { value: '3', label: '+3' },
+  { value: '4', label: '+4' },
+  { value: '5', label: '+5' }
+] as const
+
+// 出身背景效果类型
+const originEffectTypes = [
+  { value: '初始资源', label: '初始资源' },
+  { value: '社会关系', label: '社会关系' },
+  { value: '特殊身份', label: '特殊身份' },
+  { value: '传承知识', label: '传承知识' },
+  { value: '起始装备', label: '起始装备' }
+] as const
+
+// 自定义出身字段 - 重新设计为背景设定
+const customOriginFields = [
+  { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
+  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' },
+  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0（可为负数）' },
+  { key: 'rarity', label: '稀有度等级', type: 'select', options: [
+    { value: '1', label: '1 - 常见' },
+    { value: '2', label: '2 - 少见' },
+    { value: '3', label: '3 - 罕见' },
+    { value: '4', label: '4 - 极罕见' },
+    { value: '5', label: '5 - 传说' }
+  ]},
+  { 
+    key: 'background_effects', 
+    label: '出身效果', 
+    type: 'dynamic-list',
+    columns: [
+      { 
+        key: 'type', 
+        placeholder: '效果类型',
+        type: 'select',
+        options: originEffectTypes
+      },
+      { 
+        key: 'description', 
+        placeholder: '具体描述，如：拥有一把传家宝剑'
+      }
+    ]
+  }
+] as const
+
+// 为自定义出身数据定义完整类型 - 重新设计为背景效果
 type CustomOriginData = {
   name: string;
   description: string;
   talent_cost: string;
+  rarity: string;
+  background_effects: { type: string; description: string }[];
 };
 
 function validateCustomOrigin(data: Partial<CustomOriginData>) {
     const errors: Record<string, string> = {};
+    
+    // 必填字段验证
     if (!data.name?.trim()) errors.name = '出身名称不可为空';
+    if (!data.description?.trim()) errors.description = '出身描述不可为空';
+    
+    // 数值字段验证
     const cost = Number(data.talent_cost);
-    if (isNaN(cost) || cost < 0) errors.talent_cost = '消耗点数必须为非负数';
+    if (isNaN(cost)) errors.talent_cost = '消耗点数必须为数字';
+    
+    if (data.rarity && (isNaN(parseInt(data.rarity, 10)) || parseInt(data.rarity, 10) < 1 || parseInt(data.rarity, 10) > 5)) {
+      errors.rarity = '稀有度等级必须为1-5的数字';
+    }
+    
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -142,18 +235,29 @@ function validateCustomOrigin(data: Partial<CustomOriginData>) {
 }
 
 async function handleCustomSubmit(data: CustomOriginData) {
+  // 处理出身背景效果
+  const backgroundEffects = data.background_effects?.length 
+    ? data.background_effects
+        .filter(item => item.type && item.description?.trim())
+        .map(item => ({
+          type: item.type,
+          description: item.description.trim()
+        }))
+    : [];
+
+  // 创建完整的标准化出身对象
   const newOrigin: Origin = {
     id: Date.now(),
     name: data.name,
-    description: data.description || '',
+    description: data.description,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
-    attribute_modifiers: {},
-    rarity: 1,
+    background_effects: backgroundEffects, // 新的背景效果字段
+    rarity: parseInt(data.rarity, 10) || 1,
+    source: 'local' as const,
   }
 
   try {
     store.addOrigin(newOrigin);
-    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectOrigin(newOrigin);
     isCustomModalVisible.value = false;
     toast.success(`自定义出身 "${newOrigin.name}" 已保存！`);
@@ -204,6 +308,62 @@ const canSelect = (origin: Origin): boolean => {
   const availablePoints = store.remainingTalentPoints + currentCost;
   return availablePoints >= origin.talent_cost;
 }
+
+// 编辑功能
+function openEditModal(origin: Origin) {
+  editingOrigin.value = origin;
+  isEditModalVisible.value = true;
+}
+
+async function handleEditSubmit(data: CustomOriginData) {
+  if (!editingOrigin.value) return;
+  
+  // 处理出身背景效果
+  const backgroundEffects = data.background_effects?.length 
+    ? data.background_effects
+        .filter(item => item.type && item.description?.trim())
+        .map(item => ({
+          type: item.type,
+          description: item.description.trim()
+        }))
+    : [];
+
+  // 创建更新数据对象
+  const updateData: Partial<Origin> = {
+    name: data.name,
+    description: data.description,
+    talent_cost: parseInt(data.talent_cost, 10) || 0,
+    rarity: parseInt(data.rarity, 10) || 1,
+    background_effects: backgroundEffects
+  };
+
+  try {
+    const success = store.updateOrigin(editingOrigin.value.id, updateData);
+    if (success) {
+      isEditModalVisible.value = false;
+      editingOrigin.value = null;
+      toast.success(`出身 "${updateData.name}" 已更新！`);
+    } else {
+      toast.error('更新出身失败！');
+    }
+  } catch (e) {
+    console.error('更新出身失败:', e);
+    toast.error('更新出身失败！');
+  }
+}
+
+// 编辑模态框的初始数据
+const editInitialData = computed(() => {
+  if (!editingOrigin.value) return {};
+  
+  return {
+    name: editingOrigin.value.name,
+    description: editingOrigin.value.description,
+    talent_cost: editingOrigin.value.talent_cost.toString(),
+    rarity: editingOrigin.value.rarity.toString(),
+    background_effects: editingOrigin.value.background_effects || []
+  };
+});
 
 function handleSelectOrigin(origin: Origin) {
   if (!canSelect(origin)) {
@@ -316,6 +476,65 @@ const activeCost = computed(() => {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   border-left: 3px solid transparent;
+}
+
+.item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+}
+
+/* 按钮组容器 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: 0.5rem;
+}
+
+.origin-item:hover .action-buttons {
+  opacity: 1;
+}
+
+/* 编辑按钮 */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.edit-btn:hover {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+/* 移除原有的删除按钮hover逻辑，因为现在按钮组统一管理 */
+.delete-btn:hover {
+  color: var(--color-danger);
+  background-color: rgba(255, 0, 0, 0.1);
 }
 
 .origin-item:hover {

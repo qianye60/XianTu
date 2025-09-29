@@ -10,7 +10,7 @@ import type {
 } from '../types';
 // Import the Tavern helper to interact with Tavern's variable system
 import { getTavernHelper, getCurrentCharacterName } from '../utils/tavern';
-import { request, fetchWorlds, fetchTalentTiers, fetchOrigins, fetchSpiritRoots, fetchTalents } from '../services/request';
+import { fetchWorlds, fetchTalentTiers, fetchOrigins, fetchSpiritRoots, fetchTalents } from '../services/request';
 import {
   LOCAL_WORLDS,
   LOCAL_TALENT_TIERS,
@@ -60,15 +60,17 @@ interface CharacterCreationDataWithSource {
 const TOTAL_STEPS = 7;
 
 // Type guard to validate the structure of DAD_creationData from Tavern
-function isDADCustomData(data: any): data is DADCustomData {
+function isDADCustomData(data: unknown): data is DADCustomData {
+  if (data === null || typeof data !== 'object') {
+    return false;
+  }
+  const obj = data as Record<string, unknown>;
   return (
-    data &&
-    typeof data === 'object' &&
-    Array.isArray(data.worlds) &&
-    Array.isArray(data.talentTiers) &&
-    Array.isArray(data.origins) &&
-    Array.isArray(data.spiritRoots) &&
-    Array.isArray(data.talents)
+    Array.isArray(obj.worlds) &&
+    Array.isArray(obj.talentTiers) &&
+    Array.isArray(obj.origins) &&
+    Array.isArray(obj.spiritRoots) &&
+    Array.isArray(obj.talents)
   );
 }
 
@@ -157,6 +159,12 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     return points;
   });
 
+  const totalTalentCost = computed(() => {
+    if (!selectedTalentTier.value) return 0;
+    const cost = selectedTalentTier.value.total_points - remainingTalentPoints.value;
+    return Math.max(0, cost);
+  });
+
   // --- ACTIONS ---
 
   async function persistCustomData() {
@@ -228,12 +236,56 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
     try {
       if (currentMode === 'single') {
-        console.log("【创世神殿】初始化单机模式，仅加载本地数据。");
-        creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' }));
-        creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' }));
-        creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' }));
-        creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' }));
-        creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' }));
+        console.log("【创世神殿】初始化单机模式，加载本地数据和自定义数据。");
+        
+        // 加载本地预设数据
+        const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+        const localTalentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
+        const localOrigins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
+        const localSpiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
+        const localTalents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
+        
+        // 尝试加载自定义数据（标记为cloud的持久化数据）
+        const helper = getTavernHelper();
+        let savedData: DADCustomData = { worlds: [], talentTiers: [], origins: [], spiritRoots: [], talents: [] };
+        if (helper) {
+          try {
+            const globalVars = await helper.getVariables({ type: 'global' });
+            const potentialData = globalVars?.['DAD_creationData'];
+            if (isDADCustomData(potentialData)) {
+              savedData = potentialData;
+              console.log("【创世神殿】单机模式也成功加载了自定义数据:", {
+                worlds: savedData.worlds.length,
+                talentTiers: savedData.talentTiers.length,
+                origins: savedData.origins.length,
+                spiritRoots: savedData.spiritRoots.length,
+                talents: savedData.talents.length
+              });
+            }
+          } catch (error) {
+            console.warn("【创世神殿】单机模式加载自定义数据失败，仅使用本地数据:", error);
+          }
+        }
+        
+        const savedCloudWorlds = savedData.worlds.map(w => ({...w, source: 'cloud' as DataSource}));
+        const savedCloudTalentTiers = savedData.talentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
+        const savedCloudOrigins = savedData.origins.map(o => ({...o, source: 'cloud' as DataSource}));
+        const savedCloudSpiritRoots = savedData.spiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
+        const savedCloudTalents = savedData.talents.map(t => ({...t, source: 'cloud' as DataSource}));
+        
+        // 合并本地数据和自定义数据
+        const merge = <T extends { id: number }>(local: T[], cloud: T[]): T[] => {
+            const map = new Map<number, T>();
+            local.forEach(item => map.set(item.id, item));
+            cloud.forEach(item => map.set(item.id, item));
+            return Array.from(map.values());
+        };
+        
+        creationData.value.worlds = merge(localWorlds, savedCloudWorlds);
+        creationData.value.talentTiers = merge(localTalentTiers, savedCloudTalentTiers);
+        creationData.value.origins = merge(localOrigins, savedCloudOrigins);
+        creationData.value.spiritRoots = merge(localSpiritRoots, savedCloudSpiritRoots);
+        creationData.value.talents = merge(localTalents, savedCloudTalents);
       } else {
         console.log("【创世神殿】初始化联机模式，加载本地及缓存的云端数据。");
         const helper = getTavernHelper();
@@ -275,11 +327,12 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     } catch (e) {
       console.error("加载数据失败:", e);
       error.value = "加载数据失败";
-      creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' }));
-      creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' }));
-      creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' }));
-      creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' }));
-      creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' }));
+      // 即使出错也使用正确的数据源标记
+      creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+      creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
+      creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
+      creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
+      creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
     } finally {
       isLoading.value = false;
     }
@@ -351,12 +404,20 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         talents: creationData.value.talents.length,
       };
 
-      // 转换为带source标记的数据
-      const cloudWorldsWithSource = cloudWorlds.map(w => ({ ...w, source: 'cloud' as DataSource }));
-      const cloudTalentTiersWithSource = cloudTalentTiers.map(t => ({ ...t, source: 'cloud' as DataSource }));
-      const cloudOriginsWithSource = cloudOrigins.map(o => ({ ...o, source: 'cloud' as DataSource }));
-      const cloudSpiritRootsWithSource = cloudSpiritRoots.map(s => ({ ...s, source: 'cloud' as DataSource }));
-      const cloudTalentsWithSource = cloudTalents.map(t => ({ ...t, source: 'cloud' as DataSource }));
+      // 安全地转换API返回的数据，确保类型正确
+      const safeTransform = <T>(items: any[], defaultItem: Omit<T, 'source'>): (T & { source: DataSource })[] => {
+        return (items || []).filter(Boolean).map(item => ({
+          ...defaultItem,
+          ...item,
+          source: 'cloud' as DataSource,
+        } as T & { source: DataSource }));
+      };
+
+      const cloudWorldsWithSource = safeTransform<World>(cloudWorlds, { id: 0, name: '', era: '', description: '' });
+      const cloudTalentTiersWithSource = safeTransform<TalentTier>(cloudTalentTiers, { id: 0, name: '', description: '', total_points: 0, rarity: 0, color: '' });
+      const cloudOriginsWithSource = safeTransform<Origin>(cloudOrigins, { id: 0, name: '', description: '', talent_cost: 0, attribute_modifiers: {}, rarity: 0 });
+      const cloudSpiritRootsWithSource = safeTransform<SpiritRoot>(cloudSpiritRoots, { id: 0, name: '', description: '', base_multiplier: 0, talent_cost: 0 });
+      const cloudTalentsWithSource = safeTransform<Talent>(cloudTalents, { id: 0, name: '', description: '', talent_cost: 0, rarity: 0 });
       
       // 使用当前 store 中的数据作为本地数据源进行合并，而不是用初始常量
       const localWorlds = creationData.value.worlds;
@@ -455,27 +516,37 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
 
   function addWorld(world: World) {
-    const source = isLocalCreation.value ? 'local' : 'cloud';
+    // 用户自定义创建的数据都标记为'cloud'以便持久化，不管当前是否为单机模式
+    const source = 'cloud' as const;
     creationData.value.worlds.unshift({ ...world, source });
+    persistCustomData();
   }
   function addTalentTier(tier: TalentTier) {
-    const source = isLocalCreation.value ? 'local' : 'cloud';
+    // 用户自定义创建的数据都标记为'cloud'以便持久化，不管当前是否为单机模式
+    const source = 'cloud' as const;
     creationData.value.talentTiers.unshift({ ...tier, source });
+    persistCustomData();
   }
   function addOrigin(origin: Origin) {
-    const source = isLocalCreation.value ? 'local' : 'cloud';
+    // 用户自定义创建的数据都标记为'cloud'以便持久化，不管当前是否为单机模式
+    const source = 'cloud' as const;
     creationData.value.origins.unshift({ ...origin, source });
+    persistCustomData();
   }
   function addSpiritRoot(root: SpiritRoot) {
-    const source = isLocalCreation.value ? 'local' : 'cloud';
+    // 用户自定义创建的数据都标记为'cloud'以便持久化，不管当前是否为单机模式
+    const source = 'cloud' as const;
     creationData.value.spiritRoots.unshift({ ...root, source });
+    persistCustomData();
   }
   function addTalent(talent: Talent) {
-    const source = isLocalCreation.value ? 'local' : 'cloud';
+    // 用户自定义创建的数据都标记为'cloud'以便持久化，不管当前是否为单机模式
+    const source = 'cloud' as const;
     creationData.value.talents.unshift({ ...talent, source });
+    persistCustomData();
   }
 
-  function addGeneratedData(type: string, data: any) {
+  function addGeneratedData(type: string, data: unknown) {
     switch (type) {
       case 'world': addWorld(data as World); break;
       case 'talent_tier': addTalentTier(data as TalentTier); break;
@@ -485,6 +556,49 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       default: console.warn(`Unknown data type for addGeneratedData: ${type}`);
     }
   }
+  
+  // --- 新增：删除功能 ---
+  type CreationDataType = 'worlds' | 'talentTiers' | 'origins' | 'spiritRoots' | 'talents';
+
+  function removeItem(type: CreationDataType, id: number) {
+    const index = creationData.value[type].findIndex(item => item.id === id);
+    if (index > -1) {
+      creationData.value[type].splice(index, 1);
+      console.log(`【创世神殿】已删除 ${type} 项目，ID: ${id}`);
+      persistCustomData();
+    }
+  }
+
+  const removeWorld = (id: number) => removeItem('worlds', id);
+  const removeTalentTier = (id: number) => removeItem('talentTiers', id);
+  const removeOrigin = (id: number) => removeItem('origins', id);
+  const removeSpiritRoot = (id: number) => removeItem('spiritRoots', id);
+  const removeTalent = (id: number) => removeItem('talents', id);
+
+  // --- 新增：编辑功能 ---
+  function updateItem<T extends { id: number }>(type: CreationDataType, id: number, updatedData: Partial<T>) {
+    const index = creationData.value[type].findIndex(item => item.id === id);
+    if (index > -1) {
+      // 保持原有数据源标记，只更新内容
+      const currentItem = creationData.value[type][index];
+      creationData.value[type][index] = { ...currentItem, ...updatedData };
+      console.log(`【创世神殿】已更新 ${type} 项目，ID: ${id}`);
+      persistCustomData();
+      return true;
+    }
+    return false;
+  }
+
+  const updateWorld = (id: number, data: Partial<World>) => updateItem('worlds', id, data);
+  const updateTalentTier = (id: number, data: Partial<TalentTier>) => updateItem('talentTiers', id, data);
+  const updateOrigin = (id: number, data: Partial<Origin>) => updateItem('origins', id, data);
+  const updateSpiritRoot = (id: number, data: Partial<SpiritRoot>) => updateItem('spiritRoots', id, data);
+  const updateTalent = (id: number, data: Partial<Talent>) => updateItem('talents', id, data);
+
+  // 获取单个项目数据（用于编辑时填充表单）
+  const getItemById = <T extends { id: number }>(type: CreationDataType, id: number): T | null => {
+    return creationData.value[type].find(item => item.id === id) as T || null;
+  };
   
   function selectWorld(worldId: number | '') { characterPayload.value.world_id = worldId; }
   function selectTalentTier(tierId: number | '') {
@@ -520,7 +634,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   function setInitialGameMessage(message: string) { initialGameMessage.value = message; }
   
   // 设置世界生成配置
-  function setWorldGenerationConfig(config: any) {
+  function setWorldGenerationConfig(config: Partial<typeof worldGenerationConfig.value>) {
     worldGenerationConfig.value = { ...worldGenerationConfig.value, ...config };
   }
   async function resetOnExit() { await resetCharacter(); mode.value = 'single'; isLocalCreation.value = true; }
@@ -529,8 +643,10 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
   return {
     mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig,
-    totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints,
+    totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
+    removeWorld, removeTalentTier, removeOrigin, removeSpiritRoot, removeTalent, // 导出删除函数
+    updateWorld, updateTalentTier, updateOrigin, updateSpiritRoot, updateTalent, getItemById, // 导出编辑函数
     selectWorld, selectTalentTier, selectOrigin, selectSpiritRoot, toggleTalent, setAttribute,
     resetCharacter, nextStep, prevStep, goToStep, setMode, toggleLocalCreation, setInitialGameMessage, setWorldGenerationConfig,
     resetOnExit, startLocalCreation, startCloudCreation, persistCustomData,
