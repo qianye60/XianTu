@@ -12,3 +12,4 @@ type TavernHelper = import('./utils/tavernCore').TavernHelper;
 interface Window {
   TavernHelper?: TavernHelper;
 }
+

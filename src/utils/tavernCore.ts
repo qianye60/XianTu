@@ -199,9 +199,28 @@ export async function generateItemWithTavernAI<T = unknown>(
       const normalized: any[] = [];
       for (const c of cmds) {
         if (!c || typeof c !== 'object') throw new Error('命令项必须为对象');
-        const action = String(c.action || '').trim();
-        const scope = String((c.scope || 'chat')).trim();
-        const key = String(c.key || '').trim();
+
+        // 兼容常见别名：command/_.set/set_player_data 等，统一映射为 action
+        const rawAction = (c as any).action ?? (c as any).command ?? (c as any).op;
+        let action = String(rawAction || '').trim().toLowerCase();
+        // 规范化常见别名
+        const aliasMap: Record<string, 'set' | 'add' | 'push' | 'pull' | 'delete'> = {
+          'set_value': 'set',
+          'set_player_data': 'set',
+          '_.set': 'set',
+          '_.add': 'add',
+          '_.push': 'push',
+          '_.pull': 'pull',
+          '_.delete': 'delete',
+          'unset': 'delete',
+          'del': 'delete',
+        };
+        if (aliasMap[action as keyof typeof aliasMap]) {
+          action = aliasMap[action as keyof typeof aliasMap];
+        }
+        // 也允许原生关键字（保持原样）
+        const scope = String((c as any).scope || 'chat').trim();
+        const key = String((c as any).key || '').trim();
         if (!allowed.has(action)) throw new Error('存在非法action');
         if (!scopes.has(scope)) throw new Error('存在非法scope');
         if (!key) throw new Error('存在非法key');
@@ -246,13 +265,47 @@ export async function generateItemWithTavernAI<T = unknown>(
       // 使用TavernHelper.generate()方法，将完整提示词作为系统注入
       const rawResult = await helper.generate({
         user_input: "请按照系统指令执行，生成符合要求的JSON响应。",
-        injects: [{
-          role: "system",
-          content: prompt,
-          position: "in_chat",
-          depth: 0,
-          should_scan: false
-        }],
+        injects: [
+          {
+            role: "system",
+            content: (await (async () => {
+              try {
+                const helper = getTavernHelper();
+                const vars = await helper.getVariables({ type: 'chat' });
+                const bundle = typeof vars['system.rules.bundle'] === 'string' ? (vars['system.rules.bundle'] as string) : '';
+                if (bundle && bundle.trim()) return bundle;
+              } catch {}
+              // 回退：内建拼装一份基础规则
+              const parts = [
+                '【核心规则】',
+                (typeof COMMON_CORE_RULES === 'string' ? COMMON_CORE_RULES : ''),
+                '【叙事规则】',
+                (typeof COMMON_NARRATIVE_RULES === 'string' ? COMMON_NARRATIVE_RULES : ''),
+                '【数据操作规则】',
+                (typeof COMMON_DATA_MANIPULATION_RULES === 'string' ? COMMON_DATA_MANIPULATION_RULES : ''),
+                '【物品系统】',
+                (typeof COMMON_ITEM_RULES === 'string' ? COMMON_ITEM_RULES : ''),
+                '【NPC系统】',
+                (typeof COMMON_NPC_RULES === 'string' ? COMMON_NPC_RULES : ''),
+                '【三千大道系统】',
+                (typeof COMMON_DAO_RULES === 'string' ? COMMON_DAO_RULES : ''),
+                '【角色初始化特别规则】',
+                (typeof CHARACTER_INITIALIZATION_RULES === 'string' ? CHARACTER_INITIALIZATION_RULES : ''),
+              ].filter(Boolean);
+              return parts.join('\n\n');
+            })()),
+            position: "in_chat",
+            depth: 0,
+            should_scan: false
+          },
+          {
+            role: "system",
+            content: prompt,
+            position: "in_chat",
+            depth: 0,
+            should_scan: false
+          }
+        ],
         should_stream: false,
         max_chat_history: 0  // 不使用聊天历史，避免干扰
       });
@@ -334,4 +387,37 @@ export async function generateItemWithTavernAI<T = unknown>(
   }
 
   return null;
+}
+
+/**
+ * 将系统规则打包并缓存到酒馆变量，便于后续自动注入
+ */
+export async function cacheSystemRulesToTavern(scope: 'chat' | 'global' = 'chat'): Promise<void> {
+  const buildRulesBundle = (): string => {
+    const sections = [
+      '【核心规则】',
+      (typeof COMMON_CORE_RULES === 'string' ? COMMON_CORE_RULES : ''),
+      '【叙事规则】',
+      (typeof COMMON_NARRATIVE_RULES === 'string' ? COMMON_NARRATIVE_RULES : ''),
+      '【数据操作规则】',
+      (typeof COMMON_DATA_MANIPULATION_RULES === 'string' ? COMMON_DATA_MANIPULATION_RULES : ''),
+      '【物品系统】',
+      (typeof COMMON_ITEM_RULES === 'string' ? COMMON_ITEM_RULES : ''),
+      '【NPC系统】',
+      (typeof COMMON_NPC_RULES === 'string' ? COMMON_NPC_RULES : ''),
+      '【三千大道系统】',
+      (typeof COMMON_DAO_RULES === 'string' ? COMMON_DAO_RULES : ''),
+      '【角色初始化特别规则】',
+      (typeof CHARACTER_INITIALIZATION_RULES === 'string' ? CHARACTER_INITIALIZATION_RULES : ''),
+    ].filter(Boolean);
+    return sections.join('\n\n');
+  };
+  try {
+    const helper = getTavernHelper();
+    const bundle = buildRulesBundle();
+    await helper.insertOrAssignVariables({ 'system.rules.bundle': bundle, 'system.rules.version': '1' }, { type: scope });
+    console.log('【神识印记】系统规则已写入酒馆变量');
+  } catch (e) {
+    console.warn('【神识印记】写入酒馆变量失败（不影响运行）:', e);
+  }
 }

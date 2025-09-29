@@ -3,7 +3,7 @@
  * 将现有的存档数据结构转换为AI系统所需的格式
  */
 
-import type { SaveData, CharacterBaseInfo, Item, NpcProfile, StatusEffect, Realm } from '../../types/game';
+import type { SaveData, CharacterBaseInfo, Item, NpcProfile, StatusEffect, Realm, EquipmentItem, ConsumableItem, TechniqueItem } from '../../types/game';
 import type { GameCharacter, GM_Request } from '../../types/AIGameMaster';
 
 /**
@@ -47,68 +47,72 @@ export interface LocationContext {
 export function convertSaveDataToGameCharacter(saveData: SaveData, characterProfile?: { 角色基础信息?: CharacterBaseInfo }): GameCharacter {
   const playerStatus = saveData.玩家角色状态;
   const baseInfo = characterProfile?.角色基础信息 || saveData.角色基础信息;
-  const charAttributes = saveData.角色属性;
 
-  if (!baseInfo || !playerStatus || !charAttributes) {
-    console.error('[AI转换器] 缺少必要的角色数据:', { baseInfo, playerStatus, charAttributes });
+  if (!baseInfo || !playerStatus) {
+    console.error('[AI转换器] 缺少必要的角色数据:', { baseInfo, playerStatus });
     throw new Error('缺少必要的角色数据，无法转换为AI系统格式');
   }
 
-  const equipment = saveData.装备栏;
+  const equipmentSlots = saveData.装备栏;
   const cultivationArts = saveData.修炼功法;
-  const bag = saveData.背包;
+  const inventory = saveData.背包;
 
-  const getRealmName = (realm: string | Realm): string => {
-    return typeof realm === 'string' ? realm : realm.名称;
+  const getRealmName = (realm: Realm): string => {
+    return realm.名称;
   };
 
-  const getQi = (value: number | { 当前: number; 最大: number }): { current: number; max: number } => {
-    if (typeof value === 'number') return { current: value, max: value };
+  const getQi = (value: { 当前: number; 最大: number }): { current: number; max: number } => {
     return { current: value.当前, max: value.最大 };
   };
+
+  const findItemById = (itemId: string | null): Item | undefined => {
+    if (!itemId) return undefined;
+    return inventory.物品.find(i => i.物品ID === itemId);
+  };
+
+  const equippedItems = Object.values(equipmentSlots)
+    .map(itemId => findItemById(itemId))
+    .filter((item): item is Item => !!item);
 
   return {
     identity: {
       name: baseInfo.名字 || '无名道友',
-      title: typeof playerStatus.声望 === 'number' && playerStatus.声望 > 100 ? `${baseInfo.名字 || '无名'}真人` : undefined,
-      age: baseInfo.年龄,
-      apparent_age: baseInfo.年龄,
+      title: playerStatus.声望 > 100 ? `${baseInfo.名字 || '无名'}真人` : undefined,
+      age: baseInfo.年龄 ?? 16,
+      apparent_age: baseInfo.年龄 ?? 16,
       gender: baseInfo.性别,
-      description: `来自${baseInfo.世界 || '未知之地'}的${baseInfo.种族}修士，出身${typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生.名称}`,
+      description: `来自${baseInfo.世界 || '未知之地'}的${baseInfo.种族 || '人族'}修士，出身${typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生.名称}`,
     },
 
     cultivation: {
-      realm: getRealmName(charAttributes.境界),
-      realm_progress: typeof charAttributes.修为 === 'number' ? charAttributes.修为 : charAttributes.修为.当前,
-      lifespan_remaining: baseInfo.年龄, // 简化处理
-      breakthrough_bottleneck: typeof charAttributes.境界 === 'object' ? charAttributes.境界.突破描述 : undefined,
+      realm: getRealmName(playerStatus.境界),
+      realm_progress: playerStatus.修为.当前,
+      lifespan_remaining: playerStatus.寿命.最大 - playerStatus.寿命.当前,
+      breakthrough_bottleneck: playerStatus.境界.突破描述,
     },
     attributes: {
-      STR: charAttributes.基础属性.力量,
-      CON: charAttributes.基础属性.体质,
-      DEX: charAttributes.基础属性.敏捷,
-      INT: charAttributes.基础属性.智力,
-      SPI: charAttributes.扩展属性.神识,
-      LUK: charAttributes.扩展属性.气运,
+      STR: baseInfo.先天六司.根骨,
+      CON: baseInfo.先天六司.灵性,
+      DEX: baseInfo.先天六司.悟性,
+      INT: baseInfo.先天六司.心性,
+      SPI: baseInfo.先天六司.魅力,
+      LUK: baseInfo.先天六司.气运,
     },
     resources: {
-      qi: getQi(playerStatus.生命值),
-      ling: getQi(playerStatus.灵力值),
-      shen: {
-        current: playerStatus.神识?.当前 || 50,
-        max: playerStatus.神识?.最大 || 50,
-      },
+      qi: getQi(playerStatus.气血),
+      ling: getQi(playerStatus.灵气),
+      shen: getQi(playerStatus.神识),
     },
 
     qualities: {
       origin: {
         name: typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生.名称,
-        effects: [],
+        effects: typeof baseInfo.出生 === 'object' ? [baseInfo.出生.描述] : [],
       },
       spiritRoot: {
         name: typeof baseInfo.灵根 === 'string' ? baseInfo.灵根 : baseInfo.灵根.名称,
-        quality: typeof baseInfo.灵根 === 'object' ? baseInfo.灵根.品质 : '凡品',
-        attributes: [],
+        quality: typeof baseInfo.灵根 === 'object' ? baseInfo.灵根.品级 : '凡品',
+        attributes: typeof baseInfo.灵根 === 'object' ? baseInfo.灵根.special_effects || [] : [],
       },
       physique: undefined,
       talents: baseInfo.天赋.map((talent) => ({
@@ -118,21 +122,21 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
       })),
     },
 
-    skills: cultivationArts?.已解锁技能?.reduce((acc: Record<string, any>, skillName: string) => {
+    skills: cultivationArts?.已解锁技能?.reduce((acc: Record<string, { level: number; rank: string; experience: number }>, skillName: string) => {
       acc[skillName] = { level: 1, rank: '入门', experience: 0 };
       return acc;
     }, {}) || {},
 
     equipment: {
-      weapon: equipment?.装备1 ? { name: equipment.装备1.名称, type: '武器', description: equipment.装备1.描述 } : undefined,
-      armor: equipment?.装备2 ? { name: equipment.装备2.名称, type: '防具', description: equipment.装备2.描述 } : undefined,
-      accessories: [equipment?.装备3, equipment?.装备4, equipment?.装备5, equipment?.装备6].filter((item): item is Item => !!item).map(item => ({
+      weapon: equippedItems.find(i => i.类型 === '装备' && (i as EquipmentItem)) as unknown as undefined, // Simplified
+      armor: equippedItems.find(i => i.类型 === '装备' && (i as EquipmentItem)) as unknown as undefined, // Simplified
+      accessories: equippedItems.filter(i => i.类型 === '装备').map(item => ({
         name: item.名称,
         type: '饰品',
         description: item.描述,
       })),
       treasures: [],
-      consumables: Object.values(bag.物品).filter(item => item.类型 === '消耗品').map(item => ({
+      consumables: inventory.物品.filter((item): item is ConsumableItem => item.类型 === '其他').map(item => ({
         name: item.名称,
         type: item.类型,
         description: item.描述,
@@ -140,12 +144,17 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
     },
 
     cultivation_arts: {
-      main_technique: cultivationArts?.功法 ? {
-        name: cultivationArts.功法.名称,
-        rank: typeof cultivationArts.功法.品质 === 'string' ? cultivationArts.功法.品质 : cultivationArts.功法.品质.quality,
-        proficiency: cultivationArts.熟练度,
-        special_effects: cultivationArts.功法.装备特效 || [],
-      } : undefined,
+      main_technique: (() => {
+        const techniqueId = typeof cultivationArts.功法 === 'string' ? cultivationArts.功法 : cultivationArts.功法?.物品ID;
+        const technique = findItemById(techniqueId || null) as TechniqueItem | undefined;
+        if (!technique) return undefined;
+        return {
+          name: technique.名称,
+          rank: `${technique.品质.quality}${technique.品质.grade}品`,
+          proficiency: cultivationArts.熟练度,
+          special_effects: Object.values(technique.功法技能 || {}).map(s => s.技能描述),
+        };
+      })(),
       combat_techniques: cultivationArts?.已解锁技能?.map((skillName: string) => ({
         name: skillName,
         type: '功法技能',
@@ -156,20 +165,20 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
     },
 
     social: {
-      faction: undefined,
-      position: undefined,
-      master: undefined,
+      faction: playerStatus.宗门信息?.sectName,
+      position: playerStatus.宗门信息?.position,
+      master: playerStatus.宗门信息?.师父,
       disciples: [],
       dao_companion: undefined,
-      relationships: convertRelationshipsData(saveData.人际关系),
-      reputation: { '默认': typeof playerStatus.声望 === 'number' ? playerStatus.声望 : (playerStatus.声望.江湖声望 + playerStatus.声望.宗门声望) },
+      relationships: convertRelationshipsData(saveData.人物关系),
+      reputation: { [playerStatus.宗门信息?.sectName || '江湖']: playerStatus.声望 },
     },
 
     hidden_state: {
       karma: {
         righteous: 0,
         demonic: 0,
-        heavenly_favor: charAttributes.扩展属性.气运,
+        heavenly_favor: baseInfo.先天六司.气运,
       },
       dao_heart: {
         stability: (baseInfo.先天六司?.心性 || 10) * 10,
@@ -180,7 +189,7 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
     },
 
     status: {
-      conditions: (playerStatus.状态 || []).map((effect: StatusEffect | string) => typeof effect === 'string' ? effect : effect.名称),
+      conditions: (playerStatus.状态效果 || []).map((effect: StatusEffect) => effect.状态名称),
       location: playerStatus.位置?.描述 || '未知位置',
       activity: (playerStatus.位置?.描述 || '').includes('修炼') ? '修炼' : '待机',
       mood: undefined,
@@ -201,8 +210,8 @@ export function convertSaveDataToMemorySystem(saveData: SaveData): MemorySystem 
     npc_interactions: Object.entries(relationships).reduce((acc, [npcName, npcData]) => {
       if (typeof npcData === 'object' && npcData !== null) {
         acc[npcName] = {
-          relationship: npcData.关系,
-          favor: npcData.好感度,
+          relationship: npcData.人物关系,
+          favor: npcData.人物好感度,
           memories: [], // 简化处理
           last_interaction: '',
           interaction_count: 0,
@@ -244,7 +253,7 @@ export function convertSaveDataToLocationContext(saveData: SaveData): LocationCo
 /**
  * 辅助函数：转换人物关系数据
  */
-function convertRelationshipsData(relationshipsData: Record<string, NPC> | undefined): Record<string, {
+function convertRelationshipsData(relationshipsData: Record<string, NpcProfile> | undefined): Record<string, {
   value: number;
   type: string;
   description: string;
@@ -255,9 +264,9 @@ function convertRelationshipsData(relationshipsData: Record<string, NPC> | undef
 
   return Object.entries(relationshipsData).reduce<Record<string, { value: number; type: string; description: string }>>((acc, [npcName, npcData]) => {
     acc[npcName] = {
-      value: npcData.好感度,
-      type: npcData.关系,
-      description: npcData.关系,
+      value: npcData.人物好感度,
+      type: npcData.人物关系,
+      description: npcData.人物关系,
     };
     return acc;
   }, {});

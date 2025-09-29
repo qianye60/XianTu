@@ -16,14 +16,14 @@
           </ul>
         </div>
         <p class="content-suggestion">
-          我们建议您立即修复此问题。修复过程将根据您现有的角色基础信息，重新生成一份健康的初始存档数据。
-          <strong>注意：这将会重置您的游戏进度（如修为、背包物品等），但角色核心设定（如姓名、天赋、灵根）将保留。</strong>
+          {{ dialogTexts.suggestion }}
+          <strong>{{ dialogTexts.warning }}</strong>
         </p>
       </div>
       <div class="dialog-actions">
         <button class="action-button confirm-button" @click="handleConfirm">
           <RefreshCw :size="16" />
-          重新初始化并修复
+          {{ dialogTexts.buttonText }}
         </button>
       </div>
     </div>
@@ -33,12 +33,31 @@
 <script setup lang="ts">
 import { useUIStore } from '@/stores/uiStore';
 import { AlertTriangle, RefreshCw } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 const uiStore = useUIStore();
 
 const handleConfirm = () => {
   uiStore.confirmDataValidationError();
 };
+
+// 根据上下文动态生成对话框文本
+const dialogTexts = computed(() => {
+  const context = uiStore.dataValidationContext;
+  if (context === 'loading') {
+    return {
+      suggestion: '我们建议您立即修复此问题。修复过程将尝试在保留您核心进度的前提下，修正存档的数据结构。',
+      warning: '注意：修复主要针对结构性问题，无法恢复已损坏或丢失的数据。建议您在修复前备份存档。',
+      buttonText: '修复存档并继续'
+    };
+  }
+  // 默认为 'creation' 场景
+  return {
+    suggestion: '我们建议您立即修复此问题。修复过程将根据您现有的角色基础信息，重新生成一份健康的初始存档数据。',
+    warning: '注意：这将会重置您的游戏进度（如修为、背包物品等），但角色核心设定（如姓名、天赋、灵根）将保留。',
+    buttonText: '重新初始化并修复'
+  };
+});
 </script>
 
 <style scoped>

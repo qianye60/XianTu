@@ -32,8 +32,18 @@
             @click="handleToggleTalent(talent)"
             @mouseover="activeTalent = talent"
           >
-            <span class="talent-name">{{ talent.name }}</span>
-            <span class="talent-cost">{{ talent.talent_cost }} 点</span>
+            <div class="item-content">
+              <span class="talent-name">{{ talent.name }}</span>
+              <span class="talent-cost">{{ talent.talent_cost }} 点</span>
+            </div>
+            <div v-if="talent.source === 'cloud'" class="action-buttons">
+              <button @click.stop="openEditModal(talent)" class="edit-btn" title="编辑此项">
+                <Edit :size="14" />
+              </button>
+              <button @click.stop="store.removeTalent(talent.id)" class="delete-btn" title="删除此项">
+                <Trash2 :size="14" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -58,6 +68,17 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
+    
+    <!-- 编辑模态框 -->
+    <CustomCreationModal
+      :visible="isEditModalVisible"
+      title="编辑天赋"
+      :fields="customTalentFields"
+      :validationFn="validateCustomTalent"
+      :initialData="editInitialData"
+      @close="isEditModalVisible = false; editingTalent = null"
+      @submit="handleEditSubmit"
+    />
 
     <!-- AI生成逻辑已移至toast通知 -->
   </div>
@@ -65,6 +86,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Talent } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
@@ -75,6 +97,8 @@ const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const activeTalent = ref<Talent | null>(null) // For details view on hover/click
 const isCustomModalVisible = ref(false)
+const isEditModalVisible = ref(false)
+const editingTalent = ref<Talent | null>(null)
 
 const filteredTalents = computed(() => {
   const allTalents = store.creationData.talents;
@@ -101,37 +125,140 @@ const filteredTalents = computed(() => {
   }
 });
 
-const customTalentFields = [
-  { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
-  { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的效果...' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' },
+// 天赋效果类型选项
+const effectTypeOptions = [
+  { value: '后天六司', label: '后天属性' },
+  { value: '特殊能力', label: '特殊能力' },
+  { value: '技能加成', label: '技能加成' }
 ] as const
 
-function validateCustomTalent(data: any) {
+// 后天属性选项 - 天赋影响的是后天修炼属性
+const attributeTargetOptions = [
+  { value: '根骨', label: '后天根骨' },
+  { value: '灵性', label: '后天灵性' },
+  { value: '悟性', label: '后天悟性' },
+  { value: '气运', label: '后天气运' },
+  { value: '魅力', label: '后天魅力' },
+  { value: '心性', label: '后天心性' }
+] as const
+
+// 常见技能选项
+const skillOptions = [
+  { value: '剑法', label: '剑法' },
+  { value: '刀法', label: '刀法' },
+  { value: '拳法', label: '拳法' },
+  { value: '腿法', label: '腿法' },
+  { value: '炼丹', label: '炼丹' },
+  { value: '炼器', label: '炼器' },
+  { value: '阵法', label: '阵法' },
+  { value: '符箓', label: '符箓' },
+  { value: '医术', label: '医术' },
+  { value: '音律', label: '音律' },
+  { value: '自定义', label: '自定义...' }
+] as const
+
+// 自定义天赋字段 - 使用动态列表格式
+const customTalentFields = [
+  { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
+  { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的效果和背景故事...' },
+  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' },
+  { key: 'rarity', label: '稀有度等级', type: 'select', options: [
+    { value: '1', label: '1 - 常见' },
+    { value: '2', label: '2 - 少见' },
+    { value: '3', label: '3 - 罕见' },
+    { value: '4', label: '4 - 极罕见' },
+    { value: '5', label: '5 - 传说' }
+  ]},
+  { 
+    key: 'effects', 
+    label: '天赋效果', 
+    type: 'dynamic-list',
+    columns: [
+      { 
+        key: 'type', 
+        placeholder: '效果类型',
+        type: 'select',
+        options: effectTypeOptions
+      },
+      { 
+        key: 'target', 
+        placeholder: '目标/名称'
+      },
+      { 
+        key: 'value', 
+        placeholder: '数值'
+      }
+    ]
+  }
+] as const
+
+// 自定义天赋数据类型 - 与标准数据格式保持一致
+type CustomTalentData = {
+  name: string;
+  description: string;
+  talent_cost: string;
+  rarity: string;
+  effects: { type: string; target: string; value: string }[];
+};
+
+function validateCustomTalent(data: Partial<CustomTalentData>) {
     const errors: Record<string, string> = {};
+    
+    // 必填字段验证
     if (!data.name?.trim()) errors.name = '天赋名称不可为空';
+    if (!data.description?.trim()) errors.description = '天赋描述不可为空';
+    
+    // 数值字段验证
     const cost = Number(data.talent_cost);
-    if (isNaN(cost) || cost < 0) errors.talent_cost = '消耗点数必须为非负数';
+    if (isNaN(cost)) errors.talent_cost = '消耗点数必须为数字';
+    
+    if (data.rarity && (isNaN(parseInt(data.rarity, 10)) || parseInt(data.rarity, 10) < 1 || parseInt(data.rarity, 10) > 5)) {
+      errors.rarity = '稀有度等级必须为1-5的数字';
+    }
+    
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
     };
 }
 
-async function handleCustomSubmit(data: any) {
+async function handleCustomSubmit(data: CustomTalentData) {
+  // 解析天赋效果 - 处理动态列表格式
+  const parsedEffects = data.effects?.length ? data.effects
+    .filter(item => item.type && item.target && item.value)
+    .map(item => {
+      const effect: any = { 类型: item.type };
+      
+      if (item.type === '后天六司') {
+        effect.目标 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      } else if (item.type === '技能加成') {
+        effect.技能 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      } else if (item.type === '特殊能力') {
+        effect.名称 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      } else {
+        effect.名称 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      }
+      
+      return effect;
+    }) : [];
+
+  // 创建完整的标准化天赋对象
   const newTalent: Talent = {
     id: Date.now(),
     name: data.name,
-    description: data.description || '',
+    description: data.description,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
-    effects: null,
-    rarity: 1,
-    source: 'local',
+    rarity: parseInt(data.rarity, 10) || 1,
+    effects: parsedEffects,
+    source: 'local' as const,
   }
 
   try {
     store.addTalent(newTalent);
-    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     isCustomModalVisible.value = false;
     toast.success(`自定义天赋 "${newTalent.name}" 已保存！`);
   } catch (e) {
@@ -186,6 +313,95 @@ function handleAIGenerate() {
     emit('ai-generate');
   }
 }
+
+// 编辑功能
+function openEditModal(talent: Talent) {
+  editingTalent.value = talent;
+  isEditModalVisible.value = true;
+}
+
+async function handleEditSubmit(data: CustomTalentData) {
+  if (!editingTalent.value) return;
+  
+  // 解析天赋效果 - 处理动态列表格式
+  const parsedEffects = data.effects?.length ? data.effects
+    .filter(item => item.type && item.target && item.value)
+    .map(item => {
+      const effect: any = { 类型: item.type };
+      
+      if (item.type === '后天六司') {
+        effect.目标 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      } else if (item.type === '技能加成') {
+        effect.技能 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      } else if (item.type === '特殊能力') {
+        effect.名称 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      } else {
+        effect.名称 = item.target;
+        effect.数值 = parseFloat(item.value) || 0;
+      }
+      
+      return effect;
+    }) : [];
+
+  // 创建更新数据对象
+  const updateData: Partial<Talent> = {
+    name: data.name,
+    description: data.description,
+    talent_cost: parseInt(data.talent_cost, 10) || 0,
+    rarity: parseInt(data.rarity, 10) || 1,
+    effects: parsedEffects
+  };
+
+  try {
+    const success = store.updateTalent(editingTalent.value.id, updateData);
+    if (success) {
+      isEditModalVisible.value = false;
+      editingTalent.value = null;
+      toast.success(`天赋 "${updateData.name}" 已更新！`);
+    } else {
+      toast.error('更新天赋失败！');
+    }
+  } catch (e) {
+    console.error('更新天赋失败:', e);
+    toast.error('更新天赋失败！');
+  }
+}
+
+// 编辑模态框的初始数据
+const editInitialData = computed(() => {
+  if (!editingTalent.value) return {};
+  
+  return {
+    name: editingTalent.value.name,
+    description: editingTalent.value.description,
+    talent_cost: editingTalent.value.talent_cost.toString(),
+    rarity: editingTalent.value.rarity?.toString() || '1',
+    effects: editingTalent.value.effects?.map(effect => {
+      if (effect.类型 === '后天六司') {
+        return {
+          type: effect.类型,
+          target: effect.目标,
+          value: effect.数值?.toString() || '0'
+        };
+      } else if (effect.类型 === '技能加成') {
+        return {
+          type: effect.类型,
+          target: effect.技能,
+          value: effect.数值?.toString() || '0'
+        };
+      } else {
+        return {
+          type: effect.类型,
+          target: effect.名称,
+          value: effect.数值?.toString() || '0'
+        };
+      }
+    }) || []
+  };
+});
 
 // fetchData 和 defineExpose 不再需要
 </script>
@@ -274,6 +490,64 @@ function handleAIGenerate() {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   border-left: 3px solid transparent;
+}
+
+.item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+}
+
+/* 按钮组容器 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: 0.5rem;
+}
+
+.talent-item:hover .action-buttons {
+  opacity: 1;
+}
+
+/* 编辑按钮 */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.edit-btn:hover {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.delete-btn:hover {
+  color: var(--color-danger);
+  background-color: rgba(255, 0, 0, 0.1);
 }
 
 .talent-item:hover {

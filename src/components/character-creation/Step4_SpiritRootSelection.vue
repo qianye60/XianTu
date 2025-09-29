@@ -65,13 +65,23 @@
               @click="handleSelectSpiritRoot(root)"
               @mouseover="activeSpiritRoot = root"
             >
-              <div class="spirit-root-name-container">
-                <span class="spirit-root-name">{{ getSpiritRootBaseName(root.name) }}</span>
-                <span v-if="getSpiritRootTier(root)" class="spirit-root-tier" :class="`tier-${getSpiritRootTier(root)}`">
-                  {{ getSpiritRootTier(root) }}
-                </span>
+              <div class="item-content">
+                <div class="spirit-root-name-container">
+                  <span class="spirit-root-name">{{ getSpiritRootBaseName(root.name) }}</span>
+                  <span v-if="getSpiritRootTier(root)" class="spirit-root-tier" :class="`tier-${getSpiritRootTier(root)}`">
+                    {{ getSpiritRootTier(root) }}
+                  </span>
+                </div>
+                <span class="spirit-root-cost">{{ root.talent_cost }} 点</span>
               </div>
-              <span class="spirit-root-cost">{{ root.talent_cost }} 点</span>
+              <div v-if="root.source === 'cloud'" class="action-buttons">
+                <button @click.stop="openEditModal(root)" class="edit-btn" title="编辑此项">
+                  <Edit :size="14" />
+                </button>
+                <button @click.stop="store.removeSpiritRoot(root.id)" class="delete-btn" title="删除此项">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -176,14 +186,26 @@
       @close="isAdvancedCustomVisible = false"
       @submit="handleAdvancedCustomSubmit"
     />
+    
+    <!-- 编辑模态框 -->
+    <CustomCreationModal
+      :visible="isEditModalVisible"
+      title="编辑灵根"
+      :fields="advancedCustomFields"
+      :validationFn="validateAdvancedCustom"
+      :initialData="editInitialData"
+      @close="isEditModalVisible = false; editingSpiritRoot = null"
+      @submit="handleEditSubmit"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
+import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { SpiritRoot } from '../../types'
-import CustomCreationModal from './CustomCreationModal.vue'
+import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
 import { toast } from '../../utils/toast'
 import { generateSpiritRoot } from '../../utils/tavernAI'
 
@@ -193,6 +215,8 @@ const store = useCharacterCreationStore()
 const activeSpiritRoot = ref<SpiritRoot | 'random' | null>(null)
 const selectionMode = ref<'preset' | 'custom'>('preset')
 const isAdvancedCustomVisible = ref(false)
+const isEditModalVisible = ref(false)
+const editingSpiritRoot = ref<SpiritRoot | null>(null)
 
 // 自定义灵根状态
 const customSpirit = reactive({
@@ -240,29 +264,63 @@ const filteredSpiritRoots = computed(() => {
   }
 });
 
-// 高级自定义字段
-const advancedCustomFields = [
+// 高级自定义字段 - 使用动态列表格式
+const advancedCustomFields: readonly ModalField[] = [
   { key: 'name', label: '灵根名称', type: 'text', placeholder: '例如：混沌灵根' },
   { key: 'tier', label: '品级', type: 'select', options: spiritRootTiers.map(t => ({ value: t.key, label: t.name })) },
-  { key: 'description', label: '灵根描述', type: 'textarea', placeholder: '描述这个灵根的特性...' },
+  { key: 'description', label: '灵根描述', type: 'textarea', placeholder: '描述这个灵根的特性和背景故事...' },
   { key: 'base_multiplier', label: '修炼倍率', type: 'text', placeholder: '例如：1.5' },
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：10' },
-  { key: 'special_effects', label: '特殊效果', type: 'textarea', placeholder: '每行一个效果，例如：\n火系法术威力+50%\n爆发伤害+60%' }
-] as const
+  { key: 'rarity', label: '稀有度等级', type: 'select', options: [
+    { value: '1', label: '1 - 常见' },
+    { value: '2', label: '2 - 少见' },
+    { value: '3', label: '3 - 罕见' },
+    { value: '4', label: '4 - 极罕见' },
+    { value: '5', label: '5 - 传说' }
+  ]},
+  {
+    key: 'special_effects',
+    label: '特殊效果',
+    type: 'dynamic-list',
+    columns: [
+      {
+        key: 'effect',
+        placeholder: '效果描述，如：雷系法术威力+80%'
+      }
+    ]
+  }
+]
 
-// 为自定义灵根数据定义类型
+// 为自定义灵根数据定义完整类型 - 与标准数据格式保持一致
 type CustomSpiritRootData = {
   name: string;
+  tier: string;
   description: string;
   base_multiplier: string;
   talent_cost: string;
+  rarity: string;
+  special_effects: { effect: string }[];
 };
 
 function validateCustomSpiritRoot(data: Partial<CustomSpiritRootData>) {
     const errors: Record<string, string> = {};
+    
+    // 必填字段验证
     if (!data.name?.trim()) errors.name = '灵根名称不可为空';
-    if (data.base_multiplier === undefined || isNaN(parseFloat(data.base_multiplier))) errors.base_multiplier = '修炼倍率必须为数字';
-    if (data.talent_cost === undefined || isNaN(parseInt(data.talent_cost, 10))) errors.talent_cost = '消耗点数必须为数字';
+    if (!data.tier) errors.tier = '请选择品级';
+    if (!data.description?.trim()) errors.description = '灵根描述不可为空';
+    
+    // 数值字段验证
+    if (data.base_multiplier === undefined || isNaN(parseFloat(data.base_multiplier))) {
+      errors.base_multiplier = '修炼倍率必须为数字';
+    }
+    if (data.talent_cost === undefined || isNaN(parseInt(data.talent_cost, 10))) {
+      errors.talent_cost = '消耗点数必须为数字';
+    }
+    if (data.rarity && (isNaN(parseInt(data.rarity, 10)) || parseInt(data.rarity, 10) < 1 || parseInt(data.rarity, 10) > 5)) {
+      errors.rarity = '稀有度等级必须为1-5的数字';
+    }
+    
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -270,19 +328,31 @@ function validateCustomSpiritRoot(data: Partial<CustomSpiritRootData>) {
 }
 
 async function handleCustomSubmit(data: CustomSpiritRootData) {
+  // 处理特殊效果数组 - 处理动态列表格式
+  const specialEffects = data.special_effects?.length
+    ? data.special_effects
+        .filter(item => item.effect?.trim())
+        .map(item => item.effect.trim())
+    : [];
+
+  // 创建完整的标准化灵根对象
   const newRoot: SpiritRoot = {
     id: Date.now(),
     name: data.name,
-    description: data.description || '',
+    tier: spiritRootTiers.find(t => t.key === data.tier)?.name || data.tier,
+    description: data.description,
+    cultivation_speed: `${data.base_multiplier}x`, // 基于修炼倍率生成修炼速度描述
+    special_effects: specialEffects,
     base_multiplier: parseFloat(data.base_multiplier) || 1.0,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
+    rarity: parseInt(data.rarity, 10) || 1,
+    source: 'cloud' as const // 自定义的都算作cloud
   }
 
   try {
     store.addSpiritRoot(newRoot);
-    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectSpiritRoot(newRoot);
-    isCustomModalVisible.value = false;
+    isAdvancedCustomVisible.value = false;
     toast.success(`自定义灵根 "${newRoot.name}" 已保存！`);
   } catch (e) {
     console.error('保存自定义灵根失败:', e);
@@ -291,22 +361,6 @@ async function handleCustomSubmit(data: CustomSpiritRootData) {
 }
 
 const isRandomSelected = computed(() => store.characterPayload.spirit_root_id === null);
-
-const selectedDisplayName = computed(() => {
-  if (isRandomSelected.value) return '随机灵根'
-  return store.selectedSpiritRoot?.name || ''
-})
-
-const selectedDescription = computed(() => {
-  if (isRandomSelected.value)
-    return '大道五十，天衍四九，人遁其一。选择此项，你的灵根将完全随机生成，可能一步登天，亦可能平庸无奇。'
-  return store.selectedSpiritRoot?.description || '灵根信息不明。'
-})
-
-const selectedCost = computed(() => {
-  if (isRandomSelected.value) return 0
-  return store.selectedSpiritRoot?.talent_cost || 0
-})
 
 // New computed properties for hover display
 const activeDisplayName = computed(() => {
@@ -432,12 +486,12 @@ function confirmCustomSpirit() {
   
   const newRoot: SpiritRoot = {
     id: Date.now(),
-    name: `${tierInfo.name}${typeInfo.name}灵根`,
+    name: `${typeInfo.name}灵根`,
     description: `${tierInfo.desc}的${typeInfo.desc}`,
     base_multiplier: tierInfo.multiplier,
     talent_cost: tierInfo.cost,
     tier: tierInfo.name,
-    source: 'local'
+    source: 'cloud' as const
   };
   
   store.addSpiritRoot(newRoot);
@@ -488,8 +542,6 @@ function getActiveCost(): string {
 }
 
 // 高级自定义相关
-// const advancedCustomFields = customSpiritRootFields; // 这个引用不存在，使用正确的字段定义
-
 function validateAdvancedCustom(data: Partial<CustomSpiritRootData>) {
   return validateCustomSpiritRoot(data);
 }
@@ -498,14 +550,61 @@ function handleAdvancedCustomSubmit(data: CustomSpiritRootData) {
   handleCustomSubmit(data);
 }
 
-// 修复缺失的变量
-const isCustomModalVisible = ref(false);
+// 编辑功能
+function openEditModal(root: SpiritRoot) {
+  editingSpiritRoot.value = root;
+  isEditModalVisible.value = true;
+}
 
-// 添加stats-display样式相关
-const statsDisplay = computed(() => {
+async function handleEditSubmit(data: CustomSpiritRootData) {
+  if (!editingSpiritRoot.value) return;
+  
+  // 处理特殊效果数组
+  const specialEffects = data.special_effects?.length
+    ? data.special_effects
+        .filter(item => item.effect?.trim())
+        .map(item => item.effect.trim())
+    : [];
+
+  // 创建更新数据对象
+  const updateData: Partial<SpiritRoot> = {
+    name: data.name,
+    tier: spiritRootTiers.find(t => t.key === data.tier)?.name || data.tier,
+    description: data.description,
+    cultivation_speed: `${data.base_multiplier}x`,
+    special_effects: specialEffects,
+    base_multiplier: parseFloat(data.base_multiplier) || 1.0,
+    talent_cost: parseInt(data.talent_cost, 10) || 0,
+    rarity: parseInt(data.rarity, 10) || 1
+  };
+
+  try {
+    const success = store.updateSpiritRoot(editingSpiritRoot.value.id, updateData);
+    if (success) {
+      isEditModalVisible.value = false;
+      editingSpiritRoot.value = null;
+      toast.success(`灵根 "${updateData.name}" 已更新！`);
+    } else {
+      toast.error('更新灵根失败！');
+    }
+  } catch (e) {
+    console.error('更新灵根失败:', e);
+    toast.error('更新灵根失败！');
+  }
+}
+
+// 编辑模态框的初始数据
+const editInitialData = computed(() => {
+  if (!editingSpiritRoot.value) return {};
+  
   return {
-    multiplier: getActiveMultiplier(),
-    cost: getActiveCost()
+    name: editingSpiritRoot.value.name,
+    tier: spiritRootTiers.find(t => t.name === editingSpiritRoot.value!.tier)?.key || 'common',
+    description: editingSpiritRoot.value.description,
+    base_multiplier: editingSpiritRoot.value.base_multiplier?.toString() || '1.0',
+    talent_cost: editingSpiritRoot.value.talent_cost.toString(),
+    rarity: editingSpiritRoot.value.rarity?.toString() || '1',
+    special_effects: editingSpiritRoot.value.special_effects?.map(effect => ({ effect })) || []
   };
 });
 
@@ -577,6 +676,64 @@ const statsDisplay = computed(() => {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   border-left: 3px solid transparent;
+}
+
+.item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+}
+
+/* 按钮组容器 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: 0.5rem;
+}
+
+.spirit-root-item:hover .action-buttons {
+  opacity: 1;
+}
+
+/* 编辑按钮 */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.edit-btn:hover {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.delete-btn:hover {
+  color: var(--color-danger);
+  background-color: rgba(255, 0, 0, 0.1);
 }
 
 .spirit-root-name-container {
@@ -822,12 +979,8 @@ const statsDisplay = computed(() => {
     padding: 0.6rem;
   }
   
-  .spirit-root-left-panel {
-    /* 移除max-height限制，让flex布局正常工作 */
-  }
   
   .spirit-root-list-container {
-    /* 移除max-height限制，让flex布局正常工作 */
     padding: 0.5rem;
   }
   
@@ -874,12 +1027,10 @@ const statsDisplay = computed(() => {
   }
   
   .spirit-root-left-panel {
-    /* 移除max-height限制，让flex布局正常工作 */
     border-radius: 6px;
   }
   
   .spirit-root-list-container {
-    /* 移除max-height限制，让flex布局正常工作 */
     padding: 0.4rem;
   }
   
@@ -957,12 +1108,8 @@ const statsDisplay = computed(() => {
     gap: 0.4rem;
   }
   
-  .spirit-root-left-panel {
-    /* 移除max-height限制，让flex布局正常工作 */
-  }
   
   .spirit-root-list-container {
-    /* 移除max-height限制，让flex布局正常工作 */
     padding: 0.3rem;
   }
   

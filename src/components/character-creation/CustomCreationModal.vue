@@ -30,6 +30,32 @@
                 {{ opt.label }}
               </option>
             </select>
+            <!-- 动态列表字段 -->
+            <div v-else-if="field.type === 'dynamic-list'" class="dynamic-list-container">
+              <div class="list-header">
+                <span>{{ field.label }}</span>
+                <button @click="addListItem(field)" class="add-btn" type="button">+ 添加</button>
+              </div>
+              <div v-if="formData[field.key] && formData[field.key].length" class="list-items">
+                <div v-for="(item, index) in formData[field.key]" :key="index" class="list-item">
+                  <div class="item-inputs">
+                    <select v-if="field.columns[0].type === 'select'" v-model="item[field.columns[0].key]" class="item-input">
+                      <option v-for="opt in field.columns[0].options" :key="opt.value" :value="opt.value">
+                        {{ opt.label }}
+                      </option>
+                    </select>
+                    <input v-else v-model="item[field.columns[0].key]" :placeholder="field.columns[0].placeholder" class="item-input" />
+                    
+                    <input v-if="field.columns[1]" v-model="item[field.columns[1].key]" :placeholder="field.columns[1].placeholder" class="item-input" />
+                    <input v-if="field.columns[2]" v-model="item[field.columns[2].key]" :placeholder="field.columns[2].placeholder" class="item-input" type="number" step="0.1" />
+                  </div>
+                  <button @click="removeListItem(field, index)" class="remove-btn" type="button">×</button>
+                </div>
+              </div>
+              <div v-else class="empty-list">
+                <span>暂无条目，点击"添加"按钮开始</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -57,13 +83,23 @@ type BaseField = {
 
 type InputField = BaseField & { type: 'text' | 'textarea' | 'color' };
 type SelectField = BaseField & { type: 'select'; options: readonly { value: string; label: string }[] };
-type ModalField = InputField | SelectField;
+type DynamicListField = BaseField & { 
+  type: 'dynamic-list'; 
+  columns: {
+    key: string;
+    placeholder?: string;
+    type?: 'text' | 'select';
+    options?: readonly { value: string; label: string }[];
+  }[];
+};
+export type ModalField = InputField | SelectField | DynamicListField;
 
 const props = defineProps<{
   visible: boolean;
   title: string;
   fields: readonly ModalField[];
   validationFn: (data: any) => { valid: boolean; errors: string[] };
+  initialData?: Record<string, any>; // 新增：用于编辑模式的初始数据
 }>();
 
 const emit = defineEmits(['close', 'submit']);
@@ -71,17 +107,42 @@ const emit = defineEmits(['close', 'submit']);
 const formData = ref<Record<string, any>>({});
 const errors = ref<string[]>([]);
 
-// Initialize form data when fields change
-watch(() => props.fields, (newFields) => {
+// Initialize form data when fields change or when initialData is provided
+watch(() => [props.fields, props.initialData], ([newFields, initialData]) => {
   formData.value = {};
   newFields.forEach(field => {
     if (field.type === 'select') {
-      formData.value[field.key] = field.options?.[0]?.value ?? '';
+      formData.value[field.key] = initialData?.[field.key] ?? field.options?.[0]?.value ?? '';
+    } else if (field.type === 'dynamic-list') {
+      formData.value[field.key] = initialData?.[field.key] ?? [];
     } else {
-      formData.value[field.key] = '';
+      formData.value[field.key] = initialData?.[field.key] ?? '';
     }
   });
 }, { immediate: true });
+
+function addListItem(field: DynamicListField) {
+  if (!formData.value[field.key]) {
+    formData.value[field.key] = [];
+  }
+  
+  const newItem: Record<string, any> = {};
+  field.columns.forEach(column => {
+    if (column.type === 'select' && column.options) {
+      newItem[column.key] = column.options[0]?.value || '';
+    } else {
+      newItem[column.key] = '';
+    }
+  });
+  
+  formData.value[field.key].push(newItem);
+}
+
+function removeListItem(field: DynamicListField, index: number) {
+  if (formData.value[field.key]) {
+    formData.value[field.key].splice(index, 1);
+  }
+}
 
 function close() {
   emit('close');
@@ -228,5 +289,103 @@ input[type="color"] {
 .modal-fade-enter-from .modal-content,
 .modal-fade-leave-to .modal-content {
   transform: scale(0.9);
+}
+
+/* 动态列表样式 */
+.dynamic-list-container {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-light);
+  padding: 1rem;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.add-btn {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.add-btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.item-inputs {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.item-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.item-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 5px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.remove-btn {
+  background: var(--color-danger);
+  color: white;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+.empty-list {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  padding: 2rem;
 }
 </style>

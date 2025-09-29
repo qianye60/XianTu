@@ -29,6 +29,17 @@
       <div class="current-narrative">
         <!-- AI处理时显示 -->
         <div v-if="isAIProcessing" class="ai-processing-display">
+          <!-- 状态重置按钮 - 仅在等待时间过长时显示 -->
+          <div class="processing-controls">
+            <button 
+              @click="forceResetAIProcessingState" 
+              class="reset-state-btn"
+              title="如果长时间无响应，点击此处重置状态"
+            >
+              🔄 重置状态
+            </button>
+          </div>
+          
           <!-- 如果有流式内容则显示 -->
           <div v-if="useStreaming && streamingContent" class="streaming-content">
             <div class="narrative-meta streaming-meta">
@@ -37,8 +48,6 @@
                 <span class="streaming-dot"></span>
                 <span v-if="streamingContent" class="streaming-text">{{ streamingCharCount }} 字</span>
               </div>
-              <!-- 空白占位符，用于平衡布局 -->
-              <span class="narrative-time-placeholder"></span>
             </div>
             <div class="narrative-text">
               <FormattedText :text="streamingContent" />
@@ -52,7 +61,6 @@
                 <span class="streaming-dot"></span>
                 <span class="streaming-text">天道感应中...</span>
               </div>
-              <span class="narrative-time-placeholder"></span>
             </div>
             <div class="narrative-text">
               <div class="waiting-animation">
@@ -71,9 +79,9 @@
           <div v-if="currentNarrative" class="narrative-content">
             <div class="narrative-meta">
               <span class="narrative-time">{{ currentNarrative.time }}</span>
-              <!-- 命令日志按钮 -->
+              <!-- 命令日志按钮 (居中) -->
               <button
-                @click="showCommandLogModal = true"
+                @click="showStateChanges(currentNarrative.stateChanges)"
                 class="variable-updates-toggle"
                 :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
                 :disabled="currentNarrativeStateChanges.length === 0"
@@ -94,44 +102,6 @@
       </div>
     </div>
 
-    <!-- 新增：命令日志弹窗 -->
-    <Transition name="command-log-modal">
-      <div v-if="showCommandLogModal" class="command-log-overlay" @click.self="showCommandLogModal = false">
-        <div class="command-log-modal">
-          <div class="command-log-header">
-            <h3>📜 变更日志</h3>
-            <button @click="showCommandLogModal = false" class="close-log-btn">
-              <X :size="20" />
-            </button>
-          </div>
-          <div class="command-log-content">
-            <div v-if="currentNarrativeStateChanges.length > 0" class="command-list">
-              <div v-for="(change, index) in currentNarrativeStateChanges" :key="index" class="command-item">
-                <div class="command-icon-wrapper">
-                  <component :is="getIconForCommand(change)" :size="20" class="command-icon" />
-                </div>
-                <div class="command-details">
-                  <p class="command-description">{{ formatCommandDescription(change) }}</p>
-                  <div class="command-values">
-                    <!-- 旧值只在它非空时显示 -->
-                    <span v-if="change.oldValue !== null && change.oldValue !== undefined" class="old-value">{{ formatValue(change.oldValue) }}</span>
-                    <!-- 箭头只在有新旧两个值时显示 -->
-                    <span v-if="change.oldValue !== null && change.oldValue !== undefined && change.newValue !== null && change.newValue !== undefined" class="arrow">→</span>
-                    <!-- 新值只在它非空时显示 -->
-                    <span v-if="change.newValue !== null && change.newValue !== undefined" class="new-value">{{ formatValue(change.newValue) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else class="no-commands">
-              <Bot :size="48" class="empty-icon" />
-              <p class="empty-text">天道无为</p>
-              <p class="empty-hint">本次对话未引起任何状态变化</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
 
     <!-- 输入区域 -->
     <div class="input-section">
@@ -309,6 +279,7 @@ import {
 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
+import { useUIStore } from '@/stores/uiStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { getTavernHelper } from '@/utils/tavern';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
@@ -330,8 +301,6 @@ interface StateChangeLog {
   }>;
 }
 
-// --- 命令日志相关状态 ---
-const showCommandLogModal = ref(false);
 
 // --- 计算属性：从当前叙述中安全地获取状态变更列表 ---
 const currentNarrativeStateChanges = computed(() => {
@@ -370,19 +339,143 @@ const restoreAIProcessingState = () => {
 
   if (saved === 'true' && timestamp) {
     const elapsed = Date.now() - parseInt(timestamp);
-    // 如果超过5分钟，认为已超时，清除状态
-    if (elapsed < 5 * 60 * 1000) {
+    // 如果超过2分钟，认为已超时，清除状态
+    if (elapsed < 2 * 60 * 1000) {
       isAIProcessing.value = true;
       console.log('[状态恢复] 恢复AI处理状态');
     } else {
+      console.log('[状态恢复] AI处理状态已超时，清除状态');
       sessionStorage.removeItem('ai-processing-state');
       sessionStorage.removeItem('ai-processing-timestamp');
+      isAIProcessing.value = false;
     }
   }
 };
 
 // 监听AI处理状态变化
 watch(isAIProcessing, persistAIProcessingState);
+
+// 强制清除AI处理状态的方法
+const forceResetAIProcessingState = () => {
+  console.log('[强制重置] 清除AI处理状态和会话存储');
+  isAIProcessing.value = false;
+  sessionStorage.removeItem('ai-processing-state');
+  sessionStorage.removeItem('ai-processing-timestamp');
+  streamingMessageIndex.value = null;
+  streamingContent.value = '';
+  toast.info('AI处理状态已重置');
+};
+
+// 在 window 上暴露方法以便调试
+if (typeof window !== 'undefined') {
+  (window as any).forceResetAIState = forceResetAIProcessingState;
+  
+  // 暴露调试短期记忆的方法（支持双存储）
+  (window as any).debugMemory = () => {
+    const save = characterStore.activeSaveSlot;
+    const sd = save?.存档数据;
+    console.log('[调试] 当前存档数据:', save);
+    console.log('[调试] 存档中短期记忆:', sd?.记忆?.短期记忆);
+    console.log('[调试] 存档中中期记忆:', sd?.记忆?.中期记忆);
+    console.log('[调试] 存档中长期记忆:', sd?.记忆?.长期记忆);
+    
+    // 检查本地存储
+    const localStorageData = localStorage.getItem('characterStoreV3');
+    console.log('[调试] LocalStorage原始数据长度:', localStorageData?.length);
+    
+    // 检查酒馆变量
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        const chatVars = helper.getVariables();
+        console.log('[调试] 酒馆Chat变量:', chatVars);
+        console.log('[调试] 酒馆中的character.saveData:', chatVars['character.saveData']);
+        console.log('[调试] 酒馆中的短期记忆:', chatVars['character.saveData']?.记忆?.短期记忆);
+        
+        // 检查隐藏存储
+        memoryStorage.getFromHiddenStorage('short').then(hiddenMemories => {
+          console.log('[调试] 隐藏存储中的短期记忆:', hiddenMemories);
+          console.log('[调试] 隐藏存储记忆数量:', hiddenMemories.length);
+        });
+      } else {
+        console.warn('[调试] 无法获取酒馆Helper');
+      }
+    } catch (e) {
+      console.error('[调试] 检查酒馆变量失败:', e);
+    }
+    
+    return {
+      存档: save,
+      存档中短期记忆: sd?.记忆?.短期记忆,
+      存档中中期记忆: sd?.记忆?.中期记忆,
+      存档中长期记忆: sd?.记忆?.长期记忆,
+      本地存储可用: !!localStorageData
+    };
+  };
+  
+  // 暴露手动添加测试记忆的方法
+  (window as any).testAddMemory = async (text: string) => {
+    console.log('[测试] 手动添加记忆:', text);
+    await addToShortTermMemory(text, 'assistant');
+    console.log('[测试] 记忆添加完成，检查持久化...');
+    await characterStore.commitToStorage();
+    console.log('[测试] 持久化完成');
+  };
+  
+  // 暴露访问隐藏记忆的方法
+  (window as any).getHiddenMemories = async (type = 'short') => {
+    const memories = await memoryStorage.getFromHiddenStorage(type);
+    console.log(`[隐藏记忆] ${type}期记忆:`, memories);
+    return memories;
+  };
+  
+  // 暴露清除隐藏记忆的方法
+  (window as any).clearHiddenMemories = async (type) => {
+    await memoryStorage.clearHiddenStorage(type);
+    console.log(`[隐藏记忆] 已清除${type || '所有'}记忆`);
+  };
+  
+  // 暴露调试AI响应存储的方法
+  (window as any).debugAIResponse = () => {
+    console.log('[调试AI响应] 开始检查AI响应存储流程...');
+    
+    // 检查最近的AI响应流程
+    const save = characterStore.activeSaveSlot;
+    const sd = save?.存档数据;
+    
+    console.log('[调试AI响应] 当前存档:', save);
+    console.log('[调试AI响应] 短期记忆:', sd?.记忆?.短期记忆);
+    
+    // 检查酒馆变量
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        const chatVars = helper.getVariables();
+        const tavernSaveData = chatVars['character.saveData'];
+        console.log('[调试AI响应] 酒馆saveData:', tavernSaveData);
+        console.log('[调试AI响应] 酒馆短期记忆:', tavernSaveData?.记忆?.短期记忆);
+        
+        // 对比本地和酒馆数据
+        const localCount = sd?.记忆?.短期记忆?.length || 0;
+        const tavernCount = tavernSaveData?.记忆?.短期记忆?.length || 0;
+        console.log('[调试AI响应] 本地短期记忆数量:', localCount);
+        console.log('[调试AI响应] 酒馆短期记忆数量:', tavernCount);
+        
+        if (localCount !== tavernCount) {
+          console.error('[调试AI响应] 🚨 数据同步问题：本地和酒馆记忆数量不一致！');
+        }
+      }
+    } catch (e) {
+      console.error('[调试AI响应] 检查酒馆变量失败:', e);
+    }
+    
+    return {
+      本地短期记忆: sd?.记忆?.短期记忆,
+      存档状态: !!save,
+      数据完整性: !!sd
+    };
+  };
+}
 
 // 行动选择相关
 const showActionModal = ref(false);
@@ -403,6 +496,7 @@ interface ActionItem {
 
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
+const uiStore = useUIStore();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const memorySystem = MultiLayerMemorySystem.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
@@ -706,6 +800,16 @@ const formatValue = (value: unknown): string => {
   }
 
   return String(value);
+};
+
+// 显示状态变更详情
+const showStateChanges = (log: any) => {
+  if (!log || !log.changes || log.changes.length === 0) {
+    toast.info('本次对话无变更记录');
+    return;
+  }
+  // [核心改造] 调用 uiStore 中新的方法来打开专属的 StateChangeViewer 弹窗
+  uiStore.openStateChangeViewer(log);
 };
 
 // 当前显示的叙述内容（只显示最新的AI回复）
@@ -1342,24 +1446,36 @@ const sendMessage = async () => {
       let finalText = '';
       const gmResp = aiResponse.gmResponse as GM_Response | undefined;
 
+      console.log('[AI响应处理] 开始处理AI响应文本');
+      console.log('[AI响应处理] aiResponse:', aiResponse);
+      console.log('[AI响应处理] gmResp:', gmResp);
+      console.log('[AI响应处理] streamingContent:', streamingContent.value);
+
       // 优先从结构化响应中获取最准确的文本
       if (gmResp?.text && typeof gmResp.text === 'string') {
         finalText = gmResp.text;
-        console.log('[AI响应处理] 使用 gmResponse.text 作为最终文本');
+        console.log('[AI响应处理] 使用 gmResponse.text 作为最终文本，长度:', finalText.length);
       } else if (aiResponse.finalContent && typeof aiResponse.finalContent === 'string') {
         finalText = aiResponse.finalContent;
-        console.log('[AI响应处理] 使用 aiResponse.finalContent 作为最终文本');
+        console.log('[AI响应处理] 使用 aiResponse.finalContent 作为最终文本，长度:', finalText.length);
       } else if (streamingContent.value) {
         // 如果以上都没有，使用流式输出的最终结果作为备用
         finalText = streamingContent.value;
-        console.log('[AI响应处理] 使用 streamingContent 作为最终文本');
+        console.log('[AI响应处理] 使用 streamingContent 作为最终文本，长度:', finalText.length);
+      } else {
+        console.warn('[AI响应处理] 未找到任何有效的文本内容');
       }
+
+      console.log('[AI响应处理] 最终文本内容预览:', finalText.substring(0, 100) + '...');
 
       // 如果最终有文本内容，则进行处理
       if (finalText) {
+        console.log('[AI响应处理] 开始处理最终文本...');
+        
         // 更新UI显示
         if (currentNarrative.value) {
           currentNarrative.value.content = finalText;
+          console.log('[AI响应处理] 已更新UI显示');
         }
 
         // 缓存预生成的中期记忆
@@ -1369,8 +1485,11 @@ const sendMessage = async () => {
         }
 
         // 添加到短期记忆
+        console.log('[AI响应处理] 准备将文本添加到短期记忆...');
         await addToShortTermMemory(finalText, 'assistant');
-        console.log('[AI响应处理] 最终文本已添加到短期记忆');
+        console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', finalText.length);
+      } else {
+        console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
       }
 
       // tavern_commands 已在 AIBidirectionalSystem 中处理
@@ -1451,6 +1570,16 @@ const sendMessage = async () => {
     // 成功的提示
     if (aiResponse) {
       toast.success('天道已回');
+      
+      // 确保数据已保存到本地存储
+      try {
+        console.log('[AI响应处理] 确保最终数据持久化...');
+        await characterStore.commitToStorage();
+        console.log('[AI响应处理] 最终数据持久化完成');
+      } catch (storageError) {
+        console.error('[AI响应处理] 数据持久化失败:', storageError);
+        toast.warning('数据保存可能不完整，建议手动保存游戏');
+      }
     }
 
   } catch (error: unknown) {
@@ -1478,34 +1607,123 @@ const sendMessage = async () => {
 
 // 移除 addMessage 函数，不再需要
 
-// 添加到短期记忆 - 直接操作存档数据（集成中期记忆转移逻辑）
+// 独立的记忆存储系统 - 不会被发送给AI作为提示词
+const memoryStorage = {
+  // 存储到酒馆的隐藏变量中，不会被AI处理流程读取
+  async saveToHiddenStorage(content: string, type: 'short' | 'mid' | 'long' = 'short') {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) {
+        console.warn('[隐藏记忆] 酒馆连接不可用');
+        return;
+      }
+
+      // 使用特殊前缀，确保不会被AI提示词系统读取
+      const storageKey = `_memory_${type}_term`;
+      const currentMemories = await helper.getVariable(storageKey) || [];
+      
+      // 添加新记忆到开头
+      currentMemories.unshift({
+        content: content,
+        timestamp: new Date().toISOString(),
+        type: type
+      });
+      
+      // 限制记忆数量
+      const maxCount = type === 'short' ? 20 : type === 'mid' ? 50 : 100;
+      if (currentMemories.length > maxCount) {
+        currentMemories.splice(maxCount);
+      }
+      
+      await helper.setVariable(storageKey, currentMemories);
+      console.log(`[隐藏记忆] 已保存${type}期记忆，当前数量:`, currentMemories.length);
+      
+      return currentMemories;
+    } catch (error) {
+      console.error('[隐藏记忆] 保存失败:', error);
+    }
+  },
+  
+  async getFromHiddenStorage(type: 'short' | 'mid' | 'long' = 'short') {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) return [];
+      
+      const storageKey = `_memory_${type}_term`;
+      return await helper.getVariable(storageKey) || [];
+    } catch (error) {
+      console.error('[隐藏记忆] 读取失败:', error);
+      return [];
+    }
+  },
+  
+  async clearHiddenStorage(type?: 'short' | 'mid' | 'long') {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) return;
+      
+      if (type) {
+        await helper.setVariable(`_memory_${type}_term`, []);
+      } else {
+        // 清除所有类型
+        await helper.setVariable('_memory_short_term', []);
+        await helper.setVariable('_memory_mid_term', []);
+        await helper.setVariable('_memory_long_term', []);
+      }
+      
+      console.log('[隐藏记忆] 已清除记忆存储');
+    } catch (error) {
+      console.error('[隐藏记忆] 清除失败:', error);
+    }
+  }
+};
 const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' = 'assistant') => {
   try {
-    console.log(`[记忆管理] 添加 ${role} 消息到短期记忆:`, content.substring(0, 50));
+    console.log(`[记忆管理] 开始添加 ${role} 消息到短期记忆`);
+    console.log(`[记忆管理] 内容长度: ${content.length}`);
+    console.log(`[记忆管理] 内容预览: ${content.substring(0, 100)}...`);
 
+    // ===== 双存储策略 =====
+    
+    // 1. 保存到隐藏存储（不会被AI读取）
+    console.log('[记忆管理] 保存到隐藏存储...');
+    await memoryStorage.saveToHiddenStorage(content, 'short');
+    
+    // 2. 原有的存档数据存储（保留兼容性，但会被压缩）
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
+    
+    console.log(`[记忆管理] 当前存档槽位:`, save);
+    console.log(`[记忆管理] 存档数据可用性:`, !!sd);
+    
     if (!sd) {
-      console.warn('[记忆管理] 存档数据不可用，无法存储短期记忆');
+      console.warn('[记忆管理] 存档数据不可用，但隐藏存储已保存');
       return;
     }
 
     // 确保记忆结构存在
     if (!sd.记忆) {
+      console.log('[记忆管理] 初始化记忆结构');
       sd.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
     }
     if (!Array.isArray(sd.记忆.短期记忆)) {
+      console.log('[记忆管理] 初始化短期记忆数组');
       sd.记忆.短期记忆 = [];
     }
 
-    // 添加新记忆到开头
-    sd.记忆.短期记忆.unshift(content);
-    console.log(`[记忆管理] 短期记忆已添加，当前数量: ${sd.记忆.短期记忆.length}`);
+    console.log(`[记忆管理] 添加前短期记忆数量: ${sd.记忆.短期记忆.length}`);
+
+    // 只在存档中保存压缩版本，减少AI提示词负载
+    const compressedContent = content.length > 200 ? 
+      content.substring(0, 150) + '...[内容已压缩]' : content;
+    
+    sd.记忆.短期记忆.unshift(compressedContent);
+    console.log(`[记忆管理] 短期记忆已添加（压缩版），当前数量: ${sd.记忆.短期记忆.length}`);
 
     // 检查并处理短期记忆溢出（原子操作）
     if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
-      const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value).reverse(); // 反转以按时间顺序处理
-      console.log(`[记忆管理] ${overflow.length}条短期记忆溢出，直接转移到中期`);
+      const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value).reverse();
+      console.log(`[记忆管理] ${overflow.length}条短期记忆溢出，转移到中期`);
 
       // 确保中期记忆结构存在
       if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
@@ -1537,8 +1755,47 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
         await transferToLongTermMemory();
       }
     }
+    
+    console.log('[记忆管理] 短期记忆保存完成（双存储）');
+    
+    // 立即验证保存结果
+    const verifyMemories = sd.记忆.短期记忆;
+    console.log(`[记忆管理] 验证: 当前短期记忆总数: ${verifyMemories.length}`);
+    if (verifyMemories.length > 0) {
+      console.log(`[记忆管理] 验证: 最新记忆: ${verifyMemories[0].substring(0, 50)}...`);
+    }
+    
+    // 关键：立即持久化到本地存储
+    console.log('[记忆管理] 开始持久化存档数据...');
+    await characterStore.commitToStorage();
+    console.log('[记忆管理] 存档数据已持久化到本地存储');
+    
+    // 关键：同步到酒馆变量
+    console.log('[记忆管理] 开始同步数据到酒馆变量...');
+    const activeCharId = characterStore.rootState.当前激活角色;
+    console.log('[记忆管理] 当前激活角色ID:', activeCharId);
+    
+    if (activeCharId) {
+      await characterStore.setActiveCharacterInTavern(activeCharId);
+      console.log('[记忆管理] 数据已同步到酒馆变量 character.saveData');
+    } else {
+      console.warn('[记忆管理] 没有激活的角色ID，跳过酒馆同步');
+      // 尝试直接更新存档数据到酒馆
+      try {
+        const helper = getTavernHelper();
+        if (helper && sd) {
+          await helper.insertOrAssignVariables({
+            'character.saveData': sd
+          }, { type: 'chat' });
+          console.log('[记忆管理] 已直接同步存档数据到酒馆');
+        }
+      } catch (e) {
+        console.error('[记忆管理] 直接同步失败:', e);
+      }
+    }
+    
   } catch (error) {
-    console.warn('[记忆管理] 添加短期记忆或转移中期记忆失败:', error);
+    console.error('[记忆管理] 添加短期记忆或转移中期记忆失败:', error);
   }
 };
 
@@ -1644,50 +1901,44 @@ const handleInput = () => {
 
 // 初始化/重新初始化面板以适应当前存档
 const initializePanelForSave = async () => {
-  console.log('[主面板] 为当前存档初始化面板...');
+  console.log('[主面板] 为当前存档初始化面板 (新逻辑)...');
   try {
     if (hasActiveCharacter.value) {
       const memories = characterStore.activeSaveSlot?.存档数据?.记忆?.短期记忆;
 
-      // 启发式判断：新角色在首次加载时，短期记忆中应仅包含一条由系统生成的开场白。
-      // 任何后续的玩家互动或游戏进展都会增加记忆条目。
-      // 因此，当记忆数量为1时，我们将其视为角色的“初次登场”，并调用能生成初始状态变更的函数。
-      const isInitialLoad = memories && memories.length === 1;
+      if (memories && memories.length > 0) {
+        // 数据存在，加载最新的记忆作为开场。
+        const initialMessageContent = memories[0];
+        console.log('[主面板] 从存档加载最新叙述:', initialMessageContent.substring(0, 100));
 
-      if (isInitialLoad) {
-        // [核心改造] 对于新角色，优先尝试从 characterStore 消费真实的初始状态变更
+        // 对于新角色，初始状态变更被临时存储。我们在这里消费它，确保只显示一次。
         const initialChanges = characterStore.consumeInitialCreationStateChanges();
-        if (initialChanges && initialChanges.changes.length > 0) {
-          console.log('[主面板] 成功获取到真实的初始状态变更日志', initialChanges);
-          // 直接使用真实的日志，但需要加载开场白文本
-          const initialMessageContent = memories[0] || '欢迎来到修仙世界！';
-          currentNarrative.value = {
-            type: 'gm',
-            content: initialMessageContent,
-            time: formatCurrentTime(),
-            stateChanges: initialChanges,
-          };
-        } else {
-          // 如果没有真实的日志（作为兜底），才调用旧的伪造函数
-          console.log('[主面板] 未获取到初始状态变更，使用伪造的日志作为兜底');
-          await generateAndShowInitialMessage();
-        }
-      } else if (memories && memories.length > 0) {
-        // 对于已有进度的角色，加载最新记忆，此时不显示历史状态变更。
+        
         currentNarrative.value = {
-          type: 'ai',
-          content: memories[0],
+          type: 'gm', // 将第一条消息视为GM消息
+          content: initialMessageContent,
           time: formatCurrentTime(),
-          stateChanges: { changes: [] } // 历史状态变更在加载时不显示
+          // 如果有初始变更，就使用它们；否则，默认为空。
+          stateChanges: initialChanges || { changes: [] },
         };
-        console.log('[主面板] 已从短期记忆加载最新叙述');
+        
+        if (initialChanges) {
+            console.log('[主面板] 已加载并消费角色创建时的初始状态变更。');
+        }
+
       } else {
-        // 备用逻辑：如果角色没有任何记忆，也视为初始加载。
-        await generateAndShowInitialMessage();
+        // 未找到记忆，说明角色创建时AI生成失败，应当重新尝试生成
+        console.error('[主面板] 未在存档中找到任何记忆，角色创建可能失败！');
+        currentNarrative.value = {
+          type: 'system',
+          content: '【系统错误】角色创建未完成，请重新创建角色。',
+          time: formatCurrentTime(),
+          stateChanges: { changes: [] },
+        };
       }
       await syncGameState();
     } else {
-      // 没有激活角色
+      // 没有激活的角色
       currentNarrative.value = {
         type: 'system',
         content: '【提示】请先选择或创建角色开始游戏。',
@@ -1719,7 +1970,6 @@ const resetPanelState = () => {
   inputText.value = '';
 
   // --- 重置命令日志相关状态 ---
-  showCommandLogModal.value = false;
 
   // isAIProcessing 在切换存档时应重置为 false
   isAIProcessing.value = false;
@@ -1809,121 +2059,7 @@ const syncGameState = async () => {
   }
 };
 
-// 加载并显示初始消息（不重新生成）
-const generateAndShowInitialMessage = async () => {
-  try {
-    console.log('[主面板] 加载角色初始化时的开局消息...');
-
-    const profile = characterStore.activeCharacterProfile;
-    const saveData = characterStore.activeSaveSlot;
-
-    if (!profile || !saveData) {
-      throw new Error('角色或存档数据缺失');
-    }
-
-    // 优先从酒馆变量中获取初始消息
-    let initialMessage = '';
-
-    // 尝试从酒馆变量获取初始消息
-    try {
-      const helper = getTavernHelper();
-      if (helper) {
-        const chatVars = await helper.getVariables({ type: 'chat' });
-        const tavernMemories = chatVars['character.shortTermMemories'] as string[] | undefined;
-        if (Array.isArray(tavernMemories) && tavernMemories.length > 0) {
-          initialMessage = tavernMemories[0];
-          console.log('[主面板] 从酒馆变量中加载到初始消息:', initialMessage.substring(0, 100));
-        }
-      }
-    } catch (error) {
-      console.warn('[主面板] 从酒馆变量获取初始消息失败:', error);
-    }
-
-    // 如果酒馆变量中没有，尝试从存档的记忆中获取作为备用
-    if (!initialMessage) {
-      console.log('[主面板] 酒馆变量中未找到初始消息，尝试从存档记忆获取作为备用...');
-      if (saveData.存档数据?.记忆?.短期记忆?.[0]) {
-        initialMessage = saveData.存档数据.记忆.短期记忆[0];
-        console.log('[主面板] 从存档记忆中加载到初始消息（备用路径）:', initialMessage.substring(0, 100));
-      } else {
-        const legacyShort = (saveData.存档数据 as unknown as Record<string, unknown>)?.短期记忆;
-        if (Array.isArray(legacyShort) && legacyShort.length > 0) {
-          initialMessage = legacyShort[0];
-          console.log('[主面板] 从存档记忆中加载到初始消息（兼容路径）:', initialMessage.substring(0, 100));
-        }
-      }
-    }
-
-    // 如果还是没有，使用默认消息
-    if (!initialMessage) {
-      console.log('[主面板] 未找到保存的初始消息，使用默认开局');
-      initialMessage = `【${profile.角色基础信息.名字}】发现自己身处在一个陌生而神秘的修仙世界中。作为一名${profile.角色基础信息.出生}出身的修士，拥有${profile.角色基础信息.灵根}，你感受到了体内微弱的灵气波动。修仙之路漫漫，从这一刻开始，你将踏上寻求长生大道的征途。`;
-    }
-
-    // 生成初始化状态变更记录（展示初始状态）
-    const initialStateChanges: StateChangeLog = {
-      changes: [
-        {
-          key: 'character.saveData.玩家角色状态.境界',
-          action: 'set',
-          oldValue: '未知',
-          newValue: saveData.存档数据?.玩家角色状态?.境界?.名称 || '凡人'
-        },
-        {
-          key: 'character.saveData.玩家角色状态.气血',
-          action: 'set',
-          oldValue: { 当前: 0, 最大: 0 },
-          newValue: saveData.存档数据?.玩家角色状态?.气血 || { 当前: 100, 最大: 100 }
-        },
-        {
-          key: 'character.saveData.玩家角色状态.灵气',
-          action: 'set',
-          oldValue: { 当前: 0, 最大: 0 },
-          newValue: saveData.存档数据?.玩家角色状态?.灵气 || { 当前: 100, 最大: 100 }
-        },
-        {
-          key: 'character.saveData.玩家角色状态.神识',
-          action: 'set',
-          oldValue: { 当前: 0, 最大: 0 },
-          newValue: saveData.存档数据?.玩家角色状态?.神识 || { 当前: 100, 最大: 100 }
-        },
-        {
-          key: 'character.saveData.玩家角色状态.位置',
-          action: 'set',
-          oldValue: '初始地',
-          newValue: saveData.存档数据?.玩家角色状态?.位置?.描述 || '初始地'
-        }
-      ]
-    };
-
-    // 显示初始消息
-    const gmMessage = {
-      type: 'gm' as const,
-      content: initialMessage,
-      time: formatCurrentTime(),
-      stateChanges: initialStateChanges // 添加初始状态变更
-    };
-
-    // 直接设置为当前叙述
-    currentNarrative.value = gmMessage;
-
-    console.log('[主面板] 初始消息加载完成，包含', initialStateChanges.changes.length, '项状态变更');
-
-  } catch (error) {
-    console.error('[主面板] 加载初始消息失败:', error);
-
-    // 添加默认开局消息
-    const defaultMessage = {
-      type: 'gm' as const,
-      content: `【${characterName.value}】你睁开双眼，发现自己身处在一个全新的修仙世界中。周围的一切都显得古朴而神秘，空气中弥漫着淡淡的灵气。你感受到体内有着一股前所未有的力量在涌动，这是属于修仙者的开始...`,
-      time: formatCurrentTime(),
-      stateChanges: { changes: [] } // 即使是默认消息也提供空的状态变更
-    };
-
-    // 直接设置为当前叙述
-    currentNarrative.value = defaultMessage;
-  }
-};
+// [已删除] 不再需要 generateAndShowInitialMessage 函数，因为新的 initializePanelForSave 逻辑更可靠。
 
 // 移除 loadConversationHistory 和 saveConversationHistory 函数
 </script>
@@ -2312,6 +2448,34 @@ const generateAndShowInitialMessage = async () => {
   background: var(--color-surface); /* 确保AI处理区域使用主题表面颜色 */
 }
 
+/* 处理控制按钮区域 */
+.processing-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.reset-state-btn {
+  padding: 6px 12px;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reset-state-btn:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
 /* 流式内容显示 */
 .streaming-content {
   width: 100%;
@@ -2335,12 +2499,6 @@ const generateAndShowInitialMessage = async () => {
   justify-content: center;
 }
 
-.narrative-time-placeholder {
-  /* 占位符与时间戳宽度一致，确保中间元素居中 */
-  visibility: hidden;
-  width: auto; /* 自动宽度，与时间戳内容匹配 */
-  white-space: nowrap;
-}
 
 .streaming-dot {
   width: 6px;
@@ -3007,6 +3165,18 @@ const generateAndShowInitialMessage = async () => {
 
 [data-theme="dark"] .ai-processing-display {
   background: #1e293b !important;
+}
+
+[data-theme="dark"] .processing-controls {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .reset-state-btn {
+  background: #f59e0b;
+}
+
+[data-theme="dark"] .reset-state-btn:hover {
+  background: #d97706;
 }
 
 [data-theme="dark"] .narrative-content {

@@ -110,6 +110,61 @@ export async function cleanTavernDuplicates(tavernHelper: TavernHelper) {
 export function validateAndFixSaveData(saveData: SaveData): SaveData {
   console.log('[数据验证] 开始验证和修复存档数据...');
 
+  // 工具：限制数值到指定范围（默认0-10）
+  const clamp = (n: unknown, min = 0, max = 10): number => {
+    const v = typeof n === 'number' ? n : parseFloat(String(n));
+    if (Number.isNaN(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  };
+
+  // 提前注入系统规则与先天六司上限修正（玩家 + NPC）
+  try {
+    // 确保系统规则存在
+    if (!(saveData as any).系统) (saveData as any).系统 = {};
+    if (!(saveData as any).系统.规则) (saveData as any).系统.规则 = {};
+    if (!(saveData as any).系统.规则.属性上限) (saveData as any).系统.规则.属性上限 = {};
+    if (!(saveData as any).系统.规则.属性上限.先天六司) (saveData as any).系统.规则.属性上限.先天六司 = { 每项上限: 10 };
+
+    // 玩家：角色基础信息.先天六司
+    const innate = (saveData as any)?.角色基础信息?.先天六司;
+    if (innate && typeof innate === 'object') {
+      if ('根骨' in innate) innate['根骨'] = clamp(innate['根骨']);
+      if ('灵性' in innate) innate['灵性'] = clamp(innate['灵性']);
+      if ('悟性' in innate) innate['悟性'] = clamp(innate['悟性']);
+      if ('气运' in innate) innate['气运'] = clamp(innate['气运']);
+      if ('魅力' in innate) innate['魅力'] = clamp(innate['魅力']);
+      if ('心性' in innate) innate['心性'] = clamp(innate['心性']);
+    }
+
+    // NPC：人物关系.*.角色基础信息.先天六司
+    if ((saveData as any).人物关系) {
+      Object.values((saveData as any).人物关系).forEach((npc: any) => {
+        const npcInnate = npc?.角色基础信息?.先天六司;
+        if (npcInnate && typeof npcInnate === 'object') {
+          if ('根骨' in npcInnate) npcInnate['根骨'] = clamp(npcInnate['根骨']);
+          if ('灵性' in npcInnate) npcInnate['灵性'] = clamp(npcInnate['灵性']);
+          if ('悟性' in npcInnate) npcInnate['悟性'] = clamp(npcInnate['悟性']);
+          if ('气运' in npcInnate) npcInnate['气运'] = clamp(npcInnate['气运']);
+          if ('魅力' in npcInnate) npcInnate['魅力'] = clamp(npcInnate['魅力']);
+          if ('心性' in npcInnate) npcInnate['心性'] = clamp(npcInnate['心性']);
+        }
+      });
+    }
+
+    // 写入提示（便于AI在当前状态中读到）
+    const tipLine = '系统规则：先天六司每项上限为10（NPC同样适用），如超限需裁剪至上限。';
+    const sys = (saveData as any).系统;
+    if (Array.isArray(sys.提示)) {
+      if (!sys.提示.includes(tipLine)) sys.提示.push(tipLine);
+    } else if (typeof sys.提示 === 'string') {
+      if (!sys.提示.includes('先天六司每项上限')) sys.提示 = [sys.提示, tipLine];
+    } else {
+      sys.提示 = [tipLine];
+    }
+  } catch (e) {
+    console.warn('[数据验证] 注入系统规则/修正先天六司时发生警告:', e);
+  }
+
   // 1. 修复装备栏中的 "null" 或 "undefined" 字符串问题
   if (saveData.装备栏) {
     const equipment = saveData.装备栏;

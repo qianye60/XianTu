@@ -1,5 +1,5 @@
-﻿import { generateItemWithTavernAI } from '../tavernCore';
-import { buildInitialMessagePrompt } from '../prompts/gameMasterPrompts';
+import { generateItemWithTavernAI } from '../tavernCore';
+import { buildCharacterInitializationPrompt } from '../prompts/characterInitializationPrompts';
 import { getRandomizedInGamePrompt, debugPromptInfo } from '../prompts/inGameGMPromptsV2';
 import { buildGmRequest } from '../AIGameMaster';
  
@@ -19,6 +19,17 @@ export async function generateInitialMessage(
   additionalPrompt?: string
 ): Promise<GM_Response> {
   console.log('【神识印记】准备调用AI生成天道初言，数据:', { initialGameData, mapData });
+
+  // --- 1. 增加核心数据校验 ---
+  if (!initialGameData || !initialGameData.baseInfo || !initialGameData.creationDetails) {
+    console.error('【神识印记-致命错误】initialGameData 或其核心属性缺失', initialGameData);
+    throw new Error('初始游戏数据不完整，无法开始生成。');
+  }
+  if (!initialGameData.baseInfo.先天六司) {
+    console.error('【神识印记-致命错误】先天六司数据缺失', initialGameData.baseInfo);
+    throw new Error('角色核心属性“先天六司”数据缺失，无法继续。');
+  }
+  console.log('【神识印记】核心数据校验通过');
 
   try {
     // 0. 缓存已生成的世界数据，避免在AI处理过程中丢失
@@ -160,16 +171,32 @@ export async function generateInitialMessage(
     }
 
     // 2. 构建用户选择信息并使用动态提示词
-    const userSelections = {
+    // [核心修复] 使用完整的详情对象，确保AI能获得详细描述信息
+    let userSelections = {
       name: initialGameData.baseInfo.名字 || '匿名',
       gender: initialGameData.baseInfo.性别 || '男',
       world: initialGameData.baseInfo.世界 || '未知世界',
-      talentTier: initialGameData.baseInfo.天资 || '普通',
-      origin: processedOrigin || '平民',
-      spiritRoot: processedSpiritRoot || '五行灵根',
-      talents: initialGameData.baseInfo.天赋 || [],
-      attributes: safeAttributes // 使用安全验证后的属性
+      // [修复] 使用详情对象而非简单字符串，保留完整描述信息
+      talentTier: (initialGameData.baseInfo as any).天资详情 || initialGameData.baseInfo.天资 || '凡人',
+      origin: (initialGameData.baseInfo as any).出身详情 || initialGameData.baseInfo.出生 || '平民出身', 
+      spiritRoot: (initialGameData.baseInfo as any).灵根详情 || initialGameData.baseInfo.灵根 || '废灵根',
+      talents: (initialGameData.baseInfo as any).天赋详情 || (initialGameData.baseInfo.天赋 || []),
+      attributes: safeAttributes
     };
+    // 规范化：兼容 baseInfo 可选扩展字段（天资详情/出身详情/天赋详情），并提供安全回退
+    try {
+      const bi = (initialGameData as any)?.baseInfo || {};
+      userSelections = {
+        name: bi['名字'] || userSelections.name || '无名',
+        gender: bi['性别'] || userSelections.gender || '未知',
+        world: bi['世界'] || userSelections.world || '未知世界',
+        talentTier: (bi['天资详情'] ?? bi['天资'] ?? userSelections.talentTier ?? '凡人'),
+        origin: (bi['出身详情'] ?? bi['出生'] ?? userSelections.origin ?? '平民出身'),
+        spiritRoot: (bi['灵根详情'] ?? bi['灵根'] ?? userSelections.spiritRoot ?? '五行灵根'),
+        talents: (bi['天赋详情'] ?? bi['天赋'] ?? userSelections.talents ?? []),
+        attributes: userSelections.attributes,
+      } as any;
+    } catch { /* ignore */ }
 
     console.log('【神识印记】构建的用户选择信息:', userSelections);
 
@@ -230,8 +257,8 @@ export async function generateInitialMessage(
       }
     };
 
-    // 使用动态提示词而不是静态提示词
-    const dynamicPrompt = buildInitialMessagePrompt(userSelections);
+    // 使用动态提示词构建函数，注入玩家选择
+    const dynamicPrompt = buildCharacterInitializationPrompt(userSelections);
     const prompt = (dynamicPrompt + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
 
     console.log('【角色初始化-调试】准备调用generateItemWithTavernAI');
@@ -312,6 +339,12 @@ export async function generateInitialMessage(
 
     if (!result.tavern_commands) {
       console.warn('【神识印记】AI未返回tavern_commands，设置为空数组');
+      result.tavern_commands = [];
+    }
+
+    // 确保tavern_commands是数组格式，如果不是则强制转换
+    if (!Array.isArray(result.tavern_commands)) {
+      console.warn('【神识印记】tavern_commands不是数组格式，强制设置为空数组');
       result.tavern_commands = [];
     }
 
@@ -420,9 +453,12 @@ export async function generateInitialMessage(
     return finalResult as GM_Response;
 
   } catch (error) {
-    console.warn('【神识印记】生成天道初言失败，抛出错误以触发重试:', error);
-    // 不再使用fallback，让重试机制处理
-    throw error;
+    console.error('【神识印记】生成天道初言过程中发生严重错误:', error);
+    // 抛出包含原始错误信息的更具体的错误
+    if (error instanceof Error) {
+      throw new Error(`生成初始消息失败: ${error.message}\n${error.stack}`);
+    }
+    throw new Error(`生成初始消息时发生未知错误: ${String(error)}`);
   }
 }
 
@@ -617,8 +653,7 @@ export async function generateInGameResponse(
       timestamp: new Date().toISOString()
     };
 
-    // 获取通用提示词
-    debugPromptInfo(); // 调试提示词完整性
+    // 获取通用提示词（关闭冗长调试日志以减少控制台噪音）
     const prompt = getRandomizedInGamePrompt();
     console.log('【剧情推进】使用通用提示词');
     console.log('【剧情推进】原始提示词长度:', prompt.length);
@@ -626,15 +661,54 @@ export async function generateInGameResponse(
     console.log('【剧情推进-调试】原始提示词后500字符:', prompt.substring(prompt.length - 500));
 
     // 替换提示词中的占位符
+    // 构建精简版游戏状态，避免把整个聊天变量树（尤其是世界信息/大地图）塞进提示词
+    const buildCompactGameState = (vars: Record<string, unknown> | null) => {
+      const sd = (vars?.['character.saveData'] as any) || {};
+      const base = sd?.['角色基础信息'] || {};
+      const status = sd?.['玩家角色状态'] || {};
+      const bag = sd?.['背包'] || {};
+      const worldInfo = sd?.['世界信息'] || {};
+      const system = sd?.['系统'] || {};
+      const technique = sd?.['修炼功法'] || {};
+
+      const pick = (obj: any, keys: string[]) => {
+        const out: any = {};
+        keys.forEach(k => { if (obj && typeof obj === 'object' && k in obj) out[k] = obj[k]; });
+        return out;
+      };
+
+      // 精简后的玩家数据
+      const compactSaveData = {
+        角色基础信息: {
+          ...pick(base, ['名字', '性别', '世界', '天资']),
+          先天六司: pick(base?.['先天六司'] || {}, ['根骨', '灵性', '悟性', '气运', '魅力', '心性'])
+        },
+        玩家角色状态: {
+          境界: typeof status?.['境界'] === 'object' ? pick(status['境界'], ['等级', '名称']) : status?.['境界'],
+          位置: { 描述: status?.['位置']?.['描述'] },
+          气血: pick(status?.['气血'] || {}, ['当前', '最大']),
+          灵气: pick(status?.['灵气'] || {}, ['当前', '最大']),
+          神识: pick(status?.['神识'] || {}, ['当前', '最大']),
+          寿命: pick(status?.['寿命'] || {}, ['当前', '最大']),
+          修为: pick(status?.['修为'] || {}, ['当前', '最大'])
+        },
+        背包: {
+          灵石: pick(bag?.['灵石'] || {}, ['下品', '中品', '上品', '极品'])
+        },
+        世界信息: pick(worldInfo || {}, ['世界名称']),
+        修炼功法: pick(technique || {}, ['功法', '正在修炼', '修炼进度']),
+        系统: pick(system || {}, ['规则', '提示'])
+      };
+
+      return { 'character.saveData': compactSaveData };
+    };
+
     const promptInput = {
       gmRequest,
-      current_game_state: {
-        ...chatVariablesForPrompt,
-        note: '这是当前的游戏状态，所有生成的内容都必须严格基于此数据。'
-      },
+      current_game_state: buildCompactGameState(chatVariablesForPrompt),
       derived
     };
-    const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
+    const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput));
     const previousBlock = lastTextMemory && typeof lastTextMemory === 'string' && lastTextMemory.trim()
       ? `\n\n【上一条对话全文】\n${lastTextMemory}\n`
       : '';

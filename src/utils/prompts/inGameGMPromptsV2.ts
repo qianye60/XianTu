@@ -5,19 +5,23 @@
 
 import {
   COMMON_CORE_RULES,
-  COMMON_TEXT_REQUIREMENTS,
-  COMMON_FORMAT_MARKERS,
+  COMMON_NARRATIVE_RULES,
   COMMON_NPC_RULES,
   COMMON_ITEM_RULES,
   COMMON_DAO_RULES,
-  COMMON_MEMORY_RULES,
-} from './commonPromptRules'
+  ENHANCED_TIME_MANAGEMENT,
+  ENHANCED_DATA_VALIDATION
+} from './commonPromptRules';
+import { UNIFIED_PROMPT_BUILDER } from './unifiedPromptSystem';
 
-// === 使用通用规则组件 ===
+// === 使用统一规则组件 ===
 const CORE_RULES = COMMON_CORE_RULES
-const TEXT_REQUIREMENTS = COMMON_TEXT_REQUIREMENTS
-const FORMAT_MARKERS = COMMON_FORMAT_MARKERS
-const MEMORY_MANAGEMENT = COMMON_MEMORY_RULES
+const ENHANCED_RULES = ENHANCED_TIME_MANAGEMENT + '\n\n' + ENHANCED_DATA_VALIDATION + '\n\n' + [
+  '# 先天六司约束',
+  '- 先天六司六项每项范围为0-10；NPC同样遵守。',
+  '- 若生成/更新出现超限，必须在 tavern_commands 中写入裁剪后的值（如>10则写入10）。',
+  '- 生成/更新前，应读取并遵守 character.saveData.系统.规则 中的限制（例如 属性上限.先天六司.每项上限）。'
+].join('\n')
 // 直接使用导入的通用组件，不再重新声明
 
 // === 4. 玩家操作处理优先级 ===
@@ -60,34 +64,8 @@ const JUDGMENT_SYSTEM = [
 
 // 使用通用物品系统规则
 
-// === 7. NPC系统 ===
-const NPC_SYSTEM = [
-  '【NPC系统】',
-  '- **基础信息完整性**：性别、年龄、天资、出生、灵根等字段必须具体化，不能为"未知"',
-  '- **互动更新**：text中出现与具体人物的明确互动时，必须set到人物关系.<姓名>',
-  '- **物品携带强制要求**：',
-  '  * **商人类NPC**：必须在背包中携带3-5件可交易物品（丹药、符篆、材料、装备等），绝不能空背包',
-  '  * **宗门长老/重要人物**：必须携带2-4件符合身份的物品（功法、法宝、珍贵材料等）',
-  '  * **普通NPC**：根据身份携带1-2件合适物品（工具、日用品、小物件等）',
-  '  * **背包格式**：背包.物品: Item[] (物品数组)',
-  '  * **物品命名**：避免模板化，创造富有个性的物品名称',
-  '- **记忆格式**：["[日期][地点]事件"]格式',
-  '- **好感度范围**：-100到100',
-  '- **交易机制**：支持物品交换、赠送、偷窃等操作',
-].join('\n')
-
-// === 8. 三千大道系统规则 ===
-const DAO_SYSTEM_RULES = [
-  '【三千大道系统】',
-  '- **完全动态**：所有大道都由AI根据游戏情况动态创建，没有固定的基础大道',
-  '- **机缘驱动**：大道的解锁应该与剧情、机缘、师承、奇遇等相关',
-  '- **个性化进阶**：每条大道都应该有独特的阶段名称、描述和经验需求',
-  '- **数据存储**：所有三千大道数据必须存储在character.saveData.三千大道路径下',
-  '- **解锁条件**：遇到师父传授、获得典籍秘笈、特殊环境感悟、完成任务等',
-  '- **经验获得**：实际操作、研读典籍、名师指点、悟道机缘等',
-  '- **阶段设计**：7-12个不等的修炼阶段，使用富有修仙韵味的阶段名',
-  '- **经验递增**：第1阶段0经验，2-4阶段100-500，5-7阶段800-2000，8-10阶段3000-8000，11+阶段10000+',
-].join('\n')
+// [已废弃] NPC_SYSTEM 和 DAO_SYSTEM_RULES 已被迁移到 commonPromptRules.ts 并通过
+// COMMON_NPC_RULES 和 COMMON_DAO_RULES 导入使用，旧的常量定义在此移除以保持代码整洁。
 
 // === 9. AI数据更新规则 ===
 const UPDATE_RULES = [
@@ -136,10 +114,14 @@ const UPDATE_RULES = [
   '## 🔄 强制更新检查清单',
   '每次AI回复必须检查以下项目并在tavern_commands中更新：',
   '',
-  '### 1️⃣ 时间推进 - 所有行为都消耗时间',
-  '- **⚠️ 重要原则**：任何行为都必须推进时间，没有不消耗时间的行为',
-  '- **对话交流**：普通对话推进5-15分钟，深入讨论推进30-60分钟',
-  '- **日常活动**：吃饭30分钟-1小时，睡觉6-8小时，洗漱15-30分钟，整理物品10-30分钟',
+  '### 1️⃣ 时间推进 - 智能时间管理',
+  '- **⚠️ 智能推进原则**：根据活动类型合理推进时间',
+  '- **需要推进时间的活动**：',
+  '  * 移动、战斗、修炼、制作、购物、重要对话',
+  '  * 对话交流：重要讨论15-30分钟，深入交流30-60分钟',
+  '  * 日常活动：吃饭30分钟-1小时，睡觉6-8小时，洗漱15-30分钟',
+  '- **不需要推进时间的活动**：',
+  '  * 查看状态、简单问候、快速询问、思考、回忆',
   '- **修炼时间**：根据修炼内容和境界推进，境界越高时间越长',
   '  * 练气期：打坐1-2小时，闭关几天到几周',
   '  * 筑基期：修炼数小时，闭关几周到几个月',
@@ -150,7 +132,7 @@ const UPDATE_RULES = [
   '- **购物交易**：浏览物品15-30分钟，复杂交易30-60分钟',
   '- **制作炼制**：炼丹、制符、锻造等技能活动按复杂度消耗几小时到几天',
   '- **休息恢复**：受伤恢复、冥想静心等也需要消耗时间',
-  '- **强制更新**：`_.set("character.saveData.游戏时间.小时", 当前小时+推进小时数)`',
+  '- **时间更新**：`_.set("character.saveData.游戏时间.小时", 当前小时+推进小时数)`',
   '',
   '### 2️⃣ 生命状态监控',
   '- **气血变化**：战斗受伤、治疗、休息恢复',
@@ -182,7 +164,9 @@ const UPDATE_RULES = [
   '- **突破境界**：修为达到下一级所需时自动突破',
   '',
   '### 5️⃣ NPC互动记忆',
-  '- **每次互动必记录**：与任何NPC对话都要更新其记忆',
+  '- **重要互动才记录**：仅在有意义的对话或事件时更新NPC记忆',
+  '  * ✅ 需要记录：初次见面、重要信息交换、情感变化、任务相关',
+  '  * ❌ 无需记录：简单问候、重复对话、询问基础信息',
   '  ```json',
   '  {',
   '    "action": "push",',
@@ -190,11 +174,11 @@ const UPDATE_RULES = [
   '    "key": "character.saveData.人物关系.【NPC名字】.人物记忆",',
   '    "value": {',
   '      "时间": "【当前游戏时间】",',
-  '      "事件": "【具体事件描述】"',
+  '      "事件": "【具体重要事件描述】"',
   '    }',
   '  }',
   '  ```',
-  '- **好感度变化**：根据互动内容调整',
+  '- **好感度变化**：仅在有明显态度改变时调整',
   '  * 友好互动：`_.add("character.saveData.人物关系.【NPC名字】.人物好感度", +5到+15)`',
   '  * 冲突互动：`_.add("character.saveData.人物关系.【NPC名字】.人物好感度", -10到-30)`',
   '',
@@ -258,23 +242,11 @@ const LOCATION_SYSTEM = [
 export const IN_GAME_MESSAGE_PROMPT = [
   '【剧情推进】根据当前游戏状态推进一段叙事，并返回唯一 JSON。',
   '',
-  CORE_RULES,
-  '',
-  TEXT_REQUIREMENTS,
-  '',
-  FORMAT_MARKERS,
-  '',
-  MEMORY_MANAGEMENT,
+  UNIFIED_PROMPT_BUILDER.buildGamePrompt('gameplay'),
   '',
   PLAYER_ACTION_PRIORITY,
   '',
   JUDGMENT_SYSTEM,
-  '',
-  COMMON_ITEM_RULES,
-  '',
-  COMMON_NPC_RULES,
-  '',
-  COMMON_DAO_RULES,
   '',
   LOCATION_SYSTEM,
   '',
@@ -435,6 +407,22 @@ export const IN_GAME_MESSAGE_PROMPT = [
   '- set: character.saveData.人物关系.<姓名>（当text中发生互动时）',
   '',
   '合理性审查(最高权限): 难度 normal|medium|hard；进入他人地图强制 hard；hard 下不得无因越界推进，消耗/收益/代价必须在 text 落实；对不合理变更自修正。',
+  '',
+  '【输出格式要求】必须严格按照以下JSON格式返回响应：',
+  '```json',
+  '{',
+  '  "text": "1000-2000字的详细叙述内容",',
+  '  "mid_term_memory": "可选：若发生重要事件变化，提供50-100字的精简总结；否则为空字符串",',
+  '  "tavern_commands": [',
+  '    {"action": "set/add/push/pull/delete", "scope": "chat", "key": "character.saveData.路径", "value": "值"}',
+  '  ]',
+  '}',
+  '```',
+  '',
+  '注意：',
+  '- text字段：必填，包含完整的游戏叙述',
+  '- mid_term_memory字段：可选，仅在有重要变化时填写简短总结',
+  '- tavern_commands字段：必填数组，根据剧情变化更新游戏数据',
   '',
 ].join('\n')
 

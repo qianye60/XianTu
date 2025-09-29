@@ -1,299 +1,55 @@
 /**
- * @fileoverview Game Master 提示词模块
- * 包含角色初始化和游戏进行中的各种AI提示词
+ * @fileoverview Game Master 提示词模块 (v2.0 - 精简版)
+ * 专注于游戏进行中的AI交互逻辑。
  */
 
 import {
   COMMON_CORE_RULES,
-  COMMON_TEXT_REQUIREMENTS,
-  COMMON_FORMAT_MARKERS,
+  COMMON_NARRATIVE_RULES,
+  COMMON_DATA_MANIPULATION_RULES,
   COMMON_NPC_RULES,
   COMMON_ITEM_RULES,
   COMMON_DAO_RULES,
-  COMMON_MEMORY_RULES,
-  CHARACTER_INITIALIZATION_RULES
+  ENHANCED_TIME_MANAGEMENT,
+  ENHANCED_DATA_VALIDATION
 } from './commonPromptRules';
+import { UNIFIED_PROMPT_BUILDER } from './unifiedPromptSystem';
 
 /**
- * 构建动态的角色初始化提示词
- * @param userSelections 用户选择的角色信息
- * @returns 完整的初始化提示词
+ * 构建游戏进行中的GM提示词。
+ * @param playerAction 玩家的输入或行动。
+ * @returns 完整的游戏进行时提示词。
  */
-export function buildInitialMessagePrompt(userSelections: {
-  name: string;
-  gender: string;
-  world: string;
-  talentTier: string;
-  origin: string;
-  spiritRoot: string;
-  talents: string[];
-  attributes: {
-    根骨: number;
-    灵性: number;
-    悟性: number;
-    气运: number;
-    魅力: number;
-    心性: number;
-  };
-}): string {
-  return [
-    '【角色初始化 - 开始修仙之旅】',
-    '',
-    '## ⚠️ 用户已确定的角色信息（严禁修改）',
-    `- **姓名**: ${userSelections.name}`,
-    `- **性别**: ${userSelections.gender}`,
-    `- **世界**: ${userSelections.world}`,
-    `- **天资**: ${userSelections.talentTier}`,
-    `- **出身**: ${userSelections.origin}`,
-    `- **灵根**: ${userSelections.spiritRoot}`,
-    `- **天赋**: ${userSelections.talents.join('、')}`,
-    `- **先天六司**: 根骨${userSelections.attributes.根骨} 灵性${userSelections.attributes.灵性} 悟性${userSelections.attributes.悟性} 气运${userSelections.attributes.气运} 魅力${userSelections.attributes.魅力} 心性${userSelections.attributes.心性}`,
-    '',
-    DYNAMIC_GAME_DATA_PROMPT,
-    '',
-    COMMON_CORE_RULES,
-    '',
-    '## 🌟 初始化任务',
-    '请根据用户已选择的角色设定，生成修仙世界的开场故事：',
-    '',
-    '⚠️ **文本要求：生成丰富详细的叙述内容，字数不少于1000字**',
-    '',
-    '1. **详细环境描述**（至少200字）：',
-    '   - 详细描述角色所在的初始环境和位置',
-    '   - ⚠️ **重要：必须生成具体的地名和位置**，严禁使用"初始地"等占位符',
-    '   - 根据出身背景创造合适的富有特色的地名，体现地方特色',
-    '   - 🚨 **重要约束**：只需生成位置描述，不要生成坐标信息',
-    '   - 位置生成格式：必须严格按照"大洲名·后缀"格式，如"中土大陆·青石镇"、"东海群岛·天剑宗·剑峰"，不要只给城镇名',
-    '   - 描绘周围的景色、建筑、气氛等感官细节',
-    '   - 结合出身背景创造合适的开场场景',
-    '   - 描述当前的时间、天气、季节等背景要素',
-    '',
-    '2. **角色状态初始化**（至少150字）：',
-    '   - 设置符合凡人境界的基础属性（气血、灵气、神识、寿命）',
-    `   - 根据已选择的天赋"${userSelections.talents.join('、')}"解锁相应的大道或能力`,
-    '   - **初始化物品装备**：根据角色背景随机生成合适的起始物品',
-    '   - ⚠️ **物品生成要求**：',
-    '   - 数量必须精简：每次生成0-4个物品，避免过多干扰',
-    '   - 内容必须多样：根据出身、家境、地域生成不同类型物品',
-    '   - 严禁固定模板：禁止总是生成"干粮、布衣、木剑、铜钱"等固定组合',
-    '   - 创造性命名：每个物品都要有独特的名称和描述',
-    '   - 🚨装备状态字段：所有装备和功法类物品必须包含"已装备"字段，默认为false',
-    '   - 物品ID要求：每个物品必须有唯一的物品ID字段',
-    '   - 详细描述角色的身体感受和内在变化',
-    '   - 解释天赋觉醒的过程和感受',
-    '',
-    '3. **人脉关系生成**（至少200字）：',
-    `   - **根据出身背景"${userSelections.origin}"动态生成人际关系**：`,
-    `     - 如果出身是"山野遗孤"、"散修传人"或类似的孤独背景，则**禁止生成家庭关系**，但可以安排一个引路人、仇家或萍水相逢的道友。`,
-    `     - 如果出身是"书香门第"、"将门之后"等，则应生成相应的家庭成员。`,
-    '   - 生成0-3个重要的NPC角色，每个角色都要有详细的外貌、性格描述',
-    '   - ⚠️ **重要：NPC必须有完整的基础信息**',
-    '   - NPC的性别、年龄必须明确指定，不能为"未知"',
-    '   - NPC的灵根必须有具体设定，格式：{名称:"纯粹灵根名称（不含品级）",品级:"品级等级",描述:"具体描述"}',
-    '   - **🚨境界设定**：NPC境界必须使用描述性文本，如"凡人"、"练气初期"、"筑基中期"等，严禁使用数值',
-    '   - **关注标记**：为在故事中出现的NPC设置实时关注为true',
-    '   - 建立初始的人际关系网络',
-    '   - 描述与这些重要人物的互动场景和对话',
-    '   - 展现这些关系对角色未来发展的影响',
-    '   - **指令要求**：为每个在故事中创建的NPC，生成一条对应的 `tavern_commands` `set` 指令，用于创建 `character.saveData.人物关系`。',
-    '',
-    '4. **大道系统初始化**（至少100字）：',
-    `   - **解锁大道**: 根据已选择的天赋"${userSelections.talents.join('、')}"自然解锁对应大道。`,
-    '   - **生成完整成长路径**: ⚠️重要！当解锁一个新大道时，必须在 `三千大道系统.大道路径定义` 中为该大道生成一个完整的、包含至少5个等级的成长路径数组。',
-    '   - **路径定义要求**: 每个等级都需要包含等级(level)、名称(name)和升级所需经验(exp_needed)。',
-    '   - **设置初始进度**: 同时，在 `三千大道系统.大道进度` 中设置该大道的初始状态，其"总经验"应引用路径定义中第一个等级的"所需经验"。',
-    '   - **描述觉醒过程**: 详细描述大道觉醒时的玄妙感受和异象。',
-    '',
-    '5. **剧情铺垫和引子**（至少150字）：',
-    '   - 设置一个吸引人的开场事件或机缘',
-    '   - 暗示未来可能的发展方向和挑战',
-    '   - 营造修仙世界的神秘氛围',
-    '   - 给出角色当前可以选择的行动方向',
-    '',
-    CHARACTER_INITIALIZATION_RULES,
-    '',
-    '## 🚨 严格响应格式要求',
-    COMMON_CORE_RULES,
-    '',
-    COMMON_TEXT_REQUIREMENTS,
-    '',
-    COMMON_FORMAT_MARKERS,
-    '',
-    COMMON_MEMORY_RULES,
-    '',
-    COMMON_ITEM_RULES,
-    '',
-    COMMON_NPC_RULES,
-    '',
-    COMMON_DAO_RULES,
-    '',
-    '## 📋 必须返回的JSON格式',
-    '```json',
-    '{',
-    '  "text": "【第一人称叙述的开场故事，必须包含：详细环境描述200字+角色状态感受150字+人物关系互动200字+大道觉醒100字+剧情铺垫150字，总计不少于800字】",',
-    '  "mid_term_memory": "【关键记忆点：包含重要的人物、地点、事件信息，50-100字】",',
-    '  "tavern_commands": [',
-    '    {',
-    '      "action": "set",',
-    '      "scope": "chat",',
-    '      "key": "character.saveData.玩家角色状态.位置",',
-    '      "value": { "描述": "【简短地名，如：青石镇】" }',
-    '    },',
-    '    {',
-    '      "action": "set",',
-    '      "scope": "chat",',
-    '      "key": "character.saveData.人物关系.【NPC姓名或称谓】",',
-    '      "value": {',
-    '        "角色基础信息": { "名字": "【NPC姓名】", "性别": "男", "年龄": 45, "世界": "【世界名】", "天资": "中人之姿", "出生": "官宦世家", "灵根": {"名称":"五行灵根","品级":"凡品","描述":"平衡的五行灵根"}, "天赋": [], "先天六司": {"根骨":5,"灵性":6,"悟性":7,"气运":8,"魅力":7,"心性":8} },',
-    '        "外貌描述": "【根据故事生成的描述】",',
-    '        "角色存档信息": {',
-    '          "时间": "【当前游戏时间】",',
-    '          "装备": {},',
-    '          "功法": { "主修功法": null, "已学技能": [] },',
-    '          "状态": [],',
-    '          "境界": "凡人",',
-    '          "声望": 0,',
-    '          "位置": { "描述": "【初始位置】" },',
-    '          "当前气血": 100, "最大气血": 100,',
-    '          "当前灵气": 50, "最大灵气": 50,',
-    '          "当前神识": 30, "最大神识": 30,',
-    '          "当前寿命": 20, "最大寿命": 100',
-    '        },',
-    '        "NPC行为": { "行为模式": "日常生活", "日常路线": [] },',
-    '        "人物关系": "【与主角的关系，如：父亲】",',
-    '        "人物好感度": 70,',
-    '        "人物记忆": [{"时间": "【游戏内时间描述】", "事件": "【初次见面的核心记忆】"}],',
-    '        "背包": {',
-    '          "灵石": { "下品": 0, "中品": 0, "上品": 0, "极品": 0 },',
-    '          "物品": {}',
-    '        },',
-    '        "实时关注": true',
-    '      }',
-    '    },',
-    '    {',
-    '      "action": "set",',
-    '      "scope": "chat",',
-    '      "key": "character.saveData.三千大道系统.大道路径定义.【大道名称】",',
-    '      "value": [',
-    '        { "level": 0, "name": "初窥门径", "exp_needed": 100 },',
-    '        { "level": 1, "name": "登堂入室", "exp_needed": 500 },',
-    '        { "level": 2, "name": "融会贯通", "exp_needed": 2000 },',
-    '        { "level": 3, "name": "炉火纯青", "exp_needed": 8000 },',
-    '        { "level": 4, "name": "返璞归真", "exp_needed": 30000 }',
-    '      ]',
-    '    },',
-    '    {',
-    '      "action": "set",',
-    '      "scope": "chat",',
-    '      "key": "character.saveData.三千大道系统.大道进度.【大道名称】",',
-    '      "value": {',
-    '        "道名": "【与天赋对应的大道名称】",',
-    '        "当前阶段": 0,',
-    '        "当前经验": 0,',
-    '        "总经验": 100,',
-    '        "是否解锁": true',
-    '      }',
-    '    },',
-    '    {',
-    '      "action": "set",',
-    '      "scope": "chat",',
-    '      "key": "character.saveData.玩家角色状态.位置.描述",',
-    '      "value": "【根据出生背景生成的具体地名，格式：大洲名·后缀】"',
-    '    }',
-    '  ]',
-    '}',
-    '```',
-    '',
-    '## 📊 输入数据',
-    '```json',
-    'INPUT_PLACEHOLDER',
-    '```',
-    '',
-    '请基于以上用户选择和规则，生成精彩的修仙世界开局！',
-    '  // 数值基线：character_creation.derived_stats 为前端预计算的初始化基线（不含"修为"），AI需参考并据此落库；后续变化用 tavern_commands 正常改动',
-    '  // 计算/推导过程不要写入存档（character.saveData）；如需说明请写在text，存档只保存最终数值',
-    '',
-  ].join('\n');
+export function buildGameMasterPrompt(playerAction: string): string {
+  return `
+# 任务：推进游戏进程
+
+你的任务是作为游戏主持者（GM），根据玩家的行动(\`player_action\`)，推动修仙故事发展，并更新世界状态。
+
+---
+
+# 1. 玩家行动
+
+\`\`\`
+${playerAction}
+\`\`\`
+
+---
+
+# 2. 你的响应
+
+*   **叙事 (\`text\`)**: 根据玩家的行动，生成一段400-1000字的沉浸式故事续写。
+*   **状态变更 (\`tavern_commands\`)**: 如果故事导致了任何状态变化（如获得物品、NPC好感度改变、属性增减等），必须通过指令来更新。
+*   **要求**: 严格遵循以下规则库。
+
+---
+
+# 规则库
+
+${UNIFIED_PROMPT_BUILDER.buildGamePrompt('gameplay')}
+`.trim();
 }
 
-/**
- * 静态的初始消息提示词（备用）
- * @deprecated 推荐使用 buildInitialMessagePrompt 函数
- */
-export const INITIAL_MESSAGE_PROMPT = [
-  '【背景与家庭约束】',
-  '- 非玩家明确选择"孤儿出身"时，默认应当拥有家庭或亲属（父母/监护人、兄弟姐妹/家族）',
-  '- 禁止无依据安排"云游道人/路过高人收养"等桥段；如确需设置，必须由输入上下文明确提出',
-  '- 如果设置家庭关系，需要：',
-  '  1) 在text中补充至少1位亲属的具体信息（称谓、性格或特征、相处关系片段）',
-  '  2) 在tavern_commands.set中写入character.saveData.人物关系.<姓名>（最小NpcProfile结构，含"角色基础信息+人物关系+人物好感度"）',
-  '- 未经明确要求，避免安排"父母双亡/天降奇遇强行收养"等过度戏剧化设定',
-  '',
-  '【初始化任务】为"修仙游戏"生成开场叙事并返回唯一JSON',
-].join('\n');
-
-/**
- * 基础的Tavern Commands使用说明（保留核心操作指南）
- */
-export const TAVERN_COMMANDS_GUIDE = [
-  '## Tavern Commands 使用指南',
-  '',
-  '### 基本格式',
-  '```json',
-  '{',
-  '  "tavern_commands": [',
-  '    {',
-  '      "action": "set",',
-  '      "scope": "chat",',
-  '      "key": "character.saveData.字段路径",',
-  '      "value": "具体值"',
-  '    }',
-  '  ]',
-  '}',
-  '```',
-  '',
-  '### 重要规则',
-  '- 所有路径必须以 character.saveData. 开头',
-  '- 使用 set 设置完整对象或具体值',
-  '- 使用 add 进行数值增减',
-  '- 使用 push 添加数组元素',
-  '- 使用 delete 删除字段',
-  '- 禁止在tavern_commands中操作任何记忆相关字段',
-  '- 记忆系统完全由前端管理',
-  '- 系统会自动从 text 内容中提取生成记忆',
-  '',
-  '### 📋 数据操作规则',
-  '具体的操作规则请参考酒馆变量中各数据对象的_AI修改规则字段。',
-].join('\n');
-
-/**
- * 简化的游戏数据说明提示词
- * 数据结构说明已内嵌到酒馆变量中，无需重复发送
- */
-export const DYNAMIC_GAME_DATA_PROMPT = [
-  '## 📊 游戏数据获取说明',
-  '',
-  '你可以直接访问酒馆聊天变量中的完整游戏数据，数据中已包含AI操作规则说明：',
-  '- **character.saveData.角色基础信息**: 角色的基本信息（含_AI说明字段）',
-  '- **character.saveData.玩家角色状态**: 角色的当前状态（含_AI修改规则字段）',
-  '- **character.saveData.世界信息**: 完整的世界背景、势力、地点信息',
-  '- **character.saveData.背包**: 物品和灵石（含_AI修改规则字段）',
-  '- **character.saveData.人物关系**: NPC关系（含_AI修改规则字段）',
-  '- **character.saveData.三千大道**: 大道系统（含_AI修改规则字段）',
-  '- **其他变量**: 装备栏、宗门系统、记忆、游戏时间、修炼功法等',
-  '',
-  '## 🚫 重要约束',
-  '- **角色基础信息**中的姓名、性别、先天六司等字段严禁修改',
-  '- **数据结构说明**：每个数据对象中的_AI说明和_AI修改规则字段包含了详细的操作指南',
-  '- **严格遵循规则**：请仔细阅读数据中的_AI修改规则，严格按照规则操作',
-  '',
-  '## 🎮 操作指南',
-  '使用tavern_commands来修改游戏数据，支持的操作：',
-  '- set: 设置变量值',
-  '- add: 数值加法',
-  '- push: 数组添加',
-  '- pull: 数组移除',
-  '- delete: 删除变量',
-  '',
-  '请根据实际的酒馆变量数据来进行游戏叙事和数据操作，数据中的说明字段会指导你正确操作。',
-].join('\n');
+// [已废弃] 旧的、复杂的初始化函数和静态变量已被移除。
+// 初始化功能现在由 characterInitializationPrompts.ts 专门处理。
+// 通用规则已全部移至 commonPromptRules.ts。

@@ -549,7 +549,7 @@ const worldName = computed(() => {
 const worldBackground = computed(() => {
   const variables = tavernVariables.value;
   const worldInfo = variables['character.saveData']?.世界信息;
-  return worldInfo?.世界背景 || '';
+  return worldInfo?.生成信息?.世界背景 || '';
 });
 
 // 明确初始化类型，避免 {} 被推断为不完全的 Record 结构

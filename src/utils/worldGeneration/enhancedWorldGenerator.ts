@@ -270,7 +270,7 @@ ${this.previousErrors.join('\n')}
           等级: faction.level || faction.等级 || '三流',
           宗主修为: faction.leadership?.宗主修为,
           最强修为: faction.leadership?.最强修为,
-          长老数量: faction.leadership?.长老数量,
+          长老数量: faction.memberCount?.byPosition?.长老 || 0,
           核心弟子数: faction.leadership?.核心弟子数,
           内门弟子数: faction.leadership?.内门弟子数,
           外门弟子数: faction.leadership?.外门弟子数
@@ -295,7 +295,6 @@ ${this.previousErrors.join('\n')}
             副宗主: faction.leadership.副宗主 ?? undefined,
             太上长老: faction.leadership.太上长老 ?? undefined,
             太上长老修为: faction.leadership.太上长老修为 ?? undefined,
-            长老数量: faction.leadership.长老数量 || 0,
             最强修为: faction.leadership.最强修为 || faction.leadership.宗主修为,
             综合战力: calculated.综合战力,
             核心弟子数: faction.leadership.核心弟子数,

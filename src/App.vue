@@ -4,6 +4,11 @@
     <GlobalLoadingOverlay />
     <RetryConfirmDialog />
     <DataValidationErrorDialog />
+    <StateChangeViewer
+      v-if="uiStore.showStateChangeViewer"
+      :log="uiStore.stateChangeLogToShow"
+      @close="uiStore.closeStateChangeViewer"
+    />
     <!-- 全局操作按钮 - 只在非游戏界面显示 -->
     <div v-if="!isInGameView" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
@@ -55,6 +60,7 @@ import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
 import DataValidationErrorDialog from './components/common/DataValidationErrorDialog.vue';
+import StateChangeViewer from './components/common/StateChangeViewer.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
@@ -179,6 +185,12 @@ const handleCreationComplete = async (rawPayload: any) => {
       灵根: rawPayload.spiritRoot?.name || '随机灵根',
       天赋: rawPayload.talents?.map((t: any) => t.name) || [],
       先天六司: convertedAttributes,
+      // 保存完整的详细信息对象，确保AI能获得完整描述
+      世界详情: rawPayload.world,
+      天资详情: rawPayload.talentTier,
+      出身详情: rawPayload.origin,
+      灵根详情: rawPayload.spiritRoot,
+      天赋详情: rawPayload.talents,
     };
 
     const charId = `char_${Date.now()}`;

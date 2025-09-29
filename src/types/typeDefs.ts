@@ -1,3 +1,7 @@
+// This file is auto-generated to solve a Webpack build issue with `?raw` imports.
+// It exports the raw string content of game.d.ts.
+
+export const typeDefs = `
 // src/types/game.d.ts
 
 /**
@@ -17,20 +21,6 @@ export interface AIMetadata {
   _AI说明?: string;
   _AI修改规则?: any;
   _AI重要提醒?: string;
-}
-
-// --- 系统与规则（可嵌入提示与限制） ---
-export interface AttributeLimitConfig {
-  先天六司?: {
-    每项上限: number; // 六项单项最大值（默认10）
-  };
-}
-
-export interface SystemConfig extends AIMetadata {
-  规则?: {
-    属性上限?: AttributeLimitConfig;
-  };
-  提示?: string | string[]; // 可放置给AI的约束提示，随存档一并注入
 }
 
 // --- 状态变更日志接口 ---
@@ -508,6 +498,7 @@ export interface WorldFaction {
     副宗主?: string;
     太上长老?: string;
     太上长老修为?: string;
+    长老数量: number;
     最强修为: string; // 宗门内最高修为境界
     综合战力?: number; // 1-100的综合战力评估
     核心弟子数?: number;
@@ -554,6 +545,7 @@ export interface WorldGenerationInfo {
 /** 完整的世界信息数据结构 */
 export interface WorldInfo {
   世界名称: string;
+  世界背景: string;
   大陆信息: WorldContinent[];
   continents?: WorldContinent[]; // 兼容旧数据
   势力信息: WorldFaction[];
@@ -651,24 +643,23 @@ export interface GameMessage {
 
 // 保持人物关系为严格的字典，键为NPC名称/ID，值为NpcProfile
 
-  export interface SaveData {
-    玩家角色状态: PlayerStatus;
-    装备栏: Equipment;
-    三千大道: ThousandDaoSystem;
-    背包: Inventory;
-    人物关系: Record<string, NpcProfile>;
-    宗门系统: SectSystemData;
-    记忆: Memory;
-    游戏时间: GameTime;
-    角色基础信息?: CharacterBaseInfo;
-    世界信息?: WorldInfo;
-    修炼功法: CultivationTechniqueData;
-    三千大道系统?: {
-      大道路径定义: Record<string, DaoStage[]>;
-      大道进度: Record<string, DaoProgress>;
-    };
-    系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
-  }
+export interface SaveData {
+  玩家角色状态: PlayerStatus;
+  装备栏: Equipment;
+  三千大道: ThousandDaoSystem;
+  背包: Inventory;
+  人物关系: Record<string, NpcProfile>;
+  宗门系统: SectSystemData;
+  记忆: Memory;
+  游戏时间: GameTime;
+  角色基础信息?: CharacterBaseInfo;
+  世界信息?: WorldInfo;
+  修炼功法: CultivationTechniqueData;
+  三千大道系统?: {
+    大道路径定义: Record<string, DaoStage[]>;
+    大道进度: Record<string, DaoProgress>;
+  };
+}
 
 
 // --- 单个存档槽位 ---
@@ -690,7 +681,7 @@ export interface SaveSlot {
 
 // --- 角色基础信息 (静态) ---
 
-export interface CharacterBaseInfo extends AIMetadata {
+export interface CharacterBaseInfo {
   名字: string;
   性别: string;
   年龄?: number; // 添加可选的年龄字段
@@ -874,3 +865,4 @@ export interface LocalStorageRoot {
   } | null;
   角色列表: Record<string, CharacterProfile>; // 以角色唯一ID (char_1001) 为key
 }
+`;

@@ -224,7 +224,6 @@
                 <div class="detail-section">
                   <h5 class="section-title">随身物品</h5>
                   <div class="npc-inventory">
-                    <div class="inventory-note"><Info :size="14" /><span>商人或重要人物可能携带物品进行交易</span></div>
                     <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
                       <div v-for="(item, itemId) in selectedPerson.背包.物品" :key="itemId" class="npc-item-card" :class="getItemQualityClass(item.品质?.quality)">
                         <div class="item-header">
@@ -383,9 +382,21 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
   if (typeof spiritRoot === 'object') {
-    return `${spiritRoot.名称}(${spiritRoot.品级})`;
+    // 正确格式：{ 名称, 品级, 描述 }
+    if (spiritRoot.名称 && spiritRoot.品级) {
+      return `${spiritRoot.名称}(${spiritRoot.品级})`;
+    }
+    // 兼容错误格式：{ 名称, 类型 } (AI生成错误时的兼容处理)
+    if (spiritRoot.名称 && (spiritRoot as any).类型) {
+      console.warn('[NPC显示] 检测到错误的灵根格式，使用兼容模式:', spiritRoot);
+      return `${spiritRoot.名称}(${(spiritRoot as any).类型})`;
+    }
+    // 只有名称的情况
+    if (spiritRoot.名称) {
+      return `${spiritRoot.名称}(未知品级)`;
+    }
   }
-  return '未知';
+  return '格式错误';
 };
 
 const relationships = computed(() => {
@@ -441,7 +452,8 @@ const formatRealm = (realm: any): string => {
   if (realm && typeof realm === 'object' && realm.名称) {
     return realm.名称;
   }
-  return '凡人';
+  // 默认为“未知”，不强制归一化为凡人
+  return '未知';
 };
 
 const selectPerson = (person: NpcProfile) => {
@@ -1358,18 +1370,6 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   margin-top: 0.75rem;
 }
 
-.inventory-note {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.8rem;
-  color: #3b82f6;
-}
 
 .npc-items-grid {
   display: grid;

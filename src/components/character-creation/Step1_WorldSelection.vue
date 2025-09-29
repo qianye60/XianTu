@@ -38,7 +38,17 @@
             @click="handleSelectWorld(world)"
             @mouseover="activeWorld = world"
           >
-            {{ world.name }}
+            <div class="item-content">
+              <span class="item-name">{{ world.name }}</span>
+            </div>
+            <div v-if="world.source === 'cloud'" class="action-buttons">
+              <button @click.stop="openEditModal(world)" class="edit-btn" title="编辑此项">
+                <Edit :size="14" />
+              </button>
+              <button @click.stop="store.removeWorld(world.id)" class="delete-btn" title="删除此项">
+                <Trash2 :size="14" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -170,6 +180,17 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
+    
+    <!-- 编辑模态框 -->
+    <CustomCreationModal
+      :visible="isEditModalVisible"
+      title="编辑世界"
+      :fields="customWorldFields"
+      :validationFn="validateCustomWorld"
+      :initialData="editInitialData"
+      @close="isEditModalVisible = false; editingWorld = null"
+      @submit="handleEditSubmit"
+    />
 
     <!-- AI生成逻辑已移至toast通知 -->
   </div>
@@ -177,7 +198,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Settings } from 'lucide-vue-next';
+import { Settings, Trash2, Edit } from 'lucide-vue-next';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import type { World } from '../../types';
 import CustomCreationModal from './CustomCreationModal.vue';
@@ -189,6 +210,8 @@ const store = useCharacterCreationStore();
 const activeWorld = ref<World | null>(null); // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false);
 const showMapOptions = ref(false);
+const isEditModalVisible = ref(false);
+const editingWorld = ref<World | null>(null);
 
 // --- 世界生成配置 ---
 
@@ -374,6 +397,48 @@ const isConfigRisky = computed(() => {
          mapCfg.minLat >= mapCfg.maxLat;
 });
 
+// 编辑功能
+function openEditModal(world: World) {
+  editingWorld.value = world;
+  isEditModalVisible.value = true;
+}
+
+async function handleEditSubmit(data: any) {
+  if (!editingWorld.value) return;
+  
+  // 创建更新数据对象
+  const updateData: Partial<World> = {
+    name: data.name,
+    era: data.era,
+    description: data.description
+  };
+
+  try {
+    const success = store.updateWorld(editingWorld.value.id, updateData);
+    if (success) {
+      isEditModalVisible.value = false;
+      editingWorld.value = null;
+      toast.success(`世界 "${updateData.name}" 已更新！`);
+    } else {
+      toast.error('更新世界失败！');
+    }
+  } catch (e) {
+    console.error('更新世界失败:', e);
+    toast.error('更新世界失败！');
+  }
+}
+
+// 编辑模态框的初始数据
+const editInitialData = computed(() => {
+  if (!editingWorld.value) return {};
+  
+  return {
+    name: editingWorld.value.name,
+    era: editingWorld.value.era,
+    description: editingWorld.value.description
+  };
+});
+
 // fetchData 方法已不再需要，组件现在通过计算属性自动响应store的变化
 </script>
 
@@ -444,11 +509,76 @@ const isConfigRisky = computed(() => {
 }
 
 .list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 0.8rem 1rem;
   margin-bottom: 0.5rem;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
+}
+
+.item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+}
+
+.item-name {
+  flex-grow: 1;
+}
+
+/* 按钮组容器 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: 0.5rem;
+}
+
+.list-item:hover .action-buttons {
+  opacity: 1;
+}
+
+/* 编辑按钮 */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.edit-btn:hover {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.delete-btn:hover {
+  color: var(--color-danger);
+  background-color: rgba(255, 0, 0, 0.1);
 }
 
 .list-item:hover {
