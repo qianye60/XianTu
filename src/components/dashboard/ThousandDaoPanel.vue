@@ -132,14 +132,14 @@
             <div class="stage-info">
               <div class="stage-display">
                 <span class="stage-name">{{ getCurrentStageName(selectedDao) }}</span>
-                <span class="stage-number">第{{ selectedDaoProgress.当前阶段 }}阶段</span>
+                <span class="stage-number">第{{ selectedDaoProgress.当前阶段 ?? 0 }}阶段</span>
               </div>
               <div class="stage-progress">
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: getDaoProgressPercent(selectedDao) + '%' }"></div>
                 </div>
                 <span class="progress-detail">
-                  {{ selectedDaoProgress.当前经验 }} / {{ getNextStageRequirement(selectedDao) }}
+                  {{ selectedDaoProgress.当前经验 ?? 0 }} / {{ getNextStageRequirement(selectedDao) }}
                 </span>
               </div>
             </div>
@@ -155,11 +155,11 @@
             <div class="dao-stats-detail">
               <div class="stat-row">
                 <span>当前经验:</span>
-                <span class="stat-highlight">{{ selectedDaoProgress.当前经验 }}</span>
+                <span class="stat-highlight">{{ selectedDaoProgress.当前经验 ?? 0 }}</span>
               </div>
               <div class="stat-row">
                 <span>总经验:</span>
-                <span class="stat-highlight">{{ selectedDaoProgress.总经验 }}</span>
+                <span class="stat-highlight">{{ selectedDaoProgress.总经验 ?? 0 }}</span>
               </div>
               <div class="stat-row">
                 <span>感悟状态:</span>
@@ -181,14 +181,14 @@
                 :key="index"
                 class="stage-item"
                 :class="{ 
-                  'completed': index < selectedDaoProgress.当前阶段,
-                  'current': index === selectedDaoProgress.当前阶段,
-                  'locked': index > selectedDaoProgress.当前阶段
+                  'completed': index < (selectedDaoProgress.当前阶段 ?? 0),
+                  'current': index === (selectedDaoProgress.当前阶段 ?? 0),
+                  'locked': index > (selectedDaoProgress.当前阶段 ?? 0)
                 }"
               >
                 <div class="stage-marker">
-                  <span v-if="index < selectedDaoProgress.当前阶段">✅</span>
-                  <span v-else-if="index === selectedDaoProgress.当前阶段">🔥</span>
+                  <span v-if="index < (selectedDaoProgress.当前阶段 ?? 0)">✅</span>
+                  <span v-else-if="index === (selectedDaoProgress.当前阶段 ?? 0)">🔥</span>
                   <span v-else>🔒</span>
                 </div>
                 <div class="stage-details">
@@ -258,14 +258,14 @@ const selectedDaoProgress = computed((): DaoProgress | null => {
 // 总感悟经验
 const totalDaoExperience = computed(() => {
   return Object.values(daoSystem.value.大道进度).reduce((total, progress) => {
-    return total + (progress.总经验 || 0);
+    return total + (progress.总经验 ?? 0);
   }, 0);
 });
 
 // 高阶段大道数量（阶段>=5的大道）
 const highestStageCount = computed(() => {
   return Object.values(daoSystem.value.大道进度).filter(progress => {
-    return (progress.当前阶段 || 0) >= 5;
+    return (progress.当前阶段 ?? 0) >= 5;
   }).length;
 });
 
@@ -295,7 +295,7 @@ const getDaoStageDisplay = (daoName: string): string => {
   const progress = daoSystem.value.大道进度[daoName];
   if (!progress) return '未门';
   
-  const stage = progress.当前阶段 || 0;
+  const stage = progress.当前阶段 ?? 0;
   const daoPath = getDaoPath(daoName);
   
   if (daoPath?.阶段列表?.[stage]) {
@@ -310,7 +310,7 @@ const getDaoProgressPercent = (daoName: string): number => {
   const progress = daoSystem.value.大道进度[daoName];
   if (!progress) return 0;
   
-  const currentExp = progress.当前经验 || 0;
+  const currentExp = progress.当前经验 ?? 0;
   const nextStageReq = getNextStageRequirement(daoName);
   
   if (nextStageReq === 0) return 100;
@@ -322,7 +322,11 @@ const getDaoExperienceDisplay = (daoName: string): string => {
   const progress = daoSystem.value.大道进度[daoName];
   if (!progress) return '经验: 0';
   
-  return `经验: ${progress.当前经验}/${getNextStageRequirement(daoName)} (总: ${progress.总经验})`;
+  const currentExp = progress.当前经验 ?? 0;
+  const totalExp = progress.总经验 ?? 0;
+  const nextStageReq = getNextStageRequirement(daoName);
+  
+  return `经验: ${currentExp}/${nextStageReq} (总: ${totalExp})`;
 };
 
 // 获取当前阶段名称
@@ -331,7 +335,7 @@ const getCurrentStageName = (daoName: string): string => {
   if (!progress) return '未门';
   
   const daoPath = getDaoPath(daoName);
-  const stage = progress.当前阶段 || 0;
+  const stage = progress.当前阶段 ?? 0;
   
   return daoPath?.阶段列表?.[stage]?.名称 || (stage === 0 ? '未门' : `第${stage}阶段`);
 };
@@ -342,7 +346,7 @@ const getNextStageName = (daoName: string): string | null => {
   if (!progress) return null;
   
   const daoPath = getDaoPath(daoName);
-  const nextStage = (progress.当前阶段 || 0) + 1;
+  const nextStage = (progress.当前阶段 ?? 0) + 1;
   
   return daoPath?.阶段列表?.[nextStage]?.名称 || null;
 };
@@ -353,7 +357,7 @@ const getNextStageRequirement = (daoName: string): number => {
   if (!progress) return 100;
   
   const daoPath = getDaoPath(daoName);
-  const currentStage = progress.当前阶段 || 0;
+  const currentStage = progress.当前阶段 ?? 0;
   
   if (daoPath?.阶段列表?.[currentStage]?.突破经验) {
     return daoPath.阶段列表[currentStage].突破经验;

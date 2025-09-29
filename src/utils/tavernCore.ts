@@ -1,4 +1,40 @@
 import { toast } from './toast';
+import { 
+  COMMON_CORE_RULES, 
+  COMMON_NARRATIVE_RULES, 
+  COMMON_DATA_MANIPULATION_RULES,
+  COMMON_ITEM_RULES,
+  COMMON_NPC_RULES,
+  COMMON_DAO_RULES,
+  CHARACTER_INITIALIZATION_RULES
+} from './prompts/commonPromptRules';
+
+// =======================================================================
+//                           提示词压缩工具
+// =======================================================================
+/**
+ * 压缩要发送给模型的系统提示词，去除无意义空白以减少 token：
+ * - 统一换行为 \n
+ * - 移除每行行尾空格
+ * - 去除每行的前导缩进
+ * - 折叠连续空行为单个空行
+ * - 去除首尾空白
+ */
+function compactPrompt(text: string): string {
+  if (!text) return '';
+  const lines = String(text).replace(/\r\n/g, '\n').split('\n');
+  const cleaned: string[] = [];
+  let prevBlank = false;
+  for (let line of lines) {
+    line = line.replace(/[ \t]+$/g, ''); // 去除行尾空白
+    line = line.replace(/^\s+/g, '');    // 去除前导缩进
+    const isBlank = line.length === 0;
+    if (isBlank && prevBlank) continue;   // 折叠多余空行
+    cleaned.push(line);
+    prevBlank = isBlank;
+  }
+  return cleaned.join('\n').trim();
+}
 
 // =======================================================================
 //                           核心：酒馆上下文获取
@@ -136,7 +172,9 @@ export async function generateItemWithTavernAI<T = unknown>(
   prompt: string,
   typeName: string,
   showToast: boolean = true,
-  retries: number = 3
+  retries: number = 3,
+  useStreaming: boolean = false,
+  onStreamChunk?: (chunk: string) => void
 ): Promise<T | null> {
   // 内部：对GM_Response进行严格校验，避免"嵌套读取/关键词修正"，让AI自行修正
   const ensureValidGMResponse = (data: any): any => {
@@ -207,6 +245,10 @@ export async function generateItemWithTavernAI<T = unknown>(
         const aliasMap: Record<string, 'set' | 'add' | 'push' | 'pull' | 'delete'> = {
           'set_value': 'set',
           'set_player_data': 'set',
+          'add_item': 'push',
+          'add_npc': 'set',
+          'remove_item': 'pull',
+          'remove_npc': 'delete',
           '_.set': 'set',
           '_.add': 'add',
           '_.push': 'push',
@@ -257,62 +299,60 @@ export async function generateItemWithTavernAI<T = unknown>(
         toast.info(`天机运转，推演${typeName}...`);
       }
 
+      // 压缩系统规则与提示词，减少 token 占用
+      const systemBundle = await (async () => {
+        try {
+          const helper = getTavernHelper();
+          const vars = await helper.getVariables({ type: 'chat' });
+          const bundle = typeof vars['system.rules.bundle'] === 'string' ? (vars['system.rules.bundle'] as string) : '';
+          if (bundle && bundle.trim()) return compactPrompt(bundle);
+        } catch {}
+        // 回退：内建拼装一份基础规则
+        const parts = [
+          '【核心规则】',
+          (typeof COMMON_CORE_RULES === 'string' ? COMMON_CORE_RULES : ''),
+          '【叙事规则】',
+          (typeof COMMON_NARRATIVE_RULES === 'string' ? COMMON_NARRATIVE_RULES : ''),
+          '【数据操作规则】',
+          (typeof COMMON_DATA_MANIPULATION_RULES === 'string' ? COMMON_DATA_MANIPULATION_RULES : ''),
+          '【物品系统】',
+          (typeof COMMON_ITEM_RULES === 'string' ? COMMON_ITEM_RULES : ''),
+          '【NPC系统】',
+          (typeof COMMON_NPC_RULES === 'string' ? COMMON_NPC_RULES : ''),
+          '【三千大道系统】',
+          (typeof COMMON_DAO_RULES === 'string' ? COMMON_DAO_RULES : ''),
+          '【角色初始化特别规则】',
+          (typeof CHARACTER_INITIALIZATION_RULES === 'string' ? CHARACTER_INITIALIZATION_RULES : ''),
+        ].filter(Boolean).join('\n\n');
+        return compactPrompt(parts);
+      })();
+
+      const preparedPrompt = compactPrompt(prompt);
+
       console.log(`【神识印记】调用TavernHelper.generate()方法，将提示词作为系统注入`);
-      console.log(`【神识印记-调试】完整提示词长度:`, prompt.length);
-      console.log(`【神识印记-调试】完整提示词前300字符:`, prompt.substring(0, 300));
-      console.log(`【神识印记-调试】完整提示词后300字符:`, prompt.substring(Math.max(0, prompt.length - 300)));
+      console.log(`【神识印记-调试】提示词长度(压缩后):`, preparedPrompt.length);
+      console.log(`【神识印记-调试】提示词前300字符:`, preparedPrompt.substring(0, 300));
+      console.log(`【神识印记-调试】提示词后300字符:`, preparedPrompt.substring(Math.max(0, preparedPrompt.length - 300)));
       
       // 使用TavernHelper.generate()方法，将完整提示词作为系统注入
       const rawResult = await helper.generate({
         user_input: "请按照系统指令执行，生成符合要求的JSON响应。",
         injects: [
-          {
-            role: "system",
-            content: (await (async () => {
-              try {
-                const helper = getTavernHelper();
-                const vars = await helper.getVariables({ type: 'chat' });
-                const bundle = typeof vars['system.rules.bundle'] === 'string' ? (vars['system.rules.bundle'] as string) : '';
-                if (bundle && bundle.trim()) return bundle;
-              } catch {}
-              // 回退：内建拼装一份基础规则
-              const parts = [
-                '【核心规则】',
-                (typeof COMMON_CORE_RULES === 'string' ? COMMON_CORE_RULES : ''),
-                '【叙事规则】',
-                (typeof COMMON_NARRATIVE_RULES === 'string' ? COMMON_NARRATIVE_RULES : ''),
-                '【数据操作规则】',
-                (typeof COMMON_DATA_MANIPULATION_RULES === 'string' ? COMMON_DATA_MANIPULATION_RULES : ''),
-                '【物品系统】',
-                (typeof COMMON_ITEM_RULES === 'string' ? COMMON_ITEM_RULES : ''),
-                '【NPC系统】',
-                (typeof COMMON_NPC_RULES === 'string' ? COMMON_NPC_RULES : ''),
-                '【三千大道系统】',
-                (typeof COMMON_DAO_RULES === 'string' ? COMMON_DAO_RULES : ''),
-                '【角色初始化特别规则】',
-                (typeof CHARACTER_INITIALIZATION_RULES === 'string' ? CHARACTER_INITIALIZATION_RULES : ''),
-              ].filter(Boolean);
-              return parts.join('\n\n');
-            })()),
-            position: "in_chat",
-            depth: 0,
-            should_scan: false
-          },
-          {
-            role: "system",
-            content: prompt,
-            position: "in_chat",
-            depth: 0,
-            should_scan: false
-          }
+          { role: "system", content: systemBundle, position: "in_chat", depth: 0, should_scan: false },
+          { role: "system", content: preparedPrompt, position: "in_chat", depth: 0, should_scan: false }
         ],
-        should_stream: false,
+        should_stream: useStreaming,
         max_chat_history: 0  // 不使用聊天历史，避免干扰
       });
       
       console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);
       console.log(`【神识印记-调试】TavernHelper.generate()返回结果长度:`, rawResult?.length || 0);
       console.log(`【神识印记-调试】TavernHelper.generate()返回结果前200字符:`, rawResult?.substring(0, 200));
+
+      // 处理流式回调
+      if (useStreaming && onStreamChunk) {
+        onStreamChunk(rawResult || '');
+      }
 
       if (!rawResult || typeof rawResult !== 'string' || rawResult.trim() === '') {
         throw new Error(`TavernHelper.generate()返回了空的响应内容，响应类型: ${typeof rawResult}`);

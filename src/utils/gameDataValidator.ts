@@ -31,18 +31,13 @@ export function validateGameData(saveData: SaveData, profile: CharacterProfile, 
     errors.push('数据缺失：`背包.物品` 字段不存在。');
   }
 
-  // 2. 检查灵根 (Spirit Root)
-  // 确保灵根是一个对象，并且包含 `品级` 字段
-  const spiritRoot = profile.角色基础信息?.灵根;
-  if (spiritRoot) {
-    if (typeof spiritRoot !== 'object' || spiritRoot === null || Array.isArray(spiritRoot)) {
-      errors.push('核心数据错误：`灵根` 结构不正确，必须是一个对象。');
-    } else if (!('品级' in spiritRoot)) {
-      errors.push('数据缺失：`灵根` 对象中缺少关键的 `品级` 字段。');
-    }
-  } else {
-    errors.push('数据缺失：`角色基础信息.灵根` 字段不存在。');
-  }
+  // 2. 跳过外层角色基础信息的灵根检查
+  // 外层的角色基础信息.灵根可以是字符串格式（如"随机灵根"），这是正常的
+  // 只需要确保存档数据内部的结构是正确的
+  debug.log('数据验证', '跳过外层角色基础信息的灵根验证，外层允许字符串格式');
+
+  // 3. 检查存档数据内部的关键结构（如果需要的话）
+  // 这里可以添加对 saveData 内部结构的检查
 
   // 未来可以添加更多检查...
   // 例如：检查玩家状态对象是否存在，vitals结构是否正确等

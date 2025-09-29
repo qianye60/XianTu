@@ -36,18 +36,18 @@
                 <span>{{ field.label }}</span>
                 <button @click="addListItem(field)" class="add-btn" type="button">+ 添加</button>
               </div>
-              <div v-if="formData[field.key] && formData[field.key].length" class="list-items">
-                <div v-for="(item, index) in formData[field.key]" :key="index" class="list-item">
+              <div v-if="Array.isArray(formData[field.key]) && (formData[field.key] as unknown[]).length > 0" class="list-items">
+                <div v-for="(item, index) in (formData[field.key] as Record<string, unknown>[])" :key="index" class="list-item">
                   <div class="item-inputs">
-                    <select v-if="field.columns[0].type === 'select'" v-model="item[field.columns[0].key]" class="item-input">
+                    <select v-if="field.columns[0].type === 'select'" v-model="(item as any)[field.columns[0].key]" class="item-input">
                       <option v-for="opt in field.columns[0].options" :key="opt.value" :value="opt.value">
                         {{ opt.label }}
                       </option>
                     </select>
-                    <input v-else v-model="item[field.columns[0].key]" :placeholder="field.columns[0].placeholder" class="item-input" />
+                    <input v-else v-model="(item as any)[field.columns[0].key]" :placeholder="field.columns[0].placeholder" class="item-input" />
                     
-                    <input v-if="field.columns[1]" v-model="item[field.columns[1].key]" :placeholder="field.columns[1].placeholder" class="item-input" />
-                    <input v-if="field.columns[2]" v-model="item[field.columns[2].key]" :placeholder="field.columns[2].placeholder" class="item-input" type="number" step="0.1" />
+                    <input v-if="field.columns[1]" v-model="(item as any)[field.columns[1].key]" :placeholder="field.columns[1].placeholder" class="item-input" />
+                    <input v-if="field.columns[2]" v-model="(item as any)[field.columns[2].key]" :placeholder="field.columns[2].placeholder" class="item-input" type="number" step="0.1" />
                   </div>
                   <button @click="removeListItem(field, index)" class="remove-btn" type="button">×</button>
                 </div>
@@ -98,35 +98,41 @@ const props = defineProps<{
   visible: boolean;
   title: string;
   fields: readonly ModalField[];
-  validationFn: (data: any) => { valid: boolean; errors: string[] };
-  initialData?: Record<string, any>; // 新增：用于编辑模式的初始数据
+  validationFn: (data: Record<string, unknown>) => { valid: boolean; errors: string[] };
+  initialData?: Record<string, unknown>; // 新增：用于编辑模式的初始数据
 }>();
 
 const emit = defineEmits(['close', 'submit']);
 
-const formData = ref<Record<string, any>>({});
+const formData = ref<Record<string, unknown>>({});
 const errors = ref<string[]>([]);
 
 // Initialize form data when fields change or when initialData is provided
-watch(() => [props.fields, props.initialData], ([newFields, initialData]) => {
-  formData.value = {};
-  newFields.forEach(field => {
+watch(() => [props.fields, props.initialData] as const, ([newFields, initialData]) => {
+  const newFormData: Record<string, unknown> = {};
+
+  newFields.forEach((field) => {
+    const initialValue = initialData?.[field.key];
     if (field.type === 'select') {
-      formData.value[field.key] = initialData?.[field.key] ?? field.options?.[0]?.value ?? '';
+      newFormData[field.key] = initialValue ?? field.options?.[0]?.value ?? '';
     } else if (field.type === 'dynamic-list') {
-      formData.value[field.key] = initialData?.[field.key] ?? [];
+      // Ensure we have an array, deep copy if it exists to avoid mutation of props
+      newFormData[field.key] = Array.isArray(initialValue) ? JSON.parse(JSON.stringify(initialValue)) : [];
     } else {
-      formData.value[field.key] = initialData?.[field.key] ?? '';
+      newFormData[field.key] = initialValue ?? '';
     }
   });
-}, { immediate: true });
+  formData.value = newFormData;
+}, { immediate: true, deep: true });
 
 function addListItem(field: DynamicListField) {
-  if (!formData.value[field.key]) {
+  const list = formData.value[field.key];
+  if (!Array.isArray(list)) {
+    // If it's not an array, initialize it as an empty one.
     formData.value[field.key] = [];
   }
   
-  const newItem: Record<string, any> = {};
+  const newItem: Record<string, string | number> = {};
   field.columns.forEach(column => {
     if (column.type === 'select' && column.options) {
       newItem[column.key] = column.options[0]?.value || '';
@@ -135,12 +141,14 @@ function addListItem(field: DynamicListField) {
     }
   });
   
-  formData.value[field.key].push(newItem);
+  // After ensuring it's an array, we can safely push.
+  (formData.value[field.key] as unknown[]).push(newItem);
 }
 
 function removeListItem(field: DynamicListField, index: number) {
-  if (formData.value[field.key]) {
-    formData.value[field.key].splice(index, 1);
+  const list = formData.value[field.key];
+  if (Array.isArray(list)) {
+    list.splice(index, 1);
   }
 }
 

@@ -102,12 +102,12 @@
                   <h5 class="section-title">关键信息</h5>
                   <div class="info-grid">
                     <div class="info-item">
-                      <span class="info-label">境界</span>
-                      <span class="info-value">{{ formatRealm(selectedPerson.角色存档信息?.境界) }}</span>
+                      <span class="info-label">天资</span>
+                      <span class="info-value">{{ selectedPerson.角色基础信息?.天资 || '未知' }}</span>
                     </div>
                     <div class="info-item">
                       <span class="info-label">最后出现位置</span>
-                      <span class="info-value">{{ selectedPerson.角色存档信息?.最后出现位置?.描述 || '未知' }}</span>
+                      <span class="info-value">{{ selectedPerson.最后出现位置?.描述 || '未知' }}</span>
                     </div>
                   </div>
                 </div>
@@ -251,31 +251,21 @@
                     <h5 class="section-title">行为模式</h5>
                     <div class="info-grid">
                         <div class="info-item">
-                            <span class="info-label">当前模式</span>
-                            <span class="info-value">{{ selectedPerson.NPC行为?.行为模式 || '未知' }}</span>
+                            <span class="info-label">性格特征</span>
+                            <span class="info-value">{{ selectedPerson.性格特征?.join('、') || '未知' }}</span>
                         </div>
                     </div>
                  </div>
                  <div class="detail-section">
-                    <h5 class="section-title">日常路线</h5>
-                    <div v-if="selectedPerson.NPC行为?.日常路线?.length">
-                        <div class="routine-list">
-                          <div v-for="(route, index) in selectedPerson.NPC行为.日常路线" :key="index" class="routine-item">
-                            <div class="routine-time">{{ route.时间 }}</div>
-                            <div class="routine-details">
-                              <div class="routine-location">
-                                <span class="routine-label">位置:</span>
-                                <span class="routine-value">{{ route.位置 }}</span>
-                              </div>
-                              <div class="routine-action">
-                                <span class="routine-label">行为:</span>
-                                <span class="routine-value">{{ route.行为 }}</span>
-                              </div>
-                            </div>
+                    <h5 class="section-title">知名技能</h5>
+                    <div v-if="selectedPerson.知名技能?.length">
+                        <div class="skills-list">
+                          <div v-for="(skill, index) in selectedPerson.知名技能" :key="index" class="skill-item">
+                            <span class="skill-name">{{ skill }}</span>
                           </div>
                         </div>
                     </div>
-                    <div v-else class="empty-state-small">暂无特定路线</div>
+                    <div v-else class="empty-state-small">暂无已知技能</div>
                  </div>
               </div>
 
@@ -308,10 +298,9 @@ import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { NpcProfile, Item } from '@/types/game';
 import {
   Users2, Search,
-  Loader2, ChevronRight, Info, Package, ArrowRightLeft, Eye, EyeOff
+  Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
-import { getRealmName } from '@/data/realms';
 import { getTavernHelper } from '@/utils/tavern';
 
 const characterStore = useCharacterStore();
@@ -322,7 +311,7 @@ const searchQuery = ref('');
 const activeTab = ref('summary'); // 'summary', 'profile', 'memory', 'inventory', 'behavior'
 
 // 酒馆变量状态
-const tavernVariables = ref<Record<string, any>>({});
+const tavernVariables = ref<Record<string, unknown>>({});
 
 // 记忆分页相关
 const memoryPageSize = ref(5); // 每页显示的记忆数量
@@ -358,21 +347,21 @@ const resetMemoryPagination = () => {
 };
 
 // 获取记忆时间，兼容新旧格式
-const getMemoryTime = (memory: any): string => {
+const getMemoryTime = (memory: unknown): string => {
   if (typeof memory === 'string') {
     return '未知时间';
   } else if (memory && typeof memory === 'object') {
-    return memory.时间 || '未知时间';
+    return (memory as { 时间?: string }).时间 || '未知时间';
   }
   return '未知时间';
 };
 
 // 获取记忆事件，兼容新旧格式
-const getMemoryEvent = (memory: any): string => {
+const getMemoryEvent = (memory: unknown): string => {
   if (typeof memory === 'string') {
     return memory;
   } else if (memory && typeof memory === 'object') {
-    return memory.事件 || '';
+    return (memory as { 事件?: string }).事件 || '';
   }
   return '';
 };
@@ -387,9 +376,10 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']
       return `${spiritRoot.名称}(${spiritRoot.品级})`;
     }
     // 兼容错误格式：{ 名称, 类型 } (AI生成错误时的兼容处理)
-    if (spiritRoot.名称 && (spiritRoot as any).类型) {
+    const legacyType = (spiritRoot as { 类型?: string }).类型;
+    if (spiritRoot.名称 && legacyType) {
       console.warn('[NPC显示] 检测到错误的灵根格式，使用兼容模式:', spiritRoot);
-      return `${spiritRoot.名称}(${(spiritRoot as any).类型})`;
+      return `${spiritRoot.名称}(${legacyType})`;
     }
     // 只有名称的情况
     if (spiritRoot.名称) {
@@ -399,16 +389,24 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']
   return '格式错误';
 };
 
-const relationships = computed(() => {
+// 类型守卫：判断值是否为有效的NpcProfile
+const isNpcProfile = (val: unknown): val is NpcProfile => {
+  if (!val || typeof val !== 'object') return false;
+  const obj = val as any;
+  return !!(obj.角色基础信息 && typeof obj.角色基础信息.名字 === 'string');
+};
+
+const relationships = computed<NpcProfile[]>(() => {
   const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系) return [];
   // 仅保留有效NPC：键不以下划线开头，值是对象且包含角色基础信息
   return Object.values(saveData.人物关系)
-    .filter(val => val && typeof val === 'object' && val.角色基础信息);
+    .filter((val) => !String(val).startsWith('_'))
+    .filter(isNpcProfile);
 });
 
 // 过滤后的关系列表（只保留搜索功能）
-const filteredRelationships = computed(() => {
+const filteredRelationships = computed<NpcProfile[]>(() => {
   let filtered = [...relationships.value];
 
   // 搜索过滤
@@ -441,20 +439,7 @@ const getIntimacyClass = (intimacy: number | undefined): string => {
   return `intimacy-${getIntimacyLevel(intimacy)}`;
 };
 
-// 格式化境界显示
-const formatRealm = (realm: any): string => {
-  if (typeof realm === 'number') {
-    return getRealmName(realm);
-  }
-  if (typeof realm === 'string') {
-    return realm;
-  }
-  if (realm && typeof realm === 'object' && realm.名称) {
-    return realm.名称;
-  }
-  // 默认为“未知”，不强制归一化为凡人
-  return '未知';
-};
+// 格式化境界显示：统一为“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
 
 const selectPerson = (person: NpcProfile) => {
   const isNewSelection = selectedPerson.value?.角色基础信息.名字 !== person.角色基础信息.名字;
@@ -1302,6 +1287,27 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   color: var(--color-text);
   margin: 0;
   font-style: italic;
+}
+
+/* 技能列表样式 */
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skill-item {
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border-left: 3px solid var(--color-secondary);
+  font-size: 0.85rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.skill-name {
+  color: var(--color-text);
 }
 
 /* 天赋和属性样式 */

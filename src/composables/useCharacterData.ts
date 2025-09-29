@@ -30,6 +30,7 @@ export interface CharacterStatus {
     progress: number;
     maxProgress: number;
     progressPercent: number;
+    突破描述?: string;
   };
   lifespan: {
     current: number;
@@ -133,7 +134,8 @@ export function useUnifiedCharacterData(): {
           const cur = typeof realmData?.当前进度 === 'number' ? realmData.当前进度 : 0;
           const max = typeof realmData?.下一级所需 === 'number' ? realmData.下一级所需 : 0;
           return max > 0 ? Math.floor((cur / max) * 100) : 0;
-        })()
+        })(),
+        突破描述: realmData?.突破描述
       },
       lifespan: {
         current: typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0,

@@ -78,7 +78,7 @@
                 <button @click.stop="openEditModal(root)" class="edit-btn" title="编辑此项">
                   <Edit :size="14" />
                 </button>
-                <button @click.stop="store.removeSpiritRoot(root.id)" class="delete-btn" title="删除此项">
+                <button @click.stop="handleDeleteSpiritRoot(root.id)" class="delete-btn" title="删除此项">
                   <Trash2 :size="14" />
                 </button>
               </div>
@@ -554,6 +554,16 @@ function handleAdvancedCustomSubmit(data: CustomSpiritRootData) {
 function openEditModal(root: SpiritRoot) {
   editingSpiritRoot.value = root;
   isEditModalVisible.value = true;
+}
+
+// 删除功能
+async function handleDeleteSpiritRoot(id: number) {
+  try {
+    await store.removeSpiritRoot(id);
+    console.log(`【灵根选择】成功删除灵根 ID: ${id}`);
+  } catch (error) {
+    console.error(`【灵根选择】删除灵根失败 ID: ${id}`, error);
+  }
 }
 
 async function handleEditSubmit(data: CustomSpiritRootData) {

@@ -170,7 +170,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   async function persistCustomData() {
     const helper = getTavernHelper();
     if (!helper) {
-      console.error("【创世神殿】无法连接到酒馆助手，数据无法持久化。");
+      console.error("【创世神殿】无法连接到酒馆助手，数据无法持久化！");
       return;
     }
     const dataToSave: DADCustomData = {
@@ -186,7 +186,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       'DAD_creationData': dataToSave 
     }, { type: 'global' });
     
-    console.log("【创世神殿】云端创世数据已存入全局变量。");
+    console.log("【创世神殿】云端创世数据已存入全局变量！");
   }
 
   async function createEmptyPayload(): Promise<CharacterCreationPayload> {
@@ -231,12 +231,12 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         console.log("【创世神殿】已获取用户道号:", userName);
       }
     } catch (error) {
-      console.warn('【创世神殿】获取用户道号失败:', error);
+      console.warn('【创世神殿】获取用户道号失败', error);
     }
 
     try {
       if (currentMode === 'single') {
-        console.log("【创世神殿】初始化单机模式，加载本地数据和自定义数据。");
+        console.log("【创世神殿】初始化单机模式，加载本地数据和自定义数据！");
         
         // 加载本地预设数据
         const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
@@ -287,7 +287,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         creationData.value.spiritRoots = merge(localSpiritRoots, savedCloudSpiritRoots);
         creationData.value.talents = merge(localTalents, savedCloudTalents);
       } else {
-        console.log("【创世神殿】初始化联机模式，加载本地及缓存的云端数据。");
+        console.log("【创世神殿】初始化联机模式，加载本地及缓存的云端数据！");
         const helper = getTavernHelper();
         let savedData: DADCustomData = { worlds: [], talentTiers: [], origins: [], spiritRoots: [], talents: [] };
         if (helper) {
@@ -295,7 +295,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
           const potentialData = globalVars?.['DAD_creationData'];
           if (isDADCustomData(potentialData)) {
             savedData = potentialData;
-            console.log("【创世神殿】从全局变量中加载了已缓存的云端创世数据。");
+            console.log("【创世神殿】从全局变量中加载了已缓存的云端创世数据！");
           }
         }
 
@@ -327,8 +327,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     } catch (e) {
       console.error("加载数据失败:", e);
       error.value = "加载数据失败";
-      // 即使出错也使用正确的数据源标记
-      creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+      // 即使出错也使用正确的数据源标记      creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
       creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
       creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
       creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
@@ -344,19 +343,17 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     
     try {
       const cloudWorlds = await fetchWorlds();
-      console.log("【创世神殿】成功获取云端世界数据:", cloudWorlds);
+      console.log("【创世神殿】成功获取云端世界数据", cloudWorlds);
       
       const cloudWorldsWithSource = cloudWorlds.map(w => ({ ...w, source: 'cloud' as DataSource }));
       
       // 合并云端和本地数据，本地为主
       const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
       const worldMap = new Map<number, WorldWithSource>();
-      cloudWorldsWithSource.forEach(w => worldMap.set(w.id, w)); // 先添加云端数据
-      localWorlds.forEach(w => worldMap.set(w.id, w)); // 本地数据覆盖同ID的云端数据（本地为主）
-
+      cloudWorldsWithSource.forEach(w => worldMap.set(w.id, w)); // 先添加云端数据      localWorlds.forEach(w => worldMap.set(w.id, w)); // 本地数据覆盖同ID的云端数据（本地为主）
       creationData.value.worlds = Array.from(worldMap.values());
       console.log("【创世神殿】世界列表已更新:", creationData.value.worlds.length, "个世界");
-      console.log("【创世神殿】云端世界:", creationData.value.worlds.filter(w => w.source === 'cloud'));
+      console.log("【创世神殿】云端世界", creationData.value.worlds.filter(w => w.source === 'cloud'));
     } catch (e) {
       console.error("【创世神殿】从云端获取世界列表失败:", e);
       error.value = `获取云端世界列表失败: ${e instanceof Error ? e.message : '未知错误'}`;
@@ -461,13 +458,13 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       mergeInto(creationData.value.talents, findNewItems(localTalents, cloudTalentsWithSource));
 
       console.log("【创世神殿】所有云端数据合并完成");
-      console.log("【创世神殿】最终数据验证:");
+      console.log("【创世神殿】最终数据验证");
       console.log("- 世界 (云端):", creationData.value.worlds.filter(w => w.source === 'cloud').length);
       console.log("- 天资 (云端):", creationData.value.talentTiers.filter(t => t.source === 'cloud').length);
       console.log("- 出身 (云端):", creationData.value.origins.filter(o => o.source === 'cloud').length);
       console.log("- 灵根 (云端):", creationData.value.spiritRoots.filter(s => s.source === 'cloud').length);
       console.log("- 天赋 (云端):", creationData.value.talents.filter(t => t.source === 'cloud').length);
-      console.log("【创世神殿】天资数据示例:", creationData.value.talentTiers.slice(0, 3).map(t => ({ name: t.name, source: t.source })));
+      console.log("【创世神殿】天资数据示例", creationData.value.talentTiers.slice(0, 3).map(t => ({ name: t.name, source: t.source })));
       
       // 计算新增条目总数
       const afterCounts = {
@@ -491,7 +488,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       await persistCustomData();
       return newItemsCount; // 返回新增数量
     } catch (e) {
-      console.error("【创世神殿】获取云端创世数据失败:", e);
+      console.error("【创世神殿】获取云端创世数据失败", e);
       error.value = `获取云端创世数据失败: ${e instanceof Error ? e.message : '未知错误'}`;
       
       // 失败时使用本地数据作为备选
@@ -557,25 +554,89 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     }
   }
   
-  // --- 新增：删除功能 ---
+  // --- 新增：删除功�?---
   type CreationDataType = 'worlds' | 'talentTiers' | 'origins' | 'spiritRoots' | 'talents';
 
-  function removeItem(type: CreationDataType, id: number) {
+  async function removeItem(type: CreationDataType, id: number) {
     const index = creationData.value[type].findIndex(item => item.id === id);
     if (index > -1) {
+      const removedItem = creationData.value[type][index];
       creationData.value[type].splice(index, 1);
-      console.log(`【创世神殿】已删除 ${type} 项目，ID: ${id}`);
-      persistCustomData();
+      console.log(`【创世神殿】已删除 ${type} 项目，ID: ${id}，来源: ${removedItem.source}`);
+      
+      // 立即持久化到酒馆全局变量
+      await persistCustomData();
+      
+      // 关键修复：如果删除的是云端数据，需要强制刷新酒馆全局变量
+      if (removedItem.source === 'cloud') {
+        console.log(`【创世神殿】删除云端数据，强制同步酒馆全局变量`);
+        try {
+          const helper = getTavernHelper();
+          if (helper) {
+            // 方案1：先尝试完全重置 DAD_creationData
+            console.log(`【创世神殿】方案1：完全重置 DAD_creationData`);
+            
+            // 构建当前内存中的所有云端数据（已删除目标项）
+            const newData: DADCustomData = {
+              worlds: creationData.value.worlds.filter(item => item.source === 'cloud'),
+              talentTiers: creationData.value.talentTiers.filter(item => item.source === 'cloud'),
+              origins: creationData.value.origins.filter(item => item.source === 'cloud'),
+              spiritRoots: creationData.value.spiritRoots.filter(item => item.source === 'cloud'),
+              talents: creationData.value.talents.filter(item => item.source === 'cloud'),
+            };
+            
+            console.log(`【创世神殿】准备保存的新数据:`, JSON.stringify(newData, null, 2));
+            
+            // 先删除旧的 DAD_creationData
+            try {
+              await helper.deleteVariable('DAD_creationData', { type: 'global' });
+              console.log(`【创世神殿】已删除旧的 DAD_creationData`);
+            } catch (e) {
+              console.warn(`【创世神殿】删除旧变量失败（可能不存在）:`, e);
+            }
+            
+            // 重新创建 DAD_creationData
+            await helper.insertOrAssignVariables({ 
+              'DAD_creationData': newData 
+            }, { type: 'global' });
+            
+            console.log(`【创世神殿】已重新创建 DAD_creationData`);
+            
+            // 验证删除是否成功
+            const verifyVars = await helper.getVariables({ type: 'global' });
+            const verifyData = verifyVars['DAD_creationData'];
+            console.log(`【创世神殿】验证：更新后的 DAD_creationData:`, JSON.stringify(verifyData, null, 2));
+            
+            if (verifyData && isDADCustomData(verifyData)) {
+              const remainingItems = (verifyData[type] as any[]).filter((item: any) => item.id === id);
+              if (remainingItems.length === 0) {
+                console.log(`【创世神殿】✅ 验证成功：${type} 项目 ID: ${id} 已从酒馆全局变量中删除`);
+              } else {
+                console.error(`【创世神殿】❌ 验证失败：${type} 项目 ID: ${id} 仍在酒馆全局变量中`);
+                console.error(`【创世神殿】剩余项目:`, remainingItems);
+              }
+            } else {
+              console.error(`【创世神殿】❌ 验证失败：DAD_creationData 格式无效`);
+            }
+          } else {
+            console.error(`【创世神殿】❌ 酒馆助手不可用`);
+          }
+        } catch (error) {
+          console.error('【创世神殿】❌ 同步酒馆全局变量失败:', error);
+        }
+      }
+    } else {
+      console.warn(`【创世神殿】删除失败：未找到 ${type} 项目，ID: ${id}`);
     }
   }
 
-  const removeWorld = (id: number) => removeItem('worlds', id);
-  const removeTalentTier = (id: number) => removeItem('talentTiers', id);
-  const removeOrigin = (id: number) => removeItem('origins', id);
-  const removeSpiritRoot = (id: number) => removeItem('spiritRoots', id);
-  const removeTalent = (id: number) => removeItem('talents', id);
+  const removeWorld = async (id: number) => await removeItem('worlds', id);
+  const removeTalentTier = async (id: number) => await removeItem('talentTiers', id);
+  const removeOrigin = async (id: number) => await removeItem('origins', id);
+  const removeSpiritRoot = async (id: number) => await removeItem('spiritRoots', id);
+  const removeTalent = async (id: number) => await removeItem('talents', id);
 
-  // --- 新增：编辑功能 ---
+  // --- 新增：编辑功�?---
   function updateItem<T extends { id: number }>(type: CreationDataType, id: number, updatedData: Partial<T>) {
     const index = creationData.value[type].findIndex(item => item.id === id);
     if (index > -1) {

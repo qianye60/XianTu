@@ -334,13 +334,11 @@ ${this.previousErrors.join('\n')}
         相关势力: location.related_factions || location.相关势力 || [],
         特殊功能: location.special_functions || location.特殊功能 || []
       })),
-      生成信息: {
-        生成时间: new Date().toISOString(),
-        世界背景: rawData.world_background || this.config.worldBackground || '修仙世界',
-        世界纪元: rawData.world_era || this.config.worldEra || '修仙纪元',
-        特殊设定: rawData.special_settings || [],
-        版本: '2.0-Enhanced'
-      }
+      // 扁平化生成信息
+      生成时间: new Date().toISOString(),
+      世界纪元: rawData.world_era || this.config.worldEra || '修仙纪元',
+      特殊设定: rawData.special_settings || [],
+      版本: '2.0-Enhanced'
     };
   }
   

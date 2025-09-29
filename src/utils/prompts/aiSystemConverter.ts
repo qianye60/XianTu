@@ -86,7 +86,7 @@ export function convertSaveDataToGameCharacter(saveData: SaveData, characterProf
 
     cultivation: {
       realm: getRealmName(playerStatus.境界),
-      realm_progress: playerStatus.修为.当前,
+      realm_progress: playerStatus.境界.当前进度,
       lifespan_remaining: playerStatus.寿命.最大 - playerStatus.寿命.当前,
       breakthrough_bottleneck: playerStatus.境界.突破描述,
     },

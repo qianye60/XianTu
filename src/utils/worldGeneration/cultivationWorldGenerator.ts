@@ -379,12 +379,11 @@ export class CultivationWorldGenerator {
           相关势力: location.controlled_by ? [location.controlled_by] : (location.related_factions || location.相关势力 || []),
           特殊功能: location.special_attributes || location.special_functions || location.特殊功能 || []
         })),
-        生成信息: {
-          生成时间: new Date().toISOString(),
-          世界纪元: worldData.world_era || this.userConfig?.worldEra || '修仙纪元',
-          特殊设定: worldData.special_settings || [],
-          版本: '1.0'
-        } as WorldGenerationInfo,
+        // 扁平化生成信息
+        生成时间: new Date().toISOString(),
+        世界纪元: worldData.world_era || this.userConfig?.worldEra || '修仙纪元',
+        特殊设定: worldData.special_settings || [],
+        版本: '1.0',
         地图配置: this.userConfig?.mapConfig
       };
 

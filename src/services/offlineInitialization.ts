@@ -82,13 +82,12 @@ export async function initializeCharacterOffline(
       大陆信息: [],
       势力信息: [],
       地点信息: [],
-      生成信息: {
-        生成时间: new Date().toISOString(),
-        世界背景: world.description,
-        世界纪元: world.era || '未知纪元',
-        特殊设定: [],
-        版本: 'offline-1.1' // 版本号提升
-      }
+      // 扁平化生成信息
+      生成时间: new Date().toISOString(),
+      世界背景: world.description,
+      世界纪元: world.era || '未知纪元',
+      特殊设定: [],
+      版本: 'offline-1.1' // 版本号提升
     }
   };
 

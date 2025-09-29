@@ -38,7 +38,7 @@
               <button @click.stop="openEditModal(tier)" class="edit-btn" title="编辑此项">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="store.removeTalentTier(tier.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteTalentTier(tier.id)" class="delete-btn" title="删除此项">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -215,6 +215,17 @@ function hexToRgb(hex: string): string {
 function openEditModal(tier: TalentTier) {
   editingTier.value = tier;
   isEditModalVisible.value = true;
+}
+
+// 删除功能
+async function handleDeleteTalentTier(id: number) {
+  console.log(`🔥 点击删除按钮，准备删除天资 ID: ${id}`);
+  try {
+    await store.removeTalentTier(id);
+    console.log(`【天资选择】成功删除天资 ID: ${id}`);
+  } catch (error) {
+    console.error(`【天资选择】删除天资失败 ID: ${id}`, error);
+  }
 }
 
 async function handleEditSubmit(data: CustomTierData) {

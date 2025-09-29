@@ -50,7 +50,7 @@
               <button @click.stop="openEditModal(origin)" class="edit-btn" title="编辑此项">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="store.removeOrigin(origin.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteOrigin(origin.id)" class="delete-btn" title="删除此项">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -313,6 +313,16 @@ const canSelect = (origin: Origin): boolean => {
 function openEditModal(origin: Origin) {
   editingOrigin.value = origin;
   isEditModalVisible.value = true;
+}
+
+// 删除功能
+async function handleDeleteOrigin(id: number) {
+  try {
+    await store.removeOrigin(id);
+    console.log(`【出身选择】成功删除出身 ID: ${id}`);
+  } catch (error) {
+    console.error(`【出身选择】删除出身失败 ID: ${id}`, error);
+  }
 }
 
 async function handleEditSubmit(data: CustomOriginData) {

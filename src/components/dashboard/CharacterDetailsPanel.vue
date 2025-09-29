@@ -768,7 +768,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
+import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile, TechniqueItem, TechniqueSkill } from '@/types/game.d.ts';
+import { formatRealmWithStage } from '@/utils/realmUtils';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
   Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X
@@ -958,14 +959,15 @@ const skillsList = computed((): SkillInfo[] => {
 
   // 从背包中获取完整的功法物品信息
   const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-  const fullTechnique = saveData.value.背包.物品[techniqueId];
-  if (fullTechnique?.类型 !== '功法' || !fullTechnique?.功法技能) return [];
+  const fullTechnique = saveData.value.背包.物品.find(i => i.物品ID === techniqueId);
+  if (fullTechnique?.类型 !== '功法' || !('功法技能' in fullTechnique) || !fullTechnique.功法技能) return [];
 
   const skills: SkillInfo[] = [];
 
-  Object.entries(fullTechnique.功法技能).forEach(([skillName, skillInfo]) => {
+  Object.entries(fullTechnique.功法技能).forEach(([skillName, rawSkillInfo]) => {
+    const skillInfo = rawSkillInfo as TechniqueSkill;
     // 检查是否已解锁
-    const unlocked = checkSkillUnlocked(skillName, fullTechnique, cultivationInfo);
+    const unlocked = checkSkillUnlocked(skillName, fullTechnique as TechniqueItem, cultivationInfo);
 
     skills.push({
       name: skillName,
@@ -1009,12 +1011,13 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   // 从功法技能定义获取（达到条件解锁的技能）
   if (techniqueRef && saveData.value?.背包?.物品) {
     const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-    const fullTechnique = saveData.value.背包.物品[techniqueId];
-    if (fullTechnique?.类型 === '功法' && fullTechnique?.功法技能) {
-      Object.entries(fullTechnique.功法技能).forEach(([skillName, skillInfo]) => {
+    const fullTechnique = saveData.value.背包.物品.find(i => i.物品ID === techniqueId);
+    if (fullTechnique?.类型 === '功法' && '功法技能' in fullTechnique && fullTechnique.功法技能) {
+      Object.entries(fullTechnique.功法技能).forEach(([skillName, rawSkillInfo]) => {
+        const skillInfo = rawSkillInfo as TechniqueSkill;
         if (!skillNameSet.has(skillName)) {
           // 检查是否已解锁
-          const unlocked = checkSkillUnlocked(skillName, fullTechnique, cultivationInfo);
+          const unlocked = checkSkillUnlocked(skillName, fullTechnique as TechniqueItem, cultivationInfo);
           if (unlocked) {
             skillNameSet.add(skillName);
             skills.push({
@@ -1114,15 +1117,15 @@ const getAnimalStageDisplay = (): string => {
 
 // 检查是否有有效的修为数据
 const hasValidCultivation = (): boolean => {
-  const current = playerStatus.value?.修为?.当前;
-  const max = playerStatus.value?.修为?.最大;
+  const current = playerStatus.value?.境界?.当前进度;
+  const max = playerStatus.value?.境界?.下一级所需;
   return typeof current === 'number' && typeof max === 'number' && max > 0;
 };
 
 // 格式化修为显示文本
 const formatCultivationText = (): string => {
-  const current = playerStatus.value?.修为?.当前 || 0;
-  const max = playerStatus.value?.修为?.最大 || 100;
+  const current = playerStatus.value?.境界?.当前进度 || 0;
+  const max = playerStatus.value?.境界?.下一级所需 || 100;
 
   // 如果数值很大，使用简化显示
   if (max >= 10000) {
@@ -1136,12 +1139,11 @@ const formatCultivationText = (): string => {
   return `${current}/${max}`;
 };
 
-// 显示境界：凡人阶段不展示"第X层"层次，其它境界保留层次
+// 显示境界：统一返回“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
 const formatRealmDisplay = (name?: string, level?: number): string => {
-  const realmName = name || '凡人';
-  if (realmName === '凡人') return realmName;
-  if (typeof level === 'number' && level > 0) return `${realmName} 第${level}层`;
-  return realmName;
+  const progress = playerStatus.value?.境界?.当前进度;
+  const maxProgress = playerStatus.value?.境界?.下一级所需;
+  return formatRealmWithStage({ name, level, 当前进度: progress, 下一级所需: maxProgress });
 };
 
 // 提取位置名称：从描述中提取地名，去除多余的叙事内容
@@ -1167,8 +1169,8 @@ const getLocationName = (description: string): string => {
 }
 
 const getCultivationProgress = (): number => {
-  const current = playerStatus.value?.修为?.当前 || 0;
-  const max = playerStatus.value?.修为?.最大 || 100;
+  const current = playerStatus.value?.境界?.当前进度 || 0;
+  const max = playerStatus.value?.境界?.下一级所需 || 100;
   return Math.round((current / max) * 100);
 };
 

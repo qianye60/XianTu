@@ -165,8 +165,20 @@ const currentPanelIcon = computed(() => {
   return panelInfo?.icon || Box;
 });
 
-const closePanel = () => {
-  // 关闭面板时返回到主游戏面板，而不是重复路由到/game
+const closePanel = async () => {
+  // 关闭面板时，清理酒馆上下文中的存档数据，避免影响后续对话
+  try {
+    const helper = getTavernHelper();
+    if (helper) {
+      // 将 character.saveData 设置为 null 来“清空”它
+      await (helper as any).setVariable('character.saveData', null, { type: 'chat' });
+      console.log('[GameView] 已从酒馆聊天上下文中清理 character.saveData。');
+    }
+  } catch (error) {
+    console.error('[GameView] 清理酒馆 character.saveData 失败:', error);
+  }
+
+  // 返回主游戏面板
   if (route.name !== 'GameMain') {
     router.push('/game');
   }

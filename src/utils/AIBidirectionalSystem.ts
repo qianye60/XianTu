@@ -24,6 +24,7 @@ export interface ProcessOptions {
   onStreamChunk?: (chunk: string) => void;
   onProgressUpdate?: (progress: string) => void;
   onStateChange?: (newState: PlainObject) => void;
+  useStreaming?: boolean;
 }
 
 export interface StateChangeLog {
@@ -42,11 +43,32 @@ class AIBidirectionalSystemClass {
   private static instance: AIBidirectionalSystemClass | null = null;
   private stateHistory: StateChangeLog[] = [];
 
+  // 记忆管理相关
+  private memoryManager = {
+    shortTerm: [] as MemoryEntry[],
+    midTerm: [] as MemoryEntry[], // 中期记忆
+    longTerm: [] as MemoryEntry[]
+  };
+
+  // 记忆限制配置
+  private memoryLimits = {
+    shortTermLimit: 10, // 短期记忆条数限制
+    midTermLimit: 50,   // 中期记忆条数限制
+    autoConvertThreshold: 8 // 自动转换阈值
+  };
+
   private constructor() {}
 
   public static getInstance(): AIBidirectionalSystemClass {
     if (!this.instance) this.instance = new AIBidirectionalSystemClass();
     return this.instance;
+  }
+
+  // 初始化时加载中期记忆
+  async initialize() {
+    const loadedMidTermMemories = await this.loadMidTermMemoryFromTavern();
+    this.memoryManager.midTerm = loadedMidTermMemories;
+    console.log(`[中期记忆] 已加载 ${loadedMidTermMemories.length} 条中期记忆`);
   }
 
   /**
@@ -68,7 +90,17 @@ class AIBidirectionalSystemClass {
     stateChanges?: StateChangeLog | null;
     memoryUpdates?: PlainObject | null;
     systemMessages?: string[] | null;
+    memoryStats?: {
+      shortTermCount: number;
+      midTermCount: number;
+      longTermCount: number;
+      hiddenMidTermCount: number;
+      lastConversion?: Date;
+    };
   }> {
+    // 0. 初始化中期记忆系统
+    await this.initialize();
+
     // 1. 记忆整理
     options?.onProgressUpdate?.('准备进行记忆整理…');
     try {
@@ -117,7 +149,9 @@ class AIBidirectionalSystemClass {
       // 使用标准的GM生成器
       gmResponse = await generateInGameResponse(
         currentGameData,
-        userActionForAI
+        userActionForAI,
+        options?.useStreaming,
+        options?.onStreamChunk
       );
 
       if (!gmResponse || !gmResponse.text) {
@@ -178,7 +212,14 @@ class AIBidirectionalSystemClass {
       gmResponse: gmResponse,
       stateChanges: stateChanges,
       memoryUpdates: null, // 记忆更新由GM生成器内部处理
-      systemMessages: guardSystemMessages
+      systemMessages: guardSystemMessages,
+      memoryStats: {
+        shortTermCount: this.memoryManager.shortTerm.length,
+        midTermCount: this.memoryManager.midTerm.length,
+        longTermCount: this.memoryManager.longTerm.length,
+        hiddenMidTermCount: this.memoryManager.midTerm.filter(m => m.tags.includes('hidden')).length,
+        lastConversion: this.getLastConversionTime()
+      }
     };
   }
 
@@ -293,6 +334,174 @@ class AIBidirectionalSystemClass {
    */
   public clearStateHistory(): void {
     this.stateHistory = [];
+  }
+
+  // 添加记忆条目
+  private addMemoryEntry(type: 'short' | 'mid' | 'long', content: string, importance: number = 1) {
+    const entry: MemoryEntry = {
+      id: Date.now().toString(),
+      content,
+      timestamp: new Date(),
+      importance,
+      tags: []
+    };
+
+    if (type === 'short') {
+      this.memoryManager.shortTerm.push(entry);
+      // 检查是否需要转换为中期记忆
+      this.checkAndConvertToMidTerm();
+    } else if (type === 'mid') {
+      this.memoryManager.midTerm.push(entry);
+      // 限制中期记忆数量
+      if (this.memoryManager.midTerm.length > this.memoryLimits.midTermLimit) {
+        this.memoryManager.midTerm.shift();
+      }
+      // 存储到酒馆变量
+      this.storeMidTermMemoryToTavern(entry);
+    } else {
+      this.memoryManager.longTerm.push(entry);
+    }
+  }
+
+  // 检查并转换短期记忆为中期记忆
+  private checkAndConvertToMidTerm() {
+    if (this.memoryManager.shortTerm.length >= this.memoryLimits.autoConvertThreshold) {
+      // 选择重要性较低的记忆转换为中期记忆
+      const sortedShortTerm = [...this.memoryManager.shortTerm]
+        .sort((a, b) => a.importance - b.importance);
+      
+      const toConvert = sortedShortTerm.slice(0, Math.floor(sortedShortTerm.length / 2));
+      
+      console.log(`[中期记忆] 开始转换 ${toConvert.length} 条短期记忆为中期记忆`);
+      
+      toConvert.forEach(entry => {
+        // 移除短期记忆
+        this.memoryManager.shortTerm = this.memoryManager.shortTerm
+          .filter(item => item.id !== entry.id);
+        
+        // 转换为中期记忆（标记为隐藏状态）
+        const midTermEntry: MemoryEntry = {
+          ...entry,
+          id: `mid_${entry.id}`,
+          tags: [...entry.tags, 'converted_from_short', 'hidden']
+        };
+        
+        this.memoryManager.midTerm.push(midTermEntry);
+        this.storeMidTermMemoryToTavern(midTermEntry);
+      });
+      
+      console.log(`[中期记忆] 转换完成，当前短期记忆: ${this.memoryManager.shortTerm.length}，中期记忆: ${this.memoryManager.midTerm.length}`);
+    }
+  }
+
+  // 将中期记忆存储到酒馆变量
+  private storeMidTermMemoryToTavern(entry: MemoryEntry) {
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        const variableName = `mid_term_memory_${entry.id}`;
+        const memoryData = {
+          content: entry.content,
+          timestamp: entry.timestamp.toISOString(),
+          importance: entry.importance,
+          tags: entry.tags,
+          hidden: entry.tags.includes('hidden')
+        };
+        
+        helper.insertOrAssignVariables(
+          { [variableName]: JSON.stringify(memoryData) },
+          { type: 'chat' }
+        );
+        console.log(`[中期记忆] 已存储中期记忆到酒馆变量: ${variableName}`);
+      }
+    } catch (error) {
+      console.error('[中期记忆] 存储中期记忆到酒馆变量失败:', error);
+    }
+  }
+
+  // 从酒馆变量加载中期记忆
+  private async loadMidTermMemoryFromTavern(): Promise<MemoryEntry[]> {
+    const midTermMemories: MemoryEntry[] = [];
+    
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        // 获取所有聊天变量
+        const variables = await helper.getVariables({ type: 'chat' });
+        
+        Object.keys(variables).forEach(key => {
+          if (key.startsWith('mid_term_memory_')) {
+            try {
+              const rawData = variables[key];
+              const memoryData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+              const entry: MemoryEntry = {
+                id: key.replace('mid_term_memory_', ''),
+                content: memoryData.content,
+                timestamp: new Date(memoryData.timestamp),
+                importance: memoryData.importance || 1,
+                tags: memoryData.tags || []
+              };
+              midTermMemories.push(entry);
+            } catch (e) {
+              console.error('[中期记忆] 解析中期记忆数据失败:', e);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('[中期记忆] 从酒馆变量加载中期记忆失败:', error);
+    }
+    
+    return midTermMemories;
+  }
+
+  // 获取记忆上下文
+  private getMemoryContext(): string {
+    const shortTermContext = this.memoryManager.shortTerm
+      .slice(-5) // 只取最近5条短期记忆
+      .map(entry => `${entry.content} (重要性: ${entry.importance})`)
+      .join('\n');
+
+    // 获取非隐藏的中期记忆用于辅助分析
+    const midTermContext = this.memoryManager.midTerm
+      .filter(entry => !entry.tags.includes('hidden'))
+      .slice(-3)
+      .map(entry => `${entry.content} (转换自短期记忆)`)
+      .join('\n');
+
+    const longTermContext = this.memoryManager.longTerm
+      .filter(entry => entry.importance >= 3) // 只取重要的长期记忆
+      .slice(-3)
+      .map(entry => entry.content)
+      .join('\n');
+
+    return `
+短期记忆:
+${shortTermContext}
+
+${midTermContext ? `中期记忆(辅助分析):
+${midTermContext}
+` : ''}
+长期记忆:
+${longTermContext}
+    `.trim();
+  }
+
+  // 获取隐藏的中期记忆用于内部分析
+  private getHiddenMidTermContext(): string {
+    return this.memoryManager.midTerm
+      .filter(entry => entry.tags.includes('hidden'))
+      .map(entry => entry.content)
+      .join('\n');
+  }
+
+  // 获取最后一次转换时间
+  private getLastConversionTime(): Date | undefined {
+    const convertedMemories = this.memoryManager.midTerm
+      .filter(m => m.tags.includes('converted_from_short'))
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    
+    return convertedMemories.length > 0 ? convertedMemories[0].timestamp : undefined;
   }
 
   /**
