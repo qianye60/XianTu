@@ -469,8 +469,14 @@ async function createCharacter() {
   console.log('[DEBUG] createCharacter 开始执行');
   console.log('[DEBUG] isGenerating.value:', isGenerating.value);
 
-  if (isGenerating.value) return;
+  if (isGenerating.value) {
+    console.warn('[CharacterCreation.vue] 角色创建已在进行中，忽略重复请求');
+    return;
+  }
   console.log('[CharacterCreation.vue] createCharacter() called.');
+  
+  // 立即设置生成状态，防止重复点击
+  isGenerating.value = true;
 
   // 1. 统一数据校验
   console.log('[DEBUG] 开始数据校验');
@@ -569,11 +575,12 @@ async function createCharacter() {
 
   } catch (error: unknown) {
     console.error('创建角色时发生严重错误:', error);
+    // 重置状态
+    isGenerating.value = false;
     // 错误现在由App.vue统一处理，这里只记录日志并重新抛出，以便App.vue捕获
-    // isGenerating.value = false; 应该在App.vue的finally块中设置
     emit('creation-complete', { error: error }); // 发射一个带错误的事件
   }
-  // finally块移除，isGenerating状态由App.vue控制
+  // 注意：成功情况下不在这里重置isGenerating.value，因为需要等待整个流程完成
 }
 
 // 处理云端同步完成事件

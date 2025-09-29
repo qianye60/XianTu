@@ -1383,6 +1383,7 @@ const sendMessage = async () => {
       };
       if (useStreaming.value) {
         options.onStreamChunk = handleStreamingResponse;
+        options.useStreaming = true;
       }
 
       aiResponse = await bidirectionalSystem.processPlayerAction(

@@ -468,10 +468,14 @@ export async function generateInitialMessage(
  * @param currentGameData 当前游戏状态数据
  * @param playerAction 玩家的行动或选择
  * @param sceneType 可选的场景类型，用于生成特定场景的提示词
+ * @param useStreaming 是否使用流式生成
+ * @param onStreamChunk 流式回调函数
  */
 export async function generateInGameResponse(
   currentGameData: Record<string, unknown>,
-  playerAction?: string
+  playerAction?: string,
+  useStreaming?: boolean,
+  onStreamChunk?: (chunk: string) => void
 ): Promise<GM_Response> {
   console.log('【剧情推进】准备生成游戏GM响应，数据:', { currentGameData, playerAction });
 
@@ -734,7 +738,10 @@ export async function generateInGameResponse(
     const result = await generateItemWithTavernAI<GM_Response>(
       finalPromptWithContinuity,
       '剧情推进',
-      false
+      false,
+      3,
+      useStreaming || false,
+      onStreamChunk
     );
 
     // 验证结果结构

@@ -45,7 +45,7 @@
               <button @click.stop="openEditModal(world)" class="edit-btn" title="编辑此项">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="store.removeWorld(world.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteWorld(world.id)" class="delete-btn" title="删除此项">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -401,6 +401,16 @@ const isConfigRisky = computed(() => {
 function openEditModal(world: World) {
   editingWorld.value = world;
   isEditModalVisible.value = true;
+}
+
+// 删除功能
+async function handleDeleteWorld(id: number) {
+  try {
+    await store.removeWorld(id);
+    console.log(`【世界选择】成功删除世界 ID: ${id}`);
+  } catch (error) {
+    console.error(`【世界选择】删除世界失败 ID: ${id}`, error);
+  }
 }
 
 async function handleEditSubmit(data: any) {

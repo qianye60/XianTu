@@ -428,17 +428,63 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         break;
         
       case 'pull':
-        const pullArray = get(saveData, path, []);
-        if (Array.isArray(pullArray)) {
-          const index = pullArray.indexOf(value);
-          if (index > -1) {
-            pullArray.splice(index, 1);
+        {
+          const pullArray = get(saveData, path, []);
+          if (Array.isArray(pullArray)) {
+            const deepEqual = (a: any, b: any): boolean => {
+              try { return JSON.stringify(a) === JSON.stringify(b); } catch { return a === b; }
+            };
+            let removed = false;
+            // 1) 直接匹配（适用于原始类型，或同引用的对象）
+            let idx = pullArray.indexOf(value as any);
+            if (idx > -1) {
+              pullArray.splice(idx, 1);
+              removed = true;
+            }
+            // 2) 深度相等匹配（用于对象值）
+            if (!removed && typeof value === 'object' && value !== null) {
+              idx = pullArray.findIndex((it: any) => deepEqual(it, value));
+              if (idx > -1) {
+                pullArray.splice(idx, 1);
+                removed = true;
+              }
+            }
+            // 3) 通过标识符匹配（常见：物品ID/名称/状态名称）
+            if (!removed && (typeof value === 'string' || typeof value === 'number')) {
+              const v = String(value);
+              const keyCandidates = ['物品ID', '名称', '状态名称', 'id', 'name'];
+              idx = pullArray.findIndex((it: any) => {
+                if (it && typeof it === 'object') {
+                  return keyCandidates.some(k => String(it[k] ?? '') === v);
+                }
+                return String(it) === v;
+              });
+              if (idx > -1) {
+                pullArray.splice(idx, 1);
+                removed = true;
+              }
+            }
           }
         }
         break;
-        
+
       case 'delete':
-        unset(saveData, path);
+        {
+          // 支持删除数组索引（以 [...][index] 结尾时使用 splice 保持数组紧凑）
+          const arrayIndexMatch = String(path).match(/^(.*)\[(\d+)\]$/);
+          if (arrayIndexMatch) {
+            const basePath = arrayIndexMatch[1];
+            const index = parseInt(arrayIndexMatch[2], 10);
+            const arr = get(saveData, basePath, undefined);
+            if (Array.isArray(arr) && index >= 0 && index < arr.length) {
+              arr.splice(index, 1);
+            } else {
+              unset(saveData, path);
+            }
+          } else {
+            unset(saveData, path);
+          }
+        }
         break;
         
       default:

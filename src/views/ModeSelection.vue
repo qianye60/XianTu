@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">{{ appVersion }}</span>
+          <span class="version-tag">0.1 Alpha</span><!--{{ appVersion }}-->
         </div>
         <p class="sub-title">大道朝天，各走一边</p>
       </div>
@@ -53,9 +53,11 @@
         <p>仅保留法身属性、境界进度等修行要素，确保道友隐私清净无染</p>
       </div>
 
-      <button class="scroll-btn" @click="enterCharacterSelection">
-        <span>续 前 世 因 缘</span>
-      </button>
+      <div class="footer-actions">
+        <button class="scroll-btn" @click="enterCharacterSelection">
+          <span>续 前 世 因 缘</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -136,9 +138,11 @@ const enterCharacterSelection = () => {
   padding: 2rem;
   border: 1px solid var(--color-border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  /* 桌面端固定上限，避免全屏时继续变高 */
-  height: min(680px, calc(100vh - 4rem));
-  overflow-y: auto;  /* 内容超出时才显示滚动条 */
+  /* 调整到合适高度，确保内容完全可见 */
+  height: min(720px, calc(100vh - 4rem));
+  max-width: 1000px;
+  width: 90%;
+  overflow-y: auto;  /* 允许滚动但尽量避免 */
   /* 隐藏滚动条但保持滚动功能 */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* Internet Explorer 10+ */
@@ -157,7 +161,7 @@ const enterCharacterSelection = () => {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem; /* 减少底部间距 */
 }
 
 .title-version-row {
@@ -193,7 +197,7 @@ const enterCharacterSelection = () => {
   margin: 0;
   text-align: center;
   /* Add padding to compensate for letter-spacing and ensure true centering */
-  padding-left: 0.5em; 
+  padding-left: 0.5em;
 }
 
 .sub-title {
@@ -273,8 +277,8 @@ const enterCharacterSelection = () => {
 }
 
 .privacy-notice {
-  margin-top: 2rem;
-  padding: 1rem;
+  margin-top: 1rem; /* 减少顶部间距 */
+  padding: 0.8rem; /* 减少内边距 */
   background: rgba(var(--color-warning-rgb), 0.1);
   border: 1px solid rgba(var(--color-warning-rgb), 0.3);
   border-radius: 8px;
@@ -294,7 +298,7 @@ const enterCharacterSelection = () => {
 }
 
 .scroll-btn {
-  margin-top: 2rem;
+  margin-top: 1rem; /* 减少顶部间距 */
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
@@ -322,68 +326,80 @@ const enterCharacterSelection = () => {
   box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
 }
 
+.footer-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem; /* 减少顶部间距 */
+}
+
+
 @media (max-width: 640px) {
+  .footer-actions {
+    margin-top: 1.5rem;
+  }
   .mode-selection-container {
     padding: 1rem;
     height: 100vh;
     align-items: flex-start;
     padding-top: 2rem;
   }
-  
+
   .selection-content {
     padding: 1.5rem;
     height: auto;
     max-height: calc(100vh - 4rem);
-    overflow-y: auto;
+    overflow-y: auto; /* 移动端允许滚动 */
     /* 隐藏滚动条但保持滚动功能 */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* Internet Explorer 10+ */
     justify-content: flex-start;
     gap: 1.5rem;
   }
-  
+
   /* 移动端也隐藏滚动条 */
   .selection-content::-webkit-scrollbar {
     display: none;
   }
-  
+
   .main-title {
     font-size: 2.5rem;
   }
-  
+
   .header-container {
     margin-bottom: 2rem;
     flex-shrink: 0;
   }
-  
+
   .gate-container {
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
     flex-shrink: 0;
   }
-  
+
   .gate-card {
     width: 100%;
     max-width: 350px;
     padding: 2rem 1.5rem;
   }
-  
+
   .gate-detail {
     font-size: 0.8rem;
   }
-  
+
   .privacy-notice {
     margin-top: 1.5rem;
     padding: 1rem;
     max-width: 100%;
     flex-shrink: 0;
   }
-  
+
   .privacy-notice p {
     font-size: 0.85rem;
   }
-  
+
   .scroll-btn {
     margin-top: 1.5rem;
     margin-bottom: 1rem;
@@ -398,40 +414,40 @@ const enterCharacterSelection = () => {
   .mode-selection-container {
     padding: 0.5rem;
   }
-  
+
   .selection-content {
     padding: 1rem;
     border-radius: 15px;
     gap: 1rem;
   }
-  
+
   .main-title {
     font-size: 2rem;
     letter-spacing: 0.3em;
     padding-left: 0.3em;
   }
-  
+
   .header-container {
     margin-bottom: 1.5rem;
   }
-  
+
   .gate-container {
     gap: 1rem;
   }
-  
+
   .gate-card {
     padding: 1.5rem 1rem;
   }
-  
+
   .gate-title {
     font-size: 1.4rem;
   }
-  
+
   .privacy-notice {
     margin-top: 1rem;
     padding: 0.8rem;
   }
-  
+
   .scroll-btn {
     margin-top: 1rem;
     margin-bottom: 0.5rem;

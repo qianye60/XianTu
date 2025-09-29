@@ -285,12 +285,16 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     }
   }
 
-  // 8. 确保记忆模块存在
+  // 8. 跳过角色基础信息中的灵根检查，因为外层灵根可能是字符串格式（如"随机灵根"）
+  // 外层的角色基础信息不需要验证，只验证存档数据内部结构
+  console.log('[数据验证] 跳过外层角色基础信息的灵根验证，外层可以是字符串格式');
+
+  // 9. 确保记忆模块存在
   if (!saveData.记忆) {
     saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
   }
 
-  // 9. 装备状态双向同步与修复
+  // 10. 装备状态双向同步与修复
   if (saveData.背包?.物品 && saveData.装备栏) {
     const inventoryItems = saveData.背包.物品;
     const equipmentSlots = saveData.装备栏;
@@ -367,7 +371,7 @@ export function generateValidationReport(saveData: SaveData): ValidationReport {
     report.errors.push('缺少玩家角色状态数据');
     report.isValid = false;
   } else {
-    const requiredFields: (keyof SaveData['玩家角色状态'])[] = ['境界', '气血', '灵气', '神识', '寿命', '修为'];
+    const requiredFields: (keyof SaveData['玩家角色状态'])[] = ['境界', '气血', '灵气', '神识', '寿命'];
     requiredFields.forEach(field => {
       if (!(field in saveData.玩家角色状态)) {
         report.warnings.push(`玩家角色状态缺少字段: ${field}`);

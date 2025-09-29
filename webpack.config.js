@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { VueLoaderPlugin } from 'vue-loader'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
+import HtmlInlineScriptWebpackPlugin from 'html-inline-script-webpack-plugin'
 import TavernLiveReloadPlugin from './webpack/TavernLiveReloadPlugin.js'
 import { fileURLToPath } from 'url'
 
@@ -111,6 +112,7 @@ export default (env, argv) => {
           minifyURLs: true,
         } : false
       }),
+      !isProduction ? new HtmlInlineScriptWebpackPlugin() : null,
       !isProduction ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
     ].filter(Boolean),
     devServer: {

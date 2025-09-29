@@ -212,45 +212,66 @@ import { useCharacterCultivationData, useCharacterBasicData } from '@/composable
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
+import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoPath, DaoStage } from '@/types/game';
 
+// 组合式函数
 const cultivationData = useCharacterCultivationData();
 const basicData = useCharacterBasicData();
 const characterStore = useCharacterStore();
 
 const loading = computed(() => !cultivationData.value && !basicData.value);
 
+// 类型定义
+type LearnedSkillDisplay = {
+  name: string;
+  type: string;
+  source: string;
+  proficiency: number;
+  description?: string;
+  unlocked: true;
+};
+
 // 获取当前修炼功法
-const currentTechnique = computed(() => {
+const currentTechnique = computed((): TechniqueItem | null => {
   const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
   if (!cultivationInfo?.功法) return null;
-  
+
   const techniqueRef = cultivationInfo.功法;
   const inventory = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
-  if (inventory && techniqueRef.物品ID && inventory[techniqueRef.物品ID]) {
-    return inventory[techniqueRef.物品ID];
+  
+  const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
+
+  if (inventory && techniqueId) {
+    const item = inventory.find(i => i.物品ID === techniqueId);
+    if (item?.类型 === '功法') {
+      return item as TechniqueItem;
+    }
   }
   
   // 如果背包中找不到，构造一个最小对象
-  return {
-    物品ID: techniqueRef.物品ID,
-    名称: techniqueRef.名称,
-    类型: '功法',
-    品质: { quality: '凡', grade: 1 },
-    描述: '',
-    数量: 1,
-    修炼进度: cultivationInfo.修炼进度 || 0
-  };
+  if (techniqueId) {
+    return {
+      物品ID: techniqueId,
+      名称: typeof techniqueRef !== 'string' ? techniqueRef.名称 : '未知功法',
+      类型: '功法',
+      品质: { quality: '凡', grade: 1 },
+      描述: '功法信息缺失',
+      数量: 1,
+      修炼进度: cultivationInfo.修炼进度 || 0
+    };
+  }
+  return null;
 });
 
 // 获取已学技能列表
-const learnedSkills = computed(() => {
+const learnedSkills = computed((): LearnedSkillDisplay[] => {
   const technique = currentTechnique.value;
   const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
   
   if (!technique && !cultivationInfo?.已解锁技能?.length) return [];
   
-  const skills: any[] = [];
-  const skillNameSet = new Set(); // 防止重复添加技能
+  const skills: LearnedSkillDisplay[] = [];
+  const skillNameSet = new Set<string>(); // 防止重复添加技能
   
   // 从已解锁技能获取（直接学会的技能）
   if (cultivationInfo?.已解锁技能?.length) {
@@ -271,7 +292,8 @@ const learnedSkills = computed(() => {
   
   // 从功法技能定义获取（达到条件解锁的技能）
   if (technique?.功法技能) {
-    Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
+    Object.entries(technique.功法技能).forEach(([skillName, rawSkillInfo]) => {
+      const skillInfo = rawSkillInfo as TechniqueSkill;
       if (!skillNameSet.has(skillName)) {
         // 检查是否已解锁
         const unlocked = checkSkillUnlocked(skillName, technique, cultivationInfo);
@@ -302,8 +324,8 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
 };
 
 // 检查技能是否已解锁
-const checkSkillUnlocked = (skillName: string, technique: any, cultivationInfo: any): boolean => {
-  if (!technique.功法技能?.[skillName]) return false;
+const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | undefined): boolean => {
+  if (!technique.功法技能?.[skillName] || !cultivationInfo) return false;
   
   const skillInfo = technique.功法技能[skillName];
   const unlockCondition = skillInfo.解锁条件 || '';
@@ -342,7 +364,7 @@ const getGradeText = (grade: number): string => {
 };
 
 // 获取功法品质样式
-const getTechniqueQualityClass = (technique: any, type: 'border' | 'text' = 'border'): string => {
+const getTechniqueQualityClass = (technique: TechniqueItem | null, type: 'border' | 'text' = 'border'): string => {
   if (!technique) return '';
   const quality = technique.品质?.quality || '凡';
   return `${type}-quality-${quality}`;
@@ -393,7 +415,7 @@ const getSkillLevelClass = (proficiency: number): string => {
 };
 
 // 显示技能详情
-const showSkillDetails = (skill: any) => {
+const showSkillDetails = (skill: LearnedSkillDisplay) => {
   const proficiencyLevel = getSkillLevel(skill.proficiency);
   const effectDescription = getSkillEffectDescription(skill);
   
@@ -401,14 +423,14 @@ const showSkillDetails = (skill: any) => {
     `类型：${skill.type}\n` +
     `来源：${skill.source}\n` +
     `熟练度：${skill.proficiency}% (${proficiencyLevel})\n\n` +
-    `技能描述：\n${skill.description}\n\n` +
+    `技能描述：\n${skill.description || '暂无描述'}\n\n` +
     `修炼效果：\n${effectDescription}`;
     
   alert(message);
 };
 
 // 获取技能效果描述
-const getSkillEffectDescription = (skill: any): string => {
+const getSkillEffectDescription = (skill: LearnedSkillDisplay): string => {
   const proficiency = skill.proficiency;
   if (proficiency >= 90) {
     return '技能威力极大提升，消耗降低，可触发特殊效果';
@@ -474,12 +496,17 @@ const getCurrentStageName = (daoName: string): string => {
   const ds = daoSystemData.value;
   if (!ds) return '';
   const progress = ds.大道进度[daoName];
-  const daoPath = ds.大道路径定义[daoName];
+  const daoPathData = ds.大道路径定义[daoName];
   
-  if (!progress || !daoPath) return '';
+  if (!progress || !daoPathData) return '';
   
-  const stageIndex = progress.当前阶段;
-  return daoPath.阶段列表[stageIndex]?.名称 || '';
+  // 类型守卫，确保 daoPathData 是 DaoPath 类型
+  if ('阶段列表' in daoPathData) {
+    const daoPath = daoPathData as DaoPath;
+    const stageIndex = progress.当前阶段;
+    return daoPath.阶段列表?.[stageIndex]?.名称 || '';
+  }
+  return '';
 };
 
 // 获取进度百分比
@@ -487,14 +514,19 @@ const getProgressPercent = (daoName: string): number => {
   const ds = daoSystemData.value;
   if (!ds) return 0;
   const progress = ds.大道进度[daoName];
-  const daoPath = ds.大道路径定义[daoName];
+  const daoPathData = ds.大道路径定义[daoName];
   
-  if (!progress || !daoPath) return 0;
+  if (!progress || !daoPathData) return 0;
   
-  const currentStage = daoPath.阶段列表[progress.当前阶段];
-  if (!currentStage || !currentStage.突破经验) return 0;
-  
-  return Math.min(100, (progress.当前经验 / currentStage.突破经验) * 100);
+  // 类型守卫
+  if ('阶段列表' in daoPathData) {
+    const daoPath = daoPathData as DaoPath;
+    const currentStage = daoPath.阶段列表?.[progress.当前阶段];
+    if (!currentStage || !currentStage.突破经验) return 0;
+    
+    return Math.min(100, (progress.当前经验 / currentStage.突破经验) * 100);
+  }
+  return 0;
 };
 
 // 刷新修炼数据
@@ -525,20 +557,21 @@ const stopCultivation = async () => {
     
     // 将功法移回背包（如果背包中不存在）
     if (!saveData.背包) {
-      saveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+      saveData.背包 = { 物品: [], 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
     }
     if (!saveData.背包.物品) {
-      saveData.背包.物品 = {};
+      saveData.背包.物品 = [];
     }
+    
+    const existingItem = saveData.背包.物品.find(i => i.物品ID === techniqueToStop.物品ID);
     
     // 如果背包中不存在这个功法，添加进去
-    if (!saveData.背包.物品[techniqueToStop.物品ID]) {
-      saveData.背包.物品[techniqueToStop.物品ID] = techniqueToStop;
-    }
-    
-    // 清除功法的已装备标记
-    if (saveData.背包.物品[techniqueToStop.物品ID]) {
-      saveData.背包.物品[techniqueToStop.物品ID].已装备 = false;
+    if (!existingItem) {
+      const itemToAdd = { ...techniqueToStop, 已装备: false };
+      saveData.背包.物品.push(itemToAdd);
+    } else {
+      // 如果存在，清除已装备标记
+      existingItem.已装备 = false;
     }
 
     // 清空修炼槽位

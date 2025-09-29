@@ -40,7 +40,7 @@
               <button @click.stop="openEditModal(talent)" class="edit-btn" title="编辑此项">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="store.removeTalent(talent.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteTalent(talent.id)" class="delete-btn" title="删除此项">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -318,6 +318,16 @@ function handleAIGenerate() {
 function openEditModal(talent: Talent) {
   editingTalent.value = talent;
   isEditModalVisible.value = true;
+}
+
+// 删除功能
+async function handleDeleteTalent(id: number) {
+  try {
+    await store.removeTalent(id);
+    console.log(`【天赋选择】成功删除天赋 ID: ${id}`);
+  } catch (error) {
+    console.error(`【天赋选择】删除天赋失败 ID: ${id}`, error);
+  }
 }
 
 async function handleEditSubmit(data: CustomTalentData) {

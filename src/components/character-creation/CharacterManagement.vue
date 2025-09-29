@@ -478,6 +478,7 @@ import VideoBackground from '@/components/common/VideoBackground.vue';
 import { ArrowLeft } from 'lucide-vue-next';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
 import "@/style.css";
+import { formatRealmWithStage } from '@/utils/realmUtils';
 
 interface Props {
   fullscreen?: boolean;
@@ -772,25 +773,9 @@ const handleLogin = () => {
   emit('login');
 };
 
-// 境界名称映射
+// 境界显示：统一为“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
 const getRealmName = (realm: unknown): string => {
-  let level: number;
-
-  if (typeof realm === 'object' && realm !== null) {
-    level = (realm as Record<string, unknown>).level as number ||
-           (realm as Record<string, unknown>).等级 as number ||
-           (realm as Record<string, unknown>).境界 as number || 0;
-  } else if (typeof realm === 'number') {
-    level = realm;
-  } else {
-    level = parseInt(String(realm)) || 0;
-  }
-
-  const realms = [
-    '凡人', '炼气', '筑基', '金丹', '元婴',
-    '化神', '炼虚', '合体', '渡劫期'
-  ];
-  return realms[level] || `境界${level}`;
+  return formatRealmWithStage(realm as any);
 };
 
 // 格式化时间

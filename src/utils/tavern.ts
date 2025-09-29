@@ -123,15 +123,33 @@ export async function clearAllCharacterData(): Promise<void> {
   let successCount = 0;
   let errorCount = 0;
 
-  // 步骤1: 清理聊天变量
+  // 步骤1: 清理聊天变量 - 增强版
   try {
     const chatVars = await helper.getVariables({ type: 'chat' });
-    const redundantChatPrefixes = ['character.', 'player.', 'world.', 'character_'];
-    const chatKeys = Object.keys(chatVars).filter(key => redundantChatPrefixes.some(prefix => key.startsWith(prefix)));
+    // 扩展清理范围，包含更多可能的变量命名模式
+    const redundantChatPrefixes = [
+      'character.', 'player.', 'world.', 'character_',
+      'saveData', 'gameData', 'profileData', 'userData',
+      'memorySummaryCache', 'daoSystem', 'cultivationData'
+    ];
+    
+    // 同时检查包含关键词的变量名
+    const redundantKeywords = ['角色', '存档', '游戏', '修仙', '大道', '灵根', '境界'];
+    
+    const chatKeys = Object.keys(chatVars).filter(key => {
+      // 检查前缀匹配
+      const hasPrefix = redundantChatPrefixes.some(prefix => key.startsWith(prefix));
+      // 检查关键词匹配
+      const hasKeyword = redundantKeywords.some(keyword => key.includes(keyword));
+      return hasPrefix || hasKeyword;
+    });
+    
     if (chatKeys.length > 0) {
-      console.log(`[清理] 发现 ${chatKeys.length} 个聊天变量需要清理...`);
+      console.log(`[清理] 发现 ${chatKeys.length} 个聊天变量需要清理:`, chatKeys);
       await Promise.all(chatKeys.map(key => helper.deleteVariable(key, { type: 'chat' })));
       console.log(`[清理] 聊天变量清理完成。`);
+    } else {
+      console.log(`[清理] 未发现需要清理的聊天变量。`);
     }
     successCount++;
   } catch (e) {
@@ -139,15 +157,30 @@ export async function clearAllCharacterData(): Promise<void> {
     errorCount++;
   }
 
-  // 步骤2: 清理全局变量
+  // 步骤2: 清理全局变量 - 增强版
   try {
     const globalVars = await helper.getVariables({ type: 'global' });
-    const redundantGlobalPrefixes = ['character.', 'world.'];
-    const globalKeys = Object.keys(globalVars).filter(key => redundantGlobalPrefixes.some(prefix => key.startsWith(prefix)));
+    // 扩展清理范围
+    const redundantGlobalPrefixes = [
+      'character.', 'world.', 'player.',
+      'gameData', 'saveData', 'profileData',
+      'daoData', 'cultivationData'
+    ];
+    
+    const redundantKeywords = ['角色', '存档', '游戏', '修仙', '大道', '灵根', '境界'];
+    
+    const globalKeys = Object.keys(globalVars).filter(key => {
+      const hasPrefix = redundantGlobalPrefixes.some(prefix => key.startsWith(prefix));
+      const hasKeyword = redundantKeywords.some(keyword => key.includes(keyword));
+      return hasPrefix || hasKeyword;
+    });
+    
     if (globalKeys.length > 0) {
-      console.log(`[清理] 发现 ${globalKeys.length} 个全局变量需要清理...`);
+      console.log(`[清理] 发现 ${globalKeys.length} 个全局变量需要清理:`, globalKeys);
       await Promise.all(globalKeys.map(key => helper.deleteVariable(key, { type: 'global' })));
       console.log(`[清理] 全局变量清理完成。`);
+    } else {
+      console.log(`[清理] 未发现需要清理的全局变量。`);
     }
     successCount++;
   } catch (e) {
@@ -155,10 +188,45 @@ export async function clearAllCharacterData(): Promise<void> {
     errorCount++;
   }
 
+  // 步骤3: 清理本地变量 - 新增  
+  try {
+    // 注意：本地变量类型可能不被所有酒馆版本支持，所以包装在try-catch中
+    try {
+      const localVars = await helper.getVariables({ type: 'local' });
+      const redundantLocalPrefixes = [
+        'character.', 'player.', 'world.',
+        'saveData', 'gameData', 'profileData'
+      ];
+      
+      const redundantKeywords = ['角色', '存档', '游戏', '修仙', '大道'];
+      
+      const localKeys = Object.keys(localVars).filter(key => {
+        const hasPrefix = redundantLocalPrefixes.some(prefix => key.startsWith(prefix));
+        const hasKeyword = redundantKeywords.some(keyword => key.includes(keyword));
+        return hasPrefix || hasKeyword;
+      });
+      
+      if (localKeys.length > 0) {
+        console.log(`[清理] 发现 ${localKeys.length} 个本地变量需要清理:`, localKeys);
+        await Promise.all(localKeys.map(key => helper.deleteVariable(key, { type: 'local' })));
+        console.log(`[清理] 本地变量清理完成。`);
+      } else {
+        console.log(`[清理] 未发现需要清理的本地变量。`);
+      }
+      successCount++;
+    } catch (localError) {
+      console.log(`[清理] 跳过本地变量清理（可能不支持）:`, localError);
+      // 不算作错误，因为本地变量类型可能不被支持
+    }
+  } catch (e) {
+    console.warn('[清理] 清理本地变量时出现非致命错误:', e);
+    errorCount++;
+  }
+
   // [核心移除] 根据用户要求，插件不再以任何方式干涉或清理聊天记录。
   
   // 最终根据执行结果给出反馈
-  if (errorCount > 0 && successCount < 2) { // 只有在变量清理（前两步）都失败时才算真正失败
+  if (errorCount > 0 && successCount < 2) { // 只有在大部分清理步骤都失败时才算真正失败
     toast.error('重置天机失败，请手动清理或刷新页面。');
     // 抛出错误以中断后续流程
     throw new Error('核心清理步骤（变量清理）失败！');

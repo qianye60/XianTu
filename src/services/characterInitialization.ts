@@ -16,7 +16,7 @@ import { generateInitialMessage } from '@/utils/tavernAI';
 import { cacheSystemRulesToTavern } from '@/utils/tavernCore';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
-import { CHARACTER_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
+import { CHARACTER_INITIALIZATION_PROMPT, buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
 import { validateGameData } from '@/utils/gameDataValidator';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
@@ -170,7 +170,6 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     灵气: { 当前: 初始灵气, 最大: 初始灵气 }, // 凡人灵气为零
     神识: { 当前: 初始神识, 最大: 初始神识 },
     寿命: { 当前: age, 最大: 最大寿命 }, // 当前年龄和最大寿命
-    修为: { 当前: 0, 最大: 100 }, // 修为应该是ValuePair类型
     状态效果: [] // 使用新的StatusEffect数组格式
   };
 }
@@ -184,6 +183,15 @@ export async function initializeCharacter(
   world: World,
   age: number
 ): Promise<SaveData> {
+  // [紧急修复] 使用 structuredClone 深度克隆 baseInfo，
+  // 移除所有 Vue 的响应式代理，避免在最终存入 Pinia 时导致 DataCloneError
+  try {
+    baseInfo = structuredClone(baseInfo);
+  } catch (cloneError) {
+    console.warn('[角色初始化] structuredClone 失败，回退到 JSON.parse(JSON.stringify())', cloneError);
+    baseInfo = JSON.parse(JSON.stringify(baseInfo));
+  }
+
   const uiStore = useUIStore();
   const helper = getTavernHelper();
   if (!helper) throw new Error('无法连接到酒馆服务');
@@ -192,6 +200,12 @@ export async function initializeCharacter(
 
   try {
     uiStore.updateLoadingText('天道正在为你准备一个崭新的世界...');
+    
+    // [修复] 确保baseInfo包含完整的年龄信息
+    if (!baseInfo.年龄) {
+      baseInfo.年龄 = age;
+      console.log('[角色初始化] 已补充baseInfo中的年龄字段:', age);
+    }
     
     // [新增] 调试日志：验证传入的 baseInfo 是否包含详情字段
     console.log('[角色初始化] === 输入验证 ===');
@@ -561,8 +575,24 @@ export async function initializeCharacter(
       await cacheSystemRulesToTavern('chat');
     } catch {}
 
+    // 构建包含年龄信息的用户选择数据
+    const userSelections = {
+      name: baseInfo.名字,
+      gender: baseInfo.性别,
+      age: age,  // 用户选择的开局年龄
+      world: world.name,
+      talentTier: baseInfo.天资,
+      origin: baseInfo.出生,
+      spiritRoot: baseInfo.灵根,
+      talents: baseInfo.天赋 || [],
+      attributes: (baseInfo.先天六司 || {}) as unknown as Record<string, number>
+    };
+
+    // 构建包含用户选择信息的初始化提示词
+    const customInitPrompt = buildCharacterInitializationPrompt(userSelections);
+
     const initialMessageResponse = await retryableAICall(
-      () => generateInitialMessage(initialGameDataForAI as any, {}, CHARACTER_INITIALIZATION_PROMPT),
+      () => generateInitialMessage(initialGameDataForAI as any, {}, customInitPrompt),
       (response) => {
         // 严格验证AI响应
         if (!response || !response.text || typeof response.text !== 'string') {
@@ -745,88 +775,62 @@ export async function initializeCharacter(
       const mergedBaseInfo: CharacterBaseInfo = {
         ...bi,
         ...aiBase,
+        // 核心不可变字段（用户选择）
         名字: bi.名字,
         性别: bi.性别,
         年龄: bi.年龄,
         先天六司: bi.先天六司,
-        出生: (typeof bi.出生 === 'string' && (bi.出生.includes('随机') || bi.出生 === '随机'))
-          ? (aiBase?.出生 || bi.出生)
-          : bi.出生,
-        // [修复] 确保灵根对象结构完整，优先保留用户选择
-        灵根: bi.灵根 && typeof bi.灵根 === 'object' && 'name' in bi.灵根 && 'tier' in bi.灵根
-          ? {
-              名称: String(bi.灵根.name),
-              品级: String(bi.灵根.tier),
-              描述: String((bi.灵根 as any).description || '')
-            } // 转换英文字段到中文字段
-          : bi.灵根 && typeof bi.灵根 === 'object' && '品级' in bi.灵根
-          ? bi.灵根 // 用户选择的灵根数据已经是中文格式，直接使用
-          : (aiBase?.灵根 || bi.灵根), // 否则使用AI数据或原始数据
-        世界详情: { ...bi.世界详情, ...aiBase.世界详情 } as World,
-        // [修复] 优先保留用户选择的天赋，只有在用户未选择时才使用AI生成的
-        天赋: Array.isArray(bi?.天赋) && bi.天赋.length > 0 
-          ? bi.天赋 // 用户有选择天赋，优先使用用户选择
-          : (Array.isArray(aiBase?.天赋) ? aiBase.天赋 : []), // 用户未选择时使用AI生成的
-        天赋详情: Array.isArray(bi?.天赋详情) && bi.天赋详情.length > 0
-          ? bi.天赋详情 // 用户有天赋详情，优先使用
-          : (Array.isArray(aiBase?.天赋详情) ? aiBase.天赋详情 : []), // 否则使用AI生成的
-        // [修复] 确保用户选择的详情对象被正确保留
+        
+        // 从详情对象中派生基础字段，避免数据冗余
+        世界: bi.世界 || world.name,
+        天资: bi.天资详情?.name || bi.天资详情?.名称 || bi.天资,
+        出生: bi.出身详情?.name || bi.出身详情?.名称 || bi.出生,
+        灵根: (() => {
+          if (bi.灵根详情) {
+            const detail = bi.灵根详情 as any;
+            return {
+              名称: String(detail.name || detail.名称 || '混沌灵根'),
+              品级: String(detail.tier || detail.品级 || '凡品'),  
+              描述: String(detail.description || detail.描述 || '基础灵根')
+            };
+          }
+          return aiBase?.灵根 || bi.灵根 || {
+            名称: '五行灵根',
+            品级: '凡品', 
+            描述: '五行齐全的均衡灵根'
+          };
+        })(),
+        天赋: bi.天赋详情 
+          ? bi.天赋详情.map((talent: any) => talent.name || talent.名称 || talent)
+          : (bi.天赋 || []),
+        
+        // 保留完整的详情对象
         天资详情: bi.天资详情 || aiBase?.天资详情,
         出身详情: bi.出身详情 || aiBase?.出身详情,
         灵根详情: bi.灵根详情 || aiBase?.灵根详情,
+        天赋详情: bi.天赋详情 || aiBase?.天赋详情 || [],
       };
       currentSaveData.角色基础信息 = mergedBaseInfo;
 
-      // [新增] 验证用户选择的关键数据是否被正确保留
-      console.log('[角色初始化] 数据合并验证:');
-      console.log(`- 用户选择灵根: ${JSON.stringify(bi.灵根)}`);
-      console.log(`- 最终灵根数据: ${JSON.stringify(mergedBaseInfo.灵根)}`);
-      console.log(`- 用户选择天赋数量: ${Array.isArray(bi.天赋) ? bi.天赋.length : 0}`);
-      console.log(`- 最终天赋数量: ${Array.isArray(mergedBaseInfo.天赋) ? mergedBaseInfo.天赋.length : 0}`);
-      console.log(`- 最终天赋列表: ${JSON.stringify(mergedBaseInfo.天赋)}`);
-      console.log(`- 天资详情: ${JSON.stringify(mergedBaseInfo.天资详情)}`);
-      console.log(`- 出身详情: ${JSON.stringify(mergedBaseInfo.出身详情)}`);
-      console.log(`- 灵根详情: ${JSON.stringify(mergedBaseInfo.灵根详情)}`);
-      console.log(`- 天赋详情: ${JSON.stringify(mergedBaseInfo.天赋详情)}`);
+      // [新增] 验证派生字段是否正确生成
+      console.log('[角色初始化] 数据派生验证:');
+      console.log(`- 世界: ${mergedBaseInfo.世界} (来源: '基础')`);
+      console.log(`- 天资: ${mergedBaseInfo.天资} (来源: ${bi.天资详情 ? '详情' : '基础'})`);
+      console.log(`- 出生: ${mergedBaseInfo.出生} (来源: ${bi.出身详情 ? '详情' : '基础'})`);
+      console.log(`- 灵根: ${JSON.stringify(mergedBaseInfo.灵根)} (来源: ${bi.灵根详情 ? '详情' : '基础'})`);
+      console.log(`- 天赋: ${JSON.stringify(mergedBaseInfo.天赋)} (来源: ${bi.天赋详情 ? '详情' : '基础'})`);
+      console.log(`- 详情对象完整性:`);
+      console.log(`  * 天资详情: ${!!mergedBaseInfo.天资详情}`);
+      console.log(`  * 出身详情: ${!!mergedBaseInfo.出身详情}`);
+      console.log(`  * 灵根详情: ${!!mergedBaseInfo.灵根详情}`);
+      console.log(`  * 天赋详情: ${!!mergedBaseInfo.天赋详情 && Array.isArray(mergedBaseInfo.天赋详情) ? mergedBaseInfo.天赋详情.length : 0} 项`);
       
-      // 强制验证关键字段的数据完整性
-      if (bi.灵根 && typeof bi.灵根 === 'object') {
-        // 检查是否是英文字段格式 (name, tier)
-        if ('tier' in bi.灵根 && 'name' in bi.灵根) {
-          const englishRoot = bi.灵根 as { name: string; tier: string; description?: string };
-          const expectedGrade = englishRoot.tier;
-          if (typeof mergedBaseInfo.灵根 === 'object' && mergedBaseInfo.灵根 && '品级' in mergedBaseInfo.灵根) {
-            if (mergedBaseInfo.灵根.品级 !== expectedGrade) {
-              console.error('[角色初始化] 灵根品级数据丢失，强制恢复');
-              mergedBaseInfo.灵根 = {
-                名称: englishRoot.name,
-                品级: englishRoot.tier,
-                描述: String(englishRoot.description || '')
-              };
-            }
-          }
-        }
-        // 检查是否是中文字段格式 (名称, 品级)
-        else if ('品级' in bi.灵根 && '名称' in bi.灵根) {
-          const chineseRoot = bi.灵根 as { 名称: string; 品级: string; 描述?: string };
-          if (typeof mergedBaseInfo.灵根 === 'object' && mergedBaseInfo.灵根 && '品级' in mergedBaseInfo.灵根) {
-            if (mergedBaseInfo.灵根.品级 !== chineseRoot.品级) {
-              console.error('[角色初始化] 灵根品级数据丢失，强制恢复');
-              mergedBaseInfo.灵根 = {
-                名称: chineseRoot.名称,
-                品级: chineseRoot.品级,
-                描述: String(chineseRoot.描述 || '')
-              };
-            }
-          }
-        }
-      }
-      
-      if (Array.isArray(bi.天赋) && bi.天赋.length > 0) {
-        if (!Array.isArray(mergedBaseInfo.天赋) || mergedBaseInfo.天赋.length === 0) {
-          console.error('[角色初始化] 用户选择的天赋数据丢失，强制恢复');
-          mergedBaseInfo.天赋 = bi.天赋;
-          mergedBaseInfo.天赋详情 = bi.天赋详情 || [];
+      // 数据一致性验证：确保派生字段与详情字段匹配
+      if (bi.灵根详情 && mergedBaseInfo.灵根) {
+        const detailGrade = bi.灵根详情.品级;
+        const derivedGrade = typeof mergedBaseInfo.灵根 === 'object' ? mergedBaseInfo.灵根.品级 : '';
+        if (detailGrade && derivedGrade !== detailGrade) {
+          console.warn(`[数据一致性] 灵根品级不匹配: 详情=${detailGrade}, 派生=${derivedGrade}`);
         }
       }
 
@@ -863,13 +867,11 @@ export async function initializeCharacter(
           大陆信息: [],
           势力信息: [],
           地点信息: [],
-          生成信息: {
-            生成时间: new Date().toISOString(),
-            世界背景: world.description,
-            世界纪元: world.era || '未知纪元',
-            特殊设定: [],
-            版本: '1.0'
-          }
+          生成时间: new Date().toISOString(),
+          世界背景: world.description,
+          世界纪元: world.era || '未知纪元',
+          特殊设定: [],
+          版本: '1.0'
         };
       } else {
         console.log('[角色初始化] 保留现有的世界信息数据，不进行覆盖');
@@ -906,9 +908,6 @@ export async function initializeCharacter(
         currentSaveData.角色基础信息.出生 = mergedBaseInfo.出生;
         
         // [新增] 确保完整的详情对象也被保存
-        if (mergedBaseInfo.世界详情) {
-          currentSaveData.角色基础信息.世界详情 = mergedBaseInfo.世界详情;
-        }
         if (mergedBaseInfo.天资详情) {
           currentSaveData.角色基础信息.天资详情 = mergedBaseInfo.天资详情;
         }

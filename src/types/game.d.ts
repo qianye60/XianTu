@@ -46,6 +46,36 @@ export interface StateChangeLog {
   timestamp?: string;
 }
 
+// --- 记忆条目接口 ---
+export interface MemoryEntry {
+  id: string;
+  content: string;
+  timestamp: Date;
+  importance: number; // 1-5
+  tags: string[];
+  type?: 'short' | 'mid' | 'long';
+  hidden?: boolean; // 是否为隐藏记忆
+  convertedFrom?: 'short' | 'mid' | 'long'; // 转换来源
+}
+
+// --- 处理响应接口 ---
+export interface ProcessedResponse {
+  content: string;
+  metadata: {
+    confidence: number;
+    reasoning: string[];
+    memoryUpdates: MemoryEntry[];
+    suggestedActions: string[];
+    memoryStats?: {
+      shortTermCount: number;
+      midTermCount: number;
+      longTermCount: number;
+      hiddenMidTermCount: number;
+      lastConversion?: Date;
+    };
+  };
+}
+
 // --- 天道系统相关类型 ---
 export interface HeavenlyCalculation {
   天道值: number;
@@ -428,7 +458,6 @@ export interface PlayerStatus extends AIMetadata {
   灵气: ValuePair<number>;
   神识: ValuePair<number>;
   寿命: ValuePair<number>;
-  修为: ValuePair<number>;
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
   vitals?: {
@@ -558,8 +587,13 @@ export interface WorldInfo {
   continents?: WorldContinent[]; // 兼容旧数据
   势力信息: WorldFaction[];
   地点信息: WorldLocation[];
-  生成信息: WorldGenerationInfo;
   地图配置?: WorldMapConfig; // 新增地图配置
+  // 从 WorldGenerationInfo 扁平化
+  生成时间: string;
+  世界背景: string;
+  世界纪元: string;
+  特殊设定: string[];
+  版本: string;
 }
 
 // --- 世界地图 ---
@@ -589,31 +623,40 @@ export interface TavernCommand {
 }
 
 export interface NpcProfile {
-  角色基础信息: CharacterBaseInfo;
+  角色基础信息: CharacterBaseInfo; // 包含天资、灵根、天赋、先天六司
   外貌描述?: string;
-  角色存档信息: {
-    时间: string;
-    装备: Record<string, string | null>;
-    功法: {
-      主修功法: string | null;
-      已学技能: string[];
-    };
-    状态: StatusEffect[];
-    境界: number;
-    声望: number;
-    最后出现位置: {
-      描述: string;
-    };
-    当前气血: number; 最大气血: number;
-    当前灵气: number; 最大灵气: number;
-    当前神识: number; 最大神识: number;
-    当前寿命: number; 最大寿命: number;
-  };
-  NPC行为: NpcBehavior;
+  
+  // 基础交互信息
   人物关系: string;
   人物好感度: number;
-  人物记忆: NpcMemoryItem[];
-  背包: Inventory;
+  人物记忆: Array<{
+    时间: string;
+    事件: string;
+    重要度?: '普通' | '重要' | '关键';
+  }>;
+  
+  // 位置信息（保留原有字段）
+  最后出现位置: {
+    描述: string;
+  };
+  
+  // NPC的背包（简化但保留）
+  背包: {
+    灵石: {
+      下品: number;
+      中品: number;
+      上品: number;
+      极品: number;
+    };
+    物品: Item[];
+  };
+  
+  // 可选的角色特征
+  性格特征?: string[];
+  知名技能?: string[];
+  势力归属?: string;
+  
+  // 辅助字段
   实时关注?: boolean;
 }
 
@@ -656,7 +699,7 @@ export interface GameMessage {
     装备栏: Equipment;
     三千大道: ThousandDaoSystem;
     背包: Inventory;
-    人物关系: Record<string, NpcProfile>;
+    人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
     宗门系统: SectSystemData;
     记忆: Memory;
     游戏时间: GameTime;
@@ -717,7 +760,6 @@ export interface CharacterBaseInfo extends AIMetadata {
   创建时间?: string; // 添加创建时间字段
   描述?: string; // 添加描述字段
   // 保存完整的详细信息对象
-  世界详情?: any;
   天资详情?: any;
   出身详情?: any;
   灵根详情?: {

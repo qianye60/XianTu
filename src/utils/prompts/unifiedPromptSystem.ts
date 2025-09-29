@@ -63,7 +63,7 @@ export const DATA_STRUCTURE_TEMPLATES = `
     "境界": 数字(1代表练气，2代表筑基，3代表金丹，4代表元婴，5代表化神),
     "声望": 数字,
     "最后出现位置": {
-      "描述": "层级地理位置，格式为'大陆·州郡·城镇'或'大陆·宗门'，例如'青云大陆·青云宗'、'天星大陆·天青州·安德镇'"
+      "描述": "层级地理位置，格式为'大陆名·区域名·具体地点'或'大陆名·宗门名'，请根据世界设定生成合适的地名"
     },
     "当前气血": 数字, "最大气血": 数字,
     "当前灵气": 数字, "最大灵气": 数字,
@@ -75,7 +75,7 @@ export const DATA_STRUCTURE_TEMPLATES = `
     "日常路线": [
       {
         "时间": "时间段字符串",
-        "位置": "层级地理位置，格式如'大陆·州郡·城镇'",
+        "位置": "层级地理位置，格式为'大陆名·区域名·具体地点'，请根据世界设定生成",
         "行为": "行为描述字符串"
       }
     ]
@@ -159,13 +159,16 @@ export const DATA_STRUCTURE_TEMPLATES = `
 }
 \`\`\`
 
-**修为进度独立存储在玩家状态中**：
+**修为进度已经整合到境界信息中**：
 
 \`\`\`json
 {
-  "修为": {
-    "当前": 数字(当前修为值),
-    "最大": 数字(该境界的修为上限)
+  "境界": {
+    "等级": 数字(1=练气，2=筑基，3=金丹，4=元婴，5=化神，6=炼虚，7=合体，8=渡劫),
+    "名称": "境界名称字符串(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫)",
+    "当前进度": 数字(当前境界内的修炼进度),
+    "下一级所需": 数字(突破到下一境界所需的进度),
+    "突破描述": "突破条件和要求的详细描述字符串"
   }
 }
 \`\`\`
@@ -177,7 +180,7 @@ export const DATA_STRUCTURE_TEMPLATES = `
 \`\`\`json
 {
   "位置": {
-    "描述": "层级地理位置，格式为'大陆·州郡·城镇'或'大陆·宗门'，例如'青云大陆·青云宗'、'天星大陆·天青州·安德镇'"
+    "描述": "层级地理位置，格式为'大陆名·区域名·具体地点'或'大陆名·宗门名'，请根据世界设定生成合适的地名"
   }
 }
 \`\`\`
@@ -188,10 +191,10 @@ export const DATA_STRUCTURE_TEMPLATES = `
 - ❌ 不包含"·"分隔符的平铺位置名
 
 **正确格式示例**：
-- ✅ "青云大陆·青云宗"
-- ✅ "天星大陆·天青州·安德镇"
-- ✅ "苍穹大陆·无量山脉"
-- ✅ "九州大陆·中州·帝都"
+- ✅ "某大陆·某宗门"
+- ✅ "某大陆·某州·某镇"
+- ✅ "某大陆·某山脉"
+- ✅ "某大陆·某州·某都城"
 
 ## 6. 游戏时间模板
 
@@ -236,7 +239,7 @@ export const DATA_STRUCTURE_TEMPLATES = `
 1. 所有数字字段都是数字类型
 2. **玩家**境界信息包含完整的5个字段(等级、名称、当前进度、下一级所需、突破描述)
 3. **NPC**境界信息是简单数字(1=练气，2=筑基等)
-4. 修为进度存储在独立的修为对象中(当前/最大)
+4. 修为进度已整合到境界对象中(当前进度/下一级所需)
 5. 所有必要字段都存在
 6. 灵根对象包含名称、品级、描述三个字段
 7. 背包包含灵石对象和物品数组
@@ -285,39 +288,69 @@ export const UNIFIED_PROMPT_BUILDER = {
     const specificRules = {
       initialization: [
         CHARACTER_INITIALIZATION_RULES,
-        '\n# 【输出格式（初始化专用，必须严格遵守）}',
+        '\n# ⚠️【关键提醒：严格输出格式要求】⚠️',
+        '❌ 严禁使用任何非标准字段名，如：command, set_value, add_item, add_npc 等',
+        '✅ 只能使用标准字段：action, scope, key, value',
+        '❌ 严禁使用自定义action名称',
+        '✅ 只能使用：set, add, push, pull, delete',
+        '',
+        '\n# 【输出格式（初始化专用，必须严格遵守）】',
+        '⚠️ 重要：必须使用标准的 action/scope/key/value 格式，不得使用 command 等别名',
         '- 仅输出一个 JSON 对象，不要输出多余文本；建议使用 ```json 代码块包裹。',
         '- 顶层字段：',
         '  - text: string（800-1500 字开场叙事）',
         '  - mid_term_memory: string（可为空字符串）',
         '  - tavern_commands: TavernCommand[]（严格的命令数组）',
-        '\n# 【tavern_commands 规范（必须）】',
-        '- 每个命令对象格式：',
-        '  {"action":"set|add|push|pull|delete","scope":"chat","key":"character.saveData.路径","value":值}',
-        '- 只允许的 action：set / add / push / pull / delete；严禁使用 update_time / update_character 等自定义命令名。',
-        '- scope 固定为 chat；key 必须以 character.saveData. 开头。',
-        '- 时间推进：优先对 分钟/小时 使用 add（必要时自行进位）。',
-        '\n# 【标准示例】',
+        '\n# 【tavern_commands 规范（必须严格遵守）】',
+        '⚠️ 格式要求：每个命令对象必须包含且仅包含以下4个字段：',
+        '  {"action":"标准动作","scope":"chat","key":"character.saveData.路径","value":值}',
+        '',
+        '✅ 允许的 action 值（只能使用这5个）：',
+        '  - "set"   : 设置值',
+        '  - "add"   : 数值相加',
+        '  - "push"  : 向数组添加元素',
+        '  - "pull"  : 从数组移除元素',
+        '  - "delete": 删除字段',
+        '',
+        '❌ 禁止使用的字段名：',
+        '  - command（必须用action）',
+        '  - operation（必须用action）',
+        '  - type（必须用action）',
+        '  - path（必须用key）',
+        '',
+        '❌ 禁止使用的action值：',
+        '  - set_value, set_player_data（必须用set）',
+        '  - add_item, add_npc（必须用push或set）',
+        '  - update_time, update_character（必须用set或add）',
+        '',
+        '- scope 固定为 "chat"',
+        '- key 必须以 "character.saveData." 开头',
+        '- 时间推进：优先对 分钟/小时 使用 add（必要时自行进位）',
+        '\n# 【标准示例（严格按此格式）】',
         '```json',
         '{',
         '  "text": "......",',
         '  "mid_term_memory": "",',
         '  "tavern_commands": [',
-        '    {"action":"set","scope":"chat","key":"character.saveData.玩家角色状态.位置.描述","value":"青云大陆·青云州·安德镇"},',
+        '    {"action":"set","scope":"chat","key":"character.saveData.玩家角色状态.位置.描述","value":"[根据世界设定生成：大陆名·区域名·地点名]"},',
         '    {"action":"add","scope":"chat","key":"character.saveData.游戏时间.分钟","value":10},',
-        '    {"action":"push","scope":"chat","key":"character.saveData.玩家角色状态.状态效果","value":{"状态名称":"病中虚弱","类型":"debuff","时间":"3天","状态描述":"气血与行动力下降"}}',
+        '    {"action":"push","scope":"chat","key":"character.saveData.玩家角色状态.状态效果","value":{"状态名称":"病中虚弱","类型":"debuff","时间":"3天","状态描述":"气血与行动力下降"}},',
+        '    {"action":"set","scope":"chat","key":"character.saveData.人物关系.石头","value":{"角色基础信息":{"名字":"石头"}}}',
         '  ]',
         '}',
         '```',
-        '\n# 【自检清单（提交前逐项确认）】',
-        '1) 顶层仅有 text/mid_term_memory/tavern_commands 三个字段；',
-        '2) tavern_commands 中 action 均为 set/add/push/pull/delete；',
-        '3) 所有 key 以 character.saveData. 开头；',
-        '4) 位置只写 位置.描述（不写坐标）；',
-        '5) 未写入任何“未知/随机/占位符”等字样；',
-        '6) 开场物品/人物/NPC/大道写入符合各自结构要求；',
-        '7) 先天六司未被修改；',
-        '8) 内容和路径与玩家选择一致、语义合理、无自相矛盾。'
+        '\n# 【格式自检清单（提交前必须逐项确认）】',
+        '1) ✅ 顶层仅有 text/mid_term_memory/tavern_commands 三个字段',
+        '2) ✅ tavern_commands 中每个对象都包含 action/scope/key/value 四个字段',
+        '3) ✅ action 值只使用 set/add/push/pull/delete 中的一个',
+        '4) ✅ scope 值固定为 "chat"',
+        '5) ✅ key 以 "character.saveData." 开头',
+        '6) ✅ 没有使用 command, set_value, add_item 等禁用字段名',
+        '7) ✅ 位置只写 位置.描述（不写坐标）',
+        '8) ✅ 未写入任何"未知/随机/占位符"等字样',
+        '9) ✅ 开场物品/人物/NPC/大道写入符合各自结构要求',
+        '10) ✅ 先天六司未被修改',
+        '11) ✅ 内容和路径与玩家选择一致、语义合理、无自相矛盾'
       ].join('\n'),
       gameplay: '# 游戏进行中的特殊规则\n\n1. 每次回应必须推进故事情节\n2. 必须更新游戏时间\n3. 玩家行动必须有明确结果',
       npc_update: '# NPC更新规则\n\n1. 更新相关NPC状态\n2. 记录重要互动\n3. 调整好感度'

@@ -550,8 +550,12 @@ export interface WorldInfo {
   continents?: WorldContinent[]; // 兼容旧数据
   势力信息: WorldFaction[];
   地点信息: WorldLocation[];
-  生成信息: WorldGenerationInfo;
   地图配置?: WorldMapConfig; // 新增地图配置
+  // 从 WorldGenerationInfo 扁平化
+  生成时间: string;
+  世界纪元: string;
+  特殊设定: string[];
+  版本: string;
 }
 
 // --- 世界地图 ---
@@ -708,7 +712,6 @@ export interface CharacterBaseInfo {
   创建时间?: string; // 添加创建时间字段
   描述?: string; // 添加描述字段
   // 保存完整的详细信息对象
-  世界详情?: any;
   天资详情?: any;
   出身详情?: any;
   灵根详情?: {

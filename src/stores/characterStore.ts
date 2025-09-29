@@ -285,17 +285,26 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * 删除一个角色及其所有存档
    * @param charId 要删除的角色ID
    */
-  const deleteCharacter = (charId: string) => {
+  const deleteCharacter = async (charId: string) => {
     if (!rootState.value.角色列表[charId]) return;
-    
-    // 如果删除的是当前激活的角色，则清空激活状态
+
+    const characterName = rootState.value.角色列表[charId]?.角色基础信息.名字 || charId;
+
+    // 如果删除的是当前激活的角色，则需要清理Tavern环境
     if (rootState.value.当前激活存档?.角色ID === charId) {
+      try {
+        await clearAllCharacterData();
+        toast.info('已同步清理酒馆环境变量。');
+      } catch (error) {
+        debug.error('角色商店', '删除角色时清理酒馆数据失败', error);
+        toast.error('清理酒馆环境变量失败，建议刷新页面。');
+      }
       rootState.value.当前激活存档 = null;
     }
-    
+
     delete rootState.value.角色列表[charId];
     commitToStorage();
-    toast.success(`角色已彻底删除。`);
+    toast.success(`角色【${characterName}】已彻底删除。`);
   };
 
   /**
@@ -497,6 +506,60 @@ export const useCharacterStore = defineStore('characterV3', () => {
           }
         }
         
+        // 修复三千大道数据：确保经验值不是undefined
+        if (cleanedSaveData.三千大道) {
+          const daoSystem = cleanedSaveData.三千大道;
+          
+          // 修复大道进度数据
+          if (daoSystem.大道进度) {
+            Object.keys(daoSystem.大道进度).forEach(daoName => {
+              const progress = daoSystem.大道进度[daoName];
+              if (progress) {
+                // 确保所有数值字段都是数字
+                if (progress.当前经验 === undefined || progress.当前经验 === null) {
+                  progress.当前经验 = 0;
+                  debug.log('角色商店', `修复${daoName}的当前经验为0`);
+                }
+                if (progress.总经验 === undefined || progress.总经验 === null) {
+                  progress.总经验 = 0;
+                  debug.log('角色商店', `修复${daoName}的总经验为0`);
+                }
+                if (progress.当前阶段 === undefined || progress.当前阶段 === null) {
+                  progress.当前阶段 = 0;
+                  debug.log('角色商店', `修复${daoName}的当前阶段为0`);
+                }
+                if (progress.是否解锁 === undefined) {
+                  progress.是否解锁 = true;
+                  debug.log('角色商店', `修复${daoName}的解锁状态为true`);
+                }
+                if (!progress.道名) {
+                  progress.道名 = daoName;
+                }
+              }
+            });
+          }
+          
+          // 确保已解锁大道数组存在
+          if (!daoSystem.已解锁大道 || !Array.isArray(daoSystem.已解锁大道)) {
+            daoSystem.已解锁大道 = Object.keys(daoSystem.大道进度 || {});
+            debug.log('角色商店', `重建已解锁大道列表: ${daoSystem.已解锁大道.join(', ')}`);
+          }
+          
+          // 确保大道路径定义存在
+          if (!daoSystem.大道路径定义) {
+            daoSystem.大道路径定义 = {};
+            debug.log('角色商店', '初始化空的大道路径定义');
+          }
+        } else {
+          // 如果完全没有三千大道数据，初始化一个空结构
+          cleanedSaveData.三千大道 = {
+            已解锁大道: [],
+            大道进度: {},
+            大道路径定义: {}
+          };
+          debug.log('角色商店', '初始化空的三千大道系统');
+        }
+        
         // 确保世界信息数据存在
         if (!cleanedSaveData.世界信息) {
           debug.warn('角色商店', '缺少世界信息数据，可能需要重新生成地图');
@@ -615,7 +678,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param charId 角色ID
    * @param slotKey 存档槽位关键字
    */
-  const deleteSave = (charId: string, slotKey: string) => {
+  const deleteSave = async (charId: string, slotKey: string) => {
     const profile = rootState.value.角色列表[charId];
     if (!profile || profile.模式 !== '单机' || !profile.存档列表) {
       toast.error('无法删除存档：角色不存在或非单机模式');
@@ -623,21 +686,29 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
 
     // 检查是否存在该存档
-    if (!profile.存档列表[slotKey]) {
-      toast.error('存档不存在');
+    const saveName = profile.存档列表?.[slotKey]?.存档名 || slotKey;
+    if (!profile.存档列表?.[slotKey]) {
+      toast.error(`存档【${saveName}】不存在`);
       return;
     }
 
     // 检查是否为当前激活的存档
     const active = rootState.value.当前激活存档;
     if (active?.角色ID === charId && active?.存档槽位 === slotKey) {
+      try {
+        await clearAllCharacterData();
+        toast.info('当前存档已激活，同步清理酒馆环境变量。');
+      } catch (error) {
+        debug.error('角色商店', '删除激活存档时清理酒馆数据失败', error);
+        toast.error('清理酒馆环境变量失败，建议刷新页面。');
+      }
       rootState.value.当前激活存档 = null;
     }
 
     // 删除存档
     delete profile.存档列表[slotKey];
     commitToStorage();
-    toast.success('存档已删除');
+    toast.success(`存档【${saveName}】已删除`);
   };
 
   /**
@@ -861,6 +932,31 @@ export const useCharacterStore = defineStore('characterV3', () => {
     
     commitToStorage();
     toast.success('所有存档已清空');
+  };
+
+  /**
+   * [新增] 退出当前游戏会话
+   * 清理激活状态和酒馆变量，但不删除任何数据
+   */
+  const exitGameSession = async () => {
+    if (!rootState.value.当前激活存档) {
+      // toast.info('当前没有激活的游戏会话。'); // 安静退出，无需提示
+      return;
+    }
+    
+    const uiStore = useUIStore();
+    try {
+      uiStore.startLoading('正在退出游戏...');
+      await clearAllCharacterData();
+      rootState.value.当前激活存档 = null;
+      await commitToStorage();
+      toast.success('已成功退出游戏，酒馆环境已重置。');
+    } catch (error) {
+      debug.error('角色商店', '退出游戏会话失败', error);
+      toast.error('退出游戏失败，建议刷新页面以确保环境纯净。');
+    } finally {
+      uiStore.stopLoading();
+    }
   };
 
   /**
@@ -1156,6 +1252,7 @@ return {
   loadSaves,
   importSave,
   clearAllSaves,
+  exitGameSession, // 新增：退出游戏会话
   commitToStorage, // 导出给外部使用
   setActiveCharacterInTavern,
   syncFromTavern,

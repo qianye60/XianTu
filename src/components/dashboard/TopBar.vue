@@ -29,6 +29,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { Maximize, Minimize } from 'lucide-vue-next'
 import { useCharacterStore } from '@/stores/characterStore'
+import { formatRealmWithStage } from '@/utils/realmUtils'
 
 const characterStore = useCharacterStore()
 const isFullscreen = ref(false)
@@ -39,7 +40,7 @@ const characterName = computed(() => {
 
 const characterRealm = computed(() => {
   const save = characterStore.activeSaveSlot
-  return save?.存档数据?.玩家角色状态?.境界?.名称 || '凡人'
+  return formatRealmWithStage(save?.存档数据?.玩家角色状态?.境界)
 })
 
 const currentLocation = computed(() => {

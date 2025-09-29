@@ -78,8 +78,8 @@
         </h3>
         <div class="realm-display">
           <div class="realm-info">
-            <span class="realm-name">{{ playerStatus?.realm.name }}</span>
-            <span v-if="playerStatus?.realm.name !== '凡人' && playerStatus?.realm.level" class="realm-level">{{ playerStatus?.realm.level }}</span>
+            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.realm.name, playerStatus?.realm.level) }}</span>
+            <span v-if="playerStatus?.realm.突破描述" class="realm-breakthrough">{{ playerStatus?.realm.突破描述 }}</span>
           </div>
           <!-- 凡人境界显示等待引气入体 -->
           <div v-if="playerStatus?.realm.name === '凡人'" class="realm-mortal">
@@ -212,6 +212,7 @@ import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
 import type { StatusEffect } from '@/types/game.d.ts';
+import { formatRealmWithStage } from '@/utils/realmUtils';
 
 
 type TextSection = {
@@ -318,7 +319,7 @@ const getTalentData = (talent: string) => {
       return talentDetail;
     }
   }
-  
+
   // 如果没有找到，从三千大道系统中查找（向后兼容）
   const daoProgress = daoData.value?.大道进度[talent];
   return daoProgress;
@@ -383,7 +384,7 @@ const showTalentDetail = (talent: string) => {
 
   // 从LOCAL_TALENTS中查找天赋信息
   const localTalent = LOCAL_TALENTS.find(t => t.name === talent);
-  
+
   const talentInfo = localTalent ? {
     description: localTalent.description,
     effects: localTalent.effects.map((effect: { 类型: string; 目标: string; 数值: number; 名称: string; 技能: string; }) => {
@@ -434,8 +435,8 @@ const showTalentDetail = (talent: string) => {
         type: 'table',
         data: [
           { label: '当前等级', value: `Lv.${level}` },
-          { 
-            label: '经验进度', 
+          {
+            label: '经验进度',
             value: maxExp > 0 ? `${currentExp}/${maxExp} (${progress}%)` : '暂无进度数据'
           },
           { label: '最高等级', value: `Lv.${talentInfo.maxLevel}` }
@@ -536,6 +537,13 @@ const showStatusDetail = (effect: StatusEffect) => {
     content
   };
   showModal.value = true;
+};
+
+// 显示境界：统一返回“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
+const formatRealmDisplay = (name?: string, level?: number): string => {
+  const progress = playerStatus.value?.realm.progress;
+  const maxProgress = playerStatus.value?.realm.maxProgress;
+  return formatRealmWithStage({ name, level, progress, maxProgress });
 };
 </script>
 
@@ -1325,14 +1333,23 @@ const showStatusDetail = (effect: StatusEffect) => {
 .realm-info {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .realm-name {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-accent);
+}
+
+.realm-breakthrough {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  opacity: 0.8;
 }
 
 .realm-level {
@@ -1708,7 +1725,6 @@ const showStatusDetail = (effect: StatusEffect) => {
   }
 }
 </style>
-
 
 
 

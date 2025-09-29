@@ -48,11 +48,30 @@
       </transition>
     </router-view>
 
+    <!-- Author Info Modal -->
+    <div v-if="showAuthorModal" class="author-modal-overlay" @click.self="showAuthorModal = false">
+      <div class="author-modal">
+        <div class="author-modal-header">
+          <h3>作者信息</h3>
+          <button class="close-btn" @click="showAuthorModal = false">&times;</button>
+        </div>
+        <div class="author-modal-body">
+          <p><strong>作者:</strong> 千夜</p>
+          <p>
+            <strong>GitHub:</strong>
+            <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer">
+              https://github.com/qianye60
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
 import { HelpCircle } from 'lucide-vue-next'; // 导入图标
@@ -74,6 +93,8 @@ const isLoggedIn = ref(false);
 const isDarkMode = ref(localStorage.getItem('theme') !== 'light');
 const globalThemeCheckbox = ref<HTMLInputElement>();
 const globalFullscreenCheckbox = ref<HTMLInputElement>();
+const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
+const showAuthorModal = ref(false);
 
 // --- 路由与视图管理 ---
 const router = useRouter();
@@ -148,82 +169,137 @@ const handleGoToLogin = () => {
 
 const handleCreationComplete = async (rawPayload: any) => {
   console.log('接收到创角指令...', rawPayload);
+  
+  // 防止重复创建角色
+  if (uiStore.isLoading) {
+    console.warn('[App.vue] 角色创建已在进行中，忽略重复请求');
+    return;
+  }
+  
   uiStore.startLoading('开始铸造法身...');
-  try {
-    // 从酒馆获取当前活跃的Persona名字
-    let personaName = '无名道友';
+  
+  const attemptCreation = async (): Promise<boolean> => {
     try {
-      const helper = getTavernHelper();
-      if (helper) {
-        const vars = await helper.getVariables({ type: 'global' });
-        // 尝试获取当前Persona的名字
-        personaName = vars['persona.name'] || vars['name'] || rawPayload.characterName || '无名道友';
-        console.log('[创角完成] 从酒馆Personas获取名字:', personaName);
+      // 从酒馆获取当前活跃的Persona名字
+      let personaName = '无名道友';
+      try {
+        const helper = getTavernHelper();
+        if (helper) {
+          const vars = await helper.getVariables({ type: 'global' });
+          // 尝试获取当前Persona的名字
+          personaName = vars['persona.name'] || vars['name'] || rawPayload.characterName || '无名道友';
+          console.log('[创角完成] 从酒馆Personas获取名字:', personaName);
+        }
+      } catch (error) {
+        console.warn('[创角完成] 无法从酒馆获取Persona名字，使用用户输入:', error);
+        personaName = rawPayload.characterName || '无名道友';
       }
+
+      const convertedAttributes = rawPayload.baseAttributes ? {
+        根骨: rawPayload.baseAttributes.root_bone || 5,
+        灵性: rawPayload.baseAttributes.spirituality || 5,
+        悟性: rawPayload.baseAttributes.comprehension || 5,
+        气运: rawPayload.baseAttributes.fortune || 5,
+        魅力: rawPayload.baseAttributes.charm || 5,
+        心性: rawPayload.baseAttributes.temperament || 5
+      } : {
+        根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5
+      };
+
+      const baseInfo: CharacterBaseInfo = {
+        名字: personaName, // 使用从酒馆获取的Persona名字
+        性别: rawPayload.gender || '男',
+        世界: rawPayload.world?.name || '未知世界', // 保持用户选择的世界
+        天资: rawPayload.talentTier?.name || '凡品',
+        出生: rawPayload.origin?.name || '随机出身',
+        灵根: rawPayload.spiritRoot?.name || '随机灵根',
+        天赋: rawPayload.talents?.map((t: any) => t.name) || [],
+        先天六司: convertedAttributes,
+        // 保存完整的详细信息对象，确保AI能获得完整描述
+        世界详情: rawPayload.world,
+        天资详情: rawPayload.talentTier,
+        出身详情: rawPayload.origin,
+        灵根详情: rawPayload.spiritRoot,
+        天赋详情: rawPayload.talents,
+      };
+
+      const charId = `char_${Date.now()}`;
+      const creationPayload = {
+        charId: charId,
+        baseInfo: baseInfo,
+        world: rawPayload.world,
+        mode: rawPayload.mode as '单机' | '联机',
+        age: rawPayload.age,
+      };
+
+      const createdBaseInfo = await characterStore.createNewCharacter(creationPayload);
+      if (!createdBaseInfo) {
+        throw new Error("角色创建失败，请检查 characterStore 的日志。");
+      }
+
+      const profile = characterStore.rootState.角色列表[charId];
+      if (!profile) {
+        throw new Error('严重错误：角色创建后无法在角色列表中找到！');
+      }
+
+      const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
+      characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
+      characterStore.commitToStorage();
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
+      
+      // 跳转到游戏主界面路由
+      await router.push('/game');
+      
+      // 路由跳转后，尝试恢复全屏状态
+      await new Promise(resolve => setTimeout(resolve, 100)); // 等待路由完全加载
+      restoreFullscreenIfNeeded();
+      
+      return true; // 创建成功
     } catch (error) {
-      console.warn('[创角完成] 无法从酒馆获取Persona名字，使用用户输入:', error);
-      personaName = rawPayload.characterName || '无名道友';
+      console.error("角色创建过程出错：", error);
+      const errorMessage = error instanceof Error ? error.message : "法身铸造过程中出现意外";
+      
+      // 检查是否是用户主动取消的错误
+      if (errorMessage.includes('用户选择终止角色创建') || errorMessage.includes('用户选择不继续重试')) {
+        console.log('[角色创建] 用户主动取消创建流程');
+        toast.info('角色创建已取消');
+        return false; // 用户取消，返回到角色创建页面
+      }
+      
+      // 其他错误，询问用户是否重试
+      return new Promise((resolve) => {
+        uiStore.showRetryDialog({
+          title: '角色创建失败',
+          message: `角色创建过程中遇到问题：\n\n${errorMessage}\n\n是否重新尝试创建角色？\n\n选择"取消"将返回角色创建页面。`,
+          confirmText: '重新创建',
+          cancelText: '返回创建页面',
+          onConfirm: async () => {
+            console.log('[角色创建] 用户选择重新创建');
+            resolve(await attemptCreation()); // 递归重试
+          },
+          onCancel: () => {
+            console.log('[角色创建] 用户选择返回创建页面');
+            toast.info('已返回角色创建页面，您可以调整设置后重新开始');
+            resolve(false); // 返回到角色创建页面
+          }
+        });
+      });
     }
+  };
 
-    const convertedAttributes = rawPayload.baseAttributes ? {
-      根骨: rawPayload.baseAttributes.root_bone || 5,
-      灵性: rawPayload.baseAttributes.spirituality || 5,
-      悟性: rawPayload.baseAttributes.comprehension || 5,
-      气运: rawPayload.baseAttributes.fortune || 5,
-      魅力: rawPayload.baseAttributes.charm || 5,
-      心性: rawPayload.baseAttributes.temperament || 5
-    } : {
-      根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5
-    };
-
-    const baseInfo: CharacterBaseInfo = {
-      名字: personaName, // 使用从酒馆获取的Persona名字
-      性别: rawPayload.gender || '男',
-      世界: rawPayload.world?.name || '未知世界', // 保持用户选择的世界
-      天资: rawPayload.talentTier?.name || '凡品',
-      出生: rawPayload.origin?.name || '随机出身',
-      灵根: rawPayload.spiritRoot?.name || '随机灵根',
-      天赋: rawPayload.talents?.map((t: any) => t.name) || [],
-      先天六司: convertedAttributes,
-      // 保存完整的详细信息对象，确保AI能获得完整描述
-      世界详情: rawPayload.world,
-      天资详情: rawPayload.talentTier,
-      出身详情: rawPayload.origin,
-      灵根详情: rawPayload.spiritRoot,
-      天赋详情: rawPayload.talents,
-    };
-
-    const charId = `char_${Date.now()}`;
-    const creationPayload = {
-      charId: charId,
-      baseInfo: baseInfo,
-      world: rawPayload.world,
-      mode: rawPayload.mode as '单机' | '联机',
-      age: rawPayload.age,
-    };
-
-    const createdBaseInfo = await characterStore.createNewCharacter(creationPayload);
-    if (!createdBaseInfo) {
-      throw new Error("角色创建失败，请检查 characterStore 的日志。");
+  try {
+    const success = await attemptCreation();
+    if (!success) {
+      // 用户取消或选择返回创建页面，不做任何操作
+      // 保持在当前的角色创建页面
+      console.log('[角色创建] 保持在角色创建页面');
     }
-
-    const profile = characterStore.rootState.角色列表[charId];
-    if (!profile) {
-      throw new Error('严重错误：角色创建后无法在角色列表中找到！');
-    }
-
-    const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
-    characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
-    characterStore.commitToStorage();
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-    toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
-    // 跳转到游戏主界面路由
-    router.push('/game');
   } catch (error) {
-    console.error("角色创建过程出错：", error);
-    const errorMessage = error instanceof Error ? error.message : "法身铸造过程中出现意外，请重试";
-    toast.error(errorMessage);
+    // 最终兜底错误处理
+    console.error("角色创建流程出现严重错误：", error);
+    toast.error("角色创建流程出现严重错误，返回模式选择页面");
     switchView('ModeSelection');
   } finally {
     uiStore.stopLoading();
@@ -247,20 +323,43 @@ const toggleTheme = () => {
 
 const toggleFullscreen = () => {
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(err => {
+    document.documentElement.requestFullscreen().then(() => {
+      isFullscreenMode.value = true;
+      localStorage.setItem('fullscreen', 'true');
+      console.log('[全屏] 已进入全屏模式并保存状态');
+    }).catch(err => {
       console.error('无法进入全屏模式:', err);
+      toast.error('无法进入全屏模式');
     });
   } else if (document.exitFullscreen) {
-    document.exitFullscreen().catch(err => {
+    document.exitFullscreen().then(() => {
+      isFullscreenMode.value = false;
+      localStorage.setItem('fullscreen', 'false');
+      console.log('[全屏] 已退出全屏模式并保存状态');
+    }).catch(err => {
       console.error('无法退出全屏模式:', err);
+      toast.error('无法退出全屏模式');
+    });
+  }
+};
+
+// 全屏状态恢复函数
+const restoreFullscreenIfNeeded = () => {
+  if (isFullscreenMode.value && !document.fullscreenElement) {
+    console.log('[全屏] 检测到需要恢复全屏状态');
+    document.documentElement.requestFullscreen().then(() => {
+      console.log('[全屏] 全屏状态已恢复');
+    }).catch(err => {
+      console.warn('[全屏] 无法恢复全屏状态:', err);
+      // 如果无法恢复全屏，更新状态
+      isFullscreenMode.value = false;
+      localStorage.setItem('fullscreen', 'false');
     });
   }
 };
 
 const showHelp = () => {
-  // TODO: Implement help panel logic
-  console.log('Help button clicked. Panel/modal to be implemented.');
-  toast.info('教程功能正在开发中，敬请期待！');
+  showAuthorModal.value = true;
 };
 
 // --- 生命周期钩子 ---
@@ -300,8 +399,12 @@ onMounted(() => {
 
   // 3. 全屏状态同步
   const syncFullscreenState = () => {
+    const isCurrentlyFullscreen = !!document.fullscreenElement;
+    isFullscreenMode.value = isCurrentlyFullscreen;
+    localStorage.setItem('fullscreen', isCurrentlyFullscreen.toString());
+    
     if (globalFullscreenCheckbox.value) {
-      globalFullscreenCheckbox.value.checked = !!document.fullscreenElement;
+      globalFullscreenCheckbox.value.checked = isCurrentlyFullscreen;
     }
   };
 
@@ -311,6 +414,11 @@ onMounted(() => {
   document.addEventListener('MSFullscreenChange', syncFullscreenState);
 
   syncFullscreenState(); // 初始检查
+  
+  // 4. 页面加载时恢复全屏状态（延迟执行，确保页面完全加载）
+  setTimeout(() => {
+    restoreFullscreenIfNeeded();
+  }, 500);
 
   // 统一的清理逻辑
   onUnmounted(() => {
@@ -329,4 +437,15 @@ onMounted(() => {
     document.removeEventListener('MSFullscreenChange', syncFullscreenState);
   });
 });
+
+// 5. 监听路由变化，在路由切换后恢复全屏状态
+watch(route, (newRoute, oldRoute) => {
+  if (newRoute.path !== oldRoute?.path) {
+    console.log(`[全屏] 路由从 ${oldRoute?.path} 切换到 ${newRoute.path}`);
+    // 延迟恢复全屏，确保新页面完全加载
+    setTimeout(() => {
+      restoreFullscreenIfNeeded();
+    }, 200);
+  }
+}, { immediate: false });
 </script>
