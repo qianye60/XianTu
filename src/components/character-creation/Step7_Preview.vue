@@ -411,4 +411,68 @@ const decrementAge = () => {
 [data-theme="dark"] .cloud-info-item {
   background: #374151;
 }
+
+@media (max-width: 480px) {
+  .preview-container {
+    padding: 1rem;
+  }
+
+  .title {
+    font-size: 1.6rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .preview-item {
+    padding: 1rem;
+    gap: 0.8rem;
+  }
+
+  .preview-item h3 {
+    font-size: 1rem;
+  }
+
+  .preview-item h4 {
+    font-size: 1rem;
+  }
+
+  .item-description {
+    font-size: 0.85rem !important;
+  }
+
+  .name-item label {
+    font-size: 1rem;
+  }
+
+  .name-item input {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .gender-label {
+    font-size: 0.9rem;
+    padding: 0.4rem;
+  }
+
+  .age-control {
+    gap: 0.8rem;
+  }
+
+  .age-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+
+  .age-display {
+    font-size: 1rem;
+  }
+
+  .preview-item li {
+    padding: 0.6rem;
+  }
+}
 </style>

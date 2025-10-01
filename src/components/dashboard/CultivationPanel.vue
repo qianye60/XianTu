@@ -31,13 +31,13 @@
             <h4 class="detail-title">修炼功法</h4>
             <div class="cultivation-status">{{ currentTechnique ? '修炼中' : '未修炼' }}</div>
           </div>
-          
+
           <div v-if="!currentTechnique" class="empty-state">
             <div class="empty-icon">📕</div>
             <div class="empty-text">尚未修炼功法</div>
             <div class="empty-hint">前往背包装备功法开始修炼</div>
           </div>
-          
+
           <div v-else class="cultivation-info">
             <div class="technique-item">
               <div class="technique-icon" :class="getTechniqueQualityClass(currentTechnique)">📖</div>
@@ -64,7 +64,7 @@
                   </button>
                 </div>
               </div>
-              
+
               <!-- 已学技能列表 -->
               <div v-if="learnedSkills.length > 0" class="skills-section">
                 <div class="skills-header">
@@ -72,8 +72,8 @@
                 <div class="skills-count">({{ learnedSkills.length }}个)</div>
               </div>
               <div class="skills-list">
-                <div 
-                  v-for="skill in learnedSkills" 
+                <div
+                  v-for="skill in learnedSkills"
                   :key="skill.name"
                   class="skill-item"
                   @click="showSkillDetails(skill)"
@@ -90,8 +90,8 @@
                     <div class="skill-proficiency">
                       <span class="proficiency-label">熟练度：</span>
                       <div class="proficiency-bar">
-                        <div 
-                          class="proficiency-fill" 
+                        <div
+                          class="proficiency-fill"
                           :style="{ width: Math.min(100, Math.max(0, skill.proficiency)) + '%' }"
                         ></div>
                       </div>
@@ -114,16 +114,16 @@
             <h4 class="detail-title">三千大道</h4>
             <div class="dao-count">{{ unlockedDaoCount }}条已解锁</div>
           </div>
-          
+
           <div v-if="unlockedDaoList.length === 0" class="empty-state">
             <div class="empty-icon">📿</div>
             <div class="empty-text"></div>
             <div class="empty-hint"></div>
           </div>
-          
+
           <div v-else class="dao-list">
-            <div 
-              v-for="daoName in unlockedDaoList.slice(0, 5)" 
+            <div
+              v-for="daoName in unlockedDaoList.slice(0, 5)"
               :key="daoName"
               class="dao-item"
             >
@@ -133,8 +133,8 @@
                 <div class="dao-stage">{{ getCurrentStageName(daoName) }}</div>
                 <div class="dao-progress">
                   <div class="progress-bar">
-                    <div 
-                      class="progress-fill" 
+                    <div
+                      class="progress-fill"
                       :style="{ width: Math.min(100, Math.max(0, getProgressPercent(daoName))) + '%' }"
                     ></div>
                   </div>
@@ -155,10 +155,10 @@
             <h4 class="detail-title">装备法宝</h4>
             <div class="equipment-count">{{ equippedCount }}/6</div>
           </div>
-          
+
           <div class="equipment-slots">
-            <div 
-              v-for="(equipName, slotName) in equipmentSlots" 
+            <div
+              v-for="(equipName, slotName) in equipmentSlots"
               :key="slotName"
               class="equipment-slot"
               :class="{ equipped: equipName }"
@@ -179,16 +179,16 @@
             <h4 class="detail-title">先天天赋</h4>
             <div class="talent-count">{{ talentsCount }}项天赋</div>
           </div>
-          
+
           <div v-if="characterTalents.length === 0" class="empty-state">
             <div class="empty-icon">⭐</div>
             <div class="empty-text"></div>
             <div class="empty-hint"></div>
           </div>
-          
+
           <div v-else class="talents-list">
-            <div 
-              v-for="talent in characterTalents" 
+            <div
+              v-for="talent in characterTalents"
               :key="talent"
               class="talent-item"
             >
@@ -212,7 +212,7 @@ import { useCharacterCultivationData, useCharacterBasicData } from '@/composable
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
-import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoPath, DaoStage } from '@/types/game';
+import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoPath } from '@/types/game';
 
 // 组合式函数
 const cultivationData = useCharacterCultivationData();
@@ -238,7 +238,7 @@ const currentTechnique = computed((): TechniqueItem | null => {
 
   const techniqueRef = cultivationInfo.功法;
   const inventory = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
-  
+
   const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
 
   if (inventory && techniqueId) {
@@ -247,7 +247,7 @@ const currentTechnique = computed((): TechniqueItem | null => {
       return item as TechniqueItem;
     }
   }
-  
+
   // 如果背包中找不到，构造一个最小对象
   if (techniqueId) {
     return {
@@ -267,12 +267,12 @@ const currentTechnique = computed((): TechniqueItem | null => {
 const learnedSkills = computed((): LearnedSkillDisplay[] => {
   const technique = currentTechnique.value;
   const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
-  
+
   if (!technique && !cultivationInfo?.已解锁技能?.length) return [];
-  
+
   const skills: LearnedSkillDisplay[] = [];
   const skillNameSet = new Set<string>(); // 防止重复添加技能
-  
+
   // 从已解锁技能获取（直接学会的技能）
   if (cultivationInfo?.已解锁技能?.length) {
     cultivationInfo.已解锁技能.forEach(skillName => {
@@ -289,7 +289,7 @@ const learnedSkills = computed((): LearnedSkillDisplay[] => {
       }
     });
   }
-  
+
   // 从功法技能定义获取（达到条件解锁的技能）
   if (technique?.功法技能) {
     Object.entries(technique.功法技能).forEach(([skillName, rawSkillInfo]) => {
@@ -311,7 +311,7 @@ const learnedSkills = computed((): LearnedSkillDisplay[] => {
       }
     });
   }
-  
+
   return skills;
 });
 
@@ -326,29 +326,29 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
 // 检查技能是否已解锁
 const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | undefined): boolean => {
   if (!technique.功法技能?.[skillName] || !cultivationInfo) return false;
-  
+
   const skillInfo = technique.功法技能[skillName];
   const unlockCondition = skillInfo.解锁条件 || '';
-  
+
   // 解析解锁条件
   if (unlockCondition.includes('修炼进度达到')) {
     const match = unlockCondition.match(/修炼进度达到(\d+)%/);
     const requiredProgress = parseInt(match?.[1] || '0');
     return (technique.修炼进度 || 0) >= requiredProgress;
   }
-  
+
   if (unlockCondition.includes('熟练度达到')) {
     const match = unlockCondition.match(/熟练度达到(\d+)%/);
     const requiredProficiency = parseInt(match?.[1] || '0');
     return (cultivationInfo.熟练度 || 0) >= requiredProficiency;
   }
-  
+
   if (unlockCondition.includes('突破次数')) {
     const match = unlockCondition.match(/突破次数达到(\d+)/);
     const requiredBreakthroughs = parseInt(match?.[1] || '0');
     return (cultivationInfo.突破次数 || 0) >= requiredBreakthroughs;
   }
-  
+
   // 如果没有明确条件，默认已解锁
   return true;
 };
@@ -418,14 +418,14 @@ const getSkillLevelClass = (proficiency: number): string => {
 const showSkillDetails = (skill: LearnedSkillDisplay) => {
   const proficiencyLevel = getSkillLevel(skill.proficiency);
   const effectDescription = getSkillEffectDescription(skill);
-  
+
   const message = `${skill.name}\n\n` +
     `类型：${skill.type}\n` +
     `来源：${skill.source}\n` +
     `熟练度：${skill.proficiency}% (${proficiencyLevel})\n\n` +
     `技能描述：\n${skill.description || '暂无描述'}\n\n` +
     `修炼效果：\n${effectDescription}`;
-    
+
   alert(message);
 };
 
@@ -497,9 +497,9 @@ const getCurrentStageName = (daoName: string): string => {
   if (!ds) return '';
   const progress = ds.大道进度[daoName];
   const daoPathData = ds.大道路径定义[daoName];
-  
+
   if (!progress || !daoPathData) return '';
-  
+
   // 类型守卫，确保 daoPathData 是 DaoPath 类型
   if ('阶段列表' in daoPathData) {
     const daoPath = daoPathData as DaoPath;
@@ -515,15 +515,15 @@ const getProgressPercent = (daoName: string): number => {
   if (!ds) return 0;
   const progress = ds.大道进度[daoName];
   const daoPathData = ds.大道路径定义[daoName];
-  
+
   if (!progress || !daoPathData) return 0;
-  
+
   // 类型守卫
   if ('阶段列表' in daoPathData) {
     const daoPath = daoPathData as DaoPath;
     const currentStage = daoPath.阶段列表?.[progress.当前阶段];
     if (!currentStage || !currentStage.突破经验) return 0;
-    
+
     return Math.min(100, (progress.当前经验 / currentStage.突破经验) * 100);
   }
   return 0;
@@ -554,21 +554,21 @@ const stopCultivation = async () => {
     }
 
     const saveData = characterStore.activeSaveSlot.存档数据;
-    
+
     // 将功法移回背包（如果背包中不存在）
     if (!saveData.背包) {
-      saveData.背包 = { 物品: [], 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+      saveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
     }
     if (!saveData.背包.物品) {
-      saveData.背包.物品 = [];
+      saveData.背包.物品 = {};
     }
-    
-    const existingItem = saveData.背包.物品.find(i => i.物品ID === techniqueToStop.物品ID);
-    
+
+    const existingItem = Object.values(saveData.背包.物品).find(i => i.物品ID === techniqueToStop.物品ID);
+
     // 如果背包中不存在这个功法，添加进去
     if (!existingItem) {
       const itemToAdd = { ...techniqueToStop, 已装备: false };
-      saveData.背包.物品.push(itemToAdd);
+      saveData.背包.物品[itemToAdd.物品ID] = itemToAdd;
     } else {
       // 如果存在，清除已装备标记
       existingItem.已装备 = false;
@@ -580,7 +580,7 @@ const stopCultivation = async () => {
 
     // 保存数据
     await characterStore.commitToStorage();
-    
+
     toast.success(`已停止修炼《${techniqueToStop.名称}》`);
     debug.log('修炼面板', '停止修炼成功', techniqueToStop.名称);
 
@@ -592,9 +592,6 @@ const stopCultivation = async () => {
 </script>
 
 <style scoped>
-.cultivation-panel {
-  /* 使用统一的 game-panel 基础样式 */
-}
 
 /* 头部 */
 .panel-header {
@@ -1215,7 +1212,7 @@ const stopCultivation = async () => {
   .header-actions .btn-text {
     display: none;
   }
-  
+
   .equipment-slots {
     grid-template-columns: 1fr;
   }

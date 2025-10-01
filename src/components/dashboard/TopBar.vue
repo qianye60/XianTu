@@ -7,7 +7,7 @@
         <span class="character-realm">{{ characterRealm }}</span>
       </div>
     </div>
-    
+
     <div class="center-section">
       <div class="location-time-info">
         <span class="location-text">{{ currentLocation }}</span>
@@ -15,7 +15,7 @@
         <span class="time-value">{{ gameTime }}</span>
       </div>
     </div>
-    
+
     <div class="right-section">
       <button @click="toggleFullscreen" class="fullscreen-btn">
         <Maximize v-if="!isFullscreen" :size="16" />
@@ -35,28 +35,48 @@ const characterStore = useCharacterStore()
 const isFullscreen = ref(false)
 
 const characterName = computed(() => {
-  return characterStore.activeCharacterProfile?.角色基础信息?.名字 || ''
+  try {
+    return characterStore.activeCharacterProfile?.角色基础信息?.名字 || ''
+  } catch (e) {
+    console.error('[TopBar] Error getting characterName:', e)
+    return ''
+  }
 })
 
 const characterRealm = computed(() => {
-  const save = characterStore.activeSaveSlot
-  return formatRealmWithStage(save?.存档数据?.玩家角色状态?.境界)
+  try {
+    const save = characterStore.activeSaveSlot
+    return formatRealmWithStage(save?.存档数据?.玩家角色状态?.境界)
+  } catch (e) {
+    console.error('[TopBar] Error getting characterRealm:', e)
+    return '凡人'
+  }
 })
 
 const currentLocation = computed(() => {
-  const save = characterStore.activeSaveSlot
-  return save?.存档数据?.玩家角色状态?.位置?.描述 || '初始地'
+  try {
+    const save = characterStore.activeSaveSlot
+    return save?.存档数据?.玩家角色状态?.位置?.描述 || '初始地'
+  } catch (e) {
+    console.error('[TopBar] Error getting currentLocation:', e)
+    return '初始地'
+  }
 })
 
 const gameTime = computed(() => {
-  const save = characterStore.activeSaveSlot
-  if (save?.存档数据?.游戏时间) {
-    const time = save.存档数据.游戏时间
-    const formattedMinutes = time.分钟.toString().padStart(2, '0')
-    const formattedHours = time.小时.toString().padStart(2, '0')
-    return `仙道${time.年}年${time.月}月${time.日}日 ${formattedHours}:${formattedMinutes}`
+  try {
+    const save = characterStore.activeSaveSlot
+    if (save?.存档数据?.游戏时间) {
+      const time = save.存档数据.游戏时间
+      const formattedMinutes = time.分钟.toString().padStart(2, '0')
+      const formattedHours = time.小时.toString().padStart(2, '0')
+      return `仙道${time.年}年${time.月}月${time.日}日 ${formattedHours}:${formattedMinutes}`
+    }
+    return '仙道元年1月1日 00:00'
+  } catch (e) {
+    console.error('[TopBar] Error getting gameTime:', e)
+    return '仙道元年1月1日 00:00'
   }
-  return '仙道元年1月1日 00:00'
 })
 
 const toggleFullscreen = () => {
@@ -72,10 +92,11 @@ const toggleFullscreen = () => {
 }
 
 onMounted(() => {
+  console.log('[TopBar] Component mounted')
   const handleFullscreenChange = () => {
     isFullscreen.value = !!document.fullscreenElement
   }
-  
+
   document.addEventListener('fullscreenchange', handleFullscreenChange)
   document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
 })
@@ -90,10 +111,14 @@ onMounted(() => {
   justify-content: space-between;
   padding: 0 16px;
   box-sizing: border-box;
-  background: var(--color-surface-transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface, #f8f9fa);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+  min-height: 56px;
 }
 
 .left-section {
@@ -103,7 +128,7 @@ onMounted(() => {
   flex: 1;
 }
 
-.game-title { font-size: 1.1rem; font-weight: 700; color: var(--color-text); margin: 0; letter-spacing: 0.2px; }
+.game-title { font-size: 1.1rem; font-weight: 700; color: var(--color-text); margin: 0; letter-spacing: 0.2px; white-space: nowrap; }
 
 .character-quick-info { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--color-surface-light); border-radius: 14px; border: 1px solid var(--color-border); }
 
@@ -167,61 +192,117 @@ onMounted(() => {
 
 /* 手机端适配 */
 @media (max-width: 767px) {
-  .top-bar { padding: 0 12px; height: 50px; }
-  
+  .top-bar {
+    padding: 0 8px;
+    height: 50px;
+    min-height: 50px;
+    flex-wrap: nowrap;
+  }
+
   .game-title {
-    font-size: 1rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
   }
-  
+
   .character-quick-info {
-    gap: 6px;
-    padding: 3px 8px;
+    gap: 4px;
+    padding: 2px 6px;
+    flex-shrink: 1;
+    min-width: 0;
   }
-  
+
   .character-name {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
   }
-  
+
   .character-realm {
-    font-size: 0.65rem;
-    padding: 1px 4px;
+    font-size: 0.6rem;
+    padding: 1px 3px;
+    white-space: nowrap;
   }
-  
+
   .center-section {
-    flex: 0.8;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
-  
+
   .location-time-info {
-    padding: 4px 10px;
-    gap: 6px;
+    padding: 3px 6px;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
   }
-  
+
   .location-text {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
   }
-  
+
   .separator {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
-  
+
   .time-value {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
+    white-space: nowrap;
   }
-  
+
   .fullscreen-btn {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     font-size: 14px;
+    flex-shrink: 0;
   }
-  
+
   .left-section {
-    gap: 8px;
-    flex: 1.2;
+    gap: 6px;
+    flex: 0 1 auto;
+    min-width: 0;
   }
-  
+
   .right-section {
-    gap: 8px;
-    flex: 0.8;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+}
+
+/* 超小屏幕适配 */
+@media (max-width: 375px) {
+  .top-bar {
+    padding: 0 4px;
+  }
+
+  .game-title {
+    font-size: 0.8rem;
+  }
+
+  .character-quick-info {
+    gap: 3px;
+    padding: 2px 4px;
+  }
+
+  .character-name {
+    font-size: 0.65rem;
+    max-width: 50px;
+  }
+
+  .location-text {
+    font-size: 0.65rem;
+    max-width: 60px;
+  }
+
+  .time-value {
+    font-size: 0.6rem;
   }
 }
 

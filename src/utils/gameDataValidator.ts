@@ -21,10 +21,10 @@ export function validateGameData(saveData: SaveData, profile: CharacterProfile, 
   debug.log('数据验证', `开始检查数据骨架 (上下文: ${context})...`);
 
   // 1. 检查背包物品 (Inventory)
-  // 这是本次重构的核心，必须确保 `背包.物品` 是一个数组
-  if (saveData.背包 && saveData.背包.物品) {
-    if (!Array.isArray(saveData.背包.物品)) {
-      errors.push('核心数据错误：`背包.物品` 结构不正确，必须是一个数组。这可能是由于旧版存档数据不兼容导致的。');
+  // ⚠️ 重要：`背包.物品` 必须是对象结构 Record<string, Item>，不是数组
+  if (saveData.背包 && saveData.背包.物品 !== undefined) {
+    if (typeof saveData.背包.物品 !== 'object' || saveData.背包.物品 === null || Array.isArray(saveData.背包.物品)) {
+      errors.push('核心数据错误：`背包.物品` 结构不正确，必须是一个对象 (Record<string, Item>)，不能是数组。这可能是由于旧版存档数据不兼容导致的。');
     }
   } else {
     // 如果连背包或物品字段都没有，也算作错误

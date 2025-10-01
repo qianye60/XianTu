@@ -17,6 +17,7 @@ import type { TavernHelper } from './tavernCore';
 import { toast } from './toast';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile } from '@/types/game';
+import type { MemoryEntry } from '@/types/game';
 
 type PlainObject = Record<string, unknown>;
 
@@ -268,7 +269,12 @@ class AIBidirectionalSystemClass {
    * 生成状态变更日志
    */
   private getNestedValue(obj: PlainObject, path: string): unknown {
-    return path.split('.').reduce((o: any, k) => (o && typeof o === 'object' && k in o ? o[k] : undefined), obj);
+    return path.split('.').reduce((o: PlainObject | unknown, k) => {
+      if (o && typeof o === 'object' && !Array.isArray(o) && k in (o as PlainObject)) {
+        return (o as PlainObject)[k];
+      }
+      return undefined;
+    }, obj as PlainObject | unknown);
   }
 
   /**
@@ -343,7 +349,9 @@ class AIBidirectionalSystemClass {
       content,
       timestamp: new Date(),
       importance,
-      tags: []
+      tags: [],
+      type: type === 'short' ? 'user_action' : type === 'mid' ? 'ai_response' : 'summary',
+      category: 'other'
     };
 
     if (type === 'short') {
@@ -439,7 +447,9 @@ class AIBidirectionalSystemClass {
                 content: memoryData.content,
                 timestamp: new Date(memoryData.timestamp),
                 importance: memoryData.importance || 1,
-                tags: memoryData.tags || []
+                tags: memoryData.tags || [],
+                type: memoryData.type || 'ai_response',
+                category: memoryData.category || 'other'
               };
               midTermMemories.push(entry);
             } catch (e) {

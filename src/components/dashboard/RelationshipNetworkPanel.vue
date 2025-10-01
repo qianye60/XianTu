@@ -101,13 +101,34 @@
                 <div class="detail-section">
                   <h5 class="section-title">关键信息</h5>
                   <div class="info-grid">
+                    <div class="info-item" v-if="getNpcRealmParsed(selectedPerson).境界 !== null && getNpcRealmParsed(selectedPerson).境界 !== undefined">
+                      <span class="info-label">境界</span>
+                      <span class="info-value">{{ getNpcRealmParsed(selectedPerson).境界 }}</span>
+                    </div>
+                    <div class="info-item" v-if="getNpcRealmParsed(selectedPerson).阶段">
+                      <span class="info-label">阶段</span>
+                      <span class="info-value">{{ getNpcRealmParsed(selectedPerson).阶段 }}</span>
+                    </div>
+                    <!-- @vue-ignore: legacy block kept for compatibility; type-unsafe -->
+                    <div class="info-item" v-if="selectedPerson.玩家角色状态?.境界 !== undefined || selectedPerson.境界 !== undefined">
+                      <span class="info-label">境界</span>
+                      <span class="info-value">{{ getNpcRealm(selectedPerson) }}</span>
+                    </div>
                     <div class="info-item">
                       <span class="info-label">天资</span>
                       <span class="info-value">{{ selectedPerson.角色基础信息?.天资 || '未知' }}</span>
                     </div>
+                    <div class="info-item" v-if="selectedPerson.角色基础信息?.灵根">
+                      <span class="info-label">灵根</span>
+                      <span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span>
+                    </div>
                     <div class="info-item">
                       <span class="info-label">最后出现位置</span>
                       <span class="info-value">{{ selectedPerson.最后出现位置?.描述 || '未知' }}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">人物关系</span>
+                      <span class="info-value">{{ selectedPerson.人物关系 || '未知' }}</span>
                     </div>
                   </div>
                 </div>
@@ -292,6 +313,7 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, onMounted, watch } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
@@ -364,6 +386,91 @@ const getMemoryEvent = (memory: unknown): string => {
     return (memory as { 事件?: string }).事件 || '';
   }
   return '';
+};
+
+// 解析NPC境界为结构化字段（境界: 数字, 阶段: 字符串）
+const getNpcRealmParsed = (npc: NpcProfile): { 境界: number | null; 阶段: string | null } => {
+  const sources = [
+    (npc as any)?.玩家角色状态,
+    (npc as any)?.角色基础信息,
+    (npc as any)
+  ].filter(Boolean);
+
+  let realmVal: unknown = undefined;
+  let stageVal: unknown = undefined;
+
+  for (const src of sources) {
+    if (realmVal === undefined || realmVal === null) realmVal = (src as any)?.境界;
+    if (stageVal === undefined || stageVal === null) stageVal = (src as any)?.阶段;
+  }
+
+  const majorMap: Record<string, number> = {
+    '凡人': 0,
+    '练气': 1,
+    '炼气': 1,
+    '筑基': 2,
+    '金丹': 3,
+    '元婴': 4,
+    '化神': 5,
+    '炼虚': 6,
+    '合体': 7,
+    '渡劫': 8
+  };
+  const stageTokens = ['初期', '中期', '后期', '圆满', '极道', '极境'];
+
+  const parseFromName = (name?: string): { level?: number; stage?: string } => {
+    if (!name) return {};
+    let n = name.replace(/\s+/g, '').replace('练气', '炼气');
+    const stage = stageTokens.find(s => n.includes(s));
+    stageTokens.forEach(s => { n = n.replace(s, ''); });
+    n = n.replace('期', '');
+    const level = majorMap[n as keyof typeof majorMap];
+    return { level, stage };
+  };
+
+  if (realmVal && typeof realmVal === 'object') {
+    const obj = realmVal as any;
+    const lvl: number | undefined = obj.等级 ?? obj.level ?? obj.境界;
+    if (typeof lvl === 'number') {
+      realmVal = lvl;
+    } else if (typeof obj.名称 === 'string' || typeof obj.name === 'string') {
+      const parsed = parseFromName((obj.名称 ?? obj.name) as string);
+      if (parsed.level !== undefined) realmVal = parsed.level;
+      if (!stageVal && parsed.stage) stageVal = parsed.stage;
+    } else {
+      realmVal = undefined;
+    }
+  }
+
+  if (typeof realmVal === 'string') {
+    const parsed = parseFromName(realmVal);
+    realmVal = parsed.level ?? undefined;
+    if (!stageVal && parsed.stage) stageVal = parsed.stage;
+  }
+
+  return {
+    境界: typeof realmVal === 'number' ? realmVal : null,
+    阶段: typeof stageVal === 'string' ? (stageVal as string) : null
+  };
+};
+
+// 获取NPC境界信息
+const getNpcRealm = (npc: NpcProfile): string => {
+  // 可能的字段位置：玩家角色状态.境界 或 境界
+  const realm = (npc as any).玩家角色状态?.境界 ?? (npc as any).境界;
+  const stage = (npc as any).玩家角色状态?.阶段 ?? (npc as any).阶段;
+
+  if (realm === undefined || realm === null) return '未知';
+
+  const realmNames = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
+  const realmName = typeof realm === 'number' ? realmNames[realm] || '未知' : String(realm);
+
+  return stage ? `${realmName}${stage}` : realmName;
+};
+
+// 获取NPC灵根信息
+const getNpcSpiritRoot = (npc: NpcProfile): string => {
+  return formatSpiritRoot(npc.角色基础信息?.灵根);
 };
 
 // 格式化灵根显示

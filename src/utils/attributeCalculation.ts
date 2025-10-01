@@ -2,18 +2,6 @@ import type { InnateAttributes, Item, Equipment, SaveData } from '../types/game.
 import type { Talent } from '../types/index';
 
 /**
- * 先天六司到中文键名的映射
- */
-const ATTRIBUTE_MAP: Record<keyof InnateAttributes, string> = {
-  根骨: '根骨',
-  灵性: '灵性', 
-  悟性: '悟性',
-  气运: '气运',
-  魅力: '魅力',
-  心性: '心性'
-};
-
-/**
  * 中文键名到英文键名的映射（用于组件传参）
  */
 const CHINESE_TO_ENGLISH_MAP: Record<string, string> = {
@@ -28,7 +16,7 @@ const CHINESE_TO_ENGLISH_MAP: Record<string, string> = {
 /**
  * 计算装备提供的后天六司加成
  */
-export function calculateEquipmentBonuses(equipment: Equipment, inventory: any): InnateAttributes {
+export function calculateEquipmentBonuses(equipment: Equipment, inventory: SaveData['背包']): InnateAttributes {
   const bonuses: InnateAttributes = {
     根骨: 0,
     灵性: 0,
@@ -44,10 +32,10 @@ export function calculateEquipmentBonuses(equipment: Equipment, inventory: any):
       const item: Item = inventory.物品[itemId];
       
       // 检查装备是否有后天六司加成
-      if (item.装备增幅?.后天六司) {
+      if ('装备增幅' in item && item.装备增幅?.后天六司) {
         Object.entries(item.装备增幅.后天六司).forEach(([attr, value]) => {
           if (attr in bonuses && typeof value === 'number') {
-            (bonuses as any)[attr] += value;
+            (bonuses as InnateAttributes)[attr as keyof InnateAttributes] += value;
           }
         });
       }
@@ -86,7 +74,7 @@ export function calculateTalentBonuses(talents: Talent[]): InnateAttributes {
           if (target === '敏捷') chineseAttr = '灵性'; // 敏捷映射到灵性
           
           if (chineseAttr in bonuses) {
-            (bonuses as any)[chineseAttr] += value;
+            (bonuses as InnateAttributes)[chineseAttr as keyof InnateAttributes] += value;
           }
         }
         
@@ -105,9 +93,9 @@ export function calculateTalentBonuses(talents: Talent[]): InnateAttributes {
             'LUK': '气运',     // 运气 -> 气运
           };
           
-          const chineseAttr = englishToChinese[target];
+          const chineseAttr = englishToChinese[target] as keyof InnateAttributes;
           if (chineseAttr && chineseAttr in bonuses) {
-            (bonuses as any)[chineseAttr] += value;
+            bonuses[chineseAttr] += value;
           }
         }
       });

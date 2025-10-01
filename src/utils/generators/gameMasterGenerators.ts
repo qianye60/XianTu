@@ -1,8 +1,8 @@
 import { generateItemWithTavernAI } from '../tavernCore';
 import { buildCharacterInitializationPrompt } from '../prompts/characterInitializationPrompts';
-import { getRandomizedInGamePrompt, debugPromptInfo } from '../prompts/inGameGMPromptsV2';
+import { getRandomizedInGamePrompt } from '../prompts/inGameGMPromptsV2';
 import { buildGmRequest } from '../AIGameMaster';
- 
+
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
 import type { InitialGameData, SaveData, WorldInfo } from '../../types';
 import { generateRandomSpiritRoot, isRandomSpiritRoot } from '../spiritRootGenerator';
@@ -155,7 +155,32 @@ export async function generateInitialMessage(
     console.log('【神识印记】构建的GM_Request:', gmRequest);
 
     // 1.5. 创建清理过的chat变量副本，供AI参考使用
-    const sanitizedChatVars: Record<string, unknown> = chatVariablesForPrompt ? JSON.parse(JSON.stringify(chatVariablesForPrompt)) : {};
+    // ⚠️ 关键优化：只提取必要的世界信息摘要，避免传输完整的巨大数据
+    const sanitizedChatVars: Record<string, unknown> = {};
+    if (chatVariablesForPrompt && chatVariablesForPrompt['character.saveData']) {
+      const fullSaveData = chatVariablesForPrompt['character.saveData'] as SaveData;
+
+      // 只提取世界信息的关键摘要，不传输完整数据
+      const worldInfoSummary = fullSaveData.世界信息 ? {
+        世界名称: fullSaveData.世界信息.世界名称,
+        大陆信息: fullSaveData.世界信息.大陆信息?.map((continent) => ({
+          名称: continent.名称 || (continent as Record<string, unknown>).name,
+          描述: ((continent.描述 || (continent as Record<string, unknown>).description || '') as string).substring(0, 100), // 只保留100字描述
+          大洲边界: continent.大洲边界 || (continent as Record<string, unknown>).continent_bounds
+        })),
+        // 不传输势力、地点的完整数据，只传输数量统计
+        势力数量: fullSaveData.世界信息.势力信息?.length || 0,
+        地点数量: fullSaveData.世界信息.地点信息?.length || 0
+      } : null;
+
+      sanitizedChatVars['character.saveData'] = {
+        世界信息: worldInfoSummary
+      };
+
+      console.log('【优化】精简世界信息，只保留必要摘要');
+      console.log('【优化】大陆数量:', worldInfoSummary?.大陆信息?.length || 0);
+      console.log('【优化】势力/地点数量（不传输详情）:', worldInfoSummary?.势力数量, worldInfoSummary?.地点数量);
+    }
 
     // 1.6. 提取上一条对话的AI/GM文本（用于连续性），在初始化阶段通常为空
     let lastTextMemory = '';
@@ -172,36 +197,22 @@ export async function generateInitialMessage(
 
     // 2. 构建用户选择信息并使用动态提示词
     // [核心修复] 使用完整的详情对象，确保AI能获得详细描述信息
-    let userSelections = {
+    const userSelections = {
       name: initialGameData.baseInfo.名字 || '匿名',
       gender: initialGameData.baseInfo.性别 || '男',
+      age: Number(initialGameData?.creationDetails?.age || 16),
       world: initialGameData.baseInfo.世界 || '未知世界',
       // [修复] 使用详情对象而非简单字符串，保留完整描述信息
-      talentTier: (initialGameData.baseInfo as any).天资详情 || initialGameData.baseInfo.天资 || '凡人',
-      origin: (initialGameData.baseInfo as any).出身详情 || initialGameData.baseInfo.出生 || '平民出身', 
-      spiritRoot: (initialGameData.baseInfo as any).灵根详情 || initialGameData.baseInfo.灵根 || '废灵根',
-      talents: (initialGameData.baseInfo as any).天赋详情 || (initialGameData.baseInfo.天赋 || []),
+      talentTier: (initialGameData.baseInfo as Record<string, any>).天资详情 || initialGameData.baseInfo.天资 || '凡人',
+      origin: (initialGameData.baseInfo as Record<string, any>).出身详情 || initialGameData.baseInfo.出生 || '平民出身',
+      spiritRoot: (initialGameData.baseInfo as Record<string, any>).灵根详情 || initialGameData.baseInfo.灵根 || '废灵根',
+      talents: (initialGameData.baseInfo as Record<string, any>).天赋详情 || (initialGameData.baseInfo.天赋 || []),
       attributes: safeAttributes
     };
-    // 规范化：兼容 baseInfo 可选扩展字段（天资详情/出身详情/天赋详情），并提供安全回退
-    try {
-      const bi = (initialGameData as any)?.baseInfo || {};
-      userSelections = {
-        name: bi['名字'] || userSelections.name || '无名',
-        gender: bi['性别'] || userSelections.gender || '未知',
-        world: bi['世界'] || userSelections.world || '未知世界',
-        talentTier: (bi['天资详情'] ?? bi['天资'] ?? userSelections.talentTier ?? '凡人'),
-        origin: (bi['出身详情'] ?? bi['出生'] ?? userSelections.origin ?? '平民出身'),
-        spiritRoot: (bi['灵根详情'] ?? bi['灵根'] ?? userSelections.spiritRoot ?? '五行灵根'),
-        talents: (bi['天赋详情'] ?? bi['天赋'] ?? userSelections.talents ?? []),
-        attributes: userSelections.attributes,
-      } as any;
-    } catch { /* ignore */ }
-
     console.log('【神识印记】构建的用户选择信息:', userSelections);
 
     // 1.7. 基于先天六司做基础数值预计算（不含"修为"）
-    const ageYears = Number(initialGameData?.creationDetails?.age || 16);
+    const ageYears = userSelections.age;
     const attrs = safeAttributes; // 直接使用安全验证后的属性
     const hpMax = Math.max(30, 80 + attrs.根骨 * 6 + Math.floor(attrs.心性 * 2));
     const lingMax = Math.max(0, attrs.灵性 * 6);
@@ -272,7 +283,14 @@ export async function generateInitialMessage(
     console.log('【神识印记-调试】用户选择信息:', userSelections);
 
     // 3. 调用通用生成器，并期望返回GM_Response格式
-    const result = await generateItemWithTavernAI<GM_Response>(prompt, '天道初言', false);
+    const result = await generateItemWithTavernAI<GM_Response>(
+      prompt,
+      '天道初言',
+      false,  // showToast
+      3,      // retries
+      false,  // useStreaming
+      undefined  // onStreamChunk
+    );
 
     console.log('【神识印记-调试】AI原始返回结果:', JSON.stringify(result, null, 2));
 
@@ -293,11 +311,11 @@ export async function generateInitialMessage(
       // 将对象格式的 tavern_commands 映射为数组
       const obj = result.tavern_commands as Record<string, unknown>;
       const arr: TavernCommand[] = [];
-      
+
       // 检查是否是数字索引的对象格式（如 "0": {...}, "1": {...}）
       const keys = Object.keys(obj);
       const isNumericIndexed = keys.every(key => /^\d+$/.test(key));
-      
+
       if (isNumericIndexed) {
         // 处理数字索引的对象格式
         console.log('【格式修复】检测到数字索引的tavern_commands格式，正在转换...');
@@ -332,7 +350,7 @@ export async function generateInitialMessage(
         };
         ['set','add','push','pull','delete'].forEach(op => pushPairs(obj[op], op));
       }
-      
+
       result.tavern_commands = arr;
       console.log('【格式修复】转换后的tavern_commands数量:', arr.length);
     }
@@ -350,7 +368,9 @@ export async function generateInitialMessage(
 
     // 4.4 规范化 tavern_commands 数组
     if (Array.isArray(result.tavern_commands)) {
-      console.log('【神识印记】验证tavern_commands格式');
+      console.log('【神识印记】验证tavern_commands格式，原始命令数量:', result.tavern_commands.length);
+      console.log('【神识印记-详细】AI生成的所有命令:', JSON.stringify(result.tavern_commands, null, 2));
+
       result.tavern_commands = result.tavern_commands.map((cmd: Partial<TavernCommand>): TavernCommand | null => {
         // 确保必需字段存在
         if (!cmd) return null;
@@ -358,6 +378,17 @@ export async function generateInitialMessage(
         const k = cmd.key;
         if (!k) { console.warn('【神识印记】缺少key，跳过:', cmd); return null; }
         cmd.key = String(k);
+
+        // 记录装备相关的命令
+        if (cmd.key.includes('装备') || cmd.key.includes('物品')) {
+          console.log('【装备命令检测】', {
+            action: cmd.action,
+            key: cmd.key,
+            hasValue: !!cmd.value,
+            valueType: typeof cmd.value,
+            value: cmd.value
+          });
+        }
 
         // 添加必需的scope字段
         if (!cmd.scope) {
@@ -401,6 +432,56 @@ export async function generateInitialMessage(
     // 不再添加默认mid_term_memory；由AI提供
 
     console.log('【神识印记】成功生成天道初言，命令数量:', result.tavern_commands?.length || 0);
+
+    // 5.4. 装备完整性验证：清除无效的装备引用
+    console.log('【装备验证】开始检查装备完整性...');
+
+    const equipmentCommands = result.tavern_commands?.filter(cmd =>
+      cmd.key && cmd.key.includes('装备栏')
+    ) || [];
+
+    const itemCreationCommands = result.tavern_commands?.filter(cmd =>
+      cmd.key && cmd.key.includes('背包.物品.')
+    ) || [];
+
+    console.log('【装备验证】找到装备命令数量:', equipmentCommands.length);
+    console.log('【装备验证】找到物品创建命令数量:', itemCreationCommands.length);
+
+    // 检查并移除没有对应物品创建命令的装备槽命令
+    const invalidEquipmentIndices: number[] = [];
+    equipmentCommands.forEach(eqCmd => {
+      if (eqCmd.value && typeof eqCmd.value === 'object') {
+        const eqValue = eqCmd.value as Record<string, unknown>;
+        const itemId = eqValue['物品ID'] || eqValue['itemId'];
+
+        if (itemId) {
+          // 检查是否有对应的物品创建命令
+          const hasCreationCommand = itemCreationCommands.some(cmd =>
+            cmd.key && cmd.key.includes(String(itemId))
+          );
+
+          if (!hasCreationCommand) {
+            console.warn('【装备验证】发现无效装备引用，将清除:', { itemId, slotKey: eqCmd.key });
+            const index = result.tavern_commands?.indexOf(eqCmd);
+            if (index !== undefined && index >= 0) {
+              invalidEquipmentIndices.push(index);
+            }
+          }
+        }
+      }
+    });
+
+    // 从后往前删除，避免索引混乱
+    if (invalidEquipmentIndices.length > 0) {
+      invalidEquipmentIndices.sort((a, b) => b - a);
+      for (const index of invalidEquipmentIndices) {
+        result.tavern_commands?.splice(index, 1);
+      }
+      console.warn(`【装备验证】已清除 ${invalidEquipmentIndices.length} 个无效装备引用`);
+      console.log('【装备验证】清理后的命令总数:', result.tavern_commands?.length);
+    } else {
+      console.log('【装备验证】所有装备引用都有效，通过验证');
+    }
 
     // 5.5. 将缓存的世界数据植入到AI生成结果中
     if (cachedWorldData) {
@@ -480,17 +561,9 @@ export async function generateInGameResponse(
   console.log('【剧情推进】准备生成游戏GM响应，数据:', { currentGameData, playerAction });
 
   try {
-    // 注入当前chat变量，作为参考上下文
-    let chatVariablesForPrompt: Record<string, unknown> | null = null;
-    try {
-      const { getTavernHelper } = await import('../tavern');
-      const helper = getTavernHelper();
-      if (helper) {
-        chatVariablesForPrompt = await helper.getVariables({ type: 'chat' });
-      }
-    } catch (e) {
-      console.warn('【剧情推进】获取chat变量作为参考失败（可忽略）:', e);
-    }
+    // ⚠️ 重要变更：不再从酒馆获取变量，因为酒馆已经通过 <status_current_variables> 自动注入
+    // 所有数据直接从 currentGameData 参数中获取
+    console.log('【优化】使用 currentGameData 参数，不再重复获取酒馆变量');
 
     // 从存档计算导出指标，并实现通用能力面板
     const computeDerived = (save: SaveData) => {
@@ -604,14 +677,14 @@ export async function generateInGameResponse(
         return null;
       }
     };
-    const saveData = (chatVariablesForPrompt?.['character.saveData'] as SaveData) || {};
+    const saveData = (currentGameData.saveData as SaveData) || {};
     const derived = computeDerived(saveData);
 
     // 提取上一条对话的AI/GM文本（用于连续性）
+    // 从 currentGameData.saveData 中提取
     let lastTextMemory = '';
     try {
-      const saveFromChat = (chatVariablesForPrompt?.['character.saveData'] as SaveData | undefined) || {};
-      const history = (saveFromChat?.['对话历史'] || saveFromChat?.对话历史);
+      const history = (saveData?.['对话历史'] || saveData?.对话历史);
       if (Array.isArray(history) && history.length > 0) {
         for (let i = history.length - 1; i >= 0; i--) {
           const m = history[i];
@@ -626,35 +699,21 @@ export async function generateInGameResponse(
       console.warn('【提示词连续性】提取上一次对话文本失败（忽略）:', e);
     }
 
-    // 构建当前游戏状态的GM请求对象
-    // 优先使用短期记忆作为上一条文本，并从 chat 变量中去重避免重复
+    // 优先使用短期记忆作为上一条文本
     try {
-      const saveFromChat2 = (chatVariablesForPrompt?.['character.saveData'] as SaveData | undefined) || {};
-      const mem2 = saveFromChat2?.['记忆'] || saveFromChat2?.记忆;
-      const short2 = mem2?.['短期记忆'] || mem2?.短期记忆;
-      if (Array.isArray(short2) && short2.length > 0 && typeof short2[short2.length - 1] === 'string') {
-        lastTextMemory = String(short2[short2.length - 1]);
+      const mem = saveData?.['记忆'] || saveData?.记忆;
+      const short = mem?.['短期记忆'] || mem?.短期记忆;
+      if (Array.isArray(short) && short.length > 0 && typeof short[short.length - 1] === 'string') {
+        lastTextMemory = String(short[short.length - 1]);
       }
     } catch {}
-    const sanitizedChatVars: Record<string, unknown> = chatVariablesForPrompt ? JSON.parse(JSON.stringify(chatVariablesForPrompt)) : {};
-    try {
-      const saveSan = (sanitizedChatVars['character.saveData'] as SaveData) || null;
-      const memSan = saveSan?.['记忆'] || saveSan?.记忆;
-      const shortSan = memSan?.['短期记忆'] || memSan?.短期记忆;
-      if (Array.isArray(shortSan) && typeof lastTextMemory === 'string' && lastTextMemory.trim()) {
-        const lastIdx = shortSan.length - 1;
-        if (typeof shortSan[lastIdx] === 'string' && String(shortSan[lastIdx]).trim() === lastTextMemory.trim()) {
-          shortSan.splice(lastIdx, 1);
-          if (memSan?.['短期记忆']) memSan['短期记忆'] = shortSan;
-          if (memSan?.短期记忆) memSan.短期记忆 = shortSan;
-        }
-      }
-    } catch {}
+
     const gmRequest = {
-      ...currentGameData,
       playerAction: playerAction || '继续当前活动',
       requestType: 'in_game_progression',
       timestamp: new Date().toISOString()
+      // 移除 ...currentGameData 避免重复传输完整saveData
+      // saveData已经通过酒馆的<status_current_variables>注入，不需要在这里重复
     };
 
     // 获取通用提示词（关闭冗长调试日志以减少控制台噪音）
@@ -665,61 +724,10 @@ export async function generateInGameResponse(
     console.log('【剧情推进-调试】原始提示词后500字符:', prompt.substring(prompt.length - 500));
 
     // 替换提示词中的占位符
-    // 构建精简版游戏状态，避免把整个聊天变量树（尤其是世界信息/大地图）塞进提示词
-    const buildCompactGameState = (vars: Record<string, unknown> | null) => {
-      const sd = (vars?.['character.saveData'] as any) || {};
-      const base = sd?.['角色基础信息'] || {};
-      const status = sd?.['玩家角色状态'] || {};
-      const bag = sd?.['背包'] || {};
-      const worldInfo = sd?.['世界信息'] || {};
-      const system = sd?.['系统'] || {};
-      const technique = sd?.['修炼功法'] || {};
-
-      const pick = (obj: any, keys: string[]) => {
-        const out: any = {};
-        keys.forEach(k => { if (obj && typeof obj === 'object' && k in obj) out[k] = obj[k]; });
-        return out;
-      };
-
-      // 精简后的玩家数据
-      const compactSaveData = {
-        角色基础信息: {
-          ...pick(base, ['名字', '性别', '世界', '天资']),
-          先天六司: pick(base?.['先天六司'] || {}, ['根骨', '灵性', '悟性', '气运', '魅力', '心性'])
-        },
-        玩家角色状态: {
-          境界: typeof status?.['境界'] === 'object' ? pick(status['境界'], ['等级', '名称']) : status?.['境界'],
-          位置: { 描述: status?.['位置']?.['描述'] },
-          气血: pick(status?.['气血'] || {}, ['当前', '最大']),
-          灵气: pick(status?.['灵气'] || {}, ['当前', '最大']),
-          神识: pick(status?.['神识'] || {}, ['当前', '最大']),
-          寿命: pick(status?.['寿命'] || {}, ['当前', '最大']),
-          修为: pick(status?.['修为'] || {}, ['当前', '最大'])
-        },
-        背包: {
-          灵石: pick(bag?.['灵石'] || {}, ['下品', '中品', '上品', '极品'])
-        },
-        世界信息: pick(worldInfo || {}, ['世界名称']),
-        修炼功法: pick(technique || {}, ['功法', '正在修炼', '修炼进度']),
-        系统: pick(system || {}, ['规则', '提示'])
-      };
-
-      return { 'character.saveData': compactSaveData };
-    };
-
-    // 传输 Chat 变量，但为避免重复，将极大且重复的规则包从 prompt 透传中剔除（不影响实际 Chat 中的保存）
-    const dedupeChatVarsForPrompt = (vars: Record<string, unknown> | null) => {
-      if (!vars) return {} as Record<string, unknown>;
-      const copy: Record<string, unknown> = { ...vars };
-      // 去重：已通过 injects/system.rules.bundle 注入，不再在INPUT中重复传输
-      if ('system.rules.bundle' in copy) delete copy['system.rules.bundle'];
-      if ('system.rules.version' in copy) delete copy['system.rules.version'];
-      return copy;
-    };
-
+    // ⚠️ 注意：不再在代码中传输 character.saveData，Tavern已通过 <status_current_variables> 自动注入
+    // 只传输 gmRequest 元数据和派生指标
     const promptInput = {
       gmRequest,
-      current_game_state: dedupeChatVarsForPrompt(chatVariablesForPrompt),
       derived
     };
     const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput));

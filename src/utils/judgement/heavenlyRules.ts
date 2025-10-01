@@ -239,7 +239,8 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
     }
 
     const 当前气血 = safeNum(气血.当前, 100);
-    const 当前寿命 = safeNum(寿命.当前, 100);
+    const 当前年龄 = safeNum(寿命.当前, 100);
+    const 最大寿命 = safeNum(寿命.最大, 100);
 
     let 死亡状态: DeathState = { 已死亡: false };
 
@@ -249,7 +250,9 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
         死亡时间: getCurrentGameTime(saveData),
         死亡原因: '气血耗尽',
       };
-    } else if (当前寿命 <= 0) {
+    } else if (当前年龄 >= 最大寿命) {
+      // 寿命.当前是年龄，寿命.最大是最大寿命
+      // 当年龄达到或超过最大寿命时判定死亡
       死亡状态 = {
         已死亡: true,
         死亡时间: getCurrentGameTime(saveData),

@@ -108,7 +108,7 @@
                   v-if="selectedItem?.类型 === '装备' && selectedItem?.装备增幅"
                   class="modal-attributes"
                 >
-                  <h4>装备增幅</h4>
+                  <h4>装备增幅:</h4>
                   <div class="attribute-text">
                     {{ formatItemAttributes(selectedItem.装备增幅) }}
                   </div>
@@ -237,7 +237,7 @@
               <template v-if="selectedItem.类型 === '功法'">
                 <!-- 功法效果 -->
                 <div v-if="selectedItem.功法效果" class="details-attributes">
-                  <h4>功法效果</h4>
+                  <h4>功法效果:</h4>
                   <div class="skill-effects">
                     <div v-if="selectedItem.功法效果.修炼速度加成" class="effect-item">
                       <span class="effect-label">修炼速度:</span>
@@ -271,7 +271,7 @@
                   v-if="selectedItem.功法技能 && Object.keys(selectedItem.功法技能).length > 0"
                   class="details-attributes"
                 >
-                  <h4>功法技能</h4>
+                  <h4>功法技能:</h4>
                   <div class="technique-skills">
                     <div
                       v-for="(skill, skillName) in selectedItem.功法技能"
@@ -296,7 +296,7 @@
                 v-if="selectedItem.类型 === '装备' && selectedItem.装备增幅"
                 class="details-attributes"
               >
-                <h4>装备增幅</h4>
+                <h4>装备增幅:</h4>
                 <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
             </div>
@@ -567,7 +567,7 @@ const inventory = computed<Inventory>(() => {
   return (
     characterStore.activeSaveSlot?.存档数据?.背包 || {
       灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-      物品: [], // [REFACTORED] 物品现在是数组
+      物品: {}, // 物品是对象(Record<string, Item>)，key为物品ID
     }
   )
 })
@@ -596,8 +596,8 @@ const equipmentSlots = computed(() => {
     ) {
       // 从背包获取完整物品信息
       const itemId = equippedItem.物品ID
-      const bag = saveData?.背包?.物品 || [] // [REFACTORED] 物品是数组
-      const fromInv = Array.isArray(bag) ? bag.find(i => i.物品ID === itemId) : undefined
+      const bag = saveData?.背包?.物品 || {} // 物品是对象
+      const fromInv = bag[itemId] // 直接通过物品ID获取
       if (fromInv && typeof fromInv === 'object') {
         item = fromInv as Item
       } else {
@@ -679,17 +679,20 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
 }
 
 const itemList = computed<Item[]>(() => {
-  const items = inventory.value?.物品 || []
-  if (!Array.isArray(items)) {
-    // 如果数据格式仍然是旧的对象格式，进行兼容转换
-    console.warn('[InventoryPanel] 检测到旧的物品对象格式，正在进行兼容转换。')
-    return Object.values(items) as Item[]
-  }
-  // [REFACTORED] 直接使用数组，不再需要Object.entries
-  return items
-    .filter(val => val && typeof val === 'object')
-    .map(val => {
-      const item = val as any
+  const items = inventory.value?.物品 || {}
+  // 物品现在是对象格式 Record<string, Item>
+  // 过滤掉以 _ 开头的元数据字段（如 _AI装备流程提醒）
+  return Object.entries(items)
+    .filter(([key, val]) => {
+      // 过滤掉元数据字段
+      if (key.startsWith('_')) {
+        return false
+      }
+      // 过滤掉无效值
+      return val && typeof val === 'object'
+    })
+    .map(([_, val]) => {
+      const item = val as Partial<Item>
       return {
         ...item,
         物品ID: String(item.物品ID || ''),
@@ -868,12 +871,12 @@ const getGradeClass = (grade: number): string => {
 // 从背包中移除物品的辅助函数
 const removeItemFromInventory = async (item: Item) => {
   const inventory = characterStore.activeSaveSlot?.存档数据?.背包
-  if (!inventory || !Array.isArray(inventory.物品)) {
+  if (!inventory || typeof inventory.物品 !== 'object') {
     throw new Error('背包数据不存在或格式不正确')
   }
 
-  // [REFACTORED] 从数组中移除物品
-  inventory.物品 = inventory.物品.filter(i => i.物品ID !== item.物品ID)
+  // [REFACTORED] 从对象中移除物品
+  delete inventory.物品[item.物品ID]
   await characterStore.commitToStorage()
 
   debug.log('背包面板', '物品移除成功', item.名称)
@@ -892,14 +895,13 @@ const removeItemFromInventory = async (item: Item) => {
 // 更新背包中物品的辅助函数
 const updateItemInInventory = async (item: Item) => {
   const inventory = characterStore.activeSaveSlot?.存档数据?.背包
-  if (!inventory || !Array.isArray(inventory.物品)) {
+  if (!inventory || typeof inventory.物品 !== 'object') {
     throw new Error('背包数据不存在或格式不正确')
   }
 
-  // [REFACTORED] 更新数组中的物品
-  const index = inventory.物品.findIndex(i => i.物品ID === item.物品ID)
-  if (index !== -1) {
-    inventory.物品[index] = item
+  // [REFACTORED] 更新对象中的物品
+  if (inventory.物品[item.物品ID]) {
+    inventory.物品[item.物品ID] = item
     await characterStore.commitToStorage()
     debug.log('背包面板', '物品更新成功', item.名称)
   } else {
@@ -1567,6 +1569,7 @@ onMounted(async () => {
   margin: 0 0 8px 0;
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 .modal-actions {
@@ -2028,6 +2031,7 @@ onMounted(async () => {
   margin: 0 0 12px 0;
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 .details-placeholder {

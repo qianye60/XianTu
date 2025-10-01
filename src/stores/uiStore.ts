@@ -27,25 +27,10 @@ export const useUIStore = defineStore('ui', () => {
   // --- 新增：状态变更日志查看器状态 ---
   const showStateChangeViewer = ref(false);
   const stateChangeLogToShow = ref<any | null>(null); // 存储要显示的日志
-  // 保持最近的状态变更历史，支持跨页面/刷新恢复
-  const STATE_CHANGE_HISTORY_KEY = 'ui.stateChangeHistory.v1';
-  const MAX_HISTORY = 20;
-  const loadHistory = (): any[] => {
-    try {
-      const raw = localStorage.getItem(STATE_CHANGE_HISTORY_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
-  const stateChangeHistory = ref<any[]>(loadHistory());
-  const persistHistory = () => {
-    try {
-      localStorage.setItem(STATE_CHANGE_HISTORY_KEY, JSON.stringify(stateChangeHistory.value));
-    } catch {}
-  };
+
+  // 当前消息的状态变更日志（仅内存存储，不持久化到本地）
+  // 每次新消息来时会被清空覆盖
+  const currentMessageStateChanges = ref<any | null>(null);
 
 
   function openCharacterManagement() {
@@ -131,15 +116,6 @@ export const useUIStore = defineStore('ui', () => {
 
   // --- 新增：状态变更日志查看器方法 ---
   function openStateChangeViewer(log: any) {
-    // 推入历史并裁剪
-    try {
-      const entry = { ...log, _ts: Date.now() };
-      stateChangeHistory.value.push(entry);
-      if (stateChangeHistory.value.length > MAX_HISTORY) {
-        stateChangeHistory.value.splice(0, stateChangeHistory.value.length - MAX_HISTORY);
-      }
-      persistHistory();
-    } catch {}
     stateChangeLogToShow.value = log;
     showStateChangeViewer.value = true;
   }
@@ -149,21 +125,14 @@ export const useUIStore = defineStore('ui', () => {
     stateChangeLogToShow.value = null;
   }
 
-  // 外部可用：直接推入历史（不弹窗）
-  function pushStateChangeHistory(log: any) {
-    try {
-      const entry = { ...log, _ts: Date.now() };
-      stateChangeHistory.value.push(entry);
-      if (stateChangeHistory.value.length > MAX_HISTORY) {
-        stateChangeHistory.value.splice(0, stateChangeHistory.value.length - MAX_HISTORY);
-      }
-      persistHistory();
-    } catch {}
+  // 设置当前消息的状态变更（会覆盖之前的）
+  function setCurrentMessageStateChanges(log: any) {
+    currentMessageStateChanges.value = log ? { ...log, _ts: Date.now() } : null;
   }
 
-  function clearStateChangeHistory() {
-    stateChangeHistory.value = [];
-    persistHistory();
+  // 清空当前消息的状态变更
+  function clearCurrentMessageStateChanges() {
+    currentMessageStateChanges.value = null;
   }
 
   return {
@@ -193,10 +162,10 @@ export const useUIStore = defineStore('ui', () => {
     // 暴露状态变更日志查看器相关状态和方法
     showStateChangeViewer,
     stateChangeLogToShow,
-    stateChangeHistory,
+    currentMessageStateChanges, // 当前消息的状态变更（内存）
     openStateChangeViewer,
     closeStateChangeViewer,
-    pushStateChangeHistory,
-    clearStateChangeHistory,
+    setCurrentMessageStateChanges, // 设置当前消息的状态变更
+    clearCurrentMessageStateChanges, // 清空当前消息的状态变更
   };
 });

@@ -26,5 +26,5 @@ export {
 export { generateInitialMessage } from './generators/gameMasterGenerators';
 
 // 重新导出提示词（供其他模块使用）
-export * from './prompts/gameElementPrompts';
-export * from './prompts/gameMasterPrompts';
+// export * from './prompts/variableOperationRules'; // 已移至酒馆预设
+export * from './prompts/dataStructureDefinitions';

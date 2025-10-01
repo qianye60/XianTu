@@ -1,13 +1,6 @@
 import { toast } from './toast';
-import { 
-  COMMON_CORE_RULES, 
-  COMMON_NARRATIVE_RULES, 
-  COMMON_DATA_MANIPULATION_RULES,
-  COMMON_ITEM_RULES,
-  COMMON_NPC_RULES,
-  COMMON_DAO_RULES,
-  CHARACTER_INITIALIZATION_RULES
-} from './prompts/commonPromptRules';
+
+// ⚠️ 所有规则已移至酒馆预设，不再从代码导入
 
 // =======================================================================
 //                           提示词压缩工具
@@ -45,7 +38,7 @@ function compactPrompt(text: string): string {
  */
 export function diagnoseAIResponse(rawResult: unknown, typeName: string): void {
   const aiResponse = rawResult as AIResponse;
-  
+
   console.log(`【神识印记-诊断】开始诊断${typeName}的AI响应:`, {
     type: typeof rawResult,
     isNull: rawResult === null,
@@ -80,47 +73,68 @@ interface LorebookEntry {
 /**
  * TavernHelper API 接口定义 - 作为类型安全的唯一真实来源
  */
+// 提示词注入类型定义(根据@types文档)
+export interface InjectionPrompt {
+  id: string;
+  position: 'in_chat' | 'none';
+  depth: number;
+  role: 'system' | 'assistant' | 'user';
+  content: string;
+  filter?: (() => boolean) | (() => Promise<boolean>);
+  should_scan?: boolean;
+}
+
+export interface InjectPromptsOptions {
+  once?: boolean; // 是否只在下一次请求生成中有效
+}
+
+export interface Overrides {
+  char_description?: string;
+  char_personality?: string;
+  scenario?: string;
+  example_dialogue?: string;
+  [key: string]: unknown;
+}
+
 export interface TavernHelper {
   // 核心生成与命令
   generate: (config: {
     user_input?: string;
     should_stream?: boolean;
     image?: File | string | (File | string)[];
-    overrides?: any;
-    injects?: Array<{
-      role: string;
-      content: string;
-      position: string;
-      depth?: number;
-      should_scan?: boolean;
-    }>;
+    overrides?: Overrides;
+    injects?: Omit<InjectionPrompt, 'id'>[];
     max_chat_history?: 'all' | number;
-    custom_api?: any;
+    custom_api?: Record<string, unknown>;
     generation_id?: string;
   }) => Promise<string>; // 更新generate方法签名
-  generateRaw: (config: any) => Promise<unknown>; // 更改为接受配置对象
+  generateRaw: (config: Record<string, unknown>) => Promise<unknown>; // 更改为接受配置对象
   triggerSlash: (command: string) => Promise<unknown>;
-  
+
+  // 提示词注入
+  injectPrompts: (prompts: InjectionPrompt[], options?: InjectPromptsOptions) => void;
+  uninjectPrompts: (ids: string[]) => void;
+
   // 变量操作
   getVariables(options: { type: 'global' | 'chat' }): Promise<Record<string, unknown>>;
-  insertOrAssignVariables(data: Record<string, any>, options: { type: 'global' | 'chat' }): Promise<void>;
-  deleteVariable(variable_path: string, options?: { type?: string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, any>; delete_occurred: boolean }>;
-  
+  insertOrAssignVariables(data: Record<string, unknown>, options: { type: 'global' | 'chat' }): Promise<void>;
+  deleteVariable(variable_path: string, options?: { type?: string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, unknown>; delete_occurred: boolean }>;
+
   // 角色与宏
   getCharData(): Promise<{ name: string } | null>;
   substitudeMacros(macro: string): Promise<string>;
-  
+
   // 世界书操作
   getLorebooks(): Promise<string[]>;
   createLorebook(name: string): Promise<void>;
   getLorebookEntries(name: string): Promise<LorebookEntry[]>;
   setLorebookEntries(name: string, entries: Partial<LorebookEntry>[]): Promise<void>;
   createLorebookEntries(name: string, entries: unknown[]): Promise<void>;
-  
+
   // 聊天记录操作
   getLastMessageId(): Promise<number>;
   deleteChatMessages(message_ids: number[], options?: { refresh?: 'none' | 'all' }): Promise<void>;
-  updateChatHistory?(history: any[]): Promise<void>; // 为了向后兼容，设为可选
+  updateChatHistory?(history: unknown[]): Promise<void>; // 为了向后兼容，设为可选
 
   // 设置与其他
   settings?: {
@@ -167,17 +181,18 @@ interface AIResponse {
 
 /**
  * 通用AI生成函数，使用TavernHelper.generate()方法直接调用
+ * 统一使用 injectPrompts 方式注入提示词，避免重复添加到对话历史
  */
 export async function generateItemWithTavernAI<T = unknown>(
   prompt: string,
   typeName: string,
   showToast: boolean = true,
-  retries: number = 3,
+  _retries: number = 3,
   useStreaming: boolean = false,
   onStreamChunk?: (chunk: string) => void
 ): Promise<T | null> {
   // 内部：对GM_Response进行严格校验，避免"嵌套读取/关键词修正"，让AI自行修正
-  const ensureValidGMResponse = (data: any): any => {
+  const ensureValidGMResponse = (data: unknown): unknown => {
     try {
       if (!data || typeof data !== 'object') return data;
       // 仅当看起来像GM响应时才校验（包含text和tavern_commands字段）
@@ -188,37 +203,37 @@ export async function generateItemWithTavernAI<T = unknown>(
       const allowed = new Set(['set', 'add', 'delete', 'push', 'pull']);
       const scopes = new Set(['global', 'chat', 'character', 'message']);
 
-      const toArray = (tc: any): any[] => {
+      const toArray = (tc: unknown): unknown[] => {
         if (Array.isArray(tc)) return tc;
         // 支持对象格式 { set: {...}, add: {...}, push: [...], pull: [...], delete: [...] }
         if (tc && typeof tc === 'object') {
-          const arr: any[] = [];
-          const pushFromObject = (obj: any, action: string) => {
+          const arr: Record<string, unknown>[] = [];
+          const pushFromObject = (obj: unknown, action: string) => {
             if (!obj || typeof obj !== 'object') return;
             for (const k of Object.keys(obj)) {
-              arr.push({ action, scope: 'chat', key: k, value: obj[k] });
+              arr.push({ action, scope: 'chat', key: k, value: (obj as Record<string, unknown>)[k] });
             }
           };
-          const pushFromArray = (list: any, action: string) => {
+          const pushFromArray = (list: unknown, action: string) => {
             if (!Array.isArray(list)) return;
             for (const it of list) {
               if (!it) continue;
               if (Array.isArray(it)) {
                 const [k, v] = it;
                 if (typeof k === 'string') arr.push({ action, scope: 'chat', key: k, value: v });
-              } else if (typeof it === 'object') {
-                const k = (it as any).key;
-                if (typeof k === 'string') arr.push({ action, scope: (it as any).scope || 'chat', key: k, value: (it as any).value });
+              } else if (typeof it === 'object' && it) {
+                const k = (it as Record<string, unknown>).key;
+                if (typeof k === 'string') arr.push({ action, scope: (it as Record<string, unknown>).scope || 'chat', key: k, value: (it as Record<string, unknown>).value });
               } else if (typeof it === 'string' && action === 'delete') {
                 arr.push({ action, scope: 'chat', key: it });
               }
             }
           };
-          if ('set' in tc) pushFromObject(tc.set, 'set');
-          if ('add' in tc) pushFromObject(tc.add, 'add');
-          if ('push' in tc) pushFromArray(tc.push, 'push');
-          if ('pull' in tc) pushFromArray(tc.pull, 'pull');
-          if ('delete' in tc) pushFromArray(tc.delete, 'delete');
+          if ('set' in tc) pushFromObject((tc as { set: unknown }).set, 'set');
+          if ('add' in tc) pushFromObject((tc as { add: unknown }).add, 'add');
+          if ('push' in tc) pushFromArray((tc as { push: unknown }).push, 'push');
+          if ('pull' in tc) pushFromArray((tc as { pull: unknown }).pull, 'pull');
+          if ('delete' in tc) pushFromArray((tc as { delete: unknown }).delete, 'delete');
           console.log('【神识印记|校验】tavern_commands 对象格式已展开为数组，长度:', arr.length);
           return arr;
         }
@@ -226,7 +241,7 @@ export async function generateItemWithTavernAI<T = unknown>(
         return [];
       };
 
-      let cmds = (data as any).tavern_commands;
+      let cmds = (data as Record<string, unknown>).tavern_commands;
       cmds = toArray(cmds);
 
       if (!Array.isArray(cmds)) {
@@ -234,12 +249,12 @@ export async function generateItemWithTavernAI<T = unknown>(
       }
 
       // 逐条严格校验
-      const normalized: any[] = [];
+      const normalized: Record<string, unknown>[] = [];
       for (const c of cmds) {
         if (!c || typeof c !== 'object') throw new Error('命令项必须为对象');
 
         // 兼容常见别名：command/_.set/set_player_data 等，统一映射为 action
-        const rawAction = (c as any).action ?? (c as any).command ?? (c as any).op;
+        const rawAction = (c as Record<string, unknown>).action ?? (c as Record<string, unknown>).command ?? (c as Record<string, unknown>).op;
         let action = String(rawAction || '').trim().toLowerCase();
         // 规范化常见别名
         const aliasMap: Record<string, 'set' | 'add' | 'push' | 'pull' | 'delete'> = {
@@ -261,15 +276,15 @@ export async function generateItemWithTavernAI<T = unknown>(
           action = aliasMap[action as keyof typeof aliasMap];
         }
         // 也允许原生关键字（保持原样）
-        const scope = String((c as any).scope || 'chat').trim();
-        const key = String((c as any).key || '').trim();
+        const scope = String((c as Record<string, unknown>).scope || 'chat').trim();
+        const key = String((c as Record<string, unknown>).key || '').trim();
         if (!allowed.has(action)) throw new Error('存在非法action');
         if (!scopes.has(scope)) throw new Error('存在非法scope');
         if (!key) throw new Error('存在非法key');
-        normalized.push({ action, scope, key, value: (c as any).value });
+        normalized.push({ action, scope, key, value: (c as Record<string, unknown>).value });
       }
 
-      (data as any).tavern_commands = normalized;
+      (data as Record<string, unknown>).tavern_commands = normalized;
       console.log('【神识印记|校验】tavern_commands 通过校验，数量:', normalized.length);
       return data;
     } catch (e) {
@@ -278,8 +293,9 @@ export async function generateItemWithTavernAI<T = unknown>(
       throw new Error(`GM响应校验失败: ${msg}`);
     }
   };
-  let lastError: Error | null = null;
-  
+  // let lastError: Error | null = null;
+
+  // 记录注入的提示词ID，用于最后清理
   console.log(`【神识印记】开始生成${typeName}，使用TavernHelper.generate()方法`);
   console.log(`【神识印记-调试】提示词长度: ${prompt?.length || 0} 字符`);
   console.log(`【神识印记-调试】提示词前500字符:`, prompt.substring(0, 500));
@@ -287,177 +303,126 @@ export async function generateItemWithTavernAI<T = unknown>(
   console.log(`【神识印记-调试】提示词是否包含格式化标记:`, prompt.includes('【格式化标记规范】'));
   console.log(`【神识印记-调试】提示词是否包含INPUT_PLACEHOLDER:`, prompt.includes('INPUT_PLACEHOLDER'));
 
-  for (let i = 0; i <= retries; i++) {
+  // 准备提示词
+  const preparedPrompt = compactPrompt(prompt);
+  console.log(`【神识印记】准备发送任务提示词，大小:`, preparedPrompt.length, '字符');
+
+  const helper = getTavernHelper();
+
+  // 简单直接：将提示词作为 user_input 发送一次，禁用重试
+  // 如果AI返回格式错误，让调用方自己处理
+  try {
+    if (showToast) {
+      toast.info(`天机运转，推演${typeName}...`);
+    }
+
+    console.log(`【神识印记】使用/inject命令注入提示词`);
+    console.log(`【神识印记-调试】准备发送的提示词长度:`, preparedPrompt.length);
+    console.log(`【神识印记-调试】提示词前500字符:`, preparedPrompt.substring(0, 500));
+    console.log(`【神识印记-调试】提示词后500字符:`, preparedPrompt.substring(Math.max(0, preparedPrompt.length - 500)));
+    console.log(`【神识印记-调试】提示词是否包含DATA_STRUCTURE_DEFINITIONS:`, preparedPrompt.includes('# 数据结构定义'));
+    console.log(`【神识印记-调试】提示词是否包含玩家核心选择:`, preparedPrompt.includes('# 玩家核心选择'));
+    console.log(`【神识印记-调试】提示词是否包含千夜:`, preparedPrompt.includes('千夜'));
+    console.log(`【神识印记-调试】提示词是否包含瑶池圣地:`, preparedPrompt.includes('瑶池圣地'));
+
+    // 使用 /inject slash command 注入提示词
+    // position=before 在主提示词之前，depth=0 最高优先级，role=system 系统角色，ephemeral=true 临时注入
+    const injectId = `init_prompt_${Date.now()}`;
+
+    // 转义提示词中的特殊字符（特别是引号）
+    const escapedPrompt = preparedPrompt.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    const injectCommand = `/inject id="${injectId}" position=before depth=0 role=system ephemeral=true "${escapedPrompt}"`;
+
+    console.log(`【神识印记-调试】注入命令ID:`, injectId);
+    console.log(`【神识印记-调试】注入命令长度:`, injectCommand.length);
+
     try {
-      if (i > 0) {
-        console.log(`【神识印记】开始第 ${i} 次重试生成 ${typeName}...`);
-        toast.info(`天机扰动，正在第 ${i} 次尝试推演${typeName}...`);
-      }
+      const injectResult = await helper.triggerSlash(injectCommand);
+      console.log(`【神识印记】提示词注入成功，返回:`, injectResult);
+    } catch (injectError) {
+      console.warn(`【神识印记】提示词注入失败:`, injectError);
+      // 继续执行，即使注入失败
+    }
 
-      const helper = getTavernHelper();
-      if (showToast && i === 0) {
-        toast.info(`天机运转，推演${typeName}...`);
-      }
+    // 发送生成请求
+    const rawResult = await helper.generate({
+      user_input: '请严格按照上述系统指令执行角色初始化任务',
+      should_stream: useStreaming,
+      max_chat_history: 0  // 禁用聊天历史
+    });
 
-      // 压缩系统规则与提示词，减少 token 占用
-      const systemBundle = await (async () => {
-        try {
-          const helper = getTavernHelper();
-          const vars = await helper.getVariables({ type: 'chat' });
-          const bundle = typeof vars['system.rules.bundle'] === 'string' ? (vars['system.rules.bundle'] as string) : '';
-          if (bundle && bundle.trim()) return compactPrompt(bundle);
-        } catch {}
-        // 回退：内建拼装一份基础规则
-        const parts = [
-          '【核心规则】',
-          (typeof COMMON_CORE_RULES === 'string' ? COMMON_CORE_RULES : ''),
-          '【叙事规则】',
-          (typeof COMMON_NARRATIVE_RULES === 'string' ? COMMON_NARRATIVE_RULES : ''),
-          '【数据操作规则】',
-          (typeof COMMON_DATA_MANIPULATION_RULES === 'string' ? COMMON_DATA_MANIPULATION_RULES : ''),
-          '【物品系统】',
-          (typeof COMMON_ITEM_RULES === 'string' ? COMMON_ITEM_RULES : ''),
-          '【NPC系统】',
-          (typeof COMMON_NPC_RULES === 'string' ? COMMON_NPC_RULES : ''),
-          '【三千大道系统】',
-          (typeof COMMON_DAO_RULES === 'string' ? COMMON_DAO_RULES : ''),
-          '【角色初始化特别规则】',
-          (typeof CHARACTER_INITIALIZATION_RULES === 'string' ? CHARACTER_INITIALIZATION_RULES : ''),
-        ].filter(Boolean).join('\n\n');
-        return compactPrompt(parts);
-      })();
+    console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);
+    console.log(`【神识印记-调试】TavernHelper.generate()返回结果长度:`, rawResult?.length || 0);
+    console.log(`【神识印记-调试】TavernHelper.generate()返回结果前200字符:`, rawResult?.substring(0, 200));
 
-      const preparedPrompt = compactPrompt(prompt);
+    // 处理流式回调
+    if (useStreaming && onStreamChunk) {
+      onStreamChunk(rawResult || '');
+    }
 
-      console.log(`【神识印记】调用TavernHelper.generate()方法，将提示词作为系统注入`);
-      console.log(`【神识印记-调试】提示词长度(压缩后):`, preparedPrompt.length);
-      console.log(`【神识印记-调试】提示词前300字符:`, preparedPrompt.substring(0, 300));
-      console.log(`【神识印记-调试】提示词后300字符:`, preparedPrompt.substring(Math.max(0, preparedPrompt.length - 300)));
-      
-      // 使用TavernHelper.generate()方法，将完整提示词作为系统注入
-      const rawResult = await helper.generate({
-        user_input: "请按照系统指令执行，生成符合要求的JSON响应。",
-        injects: [
-          { role: "system", content: systemBundle, position: "in_chat", depth: 0, should_scan: false },
-          { role: "system", content: preparedPrompt, position: "in_chat", depth: 0, should_scan: false }
-        ],
-        should_stream: useStreaming,
-        max_chat_history: 0  // 不使用聊天历史，避免干扰
-      });
-      
-      console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);
-      console.log(`【神识印记-调试】TavernHelper.generate()返回结果长度:`, rawResult?.length || 0);
-      console.log(`【神识印记-调试】TavernHelper.generate()返回结果前200字符:`, rawResult?.substring(0, 200));
+    if (!rawResult || typeof rawResult !== 'string' || rawResult.trim() === '') {
+      throw new Error(`TavernHelper.generate()返回了空的响应内容，响应类型: ${typeof rawResult}`);
+    }
 
-      // 处理流式回调
-      if (useStreaming && onStreamChunk) {
-        onStreamChunk(rawResult || '');
-      }
+    const text = rawResult.trim();
+    console.log(`【神识印记】AI原始响应文本 (前200字符):`, text.substring(0, 200));
 
-      if (!rawResult || typeof rawResult !== 'string' || rawResult.trim() === '') {
-        throw new Error(`TavernHelper.generate()返回了空的响应内容，响应类型: ${typeof rawResult}`);
-      }
+    // 尝试提取JSON
+    let jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (!jsonMatch) {
+      jsonMatch = text.match(/```\s*([\s\S]*?)\s*```/);
+    }
 
-      const text = rawResult.trim();
-      console.log(`【神识印记】AI原始响应文本 (前200字符):`, text.substring(0, 200));
-
-      // 尝试提取JSON
-      let jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-      if (!jsonMatch) {
-        jsonMatch = text.match(/```\s*([\s\S]*?)\s*```/);
-      }
-
-      if (!jsonMatch) {
-        // 尝试直接解析整个响应为JSON
-        try {
-          const parsed = JSON.parse(text);
-          const checked = ensureValidGMResponse(parsed);
-          if (showToast) {
-            toast.success(`${typeName}推演完成！`);
-          }
-          return checked;
-        } catch {
-          console.warn(`【神识印记】响应中未找到JSON代码块，且无法直接解析为JSON: ${text}`);
-          
-          // 不再提供fallback响应，直接抛出错误让重试机制处理
-          throw new Error(`响应格式无效：缺少JSON代码块或无法解析的内容`);
-        }
-      }
-
-      const jsonStr = jsonMatch[1].trim();
-      console.log(`【神识印记】提取到的JSON字符串:`, jsonStr);
-
+    if (!jsonMatch) {
+      // 尝试直接解析整个响应为JSON
       try {
-        const parsed = JSON.parse(jsonStr);
-        console.log(`【神识印记】成功解析${typeName}:`, parsed);
+        const parsed = JSON.parse(text);
+        const checked = ensureValidGMResponse(parsed);
         if (showToast) {
           toast.success(`${typeName}推演完成！`);
         }
-        const checked = ensureValidGMResponse(parsed);
-        return checked;
-      } catch (parseError) {
-        const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
-        console.error(`【神识印记】JSON解析失败:`, parseError);
-        console.error(`【神识印记】原始JSON字符串:`, jsonStr);
-        throw new Error(`JSON解析失败: ${errorMsg}`);
+        return checked as T;
+      } catch {
+        console.warn(`【神识印记】响应中未找到JSON代码块，且无法直接解析为JSON: ${text}`);
+        throw new Error(`响应格式无效：缺少JSON代码块或无法解析的内容`);
       }
-
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`【神识印记】第 ${i} 次尝试失败:`, errorMsg);
-
-      if (i < retries) {
-        console.log(`【神识印记】准备重试，剩余尝试次数: ${retries - i}`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 递增延迟
-        continue;
-      }
-
-      console.error(`【神识印记】所有重试次数已用尽，生成${typeName}失败`);
-      break;
     }
+
+    const jsonStr = jsonMatch[1].trim();
+    console.log(`【神识印记】提取到的JSON字符串:`, jsonStr);
+
+    try {
+      const parsed = JSON.parse(jsonStr);
+      console.log(`【神识印记】成功解析${typeName}:`, parsed);
+      if (showToast) {
+        toast.success(`${typeName}推演完成！`);
+      }
+      const checked = ensureValidGMResponse(parsed);
+      return checked as T;
+    } catch (parseError) {
+      const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+      console.error(`【神识印记】JSON解析失败:`, parseError);
+      console.error(`【神识印记】原始JSON字符串:`, jsonStr);
+      throw new Error(`JSON解析失败: ${errorMsg}`);
+    }
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`【神识印记】生成${typeName}失败:`, errorMsg);
+
+    if (showToast) {
+      toast.error(`推演${typeName}失败: ${errorMsg}`);
+    }
+
+    return null;
   }
-
-  // 所有重试都失败了
-  const errorMsg = `推演${typeName}失败: ${lastError?.message || '未知错误'}`;
-  console.error(`【神识印记】${errorMsg}`);
-
-  if (showToast) {
-    toast.error(errorMsg);
-  }
-
-  return null;
 }
 
 /**
- * 将系统规则打包并缓存到酒馆变量，便于后续自动注入
+ * ⚠️ 已废弃：系统规则已移至酒馆预设，不再需要从代码写入
+ * 保留此函数以保持向后兼容，实际不执行任何操作
  */
-export async function cacheSystemRulesToTavern(scope: 'chat' | 'global' = 'chat'): Promise<void> {
-  const buildRulesBundle = (): string => {
-    const sections = [
-      '【核心规则】',
-      (typeof COMMON_CORE_RULES === 'string' ? COMMON_CORE_RULES : ''),
-      '【叙事规则】',
-      (typeof COMMON_NARRATIVE_RULES === 'string' ? COMMON_NARRATIVE_RULES : ''),
-      '【数据操作规则】',
-      (typeof COMMON_DATA_MANIPULATION_RULES === 'string' ? COMMON_DATA_MANIPULATION_RULES : ''),
-      '【物品系统】',
-      (typeof COMMON_ITEM_RULES === 'string' ? COMMON_ITEM_RULES : ''),
-      '【NPC系统】',
-      (typeof COMMON_NPC_RULES === 'string' ? COMMON_NPC_RULES : ''),
-      '【三千大道系统】',
-      (typeof COMMON_DAO_RULES === 'string' ? COMMON_DAO_RULES : ''),
-      '【角色初始化特别规则】',
-      (typeof CHARACTER_INITIALIZATION_RULES === 'string' ? CHARACTER_INITIALIZATION_RULES : ''),
-    ].filter(Boolean);
-    return sections.join('\n\n');
-  };
-  try {
-    const helper = getTavernHelper();
-    const bundle = buildRulesBundle();
-    await helper.insertOrAssignVariables({ 'system.rules.bundle': bundle, 'system.rules.version': '1' }, { type: scope });
-    console.log('【神识印记】系统规则已写入酒馆变量');
-  } catch (e) {
-    console.warn('【神识印记】写入酒馆变量失败（不影响运行）:', e);
-  }
+export async function cacheSystemRulesToTavern(_scope: 'chat' | 'global' = 'chat'): Promise<void> {
+  console.log('【神识印记】系统规则已在酒馆预设中配置，无需从代码写入');
+  // 空操作 - 所有规则已在酒馆预设中维护
 }

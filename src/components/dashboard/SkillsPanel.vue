@@ -94,7 +94,7 @@
 
           <!-- 修炼概览 -->
           <div v-if="selectedSkillSlot === '功法'" class="overview-section">
-            <h4>修炼概览</h4>
+            <h4>修炼概览:</h4>
             <div class="overview-grid">
               <div class="overview-item">
                 <span class="label">熟练度</span>
@@ -120,7 +120,7 @@
 
           <!-- 功法等级 -->
           <div class="technique-level-section">
-            <h4>功法品质</h4>
+            <h4>功法品质:</h4>
             <div class="quality-display" :class="getSkillQualityClass(selectedSkillData, 'text')">
               {{ ((selectedSkillData as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((selectedSkillData as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
             </div>
@@ -128,7 +128,7 @@
 
           <!-- 修炼进度 -->
           <div v-if="selectedSkillSlot === '功法' && cultivationSkills.功法" class="cultivation-progress-section">
-            <h4>修炼进度</h4>
+            <h4>修炼进度:</h4>
             <div class="progress-container">
               <ProgressBar
               v-bind="{
@@ -143,7 +143,7 @@
 
           <!-- 功法效果 -->
           <div v-if="(selectedSkillData as { 功法效果?: unknown }).功法效果" class="skill-effects-section">
-            <h4>功法效果</h4>
+            <h4>功法效果:</h4>
             <div class="effect-details">
               <div v-if="((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成" class="effect-item">
                 <span class="effect-label">修炼速度:</span>
@@ -166,7 +166,7 @@
 
           <!-- 功法技能 -->
           <div v-if="(selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能 && Object.keys((selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能!).length > 0" class="technique-skills-section">
-            <h4>功法技能</h4>
+            <h4>功法技能:</h4>
             <div class="skills-list">
               <div v-for="(skill, skillName) in (selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能" :key="skillName" class="skill-item">
                 <div class="skill-header">
@@ -183,7 +183,7 @@
 
           <!-- 已解锁技能 -->
           <div v-if="selectedSkillSlot === '功法' && cultivationSkills.已解锁技能?.length" class="unlocked-skills-section">
-            <h4>已掌握技能</h4>
+            <h4>已掌握技能:</h4>
             <div class="unlocked-skills">
               <span v-for="skill in cultivationSkills.已解锁技能" :key="skill" class="unlocked-skill-tag">
                 {{ skill }}
@@ -215,7 +215,7 @@
 
         <div class="dialog-content">
           <div class="cultivation-time-input">
-            <h4>修炼时长</h4>
+            <h4>修炼时长:</h4>
             <div class="time-input-group">
               <div class="input-row">
                 <label>年：</label>
@@ -1039,10 +1039,17 @@ onMounted(async () => {
 }
 
 /* 修炼概览 */
-.overview-section h4 {
+.overview-section h4,
+.technique-level-section h4,
+.cultivation-progress-section h4,
+.skill-effects-section h4,
+.technique-skills-section h4,
+.unlocked-skills-section h4,
+.cultivation-time-input h4 {
   margin: 0 0 12px 0;
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 .overview-grid {
@@ -1086,11 +1093,6 @@ onMounted(async () => {
   margin-bottom: 20px;
 }
 
-.cultivation-progress-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-}
 
 .progress-container {
   display: flex;
@@ -1122,11 +1124,6 @@ onMounted(async () => {
 }
 
 /* 功法效果部分 */
-.skill-effects-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-}
 
 .effect-text {
   background: var(--color-background);
@@ -1412,11 +1409,6 @@ onMounted(async () => {
 }
 
 /* 功法技能列表 */
-.technique-skills-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-}
 
 .skills-list {
   display: flex;
@@ -1494,11 +1486,6 @@ onMounted(async () => {
 }
 
 /* 已解锁技能 */
-.unlocked-skills-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-}
 
 .unlocked-skills {
   display: flex;
@@ -1516,12 +1503,6 @@ onMounted(async () => {
 }
 
 /* 自定义修炼时间输入 */
-.cultivation-time-input h4 {
-  margin: 0 0 16px 0;
-  color: var(--color-text);
-  font-size: 1rem;
-  font-weight: 600;
-}
 
 .time-input-group {
   background: var(--color-surface);

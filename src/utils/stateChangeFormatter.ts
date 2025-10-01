@@ -3,7 +3,7 @@
  * 将原始的 StateChangeLog 对象转换为人类可读的、具有游戏语义的格式。
  */
 
-import type { StateChangeLog, StateChange } from '@/types/game';
+import type { StateChangeLog, StateChange, Item } from '@/types/game';
 import { get, isObject, isArray } from 'lodash';
 
 // --- 核心数据结构 ---
@@ -29,14 +29,14 @@ export interface FormattedStateChangeLog {
 
 // --- 辅助函数 ---
 
-function getItemName(item: any): string {
+function getItemName(item: Item | any): string {
   if (!isObject(item)) return '未知物品';
-  return item.名称 || item.name || '无名物品';
+  return item.名称 || '无名物品';
 }
 
-function getQuantity(item: any): number {
+function getQuantity(item: Item | any): number {
   if (!isObject(item)) return 1;
-  return item.数量 || item.quantity || 1;
+  return item.数量 || 1;
 }
 
 // --- 解析器模块 ---

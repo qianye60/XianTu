@@ -568,7 +568,7 @@ export class EnhancedActionQueueManager {
           await this.undoEquip(lastAction, saveData);
           break;
         case 'unequip':
-          await this.undoUnequip(lastAction, saveData);
+          await this.undoUnequip(lastAction);
           break;
         case 'use':
           await this.undoUse(lastAction, saveData);
@@ -637,7 +637,7 @@ export class EnhancedActionQueueManager {
           await this.undoEquip(action, saveData);
           break;
         case 'unequip':
-          await this.undoUnequip(action, saveData);
+          await this.undoUnequip(action);
           break;
         case 'use':
           await this.undoUse(action, saveData);
@@ -720,7 +720,7 @@ export class EnhancedActionQueueManager {
     }
   }
   
-  private async undoUnequip(action: UndoAction, _saveData: SaveData): Promise<void> {
+  private async undoUnequip(action: UndoAction): Promise<void> {
     // 由于卸下装备不涉及背包操作，撤回时需要从装备栏历史数据恢复
     // 这里简化处理：如果有原始槽位信息，则重新装备
     if (!action.restoreData?.originalSlot) return;

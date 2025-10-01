@@ -1190,6 +1190,7 @@ const closeModal = () => {
 
 .mobile-title {
   flex: 1;
+  min-width: 0; /* Allow shrinking and text-overflow to work */
 }
 
 .mobile-title h2 {
@@ -1203,6 +1204,10 @@ const closeModal = () => {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   margin-top: 0.2rem;
+  /* Fix for vertical text issue on small screens */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-overlay {
@@ -1313,6 +1318,11 @@ const closeModal = () => {
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   border: 1px solid var(--color-border);
+  /* Fix for vertical text issue on small screens */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%; /* Ensure it doesn't overflow its container */
 }
 
 /* 内容区域 - 简化样式 */

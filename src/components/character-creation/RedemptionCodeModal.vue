@@ -455,4 +455,25 @@ const submitPrompt = () => {
   background: rgba(139, 92, 246, 0.15);
   border-color: rgba(139, 92, 246, 0.4);
 }
+
+@media (max-width: 480px) {
+  .modal-dialog {
+    padding: 1.5rem 1rem;
+    width: 95%;
+    max-height: 90vh;
+  }
+  .modal-title {
+    font-size: 1.1rem;
+  }
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .form-actions .btn {
+    width: 100%;
+  }
+  .suggestions-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

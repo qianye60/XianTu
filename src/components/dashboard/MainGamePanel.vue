@@ -29,17 +29,6 @@
       <div class="current-narrative">
         <!-- AI处理时显示 -->
         <div v-if="isAIProcessing" class="ai-processing-display">
-          <!-- 状态重置按钮 - 仅在等待时间过长时显示 -->
-          <div class="processing-controls">
-            <button 
-              @click="forceResetAIProcessingState" 
-              class="reset-state-btn"
-              title="如果长时间无响应，点击此处重置状态"
-            >
-              🔄 重置状态
-            </button>
-          </div>
-          
           <!-- 如果有流式内容则显示 -->
           <div v-if="useStreaming && streamingContent" class="streaming-content">
             <div class="narrative-meta streaming-meta">
@@ -48,6 +37,14 @@
                 <span class="streaming-dot"></span>
                 <span v-if="streamingContent" class="streaming-text">{{ streamingCharCount }} 字</span>
               </div>
+              <!-- 重置按钮 - 右侧 -->
+              <button
+                @click="forceResetAIProcessingState"
+                class="reset-state-btn"
+                title="如果长时间无响应，点击此处重置状态"
+              >
+                🔄 重置状态
+              </button>
             </div>
             <div class="narrative-text">
               <FormattedText :text="streamingContent" />
@@ -61,6 +58,14 @@
                 <span class="streaming-dot"></span>
                 <span class="streaming-text">天道感应中...</span>
               </div>
+              <!-- 重置按钮 - 右侧 -->
+              <button
+                @click="forceResetAIProcessingState"
+                class="reset-state-btn"
+                title="如果长时间无响应，点击此处重置状态"
+              >
+                🔄 重置状态
+              </button>
             </div>
             <div class="narrative-text">
               <div class="waiting-animation">
@@ -136,6 +141,30 @@
       </div>
 
       <div class="input-wrapper">
+        <!-- 隐藏的文件选择器 -->
+        <input
+          type="file"
+          ref="imageInputRef"
+          @change="handleImageSelect"
+          multiple
+          accept="image/*"
+          style="display: none"
+        />
+
+        <!-- 图片上传按钮 -->
+        <button
+          @click="openImagePicker"
+          class="action-selector-btn image-upload-btn"
+          :disabled="!hasActiveCharacter"
+          title="上传图片"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </button>
+
         <button
           @click="showActionSelector"
           class="action-selector-btn"
@@ -146,6 +175,22 @@
         </button>
 
         <div class="input-container">
+          <!-- 图片预览区域 -->
+          <div v-if="selectedImages.length > 0" class="image-preview-container">
+            <div
+              v-for="(image, index) in selectedImages"
+              :key="index"
+              class="image-preview-item"
+            >
+              <img :src="getImagePreviewUrl(image)" :alt="image.name" />
+              <button @click="removeImage(index)" class="remove-image-btn" title="移除图片">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
           <textarea
             v-model="inputText"
             @focus="isInputFocused = true"
@@ -278,14 +323,13 @@ import {
   Swords, Shield, BookOpen, Heart, Bot
 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
-import { useActionQueueStore } from '@/stores/actionQueueStore';
+import { useActionQueueStore, type GameAction } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { getTavernHelper } from '@/utils/tavern';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { GameStateManager } from '@/utils/GameStateManager';
-import { RuntimeReasonabilityValidator, type DifficultyLevel, type AuditResult } from '@/utils/prompts/reasonabilityAudit';
 import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
 import type { GameMessage, SaveData, CharacterProfile } from '@/types/game';
@@ -371,39 +415,33 @@ if (typeof window !== 'undefined') {
   (window as any).forceResetAIState = forceResetAIProcessingState;
   
   // 暴露调试短期记忆的方法（支持双存储）
-  (window as any).debugMemory = () => {
+  (window as any).debugMemory = async () => {
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
     console.log('[调试] 当前存档数据:', save);
     console.log('[调试] 存档中短期记忆:', sd?.记忆?.短期记忆);
     console.log('[调试] 存档中中期记忆:', sd?.记忆?.中期记忆);
     console.log('[调试] 存档中长期记忆:', sd?.记忆?.长期记忆);
-    
+
     // 检查本地存储
     const localStorageData = localStorage.getItem('characterStoreV3');
     console.log('[调试] LocalStorage原始数据长度:', localStorageData?.length);
-    
+
     // 检查酒馆变量
     try {
       const helper = getTavernHelper();
       if (helper) {
-        const chatVars = helper.getVariables();
+        const chatVars = await helper.getVariables({ type: 'chat' });
         console.log('[调试] 酒馆Chat变量:', chatVars);
         console.log('[调试] 酒馆中的character.saveData:', chatVars['character.saveData']);
-        console.log('[调试] 酒馆中的短期记忆:', chatVars['character.saveData']?.记忆?.短期记忆);
-        
-        // 检查隐藏存储
-        memoryStorage.getFromHiddenStorage('short').then(hiddenMemories => {
-          console.log('[调试] 隐藏存储中的短期记忆:', hiddenMemories);
-          console.log('[调试] 隐藏存储记忆数量:', hiddenMemories.length);
-        });
+        console.log('[调试] 酒馆中的短期记忆:', (chatVars['character.saveData'] as SaveData)?.记忆?.短期记忆);
       } else {
         console.warn('[调试] 无法获取酒馆Helper');
       }
     } catch (e) {
       console.error('[调试] 检查酒馆变量失败:', e);
     }
-    
+
     return {
       存档: save,
       存档中短期记忆: sd?.记忆?.短期记忆,
@@ -422,45 +460,33 @@ if (typeof window !== 'undefined') {
     console.log('[测试] 持久化完成');
   };
   
-  // 暴露访问隐藏记忆的方法
-  (window as any).getHiddenMemories = async (type = 'short') => {
-    const memories = await memoryStorage.getFromHiddenStorage(type);
-    console.log(`[隐藏记忆] ${type}期记忆:`, memories);
-    return memories;
-  };
-  
-  // 暴露清除隐藏记忆的方法
-  (window as any).clearHiddenMemories = async (type) => {
-    await memoryStorage.clearHiddenStorage(type);
-    console.log(`[隐藏记忆] 已清除${type || '所有'}记忆`);
-  };
-  
+
   // 暴露调试AI响应存储的方法
-  (window as any).debugAIResponse = () => {
+  (window as any).debugAIResponse = async () => {
     console.log('[调试AI响应] 开始检查AI响应存储流程...');
-    
+
     // 检查最近的AI响应流程
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
-    
+
     console.log('[调试AI响应] 当前存档:', save);
     console.log('[调试AI响应] 短期记忆:', sd?.记忆?.短期记忆);
-    
+
     // 检查酒馆变量
     try {
       const helper = getTavernHelper();
       if (helper) {
-        const chatVars = helper.getVariables();
-        const tavernSaveData = chatVars['character.saveData'];
+        const chatVars = await helper.getVariables({ type: 'chat' });
+        const tavernSaveData = chatVars['character.saveData'] as SaveData;
         console.log('[调试AI响应] 酒馆saveData:', tavernSaveData);
         console.log('[调试AI响应] 酒馆短期记忆:', tavernSaveData?.记忆?.短期记忆);
-        
+
         // 对比本地和酒馆数据
         const localCount = sd?.记忆?.短期记忆?.length || 0;
         const tavernCount = tavernSaveData?.记忆?.短期记忆?.length || 0;
         console.log('[调试AI响应] 本地短期记忆数量:', localCount);
         console.log('[调试AI响应] 酒馆短期记忆数量:', tavernCount);
-        
+
         if (localCount !== tavernCount) {
           console.error('[调试AI响应] 🚨 数据同步问题：本地和酒馆记忆数量不一致！');
         }
@@ -468,7 +494,7 @@ if (typeof window !== 'undefined') {
     } catch (e) {
       console.error('[调试AI响应] 检查酒馆变量失败:', e);
     }
-    
+
     return {
       本地短期记忆: sd?.记忆?.短期记忆,
       存档状态: !!save,
@@ -508,8 +534,45 @@ const streamingContent = ref('');
 const useStreaming = ref(true);
 const streamingCharCount = computed(() => streamingContent.value.length);
 
-// 合理性审查配置
-const auditDifficulty = ref<DifficultyLevel>('normal');
+// 图片上传相关
+const selectedImages = ref<File[]>([]);
+const imageInputRef = ref<HTMLInputElement>();
+
+// 打开图片选择器
+const openImagePicker = () => {
+  imageInputRef.value?.click();
+};
+
+// 处理图片选择
+const handleImageSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    const newFiles = Array.from(target.files);
+    selectedImages.value.push(...newFiles);
+    console.log('[图片上传] 已选择图片:', newFiles.length, '张');
+    toast.success(`已选择 ${newFiles.length} 张图片`);
+  }
+};
+
+// 移除已选择的图片
+const removeImage = (index: number) => {
+  selectedImages.value.splice(index, 1);
+  toast.info('已移除图片');
+};
+
+// 清空所有图片
+const clearImages = () => {
+  selectedImages.value = [];
+  if (imageInputRef.value) {
+    imageInputRef.value.value = '';
+  }
+};
+
+// 获取图片预览 URL
+const getImagePreviewUrl = (file: File): string => {
+  return URL.createObjectURL(file);
+};
+
 
 // gameMessages 数组将被移除，currentNarrative 成为显示内容的唯一来源
 // const gameMessages = ref<GameMessage[]>([]);
@@ -1198,41 +1261,6 @@ const retryAIResponse = async (
   return null;
 };
 
-// 执行合理性审查
-const performReasonabilityAudit = async (
-  gmResponse: GM_Response,
-  character: SaveData,
-  userAction: string
-): Promise<AuditResult> => {
-  try {
-    // 使用运行时验证器进行审查
-    const auditResult = RuntimeReasonabilityValidator.validateGMResponse(
-      gmResponse,
-      character,
-      userAction,
-      auditDifficulty.value
-    );
-
-    // 记录审查结果
-    console.log('[合理性审查] 审查完成:', {
-      isValid: auditResult.isValid,
-      confidence: auditResult.confidence,
-      issues: auditResult.issues.length,
-      difficulty: auditDifficulty.value
-    });
-
-    return auditResult;
-  } catch (error) {
-    console.error('[合理性审查] 审查过程出错:', error);
-    // 返回默认通过结果，避免阻塞游戏流程
-    return {
-      isValid: true,
-      confidence: 0.5,
-      issues: [],
-      suggestions: ['审查系统暂时不可用']
-    };
-  }
-};
 
 const handleStreamingResponse = (chunk: string) => {
   if (streamingMessageIndex.value !== null) {
@@ -1247,7 +1275,8 @@ const handleStreamingResponse = (chunk: string) => {
 };
 
 // 检查动作是否可撤回
-const isUndoableAction = (action: { type: string }): boolean => {
+const isUndoableAction = (action: { type?: string }): boolean => {
+  if (!action.type) return false;
   // NPC交互类操作不支持撤回，只能删除
   const npcInteractionTypes = ['npc_trade', 'npc_request', 'npc_steal'];
   if (npcInteractionTypes.includes(action.type)) {
@@ -1269,14 +1298,14 @@ const removeActionFromQueue = async (index: number) => {
 
     // NPC交互类操作不支持撤回，只能删除
     const npcInteractionTypes = ['npc_trade', 'npc_request', 'npc_steal'];
-    if (npcInteractionTypes.includes(action.type)) {
+    if (action.type && npcInteractionTypes.includes(action.type)) {
       actionQueue.removeAction(action.id);
       toast.success('已移除NPC交互动作');
       return;
     }
 
     // 如果是装备、卸下、使用或修炼类操作，尝试按名称精准撤回
-    if (['equip', 'unequip', 'use', 'cultivate'].includes(action.type)) {
+    if (action.type && ['equip', 'unequip', 'use', 'cultivate'].includes(action.type) && action.itemName) {
       const success = await enhancedActionQueue.undoByItemName(action.type as 'equip' | 'unequip' | 'use' | 'cultivate', action.itemName);
       if (success) {
         toast.success('已撤回并恢复');
@@ -1340,6 +1369,7 @@ const sendMessage = async () => {
 
   // 用户消息只作为行动趋向提示词，不添加到记忆中
   isAIProcessing.value = true;
+
   // 强制清空当前叙述，为流式响应或等待动画做准备，彻底避免内容重叠
   currentNarrative.value = null;
   streamingContent.value = ''; // 重置流式内容
@@ -1385,6 +1415,11 @@ const sendMessage = async () => {
         options.onStreamChunk = handleStreamingResponse;
         options.useStreaming = true;
       }
+      // 添加图片上传支持
+      if (selectedImages.value.length > 0) {
+        options.image = selectedImages.value;
+        console.log('[图片上传] 将发送', selectedImages.value.length, '张图片');
+      }
 
       aiResponse = await bidirectionalSystem.processPlayerAction(
         finalUserMessage,
@@ -1418,27 +1453,6 @@ const sendMessage = async () => {
         }
       }
 
-      // 合理性审查检查
-      const sdForAudit = characterStore.activeSaveSlot?.存档数据;
-      if (aiResponse.gmResponse && sdForAudit) {
-        const auditResult = await performReasonabilityAudit(
-          aiResponse.gmResponse as GM_Response,
-          sdForAudit,
-          userMessage
-        );
-        if (!auditResult.isValid) {
-          console.warn('[合理性审查] 检测到不合理内容:', auditResult.issues);
-
-          if (auditResult.adjustedResponse) {
-            aiResponse.gmResponse = auditResult.adjustedResponse;
-            toast.info('AI响应已根据游戏规则进行调整');
-          } else {
-            toast.warning('AI响应可能不完全合理，已记录审查结果');
-          }
-        } else {
-          console.log('[合理性审查] 响应通过审查，可信度:', auditResult.confidence.toFixed(2));
-        }
-      }
 
       // 完成流式输出
       streamingMessageIndex.value = null;
@@ -1500,16 +1514,41 @@ const sendMessage = async () => {
 
     // 处理游戏状态更新（仅在有有效AI响应时执行）
     if (aiResponse && aiResponse.stateChanges) {
+      // 先清空上一次的日志（在收到新响应时清空，而不是发送消息时）
+      uiStore.clearCurrentMessageStateChanges();
+      console.log('[日志清空] 收到新响应，已清空上一条消息的状态变更日志');
+
       await gameStateManager.applyStateChanges(aiResponse.stateChanges);
       characterStore.updateCharacterData(aiResponse.stateChanges);
 
       // 将状态变更附加到当前叙述上
       if (currentNarrative.value) {
         currentNarrative.value.stateChanges = aiResponse.stateChanges as StateChangeLog;
+
+        // 保存到叙事历史
+        const saveData = characterStore.activeSaveSlot?.存档数据;
+        if (saveData) {
+          if (!saveData.叙事历史) {
+            saveData.叙事历史 = [];
+          }
+          // 添加到历史记录（最新的在前）
+          saveData.叙事历史.unshift({
+            type: currentNarrative.value.type,
+            content: currentNarrative.value.content,
+            time: currentNarrative.value.time,
+            stateChanges: currentNarrative.value.stateChanges
+          });
+          // 保留最近100条记录
+          if (saveData.叙事历史.length > 100) {
+            saveData.叙事历史 = saveData.叙事历史.slice(0, 100);
+          }
+          characterStore.saveCurrentGame();
+        }
       }
-      // 持久化记录本次变更历史，便于跨页面/刷新后查看
-      try { uiStore.pushStateChangeHistory(aiResponse.stateChanges as any); } catch {}
-      console.log('[日志面板] State changes received and attached to current narrative:', aiResponse.stateChanges);
+
+      // 将新的状态变更保存到 uiStore 的内存中（会覆盖之前的）
+      uiStore.setCurrentMessageStateChanges(aiResponse.stateChanges);
+      console.log('[日志面板] State changes received and stored in memory:', aiResponse.stateChanges);
 
       // 检查角色死亡状态（在状态更新后）
       const currentSaveData = characterStore.activeSaveSlot?.存档数据;
@@ -1573,13 +1612,18 @@ const sendMessage = async () => {
     // 成功的提示
     if (aiResponse) {
       toast.success('天道已回');
-      
+
+      // 清空已发送的图片
+      clearImages();
+      // 清空输入框
+      inputText.value = '';
+
       // 确保数据已保存到本地存储（使用超时保护）
       try {
         console.log('[AI响应处理] 确保最终数据持久化...');
         await Promise.race([
           characterStore.commitToStorage(),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('存储超时')), 5000)
           )
         ]);
@@ -1623,35 +1667,56 @@ const midTermMemoryCache = {
       const helper = getTavernHelper();
       if (!helper) return;
 
-      // 使用临时缓存键存储待转换的中期记忆
+      // 使用简短ID作为key，避免存储完整内容
       const cacheKey = '_pending_mid_term_cache';
-      const currentCache = await helper.getVariable(cacheKey) || {};
-      
-      // 以短期记忆内容为键，中期记忆总结为值
-      currentCache[shortTermContent] = {
+      const currentCache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
+
+      // 使用简短哈希作为key，而不是完整内容
+      const shortId = `mid_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      currentCache[shortId] = {
+        contentHash: shortTermContent.substring(0, 100), // 只存前100字符用于匹配
         summary: midTermSummary,
         timestamp: new Date().toISOString(),
         processed: false
       };
-      
-      await helper.insertOrAssignVariables({ [cacheKey]: currentCache }, { type: 'chat' });
+
+      // 自动清理超过20条的旧缓存
+      const entries = Object.entries(currentCache);
+      if (entries.length > 20) {
+        const sorted = entries.sort((a: any, b: any) =>
+          new Date(b[1].timestamp).getTime() - new Date(a[1].timestamp).getTime()
+        );
+        const cleaned = Object.fromEntries(sorted.slice(0, 20));
+        await helper.insertOrAssignVariables({ [cacheKey]: cleaned }, { type: 'chat' });
+        console.log('[中期记忆缓存] 已清理旧缓存，保留最新20条');
+      } else {
+        await helper.insertOrAssignVariables({ [cacheKey]: currentCache }, { type: 'chat' });
+      }
+
       console.log('[中期记忆缓存] 已缓存待转换记忆，缓存数量:', Object.keys(currentCache).length);
-      
+
       return currentCache;
     } catch (error) {
       console.error('[中期记忆缓存] 缓存失败:', error);
     }
   },
-  
+
   async getCachedMidTermSummary(shortTermContent: string) {
     try {
       const helper = getTavernHelper();
       if (!helper) return null;
-      
+
       const cacheKey = '_pending_mid_term_cache';
-      const cache = await helper.getVariable(cacheKey) || {};
-      
-      return cache[shortTermContent]?.summary || null;
+      const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
+
+      // 通过前100字符匹配
+      const contentPrefix = shortTermContent.substring(0, 100);
+      const entry = Object.values(cache).find((item: any) =>
+        item.contentHash === contentPrefix && !item.processed
+      );
+
+      return entry?.summary || null;
     } catch (error) {
       console.error('[中期记忆缓存] 读取失败:', error);
       return null;
@@ -1664,7 +1729,7 @@ const midTermMemoryCache = {
       if (!helper) return [];
       
       const cacheKey = '_pending_mid_term_cache';
-      const cache = await helper.getVariable(cacheKey) || {};
+      const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
       const pendingEntries = Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed);
       
       if (pendingEntries.length === 0) return [];
@@ -1695,7 +1760,7 @@ const midTermMemoryCache = {
       if (!helper) return;
       
       const cacheKey = '_pending_mid_term_cache';
-      const cache = await helper.getVariable(cacheKey) || {};
+      const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
       
       // 只清除已处理的条目
       const unprocessedCache = Object.fromEntries(
@@ -1768,21 +1833,21 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
       for (const narrative of overflow) {
         // 首先尝试从缓存获取中期记忆总结
         const cachedSummary = await midTermMemoryCache.getCachedMidTermSummary(narrative);
-        
+
         if (cachedSummary) {
           console.log('[记忆管理] 使用缓存的中期记忆总结');
           summariesToAdd.push(`${timeString} ${cachedSummary}`);
         } else {
           // 回退：尝试从旧的缓存系统获取
           const summary = await characterStore.manageTavernMemoryCache.getSummary(narrative);
-          const contentToAdd = summary || narrative;
-          summariesToAdd.push(`${timeString} ${contentToAdd}`);
-          
+
           if (summary) {
+            summariesToAdd.push(`${timeString} ${summary}`);
             await characterStore.manageTavernMemoryCache.removeSummary(narrative);
             console.log('[记忆管理] 使用旧缓存系统的总结');
           } else {
-            console.warn(`[记忆管理] 未找到中期记忆总结，使用原文: ${narrative.substring(0, 50)}...`);
+            // 没有mid_term_memory就不存储
+            console.warn(`[记忆管理] 未找到中期记忆总结，跳过存储此条记忆`);
           }
         }
       }
@@ -1826,7 +1891,7 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
     
     // 关键：同步到酒馆变量
     console.log('[记忆管理] 开始同步数据到酒馆变量...');
-    const activeCharId = characterStore.rootState.当前激活角色;
+    const activeCharId = characterStore.rootState.当前激活存档?.角色ID;
     console.log('[记忆管理] 当前激活角色ID:', activeCharId);
     
     if (activeCharId) {
@@ -1925,17 +1990,22 @@ const handleKeyDown = (event: KeyboardEvent) => {
 const adjustTextareaHeight = () => {
   const textarea = inputRef.value;
   if (textarea) {
-    // 重置高度以获取正确的scrollHeight
-    textarea.style.height = 'auto'; // 让浏览器自动计算
+    // 单行基准高度（根据line-height计算）
+    const lineHeight = 1.4; // 与CSS中的line-height一致
+    const fontSize = 0.9; // rem
+    const padding = 16; // 8px * 2
+    const singleLineHeight = fontSize * 16 * lineHeight + padding; // 约36px
 
     // 计算所需高度
+    textarea.style.height = `${singleLineHeight}px`; // 先设置为单行高度
     const scrollHeight = textarea.scrollHeight;
     const maxHeight = 120; // 与CSS中的max-height保持一致
-    const minHeight = 32; // 更小的最小高度，真正对应单行
 
-    // 设置新高度，但不超过最大高度
-    const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
-    textarea.style.height = `${newHeight}px`;
+    // 只有当内容超过单行时才增加高度
+    if (scrollHeight > singleLineHeight) {
+      const newHeight = Math.min(scrollHeight, maxHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
 
     // 如果内容超出最大高度，启用滚动
     if (scrollHeight > maxHeight) {
@@ -1958,16 +2028,28 @@ const initializePanelForSave = async () => {
   console.log('[主面板] 为当前存档初始化面板 (新逻辑)...');
   try {
     if (hasActiveCharacter.value) {
-      const memories = characterStore.activeSaveSlot?.存档数据?.记忆?.短期记忆;
+      const saveData = characterStore.activeSaveSlot?.存档数据;
+      const memories = saveData?.记忆?.短期记忆;
 
-      if (memories && memories.length > 0) {
-        // 数据存在，加载最新的记忆作为开场。
+      // 优先从叙事历史中恢复最近的一条记录（包含stateChanges）
+      if (saveData?.叙事历史 && saveData.叙事历史.length > 0) {
+        const latestNarrative = saveData.叙事历史[0];
+        console.log('[主面板] 从叙事历史恢复最新叙述（含状态变更日志）');
+
+        currentNarrative.value = {
+          type: latestNarrative.type,
+          content: latestNarrative.content,
+          time: latestNarrative.time,
+          stateChanges: latestNarrative.stateChanges || { changes: [] }
+        };
+      } else if (memories && memories.length > 0) {
+        // 回退：从记忆加载（无stateChanges）
         const initialMessageContent = memories[0];
         console.log('[主面板] 从存档加载最新叙述:', initialMessageContent.substring(0, 100));
 
         // 对于新角色，初始状态变更被临时存储。我们在这里消费它，确保只显示一次。
         const initialChanges = characterStore.consumeInitialCreationStateChanges();
-        
+
         currentNarrative.value = {
           type: 'gm', // 将第一条消息视为GM消息
           content: initialMessageContent,
@@ -1975,7 +2057,7 @@ const initializePanelForSave = async () => {
           // 如果有初始变更，就使用它们；否则，默认为空。
           stateChanges: initialChanges || { changes: [] },
         };
-        
+
         if (initialChanges) {
             console.log('[主面板] 已加载并消费角色创建时的初始状态变更。');
         }
@@ -2066,10 +2148,6 @@ onMounted(async () => {
     restoreAIProcessingState();
     await initializeSystemConnections();
     nextTick(adjustTextareaHeight);
-    const savedDifficulty = localStorage.getItem('audit-difficulty') as DifficultyLevel;
-    if (savedDifficulty && ['normal', 'medium', 'hard'].includes(savedDifficulty)) {
-      auditDifficulty.value = savedDifficulty;
-    }
 
     // 为初始加载的存档初始化面板
     await initializePanelForSave();
@@ -2447,7 +2525,8 @@ const syncGameState = async () => {
   position: relative;
   min-width: 0; /* 防止flex收缩问题 */
   border-radius: 12px; /* 圆角 */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: none !important; /* 移除阴影 */
+  background-color: var(--color-background) !important; /* 与padding区域相同背景色 */
 }
 
 .content-area {
@@ -2461,6 +2540,7 @@ const syncGameState = async () => {
   box-sizing: border-box;
   min-height: 200px;
   display: flex; /* 让子元素可以撑满高度 */
+  box-shadow: none !important; /* 移除阴影 */
 }
 
 /* WebKit滚动条样式 */
@@ -2502,27 +2582,20 @@ const syncGameState = async () => {
   background: var(--color-surface); /* 确保AI处理区域使用主题表面颜色 */
 }
 
-/* 处理控制按钮区域 */
-.processing-controls {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 0;
-  margin-bottom: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
+/* 重置状态按钮 */
 .reset-state-btn {
-  padding: 6px 12px;
+  padding: 4px 12px;
+  font-size: 13px;
   background: #f59e0b;
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: auto; /* 推到右侧 */
 }
 
 .reset-state-btn:hover {
@@ -2649,13 +2722,15 @@ const syncGameState = async () => {
   flex: 1;
   border: none;
   background: transparent;
-  padding: 12px 16px;
+  padding: 8px 16px;
   padding-right: 0; /* 右侧留给流式传输选项 */
   outline: none;
   box-shadow: none;
   resize: none;
   overflow-y: auto;
   width: 100%; /* 确保宽度填满容器 */
+  min-height: 24px; /* 单行高度 */
+  max-height: 120px;
   min-width: 0; /* 允许缩小 */
   box-sizing: border-box;
   word-wrap: break-word;
@@ -3219,10 +3294,6 @@ const syncGameState = async () => {
 
 [data-theme="dark"] .ai-processing-display {
   background: #1e293b !important;
-}
-
-[data-theme="dark"] .processing-controls {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] .reset-state-btn {
@@ -3833,5 +3904,87 @@ const syncGameState = async () => {
   font-size: 0.8rem;
   opacity: 0.8;
   line-height: 1.4;
+}
+
+/* 图片预览容器样式 */
+.image-preview-container {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.image-preview-item {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.image-preview-item:hover {
+  border-color: #3b82f6;
+  transform: scale(1.05);
+}
+
+.image-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: rgba(239, 68, 68, 0.9);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.image-preview-item:hover .remove-image-btn {
+  opacity: 1;
+}
+
+.remove-image-btn:hover {
+  background: rgba(220, 38, 38, 1);
+  transform: scale(1.1);
+}
+
+/* 图片上传按钮特殊样式 */
+.image-upload-btn svg {
+  color: #10b981;
+}
+
+.image-upload-btn:hover:not(:disabled) svg {
+  color: #059669;
+}
+
+/* 深色主题图片预览样式 */
+[data-theme="dark"] .image-preview-container {
+  background: #0f172a;
+  border-bottom-color: #475569;
+}
+
+[data-theme="dark"] .image-preview-item {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .image-preview-item:hover {
+  border-color: #3b82f6;
 }
 </style>

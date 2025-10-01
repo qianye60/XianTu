@@ -64,6 +64,18 @@
             </div>
           </div>
         </div>
+
+        <div class="data-size-info" style="margin-top: 1rem;">
+          <h4>聊天变量详细大小（前10个最大的）</h4>
+          <div class="size-list">
+            <div v-for="item in getTopLargestVariables()" :key="item.key" class="size-item">
+              <span style="font-family: monospace; font-size: 0.8rem;">{{ item.key }}</span>
+              <span :style="{ color: item.size > 50000 ? '#ef4444' : item.size > 10000 ? '#f59e0b' : 'inherit' }">
+                {{ formatBytes(item.size) }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -80,7 +92,7 @@ interface Props {
   getWorldItemCount: () => number
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 defineEmits<{
   close: []
@@ -96,6 +108,14 @@ const formatBytes = (bytes: number): string => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const getTopLargestVariables = () => {
+  const variables = Object.entries(props.chatVariables).map(([key, value]) => ({
+    key,
+    size: getDataSize(value)
+  }))
+  return variables.sort((a, b) => b.size - a.size).slice(0, 10)
 }
 </script>
 

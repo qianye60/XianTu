@@ -29,20 +29,24 @@ export interface AttributeLimitConfig {
 export interface SystemConfig extends AIMetadata {
   规则?: {
     属性上限?: AttributeLimitConfig;
+    装备系统?: string;
+    品质控制?: string;
   };
   提示?: string | string[]; // 可放置给AI的约束提示，随存档一并注入
 }
 
 // --- 状态变更日志接口 ---
+export type StateChange = {
+  key: string;
+  action: string;
+  oldValue: unknown;
+  newValue: unknown;
+};
+
 export interface StateChangeLog {
   before?: any;
   after?: any;
-  changes: Array<{
-    key: string;
-    action: string;
-    oldValue: unknown;
-    newValue: unknown;
-  }>;
+  changes: StateChange[];
   timestamp?: string;
 }
 
@@ -51,11 +55,18 @@ export interface MemoryEntry {
   id: string;
   content: string;
   timestamp: Date;
-  importance: number; // 1-5
+  importance: number; // 1-10
   tags: string[];
-  type?: 'short' | 'mid' | 'long';
+  type: 'user_action' | 'ai_response' | 'system_event' | 'summary' | 'short' | 'mid' | 'long';
   hidden?: boolean; // 是否为隐藏记忆
   convertedFrom?: 'short' | 'mid' | 'long'; // 转换来源
+  category: 'combat' | 'social' | 'cultivation' | 'exploration' | 'other';
+  metadata?: {
+    location?: string;
+    npcs?: string[];
+    items?: string[];
+    skills?: string[];
+  };
 }
 
 // --- 处理响应接口 ---
@@ -227,7 +238,7 @@ export interface Inventory extends AIMetadata {
     上品: number;
     极品: number;
   };
-  物品: Item[]; // 物品存储为数组
+  物品: Record<string, Item>; // 物品现在是对象结构，key为物品ID，value为Item对象
 }
 
 /** 功法中的技能信息 */
@@ -413,8 +424,8 @@ export interface RealmStageDefinition {
   breakthrough_difficulty: '简单' | '普通' | '困难' | '极难' | '逆天';
   resource_multiplier: number; // 资源倍数（气血、灵气、神识）
   lifespan_bonus: number; // 寿命加成
-  special_abilities?: string[]; // 特殊能力
-  can_cross_realm_battle?: boolean; // 是否可以越境战斗
+  special_abilities: string[]; // 特殊能力
+  can_cross_realm_battle?: boolean; // 是否可越阶战斗
 }
 
 export interface RealmDefinition {
@@ -625,7 +636,7 @@ export interface TavernCommand {
 export interface NpcProfile {
   角色基础信息: CharacterBaseInfo; // 包含天资、灵根、天赋、先天六司
   外貌描述?: string;
-  
+
   // 基础交互信息
   人物关系: string;
   人物好感度: number;
@@ -634,12 +645,12 @@ export interface NpcProfile {
     事件: string;
     重要度?: '普通' | '重要' | '关键';
   }>;
-  
+
   // 位置信息（保留原有字段）
   最后出现位置: {
     描述: string;
   };
-  
+
   // NPC的背包（简化但保留）
   背包: {
     灵石: {
@@ -648,14 +659,14 @@ export interface NpcProfile {
       上品: number;
       极品: number;
     };
-    物品: Item[];
+    物品: Record<string, Item>;
   };
-  
+
   // 可选的角色特征
   性格特征?: string[];
   知名技能?: string[];
   势力归属?: string;
-  
+
   // 辅助字段
   实时关注?: boolean;
 }
@@ -711,6 +722,7 @@ export interface GameMessage {
       大道进度: Record<string, DaoProgress>;
     };
     系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
+    叙事历史?: GameMessage[]; // 存储对话历史及其状态变更日志
   }
 
 

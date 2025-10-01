@@ -15,12 +15,12 @@ import { generateInitialMessage } from '@/utils/tavernAI';
 import { cacheSystemRulesToTavern } from '@/utils/tavernCore';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
-import { CHARACTER_INITIALIZATION_PROMPT, buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
+import { buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
 import { validateGameData } from '@/utils/gameDataValidator';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
-import { generateRandomSpiritRoot, isRandomSpiritRoot, formatSpiritRootObject } from '@/utils/spiritRootGenerator';
+import { isRandomSpiritRoot } from '@/utils/spiritRootGenerator';
 
 /**
  * 询问用户是否继续重试的辅助函数
@@ -67,7 +67,7 @@ async function robustAICall<T>(
       console.log(`[robustAICall] 正在尝试: ${progressMessage}, 第 ${attempt} 次`);
       const response = await aiFunction();
       console.log(`[robustAICall] 收到响应 for ${progressMessage}:`, response);
-      
+
       if (validator(response)) {
         console.log(`[robustAICall] 响应验证成功 for ${progressMessage}`);
         return response;
@@ -148,31 +148,26 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
  */
 function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveData: SaveData; processedBaseInfo: CharacterBaseInfo } {
   console.log('[初始化流程] 1. 准备初始存档数据');
-  
+
   // 深度克隆以移除响应式代理
+  // 直接使用 JSON 方式，因为 baseInfo 可能包含 Vue 响应式对象
   let processedBaseInfo: CharacterBaseInfo;
   try {
-    processedBaseInfo = structuredClone(baseInfo);
-  } catch (cloneError) {
-    console.warn('[角色初始化] structuredClone 失败，回退到 JSON.parse(JSON.stringify())', cloneError);
+    // 使用 JSON 序列化来移除响应式代理和不可序列化的属性
     processedBaseInfo = JSON.parse(JSON.stringify(baseInfo));
+  } catch (jsonError) {
+    console.error('[角色初始化] JSON 序列化失败，使用原始对象', jsonError);
+    processedBaseInfo = baseInfo;
   }
-  
+
   // 确保年龄信息存在
   if (!processedBaseInfo.年龄) {
     processedBaseInfo.年龄 = age;
   }
 
-  // 智能灵根生成
+  // 灵根随机留给AI处理（不要在此处预先具体化）
   if (isRandomSpiritRoot(processedBaseInfo.灵根)) {
-    try {
-      const generatedSpiritRoot = generateRandomSpiritRoot(processedBaseInfo.天资 || '中人之姿');
-      processedBaseInfo.灵根 = formatSpiritRootObject(generatedSpiritRoot);
-      console.log('[灵根生成] 智能生成完成:', processedBaseInfo.灵根);
-    } catch (error) {
-      console.warn('[灵根生成] 智能生成失败，使用默认灵根:', error);
-      processedBaseInfo.灵根 = { 名称: '五行灵根', 品级: '凡品', 描述: '五行齐全的均衡灵根' };
-    }
+    console.log('[灵根生成] 保留“随机灵根”交由AI随机生成');
   }
 
   // 计算初始属性
@@ -184,24 +179,37 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     玩家角色状态: playerStatus,
     装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
     三千大道: createEmptyThousandDaoSystem(),
-    背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: [] },
+    背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
     人物关系: {},
     宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
     游戏时间: { 年: 1, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     修炼功法: { 功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0 },
     系统: {
-      规则: { 属性上限: { 先天六司: { 每项上限: 10 } } },
-      提示: ['系统规则：先天六司每项上限为10（NPC同样适用），如超限需裁剪至上限。']
+      规则: {
+        属性上限: { 先天六司: { 每项上限: 10 } },
+        // 装备系统
+        装备系统: '装备栏存储引用{物品ID,名称}，完整数据在背包.物品中',
+        品质控制: '严格遵守境界对应品质范围，仙品世界上几乎没有，每一个都是令世界动荡的存在，神品不存在'
+      },
+      提示: [
+        '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
+        '装备栏字段：装备1-6（不是法宝1-6）',
+        '品质稀有度：按境界严格控制，参考CORE_GAME_RULES'
+      ]
     }
   };
 
   // 注入AI元数据提示
-  (saveData.角色基础信息 as any)._AI说明 = '角色基础信息为创建时的静态设定，严禁修改。';
-  (saveData.玩家角色状态 as any)._AI说明 = '玩家实时状态。任何数值变更必须通过 tavern_commands 实现。';
-  (saveData.背包 as any)._AI说明 = '背包.物品为数组；物品必须包含 物品ID/名称/类型/品质/数量/描述。';
-  (saveData.记忆 as any)._AI说明 = '记忆模块由系统维护，AI禁止直接修改。';
-  (saveData.游戏时间 as any)._AI说明 = '每次回应必须推进游戏时间。';
+  (saveData.角色基础信息 as any)._AI重要提醒 = '⚠️ 绝对禁止修改：姓名、性别、年龄、世界、天资、出生、灵根、先天六司';
+  (saveData.玩家角色状态 as any)._AI说明 = '实时状态，所有变更必须通过tavern_commands实现';
+  (saveData.背包 as any)._AI重要提醒 = '⚠️ 物品是对象结构(不是数组)，key为物品ID，value为完整Item对象';
+  (saveData.背包 as any)._AI装备流程提醒 = '⚠️ 必须先在背包.物品中创建完整的物品对象，然后才能在装备栏引用！如果装备栏引用了不存在的物品ID，该引用会被系统自动清除。正确流程：1.set "背包.物品.物品ID"={完整物品对象} 2.set "装备栏.装备N"={物品ID,名称} 3.set "背包.物品.物品ID.已装备"=true';
+  (saveData.装备栏 as any)._AI说明 = '只存储引用{物品ID,名称}，完整Item数据在背包.物品中';
+  (saveData.装备栏 as any)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品中存在，否则会被系统清除！';
+  (saveData.记忆 as any)._AI重要提醒 = '⚠️ 禁止直接修改记忆字段，由系统维护';
+  (saveData.游戏时间 as any)._AI说明 = '每次回应必须推进时间';
+  (saveData.人物关系 as any)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
 
   return { saveData, processedBaseInfo };
 }
@@ -260,7 +268,7 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
  * @param saveData - 当前存档数据
  * @param baseInfo - 角色基础信息
  * @param world - 世界信息
- * @param age - 年龄
+ * @param age - 开局年龄
  * @returns 包含开场剧情和AI指令的响应
  */
 async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number) {
@@ -268,7 +276,18 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const uiStore = useUIStore();
   uiStore.updateLoadingText('天道正在为你书写命运之章...');
 
-  await cacheSystemRulesToTavern('chat');
+  // ⚠️ 重要：先将包含世界信息的 saveData 同步到 Tavern，确保 AI 能看到地图数据
+  const helper = getTavernHelper();
+  if (helper) {
+    try {
+      await helper.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
+      console.log('[初始化流程] 已将世界信息同步到 Tavern，供 AI 生成开场剧情时参考');
+    } catch (error) {
+      console.warn('[初始化流程] 同步世界信息到 Tavern 失败（非致命）:', error);
+    }
+  }
+
+  // cacheSystemRulesToTavern 已废弃，规则通过提示词直接发送
 
   const userSelections = {
     name: baseInfo.名字,
@@ -284,11 +303,39 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
 
   const customInitPrompt = buildCharacterInitializationPrompt(userSelections);
 
+  // 为 AI 提供更完整的创建详情，便于处理“随机出身/随机灵根”等场景
+  const getNameFrom = (val: unknown): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object') {
+      const obj = val as Record<string, unknown>;
+      if (typeof obj.名称 === 'string') return obj.名称;
+      if (typeof obj.name === 'string') return obj.name;
+    }
+    return String(val);
+  };
+
   const initialGameDataForAI = {
     baseInfo: baseInfo,
     saveData: saveData,
     world: { ...world, description: `世界名: ${world.name}, 纪元: ${world.era}. 背景: ${world.description}` },
-    creationDetails: { age: age },
+    creationDetails: {
+      age: age,
+      originName: getNameFrom(baseInfo.出生),
+      spiritRootName: getNameFrom(baseInfo.灵根),
+      talentTierName: getNameFrom((baseInfo as any).天资详情 || baseInfo.天资),
+      talentNames: Array.isArray((baseInfo as any).天赋详情)
+        ? (baseInfo as any).天赋详情.map((t: any) => t?.name || t?.名称 || String(t)).filter(Boolean)
+        : Array.isArray(baseInfo.天赋) ? baseInfo.天赋 : []
+    },
+    // 提供大洲信息供AI参考
+    availableContinents: saveData.世界信息?.大陆信息?.map((continent: any) => ({
+      名称: continent.名称 || continent.name,
+      描述: continent.描述 || continent.description,
+      大洲边界: continent.大洲边界 || continent.continent_bounds
+    })) || [],
+    // 提供地图配置供AI参考
+    mapConfig: saveData.世界信息?.地图配置
   };
 
   const initialMessageResponse = await robustAICall(
@@ -310,7 +357,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
 
   // 处理AI返回的指令并更新存档
   const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, saveData);
-  
+
   // 暂存状态变更
   const characterStore = useCharacterStore();
   characterStore.setInitialCreationStateChanges(stateChanges);
@@ -339,7 +386,7 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   derivedInfo.世界 = worldName;
   derivedInfo.天资 = derivedInfo.天资详情?.name || derivedInfo.天资详情?.名称 || derivedInfo.天资;
   derivedInfo.出生 = derivedInfo.出身详情?.name || derivedInfo.出身详情?.名称 || derivedInfo.出生;
-  
+
   if (derivedInfo.灵根详情) {
     const detail = derivedInfo.灵根详情 as any;
     derivedInfo.灵根 = {
@@ -406,8 +453,54 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     throw new Error(`角色数据最终验证失败: ${finalValidation.errors.join(', ')}`);
   }
 
-  // 5. 同步到Tavern
+  // 5. 数据一致性校准：确保装备的功法在背包中存在实体
+  if (saveData.修炼功法?.功法) {
+    const equippedTechnique = saveData.修炼功法.功法;
+    const techniqueName = typeof equippedTechnique === 'string' ? equippedTechnique : equippedTechnique.名称;
+
+    // 检查背包中是否存在该功法物品
+    const itemExists = Object.values(saveData.背包.物品).some(item => item.名称 === techniqueName && item.类型 === '功法');
+
+    if (!itemExists) {
+      console.warn(`[数据校准] 检测到已装备功法 "${techniqueName}" 在背包中不存在，正在自动创建物品实体...`);
+
+      // 创建一个新的功法物品
+      const itemId = `tech_${Date.now()}`;
+      const newTechniqueItem: any = { // 使用 any 以便动态构建
+        物品ID: itemId,
+        名称: techniqueName,
+        类型: '功法',
+        品质: { quality: '神', grade: 1 }, // 默认给予一个高品质，因为通常初始功法都很重要
+        数量: 1,
+        已装备: true,
+        描述: `初始功法：${techniqueName}。`,
+        可叠加: false,
+        功法效果: {
+          修炼速度加成: 1.2, // 给予一个基础加成
+        },
+      };
+
+      saveData.背包.物品[itemId] = newTechniqueItem;
+      console.log(`[数据校准] 已成功为 "${techniqueName}" 创建背包物品实体。`);
+    } else {
+      // 如果物品已存在，确保其"已装备"状态为 true
+      const existingItemEntry = Object.entries(saveData.背包.物品).find(([_, item]) => item.名称 === techniqueName && item.类型 === '功法');
+      if (existingItemEntry) {
+        const [itemId, existingItem] = existingItemEntry;
+        if (existingItem && !existingItem.已装备) {
+          existingItem.已装备 = true;
+          console.log(`[数据校准] 已将背包中存在的功法 "${techniqueName}" 标记为已装备。`);
+        }
+      }
+    }
+  }
+
+  // 6. 同步到Tavern
   try {
+    // ⚠️ 先清空旧的 character.saveData，避免数据累积
+    console.log('[初始化流程] 清空旧的character.saveData');
+    await helper.deleteVariable('character.saveData', { type: 'chat' });
+
     await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
     await helper.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
     await syncToTavern(saveData, finalBaseInfo);

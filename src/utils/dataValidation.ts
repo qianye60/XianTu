@@ -320,7 +320,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       const item = inventoryItems[itemId];
       if (item && item.类型 === '装备') {
         const isEquippedInSlots = equippedItemIds.has(itemId);
-        
+
         // 情况1：物品标记为已装备，但不在装备栏中
         if (item.已装备 && !isEquippedInSlots) {
           console.warn(`[数据验证] 修复：物品 ${item.名称} (${itemId}) 标记为已装备但不在装备栏中。`);
@@ -335,7 +335,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
             console.log(`[数据验证] -> 装备栏已满，已取消其装备状态。`);
           }
         }
-        
+
         // 情况2：物品未标记为已装备，但在装备栏中
         else if (!item.已装备 && isEquippedInSlots) {
           console.warn(`[数据验证] 修复：物品 ${item.名称} (${itemId}) 在装备栏中但未标记为已装备。`);
@@ -345,7 +345,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       }
     }
   }
- 
+
   console.log('[数据验证] 数据验证和修复完成。');
   return saveData;
 }

@@ -92,9 +92,7 @@ const emit = defineEmits<{
 
 const uiStore = useUIStore();
 const selectPath = (mode: 'single' | 'cloud') => {
-  // 检测环境并给出建议
-  const hasTavernAI = !!(window.parent?.TavernHelper);
-
+  
   // 全局封锁联机模式
   if (mode === 'cloud') {
     uiStore.showRetryDialog({
@@ -181,10 +179,13 @@ const enterCharacterSelection = () => {
   font-family: 'Consolas', 'monospace';
   color: var(--color-warning);
   padding: 0.2rem 0.6rem;
-  border: 1px solid var(--color-warning);
+  background: rgba(var(--color-warning-rgb, 255, 193, 7), 0.1);
+  border: 1px solid rgba(var(--color-warning-rgb, 255, 193, 7), 0.4);
   border-radius: 4px;
-  opacity: 0.7;
+  opacity: 0.85;
   font-weight: bold;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .main-title {
@@ -342,14 +343,14 @@ const enterCharacterSelection = () => {
   .mode-selection-container {
     padding: 1rem;
     height: 100vh;
-    align-items: flex-start;
-    padding-top: 2rem;
+    align-items: center; /* 居中显示 */
+    justify-content: center;
   }
 
   .selection-content {
     padding: 1.5rem;
     height: auto;
-    max-height: calc(100vh - 4rem);
+    max-height: calc(100vh - 2rem);
     overflow-y: auto; /* 移动端允许滚动 */
     /* 隐藏滚动条但保持滚动功能 */
     scrollbar-width: none; /* Firefox */
@@ -370,6 +371,18 @@ const enterCharacterSelection = () => {
   .header-container {
     margin-bottom: 2rem;
     flex-shrink: 0;
+  }
+
+  /* 移动端版本号移到底部 */
+  .title-version-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .version-tag {
+    position: static; /* 取消绝对定位 */
+    align-self: center; /* 居中显示 */
+    margin-top: 0.5rem;
   }
 
   .gate-container {
@@ -429,6 +442,11 @@ const enterCharacterSelection = () => {
 
   .header-container {
     margin-bottom: 1.5rem;
+  }
+
+  .version-tag {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
   }
 
   .gate-container {

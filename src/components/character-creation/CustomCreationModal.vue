@@ -396,4 +396,22 @@ input[type="color"] {
   font-style: italic;
   padding: 2rem;
 }
+
+@media (max-width: 600px) {
+  .modal-dialog {
+    padding: 1.5rem;
+    width: 95%;
+    max-height: 90vh;
+  }
+  .item-inputs {
+    flex-direction: column;
+  }
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .modal-actions .btn {
+    width: 100%;
+  }
+}
 </style>

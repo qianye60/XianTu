@@ -3,10 +3,10 @@ import { ref } from 'vue';
 
 export interface GameAction {
   id: string;
-  type: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom';
-  itemName: string;
+  type?: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom';
+  itemName?: string;
   itemType?: string;
-  description: string;
+  description?: string;
   timestamp: number;
   [key: string]: unknown; // 使用 unknown 替代 any，更安全
 }

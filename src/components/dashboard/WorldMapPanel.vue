@@ -31,7 +31,10 @@
         @mousemove="handlePan"
         @mouseup="endPan"
         @mouseleave="endPan"
-        style="user-select: none; -webkit-user-select: none; -moz-user-select: none;"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
+        style="user-select: none; -webkit-user-select: none; -moz-user-select: none; touch-action: none;"
       >
         <!-- 地图定义和效果 -->
         <defs>
@@ -443,6 +446,13 @@ type CharacterSaveData = {
     势力信息?: unknown[];
     地点信息?: unknown[];
     地图配置?: WorldMapConfig;
+    生成信息?: {
+      生成时间?: string;
+      世界背景?: string;
+      世界纪元?: string;
+      特殊设定?: string;
+      版本?: string;
+    };
   };
   玩家角色状态?: {
     位置?: {
@@ -509,6 +519,10 @@ const panY = ref(0);
 const isPanning = ref(false);
 const lastPanPoint = ref({ x: 0, y: 0 });
 const dragDistance = ref(0); // 拖拽距离，用于区分点击和拖拽
+
+// 触摸手势状态
+const touches = ref<{ identifier: number; x: number; y: number }[]>([]);
+const lastPinchDistance = ref(0);
 
 // 选中信息显示
 const selectedInfo = ref<({
@@ -686,6 +700,121 @@ const handlePan = (event: MouseEvent) => {
 
 const endPan = () => {
   isPanning.value = false;
+};
+
+// 触摸手势处理
+const handleTouchStart = (event: TouchEvent) => {
+  event.preventDefault();
+
+  // 更新触摸点列表
+  touches.value = Array.from(event.touches).map(touch => ({
+    identifier: touch.identifier,
+    x: touch.clientX,
+    y: touch.clientY
+  }));
+
+  if (touches.value.length === 1) {
+    // 单指触摸 - 开始平移
+    isPanning.value = true;
+    lastPanPoint.value = { x: touches.value[0].x, y: touches.value[0].y };
+    dragDistance.value = 0;
+
+    // 开始拖拽时关闭弹窗
+    if (selectedInfo.value) {
+      selectedInfo.value = null;
+    }
+  } else if (touches.value.length === 2) {
+    // 双指触摸 - 开始缩放
+    isPanning.value = false;
+    const dx = touches.value[0].x - touches.value[1].x;
+    const dy = touches.value[0].y - touches.value[1].y;
+    lastPinchDistance.value = Math.sqrt(dx * dx + dy * dy);
+  }
+};
+
+const handleTouchMove = (event: TouchEvent) => {
+  event.preventDefault();
+
+  if (event.touches.length === 0) return;
+
+  const currentTouches = Array.from(event.touches).map(touch => ({
+    identifier: touch.identifier,
+    x: touch.clientX,
+    y: touch.clientY
+  }));
+
+  if (currentTouches.length === 1 && isPanning.value) {
+    // 单指平移
+    const deltaX = currentTouches[0].x - lastPanPoint.value.x;
+    const deltaY = currentTouches[0].y - lastPanPoint.value.y;
+
+    dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
+
+    // 计算新的平移位置
+    const newPanX = panX.value + deltaX;
+    const newPanY = panY.value + deltaY;
+
+    // 应用边界限制
+    const containerRect = mapContainer.value?.getBoundingClientRect();
+    if (containerRect) {
+      const scaledMapWidth = mapWidth.value * zoomLevel.value;
+      const scaledMapHeight = mapHeight.value * zoomLevel.value;
+
+      const minPanX = Math.min(0, containerRect.width - scaledMapWidth);
+      const maxPanX = Math.max(0, containerRect.width - scaledMapWidth);
+      const minPanY = Math.min(0, containerRect.height - scaledMapHeight);
+      const maxPanY = Math.max(0, containerRect.height - scaledMapHeight);
+
+      panX.value = Math.max(minPanX, Math.min(maxPanX, newPanX));
+      panY.value = Math.max(minPanY, Math.min(maxPanY, newPanY));
+    } else {
+      panX.value = newPanX;
+      panY.value = newPanY;
+    }
+
+    lastPanPoint.value = { x: currentTouches[0].x, y: currentTouches[0].y };
+  } else if (currentTouches.length === 2) {
+    // 双指缩放
+    const dx = currentTouches[0].x - currentTouches[1].x;
+    const dy = currentTouches[0].y - currentTouches[1].y;
+    const currentDistance = Math.sqrt(dx * dx + dy * dy);
+
+    if (lastPinchDistance.value > 0) {
+      const scale = currentDistance / lastPinchDistance.value;
+      const newZoom = zoomLevel.value * scale;
+      zoomLevel.value = Math.max(minZoom, Math.min(maxZoom, newZoom));
+    }
+
+    lastPinchDistance.value = currentDistance;
+  }
+
+  touches.value = currentTouches;
+};
+
+const handleTouchEnd = (event: TouchEvent) => {
+  event.preventDefault();
+
+  if (event.touches.length === 0) {
+    // 所有触摸点都离开
+    isPanning.value = false;
+    lastPinchDistance.value = 0;
+    touches.value = [];
+  } else {
+    // 更新剩余触摸点
+    touches.value = Array.from(event.touches).map(touch => ({
+      identifier: touch.identifier,
+      x: touch.clientX,
+      y: touch.clientY
+    }));
+
+    if (touches.value.length === 1) {
+      // 从双指变为单指，重新开始平移
+      isPanning.value = true;
+      lastPanPoint.value = { x: touches.value[0].x, y: touches.value[0].y };
+      dragDistance.value = 0;
+      lastPinchDistance.value = 0;
+    }
+  }
 };
 
 const toggleFullscreen = () => {

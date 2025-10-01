@@ -948,6 +948,14 @@ const editInitialData = computed(() => {
 }
 
 @media (max-width: 640px) {
+  .top-actions-container {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+  .top-actions-container .action-item {
+    flex-grow: 1;
+    text-align: center;
+  }
   .spirit-root-layout {
     /* 改为垂直堆叠布局 */
     grid-template-columns: 1fr;
@@ -1022,6 +1030,10 @@ const editInitialData = computed(() => {
 }
 
 @media (max-width: 480px) {
+  .top-actions-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
   .spirit-root-selection-container {
     padding: 0.4rem;
     height: 100vh;
@@ -1106,6 +1118,15 @@ const editInitialData = computed(() => {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .top-actions-container {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.5rem;
+  }
+  .top-actions-container .action-item {
+    text-align: center;
   }
 }
 

@@ -409,13 +409,17 @@ export const useCharacterStore = defineStore('characterV3', () => {
         throw new Error('[存档核心] 酒馆连接尚未建立！');
       }
 
+      // ⚠️ 关键修复：先清空旧的 character.saveData，避免数据累积和嵌套
+      debug.log('角色商店', '清空旧的character.saveData，避免数据累积');
+      await helper.deleteVariable('character.saveData', { type: 'chat' });
+
       // 唯一的写入操作：将整个SaveData对象写入到 'character.saveData'
       const chatVars = {
         'character.saveData': currentSlot.存档数据
       };
-      
+
       await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
-      
+
       debug.log('角色商店', `已将【${profile.角色基础信息.名字}】的激活存档同步至酒馆`);
       // toast.info(`已将【${profile.角色基础信息.名字}】的档案同步至酒馆。`); // 由调用者处理通知
 
@@ -452,51 +456,18 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const tavernSaveData = chatVars['character.saveData'] as SaveData | undefined;
       
       if (tavernSaveData) {
-        // 数据整合和清理：确保数据结构一致性
-        const cleanedSaveData = {
-          ...tavernSaveData
-        };
-        
-        // 修复数据重复问题：检查是否有嵌套的character.saveData
-        if ((cleanedSaveData as any).character && (cleanedSaveData as any).character.saveData) {
-          debug.log('角色商店', '检测到嵌套的character.saveData结构，进行数据修复');
-          const nestedSaveData = (cleanedSaveData as any).character.saveData;
-          
-          // 修复背包数据重复问题：嵌套数据的背包更完整且有实际物品时，优先使用嵌套数据
-          if (nestedSaveData.背包) {
-            const nestedItems = Object.keys(nestedSaveData.背包.物品 || {}).length;
-            const nestedSpirit = (nestedSaveData.背包.灵石?.下品 || 0) + (nestedSaveData.背包.灵石?.中品 || 0) + 
-                                (nestedSaveData.背包.灵石?.上品 || 0) + (nestedSaveData.背包.灵石?.极品 || 0);
-            const topItems = Object.keys(cleanedSaveData.背包?.物品 || {}).length;
-            const topSpirit = (cleanedSaveData.背包?.灵石?.下品 || 0) + (cleanedSaveData.背包?.灵石?.中品 || 0) + 
-                             (cleanedSaveData.背包?.灵石?.上品 || 0) + (cleanedSaveData.背包?.灵石?.极品 || 0);
-            
-            if ((nestedItems > 0 || nestedSpirit > 0) && (topItems === 0 && topSpirit === 0)) {
-              debug.log('角色商店', `使用嵌套数据中的背包信息 - 物品: ${nestedItems}个, 灵石: ${nestedSpirit}个`);
-              cleanedSaveData.背包 = nestedSaveData.背包;
-            } else if (nestedItems > topItems || nestedSpirit > topSpirit) {
-              debug.log('角色商店', `嵌套数据背包更完整，替换顶层背包数据 - 嵌套物品: ${nestedItems}, 顶层物品: ${topItems}`);
-              cleanedSaveData.背包 = nestedSaveData.背包;
-            }
-          }
-          
-          // 如果嵌套数据有世界信息而顶层没有，使用嵌套数据
-          if (nestedSaveData.世界信息 && !cleanedSaveData.世界信息) {
-            debug.log('角色商店', '使用嵌套数据中的世界信息');
-            cleanedSaveData.世界信息 = nestedSaveData.世界信息;
-          }
-          
-          // 如果嵌套数据有人物关系而顶层没有，使用嵌套数据
-          if (nestedSaveData.人物关系 && Object.keys(nestedSaveData.人物关系).length > 0 &&
-              (!cleanedSaveData.人物关系 || Object.keys(cleanedSaveData.人物关系).length === 0)) {
-            debug.log('角色商店', '使用嵌套数据中的人物关系');
-            cleanedSaveData.人物关系 = nestedSaveData.人物关系;
-          }
-          
-          // 清理嵌套结构
-          delete (cleanedSaveData as any).character;
+        // ⚠️ 数据完整性检查：拒绝嵌套或异常的数据结构
+        if ((tavernSaveData as any).character ||
+            (tavernSaveData as any).存档列表 ||
+            (tavernSaveData as any).角色列表) {
+          console.error('[角色商店] 检测到酒馆数据异常：包含不应存在的嵌套结构', tavernSaveData);
+          toast.error('检测到酒馆数据异常，已拒绝同步。请检查控制台。');
+          return;
         }
-        
+
+        // 直接使用酒馆数据，不做任何"修复"
+        const cleanedSaveData = tavernSaveData;
+
         // 修复物品数据问题：确保背包物品数据正确
         if (cleanedSaveData.背包 && typeof cleanedSaveData.背包.物品 === 'object') {
           if (Object.keys(cleanedSaveData.背包.物品).length === 0) {

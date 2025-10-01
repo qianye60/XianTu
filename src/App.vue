@@ -87,6 +87,7 @@ import { useUIStore } from './stores/uiStore';
 import { toast } from './utils/toast';
 import { getTavernHelper } from './utils/tavern'; // 添加导入
 import type { CharacterBaseInfo } from '@/types/game';
+import type { CharacterCreationPayload, Talent } from '@/types';
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
@@ -167,27 +168,28 @@ const handleGoToLogin = () => {
  switchView('Login');
 };
 
-const handleCreationComplete = async (rawPayload: any) => {
+const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
   console.log('接收到创角指令...', rawPayload);
-  
+
   // 防止重复创建角色
   if (uiStore.isLoading) {
     console.warn('[App.vue] 角色创建已在进行中，忽略重复请求');
     return;
   }
-  
+
   uiStore.startLoading('开始铸造法身...');
-  
+
   const attemptCreation = async (): Promise<boolean> => {
     try {
       // 从酒馆获取当前活跃的Persona名字
-      let personaName = '无名道友';
+      let personaName: string = '无名道友';
       try {
         const helper = getTavernHelper();
         if (helper) {
           const vars = await helper.getVariables({ type: 'global' });
           // 尝试获取当前Persona的名字
-          personaName = vars['persona.name'] || vars['name'] || rawPayload.characterName || '无名道友';
+          const name = vars['persona.name'] || vars['name'] || rawPayload.characterName;
+          personaName = (typeof name === 'string' ? name : rawPayload.characterName) || '无名道友';
           console.log('[创角完成] 从酒馆Personas获取名字:', personaName);
         }
       } catch (error) {
@@ -213,13 +215,11 @@ const handleCreationComplete = async (rawPayload: any) => {
         天资: rawPayload.talentTier?.name || '凡品',
         出生: rawPayload.origin?.name || '随机出身',
         灵根: rawPayload.spiritRoot?.name || '随机灵根',
-        天赋: rawPayload.talents?.map((t: any) => t.name) || [],
+        天赋: rawPayload.talents?.map((t: Talent) => t.name) || [],
         先天六司: convertedAttributes,
-        // 保存完整的详细信息对象，确保AI能获得完整描述
-        世界详情: rawPayload.world,
         天资详情: rawPayload.talentTier,
         出身详情: rawPayload.origin,
-        灵根详情: rawPayload.spiritRoot,
+        灵根详情: rawPayload.spiritRoot || undefined,
         天赋详情: rawPayload.talents,
       };
 
@@ -248,26 +248,26 @@ const handleCreationComplete = async (rawPayload: any) => {
 
       await new Promise(resolve => setTimeout(resolve, 500));
       toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
-      
+
       // 跳转到游戏主界面路由
       await router.push('/game');
-      
+
       // 路由跳转后，尝试恢复全屏状态
       await new Promise(resolve => setTimeout(resolve, 100)); // 等待路由完全加载
       restoreFullscreenIfNeeded();
-      
+
       return true; // 创建成功
     } catch (error) {
       console.error("角色创建过程出错：", error);
       const errorMessage = error instanceof Error ? error.message : "法身铸造过程中出现意外";
-      
+
       // 检查是否是用户主动取消的错误
       if (errorMessage.includes('用户选择终止角色创建') || errorMessage.includes('用户选择不继续重试')) {
         console.log('[角色创建] 用户主动取消创建流程');
         toast.info('角色创建已取消');
         return false; // 用户取消，返回到角色创建页面
       }
-      
+
       // 其他错误，询问用户是否重试
       return new Promise((resolve) => {
         uiStore.showRetryDialog({
@@ -402,7 +402,7 @@ onMounted(() => {
     const isCurrentlyFullscreen = !!document.fullscreenElement;
     isFullscreenMode.value = isCurrentlyFullscreen;
     localStorage.setItem('fullscreen', isCurrentlyFullscreen.toString());
-    
+
     if (globalFullscreenCheckbox.value) {
       globalFullscreenCheckbox.value.checked = isCurrentlyFullscreen;
     }
@@ -414,7 +414,7 @@ onMounted(() => {
   document.addEventListener('MSFullscreenChange', syncFullscreenState);
 
   syncFullscreenState(); // 初始检查
-  
+
   // 4. 页面加载时恢复全屏状态（延迟执行，确保页面完全加载）
   setTimeout(() => {
     restoreFullscreenIfNeeded();
@@ -426,7 +426,7 @@ onMounted(() => {
     if (window.parent !== window) {
       try {
         $(parent.window).off('resize', updateHeight);
-      } catch (e) {
+      } catch {
         // 忽略跨域错误
       }
     }

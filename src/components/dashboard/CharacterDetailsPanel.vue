@@ -959,7 +959,7 @@ const skillsList = computed((): SkillInfo[] => {
 
   // 从背包中获取完整的功法物品信息
   const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-  const fullTechnique = saveData.value.背包.物品.find(i => i.物品ID === techniqueId);
+  const fullTechnique = Object.values(saveData.value.背包.物品).find(i => i.物品ID === techniqueId);
   if (fullTechnique?.类型 !== '功法' || !('功法技能' in fullTechnique) || !fullTechnique.功法技能) return [];
 
   const skills: SkillInfo[] = [];
@@ -1011,7 +1011,7 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   // 从功法技能定义获取（达到条件解锁的技能）
   if (techniqueRef && saveData.value?.背包?.物品) {
     const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-    const fullTechnique = saveData.value.背包.物品.find(i => i.物品ID === techniqueId);
+    const fullTechnique = Object.values(saveData.value.背包.物品).find(i => i.物品ID === techniqueId);
     if (fullTechnique?.类型 === '功法' && '功法技能' in fullTechnique && fullTechnique.功法技能) {
       Object.entries(fullTechnique.功法技能).forEach(([skillName, rawSkillInfo]) => {
         const skillInfo = rawSkillInfo as TechniqueSkill;
