@@ -9,9 +9,8 @@ export type RealmLike =
   | {
       名称?: string;
       name?: string;
-      等级?: number;
-      level?: number;
-      境界?: number; // 一些地方用数字代表大境界
+      阶段?: string;
+      stage?: string;
       当前进度?: number;
       progress?: number;
       currentProgress?: number;
@@ -51,13 +50,11 @@ function normalizeMajorName(name?: string): string | undefined {
   return n;
 }
 
-function levelFromInput(input: RealmLike): number | undefined {
-  if (typeof input === 'number') return input;
+function stageFromInput(input: RealmLike): string | undefined {
   if (typeof input === 'object' && input) {
     return (
-      (input.level as number | undefined) ??
-      (input.等级 as number | undefined) ??
-      (input.境界 as number | undefined)
+      (input.阶段 as string | undefined) ??
+      (input.stage as string | undefined)
     );
   }
   return undefined;
@@ -95,26 +92,26 @@ export function inferStage(current?: number, max?: number): '初期' | '中期' 
 }
 
 export function formatRealmWithStage(input: RealmLike): string {
-  // 取名与级别
+  // 取名与阶段
   const rawName = nameFromInput(input);
-  const level = levelFromInput(input);
+  const explicitStage = stageFromInput(input);
   const { current, max } = progressFromInput(input);
 
-  // 名称已包含阶段则直接返回（仍统一“练气”到“炼气”）
+  // 名称已包含阶段则直接返回（仍统一"练气"到"炼气"）
   if (rawName && containsStage(rawName)) {
     return rawName.replace('练气', '炼气');
   }
 
   // 确定大境界名
-  const baseName = normalizeMajorName(
-    rawName || (typeof level === 'number' ? MAJOR_REALM_BY_LEVEL[level] : undefined)
-  ) || '凡人';
+  const baseName = normalizeMajorName(rawName) || '凡人';
 
-  // 凡人不显示阶段
-  if (baseName === '凡人') return '凡人';
+  // 凡人不显示阶段（除非显式指定了阶段，如"第0层"）
+  if (baseName === '凡人') {
+    return explicitStage ? `${baseName}${explicitStage}` : '凡人';
+  }
 
-  // 推断阶段
-  const stage = inferStage(current, max);
+  // 使用显式阶段，或者根据进度推断阶段
+  const stage = explicitStage || inferStage(current, max);
   return `${baseName}${stage}`;
 }
 

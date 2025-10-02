@@ -126,8 +126,8 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
 
   return {
     境界: {
-      等级: 0,
       名称: "凡人",
+      阶段: "无",
       当前进度: 0,
       下一级所需: 100,
       突破描述: "引气入体，开始修仙之路"
@@ -390,11 +390,9 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const characterStore = useCharacterStore();
   characterStore.setInitialCreationStateChanges(stateChanges);
 
-  // 写入记忆
+  // 验证开局故事存在性（记忆已在 processGmResponse 中添加，此处无需重复）
   const openingStory = String(initialMessageResponse.text || '');
-  if (openingStory.trim()) {
-    saveDataAfterCommands.记忆.短期记忆.push(openingStory.length > 2000 ? `${openingStory.substring(0, 2000)}...` : openingStory);
-  } else {
+  if (!openingStory.trim()) {
     throw new Error('AI生成的开场剧情为空');
   }
 

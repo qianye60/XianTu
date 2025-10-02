@@ -410,11 +410,11 @@ export interface StatusEffect {
 // --- 角色实时状态 ---
 
 export interface Realm {
-  等级: number;
-  名称: string;
-  当前进度: number;
-  下一级所需: number;
-  突破描述: string;
+  名称: string;        // 境界名称，如"练气"、"筑基"
+  阶段: string;        // 境界阶段，如"初期"、"中期"、"后期"、"圆满"
+  当前进度: number;    // 当前修炼进度
+  下一级所需: number;  // 突破到下一阶段所需进度
+  突破描述: string;    // 突破到下一阶段的描述
 }
 // 境界子阶段类型
 export type RealmStage = '初期' | '中期' | '后期' | '圆满' | '极境';
@@ -687,6 +687,7 @@ export interface Memory extends AIMetadata {
   短期记忆: string[]; // 最近的对话、事件的完整记录
   中期记忆: string[]; // 对短期记忆的总结，关键信息点
   长期记忆: string[]; // 核心人设、世界观、重大事件的固化记忆
+  中期记忆缓存?: string[]; // 暂存AI返回的mid_term_memory，等短期记忆超限时转移
 }
 
 

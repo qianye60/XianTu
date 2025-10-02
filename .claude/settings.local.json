@@ -11,7 +11,9 @@
       "Bash(findstr:*)",
       "Bash(npm run:*)",
       "Bash(npx vue-tsc:*)",
-      "Bash(Select-String -Pattern \"error\" -Context 2)"
+      "Bash(Select-String -Pattern \"error\" -Context 2)",
+      "Bash(Select-String -Pattern \"等级\" -Context 1)",
+      "Bash(Select-Object -First 20)"
     ],
     "deny": [],
     "ask": [],

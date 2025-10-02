@@ -81,14 +81,14 @@ export const DEFAULT_MEMORY_SETTINGS: AIMemorySettings = {
   memory: {
     shortTerm: {
       enabled: true,
-      maxLength: 5,
+      maxLength: 3,
       autoConvert: true
     },
     midTerm: {
       enabled: true,
-      maxLength: 20,
+      maxLength: 25,
       autoSummarize: true,
-      summarizeThreshold: 18 // 当达到18条时开始总结
+      summarizeThreshold: 23 // 当达到23条时开始总结
     },
     longTerm: {
       enabled: true,
@@ -179,13 +179,13 @@ export const SETTINGS_RANGES = {
   shortTermMemory: {
     min: 1,
     max: 10,
-    default: 5,
+    default: 3,
     step: 1
   },
   midTermMemory: {
     min: 10,
     max: 40,
-    default: 20,
+    default: 25,
     step: 1
   },
   longTermMemory: {

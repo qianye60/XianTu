@@ -8,6 +8,8 @@ import { set, get, unset, cloneDeep } from 'lodash';
 import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
 import type { CharacterBaseInfo, SaveData, StateChange, StateChangeLog } from '@/types/game';
 import { shardSaveData, assembleSaveData, type StorageShards } from './storageSharding';
+import { SETTINGS_RANGES } from './settings/memorySettings';
+import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
 
 /**
  * 构建发送给AI Game Master的请求对象
@@ -220,21 +222,84 @@ export async function processGmResponse(
     console.log('[processGmResponse] ⚠️ 没有 tavern_commands 需要执行');
   }
 
-  // 处理mid_term_memory
-  if (response.mid_term_memory && typeof response.mid_term_memory === 'string') {
-    console.log('[processGmResponse] 添加中期记忆');
+  // 🔥 更新短期记忆：将AI返回的text添加到短期记忆开头
+  if (response.text && typeof response.text === 'string') {
     if (!updatedSaveData.记忆) {
-      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 中期记忆缓存: [] };
     }
-    if (!Array.isArray(updatedSaveData.记忆.中期记忆)) {
-      updatedSaveData.记忆.中期记忆 = [];
+    if (!Array.isArray(updatedSaveData.记忆.短期记忆)) {
+      updatedSaveData.记忆.短期记忆 = [];
     }
-    // 🔥 去重检查：只有当中期记忆中不存在相同内容时才添加
-    if (!updatedSaveData.记忆.中期记忆.includes(response.mid_term_memory)) {
-      updatedSaveData.记忆.中期记忆.push(response.mid_term_memory);
-      console.log('[processGmResponse] ✅ 已添加新的中期记忆（去重后）');
-    } else {
-      console.log('[processGmResponse] ⚠️ 中期记忆已存在，跳过添加（避免重复）');
+    if (!Array.isArray(updatedSaveData.记忆.中期记忆缓存)) {
+      updatedSaveData.记忆.中期记忆缓存 = [];
+    }
+
+    // 截断过长的文本（保留前2000字符）
+    const textToStore = response.text.length > 2000
+      ? `${response.text.substring(0, 2000)}...`
+      : response.text;
+
+    // 添加到短期记忆开头
+    updatedSaveData.记忆.短期记忆.unshift(textToStore);
+    console.log('[processGmResponse] ✅ 已添加短期记忆');
+    console.log('[processGmResponse] 短期记忆内容（前100字符）:', textToStore.substring(0, 100));
+    console.log('[processGmResponse] 当前短期记忆数量:', updatedSaveData.记忆.短期记忆.length);
+
+    // 🔥 如果有mid_term_memory，先存入缓存数组
+    if (response.mid_term_memory && typeof response.mid_term_memory === 'string') {
+      // 格式化游戏时间
+      const gameTime = updatedSaveData.游戏时间;
+      const timePrefix = gameTime
+        ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}】`
+        : '【未知时间】';
+
+      const formattedMemory = `${timePrefix}${response.mid_term_memory}`;
+
+      // 存入缓存数组
+      updatedSaveData.记忆.中期记忆缓存.push(formattedMemory);
+      console.log('[processGmResponse] ✅ 已将mid_term_memory存入缓存数组');
+      console.log('[processGmResponse] 中期记忆缓存内容:', formattedMemory.substring(0, 100));
+      console.log('[processGmResponse] 当前缓存数量:', updatedSaveData.记忆.中期记忆缓存.length);
+    }
+
+    // 从配置读取短期记忆限制
+    const SHORT_TERM_LIMIT = SETTINGS_RANGES.shortTermMemory.default;
+
+    // 检查短期记忆是否超出限制
+    if (updatedSaveData.记忆.短期记忆.length > SHORT_TERM_LIMIT) {
+      // 移除最旧的记忆（数组末尾）
+      updatedSaveData.记忆.短期记忆 = updatedSaveData.记忆.短期记忆.slice(0, SHORT_TERM_LIMIT);
+      console.log(`[processGmResponse] ⚠️ 短期记忆已超出限制，保留最新的${SHORT_TERM_LIMIT}条`);
+
+      // 🔥 短期记忆超限时，将缓存数组中的所有记忆转移到中期记忆
+      if (updatedSaveData.记忆.中期记忆缓存.length > 0) {
+        if (!Array.isArray(updatedSaveData.记忆.中期记忆)) {
+          updatedSaveData.记忆.中期记忆 = [];
+        }
+
+        // 将缓存中的所有记忆转移到中期记忆（去重）
+        let transferredCount = 0;
+        for (const cachedMemory of updatedSaveData.记忆.中期记忆缓存) {
+          if (!updatedSaveData.记忆.中期记忆.includes(cachedMemory)) {
+            updatedSaveData.记忆.中期记忆.push(cachedMemory);
+            transferredCount++;
+          }
+        }
+
+        console.log(`[processGmResponse] ✅ 短期记忆超限，已将${transferredCount}条缓存记忆转入中期记忆`);
+
+        // 清空缓存数组
+        updatedSaveData.记忆.中期记忆缓存 = [];
+        console.log('[processGmResponse] ✅ 已清空中期记忆缓存');
+
+        // 检查中期记忆是否超出限制
+        const MID_TERM_LIMIT = SETTINGS_RANGES.midTermMemory.default;
+        if (updatedSaveData.记忆.中期记忆.length > MID_TERM_LIMIT) {
+          // 移除最旧的中期记忆
+          updatedSaveData.记忆.中期记忆 = updatedSaveData.记忆.中期记忆.slice(-MID_TERM_LIMIT);
+          console.log(`[processGmResponse] ⚠️ 中期记忆已超出限制，保留最新的${MID_TERM_LIMIT}条`);
+        }
+      }
     }
   }
 
@@ -264,8 +329,11 @@ function mapShardPathToSaveDataPath(shardPath: string): string {
   }
 
   // 境界分片
-  if (path.startsWith('境界.') || path === '境界') {
-    return '玩家角色状态.境界' + (path.length > 2 ? '.' + path.substring(3) : '');
+  if (path.startsWith('境界.')) {
+    return '玩家角色状态.境界.' + path.substring('境界.'.length);
+  }
+  if (path === '境界') {
+    return '玩家角色状态.境界';
   }
 
   // 属性分片 (气血、灵气、神识、寿命)
@@ -517,6 +585,13 @@ async function executeCommand(command: { action: string; key: string; value?: un
   console.log(`[executeCommand] 值类型:`, typeof value);
 
   try {
+    // 🔥 [装备增幅系统] 在set之前，获取装备栏旧值（用于移除旧装备加成）
+    let oldEquipmentItemId: string | null = null;
+    if (action === 'set' && path.startsWith('装备栏.装备')) {
+      oldEquipmentItemId = get(saveData, path) as string | null;
+      console.log(`[装备增幅] 准备变更 ${path}，旧装备ID: ${oldEquipmentItemId || '无'}`);
+    }
+
     switch (action) {
       case 'set':
         // 若写入物品或功法，先做一次品质规范化
@@ -551,6 +626,31 @@ async function executeCommand(command: { action: string; key: string; value?: un
             }
           } catch (e) {
             console.error('[executeCommand] 自动解锁大道失败:', e);
+          }
+        }
+
+        // 🔥 [装备增幅系统] 当装备栏变更时，自动应用/移除装备属性加成
+        if (path.startsWith('装备栏.装备')) {
+          try {
+            const newItemId = String(value || '');
+
+            console.log(`[装备增幅] 检测到装备栏变更: ${path}`);
+            console.log(`[装备增幅] 旧装备ID: ${oldEquipmentItemId || '无'}`);
+            console.log(`[装备增幅] 新装备ID: ${newItemId || '无'}`);
+
+            // 如果旧装备存在，移除其属性加成
+            if (oldEquipmentItemId && oldEquipmentItemId !== 'null' && oldEquipmentItemId !== newItemId) {
+              console.log(`[装备增幅] 移除旧装备 ${oldEquipmentItemId} 的属性加成`);
+              removeEquipmentBonus(saveData, oldEquipmentItemId);
+            }
+
+            // 如果新装备存在，应用其属性加成
+            if (newItemId && newItemId !== 'null' && newItemId !== oldEquipmentItemId) {
+              console.log(`[装备增幅] 应用新装备 ${newItemId} 的属性加成`);
+              applyEquipmentBonus(saveData, newItemId);
+            }
+          } catch (e) {
+            console.error('[装备增幅] 处理装备增幅失败:', e);
           }
         }
         break;

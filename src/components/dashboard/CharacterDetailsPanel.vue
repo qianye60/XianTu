@@ -24,7 +24,7 @@
             <h1 class="character-name">{{ baseInfo.名字 }}</h1>
             <div class="meta-chips">
               <span class="meta-chip realm-chip" :class="`realm-${playerStatus?.境界?.名称}`">
-                {{ formatRealmDisplay(playerStatus?.境界?.名称, playerStatus?.境界?.等级) }}
+                {{ formatRealmDisplay(playerStatus?.境界?.名称, undefined) }}
               </span>
               <span class="meta-chip">{{ playerStatus?.寿命?.当前 }}岁</span>
               <span v-if="playerStatus?.位置?.描述" class="meta-chip">{{ getLocationName(playerStatus.位置.描述) }}</span>
@@ -1140,10 +1140,11 @@ const formatCultivationText = (): string => {
 };
 
 // 显示境界：统一返回“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (name?: string, level?: number): string => {
+const formatRealmDisplay = (name?: string, _level?: number): string => {
   const progress = playerStatus.value?.境界?.当前进度;
   const maxProgress = playerStatus.value?.境界?.下一级所需;
-  return formatRealmWithStage({ name, level, 当前进度: progress, 下一级所需: maxProgress });
+  const stage = playerStatus.value?.境界?.阶段;
+  return formatRealmWithStage({ name, 阶段: stage, 当前进度: progress, 下一级所需: maxProgress });
 };
 
 // 提取位置名称：从描述中提取地名，去除多余的叙事内容

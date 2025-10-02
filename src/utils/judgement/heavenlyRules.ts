@@ -70,8 +70,13 @@ function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo
   const 灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
   const 神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
 
-  // 境界等级
-  const 境界等级 = safeNum(get(saveData, '玩家角色状态.境界.等级', 0));
+  // 境界名称映射到等级（用于数值计算）
+  const 境界名称 = String(get(saveData, '玩家角色状态.境界.名称', '凡人'));
+  const 境界映射: Record<string, number> = {
+    '凡人': 0, '练气': 1, '炼气': 1, '筑基': 2, '金丹': 3,
+    '元婴': 4, '化神': 5, '炼虚': 6, '合体': 7, '渡劫': 8
+  };
+  const 境界等级 = 境界映射[境界名称] || 0;
   const 境界加成 = 1 + 境界等级 * 0.1;
 
   // 装备数值加成
@@ -431,7 +436,12 @@ export function computeHeavenlyCalculation(
 ): HeavenlySystem {
   const 核心属性 = calculateCoreAttributes(saveData, baseInfo);
   const 死亡状态 = checkAndUpdateDeathState(saveData);
-  const 境界等级 = safeNum(get(saveData, '玩家角色状态.境界.等级', 0));
+  const 境界名称 = String(get(saveData, '玩家角色状态.境界.名称', '凡人'));
+  const 境界映射: Record<string, number> = {
+    '凡人': 0, '练气': 1, '炼气': 1, '筑基': 2, '金丹': 3,
+    '元婴': 4, '化神': 5, '炼虚': 6, '合体': 7, '渡劫': 8
+  };
+  const 境界等级 = 境界映射[境界名称] || 0;
 
   return {
     版本: '5.0',

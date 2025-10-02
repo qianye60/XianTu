@@ -1,0 +1,156 @@
+/**
+ * @fileoverview 装备属性增幅应用系统
+ * 负责在装备/卸下装备时，自动应用或移除属性加成
+ */
+
+import { get, set } from 'lodash';
+import type { SaveData, AttributeBonus, Item } from '@/types/game';
+
+/**
+ * 应用装备的属性加成到角色属性
+ * @param saveData 存档数据
+ * @param equipmentItemId 装备物品ID
+ * @returns 是否成功应用
+ */
+export function applyEquipmentBonus(saveData: SaveData, equipmentItemId: string): boolean {
+  try {
+    // 获取装备物品数据
+    const item: Item | undefined = saveData.背包?.物品?.[equipmentItemId];
+    if (!item || item.类型 !== '装备') {
+      console.warn(`[装备增幅] 物品 ${equipmentItemId} 不是装备类型`);
+      return false;
+    }
+
+    const bonus: AttributeBonus | undefined = item.装备增幅;
+    if (!bonus) {
+      console.log(`[装备增幅] 装备 ${item.名称} 没有属性加成`);
+      return true; // 没有加成不算失败
+    }
+
+    console.log(`[装备增幅] 开始应用装备 ${item.名称} 的属性加成:`, bonus);
+
+    // 应用气血上限加成
+    if (bonus.气血上限 && typeof bonus.气血上限 === 'number') {
+      const current气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
+      const new最大 = current气血.最大 + bonus.气血上限;
+      set(saveData, '玩家角色状态.气血.最大', new最大);
+      console.log(`[装备增幅] 气血最大值: ${current气血.最大} -> ${new最大} (+${bonus.气血上限})`);
+    }
+
+    // 应用灵气上限加成
+    if (bonus.灵气上限 && typeof bonus.灵气上限 === 'number') {
+      const current灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
+      const new最大 = current灵气.最大 + bonus.灵气上限;
+      set(saveData, '玩家角色状态.灵气.最大', new最大);
+      console.log(`[装备增幅] 灵气最大值: ${current灵气.最大} -> ${new最大} (+${bonus.灵气上限})`);
+    }
+
+    // 应用神识上限加成
+    if (bonus.神识上限 && typeof bonus.神识上限 === 'number') {
+      const current神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
+      const new最大 = current神识.最大 + bonus.神识上限;
+      set(saveData, '玩家角色状态.神识.最大', new最大);
+      console.log(`[装备增幅] 神识最大值: ${current神识.最大} -> ${new最大} (+${bonus.神识上限})`);
+    }
+
+    // 后天六司加成已由 attributeCalculation.ts 的 calculateEquipmentBonuses 处理
+    // 无需在这里重复计算
+
+    console.log(`[装备增幅] ✅ 成功应用装备 ${item.名称} 的属性加成`);
+    return true;
+  } catch (error) {
+    console.error(`[装备增幅] 应用装备加成失败:`, error);
+    return false;
+  }
+}
+
+/**
+ * 移除装备的属性加成从角色属性
+ * @param saveData 存档数据
+ * @param equipmentItemId 装备物品ID
+ * @returns 是否成功移除
+ */
+export function removeEquipmentBonus(saveData: SaveData, equipmentItemId: string): boolean {
+  try {
+    // 获取装备物品数据
+    const item: Item | undefined = saveData.背包?.物品?.[equipmentItemId];
+    if (!item || item.类型 !== '装备') {
+      console.warn(`[装备增幅] 物品 ${equipmentItemId} 不是装备类型`);
+      return false;
+    }
+
+    const bonus: AttributeBonus | undefined = item.装备增幅;
+    if (!bonus) {
+      console.log(`[装备增幅] 装备 ${item.名称} 没有属性加成`);
+      return true; // 没有加成不算失败
+    }
+
+    console.log(`[装备增幅] 开始移除装备 ${item.名称} 的属性加成:`, bonus);
+
+    // 移除气血上限加成
+    if (bonus.气血上限 && typeof bonus.气血上限 === 'number') {
+      const current气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
+      const new最大 = Math.max(1, current气血.最大 - bonus.气血上限); // 最小为1
+      set(saveData, '玩家角色状态.气血.最大', new最大);
+
+      // 如果当前值超过新的最大值，调整当前值
+      if (current气血.当前 > new最大) {
+        set(saveData, '玩家角色状态.气血.当前', new最大);
+        console.log(`[装备增幅] 气血当前值超过新最大值，已调整: ${current气血.当前} -> ${new最大}`);
+      }
+
+      console.log(`[装备增幅] 气血最大值: ${current气血.最大} -> ${new最大} (-${bonus.气血上限})`);
+    }
+
+    // 移除灵气上限加成
+    if (bonus.灵气上限 && typeof bonus.灵气上限 === 'number') {
+      const current灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
+      const new最大 = Math.max(1, current灵气.最大 - bonus.灵气上限);
+      set(saveData, '玩家角色状态.灵气.最大', new最大);
+
+      if (current灵气.当前 > new最大) {
+        set(saveData, '玩家角色状态.灵气.当前', new最大);
+        console.log(`[装备增幅] 灵气当前值超过新最大值，已调整: ${current灵气.当前} -> ${new最大}`);
+      }
+
+      console.log(`[装备增幅] 灵气最大值: ${current灵气.最大} -> ${new最大} (-${bonus.灵气上限})`);
+    }
+
+    // 移除神识上限加成
+    if (bonus.神识上限 && typeof bonus.神识上限 === 'number') {
+      const current神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
+      const new最大 = Math.max(1, current神识.最大 - bonus.神识上限);
+      set(saveData, '玩家角色状态.神识.最大', new最大);
+
+      if (current神识.当前 > new最大) {
+        set(saveData, '玩家角色状态.神识.当前', new最大);
+        console.log(`[装备增幅] 神识当前值超过新最大值，已调整: ${current神识.当前} -> ${new最大}`);
+      }
+
+      console.log(`[装备增幅] 神识最大值: ${current神识.最大} -> ${new最大} (-${bonus.神识上限})`);
+    }
+
+    console.log(`[装备增幅] ✅ 成功移除装备 ${item.名称} 的属性加成`);
+    return true;
+  } catch (error) {
+    console.error(`[装备增幅] 移除装备加成失败:`, error);
+    return false;
+  }
+}
+
+/**
+ * 重新计算所有装备的属性加成
+ * 用于修复数据不一致的情况
+ * @param saveData 存档数据
+ */
+export function recalculateAllEquipmentBonuses(saveData: SaveData): void {
+  console.log('[装备增幅] 开始重新计算所有装备的属性加成...');
+
+  // TODO: 实现完整的重新计算逻辑
+  // 1. 获取基础属性（不含装备加成）
+  // 2. 遍历所有已装备的装备
+  // 3. 累加所有装备的加成
+  // 4. 更新到角色属性
+
+  console.warn('[装备增幅] recalculateAllEquipmentBonuses 尚未实现');
+}

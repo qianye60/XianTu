@@ -422,14 +422,18 @@ const getNpcRealmParsed = (npc: NpcProfile): { 境界: number | null; 阶段: st
 
   if (realmVal && typeof realmVal === 'object') {
     const obj = realmVal as any;
-    const lvl: number | undefined = obj.等级 ?? obj.level ?? obj.境界;
-    if (typeof lvl === 'number') {
-      realmVal = lvl;
-    } else if (typeof obj.名称 === 'string' || typeof obj.name === 'string') {
+    // 新数据结构：直接使用 名称 和 阶段
+    if (typeof obj.名称 === 'string' || typeof obj.name === 'string') {
       const parsed = parseFromName((obj.名称 ?? obj.name) as string);
       if (parsed.level !== undefined) realmVal = parsed.level;
       if (!stageVal && parsed.stage) stageVal = parsed.stage;
-    } else {
+    }
+    // 从 阶段 字段获取阶段
+    if (!stageVal && (typeof obj.阶段 === 'string' || typeof obj.stage === 'string')) {
+      stageVal = obj.阶段 ?? obj.stage;
+    }
+    // 如果还没有数值，尝试从名称推断
+    if (realmVal === undefined) {
       realmVal = undefined;
     }
   }
