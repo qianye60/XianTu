@@ -3,9 +3,9 @@
     <div v-if="visible" class="modal-overlay" @click.self="close">
       <div class="modal-dialog">
         <h2 class="modal-title">{{ title }}</h2>
-        
+
         <div class="form-fields">
-          <div v-for="field in fields" :key="field.key" class="form-group">
+          <div v-for="field in visibleFields" :key="field.key" class="form-group">
             <label :for="field.key">{{ field.label }}</label>
             <input
               v-if="field.type === 'text' || field.type === 'color'"
@@ -73,18 +73,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 type BaseField = {
   key: string;
   label: string;
   placeholder?: string;
+  condition?: (data: Record<string, unknown>) => boolean;
 };
 
 type InputField = BaseField & { type: 'text' | 'textarea' | 'color' };
 type SelectField = BaseField & { type: 'select'; options: readonly { value: string; label: string }[] };
-type DynamicListField = BaseField & { 
-  type: 'dynamic-list'; 
+type DynamicListField = BaseField & {
+  type: 'dynamic-list';
   columns: {
     key: string;
     placeholder?: string;
@@ -106,6 +107,14 @@ const emit = defineEmits(['close', 'submit']);
 
 const formData = ref<Record<string, unknown>>({});
 const errors = ref<string[]>([]);
+
+// Computed property to filter visible fields based on conditions
+const visibleFields = computed(() => {
+  return props.fields.filter(field => {
+    if (!field.condition) return true;
+    return field.condition(formData.value);
+  });
+});
 
 // Initialize form data when fields change or when initialData is provided
 watch(() => [props.fields, props.initialData] as const, ([newFields, initialData]) => {

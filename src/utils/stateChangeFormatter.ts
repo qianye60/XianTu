@@ -29,14 +29,14 @@ export interface FormattedStateChangeLog {
 
 // --- 辅助函数 ---
 
-function getItemName(item: Item | any): string {
+function getItemName(item: Item | Record<string, any>): string {
   if (!isObject(item)) return '未知物品';
-  return item.名称 || '无名物品';
+  return (item as any).名称 || '无名物品';
 }
 
-function getQuantity(item: Item | any): number {
+function getQuantity(item: Item | Record<string, any>): number {
   if (!isObject(item)) return 1;
-  return item.数量 || 1;
+  return (item as any).数量 || 1;
 }
 
 // --- 解析器模块 ---

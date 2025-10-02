@@ -387,16 +387,21 @@ const showTalentDetail = (talent: string) => {
 
   const talentInfo = localTalent ? {
     description: localTalent.description,
-    effects: localTalent.effects.map((effect: { 类型: string; 目标: string; 数值: number; 名称: string; 技能: string; }) => {
-      if (effect.类型 === '后天六司') {
-        return `${effect.目标}+${effect.数值}`;
-      } else if (effect.类型 === '特殊能力') {
-        return `${effect.名称}${typeof effect.数值 === 'number' && effect.数值 > 0 && effect.数值 < 1 ? ` ${(effect.数值 * 100).toFixed(0)}%` : ''}`;
-      } else if (effect.类型 === '技能加成') {
-        return `${effect.技能}技能效果+${(effect.数值 * 100).toFixed(0)}%`;
-      }
-      return `${effect.名称 || effect.类型}`;
-    }),
+    effects: localTalent.effects ? (
+      Array.isArray(localTalent.effects) && localTalent.effects.length > 0 && typeof localTalent.effects[0] === 'string'
+        ? localTalent.effects as string[]
+        : (localTalent.effects as any[]).map((effect: any) => {
+            if (typeof effect === 'string') return effect;
+            if (effect.类型 === '后天六司') {
+              return `${effect.目标}+${effect.数值}`;
+            } else if (effect.类型 === '特殊能力') {
+              return `${effect.名称}${typeof effect.数值 === 'number' && effect.数值 > 0 && effect.数值 < 1 ? ` ${(effect.数值 * 100).toFixed(0)}%` : ''}`;
+            } else if (effect.类型 === '技能加成') {
+              return `${effect.技能}技能效果+${(effect.数值 * 100).toFixed(0)}%`;
+            }
+            return `${effect.名称 || effect.类型}`;
+          })
+    ) : ['效果未知'],
     maxLevel: 10 // 默认最大等级
   } : {
     description: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。`,

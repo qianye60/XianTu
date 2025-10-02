@@ -213,7 +213,6 @@ import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
-import MultiLayerMemorySystem from '@/utils/MultiLayerMemorySystem';
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
@@ -234,9 +233,6 @@ const characterStore = useCharacterStore();
 const loading = ref(false);
 const activeFilter = ref('all');
 const showSettings = ref(false);
-
-// MultiLayerMemorySystem实例
-const memorySystem = MultiLayerMemorySystem.getInstance();
 
 // 记忆系统配置
 const memoryConfig = ref({
@@ -572,6 +568,21 @@ const loadMemoryData = async () => {
 };
 
 // 记忆配置管理功能
+// 临时记忆系统适配层：防止未定义错误，并尝试将配置写入酒馆变量
+const memorySystem = {
+  getMemoryStats: () => ({ config: null as any }),
+  updateConfig: (cfg: any) => {
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        // 异步持久化到酒馆变量（不阻塞UI）
+        helper.setVariable('character.memorySettings', cfg, { type: 'chat' })
+          .then(() => debug.log('记忆中心', '配置已保存到酒馆变量 character.memorySettings'))
+          .catch((e: any) => debug.warn('记忆中心', '保存配置到酒馆失败（非致命）', e));
+      }
+    } catch { /* no-op */ }
+  }
+};
 const loadMemoryConfig = () => {
   try {
     const stats = memorySystem.getMemoryStats();

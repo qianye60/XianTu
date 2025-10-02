@@ -111,13 +111,18 @@ export interface TavernHelper {
   generateRaw: (config: Record<string, unknown>) => Promise<unknown>; // 更改为接受配置对象
   triggerSlash: (command: string) => Promise<unknown>;
 
+  // 斜杠命令注册（扩展功能，可选）
+  registerSlashCommand?: (command: string, callback: (args?: any) => Promise<void> | void) => void;
+
   // 提示词注入
   injectPrompts: (prompts: InjectionPrompt[], options?: InjectPromptsOptions) => void;
   uninjectPrompts: (ids: string[]) => void;
 
   // 变量操作
-  getVariables(options: { type: 'global' | 'chat' }): Promise<Record<string, unknown>>;
-  insertOrAssignVariables(data: Record<string, unknown>, options: { type: 'global' | 'chat' }): Promise<void>;
+  getVariables(options: { type: 'global' | 'chat' | 'local' }): Promise<Record<string, unknown>>;
+  getVariable(key: string, options: { type: 'global' | 'chat' | 'local' }): Promise<unknown>;
+  setVariable(key: string, value: unknown, options: { type: 'global' | 'chat' | 'local' }): Promise<void>;
+  insertOrAssignVariables(data: Record<string, unknown>, options: { type: 'global' | 'chat' | 'local' }): Promise<void>;
   deleteVariable(variable_path: string, options?: { type?: string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, unknown>; delete_occurred: boolean }>;
 
   // 角色与宏
@@ -135,6 +140,7 @@ export interface TavernHelper {
   getLastMessageId(): Promise<number>;
   deleteChatMessages(message_ids: number[], options?: { refresh?: 'none' | 'all' }): Promise<void>;
   updateChatHistory?(history: unknown[]): Promise<void>; // 为了向后兼容，设为可选
+  clearChat?(): Promise<void>; // 清空聊天记录
 
   // 设置与其他
   settings?: {

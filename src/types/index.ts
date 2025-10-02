@@ -43,6 +43,7 @@ export interface Origin {
   attribute_modifiers: Record<string, number>;
   rarity: number;
   source?: 'local' | 'cloud';
+  background_effects?: { type: string; description: string }[];
 }
 
 export interface SpiritRoot {
@@ -60,6 +61,18 @@ export interface SpiritRoot {
 
 // --- 全新存档与游戏状态结构 ---
 
+/**
+ * 天赋效果（支持结构化和字符串描述两种格式）
+ */
+export interface TalentEffect {
+  类型: '后天六司' | '特殊能力' | '技能加成';
+  目标?: string;
+  技能?: string;
+  名称?: string;
+  数值: number;
+  描述?: string;
+}
+
 export interface Talent {
   id: number; // 统一为数字ID以匹配后端
   name: string;
@@ -69,7 +82,7 @@ export interface Talent {
   exp_max?: number;
   talent_cost: number;
   rarity: number;
-  effects?: any;
+  effects?: TalentEffect[] | string[]; // 支持结构化对象数组或字符串描述数组
   source?: 'local' | 'cloud';
 }
 

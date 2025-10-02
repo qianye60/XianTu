@@ -316,7 +316,7 @@
 
 <script setup lang="ts">
 import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
-import { ref, onMounted, nextTick, computed, watch } from 'vue';
+import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue';
 import {
   Send, Loader2, ChevronDown, ChevronRight, Activity, ScrollText, X,
   PackagePlus, PackageMinus, ArrowUpRight, ArrowDownRight, UserPlus, UserMinus,
@@ -327,9 +327,7 @@ import { useActionQueueStore, type GameAction } from '@/stores/actionQueueStore'
 import { useUIStore } from '@/stores/uiStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { getTavernHelper } from '@/utils/tavern';
-import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
-import { GameStateManager } from '@/utils/GameStateManager';
 import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
 import type { GameMessage, SaveData, CharacterProfile } from '@/types/game';
@@ -383,10 +381,18 @@ const restoreAIProcessingState = () => {
 
   if (saved === 'true' && timestamp) {
     const elapsed = Date.now() - parseInt(timestamp);
-    // 如果超过2分钟，认为已超时，清除状态
-    if (elapsed < 2 * 60 * 1000) {
+    // 如果超过30秒，认为已超时，清除状态
+    if (elapsed < 30 * 1000) {
       isAIProcessing.value = true;
       console.log('[状态恢复] 恢复AI处理状态');
+
+      // 30秒后自动清除状态
+      setTimeout(() => {
+        if (isAIProcessing.value) {
+          console.log('[状态恢复] AI处理超时，自动清除状态');
+          forceResetAIProcessingState();
+        }
+      }, 30 * 1000);
     } else {
       console.log('[状态恢复] AI处理状态已超时，清除状态');
       sessionStorage.removeItem('ai-processing-state');
@@ -456,7 +462,7 @@ if (typeof window !== 'undefined') {
     console.log('[测试] 手动添加记忆:', text);
     await addToShortTermMemory(text, 'assistant');
     console.log('[测试] 记忆添加完成，检查持久化...');
-    await characterStore.commitToStorage();
+    await characterStore.syncToTavernAndSave();
     console.log('[测试] 持久化完成');
   };
   
@@ -524,9 +530,7 @@ const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
-const memorySystem = MultiLayerMemorySystem.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
-const gameStateManager = GameStateManager.getInstance();
 
 // 流式输出状态
 const streamingMessageIndex = ref<number | null>(null);
@@ -880,7 +884,7 @@ const currentNarrative = ref<GameMessage | null>(null);
 
 // 短期记忆设置 - 可配置
 const maxShortTermMemories = ref(5); // 默认5条，避免token过多
-const maxMidTermMemories = ref(20); // 默认20条，可自由配置
+const maxMidTermMemories = ref(25); // 默认25条，可自由配置
 // 长期记忆无限制，不设上限
 
 // 从设置加载记忆配置
@@ -1177,9 +1181,11 @@ const validateAIResponse = (response: unknown): { isValid: boolean; errors: stri
     errors.push('缺少有效的text字段');
   }
 
-  // 检查mid_term_memory字段（可选）
-  if (resp.mid_term_memory && typeof resp.mid_term_memory !== 'string') {
-    errors.push('mid_term_memory字段格式不正确');
+  // 检查mid_term_memory字段（必须）
+  if (!resp.mid_term_memory || typeof resp.mid_term_memory !== 'string') {
+    errors.push('缺少必要的mid_term_memory字段（中期记忆总结）');
+  } else if (resp.mid_term_memory.trim().length === 0) {
+    errors.push('mid_term_memory字段不能为空');
   }
 
   // 检查tavern_commands字段（可选）
@@ -1222,11 +1228,13 @@ const retryAIResponse = async (
 【重要提醒】请严格按照以下JSON结构返回响应：
 {
   "text": "正文内容，用于短期记忆和显示",
-  "mid_term_memory": "可选-精简的中期记忆内容，包含关键事件和变化",
+  "mid_term_memory": "【必须】精简的中期记忆内容，包含关键事件和变化，不能为空",
   "tavern_commands": [
     {"action": "set", "key": "character.saveData.path.to.variable", "value": "新值"}
   ]
 }
+
+⚠️ 注意：mid_term_memory字段是必须的，必须返回有意义的中期记忆总结。
 
 上次响应的问题：${previousErrors.join(', ')}
 请修正这些问题并确保结构正确。`;
@@ -1376,8 +1384,7 @@ const sendMessage = async () => {
   streamingMessageIndex.value = 1; // 设置一个虚拟索引以启用流式处理
 
   try {
-    // 获取当前游戏状态
-    const gameState = gameStateManager.getCurrentState();
+    // 获取当前角色
     const character = characterStore.activeCharacterProfile;
 
     if (!character) {
@@ -1402,13 +1409,6 @@ const sendMessage = async () => {
       const options: Record<string, unknown> = {
         onProgressUpdate: (progress: string) => {
           console.log('[AI进度]', progress);
-        },
-        onStateChange: (newState: Record<string, unknown>) => {
-          try {
-            gameStateManager.updateState(newState);
-          } catch (error) {
-            console.error('[状态更新] 更新失败:', error);
-          }
         }
       };
       if (useStreaming.value) {
@@ -1421,10 +1421,19 @@ const sendMessage = async () => {
         console.log('[图片上传] 将发送', selectedImages.value.length, '张图片');
       }
 
+      // 在AI调用前计算并同步天道系统
+      const baseInfo = character.角色基础信息;
+      const saveData = characterStore.activeSaveSlot?.存档数据;
+      if (saveData && baseInfo) {
+        const { syncHeavenlyPrecalcToTavern } = await import('@/utils/judgement/heavenlyRules');
+        await syncHeavenlyPrecalcToTavern(saveData, baseInfo);
+        console.log('[天道系统] 已同步预计算数据到酒馆');
+      }
+
       aiResponse = await bidirectionalSystem.processPlayerAction(
         finalUserMessage,
         character,
-        gameState,
+        {}, // gameState已移除，传空对象
         options
       );
 
@@ -1439,13 +1448,14 @@ const sendMessage = async () => {
           const retryResponse = await retryAIResponse(
             finalUserMessage,
             character,
-            gameState,
+            {}, // gameState已移除，传空对象
             validation.errors
           );
 
           if (retryResponse) {
             aiResponse = retryResponse;
-            toast.success('AI响应重试成功');
+            // 注意：重试成功后不显示额外的toast，统一在最后显示"天道已回"
+            console.log('[AI响应验证] 重试成功');
           } else {
             // 所有重试都失败了，中止处理
             throw new Error('AI响应格式错误，且多次重试失败');
@@ -1454,8 +1464,12 @@ const sendMessage = async () => {
       }
 
 
-      // 完成流式输出
+      // 完成流式输出 - 彻底清除流式状态
+      console.log('[流式输出] 完成，清除流式状态');
       streamingMessageIndex.value = null;
+      streamingContent.value = ''; // 清空流式内容
+      isAIProcessing.value = false; // 立即标记为完成
+      persistAIProcessingState(); // 清除持久化状态
 
       // --- 核心逻辑：整合最终文本并更新状态 ---
       let finalText = '';
@@ -1483,34 +1497,38 @@ const sendMessage = async () => {
 
       console.log('[AI响应处理] 最终文本内容预览:', finalText.substring(0, 100) + '...');
 
-      // 如果最终有文本内容，则进行处理
+      // 如果最终有文本内容，先添加到记忆系统
+      // 注意：必须在 syncFromTavern 之前执行，这样syncFromTavern可以保留本地记忆
       if (finalText) {
         console.log('[AI响应处理] 开始处理最终文本...');
-        
+
         // 更新UI显示
         if (currentNarrative.value) {
           currentNarrative.value.content = finalText;
           console.log('[AI响应处理] 已更新UI显示');
         }
 
-        // 缓存预生成的中期记忆
-        if (gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string') {
-          await characterStore.manageTavernMemoryCache.addSummary(finalText, gmResp.mid_term_memory);
-          console.log('[记忆管理] 预生成的中期记忆已缓存');
-        }
-
-        // 添加到短期记忆
+        // 添加到短期记忆，并传递中期记忆总结（如果有）
         console.log('[AI响应处理] 准备将文本添加到短期记忆...');
-        await addToShortTermMemory(finalText, 'assistant');
+        const midTermSummary = gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string'
+          ? gmResp.mid_term_memory
+          : undefined;
+        await addToShortTermMemory(finalText, 'assistant', midTermSummary);
         console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', finalText.length);
       } else {
         console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
       }
 
-      // tavern_commands 已在 AIBidirectionalSystem 中处理
+      // 🔥 核心修复：每次AI响应后都要同步数据（不管有没有tavern_commands）
+      // 原因：AI可能通过多种方式修改了酒馆变量，必须保证本地和酒馆同步
+      // 注意：syncFromTavern会保留本地的记忆数据，不会被酒馆旧数据覆盖
+      console.log('[数据同步] 开始从酒馆同步最新数据到本地...');
       if (gmResp?.tavern_commands?.length) {
-        console.log(`[AI响应处理] ${gmResp.tavern_commands.length} 条 tavern_commands 已由AI双向系统处理`);
+        console.log(`[数据同步] 🎯 本次响应包含 ${gmResp.tavern_commands.length} 条 tavern_commands`);
       }
+
+      await characterStore.syncFromTavern();
+      console.log('[数据同步] ✅ 已从酒馆同步最新数据并保存到LocalStorage');
 
     // 处理游戏状态更新（仅在有有效AI响应时执行）
     if (aiResponse && aiResponse.stateChanges) {
@@ -1518,8 +1536,17 @@ const sendMessage = async () => {
       uiStore.clearCurrentMessageStateChanges();
       console.log('[日志清空] 收到新响应，已清空上一条消息的状态变更日志');
 
-      await gameStateManager.applyStateChanges(aiResponse.stateChanges);
-      characterStore.updateCharacterData(aiResponse.stateChanges);
+      // gameStateManager已移除，状态变更由characterStore处理
+
+      // 确保 stateChanges 有 changes 数组
+      const stateChanges: StateChangeLog = (
+        aiResponse.stateChanges &&
+        typeof aiResponse.stateChanges === 'object' &&
+        'changes' in aiResponse.stateChanges
+      )
+        ? aiResponse.stateChanges as StateChangeLog
+        : { changes: [] };
+      await characterStore.updateCharacterData(stateChanges);
 
       // 将状态变更附加到当前叙述上
       if (currentNarrative.value) {
@@ -1569,11 +1596,6 @@ const sendMessage = async () => {
       console.log('[日志面板] No state changes received in this response.');
     }
 
-    // 处理记忆更新（仅在有有效AI响应时执行）
-    if (aiResponse && aiResponse.memoryUpdates) {
-      await memorySystem.processMemoryUpdates(aiResponse.memoryUpdates);
-    }
-
     } catch (aiError) {
       console.error('[AI处理失败]', aiError);
 
@@ -1618,19 +1640,14 @@ const sendMessage = async () => {
       // 清空输入框
       inputText.value = '';
 
-      // 确保数据已保存到本地存储（使用超时保护）
+      // 确保数据已保存到本地和酒馆（包括刚添加的记忆）
       try {
-        console.log('[AI响应处理] 确保最终数据持久化...');
-        await Promise.race([
-          characterStore.commitToStorage(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('存储超时')), 5000)
-          )
-        ]);
-        console.log('[AI响应处理] 最终数据持久化完成');
+        console.log('[AI响应处理] 保存所有数据到本地和酒馆...');
+        await characterStore.syncToTavernAndSave();
+        console.log('[AI响应处理] 数据保存完成');
       } catch (storageError) {
-        console.error('[AI响应处理] 数据持久化失败:', storageError);
-        toast.warning('数据保存可能不完整，建议手动保存游戏');
+        console.error('[AI响应处理] 数据保存失败:', storageError);
+        toast.error('数据保存失败，请尝试手动保存游戏');
       }
     }
 
@@ -1774,18 +1791,19 @@ const midTermMemoryCache = {
     }
   }
 };
-const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' = 'assistant') => {
+const addToShortTermMemory = async (
+  content: string,
+  role: 'user' | 'assistant' = 'assistant',
+  midTermSummary?: string  // 新增参数：AI生成的中期记忆总结
+) => {
   try {
     console.log(`[记忆管理] 开始添加 ${role} 消息到短期记忆`);
     console.log(`[记忆管理] 内容长度: ${content.length}`);
-    console.log(`[记忆管理] 内容预览: ${content.substring(0, 100)}...`);
+    console.log(`[记忆管理] 中期记忆总结:`, midTermSummary ? '已提供' : '未提供');
 
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
-    
-    console.log(`[记忆管理] 当前存档槽位:`, save);
-    console.log(`[记忆管理] 存档数据可用性:`, !!sd);
-    
+
     if (!sd) {
       console.warn('[记忆管理] 存档数据不可用，无法存储短期记忆');
       return;
@@ -1803,13 +1821,6 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
 
     console.log(`[记忆管理] 添加前短期记忆数量: ${sd.记忆.短期记忆.length}`);
 
-    // 检查是否有AI生成的中期记忆总结
-    const gmResp = (window as any).lastGmResponse; // 临时获取最新的AI响应
-    if (gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string' && gmResp.mid_term_memory.trim()) {
-      console.log('[记忆管理] 发现AI生成的中期记忆，缓存以备转换');
-      await midTermMemoryCache.cachePendingMidTermMemory(content, gmResp.mid_term_memory);
-    }
-
     // 添加新记忆到短期记忆
     sd.记忆.短期记忆.unshift(content);
     console.log(`[记忆管理] 短期记忆已添加，当前数量: ${sd.记忆.短期记忆.length}`);
@@ -1817,102 +1828,44 @@ const addToShortTermMemory = async (content: string, role: 'user' | 'assistant' 
     // 检查短期记忆是否超出限制，触发转换
     if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
       console.log(`[记忆管理] 短期记忆超出限制（${maxShortTermMemories.value}），开始转换到中期记忆`);
-      
-      // 获取溢出的短期记忆
-      const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value).reverse();
+
+      // 获取溢出的短期记忆（最旧的那些）
+      const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value);
       console.log(`[记忆管理] ${overflow.length}条短期记忆需要转换`);
 
       // 确保中期记忆结构存在
       if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
 
-      // 处理转换：优先使用缓存的中期记忆总结
-      const summariesToAdd: string[] = [];
-      const gameTime = sd.游戏时间;
-      const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
-
-      for (const narrative of overflow) {
-        // 首先尝试从缓存获取中期记忆总结
-        const cachedSummary = await midTermMemoryCache.getCachedMidTermSummary(narrative);
-
-        if (cachedSummary) {
-          console.log('[记忆管理] 使用缓存的中期记忆总结');
-          summariesToAdd.push(`${timeString} ${cachedSummary}`);
-        } else {
-          // 回退：尝试从旧的缓存系统获取
-          const summary = await characterStore.manageTavernMemoryCache.getSummary(narrative);
-
-          if (summary) {
-            summariesToAdd.push(`${timeString} ${summary}`);
-            await characterStore.manageTavernMemoryCache.removeSummary(narrative);
-            console.log('[记忆管理] 使用旧缓存系统的总结');
-          } else {
-            // 没有mid_term_memory就不存储
-            console.warn(`[记忆管理] 未找到中期记忆总结，跳过存储此条记忆`);
-          }
-        }
+      // 如果有AI提供的中期记忆总结，使用它
+      if (midTermSummary && midTermSummary.trim()) {
+        const gameTime = sd.游戏时间;
+        const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
+        sd.记忆.中期记忆.unshift(`${timeString} ${midTermSummary}`);
+        console.log('[记忆管理] 已使用AI生成的中期记忆总结');
+      } else {
+        console.warn('[记忆管理] ⚠️ AI未返回mid_term_memory，溢出的短期记忆将被丢弃');
       }
 
-      // 添加到中期记忆
-      sd.记忆.中期记忆.unshift(...summariesToAdd);
-      console.log(`[记忆管理] 已转换 ${summariesToAdd.length} 条到中期记忆，当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
-
-      // 清理已处理的缓存
-      await midTermMemoryCache.clearProcessedCache();
+      console.log(`[记忆管理] 当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
 
       // 检查中期记忆是否需要转换到长期记忆
       if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
         await transferToLongTermMemory();
       }
     }
-    
+
     console.log('[记忆管理] 短期记忆保存完成');
-    
+
     // 立即验证保存结果
     const verifyMemories = sd.记忆.短期记忆;
     console.log(`[记忆管理] 验证: 当前短期记忆总数: ${verifyMemories.length}`);
     if (verifyMemories.length > 0) {
       console.log(`[记忆管理] 验证: 最新记忆: ${verifyMemories[0].substring(0, 50)}...`);
     }
-    
-    // 关键：立即持久化到本地存储（使用超时保护）
-    console.log('[记忆管理] 开始持久化存档数据...');
-    try {
-      await Promise.race([
-        characterStore.commitToStorage(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('存储超时')), 5000)
-        )
-      ]);
-      console.log('[记忆管理] 存档数据已持久化到本地存储');
-    } catch (error) {
-      console.error('[记忆管理] 存档数据持久化失败:', error);
-      toast.warning('数据保存可能不完整');
-    }
-    
-    // 关键：同步到酒馆变量
-    console.log('[记忆管理] 开始同步数据到酒馆变量...');
-    const activeCharId = characterStore.rootState.当前激活存档?.角色ID;
-    console.log('[记忆管理] 当前激活角色ID:', activeCharId);
-    
-    if (activeCharId) {
-      await characterStore.setActiveCharacterInTavern(activeCharId);
-      console.log('[记忆管理] 数据已同步到酒馆变量 character.saveData');
-    } else {
-      console.warn('[记忆管理] 没有激活的角色ID，跳过酒馆同步');
-      // 尝试直接更新存档数据到酒馆
-      try {
-        const helper = getTavernHelper();
-        if (helper && sd) {
-          await helper.insertOrAssignVariables({
-            'character.saveData': sd
-          }, { type: 'chat' });
-          console.log('[记忆管理] 已直接同步存档数据到酒馆');
-        }
-      } catch (e) {
-        console.error('[记忆管理] 直接同步失败:', e);
-      }
-    }
-    
+
+    // 注意：不在这里持久化，由调用者统一在主流程中保存
+    console.log('[记忆管理] 数据已更新到内存，等待主流程统一保存');
+
   } catch (error) {
     console.error('[记忆管理] 添加短期记忆或转移中期记忆失败:', error);
   }
@@ -2152,6 +2105,25 @@ onMounted(async () => {
     // 为初始加载的存档初始化面板
     await initializePanelForSave();
 
+    // 监听 AI 生成完成事件
+    const helper = getTavernHelper();
+    if (helper && helper.registerSlashCommand) {
+      console.log('[主面板] 注册 AI 生成完成监听');
+
+      // 使用 event-emit 监听生成完成
+      helper.registerSlashCommand('event-emit', async (args: any) => {
+        const event = args?.event;
+        if (event === 'MESSAGE_GENERATED' || event === 'GENERATION_COMPLETED') {
+          console.log('[主面板] 检测到 AI 生成完成事件');
+          if (isAIProcessing.value) {
+            console.log('[主面板] 自动清除 AI 处理状态');
+            isAIProcessing.value = false;
+            persistAIProcessingState();
+          }
+        }
+      });
+    }
+
   } catch (error) {
     console.error('[主面板] 首次挂载失败:', error);
     currentNarrative.value = {
@@ -2161,6 +2133,12 @@ onMounted(async () => {
       stateChanges: { changes: [] }
     };
   }
+});
+
+// 组件激活时恢复AI处理状态（适用于keep-alive或面板切换）
+onActivated(() => {
+  console.log('[主面板] 组件激活，恢复AI处理状态');
+  restoreAIProcessingState();
 });
 
 // 初始化系统连接
@@ -2609,10 +2587,18 @@ const syncGameState = async () => {
 }
 
 .streaming-meta {
-  display: flex;
-  justify-content: space-between; /* 使用 space-between 实现三栏布局 */
-  align-items: center;
-  width: 100%;
+  justify-content: center !important; /* 强制居中，覆盖 narrative-meta 的 space-between */
+  position: relative; /* 添加相对定位，让时间和按钮可以绝对定位 */
+}
+
+.streaming-meta .narrative-time {
+  position: absolute;
+  left: 0;
+}
+
+.streaming-meta .reset-state-btn {
+  position: absolute;
+  right: 0;
 }
 
 .streaming-indicator {
@@ -2621,9 +2607,7 @@ const syncGameState = async () => {
   gap: 6px;
   font-size: 0.8rem;
   color: var(--color-primary);
-  /* 确保指示器在中间 */
-  flex-grow: 1;
-  justify-content: center;
+  /* 现在这个会真正居中 */
 }
 
 

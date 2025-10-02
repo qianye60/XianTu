@@ -105,12 +105,13 @@ function calculateEquipmentBonus(saveData: SaveData) {
 
   try {
     const 装备栏 = get(saveData, '装备栏', {});
-    const 背包物品 = get(saveData, '背包.物品', []) as Item[];
+    const 背包物品对象 = get(saveData, '背包.物品', {}) as Record<string, Item>;
 
-    Object.values(装备栏).forEach((equipId: any) => {
-      if (!equipId) return;
+    Object.values(装备栏).forEach((equipRef: any) => {
+      if (!equipRef || typeof equipRef !== 'object') return;
 
-      const item = 背包物品.find(i => i.物品ID === equipId);
+      const equipId = equipRef.物品ID || equipRef;
+      const item = 背包物品对象[equipId];
 
       if (item && item.类型 === '装备') {
         const equip = item as EquipmentItem;
@@ -151,8 +152,8 @@ function calculateTechniqueBonus(saveData: SaveData) {
     const 功法ID = typeof 功法引用 === 'string' ? 功法引用 : 功法引用?.物品ID;
 
     if (功法ID) {
-      const 背包物品 = get(saveData, '背包.物品', []) as Item[];
-      const 功法物品 = 背包物品.find(i => i.物品ID === 功法ID);
+      const 背包物品对象 = get(saveData, '背包.物品', {}) as Record<string, Item>;
+      const 功法物品 = 背包物品对象[功法ID];
 
       if (功法物品 && 功法物品.类型 === '功法') {
         const technique = 功法物品 as TechniqueItem;

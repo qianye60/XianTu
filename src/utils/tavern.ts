@@ -9,11 +9,36 @@ import type { TavernHelper } from './tavernCore';
  * @returns {TavernHelper | null} - 返回TavernHelper对象或null
  */
 export function getTavernHelper(): TavernHelper | null {
-  if (window.parent?.TavernHelper) {
-    return window.parent.TavernHelper as unknown as TavernHelper;
+  const raw = (window.parent as any)?.TavernHelper;
+  if (!raw) {
+    console.error('TavernHelper API not found in window.parent.');
+    return null;
   }
-  console.error('TavernHelper API not found in window.parent.');
-  return null;
+
+  // Attach runtime polyfills for compatibility across SillyTavern versions
+  const helper: any = raw;
+
+  if (typeof helper.getVariable !== 'function') {
+    helper.getVariable = async (key: string, options: { type: 'global' | 'chat' | 'local' }) => {
+      if (typeof helper.getVariables === 'function') {
+        const all = await helper.getVariables(options);
+        return all ? all[key] : undefined;
+      }
+      throw new Error('getVariable is not available and getVariables fallback missing');
+    };
+  }
+
+  if (typeof helper.setVariable !== 'function') {
+    helper.setVariable = async (key: string, value: unknown, options: { type: 'global' | 'chat' | 'local' }) => {
+      if (typeof helper.insertOrAssignVariables === 'function') {
+        await helper.insertOrAssignVariables({ [key]: value }, options);
+        return;
+      }
+      throw new Error('setVariable is not available and insertOrAssignVariables fallback missing');
+    };
+  }
+
+  return helper as TavernHelper;
 }
 
 /**
@@ -130,12 +155,13 @@ export async function clearAllCharacterData(): Promise<void> {
     const redundantChatPrefixes = [
       'character.', 'player.', 'world.', 'character_',
       'saveData', 'gameData', 'profileData', 'userData',
-      'memorySummaryCache', 'daoSystem', 'cultivationData'
+      'memorySummaryCache', 'daoSystem', 'cultivationData',
+      '_pending_mid_term_cache'  // 添加中期记忆缓存清理
     ];
-    
+
     // 同时检查包含关键词的变量名
     const redundantKeywords = ['角色', '存档', '游戏', '修仙', '大道', '灵根', '境界'];
-    
+
     const chatKeys = Object.keys(chatVars).filter(key => {
       // 检查前缀匹配
       const hasPrefix = redundantChatPrefixes.some(prefix => key.startsWith(prefix));
@@ -223,8 +249,21 @@ export async function clearAllCharacterData(): Promise<void> {
     errorCount++;
   }
 
-  // [核心移除] 根据用户要求，插件不再以任何方式干涉或清理聊天记录。
-  
+  // 步骤4: 清空聊天历史记录
+  try {
+    console.log('[清理] 开始清空聊天历史记录...');
+    if (helper.clearChat) {
+      await helper.clearChat();
+      console.log('[清理] 聊天历史记录已清空');
+      successCount++;
+    } else {
+      console.warn('[清理] clearChat 方法不可用，跳过清空聊天记录');
+    }
+  } catch (e) {
+    console.warn('[清理] 清空聊天记录时出现非致命错误:', e);
+    errorCount++;
+  }
+
   // 最终根据执行结果给出反馈
   if (errorCount > 0 && successCount < 2) { // 只有在大部分清理步骤都失败时才算真正失败
     toast.error('重置天机失败，请手动清理或刷新页面。');

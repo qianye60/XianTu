@@ -12,15 +12,23 @@ import { toast } from '@/utils/toast';
 import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo } from '@/types/game';
 import type { World } from '@/types';
 import { generateInitialMessage } from '@/utils/tavernAI';
-import { cacheSystemRulesToTavern } from '@/utils/tavernCore';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
-import { validateGameData } from '@/utils/gameDataValidator';
+import { validateGameData } from '@/utils/dataValidation';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
-import { isRandomSpiritRoot } from '@/utils/spiritRootGenerator';
+
+/**
+ * 判断是否为随机灵根（辅助函数）
+ */
+function isRandomSpiritRoot(spiritRoot: string | object): boolean {
+  if (typeof spiritRoot === 'string') {
+    return spiritRoot === '随机灵根' || spiritRoot.includes('随机');
+  }
+  return false;
+}
 
 /**
  * 询问用户是否继续重试的辅助函数
@@ -194,19 +202,16 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       },
       提示: [
         '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
-        '装备栏字段：装备1-6（不是法宝1-6）',
-        '品质稀有度：按境界严格控制，参考CORE_GAME_RULES'
+        '装备栏字段：装备1-6'
       ]
     }
   };
 
   // 注入AI元数据提示
-  (saveData.角色基础信息 as any)._AI重要提醒 = '⚠️ 绝对禁止修改：姓名、性别、年龄、世界、天资、出生、灵根、先天六司';
-  (saveData.玩家角色状态 as any)._AI说明 = '实时状态，所有变更必须通过tavern_commands实现';
-  (saveData.背包 as any)._AI重要提醒 = '⚠️ 物品是对象结构(不是数组)，key为物品ID，value为完整Item对象';
-  (saveData.背包 as any)._AI装备流程提醒 = '⚠️ 必须先在背包.物品中创建完整的物品对象，然后才能在装备栏引用！如果装备栏引用了不存在的物品ID，该引用会被系统自动清除。正确流程：1.set "背包.物品.物品ID"={完整物品对象} 2.set "装备栏.装备N"={物品ID,名称} 3.set "背包.物品.物品ID.已装备"=true';
-  (saveData.装备栏 as any)._AI说明 = '只存储引用{物品ID,名称}，完整Item数据在背包.物品中';
-  (saveData.装备栏 as any)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品中存在，否则会被系统清除！';
+  (saveData.角色基础信息 as any)._AI重要提醒 = '⚠️ 绝对禁止修改：姓名、性别、世界、天资、出生、灵根、先天六司';
+  (saveData.玩家角色状态 as any)._AI说明 = '玩家实时状态。位置仅更新"描述"字段；气血/灵气/神识/寿命/修为为{当前,最大}结构，所有变更必须通过tavern_commands实现';
+  (saveData.玩家角色状态 as any)._AI重要提醒 = '⚠️ 严禁在位置中添加经度、纬度等字段，只能有"描述"字段';
+  (saveData.装备栏 as any)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在，否则会被系统清除！';
   (saveData.记忆 as any)._AI重要提醒 = '⚠️ 禁止直接修改记忆字段，由系统维护';
   (saveData.游戏时间 as any)._AI说明 = '每次回应必须推进时间';
   (saveData.人物关系 as any)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
@@ -276,14 +281,20 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const uiStore = useUIStore();
   uiStore.updateLoadingText('天道正在为你书写命运之章...');
 
-  // ⚠️ 重要：先将包含世界信息的 saveData 同步到 Tavern，确保 AI 能看到地图数据
+  // ⚠️ 重要：清空旧数据，准备同步新角色数据
   const helper = getTavernHelper();
   if (helper) {
     try {
-      await helper.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
-      console.log('[初始化流程] 已将世界信息同步到 Tavern，供 AI 生成开场剧情时参考');
+      // 清空所有旧的 character 相关变量
+      console.log('[初始化流程] 清空旧的character相关变量');
+      const allVars = await helper.getVariables({ type: 'chat' });
+      const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
+      for (const key of characterKeys) {
+        await helper.deleteVariable(key, { type: 'chat' });
+      }
+      console.log('[初始化流程] 旧数据已清空，AI生成后将同步新数据');
     } catch (error) {
-      console.warn('[初始化流程] 同步世界信息到 Tavern 失败（非致命）:', error);
+      console.warn('[初始化流程] 清空旧数据失败（非致命）:', error);
     }
   }
 
@@ -497,13 +508,19 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   // 6. 同步到Tavern
   try {
-    // ⚠️ 先清空旧的 character.saveData，避免数据累积
-    console.log('[初始化流程] 清空旧的character.saveData');
-    await helper.deleteVariable('character.saveData', { type: 'chat' });
+    // ⚠️ 清空所有旧的 character 相关变量
+    console.log('[初始化流程] 清空旧的character相关变量');
+    const allVars = await helper.getVariables({ type: 'chat' });
+    const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
+    for (const key of characterKeys) {
+      await helper.deleteVariable(key, { type: 'chat' });
+    }
 
+    // 只同步一次完整的 saveData
+    console.log('[初始化流程] 同步完整saveData到酒馆（仅一次）');
+    await helper.setVariable('character.saveData', saveData, { type: 'chat' });
     await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
-    await helper.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
-    await syncToTavern(saveData, finalBaseInfo);
+
     console.log('[初始化流程] 数据同步到Tavern成功');
   } catch (err) {
     console.warn('保存游戏数据到酒馆失败，不影响本地游戏开始:', err);

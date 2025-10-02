@@ -59,6 +59,9 @@
                   </div>
                 </div>
                 <div class="technique-actions">
+                  <button class="action-btn cultivate-btn" @click="startDeepCultivation">
+                    深度修炼
+                  </button>
                   <button class="action-btn stop-cultivation-btn" @click="stopCultivation">
                     停止修炼
                   </button>
@@ -202,22 +205,44 @@
         </div>
       </div>
     </div>
+
+    <!-- 深度修炼弹窗 -->
+    <NumberInputModal
+      :visible="showDeepCultivationModal"
+      title="深度修炼"
+      description="选择深度修炼的天数，AI将生成修炼过程和结果"
+      label="修炼天数"
+      hint="建议：短期修炼1-7天，中期修炼30-90天，长期闭关180-365天"
+      :min="1"
+      :max="365"
+      :default-value="30"
+      :step="1"
+      :presets="[1, 7, 30, 90, 180, 365]"
+      confirm-text="开始修炼"
+      @close="showDeepCultivationModal = false"
+      @confirm="confirmDeepCultivation"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { RefreshCw } from 'lucide-vue-next';
 import { useCharacterCultivationData, useCharacterBasicData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
+import { getTavernHelper } from '@/utils/tavern';
+import NumberInputModal from '@/components/common/NumberInputModal.vue';
 import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoPath } from '@/types/game';
 
 // 组合式函数
 const cultivationData = useCharacterCultivationData();
 const basicData = useCharacterBasicData();
 const characterStore = useCharacterStore();
+
+// 深度修炼弹窗状态
+const showDeepCultivationModal = ref(false);
 
 const loading = computed(() => !cultivationData.value && !basicData.value);
 
@@ -231,35 +256,26 @@ type LearnedSkillDisplay = {
   unlocked: true;
 };
 
-// 获取当前修炼功法
+// 获取当前修炼功法 - 从背包中查找已装备的功法
 const currentTechnique = computed((): TechniqueItem | null => {
-  const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
-  if (!cultivationInfo?.功法) return null;
-
-  const techniqueRef = cultivationInfo.功法;
   const inventory = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
 
-  const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
+  if (!inventory) return null;
 
-  if (inventory && techniqueId) {
-    const item = inventory.find(i => i.物品ID === techniqueId);
-    if (item?.类型 === '功法') {
-      return item as TechniqueItem;
-    }
-  }
+  // 从背包中查找已装备=true且类型=功法的物品
+  const cultivatingTechnique = Object.values(inventory).find(
+    item => item?.类型 === '功法' && item?.已装备 === true
+  );
 
-  // 如果背包中找不到，构造一个最小对象
-  if (techniqueId) {
+  if (cultivatingTechnique) {
+    const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
+    const techniqueItem = cultivatingTechnique as TechniqueItem;
     return {
-      物品ID: techniqueId,
-      名称: typeof techniqueRef !== 'string' ? techniqueRef.名称 : '未知功法',
-      类型: '功法',
-      品质: { quality: '凡', grade: 1 },
-      描述: '功法信息缺失',
-      数量: 1,
-      修炼进度: cultivationInfo.修炼进度 || 0
-    };
+      ...techniqueItem,
+      修炼进度: cultivationInfo?.修炼进度 || techniqueItem.修炼进度 || 0
+    } as TechniqueItem;
   }
+
   return null;
 });
 
@@ -579,7 +595,7 @@ const stopCultivation = async () => {
     saveData.修炼功法.正在修炼 = false;
 
     // 保存数据
-    await characterStore.commitToStorage();
+    await characterStore.syncToTavernAndSave();
 
     toast.success(`已停止修炼《${techniqueToStop.名称}》`);
     debug.log('修炼面板', '停止修炼成功', techniqueToStop.名称);
@@ -587,6 +603,45 @@ const stopCultivation = async () => {
   } catch (error) {
     debug.error('修炼面板', '停止修炼失败', error);
     toast.error('停止修炼失败');
+  }
+};
+
+// 深度修炼
+const startDeepCultivation = () => {
+  if (!currentTechnique.value) {
+    toast.error('当前没有正在修炼的功法');
+    return;
+  }
+  showDeepCultivationModal.value = true;
+};
+
+// 确认深度修炼
+const confirmDeepCultivation = async (totalDays: number) => {
+  showDeepCultivationModal.value = false;
+
+  if (!currentTechnique.value) {
+    toast.error('当前没有正在修炼的功法');
+    return;
+  }
+
+  // 触发 AI 生成修炼结果
+  const helper = getTavernHelper();
+  if (!helper) {
+    toast.error('无法连接到酒馆');
+    return;
+  }
+
+  const techniqueData = currentTechnique.value;
+  const cultivationMessage = `我要对《${techniqueData.名称}》进行${totalDays}天的深度修炼`;
+
+  toast.info(`开始${totalDays}天的深度修炼...`);
+  debug.log('修炼面板', `开始${totalDays}天深度修炼:`, techniqueData.名称);
+
+  // 发送消息给 AI - 使用 sendas 命令发送用户消息
+  try {
+    await helper.triggerSlash(`/sendas ${cultivationMessage}`);
+  } catch (error) {
+    debug.warn('修炼面板', '发送修炼消息失败:', error);
   }
 };
 </script>
@@ -1169,6 +1224,12 @@ const stopCultivation = async () => {
   font-style: italic;
 }
 
+.technique-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
 /* 按钮样式 */
 .action-btn {
   display: flex;
@@ -1182,12 +1243,27 @@ const stopCultivation = async () => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex: 1;
+}
+
+.cultivate-btn {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.cultivate-btn:hover {
+  background: #93c5fd;
+  transform: translateY(-1px);
+}
+
+.stop-cultivation-btn {
   background: #fef3e2;
   color: #c2410c;
   border: 1px solid #fed7aa;
 }
 
-.action-btn:hover:not(:disabled) {
+.stop-cultivation-btn:hover {
   background: #fed7aa;
   transform: translateY(-1px);
 }

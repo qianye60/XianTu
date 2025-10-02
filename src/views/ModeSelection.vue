@@ -65,8 +65,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
-import { API_BASE_URL } from '@/services/api';
 import { useUIStore } from '@/stores/uiStore';
+
+// 后端API服务器地址
+const API_BASE_URL = 'http://127.0.0.1:12345';
 
 const appVersion = ref('...');
 

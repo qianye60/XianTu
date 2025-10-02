@@ -8,7 +8,9 @@
       "Bash(Select-String -Pattern \"error|compiled\" -Context 2)",
       "Bash(node:*)",
       "Bash(npm run build:dev:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npm run:*)",
+      "Bash(npx vue-tsc:*)"
     ],
     "deny": [],
     "ask": [],

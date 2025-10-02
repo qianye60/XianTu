@@ -1,6 +1,8 @@
 import { toast } from '../utils/toast';
-import { API_BASE_URL } from './api';
 import type { World } from '@/types';
+
+// 后端API服务器地址
+const API_BASE_URL = 'http://127.0.0.1:12345';
 
 // 统一的请求函数
 export async function request<T>(url: string, options: RequestInit = {}): Promise<T> {

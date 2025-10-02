@@ -122,7 +122,6 @@ import VideoBackground from '@/components/common/VideoBackground.vue';
 import CloudDataSync from '@/components/common/CloudDataSync.vue';
 import DataClearButtons from '@/components/common/DataClearButtons.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
-import { useUserStore } from '../stores/userStore';
 import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
 import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
 import Step3_OriginSelection from '../components/character-creation/Step3_OriginSelection.vue'
@@ -145,7 +144,6 @@ const emit = defineEmits<{
   (e: 'creation-complete', payload: { error?: unknown; [key: string]: unknown }): void; // 允许传递错误对象
 }>()
 const store = useCharacterCreationStore();
-const userStore = useUserStore();
 const isCodeModalVisible = ref(false)
 const isGenerating = ref(false) // This now primarily acts as a state guard for buttons
 const currentAIType = ref<'world' | 'talent_tier' | 'origin' | 'spirit_root' | 'talent'>('world')
@@ -185,37 +183,19 @@ onMounted(async () => {
       console.log('【角色创建】成功获取酒馆角色卡名字:', tavernCharacterName);
       store.characterPayload.character_name = tavernCharacterName;
     } else {
-      console.log('【角色创建】无法获取酒馆角色卡名字，尝试用户信息');
-      // 备用方案：使用用户信息
-      if (!userStore.user) {
-        await userStore.loadUserInfo();
-      }
-      if (userStore.user) {
-        store.characterPayload.character_name = userStore.user.user_name;
-        console.log('【角色创建】使用用户名作为道号:', userStore.user.user_name);
-      } else if (store.isLocalCreation) {
-        // 最后的备用方案：本地模式设为"无名者"
-        store.characterPayload.character_name = '无名者';
-        console.warn("【角色创建】无法获取任何角色信息，本地模式下道号设为'无名者'");
-      } else {
-        // 联机模式下获取不到用户信息是严重错误
-        store.characterPayload.character_name = '';
-        toast.error('无法获取用户信息，请重新登录！');
+      console.log('【角色创建】无法获取酒馆角色卡名字，使用默认值');
+      // 备用方案：本地模式设为"无名者"，联机模式留空
+      store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '';
+      if (!store.isLocalCreation) {
+        console.warn('【角色创建】联机模式下无法获取角色名，请手动输入');
       }
     }
   } catch (error) {
     console.error('【角色创建】获取角色名字时出错:', error);
-    // 如果出错，使用原来的逻辑作为后备
-    if (!userStore.user) {
-      await userStore.loadUserInfo();
-    }
-    if (userStore.user) {
-      store.characterPayload.character_name = userStore.user.user_name;
-    } else {
-      store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '';
-      if (!store.isLocalCreation) {
-        toast.error('无法获取用户信息，请重新登录！');
-      }
+    // 如果出错，使用默认值
+    store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '';
+    if (!store.isLocalCreation) {
+      toast.error('无法获取角色信息，请重新登录！');
     }
   }
 });

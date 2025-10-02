@@ -27,6 +27,8 @@ export interface AttributeLimitConfig {
 }
 
 export interface SystemConfig extends AIMetadata {
+  初始年龄?: number; // 开局年龄，用于自动计算寿命
+  开局时间?: GameTime; // 开局游戏时间，用于自动计算寿命
   规则?: {
     属性上限?: AttributeLimitConfig;
     装备系统?: string;
@@ -460,7 +462,8 @@ export interface HeavenlySystem {
 }
 
 export interface PlayerStatus extends AIMetadata {
-  境界: Realm;
+  名字?: string; // 角色名字（可选，通常从 CharacterBaseInfo 获取）
+  境界: Realm; // 境界包含了修为进度（当前进度 = 修为当前，下一级所需 = 修为最大）
   声望: number;
   位置: {
     描述: string;
@@ -548,6 +551,7 @@ export interface WorldFaction {
     副宗主?: string;
     太上长老?: string;
     太上长老修为?: string;
+    长老数量?: number; // 宗门长老数量
     最强修为: string; // 宗门内最高修为境界
     综合战力?: number; // 1-100的综合战力评估
     核心弟子数?: number;
@@ -669,6 +673,11 @@ export interface NpcProfile {
 
   // 辅助字段
   实时关注?: boolean;
+
+  // NPC的境界信息（兼容多种格式）
+  境界?: number | string | Realm;
+  阶段?: string;
+  玩家角色状态?: PlayerStatus; // 兼容玩家转NPC的情况
 }
 
 
@@ -750,6 +759,7 @@ export interface CharacterBaseInfo extends AIMetadata {
   性别: string;
   年龄?: number; // 添加可选的年龄字段
   种族?: string; // 添加种族字段
+  境界?: string; // NPC当前境界
   世界: string;
   天资: string;
   出生: string | {

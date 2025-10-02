@@ -5,7 +5,33 @@ import { buildGmRequest } from '../AIGameMaster';
 
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
 import type { InitialGameData, SaveData, WorldInfo } from '../../types';
-import { generateRandomSpiritRoot, isRandomSpiritRoot } from '../spiritRootGenerator';
+
+/**
+ * 判断是否为随机灵根
+ */
+function isRandomSpiritRoot(spiritRoot: string | object): boolean {
+  if (typeof spiritRoot === 'string') {
+    return spiritRoot === '随机灵根' || spiritRoot.includes('随机');
+  }
+  return false;
+}
+
+/**
+ * 根据天资生成随机灵根（简化版）
+ */
+function generateRandomSpiritRoot(talent: string): string {
+  const commonRoots = ['金灵根', '木灵根', '水灵根', '火灵根', '土灵根'];
+  const rareRoots = ['雷灵根', '冰灵根', '风灵根'];
+  const legendaryRoots = ['光灵根', '暗灵根', '混沌灵根'];
+
+  if (talent.includes('天骄') || talent.includes('神品')) {
+    return legendaryRoots[Math.floor(Math.random() * legendaryRoots.length)];
+  } else if (talent.includes('罕见') || talent.includes('上品')) {
+    return rareRoots[Math.floor(Math.random() * rareRoots.length)];
+  } else {
+    return commonRoots[Math.floor(Math.random() * commonRoots.length)];
+  }
+}
 
 /**
  * 调用酒馆AI生成初始降世消息 (GM模式)
@@ -103,14 +129,8 @@ export async function generateInitialMessage(
     if (processedSpiritRoot === '随机灵根' || isRandomSpiritRoot(processedSpiritRoot)) {
       try {
         console.log('【智能灵根生成】开始生成:', { 天资: initialGameData.baseInfo.天资 });
-        const generatedRoot = generateRandomSpiritRoot(initialGameData.baseInfo.天资 || '中人之姿');
-        processedSpiritRoot = generatedRoot.名称;
-        console.log('【智能灵根生成】已生成:', {
-          名称: generatedRoot.名称,
-          品级: generatedRoot.品级,
-          修炼速度: generatedRoot.cultivation_speed,
-          特殊效果: generatedRoot.special_effects
-        });
+        processedSpiritRoot = generateRandomSpiritRoot(initialGameData.baseInfo.天资 || '中人之姿');
+        console.log('【智能灵根生成】已生成:', processedSpiritRoot);
       } catch (error) {
         console.warn('【智能灵根生成】生成失败，使用简单随机:', error);
         // 如果智能生成失败，回退到简单随机

@@ -159,9 +159,10 @@ export async function executeCommands(
     }
   }
 
-  // 🔥 关键修复：将更新后的数据同步回酒馆变量
-  console.log('[executeCommands] 同步数据到酒馆变量...');
-  await syncToTavern(updatedSaveData, 'chat');
+  // 🔥 注意：这里不同步到酒馆，由调用方决定何时同步
+  // 初始化时会在最后一次性同步完整saveData
+  // 游戏中会增量同步变更
+  console.log('[executeCommands] 命令执行完成，共', changes.length, '个变更（未同步）');
 
   return {
     saveData: updatedSaveData,
@@ -194,10 +195,23 @@ export async function processGmResponse(
 
   // 处理tavern_commands
   if (Array.isArray(response.tavern_commands) && response.tavern_commands.length > 0) {
-    console.log(`[processGmResponse] 处理 ${response.tavern_commands.length} 个酒馆命令`);
+    console.log(`[processGmResponse] 🎯 收到 ${response.tavern_commands.length} 个酒馆命令，开始执行...`);
+    console.log('[processGmResponse] 命令详情:', response.tavern_commands);
     const result = await executeCommands(response.tavern_commands, updatedSaveData);
     updatedSaveData = result.saveData;
     stateChanges = result.stateChanges;
+    // 将本次变更增量同步到酒馆，确保环境状态与本地一致
+    try {
+      if (stateChanges?.changes?.length) {
+        await syncChangesToTavern(stateChanges.changes, 'chat');
+        console.log('[processGmResponse] 已同步变更到 Tavern character.saveData');
+      }
+    } catch (syncErr) {
+      console.error('[processGmResponse] 同步变更到酒馆失败:', syncErr);
+    }
+    console.log('[processGmResponse] ✅ 所有命令执行完成');
+  } else {
+    console.log('[processGmResponse] ⚠️ 没有 tavern_commands 需要执行');
   }
 
   // 处理mid_term_memory
@@ -521,6 +535,46 @@ export async function syncToTavern(saveData: any, scope: 'global' | 'chat' = 'ch
     console.log('[syncToTavern] 数据同步完成');
   } catch (error) {
     console.error('[syncToTavern] 数据同步失败:', error);
+  }
+}
+
+/**
+ * 增量同步变更到酒馆（只同步变更的字段）
+ * @param changes 变更列表
+ * @param scope 变量作用域
+ */
+export async function syncChangesToTavern(changes: any[], scope: 'global' | 'chat' = 'chat'): Promise<void> {
+  try {
+    const helper = getTavernHelper();
+    if (!helper) {
+      console.warn('[syncChangesToTavern] 酒馆助手不可用');
+      return;
+    }
+
+    if (changes.length === 0) {
+      console.log('[syncChangesToTavern] 无变更需要同步');
+      return;
+    }
+
+    // 🔥 关键修复：获取当前saveData，如果不存在则使用空对象
+    let currentSaveData = await helper.getVariable('character.saveData', { type: scope });
+
+    // 如果酒馆中还没有saveData（初始化场景），使用空对象
+    if (!currentSaveData || typeof currentSaveData !== 'object' || Object.keys(currentSaveData as object).length === 0) {
+      console.log('[syncChangesToTavern] 酒馆中无saveData，将创建新的');
+      currentSaveData = {};
+    }
+
+    // 应用所有变更到saveData
+    for (const change of changes) {
+      set(currentSaveData as object, change.key, change.newValue);
+    }
+
+    // 只更新一个变量：character.saveData
+    await helper.setVariable('character.saveData', currentSaveData, { type: scope });
+    console.log('[syncChangesToTavern] 同步完成，更新了', changes.length, '个字段到character.saveData');
+  } catch (error) {
+    console.error('[syncChangesToTavern] 同步失败:', error);
   }
 }
 

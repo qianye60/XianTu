@@ -550,7 +550,7 @@ onMounted(async () => {
       // 简单判定是否有变化（避免无限写入）
       if (JSON.stringify(fixed) !== JSON.stringify(saveData)) {
         characterStore.activeSaveSlot!.存档数据 = fixed as SaveData
-        await characterStore.commitToStorage()
+        await characterStore.syncToTavernAndSave()
         debug.log('背包面板', '已迁移旧数据结构并保存')
       }
     }
@@ -648,14 +648,14 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
     const slotKey = slot.name as keyof typeof equipment
     equipment[slotKey] = null // 设置为null
 
-    // 清除物品的已装备标记
-    const itemInInventory = saveData.背包?.物品?.find(i => i.物品ID === itemToUnequip.物品ID)
+    // 清除物品的已装备标记 - 物品是对象结构
+    const itemInInventory = saveData.背包?.物品?.[itemToUnequip.物品ID]
     if (itemInInventory) {
       itemInInventory.已装备 = false
     }
 
     // 保存数据
-    await characterStore.commitToStorage()
+    await characterStore.syncToTavernAndSave()
 
     // 同步到酒馆变量
     await syncToTavernVariables()
@@ -877,7 +877,7 @@ const removeItemFromInventory = async (item: Item) => {
 
   // [REFACTORED] 从对象中移除物品
   delete inventory.物品[item.物品ID]
-  await characterStore.commitToStorage()
+  await characterStore.syncToTavernAndSave()
 
   debug.log('背包面板', '物品移除成功', item.名称)
 
@@ -902,7 +902,7 @@ const updateItemInInventory = async (item: Item) => {
   // [REFACTORED] 更新对象中的物品
   if (inventory.物品[item.物品ID]) {
     inventory.物品[item.物品ID] = item
-    await characterStore.commitToStorage()
+    await characterStore.syncToTavernAndSave()
     debug.log('背包面板', '物品更新成功', item.名称)
   } else {
     throw new Error(`尝试更新一个不存在于背包的物品: ${item.名称}`)
@@ -936,7 +936,7 @@ const syncToTavernVariables = async () => {
     validateAndFixSaveData(saveData)
 
     // 这些数据现在都统一保存在 character.saveData 中，不需要单独同步
-    // 数据已通过 characterStore.commitToStorage() 统一保存
+    // 数据已通过 characterStore.syncToTavernAndSave() 统一保存
 
     debug.log('背包面板', '数据已同步到酒馆变量')
   } catch (error) {
@@ -1109,43 +1109,35 @@ const toggleEquip = async (item: Item) => {
   }
 }
 
-// 检查物品是否已装备 - 改为直接从 characterStore 获取最新状态，确保响应性
+// 检查物品是否已装备 - 直接检查背包物品的已装备字段
 const isEquipped = (item: Item | null): boolean => {
   if (!item || !item.物品ID) return false
 
   const inventoryItems = characterStore.activeSaveSlot?.存档数据?.背包?.物品
-  if (!Array.isArray(inventoryItems)) return false
+  if (!inventoryItems) return false
 
-  // [REFACTORED] 从数组中查找物品
-  const currentItemState = inventoryItems.find(i => i.物品ID === item.物品ID)
-  if (!currentItemState) {
-    return false
-  }
+  // 背包物品是对象，不是数组
+  const currentItemState = inventoryItems[item.物品ID]
+  if (!currentItemState) return false
 
   return currentItemState.已装备 === true
 }
 
-// 检查功法是否正在修炼
+// 检查功法是否正在修炼 - 优先检查背包物品的已装备标记
 const isCultivating = (item: Item | null): boolean => {
-  if (!item) return false
-  const id = item.物品ID
-  if (!id || typeof id !== 'string') return false
+  if (!item || !item.物品ID) return false
 
+  // 优先检查背包中物品的已装备状态（与装备检查逻辑一致）
   const saveData = characterStore.activeSaveSlot?.存档数据
-  const cultivationData = saveData?.修炼功法
+  const inventoryItems = saveData?.背包?.物品
 
-  if (!cultivationData) return false
+  if (!inventoryItems) return false
 
-  // 检查是否有正在修炼的功法，且修炼状态为true
-  const cultivatingSkill = cultivationData.功法
-  const isCurrentlyPracticing = cultivationData.正在修炼 === true
+  const currentItemState = inventoryItems[item.物品ID]
+  if (!currentItemState) return false
 
-  if (!cultivatingSkill || !isCurrentlyPracticing) return false
-
-  // 匹配物品ID
-  const cultivatingItemId =
-    typeof cultivatingSkill === 'string' ? cultivatingSkill : (cultivatingSkill as Item)?.物品ID
-  return cultivatingItemId === id
+  // 功法的已装备状态表示正在修炼
+  return currentItemState.已装备 === true
 }
 
 const getItemQualityClass = (
@@ -1232,7 +1224,7 @@ const handleExchange = (
         const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0
         ;(characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) =
           targetAmount + 1
-        characterStore.commitToStorage()
+        characterStore.syncToTavernAndSave()
       }
     }
   } else if (direction === 'down' && gradeInfo.canExchangeDown && gradeInfo.exchangeDown) {
@@ -1247,7 +1239,7 @@ const handleExchange = (
         const targetAmount = characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] || 0
         ;(characterStore.activeSaveSlot.存档数据.背包.灵石[targetGrade] as number) =
           targetAmount + 100
-        characterStore.commitToStorage()
+        characterStore.syncToTavernAndSave()
       }
     }
   }

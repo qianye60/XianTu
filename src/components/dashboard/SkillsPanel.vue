@@ -272,7 +272,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
-import type { Item } from '@/types/game';
+import type { Item, TechniqueItem } from '@/types/game';
 
 // 定义功法技能接口
 interface TechniqueSkill {
@@ -310,7 +310,7 @@ const initializeCultivationSkills = async (saveData: { 修炼功法?: unknown })
     };
     try {
       // 异步保存，不阻塞界面
-      await characterStore.commitToStorage();
+      await characterStore.syncToTavernAndSave();
     } catch (err) {
       console.error('[技能面板] 初始化修炼功法数据失败:', err);
     }
@@ -515,10 +515,10 @@ const startCultivation = async () => {
     if (characterStore.activeSaveSlot?.存档数据?.修炼功法) {
       const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
       if (skillSlots.功法) {
-        // 更新功法修炼进度
-        const currentProgress = skillSlots.功法.修炼进度 || 0;
+        // 更新功法修炼进度（修炼进度在 CultivationTechniqueData 上，不在功法对象上）
+        const currentProgress = skillSlots.修炼进度 || 0;
         const newProgress = Math.min(100, currentProgress + progressGain);
-        skillSlots.功法.修炼进度 = newProgress;
+        skillSlots.修炼进度 = newProgress;
 
         // 更新熟练度
         const currentProficiency = skillSlots.熟练度 || 0;
@@ -528,15 +528,18 @@ const startCultivation = async () => {
         // 增加修炼时间
         skillSlots.修炼时间 = (skillSlots.修炼时间 || 0) + totalDays * 24; // 转换为小时
 
-        // 检查是否可以解锁新技能
-        if (skillData.功法技能) {
+        // 检查是否可以解锁新技能（从背包物品中获取功法技能信息）
+        if (skillData && (skillData as TechniqueItem).功法技能) {
           const unlockedSkills = skillSlots.已解锁技能 || [];
+          const techniqueSkills = (skillData as TechniqueItem).功法技能;
 
-          for (const [skillName, skill] of Object.entries(skillData.功法技能)) {
-            const skillInfo = skill as TechniqueSkill;
-            if (!unlockedSkills.includes(skillName) && checkSkillUnlock(skillName, skillInfo.解锁条件)) {
-              unlockedSkills.push(skillName);
-              console.log(`[技能面板] 解锁新技能: ${skillName}`);
+          if (techniqueSkills) {
+            for (const [skillName, skill] of Object.entries(techniqueSkills)) {
+              const skillInfo = skill as TechniqueSkill;
+              if (!unlockedSkills.includes(skillName) && checkSkillUnlock(skillName, skillInfo.解锁条件)) {
+                unlockedSkills.push(skillName);
+                console.log(`[技能面板] 解锁新技能: ${skillName}`);
+              }
             }
           }
 
@@ -562,7 +565,7 @@ const startCultivation = async () => {
           }
         }
 
-        await characterStore.commitToStorage();
+        await characterStore.syncToTavernAndSave();
         console.log(`[技能面板] ${totalDays}天修炼完成，进度提升${progressGain}%，熟练度提升${proficiencyGain}%`);
       }
     }
@@ -637,9 +640,10 @@ const equipTechnique = async () => {
             saveData.背包.物品[prev.物品ID] = {
               物品ID: prev.物品ID,
               名称: prev.名称,
-              类型: prev.类型,
+              类型: '功法' as const,
               品质: (prev.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
-              描述: prev.描述,
+              数量: 1,
+              描述: prev.描述 || '',
               功法效果: prev.功法效果 || {},
               功法技能: (prev.功法技能 || {}) as {
                 [技能名称: string]: {
@@ -647,9 +651,8 @@ const equipTechnique = async () => {
                   技能描述: string;
                   技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
                 };
-              },
-              数量: 1
-            };
+              }
+            } as TechniqueItem;
             console.log('[技能面板] 之前的功法已放回背包:', prev.名称);
           }
           // 确认后继续执行装备
@@ -706,9 +709,10 @@ const unequipSkill = async () => {
             saveData.背包.物品[itemId] = {
               物品ID: itemId,
               名称: currentSkill.名称,
-              类型: '功法',
+              类型: '功法' as const,
               品质: (currentSkill.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
-              描述: currentSkill.描述,
+              数量: 1,
+              描述: currentSkill.描述 || '',
               功法效果: currentSkill.功法效果 || {},
               功法技能: (currentSkill.功法技能 || {}) as {
                 [技能名称: string]: {
@@ -716,15 +720,14 @@ const unequipSkill = async () => {
                   技能描述: string;
                   技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
                 };
-              },
-              数量: 1
-            };
+              }
+            } as TechniqueItem;
             console.log('[技能面板] 功法已放回背包:', currentSkill.名称);
           }
           
           // 清空功法槽位
           skillSlots.功法 = null;
-          await characterStore.commitToStorage();
+          await characterStore.syncToTavernAndSave();
           console.log('[技能面板] 功法卸下成功');
           
           // 清空选择状态
@@ -753,23 +756,19 @@ const finalizeEquipTechnique = async (technique: {
   const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.修炼功法) return;
   const skillSlots = saveData.修炼功法;
+
+  // 功法字段只保存引用信息
   skillSlots.功法 = {
     物品ID: technique.物品ID || '',
-    名称: technique.名称,
-    类型: technique.类型,
-    品质: (technique.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
-    描述: technique.描述,
-    功法效果: technique.功法效果 || {},
-    功法技能: (technique.功法技能 || {}) as {
-      [技能名称: string]: {
-        解锁条件: string;
-        技能描述: string;
-        技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
-      };
-    },
-    修炼进度: 0,
-    数量: 1
+    名称: technique.名称
   };
+
+  // 初始化修炼进度
+  skillSlots.修炼进度 = 0;
+  skillSlots.熟练度 = 0;
+  skillSlots.已解锁技能 = [];
+  skillSlots.修炼时间 = 0;
+  skillSlots.正在修炼 = true;
 
   if (!skillSlots.熟练度) skillSlots.熟练度 = 0;
   if (!skillSlots.已解锁技能) skillSlots.已解锁技能 = [];
@@ -778,7 +777,7 @@ const finalizeEquipTechnique = async (technique: {
     delete saveData.背包.物品[technique.物品ID];
   }
 
-  await characterStore.commitToStorage();
+  await characterStore.syncToTavernAndSave();
   console.log('[技能面板] 功法装备成功:', technique.名称);
   selectedSkillData.value = skillSlots.功法;
   selectedSkillSlot.value = '功法';

@@ -89,7 +89,7 @@ import { ref, computed } from 'vue'
 import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Talent } from '../../types'
-import CustomCreationModal from './CustomCreationModal.vue'
+import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
 import { toast } from '../../utils/toast'
 import { generateTalent } from '../../utils/tavernAI'
 
@@ -157,8 +157,8 @@ const skillOptions = [
   { value: '自定义', label: '自定义...' }
 ] as const
 
-// 自定义天赋字段 - 使用动态列表格式
-const customTalentFields = [
+// 自定义天赋字段 - 支持简单描述和结构化格式
+const customTalentFields: ModalField[] = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
   { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的效果和背景故事...' },
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' },
@@ -169,28 +169,45 @@ const customTalentFields = [
     { value: '4', label: '4 - 极罕见' },
     { value: '5', label: '5 - 传说' }
   ]},
-  { 
-    key: 'effects', 
-    label: '天赋效果', 
+  {
+    key: 'effect_format',
+    label: '效果格式',
+    type: 'select',
+    options: [
+      { value: 'simple', label: '简单描述（推荐）' },
+      { value: 'structured', label: '结构化格式' }
+    ]
+  },
+  {
+    key: 'effects_simple',
+    label: '天赋效果（每行一个）',
+    type: 'textarea',
+    placeholder: '例如：\n剑法修炼速度提升50%\n剑意领悟概率提升30%\n使用剑类武器攻击力提升20%',
+    condition: (data: Record<string, unknown>) => data.effect_format === 'simple'
+  },
+  {
+    key: 'effects',
+    label: '天赋效果（结构化）',
     type: 'dynamic-list',
     columns: [
-      { 
-        key: 'type', 
+      {
+        key: 'type',
         placeholder: '效果类型',
-        type: 'select',
+        type: 'select' as const,
         options: effectTypeOptions
       },
-      { 
-        key: 'target', 
+      {
+        key: 'target',
         placeholder: '目标/名称'
       },
-      { 
-        key: 'value', 
+      {
+        key: 'value',
         placeholder: '数值'
       }
-    ]
+    ],
+    condition: (data: Record<string, unknown>) => data.effect_format === 'structured'
   }
-] as const
+]
 
 // 自定义天赋数据类型 - 与标准数据格式保持一致
 type CustomTalentData = {
@@ -198,7 +215,9 @@ type CustomTalentData = {
   description: string;
   talent_cost: string;
   rarity: string;
-  effects: { type: string; target: string; value: string }[];
+  effect_format: 'simple' | 'structured';
+  effects_simple?: string;
+  effects?: { type: string; target: string; value: string }[];
 };
 
 function validateCustomTalent(data: Partial<CustomTalentData>) {
@@ -223,28 +242,39 @@ function validateCustomTalent(data: Partial<CustomTalentData>) {
 }
 
 async function handleCustomSubmit(data: CustomTalentData) {
-  // 解析天赋效果 - 处理动态列表格式
-  const parsedEffects = data.effects?.length ? data.effects
-    .filter(item => item.type && item.target && item.value)
-    .map(item => {
-      const effect: any = { 类型: item.type };
-      
-      if (item.type === '后天六司') {
-        effect.目标 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      } else if (item.type === '技能加成') {
-        effect.技能 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      } else if (item.type === '特殊能力') {
-        effect.名称 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      } else {
-        effect.名称 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      }
-      
-      return effect;
-    }) : [];
+  let parsedEffects: any;
+
+  // 根据格式类型解析效果
+  if (data.effect_format === 'simple') {
+    // 简单描述格式：字符串数组
+    parsedEffects = data.effects_simple
+      ?.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0) || [];
+  } else {
+    // 结构化格式：TalentEffect对象数组
+    parsedEffects = data.effects?.length ? data.effects
+      .filter(item => item.type && item.target && item.value)
+      .map(item => {
+        const effect: any = { 类型: item.type };
+
+        if (item.type === '后天六司') {
+          effect.目标 = item.target;
+          effect.数值 = parseFloat(item.value) || 0;
+        } else if (item.type === '技能加成') {
+          effect.技能 = item.target;
+          effect.数值 = parseFloat(item.value) || 0;
+        } else if (item.type === '特殊能力') {
+          effect.名称 = item.target;
+          effect.数值 = parseFloat(item.value) || 0;
+        } else {
+          effect.名称 = item.target;
+          effect.数值 = parseFloat(item.value) || 0;
+        }
+
+        return effect;
+      }) : [];
+  }
 
   // 创建完整的标准化天赋对象
   const newTalent: Talent = {
@@ -383,34 +413,55 @@ async function handleEditSubmit(data: CustomTalentData) {
 // 编辑模态框的初始数据
 const editInitialData = computed(() => {
   if (!editingTalent.value) return {};
-  
-  return {
-    name: editingTalent.value.name,
-    description: editingTalent.value.description,
-    talent_cost: editingTalent.value.talent_cost.toString(),
-    rarity: editingTalent.value.rarity?.toString() || '1',
-    effects: editingTalent.value.effects?.map(effect => {
-      if (effect.类型 === '后天六司') {
-        return {
-          type: effect.类型,
-          target: effect.目标,
-          value: effect.数值?.toString() || '0'
-        };
-      } else if (effect.类型 === '技能加成') {
-        return {
-          type: effect.类型,
-          target: effect.技能,
-          value: effect.数值?.toString() || '0'
-        };
-      } else {
-        return {
-          type: effect.类型,
-          target: effect.名称,
-          value: effect.数值?.toString() || '0'
-        };
-      }
-    }) || []
-  };
+
+  const effects = editingTalent.value.effects;
+
+  // 检查是简单描述格式还是结构化格式
+  const isSimpleFormat = effects && effects.length > 0 && typeof effects[0] === 'string';
+
+  if (isSimpleFormat) {
+    // 简单描述格式
+    return {
+      name: editingTalent.value.name,
+      description: editingTalent.value.description,
+      talent_cost: editingTalent.value.talent_cost.toString(),
+      rarity: editingTalent.value.rarity?.toString() || '1',
+      effect_format: 'simple',
+      effects_simple: (effects as string[]).join('\n')
+    };
+  } else {
+    // 结构化格式
+    return {
+      name: editingTalent.value.name,
+      description: editingTalent.value.description,
+      talent_cost: editingTalent.value.talent_cost.toString(),
+      rarity: editingTalent.value.rarity?.toString() || '1',
+      effect_format: 'structured',
+      effects: effects?.map((effect: any) => {
+        if (typeof effect === 'string') return { type: '', target: effect, value: '0' };
+
+        if (effect.类型 === '后天六司') {
+          return {
+            type: effect.类型,
+            target: effect.目标,
+            value: effect.数值?.toString() || '0'
+          };
+        } else if (effect.类型 === '技能加成') {
+          return {
+            type: effect.类型,
+            target: effect.技能,
+            value: effect.数值?.toString() || '0'
+          };
+        } else {
+          return {
+            type: effect.类型,
+            target: effect.名称,
+            value: effect.数值?.toString() || '0'
+          };
+        }
+      }) || []
+    };
+  }
 });
 
 // fetchData 和 defineExpose 不再需要

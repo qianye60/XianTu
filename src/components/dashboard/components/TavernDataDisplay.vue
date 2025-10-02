@@ -99,20 +99,20 @@ const getCurrentDataProps = () => {
   const baseProps = {
     searchQuery: props.searchQuery,
     chatVariables: props.chatVariables || {},
-    globalVariables: props.globalVariables || {}
+    globalVariables: props.globalVariables || {},
   }
 
   switch (props.selectedDataType) {
     case 'chat':
       return {
         ...baseProps,
-        type: 'chat',
+        type: 'chat' as const,
         variables: props.filteredChatVariables || {}
       }
     case 'global':
       return {
         ...baseProps,
-        type: 'global',
+        type: 'global' as const,
         variables: props.filteredGlobalVariables || {}
       }
     case 'character':
@@ -136,7 +136,12 @@ const getCurrentDataProps = () => {
         allTavernData: props.allTavernData
       }
     default:
-      return baseProps
+      // 默认返回 chat 类型的 props
+      return {
+        ...baseProps,
+        type: 'chat' as const,
+        variables: props.filteredChatVariables || {}
+      }
   }
 }
 </script>

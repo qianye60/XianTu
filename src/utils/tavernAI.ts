@@ -4,7 +4,9 @@
  */
 
 // 重新导出核心功能
-export { getTavernHelper, diagnoseAIResponse, generateItemWithTavernAI } from './tavernCore';
+// 注意：getTavernHelper 使用带有运行时兼容补丁的实现（见 ./tavern）
+export { getTavernHelper } from './tavern';
+export { diagnoseAIResponse, generateItemWithTavernAI } from './tavernCore';
 
 // 重新导出游戏元素生成器
 export { 

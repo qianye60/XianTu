@@ -26,6 +26,21 @@ export interface CustomSpiritRootSchema {
 }
 
 /**
+ * 天赋效果格式
+ * 支持两种格式：
+ * 1. 结构化对象（用于系统计算）
+ * 2. 字符串描述（用于叙事性效果）
+ */
+export interface TalentEffect {
+  类型: '后天六司' | '特殊能力' | '技能加成';
+  目标?: string;                   // 用于"后天六司"类型，如"根骨"、"魅力"
+  技能?: string;                   // 用于"技能加成"类型，如"剑法"、"炼丹"
+  名称?: string;                   // 用于"特殊能力"类型，如"魅力光环"
+  数值: number;                    // 效果数值
+  描述?: string;                   // 可选：效果的详细描述
+}
+
+/**
  * 自定义天赋数据格式
  * 与 LOCAL_TALENTS 中的格式保持完全一致
  */
@@ -34,19 +49,8 @@ export interface CustomTalentSchema {
   description: string;             // 详细描述
   talent_cost: number;             // 消耗天道点
   rarity: number;                  // 稀有度等级 1-5
-  effects: TalentEffect[];         // 天赋效果数组
+  effects: TalentEffect[] | string[]; // 天赋效果：可以是结构化数组或字符串描述数组
   source: 'local' | 'cloud';      // 数据源
-}
-
-/**
- * 天赋效果格式
- */
-export interface TalentEffect {
-  类型: '后天六司' | '特殊能力' | '技能加成';
-  目标?: string;                   // 用于"后天六司"类型，如"根骨"、"魅力"
-  技能?: string;                   // 用于"技能加成"类型，如"剑法"、"炼丹"
-  名称?: string;                   // 用于"特殊能力"类型，如"魅力光环"
-  数值: number;                    // 效果数值
 }
 
 /**
@@ -135,19 +139,49 @@ export const ATTRIBUTE_MAPPINGS = {
 // =======================================================================
 
 /**
+ * 格式化天赋效果为可读字符串
+ * @param effects 天赋效果（可以是对象数组或字符串数组）
+ * @returns 格式化后的字符串数组
+ */
+export function formatTalentEffects(effects?: TalentEffect[] | string[]): string[] {
+  if (!effects || effects.length === 0) return [];
+
+  // 如果已经是字符串数组，直接返回
+  if (typeof effects[0] === 'string') {
+    return effects as string[];
+  }
+
+  // 如果是对象数组，转换为字符串
+  return (effects as TalentEffect[]).map(effect => {
+    if (effect.描述) return effect.描述;
+
+    switch (effect.类型) {
+      case '后天六司':
+        return `${effect.目标} +${effect.数值}`;
+      case '特殊能力':
+        return effect.名称 || `特殊能力 +${effect.数值}`;
+      case '技能加成':
+        return `${effect.技能}技能 +${effect.数值}%`;
+      default:
+        return `未知效果`;
+    }
+  });
+}
+
+/**
  * 将用户输入的天赋效果文本解析为标准格式
  * @param effectsText 用户输入的效果文本
  * @returns 解析后的效果数组
  */
 export function parseEffectsText(effectsText: string): TalentEffect[] {
   if (!effectsText?.trim()) return [];
-  
+
   return effectsText.split('\n')
     .filter(line => line.trim())
     .map(line => {
       const [类型, 目标, 数值] = line.split('|').map(part => part.trim());
       const effect: TalentEffect = { 类型: 类型 as any, 数值: parseFloat(数值) || 0 };
-      
+
       if (类型 === '后天六司') {
         effect.目标 = 目标;
       } else if (类型 === '技能加成') {
@@ -155,7 +189,7 @@ export function parseEffectsText(effectsText: string): TalentEffect[] {
       } else if (类型 === '特殊能力') {
         effect.名称 = 目标;
       }
-      
+
       return effect;
     });
 }
@@ -212,7 +246,7 @@ export const CUSTOM_SPIRIT_ROOT_EXAMPLE: CustomSpiritRootSchema = {
 };
 
 /**
- * 自定义天赋创建示例
+ * 自定义天赋创建示例（结构化格式）
  */
 export const CUSTOM_TALENT_EXAMPLE: CustomTalentSchema = {
   name: "时光倒流",
@@ -223,6 +257,23 @@ export const CUSTOM_TALENT_EXAMPLE: CustomTalentSchema = {
     { 类型: "后天六司", 目标: "气运", 数值: 10 },
     { 类型: "特殊能力", 名称: "时间逆转", 数值: 0.05 },
     { 类型: "技能加成", 技能: "时空术", 数值: 0.5 }
+  ],
+  source: "local"
+};
+
+/**
+ * 自定义天赋创建示例（字符串描述格式）
+ */
+export const CUSTOM_TALENT_STRING_EXAMPLE: CustomTalentSchema = {
+  name: "天生剑骨",
+  description: "天生剑道奇才，对剑法有超凡的领悟力。",
+  talent_cost: 15,
+  rarity: 4,
+  effects: [
+    "剑法修炼速度提升50%",
+    "剑意领悟概率提升30%",
+    "使用剑类武器攻击力提升20%",
+    "天生剑气护体"
   ],
   source: "local"
 };

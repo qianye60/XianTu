@@ -61,39 +61,44 @@ export function calculateTalentBonuses(talents: Talent[]): InnateAttributes {
   talents.forEach(talent => {
     if (talent.effects && Array.isArray(talent.effects)) {
       talent.effects.forEach(effect => {
-        // 支持中文格式："后天六司"和"属性加成"
-        if (effect.类型 === '后天六司' || effect.类型 === '属性加成') {
+        // 如果是字符串，跳过（字符串描述格式不参与属性计算）
+        if (typeof effect === 'string') return;
+
+        // 支持中文格式："后天六司"
+        if (effect.类型 === '后天六司') {
           const target = effect.目标;
           const value = Number(effect.数值) || 0;
-          
+
           // 将目标属性名转换为中文键名
-          let chineseAttr = target;
+          let chineseAttr: string | undefined = target;
           if (target === '神识') chineseAttr = '悟性'; // 神识映射到悟性
           if (target === '惟性') chineseAttr = '悟性'; // 惟性映射到悟性（修正拼写）
           if (target === '体质') chineseAttr = '根骨'; // 体质映射到根骨
           if (target === '敏捷') chineseAttr = '灵性'; // 敏捷映射到灵性
-          
-          if (chineseAttr in bonuses) {
+
+          if (chineseAttr && chineseAttr in bonuses) {
             (bonuses as InnateAttributes)[chineseAttr as keyof InnateAttributes] += value;
           }
         }
-        
-        // 支持英文格式：后端API格式
-        if (effect.type === 'ATTRIBUTE_MODIFIER') {
-          const target = effect.target;
-          const value = Number(effect.value) || 0;
-          
+
+        // 支持英文格式：后端API格式（如果effect有这些属性）
+        if ('type' in effect && effect.type === 'ATTRIBUTE_MODIFIER') {
+          const target = 'target' in effect ? effect.target : undefined;
+          const value = 'value' in effect ? Number(effect.value) || 0 : 0;
+
+          if (!target) return;
+
           // 英文属性名到中文映射
           const englishToChinese: Record<string, string> = {
             'STR': '根骨',     // 力量 -> 根骨
-            'CON': '根骨',     // 体质 -> 根骨  
+            'CON': '根骨',     // 体质 -> 根骨
             'DEX': '灵性',     // 敏捷 -> 灵性
             'INT': '悟性',     // 智力 -> 悟性
             'SPI': '悟性',     // 神魂 -> 悟性
             'LUK': '气运',     // 运气 -> 气运
           };
-          
-          const chineseAttr = englishToChinese[target] as keyof InnateAttributes;
+
+          const chineseAttr = englishToChinese[target as string] as keyof InnateAttributes;
           if (chineseAttr && chineseAttr in bonuses) {
             bonuses[chineseAttr] += value;
           }

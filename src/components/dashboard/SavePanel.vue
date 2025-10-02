@@ -120,6 +120,14 @@
           <h4 class="section-title">🛠️ 存档操作</h4>
         </div>
         <div class="operations-list">
+          <button class="operation-btn primary" @click="saveAsNew" :disabled="loading || !canSave">
+            <Save :size="16" />
+            <div class="btn-content">
+              <span class="btn-title">另存为新存档</span>
+              <span class="btn-desc">将当前进度保存到新存档</span>
+            </div>
+          </button>
+
           <button class="operation-btn" @click="exportSaves" :disabled="loading || savesList.length === 0">
             <Download :size="16" />
             <div class="btn-content">
@@ -127,7 +135,7 @@
               <span class="btn-desc">备份所有存档到文件</span>
             </div>
           </button>
-          
+
           <button class="operation-btn" @click="importSaves" :disabled="loading">
             <Upload :size="16" />
             <div class="btn-content">
@@ -135,7 +143,7 @@
               <span class="btn-desc">从文件恢复存档</span>
             </div>
           </button>
-          
+
           <button class="operation-btn danger" @click="clearAllSaves" :disabled="loading || savesList.length === 0">
             <Trash2 :size="16" />
             <div class="btn-content">
@@ -204,11 +212,46 @@ const quickSave = async () => {
 
   loading.value = true;
   try {
-    await characterStore.saveCurrentGame();
+    await characterStore.syncToTavernAndSave();
     toast.success('快速存档完成');
   } catch (error) {
     debug.error('存档面板', '快速存档失败', error);
     toast.error('快速存档失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 另存为新存档
+const saveAsNew = async () => {
+  if (!canSave.value) {
+    toast.warning('当前没有可存档的游戏状态');
+    return;
+  }
+
+  // 弹出输入框让用户输入存档名
+  const saveName = window.prompt('请输入新存档的名称：', `存档_${new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`);
+
+  if (!saveName || saveName.trim() === '') {
+    toast.info('已取消另存为');
+    return;
+  }
+
+  loading.value = true;
+  try {
+    // 先保存当前数据到酒馆
+    await characterStore.syncToTavernAndSave();
+
+    // 再另存为新存档
+    const newSlotId = await characterStore.saveAsNewSlot(saveName.trim());
+
+    if (newSlotId) {
+      // 刷新存档列表
+      await refreshSaves();
+    }
+  } catch (error) {
+    debug.error('存档面板', '另存为失败', error);
+    toast.error('另存为新存档失败');
   } finally {
     loading.value = false;
   }
@@ -832,6 +875,22 @@ onMounted(() => {
 
 .operation-btn:hover {
   background: #f0f9ff;
+}
+
+.operation-btn.primary {
+  background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+  color: white;
+}
+
+.operation-btn.primary:hover {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(3, 105, 161, 0.3);
+}
+
+.operation-btn.primary .btn-title,
+.operation-btn.primary .btn-desc {
+  color: white;
 }
 
 .operation-btn.danger:hover {

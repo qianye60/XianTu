@@ -48,6 +48,10 @@
                       <EyeOff v-else :size="14" class="attention-icon inactive" />
                     </button>
                   </div>
+                  <div class="person-realm" v-if="getNpcRealm(person) !== '未知'">
+                    <span class="realm-label">境界:</span>
+                    <span class="realm-value">{{ getNpcRealm(person) }}</span>
+                  </div>
                   <div class="intimacy-info">
                     <div class="intimacy-bar">
                       <div
@@ -101,15 +105,7 @@
                 <div class="detail-section">
                   <h5 class="section-title">关键信息</h5>
                   <div class="info-grid">
-                    <div class="info-item" v-if="getNpcRealmParsed(selectedPerson).境界 !== null && getNpcRealmParsed(selectedPerson).境界 !== undefined">
-                      <span class="info-label">境界</span>
-                      <span class="info-value">{{ getNpcRealmParsed(selectedPerson).境界 }}</span>
-                    </div>
-                    <div class="info-item" v-if="getNpcRealmParsed(selectedPerson).阶段">
-                      <span class="info-label">阶段</span>
-                      <span class="info-value">{{ getNpcRealmParsed(selectedPerson).阶段 }}</span>
-                    </div>
-                    <!-- @vue-ignore: legacy block kept for compatibility; type-unsafe -->
+                    <!-- 统一显示境界+阶段 -->
                     <div class="info-item" v-if="selectedPerson.玩家角色状态?.境界 !== undefined || selectedPerson.境界 !== undefined">
                       <span class="info-label">境界</span>
                       <span class="info-value">{{ getNpcRealm(selectedPerson) }}</span>
@@ -121,10 +117,6 @@
                     <div class="info-item" v-if="selectedPerson.角色基础信息?.灵根">
                       <span class="info-label">灵根</span>
                       <span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">最后出现位置</span>
-                      <span class="info-value">{{ selectedPerson.最后出现位置?.描述 || '未知' }}</span>
                     </div>
                     <div class="info-item">
                       <span class="info-label">人物关系</span>
@@ -457,15 +449,24 @@ const getNpcRealmParsed = (npc: NpcProfile): { 境界: number | null; 阶段: st
 // 获取NPC境界信息
 const getNpcRealm = (npc: NpcProfile): string => {
   // 可能的字段位置：玩家角色状态.境界 或 境界
-  const realm = (npc as any).玩家角色状态?.境界 ?? (npc as any).境界;
-  const stage = (npc as any).玩家角色状态?.阶段 ?? (npc as any).阶段;
+  const realmField = (npc as any).玩家角色状态?.境界 ?? (npc as any).境界;
+  const stageField = (npc as any).玩家角色状态?.阶段 ?? (npc as any).阶段;
 
-  if (realm === undefined || realm === null) return '未知';
+  if (!realmField) return '未知';
 
-  const realmNames = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
-  const realmName = typeof realm === 'number' ? realmNames[realm] || '未知' : String(realm);
+  // 如果境界是 Realm 对象，提取名称
+  let realmName: string;
+  if (typeof realmField === 'object' && realmField !== null) {
+    realmName = realmField.名称 || '未知';
+  } else if (typeof realmField === 'number') {
+    const realmNames = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
+    realmName = realmNames[realmField] || '未知';
+  } else {
+    realmName = String(realmField);
+  }
 
-  return stage ? `${realmName}${stage}` : realmName;
+  // 组合境界名称和阶段
+  return stageField ? `${realmName}${stageField}` : realmName;
 };
 
 // 获取NPC灵根信息
@@ -639,7 +640,7 @@ const editMemory = async (index: number) => {
   };
 
   selectedPerson.value = { ...saveData.人物关系[key] };
-  await characterStore.commitToStorage();
+  await characterStore.syncToTavernAndSave();
 };
 
 import { useUIStore } from '@/stores/uiStore';
@@ -659,7 +660,7 @@ const deleteMemory = async (index: number) => {
       if (!saveData?.人物关系?.[key]?.人物记忆) return;
       saveData.人物关系[key].人物记忆.splice(index, 1);
       selectedPerson.value = { ...saveData.人物关系[key] };
-      await characterStore.commitToStorage();
+      await characterStore.syncToTavernAndSave();
     },
     onCancel: () => {}
   });
@@ -753,8 +754,18 @@ const toggleAttention = async (person: NpcProfile) => {
     const newState = !currentState;
     saveData.人物关系[npcKey].实时关注 = newState;
 
-    // 持久化存储
-    await characterStore.commitToStorage();
+    console.log(`[关注切换] 准备同步数据: ${npcName} -> ${newState}`);
+
+    // 同步到酒馆并保存到本地
+    try {
+      await characterStore.syncToTavernAndSave();
+      console.log(`[关注切换] 数据同步成功`);
+    } catch (syncError) {
+      console.error('[关注切换] 同步数据失败:', syncError);
+      // 回滚状态
+      saveData.人物关系[npcKey].实时关注 = currentState;
+      throw new Error('数据同步失败: ' + (syncError as Error).message);
+    }
 
     // 更新UI反馈
     if (newState) {
@@ -764,12 +775,15 @@ const toggleAttention = async (person: NpcProfile) => {
     }
     console.log(`[关注切换] ${npcName} 的实时关注状态已更新为: ${newState}`);
 
-    // 手动触发响应式更新
-    selectedPerson.value = { ...saveData.人物关系[npcKey] };
+    // 手动触发响应式更新（确保界面刷新）
+    if (selectedPerson.value?.角色基础信息?.名字 === npcName) {
+      selectedPerson.value = { ...saveData.人物关系[npcKey] };
+    }
 
   } catch (error) {
     console.error('[关注切换] 切换关注状态失败:', error);
-    toast.error('操作失败，请重试');
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    toast.error(`操作失败: ${errorMsg}`);
   }
 };
 
@@ -1054,6 +1068,21 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
 .attention-toggle:hover .attention-icon.active {
   color: #16a34a;
+}
+
+.person-realm {
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.person-realm .realm-label {
+  margin-right: 0.25rem;
+}
+
+.person-realm .realm-value {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .intimacy-info {

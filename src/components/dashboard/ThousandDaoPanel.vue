@@ -9,25 +9,7 @@
 
       <!-- 大道概览 -->
       <div v-else class="dao-overview">
-        <!-- 当前修炼功法 -->
-        <div v-if="cultivatingTechnique" class="cultivating-section">
-          <h4 class="section-title">
-            <span class="title-icon">🔥</span>
-            当前修炼
-          </h4>
-          <div class="cultivating-card">
-            <div class="cultivating-info">
-              <div class="cultivating-name">{{ cultivatingTechnique.名称 }}</div>
-              <div v-if="cultivatingTechnique.品质" class="cultivating-level">{{ cultivatingTechnique.品质 }}</div>
-            </div>
-            <div class="cultivating-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: (cultivatingTechnique.修炼进度 || 0) + '%' }"></div>
-              </div>
-              <span class="progress-text">{{ cultivatingTechnique.修炼进度 || 0 }}%</span>
-            </div>
-          </div>
-        </div>
+        <!-- 三千大道页不再显示功法，当前修炼已移至修炼面板 -->
 
         <div class="dao-stats">
           <div class="stat-card">
@@ -217,7 +199,7 @@ import { ref, computed, onMounted } from 'vue';
 import { RotateCcw, X, Zap } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { DaoProgress, DaoPath, ThousandDaoSystem, TechniqueItem } from '@/types/game.d.ts';
+import type { DaoProgress, DaoPath, ThousandDaoSystem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
 
 const characterStore = useCharacterStore();
@@ -225,15 +207,7 @@ const actionQueueStore = useActionQueueStore();
 const loading = ref(false);
 const selectedDao = ref<string | null>(null);
 
-// 当前修炼的功法
-const cultivatingTechnique = computed((): TechniqueItem | undefined => {
-  const items = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
-  if (!items) return undefined;
-
-  return Object.values(items).find(
-    (item): item is TechniqueItem => item.类型 === '功法' && item.修炼中 === true
-  );
-});
+// 功法展示已从三千大道面板移除（请到修炼面板查看当前修炼功法）
 
 // 获取三千大道系统数据
 const daoSystem = computed((): ThousandDaoSystem => {

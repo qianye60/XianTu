@@ -99,7 +99,7 @@ import { ref, computed } from 'vue'
 import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Origin } from '../../types'
-import CustomCreationModal from './CustomCreationModal.vue'
+import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
 import { toast } from '../../utils/toast'
 import { generateOrigin } from '../../utils/tavernAI'
 
@@ -174,7 +174,7 @@ const originEffectTypes = [
 ] as const
 
 // 自定义出身字段 - 重新设计为背景设定
-const customOriginFields = [
+const customOriginFields: ModalField[] = [
   { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
   { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' },
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0（可为负数）' },
@@ -185,19 +185,19 @@ const customOriginFields = [
     { value: '4', label: '4 - 极罕见' },
     { value: '5', label: '5 - 传说' }
   ]},
-  { 
-    key: 'background_effects', 
-    label: '出身效果', 
+  {
+    key: 'background_effects',
+    label: '出身效果',
     type: 'dynamic-list',
     columns: [
-      { 
-        key: 'type', 
+      {
+        key: 'type',
         placeholder: '效果类型',
-        type: 'select',
+        type: 'select' as const,
         options: originEffectTypes
       },
-      { 
-        key: 'description', 
+      {
+        key: 'description',
         placeholder: '具体描述，如：拥有一把传家宝剑'
       }
     ]
@@ -251,6 +251,7 @@ async function handleCustomSubmit(data: CustomOriginData) {
     name: data.name,
     description: data.description,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
+    attribute_modifiers: {}, // 添加空的属性修正器
     background_effects: backgroundEffects, // 新的背景效果字段
     rarity: parseInt(data.rarity, 10) || 1,
     source: 'local' as const,
