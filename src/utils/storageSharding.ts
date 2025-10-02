@@ -115,7 +115,7 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
   }
 
   const baseInfo = shards['基础信息']!;
-  const realm = shards['境界'] || { 等级: 0, 名称: '凡人', 当前进度: 0, 下一级所需: 100, 突破描述: '无' };
+  const realm = shards['境界'] || { 名称: '凡人', 阶段: '第0层', 当前进度: 0, 下一级所需: 100, 突破描述: '无' };
   const attrs = shards['属性'] || {
     气血: { 当前: 100, 最大: 100 },
     灵气: { 当前: 100, 最大: 100 },

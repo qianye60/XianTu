@@ -78,7 +78,7 @@
         </h3>
         <div class="realm-display">
           <div class="realm-info">
-            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.realm.name, playerStatus?.realm.level) }}</span>
+            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.realm.name, undefined) }}</span>
             <span v-if="playerStatus?.realm.突破描述" class="realm-breakthrough">{{ playerStatus?.realm.突破描述 }}</span>
           </div>
           <!-- 凡人境界显示等待引气入体 -->
@@ -544,11 +544,12 @@ const showStatusDetail = (effect: StatusEffect) => {
   showModal.value = true;
 };
 
-// 显示境界：统一返回“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (name?: string, level?: number): string => {
+// 显示境界：统一返回"境界+阶段"（初期/中期/后期/圆满），凡人不加阶段
+const formatRealmDisplay = (name?: string, _level?: number): string => {
   const progress = playerStatus.value?.realm.progress;
   const maxProgress = playerStatus.value?.realm.maxProgress;
-  return formatRealmWithStage({ name, level, progress, maxProgress });
+  const stage = playerStatus.value?.realm.stage;
+  return formatRealmWithStage({ name, 阶段: stage, progress, maxProgress });
 };
 </script>
 

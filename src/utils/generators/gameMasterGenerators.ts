@@ -589,7 +589,13 @@ export async function generateInGameResponse(
     const computeDerived = (save: SaveData) => {
       try {
         const status = save?.玩家角色状态 || {};
-        const realmLevel = Number(status?.['境界']?.['等级'] || 0);
+        const realmName = String(status?.['境界']?.['名称'] || '凡人');
+        // 简单映射境界名到数值（用于计算战力等）
+        const realmLevelMap: Record<string, number> = {
+          '凡人': 0, '练气': 1, '炼气': 1, '筑基': 2, '金丹': 3,
+          '元婴': 4, '化神': 5, '炼虚': 6, '合体': 7, '渡劫': 8
+        };
+        const realmLevel = realmLevelMap[realmName] || 0;
         const vit = {
           hp: status?.气血 || { 当前: 0, 最大: 0 },
           mp: status?.灵气 || { 当前: 0, 最大: 0 },

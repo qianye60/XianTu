@@ -39,26 +39,26 @@
       <div class="settings-content">
         <div class="setting-item">
           <label class="setting-label">短期记忆限制 (条):</label>
-          <input 
-            type="number" 
+          <input
+            type="number"
             v-model.number="memoryConfig.shortTermLimit"
-            min="3" 
+            min="3"
             max="10"
             class="setting-input"
           />
-          <span class="setting-hint">默认: 5</span>
+          <span class="setting-hint">默认: 3</span>
         </div>
-        
+
         <div class="setting-item">
           <label class="setting-label">中期记忆转化阈值 (条):</label>
-          <input 
-            type="number" 
+          <input
+            type="number"
             v-model.number="memoryConfig.midTermTrigger"
-            min="10" 
+            min="10"
             max="50"
             class="setting-input"
           />
-          <span class="setting-hint">中期记忆积累达到此数量时转化为长期记忆，默认: 20</span>
+          <span class="setting-hint">中期记忆积累达到此数量时转化为长期记忆，默认: 23</span>
         </div>
         
         <div class="setting-item">
@@ -236,8 +236,8 @@ const showSettings = ref(false);
 
 // 记忆系统配置
 const memoryConfig = ref({
-  shortTermLimit: 5,
-  midTermTrigger: 20,
+  shortTermLimit: 3, // 与后端配置同步
+  midTermTrigger: 23, // 与后端配置同步
   midTermKeep: 8,
   autoSummaryEnabled: true,
   midTermFormat: '',
@@ -246,8 +246,8 @@ const memoryConfig = ref({
 
 // 记忆转化配置
 const MEMORY_CONFIG = {
-  SHORT_TERM_LIMIT: 5, // 短期记忆上限
-  MEDIUM_TERM_LIMIT: 20, // 中期记忆上限
+  SHORT_TERM_LIMIT: 3, // 短期记忆上限（与后端同步）
+  MEDIUM_TERM_LIMIT: 25, // 中期记忆上限（与后端同步）
   LONG_TERM_LIMIT: 50, // 长期记忆上限
   CONVERT_THRESHOLD: 0.8 // 转化阈值（达到上限的80%就开始转化）
 };

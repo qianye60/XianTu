@@ -2055,11 +2055,12 @@ const initializePanelForSave = async () => {
         }
 
       } else {
-        // 未找到记忆，说明角色创建时AI生成失败，应当重新尝试生成
-        console.error('[主面板] 未在存档中找到任何记忆，角色创建可能失败！');
+        // 未找到记忆或叙事历史，显示欢迎信息
+        console.log('[主面板] 未找到叙事记录，显示欢迎信息');
+        const characterName = characterStore.activeSaveSlot?.存档数据?.角色基础信息?.名字 || '修行者';
         currentNarrative.value = {
           type: 'system',
-          content: '【系统错误】角色创建未完成，请重新创建角色。',
+          content: `【欢迎】${characterName}，你的修仙之旅即将开始。请输入你的行动。`,
           time: formatCurrentTime(),
           stateChanges: { changes: [] },
         };

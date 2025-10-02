@@ -901,7 +901,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 如果不是联机模式，在这里就显示最终成功
       if (profile.模式 !== '联机') {
-        // 静默保存，不显示提示
+        // 静默保存，关闭loading提示
+        toast.hide(saveId);
         debug.log('角色商店', `存档【${slot.存档名}】已成功保存`);
       }
 
@@ -1105,8 +1106,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param characterUpdates 角色数据更新
    */
   const updateCharacterData = async (stateChanges: StateChangeLog) => {
+    const active = rootState.value.当前激活存档;
+    const profile = activeCharacterProfile.value;
     const save = activeSaveSlot.value;
-    if (!save?.存档数据) {
+
+    if (!save?.存档数据 || !active || !profile) {
       debug.warn('角色商店', '没有激活的存档，无法更新角色数据');
       return;
     }
@@ -1121,14 +1125,33 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
     }
 
-    // 更新保存时间
-    save.保存时间 = new Date().toISOString();
+    // 🔥 触发Vue响应式：重新创建存档对象
+    const charId = active.角色ID;
+    const slotId = active.存档槽位;
+
+    if (profile.模式 === '单机' && profile.存档列表) {
+      rootState.value.角色列表[charId].存档列表 = {
+        ...profile.存档列表,
+        [slotId]: {
+          ...profile.存档列表[slotId],
+          存档数据: { ...save.存档数据 }, // 创建新对象触发响应式
+          保存时间: new Date().toISOString()
+        }
+      };
+    } else if (profile.模式 === '联机' && profile.存档) {
+      rootState.value.角色列表[charId].存档 = {
+        ...profile.存档,
+        存档数据: { ...save.存档数据 }, // 创建新对象触发响应式
+        保存时间: new Date().toISOString()
+      };
+    }
+
     commitToStorage();
 
     // 🔥 增量同步到酒馆
     if (changedPaths.length > 0) {
       await syncToTavernAndSave({ changedPaths });
-      debug.log('角色商店', `角色数据已更新并增量同步 ${changedPaths.length} 个字段`, changedPaths);
+      debug.log('角色商店', `✅ 角色数据已更新并增量同步 ${changedPaths.length} 个字段`, changedPaths);
     }
   };
 

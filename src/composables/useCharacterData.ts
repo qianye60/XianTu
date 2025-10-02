@@ -26,7 +26,7 @@ export interface CharacterBasicInfo {
 export interface CharacterStatus {
   realm: {
     name: string;
-    level: number;
+    stage: string;
     progress: number;
     maxProgress: number;
     progressPercent: number;
@@ -127,7 +127,7 @@ export function useUnifiedCharacterData(): {
     const status: CharacterStatus = {
       realm: {
         name: realmData?.名称 || '凡人',
-        level: typeof realmData?.等级 === 'number' ? realmData.等级 : 0,
+        stage: realmData?.阶段 || '第0层',
         progress: typeof realmData?.当前进度 === 'number' ? realmData.当前进度 : 0,
         maxProgress: typeof realmData?.下一级所需 === 'number' ? realmData.下一级所需 : 0,
         progressPercent: (() => {
