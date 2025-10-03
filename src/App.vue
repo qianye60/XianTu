@@ -179,8 +179,17 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
 
   uiStore.startLoading('开始铸造法身...');
 
+  // 在外层生成charId，确保重试时使用同一个ID
+  const charId = `char_${Date.now()}`;
+
   const attemptCreation = async (): Promise<boolean> => {
     try {
+      // 如果之前创建失败，先清理残留数据
+      if (characterStore.rootState.角色列表[charId]) {
+        console.log('[角色创建] 检测到残留数据，清理中...');
+        delete characterStore.rootState.角色列表[charId];
+        characterStore.commitToStorage();
+      }
       // 从酒馆获取当前活跃的Persona名字
       let personaName: string = '无名道友';
       try {
@@ -223,9 +232,8 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
         天赋详情: rawPayload.talents,
       };
 
-      const charId = `char_${Date.now()}`;
       const creationPayload = {
-        charId: charId,
+        charId: charId, // 使用外层定义的charId
         baseInfo: baseInfo,
         world: rawPayload.world,
         mode: rawPayload.mode as '单机' | '联机',
@@ -261,6 +269,13 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
       console.error("角色创建过程出错：", error);
       const errorMessage = error instanceof Error ? error.message : "法身铸造过程中出现意外";
 
+      // 清理失败的角色数据
+      if (characterStore.rootState.角色列表[charId]) {
+        console.log('[角色创建] 创建失败，清理残留数据...');
+        delete characterStore.rootState.角色列表[charId];
+        characterStore.commitToStorage();
+      }
+
       // 检查是否是用户主动取消的错误
       if (errorMessage.includes('用户选择终止角色创建') || errorMessage.includes('用户选择不继续重试')) {
         console.log('[角色创建] 用户主动取消创建流程');
@@ -272,12 +287,12 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
       return new Promise((resolve) => {
         uiStore.showRetryDialog({
           title: '角色创建失败',
-          message: `角色创建过程中遇到问题：\n\n${errorMessage}\n\n是否重新尝试创建角色？\n\n选择"取消"将返回角色创建页面。`,
+          message: `角色创建过程中遇到问题：\n\n${errorMessage}\n\n是否重新尝试创建角色？`,
           confirmText: '重新创建',
           cancelText: '返回创建页面',
           onConfirm: async () => {
             console.log('[角色创建] 用户选择重新创建');
-            resolve(await attemptCreation()); // 递归重试
+            resolve(await attemptCreation()); // 递归重试，使用相同的charId
           },
           onCancel: () => {
             console.log('[角色创建] 用户选择返回创建页面');

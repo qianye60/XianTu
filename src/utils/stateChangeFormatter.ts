@@ -174,7 +174,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
       icon: 'update',
       color: 'blue',
       title: '境界阶段提升',
-      description: `第${oldValue || 0}层 → 第${newValue}层`,
+      description: `${oldValue || '无'} → ${newValue}`,
     };
   }
 
