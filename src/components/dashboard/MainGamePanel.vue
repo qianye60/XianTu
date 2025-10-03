@@ -1534,10 +1534,12 @@ const sendMessage = async () => {
         console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
       }
 
-      // 🔥 核心修复：在syncFromTavern之前，先将记忆同步到Tavern
-      // 原因：addToShortTermMemory只更新内存，记忆分片还没同步
-      // 如果不先同步，syncFromTavern会用旧记忆覆盖新记忆
-      console.log('[记忆同步] 开始将最新记忆同步到Tavern分片...');
+      // 🔥 核心修复：记忆数据已在本地处理完毕，直接保存即可
+      // processGmResponse 已经执行了 tavern_commands 并同步到酒馆
+      // 不需要再次 syncFromTavern，避免用酒馆旧数据覆盖本地新数据
+      console.log('[数据同步] ⚠️ 跳过 syncFromTavern（命令已在processGmResponse中同步）');
+      
+      // 只需要将记忆分片同步到酒馆（因为记忆是在MainGamePanel中更新的）
       const currentSaveData = characterStore.activeSaveSlot?.存档数据;
       if (currentSaveData?.记忆) {
         const helper = getTavernHelper();
@@ -1549,17 +1551,6 @@ const sendMessage = async () => {
           console.log('[记忆同步] ✅ 记忆已同步到Tavern分片');
         }
       }
-
-      // 🔥 核心修复：每次AI响应后都要同步数据（不管有没有tavern_commands）
-      // 原因：AI可能通过多种方式修改了酒馆变量，必须保证本地和酒馆同步
-      // 注意：syncFromTavern会保留本地的记忆数据，不会被酒馆旧数据覆盖
-      console.log('[数据同步] 开始从酒馆同步最新数据到本地...');
-      if (gmResp?.tavern_commands?.length) {
-        console.log(`[数据同步] 🎯 本次响应包含 ${gmResp.tavern_commands.length} 条 tavern_commands`);
-      }
-
-      await characterStore.syncFromTavern();
-      console.log('[数据同步] ✅ 已从酒馆同步最新数据并保存到LocalStorage');
 
     // 处理游戏状态更新（仅在有有效AI响应时执行）
     if (aiResponse && aiResponse.stateChanges) {

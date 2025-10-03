@@ -4,14 +4,14 @@
       <div class="dialog-header">
         <h3>{{ config?.title || 'AI生成失败' }}</h3>
       </div>
-      
+
       <div class="dialog-content">
         <div class="error-icon">
           <AlertTriangle :size="48" />
         </div>
         <p class="message">{{ config?.message || '生成过程遇到问题' }}</p>
       </div>
-      
+
       <div class="dialog-actions">
         <button class="btn-secondary" @click="handleCancel">
           {{ config?.cancelText || '取消创建' }}
@@ -95,6 +95,27 @@ const handleCancel = () => {
 .dialog-content {
   padding: 24px;
   text-align: center;
+  max-height: 60%; /* 限制最大高度为视口的60% */
+  overflow-y: auto; /* 超出时显示垂直滚动条 */
+}
+
+/* 滚动条样式 */
+.dialog-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dialog-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.dialog-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.dialog-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .error-icon {
@@ -109,6 +130,8 @@ const handleCancel = () => {
   line-height: 1.6;
   margin: 0;
   white-space: pre-line;
+  text-align: left; /* 长文本左对齐更易读 */
+  word-break: break-word; /* 长单词自动换行 */
 }
 
 .dialog-actions {
@@ -165,11 +188,11 @@ const handleCancel = () => {
     margin: 16px;
     max-width: none;
   }
-  
+
   .dialog-actions {
     flex-direction: column-reverse;
   }
-  
+
   .btn-primary,
   .btn-secondary {
     flex: none;

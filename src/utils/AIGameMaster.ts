@@ -183,14 +183,16 @@ export async function executeCommands(
  * 处理AI Game Master的响应，执行其中的酒馆命令
  * @param response GM响应对象
  * @param currentSaveData 当前存档数据
+ * @param isInitialization 是否是角色初始化阶段（初始化时需要保存记忆）
  * @returns 包含更新后存档和变更日志的对象
  */
 export async function processGmResponse(
   response: GM_Response,
-  currentSaveData: SaveData
+  currentSaveData: SaveData,
+  isInitialization: boolean = false
 ): Promise<{ saveData: SaveData; stateChanges: StateChangeLog }> {
-  console.log('[processGmResponse] 开始处理GM响应');
-  
+  console.log('[processGmResponse] 开始处理GM响应，isInitialization=', isInitialization);
+
   const emptyChanges: StateChangeLog = { changes: [] };
 
   if (!response) {
@@ -211,96 +213,69 @@ export async function processGmResponse(
     // 将本次变更增量同步到酒馆，确保环境状态与本地一致
     try {
       if (stateChanges?.changes?.length) {
+        console.log('[processGmResponse] 🎯 准备同步', stateChanges.changes.length, '个变更到酒馆');
+        console.log('[processGmResponse] 变更详情:', stateChanges.changes.map(c => ({ key: c.key, action: c.action })));
         await syncChangesToTavern(stateChanges.changes, 'chat');
-        console.log('[processGmResponse] 已同步变更到 Tavern character.saveData');
+        console.log('[processGmResponse] ✅ 已同步变更到 Tavern character.saveData');
+      } else {
+        console.warn('[processGmResponse] ⚠️ 没有变更需要同步（stateChanges.changes为空）');
       }
     } catch (syncErr) {
-      console.error('[processGmResponse] 同步变更到酒馆失败:', syncErr);
+      console.error('[processGmResponse] ❌ 同步变更到酒馆失败:', syncErr);
+      throw syncErr; // 重新抛出错误以便上层感知
     }
     console.log('[processGmResponse] ✅ 所有命令执行完成');
   } else {
     console.log('[processGmResponse] ⚠️ 没有 tavern_commands 需要执行');
   }
 
-  // 🔥 更新短期记忆：将AI返回的text添加到短期记忆开头
-  if (response.text && typeof response.text === 'string') {
+  // 🔥 处理短期记忆
+  // 初始化阶段：必须在这里保存，因为MainGamePanel还没加载
+  // 游戏中：由MainGamePanel的addToShortTermMemory处理
+  if (isInitialization && response.text) {
     if (!updatedSaveData.记忆) {
       updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 中期记忆缓存: [] };
     }
     if (!Array.isArray(updatedSaveData.记忆.短期记忆)) {
       updatedSaveData.记忆.短期记忆 = [];
     }
+
+    const gameTime = updatedSaveData.游戏时间;
+    const timePrefix = gameTime
+      ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}】`
+      : '【仙历元年】';
+
+    const textToStore = `${timePrefix}${response.text}`;
+    updatedSaveData.记忆.短期记忆.push(textToStore);
+    console.log('[processGmResponse] ✅ 已添加初始化短期记忆');
+    console.log('[processGmResponse] 记忆内容（前100字符）:', textToStore.substring(0, 100));
+    console.log('[processGmResponse] 当前短期记忆数量:', updatedSaveData.记忆.短期记忆.length);
+  } else if (!isInitialization) {
+    console.log('[processGmResponse] ⚠️ 非初始化阶段，跳过短期记忆添加（由MainGamePanel处理）');
+  }
+
+  // 🔥 如果有mid_term_memory，存入缓存数组（用于后续转换）
+  if (response.mid_term_memory && typeof response.mid_term_memory === 'string') {
+    if (!updatedSaveData.记忆) {
+      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 中期记忆缓存: [] };
+    }
     if (!Array.isArray(updatedSaveData.记忆.中期记忆缓存)) {
       updatedSaveData.记忆.中期记忆缓存 = [];
     }
 
-    // 截断过长的文本（保留前2000字符）
-    const textToStore = response.text.length > 2000
-      ? `${response.text.substring(0, 2000)}...`
-      : response.text;
+    // 格式化游戏时间
+    const gameTime = updatedSaveData.游戏时间;
+    const timePrefix = gameTime
+      ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}】`
+      : '【未知时间】';
 
-    // 添加到短期记忆开头
-    updatedSaveData.记忆.短期记忆.unshift(textToStore);
-    console.log('[processGmResponse] ✅ 已添加短期记忆');
-    console.log('[processGmResponse] 短期记忆内容（前100字符）:', textToStore.substring(0, 100));
-    console.log('[processGmResponse] 当前短期记忆数量:', updatedSaveData.记忆.短期记忆.length);
+    const formattedMemory = `${timePrefix}${response.mid_term_memory}`;
 
-    // 🔥 如果有mid_term_memory，先存入缓存数组
-    if (response.mid_term_memory && typeof response.mid_term_memory === 'string') {
-      // 格式化游戏时间
-      const gameTime = updatedSaveData.游戏时间;
-      const timePrefix = gameTime
-        ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}】`
-        : '【未知时间】';
-
-      const formattedMemory = `${timePrefix}${response.mid_term_memory}`;
-
-      // 存入缓存数组
-      updatedSaveData.记忆.中期记忆缓存.push(formattedMemory);
-      console.log('[processGmResponse] ✅ 已将mid_term_memory存入缓存数组');
-      console.log('[processGmResponse] 中期记忆缓存内容:', formattedMemory.substring(0, 100));
-      console.log('[processGmResponse] 当前缓存数量:', updatedSaveData.记忆.中期记忆缓存.length);
-    }
-
-    // 从配置读取短期记忆限制
-    const SHORT_TERM_LIMIT = SETTINGS_RANGES.shortTermMemory.default;
-
-    // 检查短期记忆是否超出限制
-    if (updatedSaveData.记忆.短期记忆.length > SHORT_TERM_LIMIT) {
-      // 移除最旧的记忆（数组末尾）
-      updatedSaveData.记忆.短期记忆 = updatedSaveData.记忆.短期记忆.slice(0, SHORT_TERM_LIMIT);
-      console.log(`[processGmResponse] ⚠️ 短期记忆已超出限制，保留最新的${SHORT_TERM_LIMIT}条`);
-
-      // 🔥 短期记忆超限时，将缓存数组中的所有记忆转移到中期记忆
-      if (updatedSaveData.记忆.中期记忆缓存.length > 0) {
-        if (!Array.isArray(updatedSaveData.记忆.中期记忆)) {
-          updatedSaveData.记忆.中期记忆 = [];
-        }
-
-        // 将缓存中的所有记忆转移到中期记忆（去重）
-        let transferredCount = 0;
-        for (const cachedMemory of updatedSaveData.记忆.中期记忆缓存) {
-          if (!updatedSaveData.记忆.中期记忆.includes(cachedMemory)) {
-            updatedSaveData.记忆.中期记忆.push(cachedMemory);
-            transferredCount++;
-          }
-        }
-
-        console.log(`[processGmResponse] ✅ 短期记忆超限，已将${transferredCount}条缓存记忆转入中期记忆`);
-
-        // 清空缓存数组
-        updatedSaveData.记忆.中期记忆缓存 = [];
-        console.log('[processGmResponse] ✅ 已清空中期记忆缓存');
-
-        // 检查中期记忆是否超出限制
-        const MID_TERM_LIMIT = SETTINGS_RANGES.midTermMemory.default;
-        if (updatedSaveData.记忆.中期记忆.length > MID_TERM_LIMIT) {
-          // 移除最旧的中期记忆
-          updatedSaveData.记忆.中期记忆 = updatedSaveData.记忆.中期记忆.slice(-MID_TERM_LIMIT);
-          console.log(`[processGmResponse] ⚠️ 中期记忆已超出限制，保留最新的${MID_TERM_LIMIT}条`);
-        }
-      }
-    }
+    // 存入缓存数组
+    updatedSaveData.记忆.中期记忆缓存.push(formattedMemory);
+    console.log('[processGmResponse] ✅ 已将mid_term_memory存入缓存数组');
+    console.log('[processGmResponse] 中期记忆缓存内容:', formattedMemory.substring(0, 100));
+    console.log('[processGmResponse] 当前缓存数量:', updatedSaveData.记忆.中期记忆缓存.length);
   }
 
   console.log('[processGmResponse] GM响应处理完成');
@@ -346,8 +321,11 @@ function mapShardPathToSaveDataPath(shardPath: string): string {
   }
 
   // 位置分片
-  if (path.startsWith('位置.') || path === '位置') {
-    return '玩家角色状态.位置' + (path.length > 2 ? '.' + path.substring(3) : '');
+  if (path.startsWith('位置.')) {
+    return '玩家角色状态.位置.' + path.substring('位置.'.length);
+  }
+  if (path === '位置') {
+    return '玩家角色状态.位置';
   }
 
   // 修炼功法分片
@@ -389,14 +367,23 @@ function mapShardPathToSaveDataPath(shardPath: string): string {
     return path; // SaveData中就叫"世界信息"
   }
 
-  // 记忆分片
-  if (path.startsWith('记忆_短期')) {
+  // 记忆分片（通常不带子路径，因为是数组操作）
+  if (path.startsWith('记忆_短期.')) {
+    return '记忆.短期记忆.' + path.substring('记忆_短期.'.length);
+  }
+  if (path === '记忆_短期') {
     return '记忆.短期记忆';
   }
-  if (path.startsWith('记忆_中期')) {
+  if (path.startsWith('记忆_中期.')) {
+    return '记忆.中期记忆.' + path.substring('记忆_中期.'.length);
+  }
+  if (path === '记忆_中期') {
     return '记忆.中期记忆';
   }
-  if (path.startsWith('记忆_长期')) {
+  if (path.startsWith('记忆_长期.')) {
+    return '记忆.长期记忆.' + path.substring('记忆_长期.'.length);
+  }
+  if (path === '记忆_长期') {
     return '记忆.长期记忆';
   }
 
@@ -406,8 +393,11 @@ function mapShardPathToSaveDataPath(shardPath: string): string {
   }
 
   // 状态效果分片
-  if (path.startsWith('状态效果.') || path === '状态效果') {
-    return '玩家角色状态.状态效果' + (path.length > 4 ? '.' + path.substring(5) : '');
+  if (path.startsWith('状态效果.')) {
+    return '玩家角色状态.状态效果.' + path.substring('状态效果.'.length);
+  }
+  if (path === '状态效果') {
+    return '玩家角色状态.状态效果';
   }
 
   // 如果不匹配任何分片，可能是旧格式或SaveData内部路径，直接返回

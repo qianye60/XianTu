@@ -127,7 +127,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
   return {
     境界: {
       名称: "凡人",
-      阶段: "无",
+      阶段: "",
       当前进度: 0,
       下一级所需: 100,
       突破描述: "引气入体，开始修仙之路"
@@ -384,7 +384,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   );
 
   // 处理AI返回的指令并更新存档
-  const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, saveData);
+  const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, saveData, true);
 
   // 暂存状态变更
   const characterStore = useCharacterStore();
