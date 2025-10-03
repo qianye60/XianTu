@@ -126,9 +126,9 @@ const parsedText = computed(() => {
       }
     }
     // 中文引号
-    const zhDialogStart = processedText.indexOf('“', currentIndex)
+    const zhDialogStart = processedText.indexOf('"', currentIndex)
     if (zhDialogStart !== -1) {
-      const zhDialogEnd = processedText.indexOf('”', zhDialogStart + 1)
+      const zhDialogEnd = processedText.indexOf('"', zhDialogStart + 1)
       if (zhDialogEnd !== -1) {
         markers.push({
           start: zhDialogStart,
@@ -137,6 +137,22 @@ const parsedText = computed(() => {
           // 包含引号本身
           contentStart: zhDialogStart,
           contentEnd: zhDialogEnd + 1
+        })
+      }
+    }
+    
+    // 🔥 新增：书名号「」也解析为对话
+    const bookQuoteStart = processedText.indexOf('「', currentIndex)
+    if (bookQuoteStart !== -1) {
+      const bookQuoteEnd = processedText.indexOf('」', bookQuoteStart + 1)
+      if (bookQuoteEnd !== -1) {
+        markers.push({
+          start: bookQuoteStart,
+          end: bookQuoteEnd + 1,
+          type: 'dialogue' as const,
+          // 包含书名号本身
+          contentStart: bookQuoteStart,
+          contentEnd: bookQuoteEnd + 1
         })
       }
     }

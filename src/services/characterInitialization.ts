@@ -191,7 +191,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     人物关系: {},
     宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
-    游戏时间: { 年: 1, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
+    游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     修炼功法: { 功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0 },
     系统: {
       规则: {

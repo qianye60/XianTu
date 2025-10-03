@@ -749,6 +749,9 @@ export async function generateInGameResponse(
     console.log('【剧情推进-调试】原始提示词前500字符:', prompt.substring(0, 500));
     console.log('【剧情推进-调试】原始提示词后500字符:', prompt.substring(prompt.length - 500));
 
+    // 🔥 修复：明确地将用户输入包含在提示词中
+    const userActionText = playerAction && playerAction.trim() ? playerAction.trim() : '继续当前活动';
+    
     // 替换提示词中的占位符
     // ⚠️ 注意：不再在代码中传输 character.saveData，Tavern已通过 <status_current_variables> 自动注入
     // 只传输 gmRequest 元数据和派生指标
@@ -757,9 +760,13 @@ export async function generateInGameResponse(
       derived
     };
     const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput));
-    // 为避免提示词膨胀，不再内联“上一条对话全文”。改为指导语基于现有记忆/状态保持连续性。
+    
+    // 🔥 核心修复：明确地在提示词中展示用户输入
+    const userInputSection = `\n\n# 🎯 玩家当前行动\n\n**玩家输入**: ${userActionText}\n\n**要求**: 请根据上述玩家输入推进剧情，确保AI响应与玩家行动直接相关。`;
+    
+    // 为避免提示词膨胀，不再内联"上一条对话全文"。改为指导语基于现有记忆/状态保持连续性。
     const continuityGuide = '\n\n【连续性要求】请基于当前存档与记忆保持自然衔接，不重复上一条内容，不做总结，仅推进后续发展。';
-    const finalPromptWithContinuity = finalPrompt + continuityGuide;
+    const finalPromptWithContinuity = finalPrompt + userInputSection + continuityGuide;
     console.log('【连续性】上一条对话字数:', typeof lastTextMemory === 'string' ? lastTextMemory.length : 0);
 
     console.log('【剧情推进】最终提示词长度:', finalPromptWithContinuity.length);

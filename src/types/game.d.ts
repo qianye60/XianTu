@@ -687,7 +687,6 @@ export interface Memory extends AIMetadata {
   短期记忆: string[]; // 最近的对话、事件的完整记录
   中期记忆: string[]; // 对短期记忆的总结，关键信息点
   长期记忆: string[]; // 核心人设、世界观、重大事件的固化记忆
-  中期记忆缓存?: string[]; // 暂存AI返回的mid_term_memory，等短期记忆超限时转移
 }
 
 

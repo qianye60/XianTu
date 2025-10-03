@@ -382,10 +382,19 @@ const showTalentDetail = (talent: string) => {
   const maxExp = getTalentMaxExp(talent);
   const progress = getTalentProgress(talent);
 
-  // 从LOCAL_TALENTS中查找天赋信息
+  // 首先尝试从角色的天赋详情中查找(AI生成的自定义天赋)
+  const baseInfo = saveData.value?.角色基础信息;
+  const customTalent = baseInfo?.天赋详情?.find((t: any) => (t.name === talent || t.名称 === talent));
+
+  // 然后从LOCAL_TALENTS中查找天赋信息(前端内嵌天赋)
   const localTalent = LOCAL_TALENTS.find(t => t.name === talent);
 
-  const talentInfo = localTalent ? {
+  // 优先使用自定义天赋数据,其次使用内嵌天赋数据
+  const talentInfo = customTalent ? {
+    description: customTalent.description || customTalent.描述 || '自定义天赋',
+    effects: customTalent.effects || (customTalent.效果 ? [customTalent.效果] : ['效果暂无描述']),
+    maxLevel: customTalent.maxLevel || customTalent.最大等级 || 10
+  } : localTalent ? {
     description: localTalent.description,
     effects: localTalent.effects ? (
       Array.isArray(localTalent.effects) && localTalent.effects.length > 0 && typeof localTalent.effects[0] === 'string'

@@ -12,6 +12,58 @@ import { SETTINGS_RANGES } from './settings/memorySettings';
 import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
 
 /**
+ * 生成长期记忆总结
+ */
+async function generateLongTermSummary(memories: string[]): Promise<string | null> {
+  try {
+    const helper = getTavernHelper();
+    if (!helper) return null;
+
+    const prompt = `请将以下游戏记忆总结成一段简洁的长期记忆，保留关键信息和重要事件：\n\n${memories.join('\n\n')}\n\n总结要求：\n1. 保持第三人称视角\n2. 突出重要的修炼进展、人物关系、重大事件\n3. 控制在100字以内\n4. 使用修仙小说的语言风格`;
+
+    const response = await helper.generate({ user_input: prompt });
+    return response?.trim() || null;
+  } catch (error) {
+    console.warn('[记忆管理] 生成长期记忆总结失败:', error);
+    return null;
+  }
+}
+
+/**
+ * 转移到长期记忆 - 直接操作存档数据（用于AIGameMaster.ts）
+ */
+async function transferToLongTermMemoryInAI(saveData: SaveData, maxMidTermMemories: number): Promise<void> {
+  try {
+    console.log('[记忆管理] 开始直接转移到长期记忆');
+
+    if (!saveData?.记忆?.中期记忆) {
+      console.warn('[记忆管理] 存档或中期记忆数据不可用，无法处理长期记忆转移');
+      return;
+    }
+
+    const excess = saveData.记忆.中期记忆.length - maxMidTermMemories;
+
+    if (excess > 0) {
+      const oldMemories = saveData.记忆.中期记忆.splice(maxMidTermMemories);
+
+      // 生成长期记忆总结
+      const summary = await generateLongTermSummary(oldMemories);
+      if (summary) {
+        // 确保长期记忆结构存在
+        if (!saveData.记忆.长期记忆) saveData.记忆.长期记忆 = [];
+
+        // 添加新的总结到长期记忆开头
+        saveData.记忆.长期记忆.unshift(summary);
+
+        console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
+      }
+    }
+  } catch (error) {
+    console.warn('[记忆管理] 转移长期记忆失败:', error);
+  }
+}
+
+/**
  * 构建发送给AI Game Master的请求对象
  * @param baseInfo 角色基础信息
  * @param creationDetails 创建详情
@@ -234,7 +286,7 @@ export async function processGmResponse(
   // 游戏中：由MainGamePanel的addToShortTermMemory处理
   if (isInitialization && response.text) {
     if (!updatedSaveData.记忆) {
-      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 中期记忆缓存: [] };
+      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
     }
     if (!Array.isArray(updatedSaveData.记忆.短期记忆)) {
       updatedSaveData.记忆.短期记忆 = [];
@@ -254,13 +306,13 @@ export async function processGmResponse(
     console.log('[processGmResponse] ⚠️ 非初始化阶段，跳过短期记忆添加（由MainGamePanel处理）');
   }
 
-  // 🔥 如果有mid_term_memory，存入缓存数组（用于后续转换）
+  // 🔥 修复：如果有mid_term_memory，直接存入中期记忆数组，不使用缓存
   if (response.mid_term_memory && typeof response.mid_term_memory === 'string') {
     if (!updatedSaveData.记忆) {
-      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 中期记忆缓存: [] };
+      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
     }
-    if (!Array.isArray(updatedSaveData.记忆.中期记忆缓存)) {
-      updatedSaveData.记忆.中期记忆缓存 = [];
+    if (!Array.isArray(updatedSaveData.记忆.中期记忆)) {
+      updatedSaveData.记忆.中期记忆 = [];
     }
 
     // 格式化游戏时间
@@ -271,11 +323,18 @@ export async function processGmResponse(
 
     const formattedMemory = `${timePrefix}${response.mid_term_memory}`;
 
-    // 存入缓存数组
-    updatedSaveData.记忆.中期记忆缓存.push(formattedMemory);
-    console.log('[processGmResponse] ✅ 已将mid_term_memory存入缓存数组');
-    console.log('[processGmResponse] 中期记忆缓存内容:', formattedMemory.substring(0, 100));
-    console.log('[processGmResponse] 当前缓存数量:', updatedSaveData.记忆.中期记忆缓存.length);
+    // 直接存入中期记忆数组
+    updatedSaveData.记忆.中期记忆.unshift(formattedMemory);
+    console.log('[processGmResponse] ✅ 已将mid_term_memory直接存入中期记忆');
+    console.log('[processGmResponse] 中期记忆内容:', formattedMemory.substring(0, 100));
+    console.log('[processGmResponse] 当前中期记忆数量:', updatedSaveData.记忆.中期记忆.length);
+
+    // 🔥 检查中期记忆是否需要转换到长期记忆
+    const maxMidTermMemories = 25; // 默认中期记忆上限
+    if (updatedSaveData.记忆.中期记忆.length > maxMidTermMemories) {
+      console.log('[processGmResponse] 中期记忆超出限制，准备转换到长期记忆');
+      await transferToLongTermMemoryInAI(updatedSaveData, maxMidTermMemories);
+    }
   }
 
   console.log('[processGmResponse] GM响应处理完成');

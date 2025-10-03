@@ -32,6 +32,8 @@ export const useUIStore = defineStore('ui', () => {
   // 每次新消息来时会被清空覆盖
   const currentMessageStateChanges = ref<any | null>(null);
 
+  // 用户输入框内容持久化
+  const userInputText = ref('');
 
   function openCharacterManagement() {
     showCharacterManagement.value = true;
@@ -167,5 +169,8 @@ export const useUIStore = defineStore('ui', () => {
     closeStateChangeViewer,
     setCurrentMessageStateChanges, // 设置当前消息的状态变更
     clearCurrentMessageStateChanges, // 清空当前消息的状态变更
+
+    // 暴露用户输入框内容
+    userInputText,
   };
 });

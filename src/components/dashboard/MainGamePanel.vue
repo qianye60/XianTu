@@ -350,7 +350,11 @@ const currentNarrativeStateChanges = computed(() => {
 });
 
 
-const inputText = ref('');
+// 🔥 使用 uiStore 持久化输入框内容
+const inputText = computed({
+  get: () => uiStore.userInputText,
+  set: (value: string) => { uiStore.userInputText = value; }
+});
 const isInputFocused = ref(false);
 const isAIProcessing = ref(false);
 const inputRef = ref<HTMLTextAreaElement>();
@@ -1374,10 +1378,13 @@ const sendMessage = async () => {
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
 
-  // 将动作队列文本和用户输入合并
+  // 🔥 用户输入外层包裹格式化标签
+  const formattedUserMessage = userMessage ? `<用户行动趋向>${userMessage}</用户行动趋向>` : '';
+
+  // 将格式化后的用户输入和动作队列文本合并
   const finalUserMessage = actionQueueText ?
-    `${userMessage}${actionQueueText}` :
-    userMessage;
+    `${formattedUserMessage}${actionQueueText}` :
+    formattedUserMessage;
 
   // 清空动作队列（动作已经添加到消息中）
   if (actionQueueText) {
@@ -1698,121 +1705,8 @@ const sendMessage = async () => {
 
 // 移除 addMessage 函数，不再需要
 
-// 中期记忆转换缓存系统
-const midTermMemoryCache = {
-  // 缓存准备转换的中期记忆（临时存储，等待批量转换）
-  async cachePendingMidTermMemory(shortTermContent: string, midTermSummary: string) {
-    try {
-      const helper = getTavernHelper();
-      if (!helper) return;
-
-      // 使用简短ID作为key，避免存储完整内容
-      const cacheKey = '_pending_mid_term_cache';
-      const currentCache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
-
-      // 使用简短哈希作为key，而不是完整内容
-      const shortId = `mid_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-      currentCache[shortId] = {
-        contentHash: shortTermContent.substring(0, 100), // 只存前100字符用于匹配
-        summary: midTermSummary,
-        timestamp: new Date().toISOString(),
-        processed: false
-      };
-
-      // 自动清理超过20条的旧缓存
-      const entries = Object.entries(currentCache);
-      if (entries.length > 20) {
-        const sorted = entries.sort((a: any, b: any) =>
-          new Date(b[1].timestamp).getTime() - new Date(a[1].timestamp).getTime()
-        );
-        const cleaned = Object.fromEntries(sorted.slice(0, 20));
-        await helper.insertOrAssignVariables({ [cacheKey]: cleaned }, { type: 'chat' });
-        console.log('[中期记忆缓存] 已清理旧缓存，保留最新20条');
-      } else {
-        await helper.insertOrAssignVariables({ [cacheKey]: currentCache }, { type: 'chat' });
-      }
-
-      console.log('[中期记忆缓存] 已缓存待转换记忆，缓存数量:', Object.keys(currentCache).length);
-
-      return currentCache;
-    } catch (error) {
-      console.error('[中期记忆缓存] 缓存失败:', error);
-    }
-  },
-
-  async getCachedMidTermSummary(shortTermContent: string) {
-    try {
-      const helper = getTavernHelper();
-      if (!helper) return null;
-
-      const cacheKey = '_pending_mid_term_cache';
-      const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
-
-      // 通过前100字符匹配
-      const contentPrefix = shortTermContent.substring(0, 100);
-      const entry = Object.values(cache).find((item: any) =>
-        item.contentHash === contentPrefix && !item.processed
-      );
-
-      return entry?.summary || null;
-    } catch (error) {
-      console.error('[中期记忆缓存] 读取失败:', error);
-      return null;
-    }
-  },
-
-  async processPendingMidTermMemories() {
-    try {
-      const helper = getTavernHelper();
-      if (!helper) return [];
-
-      const cacheKey = '_pending_mid_term_cache';
-      const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
-      const pendingEntries = Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed);
-
-      if (pendingEntries.length === 0) return [];
-
-      console.log('[中期记忆缓存] 开始处理', pendingEntries.length, '条待转换记忆');
-
-      // 准备转换的中期记忆列表
-      const midTermMemories = pendingEntries.map(([shortContent, data]: [string, any]) => {
-        // 标记为已处理
-        cache[shortContent].processed = true;
-        return data.summary;
-      });
-
-      // 更新缓存状态
-      await helper.insertOrAssignVariables({ [cacheKey]: cache }, { type: 'chat' });
-
-      console.log('[中期记忆缓存] 已处理完成，生成', midTermMemories.length, '条中期记忆');
-      return midTermMemories;
-    } catch (error) {
-      console.error('[中期记忆缓存] 处理失败:', error);
-      return [];
-    }
-  },
-
-  async clearProcessedCache() {
-    try {
-      const helper = getTavernHelper();
-      if (!helper) return;
-
-      const cacheKey = '_pending_mid_term_cache';
-      const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
-
-      // 只清除已处理的条目
-      const unprocessedCache = Object.fromEntries(
-        Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed)
-      );
-
-      await helper.insertOrAssignVariables({ [cacheKey]: unprocessedCache }, { type: 'chat' });
-      console.log('[中期记忆缓存] 已清除已处理的缓存条目');
-    } catch (error) {
-      console.error('[中期记忆缓存] 清除缓存失败:', error);
-    }
-  }
-};
+// 🔥 移除复杂的中期记忆缓存系统，改为直接处理
+// 中期记忆现在直接在 AIGameMaster.ts 的 processGmResponse 中处理
 const addToShortTermMemory = async (
   content: string,
   role: 'user' | 'assistant' = 'assistant',
@@ -1858,14 +1752,16 @@ const addToShortTermMemory = async (
       // 确保中期记忆结构存在
       if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
 
-      // 🔥 核心修复：优先使用AI生成的总结，如果没有则自动生成简短总结
+      // 🔥 修复：AI生成的中期记忆总结现在直接在processGmResponse中处理
+      // 这里只处理短期记忆溢出时的自动转换
       if (midTermSummary && midTermSummary.trim()) {
+        // 如果有AI提供的总结，直接使用
         const gameTime = sd.游戏时间;
         const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
         sd.记忆.中期记忆.unshift(`${timeString} ${midTermSummary}`);
         console.log('[记忆管理] ✅ 使用AI生成的中期记忆总结');
       } else {
-        // 如果AI没返回mid_term_memory，自动生成简短总结，不丢弃记忆
+        // 如果没有AI总结，自动生成简短总结，不丢弃记忆
         console.warn('[记忆管理] ⚠️ AI未返回mid_term_memory，自动生成总结');
         const gameTime = sd.游戏时间;
         const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
@@ -1930,6 +1826,38 @@ const transferToLongTermMemory = async () => {
         sd.记忆.长期记忆.unshift(summary);
 
         console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${sd.记忆.长期记忆.length} 条`);
+      }
+    }
+  } catch (error) {
+    console.warn('[记忆管理] 转移长期记忆失败:', error);
+  }
+};
+
+// 🔥 新增：直接操作存档数据的长期记忆转换函数（用于AIGameMaster.ts调用）
+const transferToLongTermMemoryDirect = async (saveData: SaveData) => {
+  try {
+    console.log('[记忆管理] 开始直接转移到长期记忆');
+
+    if (!saveData?.记忆?.中期记忆) {
+      console.warn('[记忆管理] 存档或中期记忆数据不可用，无法处理长期记忆转移');
+      return;
+    }
+
+    const excess = saveData.记忆.中期记忆.length - maxMidTermMemories.value;
+
+    if (excess > 0) {
+      const oldMemories = saveData.记忆.中期记忆.splice(maxMidTermMemories.value);
+
+      // 生成长期记忆总结
+      const summary = await generateLongTermSummary(oldMemories);
+      if (summary) {
+        // 确保长期记忆结构存在
+        if (!saveData.记忆.长期记忆) saveData.记忆.长期记忆 = [];
+
+        // 添加新的总结到长期记忆开头
+        saveData.记忆.长期记忆.unshift(summary);
+
+        console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
       }
     }
   } catch (error) {

@@ -6,6 +6,7 @@
  */
 
 import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
+import { generateJudgmentPrompt } from '../judgement/heavenlyRules';
 
 // 剧情推进提示词
 export const IN_GAME_MESSAGE_PROMPT = [
@@ -29,6 +30,20 @@ export const IN_GAME_MESSAGE_PROMPT = [
   '',
   '',
   DATA_STRUCTURE_DEFINITIONS,
+  '',
+  generateJudgmentPrompt(),
+  '',
+  '# 状态变更识别规则 (极其重要)',
+  '',
+  '⚠️ **你不仅是叙事者，更是游戏状态的维护者。**',
+  '1. **主动识别**: 你必须主动从【玩家输入】和【你生成的剧情】中识别出任何导致角色或世界状态变化的关键事件。',
+  '2. **关键事件示例**: 如果发生以下事件，**必须**生成对应的`state_changes`和`tavern_commands`：',
+  '   - **修炼/突破**: 角色境界提升、属性增长、灵力/气血变化。',
+  '   - **学习/领悟**: 角色学会新功法、技能、神通。',
+  '   - **获得/失去物品**: 角色背包中增加或减少丹药、法宝、材料等。',
+  '   - **战斗/受伤**: 角色或NPC的气血、灵力、状态发生变化。',
+  '   - **情感/关系变化**: 角色与NPC的好感度、关系状态改变。',
+  '3. **无变更则不生成**: 如果剧情确实没有导致任何状态变更，则`state_changes`和`tavern_commands`可以为空数组。',
 ].join('\n')
 
 export function getRandomizedInGamePrompt(): string {
