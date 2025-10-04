@@ -181,9 +181,9 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       talents: creationData.value.talents.filter(item => item.source === 'cloud'),
     };
     
-    // 云端创世数据存储到全局变量，不影响角色存档
-    await helper.insertOrAssignVariables({ 
-      'DAD_creationData': dataToSave 
+    // 云端创世数据存储到全局变量，不影响角色存档（序列化为JSON字符串）
+    await helper.insertOrAssignVariables({
+      'DAD_creationData': JSON.stringify(dataToSave)
     }, { type: 'global' });
     
     console.log("【创世神殿】云端创世数据已存入全局变量！");
@@ -251,7 +251,9 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         if (helper) {
           try {
             const globalVars = await helper.getVariables({ type: 'global' });
-            const potentialData = globalVars?.['DAD_creationData'];
+            const rawData = globalVars?.['DAD_creationData'];
+            // 反序列化JSON字符串
+            const potentialData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
             if (isDADCustomData(potentialData)) {
               savedData = potentialData;
               console.log("【创世神殿】单机模式也成功加载了自定义数据:", {
@@ -292,7 +294,9 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         let savedData: DADCustomData = { worlds: [], talentTiers: [], origins: [], spiritRoots: [], talents: [] };
         if (helper) {
           const globalVars = await helper.getVariables({ type: 'global' });
-          const potentialData = globalVars?.['DAD_creationData'];
+          const rawData = globalVars?.['DAD_creationData'];
+          // 反序列化JSON字符串
+          const potentialData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
           if (isDADCustomData(potentialData)) {
             savedData = potentialData;
             console.log("【创世神殿】从全局变量中加载了已缓存的云端创世数据！");
@@ -595,18 +599,20 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
               console.warn(`【创世神殿】删除旧变量失败（可能不存在）:`, e);
             }
             
-            // 重新创建 DAD_creationData
-            await helper.insertOrAssignVariables({ 
-              'DAD_creationData': newData 
+            // 重新创建 DAD_creationData（序列化为JSON字符串）
+            await helper.insertOrAssignVariables({
+              'DAD_creationData': JSON.stringify(newData)
             }, { type: 'global' });
             
             console.log(`【创世神殿】已重新创建 DAD_creationData`);
             
             // 验证删除是否成功
             const verifyVars = await helper.getVariables({ type: 'global' });
-            const verifyData = verifyVars['DAD_creationData'];
+            const rawVerifyData = verifyVars['DAD_creationData'];
+            // 反序列化JSON字符串
+            const verifyData = typeof rawVerifyData === 'string' ? JSON.parse(rawVerifyData) : rawVerifyData;
             console.log(`【创世神殿】验证：更新后的 DAD_creationData:`, JSON.stringify(verifyData, null, 2));
-            
+
             if (verifyData && isDADCustomData(verifyData)) {
               const remainingItems = (verifyData[type] as any[]).filter((item: any) => item.id === id);
               if (remainingItems.length === 0) {

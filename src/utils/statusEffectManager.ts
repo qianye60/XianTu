@@ -172,8 +172,7 @@ export function normalizeStatusEffect(effect: any, gameTime: GameTime): StatusEf
         月: gameTime.月,
         日: gameTime.日,
         小时: gameTime.小时,
-        总分钟数: gameTime.总分钟数,
-        分钟: gameTime.分钟
+        分钟: (gameTime.分钟 ?? 0) as number
       }, // 使用当前游戏时间作为生成时间
       持续时间分钟: 0,
       状态描述: effect.状态描述 || effect.description || '无描述',

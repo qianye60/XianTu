@@ -107,8 +107,10 @@ export interface TavernHelper {
     max_chat_history?: 'all' | number;
     custom_api?: Record<string, unknown>;
     generation_id?: string;
-  }) => Promise<string>; // 更新generate方法签名
-  generateRaw: (config: Record<string, unknown>) => Promise<unknown>; // 更改为接受配置对象
+    quiet_prompt?: boolean;  // 新增：静默提示，不添加到对话历史
+    quiet_image?: boolean;   // 新增：静默图片，不添加到对话历史
+  }) => Promise<string | Record<string, unknown>>; // 更新返回类型，可能返回对象
+  generateRaw: (config: Record<string, unknown>) => Promise<unknown>;
   triggerSlash: (command: string) => Promise<unknown>;
 
   // 斜杠命令注册（扩展功能，可选）
@@ -118,12 +120,13 @@ export interface TavernHelper {
   injectPrompts: (prompts: InjectionPrompt[], options?: InjectPromptsOptions) => void;
   uninjectPrompts: (ids: string[]) => void;
 
-  // 变量操作
-  getVariables(options: { type: 'global' | 'chat' | 'local' }): Promise<Record<string, unknown>>;
-  getVariable(key: string, options: { type: 'global' | 'chat' | 'local' }): Promise<unknown>;
-  setVariable(key: string, value: unknown, options: { type: 'global' | 'chat' | 'local' }): Promise<void>;
-  insertOrAssignVariables(data: Record<string, unknown>, options: { type: 'global' | 'chat' | 'local' }): Promise<void>;
-  deleteVariable(variable_path: string, options?: { type?: string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, unknown>; delete_occurred: boolean }>;
+  // 变量操作（兼容新版本API）
+  getVariables(options?: { type?: 'global' | 'chat' | 'local' | 'message' | 'script'; message_id?: number; script_id?: string }): Promise<Record<string, unknown>>;
+  getVariable(key: string, options?: { type?: 'global' | 'chat' | 'local' }): Promise<unknown>;
+  setVariable(key: string, value: unknown, options?: { type?: 'global' | 'chat' | 'local' }): Promise<void>;
+  insertOrAssignVariables(data: Record<string, unknown>, options?: { type?: 'global' | 'chat' | 'local' }): Promise<void>;
+  replaceVariables?(data: Record<string, unknown>, options?: { type?: 'global' | 'chat' | 'local' }): Promise<void>; // 新增：替换变量
+  deleteVariable(variable_path: string, options?: { type?: 'global' | 'chat' | 'local' | string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, unknown>; delete_occurred: boolean }>;
 
   // 角色与宏
   getCharData(): Promise<{ name: string } | null>;
@@ -142,10 +145,15 @@ export interface TavernHelper {
   updateChatHistory?(history: unknown[]): Promise<void>; // 为了向后兼容，设为可选
   clearChat?(): Promise<void>; // 清空聊天记录
 
+  // 版本信息（新增）
+  getTavernHelperVersion?(): Promise<string>;
+  updateTavernHelper?(): Promise<boolean>;
+
   // 设置与其他
   settings?: {
     token?: string;
   };
+  [key: string]: any; // 允许其他未知属性
 }
 
 /**

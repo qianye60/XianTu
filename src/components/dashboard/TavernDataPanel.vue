@@ -249,7 +249,9 @@ const saveVariable = async () => {
     }
 
     const { type, key } = editingItem.value
-    const data = { [key]: value }
+    // 如果value是对象或数组，序列化为JSON字符串避免structuredClone错误
+    const serializedValue = (typeof value === 'object' && value !== null) ? JSON.stringify(value) : value
+    const data = { [key]: serializedValue }
     await helper.insertOrAssignVariables(data, { type: type as 'chat' | 'global' })
 
     if (type === 'chat') {

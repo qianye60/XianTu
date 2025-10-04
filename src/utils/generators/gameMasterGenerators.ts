@@ -265,8 +265,14 @@ export async function generateInitialMessage(
         st['灵气'] = { 当前: 0, 最大: lingMax };
         st['神识'] = { 当前: shenMax, 最大: shenMax };
         st['寿命'] = { 当前: lifeCurrent, 最大: lifeMax };
-        await tv.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
-        console.log('[初始化基线] 已写入玩家角色状态基线: ', st);
+        // 使用分片存储同步属性
+        await tv.setVariable('属性', JSON.stringify({
+          气血: st['气血'],
+          灵气: st['灵气'],
+          神识: st['神识'],
+          寿命: st['寿命']
+        }), { type: 'chat' });
+        console.log('[初始化基线] 已写入玩家角色状态基线到分片: ', st);
       }
     } catch (e) {
       console.warn('[初始化基线] 写入玩家角色状态基线失败（非致命）：', e);

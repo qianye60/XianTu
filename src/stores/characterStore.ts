@@ -466,7 +466,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
               最后保存时间: now,
               游戏内时间: '修仙元年 春',
               游戏时长: 0,
-              角色名字: baseInfo.姓名,
+              角色名字: baseInfo.名字,
               境界: '凡人',
               位置: '未知',
               修为进度: 0,
@@ -686,10 +686,21 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.log('角色商店', `✅ 已将【${profile.角色基础信息.名字}】的存档以分片模式同步至酒馆`);
 
     } catch (error) {
-      debug.error('角色商店', '同步角色档案至酒馆失败', error);
-      toast.error('同步角色档案至酒馆失败，请检查控制台。');
-      // 重新抛出错误，以便调用堆栈可以捕获它
-      throw error;
+      // 🔥 根据用户要求：即使Tavern同步失败也不阻塞角色创建
+      // structuredClone错误是TavernHelper内部限制，不应影响本地游戏
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      if (errorMsg.includes('structuredClone') || errorMsg.includes('DataCloneError')) {
+        // structuredClone错误：这是TavernHelper的限制，不是致命错误
+        debug.warn('角色商店', `⚠️ Tavern变量同步受限（structuredClone限制），但本地存档正常。角色创建将继续。`);
+        console.warn('[Tavern同步] structuredClone限制导致同步失败，但不影响本地游戏:', error);
+        // 不抛出错误，允许角色创建继续
+      } else {
+        // 其他类型的错误：记录但不阻塞
+        debug.error('角色商店', '同步角色档案至酒馆失败', error);
+        toast.warning('Tavern同步失败，但本地存档正常，可以继续游戏。');
+        // 不抛出错误，允许继续
+      }
     }
   };
 
@@ -1479,10 +1490,24 @@ export const useCharacterStore = defineStore('characterV3', () => {
         throw new Error('AI未能生成修复指令');
       }
 
+      // 处理可能的对象格式响应
+      let responseText: string;
+      if (typeof aiResponse === 'string') {
+        responseText = aiResponse;
+      } else if (aiResponse && typeof aiResponse === 'object') {
+        const content = (aiResponse as Record<string, any>).content || (aiResponse as Record<string, any>).text;
+        if (typeof content !== 'string') {
+          throw new Error('AI响应格式无效');
+        }
+        responseText = content;
+      } else {
+        throw new Error('AI响应类型无效');
+      }
+
       // 3. 解析AI响应
       let commands: any[] = [];
       try {
-        const jsonString = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+        const jsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsedResponse = JSON.parse(jsonString);
         if (parsedResponse.tavern_commands && Array.isArray(parsedResponse.tavern_commands)) {
           commands = parsedResponse.tavern_commands;

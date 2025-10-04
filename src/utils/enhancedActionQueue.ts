@@ -884,12 +884,10 @@ export class EnhancedActionQueueManager {
         return;
       }
       
-      // 同步整个存档数据到酒馆，而不是单独同步装备栏
-      await helper.insertOrAssignVariables({
-        'character.saveData': saveData
-      }, { type: 'chat' });
-      
-      console.log('[装备同步] 装备栏已同步到酒馆变量');
+      // 使用分片存储同步装备栏
+      await helper.setVariable('装备栏', JSON.stringify(saveData.装备栏), { type: 'chat' });
+
+      console.log('[装备同步] 装备栏已同步到酒馆分片');
     } catch (error) {
       console.warn('[装备同步] 同步装备栏到酒馆变量失败:', error);
     }
@@ -906,23 +904,10 @@ export class EnhancedActionQueueManager {
         return;
       }
 
-      // 清理修炼功法数据，只保留标准字段
-      const cleanedCultivation = saveData.修炼功法 ? {
-        功法: saveData.修炼功法.功法,  // 只保留引用
-        熟练度: saveData.修炼功法.熟练度 || 0,
-        已解锁技能: saveData.修炼功法.已解锁技能 || [],
-        修炼时间: saveData.修炼功法.修炼时间 || 0,
-        突破次数: saveData.修炼功法.突破次数 || 0,
-        正在修炼: saveData.修炼功法.正在修炼 || false,
-        修炼进度: saveData.修炼功法.修炼进度 || 0
-      } : null;
+      // 使用分片存储同步修炼功法
+      await helper.setVariable('修炼功法', JSON.stringify(saveData.修炼功法), { type: 'chat' });
 
-      // 更新修炼功法变量
-      await helper.insertOrAssignVariables({
-        'character.saveData.修炼功法': cleanedCultivation
-      }, { type: 'chat' });
-
-      console.log('[修炼同步] 修炼功法已同步到酒馆变量（已清理多余字段）');
+      console.log('[修炼同步] 修炼功法已同步到酒馆分片');
     } catch (error) {
       console.warn('[修炼同步] 同步修炼功法到酒馆变量失败:', error);
     }

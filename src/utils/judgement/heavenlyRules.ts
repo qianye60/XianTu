@@ -453,23 +453,17 @@ export function computeHeavenlyCalculation(
   };
 }
 
-// 同步到Tavern
+// 同步到Tavern（已废弃，使用AIGameMaster.syncToTavern替代）
 export async function syncToTavern(saveData: SaveData, baseInfo: CharacterBaseInfo): Promise<void> {
-  const helper = getTavernHelper();
-  if (!helper) return;
+  console.warn('[天道演算] syncToTavern 已废弃，请使用 AIGameMaster.syncToTavern');
+  // 使用分片存储同步
+  const { syncToTavern: syncWithShards } = await import('@/utils/AIGameMaster');
 
-  try {
-    const calculation = computeHeavenlyCalculation(saveData, baseInfo);
-    set(saveData, '玩家角色状态.heavenly', calculation);
+  const calculation = computeHeavenlyCalculation(saveData, baseInfo);
+  set(saveData, '玩家角色状态.heavenly', calculation);
 
-    await helper.insertOrAssignVariables({
-      'character.saveData': saveData
-    }, { type: 'chat' });
-
-    console.log('[天道演算] 同步完成，天道演算结果已存入存档');
-  } catch (error) {
-    console.error('[天道演算] 同步失败:', error);
-  }
+  await syncWithShards(saveData);
+  console.log('[天道演算] 同步完成（使用分片模式）');
 }
 
 // 兼容旧接口的同步函数

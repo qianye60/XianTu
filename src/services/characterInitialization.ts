@@ -584,38 +584,31 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     }
   }
 
-  // 6. 同步到Tavern
+  // 6. 同步到Tavern（使用分片存储）
   try {
-    // ⚠️ 清空所有分片变量和旧的character变量
-    console.log('[初始化流程] 清空旧的分片和character变量');
-    const allVars = await helper.getVariables({ type: 'chat' });
+    console.log('[初始化流程] 使用分片存储同步数据到酒馆');
 
-    // 定义所有分片变量名
-    const shardNames = [
-      '基础信息', '境界', '属性', '位置', '修炼功法', '装备栏',
-      '背包_灵石', '背包_物品', '人物关系', '三千大道', '世界信息',
-      '记忆_短期', '记忆_中期', '记忆_长期', '游戏时间', '状态效果'
-    ];
+    // 导入分片存储工具
+    const { shardSaveData, saveAllShards, clearAllShards } = await import('@/utils/storageSharding');
 
-    // 删除所有分片变量
-    for (const shardName of shardNames) {
-      if (allVars[shardName] !== undefined) {
-        await helper.deleteVariable(shardName, { type: 'chat' });
-      }
-    }
+    // 清空所有旧分片
+    await clearAllShards(helper);
 
     // 删除旧的character.开头的变量（兼容旧版本）
+    const allVars = await helper.getVariables({ type: 'chat' });
     const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
     for (const key of characterKeys) {
       await helper.deleteVariable(key, { type: 'chat' });
     }
 
-    // 只同步一次完整的 saveData
-    console.log('[初始化流程] 同步完整saveData到酒馆（仅一次）');
-    await helper.setVariable('character.saveData', saveData, { type: 'chat' });
-    await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
+    // 将SaveData转换为分片并保存
+    const shards = shardSaveData(saveData);
+    await saveAllShards(shards, helper);
 
-    console.log('[初始化流程] 数据同步到Tavern成功');
+    // 保存角色名到全局变量（使用setVariable避免structuredClone问题）
+    await helper.setVariable('character.name', baseInfo.名字, { type: 'global' });
+
+    console.log('[初始化流程] 数据同步到Tavern成功（分片模式）');
   } catch (err) {
     console.warn('保存游戏数据到酒馆失败，不影响本地游戏开始:', err);
   }

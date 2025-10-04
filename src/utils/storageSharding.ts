@@ -296,12 +296,42 @@ export async function saveAllShards(
   shards: StorageShards,
   helper: TavernHelper
 ): Promise<void> {
-  const vars: Record<string, unknown> = {};
+  // 逐个保存，避免insertOrAssignVariables对整个对象进行structuredClone
+  const successKeys: string[] = [];
+  const failedKeys: string[] = [];
+
   for (const [key, value] of Object.entries(shards)) {
-    vars[key] = value;
+    try {
+      // 序列化为JSON字符串，避免structuredClone问题
+      const serialized = JSON.stringify(value);
+
+      // 尝试保存
+      await helper.setVariable(key, serialized, { type: 'chat' });
+      successKeys.push(key);
+
+    } catch (error) {
+      failedKeys.push(key);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // 详细记录失败信息
+      console.error(`[分片存储] 保存分片"${key}"失败:`, {
+        error: errorMsg,
+        valueType: typeof value,
+        valueKeys: value && typeof value === 'object' ? Object.keys(value) : 'N/A',
+        serializedLength: JSON.stringify(value).length
+      });
+
+      // 如果是structuredClone错误，仅警告；其他错误则抛出
+      if (!errorMsg.includes('structuredClone') && !errorMsg.includes('DataCloneError')) {
+        throw error;
+      }
+    }
   }
-  await helper.insertOrAssignVariables(vars, { type: 'chat' });
-  debug.log('分片存储', `已保存所有 ${Object.keys(shards).length} 个分片`);
+
+  debug.log('分片存储', `已保存 ${successKeys.length}/${Object.keys(shards).length} 个分片`);
+  if (failedKeys.length > 0) {
+    debug.warn('分片存储', `以下分片因TavernHelper限制未能同步: ${failedKeys.join(', ')}`);
+  }
 }
 
 /**
@@ -334,8 +364,10 @@ export async function loadAllShards(helper: TavernHelper): Promise<Partial<Stora
 
   for (const key of shardKeys) {
     if (key in allVars) {
+      const value = allVars[key];
+      // 反序列化JSON字符串
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (shards as any)[key] = allVars[key];
+      (shards as any)[key] = typeof value === 'string' ? JSON.parse(value) : value;
     }
   }
 
@@ -351,7 +383,8 @@ export async function updateShard<K extends keyof StorageShards>(
   value: StorageShards[K],
   helper: TavernHelper
 ): Promise<void> {
-  await helper.setVariable(key, value, { type: 'chat' });
+  // 序列化为JSON字符串，避免structuredClone问题
+  await helper.setVariable(key, JSON.stringify(value), { type: 'chat' });
   debug.log('分片存储', `已更新分片: ${key}`);
 }
 
@@ -362,11 +395,11 @@ export async function updateShards(
   updates: Partial<StorageShards>,
   helper: TavernHelper
 ): Promise<void> {
-  const vars: Record<string, unknown> = {};
+  // 逐个更新，避免insertOrAssignVariables对整个对象进行structuredClone
   for (const [key, value] of Object.entries(updates)) {
-    vars[key] = value;
+    // 序列化为JSON字符串，避免structuredClone问题
+    await helper.setVariable(key, JSON.stringify(value), { type: 'chat' });
   }
-  await helper.insertOrAssignVariables(vars, { type: 'chat' });
   debug.log('分片存储', `已批量更新 ${Object.keys(updates).length} 个分片`);
 }
 
@@ -488,27 +521,39 @@ export async function loadMinimalContext(
     includeWorldInfo?: boolean;       // 是否包含世界信息 (默认false)
   }
 ): Promise<Partial<StorageShards>> {
+  // 辅助函数：反序列化变量
+  const parseVar = <T>(value: unknown): T | undefined => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as T;
+      } catch {
+        return undefined;
+      }
+    }
+    return value as T;
+  };
+
   const context: Partial<StorageShards> = {
-    '基础信息': await helper.getVariable('基础信息', { type: 'chat' }) as StorageShards['基础信息'],
-    '境界': await helper.getVariable('境界', { type: 'chat' }) as StorageShards['境界'],
-    '属性': await helper.getVariable('属性', { type: 'chat' }) as StorageShards['属性'],
-    '位置': await helper.getVariable('位置', { type: 'chat' }) as StorageShards['位置'],
-    '修炼功法': await helper.getVariable('修炼功法', { type: 'chat' }) as StorageShards['修炼功法'],
-    '装备栏': await helper.getVariable('装备栏', { type: 'chat' }) as StorageShards['装备栏'],
-    '背包_灵石': await helper.getVariable('背包_灵石', { type: 'chat' }) as StorageShards['背包_灵石'],
-    '游戏时间': await helper.getVariable('游戏时间', { type: 'chat' }) as StorageShards['游戏时间'],
-    '状态效果': await helper.getVariable('状态效果', { type: 'chat' }) as StorageShards['状态效果'],
+    '基础信息': parseVar<StorageShards['基础信息']>(await helper.getVariable('基础信息', { type: 'chat' })),
+    '境界': parseVar<StorageShards['境界']>(await helper.getVariable('境界', { type: 'chat' })),
+    '属性': parseVar<StorageShards['属性']>(await helper.getVariable('属性', { type: 'chat' })),
+    '位置': parseVar<StorageShards['位置']>(await helper.getVariable('位置', { type: 'chat' })),
+    '修炼功法': parseVar<StorageShards['修炼功法']>(await helper.getVariable('修炼功法', { type: 'chat' })),
+    '装备栏': parseVar<StorageShards['装备栏']>(await helper.getVariable('装备栏', { type: 'chat' })),
+    '背包_灵石': parseVar<StorageShards['背包_灵石']>(await helper.getVariable('背包_灵石', { type: 'chat' })),
+    '游戏时间': parseVar<StorageShards['游戏时间']>(await helper.getVariable('游戏时间', { type: 'chat' })),
+    '状态效果': parseVar<StorageShards['状态效果']>(await helper.getVariable('状态效果', { type: 'chat' })),
   };
 
   // 可选的大型数据字段
   if (options?.includeRelationships) {
-    context['人物关系'] = await helper.getVariable('人物关系', { type: 'chat' }) as StorageShards['人物关系'];
+    context['人物关系'] = parseVar<StorageShards['人物关系']>(await helper.getVariable('人物关系', { type: 'chat' }));
   }
   if (options?.includeItems) {
-    context['背包_物品'] = await helper.getVariable('背包_物品', { type: 'chat' }) as StorageShards['背包_物品'];
+    context['背包_物品'] = parseVar<StorageShards['背包_物品']>(await helper.getVariable('背包_物品', { type: 'chat' }));
   }
   if (options?.includeWorldInfo) {
-    context['世界信息'] = await helper.getVariable('世界信息', { type: 'chat' }) as StorageShards['世界信息'];
+    context['世界信息'] = parseVar<StorageShards['世界信息']>(await helper.getVariable('世界信息', { type: 'chat' }));
   }
 
   debug.log('分片存储', `已加载精简上下文，包含 ${Object.keys(context).length} 个字段`);

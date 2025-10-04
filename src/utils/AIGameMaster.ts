@@ -43,7 +43,15 @@ async function generateLongTermSummary(memories: string[]): Promise<string | nul
     const prompt = `请将以下游戏记忆总结成一段简洁的长期记忆，保留关键信息和重要事件：\n\n${memories.join('\n\n')}\n\n总结要求：\n1. 保持第三人称视角\n2. 突出重要的修炼进展、人物关系、重大事件\n3. 控制在100字以内\n4. 使用修仙小说的语言风格`;
 
     const response = await helper.generate({ user_input: prompt });
-    return response?.trim() || null;
+
+    // 处理可能的对象格式响应
+    if (typeof response === 'string') {
+      return response.trim() || null;
+    } else if (response && typeof response === 'object') {
+      const content = (response as Record<string, any>).content || (response as Record<string, any>).text;
+      return typeof content === 'string' ? content.trim() : null;
+    }
+    return null;
   } catch (error) {
     console.warn('[记忆管理] 生成长期记忆总结失败:', error);
     return null;
@@ -866,8 +874,10 @@ export async function syncToTavern(saveData: SaveData, scope: 'global' | 'chat' 
     // 将saveData拆分为17个分片（包含隐式中期记忆）
     const shards = shardSaveData(saveData);
 
-    // 一次性写入所有分片 (通过unknown中转以避免类型转换错误)
-    await helper.insertOrAssignVariables(shards as unknown as Record<string, unknown>, { type: scope });
+    // 逐个写入所有分片，避免insertOrAssignVariables的structuredClone问题
+    for (const [key, value] of Object.entries(shards)) {
+      await helper.setVariable(key, JSON.stringify(value), { type: scope });
+    }
 
     console.log('[syncToTavern] 数据同步完成 (17个分片)');
   } catch (error) {
@@ -1003,7 +1013,19 @@ export async function syncChangesToTavern(changes: StateChange[], scope: 'global
     // 对每个受影响的分片进行更新
     for (const [shardName, changes] of Object.entries(shardChanges)) {
       console.log(`[syncChangesToTavern] 处理分片 "${shardName}"，包含 ${changes.length} 个变更`);
-      let currentShard = await helper.getVariable(shardName, { type: scope });
+      const rawShard = await helper.getVariable(shardName, { type: scope });
+
+      // 反序列化JSON字符串
+      let currentShard: any;
+      if (typeof rawShard === 'string') {
+        try {
+          currentShard = JSON.parse(rawShard);
+        } catch {
+          currentShard = null;
+        }
+      } else {
+        currentShard = rawShard;
+      }
 
       // 如果分片不存在,创建空对象/数组
       if (!currentShard) {
@@ -1027,8 +1049,8 @@ export async function syncChangesToTavern(changes: StateChange[], scope: 'global
         }
       }
 
-      // 更新分片
-      await helper.setVariable(shardName, currentShard, { type: scope });
+      // 序列化并更新分片
+      await helper.setVariable(shardName, JSON.stringify(currentShard), { type: scope });
       console.log(`[syncChangesToTavern] ✅ 分片 "${shardName}" 已更新到酒馆`);
     }
 
@@ -1053,25 +1075,37 @@ export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<
 
     const variables = await helper.getVariables({ type: scope });
 
+    // 辅助函数：反序列化变量
+    const parseVar = <T>(value: unknown): T | undefined => {
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value) as T;
+        } catch {
+          return undefined;
+        }
+      }
+      return value as T;
+    };
+
     // 从分片重组SaveData
     const shards: Partial<StorageShards> = {
-      '基础信息': variables['基础信息'] as StorageShards['基础信息'],
-      '境界': variables['境界'] as StorageShards['境界'],
-      '属性': variables['属性'] as StorageShards['属性'],
-      '位置': variables['位置'] as StorageShards['位置'],
-      '修炼功法': variables['修炼功法'] as StorageShards['修炼功法'],
-      '装备栏': variables['装备栏'] as StorageShards['装备栏'],
-      '背包_灵石': variables['背包_灵石'] as StorageShards['背包_灵石'],
-      '背包_物品': variables['背包_物品'] as StorageShards['背包_物品'],
-      '人物关系': variables['人物关系'] as StorageShards['人物关系'],
-      '三千大道': variables['三千大道'] as StorageShards['三千大道'],
-      '世界信息': variables['世界信息'] as StorageShards['世界信息'],
-      '记忆_短期': variables['记忆_短期'] as StorageShards['记忆_短期'],
-      '记忆_中期': variables['记忆_中期'] as StorageShards['记忆_中期'],
-      '记忆_长期': variables['记忆_长期'] as StorageShards['记忆_长期'],
-      '记忆_隐式中期': variables['记忆_隐式中期'] as StorageShards['记忆_隐式中期'],
-      '游戏时间': variables['游戏时间'] as StorageShards['游戏时间'],
-      '状态效果': variables['状态效果'] as StorageShards['状态效果'],
+      '基础信息': parseVar<StorageShards['基础信息']>(variables['基础信息']),
+      '境界': parseVar<StorageShards['境界']>(variables['境界']),
+      '属性': parseVar<StorageShards['属性']>(variables['属性']),
+      '位置': parseVar<StorageShards['位置']>(variables['位置']),
+      '修炼功法': parseVar<StorageShards['修炼功法']>(variables['修炼功法']),
+      '装备栏': parseVar<StorageShards['装备栏']>(variables['装备栏']),
+      '背包_灵石': parseVar<StorageShards['背包_灵石']>(variables['背包_灵石']),
+      '背包_物品': parseVar<StorageShards['背包_物品']>(variables['背包_物品']),
+      '人物关系': parseVar<StorageShards['人物关系']>(variables['人物关系']),
+      '三千大道': parseVar<StorageShards['三千大道']>(variables['三千大道']),
+      '世界信息': parseVar<StorageShards['世界信息']>(variables['世界信息']),
+      '记忆_短期': parseVar<StorageShards['记忆_短期']>(variables['记忆_短期']),
+      '记忆_中期': parseVar<StorageShards['记忆_中期']>(variables['记忆_中期']),
+      '记忆_长期': parseVar<StorageShards['记忆_长期']>(variables['记忆_长期']),
+      '记忆_隐式中期': parseVar<StorageShards['记忆_隐式中期']>(variables['记忆_隐式中期']),
+      '游戏时间': parseVar<StorageShards['游戏时间']>(variables['游戏时间']),
+      '状态效果': parseVar<StorageShards['状态效果']>(variables['状态效果']),
     };
 
     // 从分片重组SaveData

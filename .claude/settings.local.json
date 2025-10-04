@@ -18,7 +18,8 @@
       "Bash(Select-String -Pattern \"z-index\" -Path \"src\\components\\character-creation\\CharacterManagement.vue\" -Context 1)",
       "Bash(git checkout:*)",
       "Bash(netstat:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(Select-String -Pattern \"insertOrAssignVariables\" -Path \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\@types 新版.txt\" -Context 5)"
     ],
     "deny": [],
     "ask": [],
