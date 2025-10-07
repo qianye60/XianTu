@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V1.0 Beta</span><!--{{ appVersion }}-->
+          <span class="version-tag">V1.5 Beta</span><!--{{ appVersion }}-->
         </div>
         <p class="sub-title">大道朝天，各走一边</p>
       </div>

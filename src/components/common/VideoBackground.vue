@@ -21,7 +21,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 const props = withDefaults(defineProps<{
   src?: string
 }>(), {
-  src: 'http://38.55.124.252:13145/1394774d3043156d.mp4'
+  src: 'http://ddct.top/backgroundvedio.mp4'
 })
 
 const videoRef = ref<HTMLVideoElement>()
