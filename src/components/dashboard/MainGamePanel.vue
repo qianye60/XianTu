@@ -1670,11 +1670,21 @@ const sendMessage = async () => {
       if (currentSaveData?.记忆) {
         const helper = getTavernHelper();
         if (helper) {
-          // 同步三个记忆分片
-          await helper.setVariable('记忆_短期', currentSaveData.记忆.短期记忆, { type: 'chat' });
-          await helper.setVariable('记忆_中期', currentSaveData.记忆.中期记忆, { type: 'chat' });
-          await helper.setVariable('记忆_长期', currentSaveData.记忆.长期记忆, { type: 'chat' });
-          console.log('[记忆同步] ✅ 记忆已同步到Tavern分片');
+          try {
+            // 同步三个记忆分片（序列化为JSON字符串）
+            await helper.setVariable('记忆_短期', JSON.stringify(currentSaveData.记忆.短期记忆), { type: 'chat' });
+            await helper.setVariable('记忆_中期', JSON.stringify(currentSaveData.记忆.中期记忆), { type: 'chat' });
+            await helper.setVariable('记忆_长期', JSON.stringify(currentSaveData.记忆.长期记忆), { type: 'chat' });
+            console.log('[记忆同步] ✅ 记忆已同步到Tavern分片');
+          } catch (error) {
+            // 同步失败不影响游戏继续
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            if (errorMsg.includes('structuredClone') || errorMsg.includes('DataCloneError')) {
+              console.warn('[记忆同步] ⚠️ Tavern同步受限（structuredClone限制），但本地记忆正常');
+            } else {
+              console.warn('[记忆同步] ⚠️ Tavern同步失败，但本地记忆正常:', error);
+            }
+          }
         }
       }
 
@@ -2055,7 +2065,15 @@ const generateLongTermSummary = async (memories: string[]): Promise<string | nul
     const prompt = `请将以下游戏记忆总结成一段简洁的长期记忆，保留关键信息和重要事件：\n\n${memories.join('\n\n')}\n\n总结要求：\n1. 保持第三人称视角\n2. 突出重要的修炼进展、人物关系、重大事件\n3. 控制在100字以内\n4. 使用修仙小说的语言风格`;
 
     const response = await helper.generate({ user_input: prompt });
-    return response?.trim() || null;
+
+    // 处理可能的对象格式响应
+    if (typeof response === 'string') {
+      return response.trim() || null;
+    } else if (response && typeof response === 'object') {
+      const content = (response as Record<string, any>).content || (response as Record<string, any>).text;
+      return typeof content === 'string' ? content.trim() : null;
+    }
+    return null;
   } catch (error) {
     console.warn('[记忆管理] 生成长期记忆总结失败:', error);
     return null;

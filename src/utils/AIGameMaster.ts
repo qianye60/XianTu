@@ -916,8 +916,10 @@ export async function syncToTavern(saveData: SaveData, scope: 'global' | 'chat' 
     // 将saveData拆分为17个分片（包含隐式中期记忆）
     const shards = shardSaveData(saveData);
 
-    // 一次性写入所有分片 (通过unknown中转以避免类型转换错误)
-    await helper.insertOrAssignVariables(shards as unknown as Record<string, unknown>, { type: scope });
+    // 逐个写入所有分片，避免insertOrAssignVariables的structuredClone问题
+    for (const [key, value] of Object.entries(shards)) {
+      await helper.setVariable(key, JSON.stringify(value), { type: scope });
+    }
 
     console.log('[syncToTavern] 数据同步完成 (17个分片)');
   } catch (error) {
@@ -1048,7 +1050,19 @@ export async function syncChangesToTavern(changes: StateChange[], scope: 'global
     // 对每个受影响的分片进行更新
     for (const [shardName, changes] of Object.entries(shardChanges)) {
       console.log(`[syncChangesToTavern] 处理分片 "${shardName}"，包含 ${changes.length} 个变更`);
-      let currentShard = await helper.getVariable(shardName, { type: scope });
+      const rawShard = await helper.getVariable(shardName, { type: scope });
+
+      // 反序列化JSON字符串
+      let currentShard: any;
+      if (typeof rawShard === 'string') {
+        try {
+          currentShard = JSON.parse(rawShard);
+        } catch {
+          currentShard = null;
+        }
+      } else {
+        currentShard = rawShard;
+      }
 
       // 如果分片不存在,创建空对象/数组
       if (!currentShard) {
@@ -1072,8 +1086,8 @@ export async function syncChangesToTavern(changes: StateChange[], scope: 'global
         }
       }
 
-      // 更新分片
-      await helper.setVariable(shardName, currentShard, { type: scope });
+      // 序列化并更新分片
+      await helper.setVariable(shardName, JSON.stringify(currentShard), { type: scope });
       console.log(`[syncChangesToTavern] ✅ 分片 "${shardName}" 已更新到酒馆`);
     }
 
@@ -1097,6 +1111,18 @@ export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<
     }
 
     const variables = await helper.getVariables({ type: scope });
+
+    // 辅助函数：反序列化变量
+    const parseVar = <T>(value: unknown): T | undefined => {
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value) as T;
+        } catch {
+          return undefined;
+        }
+      }
+      return value as T;
+    };
 
     // 从分片重组SaveData
     const shards: Partial<StorageShards> = {

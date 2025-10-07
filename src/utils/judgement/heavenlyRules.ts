@@ -447,10 +447,11 @@ export function computeHeavenlyCalculation(
   };
 }
 
-// 同步到Tavern
+// 同步到Tavern（已废弃，使用AIGameMaster.syncToTavern替代）
 export async function syncToTavern(saveData: SaveData, baseInfo: CharacterBaseInfo): Promise<void> {
-  const helper = getTavernHelper();
-  if (!helper) return;
+  console.warn('[天道演算] syncToTavern 已废弃，请使用 AIGameMaster.syncToTavern');
+  // 使用分片存储同步
+  const { syncToTavern: syncWithShards } = await import('@/utils/AIGameMaster');
 
   try {
     // heavenly 字段已废弃，不再存储

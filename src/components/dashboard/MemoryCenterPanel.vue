@@ -448,7 +448,7 @@ const clearMemory = async () => {
             characterData.value.记忆.长期记忆 = [];
           }
 
-          // 同步到酒馆
+          // 同步到酒馆（使用分片存储）
           const helper = getTavernHelper();
           if (helper) {
             const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
@@ -572,8 +572,8 @@ const memorySystem = {
     try {
       const helper = getTavernHelper();
       if (helper) {
-        // 异步持久化到酒馆变量（不阻塞UI）
-        helper.setVariable('character.memorySettings', cfg, { type: 'chat' })
+        // 异步持久化到酒馆变量（不阻塞UI，序列化为JSON字符串）
+        helper.setVariable('character.memorySettings', JSON.stringify(cfg), { type: 'chat' })
           .then(() => debug.log('记忆中心', '配置已保存到酒馆变量 character.memorySettings'))
           .catch((e: any) => debug.warn('记忆中心', '保存配置到酒馆失败（非致命）', e));
       }
