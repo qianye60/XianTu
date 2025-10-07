@@ -22,9 +22,9 @@
         v-else
         :is="getCurrentDataComponent()"
         v-bind="getCurrentDataProps()"
-        @edit-variable="$emit('edit-variable', $event)"
-        @copy-variable="$emit('copy-variable', $event)"
-        @delete-variable="$emit('delete-variable', $event)"
+        @edit-variable="(item) => $emit('edit-variable', item)"
+        @copy-variable="(item) => $emit('copy-variable', item)"
+        @delete-variable="(item) => $emit('delete-variable', item)"
         @add-new-variable="$emit('add-new-variable', $event)"
         @debug-log="$emit('debug-log')"
       />
@@ -61,11 +61,11 @@ interface Props {
 const props = defineProps<Props>()
 
 defineEmits<{
-  'edit-variable': [event: { type: string; key: string; value: any }]
-  'copy-variable': [event: { key: string; value: any }]
-  'delete-variable': [event: { type: string; key: string }]
-  'add-new-variable': [type: string]
-  'debug-log': []
+  (e: 'edit-variable', event: { type: string; key: string; value: any }): void
+  (e: 'copy-variable', event: { key: string; value: any }): void
+  (e: 'delete-variable', event: { type: string; key: string }): void
+  (e: 'add-new-variable', type: string): void
+  (e: 'debug-log'): void
 }>()
 
 // 错误处理

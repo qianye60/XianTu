@@ -298,6 +298,11 @@ export async function saveAllShards(
 
   console.log(`[分片存储] 准备保存 ${Object.keys(shards).length} 个分片到酒馆...`);
 
+  // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+  const { deepCleanForClone } = await import('./dataValidation');
+  const cleanedVars = deepCleanForClone(vars);
+  console.log(`[分片存储] 已清理数据，准备写入酒馆`);
+
   // 添加30秒超时保护
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => {
@@ -305,7 +310,7 @@ export async function saveAllShards(
     }, 30 * 1000);
   });
 
-  const savePromise = helper.insertOrAssignVariables(vars, { type: 'chat' });
+  const savePromise = helper.insertOrAssignVariables(cleanedVars, { type: 'chat' });
 
   await Promise.race([savePromise, timeoutPromise]);
 
@@ -376,7 +381,12 @@ export async function updateShards(
   for (const [key, value] of Object.entries(updates)) {
     vars[key] = value;
   }
-  await helper.insertOrAssignVariables(vars, { type: 'chat' });
+
+  // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+  const { deepCleanForClone } = await import('./dataValidation');
+  const cleanedVars = deepCleanForClone(vars);
+
+  await helper.insertOrAssignVariables(cleanedVars, { type: 'chat' });
   debug.log('分片存储', `已批量更新 ${Object.keys(updates).length} 个分片`);
 }
 

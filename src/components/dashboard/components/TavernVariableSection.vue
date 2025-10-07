@@ -71,11 +71,11 @@ interface Props {
 defineProps<Props>()
 
 defineEmits<{
-  'edit-variable': [event: { type: string; key: string; value: any }]
-  'copy-variable': [event: { key: string; value: any }]
-  'delete-variable': [event: { type: string; key: string }]
-  'add-new-variable': [type: string]
-  'debug-log': []
+  (e: 'edit-variable', event: { type: string; key: string; value: any }): void
+  (e: 'copy-variable', event: { key: string; value: any }): void
+  (e: 'delete-variable', event: { type: string; key: string }): void
+  (e: 'add-new-variable', type: string): void
+  (e: 'debug-log'): void
 }>()
 
 const getDataType = (value: any): string => {

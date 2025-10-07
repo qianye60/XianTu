@@ -202,10 +202,12 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       talents: creationData.value.talents.filter(item => item.source === 'cloud'),
     };
     
+    // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+    const { deepCleanForClone } = await import('@/utils/dataValidation');
+    const cleanedData = deepCleanForClone({ 'DAD_creationData': dataToSave });
+
     // 云端创世数据存储到全局变量，不影响角色存档
-    await helper.insertOrAssignVariables({ 
-      'DAD_creationData': dataToSave 
-    }, { type: 'global' });
+    await helper.insertOrAssignVariables(cleanedData, { type: 'global' });
     
     console.log("【创世神殿】云端创世数据已存入全局变量！");
   }
@@ -617,10 +619,12 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
               console.warn(`【创世神殿】删除旧变量失败（可能不存在）:`, e);
             }
             
+            // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+            const { deepCleanForClone } = await import('@/utils/dataValidation');
+            const cleanedNewData = deepCleanForClone({ 'DAD_creationData': newData });
+
             // 重新创建 DAD_creationData
-            await helper.insertOrAssignVariables({ 
-              'DAD_creationData': newData 
-            }, { type: 'global' });
+            await helper.insertOrAssignVariables(cleanedNewData, { type: 'global' });
             
             console.log(`【创世神殿】已重新创建 DAD_creationData`);
             

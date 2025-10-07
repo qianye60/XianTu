@@ -8,6 +8,65 @@ import type { SaveData, Equipment, Item, Inventory, NpcProfile, CharacterProfile
 import type { TavernHelper } from '@/types';
 import { debug } from './debug';
 
+/**
+ * 深度清理对象，移除所有不可被 structuredClone 克隆的值
+ * 这包括：函数、Proxy、循环引用等
+ * 用于修复酒馆助手3.6.11的structuredClone兼容性问题
+ */
+export function deepCleanForClone<T>(value: T, seen = new WeakSet()): T {
+  // 处理基本类型
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') {
+    // 检查是否为函数
+    if (typeof value === 'function') {
+      return undefined as any;
+    }
+    return value;
+  }
+
+  // 检测循环引用
+  if (seen.has(value as any)) {
+    console.warn('[数据清理] 检测到循环引用，已跳过');
+    return undefined as any;
+  }
+  seen.add(value as any);
+
+  // 处理数组
+  if (Array.isArray(value)) {
+    return value.map(item => deepCleanForClone(item, seen)).filter(item => item !== undefined) as any;
+  }
+
+  // 处理 Date
+  if (value instanceof Date) {
+    return value;
+  }
+
+  // 处理 Proxy 或其他特殊对象
+  try {
+    // 尝试检测 Proxy（虽然不完美，但可以捕获一些常见情况）
+    const constructor = Object.getPrototypeOf(value)?.constructor;
+    if (constructor && constructor.name !== 'Object' && constructor.name !== 'Array') {
+      // 如果不是普通对象或数组，尝试转换为普通对象
+      console.warn(`[数据清理] 检测到特殊对象类型: ${constructor.name}，尝试转换为普通对象`);
+    }
+  } catch (e) {
+    console.warn('[数据清理] 检测对象类型失败，可能是 Proxy');
+  }
+
+  // 处理普通对象
+  const cleaned: any = {};
+  for (const key in value) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      const cleanedValue = deepCleanForClone((value as any)[key], seen);
+      if (cleanedValue !== undefined) {
+        cleaned[key] = cleanedValue;
+      }
+    }
+  }
+
+  return cleaned as T;
+}
+
 // 定义 Tavern 变量类型（现已使用分片存储）
 type TavernChatVariables = Record<string, unknown>;
 

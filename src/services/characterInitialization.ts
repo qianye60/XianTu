@@ -658,9 +658,13 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     const elapsed = Date.now() - startTime;
     console.log(`[初始化流程] ✅ 所有分片已保存，耗时: ${elapsed}ms`);
 
+    // 清��数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+    const { deepCleanForClone } = await import('@/utils/dataValidation');
+    const cleanedNameData = deepCleanForClone({ 'character.name': baseInfo.名字 });
+
     // 设置全局角色名称
     uiStore.updateLoadingText('💾 设置全局角色名称...');
-    await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
+    await helper.insertOrAssignVariables(cleanedNameData, { type: 'global' });
     console.log('[初始化流程] ✅ 已设置全局角色名称');
 
     console.log('[初始化流程] ✅ 数据同步到Tavern成功');

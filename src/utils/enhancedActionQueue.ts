@@ -883,10 +883,12 @@ export class EnhancedActionQueueManager {
         return;
       }
       
+      // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      const cleanedEquipment = deepCleanForClone({ '装备栏': saveData.装备栏 });
+
       // 使用分片存储同步
-      await helper.insertOrAssignVariables({
-        '装备栏': saveData.装备栏
-      }, { type: 'chat' });
+      await helper.insertOrAssignVariables(cleanedEquipment, { type: 'chat' });
 
       console.log('[装备同步] 装备栏已同步到酒馆变量');
     } catch (error) {
@@ -918,10 +920,12 @@ export class EnhancedActionQueueManager {
         修炼进度: saveData.修炼功法.修炼进度 || 0
       } : null;
 
+      // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      const cleanedData = deepCleanForClone({ '修炼功法': cleanedCultivation });
+
       // 使用分片存储同步修炼功法
-      await helper.insertOrAssignVariables({
-        '修炼功法': cleanedCultivation
-      }, { type: 'chat' });
+      await helper.insertOrAssignVariables(cleanedData, { type: 'chat' });
 
       console.log('[修炼同步] 修炼功法已同步到酒馆变量');
     } catch (error) {

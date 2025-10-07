@@ -188,8 +188,8 @@ const addNewVariable = (type: 'chat' | 'global') => {
   showEditModal.value = true
 }
 
-const editVariable = (type: string, key: string, value: TavernVariableValue) => {
-  editingItem.value = { type, key, value }
+const editVariable = (item: EditingItem) => {
+  editingItem.value = { ...item }
   showEditModal.value = true
 }
 
@@ -229,8 +229,8 @@ const deleteVariable = async (type: 'chat' | 'global', key: string) => {
   }
 }
 
-const saveVariable = async () => {
-  if (!editingItem.value) return
+const saveVariable = async (updatedItem: EditingItem) => {
+  if (!updatedItem) return
 
   try {
     const helper = getTavernHelper()
@@ -239,7 +239,7 @@ const saveVariable = async () => {
       return
     }
 
-    const { type, key, value } = editingItem.value
+    const { type, key, value } = updatedItem
 
     // 验证变量名
     if (!key || key.trim() === '') {

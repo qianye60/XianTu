@@ -737,7 +737,10 @@ async function executeCommand(command: { action: string; key: string; value?: un
                   神识: saveData.玩家角色状态?.神识,
                   寿命: saveData.玩家角色状态?.寿命
                 };
-                await helper.insertOrAssignVariables({ '属性': attrs }, { type: 'chat' });
+                // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+                const { deepCleanForClone } = await import('@/utils/dataValidation');
+                const cleanedAttrs = deepCleanForClone({ '属性': attrs });
+                await helper.insertOrAssignVariables(cleanedAttrs, { type: 'chat' });
                 console.log(`[装备增幅] ✅ 已同步属性分片到酒馆:`, attrs);
               }
             }
@@ -916,8 +919,12 @@ export async function syncToTavern(saveData: SaveData, scope: 'global' | 'chat' 
     // 将saveData拆分为17个分片（包含隐式中期记忆）
     const shards = shardSaveData(saveData);
 
-    // 一次性写入所有分片 (通过unknown中转以避免类型转换错误)
-    await helper.insertOrAssignVariables(shards as unknown as Record<string, unknown>, { type: scope });
+    // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+    const { deepCleanForClone } = await import('@/utils/dataValidation');
+    const cleanedShards = deepCleanForClone(shards as unknown as Record<string, unknown>);
+
+    // 一次性写入所有分片
+    await helper.insertOrAssignVariables(cleanedShards, { type: scope });
 
     console.log('[syncToTavern] 数据同步完成 (17个分片)');
   } catch (error) {

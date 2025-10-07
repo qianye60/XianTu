@@ -253,7 +253,10 @@ export async function generateInitialMessage(
           神识: { 当前: shenMax, 上限: shenMax },
           寿命: { 当前: lifeCurrent, 上限: lifeMax }
         };
-        await tv.insertOrAssignVariables({ '属性': attrs }, { type: 'chat' });
+        // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+        const { deepCleanForClone } = await import('@/utils/dataValidation');
+        const cleanedAttrs = deepCleanForClone({ '属性': attrs });
+        await tv.insertOrAssignVariables(cleanedAttrs, { type: 'chat' });
         console.log('[初始化基线] 已写入玩家角色属性基线: ', attrs);
       }
     } catch (e) {

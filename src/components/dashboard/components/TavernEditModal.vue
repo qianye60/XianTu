@@ -84,7 +84,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   close: []
-  save: []
+  save: [item: EditingItem]
 }>()
 
 const localEditingItem = ref<EditingItem>({ type: '', key: '', value: '' })
@@ -257,7 +257,7 @@ const handleSave = () => {
     }
 
     localEditingItem.value.value = finalValue
-    emit('save')
+    emit('save', localEditingItem.value)
   } catch (e) {
     jsonError.value = '保存失败: ' + (e instanceof Error ? e.message : '未知错误')
   }

@@ -192,9 +192,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
         return;
       }
 
+      // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      const cleanedData = deepCleanForClone({ [path]: value });
+
       // 直接使用分片路径更新
       await helper.insertOrAssignVariables(
-        { [path]: value },
+        cleanedData,
         { type: 'chat' }
       );
       debug.log('角色商店', `[增量更新] 已更新酒馆字段: ${path}`);
@@ -216,8 +220,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
         return;
       }
 
+      // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      const cleanedUpdates = deepCleanForClone(updates);
+
       // 直接使用分片路径
-      await helper.insertOrAssignVariables(updates, { type: 'chat' });
+      await helper.insertOrAssignVariables(cleanedUpdates, { type: 'chat' });
       debug.log('角色商店', `[批量增量更新] 已更新 ${Object.keys(updates).length} 个酒馆字段`);
     } catch (error) {
       debug.error('角色商店', '[批量增量更新] 批量更新失败:', error);

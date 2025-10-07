@@ -31,7 +31,10 @@ export function getTavernHelper(): TavernHelper | null {
   if (typeof helper.setVariable !== 'function') {
     helper.setVariable = async (key: string, value: unknown, options: { type: 'global' | 'chat' | 'local' }) => {
       if (typeof helper.insertOrAssignVariables === 'function') {
-        await helper.insertOrAssignVariables({ [key]: value }, options);
+        // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+        const { deepCleanForClone } = await import('./dataValidation');
+        const cleanedData = deepCleanForClone({ [key]: value });
+        await helper.insertOrAssignVariables(cleanedData, options);
         return;
       }
       throw new Error('setVariable is not available and insertOrAssignVariables fallback missing');
