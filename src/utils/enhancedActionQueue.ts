@@ -5,7 +5,7 @@
 
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { Item, SaveData } from '@/types/game';
+import type { Item, SaveData, CultivationTechniqueData } from '@/types/game';
 import { toast } from './toast';
 import { getTavernHelper } from '@/utils/tavern';
 
@@ -23,7 +23,7 @@ export interface UndoAction {
     originalQuantity?: number;
     // 功法修炼的恢复数据
     originalCultivationState?: {
-      previousTechnique: { 物品ID: string; 名称: string; } | null;
+      previousTechnique: CultivationTechniqueData | null;
       wasInInventory: boolean;
     };
   };
@@ -375,22 +375,6 @@ export class EnhancedActionQueueManager {
         return false;
       }
       
-      // 确保修炼功法数据结构存在
-      if (!saveData.修炼功法) {
-        saveData.修炼功法 = {
-          功法: null,
-          熟练度: 0,
-          已解锁技能: [],
-          修炼时间: 0,
-          突破次数: 0,
-          正在修炼: false,
-          修炼进度: 0
-        };
-      }
-      
-      const skillSlots = saveData.修炼功法;
-      let previousTechnique: { 物品ID: string; 名称: string; } | null = null;
-
       // 获取背包物品对象
       const inventoryItems = saveData.背包?.物品;
       if (!inventoryItems || typeof inventoryItems !== 'object') {
@@ -398,15 +382,16 @@ export class EnhancedActionQueueManager {
         return false;
       }
 
+      let previousTechnique: CultivationTechniqueData | null = null;
+
       // 检查是否已经在修炼其他功法
-      const currentTechnique = skillSlots.功法;
-      if (currentTechnique && (typeof currentTechnique === 'string' ? currentTechnique : currentTechnique.物品ID) !== item.物品ID) {
-        if (typeof currentTechnique !== 'string') {
-          previousTechnique = currentTechnique;
-        }
+      const currentTechnique = saveData.修炼功法;
+      if (currentTechnique && currentTechnique.物品ID !== item.物品ID) {
+        // 保存完整的功法数据+进度
+        previousTechnique = { ...currentTechnique };
 
         // 清除之前功法的已装备状态 - 使用响应式替换
-        const previousId = typeof currentTechnique === 'string' ? currentTechnique : currentTechnique.物品ID;
+        const previousId = currentTechnique.物品ID;
         const previousInventoryItem = inventoryItems[previousId];
         if (previousInventoryItem && previousInventoryItem.类型 === '功法') {
           inventoryItems[previousId] = {
@@ -417,31 +402,31 @@ export class EnhancedActionQueueManager {
         }
       }
 
-      // 设置修炼功法 - 使用引用格式
-      skillSlots.功法 = {
-        物品ID: item.物品ID,
-        名称: item.名称,
+      // 获取功法的完整数据作为基础
+      const inventoryItem = inventoryItems[item.物品ID];
+      if (!inventoryItem || inventoryItem.类型 !== '功法') {
+        toast.error('物品不是功法类型');
+        return false;
+      }
+
+      // 设置修炼功法 - 使用完整的功法数据结构，包含进度信息
+      saveData.修炼功法 = {
+        ...inventoryItem,
+        // 保留旧的进度数据，如果有的话
+        熟练度: currentTechnique?.熟练度 || 0,
+        已解锁技能: currentTechnique?.已解锁技能 || [],
+        修炼时间: currentTechnique?.修炼时间 || 0,
+        突破次数: currentTechnique?.突破次数 || 0,
+        正在修炼: true,
+        修炼进度: currentTechnique?.修炼进度 || 0
       };
 
       // 设置功法的已装备和修炼中标记 - 使用响应式替换
-      const inventoryItem = inventoryItems[item.物品ID];
-      if (inventoryItem && inventoryItem.类型 === '功法') {
-        // 创建新对象以触发响应式更新
-        inventoryItems[item.物品ID] = {
-          ...inventoryItem,
-          已装备: true,
-          修炼中: true
-        };
-      }
-
-      // 初始化修炼数据
-      if (typeof skillSlots.熟练度 !== 'number') skillSlots.熟练度 = 0;
-      if (typeof skillSlots.修炼时间 !== 'number') skillSlots.修炼时间 = 0;
-      if (typeof skillSlots.突破次数 !== 'number') skillSlots.突破次数 = 0;
-
-      // 关键：设置修炼状态为true
-      skillSlots.正在修炼 = true;
-      skillSlots.修炼进度 = skillSlots.修炼进度 || 0;
+      inventoryItems[item.物品ID] = {
+        ...inventoryItem,
+        已装备: true,
+        修炼中: true
+      };
       // 移除时间戳记录，简化逻辑
 
       // 注意：修炼功法不从背包移除，功法和背包是独立的
@@ -496,13 +481,19 @@ export class EnhancedActionQueueManager {
     
     try {
       const saveData = characterStore.activeSaveSlot?.存档数据;
-      if (!saveData?.修炼功法?.功法 || !saveData.修炼功法.正在修炼) {
+      if (!saveData?.修炼功法 || !saveData.修炼功法.正在修炼) {
         toast.error('当前没有正在修炼的功法');
         return false;
       }
 
-      const techniqueToStop = saveData.修炼功法.功法;
-      const techniqueId = typeof techniqueToStop === 'string' ? techniqueToStop : techniqueToStop.物品ID;
+      const techniqueToStop = saveData.修炼功法;
+      const techniqueId = techniqueToStop.物品ID;
+      const techniqueName = techniqueToStop.名称;
+
+      if (techniqueName !== item.名称) {
+        toast.error('操作的功法与当前修炼的功法不符');
+        return false;
+      }
 
       // 获取背包物品对象
       const inventoryItems = saveData.背包?.物品;
@@ -512,16 +503,9 @@ export class EnhancedActionQueueManager {
       }
 
       const inventoryItem = inventoryItems[techniqueId];
-      const techniqueName = typeof techniqueToStop === 'string' ? inventoryItem?.名称 : techniqueToStop.名称;
 
-      if (techniqueName !== item.名称) {
-        toast.error('操作的功法与当前修炼的功法不符');
-        return false;
-      }
-
-      // 清空修炼槽位，设置修炼状态为false，但保留进度
-      saveData.修炼功法.功法 = null;
-      saveData.修炼功法.正在修炼 = false;
+      // 清空修炼槽位，设置修炼状态为false（设置为null）
+      saveData.修炼功法 = null;
 
       // 清除功法的已装备和修炼中标记 - 使用响应式替换
       if (inventoryItem && inventoryItem.类型 === '功法') {
@@ -540,14 +524,14 @@ export class EnhancedActionQueueManager {
       // 同步到酒馆变量
       await this.syncCultivationToTavern(saveData);
       
-      // 创建撤回数据
+      // 创建撤回数据 - 保存完整的功法数据+进度
       const undoAction: UndoAction = {
         type: 'cultivate',
         itemId: item.物品ID,
         itemName: item.名称,
         restoreData: {
           originalCultivationState: {
-            previousTechnique: typeof techniqueToStop !== 'string' ? techniqueToStop : null,
+            previousTechnique: techniqueToStop ? { ...techniqueToStop } : null,
             wasInInventory: false
           }
         }
@@ -776,19 +760,34 @@ export class EnhancedActionQueueManager {
   private async undoCultivate(action: UndoAction, saveData: SaveData): Promise<void> {
     const cultivationState = action.restoreData?.originalCultivationState;
     if (!cultivationState) return;
-    
+
+    // 获取背包物品对象
+    const inventoryItems = saveData.背包?.物品;
+    if (!inventoryItems || typeof inventoryItems !== 'object') {
+      console.error('背包数据异常，无法撤回修炼');
+      return;
+    }
+
     // 由于修炼功法不再涉及背包操作，撤回时只需要恢复修炼状态
     if (cultivationState.previousTechnique) {
-      // 恢复之前的修炼功法
-      saveData.修炼功法.功法 = cultivationState.previousTechnique;
-      saveData.修炼功法.正在修炼 = true; // 恢复修炼状态
+      // 恢复之前的修炼功法 - previousTechnique 现在已包含完整的数据+进度
+      const previousId = cultivationState.previousTechnique.物品ID;
+      saveData.修炼功法 = { ...cultivationState.previousTechnique };
+
+      // 标记背包中的功法为已装备和修炼中
+      const previousItem = inventoryItems[previousId];
+      if (previousItem && previousItem.类型 === '功法') {
+        inventoryItems[previousId] = {
+          ...previousItem,
+          已装备: true,
+          修炼中: true
+        };
+      }
     } else {
       // 清空修炼槽位
-      saveData.修炼功法.功法 = null;
-      saveData.修炼功法.正在修炼 = false; // 设置为未修炼状态
-      // 不清空修炼进度，保留修炼成果
+      saveData.修炼功法 = null;
     }
-    
+
     // 同步到酒馆变量
     await this.syncCultivationToTavern(saveData);
   }
@@ -906,9 +905,11 @@ export class EnhancedActionQueueManager {
         return;
       }
 
-      // 清理修炼功法数据，只保留标准字段
+      // 新结构：修炼功法直接是完整的功法数据或null
       const cleanedCultivation = saveData.修炼功法 ? {
-        功法: saveData.修炼功法.功法,  // 只保留引用
+        // 保留所有功法数据和进度字段
+        ...saveData.修炼功法,
+        // 确保核心字段存在
         熟练度: saveData.修炼功法.熟练度 || 0,
         已解锁技能: saveData.修炼功法.已解锁技能 || [],
         修炼时间: saveData.修炼功法.修炼时间 || 0,
@@ -922,7 +923,7 @@ export class EnhancedActionQueueManager {
         '修炼功法': cleanedCultivation
       }, { type: 'chat' });
 
-      console.log('[修炼同步] 修炼功法已同步到酒馆变量（已清理多余字段）');
+      console.log('[修炼同步] 修炼功法已同步到酒馆变量');
     } catch (error) {
       console.warn('[修炼同步] 同步修炼功法到酒馆变量失败:', error);
     }

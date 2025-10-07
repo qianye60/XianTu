@@ -30,13 +30,15 @@ export const TALENT_TIER_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 ## JSON输出格式
 \`\`\`json
 {
-  "name": "天资名称",         // 名称: 体现层次感, 如“凡夫俗子”、“天生灵秀”
+  "name": "天资名称",         // 名称: 体现层次感, 如"凡夫俗子"、"天生灵秀"
   "description": "描述...",      // 描述: 对该天资等级的详细说明
-  "total_points": "数字",      // 总点数: 10-50, 用于分配给先天六司和购买天赋
-  "rarity": "数字",            // 稀有度: 1-5, 1最常见, 5为传说级
-  "color": "#颜色"             // 颜色: 用于UI显示的十六进制颜色代码
+  "total_points": 20,           // ⚠️ 总点数: 必须是数字类型(10-50之间), 用于分配给先天六司和购买天赋
+  "rarity": 3,                  // ⚠️ 稀有度: 必须是数字类型(1-5), 1最常见, 5为传说级
+  "color": "#4169E1"            // 颜色: 用于UI显示的十六进制颜色代码
 }
 \`\`\`
+
+**⚠️ 重要**: total_points 和 rarity 必须是数字类型，不能是字符串！
 `;
 
 // 3. 出身生成
@@ -53,10 +55,10 @@ export const ORIGIN_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 ## JSON输出格式
 \`\`\`json
 {
-  "name": "出身名称",         // 名称: 具有修仙世界特色, 如“书香门第”
+  "name": "出身名称",         // 名称: 具有修仙世界特色, 如"书香门第"
   "description": "详细描述...",  // 描述: 详细的背景故事
-  "talent_cost": "数字",       // 天道点消耗: 0-10点, 背景越强消耗越高
-  "rarity": "数字",            // 稀有度: 1-5, 1最常见, 5为传说级
+  "talent_cost": 5,            // ⚠️ 天道点消耗: 必须是数字类型(0-10), 背景越强消耗越高
+  "rarity": 3,                 // ⚠️ 稀有度: 必须是数字类型(1-5), 1最常见, 5为传说级
   "attribute_modifiers": {   // 属性加成: 为先天六司提供数值加成, 总和不超过5
     "根骨": 1,
     "气运": 1
@@ -64,6 +66,8 @@ export const ORIGIN_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
   "effects": ["效果1", "效果2"] // 背景效果: 1-2个独特的文本效果描述
 }
 \`\`\`
+
+**⚠️ 重要**: talent_cost 和 rarity 必须是数字类型，不能是字符串！
 `;
 
 // 4. 灵根生成
@@ -78,16 +82,18 @@ export const SPIRIT_ROOT_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 ## JSON输出格式
 \`\`\`json
 {
-  "name": "灵根名称",           // 名称: 灵根的具体名称, 如“雷灵根”
-  "tier": "等级",              // 等级: 如“上品”、“极品”、“神品”
+  "name": "灵根名称",           // 名称: 灵根的具体名称, 如"雷灵根"
+  "tier": "等级",              // 等级: 如"上品"、"极品"、"神品"
   "description": "描述...",    // 描述: 对该灵根的详细说明
   "cultivation_speed": "1.6x", // 修炼速度: 以字符串 "x" 结尾的倍率
   "special_effects": ["效果1"],// 特殊效果: 文本描述的特殊能力
-  "base_multiplier": "数字",   // 基础倍率: 用于计算的纯数字倍率
-  "talent_cost": "数字",       // 天道点消耗: 3-30点, 品级越高消耗越大
-  "rarity": "数字"             // 稀有度: 1-5, 1最常见, 5为传说级
+  "base_multiplier": 1.6,      // ⚠️ 基础倍率: 必须是数字类型(纯数字)
+  "talent_cost": 10,           // ⚠️ 天道点消耗: 必须是数字类型(3-30), 品级越高消耗越大
+  "rarity": 3                  // ⚠️ 稀有度: 必须是数字类型(1-5), 1最常见, 5为传说级
 }
 \`\`\`
+
+**⚠️ 重要**: base_multiplier, talent_cost 和 rarity 必须是数字类型，不能是字符串！
 `;
 
 // 5. 天赋生成
@@ -103,13 +109,15 @@ export const TALENT_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 ## JSON输出格式
 \`\`\`json
 {
-  "name": "天赋名称",           // 名称: 霸气或神秘的名称, 如“天生神力”
+  "name": "天赋名称",           // 名称: 霸气或神秘的名称, 如"天生神力"
   "description": "详细描述...",  // 描述: 对天赋效果的详细说明
-  "type": "天赋类型",          // 类型: “战斗类”、“辅助类”或“特殊类”
-  "talent_cost": "数字",       // 天道点: 1-10点, 效果越强点数越高
-  "rarity": "数字"             // 稀有度: 1-5, 1最常见, 5为传说级
+  "type": "天赋类型",          // 类型: "战斗类"、"辅助类"或"特殊类"
+  "talent_cost": 8,            // ⚠️ 天道点: 必须是数字类型(1-10), 效果越强点数越高
+  "rarity": 4                  // ⚠️ 稀有度: 必须是数字类型(1-5), 1最常见, 5为传说级
 }
 \`\`\`
+
+**⚠️ 重要**: talent_cost 和 rarity 必须是数字类型，不能是字符串！
 `;
 
 // 6. 地图生成

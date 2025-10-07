@@ -1,6 +1,6 @@
 /**
  * 寿命计算工具
- * 根据开局年龄、开局时间和当前游戏时间自动计算当前年龄
+ * 使用出生日期自动计算当前年龄
  */
 
 export interface GameTime {
@@ -11,30 +11,39 @@ export interface GameTime {
   分钟?: number;
 }
 
-export interface LifespanCalculationParams {
-  初始年龄: number;           // 开局时的年龄，如18岁
-  开局时间: GameTime;        // 开局时的游戏时间，如{年:1000, 月:1, 日:1}
-  当前时间: GameTime;        // 当前的游戏时间，如{年:1003, 月:1, 日:1}
+/**
+ * 根据出生日期和当前时间计算年龄
+ * @param birthTime 出生日期
+ * @param currentTime 当前时间
+ * @returns 当前年龄（向下取整）
+ */
+export function calculateAgeFromBirthdate(birthTime: GameTime, currentTime: GameTime): number {
+  // 计算年龄差
+  let age = currentTime.年 - birthTime.年;
+
+  // 如果当前月日还没到生日月日，说明还没满周岁
+  if (currentTime.月 < birthTime.月 ||
+      (currentTime.月 === birthTime.月 && currentTime.日 < birthTime.日)) {
+    age--;
+  }
+
+  return Math.max(0, age); // 确保年龄不为负
 }
 
 /**
- * 计算当前年龄
- * @param params 计算参数
- * @returns 当前年龄（向下取整）
+ * 根据当前年龄和当前时间推算出生日期
+ * @param currentAge 当前年龄
+ * @param currentTime 当前时间
+ * @returns 出生日期
  */
-export function calculateCurrentAge(params: LifespanCalculationParams): number {
-  const { 初始年龄, 开局时间, 当前时间 } = params;
-
-  // 计算经过了多少年
-  let 经过年数 = 当前时间.年 - 开局时间.年;
-
-  // 如果当前月日还没到开局月日，说明还没满一年
-  if (当前时间.月 < 开局时间.月 ||
-      (当前时间.月 === 开局时间.月 && 当前时间.日 < 开局时间.日)) {
-    经过年数--;
-  }
-
-  return 初始年龄 + 经过年数;
+export function calculateBirthdateFromAge(currentAge: number, currentTime: GameTime): GameTime {
+  return {
+    年: currentTime.年 - currentAge,
+    月: currentTime.月,
+    日: currentTime.日,
+    小时: 0,
+    分钟: 0
+  };
 }
 
 /**
@@ -43,74 +52,78 @@ export function calculateCurrentAge(params: LifespanCalculationParams): number {
  * @returns 更新后的年龄
  */
 export function updateLifespanFromGameTime(saveData: any): number {
-  // 如果没有记录初始年龄或开局时间，使用当前年龄作为初始年龄并记录
-  if (!saveData.系统?.初始年龄 || !saveData.系统?.开局时间) {
-    const currentAge = saveData.玩家角色状态?.寿命?.当前 || 18;
+  const currentTime = saveData.游戏时间 || { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
 
-    // 初始化系统数据
-    if (!saveData.系统) {
-      saveData.系统 = {};
+  // 如果没有出生日期，根据当前年龄推算出生日期
+  if (!saveData.角色基础信息?.出生日期) {
+    const currentAge = saveData.玩家角色状态?.寿命?.当前 || saveData.角色基础信息?.年龄 || 18;
+    const birthdate = calculateBirthdateFromAge(currentAge, currentTime);
+
+    // 保存出生日期到角色基础信息
+    if (!saveData.角色基础信息) {
+      saveData.角色基础信息 = {};
     }
+    saveData.角色基础信息.出生日期 = birthdate;
 
-    // 记录初始年龄和开局时间
-    saveData.系统.初始年龄 = currentAge;
-    saveData.系统.开局时间 = saveData.游戏时间 ? { ...saveData.游戏时间 } : { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
-
-    console.log('[寿命计算] 初始化玩家年龄数据:', { 初始年龄: currentAge, 开局时间: saveData.系统.开局时间 });
+    console.log('[寿命计算] 初始化玩家出生日期:', birthdate, '当前年龄:', currentAge);
     return currentAge;
   }
 
-  const 当前年龄 = calculateCurrentAge({
-    初始年龄: saveData.系统.初始年龄,
-    开局时间: saveData.系统.开局时间,
-    当前时间: saveData.游戏时间
-  });
+  // 根据出生日期计算当前年龄
+  const birthdate = saveData.角色基础信息.出生日期;
+  const calculatedAge = calculateAgeFromBirthdate(birthdate, currentTime);
 
-  // 更新到saveData
+  // 更新年龄到各个位置
+  if (saveData.角色基础信息) {
+    saveData.角色基础信息.年龄 = calculatedAge;
+  }
   if (saveData.玩家角色状态?.寿命) {
-    saveData.玩家角色状态.寿命.当前 = 当前年龄;
+    saveData.玩家角色状态.寿命.当前 = calculatedAge;
   }
 
-  return 当前年龄;
+  return calculatedAge;
 }
 
 /**
  * 从NPC数据中自动计算并更新当前年龄
  * @param npcData NPC数据对象
  * @param globalGameTime 当前游戏时间
- * @returns 更新后的年龄
+ * @returns NPC当前年龄
  */
 export function updateNpcLifespanFromGameTime(npcData: any, globalGameTime: GameTime): number {
-  // NPC可能在不同层级存储寿命信息
-  const statusSource = npcData.玩家角色状态 || npcData.角色状态 || npcData;
+  const currentTime = globalGameTime || { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
 
-  // 如果NPC已死亡，不更新年龄
+  // NPC可能在不同层级存储信息
+  const statusSource = npcData.玩家角色状态 || npcData.角色状态 || npcData;
+  const baseInfo = npcData.角色基础信息 || npcData;
+
+  // 如果NPC已死亡，返回死亡时年龄
   if (statusSource.已死亡) {
-    return statusSource.寿命?.当前 || 0;
+    return statusSource.寿命?.当前 || baseInfo.年龄 || 0;
   }
 
-  // 如果NPC没有记录初始年龄或开局时间，使用当前年龄作为初始年龄
-  if (!npcData.初始年龄 || !npcData.开局时间) {
-    const currentAge = statusSource.寿命?.当前 || 18;
+  // 如果没有出生日期，根据当前年龄推算出生日期
+  if (!baseInfo.出生日期) {
+    const currentAge = baseInfo.年龄 || statusSource.寿命?.当前 || 18;
+    const birthdate = calculateBirthdateFromAge(currentAge, currentTime);
 
-    // 记录NPC的初始年龄和开局时间
-    npcData.初始年龄 = currentAge;
-    npcData.开局时间 = globalGameTime ? { ...globalGameTime } : { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
+    baseInfo.出生日期 = birthdate;
 
-    console.log(`[寿命计算] 初始化NPC年龄数据 [${npcData.角色基础信息?.名字 || '未知'}]:`, { 初始年龄: currentAge, 开局时间: npcData.开局时间 });
+    console.log(`[寿命计算] 初始化NPC出生日期 [${baseInfo.名字 || '未知'}]:`, birthdate, '当前年龄:', currentAge);
     return currentAge;
   }
 
-  const 当前年龄 = calculateCurrentAge({
-    初始年龄: npcData.初始年龄,
-    开局时间: npcData.开局时间,
-    当前时间: globalGameTime
-  });
+  // 根据出生日期计算当前年龄
+  const birthdate = baseInfo.出生日期;
+  const calculatedAge = calculateAgeFromBirthdate(birthdate, currentTime);
 
-  // 更新到NPC数据
+  // 更新年龄到各个位置
+  if (baseInfo.年龄 !== undefined) {
+    baseInfo.年龄 = calculatedAge;
+  }
   if (statusSource.寿命) {
-    statusSource.寿命.当前 = 当前年龄;
+    statusSource.寿命.当前 = calculatedAge;
   }
 
-  return 当前年龄;
+  return calculatedAge;
 }

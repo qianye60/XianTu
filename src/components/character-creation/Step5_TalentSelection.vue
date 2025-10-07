@@ -80,7 +80,12 @@
       @submit="handleEditSubmit"
     />
 
-    <!-- AI生成逻辑已移至toast通知 -->
+    <!-- AI推演输入弹窗 -->
+    <AIPromptModal
+      :visible="isAIPromptModalVisible"
+      @close="isAIPromptModalVisible = false"
+      @submit="handleAIPromptSubmit"
+    />
   </div>
 </template>
 
@@ -90,14 +95,17 @@ import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Talent } from '../../types'
 import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
+import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
-import { generateTalent } from '../../utils/tavernAI'
+import { generateWithRawPrompt } from '../../utils/tavernCore'
+import { TALENT_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const activeTalent = ref<Talent | null>(null) // For details view on hover/click
 const isCustomModalVisible = ref(false)
 const isEditModalVisible = ref(false)
+const isAIPromptModalVisible = ref(false)
 const editingTalent = ref<Talent | null>(null)
 
 const filteredTalents = computed(() => {
@@ -317,30 +325,68 @@ function handleToggleTalent(talent: Talent) {
   store.toggleTalent(talent.id);
 }
 
-async function _handleLocalAIGenerate() {
-  const toastId = 'ai-generate-talent';
-  toast.loading('天机推演中，请稍候...', { id: toastId });
-  try {
-    const newTalent = await generateTalent();
-    if (newTalent) {
-      newTalent.source = 'local'; // 显式设置来源为本地
-      store.addTalent(newTalent);
-      toast.success(`AI推演天赋 "${newTalent.name}" 已保存！`, { id: toastId });
-    } else {
-      // 如果 generateTalent 返回 null 或 undefined，也需要关闭loading
-      toast.hide(toastId);
-    }
-  } catch (e: any) {
-    // Error handled in tavernAI, just dismiss loading
-    toast.hide(toastId);
+function handleAIGenerate() {
+  if (store.isLocalCreation) {
+    // 打开AI推演输入弹窗
+    isAIPromptModalVisible.value = true;
+  } else {
+    emit('ai-generate');
   }
 }
 
-function handleAIGenerate() {
-  if (store.isLocalCreation) {
-    _handleLocalAIGenerate();
-  } else {
-    emit('ai-generate');
+async function handleAIPromptSubmit(userPrompt: string) {
+  const toastId = 'ai-generate-talent';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
+
+  try {
+    const aiResponse = await generateWithRawPrompt(userPrompt, TALENT_ITEM_GENERATION_PROMPT, false);
+
+    if (!aiResponse) {
+      toast.error('AI推演失败', { id: toastId });
+      return;
+    }
+
+    console.log('【AI推演-天赋】完整响应:', aiResponse);
+
+    // 解析AI返回的JSON
+    let parsedTalent: any;
+    try {
+      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
+      parsedTalent = JSON.parse(jsonStr.trim());
+    } catch (parseError) {
+      console.error('【AI推演-天赋】JSON解析失败:', parseError);
+      toast.error('AI推演结果格式错误，无法解析', { id: toastId });
+      return;
+    }
+
+    // 验证必需字段
+    if (!parsedTalent.name && !parsedTalent.名称) {
+      toast.error('AI推演结果缺少天赋名称', { id: toastId });
+      return;
+    }
+
+    // 创建天赋对象
+    const newTalent: Talent = {
+      id: Date.now(),
+      name: parsedTalent.name || parsedTalent.名称 || '未命名天赋',
+      description: parsedTalent.description || parsedTalent.描述 || parsedTalent.说明 || '',
+      effects: parsedTalent.effects || parsedTalent.效果 || [],
+      talent_cost: parsedTalent.talent_cost || parsedTalent.天道点消耗 || parsedTalent.点数消耗 || 3,
+      rarity: parsedTalent.rarity || parsedTalent.稀有度 || 3,
+      source: 'local'
+    };
+
+    // 保存并选择天赋
+    store.addTalent(newTalent);
+    handleToggleTalent(newTalent);
+    isAIPromptModalVisible.value = false;
+
+    toast.success(`AI推演完成！天赋 "${newTalent.name}" 已生成`, { id: toastId });
+
+  } catch (e: any) {
+    console.error('【AI推演-天赋】失败:', e);
+    toast.error(`AI推演失败: ${e.message}`, { id: toastId });
   }
 }
 

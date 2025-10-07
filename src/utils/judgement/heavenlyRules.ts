@@ -15,8 +15,8 @@ import type {
   Item,
   NpcProfile,
   HeavenlyCalculation,
-  DeathState,
   HeavenlySystem,
+  DeathState,
   EquipmentItem,
   TechniqueItem,
   StatusEffect
@@ -142,8 +142,9 @@ function calculateTechniqueBonus(saveData: SaveData) {
 
   try {
     const 功法数据 = get(saveData, '修炼功法');
-    if (!功法数据 || !功法数据.功法) return { 攻击, 防御, 灵识, 敏捷 };
+    if (!功法数据) return { 攻击, 防御, 灵识, 敏捷 };
 
+    // 新结构：修炼功法直接包含功法数据和进度
     const 熟练度 = safeNum(功法数据.熟练度, 0);
     if (熟练度 > 0) {
       const 基础加成 = Math.floor(熟练度 / 10);
@@ -153,22 +154,15 @@ function calculateTechniqueBonus(saveData: SaveData) {
       敏捷 += 基础加成 * 0.5;
     }
 
-    const 功法引用 = 功法数据.功法;
-    const 功法ID = typeof 功法引用 === 'string' ? 功法引用 : 功法引用?.物品ID;
-
-    if (功法ID) {
-      const 背包物品对象 = get(saveData, '背包.物品', {}) as Record<string, Item>;
-      const 功法物品 = 背包物品对象[功法ID];
-
-      if (功法物品 && 功法物品.类型 === '功法') {
-        const technique = 功法物品 as TechniqueItem;
-        const 效果 = technique.功法效果;
-        if (效果?.属性加成) {
-          攻击 += safeNum(效果.属性加成.攻击力);
-          防御 += safeNum(效果.属性加成.防御力);
-          灵识 += safeNum(效果.属性加成.灵识);
-          敏捷 += safeNum(效果.属性加成.敏捷);
-        }
+    // 功法数据直接在修炼功法对象中
+    if (功法数据.类型 === '功法') {
+      const technique = 功法数据 as unknown as TechniqueItem;
+      const 效果 = technique.功法效果;
+      if (效果?.属性加成) {
+        攻击 += safeNum(效果.属性加成.攻击力);
+        防御 += safeNum(效果.属性加成.防御力);
+        灵识 += safeNum(效果.属性加成.灵识);
+        敏捷 += safeNum(效果.属性加成.敏捷);
       }
     }
   } catch (error) {
@@ -409,7 +403,7 @@ export function applyDamageToNpc(
   伤害类型: DamageType = '物理'
 ): boolean {
   // 简化：当前NPC结构没有血量，暂不处理
-  console.warn(`[战斗系统] 尝试对NPC ${npc.角色基础信息.名字} 造成伤害，但当前NPC结构不支持血量。`);
+  console.warn(`[战斗系统] 尝试对NPC ${(npc as any).角色基础信息?.名字 || 'Unknown'} 造成伤害，但当前NPC结构不支持血量。`);
   return false;
 }
 
@@ -459,16 +453,15 @@ export async function syncToTavern(saveData: SaveData, baseInfo: CharacterBaseIn
   if (!helper) return;
 
   try {
+    // heavenly 字段已废弃，不再存储
     const calculation = computeHeavenlyCalculation(saveData, baseInfo);
-    set(saveData, '玩家角色状态.heavenly', calculation);
 
-    await helper.insertOrAssignVariables({
-      'character.saveData': saveData
-    }, { type: 'chat' });
+    // character.saveData 已废弃，现在使用分片数据结构，不再同步到酒馆
+    // 数据由 characterStore 通过 syncToTavernAndSave() 自动同步
 
-    console.log('[天道演算] 同步完成，天道演算结果已存入存档');
+    console.log('[天道演算] 计算完成（数据由Store统一管理）');
   } catch (error) {
-    console.error('[天道演算] 同步失败:', error);
+    console.error('[天道演算] 计算失败:', error);
   }
 }
 
@@ -483,7 +476,7 @@ export function generateJudgmentPrompt(): string {
 ## 天道演算系统 v5.0
 
 ### 判定规则
-角色数据已预计算，请直接使用 \`saveData.玩家角色状态.heavenly\` 中的数值。
+根据角色的先天六司、境界、装备等综合因素进行判定。
 
 #### 可用判定类型：
 - 攻击/防御（战斗）

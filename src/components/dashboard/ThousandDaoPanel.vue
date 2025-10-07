@@ -49,8 +49,8 @@
               <span class="empty-tip">通过机缘、顿悟和修行来解锁新的大道</span>
             </div>
             <div v-else class="dao-grid">
-              <div 
-                v-for="daoName in daoSystem.已解锁大道" 
+              <div
+                v-for="daoName in unlockedDaosList"
                 :key="daoName"
                 class="dao-card"
                 :class="{ 'selected': selectedDao === daoName }"
@@ -100,9 +100,9 @@
           </button>
         </div>
         <div class="details-content">
-          <div class="detail-section" v-if="getDaoPath(selectedDao)">
+          <div class="detail-section" v-if="getDaoData(selectedDao)">
             <h4>大道描述</h4>
-            <p class="dao-description">{{ getDaoPath(selectedDao)?.描述 || '此道深奥，需要进一步感悟才能理解其精髓。' }}</p>
+            <p class="dao-description">{{ getDaoData(selectedDao)?.描述 || '此道深奥，需要进一步感悟才能理解其精髓。' }}</p>
           </div>
           
           <div class="detail-section">
@@ -128,22 +128,22 @@
           </div>
 
           <!-- 大道阶段列表 -->
-          <div class="detail-section" v-if="getDaoPath(selectedDao)?.阶段列表?.length">
+          <div class="detail-section" v-if="getDaoData(selectedDao)?.阶段列表?.length">
             <h4>境界阶段</h4>
             <div class="stages-list">
-              <div 
-                v-for="(stage, index) in getDaoPath(selectedDao)?.阶段列表" 
+              <div
+                v-for="(stage, index) in getDaoData(selectedDao)?.阶段列表"
                 :key="index"
                 class="stage-item"
-                :class="{ 
-                  'completed': index < (selectedDaoProgress.当前阶段 ?? 0),
-                  'current': index === (selectedDaoProgress.当前阶段 ?? 0),
-                  'locked': index > (selectedDaoProgress.当前阶段 ?? 0)
+                :class="{
+                  'completed': index < (selectedDaoProgress?.当前阶段 ?? 0),
+                  'current': index === (selectedDaoProgress?.当前阶段 ?? 0),
+                  'locked': index > (selectedDaoProgress?.当前阶段 ?? 0)
                 }"
               >
                 <div class="stage-marker">
-                  <span v-if="index < (selectedDaoProgress.当前阶段 ?? 0)">✅</span>
-                  <span v-else-if="index === (selectedDaoProgress.当前阶段 ?? 0)">🔥</span>
+                  <span v-if="index < (selectedDaoProgress?.当前阶段 ?? 0)">✅</span>
+                  <span v-else-if="index === (selectedDaoProgress?.当前阶段 ?? 0)">🔥</span>
                   <span v-else>🔒</span>
                 </div>
                 <div class="stage-details">
@@ -169,14 +169,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { RotateCcw, X, Zap } from 'lucide-vue-next';
+import { X, Zap } from 'lucide-vue-next';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { DaoProgress, DaoPath, ThousandDaoSystem } from '@/types/game.d.ts';
+import type { DaoData, ThousandDaoSystem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
 
-const { characterData, saveData } = useUnifiedCharacterData();
+const { characterData } = useUnifiedCharacterData();
 const characterStore = useCharacterStore();
 const actionQueueStore = useActionQueueStore();
 const loading = ref(false);
@@ -187,131 +187,82 @@ const selectedDao = ref<string | null>(null);
 // 获取三千大道系统数据
 const daoSystem = computed((): ThousandDaoSystem => {
   return characterData.value?.三千大道 || {
-    已解锁大道: [],
-    大道进度: {},
-    大道路径定义: {}
+    大道列表: {}
   };
+});
+
+// 已解锁大道列表（已解锁的大道名称数组）
+const unlockedDaosList = computed(() => {
+  return Object.entries(daoSystem.value.大道列表)
+    .filter(([_, daoData]) => daoData.是否解锁)
+    .map(([daoName, _]) => daoName);
 });
 
 // 已解锁大道数量
 const unlockedDaosCount = computed(() => {
-  return daoSystem.value.已解锁大道.length;
+  return unlockedDaosList.value.length;
 });
 
 // 选中的大道进度数据
-const selectedDaoProgress = computed((): DaoProgress | null => {
+const selectedDaoProgress = computed((): DaoData | null => {
   if (!selectedDao.value) return null;
-  return daoSystem.value.大道进度[selectedDao.value] || null;
+  return daoSystem.value.大道列表[selectedDao.value] || null;
 });
 
 // 总感悟经验
 const totalDaoExperience = computed(() => {
-  return Object.values(daoSystem.value.大道进度).reduce((total, progress) => {
-    return total + (progress.总经验 ?? 0);
+  return Object.values(daoSystem.value.大道列表).reduce((total, daoData) => {
+    return total + (daoData.总经验 ?? 0);
   }, 0);
 });
 
 // 高阶段大道数量（阶段>=5的大道）
 const highestStageCount = computed(() => {
-  return Object.values(daoSystem.value.大道进度).filter(progress => {
-    return (progress.当前阶段 ?? 0) >= 5;
+  return Object.values(daoSystem.value.大道列表).filter(daoData => {
+    return (daoData.当前阶段 ?? 0) >= 5;
   }).length;
 });
 
-// 获取大道路径定义
-const getDaoPath = (daoName: string): DaoPath | null => {
-  const pathData = daoSystem.value.大道路径定义[daoName];
-  if (!pathData) return null;
-
-  // 类型守卫：检查返回的是完整的DaoPath对象还是只是阶段列表数组
-  if ('道名' in pathData && typeof pathData.道名 === 'string') {
-    return pathData as DaoPath;
-  }
-  
-  // 如果是数组，则包装成一个DaoPath对象
-  if (Array.isArray(pathData)) {
-    return {
-      道名: daoName,
-      阶段列表: pathData
-    };
-  }
-
-  return null;
+// 获取大道数据（包含路径和进度）
+const getDaoData = (daoName: string): DaoData | null => {
+  return daoSystem.value.大道列表[daoName] || null;
 };
 
 // 获取大道阶段显示
 const getDaoStageDisplay = (daoName: string): string => {
-  const progress = daoSystem.value.大道进度[daoName];
-  if (!progress) return '未门';
-  
-  const stage = progress.当前阶段 ?? 0;
-  const daoPath = getDaoPath(daoName);
-  
-  if (daoPath?.阶段列表?.[stage]) {
-    return daoPath.阶段列表[stage].名称;
+  const daoData = getDaoData(daoName);
+  if (!daoData) return '未门';
+
+  const stage = daoData.当前阶段 ?? 0;
+
+  if (daoData.阶段列表?.[stage]) {
+    return daoData.阶段列表[stage].名称;
   }
-  
+
   return stage === 0 ? '未门' : `第${stage}阶段`;
-};
-
-// 获取大道进度百分比
-const getDaoProgressPercent = (daoName: string): number => {
-  const progress = daoSystem.value.大道进度[daoName];
-  if (!progress) return 0;
-  
-  const currentExp = progress.当前经验 ?? 0;
-  const nextStageReq = getNextStageRequirement(daoName);
-  
-  if (nextStageReq === 0) return 100;
-  return Math.min(100, Math.round((currentExp / nextStageReq) * 100));
-};
-
-// 获取大道经验显示
-const getDaoExperienceDisplay = (daoName: string): string => {
-  const progress = daoSystem.value.大道进度[daoName];
-  if (!progress) return '经验: 0';
-  
-  const currentExp = progress.当前经验 ?? 0;
-  const totalExp = progress.总经验 ?? 0;
-  const nextStageReq = getNextStageRequirement(daoName);
-  
-  return `经验: ${currentExp}/${nextStageReq} (总: ${totalExp})`;
-};
-
-// 获取当前阶段名称
-const getCurrentStageName = (daoName: string): string => {
-  const progress = daoSystem.value.大道进度[daoName];
-  if (!progress) return '未门';
-  
-  const daoPath = getDaoPath(daoName);
-  const stage = progress.当前阶段 ?? 0;
-  
-  return daoPath?.阶段列表?.[stage]?.名称 || (stage === 0 ? '未门' : `第${stage}阶段`);
 };
 
 // 获取下一阶段名称
 const getNextStageName = (daoName: string): string | null => {
-  const progress = daoSystem.value.大道进度[daoName];
-  if (!progress) return null;
-  
-  const daoPath = getDaoPath(daoName);
-  const nextStage = (progress.当前阶段 ?? 0) + 1;
-  
-  return daoPath?.阶段列表?.[nextStage]?.名称 || null;
+  const daoData = getDaoData(daoName);
+  if (!daoData) return null;
+
+  const nextStage = (daoData.当前阶段 ?? 0) + 1;
+
+  return daoData.阶段列表?.[nextStage]?.名称 || null;
 };
 
 // 获取下一阶段所需经验
 const getNextStageRequirement = (daoName: string): number => {
-  const progress = daoSystem.value.大道进度[daoName];
-  if (!progress) return 100;
-  
-  const daoPath = getDaoPath(daoName);
-  const currentStage = progress.当前阶段 ?? 0;
-  
-  if (daoPath?.阶段列表?.[currentStage]?.突破经验) {
-    return daoPath.阶段列表[currentStage].突破经验;
+  const daoData = getDaoData(daoName);
+  if (!daoData) return 100;
+
+  const currentStage = daoData.当前阶段 ?? 0;
+
+  if (daoData.阶段列表?.[currentStage]?.突破经验) {
+    return daoData.阶段列表[currentStage].突破经验;
   }
-  
+
   // 默认经验计算：每阶段所需经验递增
   return (currentStage + 1) * 100;
 };

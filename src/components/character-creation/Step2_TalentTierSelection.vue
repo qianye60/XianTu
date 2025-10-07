@@ -81,7 +81,12 @@
       @submit="handleEditSubmit"
     />
 
-    <!-- AI生成逻辑已移至toast通知 -->
+    <!-- AI推演输入弹窗 -->
+    <AIPromptModal
+      :visible="isAIPromptModalVisible"
+      @close="isAIPromptModalVisible = false"
+      @submit="handleAIPromptSubmit"
+    />
   </div>
 </template>
 
@@ -91,8 +96,10 @@ import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { TalentTier } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
+import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
-import { generateTalentTier } from '../../utils/tavernAI'
+import { generateWithRawPrompt } from '../../utils/tavernCore'
+import { TALENT_TIER_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts'
 
 interface CustomTierData {
   name: string
@@ -106,6 +113,7 @@ const store = useCharacterCreationStore()
 const activeTier = ref<TalentTier | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
 const isEditModalVisible = ref(false)
+const isAIPromptModalVisible = ref(false)
 const editingTier = ref<TalentTier | null>(null)
 
 const filteredTalentTiers = computed(() => {
@@ -175,30 +183,67 @@ async function handleCustomSubmit(data: CustomTierData) {
   }
 }
 
-async function _handleLocalAIGenerate() {
-  const toastId = 'ai-generate-talent-tier';
-  toast.loading('天机推演中，请稍候...', { id: toastId });
-  try {
-    const newTier = await generateTalentTier()
-    if (newTier) {
-      store.addTalentTier(newTier);
-      handleSelectTalentTier(newTier);
-      toast.success(`AI推演天资 "${newTier.name}" 已保存！`, { id: toastId });
-    } else {
-      toast.error('AI未能成功推演天资，请稍后再试。', { id: toastId });
-    }
-  } catch (e: unknown) {
-    console.error("AI天资推演时发生意外错误:", e);
-    // Error toast handled in tavernAI, just dismiss loading
-    toast.hide(toastId);
+function handleAIGenerate() {
+  if (store.isLocalCreation) {
+    isAIPromptModalVisible.value = true;
+  } else {
+    emit('ai-generate')
   }
 }
 
-function handleAIGenerate() {
-  if (store.isLocalCreation) {
-    _handleLocalAIGenerate()
-  } else {
-    emit('ai-generate')
+async function handleAIPromptSubmit(userPrompt: string) {
+  const toastId = 'ai-generate-talent-tier';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
+
+  try {
+    const aiResponse = await generateWithRawPrompt(userPrompt, TALENT_TIER_ITEM_GENERATION_PROMPT, false);
+
+    if (!aiResponse) {
+      toast.error('AI推演失败', { id: toastId });
+      return;
+    }
+
+    console.log('【AI推演-天资】完整响应:', aiResponse);
+
+    // 解析AI返回的JSON
+    let parsedTier: any;
+    try {
+      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
+      parsedTier = JSON.parse(jsonStr.trim());
+    } catch (parseError) {
+      console.error('【AI推演-天资】JSON解析失败:', parseError);
+      toast.error('AI推演结果格式错误，无法解析', { id: toastId });
+      return;
+    }
+
+    // 验证必需字段
+    if (!parsedTier.name && !parsedTier.名称) {
+      toast.error('AI推演结果缺少天资名称', { id: toastId });
+      return;
+    }
+
+    // 创建天资对象
+    const newTier: TalentTier = {
+      id: Date.now(),
+      name: parsedTier.name || parsedTier.名称 || '未命名天资',
+      description: parsedTier.description || parsedTier.描述 || parsedTier.说明 || '',
+      total_points: parsedTier.total_points || parsedTier.总点数 || parsedTier.点数 || 10,
+      color: parsedTier.color || parsedTier.颜色 || '#808080',
+      rarity: parsedTier.rarity || parsedTier.稀有度 || 1,
+      source: 'local'
+    };
+
+    // 保存并选择天资
+    store.addTalentTier(newTier);
+    handleSelectTalentTier(newTier);
+    isAIPromptModalVisible.value = false;
+
+    toast.success(`AI推演完成！天资 "${newTier.name}" 已生成`, { id: toastId });
+
+  } catch (e: any) {
+    console.error('【AI推演-天资】失败:', e);
+    toast.error(`AI推演失败: ${e.message}`, { id: toastId });
   }
 }
 

@@ -695,7 +695,7 @@ const handleEditSaveName = (charId: string, slotKey: string) => {
     '请输入新的存档名称：',
     currentName,
     '',
-    (newName) => {
+    async (newName) => {
       if (newName && newName.trim() && newName.trim() !== currentName) {
         const cleanName = newName.trim();
 
@@ -705,7 +705,7 @@ const handleEditSaveName = (charId: string, slotKey: string) => {
           return;
         }
 
-        characterStore.renameSave(charId, slotKey, cleanName);
+        await characterStore.renameSave(charId, slotKey, cleanName);
       }
     }
   );

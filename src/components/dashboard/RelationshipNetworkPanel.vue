@@ -6,7 +6,7 @@
         <!-- 左侧：人物列表 -->
         <div class="relationship-list">
           <div class="list-header">
-            <h3 class="panel-title">江湖人脉</h3>
+            <h3 class="panel-title">人物关系</h3>
             <div class="search-bar">
               <Search :size="16" />
               <input
@@ -30,19 +30,19 @@
             <div v-else class="person-list">
               <div
                 v-for="person in filteredRelationships"
-                :key="person.角色基础信息.名字"
+                :key="person.名字"
                 class="person-card"
-                :class="{ selected: selectedPerson?.角色基础信息.名字 === person.角色基础信息.名字 }"
+                :class="{ selected: selectedPerson?.名字 === person.名字 }"
                 @click="selectPerson(person)"
               >
                 <div class="person-avatar">
-                  <span class="avatar-text">{{ person.角色基础信息.名字.charAt(0) }}</span>
+                  <span class="avatar-text">{{ person.名字.charAt(0) }}</span>
                 </div>
 
                 <div class="person-info">
-                  <div class="person-name">{{ person.角色基础信息.名字 }}</div>
+                  <div class="person-name">{{ person.名字 }}</div>
                   <div class="person-meta">
-                    <span class="relationship-type">{{ person.人物关系 || '相识' }}</span>
+                    <span class="relationship-type">{{ person.与玩家关系 || '相识' }}</span>
                     <button class="attention-toggle" @click.stop.prevent="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
                       <Eye v-if="isAttentionEnabled(person)" :size="14" class="attention-icon active" />
                       <EyeOff v-else :size="14" class="attention-icon inactive" />
@@ -56,11 +56,11 @@
                     <div class="intimacy-bar">
                       <div
                         class="intimacy-fill"
-                        :class="getIntimacyClass(person.人物好感度)"
-                        :style="{ width: Math.max(5, Math.abs(person.人物好感度 || 0)) + '%' }"
+                        :class="getIntimacyClass(person.好感度)"
+                        :style="{ width: Math.max(5, Math.abs(person.好感度 || 0)) + '%' }"
                       ></div>
                     </div>
-                    <span class="intimacy-value">{{ person.人物好感度 || 0 }}</span>
+                    <span class="intimacy-value">{{ person.好感度 || 0 }}</span>
                   </div>
                 </div>
                 <ChevronRight :size="16" class="arrow-icon" />
@@ -75,149 +75,280 @@
             <!-- 详情头部 -->
             <div class="detail-header">
               <div class="detail-avatar">
-                <span class="avatar-text">{{ selectedPerson.角色基础信息.名字.charAt(0) }}</span>
+                <span class="avatar-text">{{ selectedPerson.名字.charAt(0) }}</span>
               </div>
               <div class="detail-info">
-                <h3 class="detail-name">{{ selectedPerson.角色基础信息.名字 }}</h3>
+                <h3 class="detail-name">{{ selectedPerson.名字 }}</h3>
                 <div class="detail-badges">
-                  <span class="relationship-badge">{{ selectedPerson.人物关系 || '相识' }}</span>
-                  <span class="intimacy-badge" :class="getIntimacyClass(selectedPerson.人物好感度)">
-                    好感 {{ selectedPerson.人物好感度 || 0 }}
+                  <span class="relationship-badge">{{ selectedPerson.与玩家关系 || '相识' }}</span>
+                  <span class="intimacy-badge" :class="getIntimacyClass(selectedPerson.好感度)">
+                    好感 {{ selectedPerson.好感度 || 0 }}
                   </span>
+                  <span class="race-badge">{{ selectedPerson.种族 || '人族' }}</span>
+                  <span v-if="selectedPerson.势力归属" class="faction-badge">{{ selectedPerson.势力归属 }}</span>
                 </div>
               </div>
-            </div>
-
-            <!-- 标签页导航 -->
-            <div class="detail-tabs">
-              <button @click="activeTab = 'summary'" :class="{ active: activeTab === 'summary' }">摘要</button>
-              <button @click="activeTab = 'profile'" :class="{ active: activeTab === 'profile' }">档案</button>
-              <button @click="activeTab = 'memory'" :class="{ active: activeTab === 'memory' }">记忆</button>
-              <button @click="activeTab = 'inventory'" :class="{ active: activeTab === 'inventory' }">背包</button>
-              <button @click="activeTab = 'behavior'" :class="{ active: activeTab === 'behavior' }">行为</button>
-              <button @click="activeTab = 'raw'" :class="{ active: activeTab === 'raw' }">原始数据</button>
             </div>
 
             <!-- 详情主体 -->
             <div class="detail-body">
-              <!-- 摘要 Tab -->
-              <div v-if="activeTab === 'summary'" class="tab-content">
-                <div class="detail-section">
-                  <h5 class="section-title">关键信息</h5>
-                  <div class="info-grid">
-                    <!-- 统一显示境界+阶段 -->
-                    <div class="info-item" v-if="selectedPerson.玩家角色状态?.境界 !== undefined || selectedPerson.境界 !== undefined">
-                      <span class="info-label">境界</span>
-                      <span class="info-value">{{ getNpcRealm(selectedPerson) }}</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">天资</span>
-                      <span class="info-value">{{ selectedPerson.角色基础信息?.天资 || '未知' }}</span>
-                    </div>
-                    <div class="info-item" v-if="selectedPerson.角色基础信息?.灵根">
-                      <span class="info-label">灵根</span>
-                      <span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">人物关系</span>
-                      <span class="info-value">{{ selectedPerson.人物关系 || '未知' }}</span>
-                    </div>
+              <!-- 选项卡导航 -->
+              <div class="detail-tabs">
+                <button
+                  v-for="tab in tabs"
+                  :key="tab.id"
+                  :class="['tab-btn', { active: activeTab === tab.id }]"
+                  @click="activeTab = tab.id"
+                >
+                  {{ tab.icon }} {{ tab.label }}
+                </button>
+              </div>
+
+              <!-- 选项卡内容 -->
+              <div class="tab-content">
+                <!-- Tab 1: 基本信息 -->
+                <div v-show="activeTab === 'basic'" class="tab-panel">
+                  <!-- 基础档案 -->
+                  <div class="detail-section">
+                  <h5 class="section-title">基础档案</h5>
+                  <div class="info-grid-responsive">
+                    <div class="info-item-row"><span class="info-label">境界</span><span class="info-value">{{ getNpcRealm(selectedPerson) }}</span></div>
+                    <div class="info-item-row"><span class="info-label">性别</span><span class="info-value">{{ selectedPerson.性别 || '未知' }}</span></div>
+                    <div class="info-item-row"><span class="info-label">年龄</span><span class="info-value">{{ selectedPerson.年龄 ? `${selectedPerson.年龄}岁` : '未知' }}</span></div>
+                    <div class="info-item-row"><span class="info-label">灵根</span><span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span></div>
+                    <div class="info-item-row" v-if="selectedPerson.当前位置"><span class="info-label">位置</span><span class="info-value">{{ selectedPerson.当前位置.描述 }}</span></div>
+                    <div class="info-item-row" v-if="selectedPerson.出生"><span class="info-label">出生</span><span class="info-value">{{ getNpcOrigin(selectedPerson.出生) }}</span></div>
                   </div>
                 </div>
-                <div class="detail-section" v-if="selectedPerson.外貌描述">
-                  <h5 class="section-title">外貌特征</h5>
-                  <div class="appearance-description">
+
+                <!-- 外貌与性格 -->
+                <div class="detail-section" v-if="selectedPerson.外貌描述 || selectedPerson.性格特征?.length">
+                  <h5 class="section-title">外貌与性格</h5>
+                  <div v-if="selectedPerson.外貌描述" class="appearance-description">
                     <p class="description-text">{{ selectedPerson.外貌描述 }}</p>
                   </div>
+                   <div v-if="selectedPerson.性格特征?.length" class="talents-grid" style="margin-top: 1rem;">
+                      <span v-for="trait in selectedPerson.性格特征" :key="trait" class="talent-tag">{{ trait }}</span>
+                    </div>
                 </div>
-                <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
-                  <h5 class="section-title">最近记忆</h5>
-                  <div class="memory-list">
-                    <div v-for="(memory, index) in selectedPerson.人物记忆.slice(-3).reverse()" :key="index" class="memory-item">
-                       <div class="memory-content">
-                        <div class="memory-time">{{ getMemoryTime(memory) }}</div>
-                        <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+
+                <!-- 天赋与六司 -->
+                <div class="detail-section" v-if="selectedPerson.天赋?.length || selectedPerson.先天六司">
+                   <h5 class="section-title">天赋与六司</h5>
+                   <div v-if="selectedPerson.天赋?.length">
+                      <h6 class="subsection-title">天赋能力</h6>
+                      <div class="talents-grid">
+                        <span v-for="talent in selectedPerson.天赋" :key="talent.名称" class="talent-tag" :title="talent.描述">{{ talent.名称 }}</span>
+                      </div>
+                   </div>
+                   <div v-if="selectedPerson.先天六司" style="margin-top: 1rem;">
+                      <h6 class="subsection-title">先天六司</h6>
+                      <div class="attributes-grid">
+                        <div class="attribute-item"><span class="attr-label">根骨</span><span class="attr-value">{{ selectedPerson.先天六司.根骨 || 0 }}</span></div>
+                        <div class="attribute-item"><span class="attr-label">灵性</span><span class="attr-value">{{ selectedPerson.先天六司.灵性 || 0 }}</span></div>
+                        <div class="attribute-item"><span class="attr-label">悟性</span><span class="attr-value">{{ selectedPerson.先天六司.悟性 || 0 }}</span></div>
+                        <div class="attribute-item"><span class="attr-label">气运</span><span class="attr-value">{{ selectedPerson.先天六司.气运 || 0 }}</span></div>
+                        <div class="attribute-item"><span class="attr-label">魅力</span><span class="attr-value">{{ selectedPerson.先天六司.魅力 || 0 }}</span></div>
+                        <div class="attribute-item"><span class="attr-label">心性</span><span class="attr-value">{{ selectedPerson.先天六司.心性 || 0 }}</span></div>
+                      </div>
+                   </div>
+                </div>
+
+                <!-- 最近记忆 -->
+                <div class="detail-section" v-if="getNpcRecentMemories(selectedPerson).length > 0">
+                  <h5 class="section-title">📝 最近记忆</h5>
+                  <div class="npc-memories-list">
+                    <div v-for="(memory, index) in getNpcRecentMemories(selectedPerson)" :key="index" class="npc-memory-item">
+                      <div class="npc-memory-content">{{ memory }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 人格底线（所有NPC都有）-->
+                <div class="detail-section personality-section">
+                  <h5 class="section-title">⚠️ 人格底线</h5>
+                  <div class="personality-bottomlines">
+                    <div v-if="selectedPerson.人格底线?.length" class="bottomline-tags">
+                      <span v-for="(line, index) in selectedPerson.人格底线" :key="index" class="bottomline-tag">{{ line }}</span>
+                    </div>
+                    <div v-else class="bottomline-empty">未记录人格底线</div>
+                  </div>
+                  <div class="bottomline-warning">
+                    <span class="warning-icon">⚡</span>
+                    <span class="warning-text">触犯人格底线将导致好感度断崖式下跌（-30 ~ -60），关系破裂且极难修复</span>
+                  </div>
+                </div>
+                </div>
+
+                <!-- Tab 2: 实时状态 -->
+                <div v-show="activeTab === 'status'" class="tab-panel">
+                <div class="detail-section highlight-section">
+                  <h5 class="section-title">💭 当前状态（实时）</h5>
+                  <div class="realtime-status">
+                    <div class="status-item">
+                      <span class="status-icon">😶</span>
+                      <div class="status-content">
+                        <div class="status-label">外貌状态</div>
+                        <div class="status-text">{{ selectedPerson.当前外貌状态 || '神态自然，衣衫整洁' }}</div>
+                      </div>
+                    </div>
+                    <div class="status-item">
+                      <span class="status-icon">💭</span>
+                      <div class="status-content">
+                        <div class="status-label">内心想法</div>
+                        <div class="status-text">{{ selectedPerson.当前内心想法 || '心如止水，平静无波' }}</div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+                </div>
 
-              <!-- 档案 Tab -->
-              <div v-if="activeTab === 'profile'" class="tab-content">
-                <div class="detail-section">
-                  <h5 class="section-title">基础信息</h5>
-                  <div class="info-grid">
-                    <div class="info-item">
-                      <span class="info-label">性别</span>
-                      <span class="info-value">{{ selectedPerson.角色基础信息.性别 || '未知' }}</span>
-                    </div>
-                    <div class="info-item" v-if="selectedPerson.角色基础信息.年龄">
-                      <span class="info-label">年龄</span>
-                      <span class="info-value">{{ selectedPerson.角色基础信息.年龄 }}岁</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">天资</span>
-                      <span class="info-value">{{ selectedPerson.角色基础信息.天资 || '未知' }}</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">灵根</span>
-                      <span class="info-value">{{ formatSpiritRoot(selectedPerson.角色基础信息.灵根) }}</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">出生</span>
-                      <span
-                        class="info-value clickable"
-                        @click="showOriginDetails(selectedPerson.角色基础信息.出生)"
-                        :title="typeof selectedPerson.角色基础信息.出生 === 'object' ? '点击查看详情' : ''"
-                      >
-                        {{ formatOrigin(selectedPerson.角色基础信息.出生) }}
-                      </span>
-                    </div>
-                    <div class="info-item" v-if="selectedPerson.角色基础信息.世界">
-                      <span class="info-label">所在世界</span>
-                      <span class="info-value">{{ selectedPerson.角色基础信息.世界 }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-section" v-if="selectedPerson.角色基础信息.天赋?.length">
-                  <h6 class="subsection-title">天赋能力</h6>
-                  <div class="talents-grid">
-                    <span v-for="talent in selectedPerson.角色基础信息.天赋" :key="talent" class="talent-tag">{{ talent }}</span>
-                  </div>
-                </div>
-                <div class="detail-section" v-if="selectedPerson.角色基础信息.先天六司">
-                  <h6 class="subsection-title">先天六司</h6>
-                  <div class="attributes-grid">
-                    <div class="attribute-item"><span class="attr-label">根骨</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.根骨 || 0 }}</span></div>
-                    <div class="attribute-item"><span class="attr-label">灵性</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.灵性 || 0 }}</span></div>
-                    <div class="attribute-item"><span class="attr-label">悟性</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.悟性 || 0 }}</span></div>
-                    <div class="attribute-item"><span class="attr-label">气运</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.气运 || 0 }}</span></div>
-                    <div class="attribute-item"><span class="attr-label">魅力</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.魅力 || 0 }}</span></div>
-                    <div class="attribute-item"><span class="attr-label">心性</span><span class="attr-value">{{ selectedPerson.角色基础信息.先天六司.心性 || 0 }}</span></div>
-                  </div>
-                </div>
-              </div>
+                <!-- Tab 3: 私密资料 (NSFW) -->
+                <div v-show="activeTab === 'nsfw'" class="tab-panel" v-if="selectedPerson.私密信息">
+                <div class="detail-section nsfw-section">
+                  <h5 class="section-title">🔞 私密信息</h5>
 
-              <!-- 记忆 Tab -->
-              <div v-if="activeTab === 'memory'" class="tab-content">
-                <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
+                  <!-- 性欲与状态 -->
+                  <div class="nsfw-subsection">
+                    <h6 class="subsection-title">状态与欲望</h6>
+                    <div class="info-grid">
+                      <div class="info-item"><span class="info-label">性状态</span><span class="info-value status-badge" :class="'status-' + selectedPerson.私密信息.当前性状态">{{ selectedPerson.私密信息.当前性状态 }}</span></div>
+                      <div class="info-item">
+                        <span class="info-label">性渴望</span>
+                        <span class="info-value">{{ selectedPerson.私密信息.性渴望程度 || 0 }}%</span>
+                      </div>
+                    </div>
+                    <div class="dev-bar-item" style="margin-top: 0.5rem;">
+                      <div class="dev-bar-track">
+                        <div class="dev-bar-fill desire-fill" :style="{ width: (selectedPerson.私密信息.性渴望程度 || 0) + '%' }"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 基础信息 -->
+                  <div class="nsfw-subsection">
+                    <h6 class="subsection-title">基础信息</h6>
+                    <div class="info-grid">
+                      <div class="info-item">
+                        <span class="info-label">贞洁</span>
+                        <span class="info-value">
+                          {{ selectedPerson.性别 === '女' || selectedPerson.性别 === '其他'
+                            ? (selectedPerson.私密信息.是否为处女 ? '✓ 处女' : '✗ 非处')
+                            : (selectedPerson.私密信息.是否为处男 ? '✓ 处男' : '✗ 非处') }}
+                        </span>
+                      </div>
+                      <div class="info-item"><span class="info-label">性格倾向</span><span class="info-value">{{ selectedPerson.私密信息.性格倾向 || '未知' }}</span></div>
+                      <div class="info-item"><span class="info-label">性取向</span><span class="info-value">{{ selectedPerson.私密信息.性取向 || '异性恋' }}</span></div>
+                    </div>
+                    <!-- 性伴侣名单 -->
+                    <div v-if="selectedPerson.私密信息.性伴侣名单?.length" class="partner-list">
+                      <div class="mini-label">性伴侣名单 ({{ selectedPerson.私密信息.性伴侣数量 || 0 }}人)</div>
+                      <div class="talents-grid">
+                        <span v-for="partner in selectedPerson.私密信息.性伴侣名单" :key="partner" class="partner-tag">{{ partner }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 性经验统计 -->
+                  <div class="nsfw-subsection">
+                    <h6 class="subsection-title">性经验统计</h6>
+                    <div class="experience-grid">
+                      <div class="exp-item">
+                        <div class="exp-icon">💕</div>
+                        <div class="exp-content">
+                          <div class="exp-label">性交总次数</div>
+                          <div class="exp-value">{{ selectedPerson.私密信息.性交总次数 || 0 }}次</div>
+                        </div>
+                      </div>
+                      <div class="exp-item">
+                        <div class="exp-icon">👥</div>
+                        <div class="exp-content">
+                          <div class="exp-label">性伴侣数量</div>
+                          <div class="exp-value">{{ selectedPerson.私密信息.性伴侣数量 || 0 }}人</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-if="selectedPerson.私密信息.最近一次性行为时间" class="last-time-info">
+                      <span class="last-time-label">最近一次：</span>
+                      <span class="last-time-value">{{ selectedPerson.私密信息.最近一次性行为时间 }}</span>
+                    </div>
+                  </div>
+
+                  <!-- 身体部位开发 -->
+                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.身体部位?.length">
+                    <h6 class="subsection-title">身体部位开发</h6>
+                    <div class="body-parts-list">
+                      <div v-for="part in selectedPerson.私密信息.身体部位" :key="part.部位名称" class="body-part-item">
+                        <div class="part-header">
+                          <span class="part-name">{{ part.部位名称 }}</span>
+                          <span v-if="part.特殊标记" class="part-mark">{{ part.特殊标记 }}</span>
+                        </div>
+                        <div v-if="part.描述" class="part-description">{{ part.描述 }}</div>
+                        <div class="part-stats">
+                          <div class="part-stat">
+                            <span class="stat-label">敏感度</span>
+                            <div class="stat-bar-mini">
+                              <div class="stat-bar-fill sensitivity" :style="{ width: (part.敏感度 || 0) + '%' }"></div>
+                            </div>
+                            <span class="stat-value">{{ part.敏感度 || 0 }}%</span>
+                          </div>
+                          <div class="part-stat">
+                            <span class="stat-label">开发度</span>
+                            <div class="stat-bar-mini">
+                              <div class="stat-bar-fill development" :style="{ width: (part.开发程度 || 0) + '%' }"></div>
+                            </div>
+                            <span class="stat-value">{{ part.开发程度 || 0 }}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 体液状态 -->
+                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.体液分泌状态">
+                    <h6 class="subsection-title">体液状态</h6>
+                    <div class="fluid-status">💧 {{ selectedPerson.私密信息.体液分泌状态 }}</div>
+                  </div>
+
+                  <!-- 性癖好与体质 -->
+                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.性癖好?.length || selectedPerson.私密信息.特殊体质?.length">
+                    <h6 class="subsection-title">癖好与体质</h6>
+                    <div v-if="selectedPerson.私密信息.性癖好?.length" style="margin-bottom: 0.75rem;">
+                      <div class="mini-label">性癖好</div>
+                      <div class="talents-grid">
+                        <span v-for="fetish in selectedPerson.私密信息.性癖好" :key="fetish" class="fetish-tag">{{ fetish }}</span>
+                      </div>
+                    </div>
+                    <div v-if="selectedPerson.私密信息.特殊体质?.length">
+                      <div class="mini-label">特殊体质</div>
+                      <div class="talents-grid">
+                        <span v-for="trait in selectedPerson.私密信息.特殊体质" :key="trait" class="special-trait-tag">{{ trait }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                </div>
+
+                <!-- Tab 4: 记忆档案 -->
+                <div v-show="activeTab === 'memory'" class="tab-panel">
+                <div class="detail-section" v-if="selectedPerson.记忆?.length || selectedPerson.记忆总结?.length">
                   <div class="memory-header">
-                    <h5 class="section-title">人物记忆</h5>
+                    <h5 class="section-title" style="border: none; padding: 0; margin: 0;">记忆</h5>
                     <div class="memory-actions-header">
-                      <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.人物记忆.length }} 条记忆</div>
-                      <button
-                        v-if="selectedPerson.人物记忆.length >= 10"
-                        class="summarize-btn"
-                        @click="summarizeMemories"
-                        :disabled="isSummarizing"
-                        title="将记忆总结为精简版本"
-                      >
-                        {{ isSummarizing ? '总结中...' : '📝 总结记忆' }}
+                      <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.记忆?.length || 0 }} 条</div>
+                      <button v-if="(selectedPerson.记忆?.length || 0) >= 10" class="summarize-btn" @click="summarizeMemories" :disabled="isSummarizing" title="总结记忆">
+                        {{ isSummarizing ? '总结中...' : '📝 总结' }}
                       </button>
                     </div>
                   </div>
-                  <div class="memory-list">
+                  <div class="memory-summary-list" v-if="selectedPerson.记忆总结?.length">
+                    <div v-for="(summary, index) in selectedPerson.记忆总结" :key="index" class="memory-summary-item">
+                      <div class="summary-icon">📜</div>
+                      <div class="summary-text">{{ summary }}</div>
+                    </div>
+                  </div>
+                  <div class="memory-list" v-if="selectedPerson.记忆?.length">
                     <div v-for="(memory, index) in paginatedMemory" :key="index" class="memory-item">
                       <div class="memory-content">
                         <div class="memory-time">{{ getMemoryTime(memory) }}</div>
@@ -234,38 +365,30 @@
                     <div class="pagination-info">{{ currentMemoryPage }} / {{ totalMemoryPages }}</div>
                     <button class="pagination-btn" :disabled="currentMemoryPage >= totalMemoryPages" @click="goToMemoryPage(currentMemoryPage + 1)">下一页</button>
                   </div>
+                  <div v-if="!selectedPerson.记忆?.length && !selectedPerson.记忆总结?.length" class="empty-state-small">此人暂无记忆</div>
                 </div>
 
-                <!-- 记忆总结显示 -->
-                <div class="detail-section" v-if="selectedPerson.记忆总结?.length">
-                  <h5 class="section-title">记忆总结</h5>
-                  <div class="memory-summary-list">
-                    <div v-for="(summary, index) in selectedPerson.记忆总结" :key="index" class="memory-summary-item">
-                      <div class="summary-icon">📜</div>
-                      <div class="summary-text">{{ summary }}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="!selectedPerson.人物记忆?.length" class="empty-state-small">此人暂无记忆</div>
-              </div>
-
-              <!-- 背包 Tab -->
-              <div v-if="activeTab === 'inventory'" class="tab-content">
+                <!-- 原始数据 -->
                 <div class="detail-section">
-                  <h5 class="section-title">灵石</h5>
+                   <h5 class="section-title">原始数据 (JSON)</h5>
+                   <div class="raw-data-container">
+                     <pre><code>{{ JSON.stringify(selectedPerson, null, 2) }}</code></pre>
+                   </div>
+                </div>
+                </div>
+                <!-- End of Tab 4: 记忆档案 -->
+
+                <!-- Tab 5: 背包 -->
+                <div v-show="activeTab === 'inventory'" class="tab-panel">
+                <div class="detail-section">
+                  <h5 class="section-title">背包</h5>
                   <div v-if="selectedPerson.背包?.灵石" class="spirit-stones-grid">
                     <div class="spirit-stone-item"><span>下品灵石</span><span>{{ selectedPerson.背包.灵石.下品 || 0 }}</span></div>
                     <div class="spirit-stone-item"><span>中品灵石</span><span>{{ selectedPerson.背包.灵石.中品 || 0 }}</span></div>
                     <div class="spirit-stone-item"><span>上品灵石</span><span>{{ selectedPerson.背包.灵石.上品 || 0 }}</span></div>
                     <div class="spirit-stone-item"><span>极品灵石</span><span>{{ selectedPerson.背包.灵石.极品 || 0 }}</span></div>
                   </div>
-                  <div v-else class="empty-state-small">无灵石信息</div>
-                </div>
-
-                <div class="detail-section">
-                  <h5 class="section-title">随身物品</h5>
-                  <div class="npc-inventory">
+                  <div class="npc-inventory" style="margin-top: 1rem;">
                     <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
                       <div v-for="(item, itemId) in selectedPerson.背包.物品" :key="itemId" class="npc-item-card" :class="getItemQualityClass(item.品质?.quality)">
                         <div class="item-header">
@@ -285,42 +408,12 @@
                     <div v-else class="empty-inventory"><Package :size="24" class="empty-icon" /><p>此人身上没有物品</p></div>
                   </div>
                 </div>
+                </div>
+                <!-- End of Tab 5: 背包 -->
               </div>
-
-              <!-- 行为 Tab -->
-              <div v-if="activeTab === 'behavior'" class="tab-content">
-                 <div class="detail-section">
-                    <h5 class="section-title">行为模式</h5>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">性格特征</span>
-                            <span class="info-value">{{ selectedPerson.性格特征?.join('、') || '未知' }}</span>
-                        </div>
-                    </div>
-                 </div>
-                 <div class="detail-section">
-                    <h5 class="section-title">知名技能</h5>
-                    <div v-if="selectedPerson.知名技能?.length">
-                        <div class="skills-list">
-                          <div v-for="(skill, index) in selectedPerson.知名技能" :key="index" class="skill-item">
-                            <span class="skill-name">{{ skill }}</span>
-                          </div>
-                        </div>
-                    </div>
-                    <div v-else class="empty-state-small">暂无已知技能</div>
-                 </div>
-              </div>
-
-              <!-- 原始数据 Tab -->
-               <div v-if="activeTab === 'raw'" class="tab-content">
-                 <div class="detail-section">
-                   <h5 class="section-title">原始数据 (JSON)</h5>
-                   <div class="raw-data-container">
-                     <pre><code>{{ JSON.stringify(selectedPerson, null, 2) }}</code></pre>
-                   </div>
-                 </div>
-               </div>
-           </div>
+              <!-- End of tab-content -->
+            </div>
+            <!-- End of detail-body -->
           </template>
          <div v-else class="no-selection">
            <Users2 :size="64" class="placeholder-icon" />
@@ -345,16 +438,36 @@ import {
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { getTavernHelper } from '@/utils/tavern';
+import { useUIStore } from '@/stores/uiStore';
 
-const { characterData, saveData } = useUnifiedCharacterData();
+const { characterData } = useUnifiedCharacterData();
 const actionQueue = useActionQueueStore();
+const uiStore = useUIStore();
 const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
-const activeTab = ref('summary'); // 'summary', 'profile', 'memory', 'inventory', 'behavior'
 
-// 酒馆变量状态
-const tavernVariables = ref<Record<string, unknown>>({});
+// Tab管理
+const activeTab = ref('basic');
+const tabs = computed(() => {
+  const baseTabs = [
+    { id: 'basic', label: '基本信息', icon: '📋' },
+    { id: 'status', label: '实时状态', icon: '💭' },
+  ];
+
+  // 如果有NSFW信息，添加私密资料tab
+  if (selectedPerson.value?.私密信息) {
+    baseTabs.push({ id: 'nsfw', label: '私密资料', icon: '🔞' });
+  }
+
+  // 添加记忆档案tab
+  baseTabs.push({ id: 'memory', label: '记忆档案', icon: '📝' });
+
+  // 添加背包tab
+  baseTabs.push({ id: 'inventory', label: '背包', icon: '🎒' });
+
+  return baseTabs;
+});
 
 // 记忆总结状态
 const isSummarizing = ref(false);
@@ -365,19 +478,17 @@ const currentMemoryPage = ref(1); // 当前页码
 
 // 计算分页后的记忆
 const paginatedMemory = computed(() => {
-  if (!selectedPerson.value?.人物记忆?.length) return [];
-
-  const memories = selectedPerson.value.人物记忆;
+  if (!selectedPerson.value?.记忆?.length) return [];
+  const memories = selectedPerson.value.记忆;
   const startIndex = (currentMemoryPage.value - 1) * memoryPageSize.value;
   const endIndex = startIndex + memoryPageSize.value;
-
   return memories.slice(startIndex, endIndex);
 });
 
 // 计算总页数
 const totalMemoryPages = computed(() => {
-  if (!selectedPerson.value?.人物记忆?.length) return 0;
-  return Math.ceil(selectedPerson.value.人物记忆.length / memoryPageSize.value);
+  if (!selectedPerson.value?.记忆?.length) return 0;
+  return Math.ceil(selectedPerson.value.记忆.length / memoryPageSize.value);
 });
 
 // 切换记忆页面
@@ -412,110 +523,21 @@ const getMemoryEvent = (memory: unknown): string => {
   return '';
 };
 
-// 解析NPC境界为结构化字段（境界: 数字, 阶段: 字符串）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getNpcRealmParsed = (npc: NpcProfile): { 境界: number | null; 阶段: string | null } => {
-  const sources = [
-    (npc as any)?.玩家角色状态,
-    (npc as any)?.角色基础信息,
-    (npc as any)
-  ].filter(Boolean);
-
-  let realmVal: unknown = undefined;
-  let stageVal: unknown = undefined;
-
-  for (const src of sources) {
-    if (realmVal === undefined || realmVal === null) realmVal = (src as any)?.境界;
-    if (stageVal === undefined || stageVal === null) stageVal = (src as any)?.阶段;
-  }
-
-  const majorMap: Record<string, number> = {
-    '凡人': 0,
-    '练气': 1,
-    '炼气': 1,
-    '筑基': 2,
-    '金丹': 3,
-    '元婴': 4,
-    '化神': 5,
-    '炼虚': 6,
-    '合体': 7,
-    '渡劫': 8
-  };
-  const stageTokens = ['初期', '中期', '后期', '圆满', '极道', '极境'];
-
-  const parseFromName = (name?: string): { level?: number; stage?: string } => {
-    if (!name) return {};
-    let n = name.replace(/\s+/g, '').replace('练气', '炼气');
-    const stage = stageTokens.find(s => n.includes(s));
-    stageTokens.forEach(s => { n = n.replace(s, ''); });
-    n = n.replace('期', '');
-    const level = majorMap[n as keyof typeof majorMap];
-    return { level, stage };
-  };
-
-  if (realmVal && typeof realmVal === 'object') {
-    const obj = realmVal as any;
-    // 新数据结构：直接使用 名称 和 阶段
-    if (typeof obj.名称 === 'string' || typeof obj.name === 'string') {
-      const parsed = parseFromName((obj.名称 ?? obj.name) as string);
-      if (parsed.level !== undefined) realmVal = parsed.level;
-      if (!stageVal && parsed.stage) stageVal = parsed.stage;
-    }
-    // 从 阶段 字段获取阶段
-    if (!stageVal && (typeof obj.阶段 === 'string' || typeof obj.stage === 'string')) {
-      stageVal = obj.阶段 ?? obj.stage;
-    }
-    // 如果还没有数值，尝试从名称推断
-    if (realmVal === undefined) {
-      realmVal = undefined;
-    }
-  }
-
-  if (typeof realmVal === 'string') {
-    const parsed = parseFromName(realmVal);
-    realmVal = parsed.level ?? undefined;
-    if (!stageVal && parsed.stage) stageVal = parsed.stage;
-  }
-
-  return {
-    境界: typeof realmVal === 'number' ? realmVal : null,
-    阶段: typeof stageVal === 'string' ? (stageVal as string) : null
-  };
-};
-
 // 获取NPC境界信息
 const getNpcRealm = (npc: NpcProfile): string => {
-  // 尝试多个位置获取境界和阶段信息
-  const sources = [
-    (npc as any)?.玩家角色状态?.境界,
-    (npc as any)?.境界,
-    (npc as any)?.角色基础信息?.境界
-  ];
+  const realmField = npc.境界;
+  if (!realmField) return '未知';
 
-  for (const realmField of sources) {
-    if (!realmField) continue;
-
-    // 如果境界是对象格式 { 名称: "渡劫", 阶段: "圆满" }
-    if (typeof realmField === 'object' && realmField !== null) {
-      const name = realmField.名称 || realmField.name || '';
-      const stage = realmField.阶段 || realmField.stage || '';
-      if (name) {
-        return stage ? `${name}${stage}` : name;
-      }
+  if (typeof realmField === 'object' && realmField !== null) {
+    const name = realmField.名称 || '';
+    const stage = realmField.阶段 || '';
+    if (name) {
+      return stage ? `${name}${stage}` : name;
     }
-    // 如果境界是数字
-    else if (typeof realmField === 'number') {
-      const realmNames = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
-      const name = realmNames[realmField] || '未知';
-      // 尝试从其他字段获取阶段
-      const stageField = (npc as any)?.玩家角色状态?.阶段 ?? (npc as any)?.阶段 ?? (npc as any)?.角色基础信息?.阶段;
-      return stageField ? `${name}${stageField}` : name;
-    }
-    // 如果境界是字符串
-    else if (typeof realmField === 'string') {
-      const stageField = (npc as any)?.玩家角色状态?.阶段 ?? (npc as any)?.阶段 ?? (npc as any)?.角色基础信息?.阶段;
-      return stageField ? `${realmField}${stageField}` : realmField;
-    }
+  }
+  
+  if (typeof realmField === 'string') {
+    return realmField;
   }
 
   return '未知';
@@ -523,25 +545,47 @@ const getNpcRealm = (npc: NpcProfile): string => {
 
 // 获取NPC灵根信息
 const getNpcSpiritRoot = (npc: NpcProfile): string => {
-  return formatSpiritRoot(npc.角色基础信息?.灵根);
+  return formatSpiritRoot(npc.灵根);
+};
+
+// 获取NPC出生信息
+const getNpcOrigin = (origin: any): string => {
+  if (!origin) return '未知';
+  if (typeof origin === 'string') return origin;
+  if (typeof origin === 'object') {
+    return origin.描述 || origin.name || '未知';
+  }
+  return '未知';
+};
+
+// 获取NPC最近三条记忆
+const getNpcRecentMemories = (npc: NpcProfile): string[] => {
+  if (!npc.记忆) return [];
+
+  // 如果记忆是数组格式
+  if (Array.isArray(npc.记忆)) {
+    return npc.记忆
+      .slice(-3)
+      .reverse()
+      .map(m => {
+        if (typeof m === 'string') return m;
+        if (typeof m === 'object' && m.事件) return m.事件;
+        return '';
+      })
+      .filter(m => m.length > 0);
+  }
+
+  return [];
 };
 
 // 格式化灵根显示
-const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']): string => {
+const formatSpiritRoot = (spiritRoot: NpcProfile['灵根']): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
   if (typeof spiritRoot === 'object') {
-    // 正确格式：{ 名称, 品级, 描述 }
     if (spiritRoot.名称 && spiritRoot.品级) {
       return `${spiritRoot.名称}(${spiritRoot.品级})`;
     }
-    // 兼容错误格式：{ 名称, 类型 } (AI生成错误时的兼容处理)
-    const legacyType = (spiritRoot as { 类型?: string }).类型;
-    if (spiritRoot.名称 && legacyType) {
-      console.warn('[NPC显示] 检测到错误的灵根格式，使用兼容模式:', spiritRoot);
-      return `${spiritRoot.名称}(${legacyType})`;
-    }
-    // 只有名称的情况
     if (spiritRoot.名称) {
       return `${spiritRoot.名称}(未知品级)`;
     }
@@ -553,14 +597,14 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']
 const isNpcProfile = (val: unknown): val is NpcProfile => {
   if (!val || typeof val !== 'object') return false;
   const obj = val as any;
-  return !!(obj.角色基础信息 && typeof obj.角色基础信息.名字 === 'string');
+  // 使用新的扁平化结构进行判断
+  return typeof obj.名字 === 'string' && typeof obj.性别 === 'string';
 };
 
 const relationships = computed<NpcProfile[]>(() => {
   if (!characterData.value?.人物关系) return [];
-  // 仅保留有效NPC：键不以下划线开头，值是对象且包含角色基础信息
+  // 仅保留有效NPC
   return Object.values(characterData.value.人物关系)
-    .filter((val) => !String(val).startsWith('_'))
     .filter(isNpcProfile);
 });
 
@@ -572,13 +616,13 @@ const filteredRelationships = computed<NpcProfile[]>(() => {
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(person =>
-      person.角色基础信息.名字.toLowerCase().includes(query) ||
-      (person.人物关系 || '').toLowerCase().includes(query)
+      person.名字.toLowerCase().includes(query) ||
+      (person.与玩家关系 || '').toLowerCase().includes(query)
     );
   }
 
   // 按好感度排序
-  return filtered.sort((a, b) => (b.人物好感度 || 0) - (a.人物好感度 || 0));
+  return filtered.sort((a, b) => (b.好感度 || 0) - (a.好感度 || 0));
 });
 
 // 工具函数
@@ -598,46 +642,29 @@ const getIntimacyClass = (intimacy: number | undefined): string => {
   return `intimacy-${getIntimacyLevel(intimacy)}`;
 };
 
-// 格式化境界显示：统一为“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
-
 const selectPerson = (person: NpcProfile) => {
-  const isNewSelection = selectedPerson.value?.角色基础信息.名字 !== person.角色基础信息.名字;
-  selectedPerson.value = selectedPerson.value?.角色基础信息.名字 === person.角色基础信息.名字
+  const isNewSelection = selectedPerson.value?.名字 !== person.名字;
+  selectedPerson.value = selectedPerson.value?.名字 === person.名字
     ? null
     : person;
 
-  // 如果选择了新的人物，重置记忆分页和标签页
+  // 如果选择了新的人物，重置记忆分页和tab
   if (isNewSelection && selectedPerson.value) {
     resetMemoryPagination();
-    activeTab.value = 'summary';
+    activeTab.value = 'basic';
   }
 };
 
 watch(selectedPerson, (newPerson) => {
   if (newPerson) {
-    activeTab.value = 'summary';
     resetMemoryPagination();
   }
 });
 
 onMounted(async () => {
-  console.log('[人脉系统] 江湖人脉面板已载入，开始同步数据');
+  console.log('[人脉系统] 人物关系面板已载入，开始同步数据');
   isLoading.value = true;
   try {
-    // 数据已由 useUnifiedCharacterData 自动同步
-
-    // 初始化酒馆变量状态
-    const helper = getTavernHelper();
-    if (helper) {
-      try {
-        const vars = await helper.getVariables({ type: 'chat' });
-        tavernVariables.value = vars || {};
-        console.log('[人脉系统] 酒馆变量已初始化');
-      } catch (error) {
-        console.warn('[人脉系统] 获取酒馆变量失败:', error);
-      }
-    }
-
     // 默认选择第一个人物
     if (filteredRelationships.value.length > 0) {
       selectedPerson.value = filteredRelationships.value[0];
@@ -652,17 +679,17 @@ onMounted(async () => {
 // -- 记忆编辑与删除 --
 const findRelationshipKeyByName = (name: string): string | null => {
   if (!characterData.value?.人物关系) return null;
-  return Object.keys(characterData.value.人物关系).find(key => characterData.value!.人物关系[key]?.角色基础信息?.名字 === name) || null;
+  return Object.keys(characterData.value.人物关系).find(key => characterData.value!.人物关系[key]?.名字 === name) || null;
 };
 
 const editMemory = async (index: number) => {
   if (!selectedPerson.value) return;
-  const name = selectedPerson.value.角色基础信息.名字;
+  const name = selectedPerson.value.名字;
   const key = findRelationshipKeyByName(name);
   if (!key) return;
-  if (!characterData.value?.人物关系?.[key]?.人物记忆) return;
+  if (!characterData.value?.人物关系?.[key]?.记忆) return;
 
-  const current = characterData.value.人物关系[key].人物记忆[index];
+  const current = characterData.value.人物关系[key].记忆[index];
 
   // 支持旧格式（字符串）和新格式（对象）
   let currentTime = '';
@@ -682,10 +709,9 @@ const editMemory = async (index: number) => {
   const newEvent = window.prompt('编辑记忆事件', currentEvent);
   if (newEvent === null) return;
 
-  characterData.value.人物关系[key].人物记忆[index] = {
+  characterData.value.人物关系[key].记忆[index] = {
     时间: newTime.trim(),
     事件: newEvent.trim()
-    // 注意：不再保存指令数据，只保留时间和事件
   };
 
   selectedPerson.value = { ...characterData.value.人物关系[key] };
@@ -696,32 +722,6 @@ const editMemory = async (index: number) => {
   await characterStore.saveCurrentGame();
 };
 
-import { useUIStore } from '@/stores/uiStore';
-
-// Helper to format origin display
-const formatOrigin = (origin: unknown): string => {
-  if (!origin) return '未知';
-  if (typeof origin === 'string') return origin;
-  if (typeof origin === 'object' && origin !== null && '名称' in origin) {
-    return (origin as { 名称: string }).名称 || '未知';
-  }
-  return '格式错误';
-};
-
-const uiStore = useUIStore();
-
-// Show origin details in a modal
-const showOriginDetails = (origin: unknown) => {
-  if (origin && typeof origin === 'object' && origin !== null && '名称' in origin && '描述' in origin) {
-    const originObj = origin as { 名称: string; 描述: string };
-    // Assuming uiStore has a method to show a generic detail modal
-    uiStore.showDetailModal({
-      title: `出身背景: ${originObj.名称}`,
-      content: originObj.描述,
-    });
-  }
-};
-
 const deleteMemory = async (index: number) => {
   if (!selectedPerson.value) return;
   uiStore.showRetryDialog({
@@ -730,11 +730,11 @@ const deleteMemory = async (index: number) => {
     confirmText: '删除',
     cancelText: '取消',
     onConfirm: async () => {
-      const name = selectedPerson.value!.角色基础信息.名字;
+      const name = selectedPerson.value!.名字;
       const key = findRelationshipKeyByName(name);
       if (!key) return;
-      if (!characterData.value?.人物关系?.[key]?.人物记忆) return;
-      characterData.value.人物关系[key].人物记忆.splice(index, 1);
+      if (!characterData.value?.人物关系?.[key]?.记忆) return;
+      characterData.value.人物关系[key].记忆.splice(index, 1);
       selectedPerson.value = { ...characterData.value.人物关系[key] };
 
       // 保存到酒馆
@@ -768,210 +768,148 @@ const getGradeText = (grade?: number): string => {
 };
 
 const initiateTradeWithNpc = (npc: NpcProfile, item: Item) => {
-  // NPC交互类操作只能加入队列等待AI响应，不能直接执行
-  const actionDescription = `尝试与 ${npc.角色基础信息.名字} 交易 ${item.名称}`;
-
-  // 添加到动作队列，等待AI处理
+  const actionDescription = `尝试与 ${npc.名字} 交易 ${item.名称}`;
   actionQueue.addAction({
     type: 'npc_trade',
     itemName: item.名称,
     itemType: 'NPC交易',
     description: actionDescription,
-    // NPC交互的额外数据
-    npcName: npc.角色基础信息.名字,
+    npcName: npc.名字,
     itemId: item.物品ID || item.名称,
-    tradeType: 'trade' // 交易类型
+    tradeType: 'trade'
   });
-
-  toast.success(`已将与 ${npc.角色基础信息.名字} 的交易请求加入动作队列`);
-  console.log('已排队NPC交易:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'trade' });
+  toast.success(`已将与 ${npc.名字} 的交易请求加入动作队列`);
 };
 
 // 向NPC索要物品
 const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
-  const actionDescription = `向 ${npc.角色基础信息.名字} 索要 ${item.名称}`;
-
-  // 添加到动作队列，等待AI处理
+  const actionDescription = `向 ${npc.名字} 索要 ${item.名称}`;
   actionQueue.addAction({
     type: 'npc_request',
     itemName: item.名称,
     itemType: 'NPC索要',
     description: actionDescription,
-    // NPC交互的额外数据
-    npcName: npc.角色基础信息.名字,
+    npcName: npc.名字,
     itemId: item.物品ID || item.名称,
-    tradeType: 'request' // 索要类型
+    tradeType: 'request'
   });
-
-  toast.success(`已将向 ${npc.角色基础信息.名字} 索要物品的请求加入动作队列`);
-  console.log('已排队NPC索要:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'request' });
+  toast.success(`已将向 ${npc.名字} 索要物品的请求加入动作队列`);
 };
 
 // 切换NPC关注状态
 const toggleAttention = async (person: NpcProfile) => {
-  const npcName = person.角色基础信息.名字;
-  console.log('[关注切换] 开始切换关注状态:', npcName);
-
+  const npcName = person.名字;
   if (!characterData.value?.人物关系) {
     toast.error('人物关系数据不存在');
     return;
   }
-
-  // 找到人物关系中的对应条目
   const npcKey = Object.keys(characterData.value.人物关系).find(
-    key => characterData.value!.人物关系[key]?.角色基础信息?.名字 === npcName
+    key => characterData.value!.人物关系[key]?.名字 === npcName
   );
-
   if (!npcKey) {
     toast.error(`找不到名为 ${npcName} 的人物`);
     return;
   }
-
   try {
-    // 切换实时关注状态
     const currentState = characterData.value.人物关系[npcKey].实时关注 || false;
     const newState = !currentState;
     characterData.value.人物关系[npcKey].实时关注 = newState;
-
-    console.log(`[关注切换] 准备同步数据: ${npcName} -> ${newState}`);
-
-    // 同步到酒馆并保存到本地
-    try {
-      const { useCharacterStore } = await import('@/stores/characterStore');
-      const characterStore = useCharacterStore();
-      await characterStore.saveCurrentGame();
-      console.log(`[关注切换] 数据同步成功`);
-    } catch (syncError) {
-      console.error('[关注切换] 同步数据失败:', syncError);
-      // 回滚状态
-      characterData.value.人物关系[npcKey].实时关注 = currentState;
-      throw new Error('数据同步失败: ' + (syncError as Error).message);
-    }
-
-    // 更新UI反馈
-    if (newState) {
-      toast.success(`已关注 ${npcName}`);
-    } else {
-      toast.success(`已取消关注 ${npcName}`);
-    }
-    console.log(`[关注切换] ${npcName} 的实时关注状态已更新为: ${newState}`);
-
-    // 手动触发响应式更新（确保界面刷新）
-    if (selectedPerson.value?.角色基础信息?.名字 === npcName) {
+    const { useCharacterStore } = await import('@/stores/characterStore');
+    const characterStore = useCharacterStore();
+    await characterStore.saveCurrentGame();
+    toast.success(newState ? `已关注 ${npcName}` : `已取消关注 ${npcName}`);
+    if (selectedPerson.value?.名字 === npcName) {
       selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
     }
-
   } catch (error) {
-    console.error('[关注切换] 切换关注状态失败:', error);
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     toast.error(`操作失败: ${errorMsg}`);
   }
 };
 
-// 检查NPC是否被关注（直接从NpcProfile读取）
+// 检查NPC是否被关注
 const isAttentionEnabled = (person: NpcProfile): boolean => {
   return person.实时关注 || false;
 };
 
 // 尝试从NPC身上偷窃物品
 const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
-  const actionDescription = `尝试从 ${npc.角色基础信息.名字} 身上偷取 ${item.名称}`;
-
-  // 添加到动作队列，等待AI处理
+  const actionDescription = `尝试从 ${npc.名字} 身上偷取 ${item.名称}`;
   actionQueue.addAction({
     type: 'npc_steal',
     itemName: item.名称,
     itemType: 'NPC偷窃',
     description: actionDescription,
-    // NPC交互的额外数据
-    npcName: npc.角色基础信息.名字,
+    npcName: npc.名字,
     itemId: item.物品ID || item.名称,
-    tradeType: 'steal' // 偷窃类型
+    tradeType: 'steal'
   });
-
-  toast.success(`已将偷窃 ${npc.角色基础信息.名字} 物品的计划加入动作队列`);
-  console.log('已排队NPC偷窃:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'steal' });
+  toast.success(`已将偷窃 ${npc.名字} 物品的计划加入动作队列`);
 };
 
 // 总结NPC记忆
 const summarizeMemories = async () => {
   if (!selectedPerson.value) return;
-  const npcName = selectedPerson.value.角色基础信息.名字;
-
+  const npcName = selectedPerson.value.名字;
   isSummarizing.value = true;
-
   try {
     const helper = getTavernHelper();
-    if (!helper) {
-      toast.error('无法连接到酒馆助手');
-      return;
-    }
+    if (!helper) throw new Error('无法连接到酒馆助手');
+    const memories = selectedPerson.value.记忆 || [];
+    if (memories.length === 0) throw new Error('没有记忆可以总结');
 
-    // 获取所有记忆
-    const memories = selectedPerson.value.人物记忆 || [];
-    if (memories.length === 0) {
-      toast.error('没有记忆可以总结');
-      return;
-    }
-
-    // 构建总结提示词
     const memoriesText = memories.map((m, i) => {
-      const time = typeof m === 'object' ? m.时间 : '未知时间';
-      const event = typeof m === 'object' ? m.事件 : String(m);
+      const time = getMemoryTime(m);
+      const event = getMemoryEvent(m);
       return `${i + 1}. [${time}] ${event}`;
     }).join('\n');
 
-    const prompt = `请将以下NPC「${npcName}」的记忆总结为2-3句精简的概括，保留最重要的信息：
+    const systemPrompt = `你是一个专业的记忆总结助手，擅长将NPC的记忆总结为详细的档案。
 
-${memoriesText}
+总结要求：
+1. 必须包含小说六要素：时间、地点、人物、事件、原因、结果
+2. 用第三人称描述，以「${npcName}」为主视角
+3. 完整记录所有关键事件、人物关系变化、情感波动
+4. 按时间顺序梳理事件脉络
+5. 字数控制在200-300字，确保信息完整详实
+6. 使用修仙小说的语言风格
+7. 只返回总结内容，不要有任何前缀、后缀或标题`;
 
-要求：
-1. 总结要简洁明了，每句话不超过30字
-2. 保留关键事件、人物关系变化、重要时间节点
-3. 用第三人称描述
-4. 只返回总结文本，不要其他内容
+    const userPrompt = `请将以下NPC「${npcName}」的记忆总结成详细的档案，务必包含时间、地点、人物、事件、原因、结果六要素：
 
-总结：`;
+${memoriesText}`;
 
-    console.log('[记忆总结] 发送提示词:', prompt);
+    // 使用Raw模式的ordered_prompts，避免世界书污染
+    const response = await helper.generateRaw({
+      ordered_prompts: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      should_stream: false
+    });
 
-    // 调用AI生成总结
-    const response = await helper.generateRaw({ prompt });
-    console.log('[记忆总结] AI响应:', response);
-
-    if (!response || typeof response !== 'string') {
-      throw new Error('AI响应格式错误');
-    }
-
-    // 清理响应文本
+    if (!response || typeof response !== 'string') throw new Error('AI响应格式错误');
     const summary = response.trim();
+    if (!summary) throw new Error('总结内容为空');
 
-    if (!summary) {
-      throw new Error('总结内容为空');
-    }
-
-    // 找到NPC数据并更新
-    if (!characterData.value?.人物关系) {
-      throw new Error('存档数据不存在');
-    }
-
+    if (!characterData.value?.人物关系) throw new Error('存档数据不存在');
     const npcKey = Object.keys(characterData.value.人物关系).find(
-      key => characterData.value!.人物关系[key]?.角色基础信息?.名字 === npcName
+      key => characterData.value!.人物关系[key]?.名字 === npcName
     );
+    if (!npcKey) throw new Error(`找不到NPC: ${npcName}`);
 
-    if (!npcKey) {
-      throw new Error(`找不到NPC: ${npcName}`);
-    }
-
-    // 初始化记忆总结数组
+    // 初始化记忆总结数组（如果不存在）
     if (!characterData.value.人物关系[npcKey].记忆总结) {
       characterData.value.人物关系[npcKey].记忆总结 = [];
     }
 
-    // 添加总结
+    // 添加总结到记忆总结数组
     characterData.value.人物关系[npcKey].记忆总结!.push(summary);
 
-    // 同步到酒馆并保存
+    // 清空记忆数组
+    characterData.value.人物关系[npcKey].记忆 = [];
+
+    // 保存到存档
     const { useCharacterStore } = await import('@/stores/characterStore');
     const characterStore = useCharacterStore();
     await characterStore.saveCurrentGame();
@@ -979,18 +917,14 @@ ${memoriesText}
     // 更新选中的人物
     selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
 
-    toast.success(`已为 ${npcName} 生成记忆总结`);
-    console.log('[记忆总结] 总结完成:', summary);
-
+    toast.success(`已为 ${npcName} 生成记忆总结并清空原始记忆`);
   } catch (error) {
-    console.error('[记忆总结] 总结失败:', error);
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     toast.error(`记忆总结失败: ${errorMsg}`);
   } finally {
     isSummarizing.value = false;
   }
 };
-
 </script>
 
 <style scoped>
@@ -1014,7 +948,6 @@ ${memoriesText}
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
-  margin-top: 0.5rem;
 }
 
 .spirit-stone-item {
@@ -1323,8 +1256,7 @@ ${memoriesText}
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1rem;
-  padding: 1rem 1rem 1rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
@@ -1363,7 +1295,7 @@ ${memoriesText}
   flex-wrap: wrap;
 }
 
-.relationship-badge, .intimacy-badge {
+.relationship-badge, .intimacy-badge, .race-badge, .faction-badge {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -1375,35 +1307,16 @@ ${memoriesText}
   color: var(--color-primary);
 }
 
-.detail-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
-  flex-wrap: wrap; /* 允许标签页在空间不足时换行 */
-  padding: 0 1rem;
-  flex-shrink: 0;
+.race-badge {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
-.detail-tabs button {
-  padding: 0.75rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s ease;
-}
-
-.detail-tabs button:hover {
-  color: var(--color-primary);
-}
-
-.detail-tabs button.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+.faction-badge {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
 .detail-body {
@@ -1413,7 +1326,7 @@ ${memoriesText}
   flex: 1; /* 占据剩余空间 */
   min-height: 0; /* 允许收缩 */
   overflow-y: auto; /* 内容溢出时滚动 */
-  padding: 0 1rem 1rem 1rem;
+  padding: 1rem;
 }
 
 .tab-content {
@@ -1454,6 +1367,12 @@ ${memoriesText}
   gap: 1rem;
 }
 
+.info-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
 .info-item {
   display: flex;
   flex-direction: column;
@@ -1476,21 +1395,14 @@ ${memoriesText}
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-top: 1rem;
 }
 
 .memory-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
   gap: 1rem;
-}
-
-.memory-header .section-title {
-  margin: 0;
-  padding-bottom: 0;
-  border-bottom: none;
 }
 
 .memory-actions-header {
@@ -1540,6 +1452,7 @@ ${memoriesText}
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .memory-summary-item {
@@ -1568,9 +1481,9 @@ ${memoriesText}
   justify-content: center;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem 0;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--color-border);
-  margin-top: 0.5rem;
+  margin-top: 1rem;
 }
 
 .pagination-btn {
@@ -1664,36 +1577,6 @@ ${memoriesText}
   color: var(--color-text);
   margin: 0;
   font-style: italic;
-}
-
-/* 技能列表样式 */
-.skills-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.skill-item {
-  padding: 0.5rem 0.75rem;
-  background: var(--color-surface);
-  border-radius: 6px;
-  border-left: 3px solid var(--color-secondary);
-  font-size: 0.85rem;
-  color: var(--color-text);
-  font-weight: 500;
-}
-
-.skill-name {
-  color: var(--color-text);
-}
-
-/* 天赋和属性样式 */
-.talents-section, .attributes-section {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: rgba(59, 130, 246, 0.05);
-  border-radius: 8px;
-  border: 1px solid rgba(59, 130, 246, 0.1);
 }
 
 .subsection-title {
@@ -1952,51 +1835,6 @@ ${memoriesText}
   opacity: 0.5;
 }
 
-/* 互动统计样式 */
-.interaction-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background: rgba(var(--color-success-rgb), 0.05);
-  border-radius: 6px;
-  border: 1px solid rgba(var(--color-success-rgb), 0.1);
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.special-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.special-tag {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
-  color: #22c55e;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-}
-
 .no-selection {
   display: flex;
   flex-direction: column;
@@ -2023,80 +1861,6 @@ ${memoriesText}
   opacity: 0.8;
 }
 
-/* NPC行为路线样式 */
-.routine-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  position: relative;
-  padding-left: 1.25rem;
-  margin-top: 0.5rem;
-}
-
-.routine-list::before {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 0.5rem;
-  bottom: 0.5rem;
-  width: 2px;
-  background-color: var(--color-border);
-}
-
-.routine-item {
-  display: flex;
-  gap: 1rem;
-  position: relative;
-  align-items: flex-start;
-}
-
-.routine-item::before {
-  content: '';
-  position: absolute;
-  left: -1.25rem;
-  top: 0.5rem;
-  transform: translateX(calc(-50% + 6px));
-  width: 12px;
-  height: 12px;
-  background-color: var(--color-primary);
-  border-radius: 50%;
-  border: 2px solid var(--color-surface);
-  z-index: 1;
-}
-
-.routine-time {
-  font-weight: 600;
-  color: var(--color-primary);
-  flex-basis: 70px;
-  flex-shrink: 0;
-  padding-top: 0.1rem;
-  font-size: 0.85rem;
-}
-
-.routine-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.routine-location,
-.routine-action {
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.routine-label {
-  font-weight: 600;
-  color: var(--color-text);
-  margin-right: 0.5rem;
-}
-
-.routine-value {
-  color: var(--color-text-secondary);
-}
-
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -2106,261 +1870,669 @@ ${memoriesText}
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 640px) {
-  .relationship-network-panel {
-    padding: 0;
-  }
+/* === NSFW 私密信息样式 === */
+.nsfw-section {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(219, 39, 119, 0.05));
+  border: 2px solid rgba(236, 72, 153, 0.3);
+}
 
-  .panel-content {
-    padding: 0;
-  }
+.nsfw-subsection {
+  margin-bottom: 1rem;
+}
 
-  .relationships-container {
-    flex-direction: column;
-    border-radius: 0;
-    border: none;
-  }
+.nsfw-subsection:last-child {
+  margin-bottom: 0;
+}
 
-  .relationship-list {
-    width: 100%;
-    height: 30vh;
-    min-height: 250px;
-    max-height: 350px;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-  }
+.development-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
-  .list-header {
-    padding: 1rem;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--color-surface);
-  }
+.dev-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
 
-  .panel-title {
-    font-size: 1.1rem;
-    margin-bottom: 0.75rem;
-  }
+.dev-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
 
-  .search-bar {
-    padding: 0.5rem;
-  }
+.dev-label {
+  color: var(--color-text);
+  font-weight: 500;
+}
 
-  .search-input {
-    font-size: 0.9rem;
-  }
+.dev-value {
+  color: #ec4899;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
 
-  .list-content {
-    padding: 0.5rem;
-  }
+.dev-bar-track {
+  height: 8px;
+  background: rgba(236, 72, 153, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
 
-  .person-card {
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
+.dev-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ec4899, #db2777);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
 
-  .person-avatar {
-    width: 40px;
-    height: 40px;
-    margin-right: 0.6rem;
-  }
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
 
-  .avatar-text {
-    font-size: 1rem;
-  }
+.status-正常 {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+}
 
-  .person-name {
-    font-size: 0.95rem;
-    margin-bottom: 0.4rem;
-  }
+.status-微湿 {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
 
-  .relationship-type {
-    font-size: 0.7rem;
-    padding: 1px 6px;
-  }
+.status-发情 {
+  background: rgba(236, 72, 153, 0.2);
+  color: #ec4899;
+}
 
-  .intimacy-value {
-    font-size: 0.7rem;
-    min-width: 25px;
-  }
+.status-高潮 {
+  background: rgba(220, 38, 38, 0.2);
+  color: #dc2626;
+}
 
-  .relationship-detail {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-  }
+.status-贤者时间 {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
 
-  .detail-content {
-    padding: 0.75rem;
-    height: auto;
-  }
+.fetish-tag {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(219, 39, 119, 0.15));
+  color: #ec4899;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
 
-  .detail-header {
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    gap: 0.5rem;
-  }
+.partner-tag {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(219, 39, 119, 0.12));
+  color: #db2777;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid rgba(236, 72, 153, 0.25);
+}
 
-  .detail-avatar {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
-  }
+.partner-list {
+  margin-top: 0.75rem;
+}
 
-  .detail-name {
-    font-size: 1rem;
-  }
+.pregnancy-info {
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
 
-  .info-grid {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
+.pregnancy-active {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
 
-  .info-item {
-    padding: 0.4rem 0.6rem;
-    background: var(--color-surface-light);
-    border-radius: 4px;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
+.pregnancy-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
 
-  .info-label {
-    font-size: 0.8rem;
-    margin-bottom: 0;
-  }
+.pregnancy-details {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.6;
+}
 
-  .info-value {
-    font-size: 0.85rem;
-  }
+.pregnancy-inactive {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
 
-  .talents-section, .attributes-section {
-    margin-top: 1rem;
-    padding: 0.75rem;
-  }
+.first-time-info {
+  padding: 0.75rem;
+  background: rgba(236, 72, 153, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid #ec4899;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
 
-  .subsection-title {
-    font-size: 0.8rem;
-    margin-bottom: 0.5rem;
-  }
+/* 实时状态高亮区域（通用）*/
+.highlight-section {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
 
-  .attributes-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-  }
+.realtime-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
-  .attribute-item {
-    padding: 0.4rem;
-  }
+.status-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--color-background);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
 
-  .attr-label {
-    font-size: 0.65rem;
-  }
+.status-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
 
-  .attr-value {
-    font-size: 0.9rem;
-  }
+.status-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
 
-  .talent-tag {
-    font-size: 0.7rem;
-    padding: 0.2rem 0.4rem;
-  }
+.status-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 
-  .memory-list.scrollable {
-    max-height: 150px;
-  }
+.status-text {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.5;
+  font-style: italic;
+}
 
-  .memory-item {
-    padding: 0.6rem;
-    font-size: 0.8rem;
-  }
+.desire-fill {
+  background: linear-gradient(90deg, #f59e0b, #dc2626);
+}
 
-  .memory-btn {
-    padding: 3px 6px;
-    font-size: 11px;
-  }
+.mini-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
 
-  .detail-section {
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-  }
+/* 性经验统计 */
+.experience-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
 
-  .section-title {
-    font-size: 0.85rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.4rem;
-  }
+.exp-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
 
-  .appearance-description {
-    padding: 0.75rem;
-  }
+.exp-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
 
-  .description-text {
-    font-size: 0.8rem;
-    line-height: 1.5;
-  }
+.exp-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
 
-  .interaction-stats {
-    gap: 0.75rem;
-  }
+.exp-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
 
-  .stat-item {
-    padding: 0.6rem;
-  }
+.exp-value {
+  font-size: 0.95rem;
+  color: #ec4899;
+  font-weight: 700;
+}
 
-  .stat-label {
-    font-size: 0.8rem;
-  }
+.last-time-info {
+  padding: 0.5rem 0.75rem;
+  background: rgba(236, 72, 153, 0.05);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  text-align: center;
+}
 
-  .stat-value {
-    font-size: 0.8rem;
-  }
+.last-time-label {
+  color: var(--color-text-secondary);
+  margin-right: 0.5rem;
+}
 
-  .special-tag {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.35rem;
+.last-time-value {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 身体部位列表 */
+.body-parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.body-part-item {
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.part-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.part-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.part-mark {
+  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(219, 39, 119, 0.2));
+  color: #ec4899;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.part-description {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(236, 72, 153, 0.05);
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.part-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.part-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  min-width: 50px;
+}
+
+.stat-bar-mini {
+  flex: 1;
+  height: 6px;
+  background: rgba(236, 72, 153, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.stat-bar-fill.sensitivity {
+  background: linear-gradient(90deg, #f59e0b, #ec4899);
+}
+
+.stat-bar-fill.development {
+  background: linear-gradient(90deg, #8b5cf6, #ec4899);
+}
+
+.stat-value {
+  font-size: 0.7rem;
+  color: #ec4899;
+  font-weight: 700;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* 体液状态 */
+.fluid-status {
+  padding: 0.75rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(236, 72, 153, 0.08));
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  font-style: italic;
+}
+
+/* 特殊体质标签 */
+.special-trait-tag {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(236, 72, 153, 0.15));
+  color: #a855f7;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* ========== 人格底线样式 ========== */
+.personality-section {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(249, 115, 22, 0.08));
+  border-left: 4px solid #ef4444;
+}
+
+.personality-bottomlines {
+  margin-bottom: 0.75rem;
+}
+
+.bottomline-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bottomline-tag {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(249, 115, 22, 0.15));
+  color: #ef4444;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1.5px solid rgba(239, 68, 68, 0.4);
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
+  transition: all 0.2s ease;
+}
+
+.bottomline-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.6);
+}
+
+.bottomline-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+}
+
+.bottomline-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.warning-icon {
+  font-size: 1.1rem;
+  color: #f59e0b;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
   }
 }
 
-/* 深色主题下的关注按钮样式 */
-[data-theme="dark"] .attention-toggle {
-  background: rgba(156, 163, 175, 0.1);
-  border-color: rgba(156, 163, 175, 0.2);
+.warning-text {
+  color: #dc2626;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  font-weight: 500;
 }
 
-[data-theme="dark"] .attention-toggle:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
+/* ========== Tab导航样式 ========== */
+.detail-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
-[data-theme="dark"] .attention-icon.active {
-  color: #22c55e;
-}
-
-[data-theme="dark"] .attention-icon.inactive {
-  color: #64748b;
-}
-
-[data-theme="dark"] .attention-toggle:hover .attention-icon.inactive {
-  color: #60a5fa;
-}
-
-[data-theme="dark"] .attention-toggle:hover .attention-icon.active {
-  color: #16a34a;
-}
-
-.info-value.clickable {
+.tab-btn {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px 8px 0 0;
+  padding: 0.5rem 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-style: dashed;
-  text-underline-offset: 3px;
-  color: var(--color-primary);
-  transition: color 0.2s, text-decoration-color 0.2s;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  position: relative;
+  outline: none;
 }
 
-.info-value.clickable:hover {
-  text-decoration-style: solid;
-  color: var(--color-primary-hover);
+.tab-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-text);
+  transform: translateY(-2px);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-primary);
+}
+
+.tab-panel {
+  animation: fadeIn 0.3s ease;
+}
+
+/* ========== 响应式2列布局样式 ========== */
+.info-grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+/* 小屏幕时切换为单列 */
+@media (max-width: 500px) {
+  .info-grid-responsive {
+    grid-template-columns: 1fr;
+  }
+}
+
+.info-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: background 0.2s ease;
+}
+
+.info-item-row:hover {
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.info-item-row .info-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  min-width: 50px;
+}
+
+.info-item-row .info-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: right;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* ========== NPC记忆列表样式 ========== */
+.npc-memories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.npc-memory-item {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.05), rgba(249, 115, 22, 0.05));
+  border-left: 3px solid #eab308;
+  border-radius: 4px;
+  padding: 10px 12px;
+  transition: all 0.2s ease;
+}
+
+.npc-memory-item:hover {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(249, 115, 22, 0.1));
+  transform: translateX(4px);
+  box-shadow: 0 2px 6px rgba(234, 179, 8, 0.15);
+}
+
+.npc-memory-content {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+/* ========== NPC六司属性样式 ========== */
+.npc-attributes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.npc-attr-group {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.npc-attr-group-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.npc-attr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.npc-attr-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.npc-attr-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  transform: translateY(-2px);
+}
+
+.npc-attr-item.final {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(147, 51, 234, 0.12));
+}
+
+.npc-attr-item.final:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
+}
+
+.npc-attr-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.npc-attr-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 </style>

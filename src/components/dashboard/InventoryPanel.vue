@@ -535,8 +535,8 @@ onMounted(async () => {
       if (fixed.修炼功法) {
         // 确保新字段存在
         if (typeof fixed.修炼功法.正在修炼 === 'undefined') {
-          // 如果有功法但没有修炼状态字段，根据是否有功法来判断
-          fixed.修炼功法.正在修炼 = !!fixed.修炼功法.功法
+          // 如果有功法对象，说明正在修炼
+          fixed.修炼功法.正在修炼 = true
         }
         if (typeof fixed.修炼功法.修炼进度 === 'undefined') {
           fixed.修炼功法.修炼进度 = 0

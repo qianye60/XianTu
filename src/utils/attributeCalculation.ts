@@ -126,10 +126,8 @@ export function calculateFinalAttributes(
     ? calculateEquipmentBonuses(saveData.装备栏, saveData.背包)
     : { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
 
-  // 天赋加成
-  const talentBonuses = saveData.角色基础信息?.天赋详情 
-    ? calculateTalentBonuses(saveData.角色基础信息.天赋详情)
-    : { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
+  // 天赋加成（CharacterBaseInfo.天赋 是简化格式，不包含 effects，因此无加成）
+  const talentBonuses = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
 
   // 合并所有后天加成
   const totalAcquiredBonuses: InnateAttributes = {

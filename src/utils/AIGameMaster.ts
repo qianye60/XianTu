@@ -9,6 +9,7 @@ import type { GM_Response } from '../types/AIGameMaster';
 import type { SaveData, StateChange, StateChangeLog, GameTime } from '@/types/game';
 import { shardSaveData, assembleSaveData, type StorageShards } from './storageSharding';
 import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
+import { buildInGameMessagePrompt } from './prompts/inGameGMPromptsV2';
 
 /**
  * 从GameTime获取分钟数
@@ -35,10 +36,51 @@ async function generateLongTermSummary(memories: string[]): Promise<string | nul
     const helper = getTavernHelper();
     if (!helper) return null;
 
-    const prompt = `请将以下游戏记忆总结成一段简洁的长期记忆，保留关键信息和重要事件：\n\n${memories.join('\n\n')}\n\n总结要求：\n1. 保持第三人称视角\n2. 突出重要的修炼进展、人物关系、重大事件\n3. 控制在100字以内\n4. 使用修仙小说的语言风格`;
+    // 尝试从酒馆变量读取用户自定义的长期记忆格式
+    let customFormat = '';
+    let midTermTrigger = 25; // 默认值
+    try {
+      const memorySettings = await helper.getVariable('character.memorySettings', { type: 'chat' });
+      if (memorySettings && typeof memorySettings === 'object') {
+        const settings = memorySettings as any;
+        customFormat = settings.longTermFormat || '';
+        if (settings.midTermTrigger && typeof settings.midTermTrigger === 'number') {
+          midTermTrigger = settings.midTermTrigger;
+        }
+      }
+    } catch (e) {
+      // 读取失败，使用默认格式
+      console.log('[记忆管理] 未找到自定义格式配置，使用默认格式');
+    }
 
-    const response = await helper.generate({ user_input: prompt });
-    return response?.trim() || null;
+    console.log(`[记忆管理] 当前配置: 中期记忆触发阈值=${midTermTrigger}条, 使用${customFormat ? '自定义' : '默认'}提示词格式`);
+
+    // 如果用户提供了自定义格式，使用自定义格式；否则使用默认格式
+    const systemPrompt = customFormat.trim() || `你是一个专业的记忆总结助手，擅长将游戏记忆总结为详细的长期记忆。
+
+总结要求：
+1. 必须包含小说六要素：时间、地点、人物、事件、原因、结果
+2. 保持第三人称视角
+3. 完整记录所有重要的修炼进展、人物关系变化、重大事件
+4. 按时间顺序梳理事件脉络
+5. 字数控制在200-300字，确保信息完整
+6. 使用修仙小说的语言风格
+7. 只返回总结内容，不要有任何前缀、后缀或标题`;
+
+    const userPrompt = `请将以下游戏记忆总结成详细的长期记忆${customFormat.trim() ? '' : '，务必包含时间、地点、人物、事件、原因、结果六要素'}：
+
+${memories.join('\n\n')}`;
+
+    // 使用Raw模式的ordered_prompts，关闭世界书
+    const response = await helper.generateRaw({
+      ordered_prompts: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      should_stream: false
+    });
+
+    return (typeof response === 'string' ? response.trim() : null) || null;
   } catch (error) {
     console.warn('[记忆管理] 生成长期记忆总结失败:', error);
     return null;
@@ -163,6 +205,32 @@ export async function processGmResponse(
     const result = await executeCommands(response.tavern_commands, updatedSaveData);
     updatedSaveData = result.saveData;
     stateChanges = result.stateChanges;
+
+    // 🔥 检查是否有时间更新，如果有则自动更新年龄
+    const hasTimeUpdate = response.tavern_commands.some(cmd =>
+      cmd.key?.includes('游戏时间') || cmd.key?.includes('game_time')
+    );
+    if (hasTimeUpdate) {
+      console.log('[processGmResponse] 🕐 检测到时间更新，自动更新玩家和NPC年龄');
+      const { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } = await import('@/utils/lifespanCalculator');
+
+      // 更新玩家年龄
+      const playerAge = updateLifespanFromGameTime(updatedSaveData);
+      console.log('[processGmResponse] 玩家当前年龄:', playerAge);
+
+      // 更新所有NPC年龄
+      const relations = updatedSaveData.人物关系 || {};
+      const gameTime = updatedSaveData.游戏时间;
+      if (gameTime) {
+        for (const [npcName, npcData] of Object.entries(relations)) {
+          if (npcData && typeof npcData === 'object') {
+            const npcAge = updateNpcLifespanFromGameTime(npcData, gameTime);
+            console.log(`[processGmResponse] NPC [${npcName}] 当前年龄:`, npcAge);
+          }
+        }
+      }
+    }
+
     // 将本次变更增量同步到酒馆，确保环境状态与本地一致
     try {
       if (stateChanges?.changes?.length) {
@@ -460,10 +528,34 @@ async function executeCommand(command: { action: string; key: string; value?: un
         }
       }
 
-      // 基于坐标推断大致区域（简化的九宫格区域划分）
-      const regionX = x < 1200 ? '西部' : x < 2400 ? '中域' : '东部';
-      const regionY = y < 800 ? '北境' : y < 1600 ? '中原' : '南疆';
-      return `${worldName}·${regionY}${regionX}`;
+      // 🔥 修复：基于坐标从实际大陆列表中选择最近的大陆
+      const continents = worldInfo?.['大陆信息'] || [];
+      if (continents.length > 0) {
+        // 直接使用第一个大陆作为默认值（简化逻辑）
+        // TODO: 未来可以根据坐标判断实际大陆，但现在AI已经会生成正确的大陆名
+        const firstContinent = continents[0];
+        // ⚠️ 优先使用中文名称，避免返回英文ID
+        const continentName = (firstContinent['名称'] || firstContinent['name'] || worldName) as string;
+
+        // 🔥 重要：如果大陆名是英文ID（如gilded_heartland），说明数据有问题
+        if (continentName && /^[a-z_]+$/.test(continentName)) {
+          console.error(`[位置规范化] ❌ 检测到英文大陆ID: ${continentName}，这是错误的！应该使用中文名称`);
+          console.error('[位置规范化] 大陆数据:', firstContinent);
+          // 尝试从第一个大陆的中文名称获取
+          if (continents[0] && continents[0]['名称']) {
+            return continents[0]['名称'] as string;
+          }
+          return worldName; // 最后回退到世界名
+        }
+
+        console.log(`[位置规范化] 使用大陆: ${continentName}`);
+        return continentName;
+
+      }
+
+      // 最后的回退：如果连大陆信息都没有，直接返回世界名
+      console.error('[位置规范化] 世界信息中没有大陆数据，回退到世界名');
+      return worldName;
     };
 
     // 支持直接字符串或对象 { 描述: string, x?, y? }
@@ -862,6 +954,7 @@ function getShardNameFromPath(path: string): keyof StorageShards | null {
   if (normalizedPath.startsWith('记忆.隐式中期记忆')) return '记忆_隐式中期';
   if (normalizedPath.startsWith('游戏时间')) return '游戏时间';
   if (normalizedPath.startsWith('玩家角色状态.状态效果')) return '状态效果';
+  if (normalizedPath.startsWith('系统')) return '系统';
 
   return null;
 }
@@ -894,6 +987,7 @@ function getPathInShard(path: string, shardName: string): string {
     '记忆_隐式中期': '记忆.隐式中期记忆',
     '游戏时间': '游戏时间.',
     '状态效果': '玩家角色状态.状态效果',
+    '系统': '系统.',
   };
 
   const prefix = prefixMap[shardName];
@@ -1023,6 +1117,7 @@ export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<
       '记忆_隐式中期': variables['记忆_隐式中期'] as StorageShards['记忆_隐式中期'],
       '游戏时间': variables['游戏时间'] as StorageShards['游戏时间'],
       '状态效果': variables['状态效果'] as StorageShards['状态效果'],
+      '系统': variables['系统'] as StorageShards['系统'],
     };
 
     // 从分片重组SaveData

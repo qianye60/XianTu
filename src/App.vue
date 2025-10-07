@@ -255,19 +255,20 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
       }
 
       const convertedAttributes = rawPayload.baseAttributes ? {
-        根骨: rawPayload.baseAttributes.root_bone || 5,
-        灵性: rawPayload.baseAttributes.spirituality || 5,
-        悟性: rawPayload.baseAttributes.comprehension || 5,
-        气运: rawPayload.baseAttributes.fortune || 5,
-        魅力: rawPayload.baseAttributes.charm || 5,
-        心性: rawPayload.baseAttributes.temperament || 5
+        根骨: rawPayload.baseAttributes.root_bone ?? 0,
+        灵性: rawPayload.baseAttributes.spirituality ?? 0,
+        悟性: rawPayload.baseAttributes.comprehension ?? 0,
+        气运: rawPayload.baseAttributes.fortune ?? 0,
+        魅力: rawPayload.baseAttributes.charm ?? 0,
+        心性: rawPayload.baseAttributes.temperament ?? 0
       } : {
-        根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5
+        根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0
       };
 
       const baseInfo: CharacterBaseInfo = {
         名字: personaName, // 使用从酒馆获取的Persona名字
         性别: rawPayload.gender || '男',
+        种族: rawPayload.race || '人族', // 添加种族
         世界: rawPayload.world?.name || '未知世界', // 保持用户选择的世界
         天资: rawPayload.talentTier?.name || '凡品',
         出生: rawPayload.origin?.name || '随机出身',
@@ -353,7 +354,12 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
   };
 
   try {
+    console.log('[App.vue] 开始执行attemptCreation...');
+
     const success = await attemptCreation();
+
+    console.log('[App.vue] attemptCreation执行完成,结果:', success);
+
     if (!success) {
       // 用户取消或选择返回创建页面，不做任何操作
       // 保持在当前的角色创建页面
@@ -361,10 +367,15 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
     }
   } catch (error) {
     // 最终兜底错误处理
-    console.error("角色创建流程出现严重错误：", error);
-    toast.error("角色创建流程出现严重错误，返回模式选择页面");
-    switchView('ModeSelection');
+    console.error("[App.vue] 角色创建流程出现严重错误：", error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    toast.error(`角色创建失败: ${errorMsg}`);
+    if (errorMsg.includes('超时')) {
+      toast.error("创建过程超时,请检查网络连接和SillyTavern状态");
+    }
+    // 不要自动跳转,让用户可以重试
   } finally {
+    console.log('[App.vue] finally: 停止loading');
     uiStore.stopLoading();
   }
 };
@@ -426,7 +437,12 @@ const showHelp = () => {
 };
 
 // --- 生命周期钩子 ---
-onMounted(() => {
+onMounted(async () => {
+  // 0. 等待 characterStore 初始化完成（加载 IndexedDB 数据）
+  console.log('[App] 等待 characterStore 初始化...');
+  await characterStore.initializeStore();
+  console.log('[App] ✅ characterStore 初始化完成');
+
   // 1. Iframe 高度适配 (主动查询父窗口模式)
   const updateHeight = () => {
     try {

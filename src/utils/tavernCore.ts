@@ -347,3 +347,90 @@ export async function cacheSystemRulesToTavern(_scope: 'chat' | 'global' = 'chat
   console.log('【神识印记】系统规则已在酒馆预设中配置，无需从代码写入');
   // 空操作 - 所有规则已在酒馆预设中维护
 }
+
+/**
+ * Raw模式AI生成 - 用于AI推演功能
+ * 使用generateRaw的ordered_prompts参数发送纯净提示词，完全不包含世界书、聊天历史或角色卡
+ * @param userPrompt 用户输入的提示词
+ * @param systemPrompt 可选的系统提示词（如世界生成提示、天赋生成提示等）
+ * @param showToast 是否显示toast提示
+ */
+export async function generateWithRawPrompt(
+  userPrompt: string,
+  systemPrompt?: string,
+  showToast: boolean = true
+): Promise<string | null> {
+  try {
+    const helper = getTavernHelper();
+    if (!helper) {
+      throw new Error('酒馆助手未初始化');
+    }
+
+    if (showToast) {
+      toast.info('天机运转，AI推演中...');
+    }
+
+    console.log(`【AI推演-Raw模式】用户输入:`, userPrompt);
+    if (systemPrompt) {
+      console.log(`【AI推演-Raw模式】使用系统提示词:`, systemPrompt.substring(0, 100) + '...');
+    }
+
+    // 构建ordered_prompts - 完全自定义提示词顺序，不包含任何世界书、角色卡、聊天历史
+    const orderedPrompts: Array<{ role: 'system' | 'user'; content: string }> = [];
+
+    // 如果有系统提示词，先添加系统提示词
+    if (systemPrompt) {
+      orderedPrompts.push({
+        role: 'system',
+        content: systemPrompt
+      });
+    }
+
+    // 添加用户输入
+    orderedPrompts.push({
+      role: 'user',
+      content: userPrompt
+    });
+
+    console.log(`【AI推演-Raw模式】发送${orderedPrompts.length}条提示词`);
+
+    // 使用generateRaw的ordered_prompts参数，完全控制发送内容，关闭世界书
+    const rawResult = await helper.generateRaw({
+      ordered_prompts: orderedPrompts,
+      should_stream: false
+    });
+
+    console.log(`【AI推演-Raw模式】收到响应类型:`, typeof rawResult);
+
+    // 提取文本内容
+    let text: string;
+    if (typeof rawResult === 'string') {
+      text = rawResult.trim();
+    } else {
+      throw new Error('收到非字符串类型的响应');
+    }
+
+    if (!text) {
+      throw new Error('响应文本为空');
+    }
+
+    console.log(`【AI推演-Raw模式】响应文本长度: ${text.length} 字符`);
+    console.log(`【AI推演-Raw模式】响应前200字符:`, text.substring(0, 200));
+
+    if (showToast) {
+      toast.success('AI推演完成');
+    }
+
+    return text;
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`【AI推演-Raw模式】失败:`, errorMsg);
+
+    if (showToast) {
+      toast.error(`AI推演失败: ${errorMsg}`);
+    }
+
+    return null;
+  }
+}

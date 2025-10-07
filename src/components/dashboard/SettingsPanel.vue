@@ -159,6 +159,33 @@
               </label>
             </div>
           </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">🔞 启用成人内容（私密信息）</label>
+              <span class="setting-desc">生成和显示NPC的私密信息模块（包含成人向内容，默认开启）</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.enableNsfwMode">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.enableNsfwMode">
+            <div class="setting-info">
+              <label class="setting-name">👥 私密信息生成范围</label>
+              <span class="setting-desc">选择为哪些性别的NPC生成私密信息</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="settings.nsfwGenderFilter" class="setting-select">
+                <option value="all">所有NPC</option>
+                <option value="female">仅女性</option>
+                <option value="male">仅男性</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -277,7 +304,9 @@ const settings = reactive({
   enableQuestSystem: true,
   questNotifications: true,
   autoAcceptQuests: false,
-  
+  enableNsfwMode: true, // 默认开启成人内容
+  nsfwGenderFilter: 'all', // 默认所有NPC ('all' | 'female' | 'male')
+
   // 游戏体验
   enableSoundEffects: true,
   backgroundMusic: true,
@@ -470,6 +499,8 @@ const resetSettings = () => {
         enableQuestSystem: true,
         questNotifications: true,
         autoAcceptQuests: false,
+        enableNsfwMode: true, // 默认开启
+        nsfwGenderFilter: 'all', // 默认所有NPC
         enableSoundEffects: true,
         backgroundMusic: true,
         notificationSounds: true,
@@ -594,10 +625,8 @@ onMounted(() => {
   debug.log('设置面板', '组件已加载');
   loadSettings();
   
-  // 延迟应用设置，避免初始加载冲突
-  setTimeout(() => {
-    applySettings();
-  }, 100);
+  // 初始加载时不再强制应用设置，以避免覆盖全局主题
+  // applySettings(); // 移除此调用
 });
 </script>
 
@@ -814,6 +843,45 @@ onMounted(() => {
   font-weight: 500;
   color: #374151;
   min-width: 40px;
+}
+
+/* 下拉选择框样式 */
+.setting-select {
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px;
+  color: #374151;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  appearance: none;
+  min-width: 120px;
+}
+
+.setting-select:hover {
+  border-color: #94a3b8;
+}
+
+.setting-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="dark"] .setting-select {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e5e7eb' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] .setting-select:hover {
+  border-color: #6b7280;
 }
 
 /* 开关样式 */

@@ -408,7 +408,7 @@
           <div v-else class="no-selection">
             <Building :size="64" class="placeholder-icon" />
             <p class="placeholder-text">选择一个宗门查看详细信息</p>
-            <p class="placeholder-hint">江湖中的宗门势力等你探索</p>
+            <p class="placeholder-hint">尘世间的宗门势力等你探索</p>
           </div>
         </div>
       </div>

@@ -60,15 +60,15 @@
 
       <!-- 社交功能区 -->
       <div class="function-section">
-        <div class="section-title">江湖事务</div>
+        <div class="section-title">红尘俗事</div>
         <div class="function-group">
           <button class="function-btn secondary" @click="handleRelationships">
             <div class="btn-icon">
               <Users :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">江湖人脉</span>
-              <span class="btn-desc">江湖人脉网络</span>
+              <span class="btn-text">人物关系</span>
+              <span class="btn-desc">人情世故网络</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>

@@ -4,7 +4,7 @@ import { merge, set as setLodash, cloneDeep } from 'lodash';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useUIStore } from './uiStore'; // 导入UI Store
-import * as storage from '@/utils/localStorageManager';
+import * as storage from '@/utils/indexedDBManager';
 import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
@@ -56,9 +56,42 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
 export const useCharacterStore = defineStore('characterV3', () => {
   // --- 状态 (State) ---
   // Store的核心状态直接镜像本地存储的根对象
-  const rootState = ref<LocalStorageRoot>(storage.loadRootData());
+  const rootState = ref<LocalStorageRoot>({
+    当前激活存档: null,
+    角色列表: {}
+  });
   // 新增：用于暂存角色创建时的初始状态变更
   const initialCreationStateChanges = ref<StateChangeLog | null>(null);
+
+  // 🔥 异步初始化：从 IndexedDB 加载数据
+  const initialized = ref(false);
+  const initializeStore = async () => {
+    if (initialized.value) return;
+
+    try {
+      // 1. 先尝试从 localStorage 迁移数据
+      const migrated = await storage.migrateFromLocalStorage();
+      if (migrated) {
+        debug.log('角色商店', '✅ 数据已从localStorage迁移到IndexedDB');
+      }
+
+      // 2. 加载数据
+      rootState.value = await storage.loadRootData();
+      initialized.value = true;
+      debug.log('角色商店', '✅ Store初始化完成，数据已加载');
+    } catch (error) {
+      debug.error('角色商店', '❌ Store初始化失败', error);
+      // 初始化失败时使用空数据
+      rootState.value = {
+        当前激活存档: null,
+        角色列表: {}
+      };
+      initialized.value = true;
+    }
+  };
+
+  // 立即执行初始化
+  initializeStore();
 
   // --- 计算属性 (Getters) ---
 
@@ -130,7 +163,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
    */
   const commitToStorage = async (): Promise<void> => {
     try {
-      storage.saveRootData(rootState.value);
+      await storage.saveRootData(rootState.value);
 
       // 触发响应式更新：创建新的rootState引用
       // 这样可以确保所有computed和watchers都能检测到变化
@@ -139,7 +172,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 可以在这里添加额外的异步操作，例如与后端同步
       // await someAsyncApiCall();
     } catch (error) {
-      debug.error('角色商店', '持久化到本地存储失败', error);
+      debug.error('角色商店', '持久化到IndexedDB失败', error);
       // 向上抛出错误，以便调用者可以处理
       throw error;
     }
@@ -284,15 +317,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
       slot.最后保存时间 = new Date().toISOString();
 
       // 提取元数据用于存档列表显示
+      slot.角色名字 = slot.存档数据.角色基础信息?.名字;
       const playerState = slot.存档数据.玩家角色状态;
       if (playerState) {
-        slot.角色名字 = playerState.名字 || profile.角色基础信息?.名字;
-        // 境界可能是 Realm 对象，提取名称
-        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
-          slot.境界 = (playerState.境界 as Realm).名称 || '凡人';
-        } else {
-          slot.境界 = String(playerState.境界 || '凡人');
-        }
+        // 境界统一为 Realm 对象
+        slot.境界 = playerState.境界?.名称 || '凡人';
         slot.位置 = playerState.位置?.描述 || '未知';
 
         // 计算修为进度百分比（从境界的当前进度获取）
@@ -360,8 +389,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
   /**
    * 重新从本地存储加载数据，覆盖当前状态
    */
-  const reloadFromStorage = () => {
-    rootState.value = storage.loadRootData();
+  const reloadFromStorage = async () => {
+    rootState.value = await storage.loadRootData();
     debug.log('角色商店', '已从乾坤宝库重新同步所有数据');
   };
 
@@ -395,6 +424,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
             char_id: charId,
             base_info: {
               名字: baseInfo.名字,
+              性别: baseInfo.性别,
               世界: baseInfo.世界,
               天资: baseInfo.天资,
               出生: baseInfo.出生,
@@ -416,11 +446,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 3. 使用AI增强的初始化服务创建完整的存档数据
+      console.log('[角色商店] 准备调用initializeCharacter...');
       let initialSaveData: SaveData | null = null;
       try {
+        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: baseInfo.名字, world: world.name, age });
         initialSaveData = await initializeCharacter(charId, baseInfo, world, age);
+        console.log('[角色商店] ✅ initializeCharacter返回成功,数据有效:', !!initialSaveData);
       } catch (e) {
+        console.error('[角色商店] ❌ initializeCharacter失败:', e);
         if (mode === '单机') { // 单机
+          console.log('[角色商店] 单机模式,尝试离线初始化...');
           initialSaveData = await initializeCharacterOffline(charId, baseInfo, world, age);
         } else {
           throw e;
@@ -476,9 +511,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 2. 设置为当前激活存档
       const slotKey = mode === '单机' ? '存档1' : '存档';
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
-      
-      commitToStorage();
-      
+
+      await commitToStorage();
+
       // 4. 同步到酒馆
       uiStore.updateLoadingText('正在将角色档案同步至酒馆...');
       await setActiveCharacterInTavern(charId);
@@ -537,7 +572,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
 
     delete rootState.value.角色列表[charId];
-    commitToStorage();
+    await commitToStorage();
     toast.success(`角色【${characterName}】已彻底删除。`);
   };
 
@@ -598,7 +633,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         // 2. 设置激活存档
         debug.log('角色商店', '设置当前激活存档');
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
-      commitToStorage(); // 立即保存激活状态
+      await commitToStorage(); // 立即保存激活状态
 
       // 3. 将激活的存档数据同步到酒馆
       debug.log('角色商店', '同步角色档案到酒馆');
@@ -694,39 +729,38 @@ export const useCharacterStore = defineStore('characterV3', () => {
       if (saveData.三千大道) {
         const daoSystem = saveData.三千大道;
 
-        // 修复大道进度数据
-        if (daoSystem.大道进度) {
-          Object.keys(daoSystem.大道进度).forEach(daoName => {
-            const progress = daoSystem.大道进度[daoName];
-            if (progress) {
+        // 修复大道数据（新结构：数据+进度合并）
+        if (daoSystem.大道列表) {
+          Object.keys(daoSystem.大道列表).forEach(daoName => {
+            const daoData = daoSystem.大道列表[daoName];
+            if (daoData) {
               // 确保所有数值字段都是数字
-              if (progress.当前经验 === undefined || progress.当前经验 === null) {
-                progress.当前经验 = 0;
+              if (daoData.当前经验 === undefined || daoData.当前经验 === null) {
+                daoData.当前经验 = 0;
               }
-              if (progress.总经验 === undefined || progress.总经验 === null) {
-                progress.总经验 = 0;
+              if (daoData.总经验 === undefined || daoData.总经验 === null) {
+                daoData.总经验 = 0;
               }
-              if (progress.当前阶段 === undefined || progress.当前阶段 === null) {
-                progress.当前阶段 = 0;
+              if (daoData.当前阶段 === undefined || daoData.当前阶段 === null) {
+                daoData.当前阶段 = 0;
               }
-              if (progress.是否解锁 === undefined) {
-                progress.是否解锁 = true;
+              if (daoData.是否解锁 === undefined) {
+                daoData.是否解锁 = true;
               }
-              if (!progress.道名) {
-                progress.道名 = daoName;
+              if (!daoData.道名) {
+                daoData.道名 = daoName;
+              }
+              if (!daoData.阶段列表) {
+                daoData.阶段列表 = [];
+              }
+              if (!daoData.描述) {
+                daoData.描述 = '神秘的大道';
               }
             }
           });
-        }
-
-        // 确保已解锁大道数组存在
-        if (!daoSystem.已解锁大道 || !Array.isArray(daoSystem.已解锁大道)) {
-          daoSystem.已解锁大道 = Object.keys(daoSystem.大道进度 || {});
-        }
-
-        // 确保大道路径定义存在
-        if (!daoSystem.大道路径定义) {
-          daoSystem.大道路径定义 = {};
+        } else {
+          // 兼容旧数据结构
+          daoSystem.大道列表 = {};
         }
       }
 
@@ -789,7 +823,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         };
       }
 
-      commitToStorage();
+      await commitToStorage();
       debug.log('角色商店', '✅ 已从酒馆分片同步最新存档数据');
       debug.log('角色商店', `最终背包物品数量: ${Object.keys(saveData.背包?.物品 || {}).length}`);
       debug.log('角色商店', `是否有世界信息: ${!!saveData.世界信息}`);
@@ -804,7 +838,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * 不从酒馆重新加载，直接使用传入的SaveData，确保数据实时性
    * @param updatedSaveData AI命令执行后的最新SaveData
    */
-  const updateSaveDataDirectly = (updatedSaveData: SaveData) => {
+  const updateSaveDataDirectly = async (updatedSaveData: SaveData) => {
     const active = rootState.value.当前激活存档;
     const profile = activeCharacterProfile.value;
     const slot = activeSaveSlot.value;
@@ -845,7 +879,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
 
     // 立即持久化到localStorage
-    commitToStorage();
+    await commitToStorage();
 
     debug.log('角色商店', '✅ [直接更新] 存档数据已更新到Store并持久化');
   };
@@ -915,15 +949,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
       slot.存档数据 = currentSaveData;
 
       // 提取元数据用于存档列表显示
+      slot.角色名字 = currentSaveData.角色基础信息?.名字;
       const playerState = currentSaveData.玩家角色状态;
       if (playerState) {
-        slot.角色名字 = playerState.名字 || profile.角色基础信息?.名字;
-        // 境界可能是 Realm 对象，提取名称
-        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
-          slot.境界 = (playerState.境界 as Realm).名称 || '凡人';
-        } else {
-          slot.境界 = String(playerState.境界 || '凡人');
-        }
+        // 境界统一为 Realm 对象
+        slot.境界 = playerState.境界?.名称 || '凡人';
         slot.位置 = playerState.位置?.描述 || '未知';
 
         // 计算修为进度百分比
@@ -951,7 +981,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 4. 持久化到本地存储
-      commitToStorage();
+      await commitToStorage();
       
       // 5. 如果是联机模式，则触发云端同步
       if (profile.模式 === '联机') {
@@ -970,7 +1000,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
             profile.存档.云端同步信息.最后同步 = new Date().toISOString();
             profile.存档.云端同步信息.需要同步 = false;
             profile.存档.云端同步信息.版本++;
-            commitToStorage();
+            await commitToStorage();
           }
 
         } catch (error) {
@@ -980,7 +1010,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           // 标记为需要同步
            if (profile.存档?.云端同步信息) {
             profile.存档.云端同步信息.需要同步 = true;
-            commitToStorage();
+            await commitToStorage();
           }
         }
       }
@@ -1011,6 +1041,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
       return;
     }
 
+    // 检查是否为最后一个可删除的存档
+    const deletableSavesCount = Object.values(profile.存档列表).filter(
+      slot => slot && slot.存档名 !== '上次对话' && slot.存档数据
+    ).length;
+
+    if (deletableSavesCount <= 1) {
+      toast.error('最后一个存档不能删除');
+      return;
+    }
+
     // 检查是否存在该存档
     const saveName = profile.存档列表?.[slotKey]?.存档名 || slotKey;
     if (!profile.存档列表?.[slotKey]) {
@@ -1033,16 +1073,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     // 删除存档
     delete profile.存档列表[slotKey];
-    commitToStorage();
+    await commitToStorage();
     toast.success(`存档【${saveName}】已删除`);
   };
 
   /**
    * 为指定角色创建新的存档槽位
-   * @param charId 角色ID  
+   * @param charId 角色ID
    * @param saveName 存档名称
    */
-  const createNewSave = (charId: string, saveName: string) => {
+  const createNewSave = async (charId: string, saveName: string) => {
     const profile = rootState.value.角色列表[charId];
     if (!profile || profile.模式 !== '单机') {
       toast.error('无法创建存档：角色不存在或非单机模式');
@@ -1067,7 +1107,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       存档数据: null
     };
 
-    commitToStorage();
+    await commitToStorage();
     toast.success(`存档【${saveName}】已创建`);
   };
 
@@ -1214,25 +1254,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
         保存时间: existingSlot?.保存时间 || now, // 保留原创建时间，如果不存在则用当前时间
         最后保存时间: now,
         存档数据: currentSaveData,
-        角色名字: playerState?.名字 || profile.角色基础信息?.名字,
-        境界: '凡人',
-        位置: '未知',
+        角色名字: currentSaveData.角色基础信息?.名字,
+        境界: playerState?.境界?.名称 || '凡人',
+        位置: playerState?.位置?.描述 || '未知',
         修为进度: 0,
         游戏内时间: undefined
       };
 
-      // 更新境界信息
-      if (playerState) {
-        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
-          newSlotData.境界 = (playerState.境界 as Realm).名称 || '凡人';
-          const realm = playerState.境界 as Realm;
-          if (realm.下一级所需 > 0) {
-            newSlotData.修为进度 = Math.floor((realm.当前进度 / realm.下一级所需) * 100);
-          }
-        } else {
-          newSlotData.境界 = String(playerState.境界 || '凡人');
-        }
-        newSlotData.位置 = playerState.位置?.描述 || '未知';
+      // 计算修为进度
+      if (playerState?.境界 && playerState.境界.下一级所需 > 0) {
+        newSlotData.修为进度 = Math.floor((playerState.境界.当前进度 / playerState.境界.下一级所需) * 100);
       }
 
       // 更新游戏时间
@@ -1260,7 +1291,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param oldSlotKey 旧的存档槽位关键字
    * @param newSaveName 新的存档名称
    */
-  const renameSave = (charId: string, oldSlotKey: string, newSaveName: string) => {
+  const renameSave = async (charId: string, oldSlotKey: string, newSaveName: string) => {
     const profile = rootState.value.角色列表[charId];
     if (!profile || profile.模式 !== '单机' || !profile.存档列表) {
       toast.error('无法重命名存档：角色不存在或非单机模式');
@@ -1276,7 +1307,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 如果新名称与旧槽位键相同，只更新存档名
     if (newSaveName === oldSlotKey) {
       oldSave.存档名 = newSaveName;
-      commitToStorage();
+      await commitToStorage();
       toast.success('存档名称已更新');
       return;
     }
@@ -1302,7 +1333,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 删除旧的存档槽位
     delete profile.存档列表[oldSlotKey];
     
-    commitToStorage();
+    await commitToStorage();
     toast.success(`存档已重命名为【${newSaveName}】`);
   };
 
@@ -1354,7 +1385,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 强制触发 rootState 的响应式更新
     triggerRef(rootState);
 
-    commitToStorage();
+    await commitToStorage();
 
     // 🔥 增量同步到酒馆
     if (changedPaths.length > 0) {
@@ -1445,7 +1476,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       存档名: importName
     };
 
-    commitToStorage();
+    await commitToStorage();
     toast.success(`存档【${importName}】导入成功`);
   };
 
@@ -1471,7 +1502,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 清空当前激活存档
     rootState.value.当前激活存档 = null;
     
-    commitToStorage();
+    await commitToStorage();
     toast.success('所有存档已清空');
   };
 
@@ -1498,6 +1529,40 @@ export const useCharacterStore = defineStore('characterV3', () => {
     } finally {
       uiStore.stopLoading();
     }
+  };
+
+  /**
+   * [新增] 回滚到上次对话的状态
+   */
+  const rollbackToLastConversation = async () => {
+    const profile = activeCharacterProfile.value;
+    const active = rootState.value.当前激活存档;
+
+    if (!profile || !active || profile.模式 !== '单机' || !profile.存档列表) {
+      throw new Error('无法执行回滚：无效的存档状态');
+    }
+
+    const lastConversationData = profile.存档列表['上次对话']?.存档数据;
+    if (!lastConversationData) {
+      throw new Error('没有可用于回滚的“上次对话”存档');
+    }
+
+    // 1. 用“上次对话”的数据深拷贝覆盖当前激活的存档数据
+    const activeSlot = profile.存档列表[active.存档槽位];
+    if (!activeSlot) {
+      throw new Error(`找不到当前激活的存档槽位: ${active.存档槽位}`);
+    }
+    
+    activeSlot.存档数据 = JSON.parse(JSON.stringify(lastConversationData));
+    activeSlot.最后保存时间 = new Date().toISOString();
+
+    // 2. 保存到IndexedDB
+    await commitToStorage();
+
+    // 3. 将更新后的数据同步到酒馆
+    await setActiveCharacterInTavern(active.角色ID);
+
+    debug.log('角色商店', '✅ 已成功回滚到上次对话前的状态');
   };
 
 
@@ -1659,12 +1724,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
 return {
   // State
   rootState,
+  initialized,
   // Getters
   allCharacterProfiles,
   activeCharacterProfile,
   activeSaveSlot,
   saveSlots,
   // Actions
+  initializeStore, // 🔥 导出初始化函数
   reloadFromStorage,
   createNewCharacter,
   deleteCharacter,
@@ -1683,6 +1750,7 @@ return {
   importSave,
   clearAllSaves,
   exitGameSession, // 新增：退出游戏会话
+  rollbackToLastConversation, // 新增：回滚到上次对话
   commitToStorage, // 导出给外部使用
   syncToTavernAndSave, // 新增：同步到酒馆并保存（支持增量同步）
   updateTavernField, // 新增：增量更新单个字段

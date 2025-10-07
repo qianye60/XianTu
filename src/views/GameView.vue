@@ -181,7 +181,7 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   Inventory: { title: '背包物品', icon: Package },
   CharacterDetails: { title: '人物详情', icon: User },
   Memory: { title: '记忆中心', icon: Brain },
-  Relationships: { title: '江湖人脉', icon: Users },
+  Relationships: { title: '人物关系', icon: Users },
   Cultivation: { title: '修炼系统', icon: BookOpen },
   Techniques: { title: '修炼功法', icon: Zap },
   ThousandDao: { title: '三千大道', icon: Scroll },

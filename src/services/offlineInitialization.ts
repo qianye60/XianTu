@@ -20,8 +20,13 @@ export async function initializeCharacterOffline(
   // 1. 计算基础属性
   const playerStatus: PlayerStatus = calculateInitialAttributes(baseInfo, age);
 
-  // 2. 设置一个合理的默认位置
-  playerStatus.位置 = { 描述: '一个宁静的凡人村落' };
+  // 2. 设置一个合理的默认位置（离线模式临时位置，会被AI初始化覆盖）
+  // 使用世界地图的中心坐标作为临时位置
+  playerStatus.位置 = {
+    描述: '临时位置（等待AI初始化）',
+    x: 115.0,  // 地图中心经度
+    y: 35.0     // 地图中心纬度
+  };
 
   // 3. 构建一个符合最新数据结构的完整 SaveData 对象
   const saveData: SaveData = {
@@ -64,9 +69,7 @@ export async function initializeCharacterOffline(
     游戏时间: {
       年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0,
     },
-    修炼功法: {
-      功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0,
-    },
+    修炼功法: null, // 初始无修炼功法，数据结构已改为：功法数据和进度合并为一个对象或null
     掌握技能: [], // 初始化为空数组
     系统: {
       初始年龄: age, // 开局年龄，用于自动计算寿命

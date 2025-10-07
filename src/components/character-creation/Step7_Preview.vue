@@ -19,6 +19,21 @@
         />
       </div>
 
+      <!-- Character Race -->
+      <div class="preview-item race-item input-field">
+        <label for="characterRace">种族:</label>
+        <input
+          type="text"
+          id="characterRace"
+          class="named"
+          v-model="store.characterPayload.race"
+          placeholder="人族"
+          @mousedown.stop
+          @click.stop
+          @select.stop
+        />
+      </div>
+
       <!-- Gender Selection -->
       <div class="preview-item gender-item">
         <h3>性别</h3>
@@ -217,8 +232,14 @@ const decrementAge = () => {
 }
 
 /* 名字输入 */
-.name-item {
-  grid-column: 1 / -1;
+.name-item, .race-item {
+  grid-column: span 2;
+}
+
+@media (min-width: 769px) {
+  .name-item, .race-item {
+    grid-column: 1 / -1;
+  }
 }
 
 .name-item label {
@@ -229,7 +250,7 @@ const decrementAge = () => {
   display: block;
 }
 
-.name-item input {
+.name-item input, .input-field input {
   width: 100%;
   background: var(--color-background);
   border: 1px solid var(--color-border);
@@ -240,7 +261,11 @@ const decrementAge = () => {
   box-sizing: border-box;
 }
 
-.name-item input:focus {
+.input-field input {
+    background: var(--color-surface);
+}
+
+.name-item input:focus, .input-field input:focus {
   outline: none;
   border-color: var(--color-primary);
 }

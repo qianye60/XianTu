@@ -73,18 +73,18 @@ const API_BASE_URL = 'http://127.0.0.1:12345';
 const appVersion = ref('...');
 
 onMounted(async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/version`);
-    if (response.ok) {
-      const data = await response.json();
-      appVersion.value = `V${data.version}`;
-    } else {
-      appVersion.value = 'V_.__._';
-    }
-  } catch (error) {
-    console.error('Failed to fetch app version:', error);
-    appVersion.value = 'N/A';
-  }
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/version`);
+  //   if (response.ok) {
+  //     const data = await response.json();
+  //     appVersion.value = `V${data.version}`;
+  //   } else {
+  //     appVersion.value = 'V_.__._';
+  //   }
+  // } catch (error) {
+  //   console.error('Failed to fetch app version:', error);
+  //   appVersion.value = 'N/A';
+  // }
 });
 
 const emit = defineEmits<{

@@ -39,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 
 const store = useCharacterCreationStore()
@@ -139,6 +140,11 @@ function balancePoints() {
     store.setAttribute(key, finalValue)
   })
 }
+
+onMounted(() => {
+  // 不再自动重置，保留用户之前的选择
+  // 如果用户需要重置，可以手动点击"重置"按钮
+})
 </script>
 
 <style scoped>

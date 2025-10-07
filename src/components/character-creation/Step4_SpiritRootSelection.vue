@@ -197,6 +197,13 @@
       @close="isEditModalVisible = false; editingSpiritRoot = null"
       @submit="handleEditSubmit"
     />
+
+    <!-- AI推演输入弹窗 -->
+    <AIPromptModal
+      :visible="isAIPromptModalVisible"
+      @close="isAIPromptModalVisible = false"
+      @submit="handleAIPromptSubmit"
+    />
   </div>
 </template>
 
@@ -206,8 +213,10 @@ import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { SpiritRoot } from '../../types'
 import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
+import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
-import { generateSpiritRoot } from '../../utils/tavernAI'
+import { generateWithRawPrompt } from '../../utils/tavernCore'
+import { SPIRIT_ROOT_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
@@ -216,6 +225,7 @@ const activeSpiritRoot = ref<SpiritRoot | 'random' | null>(null)
 const selectionMode = ref<'preset' | 'custom'>('preset')
 const isAdvancedCustomVisible = ref(false)
 const isEditModalVisible = ref(false)
+const isAIPromptModalVisible = ref(false)
 const editingSpiritRoot = ref<SpiritRoot | null>(null)
 
 // 自定义灵根状态
@@ -404,30 +414,68 @@ function handleSelectRandom() {
   store.selectSpiritRoot(null);
 }
 
-async function _handleLocalAIGenerate() {
-  const toastId = 'ai-generate-spirit-root';
-  toast.loading('天机推演中，请稍候...', { id: toastId });
-  try {
-    const newRoot = await generateSpiritRoot()
-    if (newRoot) {
-      store.addSpiritRoot(newRoot);
-      handleSelectSpiritRoot(newRoot);
-      toast.success(`AI推演灵根 "${newRoot.name}" 已保存！`, { id: toastId });
-    } else {
-      toast.error('AI未能成功推演灵根，请稍后再试。', { id: toastId });
-    }
-  } catch (e: unknown) {
-    console.error("AI灵根推演时发生意外错误:", e);
-    // Error handled in tavernAI, just dismiss loading
-    toast.hide(toastId);
+function handleAIGenerate() {
+  if (store.isLocalCreation) {
+    isAIPromptModalVisible.value = true;
+  } else {
+    emit('ai-generate')
   }
 }
 
-function handleAIGenerate() {
-  if (store.isLocalCreation) {
-    _handleLocalAIGenerate()
-  } else {
-    emit('ai-generate')
+async function handleAIPromptSubmit(userPrompt: string) {
+  const toastId = 'ai-generate-spirit-root';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
+
+  try {
+    const aiResponse = await generateWithRawPrompt(userPrompt, SPIRIT_ROOT_ITEM_GENERATION_PROMPT, false);
+
+    if (!aiResponse) {
+      toast.error('AI推演失败', { id: toastId });
+      return;
+    }
+
+    console.log('【AI推演-灵根】完整响应:', aiResponse);
+
+    // 解析AI返回的JSON
+    let parsedRoot: any;
+    try {
+      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
+      parsedRoot = JSON.parse(jsonStr.trim());
+    } catch (parseError) {
+      console.error('【AI推演-灵根】JSON解析失败:', parseError);
+      toast.error('AI推演结果格式错误，无法解析', { id: toastId });
+      return;
+    }
+
+    // 验证必需字段
+    if (!parsedRoot.name && !parsedRoot.名称) {
+      toast.error('AI推演结果缺少灵根名称', { id: toastId });
+      return;
+    }
+
+    // 创建灵根对象
+    const newRoot: SpiritRoot = {
+      id: Date.now(),
+      name: parsedRoot.name || parsedRoot.名称 || '未命名灵根',
+      tier: parsedRoot.tier || parsedRoot.品级 || parsedRoot.等级 || '',
+      description: parsedRoot.description || parsedRoot.描述 || parsedRoot.说明 || '',
+      base_multiplier: parsedRoot.base_multiplier || parsedRoot.修炼倍率 || 1.0,
+      talent_cost: parsedRoot.talent_cost || parsedRoot.天道点消耗 || parsedRoot.点数消耗 || 5,
+      rarity: parsedRoot.rarity || parsedRoot.稀有度 || 3,
+      source: 'local'
+    };
+
+    // 保存并选择灵根
+    store.addSpiritRoot(newRoot);
+    handleSelectSpiritRoot(newRoot);
+    isAIPromptModalVisible.value = false;
+
+    toast.success(`AI推演完成！灵根 "${newRoot.name}" 已生成`, { id: toastId });
+
+  } catch (e: any) {
+    console.error('【AI推演-灵根】失败:', e);
+    toast.error(`AI推演失败: ${e.message}`, { id: toastId });
   }
 }
 

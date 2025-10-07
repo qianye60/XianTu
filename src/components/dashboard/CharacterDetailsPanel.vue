@@ -33,14 +33,18 @@
             <div class="identity-info">
               <h1 class="character-title">{{ baseInfo.名字 }}</h1>
               <div class="character-subtitle">
-                <span class="subtitle-item gender-badge" :class="`gender-${baseInfo.性别}`">
-                  {{ baseInfo.性别 === '男' ? '♂' : '♀' }} {{ baseInfo.性别 }}
-                </span>
+                <template v-if="baseInfo.性别">
+                  <span class="subtitle-item" :class="`gender-badge gender-${baseInfo.性别}`">
+                    {{ (baseInfo.性别 === '男' ? '♂' : '♀') + ' ' + baseInfo.性别 }}
+                  </span>
+                  <span class="subtitle-divider">·</span>
+                </template>
+                <span class="subtitle-item race-text">{{ baseInfo.种族 || '人族' }}</span>
                 <span class="subtitle-divider">·</span>
-                <span class="subtitle-item age-text">{{ playerStatus?.寿命?.当前 }}岁</span>
-                <span class="subtitle-divider" v-if="baseInfo.出生">·</span>
-                <span class="subtitle-item origin-text" v-if="baseInfo.出生">
-                  {{ typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生?.名称 }}
+                <span class="subtitle-item age-text">{{ currentAge }}岁</span>
+                <span class="subtitle-divider">·</span>
+                <span class="subtitle-item origin-text">
+                  {{ getOriginDisplay(baseInfo.出生) }}
                 </span>
               </div>
             </div>
@@ -78,6 +82,22 @@
               <div class="card-content">
                 <div class="card-label">位置</div>
                 <div class="card-value location-value">{{ playerStatus.位置.描述 }}</div>
+              </div>
+            </div>
+
+            <!-- 出生卡片 -->
+            <div
+              class="stat-card origin-card clickable"
+              v-if="baseInfo.出生"
+              @click="showOriginDetails(baseInfo.出生)"
+              :title="typeof baseInfo.出生 === 'object' ? '点击查看详情' : ''"
+            >
+              <div class="card-icon">
+                <Sprout :size="20" />
+              </div>
+              <div class="card-content">
+                <div class="card-label">出生</div>
+                <div class="card-value origin-value">{{ getOriginDisplay(baseInfo.出生) }}</div>
               </div>
             </div>
 
@@ -123,8 +143,6 @@
 
       <!-- 主要内容区域 -->
       <div class="content-grid">
-        <!-- 左侧栏 -->
-        <div class="left-column">
           <!-- 生命状态 -->
           <div class="info-section">
             <h3 class="section-title">
@@ -169,24 +187,26 @@
             </h3>
             <div class="basic-info-grid">
               <div class="basic-info-item">
+                <span class="info-label">境界</span>
+                <span class="info-value realm">{{ formatRealmDisplay(playerStatus?.境界) }}</span>
+              </div>
+              <div v-if="baseInfo.性别" class="basic-info-item">
                 <span class="info-label">性别</span>
-                <span class="info-value gender" :class="`gender-${baseInfo.性别}`">{{ baseInfo.性别 || '未知' }}</span>
+                <span class="info-value gender" :class="`gender-${baseInfo.性别}`">{{ baseInfo.性别 }}</span>
+              </div>
+              <div class="basic-info-item">
+                <span class="info-label">灵根</span>
+                <span class="info-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">{{ getSpiritRootDisplay(baseInfo.灵根) }}</span>
               </div>
               <div class="basic-info-item">
                 <span class="info-label">年龄</span>
-                <span class="info-value">{{ baseInfo.年龄 || playerStatus?.寿命?.当前 || '未知' }}岁</span>
+                <span class="info-value">{{ currentAge }}岁</span>
               </div>
-              <div class="basic-info-item">
-                <span class="info-label">出生</span>
-                <span
-                  class="info-value origin clickable"
-                  @click="showOriginDetails(baseInfo.出生)"
-                  :title="typeof baseInfo.出生 === 'object' ? '点击查看详情' : ''"
-                >
-                  {{ getOriginDisplay(baseInfo.出生) }}
-                </span>
+              <div v-if="playerStatus?.位置?.描述" class="basic-info-item">
+                <span class="info-label">位置</span>
+                <span class="info-value location">{{ playerStatus.位置.描述 }}</span>
               </div>
-              <div v-if="baseInfo.世界" class="basic-info-item">
+              <div v-else-if="baseInfo.世界" class="basic-info-item">
                 <span class="info-label">世界</span>
                 <span class="info-value world">{{ baseInfo.世界 }}</span>
               </div>
@@ -295,10 +315,7 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 中间栏 -->
-        <div class="middle-column">
           <!-- 六司属性 -->
           <div class="info-section">
             <h3 class="section-title">
@@ -353,7 +370,7 @@
               </div>
               修炼功法
             </h3>
-            <div v-if="!cultivationData.功法" class="empty-state">
+            <div v-if="!cultivationData" class="empty-state">
               <div class="empty-icon">
                 <BookOpen :size="32" />
               </div>
@@ -363,11 +380,11 @@
               <div class="technique-info">
                 <div class="technique-header" @click="toggleTechniqueDetails">
                   <div class="technique-main">
-                    <h4 class="technique-name" :class="getItemQualityClass(fullTechnique, 'text')">
-                      {{ fullTechnique?.名称 }}
+                    <h4 class="technique-name" :class="getItemQualityClass(cultivationData, 'text')">
+                      {{ cultivationData?.名称 }}
                     </h4>
                     <div class="technique-quality">
-                      {{ fullTechnique?.品质?.quality || '未知' }}品{{ fullTechnique?.品质?.grade || 0 }}阶</div>
+                      {{ cultivationData?.品质?.quality || '未知' }}品{{ cultivationData?.品质?.grade || 0 }}阶</div>
                   </div>
                   <div class="technique-toggle">
                     <ChevronDown
@@ -379,23 +396,23 @@
                 </div>
 
                 <!-- 功法详情（可折叠�?-->
-                <div class="technique-details">
+                <div v-show="showTechniqueDetails" class="technique-details">
                   <div class="technique-description">
-                    <p>{{ fullTechnique?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
+                    <p>{{ cultivationData?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
                   </div>
 
-                  <div v-if="fullTechnique?.类型 === '功法' && fullTechnique.功法效果" class="technique-effects">
+                  <div v-if="hasTechniqueEffects && cultivationData?.功法效果" class="technique-effects">
                     <h5 class="effects-title">功法效果</h5>
                     <div class="effects-list">
-                      <div v-if="fullTechnique.功法效果.修炼速度加成" class="effect-item">
+                      <div v-if="cultivationData.功法效果.修炼速度加成" class="effect-item">
                         <span class="effect-label">修炼加成：</span>
-                        <span class="effect-value">{{ (fullTechnique.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+                        <span class="effect-value">{{ (cultivationData.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
                       </div>
-                      <div v-if="fullTechnique.功法效果.属性加成" class="effect-item">
+                      <div v-if="cultivationData.功法效果.属性加成" class="effect-item">
                         <span class="effect-label">属性提升：</span>
                         <div class="attribute-bonuses">
                           <span
-                            v-for="(value, attr) in fullTechnique.功法效果.属性加成"
+                            v-for="(value, attr) in cultivationData.功法效果.属性加成"
                             :key="attr"
                             class="bonus-tag"
                           >
@@ -405,15 +422,19 @@
                       </div>
                     </div>
                   </div>
+                  <div v-else-if="cultivationData" class="technique-effects no-effects">
+                    <h5 class="effects-title">功法效果</h5>
+                    <p class="no-effects-text">此功法无特殊效果</p>
+                  </div>
                 </div>
 
                 <div class="technique-progress">
-                  <div class="progress-item" v-if="fullTechnique?.类型 === '功法'">
+                  <div class="progress-item" v-if="cultivationData">
                     <span class="progress-label">修炼进度</span>
                     <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: Math.max(2, fullTechnique.修炼进度 || 0) + '%' }"></div>
+                      <div class="progress-fill" :style="{ width: Math.max(2, cultivationData.修炼进度 || 0) + '%' }"></div>
                     </div>
-                    <span class="progress-text">{{ fullTechnique.修炼进度 || 0 }}%</span>
+                    <span class="progress-text">{{ cultivationData.修炼进度 || 0 }}%</span>
                   </div>
                   <div class="progress-item">
                     <span class="progress-label">熟练度</span>
@@ -426,7 +447,7 @@
               </div>
 
               <!-- 已学技能 -->
-              <div v-if="cultivationData.已解锁技能.length || allLearnedSkills.length" class="learned-skills">
+              <div v-if="allLearnedSkills.length" class="learned-skills">
                 <div class="skills-header" @click="toggleSkillsDetails">
                   <h4 class="skills-title">已掌握技能</h4>
                   <div class="skills-count">({{ totalSkillsCount }}个)</div>
@@ -496,10 +517,7 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 右侧栏 -->
-        <div class="right-column">
           <!-- 三千大道 -->
           <div class="info-section">
             <h3 class="section-title">
@@ -508,7 +526,7 @@
               </div>
               三千大道
             </h3>
-            <div v-if="!daoData.已解锁大道.length" class="empty-state">
+            <div v-if="!unlockedDaoList.length" class="empty-state">
               <div class="empty-icon">
                 <Sprout :size="32" />
               </div>
@@ -517,7 +535,7 @@
             <div v-else class="dao-list">
               <div class="dao-header-section">
                 <div class="dao-summary">
-                  <span class="dao-count">已解 {{ daoData.已解锁大道.length }} 条大道</span>
+                  <span class="dao-count">已解 {{ unlockedDaoList.length }} 条大道</span>
                   <button class="dao-expand-btn" @click="toggleDaoDetails">
                     <span>{{ showDaoDetails ? '收起' : '展开' }}</span>
                     <ChevronDown
@@ -531,7 +549,7 @@
 
               <div v-show="!showDaoDetails" class="dao-preview">
                 <div
-                  v-for="daoName in daoData.已解锁大道.slice(0, 2)"
+                  v-for="daoName in unlockedDaoList.slice(0, 2).map(d => d.道名)"
                   :key="daoName"
                   class="dao-item compact"
                   @click="showDaoInfo(daoName)"
@@ -547,14 +565,14 @@
                     <span class="progress-text small">{{ getDaoProgress(daoName) }}%</span>
                   </div>
                 </div>
-                <div v-if="daoData.已解锁大道.length > 2" class="more-dao">
-                  还有 {{ daoData.已解锁大道.length - 2 }} 条大道..
+                <div v-if="unlockedDaoList.length > 2" class="more-dao">
+                  还有 {{ unlockedDaoList.length - 2 }} 条大道..
                 </div>
               </div>
 
               <div v-show="showDaoDetails" class="dao-details">
                 <div
-                  v-for="daoName in daoData.已解锁大道"
+                  v-for="daoName in unlockedDaoList.map(d => d.道名)"
                   :key="daoName"
                   class="dao-item detailed"
                   @click="showDaoInfo(daoName)"
@@ -683,7 +701,6 @@
               </div>
             </div>
           </div>
-        </div>
       </div>
 
       <!-- 技能详情弹窗 -->
@@ -822,16 +839,16 @@
               </div>
             </div>
 
-            <div v-if="baseInfo.灵根详情" class="advanced-details">
+            <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根" class="advanced-details">
               <h4>详细信息</h4>
               <div class="advanced-grid">
-                <div v-if="baseInfo.灵根详情.base_multiplier" class="advanced-item">
+                <div v-if="(baseInfo.灵根 as any).base_multiplier" class="advanced-item">
                   <span class="advanced-label">基础倍率:</span>
-                  <span class="advanced-value">{{ baseInfo.灵根详情.base_multiplier }}x</span>
+                  <span class="advanced-value">{{ (baseInfo.灵根 as any).base_multiplier }}x</span>
                 </div>
-                <div v-if="baseInfo.灵根详情.cultivation_speed" class="advanced-item">
+                <div v-if="(baseInfo.灵根 as any).cultivation_speed" class="advanced-item">
                   <span class="advanced-label">修炼速度:</span>
-                  <span class="advanced-value">{{ baseInfo.灵根详情.cultivation_speed }}</span>
+                  <span class="advanced-value">{{ (baseInfo.灵根 as any).cultivation_speed }}</span>
                 </div>
               </div>
             </div>
@@ -848,7 +865,8 @@ import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile, TechniqueItem, TechniqueSkill } from '@/types/game.d.ts';
+import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
+import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
@@ -856,7 +874,7 @@ import {
 } from 'lucide-vue-next';
 
 // 使用统一的数据访问
-const { characterData, saveData } = useUnifiedCharacterData();
+const { saveData } = useUnifiedCharacterData();
 const uiStore = useUIStore();
 const isLoading = ref(false);
 
@@ -875,104 +893,49 @@ type LearnedSkillDisplay = {
   source: string;
   proficiency: number;
   description?: string;
-  unlocked: true;
+  unlocked: boolean;
 };
 
 const selectedSkill = ref<SkillInfo | LearnedSkillDisplay | string | null>(null);
 const selectedDao = ref<string | null>(null);
 
 // 基础数据 - 使用统一的中文字段访问
-const baseInfo = computed(() => characterData.value?.基础信息);
+const baseInfo = computed(() => saveData.value?.角色基础信息);
 // 名字首字，用于头像占位
 const nameInitial = computed(() => {
   const n = String(baseInfo.value?.名字 || '').trim();
   return n ? n.charAt(0) : '?';
 });
-const playerStatus = computed(() => characterData.value?.玩家角色状态);
+const playerStatus = computed(() => saveData.value?.玩家角色状态);
 
-// 修炼功法数据 - 使用统一的中文字段
-const cultivationData = computed(() => {
-  return characterData.value?.修炼功法 || {
-    功法: null,
-    熟练度: 0,
-    已解锁技能: [],
-    修炼时间: 0,
-    突破次数: 0,
-    正在修炼: false,
-    修炼进度: 0
-  };
-});
+// 自动计算当前年龄
+const currentAge = computed(() => {
+  const birthdate = baseInfo.value?.出生日期;
+  const gameTime = saveData.value?.游戏时间;
 
-// 获取完整的功法对象
-const fullTechnique = computed((): TechniqueItem | Item | null => {
-  const techniqueRef = cultivationData.value.功法;
-  const inventoryItems = characterData.value?.背包_物品;
-
-  if (!techniqueRef || !inventoryItems) return null;
-  
-  // 兼容数组和对象两种格式
-  const itemsAsArray = Array.isArray(inventoryItems) ? inventoryItems : Object.values(inventoryItems);
-
-  let techniqueId: string | null = null;
-  if (typeof techniqueRef === 'string') {
-    techniqueId = techniqueRef;
-  } else if (typeof techniqueRef === 'object' && '物品ID' in techniqueRef) {
-    techniqueId = techniqueRef.物品ID;
+  if (birthdate && gameTime) {
+    return calculateAgeFromBirthdate(birthdate, gameTime);
   }
 
-  if (techniqueId) {
-    const item = itemsAsArray.find(i => i.物品ID === techniqueId);
-    if (item?.类型 === '功法') {
-      return item as TechniqueItem;
-    }
-    return item || null;
-  }
-  return null;
+  // 兜底：返回存储的年龄或寿命
+  return baseInfo.value?.年龄 || playerStatus.value?.寿命?.当前 || 0;
 });
 
-// 三千大道数据 - 使用统一的中文字段
-const daoData = computed(() => {
-  return characterData.value?.三千大道 || {
-    已解锁大道: [],
-    大道进度: {}
-  };
+// 修炼功法数据
+const cultivationData = computed(() => saveData.value?.修炼功法);
+
+// 三千大道数据
+const daoData = computed(() => saveData.value?.三千大道);
+
+const unlockedDaoList = computed((): DaoData[] => {
+  if (!daoData.value?.大道列表) return [];
+  return Object.values(daoData.value.大道列表).filter(d => d.是否解锁);
 });
 
-// 生命状态数据 - 统一使用vitals结构
+// 生命状态数据
 const vitalsData = computed(() => {
   if (!playerStatus.value) return [];
 
-  // 优先使用vitals结构，如果不存在则回退到旧的结构
-  const vitals = playerStatus.value.vitals;
-  if (vitals) {
-    const safe = (n: unknown) => (typeof n === 'number' ? n : Number(n ?? 0)) || 0;
-    const safeMax = (n: unknown) => {
-      const v = (typeof n === 'number' ? n : Number(n || 0));
-      return isNaN(v) ? 0 : Math.max(0, v);
-    };
-    return [
-      {
-        label: '气血',
-        current: safe(vitals.qiBlood?.current),
-        max: safeMax(vitals.qiBlood?.max),
-        color: 'red'
-      },
-      {
-        label: '灵气',
-        current: safe(vitals.lingQi?.current),
-        max: safeMax(vitals.lingQi?.max),
-        color: 'blue'
-      },
-      {
-        label: '神识',
-        current: safe(vitals.shenShi?.current),
-        max: safeMax(vitals.shenShi?.max),
-        color: 'gold'
-      }
-    ];
-  }
-
-  // 回退到旧的数据结构
   const safe = (n: unknown) => (typeof n === 'number' ? n : Number(n || 0)) || 0;
   const safeMax = (n: unknown) => {
     const v = (typeof n === 'number' ? n : Number(n || 0));
@@ -1027,6 +990,22 @@ const finalAttributes = computed((): InnateAttributes => {
   return result?.最终六司 || innateAttributesWithDefaults.value;
 });
 
+// 获取最近三条记忆
+const recentMemories = computed(() => {
+  const memoryData = saveData.value?.记忆;
+  if (!memoryData) return [];
+
+  // 如果记忆是短期记忆数组
+  if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
+    return memoryData.短期记忆.slice(-3).reverse().map((event: string, index: number) => ({
+      时间: '最近',
+      事件: event
+    }));
+  }
+
+  return [];
+});
+
 const acquiredAttributes = computed((): InnateAttributes => {
   const defaultAttributes: InnateAttributes = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 }; // 修正：使用标准六司名称
   if (!saveData.value) return defaultAttributes;
@@ -1034,95 +1013,66 @@ const acquiredAttributes = computed((): InnateAttributes => {
   return result?.后天六司 || defaultAttributes;
 });
 
+const hasTechniqueEffects = computed(() => {
+  const effects = cultivationData.value?.功法效果;
+  if (!effects) return false;
+  const hasSpeedBonus = effects.修炼速度加成 && effects.修炼速度加成 > 0;
+  const hasAttributeBonus = effects.属性加成 && Object.keys(effects.属性加成).length > 0;
+  return hasSpeedBonus || hasAttributeBonus;
+});
+
 // 技能相关计算属性
 const skillsList = computed((): SkillInfo[] => {
-  const techniqueRef = cultivationData.value.功法;
-  const cultivationInfo = cultivationData.value;
-
-  if (!techniqueRef || !saveData.value?.背包?.物品) return [];
-
-  // 从背包中获取完整的功法物品信息
-  const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-  const inventoryItems = saveData.value.背包.物品;
-  const itemsAsArray = Array.isArray(inventoryItems) ? inventoryItems : Object.values(inventoryItems);
-  const fullTechnique = itemsAsArray.find(i => i.物品ID === techniqueId);
-  if (fullTechnique?.类型 !== '功法' || !('功法技能' in fullTechnique) || !fullTechnique.功法技能) return [];
+  const technique = cultivationData.value;
+  if (!technique?.功法技能) return [];
 
   const skills: SkillInfo[] = [];
-
-  Object.entries(fullTechnique.功法技能).forEach(([skillName, rawSkillInfo]) => {
-    const skillInfo = rawSkillInfo as TechniqueSkill;
-    // 检查是否已解锁
-    const unlocked = checkSkillUnlocked(skillName, fullTechnique as TechniqueItem, cultivationInfo);
-
+  Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
+    const unlocked = (technique.已解锁技能 || []).includes(skillName);
     skills.push({
       name: skillName,
       description: skillInfo.技能描述,
-      type: '功法技能', // 简化：统一类型
-      unlockCondition: '已解锁', // 简化：移除复杂解锁条件
+      type: '功法技能',
+      unlockCondition: '修炼解锁',
       unlocked
     });
   });
-
   return skills;
 });
 
 // 已学技能（所有已掌握的技能）
 const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
-  const techniqueRef = cultivationData.value.功法;
-  const cultivationInfo = cultivationData.value;
+  const mastered = saveData.value?.掌握技能 || [];
+  const fromTechnique = (cultivationData.value?.已解锁技能 || []).map(skillName => {
+    const skillDef = cultivationData.value?.功法技能?.[skillName];
+    return {
+      name: skillName,
+      proficiency: getPersistentProficiency(skillName, 'technique'),
+      source: cultivationData.value?.名称 || '功法',
+      type: '功法技能',
+      description: skillDef?.技能描述 || '通过功法修炼掌握',
+      unlocked: true,
+    };
+  });
 
-  if (!techniqueRef && !cultivationInfo?.已解锁技能?.length) return [];
+  const allSkills = [...mastered.map(s => ({
+    name: s.技能名称,
+    proficiency: s.熟练度,
+    source: s.来源,
+    type: '掌握技能',
+    description: s.技能描述,
+    unlocked: true,
+  })), ...fromTechnique];
 
-  const skills: LearnedSkillDisplay[] = [];
-  const skillNameSet = new Set(); // 防止重复添加技能
-
-  // 从已解锁技能获取（直接学会的技能）
-  if (cultivationInfo?.已解锁技能?.length) {
-    cultivationInfo.已解锁技能.forEach(skillName => {
-      if (!skillNameSet.has(skillName)) {
-        skillNameSet.add(skillName);
-        skills.push({
-          name: skillName,
-          proficiency: getPersistentProficiency(skillName, 'direct'),
-          source: '修炼习得',
-          type: '主动技能',
-          description: '通过修炼功法直接掌握的技能',
-          unlocked: true
-        });
-      }
-    });
-  }
-
-  // 从功法技能定义获取（达到条件解锁的技能）
-  if (techniqueRef && saveData.value?.背包?.物品) {
-    const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-    const inventoryItems = saveData.value.背包.物品;
-    const itemsAsArray = Array.isArray(inventoryItems) ? inventoryItems : Object.values(inventoryItems);
-    const fullTechnique = itemsAsArray.find(i => i.物品ID === techniqueId);
-    if (fullTechnique?.类型 === '功法' && '功法技能' in fullTechnique && fullTechnique.功法技能) {
-      Object.entries(fullTechnique.功法技能).forEach(([skillName, rawSkillInfo]) => {
-        const skillInfo = rawSkillInfo as TechniqueSkill;
-        if (!skillNameSet.has(skillName)) {
-          // 检查是否已解锁
-          const unlocked = checkSkillUnlocked(skillName, fullTechnique as TechniqueItem, cultivationInfo);
-          if (unlocked) {
-            skillNameSet.add(skillName);
-            skills.push({
-              name: skillName,
-              proficiency: getPersistentProficiency(skillName, 'technique'),
-              source: '功法传承',
-              type: '功法技能', // 简化：统一类型
-              description: skillInfo.技能描述 || '通过功法修炼掌握的技能',
-              unlocked: true
-            });
-          }
-        }
-      });
+  // 去重
+  const uniqueSkills = new Map<string, LearnedSkillDisplay>();
+  allSkills.forEach(skill => {
+    if (!uniqueSkills.has(skill.name)) {
+      uniqueSkills.set(skill.name, skill);
     }
-  }
+  });
 
-  return skills;
+  return Array.from(uniqueSkills.values());
 });
 
 const totalSkillsCount = computed(() => {
@@ -1132,33 +1082,13 @@ const totalSkillsCount = computed(() => {
 // 人际关系统计
 const relationshipCount = computed(() => {
   const relations = saveData.value?.人物关系 || {};
-  // 仅统计有效NPC：排除临时标识符和无效数据
-  return Object.entries(relations)
-    .filter(([key, val]) => {
-      // 排除以下划线开头或临时标识符的项
-      if (String(key).startsWith('_') || String(key).startsWith('npc_init_')) return false;
-      // 必须是对象且有完整的角色基础信息
-      if (!val || typeof val !== 'object') return false;
-      const npc = val as NpcProfile;
-      return npc.角色基础信息 && npc.角色基础信息.名字;
-    })
-    .length;
+  return Object.values(relations).filter(npc => npc && npc.名字).length;
 });
 
 const averageFavorability = computed(() => {
-  const relationsObj = saveData.value?.人物关系 || {};
-  const relations = Object.entries(relationsObj)
-    .filter(([key, val]) => {
-      // 排除以下划线开头或临时标识符的项
-      if (String(key).startsWith('_') || String(key).startsWith('npc_init_')) return false;
-      // 必须是对象且有完整的角色基础信息
-      if (!val || typeof val !== 'object') return false;
-      const npc = val as NpcProfile;
-      return npc.角色基础信息 && npc.角色基础信息.名字;
-    })
-    .map(([, val]) => val as NpcProfile);
+  const relations = Object.values(saveData.value?.人物关系 || {}).filter(npc => npc && npc.名字);
   if (relations.length === 0) return 0;
-  const total = relations.reduce((sum, rel) => sum + (rel.人物好感度 || 0), 0);
+  const total = relations.reduce((sum, rel) => sum + (rel.好感度 || 0), 0);
   return Math.round(total / relations.length);
 });
 
@@ -1228,34 +1158,23 @@ const formatCultivationText = (): string => {
 };
 
 // 显示境界：统一返回"境界+阶段"（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (name?: string): string => {
+const formatRealmDisplay = (realmInput?: string | any): string => {
+  // 如果传入的是对象（Realm类型）
+  if (realmInput && typeof realmInput === 'object') {
+    const name = realmInput.名称 || '';
+    const stage = realmInput.阶段 || '';
+    const progress = realmInput.当前进度;
+    const maxProgress = realmInput.下一级所需;
+    return formatRealmWithStage({ name, 阶段: stage, 当前进度: progress, 下一级所需: maxProgress });
+  }
+
+  // 如果传入的是字符串（name）
+  const name = typeof realmInput === 'string' ? realmInput : undefined;
   const progress = playerStatus.value?.境界?.当前进度;
   const maxProgress = playerStatus.value?.境界?.下一级所需;
   const stage = playerStatus.value?.境界?.阶段;
   return formatRealmWithStage({ name, 阶段: stage, 当前进度: progress, 下一级所需: maxProgress });
 };
-
-// 提取位置名称：从描述中提取地名，去除多余的叙事内容
-const getLocationName = (description: string): string => {
-  if (!description) return '未知';
-
-  // 尝试匹配常见的地名模式
-  const patterns = [
-    /^([^，。]+[城镇村庄宗山峰谷洞府坊市])[，。]/,  // 开头的地名 + 标点
-    /([^，。]*[城镇村庄宗山峰谷洞府坊市])/,          // 包含地名标识的词
-    /^([^，。]{2,8})[，。]/,                      // 开头的短词组
-  ];
-
-  for (const pattern of patterns) {
-    const match = description.match(pattern);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-  }
-
-  // 如果没有匹配到，返回前10个字符
-  return description.substring(0, 10) + (description.length > 10 ? '...' : '');
-}
 
 const getCultivationProgress = (): number => {
   const current = playerStatus.value?.境界?.当前进度 || 0;
@@ -1282,34 +1201,37 @@ const getPercentage = (current: number, max: number): number => {
   return Math.round((current / max) * 100);
 };
 
-const getItemQualityClass = (item: Item | null, type: 'border' | 'text' = 'border'): string => {
+const getItemQualityClass = (item: { 品质?: ItemQuality } | null, type: 'border' | 'text' = 'border'): string => {
   if (!item) return '';
   const quality = item.品质?.quality || '未知';
   return `${type}-quality-${quality}`;
 };
 
+const getDaoData = (daoName: string): DaoData | undefined => {
+  return daoData.value?.大道列表?.[daoName];
+};
+
 const getDaoStage = (daoName: string): number => {
-  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
-  return progress?.当前阶段 || 0;
+  return getDaoData(daoName)?.当前阶段 || 0;
 };
 
 const getDaoProgress = (daoName: string): number => {
-  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
-  if (!progress) return 0;
-  const currentExp = progress.当前经验 || 0;
-  const stage = progress.当前阶段 || 0;
-  const nextStageExp = (stage + 1) * 100;
-  return Math.min(100, Math.round((currentExp / nextStageExp) * 100));
+  const dao = getDaoData(daoName);
+  if (!dao) return 0;
+  const currentStageIndex = dao.当前阶段 || 0;
+  const currentStage = dao.阶段列表?.[currentStageIndex];
+  if (!currentStage) return 0;
+  const nextStageExp = currentStage.突破经验;
+  if (nextStageExp <= 0) return 100;
+  return Math.min(100, Math.round((dao.当前经验 / nextStageExp) * 100));
 };
 
 const getDaoCurrentExp = (daoName: string): number => {
-  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
-  return progress?.当前经验 || 0;
+  return getDaoData(daoName)?.当前经验 || 0;
 };
 
 const getDaoTotalExp = (daoName: string): number => {
-  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[daoName];
-  return progress?.总经验 || 0;
+  return getDaoData(daoName)?.总经验 || 0;
 };
 
 const getItemTypeCount = (type: string): number => {
@@ -1354,15 +1276,6 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
   return 30 + (seed % 66);
 };
 
-// 检查技能是否已解锁（简化版：默认全部解锁）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: SaveData['修炼功法']): boolean => {
-  if (!technique.功法技能?.[skillName]) return false;
-
-  // 简化逻辑：只要功法中有这个技能，就认为已解锁
-  return true;
-};
-
 // 界面交互方法
 const toggleTechniqueDetails = () => {
   showTechniqueDetails.value = !showTechniqueDetails.value;
@@ -1400,9 +1313,8 @@ const closeModals = () => {
 
 const getDaoModalContent = () => {
   if (!selectedDao.value) return null;
-
-  const progress = (daoData.value.大道进度 as Record<string, DaoProgress>)?.[selectedDao.value];
-  if (!progress) {
+  const dao = getDaoData(selectedDao.value);
+  if (!dao) {
     return {
       name: selectedDao.value,
       stage: '初始阶段',
@@ -1413,9 +1325,9 @@ const getDaoModalContent = () => {
     };
   }
 
-  const stage = progress.当前阶段 || 0;
-  const currentExp = progress.当前经验 || 0;
-  const totalExp = progress.总经验 || 0;
+  const stage = dao.当前阶段 || 0;
+  const currentExp = dao.当前经验 || 0;
+  const totalExp = dao.总经验 || 0;
   const progressPercent = getDaoProgress(selectedDao.value);
 
   return {
@@ -1424,7 +1336,7 @@ const getDaoModalContent = () => {
     currentExp,
     totalExp,
     progressPercent,
-    description: '此道深奥玄妙，需持之以恒方能有所成就'
+    description: dao.描述 || '此道深奥玄妙，需持之以恒方能有所成就'
   };
 };
 
@@ -1472,9 +1384,11 @@ const getSkillModalContent = () => {
 const refreshData = async () => {
   isLoading.value = true;
   try {
-    const { useCharacterStore } = await import('@/stores/characterStore');
-    const characterStore = useCharacterStore();
-    await characterStore.syncFromTavern();
+    // This is a simplified refresh. In a real app, you might re-fetch from a service.
+    // For now, we assume the unified composable handles reactivity.
+    // const { useCharacterStore } = await import('@/stores/characterStore');
+    // const characterStore = useCharacterStore();
+    // await characterStore.syncFromTavern();
   } catch (error) {
     debug.error('人物详情', '刷新数据失败', error);
   } finally {
@@ -1615,16 +1529,18 @@ const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: stri
 
 // 获取灵根修炼速度
 const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined): string => {
-  // 首先尝试从灵根详情中获取
-  if (baseInfo?.灵根详情?.base_multiplier) {
-    return `${baseInfo.灵根详情.base_multiplier}x`;
-  }
-  if (baseInfo?.灵根详情?.cultivation_speed) {
-    return baseInfo.灵根详情.cultivation_speed;
+  const spiritRoot = baseInfo?.灵根;
+  if (spiritRoot && typeof spiritRoot === 'object') {
+    if ('base_multiplier' in spiritRoot && (spiritRoot as any).base_multiplier) {
+      return `${(spiritRoot as any).base_multiplier}x`;
+    }
+    if ('cultivation_speed' in spiritRoot && (spiritRoot as any).cultivation_speed) {
+      return (spiritRoot as any).cultivation_speed;
+    }
   }
 
   // 如果没有详情，根据品级推断基础修炼速度
-  const parsed = parseSpiritRoot(baseInfo?.灵根);
+  const parsed = parseSpiritRoot(spiritRoot);
   const grade = parsed.grade || '';
 
   const speedMap: Record<string, string> = {
@@ -1642,8 +1558,9 @@ const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined):
 
 // 获取灵根特殊效果
 const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[] => {
-  if (baseInfo?.灵根详情?.special_effects && Array.isArray(baseInfo.灵根详情.special_effects)) {
-    return baseInfo.灵根详情.special_effects;
+  const spiritRoot = baseInfo?.灵根;
+  if (spiritRoot && typeof spiritRoot === 'object' && 'special_effects' in spiritRoot && Array.isArray((spiritRoot as any).special_effects)) {
+    return (spiritRoot as any).special_effects;
   }
   return [];
 };
@@ -2106,27 +2023,12 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   box-sizing: border-box;
 }
 
-/* 确保每个栏目都能适应容器 */
-.left-column,
-.middle-column,
-.right-column {
-  min-width: 0; /* 防止内容溢出 */
-  width: 100%;
-  max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
 /* 信息区块优化 */
 .info-section {
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 16px;
-  margin-bottom: 16px;
   box-shadow: none;
   transition: border-color 0.2s ease, background-color 0.2s ease;
   position: relative;
@@ -2374,7 +2276,10 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   color: var(--color-primary);
 }
 
-/* 六司属�?*/
+.basic-info-item .info-value.race {
+  color: var(--color-info);
+}
+
 .attributes-display {
   display: flex;
   flex-direction: column;
@@ -2565,6 +2470,13 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   border-radius: 4px;
   font-size: 0.75rem;
   border: 1px solid rgba(var(--color-success-rgb), 0.3);
+}
+
+.no-effects-text {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding-top: 8px;
 }
 
 /* 技能系统样�?*/
@@ -2980,7 +2892,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .relationship-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 
@@ -3236,9 +3148,6 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
     grid-template-columns: 1fr;
   }
 
-  .relationship-stats {
-    grid-template-columns: 1fr;
-  }
 
   /* 确保文字显示完整 */
   .attr-name, .attr-value {
@@ -4275,7 +4184,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
     gap: 4px;
   }
   }
-  
+
   .info-value.clickable {
     cursor: pointer;
     text-decoration: underline;
@@ -4283,16 +4192,16 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
     text-underline-offset: 3px;
     transition: color 0.2s, text-decoration-color 0.2s;
   }
-  
+
   .info-value.clickable:hover {
     text-decoration-style: solid;
     color: var(--color-primary-hover);
   }
-  
+
   .info-value.origin.clickable {
     color: var(--color-accent);
   }
-  
+
   .info-value.origin.clickable:hover {
     color: var(--color-accent-hover);
   }
@@ -4425,7 +4334,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   color: rgba(255, 255, 255, 0.3);
 }
 
-.age-text, .origin-text {
+.age-text, .origin-text, .race-text {
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -4568,15 +4477,11 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 .progress-bar-shine {
   position: absolute;
   top: 0;
-  left: -100%;
+  left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  animation: shine 2s infinite;
-}
-
-@keyframes shine {
-  to { left: 100%; }
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  /* 移除动画效果 */
 }
 
 .progress-text {

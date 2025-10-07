@@ -98,15 +98,19 @@ export class EnhancedWorldGenerator {
     
     console.log('[增强世界生成器] 发送AI请求...');
     console.log('[增强世界生成器] 提示词长度:', prompt.length);
-    
+
     try {
-      const response = await tavern.generateRaw({
-        user_input: prompt,
-        custom_api: {
-          temperature: 0.7, // 降低随机性，提高一致性
-          max_tokens: 4000,
-          top_p: 0.9
+      // 使用 ordered_prompts 参数关闭世界书
+      const orderedPrompts: Array<{ role: 'system' | 'user'; content: string }> = [
+        {
+          role: 'system',
+          content: prompt
         }
+      ];
+
+      const response = await tavern.generateRaw({
+        ordered_prompts: orderedPrompts,
+        should_stream: false
       });
       
       console.log('[增强世界生成器] AI响应长度:', String(response).length);
@@ -254,8 +258,8 @@ ${this.previousErrors.join('\n')}
       世界名称: this.config.worldName || rawData.world_name || rawData.worldName || '修仙界',
       世界背景: rawData.world_background || rawData.worldBackground || this.config.worldBackground || '',
       大陆信息: (rawData.continents || []).map((continent: Record<string, any>) => ({
-        名称: continent.name || continent.名称 || '未名大陆',
-        描述: continent.description || continent.描述 || '一片神秘的修仙大陆，灵气充沛，势力林立',
+        名称: continent.名称 || continent.name || '未名大陆',
+        描述: continent.描述 || continent.description || '一片神秘的修仙大陆，灵气充沛，势力林立',
         地理特征: continent.terrain_features || continent.地理特征 || [],
         修真环境: continent.cultivation_environment || continent.修真环境 || '灵气充沛，适宜修行',
         气候: continent.climate || continent.气候 || '四季分明，温和宜人',

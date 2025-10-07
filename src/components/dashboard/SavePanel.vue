@@ -115,8 +115,8 @@
                 <button
                   class="card-btn danger"
                   @click.stop="deleteSave(save)"
-                  :disabled="loading || save.存档名 === '上次对话'"
-                  :title="save.存档名 === '上次对话' ? '上次对话存档不可删除' : '删除存档'"
+                  :disabled="loading || save.存档名 === '上次对话' || deletableSavesCount <= 1"
+                  :title="save.存档名 === '上次对话' ? '上次对话存档不可删除' : (deletableSavesCount <= 1 ? '最后一个存档，无法删除' : '删除存档')"
                 >
                   <Trash2 :size="14" />
                 </button>
@@ -209,6 +209,11 @@ const currentSave = computed(() => {
 // 是否可以存档
 const canSave = computed(() => {
   return characterStore.activeCharacterProfile !== null;
+});
+
+// 计算可删除的存档数量
+const deletableSavesCount = computed(() => {
+  return savesList.value.filter(save => save.存档名 !== '上次对话').length;
 });
 
 // 刷新存档列表
@@ -334,38 +339,13 @@ const rollbackFromLastConversation = async (save: SaveSlot) => {
     onConfirm: async () => {
       loading.value = true;
       try {
-        const profile = characterStore.activeCharacterProfile;
-        const active = characterStore.rootState.当前激活存档;
-
-        if (!profile || !active || profile.模式 !== '单机') {
-          throw new Error('无法执行回滚操作');
-        }
-
-        const lastConversationData = save.存档数据;
-        if (!lastConversationData) {
-          throw new Error('上次对话存档数据为空');
-        }
-
-        // 用"上次对话"的数据覆盖当前激活存档
-        profile.存档列表[active.存档槽位] = {
-          ...profile.存档列表[active.存档槽位],
-          存档数据: JSON.parse(JSON.stringify(lastConversationData)),
-          最后保存时间: new Date().toISOString()
-        };
-
-        // 保存到localStorage
-        characterStore.commitToStorage();
-
-        // 同步到酒馆
-        await characterStore.setActiveCharacterInTavern(active.角色ID);
-
+        await characterStore.rollbackToLastConversation();
         toast.success('已回滚到上次对话前的状态');
-
-        // 刷新存档列表
+        // 刷新存档列表以更新元数据
         await refreshSaves();
       } catch (error) {
         debug.error('存档面板', '回滚失败', error);
-        toast.error('回滚失败');
+        toast.error(`回滚失败: ${error instanceof Error ? error.message : '未知错误'}`);
       } finally {
         loading.value = false;
       }

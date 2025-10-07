@@ -28,6 +28,7 @@ export type AttributeKey = 'root_bone' | 'spirituality' | 'comprehension' | 'for
 export interface CharacterCreationPayload {
   character_name: string;
   gender: string;
+  race: string;
   world_id: number | '';
   talent_tier_id: number | '';
   current_age: number;
@@ -96,6 +97,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const characterPayload = ref<CharacterCreationPayload>({
     gender: '男',
     character_name: '',
+    race: '人族',
     world_id: '',
     talent_tier_id: '',
     current_age: 18,
@@ -150,12 +152,31 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
   const remainingTalentPoints = computed(() => {
     if (!selectedTalentTier.value) return 0;
+
     let points = selectedTalentTier.value.total_points;
-    if (selectedOrigin.value) points -= selectedOrigin.value.talent_cost;
-    if (selectedSpiritRoot.value) points -= selectedSpiritRoot.value.talent_cost;
-    points -= selectedTalents.value.reduce((total, talent) => total + talent.talent_cost, 0);
+    console.log('[天道点计算] 初始天道点:', points);
+
+    if (selectedOrigin.value) {
+      console.log('[天道点计算] 出生消耗:', selectedOrigin.value.talent_cost);
+      points -= selectedOrigin.value.talent_cost;
+    }
+
+    if (selectedSpiritRoot.value) {
+      console.log('[天道点计算] 灵根消耗:', selectedSpiritRoot.value.talent_cost);
+      points -= selectedSpiritRoot.value.talent_cost;
+    }
+
+    const talentCost = selectedTalents.value.reduce((total, talent) => total + talent.talent_cost, 0);
+    console.log('[天道点计算] 已选天赋数量:', selectedTalents.value.length);
+    console.log('[天道点计算] 已选天赋列表:', selectedTalents.value.map(t => ({ 名称: t.name, 消耗: t.talent_cost })));
+    console.log('[天道点计算] 天赋总消耗:', talentCost);
+    points -= talentCost;
+
     const allocatedAttributePoints = Object.values(attributes.value).reduce((sum, val) => sum + val, 0);
+    console.log('[天道点计算] 先天六司总和:', allocatedAttributePoints);
     points -= allocatedAttributePoints;
+
+    console.log('[天道点计算] 最终剩余:', points);
     return points;
   });
 
@@ -203,6 +224,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     return {
       gender: '男',
       character_name: character_name,
+      race: '人族',
       world_id: '',
       talent_tier_id: '',
       current_age: 18,
@@ -411,7 +433,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       };
 
       const cloudWorldsWithSource = safeTransform<World>(cloudWorlds, { id: 0, name: '', era: '', description: '' });
-      const cloudTalentTiersWithSource = safeTransform<TalentTier>(cloudTalentTiers, { id: 0, name: '', description: '', total_points: 0, rarity: 0, color: '' });
+      const cloudTalentTiersWithSource = safeTransform<TalentTier>(cloudTalentTiers, { id: 0, name: '未知天资', description: '', total_points: 20, rarity: 1, color: '#FFFFFF' });
       const cloudOriginsWithSource = safeTransform<Origin>(cloudOrigins, { id: 0, name: '', description: '', talent_cost: 0, attribute_modifiers: {}, rarity: 0 });
       const cloudSpiritRootsWithSource = safeTransform<SpiritRoot>(cloudSpiritRoots, { id: 0, name: '', description: '', base_multiplier: 0, talent_cost: 0 });
       const cloudTalentsWithSource = safeTransform<Talent>(cloudTalents, { id: 0, name: '', description: '', talent_cost: 0, rarity: 0 });

@@ -9,17 +9,16 @@ export { getTavernHelper } from './tavern';
 export { diagnoseAIResponse, generateItemWithTavernAI } from './tavernCore';
 
 // 重新导出游戏元素生成器
-export { 
-  generateWorld, 
-  generateTalentTier, 
-  generateOrigin, 
-  generateSpiritRoot, 
-  generateTalent, 
-  generateMapFromWorld,
+export {
+  generateWorld,
+  generateTalentTier,
+  generateOrigin,
+  generateSpiritRoot,
+  generateTalent
 } from './generators/gameElementGenerators';
 
 // 重新导出游戏大师生成器
-export { generateInitialMessage } from './generators/gameMasterGenerators';
+export { generateInitialMessage, generateSimpleResponse } from './generators/gameMasterGenerators';
 
 // 重新导出提示词（供其他模块使用）
 // export * from './prompts/variableOperationRules'; // 已移至酒馆预设

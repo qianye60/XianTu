@@ -61,10 +61,10 @@
                 <Clock :size="12" class="vital-icon lifespan" />
                 <span>寿元</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.寿命?.当前 }} / {{ playerStatus?.寿命?.上限 }}</span>
+              <span class="vital-text">{{ currentAge }} / {{ playerStatus?.寿命?.上限 }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill lifespan" :style="{ width: getVitalPercent('寿命') + '%' }"></div>
+              <div class="progress-fill lifespan" :style="{ width: getLifespanPercent() + '%' }"></div>
             </div>
           </div>
         </div>
@@ -207,6 +207,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useUIStore } from '@/stores/uiStore';
 import type { StatusEffect } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
+import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
 
 
 const { characterData, saveData, isDataLoaded } = useUnifiedCharacterData();
@@ -218,6 +219,19 @@ const characterInfo = computed(() => characterData.value?.基础信息);
 const playerStatus = computed(() => characterData.value?.玩家角色状态);
 const statusEffects = computed(() => characterData.value?.状态效果 || []);
 const daoData = computed(() => characterData.value?.三千大道);
+
+// 自动计算当前年龄（基于出生日期）
+const currentAge = computed(() => {
+  const birthdate = characterInfo.value?.出生日期;
+  const gameTime = saveData.value?.游戏时间;
+
+  if (birthdate && gameTime) {
+    return calculateAgeFromBirthdate(birthdate, gameTime);
+  }
+
+  // 兜底：返回存储的年龄或寿命
+  return characterInfo.value?.年龄 || playerStatus.value?.寿命?.当前 || 0;
+});
 
 // 收缩状态
 const talentsCollapsed = ref(false);
@@ -255,60 +269,56 @@ const realmProgressPercent = computed(() => {
 });
 
 // 计算生命体征百分比
-const getVitalPercent = (type: '气血' | '灵气' | '神识' | '寿命') => {
+const getVitalPercent = (type: '气血' | '灵气' | '神识') => {
   if (!playerStatus.value) return 0;
   const vital = playerStatus.value[type];
   if (!vital?.当前 || !vital?.上限) return 0;
   return Math.round((vital.当前 / vital.上限) * 100);
 };
 
+// 计算寿命百分比（使用计算后的年龄）
+const getLifespanPercent = () => {
+  const maxLifespan = playerStatus.value?.寿命?.上限;
+  if (!maxLifespan) return 0;
+  return Math.round((currentAge.value / maxLifespan) * 100);
+};
+
 // 获取天赋数据
 const getTalentData = (talent: string) => {
-  // 优先级1: 从天赋进度系统中查找（最新的专用系统）
-  const talentProgress = saveData.value?.天赋进度?.[talent];
-  if (talentProgress) {
-    return talentProgress;
-  }
-
-  // 优先级2: 从角色基础信息的天赋详情中查找
+  // 从角色基础信息的天赋列表中查找
   const baseInfo = saveData.value?.角色基础信息;
-  if (baseInfo?.天赋详情 && Array.isArray(baseInfo.天赋详情)) {
-    const talentDetail = baseInfo.天赋详情.find((t: { name: string; 名称: string; }) => t.name === talent || t.名称 === talent);
+  if (baseInfo?.天赋 && Array.isArray(baseInfo.天赋)) {
+    const talentDetail = baseInfo.天赋.find((t) => t.名称 === talent);
     if (talentDetail) {
       return talentDetail;
     }
   }
 
-  // 优先级3: 从三千大道系统中查找（向后兼容）
-  const daoProgress = daoData.value?.大道进度[talent];
+  // 向后兼容：从三千大道系统中查找
+  const daoProgress = daoData.value?.大道列表?.[talent];
   return daoProgress;
 };
 
 // 计算天赋等级
 const getTalentLevel = (talent: string): number => {
   const talentData = getTalentData(talent);
-  // 优先从天赋进度系统读取
-  if (talentData?.等级 !== undefined) {
+  // 从天赋数据读取等级
+  if (talentData && '等级' in talentData && talentData.等级 !== undefined) {
     return talentData.等级;
   }
-  // 其次从天赋详情读取
-  if (talentData?.level !== undefined) {
-    return talentData.level;
-  }
   // 向后兼容：从大道进度获取
-  return talentData?.当前阶段 || 1;
+  if (talentData && '当前阶段' in talentData) {
+    return talentData.当前阶段 || 1;
+  }
+  return 1;
 };
 
 // 计算天赋经验
 const getTalentExp = (talent: string): number => {
   const talentData = getTalentData(talent);
-  // 优先从天赋进度系统读取
-  if (talentData?.当前经验 !== undefined) {
+  // 从天赋数据读取当前经验
+  if (talentData && '当前经验' in talentData && talentData.当前经验 !== undefined) {
     return talentData.当前经验;
-  }
-  // 其次从天赋详情读取
-  if (talentData?.exp !== undefined) {
-    return talentData.exp;
   }
   return 0;
 };
@@ -316,26 +326,16 @@ const getTalentExp = (talent: string): number => {
 // 计算天赋最大经验
 const getTalentMaxExp = (talent: string): number => {
   const talentData = getTalentData(talent);
-  // 优先从天赋进度系统读取
-  if (talentData?.下级所需 !== undefined) {
+  // 从天赋数据读取下级所需经验
+  if (talentData && '下级所需' in talentData && talentData.下级所需 !== undefined) {
     return talentData.下级所需;
   }
-  // 其次从天赋详情读取
-  if (talentData?.exp_max !== undefined) {
-    return talentData.exp_max;
-  }
-  // 向后兼容：从大道进度获取
-  const currentStageIndex = talentData?.当前阶段 || 0;
-  const daoPath = daoData.value?.大道路径定义[talent];
-  // 添加类型守卫，处理 daoPath 可能是数组或对象两种情况
-  if (daoPath) {
-    // 如果 daoPath 不是数组，则假定它是一个包含"阶段列表"属性的对象
-    if (!Array.isArray(daoPath) && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
-      return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
-    }
-    // 如果 daoPath 本身就是一个阶段数组
-    else if (Array.isArray(daoPath) && daoPath[currentStageIndex]) {
-      return daoPath[currentStageIndex].突破经验 || 100;
+  // 向后兼容：从大道列表获取
+  if (talentData && '当前阶段' in talentData) {
+    const currentStageIndex = talentData.当前阶段 || 0;
+    const daoDataItem = daoData.value?.大道列表?.[talent];
+    if (daoDataItem?.阶段列表?.[currentStageIndex]) {
+      return daoDataItem.阶段列表[currentStageIndex].突破经验 || 100;
     }
   }
   return 100; // 默认值
@@ -355,18 +355,18 @@ const showTalentDetail = (talent: string) => {
   const maxExp = getTalentMaxExp(talent);
   const progress = getTalentProgress(talent);
 
-  // 首先尝试从角色的天赋详情中查找(AI生成的自定义天赋)
+  // 首先尝试从角色的天赋列表中查找(AI生成的自定义天赋)
   const baseInfo = saveData.value?.角色基础信息;
-  const customTalent = baseInfo?.天赋详情?.find((t: any) => (t.name === talent || t.名称 === talent));
+  const customTalent = baseInfo?.天赋?.find((t) => t.名称 === talent);
 
   // 然后从LOCAL_TALENTS中查找天赋信息(前端内嵌天赋)
   const localTalent = LOCAL_TALENTS.find(t => t.name === talent);
 
   // 优先使用自定义天赋数据,其次使用内嵌天赋数据
   const talentInfo = customTalent ? {
-    description: customTalent.description || customTalent.描述 || '自定义天赋',
-    effects: customTalent.effects || (customTalent.效果 ? [customTalent.效果] : ['效果暂无描述']),
-    maxLevel: customTalent.maxLevel || customTalent.最大等级 || 10
+    description: customTalent.描述 || '自定义天赋',
+    effects: ['效果暂无描述'], // 天赋对象中没有effects字段
+    maxLevel: 10 // 默认最大等级
   } : localTalent ? {
     description: localTalent.description,
     effects: localTalent.effects ? (

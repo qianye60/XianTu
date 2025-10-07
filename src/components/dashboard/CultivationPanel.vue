@@ -256,7 +256,7 @@ import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { getTavernHelper } from '@/utils/tavern';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
-import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoPath } from '@/types/game';
+import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoData } from '@/types/game';
 
 // 组合式函数
 const { saveData: cultivationSaveData, realm, techniques, daoSystem } = useCharacterCultivationData();
@@ -373,7 +373,7 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
 
 // 检查技能是否已解锁（简化版：默认全部解锁）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | undefined): boolean => {
+const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | null | undefined): boolean => {
   if (!technique.功法技能?.[skillName]) return false;
 
   // 简化逻辑：只要功法中有这个技能，就认为已解锁
@@ -478,7 +478,14 @@ const equipmentData = computed(() => characterData.value?.装备栏);
 const characterTalents = computed(() => basicInfo.value?.天赋 || []);
 
 // 计算属性
-const unlockedDaoList = computed(() => daoSystemData.value?.已解锁大道 || []);
+const unlockedDaoList = computed(() => {
+  const ds = daoSystemData.value;
+  if (!ds?.大道列表) return [];
+  // 从大道列表中筛选已解锁的大道
+  return Object.entries(ds.大道列表)
+    .filter(([, daoData]) => daoData.是否解锁)
+    .map(([daoName]) => daoName);
+});
 const unlockedDaoCount = computed(() => unlockedDaoList.value.length);
 
 const equipmentSlots = computed(() => ({
@@ -522,39 +529,22 @@ const getEquipmentIcon = (slotName: string): string => {
 // 获取当前阶段名称
 const getCurrentStageName = (daoName: string): string => {
   const ds = daoSystemData.value;
-  if (!ds) return '';
-  const progress = ds.大道进度[daoName];
-  const daoPathData = ds.大道路径定义[daoName];
-
-  if (!progress || !daoPathData) return '';
-
-  // 类型守卫，确保 daoPathData 是 DaoPath 类型
-  if ('阶段列表' in daoPathData) {
-    const daoPath = daoPathData as DaoPath;
-    const stageIndex = progress.当前阶段;
-    return daoPath.阶段列表?.[stageIndex]?.名称 || '';
-  }
-  return '';
+  if (!ds?.大道列表) return '';
+  const daoData = ds.大道列表[daoName];
+  if (!daoData?.阶段列表) return '';
+  const stageIndex = daoData.当前阶段;
+  return daoData.阶段列表[stageIndex]?.名称 || '';
 };
 
 // 获取进度百分比
 const getProgressPercent = (daoName: string): number => {
   const ds = daoSystemData.value;
-  if (!ds) return 0;
-  const progress = ds.大道进度[daoName];
-  const daoPathData = ds.大道路径定义[daoName];
-
-  if (!progress || !daoPathData) return 0;
-
-  // 类型守卫
-  if ('阶段列表' in daoPathData) {
-    const daoPath = daoPathData as DaoPath;
-    const currentStage = daoPath.阶段列表?.[progress.当前阶段];
-    if (!currentStage || !currentStage.突破经验) return 0;
-
-    return Math.min(100, (progress.当前经验 / currentStage.突破经验) * 100);
-  }
-  return 0;
+  if (!ds?.大道列表) return 0;
+  const daoData = ds.大道列表[daoName];
+  if (!daoData?.阶段列表) return 0;
+  const currentStage = daoData.阶段列表[daoData.当前阶段];
+  if (!currentStage?.突破经验) return 0;
+  return Math.min(100, (daoData.当前经验 / currentStage.突破经验) * 100);
 };
 
 // 刷新修炼数据
@@ -603,8 +593,9 @@ const stopCultivation = async () => {
     }
 
     // 清空修炼槽位
-    currentSaveData.修炼功法.功法 = null;
-    currentSaveData.修炼功法.正在修炼 = false;
+    if (currentSaveData.修炼功法) {
+      currentSaveData.修炼功法.正在修炼 = false;
+    }
 
     // 保存数据 - 需要导入 characterStore
     const { useCharacterStore } = await import('@/stores/characterStore');

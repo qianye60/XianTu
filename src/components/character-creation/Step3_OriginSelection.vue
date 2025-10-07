@@ -90,7 +90,12 @@
       @close="isEditModalVisible = false; editingOrigin = null"
       @submit="handleEditSubmit"
     />
-    <!-- AI生成逻辑已移至toast通知 -->
+    <!-- AI推演输入弹窗 -->
+    <AIPromptModal
+      :visible="isAIPromptModalVisible"
+      @close="isAIPromptModalVisible = false"
+      @submit="handleAIPromptSubmit"
+    />
   </div>
 </template>
 
@@ -100,14 +105,17 @@ import { Trash2, Edit } from 'lucide-vue-next'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Origin } from '../../types'
 import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
+import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
-import { generateOrigin } from '../../utils/tavernAI'
+import { generateWithRawPrompt } from '../../utils/tavernCore'
+import { ORIGIN_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const activeOrigin = ref<Origin | 'random' | null>(null) // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false)
 const isEditModalVisible = ref(false)
+const isAIPromptModalVisible = ref(false)
 const editingOrigin = ref<Origin | null>(null)
 
 const filteredOrigins = computed(() => {
@@ -268,35 +276,69 @@ async function handleCustomSubmit(data: CustomOriginData) {
   }
 }
 
-async function _handleLocalAIGenerate() {
-  if (!store.selectedWorld) {
-    toast.error('请先择一方大千世界，方可推演出身。');
-    return;
-  }
-  const toastId = 'ai-generate-origin';
-  toast.loading('天机推演中，请稍候...', { id: toastId });
-  try {
-    const newOrigin = await generateOrigin()
-    if (newOrigin) {
-      store.addOrigin(newOrigin);
-      handleSelectOrigin(newOrigin);
-      toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`, { id: toastId });
-    } else {
-      // 如果 newOrigin 为 null，也需要隐藏加载提示
-      toast.error('AI未能成功推演出身，请稍后再试。', { id: toastId });
+function handleAIGenerate() {
+  if (store.isLocalCreation) {
+    if (!store.selectedWorld) {
+      toast.error('请先选择一方大千世界，方可推演出身。');
+      return;
     }
-  } catch (e: unknown) {
-    console.error("AI出身推演时发生意外错误:", e);
-    // Error handled in tavernAI, just dismiss loading
-    toast.hide(toastId);
+    isAIPromptModalVisible.value = true;
+  } else {
+    emit('ai-generate')
   }
 }
 
-function handleAIGenerate() {
-  if (store.isLocalCreation) {
-    _handleLocalAIGenerate()
-  } else {
-    emit('ai-generate')
+async function handleAIPromptSubmit(userPrompt: string) {
+  const toastId = 'ai-generate-origin';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
+
+  try {
+    const aiResponse = await generateWithRawPrompt(userPrompt, ORIGIN_ITEM_GENERATION_PROMPT, false);
+
+    if (!aiResponse) {
+      toast.error('AI推演失败', { id: toastId });
+      return;
+    }
+
+    console.log('【AI推演-出身】完整响应:', aiResponse);
+
+    // 解析AI返回的JSON
+    let parsedOrigin: any;
+    try {
+      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
+      parsedOrigin = JSON.parse(jsonStr.trim());
+    } catch (parseError) {
+      console.error('【AI推演-出身】JSON解析失败:', parseError);
+      toast.error('AI推演结果格式错误，无法解析', { id: toastId });
+      return;
+    }
+
+    // 验证必需字段
+    if (!parsedOrigin.name && !parsedOrigin.名称) {
+      toast.error('AI推演结果缺少出身名称', { id: toastId });
+      return;
+    }
+
+    // 创建出身对象
+    const newOrigin: Origin = {
+      id: Date.now(),
+      name: parsedOrigin.name || parsedOrigin.名称 || '未命名出身',
+      description: parsedOrigin.description || parsedOrigin.描述 || parsedOrigin.说明 || '',
+      initial_attributes: parsedOrigin.initial_attributes || parsedOrigin.初始属性 || {},
+      source: 'local'
+    };
+
+    // 保存并选择出身
+    store.addOrigin(newOrigin);
+    handleSelectOrigin(newOrigin);
+    isAIPromptModalVisible.value = false;
+
+    toast.success(`AI推演完成！出身 "${newOrigin.name}" 已生成`, { id: toastId });
+
+  } catch (e: any) {
+    console.error('【AI推演-出身】失败:', e);
+    toast.error(`AI推演失败: ${e.message}`, { id: toastId });
   }
 }
 

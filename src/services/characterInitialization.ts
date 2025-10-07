@@ -4,14 +4,13 @@
  */
 
 import { getTavernHelper } from '@/utils/tavern';
-import { syncToTavern } from '@/utils/judgement/heavenlyRules';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Item } from '@/types/game';
 import type { World } from '@/types';
-import { generateInitialMessage } from '@/utils/tavernAI';
+import { generateInitialMessage, generateSimpleResponse } from '@/utils/tavernAI';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
@@ -19,7 +18,6 @@ import { validateGameData } from '@/utils/dataValidation';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
-import { LOCAL_SPIRIT_ROOTS, LOCAL_ORIGINS } from '@/data/creationData';
 
 /**
  * 判断是否为随机灵根（辅助函数）
@@ -108,9 +106,10 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
   const { 先天六司 } = baseInfo;
 
   // 确保先天六司都是有效的数值，避免NaN
-  const 根骨 = Number(先天六司?.根骨) || 10;
-  const 灵性 = Number(先天六司?.灵性) || 10;
-  const 悟性 = Number(先天六司?.悟性) || 10;
+  // ⚠️ 使用 ?? 而不是 ||，因为 || 会将 0 视为 falsy 值
+  const 根骨 = Number(先天六司?.根骨 ?? 0);
+  const 灵性 = Number(先天六司?.灵性 ?? 0);
+  const 悟性 = Number(先天六司?.悟性 ?? 0);
 
   // 基础属性计算公式
   const 初始气血 = 100 + 根骨 * 10;
@@ -157,6 +156,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
  */
 function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveData: SaveData; processedBaseInfo: CharacterBaseInfo } {
   console.log('[初始化流程] 1. 准备初始存档数据');
+  console.log('[初始化流程] prepareInitialData 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
 
   // 深度克隆以移除响应式代理
   // 直接使用 JSON 方式，因为 baseInfo 可能包含 Vue 响应式对象
@@ -164,6 +164,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   try {
     // 使用 JSON 序列化来移除响应式代理和不可序列化的属性
     processedBaseInfo = JSON.parse(JSON.stringify(baseInfo));
+    console.log('[初始化流程] JSON 序列化后的 processedBaseInfo.先天六司:', processedBaseInfo.先天六司);
   } catch (jsonError) {
     console.error('[角色初始化] JSON 序列化失败，使用原始对象', jsonError);
     processedBaseInfo = baseInfo;
@@ -172,6 +173,19 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   // 确保年龄信息存在
   if (!processedBaseInfo.年龄) {
     processedBaseInfo.年龄 = age;
+  }
+
+  // 设置出生日期（根据开局年龄和游戏时间推算）
+  const 游戏时间 = { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
+  if (!processedBaseInfo.出生日期) {
+    processedBaseInfo.出生日期 = {
+      年: 游戏时间.年 - age,
+      月: 游戏时间.月,
+      日: 游戏时间.日,
+      小时: 0,
+      分钟: 0
+    };
+    console.log(`[角色初始化] 设置出生日期: ${processedBaseInfo.出生日期.年}年${processedBaseInfo.出生日期.月}月${processedBaseInfo.出生日期.日}日 (当前${age}岁)`);
   }
 
   // 注意：不再在此处理随机灵根和随机出生，完全交给 AI 处理
@@ -203,7 +217,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
     游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
-    修炼功法: { 功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0 },
+    修炼功法: null, // 初始无修炼功法，数据结构已改为：功法数据和进度合并为一个对象或null
     掌握技能: [], // 初始化为空数组
     系统: {
       规则: {
@@ -220,8 +234,8 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   };
 
   // 注入AI元数据提示
-  (saveData.装备栏 as any)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在，否则会被系统清除！';
-  (saveData.人物关系 as any)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
+  (saveData.装备栏 as Record<string, any>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在，否则会被系统清除！';
+  (saveData.人物关系 as Record<string, any>)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
 
   return { saveData, processedBaseInfo };
 }
@@ -235,7 +249,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
 async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise<WorldInfo> {
   console.log('[初始化流程] 2. 生成世界数据');
   const uiStore = useUIStore();
-  uiStore.updateLoadingText('天道正在编织这个世界的命运...');
+  uiStore.updateLoadingText('🌍 世界生成: 准备配置...');
 
   const characterCreationStore = useCharacterCreationStore();
   const userWorldConfig = characterCreationStore.worldGenerationConfig;
@@ -264,11 +278,18 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
     mapConfig: userWorldConfig.mapConfig
   };
 
+  console.log('[初始化流程] 开始调用世界生成器...');
+  uiStore.updateLoadingText('🌍 世界生成: 调用AI生成世界架构...');
   const enhancedWorldGenerator = new EnhancedWorldGenerator(enhancedConfig);
+
+  const startTime = Date.now();
   const worldGenerationResult = await enhancedWorldGenerator.generateValidatedWorld();
+  const elapsed = Date.now() - startTime;
+  console.log(`[初始化流程] 世界生成器返回,耗时: ${elapsed}ms`);
 
   if (worldGenerationResult.success && worldGenerationResult.worldInfo) {
     console.log('[初始化流程] 世界生成成功');
+    uiStore.updateLoadingText('🌍 世界生成: 完成');
     return worldGenerationResult.worldInfo;
   } else {
     throw new Error(`世界生成失败：${worldGenerationResult.errors?.join(', ') || '未知错误'}`);
@@ -288,45 +309,10 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const uiStore = useUIStore();
   uiStore.updateLoadingText('天道正在为你书写命运之章...');
 
-  // ⚠️ 重要：清空旧数据，准备同步新角色数据
-  const helper = getTavernHelper();
-  if (helper) {
-    try {
-      // 清空所有分片变量和旧的character变量
-      console.log('[初始化流程] 清空旧的分片和character变量');
-      const allVars = await helper.getVariables({ type: 'chat' });
-
-      // 定义所有分片变量名
-      const shardNames = [
-        '基础信息', '境界', '属性', '位置', '修炼功法', '装备栏',
-        '背包_灵石', '背包_物品', '人物关系', '三千大道', '世界信息',
-        '记忆_短期', '记忆_中期', '记忆_长期', '游戏时间', '状态效果'
-      ];
-
-      // 删除所有分片变量
-      for (const shardName of shardNames) {
-        if (allVars[shardName] !== undefined) {
-          await helper.deleteVariable(shardName, { type: 'chat' });
-        }
-      }
-
-      // 删除旧的character.开头的变量（兼容旧版本）
-      const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
-      for (const key of characterKeys) {
-        await helper.deleteVariable(key, { type: 'chat' });
-      }
-
-      console.log('[初始化流程] 旧数据已清空（分片变量:', shardNames.length, '个 + character变量:', characterKeys.length, '个）');
-    } catch (error) {
-      console.warn('[初始化流程] 清空旧数据失败（非致命）:', error);
-    }
-  }
-
-  // cacheSystemRulesToTavern 已废弃，规则通过提示词直接发送
-
   const userSelections = {
     name: baseInfo.名字,
     gender: baseInfo.性别,
+    race: baseInfo.种族,
     age: age,
     world: world.name,
     talentTier: baseInfo.天资,
@@ -338,7 +324,6 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
 
   const customInitPrompt = buildCharacterInitializationPrompt(userSelections);
 
-  // 为 AI 提供更完整的创建详情，便于处理“随机出身/随机灵根”等场景
   const getNameFrom = (val: unknown): string => {
     if (!val) return '';
     if (typeof val === 'string') return val;
@@ -358,51 +343,75 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       age: age,
       originName: getNameFrom(baseInfo.出生),
       spiritRootName: getNameFrom(baseInfo.灵根),
-      talentTierName: getNameFrom((baseInfo as any).天资详情 || baseInfo.天资),
-      talentNames: Array.isArray((baseInfo as any).天赋详情)
-        ? (baseInfo as any).天赋详情.map((t: any) => t?.name || t?.名称 || String(t)).filter(Boolean)
-        : Array.isArray(baseInfo.天赋) ? baseInfo.天赋 : []
+      talentTierName: getNameFrom(baseInfo.天资),
+      talentNames: Array.isArray(baseInfo.天赋)
+        ? (baseInfo.天赋 as Record<string, any>[]).map((t: Record<string, any>) => t?.name || t?.名称 || String(t)).filter(Boolean)
+        : []
     },
-    // 提供大洲信息供AI参考
-    availableContinents: saveData.世界信息?.大陆信息?.map((continent: any) => ({
+    availableContinents: saveData.世界信息?.大陆信息?.map((continent: Record<string, any>) => ({
       名称: continent.名称 || continent.name,
       描述: continent.描述 || continent.description,
       大洲边界: continent.大洲边界 || continent.continent_bounds
     })) || [],
-    // 提供地图配置供AI参考
+    availableLocations: saveData.世界信息?.地点信息?.map((location: Record<string, any>) => ({
+      名称: location.名称 || location.name,
+      类型: location.类型 || location.type,
+      描述: location.描述 || location.description,
+      所属势力: location.所属势力 || location.faction
+    })) || [],
     mapConfig: saveData.世界信息?.地图配置
   };
 
+  console.log(`[初始化] 准备生成开场剧情，角色: ${baseInfo.名字}`);
+  console.log(`[初始化] 可用大陆列表:`, initialGameDataForAI.availableContinents.map(c => c.名称));
+  console.log(`[初始化] 可用地点数量:`, initialGameDataForAI.availableLocations?.length || 0);
+
   const initialMessageResponse = await robustAICall(
-    () => generateInitialMessage(initialGameDataForAI as any, {}, customInitPrompt),
+    async () => {
+      console.log('[初始化] ===== 开始生成开场剧情 =====');
+      const startTime = Date.now();
+      try {
+        const response = await generateInitialMessage(initialGameDataForAI, {}, customInitPrompt);
+        const elapsed = Date.now() - startTime;
+        console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms`);
+        return response;
+      } catch (error) {
+        console.error(`[初始化] ❌ AI生成失败:`, error);
+        throw error;
+      }
+    },
     (response) => {
+      // 简化验证：只检查基本内容
       if (!response || !response.text || typeof response.text !== 'string' || response.text.trim().length < 200) {
         console.warn('[AI验证] 生成的文本太短或无效');
         return false;
       }
-      if (response.text.includes('随机') || response.text.includes('placeholder')) {
+      if (response.text.includes('placeholder') || response.text.includes('TODO') || response.text.includes('待填充')) {
         console.warn('[AI验证] 生成的文本包含占位符');
         return false;
       }
+      console.log('[AI验证] ✅ 验证通过');
       return true;
     },
     3,
     '天道正在书写命运之章'
   );
 
-  // 处理AI返回的指令并更新存档
+  // =================================================================
+  // 步骤 3.4: 处理AI响应
+  // =================================================================
   const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, saveData, true);
 
-  // 暂存状态变更
   const characterStore = useCharacterStore();
   characterStore.setInitialCreationStateChanges(stateChanges);
 
-  // 验证开局故事存在性（记忆已在 processGmResponse 中添加，此处无需重复）
   const openingStory = String(initialMessageResponse.text || '');
   if (!openingStory.trim()) {
     throw new Error('AI生成的开场剧情为空');
   }
 
+  console.log('[初始化] ✅ generateOpeningScene完成,返回数据');
+  // 注意：不再返回 initialGameDataForAI，因为位置信息已直接处理
   return { finalSaveData: saveDataAfterCommands, aiResponse: initialMessageResponse };
 }
 
@@ -415,37 +424,31 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
 function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: string): CharacterBaseInfo {
   const derivedInfo = { ...baseInfo };
 
-  // 从详情对象派生基础字段
+  // 设置世界名称
   derivedInfo.世界 = worldName;
-  derivedInfo.天资 = derivedInfo.天资详情?.name || derivedInfo.天资详情?.名称 || derivedInfo.天资;
-  derivedInfo.出生 = derivedInfo.出身详情?.name || derivedInfo.出身详情?.名称 || derivedInfo.出生;
 
-  // 处理灵根：优先使用灵根详情，其次使用灵根对象本身，最后使用回退逻辑
-  if (derivedInfo.灵根详情) {
-    const detail = derivedInfo.灵根详情 as any;
-    derivedInfo.灵根 = {
-      名称: String(detail.name || detail.名称 || '五行灵根'),
-      品级: String(detail.tier || detail.品级 || '凡品'),
-      描述: String(detail.description || detail.描述 || '基础灵根')
-    };
+  // 处理灵根：确保是对象格式
+  if (typeof derivedInfo.灵根 === 'string') {
+    if (derivedInfo.灵根 === '随机灵根') {
+      derivedInfo.灵根 = {
+        名称: '随机灵根',
+        品级: '凡品',
+        描述: '大道五十，天衍四九，人遁其一'
+      };
+    } else {
+      // 其他字符串类型的灵根
+      derivedInfo.灵根 = {
+        名称: derivedInfo.灵根,
+        品级: '凡品',
+        描述: '基础灵根'
+      };
+    }
   } else if (typeof derivedInfo.灵根 === 'object' && derivedInfo.灵根) {
-    // 如果灵根已经是对象格式但没有灵根详情，检查是否需要补充名称
-    const rootObj = derivedInfo.灵根 as any;
+    // 已经是对象格式，检查是否需要补充名称
+    const rootObj = derivedInfo.灵根 as Record<string, any>;
     if (rootObj.名称 === '随机灵根' && rootObj.品级 && rootObj.品级 !== '凡品') {
-      // 如果名称还是"随机灵根"但有品级，生成一个临时名称
       rootObj.名称 = `${rootObj.品级}灵根（待AI确定属性）`;
     }
-  } else if (typeof derivedInfo.灵根 === 'string' && derivedInfo.灵根 === '随机灵根') {
-    // 如果还是字符串"随机灵根"，转换为对象格式
-    derivedInfo.灵根 = {
-      名称: '随机灵根',
-      品级: '凡品',
-      描述: '大道五十，天衍四九，人遁其一'
-    };
-  }
-
-  if (derivedInfo.天赋详情) {
-    derivedInfo.天赋 = derivedInfo.天赋详情.map((talent: any) => talent.name || talent.名称 || talent);
   }
 
   return derivedInfo;
@@ -475,6 +478,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     // 强制保护核心不可变字段
     名字: baseInfo.名字,
     性别: baseInfo.性别,
+    种族: baseInfo.种族,
     年龄: age,
     先天六司: baseInfo.先天六司,
   };
@@ -492,18 +496,91 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   // 2. 从详情对象派生基础字段，确保数据一致性
   const finalBaseInfo = deriveBaseFieldsFromDetails(mergedBaseInfo, world.name);
   saveData.角色基础信息 = finalBaseInfo;
-  saveData.玩家角色状态.寿命.当前 = age;
 
-  // 3. 最终位置信息修正
-  const currentLocation = saveData.玩家角色状态?.位置?.描述;
-  if (!currentLocation || !currentLocation.includes('·') || currentLocation.includes('某')) {
-    const userBirthDescription = typeof baseInfo.出生 === 'string' ? baseInfo.出生 : (baseInfo.出生 as any)?.名称 || '';
-    let fallbackLocation = '天星大陆·天青州·青石镇';
-    if (userBirthDescription.includes('宗门')) fallbackLocation = '青云大陆·青云宗';
-    else if (userBirthDescription.includes('世家')) fallbackLocation = '天星大陆·天青州·世家府邸';
-    saveData.玩家角色状态.位置.描述 = fallbackLocation;
-    console.log(`[数据修正] 位置格式不符合要求，已修正为: ${fallbackLocation}`);
+  // 3. 确保玩家角色状态的所有必需字段都存在（AI可能没有设置完整）
+  console.log('[数据最终化] 检查先天六司:', baseInfo.先天六司);
+
+  // 使用原始baseInfo的先天六司，而不是可能被AI修改的saveData
+  const 根骨 = Number(baseInfo.先天六司?.根骨 ?? 0);
+  const 灵性 = Number(baseInfo.先天六司?.灵性 ?? 0);
+  const 悟性 = Number(baseInfo.先天六司?.悟性 ?? 0);
+
+  if (!saveData.玩家角色状态) {
+    console.error('[数据最终化] 玩家角色状态完��缺失，重新创建');
+    saveData.玩家角色状态 = calculateInitialAttributes(baseInfo, age);
+  } else {
+    // 逐个检查并修复缺失的字段
+    if (!saveData.玩家角色状态.寿命) {
+      console.warn('[数据最终化] 寿命对象不存在，创建默认值');
+      saveData.玩家角色状态.寿命 = { 当前: age, 上限: 80 + 根骨 * 5 };
+    } else {
+      saveData.玩家角色状态.寿命.当前 = age;
+    }
+
+    if (!saveData.玩家角色状态.气血) {
+      console.warn('[数据最终化] 气血对象不存在，创建默认值');
+      const 初始气血 = 100 + 根骨 * 10;
+      saveData.玩家角色状态.气血 = { 当前: 初始气血, 上限: 初始气血 };
+    }
+
+    if (!saveData.玩家角色状态.灵气) {
+      console.warn('[数据最终化] 灵气对象不存在，创建默认值');
+      const 初始灵气 = 50 + 灵性 * 5;
+      saveData.玩家角色状态.灵气 = { 当前: 初始灵气, 上限: 初始灵气 };
+    }
+
+    if (!saveData.玩家角色状态.神识) {
+      console.warn('[数据最终化] 神识对象不存在，创建默认值');
+      const 初始神识 = 30 + 悟性 * 3;
+      saveData.玩家角色状态.神识 = { 当前: 初始神识, 上限: 初始神识 };
+    }
+
+    if (!saveData.玩家角色状态.境界) {
+      console.warn('[数据最终化] 境界对象不存在，创建默认值');
+      saveData.玩家角色状态.境界 = {
+        名称: "凡人",
+        阶段: "",
+        当前进度: 0,
+        下一级所需: 100,
+        突破描述: "引气入体，开始修仙之路"
+      };
+    }
+
+    if (!saveData.玩家角色状态.位置) {
+      console.warn('[数据最终化] 位置对象不存在，创建默认值');
+      saveData.玩家角色状态.位置 = { 描述: "未知位置" };
+    }
+
+    if (saveData.玩家角色状态.声望 === undefined) {
+      saveData.玩家角色状态.声望 = 0;
+    }
+
+    if (!Array.isArray(saveData.玩家角色状态.状态效果)) {
+      saveData.玩家角色状态.状态效果 = [];
+    }
   }
+
+  // 🔥 重新计算出生日期（基于AI生成的游戏时间）
+  if (saveData.游戏时间) {
+    const 正确的出生日期 = {
+      年: saveData.游戏时间.年 - age,
+      月: saveData.游戏时间.月,
+      日: saveData.游戏时间.日,
+      小时: 0,
+      分钟: 0
+    };
+    saveData.角色基础信息.出生日期 = 正确的出生日期;
+    console.log(`[数据最终化] 重新计算出生日期: ${正确的出生日期.年}年${正确的出生日期.月}月${正确的出生日期.日}日 (游戏时间${saveData.游戏时间.年}年 - 开局年龄${age}岁)`);
+  }
+
+  // 3. 最终位置信息校验 (v5 - 两步分离策略)
+  // 在这个阶段，位置应该已经被AI通过tavern_commands正确设置了。
+  // 我们只需要验证它是否存在且格式基本正确。
+  const finalLocation = saveData.玩家角色状态?.位置?.描述;
+  if (!finalLocation || typeof finalLocation !== 'string' || !finalLocation.includes('·') || finalLocation.includes('undefined')) {
+    throw new Error(`最终数据校验失败：位置信息无效或缺失。获取到的位置: "${finalLocation}"`);
+  }
+  console.log(`[数据校准] 位置信息校验通过: "${finalLocation}"`);
 
   // 4. 最终数据校验
   const finalValidation = validateGameData(saveData, { 角色基础信息: baseInfo, 模式: '单机' }, 'creation');
@@ -512,9 +589,9 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   }
 
   // 5. 数据一致性校准：确保装备的功法在背包中存在实体
-  if (saveData.修炼功法?.功法) {
-    const equippedTechnique = saveData.修炼功法.功法;
-    const techniqueName = typeof equippedTechnique === 'string' ? equippedTechnique : equippedTechnique.名称;
+  if (saveData.修炼功法 && saveData.修炼功法.物品ID) {
+    const equippedTechnique = saveData.修炼功法;
+    const techniqueName = equippedTechnique.名称;
 
     // 检查背包中是否存在该功法物品
     const itemExists = Object.values(saveData.背包.物品).some(item => item.名称 === techniqueName && item.类型 === '功法');
@@ -524,7 +601,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
       // 创建一个新的功法物品
       const itemId = `tech_${Date.now()}`;
-      const newTechniqueItem: any = { // 使用 any 以便动态构建
+      const newTechniqueItem: Item = { // 使用 any 以便动态构建
         物品ID: itemId,
         名称: techniqueName,
         类型: '功法',
@@ -538,13 +615,13 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
         },
       };
 
-      saveData.背包.物品[itemId] = newTechniqueItem;
+      saveData.背包.物品[itemId] = newTechniqueItem as Item;
       console.log(`[数据校准] 已成功为 "${techniqueName}" 创建背包物品实体。`);
     } else {
       // 如果物品已存在，确保其"已装备"状态为 true
-      const existingItemEntry = Object.entries(saveData.背包.物品).find(([_, item]) => item.名称 === techniqueName && item.类型 === '功法');
+      const existingItemEntry = Object.entries(saveData.背包.物品).find(([, item]) => item.名称 === techniqueName && item.类型 === '功法');
       if (existingItemEntry) {
-        const [itemId, existingItem] = existingItemEntry;
+        const [, existingItem] = existingItemEntry;
         if (existingItem && !existingItem.已装备) {
           existingItem.已装备 = true;
           console.log(`[数据校准] 已将背包中存在的功法 "${techniqueName}" 标记为已装备。`);
@@ -553,44 +630,48 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     }
   }
 
-  // 6. 同步到Tavern
-  try {
-    // ⚠️ 清空所有分片变量和旧的character变量
-    console.log('[初始化流程] 清空旧的分片和character变量');
-    const allVars = await helper.getVariables({ type: 'chat' });
-
-    // 定义所有分片变量名
-    const shardNames = [
-      '基础信息', '境界', '属性', '位置', '修炼功法', '装备栏',
-      '背包_灵石', '背包_物品', '人物关系', '三千大道', '世界信息',
-      '记忆_短期', '记忆_中期', '记忆_长期', '游戏时间', '状态效果'
-    ];
-
-    // 删除所有分片变量
-    for (const shardName of shardNames) {
-      if (allVars[shardName] !== undefined) {
-        await helper.deleteVariable(shardName, { type: 'chat' });
+  // 6. 功法技能描述校准 (Fallback)
+  if (saveData.修炼功法 && saveData.修炼功法.功法技能) {
+    const skills = saveData.修炼功法.功法技能;
+    Object.entries(skills).forEach(([skillName, skillInfo]) => {
+      if (typeof skillInfo === 'object' && skillInfo !== null && !(skillInfo as Record<string, any>).技能描述) {
+        console.warn(`[数据校准] 功法 "${saveData.修炼功法?.名称}" 的技能 "${skillName}" 缺少描述，已添加默认描述。`);
+        (skillInfo as Record<string, any>).技能描述 = '此技能玄奥非凡，具体效果需在实战中领悟。';
       }
-    }
-
-    // 删除旧的character.开头的变量
-    const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
-    for (const key of characterKeys) {
-      await helper.deleteVariable(key, { type: 'chat' });
-    }
-
-    // 使用分片存储同步数据
-    console.log('[初始化流程] 使用分片格式同步数据到酒馆');
-    const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
-    const shards = shardSaveData(saveData);
-    await saveAllShards(shards, helper);
-    await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
-
-    console.log('[初始化流程] 数据同步到Tavern成功');
-  } catch (err) {
-    console.warn('保存游戏数据到酒馆失败，不影响本地游戏开始:', err);
+    });
   }
 
+  // 7. 同步到Tavern
+  try {
+    console.log('[初始化流程] 开始同步数据到酒馆...');
+    uiStore.updateLoadingText('💾 正在保存角色数据...');
+
+    // ⚠️ 使用分片存储直接覆盖（insertOrAssignVariables会自动覆盖旧值，无需先删除）
+    const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
+    const shards = shardSaveData(saveData);
+
+    console.log('[初始化流程] 准备保存', Object.keys(shards).length, '个分片');
+    uiStore.updateLoadingText(`💾 保存 ${Object.keys(shards).length} 个数据分片到酒馆...`);
+
+    const startTime = Date.now();
+    await saveAllShards(shards, helper);
+    const elapsed = Date.now() - startTime;
+    console.log(`[初始化流程] ✅ 所有分片已保存，耗时: ${elapsed}ms`);
+
+    // 设置全局角色名称
+    uiStore.updateLoadingText('💾 设置全局角色名称...');
+    await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
+    console.log('[初始化流程] ✅ 已设置全局角色名称');
+
+    console.log('[初始化流程] ✅ 数据同步到Tavern成功');
+    uiStore.updateLoadingText('✅ 角色创建完成！');
+  } catch (err) {
+    console.error('[初始化流程] ❌ 保存游戏数据到酒馆失败:', err);
+    console.error('[初始化流程] 错误详情:', err instanceof Error ? err.stack : String(err));
+    console.warn('[初始化流程] 不影响本地游戏开始，将继续');
+  }
+
+  console.log('[初始化流程] finalizeAndSyncData即将返回saveData');
   return saveData;
 }
 
@@ -605,6 +686,8 @@ export async function initializeCharacter(
   world: World,
   age: number
 ): Promise<SaveData> {
+  console.log('[初始化流程] ===== initializeCharacter 入口 =====');
+  console.log('[初始化流程] 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
   try {
     // 步骤 1: 准备初始数据
     const { saveData: initialSaveData, processedBaseInfo } = prepareInitialData(baseInfo, age);
@@ -613,19 +696,28 @@ export async function initializeCharacter(
     const worldInfo = await generateWorld(processedBaseInfo, world);
     initialSaveData.世界信息 = worldInfo;
 
-    // 步骤 3: 生成开场剧情
+    // 步骤 3: 生成开场剧情 (已包含独立的地点生成步骤)
+    console.log('[初始化流程] 准备调用generateOpeningScene...');
     const { finalSaveData } = await generateOpeningScene(initialSaveData, processedBaseInfo, world, age);
+    console.log('[初始化流程] generateOpeningScene已返回');
 
     // 步骤 4: 最终化并同步数据
+    console.log('[初始化流程] 准备最终化并同步数据...');
     const completedSaveData = await finalizeAndSyncData(finalSaveData, baseInfo, world, age);
+    console.log('[初始化流程] 最终化完成');
 
-    console.log('[初始化流程] 角色创建成功！');
+    console.log('[初始化流程] ✅ 角色创建成功！准备返回completedSaveData');
+    console.log('[初始化流程] completedSaveData类型:', typeof completedSaveData);
+    console.log('[初始化流程] completedSaveData有效:', !!completedSaveData);
     return completedSaveData;
 
   } catch (error) {
-    console.error('角色初始化失败：', error);
+    console.error('[初始化流程] ❌ 角色初始化失败：', error);
+    console.error('[初始化流程] 错误堆栈:', error instanceof Error ? error.stack : 'N/A');
     // 错误由上层统一处理
     throw error;
+  } finally {
+    console.log('[初始化流程] initializeCharacter函数执行完毕');
   }
 }
 

@@ -150,12 +150,13 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     }
   }
 
-  // 3. 修复修炼功法中的 "null" 字符串和确保数组存在
-  if (saveData.修炼功法) {
-    if ((saveData.修炼功法.功法 as unknown) === 'null' || (saveData.修炼功法.功法 as unknown) === 'undefined') {
-      console.log('[数据验证] 修复修炼功法: "null" -> null');
-      saveData.修炼功法.功法 = null;
-    }
+  // 3. 修复修炼功法中的 "null" 字符串（新结构：修炼功法本身就是功法数据或null）
+  if ((saveData.修炼功法 as unknown) === 'null' || (saveData.修炼功法 as unknown) === 'undefined') {
+    console.log('[数据验证] 修复修炼功法: "null" -> null');
+    saveData.修炼功法 = null;
+  }
+  // 如果修炼功法存在，确保已解锁技能数组存在
+  if (saveData.修炼功法 && typeof saveData.修炼功法 === 'object') {
     if (!Array.isArray(saveData.修炼功法.已解锁技能)) {
       saveData.修炼功法.已解锁技能 = [];
     }
@@ -237,7 +238,7 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     const worldName = saveData.角色基础信息?.世界 || '未知';
     for (const key in saveData.人物关系) {
       const npc = saveData.人物关系[key];
-      if (!npc || typeof npc !== 'object' || !npc.角色基础信息?.名字 || key.startsWith('npc_init_') || isLikelyPlaceName(key)) {
+      if (!npc || typeof npc !== 'object' || !(npc as any).角色基础信息?.名字 || key.startsWith('npc_init_') || isLikelyPlaceName(key)) {
         console.log(`[数据验证] 发现无效NPC数据或地名，标记删除: ${key}`);
         delete saveData.人物关系[key];
         continue;
@@ -350,7 +351,7 @@ export function generateValidationReport(saveData: SaveData): ValidationReport {
     if (!saveData.背包.物品) report.warnings.push('背包中缺少物品数据');
   }
 
-  if (saveData.修炼功法) {
+  if (saveData.修炼功法 && typeof saveData.修炼功法 === 'object') {
     if (typeof saveData.修炼功法.熟练度 !== 'number') {
       report.warnings.push('修炼功法熟练度应为数字类型');
     }

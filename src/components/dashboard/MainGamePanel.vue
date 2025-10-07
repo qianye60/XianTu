@@ -43,7 +43,7 @@
                 class="reset-state-btn"
                 title="如果长时间无响应，点击此处重置状态"
               >
-                重置状态
+                <RotateCcw :size="16" />
               </button>
             </div>
             <div class="narrative-text">
@@ -64,7 +64,7 @@
                 class="reset-state-btn"
                 title="如果长时间无响应，点击此处重置状态"
               >
-                🔄 重置状态
+                <RotateCcw :size="16" />
               </button>
             </div>
             <div class="narrative-text">
@@ -84,7 +84,17 @@
           <div v-if="currentNarrative" class="narrative-content">
             <div class="narrative-meta">
               <span class="narrative-time">{{ currentNarrative.time }}</span>
-              <!-- 命令日志按钮 (居中) -->
+              <div class="meta-buttons">
+                <!-- 回滚按钮 -->
+                <button
+                  v-if="canRollback"
+                  @click="rollbackToLastConversation"
+                  class="header-action-btn rollback-btn"
+                  title="回滚到上次对话前的状态"
+                >
+                  <RotateCcw :size="24" />
+                </button>
+                <!-- 命令日志按钮 -->
                 <button
                   @click="showStateChanges(currentNarrative.stateChanges)"
                   class="variable-updates-toggle"
@@ -95,6 +105,7 @@
                   <ScrollText :size="16" />
                   <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
                 </button>
+              </div>
             </div>
             <div class="narrative-text">
               <FormattedText :text="currentNarrative.content" />
@@ -320,12 +331,12 @@
 import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
 import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue';
 import {
-  Send, Loader2, ChevronDown, ChevronRight, Activity, ScrollText, X,
+  Send, Loader2, ChevronDown, ChevronRight, Activity, ScrollText,
   PackagePlus, PackageMinus, ArrowUpRight, ArrowDownRight, UserPlus, UserMinus,
-  Swords, Shield, BookOpen, Heart, Bot, Clock
+  Swords, Shield, BookOpen, Heart, RotateCcw
 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
-import { useActionQueueStore, type GameAction } from '@/stores/actionQueueStore';
+import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { getTavernHelper } from '@/utils/tavern';
@@ -695,7 +706,7 @@ const getVariableDisplayName = (key: string): string => {
     '装备栏.装备6': '装备栏6',
 
     // 修炼功法
-    '修炼功法.功法': '修炼功法',
+    '修炼功法.名称': '修炼功法',
     '修炼功法.正在修炼': '修炼状态',
     '修炼功法.修炼进度': '功法修炼进度',
 
@@ -919,15 +930,35 @@ const maxMidTermMemories = ref(25); // 默认25条，可自由配置
 // 长期记忆无限制，不设上限
 
 // 从设置加载记忆配置
-const loadMemorySettings = () => {
+const loadMemorySettings = async () => {
   try {
-    // 从localStorage读取设置
+    // 优先从酒馆变量读取MemoryCenterPanel保存的配置
+    const helper = getTavernHelper();
+    if (helper) {
+      try {
+        const memorySettings = await helper.getVariable('character.memorySettings', { type: 'chat' });
+        if (memorySettings && typeof memorySettings === 'object') {
+          const settings = memorySettings as any;
+          if (settings.shortTermLimit) maxShortTermMemories.value = settings.shortTermLimit;
+          if (settings.midTermTrigger) maxMidTermMemories.value = settings.midTermTrigger;
+          console.log('[记忆设置] 已从酒馆变量加载配置:', {
+            短期记忆上限: maxShortTermMemories.value,
+            中期记忆触发阈值: maxMidTermMemories.value
+          });
+          return;
+        }
+      } catch (e) {
+        console.log('[记忆设置] 未找到酒馆变量配置，尝试从localStorage读取');
+      }
+    }
+
+    // 回退到从localStorage读取设置
     const memorySettings = localStorage.getItem('memory-settings');
     if (memorySettings) {
       const settings = JSON.parse(memorySettings);
       if (settings.maxShortTerm) maxShortTermMemories.value = settings.maxShortTerm;
       if (settings.maxMidTerm) maxMidTermMemories.value = settings.maxMidTerm;
-      console.log('[记忆设置] 已加载配置:', {
+      console.log('[记忆设置] 已从localStorage加载配置:', {
         短期记忆上限: maxShortTermMemories.value,
         中期记忆上限: maxMidTermMemories.value
       });
@@ -990,6 +1021,40 @@ const hasActiveCharacter = computed(() => {
 const characterName = computed(() => {
   return characterStore.activeCharacterProfile?.角色基础信息?.名字 || '无名道友';
 });
+
+// 计算属性：是否可以回滚
+const canRollback = computed(() => {
+  const profile = characterStore.activeCharacterProfile;
+  if (!profile || profile.模式 !== '单机') return false;
+  const lastConversation = profile.存档列表?.['上次对话'];
+  return lastConversation?.存档数据 !== null && lastConversation?.存档数据 !== undefined;
+});
+
+// 回滚到上次对话
+const rollbackToLastConversation = async () => {
+  if (!canRollback.value) {
+    toast.warning('没有可回滚的存档');
+    return;
+  }
+
+  uiStore.showRetryDialog({
+    title: '回滚确认',
+    message: '确定要回滚到上次对话前的状态吗？当前进度将被替换。',
+    confirmText: '确认回滚',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        await characterStore.rollbackToLastConversation();
+        toast.success('已回滚到上次对话前的状态');
+        // 状态会自动响应式更新，无需刷新页面
+      } catch (error) {
+        console.error('回滚失败:', error);
+        toast.error(`回滚失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    },
+    onCancel: () => {}
+  });
+};
 
 // 扁平化的行动列表，用于简化UI显示
 const flatActions = computed(() => {
@@ -1410,7 +1475,7 @@ const sendMessage = async () => {
           世界地图: currentSlot.世界地图,
           存档数据: JSON.parse(JSON.stringify(currentSlot.存档数据))
         };
-        characterStore.commitToStorage();
+        await characterStore.commitToStorage();
         console.log('[上次对话] 已备份当前状态，时间:', now);
       }
     }
@@ -1642,12 +1707,21 @@ const sendMessage = async () => {
             saveData.叙事历史 = [];
           }
           // 添加到历史记录（最新的在前）
-          saveData.叙事历史.unshift({
+          const narrativeToSave = {
             type: currentNarrative.value.type,
             content: currentNarrative.value.content,
             time: currentNarrative.value.time,
             stateChanges: currentNarrative.value.stateChanges
+          };
+          saveData.叙事历史.unshift(narrativeToSave);
+
+          console.log('[主面板-调试] 保存叙事历史:', {
+            叙事类型: narrativeToSave.type,
+            内容长度: narrativeToSave.content.length,
+            changes数量: narrativeToSave.stateChanges?.changes?.length || 0,
+            历史总数: saveData.叙事历史.length
           });
+
           // 保留最近100条记录
           if (saveData.叙事历史.length > 100) {
             saveData.叙事历史 = saveData.叙事历史.slice(0, 100);
@@ -2049,10 +2123,24 @@ const initializePanelForSave = async () => {
       const saveData = characterStore.activeSaveSlot?.存档数据;
       const memories = saveData?.记忆?.短期记忆;
 
+      console.log('[主面板-调试] 存档数据检查:', {
+        有存档数据: !!saveData,
+        有叙事历史: !!saveData?.叙事历史,
+        叙事历史长度: saveData?.叙事历史?.length || 0,
+        有短期记忆: !!memories,
+        短期记忆长度: memories?.length || 0
+      });
+
       // 优先从叙事历史中恢复最近的一条记录（包含stateChanges）
       if (saveData?.叙事历史 && saveData.叙事历史.length > 0) {
         const latestNarrative = saveData.叙事历史[0];
         console.log('[主面板] 从叙事历史恢复最新叙述（含状态变更日志）');
+        console.log('[主面板-调试] 叙事历史第一条:', {
+          type: latestNarrative.type,
+          内容长度: latestNarrative.content?.length || 0,
+          有stateChanges: !!latestNarrative.stateChanges,
+          changes数量: latestNarrative.stateChanges?.changes?.length || 0
+        });
 
         currentNarrative.value = {
           type: latestNarrative.type,
@@ -2626,21 +2714,24 @@ const syncGameState = async () => {
 
 /* 重置状态按钮 */
 .reset-state-btn {
-  padding: 4px 12px;
+  padding: 6px;
   font-size: 13px;
-  background: var(--color-primary-active);
-  color: var(--color-text);
-  border: none;
-  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   margin-left: auto; /* 推到右侧 */
 }
 
 .reset-state-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-danger);
+  border-color: var(--color-border-hover);
   transform: translateY(-1px);
 }
 
@@ -2867,6 +2958,30 @@ const syncGameState = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.meta-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-action-btn.rollback-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.header-action-btn.rollback-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
 }
 
 .narrative-time {
@@ -3344,11 +3459,14 @@ const syncGameState = async () => {
 }
 
 [data-theme="dark"] .reset-state-btn {
-  background: #f59e0b;
+  background: rgba(var(--color-error-rgb), 0.2);
+  color: var(--color-danger);
+  border-color: rgba(var(--color-error-rgb), 0.3);
 }
 
 [data-theme="dark"] .reset-state-btn:hover {
-  background: #d97706;
+  background: rgba(var(--color-error-rgb), 0.3);
+  border-color: rgba(var(--color-error-rgb), 0.5);
 }
 
 [data-theme="dark"] .narrative-content {

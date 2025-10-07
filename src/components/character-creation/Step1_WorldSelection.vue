@@ -192,7 +192,12 @@
       @submit="handleEditSubmit"
     />
 
-    <!-- AI生成逻辑已移至toast通知 -->
+    <!-- AI推演输入弹窗 -->
+    <AIPromptModal
+      :visible="isAIPromptModalVisible"
+      @close="isAIPromptModalVisible = false"
+      @submit="handleAIPromptSubmit"
+    />
   </div>
 </template>
 
@@ -202,8 +207,10 @@ import { Settings, Trash2, Edit } from 'lucide-vue-next';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import type { World } from '../../types';
 import CustomCreationModal from './CustomCreationModal.vue';
+import AIPromptModal from './AIPromptModal.vue';
 import { toast } from '../../utils/toast';
-import { generateWorld } from '../../utils/tavernAI';
+import { generateWithRawPrompt } from '../../utils/tavernCore';
+import { WORLD_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts';
 
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
@@ -211,6 +218,7 @@ const activeWorld = ref<World | null>(null); // For hover details view - 仿照�
 const isCustomModalVisible = ref(false);
 const showMapOptions = ref(false);
 const isEditModalVisible = ref(false);
+const isAIPromptModalVisible = ref(false);
 const editingWorld = ref<World | null>(null);
 
 // --- 世界生成配置 ---
@@ -312,31 +320,66 @@ async function handleCustomSubmit(data: any) {
   }
 }
 
-async function _handleLocalAIGenerate() {
-  const toastId = 'ai-generate-world';
-  toast.loading('天机推演中，请稍候...', { id: toastId });
-  try {
-    const newWorld = await generateWorld();
-    if (newWorld) {
-      newWorld.source = 'local'; // 显式设置来源为本地
-      store.addWorld(newWorld); // 只更新内存
-      handleSelectWorld(newWorld); // 自动选中
-      toast.success(`AI推演世界 "${newWorld.name}" 已保存！`, { id: toastId });
-    } else {
-      // 如果 generateWorld 返回 null 或 undefined，也需要关闭loading
-      toast.hide(toastId);
-    }
-  } catch (e: any) {
-    // 错误在 tavernAI 中已通过toast提示，这里只需确保关闭loading
-    toast.hide(toastId);
+function handleAIGenerate() {
+  if (store.isLocalCreation) {
+    isAIPromptModalVisible.value = true;
+  } else {
+    emit('ai-generate');
   }
 }
 
-function handleAIGenerate() {
-  if (store.isLocalCreation) {
-    _handleLocalAIGenerate();
-  } else {
-    emit('ai-generate');
+async function handleAIPromptSubmit(userPrompt: string) {
+  const toastId = 'ai-generate-world';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
+
+  try {
+    const aiResponse = await generateWithRawPrompt(userPrompt, WORLD_ITEM_GENERATION_PROMPT, false);
+
+    if (!aiResponse) {
+      toast.error('AI推演失败', { id: toastId });
+      return;
+    }
+
+    console.log('【AI推演-世界】完整响应:', aiResponse);
+
+    // 解析AI返回的JSON
+    let parsedWorld: any;
+    try {
+      // 尝试提取JSON（可能包含在代码块中）
+      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
+      parsedWorld = JSON.parse(jsonStr.trim());
+    } catch (parseError) {
+      console.error('【AI推演-世界】JSON解析失败:', parseError);
+      toast.error('AI推演结果格式错误，无法解析', { id: toastId });
+      return;
+    }
+
+    // 验证必需字段
+    if (!parsedWorld.name) {
+      toast.error('AI推演结果缺少世界名称', { id: toastId });
+      return;
+    }
+
+    // 创建世界对象
+    const newWorld: World = {
+      id: Date.now(),
+      name: parsedWorld.name || parsedWorld.名称 || '未命名世界',
+      era: parsedWorld.era || parsedWorld.时代背景 || '',
+      description: parsedWorld.description || parsedWorld.描述 || parsedWorld.世界描述 || '',
+      source: 'local'
+    };
+
+    // 保存并选择世界
+    store.addWorld(newWorld);
+    handleSelectWorld(newWorld);
+    isAIPromptModalVisible.value = false;
+
+    toast.success(`AI推演完成！世界 "${newWorld.name}" 已生成`, { id: toastId });
+
+  } catch (e: any) {
+    console.error('【AI推演-世界】失败:', e);
+    toast.error(`AI推演失败: ${e.message}`, { id: toastId });
   }
 }
 

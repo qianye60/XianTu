@@ -1,9 +1,50 @@
 import { generateItemWithTavernAI } from '../tavernCore';
 import { buildCharacterInitializationPrompt } from '../prompts/characterInitializationPrompts';
 import { getRandomizedInGamePrompt } from '../prompts/inGameGMPromptsV2';
+import { getTavernHelper } from '../tavern';
+import { toast } from '../toast';
 
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
 import type { InitialGameData, SaveData, WorldInfo } from '../../types';
+
+/**
+ * (新) 调用酒馆AI生成一个简单的、无状态的JSON响应
+ * @param inputData 要注入到提示词中的简单JS对象
+ * @param promptTemplate 包含 INPUT_PLACEHOLDER 的提示词模板
+ * @returns AI响应的JSON对象
+ */
+export async function generateSimpleResponse<T>(
+  inputData: Record<string, unknown>,
+  promptTemplate: string
+): Promise<T> {
+  console.log('【简单响应】准备调用AI...', { inputData });
+
+  try {
+    const prompt = promptTemplate.replace('INPUT_PLACEHOLDER', JSON.stringify(inputData, null, 2));
+
+    const result = await generateItemWithTavernAI<T>(
+      prompt,
+      '简单JSON生成',
+      false, // showToast
+      3,     // retries
+      false  // useStreaming
+    );
+
+    if (!result || typeof result !== 'object') {
+      throw new Error('AI返回的响应不是有效的JSON对象');
+    }
+
+    console.log('【简单响应】成功生成:', result);
+    return result;
+
+  } catch (error) {
+    console.error('【简单响应】生成过程中发生错误:', error);
+    if (error instanceof Error) {
+      throw new Error(`生成简单响应失败: ${error.message}`);
+    }
+    throw new Error(`生成简单响应时发生未知错误: ${String(error)}`);
+  }
+}
 
 /**
  * 判断是否为随机灵根
@@ -99,7 +140,7 @@ export async function generateInitialMessage(
     };
 
     // 1.2. 确保先天六司不超过10（安全验证）
-    const clampAttribute = (value: number): number => Math.max(0, Math.min(10, Math.round(value || 5)));
+    const clampAttribute = (value: number): number => Math.max(0, Math.min(10, Math.round(value ?? 0)));
     const safeAttributes = {
       根骨: clampAttribute(initialGameData.baseInfo.先天六司?.根骨 ?? 0),
       灵性: clampAttribute(initialGameData.baseInfo.先天六司?.灵性 ?? 0),
@@ -113,29 +154,44 @@ export async function generateInitialMessage(
 
 
     // 1.5. 创建清理过的chat变量副本，供AI参考使用
-    // ⚠️ 关键优化：只提取必要的世界信息摘要，避免传输完整的巨大数据
+    // ⚠️ 关键修复：传递完整的世界信息，包括势力和地点的位置数据，以便AI能正确生成角色位置
     const sanitizedChatVars: Record<string, unknown> = {};
     if (chatVariablesForPrompt && chatVariablesForPrompt['世界信息']) {
       const worldInfo = chatVariablesForPrompt['世界信息'] as WorldInfo;
 
-      // 只提取世界信息的关键摘要，不传输完整数据
-      const worldInfoSummary = {
+      // 传递完整的世界信息，包括势力和地点数据
+      const worldInfoForPrompt = {
         世界名称: worldInfo.世界名称,
+        世界背景: (worldInfo as any).世界背景,
         大陆信息: worldInfo.大陆信息?.map((continent) => ({
           名称: continent.名称 || (continent as Record<string, unknown>).name,
-          描述: ((continent.描述 || (continent as Record<string, unknown>).description || '') as string).substring(0, 100), // 只保留100字描述
+          描述: continent.描述 || (continent as Record<string, unknown>).description,
           大洲边界: continent.大洲边界 || (continent as Record<string, unknown>).continent_bounds
         })),
-        // 不传输势力、地点的完整数据，只传输数量统计
-        势力数量: worldInfo.势力信息?.length || 0,
-        地点数量: worldInfo.地点信息?.length || 0
+        // ✅ 传递完整的势力信息，包含位置数据
+        势力信息: worldInfo.势力信息?.map((faction) => ({
+          名称: faction.名称,
+          类型: faction.类型,
+          位置: faction.位置,
+          势力范围: faction.势力范围
+        })),
+        // ✅ 传递完整的地点信息，包含坐标数据
+        地点信息: worldInfo.地点信息?.map((location) => ({
+          名称: location.名称,
+          类型: location.类型,
+          位置: location.位置,
+          coordinates: location.coordinates
+        }))
       };
 
-      sanitizedChatVars['世界信息'] = worldInfoSummary;
+      sanitizedChatVars['世界信息'] = worldInfoForPrompt;
 
-      console.log('【优化】精简世界信息，只保留必要摘要');
-      console.log('【优化】大陆数量:', worldInfoSummary.大陆信息?.length || 0);
-      console.log('【优化】势力/地点数量（不传输详情）:', worldInfoSummary.势力数量, worldInfoSummary.地点数量);
+      console.log('【修复】传递完整世界信息给AI');
+      console.log('【修复】世界名称:', worldInfoForPrompt.世界名称, '（注意：这是世界名，不是大陆名）');
+      console.log('【修复】大陆数量:', worldInfoForPrompt.大陆信息?.length || 0);
+      console.log('【修复】大陆名称列表:', worldInfoForPrompt.大陆信息?.map((c: any) => c.名称).join(', '));
+      console.log('【修复】势力数量:', worldInfoForPrompt.势力信息?.length || 0);
+      console.log('【修复】地点数量:', worldInfoForPrompt.地点信息?.length || 0);
     }
 
     // 1.6. 提取上一条对话的AI/GM文本（用于连续性），在初始化阶段通常为空
@@ -219,28 +275,87 @@ export async function generateInitialMessage(
       }
     };
 
-    // 使用动态提示词构建函数，注入玩家选择
-    const dynamicPrompt = buildCharacterInitializationPrompt(userSelections);
-    const prompt = (dynamicPrompt + (additionalPrompt ? '\n\n' + additionalPrompt : '')).replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput, null, 2));
+    // 🔥 新方案：将提示词拆分成多条消息发送
+    // 1. 系统规则
+    const systemRulesPrompt = buildCharacterInitializationPrompt(userSelections);
 
-    console.log('【角色初始化-调试】准备调用generateItemWithTavernAI');
-    console.log('【角色初始化-调试】动态提示词长度:', dynamicPrompt.length);
-    console.log('【角色初始化-调试】动态提示词前200字符:', dynamicPrompt.substring(0, 200));
-    console.log('【角色初始化-调试】完整prompt长度:', prompt.length);
-    console.log('【角色初始化-调试】完整prompt前300字符:', prompt.substring(0, 300));
-    console.log('【神识印记-调试】构建的完整prompt:', prompt);
-    console.log('【神识印记-调试】prompt长度:', prompt.length);
-    console.log('【神识印记-调试】用户选择信息:', userSelections);
+    // 2. 世界数据
+    const worldDataPrompt = `# 世界信息数据
 
-    // 3. 调用通用生成器，并期望返回GM_Response格式
-    const result = await generateItemWithTavernAI<GM_Response>(
-      prompt,
-      '天道初言',
-      false,  // showToast
-      3,      // retries
-      false,  // useStreaming
-      undefined  // onStreamChunk
-    );
+**可用大陆列表**：
+${sanitizedChatVars['世界信息'] ? JSON.stringify((sanitizedChatVars['世界信息'] as any).大陆信息, null, 2) : '[]'}
+
+**可用地点列表**：
+${sanitizedChatVars['世界信息'] ? JSON.stringify((sanitizedChatVars['世界信息'] as any).地点信息, null, 2) : '[]'}
+
+⚠️ **重要**：位置必须从上述列表选择，严禁编造！`;
+
+    // 3. 用户输入
+    const userInputPrompt = `# 玩家核心选择
+
+${JSON.stringify(promptInput, null, 2)}
+
+${additionalPrompt || ''}`;
+
+    console.log('【初始化】使用多消息格式，系统规则:', systemRulesPrompt.length, '字符');
+    console.log('【初始化】世界数据:', worldDataPrompt.length, '字符');
+    console.log('【初始化】用户输入:', userInputPrompt.length, '字符');
+
+    const helper = getTavernHelper();
+    if (!helper) throw new Error('酒馆助手未初始化');
+
+    toast.info(`天机运转，推演天道初言...`);
+
+    const rawResult = await helper.generate({
+      user_input: userInputPrompt,
+      overrides: {
+        chat_history: {
+          prompts: [
+            { role: 'system', content: systemRulesPrompt },
+            { role: 'system', content: worldDataPrompt }
+          ]
+        }
+      },
+      max_chat_history: 0
+    } as any);
+
+    console.log('【初始化-调试】AI原始返回类型:', typeof rawResult);
+    console.log('【初始化-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : rawResult);
+
+    let result: GM_Response;
+    try {
+      // helper.generate() 返回的可能是字符串或对象
+      if (typeof rawResult === 'string') {
+        // 🔥 修复：去掉 Markdown 代码块标记（```json 和 ```）
+        let cleanedText = rawResult.trim();
+
+        // 移除开头的 ```json 或 ```
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText.substring(7);
+        } else if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.substring(3);
+        }
+
+        // 移除结尾的 ```
+        if (cleanedText.endsWith('```')) {
+          cleanedText = cleanedText.substring(0, cleanedText.length - 3);
+        }
+
+        cleanedText = cleanedText.trim();
+
+        console.log('【初始化-调试】清理后的JSON前500字符:', cleanedText.substring(0, 500));
+        result = JSON.parse(cleanedText);
+      } else if (rawResult && typeof rawResult === 'object') {
+        result = rawResult as GM_Response;
+      } else {
+        console.error('【初始化-错误】AI返回了意外的类型:', rawResult);
+        throw new Error('AI返回数据类型无效');
+      }
+    } catch (e) {
+      console.error('【初始化-错误】解析AI返回值失败:', e);
+      console.error('【初始化-错误】原始返回值:', typeof rawResult === 'string' ? rawResult.substring(0, 1000) : rawResult);
+      throw new Error('AI返回数据格式无效: ' + (e instanceof Error ? e.message : String(e)));
+    }
 
     console.log('【神识印记-调试】AI原始返回结果:', JSON.stringify(result, null, 2));
 

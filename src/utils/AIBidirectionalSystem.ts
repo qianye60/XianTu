@@ -11,7 +11,7 @@
 import { generateInGameResponse } from './generators/gameMasterGenerators';
 import { processGmResponse, getFromTavern } from './AIGameMaster';
 import { getTavernHelper } from './tavern';
-import type { TavernHelper } from '@/types';
+import type { TavernHelper, SaveData } from '@/types';
 import { toast } from './toast';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog } from '@/types/game';
@@ -125,7 +125,7 @@ class AIBidirectionalSystemClass {
           // 🔥 新增：立即更新characterStore中的SaveData，确保UI实时响应
           const { useCharacterStore } = await import('@/stores/characterStore');
           const characterStore = useCharacterStore();
-          characterStore.updateSaveDataDirectly(updatedSaveData);
+          await characterStore.updateSaveDataDirectly(updatedSaveData);
           console.log('[AI双向系统] ✅ 已将命令执行后的SaveData更新到Store，UI将实时响应');
         } else {
           console.warn('[AI双向系统] 无法获取SaveData，跳过指令执行');
