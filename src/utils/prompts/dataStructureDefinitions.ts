@@ -152,7 +152,8 @@ export const DATA_STRUCTURE_DEFINITIONS = `
     "性伴侣名单": ["string (所有性伴侣的名字列表，可选)"],
     "最近一次性行为时间": "string (游戏时间，可选)",
     "特殊体质": ["string (可选，如：易潮吹、多重高潮、性爱成瘾、淫纹)"]
-  }
+  },
+  "实时关注": "boolean (可选, 默认为 false, 标记为 true 的NPC会在AI回合中主动更新)"
 }
 \`\`\`
 

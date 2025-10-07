@@ -239,27 +239,30 @@ const saveVariable = async () => {
       return
     }
 
-    let value: TavernVariableValue
-    const rawValue = editingItem.value.value
+    const { type, key, value } = editingItem.value
 
-    try {
-      value = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue
-    } catch {
-      value = rawValue
+    // 验证变量名
+    if (!key || key.trim() === '') {
+      toast.error('变量名不能为空')
+      return
     }
 
-    const { type, key } = editingItem.value
+    // 直接使用编辑后的值，TavernEditModal 已经处理了类型转换
     const data = { [key]: value }
     await helper.insertOrAssignVariables(data, { type: type as 'chat' | 'global' })
 
+    // 更新本地状态
     if (type === 'chat') {
       chatVariables.value[key] = value
-    } else {
+    } else if (type === 'global') {
       globalVariables.value[key] = value
     }
 
     closeEditModal()
     toast.success('变量保存成功')
+
+    // 刷新数据以确保同步
+    await refreshData()
   } catch (error) {
     console.error('[酒馆数据] 保存失败:', error)
     toast.error('保存失败: ' + (error instanceof Error ? error.message : '未知错误'))

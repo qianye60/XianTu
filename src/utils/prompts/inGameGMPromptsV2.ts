@@ -2,17 +2,17 @@
  * 游戏正文AI生成提示词 - 核心剧情推进系统
  * 用于处理玩家在游戏中的行动和AI回复
  *
- * 🔥 Token优化版本：使用精简上下文 + 简化路径格式
+ * 🔥 Token优化版本：使用精简上下文 + 简化路径��式
  */
 
 import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
 import { generateJudgmentPrompt } from '../judgement/heavenlyRules';
 
 // 剧情推进提示词
-export const buildInGameMessagePrompt = (shortTermMemories?: string[]): string => {
-  // ⚠️ 重要：这个函数现在只生成系统提示词，不包含短期记忆
-  // 短期记忆通过结构化提示词注入（作为assistant角色的前一次输出）
-  // 这样可以避免AI重复输出之前的内容
+export const buildInGameMessagePrompt = (): string => {
+  // ⚠️ 重要：短期记忆通过 helper.generate() 的 overrides.chat_history.prompts 注入
+  // 作为 assistant 角色的历史输出，这样AI可以"看到"自己之前生成的内容
+  // 本函数只生成系统提示词（规则、数据结构等）
 
   const storyContext = `
 # 故事延续与防重复机制
@@ -26,7 +26,7 @@ export const buildInGameMessagePrompt = (shortTermMemories?: string[]): string =
 ## 防重复输出的核心法则
 ⚠️ **绝对禁止**：你不能重复输出上一幕剧情的内容！
 - 上一幕剧情（所有短期记忆）已经作为assistant角色注入，代表"你之前说过的所有话"
-- 这些记忆已经用分隔线分开，按时间顺序排列
+- 这些记忆已经用分隔线（---）分开，按时间顺序排列
 - 你的任务是**承接**最后一条记忆，推进**全新的**剧情发展
 - 如果玩家没有新行动，描述环境变化、NPC反应、时间流逝等新内容
 - **绝对不要**复述、总结、重新描述任何已经在记忆中的事件
@@ -38,7 +38,7 @@ export const buildInGameMessagePrompt = (shortTermMemories?: string[]): string =
 ✅ 添加新的细节、新的NPC反应、新的环境描写
 ❌ 重复短期记忆中的任何内容
 ❌ 总结之前发生的事情
-❌ 复述玩家的行动或之前的剧情
+❌ 复述玩家的行动��之前的剧情
 `;
 
   return [
@@ -84,13 +84,13 @@ export const buildInGameMessagePrompt = (shortTermMemories?: string[]): string =
   ].join('\n');
 };
 
-export function getRandomizedInGamePrompt(shortTermMemories?: string[]): string {
-  return buildInGameMessagePrompt(shortTermMemories);
+export function getRandomizedInGamePrompt(): string {
+  return buildInGameMessagePrompt();
 }
 
 // 调试函数：检查提示词完整性和Token分析
 export function debugPromptInfo(): void {
-  const fullPrompt = buildInGameMessagePrompt(['这是一个测试用的短期记忆。']);
+  const fullPrompt = buildInGameMessagePrompt();
   console.log('[提示词调试] 提示词类型:', typeof fullPrompt)
   console.log('[提示词调试] 提示词长度:', fullPrompt.length)
   console.log('[提示词调试] 开头200字符:', fullPrompt.substring(0, 200))

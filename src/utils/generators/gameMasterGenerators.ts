@@ -772,31 +772,69 @@ export async function generateInGameResponse(
         console.warn('【提示词连续性】提取短期记忆失败（忽略）:', e);
     }
 
-    const gmRequest = {
-      playerAction: playerAction || '继续当前活动',
-      requestType: 'in_game_progression',
-      timestamp: new Date().toISOString()
-    };
+    // 获取系统提示词（规则和数据结构）
+    const systemPrompt = getRandomizedInGamePrompt();
 
-    // 获取通用提示词（不包含playerAction）
-    const systemPrompt = getRandomizedInGamePrompt(shortTermMemories);
+    // 构建玩家行动消息
+    const userInput = `<玩家的行动趋向>\n${playerAction || '静观其变。'}</玩家的行动趋向>`;
 
-    // 构建完整的输入：系统提示词 + 玩家行动作为单独的用户消息
-    const fullInput = `${systemPrompt}\n\n---\n\n## 玩家的行动\n${playerAction || '静观其变。'}`;
+    console.log('【剧情推进】系统提示词长度:', systemPrompt.length);
+    console.log('【剧情推进】短期记忆数量:', shortTermMemories.length);
+    console.log('【剧情推进】玩家行动:', playerAction);
 
-    console.log('【剧情推进】最终提示词长度:', fullInput.length);
-    console.log('【剧情推进-调试】最终提示词前500字符:', fullInput.substring(0, 500));
-    console.log('【剧情推进】GM请求数据:', gmRequest);
+    // 🔥 使用结构化 prompts 注入短期记忆
+    // 1. system: 系统提示词（规则、数据结构等）
+    // 2. assistant: 短期记忆（之前的剧情，合并为一条）
+    // 3. user: 玩家行动
+    const helper = getTavernHelper();
+    if (!helper) throw new Error('酒馆助手未初始化');
 
-    // 调用AI生成响应
-    const result = await generateItemWithTavernAI<GM_Response>(
-      fullInput,
-      '剧情推进',
-      false,
-      3,
-      useStreaming || false,
-      onStreamChunk
-    );
+    // 将所有短期记忆合并为一条assistant消息
+    const memoryContent = shortTermMemories.length > 0
+      ? shortTermMemories.join('\n\n---\n\n')
+      : '【仙道元年元月初一 00:00】旅途刚刚开始...';
+
+    console.log('【剧情推进-调试】注入记忆长度:', memoryContent.length);
+    console.log('【剧情推进-调试】注入记忆前300字符:', memoryContent.substring(0, 300));
+
+    const rawResult = await helper.generate({
+      user_input: userInput,
+      overrides: {
+        chat_history: {
+          prompts: [
+            { role: 'system', content: systemPrompt },
+            { role: 'assistant', content: memoryContent }  // 🔥 关键：将短期记忆作为assistant的历史输出
+          ]
+        }
+      },
+      max_chat_history: 0,  // 禁用真实对话历史，只使用我们注入的prompts
+      should_stream: useStreaming || false
+    } as any);
+
+    console.log('【剧情推进-调试】AI原始返回类型:', typeof rawResult);
+    console.log('【剧情推进-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : rawResult);
+
+    // 🔥 处理AI返回结果（参考初始化函数的处理方式）
+    let result: GM_Response;
+    try {
+      if (typeof rawResult === 'string') {
+        // 去掉 Markdown 代码块标记
+        let cleanedResult = rawResult.trim();
+        const jsonMatch = cleanedResult.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          cleanedResult = jsonMatch[1].trim();
+        }
+        result = JSON.parse(cleanedResult) as GM_Response;
+      } else if (rawResult && typeof rawResult === 'object') {
+        result = rawResult as GM_Response;
+      } else {
+        throw new Error('AI返回了空的响应');
+      }
+    } catch (parseError) {
+      console.error('【剧情推进】JSON解析失败:', parseError);
+      console.error('【剧情推进】原始返回值:', rawResult);
+      throw new Error('AI返回的响应格式无效');
+    }
 
     // 验证结果结构
     if (!result || !result.text) {
