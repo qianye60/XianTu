@@ -926,7 +926,7 @@ const currentNarrative = ref<GameMessage | null>(null);
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
 
 // 短期记忆设置 - 可配置
-const maxShortTermMemories = ref(5); // 默认5条，避免token过多
+const maxShortTermMemories = ref(3); // 默认3条，避免token过多
 const maxMidTermMemories = ref(25); // 默认25条触发阈值
 const midTermKeepCount = ref(8); // 默认保留8条最新的中期记忆
 // 长期记忆无限制，不设上限
@@ -1329,16 +1329,11 @@ const retryAIResponse = async (
 
 ## 输出格式（必须严格遵守）
 
-**⚠️ 重要：以下4个字段都是必需的，缺一不可！**
+**⚠️ 重要：以下3个字段都是必需的，缺一不可！**
 
 {
   "text": "Narrative text(中文简体，字数越多越好1000-3000，往用户趋向去尝试行动)",
   "mid_term_memory": "Brief summary",
-  "state_changes": {
-    "时间推进_分钟": number,
-    "NPC交互": ["NPC_name"],
-    "需要修改的字段": [{"路径": "key.path", "当前值": X, "目标值": Y, "变化原因": "reason", "操作类型": "set/add", "操作值": Z}]
-  },
   "tavern_commands": [{"action": "Action", "key": "key.path", "value": Value/List}]
 }
 

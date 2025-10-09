@@ -84,8 +84,7 @@ class AIBidirectionalSystemClass {
       gmResponse = await generateInGameResponse(
         currentGameData,
         userActionForAI,
-        options?.useStreaming,
-        options?.onStreamChunk
+        options?.useStreaming
       );
 
       if (!gmResponse || !gmResponse.text) {

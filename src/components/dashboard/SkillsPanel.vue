@@ -509,7 +509,7 @@ const unequipSkill = async () => {
             const itemId = currentSkill.物品ID;
             if (itemId && currentSaveData.背包.物品[itemId]) {
               currentSaveData.背包.物品[itemId].已装备 = false;
-              currentSaveData.背包.物品[itemId].修炼中 = false;
+              (currentSaveData.背包.物品[itemId] as any).修炼中 = false;
               console.log('[技能面板] 功法标记已清除:', currentSkill.名称);
             }
           }
@@ -645,7 +645,7 @@ const finalizeEquipTechnique = async (technique: {
     const inventoryItem = currentSaveData.背包.物品[technique.物品ID];
     if (inventoryItem) {
       inventoryItem.已装备 = true;
-      inventoryItem.修炼中 = true;
+      (inventoryItem as any).修炼中 = true;
     }
   }
 

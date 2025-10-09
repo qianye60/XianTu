@@ -821,27 +821,38 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
 // 切换NPC关注状态
 const toggleAttention = async (person: NpcProfile) => {
   const npcName = person.名字;
-  if (!characterData.value?.人物关系) {
+
+  // 🔥 修复：直接从characterStore获取实际的存档数据，而不是computed值
+  const slot = characterStore.activeSaveSlot;
+  if (!slot?.存档数据?.人物关系) {
     toast.error('人物关系数据不存在');
     return;
   }
-  const npcKey = Object.keys(characterData.value.人物关系).find(
-    key => characterData.value!.人物关系[key]?.名字 === npcName
+
+  const npcKey = Object.keys(slot.存档数据.人物关系).find(
+    key => slot.存档数据!.人物关系[key]?.名字 === npcName
   );
   if (!npcKey) {
     toast.error(`找不到名为 ${npcName} 的人物`);
     return;
   }
+
   try {
-    const currentState = characterData.value.人物关系[npcKey].实时关注 || false;
+    // 🔥 修复：直接修改存档数据中的实时关注字段
+    const currentState = slot.存档数据.人物关系[npcKey].实时关注 || false;
     const newState = !currentState;
-    characterData.value.人物关系[npcKey].实时关注 = newState;
-    const { useCharacterStore } = await import('@/stores/characterStore');
-    const characterStore = useCharacterStore();
-    await characterStore.saveCurrentGame();
+    slot.存档数据.人物关系[npcKey].实时关注 = newState;
+
+    // 🔥 修复：使用syncToTavernAndSave直接同步到酒馆
+    await characterStore.syncToTavernAndSave({
+      changedPaths: [`人物关系.${npcKey}.实时关注`]
+    });
+
     toast.success(newState ? `已关注 ${npcName}` : `已取消关注 ${npcName}`);
+
+    // 强制更新选中的人物（触发响应式）
     if (selectedPerson.value?.名字 === npcName) {
-      selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
+      selectedPerson.value = { ...slot.存档数据.人物关系[npcKey] };
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';

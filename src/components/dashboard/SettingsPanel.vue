@@ -338,9 +338,10 @@ const onSettingChange = () => {
 };
 
 // 加载设置
-const loadSettings = () => {
+const loadSettings = async () => {
   debug.timeStart('加载设置');
   try {
+    // 先从localStorage加载设置
     const savedSettings = localStorage.getItem('dad_game_settings');
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
@@ -349,6 +350,32 @@ const loadSettings = () => {
     } else {
       debug.log('设置面板', '使用默认设置');
     }
+
+    // 🔥 尝试从当前存档的"系统"分片读取NSFW设置（优先级更高）
+    try {
+      const { useUnifiedCharacterData } = await import('@/composables/useCharacterData');
+      const { characterData } = useUnifiedCharacterData();
+
+      if (characterData.value && (characterData.value as any).系统) {
+        // 存档中的设置优先级高于localStorage
+        const 存档中的nsfwMode = (characterData.value as any).系统.nsfwMode;
+        const 存档中的nsfwGenderFilter = (characterData.value as any).系统.nsfwGenderFilter;
+
+        if (存档中的nsfwMode !== undefined) {
+          settings.enableNsfwMode = 存档中的nsfwMode;
+          debug.log('设置面板', `已从存档读取nsfwMode: ${存档中的nsfwMode}`);
+        }
+
+        if (存档中的nsfwGenderFilter !== undefined) {
+          settings.nsfwGenderFilter = 存档中的nsfwGenderFilter;
+          debug.log('设置面板', `已从存档读取nsfwGenderFilter: ${存档中的nsfwGenderFilter}`);
+        }
+      }
+    } catch {
+      // 如果还没有激活存档，这里会失败，不是问题
+      debug.log('设置面板', '当前没有激活的存档，使用localStorage中的NSFW设置');
+    }
+
   } catch (error) {
     debug.error('设置面板', '加载设置失败', error);
     toast.error('加载设置失败，将使用默认设置');
@@ -360,24 +387,50 @@ const loadSettings = () => {
 // 保存设置
 const saveSettings = async () => {
   if (loading.value) return;
-  
+
   loading.value = true;
   debug.timeStart('保存设置');
-  
+
   try {
     // 验证设置
     validateSettings();
-    
+
     // 保存到localStorage
     localStorage.setItem('dad_game_settings', JSON.stringify(settings));
     debug.log('设置面板', '设置已保存到localStorage', settings);
-    
+
+    // 🔥 同步NSFW设置到存档的"系统"分片
+    try {
+      const { useCharacterStore } = await import('@/stores/characterStore');
+      const characterStore = useCharacterStore();
+      const { useUnifiedCharacterData } = await import('@/composables/useCharacterData');
+      const { characterData } = useUnifiedCharacterData();
+
+      // 更新存档中的系统设置
+      if (characterData.value && (characterData.value as any).系统) {
+        (characterData.value as any).系统.nsfwMode = settings.enableNsfwMode;
+        (characterData.value as any).系统.nsfwGenderFilter = settings.nsfwGenderFilter;
+
+        // 同步到酒馆
+        await characterStore.syncToTavernAndSave({
+          changedPaths: ['系统.nsfwMode', '系统.nsfwGenderFilter']
+        });
+
+        debug.log('设置面板', 'NSFW设置已同步到存档和酒馆');
+      } else {
+        debug.warn('设置面板', '当前没有激活的存档，NSFW设置仅保存到localStorage');
+      }
+    } catch (error) {
+      debug.error('设置面板', '同步NSFW设置到存档失败（非致命）', error);
+      // 不抛出错误，允许保存继续
+    }
+
     // 应用设置
     await applySettings();
-    
+
     hasUnsavedChanges.value = false;
     toast.success('设置已保存并应用');
-    
+
   } catch (error) {
     debug.error('设置面板', '保存设置失败', error);
     toast.error(`保存设置失败: ${error instanceof Error ? error.message : '未知错误'}`);

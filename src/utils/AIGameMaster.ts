@@ -10,6 +10,7 @@ import type { SaveData, StateChange, StateChangeLog, GameTime } from '@/types/ga
 import { shardSaveData, assembleSaveData, type StorageShards } from './storageSharding';
 import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
 import { buildInGameMessagePrompt } from './prompts/inGameGMPromptsV2';
+import { updateMasteredSkills } from './masteredSkillsCalculator';
 
 /**
  * 从GameTime获取分钟数
@@ -724,6 +725,17 @@ async function executeCommand(command: { action: string; key: string; value?: un
           }
         }
 
+        // 🔥 [掌握技能自动计算] 当设置背包中功法的修炼进度时，自动重新计算掌握技能
+        if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
+          try {
+            console.log(`[掌握技能] 检测到功法修炼进度设置，自动重新计算掌握技能`);
+            const updatedSkills = updateMasteredSkills(saveData);
+            console.log(`[掌握技能] ✅ 已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+          } catch (e) {
+            console.error('[掌握技能] 自动计算掌握技能失败:', e);
+          }
+        }
+
         // 🔥 [装备增幅系统] 当装备栏变更时，自动应用/移除装备属性加成
         if (path.startsWith('装备栏.装备')) {
           try {
@@ -848,6 +860,17 @@ async function executeCommand(command: { action: string; key: string; value?: un
         } else {
           set(saveData, path, added);
           console.log(`[executeCommand] ✅ 已增加: ${currentValue} + ${value} = ${added}`);
+
+          // 🔥 [掌握技能自动计算] 当更新背包中功法的修炼进度时，自动重新计算掌握技能
+          if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
+            try {
+              console.log(`[掌握技能] 检测到功法修炼进度更新，自动重新计算掌握技能`);
+              const updatedSkills = updateMasteredSkills(saveData);
+              console.log(`[掌握技能] ✅ 已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+            } catch (e) {
+              console.error('[掌握技能] 自动计算掌握技能失败:', e);
+            }
+          }
         }
         break;
 
@@ -978,6 +1001,7 @@ function getShardNameFromPath(path: string): keyof StorageShards | null {
       normalizedPath.startsWith('玩家角色状态.寿命')) return '属性';
   if (normalizedPath.startsWith('玩家角色状态.位置')) return '位置';
   if (normalizedPath.startsWith('修炼功法')) return '修炼功法';
+  if (normalizedPath.startsWith('掌握技能')) return '掌握技能';
   if (normalizedPath.startsWith('装备栏')) return '装备栏';
   if (normalizedPath.startsWith('背包.灵石')) return '背包_灵石';
   if (normalizedPath.startsWith('背包.物品')) return '背包_物品';
@@ -1011,6 +1035,7 @@ function getPathInShard(path: string, shardName: string): string {
     '属性': '玩家角色状态.',
     '位置': '玩家角色状态.位置.',
     '修炼功法': '修炼功法.',
+    '掌握技能': '掌握技能.',
     '装备栏': '装备栏.',
     '背包_灵石': '背包.灵石.',
     '背包_物品': '背包.物品.',

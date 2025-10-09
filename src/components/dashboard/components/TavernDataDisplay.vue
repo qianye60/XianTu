@@ -22,9 +22,9 @@
         v-else
         :is="getCurrentDataComponent()"
         v-bind="getCurrentDataProps()"
-        @edit-variable="(item) => $emit('edit-variable', item)"
-        @copy-variable="(item) => $emit('copy-variable', item)"
-        @delete-variable="(item) => $emit('delete-variable', item)"
+        @edit-variable="(item: any) => $emit('edit-variable', item)"
+        @copy-variable="(item: any) => $emit('copy-variable', item)"
+        @delete-variable="(item: any) => $emit('delete-variable', item)"
         @add-new-variable="$emit('add-new-variable', $event)"
         @debug-log="$emit('debug-log')"
       />

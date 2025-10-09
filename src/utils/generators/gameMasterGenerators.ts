@@ -133,11 +133,11 @@ export async function generateInitialMessage(
 
     // 1.1 构建GM_Request对象，展示给AI看
     // 构造creationDetails对象，使用处理后的具体设定
-    const creationDetails = {
-      age: initialGameData.creationDetails.age,
-      originName: processedOrigin,
-      spiritRootName: processedSpiritRoot
-    };
+    // const creationDetails = {
+    //   age: initialGameData.creationDetails.age,
+    //   originName: processedOrigin,
+    //   spiritRootName: processedSpiritRoot
+    // };
 
     // 1.2. 确保先天六司不超过10（安全验证）
     const clampAttribute = (value: number): number => Math.max(0, Math.min(10, Math.round(value ?? 0)));
@@ -153,30 +153,52 @@ export async function generateInitialMessage(
     console.log('【属性验证】确保先天六司在0-10范围内:', safeAttributes);
 
 
-    // 1.5. 创建清理过的chat变量副本，供AI参考使用
-    // ⚠️ 关键修复：传递完整的世界信息，包括势力和地点的位置数据，以便AI能正确生成角色位置
+    // 1.5. 🔥🔥🔥 核心修复：优先使用直接传入的世界信息数组，不依赖worldInfo对象
     const sanitizedChatVars: Record<string, unknown> = {};
-    if (chatVariablesForPrompt && chatVariablesForPrompt['世界信息']) {
-      const worldInfo = chatVariablesForPrompt['世界信息'] as WorldInfo;
 
-      // 传递完整的世界信息，包括势力和地点数据
+    console.log('【关键诊断】initialGameData.availableContinents:', initialGameData.availableContinents);
+    console.log('【关键诊断】initialGameData.availableLocations:', initialGameData.availableLocations);
+    console.log('【关键诊断】initialGameData.worldInfo:', initialGameData.worldInfo);
+
+    // 🔥 优先使用直接传入的数组（最可靠）
+    if (initialGameData.availableContinents && initialGameData.availableContinents.length > 0) {
+      console.log('【数据源】使用直接传入的 availableContinents 数组');
+      console.log('【数据验证】大陆数量:', initialGameData.availableContinents.length);
+      console.log('【数据验证】大陆名称列表:', initialGameData.availableContinents.map(c => c.名称).join('、'));
+
+      const worldInfoForPrompt = {
+        世界名称: initialGameData.worldInfo?.世界名称 || '未知世界',
+        世界背景: (initialGameData.worldInfo as any)?.世界背景 || '',
+        大陆信息: initialGameData.availableContinents,
+        势力信息: initialGameData.worldInfo?.势力信息 || [],
+        地点信息: initialGameData.availableLocations || []
+      };
+
+      sanitizedChatVars['世界信息'] = worldInfoForPrompt;
+
+      console.log('【成功】世界信息已加载到提示词');
+      console.log('【成功】大陆数量:', worldInfoForPrompt.大陆信息.length);
+      console.log('【成功】地点数量:', worldInfoForPrompt.地点信息.length);
+    }
+    // 备用方案1：使用 worldInfo 对象
+    else if (initialGameData.worldInfo && initialGameData.worldInfo.大陆信息) {
+      console.log('【数据源】使用传入的 worldInfo 对象');
+      const worldInfo = initialGameData.worldInfo;
       const worldInfoForPrompt = {
         世界名称: worldInfo.世界名称,
-        世界背景: (worldInfo as any).世界背景,
-        大陆信息: worldInfo.大陆信息?.map((continent) => ({
+        世界背景: (worldInfo as { 世界背景?: string }).世界背景,
+        大陆信息: worldInfo.大陆信息?.map((continent: any) => ({
           名称: continent.名称 || (continent as Record<string, unknown>).name,
           描述: continent.描述 || (continent as Record<string, unknown>).description,
           大洲边界: continent.大洲边界 || (continent as Record<string, unknown>).continent_bounds
         })),
-        // ✅ 传递完整的势力信息，包含位置数据
-        势力信息: worldInfo.势力信息?.map((faction) => ({
+        势力信息: worldInfo.势力信息?.map((faction: any) => ({
           名称: faction.名称,
           类型: faction.类型,
           位置: faction.位置,
           势力范围: faction.势力范围
         })),
-        // ✅ 传递完整的地点信息，包含坐标数据
-        地点信息: worldInfo.地点信息?.map((location) => ({
+        地点信息: worldInfo.地点信息?.map((location: any) => ({
           名称: location.名称,
           类型: location.类型,
           位置: location.位置,
@@ -185,13 +207,44 @@ export async function generateInitialMessage(
       };
 
       sanitizedChatVars['世界信息'] = worldInfoForPrompt;
+      console.log('【成功】从 worldInfo 对象提取世界信息');
+      console.log('【成功】大陆数量:', worldInfoForPrompt.大陆信息?.length || 0);
+    }
+    // 备用方案2：从酒馆读取（最后手段）
+    else {
+      console.warn('【警告】未从参数中获取到世界信息，尝试从酒馆变量读取');
 
-      console.log('【修复】传递完整世界信息给AI');
-      console.log('【修复】世界名称:', worldInfoForPrompt.世界名称, '（注意：这是世界名，不是大陆名）');
-      console.log('【修复】大陆数量:', worldInfoForPrompt.大陆信息?.length || 0);
-      console.log('【修复】大陆名称列表:', worldInfoForPrompt.大陆信息?.map((c: any) => c.名称).join(', '));
-      console.log('【修复】势力数量:', worldInfoForPrompt.势力信息?.length || 0);
-      console.log('【修复】地点数量:', worldInfoForPrompt.地点信息?.length || 0);
+      if (chatVariablesForPrompt && chatVariablesForPrompt['世界信息']) {
+        const worldInfo = chatVariablesForPrompt['世界信息'] as WorldInfo;
+        const worldInfoForPrompt = {
+          世界名称: worldInfo.世界名称,
+          世界背景: (worldInfo as { 世界背景?: string }).世界背景,
+          大陆信息: worldInfo.大陆信息?.map((continent: any) => ({
+            名称: continent.名称 || (continent as Record<string, unknown>).name,
+            描述: continent.描述 || (continent as Record<string, unknown>).description,
+            大洲边界: continent.大洲边界 || (continent as Record<string, unknown>).continent_bounds
+          })),
+          势力信息: worldInfo.势力信息?.map((faction: any) => ({
+            名称: faction.名称,
+            类型: faction.类型,
+            位置: faction.位置,
+            势力范围: faction.势力范围
+          })),
+          地点信息: worldInfo.地点信息?.map((location: any) => ({
+            名称: location.名称,
+            类型: location.类型,
+            位置: location.位置,
+            coordinates: location.coordinates
+          }))
+        };
+
+        sanitizedChatVars['世界信息'] = worldInfoForPrompt;
+        console.log('【备用】从酒馆变量读取到世界信息');
+        console.log('【备用】大陆数量:', worldInfoForPrompt.大陆信息?.length || 0);
+      } else {
+        console.error('【致命错误】无法从任何来源获取世界信息！');
+        console.error('【致命错误】initialGameData keys:', Object.keys(initialGameData));
+      }
     }
 
     // 1.6. 提取上一条对话的AI/GM文本（用于连续性），在初始化阶段通常为空
@@ -213,10 +266,12 @@ export async function generateInitialMessage(
       age: Number(initialGameData?.creationDetails?.age || 16),
       world: initialGameData.baseInfo.世界 || '未知世界',
       // [修复] 使用详情对象而非简单字符串，保留完整描述信息
-      talentTier: (initialGameData.baseInfo as Record<string, any>).天资详情 || initialGameData.baseInfo.天资 || '凡人',
-      origin: (initialGameData.baseInfo as Record<string, any>).出身详情 || initialGameData.baseInfo.出生 || '平民出身',
-      spiritRoot: (initialGameData.baseInfo as Record<string, any>).灵根详情 || initialGameData.baseInfo.灵根 || '废灵根',
-      talents: (initialGameData.baseInfo as Record<string, any>).天赋详情 || (initialGameData.baseInfo.天赋 || []),
+      talentTier: (initialGameData.baseInfo as Record<string, unknown>).天资详情 || initialGameData.baseInfo.天资 || '凡人',
+      origin: (initialGameData.baseInfo as Record<string, unknown>).出身详情 || initialGameData.baseInfo.出生 || '平民出身',
+      spiritRoot: (initialGameData.baseInfo as Record<string, unknown>).灵根详情 || initialGameData.baseInfo.灵根 || '废灵根',
+      talents: (Array.isArray((initialGameData.baseInfo as Record<string, unknown>).天赋详情)
+        ? (initialGameData.baseInfo as Record<string, unknown>).天赋详情
+        : (Array.isArray(initialGameData.baseInfo.天赋) ? initialGameData.baseInfo.天赋 : [])) as any[],
       attributes: safeAttributes
     };
     console.log('【神识印记】构建的用户选择信息:', userSelections);
@@ -283,15 +338,23 @@ export async function generateInitialMessage(
     const systemRulesPrompt = buildCharacterInitializationPrompt(userSelections);
 
     // 2. 世界数据
+    const continentNames = sanitizedChatVars['世界信息'] ?
+      ((sanitizedChatVars['世界信息'] as { 大陆信息?: { 名称: string }[] }).大陆信息?.map((c: { 名称: string }) => c.名称).join('、') || '未知') : '未知';
+
     const worldDataPrompt = `# 世界信息数据
 
-**可用大陆列表**：
-${sanitizedChatVars['世界信息'] ? JSON.stringify((sanitizedChatVars['世界信息'] as any).大陆信息, null, 2) : '[]'}
+    🔥 **可用大陆名称**（位置第一层必须从这里选择）：
+    ${continentNames}
 
-**可用地点列表**：
-${sanitizedChatVars['世界信息'] ? JSON.stringify((sanitizedChatVars['世界信息'] as any).地点信息, null, 2) : '[]'}
+    **大陆详细信息**：
+    ${sanitizedChatVars['世界信息'] ? JSON.stringify((sanitizedChatVars['世界信息'] as { 大陆信息?: { 名称: string }[] }).大陆信息, null, 2) : '[]'}
 
-⚠️ **重要**：位置必须从上述列表选择，严禁编造！`;
+    **可用地点列表**：
+    ${sanitizedChatVars['世界信息'] ? JSON.stringify((sanitizedChatVars['世界信息'] as { 地点信息?: { 名称: string }[] }).地点信息, null, 2) : '[]'}
+
+⚠️ **关键要求**：
+- 位置的第一层必须使用上方"可用大陆名称"中的一个名称
+- 严禁编造不存在的大陆名！`;
 
     // 3. 用户输入
     const userInputPrompt = `# 玩家核心选择
@@ -314,7 +377,7 @@ ${additionalPrompt || ''}`;
     console.log('【初始化】准备调用AI，提示词总长度:', totalPromptLength, '字符');
     toast.info(`天机运转，推演天道初言...`);
 
-    let rawResult: any;
+    let rawResult: unknown;
     try {
       rawResult = await helper.generate({
         user_input: userInputPrompt,
@@ -327,7 +390,7 @@ ${additionalPrompt || ''}`;
           }
         },
         max_chat_history: 0
-      } as any);
+      });
     } catch (generateError) {
       console.error('【初始化-错误】调用helper.generate失败:', generateError);
       throw new Error('调用AI接口失败: ' + (generateError instanceof Error ? generateError.message : String(generateError)));
@@ -344,8 +407,9 @@ ${additionalPrompt || ''}`;
     }
 
     // 检查AI是否返回了错误对象
-    if (typeof rawResult === 'object' && rawResult.error) {
-      const errorMsg = rawResult.error.message || JSON.stringify(rawResult.error);
+    if (typeof rawResult === 'object' && rawResult && 'error' in rawResult) {
+      const errorPayload = (rawResult as { error: { message?: string } }).error;
+      const errorMsg = errorPayload.message || JSON.stringify(errorPayload);
       console.error('【初始化-错误】AI服务返回错误:', errorMsg);
       console.error('【初始化-错误】完整错误对象:', rawResult);
       throw new Error(`AI服务错误: ${errorMsg}。这可能是由于：1) 提示词过长超过模型上下文限制 2) 服务端暂时不可用 3) API配置问题。请稍后重试。`);
@@ -666,8 +730,7 @@ ${additionalPrompt || ''}`;
 export async function generateInGameResponse(
   currentGameData: Record<string, unknown>,
   playerAction?: string,
-  useStreaming?: boolean,
-  onStreamChunk?: (chunk: string) => void
+  useStreaming?: boolean
 ): Promise<GM_Response> {
   console.log('【剧情推进】准备生成游戏GM响应，数据:', { currentGameData, playerAction });
 
@@ -759,7 +822,7 @@ export async function generateInGameResponse(
             risk_level: (() => {
               let risk = 5;
               const locationDesc = status?.['位置']?.['描述'];
-              const locationName = typeof locationDesc === 'string' ? locationDesc : (typeof locationDesc === 'object' && locationDesc !== null ? (locationDesc as any).描述 : '');
+              const locationName = typeof locationDesc === 'string' ? locationDesc : (typeof locationDesc === 'object' && locationDesc !== null ? (locationDesc as { 描述: string }).描述 : '');
               const worldInfo = save?.世界信息;
               const locationInfo = worldInfo?.地点信息?.find((l: { 名称: string; }) => l.名称 === locationName);
               if (locationInfo?.['安全等级'] === '极危险') risk += 5;
@@ -777,7 +840,7 @@ export async function generateInGameResponse(
         };
 
         const locationDesc = status?.位置?.描述;
-        const locationStr = typeof locationDesc === 'string' ? locationDesc : (typeof locationDesc === 'object' && locationDesc !== null ? (locationDesc as any).描述 : '未知');
+        const locationStr = typeof locationDesc === 'string' ? locationDesc : (typeof locationDesc === 'object' && locationDesc !== null ? (locationDesc as { 描述: string }).描述 : '未知');
 
         return {
           battle_power: battlePower,
@@ -799,7 +862,7 @@ export async function generateInGameResponse(
       }
     };
     const saveData = (currentGameData.saveData as SaveData) || {};
-    const derived = computeDerived(saveData);
+    computeDerived(saveData);
 
     // 提取所有短期记忆作为"上一幕剧情"
     let shortTermMemories: string[] = [];
@@ -850,14 +913,15 @@ export async function generateInGameResponse(
       },
       max_chat_history: 0,  // 禁用真实对话历史，只使用我们注入的prompts
       should_stream: useStreaming || false
-    } as any);
+    });
 
     console.log('【剧情推进-调试】AI原始返回类型:', typeof rawResult);
     console.log('【剧情推进-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : JSON.stringify(rawResult).substring(0, 500));
 
     // 检查AI是否返回了错误对象
-    if (typeof rawResult === 'object' && rawResult.error) {
-      const errorMsg = rawResult.error.message || JSON.stringify(rawResult.error);
+    if (rawResult && typeof rawResult === 'object' && 'error' in rawResult) {
+      const errorPayload = (rawResult as { error: { message?: string } }).error;
+      const errorMsg = errorPayload.message || JSON.stringify(errorPayload);
       console.error('【剧情推进-错误】AI服务返回错误:', errorMsg);
       console.error('【剧情推进-错误】完整错误对象:', rawResult);
       throw new Error(`AI服务错误: ${errorMsg}。这可能是由于：1) 提示词过长超过模型上下文限制 2) 服务端暂时不可用 3) API配置问题。请稍后重试。`);

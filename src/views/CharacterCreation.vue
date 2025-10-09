@@ -429,7 +429,7 @@ async function createCharacter() {
     return;
   }
   console.log('[CharacterCreation.vue] createCharacter() called.');
-  
+
   // 立即设置生成状态，防止重复点击
   isGenerating.value = true;
 
@@ -477,7 +477,7 @@ async function createCharacter() {
       世界: store.selectedWorld.name,
       天资: store.selectedTalentTier.name,
       出生: store.selectedOrigin?.name || '随机出身',
-      灵根: store.selectedSpiritRoot ? 
+      灵根: store.selectedSpiritRoot ?
         {
           名称: store.selectedSpiritRoot.name,
           品级: store.selectedSpiritRoot.tier || '',
@@ -639,7 +639,7 @@ function onDataCleared(type: string, count: number) {
 
 .progress-steps {
   display: flex;
-  justify-content: flex-start; /* 左对齐，便于滚动 */
+  justify-content: space-between; /* 电脑端两端对齐 */
   width: 100%; /* Ensure the container spans the full width */
   overflow-x: auto;
   overflow-y: hidden;
@@ -818,6 +818,7 @@ function onDataCleared(type: string, count: number) {
   }
 
   .progress-steps {
+    justify-content: flex-start; /* 平板端左对齐，便于横向滚动 */
     gap: 0.5rem;
     padding: 0 0.25rem;
   }
@@ -906,7 +907,7 @@ function onDataCleared(type: string, count: number) {
   }
 
   .progress-steps {
-    justify-content: flex-start;
+    justify-content: flex-start; /* 移动端左对齐，便于横向滚动 */
     gap: 0.75rem;
   }
 

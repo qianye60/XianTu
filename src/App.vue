@@ -267,19 +267,24 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
 
       const baseInfo: CharacterBaseInfo = {
         名字: personaName, // 使用从酒馆获取的Persona名字
-        性别: rawPayload.gender || '男',
-        种族: rawPayload.race || '人族', // 添加种族
+        性别: (rawPayload.gender === '女' || rawPayload.gender === '其他' ? rawPayload.gender : '男') as '男' | '女' | '其他',
+        种族: (rawPayload as any).race || '人族', // 添加种族
         世界: rawPayload.world?.name || '未知世界', // 保持用户选择的世界
         天资: rawPayload.talentTier?.name || '凡品',
         出生: rawPayload.origin?.name || '随机出身',
         灵根: rawPayload.spiritRoot?.name || '随机灵根',
-        天赋: rawPayload.talents?.map((t: Talent) => t.name) || [],
-        先天六司: convertedAttributes,
-        天资详情: rawPayload.talentTier,
-        出身详情: rawPayload.origin,
-        灵根详情: rawPayload.spiritRoot || undefined,
-        天赋详情: rawPayload.talents,
+        天赋: rawPayload.talents?.map((t: Talent) => ({
+          名称: t.name,
+          描述: t.description || ''
+        })) || [],
+        先天六司: convertedAttributes
       };
+
+      // 添加可选的详情字段(使用类型扩展)
+      (baseInfo as any).天资详情 = rawPayload.talentTier;
+      (baseInfo as any).出身详情 = rawPayload.origin;
+      (baseInfo as any).灵根详情 = rawPayload.spiritRoot || undefined;
+      (baseInfo as any).天赋详情 = rawPayload.talents;
 
       const creationPayload = {
         charId: charId, // 使用外层定义的charId

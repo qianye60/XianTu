@@ -449,7 +449,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       const cloudWorldsWithSource = safeTransform<World>(cloudWorlds, { id: 0, name: '', era: '', description: '' });
       const cloudTalentTiersWithSource = safeTransform<TalentTier>(cloudTalentTiers, { id: 0, name: '未知天资', description: '', total_points: 20, rarity: 1, color: '#FFFFFF' });
       const cloudOriginsWithSource = safeTransform<Origin>(cloudOrigins, { id: 0, name: '', description: '', talent_cost: 0, attribute_modifiers: {}, rarity: 0 });
-      const cloudSpiritRootsWithSource = safeTransform<SpiritRoot>(cloudSpiritRoots, { id: 0, name: '', description: '', base_multiplier: 0, talent_cost: 0 });
+      const cloudSpiritRootsWithSource = safeTransform<SpiritRoot>(cloudSpiritRoots, { id: 0, name: '', tier: '', description: '', base_multiplier: 0, talent_cost: 0 });
       const cloudTalentsWithSource = safeTransform<Talent>(cloudTalents, { id: 0, name: '', description: '', talent_cost: 0, rarity: 0 });
       
       // 使用当前 store 中的数据作为本地数据源进行合并，而不是用初始常量

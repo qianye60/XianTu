@@ -42,11 +42,11 @@
           <input
             type="number"
             v-model.number="memoryConfig.shortTermLimit"
-            min="5"
+            min="3"
             max="10"
             class="setting-input"
           />
-          <span class="setting-hint">默认: 5</span>
+          <span class="setting-hint">默认: 3</span>
         </div>
 
         <div class="setting-item">
@@ -267,7 +267,7 @@ const showSettings = ref(false);
 
 // 记忆系统配置
 const memoryConfig = ref({
-  shortTermLimit: 5, // 与后端配置同步
+  shortTermLimit: 3, // 与后端配置同步
   midTermTrigger: 25, // 与后端配置同步
   midTermKeep: 8,
   autoSummaryEnabled: true,
@@ -277,7 +277,7 @@ const memoryConfig = ref({
 
 // 记忆转化配置
 const MEMORY_CONFIG = {
-  SHORT_TERM_LIMIT: 5, // 短期记忆上限（与后端同步）
+  SHORT_TERM_LIMIT: 3, // 短期记忆上限（与后端同步）
   MEDIUM_TERM_LIMIT: 25, // 中期记忆上限（与后端同步）
   LONG_TERM_LIMIT: 50, // 长期记忆上限
   CONVERT_THRESHOLD: 0.8 // 转化阈值（达到上限的80%就开始转化）
@@ -449,7 +449,8 @@ ${memoriesText}`;
         时间: `总结于${formatTime(Date.now())}`,
         地点: '综合',
         人物: '综合',
-        影响: '记忆总结'
+        影响: '记忆总结',
+        sections: {} // 添加必需的sections字段
       },
       isConverted: true,
       isSummarized: true
@@ -788,7 +789,7 @@ const saveMemoryConfig = async () => {
 
 const resetMemoryConfig = () => {
   memoryConfig.value = {
-    shortTermLimit: 5,
+    shortTermLimit: 3,
     midTermTrigger: 20,
     midTermKeep: 8,
     autoSummaryEnabled: true,

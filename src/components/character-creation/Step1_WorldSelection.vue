@@ -968,38 +968,46 @@ const editInitialData = computed(() => {
   .top-actions-container {
     flex-wrap: wrap;
     justify-content: stretch;
+    gap: 0.5rem;
   }
   .top-actions-container .action-item {
-    flex-grow: 1;
+    flex: 1 1 45%;
     text-align: center;
+    min-width: 120px;
   }
   .world-layout {
     /* 改为垂直堆叠布局 */
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 1rem;
-    height: auto;
-    overflow: visible;
-    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    overflow: hidden;
+    padding: 0;
   }
-  
+
   .left-panel {
     order: 1;
-    max-height: 40vh;
+    flex-shrink: 0;
+    max-height: 35vh;
+    overflow: hidden;
   }
-  
+
   .details-container {
     order: 2;
-    min-height: 300px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  
+
   .list-container {
-    max-height: 35vh;
+    max-height: calc(35vh - 60px); /* 减去顶部按钮高度 */
+    overflow-y: auto;
     /* 添加触摸滚动优化 */
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
   }
-  
+
   /* 优化触摸体验 */
   .list-item,
   .action-item {
@@ -1007,42 +1015,26 @@ const editInitialData = computed(() => {
     touch-action: manipulation;
   }
   .map-options-grid { grid-template-columns: 1fr; }
-}
 
-@media (max-width: 640px) {
-  .world-layout {
-    gap: 0.8rem;
-    padding: 0.6rem;
-  }
-  
-  .left-panel {
-    max-height: 35vh;
-  }
-  
-  .list-container {
-    max-height: 30vh;
-    padding: 0.5rem;
-  }
-  
+  /* 细节优化 */
   .list-item {
-    padding: 0.7rem;
+    padding: 0.7rem 0.9rem;
     font-size: 0.95rem;
     margin-bottom: 0.4rem;
   }
-  
+
   .single-actions-container {
     padding: 0.5rem;
     gap: 0.4rem;
   }
-  
+
   .action-item {
     padding: 0.7rem 1rem;
     font-size: 0.9rem;
   }
-  
+
   .details-container {
-    padding: 1rem;
-    min-height: 180px;
+    padding: 0.75rem;
   }
 }
 
@@ -1050,72 +1042,72 @@ const editInitialData = computed(() => {
   .top-actions-container {
     flex-direction: column;
     align-items: stretch;
-  }
-  .world-selection-container {
     padding: 0.4rem;
-    height: auto;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    gap: 0.4rem;
+  }
+  .top-actions-container .action-item {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .world-selection-container {
+    padding: 0.3rem;
+    height: 100%;
   }
 
   .world-layout {
-    gap: 0.6rem;
-    padding: 0;
-    height: auto;
-    min-height: 0;
+    gap: 0.5rem;
   }
 
   .left-panel {
-    max-height: none;
-    border-radius: 6px;
+    max-height: 32vh;
   }
 
   .list-container {
-    max-height: 300px;
+    max-height: calc(32vh - 110px); /* 减去顶部按钮堆叠后的高度 */
     padding: 0.4rem;
   }
-  
+
   .list-item {
     padding: 0.6rem 0.8rem;
     font-size: 0.9rem;
     margin-bottom: 0.3rem;
     border-radius: 4px;
   }
-  
+
   .details-container {
-    padding: 1rem;
-    min-height: 150px;
+    padding: 0.75rem;
     border-radius: 6px;
   }
-  
+
   .world-details h2 {
     font-size: 1.2rem;
     margin-bottom: 0.5rem;
   }
-  
+
   .world-details .era {
     font-size: 0.9rem;
     margin-bottom: 0.8rem;
   }
-  
+
   .description-scroll {
     font-size: 0.9rem;
     line-height: 1.5;
     padding-right: 0.3rem;
   }
-  
+
   .single-actions-container {
     flex-direction: column;
     gap: 0.4rem;
     padding: 0.4rem;
   }
-  
+
   .action-item {
     padding: 0.6rem;
     font-size: 0.85rem;
     border-radius: 4px;
   }
-  
+
   .placeholder {
     font-size: 1rem;
     padding: 1rem;
@@ -1124,15 +1116,6 @@ const editInitialData = computed(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  .top-actions-container {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0.5rem;
-  }
-  .top-actions-container .action-item {
-    text-align: center;
   }
 }
 

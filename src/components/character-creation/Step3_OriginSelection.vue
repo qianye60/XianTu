@@ -346,7 +346,6 @@ async function handleAIPromptSubmit(userPrompt: string) {
       attribute_modifiers: parsedOrigin.attribute_modifiers || parsedOrigin.属性修正 || {},
       background_effects: parsedOrigin.background_effects || parsedOrigin.背景效果 || [],
       rarity: parsedOrigin.rarity || parsedOrigin.稀有度 || 1,
-      initial_attributes: parsedOrigin.initial_attributes || parsedOrigin.初始属性 || {},
       source: 'local'
     };
 

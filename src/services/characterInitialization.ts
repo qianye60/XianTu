@@ -18,6 +18,8 @@ import { validateGameData } from '@/utils/dataValidation';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
+// 导入本地数据库用于随机生成
+import { LOCAL_SPIRIT_ROOTS, LOCAL_ORIGINS } from '@/data/creationData';
 
 /**
  * 判断是否为随机灵根（辅助函数）
@@ -242,7 +244,32 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       提示: [
         '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
         '装备栏字段：装备1-6'
-      ]
+      ],
+      // 🔥 NSFW设置：从localStorage读取用户设置，供AI判断是否生成私密信息
+      nsfwMode: (() => {
+        try {
+          const savedSettings = localStorage.getItem('dad_game_settings');
+          if (savedSettings) {
+            const parsed = JSON.parse(savedSettings);
+            return parsed.enableNsfwMode !== undefined ? parsed.enableNsfwMode : true;
+          }
+        } catch (e) {
+          console.error('[初始化] 读取NSFW设置失败:', e);
+        }
+        return true; // 默认开启
+      })(),
+      nsfwGenderFilter: (() => {
+        try {
+          const savedSettings = localStorage.getItem('dad_game_settings');
+          if (savedSettings) {
+            const parsed = JSON.parse(savedSettings);
+            return parsed.nsfwGenderFilter || 'all';
+          }
+        } catch (e) {
+          console.error('[初始化] 读取NSFW性别过滤设置失败:', e);
+        }
+        return 'all'; // 默认所有NPC
+      })()
     }
   };
 
@@ -361,6 +388,8 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
         ? (baseInfo.天赋 as Record<string, any>[]).map((t: Record<string, any>) => t?.name || t?.名称 || String(t)).filter(Boolean)
         : []
     },
+    // 🔥 直接传递世界信息，不依赖酒馆变量
+    worldInfo: saveData.世界信息,
     availableContinents: saveData.世界信息?.大陆信息?.map((continent: Record<string, any>) => ({
       名称: continent.名称 || continent.name,
       描述: continent.描述 || continent.description,
@@ -370,7 +399,8 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       名称: location.名称 || location.name,
       类型: location.类型 || location.type,
       描述: location.描述 || location.description,
-      所属势力: location.所属势力 || location.faction
+      所属势力: location.所属势力 || location.faction,
+      coordinates: location.coordinates
     })) || [],
     mapConfig: saveData.世界信息?.地图配置
   };
@@ -465,11 +495,17 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
       描述: authoritativeOrigin.description,
     };
   } else if (creationStore.characterPayload.origin_id === null) {
-    console.log('[数据校准] 🎲 用户选择随机出身，标记为随机');
-    derivedInfo.出生 = {
-      名称: '随机出身',
-      描述: '身世迷离，一切皆有可能。',
-    };
+    // 用户选择随机出身。仅当传入的 baseInfo 中没有具体的出身对象时，才设置回 "随机"。
+    // 这可以防止覆盖掉 AI 生成的具体出身。
+    if (typeof derivedInfo.出生 !== 'object' || !derivedInfo.出生 || !('名称' in derivedInfo.出生) || (derivedInfo.出生 as any).名称.includes('随机')) {
+        console.log('[数据校准] 🎲 用户选择随机出身，当前无有效值，标记为随机');
+        derivedInfo.出生 = {
+            名称: '随机出身',
+            描述: '身世迷离，一切皆有可能。',
+        };
+    } else {
+        console.log('[数据校准] ✅ 检测到AI已生成具体出身，保留AI结果:', (derivedInfo.出生 as any).名称);
+    }
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的出身数据。');
   }
@@ -484,12 +520,17 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
       描述: authoritativeSpiritRoot.description || '基础灵根',
     };
   } else if (creationStore.characterPayload.spirit_root_id === null) {
-    console.log('[数据校准] 🎲 用户选择随机灵根，标记为随机');
-    derivedInfo.灵根 = {
-      名称: '随机灵根',
-      品级: '凡品',
-      描述: '大道五十，天衍四九，人遁其一',
-    };
+    // 用户选择随机灵根。同样，防止覆盖AI生成的结果。
+    if (typeof derivedInfo.灵根 !== 'object' || !derivedInfo.灵根 || !('名称' in derivedInfo.灵根) || (derivedInfo.灵根 as any).名称.includes('随机')) {
+        console.log('[数据校准] 🎲 用户选择随机灵根，当前无有效值，标记为随机');
+        derivedInfo.灵根 = {
+            名称: '随机灵根',
+            品级: '凡品',
+            描述: '大道五十，天衍四九，人遁其一',
+        };
+    } else {
+        console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (derivedInfo.灵根 as any).名称);
+    }
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的灵根数据。');
   }
@@ -586,7 +627,40 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
     // 验证AI是否正确替换了随机灵根
     if (typeof mergedBaseInfo.灵根 === 'string' && mergedBaseInfo.灵根.includes('随机')) {
-      console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机灵根，仍然包含"随机"字样');
+      console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机灵根，使用本地数据库生成');
+      
+      // 🔥 后备逻辑：使用本地数据库随机生成
+      const 天资 = baseInfo.天资;
+      let 灵根池 = LOCAL_SPIRIT_ROOTS.filter(root => {
+        // 根据天资筛选合适的灵根
+        if (天资 === '废柴' || 天资 === '凡人') {
+          return root.tier === '凡品' || root.tier === '下品';
+        } else if (天资 === '俊杰') {
+          return root.tier === '中品' || root.tier === '上品';
+        } else if (天资 === '天骄') {
+          return root.tier === '上品' || root.tier === '极品';
+        } else if (天资 === '妖孽') {
+          return root.tier === '极品' || root.tier === '神品';
+        } else {
+          return root.tier === '凡品' || root.tier === '下品'; // 默认
+        }
+      });
+      
+      if (灵根池.length === 0) {
+        // 如果过滤结果为空，使用所有灵根
+        灵根池 = LOCAL_SPIRIT_ROOTS;
+      }
+      
+      const 随机灵根 = 灵根池[Math.floor(Math.random() * 灵根池.length)];
+      mergedBaseInfo.灵根 = {
+        名称: 随机灵根.name,
+        品级: 随机灵根.tier,
+        描述: 随机灵根.description,
+        base_multiplier: 随机灵根.base_multiplier,
+        cultivation_speed: 随机灵根.cultivation_speed,
+        special_effects: 随机灵根.special_effects
+      };
+      console.log(`[数据最终化] ✅ 已从本地数据库生成随机灵根: ${随机灵根.name} (${随机灵根.tier})`);
     }
   }
 
@@ -608,7 +682,16 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
     // 验证AI是否正确替换了随机出身
     if (typeof mergedBaseInfo.出生 === 'string' && mergedBaseInfo.出生.includes('随机')) {
-      console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机出身，仍然包含"随机"字样');
+      console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机出身，使用本地数据库生成');
+      
+      // 🔥 后备逻辑：使用本地数据库随机生成
+      // 从本地数据库中随机选择一个出身
+      const 随机出身 = LOCAL_ORIGINS[Math.floor(Math.random() * LOCAL_ORIGINS.length)];
+      mergedBaseInfo.出生 = {
+        名称: 随机出身.name,
+        描述: 随机出身.description
+      };
+      console.log(`[数据最终化] ✅ 已从本地数据库生成随机出身: ${随机出身.name}`);
     }
   }
 
@@ -748,12 +831,32 @@ export async function initializeCharacter(
   console.log('[初始化流程] ===== initializeCharacter 入口 =====');
   console.log('[初始化流程] 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
   try {
+    const uiStore = useUIStore();
     // 步骤 1: 准备初始数据
     const { saveData: initialSaveData, processedBaseInfo } = prepareInitialData(baseInfo, age);
 
     // 步骤 2: 生成世界
     const worldInfo = await generateWorld(processedBaseInfo, world);
     initialSaveData.世界信息 = worldInfo;
+
+    // 步骤 2.5: 🔥 关键修复：将世界信息提前保存到酒馆变量，供AI使用
+    console.log('[初始化流程] 2.5 将世界信息保存到酒馆变量...');
+    uiStore.updateLoadingText('🌍 保存世界信息到酒馆...');
+    try {
+      const helper = getTavernHelper();
+      if (helper) {
+        const { deepCleanForClone } = await import('@/utils/dataValidation');
+        const cleanedWorldInfo = deepCleanForClone({ '世界信息': worldInfo });
+        await helper.insertOrAssignVariables(cleanedWorldInfo, { type: 'chat' });
+        console.log('[初始化流程] ✅ 世界信息已保存到酒馆，包含', worldInfo.大陆信息?.length || 0, '个大陆');
+        console.log('[初始化流程] 大陆列表:', worldInfo.大陆信息?.map((c: any) => c.名称 || c.name).join('、'));
+      } else {
+        console.warn('[初始化流程] ⚠️ 酒馆助手不可用，跳过世界信息保存');
+      }
+    } catch (err) {
+      console.error('[初始化流程] ❌ 保存世界信息到酒馆失败:', err);
+      // 不抛出错误，继续流程
+    }
 
     // 步骤 3: 生成开场剧情 (已包含独立的地点生成步骤)
     console.log('[初始化流程] 准备调用generateOpeningScene...');

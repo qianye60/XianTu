@@ -1138,7 +1138,7 @@ const isCultivating = (item: Item | null): boolean => {
     const currentItemState = inventoryItems[item.物品ID]
     if (currentItemState) {
       // 功法的已装备或修炼中状态表示正在修炼
-      if (currentItemState.已装备 === true || currentItemState.修炼中 === true) {
+      if (currentItemState.已装备 === true || (currentItemState as any).修炼中 === true) {
         return true
       }
     }

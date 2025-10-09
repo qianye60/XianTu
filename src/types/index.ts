@@ -250,6 +250,23 @@ export interface InitialGameData {
     talentNames?: string[];
     talentTierName?: string;
   };
+  // 🔥 新增字段：直接传递世界信息
+  worldInfo?: WorldInfo;
+  availableContinents?: Array<{
+    名称: string;
+    描述: string;
+    大洲边界?: any;
+  }>;
+  availableLocations?: Array<{
+    名称: string;
+    类型: string;
+    描述?: string;
+    所属势力?: string;
+    coordinates?: any;
+  }>;
+  mapConfig?: any;
+  saveData?: any;
+  world?: any;
 }
 
 export interface WorldInfo {

@@ -13,6 +13,7 @@ import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/se
 import { validateGameData } from '@/utils/dataValidation';
 import { getAIDataRepairSystemPrompt } from '@/utils/prompts/dataRepairPrompts';
 import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/utils/lifespanCalculator'; // <-- 导入寿命计算工具
+import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 导入掌握技能计算工具
 import {
   shardSaveData,
   assembleSaveData,
@@ -404,6 +405,17 @@ export const useCharacterStore = defineStore('characterV3', () => {
   };
 
   /**
+   * [新增] 同步整个根状态到云端（占位符）
+   * @todo 需要实现后端API
+   */
+  const syncRootStateToCloud = async (): Promise<void> => {
+    debug.log('角色商店', 'syncRootStateToCloud called. (Placeholder - no backend implementation yet)');
+    // 在这里实现将 rootState.value 同步到后端的逻辑
+    // 例如: await cloudApi.saveRootState(rootState.value);
+    return Promise.resolve();
+  };
+
+  /**
    * 创建一个全新的角色 (AI增强版)
    * @param payload 包含角色基础信息和世界数据的数据包
    * @returns 创建成功则返回角色的基础信息，否则返回 undefined
@@ -429,7 +441,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       灵根: creationStore.selectedSpiritRoot
         ? {
             名称: creationStore.selectedSpiritRoot.name,
-            品级: creationStore.selectedSpiritRoot.grade,
+            品级: creationStore.selectedSpiritRoot.tier,
             描述: creationStore.selectedSpiritRoot.description,
           }
         : '随机灵根',
@@ -818,6 +830,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.warn('角色商店', '[同步] 自动更新年龄失败（非致命）:', error);
       }
 
+      // 🔥 [掌握技能自动计算] 从酒馆同步后自动计算掌握技能
+      try {
+        const updatedSkills = updateMasteredSkills(saveData);
+        debug.log('角色商店', `[同步] 已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+      } catch (error) {
+        debug.warn('角色商店', '[同步] 自动计算掌握技能失败（非致命）:', error);
+      }
+
       // ⚠️ 保留本地的记忆数据，避免被酒馆的旧数据覆盖
       // 因为在AI响应流程中，记忆会在本地先更新，然后才同步到酒馆
       const localMemory = slot.存档数据?.记忆;
@@ -975,6 +995,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         }
       } catch (error) {
         debug.warn('角色商店', '[保存] 自动更新年龄失败（非致命）:', error);
+      }
+
+      // 🔥 [掌握技能自动计算] 保存前自动计算掌握技能
+      try {
+        const updatedSkills = updateMasteredSkills(currentSaveData);
+        debug.log('角色商店', `[保存] 已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+      } catch (error) {
+        debug.warn('角色商店', '[保存] 自动计算掌握技能失败（非致命）:', error);
       }
 
       // 2. 更新 Pinia Store 中的存档槽位
@@ -1853,6 +1881,14 @@ const equipTechnique = async (itemId: string) => {
 
   debug.log('角色商店', `已装备功法: ${item.名称}，修炼进度: ${saveData.修炼功法.修炼进度}%`);
 
+  // 🔥 [掌握技能自动计算] 装备功法后重新计算掌握技能
+  try {
+    const updatedSkills = updateMasteredSkills(saveData);
+    debug.log('角色商店', `装备功法后已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+  } catch (e) {
+    debug.error('角色商店', '装备功法后自动计算掌握技能失败:', e);
+  }
+
   await syncToTavernAndSave({ fullSync: true }); // 装备是重大变更，建议全量同步
   toast.success(`已开始修炼《${item.名称}》`);
 };
@@ -1888,6 +1924,14 @@ const unequipTechnique = async (itemId: string) => {
   saveData.修炼功法 = null;
 
   debug.log('角色商店', `已卸下功法: ${item.名称}，最终进度: ${finalProgress}%`);
+
+  // 🔥 [掌握技能自动计算] 卸下功法后重新计算掌握技能
+  try {
+    const updatedSkills = updateMasteredSkills(saveData);
+    debug.log('角色商店', `卸下功法后已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+  } catch (e) {
+    debug.error('角色商店', '卸下功法后自动计算掌握技能失败:', e);
+  }
 
   await syncToTavernAndSave({ fullSync: true }); // 卸下也是重大变更
   toast.info(`已停止修炼《${item.名称}》`);
