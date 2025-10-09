@@ -821,8 +821,8 @@ export async function initializeCharacter(
 ): Promise<SaveData> {
   console.log('[初始化流程] ===== initializeCharacter 入口 =====');
   console.log('[初始化流程] 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
+  const uiStore = useUIStore();
   try {
-    const uiStore = useUIStore();
     // 步骤 1: 准备初始数据
     const { saveData: initialSaveData, processedBaseInfo } = prepareInitialData(baseInfo, age);
 

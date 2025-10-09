@@ -27,14 +27,12 @@
             class="talent-item"
             :class="{
               selected: isSelected(talent),
-              disabled: !canSelect(talent),
             }"
             @click="handleToggleTalent(talent)"
             @mouseover="activeTalent = talent"
           >
             <div class="item-content">
               <span class="talent-name">{{ talent.name }}</span>
-              <span class="talent-cost">{{ talent.talent_cost }} 点</span>
             </div>
             <div v-if="talent.source === 'cloud' || talent.source === 'local'" class="action-buttons">
               <button @click.stop="openEditModal(talent)" class="edit-btn" title="编辑此项">
@@ -54,7 +52,6 @@
           <div class="description-scroll">
             <p>{{ activeTalent.description || '此天赋之玄妙，需自行领悟。' }}</p>
           </div>
-          <div class="cost-display">消耗天道点: {{ activeTalent.talent_cost }}</div>
         </div>
         <div v-else class="placeholder">请选择天赋。</div>
       </div>
@@ -133,99 +130,16 @@ const filteredTalents = computed(() => {
   }
 });
 
-// 天赋效果类型选项
-const effectTypeOptions = [
-  { value: '后天六司', label: '后天属性' },
-  { value: '特殊能力', label: '特殊能力' },
-  { value: '技能加成', label: '技能加成' }
-] as const
-
-// 后天属性选项 - 天赋影响的是后天修炼属性
-const attributeTargetOptions = [
-  { value: '根骨', label: '后天根骨' },
-  { value: '灵性', label: '后天灵性' },
-  { value: '悟性', label: '后天悟性' },
-  { value: '气运', label: '后天气运' },
-  { value: '魅力', label: '后天魅力' },
-  { value: '心性', label: '后天心性' }
-] as const
-
-// 常见技能选项
-const skillOptions = [
-  { value: '剑法', label: '剑法' },
-  { value: '刀法', label: '刀法' },
-  { value: '拳法', label: '拳法' },
-  { value: '腿法', label: '腿法' },
-  { value: '炼丹', label: '炼丹' },
-  { value: '炼器', label: '炼器' },
-  { value: '阵法', label: '阵法' },
-  { value: '符箓', label: '符箓' },
-  { value: '医术', label: '医术' },
-  { value: '音律', label: '音律' },
-  { value: '自定义', label: '自定义...' }
-] as const
-
 // 自定义天赋字段 - 支持简单描述和结构化格式
 const customTalentFields: ModalField[] = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
-  { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的效果和背景故事...' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：5' },
-  { key: 'rarity', label: '稀有度等级', type: 'select', options: [
-    { value: '1', label: '1 - 常见' },
-    { value: '2', label: '2 - 少见' },
-    { value: '3', label: '3 - 罕见' },
-    { value: '4', label: '4 - 极罕见' },
-    { value: '5', label: '5 - 传说' }
-  ]},
-  {
-    key: 'effect_format',
-    label: '效果格式',
-    type: 'select',
-    options: [
-      { value: 'simple', label: '简单描述（推荐）' },
-      { value: 'structured', label: '结构化格式' }
-    ]
-  },
-  {
-    key: 'effects_simple',
-    label: '天赋效果（每行一个）',
-    type: 'textarea',
-    placeholder: '例如：\n剑法修炼速度提升50%\n剑意领悟概率提升30%\n使用剑类武器攻击力提升20%',
-    condition: (data: Record<string, unknown>) => data.effect_format === 'simple'
-  },
-  {
-    key: 'effects',
-    label: '天赋效果（结构化）',
-    type: 'dynamic-list',
-    columns: [
-      {
-        key: 'type',
-        placeholder: '效果类型',
-        type: 'select' as const,
-        options: effectTypeOptions
-      },
-      {
-        key: 'target',
-        placeholder: '目标/名称'
-      },
-      {
-        key: 'value',
-        placeholder: '数值'
-      }
-    ],
-    condition: (data: Record<string, unknown>) => data.effect_format === 'structured'
-  }
+  { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的本质...' },
 ]
 
 // 自定义天赋数据类型 - 与标准数据格式保持一致
 type CustomTalentData = {
   name: string;
   description: string;
-  talent_cost: string;
-  rarity: string;
-  effect_format: 'simple' | 'structured';
-  effects_simple?: string;
-  effects?: { type: string; target: string; value: string }[];
 };
 
 function validateCustomTalent(data: Partial<CustomTalentData>) {
@@ -235,14 +149,6 @@ function validateCustomTalent(data: Partial<CustomTalentData>) {
     if (!data.name?.trim()) errors.name = '天赋名称不可为空';
     if (!data.description?.trim()) errors.description = '天赋描述不可为空';
     
-    // 数值字段验证
-    const cost = Number(data.talent_cost);
-    if (isNaN(cost)) errors.talent_cost = '消耗点数必须为数字';
-    
-    if (data.rarity && (isNaN(parseInt(data.rarity, 10)) || parseInt(data.rarity, 10) < 1 || parseInt(data.rarity, 10) > 5)) {
-      errors.rarity = '稀有度等级必须为1-5的数字';
-    }
-    
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -250,48 +156,11 @@ function validateCustomTalent(data: Partial<CustomTalentData>) {
 }
 
 async function handleCustomSubmit(data: CustomTalentData) {
-  let parsedEffects: any;
-
-  // 根据格式类型解析效果
-  if (data.effect_format === 'simple') {
-    // 简单描述格式：字符串数组
-    parsedEffects = data.effects_simple
-      ?.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0) || [];
-  } else {
-    // 结构化格式：TalentEffect对象数组
-    parsedEffects = data.effects?.length ? data.effects
-      .filter(item => item.type && item.target && item.value)
-      .map(item => {
-        const effect: any = { 类型: item.type };
-
-        if (item.type === '后天六司') {
-          effect.目标 = item.target;
-          effect.数值 = parseFloat(item.value) || 0;
-        } else if (item.type === '技能加成') {
-          effect.技能 = item.target;
-          effect.数值 = parseFloat(item.value) || 0;
-        } else if (item.type === '特殊能力') {
-          effect.名称 = item.target;
-          effect.数值 = parseFloat(item.value) || 0;
-        } else {
-          effect.名称 = item.target;
-          effect.数值 = parseFloat(item.value) || 0;
-        }
-
-        return effect;
-      }) : [];
-  }
-
-  // 创建完整的标准化天赋对象
+  // 创建简化的天赋对象
   const newTalent: Talent = {
     id: Date.now(),
     name: data.name,
     description: data.description,
-    talent_cost: parseInt(data.talent_cost, 10) || 0,
-    rarity: parseInt(data.rarity, 10) || 1,
-    effects: parsedEffects,
     source: 'local' as const,
   }
 
@@ -309,19 +178,8 @@ const isSelected = (talent: Talent): boolean => {
   return store.characterPayload.selected_talent_ids.includes(talent.id);
 }
 
-const canSelect = (talent: Talent): boolean => {
-  if (isSelected(talent)) {
-    return true; // Always allow deselecting
-  }
-  return store.remainingTalentPoints >= talent.talent_cost;
-}
-
 function handleToggleTalent(talent: Talent) {
   activeTalent.value = talent;
-  if (!canSelect(talent)) {
-    toast.warning('天道点不足，无法选择此天赋。');
-    return;
-  }
   store.toggleTalent(talent.id);
 }
 
@@ -371,9 +229,6 @@ async function handleAIPromptSubmit(userPrompt: string) {
       id: Date.now(),
       name: parsedTalent.name || parsedTalent.名称 || '未命名天赋',
       description: parsedTalent.description || parsedTalent.描述 || parsedTalent.说明 || '',
-      effects: parsedTalent.effects || parsedTalent.效果 || [],
-      talent_cost: parsedTalent.talent_cost || parsedTalent.天道点消耗 || parsedTalent.点数消耗 || 3,
-      rarity: parsedTalent.rarity || parsedTalent.稀有度 || 3,
       source: 'local'
     };
 
@@ -408,37 +263,11 @@ async function handleDeleteTalent(id: number) {
 
 async function handleEditSubmit(data: CustomTalentData) {
   if (!editingTalent.value) return;
-  
-  // 解析天赋效果 - 处理动态列表格式
-  const parsedEffects = data.effects?.length ? data.effects
-    .filter(item => item.type && item.target && item.value)
-    .map(item => {
-      const effect: any = { 类型: item.type };
-      
-      if (item.type === '后天六司') {
-        effect.目标 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      } else if (item.type === '技能加成') {
-        effect.技能 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      } else if (item.type === '特殊能力') {
-        effect.名称 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      } else {
-        effect.名称 = item.target;
-        effect.数值 = parseFloat(item.value) || 0;
-      }
-      
-      return effect;
-    }) : [];
 
   // 创建更新数据对象
   const updateData: Partial<Talent> = {
     name: data.name,
     description: data.description,
-    talent_cost: parseInt(data.talent_cost, 10) || 0,
-    rarity: parseInt(data.rarity, 10) || 1,
-    effects: parsedEffects
   };
 
   try {
@@ -459,55 +288,10 @@ async function handleEditSubmit(data: CustomTalentData) {
 // 编辑模态框的初始数据
 const editInitialData = computed(() => {
   if (!editingTalent.value) return {};
-
-  const effects = editingTalent.value.effects;
-
-  // 检查是简单描述格式还是结构化格式
-  const isSimpleFormat = effects && effects.length > 0 && typeof effects[0] === 'string';
-
-  if (isSimpleFormat) {
-    // 简单描述格式
-    return {
-      name: editingTalent.value.name,
-      description: editingTalent.value.description,
-      talent_cost: editingTalent.value.talent_cost.toString(),
-      rarity: editingTalent.value.rarity?.toString() || '1',
-      effect_format: 'simple',
-      effects_simple: (effects as string[]).join('\n')
-    };
-  } else {
-    // 结构化格式
-    return {
-      name: editingTalent.value.name,
-      description: editingTalent.value.description,
-      talent_cost: editingTalent.value.talent_cost.toString(),
-      rarity: editingTalent.value.rarity?.toString() || '1',
-      effect_format: 'structured',
-      effects: effects?.map((effect: any) => {
-        if (typeof effect === 'string') return { type: '', target: effect, value: '0' };
-
-        if (effect.类型 === '后天六司') {
-          return {
-            type: effect.类型,
-            target: effect.目标,
-            value: effect.数值?.toString() || '0'
-          };
-        } else if (effect.类型 === '技能加成') {
-          return {
-            type: effect.类型,
-            target: effect.技能,
-            value: effect.数值?.toString() || '0'
-          };
-        } else {
-          return {
-            type: effect.类型,
-            target: effect.名称,
-            value: effect.数值?.toString() || '0'
-          };
-        }
-      }) || []
-    };
-  }
+  return {
+    name: editingTalent.value.name,
+    description: editingTalent.value.description,
+  };
 });
 
 // fetchData 和 defineExpose 不再需要
@@ -668,22 +452,8 @@ const editInitialData = computed(() => {
   font-weight: 600;
 }
 
-.talent-item.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: transparent;
-  color: var(--color-text-disabled);
-}
-.talent-item.disabled:hover {
-  background: var(--color-surface-danger);
-}
-
 .talent-name {
   font-weight: 500;
-}
-
-.talent-cost {
-  color: var(--color-accent);
 }
 
 .single-actions-container {
@@ -765,13 +535,6 @@ const editInitialData = computed(() => {
 .description-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
 .description-scroll::-webkit-scrollbar-thumb { background: rgba(180, 142, 173, 0.3); border-radius: 4px; }
 .description-scroll::-webkit-scrollbar-thumb:hover { background: rgba(180, 142, 173, 0.5); }
-
-.cost-display {
-  text-align: right;
-  font-weight: bold;
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
 
 /* 响应式适配 - 手机端优化 */
 @media (max-width: 1200px) {
@@ -918,10 +681,6 @@ const editInitialData = computed(() => {
     font-size: 0.9rem;
   }
   
-  .talent-cost {
-    font-size: 0.8rem;
-  }
-  
   .single-actions-container {
     flex-direction: column;
     gap: 0.4rem;
@@ -949,12 +708,6 @@ const editInitialData = computed(() => {
     font-size: 0.9rem;
     line-height: 1.5;
     padding-right: 0.3rem;
-  }
-  
-  .cost-display {
-    font-size: 1rem;
-    text-align: center;
-    margin-top: 0.8rem;
   }
   
   .placeholder {
@@ -1005,10 +758,6 @@ const editInitialData = computed(() => {
     font-size: 0.8rem;
   }
   
-  .talent-cost {
-    font-size: 0.75rem;
-  }
-  
   .talent-details-container {
     padding: 0.8rem;
     min-height: 180px;
@@ -1022,11 +771,6 @@ const editInitialData = computed(() => {
   .description-scroll {
     font-size: 0.85rem;
     line-height: 1.4;
-  }
-  
-  .cost-display {
-    font-size: 0.9rem;
-    margin-top: 0.6rem;
   }
   
   .action-item {

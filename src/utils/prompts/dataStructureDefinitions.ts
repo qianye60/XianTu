@@ -124,12 +124,6 @@ export const DATA_STRUCTURE_DEFINITIONS = `
 {"世界名称":"string","世界背景":"string","世界纪元":"string","特殊设定":["string"],"版本":"string","生成时间":"string","大陆信息":[{"名称":"string","描述":"string","范围":"string","特色":"string"}],"势力信息":[{"名称":"string","类型":"修仙宗门|魔道宗门","等级":"超级|一流|二流|三流","所在大洲":"string","位置":"string","势力范围":["string"],"描述":"string","特色":"string","与玩家关系":"敌对|中立|友好|盟友","leadership":{"宗主":"string","宗主修为":"string","副宗主":"string","太上长老":"string","太上长老修为":"string","长老数量":number,"最强修为":"string","综合战力":number,"核心弟子数":number,"内门弟子数":number,"外门弟子数":number}}],"地点信息":[{"名称":"string","类型":"城池|宗门|秘境|险地|商会|坊市|洞府","位置":"string","coordinates":{"longitude":number,"latitude":number},"描述":"string","特色":"string","安全等级":"安全|较安全|危险|极危险","开放状态":"开放|限制|封闭|未发现","相关势力":["string"]}]}
 \`\`\`
 
-## 天赋
-\`\`\`json
-{"名称":"string","描述":"string","效果":"string",
-"稀有度":"普通|稀有|史诗|传说"}
-\`\`\`
-
 ## 灵根
 \`\`\`json
 {"名称":"string","品级":"下品|中品|上品|极品|天品|神品","描述":"string","属性":["string"],"修炼加成":number}

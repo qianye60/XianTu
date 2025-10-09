@@ -133,13 +133,6 @@
           >
             <div class="talent-header">
               <span class="talent-name">{{ typeof talent === 'string' ? talent : talent.名称 }}</span>
-              <span class="talent-level">Lv.{{ getTalentLevel(typeof talent === 'string' ? talent : talent.名称) }}</span>
-            </div>
-            <div class="talent-progress">
-              <div class="progress-bar">
-                <div class="progress-fill talent" :style="{ width: getTalentProgress(typeof talent === 'string' ? talent : talent.名称) + '%' }"></div>
-              </div>
-              <span class="progress-text">{{ getTalentProgress(typeof talent === 'string' ? talent : talent.名称) }}%</span>
             </div>
           </div>
 
@@ -299,62 +292,8 @@ const getTalentData = (talent: string) => {
   return daoProgress;
 };
 
-// 计算天赋等级
-const getTalentLevel = (talent: string): number => {
-  const talentData = getTalentData(talent);
-  // 从天赋数据读取等级
-  if (talentData && '等级' in talentData && talentData.等级 !== undefined) {
-    return talentData.等级;
-  }
-  // 向后兼容：从大道进度获取
-  if (talentData && '当前阶段' in talentData) {
-    return talentData.当前阶段 || 1;
-  }
-  return 1;
-};
-
-// 计算天赋经验
-const getTalentExp = (talent: string): number => {
-  const talentData = getTalentData(talent);
-  // 从天赋数据读取当前经验
-  if (talentData && '当前经验' in talentData && talentData.当前经验 !== undefined) {
-    return talentData.当前经验;
-  }
-  return 0;
-};
-
-// 计算天赋最大经验
-const getTalentMaxExp = (talent: string): number => {
-  const talentData = getTalentData(talent);
-  // 从天赋数据读取下级所需经验
-  if (talentData && '下级所需' in talentData && talentData.下级所需 !== undefined) {
-    return talentData.下级所需;
-  }
-  // 向后兼容：从大道列表获取
-  if (talentData && '当前阶段' in talentData) {
-    const currentStageIndex = talentData.当前阶段 || 0;
-    const daoDataItem = daoData.value?.大道列表?.[talent];
-    if (daoDataItem?.阶段列表?.[currentStageIndex]) {
-      return daoDataItem.阶段列表[currentStageIndex].突破经验 || 100;
-    }
-  }
-  return 100; // 默认值
-};
-
-// 计算天赋进度百分比
-const getTalentProgress = (talent: string): number => {
-  const current = getTalentExp(talent);
-  const max = getTalentMaxExp(talent);
-  return current && max ? Math.round((current / max) * 100) : 0;
-};
-
 // 显示天赋详情
 const showTalentDetail = (talent: string) => {
-  const level = getTalentLevel(talent);
-  const currentExp = getTalentExp(talent);
-  const maxExp = getTalentMaxExp(talent);
-  const progress = getTalentProgress(talent);
-
   // 首先尝试从角色的天赋列表中查找(AI生成的自定义天赋)
   const baseInfo = saveData.value?.角色基础信息;
   const customTalent = baseInfo?.天赋?.find((t) => t.名称 === talent);
@@ -364,48 +303,18 @@ const showTalentDetail = (talent: string) => {
 
   // 优先使用自定义天赋数据,其次使用内嵌天赋数据
   const talentInfo = customTalent ? {
-    description: customTalent.描述 || '自定义天赋',
-    effects: ['效果暂无描述'], // 天赋对象中没有effects字段
-    maxLevel: 10 // 默认最大等级
+    description: customTalent.描述 || '自定义天赋'
   } : localTalent ? {
-    description: localTalent.description,
-    effects: localTalent.effects ? (
-      Array.isArray(localTalent.effects) && localTalent.effects.length > 0 && typeof localTalent.effects[0] === 'string'
-        ? localTalent.effects as string[]
-        : (localTalent.effects as any[]).map((effect: any) => {
-            if (typeof effect === 'string') return effect;
-            if (effect.类型 === '后天六司') {
-              return `${effect.目标}+${effect.数值}`;
-            } else if (effect.类型 === '特殊能力') {
-              return `${effect.名称}${typeof effect.数值 === 'number' && effect.数值 > 0 && effect.数值 < 1 ? ` ${(effect.数值 * 100).toFixed(0)}%` : ''}`;
-            } else if (effect.类型 === '技能加成') {
-              return `${effect.技能}技能效果+${(effect.数值 * 100).toFixed(0)}%`;
-            }
-            return `${effect.名称 || effect.类型}`;
-          })
-    ) : ['效果未知'],
-    maxLevel: 10 // 默认最大等级
+    description: localTalent.description
   } : {
-    description: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。`,
-    effects: ['效果未知'],
-    maxLevel: 10
+    description: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。`
   };
 
-  // 根据等级调整效果强度
-  const levelBonus = Math.floor((level - 1) * 10);
-  const enhancedEffects = talentInfo.effects.map((effect: string) => {
-    if (level > 1) {
-      return `${effect} (Lv.${level}强化: +${levelBonus}%)`;
-    }
-    return effect;
-  });
-
-  // 构建详情内容文本
-  const effectsText = enhancedEffects.map((effect: string, index: number) => `${index + 1}. ${effect}`).join('\n');
-  const contentText = `${talentInfo.description}\n\n当前效果:\n${effectsText}\n\n感悟进度:\n- 当前等级: Lv.${level}\n- 经验进度: ${maxExp > 0 ? `${currentExp}/${maxExp} (${progress}%)` : '暂无进度数据'}\n- 最高等级: Lv.${talentInfo.maxLevel}`;
+  // 构建详情内容文本（只显示描述）
+  const contentText = talentInfo.description;
 
   uiStore.showDetailModal({
-    title: `${talent} (Lv.${level})`,
+    title: talent,
     content: contentText
   });
 };

@@ -821,11 +821,6 @@ export interface CharacterBaseInfo extends AIMetadata {
   天赋: Array<{
     名称: string;
     描述: string;
-    // 进度数据（与天赋数据合并）
-    等级?: number;
-    当前经验?: number;
-    下级所需?: number;
-    总经验?: number;
   }>;
   先天六司: InnateAttributes;
   创建时间?: string; // 添加创建时间字段
