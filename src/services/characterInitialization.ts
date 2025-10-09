@@ -402,7 +402,9 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       所属势力: location.所属势力 || location.faction,
       coordinates: location.coordinates
     })) || [],
-    mapConfig: saveData.世界信息?.地图配置
+    mapConfig: saveData.世界信息?.地图配置,
+    // 🔥 传递系统设置，用于NSFW内容生成
+    systemSettings: saveData.系统 || { nsfwMode: false, nsfwGenderFilter: 'all' }
   };
 
   console.log(`[初始化] 准备生成开场剧情，角色: ${baseInfo.名字}`);

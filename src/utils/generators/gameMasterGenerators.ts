@@ -876,8 +876,18 @@ export async function generateInGameResponse(
         console.warn('【提示词连续性】提取短期记忆失败（忽略）:', e);
     }
 
+    // 🔥 获取系统设置(nsfwMode和nsfwGenderFilter)
+    const systemSettings = saveData?.系统 || { nsfwMode: false, nsfwGenderFilter: 'all' };
+    const nsfwMode = systemSettings.nsfwMode || false;
+    const nsfwGenderFilter = systemSettings.nsfwGenderFilter || 'all';
+
+    console.log('【剧情推进】系统设置:', { nsfwMode, nsfwGenderFilter });
+
     // 获取系统提示词（规则和数据结构）
-    const systemPrompt = getRandomizedInGamePrompt();
+    let systemPrompt = getRandomizedInGamePrompt();
+
+    // 🔥 注入系统设置到提示词
+    systemPrompt += `\n\n# 当前系统设置\nnsfwMode: ${nsfwMode}\nnsfwGenderFilter: ${nsfwGenderFilter}\n\n⚠️ 如果nsfwMode=true，生成NPC时必须包含"私密信息"字段（根据nsfwGenderFilter过滤性别）\n⚠️ 如果nsfwMode=false，生成NPC时不要包含"私密信息"字段\n`;
 
     // 构建玩家行动消息
     const userInput = `<玩家的行动趋向>\n${playerAction || '静观其变。'}</玩家的行动趋向>`;
