@@ -150,11 +150,23 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const selectedSpiritRoot = computed(() => creationData.value.spiritRoots.find(s => s.id === characterPayload.value.spirit_root_id) || null);
   const selectedTalents = computed(() => creationData.value.talents.filter(t => characterPayload.value.selected_talent_ids.includes(t.id)));
 
+  const bonusTalentPoints = computed(() => {
+    let points = 0;
+    if (selectedTalents.value.some(t => t.name === '霸王血脉')) {
+      points += 1;
+      console.log('[天道点计算] 检测到 "霸王血脉" 天赋, 增加 1 天道点');
+    }
+    return points;
+  });
+
   const remainingTalentPoints = computed(() => {
     if (!selectedTalentTier.value) return 0;
 
     let points = selectedTalentTier.value.total_points;
     console.log('[天道点计算] 初始天道点:', points);
+
+    // Add bonus points from talents
+    points += bonusTalentPoints.value;
 
     if (selectedOrigin.value) {
       console.log('[天道点计算] 出生消耗:', selectedOrigin.value.talent_cost);
@@ -730,7 +742,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
   return {
     mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig,
-    totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost,
+    totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
     removeWorld, removeTalentTier, removeOrigin, removeSpiritRoot, removeTalent, // 导出删除函数
     updateWorld, updateTalentTier, updateOrigin, updateSpiritRoot, updateTalent, getItemById, // 导出编辑函数

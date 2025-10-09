@@ -194,9 +194,28 @@ export async function processGmResponse(
   if (Array.isArray(response.tavern_commands) && response.tavern_commands.length > 0) {
     console.log(`[processGmResponse] 🎯 收到 ${response.tavern_commands.length} 个酒馆命令，开始执行...`);
     console.log('[processGmResponse] 命令详情:', response.tavern_commands);
+
+    // 检查是否有随机灵根或随机出生的替换命令
+    const spiritRootCmd = response.tavern_commands.find(cmd => cmd.key === '角色基础信息.灵根');
+    const originCmd = response.tavern_commands.find(cmd => cmd.key === '角色基础信息.出生');
+    if (spiritRootCmd) {
+      console.log('[processGmResponse] 🔥 检测到灵根替换命令:', JSON.stringify(spiritRootCmd.value));
+    }
+    if (originCmd) {
+      console.log('[processGmResponse] 🔥 检测到出生替换命令:', JSON.stringify(originCmd.value));
+    }
+
     const result = await executeCommands(response.tavern_commands, updatedSaveData);
     updatedSaveData = result.saveData;
     stateChanges = result.stateChanges;
+
+    // 验证替换后的值
+    if (spiritRootCmd) {
+      console.log('[processGmResponse] ✅ 灵根替换后的值:', JSON.stringify(updatedSaveData.角色基础信息?.灵根));
+    }
+    if (originCmd) {
+      console.log('[processGmResponse] ✅ 出生替换后的值:', JSON.stringify(updatedSaveData.角色基础信息?.出生));
+    }
 
     // 🔥 检查是否有时间更新，如果有则自动更新年龄
     const hasTimeUpdate = response.tavern_commands.some(cmd =>
@@ -654,6 +673,11 @@ async function executeCommand(command: { action: string; key: string; value?: un
 
     switch (action) {
       case 'set':
+        // 🔥 境界更新特殊日志
+        if (String(path).includes('境界')) {
+          console.log(`[executeCommand] 🌟 境界更新 - 路径: ${path}, 新值:`, value);
+        }
+
         // 若写入物品或功法，先做一次品质规范化
         if (String(path).includes('背包.物品') || String(path).includes('修炼功法.功法')) {
           set(saveData, path, normalizeItemIfNeeded(value));
@@ -677,6 +701,12 @@ async function executeCommand(command: { action: string; key: string; value?: un
             set(saveData, path, finalVal);
             console.log(`[executeCommand] ✅ 已设置:`, get(saveData, path));
           }
+        }
+
+        // 🔥 境界更新后验证
+        if (String(path).includes('境界')) {
+          const updatedRealm = get(saveData, '玩家角色状态.境界');
+          console.log(`[executeCommand] 🌟 境界更新后验证 - 完整境界对象:`, updatedRealm);
         }
 
         // [特例修复] 当设置大道进度时，自动将其添加到已解锁大道数组中
@@ -784,16 +814,23 @@ async function executeCommand(command: { action: string; key: string; value?: un
 
           let 剩余分钟 = newTotalMinutes;
 
+          // 计算年份（从1开始）
           const 新年 = Math.floor(剩余分钟 / 分钟每年) + 1;
           剩余分钟 = 剩余分钟 % 分钟每年;
 
-          const 新月 = Math.floor(剩余分钟 / 分钟每月) + 1;
+          // 计算月份（1-12）
+          const 月份数 = Math.floor(剩余分钟 / 分钟每月);
+          const 新月 = (月份数 % 月每年) + 1; // 确保月份在1-12之间
           剩余分钟 = 剩余分钟 % 分钟每月;
 
-          const 新日 = Math.floor(剩余分钟 / 分钟每天) + 1;
+          // 计算日期（1-30）
+          const 日期数 = Math.floor(剩余分钟 / 分钟每天);
+          const 新日 = (日期数 % 天每月) + 1; // 确保日期在1-30之间
           剩余分钟 = 剩余分钟 % 分钟每天;
 
-          const 新小时 = Math.floor(剩余分钟 / 分钟每小时);
+          // 计算小时（0-23）
+          const 新小时 = Math.floor(剩余分钟 / 分钟每小时) % 小时每天;
+          // 计算分钟（0-59）
           const 新分钟 = 剩余分钟 % 分钟每小时;
 
           // 更新游戏时间，不保存总分钟数

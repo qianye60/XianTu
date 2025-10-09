@@ -1128,20 +1128,29 @@ const isEquipped = (item: Item | null): boolean => {
   return currentItemState.已装备 === true
 }
 
-// 检查功法是否正在修炼 - 优先检查背包物品的已装备标记
+// 检查功法是否正在修炼 - 优先检查背包物品标记，兼容修炼功法字段
 const isCultivating = (item: Item | null): boolean => {
   if (!item || !item.物品ID) return false
 
-  // 优先检查背包中物品的已装备状态（与装备检查逻辑一致）
   const inventoryItems = characterData.value?.背包_物品
+  if (inventoryItems) {
+    // 优先检查背包中物品的已装备/修炼中标记（动作队列使用的逻辑）
+    const currentItemState = inventoryItems[item.物品ID]
+    if (currentItemState) {
+      // 功法的已装备或修炼中状态表示正在修炼
+      if (currentItemState.已装备 === true || currentItemState.修炼中 === true) {
+        return true
+      }
+    }
+  }
 
-  if (!inventoryItems) return false
+  // 兼容：如果背包中没有标记，检查修炼功法字段（功法面板使用的逻辑）
+  const cultivationData = characterData.value?.修炼功法 as { 物品ID?: string; 正在修炼?: boolean } | null | undefined
+  if (cultivationData && cultivationData.物品ID === item.物品ID) {
+    return cultivationData.正在修炼 !== false
+  }
 
-  const currentItemState = inventoryItems[item.物品ID]
-  if (!currentItemState) return false
-
-  // 功法的已装备状态表示正在修炼
-  return currentItemState.已装备 === true
+  return false
 }
 
 const getItemQualityClass = (

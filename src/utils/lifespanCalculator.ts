@@ -47,16 +47,17 @@ export function calculateBirthdateFromAge(currentAge: number, currentTime: GameT
 }
 
 /**
- * 从SaveData中自动计算并更新当前年龄（玩家）
+ * 从SaveData中计算当前年龄（玩家）
+ * 注意：不再自动更新 寿命.当前，年龄应该通过出生日期实时计算
  * @param saveData 存档数据
- * @returns 更新后的年龄
+ * @returns 计算得到的年龄
  */
 export function updateLifespanFromGameTime(saveData: any): number {
   const currentTime = saveData.游戏时间 || { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
 
   // 如果没有出生日期，根据当前年龄推算出生日期
   if (!saveData.角色基础信息?.出生日期) {
-    const currentAge = saveData.玩家角色状态?.寿命?.当前 || saveData.角色基础信息?.年龄 || 18;
+    const currentAge = saveData.角色基础信息?.年龄 || 18;
     const birthdate = calculateBirthdateFromAge(currentAge, currentTime);
 
     // 保存出生日期到角色基础信息
@@ -73,12 +74,9 @@ export function updateLifespanFromGameTime(saveData: any): number {
   const birthdate = saveData.角色基础信息.出生日期;
   const calculatedAge = calculateAgeFromBirthdate(birthdate, currentTime);
 
-  // 更新年龄到各个位置
+  // 只更新基础信息中的年龄（用于显示），不再更新寿命.当前
   if (saveData.角色基础信息) {
     saveData.角色基础信息.年龄 = calculatedAge;
-  }
-  if (saveData.玩家角色状态?.寿命) {
-    saveData.玩家角色状态.寿命.当前 = calculatedAge;
   }
 
   return calculatedAge;

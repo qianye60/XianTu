@@ -885,20 +885,20 @@ const editInitialData = computed(() => {
   }
   .talent-selection-container {
     padding: 0.4rem;
-    height: 100vh;
+    height: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .talent-layout {
     gap: 0.6rem;
     padding: 0;
     height: auto;
-    min-height: calc(100vh - 2rem);
+    min-height: 0;
   }
-  
+
   .talent-left-panel {
-    max-height: 30vh;
+    max-height: none;
     border-radius: 6px;
   }
   

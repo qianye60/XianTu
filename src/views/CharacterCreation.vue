@@ -589,8 +589,8 @@ function onDataCleared(type: string, count: number) {
 .creation-scroll {
   width: 95%; /* 增加宽度利用率 */
   max-width: 1400px; /* 增加最大宽度 */
-  height: 92vh; /* 增加高度利用率 */
-  max-height: 900px; /* 增加最大高度 */
+  height: 90vh;
+  max-height: 90vh; /* 使用视口高度 */
   background: var(--color-surface-transparent);
   border: 1px solid var(--color-border);
   border-radius: 15px;
@@ -602,11 +602,13 @@ function onDataCleared(type: string, count: number) {
   -webkit-backdrop-filter: blur(10px);
   position: relative;
   z-index: 1;
+  overflow: hidden; /* 容器本身不滚动 */
 }
 
 .header-container {
   /* This container no longer needs flex properties */
   margin-bottom: 2rem;
+  flex-shrink: 0; /* 防止被压缩 */
 }
 
 .header-top {
@@ -614,6 +616,8 @@ function onDataCleared(type: string, count: number) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .mode-indicator {
@@ -623,18 +627,31 @@ function onDataCleared(type: string, count: number) {
   background: rgba(var(--color-primary-rgb), 0.1);
   border: 1px solid var(--color-primary);
   border-radius: 15px;
+  white-space: nowrap;
 }
 
 .cloud-sync-container {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .progress-steps {
   display: flex;
-  justify-content: space-between; /* Distribute steps evenly across the full width */
+  justify-content: flex-start; /* 左对齐，便于滚动 */
   width: 100%; /* Ensure the container spans the full width */
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.progress-steps::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
 }
 
 .step {
@@ -643,6 +660,8 @@ function onDataCleared(type: string, count: number) {
   align-items: center;
   opacity: 0.5;
   transition: opacity 0.3s ease;
+  flex-shrink: 0; /* 防止步骤被压缩 */
+  min-width: 60px; /* 确保最小宽度 */
 }
 
 .step.active {
@@ -676,13 +695,14 @@ function onDataCleared(type: string, count: number) {
 }
 
 .step-content {
-  flex-grow: 1;
+  flex: 1 1 0;
+  min-height: 0; /* 允许flex子元素缩小 */
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2rem 1rem; /* 增加内边距，内容更舒适 */
   margin: 0; /* 移除margin避免多余空间 */
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
-  /* 隐藏滚动条但保留滚动功能 */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
@@ -693,19 +713,36 @@ function onDataCleared(type: string, count: number) {
 }
 
 .navigation-buttons {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding-top: 1.5rem;
+  padding: 1rem;
   gap: 1rem;
+  flex-shrink: 0;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--color-border);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.navigation-buttons > button:first-child {
+  justify-self: start;
+}
+
+.navigation-buttons > button:last-child {
+  justify-self: end;
+  grid-column: 3;
 }
 
 .points-display {
-  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 2rem;
+  grid-column: 2;
 }
 
 .destiny-points,
@@ -750,5 +787,166 @@ function onDataCleared(type: string, count: number) {
   bottom: 2rem;
   left: 2rem;
   z-index: 10;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .creation-scroll {
+    width: 98%;
+    height: 95vh;
+    max-height: 95vh;
+    padding: 1rem;
+    border-radius: 10px;
+  }
+
+  .header-container {
+    margin-bottom: 1rem;
+    flex-shrink: 0;
+  }
+
+  .header-top {
+    gap: 0.75rem;
+  }
+
+  .mode-indicator {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .cloud-sync-container {
+    gap: 0.5rem;
+  }
+
+  .progress-steps {
+    gap: 0.5rem;
+    padding: 0 0.25rem;
+  }
+
+  .step {
+    min-width: 60px;
+  }
+
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+
+  .step-label {
+    font-size: 0.7rem;
+    margin-top: 0.3rem;
+  }
+
+  .step-content {
+    padding: 1.5rem 0.5rem;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .navigation-buttons {
+    padding: 1rem 0;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .points-display {
+    flex-basis: 100%;
+    order: -1;
+    margin-bottom: 0.5rem;
+  }
+
+  .destiny-points,
+  .attribute-points {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .points-label {
+    font-size: 0.8rem;
+  }
+
+  .points-value {
+    font-size: 1rem;
+  }
+
+  .navigation-buttons button {
+    flex: 1;
+    min-width: 100px;
+    font-size: 0.9rem;
+    padding: 0.6rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .creation-scroll {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    padding: 0.75rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); /* 适配刘海屏底部安全区域 */
+    border-radius: 0;
+  }
+
+  .header-container {
+    flex-shrink: 0;
+  }
+
+  .header-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mode-indicator {
+    text-align: center;
+  }
+
+  .cloud-sync-container {
+    justify-content: center;
+  }
+
+  .progress-steps {
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+
+  .step {
+    min-width: 55px;
+  }
+
+  .step-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+
+  .step-label {
+    font-size: 0.65rem;
+  }
+
+  .step-content {
+    padding: 1rem 0.25rem;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .navigation-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 0 0.5rem 0;
+    flex-shrink: 0;
+  }
+
+  .points-display {
+    order: 0;
+    margin-bottom: 0.75rem;
+  }
+
+  .navigation-buttons button {
+    width: 100%;
+    min-width: auto;
+    padding: 0.8rem 1rem; /* 增加按钮高度，更易点击 */
+    font-size: 1rem; /* 增大字体，更易阅读 */
+  }
 }
 </style>

@@ -1327,18 +1327,35 @@ const retryAIResponse = async (
       // 在用户消息中添加结构要求
       const enhancedMessage = `${userMessage}
 
-【重要提醒】请严格按照以下JSON结构返回响应：
+## 输出格式（必须严格遵守）
+
+**⚠️ 重要：以下4个字段都是必需的，缺一不可！**
+
 {
-  "text": "正文内容，用于短期记忆和显示",
-  "mid_term_memory": "【必须】精简的中期记忆内容，包含关键事件和变化，不能为空",
-  "tavern_commands": [
-    {"action": "set", "key": "境界.名称", "value": "新值"}
-  ]
+  "text": "Narrative text(中文简体，字数越多越好1000-3000，往用户趋向去尝试行动)",
+  "mid_term_memory": "Brief summary",
+  "state_changes": {
+    "时间推进_分钟": number,
+    "NPC交互": ["NPC_name"],
+    "需要修改的字段": [{"路径": "key.path", "当前值": X, "目标值": Y, "变化原因": "reason", "操作类型": "set/add", "操作值": Z}]
+  },
+  "tavern_commands": [{"action": "Action", "key": "key.path", "value": Value/List}]
 }
 
-⚠️ 注意：
-1. mid_term_memory字段是必须的，必须返回有意义的中期记忆总结
-2. 🔥 使用新的简化路径格式：境界.名称 而不是 character.saveData.玩家角色状态.境界.名称
+下面为tavern_commands的行动命令类型
+
+# 🎯 Action Types
+
+| Action | Purpose | Example |
+|--------|---------|---------|
+| set | Replace/Set | Update state |
+| add | Increase/Decrease | Change numerical values |
+| push | Add to array | Record history |
+| delete | Remove field | Clear data |
+| pull | Remove from array | Remove array element |
+
+---
+
 
 上次响应的问题：${previousErrors.join(', ')}
 请修正这些问题并确保结构正确。`;
@@ -2039,43 +2056,6 @@ const transferToLongTermMemory = async () => {
   }
 };
 
-// 🔥 新增：直接操作存档数据的长期记忆转换函数（用于AIGameMaster.ts调用）
-const transferToLongTermMemoryDirect = async (saveData: SaveData) => {
-  try {
-    console.log('[记忆管理] 开始直接转移到长期记忆');
-
-    if (!saveData?.记忆?.中期记忆) {
-      console.warn('[记忆管理] 存档或中期记忆数据不可用，无法处理长期记忆转移');
-      return;
-    }
-
-    // 计算需要总结的记忆数量 = 当前中期记忆数量 - 保留数量
-    const memoriesToSummarizeCount = saveData.记忆.中期记忆.length - midTermKeepCount.value;
-
-    if (memoriesToSummarizeCount > 0) {
-      // 从中期记忆的开头提取（并移除）最旧的记忆进行总结
-      const oldMemories = saveData.记忆.中期记忆.splice(0, memoriesToSummarizeCount);
-
-      console.log(`[记忆管理] 提取了 ${oldMemories.length} 条中期记忆进行总结。剩余中期记忆: ${saveData.记忆.中期记忆.length} 条`);
-
-      // 生成长期记忆总结
-      const summary = await generateLongTermSummary(oldMemories);
-      if (summary) {
-        // 确保长期记忆结构存在
-        if (!saveData.记忆.长期记忆) saveData.记忆.长期记忆 = [];
-
-        // 添加新的总结到长期记忆开头
-        saveData.记忆.长期记忆.unshift(summary);
-
-        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
-      } else {
-        console.warn('[记忆管理] ⚠️ 生成长期记忆总结失败，被移除的中期记忆已丢失:', oldMemories);
-      }
-    }
-  } catch (error) {
-    console.warn('[记忆管理] 转移长期记忆失败:', error);
-  }
-};
 
 // 生成长期记忆总结
 const generateLongTermSummary = async (memories: string[]): Promise<string | null> => {

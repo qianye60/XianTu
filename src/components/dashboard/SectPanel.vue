@@ -208,7 +208,7 @@
                         class="realm-item"
                         v-show="count > 0"
                       >
-                        <span class="realm-name">{{ realm }}期</span>
+                        <span class="realm-name">{{ realm.includes('期') ? realm : realm + '期' }}</span>
                         <span class="realm-count">{{ count }}人</span>
                       </div>
                     </div>

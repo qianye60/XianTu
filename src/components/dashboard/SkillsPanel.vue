@@ -504,23 +504,14 @@ const unequipSkill = async () => {
             功法技能?: unknown;
           };
 
-          // 将功法放回背包
-          if (currentSkill && currentSaveData.背包) {
-            if (!currentSaveData.背包.物品) {
-              currentSaveData.背包.物品 = {};
+          // 清除背包物品的已装备和修炼中标记（功法仍保留在背包中）
+          if (currentSkill && currentSaveData.背包?.物品) {
+            const itemId = currentSkill.物品ID;
+            if (itemId && currentSaveData.背包.物品[itemId]) {
+              currentSaveData.背包.物品[itemId].已装备 = false;
+              currentSaveData.背包.物品[itemId].修炼中 = false;
+              console.log('[技能面板] 功法标记已清除:', currentSkill.名称);
             }
-            const itemId = currentSkill.物品ID || `功法_${currentSkill.名称}`;
-            currentSaveData.背包.物品[itemId] = {
-              物品ID: itemId,
-              名称: currentSkill.名称,
-              类型: '功法' as const,
-              品质: (currentSkill.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
-              数量: 1,
-              描述: currentSkill.描述 || '',
-              功法效果: currentSkill.功法效果 || {},
-              功法技能: (currentSkill.功法技能 || {}) as Record<string, TechniqueSkill>
-            } as TechniqueItem;
-            console.log('[技能面板] 功法已放回背包:', currentSkill.名称);
           }
 
           // 清空功法槽位
@@ -649,8 +640,13 @@ const finalizeEquipTechnique = async (technique: {
     修炼进度: 0
   };
 
+  // 不删除背包物品，而是设置已装备和修炼中标记（与动作队列逻辑一致）
   if (currentSaveData.背包?.物品 && technique.物品ID) {
-    delete currentSaveData.背包.物品[technique.物品ID];
+    const inventoryItem = currentSaveData.背包.物品[technique.物品ID];
+    if (inventoryItem) {
+      inventoryItem.已装备 = true;
+      inventoryItem.修炼中 = true;
+    }
   }
 
   // 使用动态导入保存数据
@@ -1670,16 +1666,36 @@ onMounted(async () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .skills-content {
+    display: flex;
     flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .skills-content > div:first-child {
+    overflow-y: visible;
+    padding: 16px;
   }
 
   .skill-details-sidebar {
+    position: static;
     width: 100%;
-    max-height: 300px;
+    max-height: none;
+    min-height: 400px;
     border-left: none;
-    border-top: 1px solid var(--color-border);
+    border-top: 2px solid var(--color-border);
+    overflow-y: visible;
+  }
+
+  .skill-details-sidebar.no-selection {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 640px) {
+  .skills-content > div:first-child {
+    padding: 12px;
   }
 
   .cultivation-section {
@@ -1698,6 +1714,15 @@ onMounted(async () => {
 
   .skill-type-text {
     font-size: 16px;
+  }
+
+  .technique-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .current-technique-section,
+  .technique-library-section {
+    gap: 12px;
   }
 }
 

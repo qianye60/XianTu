@@ -1053,25 +1053,25 @@ const editInitialData = computed(() => {
   }
   .world-selection-container {
     padding: 0.4rem;
-    height: 100vh;
+    height: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .world-layout {
     gap: 0.6rem;
     padding: 0;
     height: auto;
-    min-height: calc(100vh - 2rem);
+    min-height: 0;
   }
-  
+
   .left-panel {
-    max-height: 32vh;
+    max-height: none;
     border-radius: 6px;
   }
-  
+
   .list-container {
-    max-height: 28vh;
+    max-height: 300px;
     padding: 0.4rem;
   }
   

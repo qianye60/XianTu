@@ -119,14 +119,15 @@ const enterCharacterSelection = () => {
 <style scoped>
 .mode-selection-container {
   width: 100%;
-  height: 100vh;
+  height: auto;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
   box-sizing: border-box;
   background: transparent;
-  overflow: hidden; /* 防止滚动条 */
+  overflow: hidden; /* 移除滚动 */
 }
 
 .selection-content {
@@ -139,22 +140,25 @@ const enterCharacterSelection = () => {
   border: 1px solid var(--color-border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   /* 调整到合适高度，确保内容完全可见 */
-  height: min(720px, calc(100vh - 4rem));
+  height: auto;
+  max-height: 90vh;
   max-width: 1000px;
   width: 90%;
-  overflow-y: auto;  /* 允许滚动但尽量避免 */
+  overflow-y: auto;  /* 允许内部滚动 */
+  overflow-x: hidden;
   /* 隐藏滚动条但保持滚动功能 */
   scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  -ms-overflow-style: none; /* IE and Edge */
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 1.5rem;
 }
 
 /* 隐藏Webkit浏览器的滚动条 */
 .selection-content::-webkit-scrollbar {
   display: none;
 }
+
 
 .header-container {
   display: flex;
@@ -344,7 +348,8 @@ const enterCharacterSelection = () => {
   }
   .mode-selection-container {
     padding: 1rem;
-    height: 100vh;
+    height: auto;
+    min-height: 100%;
     align-items: center; /* 居中显示 */
     justify-content: center;
   }
@@ -352,12 +357,12 @@ const enterCharacterSelection = () => {
   .selection-content {
     padding: 1.5rem;
     height: auto;
-    max-height: calc(100vh - 2rem);
+    max-height: 95vh;
     overflow-y: auto; /* 移动端允许滚动 */
+    overflow-x: hidden;
     /* 隐藏滚动条但保持滚动功能 */
     scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* Internet Explorer 10+ */
-    justify-content: flex-start;
+    -ms-overflow-style: none; /* IE and Edge */
     gap: 1.5rem;
   }
 

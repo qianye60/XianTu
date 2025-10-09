@@ -486,6 +486,7 @@ export interface PlayerStatus extends AIMetadata {
   寿命: ValuePair<number>;
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
+  天道点?: number;
 }
 
 /** 用于UI组件显示的角色状态信息 */

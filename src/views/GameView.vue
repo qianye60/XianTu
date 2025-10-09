@@ -347,7 +347,7 @@ watch(isPanelOpen, (isOpen) => {
 <style scoped>
 .game-view {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   background: var(--color-background);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
@@ -679,7 +679,7 @@ watch(isPanelOpen, (isOpen) => {
     top: 0; /* 从顶部开始 */
     left: 0;
     bottom: 0;
-    height: 100vh;
+    height: 100%;
     width: 280px;
     z-index: 1000;
     transform: translateX(-100%);
@@ -706,7 +706,7 @@ watch(isPanelOpen, (isOpen) => {
     top: 0; /* 从顶部开始 */
     right: 0;
     bottom: 0;
-    height: 100vh;
+    height: 100%;
     width: 260px;
     z-index: 1000;
     transform: translateX(100%);

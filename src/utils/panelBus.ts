@@ -1,6 +1,6 @@
-type PanelAction = 'refresh' | 'save' | 'test' | 'clear' | 'export' | 'stats';
+type PanelAction = 'refresh' | 'save' | 'test' | 'clear' | 'export' | 'stats' | 'memory-settings-updated';
 
-type Handler = () => void | Promise<void>;
+type Handler = (payload?: any) => void | Promise<void>;
 
 class PanelBus {
   private listeners: Map<PanelAction, Set<Handler>> = new Map();
@@ -14,10 +14,10 @@ class PanelBus {
     this.listeners.get(action)?.delete(handler);
   }
 
-  async emit(action: PanelAction) {
+  async emit(action: PanelAction, payload?: any) {
     const handlers = Array.from(this.listeners.get(action) || []);
     for (const h of handlers) {
-      await h();
+      await h(payload);
     }
   }
 }

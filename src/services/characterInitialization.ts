@@ -103,7 +103,7 @@ async function robustAICall<T>(
  * 计算角色的初始属性值
  */
 export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: number): PlayerStatus {
-  const { 先天六司 } = baseInfo;
+  const { 先天六司, 天赋 } = baseInfo;
 
   // 确保先天六司都是有效的数值，避免NaN
   // ⚠️ 使用 ?? 而不是 ||，因为 || 会将 0 视为 falsy 值
@@ -120,6 +120,16 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
   const 基础寿命 = 80; // 凡人基础寿命
   const 根骨寿命系数 = 5; // 每点根骨增加5年寿命
   const 最大寿命 = 基础寿命 + 根骨 * 根骨寿命系数;
+
+  // 检查特定天赋以授予初始资源
+  let initialTiandaoPoints = 0;
+  if (天赋 && Array.isArray(天赋)) {
+    const hasBawangXuemai = 天赋.some(talent => talent.名称 === '霸王血脉');
+    if (hasBawangXuemai) {
+      initialTiandaoPoints = 1;
+      console.log(`[角色初始化] 检测到天赋 "霸王血脉"，初始天道点 +${initialTiandaoPoints}`);
+    }
+  }
 
   console.log(`[角色初始化] 属性计算: 气血=${初始气血}, 灵气=${初始灵气}, 神识=${初始神识}, 年龄=${age}/${最大寿命}`);
   console.log(`[角色初始化] 先天六司: 根骨=${根骨}, 灵性=${灵性}, 悟性=${悟性}`);
@@ -140,7 +150,8 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     灵气: { 当前: 初始灵气, 上限: 初始灵气 },
     神识: { 当前: 初始神识, 上限: 初始神识 },
     寿命: { 当前: age, 上限: 最大寿命 },
-    状态效果: [] // 使用新的StatusEffect数组格式
+    状态效果: [], // 使用新的StatusEffect数组格式
+    天道点: initialTiandaoPoints
   };
 }
 
@@ -428,14 +439,15 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   const creationStore = useCharacterCreationStore();
 
   console.log('[数据校准] 开始从创角仓库同步所有权威数据...');
+  console.log('[数据校准] 【重要】所有用户手动选择的数据都将被保护，不被AI或代码修改');
 
-  // 1. 世界
+  // 1. 世界（用户必选，直接使用）
   derivedInfo.世界 = worldName;
 
-  // 2. 天资 (Talent Tier)
+  // 2. 天资 (Talent Tier) - 用户必选
   const authoritativeTalentTier = creationStore.selectedTalentTier;
   if (authoritativeTalentTier) {
-    console.log(`[数据校准] 同步天资: ${authoritativeTalentTier.name}`);
+    console.log(`[数据校准] ✅ 同步用户选择的天资: ${authoritativeTalentTier.name}`);
     (derivedInfo as any).天资 = {
       名称: authoritativeTalentTier.name,
       描述: authoritativeTalentTier.description,
@@ -444,16 +456,16 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
     console.warn('[数据校准] 警告: 无法找到权威的天资数据。');
   }
 
-  // 3. 出身 (Origin)
+  // 3. 出身 (Origin) - 可选，null表示随机
   const authoritativeOrigin = creationStore.selectedOrigin;
   if (authoritativeOrigin) {
-    console.log(`[数据校准] 同步出身: ${authoritativeOrigin.name}`);
+    console.log(`[数据校准] ✅ 同步用户选择的出身: ${authoritativeOrigin.name}`);
     derivedInfo.出生 = {
       名称: authoritativeOrigin.name,
       描述: authoritativeOrigin.description,
     };
   } else if (creationStore.characterPayload.origin_id === null) {
-    console.log('[数据校准] 检测到随机出身选择');
+    console.log('[数据校准] 🎲 用户选择随机出身，标记为随机');
     derivedInfo.出生 = {
       名称: '随机出身',
       描述: '身世迷离，一切皆有可能。',
@@ -462,17 +474,17 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
     console.warn('[数据校准] 警告: 无法找到权威的出身数据。');
   }
 
-  // 4. 灵根 (Spirit Root)
+  // 4. 灵根 (Spirit Root) - 可选，null表示随机
   const authoritativeSpiritRoot = creationStore.selectedSpiritRoot;
   if (authoritativeSpiritRoot) {
-    console.log(`[数据校准] 同步灵根: ${authoritativeSpiritRoot.name} (${authoritativeSpiritRoot.tier})`);
+    console.log(`[数据校准] ✅ 同步用户选择的灵根: ${authoritativeSpiritRoot.name} (${authoritativeSpiritRoot.tier})`);
     derivedInfo.灵根 = {
       名称: authoritativeSpiritRoot.name,
       品级: authoritativeSpiritRoot.tier || '凡品',
       描述: authoritativeSpiritRoot.description || '基础灵根',
     };
   } else if (creationStore.characterPayload.spirit_root_id === null) {
-    console.log('[数据校准] 检测到随机灵根选择');
+    console.log('[数据校准] 🎲 用户选择随机灵根，标记为随机');
     derivedInfo.灵根 = {
       名称: '随机灵根',
       品级: '凡品',
@@ -482,25 +494,25 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
     console.warn('[数据校准] 警告: 无法找到权威的灵根数据。');
   }
 
-  // 5. 天赋 (Talents) - 强制从创角仓库读取最权威的完整数据
+  // 5. 天赋 (Talents) - 用户选择的天赋，强制使用不允许修改
   const authoritativeTalents = creationStore.selectedTalents;
   if (authoritativeTalents && authoritativeTalents.length > 0) {
-    console.log(`[数据校准] 强制同步天赋，共 ${authoritativeTalents.length}个`);
+    console.log(`[数据校准] ✅ 同步用户选择的天赋，共 ${authoritativeTalents.length} 个`);
     derivedInfo.天赋 = authoritativeTalents.map(t => {
-      console.log(`[数据校准] -> 天赋: ${t.name}, 描述: ${t.description}`);
+      console.log(`[数据校准]    -> 天赋: ${t.name}`);
       return {
         名称: t.name,
         描述: t.description,
       };
     });
   } else {
-    console.log('[数据校准] 未选择任何天赋，天赋字段设置为空数组。');
+    console.log('[数据校准] 用户未选择任何天赋，天赋字段设置为空数组。');
     derivedInfo.天赋 = [];
   }
 
-  // 6. 先天六司 (Attributes)
+  // 6. 先天六司 (Attributes) - 用户分配的属性，强制使用不允许修改
   const authoritativeAttributes = creationStore.attributes;
-  console.log('[数据校准] 同步先天六司:', authoritativeAttributes);
+  console.log('[数据校准] ✅ 同步用户分配的先天六司:', authoritativeAttributes);
   derivedInfo.先天六司 = {
     根骨: authoritativeAttributes.root_bone,
     灵性: authoritativeAttributes.spirituality,
@@ -548,12 +560,15 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   };
 
   // 🔥 最终权威性覆盖：直接从创角仓库获取最原始的选择，覆盖AI可能产生的任何修改
+  // 【重要】这确保了用户手动选择的信息永远不会被AI或代码修改
+  // 只有用户选择"随机"时，才使用AI生成的数据
   const creationStore = useCharacterCreationStore();
 
   // 灵根权威覆盖
   const authoritativeSpiritRoot = creationStore.selectedSpiritRoot;
   if (authoritativeSpiritRoot) {
-    console.log(`[数据最终化] 检测到特定灵根选择，强制使用创角仓库的权威数据: ${authoritativeSpiritRoot.name}`);
+    // 用户手动选择了特定灵根，强制使用用户的选择，不使用AI生成
+    console.log(`[数据最终化] ✅ 用户选择特定灵根，使用用户选择: ${authoritativeSpiritRoot.name}`);
     mergedBaseInfo.灵根 = {
       名称: authoritativeSpiritRoot.name,
       品级: authoritativeSpiritRoot.tier,
@@ -563,21 +578,38 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       special_effects: authoritativeSpiritRoot.special_effects,
     };
   } else {
-    console.log('[数据最终化] 检测到随机灵根，使用AI生成的数据');
-    mergedBaseInfo.灵根 = saveData.角色基础信息?.灵根 || '随机灵根';
+    // 用户选择了"随机灵根"，使用AI生成的数据
+    console.log('[数据最终化] 🎲 用户选择随机灵根，使用AI生成的数据');
+    const aiGeneratedSpiritRoot = saveData.角色基础信息?.灵根;
+    console.log('[数据最终化] AI生成的灵根数据:', JSON.stringify(aiGeneratedSpiritRoot));
+    mergedBaseInfo.灵根 = aiGeneratedSpiritRoot || '随机灵根';
+
+    // 验证AI是否正确替换了随机灵根
+    if (typeof mergedBaseInfo.灵根 === 'string' && mergedBaseInfo.灵根.includes('随机')) {
+      console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机灵根，仍然包含"随机"字样');
+    }
   }
 
   // 出生权威覆盖
   const authoritativeOrigin = creationStore.selectedOrigin;
   if (authoritativeOrigin) {
-    console.log(`[数据最终化] 检测到特定出生选择，强制使用创角仓库的权威数据: ${authoritativeOrigin.name}`);
+    // 用户手动选择了特定出身，强制使用用户的选择，不使用AI生成
+    console.log(`[数据最终化] ✅ 用户选择特定出身，使用用户选择: ${authoritativeOrigin.name}`);
     mergedBaseInfo.出生 = {
       名称: authoritativeOrigin.name,
       描述: authoritativeOrigin.description,
     };
   } else {
-    console.log('[数据最终化] 检测到随机出生，使用AI生成的数据');
-    mergedBaseInfo.出生 = saveData.角色基础信息?.出生 || '随机出生';
+    // 用户选择了"随机出身"，使用AI生成的数据
+    console.log('[数据最终化] 🎲 用户选择随机出身，使用AI生成的数据');
+    const aiGeneratedOrigin = saveData.角色基础信息?.出生;
+    console.log('[数据最终化] AI生成的出身数据:', JSON.stringify(aiGeneratedOrigin));
+    mergedBaseInfo.出生 = aiGeneratedOrigin || '随机出身';
+
+    // 验证AI是否正确替换了随机出身
+    if (typeof mergedBaseInfo.出生 === 'string' && mergedBaseInfo.出生.includes('随机')) {
+      console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机出身，仍然包含"随机"字样');
+    }
   }
 
   // 2. 从详情对象派生基础字段，确保数据一致性

@@ -55,12 +55,15 @@ export class EnhancedWorldGenerator {
    */
   async generateValidatedWorld(): Promise<{ success: boolean; worldInfo?: WorldInfo; errors?: string[] }> {
     console.log('[增强世界生成器] 开始生成验证过的世界数据...');
-    
+
     for (let i = 0; i <= this.config.maxRetries; i++) {
       try {
         if (i > 0) {
           console.log(`[增强世界生成器] 第 ${i} 次重试...`);
           await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * i));
+
+          // 重试时减少数量参数，降低token消耗和AI出错概率
+          this.reduceCountsForRetry(i);
         }
 
         const worldData = await this.generateWorldData();
@@ -79,9 +82,33 @@ export class EnhancedWorldGenerator {
         this.previousErrors = [message];
       }
     }
-    
+
     console.error('[增强世界生成器] 世界生成失败，已达最大重试次数。');
     return { success: false, errors: this.previousErrors };
+  }
+
+  /**
+   * 重试时减少数量参数，降低token消耗
+   * @param retryCount 当前重试次数
+   */
+  private reduceCountsForRetry(retryCount: number): void {
+    // 每次重试减少约20%的数量
+    const reductionFactor = 0.8;
+
+    // 计算减少后的数量
+    const factor = Math.pow(reductionFactor, retryCount);
+
+    this.config.factionCount = Math.max(3, Math.floor(this.config.factionCount * factor));
+    this.config.locationCount = Math.max(5, Math.floor(this.config.locationCount * factor));
+    this.config.secretRealmsCount = Math.max(2, Math.floor(this.config.secretRealmsCount * factor));
+    this.config.continentCount = Math.max(2, Math.floor(this.config.continentCount * factor));
+
+    console.log(`[增强世界生成器] 重试 ${retryCount} 次后调整数量参数:`, {
+      factionCount: this.config.factionCount,
+      locationCount: this.config.locationCount,
+      secretRealmsCount: this.config.secretRealmsCount,
+      continentCount: this.config.continentCount
+    });
   }
   
   /**

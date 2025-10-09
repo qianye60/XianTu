@@ -320,11 +320,32 @@ async function handleAIPromptSubmit(userPrompt: string) {
       return;
     }
 
+    // 解析天道点消耗（支持多种字段名）
+    let talentCost = parsedOrigin.talent_cost || parsedOrigin.天道点消耗 || parsedOrigin.消耗天道点;
+
+    // 如果AI没有提供天道点，给予警告并设置默认值
+    if (talentCost === undefined || talentCost === null) {
+      console.warn('【AI推演-出身】AI未返回天道点消耗字段，使用默认值3');
+      toast.warning('AI未设置天道点消耗，已自动设为3点', { id: toastId, duration: 2000 });
+      talentCost = 3; // 默认消耗3点，较为合理
+    } else {
+      // 确保是数字类型
+      talentCost = Number(talentCost);
+      if (isNaN(talentCost)) {
+        console.warn('【AI推演-出身】天道点消耗不是有效数字，使用默认值3');
+        talentCost = 3;
+      }
+    }
+
     // 创建出身对象
     const newOrigin: Origin = {
       id: Date.now(),
       name: parsedOrigin.name || parsedOrigin.名称 || '未命名出身',
       description: parsedOrigin.description || parsedOrigin.描述 || parsedOrigin.说明 || '',
+      talent_cost: talentCost,
+      attribute_modifiers: parsedOrigin.attribute_modifiers || parsedOrigin.属性修正 || {},
+      background_effects: parsedOrigin.background_effects || parsedOrigin.背景效果 || [],
+      rarity: parsedOrigin.rarity || parsedOrigin.稀有度 || 1,
       initial_attributes: parsedOrigin.initial_attributes || parsedOrigin.初始属性 || {},
       source: 'local'
     };
@@ -825,20 +846,20 @@ const activeCost = computed(() => {
   }
   .origin-selection-container {
     padding: 0.4rem;
-    height: 100vh;
+    height: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .origin-layout {
     gap: 0.6rem;
     padding: 0;
     height: auto;
-    min-height: calc(100vh - 2rem);
+    min-height: 0;
   }
-  
+
   .origin-left-panel {
-    max-height: 30vh;
+    max-height: none;
     border-radius: 6px;
   }
   

@@ -130,7 +130,7 @@
                     <h3 class="char-name">{{ profile.角色基础信息.名字 }}</h3>
                     <div class="char-meta">
                       <span class="world">{{ profile.角色基础信息.世界 }}</span>
-                      <span class="talent">{{ profile.角色基础信息.天资 }}</span>
+                      <span class="talent">{{ getFieldName(profile.角色基础信息.天资) }}</span>
                     </div>
                   </div>
                   <div class="save-count">

@@ -316,44 +316,107 @@ h2 {
 }
 
 /* 响应式设计 */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .header {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     text-align: center;
+    padding-bottom: 0.75rem;
   }
-  
+
+  .header h2 {
+    font-size: 1.4rem;
+  }
+
+  .points-display {
+    font-size: 1.1rem;
+  }
+
+  .points-display span {
+    font-size: 1.3rem;
+  }
+
+  .attribute-item {
+    flex-direction: row;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+  }
+
+  .attribute-info {
+    flex-basis: 60%;
+  }
+
+  .attribute-name {
+    font-size: 1rem;
+  }
+
+  .attribute-desc {
+    font-size: 0.8rem;
+  }
+
+  .attribute-controls {
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  .attribute-controls button {
+    width: 36px;
+    height: 36px;
+    font-size: 1.6rem;
+  }
+
+  .attribute-value {
+    font-size: 1.4rem;
+    min-width: 35px;
+  }
+
+  .actions {
+    gap: 0.75rem;
+    padding-top: 0.75rem;
+  }
+
+  .actions button {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    gap: 1rem;
+  }
+
   .attribute-item {
     flex-direction: column;
     gap: 1rem;
     padding: 1.5rem 0;
   }
-  
+
   .attribute-info {
     flex-basis: auto;
     text-align: center;
   }
-  
+
   .attribute-controls {
     justify-content: center;
     gap: 1.5rem;
   }
-  
+
   .attribute-controls button {
     width: 40px;
     height: 40px;
     font-size: 1.8rem;
   }
-  
+
   .attribute-value {
     font-size: 1.6rem;
     min-width: 40px;
   }
-  
+
   .actions {
     gap: 1rem;
   }
-  
+
   .actions button {
     padding: 0.75rem 2rem;
     font-size: 1rem;

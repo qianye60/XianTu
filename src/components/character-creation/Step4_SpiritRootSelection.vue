@@ -1084,16 +1084,16 @@ const editInitialData = computed(() => {
   }
   .spirit-root-selection-container {
     padding: 0.4rem;
-    height: 100vh;
+    height: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .spirit-root-layout {
     gap: 0.6rem;
     padding: 0;
     height: auto;
-    min-height: calc(100vh - 2rem);
+    min-height: 0;
   }
   
   .spirit-root-left-panel {

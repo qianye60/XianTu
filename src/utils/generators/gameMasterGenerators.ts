@@ -305,25 +305,51 @@ ${additionalPrompt || ''}`;
     console.log('【初始化】用户输入:', userInputPrompt.length, '字符');
 
     const helper = getTavernHelper();
-    if (!helper) throw new Error('酒馆助手未初始化');
+    if (!helper) {
+      console.error('【初始化-致命错误】酒馆助手未初始化');
+      throw new Error('酒馆助手未初始化');
+    }
 
+    const totalPromptLength = systemRulesPrompt.length + worldDataPrompt.length + userInputPrompt.length;
+    console.log('【初始化】准备调用AI，提示词总长度:', totalPromptLength, '字符');
     toast.info(`天机运转，推演天道初言...`);
 
-    const rawResult = await helper.generate({
-      user_input: userInputPrompt,
-      overrides: {
-        chat_history: {
-          prompts: [
-            { role: 'system', content: systemRulesPrompt },
-            { role: 'system', content: worldDataPrompt }
-          ]
-        }
-      },
-      max_chat_history: 0
-    } as any);
+    let rawResult: any;
+    try {
+      rawResult = await helper.generate({
+        user_input: userInputPrompt,
+        overrides: {
+          chat_history: {
+            prompts: [
+              { role: 'system', content: systemRulesPrompt },
+              { role: 'system', content: worldDataPrompt }
+            ]
+          }
+        },
+        max_chat_history: 0
+      } as any);
+    } catch (generateError) {
+      console.error('【初始化-错误】调用helper.generate失败:', generateError);
+      throw new Error('调用AI接口失败: ' + (generateError instanceof Error ? generateError.message : String(generateError)));
+    }
 
     console.log('【初始化-调试】AI原始返回类型:', typeof rawResult);
-    console.log('【初始化-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : rawResult);
+    console.log('【初始化-调试】AI原始返回值是否为空:', rawResult === null || rawResult === undefined || rawResult === '');
+    console.log('【初始化-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : JSON.stringify(rawResult).substring(0, 500));
+
+    // 检查AI返回是否为空
+    if (!rawResult || rawResult === '' || rawResult === null || rawResult === undefined) {
+      console.error('【初始化-错误】AI返回了空值:', rawResult);
+      throw new Error('AI返回空响应，可能是API调用失败或被拦截');
+    }
+
+    // 检查AI是否返回了错误对象
+    if (typeof rawResult === 'object' && rawResult.error) {
+      const errorMsg = rawResult.error.message || JSON.stringify(rawResult.error);
+      console.error('【初始化-错误】AI服务返回错误:', errorMsg);
+      console.error('【初始化-错误】完整错误对象:', rawResult);
+      throw new Error(`AI服务错误: ${errorMsg}。这可能是由于：1) 提示词过长超过模型上下文限制 2) 服务端暂时不可用 3) API配置问题。请稍后重试。`);
+    }
 
     let result: GM_Response;
     try {
@@ -331,6 +357,11 @@ ${additionalPrompt || ''}`;
       if (typeof rawResult === 'string') {
         // 🔥 修复：去掉 Markdown 代码块标记（```json 和 ```）
         let cleanedText = rawResult.trim();
+
+        if (!cleanedText) {
+          console.error('【初始化-错误】AI返回了空字符串');
+          throw new Error('AI返回空字符串');
+        }
 
         // 移除开头的 ```json 或 ```
         if (cleanedText.startsWith('```json')) {
@@ -347,16 +378,23 @@ ${additionalPrompt || ''}`;
         cleanedText = cleanedText.trim();
 
         console.log('【初始化-调试】清理后的JSON前500字符:', cleanedText.substring(0, 500));
+
+        if (!cleanedText) {
+          console.error('【初始化-错误】清理后的文本为空');
+          throw new Error('清理Markdown标记后文本为空');
+        }
+
         result = JSON.parse(cleanedText);
       } else if (rawResult && typeof rawResult === 'object') {
         result = rawResult as GM_Response;
       } else {
-        console.error('【初始化-错误】AI返回了意外的类型:', rawResult);
-        throw new Error('AI返回数据类型无效');
+        console.error('【初始化-错误】AI返回了意外的类型:', typeof rawResult, rawResult);
+        throw new Error('AI返回数据类型无效: ' + typeof rawResult);
       }
     } catch (e) {
       console.error('【初始化-错误】解析AI返回值失败:', e);
-      console.error('【初始化-错误】原始返回值:', typeof rawResult === 'string' ? rawResult.substring(0, 1000) : rawResult);
+      console.error('【初始化-错误】原始返回值类型:', typeof rawResult);
+      console.error('【初始化-错误】原始返回值内容(前2000字符):', typeof rawResult === 'string' ? rawResult.substring(0, 2000) : JSON.stringify(rawResult).substring(0, 2000));
       throw new Error('AI返回数据格式无效: ' + (e instanceof Error ? e.message : String(e)));
     }
 
@@ -815,7 +853,15 @@ export async function generateInGameResponse(
     } as any);
 
     console.log('【剧情推进-调试】AI原始返回类型:', typeof rawResult);
-    console.log('【剧情推进-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : rawResult);
+    console.log('【剧情推进-调试】AI原始返回值前500字符:', typeof rawResult === 'string' ? rawResult.substring(0, 500) : JSON.stringify(rawResult).substring(0, 500));
+
+    // 检查AI是否返回了错误对象
+    if (typeof rawResult === 'object' && rawResult.error) {
+      const errorMsg = rawResult.error.message || JSON.stringify(rawResult.error);
+      console.error('【剧情推进-错误】AI服务返回错误:', errorMsg);
+      console.error('【剧情推进-错误】完整错误对象:', rawResult);
+      throw new Error(`AI服务错误: ${errorMsg}。这可能是由于：1) 提示词过长超过模型上下文限制 2) 服务端暂时不可用 3) API配置问题。请稍后重试。`);
+    }
 
     // 🔥 处理AI返回结果（参考初始化函数的处理方式）
     let result: GM_Response;

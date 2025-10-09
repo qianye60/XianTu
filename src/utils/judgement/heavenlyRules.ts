@@ -231,7 +231,7 @@ export function checkCharacterDeath(saveData: SaveData): {
 function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
   try {
     const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 上限: 100 });
-    const 寿命 = get(saveData, '玩家角色状态.寿命', { 当前: 100, 上限: 100 });
+    const 最大寿命 = safeNum(get(saveData, '玩家角色状态.寿命.上限'), 100);
     const 现有死亡状态 = get(saveData, '玩家角色状态.死亡状态', { 已死亡: false });
 
     if (现有死亡状态?.已死亡) {
@@ -239,8 +239,20 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
     }
 
     const 当前气血 = safeNum(气血.当前, 100);
-    const 当前年龄 = safeNum(寿命.当前, 100);
-    const 最大寿命 = safeNum(寿命.上限, 100);
+
+    // 通过出生日期和当前游戏时间计算年龄（仅判断年份）
+    const 出生年份 = safeNum(get(saveData, '角色基础信息.出生日期.年'), 0);
+    const 当前年份 = safeNum(get(saveData, '游戏时间.年'), 1);
+    const 当前年龄 = 出生年份 > 0 ? 当前年份 - 出生年份 : safeNum(get(saveData, '角色基础信息.年龄'), 18);
+
+    // 🔥 调试日志：寿命检测
+    console.log('[死亡系统] 寿命检测:', {
+      出生年份,
+      当前年份,
+      当前年龄,
+      最大寿命,
+      是否超限: 当前年龄 >= 最大寿命
+    });
 
     let 死亡状态: DeathState = { 已死亡: false };
 
@@ -251,18 +263,23 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
         死亡原因: '气血耗尽',
       };
     } else if (当前年龄 >= 最大寿命) {
-      // 寿命.当前是年龄，寿命.最大是最大寿命
-      // 当年龄达到或超过最大寿命时判定死亡
-      死亡状态 = {
-        已死亡: true,
-        死亡时间: getCurrentGameTime(saveData),
-        死亡原因: '寿元耗尽',
-      };
+      // 🔥 增加额外验证：确保寿命上限合理（至少80岁）
+      if (最大寿命 < 80) {
+        console.warn('[死亡系统] ⚠️ 检测到异常寿命上限:', 最大寿命, '已忽略死亡判定');
+        // 寿命上限异常，不触发死亡
+      } else {
+        // 当年龄达到或超过最大寿命时判定死亡
+        死亡状态 = {
+          已死亡: true,
+          死亡时间: getCurrentGameTime(saveData),
+          死亡原因: '寿元耗尽',
+        };
+      }
     }
 
     if (死亡状态.已死亡) {
       set(saveData, '玩家角色状态.死亡状态', 死亡状态);
-      console.log('[死亡系统] 角色死亡:', 死亡状态);
+      console.log('[死亡系统] 角色死亡:', 死亡状态, `当前年龄: ${当前年龄}, 最大寿命: ${最大寿命}`);
     }
 
     return 死亡状态;

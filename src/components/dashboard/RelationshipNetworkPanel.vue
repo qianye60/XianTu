@@ -257,7 +257,7 @@
                     <div v-if="selectedPerson.私密信息.性伴侣名单?.length" class="partner-list">
                       <div class="mini-label">性伴侣名单 ({{ selectedPerson.私密信息.性伴侣数量 || 0 }}人)</div>
                       <div class="talents-grid">
-                        <span v-for="partner in selectedPerson.私密信息.性伴侣名单" :key="partner" class="partner-tag">{{ partner }}</span>
+                        <span v-for="(partner, index) in [...new Set(selectedPerson.私密信息.性伴侣名单)]" :key="index" class="partner-tag">{{ partner }}</span>
                       </div>
                     </div>
                   </div>
@@ -962,10 +962,12 @@ const confirmDeleteNpc = (person: NpcProfile) => {
     cancelText: '取消',
     onConfirm: async () => {
       try {
+        // deleteNpc内部已经调用了syncToTavernAndSave,会自动保存到酒馆
         await characterStore.deleteNpc(person.名字);
         // 如果删除的是当前选中的NPC，则清空选择
         if (selectedPerson.value?.名字 === person.名字) {
           selectedPerson.value = null;
+          isDetailViewActive.value = false;
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '未知错误';

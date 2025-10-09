@@ -50,7 +50,10 @@
       "Bash(Select-Object Name, DirectoryName)",
       "Bash(Select-String -Pattern \"出生\" -Context 2)",
       "Bash(do grep -n \"const aiResponse = await generateWithRawPrompt\" $file)",
-      "Bash(Select-String -Pattern \"characterInitialization.ts\" -Context 0,2)"
+      "Bash(Select-String -Pattern \"characterInitialization.ts\" -Context 0,2)",
+      "Bash(Get-Content \"src/views/CharacterCreation.vue\")",
+      "Bash(Select-String:*)",
+      "Bash(Select-Object -First 50)"
     ],
     "deny": [],
     "ask": [],
