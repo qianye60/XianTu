@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大道朝天 - AI修仙文字冒险游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 0;
+        }
+
+        .container {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 16px;
+            max-width: 1000px;
+            width: 90%;
+            margin: 0 auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .header {
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid #e2e8f0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1.25rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.3);
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section h2 {
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section p {
+            color: #475569;
+            line-height: 1.7;
+            margin: 0.5rem 0;
+        }
+
+        .section a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .section a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .feature-list li {
+            padding: 0.75rem 0;
+            color: #475569;
+            line-height: 1.6;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-list strong {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .tech-stack {
+            color: #64748b;
+            font-size: 0.95rem;
+            padding: 1rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .version-note {
+            color: #475569;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            padding: 1rem;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .version-note strong {
+            color: #92400e;
+        }
+
+        .copyright-notice {
+            padding: 1.25rem;
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border-radius: 8px;
+            border: 2px solid #dc2626;
+        }
+
+        .copyright-notice p {
+            margin: 0.5rem 0;
+            color: #1e293b;
+        }
+
+        .copyright-notice p:first-child {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #dc2626;
+            margin-bottom: 0.75rem;
+        }
+
+        .copyright-notice strong {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        .copyright-list {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0;
+        }
+
+        .copyright-list li {
+            padding: 0.5rem 0;
+            color: #475569;
+            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid #fee2e2;
+        }
+
+        .copyright-list li:last-child {
+            border-bottom: none;
+        }
+
+        .copyright-list strong {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        /* 滚动条美化 */
+        .container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        .container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 640px) {
+            body {
+                padding: 0.5rem;
+            }
+
+            .header {
+                padding: 1rem 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+
+            .section h2 {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 大道朝天 - 游戏信息</h1>
+        </div>
+
+        <div class="content">
+            <div class="version-badge">V1.9 Beta</div>
+
+            <div class="section">
+                <h2>📝 游戏介绍</h2>
+                <p>《大道朝天》是一款革命性的AI驱动修仙文字冒险游戏，将传统修仙小说的精髓与前沿AI技术完美融合。游戏基于SillyTavern平台，整合Gemini AI的强大生成能力，为每位玩家打造独一无二的修仙之路。</p>
+                <p>这不仅仅是一款游戏——它是一个活生生的修仙世界。每个选择都会影响剧情走向，每次对话都由AI实时生成，每个NPC都拥有独立的性格和记忆。无论是筑基突破的艰难抉择，还是与宗门长老的机锋对话，AI都会根据你的行动给出真实而富有深度的反馈。</p>
+                <p><strong style="color: #667eea;">核心特色：</strong>真实的修仙体验、动态剧情生成、智能NPC互动、多周目探索、完全自由的成长路径。</p>
+                <p style="background: #fef3c7; padding: 0.75rem; border-radius: 8px; border-left: 4px solid #f59e0b;"><span style="color: #92400e;">⚠️ 重要提示：</span>游玩时请使用推荐预设以获得最佳体验。在了解游戏机制后可自行调整，但<span style="color: #dc2626; font-weight: 600;">强烈建议关闭COT（思维链）功能</span>，以避免影响AI叙事质量。</p>
+            </div>
+
+            <div class="section">
+                <h2>🌟 游戏世界观</h2>
+                <p><strong>朝天大陆</strong> - 一个灵气充盈、仙道繁荣的修仙世界。这里有：</p>
+                <ul class="feature-list">
+                    <li>📜 <strong>完整的修炼体系</strong> - 从炼气入门到渡劫飞升，每个境界都有独特的修炼挑战</li>
+                    <li>⚡ <strong>多样的灵根系统</strong> - 五行灵根、变异灵根、特殊体质，决定你的修炼天赋</li>
+                    <li>🗺️ <strong>广阔的修仙世界</strong> - 正道宗门、魔道势力、散修联盟、秘境遗迹应有尽有</li>
+                    <li>🎯 <strong>三千大道</strong> - 剑道、丹道、阵道、符道...探索属于你的独特修行之路</li>
+                    <li>💫 <strong>机缘与危机并存</strong> - 奇遇可能是天降至宝，也可能是致命陷阱</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>✨ 核心功能</h2>
+                <ul class="feature-list">
+                    <li>🎲 <strong>智能判定系统</strong> - 根据境界、属性、装备、大道等全方位计算判定</li>
+                    <li>🌟 <strong>三千大道系统</strong> - 探索修炼独特的修仙之道，提升实力</li>
+                    <li>📖 <strong>动态剧情生成</strong> - AI实时生成个性化的修仙故事</li>
+                    <li>💾 <strong>多存档管理</strong> - 支持多角色、多周目游玩</li>
+                    <li>⚔️ <strong>深度RPG系统</strong> - 境界突破、功法学习、装备炼制、NPC互动</li>
+                    <li>🗺️ <strong>世界探索</strong> - 自由探索朝天大陆，触发奇遇事件</li>
+                    <li>🎨 <strong>精美UI</strong> - 修仙风格界面，支持亮暗双主题</li>
+                    <li>💬 <strong>格式化文本</strong> - 环境描写、心理活动、对话、判定结果分别渲染</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>🎓 新手教程</h2>
+
+                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">第一步：环境准备</h3>
+                <ol style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
+                    <li><strong>安装SillyTavern</strong> - 从官方GitHub下载最新版本（推荐1.12.0及以上）</li>
+                    <li><strong>配置AI后端</strong> - 推荐使用Google Gemini API（支持免费额度），也可使用OpenAI或本地模型</li>
+                    <li><strong>导入游戏文件</strong> - 将游戏包解压到SillyTavern的public目录下</li>
+                </ol>
+
+                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">第二步：角色创建</h3>
+                <ol style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
+                    <li><strong>选择游戏模式</strong> - 当前版本仅支持"单机闭关"模式，所有数据本地存储</li>
+                    <li><strong>设定基础信息</strong> - 选择性别、出身背景、灵根类型（影响修炼速度）</li>
+                    <li><strong>分配属性点</strong> - 根骨、灵性、悟性、气运、魅力、心性六大属性决定角色潜力</li>
+                    <li><strong>抽取天赋</strong> - 随机获得特殊天赋，可能是修炼加成、特殊能力或剧情触发器</li>
+                </ol>
+
+                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">第三步：开始修仙之旅</h3>
+                <ul style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
+                    <li><strong>主界面操作</strong>
+                        <ul style="margin-top: 0.5rem; list-style-type: circle;">
+                            <li>左侧边栏：角色属性、境界进度、装备背包</li>
+                            <li>中央区域：剧情文本、AI叙事、判定结果</li>
+                            <li>右侧面板：任务列表、人物关系、大道进度</li>
+                        </ul>
+                    </li>
+                    <li><strong>行动输入</strong> - 在底部输入框描述你的行动，AI会根据当前情境生成剧情</li>
+                    <li><strong>智能判定</strong> - 系统会自动根据你的境界、属性、技能进行成功率判定</li>
+                    <li><strong>存档管理</strong> - 支持多存档，随时保存/读取进度</li>
+                </ul>
+
+                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">修炼系统详解</h3>
+                <div style="background: #f1f5f9; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                    <p><strong>境界体系：</strong></p>
+                    <p style="margin: 0.5rem 0;">炼气期 → 筑基期 → 金丹期 → 元婴期 → 化神期 → 炼虚期 → 合体期 → 大乘期 → 渡劫期</p>
+                    <p style="margin-top: 1rem;"><strong>突破要点：</strong></p>
+                    <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                        <li>积累足够的修为进度（通过修炼、战斗、服用丹药）</li>
+                        <li>准备突破资源（灵石、丹药、护法者）</li>
+                        <li>选择合适的时机和地点（某些地点有加成）</li>
+                        <li>面对心魔考验（高境界突破必经之路）</li>
+                    </ul>
+                </div>
+
+                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">进阶技巧</h3>
+                <ul style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
+                    <li>💡 <strong>合理规划成长路线</strong> - 是专精剑道成为剑修，还是广学百艺成为全能修士？</li>
+                    <li>🤝 <strong>经营人际关系</strong> - 与NPC的好感度影响剧情走向和资源获取</li>
+                    <li>🎯 <strong>完成系统任务</strong> - 除了主线，支线任务往往蕴含珍贵奖励</li>
+                    <li>🔍 <strong>探索隐藏要素</strong> - 秘境、遗迹、奇遇...世界远比表面看起来更丰富</li>
+                    <li>📖 <strong>阅读游戏提示</strong> - AI生成的环境描写和NPC对话常常暗藏线索</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>❓ 常见问题</h2>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 游戏卡顿或AI响应缓慢怎么办？</p>
+                    <p style="color: #64748b; padding-left: 1rem;">A: 检查SillyTavern的API配置，确保网络连接稳定。如使用Gemini免费额度，可能存在速率限制。</p>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 为什么不能打开COT？</p>
+                    <p style="color: #64748b; padding-left: 1rem;">A: COT（Chain of Thought）会让AI在生成内容前输出思考过程，这会破坏沉浸式叙事体验，且可能干扰游戏的判定系统。</p>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 存档数据保存在哪里？</p>
+                    <p style="color: #64748b; padding-left: 1rem;">A: 单机模式下，所有数据保存在浏览器的IndexedDB中，完全本地化，不上传任何数据。</p>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 可以使用其他AI模型吗？</p>
+                    <p style="color: #64748b; padding-left: 1rem;">A: 理论上支持所有SillyTavern兼容的API（OpenAI、Claude、本地模型等），但推荐使用Gemini 2.5Pro以获得最佳叙事质量。</p>
+                </div>
+
+                <div>
+                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 遇到Bug或有建议怎么反馈？</p>
+                    <p style="color: #64748b; padding-left: 1rem;">A: 欢迎在GitHub Issues提交问题，或在Discord社区交流（链接见下方）。</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>👨‍💻 作者信息</h2>
+                <p><strong>作者:</strong> 千夜</p>
+                <p>
+                    <strong>GitHub:</strong>
+                    <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer">
+                        https://github.com/qianye60
+                    </a>
+                </p>
+                <p>
+                    <strong>Discord社区:</strong>
+                    <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" rel="noopener noreferrer">
+                        加入讨论
+                    </a>
+                </p>
+                <p class="tech-stack"><strong>技术栈:</strong> Vue 3 + TypeScript + SillyTavern + Gemini AI</p>
+            </div>
+
+            <div class="section">
+                <h2>📢 版本说明</h2>
+                <p class="version-note">当前为<strong>V1.9 Beta</strong>测试版本，部分功能仍在开发完善中。欢迎在GitHub或Discord反馈建议！</p>
+            </div>
+
+            <div class="section">
+                <h2>⚖️ 版权声明</h2>
+                <div class="copyright-notice">
+                    <p>© 2025 千夜 版权所有</p>
+                    <p>本作品采用 <strong>CC BY-NC-ND 4.0</strong> 协议授权</p>
+                    <ul class="copyright-list">
+                        <li>✅ <strong>允许</strong> - 个人免费使用、学习交流</li>
+                        <li>✅ <strong>允许</strong> - 分享转发时须注明原作者</li>
+                        <li>❌ <strong>禁止</strong> - 商业用途（包括但不限于售卖、收费推广等）</li>
+                        <li>❌ <strong>禁止</strong> - 修改后重新发布</li>
+                        <li>❌ <strong>禁止</strong> - 移除或修改版权信息</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
