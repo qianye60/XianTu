@@ -185,10 +185,16 @@ export async function processGmResponse(
 
   if (!response) {
     console.warn('[processGmResponse] 响应为空，返回原始数据');
-    return { saveData: currentSaveData, stateChanges: emptyChanges };
+    // 🔥 即使响应为空，也要修复当前存档，防止数据损坏
+    const { repairSaveData } = await import('@/utils/dataRepair');
+    const repairedData = repairSaveData(currentSaveData);
+    return { saveData: repairedData, stateChanges: emptyChanges };
   }
 
-  let updatedSaveData = cloneDeep(currentSaveData);
+  // 🔥 在开始处理前，先修复当前存档数据，确保基础结构完整
+  const { repairSaveData } = await import('@/utils/dataRepair');
+  const repairedCurrent = repairSaveData(currentSaveData);
+  let updatedSaveData = cloneDeep(repairedCurrent);
   let stateChanges: StateChangeLog = emptyChanges;
 
   // 处理tavern_commands
@@ -292,7 +298,11 @@ export async function processGmResponse(
   // 在游戏中，由 MainGamePanel 的 addToShortTermMemory 统一处理
   // 在初始化时，也应该由初始化逻辑处理，保持一致性
 
-  console.log('[processGmResponse] GM响应处理完成');
+  // 🔥 最终修复：在返回前再次修复数据，确保AI命令执行后的数据仍然完整有效
+  console.log('[processGmResponse] 执行最终数据修复和验证');
+  updatedSaveData = repairSaveData(updatedSaveData);
+
+  console.log('[processGmResponse] ✅ GM响应处理完成，数据已修复和验证');
   return { saveData: updatedSaveData, stateChanges };
 }
 

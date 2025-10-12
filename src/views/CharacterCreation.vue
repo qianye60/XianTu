@@ -492,6 +492,14 @@ async function createCharacter() {
         魅力: store.attributes.charm,
         心性: store.attributes.temperament,
       },
+      后天六司: {
+        根骨: 0,
+        灵性: 0,
+        悟性: 0,
+        气运: 0,
+        魅力: 0,
+        心性: 0,
+      },
       // 保存完整的详细信息对象
       世界详情: store.selectedWorld,
       天资详情: store.selectedTalentTier,

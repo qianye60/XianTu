@@ -558,18 +558,6 @@ onMounted(async () => {
   }
 })
 
-const inventory = computed<Inventory>(() => {
-  debug.log('背包面板', '调试-saveData', saveData.value)
-  debug.log('背包面板', '调试-背包数据', saveData.value?.背包)
-
-  return (
-    saveData.value?.背包 || {
-      灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-      物品: {}, // 物品是对象(Record<string, Item>)，key为物品ID
-    }
-  )
-})
-
 // 装备槽位 - 修正位置：装备栏在存档数据根级别
 const equipmentSlots = computed(() => {
   const equipment = characterData.value?.装备栏
@@ -691,6 +679,17 @@ const itemList = computed<Item[]>(() => {
     })
     .map(([, val]) => {
       const item = val as Partial<Item>
+
+      // 🔍 调试：检查品质数据是否缺失
+      if (!item.品质 && (item.类型 === '功法' || item.类型 === '装备')) {
+        console.warn('[背包面板-警告] 物品缺少品质数据:', {
+          物品ID: item.物品ID,
+          名称: item.名称,
+          类型: item.类型,
+          完整数据: item
+        });
+      }
+
       return {
         ...item,
         物品ID: String(item.物品ID || ''),
@@ -879,7 +878,9 @@ const removeItemFromInventory = async (item: Item) => {
   // 保存数据 - 需要动态导入 characterStore
   const { useCharacterStore } = await import('@/stores/characterStore')
   const characterStore = useCharacterStore()
-  await characterStore.syncToTavernAndSave()
+
+  // 使用 fullSync 确保数据同步
+  await characterStore.syncToTavernAndSave({ fullSync: true })
 
   debug.log('背包面板', '物品移除成功', item.名称)
 
@@ -908,7 +909,10 @@ const updateItemInInventory = async (item: Item) => {
     // 保存数据 - 需要动态导入 characterStore
     const { useCharacterStore } = await import('@/stores/characterStore')
     const characterStore = useCharacterStore()
-    await characterStore.syncToTavernAndSave()
+
+    // 使用 fullSync 确保数据同步
+    await characterStore.syncToTavernAndSave({ fullSync: true })
+
     debug.log('背包面板', '物品更新成功', item.名称)
   } else {
     throw new Error(`尝试更新一个不存在于背包的物品: ${item.名称}`)
@@ -1137,8 +1141,8 @@ const isCultivating = (item: Item | null): boolean => {
     // 优先检查背包中物品的已装备/修炼中标记（动作队列使用的逻辑）
     const currentItemState = inventoryItems[item.物品ID]
     if (currentItemState) {
-      // 功法的已装备或修炼中状态表示正在修炼
-      if (currentItemState.已装备 === true || (currentItemState as any).修炼中 === true) {
+      // 功法的已装备状态表示正在修炼（已装备字段统一表示装备中/修炼中）
+      if (currentItemState.已装备 === true) {
         return true
       }
     }
@@ -1280,22 +1284,6 @@ const refreshFromTavern = async () => {
   }
 }
 
-onMounted(async () => {
-  debug.log('背包面板', '组件挂载，开始同步酒馆数据')
-
-  try {
-    // 从酒馆同步最新数据
-    const { useCharacterStore } = await import('@/stores/characterStore')
-    const characterStore = useCharacterStore()
-    await characterStore.syncFromTavern()
-  } catch (error) {
-    debug.error('背包面板', '同步酒馆数据失败', error)
-  }
-
-  if (!selectedItem.value && filteredItems.value.length > 0) {
-    selectedItem.value = filteredItems.value[0]
-  }
-})
 </script>
 
 <style scoped>

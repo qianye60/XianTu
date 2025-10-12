@@ -30,10 +30,19 @@
     <div class="settings-section" v-if="showSettings">
       <div class="settings-header">
         <span class="settings-title">⚙️ 记忆系统配置</span>
-        <button
-          class="settings-close-btn"
-          @click="showSettings = false"
-        >✕</button>
+        <div class="header-actions">
+          <button
+            class="test-btn"
+            @click="addTestLongTermMemory"
+            title="添加测试长期记忆"
+          >
+            🧪 测试
+          </button>
+          <button
+            class="settings-close-btn"
+            @click="showSettings = false"
+          >✕</button>
+        </div>
       </div>
 
       <div class="settings-content">
@@ -894,6 +903,34 @@ onMounted(async () => {
     await clearMemory();
   });
 });
+
+// 测试函数：添加一条长期记忆
+const addTestLongTermMemory = async () => {
+  try {
+    const testMemory: Memory = {
+      content: `测试长期记忆 ${Date.now()} - 这是一条用于测试的长期记忆记录。`,
+      time: formatTime(Date.now()),
+      type: 'long',
+      isConverted: false,
+      isSummarized: false,
+      parsedContent: {
+        影响: '测试',
+        sections: {}
+      }
+    };
+
+    longTermMemories.value.push(testMemory);
+
+    // 保存到存档
+    await saveMemoriesToStore();
+
+    toast.success(`✅ 测试记忆已添加！当前长期记忆: ${longTermMemories.value.length} 条`);
+    debug.log('记忆中心', '添加测试长期记忆成功', testMemory);
+  } catch (error) {
+    debug.error('记忆中心', '添加测试记忆失败', error);
+    toast.error('添加测试记忆失败');
+  }
+};
 </script>
 
 <style scoped>
@@ -1064,6 +1101,31 @@ onMounted(async () => {
   overflow: hidden;
   box-sizing: border-box;
   flex-shrink: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.test-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.test-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .settings-title {

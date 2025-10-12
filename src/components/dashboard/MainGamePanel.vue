@@ -1817,8 +1817,8 @@ const sendMessage = async () => {
 
       // 清空已发送的图片
       clearImages();
-      // 清空输入框
-      inputText.value = '';
+      // 🔥 用户要求：保留输入框内容，不清空
+      // inputText.value = '';
 
       // 确保数据已保存到本地和酒馆（包括刚添加的记忆）
       try {
@@ -1961,7 +1961,7 @@ const addToShortTermMemory = async (
           const implicitMemory = sd.记忆.隐式中期记忆.pop();
           if (implicitMemory) {
             // 检查是否已存在（防止重复）
-            if (!sd.记忆.中期记忆.some(m => m === implicitMemory)) {
+            if (!sd.记忆.中期记忆.some((m: string) => m === implicitMemory)) {
               sd.记忆.中期记忆.unshift(implicitMemory);
               console.log(`[记忆管理] 转移隐式中期记忆到中期记忆 #${i + 1}: ${implicitMemory.substring(0, 50)}...`);
             } else {

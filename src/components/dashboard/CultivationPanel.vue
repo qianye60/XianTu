@@ -121,6 +121,10 @@
                     <div class="skill-source-tag" :class="getSourceClass(skill.source)">
                       {{ skill.source }}
                     </div>
+                    <!-- 显示解锁条件（如果有） -->
+                    <div v-if="skill.unlockRequirement" class="skill-unlock-requirement">
+                      解锁条件：功法熟练度 {{ skill.unlockRequirement }}%
+                    </div>
                     <div class="skill-proficiency">
                       <span class="proficiency-label">熟练度：</span>
                       <div class="proficiency-bar">
@@ -162,14 +166,13 @@ import { useCharacterCultivationData, useCharacterBasicData, useUnifiedCharacter
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
-import { getTavernHelper } from '@/utils/tavern';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
-import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoData } from '@/types/game';
+import type { TechniqueItem, TechniqueSkill } from '@/types/game';
 
 // 组合式函数
-const { saveData: cultivationSaveData, realm, techniques, daoSystem } = useCharacterCultivationData();
-const { basicInfo, status } = useCharacterBasicData();
-const { characterData, saveData } = useUnifiedCharacterData();
+const { saveData: cultivationSaveData } = useCharacterCultivationData();
+const { basicInfo } = useCharacterBasicData();
+const { characterData } = useUnifiedCharacterData();
 const characterStore = useCharacterStore();
 
 // 深度修炼弹窗状态
@@ -195,6 +198,7 @@ type LearnedSkillDisplay = {
   proficiency: number;
   description?: string;
   unlocked: true;
+  unlockRequirement?: number; // 解锁需要的功法熟练度
 };
 
 // 获取当前修炼功法 - 从背包中查找已装备的功法
@@ -209,12 +213,14 @@ const currentTechnique = computed((): TechniqueItem | null => {
   );
 
   if (cultivatingTechnique) {
-    const cultivationInfo = characterData.value?.修炼功法;
-    const techniqueItem = cultivatingTechnique as TechniqueItem;
-    return {
-      ...techniqueItem,
-      修炼进度: cultivationInfo?.修炼进度 || techniqueItem.修炼进度 || 0
-    } as TechniqueItem;
+    // ✅ 直接返回背包中的功法本体，所有数据都在这里
+    console.log('[修炼面板-调试] 当前修炼功法数据:', {
+      名称: cultivatingTechnique.名称,
+      品质字段存在: !!cultivatingTechnique.品质,
+      品质内容: cultivatingTechnique.品质,
+      完整数据: cultivatingTechnique
+    });
+    return cultivatingTechnique as TechniqueItem;
   }
 
   return null;
@@ -223,46 +229,30 @@ const currentTechnique = computed((): TechniqueItem | null => {
 // 获取已学技能列表
 const learnedSkills = computed((): LearnedSkillDisplay[] => {
   const technique = currentTechnique.value;
-  const cultivationInfo = characterData.value?.修炼功法;
 
-  if (!technique && !cultivationInfo?.已解锁技能?.length) return [];
+  if (!technique) return [];
 
   const skills: LearnedSkillDisplay[] = [];
   const skillNameSet = new Set<string>(); // 防止重复添加技能
 
-  // 从已解锁技能获取（直接学会的技能）
-  if (cultivationInfo?.已解锁技能?.length) {
-    cultivationInfo.已解锁技能.forEach(skillName => {
-      if (!skillNameSet.has(skillName)) {
-        skillNameSet.add(skillName);
-        skills.push({
-          name: skillName,
-          proficiency: getPersistentProficiency(skillName, 'direct'), // 获取持久化熟练度
-          source: '修炼习得',
-          type: '主动技能',
-          description: '通过修炼功法直接掌握的技能',
-          unlocked: true
-        });
-      }
-    });
-  }
-
-  // 从功法技能定义获取（达到条件解锁的技能）
+  // ✅ 从功法技能定义获取（达到条件解锁的技能）
   if (technique?.功法技能) {
-    Object.entries(technique.功法技能).forEach(([skillName, rawSkillInfo]) => {
-      const skillInfo = rawSkillInfo as TechniqueSkill;
+    const skills技能列表 = Array.isArray(technique.功法技能) ? technique.功法技能 : [];
+    skills技能列表.forEach((skillInfo: TechniqueSkill) => {
+      const skillName = skillInfo.技能名称;
       if (!skillNameSet.has(skillName)) {
         // 检查是否已解锁
-        const unlocked = checkSkillUnlocked(skillName, technique, cultivationInfo);
+        const unlocked = checkSkillUnlocked(skillName, technique);
         if (unlocked) {
           skillNameSet.add(skillName);
           skills.push({
             name: skillName,
             proficiency: getPersistentProficiency(skillName, 'technique'), // 获取持久化熟练度
             source: '功法传承',
-            type: '功法技能', // 简化：统一类型
+            type: '功法技能',
             description: skillInfo.技能描述 || '通过功法修炼掌握的技能',
-            unlocked: true
+            unlocked: true,
+            unlockRequirement: skillInfo.解锁需要熟练度
           });
         }
       }
@@ -280,14 +270,20 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
   return 30 + (seed % 66);
 };
 
-// 检查技能是否已解锁（简化版：默认全部解锁）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | null | undefined): boolean => {
-  if (!technique.功法技能?.[skillName]) return false;
+// 检查技能是否已解锁
+const checkSkillUnlocked = (skillName: string, technique: TechniqueItem): boolean => {
+  if (!technique.功法技能) return false;
 
-  // 简化逻辑：只要功法中有这个技能，就认为已解锁
-  // 可以根据修炼进度判断，但目前简化处理
-  return true;
+  const skills技能列表 = Array.isArray(technique.功法技能) ? technique.功法技能 : [];
+  const skillInfo = skills技能列表.find(s => s.技能名称 === skillName);
+
+  if (!skillInfo) return false;
+
+  // 检查是否达到解锁条件
+  const currentProgress = technique.修炼进度 || 0;
+  const requiredProgress = skillInfo.解锁需要熟练度 || 0;
+
+  return currentProgress >= requiredProgress;
 };
 
 // 品级文本显示
@@ -428,24 +424,25 @@ const confirmDeepCultivation = async (totalDays: number) => {
     return;
   }
 
-  // 触发 AI 生成修炼结果
-  const helper = getTavernHelper();
-  if (!helper) {
-    toast.error('无法连接到酒馆');
-    return;
-  }
-
   const techniqueData = currentTechnique.value;
-  const cultivationMessage = `我要对《${techniqueData.名称}》进行${totalDays}天的深度修炼`;
 
-  toast.info(`开始${totalDays}天的深度修炼...`);
-  debug.log('修炼面板', `开始${totalDays}天深度修炼:`, techniqueData.名称);
-
-  // 发送消息给 AI - 使用 sendas 命令发送用户消息
+  // 添加到动作队列
   try {
-    await helper.triggerSlash(`/sendas ${cultivationMessage}`);
+    const { useActionQueueStore } = await import('@/stores/actionQueueStore');
+    const actionQueue = useActionQueueStore();
+
+    actionQueue.addAction({
+      type: 'cultivate',
+      itemName: techniqueData.名称,
+      itemType: '功法',
+      description: `对《${techniqueData.名称}》进行${totalDays}天的深度修炼`
+    });
+
+    toast.success(`已开始${totalDays}天的深度修炼`);
+    debug.log('修炼面板', `已添加${totalDays}天深度修炼到动作队列:`, techniqueData.名称);
   } catch (error) {
-    debug.warn('修炼面板', '发送修炼消息失败:', error);
+    debug.error('修炼面板', '添加深度修炼动作失败:', error);
+    toast.error('添加修炼动作失败');
   }
 };
 </script>
@@ -777,6 +774,17 @@ const confirmDeepCultivation = async (totalDays: number) => {
   font-weight: 500;
   width: fit-content;
   margin-bottom: 0.125rem;
+}
+
+.skill-unlock-requirement {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin-bottom: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-left: 2px solid var(--color-info);
+  border-radius: 0.25rem;
 }
 
 .source-direct {

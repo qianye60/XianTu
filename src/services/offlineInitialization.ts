@@ -17,6 +17,19 @@ export async function initializeCharacterOffline(
 ): Promise<SaveData> {
   console.log('[离线初始化] 开始执行本地角色创建...');
 
+  // 确保后天六司存在，开局默认全为0
+  if (!baseInfo.后天六司) {
+    baseInfo.后天六司 = {
+      根骨: 0,
+      灵性: 0,
+      悟性: 0,
+      气运: 0,
+      魅力: 0,
+      心性: 0
+    };
+    console.log('[离线初始化] 初始化后天六司为全0');
+  }
+
   // 1. 计算基础属性
   const playerStatus: PlayerStatus = calculateInitialAttributes(baseInfo, age);
 
@@ -28,7 +41,18 @@ export async function initializeCharacterOffline(
     y: 35.0     // 地图中心纬度
   };
 
-  // 3. 构建一个符合最新数据结构的完整 SaveData 对象
+  // 3. 初始化系统任务
+  playerStatus.系统任务 = {
+    配置: {
+      启用: false,
+      任务类型: 'all',
+      颁发数量: 3
+    },
+    进行中任务: [],
+    已完成任务名称: []
+  };
+
+  // 4. 构建一个符合最新数据结构的完整 SaveData 对象
   const saveData: SaveData = {
     角色基础信息: baseInfo,
     玩家角色状态: playerStatus,

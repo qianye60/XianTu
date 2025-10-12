@@ -33,6 +33,7 @@
           >
             <div class="item-content">
               <span class="talent-name">{{ talent.name }}</span>
+              <span class="talent-cost">{{ talent.talent_cost || 0 }}点</span>
             </div>
             <div v-if="talent.source === 'cloud' || talent.source === 'local'" class="action-buttons">
               <button @click.stop="openEditModal(talent)" class="edit-btn" title="编辑此项">
@@ -134,21 +135,28 @@ const filteredTalents = computed(() => {
 const customTalentFields: ModalField[] = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
   { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的本质...' },
+  { key: 'talent_cost', label: '天道点消耗', type: 'number', placeholder: '例如：3' },
 ]
 
 // 自定义天赋数据类型 - 与标准数据格式保持一致
 type CustomTalentData = {
   name: string;
   description: string;
+  talent_cost: number;
 };
 
 function validateCustomTalent(data: Partial<CustomTalentData>) {
     const errors: Record<string, string> = {};
-    
+
     // 必填字段验证
     if (!data.name?.trim()) errors.name = '天赋名称不可为空';
     if (!data.description?.trim()) errors.description = '天赋描述不可为空';
-    
+    if (data.talent_cost === undefined || data.talent_cost === null || isNaN(data.talent_cost)) {
+        errors.talent_cost = '天道点消耗必须填写';
+    } else if (data.talent_cost < 0) {
+        errors.talent_cost = '天道点消耗不能为负数';
+    }
+
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -161,6 +169,8 @@ async function handleCustomSubmit(data: CustomTalentData) {
     id: Date.now(),
     name: data.name,
     description: data.description,
+    talent_cost: Number(data.talent_cost) || 0,
+    rarity: 1,
     source: 'local' as const,
   }
 
@@ -268,6 +278,7 @@ async function handleEditSubmit(data: CustomTalentData) {
   const updateData: Partial<Talent> = {
     name: data.name,
     description: data.description,
+    talent_cost: Number(data.talent_cost) || 0,
   };
 
   try {
@@ -291,6 +302,7 @@ const editInitialData = computed(() => {
   return {
     name: editingTalent.value.name,
     description: editingTalent.value.description,
+    talent_cost: editingTalent.value.talent_cost || 0,
   };
 });
 
@@ -388,6 +400,14 @@ const editInitialData = computed(() => {
   justify-content: space-between;
   align-items: center;
   flex-grow: 1;
+  gap: 0.5rem;
+}
+
+.talent-cost {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* 按钮组容器 */
