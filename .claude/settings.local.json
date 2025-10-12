@@ -53,7 +53,8 @@
       "Bash(Select-String -Pattern \"characterInitialization.ts\" -Context 0,2)",
       "Bash(Get-Content \"src/views/CharacterCreation.vue\")",
       "Bash(Select-String:*)",
-      "Bash(Select-Object -First 50)"
+      "Bash(Select-Object -First 50)",
+      "Bash(Get-ChildItem -Path src/utils/prompts -Recurse -Filter \"*.ts\")"
     ],
     "deny": [],
     "ask": [],

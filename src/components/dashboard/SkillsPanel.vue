@@ -149,15 +149,18 @@
 
           <!-- 功法技能 -->
           <div v-if="activeTab === 'skills'" class="tab-content">
-            <div v-if="(selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能 && Object.keys((selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能!).length > 0" class="technique-skills-section">
+            <div v-if="Array.isArray((selectedSkillData as TechniqueItem).功法技能) && (selectedSkillData as TechniqueItem).功法技能!.length > 0" class="technique-skills-section">
               <div class="skills-list">
-                <div v-for="(skill, skillName) in (selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能" :key="skillName" class="skill-item">
+                <div v-for="(skill, index) in (selectedSkillData as TechniqueItem).功法技能" :key="index" class="skill-item">
                   <div class="skill-header">
-                    <span class="skill-name">{{ (skill as TechniqueSkill).技能名称 || skillName }}</span>
-                    <div v-if="unlockedSkillsMap.has(String(skillName))" class="skill-status unlocked">已掌握</div>
+                    <span class="skill-name">{{ skill.技能名称 }}</span>
+                    <div v-if="unlockedSkillsMap.has(skill.技能名称)" class="skill-status unlocked">已掌握</div>
                     <div v-else class="skill-status locked">未掌握</div>
                   </div>
-                  <div class="skill-description">{{ (skill as TechniqueSkill).技能描述 }}</div>
+                  <div class="skill-description">{{ skill.技能描述 }}</div>
+                  <div v-if="skill.解锁需要熟练度" class="skill-unlock-condition">
+                    解锁条件：修炼进度 {{ skill.解锁需要熟练度 }}%
+                  </div>
                 </div>
               </div>
             </div>
@@ -198,10 +201,12 @@ import ProgressBar from '@/components/common/ProgressBar.vue';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
 import type { Item, TechniqueItem } from '@/types/game';
 
-// 定义功法技能接口（简化版本：只包含名称和描述）
+// 定义功法技能接口
 interface TechniqueSkill {
   技能名称: string;
   技能描述: string;
+  消耗?: string;
+  解锁需要熟练度?: number; // 可选：达到此进度后解锁（0-100百分比）
 }
 
 const { characterData, saveData } = useUnifiedCharacterData();
@@ -279,17 +284,6 @@ const selectSkill = (skill: unknown, slotName: string) => {
   selectedSkillSlot.value = slotName;
 };
 
-// 桌面端：鼠标悬停预览（与点击选择一致，但不在移动端触发）
-const isMobile = computed(() => {
-  return typeof window !== 'undefined' && window.innerWidth <= 768;
-});
-
-const onSkillHover = (skill: unknown, slotName: string) => {
-  if (isMobile.value) return;
-  selectedSkillData.value = skill;
-  selectedSkillSlot.value = slotName;
-};
-
 // 获取功法品质样式类
 const getSkillQualityClass = (skill: unknown, type: 'border' | 'text' = 'border'): string => {
   if (!skill) return '';
@@ -319,11 +313,6 @@ const unlockedSkillsMap = computed(() => {
   return new Set((cultivationSkills.value as { 已解锁技能?: string[] })?.已解锁技能 || []);
 });
 
-// 检查是否可以解锁新技能（简化：直接返回true，AI控制解锁逻辑）
-const checkSkillUnlock = (_skillName: string, _unlockCondition?: string): boolean => {
-  return true; // 简化逻辑：技能解锁由AI GM控制
-};
-
 // 显示修炼对话框
 const showCultivationDialog = () => {
   if (!selectedSkillData.value || !selectedSkillSlot.value) {
@@ -348,131 +337,33 @@ const handleCultivationConfirm = async (totalDays: number) => {
   await startCultivation(totalDays);
 };
 
-// 计算修炼进度增长
-const calculateProgressGain = (days: number | null): number => {
-  if (!days) return 0;
-  // 基础公式：每天1-2%的进度，但有递减效应
-  const baseGain = days * 1.5;
-  const diminishingFactor = Math.pow(0.98, days / 30); // 每30天递减2%
-  return Math.min(100, Math.round(baseGain * diminishingFactor));
-};
-
-// 计算熟练度提升
-const calculateProficiencyGain = (days: number | null): number => {
-  if (!days) return 0;
-  // 熟练度提升比进度慢一些
-  const baseGain = days * 0.8;
-  const diminishingFactor = Math.pow(0.99, days / 30);
-  return Math.min(100, Math.round(baseGain * diminishingFactor));
-};
-
-// 获取时间描述
-const getTimeDescription = (days: number | null): string => {
-  if (!days) return '';
-  if (days < 7) return `${days}天`;
-  if (days < 30) return `${Math.round(days / 7)}周`;
-  if (days < 365) return `${Math.round(days / 30)}个月`;
-  return `${Math.round(days / 365)}年`;
-};
-
-// 将小时数格式化为易读文本
-const formatHoursToReadable = (hours: number): string => {
-  if (!hours || hours <= 0) return '未修炼';
-  const days = Math.floor(hours / 24);
-  const remainHours = hours % 24;
-  if (days > 0 && remainHours > 0) return `${days}天${remainHours}小时`;
-  if (days > 0) return `${days}天`;
-  return `${remainHours}小时`;
-};
-
-// 开始修炼
+// 开始修炼 - 添加到动作队列,不直接修改进度
 const startCultivation = async (totalDays: number) => {
   if (totalDays <= 0 || !selectedSkillData.value) {
     return;
   }
 
-  const progressGain = calculateProgressGain(totalDays);
-  const proficiencyGain = calculateProficiencyGain(totalDays);
-
   try {
     const skillData = selectedSkillData.value as Item;
-    console.log(`[技能面板] 开始${totalDays}天深度修炼:`, skillData.名称);
+    console.log(`[技能面板] 添加${totalDays}天深度修炼动作:`, skillData.名称);
 
-    // 更新存档数据
-    const currentSaveData = saveData.value;
-    if (currentSaveData?.修炼功法) {
-      const cultivationData = currentSaveData.修炼功法 as {
-        物品ID?: string;
-        名称?: string;
-        修炼进度?: number;
-        熟练度?: number;
-        已解锁技能?: string[];
-        修炼时间?: number;
-        突破次数?: number;
-        正在修炼?: boolean;
-      };
+    // 添加到动作队列
+    const { useActionQueueStore } = await import('@/stores/actionQueueStore');
+    const actionQueue = useActionQueueStore();
 
-      if (cultivationData) {
-        // 更新功法修炼进度
-        const currentProgress = cultivationData.修炼进度 || 0;
-        const newProgress = Math.min(100, currentProgress + progressGain);
-        cultivationData.修炼进度 = newProgress;
+    actionQueue.addAction({
+      type: 'cultivate',
+      itemName: skillData.名称,
+      itemType: '功法',
+      description: `对《${skillData.名称}》进行${totalDays}天的深度修炼`
+    });
 
-        // 更新熟练度
-        const currentProficiency = cultivationData.熟练度 || 0;
-        const newProficiency = Math.min(100, currentProficiency + proficiencyGain);
-        cultivationData.熟练度 = newProficiency;
-
-        // 增加修炼时间
-        cultivationData.修炼时间 = (cultivationData.修炼时间 || 0) + totalDays * 24; // 转换为小时
-
-        // 检查是否可以解锁新技能（从背包物品中获取功法技能信息）
-        if (skillData && (skillData as TechniqueItem).功法技能) {
-          const unlockedSkills = cultivationData.已解锁技能 || [];
-          const techniqueSkills = (skillData as TechniqueItem).功法技能;
-
-          if (techniqueSkills) {
-            for (const [skillName, skill] of Object.entries(techniqueSkills)) {
-              const skillInfo = skill as TechniqueSkill;
-              // 简化：只检查技能是否存在，解锁逻辑由AI控制
-              if (!unlockedSkills.includes(skillName)) {
-                console.log(`[技能面板] 检查技能: ${skillName}`);
-              }
-            }
-          }
-
-          cultivationData.已解锁技能 = unlockedSkills;
-        }
-
-        // 更新游戏时间
-        const currentTime = characterData.value?.游戏时间;
-        if (currentTime) {
-          // 添加天数到游戏时间
-          currentTime.日 += totalDays;
-
-          // 处理月份进位
-          while (currentTime.日 > 30) {
-            currentTime.日 -= 30;
-            currentTime.月 += 1;
-            if (currentTime.月 > 12) {
-              currentTime.月 = 1;
-              currentTime.年 += 1;
-            }
-          }
-        }
-
-        // 使用动态导入保存数据
-        const { useCharacterStore } = await import('@/stores/characterStore');
-        const characterStore = useCharacterStore();
-        await characterStore.syncToTavernAndSave();
-        console.log(`[技能面板] ${totalDays}天修炼完成，进度提升${progressGain}%，熟练度提升${proficiencyGain}%`);
-      }
-    }
+    console.log(`[技能面板] ${totalDays}天深度修炼已添加到动作队列`);
 
     closeDialog();
 
   } catch (error) {
-    console.error('[技能面板] 深度修炼失败:', error);
+    console.error('[技能面板] 添加深度修炼动作失败:', error);
   }
 };
 
@@ -504,12 +395,12 @@ const unequipSkill = async () => {
             功法技能?: unknown;
           };
 
-          // 清除背包物品的已装备和修炼中标记（功法仍保留在背包中）
+          // ✅ 清除背包物品的已装备标记（功法仍保留在背包中）
           if (currentSkill && currentSaveData.背包?.物品) {
             const itemId = currentSkill.物品ID;
             if (itemId && currentSaveData.背包.物品[itemId]) {
-              currentSaveData.背包.物品[itemId].已装备 = false;
-              (currentSaveData.背包.物品[itemId] as any).修炼中 = false;
+              const item = currentSaveData.背包.物品[itemId] as Item;
+              item.已装备 = false;
               console.log('[技能面板] 功法标记已清除:', currentSkill.名称);
             }
           }
@@ -582,17 +473,12 @@ const equipTechnique = async () => {
               功法技能?: unknown;
             };
             if (prev?.物品ID && currentSaveData.背包?.物品) {
-              currentSaveData.背包.物品[prev.物品ID] = {
-                物品ID: prev.物品ID,
-                名称: prev.名称,
-                类型: '功法' as const,
-                品质: (prev.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
-                数量: 1,
-                描述: prev.描述 || '',
-                功法效果: prev.功法效果 || {},
-                功法技能: (prev.功法技能 || {}) as Record<string, TechniqueSkill>
-              } as TechniqueItem;
-              console.log('[技能面板] 之前的功法已放回背包:', prev.名称);
+              // ✅ 只需要清除背包中功法的已装备标记，不需要复制回来（功法一直在背包）
+              const prevItem = currentSaveData.背包.物品[prev.物品ID] as TechniqueItem;
+              if (prevItem) {
+                prevItem.已装备 = false;
+                console.log('[技能面板] 之前的功法已标记为未装备:', prev.名称);
+              }
             }
             await finalizeEquipTechnique(technique);
           },
@@ -623,29 +509,18 @@ const finalizeEquipTechnique = async (technique: {
   const currentSaveData = saveData.value;
   if (!currentSaveData) return;
 
-  // 将整个功法数据存储到修炼功法字段
+  // ✅ 只存储引用（物品ID和名称）
   currentSaveData.修炼功法 = {
     物品ID: technique.物品ID || '',
-    名称: technique.名称,
-    类型: '功法' as const,
-    品质: technique.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 },
-    描述: technique.描述 || '',
-    功法效果: technique.功法效果 as { 修炼速度加成?: number; 属性加成?: Record<string, number>; 特殊能力?: string[] } | undefined,
-    功法技能: technique.功法技能 as Record<string, TechniqueSkill> | undefined,
-    熟练度: 0,
-    已解锁技能: [],
-    修炼时间: 0,
-    突破次数: 0,
-    正在修炼: true,
-    修炼进度: 0
+    名称: technique.名称
   };
 
-  // 不删除背包物品，而是设置已装备和修炼中标记（与动作队列逻辑一致）
+  // ✅ 设置背包中功法的已装备标记
   if (currentSaveData.背包?.物品 && technique.物品ID) {
     const inventoryItem = currentSaveData.背包.物品[technique.物品ID];
     if (inventoryItem) {
-      inventoryItem.已装备 = true;
-      (inventoryItem as any).修炼中 = true;
+      const item = inventoryItem as Item;
+      item.已装备 = true;
     }
   }
 
@@ -658,18 +533,6 @@ const finalizeEquipTechnique = async (technique: {
   selectedSkillSlot.value = '功法';
 };
 
-onMounted(async () => {
-  console.log('[技能面板] 组件挂载，同步酒馆数据...');
-
-  try {
-    // 使用动态导入同步数据
-    const { useCharacterStore } = await import('@/stores/characterStore');
-    const characterStore = useCharacterStore();
-    await characterStore.syncFromTavern();
-  } catch (error) {
-    console.error('[技能面板] 同步数据失败:', error);
-  }
-});
 </script>
 
 <style scoped>

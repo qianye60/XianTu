@@ -350,9 +350,20 @@
                     <h5 class="section-title" style="border: none; padding: 0; margin: 0;">记忆</h5>
                     <div class="memory-actions-header">
                       <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.记忆?.length || 0 }} 条</div>
-                      <button v-if="(selectedPerson.记忆?.length || 0) >= 10" class="summarize-btn" @click="summarizeMemories" :disabled="isSummarizing" title="总结记忆">
-                        {{ isSummarizing ? '总结中...' : '📝 总结' }}
-                      </button>
+                      <div v-if="(selectedPerson.记忆?.length || 0) >= 3" class="summarize-controls">
+                        <input
+                          type="number"
+                          v-model.number="memoriesToSummarize"
+                          :min="3"
+                          :max="selectedPerson.记忆?.length || 3"
+                          class="summarize-input"
+                          placeholder="条数"
+                          title="从最旧开始总结的记忆条数"
+                        />
+                        <button class="summarize-btn" @click="summarizeMemories" :disabled="isSummarizing" title="总结最旧的记忆">
+                          {{ isSummarizing ? '总结中...' : '📝 总结' }}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div class="memory-summary-list" v-if="selectedPerson.记忆总结?.length">
@@ -487,6 +498,8 @@ const tabs = computed(() => {
 
 // 记忆总结状态
 const isSummarizing = ref(false);
+// 要总结的记忆条数（从最旧开始）
+const memoriesToSummarize = ref(10);
 
 // 记忆分页相关
 const memoryPageSize = ref(5); // 每页显示的记忆数量
@@ -891,7 +904,16 @@ const summarizeMemories = async () => {
     const memories = selectedPerson.value.记忆 || [];
     if (memories.length === 0) throw new Error('没有记忆可以总结');
 
-    const memoriesText = memories.map((m, i) => {
+    // 验证并调整要总结的记忆条数
+    const countToSummarize = Math.min(
+      Math.max(3, memoriesToSummarize.value || 10), // 最少3条
+      memories.length // 最多全部记忆
+    );
+
+    // 从最旧的记忆开始截取（数组前面是最旧的）
+    const memoriesToProcess = memories.slice(0, countToSummarize);
+
+    const memoriesText = memoriesToProcess.map((m, i) => {
       const time = getMemoryTime(m);
       const event = getMemoryEvent(m);
       return `${i + 1}. [${time}] ${event}`;
@@ -939,8 +961,8 @@ ${memoriesText}`;
     // 添加总结到记忆总结数组
     characterData.value.人物关系[npcKey].记忆总结!.push(summary);
 
-    // 清空记忆数组
-    characterData.value.人物关系[npcKey].记忆 = [];
+    // 删除已总结的记忆（从最旧的开始删除）
+    characterData.value.人物关系[npcKey].记忆 = memories.slice(countToSummarize);
 
     // 同步到酒馆并保存到存档
     const { useCharacterStore } = await import('@/stores/characterStore');
@@ -954,7 +976,7 @@ ${memoriesText}`;
     // 更新选中的人物
     selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
 
-    toast.success(`已为 ${npcName} 生成记忆总结并同步到酒馆`);
+    toast.success(`已将 ${npcName} 最旧的 ${countToSummarize} 条记忆总结并同步到酒馆`);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     toast.error(`记忆总结失败: ${errorMsg}`);
@@ -1481,6 +1503,30 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-weight: 500;
+}
+
+.summarize-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.summarize-input {
+  width: 60px;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.summarize-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
 }
 
 .summarize-btn {

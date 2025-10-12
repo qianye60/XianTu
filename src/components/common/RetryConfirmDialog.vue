@@ -51,7 +51,7 @@ const handleCancel = () => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 99999; /* 设置为最高层，确保在所有元素之上 */
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,12 +61,16 @@ const handleCancel = () => {
 
 .retry-dialog {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   width: 100%;
   max-width: 480px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: dialog-appear 0.3s ease-out;
   overflow: hidden;
+  /* 确保背景完全贴合 */
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes dialog-appear {
@@ -81,75 +85,95 @@ const handleCancel = () => {
 }
 
 .dialog-header {
-  padding: 20px 24px 0;
+  padding: 24px 24px 16px;
   text-align: center;
+  background: var(--color-surface);
+  /* 去除可能的间隙 */
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .dialog-header h3 {
   margin: 0;
+  padding: 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--color-text);
+  line-height: 1.4;
 }
 
 .dialog-content {
-  padding: 24px;
+  padding: 20px 24px;
   text-align: center;
-  max-height: 60%; /* 限制最大高度为视口的60% */
-  overflow-y: auto; /* 超出时显示垂直滚动条 */
+  background: var(--color-surface);
+  /* 确保内容区域可滚动但不超出 */
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 去除可能的间隙 */
+  margin: 0;
+  flex: 1;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式优化 */
 .dialog-content::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .dialog-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  background: transparent;
 }
 
 .dialog-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
 }
 
 .dialog-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .error-icon {
   color: var(--color-warning);
-  margin-bottom: 16px;
+  margin: 0 0 16px 0;
+  padding: 0;
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
 .message {
   color: var(--color-text);
   line-height: 1.6;
   margin: 0;
+  padding: 0;
   white-space: pre-line;
-  text-align: left; /* 长文本左对齐更易读 */
-  word-break: break-word; /* 长单词自动换行 */
+  text-align: left;
+  word-break: break-word;
 }
 
 .dialog-actions {
   display: flex;
   gap: 12px;
-  padding: 0 24px 24px;
+  padding: 16px 24px 24px;
+  background: var(--color-surface);
+  /* 去除可能的间隙 */
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .btn-primary,
 .btn-secondary {
   flex: 1;
   padding: 12px 20px;
+  margin: 0;
   border-radius: 8px;
   border: 1px solid;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 14px;
+  line-height: 1.5;
 }
 
 .btn-primary {
@@ -184,18 +208,38 @@ const handleCancel = () => {
 }
 
 @media (max-width: 480px) {
+  .retry-dialog-overlay {
+    padding: 16px;
+  }
+
   .retry-dialog {
-    margin: 16px;
     max-width: none;
+    border-radius: 12px;
+  }
+
+  .dialog-header {
+    padding: 20px 20px 12px;
+  }
+
+  .dialog-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .dialog-content {
+    padding: 16px 20px;
+    max-height: 60vh;
   }
 
   .dialog-actions {
     flex-direction: column-reverse;
+    gap: 10px;
+    padding: 12px 20px 20px;
   }
 
   .btn-primary,
   .btn-secondary {
     flex: none;
+    width: 100%;
   }
 }
 </style>

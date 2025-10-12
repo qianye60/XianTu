@@ -153,6 +153,15 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     神识: { 当前: 初始神识, 上限: 初始神识 },
     寿命: { 当前: age, 上限: 最大寿命 },
     状态效果: [], // 使用新的StatusEffect数组格式
+    系统任务: {
+      配置: {
+        启用: false,
+        任务类型: 'all',
+        颁发数量: 3
+      },
+      进行中任务: [],
+      已完成任务名称: []
+    },
     天道点: initialTiandaoPoints
   };
 }
@@ -204,6 +213,19 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   // 注意：不再在此处理随机灵根和随机出生，完全交给 AI 处理
   // AI 会根据提示词中的引导，创造性地生成独特的灵根和出生
   // 这样可以避免固定的套路，每次初始化都会有不同的结果
+
+  // 确保后天六司存在，开局默认全为0
+  if (!processedBaseInfo.后天六司) {
+    processedBaseInfo.后天六司 = {
+      根骨: 0,
+      灵性: 0,
+      悟性: 0,
+      气运: 0,
+      魅力: 0,
+      心性: 0
+    };
+    console.log('[角色初始化] 初始化后天六司为全0');
+  }
 
   if (isRandomSpiritRoot(processedBaseInfo.灵根)) {
     console.log('[灵根生成] 检测到随机灵根，将由 AI 创造性生成');

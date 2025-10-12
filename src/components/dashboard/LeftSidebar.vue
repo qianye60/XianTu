@@ -84,21 +84,18 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
-          <button 
-            class="function-btn secondary" 
+          <button
+            class="function-btn secondary"
             @click="handleQuests"
-            :class="{ disabled: !isQuestSystemEnabled }"
-            :disabled="!isQuestSystemEnabled"
           >
             <div class="btn-icon">
               <Scroll :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">任务系统</span>
-              <span class="btn-desc" v-if="isQuestSystemEnabled">进行中任务</span>
-              <span class="btn-desc disabled-text" v-else>需在设置中启用</span>
+              <span class="btn-desc">进行中任务</span>
             </div>
-            <ChevronRight :size="14" class="btn-arrow" v-if="isQuestSystemEnabled" />
+            <ChevronRight :size="14" class="btn-arrow" />
           </button>
         </div>
       </div>
@@ -203,6 +200,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
 import { getTavernHelper } from '@/utils/tavern';
+import type { SystemTaskData } from '@/types/game';
 
 const props = defineProps<{
   collapsed?: boolean;
@@ -212,19 +210,6 @@ const router = useRouter();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
 
-// 检查任务系统是否启用
-const isQuestSystemEnabled = computed(() => {
-  try {
-    const savedSettings = localStorage.getItem('dad_game_settings');
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      return settings.enableQuestSystem || false;
-    }
-  } catch (error) {
-    console.warn('[左侧栏] 无法读取任务系统设置:', error);
-  }
-  return false;
-});
 
 // 使用 store 的 getters 获取数据
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
@@ -243,11 +228,7 @@ const handleCharacterDetails = () => {
 };
 
 const handleQuests = () => {
-  if (isQuestSystemEnabled.value) {
-    router.push('/game/quests');
-  } else {
-    toast.warning('任务系统未启用，请在设置中开启');
-  }
+  router.push('/game/quests');
 };
 
 const handleSect = () => {

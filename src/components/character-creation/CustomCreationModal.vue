@@ -8,7 +8,7 @@
           <div v-for="field in visibleFields" :key="field.key" class="form-group">
             <label :for="field.key">{{ field.label }}</label>
             <input
-              v-if="field.type === 'text' || field.type === 'color'"
+              v-if="field.type === 'text' || field.type === 'color' || field.type === 'number'"
               :id="field.key"
               v-model="formData[field.key]"
               :placeholder="field.placeholder"
@@ -82,7 +82,7 @@ type BaseField = {
   condition?: (data: Record<string, unknown>) => boolean;
 };
 
-type InputField = BaseField & { type: 'text' | 'textarea' | 'color' };
+type InputField = BaseField & { type: 'text' | 'textarea' | 'color' | 'number' };
 type SelectField = BaseField & { type: 'select'; options: readonly { value: string; label: string }[] };
 type DynamicListField = BaseField & {
   type: 'dynamic-list';

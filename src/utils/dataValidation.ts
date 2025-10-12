@@ -204,11 +204,34 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
           if ('魅力' in npcInnate) npcInnate['魅力'] = clamp(npcInnate['魅力']);
           if ('心性' in npcInnate) npcInnate['心性'] = clamp(npcInnate['心性']);
         }
+
+        // 限制好感度 -100~100
+        if ('好感度' in npc && typeof npc.好感度 === 'number') {
+          npc.好感度 = clamp(npc.好感度, -100, 100);
+        }
+
+        // 限制性渴望程度 0~100
+        if (npc.私密信息 && typeof npc.私密信息 === 'object') {
+          if ('性渴望程度' in npc.私密信息 && typeof npc.私密信息.性渴望程度 === 'number') {
+            npc.私密信息.性渴望程度 = clamp(npc.私密信息.性渴望程度, 0, 100);
+          }
+          // 限制身体部位的敏感度和开发程度
+          if (Array.isArray(npc.私密信息.身体部位)) {
+            npc.私密信息.身体部位.forEach((part: any) => {
+              if ('敏感度' in part && typeof part.敏感度 === 'number') {
+                part.敏感度 = clamp(part.敏感度, 0, 100);
+              }
+              if ('开发程度' in part && typeof part.开发程度 === 'number') {
+                part.开发程度 = clamp(part.开发程度, 0, 100);
+              }
+            });
+          }
+        }
       });
     }
 
     // 写入提示（便于AI在当前状态中读到）
-    const tipLine = '系统规则：先天六司每项上限为10（NPC同样适用），如超限需裁剪至上限。';
+    const tipLine = '系统规则：先天六司每项上限为10（NPC同样适用），如超限需裁剪至上限。好感度范围：-100到100。性渴望程度范围：0到100。';
     const sys = (saveData as any).系统;
     if (Array.isArray(sys.提示)) {
       if (!sys.提示.includes(tipLine)) sys.提示.push(tipLine);
@@ -219,6 +242,18 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     }
   } catch (e) {
     console.warn('[数据验证] 注入系统规则/修正先天六司时发生警告:', e);
+  }
+
+  // 迁移系统任务数据：从玩家角色状态迁移到根级别
+  try {
+    const playerStatus = (saveData as any)?.玩家角色状态;
+    if (playerStatus?.系统任务 && !saveData.系统任务) {
+      console.log('[数据验证] 迁移系统任务数据到根级别');
+      saveData.系统任务 = playerStatus.系统任务;
+      delete playerStatus.系统任务;
+    }
+  } catch (e) {
+    console.warn('[数据验证] 迁移系统任务数据时发生警告:', e);
   }
 
   // 1. 修复装备栏中的 "null" 或 "undefined" 字符串问题
@@ -248,11 +283,18 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     console.log('[数据验证] 修复修炼功法: "null" -> null');
     saveData.修炼功法 = null;
   }
-  // 如果修炼功法存在，确保已解锁技能数组存在
-  if (saveData.修炼功法 && typeof saveData.修炼功法 === 'object') {
-    if (!Array.isArray(saveData.修炼功法.已解锁技能)) {
-      saveData.修炼功法.已解锁技能 = [];
+  // 如果修炼功法存在，验证其引用是否有效
+  if (saveData.修炼功法) {
+    const techniqueId = saveData.修炼功法.物品ID;
+    if (!saveData.背包?.物品?.[techniqueId]) {
+      console.warn(`[数据验证] 修复：修炼功法引用了一个不存在于背包的物品ID (${techniqueId})，已重置为 null。`);
+      saveData.修炼功法 = null;
     }
+  }
+  // 确保 `掌握技能` 是一个数组
+  if (!Array.isArray(saveData.掌握技能)) {
+    console.log('[数据验证] 修复：`掌握技能` 不是数组，已初始化为空数组。');
+    saveData.掌握技能 = [];
   }
 
   // 4. 确保必要的对象和数组存在
@@ -444,13 +486,22 @@ export function generateValidationReport(saveData: SaveData): ValidationReport {
     if (!saveData.背包.物品) report.warnings.push('背包中缺少物品数据');
   }
 
-  if (saveData.修炼功法 && typeof saveData.修炼功法 === 'object') {
-    if (typeof saveData.修炼功法.熟练度 !== 'number') {
-      report.warnings.push('修炼功法熟练度应为数字类型');
+  if (saveData.修炼功法) {
+    const techniqueId = saveData.修炼功法.物品ID;
+    const techniqueItem = saveData.背包?.物品?.[techniqueId];
+    if (techniqueItem && techniqueItem.类型 === '功法') {
+      // '熟练度' 已更名为 '修炼进度'
+      if (typeof (techniqueItem as any).修炼进度 !== 'number') {
+        report.warnings.push(`修炼中的功法 '${techniqueItem.名称}' 的 '修炼进度' 属性应为数字。`);
+      }
+    } else {
+      report.errors.push(`'修炼功法' 字段引用了一个无效或不存在于背包的物品ID: ${techniqueId}`);
+      report.isValid = false;
     }
-    if (!Array.isArray(saveData.修炼功法.已解锁技能)) {
-      report.warnings.push('已解锁技能应为数组类型');
-    }
+  }
+
+  if (!Array.isArray(saveData.掌握技能)) {
+    report.warnings.push('`掌握技能` 字段应为数组类型');
   }
 
   console.log('[数据验证] 生成验证报告完成:', report);

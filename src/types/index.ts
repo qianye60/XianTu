@@ -68,6 +68,8 @@ export interface Talent {
   id: number; // 统一为数字ID以匹配后端
   name: string;
   description: string;
+  talent_cost: number;
+  rarity: number;
   source?: 'local' | 'cloud';
 }
 

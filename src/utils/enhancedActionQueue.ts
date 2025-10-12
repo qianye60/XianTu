@@ -873,7 +873,7 @@ export class EnhancedActionQueueManager {
   }
   
   /**
-   * 同步装备栏到酒馆变量
+   * 同步装备栏到酒馆变量，并更新后天六司
    */
   private async syncEquipmentToTavern(saveData: SaveData): Promise<void> {
     try {
@@ -882,15 +882,30 @@ export class EnhancedActionQueueManager {
         console.warn('[装备同步] 酒馆助手不可用，跳过同步');
         return;
       }
-      
-      // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
+
+      // 1. 重新计算装备带来的后天六司加成
+      const { calculateEquipmentBonuses } = await import('@/utils/attributeCalculation');
+      const equipmentBonuses = saveData.装备栏 && saveData.背包
+        ? calculateEquipmentBonuses(saveData.装备栏, saveData.背包)
+        : { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
+
+      // 2. 更新角色基础信息中的后天六司（只包含装备加成）
+      if (saveData.角色基础信息) {
+        saveData.角色基础信息.后天六司 = equipmentBonuses;
+        console.log('[装备同步] 更新后天六司:', equipmentBonuses);
+      }
+
+      // 3. 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
       const { deepCleanForClone } = await import('@/utils/dataValidation');
-      const cleanedEquipment = deepCleanForClone({ '装备栏': saveData.装备栏 });
+      const cleanedData = deepCleanForClone({
+        '装备栏': saveData.装备栏,
+        '角色基础信息': saveData.角色基础信息
+      });
 
-      // 使用分片存储同步
-      await helper.insertOrAssignVariables(cleanedEquipment, { type: 'chat' });
+      // 4. 使用分片存储同步
+      await helper.insertOrAssignVariables(cleanedData, { type: 'chat' });
 
-      console.log('[装备同步] 装备栏已同步到酒馆变量');
+      console.log('[装备同步] 装备栏和后天六司已同步到酒馆变量');
     } catch (error) {
       console.warn('[装备同步] 同步装备栏到酒馆变量失败:', error);
     }

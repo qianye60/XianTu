@@ -884,7 +884,7 @@ export async function generateInGameResponse(
     console.log('【剧情推进】系统设置:', { nsfwMode, nsfwGenderFilter });
 
     // 获取系统提示词（规则和数据结构）
-    let systemPrompt = getRandomizedInGamePrompt();
+    let systemPrompt = getRandomizedInGamePrompt(saveData);
 
     // 🔥 注入系统设置到提示词
     systemPrompt += `\n\n# 当前系统设置\nnsfwMode: ${nsfwMode}\nnsfwGenderFilter: ${nsfwGenderFilter}\n\n⚠️ 如果nsfwMode=true，生成NPC时必须包含"私密信息"字段（根据nsfwGenderFilter过滤性别）\n⚠️ 如果nsfwMode=false，生成NPC时不要包含"私密信息"字段\n`;
@@ -898,30 +898,42 @@ export async function generateInGameResponse(
 
     // 🔥 使用结构化 prompts 注入短期记忆
     // 1. system: 系统提示词（规则、数据结构等）
-    // 2. assistant: 短期记忆（之前的剧情，合并为一条）
-    // 3. user: 玩家行动
+    // 2. user: 玩家行动
+    // 3. assistant: 短期记忆（之前的剧情，合并为一条）
     const helper = getTavernHelper();
     if (!helper) throw new Error('酒馆助手未初始化');
 
     // 将所有短期记忆合并为一条assistant消息
+    // 🔥 重要：反转记忆顺序，让AI按时间顺序（从旧到新）阅读
     const memoryContent = shortTermMemories.length > 0
-      ? shortTermMemories.join('\n\n---\n\n')
+      ? shortTermMemories.slice().reverse().join('\n\n---\n\n')
       : '【仙道元年元月初一 00:00】旅途刚刚开始...';
 
     console.log('【剧情推进-调试】注入记忆长度:', memoryContent.length);
     console.log('【剧情推进-调试】注入记忆前300字符:', memoryContent.substring(0, 300));
 
+    // 🔥 使用 injects 注入到更深的位置（在world book之后）
     const rawResult = await helper.generate({
-      user_input: userInput,
-      overrides: {
-        chat_history: {
-          prompts: [
-            { role: 'system', content: systemPrompt },
-            { role: 'assistant', content: memoryContent }  // 🔥 关键：将短期记忆作为assistant的历史输出
-          ]
+      user_input: userInput,  // 🔥 关键：玩家行动作为最终的user输入
+      injects: [
+        {
+          id: 'game_system_rules',
+          position: 'in_chat',
+          depth: 0,  // 深度0 = 最靠近用户输入（在world book之后）
+          role: 'system',
+          content: systemPrompt,
+          scan: false  // 不参与world book扫描
+        },
+        {
+          id: 'previous_scene',
+          position: 'in_chat',
+          depth: 1,  // 深度1 = 在系统规则之后
+          role: 'assistant',
+          content: memoryContent,
+          scan: true  // 参与world book扫描
         }
-      },
-      max_chat_history: 0,  // 禁用真实对话历史，只使用我们注入的prompts
+      ],
+      max_chat_history: 0,  // 禁用真实对话历史
       should_stream: useStreaming || false
     });
 

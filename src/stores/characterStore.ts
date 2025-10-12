@@ -1,6 +1,6 @@
 import { ref, computed, triggerRef } from 'vue';
 import { defineStore } from 'pinia';
-import { merge, set as setLodash, cloneDeep } from 'lodash';
+import { set as setLodash, cloneDeep } from 'lodash';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useUIStore } from './uiStore'; // 导入UI Store
@@ -14,6 +14,7 @@ import { validateGameData } from '@/utils/dataValidation';
 import { getAIDataRepairSystemPrompt } from '@/utils/prompts/dataRepairPrompts';
 import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/utils/lifespanCalculator'; // <-- 导入寿命计算工具
 import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 导入掌握技能计算工具
+import { updateStatusEffects } from '@/utils/statusEffectManager'; // <-- 导入状态效果管理工具
 import {
   shardSaveData,
   assembleSaveData,
@@ -37,23 +38,6 @@ interface CreationPayload {
   age: number; // 开局年龄
 }
 
-/**
- * 获取对象的嵌套值
- * @param obj 源对象
- * @param path 点号分隔的路径，如 '玩家角色状态.修为.当前'
- */
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split('.');
-  let current: unknown = obj;
-  for (const key of keys) {
-    if (current && typeof current === 'object' && key in current) {
-      current = (current as Record<string, unknown>)[key];
-    } else {
-      return undefined;
-    }
-  }
-  return current;
-}
 
 export const useCharacterStore = defineStore('characterV3', () => {
   // --- 状态 (State) ---
@@ -437,7 +421,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       世界: creationStore.selectedWorld?.name || baseInfo.世界,
       天资: creationStore.selectedTalentTier?.name || baseInfo.天资,
       出生: creationStore.selectedOrigin?.name || '随机出身',
-      // 修复：确保灵根是包含完整信息的对象，或明确的“随机”标识
+      // 修复：确保灵根是包含完整信息的对象，或明确的"随机"标识
       灵根: creationStore.selectedSpiritRoot
         ? {
             名称: creationStore.selectedSpiritRoot.name,
@@ -450,6 +434,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
         名称: t.name,
         描述: t.description,
       })),
+      // 确保后天六司存在且初始化为0（开局默认全为0）
+      后天六司: baseInfo.后天六司 || {
+        根骨: 0,
+        灵性: 0,
+        悟性: 0,
+        气运: 0,
+        魅力: 0,
+        心性: 0,
+      },
     };
     debug.log('角色商店', '构建权威创角信息:', authoritativeBaseInfo);
 
@@ -668,7 +661,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
         }
       }
   
-      const loadId = 'load-game-process';
       try {
         uiStore.startLoading('开始加载存档...');
         // [核心改造] 1. 加载游戏前，彻底清理酒馆变量环境
@@ -836,6 +828,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.log('角色商店', `[同步] 已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
       } catch (error) {
         debug.warn('角色商店', '[同步] 自动计算掌握技能失败（非致命）:', error);
+      }
+
+      // 🔥 [状态效果过期检查] 每次从酒馆同步后自动移除过期的状态效果
+      try {
+        const hasExpiredEffects = updateStatusEffects(saveData);
+        if (hasExpiredEffects) {
+          debug.log('角色商店', '[同步] 已自动移除过期的状态效果');
+        }
+      } catch (error) {
+        debug.warn('角色商店', '[同步] 自动清理过期状态效果失败（非致命）:', error);
       }
 
       // ⚠️ 保留本地的记忆数据，避免被酒馆的旧数据覆盖
@@ -1833,6 +1835,7 @@ const deleteNpc = async (npcName: string) => {
   }
 };
 
+
 /**
  * [新增] 装备一个功法
  * @param itemId 要装备的功法物品ID
@@ -1852,6 +1855,14 @@ const equipTechnique = async (itemId: string) => {
     return;
   }
 
+  // 🔍 调试：装备前检查品质数据
+  console.log('[角色商店-调试] 装备功法前的数据:', {
+    功法名称: item.名称,
+    品质字段存在: !!item.品质,
+    品质内容: item.品质,
+    完整物品数据: item
+  });
+
   // 1. 卸下当前所有功法
   Object.values(saveData.背包.物品).forEach(i => {
     if (i.类型 === '功法') {
@@ -1866,20 +1877,12 @@ const equipTechnique = async (itemId: string) => {
   saveData.修炼功法 = {
     物品ID: item.物品ID,
     名称: item.名称,
-    类型: '功法',
-    品质: item.品质,
-    描述: item.描述,
-    功法效果: (item as any).功法效果,
-    功法技能: (item as any).功法技能,
-    熟练度: 0, // 初始熟练度
-    已解锁技能: [],
-    修炼时间: 0,
-    突破次数: 0,
     正在修炼: true,
     修炼进度: (item as any).修炼进度 || 0, // 从背包同步进度
+    功法技能: (item as any).功法技能,
   };
 
-  debug.log('角色商店', `已装备功法: ${item.名称}，修炼进度: ${saveData.修炼功法.修炼进度}%`);
+  debug.log('角色商店', `已装备功法: ${item.名称}，修炼进度: ${saveData.修炼功法?.修炼进度}%`);
 
   // 🔥 [掌握技能自动计算] 装备功法后重新计算掌握技能
   try {
@@ -1890,6 +1893,16 @@ const equipTechnique = async (itemId: string) => {
   }
 
   await syncToTavernAndSave({ fullSync: true }); // 装备是重大变更，建议全量同步
+
+  // 🔍 调试：同步后再次检查品质数据
+  const itemAfterSync = saveData.背包?.物品?.[itemId];
+  console.log('[角色商店-调试] 同步到酒馆后的功法数据:', {
+    功法名称: itemAfterSync?.名称,
+    品质字段存在: !!itemAfterSync?.品质,
+    品质内容: itemAfterSync?.品质,
+    完整物品数据: itemAfterSync
+  });
+
   toast.success(`已开始修炼《${item.名称}》`);
 };
 

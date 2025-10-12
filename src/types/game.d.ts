@@ -192,6 +192,7 @@ export interface TechniqueSkill {
   技能名称: string;
   技能描述: string;
   消耗?: string;
+  解锁需要熟练度?: number; // 可选：达到此进度后解锁（0-100百分比）
 }
 
 /** 功法效果 */
@@ -208,7 +209,7 @@ export interface BaseItem {
   类型: '装备' | '功法' | '其他';
   品质: ItemQuality;
   数量: number;
-  已装备?: boolean;
+  已装备?: boolean; // true表示装备中/修炼中，false表示未装备
   描述: string;
   可叠加?: boolean;
 }
@@ -223,9 +224,9 @@ export interface EquipmentItem extends BaseItem {
 export interface TechniqueItem extends BaseItem {
   类型: '功法';
   功法效果?: TechniqueEffects;
-  功法技能?: Record<string, TechniqueSkill>;
-  修炼进度?: number;
-  修炼中?: boolean;
+  功法技能?: TechniqueSkill[]; // ✅ 改为数组格式
+  修炼进度?: number; // 0-100 百分比
+  // 移除 修炼中 字段，统一使用 已装备 字段
 }
 
 /** 其他/消耗品类型物品 */
@@ -238,19 +239,26 @@ export interface ConsumableItem extends BaseItem {
 export type Item = EquipmentItem | TechniqueItem | ConsumableItem;
 
 
-/** 修炼功法数据（功法数据+进度合并） */
+/** 修炼功法引用（只存储引用，不存储完整数据） */
+export interface CultivationTechniqueReference {
+  物品ID: string;    // 引用背包中的功法ID
+  名称: string;      // 功法名称（用于快速显示）
+  正在修炼?: boolean; // 是否正在修炼此功法
+  修炼进度?: number;  // 修炼进度（0-100）
+  功法技能?: any; // HACK: 修正characterInitialization中的类型错误
+}
+
+/** @deprecated 旧的修炼功法数据接口，已废弃，使用 CultivationTechniqueReference 替代 */
 export interface CultivationTechniqueData extends AIMetadata {
-  物品ID: string; // 功法物品ID
-  名称: string; // 功法名称
+  物品ID: string;
+  名称: string;
   类型: '功法';
   品质: ItemQuality;
   描述: string;
   功法效果?: TechniqueEffects;
   功法技能?: Record<string, TechniqueSkill>;
-
-  // 进度数据（与功法数据合并）
   熟练度: number;
-  已解锁技能: string[]; // 已解锁的技能名称列表
+  已解锁技能: string[];
   修炼时间: number;
   突破次数: number;
   正在修炼: boolean;
@@ -489,6 +497,7 @@ export interface PlayerStatus extends AIMetadata {
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
   天道点?: number;
+  系统任务?: SystemTaskData;
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -620,6 +629,56 @@ export interface WorldInfo {
   版本: string;
 }
 
+// --- 系统任务 ---
+
+/** 任务系统类型（类似穿越小说的系统） */
+export type SystemTaskType = 'all' | 'relationship' | 'companion' | 'cultivation' | 'exploration' | 'combat' | 'custom';
+
+/** 任务奖励 */
+export interface TaskReward {
+  类型: '灵石' | '物品' | '经验' | '属性' | '技能' | '好感度' | string;
+  描述: string;
+  数据?: any; // 根据类型存储具体数据，如物品ID、属性值等
+}
+
+/** 任务条件 */
+export interface TaskCondition {
+  描述: string;
+  完成: boolean;
+  进度?: {
+    当前: number;
+    目标: number;
+  };
+}
+
+/** 进行中的任务 */
+export interface ActiveTask {
+  任务ID: string;
+  任务名称: string;
+  任务类型: SystemTaskType;
+  任务描述: string;
+  颁发时间: GameTime; // 任务发布的游戏时间
+  有效期?: number; // 任务有效期（分钟），undefined表示永久有效
+  条件: TaskCondition[];
+  奖励: TaskReward[];
+  失败惩罚?: string; // 失败惩罚描述
+}
+
+/** 任务系统配置 */
+export interface SystemTaskConfig {
+  启用: boolean; // 是否启用任务系统
+  任务类型: SystemTaskType; // 任务颁发类型
+  自定义提示词?: string; // 自定义任务颁发规则
+  颁发数量?: number; // 任务颁发数量，默认3
+}
+
+/** 任务系统数据（顶级字段） */
+export interface SystemTaskData {
+  配置: SystemTaskConfig;
+  进行中任务: ActiveTask[];
+  已完成任务名称: string[]; // 只存储任务名称
+}
+
 // --- 世界地图 ---
 
 // --- NPC 模块 ---
@@ -735,6 +794,29 @@ export interface Memory extends AIMetadata {
   隐式中期记忆?: string[]; // 隐式中期记忆数组，与短期记忆同步增长，溢出时转入真正的中期记忆
 }
 
+// --- 穿越者系统（金手指系统）---
+
+/** 单个任务 */
+export interface TransmigratorTask {
+  任务ID: string; // 唯一标识，如 "task_001"
+  任务类型: string; // 自定义类型，如 "道侣培养" "修为提升" "收集资源"
+  任务描述: string; // 任务内容描述
+  触发条件: string; // 触发条件描述，如 "境界突破" "好感度达到60"
+  完成条件: string; // 完成条件，如 "修为达到筑基期" "收集100株灵草"
+  奖励: string; // 奖励描述，如 "灵石×1000，筑基丹×1"
+  发布时间: string; // 任务发布的游戏时间
+  完成时间?: string; // 任务完成的游戏时间
+}
+
+/** 穿越者系统（金手指系统）- 扁平化结构 */
+export interface TransmigratorSystem extends AIMetadata {
+  系统类型: string; // 系统类型名称，如 "道侣养成系统" "修仙辅助系统"，可自定义
+  任务颁发提示词: string; // AI任务生成的提示词，控制任务生成逻辑
+  自动刷新: boolean; // 是否自动刷新：完成任务后自动删除并生成新任务
+  默认任务数量: number; // 默认未完成任务池数量，完成后自动补充至此数量
+  未完成任务: TransmigratorTask[]; // 未完成任务列表
+  已完成任务名单: string[]; // 已完成任务名称列表
+}
 
 // --- 游戏时间 ---
 
@@ -767,11 +849,13 @@ export interface GameMessage {
     背包: Inventory;
     人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
     宗门系统: SectSystemData;
+    穿越者系统?: TransmigratorSystem; // 可选：穿越者任务系统（金手指）
+    系统任务?: SystemTaskData; // 可选：系统任务功能（根级别，AI直接可见）
     记忆: Memory;
     游戏时间: GameTime;
     角色基础信息: CharacterBaseInfo; // 必填，包含天赋数据+进度
     世界信息?: WorldInfo;
-    修炼功法: CultivationTechniqueData | null; // 功法数据+进度合并，可为null表示未修炼
+    修炼功法: CultivationTechniqueReference | null; // ✅ 只存引用，可为null表示未修炼
     掌握技能: MasteredSkill[]; // 技能数据+进度合并
     系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
     叙事历史?: GameMessage[]; // 存储对话历史及其状态变更日志
@@ -823,6 +907,7 @@ export interface CharacterBaseInfo extends AIMetadata {
     描述: string;
   }>;
   先天六司: InnateAttributes;
+  后天六司: InnateAttributes; // 后天获得的六司加成（装备、大道等），开局默认全为0
   创建时间?: string; // 添加创建时间字段
   描述?: string; // 添加描述字段
 }

@@ -277,7 +277,15 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
           名称: t.name,
           描述: t.description || ''
         })) || [],
-        先天六司: convertedAttributes
+        先天六司: convertedAttributes,
+        后天六司: {
+          根骨: 0,
+          灵性: 0,
+          悟性: 0,
+          气运: 0,
+          魅力: 0,
+          心性: 0,
+        }
       };
 
       // 添加可选的详情字段(使用类型扩展)

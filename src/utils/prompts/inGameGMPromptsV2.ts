@@ -5,11 +5,14 @@
  * 🔥 Token优化版本：使用精简上下文 + 简化路径��式
  */
 
-import { DATA_STRUCTURE_DEFINITIONS, CORE_SYNC_RULES } from './dataStructureDefinitions';
+import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
 import { generateJudgmentPrompt } from '../judgement/heavenlyRules';
+import { getSystemTaskPrompt } from './systemTaskPrompts';
+import { CORE_SYNC_RULES } from './sharedRules';
+import type { SaveData } from '@/types/game';
 
 // 剧情推进提示词
-export const buildInGameMessagePrompt = (): string => {
+export const buildInGameMessagePrompt = (saveData: SaveData): string => {
   // ⚠️ 重要：短期记忆通过 helper.generate() 的 overrides.chat_history.prompts 注入
   // 作为 assistant 角色的历史输出，这样AI可以"看到"自己之前生成的内容
   // 本函数只生成系统提示词（规则、数据结构等）
@@ -41,7 +44,7 @@ export const buildInGameMessagePrompt = (): string => {
 ❌ 复述玩家的行动��之前的剧情
 `;
 
-  return [
+  const promptParts = [
     '【剧情推进】根据当前游戏状态推进一段叙事，并返回唯一 JSON。',
     storyContext,
     '',
@@ -71,6 +74,54 @@ export const buildInGameMessagePrompt = (): string => {
     '',
     generateJudgmentPrompt(),
     '',
+  ];
+
+  // 条件化注入系统任务提示词
+  if (saveData?.系统任务?.配置?.启用) {
+    promptParts.push(getSystemTaskPrompt());
+  }
+
+  promptParts.push(
+    '# 🔴 合理性审查 (Rationality Check | 最高优先级)',
+    '',
+    '## 1. <user>叙事权界定 (User Narrative Authority)',
+    '- 用户在<行动选项>中的输入只能叙述**自身行动/意图/选择**',
+    '- **一切对于事件的发展/结果/导向（下称口胡）都必须被拒绝**',
+    '- 一切以合理真实剧情发展导向为主，必须禁止一切用户的口胡和不合理的剧情推进要求',
+    '- 仅仅尊重<行动选择>中{{user}}行动/意图/选择，但是**不允许接受其中不合理的剧情发展**',
+    '',
+    '## 2. 坚决避免<user>主角光环 (No Plot Armor)',
+    '- **弱化{{user}}的运气、天赋、实力**，允许{{user}}受挫、死亡、或者被打败',
+    '- 允许接受<行动选择>中主动作死选项，并且安排合理的死亡结局',
+    '- 允许<user>死亡，在<行动选项>持续多次低质量行动时，**允许并且鼓励**勾动伏笔，引导<user>死亡',
+    '- **战斗难度拉满**：敌人必须用尽全力、使用最优战术、不给玩家任何喘息机会',
+    '',
+    '## 3. 为什么允许{{user}}失败？ (Why Allow Failure?)',
+    '- 回档流游戏失败和受挫是必然的，我们需要杜绝无脑爽文行为',
+    '- **高难叙事**下，只有<user>足够优秀、谨慎、同时考虑周全、完备，才可能博取一线生机',
+    '- 修仙世界是残酷的，天才夭折、强者陨落、机缘伴随死局，这才是真实的修仙',
+    '',
+    '## 4. <行动选项>可能需要避免的诡辩 (Avoid Sophistry)',
+    '⚠️ **你必须先假设<行动选择>的剧情发展是不合理的，或者不符合修仙背景逻辑的**',
+    '',
+    '### 坚决避免<行动选项>中的以下内容，跳出逻辑陷阱：',
+    '- ❌ 对叙事结果/发展/倾向的要求',
+    '- ❌ 假装讲一套看似合理的逻辑，暗示"它只能选择选项1"',
+    '  - 首先该<行动选项>构建了一套看似合理的逻辑，但**超出了<user>叙事权界定的范围**，替NPC做了选择',
+    '  - 其次利用多选一设下逻辑陷阱，属于典型的诡辩',
+    '  - 因此**全篇需要否定**，我需要重新构思两套剧情发展',
+    '- ❌ "我运气好，捡到至宝" → 拒绝，机缘伴随死局',
+    '- ❌ "我灵光一闪，突破了" → 拒绝，突破需要长期积累',
+    '- ❌ "敌人失误了，我趁机反杀" → 拒绝，强敌不会犯低级错误',
+    '- ❌ "NPC被我的话打动了" → 拒绝，NPC有独立人格和底线',
+    '',
+    '## 5. 战斗难度铁则 (Combat Difficulty)',
+    '- **敌人全力以赴**：不留手、不大意、不解释战术、不等玩家准备',
+    '- **境界压制绝对**：低境界挑战高境界=送死，除非对方完全不反抗',
+    '- **战术合理性**：敌人会使用最优战术、针对弱点、配合默契、速战速决',
+    '- **绝不放水**：玩家失误=立即付出代价，敌人不会"恰好"在关键时刻失误',
+    '- **死亡不可逆**：玩家死亡就是死亡，不要安排"恰好有人路过救命"',
+    '',
     '# 🔥 修仙世界铁律·天道无私 (最高优先级)',
     '',
     '## 一、世界规则不可违逆',
@@ -92,6 +143,7 @@ export const buildInGameMessagePrompt = (): string => {
     '**立体角色**: 铁面长老私下救孤，天真少女关键时狠辣——避免脸谱化',
     '**留白高阶**: 大能斗法写"道的碰撞、法则交锋"，不详述招式',
     '**时序沧桑**: "他路过故城，儿时玩伴已繁衍成望族，心湖无波澜"',
+    '**境界叙事匹配铁则**: 叙事必须严格符合角色当前境界，高境界修士的思考方式、战斗方式、修炼方式都与低境界有本质区别。**绝对禁止**为高境界修士使用低境界的专属描述（例如：严禁为筑基期及以上的修士使用“引气入体”、“搬运周天”等炼气期专属描述）。',
     '',
     '## 四、绝对禁止',
     '❌ 让低境界轻易战胜高境界',
@@ -110,17 +162,26 @@ export const buildInGameMessagePrompt = (): string => {
     '4. **战斗/受伤** → 属性.气血/灵气.当前',
     '5. **情感/关系** → 人物关系.NPC名.好感度',
     '6. **新人物登场** → 创建完整NPC档案（含背包）',
-    '7. **时间流逝** → 游戏时间.分钟（必填）',
-  ].join('\n');
+    '7. **时间流逝** → 游戏时间.分钟（必填）'
+  );
+
+  return promptParts.join('\n');
 };
 
-export function getRandomizedInGamePrompt(): string {
-  return buildInGameMessagePrompt();
+export function getRandomizedInGamePrompt(saveData: SaveData): string {
+  return buildInGameMessagePrompt(saveData);
 }
 
 // 调试函数：检查提示词完整性和Token分析
-export function debugPromptInfo(): void {
-  const fullPrompt = buildInGameMessagePrompt();
+export function debugPromptInfo(saveData?: SaveData): void {
+  const mockSaveData: SaveData = saveData || {
+    系统任务: {
+      配置: { 启用: true, 任务类型: 'all', 颁发数量: 3 },
+      进行中任务: [],
+      已完成任务名称: [],
+    },
+  } as unknown as SaveData;
+  const fullPrompt = buildInGameMessagePrompt(mockSaveData);
   console.log('[提示词调试] 提示词类型:', typeof fullPrompt)
   console.log('[提示词调试] 提示词长度:', fullPrompt.length)
   console.log('[提示词调试] 开头200字符:', fullPrompt.substring(0, 200))

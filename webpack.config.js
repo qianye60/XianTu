@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { VueLoaderPlugin } from 'vue-loader'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-import HtmlInlineScriptWebpackPlugin from 'html-inline-script-webpack-plugin'
+import HtmlInlineScriptPlugin from 'html-inline-script-webpack-plugin'
 import TavernLiveReloadPlugin from './webpack/TavernLiveReloadPlugin.js'
 import { fileURLToPath } from 'url'
 
@@ -14,19 +14,29 @@ const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, './packag
 
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
+  const isWatch = argv.watch === true // 检测是否是 watch 模式
 
   return {
     mode: isProduction ? 'production' : 'development',
     entry: './src/main.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: isProduction ? 'daodaochaotian.[contenthash:8].js' : 'daodaochaotian.js',
+      filename: isWatch ? 'inline.js' : (isProduction ? 'daodaochaotian.[contenthash:8].js' : 'daodaochaotian.js'),
       clean: true,
       publicPath: './', // 使用相对路径，便于部署
     },
-    devtool: isProduction ? false : 'eval-source-map',
+    devtool: isProduction ? false : (isWatch ? false : 'eval-source-map'),
     optimization: {
       splitChunks: false, // 完全禁用代码分割
+      runtimeChunk: false, // 禁用运行时chunk
+      moduleIds: 'deterministic',
+      chunkIds: 'deterministic',
+      // 强制所有模块打包到主bundle
+      concatenateModules: true,
+    },
+    performance: {
+      maxAssetSize: 100000000, // 增加资源大小限制到100MB
+      maxEntrypointSize: 100000000, // 增加入口点大小限制
     },
     resolve: {
       extensions: ['.ts', '.js', '.vue', '.json'],
@@ -90,6 +100,9 @@ export default (env, argv) => {
     },
     plugins: [
       new VueLoaderPlugin(),
+      new webpack.optimize.LimitChunkCountPlugin({
+        maxChunks: 1 // 强制只生成一个chunk
+      }),
       new webpack.DefinePlugin({
         __VUE_OPTIONS_API__: JSON.stringify(true),
         __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
@@ -107,13 +120,28 @@ export default (env, argv) => {
           removeEmptyAttributes: true,
           removeStyleLinkTypeAttributes: true,
           keepClosingSlash: true,
-          minifyJS: false, // 不在HTML中压缩JS，保持独立文件
+          minifyJS: false,
           minifyCSS: true,
           minifyURLs: true,
         } : false
       }),
-      !isProduction ? new HtmlInlineScriptWebpackPlugin() : null,
-      !isProduction ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
+      // watch 模式下内联 JS 到 HTML
+      isWatch ? new HtmlInlineScriptPlugin({
+        htmlMatchPattern: [/index\.html$/],
+        scriptMatchPattern: [/inline\.js$/],
+      }) : null,
+      // watch 模式下删除临时 JS 文件
+      isWatch ? {
+        apply: (compiler) => {
+          compiler.hooks.afterEmit.tap('DeleteInlineJS', (compilation) => {
+            const inlineJsPath = path.join(__dirname, 'dist', 'inline.js');
+            if (fs.existsSync(inlineJsPath)) {
+              fs.unlinkSync(inlineJsPath);
+            }
+          });
+        }
+      } : null,
+      !isProduction && !isWatch ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
     ].filter(Boolean),
     devServer: {
       static: {

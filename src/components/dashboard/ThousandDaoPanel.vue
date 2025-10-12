@@ -113,16 +113,16 @@
                 <span class="stat-highlight">{{ selectedDaoProgress.当前经验 ?? 0 }}</span>
               </div>
               <div class="stat-row">
-                <span>总经验:</span>
-                <span class="stat-highlight">{{ selectedDaoProgress.总经验 ?? 0 }}</span>
-              </div>
-              <div class="stat-row">
-                <span>感悟状态:</span>
-                <span class="status-badge unlocked">正在感悟</span>
+                <span>当前阶段:</span>
+                <span class="stat-highlight">{{ getDaoStageDisplay(selectedDao) }}</span>
               </div>
               <div class="stat-row" v-if="getNextStageName(selectedDao)">
-                <span>下一境界:</span>
+                <span>下一阶段:</span>
                 <span class="next-stage">{{ getNextStageName(selectedDao) }}</span>
+              </div>
+              <div class="stat-row" v-if="getNextStageRequirement(selectedDao)">
+                <span>突破所需:</span>
+                <span class="stat-highlight">{{ getNextStageRequirement(selectedDao) }}</span>
               </div>
             </div>
           </div>
@@ -149,7 +149,10 @@
                 <div class="stage-details">
                   <div class="stage-name">{{ stage.名称 }}</div>
                   <div class="stage-desc">{{ stage.描述 }}</div>
-                  <div class="stage-req">需要经验: {{ stage.突破经验 }}</div>
+                  <!-- 只有未达到的阶段才显示"需要经验" -->
+                  <div v-if="index > (selectedDaoProgress?.当前阶段 ?? 0)" class="stage-req">
+                    突破所需: {{ stage.突破经验 }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -300,12 +303,8 @@ const refreshDaoData = async () => {
 };
 
 onMounted(async () => {
-  console.log('[三千大道面板] 组件挂载，同步数据...');
-  try {
-    await characterStore.syncFromTavern();
-  } catch (error) {
-    console.error('[三千大道面板] 同步数据失败:', error);
-  }
+  console.log('[三千大道面板] 组件挂载...');
+  // 移除自动同步，避免覆盖其他面板的状态
   panelBus.on('refresh', () => refreshDaoData());
 });
 </script>
