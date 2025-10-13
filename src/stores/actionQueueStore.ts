@@ -111,7 +111,8 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
         case 'equip':
           return `装备了《${action.itemName}》${action.itemType || '法宝'}`;
         case 'use':
-          return `使用了《${action.itemName}》`;
+          // 使用物品需要包含详细描述（包含效果）
+          return action.description || `使用了《${action.itemName}》`;
         case 'unequip':
           return `卸下了《${action.itemName}》装备`;
         case 'discard':
@@ -128,7 +129,7 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
           return action.description;
       }
     });
-    
+
     return `\n\n【玩家最近操作】\n在本轮对话前，玩家进行了以下操作：\n${actionTexts.map(text => `• ${text}`).join('\n')}\n\n⚠️ **重要提醒**：请优先基于这些玩家操作来生成回应！先处理和反映这些具体动作的结果，然后再回应用户输入的文本内容。这些操作具有更高的优先级，应该在叙事中得到明确体现。`;
   };
   

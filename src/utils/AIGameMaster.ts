@@ -735,6 +735,22 @@ async function executeCommand(command: { action: string; key: string; value?: un
           }
         }
 
+        // 🔥 [修炼进度同步] 当设置背包中功法的修炼进度时，同步到修炼功法字段
+        if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
+          try {
+            // 提取物品ID
+            const itemId = String(path).split('.')[2]; // 背包.物品.xxx.修炼进度
+
+            // 检查是否是正在修炼的功法
+            if (saveData.修炼功法?.物品ID === itemId) {
+              saveData.修炼功法.修炼进度 = value;
+              console.log(`[修炼进度同步] ✅ 已同步修炼进度到修炼功法字段: ${value}`);
+            }
+          } catch (e) {
+            console.error('[修炼进度同步] 同步修炼进度失败:', e);
+          }
+        }
+
         // 🔥 [掌握技能自动计算] 当设置背包中功法的修炼进度时，自动重新计算掌握技能
         if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
           try {
@@ -870,6 +886,22 @@ async function executeCommand(command: { action: string; key: string; value?: un
         } else {
           set(saveData, path, added);
           console.log(`[executeCommand] ✅ 已增加: ${currentValue} + ${value} = ${added}`);
+
+          // 🔥 [修炼进度同步] 当更新背包中功法的修炼进度时，同步到修炼功法字段
+          if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
+            try {
+              // 提取物品ID
+              const itemId = String(path).split('.')[2]; // 背包.物品.xxx.修炼进度
+
+              // 检查是否是正在修炼的功法
+              if (saveData.修炼功法?.物品ID === itemId) {
+                saveData.修炼功法.修炼进度 = added;
+                console.log(`[修炼进度同步] ✅ 已同步修炼进度到修炼功法字段: ${added}`);
+              }
+            } catch (e) {
+              console.error('[修炼进度同步] 同步修炼进度失败:', e);
+            }
+          }
 
           // 🔥 [掌握技能自动计算] 当更新背包中功法的修炼进度时，自动重新计算掌握技能
           if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {

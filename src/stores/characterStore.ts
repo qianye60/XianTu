@@ -831,10 +831,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 🔥 [状态效果过期检查] 每次从酒馆同步后自动移除过期的状态效果
+      let needsSyncBackToTavern = false;
       try {
         const hasExpiredEffects = updateStatusEffects(saveData);
         if (hasExpiredEffects) {
           debug.log('角色商店', '[同步] 已自动移除过期的状态效果');
+          needsSyncBackToTavern = true; // 标记需要同步回酒馆
         }
       } catch (error) {
         debug.warn('角色商店', '[同步] 自动清理过期状态效果失败（非致命）:', error);
@@ -883,6 +885,19 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.log('角色商店', '✅ 已从酒馆分片同步最新存档数据');
       debug.log('角色商店', `最终背包物品数量: ${Object.keys(saveData.背包?.物品 || {}).length}`);
       debug.log('角色商店', `是否有世界信息: ${!!saveData.世界信息}`);
+
+      // 🔥 如果移除了过期状态效果，需要将更新后的数据同步回酒馆
+      if (needsSyncBackToTavern) {
+        try {
+          debug.log('角色商店', '[同步] 状态效果已清理，开始同步回酒馆...');
+          const helper = getTavernHelper();
+          const shards = shardSaveData(saveData);
+          await saveAllShards(helper, shards);
+          debug.log('角色商店', '[同步] ✅ 已将清理后的状态效果同步回酒馆');
+        } catch (error) {
+          debug.warn('角色商店', '[同步] 同步清理后的状态效果到酒馆失败（非致命）:', error);
+        }
+      }
 
     } catch (error) {
       debug.error('角色商店', '从酒馆同步数据失败', error);

@@ -237,7 +237,7 @@
     <!-- 深度修炼对话框 -->
     <DeepCultivationModal
       :visible="showDialog"
-      :technique="selectedSkillData as TechniqueItem"
+      :technique="techniqueForModal"
       :current-progress="getCultivationProgress()"
       @close="closeDialog"
       @confirm="handleCultivationConfirm"
@@ -269,6 +269,14 @@ const activeTab = ref('effects'); // 新增：控制标签页显示
 
 // 深度修炼对话框状态
 const showDialog = ref(false);
+
+// 为模态框创建一个类型安全的计算属性
+const techniqueForModal = computed((): TechniqueItem | null => {
+  if (selectedSkillData.value && selectedSkillData.value.类型 === '功法') {
+    return selectedSkillData.value as TechniqueItem;
+  }
+  return null;
+});
 
 // 获取当前修炼进度
 const getCultivationProgress = (): number => {

@@ -526,18 +526,10 @@ const isFailureResult = (result: string) => {
   font-weight: 500;
 }
 
-/* 对话 - 橙色，增强样式 */
+/* 对话 - 橙色 */
 .text-dialogue {
   color: #d97706;
   font-weight: 500;
-  font-style: normal;
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.12) 0%, rgba(251, 146, 60, 0.06) 100%);
-  padding: 0.15em 0.5em;
-  border-radius: 6px;
-  margin: 0 0.2em;
-  border-left: 3px solid rgba(234, 88, 12, 0.4);
-  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.1);
-  display: inline-block;
 }
 
 /* 引用/独白 - 橙色斜体 */
@@ -802,9 +794,6 @@ const isFailureResult = (result: string) => {
 
 [data-theme="dark"] .text-dialogue {
   color: #fb923c;
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(251, 146, 60, 0.08) 100%);
-  border-left-color: rgba(234, 88, 12, 0.6);
-  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.2);
 }
 
 [data-theme="dark"] .text-quote {

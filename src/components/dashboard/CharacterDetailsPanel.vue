@@ -312,9 +312,15 @@
                    class="effect-item" :class="`effect-${effect.类型}`">
                 <div class="effect-header">
                   <span class="effect-name">{{ effect.状态名称 }}</span>
-                  <span class="effect-duration">{{ effect.时间 }}</span>
+                  <button class="effect-remove-btn" @click="handleRemoveEffect(effect.状态名称)" title="移除状态效果">
+                    <X :size="14" />
+                  </button>
                 </div>
                 <div class="effect-description">{{ getCleanEffectDescription(effect) }}</div>
+                <div class="effect-time-info">
+                  <span class="effect-created">生成: {{ formatEffectCreatedTime(effect) }}</span>
+                  <span class="effect-remaining">剩余: {{ formatEffectRemainingTime(effect) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -360,6 +366,27 @@
                       <span class="attr-value">{{ value > 0 ? `+${value}` : value }}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 身体部位开发 -->
+          <div v-if="bodyParts.length" class="info-section">
+            <h3 class="section-title">
+              <div class="title-icon">
+                <Sparkles :size="18" />
+              </div>
+              身体部位开发
+            </h3>
+            <div class="body-parts-list">
+              <div v-for="part in bodyParts" :key="part.name" class="body-part-item">
+                <div class="part-header">
+                  <span class="part-name">{{ part.name }}</span>
+                  <span v-if="part.level > 0" class="part-level">Lv.{{ part.level }}</span>
+                </div>
+                <div class="part-description">
+                  {{ part.description }}
                 </div>
               </div>
             </div>
@@ -861,11 +888,18 @@
 import { ref, computed, onMounted } from 'vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
+import { useCharacterStore } from '@/stores/characterStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
 import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
+import {
+  calculateRemainingMinutes,
+  formatMinutesToDuration,
+  gameTimeToTotalMinutes,
+  removeStatusEffect
+} from '@/utils/statusEffectManager';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
   Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X, MapPin
@@ -874,6 +908,7 @@ import {
 // 使用统一的数据访问
 const { saveData } = useUnifiedCharacterData();
 const uiStore = useUIStore();
+const characterStore = useCharacterStore();
 const isLoading = ref(false);
 
 // 界面状态
@@ -1009,6 +1044,19 @@ const acquiredAttributes = computed((): InnateAttributes => {
   if (!saveData.value) return defaultAttributes;
   const result = calculateFinalAttributes(innateAttributesWithDefaults.value, saveData.value);
   return result?.后天六司 || defaultAttributes;
+});
+
+const bodyParts = computed(() => {
+  const parts = saveData.value?.身体部位开发;
+  if (!parts || typeof parts !== 'object') return [];
+
+  return Object.entries(parts)
+    .filter(([, details]) => details && typeof details === 'object')
+    .map(([name, details]) => ({
+      name,
+      description: (details as any).描述 || '暂无描述',
+      level: (details as any).开发等级 || 0,
+    }));
 });
 
 const hasTechniqueEffects = computed(() => {
@@ -1298,11 +1346,47 @@ const getCleanEffectDescription = (effect: StatusEffect): string => {
       .replace(new RegExp(`持续时间[：][^。]*${duration}[^。]*。`, 'g'), '')
       .replace(new RegExp(`剩余时间[：][^。]*${duration}[^。]*。`, 'g'), '')
       .replace(new RegExp(`时间[：][^。]*${duration}[^。]*。`, 'g'), '')
-      .trim()
-      .replace(/^[，。、\s]+|[，。、\s]+$/g, ''); // 清理开头和结尾的标点符号
+      .trim();
   }
 
-  return description || '此状态效果正在生效中';
+  return description || '无描述';
+};
+
+// 格式化状态效果生成时间
+const formatEffectCreatedTime = (effect: StatusEffect): string => {
+  if (!effect.生成时间) return '未知';
+  const { 年, 月, 日, 小时, 分钟 } = effect.生成时间;
+  return `${年}年${月}月${日}日 ${小时 || 0}:${String(分钟 ?? 0).padStart(2, '0')}`;
+};
+
+// 格式化状态效果剩余时间
+const formatEffectRemainingTime = (effect: StatusEffect): string => {
+  if (!saveData.value?.游戏时间) return '未知';
+  const remainingMinutes = calculateRemainingMinutes(effect, saveData.value.游戏时间);
+  return formatMinutesToDuration(remainingMinutes);
+};
+
+// 移除状态效果
+const handleRemoveEffect = async (effectName: string) => {
+  if (!saveData.value) return;
+
+  const confirmed = confirm(`确定要移除状态效果"${effectName}"吗？`);
+  if (!confirmed) return;
+
+  try {
+    // 从存档数据中移除
+    const success = removeStatusEffect(saveData.value, effectName);
+
+    if (success) {
+      // 同步到酒馆
+      await characterStore.syncToTavern();
+      debug.log('角色详情面板', `已移除状态效果: ${effectName}`);
+    } else {
+      debug.warn('角色详情面板', `移除状态效果失败: ${effectName}`);
+    }
+  } catch (error) {
+    debug.error('角色详情面板', '移除状态效果失败:', error);
+  }
 };
 
 // 获取持久化的熟练度（根据技能名和来源生成固定熟练度）
@@ -2215,11 +2299,31 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 .effect-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 4px;
 }
 
 .effect-name {
   font-weight: 600;
+}
+
+.effect-remove-btn {
+  padding: 4px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.effect-remove-btn:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
 }
 
 .effect-duration {
@@ -2231,6 +2335,62 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   font-size: 0.85rem;
   color: var(--color-text);
   line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.effect-time-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.body-parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.body-part-item {
+  padding: 12px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  border-left: 4px solid var(--color-info);
+}
+
+.part-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.part-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.part-level {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(var(--color-info-rgb), 0.1);
+  color: var(--color-info);
+}
+
+.part-description {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.effect-created,
+.effect-remaining {
+  opacity: 0.8;
 }
 
 /* 六司属�?*/

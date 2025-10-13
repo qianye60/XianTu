@@ -323,7 +323,13 @@ export class EnhancedActionQueueManager {
         // 减少数量
         inventoryItem.数量 -= quantity;
       }
-      
+
+      // 保存数据到存储
+      await characterStore.commitToStorage();
+
+      // 🔥 同步到酒馆变量
+      await this.syncInventoryToTavern(saveData);
+
       // 创建撤回数据
       const undoAction: UndoAction = {
         type: 'use',
@@ -339,11 +345,12 @@ export class EnhancedActionQueueManager {
       this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
+      const useEffect = item.使用效果 || item.描述 || '无特殊效果';
       actionQueue.addAction({
         type: 'use',
         itemName: item.名称,
         itemType: item.类型,
-        description: `使用了 ${quantity} 个《${item.名称}》`
+        description: `使用了 ${quantity} 个《${item.名称}》（效果：${useEffect}）`
       });
       
       // toast.success(`使用了 ${quantity} 个《${item.名称}》`); // 弹窗逻辑已移至Store
@@ -945,6 +952,30 @@ export class EnhancedActionQueueManager {
       console.log('[修炼同步] 修炼功法已同步到酒馆变量');
     } catch (error) {
       console.warn('[修炼同步] 同步修炼功法到酒馆变量失败:', error);
+    }
+  }
+
+  /**
+   * 同步背包到酒馆变量
+   */
+  private async syncInventoryToTavern(saveData: SaveData): Promise<void> {
+    try {
+      const helper = getTavernHelper();
+      if (!helper) {
+        console.warn('[背包同步] 酒馆助手不可用，跳过同步');
+        return;
+      }
+
+      // 清理数据，移除不可序列化的值
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      const cleanedData = deepCleanForClone({ '背包': saveData.背包 });
+
+      // 同步背包数据到酒馆
+      await helper.insertOrAssignVariables(cleanedData, { type: 'chat' });
+
+      console.log('[背包同步] 背包已同步到酒馆变量');
+    } catch (error) {
+      console.warn('[背包同步] 同步背包到酒馆变量失败:', error);
     }
   }
 
