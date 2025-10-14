@@ -886,8 +886,14 @@ export async function generateInGameResponse(
 
     console.log('【剧情推进】系统设置:', { nsfwMode, nsfwGenderFilter });
 
+    // 🔥 [NPC自动生成] 从uiStore获取设置
+    const { useUIStore } = await import('@/stores/uiStore');
+    const uiStore = useUIStore();
+    const autoGenerateNpc = uiStore.autoGenerateNpc;
+    const minNpcCount = uiStore.minNpcCount;
+
     // 获取系统提示词（规则和数据结构）
-    let systemPrompt = getRandomizedInGamePrompt(saveData);
+    let systemPrompt = getRandomizedInGamePrompt(saveData, autoGenerateNpc, minNpcCount);
 
     // 🔥 注入系统设置到提示词
     systemPrompt += `\n\n# 当前系统设置\nnsfwMode: ${nsfwMode}\nnsfwGenderFilter: ${nsfwGenderFilter}\n\n⚠️ 如果nsfwMode=true，生成NPC时必须包含"私密信息"字段（根据nsfwGenderFilter过滤性别）\n⚠️ 如果nsfwMode=false，生成NPC时不要包含"私密信息"字段\n`;

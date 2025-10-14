@@ -8,7 +8,11 @@ import { getSystemTaskPrompt } from './systemTaskPrompts';
 import { CORE_SYNC_RULES } from './sharedRules';
 import type { SaveData } from '@/types/game';
 
-export const buildInGameMessagePrompt = (saveData: SaveData): string => {
+export const buildInGameMessagePrompt = (saveData: SaveData, autoGenerateNpc?: boolean, minNpcCount?: number): string => {
+  // 检查NPC数量
+  const currentNpcCount = saveData?.人物关系 ? Object.keys(saveData.人物关系).length : 0;
+  const shouldGenerateNpc = autoGenerateNpc !== false && currentNpcCount < (minNpcCount || 3);
+
   const promptParts = [
     '【剧情推进】根据当前游戏状态推进一段叙事，并返回唯一 JSON。',
     '',
@@ -50,6 +54,30 @@ export const buildInGameMessagePrompt = (saveData: SaveData): string => {
 
   if (saveData?.系统任务?.配置?.启用) {
     promptParts.push(getSystemTaskPrompt());
+  }
+
+  // 🔥 [NPC自动生成] 当NPC数量不足时提示AI生成新NPC
+  if (shouldGenerateNpc) {
+    promptParts.push(
+      '',
+      '# 🔴 【紧急任务】人物关系不足，需要生成新NPC',
+      '',
+      `当前人物关系数量: ${currentNpcCount}`,
+      `最少需要: ${minNpcCount || 3}`,
+      '',
+      '**要求**：',
+      '- 在本次剧情中自然地引入1-2个新的人物（NPC）',
+      '- 新人物应该符合当前场景和剧情',
+      '- 使用 `set` 命令创建新NPC，包含完整的NPC数据结构',
+      '- NPC名字作为key，如：`人物关系.张三`',
+      '- 必须包含：名字、性别、年龄、种族、与玩家关系、好感度、境界、外貌描述等',
+      '',
+      '**示例**：',
+      '```json',
+      '{"action":"set","scope":"chat","key":"人物关系.李师兄","value":{"名字":"李师兄","性别":"男","年龄":25,"种族":"人族","与玩家关系":"同门","好感度":20,"境界":{"名称":"筑基","阶段":"中期"},"外貌描述":"身着青衫的英俊青年，眉宇间透着一股傲气"}}',
+      '```',
+      ''
+    );
   }
 
   promptParts.push(
@@ -324,8 +352,8 @@ export const buildInGameMessagePrompt = (saveData: SaveData): string => {
   return promptParts.join('\n');
 };
 
-export function getRandomizedInGamePrompt(saveData: SaveData): string {
-  return buildInGameMessagePrompt(saveData);
+export function getRandomizedInGamePrompt(saveData: SaveData, autoGenerateNpc?: boolean, minNpcCount?: number): string {
+  return buildInGameMessagePrompt(saveData, autoGenerateNpc, minNpcCount);
 }
 
 export function debugPromptInfo(saveData?: SaveData): void {

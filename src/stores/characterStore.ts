@@ -244,13 +244,27 @@ export const useCharacterStore = defineStore('characterV3', () => {
         const 更新后年龄 = updateLifespanFromGameTime(slot.存档数据);
         debug.log('角色商店', `[同步] 自动更新玩家年龄: ${更新后年龄}岁`);
 
-        // 更新所有NPC的年龄
+        // 更新所有NPC的年龄（添加安全检查，避免访问已删除的NPC）
         if (slot.存档数据?.人物关系 && slot.存档数据.游戏时间) {
           let npcCount = 0;
-          Object.values(slot.存档数据.人物关系).forEach((npc: any) => {
-            if (npc && typeof npc === 'object' && slot.存档数据) {
-              updateNpcLifespanFromGameTime(npc, slot.存档数据.游戏时间);
-              npcCount++;
+          Object.entries(slot.存档数据.人物关系).forEach(([key, npc]: [string, any]) => {
+            // 🔥 添加详细的安全检查
+            if (!npc || typeof npc !== 'object') {
+              debug.warn('角色商店', `[同步] 跳过无效的NPC数据: ${key}`);
+              return;
+            }
+            if (!npc.名字) {
+              debug.warn('角色商店', `[同步] 跳过缺少名字的NPC: ${key}`);
+              return;
+            }
+
+            try {
+              if (slot.存档数据) {
+                updateNpcLifespanFromGameTime(npc, slot.存档数据.游戏时间);
+                npcCount++;
+              }
+            } catch (npcError) {
+              debug.warn('角色商店', `[同步] 更新NPC ${npc.名字} 年龄失败:`, npcError);
             }
           });
           debug.log('角色商店', `[同步] 自动更新${npcCount}个NPC年龄`);
@@ -1832,21 +1846,38 @@ const deleteNpc = async (npcName: string) => {
     return;
   }
 
-  // 从人物关系中删除NPC
-  delete slot.存档数据.人物关系[npcKey];
-  debug.log('角色商店', `已从存档数据中删除NPC: ${npcName} (key: ${npcKey})`);
-
-  // 强制触发响应式更新
-  triggerRef(rootState);
+  // 🔥 先备份NPC数据，以便出错时回滚
+  const backupNpc = { ...slot.存档数据.人物关系[npcKey] };
 
   try {
+    // 从人物关系中删除NPC
+    delete slot.存档数据.人物关系[npcKey];
+    debug.log('角色商店', `已从存档数据中删除NPC: ${npcName} (key: ${npcKey})`);
+
+    // 🔥 创建新的人物关系对象，确保响应式系统能检测到变化
+    slot.存档数据.人物关系 = { ...slot.存档数据.人物关系 };
+
+    // 强制触发响应式更新
+    triggerRef(rootState);
+
     // 保存并同步变更
     await syncToTavernAndSave({ fullSync: true });
+
+    debug.log('角色商店', `✅ NPC ${npcName} 已成功删除并同步到酒馆`);
     toast.success(`NPC【${npcName}】已成功删除。`);
   } catch (error) {
     debug.error('角色商店', `删除NPC ${npcName} 后保存失败`, error);
-    toast.error('删除NPC失败，无法保存更改。');
-    // 可以在这里实现回滚逻辑
+
+    // 🔥 回滚操作：恢复NPC数据
+    if (slot.存档数据?.人物关系) {
+      slot.存档数据.人物关系[npcKey] = backupNpc;
+      slot.存档数据.人物关系 = { ...slot.存档数据.人物关系 };
+      triggerRef(rootState);
+      debug.log('角色商店', `已回滚NPC删除操作: ${npcName}`);
+    }
+
+    toast.error(`删除NPC失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    throw error; // 向上层抛出错误，让UI组件能够处理
   }
 };
 

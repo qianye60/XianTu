@@ -48,6 +48,10 @@ export const useUIStore = defineStore('ui', () => {
   // 用户输入框内容持久化
   const userInputText = ref('');
 
+  // 🔥 [NPC自动生成设置] 控制AI是否在人物数量不足时自动生成NPC
+  const autoGenerateNpc = ref(true); // 默认开启
+  const minNpcCount = ref(3); // 最少NPC数量
+
   function openCharacterManagement() {
     showCharacterManagement.value = true;
   }
@@ -212,6 +216,10 @@ export const useUIStore = defineStore('ui', () => {
     closeStateChangeViewer,
     setCurrentMessageStateChanges, // 设置当前消息的状态变更
     clearCurrentMessageStateChanges, // 清空当前消息的状态变更
+
+    // 🔥 [NPC自动生成设置] 暴露NPC自动生成相关状态
+    autoGenerateNpc,
+    minNpcCount,
 
     // 暴露用户输入框内容
     userInputText,

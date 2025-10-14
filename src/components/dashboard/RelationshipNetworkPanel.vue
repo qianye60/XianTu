@@ -994,17 +994,33 @@ const confirmDeleteNpc = (person: NpcProfile) => {
     confirmText: '确认删除',
     cancelText: '取消',
     onConfirm: async () => {
+      // 🔥 提前清空选择，避免删除后UI尝试渲染不存在的NPC
+      const npcNameToDelete = person.名字;
+      const wasSelected = selectedPerson.value?.名字 === npcNameToDelete;
+
+      if (wasSelected) {
+        selectedPerson.value = null;
+        isDetailViewActive.value = false;
+      }
+
       try {
         // deleteNpc内部已经调用了syncToTavernAndSave,会自动保存到酒馆
-        await characterStore.deleteNpc(person.名字);
-        // 如果删除的是当前选中的NPC，则清空选择
-        if (selectedPerson.value?.名字 === person.名字) {
-          selectedPerson.value = null;
-          isDetailViewActive.value = false;
-        }
+        await characterStore.deleteNpc(npcNameToDelete);
+        // 删除成功，无需额外操作（已提前清空选择）
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '未知错误';
         toast.error(`删除失败: ${errorMsg}`);
+        console.error('删除NPC失败:', error);
+
+        // 🔥 如果删除失败且之前清空了选择，尝试重新从人物列表中找到该NPC并恢复选择
+        // （因为deleteNpc函数会回滚数据）
+        if (wasSelected) {
+          const restoredNpc = relationships.value.find(npc => npc.名字 === npcNameToDelete);
+          if (restoredNpc) {
+            selectedPerson.value = restoredNpc;
+            isDetailViewActive.value = true;
+          }
+        }
       }
     },
     onCancel: () => {}
