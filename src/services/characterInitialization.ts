@@ -142,7 +142,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
       阶段: "",
       当前进度: 0,
       下一级所需: 100,
-      突破描述: "引气入体，开始修仙之路"
+      突破描述: "引气入体，感悟天地灵气，踏上修仙第一步"
     },
     声望: 0, // 声望应该是数字类型
     位置: {

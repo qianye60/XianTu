@@ -56,7 +56,9 @@
       "Bash(Select-Object -First 50)",
       "Bash(Get-ChildItem -Path src/utils/prompts -Recurse -Filter \"*.ts\")",
       "Bash(Get-Content \"src/utils/generators/gameMasterGenerators.ts\")",
-      "Bash(Select-Object -First 100)"
+      "Bash(Select-Object -First 100)",
+      "Bash(Get-Content \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\prompts\\dataStructureDefinitions.ts\")",
+      "Bash(Measure-Object -Line -Character -Word)"
     ],
     "deny": [],
     "ask": [],

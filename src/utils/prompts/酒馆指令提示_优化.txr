@@ -189,9 +189,15 @@
 ```
 
 ### 境界突破 (Breakthrough)
-⚠️ **重要**：寿命必须用add，不能用set
+⚠️ **重要规则**：
+1. 寿命上限必须用add（不能用set）
+2. **必须同时更新 `境界.突破描述`**，根据当前剧情和突破方式动态生成，例如：
+   - "借助筑基丹的药力冲破瓶颈，将丹田灵气压缩成道台"
+   - "感悟剑道真意，以剑心破境，金丹刻下第三道天地符文"
+   - "吸收雷劫之力淬炼肉身，元婴蜕变壮大"
+
 ```json
-[{"action":"add","key":"游戏时间.分钟","value":60},{"action":"set","key":"境界.名称","value":"筑基"},{"action":"set","key":"境界.阶段","value":"初期"},{"action":"set","key":"境界.当前进度","value":0},{"action":"set","key":"境界.下一级所需","value":200},{"action":"set","key":"属性.气血.上限","value":1000},{"action":"set","key":"属性.灵气.上限","value":1000},{"action":"add","key":"属性.寿命.上限","value":130}]
+[{"action":"add","key":"游戏时间.分钟","value":60},{"action":"set","key":"境界.名称","value":"筑基"},{"action":"set","key":"境界.阶段","value":"初期"},{"action":"set","key":"境界.当前进度","value":0},{"action":"set","key":"境界.下一级所需","value":200},{"action":"set","key":"境界.突破描述","value":"借助筑基丹的药力冲破瓶颈，将丹田灵气压缩成道台"},{"action":"set","key":"属性.气血.上限","value":1000},{"action":"set","key":"属性.灵气.上限","value":1000},{"action":"add","key":"属性.寿命.上限","value":130}]
 ```
 
 ## NPC操作 (NPC Operations)

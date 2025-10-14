@@ -175,28 +175,19 @@ onMounted(async () => {
     console.log('- 总天赋数量:', store.creationData.talents.length);
   }
 
-  // 2. 获取角色名字作为默认道号 - 优先使用酒馆角色卡名字
+  // 2. 获取角色名字 - 自动从酒馆获取，无需用户输入
   try {
-    // 首先尝试从酒馆获取角色卡名字
     const tavernCharacterName = await getCurrentCharacterName();
     if (tavernCharacterName) {
       console.log('【角色创建】成功获取酒馆角色卡名字:', tavernCharacterName);
       store.characterPayload.character_name = tavernCharacterName;
     } else {
       console.log('【角色创建】无法获取酒馆角色卡名字，使用默认值');
-      // 备用方案：本地模式设为"无名者"，联机模式留空
-      store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '';
-      if (!store.isLocalCreation) {
-        console.warn('【角色创建】联机模式下无法获取角色名，请手动输入');
-      }
+      store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '修士';
     }
   } catch (error) {
     console.error('【角色创建】获取角色名字时出错:', error);
-    // 如果出错，使用默认值
-    store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '';
-    if (!store.isLocalCreation) {
-      toast.error('无法获取角色信息，请重新登录！');
-    }
+    store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '修士';
   }
 });
 
@@ -441,10 +432,10 @@ async function createCharacter() {
   console.log('[DEBUG] 选中的出身:', store.selectedOrigin);
   console.log('[DEBUG] 选中的灵根:', store.selectedSpiritRoot);
 
+  // 角色名自动获取，如果为空则使用默认值
   if (!store.characterPayload.character_name) {
-    console.log('[DEBUG] 验证失败：缺少角色名');
-    toast.error('请输入道号！');
-    return;
+    console.log('[DEBUG] 角色名为空，使用默认值');
+    store.characterPayload.character_name = '修士';
   }
   if (!store.selectedWorld || !store.selectedTalentTier) {
     console.log('[DEBUG] 验证失败：缺少必需选择项');
@@ -467,8 +458,7 @@ async function createCharacter() {
   isGenerating.value = true;
 
   try {
-    // 2. 将最终道号同步回酒馆
-    // await renameCurrentCharacter(store.characterPayload.character_name); // 功能暂时禁用
+    // 2. 角色名由酒馆助手的角色管理功能编辑，此处不同步
 
     // 3. 构造 CharacterBaseInfo
     const baseInfo = {

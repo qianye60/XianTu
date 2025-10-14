@@ -23,6 +23,16 @@
     <!-- 配置面板 -->
     <div v-if="showConfig" class="config-panel">
       <div class="config-row">
+        <label class="config-label">系统任务：</label>
+        <button
+          class="toggle-btn"
+          :class="{ 'active': isTaskSystemEnabled }"
+          @click="toggleTaskSystem"
+        >
+          {{ isTaskSystemEnabled ? '✓ 已启用' : '✗ 已禁用' }}
+        </button>
+      </div>
+      <div class="config-row">
         <label class="config-label">任务类型：</label>
         <select v-model="taskType" @change="updateConfig" class="config-select">
           <option value="all">综合系统（全部类型）</option>
@@ -200,7 +210,9 @@ const systemTaskData = computed((): SystemTaskData | undefined => {
   return characterStore.activeSaveSlot?.存档数据?.系统任务;
 });
 
-const isSystemEnabled = computed(() => true);
+const isTaskSystemEnabled = computed(() => {
+  return systemTaskData.value?.配置?.启用 || false;
+});
 
 const taskType = computed({
   get: () => systemTaskData.value?.配置?.任务类型 || 'all',
@@ -274,6 +286,30 @@ function updateConfig() {
   }
 
   toast.success('配置已更新');
+}
+
+function toggleTaskSystem() {
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+
+  if (!saveData?.系统任务?.配置) {
+    toast.error('系统任务配置不存在');
+    return;
+  }
+
+  // 切换启用状态
+  saveData.系统任务.配置.启用 = !saveData.系统任务.配置.启用;
+
+  // 同步到酒馆
+  characterStore.syncToTavernAndSave({
+    changedPaths: ['系统任务.配置.启用'],
+    fullSync: true // 使用完整同步确保配置正确更新
+  });
+
+  if (saveData.系统任务.配置.启用) {
+    toast.success('✓ 系统任务已启用，AI将根据配置自动颁发任务');
+  } else {
+    toast.info('✗ 系统任务已禁用');
+  }
 }
 
 function toggleTaskExpand(taskId: string) {
