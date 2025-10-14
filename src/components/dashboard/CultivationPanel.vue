@@ -126,18 +126,18 @@
                       解锁条件：功法熟练度 {{ skill.unlockRequirement }}%
                     </div>
                     <div class="skill-proficiency">
-                      <span class="proficiency-label">熟练度：</span>
+                      <span class="proficiency-label">当前进度：</span>
                       <div class="proficiency-bar">
                         <div
                           class="proficiency-fill"
-                          :style="{ width: Math.min(100, Math.max(0, skill.proficiency)) + '%' }"
+                          :style="{ width: Math.min(100, Math.max(0, currentTechnique?.修炼进度 || 0)) + '%' }"
                         ></div>
                       </div>
-                      <span class="proficiency-text">{{ Math.min(100, Math.max(0, skill.proficiency)).toFixed(0) }}%</span>
+                      <span class="proficiency-text">{{ Math.min(100, Math.max(0, currentTechnique?.修炼进度 || 0)).toFixed(0) }}%</span>
                     </div>
                   </div>
-                  <div class="skill-level" :class="getSkillLevelClass(skill.proficiency)">
-                    {{ getSkillLevel(skill.proficiency) }}
+                  <div class="skill-level" :class="getSkillLevelClass(currentTechnique?.修炼进度 || 0)">
+                    {{ getSkillLevel(currentTechnique?.修炼进度 || 0) }}
                   </div>
                 </div>
               </div>

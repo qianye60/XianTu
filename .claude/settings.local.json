@@ -58,7 +58,9 @@
       "Bash(Get-Content \"src/utils/generators/gameMasterGenerators.ts\")",
       "Bash(Select-Object -First 100)",
       "Bash(Get-Content \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\prompts\\dataStructureDefinitions.ts\")",
-      "Bash(Measure-Object -Line -Character -Word)"
+      "Bash(Measure-Object -Line -Character -Word)",
+      "Bash(Get-Content \"c:/Users/15385/Documents/编程项目/大道朝天/src/components/dashboard/SkillsPanel.vue\")",
+      "Bash(python -c \"\nimport re\n\n# 读取文件\nwith open(''src/components/dashboard/SkillsPanel.vue'', ''r'', encoding=''utf-8'') as f:\n    content = f.read()\n\n# 修复1: cultivationSkills\nold_cultivation = r''// 修炼功法数据\\nconst cultivationSkills = computed\\(\\(\\) => \\{\\n  const currentSaveData = saveData\\.value;\\n  if \\(!currentSaveData\\?\\.修炼功法\\?\\.物品ID\\) \\{\\n    return null;\\n  \\}\\n\\n  // 从背包中查找完整的功法对象\\n  const techniqueId = currentSaveData\\.修炼功法\\.物品ID;\\n  const inventory = currentSaveData\\.背包\\?\\.物品;\\n  if \\(inventory && inventory\\[techniqueId\\]\\) \\{\\n    // 将背包中的功法数据与修炼进度等信息合并\\n    const techniqueData = inventory\\[techniqueId\\] as TechniqueItem;\\n    return \\{\\n      \\.\\.\\.techniqueData,\\n      修炼进度: currentSaveData\\.修炼功法\\.修炼进度,\\n      已解锁技能: currentSaveData\\.修炼功法\\.已解锁技能,\\n    \\};\\n  \\}\\n\\n  return null;\\n\\}\\);''\n\nnew_cultivation = ''''''// 修炼功法数据 - 直接从背包查找已装备的功法\nconst cultivationSkills = computed(() => {\n  const inventory = characterData.value?.背包_物品;\n  if (!inventory) return null;\n\n  // 从背包中查找已装备=true且类型=功法的物品\n  const cultivatingTechnique = Object.values(inventory).find(\n    item => item?.类型 === \\''功法\\'' && item?.已装备 === true\n  );\n\n  return cultivatingTechnique ? (cultivatingTechnique as TechniqueItem) : null;\n});''''''\n\ncontent = re.sub(old_cultivation, new_cultivation, content, flags=re.DOTALL)\n\n# 写回文件\nwith open(''src/components/dashboard/SkillsPanel.vue'', ''w'', encoding=''utf-8'') as f:\n    f.write(content)\n\nprint(''修复完成'')\n\")"
     ],
     "deny": [],
     "ask": [],

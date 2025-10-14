@@ -1,7 +1,6 @@
 <template>
-  <div class="skills-content">
     <!-- 左侧：当前修炼+功法库 -->
-    <div>
+    <div class="skills-main">
       <!-- 当前修炼功法槽位 -->
       <div class="current-technique-section">
         <h3 class="section-header">
@@ -54,44 +53,91 @@
         </div>
       </div>
 
-      <!-- 已学技能列表 -->
-      <div class="learned-skills-section">
-        <h3 class="section-header">
-          <span class="header-icon">⚔️</span>
-          <span class="header-text">已学技能</span>
-          <span class="count-badge">{{ allLearnedSkills.length }}</span>
-        </h3>
+      <div class="skills-and-library-grid">
+        <div class="skills-column">
+          <!-- 未掌握技能列表 -->
+          <div v-if="unmasteredSkills.length > 0" class="unmastered-skills-section">
+            <h3 class="section-header">
+              <span class="header-icon">🔒</span>
+              <span class="header-text">未掌握技能</span>
+              <span class="count-badge">{{ unmasteredSkills.length }}</span>
+            </h3>
+            <div class="unmastered-skills-grid">
+              <div
+                v-for="skill in unmasteredSkills"
+                :key="skill.技能名称"
+                class="unmastered-skill-card"
+              >
+                <div class="skill-card-icon">🔒</div>
+                <div class="skill-card-body">
+                  <div class="skill-card-name">{{ skill.技能名称 }}</div>
+                  <div class="skill-card-source">
+                    当前: {{ (cultivationSkills?.修炼进度 || 0).toFixed(1) }}% / 需要: {{ skill.解锁需要熟练度 }}%
+                  </div>
+                  <div class="skill-card-progress">
+                    <div class="skill-progress-bar">
+                      <div
+                        class="skill-progress-fill"
+                        :style="{ width: Math.min(100, ((cultivationSkills?.修炼进度 || 0) / skill.解锁需要熟练度) * 100) + '%' }"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="skill-card-desc">{{ truncateText(skill.技能描述, 60) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div v-if="allLearnedSkills.length === 0" class="empty-library">
-          <div class="empty-icon">📖</div>
-          <div class="empty-text">暂无已学技能</div>
-          <div class="empty-hint">修炼功法解锁技能</div>
-        </div>
+          <!-- 已学技能列表 -->
+          <div class="learned-skills-section">
+            <h3 class="section-header">
+              <span class="header-icon">⚔️</span>
+              <span class="header-text">已学技能</span>
+              <span class="count-badge">{{ allLearnedSkills.length }}</span>
+            </h3>
 
-        <div v-else class="learned-skills-grid">
-          <div
-            v-for="skill in allLearnedSkills"
-            :key="skill.技能名称"
-            class="learned-skill-card"
-          >
-            <div class="skill-card-icon">⚡</div>
-            <div class="skill-card-body">
-              <div class="skill-card-name">{{ skill.技能名称 }}</div>
-              <div class="skill-card-source">来源: {{ skill.来源功法 }}</div>
-              <div class="skill-card-desc">{{ truncateText(skill.技能描述, 60) }}</div>
-              <div v-if="skill.消耗" class="skill-card-cost">消耗: {{ skill.消耗 }}</div>
+            <div v-if="allLearnedSkills.length === 0" class="empty-library">
+              <div class="empty-icon">📖</div>
+              <div class="empty-text">暂无已学技能</div>
+              <div class="empty-hint">修炼功法解锁技能</div>
+            </div>
+
+            <div v-else class="learned-skills-grid">
+              <div
+                v-for="skill in allLearnedSkills"
+                :key="skill.技能名称"
+                class="learned-skill-card"
+              >
+                <div class="skill-card-icon">⚡</div>
+                <div class="skill-card-body">
+                  <div class="skill-card-name">{{ skill.技能名称 }}</div>
+                  <div class="skill-card-source">来源: {{ skill.来源功法 }}</div>
+                  <div class="skill-card-desc">{{ truncateText(skill.技能描述, 60) }}</div>
+                  <div v-if="skill.消耗" class="skill-card-cost">消耗: {{ skill.消耗 }}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 功法库列表 -->
-      <div class="technique-library-section">
+        <!-- 功法库列表 -->
+        <div
+          class="technique-library-section"
+        :class="{ 'is-mobile': isMobile, 'is-open': showMobileLibrary }"
+      >
         <h3 class="section-header">
           <span class="header-icon">📚</span>
           <span class="header-text">功法库</span>
           <span class="count-badge">{{ inventoryTechniques.length }}</span>
         </h3>
+        <button
+          v-if="isMobile"
+          type="button"
+          class="mobile-library-close"
+          @click="showMobileLibrary = false"
+        >
+          收起
+        </button>
 
         <div v-if="inventoryTechniques.length === 0" class="empty-library">
           <div class="empty-icon">📦</div>
@@ -132,11 +178,22 @@
               </div>
             </div>
           </div>
-        </div>
+          </div>
       </div>
     </div>
 
     <!-- 功法详情侧边栏 -->
+    <button
+      v-if="isMobile"
+      type="button"
+      class="mobile-library-toggle"
+      :disabled="showMobileLibrary"
+      @click="showMobileLibrary = true"
+    >
+      <span class="toggle-icon">📚</span>
+      <span>功法库 ({{ inventoryTechniques.length }})</span>
+    </button>
+
     <div class="skill-details-sidebar" :class="{ 'no-selection': !selectedSkillData }">
       <div v-if="selectedSkillData" class="skill-details-content">
         <!-- 顶部信息卡片 -->
@@ -234,6 +291,12 @@
       </div>
     </div>
 
+    <div
+      v-if="isMobile && showMobileLibrary"
+      class="mobile-library-backdrop"
+      @click="showMobileLibrary = false"
+    ></div>
+
     <!-- 深度修炼对话框 -->
     <DeepCultivationModal
       :visible="showDialog"
@@ -246,7 +309,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
@@ -258,6 +321,31 @@ const uiStore = useUIStore();
 const selectedSkillData = ref<TechniqueItem | null>(null);
 const selectedSkillSlot = ref<string>('');
 const activeTab = ref('effects'); // 新增：控制标签页显示
+const showMobileLibrary = ref(false);
+const isMobile = ref(false);
+
+const updateIsMobile = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  isMobile.value = window.innerWidth <= 768;
+  if (!isMobile.value) {
+    showMobileLibrary.value = false;
+  }
+};
+
+onMounted(() => {
+  updateIsMobile();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateIsMobile);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateIsMobile);
+  }
+});
 
 // 深度修炼对话框状态
 const showDialog = ref(false);
@@ -277,44 +365,47 @@ const getCultivationProgress = (): number => {
   return (currentSaveData.修炼功法 as { 修炼进度?: number })?.修炼进度 || 0;
 };
 
-// 修炼功法数据
+// 修炼功法数据 - 从背包查找已装备的功法,并合并修炼进度
 const cultivationSkills = computed(() => {
+  const inventory = characterData.value?.背包_物品;
   const currentSaveData = saveData.value;
-  if (!currentSaveData?.修炼功法?.物品ID) {
-    return null;
-  }
 
-  // 从背包中查找完整的功法对象
-  const techniqueId = currentSaveData.修炼功法.物品ID;
-  const inventory = currentSaveData.背包?.物品;
-  if (inventory && inventory[techniqueId]) {
-    // 将背包中的功法数据与修炼进度等信息合并
-    const techniqueData = inventory[techniqueId] as TechniqueItem;
-    return {
-      ...techniqueData,
-      修炼进度: currentSaveData.修炼功法.修炼进度,
-      已解锁技能: currentSaveData.修炼功法.已解锁技能,
-    };
-  }
+  if (!inventory) return null;
 
-  return null;
+  // 从背包中查找已装备=true且类型=功法的物品
+  const cultivatingTechnique = Object.values(inventory).find(
+    item => item?.类型 === '功法' && item?.已装备 === true
+  );
+
+  if (!cultivatingTechnique) return null;
+
+  // ✅ 合并背包数据和修炼进度数据
+  return {
+    ...(cultivatingTechnique as TechniqueItem),
+    修炼进度: currentSaveData?.修炼功法?.修炼进度 || 0,
+    已解锁技能: currentSaveData?.修炼功法?.已解锁技能 || []
+  } as TechniqueItem;
 });
 
-// 背包中的功法物品
+// 背包中的功法物品 - 排除已装备的
 const inventoryTechniques = computed((): TechniqueItem[] => {
   const inventory = characterData.value?.背包_物品;
 
   if (!inventory) return [];
 
-  // 过滤出功法类型的有效物品
+  // 过滤出功法类型且未装备的有效物品
   const techniques = Object.values(inventory)
     .filter((item): item is TechniqueItem =>
-      item && typeof item === 'object' && item.类型 === '功法' && !!item.名称?.trim()
+      item &&
+      typeof item === 'object' &&
+      item.类型 === '功法' &&
+      !!item.名称?.trim() &&
+      !item.已装备  // ✅ 排除已装备的
     );
   return techniques;
 });
 
-// 计算所有已学技能（从当前修炼的功法中根据进度自动解锁）
+// 计算所有已学技能（从已解锁技能列表读取）
 const allLearnedSkills = computed(() => {
   const skills: Array<{
     技能名称: string;
@@ -326,21 +417,53 @@ const allLearnedSkills = computed(() => {
 
   if (!cultivationSkills.value) return skills;
 
-  const currentProgress = cultivationSkills.value.修炼进度 || 0;
+  const unlockedSkillNames = cultivationSkills.value.已解锁技能 || [];
   const techniqueSkills = cultivationSkills.value.功法技能;
 
   if (!Array.isArray(techniqueSkills)) return skills;
 
-  // 根据修炼进度自动解锁技能
+  // ✅ 从已解锁技能列表中获取技能详情
   techniqueSkills.forEach((skill: { 技能名称: string; 技能描述: string; 消耗?: string; 解锁需要熟练度?: number }) => {
-    const requiredProgress = skill.解锁需要熟练度 || 0;
-    if (currentProgress >= requiredProgress) {
+    if (unlockedSkillNames.includes(skill.技能名称)) {
       skills.push({
         技能名称: skill.技能名称,
         技能描述: skill.技能描述,
         消耗: skill.消耗,
         来源功法: cultivationSkills.value!.名称,
-        解锁需要熟练度: requiredProgress
+        解锁需要熟练度: skill.解锁需要熟练度 || 0
+      });
+    }
+  });
+
+  return skills;
+});
+
+// 计算所有未掌握技能（排除已解锁的技能）
+const unmasteredSkills = computed(() => {
+  const skills: Array<{
+    技能名称: string;
+    技能描述: string;
+    消耗?: string;
+    来源功法: string;
+    解锁需要熟练度: number;
+  }> = [];
+
+  if (!cultivationSkills.value) return skills;
+
+  const unlockedSkillNames = cultivationSkills.value.已解锁技能 || [];
+  const techniqueSkills = cultivationSkills.value.功法技能;
+
+  if (!Array.isArray(techniqueSkills)) return skills;
+
+  // ✅ 筛选出未在已解锁列表中的技能
+  techniqueSkills.forEach((skill: { 技能名称: string; 技能描述: string; 消耗?: string; 解锁需要熟练度?: number }) => {
+    if (!unlockedSkillNames.includes(skill.技能名称)) {
+      skills.push({
+        技能名称: skill.技能名称,
+        技能描述: skill.技能描述,
+        消耗: skill.消耗,
+        来源功法: cultivationSkills.value!.名称,
+        解锁需要熟练度: skill.解锁需要熟练度 || 0
       });
     }
   });
@@ -359,6 +482,9 @@ const truncateText = (text?: string, maxLength: number = 50): string => {
 const selectSkill = (skill: TechniqueItem, slotName: string) => {
   selectedSkillData.value = skill;
   selectedSkillSlot.value = slotName;
+  if (isMobile.value) {
+    showMobileLibrary.value = false;
+  }
 };
 
 // 获取功法品质样式类
@@ -407,8 +533,28 @@ const formatAttributeBonus = (bonus: unknown): string => {
 
 // 计算已解锁技能的 Set，优化查询性能
 const unlockedSkillsMap = computed(() => {
-  const currentSaveData = saveData.value;
-  return new Set(currentSaveData?.修炼功法?.已解锁技能 || []);
+  const skills = new Set<string>();
+
+  if (!cultivationSkills.value) {
+    return skills;
+  }
+
+  const currentProgress = cultivationSkills.value.修炼进度 || 0;
+  const techniqueSkills = cultivationSkills.value.功法技能;
+
+  if (!Array.isArray(techniqueSkills)) {
+    return skills;
+  }
+
+  // 根据修炼进度动态计算已解锁的技能
+  techniqueSkills.forEach((skill: { 技能名称: string; 解锁需要熟练度?: number }) => {
+    const requiredProgress = skill.解锁需要熟练度 || 0;
+    if (currentProgress >= requiredProgress) {
+      skills.add(skill.技能名称);
+    }
+  });
+
+  return skills;
 });
 
 // 新增：计算修炼速度加成文本，并修复逻辑错误
@@ -657,20 +803,41 @@ const finalizeEquipTechnique = async (technique: {
 .skills-content {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr 420px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
   gap: 0;
   background: var(--color-background);
   overflow: hidden;
 }
 
 /* 左侧：当前修炼+功法库 */
-.skills-content > div:first-child {
+.skills-main {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   padding: 24px;
   gap: 24px;
 }
+
+.skills-and-library-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+@media (max-width: 1200px) {
+  .skills-and-library-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skills-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
 
 .current-technique-section,
 .technique-library-section {
@@ -710,7 +877,7 @@ const finalizeEquipTechnique = async (technique: {
 
 /* 当前修炼槽位 */
 .current-technique-slot {
-  background: var(--color-surface);
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%);
   border: 2px solid var(--color-border);
   border-radius: 12px;
   padding: 20px;
@@ -718,17 +885,42 @@ const finalizeEquipTechnique = async (technique: {
   min-height: 120px;
   display: flex;
   align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.current-technique-slot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .current-technique-slot.has-technique {
   cursor: pointer;
   border-color: var(--color-success);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.05) 0%, var(--color-surface) 100%);
+}
+
+.current-technique-slot.has-technique::before {
+  opacity: 0.6;
+  background: linear-gradient(90deg, transparent, var(--color-success), transparent);
 }
 
 .current-technique-slot.has-technique:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+  box-shadow: 0 6px 16px rgba(var(--color-success-rgb), 0.3);
+}
+
+.current-technique-slot.has-technique:hover::before {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
 }
 
 .technique-content {
@@ -822,7 +1014,6 @@ const finalizeEquipTechnique = async (technique: {
 .learned-skills-section {
   display: flex;
   flex-direction: column;
-  margin-bottom: 20px;
 }
 
 .learned-skills-grid {
@@ -835,19 +1026,32 @@ const finalizeEquipTechnique = async (technique: {
 }
 
 .learned-skill-card {
-  background: var(--color-surface);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.08) 0%, var(--color-surface) 100%);
   border: 2px solid var(--color-success);
   border-radius: 10px;
   padding: 12px;
   display: flex;
   gap: 10px;
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.learned-skill-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--color-success), transparent);
+  opacity: 0.6;
 }
 
 .learned-skill-card:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+  box-shadow: 0 6px 16px rgba(var(--color-success-rgb), 0.25);
 }
 
 .skill-card-icon {
@@ -889,6 +1093,7 @@ const finalizeEquipTechnique = async (technique: {
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-bottom: 4px;
@@ -900,12 +1105,130 @@ const finalizeEquipTechnique = async (technique: {
   font-weight: 500;
 }
 
+/* 未掌握技能区域 */
+.unmastered-skills-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.unmastered-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.unmastered-skill-card {
+  background: linear-gradient(135deg, rgba(var(--color-warning-rgb), 0.05) 0%, var(--color-surface) 100%);
+  border: 2px dashed var(--color-warning);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  opacity: 0.8;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.unmastered-skill-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-warning), transparent);
+  opacity: 0.5;
+}
+
+.unmastered-skill-card:hover {
+  opacity: 1;
+  border-color: var(--color-info);
+  border-style: solid;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-warning-rgb), 0.2);
+}
+
+.unmastered-skill-card .skill-card-icon {
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.unmastered-skill-card .skill-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.unmastered-skill-card .skill-card-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unmastered-skill-card .skill-card-source {
+  font-size: 0.75rem;
+  color: var(--color-warning);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.unmastered-skill-card .skill-card-progress {
+  margin: 6px 0;
+}
+
+.unmastered-skill-card .skill-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--color-surface-light);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.unmastered-skill-card .skill-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-info), var(--color-primary));
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.unmastered-skill-card .skill-card-desc {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* 功法库区域 */
 .technique-library-section {
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.mobile-library-backdrop {
+  display: none;
 }
 
 .empty-library {
@@ -936,10 +1259,63 @@ const finalizeEquipTechnique = async (technique: {
 /* 功法卡片网格 */
 .technique-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
   overflow-y: auto;
   padding-right: 8px;
+}
+
+.mobile-library-close,
+.mobile-library-toggle {
+  display: none;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-library-close {
+  align-self: flex-end;
+  color: var(--color-text-secondary);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+}
+
+.mobile-library-close:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-secondary);
+}
+
+.mobile-library-toggle {
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 12px 20px rgba(var(--color-primary-rgb), 0.3);
+  position: fixed;
+  right: 24px;
+  bottom: 32px;
+  z-index: 1200;
+}
+
+.mobile-library-toggle .toggle-icon {
+  font-size: 1.2rem;
+}
+
+.mobile-library-toggle:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.mobile-library-toggle:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 24px rgba(var(--color-primary-rgb), 0.35);
 }
 
 .technique-card {
@@ -1037,6 +1413,7 @@ const finalizeEquipTechnique = async (technique: {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-align: left;
@@ -1774,6 +2151,16 @@ const finalizeEquipTechnique = async (technique: {
 }
 
 /* 响应式设计 */
+@media (max-width: 1024px) {
+  .skills-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .technique-library-section {
+    max-width: none;
+  }
+}
+
 @media (max-width: 768px) {
   .skills-content {
     display: flex;
@@ -1781,9 +2168,63 @@ const finalizeEquipTechnique = async (technique: {
     overflow-y: auto;
   }
 
-  .skills-content > div:first-child {
+  .skills-main {
     overflow-y: visible;
     padding: 16px;
+  }
+
+  .skills-bottom {
+    gap: 16px;
+  }
+
+  .technique-library-section {
+    display: none;
+  }
+
+  .technique-library-section.is-mobile {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: translateY(calc(100% + 32px));
+    max-height: 80vh;
+    padding: 20px 20px 28px;
+    background: var(--color-background);
+    box-shadow: 0 -16px 32px rgba(0, 0, 0, 0.35);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    z-index: 1500;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .technique-library-section.is-mobile.is-open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .technique-library-section.is-mobile .technique-grid {
+    max-height: calc(80vh - 140px);
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .mobile-library-close {
+    display: inline-flex;
+  }
+
+  .mobile-library-toggle {
+    display: inline-flex;
+  }
+
+  .mobile-library-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1400;
   }
 
   .skill-details-sidebar {
@@ -1802,7 +2243,7 @@ const finalizeEquipTechnique = async (technique: {
 }
 
 @media (max-width: 640px) {
-  .skills-content > div:first-child {
+  .skills-main {
     padding: 12px;
   }
 
