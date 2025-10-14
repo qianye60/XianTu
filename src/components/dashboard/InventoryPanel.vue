@@ -268,20 +268,24 @@
 
                 <!-- 功法技能 -->
                 <div
-                  v-if="selectedItem.功法技能 && Object.keys(selectedItem.功法技能).length > 0"
+                  v-if="selectedItem.功法技能 && Array.isArray(selectedItem.功法技能) && selectedItem.功法技能.length > 0"
                   class="details-attributes"
                 >
                   <h4>功法技能:</h4>
                   <div class="technique-skills">
                     <div
-                      v-for="(skill, skillName) in selectedItem.功法技能"
-                      :key="skillName"
+                      v-for="(skill, index) in selectedItem.功法技能"
+                      :key="index"
                       class="skill-item"
                     >
                       <div class="skill-header">
-                        <span class="skill-name">{{ skillName }}</span>
+                        <span class="skill-name">{{ skill.技能名称 }}</span>
+                        <span v-if="skill.解锁需要熟练度" class="skill-unlock-requirement">
+                          需要: {{ skill.解锁需要熟练度 }}%
+                        </span>
                       </div>
                       <div class="skill-description">{{ skill.技能描述 }}</div>
+                      <div v-if="skill.消耗" class="skill-cost">消耗: {{ skill.消耗 }}</div>
                     </div>
                   </div>
                 </div>
@@ -2377,6 +2381,23 @@ const refreshFromTavern = async () => {
   font-size: 0.9rem;
   line-height: 1.4;
   margin-bottom: 6px;
+}
+
+.skill-unlock-requirement {
+  font-size: 0.75rem;
+  color: var(--color-warning);
+  font-weight: 600;
+  padding: 2px 8px;
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.skill-cost {
+  color: var(--color-info);
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 4px;
 }
 
 .skill-unlock {

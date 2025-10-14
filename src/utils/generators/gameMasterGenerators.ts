@@ -880,9 +880,9 @@ export async function generateInGameResponse(
     }
 
     // 🔥 获取系统设置(nsfwMode和nsfwGenderFilter)
-    const systemSettings = saveData?.系统 || { nsfwMode: false, nsfwGenderFilter: 'all' };
-    const nsfwMode = systemSettings.nsfwMode || false;
-    const nsfwGenderFilter = systemSettings.nsfwGenderFilter || 'all';
+    const systemSettings = saveData?.系统 || { nsfwMode: true, nsfwGenderFilter: 'female' };
+    const nsfwMode = systemSettings.nsfwMode !== false; // 默认开启
+    const nsfwGenderFilter = systemSettings.nsfwGenderFilter || 'female';
 
     console.log('【剧情推进】系统设置:', { nsfwMode, nsfwGenderFilter });
 
@@ -895,8 +895,46 @@ export async function generateInGameResponse(
     // 获取系统提示词（规则和数据结构）
     let systemPrompt = getRandomizedInGamePrompt(saveData, autoGenerateNpc, minNpcCount);
 
-    // 🔥 注入系统设置到提示词
-    systemPrompt += `\n\n# 当前系统设置\nnsfwMode: ${nsfwMode}\nnsfwGenderFilter: ${nsfwGenderFilter}\n\n⚠️ 如果nsfwMode=true，生成NPC时必须包含"私密信息"字段（根据nsfwGenderFilter过滤性别）\n⚠️ 如果nsfwMode=false，生成NPC时不要包含"私密信息"字段\n`;
+    // 🔥 注入系统设置到提示词 - 强制执行规则
+    systemPrompt += `\n\n# 当前系统设置（必须严格遵守）\nnsfwMode: ${nsfwMode}\nnsfwGenderFilter: ${nsfwGenderFilter}\n\n`;
+
+    if (nsfwMode) {
+        systemPrompt += `⚠️ **【最高优先级-强制执行】私密信息生成规则**\n`;
+        systemPrompt += `当创建或更新NPC时，必须检查性别并严格按照以下规则生成私密信息：\n\n`;
+
+        if (nsfwGenderFilter === 'female') {
+            systemPrompt += `✅ 女性NPC（性别="女"）：必须生成完整的私密信息对象（14个必填字段）\n`;
+            systemPrompt += `❌ 男性NPC（性别="男"）：不生成私密信息字段\n\n`;
+        } else if (nsfwGenderFilter === 'male') {
+            systemPrompt += `✅ 男性NPC（性别="男"）：必须生成完整的私密信息对象（14个必填字段，使用"是否为处男"）\n`;
+            systemPrompt += `❌ 女性NPC（性别="女"）：不生成私密信息字段\n\n`;
+        } else { // 'all'
+            systemPrompt += `✅ 所有NPC（无论性别）：必须生成完整的私密信息对象（14个必填字段）\n`;
+            systemPrompt += `   - 女性使用"是否为处女"\n`;
+            systemPrompt += `   - 男性使用"是否为处男"\n\n`;
+        }
+
+        systemPrompt += `📋 私密信息必填字段清单（缺一不可）：\n`;
+        systemPrompt += `1. 是否为处女/处男 (boolean)\n`;
+        systemPrompt += `2. 身体部位 (Array，必须包含3-5个部位对象)\n`;
+        systemPrompt += `   每个部位：{部位名称, 开发度(0-100), 敏感度(0-100), 特征描述, 特殊印记}\n`;
+        systemPrompt += `3. 性格倾向 (string: "纯情"|"主动"|"被动"|"淫荡"|"M"|"S"|"双性")\n`;
+        systemPrompt += `4. 性取向 (string: "异性恋"|"同性恋"|"双性恋"|"泛性恋")\n`;
+        systemPrompt += `5. 性癖好 (Array, 0-3个元素)\n`;
+        systemPrompt += `6. 性渴望程度 (number, 0-100)\n`;
+        systemPrompt += `7. 当前性状态 (string: "正常"|"微湿"|"兴奋"|"发情"|"高潮")\n`;
+        systemPrompt += `8. 体液分泌状态 (string, 描述性文字)\n`;
+        systemPrompt += `9. 性交总次数 (number, 非负整数)\n`;
+        systemPrompt += `10. 性伴侣数量 (number, 非负整数)\n`;
+        systemPrompt += `11. 性伴侣名单 (Array<string>, 禁止使用"保密"等占位符)\n`;
+        systemPrompt += `12. 最近一次性行为时间 (string, 时间格式或"从未")\n`;
+        systemPrompt += `13. 特殊体质 (Array, 0-N个元素)\n\n`;
+        systemPrompt += `⚠️ 逻辑一致性检查：\n`;
+        systemPrompt += `   - 是否为处女/处男=true → 性交总次数=0 且 性伴侣数量=0 且 性伴侣名单=[]\n`;
+        systemPrompt += `   - 性伴侣数量 必须等于 性伴侣名单.length\n\n`;
+    } else {
+        systemPrompt += `⚠️ nsfwMode=false：生成NPC时不要包含"私密信息"字段\n\n`;
+    }
 
     // 构建玩家行动消息
     const userInput = `<玩家的行动趋向>\n${playerAction || '静观其变。'}</玩家的行动趋向>`;
@@ -988,6 +1026,72 @@ export async function generateInGameResponse(
     if (!Array.isArray(result.tavern_commands)) {
       console.warn('【剧情推进】AI未返回tavern_commands数组，设置为空数组');
       result.tavern_commands = [];
+    }
+
+    // 🔥 验证NPC私密信息生成 - 如果设置要求但AI没生成，则拒绝并重试
+    if (nsfwMode && result.tavern_commands) {
+      const npcCreationCommands = result.tavern_commands.filter(cmd => {
+        if (cmd.action !== 'set' || !cmd.key.startsWith('人物关系.')) return false;
+        // 只匹配 "人物关系.NPC名" 格式，排除 "人物关系.NPC名.子字段" 格式
+        const parts = cmd.key.split('.');
+        return parts.length === 2; // 人物关系 + NPC名 = 2个部分
+      });
+
+      if (npcCreationCommands.length > 0) {
+        console.log(`【NSFW验证】检测到 ${npcCreationCommands.length} 个NPC创建命令，开始验证...`);
+
+        for (const cmd of npcCreationCommands) {
+          const npcData = cmd.value as any;
+          if (!npcData || typeof npcData !== 'object') continue;
+
+          const gender = npcData.性别;
+          const hasPrivateInfo = npcData.私密信息 && typeof npcData.私密信息 === 'object';
+
+          // 检查是否应该生成私密信息
+          let shouldHavePrivateInfo = false;
+          if (nsfwGenderFilter === 'all') {
+            shouldHavePrivateInfo = true;
+          } else if (nsfwGenderFilter === 'female' && gender === '女') {
+            shouldHavePrivateInfo = true;
+          } else if (nsfwGenderFilter === 'male' && gender === '男') {
+            shouldHavePrivateInfo = true;
+          }
+
+          // 如果应该有但没有，报错并拒绝响应
+          if (shouldHavePrivateInfo && !hasPrivateInfo) {
+            console.error(`【NSFW验证失败】NPC "${npcData.名字}" (性别: ${gender}) 缺少私密信息字段！`);
+            console.error('【NSFW验证】当前设置:', { nsfwMode, nsfwGenderFilter });
+            throw new Error(`AI生成的NPC "${npcData.名字}" 缺少必需的私密信息字段。nsfwMode=${nsfwMode}, nsfwGenderFilter=${nsfwGenderFilter}，性别=${gender}。将自动重试生成。`);
+          }
+
+          // 如果有私密信息，验证字段完整性
+          if (hasPrivateInfo) {
+            const privateInfo = npcData.私密信息;
+            const requiredFields = [
+              gender === '女' ? '是否为处女' : '是否为处男',
+              '身体部位', '性格倾向', '性取向', '性癖好',
+              '性渴望程度', '当前性状态', '体液分泌状态',
+              '性交总次数', '性伴侣数量', '性伴侣名单',
+              '最近一次性行为时间', '特殊体质'
+            ];
+
+            const missingFields = requiredFields.filter(field => !(field in privateInfo));
+
+            if (missingFields.length > 0) {
+              console.error(`【NSFW验证失败】NPC "${npcData.名字}" 的私密信息缺少字段:`, missingFields);
+              throw new Error(`AI生成的NPC "${npcData.名字}" 私密信息不完整，缺少字段: ${missingFields.join(', ')}。将自动重试生成。`);
+            }
+
+            // 验证身体部位数组
+            if (!Array.isArray(privateInfo.身体部位) || privateInfo.身体部位.length < 3) {
+              console.error(`【NSFW验证失败】NPC "${npcData.名字}" 的身体部位数组不足3个`);
+              throw new Error(`AI生成的NPC "${npcData.名字}" 的身体部位数组不完整（需要至少3个部位）。将自动重试生成。`);
+            }
+
+            console.log(`【NSFW验证通过】NPC "${npcData.名字}" 的私密信息字段完整`);
+          }
+        }
+      }
     }
 
     console.log('【剧情推进】成功生成响应，命令数量:', result.tavern_commands?.length || 0);

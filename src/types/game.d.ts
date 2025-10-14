@@ -227,6 +227,7 @@ export interface TechniqueItem extends BaseItem {
   功法技能?: TechniqueSkill[]; // ✅ 改为数组格式
   修炼进度?: number; // 0-100 百分比
   修炼中?: boolean; // 是否正在修炼（兼容旧代码）
+  已解锁技能?: string[]; // ✅ 已解锁的技能名称列表
   // 注意：新代码应使用 已装备 字段，修炼中 仅为向后兼容
 }
 
