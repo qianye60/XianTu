@@ -9,8 +9,8 @@ import type { GM_Response } from '../types/AIGameMaster';
 import type { SaveData, StateChange, StateChangeLog, GameTime } from '@/types/game';
 import { shardSaveData, assembleSaveData, type StorageShards } from './storageSharding';
 import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
-import { buildInGameMessagePrompt } from './prompts/inGameGMPromptsV2';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
+import { validateAndRepairNpcProfile } from './dataValidation';
 
 /**
  * 从GameTime获取分钟数
@@ -693,6 +693,15 @@ async function executeCommand(command: { action: string; key: string; value?: un
         if (String(path).includes('背包.物品') || String(path).includes('修炼功法.功法')) {
           set(saveData, path, normalizeItemIfNeeded(value));
           console.log(`[executeCommand] ✅ 已设置(规范化物品/功法):`, get(saveData, path));
+        } else if (path.startsWith('人物关系.')) {
+            // 🔥 [NPC数据校验] 当设置NPC时，进行校验和修复
+            const [isValid, repairedNpc] = validateAndRepairNpcProfile(value);
+            if (isValid && repairedNpc) {
+                set(saveData, path, repairedNpc);
+                console.log(`[executeCommand] ✅ 已设置(校验通过的NPC): ${repairedNpc.名字}`);
+            } else {
+                console.error(`[executeCommand] ❌ 校验失败：无效的NPC数据，已阻止写入。路径: ${path}`, value);
+            }
         } else {
           // 当写入位置时，做格式化：「大陆名·区域·地点」
           if (String(path).endsWith('玩家角色状态.位置.描述') || String(path).endsWith('位置.描述')) {
@@ -743,7 +752,7 @@ async function executeCommand(command: { action: string; key: string; value?: un
 
             // 检查是否是正在修炼的功法
             if (saveData.修炼功法?.物品ID === itemId) {
-              saveData.修炼功法.修炼进度 = value;
+              saveData.修炼功法.修炼进度 = typeof value === 'number' ? value : Number(value) || 0;
               console.log(`[修炼进度同步] ✅ 已同步修炼进度到修炼功法字段: ${value}`);
             }
           } catch (e) {
@@ -919,11 +928,34 @@ async function executeCommand(command: { action: string; key: string; value?: un
       case 'push':
         const array = get(saveData, path, []) as unknown[];
         if (Array.isArray(array)) {
-          array.push(value ?? null);
-          console.log(`[executeCommand] ✅ 已添加到数组，当前长度:`, array.length);
+          // 🔥 [NPC数据校验] 如果是向人物关系数组中添加NPC，则进行校验
+          if (path === '人物关系') {
+            const [isValid, repairedNpc] = validateAndRepairNpcProfile(value);
+            if (isValid && repairedNpc) {
+              array.push(repairedNpc);
+              console.log(`[executeCommand] ✅ 已推入(校验通过的NPC): ${repairedNpc.名字}`);
+            } else {
+              console.error(`[executeCommand] ❌ 校验失败：无效的NPC数据，已阻止推入。路径: ${path}`, value);
+            }
+          } else {
+            array.push(value ?? null);
+            console.log(`[executeCommand] ✅ 已添加到数组，当前长度:`, array.length);
+          }
         } else {
-          set(saveData, path, [value ?? null]);
-          console.log(`[executeCommand] ✅ 已创建新数组并添加元素`);
+          // 如果目标路径不是数组，则创建一个新数组
+          // 同样需要检查是否是人物关系
+          if (path === '人物关系') {
+            const [isValid, repairedNpc] = validateAndRepairNpcProfile(value);
+            if (isValid && repairedNpc) {
+              set(saveData, path, [repairedNpc]);
+              console.log(`[executeCommand] ✅ 已创建新数组并添加(校验通过的NPC): ${repairedNpc.名字}`);
+            } else {
+              console.error(`[executeCommand] ❌ 校验失败：无效的NPC数据，已阻止创建数组。路径: ${path}`, value);
+            }
+          } else {
+            set(saveData, path, [value ?? null]);
+            console.log(`[executeCommand] ✅ 已创建新数组并添加元素`);
+          }
         }
         break;
 

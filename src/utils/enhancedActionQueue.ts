@@ -345,7 +345,7 @@ export class EnhancedActionQueueManager {
       this.saveUndoHistoryToStorage();
       
       // 添加到动作队列显示
-      const useEffect = item.使用效果 || item.描述 || '无特殊效果';
+      const useEffect = (item.类型 === '其他' && '使用效果' in item) ? item.使用效果 : item.描述 || '无特殊效果';
       actionQueue.addAction({
         type: 'use',
         itemName: item.名称,

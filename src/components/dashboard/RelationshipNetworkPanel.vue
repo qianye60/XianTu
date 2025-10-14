@@ -626,12 +626,18 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['灵根']): string => {
 const isNpcProfile = (val: unknown): val is NpcProfile => {
   if (!val || typeof val !== 'object') return false;
   const obj = val as any;
-  // 使用新的扁平化结构进行判断
-  return typeof obj.名字 === 'string' && typeof obj.性别 === 'string';
+  // 核心校验：只要有名字，就认为是有效的NPC Profile，以增强容错性
+  const isValid = typeof obj.名字 === 'string' && obj.名字.length > 0;
+  if (!isValid) {
+    console.warn('[人脉系统] 检测到无效的人物关系条目，已自动过滤:', val);
+  }
+  return isValid;
 };
 
 const relationships = computed<NpcProfile[]>(() => {
-  if (!characterData.value?.人物关系) return [];
+  if (!characterData.value?.人物关系 || typeof characterData.value.人物关系 !== 'object') {
+    return [];
+  }
   // 仅保留有效NPC
   return Object.values(characterData.value.人物关系)
     .filter(isNpcProfile);

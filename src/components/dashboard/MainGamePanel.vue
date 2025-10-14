@@ -331,9 +331,7 @@
 import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
 import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue';
 import {
-  Send, Loader2, ChevronDown, ChevronRight, Activity, ScrollText,
-  PackagePlus, PackageMinus, ArrowUpRight, ArrowDownRight, UserPlus, UserMinus,
-  Swords, Shield, BookOpen, Heart, RotateCcw
+  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw
 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
@@ -346,6 +344,16 @@ import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
 import type { GameMessage, SaveData, CharacterProfile, GameTime } from '@/types/game';
 import type { GM_Response } from '@/types/AIGameMaster';
+
+// 扩展Window接口以支持调试方法
+declare global {
+  interface Window {
+    forceResetAIState?: () => void;
+    debugMemory?: () => Promise<unknown>;
+    testAddMemory?: (text: string) => Promise<void>;
+    debugAIResponse?: () => Promise<void>;
+  }
+}
 
 /**
  * 格式化游戏时间为字符串
@@ -382,7 +390,6 @@ const inputText = computed({
 });
 const isInputFocused = ref(false);
 const isAIProcessing = ref(false);
-const isTimeModalOpen = ref(false);
 const inputRef = ref<HTMLTextAreaElement>();
 const contentAreaRef = ref<HTMLDivElement>();
 const memoryExpanded = ref(false);
@@ -448,10 +455,10 @@ const forceResetAIProcessingState = () => {
 
 // 在 window 上暴露方法以便调试
 if (typeof window !== 'undefined') {
-  (window as any).forceResetAIState = forceResetAIProcessingState;
+  window.forceResetAIState = forceResetAIProcessingState;
 
   // 暴露调试短期记忆的方法（支持双存储）
-  (window as any).debugMemory = async () => {
+  window.debugMemory = async () => {
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
     console.log('[调试] 当前存档数据:', save);
@@ -488,7 +495,7 @@ if (typeof window !== 'undefined') {
   };
 
   // 暴露手动添加测试记忆的方法
-  (window as any).testAddMemory = async (text: string) => {
+  window.testAddMemory = async (text: string) => {
     console.log('[测试] 手动添加记忆:', text);
     await addToShortTermMemory(text, 'assistant');
     console.log('[测试] 记忆添加完成，检查持久化...');
@@ -498,7 +505,7 @@ if (typeof window !== 'undefined') {
 
 
   // 暴露调试AI响应存储的方法
-  (window as any).debugAIResponse = async () => {
+  window.debugAIResponse = async (): Promise<void> => {
     console.log('[调试AI响应] 开始检查AI响应存储流程...');
 
     // 检查最近的AI响应流程
@@ -531,11 +538,10 @@ if (typeof window !== 'undefined') {
       console.error('[调试AI响应] 检查酒馆变量失败:', e);
     }
 
-    return {
-      本地短期记忆: sd?.记忆?.短期记忆,
-      存档状态: !!save,
-      数据完整性: !!sd
-    };
+    // 输出调试信息到控制台
+    console.log('[调试AI响应] 本地短期记忆:', sd?.记忆?.短期记忆);
+    console.log('[调试AI响应] 存档状态:', !!save);
+    console.log('[调试AI响应] 数据完整性:', !!sd);
   };
 }
 
@@ -616,41 +622,7 @@ const getImagePreviewUrl = (file: File): string => {
 // const toggleVariableUpdates = () => { ... };
 
 // --- 命令日志相关函数 ---
-
-// 根据命令内容获取对应的Lucide图标
-const getIconForCommand = (change: { key: string; action: string; oldValue: unknown; newValue: unknown }) => {
-  const key = change.key || '';
-  const action = change.action || '';
-
-  if (key.includes('物品')) {
-    return action === 'add' || action === 'push' ? PackagePlus : PackageMinus;
-  }
-  if (key.includes('人际关系')) {
-    return action === 'add' || action === 'set' ? UserPlus : UserMinus;
-  }
-  if (key.includes('装备')) {
-    return action === 'set' ? Swords : Shield;
-  }
-  if (key.includes('功法') || key.includes('技能')) {
-    return BookOpen;
-  }
-  if (key.includes('好感度') || key.includes('生命')) {
-    return Heart;
-  }
-  if (action === 'inc' || action === 'add' || (action === 'set' && Number(change.newValue) > Number(change.oldValue))) {
-    return ArrowUpRight;
-  }
-  if (action === 'dec' || action === 'remove' || (action === 'set' && Number(change.newValue) < Number(change.oldValue))) {
-    return ArrowDownRight;
-  }
-
-  return Activity; // 默认图标
-};
-
-// 格式化命令为人类可读的描述
-const formatCommandDescription = (change: { key: string; action: string; oldValue: unknown; newValue: unknown }): string => {
-  return getChangeDescription(change);
-};
+// (已移除未使用的 getIconForCommand 和 formatCommandDescription 函数)
 
 
 // 获取操作文本 - 增强版本，提供详细的中文说明
@@ -757,114 +729,8 @@ const getVariableDisplayName = (key: string): string => {
   return simplifiedKey;
 };
 
-// 生成变更描述 - 提供上下文相关的详细说明
-const getChangeDescription = (change: { key: string; action: string; oldValue: unknown; newValue: unknown }): string => {
-  const { key, action, oldValue, newValue } = change;
+// (已移除未使用的 getChangeDescription 函数)
 
-  // 根据变量类型和操作类型生成描述
-  if (key.includes('灵石')) {
-    const stoneName = getVariableDisplayName(key);
-    if (action === 'set') {
-      return `${stoneName}数量变更为 ${formatValue(newValue)}`;
-    } else if (action === 'add') {
-      return `获得了 ${formatValue(newValue)} 枚${stoneName}`;
-    } else if (action === 'inc') {
-      const diff = Number(newValue) - Number(oldValue);
-      return `${stoneName}增加了 ${diff} 枚`;
-    }
-  }
-
-  if (key.includes('生命值') || key.includes('灵力值')) {
-    const attrName = getVariableDisplayName(key);
-    if (action === 'set') {
-      const change = Number(newValue) - Number(oldValue);
-      const direction = change > 0 ? '恢复' : '损失';
-      return `${attrName}${direction}了 ${Math.abs(change)} 点`;
-    }
-  }
-
-  if (key.includes('境界') || key.includes('修为')) {
-    if (action === 'set') {
-      return `修炼境界从 ${formatValue(oldValue)} 提升到 ${formatValue(newValue)}`;
-    }
-  }
-
-  if (key.includes('背包.物品')) {
-    const getItemName = (item: any): string => {
-      if (typeof item === 'object' && item !== null) {
-        return item.名称 || item.name || '未知物品';
-      }
-      return '未知物品';
-    };
-
-    if (action === 'add' || action === 'push') {
-      return `获得物品：${getItemName(newValue)}`;
-    } else if (action === 'remove' || action === 'pull') {
-      return `失去物品：${getItemName(oldValue)}`;
-    } else if (action === 'set') {
-      return `物品变化：${getItemName(newValue)}`;
-    }
-  }
-
-  if (key.includes('装备栏')) {
-    if (action === 'set') {
-      if (newValue && !oldValue) {
-        return `装备了新的法宝`;
-      } else if (!newValue && oldValue) {
-        return `卸下了装备`;
-      } else {
-        return `更换了装备`;
-      }
-    }
-  }
-
-  if (key.includes('修炼功法')) {
-    if (action === 'set') {
-      if (newValue && !oldValue) {
-        return `开始修炼新功法`;
-      } else if (!newValue && oldValue) {
-        return `停止修炼功法`;
-      } else {
-        return `切换修炼功法`;
-      }
-    }
-  }
-
-  if (key.includes('人际关系')) {
-    if (action === 'set') {
-      const changeAmount = Number(newValue) - Number(oldValue);
-      if (changeAmount > 0) {
-        return `关系好感度提升了 ${changeAmount} 点`;
-      } else {
-        return `关系好感度下降了 ${Math.abs(changeAmount)} 点`;
-      }
-    } else if (action === 'add') {
-      return `建立了新的人际关系`;
-    }
-  }
-
-  if (key.includes('记忆')) {
-    if (action === 'add') {
-      return `新增了记忆条目`;
-    } else if (action === 'set') {
-      return `记忆内容发生变化`;
-    }
-  }
-
-  // 默认描述
-  const actionText = getActionText(action);
-  const varName = getVariableDisplayName(key);
-
-  if (action === 'set' || action === 'update') {
-    return `${actionText}了${varName}的数值`;
-  } else if (action === 'add') {
-    return `${actionText}了${varName}`;
-  } else if (action === 'remove') {
-    return `${actionText}了${varName}`;
-  }
-
-  return `对${varName}执行了${actionText}操作`;
-};
 const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '空';
@@ -912,7 +778,7 @@ const formatValue = (value: unknown): string => {
 };
 
 // 显示状态变更详情
-const showStateChanges = (log: any) => {
+const showStateChanges = (log: StateChangeLog | undefined) => {
   if (!log || !log.changes || log.changes.length === 0) {
     toast.info('本次对话无变更记录');
     return;
@@ -940,10 +806,10 @@ const loadMemorySettings = async () => {
       try {
         const memorySettings = await helper.getVariable('character.memorySettings', { type: 'chat' });
         if (memorySettings && typeof memorySettings === 'object') {
-          const settings = memorySettings as any;
-          if (settings.shortTermLimit) maxShortTermMemories.value = settings.shortTermLimit;
-          if (settings.midTermTrigger) maxMidTermMemories.value = settings.midTermTrigger;
-          if (settings.midTermKeep) midTermKeepCount.value = settings.midTermKeep;
+          const settings = memorySettings as Record<string, unknown>;
+          if (typeof settings.shortTermLimit === 'number') maxShortTermMemories.value = settings.shortTermLimit;
+          if (typeof settings.midTermTrigger === 'number') maxMidTermMemories.value = settings.midTermTrigger;
+          if (typeof settings.midTermKeep === 'number') midTermKeepCount.value = settings.midTermKeep;
           console.log('[记忆设置] 已从酒馆变量加载配置:', {
             短期记忆上限: maxShortTermMemories.value,
             中期记忆触发阈值: maxMidTermMemories.value,
@@ -951,7 +817,7 @@ const loadMemorySettings = async () => {
           });
           return;
         }
-      } catch (e) {
+      } catch {
         console.log('[记忆设置] 未找到酒馆变量配置，尝试从localStorage读取');
       }
     }
@@ -2282,19 +2148,20 @@ onMounted(async () => {
     await initializePanelForSave();
 
     // 监听来自MemoryCenterPanel的配置更新事件
-    panelBus.on('memory-settings-updated', (settings: any) => {
+    panelBus.on('memory-settings-updated', (settings: unknown) => {
       console.log('[记忆设置] 接收到配置更新事件:', settings);
       if (settings && typeof settings === 'object') {
-        if (typeof settings.shortTermLimit === 'number') {
-          maxShortTermMemories.value = settings.shortTermLimit;
+        const settingsObj = settings as Record<string, unknown>;
+        if (typeof settingsObj.shortTermLimit === 'number') {
+          maxShortTermMemories.value = settingsObj.shortTermLimit;
           console.log(`[记忆设置] 短期记忆上限已更新为: ${maxShortTermMemories.value}`);
         }
-        if (typeof settings.midTermTrigger === 'number') {
-          maxMidTermMemories.value = settings.midTermTrigger;
+        if (typeof settingsObj.midTermTrigger === 'number') {
+          maxMidTermMemories.value = settingsObj.midTermTrigger;
           console.log(`[记忆设置] 中期记忆触发阈值已更新为: ${maxMidTermMemories.value}`);
         }
-        if (typeof settings.midTermKeep === 'number') {
-          midTermKeepCount.value = settings.midTermKeep;
+        if (typeof settingsObj.midTermKeep === 'number') {
+          midTermKeepCount.value = settingsObj.midTermKeep;
           console.log(`[记忆设置] 中期记忆保留数量已更新为: ${midTermKeepCount.value}`);
         }
       }
@@ -2306,8 +2173,9 @@ onMounted(async () => {
       console.log('[主面板] 注册 AI 生成完成监听');
 
       // 使用 event-emit 监听生成完成
-      helper.registerSlashCommand('event-emit', async (args: any) => {
-        const event = args?.event;
+      helper.registerSlashCommand('event-emit', async (args: unknown) => {
+        const argsObj = args as Record<string, unknown>;
+        const event = argsObj?.event;
         if (event === 'MESSAGE_GENERATED' || event === 'GENERATION_COMPLETED') {
           console.log('[主面板] 检测到 AI 生成完成事件');
           if (isAIProcessing.value) {

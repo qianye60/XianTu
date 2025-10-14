@@ -56,13 +56,22 @@ export const buildInGameMessagePrompt = (saveData: SaveData, autoGenerateNpc?: b
   if (shouldGenerateNpc) {
     promptParts.push(
       '',
-      '# 🔴 人物关系不足，需生成新NPC',
+      '========== 【紧急】人物关系不足，需生成新NPC ==========',
       '',
-      `当前:${currentNpcCount} 需要:${minNpcCount || 3}`,
+      `【当前状态】NPC数量: ${currentNpcCount} | 最低要求: ${minNpcCount || 3}`,
       '',
-      '自然引入1-2个符合场景的NPC,用set创建完整数据(名字/性别/年龄/种族/关系/好感/境界/外貌等)',
+      '【生成要求】',
+      '1. 自然引入1-2个符合当前场景的NPC',
+      '2. 使用set操作创建完整NPC档案',
+      '3. 必填字段：名字/性别/年龄/出生日期/种族/出生/外貌/性格/境界/灵根/天赋/六司/关系/好感度/位置/背包等',
+      '4. 【重要】若系统.nsfwMode=true，必须根据性别过滤条件生成完整私密信息（14个必填字段，不得省略）',
       '',
-      '示例: `{"action":"set","scope":"chat","key":"人物关系.李师兄","value":{完整NPC对象}}`',
+      '【操作示例】',
+      '\`{"action":"set","scope":"chat","key":"人物关系.李师兄","value":{完整NPC对象}}\`',
+      '',
+      '【注意事项】',
+      '- NPC境界只有2个字段：名称 和 阶段（不要添加当前进度等字段）',
+      '- 私密信息必须包含全部14个必填字段，不得使用占位符或"待补充"',
       ''
     );
   }
@@ -116,6 +125,7 @@ export const buildInGameMessagePrompt = (saveData: SaveData, autoGenerateNpc?: b
     '**NPC**: add好感度/set状态/push记忆',
     '',
     '**创建NPC**: `{"action":"set","key":"人物关系.张三","value":{完整档案}}`',
+    '  【重要】创建NPC时必须检查系统.nsfwMode，若为true且性别符合过滤条件，必须在value中包含完整的私密信息对象（14个必填字段）',
     '',
     '**移动**: 同时set描述+longitude+latitude (格式:大陆·地点)',
     '',

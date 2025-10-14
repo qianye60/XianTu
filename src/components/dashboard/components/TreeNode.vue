@@ -17,7 +17,7 @@
         :node-key="childKey"
         :value="childValue"
         :path="`${path}.${childKey}`"
-        @delete-item="(p) => emit('delete-item', p)"
+        @delete-item="(p: string) => emit('delete-item', p)"
       />
     </div>
   </div>
@@ -32,7 +32,7 @@ const TreeNode = defineAsyncComponent(() => import('./TreeNode.vue'))
 
 interface Props {
   nodeKey: string | number
-  value: any
+  value: unknown
   path: string
 }
 

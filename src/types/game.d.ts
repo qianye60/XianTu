@@ -710,6 +710,14 @@ export interface BodyPartDevelopment {
   描述?: string; // 部位的详细描述，如："娇小粉嫩，轻触即颤"、"紧致温润，吸附感强"
 }
 
+/** 玩家身体部位开发数据 */
+export interface PlayerBodyPart {
+  描述: string;
+  开发等级: number;
+  敏感度?: number;
+  特殊标记?: string;
+}
+
 /** NPC私密信息模块 (NSFW) - 仅在开启NSFW模式时生成和显示 */
 export interface NpcPrivacyProfile {
   // === 基础状态 ===
@@ -869,6 +877,7 @@ export interface GameMessage {
     掌握技能: MasteredSkill[]; // 技能数据+进度合并
     系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
     叙事历史?: GameMessage[]; // 存储对话历史及其状态变更日志
+    身体部位开发?: Record<string, PlayerBodyPart>; // 可选：身体部位开发
   }
 
 
