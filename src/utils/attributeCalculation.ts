@@ -125,7 +125,7 @@ export function calculateTechniqueBonuses(saveData: SaveData): InnateAttributes 
     item => item?.类型 === '功法' && item?.已装备 === true
   );
 
-  if (equippedTechnique && equippedTechnique.功法效果?.属性加成) {
+  if (equippedTechnique && equippedTechnique.类型 === '功法' && equippedTechnique.功法效果?.属性加成) {
     const attributeBonuses = equippedTechnique.功法效果.属性加成;
     for (const key in attributeBonuses) {
       if (key in bonuses) {

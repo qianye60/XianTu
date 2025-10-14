@@ -475,7 +475,6 @@ import { useActionQueueStore } from '@/stores/actionQueueStore'
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue'
 import type {
   Item,
-  Inventory,
   SaveData,
 } from '@/types/game'
 import { toast } from '@/utils/toast'
@@ -879,7 +878,6 @@ const removeItemFromInventory = async (item: Item) => {
   const { useCharacterStore } = await import('@/stores/characterStore')
   const characterStore = useCharacterStore()
 
-  // 使用 fullSync 确保数据同步
   await characterStore.syncToTavernAndSave({ fullSync: true })
 
   debug.log('背包面板', '物品移除成功', item.名称)

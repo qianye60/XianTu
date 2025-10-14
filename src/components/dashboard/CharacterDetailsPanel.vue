@@ -1379,7 +1379,7 @@ const handleRemoveEffect = async (effectName: string) => {
 
     if (success) {
       // 同步到酒馆
-      await characterStore.syncToTavern();
+      await characterStore.syncFromTavern();
       debug.log('角色详情面板', `已移除状态效果: ${effectName}`);
     } else {
       debug.warn('角色详情面板', `移除状态效果失败: ${effectName}`);

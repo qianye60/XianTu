@@ -17,7 +17,7 @@ const FullscreenCharacterManagement = {
       router.push('/');
     };
     
-    const handleCharacterSelected = (character: any) => {
+    const handleCharacterSelected = (_character: unknown) => {
       router.push('/game');
     };
     

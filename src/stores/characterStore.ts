@@ -27,7 +27,7 @@ import {
   type StorageShards
 } from '@/utils/storageSharding'; // 导入分片存储工具
 import type { World } from '@/types';
-import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm } from '@/types/game';
+import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm, NpcProfile, Item } from '@/types/game';
 
 // 假设的创角数据包，实际应从创角流程获取
 interface CreationPayload {
@@ -36,6 +36,13 @@ interface CreationPayload {
   world: World; // 世界数据
   mode: '单机' | '联机';
   age: number; // 开局年龄
+}
+
+// Tavern命令类型
+interface TavernCommand {
+  action: string;
+  key: string;
+  value?: unknown;
 }
 
 
@@ -247,7 +254,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         // 更新所有NPC的年龄（添加安全检查，避免访问已删除的NPC）
         if (slot.存档数据?.人物关系 && slot.存档数据.游戏时间) {
           let npcCount = 0;
-          Object.entries(slot.存档数据.人物关系).forEach(([key, npc]: [string, any]) => {
+          Object.entries(slot.存档数据.人物关系).forEach(([key, npc]: [string, NpcProfile]) => {
             // 🔥 添加详细的安全检查
             if (!npc || typeof npc !== 'object') {
               debug.warn('角色商店', `[同步] 跳过无效的NPC数据: ${key}`);
@@ -303,7 +310,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
             // 提取受影响的分片数据
             for (const shardKey of affectedShards) {
-              updatedShards[shardKey] = getShardFromSaveData(slot.存档数据, shardKey) as any;
+              const shardData = getShardFromSaveData(slot.存档数据, shardKey);
+              if (shardData !== undefined && shardData !== null) {
+                // 使用类型断言确保类型安全
+                (updatedShards as any)[shardKey] = shardData;
+              }
             }
 
             // 批量更新受影响的分片
@@ -824,7 +835,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         // 更新所有NPC的年龄
         if (saveData.人物关系 && saveData.游戏时间) {
           let npcCount = 0;
-          Object.values(saveData.人物关系).forEach((npc: any) => {
+          Object.values(saveData.人物关系).forEach((npc: NpcProfile) => {
             if (npc && typeof npc === 'object') {
               updateNpcLifespanFromGameTime(npc, saveData.游戏时间);
               npcCount++;
@@ -905,9 +916,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
         try {
           debug.log('角色商店', '[同步] 状态效果已清理，开始同步回酒馆...');
           const helper = getTavernHelper();
-          const shards = shardSaveData(saveData);
-          await saveAllShards(helper, shards);
-          debug.log('角色商店', '[同步] ✅ 已将清理后的状态效果同步回酒馆');
+          if (helper) {
+            const shards = shardSaveData(saveData);
+            await saveAllShards(shards, helper);
+            debug.log('角色商店', '[同步] ✅ 已将清理后的状态效果同步回酒馆');
+          }
         } catch (error) {
           debug.warn('角色商店', '[同步] 同步清理后的状态效果到酒馆失败（非致命）:', error);
         }
@@ -1016,7 +1029,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         // 更新所有NPC的年龄
         if (currentSaveData.人物关系 && currentSaveData.游戏时间) {
           let npcCount = 0;
-          Object.values(currentSaveData.人物关系).forEach((npc: any) => {
+          Object.values(currentSaveData.人物关系).forEach((npc: NpcProfile) => {
             if (npc && typeof npc === 'object') {
               updateNpcLifespanFromGameTime(npc, currentSaveData.游戏时间);
               npcCount++;
@@ -1325,7 +1338,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       try {
         updateLifespanFromGameTime(currentSaveData);
         if (currentSaveData.人物关系 && currentSaveData.游戏时间) {
-          Object.values(currentSaveData.人物关系).forEach((npc: any) => {
+          Object.values(currentSaveData.人物关系).forEach((npc: NpcProfile) => {
             if (npc && typeof npc === 'object') {
               updateNpcLifespanFromGameTime(npc, currentSaveData.游戏时间);
             }
@@ -1674,18 +1687,18 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param profile 当前角色档案
    * @param commands 指令数组
    */
-  const executeTavernCommands = async (saveData: SaveData, profile: CharacterProfile, commands: any[]): Promise<string[]> => {
+  const executeTavernCommands = async (saveData: SaveData, profile: CharacterProfile, commands: TavernCommand[]): Promise<string[]> => {
     const errors: string[] = [];
-    
+
     // 简化的路径解析和设置函数
-    const setNestedValue = (obj: any, path: string, value: any) => {
+    const setNestedValue = (obj: Record<string, unknown>, path: string, value: unknown) => {
       const keys = path.split('.');
-      let current = obj;
+      let current: Record<string, unknown> = obj;
       for (let i = 0; i < keys.length - 1; i++) {
         if (current[keys[i]] === undefined || typeof current[keys[i]] !== 'object') {
           current[keys[i]] = {};
         }
-        current = current[keys[i]];
+        current = current[keys[i]] as Record<string, unknown>;
       }
       current[keys[keys.length - 1]] = value;
     };
@@ -1910,7 +1923,7 @@ const equipTechnique = async (itemId: string) => {
   });
 
   // 1. 卸下当前所有功法
-  Object.values(saveData.背包.物品).forEach(i => {
+  Object.values(saveData.背包.物品).forEach((i: Item) => {
     if (i.类型 === '功法') {
       i.已装备 = false;
     }
@@ -1924,8 +1937,8 @@ const equipTechnique = async (itemId: string) => {
     物品ID: item.物品ID,
     名称: item.名称,
     正在修炼: true,
-    修炼进度: (item as any).修炼进度 || 0, // 从背包同步进度
-    功法技能: (item as any).功法技能,
+    修炼进度: (item.类型 === '功法' ? item.修炼进度 : undefined) || 0, // 从背包同步进度
+    功法技能: item.类型 === '功法' ? item.功法技能 : undefined,
   };
 
   debug.log('角色商店', `已装备功法: ${item.名称}，修炼进度: ${saveData.修炼功法?.修炼进度}%`);

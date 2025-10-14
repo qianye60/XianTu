@@ -11,12 +11,19 @@
 import { generateInGameResponse } from './generators/gameMasterGenerators';
 import { processGmResponse, getFromTavern } from './AIGameMaster';
 import { getTavernHelper } from './tavern';
-import type { TavernHelper, SaveData } from '@/types';
+import type { TavernHelper } from '@/types';
 import { toast } from './toast';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog } from '@/types/game';
+import { useCharacterStore } from '@/stores/characterStore';
 
 type PlainObject = Record<string, unknown>;
+
+interface TavernCommand {
+  action: string;
+  key: string;
+  value?: unknown;
+}
 
 export interface ProcessOptions {
   onStreamChunk?: (chunk: string) => void;
@@ -195,10 +202,9 @@ class AIBidirectionalSystemClass {
     gameState: PlainObject,
     userMessage: string
   ): PlainObject {
-    // 从角色配置中获取存档数据
-    const saveData = character.模式 === '单机'
-      ? character.存档列表?.['存档1']?.存档数据
-      : character.存档?.存档数据;
+    // 🔥 修复：从characterStore获取当前激活的存档数据，而不是硬编码'存档1'
+    const characterStore = useCharacterStore();
+    const saveData = characterStore.activeSaveSlot?.存档数据;
 
     return {
       character: character,
@@ -213,7 +219,7 @@ class AIBidirectionalSystemClass {
    * 从命令生成状态变更日志
    */
   private generateStateChangeLogFromCommands(
-    commands: any[],
+    commands: TavernCommand[],
     beforeState: PlainObject,
     afterState: PlainObject
   ): StateChangeLog {
@@ -281,10 +287,10 @@ class AIBidirectionalSystemClass {
     const parts = path.split('.');
 
     // 递归遍历路径
-    let current: any = obj;
+    let current: unknown = obj;
     for (const part of parts) {
       if (current && typeof current === 'object' && part in current) {
-        current = current[part];
+        current = (current as Record<string, unknown>)[part];
       } else {
         return undefined;
       }

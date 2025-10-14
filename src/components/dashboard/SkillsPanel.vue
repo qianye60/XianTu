@@ -246,20 +246,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
 import type { Item, TechniqueItem } from '@/types/game';
-
-// 定义功法技能接口
-interface TechniqueSkill {
-  技能名称: string;
-  技能描述: string;
-  消耗?: string;
-  解锁需要熟练度?: number; // 可选：达到此进度后解锁（0-100百分比）
-}
 
 const { characterData, saveData } = useUnifiedCharacterData();
 const uiStore = useUIStore();
@@ -283,21 +275,6 @@ const getCultivationProgress = (): number => {
   const currentSaveData = saveData.value;
   if (!currentSaveData?.修炼功法) return 0;
   return (currentSaveData.修炼功法 as { 修炼进度?: number })?.修炼进度 || 0;
-};
-
-// 初始化修炼功法数据的辅助函数
-const initializeCultivationSkills = async (currentSaveData: { 修炼功法?: unknown }) => {
-  if (!currentSaveData.修炼功法) {
-    currentSaveData.修炼功法 = null;
-    try {
-      // 异步保存，不阻塞界面
-      const { useCharacterStore } = await import('@/stores/characterStore');
-      const characterStore = useCharacterStore();
-      await characterStore.syncToTavernAndSave();
-    } catch (err) {
-      console.error('[技能面板] 初始化修炼功法数据失败:', err);
-    }
-  }
 };
 
 // 修炼功法数据
@@ -355,7 +332,7 @@ const allLearnedSkills = computed(() => {
   if (!Array.isArray(techniqueSkills)) return skills;
 
   // 根据修炼进度自动解锁技能
-  techniqueSkills.forEach((skill: any) => {
+  techniqueSkills.forEach((skill: { 技能名称: string; 技能描述: string; 消耗?: string; 解锁需要熟练度?: number }) => {
     const requiredProgress = skill.解锁需要熟练度 || 0;
     if (currentProgress >= requiredProgress) {
       skills.push({
@@ -679,9 +656,8 @@ const finalizeEquipTechnique = async (technique: {
 <style scoped>
 .skills-content {
   width: 100%;
-  height: 100%;
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr 420px;
   gap: 0;
   background: var(--color-background);
   overflow: hidden;
@@ -692,8 +668,8 @@ const finalizeEquipTechnique = async (technique: {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 20px;
-  gap: 20px;
+  padding: 24px;
+  gap: 24px;
 }
 
 .current-technique-section,
@@ -960,49 +936,75 @@ const finalizeEquipTechnique = async (technique: {
 /* 功法卡片网格 */
 .technique-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
   overflow-y: auto;
   padding-right: 8px;
 }
 
 .technique-card {
-  background: var(--color-surface);
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%);
   border: 2px solid var(--color-border);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.technique-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.technique-card:hover::before {
+  opacity: 1;
 }
 
 .technique-card:hover {
   border-color: var(--color-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(var(--color-primary-rgb), 0.15);
 }
 
 .technique-card.selected {
   border-color: var(--color-accent);
-  background: var(--color-surface-hover);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  background: linear-gradient(135deg, var(--color-surface-hover) 0%, var(--color-surface) 100%);
+  box-shadow: 0 4px 16px rgba(var(--color-accent-rgb), 0.25);
+}
+
+.technique-card.selected::before {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
 }
 
 .card-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  border: 2px solid var(--color-border);
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 3px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-surface-light);
   flex-shrink: 0;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .icon-text {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: bold;
   color: var(--color-text);
 }
@@ -1010,31 +1012,34 @@ const finalizeEquipTechnique = async (technique: {
 .card-body {
   flex: 1;
   min-width: 0;
+  text-align: center;
 }
 
 .card-title {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  margin-bottom: 2px;
+  margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .card-quality {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .card-desc {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
-  line-height: 1.3;
+  line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-align: left;
 }
 
 

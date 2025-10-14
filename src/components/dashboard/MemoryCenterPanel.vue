@@ -199,12 +199,18 @@
                   <span class="memory-icon">{{ section.icon }}</span>
                   <span class="memory-section-title">{{ section.title }}</span>
                 </div>
-                <div
-                  v-for="item in memory.parsedContent.sections[section.key]"
-                  :key="item"
-                  class="memory-item"
-                >
-                  {{ item }}
+                <!-- 确保只在数组时才遍历，字符串直接显示 -->
+                <template v-if="Array.isArray(memory.parsedContent.sections[section.key])">
+                  <div
+                    v-for="item in memory.parsedContent.sections[section.key]"
+                    :key="item"
+                    class="memory-item"
+                  >
+                    {{ item }}
+                  </div>
+                </template>
+                <div v-else class="memory-item">
+                  {{ memory.parsedContent.sections[section.key] }}
                 </div>
               </div>
               </template>
@@ -218,12 +224,18 @@
                   <span class="memory-icon">📝</span>
                   <span class="memory-section-title">其他记录</span>
                 </div>
-                <div
-                  v-for="item in memory.parsedContent.sections['general']"
-                  :key="item"
-                  class="memory-item"
-                >
-                  {{ item }}
+                <!-- 确保只在数组时才遍历，字符串直接显示 -->
+                <template v-if="Array.isArray(memory.parsedContent.sections['general'])">
+                  <div
+                    v-for="item in memory.parsedContent.sections['general']"
+                    :key="item"
+                    class="memory-item"
+                  >
+                    {{ item }}
+                  </div>
+                </template>
+                <div v-else class="memory-item">
+                  {{ memory.parsedContent.sections['general'] }}
                 </div>
               </div>
             </div>

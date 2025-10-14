@@ -285,7 +285,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   };
 
   // 注入AI元数据提示
-  (saveData.装备栏 as Record<string, any>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在，否则会被系统清除！';
+  (saveData.装备栏 as Record<string, any>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在';
   (saveData.人物关系 as Record<string, any>)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
 
   return { saveData, processedBaseInfo };
