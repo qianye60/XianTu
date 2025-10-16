@@ -35,8 +35,7 @@ import MemoryCenterPanel from '../components/dashboard/MemoryCenterPanel.vue';
 import CharacterDetailsPanel from '../components/dashboard/CharacterDetailsPanel.vue';
 import InventoryPanel from '../components/dashboard/InventoryPanel.vue';
 import RelationshipNetworkPanel from '../components/dashboard/RelationshipNetworkPanel.vue';
-import CultivationPanel from '../components/dashboard/CultivationPanel.vue';
-import SkillsPanel from '../components/dashboard/SkillsPanel.vue'; // 现在是功法面板
+import SkillsPanel from '../components/dashboard/SkillsPanel.vue'; // 功法面板
 import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue'; // 新的三千大道面板
 import SettingsPanel from '../components/dashboard/SettingsPanel.vue';
 import SavePanel from '../components/dashboard/SavePanel.vue';
@@ -92,14 +91,9 @@ const routes = [
         component: RelationshipNetworkPanel,
       },
       {
-        path: 'cultivation',
-        name: 'Cultivation',
-        component: CultivationPanel,
-      },
-      {
         path: 'techniques',
         name: 'Techniques',
-        component: SkillsPanel, // 功法面板
+        component: SkillsPanel, // 功法面板（合并了原cultivation功能）
       },
       {
         path: 'thousand-dao',

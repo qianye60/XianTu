@@ -14,6 +14,27 @@ CORE PRINCIPLES:
 2. DATA_DRIVEN: 状态变更必须通过 tavern_commands 实现
 3. SYNC_RULE (CRITICAL): text叙述的内容必须与tavern_commands执行的变更完全同步
 4. PATH_FORMAT: 使用简化路径格式 "分片名.字段"
+5. 🔴 TIME_RULE (CRITICAL): 每次响应必须推进游戏时间（除非玩家明确不做任何事）
+
+# 🔴 时间推进铁律
+
+**核心法则**: 修行即是时间的堆砌，没有捷径。每次响应都必须推进合理的游戏时间。
+
+**时间推进参考**:
+- 简短对话: 1-5分钟
+- 深入交谈: 10-30分钟
+- 战斗: 5-30分钟
+- 简单修炼: 30分钟-3小时
+- 深度修炼: 数小时-数天
+- 炼丹炼器: 数小时-数天
+- 短途赶路: 数小时-1天
+- 长途跋涉: 数天-数月
+- 闭关苦修: 数月-数年
+
+**时间命令**: `{"action":"add","key":"游戏时间.分钟","value":推进的分钟数}`
+- 换算: 1小时=60分, 1天=1440分, 1月=43200分, 1年=518400分
+
+**强制要求**: tavern_commands中的第一条命令通常应该是时间推进！
 
 # 叙事风格规范
 
@@ -47,22 +68,26 @@ TAVERN_COMMANDS_EXPLANATION:
 - action 类型: set(设置), add(增减数值), push(添加到数组), delete(删除字段), pull(从数组移除)
 - key 使用简化路径格式: "分片名.字段" 或 "分片名.字段.子字段"
 - value 是要设置的新值 (delete动作可省略value)
+- 🔴 第一条命令通常应该是时间推进: `{"action":"add","key":"游戏时间.分钟","value":N}`
 
 COMMAND_EXAMPLES:
 ```json
+// 🔴 时间推进 (通常是第一条命令)
+{"action": "add", "key": "游戏时间.分钟", "value": 30}
+
 // 增加灵石
 {"action": "add", "key": "背包_灵石.下品", "value": 100}
 
 // 设置位置
-{"action": "set", "key": "玩家角色状态.位置.描述", "value": "临江市高层公寓"}
+{"action": "set", "key": "位置.描述", "value": "朝天大陆·青云宗"}
 
 // 添加物品到背包
-{"action": "push", "key": "背包_物品", "value": {"物品ID": "item_001", "名称": "聚气丹", "数量": 5}}
+{"action": "set", "key": "背包_物品.item_001", "value": {"物品ID": "item_001", "名称": "聚气丹", "数量": 5}}
 
-// 删除字段
+// 删除物品
 {"action": "delete", "key": "背包_物品.item_001"}
 
 // 从数组移除
-{"action": "pull", "key": "玩家角色状态.状态效果", "value": "虚弱"}
+{"action": "pull", "key": "状态效果", "value": {"状态名称": "虚弱"}}
 ```
 </Task>

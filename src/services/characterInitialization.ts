@@ -288,6 +288,14 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   (saveData.装备栏 as Record<string, any>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在';
   (saveData.人物关系 as Record<string, any>)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
 
+  // 🔥 初始化玩家身体部位（NSFW模式）
+  // 注意：这里只是初始化占位符，AI会在角色初始化响应中生成详细描述
+  if (saveData.系统?.nsfwMode) {
+    console.log('[角色初始化] NSFW模式已开启，将由AI生成身体部位详细描述');
+    // 创建空对象，等待AI填充
+    saveData.身体部位开发 = {};
+  }
+
   return { saveData, processedBaseInfo };
 }
 
@@ -458,16 +466,50 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   // =================================================================
   const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, saveData, true);
 
-  const characterStore = useCharacterStore();
-  characterStore.setInitialCreationStateChanges(stateChanges);
-
   const openingStory = String(initialMessageResponse.text || '');
   if (!openingStory.trim()) {
     throw new Error('AI生成的开场剧情为空');
   }
 
+  // 🔥 将初始状态变更保存到叙事历史中，确保持久化
+  if (!saveDataAfterCommands.叙事历史) {
+    saveDataAfterCommands.叙事历史 = [];
+  }
+
+  const formatTime = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const currentTime = formatTime();
+
+  // 保存到叙事历史（用于恢复状态）
+  saveDataAfterCommands.叙事历史.push({
+    type: 'gm',
+    content: openingStory,
+    time: currentTime,
+    stateChanges: stateChanges // 保存初始状态变更
+  });
+
+  // 🔥 同时保存到短期记忆（完整历史记录）
+  if (!saveDataAfterCommands.记忆.短期记忆) {
+    saveDataAfterCommands.记忆.短期记忆 = [];
+  }
+  const initialMemoryText = `【${currentTime}】\n${openingStory}`;
+  saveDataAfterCommands.记忆.短期记忆.unshift(initialMemoryText);
+
+  // 🔥 保存到隐式中期记忆（角色重要记忆）
+  if (!saveDataAfterCommands.记忆.隐式中期记忆) {
+    saveDataAfterCommands.记忆.隐式中期记忆 = [];
+  }
+  saveDataAfterCommands.记忆.隐式中期记忆.push(initialMemoryText);
+
+  console.log('[初始化] ✅ 已将开场剧情保存到:');
+  console.log('  - 叙事历史（用于状态恢复）');
+  console.log('  - 短期记忆（完整历史记录）');
+  console.log('  - 隐式中期记忆（重要记忆）');
   console.log('[初始化] ✅ generateOpeningScene完成,返回数据');
-  // 注意：不再返回 initialGameDataForAI，因为位置信息已直接处理
+
   return { finalSaveData: saveDataAfterCommands, aiResponse: initialMessageResponse };
 }
 
@@ -645,7 +687,8 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       // 🔥 后备逻辑：使用本地数据库随机生成
       const 天资 = baseInfo.天资;
       let 灵根池 = LOCAL_SPIRIT_ROOTS.filter(root => {
-        // 根据天资筛选合适的灵根
+        // 根据天资筛选合适的灵根，排除特殊灵根(神品、仙品等)
+        // 神品灵根应该是极其罕见的,不应该作为随机结果
         if (天资 === '废柴' || 天资 === '凡人') {
           return root.tier === '凡品' || root.tier === '下品';
         } else if (天资 === '俊杰') {
@@ -653,7 +696,8 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
         } else if (天资 === '天骄') {
           return root.tier === '上品' || root.tier === '极品';
         } else if (天资 === '妖孽') {
-          return root.tier === '极品' || root.tier === '神品';
+          // 妖孽也只能随机到极品,神品太过罕见
+          return root.tier === '极品';
         } else {
           return root.tier === '凡品' || root.tier === '下品'; // 默认
         }
@@ -775,7 +819,9 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     }
   }
 
-  // 6. 功法技能描述校准 (Fallback)
+  // ❌ [已废弃] 功法技能描述校准 (Fallback)
+  // saveData.修炼功法 现在只存储引用（物品ID+名称），功法技能存储在背包物品中
+  /*
   if (saveData.修炼功法 && saveData.修炼功法.功法技能) {
     const skills = saveData.修炼功法.功法技能;
     Object.entries(skills).forEach(([skillName, skillInfo]) => {
@@ -785,6 +831,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       }
     });
   }
+  */
 
   // 7. 同步到Tavern
   try {

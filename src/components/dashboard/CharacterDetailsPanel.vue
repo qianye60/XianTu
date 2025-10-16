@@ -400,7 +400,7 @@
               </div>
               修炼功法
             </h3>
-            <div v-if="!cultivationData" class="empty-state">
+            <div v-if="!fullCultivationTechnique" class="empty-state">
               <div class="empty-icon">
                 <BookOpen :size="32" />
               </div>
@@ -410,11 +410,11 @@
               <div class="technique-info">
                 <div class="technique-header" @click="toggleTechniqueDetails">
                   <div class="technique-main">
-                    <h4 class="technique-name" :class="getItemQualityClass(cultivationData, 'text')">
-                      {{ cultivationData?.名称 }}
+                    <h4 class="technique-name" :class="getItemQualityClass(fullCultivationTechnique, 'text')">
+                      {{ fullCultivationTechnique?.名称 }}
                     </h4>
                     <div class="technique-quality">
-                      {{ cultivationData?.品质?.quality || '未知' }}品{{ cultivationData?.品质?.grade || 0 }}阶</div>
+                      {{ fullCultivationTechnique?.品质?.quality || '未知' }}品{{ fullCultivationTechnique?.品质?.grade || 0 }}阶</div>
                   </div>
                   <div class="technique-toggle">
                     <ChevronDown
@@ -428,21 +428,21 @@
                 <!-- 功法详情（可折叠�?-->
                 <div v-show="showTechniqueDetails" class="technique-details">
                   <div class="technique-description">
-                    <p>{{ cultivationData?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
+                    <p>{{ fullCultivationTechnique?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
                   </div>
 
-                  <div v-if="hasTechniqueEffects && cultivationData?.功法效果" class="technique-effects">
+                  <div v-if="hasTechniqueEffects && fullCultivationTechnique?.功法效果" class="technique-effects">
                     <h5 class="effects-title">功法效果</h5>
                     <div class="effects-list">
-                      <div v-if="cultivationData.功法效果.修炼速度加成" class="effect-item">
+                      <div v-if="fullCultivationTechnique.功法效果.修炼速度加成" class="effect-item">
                         <span class="effect-label">修炼加成：</span>
-                        <span class="effect-value">{{ (cultivationData.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
+                        <span class="effect-value">{{ (fullCultivationTechnique.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
                       </div>
-                      <div v-if="cultivationData.功法效果.属性加成" class="effect-item">
+                      <div v-if="fullCultivationTechnique.功法效果.属性加成" class="effect-item">
                         <span class="effect-label">属性提升：</span>
                         <div class="attribute-bonuses">
                           <span
-                            v-for="(value, attr) in cultivationData.功法效果.属性加成"
+                            v-for="(value, attr) in fullCultivationTechnique.功法效果.属性加成"
                             :key="attr"
                             class="bonus-tag"
                           >
@@ -452,26 +452,19 @@
                       </div>
                     </div>
                   </div>
-                  <div v-else-if="cultivationData" class="technique-effects no-effects">
+                  <div v-else-if="fullCultivationTechnique" class="technique-effects no-effects">
                     <h5 class="effects-title">功法效果</h5>
                     <p class="no-effects-text">此功法无特殊效果</p>
                   </div>
                 </div>
 
                 <div class="technique-progress">
-                  <div class="progress-item" v-if="cultivationData">
+                  <div class="progress-item" v-if="fullCultivationTechnique">
                     <span class="progress-label">修炼进度</span>
                     <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: Math.max(2, cultivationData.修炼进度 || 0) + '%' }"></div>
+                      <div class="progress-fill" :style="{ width: Math.max(2, fullCultivationTechnique.修炼进度 || 0) + '%' }"></div>
                     </div>
-                    <span class="progress-text">{{ cultivationData.修炼进度 || 0 }}%</span>
-                  </div>
-                  <div class="progress-item">
-                    <span class="progress-label">熟练度</span>
-                    <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: Math.max(2, cultivationData.熟练度 || 0) + '%' }"></div>
-                    </div>
-                    <span class="progress-text">{{ cultivationData.熟练度 || 0 }}%</span>
+                    <span class="progress-text">{{ fullCultivationTechnique.修炼进度 || 0 }}%</span>
                   </div>
                 </div>
               </div>
@@ -867,13 +860,13 @@
             <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根" class="advanced-details">
               <h4>详细信息</h4>
               <div class="advanced-grid">
-                <div v-if="(baseInfo.灵根 as any).base_multiplier" class="advanced-item">
+                <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根.base_multiplier" class="advanced-item">
                   <span class="advanced-label">基础倍率:</span>
-                  <span class="advanced-value">{{ (baseInfo.灵根 as any).base_multiplier }}x</span>
+                  <span class="advanced-value">{{ baseInfo.灵根.base_multiplier }}x</span>
                 </div>
-                <div v-if="(baseInfo.灵根 as any).cultivation_speed" class="advanced-item">
+                <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根.cultivation_speed" class="advanced-item">
                   <span class="advanced-label">修炼速度:</span>
-                  <span class="advanced-value">{{ (baseInfo.灵根 as any).cultivation_speed }}</span>
+                  <span class="advanced-value">{{ baseInfo.灵根.cultivation_speed }}</span>
                 </div>
               </div>
             </div>
@@ -892,12 +885,11 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
-import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality } from '@/types/game.d.ts';
+import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, TechniqueItem, Realm, PlayerBodyPart, TechniqueSkill } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import {
   calculateRemainingMinutes,
   formatMinutesToDuration,
-  gameTimeToTotalMinutes,
   removeStatusEffect
 } from '@/utils/statusEffectManager';
 import {
@@ -954,8 +946,16 @@ const currentAge = computed(() => {
   return baseInfo.value?.年龄 || playerStatus.value?.寿命?.当前 || 0;
 });
 
-// 修炼功法数据
-const cultivationData = computed(() => saveData.value?.修炼功法);
+// 修炼功法数据 - 从背包中获取
+const fullCultivationTechnique = computed(() => {
+  const cultivationRef = saveData.value?.修炼功法;
+  if (!cultivationRef?.物品ID) return null;
+
+  const techniqueItem = saveData.value?.背包?.物品?.[cultivationRef.物品ID];
+  if (!techniqueItem || techniqueItem.类型 !== '功法') return null;
+
+  return techniqueItem;
+});
 
 // 三千大道数据
 const daoData = computed(() => saveData.value?.三千大道);
@@ -1023,21 +1023,6 @@ const finalAttributes = computed((): InnateAttributes => {
   return result?.最终六司 || innateAttributesWithDefaults.value;
 });
 
-// 获取最近三条记忆
-const recentMemories = computed(() => {
-  const memoryData = saveData.value?.记忆;
-  if (!memoryData) return [];
-
-  // 如果记忆是短期记忆数组
-  if (memoryData.短期记忆 && Array.isArray(memoryData.短期记忆)) {
-    return memoryData.短期记忆.slice(-3).reverse().map((event: string, index: number) => ({
-      时间: '最近',
-      事件: event
-    }));
-  }
-
-  return [];
-});
 
 const acquiredAttributes = computed((): InnateAttributes => {
   const defaultAttributes: InnateAttributes = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 }; // 修正：使用标准六司名称
@@ -1054,13 +1039,13 @@ const bodyParts = computed(() => {
     .filter(([, details]) => details && typeof details === 'object')
     .map(([name, details]) => ({
       name,
-      description: (details as any).描述 || '暂无描述',
-      level: (details as any).开发等级 || 0,
+      description: (details as PlayerBodyPart).描述 || '暂无描述',
+      level: (details as PlayerBodyPart).开发等级 || 0,
     }));
 });
 
 const hasTechniqueEffects = computed(() => {
-  const effects = cultivationData.value?.功法效果;
+  const effects = fullCultivationTechnique.value?.功法效果;
   if (!effects) return false;
   const hasSpeedBonus = effects.修炼速度加成 && effects.修炼速度加成 > 0;
   const hasAttributeBonus = effects.属性加成 && Object.keys(effects.属性加成).length > 0;
@@ -1069,33 +1054,30 @@ const hasTechniqueEffects = computed(() => {
 
 // 技能相关计算属性
 const skillsList = computed((): SkillInfo[] => {
-  const technique = cultivationData.value;
+  const technique = fullCultivationTechnique.value;
   if (!technique?.功法技能) return [];
 
-  const skills: SkillInfo[] = [];
-  Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
-    const unlocked = (technique.已解锁技能 || []).includes(skillName);
-    const info = skillInfo as any;
-    skills.push({
-      name: skillName,
-      description: info?.技能描述 || '',
+  return technique.功法技能.map((skillInfo: TechniqueSkill) => {
+    const unlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
+    return {
+      name: skillInfo.技能名称,
+      description: skillInfo.技能描述 || '',
       type: '功法技能',
       unlockCondition: '修炼解锁',
-      unlocked
-    });
+      unlocked,
+    };
   });
-  return skills;
 });
 
 // 已学技能（所有已掌握的技能）
 const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   const mastered = saveData.value?.掌握技能 || [];
-  const fromTechnique = (cultivationData.value?.已解锁技能 || []).map(skillName => {
-    const skillDef = cultivationData.value?.功法技能?.[skillName];
+  const fromTechnique = (fullCultivationTechnique.value?.已解锁技能 || []).map((skillName: string) => {
+    const skillDef = fullCultivationTechnique.value?.功法技能?.find((s: TechniqueSkill) => s.技能名称 === skillName);
     return {
       name: skillName,
       proficiency: getPersistentProficiency(skillName, 'technique'),
-      source: cultivationData.value?.名称 || '功法',
+      source: fullCultivationTechnique.value?.名称 || '功法',
       type: '功法技能',
       description: skillDef?.技能描述 || '通过功法修炼掌握',
       unlocked: true,
@@ -1205,7 +1187,7 @@ const formatCultivationText = (): string => {
 };
 
 // 显示境界：统一返回"境界+阶段"（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (realmInput?: string | any): string => {
+const formatRealmDisplay = (realmInput?: string | Realm): string => {
   // 如果传入的是对象（Realm类型）
   if (realmInput && typeof realmInput === 'object') {
     const name = realmInput.名称 || '';
@@ -1617,11 +1599,12 @@ const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: stri
 const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined): string => {
   const spiritRoot = baseInfo?.灵根;
   if (spiritRoot && typeof spiritRoot === 'object') {
-    if ('base_multiplier' in spiritRoot && (spiritRoot as any).base_multiplier) {
-      return `${(spiritRoot as any).base_multiplier}x`;
+    const spiritRootObj = spiritRoot as { base_multiplier?: number; cultivation_speed?: string };
+    if ('base_multiplier' in spiritRootObj && spiritRootObj.base_multiplier) {
+      return `${spiritRootObj.base_multiplier}x`;
     }
-    if ('cultivation_speed' in spiritRoot && (spiritRoot as any).cultivation_speed) {
-      return (spiritRoot as any).cultivation_speed;
+    if ('cultivation_speed' in spiritRootObj && spiritRootObj.cultivation_speed) {
+      return spiritRootObj.cultivation_speed;
     }
   }
 
@@ -1645,8 +1628,11 @@ const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined):
 // 获取灵根特殊效果
 const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[] => {
   const spiritRoot = baseInfo?.灵根;
-  if (spiritRoot && typeof spiritRoot === 'object' && 'special_effects' in spiritRoot && Array.isArray((spiritRoot as any).special_effects)) {
-    return (spiritRoot as any).special_effects;
+  if (spiritRoot && typeof spiritRoot === 'object') {
+    const spiritRootObj = spiritRoot as { special_effects?: string[] };
+    if ('special_effects' in spiritRootObj && Array.isArray(spiritRootObj.special_effects)) {
+      return spiritRootObj.special_effects;
+    }
   }
   return [];
 };

@@ -534,17 +534,18 @@ onMounted(async () => {
     if (currentSaveData) {
       const fixed = validateAndFixSaveData(currentSaveData)
 
-      // 迁移修炼功法数据结构
+      // ❌ [已废弃] 迁移修炼功法数据结构
+      // saveData.修炼功法 现在只存储引用（物品ID+名称），不存储修炼进度
+      /*
       if (fixed.修炼功法) {
-        // 确保新字段存在
         if (typeof fixed.修炼功法.正在修炼 === 'undefined') {
-          // 如果有功法对象，说明正在修炼
           fixed.修炼功法.正在修炼 = true
         }
         if (typeof fixed.修炼功法.修炼进度 === 'undefined') {
           fixed.修炼功法.修炼进度 = 0
         }
       }
+      */
 
       // 简单判定是否有变化（避免无限写入）
       if (JSON.stringify(fixed) !== JSON.stringify(currentSaveData)) {

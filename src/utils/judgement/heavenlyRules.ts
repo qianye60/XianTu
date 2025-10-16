@@ -141,11 +141,18 @@ function calculateTechniqueBonus(saveData: SaveData) {
   let 攻击 = 0, 防御 = 0, 灵识 = 0, 敏捷 = 0;
 
   try {
-    const 功法数据 = get(saveData, '修炼功法');
-    if (!功法数据) return { 攻击, 防御, 灵识, 敏捷 };
+    const 功法引用 = get(saveData, '修炼功法');
+    if (!功法引用) return { 攻击, 防御, 灵识, 敏捷 };
 
-    // 新结构：修炼功法直接包含功法数据和进度
-    const 熟练度 = safeNum(功法数据.熟练度, 0);
+    // 从背包中获取实际功法数据
+    const 功法ID = 功法引用.物品ID;
+    if (!功法ID) return { 攻击, 防御, 灵识, 敏捷 };
+
+    const 功法数据 = get(saveData, `背包.物品.${功法ID}`) as TechniqueItem | undefined;
+    if (!功法数据 || 功法数据.类型 !== '功法') return { 攻击, 防御, 灵识, 敏捷 };
+
+    // 从功法数据中读取熟练度（如果存在）
+    const 熟练度 = safeNum((功法数据 as any).熟练度, 0);
     if (熟练度 > 0) {
       const 基础加成 = Math.floor(熟练度 / 10);
       攻击 += 基础加成 * 2;
@@ -154,16 +161,13 @@ function calculateTechniqueBonus(saveData: SaveData) {
       敏捷 += 基础加成 * 0.5;
     }
 
-    // 功法数据直接在修炼功法对象中
-    if (功法数据.类型 === '功法') {
-      const technique = 功法数据 as unknown as TechniqueItem;
-      const 效果 = technique.功法效果;
-      if (效果?.属性加成) {
-        攻击 += safeNum(效果.属性加成.攻击力);
-        防御 += safeNum(效果.属性加成.防御力);
-        灵识 += safeNum(效果.属性加成.灵识);
-        敏捷 += safeNum(效果.属性加成.敏捷);
-      }
+    // 功法效果加成
+    const 效果 = 功法数据.功法效果;
+    if (效果?.属性加成) {
+      攻击 += safeNum(效果.属性加成.攻击力);
+      防御 += safeNum(效果.属性加成.防御力);
+      灵识 += safeNum(效果.属性加成.灵识);
+      敏捷 += safeNum(效果.属性加成.敏捷);
     }
   } catch (error) {
     console.warn('[天道演算] 功法加成计算失败:', error);
@@ -485,6 +489,190 @@ export async function syncToTavern(saveData: SaveData, baseInfo: CharacterBaseIn
 // 兼容旧接口的同步函数
 export async function syncHeavenlyPrecalcToTavern(saveData: SaveData, baseInfo: CharacterBaseInfo): Promise<void> {
   return syncToTavern(saveData, baseInfo);
+}
+
+// ========== 时间法则验证系统 ==========
+// 作为独立于AI提示词的硬性规则执行器，拦截违反时间法则的命令
+
+/**
+ * 境界最低修炼时间要求（单位：分钟）
+ * 这些是建议底线，系统会给予一定的弹性空间
+ */
+const REALM_MIN_TIME_REQUIREMENTS: Record<string, number> = {
+  // 炼气期：阶段突破建议时间（大幅降低）
+  '炼气初期': 30 * 24 * 60,    // 约1个月
+  '炼气中期': 60 * 24 * 60,    // 约2个月
+  '炼气后期': 90 * 24 * 60,    // 约3个月
+  '炼气圆满': 120 * 24 * 60,   // 约4个月
+  '炼气极境': 150 * 24 * 60,   // 约5个月
+
+  // 筑基：建议1年（大幅降低）
+  '筑基': 365 * 24 * 60,
+
+  // 金丹：建议5年（大幅降低）
+  '金丹': 5 * 365 * 24 * 60,
+
+  // 元婴：建议15年（大幅降低）
+  '元婴': 15 * 365 * 24 * 60,
+
+  // 化神：建议50年（大幅降低）
+  '化神': 50 * 365 * 24 * 60,
+
+  // 炼虚：建议100年（大幅降低）
+  '炼虚': 100 * 365 * 24 * 60,
+
+  // 合体：建议200年（大幅降低）
+  '合体': 200 * 365 * 24 * 60,
+
+  // 渡劫：建议500年（大幅降低）
+  '渡劫': 500 * 365 * 24 * 60,
+};
+
+/**
+ * 获取境界的下一级名称
+ */
+function getNextRealm(currentRealm: string): string | null {
+  const realmOrder = ['凡人', '炼气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
+  const currentIndex = realmOrder.indexOf(currentRealm);
+  if (currentIndex >= 0 && currentIndex < realmOrder.length - 1) {
+    return realmOrder[currentIndex + 1];
+  }
+  return null;
+}
+
+/**
+ * 验证境界突破是否符合时间法则
+ * @param saveData 当前存档数据
+ * @param newRealmName 新境界名称
+ * @param lastBreakthroughTime 上次突破时的游戏时间（如果是首次突破则为角色出生时间）
+ * @returns { valid: boolean, reason?: string, requiredMinutes?: number }
+ */
+export function validateRealmBreakthroughTime(
+  saveData: SaveData,
+  newRealmName: string,
+  lastBreakthroughTime?: { 年: number; 月: number; 日: number; 小时?: number; 分钟?: number }
+): { valid: boolean; reason?: string; requiredMinutes?: number; actualMinutes?: number } {
+  try {
+    const currentGameTime = get(saveData, '游戏时间');
+    if (!currentGameTime) {
+      return { valid: false, reason: '游戏时间不存在' };
+    }
+
+    // 计算时间跨度（单位：分钟）
+    const startTime = lastBreakthroughTime || get(saveData, '角色基础信息.出生日期');
+    if (!startTime) {
+      return { valid: false, reason: '无法确定开始时间' };
+    }
+
+    // 将游戏时间转换为总分钟数
+    const gameTimeToMinutes = (time: { 年: number; 月: number; 日: number; 小时?: number; 分钟?: number }): number => {
+      return (
+        time.年 * 365 * 24 * 60 +
+        time.月 * 30 * 24 * 60 +
+        time.日 * 24 * 60 +
+        (time.小时 ?? 0) * 60 +
+        (time.分钟 ?? 0)
+      );
+    };
+
+    const currentMinutes = gameTimeToMinutes(currentGameTime);
+    const startMinutes = gameTimeToMinutes(startTime);
+    const elapsedMinutes = currentMinutes - startMinutes;
+
+    // 检查目标境界的最低时间要求
+    const requiredMinutes = REALM_MIN_TIME_REQUIREMENTS[newRealmName];
+    if (requiredMinutes === undefined) {
+      // 如果没有明确定义，说明可能是阶段突破（如筑基初期→中期），放行
+      return { valid: true };
+    }
+
+    if (elapsedMinutes < requiredMinutes) {
+      const requiredYears = Math.floor(requiredMinutes / (365 * 24 * 60));
+      const actualYears = Math.floor(elapsedMinutes / (365 * 24 * 60));
+
+      return {
+        valid: false,
+        reason: `突破到${newRealmName}最少需要${requiredYears}年修炼，当前仅经过${actualYears}年`,
+        requiredMinutes,
+        actualMinutes: elapsedMinutes
+      };
+    }
+
+    return { valid: true };
+  } catch (error) {
+    console.error('[时间法则] 验证境界突破时间失败:', error);
+    return { valid: false, reason: '验证失败' };
+  }
+}
+
+/**
+ * 拦截并修正违反时间法则的境界突破命令
+ * 这个函数会在 AIGameMaster.ts 的 executeCommand 中调用
+ * @param command 原始命令
+ * @param saveData 当前存档数据
+ * @returns 修正后的命令（如果违反则阻止）
+ */
+export function interceptRealmBreakthroughCommand(
+  command: { action: string; key: string; value?: unknown },
+  saveData: SaveData
+): { allowed: boolean; reason?: string; correctedCommand?: typeof command } {
+  try {
+    // 只拦截境界相关的set命令
+    if (command.action !== 'set' || !command.key.includes('境界')) {
+      return { allowed: true };
+    }
+
+    // 提取新境界名称
+    let newRealmName: string | null = null;
+
+    if (command.key.endsWith('境界.名称')) {
+      newRealmName = command.value as string;
+    } else if (command.key.endsWith('境界') && typeof command.value === 'object' && command.value) {
+      newRealmName = (command.value as any).名称;
+    }
+
+    if (!newRealmName) {
+      // 不是境界名称的变更，放行
+      return { allowed: true };
+    }
+
+    // 获取当前境界
+    const currentRealm = get(saveData, '玩家角色状态.境界.名称', '凡人') as string;
+
+    // 检查是否是境界突破（而非阶段提升）
+    const nextRealm = getNextRealm(currentRealm);
+    if (newRealmName !== nextRealm) {
+      // 不是突破到下一境界（可能是阶段变化或降级），放行
+      return { allowed: true };
+    }
+
+    // 验证时间法则
+    const validation = validateRealmBreakthroughTime(saveData, newRealmName);
+
+    if (!validation.valid) {
+      console.error('[时间法则] 🚫 拦截违规突破命令:', {
+        当前境界: currentRealm,
+        目标境界: newRealmName,
+        原因: validation.reason,
+        需要时间: validation.requiredMinutes ? `${Math.floor(validation.requiredMinutes / (365 * 24 * 60))}年` : '未知',
+        实际时间: validation.actualMinutes ? `${Math.floor(validation.actualMinutes / (365 * 24 * 60))}年` : '未知'
+      });
+
+      return {
+        allowed: false,
+        reason: `[天道法则阻止] ${validation.reason}。系统已自动拦截此违规突破，请遵循修炼时间规律。`
+      };
+    }
+
+    // 通过验证
+    console.log('[时间法则] ✅ 突破合法:', { 当前境界: currentRealm, 目标境界: newRealmName });
+    return { allowed: true };
+
+  } catch (error) {
+    console.error('[时间法则] 拦截命令失败:', error);
+    // 出错时默认允许，避免阻塞游戏
+    return { allowed: true };
+  }
 }
 
 // 生成精简判定提示词

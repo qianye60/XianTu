@@ -621,115 +621,6 @@ const getImagePreviewUrl = (file: File): string => {
 // const variableUpdatesExpanded = ref(false);
 // const toggleVariableUpdates = () => { ... };
 
-// --- 命令日志相关函数 ---
-// (已移除未使用的 getIconForCommand 和 formatCommandDescription 函数)
-
-
-// 获取操作文本 - 增强版本，提供详细的中文说明
-const getActionText = (action: string): string => {
-  const actionMap: Record<string, string> = {
-    'add': '新增',
-    'set': '设定',
-    'update': '更新',
-    'remove': '删除',
-    'delete': '删除',
-    'push': '添加',
-    'pull': '移除',
-    'inc': '递增',
-    'dec': '递减',
-    'append': '追加',
-    'prepend': '前置',
-    'merge': '合并',
-    'replace': '替换',
-    'clear': '清空',
-    'reset': '重置'
-  };
-  return actionMap[action] || action;
-};
-
-// 获取变量显示名称 - 将技术性的变量路径转换为用户友好的名称
-const getVariableDisplayName = (key: string): string => {
-  const nameMap: Record<string, string> = {
-    // 角色基础属性 - 使用新的简化路径格式
-    '属性.气血.当前': '气血当前值',
-    '属性.气血.上限': '气血上限',
-    '属性.灵气.当前': '灵气当前值',
-    '属性.灵气.上限': '灵气上限',
-    '属性.神识.当前': '神识当前值',
-    '属性.神识.上限': '神识上限',
-    '境界.名称': '修炼境界',
-    '境界.阶段': '境界阶段',
-    '境界.当前进度': '修为',
-    '境界.下一级所需': '下一级所需修为',
-
-    // 背包相关
-    '背包_灵石.下品': '下品灵石',
-    '背包_灵石.中品': '中品灵石',
-    '背包_灵石.上品': '上品灵石',
-    '背包_灵石.极品': '极品灵石',
-    '背包_物品': '背包物品',
-
-    // 装备栏
-    '装备栏': '装备栏',
-    '装备栏.装备1': '装备栏1',
-    '装备栏.装备2': '装备栏2',
-    '装备栏.装备3': '装备栏3',
-    '装备栏.装备4': '装备栏4',
-    '装备栏.装备5': '装备栏5',
-    '装备栏.装备6': '装备栏6',
-
-    // 修炼功法
-    '修炼功法.名称': '修炼功法',
-    '修炼功法.正在修炼': '修炼状态',
-    '修炼功法.修炼进度': '功法修炼进度',
-
-    // 游戏时间
-    '游戏时间.年': '当前年份',
-    '游戏时间.月': '当前月份',
-    '游戏时间.日': '当前日期',
-
-    // 位置
-    '位置.描述': '当前位置',
-    '位置.区域': '所在区域',
-
-    // 人际关系
-    '人物关系': '人际关系',
-
-    // 寿命
-    '属性.寿命.当前': '当前年龄',
-    '属性.寿命.预期寿命': '预期寿命',
-  };
-
-  // 如果有精确匹配，返回对应的中文名称
-  if (nameMap[key]) {
-    return nameMap[key];
-  }
-
-  // 模式匹配 - 处理动态生成的键名
-  if (key.includes('背包_物品.')) {
-    const itemId = key.split('.').pop();
-    return `物品: ${itemId?.substring(0, 10)}...`;
-  }
-
-  if (key.includes('人物关系.')) {
-    const npcName = key.split('.').pop();
-    return `关系: ${npcName}`;
-  }
-
-  if (key.includes('.装备')) {
-    return '装备栏位';
-  }
-
-  // 去除技术前缀，保留有意义的部分
-  const simplifiedKey = key
-    .split('.')
-    .slice(-2) // 取最后两段
-    .join('.');
-
-  return simplifiedKey;
-};
-
-// (已移除未使用的 getChangeDescription 函数)
 
 const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) {
@@ -1554,12 +1445,13 @@ const sendMessage = async () => {
       if (currentSaveData?.记忆) {
         const helper = getTavernHelper();
         if (helper) {
-          // 同步三个记忆分片
+          // 同步四个记忆分片(包括隐式中期记忆)
           const { deepCleanForClone } = await import('@/utils/dataValidation');
           await helper.setVariable('记忆_短期', deepCleanForClone(currentSaveData.记忆.短期记忆), { type: 'chat' });
           await helper.setVariable('记忆_中期', deepCleanForClone(currentSaveData.记忆.中期记忆), { type: 'chat' });
+          await helper.setVariable('记忆_隐式中期', deepCleanForClone(currentSaveData.记忆.隐式中期记忆 || []), { type: 'chat' });
           await helper.setVariable('记忆_长期', deepCleanForClone(currentSaveData.记忆.长期记忆), { type: 'chat' });
-          console.log('[记忆同步] ✅ 记忆已同步到Tavern分片');
+          console.log('[记忆同步] ✅ 记忆已同步到Tavern分片(包括隐式中期记忆)');
         }
       }
 
@@ -1585,32 +1477,35 @@ const sendMessage = async () => {
       if (currentNarrative.value) {
         currentNarrative.value.stateChanges = aiResponse.stateChanges as StateChangeLog;
 
-        // 保存到叙事历史
+        // 保存到叙事历史（只保留最新一条，用于页面恢复）
         const saveData = characterStore.activeSaveSlot?.存档数据;
         if (saveData) {
-          if (!saveData.叙事历史) {
-            saveData.叙事历史 = [];
-          }
-          // 添加到历史记录（最新的在前）
-          const narrativeToSave = {
+          // 叙事历史只保留最新一条对话（用于切换页面后恢复）
+          const latestNarrative = {
             type: currentNarrative.value.type,
             content: currentNarrative.value.content,
             time: currentNarrative.value.time,
             stateChanges: currentNarrative.value.stateChanges
           };
-          saveData.叙事历史.unshift(narrativeToSave);
 
-          console.log('[主面板-调试] 保存叙事历史:', {
-            叙事类型: narrativeToSave.type,
-            内容长度: narrativeToSave.content.length,
-            changes数量: narrativeToSave.stateChanges?.changes?.length || 0,
-            历史总数: saveData.叙事历史.length
+          saveData.叙事历史 = [latestNarrative]; // 只保留最新一条
+
+          // 🔥 同时保存到记忆系统（完整历史，供查看/下载）
+          if (!saveData.记忆.短期记忆) {
+            saveData.记忆.短期记忆 = [];
+          }
+
+          // 添加用户输入和AI回复的完整记录到记忆
+          const narrativeText = `【${currentNarrative.value.time}】\n${currentNarrative.value.content}`;
+          saveData.记忆.短期记忆.unshift(narrativeText);
+
+          console.log('[主面板-调试] 已保存:', {
+            叙事历史: '仅最新一条（用于恢复）',
+            记忆系统: `已添加到短期记忆（共${saveData.记忆.短期记忆.length}条）`,
+            内容长度: currentNarrative.value.content.length,
+            changes数量: currentNarrative.value.stateChanges?.changes?.length || 0
           });
 
-          // 保留最近100条记录
-          if (saveData.叙事历史.length > 100) {
-            saveData.叙事历史 = saveData.叙事历史.slice(0, 100);
-          }
           characterStore.saveCurrentGame();
         }
       }
@@ -1726,8 +1621,6 @@ const sendMessage = async () => {
   }
 };
 
-// 移除 addMessage 函数，不再需要
-
 // 🔥 移除复杂的中期记忆缓存系统，改为直接处理
 // 中期记忆现在直接在 AIGameMaster.ts 的 processGmResponse 中处理
 const addToShortTermMemory = async (
@@ -1794,8 +1687,7 @@ const addToShortTermMemory = async (
       const timePrefix = formatGameTimeString(gameTime);
       // 提取前100字作为隐式中期记忆（从finalContent提取，这样不会重复时间前缀）
       const contentWithoutTime = hasTimePrefix ? content.substring(content.indexOf('】') + 1) : content;
-      const shortContent = contentWithoutTime.length > 100 ? contentWithoutTime.substring(0, 100) + '...' : contentWithoutTime;
-      const autoMidTerm = `${timePrefix}${shortContent}`;
+      const autoMidTerm = `${timePrefix}${contentWithoutTime}`;
       sd.记忆.隐式中期记忆.unshift(autoMidTerm);
       console.log(`[记忆管理] ⚠️ AI未返回mid_term_memory，自动生成隐式中期记忆`);
     }
@@ -2036,24 +1928,16 @@ const initializePanelForSave = async () => {
           stateChanges: latestNarrative.stateChanges || { changes: [] }
         };
       } else if (memories && memories.length > 0) {
-        // 回退：从记忆加载（无stateChanges）
+        // 回退：从记忆加载（旧版本存档，没有叙事历史）
         const initialMessageContent = memories[0];
-        console.log('[主面板] 从存档加载最新叙述:', initialMessageContent.substring(0, 100));
-
-        // 对于新角色，初始状态变更被临时存储。我们在这里消费它，确保只显示一次。
-        const initialChanges = characterStore.consumeInitialCreationStateChanges();
+        console.log('[主面板] 从记忆加载最新叙述:', initialMessageContent.substring(0, 100));
 
         currentNarrative.value = {
-          type: 'gm', // 将第一条消息视为GM消息
+          type: 'gm',
           content: initialMessageContent,
           time: formatCurrentTime(),
-          // 如果有初始变更，就使用它们；否则，默认为空。
-          stateChanges: initialChanges || { changes: [] },
+          stateChanges: { changes: [] }, // 旧版本没有状态变更
         };
-
-        if (initialChanges) {
-            console.log('[主面板] 已加载并消费角色创建时的初始状态变更。');
-        }
 
       } else {
         // 未找到记忆或叙事历史，显示欢迎信息
