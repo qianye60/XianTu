@@ -1,4 +1,5 @@
 <template>
+  <div class="skills-content">
     <!-- 左侧：当前修炼+功法库 -->
     <div class="skills-main">
       <!-- 当前修炼功法槽位 -->
@@ -182,7 +183,7 @@
       </div>
     </div>
 
-    <!-- 功法详情侧边栏 -->
+    <!-- 功法详情底部面板 -->
     <button
       v-if="isMobile"
       type="button"
@@ -194,7 +195,7 @@
       <span>功法库 ({{ inventoryTechniques.length }})</span>
     </button>
 
-    <div class="skill-details-sidebar" :class="{ 'no-selection': !selectedSkillData }">
+    <div class="skill-details-bottom" :class="{ 'no-selection': !selectedSkillData }">
       <div v-if="selectedSkillData" class="skill-details-content">
         <!-- 顶部信息卡片 -->
         <div class="details-card" :class="getSkillQualityClass(selectedSkillData)">
@@ -297,19 +298,20 @@
       @click="showMobileLibrary = false"
     ></div>
 
-    <!-- 深度修炼对话框 -->
-    <DeepCultivationModal
-      :visible="showDialog"
-      :technique="techniqueForModal"
-      :current-progress="getCultivationProgress()"
-      @close="closeDialog"
-      @confirm="handleCultivationConfirm"
-    />
+      <!-- 深度修炼对话框 -->
+      <DeepCultivationModal
+        :visible="showDialog"
+        :technique="techniqueForModal"
+        :current-progress="getCultivationProgress()"
+        @close="closeDialog"
+        @confirm="handleCultivationConfirm"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
@@ -365,10 +367,10 @@ const getCultivationProgress = (): number => {
   return (currentSaveData.修炼功法 as { 修炼进度?: number })?.修炼进度 || 0;
 };
 
-// 修炼功法数据 - 从背包查找已装备的功法,并合并修炼进度
-const cultivationSkills = computed(() => {
+// 修炼功法数据 - 从背包查找已装备的功法
+// 修炼进度和已解锁技能直接存储在背包物品中，不在 saveData.修炼功法 中
+const cultivationSkills = computed((): TechniqueItem | null => {
   const inventory = characterData.value?.背包_物品;
-  const currentSaveData = saveData.value;
 
   if (!inventory) return null;
 
@@ -379,12 +381,13 @@ const cultivationSkills = computed(() => {
 
   if (!cultivatingTechnique) return null;
 
-  // ✅ 合并背包数据和修炼进度数据
-  return {
-    ...(cultivatingTechnique as TechniqueItem),
-    修炼进度: currentSaveData?.修炼功法?.修炼进度 || 0,
-    已解锁技能: currentSaveData?.修炼功法?.已解锁技能 || []
-  } as TechniqueItem;
+  const technique = cultivatingTechnique as TechniqueItem;
+
+  console.log("修炼功法数据 (from 背包):", technique); // 调试
+  console.log("修炼进度:", technique.修炼进度); // 调试
+  console.log("已解锁技能:", technique.已解锁技能); // 调试
+
+  return technique;
 });
 
 // 背包中的功法物品 - 排除已装备的
@@ -533,28 +536,12 @@ const formatAttributeBonus = (bonus: unknown): string => {
 
 // 计算已解锁技能的 Set，优化查询性能
 const unlockedSkillsMap = computed(() => {
-  const skills = new Set<string>();
-
-  if (!cultivationSkills.value) {
-    return skills;
+  // BUG修复：直接从存档的 `已解锁技能` 数组生成Set，而不是动态计算
+  // 这是确保技能状态持久化且唯一的关键
+  if (cultivationSkills.value && Array.isArray(cultivationSkills.value.已解锁技能)) {
+    return new Set(cultivationSkills.value.已解锁技能);
   }
-
-  const currentProgress = cultivationSkills.value.修炼进度 || 0;
-  const techniqueSkills = cultivationSkills.value.功法技能;
-
-  if (!Array.isArray(techniqueSkills)) {
-    return skills;
-  }
-
-  // 根据修炼进度动态计算已解锁的技能
-  techniqueSkills.forEach((skill: { 技能名称: string; 解锁需要熟练度?: number }) => {
-    const requiredProgress = skill.解锁需要熟练度 || 0;
-    if (currentProgress >= requiredProgress) {
-      skills.add(skill.技能名称);
-    }
-  });
-
-  return skills;
+  return new Set<string>();
 });
 
 // 新增：计算修炼速度加成文本，并修复逻辑错误
@@ -797,16 +784,29 @@ const finalizeEquipTechnique = async (technique: {
   selectedSkillSlot.value = '功法';
 };
 
+// 监听修炼功法变化,自动选中
+watch(cultivationSkills, (newValue) => {
+  // 如果当前没有选中任何功法,或者选中的功法已经不是正在修炼的功法,则自动选中当前修炼的功法
+  if (newValue && (!selectedSkillData.value || selectedSkillSlot.value !== '功法')) {
+    selectedSkillData.value = newValue;
+    selectedSkillSlot.value = '功法';
+  } else if (!newValue && selectedSkillSlot.value === '功法') {
+    // 如果取消了修炼,清空选中
+    selectedSkillData.value = null;
+    selectedSkillSlot.value = '';
+  }
+}, { immediate: true }); // immediate: true 确保初始化时也执行
+
 </script>
 
 <style scoped>
 .skills-content {
   width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  height: 100%;
+  flex: 1;
   gap: 0;
   background: var(--color-background);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 /* 左侧：当前修炼+功法库 */
@@ -820,14 +820,15 @@ const finalizeEquipTechnique = async (technique: {
 
 .skills-and-library-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 20px;
   align-items: flex-start;
 }
 
 @media (max-width: 1200px) {
   .skills-and-library-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
 
@@ -1259,10 +1260,16 @@ const finalizeEquipTechnique = async (technique: {
 /* 功法卡片网格 */
 .technique-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
   overflow-y: auto;
   padding-right: 8px;
+}
+
+@media (min-width: 1400px) {
+  .technique-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
 }
 
 .mobile-library-close,
@@ -1540,18 +1547,20 @@ const finalizeEquipTechnique = async (technique: {
   margin-bottom: 4px;
 }
 
-/* 详情侧边栏 */
-.skill-details-sidebar {
-  width: 380px; /* 增加宽度以容纳新设计 */
-  border-left: 1px solid var(--color-border);
-  background: var(--color-background); /* 改为背景色 */
+/* 详情底部面板 */
+.skill-details-bottom {
+  width: 100%;
+  border-top: 2px solid var(--color-border);
+  background: var(--color-background);
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
+  min-height: 300px;
 }
 
-.skill-details-sidebar.no-selection {
+.skill-details-bottom.no-selection {
   background: var(--color-surface);
+  min-height: 200px;
 }
 
 .skill-details-content {
@@ -2151,13 +2160,14 @@ const finalizeEquipTechnique = async (technique: {
 }
 
 /* 响应式设计 */
-@media (max-width: 1024px) {
-  .skills-bottom {
-    grid-template-columns: 1fr;
+@media (max-width: 900px) {
+  .skills-content {
+    display: flex;
+    flex-direction: column;
   }
 
-  .technique-library-section {
-    max-width: none;
+  .skill-details-bottom {
+    min-height: 250px;
   }
 }
 
@@ -2171,10 +2181,7 @@ const finalizeEquipTechnique = async (technique: {
   .skills-main {
     overflow-y: visible;
     padding: 16px;
-  }
-
-  .skills-bottom {
-    gap: 16px;
+    gap: 20px;
   }
 
   .technique-library-section {
@@ -2187,7 +2194,7 @@ const finalizeEquipTechnique = async (technique: {
     left: 0;
     right: 0;
     bottom: 0;
-    transform: translateY(calc(100% + 32px));
+    transform: translateY(100%);
     max-height: 80vh;
     padding: 20px 20px 28px;
     background: var(--color-background);
@@ -2195,6 +2202,7 @@ const finalizeEquipTechnique = async (technique: {
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     z-index: 1500;
+    transition: transform 0.3s ease, opacity 0.3s ease;
     opacity: 0;
     pointer-events: none;
   }
@@ -2227,79 +2235,119 @@ const finalizeEquipTechnique = async (technique: {
     z-index: 1400;
   }
 
-  .skill-details-sidebar {
+  .skill-details-bottom {
     position: static;
     width: 100%;
     max-height: none;
-    min-height: 400px;
-    border-left: none;
+    min-height: 350px;
     border-top: 2px solid var(--color-border);
     overflow-y: visible;
   }
 
-  .skill-details-sidebar.no-selection {
-    min-height: 200px;
+  .skill-details-bottom.no-selection {
+    min-height: 180px;
   }
 }
 
 @media (max-width: 640px) {
   .skills-main {
     padding: 12px;
+    gap: 16px;
   }
 
-  .cultivation-section {
-    padding: 16px;
+  .technique-grid,
+  .learned-skills-grid,
+  .unmastered-skills-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
-  .skill-slot {
-    min-height: 60px;
+  .section-header {
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+
+  .header-text {
+    font-size: 1rem;
+  }
+
+  .technique-content {
+    gap: 12px;
+  }
+
+  .technique-icon-wrapper {
+    width: 56px;
+    height: 56px;
+  }
+
+  .technique-icon-text {
+    font-size: 24px;
+  }
+
+  .skill-details-bottom {
+    min-height: 280px;
+  }
+
+  .details-card {
     padding: 12px;
   }
 
-  .skill-icon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .skill-type-text {
-    font-size: 16px;
-  }
-
-  .technique-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .current-technique-section,
-  .technique-library-section {
-    gap: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .section-header h3 {
-    font-size: 1.3rem;
-  }
-
-  .skill-slot-group {
-    padding: 16px;
-  }
-
-  .skill-info {
-    gap: 8px;
-  }
-
-  .details-header {
-    padding: 16px;
+  .card-header {
     gap: 12px;
   }
 
   .details-icon-large {
-    width: 50px;
-    height: 50px;
+    width: 56px;
+    height: 56px;
+  }
+
+  .skill-type-text-large {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .skills-main {
+    padding: 8px;
+    gap: 12px;
+  }
+
+  .section-header {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+  }
+
+  .header-text {
+    font-size: 0.9rem;
+  }
+
+  .count-badge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+  }
+
+  .current-technique-slot {
+    padding: 16px;
+    min-height: 100px;
+  }
+
+  .details-icon-large {
+    width: 48px;
+    height: 48px;
   }
 
   .skill-type-text-large {
     font-size: 20px;
+  }
+
+  .details-title-area h3 {
+    font-size: 1.05rem;
+  }
+
+  .mobile-library-toggle {
+    padding: 10px 16px;
+    font-size: 0.9rem;
   }
 }
 </style>

@@ -416,16 +416,11 @@ export class EnhancedActionQueueManager {
         return false;
       }
 
-      // 设置修炼功法 - 使用完整的功法数据结构，包含进度信息
+      // 设置修炼功法 - 只存储引用（物品ID和名称）
+      // 修炼进度存储在背包物品中，不存储在这里
       saveData.修炼功法 = {
-        ...inventoryItem,
-        // 保留旧的进度数据，如果有的话
-        熟练度: currentTechnique?.熟练度 || 0,
-        已解锁技能: currentTechnique?.已解锁技能 || [],
-        修炼时间: currentTechnique?.修炼时间 || 0,
-        突破次数: currentTechnique?.突破次数 || 0,
-        正在修炼: true,
-        修炼进度: currentTechnique?.修炼进度 || 0
+        物品ID: inventoryItem.物品ID,
+        名称: inventoryItem.名称
       };
 
       // 设置功法的已装备和修炼中标记 - 使用响应式替换
@@ -488,7 +483,7 @@ export class EnhancedActionQueueManager {
     
     try {
       const saveData = characterStore.activeSaveSlot?.存档数据;
-      if (!saveData?.修炼功法 || !saveData.修炼功法.正在修炼) {
+      if (!saveData?.修炼功法) {
         toast.error('当前没有正在修炼的功法');
         return false;
       }
@@ -929,17 +924,11 @@ export class EnhancedActionQueueManager {
         return;
       }
 
-      // 新结构：修炼功法直接是完整的功法数据或null
+      // 修炼功法只存储引用（物品ID和名称），无需清理
+      // 修炼进度存储在背包物品中
       const cleanedCultivation = saveData.修炼功法 ? {
-        // 保留所有功法数据和进度字段
-        ...saveData.修炼功法,
-        // 确保核心字段存在
-        熟练度: saveData.修炼功法.熟练度 || 0,
-        已解锁技能: saveData.修炼功法.已解锁技能 || [],
-        修炼时间: saveData.修炼功法.修炼时间 || 0,
-        突破次数: saveData.修炼功法.突破次数 || 0,
-        正在修炼: saveData.修炼功法.正在修炼 || false,
-        修炼进度: saveData.修炼功法.修炼进度 || 0
+        物品ID: saveData.修炼功法.物品ID,
+        名称: saveData.修炼功法.名称
       } : null;
 
       // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）

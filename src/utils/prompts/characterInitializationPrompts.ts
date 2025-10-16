@@ -37,6 +37,12 @@ const CHARACTER_INIT_RULES = [
   REALM_STAGE_RULE,
   '',
   NSFW_RULE,
+  '',
+  '## 8. 玩家身体部位初始化（NSFW模式）',
+  '当nsfwMode=true时，必须初始化玩家的身体部位开发数据（3-5个核心部位）。',
+  '使用命令格式: {"action":"set","key":"身体部位开发.部位名称","value":{"描述":"...","开发等级":0-20,"敏感度":20-50,"特殊标记":""}}',
+  '初始状态应该是未开发或轻度开发，开发等级0-20，敏感度20-50。',
+  '根据玩家性别选择合适的部位（女性：乳房、乳头、阴蒂、阴道、肛门等；男性：阴茎、龟头、睾丸、肛门等）。',
 ].join('\n');
 
 export const CHARACTER_INITIALIZATION_PROMPT = `

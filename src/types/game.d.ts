@@ -245,35 +245,6 @@ export type Item = EquipmentItem | TechniqueItem | ConsumableItem;
 export interface CultivationTechniqueReference {
   物品ID: string;    // 引用背包中的功法ID
   名称: string;      // 功法名称（用于快速显示）
-  正在修炼?: boolean; // 是否正在修炼此功法
-  修炼进度?: number;  // 修炼进度（0-100）
-  功法技能?: any; // HACK: 修正characterInitialization中的类型错误
-  品质?: ItemQuality; // 品质信息（可选）
-  描述?: string;     // 描述（可选）
-  功法效果?: TechniqueEffects; // 功法效果（可选）
-  熟练度?: number;   // 熟练度（可选）
-  已解锁技能?: string[]; // 已解锁的技能列表（可选）
-  修炼时间?: number; // 修炼时间（可选）
-  突破次数?: number; // 突破次数（可选）
-  类型?: '功法';    // 类型（可选）
-  功法?: any;        // 功法引用（可选）
-}
-
-/** @deprecated 旧的修炼功法数据接口，已废弃，使用 CultivationTechniqueReference 替代 */
-export interface CultivationTechniqueData extends AIMetadata {
-  物品ID: string;
-  名称: string;
-  类型: '功法';
-  品质: ItemQuality;
-  描述: string;
-  功法效果?: TechniqueEffects;
-  功法技能?: Record<string, TechniqueSkill>;
-  熟练度: number;
-  已解锁技能: string[];
-  修炼时间: number;
-  突破次数: number;
-  正在修炼: boolean;
-  修炼进度: number;
 }
 
 /** 掌握的技能（技能数据+进度合并） */

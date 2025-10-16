@@ -32,6 +32,13 @@
         <span class="settings-title">⚙️ 记忆系统配置</span>
         <div class="header-actions">
           <button
+            class="export-btn"
+            @click="exportMemoriesAsNovel"
+            title="导出对话历史为小说格式"
+          >
+            📖 导出历史
+          </button>
+          <button
             class="test-btn"
             @click="addTestLongTermMemory"
             title="添加测试长期记忆"
@@ -900,6 +907,56 @@ const deleteMemory = async (memory: Memory, displayIndex: number) => {
   });
 };
 
+/**
+ * 导出对话历史为小说格式
+ */
+const exportMemoriesAsNovel = () => {
+  try {
+    const characterName = characterData.value?.名字 || '修行者';
+    const worldName = saveData.value?.世界信息?.世界名称 || '修仙世界';
+
+    // 获取所有短期记忆（对话历史）
+    const memories = saveData.value?.记忆?.短期记忆 || [];
+
+    if (memories.length === 0) {
+      toast.warning('暂无对话历史可导出');
+      return;
+    }
+
+    // 生成小说格式的文本
+    let novelText = `《${characterName}的修仙之路》\n`;
+    novelText += `世界：${worldName}\n`;
+    novelText += `导出时间：${new Date().toLocaleString('zh-CN')}\n`;
+    novelText += `总对话数：${memories.length}\n`;
+    novelText += `\n${'='.repeat(50)}\n\n`;
+
+    // 反转数组，从最早的对话开始（因为unshift存储，最新的在前）
+    const sortedMemories = [...memories].reverse();
+
+    sortedMemories.forEach((memory, index) => {
+      novelText += `第 ${index + 1} 回\n\n`;
+      novelText += `${memory}\n\n`;
+      novelText += `${'-'.repeat(50)}\n\n`;
+    });
+
+    // 创建下载
+    const blob = new Blob([novelText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${characterName}_修仙历程_${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`已导出 ${memories.length} 条对话历史`);
+  } catch (error) {
+    console.error('[记忆中心] 导出失败:', error);
+    toast.error('导出失败，请查看控制台');
+  }
+};
+
 onMounted(async () => {
   await loadMemoryData();
   await loadMemoryConfig();
@@ -1119,6 +1176,26 @@ const addTestLongTermMemory = async () => {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.export-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  margin-right: 0.5rem;
+}
+
+.export-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .test-btn {

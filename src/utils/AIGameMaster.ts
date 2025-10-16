@@ -675,6 +675,17 @@ async function executeCommand(command: { action: string; key: string; value?: un
   console.log(`[executeCommand] 值类型:`, typeof value);
 
   try {
+    // 🔥 [时间法则验证] 在执行任何命令前，先拦截违反时间法则的境界突破
+    const { interceptRealmBreakthroughCommand } = await import('./judgement/heavenlyRules');
+    const interceptionResult = interceptRealmBreakthroughCommand(command, saveData);
+
+    if (!interceptionResult.allowed) {
+      console.error('[executeCommand] ❌ 命令被天道法则拦截:', interceptionResult.reason);
+      // 命令被拦截，直接返回原数据，不执行任何操作
+      // 注意：这里不抛出错误，而是静默拦截，避免影响其他正常命令的执行
+      return saveData;
+    }
+
     // 🔥 [装备增幅系统] 在set之前，获取装备栏旧值（用于移除旧装备加成）
     let oldEquipmentItemId: string | null = null;
     if (action === 'set' && path.startsWith('装备栏.装备')) {
@@ -729,36 +740,117 @@ async function executeCommand(command: { action: string; key: string; value?: un
           console.log(`[executeCommand] 🌟 境界更新后验证 - 完整境界对象:`, updatedRealm);
         }
 
-        // [特例修复] 当设置大道进度时，自动将其添加到已解锁大道数组中
-        if (path.startsWith('三千大道.大道进度.')) {
+        // 🔥 [大道自动解锁] 当设置大道相关数据时，自动解锁该大道
+        if (path.startsWith('三千大道.大道列表.')) {
           try {
-            const daoName = path.substring('三千大道.大道进度.'.length);
-            const unlockedDaos = get(saveData, '三千大道.已解锁大道', []) as string[];
-            if (Array.isArray(unlockedDaos) && !unlockedDaos.includes(daoName)) {
-              unlockedDaos.push(daoName);
-              set(saveData, '三千大道.已解锁大道', unlockedDaos);
-              console.log(`[executeCommand] 特例：已自动解锁大道 "${daoName}"`);
+            const pathParts = path.split('.');
+            if (pathParts.length >= 3) {
+              const daoName = pathParts[2]; // 三千大道.大道列表.{道名}
+
+              // 确保大道列表存在
+              if (!saveData.三千大道) {
+                saveData.三千大道 = { 大道列表: {} };
+              }
+              if (!saveData.三千大道.大道列表) {
+                saveData.三千大道.大道列表 = {};
+              }
+
+              // 如果是设置整个大道对象,确保包含是否解锁字段
+              if (pathParts.length === 3 && typeof value === 'object' && value !== null) {
+                const daoObj = value as any;
+                if (daoObj.是否解锁 === undefined) {
+                  daoObj.是否解锁 = true;
+                }
+              }
+
+              // 如果是设置大道的子字段(如当前经验),自动将是否解锁设为true
+              if (pathParts.length > 3 && !path.includes('.是否解锁')) {
+                const daoData = get(saveData, `三千大道.大道列表.${daoName}`);
+                if (daoData && typeof daoData === 'object') {
+                  (daoData as any).是否解锁 = true;
+                  console.log(`[executeCommand] ✅ 自动解锁大道: "${daoName}"`);
+                }
+              }
             }
           } catch (e) {
             console.error('[executeCommand] 自动解锁大道失败:', e);
           }
         }
 
-        // 🔥 [修炼进度同步] 当设置背包中功法的修炼进度时，同步到修炼功法字段
+        // 🔥 [兼容旧路径] 兼容旧的大道路径(三千大道.大道进度.xxx)
+        if (path.startsWith('三千大道.大道进度.')) {
+          console.warn('[executeCommand] ⚠️ 检测到旧的大道路径格式，建议使用新格式: 三千大道.大道列表.{道名}');
+          try {
+            const daoName = path.substring('三千大道.大道进度.'.length).split('.')[0];
+            // 自动转换为新格式
+            const newPath = path.replace('三千大道.大道进度.', '三千大道.大道列表.');
+            set(saveData, newPath, value);
+
+            // 标记为已解锁
+            const daoData = get(saveData, `三千大道.大道列表.${daoName}`);
+            if (daoData && typeof daoData === 'object') {
+              (daoData as any).是否解锁 = true;
+              console.log(`[executeCommand] ✅ 已转换为新格式并解锁大道: "${daoName}"`);
+            }
+          } catch (e) {
+            console.error('[executeCommand] 转换旧大道路径失败:', e);
+          }
+        }
+
+        // 🔥 [关系标签自动更新] 当好感度或关系描述变化时,自动更新与玩家关系标签
+        if (path.includes('人物关系.') && (path.endsWith('.好感度') || path.endsWith('.与玩家关系'))) {
+          try {
+            const npcName = path.split('.')[1];
+            const npcData = get(saveData, `人物关系.${npcName}`) as any;
+
+            if (npcData && typeof npcData.好感度 === 'number') {
+              const goodwill = npcData.好感度;
+              const currentRelation = npcData.与玩家关系 || '陌生人';
+
+              // 根据好感度自动推荐更合适的关系标签
+              let suggestedRelation = currentRelation;
+
+              // 如果当前关系明显不合理,自动调整
+              if (goodwill >= 80 && !['道侣', '挚友', '知己', '师徒', '亲密'].some(r => currentRelation.includes(r))) {
+                console.log(`[关系标签] 好感度${goodwill}较高,但关系为"${currentRelation}",可能需要更新`);
+              } else if (goodwill <= 20 && !['陌生人', '敌对', '仇人', '陌路'].some(r => currentRelation.includes(r))) {
+                console.log(`[关系标签] 好感度${goodwill}较低,但关系为"${currentRelation}",可能需要更新`);
+              } else if (goodwill > 20 && goodwill < 80 && currentRelation === '陌生人') {
+                console.log(`[关系标签] 好感度${goodwill}已不是陌生人水平,但关系仍为"${currentRelation}",可能需要更新`);
+              }
+            }
+          } catch (e) {
+            console.error('[关系标签] 自动更新失败:', e);
+          }
+        }
+
+        // ❌ [已废弃] 修炼进度同步逻辑
+        // 修炼进度和已解锁技能现在直接存储在背包物品中
+        // saveData.修炼功法 只是引用（物品ID+名称），不存储进度数据
+        // AI 会直接通过 tavern_command 修改背包物品的修炼进度
+        /*
         if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
           try {
-            // 提取物品ID
-            const itemId = String(path).split('.')[2]; // 背包.物品.xxx.修炼进度
-
-            // 检查是否是正在修炼的功法
+            const itemId = String(path).split('.')[2];
             if (saveData.修炼功法?.物品ID === itemId) {
-              saveData.修炼功法.修炼进度 = typeof value === 'number' ? value : Number(value) || 0;
-              console.log(`[修炼进度同步] ✅ 已同步修炼进度到修炼功法字段: ${value}`);
+              const progressValue = typeof value === 'number' ? value : Number(value) || 0;
+              saveData.修炼功法.修炼进度 = progressValue;
+              console.log(`[修炼进度同步] ✅ 已同步修炼进度到修炼功法字段: ${progressValue}`);
+
+              const item = get(saveData, `背包.物品.${itemId}`) as any;
+              if (item && item.功法技能) {
+                const unlockedSkillNames = Object.entries(item.功法技能)
+                  .filter(([_, skill]: [string, any]) => progressValue >= (skill.解锁需要熟练度 || 0))
+                  .map(([name, _]) => name);
+                saveData.修炼功法.已解锁技能 = unlockedSkillNames;
+                console.log(`[修炼进度同步] ✅ 已同步已解锁技能: ${unlockedSkillNames.join(', ')}`);
+              }
             }
           } catch (e) {
             console.error('[修炼进度同步] 同步修炼进度失败:', e);
           }
         }
+        */
 
         // 🔥 [掌握技能自动计算] 当设置背包中功法的修炼进度时，自动重新计算掌握技能
         if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
@@ -892,25 +984,46 @@ async function executeCommand(command: { action: string; key: string; value?: un
           console.log(`[executeCommand] ✅ 游戏时间已更新: ${新年}年${新月}月${新日}日 ${新小时}:${新分钟}`);
           console.log(`[executeCommand]   原时间: ${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${gameTime.小时}:${currentMinutes}`);
           console.log(`[executeCommand]   推进: ${value}分钟`);
+
+          // 🔥 [状态效果过期检查] 时间推进后自动检查并移除过期的状态效果
+          try {
+            const { updateStatusEffects } = await import('./statusEffectManager');
+            const hasExpiredEffects = updateStatusEffects(saveData);
+            if (hasExpiredEffects) {
+              console.log(`[executeCommand] ✅ 时间推进后已自动移除过期的状态效果`);
+            }
+          } catch (error) {
+            console.error('[executeCommand] 自动清理过期状态效果失败:', error);
+          }
         } else {
           set(saveData, path, added);
           console.log(`[executeCommand] ✅ 已增加: ${currentValue} + ${value} = ${added}`);
 
-          // 🔥 [修炼进度同步] 当更新背包中功法的修炼进度时，同步到修炼功法字段
+          // ❌ [已废弃] 修炼进度同步逻辑 - ADD 操作
+          // 修炼进度和已解锁技能现在直接存储在背包物品中
+          /*
           if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {
             try {
-              // 提取物品ID
-              const itemId = String(path).split('.')[2]; // 背包.物品.xxx.修炼进度
-
-              // 检查是否是正在修炼的功法
+              const itemId = String(path).split('.')[2];
               if (saveData.修炼功法?.物品ID === itemId) {
                 saveData.修炼功法.修炼进度 = added;
                 console.log(`[修炼进度同步] ✅ 已同步修炼进度到修炼功法字段: ${added}`);
+
+                const updatedSkills = updateMasteredSkills(saveData);
+                const item = get(saveData, `背包.物品.${itemId}`) as any;
+                if (item && item.功法技能) {
+                  const unlockedSkillNames = Object.entries(item.功法技能)
+                    .filter(([_, skill]: [string, any]) => added >= (skill.解锁需要熟练度 || 0))
+                    .map(([name, _]) => name);
+                  saveData.修炼功法.已解锁技能 = unlockedSkillNames;
+                  console.log(`[修炼进度同步] ✅ 已同步已解锁技能: ${unlockedSkillNames.join(', ')}`);
+                }
               }
             } catch (e) {
               console.error('[修炼进度同步] 同步修炼进度失败:', e);
             }
           }
+          */
 
           // 🔥 [掌握技能自动计算] 当更新背包中功法的修炼进度时，自动重新计算掌握技能
           if (String(path).includes('背包.物品.') && String(path).endsWith('.修炼进度')) {

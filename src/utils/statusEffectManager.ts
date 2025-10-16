@@ -229,10 +229,18 @@ export function updateStatusEffects(saveData: SaveData): boolean {
     const updatedEffects: StatusEffect[] = [];
     
     for (const effect of statusEffects) {
+      // 过滤掉 null/undefined 值
+      if (!effect || typeof effect !== 'object') {
+        console.warn('[状态效果] 跳过无效的状态效果:', effect);
+        hasExpired = true;
+        continue;
+      }
+      
       // 规范化状态效果（处理旧格式）
       const normalizedEffect = normalizeStatusEffect(effect, currentGameTime);
       if (!normalizedEffect) {
-        console.warn('[状态效果] 跳过无效的状态效果:', effect);
+        console.warn('[状态效果] 跳过无法规范化的状态效果:', effect);
+        hasExpired = true;
         continue;
       }
       
@@ -341,14 +349,17 @@ export function getStatusEffectDisplayInfo(saveData: SaveData): Array<{
       return [];
     }
     
-    return statusEffects.map(effect => ({
-      名称: effect.状态名称,
-      类型: effect.类型,
-      描述: effect.状态描述,
-      剩余时间: formatMinutesToDuration(calculateRemainingMinutes(effect, currentGameTime)),
-      强度: effect.强度,
-      来源: effect.来源
-    }));
+    // 过滤掉 null/undefined 值并映射为显示信息
+    return statusEffects
+      .filter(effect => effect && typeof effect === 'object' && effect.状态名称)
+      .map(effect => ({
+        名称: effect.状态名称,
+        类型: effect.类型,
+        描述: effect.状态描述,
+        剩余时间: formatMinutesToDuration(calculateRemainingMinutes(effect, currentGameTime)),
+        强度: effect.强度,
+        来源: effect.来源
+      }));
     
   } catch (error) {
     console.error('[状态效果] 获取显示信息失败:', error);

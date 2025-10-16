@@ -813,7 +813,9 @@ export async function generateInGameResponse(
               if (spiritRootName.includes('仙品')) eff += 5;
               if (spiritRootName.includes('极品')) eff += 3;
               const techniqueRef = save?.修炼功法;
-              const technique = techniqueRef?.功法 || techniqueRef;
+              // 从背包中获取功法数据
+              const techniqueId = techniqueRef?.物品ID;
+              const technique = techniqueId ? save?.背包?.物品?.[techniqueId] : null;
               if (technique?.品质?.quality === '仙') eff += 5;
               if (technique?.品质?.quality === '天') eff += 3;
               return Math.round(eff);
