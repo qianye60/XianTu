@@ -251,7 +251,7 @@ const completedTasks = computed(() => {
 
 // 方法
 
-function updateConfig() {
+async function updateConfig() {
   const saveData = characterStore.activeSaveSlot?.存档数据;
 
   if (!saveData?.系统任务?.配置) {
@@ -280,15 +280,17 @@ function updateConfig() {
     changedPaths.push('系统任务.配置.自定义提示词');
   }
 
-  // 如果有变更，同步到酒馆
+  // 如果有变更，保存游戏
   if (changedPaths.length > 0) {
-    characterStore.syncToTavernAndSave({ changedPaths });
+    const { useGameStateStore } = await import('@/stores/gameStateStore');
+    const gameStateStore = useGameStateStore();
+    await gameStateStore.saveGame();
   }
 
   toast.success('配置已更新');
 }
 
-function toggleTaskSystem() {
+async function toggleTaskSystem() {
   const saveData = characterStore.activeSaveSlot?.存档数据;
 
   if (!saveData?.系统任务?.配置) {
@@ -299,11 +301,10 @@ function toggleTaskSystem() {
   // 切换启用状态
   saveData.系统任务.配置.启用 = !saveData.系统任务.配置.启用;
 
-  // 同步到酒馆
-  characterStore.syncToTavernAndSave({
-    changedPaths: ['系统任务.配置.启用'],
-    fullSync: true // 使用完整同步确保配置正确更新
-  });
+  // 保存游戏
+  const { useGameStateStore } = await import('@/stores/gameStateStore');
+  const gameStateStore = useGameStateStore();
+  await gameStateStore.saveGame();
 
   if (saveData.系统任务.配置.启用) {
     toast.success('✓ 系统任务已启用，AI将根据配置自动颁发任务');

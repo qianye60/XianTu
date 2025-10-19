@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { Maximize, Minimize } from 'lucide-vue-next'
-import { useUnifiedCharacterData } from '@/composables/useCharacterData'
+import { useGameStateStore } from '@/stores/gameStateStore'
 import { formatRealmWithStage } from '@/utils/realmUtils'
 import type { GameTime } from '@/types/game'
 
@@ -39,13 +39,13 @@ function getMinutes(gameTime: GameTime): number {
   return gameTime.分钟 ?? 0;
 }
 
-// 使用统一的数据访问
-const { characterData } = useUnifiedCharacterData()
+// 使用 gameStateStore 获取数据
+const gameStateStore = useGameStateStore()
 const isFullscreen = ref(false)
 
 const characterName = computed(() => {
   try {
-    return characterData.value?.基础信息?.名字 || ''
+    return gameStateStore.character?.名字 || ''
   } catch (e) {
     console.error('[TopBar] Error getting characterName:', e)
     return ''
@@ -54,7 +54,7 @@ const characterName = computed(() => {
 
 const characterRealm = computed(() => {
   try {
-    return formatRealmWithStage(characterData.value?.境界)
+    return formatRealmWithStage(gameStateStore.playerStatus?.境界)
   } catch (e) {
     console.error('[TopBar] Error getting characterRealm:', e)
     return '凡人'
@@ -63,7 +63,7 @@ const characterRealm = computed(() => {
 
 const currentLocation = computed(() => {
   try {
-    return characterData.value?.位置?.描述 || '初始地'
+    return gameStateStore.playerStatus?.位置?.描述 || '初始地'
   } catch (e) {
     console.error('[TopBar] Error getting currentLocation:', e)
     return '初始地'
@@ -72,7 +72,7 @@ const currentLocation = computed(() => {
 
 const gameTime = computed(() => {
   try {
-    const time = characterData.value?.游戏时间
+    const time = gameStateStore.gameTime
     if (time) {
       const minutes = getMinutes(time)
       const formattedMinutes = minutes.toString().padStart(2, '0')

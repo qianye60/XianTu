@@ -832,25 +832,40 @@ export interface GameMessage {
 
 // 保持人物关系为严格的字典，键为NPC名称/ID，值为NpcProfile
 
-  export interface SaveData {
-    玩家角色状态: PlayerStatus;
-    装备栏: Equipment;
-    三千大道: ThousandDaoSystem;
-    背包: Inventory;
-    人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
-    宗门系统: SectSystemData;
-    穿越者系统?: TransmigratorSystem; // 可选：穿越者任务系统（金手指）
-    系统任务?: SystemTaskData; // 可选：系统任务功能（根级别，AI直接可见）
-    记忆: Memory;
-    游戏时间: GameTime;
-    角色基础信息: CharacterBaseInfo; // 必填，包含天赋数据+进度
-    世界信息?: WorldInfo;
-    修炼功法: CultivationTechniqueReference | null; // ✅ 只存引用，可为null表示未修炼
-    掌握技能: MasteredSkill[]; // 技能数据+进度合并
-    系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
-    叙事历史?: GameMessage[]; // 存储对话历史及其状态变更日志
-    身体部位开发?: Record<string, PlayerBodyPart>; // 可选：身体部位开发
+  /** 角色创建时的核心数据快照，用于存档回溯 */
+  export interface CharacterCreationDataForSave {
+    名字: string;
+    性别: '男' | '女' | '其他';
+    种族?: string;
+    年龄: number;
+    先天六司: InnateAttributes;
+    天赋: Array<{ 名称: string; 描述: string }>;
+    灵根: CharacterBaseInfo['灵根'];
+    出生: CharacterBaseInfo['出生'];
+    世界: string;
+    天资: string;
   }
+  
+  export interface SaveData {
+      玩家角色状态: PlayerStatus;
+      装备栏: Equipment;
+      三千大道: ThousandDaoSystem;
+      背包: Inventory;
+      人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
+      宗门系统: SectSystemData;
+      穿越者系统?: TransmigratorSystem; // 可选：穿越者任务系统（金手指）
+      系统任务?: SystemTaskData; // 可选：系统任务功能（根级别，AI直接可见）
+      记忆: Memory;
+      游戏时间: GameTime;
+      角色基础信息: CharacterBaseInfo; // 必填，包含天赋数据+进度
+      世界信息?: WorldInfo;
+      修炼功法: CultivationTechniqueReference | null; // ✅ 只存引用，可为null表示未修炼
+      掌握技能: MasteredSkill[]; // 技能数据+进度合并
+      系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
+      叙事历史?: GameMessage[]; // 存储对话历史及其状态变更日志
+      身体部位开发?: Record<string, PlayerBodyPart>; // 可选：身体部位开发
+      创角数据?: CharacterCreationDataForSave; // 🔥 新增：用于保存角色创建时的核心数据
+    }
 
 
 // --- 单个存档槽位 ---

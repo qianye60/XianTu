@@ -230,36 +230,10 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
 
     // 2. 开始AI生成
     toast.loading('已连接天机阁，正在推演...', { id: toastId });
-    const aiModule = await import('../utils/tavernAI');
-    let generatedContent: unknown = null;
-
-    // 使用默认生成函数 (自定义提示词功能已移除)
-    switch (type) {
-      case 'world':
-        generatedContent = await aiModule.generateWorld();
-        break;
-      case 'talent_tier':
-        generatedContent = await aiModule.generateTalentTier();
-        break;
-      case 'origin':
-        if (!store.selectedWorld) {
-          toast.error('请先选择世界！');
-          return;
-        }
-        generatedContent = await aiModule.generateOrigin();
-        break;
-      case 'spirit_root':
-        generatedContent = await aiModule.generateSpiritRoot();
-        break;
-      case 'talent':
-        generatedContent = await aiModule.generateTalent();
-        break;
-    }
-
-    if (!generatedContent) {
-      toast.error('天机推演失败，请重试。')
-      return
-    }
+    // tavernAI 模块已移除,这个功能已不再可用
+    toast.error('AI生成功能暂时不可用（tavernAI模块已移除）', { id: toastId });
+    isGenerating.value = false;
+    return;
 
     // 3. 保存到云端
     toast.loading('正在将结果铭刻于云端...', { id: toastId });
@@ -464,16 +438,13 @@ async function createCharacter() {
     const baseInfo = {
       名字: store.characterPayload.character_name,
       性别: store.characterPayload.gender,
+      种族: '人族',
       世界: store.selectedWorld.name,
-      天资: store.selectedTalentTier.name,
-      出生: store.selectedOrigin?.name || '随机出身',
-      灵根: store.selectedSpiritRoot ?
-        {
-          名称: store.selectedSpiritRoot.name,
-          品级: store.selectedSpiritRoot.tier || '',
-          描述: store.selectedSpiritRoot.description || ''
-        } : '随机灵根',
-      天赋: store.selectedTalents.map(t => t.name),
+      // 🔥 修复：传递完整对象而不仅仅是名字
+      天资: store.selectedTalentTier, // 完整对象
+      出生: store.selectedOrigin || '随机出身', // 完整对象或字符串
+      灵根: store.selectedSpiritRoot || '随机灵根', // 完整对象或字符串
+      天赋: store.selectedTalents, // 完整对象数组
       先天六司: {
         根骨: store.attributes.root_bone,
         灵性: store.attributes.spirituality,
@@ -490,11 +461,11 @@ async function createCharacter() {
         魅力: 0,
         心性: 0,
       },
-      // 保存完整的详细信息对象
+      // 🔥 这些"详情"字段现在是冗余的，但保留以兼容
       世界详情: store.selectedWorld,
       天资详情: store.selectedTalentTier,
       出身详情: store.selectedOrigin,
-      灵根详情: store.selectedSpiritRoot, // 完整的SpiritRoot对象，包含修炼倍率等
+      灵根详情: store.selectedSpiritRoot,
       天赋详情: store.selectedTalents,
     };
 
@@ -711,28 +682,23 @@ function onDataCleared(type: string, count: number) {
 }
 
 .navigation-buttons {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 1rem;
   gap: 1rem;
   flex-shrink: 0;
   background: var(--color-surface-transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-top: 1px solid var(--color-border);
-  position: sticky;
-  bottom: 0;
+  position: relative; /* For absolute positioning of points-display */
   z-index: 10;
-}
 
-.navigation-buttons > button:first-child {
-  justify-self: start;
-}
-
-.navigation-buttons > button:last-child {
-  justify-self: end;
-  grid-column: 3;
+  /* Stretch to cover parent padding */
+  margin: 0 -2rem -2rem -2rem;
+  padding: 1rem 2rem;
+  border-bottom-left-radius: 15px;
+  border-bottom-right-radius: 15px;
 }
 
 .points-display {
@@ -740,7 +706,10 @@ function onDataCleared(type: string, count: number) {
   justify-content: center;
   align-items: center;
   gap: 2rem;
-  grid-column: 2;
+  /* Center element for flexbox without affecting button spacing */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .destiny-points,
@@ -843,17 +812,23 @@ function onDataCleared(type: string, count: number) {
   }
 
   .navigation-buttons {
-    padding: 1rem 0;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-  }
-
-  .points-display {
-    flex-basis: 100%;
-    order: -1;
-    margin-bottom: 0.5rem;
-  }
+      display: flex; /* Explicitly set display */
+      justify-content: space-between;
+      padding: 1rem;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+      margin: 0; /* Reset negative margins */
+      border-radius: 0; /* Reset radius */
+    }
+  
+    .points-display {
+      flex-basis: 100%;
+      order: -1;
+      margin-bottom: 0.5rem;
+      position: static; /* Unset absolute positioning */
+      transform: none;
+    }
 
   .destiny-points,
   .attribute-points {
@@ -930,11 +905,12 @@ function onDataCleared(type: string, count: number) {
   }
 
   .navigation-buttons {
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 1rem 0 0.5rem 0;
-    flex-shrink: 0;
-  }
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem 0 0.5rem 0;
+      flex-shrink: 0;
+    }
 
   .points-display {
     order: 0;

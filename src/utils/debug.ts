@@ -120,7 +120,11 @@ export class DebugLogger {
    */
   public timeStart(label: string): void {
     if (this.isPerformanceMonitorEnabled()) {
-      console.time(`[性能] ${label}`);
+      try {
+        console.time(`[性能] ${label}`);
+      } catch (e) {
+        // 静默处理计时器错误
+      }
     }
   }
 
@@ -129,7 +133,11 @@ export class DebugLogger {
    */
   public timeEnd(label: string): void {
     if (this.isPerformanceMonitorEnabled()) {
-      console.timeEnd(`[性能] ${label}`);
+      try {
+        console.timeEnd(`[性能] ${label}`);
+      } catch (e) {
+        // 静默处理计时器不存在的错误
+      }
     }
   }
 

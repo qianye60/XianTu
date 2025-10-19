@@ -312,13 +312,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useGameStateStore } from '@/stores/gameStateStore';
+import { useCharacterStore } from '@/stores/characterStore';
 import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
 import type { Item, TechniqueItem } from '@/types/game';
 
-const { characterData, saveData } = useUnifiedCharacterData();
+const gameStateStore = useGameStateStore();
+const characterStore = useCharacterStore();
 const uiStore = useUIStore();
 const selectedSkillData = ref<TechniqueItem | null>(null);
 const selectedSkillSlot = ref<string>('');
@@ -362,50 +364,29 @@ const techniqueForModal = computed((): TechniqueItem | null => {
 
 // 获取当前修炼进度
 const getCultivationProgress = (): number => {
-  const currentSaveData = saveData.value;
-  if (!currentSaveData?.修炼功法) return 0;
-  return (currentSaveData.修炼功法 as { 修炼进度?: number })?.修炼进度 || 0;
+  return cultivationSkills.value?.修炼进度 || 0;
 };
 
 // 修炼功法数据 - 从背包查找已装备的功法
-// 修炼进度和已解锁技能直接存储在背包物品中，不在 saveData.修炼功法 中
 const cultivationSkills = computed((): TechniqueItem | null => {
-  const inventory = characterData.value?.背包_物品;
-
+  const inventory = gameStateStore.inventory;
   if (!inventory) return null;
 
-  // 从背包中查找已装备=true且类型=功法的物品
   const cultivatingTechnique = Object.values(inventory).find(
     item => item?.类型 === '功法' && item?.已装备 === true
   );
 
-  if (!cultivatingTechnique) return null;
-
-  const technique = cultivatingTechnique as TechniqueItem;
-
-  console.log("修炼功法数据 (from 背包):", technique); // 调试
-  console.log("修炼进度:", technique.修炼进度); // 调试
-  console.log("已解锁技能:", technique.已解锁技能); // 调试
-
-  return technique;
+  return (cultivatingTechnique as TechniqueItem) || null;
 });
 
 // 背包中的功法物品 - 排除已装备的
 const inventoryTechniques = computed((): TechniqueItem[] => {
-  const inventory = characterData.value?.背包_物品;
-
+  const inventory = gameStateStore.inventory;
   if (!inventory) return [];
 
-  // 过滤出功法类型且未装备的有效物品
-  const techniques = Object.values(inventory)
-    .filter((item): item is TechniqueItem =>
-      item &&
-      typeof item === 'object' &&
-      item.类型 === '功法' &&
-      !!item.名称?.trim() &&
-      !item.已装备  // ✅ 排除已装备的
-    );
-  return techniques;
+  return Object.values(inventory).filter((item): item is TechniqueItem =>
+    item?.类型 === '功法' && !item.已装备
+  );
 });
 
 // 计算所有已学技能（从已解锁技能列表读取）
@@ -614,174 +595,58 @@ const startCultivation = async (totalDays: number) => {
 
 // 卸下功法
 const unequipSkill = async () => {
-  if (!selectedSkillData.value || !selectedSkillSlot.value) {
-    return;
-  }
+  if (!cultivationSkills.value?.物品ID) return;
 
-  const skillData = selectedSkillData.value as Item;
+  const skillToUnequip = cultivationSkills.value;
 
-  // 确认卸下（使用项目内确认弹窗）
   uiStore.showRetryDialog({
     title: '卸下功法',
-    message: `确定要卸下《${skillData.名称}》吗？`,
+    message: `确定要卸下《${skillToUnequip.名称}》吗？`,
     confirmText: '确认卸下',
     cancelText: '取消',
     onConfirm: async () => {
       try {
-        const currentSaveData = saveData.value;
-        if (currentSaveData?.修炼功法) {
-          const currentSkill = currentSaveData.修炼功法 as {
-            物品ID?: string;
-            名称: string;
-            类型: string;
-            品质?: unknown;
-            描述?: string;
-            功法效果?: unknown;
-            功法技能?: unknown;
-          };
-
-          // ✅ 清除背包物品的已装备标记（功法仍保留在背包中）
-          if (currentSkill && currentSaveData.背包?.物品) {
-            const itemId = currentSkill.物品ID;
-            if (itemId && currentSaveData.背包.物品[itemId]) {
-              const item = currentSaveData.背包.物品[itemId] as Item;
-              item.已装备 = false;
-              console.log('[技能面板] 功法标记已清除:', currentSkill.名称);
-            }
-          }
-
-          // 清空功法槽位
-          currentSaveData.修炼功法 = null;
-
-          // 使用动态导入保存数据
-          const { useCharacterStore } = await import('@/stores/characterStore');
-          const characterStore = useCharacterStore();
-          await characterStore.syncToTavernAndSave();
-          console.log('[技能面板] 功法卸下成功');
-
-          // 清空选择状态
-          selectedSkillData.value = null;
-          selectedSkillSlot.value = '';
-        }
+        await characterStore.unequipTechnique(skillToUnequip.物品ID!);
+        console.log('[技能面板] 功法卸下成功');
+        selectedSkillData.value = null;
+        selectedSkillSlot.value = '';
       } catch (error) {
         console.error('[技能面板] 卸下失败:', error);
       }
     },
     onCancel: () => {}
   });
-  return;
 };
 
 // 装备背包中的功法
 const equipTechnique = async () => {
-  if (!selectedSkillData.value || selectedSkillSlot.value !== '背包功法') {
-    return;
-  }
+  if (!selectedSkillData.value?.物品ID || selectedSkillSlot.value !== '背包功法') return;
 
-  const technique = selectedSkillData.value as {
-    物品ID?: string;
-    名称: string;
-    类型: string;
-    品质?: unknown;
-    描述?: string;
-    功法效果?: unknown;
-    功法技能?: unknown;
+  const techniqueToEquip = selectedSkillData.value;
+
+  const equipAction = async () => {
+    try {
+      await characterStore.equipTechnique(techniqueToEquip.物品ID!);
+      console.log('[技能面板] 功法装备成功:', techniqueToEquip.名称);
+      selectedSkillData.value = techniqueToEquip;
+      selectedSkillSlot.value = '功法';
+    } catch (error) {
+      console.error('[技能面板] 装备功法失败:', error);
+    }
   };
 
-  console.log('[技能面板] 装备功法:', technique.名称);
-
-  try {
-    const currentSaveData = saveData.value;
-    if (!currentSaveData) {
-      console.error('[技能面板] 存档数据不存在');
-      return;
-    }
-
-    // 检查是否已经在修炼其他功法
-    if (currentSaveData.修炼功法) {
-      const currentSkill = currentSaveData.修炼功法 as { 物品ID?: string; 名称?: string };
-
-      if (currentSkill.物品ID !== technique.物品ID) {
-        uiStore.showRetryDialog({
-          title: '切换功法',
-          message: `当前正在修炼《${currentSkill.名称}》，确定要切换到《${technique.名称}》吗？`,
-          confirmText: '确认切换',
-          cancelText: '取消',
-          onConfirm: async () => {
-            const prev = currentSaveData.修炼功法 as {
-              物品ID?: string;
-              名称: string;
-              类型: string;
-              品质?: unknown;
-              描述?: string;
-              功法效果?: unknown;
-              功法技能?: unknown;
-            };
-            if (prev?.物品ID && currentSaveData.背包?.物品) {
-              // ✅ 只需要清除背包中功法的已装备标记，不需要复制回来（功法一直在背包）
-              const prevItem = currentSaveData.背包.物品[prev.物品ID] as TechniqueItem;
-              if (prevItem) {
-                prevItem.已装备 = false;
-                console.log('[技能面板] 之前的功法已标记为未装备:', prev.名称);
-              }
-            }
-            await finalizeEquipTechnique(technique);
-          },
-          onCancel: () => {}
-        });
-        return;
-      }
-    }
-
-    // 无冲突情况下直接完成装备
-    await finalizeEquipTechnique(technique);
-
-  } catch (error) {
-    console.error('[技能面板] 装备功法失败:', error);
-  }
-};
-
-// 将功法装备到修炼槽位
-const finalizeEquipTechnique = async (technique: {
-  物品ID?: string;
-  名称: string;
-  类型: string;
-  品质?: unknown;
-  描述?: string;
-  功法效果?: unknown;
-  功法技能?: unknown;
-}) => {
-  const currentSaveData = saveData.value;
-  if (!currentSaveData) return;
-
-  // ✅ 只存储引用（物品ID和名称）
-  currentSaveData.修炼功法 = {
-    物品ID: technique.物品ID || '',
-    名称: technique.名称
-  };
-
-  // ✅ 设置背包中功法的已装备标记
-  if (currentSaveData.背包?.物品 && technique.物品ID) {
-    const inventoryItem = currentSaveData.背包.物品[technique.物品ID];
-    if (inventoryItem) {
-      const item = inventoryItem as Item;
-      item.已装备 = true;
-    }
-  }
-
-  // 使用动态导入保存数据
-  const { useCharacterStore } = await import('@/stores/characterStore');
-  const characterStore = useCharacterStore();
-  await characterStore.syncToTavernAndSave();
-  console.log('[技能面板] 功法装备成功:', technique.名称);
-
-  // 装备后，从背包中查找完整的功法对象并更新 selectedSkillData
-  if (technique.物品ID && currentSaveData.背包?.物品?.[technique.物品ID]) {
-    selectedSkillData.value = currentSaveData.背包.物品[technique.物品ID] as TechniqueItem;
+  if (cultivationSkills.value) {
+    uiStore.showRetryDialog({
+      title: '切换功法',
+      message: `当前正在修炼《${cultivationSkills.value.名称}》，确定要切换到《${techniqueToEquip.名称}》吗？`,
+      confirmText: '确认切换',
+      cancelText: '取消',
+      onConfirm: equipAction,
+      onCancel: () => {}
+    });
   } else {
-    selectedSkillData.value = null; // Fallback
+    await equipAction();
   }
-  selectedSkillSlot.value = '功法';
 };
 
 // 监听修炼功法变化,自动选中

@@ -30,13 +30,13 @@
                 <details>
                   <summary style="cursor: pointer;">调试信息 (点击展开)</summary>
                   <div style="margin-top: 0.5rem;">
-                    <p>存档数据存在: {{ !!saveData }}</p>
-                    <p>存档数据字段: {{ saveData ? Object.keys(saveData).join(', ') : '无' }}</p>
-                    <p>世界信息存在: {{ !!saveData?.世界信息 }}</p>
-                    <p>世界信息.势力信息存在: {{ !!saveData?.世界信息?.势力信息 }}</p>
-                    <p>世界信息.势力信息数量: {{ saveData?.世界信息?.势力信息?.length || 0 }}</p>
-                    <p>宗门系统存在: {{ !!(saveData as any)?.宗门系统 }}</p>
-                    <p>宗门系统.availableSects数量: {{ (saveData as any)?.宗门系统?.availableSects?.length || 0 }}</p>
+                    <p>存档数据存在: {{ !!gameStateStore.toSaveData() }}</p>
+                    <p>存档数据字段: {{ gameStateStore.toSaveData() ? Object.keys(gameStateStore.toSaveData() || {}).join(', ') : '无' }}</p>
+                    <p>世界信息存在: {{ !!gameStateStore.worldInfo }}</p>
+                    <p>世界信息.势力信息存在: {{ !!gameStateStore.worldInfo?.势力信息 }}</p>
+                    <p>世界信息.势力信息数量: {{ gameStateStore.worldInfo?.势力信息?.length || 0 }}</p>
+                    <p>宗门系统存在: {{ !!(gameStateStore.sectSystem) }}</p>
+                    <p>宗门系统.availableSects数量: {{ (gameStateStore.sectSystem)?.availableSects?.length || 0 }}</p>
                     <p>筛选后数量: {{ filteredSects.length }}</p>
                     <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
                       从酒馆同步数据
@@ -101,6 +101,65 @@
 
             <!-- 详情主体 -->
             <div class="detail-body">
+              <!-- 成员统计 -->
+              <div class="detail-section" v-if="selectedSect.memberCount">
+                <h5 class="section-title">
+                  <Users :size="16" />
+                  <span>成员统计</span>
+                </h5>
+                <div class="member-stats">
+                  <!-- 总体统计 -->
+                  <div class="total-members">
+                    <span class="total-label">总人数</span>
+                    <span class="total-value">{{ selectedSect.memberCount.total }}人</span>
+                  </div>
+
+                  <!-- 境界分布 -->
+                  <div class="realm-distribution" v-if="selectedSect.memberCount.byRealm">
+                    <h6 class="distribution-title">境界分布</h6>
+                    <div class="realm-stats">
+                      <div
+                        v-for="(count, realm) in selectedSect.memberCount.byRealm"
+                        :key="realm"
+                        class="realm-item"
+                        v-show="count > 0"
+                      >
+                        <span class="realm-name">{{ realm.includes('期') ? realm : realm + '期' }}</span>
+                        <span class="realm-count">{{ count }}人</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 职位分布 -->
+                  <div class="position-distribution" v-if="selectedSect.memberCount.byPosition">
+                    <h6 class="distribution-title">职位分布</h6>
+                    <div class="position-stats">
+                      <div
+                        v-for="(count, position) in selectedSect.memberCount.byPosition"
+                        :key="position"
+                        class="position-item"
+                        v-show="count > 0"
+                      >
+                        <span class="position-name">{{ position }}</span>
+                        <span class="position-count">{{ count }}人</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 成员统计缺失提示 -->
+              <div v-else class="detail-section missing-data-notice">
+                <h5 class="section-title">
+                  <Users :size="16" />
+                  <span>成员统计</span>
+                </h5>
+                <div class="notice-content">
+                  <p class="notice-text">暂无详细的成员统计信息</p>
+                  <p class="notice-hint">包括境界分布、职位分布等数据需要重新生成世界获取</p>
+                </div>
+              </div>
+
               <!-- 基础信息 -->
               <div class="detail-section">
                 <h5 class="section-title">
@@ -182,65 +241,6 @@
                       {{ specialty }}
                     </span>
                   </div>
-                </div>
-              </div>
-
-              <!-- 成员统计 -->
-              <div class="detail-section" v-if="selectedSect.memberCount">
-                <h5 class="section-title">
-                  <Users :size="16" />
-                  <span>成员统计</span>
-                </h5>
-                <div class="member-stats">
-                  <!-- 总体统计 -->
-                  <div class="total-members">
-                    <span class="total-label">总人数</span>
-                    <span class="total-value">{{ selectedSect.memberCount.total }}人</span>
-                  </div>
-
-                  <!-- 境界分布 -->
-                  <div class="realm-distribution" v-if="selectedSect.memberCount.byRealm">
-                    <h6 class="distribution-title">境界分布</h6>
-                    <div class="realm-stats">
-                      <div
-                        v-for="(count, realm) in selectedSect.memberCount.byRealm"
-                        :key="realm"
-                        class="realm-item"
-                        v-show="count > 0"
-                      >
-                        <span class="realm-name">{{ realm.includes('期') ? realm : realm + '期' }}</span>
-                        <span class="realm-count">{{ count }}人</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 职位分布 -->
-                  <div class="position-distribution" v-if="selectedSect.memberCount.byPosition">
-                    <h6 class="distribution-title">职位分布</h6>
-                    <div class="position-stats">
-                      <div
-                        v-for="(count, position) in selectedSect.memberCount.byPosition"
-                        :key="position"
-                        class="position-item"
-                        v-show="count > 0"
-                      >
-                        <span class="position-name">{{ position }}</span>
-                        <span class="position-count">{{ count }}人</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 成员统计缺失提示 -->
-              <div v-else class="detail-section missing-data-notice">
-                <h5 class="section-title">
-                  <Users :size="16" />
-                  <span>成员统计</span>
-                </h5>
-                <div class="notice-content">
-                  <p class="notice-text">暂无详细的成员统计信息</p>
-                  <p class="notice-hint">包括境界分布、职位分布等数据需要重新生成世界获取</p>
                 </div>
               </div>
 
@@ -419,7 +419,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import type { WorldFaction, SectMemberInfo, WorldInfo, SaveData } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
@@ -430,14 +430,14 @@ import { toast } from '@/utils/toast';
 import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataValidator';
 
 const characterStore = useCharacterStore();
-const { characterData, saveData } = useUnifiedCharacterData();
+const gameStateStore = useGameStateStore();
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');
 
 // 获取世界中的宗门势力数据 - 统一数据源，支持多种数据结构
 const sectSystemData = computed(() => {
-  const data = saveData.value;
+  const data = gameStateStore.getCurrentSaveData();
 
   console.log('[宗门系统] 开始获取数据');
   console.log('[宗门系统] saveData存在:', !!data);
@@ -451,7 +451,7 @@ const sectSystemData = computed(() => {
   let availableSects: WorldFaction[] = [];
 
   // 方案1：从世界信息.势力信息中获取宗门数据
-  const worldInfo = data.世界信息 as WorldInfo | undefined;
+  const worldInfo = data?.世界信息 as WorldInfo | undefined;
   if (worldInfo?.势力信息) {
     console.log('[宗门系统] 发现世界信息.势力信息，数量:', worldInfo.势力信息.length);
     console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: WorldFaction) => f.类型));
@@ -495,14 +495,16 @@ const sectSystemData = computed(() => {
   }
 
   // 方案3：检查是否有直接的宗门相关字段
-  Object.keys(data).forEach(key => {
-    const lowerKey = key.toLowerCase();
-    const potentialData = (data as Record<string, any>)[key];
-    if ((lowerKey.includes('宗门') || lowerKey.includes('sect')) && Array.isArray(potentialData)) {
-      console.log('[宗门系统] 发现可能的宗门数据字段:', key, '数量:', potentialData.length);
-      availableSects = [...availableSects, ...(potentialData as WorldFaction[])];
-    }
-  });
+  if (data) {
+    Object.keys(data).forEach(key => {
+      const lowerKey = key.toLowerCase();
+      const potentialData = (data as Record<string, any>)[key];
+      if ((lowerKey.includes('宗门') || lowerKey.includes('sect')) && Array.isArray(potentialData)) {
+        console.log('[宗门系统] 发现可能的宗门数据字段:', key, '数量:', potentialData.length);
+        availableSects = [...availableSects, ...(potentialData as WorldFaction[])];
+      }
+    });
+  }
 
   // 去重并应用数据验证
   const uniqueSects = availableSects.filter((sect, index, arr) =>
@@ -520,7 +522,7 @@ const sectSystemData = computed(() => {
 
 // 玩家的宗门信息
 const playerSectInfo = computed((): SectMemberInfo | undefined => {
-  return saveData.value?.玩家角色状态?.宗门信息;
+  return gameStateStore.playerStatus?.宗门信息;
 });
 
 // 获取所有宗门列表
@@ -540,7 +542,7 @@ const filteredSects = computed(() => {
     );
   }
 
-  // 仅按“等级（几流）”排序，不再使用数值实力
+  // 仅按"等级（几流）"排序，不再使用数值实力
   const order = ['超级', '一流', '二流', '三流', '末流'];
   const rank = (lvl: string | undefined) => {
     if (!lvl) return 999;
@@ -550,29 +552,25 @@ const filteredSects = computed(() => {
   return filtered.sort((a, b) => rank(a.等级) - rank(b.等级));
 });
 
-// 格式化位置信息
-const formatLocation = (location: unknown): string => {
-  if (!location) return '未知';
-  if (typeof location === 'string') return location;
-  if (typeof location === 'object' && location !== null) {
-    const loc = location as { 名称?: string; 大洲?: string; longitude?: number; latitude?: number };
-    // 如果有具体地名信息，优先显示
-    if (loc.名称 && loc.大洲) {
-      return `${loc.名称} (${loc.大洲})`;
-    }
-    if (loc.名称) {
-      return loc.名称;
-    }
-    if (loc.大洲) {
-      return `位于${loc.大洲}`;
-    }
-    // 如果只有坐标对象，不再显示具体坐标，而是显示一般位置描述
-    if (loc.longitude && loc.latitude) {
-      return '详细位置待探查';
-    }
-  }
-  return '未知';
-};
+// 🔥 [清理] 移除未使用的 formatLocation 函数
+// const formatLocation = (location: unknown): string => {
+//   if (!location) return '未知';
+//   if (typeof location === 'string') return location;
+//   if (typeof location === 'object' && location !== null) {
+//     const loc = location as { 名称?: string; 大洲?: string; longitude?: number; latitude?: number };
+//     // 如果有具体地名信息，优先显示
+//     if (loc.名称 && loc.大洲) {
+//       return `${loc.名称} (${loc.大洲})`;
+//     }
+//     if (loc.名称) {
+//       return loc.名称;
+//     }
+//     if (loc.大洲) {
+//       return `位于${loc.大洲}`;
+//     }
+//   }
+//   return '未知';
+// };
 
 // 获取大洲名称
 const getContinentName = (sect: WorldFaction): string => {
@@ -580,7 +578,7 @@ const getContinentName = (sect: WorldFaction): string => {
   if (sect.所在大洲) return sect.所在大洲;
 
   // 从世界信息中查找
-  const worldInfo = saveData.value?.世界信息 as WorldInfo | undefined;
+  const worldInfo = gameStateStore.worldInfo as WorldInfo | undefined;
   const continents = worldInfo?.continents || worldInfo?.大陆信息;
   if (continents) {
     for (const continent of continents) {
@@ -622,6 +620,7 @@ const getContinentName = (sect: WorldFaction): string => {
 
 // 获取主要资源
 const getMainResources = (sect: WorldFaction): string => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sectAsAny = sect as any;
   // 优先使用已有的资源信息
   if (sectAsAny.主要资源 && Array.isArray(sectAsAny.主要资源)) {
@@ -801,12 +800,12 @@ const showContribution = () => toast.info('贡献兑换（功能开发中）');
 const showSectLibrary = () => toast.info('宗门藏书（功能开发中）');
 const showSectMembers = () => toast.info('同门师兄弟（功能开发中）');
 
-// 从酒馆同步数据
+// 🔥 [新架构] syncFromTavern 方法已被移除，数据统一从 Pinia Store 获取
 const syncFromTavern = async () => {
   try {
-    await characterStore.syncFromTavern();
-    // 移除频繁的酒馆数据同步成功提示，避免干扰正常操作
-    // toast.success('已从酒馆同步数据');
+    // 新架构下不再需要从酒馆同步，数据已在 Pinia Store 中
+    toast.info('新架构下数据已统一由 Pinia Store 管理');
+    console.warn('[宗门系统] syncFromTavern 已在新架构中移除');
   } catch (error) {
     console.error('[宗门系统] 同步失败:', error);
     toast.error('同步失败: ' + (error instanceof Error ? error.message : '未知错误'));
@@ -823,9 +822,9 @@ onMounted(() => {
   console.log('[宗门系统] 宗门势力面板已载入');
   console.log('[宗门系统] characterStore状态:', characterStore);
   console.log('[宗门系统] activeSaveSlot:', characterStore.activeSaveSlot);
-  console.log('[宗门系统] 存档数据:', saveData.value);
-  console.log('[宗门系统] 世界信息:', saveData.value?.世界信息);
-  console.log('[宗门系统] 势力信息:', saveData.value?.世界信息?.势力信息);
+  console.log('[宗门系统] 存档数据:', gameStateStore.toSaveData());
+  console.log('[宗门系统] 世界信息:', gameStateStore.worldInfo);
+  console.log('[宗门系统] 势力信息:', gameStateStore.worldInfo?.势力信息);
   console.log('[宗门系统] sectSystemData:', sectSystemData.value);
   console.log('[宗门系统] filteredSects:', filteredSects.value);
 
@@ -833,9 +832,9 @@ onMounted(() => {
   setInterval(() => {
     console.log('[宗门系统] 定时检查 - 筛选后宗门数量:', filteredSects.value?.length || 0);
     console.log('[宗门系统] 定时检查 - 是否加载中:', isLoading.value);
-    console.log('[宗门系统] 定时检查 - 存档数据存在:', !!saveData.value);
-    console.log('[宗门系统] 定时检查 - 世界信息存在:', !!saveData.value?.世界信息);
-    console.log('[宗门系统] 定时检查 - 势力信息存在:', !!saveData.value?.世界信息?.势力信息);
+    console.log('[宗门系统] 定时检查 - 存档数据存在:', !!gameStateStore.getCurrentSaveData());
+    console.log('[宗门系统] 定时检查 - 世界信息存在:', !!gameStateStore.worldInfo);
+    console.log('[宗门系统] 定时检查 - 势力信息存在:', !!gameStateStore.worldInfo?.势力信息);
   }, 5000);
 });
 </script>

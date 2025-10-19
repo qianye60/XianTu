@@ -22,9 +22,9 @@
         v-else
         :is="getCurrentDataComponent()"
         v-bind="getCurrentDataProps()"
-        @edit-variable="(item: any) => $emit('edit-variable', item)"
-        @copy-variable="(item: any) => $emit('copy-variable', item)"
-        @delete-variable="(item: any) => $emit('delete-variable', item)"
+        @edit-variable="(item) => $emit('edit-variable', item)"
+        @copy-variable="(item) => $emit('copy-variable', item)"
+        @delete-variable="(item) => $emit('delete-variable', item)"
         @add-new-variable="$emit('add-new-variable', $event)"
         @debug-log="$emit('debug-log')"
       />
@@ -33,36 +33,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { AlertCircle, Loader2 } from 'lucide-vue-next'
-import TavernVariableSection from './TavernVariableSection.vue'
-import TavernCharacterSection from './TavernCharacterSection.vue'
-import TavernSaveDataSection from './TavernSaveDataSection.vue'
-import TavernWorldInfoSection from './TavernWorldInfoSection.vue'
-import TavernMemorySection from './TavernMemorySection.vue'
-import TavernRawDataSection from './TavernRawDataSection.vue'
+import CustomOptionsSection from './CustomOptionsSection.vue'
+import GameVariableCharacterSection from './GameVariableCharacterSection.vue'
+import GameVariableSaveDataSection from './GameVariableSaveDataSection.vue'
+import GameVariableWorldInfoSection from './GameVariableWorldInfoSection.vue'
+import GameVariableMemorySection from './GameVariableMemorySection.vue'
+import GameVariableRawDataSection from './GameVariableRawDataSection.vue'
+
+type GameVariableValue = string | number | boolean | object | null | undefined
 
 interface Props {
   isLoading: boolean
   tavernConnected: boolean
   selectedDataType: string
   searchQuery: string
-  chatVariables: Record<string, any>
-  globalVariables: Record<string, any>
-  characterData: any
-  saveData: any
-  worldInfo: any
-  memoryData: any
-  allTavernData: any
-  filteredChatVariables: Record<string, any>
-  filteredGlobalVariables: Record<string, any>
+  chatVariables: Record<string, GameVariableValue>
+  customOptions: Record<string, GameVariableValue>
+  characterData: Record<string, GameVariableValue>
+  saveData: Record<string, GameVariableValue>
+  worldInfo: Record<string, GameVariableValue>
+  memoryData: Record<string, GameVariableValue>
+  allGameData: Record<string, GameVariableValue>
+  filteredChatVariables: Record<string, GameVariableValue>
+  filteredCustomOptions: Record<string, GameVariableValue>
 }
 
 const props = defineProps<Props>()
 
 defineEmits<{
-  (e: 'edit-variable', event: { type: string; key: string; value: any }): void
-  (e: 'copy-variable', event: { key: string; value: any }): void
+  (e: 'edit-variable', event: { type: string; key: string; value: GameVariableValue }): void
+  (e: 'copy-variable', event: { key: string; value: GameVariableValue }): void
   (e: 'delete-variable', event: { type: string; key: string }): void
   (e: 'add-new-variable', type: string): void
   (e: 'debug-log'): void
@@ -78,20 +80,20 @@ const clearError = () => {
 const getCurrentDataComponent = () => {
   switch (props.selectedDataType) {
     case 'chat':
-    case 'global':
-      return TavernVariableSection
+    case 'custom':
+      return CustomOptionsSection
     case 'character':
-      return TavernCharacterSection
+      return GameVariableCharacterSection
     case 'saveData':
-      return TavernSaveDataSection
+      return GameVariableSaveDataSection
     case 'worldInfo':
-      return TavernWorldInfoSection
+      return GameVariableWorldInfoSection
     case 'memory':
-      return TavernMemorySection
+      return GameVariableMemorySection
     case 'raw':
-      return TavernRawDataSection
+      return GameVariableRawDataSection
     default:
-      return TavernVariableSection
+      return CustomOptionsSection
   }
 }
 
@@ -99,7 +101,7 @@ const getCurrentDataProps = () => {
   const baseProps = {
     searchQuery: props.searchQuery,
     chatVariables: props.chatVariables || {},
-    globalVariables: props.globalVariables || {},
+    customOptions: props.customOptions || {},
   }
 
   switch (props.selectedDataType) {
@@ -109,11 +111,11 @@ const getCurrentDataProps = () => {
         type: 'chat' as const,
         variables: props.filteredChatVariables || {}
       }
-    case 'global':
+    case 'custom':
       return {
         ...baseProps,
-        type: 'global' as const,
-        variables: props.filteredGlobalVariables || {}
+        type: 'custom' as const,
+        variables: props.filteredCustomOptions || {}
       }
     case 'character':
       return {
@@ -133,7 +135,7 @@ const getCurrentDataProps = () => {
       }
     case 'raw':
       return {
-        allTavernData: props.allTavernData
+        allGameData: props.allGameData
       }
     default:
       // 默认返回 chat 类型的 props

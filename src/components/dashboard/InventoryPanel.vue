@@ -427,7 +427,7 @@
                 <Gem :size="isMobile ? 32 : 40" />
               </div>
               <div class="currency-info">
-                <div class="currency-amount">{{ (characterData?.背包_灵石?.[grade.name] || 0) }}</div>
+                <div class="currency-amount">{{ (gameStateStore.inventory?.灵石?.[grade.name] || 0) }}</div>
                 <div class="currency-label">{{ grade.name }}灵石</div>
               </div>
             </div>
@@ -436,7 +436,7 @@
                 v-if="grade.canExchange"
                 class="exchange-btn"
                 @click="handleExchange(grade.name, 'up')"
-                :disabled="((characterData?.背包_灵石?.[grade.name] || 0) < 100)"
+                :disabled="((gameStateStore.inventory?.灵石?.[grade.name] || 0) < 100)"
                 :title="`兑换为${grade.exchangeUp}灵石 (100:1)`"
               >
                 ↑ 兑换
@@ -445,7 +445,7 @@
                 v-if="grade.canExchangeDown"
                 class="exchange-btn down"
                 @click="handleExchange(grade.name, 'down')"
-                :disabled="((characterData?.背包_灵石?.[grade.name] || 0) < 1)"
+                :disabled="((gameStateStore.inventory?.灵石?.[grade.name] || 0) < 1)"
                 :title="`分解为${grade.exchangeDown}灵石 (1:100)`"
               >
                 ↓ 分解
@@ -472,22 +472,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next'
-import { useUnifiedCharacterData } from '@/composables/useCharacterData'
+import { useCharacterStore } from '@/stores/characterStore'
+import { useGameStateStore } from '@/stores/gameStateStore'
 import { useActionQueueStore } from '@/stores/actionQueueStore'
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue'
-import type {
-  Item,
-  SaveData,
-} from '@/types/game'
+import type { Item } from '@/types/game'
 import { toast } from '@/utils/toast'
-import { getTavernHelper } from '@/utils/tavern'
 import { debug } from '@/utils/debug'
-import { validateAndFixSaveData, cleanTavernDuplicates } from '@/utils/dataValidation'
 import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue'
 
-const { characterData, saveData } = useUnifiedCharacterData()
+const characterStore = useCharacterStore()
+const gameStateStore = useGameStateStore()
 const actionQueue = useActionQueueStore()
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance()
 const loading = ref(false)
@@ -527,44 +524,9 @@ const tabs = computed(() => [
   { id: 'currency', label: '灵石', icon: Gem },
 ])
 
-// 面板打开时，尝试迁移/修复一次存档，避免旧数据结构导致展示异常（如"角色物品"、"字符串null"等）
-onMounted(async () => {
-  try {
-    const currentSaveData = saveData.value
-    if (currentSaveData) {
-      const fixed = validateAndFixSaveData(currentSaveData)
-
-      // ❌ [已废弃] 迁移修炼功法数据结构
-      // saveData.修炼功法 现在只存储引用（物品ID+名称），不存储修炼进度
-      /*
-      if (fixed.修炼功法) {
-        if (typeof fixed.修炼功法.正在修炼 === 'undefined') {
-          fixed.修炼功法.正在修炼 = true
-        }
-        if (typeof fixed.修炼功法.修炼进度 === 'undefined') {
-          fixed.修炼功法.修炼进度 = 0
-        }
-      }
-      */
-
-      // 简单判定是否有变化（避免无限写入）
-      if (JSON.stringify(fixed) !== JSON.stringify(currentSaveData)) {
-        // 需要动态导入 characterStore 来保存数据
-        const { useCharacterStore } = await import('@/stores/characterStore')
-        const characterStore = useCharacterStore()
-        characterStore.activeSaveSlot!.存档数据 = fixed as SaveData
-        await characterStore.syncToTavernAndSave()
-        debug.log('背包面板', '已迁移旧数据结构并保存')
-      }
-    }
-  } catch (e) {
-    debug.warn('背包面板', '面板初始化迁移失败', e)
-  }
-})
-
 // 装备槽位 - 修正位置：装备栏在存档数据根级别
 const equipmentSlots = computed(() => {
-  const equipment = characterData.value?.装备栏
+  const equipment = gameStateStore.equipment
   const slotNames = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6']
 
   if (!equipment) {
@@ -585,7 +547,7 @@ const equipmentSlots = computed(() => {
     ) {
       // 从背包获取完整物品信息
       const itemId = equippedItem.物品ID
-      const bag = characterData.value?.背包_物品 || {} // 物品是对象
+      const bag = gameStateStore.inventory?.物品 || {} // 物品是对象
       const fromInv = bag[itemId] // 直接通过物品ID获取
       if (fromInv && typeof fromInv === 'object') {
         item = fromInv as Item
@@ -620,35 +582,30 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
 
   try {
     // 检查数据是否存在
-    if (!characterData.value?.装备栏) {
+    if (!gameStateStore.equipment) {
       toast.error('装备栏数据不存在')
       return
     }
 
     // 检查背包是否存在
-    if (!characterData.value?.背包_物品) {
+    if (!gameStateStore.inventory?.物品) {
       toast.error('背包数据不存在')
       return
     }
 
     // 清空装备槽位 - 更新为新的装备栏结构
-    const equipment = characterData.value.装备栏
+    const equipment = gameStateStore.equipment
     const slotKey = slot.name as keyof typeof equipment
     equipment[slotKey] = null // 设置为null
 
     // 清除物品的已装备标记 - 物品是对象结构
-    const itemInInventory = characterData.value.背包_物品?.[itemToUnequip.物品ID]
+    const itemInInventory = gameStateStore.inventory?.物品?.[itemToUnequip.物品ID]
     if (itemInInventory) {
       itemInInventory.已装备 = false
     }
 
-    // 保存数据 - 需要动态导入 characterStore
-    const { useCharacterStore } = await import('@/stores/characterStore')
-    const characterStore = useCharacterStore()
-    await characterStore.syncToTavernAndSave()
-
-    // 同步到酒馆变量
-    await syncToTavernVariables()
+    // 保存数据
+    await characterStore.saveCurrentGame()
 
     // 添加到操作队列
     actionQueue.addAction({
@@ -669,7 +626,7 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
 }
 
 const itemList = computed<Item[]>(() => {
-  const items = characterData.value?.背包_物品 || {}
+  const items = gameStateStore.inventory?.物品 || {}
   // 物品现在是对象格式 Record<string, Item>
   // 过滤掉以 _ 开头的元数据字段（如 _AI装备流程提醒）
   return Object.entries(items)
@@ -871,7 +828,7 @@ const getGradeClass = (grade: number): string => {
 
 // 从背包中移除物品的辅助函数
 const removeItemFromInventory = async (item: Item) => {
-  const items = characterData.value?.背包_物品
+  const items = gameStateStore.inventory?.物品
   if (!items || typeof items !== 'object') {
     throw new Error('背包数据不存在或格式不正确')
   }
@@ -879,11 +836,8 @@ const removeItemFromInventory = async (item: Item) => {
   // [REFACTORED] 从对象中移除物品
   delete items[item.物品ID]
 
-  // 保存数据 - 需要动态导入 characterStore
-  const { useCharacterStore } = await import('@/stores/characterStore')
-  const characterStore = useCharacterStore()
-
-  await characterStore.syncToTavernAndSave({ fullSync: true })
+  // 保存数据
+  await characterStore.saveCurrentGame()
 
   debug.log('背包面板', '物品移除成功', item.名称)
 
@@ -900,7 +854,7 @@ const removeItemFromInventory = async (item: Item) => {
 
 // 更新背包中物品的辅助函数
 const updateItemInInventory = async (item: Item) => {
-  const items = characterData.value?.背包_物品
+  const items = gameStateStore.inventory?.物品
   if (!items || typeof items !== 'object') {
     throw new Error('背包数据不存在或格式不正确')
   }
@@ -909,12 +863,8 @@ const updateItemInInventory = async (item: Item) => {
   if (items[item.物品ID]) {
     items[item.物品ID] = item
 
-    // 保存数据 - 需要动态导入 characterStore
-    const { useCharacterStore } = await import('@/stores/characterStore')
-    const characterStore = useCharacterStore()
-
-    // 使用 fullSync 确保数据同步
-    await characterStore.syncToTavernAndSave({ fullSync: true })
+    // 保存数据
+    await characterStore.saveCurrentGame()
 
     debug.log('背包面板', '物品更新成功', item.名称)
   } else {
@@ -924,35 +874,6 @@ const updateItemInInventory = async (item: Item) => {
   // 如果当前选中的是被更新的物品，更新选择
   if (selectedItem.value?.物品ID === item.物品ID) {
     selectedItem.value = item
-  }
-}
-
-// 同步数据到酒馆变量
-const syncToTavernVariables = async () => {
-  try {
-    const TavernHelper = getTavernHelper()
-    if (!TavernHelper) {
-      debug.warn('背包面板', '酒馆环境不可用，跳过同步')
-      return
-    }
-
-    // 首先清理重复变量
-    await cleanTavernDuplicates(TavernHelper)
-
-    const currentSaveData = saveData.value
-    if (!currentSaveData) {
-      debug.warn('背包面板', '存档数据不存在，跳过同步')
-      return
-    }
-
-    // 验证和修复数据
-    validateAndFixSaveData(currentSaveData)
-
-    // 数据已通过 characterStore.syncToTavernAndSave() 统一保存（使用分片存储）
-
-    debug.log('背包面板', '数据已同步到酒馆变量')
-  } catch (error) {
-    debug.error('背包面板', '同步酒馆变量失败', error)
   }
 }
 
@@ -1125,7 +1046,7 @@ const toggleEquip = async (item: Item) => {
 const isEquipped = (item: Item | null): boolean => {
   if (!item || !item.物品ID) return false
 
-  const inventoryItems = characterData.value?.背包_物品
+  const inventoryItems = gameStateStore.inventory?.物品
   if (!inventoryItems) return false
 
   // 背包物品是对象，不是数组
@@ -1139,7 +1060,7 @@ const isEquipped = (item: Item | null): boolean => {
 const isCultivating = (item: Item | null): boolean => {
   if (!item || !item.物品ID) return false
 
-  const inventoryItems = characterData.value?.背包_物品
+  const inventoryItems = gameStateStore.inventory?.物品
   if (inventoryItems) {
     // 优先检查背包中物品的已装备/修炼中标记（动作队列使用的逻辑）
     const currentItemState = inventoryItems[item.物品ID]
@@ -1152,7 +1073,7 @@ const isCultivating = (item: Item | null): boolean => {
   }
 
   // 兼容：如果背包中没有标记，检查修炼功法字段（功法面板使用的逻辑）
-  const cultivationData = characterData.value?.修炼功法 as { 物品ID?: string; 正在修炼?: boolean } | null | undefined
+  const cultivationData = gameStateStore.cultivationTechnique as { 物品ID?: string; 正在修炼?: boolean } | null | undefined
   if (cultivationData && cultivationData.物品ID === item.物品ID) {
     return cultivationData.正在修炼 !== false
   }
@@ -1234,36 +1155,32 @@ const handleExchange = async (
 
   if (direction === 'up' && gradeInfo.canExchange && gradeInfo.exchangeUp) {
     // 向上兑换：100个当前等级 → 1个高级
-    const currentAmount = characterData.value?.背包_灵石?.[currentGrade] || 0
+    const currentAmount = gameStateStore.inventory?.灵石?.[currentGrade] || 0
     if (currentAmount >= 100) {
       // 更新数据
-      if (characterData.value?.背包_灵石) {
-        ;(characterData.value.背包_灵石[currentGrade] as number) = currentAmount - 100
+      if (gameStateStore.inventory?.灵石) {
+        ;(gameStateStore.inventory.灵石[currentGrade] as number) = currentAmount - 100
         const targetGrade = gradeInfo.exchangeUp as '下品' | '中品' | '上品' | '极品'
-        const targetAmount = characterData.value.背包_灵石[targetGrade] || 0
-        ;(characterData.value.背包_灵石[targetGrade] as number) = targetAmount + 1
+        const targetAmount = gameStateStore.inventory.灵石[targetGrade] || 0
+        ;(gameStateStore.inventory.灵石[targetGrade] as number) = targetAmount + 1
 
-        // 保存数据 - 需要动态导入 characterStore
-        const { useCharacterStore } = await import('@/stores/characterStore')
-        const characterStore = useCharacterStore()
-        await characterStore.syncToTavernAndSave()
+        // 保存数据
+        await characterStore.saveCurrentGame()
       }
     }
   } else if (direction === 'down' && gradeInfo.canExchangeDown && gradeInfo.exchangeDown) {
     // 向下分解：1个当前等级 → 100个低级
-    const currentAmount = characterData.value?.背包_灵石?.[currentGrade] || 0
+    const currentAmount = gameStateStore.inventory?.灵石?.[currentGrade] || 0
     if (currentAmount >= 1) {
       // 更新数据
-      if (characterData.value?.背包_灵石) {
-        ;(characterData.value.背包_灵石[currentGrade] as number) = currentAmount - 1
+      if (gameStateStore.inventory?.灵石) {
+        ;(gameStateStore.inventory.灵石[currentGrade] as number) = currentAmount - 1
         const targetGrade = gradeInfo.exchangeDown as '下品' | '中品' | '上品' | '极品'
-        const targetAmount = characterData.value.背包_灵石[targetGrade] || 0
-        ;(characterData.value.背包_灵石[targetGrade] as number) = targetAmount + 100
+        const targetAmount = gameStateStore.inventory.灵石[targetGrade] || 0
+        ;(gameStateStore.inventory.灵石[targetGrade] as number) = targetAmount + 100
 
-        // 保存数据 - 需要动态导入 characterStore
-        const { useCharacterStore } = await import('@/stores/characterStore')
-        const characterStore = useCharacterStore()
-        await characterStore.syncToTavernAndSave()
+        // 保存数据
+        await characterStore.saveCurrentGame()
       }
     }
   }
@@ -1276,10 +1193,7 @@ const refreshFromTavern = async () => {
   refreshing.value = true
   try {
     debug.log('背包面板', '手动刷新酒馆数据')
-    // 需要动态导入 characterStore
-    const { useCharacterStore } = await import('@/stores/characterStore')
-    const characterStore = useCharacterStore()
-    await characterStore.syncFromTavern()
+    await characterStore.reloadFromStorage()
   } catch (error) {
     debug.error('背包面板', '刷新数据失败', error)
   } finally {

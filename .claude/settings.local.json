@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(npm run build:type-check)",
+      "Bash(npm install chart.js)",
+      "Bash(git checkout:*)",
+      "Bash(npm run dev:*)",
+      "Bash(awk:*)",
+      "Bash(npx eslint --ext .ts,.vue src --max-warnings 0)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": [],

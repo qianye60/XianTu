@@ -173,13 +173,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { X, Zap } from 'lucide-vue-next';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { DaoData, ThousandDaoSystem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
 
-const { characterData } = useUnifiedCharacterData();
+const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 const actionQueueStore = useActionQueueStore();
 const loading = ref(false);
@@ -189,7 +189,7 @@ const selectedDao = ref<string | null>(null);
 
 // 获取三千大道系统数据
 const daoSystem = computed((): ThousandDaoSystem => {
-  return characterData.value?.三千大道 || {
+  return gameStateStore.thousandDao || {
     大道列表: {}
   };
 });
@@ -290,11 +290,13 @@ const cultivateDao = (daoName: string) => {
   console.log('[三千大道面板] 已将感悟大道动作加入队列');
 };
 
-// 刷新大道数据
+// 🔥 [新架构] 刷新大道数据 - syncFromTavern 已移除
 const refreshDaoData = async () => {
   loading.value = true;
   try {
-    await characterStore.syncFromTavern();
+    // 新架构下不再需要从酒馆同步，数据已在 Pinia Store 中
+    console.log('[三千大道面板] 数据已从 Pinia Store 获取');
+    toast.info('新架构下数据已统一由 Pinia Store 管理');
   } catch (error) {
     console.error('[三千大道面板] 刷新数据失败:', error);
   } finally {

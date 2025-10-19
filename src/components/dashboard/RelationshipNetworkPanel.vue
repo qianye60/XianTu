@@ -451,21 +451,18 @@
 </template>
 
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, onMounted, watch } from 'vue';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { NpcProfile, Item } from '@/types/game';
 import {
   Users2, Search,
   Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff, Trash2, ArrowLeft
 } from 'lucide-vue-next';
-import { toast } from '@/utils/toast';
-import { getTavernHelper } from '@/utils/tavern';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
+import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
 
-const { characterData } = useUnifiedCharacterData();
+const characterData = computed(() => characterStore.activeSaveSlot?.存档数据);
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
 const characterStore = useCharacterStore();
@@ -532,25 +529,6 @@ const resetMemoryPagination = () => {
   currentMemoryPage.value = 1;
 };
 
-// 获取记忆时间，兼容新旧格式
-const getMemoryTime = (memory: unknown): string => {
-  if (typeof memory === 'string') {
-    return '未知时间';
-  } else if (memory && typeof memory === 'object') {
-    return (memory as { 时间?: string }).时间 || '未知时间';
-  }
-  return '未知时间';
-};
-
-// 获取记忆事件，兼容新旧格式
-const getMemoryEvent = (memory: unknown): string => {
-  if (typeof memory === 'string') {
-    return memory;
-  } else if (memory && typeof memory === 'object') {
-    return (memory as { 事件?: string }).事件 || '';
-  }
-  return '';
-};
 
 // 获取NPC境界信息
 const getNpcRealm = (npc: NpcProfile): string => {
@@ -712,7 +690,7 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('[人脉系统] 同步数据失败:', error);
-    toast.error('人脉数据同步失败');
+    uiStore.showToast('人脉数据同步失败', { type: 'error' });
   } finally {
     isLoading.value = false;
   }
@@ -758,8 +736,6 @@ const editMemory = async (index: number) => {
   selectedPerson.value = { ...characterData.value.人物关系[key] };
 
   // 保存到酒馆
-  const { useCharacterStore } = await import('@/stores/characterStore');
-  const characterStore = useCharacterStore();
   await characterStore.saveCurrentGame();
 };
 
@@ -778,10 +754,10 @@ const deleteMemory = async (index: number) => {
       characterData.value.人物关系[key].记忆.splice(index, 1);
       selectedPerson.value = { ...characterData.value.人物关系[key] };
 
-      // 保存到酒馆
-      const { useCharacterStore } = await import('@/stores/characterStore');
-      const characterStore = useCharacterStore();
-      await characterStore.syncToTavernAndSave({ fullSync: true });
+      // 使用 gameStateStore 保存
+      const { useGameStateStore } = await import('@/stores/gameStateStore');
+      const gameStateStore = useGameStateStore();
+      await gameStateStore.saveGame();
     },
     onCancel: () => {}
   });
@@ -819,7 +795,7 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: Item) => {
     itemId: item.物品ID || item.名称,
     tradeType: 'trade'
   });
-  toast.success(`已将与 ${npc.名字} 的交易请求加入动作队列`);
+  uiStore.showToast(`已将与 ${npc.名字} 的交易请求加入动作队列`, { type: 'success' });
 };
 
 // 向NPC索要物品
@@ -834,7 +810,7 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
     itemId: item.物品ID || item.名称,
     tradeType: 'request'
   });
-  toast.success(`已将向 ${npc.名字} 索要物品的请求加入动作队列`);
+  uiStore.showToast(`已将向 ${npc.名字} 索要物品的请求加入动作队列`, { type: 'success' });
 };
 
 // 切换NPC关注状态
@@ -844,7 +820,7 @@ const toggleAttention = async (person: NpcProfile) => {
   // 🔥 修复：直接从characterStore获取实际的存档数据，而不是computed值
   const slot = characterStore.activeSaveSlot;
   if (!slot?.存档数据?.人物关系) {
-    toast.error('人物关系数据不存在');
+    uiStore.showToast('人物关系数据不存在', { type: 'error' });
     return;
   }
 
@@ -852,22 +828,22 @@ const toggleAttention = async (person: NpcProfile) => {
     key => slot.存档数据!.人物关系[key]?.名字 === npcName
   );
   if (!npcKey) {
-    toast.error(`找不到名为 ${npcName} 的人物`);
+    uiStore.showToast(`找不到名为 ${npcName} 的人物`, { type: 'error' });
     return;
   }
 
   try {
-    // 🔥 修复：直接修改存档数据中的实时关注字段
+    // 直接修改存档数据中的实时关注字段
     const currentState = slot.存档数据.人物关系[npcKey].实时关注 || false;
     const newState = !currentState;
     slot.存档数据.人物关系[npcKey].实时关注 = newState;
 
-    // 🔥 修复：使用syncToTavernAndSave直接同步到酒馆
-    await characterStore.syncToTavernAndSave({
-      changedPaths: [`人物关系.${npcKey}.实时关注`]
-    });
+    // 使用 gameStateStore 保存
+    const { useGameStateStore } = await import('@/stores/gameStateStore');
+    const gameStateStore = useGameStateStore();
+    await gameStateStore.saveGame();
 
-    toast.success(newState ? `已关注 ${npcName}` : `已取消关注 ${npcName}`);
+    uiStore.showToast(newState ? `已关注 ${npcName}` : `已取消关注 ${npcName}`, { type: 'success' });
 
     // 强制更新选中的人物（触发响应式）
     if (selectedPerson.value?.名字 === npcName) {
@@ -875,7 +851,7 @@ const toggleAttention = async (person: NpcProfile) => {
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
-    toast.error(`操作失败: ${errorMsg}`);
+    uiStore.showToast(`操作失败: ${errorMsg}`, { type: 'error' });
   }
 };
 
@@ -896,7 +872,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
     itemId: item.物品ID || item.名称,
     tradeType: 'steal'
   });
-  toast.success(`已将偷窃 ${npc.名字} 物品的计划加入动作队列`);
+  uiStore.showToast(`已将偷窃 ${npc.名字} 物品的计划加入动作队列`, { type: 'success' });
 };
 
 // 总结NPC记忆
@@ -905,87 +881,35 @@ const summarizeMemories = async () => {
   const npcName = selectedPerson.value.名字;
   isSummarizing.value = true;
   try {
-    const helper = getTavernHelper();
-    if (!helper) throw new Error('无法连接到酒馆助手');
     const memories = selectedPerson.value.记忆 || [];
-    if (memories.length === 0) throw new Error('没有记忆可以总结');
-
-    // 验证并调整要总结的记忆条数
-    const countToSummarize = Math.min(
-      Math.max(3, memoriesToSummarize.value || 10), // 最少3条
-      memories.length // 最多全部记忆
-    );
-
-    // 从最旧的记忆开始截取（数组前面是最旧的）
-    const memoriesToProcess = memories.slice(0, countToSummarize);
-
-    const memoriesText = memoriesToProcess.map((m, i) => {
-      const time = getMemoryTime(m);
-      const event = getMemoryEvent(m);
-      return `${i + 1}. [${time}] ${event}`;
-    }).join('\n');
-
-    const systemPrompt = `你是一个专业的记忆总结助手，擅长将NPC的记忆总结为详细的档案。
-
-总结要求：
-1. 必须包含小说六要素：时间、地点、人物、事件、原因、结果
-2. 用第三人称描述，以「${npcName}」为主视角
-3. 完整记录所有关键事件、人物关系变化、情感波动
-4. 按时间顺序梳理事件脉络
-5. 字数控制在200-300字，确保信息完整详实
-6. 使用修仙小说的语言风格
-7. 只返回总结内容，不要有任何前缀、后缀或标题`;
-
-    const userPrompt = `请将以下NPC「${npcName}」的记忆总结成详细的档案，务必包含时间、地点、人物、事件、原因、结果六要素：
-
-${memoriesText}`;
-
-    // 使用Raw模式的ordered_prompts，避免世界书污染
-    const response = await helper.generateRaw({
-      ordered_prompts: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      should_stream: false
-    });
-
-    if (!response || typeof response !== 'string') throw new Error('AI响应格式错误');
-    const summary = response.trim();
-    if (!summary) throw new Error('总结内容为空');
-
-    if (!characterData.value?.人物关系) throw new Error('存档数据不存在');
-    const npcKey = Object.keys(characterData.value.人物关系).find(
-      key => characterData.value!.人物关系[key]?.名字 === npcName
-    );
-    if (!npcKey) throw new Error(`找不到NPC: ${npcName}`);
-
-    // 初始化记忆总结数组（如果不存在）
-    if (!characterData.value.人物关系[npcKey].记忆总结) {
-      characterData.value.人物关系[npcKey].记忆总结 = [];
+    if (memories.length < 3) {
+      uiStore.showToast('至少需要3条记忆才能进行总结', { type: 'warning' });
+      return;
     }
 
-    // 添加总结到记忆总结数组
-    characterData.value.人物关系[npcKey].记忆总结!.push(summary);
+    const countToSummarize = Math.min(
+      Math.max(3, memoriesToSummarize.value || 10),
+      memories.length
+    );
 
-    // 删除已总结的记忆（从最旧的开始删除）
-    characterData.value.人物关系[npcKey].记忆 = memories.slice(countToSummarize);
+    // 🔥 [新架构] summarizeNpcMemories 方法已被移除，使用游戏内AI系统处理记忆总结
+    // const summary = await characterStore.summarizeNpcMemories(npcName, countToSummarize);
 
-    // 同步到酒馆并保存到存档
-    const { useCharacterStore } = await import('@/stores/characterStore');
-    const characterStore = useCharacterStore();
+    uiStore.showToast('记忆总结功能将通过游戏内AI系统实现', { type: 'info' });
+    console.warn('[RelationshipNetworkPanel] summarizeNpcMemories 已在新架构中移除');
 
-    // 使用syncToTavernAndSave将修改同步到酒馆变量
-    await characterStore.syncToTavernAndSave({
-      fullSync: true  // 使用完整同步确保人物关系数据正确保存
-    });
-
-    // 更新选中的人物
-    selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
-
-    toast.success(`已将 ${npcName} 最旧的 ${countToSummarize} 条记忆总结并同步到酒馆`);
+    // if (summary) {
+    //   uiStore.showToast(`已将 ${npcName} 的 ${countToSummarize} 条记忆总结完毕`, { type: 'success' });
+    //   // 刷新数据
+    //   const npcKey = findRelationshipKeyByName(npcName);
+    //   if (npcKey && characterData.value?.人物关系?.[npcKey]) {
+    //     selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
+    //   }
+    // }
+    // 错误处理已在 store action 中完成
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '未知错误';
-    toast.error(`记忆总结失败: ${errorMsg}`);
+    // store action 中已处理 toast，这里只在控制台记录
+    console.error(`[RelationshipNetworkPanel] 记忆总结失败:`, error);
   } finally {
     isSummarizing.value = false;
   }
@@ -1010,12 +934,12 @@ const confirmDeleteNpc = (person: NpcProfile) => {
       }
 
       try {
-        // deleteNpc内部已经调用了syncToTavernAndSave,会自动保存到酒馆
+        // deleteNpc 内部会自动保存到存档
         await characterStore.deleteNpc(npcNameToDelete);
         // 删除成功，无需额外操作（已提前清空选择）
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '未知错误';
-        toast.error(`删除失败: ${errorMsg}`);
+        uiStore.showToast(`删除失败: ${errorMsg}`, { type: 'error' });
         console.error('删除NPC失败:', error);
 
         // 🔥 如果删除失败且之前清空了选择，尝试重新从人物列表中找到该NPC并恢复选择

@@ -6,6 +6,7 @@ import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
 import { generateJudgmentPrompt } from '../judgement/heavenlyRules';
 import { getSystemTaskPrompt } from './systemTaskPrompts';
 import { CORE_SYNC_RULES } from './sharedRules';
+import { buildCompactState, formatStateForAI } from '../aiContextBuilder';
 import type { SaveData } from '@/types/game';
 
 export const buildInGameMessagePrompt = (saveData: SaveData, autoGenerateNpc?: boolean, minNpcCount?: number): string => {
@@ -146,7 +147,7 @@ export const buildInGameMessagePrompt = (saveData: SaveData, autoGenerateNpc?: b
     '     - filter="male" → 仅性别="男"时生成',
     '  3. 若符合，必须在value中包含完整的私密信息对象（14个必填字段）',
     '',
-    '**移动**: 同时set描述+longitude+latitude (格式:大陆·地点)',
+    '**移动**: 同时set 玩家角色状态.位置.描述 + 玩家角色状态.位置.longitude + 玩家角色状态.位置.latitude (格式:大陆·地点)',
     '',
     '**大道感悟**: `{"action":"set","key":"三千大道.大道列表.剑道","value":{"道名":"剑道","描述":"...","是否解锁":true,"当前阶段":0,"当前经验":0,"总经验":0,"阶段列表":[...]}}`',
     '  或增加经验: `{"action":"add","key":"三千大道.大道列表.剑道.当前经验","value":100}`',
@@ -239,6 +240,19 @@ export const buildInGameMessagePrompt = (saveData: SaveData, autoGenerateNpc?: b
     '**🔴死亡检查**：玩家危险/鲁莽?满足死亡触发?已安排合理死亡?给了不该有的运气?',
     '',
     '**记住：死亡/受伤是核心非例外,玩家期待挑战/失败让成功更有价值**'
+  );
+
+  // 🔥 [新架构] 将精简的游戏状态作为prompt的一部分传递给AI
+  // 不再依赖酒馆变量存储，直接在prompt中提供当前状态
+  const compactState = buildCompactState(saveData);
+  const stateText = formatStateForAI(compactState);
+
+  promptParts.push(
+    '',
+    '# === 当前游戏状态 ===',
+    '',
+    stateText,
+    ''
   );
 
   return promptParts.join('\n');

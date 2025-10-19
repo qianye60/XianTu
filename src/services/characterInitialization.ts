@@ -4,18 +4,18 @@
  */
 
 import { getTavernHelper } from '@/utils/tavern';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useCharacterStore } from '@/stores/characterStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
 import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo } from '@/types/game';
 import type { World } from '@/types';
-import { generateInitialMessage } from '@/utils/tavernAI';
-import { processGmResponse } from '@/utils/AIGameMaster';
+import type { GM_Response } from '@/types/AIGameMaster';
+import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
-// 移除未使用的旧生成器导入，改用增强版生成器
+// 移除未使用的旧生成器导入,改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
 // 导入本地数据库用于随机生成
@@ -368,46 +368,28 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const uiStore = useUIStore();
   uiStore.updateLoadingText('天道正在为你书写命运之章...');
 
+  // 🔥 现在baseInfo中的字段已经是完整对象了
   const userSelections = {
     name: baseInfo.名字,
     gender: baseInfo.性别,
-    race: baseInfo.种族,
+    race: baseInfo.种族 || '人族',
     age: age,
     world: world.name,
-    talentTier: baseInfo.天资,
-    origin: baseInfo.出生,
-    spiritRoot: baseInfo.灵根,
-    talents: baseInfo.天赋 || [],
+    talentTier: baseInfo.天资, // 现在是完整对象
+    origin: baseInfo.出生,     // 现在是完整对象或"随机出身"
+    spiritRoot: baseInfo.灵根, // 现在是完整对象或"随机灵根"
+    talents: baseInfo.天赋 || [], // 现在是完整对象数组
     attributes: (baseInfo.先天六司 || {}) as unknown as Record<string, number>
   };
 
-  const customInitPrompt = buildCharacterInitializationPrompt(userSelections);
+  console.log('[初始化] 🔥 用户选择数据检查:');
+  console.log('  - 天资:', userSelections.talentTier);
+  console.log('  - 出身:', userSelections.origin);
+  console.log('  - 灵根:', userSelections.spiritRoot);
+  console.log('  - 天赋数量:', userSelections.talents?.length);
 
-  const getNameFrom = (val: unknown): string => {
-    if (!val) return '';
-    if (typeof val === 'string') return val;
-    if (typeof val === 'object') {
-      const obj = val as Record<string, unknown>;
-      if (typeof obj.名称 === 'string') return obj.名称;
-      if (typeof obj.name === 'string') return obj.name;
-    }
-    return String(val);
-  };
-
-  const initialGameDataForAI = {
-    baseInfo: baseInfo,
-    saveData: saveData,
-    world: { ...world, description: `世界名: ${world.name}, 纪元: ${world.era}. 背景: ${world.description}` },
-    creationDetails: {
-      age: age,
-      originName: getNameFrom(baseInfo.出生),
-      spiritRootName: getNameFrom(baseInfo.灵根),
-      talentTierName: getNameFrom(baseInfo.天资),
-      talentNames: Array.isArray(baseInfo.天赋)
-        ? (baseInfo.天赋 as Record<string, any>[]).map((t: Record<string, any>) => t?.name || t?.名称 || String(t)).filter(Boolean)
-        : []
-    },
-    // 🔥 直接传递世界信息，不依赖酒馆变量
+  // 🔥 准备世界上下文信息
+  const worldContext = {
     worldInfo: saveData.世界信息,
     availableContinents: saveData.世界信息?.大陆信息?.map((continent: Record<string, any>) => ({
       名称: continent.名称 || continent.name,
@@ -422,39 +404,173 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       coordinates: location.coordinates
     })) || [],
     mapConfig: saveData.世界信息?.地图配置,
-    // 🔥 传递系统设置，用于NSFW内容生成
     systemSettings: saveData.系统 || { nsfwMode: true, nsfwGenderFilter: 'all' }
   };
 
+  console.log('[初始化] 🔥 世界信息检查:');
+  console.log('  - 世界描述:', saveData.世界信息?.世界背景 || '未找到');
+  console.log('  - 大陆数量:', worldContext.availableContinents.length);
+  console.log('  - 地点数量:', worldContext.availableLocations.length);
+
+  const customInitPrompt = buildCharacterInitializationPrompt(userSelections, worldContext);
+
   console.log(`[初始化] 准备生成开场剧情，角色: ${baseInfo.名字}`);
-  console.log(`[初始化] 可用大陆列表:`, initialGameDataForAI.availableContinents.map(c => c.名称));
-  console.log(`[初始化] 可用地点数量:`, initialGameDataForAI.availableLocations?.length || 0);
+  console.log(`[初始化] 可用大陆列表:`, worldContext.availableContinents.map(c => c.名称));
+  console.log(`[初始化] 可用地点数量:`, worldContext.availableLocations?.length || 0);
 
   const initialMessageResponse = await robustAICall(
     async () => {
       console.log('[初始化] ===== 开始生成开场剧情 =====');
       const startTime = Date.now();
       try {
-        const response = await generateInitialMessage(initialGameDataForAI, {}, customInitPrompt);
+        // 🔥 使用酒馆助手直接生成初始消息
+        const tavernHelper = getTavernHelper();
+        if (!tavernHelper) {
+          throw new Error('酒馆助手未初始化');
+        }
+
+        const response = await tavernHelper.generateRaw({
+          ordered_prompts: [
+            { role: 'system', content: customInitPrompt },
+            { role: 'user', content: `我创建了角色"${baseInfo.名字}"，请根据我的选择生成开局故事和初始数据。
+
+**重要提示**：
+- 严格按照我的角色设定来生成内容
+- 我选择的是什么样的出身、天赋、灵根，你就如实展现
+- 不要强加任何预设的剧情方向或生活方式
+- 这只是一个开始，我的人生我做主` }
+          ],
+          should_stream: false,
+          use_world_info: false
+        });
+
         const elapsed = Date.now() - startTime;
         console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms`);
-        return response;
+
+        // 🔥 修复：正确处理响应格式（可能是字符串或对象）
+        console.log('[初始化-诊断] 响应类型:', typeof response);
+        console.log('[初始化-诊断] 响应内容:', response);
+
+        let parsedResponse: any;
+        
+        if (typeof response === 'string') {
+          // 尝试解析JSON字符串
+          try {
+            parsedResponse = JSON.parse(response);
+            console.log('[初始化] ✅ 成功解析JSON字符串响应');
+          } catch (e) {
+            console.warn('[初始化] ⚠️ 响应是纯文本（非JSON），使用parseAIResponse处理');
+            // 使用AIBidirectionalSystem的解析器
+            const aiSystem = AIBidirectionalSystem.getInstance();
+            parsedResponse = (aiSystem as any).parseAIResponse(response);
+          }
+        } else if (typeof response === 'object' && response !== null) {
+          parsedResponse = response;
+          console.log('[初始化] ✅ 响应已是对象格式');
+        } else {
+          throw new Error(`无效的AI响应类型: ${typeof response}`);
+        }
+
+        console.log('[初始化-诊断] 解析后的响应:', JSON.stringify(parsedResponse).substring(0, 500));
+        return parsedResponse;
       } catch (error) {
         console.error(`[初始化] ❌ AI生成失败:`, error);
         throw error;
       }
     },
-    (response) => {
-      // 简化验证：只检查基本内容
-      if (!response || !response.text || typeof response.text !== 'string' || response.text.trim().length < 200) {
-        console.warn('[AI验证] 生成的文本太短或无效');
+    (response: any) => {
+      // 🔥 增强版验证器：提供详细的诊断信息
+      console.log('[AI验证-诊断] ===== 开始验证AI响应 =====');
+      console.log('[AI验证-诊断] 响应类型:', typeof response);
+      console.log('[AI验证-诊断] 响应内容(前500字):', JSON.stringify(response).substring(0, 500));
+
+      // 1. 基本结构检查
+      if (!response || typeof response !== 'object') {
+        console.warn('[AI验证] ❌ 响应不是对象，实际类型:', typeof response);
+        console.warn('[AI验证] 响应内容:', response);
         return false;
       }
+
+      // 2. 文本内容检查
+      if (!response.text || typeof response.text !== 'string') {
+        console.warn('[AI验证] ❌ text字段无效');
+        console.warn('[AI验证] text值:', response.text);
+        return false;
+      }
+
+      if (response.text.trim().length < 200) {
+        console.warn('[AI验证] ❌ 文本太短 (长度:', response.text.length, ')');
+        return false;
+      }
+
+      // 3. 占位符检查
       if (response.text.includes('placeholder') || response.text.includes('TODO') || response.text.includes('待填充')) {
-        console.warn('[AI验证] 生成的文本包含占位符');
+        console.warn('[AI验证] ❌ 文本包含占位符');
         return false;
       }
-      console.log('[AI验证] ✅ 验证通过');
+
+      // 4. 🔥 tavern_commands检查（更详细）
+      if (!Array.isArray(response.tavern_commands)) {
+        console.warn('[AI验证] ❌ tavern_commands不是数组，实际类型:', typeof response.tavern_commands);
+        console.warn('[AI验证] tavern_commands值:', response.tavern_commands);
+        return false;
+      }
+
+      if (response.tavern_commands.length === 0) {
+        console.warn('[AI验证] ❌ tavern_commands是空数组');
+        return false;
+      }
+
+      console.log('[AI验证-诊断] tavern_commands数量:', response.tavern_commands.length);
+
+      // 5. 位置命令检查 - 必须使用完整路径
+      const hasLocationCommand = response.tavern_commands.some((cmd: any, index: number) => {
+        const isValid = cmd &&
+          cmd.action === 'set' &&
+          cmd.key === '玩家角色状态.位置.描述'; // 仅接受完整路径
+
+        if (!isValid) {
+          console.log(`[AI验证-诊断] 命令${index}:`, {
+            有效: !!cmd,
+            action: cmd?.action,
+            key: cmd?.key,
+            value: typeof cmd?.value === 'string' ? cmd.value.substring(0, 50) : cmd?.value
+          });
+        }
+        return isValid;
+      });
+
+      if (!hasLocationCommand) {
+        console.warn('[AI验证] ❌ 缺少位置命令');
+        console.warn('[AI验证] 现有命令keys:', response.tavern_commands.map((c: any) => c?.key));
+        return false;
+      }
+
+      // 6. 位置值验证 - 必须使用完整路径
+      const locationCommand = response.tavern_commands.find((cmd: any) =>
+        cmd && cmd.action === 'set' && cmd.key === '玩家角色状态.位置.描述' // 仅接受完整路径
+      );
+
+      if (locationCommand) {
+        const val = locationCommand.value;
+        if (!val || typeof val !== 'string') {
+          console.warn('[AI验证] ❌ 位置值格式错误，类型:', typeof val);
+          console.warn('[AI验证] 位置值:', val);
+          return false;
+        }
+        if (!val.includes('·')) {
+          console.warn('[AI验证] ❌ 位置值缺少"·"分隔符');
+          console.warn('[AI验证] 位置值:', val);
+          return false;
+        }
+        if (val.includes('undefined') || val.includes('null') || val.includes('随机')) {
+          console.warn('[AI验证] ❌ 位置值包含无效内容:', val);
+          return false;
+        }
+        console.log('[AI验证] ✅ 位置命令有效:', val);
+      }
+
+      console.log('[AI验证] ✅ 所有验证通过');
       return true;
     },
     3,
@@ -464,11 +580,24 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   // =================================================================
   // 步骤 3.4: 处理AI响应
   // =================================================================
-  const { saveData: saveDataAfterCommands, stateChanges } = await processGmResponse(initialMessageResponse, saveData, true);
+  const aiSystem = AIBidirectionalSystem.getInstance();
+  const { saveData: saveDataAfterCommands, stateChanges } = await aiSystem.processGmResponse(initialMessageResponse as GM_Response, saveData, true);
 
-  const openingStory = String(initialMessageResponse.text || '');
+  const openingStory = String((initialMessageResponse as any).text || '');
   if (!openingStory.trim()) {
     throw new Error('AI生成的开场剧情为空');
+  }
+
+  // 🔥 诊断日志：检查 stateChanges 是否为空
+  console.log('[初始化-诊断] 状态变更日志检查:', {
+    有变更记录: !!stateChanges,
+    变更数量: stateChanges?.changes?.length || 0,
+    变更内容: stateChanges?.changes || []
+  });
+
+  if (!stateChanges || stateChanges.changes.length === 0) {
+    console.warn('[初始化-警告] ⚠️ AI响应未包含任何状态变更命令，开局变量修改日志将为空');
+    console.warn('[初始化-警告] 请检查AI提示词是否要求返回 tavern_commands');
   }
 
   // 🔥 将初始状态变更保存到叙事历史中，确保持久化
@@ -492,6 +621,9 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   });
 
   // 🔥 同时保存到短期记忆（完整历史记录）
+  if (!saveDataAfterCommands.记忆) {
+    saveDataAfterCommands.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+  }
   if (!saveDataAfterCommands.记忆.短期记忆) {
     saveDataAfterCommands.记忆.短期记忆 = [];
   }
@@ -636,8 +768,8 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   const uiStore = useUIStore();
   uiStore.updateLoadingText(`正在同步数据，即将进入${baseInfo.名字}的修仙世界...`);
 
-  const helper = getTavernHelper();
-  if (!helper) throw new Error('无法连接到酒馆服务');
+  // 使用 gameStateStore 替代酒馆助手
+  const gameStateStore = useGameStateStore();
 
   // 将导入提升到函数顶部，避免重复声明
   const { deepCleanForClone } = await import('@/utils/dataValidation');
@@ -759,18 +891,36 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   // 3. 核心状态权威性校准
   // AI返回的数据可能会覆盖或损坏预先计算好的核心状态。
   // 此处，我们基于原始的角色选择（baseInfo）重新计算整个玩家状态，
-  // 以确保其权威性和完整性，然后只保留AI对剧情至关重要的“位置”信息。
+  // 以确保其权威性和完整性，然后只保留AI对剧情至关重要的"位置"信息。
   console.log('[数据最终化] 重新计算并校准核心玩家状态...');
   const authoritativeStatus = calculateInitialAttributes(baseInfo, age);
-  const aiLocation = saveData.玩家角色状态?.位置; // 保存AI可能修改过的位置
+
+  // 🔥 关键修复：位置数据应该在 saveData.玩家角色状态.位置
+  const aiLocation = saveData.玩家角色状态?.位置;
+  console.log('[数据最终化-诊断] AI设置的位置对象:', JSON.stringify(aiLocation));
+  console.log('[数据最终化-诊断] saveData.玩家角色状态?.位置:', saveData.玩家角色状态?.位置);
 
   saveData.玩家角色状态 = authoritativeStatus; // 用权威数据完全覆盖
 
-  if (aiLocation && typeof aiLocation.描述 === 'string' && aiLocation.描述 !== '位置生成失败') {
+  // 🔥 位置信息应该已经通过验证器检查，这里只是保留AI生成的值
+  if (aiLocation && typeof aiLocation.描述 === 'string' && aiLocation.描述.includes('·')) {
     saveData.玩家角色状态.位置 = aiLocation;
-    console.log(`[数据最终化] 已保留AI生成的位置信息: "${aiLocation.描述}"`);
+    console.log(`[数据最终化] ✅ 已保留AI生成的位置信息: "${aiLocation.描述}"`);
   } else {
-    console.warn('[数据最终化] AI未生成有效位置，将使用默认位置。');
+    // 如果没有有效位置，记录详细的诊断信息
+    console.error('[数据最终化] ❌ 位置信息无效或丢失');
+    console.error('[数据最终化-诊断] aiLocation:', aiLocation);
+    console.error('[数据最终化-诊断] aiLocation.描述:', aiLocation?.描述);
+    console.error('[数据最终化-诊断] 完整saveData keys:', Object.keys(saveData));
+
+    // 尝试从叙事历史中找到位置命令
+    const narrativeHistory = saveData.叙事历史 || [];
+    if (narrativeHistory.length > 0) {
+      const lastEntry = narrativeHistory[narrativeHistory.length - 1];
+      console.error('[数据最终化-诊断] 最后的叙事历史:', JSON.stringify(lastEntry).substring(0, 500));
+    }
+
+    throw new Error(`位置信息在处理过程中丢失，aiLocation=${JSON.stringify(aiLocation)}`);
   }
   console.log('[数据最终化] 核心玩家状态校准完成。');
 
@@ -787,14 +937,16 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     console.log(`[数据最终化] 重新计算出生日期: ${正确的出生日期.年}年${正确的出生日期.月}月${正确的出生日期.日}日 (游戏时间${saveData.游戏时间.年}年 - 开局年龄${age}岁)`);
   }
 
-  // 3. 最终位置信息校验 (v5 - 两步分离策略)
-  // 在这个阶段，位置应该已经被AI通过tavern_commands正确设置了。
-  // 我们只需要验证它是否存在且格式基本正确。
+  // 3. 最终位置信息确认日志
+  // 位置已经在验证器中严格检查，这里只是最后确认
   const finalLocation = saveData.玩家角色状态?.位置?.描述;
-  if (!finalLocation || typeof finalLocation !== 'string' || !finalLocation.includes('·') || finalLocation.includes('undefined')) {
-    throw new Error(`最终数据校验失败：位置信息无效或缺失。获取到的位置: "${finalLocation}"`);
+  console.log(`[数据校准] ✅ 位置信息最终确认: "${finalLocation}"`);
+
+  // 双重保险：如果位置格式仍然有问题（理论上不会发生）
+  if (!finalLocation || !finalLocation.includes('·')) {
+    console.error('[数据校准] ❌ 位置格式异常，这不应该发生（验证器应该已拦截）');
+    throw new Error(`位置格式验证失败: "${finalLocation}"`);
   }
-  console.log(`[数据校准] 位置信息校验通过: "${finalLocation}"`);
 
   // 4. 最终数据校验
   const finalValidation = validateGameData(saveData, { 角色基础信息: baseInfo, 模式: '单机' }, 'creation');
@@ -833,45 +985,25 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   }
   */
 
-  // 7. 同步到Tavern
-  try {
-    console.log('[初始化流程] 开始同步数据到酒馆...');
-    uiStore.updateLoadingText('💾 正在保存角色数据...');
+  // 7. 🔥 保存创角数据到存档
+  saveData.创角数据 = {
+    名字: baseInfo.名字,
+    性别: baseInfo.性别,
+    种族: baseInfo.种族,
+    年龄: age,
+    先天六司: baseInfo.先天六司,
+    天赋: baseInfo.天赋,
+    灵根: baseInfo.灵根,
+    出生: baseInfo.出生,
+    世界: world.name,
+    天资: baseInfo.天资
+  };
 
-    // ⚠️ 使用分片存储直接覆盖（insertOrAssignVariables会自动覆盖旧值，无需先删除）
-    const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
-
-    // 🔥 核心修复：在分片和发送到Tavern前，深度清理saveData对象，
-    // 移除所有Vue响应式代理，避免structuredClone错误。
-    console.log('[初始化流程] 正在深度清理存档数据以移除响应式代理...');
-    const cleanedSaveData = deepCleanForClone(saveData);
-    console.log('[初始化流程] 数据清理完成。');
-
-    const shards = shardSaveData(cleanedSaveData);
-
-    console.log('[初始化流程] 准备保存', Object.keys(shards).length, '个分片');
-    uiStore.updateLoadingText(`💾 保存 ${Object.keys(shards).length} 个数据分片到酒馆...`);
-
-    const startTime = Date.now();
-    await saveAllShards(shards, helper);
-    const elapsed = Date.now() - startTime;
-    console.log(`[初始化流程] ✅ 所有分片已保存，耗时: ${elapsed}ms`);
-
-    // 清理角色名称数据
-    const cleanedNameData = deepCleanForClone({ 'character.name': baseInfo.名字 });
-
-    // 设置全局角色名称
-    uiStore.updateLoadingText('💾 设置全局角色名称...');
-    await helper.insertOrAssignVariables(cleanedNameData, { type: 'global' });
-    console.log('[初始化流程] ✅ 已设置全局角色名称');
-
-    console.log('[初始化流程] ✅ 数据同步到Tavern成功');
-    uiStore.updateLoadingText('✅ 角色创建完成！');
-  } catch (err) {
-    console.error('[初始化流程] ❌ 保存游戏数据到酒馆失败:', err);
-    console.error('[初始化流程] 错误详情:', err instanceof Error ? err.stack : String(err));
-    console.warn('[初始化流程] 不影响本地游戏开始，将继续');
-  }
+  // 8. 🔥 [新架构] 跳过酒馆同步
+  // 新架构不再使用酒馆变量存储游戏状态
+  // 数据已经在 Pinia Store 中，会自动保存到 IndexedDB
+  console.log('[初始化流程] ✅ 角色创建完成（新架构跳过酒馆同步）');
+  uiStore.updateLoadingText('✅ 角色创建完成！');
 
   console.log('[初始化流程] finalizeAndSyncData即将返回saveData');
   return saveData;
@@ -899,24 +1031,11 @@ export async function initializeCharacter(
     const worldInfo = await generateWorld(processedBaseInfo, world);
     initialSaveData.世界信息 = worldInfo;
 
-    // 步骤 2.5: 🔥 关键修复：将世界信息提前保存到酒馆变量，供AI使用
-    console.log('[初始化流程] 2.5 将世界信息保存到酒馆变量...');
-    uiStore.updateLoadingText('🌍 保存世界信息到酒馆...');
-    try {
-      const helper = getTavernHelper();
-      if (helper) {
-        const { deepCleanForClone } = await import('@/utils/dataValidation');
-        const cleanedWorldInfo = deepCleanForClone({ '世界信息': worldInfo });
-        await helper.insertOrAssignVariables(cleanedWorldInfo, { type: 'chat' });
-        console.log('[初始化流程] ✅ 世界信息已保存到酒馆，包含', worldInfo.大陆信息?.length || 0, '个大陆');
-        console.log('[初始化流程] 大陆列表:', worldInfo.大陆信息?.map((c: any) => c.名称 || c.name).join('、'));
-      } else {
-        console.warn('[初始化流程] ⚠️ 酒馆助手不可用，跳过世界信息保存');
-      }
-    } catch (err) {
-      console.error('[初始化流程] ❌ 保存世界信息到酒馆失败:', err);
-      // 不抛出错误，继续流程
-    }
+    // 步骤 2.5: 🔥 [新架构] 跳过世界信息保存到酒馆
+    // 世界信息已经在 saveData 中，AI会在prompt中接收到完整状态
+    console.log('[初始化流程] 2.5 世界信息已包含在saveData中（新架构跳过酒馆同步）');
+    console.log('[初始化流程] 世界包含', worldInfo.大陆信息?.length || 0, '个大陆');
+    console.log('[初始化流程] 大陆列表:', worldInfo.大陆信息?.map((c: any) => c.名称 || c.name).join('、'));
 
     // 步骤 3: 生成开场剧情 (已包含独立的地点生成步骤)
     console.log('[初始化流程] 准备调用generateOpeningScene...');

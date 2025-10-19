@@ -1,7 +1,7 @@
 <template>
   <div class="variable-section">
     <div class="section-header">
-      <h3 class="section-title">{{ type === 'chat' ? 'Chat Variables (聊天变量)' : 'Global Variables (全局变量)' }}</h3>
+      <h3 class="section-title">{{ type === 'chat' ? 'Chat Variables (聊天变量)' : 'Custom Options (自定义选项)' }}</h3>
       <button @click="$emit('add-new-variable', type)" class="add-btn">
         <Plus :size="14" />
         <span>新增变量</span>
@@ -36,14 +36,14 @@
       <div v-else class="empty-state">
         <Package :size="32" />
         <p v-if="searchQuery">无匹配的变量</p>
-        <p v-else>{{ type === 'chat' ? '暂无聊天变量' : '暂无全局变量' }}</p>
+        <p v-else>{{ type === 'chat' ? '暂无聊天变量' : '暂无自定义选项' }}</p>
         
         <div class="debug-info">
           <details>
             <summary>🔍 调试信息 (点击展开)</summary>
             <div class="debug-content">
               <p><strong>连接状态:</strong> ✅已连接</p>
-              <p><strong>{{ type === 'chat' ? '聊天' : '全局' }}变量数量:</strong> {{ Object.keys(type === 'chat' ? chatVariables : globalVariables).length }}</p>
+              <p><strong>{{ type === 'chat' ? '聊天' : '自定义' }}变量数量:</strong> {{ Object.keys(type === 'chat' ? chatVariables : customOptions).length }}</p>
               <div class="debug-actions">
                 <button @click="$emit('debug-log')" class="debug-btn">
                   🖼️ 控制台输出
@@ -60,25 +60,27 @@
 <script setup lang="ts">
 import { Plus, Edit3, Copy, Trash2, Package } from 'lucide-vue-next'
 
+type GameVariableValue = string | number | boolean | object | null | undefined
+
 interface Props {
-  type: 'chat' | 'global'
-  variables: Record<string, any>
+  type: 'chat' | 'custom'
+  variables: Record<string, GameVariableValue>
   searchQuery: string
-  chatVariables: Record<string, any>
-  globalVariables: Record<string, any>
+  chatVariables: Record<string, GameVariableValue>
+  customOptions: Record<string, GameVariableValue>
 }
 
 defineProps<Props>()
 
 defineEmits<{
-  (e: 'edit-variable', event: { type: string; key: string; value: any }): void
-  (e: 'copy-variable', event: { key: string; value: any }): void
+  (e: 'edit-variable', event: { type: string; key: string; value: GameVariableValue }): void
+  (e: 'copy-variable', event: { key: string; value: GameVariableValue }): void
   (e: 'delete-variable', event: { type: string; key: string }): void
   (e: 'add-new-variable', type: string): void
   (e: 'debug-log'): void
 }>()
 
-const getDataType = (value: any): string => {
+const getDataType = (value: GameVariableValue): string => {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
   if (Array.isArray(value)) return `array[${value.length}]`

@@ -199,7 +199,6 @@ import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings,
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
-import { getTavernHelper } from '@/utils/tavern';
 import type { SystemTaskData } from '@/types/game';
 
 const props = defineProps<{
@@ -278,7 +277,10 @@ const handleBackToMenu = () => {
     onConfirm: async () => {
       console.log('[返回道途] 用户选择保存并退出...');
       try {
-        await characterStore.saveCurrentGame();
+        // 使用 gameStateStore 的 saveBeforeExit 保存
+        const { useGameStateStore } = await import('@/stores/gameStateStore');
+        const gameStateStore = useGameStateStore();
+        await gameStateStore.saveBeforeExit();
         toast.success('游戏已保存');
       } catch (error) {
         console.error('[返回道途] 保存游戏失败:', error);
@@ -299,18 +301,8 @@ const handleBackToMenu = () => {
 
 // 封装一个统一的退出函数，避免代码重复
 const exitToMenu = async (shouldSave = true) => {
-  // 如果 shouldSave 为 true，则保存操作已在 onConfirm 中完成
-  try {
-    const helper = getTavernHelper();
-    if (helper) {
-      const { clearAllShards } = await import('@/utils/storageSharding');
-      await clearAllShards(helper);
-      console.log('[返回道途] 已清理酒馆上下文');
-    }
-  } catch (error) {
-    console.error('[返回道途] 清理酒馆数据失败:', error);
-    toast.warning('清理会话上下文失败');
-  }
+  // 🔥 [新架构] 不再需要清理酒馆上下文，数据已在IndexedDB中管理
+  console.log('[返回道途] 准备返回主菜单');
 
   characterStore.rootState.当前激活存档 = null;
   await characterStore.commitToStorage();
