@@ -607,7 +607,7 @@ export function validateRealmBreakthroughTime(
 
 /**
  * 拦截并修正违反时间法则的境界突破命令
- * 这个函数会在 AIGameMaster.ts 的 executeCommand 中调用
+ * 这个函数会在 AIBidirectionalSystem.ts 的 _executeCommand 中调用
  * @param command 原始命令
  * @param saveData 当前存档数据
  * @returns 修正后的命令（如果违反则阻止）

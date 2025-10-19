@@ -1,9 +1,9 @@
 <template>
-  <div class="tavern-data-header">
+  <div class="game-variable-data-header">
     <div class="panel-header">
       <h2 class="panel-title">
         <Database :size="20" />
-        <span>酒馆数据查看</span>
+        <span>游戏变量查看</span>
       </h2>
       <div class="header-actions">
         <div class="search-bar">
@@ -24,17 +24,14 @@
 import { Database, Search } from 'lucide-vue-next'
 
 interface Props {
-  isRefreshing: boolean
   searchQuery: string
+  isRefreshing: boolean
 }
 
 defineProps<Props>()
 
 defineEmits<{
   'update:search-query': [value: string]
-  refresh: []
-  export: []
-  'show-stats': []
 }>()
 </script>
 

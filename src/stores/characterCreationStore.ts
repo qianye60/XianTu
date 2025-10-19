@@ -96,7 +96,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
   const characterPayload = ref<CharacterCreationPayload>({
     gender: '男',
-    character_name: '',
+    character_name: '无名者',
     race: '人族',
     world_id: '',
     talent_tier_id: '',
@@ -201,11 +201,6 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   // --- ACTIONS ---
 
   async function persistCustomData() {
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.error("【创世神殿】无法连接到酒馆助手，数据无法持久化！");
-      return;
-    }
     const dataToSave: DADCustomData = {
       worlds: creationData.value.worlds.filter(item => item.source === 'cloud'),
       talentTiers: creationData.value.talentTiers.filter(item => item.source === 'cloud'),
@@ -213,26 +208,22 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       spiritRoots: creationData.value.spiritRoots.filter(item => item.source === 'cloud'),
       talents: creationData.value.talents.filter(item => item.source === 'cloud'),
     };
-    
-    // 清理数据，移除不可序列化的值（修复酒馆助手3.6.11的structuredClone问题）
-    const { deepCleanForClone } = await import('@/utils/dataValidation');
-    const cleanedData = deepCleanForClone({ 'DAD_creationData': dataToSave });
 
-    // 云端创世数据存储到全局变量，不影响角色存档
-    await helper.insertOrAssignVariables(cleanedData, { type: 'global' });
-    
-    console.log("【创世神殿】云端创世数据已存入全局变量！");
+    // 保存到 IndexedDB
+    const { saveData } = await import('@/utils/indexedDBManager');
+    await saveData('customCreationData', dataToSave);
+    console.log("【创世神殿】自定义创世数据已保存到数据库！");
   }
 
   async function createEmptyPayload(): Promise<CharacterCreationPayload> {
     // 尝试获取当前用户名字
-    let character_name = '';
+    let character_name = '无名者'; // 默认值为无名者
     try {
       const userName = await getCurrentCharacterName();
-      character_name = userName || '';
+      character_name = userName || '无名者';
     } catch (error) {
       console.warn('获取用户名字失败:', error);
-      character_name = '';
+      character_name = '无名者';
     }
     
     return {
@@ -262,12 +253,11 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     // 初始化时获取用户名字
     try {
       const userName = await getCurrentCharacterName();
-      if (userName) {
-        characterPayload.value.character_name = userName;
-        console.log("【创世神殿】已获取用户道号:", userName);
-      }
+      characterPayload.value.character_name = userName || '无名者';
+      console.log("【创世神殿】已获取用户道号:", characterPayload.value.character_name);
     } catch (error) {
-      console.warn('【创世神殿】获取用户道号失败', error);
+      console.warn('【创世神殿】获取用户道号失败，使用默认名', error);
+      characterPayload.value.character_name = '无名者';
     }
 
     try {
@@ -281,26 +271,23 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         const localSpiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
         const localTalents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
         
-        // 尝试加载自定义数据（标记为cloud的持久化数据）
-        const helper = getTavernHelper();
+        // 尝试加载自定义数据（从 IndexedDB）
         let savedData: DADCustomData = { worlds: [], talentTiers: [], origins: [], spiritRoots: [], talents: [] };
-        if (helper) {
-          try {
-            const globalVars = await helper.getVariables({ type: 'global' });
-            const potentialData = globalVars?.['DAD_creationData'];
-            if (isDADCustomData(potentialData)) {
-              savedData = potentialData;
-              console.log("【创世神殿】单机模式也成功加载了自定义数据:", {
-                worlds: savedData.worlds.length,
-                talentTiers: savedData.talentTiers.length,
-                origins: savedData.origins.length,
-                spiritRoots: savedData.spiritRoots.length,
-                talents: savedData.talents.length
-              });
-            }
-          } catch (error) {
-            console.warn("【创世神殿】单机模式加载自定义数据失败，仅使用本地数据:", error);
+        try {
+          const { loadFromIndexedDB } = await import('@/utils/indexedDBManager');
+          const potentialData = await loadFromIndexedDB('customCreationData');
+          if (potentialData && isDADCustomData(potentialData)) {
+            savedData = potentialData;
+            console.log("【创世神殿】成功加载自定义数据:", {
+              worlds: savedData.worlds.length,
+              talentTiers: savedData.talentTiers.length,
+              origins: savedData.origins.length,
+              spiritRoots: savedData.spiritRoots.length,
+              talents: savedData.talents.length
+            });
           }
+        } catch (error) {
+          console.warn("【创世神殿】加载自定义数据失败，仅使用本地数据:", error);
         }
         
         const savedCloudWorlds = savedData.worlds.map(w => ({...w, source: 'cloud' as DataSource}));

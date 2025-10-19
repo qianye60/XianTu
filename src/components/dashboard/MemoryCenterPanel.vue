@@ -261,8 +261,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { Settings } from 'lucide-vue-next';
 import { panelBus } from '@/utils/panelBus';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
-import { getTavernHelper } from '@/utils/tavern';
+import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore'; // 导入 gameStateStore
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
@@ -288,7 +288,9 @@ interface Memory {
   importance?: number; // 记忆重要性（1-10）
 }
 
-const { characterData, saveData } = useUnifiedCharacterData();
+const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore(); // 实例化 gameStateStore
+// const saveData = computed(() => characterStore.activeSaveSlot?.存档数据); // [已废弃]
 const loading = ref(false);
 const activeFilter = ref('all');
 const showSettings = ref(false);
@@ -403,14 +405,15 @@ const formatTime = (timestamp: number): string => {
  */
 const summarizeMidTermToLongTerm = async () => {
   try {
-    const helper = getTavernHelper();
-    if (!helper) {
-      debug.warn('记忆中心', '无法连接到酒馆助手，跳过AI总结');
-      return;
-    }
+    // const helper = getTavernHelper(); // [已废弃]
+    // if (!helper) {
+    debug.warn('记忆中心', 'AI总结功能正在重构中，暂时禁用。');
+    toast.warning('AI总结功能正在重构中，暂时禁用。');
+    return;
+    // }
 
     // 计算需要总结的中期记忆数量
-    const midTermCount = mediumTermMemories.value.length;
+    /* const midTermCount = mediumTermMemories.value.length;
     const keepCount = memoryConfig.value.midTermKeep || 8;
     const summaryCount = Math.max(0, midTermCount - keepCount);
 
@@ -495,7 +498,7 @@ ${memoriesText}`;
 
     // 保存到存档
     await saveMemoriesToStore();
-
+    */
   } catch (error) {
     debug.error('记忆中心', 'AI总结失败:', error);
     const errorMsg = error instanceof Error ? error.message : '未知错误';
@@ -509,22 +512,19 @@ ${memoriesText}`;
  */
 const saveMemoriesToStore = async () => {
   try {
-    const { useCharacterStore } = await import('@/stores/characterStore');
-    const characterStore = useCharacterStore();
-    const saveData = characterStore.activeSaveSlot?.存档数据;
-
-    if (!saveData || !saveData.记忆) {
-      debug.warn('记忆中心', '存档数据不存在，无法保存记忆');
-      return;
+    if (!gameStateStore.memory) {
+      debug.warn('记忆中心', 'gameStateStore.memory 不存在，无法保存记忆');
+      // 如果不存在，则创建一个空的记忆对象
+      gameStateStore.memory = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
     }
 
     // 将内存中的记忆数据转换为存档格式（字符串数组）
-    saveData.记忆.短期记忆 = shortTermMemories.value.map(m => m.content);
-    saveData.记忆.中期记忆 = mediumTermMemories.value.map(m => m.content);
-    saveData.记忆.长期记忆 = longTermMemories.value.map(m => m.content);
+    gameStateStore.memory.短期记忆 = shortTermMemories.value.map(m => m.content);
+    gameStateStore.memory.中期记忆 = mediumTermMemories.value.map(m => m.content);
+    gameStateStore.memory.长期记忆 = longTermMemories.value.map(m => m.content);
 
     // 触发存档保存
-    await characterStore.syncToTavernAndSave({ fullSync: true });
+    await characterStore.saveCurrentGame();
 
     debug.log('记忆中心', '记忆数据已保存到存档');
   } catch (error) {
@@ -643,24 +643,15 @@ const clearMemory = async () => {
         mediumTermMemories.value = [];
         longTermMemories.value = [];
 
-        // 同步清理酒馆存档数据
-        if (saveData.value) {
-          // 清理存档中的记忆数据
-          if (characterData.value?.记忆) {
-            characterData.value.记忆.短期记忆 = [];
-            characterData.value.记忆.中期记忆 = [];
-            characterData.value.记忆.长期记忆 = [];
-          }
-
-          // 同步到酒馆
-          const helper = getTavernHelper();
-          if (helper) {
-            const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
-            const shards = shardSaveData(saveData.value);
-            await saveAllShards(shards, helper);
-            console.log('[记忆中心] 已同步清理酒馆记忆数据');
-          }
+        // 同步清理 gameStateStore 中的数据
+        if (gameStateStore.memory) {
+          gameStateStore.memory.短期记忆 = [];
+          gameStateStore.memory.中期记忆 = [];
+          gameStateStore.memory.长期记忆 = [];
         }
+
+        // 保存变更
+        await characterStore.saveCurrentGame();
 
         toast.success('记忆已清理并同步到酒馆');
       } catch (error) {
@@ -697,8 +688,8 @@ const loadMemoryData = async () => {
     const loadedMediumMemories: Memory[] = [];
     const loadedLongMemories: Memory[] = [];
 
-    // 直接从存档数据获取记忆（字符串数组）
-    const memoryData = characterData.value?.记忆;
+    // 直接从 gameStateStore 获取记忆
+    const memoryData = gameStateStore.memory;
 
     if (memoryData) {
       debug.log('记忆中心', '从存档数据加载记忆:', Object.keys(memoryData));
@@ -777,17 +768,15 @@ const loadMemoryData = async () => {
 // 记忆配置管理功能
 const loadMemoryConfig = async () => {
   try {
-    const helper = getTavernHelper();
-    if (helper) {
-      const settings = await helper.getVariable('character.memorySettings', { type: 'chat' });
-      if (settings && typeof settings === 'object') {
-        // 合并加载的配置，以防存档中的配置不完整
-        memoryConfig.value = { ...memoryConfig.value, ...settings };
-        debug.log('记忆中心', '已从酒馆变量加载配置', settings);
-        return;
-      }
+    // 🔥 [新架构] 从 localStorage 读取配置
+    const saved = localStorage.getItem('memory-settings');
+    if (saved) {
+      const settings = JSON.parse(saved);
+      memoryConfig.value = { ...memoryConfig.value, ...settings };
+      debug.log('记忆中心', '已从localStorage加载配置', settings);
+      return;
     }
-    debug.log('记忆中心', '未找到酒馆配置，使用默认值');
+    debug.log('记忆中心', '未找到配置，使用默认值');
   } catch (error) {
     debug.error('记忆中心', '加载记忆配置失败:', error);
   }
@@ -795,20 +784,14 @@ const loadMemoryConfig = async () => {
 
 const saveMemoryConfig = async () => {
   try {
-    const helper = getTavernHelper();
-    if (helper) {
-      const { deepCleanForClone } = await import('@/utils/dataValidation');
-      const cleanedCfg = deepCleanForClone(memoryConfig.value);
-      await helper.setVariable('character.memorySettings', cleanedCfg, { type: 'chat' });
-      
-      // 发送全局事件，通知其他面板配置已更新
-      panelBus.emit('memory-settings-updated', cleanedCfg);
-      
-      toast.success('记忆系统配置已保存');
-      debug.log('记忆中心', '配置已保存并同步:', cleanedCfg);
-    } else {
-      throw new Error('无法获取Tavern助手');
-    }
+    // 🔥 [新架构] 保存到 localStorage
+    localStorage.setItem('memory-settings', JSON.stringify(memoryConfig.value));
+
+    // 发送全局事件，通知其他面板配置已更新
+    panelBus.emit('memory-settings-updated', memoryConfig.value);
+
+    toast.success('记忆系统配置已保存');
+    debug.log('记忆中心', '配置已保存:', memoryConfig.value);
   } catch (error) {
     debug.error('记忆中心', '保存配置失败:', error);
     toast.error('保存配置失败');
@@ -887,16 +870,11 @@ const deleteMemory = async (memory: Memory, displayIndex: number) => {
           return;
         }
 
-        // 🔥 步骤2：直接通过syncToTavernAndSave保存（自动覆盖）
-        // 说明：删除显示层数据后，通过saveMemoriesToStore()将内存数据写回存档并同步
-        const { useCharacterStore } = await import('@/stores/characterStore');
-        const characterStore = useCharacterStore();
-
-        // 调用保存函数，将当前内存中的记忆数据覆盖到存档
+        // 保存到 gameStateStore 和 IndexedDB
         await saveMemoriesToStore();
 
-        debug.log('记忆中心', `✅ 已删除${getTypeName(memory.type)}并同步到存档和酒馆`);
-        toast.success(`已删除${getTypeName(memory.type)}并同步到酒馆`);
+        debug.log('记忆中心', `✅ 已删除${getTypeName(memory.type)}并同步到存档`);
+        toast.success(`已删除${getTypeName(memory.type)}`);
       } catch (error) {
         debug.error('记忆中心', '删除记忆失败:', error);
         const errorMsg = error instanceof Error ? error.message : '未知错误';
@@ -912,11 +890,11 @@ const deleteMemory = async (memory: Memory, displayIndex: number) => {
  */
 const exportMemoriesAsNovel = () => {
   try {
-    const characterName = characterData.value?.名字 || '修行者';
-    const worldName = saveData.value?.世界信息?.世界名称 || '修仙世界';
+    const characterName = gameStateStore.character?.名字 || '修行者';
+    const worldName = gameStateStore.worldInfo?.世界名称 || '修仙世界';
 
     // 获取所有短期记忆（对话历史）
-    const memories = saveData.value?.记忆?.短期记忆 || [];
+    const memories = gameStateStore.memory?.短期记忆 || [];
 
     if (memories.length === 0) {
       toast.warning('暂无对话历史可导出');

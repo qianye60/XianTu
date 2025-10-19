@@ -7,12 +7,13 @@
       <!-- Character Name -->
       <div class="preview-item name-item">
         <label for="characterName">道号:</label>
-        <input 
-          type="text" 
-          id="characterName" 
-          class="named" 
-          v-model="store.characterPayload.character_name" 
-          placeholder="{{user}}" 
+        <input
+          type="text"
+          id="characterName"
+          class="named readonly-input"
+          v-model="store.characterPayload.character_name"
+          placeholder="正在从酒馆获取..."
+          readonly
           @mousedown.stop
           @click.stop
           @select.stop
@@ -130,12 +131,51 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
+import { getTavernHelper } from '@/utils/tavern'
+
 const store = useCharacterCreationStore()
 
 const props = defineProps<{
   isLocalCreation: boolean
 }>()
+
+// 从酒馆获取当前Persona名字
+onMounted(async () => {
+  try {
+    const helper = getTavernHelper()
+    if (helper) {
+      // 优先使用宏解析，这是最可靠的方式
+      const personaName = helper.substitudeMacros('{{user}}');
+      console.log('[Step7_Preview] 解析宏 {{user}} ->', personaName);
+
+      if (personaName && personaName !== '{{user}}' && typeof personaName === 'string' && personaName.trim()) {
+        store.characterPayload.character_name = personaName.trim()
+        console.log('[Step7_Preview] ✅ 从酒馆宏获取用户名字:', personaName)
+      } else {
+        // 如果宏解析失败，回退到旧的全局变量方法
+        console.warn('[Step7_Preview] ⚠️ 宏 {{user}} 解析失败, 尝试从全局变量获取')
+        const vars = helper.getVariables({ type: 'global' })
+        console.log('[Step7_Preview] 酒馆全局变量:', vars)
+
+        const fallbackName = vars['persona.name'] || vars['name'] || vars['user_name']
+        console.log('[Step7_Preview] 检测到Persona名字 (fallback):', fallbackName)
+
+        if (fallbackName && typeof fallbackName === 'string' && fallbackName.trim()) {
+          store.characterPayload.character_name = fallbackName.trim()
+          console.log('[Step7_Preview] ✅ 从酒馆获取Persona名字 (fallback):', fallbackName)
+        } else {
+          console.warn('[Step7_Preview] ⚠️ 未获取到有效的Persona名字，保持默认值')
+        }
+      }
+    } else {
+      console.warn('[Step7_Preview] ⚠️ 酒馆助手不可用')
+    }
+  } catch (error) {
+    console.error('[Step7_Preview] ❌ 无法从酒馆获取Persona名字:', error)
+  }
+})
 
 const incrementAge = () => {
   if (store.characterPayload.current_age < 18) {
@@ -268,6 +308,18 @@ const decrementAge = () => {
 .name-item input:focus, .input-field input:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+/* 只读输入框样式 */
+.readonly-input {
+  background: var(--color-surface-light) !important;
+  cursor: not-allowed !important;
+  opacity: 0.8;
+  user-select: none;
+}
+
+.readonly-input:focus {
+  border-color: var(--color-border) !important;
 }
 
 /* 性别选择 */
@@ -416,6 +468,10 @@ const decrementAge = () => {
   background: #111827;
   border-color: #374151;
   color: #f9fafb;
+}
+
+[data-theme="dark"] .readonly-input {
+  background: #374151 !important;
 }
 
 [data-theme="dark"] .gender-label:hover {

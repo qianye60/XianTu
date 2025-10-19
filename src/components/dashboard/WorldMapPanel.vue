@@ -426,53 +426,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { Target, Maximize2, Mountain, Building2, Home, Sparkles, Gem, Skull, Zap } from 'lucide-vue-next';
-import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import type { WorldLocation } from '@/types/location';
 import type { CultivationContinent, WorldMapConfig } from '@/types/worldMap';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useGameStateStore } from '@/stores/gameStateStore';
 
 // --- 类型定义 ---
 // Note: Local CultivationLocation interface is removed, using WorldLocation from types.
 
 // 额外的辅助类型，移除 any 使用，保证属性访问安全
 type LngLat = { longitude: number; latitude: number };
-
-// 酒馆变量：使用新的分片存储格式
-type WorldInfoShard = {
-  世界名称?: string;
-  世界背景?: string;
-  大陆信息?: unknown[];
-  势力信息?: unknown[];
-  地点信息?: unknown[];
-  地图配置?: WorldMapConfig;
-  生成信息?: {
-    生成时间?: string;
-    世界背景?: string;
-    世界纪元?: string;
-    特殊设定?: string;
-    版本?: string;
-  };
-};
-
-type LocationShard = {
-  描述?: string;
-  区域?: string;
-  坐标?: {
-    X?: number; Y?: number; x?: number; y?: number;
-    longitude?: number; latitude?: number;
-  };
-};
-
-type PlayerLocationMarker = {
-  coordinates?: { x?: number; y?: number; longitude?: number; latitude?: number };
-};
-
-type TavernVariables = Record<string, unknown> & {
-  ['世界信息']?: WorldInfoShard;
-  ['位置']?: LocationShard;
-  ['player_location_marker']?: PlayerLocationMarker;
-};
 
 // 原始势力/地点输入的最小形状（只描述本组件访问到的字段）
 interface RawFaction {
@@ -502,8 +465,8 @@ interface RawLocation {
 
 type MayHaveImportance = { importance?: unknown; 重要?: unknown; is_key?: unknown; isKey?: unknown };
 
-// 统一角色数据访问
-const { characterData } = useUnifiedCharacterData();
+// 获取 gameStateStore
+const gameStateStore = useGameStateStore();
 
 // 地图尺寸配置 - 支持动态配置
 const mapWidth = ref(3600);  // 坐标系宽度
@@ -557,90 +520,50 @@ const playerName = ref('');
 const cultivationLocations = ref<WorldLocation[]>([]);
 const cultivationContinents = ref<CultivationContinent[]>([]);
 
-// 世界信息计算属性 - 使用统一数据访问
+// 世界信息计算属性 - 从 gameStateStore 读取
 const worldName = computed(() => {
-  const worldInfo = characterData.value?.世界信息;
+  const worldInfo = gameStateStore.worldInfo;
   return worldInfo?.世界名称 || '修仙界';
 });
 
 const worldBackground = computed(() => {
-  const worldInfo = characterData.value?.世界信息;
+  const worldInfo = gameStateStore.worldInfo;
   return worldInfo?.世界背景 || '';
 });
 
-// 明确初始化类型，避免 {} 被推断为不完全的 Record 结构
-const tavernVariables = ref<TavernVariables>({} as TavernVariables);
 
-// 玩家位置 - 使用统一数据访问
+// 玩家位置 - 从 gameStateStore 读取
 const playerPosition = computed(() => {
-  // 方法1: 尝试从player_location_marker获取位置(位置标点系统)
-  const locationMarker = tavernVariables.value?.['player_location_marker'];
-  if (locationMarker && locationMarker.coordinates) {
-    console.log('[玩家定位] 从位置标点获取坐标:', locationMarker.coordinates);
-
-    const coords = locationMarker.coordinates;
-    // 地理坐标格式转换
-    if (coords.longitude !== undefined && coords.latitude !== undefined) {
-      const virtualPos = geoToVirtual(coords.longitude, coords.latitude);
-      console.log('[玩家定位] 标点转换结果:', virtualPos);
-      return virtualPos;
-    }
-    // 虚拟坐标格式
-    else if (coords.x !== undefined && coords.y !== undefined) {
-      return { x: coords.x, y: coords.y };
-    }
+  // 从玩家角色状态获取位置
+  const playerStatus = gameStateStore.playerStatus;
+  if (!playerStatus || !playerStatus.位置) {
+    console.warn('[玩家定位] playerStatus 或 位置不存在:', {
+      有playerStatus: !!playerStatus,
+      位置: playerStatus?.位置
+    });
+    return null;
   }
 
-  // 方法2: 从位置分片获取 - 使用统一数据访问
-  const locationShard = characterData.value?.位置;
-  if (locationShard && (locationShard.x !== undefined && locationShard.y !== undefined)) {
-    console.log('[玩家定位] 从位置分片获取坐标:', { x: locationShard.x, y: locationShard.y });
-    return { x: locationShard.x, y: locationShard.y };
+  const location = playerStatus.位置;
+  console.log('[玩家定位] 位置数据:', location);
+
+  // 优先使用 x, y 坐标（虚拟坐标系）
+  if (location.x !== undefined && location.y !== undefined) {
+    console.log('[玩家定位] 从玩家状态获取坐标:', { x: location.x, y: location.y });
+    return { x: location.x, y: location.y };
   }
 
-  // 方法3: 处理其他可能的坐标格式（作为备用）
-  if (locationShard && typeof locationShard === 'object') {
-    const coords = locationShard as any;
-    // Vector2格式 (X,Y大写)
-    if (coords.X !== undefined && coords.Y !== undefined) {
-      return { x: coords.X, y: coords.Y };
-    }
-    // 坐标对象格式
-    if (coords.坐标) {
-      const coordObj = coords.坐标;
-      if (coordObj.x !== undefined && coordObj.y !== undefined) {
-        return { x: coordObj.x, y: coordObj.y };
-      }
-      if (coordObj.X !== undefined && coordObj.Y !== undefined) {
-        return { x: coordObj.X, y: coordObj.Y };
-      }
-    }
-    // 地理坐标格式
-    else if (coords.longitude !== undefined && coords.latitude !== undefined) {
-      const virtualPos = geoToVirtual(coords.longitude, coords.latitude);
-      console.log('[玩家定位] 转换结果:', virtualPos);
-      return virtualPos;
-    }
+  // 其次尝试经纬度坐标（兼容旧数据结构）
+  const loc = location as any;
+  if (loc.经度 !== undefined && loc.纬度 !== undefined) {
+    const virtualPos = geoToVirtual(loc.经度, loc.纬度);
+    console.log('[玩家定位] 从经纬度转换坐标:', virtualPos);
+    return virtualPos;
   }
 
-  console.warn('[玩家定位] 无法解析坐标');
+  console.warn('[玩家定位] 无法解析坐标，位置数据格式不正确');
   return null;
 });
-
-// 延迟显示Toast消息，确保视觉间隔
-let toastDelayCounter = 0;
-const showToastWithDelay = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
-  // 每个消息增加200ms延迟，确保视觉错开
-  setTimeout(() => {
-    toast[type](message);
-  }, toastDelayCounter * 200);
-  toastDelayCounter++;
-
-  // 重置计数器，避免累积过多延迟
-  if (toastDelayCounter > 5) {
-    toastDelayCounter = 0;
-  }
-};
 
 // 地图交互处理 - 增加边界限制
 const handleZoom = (event: WheelEvent) => {
@@ -1204,32 +1127,19 @@ const getLocationColor = (type: string): string => {
   return colorMap[type] || '#6B7280';
 };
 
-// 初始化地图 - 从酒馆变量加载完整的修仙世界数据
+// 初始化地图 - 从 gameStateStore 加载数据
 const initializeMap = async () => {
   try {
-    mapStatus.value = '正在从天机阁加载世界数据...';
+    mapStatus.value = '正在加载世界数据...';
 
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[坤舆图志] 酒馆Helper不可用');
-      mapStatus.value = '酒馆系统不可用，请重新生成世界后再打开地图';
-      return;
-    }
-
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    const globalVars = await helper.getVariables({ type: 'global' });
-
-    // 更新tavernVariables供playerPosition使用
-    // 合并聊天与全局变量；在类型上断言为 TavernVariables 以满足下游读取
-    tavernVariables.value = ((chatVars && globalVars) ? { ...chatVars, ...globalVars } : {}) as TavernVariables;
-
-    // 从全局变量获取玩家信息
-    playerName.value = (globalVars['character.name'] as string) || '道友';
+    // 从 gameStateStore 获取玩家信息
+    const character = gameStateStore.character;
+    playerName.value = character?.名字 || '道友';
 
     // 加载地图配置
     await loadMapConfig();
 
-    // 加载修仙世界数据 - 使用统一数据访问
+    // 加载修仙世界数据
     await loadCultivationWorldFromTavern();
 
     // 如果没有加载到数据，提示用户而非加载默认地图
@@ -1239,15 +1149,11 @@ const initializeMap = async () => {
     }
 
     mapStatus.value = '修仙世界加载完成';
-    // 移除频繁的地图加载成功提示，避免干扰正常操作
-    // showToastWithDelay('坤舆图志已连通天机', 'success');
 
   } catch (error) {
     console.error('[坤舆图志] 地图初始化失败:', error);
-    mapStatus.value = '天机阁连接失败';
-    showToastWithDelay('世界数据加载失败: ' + (error as Error).message, 'error');
-
-    // 出错时不再加载默认地图
+    mapStatus.value = '世界数据加载失败';
+    toast.error('世界数据加载失败: ' + (error as Error).message);
   }
 };
 
@@ -1320,12 +1226,12 @@ const addTestData = () => {
   console.log('[坤舆图志] ✅ 测试数据加载完成，共', cultivationLocations.value.length, '个地点');
 };
 
-// 加载地图配置 - 使用统一数据访问
+// 加载地图配置 - 从 gameStateStore 读取
 const loadMapConfig = async () => {
   try {
     console.log('[地图配置] 开始加载地图配置...');
 
-    const worldInfo = characterData.value?.世界信息;
+    const worldInfo = gameStateStore.worldInfo;
     const config = worldInfo?.地图配置;
 
     if (config) {
@@ -1348,10 +1254,10 @@ const loadMapConfig = async () => {
   }
 };
 
-// 从酒馆变量加载GeoJSON格式的修仙世界数据 - 使用统一数据访问
+// 从 gameStateStore 加载修仙世界数据
 const loadCultivationWorldFromTavern = async () => {
   try {
-    console.log('[坤舆图志] 开始加载酒馆世界数据...');
+    console.log('[坤舆图志] 开始加载世界数据...');
 
     // 清空现有数据
     cultivationLocations.value = [];
@@ -1367,12 +1273,11 @@ const loadCultivationWorldFromTavern = async () => {
     await loadLocationsData();
 
     if (cultivationLocations.value.length === 0) {
-      showToastWithDelay('未找到有效的地点数据，将显示测试数据', 'warning');
+      toast.warning('未找到有效的地点数据');
       addTestData(); // 添加测试数据以便调试
     } else {
-      // showToastWithDelay(`成功加载 ${cultivationLocations.value.length} 个修仙地点`, 'success');
       mapStatus.value = `已加载 ${cultivationLocations.value.length} 个地点`;
-      
+
       // 打印加载的数据供调试
       console.log('[坤舆图志] 加载完成的数据统计:', {
         大陆数量: cultivationContinents.value.length,
@@ -1392,16 +1297,16 @@ const loadCultivationWorldFromTavern = async () => {
   } catch (error) {
     console.error('[坤舆图志] 加载修仙世界数据失败:', error);
     mapStatus.value = '数据加载失败';
-    showToastWithDelay('加载世界数据失败: ' + (error as Error).message, 'error');
+    toast.error('加载世界数据失败: ' + (error as Error).message);
   }
 };
 
-// 加载大洲数据 - 使用统一数据访问
+// 加载大洲数据 - 从 gameStateStore 读取
 const loadContinentsData = async () => {
   try {
     console.log('🏔️ [大陆加载] 开始加载大陆数据');
 
-    const worldInfo = characterData.value?.世界信息;
+    const worldInfo = gameStateStore.worldInfo;
     const continentsData = worldInfo?.大陆信息 || [];
 
     console.log('🏔️ [大陆加载] 从世界信息读取到大陆数量:', continentsData.length);
@@ -1432,12 +1337,12 @@ const loadContinentsData = async () => {
   }
 };
 
-// 加载势力数据 - 使用统一数据访问
+// 加载势力数据 - 从 gameStateStore 读取
 const loadFactionsData = async () => {
   try {
     console.log('⚔️ [势力加载] 开始加载势力数据');
 
-    const worldInfo = characterData.value?.世界信息;
+    const worldInfo = gameStateStore.worldInfo;
     const factionsData = worldInfo?.势力信息 || [];
 
     console.log('⚔️ [势力加载] 从世界信息读取到势力数量:', factionsData.length);
@@ -1540,12 +1445,12 @@ const loadFactionsData = async () => {
   }
 };
 
-// 加载地点数据 - 使用统一数据访问
+// 加载地点数据 - 从 gameStateStore 读取
 const loadLocationsData = async () => {
   try {
     console.log('🏯 [地点加载] 开始加载地点数据');
 
-    const worldInfo = characterData.value?.世界信息;
+    const worldInfo = gameStateStore.worldInfo;
     const locationsData = worldInfo?.地点信息 || [];
 
     console.log('🏯 [地点加载] 从世界信息读取到地点数量:', locationsData.length);
@@ -1638,12 +1543,6 @@ const loadLocationsData = async () => {
 // 调试地图数据 - 详细检查变量结构
 const debugMapData = async () => {
   try {
-    const helper = getTavernHelper();
-    if (!helper) {
-      showToastWithDelay('酒馆系统不可用', 'error');
-      return;
-    }
-
     // 测试坐标转换函数
     console.log('[调试] ===== 测试坐标转换 =====');
     const testCoords = [
@@ -1658,17 +1557,11 @@ const debugMapData = async () => {
       console.log(`[调试] ${test.desc} (${test.lng}, ${test.lat}) -> (${virtual.x.toFixed(1)}, ${virtual.y.toFixed(1)})`);
     });
 
-    // 获取所有类型的变量进行对比
+    // 开始详细调试
     console.log('[调试] ===== 开始详细调试 =====');
 
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    const globalVars = await helper.getVariables({ type: 'global' });
-
-    console.log('[调试] Chat变量键值:', Object.keys(chatVars));
-    console.log('[调试] Global变量键值:', Object.keys(globalVars));
-
-    // 检查世界数据 - 使用统一数据访问
-    const worldInfo = characterData.value?.世界信息;
+    // 检查世界数据 - 从 gameStateStore 读取
+    const worldInfo = gameStateStore.worldInfo;
     if (worldInfo) {
       console.log('[调试] ===== 找到世界数据结构 =====');
       console.log('[调试] 世界信息:', worldInfo);
@@ -1685,41 +1578,6 @@ const debugMapData = async () => {
     } else {
       console.log('[调试] ===== 未找到世界数据结构 =====');
     }
-
-    // 检查旧格式数据
-    if (chatVars['world_factions']) {
-      console.log('[调试] ===== 找到旧格式势力数据 =====');
-      console.log('[调试] world_factions:', chatVars['world_factions']);
-    }
-
-    if (chatVars['world_locations']) {
-      console.log('[调试] ===== 找到旧格式地点数据 =====');
-      console.log('[调试] world_locations:', chatVars['world_locations']);
-    }
-
-    if (chatVars['world_continents']) {
-      console.log('[调试] ===== 找到旧格式大陆数据 =====');
-      console.log('[调试] world_continents:', chatVars['world_continents']);
-    }
-
-    // 检查所有聊天变量的详细结构
-    console.log('[调试] ===== Chat变量详细内容 =====');
-    Object.entries(chatVars).forEach(([key, value]) => {
-      console.log(`[调试] "${key}":`, typeof value, value);
-
-      // 特别检查可能包含world数据的变量
-      if (value && typeof value === 'object') {
-        const valueKeys = Object.keys(value);
-        console.log(`[调试] "${key}" 的属性:`, valueKeys);
-
-        if (valueKeys.includes('world')) {
-          console.log(`[调试] "${key}.world":`, (value as Record<string, unknown>)['world']);
-        }
-        if (valueKeys.includes('mapData')) {
-          console.log(`[调试] "${key}.mapData":`, (value as Record<string, unknown>)['mapData']);
-        }
-      }
-    });
 
     // 尝试重新加载数据
     await loadCultivationWorldFromTavern();
@@ -1756,14 +1614,14 @@ const debugMapData = async () => {
 
   } catch (error) {
     console.error('[调试] 调试过程出错:', error);
-    showToastWithDelay('调试失败: ' + (error as Error).message, 'error');
+    toast.error('调试失败: ' + (error as Error).message);
   }
 };
 
 // 定位到玩家
 const centerToPlayer = () => {
   if (!playerPosition.value) {
-    showToastWithDelay('无法定位玩家位置', 'warning');
+    toast.warning('无法定位玩家位置');
     return;
   }
 
@@ -1773,7 +1631,7 @@ const centerToPlayer = () => {
   // 定位到玩家时也保持较小的缩放
   zoomLevel.value = 0.9;
 
-  showToastWithDelay('已定位到当前位置', 'success');
+  toast.success('已定位到当前位置');
 };
 
 // 根据地点类型计算图标尺寸

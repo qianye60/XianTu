@@ -141,7 +141,7 @@ import CharacterManagement from '@/components/character-creation/CharacterManage
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
 import { getTavernHelper } from '@/utils/tavern';
 import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
-import type { SaveData, CharacterBaseInfo } from '@/types/game';
+import type { CharacterBaseInfo } from '@/types/game';
 
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
@@ -309,12 +309,13 @@ onMounted(async () => {
     const helper = getTavernHelper();
     if (helper) {
       const vars = await helper.getVariables({ type: 'chat' });
-      const { assembleSaveData } = await import('@/utils/storageSharding');
-      const saveData = assembleSaveData(vars as any);
+      // storageSharding 已移除，此处注释掉相关逻辑
+      // const { assembleSaveData } = await import('@/utils/storageSharding');
+      // const saveData = assembleSaveData(vars as any);
       const baseInfo = vars['基础信息'] as CharacterBaseInfo | undefined;
-      if (saveData && baseInfo) {
-        await syncHeavenlyPrecalcToTavern(saveData, baseInfo as CharacterBaseInfo);
-        console.log('[GameView] 已刷新天道演算预计算');
+      if (baseInfo) {
+        // await syncHeavenlyPrecalcToTavern(saveData, baseInfo as CharacterBaseInfo);
+        console.log('[GameView] 天道演算预计算已跳过（storageSharding已移除）');
       }
     }
   } catch (e) {

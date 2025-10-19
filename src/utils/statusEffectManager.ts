@@ -41,20 +41,20 @@ export function gameTimeToTotalMinutes(gameTime: GameTime): number {
  */
 export function formatMinutesToDuration(minutes: number): string {
   if (minutes <= 0) return '已过期';
-  
+
   const years = Math.floor(minutes / (365 * 24 * 60));
   const months = Math.floor((minutes % (365 * 24 * 60)) / (30 * 24 * 60));
   const days = Math.floor((minutes % (30 * 24 * 60)) / (24 * 60));
   const hours = Math.floor((minutes % (24 * 60)) / 60);
   const mins = minutes % 60;
-  
+
   const parts = [];
   if (years > 0) parts.push(`${years}年`);
   if (months > 0) parts.push(`${months}月`);
   if (days > 0) parts.push(`${days}天`);
   if (hours > 0) parts.push(`${hours}小时`);
   if (mins > 0) parts.push(`${mins}分钟`);
-  
+
   return parts.length > 0 ? parts.join('') : '不足1分钟';
 }
 
@@ -65,39 +65,39 @@ export function formatMinutesToDuration(minutes: number): string {
  */
 export function parseDurationToMinutes(duration: string): number {
   if (!duration || typeof duration !== 'string') return 0;
-  
+
   let totalMinutes = 0;
-  
+
   // 匹配年
   const yearMatch = duration.match(/(\d+)年/);
   if (yearMatch) {
     totalMinutes += parseInt(yearMatch[1]) * 365 * 24 * 60;
   }
-  
+
   // 匹配月
   const monthMatch = duration.match(/(\d+)月/);
   if (monthMatch) {
     totalMinutes += parseInt(monthMatch[1]) * 30 * 24 * 60;
   }
-  
+
   // 匹配天
   const dayMatch = duration.match(/(\d+)天/);
   if (dayMatch) {
     totalMinutes += parseInt(dayMatch[1]) * 24 * 60;
   }
-  
+
   // 匹配小时
   const hourMatch = duration.match(/(\d+)小时/);
   if (hourMatch) {
     totalMinutes += parseInt(hourMatch[1]) * 60;
   }
-  
+
   // 匹配分钟
   const minuteMatch = duration.match(/(\d+)分钟/);
   if (minuteMatch) {
     totalMinutes += parseInt(minuteMatch[1]);
   }
-  
+
   return totalMinutes;
 }
 
@@ -113,16 +113,16 @@ export function isStatusEffectExpired(effect: StatusEffect, currentGameTime: Gam
     const effectStartTime = gameTimeToTotalMinutes(effect.生成时间);
     const currentTime = gameTimeToTotalMinutes(currentGameTime);
     const elapsedMinutes = currentTime - effectStartTime;
-    
+
     return elapsedMinutes >= effect.持续时间分钟;
   }
-  
+
   // 旧格式兼容：解析字符串时间（向后兼容）
   if (effect.时间 && effect.剩余时间) {
     const remainingMinutes = parseDurationToMinutes(effect.剩余时间);
     return remainingMinutes <= 0;
   }
-  
+
   // 如果没有时间信息，保留状态效果
   return false;
 }
@@ -140,15 +140,10 @@ export function calculateRemainingMinutes(effect: StatusEffect, currentGameTime:
     const currentTime = gameTimeToTotalMinutes(currentGameTime);
     const elapsedMinutes = currentTime - effectStartTime;
     const remainingMinutes = effect.持续时间分钟 - elapsedMinutes;
-    
+
     return Math.max(0, remainingMinutes);
   }
-  
-  // 旧格式兼容
-  if (effect.剩余时间) {
-    return Math.max(0, parseDurationToMinutes(effect.剩余时间));
-  }
-  
+
   // 如果没有时间信息，返回一个默认值
   return 60; // 默认1小时
 }
@@ -218,16 +213,16 @@ export function updateStatusEffects(saveData: SaveData): boolean {
     if (!Array.isArray(statusEffects) || statusEffects.length === 0) {
       return false;
     }
-    
+
     const currentGameTime = saveData.游戏时间;
     if (!currentGameTime) {
       console.warn('[状态效果] 游戏时间不存在，无法更新状态效果');
       return false;
     }
-    
+
     let hasExpired = false;
     const updatedEffects: StatusEffect[] = [];
-    
+
     for (const effect of statusEffects) {
       // 过滤掉 null/undefined 值
       if (!effect || typeof effect !== 'object') {
@@ -235,7 +230,7 @@ export function updateStatusEffects(saveData: SaveData): boolean {
         hasExpired = true;
         continue;
       }
-      
+
       // 规范化状态效果（处理旧格式）
       const normalizedEffect = normalizeStatusEffect(effect, currentGameTime);
       if (!normalizedEffect) {
@@ -243,7 +238,7 @@ export function updateStatusEffects(saveData: SaveData): boolean {
         hasExpired = true;
         continue;
       }
-      
+
       // 检查是否过期
       if (isStatusEffectExpired(normalizedEffect, currentGameTime)) {
         console.log(`[状态效果] 状态效果"${normalizedEffect.状态名称}"已过期，将被移除`);
@@ -252,16 +247,16 @@ export function updateStatusEffects(saveData: SaveData): boolean {
         updatedEffects.push(normalizedEffect);
       }
     }
-    
+
     // 更新状态效果数组
     set(saveData, '玩家角色状态.状态效果', updatedEffects);
-    
+
     if (hasExpired) {
       console.log(`[状态效果] 已移除 ${statusEffects.length - updatedEffects.length} 个过期状态效果`);
     }
-    
+
     return hasExpired;
-    
+
   } catch (error) {
     console.error('[状态效果] 更新状态效果失败:', error);
     return false;
@@ -281,20 +276,20 @@ export function addStatusEffect(saveData: SaveData, effectData: LegacyStatusEffe
       console.warn('[状态效果] 游戏时间不存在，无法添加状态效果');
       return false;
     }
-    
+
     const normalizedEffect = normalizeStatusEffect(effectData, currentGameTime);
     if (!normalizedEffect) {
       console.warn('[状态效果] 无法规范化状态效果数据:', effectData);
       return false;
     }
-    
+
     const statusEffects = get(saveData, '玩家角色状态.状态效果', []) as StatusEffect[];
     statusEffects.push(normalizedEffect);
     set(saveData, '玩家角色状态.状态效果', statusEffects);
-    
+
     console.log(`[状态效果] 已添加状态效果: ${normalizedEffect.状态名称}, 持续时间: ${formatMinutesToDuration(normalizedEffect.持续时间分钟)}`);
     return true;
-    
+
   } catch (error) {
     console.error('[状态效果] 添加状态效果失败:', error);
     return false;
@@ -311,17 +306,17 @@ export function removeStatusEffect(saveData: SaveData, effectName: string): bool
   try {
     const statusEffects = get(saveData, '玩家角色状态.状态效果', []) as StatusEffect[];
     const initialLength = statusEffects.length;
-    
+
     const updatedEffects = statusEffects.filter(effect => effect.状态名称 !== effectName);
     set(saveData, '玩家角色状态.状态效果', updatedEffects);
-    
+
     const removed = initialLength > updatedEffects.length;
     if (removed) {
       console.log(`[状态效果] 已移除状态效果: ${effectName}`);
     }
-    
+
     return removed;
-    
+
   } catch (error) {
     console.error('[状态效果] 移除状态效果失败:', error);
     return false;
@@ -344,11 +339,11 @@ export function getStatusEffectDisplayInfo(saveData: SaveData): Array<{
   try {
     const statusEffects = get(saveData, '玩家角色状态.状态效果', []) as StatusEffect[];
     const currentGameTime = saveData.游戏时间;
-    
+
     if (!currentGameTime || !Array.isArray(statusEffects)) {
       return [];
     }
-    
+
     // 过滤掉 null/undefined 值并映射为显示信息
     return statusEffects
       .filter(effect => effect && typeof effect === 'object' && effect.状态名称)
@@ -360,7 +355,7 @@ export function getStatusEffectDisplayInfo(saveData: SaveData): Array<{
         强度: effect.强度,
         来源: effect.来源
       }));
-    
+
   } catch (error) {
     console.error('[状态效果] 获取显示信息失败:', error);
     return [];

@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { toasts } from '@/utils/toast';
+import { toastsReadonly as toasts } from '@/utils/toast';
 </script>
 
 <style scoped>

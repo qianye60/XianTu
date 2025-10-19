@@ -476,12 +476,12 @@
                   <div class="skills-count">({{ totalSkillsCount }}个)</div>
                   <ChevronDown
                     :size="14"
-                    :class="{ 'rotated': showSkillsDetails }"
+                    :class="{ 'rotated': isSkillsExpanded }"
                     class="toggle-icon"
                   />
                 </div>
 
-                <div v-show="!showSkillsDetails" class="skills-preview">
+                <div v-show="!isSkillsExpanded" class="skills-preview">
                   <div class="skills-list-compact">
                     <span
                       v-for="skill in allLearnedSkills.slice(0, 3)"
@@ -494,7 +494,7 @@
                   </div>
                 </div>
 
-                <div v-show="showSkillsDetails" class="skills-details">
+                <div v-show="isSkillsExpanded" class="skills-details">
                   <!-- 所有已掌握的技�?-->
                   <div v-if="allLearnedSkills.length" class="skill-category">
                     <h5 class="category-title">所有技能</h5>
@@ -879,13 +879,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
-import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, TechniqueItem, Realm, PlayerBodyPart, TechniqueSkill } from '@/types/game.d.ts';
+import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, PlayerBodyPart, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
+
+const calculateAgeFromBirthdate = (birthdate: GameTime, currentTime: GameTime): number => {
+  let age = currentTime.年 - birthdate.年;
+  if (currentTime.月 < birthdate.月 || (currentTime.月 === birthdate.月 && currentTime.日 < birthdate.日)) {
+    age--;
+  }
+  return Math.max(0, age);
+};
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import {
   calculateRemainingMinutes,
@@ -897,19 +904,23 @@ import {
   Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X, MapPin
 } from 'lucide-vue-next';
 
-// 使用统一的数据访问
-const { saveData } = useUnifiedCharacterData();
+// 使用 gameStateStore 获取数据
 const uiStore = useUIStore();
 const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore();
 const isLoading = ref(false);
 
-// 界面状态
-const showTechniqueDetails = ref(false);
-const showSkillsDetails = ref(false);
+// 从 gameStateStore 获取数据的计算属性
+const saveData = computed(() => gameStateStore.toSaveData());
+const baseInfo = computed(() => gameStateStore.character);
+const playerStatus = computed(() => gameStateStore.playerStatus);
+const daoData = computed(() => gameStateStore.thousandDao);
 const showDaoDetails = ref(false);
 const showSkillModal = ref(false);
 const showDaoModal = ref(false);
 const showSpiritRootModal = ref(false);
+const showTechniqueDetails = ref(false);
+const isSkillsExpanded = ref(false);
 
 // 将LearnedSkillDisplay 类型定义移到顶层作用域
 type LearnedSkillDisplay = {
@@ -924,14 +935,11 @@ type LearnedSkillDisplay = {
 const selectedSkill = ref<SkillInfo | LearnedSkillDisplay | string | null>(null);
 const selectedDao = ref<string | null>(null);
 
-// 基础数据 - 使用统一的中文字段访问
-const baseInfo = computed(() => saveData.value?.角色基础信息);
 // 名字首字，用于头像占位
 const nameInitial = computed(() => {
   const n = String(baseInfo.value?.名字 || '').trim();
   return n ? n.charAt(0) : '?';
 });
-const playerStatus = computed(() => saveData.value?.玩家角色状态);
 
 // 自动计算当前年龄
 const currentAge = computed(() => {
@@ -939,30 +947,42 @@ const currentAge = computed(() => {
   const gameTime = saveData.value?.游戏时间;
 
   if (birthdate && gameTime) {
-    return calculateAgeFromBirthdate(birthdate, gameTime);
+    // 为可选的 birthdate 属性提供默认值以匹配 GameTime 类型
+    const fullBirthdate: GameTime = {
+      年: birthdate.年,
+      月: birthdate.月,
+      日: birthdate.日,
+      小时: birthdate.小时 ?? 0,
+      分钟: birthdate.分钟 ?? 0,
+    };
+    return calculateAgeFromBirthdate(fullBirthdate, gameTime);
   }
 
   // 兜底：返回存储的年龄或寿命
   return baseInfo.value?.年龄 || playerStatus.value?.寿命?.当前 || 0;
 });
 
-// 修炼功法数据 - 从背包中获取
-const fullCultivationTechnique = computed(() => {
-  const cultivationRef = saveData.value?.修炼功法;
-  if (!cultivationRef?.物品ID) return null;
-
-  const techniqueItem = saveData.value?.背包?.物品?.[cultivationRef.物品ID];
-  if (!techniqueItem || techniqueItem.类型 !== '功法') return null;
-
-  return techniqueItem;
+// fullCultivationTechnique数据 - 从背包中解析完整功法数据
+const fullCultivationTechnique = computed((): TechniqueItem | null => {
+  if (!saveData.value?.修炼功法 || !saveData.value?.背包?.物品) {
+    return null;
+  }
+  const techniqueId = saveData.value.修炼功法.物品ID;
+  if (!techniqueId) {
+    return null;
+  }
+  const techniqueItem = saveData.value.背包.物品[techniqueId];
+  if (techniqueItem && techniqueItem.类型 === '功法') {
+    // 明确类型转换为TechniqueItem
+    return techniqueItem as TechniqueItem;
+  }
+  return null;
 });
 
-// 三千大道数据
-const daoData = computed(() => saveData.value?.三千大道);
 
 const unlockedDaoList = computed((): DaoData[] => {
   if (!daoData.value?.大道列表) return [];
-  return Object.values(daoData.value.大道列表).filter(d => d.是否解锁);
+  return (Object.values(daoData.value.大道列表) as DaoData[]).filter(d => d.是否解锁);
 });
 
 // 生命状态数据
@@ -1055,7 +1075,7 @@ const hasTechniqueEffects = computed(() => {
 // 技能相关计算属性
 const skillsList = computed((): SkillInfo[] => {
   const technique = fullCultivationTechnique.value;
-  if (!technique?.功法技能) return [];
+  if (!technique || !technique.功法技能) return [];
 
   return technique.功法技能.map((skillInfo: TechniqueSkill) => {
     const unlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
@@ -1063,7 +1083,7 @@ const skillsList = computed((): SkillInfo[] => {
       name: skillInfo.技能名称,
       description: skillInfo.技能描述 || '',
       type: '功法技能',
-      unlockCondition: '修炼解锁',
+      unlockCondition: `熟练度 ${skillInfo.解锁需要熟练度 || 100}%`,
       unlocked,
     };
   });
@@ -1072,17 +1092,21 @@ const skillsList = computed((): SkillInfo[] => {
 // 已学技能（所有已掌握的技能）
 const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   const mastered = saveData.value?.掌握技能 || [];
-  const fromTechnique = (fullCultivationTechnique.value?.已解锁技能 || []).map((skillName: string) => {
-    const skillDef = fullCultivationTechnique.value?.功法技能?.find((s: TechniqueSkill) => s.技能名称 === skillName);
-    return {
-      name: skillName,
-      proficiency: getPersistentProficiency(skillName, 'technique'),
-      source: fullCultivationTechnique.value?.名称 || '功法',
-      type: '功法技能',
-      description: skillDef?.技能描述 || '通过功法修炼掌握',
-      unlocked: true,
-    };
-  });
+
+  let fromTechnique: LearnedSkillDisplay[] = [];
+  if (fullCultivationTechnique.value && fullCultivationTechnique.value.已解锁技能) {
+    fromTechnique = fullCultivationTechnique.value.已解锁技能.map((skillName: string) => {
+      const skillDef = fullCultivationTechnique.value?.功法技能?.find((s: TechniqueSkill) => s.技能名称 === skillName);
+      return {
+        name: skillName,
+        proficiency: getPersistentProficiency(skillName, 'technique'),
+        source: fullCultivationTechnique.value?.名称 || '功法',
+        type: '功法技能',
+        description: skillDef?.技能描述 || '通过功法修炼掌握',
+        unlocked: true,
+      };
+    });
+  }
 
   const allSkills = [...mastered.map(s => ({
     name: s.技能名称,
@@ -1111,11 +1135,12 @@ const totalSkillsCount = computed(() => {
 // 人际关系统计
 const relationshipCount = computed(() => {
   const relations = saveData.value?.人物关系 || {};
-  return Object.values(relations).filter(npc => npc && npc.名字).length;
+  return (Object.values(relations) as NpcProfile[]).filter(npc => npc && npc.名字).length;
 });
 
 const averageFavorability = computed(() => {
-  const relations = Object.values(saveData.value?.人物关系 || {}).filter(npc => npc && npc.名字);
+  if (!saveData.value?.人物关系) return 0;
+  const relations = (Object.values(saveData.value.人物关系) as NpcProfile[]).filter(npc => npc && npc.名字);
   if (relations.length === 0) return 0;
   const total = relations.reduce((sum, rel) => sum + (rel.好感度 || 0), 0);
   return Math.round(total / relations.length);
@@ -1360,8 +1385,8 @@ const handleRemoveEffect = async (effectName: string) => {
     const success = removeStatusEffect(saveData.value, effectName);
 
     if (success) {
-      // 同步到酒馆
-      await characterStore.syncFromTavern();
+      // The `removeStatusEffect` mutates the object. Now we need to persist it.
+      await characterStore.commitToStorage();
       debug.log('角色详情面板', `已移除状态效果: ${effectName}`);
     } else {
       debug.warn('角色详情面板', `移除状态效果失败: ${effectName}`);
@@ -1385,7 +1410,7 @@ const toggleTechniqueDetails = () => {
 };
 
 const toggleSkillsDetails = () => {
-  showSkillsDetails.value = !showSkillsDetails.value;
+  isSkillsExpanded.value = !isSkillsExpanded.value;
 };
 
 const toggleDaoDetails = () => {
@@ -1487,11 +1512,7 @@ const getSkillModalContent = () => {
 const refreshData = async () => {
   isLoading.value = true;
   try {
-    // This is a simplified refresh. In a real app, you might re-fetch from a service.
-    // For now, we assume the unified composable handles reactivity.
-    // const { useCharacterStore } = await import('@/stores/characterStore');
-    // const characterStore = useCharacterStore();
-    // await characterStore.syncFromTavern();
+    await characterStore.reloadFromStorage();
   } catch (error) {
     debug.error('人物详情', '刷新数据失败', error);
   } finally {

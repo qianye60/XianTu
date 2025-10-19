@@ -353,13 +353,13 @@ const loadSettings = async () => {
 
     // 🔥 尝试从当前存档的"系统"分片读取NSFW设置（优先级更高）
     try {
-      const { useUnifiedCharacterData } = await import('@/composables/useCharacterData');
-      const { characterData } = useUnifiedCharacterData();
+      const { useGameStateStore } = await import('@/stores/gameStateStore');
+      const gameStateStore = useGameStateStore();
 
-      if (characterData.value && (characterData.value as any).系统) {
+      if (gameStateStore.isGameLoaded && gameStateStore.systemConfig) {
         // 存档中的设置优先级高于localStorage
-        const 存档中的nsfwMode = (characterData.value as any).系统.nsfwMode;
-        const 存档中的nsfwGenderFilter = (characterData.value as any).系统.nsfwGenderFilter;
+        const 存档中的nsfwMode = gameStateStore.systemConfig.nsfwMode;
+        const 存档中的nsfwGenderFilter = gameStateStore.systemConfig.nsfwGenderFilter;
 
         if (存档中的nsfwMode !== undefined) {
           settings.enableNsfwMode = 存档中的nsfwMode;
@@ -403,20 +403,18 @@ const saveSettings = async () => {
     try {
       const { useCharacterStore } = await import('@/stores/characterStore');
       const characterStore = useCharacterStore();
-      const { useUnifiedCharacterData } = await import('@/composables/useCharacterData');
-      const { characterData } = useUnifiedCharacterData();
+      const { useGameStateStore } = await import('@/stores/gameStateStore');
+      const gameStateStore = useGameStateStore();
 
       // 更新存档中的系统设置
-      if (characterData.value && (characterData.value as any).系统) {
-        (characterData.value as any).系统.nsfwMode = settings.enableNsfwMode;
-        (characterData.value as any).系统.nsfwGenderFilter = settings.nsfwGenderFilter;
+      if (gameStateStore.isGameLoaded && gameStateStore.systemConfig) {
+        gameStateStore.systemConfig.nsfwMode = settings.enableNsfwMode;
+        gameStateStore.systemConfig.nsfwGenderFilter = settings.nsfwGenderFilter;
 
-        // 同步到酒馆
-        await characterStore.syncToTavernAndSave({
-          changedPaths: ['系统.nsfwMode', '系统.nsfwGenderFilter']
-        });
+        // 保存到数据库
+        await characterStore.saveCurrentGame();
 
-        debug.log('设置面板', 'NSFW设置已同步到存档和酒馆');
+        debug.log('设置面板', 'NSFW设置已同步到存档');
       } else {
         debug.warn('设置面板', '当前没有激活的存档，NSFW设置仅保存到localStorage');
       }

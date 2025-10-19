@@ -17,7 +17,18 @@ interface DetailModalConfig {
   content: string;
 }
 
+// Toast 类型定义
+interface ToastOptions {
+  type?: 'success' | 'error' | 'warning' | 'info';
+  duration?: number;
+}
+
 export const useUIStore = defineStore('ui', () => {
+  // --- Toast (消息提示) ---
+  const showToastState = ref(false);
+  const toastMessage = ref('');
+  const toastOptions = ref<ToastOptions>({});
+
   const isLoading = ref(false);
   const loadingText = ref('');
   const isAIProcessing = ref(false); // AI处理状态（持久化，切换面板时不丢失）
@@ -181,7 +192,28 @@ export const useUIStore = defineStore('ui', () => {
     }, 300); // Match transition duration
   }
 
+  // --- 新增：Toast (消息提示) 方法 ---
+  function showToast(message: string, options: ToastOptions = {}) {
+    toastMessage.value = message;
+    toastOptions.value = {
+      type: options.type || 'info',
+      duration: options.duration || 3000,
+    };
+    showToastState.value = true;
+  }
+
+  function hideToast() {
+    showToastState.value = false;
+  }
+
   return {
+    // Toast
+    showToastState,
+    toastMessage,
+    toastOptions,
+    showToast,
+    hideToast,
+
     isLoading,
     loadingText,
     isAIProcessing, // 暴露AI处理状态

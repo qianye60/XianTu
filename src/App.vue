@@ -225,6 +225,12 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
     return;
   }
 
+  // 确保 characterStore 已初始化
+  if (!characterStore.initialized) {
+    console.log('[App.vue] characterStore 未初始化，等待初始化完成...');
+    await characterStore.initializeStore();
+  }
+
   uiStore.startLoading('开始铸造法身...');
 
   // 在外层生成charId，确保重试时使用同一个ID
@@ -359,6 +365,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
           onCancel: () => {
             console.log('[角色创建] 用户选择返回创建页面');
             toast.info('已返回角色创建页面，您可以调整设置后重新开始');
+            router.push('/creation'); // 跳转回角色创建页面
             resolve(false); // 返回到角色创建页面
           }
         });
@@ -518,7 +525,7 @@ onMounted(async () => {
       const activeSlot = characterStore.activeSaveSlot;
       if (activeSlot?.存档数据) {
         console.log('[定时保存] 保存当前存档...');
-        await characterStore.syncToTavernAndSave();
+        await characterStore.saveCurrentGame();
         console.log('[定时保存] 保存成功');
       }
     } catch (error) {

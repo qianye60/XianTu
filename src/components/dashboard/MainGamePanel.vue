@@ -338,33 +338,13 @@ import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
 import { panelBus } from '@/utils/panelBus';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
-import { getTavernHelper } from '@/utils/tavern';
-import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
+import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
 import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
-import type { GameMessage, SaveData, CharacterProfile, GameTime } from '@/types/game';
-import type { GM_Response } from '@/types/AIGameMaster';
-
-// 扩展Window接口以支持调试方法
-declare global {
-  interface Window {
-    forceResetAIState?: () => void;
-    debugMemory?: () => Promise<unknown>;
-    testAddMemory?: (text: string) => Promise<void>;
-    debugAIResponse?: () => Promise<void>;
-  }
-}
-
-/**
- * 格式化游戏时间为字符串
- */
-function formatGameTimeString(gameTime: GameTime | undefined): string {
-  if (!gameTime) return '【未知时间】';
-
-  const minutes = gameTime.分钟 ?? 0;
-  // 修复：确保使用正确的 `minutes` 变量，而不是 `getMinutes`
-  return `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(minutes).padStart(2, '0')}】`;
-}
+import { useGameStateStore } from '@/stores/gameStateStore';
+import { formatGameTimeString } from '@/utils/formatters';
+import type { GameMessage, CharacterProfile } from '@/types/game';
+import type { GM_Response } from '@/types/AIGameMaster'; // AIGameMaster.d.ts 仍然需要保留
 
 // 定义状态变更日志类型
 interface StateChangeLog {
@@ -453,97 +433,6 @@ const forceResetAIProcessingState = () => {
   toast.info('AI处理状态已重置');
 };
 
-// 在 window 上暴露方法以便调试
-if (typeof window !== 'undefined') {
-  window.forceResetAIState = forceResetAIProcessingState;
-
-  // 暴露调试短期记忆的方法（支持双存储）
-  window.debugMemory = async () => {
-    const save = characterStore.activeSaveSlot;
-    const sd = save?.存档数据;
-    console.log('[调试] 当前存档数据:', save);
-    console.log('[调试] 存档中短期记忆:', sd?.记忆?.短期记忆);
-    console.log('[调试] 存档中中期记忆:', sd?.记忆?.中期记忆);
-    console.log('[调试] 存档中长期记忆:', sd?.记忆?.长期记忆);
-
-    // 检查本地存储
-    const localStorageData = localStorage.getItem('characterStoreV3');
-    console.log('[调试] LocalStorage原始数据长度:', localStorageData?.length);
-
-    // 检查酒馆变量
-    try {
-      const helper = getTavernHelper();
-      if (helper) {
-        const chatVars = await helper.getVariables({ type: 'chat' });
-        console.log('[调试] 酒馆Chat变量:', chatVars);
-        console.log('[调试] 酒馆中的character.saveData:', chatVars['character.saveData']);
-        console.log('[调试] 酒馆中的短期记忆:', (chatVars['character.saveData'] as SaveData)?.记忆?.短期记忆);
-      } else {
-        console.warn('[调试] 无法获取酒馆Helper');
-      }
-    } catch (e) {
-      console.error('[调试] 检查酒馆变量失败:', e);
-    }
-
-    return {
-      存档: save,
-      存档中短期记忆: sd?.记忆?.短期记忆,
-      存档中中期记忆: sd?.记忆?.中期记忆,
-      存档中长期记忆: sd?.记忆?.长期记忆,
-      本地存储可用: !!localStorageData
-    };
-  };
-
-  // 暴露手动添加测试记忆的方法
-  window.testAddMemory = async (text: string) => {
-    console.log('[测试] 手动添加记忆:', text);
-    await addToShortTermMemory(text, 'assistant');
-    console.log('[测试] 记忆添加完成，检查持久化...');
-    await characterStore.syncToTavernAndSave();
-    console.log('[测试] 持久化完成');
-  };
-
-
-  // 暴露调试AI响应存储的方法
-  window.debugAIResponse = async (): Promise<void> => {
-    console.log('[调试AI响应] 开始检查AI响应存储流程...');
-
-    // 检查最近的AI响应流程
-    const save = characterStore.activeSaveSlot;
-    const sd = save?.存档数据;
-
-    console.log('[调试AI响应] 当前存档:', save);
-    console.log('[调试AI响应] 短期记忆:', sd?.记忆?.短期记忆);
-
-    // 检查酒馆变量
-    try {
-      const helper = getTavernHelper();
-      if (helper) {
-        const chatVars = await helper.getVariables({ type: 'chat' });
-        const tavernSaveData = chatVars['character.saveData'] as SaveData;
-        console.log('[调试AI响应] 酒馆saveData:', tavernSaveData);
-        console.log('[调试AI响应] 酒馆短期记忆:', tavernSaveData?.记忆?.短期记忆);
-
-        // 对比本地和酒馆数据
-        const localCount = sd?.记忆?.短期记忆?.length || 0;
-        const tavernCount = tavernSaveData?.记忆?.短期记忆?.length || 0;
-        console.log('[调试AI响应] 本地短期记忆数量:', localCount);
-        console.log('[调试AI响应] 酒馆短期记忆数量:', tavernCount);
-
-        if (localCount !== tavernCount) {
-          console.error('[调试AI响应] 🚨 数据同步问题：本地和酒馆记忆数量不一致！');
-        }
-      }
-    } catch (e) {
-      console.error('[调试AI响应] 检查酒馆变量失败:', e);
-    }
-
-    // 输出调试信息到控制台
-    console.log('[调试AI响应] 本地短期记忆:', sd?.记忆?.短期记忆);
-    console.log('[调试AI响应] 存档状态:', !!save);
-    console.log('[调试AI响应] 数据完整性:', !!sd);
-  };
-}
 
 // 行动选择相关
 const showActionModal = ref(false);
@@ -565,6 +454,7 @@ interface ActionItem {
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
+const gameStateStore = useGameStateStore();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
 
@@ -622,6 +512,8 @@ const getImagePreviewUrl = (file: File): string => {
 // const toggleVariableUpdates = () => { ... };
 
 
+// 🔥 [修复] 标记为意图未使用的工具函数（保留供将来使用）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '空';
@@ -691,29 +583,8 @@ const midTermKeepCount = ref(8); // 默认保留8条最新的中期记忆
 // 从设置加载记忆配置
 const loadMemorySettings = async () => {
   try {
-    // 优先从酒馆变量读取MemoryCenterPanel保存的配置
-    const helper = getTavernHelper();
-    if (helper) {
-      try {
-        const memorySettings = await helper.getVariable('character.memorySettings', { type: 'chat' });
-        if (memorySettings && typeof memorySettings === 'object') {
-          const settings = memorySettings as Record<string, unknown>;
-          if (typeof settings.shortTermLimit === 'number') maxShortTermMemories.value = settings.shortTermLimit;
-          if (typeof settings.midTermTrigger === 'number') maxMidTermMemories.value = settings.midTermTrigger;
-          if (typeof settings.midTermKeep === 'number') midTermKeepCount.value = settings.midTermKeep;
-          console.log('[记忆设置] 已从酒馆变量加载配置:', {
-            短期记忆上限: maxShortTermMemories.value,
-            中期记忆触发阈值: maxMidTermMemories.value,
-            中期记忆保留数量: midTermKeepCount.value
-          });
-          return;
-        }
-      } catch {
-        console.log('[记忆设置] 未找到酒馆变量配置，尝试从localStorage读取');
-      }
-    }
-
-    // 回退到从localStorage读取设置
+    // 🔥 [新架构] 直接从 localStorage 读取配置
+    // 配置信息不需要存储在酒馆变量中
     const memorySettings = localStorage.getItem('memory-settings');
     if (memorySettings) {
       const settings = JSON.parse(memorySettings);
@@ -770,19 +641,11 @@ defineExpose({
 });
 
 // 计算属性：检查是否有激活的角色
-const hasActiveCharacter = computed(() => {
-  const profile = characterStore.activeCharacterProfile;
-  console.log('[主面板] 激活角色检查:', {
-    hasProfile: !!profile,
-    profileName: profile?.角色基础信息?.名字,
-    activeSlot: characterStore.rootState.当前激活存档
-  });
-  return !!profile;
-});
+const hasActiveCharacter = computed(() => !!gameStateStore.character);
 
 // 计算属性：角色名称
 const characterName = computed(() => {
-  return characterStore.activeCharacterProfile?.角色基础信息?.名字 || '无名道友';
+  return gameStateStore.character?.名字 || '无名道友';
 });
 
 // 计算属性：是否可以回滚
@@ -809,7 +672,6 @@ const rollbackToLastConversation = async () => {
       try {
         await characterStore.rollbackToLastConversation();
         toast.success('已回滚到上次对话前的状态');
-        // 状态会自动响应式更新，无需刷新页面
       } catch (error) {
         console.error('回滚失败:', error);
         toast.error(`回滚失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -1001,26 +863,12 @@ const confirmAction = () => {
 // 移除中期记忆临时数组，防止数据丢失
 // const midTermMemoryBuffer = ref<string[]>([]);
 
-// 短期记忆获取 - 直接从角色存档数据中获取
+// 短期记忆获取 - 直接从 gameStateStore 中获取
 const recentMemories = computed(() => {
-  try {
-    console.log('[短期记忆] 开始获取短期记忆数据...');
-
-    // 从存档数据获取短期记忆
-    const save = characterStore.activeSaveSlot;
-    const sd = save?.存档数据;
-    if (sd?.记忆?.短期记忆) {
-      const memories = sd.记忆.短期记忆.slice(0, maxShortTermMemories.value);
-      console.log('[短期记忆] 从存档数据获取:', memories.length, '条记忆');
-      return memories;
-    }
-
-    console.log('[短期记忆] 存档中未找到短期记忆数据');
-    return [];
-  } catch (error) {
-    console.warn('[短期记忆] 获取短期记忆失败:', error);
-    return [];
+  if (gameStateStore.memory?.短期记忆) {
+    return gameStateStore.memory.短期记忆.slice(0, maxShortTermMemories.value);
   }
+  return [];
 });
 
 // AI响应结构验证
@@ -1213,7 +1061,7 @@ const sendMessage = async () => {
   }
 
   // 检查角色死亡状态
-  const saveData = characterStore.activeSaveSlot?.存档数据;
+  const saveData = gameStateStore.toSaveData();
   if (saveData) {
     const deathStatus = checkCharacterDeath(saveData);
     if (deathStatus.isDead) {
@@ -1326,11 +1174,11 @@ const sendMessage = async () => {
       }
 
       // 在AI调用前计算并同步天道系统
-      const baseInfo = character.角色基础信息;
-      const saveData = characterStore.activeSaveSlot?.存档数据;
-      if (saveData && baseInfo) {
+      const baseInfo = gameStateStore.character;
+      const currentSaveData = gameStateStore.toSaveData();
+      if (currentSaveData && baseInfo) {
         const { syncHeavenlyPrecalcToTavern } = await import('@/utils/judgement/heavenlyRules');
-        await syncHeavenlyPrecalcToTavern(saveData, baseInfo);
+        await syncHeavenlyPrecalcToTavern(currentSaveData, baseInfo);
         console.log('[天道系统] 已同步预计算数据到酒馆');
       }
 
@@ -1409,9 +1257,8 @@ const sendMessage = async () => {
         latestMessageText.value = gmResp?.text || null;
 
         // 统一内容格式：为AI回复添加时间前缀，确保UI、历史记录和记忆中的内容一致
-        const saveDataForTime = characterStore.activeSaveSlot?.存档数据;
-        const gameTime = saveDataForTime?.游戏时间;
-        const timePrefix = formatGameTimeString(gameTime);
+        const gameTime = gameStateStore.gameTime;
+        const timePrefix = gameTime ? formatGameTimeString(gameTime) : '【未知时间】';
         // 检查finalText是否已意外包含前缀，避免重复添加
         const hasExistingPrefix = finalText.startsWith('【仙道') || finalText.startsWith('【未知时间】');
         const prefixedContent = hasExistingPrefix ? finalText : `${timePrefix}${finalText}`;
@@ -1440,20 +1287,9 @@ const sendMessage = async () => {
       // 不需要再次 syncFromTavern，避免用酒馆旧数据覆盖本地新数据
       console.log('[数据同步] ⚠️ 跳过 syncFromTavern（命令已在processGmResponse中同步）');
 
-      // 只需要将记忆分片同步到酒馆（因为记忆是在MainGamePanel中更新的）
-      const currentSaveData = characterStore.activeSaveSlot?.存档数据;
-      if (currentSaveData?.记忆) {
-        const helper = getTavernHelper();
-        if (helper) {
-          // 同步四个记忆分片(包括隐式中期记忆)
-          const { deepCleanForClone } = await import('@/utils/dataValidation');
-          await helper.setVariable('记忆_短期', deepCleanForClone(currentSaveData.记忆.短期记忆), { type: 'chat' });
-          await helper.setVariable('记忆_中期', deepCleanForClone(currentSaveData.记忆.中期记忆), { type: 'chat' });
-          await helper.setVariable('记忆_隐式中期', deepCleanForClone(currentSaveData.记忆.隐式中期记忆 || []), { type: 'chat' });
-          await helper.setVariable('记忆_长期', deepCleanForClone(currentSaveData.记忆.长期记忆), { type: 'chat' });
-          console.log('[记忆同步] ✅ 记忆已同步到Tavern分片(包括隐式中期记忆)');
-        }
-      }
+      // 🔥 [新架构] 跳过记忆同步到酒馆
+      // 记忆已经在 Pinia Store 的 saveData 中，AI 会在 prompt 中接收到完整记忆
+      console.log('[记忆同步] ⚠️ 跳过记忆同步到酒馆（新架构使用 Pinia + prompt 传递）');
 
     // 处理游戏状态更新（仅在有有效AI响应时执行）
     if (aiResponse && aiResponse.stateChanges) {
@@ -1478,8 +1314,7 @@ const sendMessage = async () => {
         currentNarrative.value.stateChanges = aiResponse.stateChanges as StateChangeLog;
 
         // 保存到叙事历史（只保留最新一条，用于页面恢复）
-        const saveData = characterStore.activeSaveSlot?.存档数据;
-        if (saveData) {
+        if (gameStateStore.isGameLoaded) {
           // 叙事历史只保留最新一条对话（用于切换页面后恢复）
           const latestNarrative = {
             type: currentNarrative.value.type,
@@ -1488,25 +1323,30 @@ const sendMessage = async () => {
             stateChanges: currentNarrative.value.stateChanges
           };
 
-          saveData.叙事历史 = [latestNarrative]; // 只保留最新一条
+          if (gameStateStore.narrativeHistory) {
+            gameStateStore.narrativeHistory = [latestNarrative];
+          }
 
           // 🔥 同时保存到记忆系统（完整历史，供查看/下载）
-          if (!saveData.记忆.短期记忆) {
-            saveData.记忆.短期记忆 = [];
+          if (gameStateStore.memory && !gameStateStore.memory.短期记忆) {
+            gameStateStore.memory.短期记忆 = [];
           }
 
           // 添加用户输入和AI回复的完整记录到记忆
-          const narrativeText = `【${currentNarrative.value.time}】\n${currentNarrative.value.content}`;
-          saveData.记忆.短期记忆.unshift(narrativeText);
+          if (gameStateStore.memory) {
+            const narrativeText = `【${currentNarrative.value.time}】\n${currentNarrative.value.content}`;
+            gameStateStore.memory.短期记忆.unshift(narrativeText);
 
-          console.log('[主面板-调试] 已保存:', {
-            叙事历史: '仅最新一条（用于恢复）',
-            记忆系统: `已添加到短期记忆（共${saveData.记忆.短期记忆.length}条）`,
-            内容长度: currentNarrative.value.content.length,
-            changes数量: currentNarrative.value.stateChanges?.changes?.length || 0
-          });
+            console.log('[主面板-调试] 已保存:', {
+              叙事历史: '仅最新一条（用于恢复）',
+              记忆系统: `已添加到短期记忆（共${gameStateStore.memory.短期记忆.length}条）`,
+              内容长度: currentNarrative.value.content.length,
+              changes数量: currentNarrative.value.stateChanges?.changes?.length || 0
+            });
+          }
 
-          characterStore.saveCurrentGame();
+          // TODO: 触发 gameStateStore 的保存机制
+          // gameStateStore.saveGame();
         }
       }
 
@@ -1515,7 +1355,7 @@ const sendMessage = async () => {
       console.log('[日志面板] State changes received and stored in memory:', aiResponse.stateChanges);
 
       // 检查角色死亡状态（在状态更新后）
-      const currentSaveData = characterStore.activeSaveSlot?.存档数据;
+      const currentSaveData = gameStateStore.toSaveData();
       if (currentSaveData) {
         const deathStatus = checkCharacterDeath(currentSaveData);
         if (deathStatus.isDead) {
@@ -1581,15 +1421,6 @@ const sendMessage = async () => {
       // 🔥 用户要求：保留输入框内容，不清空
       // inputText.value = '';
 
-      // 确保数据已保存到本地和酒馆（包括刚添加的记忆）
-      try {
-        console.log('[AI响应处理] 保存所有数据到本地和酒馆...');
-        await characterStore.syncToTavernAndSave();
-        console.log('[AI响应处理] 数据保存完成');
-      } catch (storageError) {
-        console.error('[AI响应处理] 数据保存失败:', storageError);
-        toast.error('数据保存失败，请尝试手动保存游戏');
-      }
 
       // 明确清除AI处理状态(成功路径)
       console.log('[AI响应处理] 成功完成,清除AI处理状态');
@@ -1618,141 +1449,81 @@ const sendMessage = async () => {
     isAIProcessing.value = false;
     // 清除状态持久化
     persistAIProcessingState();
+    // 最终统一存档
+    try {
+      console.log('[AI响应处理] 最终统一存档...');
+      await characterStore.saveCurrentGame();
+      console.log('[AI响应处理] 最终统一存档完成');
+    } catch (storageError) {
+      console.error('[AI响应处理] 最终统一存档失败:', storageError);
+      toast.error('游戏存档失败，请尝试手动保存');
+    }
   }
 };
 
 // 🔥 移除复杂的中期记忆缓存系统，改为直接处理
-// 中期记忆现在直接在 AIGameMaster.ts 的 processGmResponse 中处理
+// 中期记忆现在直接在 AIBidirectionalSystem.ts 的 processGmResponse 中处理
 const addToShortTermMemory = async (
-  content: string,
-  role: 'user' | 'assistant' = 'assistant',
-  midTermSummary?: string  // AI生成的中期记忆总结
+content: string,
+_role: 'user' | 'assistant' = 'assistant',  // eslint-disable-line @typescript-eslint/no-unused-vars
+midTermSummary?: string  // AI生成的中期记忆总结
 ) => {
-  try {
-    console.log(`[记忆管理] 开始添加 ${role} 消息到短期记忆`);
-    console.log(`[记忆管理] 内容长度: ${content.length}`);
-    console.log(`[记忆管理] 中期记忆总结:`, midTermSummary || '无');
-
-    const save = characterStore.activeSaveSlot;
-    const sd = save?.存档数据;
-
-    if (!sd) {
-      console.warn('[记忆管理] 存档数据不可用，无法存储短期记忆');
-      return;
-    }
-
-    // 确保记忆结构存在（包含隐式中期记忆）
-    if (!sd.记忆) {
-      console.log('[记忆管理] 初始化记忆结构');
-      sd.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
-    }
-    if (!Array.isArray(sd.记忆.短期记忆)) {
-      console.log('[记忆管理] 初始化短期记忆数组');
-      sd.记忆.短期记忆 = [];
-    }
-    if (!Array.isArray(sd.记忆.隐式中期记忆)) {
-      console.log('[记忆管理] 初始化隐式中期记忆数组');
-      sd.记忆.隐式中期记忆 = [];
-    }
-
-    console.log(`[记忆管理] 添加前短期记忆数量: ${sd.记忆.短期记忆.length}`);
-    console.log(`[记忆管理] 添加前隐式中期记忆数量: ${sd.记忆.隐式中期记忆.length}`);
-
-    // 🔥 关键：检查content是否已包含时间前缀，如果没有才添加
-    const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
-    let finalContent = content;
-
-    if (!hasTimePrefix) {
-      const gameTime = sd.游戏时间;
-      const timePrefix = formatGameTimeString(gameTime);
-      finalContent = `${timePrefix}${content}`;
-      console.log(`[记忆管理] 为content添加时间前缀`);
-    } else {
-      console.log(`[记忆管理] content已包含时间前缀，跳过添加`);
-    }
-
-    // 添加到短期记忆
-    sd.记忆.短期记忆.unshift(finalContent);
-
-    // 如果有AI提供的中期记忆总结，添加到隐式中期记忆
-    if (midTermSummary && midTermSummary.trim()) {
-      const gameTime = sd.游戏时间;
-      const timePrefix = formatGameTimeString(gameTime);
-      const formattedMidTerm = `${timePrefix}${midTermSummary}`;
-      sd.记忆.隐式中期记忆.unshift(formattedMidTerm);
-      console.log(`[记忆管理] ✅ 已同时添加隐式中期记忆: ${formattedMidTerm.substring(0, 50)}...`);
-    } else {
-      // 如果AI没有返回mid_term_memory，使用短期记忆的简短版本
-      const gameTime = sd.游戏时间;
-      const timePrefix = formatGameTimeString(gameTime);
-      // 提取前100字作为隐式中期记忆（从finalContent提取，这样不会重复时间前缀）
-      const contentWithoutTime = hasTimePrefix ? content.substring(content.indexOf('】') + 1) : content;
-      const autoMidTerm = `${timePrefix}${contentWithoutTime}`;
-      sd.记忆.隐式中期记忆.unshift(autoMidTerm);
-      console.log(`[记忆管理] ⚠️ AI未返回mid_term_memory，自动生成隐式中期记忆`);
-    }
-
-    console.log(`[记忆管理] 短期记忆已添加，当前数量: ${sd.记忆.短期记忆.length}`);
-    console.log(`[记忆管理] 隐式中期记忆已添加，当前数量: ${sd.记忆.隐式中期记忆.length}`);
-
-    // 🔥 新逻辑：检查短期记忆是否超出限制
-    if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
-      console.log(`[记忆管理] 短期记忆超出限制（${maxShortTermMemories.value}），开始触发溢出处理`);
-
-      // 确保中期记忆结构存在
-      if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
-
-      // 计算需要移除的短期记忆数量
-      const 需要移除的数量 = sd.记忆.短期记忆.length - maxShortTermMemories.value;
-      console.log(`[记忆管理] 需要移除 ${需要移除的数量} 条短期记忆`);
-
-      // 🔥 核心改变：每移除一条短期记忆，就移动一条隐式中期记忆到中期记忆（1:1同步）
-      for (let i = 0; i < 需要移除的数量; i++) {
-        // 1. 移除最旧的短期记忆（从尾部移除）
-        const removedShortTerm = sd.记忆.短期记忆.pop();
-        if (removedShortTerm) {
-          console.log(`[记忆管理] 移除短期记忆 #${i + 1}: ${removedShortTerm.substring(0, 50)}...`);
-        }
-
-        // 2. 同步移动一条隐式中期记忆到中期记忆（从尾部取，因为是最旧的）
-        if (sd.记忆.隐式中期记忆.length > 0) {
-          const implicitMemory = sd.记忆.隐式中期记忆.pop();
-          if (implicitMemory) {
-            // 检查是否已存在（防止重复）
-            if (!sd.记忆.中期记忆.some((m: string) => m === implicitMemory)) {
-              sd.记忆.中期记忆.unshift(implicitMemory);
-              console.log(`[记忆管理] 转移隐式中期记忆到中期记忆 #${i + 1}: ${implicitMemory.substring(0, 50)}...`);
-            } else {
-              console.log('[记忆管理] ⚠️ 跳过重复的中期记忆');
-            }
-          }
-        } else {
-          console.log(`[记忆管理] ⚠️ 隐式中期记忆不足，无法同步转移第 ${i + 1} 条`);
-        }
-      }
-
-      console.log(`[记忆管理] ✅ 完成记忆转移`);
-      console.log(`[记忆管理] 📝 短期记忆剩余: ${sd.记忆.短期记忆.length}`);
-      console.log(`[记忆管理] 🔄 隐式中期记忆剩余: ${sd.记忆.隐式中期记忆.length}`);
-      console.log(`[记忆管理] 💭 中期记忆当前: ${sd.记忆.中期记忆.length}`);
-
-      // 3. 检查中期记忆是否需要转换到长期记忆
-      if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
-        await transferToLongTermMemory();
-      }
-    }
-
-    console.log('[记忆管理] ✅ 记忆保存完成');
-    console.log(`[记忆管理] 📝 当前短期记忆总数: ${sd.记忆.短期记忆.length}`);
-    console.log(`[记忆管理] 🔄 当前隐式中期记忆总数: ${sd.记忆.隐式中期记忆.length}`);
-    console.log(`[记忆管理] 💭 当前中期记忆总数: ${sd.记忆.中期记忆?.length || 0}`);
-
-    // 注意：不在这里持久化，由调用者统一在主流程中保存
-    console.log('[记忆管理] 数据已更新到内存，等待主流程统一保存');
-
-  } catch (error) {
-    console.error('[记忆管理] 添加短期记忆或转移中期记忆失败:', error);
+try {
+  if (!gameStateStore.isGameLoaded || !gameStateStore.memory) {
+    console.warn('[记忆管理] 游戏状态未加载，无法存储短期记忆');
+    return;
   }
+
+  const memory = gameStateStore.memory;
+
+  // 确保记忆结构存在
+  if (!Array.isArray(memory.短期记忆)) memory.短期记忆 = [];
+  if (!Array.isArray(memory.中期记忆)) memory.中期记忆 = [];
+  if (!Array.isArray(memory.长期记忆)) memory.长期记忆 = [];
+  if (!Array.isArray(memory.隐式中期记忆)) memory.隐式中期记忆 = [];
+
+  const gameTime = gameStateStore.gameTime;
+  const timePrefix = gameTime ? formatGameTimeString(gameTime) : '【未知时间】';
+
+  // 添加时间前缀
+  const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
+  const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
+
+  // 添加到短期记忆
+  memory.短期记忆.unshift(finalContent);
+
+  // 处理中期记忆
+  if (midTermSummary?.trim()) {
+    // 如果有显式的中期记忆总结，存入隐式中期记忆
+    memory.隐式中期记忆.unshift(`${timePrefix}${midTermSummary}`);
+  } else {
+    // 否则，将叙述文本也存入隐式中期记忆
+    const contentWithoutTime = hasTimePrefix ? content.substring(content.indexOf('】') + 1) : content;
+    memory.隐式中期记忆.unshift(`${timePrefix}${contentWithoutTime}`);
+  }
+
+  // 检查短期记忆溢出
+  if (memory.短期记忆.length > maxShortTermMemories.value) {
+    const overflowCount = memory.短期记忆.length - maxShortTermMemories.value;
+    for (let i = 0; i < overflowCount; i++) {
+      memory.短期记忆.pop(); // 移除最旧的短期记忆
+      const implicit = memory.隐式中期记忆.pop(); // 移除对应的隐式中期记忆
+      if (implicit && !memory.中期记忆.includes(implicit)) {
+        memory.中期记忆.unshift(implicit); // 转移到中期记忆
+      }
+    }
+
+    // 检查中期记忆溢出
+    if (memory.中期记忆.length > maxMidTermMemories.value) {
+      await transferToLongTermMemory();
+    }
+  }
+
+  console.log('[记忆管理] 记忆已更新到 gameStateStore');
+
+} catch (error) {
+  console.error('[记忆管理] 添加短期记忆失败:', error);
+}
 };
 
 // transferToMidTermMemory 函数已被合并到 addToShortTermMemory 中，故移除
@@ -1791,9 +1562,9 @@ const transferToLongTermMemory = async () => {
         console.log(`[记忆管理] 长期记忆内容预览:`, summary.substring(0, 100));
         console.log(`[记忆管理] 完整长期记忆数组:`, sd.记忆.长期记忆);
 
-        // 🔥 关键：立即保存到酒馆（使用完整同步确保记忆分片正确更新）
-        await characterStore.syncToTavernAndSave({ fullSync: true });
-        console.log(`[记忆管理] ✅ 已保存中期记忆删除和长期记忆新增到酒馆`);
+        // 保存到 gameStateStore 和 IndexedDB
+        await characterStore.saveCurrentGame();
+        console.log(`[记忆管理] ✅ 已保存中期记忆删除和长期记忆新增`);
 
         // 验证保存后的数据
         const verifySlot = characterStore.activeSaveSlot;
@@ -1899,20 +1670,20 @@ const initializePanelForSave = async () => {
   console.log('[主面板] 为当前存档初始化面板 (新逻辑)...');
   try {
     if (hasActiveCharacter.value) {
-      const saveData = characterStore.activeSaveSlot?.存档数据;
-      const memories = saveData?.记忆?.短期记忆;
+      // 🔥 使用 gameStateStore 获取数据
+      const memories = gameStateStore.memory?.短期记忆;
 
       console.log('[主面板-调试] 存档数据检查:', {
-        有存档数据: !!saveData,
-        有叙事历史: !!saveData?.叙事历史,
-        叙事历史长度: saveData?.叙事历史?.length || 0,
+        有游戏数据: gameStateStore.isGameLoaded,
+        有叙事历史: !!gameStateStore.narrativeHistory,
+        叙事历史长度: gameStateStore.narrativeHistory?.length || 0,
         有短期记忆: !!memories,
         短期记忆长度: memories?.length || 0
       });
 
       // 优先从叙事历史中恢复最近的一条记录（包含stateChanges）
-      if (saveData?.叙事历史 && saveData.叙事历史.length > 0) {
-        const latestNarrative = saveData.叙事历史[0];
+      if (gameStateStore.narrativeHistory && gameStateStore.narrativeHistory.length > 0) {
+        const latestNarrative = gameStateStore.narrativeHistory[0];
         console.log('[主面板] 从叙事历史恢复最新叙述（含状态变更日志）');
         console.log('[主面板-调试] 叙事历史第一条:', {
           type: latestNarrative.type,
@@ -1942,7 +1713,7 @@ const initializePanelForSave = async () => {
       } else {
         // 未找到记忆或叙事历史，显示欢迎信息
         console.log('[主面板] 未找到叙事记录，显示欢迎信息');
-        const characterName = characterStore.activeSaveSlot?.存档数据?.角色基础信息?.名字 || '修行者';
+        const characterName = gameStateStore.character?.名字 || '修行者';
         currentNarrative.value = {
           type: 'system',
           content: `【欢迎】${characterName}，你的修仙之旅即将开始。请输入你的行动。`,
@@ -2002,7 +1773,7 @@ watch(() => characterStore.rootState.当前激活存档, async (newSlotId, oldSl
 });
 
 // 监听短期记忆的变化，确保显示始终同步
-watch(() => characterStore.activeSaveSlot?.存档数据?.记忆?.短期记忆, (newMemories) => {
+watch(() => gameStateStore.memory?.短期记忆, (newMemories) => {
   // AI处理期间不更新，避免覆盖流式输出
   if (!isAIProcessing.value && newMemories && newMemories.length > 0) {
     const latestMemory = newMemories[0];

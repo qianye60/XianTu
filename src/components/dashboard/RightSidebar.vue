@@ -192,38 +192,38 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Activity, Sparkles, AlertTriangle, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
+import { Activity, Sparkles, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
 import { LOCAL_TALENTS } from '@/data/creationData';
 import DetailModal from '@/components/common/DetailModal.vue';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
-import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import type { StatusEffect } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
 
 
-const { characterData, saveData, isDataLoaded } = useUnifiedCharacterData();
-const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore();
 const uiStore = useUIStore();
 
-// 直接使用中文字段访问数据，对应酒馆变量
-const characterInfo = computed(() => characterData.value?.基础信息);
-const playerStatus = computed(() => characterData.value?.玩家角色状态);
-const statusEffects = computed(() => characterData.value?.状态效果 || []);
-const daoData = computed(() => characterData.value?.三千大道);
+// 数据加载状态
+const isDataLoaded = computed(() => gameStateStore.isGameLoaded && !!gameStateStore.character);
+
+// 直接使用中文字段访问数据
+const characterInfo = computed(() => gameStateStore.character);
+const playerStatus = computed(() => gameStateStore.playerStatus);
+const statusEffects = computed(() => (gameStateStore.playerStatus?.状态效果 || []) as StatusEffect[]);
 
 // 自动计算当前年龄（基于出生日期）
 const currentAge = computed(() => {
   const birthdate = characterInfo.value?.出生日期;
-  const gameTime = saveData.value?.游戏时间;
+  const gameTime = gameStateStore.gameTime;
 
   if (birthdate && gameTime) {
     return calculateAgeFromBirthdate(birthdate, gameTime);
   }
 
   // 兜底：返回存储的年龄或寿命
-  return characterInfo.value?.年龄 || playerStatus.value?.寿命?.当前 || 0;
+  return characterInfo.value?.年龄 || gameStateStore.playerStatus?.寿命?.当前 || 0;
 });
 
 // 收缩状态
@@ -255,48 +255,49 @@ const formatTimeDisplay = (time: string | undefined): string => {
 
 // 计算百分比的工具方法
 const realmProgressPercent = computed(() => {
-  if (!playerStatus.value?.境界) return 0;
-  const progress = playerStatus.value.境界.当前进度;
-  const maxProgress = playerStatus.value.境界.下一级所需;
+  if (!gameStateStore.playerStatus?.境界) return 0;
+  const progress = gameStateStore.playerStatus.境界.当前进度;
+  const maxProgress = gameStateStore.playerStatus.境界.下一级所需;
   return progress && maxProgress ? Math.round((progress / maxProgress) * 100) : 0;
 });
 
 // 计算生命体征百分比
 const getVitalPercent = (type: '气血' | '灵气' | '神识') => {
-  if (!playerStatus.value) return 0;
-  const vital = playerStatus.value[type];
+  if (!gameStateStore.playerStatus) return 0;
+  const vital = gameStateStore.playerStatus[type];
   if (!vital?.当前 || !vital?.上限) return 0;
   return Math.round((vital.当前 / vital.上限) * 100);
 };
 
 // 计算寿命百分比（使用计算后的年龄）
 const getLifespanPercent = () => {
-  const maxLifespan = playerStatus.value?.寿命?.上限;
+  const maxLifespan = gameStateStore.playerStatus?.寿命?.上限;
   if (!maxLifespan) return 0;
   return Math.round((currentAge.value / maxLifespan) * 100);
 };
 
 // 获取天赋数据
-const getTalentData = (talent: string) => {
+const getTalentData = (talent: string): any => {
   // 从角色基础信息的天赋列表中查找
-  const baseInfo = saveData.value?.角色基础信息;
-  if (baseInfo?.天赋 && Array.isArray(baseInfo.天赋)) {
-    const talentDetail = baseInfo.天赋.find((t) => t.名称 === talent);
+  const baseInfoValue = gameStateStore.character;
+  if (baseInfoValue?.天赋 && Array.isArray(baseInfoValue.天赋)) {
+    const talentDetail = baseInfoValue.天赋.find((t: any) => t.名称 === talent);
     if (talentDetail) {
       return talentDetail;
     }
   }
 
   // 向后兼容：从三千大道系统中查找
-  const daoProgress = daoData.value?.大道列表?.[talent];
+  const daoDataValue = gameStateStore.thousandDao;
+  const daoProgress = daoDataValue?.大道列表?.[talent];
   return daoProgress;
 };
 
 // 显示天赋详情
 const showTalentDetail = (talent: string) => {
   // 首先尝试从角色的天赋列表中查找(AI生成的自定义天赋)
-  const baseInfo = saveData.value?.角色基础信息;
-  const customTalent = baseInfo?.天赋?.find((t) => t.名称 === talent);
+  const baseInfoValue = characterInfo.value;
+  const customTalent = baseInfoValue?.天赋?.find((t: any) => t.名称 === talent);
 
   // 然后从LOCAL_TALENTS中查找天赋信息(前端内嵌天赋)
   const localTalent = LOCAL_TALENTS.find(t => t.name === talent);

@@ -23,8 +23,8 @@
               <Globe :size="24" />
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ Object.keys(globalVariables).length }}</div>
-              <div class="stat-label">全局变量</div>
+              <div class="stat-value">{{ Object.keys(customOptions).length }}</div>
+              <div class="stat-label">自定义选项</div>
             </div>
           </div>
           <div class="stat-card">
@@ -55,12 +55,12 @@
               <span>{{ formatBytes(getDataSize(chatVariables)) }}</span>
             </div>
             <div class="size-item">
-              <span>全局变量大小:</span>
-              <span>{{ formatBytes(getDataSize(globalVariables)) }}</span>
+              <span>自定义选项大小:</span>
+              <span>{{ formatBytes(getDataSize(customOptions)) }}</span>
             </div>
             <div class="size-item">
               <span>总数据大小:</span>
-              <span>{{ formatBytes(getDataSize(allTavernData)) }}</span>
+              <span>{{ formatBytes(getDataSize(allGameData)) }}</span>
             </div>
           </div>
         </div>
@@ -86,8 +86,8 @@ import { X, MessageSquare, Globe, Brain, Book } from 'lucide-vue-next'
 
 interface Props {
   chatVariables: Record<string, any>
-  globalVariables: Record<string, any>
-  allTavernData: any
+  customOptions: Record<string, any>
+  allGameData: any
   getMemoryCount: () => number
   getWorldItemCount: () => number
 }

@@ -8,6 +8,7 @@
         <div class="section-header">
           <h4 class="section-title">
             <History v-if="currentSave.存档名 === '上次对话'" :size="16" class="last-save-icon" />
+            <Clock v-else-if="currentSave.存档名 === '时间点存档'" :size="16" class="time-save-icon" />
             📍 当前进度 - {{ currentSave.存档名 }}
           </h4>
         </div>
@@ -24,6 +25,9 @@
               <!-- 特殊存档说明 -->
               <div v-if="currentSave.存档名 === '上次对话'" class="current-save-hint last">
                 🔄 每次对话前自动备份，可用于回退到上次对话前的状态
+              </div>
+              <div v-else-if="currentSave.存档名 === '时间点存档'" class="current-save-hint time">
+                ⏰ 按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失
               </div>
             </div>
           </div>
@@ -77,6 +81,7 @@
                 <div class="preview-info">
                   <div class="save-name">
                     <History v-if="save.存档名 === '上次对话'" :size="14" class="last-save-icon" />
+                    <Clock v-else-if="save.存档名 === '时间点存档'" :size="14" class="time-save-icon" />
                     {{ save.存档名 || `存档${index + 1}` }}
                   </div>
                   <div class="character-name-small">{{ save.角色名字 || '无名道友' }}</div>
@@ -89,7 +94,7 @@
                   class="card-btn"
                   @click.stop="loadSave(save)"
                   :disabled="loading"
-                  v-if="save.id !== currentSave?.id && save.存档名 !== '上次对话'"
+                  v-if="save.id !== currentSave?.id && save.存档名 !== '上次对话' && save.存档名 !== '时间点存档'"
                   title="读取存档"
                 >
                   <Play :size="14" />
@@ -108,15 +113,15 @@
                   @click.stop="overwriteSave(save)"
                   :disabled="loading || !currentSave"
                   title="用当前进度覆盖此存档"
-                  v-if="save.存档名 !== '上次对话'"
+                  v-if="save.存档名 !== '上次对话' && save.存档名 !== '时间点存档'"
                 >
                   <Save :size="14" />
                 </button>
                 <button
                   class="card-btn danger"
                   @click.stop="deleteSave(save)"
-                  :disabled="loading || save.存档名 === '上次对话' || deletableSavesCount <= 1"
-                  :title="save.存档名 === '上次对话' ? '上次对话存档不可删除' : (deletableSavesCount <= 1 ? '最后一个存档，无法删除' : '删除存档')"
+                  :disabled="loading || isUndeletableSave(save)"
+                  :title="getDeleteTooltip(save)"
                 >
                   <Trash2 :size="14" />
                 </button>
@@ -184,15 +189,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { panelBus } from '@/utils/panelBus';
-import { RefreshCw, Save, Play, Trash2, Download, Upload, History, Plus } from 'lucide-vue-next';
+import { RefreshCw, Save, Play, Trash2, Download, Upload, History, Clock, Plus } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
-import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import type { SaveSlot } from '@/types/game';
 
 const characterStore = useCharacterStore();
-const { characterData, saveData } = useUnifiedCharacterData();
+const gameStateStore = useGameStateStore();
 const loading = ref(false);
 const fileInput = ref<HTMLInputElement>();
 
@@ -211,10 +216,71 @@ const canSave = computed(() => {
   return characterStore.activeCharacterProfile !== null;
 });
 
-// 计算可删除的存档数量
+// 计算可删除的存档数量（排除三个不可删除的存档）
 const deletableSavesCount = computed(() => {
-  return savesList.value.filter(save => save.存档名 !== '上次对话').length;
+  // 三个不可删除的存档：当前激活存档、"上次对话"存档、"时间点存档"
+  const undeletableNames = new Set([
+    currentSave.value?.存档名,  // 当前激活存档
+    '上次对话',                 // 上次对话存档（重roll用）
+    '时间点存档'                // 时间点存档（定时覆盖）
+  ]);
+
+  return savesList.value.filter(save => {
+    // 如果是不可删除的存档，跳过
+    if (undeletableNames.has(save.存档名)) {
+      return false;
+    }
+    // 其他普通存档可以删除
+    return true;
+  }).length;
 });
+
+// 判断存档是否不可删除
+const isUndeletableSave = (save: SaveSlot): boolean => {
+  // 三个不可删除的存档：
+  // 1. 当前激活存档
+  // 2. "上次对话"存档（用于重roll）
+  // 3. "时间点存档"（定时覆盖的固定存档）
+
+  if (save.存档名 === '上次对话') {
+    return true; // "上次对话"存档不可删除
+  }
+
+  if (save.存档名 === '时间点存档') {
+    return true; // "时间点存档"不可删除
+  }
+
+  if (save.id === currentSave.value?.id) {
+    return true; // 当前激活存档不可删除
+  }
+
+  if (deletableSavesCount.value <= 1) {
+    return true; // 最后一个可删除存档不能删除
+  }
+
+  return false;
+};
+
+// 获取删除按钮的提示文本
+const getDeleteTooltip = (save: SaveSlot): string => {
+  if (save.存档名 === '上次对话') {
+    return '上次对话存档不可删除（用于重roll）';
+  }
+
+  if (save.存档名 === '时间点存档') {
+    return '时间点存档不可删除（定时自动覆盖）';
+  }
+
+  if (save.id === currentSave.value?.id) {
+    return '当前激活存档不可删除';
+  }
+
+  if (deletableSavesCount.value <= 1) {
+    return '最后一个普通存档不可删除';
+  }
+
+  return '删除存档';
+};
 
 // 刷新存档列表
 const refreshSaves = async () => {
@@ -240,7 +306,7 @@ const quickSave = async () => {
 
   loading.value = true;
   try {
-    await characterStore.syncToTavernAndSave();
+    await characterStore.saveCurrentGame();
     toast.success('快速存档完成');
   } catch (error) {
     debug.error('存档面板', '快速存档失败', error);
@@ -267,8 +333,8 @@ const createNewSave = async () => {
 
   loading.value = true;
   try {
-    // 先保存当前数据到酒馆
-    await characterStore.syncToTavernAndSave();
+    // 先保存当前数据
+    await characterStore.saveCurrentGame();
 
     // 再另存为新存档
     const newSlotId = await characterStore.saveAsNewSlot(saveName.trim());
@@ -300,8 +366,8 @@ const overwriteSave = async (save: SaveSlot) => {
     onConfirm: async () => {
       loading.value = true;
       try {
-        // 先保存当前数据到酒馆
-        await characterStore.syncToTavernAndSave();
+        // 先保存当前数据
+        await characterStore.saveCurrentGame();
 
         // 覆盖指定存档
         await characterStore.saveToSlot(save.存档名);
