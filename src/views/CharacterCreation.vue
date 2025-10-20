@@ -13,6 +13,14 @@
           <!-- 右侧：云端同步按钮（仅单机模式显示） -->
           <div v-if="store.isLocalCreation" class="cloud-sync-container">
             <CloudDataSync @sync-completed="onSyncCompleted" variant="compact" size="small" />
+            <StorePreSeting
+              variant="compact"
+              size="small"
+              :current-step="store.currentStep"
+              :total-steps="store.totalSteps"
+              @store-completed="onStoreCompleted"
+            />
+            <LoadingPreSeting variant="compact" size="small" @load-completed="onLoadCompleted" />
             <DataClearButtons variant="horizontal" size="small" @data-cleared="onDataCleared" />
           </div>
         </div>
@@ -121,6 +129,8 @@
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import CloudDataSync from '@/components/common/CloudDataSync.vue';
 import DataClearButtons from '@/components/common/DataClearButtons.vue';
+import StorePreSeting from '@/components/common/StorePreSeting.vue';
+import LoadingPreSeting from '@/components/common/LoadingPreSeting.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
 import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
 import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
@@ -503,6 +513,140 @@ function onDataCleared(type: string, count: number) {
   if (count > 0) {
     // 如果清除的数据包含当前选中的项目，重置选择
     store.resetCharacter();
+  }
+}
+
+// 处理存储预设完成事件
+async function onStoreCompleted(result: { success: boolean; message: string; presetData?: any }) {
+  console.log('[角色创建] 存储预设完成:', result);
+  if (result.success && result.presetData) {
+    try {
+      const { savePreset } = await import('@/utils/presetManager');
+      
+      // 构造预设数据
+      const presetData = {
+        name: result.presetData.presetName,
+        description: result.presetData.presetDescription,
+        data: {
+          world: store.selectedWorld,
+          talentTier: store.selectedTalentTier,
+          origin: store.selectedOrigin,
+          spiritRoot: store.selectedSpiritRoot,
+          talents: store.selectedTalents,
+          baseAttributes: {
+            root_bone: store.attributes.root_bone,
+            spirituality: store.attributes.spirituality,
+            comprehension: store.attributes.comprehension,
+            fortune: store.attributes.fortune,
+            charm: store.attributes.charm,
+            temperament: store.attributes.temperament,
+          }
+        }
+      };
+      
+      // 保存到 IndexedDB
+      const presetId = await savePreset(presetData);
+      console.log('[角色创建] 预设已保存到 IndexedDB, ID:', presetId);
+      toast.success('预设保存成功！');
+    } catch (error) {
+      console.error('[角色创建] 保存预设到 IndexedDB 失败:', error);
+      toast.error('预设保存失败');
+    }
+  }
+}
+
+// 处理加载预设完成事件
+async function onLoadCompleted(result: { success: boolean; message: string; presetData?: any }) {
+  console.log('[角色创建] 加载预设完成:', result);
+  
+  if (!result.success) {
+    toast.error(result.message);
+    return;
+  }
+
+  if (!result.presetData) {
+    console.warn('[角色创建] 预设数据为空');
+    toast.error('预设数据无效');
+    return;
+  }
+
+  console.log('[角色创建] 准备使用预设数据创建角色:', result.presetData);
+  
+  // 使用预设数据恢复store状态
+  try {
+    const presetData = result.presetData.data;
+    
+    // 恢复选择的世界
+    if (presetData.world) {
+      const world = store.creationData.worlds.find(w => w.name === presetData.world.name);
+      if (world) {
+        store.selectWorld(world.id);
+      }
+    }
+    
+    // 恢复选择的天资
+    if (presetData.talentTier) {
+      const talentTier = store.creationData.talentTiers.find(
+        t => t.name === presetData.talentTier.name
+      );
+      if (talentTier) {
+        store.selectTalentTier(talentTier.id);
+      }
+    }
+    
+    // 恢复选择的出身
+    if (presetData.origin) {
+      const origin = store.creationData.origins.find(
+        o => o.name === presetData.origin.name
+      );
+      if (origin) {
+        store.selectOrigin(origin.id);
+      }
+    }
+    
+    // 恢复选择的灵根
+    if (presetData.spiritRoot) {
+      const spiritRoot = store.creationData.spiritRoots.find(
+        s => s.name === presetData.spiritRoot.name
+      );
+      if (spiritRoot) {
+        store.selectSpiritRoot(spiritRoot.id);
+      }
+    }
+    
+    // 恢复选择的天赋
+    if (presetData.talents && Array.isArray(presetData.talents)) {
+      store.characterPayload.selected_talent_ids = [];
+      presetData.talents.forEach((talent: any) => {
+        const t = store.creationData.talents.find(x => x.name === talent.name);
+        if (t) {
+          store.toggleTalent(t.id);
+        }
+      });
+    }
+    
+    // 恢复属性分配
+    if (presetData.baseAttributes) {
+      store.setAttribute('root_bone', presetData.baseAttributes.root_bone);
+      store.setAttribute('spirituality', presetData.baseAttributes.spirituality);
+      store.setAttribute('comprehension', presetData.baseAttributes.comprehension);
+      store.setAttribute('fortune', presetData.baseAttributes.fortune);
+      store.setAttribute('charm', presetData.baseAttributes.charm);
+      store.setAttribute('temperament', presetData.baseAttributes.temperament);
+    }
+    
+    console.log('[角色创建] 预设数据恢复完成,准备创建角色');
+    
+    // 直接跳到最后一步并创建角色
+    store.currentStep = store.totalSteps;
+    
+    // 等待视图更新后创建角色
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await createCharacter();
+    
+  } catch (error) {
+    console.error('[角色创建] 使用预设数据失败:', error);
+    toast.error('预设数据处理失败');
   }
 }
 </script>
