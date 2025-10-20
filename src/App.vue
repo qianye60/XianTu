@@ -242,7 +242,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
       if (characterStore.rootState.角色列表[charId]) {
         console.log('[角色创建] 检测到残留数据，清理中...');
         delete characterStore.rootState.角色列表[charId];
-        characterStore.commitToStorage();
+        await characterStore.commitMetadataToStorage();
       }
       // 从酒馆获取当前活跃的Persona名字
       let personaName: string = '无名道友';
@@ -320,7 +320,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
 
       const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
       characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
-      characterStore.commitToStorage();
+      await characterStore.commitMetadataToStorage();
 
       await new Promise(resolve => setTimeout(resolve, 500));
       toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
@@ -341,7 +341,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
       if (characterStore.rootState.角色列表[charId]) {
         console.log('[角色创建] 创建失败，清理残留数据...');
         delete characterStore.rootState.角色列表[charId];
-        characterStore.commitToStorage();
+        await characterStore.commitMetadataToStorage();
       }
 
       // 检查是否是用户主动取消的错误
