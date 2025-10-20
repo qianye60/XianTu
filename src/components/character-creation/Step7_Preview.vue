@@ -147,7 +147,7 @@ onMounted(async () => {
     const helper = getTavernHelper()
     if (helper) {
       // 优先使用宏解析，这是最可靠的方式
-      const personaName = helper.substitudeMacros('{{user}}');
+      const personaName = await helper.substitudeMacros('{{user}}');
       console.log('[Step7_Preview] 解析宏 {{user}} ->', personaName);
 
       if (personaName && personaName !== '{{user}}' && typeof personaName === 'string' && personaName.trim()) {
@@ -156,7 +156,7 @@ onMounted(async () => {
       } else {
         // 如果宏解析失败，回退到旧的全局变量方法
         console.warn('[Step7_Preview] ⚠️ 宏 {{user}} 解析失败, 尝试从全局变量获取')
-        const vars = helper.getVariables({ type: 'global' })
+        const vars = await helper.getVariables({ type: 'global' })
         console.log('[Step7_Preview] 酒馆全局变量:', vars)
 
         const fallbackName = vars['persona.name'] || vars['name'] || vars['user_name']
