@@ -92,7 +92,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
   // 获取所有角色Profile的列表
   const allCharacterProfiles = computed(() => Object.values(rootState.value.角色列表));
-  
+
   // 获取当前激活的角色Profile
   const activeCharacterProfile = computed((): CharacterProfile | null => {
     const active = rootState.value.当前激活存档;
@@ -187,19 +187,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * [架构重构待办] 将当前存档数据保存到本地
    *
    * TODO: [架构重构阶段2.1] 此函数需要完全重构
-   * 当前实现：已删除 storageSharding 依赖，跳过酒馆同步
-   * 目标实现：
-   * 1. 直接保存到 IndexedDB（使用 storage.saveActiveSaveData）
-   * 2. 更新 gameStateStore 的数据
-   * 3. 移除所有酒馆相关的代码
+   * 当前实现：已删除 storageSharding 依赖，直接保存到 IndexedDB
    *
    * @see 架构迁移行动计划.md - 阶段 2：修改 characterStore
    *
-   * @deprecated 架构重构中，功能有限
    * @param fullSync 是否进行完整同步（默认 false，仅作参考，当前未使用）
    * @param changedPaths 变更的字段路径数组（当前未使用）
    */
-  const syncToTavernAndSave = async (options?: {
+  const saveToStorage = async (options?: {
     fullSync?: boolean;
     changedPaths?: string[]
   }): Promise<void> => {
@@ -247,20 +242,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.warn('角色商店', '[同步] 自动更新年龄失败（非致命）:', error);
       }
 
-      // TODO: [架构重构] 分片存储已废弃，暂时跳过酒馆同步
-      // 2. 🔥 使用分片存储同步到酒馆
-      // const helper = getTavernHelper();
-      // if (helper) {
-      //   try {
-      //     const fullSync = options?.fullSync ?? false;
-      //     const changedPaths = options?.changedPaths;
-      //     ... 省略分片存储逻辑 ...
-      //   } catch (helperError) {
-      //     debug.error('角色商店', '[同步] 同步失败:', helperError);
-      //     throw new Error(`同步酒馆失败: ${helperError instanceof Error ? helperError.message : String(helperError)}`);
-      //   }
-      // }
-      debug.warn('角色商店', '[同步] 分片存储已废弃，跳过酒馆同步（架构重构中）');
+      // TODO: [架构重构] 分片存储已废弃，现在直接保存到 IndexedDB
+      debug.log('角色商店', '[同步] 直接保存到 IndexedDB（架构已重构）');
 
       // 3. 更新存档槽位的最后保存时间和元数据
       // 注意：保存时间（创建时间）只在创建时设置，不再修改
@@ -306,9 +289,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 5. 保存到本地存储
       await commitMetadataToStorage();
 
-      debug.log('角色商店', '[同步] 数据已同步到酒馆并保存到本地，元数据已更新');
+      debug.log('角色商店', '[同步] 数据已保存到本地，元数据已更新');
     } catch (error) {
-      debug.error('角色商店', '[同步] 同步到酒馆并保存失败', error);
+      debug.error('角色商店', '[同步] 保存到本地存储失败', error);
       throw error;
     }
   };
@@ -405,7 +388,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // const toastId = `create-char-${charId}`; // 不再需要独立的toastId
     try {
       uiStore.updateLoadingText('即将开始角色创建...');
-      
+
       // [核心改造] 1. 创建角色前，彻底清理酒馆环境
       await clearAllCharacterData(); // 不再需要传递toastId
 
@@ -413,13 +396,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
       if (mode === '联机') {
         try {
           uiStore.updateLoadingText('正在向云端提交角色信息...');
-          
+
           // 构造符合后端schema的数据结构
           const characterSubmissionData = {
             char_id: charId,
             base_info: authoritativeBaseInfo,
           };
-          
+
           debug.log('角色商店', '向后端提交的数据', characterSubmissionData);
           const backendResult = await createCharacterAPI(characterSubmissionData);
           debug.log('角色商店', '后端返回结果', backendResult);
@@ -491,7 +474,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           },
         };
       }
-      
+
       rootState.value.角色列表[charId] = newProfile;
 
       // 2. 设置为当前激活存档
@@ -500,16 +483,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 🔥 [核心修复] 必须先将完整的初始存档数据持久化，再保存元数据
       // 这样可以确保原子性，避免出现元数据存在但存档数据丢失的情况
-      await setActiveCharacterInTavern(charId);
+      await saveActiveCharacterToStorage(charId);
       await commitMetadataToStorage();
 
       // 🔥 [新架构] 将初始存档加载到 gameStateStore
       const gameStateStore = useGameStateStore();
       gameStateStore.loadFromSaveData(initialSaveData);
       debug.log('角色商店', '✅ 初始存档已加载到 gameStateStore');
-
-      // 4. 同步到酒馆 (setActiveCharacterInTavern 已完成存档，这里只更新UI)
-      uiStore.updateLoadingText('正在将角色档案同步至酒馆...');
 
       // 5. [核心修复] 同步完整存档数据到云端 (仅在后端可用时)
       if (mode === '联机') {
@@ -532,7 +512,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           // 不要抛出错误，允许角色创建继续完成
         }
       }
-      
+
       // 最终的成功提示由App.vue处理
       return authoritativeBaseInfo;
     } catch (error) {
@@ -542,7 +522,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       throw new Error(`角色创建失败: ${errorMessage}`);
     }
   };
-  
+
   /**
    * 删除一个角色及其所有存档
    * @param charId 要删除的角色ID
@@ -599,25 +579,45 @@ export const useCharacterStore = defineStore('characterV3', () => {
   const loadGame = async (charId: string, slotKey: string) => {
       debug.log('角色商店', `开始加载游戏，角色ID: ${charId}, 存档槽: ${slotKey}`);
       const uiStore = useUIStore();
-      
+
       const profile = rootState.value.角色列表[charId];
       if (!profile) {
         debug.error('角色商店', '找不到要加载的角色', charId);
         toast.error('找不到要加载的角色！');
         return false;
       }
-  
+
       let targetSlot: SaveSlot | undefined | null;
       if (profile.模式 === '单机') {
         targetSlot = profile.存档列表?.[slotKey];
       } else {
         targetSlot = profile.存档;
       }
-      
+
       if (!targetSlot) {
         debug.error('角色商店', '找不到指定的存档槽位', slotKey);
         toast.error('找不到指定的存档槽位！');
         return false;
+      }
+
+      // 🔥 [关键修复] 如果存档数据不在内存中，先从 IndexedDB 加载
+      if (!targetSlot.存档数据) {
+        debug.log('角色商店', `存档数据不在内存中，从 IndexedDB 加载: ${charId}/${slotKey}`);
+        try {
+          const saveData = await storage.loadSaveData(charId, slotKey);
+          if (saveData) {
+            targetSlot.存档数据 = saveData;
+            debug.log('角色商店', `✅ 已从 IndexedDB 加载存档数据`);
+          } else {
+            debug.error('角色商店', `IndexedDB 中不存在存档数据: ${charId}/${slotKey}`);
+            toast.error('存档数据不存在！');
+            return false;
+          }
+        } catch (error) {
+          debug.error('角色商店', '从 IndexedDB 加载存档数据失败', error);
+          toast.error('加载存档数据失败！');
+          return false;
+        }
       }
 
       // 在加载前执行数据骨架验证
@@ -636,27 +636,31 @@ export const useCharacterStore = defineStore('characterV3', () => {
           return false; // 中断加载流程
         }
       }
-  
+
       try {
         uiStore.startLoading('开始加载存档...');
         // [核心改造] 1. 加载游戏前，彻底清理酒馆变量环境
         await clearAllCharacterData();
-  
+
         uiStore.updateLoadingText('天机重置完毕，正在加载存档...');
-        
+
         // 2. 设置激活存档
         debug.log('角色商店', '设置当前激活存档');
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       await commitMetadataToStorage(); // 立即保存激活状态
 
-      // 3. 将激活的存档数据同步到酒馆
-      debug.log('角色商店', '同步角色档案到酒馆');
-      await setActiveCharacterInTavern(charId);
-      
+      // 3. 将加载的存档数据同步到 gameStateStore
+      debug.log('角色商店', '将存档数据加载到 gameStateStore');
+      const gameStateStore = useGameStateStore();
+      if (targetSlot.存档数据) {
+        gameStateStore.loadFromSaveData(targetSlot.存档数据);
+        debug.log('角色商店', '✅ 存档数据已加载到 gameStateStore');
+      }
+
       debug.log('角色商店', '加载完成');
       toast.success(`已成功加载【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名 || slotKey}`);
       return true;
-      
+
     } catch (error) {
       debug.error('角色商店', '加载过程出错', error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';
@@ -669,10 +673,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
   /**
    * [架构重构] 将激活存档保存到 IndexedDB
-   * 替代酒馆变量存储，实现独立的数据持久化
    * @param charId 要设置为激活的角色ID
    */
-  const setActiveCharacterInTavern = async (charId: string) => {
+  const saveActiveCharacterToStorage = async (charId: string) => {
     const profile = rootState.value.角色列表[charId];
     if (!profile) {
       throw new Error(`[存档核心] 无法找到ID为 ${charId} 的角色档案`);
@@ -692,8 +695,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
         throw new Error('[存档核心] 没有激活的存档');
       }
 
-      // 🔥 新架构：直接保存到 IndexedDB，不使用酒馆变量
-      debug.log('角色商店', '使用 IndexedDB 存储模式保存存档');
+      // 🔥 新架构：直接保存到 IndexedDB
+      debug.log('角色商店', '保存存档数据到 IndexedDB');
 
       // 直接将存档数据保存到 IndexedDB
       await storage.saveSaveData(active.角色ID, active.存档槽位, currentSlot.存档数据);
@@ -1324,7 +1327,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     // 删除旧的存档槽位
     delete profile.存档列表[oldSlotKey];
-    
+
     await commitMetadataToStorage();
     toast.success(`存档已重命名为【${newSaveName}】`);
   };
@@ -1379,9 +1382,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     await commitMetadataToStorage();
 
-    // 🔥 增量同步到酒馆
+    // 🔥 增量保存到 IndexedDB
     if (changedPaths.length > 0) {
-      await syncToTavernAndSave({ changedPaths });
+      await saveToStorage({ changedPaths });
       debug.log('角色商店', `✅ 角色数据已更新并增量同步 ${changedPaths.length} 个字段`, changedPaths);
     }
   };
@@ -1437,12 +1440,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * 导入存档数据
    * @param saveData 要导入的存档数据
    */
-  const importSave = async (saveData: SaveSlot) => {
-    const profile = activeCharacterProfile.value;
-    const charId = rootState.value.当前激活存档?.角色ID;
-    
-    if (!profile || !charId) {
-      toast.error('没有激活的角色，无法导入存档');
+  const importSave = async (charId: string, saveData: SaveSlot) => {
+    const profile = rootState.value.角色列表[charId];
+
+    if (!profile) {
+      toast.error('找不到角色，无法导入存档');
       return;
     }
 
@@ -1463,6 +1465,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
       counter++;
     }
 
+    // 🔥 关键修复：先将存档数据保存到 IndexedDB
+    if (saveData.存档数据) {
+      await storage.saveSaveData(charId, importName, saveData.存档数据);
+      debug.log('角色商店', `✅ 已将导入的存档数据保存到 IndexedDB: ${charId}/${importName}`);
+    }
+
+    // 然后保存元数据到 Store
     profile.存档列表[importName] = {
       ...saveData,
       存档名: importName
@@ -1478,7 +1487,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
   const clearAllSaves = async () => {
     const profile = activeCharacterProfile.value;
     const charId = rootState.value.当前激活存档?.角色ID;
-    
+
     if (!profile || !charId) {
       toast.error('没有激活的角色');
       return;
@@ -1493,7 +1502,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     // 清空当前激活存档
     rootState.value.当前激活存档 = null;
-    
+
     await commitMetadataToStorage();
     toast.success('所有存档已清空');
   };
@@ -1507,7 +1516,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // toast.info('当前没有激活的游戏会话。'); // 安静退出，无需提示
       return;
     }
-    
+
     const uiStore = useUIStore();
     try {
       uiStore.startLoading('正在退出游戏...');
@@ -1544,15 +1553,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
     if (!activeSlot) {
       throw new Error(`找不到当前激活的存档槽位: ${active.存档槽位}`);
     }
-    
+
     activeSlot.存档数据 = JSON.parse(JSON.stringify(lastConversationData));
     activeSlot.最后保存时间 = new Date().toISOString();
 
     // 2. 保存到IndexedDB
     await commitMetadataToStorage();
 
-    // 3. 将更新后的数据同步到酒馆
-    await setActiveCharacterInTavern(active.角色ID);
+    // 3. 保存更新后的数据到 IndexedDB
+    await saveActiveCharacterToStorage(active.角色ID);
 
     debug.log('角色商店', '✅ 已成功回滚到上次对话前的状态');
   };
@@ -1650,7 +1659,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 2. 调用AI生成修复指令
       const helper = getTavernHelper();
       if (!helper) throw new Error('酒馆连接不可用');
-      
+
       uiStore.updateLoadingText('天道正在推演修复方案...');
       const aiResponse = await helper.generate({
         user_input: systemPrompt,
@@ -1687,7 +1696,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       uiStore.updateLoadingText(`AI已生成 ${commands.length} 条修复指令，正在应用...`);
-      
+
       // 4. 执行修复指令
       const executionErrors = await executeTavernCommands(targetSlot.存档数据, profile, commands);
 
@@ -1699,9 +1708,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 5. 保存并重新加载
       targetSlot.最后保存时间 = new Date().toISOString();
       await commitMetadataToStorage();
-      
+
       toast.success('AI已完成存档修复！正在重新加载游戏...');
-      
+
       await new Promise(resolve => setTimeout(resolve, 500));
       await loadGame(charId, slotKey);
 
@@ -1751,9 +1760,9 @@ const deleteNpc = async (npcName: string) => {
     triggerRef(rootState);
 
     // 保存并同步变更
-    await syncToTavernAndSave({ fullSync: true });
+    await saveToStorage({ fullSync: true });
 
-    debug.log('角色商店', `✅ NPC ${npcName} 已成功删除并同步到酒馆`);
+    debug.log('角色商店', `✅ NPC ${npcName} 已成功删除并保存`);
     toast.success(`NPC【${npcName}】已成功删除。`);
   } catch (error) {
     debug.error('角色商店', `删除NPC ${npcName} 后保存失败`, error);
@@ -1919,6 +1928,10 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
 
       for (const slotKey of slotKeys) {
         const slot = profile.存档列表[slotKey];
+        // 🔥 跳过"上次对话"槽位，因为它是空的备份槽，只在需要时才写入
+        if (slotKey === '上次对话') {
+          continue;
+        }
         // 只加载没有存档数据的槽位
         if (slot && !slot.存档数据) {
           const saveData = await storage.loadSaveData(charId, slotKey);
@@ -1977,7 +1990,7 @@ const unequipTechnique = async (itemId: string) => {
   } catch (e) {
     debug.error('角色商店', '卸下功法后自动计算掌握技能失败:', e);
   }
-  
+
   // 🔥 [UI即时响应] 在同步前强制触发一次UI更新
   triggerRef(rootState);
 
@@ -2019,9 +2032,6 @@ return {
   exitGameSession, // 新增：退出游戏会话
   rollbackToLastConversation, // 新增：回滚到上次对话
   commitMetadataToStorage, // 导出给外部使用
-  syncToTavernAndSave, // 新增：同步到酒馆并保存（支持增量同步）
-  setActiveCharacterInTavern,
-  syncFromIndexedDB, // 🔥 重命名：从IndexedDB同步（原syncFromTavern）
   repairCharacterDataWithAI, // 暴露新的AI修复方法
   // 初始状态变更传递
   initialCreationStateChanges,
