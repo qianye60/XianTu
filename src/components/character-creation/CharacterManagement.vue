@@ -160,6 +160,12 @@
               <p>请选择左侧角色查看存档详情</p>
             </div>
 
+            <!-- 正在加载存档 -->
+            <div v-else-if="isLoadingSaves" class="loading-saves">
+              <div class="loading-spinner"></div>
+              <p>正在加载存档...</p>
+            </div>
+
             <!-- 单机模式存档 -->
             <div v-else-if="selectedCharacter.模式 === '单机'" class="saves-container">
               <div class="saves-section">
@@ -485,6 +491,7 @@ const promptInput = ref<HTMLInputElement | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const isCharacterPanelOpen = ref(false);
 const loading = ref(false);
+const isLoadingSaves = ref(false); // 新增：用于控制存档加载状态
 
 // 响应式屏幕尺寸检测
 const screenWidth = ref(window.innerWidth);
@@ -545,8 +552,21 @@ const toggleCharacterPanel = () => {
   isCharacterPanelOpen.value = !isCharacterPanelOpen.value;
 };
 
-const selectCharacter = (charId: string) => {
+const selectCharacter = async (charId: string) => {
+  if (selectedCharId.value === charId) return; // 如果已经是选中角色，则不重复加载
+
   selectedCharId.value = charId;
+  isLoadingSaves.value = true; // 开始加载
+
+  try {
+    // 🔥 核心变更：按需加载所选角色的存档数据
+    await characterStore.loadCharacterSaves(charId);
+  } catch (error) {
+    console.error('加载存档数据失败:', error);
+    toast.error('加载存档数据失败');
+  } finally {
+    isLoadingSaves.value = false; // 结束加载
+  }
 
   // 在移动端选择角色后自动关闭面板
   if (isMobile.value) {
@@ -579,12 +599,6 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
 
   if (hasData) {
     // 对于有数据的存档，直接进入
-    console.log('设置活跃角色...');
-    try {
-      await characterStore.setActiveCharacterInTavern(charId);
-    } catch (e) {
-      console.warn('跳过酒馆同步（单机环境）', e);
-    }
     console.log('加载存档...');
     // 加载存档并跳转到游戏
     const success = await characterStore.loadGame(charId, slotKey);
@@ -612,11 +626,6 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
       message,
       async () => {
         console.log('确认创建新存档...');
-        try {
-          await characterStore.setActiveCharacterInTavern(charId);
-        } catch (e) {
-          console.warn('跳过酒馆同步（单机环境）', e);
-        }
         // 加载存档并跳转到游戏
         const success = await characterStore.loadGame(charId, slotKey);
         console.log('新存档加载结果:', success);
@@ -1822,6 +1831,32 @@ const handleImportFile = async (event: Event) => {
 .no-selection-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
+}
+
+/* 新增：加载存档样式 */
+.loading-saves {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(var(--color-primary-rgb), 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 存档容器 */

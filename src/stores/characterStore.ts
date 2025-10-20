@@ -498,6 +498,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const slotKey = mode === '单机' ? '存档1' : '存档';
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
 
+      // 🔥 [核心修复] 必须先将完整的初始存档数据持久化，再保存元数据
+      // 这样可以确保原子性，避免出现元数据存在但存档数据丢失的情况
+      await setActiveCharacterInTavern(charId);
       await commitMetadataToStorage();
 
       // 🔥 [新架构] 将初始存档加载到 gameStateStore
@@ -505,9 +508,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       gameStateStore.loadFromSaveData(initialSaveData);
       debug.log('角色商店', '✅ 初始存档已加载到 gameStateStore');
 
-      // 4. 同步到酒馆
+      // 4. 同步到酒馆 (setActiveCharacterInTavern 已完成存档，这里只更新UI)
       uiStore.updateLoadingText('正在将角色档案同步至酒馆...');
-      await setActiveCharacterInTavern(charId);
 
       // 5. [核心修复] 同步完整存档数据到云端 (仅在后端可用时)
       if (mode === '联机') {
@@ -1892,6 +1894,55 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
   return saveData;
 };
 
+  /**
+   * [新增] 按需加载指定角色的所有存档数据
+   * @param charId 要加载存档的角色ID
+   */
+  const loadCharacterSaves = async (charId: string): Promise<void> => {
+    const profile = rootState.value.角色列表[charId];
+    if (!profile) {
+      debug.warn('角色商店', `[loadCharacterSaves] 角色不存在: ${charId}`);
+      return;
+    }
+
+    // 只处理单机模式
+    if (profile.模式 !== '单机' || !profile.存档列表) {
+      debug.log('角色商店', `[loadCharacterSaves] 角色 ${charId} 非单机模式或无存档列表，无需加载。`);
+      return;
+    }
+
+    debug.log('角色商店', `[loadCharacterSaves] 开始为角色 ${charId} 加载存档数据...`);
+
+    try {
+      const slotKeys = Object.keys(profile.存档列表);
+      let loadedCount = 0;
+
+      for (const slotKey of slotKeys) {
+        const slot = profile.存档列表[slotKey];
+        // 只加载没有存档数据的槽位
+        if (slot && !slot.存档数据) {
+          const saveData = await storage.loadSaveData(charId, slotKey);
+          if (saveData) {
+            slot.存档数据 = saveData;
+            loadedCount++;
+            debug.log('角色商店', `  > 成功加载存档: ${slotKey}`);
+          }
+        }
+      }
+
+      if (loadedCount > 0) {
+        // 强制触发响应式更新
+        triggerRef(rootState);
+        debug.log('角色商店', `[loadCharacterSaves] 完成加载，共载入 ${loadedCount} 个存档数据。`);
+      } else {
+        debug.log('角色商店', `[loadCharacterSaves] 无需加载新的存档数据。`);
+      }
+    } catch (error) {
+      debug.error('角色商店', `[loadCharacterSaves] 加载角色 ${charId} 的存档时出错`, error);
+      toast.error('加载存档数据失败');
+    }
+  };
+
 const unequipTechnique = async (itemId: string) => {
   const slot = activeSaveSlot.value;
   if (!slot?.存档数据) {
@@ -1981,5 +2032,6 @@ return {
   unequipTechnique,
   importCharacter, // 新增：导入角色
   loadSaveData,
+  loadCharacterSaves, // 新增：按需加载存档
 };
 });

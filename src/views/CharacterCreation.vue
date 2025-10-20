@@ -235,26 +235,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
     isGenerating.value = false;
     return;
 
-    // 3. 保存到云端
-    toast.loading('正在将结果铭刻于云端...', { id: toastId });
-    const saveResult = await request<{ message: string; code_used?: number }>('/api/v1/ai/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code: code.trim().toUpperCase(),
-        type,
-        content: generatedContent,
-        user_prompt: userPrompt || null, // 保存用户提示词
-      }),
-    })
-
-    if (saveResult?.message) {
-      store.addGeneratedData(type, generatedContent);
-      const successMessage = saveResult.code_used
-        ? `天机已成功记录！信物使用次数：${saveResult.code_used}`
-        : '天机已成功记录于云端！';
-      toast.success(successMessage, { id: toastId });
-    }
+    // 3. 保存到云端 (此功能已移除)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '未知错误';
     if (message.includes('兑换码') || message.includes('信物')) {
@@ -821,7 +802,7 @@ function onDataCleared(type: string, count: number) {
       margin: 0; /* Reset negative margins */
       border-radius: 0; /* Reset radius */
     }
-  
+
     .points-display {
       flex-basis: 100%;
       order: -1;
