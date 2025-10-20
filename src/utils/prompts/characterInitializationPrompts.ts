@@ -3,6 +3,8 @@
  * 精简高效，减少AI理解负担。
  */
 
+import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+import type { WorldInfo, WorldMapConfig, SystemConfig } from '@/types/game';
 import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
 import { REALM_STAGE_RULE, NSFW_RULE } from './sharedRules';
 
@@ -23,6 +25,12 @@ const CHARACTER_INIT_RULES = [
   '命令示例: {"action":"set","key":"玩家角色状态.位置.描述","value":"青云大陆·青云宗·外门"}',
   '如果故事中提到了具体建筑或区域，也应该包含在位置中（最多3层）。',
   '',
+  '## 3.1 命名风格一致性 (高优先级)',
+  '开局故事中出现的**所有**专有名词（NPC姓名、具体地点、组织、物品等）都必须严格符合玩家选择的**世界背景**风格。',
+  '例如：如果世界背景是“地球”，NPC应叫“张伟”，地点是“XX市图书馆”，组织是“XX研究中心”。严禁出现“清虚道长”、“炼丹阁”等仙侠名称。',
+  '反之，如果背景是仙侠，则使用古风命名。',
+  '**此规则旨在确保沉浸感，必须严格遵守。**',
+  '',
   '## 4. 物品创建流程',
   '先创建物品到背包，然后装备栏引用该物品ID，最后标记物品为已装备状态。',
   '',
@@ -38,17 +46,25 @@ const CHARACTER_INIT_RULES = [
   '## 7. 叙事要求',
   '生成1200-2500字的沉浸式开场故事。通过行为暗示角色特质，禁止直接提及游戏术语。纯叙事，不加时间标记。',
   '',
+  '## 8. 叙事稳定性 (最高优先级)',
+  '**严禁**在开局故事中强行推动角色离开其出身环境或改变生活状态。',
+  '故事的重点是**深入描绘**玩家选择的出身背景，而不是创造一个"冒险的起点"。',
+  '例如：如果出身是"宗门弟子"，就详细写宗门内的生活；如果出身是"凡人铁匠"，就写打铁的日常。',
+  '任何可能导致离开当前环境的重大事件（如宗门被灭、家族变故），**最多只能作为背景提及或暗示**，不能在开局时就发生。',
+  '为玩家提供一个**稳定、可代入的开局**，而不是一个充满动荡的开局。',
+  '',
   REALM_STAGE_RULE,
   '',
   NSFW_RULE,
   '',
-  '## 8. 玩家身体部位初始化（NSFW模式）',
+  '## 9. 玩家身体部位初始化（NSFW模式）',
   '当nsfwMode=true时，必须初始化玩家的身体部位开发数据（3-5个核心部位）。',
   '使用命令格式: {"action":"set","key":"身体部位开发.部位名称","value":{"描述":"...","开发等级":0-20,"敏感度":20-50,"特殊标记":""}}',
+  '**描述风格**: “描述”字段必须详细、色情且富有想象力，专注于感官细节，如形状、颜色、质地、状态等。避免使用平淡或医学性的词汇。',
   '初始状态应该是未开发或轻度开发，开发等级0-20，敏感度20-50。',
-  '根据玩家性别选择合适的部位（女性：乳房、乳头、阴蒂、阴道、肛门等；男性：阴茎、龟头、睾睾丸、肛门等）。',
+  '根据玩家性别选择合适的部位（女性：乳房、乳头、阴蒂、阴道、肛门等；男性：阴茎、龟头、睾丸、肛门等）。',
   '',
-  '## 9. NPC身体部位初始化（NSFW模式）',
+  '## 10. NPC身体部位初始化（NSFW模式）',
   '当nsfwMode=true时，为所有出场的NPC（无论男女）生成私密信息和身体部位数据。',
   '使用命令格式: {"action":"set","key":"人物关系.NPC名字.私密信息","value":{"身体部位开发":{...},"性经验":"..."}}',
   'NPC的身体部位数据结构和规则与玩家相同。',
@@ -195,7 +211,7 @@ export const CHARACTER_INITIALIZATION_PROMPT = `
     "记忆": [],
     "私密信息": {
       "身体部位开发": {
-        "阴茎": {"描述":"尺寸惊人","开发等级":10,"敏感度":30}
+        "阴茎": {"描述":"一根尺寸惊人的巨物，青筋盘虬，顶端的龟头在兴奋时会微微发紫，渗出清亮的液体。","开发等级":10,"敏感度":30,"特殊标记":"巨根"}
       },
       "性经验": "略有经验"
     }
@@ -247,121 +263,70 @@ ${DATA_STRUCTURE_DEFINITIONS}
  * @param worldContext - The world information including continents and locations.
  * @returns A formatted string summarizing the player's selections.
  */
+interface ContextItem {
+  name?: string;
+  名称?: string;
+  description?: string;
+  描述?: string;
+  type?: string;
+  类型?: string;
+}
+
 export function buildCharacterSelectionsSummary(
   userSelections: {
     name: string;
     gender: string;
     age: number;
-    world: string;
-    talentTier: any;
-    origin: any;
-    spiritRoot: any;
-    talents: any[];
+    world: World;
+    talentTier: TalentTier;
+    origin: Origin | string;
+    spiritRoot: SpiritRoot | string;
+    talents: Talent[];
     attributes: Record<string, number>;
   },
   worldContext?: {
-    worldInfo?: any;
-    availableContinents?: any[];
-    availableLocations?: any[];
-    mapConfig?: any;
-    systemSettings?: any;
+    worldInfo?: WorldInfo;
+    availableContinents?: ContextItem[];
+    availableLocations?: ContextItem[];
+    mapConfig?: WorldMapConfig;
+    systemSettings?: SystemConfig;
   }
 ): string {
 
-  /**
-   * Formats a selection item into a detailed, AI-readable description.
-   * Handles both Chinese and English property names robustly.
-   */
-  const formatItem = (value: any): string => {
-    if (!value) return '无';
-
-    if (typeof value === 'string') {
-      if (value.includes('随机灵根')) {
-        return `${value}\n    *   AI必须处理: 这是一个随机选项，必须在生成故事前将其替换为具体的灵根。`;
-      }
-      if (value.includes('随机出生')) {
-        return `${value}\n    *   AI必须处理: 这是一个随机选项，必须在生成故事前将其替换为具体的出身。`;
-      }
-      return String(value);
-    }
-
-    if (typeof value !== 'object' || value === null) return String(value);
-
-    const name = value.name || value.名称;
-    const description = value.description || value.描述;
-
-    let title = name || '';
-    const details: string[] = [];
-
-    // Handle different object structures by checking for their unique properties
-    const tier = value.tier ?? value.品级;
-    if (name && tier !== undefined) { // Spirit Root
-      title = `${name}(${tier})`;
-      if (description) details.push(`描述: ${description}`);
-    } else if (name && description) { // Common pattern for Talent, Origin, TalentTier
-      title = name;
-      details.push(`详细描述: ${description}`);
-      if (typeof value.total_points === 'number') { // TalentTier
-        details.push(`天赋点数: ${value.total_points}`);
-      }
-      if (value.attribute_modifiers) { // Origin
-        const modifiers = Object.entries(value.attribute_modifiers)
-          .map(([attr, val]) => `${attr}${Number(val) > 0 ? '+' : ''}${val}`)
-          .join(', ');
-        if (modifiers) details.push(`属性影响: ${modifiers}`);
-      }
-      if (typeof value.talent_cost === 'number') { // Talent
-        details.push(`消耗点数: ${value.talent_cost}`);
-      }
-    }
-
-    if (title) {
-      const formattedDetails = details.map(d => `*   ${d}`);
-      return [title, ...formattedDetails].join('\n    ');
-    }
-
-    // Fallback for any other object structure that doesn't fit the patterns
-    const fallbackJson = JSON.stringify(value, null, 2);
-    return fallbackJson.length > 500 ? `\`\`\`json\n${fallbackJson.substring(0, 500)}...\n\`\`\`` : `\`\`\`json\n${fallbackJson}\n\`\`\``;
-  };
 
   // ============================================================
-  // 🔴 关键修复：直接提取并呈现描述信息给AI
+  // 数据提取：直接从强类型对象获取，无需 || 回退
   // ============================================================
 
-  // 1. 世界信息
-  const worldName = userSelections.world;
-  const worldDesc = worldContext?.worldInfo?.描述 || worldContext?.worldInfo?.description || '未知世界背景';
-  const worldEra = worldContext?.worldInfo?.时代 || worldContext?.worldInfo?.era || '未知时代';
+  // 1. 世界信息（userSelections.world 是 World 类型）
+  const worldName = userSelections.world.name;
+  const worldDesc = userSelections.world.description;
+  const worldEra = userSelections.world.era;
 
-  // 2. 天资信息
-  const talentTierName = userSelections.talentTier?.名称 || userSelections.talentTier?.name || '未知';
-  const talentTierDesc = userSelections.talentTier?.描述 || userSelections.talentTier?.description || '';
+  // 2. 天资信息（userSelections.talentTier 是 TalentTier 类型）
+  const talentTierName = userSelections.talentTier.name;
+  const talentTierDesc = userSelections.talentTier.description;
 
-  // 3. 出身信息
-  const originName = typeof userSelections.origin === 'string'
-    ? userSelections.origin
-    : (userSelections.origin?.名称 || userSelections.origin?.name || '未知');
-  const originDesc = typeof userSelections.origin === 'string'
-    ? ''
-    : (userSelections.origin?.描述 || userSelections.origin?.description || '');
+  // 3. 出身信息（可能是 Origin 对象或字符串 "随机出身"）
+  const originName = (typeof userSelections.origin === 'object' && userSelections.origin)
+    ? userSelections.origin.name
+    : userSelections.origin;
+  const originDesc = (typeof userSelections.origin === 'object' && userSelections.origin)
+    ? userSelections.origin.description
+    : '（随机出身，需AI根据世界背景创造性生成）';
 
-  // 4. 灵根信息
-  const spiritRootName = typeof userSelections.spiritRoot === 'string'
-    ? userSelections.spiritRoot
-    : (userSelections.spiritRoot?.名称 || userSelections.spiritRoot?.name || '未知');
-  const spiritRootTier = userSelections.spiritRoot?.品级 || userSelections.spiritRoot?.tier || '';
-  const spiritRootDesc = typeof userSelections.spiritRoot === 'string'
-    ? ''
-    : (userSelections.spiritRoot?.描述 || userSelections.spiritRoot?.description || '');
+  // 4. 灵根信息（可能是 SpiritRoot 对象或字符串 "随机灵根"）
+  const spiritRootName = (typeof userSelections.spiritRoot === 'object' && userSelections.spiritRoot)
+    ? userSelections.spiritRoot.name
+    : userSelections.spiritRoot;
+  const spiritRootTier = (typeof userSelections.spiritRoot === 'object' && userSelections.spiritRoot) ? userSelections.spiritRoot.tier : '';
+  const spiritRootDesc = (typeof userSelections.spiritRoot === 'object' && userSelections.spiritRoot)
+    ? userSelections.spiritRoot.description
+    : '（随机灵根，需AI根据天资等级创造性生成）';
 
-  // 5. 天赋列表
-  const talentsList = userSelections.talents && userSelections.talents.length > 0
-    ? userSelections.talents.map(t => {
-        const tName = t.名称 || t.name || '未知天赋';
-        const tDesc = t.描述 || t.description || '';
-        return `  - **${tName}**：${tDesc}`;
-      }).join('\n')
+  // 5. 天赋列表（Talent[] 类型）
+  const talentsList = userSelections.talents.length > 0
+    ? userSelections.talents.map(t => `  - **${t.name}**：${t.description}`).join('\n')
     : '  无';
 
   // 6. 先天六司
@@ -369,20 +334,15 @@ export function buildCharacterSelectionsSummary(
     .map(([key, value]) => `  - ${key}: ${value}`)
     .join('\n');
 
-  // 7. 可用大陆
-  const continentsList = worldContext?.availableContinents?.map((c: any) => {
-    const cName = c.名称 || c.name || '未知';
-    const cDesc = c.描述 || c.description || '';
-    return `  - **${cName}**：${cDesc}`;
-  }).join('\n') || '  （未生成）';
+  // 7. 可用大陆（从 worldContext 获取生成后的地图数据）
+  const continentsList = worldContext?.availableContinents
+    ? worldContext.availableContinents.map((c: ContextItem) => `  - **${c.name || c.名称}**：${c.description || c.描述}`).join('\n')
+    : '  （未生成）';
 
-  // 8. 主要地点
-  const locationsList = worldContext?.availableLocations?.slice(0, 10).map((l: any) => {
-    const lName = l.名称 || l.name || '未知';
-    const lType = l.类型 || l.type || '';
-    const lDesc = l.描述 || l.description || '';
-    return `  - **${lName}** (${lType})：${lDesc}`;
-  }).join('\n') || '  （未生成）';
+  // 8. 主要地点（从 worldContext 获取）
+  const locationsList = worldContext?.availableLocations?.slice(0, 10)
+    ? worldContext.availableLocations.slice(0, 10).map((l: ContextItem) => `  - **${l.name || l.名称}** (${l.type || l.类型})：${l.description || l.描述}`).join('\n')
+    : '  （未生成）';
 
   const selectionsSummary = `
 # 🔴🔴🔴 重要提醒 🔴🔴🔴
@@ -425,7 +385,7 @@ export function buildCharacterSelectionsSummary(
 
 ## 出身背景 👤
 - **出身名称**：${originName}
-- **🔴 出身描述（必读）**：${originDesc || '（随机出身，需AI根据世界背景创造性生成）'}
+- **🔴 出身描述（必读）**：${originDesc}
 
 **要求**：开局故事的核心背景必须基于这个出身描述！
 
@@ -434,7 +394,7 @@ export function buildCharacterSelectionsSummary(
 ## 灵根资质 🔥
 - **灵根名称**：${spiritRootName}
 - **灵根品级**：${spiritRootTier}
-- **🔴 灵根描述（必读）**：${spiritRootDesc || '（随机灵根，需AI根据天资等级创造性生成）'}
+- **🔴 灵根描述（必读）**：${spiritRootDesc}
 
 **要求**：角色的修炼天赋必须体现这个灵根描述！
 

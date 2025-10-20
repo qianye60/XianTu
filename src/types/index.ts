@@ -290,7 +290,8 @@ export interface LorebookEntry {
 // 提示词注入类型定义(根据@types文档)
 export interface InjectionPrompt {
   id: string;
-  position: 'in_chat' | 'none';
+  // 🔥 修复：根据酒馆实际API扩展类型，允许 'before' 和 'after'
+  position: 'in_chat' | 'none' | 'before' | 'after';
   depth: number;
   role: 'system' | 'assistant' | 'user';
   content: string;

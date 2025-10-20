@@ -7,9 +7,9 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo } from '@/types/game';
-import type { World } from '@/types';
-import type { GM_Response } from '@/types/AIGameMaster';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Continent, Location } from '@/types/game';
+import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/characterInitializationPrompts';
@@ -122,16 +122,6 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
   const 根骨寿命系数 = 5; // 每点根骨增加5年寿命
   const 最大寿命 = 基础寿命 + 根骨 * 根骨寿命系数;
 
-  // 检查特定天赋以授予初始资源
-  let initialTiandaoPoints = 0;
-  if (天赋 && Array.isArray(天赋)) {
-    const hasBawangXuemai = 天赋.some(talent => talent.名称 === '霸王血脉');
-    if (hasBawangXuemai) {
-      initialTiandaoPoints = 1;
-      console.log(`[角色初始化] 检测到天赋 "霸王血脉"，初始天道点 +${initialTiandaoPoints}`);
-    }
-  }
-
   console.log(`[角色初始化] 属性计算: 气血=${初始气血}, 灵气=${初始灵气}, 神识=${初始神识}, 年龄=${age}/${最大寿命}`);
   console.log(`[角色初始化] 先天六司: 根骨=${根骨}, 灵性=${灵性}, 悟性=${悟性}`);
 
@@ -160,8 +150,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
       },
       进行中任务: [],
       已完成任务名称: []
-    },
-    天道点: initialTiandaoPoints
+    }
   };
 }
 
@@ -251,6 +240,15 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
     人物关系: {},
     宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
+    任务系统: {
+      当前任务列表: [],
+      已完成任务: [],
+      任务统计: {
+        完成总数: 0,
+        主线完成: 0,
+        支线完成: 0
+      }
+    },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
     游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     修炼功法: null, // 初始无修炼功法，数据结构已改为：功法数据和进度合并为一个对象或null
@@ -284,8 +282,8 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   };
 
   // 注入AI元数据提示
-  (saveData.装备栏 as Record<string, any>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在';
-  (saveData.人物关系 as Record<string, any>)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
+  (saveData.装备栏 as unknown as Record<string, unknown>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在';
+  (saveData.人物关系 as unknown as Record<string, unknown>)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
 
   // 🔥 初始化玩家身体部位（NSFW模式）
   // 注意：这里只是初始化占位符，AI会在角色初始化响应中生成详细描述
@@ -373,7 +371,8 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
     gender: baseInfo.性别,
     race: baseInfo.种族 || '人族',
     age: age,
-    world: world.name,
+    // 🔥 关键修复：传递完整的世界对象而不仅仅是名称
+    world: baseInfo.世界 || world, // 优先使用 baseInfo 中的完整对象
     talentTier: baseInfo.天资, // 现在是完整对象
     origin: baseInfo.出生,     // 现在是完整对象或"随机出身"
     spiritRoot: baseInfo.灵根, // 现在是完整对象或"随机灵根"
@@ -390,16 +389,16 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   // 🔥 准备世界上下文信息
   const worldContext = {
     worldInfo: saveData.世界信息,
-    availableContinents: saveData.世界信息?.大陆信息?.map((continent: Record<string, any>) => ({
-      名称: continent.名称 || continent.name,
-      描述: continent.描述 || continent.description,
-      大洲边界: continent.大洲边界 || continent.continent_bounds
+    availableContinents: saveData.世界信息?.大陆信息?.map((continent: any) => ({
+      名称: continent.name || continent.名称,
+      描述: continent.description || continent.描述,
+      大洲边界: continent.continent_bounds || continent.大洲边界
     })) || [],
-    availableLocations: saveData.世界信息?.地点信息?.map((location: Record<string, any>) => ({
-      名称: location.名称 || location.name,
-      类型: location.类型 || location.type,
-      描述: location.描述 || location.description,
-      所属势力: location.所属势力 || location.faction,
+    availableLocations: saveData.世界信息?.地点信息?.map((location: any) => ({
+      名称: location.name || location.名称,
+      类型: location.type || location.类型,
+      描述: location.description || location.描述,
+      所属势力: location.faction || location.所属势力,
       coordinates: location.coordinates
     })) || [],
     mapConfig: saveData.世界信息?.地图配置,
@@ -447,7 +446,7 @@ async () => {
     throw error;
   }
 },
-    (response: any) => {
+    (response: GM_Response) => {
       // 🔥 增强版验证器：提供详细的诊断信息
       console.log('[AI验证-诊断] ===== 开始验证AI响应 =====');
       console.log('[AI验证-诊断] 响应类型:', typeof response);
@@ -493,7 +492,7 @@ async () => {
       console.log('[AI验证-诊断] tavern_commands数量:', response.tavern_commands.length);
 
       // 5. 位置命令检查 - 必须使用完整路径
-      const hasLocationCommand = response.tavern_commands.some((cmd: any, index: number) => {
+      const hasLocationCommand = response.tavern_commands.some((cmd: TavernCommand, index: number) => {
         const isValid = cmd &&
           cmd.action === 'set' &&
           cmd.key === '玩家角色状态.位置.描述'; // 仅接受完整路径
@@ -511,12 +510,12 @@ async () => {
 
       if (!hasLocationCommand) {
         console.warn('[AI验证] ❌ 缺少位置命令');
-        console.warn('[AI验证] 现有命令keys:', response.tavern_commands.map((c: any) => c?.key));
+        console.warn('[AI验证] 现有命令keys:', response.tavern_commands.map((c: TavernCommand) => c?.key));
         return false;
       }
 
       // 6. 位置值验证 - 必须使用完整路径
-      const locationCommand = response.tavern_commands.find((cmd: any) =>
+      const locationCommand = response.tavern_commands.find((cmd: TavernCommand) =>
         cmd && cmd.action === 'set' && cmd.key === '玩家角色状态.位置.描述' // 仅接受完整路径
       );
 
@@ -552,8 +551,8 @@ async () => {
 
   // 🔥 [验证NPC生成] 打印AI返回的原始命令
   console.log('<<<<< AI Raw Commands for NPC Validation >>>>>');
-  if (initialMessageResponse && Array.isArray((initialMessageResponse as any).tavern_commands)) {
-    const npcCommands = (initialMessageResponse as any).tavern_commands.filter((cmd: any) => cmd.key && cmd.key.startsWith('人物关系.'));
+  if (initialMessageResponse && Array.isArray(initialMessageResponse.tavern_commands)) {
+    const npcCommands = initialMessageResponse.tavern_commands.filter((cmd: TavernCommand) => cmd.key && cmd.key.startsWith('人物关系.'));
     console.log(JSON.stringify(npcCommands, null, 2));
   }
   console.log('<<<<< End of AI Raw Commands >>>>>');
@@ -561,7 +560,7 @@ async () => {
   const aiSystem = AIBidirectionalSystem.getInstance();
   const { saveData: saveDataAfterCommands, stateChanges } = await aiSystem.processGmResponse(initialMessageResponse as GM_Response, saveData, true);
 
-  const openingStory = String((initialMessageResponse as any).text || '');
+  const openingStory = String(initialMessageResponse.text || '');
   if (!openingStory.trim()) {
     throw new Error('AI生成的开场剧情为空');
   }
@@ -636,17 +635,14 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   console.log('[数据校准] 开始从创角仓库同步所有权威数据...');
   console.log('[数据校准] 【重要】所有用户手动选择的数据都将被保护，不被AI或代码修改');
 
-  // 1. 世界（用户必选，直接使用）
-  derivedInfo.世界 = worldName;
+  // 1. 世界 - 已经由 baseInfo 传入，这里不再覆盖
+  // derivedInfo.世界 = worldName; // worldName is just a string, baseInfo.世界 is a World object
 
   // 2. 天资 (Talent Tier) - 用户必选
   const authoritativeTalentTier = creationStore.selectedTalentTier;
   if (authoritativeTalentTier) {
     console.log(`[数据校准] ✅ 同步用户选择的天资: ${authoritativeTalentTier.name}`);
-    (derivedInfo as any).天资 = {
-      名称: authoritativeTalentTier.name,
-      描述: authoritativeTalentTier.description,
-    };
+    derivedInfo.天资 = authoritativeTalentTier;
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的天资数据。');
   }
@@ -655,21 +651,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   const authoritativeOrigin = creationStore.selectedOrigin;
   if (authoritativeOrigin) {
     console.log(`[数据校准] ✅ 同步用户选择的出身: ${authoritativeOrigin.name}`);
-    derivedInfo.出生 = {
-      名称: authoritativeOrigin.name,
-      描述: authoritativeOrigin.description,
-    };
+    derivedInfo.出生 = authoritativeOrigin;
   } else if (creationStore.characterPayload.origin_id === null) {
-    // 用户选择随机出身。仅当传入的 baseInfo 中没有具体的出身对象时，才设置回 "随机"。
-    // 这可以防止覆盖掉 AI 生成的具体出身。
-    if (typeof derivedInfo.出生 !== 'object' || !derivedInfo.出生 || !('名称' in derivedInfo.出生) || (derivedInfo.出生 as any).名称.includes('随机')) {
+    if (typeof derivedInfo.出生 !== 'object' || !derivedInfo.出生 || (derivedInfo.出生 as Origin).name.includes('随机')) {
         console.log('[数据校准] 🎲 用户选择随机出身，当前无有效值，标记为随机');
-        derivedInfo.出生 = {
-            名称: '随机出身',
-            描述: '身世迷离，一切皆有可能。',
-        };
+        derivedInfo.出生 = '随机出身';
     } else {
-        console.log('[数据校准] ✅ 检测到AI已生成具体出身，保留AI结果:', (derivedInfo.出生 as any).名称);
+        console.log('[数据校准] ✅ 检测到AI已生成具体出身，保留AI结果:', (derivedInfo.出生 as Origin).name);
     }
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的出身数据。');
@@ -679,22 +667,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   const authoritativeSpiritRoot = creationStore.selectedSpiritRoot;
   if (authoritativeSpiritRoot) {
     console.log(`[数据校准] ✅ 同步用户选择的灵根: ${authoritativeSpiritRoot.name} (${authoritativeSpiritRoot.tier})`);
-    derivedInfo.灵根 = {
-      名称: authoritativeSpiritRoot.name,
-      品级: authoritativeSpiritRoot.tier || '凡品',
-      描述: authoritativeSpiritRoot.description || '基础灵根',
-    };
+    derivedInfo.灵根 = authoritativeSpiritRoot;
   } else if (creationStore.characterPayload.spirit_root_id === null) {
-    // 用户选择随机灵根。同样，防止覆盖AI生成的结果。
-    if (typeof derivedInfo.灵根 !== 'object' || !derivedInfo.灵根 || !('名称' in derivedInfo.灵根) || (derivedInfo.灵根 as any).名称.includes('随机')) {
+    if (typeof derivedInfo.灵根 !== 'object' || !derivedInfo.灵根 || (derivedInfo.灵根 as SpiritRoot).name.includes('随机')) {
         console.log('[数据校准] 🎲 用户选择随机灵根，当前无有效值，标记为随机');
-        derivedInfo.灵根 = {
-            名称: '随机灵根',
-            品级: '凡品',
-            描述: '大道五十，天衍四九，人遁其一',
-        };
+        derivedInfo.灵根 = '随机灵根';
     } else{
-        console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (derivedInfo.灵根 as any).名称);
+        console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (derivedInfo.灵根 as SpiritRoot).name);
     }
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的灵根数据。');
@@ -704,13 +683,7 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   const authoritativeTalents = creationStore.selectedTalents;
   if (authoritativeTalents && authoritativeTalents.length > 0) {
     console.log(`[数据校准] ✅ 同步用户选择的天赋，共 ${authoritativeTalents.length} 个`);
-    derivedInfo.天赋 = authoritativeTalents.map(t => {
-      console.log(`[数据校准]    -> 天赋: ${t.name}`);
-      return {
-        名称: t.name,
-        描述: t.description,
-      };
-    });
+    derivedInfo.天赋 = authoritativeTalents;
   } else {
     console.log('[数据校准] 用户未选择任何天赋，天赋字段设置为空数组。');
     derivedInfo.天赋 = [];
@@ -718,15 +691,17 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
 
   // 6. 先天六司 (Attributes) - 用户分配的属性，强制使用不允许修改
   const authoritativeAttributes = creationStore.attributes;
-  console.log('[数据校准] ✅ 同步用户分配的先天六司:', authoritativeAttributes);
-  derivedInfo.先天六司 = {
-    根骨: authoritativeAttributes.root_bone,
-    灵性: authoritativeAttributes.spirituality,
-    悟性: authoritativeAttributes.comprehension,
-    气运: authoritativeAttributes.fortune,
-    魅力: authoritativeAttributes.charm,
-    心性: authoritativeAttributes.temperament,
-  };
+  if (authoritativeAttributes) {
+    console.log('[数据校准] ✅ 同步用户分配的先天六司:', authoritativeAttributes);
+    derivedInfo.先天六司 = {
+      根骨: authoritativeAttributes.root_bone,
+      灵性: authoritativeAttributes.spirituality,
+      悟性: authoritativeAttributes.comprehension,
+      气运: authoritativeAttributes.fortune,
+      魅力: authoritativeAttributes.charm,
+      心性: authoritativeAttributes.temperament,
+    };
+  }
 
   console.log('[数据校准] 权威数据同步完成。');
   return derivedInfo;
@@ -745,12 +720,6 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   console.log('[初始化流程] 4. 合并、验证并同步最终数据');
   const uiStore = useUIStore();
   uiStore.updateLoadingText(`正在同步数据，即将进入${baseInfo.名字}的修仙世界...`);
-
-  // 使用 gameStateStore 替代酒馆助手
-  const gameStateStore = useGameStateStore();
-
-  // 将导入提升到函数顶部，避免重复声明
-  const { deepCleanForClone } = await import('@/utils/dataValidation');
 
   // 1. 合并AI生成的数据和用户选择的原始数据，并保护核心字段
   const mergedBaseInfo: CharacterBaseInfo = {
@@ -775,14 +744,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   if (authoritativeSpiritRoot) {
     // 用户手动选择了特定灵根，强制使用用户的选择，不使用AI生成
     console.log(`[数据最终化] ✅ 用户选择特定灵根，使用用户选择: ${authoritativeSpiritRoot.name}`);
-    mergedBaseInfo.灵根 = {
-      名称: authoritativeSpiritRoot.name,
-      品级: authoritativeSpiritRoot.tier,
-      描述: authoritativeSpiritRoot.description,
-      base_multiplier: authoritativeSpiritRoot.base_multiplier,
-      cultivation_speed: authoritativeSpiritRoot.cultivation_speed,
-      special_effects: authoritativeSpiritRoot.special_effects,
-    };
+    mergedBaseInfo.灵根 = authoritativeSpiritRoot;
   } else {
     // 用户选择了"随机灵根"，使用AI生成的数据
     console.log('[数据最终化] 🎲 用户选择随机灵根，使用AI生成的数据');
@@ -799,13 +761,13 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       let 灵根池 = LOCAL_SPIRIT_ROOTS.filter(root => {
         // 根据天资筛选合适的灵根，排除特殊灵根(神品、仙品等)
         // 神品灵根应该是极其罕见的,不应该作为随机结果
-        if (天资 === '废柴' || 天资 === '凡人') {
+        if (天资.name === '废柴' || 天资.name === '凡人') {
           return root.tier === '凡品' || root.tier === '下品';
-        } else if (天资 === '俊杰') {
+        } else if (天资.name === '俊杰') {
           return root.tier === '中品' || root.tier === '上品';
-        } else if (天资 === '天骄') {
+        } else if (天资.name === '天骄') {
           return root.tier === '上品' || root.tier === '极品';
-        } else if (天资 === '妖孽') {
+        } else if (天资.name === '妖孽') {
           // 妖孽也只能随机到极品,神品太过罕见
           return root.tier === '极品';
         } else {
@@ -819,14 +781,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       }
 
       const 随机灵根 = 灵根池[Math.floor(Math.random() * 灵根池.length)];
-      mergedBaseInfo.灵根 = {
-        名称: 随机灵根.name,
-        品级: 随机灵根.tier,
-        描述: 随机灵根.description,
-        base_multiplier: 随机灵根.base_multiplier,
-        cultivation_speed: 随机灵根.cultivation_speed,
-        special_effects: 随机灵根.special_effects
-      };
+      mergedBaseInfo.灵根 = 随机灵根;
       console.log(`[数据最终化] ✅ 已从本地数据库生成随机灵根: ${随机灵根.name} (${随机灵根.tier})`);
     }
   }
@@ -836,10 +791,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   if (authoritativeOrigin) {
     // 用户手动选择了特定出身，强制使用用户的选择，不使用AI生成
     console.log(`[数据最终化] ✅ 用户选择特定出身，使用用户选择: ${authoritativeOrigin.name}`);
-    mergedBaseInfo.出生 = {
-      名称: authoritativeOrigin.name,
-      描述: authoritativeOrigin.description,
-    };
+    mergedBaseInfo.出生 = authoritativeOrigin;
   } else {
     // 用户选择了"随机出身"，使用AI生成的数据
     console.log('[数据最终化] 🎲 用户选择随机出身，使用AI生成的数据');
@@ -854,10 +806,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       // 🔥 后备逻辑：使用本地数据库随机生成
       // 从本地数据库中随机选择一个出身
       const 随机出身 = LOCAL_ORIGINS[Math.floor(Math.random() * LOCAL_ORIGINS.length)];
-      mergedBaseInfo.出生 = {
-        名称: 随机出身.name,
-        描述: 随机出身.description
-      };
+      mergedBaseInfo.出生 = 随机出身;
       console.log(`[数据最终化] ✅ 已从本地数据库生成随机出身: ${随机出身.name}`);
     }
   }
@@ -970,11 +919,11 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     种族: baseInfo.种族,
     年龄: age,
     先天六司: baseInfo.先天六司,
-    天赋: baseInfo.天赋,
-    灵根: baseInfo.灵根,
-    出生: baseInfo.出生,
+    天赋: baseInfo.天赋.map(t => ({ 名称: t.name, 描述: t.description })),
+    灵根: typeof baseInfo.灵根 === 'object' ? (baseInfo.灵根 as SpiritRoot).name : baseInfo.灵根,
+    出生: typeof baseInfo.出生 === 'object' ? (baseInfo.出生 as Origin).name : baseInfo.出生,
     世界: world.name,
-    天资: baseInfo.天资
+    天资: baseInfo.天资.name
   };
 
   // 8. 🔥 [新架构] 跳过酒馆同步
@@ -1000,7 +949,6 @@ export async function initializeCharacter(
 ): Promise<SaveData> {
   console.log('[初始化流程] ===== initializeCharacter 入口 =====');
   console.log('[初始化流程] 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
-  const uiStore = useUIStore();
   try {
     // 步骤 1: 准备初始数据
     const { saveData: initialSaveData, processedBaseInfo } = prepareInitialData(baseInfo, age);
@@ -1013,7 +961,7 @@ export async function initializeCharacter(
     // 世界信息已经在 saveData 中，AI会在prompt中接收到完整状态
     console.log('[初始化流程] 2.5 世界信息已包含在saveData中（新架构跳过酒馆同步）');
     console.log('[初始化流程] 世界包含', worldInfo.大陆信息?.length || 0, '个大陆');
-    console.log('[初始化流程] 大陆列表:', worldInfo.大陆信息?.map((c: any) => c.名称 || c.name).join('、'));
+    console.log('[初始化流程] 大陆列表:', worldInfo.大陆信息?.map((c: Continent) => c.名称 || c.name).join('、'));
 
     // 步骤 3: 生成开场剧情 (已包含独立的地点生成步骤)
     console.log('[初始化流程] 准备调用generateOpeningScene...');

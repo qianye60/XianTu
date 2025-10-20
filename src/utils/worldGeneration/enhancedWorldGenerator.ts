@@ -296,8 +296,9 @@ ${this.previousErrors.join('\n')}
    */
   private convertToWorldInfo(rawData: RawWorldData): WorldInfo {
     return {
+      // 🔥 修复：优先使用用户配置的数据，确保用户选择不被覆盖
       世界名称: this.config.worldName || rawData.world_name || rawData.worldName || '修仙界',
-      世界背景: rawData.world_background || rawData.worldBackground || this.config.worldBackground || '',
+      世界背景: this.config.worldBackground || rawData.world_background || rawData.worldBackground || '',
       大陆信息: (rawData.continents || []).map((continent: Record<string, any>) => ({
         名称: continent.名称 || continent.name || '未名大陆',
         描述: continent.描述 || continent.description || '一片神秘的修仙大陆，灵气充沛，势力林立',
@@ -381,7 +382,8 @@ ${this.previousErrors.join('\n')}
       })),
       // 扁平化生成信息
       生成时间: new Date().toISOString(),
-      世界纪元: rawData.world_era || this.config.worldEra || '修仙纪元',
+      // 🔥 修复：优先使用用户配置的世界纪元
+      世界纪元: this.config.worldEra || rawData.world_era || '修仙纪元',
       特殊设定: rawData.special_settings || [],
       版本: '2.0-Enhanced'
     };

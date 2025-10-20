@@ -8,7 +8,8 @@
  */
 
 import type { QualityType, GradeType } from '@/data/itemQuality';
-import type { WorldMapConfig } from './worldMap';
+import type { World, TalentTier, Origin, SpiritRoot, Talent } from './index';
+export type { WorldMapConfig } from './worldMap';
 
 // --- AI 元数据通用接口 ---
 // 说明：为了允许在多处数据结构中嵌入给 AI 的说明/约束提示，
@@ -478,7 +479,6 @@ export interface PlayerStatus extends AIMetadata {
   寿命: ValuePair<number>;
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
-  天道点?: number;
   系统任务?: SystemTaskData;
 }
 
@@ -661,17 +661,74 @@ export interface SystemTaskData {
   已完成任务名称: string[]; // 只存储任务名称
 }
 
+// --- 任务系统 ---
+
+/** 任务目标 */
+export interface QuestObjective {
+  描述: string;           // "击败3只黑风狼"
+  类型: '击杀' | '采集' | '对话' | '到达' | '使用物品';
+  目标ID: string;        // "monster_黑风狼" 或 "npc_张长老"
+  需求数量: number;
+  当前进度: number;
+  已完成: boolean;
+}
+
+/** 任务奖励 */
+export interface QuestReward {
+  修为?: number;
+  灵石?: {
+    下品?: number;
+    中品?: number;
+    上品?: number;
+    极品?: number;
+  };
+  物品?: Array<{
+    物品ID: string;
+    名称: string;
+    数量: number;
+  }>;
+  声望?: {
+    势力名称: string;
+    变化值: number;
+  };
+}
+
+/** 任务主体 */
+export interface Quest {
+  任务ID: string;
+  任务名称: string;
+  任务描述: string;
+  任务类型: '主线' | '支线' | '宗门' | '奇遇' | '日常';
+  任务状态: '未接取' | '进行中' | '已完成' | '已失败';
+  目标列表: QuestObjective[];
+  奖励: QuestReward;
+  发布者?: string;       // NPC名称
+  提交者?: string;       // NPC名称
+  前置条件?: {
+    境界要求?: string;
+    前置任务?: string;
+  };
+  创建时间: string;
+  完成时间?: string;     // 任务完成时间
+  AI生成: boolean;
+}
+
+/** 任务系统（添加到SaveData） */
+export interface QuestSystem {
+  当前任务列表: Quest[];
+  已完成任务: Quest[];  // 改为Quest对象数组，保留完整任务信息
+  任务统计: {
+    完成总数: number;
+    主线完成: number;
+    支线完成: number;
+  };
+}
+
 // --- 世界地图 ---
 
 // --- NPC 模块 ---
 
-/** Tavern指令结构 */
-export interface TavernCommand {
-  action: 'set' | 'add' | 'push' | 'pull' | 'delete';
-  scope: 'chat' | 'global';
-  key: string;
-  value?: any;
-}
+// TavernCommand is now imported from AIGameMaster.d.ts to avoid conflicts
 
 /** 身体部位开发数据 */
 export interface BodyPartDevelopment {
@@ -778,7 +835,7 @@ export interface NpcProfile {
 // --- 记忆模块 ---
 
 export interface Memory extends AIMetadata {
-  短期记忆: string[]; // 最近的对话、事件的完整记录
+  短期记忆?: string[]; // 最近的对话、事件的完整记录
   中期记忆: string[]; // 对短期记忆的总结，关键信息点
   长期记忆: string[]; // 核心人设、世界观、重大事件的固化记忆
   隐式中期记忆?: string[]; // 隐式中期记忆数组，与短期记忆同步增长，溢出时转入真正的中期记忆
@@ -853,6 +910,7 @@ export interface GameMessage {
       背包: Inventory;
       人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
       宗门系统: SectSystemData;
+      任务系统: QuestSystem;
       穿越者系统?: TransmigratorSystem; // 可选：穿越者任务系统（金手指）
       系统任务?: SystemTaskData; // 可选：系统任务功能（根级别，AI直接可见）
       记忆: Memory;
@@ -894,24 +952,11 @@ export interface CharacterBaseInfo extends AIMetadata {
   出生日期?: { 年: number; 月: number; 日: number; 小时?: number; 分钟?: number }; // 出生日期（用于自动计算年龄）
   种族?: string; // 添加种族字段
   境界?: string; // NPC当前境界
-  世界: string;
-  天资: string;
-  出生: string | {
-    名称: string;
-    描述: string;
-  };
-  灵根: string | {
-    名称: string;
-    品级: string; // 统一的品级字段
-    描述: string;
-    base_multiplier?: number;
-    cultivation_speed?: string;
-    special_effects?: string[];
-  };
-  天赋: Array<{
-    名称: string;
-    描述: string;
-  }>;
+  世界: World;
+  天资: TalentTier;
+  出生: Origin | string;
+  灵根: SpiritRoot | string;
+  天赋: Talent[];
   先天六司: InnateAttributes;
   后天六司: InnateAttributes; // 后天获得的六司加成（装备、大道等），开局默认全为0
   创建时间?: string; // 添加创建时间字段
@@ -981,3 +1026,6 @@ export interface LocalStorageRoot {
   } | null;
   角色列表: Record<string, CharacterProfile>; // 以角色唯一ID (char_1001) 为key
 }
+
+export type Continent = WorldContinent;
+export type Location = WorldLocation;

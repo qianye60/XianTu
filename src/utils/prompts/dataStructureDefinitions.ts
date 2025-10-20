@@ -5,6 +5,7 @@ import {
   INNATE_ATTRIBUTES_RULE,
   NSFW_RULE,
 } from './sharedRules'
+import { PLAYER_NPC_DIFFERENCES } from './playerNpcDifferences'
 
 /**
  * 数据结构定义 - 完整版
@@ -15,6 +16,8 @@ export { CORE_SYNC_RULES }
 
 export const DATA_STRUCTURE_DEFINITIONS = `
 【最高优先级】数据格式铁律 - 违反此规则将导致系统错误，必须严格遵守
+
+${PLAYER_NPC_DIFFERENCES}
 
 ========== 规则一：NPC境界结构（违反必罚） ==========
 

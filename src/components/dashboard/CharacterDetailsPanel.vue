@@ -276,11 +276,11 @@
                   <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
                 </div>
                 <div v-if="getTalentList(baseInfo.天赋)?.length" class="talents-container">
-                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.名称"
-                       class="talent-item" :title="talent.描述">
-                    <div class="talent-name">{{ talent.名称 }}</div>
-                    <div v-if="talent.描述" class="talent-description-display">
-                      {{ talent.描述 }}
+                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.name"
+                       class="talent-item" :title="talent.description">
+                    <div class="talent-name">{{ talent.name }}</div>
+                    <div v-if="talent.description" class="talent-description-display">
+                      {{ talent.description }}
                     </div>
                   </div>
                 </div>
@@ -885,6 +885,7 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, PlayerBodyPart, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
+import type { Origin, TalentTier, SpiritRoot, Talent } from '@/types';
 
 const calculateAgeFromBirthdate = (birthdate: GameTime, currentTime: GameTime): number => {
   let age = currentTime.年 - birthdate.年;
@@ -1238,55 +1239,24 @@ const getCultivationProgress = (): number => {
 
 
 
-// 解析天资等级数据（可能是字符串或对象）
-const parseTalentTier = (talentTier: string | { 名称: string; 描述?: string } | undefined) => {
-  if (!talentTier) return { name: '未知', description: '' };
-
-  // 如果是对象格式：{ 名称, 描述 }
-  if (typeof talentTier === 'object' && talentTier !== null && '名称' in talentTier) {
-    return {
-      name: talentTier.名称 || '未知',
-      description: talentTier.描述 || ''
-    };
-  }
-
-  // 如果是字符串格式
-  if (typeof talentTier === 'string') {
-    return {
-      name: talentTier,
-      description: ''
-    };
-  }
-
-  return { name: '未知', description: '' };
-};
-
 // 获取天资等级名称
-const getTalentTierName = (talentTier: string | { 名称: string; 描述?: string } | undefined): string => {
-  const parsed = parseTalentTier(talentTier);
-  return parsed.name;
+const getTalentTierName = (talentTier: TalentTier | string | undefined): string => {
+  if (!talentTier) return '未知';
+  if (typeof talentTier === 'string') return talentTier;
+  return talentTier.name || '未知';
 };
 
 // 获取天资等级描述
-const getTalentTierDescription = (talentTier: string | { 名称: string; 描述?: string } | undefined): string => {
-  const parsed = parseTalentTier(talentTier);
-  return parsed.description;
+const getTalentTierDescription = (talentTier: TalentTier | string | undefined): string => {
+  if (typeof talentTier === 'object' && talentTier) {
+    return talentTier.description || '';
+  }
+  return '';
 };
 
-const getTalentList = (talents: string[] | Array<{ 名称: string; 描述: string }> | undefined): Array<{ 名称: string; 描述: string }> => {
+const getTalentList = (talents: Talent[] | undefined): Talent[] => {
   if (!talents || !Array.isArray(talents)) return [];
-
-  return talents.map(talent => {
-    if (typeof talent === 'string') {
-      // 如果是字符串，返回一个带有默认描述的对象
-      return { 名称: talent, 描述: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。` };
-    }
-    // 如果已经是对象，直接返回
-    return {
-      名称: talent.名称,
-      描述: talent.描述 || `天赋《${talent.名称}》的详细描述暂未开放，请期待后续更新。`
-    };
-  });
+  return talents;
 };
 
 const getPercentage = (current: number, max: number): number => {
@@ -1526,86 +1496,58 @@ onMounted(async () => {
 });
 
 // 获取出生地显示文本
-const getOriginDisplay = (origin: string | { 名称: string; 描述: string } | undefined): string => {
+const getOriginDisplay = (origin: Origin | string | undefined): string => {
   if (!origin) return '待定';
   if (typeof origin === 'string') return origin;
-  if (typeof origin === 'object' && origin !== null && '名称' in origin) {
-    return origin.名称 || '待定';
-  }
-  return '格式错误';
+  return origin.name || '待定';
 };
 
 // 显示出身详情
-const showOriginDetails = (origin: unknown) => {
-  if (origin && typeof origin === 'object' && origin !== null && '名称' in origin && '描述' in origin) {
-    const originObj = origin as { 名称: string; 描述: string };
+const showOriginDetails = (origin: Origin | string | undefined) => {
+  if (origin && typeof origin === 'object') {
     uiStore.showDetailModal({
-      title: `出身背景: ${originObj.名称}`,
-      content: originObj.描述,
+      title: `出身背景: ${origin.name}`,
+      content: origin.description,
     });
   }
 };
 
 // 增强的灵根系统 - 简化版
-const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined) => {
-  if (!spiritRoot) return { name: '未知', grade: '凡品', description: '暂无灵根信息' };
-
-  // 优先处理对象格式：{ 名称, 品级, 描述 }
-  if (typeof spiritRoot === 'object' && spiritRoot !== null && '名称' in spiritRoot) {
-    return {
-      name: spiritRoot.名称 || '未知',
-      grade: spiritRoot.品级 || '凡品',
-      description: spiritRoot.描述 || `关于${spiritRoot.名称}的详细描述暂未开放。`
-    };
+const getSpiritRootDisplay = (spiritRoot: SpiritRoot | string | undefined): string => {
+  if (!spiritRoot) return '未知';
+  if (typeof spiritRoot === 'string') return spiritRoot;
+  const name = spiritRoot.name || '未知';
+  const tier = spiritRoot.tier;
+  if (tier && tier !== '未知' && tier !== '凡品') {
+    return `${name}(${tier})`;
   }
-
-  // 处理字符串格式的灵根 (向后兼容)
-  if (typeof spiritRoot === 'string') {
-    const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
-    const grade = gradeMatch ? gradeMatch[1] : '凡品';
-    const name = gradeMatch ? spiritRoot.replace(gradeMatch[1], '').trim() : spiritRoot;
-
-    return {
-      name: name,
-      grade: grade,
-      description: `一种${grade}灵根。`
-    };
-  }
-
-  return { name: '未知', grade: '凡品', description: '灵根信息格式无法识别' };
-};
-
-const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
-  const parsed = parseSpiritRoot(spiritRoot);
-  if (!parsed.name || parsed.name === '未知') return '未知';
-  // 仅当品级有效且不为凡品时，才在名称后附加品级
-  if (parsed.grade && parsed.grade !== '未知' && parsed.grade !== '凡品') {
-    return `${parsed.name}(${parsed.grade})`;
-  }
-  return parsed.name;
+  return name;
 };
 
 // 格式化灵根显示（简洁版，用于顶部）
-const formatSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
-  const parsed = parseSpiritRoot(spiritRoot);
-  if (!parsed.name || parsed.name === '未知') return '未知';
-  return parsed.name;
+const formatSpiritRoot = (spiritRoot: SpiritRoot | string | undefined): string => {
+  if (!spiritRoot) return '未知';
+  if (typeof spiritRoot === 'string') return spiritRoot;
+  return spiritRoot.name || '未知';
 };
 
-const getSpiritRootGrade = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
-  const parsed = parseSpiritRoot(spiritRoot);
-  return parsed.grade || '凡品';
+const getSpiritRootGrade = (spiritRoot: SpiritRoot | string | undefined): string => {
+  if (typeof spiritRoot === 'object' && spiritRoot) {
+    return spiritRoot.tier || '凡品';
+  }
+  return '凡品';
 };
 
-const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
-  const parsed = parseSpiritRoot(spiritRoot);
-  return parsed.description || '未知';
+const getSpiritRootDescription = (spiritRoot: SpiritRoot | string | undefined): string => {
+  if (typeof spiritRoot === 'object' && spiritRoot) {
+    return spiritRoot.description || '未知';
+  }
+  return '未知';
 };
 
-const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
-  const parsed = parseSpiritRoot(spiritRoot);
-  // 🔥 修复: 确保 grade 是字符串类型
-  const grade = typeof parsed.grade === 'string' ? parsed.grade.toLowerCase() : String(parsed.grade || '').toLowerCase();
+const getSpiritRootClass = (spiritRoot: SpiritRoot | string | undefined): string => {
+  if (typeof spiritRoot !== 'object' || !spiritRoot) return 'spirit-unknown';
+  const grade = (spiritRoot.tier || '').toLowerCase();
 
   if (grade.includes('神品')) return 'spirit-divine';
   if (grade.includes('极品')) return 'spirit-supreme';
@@ -1631,8 +1573,7 @@ const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined):
   }
 
   // 如果没有详情，根据品级推断基础修炼速度
-  const parsed = parseSpiritRoot(spiritRoot);
-  const grade = parsed.grade || '';
+  const grade = getSpiritRootGrade(spiritRoot);
 
   const speedMap: Record<string, string> = {
     '凡品': '1.0x',

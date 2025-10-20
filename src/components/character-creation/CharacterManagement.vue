@@ -138,8 +138,8 @@
                   <div class="char-info">
                     <h3 class="char-name">{{ profile.角色基础信息.名字 }}</h3>
                     <div class="char-meta">
-                      <span class="world">{{ profile.角色基础信息.世界 }}</span>
-                      <span class="talent">{{ getFieldName(profile.角色基础信息.天资) }}</span>
+                      <span class="world">{{ profile.角色基础信息.世界.name }}</span>
+                      <span class="talent">{{ getFieldName(profile.角色基础信息.天资.name) }}</span>
                     </div>
                   </div>
                   <div class="save-count">
@@ -514,11 +514,24 @@ const selectCharacter = async (charId: string) => {
   selectedCharId.value = charId;
   isLoadingSaves.value = true; // 开始加载
 
+  console.log('[CharacterManagement] 开始选择角色:', charId);
+
   try {
     // 🔥 核心变更：按需加载所选角色的存档数据
     await characterStore.loadCharacterSaves(charId);
+
+    // 调试：检查加载后的存档数据
+    const profile = characterStore.rootState.角色列表[charId];
+    if (profile?.存档列表) {
+      console.log('[CharacterManagement] 存档加载完成，存档列表:', Object.keys(profile.存档列表));
+      Object.entries(profile.存档列表).forEach(([key, slot]: [string, any]) => {
+        console.log(`  - ${key}: 有数据=${!!slot.存档数据}`);
+      });
+    } else {
+      console.warn('[CharacterManagement] ⚠️ 角色没有存档列表');
+    }
   } catch (error) {
-    console.error('加载存档数据失败:', error);
+    console.error('[CharacterManagement] 加载存档数据失败:', error);
     toast.error('加载存档数据失败');
   } finally {
     isLoadingSaves.value = false; // 结束加载
@@ -1265,8 +1278,8 @@ const handleImportFile = async (event: Event) => {
   align-items: center;
   gap: 0.6rem;
   padding: 0.8rem 1rem;
-  background: linear-gradient(135deg, 
-    rgba(var(--color-surface-rgb), 0.8), 
+  background: linear-gradient(135deg,
+    rgba(var(--color-surface-rgb), 0.8),
     rgba(var(--color-background-rgb), 0.6)
   );
   backdrop-filter: blur(10px);
@@ -1282,8 +1295,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 .mobile-menu-btn:hover {
-  background: linear-gradient(135deg, 
-    rgba(var(--color-surface-rgb), 0.9), 
+  background: linear-gradient(135deg,
+    rgba(var(--color-surface-rgb), 0.9),
     rgba(var(--color-background-rgb), 0.7)
   );
   color: var(--color-primary);
@@ -1962,8 +1975,8 @@ const handleImportFile = async (event: Event) => {
 
 /* 存档卡片 */
 .save-card, .online-save-card {
-  background: linear-gradient(135deg, 
-    rgba(var(--color-surface-rgb), 0.9), 
+  background: linear-gradient(135deg,
+    rgba(var(--color-surface-rgb), 0.9),
     rgba(var(--color-background-rgb), 0.7)
   );
   backdrop-filter: blur(15px);
@@ -1987,8 +2000,8 @@ const handleImportFile = async (event: Event) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(var(--color-primary-rgb), 0.06), 
+  background: linear-gradient(135deg,
+    rgba(var(--color-primary-rgb), 0.06),
     rgba(var(--color-accent-rgb), 0.03)
   );
   opacity: 0;
@@ -2003,7 +2016,7 @@ const handleImportFile = async (event: Event) => {
 .save-card:hover, .online-save-card:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 4px 15px rgba(var(--color-primary-rgb), 0.15),
     0 2px 8px rgba(0, 0, 0, 0.08);
 }
@@ -2295,8 +2308,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 .online-save-card {
-  background: linear-gradient(135deg, 
-    rgba(var(--color-surface-rgb), 0.9), 
+  background: linear-gradient(135deg,
+    rgba(var(--color-surface-rgb), 0.9),
     rgba(var(--color-background-rgb), 0.7)
   );
   backdrop-filter: blur(15px);
@@ -2459,12 +2472,12 @@ const handleImportFile = async (event: Event) => {
   .grid-container {
     grid-template-columns: 300px 1fr;
   }
-  
+
   /* 调整分割线位置 */
   .grid-container::before {
     left: 300px;
   }
-  
+
   .manual-saves-grid {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
@@ -2474,7 +2487,7 @@ const handleImportFile = async (event: Event) => {
   .grid-container {
     grid-template-columns: 280px 1fr;
   }
-  
+
   /* 调整分割线位置 */
   .grid-container::before {
     left: 280px;
@@ -2651,8 +2664,8 @@ const handleImportFile = async (event: Event) => {
 
   .character-card:active {
     transform: scale(0.98);
-    background: linear-gradient(135deg, 
-      rgba(var(--color-primary-rgb), 0.05), 
+    background: linear-gradient(135deg,
+      rgba(var(--color-primary-rgb), 0.05),
       rgba(var(--color-accent-rgb), 0.03)
     );
   }

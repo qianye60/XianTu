@@ -426,16 +426,18 @@ async function createCharacter() {
     // 2. 角色名由酒馆助手的角色管理功能编辑，此处不同步
 
     // 3. 构造 CharacterBaseInfo
+    // 3. 构造 CharacterBaseInfo，确保所有选择都使用完整的对象结构
     const baseInfo = {
       名字: store.characterPayload.character_name,
       性别: store.characterPayload.gender,
       种族: '人族',
-      世界: store.selectedWorld.name,
-      // 🔥 修复：传递完整对象而不仅仅是名字
-      天资: store.selectedTalentTier, // 完整对象
-      出生: store.selectedOrigin || '随机出身', // 完整对象或字符串
-      灵根: store.selectedSpiritRoot || '随机灵根', // 完整对象或字符串
-      天赋: store.selectedTalents, // 完整对象数组
+      // 🔥 关键修复：确保所有核心选择都传递完整对象，而不仅仅是名称或ID
+      // 这解决了下游服务（如AI提示生成）无法获取详细描述的问题
+      世界: store.selectedWorld,
+      天资: store.selectedTalentTier,
+      出生: store.selectedOrigin || '随机出身', // service层会处理字符串
+      灵根: store.selectedSpiritRoot || '随机灵根', // service层会处理字符串
+      天赋: store.selectedTalents,
       先天六司: {
         根骨: store.attributes.root_bone,
         灵性: store.attributes.spirituality,
@@ -452,12 +454,7 @@ async function createCharacter() {
         魅力: 0,
         心性: 0,
       },
-      // 🔥 这些"详情"字段现在是冗余的，但保留以兼容
-      世界详情: store.selectedWorld,
-      天资详情: store.selectedTalentTier,
-      出身详情: store.selectedOrigin,
-      灵根详情: store.selectedSpiritRoot,
-      天赋详情: store.selectedTalents,
+      // 移除冗余的 "详情" 字段，因为主字段现在就是完整对象
     };
 
     // 4. 构造完整的创建载荷并发射creation-complete事件

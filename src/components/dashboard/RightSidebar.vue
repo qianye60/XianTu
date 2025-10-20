@@ -127,12 +127,12 @@
         <div v-show="!talentsCollapsed" class="talents-list">
           <div
             v-for="talent in characterInfo.天赋"
-            :key="typeof talent === 'string' ? talent : talent.名称"
+            :key="typeof talent === 'string' ? talent : talent.name"
             class="talent-card clickable"
-            @click="showTalentDetail(typeof talent === 'string' ? talent : talent.名称)"
+            @click="showTalentDetail(typeof talent === 'string' ? talent : talent.name)"
           >
             <div class="talent-header">
-              <span class="talent-name">{{ typeof talent === 'string' ? talent : talent.名称 }}</span>
+              <span class="talent-name">{{ typeof talent === 'string' ? talent : talent.name }}</span>
             </div>
           </div>
 
@@ -297,14 +297,14 @@ const getTalentData = (talent: string): any => {
 const showTalentDetail = (talent: string) => {
   // 首先尝试从角色的天赋列表中查找(AI生成的自定义天赋)
   const baseInfoValue = characterInfo.value;
-  const customTalent = baseInfoValue?.天赋?.find((t: any) => t.名称 === talent);
+  const customTalent = baseInfoValue?.天赋?.find((t: any) => t.name === talent);
 
   // 然后从LOCAL_TALENTS中查找天赋信息(前端内嵌天赋)
   const localTalent = LOCAL_TALENTS.find(t => t.name === talent);
 
   // 优先使用自定义天赋数据,其次使用内嵌天赋数据
   const talentInfo = customTalent ? {
-    description: customTalent.描述 || '自定义天赋'
+    description: customTalent.description || '自定义天赋'
   } : localTalent ? {
     description: localTalent.description
   } : {

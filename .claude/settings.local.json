@@ -9,7 +9,8 @@
       "Bash(npm run dev:*)",
       "Bash(awk:*)",
       "Bash(npx eslint --ext .ts,.vue src --max-warnings 0)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],

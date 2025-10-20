@@ -28,8 +28,8 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 //   mapOldPathToShard,
 //   type StorageShards
 // } from '@/utils/storageSharding'; // 导入分片存储工具
-import type { World } from '@/types';
-import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm, NpcProfile, Item } from '@/types/game';
+import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm, NpcProfile, Item } from '@/types/game.d.ts';
 
 // 假设的创角数据包，实际应从创角流程获取
 interface CreationPayload {
@@ -357,22 +357,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 这是为了确保即使用户界面和payload构建逻辑有误，最终发送给AI的数据也是绝对正确的
     const authoritativeBaseInfo: CharacterBaseInfo = {
       ...baseInfo, // 保留玩家输入的名字、性别等
-      世界: creationStore.selectedWorld?.name || baseInfo.世界,
-      天资: creationStore.selectedTalentTier?.name || baseInfo.天资,
-      出生: creationStore.selectedOrigin?.name || '随机出身',
-      // 修复：确保灵根是包含完整信息的对象，或明确的"随机"标识
-      灵根: creationStore.selectedSpiritRoot
-        ? {
-            名称: creationStore.selectedSpiritRoot.name,
-            品级: creationStore.selectedSpiritRoot.tier,
-            描述: creationStore.selectedSpiritRoot.description,
-          }
-        : '随机灵根',
-      // 修复：确保天赋是包含名称和描述的完整对象数组
-      天赋: creationStore.selectedTalents.map(t => ({
-        名称: t.name,
-        描述: t.description,
-      })),
+      世界: creationStore.selectedWorld!,
+      天资: creationStore.selectedTalentTier!,
+      出生: creationStore.selectedOrigin || '随机出身',
+      灵根: creationStore.selectedSpiritRoot || '随机灵根',
+      天赋: creationStore.selectedTalents,
       // 确保后天六司存在且初始化为0（开局默认全为0）
       后天六司: baseInfo.后天六司 || {
         根骨: 0,
@@ -990,7 +979,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // ... (云端同步逻辑保持不变)
 
       debug.log('角色商店', `存档【${slot.存档名}】元数据已更新`);
-      toast.success(`存档【${slot.存档名}】已保存`);
 
     } catch (error) {
       debug.error('角色商店', '存档保存过程出错', error);

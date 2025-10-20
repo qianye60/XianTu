@@ -460,9 +460,12 @@ import {
 } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
 
-const characterData = computed(() => characterStore.activeSaveSlot?.存档数据);
+// 🔥 新架构：从 gameStateStore 获取数据
+const gameStateStore = useGameStateStore();
+const characterData = computed(() => gameStateStore.getCurrentSaveData());
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
 const characterStore = useCharacterStore();
@@ -602,10 +605,16 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['灵根']): string => {
 
 // 类型守卫：判断值是否为有效的NpcProfile
 const isNpcProfile = (val: unknown): val is NpcProfile => {
-  if (!val || typeof val !== 'object') return false;
-  const obj = val as any;
+  if (!val || typeof val !== 'object' || val === null) {
+    return false;
+  }
+  const obj = val as Record<string, unknown>;
   // 核心校验：只要有名字，就认为是有效的NPC Profile，以增强容错性
-  const isValid = typeof obj.名字 === 'string' && obj.名字.length > 0;
+  // 修复：使用更健壮的检查，防止原型链上的属性或非字符串类型导致问题
+  const isValid = Object.prototype.hasOwnProperty.call(obj, '名字') &&
+                  typeof obj.名字 === 'string' &&
+                  (obj.名字 as string).length > 0;
+
   if (!isValid) {
     console.warn('[人脉系统] 检测到无效的人物关系条目，已自动过滤:', val);
   }
@@ -735,8 +744,10 @@ const editMemory = async (index: number) => {
 
   selectedPerson.value = { ...characterData.value.人物关系[key] };
 
-  // 保存到酒馆
-  await characterStore.saveCurrentGame();
+  // 使用 gameStateStore 保存
+  const { useGameStateStore } = await import('@/stores/gameStateStore');
+  const gameStateStore = useGameStateStore();
+  await gameStateStore.saveGame();
 };
 
 const deleteMemory = async (index: number) => {

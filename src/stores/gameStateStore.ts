@@ -11,6 +11,7 @@ import type {
   SaveData,
   Equipment,
   GameMessage,
+  QuestSystem,
 } from '@/types/game';
 
 // 定义各个模块的接口
@@ -25,6 +26,7 @@ interface GameState {
   gameTime: GameTime | null;
   narrativeHistory: GameMessage[] | null;
   isGameLoaded: boolean;
+  任务系统: QuestSystem | null;
 
   // 三千大道系统
   thousandDao: any | null;
@@ -61,6 +63,7 @@ export const useGameStateStore = defineStore('gameState', {
     gameTime: null,
     narrativeHistory: null,
     isGameLoaded: false,
+    任务系统: null,
 
     // 其他游戏系统
     thousandDao: null,
@@ -141,6 +144,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.memory = saveData.记忆;
       this.gameTime = saveData.游戏时间;
       this.narrativeHistory = saveData.叙事历史 || [];
+      this.任务系统 = saveData.任务系统;
 
       // 加载其他系统数据
       this.thousandDao = saveData.三千大道 || null;
@@ -184,6 +188,7 @@ export const useGameStateStore = defineStore('gameState', {
         系统: this.systemConfig || undefined,
         叙事历史: this.narrativeHistory || [],
         身体部位开发: this.bodyPartDevelopment || undefined,
+        任务系统: this.任务系统 || { 当前任务列表: [], 已完成任务: [], 任务统计: { 完成总数: 0, 主线完成: 0, 支线完成: 0 } },
       };
     },
 
@@ -271,6 +276,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.gameTime = null;
       this.narrativeHistory = null;
       this.isGameLoaded = false;
+      this.任务系统 = null;
 
       // 重置其他系统数据
       this.thousandDao = null;

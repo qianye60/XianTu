@@ -3,7 +3,7 @@
     <!-- 短期记忆区域 -->
     <div class="memory-section" v-if="showMemorySection">
       <div class="memory-header" @click="toggleMemory">
-        <span class="memory-title">📝 短期记忆</span>
+        <span class="memory-title">短期记忆</span>
         <ChevronDown v-if="memoryExpanded" :size="16" class="memory-icon" />
         <ChevronRight v-else :size="16" class="memory-icon" />
       </div>
@@ -124,7 +124,7 @@
       <!-- 动作队列显示区域 -->
       <div v-if="actionQueue.pendingActions.length > 0" class="action-queue-display">
         <div class="queue-header">
-          <span class="queue-title">📝 最近操作</span>
+          <span class="queue-title">最近操作</span>
           <button @click="clearActionQueue" class="clear-queue-btn" title="清空记录">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"/>
@@ -237,7 +237,7 @@
       <div v-if="showActionModal" class="action-modal-overlay" @click.self="hideActionSelector">
         <div class="action-modal">
           <div class="modal-header">
-            <h3>🎯 快捷行动</h3>
+            <h3>快捷行动</h3>
             <button @click="hideActionSelector" class="close-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 6L6 18M6 6l12 12"/>
@@ -337,6 +337,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
 import { panelBus } from '@/utils/panelBus';
+import { useQuestStore } from '@/stores/questStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
 import { toast } from '@/utils/toast';
@@ -455,6 +456,7 @@ const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
 const gameStateStore = useGameStateStore();
+const questStore = useQuestStore();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
 
@@ -702,25 +704,25 @@ const timeOptions = ref([
 const actionCategories = ref([
   {
     name: '修炼',
-    icon: '🧘',
+    icon: '',
     actions: [
       {
         name: '基础修炼',
-        icon: '⚡',
+        icon: '',
         type: 'cultivation',
         description: '进行基础的修为修炼，提升境界',
         timeRequired: true
       },
       {
         name: '炼体',
-        icon: '💪',
+        icon: '',
         type: 'cultivation',
         description: '锻炼肉身，增强体质',
         timeRequired: true
       },
       {
         name: '冥想',
-        icon: '🌟',
+        icon: '',
         type: 'cultivation',
         description: '静心冥想，稳固心境',
         timeRequired: true
@@ -729,11 +731,11 @@ const actionCategories = ref([
   },
   {
     name: '探索',
-    icon: '🗺️',
+    icon: '',
     actions: [
       {
         name: '野外探索',
-        icon: '🌲',
+        icon: '',
         type: 'exploration',
         description: '前往野外探索，寻找机缘',
         options: [
@@ -744,7 +746,7 @@ const actionCategories = ref([
       },
       {
         name: '城镇逛街',
-        icon: '🏛️',
+        icon: '',
         type: 'exploration',
         description: '在城镇中闲逛，了解信息',
         options: [
@@ -757,11 +759,11 @@ const actionCategories = ref([
   },
   {
     name: '交流',
-    icon: '💬',
+    icon: '',
     actions: [
       {
         name: '拜访朋友',
-        icon: '👥',
+        icon: '',
         type: 'social',
         description: '拜访认识的朋友',
         options: [
@@ -771,7 +773,7 @@ const actionCategories = ref([
       },
       {
         name: '结交新友',
-        icon: '🤝',
+        icon: '',
         type: 'social',
         description: '主动结交新的朋友'
       }
@@ -779,18 +781,18 @@ const actionCategories = ref([
   },
   {
     name: '其他',
-    icon: '⚙️',
+    icon: '',
     actions: [
       {
         name: '休息',
-        icon: '😴',
+        icon: '',
         type: 'other',
         description: '好好休息，恢复精神',
         timeRequired: true
       },
       {
         name: '查看状态',
-        icon: '📊',
+        icon: '',
         type: 'other',
         description: '查看当前的详细状态'
       }
@@ -934,7 +936,7 @@ const retryAIResponse = async (
 
 ## 输出格式（必须严格遵守）
 
-**⚠️ 重要：以下3个字段都是必需的，缺一不可！**
+**重要：以下3个字段都是必需的，缺一不可！**
 
 {
   "text": "Narrative text(中文简体，字数越多越好1000-3000，往用户趋向去尝试行动)",
@@ -944,7 +946,7 @@ const retryAIResponse = async (
 
 下面为tavern_commands的行动命令类型
 
-# 🎯 Action Types
+# Action Types
 
 | Action | Purpose | Example |
 |--------|---------|---------|
@@ -1327,23 +1329,6 @@ const sendMessage = async () => {
             gameStateStore.narrativeHistory = [latestNarrative];
           }
 
-          // 🔥 同时保存到记忆系统（完整历史，供查看/下载）
-          if (gameStateStore.memory && !gameStateStore.memory.短期记忆) {
-            gameStateStore.memory.短期记忆 = [];
-          }
-
-          // 添加用户输入和AI回复的完整记录到记忆
-          if (gameStateStore.memory) {
-            const narrativeText = `【${currentNarrative.value.time}】\n${currentNarrative.value.content}`;
-            gameStateStore.memory.短期记忆.unshift(narrativeText);
-
-            console.log('[主面板-调试] 已保存:', {
-              叙事历史: '仅最新一条（用于恢复）',
-              记忆系统: `已添加到短期记忆（共${gameStateStore.memory.短期记忆.length}条）`,
-              内容长度: currentNarrative.value.content.length,
-              changes数量: currentNarrative.value.stateChanges?.changes?.length || 0
-            });
-          }
 
           // TODO: 触发 gameStateStore 的保存机制
           // gameStateStore.saveGame();
@@ -1362,7 +1347,7 @@ const sendMessage = async () => {
           // 如果死亡，用死亡信息覆盖当前叙述
           currentNarrative.value = {
             type: 'system',
-            content: `💀【死亡通知】${characterName.value}在此次行动中不幸死亡（${deathStatus.deathReason}）。修仙路断，生命已逝。`,
+            content: `【死亡通知】${characterName.value}在此次行动中不幸死亡（${deathStatus.deathReason}）。修仙路断，生命已逝。`,
             time: formatCurrentTime(),
             stateChanges: { changes: [] }
           };
@@ -1453,6 +1438,10 @@ const sendMessage = async () => {
     try {
       console.log('[AI响应处理] 最终统一存档...');
       await characterStore.saveCurrentGame();
+      const slot = characterStore.activeSaveSlot;
+      if (slot) {
+        toast.success(`存档【${slot.存档名}】已保存`);
+      }
       console.log('[AI响应处理] 最终统一存档完成');
     } catch (storageError) {
       console.error('[AI响应处理] 最终统一存档失败:', storageError);
@@ -1528,49 +1517,45 @@ try {
 
 // transferToMidTermMemory 函数已被合并到 addToShortTermMemory 中，故移除
 
-// 转移到长期记忆 - 直接操作存档数据
+// 转移到长期记忆 - 直接操作 gameStateStore
 const transferToLongTermMemory = async () => {
   try {
     console.log('[记忆管理] 开始转移到长期记忆');
 
-    const save = characterStore.activeSaveSlot;
-    const sd = save?.存档数据;
-    if (!sd?.记忆?.中期记忆) {
-      console.warn('[记忆管理] 存档或中期记忆数据不可用，无法处理长期记忆转移');
+    // 🔥 核心修复：直接从 gameStateStore 获取最新的记忆数据
+    const memory = gameStateStore.memory;
+    if (!memory || !memory.中期记忆) {
+      console.warn('[记忆管理] gameStateStore 或中期记忆数据不可用，无法处理长期记忆转移');
       return;
     }
 
     // 计算需要总结的记忆数量 = 当前中期记忆数量 - 保留数量
-    const memoriesToSummarizeCount = sd.记忆.中期记忆.length - midTermKeepCount.value;
+    const memoriesToSummarizeCount = memory.中期记忆.length - midTermKeepCount.value;
 
     if (memoriesToSummarizeCount > 0) {
       // 从中期记忆的开头提取（并移除）最旧的记忆进行总结
-      const oldMemories = sd.记忆.中期记忆.splice(0, memoriesToSummarizeCount);
+      const oldMemories = memory.中期记忆.splice(0, memoriesToSummarizeCount);
 
-      console.log(`[记忆管理] 提取了 ${oldMemories.length} 条中期记忆进行总结。剩余中期记忆: ${sd.记忆.中期记忆.length} 条`);
+      console.log(`[记忆管理] 提取了 ${oldMemories.length} 条中期记忆进行总结。剩余中期记忆: ${memory.中期记忆.length} 条`);
 
       // 生成长期记忆总结
       const summary = await generateLongTermSummary(oldMemories);
       if (summary) {
         // 确保长期记忆结构存在
-        if (!sd.记忆.长期记忆) sd.记忆.长期记忆 = [];
+        if (!memory.长期记忆) memory.长期记忆 = [];
 
         // 添加新的总结到长期记忆开头
-        sd.记忆.长期记忆.unshift(summary);
+        memory.长期记忆.unshift(summary);
 
-        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${sd.记忆.长期记忆.length} 条`);
+        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${memory.长期记忆.length} 条`);
         console.log(`[记忆管理] 长期记忆内容预览:`, summary.substring(0, 100));
-        console.log(`[记忆管理] 完整长期记忆数组:`, sd.记忆.长期记忆);
+        console.log(`[记忆管理] 完整长期记忆数组:`, memory.长期记忆);
 
-        // 保存到 gameStateStore 和 IndexedDB
+        // 🔥 保存到 gameStateStore 和 IndexedDB
+        // saveCurrentGame 会从 gameStateStore 读取最新数据并保存
         await characterStore.saveCurrentGame();
         console.log(`[记忆管理] ✅ 已保存中期记忆删除和长期记忆新增`);
 
-        // 验证保存后的数据
-        const verifySlot = characterStore.activeSaveSlot;
-        if (verifySlot?.存档数据?.记忆?.长期记忆) {
-          console.log(`[记忆管理] 验证：存档中的长期记忆数量 = ${verifySlot.存档数据.记忆.长期记忆.length}`);
-        }
       } else {
         console.warn('[记忆管理] ⚠️ 生成长期记忆总结失败，被移除的中期记忆已丢失:', oldMemories);
       }

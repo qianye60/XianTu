@@ -8,7 +8,7 @@
       <!-- 左侧功能栏 -->
       <div class="left-sidebar" :class="{ collapsed: leftSidebarCollapsed }">
         <div class="sidebar-wrapper">
-          <LeftSidebar :collapsed="leftSidebarCollapsed" />
+          <LeftSidebar />
         </div>
       </div>
 

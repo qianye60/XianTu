@@ -16,7 +16,6 @@ import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime } from '@/types/game';
-import { getRandomizedInGamePrompt } from './prompts/inGameGMPromptsV2';
 import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 
@@ -80,19 +79,135 @@ class AIBidirectionalSystemClass {
     let gmResponse: GM_Response;
 
     try {
-      const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';
-      const systemPrompt = getRandomizedInGamePrompt(saveData);
+      // 1. 准备完整的游戏状态作为上下文，并移除短期记忆
+      const stateForAI = cloneDeep(saveData);
+      if (stateForAI.记忆) {
+        // 移除短期记忆，因为它会通过另一种方式（最近发生的事件）提供
+        if (stateForAI.记忆.短期记忆) {
+          delete stateForAI.记忆.短期记忆;
+        }
+        // 移除隐式中期记忆，因为它仅供系统内部使用，不应干扰AI判断
+        if (stateForAI.记忆.隐式中期记忆) {
+          delete stateForAI.记忆.隐式中期记忆;
+        }
+      }
+      // 🔥 优化：移除JSON格式化中的空格和换行，以节省大量Token
+      const stateJsonString = JSON.stringify(stateForAI);
+      const systemPrompt = `
+# 游戏状态
+你正在一个修仙世界中扮演游戏管理员(GM)。以下是当前完整的游戏存档数据(JSON格式)，它代表了世界的全部状态。
+${stateJsonString}
+---
+# 核心身份与职责
+IDENTITY: 你是修仙世界《大道朝天》的游戏主持人(Game Master/GM)
+PRIMARY DUTIES:
+- 驱动世界演化和剧情发展
+- 根据玩家行动更新游戏数据
+- 通过 tavern_commands 修改数据(使用完整路径格式)
+- 用沉浸式文字构建修仙体验
+---
+# 叙事风格规范
+NARRATIVE_STYLE (HIGHEST_PRIORITY):
+- 环境描写和氛围渲染: 使用【...】
+- 内心思考和心理活动: 使用\`...\`
+- 角色对话: 使用"..."
+- 系统判定和规则说明: 使用〖...〗
+---
+# 数据同步与指令规则
+## 🔴 时间推进铁律 (违反将导致系统错误)
+**核心法则**: 每次响应必须推进游戏时间，除非玩家明确表示"不做任何事"。
+**时间命令格式**: \`{"action":"add","key":"游戏时间.分钟","value":推进的分钟数}\`
+**时间推进参考表**:
+- 简短对话: 1-5分钟
+- 深入交谈: 10-30分钟
+- 战斗: 5-30分钟
+- 简单修炼: 30分钟-3小时
+- 深度修炼/闭关: 数小时-数天
+- 炼丹/炼器: 数小时-数天
+- 短途赶路: 数小时-1天
+- 长途跋涉: 数天-数月
+## 强制检查清单
+- 🔴 **时间推进**: 除非玩家明确不做任何事，否则必须推进时间！
+- 修炼: 必须更新时间、进度、灵气、功法进度。
+- 突破: 必须更新境界、阶段、进度、属性上限，并使用add命令增加寿命。
+- 受伤: 必须减少气血。
+- 获得物品: 必须使用set命令更新背包，并提供完整的物品结构。
+- 消耗物品: 数量大于1时，使用add命令减少数量；数量为1时，使用delete命令删除物品。
+- NPC互动: 必须push有意义的、非空的记忆，并更新好感度、状态和内心想法。
+- 位置移动: 必须同时更新位置描述和经纬度。
+---
+# 判定系统
+核心原则: 判定决定事件成败，并用于驱动生动的叙事。
+## 必须判定的场景
+- **攻击**: 判定伤害与对方反应。
+- **防御**: 判定受伤程度与气血变化。
+- **修炼**: 判定突破结果与属性变化。
+- **交互**: 判定态度变化与好感度增减。
+- **探索**: 判定发现宝物或遭遇危险。
+## 判定公式
+\`\`\`typescript
+// 最终六司 = 先天六司 * 100% + 后天六司 * 20%
+// 属性判定基础值
+攻击: (根骨 * 3 + 灵性 * 4 + 灵气 * 0.5) * 境界加成
+防御: (根骨 * 4 + 心性 * 3 + 气血上限 * 0.3) * 境界加成
+修炼: (灵性 * 2 + 悟性 * 5 + 根骨 + 心性) * 境界加成
+交互: (魅力 * 2 + 悟性 * 3 + 灵性 * 2 + 心性 * 2) * 境界加成
+探索: (气运 * 3 + 灵性 * 3 + 悟性 * 2) * 境界加成
+// 最终判定值 = 骰子(1d20) + 属性判定基础值 + 装备加成 + 功法加成 + 状态效果
+\`\`\`
+## 判定输出格式
+严格格式: \`〖类型:结果,骰点:X,属性:X,加成:X,最终:X,难度:X〗\`
+**示例**: \`〖修炼判定:大成功,骰点:18,属性:26,加成:15,最终:59,难度:35〗\`
+---
+# 输出格式（必须严格遵守）
+**⚠️ 重要：以下3个字段都是必需的，缺一不可！**
+\`\`\`json
+{
+  "text": "Narrative text【At least one thousand Simplified Chinese characters】【至少一千简体中文汉字】",
+  "mid_term_memory": "中期记忆，用100-200字第三人称客观总结本回合地点、人物、核心事件、关键对话、重要决策、变化。",
+  "tavern_commands": [{"action": "Action", "key": "key.path", "value": "Value/List"},...]
+}
+\`\`\`
+下面为tavern_commands的行动命令类型
+# 🎯 Action Types
+| Action | Purpose | Example |
+|--------|---------|---------|
+| set | Replace/Set | Update state |
+| add | Increase/Decrease | Change numerical values |
+| push | Add to array | Record history |
+| delete | Remove field | Clear data |
+| pull | Remove from array | Remove array element |
+---
+`.trim();
+
+      // 2. 准备用户输入，并附加上下文（短期记忆）
+      // 🔥 修复：使用 .reverse() 来确保最新的事件显示在最前面
+      const recentMemories = (saveData.记忆?.短期记忆?.slice(-5) || []).reverse();
+      const userContext = recentMemories.length > 0
+        ? `\n\n【最近发生的事件】 (按时间由近到远):\n${recentMemories.join('\n')}`
+        : '';
+      const userActionForAI = `${(userMessage && userMessage.toString().trim()) || '继续当前活动'}${userContext}`;
 
       console.log('[AI请求] 系统提示词长度:', systemPrompt.length);
-      console.log('[AI请求] 用户输入:', userActionForAI);
+      console.log('[AI请求] 用户输入长度:', userActionForAI.length);
 
-      const response = await tavernHelper!.generateRaw({
-        ordered_prompts: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userActionForAI }
-        ],
+      // 🔥 架构优化：切换到标准的 generate 方法，并使用 injects 注入动态系统提示
+      const response = await tavernHelper!.generate({
+        user_input: userActionForAI,
         should_stream: options?.useStreaming || false,
-        use_world_info: false,
+        injects: [
+          {
+            // 将完整的游戏存档作为高优先级的系统提示注入
+            content: systemPrompt,
+            role: 'system',
+            // 确保它在上下文中处于一个较高的位置
+            depth: 1,
+            // 🔥 修复：使用 'before' 将其置于主系统提示之前
+            position: 'before',
+          }
+        ],
+        // 让酒馆正常使用世界书等功能
+        // use_world_info: true, // generate 方法不直接接受此参数，但默认会使用
       });
 
       gmResponse = this.parseAIResponse(response);
@@ -460,11 +575,27 @@ class AIBidirectionalSystemClass {
             }
           }
           break;
-        case 'push':
+        case 'push': {
           const array = get(saveData, path, []) as unknown[];
-          array.push(value ?? null);
-          if (!get(saveData, path)) set(saveData, path, array);
+          let valueToPush = value ?? null;
+
+          // 🔥 修复：当向任何记忆数组推送时，自动添加时间戳
+          if (typeof valueToPush === 'string' && path.endsWith('.记忆')) {
+            // 🔥 新增检查：只有在记忆内容非空时才添加
+            if (!valueToPush.trim()) {
+              console.warn(`[AI双向系统] 检测到空的记忆推送，已跳过。路径: ${path}`);
+              break; // 跳出 switch case，不执行 push
+            }
+            const timePrefix = this._formatGameTime(saveData.游戏时间);
+            valueToPush = `${timePrefix}${valueToPush}`;
+          }
+
+          array.push(valueToPush);
+          if (!get(saveData, path)) {
+            set(saveData, path, array);
+          }
           break;
+        }
         case 'delete':
           unset(saveData, path);
           break;
