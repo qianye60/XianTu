@@ -142,7 +142,7 @@ import Step7_Preview from '../components/character-creation/Step7_Preview.vue'
 import RedemptionCodeModal from '../components/character-creation/RedemptionCodeModal.vue'
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { getCurrentCharacterName } from '../utils/tavern';
 
 
@@ -525,6 +525,7 @@ async function onStoreCompleted(result: { success: boolean; message: string; pre
         name: result.presetData.name,
         description: result.presetData.description,
         data: {
+          character_name: store.characterPayload.character_name,
           world: store.selectedWorld,
           talentTier: store.selectedTalentTier,
           origin: store.selectedOrigin,
@@ -572,75 +573,63 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
   // 使用预设数据恢复store状态
   try {
     const presetData = result.presetData.data;
+
+    // 1. 查找对象
+    const world = store.creationData.worlds.find(w => w.name === presetData.world?.name);
+    const talentTier = store.creationData.talentTiers.find(t => t.name === presetData.talentTier?.name);
+    const origin = store.creationData.origins.find(o => o.name === presetData.origin?.name);
+    const spiritRoot = store.creationData.spiritRoots.find(s => s.name === presetData.spiritRoot?.name);
     
-    // 恢复选择的世界
-    if (presetData.world) {
-      const world = store.creationData.worlds.find(w => w.name === presetData.world.name);
-      if (world) {
-        store.selectWorld(world.id);
-      }
+    // 2. 显式注解类型来解决 TypeScript 推断问题
+    const worldId: number | '' = world ? world.id : '';
+    const talentTierId: number | '' = talentTier ? talentTier.id : '';
+
+    const talentIds = (presetData.talents && Array.isArray(presetData.talents))
+      ? presetData.talents
+          .map((presetTalent: any) => store.creationData.talents.find(t => t.name === presetTalent.name)?.id)
+          // 显式为 'id' 参数添加类型注解
+          .filter((id: number | undefined): id is number => id !== undefined)
+      : [];
+
+    // 3. 构建新的 payload 对象
+    const newPayload = {
+      ...store.characterPayload,
+      character_name: presetData.character_name || '无名者',
+      world_id: worldId,
+      talent_tier_id: talentTierId,
+      origin_id: origin ? origin.id : null,
+      spirit_root_id: spiritRoot ? spiritRoot.id : null,
+      selected_talent_ids: talentIds,
+      root_bone: presetData.baseAttributes?.root_bone ?? 0,
+      spirituality: presetData.baseAttributes?.spirituality ?? 0,
+      comprehension: presetData.baseAttributes?.comprehension ?? 0,
+      fortune: presetData.baseAttributes?.fortune ?? 0,
+      charm: presetData.baseAttributes?.charm ?? 0,
+      temperament: presetData.baseAttributes?.temperament ?? 0,
+    };
+
+    // 4. 一次性更新整个 payload
+    store.characterPayload = newPayload;
+    
+    console.log('[角色创建] 预设数据已原子性恢复, 新的Payload:', newPayload);
+
+    // 5. 验证恢复后的状态
+    await nextTick();
+
+    if (!store.selectedWorld || !store.selectedTalentTier) {
+      console.error('[角色创建] 预设恢复后检查失败，核心数据缺失。');
+      toast.error('预设数据不完整或已失效，请重新选择。');
+      store.currentStep = 1;
+      return;
     }
-    
-    // 恢复选择的天资
-    if (presetData.talentTier) {
-      const talentTier = store.creationData.talentTiers.find(
-        t => t.name === presetData.talentTier.name
-      );
-      if (talentTier) {
-        store.selectTalentTier(talentTier.id);
-      }
-    }
-    
-    // 恢复选择的出身
-    if (presetData.origin) {
-      const origin = store.creationData.origins.find(
-        o => o.name === presetData.origin.name
-      );
-      if (origin) {
-        store.selectOrigin(origin.id);
-      }
-    }
-    
-    // 恢复选择的灵根
-    if (presetData.spiritRoot) {
-      const spiritRoot = store.creationData.spiritRoots.find(
-        s => s.name === presetData.spiritRoot.name
-      );
-      if (spiritRoot) {
-        store.selectSpiritRoot(spiritRoot.id);
-      }
-    }
-    
-    // 恢复选择的天赋
-    if (presetData.talents && Array.isArray(presetData.talents)) {
-      store.characterPayload.selected_talent_ids = [];
-      presetData.talents.forEach((talent: any) => {
-        const t = store.creationData.talents.find(x => x.name === talent.name);
-        if (t) {
-          store.toggleTalent(t.id);
-        }
-      });
-    }
-    
-    // 恢复属性分配
-    if (presetData.baseAttributes) {
-      store.setAttribute('root_bone', presetData.baseAttributes.root_bone);
-      store.setAttribute('spirituality', presetData.baseAttributes.spirituality);
-      store.setAttribute('comprehension', presetData.baseAttributes.comprehension);
-      store.setAttribute('fortune', presetData.baseAttributes.fortune);
-      store.setAttribute('charm', presetData.baseAttributes.charm);
-      store.setAttribute('temperament', presetData.baseAttributes.temperament);
-    }
-    
-    console.log('[角色创建] 预设数据恢复完成,准备创建角色');
-    
-    // 直接跳到最后一步并创建角色
+
+    // 6. 跳转到最后一步并创建角色
     store.currentStep = store.totalSteps;
+    await nextTick();
     
-    // 等待视图更新后创建角色
-    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log('[角色创建] 预设数据恢复且校验通过，执行创建...');
     await createCharacter();
-    
+
   } catch (error) {
     console.error('[角色创建] 使用预设数据失败:', error);
     toast.error('预设数据处理失败');
