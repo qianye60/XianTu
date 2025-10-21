@@ -394,7 +394,32 @@ export const useGameStateStore = defineStore('gameState', {
      * @param value 要设置的值
      */
     updateState(path: string, value: any) {
-      set(this, path, value);
+      // 🔥 修复：确保响应式系统能追踪到深层对象的变化
+      const parts = path.split('.');
+      const rootKey = parts[0];
+      
+      // 对于顶层属性，直接设置
+      if (parts.length === 1) {
+        (this as any)[rootKey] = value;
+        return;
+      }
+      
+      // 对于嵌套属性，需要触发响应式更新
+      // 特别处理 relationships（人物关系）
+      if (rootKey === 'relationships') {
+        // 创建新对象以触发响应式
+        this.relationships = { ...this.relationships };
+        set(this.relationships, parts.slice(1).join('.'), value);
+      } else {
+        // 其他属性也采用同样的策略
+        const currentRoot = (this as any)[rootKey];
+        if (currentRoot && typeof currentRoot === 'object') {
+          (this as any)[rootKey] = { ...currentRoot };
+          set((this as any)[rootKey], parts.slice(1).join('.'), value);
+        } else {
+          set(this, path, value);
+        }
+      }
     },
   },
 });

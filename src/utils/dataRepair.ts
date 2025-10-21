@@ -26,8 +26,8 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     repaired.角色基础信息 = {
       名字: '无名修士',
       性别: '男',
-      世界: '朝天大陆',
-      天资: '凡人',
+      世界: '朝天大陆' as any,
+      天资: '凡人' as any,
       出生: '散修',
       灵根: '五行杂灵根',
       天赋: [],
@@ -157,13 +157,30 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     repaired.三千大道 = { 大道列表: {} };
   }
 
-  // 9. 修复修炼功法
+  // 9. 修复修炼功法引用
   if (repaired.修炼功法 && typeof repaired.修炼功法 === 'object') {
-    // 功法存在时，确保必需字段
     const technique = repaired.修炼功法 as any;
-    if (!technique.名称 || !technique.物品ID) {
-      console.warn('[数据修复] 修炼功法数据不完整，清空');
+    
+    // 检查引用对象是否有效
+    if (!technique.物品ID) {
+      console.warn('[数据修复] 修炼功法缺少物品ID，清空');
       repaired.修炼功法 = null;
+    } else {
+      // 验证引用的物品是否存在于背包中
+      const referencedItem = repaired.背包?.物品?.[technique.物品ID];
+      if (!referencedItem) {
+        console.warn('[数据修复] 修炼功法引用的物品不存在于背包，清空引用');
+        repaired.修炼功法 = null;
+      } else if (referencedItem.类型 !== '功法') {
+        console.warn('[数据修复] 修炼功法引用的物品不是功法类型，清空引用');
+        repaired.修炼功法 = null;
+      } else {
+        // 确保名称与背包中的物品一致
+        if (!technique.名称 || technique.名称 !== referencedItem.名称) {
+          console.log('[数据修复] 同步修炼功法名称与背包物品');
+          technique.名称 = referencedItem.名称;
+        }
+      }
     }
   }
 
@@ -457,8 +474,8 @@ function createMinimalSaveData(): SaveData {
     角色基础信息: {
       名字: '无名修士',
       性别: '男',
-      世界: '朝天大陆',
-      天资: '凡人',
+      世界: '朝天大陆' as any,
+      天资: '凡人' as any,
       出生: '散修',
       灵根: '五行杂灵根',
       天赋: [],
@@ -477,6 +494,15 @@ function createMinimalSaveData(): SaveData {
       availableSects: [],
       sectRelationships: {},
       sectHistory: []
+    },
+    任务系统: {
+      当前任务列表: [],
+      已完成任务: [],
+      任务统计: {
+        完成总数: 0,
+        主线完成: 0,
+        支线完成: 0,
+      },
     },
     记忆: {
       短期记忆: [],

@@ -1299,7 +1299,8 @@ const sendMessage = async () => {
       uiStore.clearCurrentMessageStateChanges();
       console.log('[日志清空] 收到新响应，已清空上一条消息的状态变更日志');
 
-      // gameStateManager已移除，状态变更由characterStore处理
+      // 🔥 [新架构] AI指令已在 AIBidirectionalSystem.processGmResponse 中执行完毕
+      // gameStateStore 已包含最新数据，无需再次调用 updateCharacterData
 
       // 确保 stateChanges 有 changes 数组
       const stateChanges: StateChangeLog = (
@@ -1309,7 +1310,7 @@ const sendMessage = async () => {
       )
         ? aiResponse.stateChanges as StateChangeLog
         : { changes: [] };
-      await characterStore.updateCharacterData(stateChanges);
+      console.log('[状态更新] AI指令已执行，状态变更数量:', stateChanges.changes.length);
 
       // 将状态变更附加到当前叙述上
       if (currentNarrative.value) {
