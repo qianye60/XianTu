@@ -161,7 +161,6 @@ export const useGameStateStore = defineStore('gameState', {
 
       // 加载其他系统数据
       this.thousandDao = saveData.三千大道 || null;
-      this.sectSystem = saveData.宗门系统 || null;
       this.questSystem = saveData.任务系统 || {
         配置: {
           启用系统任务: false,
@@ -208,7 +207,6 @@ export const useGameStateStore = defineStore('gameState', {
 
         // 其他系统数据
         三千大道: this.thousandDao || { 大道列表: {} },
-        宗门系统: this.sectSystem || { availableSects: [], sectRelationships: {}, sectHistory: [] },
         任务系统: this.questSystem || {
           配置: {
             启用系统任务: false,
@@ -454,13 +452,13 @@ export const useGameStateStore = defineStore('gameState', {
       // 🔥 修复：确保响应式系统能追踪到深层对象的变化
       const parts = path.split('.');
       const rootKey = parts[0];
-      
+
       // 对于顶层属性，直接设置
       if (parts.length === 1) {
         (this as any)[rootKey] = value;
         return;
       }
-      
+
       // 对于嵌套属性，需要触发响应式更新
       // 特别处理 relationships（人物关系）
       if (rootKey === 'relationships') {

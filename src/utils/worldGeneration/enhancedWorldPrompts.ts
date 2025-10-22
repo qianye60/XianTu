@@ -510,10 +510,10 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 - ✅ **数据一致性** - memberCount.total必须等于byPosition各职位总和
 
 **🚨 前端显示依赖警告：**
-势力宗门页面会直接使用leadership和memberCount字段显示宗门信息！
-缺少这些字段将导致页面显示"暂无宗门信息"！
+势力页面会直接使用leadership和memberCount字段显示势力信息！
+缺少这些字段将导致页面显示"暂无势力信息"！
 
-**核心目标**: 创造一个独一无二的修仙世界，包含完整的宗门组织架构信息！
+**核心目标**: 创造一个独一无二的世界，包含完整的势力组织架构信息！
 `;
   }
 }

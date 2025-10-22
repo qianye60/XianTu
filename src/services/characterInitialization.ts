@@ -225,7 +225,6 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     三千大道: createEmptyThousandDaoSystem(),
     背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
     人物关系: {},
-    宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
     任务系统: {
       配置: {
         启用系统任务: false,
@@ -429,7 +428,7 @@ async () => {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
     const aiSystem = AIBidirectionalSystem;
     const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt);
-    
+
     const elapsed = Date.now() - startTime;
     console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms`);
 

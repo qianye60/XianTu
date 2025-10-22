@@ -459,7 +459,7 @@ const uiStore = useUIStore();
 const gameStateStore = useGameStateStore();
 const questStore = useQuestStore();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
-const bidirectionalSystem = AIBidirectionalSystem.getInstance();
+const bidirectionalSystem = AIBidirectionalSystem;
 
 // 流式输出状态
 const streamingMessageIndex = ref<number | null>(null);

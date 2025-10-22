@@ -313,7 +313,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
       const commands = Array.isArray(obj.tavern_commands) ? obj.tavern_commands :
                       Array.isArray(obj.指令) ? obj.指令 :
                       Array.isArray(obj.commands) ? obj.commands : [];
-      
+
       // 🔥 修复：将简化命令格式转换为完整的 TavernCommand 格式
       const tavernCommands = commands.map((cmd: any) => ({
         action: cmd.action || 'set',
@@ -321,7 +321,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
         key: cmd.key || '',
         value: cmd.value
       }));
-      
+
       return {
         text: String(obj.text || obj.叙事文本 || obj.narrative || ''),
         mid_term_memory: String(obj.mid_term_memory || obj.中期记忆 || obj.memory || ''),
@@ -352,3 +352,6 @@ ${DATA_STRUCTURE_DEFINITIONS}
 }
 
 export const AIBidirectionalSystem = AIBidirectionalSystemClass.getInstance();
+
+// 导出 getTavernHelper 以供其他模块使用
+export { getTavernHelper };

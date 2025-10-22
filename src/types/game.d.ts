@@ -311,21 +311,20 @@ export interface SectMemberInfo {
 
 /** 宗门基础信息 */
 export interface SectInfo {
-  name: string; // 宗门名称
-  type: SectType; // 宗门类型
-  level: '一流' | '二流' | '三流' | '末流'; // 宗门等级
-  location?: string; // 总部位置
-  description: string; // 宗门描述
-  specialties: string[]; // 宗门特色
-  // removed: 不再存储数值型“实力评估”
-  memberCount: SectMemberCount; // 成员数量统计
+  名称: string; // 宗门名称
+  类型: SectType; // 宗门类型
+  等级: '一流' | '二流' | '三流' | '末流'; // 宗门等级
+  位置?: string; // 总部位置
+  描述: string; // 宗门描述
+  特色: string[]; // 宗门特色
+  成员数量: SectMemberCount; // 成员数量统计
   与玩家关系: SectRelationship; // 与玩家的关系
   声望: number; // 玩家在该宗门的声望
-  canJoin: boolean; // 是否可以加入
-  joinRequirements?: string[]; // 加入条件
-  benefits?: string[]; // 加入后的好处
+  可否加入: boolean; // 是否可以加入
+  加入条件?: string[]; // 加入条件
+  加入好处?: string[]; // 加入后的好处
   // 新增：宗门领导和实力展示
-  leadership?: {
+  领导层?: {
     宗主: string; // 宗主姓名
     宗主修为: string; // 如"元婴后期"
     副宗主?: string; // 副宗主姓名（如有）
@@ -333,18 +332,18 @@ export interface SectInfo {
     最强修为: string; // 宗门内最强修为
   };
   // 新增：简化的势力范围信息
-  territoryInfo?: {
-    controlledAreas: string[]; // 控制的区域，如：["主城", "附属镇", "资源点"]
-    influenceRange: string; // 影响范围的简单描述，如："方圆百里"
-    strategicValue: number; // 战略价值 (1-10)
+  势力范围?: {
+    控制区域: string[]; // 控制的区域，如：["主城", "附属镇", "资源点"]
+    影响范围: string; // 影响范围的简单描述，如："方圆百里"
+    战略价值: number; // 战略价值 (1-10)
   };
 }
 
 /** 宗门成员数量统计 */
 export interface SectMemberCount {
-  total: number; // 总成员数
-  byRealm: Record<RealmLevel, number>; // 按境界统计
-  byPosition: Record<SectPosition, number>; // 按职位统计
+  总数: number; // 总成员数
+  按境界: Record<RealmLevel, number>; // 按境界统计
+  按职位: Record<SectPosition, number>; // 按职位统计
 }
 
 /** 宗门系统数据 */
@@ -529,23 +528,17 @@ export interface WorldFaction {
   势力范围?: string[] | { x: number; y: number }[]; // 支持字符串数组或坐标数组
   描述: string;
   特色: string | string[]; // 支持字符串或字符串数组
-  // 实力评估: string | number; // removed: 不再生成/存储该字段
   与玩家关系?: '敌对' | '中立' | '友好' | '盟友' | string;
   声望值?: number;
 
   // 宗门系统扩展字段 - 只对宗门类型势力有效
-  // powerRating?: number; // removed: 不再生成/存储该字段
-  specialties?: string[]; // 宗门特色列表，替代 特色 字符串
+  特色列表?: string[]; // 宗门特色列表，替代 特色 字符串
 
   // 宗门成员统计
-  memberCount?: {
-    total: number;
-    byRealm: Record<RealmLevel, number>;
-    byPosition: Record<SectPosition, number>;
-  };
+  成员数量?: SectMemberCount;
 
   // 宗门领导层 - 新增必需字段
-  leadership?: {
+  领导层?: {
     宗主: string;
     宗主修为: string; // 如"化神中期"、"元婴后期"等
     副宗主?: string;
@@ -560,16 +553,16 @@ export interface WorldFaction {
   };
 
   // 势力范围详情
-  territoryInfo?: {
-    controlledAreas?: string[]; // 替代 势力范围 字符串数组
-    influenceRange?: string;
-    strategicValue?: number; // 1-10
+  势力范围详情?: {
+    控制区域?: string[]; // 替代 势力范围 字符串数组
+    影响范围?: string;
+    战略价值?: number; // 1-10
   };
 
   // 加入相关
-  canJoin?: boolean;
-  joinRequirements?: string[];
-  benefits?: string[];
+  可否加入?: boolean;
+  加入条件?: string[];
+  加入好处?: string[];
 }
 
 /** 世界地点信息 */
@@ -849,7 +842,6 @@ export interface GameMessage {
       三千大道: ThousandDaoSystem;
       背包: Inventory;
       人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
-      宗门系统: SectSystemData;
       任务系统: QuestSystem; // 统一的任务系统
       记忆: Memory;
       游戏时间: GameTime;
