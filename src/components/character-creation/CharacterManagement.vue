@@ -185,27 +185,35 @@
                   </div>
 
                   <div class="manual-saves-grid">
-                    <div v-for="(slot, slotKey) in getManualSaves(selectedCharacter)"
+                    <div v-for="(slot, slotKey) in getAllSaves(selectedCharacter)"
                          :key="slotKey"
                          class="save-card manual-save"
-                         :class="{ 'has-data': slot.存档数据 }"
+                         :class="{
+                           'has-data': slot.存档数据,
+                           'auto-save': slotKey === '上次对话' || slotKey === '时间点存档'
+                         }"
                          @click="slot.存档数据 && handleSelect(selectedCharId!, String(slotKey), true)"
                          :style="{ cursor: slot.存档数据 ? 'pointer' : 'default' }">
-
+ 
                        <div v-if="slot.存档数据" class="save-data">
                          <div class="save-header">
-                           <h4 class="save-name">{{ slot.存档名 || slotKey }}</h4>
-                          <div class="save-actions">
-                            <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
-                                    class="btn-edit-save"
-                                    title="重命名">编</button>
-                            <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))"
-                                    class="btn-delete-save"
-                                    :class="{ 'disabled': !canDeleteSave(selectedCharacter, String(slotKey)) }"
-                                    :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
-                                    :title="canDeleteSave(selectedCharacter, String(slotKey)) ? '删除存档' : '无法删除：至少需要保留一个存档'">删</button>
-                          </div>
-                        </div>
+                           <h4 class="save-name">
+                             <History v-if="slotKey === '上次对话'" :size="16" class="save-icon last-save-icon" />
+                             <Clock v-else-if="slotKey === '时间点存档'" :size="16" class="save-icon time-save-icon" />
+                             {{ slot.存档名 || slotKey }}
+                           </h4>
+                           <div class="save-actions">
+                             <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
+                                     class="btn-edit-save"
+                                     title="重命名"
+                                     :disabled="slotKey === '上次对话' || slotKey === '时间点存档'">编</button>
+                             <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))"
+                                     class="btn-delete-save"
+                                     :class="{ 'disabled': !canDeleteSave(selectedCharacter, String(slotKey)) }"
+                                     :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
+                                     :title="getDeleteTooltip(selectedCharacter, String(slotKey))">删</button>
+                           </div>
+                         </div>
 
                         <div class="save-badges">
                           <span class="realm-badge">{{ getRealmName(slot.存档数据.玩家角色状态?.境界) }}</span>
@@ -406,7 +414,7 @@ import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import HexagonChart from '@/components/common/HexagonChart.vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
-import { ArrowLeft, Download, Upload } from 'lucide-vue-next';
+import { ArrowLeft, Download, Upload, History, Clock } from 'lucide-vue-next';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
 import "@/style.css";
 import { formatRealmWithStage } from '@/utils/realmUtils';
@@ -663,42 +671,47 @@ const handleDeleteSave = (charId: string, slotKey: string) => {
 // 检查是否可以删除存档的逻辑
 const canDeleteSave = (character: CharacterProfile | null, slotKey: string): boolean => {
   if (!character || character.模式 === '联机') {
-    // 联机模式不允许删除存档
     return false;
   }
 
-  // 统计当前有数据的存档数量
-  let saveCount = 0;
+  // 自动存档不可删除
+  if (slotKey === '上次对话' || slotKey === '时间点存档') {
+    return false;
+  }
+
   const savesList = character.存档列表 || {};
+  // 统计有数据的手动存档数量
+  const manualSavesWithData = Object.entries(savesList).filter(
+    ([key, save]) => key !== '上次对话' && key !== '时间点存档' && save.存档数据
+  ).length;
 
-  Object.entries(savesList).forEach(([, save]) => {
-    if (save.存档数据) {
-      saveCount++;
-    }
-  });
-
-  // 如果要删除的存档有数据，且总共只有1个有数据的存档，则不允许删除
+  // 如果要删除的存档是最后一个有数据的手动存档，则不允许删除
   const targetSave = savesList[slotKey];
-  if (targetSave?.存档数据 && saveCount <= 1) {
+  if (targetSave?.存档数据 && manualSavesWithData <= 1) {
     return false;
   }
 
   return true;
 };
 
-const getManualSaves = (character: CharacterProfile | null): Record<string, SaveSlot> => {
+// 获取删除按钮的提示文本
+const getDeleteTooltip = (character: CharacterProfile | null, slotKey: string): string => {
+  if (slotKey === '上次对话') {
+    return '上次对话存档不可删除（用于回滚）';
+  }
+  if (slotKey === '时间点存档') {
+    return '时间点存档不可删除（定时自动覆盖）';
+  }
+  if (!canDeleteSave(character, slotKey)) {
+    return '无法删除：至少需要保留一个手动存档';
+  }
+  return '删除存档';
+};
+
+const getAllSaves = (character: CharacterProfile | null): Record<string, SaveSlot> => {
   if (!character?.存档列表) return {} as Record<string, SaveSlot>;
-
-  const manualSaves: Record<string, SaveSlot> = {};
-
-  // 过滤出手动存档（排除上次对话）
-  Object.entries(character.存档列表).forEach(([key, value]) => {
-    if (key !== '上次对话') {
-      manualSaves[key] = value as SaveSlot;
-    }
-  });
-
-  return manualSaves;
+  // 返回所有存档，不做过滤
+  return character.存档列表;
 };
 
 const handleEditSaveName = (charId: string, slotKey: string) => {
@@ -2035,6 +2048,27 @@ const handleImportFile = async (event: Event) => {
   border-left: 4px solid var(--color-success);
   border-color: rgba(var(--color-success-rgb), 0.8);
   position: relative;
+}
+
+.save-card.auto-save {
+  border-left-color: var(--color-info);
+  border-color: rgba(var(--color-info-rgb), 0.8);
+}
+
+.save-icon {
+  display: inline-block;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+.last-save-icon {
+  color: var(--color-primary);
+}
+
+.time-save-icon {
+  color: var(--color-warning);
 }
 
 .save-card.has-data::after {

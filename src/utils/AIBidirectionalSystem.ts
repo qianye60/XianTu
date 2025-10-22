@@ -48,7 +48,7 @@ class AIBidirectionalSystemClass {
     userMessage: string,
     character: CharacterProfile,
     options?: ProcessOptions
-  ): Promise<GM_Response> {
+  ): Promise<GM_Response | null> {
     const gameStateStore = useGameStateStore();
     const tavernHelper = getTavernHelper();
 
@@ -83,10 +83,17 @@ class AIBidirectionalSystemClass {
       const stateJsonString = JSON.stringify(stateForAI);
 
       const systemPrompt = `
+# 核心行为准则 (最高优先级)
+1.  **尊重玩家意图**: 你的首要任务是响应玩家的行动和意图。如果玩家没有明确表示要离开当前地点或进行重大活动（如修炼、探索、战斗），你必须专注于当前场景的深度互动。
+2.  **禁止主动推进**: 绝对不要主动提出离开当前场景的建议（例如“我们去xxx看看？”）。将剧情推进的决定权完全交给玩家。
+3.  **丰富当前场景**: 当玩家选择“静止”（例如，只是对话、观察、思考）时，你应该通过细腻的环境描写、NPC的心理活动、更深入的对话选项来丰富当前的体验，而不是试图创造新的事件或转移地点。
+4.  **被动响应**: 你的所有叙述和行动都应该是对玩家输入的直接或间接响应，而不是自发地创造新剧情。
+
 # 游戏状态
 你正在修仙世界《大道朝天》中扮演GM。以下是当前完整游戏存档(JSON格式):
 ${stateJsonString}
----
+
+下面是格式标准规则和命令生成教程参考（仔细查看，字段类型一定不能出错）：
 ${DATA_STRUCTURE_DEFINITIONS}
 `.trim();
 
@@ -150,20 +157,25 @@ ${DATA_STRUCTURE_DEFINITIONS}
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
     let gmResponse: GM_Response;
     try {
-      const response = await tavernHelper!.generate({
-        user_input: userPrompt,
-        should_stream: options?.useStreaming || false,
-        injects: [
+      // 🔥 [修复] 使用 generateRaw 模式跳过预设的世界书和角色卡
+      // 这样初始化消息完全由 systemPrompt 和 userPrompt 控制
+      console.log('[AI双向系统] 使用 Raw 模式生成初始消息(跳过世界书)');
+      const response = await tavernHelper!.generateRaw({
+        ordered_prompts: [
           {
-            content: systemPrompt,
             role: 'system',
-            depth: 1,
-            position: 'before',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userPrompt
           }
         ],
+        use_world_info: false, // 禁用世界书
+        should_stream: options?.useStreaming || false
       });
 
-      gmResponse = this.parseAIResponse(response);
+      gmResponse = this.parseAIResponse(String(response));
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI响应解析失败或为空');
       }

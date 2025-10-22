@@ -38,7 +38,7 @@
             </div>
             <div class="stat-item">
               <span class="stat-label">最后保存</span>
-              <span class="stat-value">{{ formatTime(currentSave.最后保存时间 || currentSave.保存时间 || '') }}</span>
+              <span class="stat-value">{{ formatTime(currentSave.最后保存时间 ?? currentSave.保存时间 ?? '') }}</span>
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@
                   </div>
                   <div class="character-name-small">{{ save.角色名字 || '无名道友' }}</div>
                   <!-- 显示最后保存时间 -->
-                  <div class="save-time">{{ formatTime(save.最后保存时间 || save.保存时间 || '') }}</div>
+                  <div class="save-time">{{ formatTime(save.最后保存时间 ?? save.保存时间 ?? '') }}</div>
                 </div>
               </div>
               <div class="card-actions">
@@ -140,7 +140,7 @@
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">修改:</span>
-                  <span class="detail-value">{{ formatTime(save.最后保存时间 || save.保存时间 || '') }}</span>
+                  <span class="detail-value">{{ formatTime(save.最后保存时间 ?? save.保存时间 ?? '') }}</span>
                 </div>
               </div>
             </div>
@@ -203,7 +203,8 @@ const fileInput = ref<HTMLInputElement>();
 
 // 获取存档列表
 const savesList = computed(() => {
-  return characterStore.saveSlots.filter((slot: SaveSlot) => slot !== null && slot.存档数据 !== null);
+  // 仅过滤掉 null 的槽位，保留所有有效存档，包括没有数据的自动存档槽位
+  return characterStore.saveSlots.filter((slot: SaveSlot) => slot !== null);
 });
 
 // 获取当前存档
@@ -514,8 +515,12 @@ const handleImportFile = async (event: Event) => {
     }
 
     // 导入存档
+    const activeCharId = characterStore.rootState.当前激活存档?.角色ID;
+    if (!activeCharId) {
+      throw new Error('无法导入存档，当前没有激活的角色');
+    }
     for (const save of data.saves) {
-      await characterStore.importSave(save);
+      await characterStore.importSave(activeCharId, save);
     }
 
     await refreshSaves();

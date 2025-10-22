@@ -215,4 +215,6 @@ export interface GM_Response {
     grade: '天眷' | '完胜' | '险胜' | '失手' | '反噬' | string;
     details?: any;
   };
+  stateChanges?: import('./game').StateChangeLog;
+  system_messages?: string[];
 }

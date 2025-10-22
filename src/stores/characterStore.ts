@@ -16,19 +16,7 @@ import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/uti
 import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 导入掌握技能计算工具
 import { updateStatusEffects } from '@/utils/statusEffectManager'; // <-- 导入状态效果管理工具
 import { useGameStateStore } from '@/stores/gameStateStore';
-// TODO: [架构重构] 已移除 storageSharding 导入，相关功能需要用新的 gameStateStore 架构替代
-// import {
-//   shardSaveData,
-//   assembleSaveData,
-//   saveAllShards,
-//   loadAllShards,
-//   updateShards,
-//   clearAllShards,
-//   getShardFromSaveData,
-//   mapOldPathToShard,
-//   type StorageShards
-// } from '@/utils/storageSharding'; // 导入分片存储工具
-import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+import type { World} from '@/types';
 import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm, NpcProfile, Item } from '@/types/game.d.ts';
 
 // 假设的创角数据包，实际应从创角流程获取
@@ -1824,13 +1812,16 @@ const deleteNpc = async (npcName: string) => {
  * @param itemId 要装备的功法物品ID
  */
 const equipTechnique = async (itemId: string) => {
-  const slot = activeSaveSlot.value;
-  if (!slot?.存档数据) {
+  // 🔥 [修复] 使用 gameStateStore 获取当前存档数据
+  // activeSaveSlot 只包含元数据,不包含完整存档数据
+  const gameStateStore = useGameStateStore();
+  const saveData = gameStateStore.getCurrentSaveData();
+
+  if (!saveData) {
     toast.error('存档数据不存在');
     return;
   }
 
-  const saveData = slot.存档数据;
   const item = saveData.背包?.物品?.[itemId];
 
   if (!item || item.类型 !== '功法') {
@@ -1856,6 +1847,29 @@ const equipTechnique = async (itemId: string) => {
   // 2. 装备新功法
   item.已装备 = true;
 
+  // 🔥 [关键修复] 初始化修炼进度（如果未定义）
+  if (item.修炼进度 === undefined || item.修炼进度 === null) {
+    item.修炼进度 = 0;
+    debug.log('角色商店', `初始化功法修炼进度为 0`);
+  }
+
+  // 🔥 [关键修复] 初始化并更新已解锁技能数组
+  if (!item.已解锁技能) {
+    item.已解锁技能 = [];
+  }
+
+  // 检查哪些技能应该立即解锁（解锁阈值 <= 当前进度）
+  if (item.功法技能 && Array.isArray(item.功法技能)) {
+    const currentProgress = item.修炼进度 || 0;
+    item.功法技能.forEach((skill: any) => {
+      const unlockThreshold = skill.解锁需要熟练度 || 0;
+      if (currentProgress >= unlockThreshold && !item.已解锁技能!.includes(skill.技能名称)) {
+        item.已解锁技能!.push(skill.技能名称);
+        debug.log('角色商店', `立即解锁技能: ${skill.技能名称} (阈值: ${unlockThreshold}%)`);
+      }
+    });
+  }
+
   // 3. 创建或更新修炼槽位（只存储引用）
   saveData.修炼功法 = {
     物品ID: item.物品ID,
@@ -1864,6 +1878,7 @@ const equipTechnique = async (itemId: string) => {
 
   debug.log('角色商店', `已装备功法: ${item.名称}`);
   debug.log('角色商店', `修炼进度存储在: 背包.物品.${item.物品ID}.修炼进度`);
+  debug.log('角色商店', `已解锁技能数量: ${item.已解锁技能?.length || 0}`);
 
   // 🔥 [掌握技能自动计算] 装备功法后重新计算掌握技能
   try {
@@ -1873,7 +1888,9 @@ const equipTechnique = async (itemId: string) => {
     debug.error('角色商店', '装备功法后自动计算掌握技能失败:', e);
   }
 
-  await commitMetadataToStorage(); // 直接持久化到IndexedDB
+  // 🔥 [修复] 更新 gameStateStore 并保存完整存档数据
+  gameStateStore.loadFromSaveData(saveData);
+  await saveCurrentGame(); // 使用 saveCurrentGame 保存完整存档数据
 
   // 🔍 调试：同步后再次检查品质数据
   const itemAfterSync = saveData.背包?.物品?.[itemId];
@@ -1884,7 +1901,9 @@ const equipTechnique = async (itemId: string) => {
     完整物品数据: itemAfterSync
   });
 
-  toast.success(`已开始修炼《${item.名称}》`);
+  // 🔥 修复：显示真实功法名称而非伪装名称
+  const realTechniqueName = item.名称;
+  toast.success(`已开始修炼《${realTechniqueName}》`);
 };
 
 /**
@@ -1991,17 +2010,24 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
   };
 
 const unequipTechnique = async (itemId: string) => {
-  const slot = activeSaveSlot.value;
-  if (!slot?.存档数据) {
+  // 🔥 修复：使用 gameStateStore 获取当前存档数据，与其他方法保持一致
+  const gameStateStore = useGameStateStore();
+  const saveData = gameStateStore.getCurrentSaveData();
+
+  if (!saveData) {
     toast.error('存档数据不存在');
     return;
   }
-
-  const saveData = slot.存档数据;
   const item = saveData.背包?.物品?.[itemId];
-  const cultivationInfo = saveData.修炼功法;
 
-  if (!item || item.类型 !== '功法' || !cultivationInfo || cultivationInfo.物品ID !== itemId) {
+  // 🔥 修复：使用与UI一致的验证逻辑，检查背包中的已装备状态
+  if (!item || item.类型 !== '功法' || !item.已装备) {
+    debug.error('角色商店', '功法卸载验证失败:', {
+      itemExists: !!item,
+      itemType: item?.类型,
+      isEquipped: item?.已装备,
+      requestedItemId: itemId
+    });
     toast.error('要卸下的功法与当前修炼的功法不匹配');
     return;
   }
@@ -2011,8 +2037,10 @@ const unequipTechnique = async (itemId: string) => {
   // 2. 更新背包中的功法状态
   item.已装备 = false;
 
-  // 3. 清空修炼槽
-  saveData.修炼功法 = null;
+  // 3. 清空修炼槽（如果存在的话，确保数据一致性）
+  if (saveData.修炼功法?.物品ID === itemId) {
+    saveData.修炼功法 = null;
+  }
 
   debug.log('角色商店', `已卸下功法: ${item.名称}`);
   debug.log('角色商店', `修炼进度保留在: 背包.物品.${item.物品ID}.修炼进度`);
@@ -2025,12 +2053,16 @@ const unequipTechnique = async (itemId: string) => {
     debug.error('角色商店', '卸下功法后自动计算掌握技能失败:', e);
   }
 
+  // 🔥 注意：由于saveData是gameStateStore状态的引用，直接修改已自动更新store
+
   // 🔥 [UI即时响应] 在同步前强制触发一次UI更新
   triggerRef(rootState);
 
   await commitMetadataToStorage(); // 直接持久化到IndexedDB
   const progress = item.修炼进度 || 0;
-  toast.info(`已停止修炼《${item.名称}》，修炼进度${progress}%已保存到背包`);
+  // 🔥 修复：显示真实功法名称而非伪装名称
+  const realTechniqueName =  item.名称;
+  toast.info(`已停止修炼《${realTechniqueName}》，修炼进度${progress}%已保存到背包`);
 };
 
 

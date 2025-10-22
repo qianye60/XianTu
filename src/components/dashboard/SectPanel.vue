@@ -35,8 +35,6 @@
                     <p>世界信息存在: {{ !!gameStateStore.worldInfo }}</p>
                     <p>世界信息.势力信息存在: {{ !!gameStateStore.worldInfo?.势力信息 }}</p>
                     <p>世界信息.势力信息数量: {{ gameStateStore.worldInfo?.势力信息?.length || 0 }}</p>
-                    <p>宗门系统存在: {{ !!(gameStateStore.sectSystem) }}</p>
-                    <p>宗门系统.availableSects数量: {{ (gameStateStore.sectSystem)?.availableSects?.length || 0 }}</p>
                     <p>筛选后数量: {{ filteredSects.length }}</p>
                     <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
                       从酒馆同步数据
@@ -438,10 +436,6 @@ const searchQuery = ref('');
 // 获取世界中的宗门势力数据 - 统一数据源，支持多种数据结构
 const sectSystemData = computed(() => {
   const data = gameStateStore.getCurrentSaveData();
-
-  console.log('[宗门系统] 开始获取数据');
-  console.log('[宗门系统] saveData存在:', !!data);
-  console.log('[宗门系统] 完整存档数据结构:', Object.keys(data || {}));
 
   if (!data) {
     console.log('[宗门系统] 存档数据不存在，返回空数组');

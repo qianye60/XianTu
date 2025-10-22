@@ -12,7 +12,8 @@
       "Bash(findstr:*)",
       "Bash(cat:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx vue-tsc --noEmit src/components/dashboard/SkillsPanel.vue)"
     ],
     "deny": [],
     "ask": [],

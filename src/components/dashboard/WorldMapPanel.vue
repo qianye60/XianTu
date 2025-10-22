@@ -547,21 +547,15 @@ const playerPosition = computed(() => {
   const location = playerStatus.位置;
   console.log('[玩家定位] 位置数据:', location);
 
-  // 优先使用 x, y 坐标（虚拟坐标系）
+  // 优先使用 x, y 坐标（地理坐标系），并转换为虚拟坐标
   if (location.x !== undefined && location.y !== undefined) {
-    console.log('[玩家定位] 从玩家状态获取坐标:', { x: location.x, y: location.y });
-    return { x: location.x, y: location.y };
-  }
-
-  // 其次尝试 x, y 字段（AI设置的坐标）
-  const loc = location as any;
-  if (loc.x !== undefined && loc.y !== undefined) {
-    const virtualPos = geoToVirtual(loc.x, loc.y);
-    console.log('[玩家定位] 从 x/y 转换坐标:', virtualPos);
+    const virtualPos = geoToVirtual(location.x, location.y);
+    console.log(`[玩家定位] 从玩家状态 x/y (${location.x}, ${location.y}) 转换坐标:`, virtualPos);
     return virtualPos;
   }
 
   // 兼容旧数据：经度/纬度字段
+  const loc = location as any;
   if (loc.经度 !== undefined && loc.纬度 !== undefined) {
     const virtualPos = geoToVirtual(loc.经度, loc.纬度);
     console.log('[玩家定位] 从经纬度转换坐标:', virtualPos);

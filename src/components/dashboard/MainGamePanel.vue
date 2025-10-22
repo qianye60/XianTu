@@ -337,7 +337,6 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
 import { panelBus } from '@/utils/panelBus';
-import { useQuestStore } from '@/stores/questStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
 import { toast } from '@/utils/toast';
@@ -457,7 +456,6 @@ const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
 const gameStateStore = useGameStateStore();
-const questStore = useQuestStore();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem;
 
@@ -507,16 +505,6 @@ const getImagePreviewUrl = (file: File): string => {
 };
 
 
-// gameMessages 数组将被移除，currentNarrative 成为显示内容的唯一来源
-// const gameMessages = ref<GameMessage[]>([]);
-
-// --- 移除旧的变量更新面板逻辑 ---
-// const variableUpdatesExpanded = ref(false);
-// const toggleVariableUpdates = () => { ... };
-
-
-// 🔥 [修复] 标记为意图未使用的工具函数（保留供将来使用）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '空';
@@ -578,7 +566,7 @@ const currentNarrative = ref<GameMessage | null>(null);
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
 
 // 短期记忆设置 - 可配置
-const maxShortTermMemories = ref(3); // 默认3条，避免token过多
+const maxShortTermMemories = ref(3); // 默认3条，与记忆中心同步
 const maxMidTermMemories = ref(25); // 默认25条触发阈值
 const midTermKeepCount = ref(8); // 默认保留8条最新的中期记忆
 // 长期记忆无限制，不设上限
@@ -869,7 +857,8 @@ const confirmAction = () => {
 // 短期记忆获取 - 直接从 gameStateStore 中获取
 const recentMemories = computed(() => {
   if (gameStateStore.memory?.短期记忆) {
-    return gameStateStore.memory.短期记忆.slice(0, maxShortTermMemories.value);
+    // [修复] 获取最新的N条记忆（数组末尾是新的），并反转以在UI上将最新的显示在顶部
+    return gameStateStore.memory.短期记忆.slice(-maxShortTermMemories.value).reverse();
   }
   return [];
 });
@@ -922,10 +911,9 @@ const validateAIResponse = (response: unknown): { isValid: boolean; errors: stri
 const retryAIResponse = async (
   userMessage: string,
   character: CharacterProfile,
-  gameState: Record<string, unknown>,
   previousErrors: string[],
   maxRetries: number = 2
-): Promise<Record<string, unknown> | null> => {
+): Promise<GM_Response | null> => {
   console.log('[AI响应重试] 开始重试，之前的错误:', previousErrors);
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -966,7 +954,6 @@ const retryAIResponse = async (
       const aiResponse = await bidirectionalSystem.processPlayerAction(
         enhancedMessage,
         character,
-        gameState,
         {
           onProgressUpdate: (progress: string) => {
             console.log('[AI重试进度]', progress);
@@ -974,8 +961,8 @@ const retryAIResponse = async (
         }
       );
 
-      if (aiResponse.gmResponse) {
-        const validation = validateAIResponse(aiResponse.gmResponse);
+      if (aiResponse) {
+        const validation = validateAIResponse(aiResponse);
         if (validation.isValid) {
           console.log(`[AI响应重试] 第${attempt}次尝试成功`);
           return aiResponse;
@@ -1158,7 +1145,7 @@ const sendMessage = async () => {
     };
 
     // 使用优化的AI请求系统进行双向交互
-    let aiResponse: Record<string, unknown> | null = null;
+    let aiResponse: GM_Response | null = null;
 
     try {
       const options: Record<string, unknown> = {
@@ -1188,13 +1175,12 @@ const sendMessage = async () => {
       aiResponse = await bidirectionalSystem.processPlayerAction(
         finalUserMessage,
         character,
-        {}, // gameState已移除，传空对象
         options
       );
 
       // 验证AI响应结构
-      if (aiResponse.gmResponse) {
-        const validation = validateAIResponse(aiResponse.gmResponse);
+      if (aiResponse) {
+        const validation = validateAIResponse(aiResponse);
         if (!validation.isValid) {
           console.warn('[AI响应验证] 结构验证失败:', validation.errors);
           toast.warning('AI响应格式不正确，正在重试...');
@@ -1203,7 +1189,6 @@ const sendMessage = async () => {
           const retryResponse = await retryAIResponse(
             finalUserMessage,
             character,
-            {}, // gameState已移除，传空对象
             validation.errors
           );
 
@@ -1229,20 +1214,16 @@ const sendMessage = async () => {
 
       // --- 核心逻辑：整合最终文本并更新状态 ---
       let finalText = '';
-      const gmResp = aiResponse.gmResponse as GM_Response | undefined;
+      const gmResp = aiResponse; // aiResponse 本身就是 GM_Response
 
       console.log('[AI响应处理] 开始处理AI响应文本');
       console.log('[AI响应处理] aiResponse:', aiResponse);
-      console.log('[AI响应处理] gmResp:', gmResp);
       console.log('[AI响应处理] streamingContent:', streamingContent.value);
 
       // 优先从结构化响应中获取最准确的文本
       if (gmResp?.text && typeof gmResp.text === 'string') {
         finalText = gmResp.text;
         console.log('[AI响应处理] 使用 gmResponse.text 作为最终文本，长度:', finalText.length);
-      } else if (aiResponse.finalContent && typeof aiResponse.finalContent === 'string') {
-        finalText = aiResponse.finalContent;
-        console.log('[AI响应处理] 使用 aiResponse.finalContent 作为最终文本，长度:', finalText.length);
       } else if (streamingContent.value) {
         // 如果以上都没有，使用流式输出的最终结果作为备用
         finalText = streamingContent.value;
@@ -1317,7 +1298,7 @@ const sendMessage = async () => {
       if (currentNarrative.value) {
         currentNarrative.value.stateChanges = aiResponse.stateChanges as StateChangeLog;
 
-        // 保存到叙事历史（只保留最新一条，用于页面恢复）
+        // 🔥 [修复] 保存到叙事历史并持久化到 IndexedDB
         if (gameStateStore.isGameLoaded) {
           // 叙事历史只保留最新一条对话（用于切换页面后恢复）
           const latestNarrative = {
@@ -1327,19 +1308,20 @@ const sendMessage = async () => {
             stateChanges: currentNarrative.value.stateChanges
           };
 
-          if (gameStateStore.narrativeHistory) {
-            gameStateStore.narrativeHistory = [latestNarrative];
-          }
+          gameStateStore.narrativeHistory = [latestNarrative];
+          console.log('[主面板] 叙事历史已更新到 gameStateStore:', latestNarrative);
 
-
-          // TODO: 触发 gameStateStore 的保存机制
-          // gameStateStore.saveGame();
+          // ✅ 立即持久化叙事历史
+          // 注意: 这里不需要调用 saveGame(),因为在 finally 块中会统一存档
         }
       }
 
       // 将新的状态变更保存到 uiStore 的内存中（会覆盖之前的）
-      uiStore.setCurrentMessageStateChanges(aiResponse.stateChanges);
-      console.log('[日志面板] State changes received and stored in memory:', aiResponse.stateChanges);
+      if (aiResponse.stateChanges) {
+        uiStore.setCurrentMessageStateChanges(aiResponse.stateChanges);
+        console.log('[日志面板] State changes received and stored in memory:', aiResponse.stateChanges);
+      }
+
 
       // 检查角色死亡状态（在状态更新后）
       const currentSaveData = gameStateStore.toSaveData();
@@ -1367,9 +1349,8 @@ const sendMessage = async () => {
       streamingMessageIndex.value = null;
       streamingContent.value = '';
 
-      // 清除AI处理状态
-      isAIProcessing.value = false;
-      persistAIProcessingState();
+      // isAIProcessing 会在 finally 中被清除
+      persistAIProcessingState(); // 仍然需要清除会话存储
 
       // 显示失败弹窗，明确告知用户生成失败
       const errorMessage = aiError instanceof Error ? aiError.message : '未知错误';
@@ -1390,10 +1371,10 @@ const sendMessage = async () => {
     }
 
     // 系统消息直接覆盖当前叙述
-    if (aiResponse && aiResponse.systemMessages && Array.isArray(aiResponse.systemMessages) && aiResponse.systemMessages.length > 0) {
+    if (aiResponse && aiResponse.system_messages && Array.isArray(aiResponse.system_messages) && aiResponse.system_messages.length > 0) {
       currentNarrative.value = {
         type: 'system',
-        content: aiResponse.systemMessages.join('\n'),
+        content: aiResponse.system_messages.join('\n'),
         time: formatCurrentTime(),
         stateChanges: { changes: [] }
       };
@@ -1409,9 +1390,8 @@ const sendMessage = async () => {
       // inputText.value = '';
 
 
-      // 明确清除AI处理状态(成功路径)
-      console.log('[AI响应处理] 成功完成,清除AI处理状态');
-      isAIProcessing.value = false;
+      // 状态将在 finally 块中统一清除
+      console.log('[AI响应处理] 成功完成, isAIProcessing 将在 finally 中清除');
       persistAIProcessingState();
 
     }
@@ -1481,26 +1461,24 @@ try {
   const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
 
   // 添加到短期记忆
-  memory.短期记忆.unshift(finalContent);
+  memory.短期记忆.push(finalContent);
 
   // 处理中期记忆
   if (midTermSummary?.trim()) {
     // 如果有显式的中期记忆总结，存入隐式中期记忆
-    memory.隐式中期记忆.unshift(`${timePrefix}${midTermSummary}`);
+    memory.隐式中期记忆.push(`${timePrefix}${midTermSummary}`);
   } else {
-    // 否则，将叙述文本也存入隐式中期记忆
-    const contentWithoutTime = hasTimePrefix ? content.substring(content.indexOf('】') + 1) : content;
-    memory.隐式中期记忆.unshift(`${timePrefix}${contentWithoutTime}`);
+    console.log("无中期记忆返回")
   }
 
   // 检查短期记忆溢出
   if (memory.短期记忆.length > maxShortTermMemories.value) {
     const overflowCount = memory.短期记忆.length - maxShortTermMemories.value;
     for (let i = 0; i < overflowCount; i++) {
-      memory.短期记忆.pop(); // 移除最旧的短期记忆
-      const implicit = memory.隐式中期记忆.pop(); // 移除对应的隐式中期记忆
+      memory.短期记忆.shift(); // [修复] 移除最旧的短期记忆（从数组开头）
+      const implicit = memory.隐式中期记忆.shift(); // [修复] 移除对应的隐式中期记忆
       if (implicit && !memory.中期记忆.includes(implicit)) {
-        memory.中期记忆.unshift(implicit); // 转移到中期记忆
+        memory.中期记忆.push(implicit); // [修复] 转移到中期记忆（添加到末尾）
       }
     }
 
@@ -1668,12 +1646,14 @@ const initializePanelForSave = async () => {
         短期记忆长度: memories?.length || 0
       });
 
-      // 优先从叙事历史中恢复最近的一条记录（包含stateChanges）
+      // 🔥 [修复] 优先从叙事历史中恢复最近的一条记录（包含stateChanges）
+      // 叙事历史是权威数据源,应始终优先信任
       if (gameStateStore.narrativeHistory && gameStateStore.narrativeHistory.length > 0) {
-        const latestNarrative = gameStateStore.narrativeHistory[0];
-        console.log('[主面板] 从叙事历史恢复最新叙述（含状态变更日志）');
-        console.log('[主面板-调试] 叙事历史第一条:', {
+        const latestNarrative = gameStateStore.narrativeHistory[gameStateStore.narrativeHistory.length - 1];
+        console.log('[主面板] ✅ 从叙事历史恢复最新叙述（含状态变更日志）');
+        console.log('[主面板-调试] 叙事历史最后一条:', {
           type: latestNarrative.type,
+          内容预览: latestNarrative.content?.substring(0, 50) + '...',
           内容长度: latestNarrative.content?.length || 0,
           有stateChanges: !!latestNarrative.stateChanges,
           changes数量: latestNarrative.stateChanges?.changes?.length || 0
@@ -1687,8 +1667,8 @@ const initializePanelForSave = async () => {
         };
       } else if (memories && memories.length > 0) {
         // 回退：从记忆加载（旧版本存档，没有叙事历史）
-        const initialMessageContent = memories[0];
-        console.log('[主面板] 从记忆加载最新叙述:', initialMessageContent.substring(0, 100));
+        const initialMessageContent = memories[memories.length - 1];
+        console.log('[主面板] ⚠️ 从短期记忆加载（无叙事历史）:', initialMessageContent.substring(0, 100));
 
         currentNarrative.value = {
           type: 'gm',
@@ -1759,23 +1739,23 @@ watch(() => characterStore.rootState.当前激活存档, async (newSlotId, oldSl
   }
 });
 
-// 监听短期记忆的变化，确保显示始终同步
-watch(() => gameStateStore.memory?.短期记忆, (newMemories) => {
-  // AI处理期间不更新，避免覆盖流式输出
-  if (!isAIProcessing.value && newMemories && newMemories.length > 0) {
-    const latestMemory = newMemories[0];
-    // 如果当前显示的内容不是最新的记忆，则更新
-    if (!currentNarrative.value || currentNarrative.value.content !== latestMemory) {
-      console.log('[主面板] 检测到短期记忆变更，同步更新显示。');
-      currentNarrative.value = {
-        type: 'ai',
-        content: latestMemory,
-        time: formatCurrentTime(),
-        stateChanges: { changes: [] } // 状态变更是瞬时的，此处不显示历史变更
-      };
-    }
-  }
-}, { deep: true });
+// 🔥 [修复] 禁用短期记忆监听器,避免覆盖叙事历史
+// 短期记忆仅用于AI生成内容,不应反向影响UI显示
+// 显示内容应该由 narrativeHistory 控制,确保包含完整的 stateChanges
+// watch(() => gameStateStore.memory?.短期记忆, (newMemories) => {
+//   if (!isAIProcessing.value && newMemories && newMemories.length > 0) {
+//     const latestMemory = newMemories[newMemories.length - 1];
+//     if (!currentNarrative.value || currentNarrative.value.content !== latestMemory) {
+//       console.log('[主面板] 检测到短期记忆变更，同步更新显示。');
+//       currentNarrative.value = {
+//         type: 'ai',
+//         content: latestMemory,
+//         time: formatCurrentTime(),
+//         stateChanges: { changes: [] }
+//       };
+//     }
+//   }
+// }, { deep: true });
 
 // 组件挂载时执行一次性初始化
 onMounted(async () => {

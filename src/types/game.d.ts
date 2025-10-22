@@ -303,10 +303,6 @@ export interface SectMemberInfo {
   声望: number;
   加入日期: string;
   描述?: string;
-  // 新增字段（简化版）
-  师父?: string; // 师父姓名
-  同门关系?: string[]; // 同门师兄弟姓名列表
-  宗门职务?: string[]; // 当前承担的宗门职务
 }
 
 /** 宗门基础信息 */
@@ -478,7 +474,7 @@ export interface PlayerStatus extends AIMetadata {
   寿命: ValuePair<number>;
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
-  系统任务?: SystemTaskData;
+  任务系统?: SystemTaskData;
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -861,6 +857,7 @@ export interface SaveSlot {
   id?: string;
   存档名: string;
   保存时间: string | null;
+  最后保存时间?: string | null; // 新增：最后保存时间
   游戏内时间?: string;
   游戏时长?: number; // 游戏时长（秒）
   角色名字?: string; // 角色名字
@@ -875,7 +872,7 @@ export interface SaveSlot {
 
 export interface CharacterBaseInfo extends AIMetadata {
   名字: string;
-  性别: '男' | '女' | '其他';
+  性别: '男' | '女' | '其他' | string;
   出生日期: { 年: number; 月: number; 日: number; 小时?: number; 分钟?: number }; // 出生日期（用于自动计算年龄）
   种族?: string; // 添加种族字段
   境界?: string; // NPC当前境界

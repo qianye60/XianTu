@@ -166,7 +166,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
   // 9. 修复修炼功法引用
   if (repaired.修炼功法 && typeof repaired.修炼功法 === 'object') {
     const technique = repaired.修炼功法 as any;
-    
+
     // 检查引用对象是否有效
     if (!technique.物品ID) {
       console.warn('[数据修复] 修炼功法缺少物品ID，清空');
@@ -195,14 +195,6 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     repaired.掌握技能 = [];
   }
 
-  // 11. 修复宗门系统
-  if (!repaired.宗门系统 || typeof repaired.宗门系统 !== 'object') {
-    repaired.宗门系统 = {
-      availableSects: [],
-      sectRelationships: {},
-      sectHistory: []
-    };
-  }
 
   console.log('[数据修复] ✅ 存档数据修复完成');
   return repaired;
@@ -304,22 +296,22 @@ function getDefaultBreakthroughDescription(realmName?: string, stage?: string): 
 function repairRealm(realm: any): Realm {
   if (!realm || typeof realm !== 'object') {
     return {
-      名称: '凡人',
-      阶段: '',
+      名称: "凡人",
+      阶段: "初期",
       当前进度: 0,
       下一级所需: 100,
       突破描述: '引气入体，感悟天地灵气，踏上修仙第一步'
     };
   }
 
-  const name = realm.名称 || '凡人';
-  const stage = realm.阶段 || '';
+  const name = "凡人";
+  const stage = "初期";
 
   return {
     名称: name,
     阶段: stage,
-    当前进度: validateNumber(realm.当前进度, 0, 999999999, 0),
-    下一级所需: validateNumber(realm.下一级所需, 1, 999999999, 100),
+    当前进度: 0,
+    下一级所需: 100,
     突破描述: realm.突破描述 || getDefaultBreakthroughDescription(name, stage)
   };
 }
@@ -498,11 +490,6 @@ function createMinimalSaveData(): SaveData {
       物品: {}
     },
     人物关系: {},
-    宗门系统: {
-      availableSects: [],
-      sectRelationships: {},
-      sectHistory: []
-    },
     任务系统: {
       配置: {
         启用系统任务: false,

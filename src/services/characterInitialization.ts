@@ -171,17 +171,20 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   }
 
 
-  // 设置出生日期（根据开局年龄和游戏时间推算）
-  const 游戏时间 = { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
+  // 🔥 重要：游戏时间将由AI根据世界背景设置，这里只是占位符
+  // AI会在初始化响应中通过tavern_commands设置正确的游戏时间
+  const 临时游戏时间 = { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
+  
+  // 出生日期也将由AI根据游戏时间和角色年龄计算
   if (!processedBaseInfo.出生日期) {
     processedBaseInfo.出生日期 = {
-      年: 游戏时间.年 - age,
-      月: 游戏时间.月,
-      日: 游戏时间.日,
+      年: 临时游戏时间.年 - age,
+      月: 临时游戏时间.月,
+      日: 临时游戏时间.日,
       小时: 0,
       分钟: 0
     };
-    console.log(`[角色初始化] 设置出生日期: ${processedBaseInfo.出生日期.年}年${processedBaseInfo.出生日期.月}月${processedBaseInfo.出生日期.日}日 (当前${age}岁)`);
+    console.log(`[角色初始化] 临时出生日期(AI将重新计算): ${processedBaseInfo.出生日期.年}年${processedBaseInfo.出生日期.月}月${processedBaseInfo.出生日期.日}日 (当前${age}岁)`);
   }
 
   // 注意：不再在此处理随机灵根和随机出生，完全交给 AI 处理
@@ -243,6 +246,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       }
     },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
+    // 🔥 游戏时间占位符 - AI将根据世界背景设置正确的年份
     游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     修炼功法: null, // 初始无修炼功法，数据结构已改为：功法数据和进度合并为一个对象或null
     掌握技能: [], // 初始化为空数组
@@ -575,12 +579,13 @@ async () => {
     saveDataAfterCommands.叙事历史 = [];
   }
 
-  const formatTime = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  // 🔥 使用游戏内时间而非真实世界时间来格式化时间戳
+  const formatGameTime = (gameTime: { 年: number; 月: number; 日: number; 小时: number; 分钟: number }) => {
+    return `仙历${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}`;
   };
 
-  const currentTime = formatTime();
+  // 使用AI设置的游戏时间（已经通过commands更新）
+  const currentTime = formatGameTime(saveDataAfterCommands.游戏时间);
 
   // 保存到叙事历史（用于恢复状态）
   saveDataAfterCommands.叙事历史.push({
@@ -600,16 +605,13 @@ async () => {
   const initialMemoryText = `【${currentTime}】\n${openingStory}`;
   saveDataAfterCommands.记忆.短期记忆.unshift(initialMemoryText);
 
-  // 🔥 保存到隐式中期记忆（角色重要记忆）
-  if (!saveDataAfterCommands.记忆.隐式中期记忆) {
-    saveDataAfterCommands.记忆.隐式中期记忆 = [];
-  }
-  saveDataAfterCommands.记忆.隐式中期记忆.push(initialMemoryText);
+  // 🔥 修复：移除隐式中期记忆的初始化
+  // 隐式中期记忆应该在短期记忆溢出时自动转化，而不是在初始化时手动添加
+  // 这样可以确保记忆系统的逻辑一致性：短期记忆未满时不应该有中期记忆
 
   console.log('[初始化] ✅ 已将开场剧情保存到:');
   console.log('  - 叙事历史（用于状态恢复）');
   console.log('  - 短期记忆（完整历史记录）');
-  console.log('  - 隐式中期记忆（重要记忆）');
   console.log('[初始化] ✅ generateOpeningScene完成,返回数据');
 
   return { finalSaveData: saveDataAfterCommands, aiResponse: initialMessageResponse };
@@ -858,6 +860,18 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     };
     saveData.角色基础信息.出生日期 = 正确的出生日期;
     console.log(`[数据最终化] 重新计算出生日期: ${正确的出生日期.年}年${正确的出生日期.月}月${正确的出生日期.日}日 (游戏时间${saveData.游戏时间.年}年 - 开局年龄${age}岁)`);
+    
+    // 🔥 验证所有NPC的出生日期是否合理（调试日志）
+    if (saveData.人物关系 && Object.keys(saveData.人物关系).length > 0) {
+      console.log('[数据最终化] 验证NPC出生日期:');
+      Object.entries(saveData.人物关系).forEach(([npcName, npcData]) => {
+        const npc = npcData as { 出生日期?: { 年: number }; 年龄?: number };
+        if (npc.出生日期 && npc.年龄) {
+          const 计算年龄 = saveData.游戏时间.年 - npc.出生日期.年;
+          console.log(`  - ${npcName}: 出生${npc.出生日期.年}年, 声称年龄${npc.年龄}岁, 实际年龄${计算年龄}岁 ${计算年龄 === npc.年龄 ? '✅' : '❌不匹配'}`);
+        }
+      });
+    }
   }
 
   // 3. 最终位置信息确认日志

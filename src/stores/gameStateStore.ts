@@ -30,8 +30,6 @@ interface GameState {
 
   // 三千大道系统
   thousandDao: any | null;
-  // 宗门系统
-  sectSystem: any | null;
   // 任务系统
   questSystem: QuestSystem;
   // 修炼功法
@@ -65,7 +63,6 @@ export const useGameStateStore = defineStore('gameState', {
 
     // 其他游戏系统
     thousandDao: null,
-    sectSystem: null,
     questSystem: {
       配置: {
         启用系统任务: false,
@@ -320,7 +317,6 @@ export const useGameStateStore = defineStore('gameState', {
 
       // 重置其他系统数据
       this.thousandDao = null;
-      this.sectSystem = null;
       this.questSystem = {
         配置: {
           启用系统任务: false,

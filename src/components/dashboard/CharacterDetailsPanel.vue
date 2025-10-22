@@ -519,11 +519,11 @@
                   </div>
 
                   <!-- 未解锁的功法技能 -->
-                  <div v-if="skillsList.some(s => !s.unlocked)" class="skill-category">
+                  <div v-if="skillsList.length > 0" class="skill-category">
                     <h5 class="category-title">未解锁技能</h5>
                     <div class="skills-grid">
                       <div
-                        v-for="skill in skillsList.filter(s => !s.unlocked)"
+                        v-for="skill in skillsList"
                         :key="skill.name"
                         class="skill-card skill-locked"
                         @click="showSkillDetails(skill)"
@@ -1078,16 +1078,21 @@ const skillsList = computed((): SkillInfo[] => {
   const technique = fullCultivationTechnique.value;
   if (!technique || !technique.功法技能) return [];
 
-  return technique.功法技能.map((skillInfo: TechniqueSkill) => {
-    const unlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
-    return {
-      name: skillInfo.技能名称,
-      description: skillInfo.技能描述 || '',
-      type: '功法技能',
-      unlockCondition: `熟练度 ${skillInfo.解锁需要熟练度 || 100}%`,
-      unlocked,
-    };
-  });
+  return technique.功法技能
+    .filter((skillInfo: TechniqueSkill) => {
+      const isExplicitlyUnlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
+      const isUnlockedByProficiency = (technique.修炼进度 || 0) >= (skillInfo.解锁需要熟练度 ?? 100);
+      return !(isExplicitlyUnlocked || isUnlockedByProficiency);
+    })
+    .map((skillInfo: TechniqueSkill) => {
+      return {
+        name: skillInfo.技能名称,
+        description: skillInfo.技能描述 || '',
+        type: '功法技能',
+        unlockCondition: `熟练度 ${skillInfo.解锁需要熟练度 ?? 100}%`,
+        unlocked: false,
+      };
+    });
 });
 
 // 已学技能（所有已掌握的技能）
@@ -1095,18 +1100,25 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   const mastered = saveData.value?.掌握技能 || [];
 
   let fromTechnique: LearnedSkillDisplay[] = [];
-  if (fullCultivationTechnique.value && fullCultivationTechnique.value.已解锁技能) {
-    fromTechnique = fullCultivationTechnique.value.已解锁技能.map((skillName: string) => {
-      const skillDef = fullCultivationTechnique.value?.功法技能?.find((s: TechniqueSkill) => s.技能名称 === skillName);
-      return {
-        name: skillName,
-        proficiency: getPersistentProficiency(skillName, 'technique'),
-        source: fullCultivationTechnique.value?.名称 || '功法',
-        type: '功法技能',
-        description: skillDef?.技能描述 || '通过功法修炼掌握',
-        unlocked: true,
-      };
-    });
+  if (fullCultivationTechnique.value && fullCultivationTechnique.value.功法技能) {
+    const technique = fullCultivationTechnique.value;
+    if (!technique.功法技能) return [];
+    fromTechnique = technique.功法技能
+      .filter((skillInfo: TechniqueSkill) => {
+        const isExplicitlyUnlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
+        const isUnlockedByProficiency = (technique.修炼进度 || 0) >= (skillInfo.解锁需要熟练度 ?? 100);
+        return isExplicitlyUnlocked || isUnlockedByProficiency;
+      })
+      .map((skillInfo: TechniqueSkill) => {
+        return {
+          name: skillInfo.技能名称,
+          proficiency: getPersistentProficiency(skillInfo.技能名称, 'technique'),
+          source: technique.名称 || '功法',
+          type: '功法技能',
+          description: skillInfo.技能描述 || '通过功法修炼掌握',
+          unlocked: true,
+        };
+      });
   }
 
   const allSkills = [...mastered.map(s => ({
@@ -1254,9 +1266,12 @@ const getTalentTierDescription = (talentTier: TalentTier | string | undefined): 
   return '';
 };
 
-const getTalentList = (talents: Talent[] | undefined): Talent[] => {
+const getTalentList = (talents: any[] | undefined): { name: string; description: string }[] => {
   if (!talents || !Array.isArray(talents)) return [];
-  return talents;
+  return talents.map(t => ({
+    name: t.name || t.名称,
+    description: t.description || t.描述,
+  }));
 };
 
 const getPercentage = (current: number, max: number): number => {

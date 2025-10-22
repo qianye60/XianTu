@@ -102,8 +102,8 @@
                 <Star :size="12" class="vital-icon reputation" />
                 <span>声望</span>
               </span>
-              <span class="reputation-value">
-                {{ playerStatus?.声望 || '籍籍无名' }}
+              <span class="reputation-value" :class="getReputationClass()">
+                {{ getReputationDisplay() }}
               </span>
             </div>
           </div>
@@ -418,6 +418,62 @@ const formatRealmDisplay = (name?: string): string => {
   const maxProgress = playerStatus.value?.境界?.下一级所需;
   const stage = playerStatus.value?.境界?.阶段;
   return formatRealmWithStage({ name, 阶段: stage, progress, maxProgress });
+};
+
+// 获取声望显示文本
+const getReputationDisplay = (): string => {
+  const reputation = playerStatus.value?.声望;
+  if (reputation === undefined || reputation === null) {
+    return '籍籍无名';
+  }
+
+  const repValue = Number(reputation);
+
+  // 负数声望（恶名）
+  if (repValue < 0) {
+    if (repValue <= -5000) return `恶名昭彰 (${repValue})`;
+    if (repValue <= -1000) return `臭名远扬 (${repValue})`;
+    if (repValue <= -500) return `声名狼藉 (${repValue})`;
+    if (repValue <= -100) return `恶名在外 (${repValue})`;
+    return `小有恶名 (${repValue})`;
+  }
+
+  // 正数声望
+  if (repValue >= 10000) return `传说人物 (${repValue})`;
+  if (repValue >= 5000) return `名满天下 (${repValue})`;
+  if (repValue >= 3000) return `威震四方 (${repValue})`;
+  if (repValue >= 1000) return `名动一方 (${repValue})`;
+  if (repValue >= 500) return `声名远播 (${repValue})`;
+  if (repValue >= 100) return `小有名气 (${repValue})`;
+
+  return '籍籍无名';
+};
+
+// 获取声望CSS类名
+const getReputationClass = (): string => {
+  const reputation = playerStatus.value?.声望;
+  if (reputation === undefined || reputation === null) {
+    return 'reputation-neutral';
+  }
+
+  const repValue = Number(reputation);
+
+  if (repValue < 0) {
+    if (repValue <= -5000) return 'reputation-evil-legendary';
+    if (repValue <= -1000) return 'reputation-evil-high';
+    if (repValue <= -500) return 'reputation-evil-medium';
+    if (repValue <= -100) return 'reputation-evil-low';
+    return 'reputation-evil-minor';
+  }
+
+  if (repValue >= 10000) return 'reputation-legendary';
+  if (repValue >= 5000) return 'reputation-famous';
+  if (repValue >= 3000) return 'reputation-renowned';
+  if (repValue >= 1000) return 'reputation-notable';
+  if (repValue >= 500) return 'reputation-known';
+  if (repValue >= 100) return 'reputation-minor';
+
+  return 'reputation-neutral';
 };
 </script>
 
@@ -1027,15 +1083,90 @@ const formatRealmDisplay = (name?: string): string => {
 
 .reputation-value {
   font-size: 0.8rem;
-  color: var(--color-warning);
   font-weight: 600;
   padding: 2px 6px;
-  background: rgba(var(--color-warning-rgb), 0.1);
-  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
   border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
+  transition: all 0.3s ease;
+}
+
+/* 声望等级配色 */
+.reputation-neutral {
+  color: var(--color-text-secondary);
+  background: rgba(128, 128, 128, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+/* 正面声望 */
+.reputation-minor {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.reputation-known {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.reputation-notable {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.reputation-renowned {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.reputation-famous {
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.reputation-legendary {
+  color: #dc2626;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(239, 68, 68, 0.1));
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+}
+
+/* 负面声望（恶名） */
+.reputation-evil-minor {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.1);
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+.reputation-evil-low {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.reputation-evil-medium {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.reputation-evil-high {
+  color: #991b1b;
+  background: rgba(153, 27, 27, 0.1);
+  border: 1px solid rgba(153, 27, 27, 0.3);
+}
+
+.reputation-evil-legendary {
+  color: #7f1d1d;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(153, 27, 27, 0.1));
+  border: 1px solid rgba(127, 29, 29, 0.4);
+  box-shadow: 0 0 8px rgba(127, 29, 29, 0.4);
 }
 
 .reputation-number {

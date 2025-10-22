@@ -127,7 +127,7 @@
                   <div class="info-grid-responsive">
                     <div class="info-item-row"><span class="info-label">境界</span><span class="info-value">{{ getNpcRealm(selectedPerson) }}</span></div>
                     <div class="info-item-row"><span class="info-label">性别</span><span class="info-value">{{ selectedPerson.性别 || '未知' }}</span></div>
-                    <div class="info-item-row"><span class="info-label">年龄</span><span class="info-value">{{ selectedPerson.年龄 ? `${selectedPerson.年龄}岁` : '未知' }}</span></div>
+                    <div class="info-item-row"><span class="info-label">年龄</span><span class="info-value">{{ getNpcAge(selectedPerson) }}</span></div>
                     <div class="info-item-row"><span class="info-label">灵根</span><span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span></div>
                     <div class="info-item-row" v-if="selectedPerson.当前位置"><span class="info-label">位置</span><span class="info-value">{{ selectedPerson.当前位置.描述 }}</span></div>
                     <div class="info-item-row" v-if="selectedPerson.出生"><span class="info-label">出生</span><span class="info-value">{{ getNpcOrigin(selectedPerson.出生) }}</span></div>
@@ -151,7 +151,7 @@
                    <div v-if="selectedPerson.天赋?.length">
                       <h6 class="subsection-title">天赋能力</h6>
                       <div class="talents-grid">
-                        <span v-for="talent in selectedPerson.天赋" :key="talent.名称" class="talent-tag" :title="talent.描述">{{ talent.名称 }}</span>
+                        <span v-for="talent in selectedPerson.天赋" :key="talent.name" class="talent-tag" :title="talent.description">{{ talent.name }}</span>
                       </div>
                    </div>
                    <div v-if="selectedPerson.先天六司" style="margin-top: 1rem;">
@@ -270,7 +270,7 @@
                         <div class="exp-icon">💕</div>
                         <div class="exp-content">
                           <div class="exp-label">性交总次数</div>
-                          <div class="exp-value">{{ selectedPerson.私密信息.性交总次数 || 0 }}次</div>
+                          <div class="exp-value">{{ selectedPerson.私密信息.性经验总次数 || 0 }}次</div>
                         </div>
                       </div>
                       <div class="exp-item">
@@ -545,7 +545,7 @@ const getNpcRealm = (npc: NpcProfile): string => {
       return stage ? `${name}${stage}` : name;
     }
   }
-  
+
   if (typeof realmField === 'string') {
     return realmField;
   }
@@ -563,7 +563,7 @@ const getNpcOrigin = (origin: any): string => {
   if (!origin) return '未知';
   if (typeof origin === 'string') return origin;
   if (typeof origin === 'object') {
-    return origin.描述 || origin.name || '未知';
+    return origin.描述 || origin.description || origin.name || '未知';
   }
   return '未知';
 };
@@ -592,15 +592,29 @@ const getNpcRecentMemories = (npc: NpcProfile): string[] => {
 const formatSpiritRoot = (spiritRoot: NpcProfile['灵根']): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
+  // 兼容中英文字段名
   if (typeof spiritRoot === 'object') {
-    if (spiritRoot.名称 && spiritRoot.品级) {
-      return `${spiritRoot.名称}(${spiritRoot.品级})`;
+    const name = (spiritRoot as any).name || (spiritRoot as any).名称;
+    const tier = (spiritRoot as any).tier || (spiritRoot as any).品级;
+    if (name && tier) {
+      return `${name}(${tier})`;
     }
-    if (spiritRoot.名称) {
-      return `${spiritRoot.名称}(未知品级)`;
+    if (name) {
+      return `${name}(未知品级)`;
     }
   }
   return '格式错误';
+};
+
+// 计算NPC年龄
+const getNpcAge = (npc: NpcProfile | null): string => {
+  if (!npc || !npc.出生日期 || !characterData.value?.游戏时间) {
+    return '未知';
+  }
+  const birthYear = npc.出生日期.年;
+  const currentYear = characterData.value.游戏时间.年;
+  const age = currentYear - birthYear;
+  return age > 0 ? `${age}岁` : '1岁以内';
 };
 
 // 类型守卫：判断值是否为有效的NpcProfile
@@ -724,7 +738,8 @@ const editMemory = async (index: number) => {
     const newEvent = window.prompt('编辑记忆内容', current);
     if (newEvent === null || newEvent.trim() === '') return;
 
-    characterData.value.人物关系[key].记忆[index] = newEvent.trim();
+    // 确保类型正确
+    (characterData.value.人物关系[key].记忆 as any[])[index] = newEvent.trim();
     selectedPerson.value = { ...characterData.value.人物关系[key] };
 
     const { useGameStateStore } = await import('@/stores/gameStateStore');
@@ -916,15 +931,6 @@ const summarizeMemories = async () => {
     uiStore.showToast('记忆总结功能将通过游戏内AI系统实现', { type: 'info' });
     console.warn('[RelationshipNetworkPanel] summarizeNpcMemories 已在新架构中移除');
 
-    // if (summary) {
-    //   uiStore.showToast(`已将 ${npcName} 的 ${countToSummarize} 条记忆总结完毕`, { type: 'success' });
-    //   // 刷新数据
-    //   const npcKey = findRelationshipKeyByName(npcName);
-    //   if (npcKey && characterData.value?.人物关系?.[npcKey]) {
-    //     selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
-    //   }
-    // }
-    // 错误处理已在 store action 中完成
   } catch (error) {
     // store action 中已处理 toast，这里只在控制台记录
     console.error(`[RelationshipNetworkPanel] 记忆总结失败:`, error);

@@ -429,6 +429,16 @@ const parsedText = computed(() => {
               attribute: '',
               details: []
             }
+          } else if (titleResult.length === 1) {
+            // 处理简单系统提示格式，如"系统提示：星屑吊坠效果触发，悟性+2，灵性+2，凝神静气效果生效。"
+            const judgement: any = {
+              title: '系统提示',
+              result: markedContent.trim(),
+              dice: '',
+              attribute: '',
+              details: [],
+              isSystemMessage: true
+            }
 
             // 解析所有其他字段
             for (let i = 1; i < contentParts.length; i++) {

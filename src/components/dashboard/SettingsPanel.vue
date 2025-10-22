@@ -112,6 +112,35 @@
               </label>
             </div>
           </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">⏰ 时间点存档</label>
+              <span class="setting-desc">按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.timeBasedSaveEnabled" @change="onTimeBasedSaveToggle">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.timeBasedSaveEnabled">
+            <div class="setting-info">
+              <label class="setting-name">存档间隔</label>
+              <span class="setting-desc">自动存档的时间间隔（真实时间）</span>
+            </div>
+            <div class="setting-control">
+              <select v-model.number="settings.timeBasedSaveInterval" class="setting-select" @change="onTimeBasedSaveIntervalChange">
+                <option :value="5">5分钟</option>
+                <option :value="10">10分钟</option>
+                <option :value="15">15分钟</option>
+                <option :value="30">30分钟</option>
+                <option :value="60">1小时</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -295,6 +324,10 @@ const settings = reactive({
   fastAnimations: false,
   showHints: true,
   
+  // 时间点存档配置
+  timeBasedSaveEnabled: false,
+  timeBasedSaveInterval: 10,
+  
   // 高级设置
   debugMode: false,
   consoleDebug: false,
@@ -351,29 +384,36 @@ const loadSettings = async () => {
       debug.log('设置面板', '使用默认设置');
     }
 
-    // 🔥 尝试从当前存档的"系统"分片读取NSFW设置（优先级更高）
+    // 🔥 从gameStateStore加载时间点存档配置
     try {
       const { useGameStateStore } = await import('@/stores/gameStateStore');
       const gameStateStore = useGameStateStore();
 
-      if (gameStateStore.isGameLoaded && gameStateStore.systemConfig) {
-        // 存档中的设置优先级高于localStorage
-        const 存档中的nsfwMode = gameStateStore.systemConfig.nsfwMode;
-        const 存档中的nsfwGenderFilter = gameStateStore.systemConfig.nsfwGenderFilter;
+      if (gameStateStore.isGameLoaded) {
+        // 加载时间点存档配置
+        settings.timeBasedSaveEnabled = gameStateStore.timeBasedSaveEnabled;
+        settings.timeBasedSaveInterval = gameStateStore.timeBasedSaveInterval;
+        debug.log('设置面板', `已从gameStateStore加载时间点存档配置: ${settings.timeBasedSaveEnabled}, 间隔${settings.timeBasedSaveInterval}分钟`);
 
-        if (存档中的nsfwMode !== undefined) {
-          settings.enableNsfwMode = 存档中的nsfwMode;
-          debug.log('设置面板', `已从存档读取nsfwMode: ${存档中的nsfwMode}`);
-        }
+        // 加载NSFW设置
+        if (gameStateStore.systemConfig) {
+          const 存档中的nsfwMode = gameStateStore.systemConfig.nsfwMode;
+          const 存档中的nsfwGenderFilter = gameStateStore.systemConfig.nsfwGenderFilter;
 
-        if (存档中的nsfwGenderFilter !== undefined) {
-          settings.nsfwGenderFilter = 存档中的nsfwGenderFilter;
-          debug.log('设置面板', `已从存档读取nsfwGenderFilter: ${存档中的nsfwGenderFilter}`);
+          if (存档中的nsfwMode !== undefined) {
+            settings.enableNsfwMode = 存档中的nsfwMode;
+            debug.log('设置面板', `已从存档读取nsfwMode: ${存档中的nsfwMode}`);
+          }
+
+          if (存档中的nsfwGenderFilter !== undefined) {
+            settings.nsfwGenderFilter = 存档中的nsfwGenderFilter;
+            debug.log('设置面板', `已从存档读取nsfwGenderFilter: ${存档中的nsfwGenderFilter}`);
+          }
         }
       }
     } catch {
       // 如果还没有激活存档，这里会失败，不是问题
-      debug.log('设置面板', '当前没有激活的存档，使用localStorage中的NSFW设置');
+      debug.log('设置面板', '当前没有激活的存档，使用localStorage中的设置');
     }
 
   } catch (error) {
@@ -669,6 +709,39 @@ const importSettings = () => {
   };
   
   input.click();
+};
+
+// 时间点存档开关切换
+const onTimeBasedSaveToggle = async () => {
+  try {
+    const { useGameStateStore } = await import('@/stores/gameStateStore');
+    const gameStateStore = useGameStateStore();
+    
+    gameStateStore.setTimeBasedSaveEnabled(settings.timeBasedSaveEnabled);
+    
+    if (settings.timeBasedSaveEnabled) {
+      toast.success(`时间点存档已启用，间隔${settings.timeBasedSaveInterval}分钟`);
+    } else {
+      toast.info('时间点存档已禁用');
+    }
+  } catch (error) {
+    debug.error('设置面板', '切换时间点存档失败', error);
+    toast.error('切换失败');
+  }
+};
+
+// 时间点存档间隔变更
+const onTimeBasedSaveIntervalChange = async () => {
+  try {
+    const { useGameStateStore } = await import('@/stores/gameStateStore');
+    const gameStateStore = useGameStateStore();
+    
+    gameStateStore.setTimeBasedSaveInterval(settings.timeBasedSaveInterval);
+    toast.success(`存档间隔已设置为${settings.timeBasedSaveInterval}分钟`);
+  } catch (error) {
+    debug.error('设置面板', '设置存档间隔失败', error);
+    toast.error('设置失败');
+  }
 };
 
 // 组件挂载时加载设置

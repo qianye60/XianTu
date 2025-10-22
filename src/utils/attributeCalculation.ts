@@ -1,5 +1,6 @@
 import type { InnateAttributes, Item, Equipment, SaveData } from '../types/game.d';
 import type { Talent } from '../types/index';
+import { LOCAL_TALENTS } from '../data/creationData';
 
 /**
  * 中文键名到英文键名的映射（用于组件传参）
@@ -39,6 +40,73 @@ export function calculateEquipmentBonuses(equipment: Equipment, inventory: SaveD
           }
         });
       }
+    }
+  });
+
+  return bonuses;
+}
+
+/**
+ * 从角色存档数据中计算天赋提供的后天六司加成
+ */
+export function calculateTalentBonusesFromCharacter(saveData: SaveData): InnateAttributes {
+  const bonuses: InnateAttributes = {
+    根骨: 0,
+    灵性: 0,
+    悟性: 0,
+    气运: 0,
+    魅力: 0,
+    心性: 0
+  };
+
+  // 获取角色的天赋名称列表，兼容两种格式
+  const characterTalents = saveData.角色基础信息?.天赋 || [];
+
+  // 提取天赋名称，兼容字符串数组和对象数组两种格式
+  const characterTalentNames: string[] = characterTalents.map((talent: any) => {
+    if (typeof talent === 'string') {
+      return talent; // 简单字符串格式
+    } else if (talent && typeof talent === 'object' && talent.名称) {
+      return talent.名称; // 对象格式，提取名称字段
+    }
+    return null;
+  }).filter(Boolean);
+
+  // 遍历角色的每个天赋
+  characterTalents.forEach((talent: any) => {
+    let talentData: Talent | undefined;
+    let talentName: string;
+
+    if (typeof talent === 'string') {
+      talentName = talent;
+      // 在LOCAL_TALENTS中查找对应的天赋数据
+      talentData = LOCAL_TALENTS.find(t => t.name === talentName);
+    } else if (talent && typeof talent === 'object') {
+      talentName = talent.名称 || '';
+      // 先尝试在LOCAL_TALENTS中查找
+      talentData = LOCAL_TALENTS.find(t => t.name === talentName);
+
+      // 如果找不到预定义天赋，但天赋对象本身有effects，直接使用
+      if (!talentData && talent.effects) {
+        talentData = {
+          id: 0,
+          name: talentName,
+          description: talent.描述 || '',
+          talent_cost: 0,
+          rarity: 1,
+          effects: talent.effects
+        };
+      }
+    }
+
+    if (talentData && talentData.effects) {
+      // 使用现有的calculateTalentBonuses函数处理单个天赋
+      const singleTalentBonuses = calculateTalentBonuses([talentData]);
+
+      // 累加到总bonuses中
+      Object.keys(bonuses).forEach(attr => {
+        bonuses[attr as keyof InnateAttributes] += singleTalentBonuses[attr as keyof InnateAttributes];
+      });
     }
   });
 
@@ -153,8 +221,8 @@ export function calculateFinalAttributes(
     ? calculateEquipmentBonuses(saveData.装备栏, saveData.背包)
     : { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
 
-  // 天赋加成（CharacterBaseInfo.天赋 是简化格式，不包含 effects，因此无加成）
-  const talentBonuses = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
+  // 天赋加成：从角色基础信息中的天赋计算
+  const talentBonuses = calculateTalentBonusesFromCharacter(saveData);
 
   // 功法加成
   const techniqueBonuses = calculateTechniqueBonuses(saveData);
