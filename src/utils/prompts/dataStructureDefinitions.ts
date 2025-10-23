@@ -109,9 +109,10 @@ const RELATIONS_STRUCTURE = `
   - 当前外貌状态: string (用set实时更新)
   - 当前内心想法: string (用set实时更新)
   - 背包: {灵石, 物品}
-  - 私密信息: {14个必填字段} (【条件生成】仅当系统.nsfwMode=true且性别符合nsfwGenderFilter时生成)
+  - 私密信息: {13个必填字段} (【条件生成】仅当系统.nsfwMode=true且性别符合nsfwGenderFilter时生成)
     - 【必填字段】: 是否为处女/处男, 身体部位[], 性格倾向, 性取向, 性癖好[], 性渴望程度, 当前性状态, 体液分泌状态, 性交总次数, 性伴侣数量, 性伴侣名单[], 最近一次性行为时间, 特殊体质[]
-    - 【身体部位结构铁律】: 身体部位必须是一个对象数组，每个对象都必须包含 '部位名称', '开发度', '敏感度', '特征描述', '特殊印记' 这些字段。
+    - 【身体部位结构铁律】: 身体部位必须是一个对象数组。每个对象都必须包含 '部位名称', '开发度', '敏感度', '特征描述', '特殊印记' 这些字段。
+      【正确示例】: "身体部位": [{ "部位名称": "胸部", "开发度": 0, "敏感度": 20, "特征描述": "...", "特殊印记": "无" }]
     - 【生成规则】: 创建NPC时若满足条件必须立即生成，不得省略或使用占位符
   - 实时关注: boolean
 `
@@ -127,17 +128,8 @@ const MEMORY_STRUCTURE = `
 - 长期记忆: [string] (记录对角色产生深远影响的关键事件)
 `
 
-const NSFW_STRUCTURE = `
-## 6. 身体部位开发 (Body Development - NSFW Mode Only)
-- {部位名称: {描述, 开发等级(0-100), 敏感度(0-100), 特殊标记}}
-  【常见部位】女性: 乳房、乳头、阴蒂、阴道、阴道深处、子宫、肛门、嘴唇、舌头、耳垂、脖颈、腰部、大腿内侧
-              男性: 阴茎、龟头、睾丸、肛门、前列腺、乳头、嘴唇、耳垂
-  【操作方式】用set更新部位对象: {"action":"set","key":"身体部位开发.阴道","value":{"描述":"粉嫩紧致","开发等级":30,"敏感度":65,"特殊标记":"已开发"}}
-  【生成规则】初始化时若nsfwMode=true应生成玩家的核心身体部位(至少3-5个)
-`
-
 const WORLD_INFO_STRUCTURE = `
-## 7. 世界信息 (World Information - Modifiable)
+## 6. 世界信息 (World Information - Modifiable)
 - 地图: {continents[], factions[], features[]}
 - 大陆信息: [{名称, 描述, 地理特征, ...}]
 - 势力信息: [{...}] (世界中的宗门、世家等)
@@ -169,16 +161,16 @@ const WORLD_INFO_STRUCTURE = `
 `
 
 const GAME_STATE_STRUCTURE = `
-## 8. 游戏状态 (Game State - Modifiable)
+## 7. 游戏状态 (Game State - Modifiable)
 
-### 8.1 游戏时间 (Game Time)
+### 7.1 游戏时间 (Game Time)
 - 年: number
 - 月: number (1-12)
 - 日: number (1-30)
 - 小时: number (0-23)
 - 分钟: number (0-59) (用add推进，自动进位)
 
-### 8.2 宗门信息 (Sect Information)
+### 7.2 宗门信息 (Sect Information)
 - 宗门名称: string
 - 宗门类型: "正道宗门"|"魔道宗门"|...
 - 职位: "外门弟子"|"内门弟子"|...
@@ -193,13 +185,13 @@ const GAME_STATE_STRUCTURE = `
 `
 
 const QUEST_SYSTEM_STRUCTURE = `
-## 9. 任务系统 (Quest System - Modifiable)
+## 8. 任务系统 (Quest System - Modifiable)
 - 配置: {启用系统任务, 系统任务类型, 自动刷新, 默认任务数量}
 - 当前任务列表: [任务对象] (用push添加新任务)
 - 已完成任务: [任务对象] (任务完成后，从“当前”移至此处)
 - 任务统计: {完成总数, 主线完成, 支线完成, 系统任务完成}
 
-### 9.1 任务对象结构 (Quest Object)
+### 8.1 任务对象结构 (Quest Object)
 - 任务ID: string (唯一ID, 格式: quest_类型_时间戳)
 - 任务名称: string
 - 任务描述: string
@@ -226,7 +218,7 @@ const QUEST_SYSTEM_STRUCTURE = `
 `
 
 const SYSTEM_CONFIG_STRUCTURE = `
-## 10. 系统配置 (System Config - Read-only)
+## 9. 系统配置 (System Config - Read-only)
 - nsfwMode: boolean
 - nsfwGenderFilter: "all"|"female"|"male"
 `
@@ -244,7 +236,6 @@ ${DAO_STRUCTURE}
 ${INVENTORY_STRUCTURE}
 ${RELATIONS_STRUCTURE}
 ${MEMORY_STRUCTURE}
-${NSFW_STRUCTURE}
 ${WORLD_INFO_STRUCTURE}
 ${GAME_STATE_STRUCTURE}
 ${QUEST_SYSTEM_STRUCTURE}
@@ -335,7 +326,7 @@ const QUICK_REFERENCE_TABLE = `
 | \`人物关系.张三\` | \`set\` | 创建新NPC（完整对象） | \`{"action":"set","key":"人物关系.张三","value":{...}}\` |
 | \`人物关系.张三.好感度\` | \`add\` | 增减好感度（-100~100） | \`{"action":"add","key":"人物关系.张三.好感度","value":10}\` |
 | \`人物关系.张三.记忆\` | \`push\` | 添加NPC记忆 | \`{"action":"push","key":"人物关系.张三.记忆","value":"事件"}}\` |
-| \`身体部位开发.阴道.敏感度\` | \`add\` | 增加部位敏感度 | \`{"action":"add","key":"身体部位开发.阴道.敏感度","value":5}\` |
+| \`人物关系.张三.私密信息.身体部位\` | \`set\` | 更新整个身体部位数组 | \`{"action":"set","key":"人物关系.张三.私密信息.身体部位","value":[{...}]}\` |
 | \`三千大道.大道列表.剑道.当前经验\` | \`add\` | 增加大道经验 | \`{"action":"add","key":"三千大道.大道列表.剑道.当前经验","value":100}\` |
 `
 
