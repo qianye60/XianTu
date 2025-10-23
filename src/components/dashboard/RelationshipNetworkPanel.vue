@@ -272,7 +272,7 @@
                         <div class="exp-icon">💕</div>
                         <div class="exp-content">
                           <div class="exp-label">性交总次数</div>
-                          <div class="exp-value">{{ selectedPerson.私密信息.性交总次数 || 0 }}次</div>
+                          <div class="exp-value">{{ (selectedPerson.私密信息 as any).性交总次数 || 0 }}次</div>
                         </div>
                       </div>
                       <div class="exp-item">
@@ -310,9 +310,9 @@
                           <div class="part-stat">
                             <span class="stat-label">开发度</span>
                             <div class="stat-bar-mini">
-                              <div class="stat-bar-fill development" :style="{ width: (part.开发度 || 0) + '%' }"></div>
+                              <div class="stat-bar-fill development" :style="{ width: (part.开发程度 || 0) + '%' }"></div>
                             </div>
-                            <span class="stat-value">{{ part.开发度 || 0 }}%</span>
+                            <span class="stat-value">{{ part.开发程度 || 0 }}%</span>
                           </div>
                         </div>
                       </div>
@@ -969,8 +969,8 @@ const getTalentDescription = (talent: any): string => {
 const showTalentDetail = (talent: any) => {
   const name = getTalentName(talent);
   const desc = getTalentDescription(talent);
-  if (desc) {
-    uiStore.showInfoDialog({ title: name, message: desc });
+  if (desc && (uiStore as any).showInfoDialog) {
+    (uiStore as any).showInfoDialog({ title: name, message: desc });
   }
 };
 

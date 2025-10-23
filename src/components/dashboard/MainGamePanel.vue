@@ -1259,9 +1259,12 @@ const sendMessage = async () => {
         const midTermSummary = gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string'
           ? gmResp.mid_term_memory
           : undefined;
-        // 直接通过 gameStateStore 添加到短期记忆
-        gameStateStore.addToShortTermMemory(prefixedContent);
-        console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', prefixedContent.length);
+        
+        // 🔥 [核心修复] 调用本地的 addToShortTermMemory 函数，分别处理叙事和总结
+        // prefixedContent 是完整的叙事 (text)，midTermSummary 是总结 (mid_term_memory)
+        await addToShortTermMemory(prefixedContent, 'assistant', midTermSummary);
+        
+        console.log('[AI响应处理] 记忆处理完成。短期记忆内容长度:', prefixedContent.length, '隐式中期记忆内容:', midTermSummary || '无');
       } else {
         latestMessageText.value = null;
         console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
@@ -1430,9 +1433,11 @@ try {
   if (midTermSummary?.trim()) {
     memory.隐式中期记忆.push(`${timePrefix}${midTermSummary}`);
   } else {
-    // 如果AI没有返回中期记忆总结，就用完整内容作为隐式中期记忆
-    memory.隐式中期记忆.push(finalContent);
-    console.log('[记忆管理] AI未返回中期记忆总结，使用完整内容');
+    // 🔥 [核心修复] 如果AI没有返回中期记忆总结，生成一个截断的摘要作为备用，并发出警告
+    const fallbackSummary = `${timePrefix}${content.substring(0, 100)}... (自动摘要)`;
+    memory.隐式中期记忆.push(fallbackSummary);
+    console.warn('[记忆管理] AI未返回中期记忆总结，已生成备用截断摘要。');
+    toast.warning('AI未提供记忆摘要，已自动生成简略版');
   }
 
   // 🔥 [核心修复] 添加后检查是否溢出，溢出的转移到中期记忆
