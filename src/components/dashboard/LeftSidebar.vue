@@ -5,6 +5,10 @@
         <Compass :size="20" class="title-icon" />
         游戏功能
       </h3>
+      <div class="real-time">
+        <Clock :size="14" class="time-icon" />
+        <span>{{ currentRealTime }}</span>
+      </div>
     </div>
     
     <div class="sidebar-content">
@@ -193,9 +197,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database, Clock } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
@@ -204,6 +208,31 @@ const router = useRouter();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
 
+// 实时北京时间
+const currentRealTime = ref('');
+let timeInterval: number | null = null;
+
+const updateRealTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+  currentRealTime.value = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+onMounted(() => {
+  updateRealTime();
+  timeInterval = window.setInterval(updateRealTime, 1000);
+});
+
+onUnmounted(() => {
+  if (timeInterval) {
+    clearInterval(timeInterval);
+  }
+});
 
 // 使用 store 的 getters 获取数据
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
@@ -325,6 +354,9 @@ const exitToMenu = async () => {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar-title {
@@ -337,6 +369,24 @@ const exitToMenu = async () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.real-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+  padding: 4px 8px;
+  background: var(--color-surface-light);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.time-icon {
+  color: var(--color-primary);
 }
 
 .title-icon {

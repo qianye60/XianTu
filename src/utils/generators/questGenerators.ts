@@ -204,11 +204,24 @@ export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
       最近记忆: saveData.记忆.短期记忆?.slice(-3).join('；') || '无',
     };
 
-    const prompt = QUEST_GENERATION_PROMPT
+    // 读取任务系统配置
+    const questConfig = saveData.任务系统?.配置;
+    let prompt = QUEST_GENERATION_PROMPT
       .replace('{{玩家姓名}}', context.玩家姓名)
       .replace('{{当前境界}}', context.当前境界)
       .replace('{{当前位置}}', context.当前位置)
       .replace('{{最近记忆}}', context.最近记忆);
+
+    // 如果有配置，添加系统任务类型说明
+    if (questConfig) {
+      const systemTypeHint = `\n\n## 系统任务风格\n当前系统类型：${questConfig.系统任务类型}\n请根据此风格生成相应的任务。`;
+      prompt += systemTypeHint;
+
+      // 如果有自定义提示词，追加到末尾
+      if (questConfig.系统任务提示词) {
+        prompt += `\n\n## 自定义要求\n${questConfig.系统任务提示词}`;
+      }
+    }
 
     const response = await generateWithRawPrompt('生成一个适合当前情况的任务', prompt, false);
 
@@ -222,7 +235,7 @@ export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
 
     // 从 tavern_commands 中提取任务数据
     const questCommand = result.tavern_commands?.find(
-      (cmd: any) => cmd.key.startsWith('任务系统.当前任务列表.')
+      (cmd: any) => cmd.action === 'push' && cmd.key === '任务系统.当前任务列表'
     );
 
     return questCommand?.value || null;

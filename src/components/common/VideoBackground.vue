@@ -17,24 +17,61 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { getVideo, setVideo } from '@/utils/videoCache'
 
 const props = withDefaults(defineProps<{
   src?: string
 }>(), {
-  src: 'http://ddct.top/backgroundvedio.mp4'
+  src: 'https://ddct.top/backgroundvedio.mp4'
 })
 
 const videoRef = ref<HTMLVideoElement>()
 
-const loadVideo = async (url: string) => {
+const loadVideo = async (originalUrl: string) => {
   if (!videoRef.value) {
     console.warn('[VideoBackground] video元素未准备好')
     return
   }
 
-  console.log(`[VideoBackground] 直接加载视频: ${url}`)
-  videoRef.value.src = url
-  videoRef.value.load()
+  // 在加载新视频前，如果存在旧的 object URL，先释放掉
+  if (videoRef.value.src.startsWith('blob:')) {
+    console.log(`[VideoBackground] 释放旧的 Object URL: ${videoRef.value.src}`)
+    URL.revokeObjectURL(videoRef.value.src)
+  }
+
+  try {
+    // 使用原始 URL 作为缓存的键
+    const cachedVideo = await getVideo(originalUrl)
+    if (cachedVideo) {
+      console.log(`[VideoBackground] 从IndexedDB加载视频: ${originalUrl}`)
+      const objectURL = URL.createObjectURL(cachedVideo)
+      console.log(`[VideoBackground] 创建新的 Object URL: ${objectURL}`)
+      videoRef.value.src = objectURL
+    } else {
+      // 直接尝试从原始 URL 获取
+      console.log(`[VideoBackground] 尝试从网络加载视频: ${originalUrl}`);
+      const response = await fetch(originalUrl);
+      if (!response.ok) {
+        throw new Error(`网络响应错误: ${response.statusText}`);
+      }
+      const videoBlob = await response.blob();
+
+      // 存入缓存
+      await setVideo(originalUrl, videoBlob);
+      console.log(`[VideoBackground] 视频已成功存入缓存: ${originalUrl}`);
+
+      const objectURL = URL.createObjectURL(videoBlob);
+      console.log(`[VideoBackground] 创建新的 Object URL: ${objectURL}`);
+      videoRef.value.src = objectURL;
+    }
+    videoRef.value.load();
+  } catch (error) {
+    console.warn(`[VideoBackground] 加载或缓存视频失败:`, error);
+    console.log(`[VideoBackground] 可能是跨域（CORS）问题，无法缓存。正在回退到直接播放模式...`);
+    // 如果发生错误（很可能是CORS错误），则直接使用原始URL
+    videoRef.value.src = originalUrl;
+    videoRef.value.load();
+  }
 
   // 使用用户交互来启动播放
   const tryPlay = async () => {
@@ -86,6 +123,11 @@ watch(() => props.src, async (newSrc) => {
 onUnmounted(() => {
   if (videoRef.value) {
     videoRef.value.pause()
+    // 组件卸载时，释放 object URL
+    if (videoRef.value.src.startsWith('blob:')) {
+      console.log(`[VideoBackground] 组件卸载，释放 Object URL: ${videoRef.value.src}`)
+      URL.revokeObjectURL(videoRef.value.src)
+    }
   }
 })
 

@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V2.0 Beta</span><!--{{ appVersion }}-->
+          <span class="version-tag">V2.5 Beta</span><!--{{ appVersion }}-->
         </div>
         <p class="sub-title">仙路求索 · 万道归天</p>
       </div>
@@ -59,13 +59,37 @@
         </button>
       </div>
     </div>
+
+    <!-- 右下角设置按钮 -->
+    <button class="floating-settings-btn" @click="showSettings = true" title="设置">
+      <Settings :size="24" />
+    </button>
+
+    <!-- 设置模态框 -->
+    <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
+      <div class="settings-modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>游戏设置</h3>
+          <button class="close-btn" @click="showSettings = false">
+            <X :size="20" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <SettingsPanel />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
+import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
+import { Settings, X } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
+
+const showSettings = ref(false);
 
 // 后端API服务器地址
 const API_BASE_URL = 'http://127.0.0.1:12345';
@@ -426,6 +450,135 @@ const enterCharacterSelection = () => {
     flex-shrink: 0;
     padding: 0.8rem 2rem;
     font-size: 0.95rem;
+  }
+}
+
+/* 浮动设置按钮 */
+.floating-settings-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.floating-settings-btn:hover {
+  background: var(--color-surface);
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.floating-settings-btn:active {
+  transform: scale(0.95);
+}
+
+/* 设置模态框 */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.settings-modal-content {
+  background: var(--color-surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .floating-settings-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .settings-modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+  }
+
+  .modal-header {
+    padding: 16px 20px;
   }
 }
 

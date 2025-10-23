@@ -35,17 +35,31 @@ export function validateAndFixSectRealmData(sectData: any): any {
 
   console.log('[宗门验证] 开始验证宗门数据:', sectData.名称);
 
+  // 🔥 字段名兼容：将英文字段名转换为中文字段名
+  if (sectData.leadership && !sectData.领导层) {
+    sectData.领导层 = sectData.leadership;
+    delete sectData.leadership;
+  }
+  if (sectData.memberCount && !sectData.成员数量) {
+    sectData.成员数量 = {
+      总数: sectData.memberCount.total,
+      按境界: sectData.memberCount.byRealm,
+      按职位: sectData.memberCount.byPosition
+    };
+    delete sectData.memberCount;
+  }
+
   // 获取最强修为等级
-  const maxRealm = sectData.leadership?.最强修为 || sectData.最强修为;
+  const maxRealm = sectData.领导层?.最强修为 || sectData.最强修为;
   const maxLevel = getRealmLevel(maxRealm);
   
   console.log('[宗门验证] 最强修为:', maxRealm, '等级:', maxLevel);
 
   // 修复境界分布
-  if (sectData.memberCount?.byRealm) {
-    const realmDist = sectData.memberCount.byRealm;
+  if (sectData.成员数量?.按境界) {
+    const realmDist = sectData.成员数量.按境界;
     const originalDist = { ...realmDist };
-    
+
     // 移除超过最强修为的境界
     Object.keys(realmDist).forEach(realm => {
       const realmLevel = getRealmLevel(realm);
@@ -60,9 +74,9 @@ export function validateAndFixSectRealmData(sectData: any): any {
   }
 
   // 验证长老数量与高境界修士数量的一致性
-  if (sectData.leadership?.长老数量 && sectData.memberCount?.byRealm) {
-    const elderCount = sectData.leadership.长老数量;
-    const realmDist = sectData.memberCount.byRealm;
+  if (sectData.领导层?.长老数量 && sectData.成员数量?.按境界) {
+    const elderCount = sectData.领导层.长老数量;
+    const realmDist = sectData.成员数量.按境界;
     
     // 计算元婴期及以上的修士总数（通常长老都是元婴期以上）
     let highRealmCount = 0;
@@ -107,11 +121,11 @@ export function validateSectConsistency(sectData: any): { isValid: boolean; erro
   }
 
   // 检查最强修为与境界分布的一致性
-  const maxRealm = sectData.leadership?.最强修为 || sectData.最强修为;
+  const maxRealm = sectData.领导层?.最强修为 || sectData.最强修为;
   const maxLevel = getRealmLevel(maxRealm);
 
-  if (sectData.memberCount?.byRealm) {
-    Object.keys(sectData.memberCount.byRealm).forEach(realm => {
+  if (sectData.成员数量?.按境界) {
+    Object.keys(sectData.成员数量.按境界).forEach(realm => {
       const realmLevel = getRealmLevel(realm);
       if (realmLevel > maxLevel) {
         errors.push(`境界分布错误: 存在${realm}期修士，但最强修为仅为${maxRealm}`);
@@ -120,13 +134,13 @@ export function validateSectConsistency(sectData: any): { isValid: boolean; erro
   }
 
   // 检查长老数量与高境界修士的合理性
-  const elderCount = sectData.leadership?.长老数量;
-  if (elderCount && sectData.memberCount?.byRealm) {
+  const elderCount = sectData.领导层?.长老数量;
+  if (elderCount && sectData.成员数量?.按境界) {
     let highRealmCount = 0;
-    Object.keys(sectData.memberCount.byRealm).forEach(realm => {
+    Object.keys(sectData.成员数量.按境界).forEach(realm => {
       const realmLevel = getRealmLevel(realm);
       if (realmLevel >= 4) {
-        highRealmCount += sectData.memberCount.byRealm[realm] || 0;
+        highRealmCount += sectData.成员数量.按境界[realm] || 0;
       }
     });
 

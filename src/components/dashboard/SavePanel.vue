@@ -147,10 +147,53 @@
           </div>
         </div>
       </div>
+ 
+      <!-- 自动存档设置 -->
+      <div class="auto-save-settings-section">
+        <div class="section-header">
+          <h4 class="section-title">⚙️ 自动存档设置</h4>
+        </div>
+        <div class="settings-list">
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">🔄 对话前自动备份</label>
+              <span class="setting-desc">每次对话前自动备份，用于回退到上次对话前的状态</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="conversationAutoSaveEnabled">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">⏰ 时间点存档</label>
+              <span class="setting-desc">按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="timeBasedSaveEnabled">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="setting-item" v-if="timeBasedSaveEnabled">
+            <div class="setting-info">
+              <label class="setting-name">存档间隔</label>
+              <span class="setting-desc">自动存档的时间间隔（真实时间）</span>
+            </div>
+            <div class="setting-control">
+              <input type="number" min="1" v-model.number="timeBasedSaveInterval" class="interval-input" />
+              <span class="unit-label">分钟</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 存档操作 -->
       <div class="operations-section">
-        <div class="section-header">
+         <div class="section-header">
           <h4 class="section-title">🛠️ 存档操作</h4>
         </div>
         <div class="operations-list">
@@ -200,6 +243,35 @@ const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
 const loading = ref(false);
 const fileInput = ref<HTMLInputElement>();
+
+// 自动存档设置
+const conversationAutoSaveEnabled = computed({
+  get: () => gameStateStore.conversationAutoSaveEnabled,
+  set: (value: boolean) => {
+    gameStateStore.setConversationAutoSaveEnabled(value);
+    toast.info(`对话前自动备份已${value ? '开启' : '关闭'}`);
+  }
+});
+
+const timeBasedSaveEnabled = computed({
+  get: () => gameStateStore.timeBasedSaveEnabled,
+  set: (value: boolean) => {
+    gameStateStore.setTimeBasedSaveEnabled(value);
+    if (value) {
+      toast.success(`时间点存档已启用，间隔${timeBasedSaveInterval.value}分钟`);
+    } else {
+      toast.info('时间点存档已禁用');
+    }
+  }
+});
+
+const timeBasedSaveInterval = computed({
+  get: () => gameStateStore.timeBasedSaveInterval,
+  set: (value: number) => {
+    gameStateStore.setTimeBasedSaveInterval(value);
+    toast.success(`存档间隔已设置为${value}分钟`);
+  }
+});
 
 // 获取存档列表
 const savesList = computed(() => {
@@ -1318,5 +1390,178 @@ onMounted(() => {
 
 [data-theme="dark"] .btn-title {
   color: #e5e7eb;
+}
+
+/* 自动存档设置 */
+.auto-save-settings-section {
+  margin-bottom: 1.5rem;
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #bae6fd;
+  overflow: hidden;
+}
+
+.settings-list {
+  padding: 0.5rem;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  transition: background 0.2s ease;
+}
+
+.setting-item:hover {
+  background: #f8fafc;
+}
+
+.setting-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.setting-name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.setting-desc {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+}
+
+/* 开关样式 */
+.setting-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.setting-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.2s;
+  border-radius: 24px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+input:checked + .switch-slider {
+  background-color: #3b82f6;
+}
+
+input:checked + .switch-slider:before {
+  transform: translateX(20px);
+}
+
+/* 下拉选择框样式 */
+.setting-select {
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px;
+  color: #374151;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  appearance: none;
+  min-width: 120px;
+}
+
+.setting-select:hover {
+  border-color: #94a3b8;
+}
+
+.setting-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="dark"] .auto-save-settings-section {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .setting-item:hover {
+  background: #334155;
+}
+
+[data-theme="dark"] .setting-name {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .setting-desc {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .switch-slider {
+  background-color: #4b5563;
+}
+
+[data-theme="dark"] .setting-select {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e5e7eb' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}
+
+.interval-input {
+  width: 60px;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  text-align: center;
+  margin-right: 0.5rem;
+}
+
+.unit-label {
+  color: #64748b;
+}
+
+[data-theme="dark"] .interval-input {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .unit-label {
+  color: #94a3b8;
 }
 </style>

@@ -674,7 +674,7 @@ export interface Quest {
 export interface QuestSystemConfig {
   启用系统任务: boolean; // 是否启用自动生成的系统任务
   系统任务类型: string; // 系统任务风格，如 "道侣养成系统" "修仙辅助系统"
-  系统任务提示词?: string; // AI任务生成的提示词
+  系统任务提示词: string; // AI任务生成的提示词
   自动刷新: boolean; // 完成任务后是否自动生成新任务
   默认任务数量: number; // 默认未完成任务池数量
 }

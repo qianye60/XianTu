@@ -150,13 +150,6 @@ export default (env, argv) => {
       compress: true,
       port: 8080,
       hot: true,
-      proxy: [
-        {
-          context: ['/api'],
-          target: 'http://localhost:12345',
-          changeOrigin: true,
-        },
-      ],
     },
   }
 }

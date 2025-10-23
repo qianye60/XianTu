@@ -3,7 +3,7 @@ import { ref } from 'vue';
 
 export interface GameAction {
   id: string;
-  type?: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom';
+  type?: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom' | 'npc_memory_summarize';
   itemName?: string;
   itemType?: string;
   description?: string;
@@ -123,6 +123,8 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
           return `向 ${action.npcName} 索要 ${action.itemName}`;
         case 'npc_steal':
           return `尝试从 ${action.npcName} 身上偷取 ${action.itemName}`;
+        case 'npc_memory_summarize':
+          return `你开始整理关于 ${action.npcName} 的记忆碎片，试图从中总结出关键信息。`;
         case 'custom':
           return action.description;
         default:

@@ -1753,52 +1753,46 @@ export const useCharacterStore = defineStore('characterV3', () => {
  * @param npcName 要删除的NPC的名字
  */
 const deleteNpc = async (npcName: string) => {
-  const active = rootState.value.当前激活存档;
-  const profile = activeCharacterProfile.value;
-  const slot = activeSaveSlot.value;
+  // 🔥 修复：使用 gameStateStore 作为唯一数据源进行操作
+  const gameStateStore = useGameStateStore();
+  const saveData = gameStateStore.getCurrentSaveData();
 
-  if (!active || !profile || !slot?.存档数据?.人物关系) {
-    toast.error('无法删除NPC：没有激活的存档或人物关系数据。');
-    return;
+  if (!saveData?.人物关系) {
+    const msg = '无法删除NPC：没有激活的存档或人物关系数据。';
+    toast.error(msg);
+    throw new Error(msg);
   }
 
-  const npcKey = Object.keys(slot.存档数据.人物关系).find(
-    key => slot.存档数据!.人物关系[key]?.名字 === npcName
+  const npcKey = Object.keys(saveData.人物关系).find(
+    key => saveData.人物关系[key]?.名字 === npcName
   );
 
   if (!npcKey) {
-    toast.error(`找不到名为 ${npcName} 的NPC。`);
-    return;
+    const msg = `找不到名为 ${npcName} 的NPC。`;
+    toast.error(msg);
+    throw new Error(msg);
   }
 
-  // 🔥 先备份NPC数据，以便出错时回滚
-  const backupNpc = { ...slot.存档数据.人物关系[npcKey] };
+  // 备份NPC数据以便回滚
+  const backupNpc = { ...saveData.人物关系[npcKey] };
 
   try {
-    // 从人物关系中删除NPC
-    delete slot.存档数据.人物关系[npcKey];
-    debug.log('角色商店', `已从存档数据中删除NPC: ${npcName} (key: ${npcKey})`);
+    // 1. 直接修改 gameStateStore 中的数据
+    delete saveData.人物关系[npcKey];
+    debug.log('角色商店', `已从 gameStateStore 中删除NPC: ${npcName}`);
 
-    // 🔥 创建新的人物关系对象，确保响应式系统能检测到变化
-    slot.存档数据.人物关系 = { ...slot.存档数据.人物关系 };
-
-    // 强制触发响应式更新
-    triggerRef(rootState);
-
-    // 保存并同步变更
-    await saveToStorage({ fullSync: true });
+    // 2. 通过 gameStateStore 保存，这将处理所有持久化逻辑
+    await gameStateStore.saveGame();
 
     debug.log('角色商店', `✅ NPC ${npcName} 已成功删除并保存`);
     toast.success(`NPC【${npcName}】已成功删除。`);
   } catch (error) {
     debug.error('角色商店', `删除NPC ${npcName} 后保存失败`, error);
 
-    // 🔥 回滚操作：恢复NPC数据
-    if (slot.存档数据?.人物关系) {
-      slot.存档数据.人物关系[npcKey] = backupNpc;
-      slot.存档数据.人物关系 = { ...slot.存档数据.人物关系 };
-      triggerRef(rootState);
-      debug.log('角色商店', `已回滚NPC删除操作: ${npcName}`);
+    // 回滚 gameStateStore 中的内存数据
+    if (saveData.人物关系) {
+      saveData.人物关系[npcKey] = backupNpc;
+      debug.log('角色商店', `已回滚 gameStateStore 中的NPC删除操作: ${npcName}`);
     }
 
     toast.error(`删除NPC失败: ${error instanceof Error ? error.message : '未知错误'}`);

@@ -113,34 +113,6 @@
             </div>
           </div>
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">⏰ 时间点存档</label>
-              <span class="setting-desc">按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.timeBasedSaveEnabled" @change="onTimeBasedSaveToggle">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="settings.timeBasedSaveEnabled">
-            <div class="setting-info">
-              <label class="setting-name">存档间隔</label>
-              <span class="setting-desc">自动存档的时间间隔（真实时间）</span>
-            </div>
-            <div class="setting-control">
-              <select v-model.number="settings.timeBasedSaveInterval" class="setting-select" @change="onTimeBasedSaveIntervalChange">
-                <option :value="5">5分钟</option>
-                <option :value="10">10分钟</option>
-                <option :value="15">15分钟</option>
-                <option :value="30">30分钟</option>
-                <option :value="60">1小时</option>
-              </select>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -186,6 +158,72 @@
                 <input type="checkbox" v-model="settings.autoAcceptQuests">
                 <span class="switch-slider"></span>
               </label>
+            </div>
+          </div>
+
+          <!-- 任务系统配置 -->
+          <div class="setting-item" v-if="settings.enableQuestSystem">
+            <div class="setting-info">
+              <label class="setting-name">系统任务类型</label>
+              <span class="setting-desc">选择AI生成任务的风格类型</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="settings.questSystemType" class="setting-select">
+                <option value="修仙辅助系统">修仙辅助系统</option>
+                <option value="道侣养成系统">道侣养成系统</option>
+                <option value="宗门发展系统">宗门发展系统</option>
+                <option value="探索冒险系统">探索冒险系统</option>
+                <option value="战斗挑战系统">战斗挑战系统</option>
+                <option value="资源收集系统">资源收集系统</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.enableQuestSystem">
+            <div class="setting-info">
+              <label class="setting-name">自动刷新任务</label>
+              <span class="setting-desc">完成任务后自动生成新任务</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.questAutoRefresh">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="settings.enableQuestSystem">
+            <div class="setting-info">
+              <label class="setting-name">默认任务数量</label>
+              <span class="setting-desc">任务池中保持的未完成任务数量</span>
+            </div>
+            <div class="setting-control">
+              <div class="range-container">
+                <input
+                  type="range"
+                  v-model.number="settings.questDefaultCount"
+                  min="1"
+                  max="10"
+                  step="1"
+                  class="setting-range"
+                >
+                <span class="range-value">{{ settings.questDefaultCount }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-item setting-item-full" v-if="settings.enableQuestSystem">
+            <div class="setting-info">
+              <label class="setting-name">自定义任务提示词</label>
+              <span class="setting-desc">为AI任务生成添加自定义指令（可选，留空使用默认）</span>
+            </div>
+            <div class="setting-control-full">
+              <textarea
+                v-model="settings.questSystemPrompt"
+                class="setting-textarea"
+                placeholder="例如：生成更多战斗类任务，奖励偏向灵石..."
+                rows="3"
+              ></textarea>
             </div>
           </div>
 
@@ -319,24 +357,26 @@ const settings = reactive({
   theme: 'auto',
   uiScale: 100,
   fontSize: 'medium',
-  
+
   // 游戏设置
   fastAnimations: false,
   showHints: true,
-  
-  // 时间点存档配置
-  timeBasedSaveEnabled: false,
-  timeBasedSaveInterval: 10,
-  
+
+
   // 高级设置
   debugMode: false,
   consoleDebug: false,
   performanceMonitor: false,
-  
+
   // 任务系统相关设置
   enableQuestSystem: true,
   questNotifications: true,
   autoAcceptQuests: false,
+  questSystemType: '修仙辅助系统', // 系统任务类型
+  questAutoRefresh: false, // 自动刷新任务
+  questDefaultCount: 3, // 默认任务数量
+  questSystemPrompt: '', // 自定义任务提示词
+
   enableNsfwMode: true, // 默认开启成人内容
   nsfwGenderFilter: 'all', // 默认所有NPC ('all' | 'female' | 'male')
 
@@ -344,7 +384,7 @@ const settings = reactive({
   enableSoundEffects: true,
   backgroundMusic: true,
   notificationSounds: true,
-  
+
   // 数据同步
   autoSyncTavern: true,
   validateData: true,
@@ -384,17 +424,12 @@ const loadSettings = async () => {
       debug.log('设置面板', '使用默认设置');
     }
 
-    // 🔥 从gameStateStore加载时间点存档配置
+    // 🔥 从gameStateStore加载存档配置
     try {
       const { useGameStateStore } = await import('@/stores/gameStateStore');
       const gameStateStore = useGameStateStore();
 
       if (gameStateStore.isGameLoaded) {
-        // 加载时间点存档配置
-        settings.timeBasedSaveEnabled = gameStateStore.timeBasedSaveEnabled;
-        settings.timeBasedSaveInterval = gameStateStore.timeBasedSaveInterval;
-        debug.log('设置面板', `已从gameStateStore加载时间点存档配置: ${settings.timeBasedSaveEnabled}, 间隔${settings.timeBasedSaveInterval}分钟`);
-
         // 加载NSFW设置
         if (gameStateStore.systemConfig) {
           const 存档中的nsfwMode = gameStateStore.systemConfig.nsfwMode;
@@ -409,6 +444,17 @@ const loadSettings = async () => {
             settings.nsfwGenderFilter = 存档中的nsfwGenderFilter;
             debug.log('设置面板', `已从存档读取nsfwGenderFilter: ${存档中的nsfwGenderFilter}`);
           }
+        }
+
+        // 加载任务系统配置
+        if (gameStateStore.任务系统?.配置) {
+          const questConfig = gameStateStore.任务系统.配置;
+          settings.enableQuestSystem = questConfig.启用系统任务;
+          settings.questSystemType = questConfig.系统任务类型;
+          settings.questSystemPrompt = questConfig.系统任务提示词 || '';
+          settings.questAutoRefresh = questConfig.自动刷新;
+          settings.questDefaultCount = questConfig.默认任务数量;
+          debug.log('设置面板', '已从存档读取任务系统配置', questConfig);
         }
       }
     } catch {
@@ -439,7 +485,7 @@ const saveSettings = async () => {
     localStorage.setItem('dad_game_settings', JSON.stringify(settings));
     debug.log('设置面板', '设置已保存到localStorage', settings);
 
-    // 🔥 同步NSFW设置到存档的"系统"分片
+    // 🔥 同步设置到存档
     try {
       const { useCharacterStore } = await import('@/stores/characterStore');
       const characterStore = useCharacterStore();
@@ -447,19 +493,31 @@ const saveSettings = async () => {
       const gameStateStore = useGameStateStore();
 
       // 更新存档中的系统设置
-      if (gameStateStore.isGameLoaded && gameStateStore.systemConfig) {
-        gameStateStore.systemConfig.nsfwMode = settings.enableNsfwMode;
-        gameStateStore.systemConfig.nsfwGenderFilter = settings.nsfwGenderFilter;
+      if (gameStateStore.isGameLoaded) {
+        // 同步NSFW设置
+        if (gameStateStore.systemConfig) {
+          gameStateStore.systemConfig.nsfwMode = settings.enableNsfwMode;
+          gameStateStore.systemConfig.nsfwGenderFilter = settings.nsfwGenderFilter;
+        }
+
+        // 同步任务系统配置
+        if (gameStateStore.任务系统?.配置) {
+          gameStateStore.任务系统.配置.启用系统任务 = settings.enableQuestSystem;
+          gameStateStore.任务系统.配置.系统任务类型 = settings.questSystemType;
+          gameStateStore.任务系统.配置.系统任务提示词 = settings.questSystemPrompt || '';
+          gameStateStore.任务系统.配置.自动刷新 = settings.questAutoRefresh;
+          gameStateStore.任务系统.配置.默认任务数量 = settings.questDefaultCount;
+        }
 
         // 保存到数据库
         await characterStore.saveCurrentGame();
 
-        debug.log('设置面板', 'NSFW设置已同步到存档');
+        debug.log('设置面板', '设置已同步到存档');
       } else {
-        debug.warn('设置面板', '当前没有激活的存档，NSFW设置仅保存到localStorage');
+        debug.warn('设置面板', '当前没有激活的存档，设置仅保存到localStorage');
       }
     } catch (error) {
-      debug.error('设置面板', '同步NSFW设置到存档失败（非致命）', error);
+      debug.error('设置面板', '同步设置到存档失败（非致命）', error);
       // 不抛出错误，允许保存继续
     }
 
@@ -590,6 +648,10 @@ const resetSettings = () => {
         enableQuestSystem: true,
         questNotifications: true,
         autoAcceptQuests: false,
+        questSystemType: '修仙辅助系统',
+        questAutoRefresh: false,
+        questDefaultCount: 3,
+        questSystemPrompt: '',
         enableNsfwMode: true, // 默认开启
         nsfwGenderFilter: 'all', // 默认所有NPC
         enableSoundEffects: true,
@@ -709,39 +771,6 @@ const importSettings = () => {
   };
   
   input.click();
-};
-
-// 时间点存档开关切换
-const onTimeBasedSaveToggle = async () => {
-  try {
-    const { useGameStateStore } = await import('@/stores/gameStateStore');
-    const gameStateStore = useGameStateStore();
-    
-    gameStateStore.setTimeBasedSaveEnabled(settings.timeBasedSaveEnabled);
-    
-    if (settings.timeBasedSaveEnabled) {
-      toast.success(`时间点存档已启用，间隔${settings.timeBasedSaveInterval}分钟`);
-    } else {
-      toast.info('时间点存档已禁用');
-    }
-  } catch (error) {
-    debug.error('设置面板', '切换时间点存档失败', error);
-    toast.error('切换失败');
-  }
-};
-
-// 时间点存档间隔变更
-const onTimeBasedSaveIntervalChange = async () => {
-  try {
-    const { useGameStateStore } = await import('@/stores/gameStateStore');
-    const gameStateStore = useGameStateStore();
-    
-    gameStateStore.setTimeBasedSaveInterval(settings.timeBasedSaveInterval);
-    toast.success(`存档间隔已设置为${settings.timeBasedSaveInterval}分钟`);
-  } catch (error) {
-    debug.error('设置面板', '设置存档间隔失败', error);
-    toast.error('设置失败');
-  }
 };
 
 // 组件挂载时加载设置
@@ -1052,6 +1081,50 @@ input:checked + .switch-slider {
 
 input:checked + .switch-slider:before {
   transform: translateX(20px);
+}
+
+/* 全宽设置项 */
+.setting-item-full {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.setting-control-full {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.setting-textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.setting-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.setting-textarea::placeholder {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .setting-textarea {
+  background: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .setting-textarea::placeholder {
+  color: #6b7280;
 }
 
 /* 工具按钮 */

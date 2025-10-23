@@ -707,7 +707,40 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     else characterPayload.value.selected_talent_ids.push(talentId);
   }
   function setAttribute(key: AttributeKey, value: number) { if (key in characterPayload.value) characterPayload.value[key] = value; }
-  async function resetCharacter() { 
+
+  function setAIGeneratedSpiritRoot(spiritRoot: SpiritRoot) {
+    if (!spiritRoot || typeof spiritRoot !== 'object' || !spiritRoot.name) return;
+    let existingRoot = creationData.value.spiritRoots.find(r => r.name === spiritRoot.name);
+    if (!existingRoot) {
+      const newId = Math.max(...creationData.value.spiritRoots.map(r => r.id), 0) + 1;
+      const newRootWithId = { ...spiritRoot, id: newId };
+      addSpiritRoot(newRootWithId);
+      existingRoot = creationData.value.spiritRoots.find(r => r.name === spiritRoot.name); // Re-find it to be safe
+      console.log(`[创世神殿] AI生成了新的灵根 "${spiritRoot.name}" 并已添加到列表中 (ID: ${newId})`);
+    }
+    if (existingRoot) {
+        characterPayload.value.spirit_root_id = existingRoot.id;
+        console.log(`[创世神殿] 已将玩家选择的灵根更新为AI生成的结果: "${existingRoot.name}"`);
+    }
+  }
+
+  function setAIGeneratedOrigin(origin: Origin) {
+    if (!origin || typeof origin !== 'object' || !origin.name) return;
+    let existingOrigin = creationData.value.origins.find(o => o.name === origin.name);
+    if (!existingOrigin) {
+      const newId = Math.max(...creationData.value.origins.map(o => o.id), 0) + 1;
+      const newOriginWithId = { ...origin, id: newId };
+      addOrigin(newOriginWithId);
+      existingOrigin = creationData.value.origins.find(o => o.name === origin.name); // Re-find it to be safe
+      console.log(`[创世神殿] AI生成了新的出身 "${origin.name}" 并已添加到列表中 (ID: ${newId})`);
+    }
+    if (existingOrigin) {
+        characterPayload.value.origin_id = existingOrigin.id;
+        console.log(`[创世神殿] 已将玩家选择的出身更新为AI生成的结果: "${existingOrigin.name}"`);
+    }
+  }
+
+  async function resetCharacter() {
     const newPayload = await createEmptyPayload();
     characterPayload.value = newPayload;
     currentStep.value = 1; 
@@ -736,5 +769,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     selectWorld, selectTalentTier, selectOrigin, selectSpiritRoot, toggleTalent, setAttribute,
     resetCharacter, nextStep, prevStep, goToStep, setMode, toggleLocalCreation, setInitialGameMessage, setWorldGenerationConfig,
     resetOnExit, startLocalCreation, startCloudCreation, persistCustomData,
+    setAIGeneratedSpiritRoot,
+    setAIGeneratedOrigin,
   };
 });

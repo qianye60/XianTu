@@ -331,7 +331,7 @@
 import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
 import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue';
 import {
-  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw
+  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit
 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
@@ -441,6 +441,7 @@ const selectedAction = ref<ActionItem | null>(null);
 const selectedTime = ref(1);
 const customTime = ref(1);
 const selectedOption = ref('');
+const showCultivationPanel = ref(false);
 
 // 行动类型定义
 interface ActionItem {
@@ -450,6 +451,7 @@ interface ActionItem {
   description: string;
   timeRequired?: boolean;
   options?: Array<{ key: string; label: string }>;
+  iconComponent?: any;
 }
 
 const characterStore = useCharacterStore();
@@ -562,7 +564,34 @@ const showStateChanges = (log: StateChangeLog | undefined) => {
 };
 
 // 当前显示的叙述内容（只显示最新的AI回复）
-const currentNarrative = ref<GameMessage | null>(null);
+// 当前叙述 - 统一从叙事历史获取内容和状态变更，确保同步
+const currentNarrative = computed(() => {
+  const narrativeHistory = gameStateStore.narrativeHistory;
+  // 🔥 使用现实世界时间作为对话时间戳
+  const currentTimeString = formatCurrentTime();
+
+  if (narrativeHistory && narrativeHistory.length > 0) {
+    const latestNarrative = narrativeHistory[narrativeHistory.length - 1];
+    
+    // Replace timestamp in content (移除游戏时间前缀)
+    const contentWithoutOldTime = latestNarrative.content.replace(/^【.*?】\s*/, '');
+
+    return {
+      type: latestNarrative.type || 'narrative',
+      content: contentWithoutOldTime, // 内容不再包含时间前缀
+      time: currentTimeString, // 显示现实世界时间
+      stateChanges: latestNarrative.stateChanges || { changes: [] }
+    };
+  }
+
+  // If no narrative history, show default content
+  return {
+    type: 'system',
+    content: '静待天机变，道心自明澈。请输入你的行动开始修仙之旅。',
+    time: currentTimeString,
+    stateChanges: { changes: [] }
+  };
+});
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
 
 // 短期记忆设置 - 可配置
@@ -681,6 +710,28 @@ const flatActions = computed(() => {
   return actions;
 });
 
+const cultivationActions = computed(() => {
+  const cultivationCategory = actionCategories.value.find(c => c.name === '修炼');
+  return cultivationCategory ? cultivationCategory.actions : [];
+});
+
+const cultivationTimes = ref<{ [key: string]: number }>({
+  '基础修炼': 1,
+  '炼体': 1,
+  '冥想': 1
+});
+
+const startCultivation = (action: ActionItem) => {
+  const time = cultivationTimes.value[action.name] || 1;
+  const actionText = `${action.name}（${time}天）`;
+  inputText.value = actionText;
+  showCultivationPanel.value = false;
+  nextTick(() => {
+    inputRef.value?.focus();
+    sendMessage(); // 自动发送
+  });
+};
+
 // 时间选项
 const timeOptions = ref([
   { label: '1天', value: 1 },
@@ -697,23 +748,25 @@ const actionCategories = ref([
     actions: [
       {
         name: '基础修炼',
-        icon: '',
+        icon: '⚡',
         type: 'cultivation',
-        description: '进行基础的修为修炼，提升境界',
+        description: '吐纳天地灵气，淬炼自身修为，是提升境界的根本之法。',
         timeRequired: true
       },
       {
         name: '炼体',
-        icon: '',
+        icon: 'Shield',
+        iconComponent: Shield,
         type: 'cultivation',
-        description: '锻炼肉身，增强体质',
+        description: '以灵气或外力锤炼肉身，强化筋骨皮膜，增强体魄与防御。',
         timeRequired: true
       },
       {
         name: '冥想',
-        icon: '',
+        icon: 'BrainCircuit',
+        iconComponent: BrainCircuit,
         type: 'cultivation',
-        description: '静心冥想，稳固心境',
+        description: '沉入心海，观想天地，可稳固心境，提升神识，偶有顿悟。',
         timeRequired: true
       }
     ]
@@ -854,11 +907,12 @@ const confirmAction = () => {
 // 移除中期记忆临时数组，防止数据丢失
 // const midTermMemoryBuffer = ref<string[]>([]);
 
-// 短期记忆获取 - 直接从 gameStateStore 中获取
+// 短期记忆获取 - 显示所有短期记忆
 const recentMemories = computed(() => {
-  if (gameStateStore.memory?.短期记忆) {
-    // [修复] 获取最新的N条记忆（数组末尾是新的），并反转以在UI上将最新的显示在顶部
-    return gameStateStore.memory.短期记忆.slice(-maxShortTermMemories.value).reverse();
+  const mems = gameStateStore.memory?.短期记忆;
+  if (mems && mems.length > 0) {
+    // 返回短期记忆的副本并按时间顺序（最旧的在前，最新的在后），避免在 computed 中产生副作用
+    return mems.slice().reverse();
   }
   return [];
 });
@@ -1056,12 +1110,7 @@ const sendMessage = async () => {
     const deathStatus = checkCharacterDeath(saveData);
     if (deathStatus.isDead) {
       toast.error(`角色已死亡：${deathStatus.deathReason}。无法继续游戏，请重新开始或复活角色。`);
-      currentNarrative.value = {
-        type: 'system',
-        content: `【死亡提示】${characterName.value}已经死亡（${deathStatus.deathReason}），修仙之路戛然而止。若要继续游戏，请选择其他角色或重新开始。`,
-        time: formatCurrentTime(),
-        stateChanges: { changes: [] }
-      };
+      // currentNarrative 现在自动显示最新短期记忆
       return;
     }
   }
@@ -1070,28 +1119,10 @@ const sendMessage = async () => {
 
   // 🔥 在发送消息之前，保存当前状态到"上次对话"
   try {
-    // 备份当前状态到"上次对话"存档（用于重roll）
-    const currentProfile = characterStore.activeCharacterProfile;
-    if (currentProfile?.模式 === '单机' && currentProfile.存档列表) {
-      const currentSlot = characterStore.activeSaveSlot;
-      if (currentSlot?.存档数据) {
-        const now = new Date().toISOString();
-        currentProfile.存档列表['上次对话'] = {
-          存档名: '上次对话',
-          保存时间: currentProfile.存档列表['上次对话']?.保存时间 || now,
-          最后保存时间: now,
-          游戏内时间: currentSlot.游戏内时间,
-          角色名字: currentSlot.角色名字,
-          境界: currentSlot.境界,
-          位置: currentSlot.位置,
-          修为进度: currentSlot.修为进度,
-          世界地图: currentSlot.世界地图,
-          存档数据: JSON.parse(JSON.stringify(currentSlot.存档数据))
-        };
-        await characterStore.commitMetadataToStorage();
-        console.log('[上次对话] 已备份当前状态，时间:', now);
-      }
-    }
+    // [核心修复] 调用 characterStore 中正确的 action 来保存存档
+    // 这个 action 会同时保存 SaveData 到 IndexedDB 和元数据
+    await characterStore.saveToSlot('上次对话');
+    console.log('[上次对话] 已通过 saveToSlot 备份当前状态');
   } catch (error) {
     console.warn('[上次对话] 备份失败（非致命）:', error);
   }
@@ -1121,7 +1152,7 @@ const sendMessage = async () => {
   isAIProcessing.value = true;
 
   // 强制清空当前叙述，为流式响应或等待动画做准备，彻底避免内容重叠
-  currentNarrative.value = null;
+  // currentNarrative 现在自动显示最新短期记忆
   streamingContent.value = ''; // 重置流式内容
   streamingMessageIndex.value = 1; // 设置一个虚拟索引以启用流式处理
 
@@ -1133,16 +1164,16 @@ const sendMessage = async () => {
       throw new Error('角色数据缺失');
     }
 
-    // 用户消息不存储到记忆，只作为行动提示词使用
-    // 移除: await addToShortTermMemory(userMessage, 'user');
-
-    // 不再使用 gameMessages，直接准备 currentNarrative
-    currentNarrative.value = {
-      type: 'ai',
-      content: '',
-      time: formatCurrentTime(),
-      stateChanges: { changes: [] }
-    };
+    // 🔥 [关键] 对话前保存"上次对话存档"（隐藏存档，用于回档）
+    try {
+      const currentSaveData = gameStateStore.toSaveData();
+      if (currentSaveData) {
+        localStorage.setItem('last_dialogue_save', JSON.stringify(currentSaveData));
+        console.log('[存档] ✅ 已保存上次对话存档（隐藏）');
+      }
+    } catch (error) {
+      console.error('[存档] 保存上次对话存档失败:', error);
+    }
 
     // 使用优化的AI请求系统进行双向交互
     let aiResponse: GM_Response | null = null;
@@ -1240,16 +1271,15 @@ const sendMessage = async () => {
         console.log('[AI响应处理] 开始处理最终文本...');
         latestMessageText.value = gmResp?.text || null;
 
-        // 统一内容格式：为AI回复添加时间前缀，确保UI、历史记录和记忆中的内容一致
-        const gameTime = gameStateStore.gameTime;
-        const timePrefix = gameTime ? formatGameTimeString(gameTime) : '【未知时间】';
+        // 🔥 统一使用现实世界时间前缀
+        const realTimePrefix = `【${formatCurrentTime()}】`;
         // 检查finalText是否已意外包含前缀，避免重复添加
-        const hasExistingPrefix = finalText.startsWith('【仙道') || finalText.startsWith('【未知时间】');
-        const prefixedContent = hasExistingPrefix ? finalText : `${timePrefix}${finalText}`;
+        const hasExistingPrefix = finalText.match(/^【.*?】/);
+        const prefixedContent = hasExistingPrefix ? finalText : `${realTimePrefix} ${finalText}`;
 
         // 更新UI显示
         if (currentNarrative.value) {
-          currentNarrative.value.content = prefixedContent;
+          // currentNarrative 现在自动显示最新短期记忆
           console.log('[AI响应处理] 已更新UI显示（使用带前缀内容）');
         }
 
@@ -1258,8 +1288,8 @@ const sendMessage = async () => {
         const midTermSummary = gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string'
           ? gmResp.mid_term_memory
           : undefined;
-        // addToShortTermMemory 会自动处理前缀检查，直接传递即可
-        await addToShortTermMemory(prefixedContent, 'assistant', midTermSummary);
+        // 直接通过 gameStateStore 添加到短期记忆
+        gameStateStore.addToShortTermMemory(prefixedContent);
         console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', prefixedContent.length);
       } else {
         latestMessageText.value = null;
@@ -1294,27 +1324,6 @@ const sendMessage = async () => {
         : { changes: [] };
       console.log('[状态更新] AI指令已执行，状态变更数量:', stateChanges.changes.length);
 
-      // 将状态变更附加到当前叙述上
-      if (currentNarrative.value) {
-        currentNarrative.value.stateChanges = aiResponse.stateChanges as StateChangeLog;
-
-        // 🔥 [修复] 保存到叙事历史并持久化到 IndexedDB
-        if (gameStateStore.isGameLoaded) {
-          // 叙事历史只保留最新一条对话（用于切换页面后恢复）
-          const latestNarrative = {
-            type: currentNarrative.value.type,
-            content: currentNarrative.value.content,
-            time: currentNarrative.value.time,
-            stateChanges: currentNarrative.value.stateChanges
-          };
-
-          gameStateStore.narrativeHistory = [latestNarrative];
-          console.log('[主面板] 叙事历史已更新到 gameStateStore:', latestNarrative);
-
-          // ✅ 立即持久化叙事历史
-          // 注意: 这里不需要调用 saveGame(),因为在 finally 块中会统一存档
-        }
-      }
 
       // 将新的状态变更保存到 uiStore 的内存中（会覆盖之前的）
       if (aiResponse.stateChanges) {
@@ -1329,12 +1338,7 @@ const sendMessage = async () => {
         const deathStatus = checkCharacterDeath(currentSaveData);
         if (deathStatus.isDead) {
           // 如果死亡，用死亡信息覆盖当前叙述
-          currentNarrative.value = {
-            type: 'system',
-            content: `【死亡通知】${characterName.value}在此次行动中不幸死亡（${deathStatus.deathReason}）。修仙路断，生命已逝。`,
-            time: formatCurrentTime(),
-            stateChanges: { changes: [] }
-          };
+          // currentNarrative 现在自动显示最新短期记忆
           toast.error(`角色已死亡：${deathStatus.deathReason}`);
         }
       }
@@ -1359,12 +1363,7 @@ const sendMessage = async () => {
       });
 
       // 设置当前叙述为错误消息
-      currentNarrative.value = {
-        type: 'system',
-        content: `【生成失败】天道感应中断，未能生成有效回应。原有游戏状态未发生任何变化，请重新尝试。`,
-        time: formatCurrentTime(),
-        stateChanges: { changes: [] }
-      };
+      // currentNarrative 现在自动显示最新短期记忆
 
       // 重要：不设置任何响应对象，确保后续处理跳过
       aiResponse = null;
@@ -1372,12 +1371,7 @@ const sendMessage = async () => {
 
     // 系统消息直接覆盖当前叙述
     if (aiResponse && aiResponse.system_messages && Array.isArray(aiResponse.system_messages) && aiResponse.system_messages.length > 0) {
-      currentNarrative.value = {
-        type: 'system',
-        content: aiResponse.system_messages.join('\n'),
-        time: formatCurrentTime(),
-        stateChanges: { changes: [] }
-      };
+      // currentNarrative 现在自动显示最新短期记忆
     }
 
     // 成功的提示
@@ -1404,12 +1398,7 @@ const sendMessage = async () => {
     streamingContent.value = '';
 
     // 设置当前叙述为错误消息
-    currentNarrative.value = {
-      type: 'system',
-      content: `【天道无应】${error instanceof Error ? error.message : '修仙路上遇到了未知阻碍'}`,
-      time: formatCurrentTime(),
-      stateChanges: { changes: [] }
-    };
+    // currentNarrative 现在自动显示最新短期记忆
 
     toast.error('天道无应，请稍后再试');
   } finally {
@@ -1441,7 +1430,10 @@ midTermSummary?: string  // AI生成的中期记忆总结
 ) => {
 try {
   if (!gameStateStore.isGameLoaded || !gameStateStore.memory) {
-    console.warn('[记忆管理] 游戏状态未加载，无法存储短期记忆');
+    console.warn('[记忆管理] 游戏状态未加载，无法存储短期记忆', {
+      isGameLoaded: gameStateStore.isGameLoaded,
+      hasMemory: !!gameStateStore.memory
+    });
     return;
   }
 
@@ -1460,33 +1452,41 @@ try {
   const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
   const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
 
-  // 添加到短期记忆
+  // 🔥 [核心修复] 先添加到短期记忆和隐式中期记忆，再检查溢出
   memory.短期记忆.push(finalContent);
-
-  // 处理中期记忆
+  
+  // 处理中期记忆（同步添加到隐式中期记忆）
   if (midTermSummary?.trim()) {
-    // 如果有显式的中期记忆总结，存入隐式中期记忆
     memory.隐式中期记忆.push(`${timePrefix}${midTermSummary}`);
   } else {
-    console.log("无中期记忆返回")
+    // 如果AI没有返回中期记忆总结，就用完整内容作为隐式中期记忆
+    memory.隐式中期记忆.push(finalContent);
+    console.log('[记忆管理] AI未返回中期记忆总结，使用完整内容');
   }
 
-  // 检查短期记忆溢出
-  if (memory.短期记忆.length > maxShortTermMemories.value) {
-    const overflowCount = memory.短期记忆.length - maxShortTermMemories.value;
-    for (let i = 0; i < overflowCount; i++) {
-      memory.短期记忆.shift(); // [修复] 移除最旧的短期记忆（从数组开头）
-      const implicit = memory.隐式中期记忆.shift(); // [修复] 移除对应的隐式中期记忆
-      if (implicit && !memory.中期记忆.includes(implicit)) {
-        memory.中期记忆.push(implicit); // [修复] 转移到中期记忆（添加到末尾）
-      }
+  // 🔥 [核心修复] 添加后检查是否溢出，溢出的转移到中期记忆
+  while (memory.短期记忆.length > maxShortTermMemories.value) {
+    memory.短期记忆.shift(); // 移除最旧的短期记忆
+    const implicit = memory.隐式中期记忆.shift(); // 移除对应的隐式中期记忆
+    
+    if (implicit && !memory.中期记忆.includes(implicit)) {
+      memory.中期记忆.push(implicit); // 转移到中期记忆
+      console.log('[记忆管理] ✅ 短期记忆溢出，已转移到中期记忆', {
+        中期记忆总数: memory.中期记忆.length,
+        内容预览: implicit.substring(0, 50) + '...'
+      });
     }
 
-    // 检查中期记忆溢出
+    // 检查中期记忆是否溢出
     if (memory.中期记忆.length > maxMidTermMemories.value) {
       await transferToLongTermMemory();
     }
   }
+  console.log('[记忆管理] ✅ 已添加到短期记忆', {
+    内容长度: finalContent.length,
+    短期记忆总数: memory.短期记忆.length,
+    内容预览: finalContent.substring(0, 50) + '...'
+  });
 
   console.log('[记忆管理] 记忆已更新到 gameStateStore');
 
@@ -1580,10 +1580,18 @@ const generateLongTermSummary = async (memories: string[]): Promise<string | nul
 // （移除逐条总结逻辑）不再对溢出的短期记忆逐条生成总结
 
 // 键盘事件处理
-// 格式化当前时间
+// 格式化当前时间（用于显示当前北京时间 - 现实世界时间）
 const formatCurrentTime = (): string => {
   const now = new Date();
-  return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+
+  // 返回格式：2025-01-15 14:30:25（现实世界北京时间）
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -1643,60 +1651,44 @@ const initializePanelForSave = async () => {
         有叙事历史: !!gameStateStore.narrativeHistory,
         叙事历史长度: gameStateStore.narrativeHistory?.length || 0,
         有短期记忆: !!memories,
-        短期记忆长度: memories?.length || 0
+        短期记忆长度: memories?.length || 0,
+        当前显示内容: currentNarrative.value?.content?.substring(0, 50) + '...'
       });
 
-      // 🔥 [修复] 优先从叙事历史中恢复最近的一条记录（包含stateChanges）
-      // 叙事历史是权威数据源,应始终优先信任
+      // 🔥 [核心修复] 优先从叙事历史加载最新内容并同步指令日志
       if (gameStateStore.narrativeHistory && gameStateStore.narrativeHistory.length > 0) {
         const latestNarrative = gameStateStore.narrativeHistory[gameStateStore.narrativeHistory.length - 1];
-        console.log('[主面板] ✅ 从叙事历史恢复最新叙述（含状态变更日志）');
-        console.log('[主面板-调试] 叙事历史最后一条:', {
-          type: latestNarrative.type,
-          内容预览: latestNarrative.content?.substring(0, 50) + '...',
-          内容长度: latestNarrative.content?.length || 0,
-          有stateChanges: !!latestNarrative.stateChanges,
-          changes数量: latestNarrative.stateChanges?.changes?.length || 0
-        });
 
-        currentNarrative.value = {
-          type: latestNarrative.type,
-          content: latestNarrative.content,
-          time: latestNarrative.time,
-          stateChanges: latestNarrative.stateChanges || { changes: [] }
-        };
+        // 🔥 [关键修复] 每次加载存档都要同步指令日志到最新叙事的stateChanges
+        if (latestNarrative.stateChanges) {
+          uiStore.setCurrentMessageStateChanges(latestNarrative.stateChanges);
+          console.log('[主面板] ✅ 已同步指令日志到最新叙事', {
+            变更数量: latestNarrative.stateChanges.changes?.length || 0
+          });
+        }
+
+        // 如果短期记忆为空，从叙事历史同步内容
+        if (!memories || memories.length === 0) {
+          if (latestNarrative.content) {
+            gameStateStore.addToShortTermMemory(latestNarrative.content);
+            console.log('[主面板] ✅ 已从叙事历史同步内容到短期记忆');
+          }
+        }
       } else if (memories && memories.length > 0) {
-        // 回退：从记忆加载（旧版本存档，没有叙事历史）
-        const initialMessageContent = memories[memories.length - 1];
-        console.log('[主面板] ⚠️ 从短期记忆加载（无叙事历史）:', initialMessageContent.substring(0, 100));
-
-        currentNarrative.value = {
-          type: 'gm',
-          content: initialMessageContent,
-          time: formatCurrentTime(),
-          stateChanges: { changes: [] }, // 旧版本没有状态变更
-        };
-
+        // 回退：从短期记忆加载（旧版本存档，没有叙事历史）
+        const latestMemory = memories[memories.length - 1];
+        console.log('[主面板] ⚠️ 从短期记忆加载（无叙事历史）');
+        // currentNarrative 现在自动显示最新短期记忆
       } else {
         // 未找到记忆或叙事历史，显示欢迎信息
         console.log('[主面板] 未找到叙事记录，显示欢迎信息');
         const characterName = gameStateStore.character?.名字 || '修行者';
-        currentNarrative.value = {
-          type: 'system',
-          content: `【欢迎】${characterName}，你的修仙之旅即将开始。请输入你的行动。`,
-          time: formatCurrentTime(),
-          stateChanges: { changes: [] },
-        };
+        // currentNarrative 现在自动显示最新短期记忆
       }
       await syncGameState();
     } else {
       // 没有激活的角色
-      currentNarrative.value = {
-        type: 'system',
-        content: '【提示】请先选择或创建角色开始游戏。',
-        time: formatCurrentTime(),
-        stateChanges: { changes: [] }
-      };
+      // currentNarrative 现在自动显示最新短期记忆
     }
     nextTick(() => {
       if (contentAreaRef.value) {
@@ -1705,12 +1697,7 @@ const initializePanelForSave = async () => {
     });
   } catch (error) {
     console.error('[主面板] 初始化存档数据失败:', error);
-    currentNarrative.value = {
-      type: 'system',
-      content: '【系统】加载存档数据时遇到问题。',
-      time: formatCurrentTime(),
-      stateChanges: { changes: [] }
-    };
+    // currentNarrative 现在自动显示最新短期记忆
   }
 };
 
@@ -1718,7 +1705,7 @@ const initializePanelForSave = async () => {
 const resetPanelState = () => {
   console.log('[主面板] 检测到存档切换，正在重置面板状态...');
   actionQueue.clearActions();
-  currentNarrative.value = null;
+  // currentNarrative 现在自动显示最新短期记忆
   inputText.value = '';
   latestMessageText.value = null;
 
@@ -1738,24 +1725,6 @@ watch(() => characterStore.rootState.当前激活存档, async (newSlotId, oldSl
     await initializePanelForSave();
   }
 });
-
-// 🔥 [修复] 禁用短期记忆监听器,避免覆盖叙事历史
-// 短期记忆仅用于AI生成内容,不应反向影响UI显示
-// 显示内容应该由 narrativeHistory 控制,确保包含完整的 stateChanges
-// watch(() => gameStateStore.memory?.短期记忆, (newMemories) => {
-//   if (!isAIProcessing.value && newMemories && newMemories.length > 0) {
-//     const latestMemory = newMemories[newMemories.length - 1];
-//     if (!currentNarrative.value || currentNarrative.value.content !== latestMemory) {
-//       console.log('[主面板] 检测到短期记忆变更，同步更新显示。');
-//       currentNarrative.value = {
-//         type: 'ai',
-//         content: latestMemory,
-//         time: formatCurrentTime(),
-//         stateChanges: { changes: [] }
-//       };
-//     }
-//   }
-// }, { deep: true });
 
 // 组件挂载时执行一次性初始化
 onMounted(async () => {
@@ -1811,12 +1780,7 @@ onMounted(async () => {
 
   } catch (error) {
     console.error('[主面板] 首次挂载失败:', error);
-    currentNarrative.value = {
-      type: 'system',
-      content: '【系统】初始化遇到问题，请刷新页面重试。',
-      time: formatCurrentTime(),
-      stateChanges: { changes: [] }
-    };
+    // currentNarrative 现在自动显示最新短期记忆
   }
 });
 
@@ -1826,15 +1790,30 @@ onActivated(() => {
   restoreAIProcessingState();
 });
 
+// 🔥 [核心修复] 监听叙事历史变化，自动更新 currentNarrative 为最新一条
+watch(() => gameStateStore.narrativeHistory, (newHistory) => {
+  if (newHistory && newHistory.length > 0) {
+    const latestNarrative = newHistory[newHistory.length - 1];
+    // currentNarrative 现在自动显示最新短期记忆
+
+    // 同步更新 uiStore 中的状态变更，确保命令日志可用
+    if (latestNarrative.stateChanges) {
+      uiStore.setCurrentMessageStateChanges(latestNarrative.stateChanges);
+      console.log('[主面板] ✅ 已更新指令日志', {
+        变更数量: latestNarrative.stateChanges.changes?.length || 0,
+        前3条: latestNarrative.stateChanges.changes?.slice(0, 3).map(c => c.key) || []
+      });
+    } else {
+      console.warn('[主面板] ⚠️ 最新叙事没有状态变更记录');
+    }
+  }
+}, { deep: true });
+
+
 // 初始化系统连接
 const initializeSystemConnections = async () => {
   try {
     console.log('[主面板] 初始化系统连接...');
-
-    // 确保所有系统已初始化
-    // await memorySystem.initialize();
-    // await gameStateManager.initialize();
-    // await bidirectionalSystem.initialize();
 
     console.log('[主面板] 系统连接初始化完成');
   } catch (error) {
@@ -3712,5 +3691,219 @@ const syncGameState = async () => {
 
 [data-theme="dark"] .latest-text-header {
   color: #a5b4fc;
+}
+
+/* Cultivation Panel */
+.cultivation-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001; /* Higher than action modal */
+  backdrop-filter: blur(4px);
+}
+
+.cultivation-panel {
+  background: linear-gradient(145deg, #f9fafb, #f3f4f6);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 800px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  animation: modal-appear 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.cultivation-panel .panel-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cultivation-panel .panel-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cultivation-panel .panel-content {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+
+.cultivation-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cultivation-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+  border-color: #a5b4fc;
+}
+
+.cultivation-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cultivation-card .card-icon {
+  color: #6366f1;
+}
+.cultivation-zap .card-icon { color: #f59e0b; }
+.cultivation-shield .card-icon { color: #3b82f6; }
+.cultivation-braincircuit .card-icon { color: #8b5cf6; }
+
+.cultivation-card .card-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.cultivation-card .card-description {
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.6;
+  flex-grow: 1;
+  margin: 0 0 16px 0;
+}
+
+.cultivation-card .card-config {
+  margin-bottom: 16px;
+}
+
+.cultivation-card .config-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.cultivation-card .time-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cultivation-card .time-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity .2s;
+}
+.cultivation-card .time-slider:hover {
+  opacity: 1;
+}
+.cultivation-card .time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #6366f1;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.cultivation-card .time-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #6366f1;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.cultivation-card .time-display {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+  min-width: 50px;
+  text-align: right;
+}
+
+.start-cultivation-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.start-cultivation-btn:hover {
+  background: #4338ca;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+}
+
+.cultivation-zap .start-cultivation-btn { background: #f59e0b; }
+.cultivation-zap .start-cultivation-btn:hover { background: #d97706; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); }
+.cultivation-shield .start-cultivation-btn { background: #3b82f6; }
+.cultivation-shield .start-cultivation-btn:hover { background: #2563eb; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+.cultivation-braincircuit .start-cultivation-btn { background: #8b5cf6; }
+.cultivation-braincircuit .start-cultivation-btn:hover { background: #7c3aed; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3); }
+
+/* Dark theme for cultivation panel */
+[data-theme="dark"] .cultivation-panel {
+  background: linear-gradient(145deg, #1f2937, #111827);
+  border-color: #374151;
+}
+[data-theme="dark"] .cultivation-panel .panel-header {
+  border-color: #374151;
+}
+[data-theme="dark"] .cultivation-panel .panel-header h3 {
+  color: #f3f4f6;
+}
+[data-theme="dark"] .cultivation-card {
+  background: #1f2937;
+  border-color: #374151;
+}
+[data-theme="dark"] .cultivation-card:hover {
+  border-color: #a5b4fc;
+}
+[data-theme="dark"] .cultivation-card .card-title {
+  color: #f9fafb;
+}
+[data-theme="dark"] .cultivation-card .card-description {
+  color: #9ca3af;
+}
+[data-theme="dark"] .cultivation-card .config-label {
+  color: #9ca3af;
+}
+[data-theme="dark"] .cultivation-card .time-slider {
+  background: #4b5563;
+}
+[data-theme="dark"] .cultivation-card .time-display {
+  color: #f3f4f6;
 }
 </style>

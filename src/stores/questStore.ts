@@ -6,9 +6,29 @@ import { generateQuest, completeQuest } from '@/utils/generators/questGenerators
 import type { Quest, QuestObjective } from '@/types/game';
 import { toast } from '@/utils/toast';
 
+interface QuestConfig {
+  启用系统任务: boolean;
+  系统任务类型: string;
+  系统任务提示词: string;
+  自动刷新: boolean;
+  默认任务数量: number;
+}
+
 export const useQuestStore = defineStore('quest', () => {
   const gameStateStore = useGameStateStore();
   const isGenerating = ref(false);
+
+  // 任务配置
+  const questConfig = computed<QuestConfig>(() => {
+    const config = gameStateStore.任务系统?.配置;
+    return {
+      启用系统任务: config?.启用系统任务 ?? false,
+      系统任务类型: config?.系统任务类型 ?? '修仙辅助系统',
+      默认任务数量: config?.默认任务数量 ?? 3,
+      自动刷新: config?.自动刷新 ?? true,
+      系统任务提示词: config?.系统任务提示词 ?? ''
+    };
+  });
 
   // 当前任务列表
   const currentQuests = computed(() => gameStateStore.任务系统?.当前任务列表 || []);
@@ -132,13 +152,39 @@ export const useQuestStore = defineStore('quest', () => {
     }
   }
 
+  /**
+   * 更新任务配置
+   */
+  async function updateQuestConfig(config: QuestConfig) {
+    if (!gameStateStore.任务系统) {
+      gameStateStore.任务系统 = {
+        当前任务列表: [],
+        已完成任务: [],
+        任务统计: {
+          完成总数: 0,
+          主线完成: 0,
+          支线完成: 0,
+          系统任务完成: 0
+        },
+        配置: config
+      };
+    } else {
+      gameStateStore.任务系统.配置 = config;
+    }
+    
+    await gameStateStore.saveGame();
+    toast.success('任务配置已保存');
+  }
+
   return {
     currentQuests,
     activeQuests,
     completedQuests,
+    questConfig,
     isGenerating,
     generateNewQuest,
     checkQuestObjective,
     finishQuest,
+    updateQuestConfig,
   };
 });

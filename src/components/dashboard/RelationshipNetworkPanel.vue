@@ -151,7 +151,9 @@
                    <div v-if="selectedPerson.天赋?.length">
                       <h6 class="subsection-title">天赋能力</h6>
                       <div class="talents-grid">
-                        <span v-for="talent in selectedPerson.天赋" :key="talent.name" class="talent-tag" :title="talent.description">{{ talent.name }}</span>
+                        <span v-for="(talent, index) in selectedPerson.天赋" :key="index" class="talent-tag" :title="getTalentDescription(talent)">
+                          {{ getTalentName(talent) }}
+                        </span>
                       </div>
                    </div>
                    <div v-if="selectedPerson.先天六司" style="margin-top: 1rem;">
@@ -255,7 +257,7 @@
                     </div>
                     <!-- 性伴侣名单 -->
                     <div v-if="selectedPerson.私密信息.性伴侣名单?.length" class="partner-list">
-                      <div class="mini-label">性伴侣名单 ({{ selectedPerson.私密信息.性伴侣数量 || 0 }}人)</div>
+                      <div class="mini-label">性伴侣名单 ({{ selectedPerson.私密信息.性伴侣名单?.length || 0 }}人)</div>
                       <div class="talents-grid">
                         <span v-for="(partner, index) in [...new Set(selectedPerson.私密信息.性伴侣名单)]" :key="index" class="partner-tag">{{ partner }}</span>
                       </div>
@@ -277,13 +279,43 @@
                         <div class="exp-icon">👥</div>
                         <div class="exp-content">
                           <div class="exp-label">性伴侣数量</div>
-                          <div class="exp-value">{{ selectedPerson.私密信息.性伴侣数量 || 0 }}人</div>
+                          <div class="exp-value">{{ selectedPerson.私密信息.性伴侣名单?.length || 0 }}人</div>
                         </div>
                       </div>
                     </div>
-                    <div v-if="selectedPerson.私密信息.最近一次性行为时间" class="last-time-info">
+                    <div v-if="(selectedPerson.私密信息.性经验总次数 || 0) > 0 && selectedPerson.私密信息.最近一次性行为时间" class="last-time-info">
                       <span class="last-time-label">最近一次：</span>
                       <span class="last-time-value">{{ selectedPerson.私密信息.最近一次性行为时间 }}</span>
+                    </div>
+                  </div>
+
+                  <!-- 身体部位开发 -->
+                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.身体部位?.length">
+                    <h6 class="subsection-title">身体部位开发</h6>
+                    <div class="body-parts-list">
+                      <div v-for="part in selectedPerson.私密信息.身体部位" :key="part.部位名称" class="body-part-item">
+                        <div class="part-header">
+                          <span class="part-name">{{ part.部位名称 }}</span>
+                          <span v-if="part.特殊标记" class="part-mark">{{ part.特殊标记 }}</span>
+                        </div>
+                        <div v-if="part.描述" class="part-description">{{ part.描述 }}</div>
+                        <div class="part-stats">
+                          <div class="part-stat">
+                            <span class="stat-label">敏感度</span>
+                            <div class="stat-bar-mini">
+                              <div class="stat-bar-fill sensitivity" :style="{ width: (part.敏感度 || 0) + '%' }"></div>
+                            </div>
+                            <span class="stat-value">{{ part.敏感度 || 0 }}%</span>
+                          </div>
+                          <div class="part-stat">
+                            <span class="stat-label">开发度</span>
+                            <div class="stat-bar-mini">
+                              <div class="stat-bar-fill development" :style="{ width: (part.开发程度 || 0) + '%' }"></div>
+                            </div>
+                            <span class="stat-value">{{ part.开发程度 || 0 }}%</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -850,37 +882,36 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
 const toggleAttention = async (person: NpcProfile) => {
   const npcName = person.名字;
 
-  // 🔥 修复：直接从characterStore获取实际的存档数据，而不是computed值
-  const slot = characterStore.activeSaveSlot;
-  if (!slot?.存档数据?.人物关系) {
+  // 🔥 修复：直接从 gameStateStore 获取最新数据
+  const currentSaveData = gameStateStore.getCurrentSaveData();
+  if (!currentSaveData?.人物关系) {
     uiStore.showToast('人物关系数据不存在', { type: 'error' });
     return;
   }
 
-  const npcKey = Object.keys(slot.存档数据.人物关系).find(
-    key => slot.存档数据!.人物关系[key]?.名字 === npcName
+  const npcKey = Object.keys(currentSaveData.人物关系).find(
+    key => currentSaveData.人物关系[key]?.名字 === npcName
   );
+
   if (!npcKey) {
     uiStore.showToast(`找不到名为 ${npcName} 的人物`, { type: 'error' });
     return;
   }
 
   try {
-    // 直接修改存档数据中的实时关注字段
-    const currentState = slot.存档数据.人物关系[npcKey].实时关注 || false;
-    const newState = !currentState;
-    slot.存档数据.人物关系[npcKey].实时关注 = newState;
+    // 直接修改 gameStateStore 中的数据
+    const npcProfile = currentSaveData.人物关系[npcKey];
+    const newState = !(npcProfile.实时关注 || false);
+    npcProfile.实时关注 = newState;
 
-    // 使用 gameStateStore 保存
-    const { useGameStateStore } = await import('@/stores/gameStateStore');
-    const gameStateStore = useGameStateStore();
+    // 持久化变更
     await gameStateStore.saveGame();
 
     uiStore.showToast(newState ? `已关注 ${npcName}` : `已取消关注 ${npcName}`, { type: 'success' });
 
     // 强制更新选中的人物（触发响应式）
     if (selectedPerson.value?.名字 === npcName) {
-      selectedPerson.value = { ...slot.存档数据.人物关系[npcKey] };
+      selectedPerson.value = { ...currentSaveData.人物关系[npcKey] };
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
@@ -925,21 +956,44 @@ const summarizeMemories = async () => {
       memories.length
     );
 
-    // 🔥 [新架构] summarizeNpcMemories 方法已被移除，使用游戏内AI系统处理记忆总结
-    // const summary = await characterStore.summarizeNpcMemories(npcName, countToSummarize);
+    // 🔥 [新架构] 使用动作队列请求AI进行记忆总结
+    actionQueue.addAction({
+      type: 'npc_memory_summarize',
+      npcName: npcName,
+      count: countToSummarize,
+      description: `请求AI总结NPC【${npcName}】的最近${countToSummarize}条记忆。`
+    });
 
-    uiStore.showToast('记忆总结功能将通过游戏内AI系统实现', { type: 'info' });
-    console.warn('[RelationshipNetworkPanel] summarizeNpcMemories 已在新架构中移除');
+    uiStore.showToast(`已将“总结${npcName}的记忆”请求加入动作队列`, { type: 'success' });
 
   } catch (error) {
-    // store action 中已处理 toast，这里只在控制台记录
-    console.error(`[RelationshipNetworkPanel] 记忆总结失败:`, error);
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    uiStore.showToast(`操作失败: ${errorMsg}`, { type: 'error' });
+    console.error(`[RelationshipNetworkPanel] 记忆总结请求失败:`, error);
   } finally {
     isSummarizing.value = false;
   }
 };
 
 // 删除NPC
+// 获取天赋名称的辅助函数
+const getTalentName = (talent: any): string => {
+  if (typeof talent === 'string') return talent;
+  if (typeof talent === 'object' && talent !== null) {
+    return talent.名称 || talent.name || talent['名称'] || talent['name'] || '未知天赋';
+  }
+  return '未知天赋';
+};
+
+// 获取天赋描述的辅助函数
+const getTalentDescription = (talent: any): string => {
+  if (typeof talent === 'string') return '';
+  if (typeof talent === 'object' && talent !== null) {
+    return talent.描述 || talent.description || talent['描述'] || talent['description'] || '';
+  }
+  return '';
+};
+
 const confirmDeleteNpc = (person: NpcProfile) => {
   if (!person) return;
   uiStore.showRetryDialog({

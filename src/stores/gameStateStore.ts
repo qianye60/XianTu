@@ -45,6 +45,9 @@ interface GameState {
   timeBasedSaveEnabled: boolean; // 是否启用时间点存档
   timeBasedSaveInterval: number; // 时间点存档间隔（分钟）
   lastTimeBasedSave: number | null; // 上次时间点存档的时间戳
+
+  // 对话后自动存档配置
+  conversationAutoSaveEnabled: boolean; // 是否启用对话后自动存档
 }
 
 export const useGameStateStore = defineStore('gameState', {
@@ -57,7 +60,7 @@ export const useGameStateStore = defineStore('gameState', {
     worldInfo: null,
     memory: null,
     gameTime: null,
-    narrativeHistory: null,
+    narrativeHistory: [],
     isGameLoaded: false,
     任务系统: null,
 
@@ -89,6 +92,9 @@ export const useGameStateStore = defineStore('gameState', {
     timeBasedSaveEnabled: false,
     timeBasedSaveInterval: 10, // 默认10分钟
     lastTimeBasedSave: null,
+
+    // 对话后自动存档配置（默认开启）
+    conversationAutoSaveEnabled: true,
   }),
 
   actions: {
@@ -147,6 +153,12 @@ export const useGameStateStore = defineStore('gameState', {
     loadFromSaveData(saveData: SaveData) {
       this.character = saveData.角色基础信息;
       this.playerStatus = saveData.玩家角色状态;
+
+      // 确保角色基础信息和玩家角色状态中的灵根、出生保持同步
+      if (this.character && this.playerStatus) {
+        if (this.character.灵根) (this.playerStatus as any).灵根 = this.character.灵根;
+        if (this.character.出生) (this.playerStatus as any).出生 = this.character.出生;
+      }
       this.inventory = saveData.背包;
       this.equipment = saveData.装备栏;
       this.relationships = saveData.人物关系;
@@ -311,7 +323,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.worldInfo = null;
       this.memory = null;
       this.gameTime = null;
-      this.narrativeHistory = null;
+      this.narrativeHistory = [];
       this.isGameLoaded = false;
       this.任务系统 = null;
 
@@ -361,10 +373,11 @@ export const useGameStateStore = defineStore('gameState', {
       // 1. 保存到当前激活的存档
       await characterStore.saveCurrentGame();
 
-      // 2. 同时保存到 "上次对话" 存档槽
-      await characterStore.saveToSlot('上次对话');
-
-      console.log('[GameState] Saved to current slot and "上次对话"');
+      // 2. 如果启用了对话后自动存档，则保存到 "上次对话" 存档槽
+      if (this.conversationAutoSaveEnabled) {
+        await characterStore.saveToSlot('上次对话');
+        console.log('[GameState] Saved to "上次对话" slot');
+      }
 
       // 3. 检查是否需要创建时间点存档
       await this.checkAndCreateTimeBasedSave();
@@ -432,6 +445,15 @@ export const useGameStateStore = defineStore('gameState', {
     },
 
     /**
+     * 启用/禁用对话后自动存档
+     * @param enabled 是否启用
+     */
+    setConversationAutoSaveEnabled(enabled: boolean) {
+      this.conversationAutoSaveEnabled = enabled;
+      console.log(`[GameState] Conversation auto save ${enabled ? 'enabled' : 'disabled'}`);
+    },
+
+    /**
      * 获取当前存档数据
      * @returns 当前的 SaveData 或 null
      */
@@ -472,5 +494,30 @@ export const useGameStateStore = defineStore('gameState', {
         }
       }
     },
+
+    /**
+     * 添加内容到短期记忆
+     */
+    addToShortTermMemory(content: string) {
+      if (!this.memory) {
+        this.memory = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+      }
+      if (!Array.isArray(this.memory.短期记忆)) {
+        this.memory.短期记忆 = [];
+      }
+
+      // 添加时间前缀（使用"仙道"与其他地方保持一致）
+      const gameTime = this.gameTime;
+      const minutes = gameTime?.分钟 ?? 0;
+      const timePrefix = gameTime
+        ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(minutes).padStart(2, '0')}】`
+        : '【未知时间】';
+
+      const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
+      const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
+
+      this.memory.短期记忆.unshift(finalContent); // 最新的在前
+      console.log('[gameStateStore] ✅ 已添加到短期记忆', finalContent.substring(0, 50) + '...');
+    }
   },
 });

@@ -270,27 +270,27 @@
 
           <!-- 天赋列表卡片 -->
           <div class="talents-card">
-                <div class="talents-header">
-                  <div class="talents-icon">✨</div>
-                  <span class="talents-label">天赋特质</span>
-                  <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
-                </div>
-                <div v-if="getTalentList(baseInfo.天赋)?.length" class="talents-container">
-                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.name"
-                       class="talent-item" :title="talent.description">
-                    <div class="talent-name">{{ talent.name }}</div>
-                    <div v-if="talent.description" class="talent-description-display">
-                      {{ talent.description }}
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="talents-container no-talents">
-                  <div class="talent-item no-talent">
-                    <div class="talent-name">无</div>
-                  </div>
+            <div class="talents-header">
+              <div class="talents-icon">✨</div>
+              <span class="talents-label">天赋特质</span>
+              <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
+            </div>
+            <div v-if="getTalentList(baseInfo.天赋)?.length" class="talents-container">
+              <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.name"
+                   class="talent-item" :title="talent.description">
+                <div class="talent-name"><strong>{{ talent.name }}</strong></div>
+                <div v-if="talent.description" class="talent-description-display">
+                  {{ talent.description }}
                 </div>
               </div>
             </div>
+            <div v-else class="talents-container no-talents">
+              <div class="talent-item no-talent">
+                <div class="talent-name">无</div>
+              </div>
+            </div>
+          </div>
+        </div>
           </div>
 
           <!-- 状态效果 -->
@@ -414,7 +414,7 @@
                       {{ fullCultivationTechnique?.名称 }}
                     </h4>
                     <div class="technique-quality">
-                      {{ fullCultivationTechnique?.品质?.quality || '未知' }}品{{ fullCultivationTechnique?.品质?.grade || 0 }}阶</div>
+                      {{ fullCultivationTechnique?.品质?.quality || '未知' }}品{{ fullCultivationTechnique?.品质?.grade ? `${fullCultivationTechnique.品质.grade}阶` : '' }}</div>
                   </div>
                   <div class="technique-toggle">
                     <ChevronDown
@@ -885,7 +885,7 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, PlayerBodyPart, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
-import type { Origin, TalentTier, SpiritRoot, Talent } from '@/types';
+import type { Origin, TalentTier, SpiritRoot } from '@/types';
 
 const calculateAgeFromBirthdate = (birthdate: GameTime, currentTime: GameTime): number => {
   let age = currentTime.年 - birthdate.年;
@@ -1081,15 +1081,17 @@ const skillsList = computed((): SkillInfo[] => {
   return technique.功法技能
     .filter((skillInfo: TechniqueSkill) => {
       const isExplicitlyUnlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
-      const isUnlockedByProficiency = (technique.修炼进度 || 0) >= (skillInfo.解锁需要熟练度 ?? 100);
+      const requiredProficiency = skillInfo.解锁需要熟练度 ?? 100;
+      const isUnlockedByProficiency = (technique.修炼进度 || 0) >= requiredProficiency;
       return !(isExplicitlyUnlocked || isUnlockedByProficiency);
     })
     .map((skillInfo: TechniqueSkill) => {
+      const requiredProficiency = skillInfo.解锁需要熟练度 ?? 100;
       return {
         name: skillInfo.技能名称,
         description: skillInfo.技能描述 || '',
         type: '功法技能',
-        unlockCondition: `熟练度 ${skillInfo.解锁需要熟练度 ?? 100}%`,
+        unlockCondition: requiredProficiency === 0 ? '自动解锁' : `需要熟练度 ${requiredProficiency}%`,
         unlocked: false,
       };
     });
@@ -1266,13 +1268,57 @@ const getTalentTierDescription = (talentTier: TalentTier | string | undefined): 
   return '';
 };
 
-const getTalentList = (talents: any[] | undefined): { name: string; description: string }[] => {
-  if (!talents || !Array.isArray(talents)) return [];
-  return talents.map(t => ({
-    name: t.name || t.名称,
-    description: t.description || t.描述,
-  }));
+const getTalentList = (talents: any | undefined): { name: string; description: string }[] => {
+  let processedTalents: any[] = [];
+
+  if (!talents) {
+    return [];
+  }
+
+  if (Array.isArray(talents)) {
+    processedTalents = talents;
+  } else if (typeof talents === 'string') {
+    try {
+      // Try to parse it as a JSON array
+      const parsed = JSON.parse(talents);
+      if (Array.isArray(parsed)) {
+        processedTalents = parsed;
+      } else {
+        // It's a valid JSON but not an array (e.g., a string literal "天赋1"), treat as single talent
+        processedTalents = [{ name: String(parsed), description: '' }];
+      }
+    } catch (error) {
+      // It's not a JSON string, so treat the whole string as a single talent name
+      processedTalents = [{ name: talents, description: '' }];
+    }
+  } else if (typeof talents === 'object' && talents !== null) {
+    // Handle the case where it's a single talent object, not in an array
+    processedTalents = [talents];
+  }
+
+  return processedTalents
+    .map(t => {
+      if (typeof t === 'string') {
+        return { name: t, description: '' };
+      }
+      if (typeof t === 'object' && t !== null) {
+        // 修复：正确提取中英文字段的名称和描述
+        const name = t.name || t.名称 || t['名称'] || '';
+        const description = t.description || t.描述 || t['描述'] || '';
+        
+        // 只有当名称和描述都为空时才过滤掉
+        if (!name && !description) return null;
+        
+        return {
+          name: name || '未知天赋',
+          description: description,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean) as { name: string; description: string }[];
 };
+
 
 const getPercentage = (current: number, max: number): number => {
   return Math.round((current / max) * 100);
@@ -2188,11 +2234,13 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .talent-item {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 4px;
   align-items: flex-start;
   padding: 12px;
-  background: var(--color-surface-light);
+  background: var(--color-surface);
   border-radius: 8px;
+  border-left: 3px solid var(--color-primary);
 }
 
 .talent-label {

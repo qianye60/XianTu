@@ -135,7 +135,7 @@ import { useUIStore } from './stores/uiStore';
 import { toast } from './utils/toast';
 import { getTavernHelper } from './utils/tavern'; // 添加导入
 import type { CharacterBaseInfo } from '@/types/game';
-import type { CharacterCreationPayload, Talent } from '@/types';
+import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
@@ -274,15 +274,19 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
       const baseInfo: CharacterBaseInfo = {
         名字: personaName, // 使用从酒馆获取的Persona名字
         性别: (rawPayload.gender === '女' || rawPayload.gender === '其他' ? rawPayload.gender : '男') as '男' | '女' | '其他',
+        出生日期: { 年: 0, 月: 1, 日: 1 }, // 临时占位符，后续由角色初始化流程计算
         种族: (rawPayload as any).race || '人族', // 添加种族
-        世界: rawPayload.world?.name || '未知世界', // 保持用户选择的世界
-        天资: rawPayload.talentTier?.name || '凡品',
+        世界: rawPayload.world || { name: '未知世界' } as any,
+        天资: rawPayload.talentTier || { name: '凡品' } as any,
         出生: rawPayload.origin?.name || '随机出身',
         灵根: rawPayload.spiritRoot?.name || '随机灵根',
-        天赋: rawPayload.talents?.map((t: Talent) => ({
-          名称: t.name,
-          描述: t.description || ''
-        })) || [],
+        天赋: (rawPayload.talents?.map((t: Talent) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description || '',
+          talent_cost: t.talent_cost,
+          rarity: t.rarity
+        })) || []) as Talent[],
         先天六司: convertedAttributes,
         后天六司: {
           根骨: 0,
