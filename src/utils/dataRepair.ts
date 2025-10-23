@@ -93,6 +93,26 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
 
     // 修复声望
     repaired.玩家角色状态.声望 = validateNumber(repaired.玩家角色状态.声望, 0, 999999, 0);
+
+    // [存档迁移] 为旧存档添加私密信息字段
+    if (typeof repaired.玩家角色状态.私密信息 === 'undefined') {
+      console.log('[数据修复] 检测到旧版存档，为玩家角色状态添加默认私密信息字段');
+      repaired.玩家角色状态.私密信息 = {
+        是否为处女: true,
+        身体部位: [],
+        性格倾向: '未知',
+        性取向: '未知',
+        性癖好: [],
+        性渴望程度: 0,
+        当前性状态: '正常',
+        体液分泌状态: '正常',
+        性交总次数: 0,
+        性伴侣数量: 0,
+        性伴侣名单: [],
+        最近一次性行为时间: '无',
+        特殊体质: []
+      };
+    }
   }
 
   // 3. 修复装备栏

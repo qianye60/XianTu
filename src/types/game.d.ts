@@ -475,6 +475,7 @@ export interface PlayerStatus extends AIMetadata {
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
   任务系统?: SystemTaskData;
+  私密信息?: PrivacyProfile; // [存档迁移] 为玩家添加可选的私密信息字段
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -715,38 +716,21 @@ export interface PlayerBodyPart {
   特殊标记?: string;
 }
 
-/** NPC私密信息模块 (NSFW) - 仅在开启NSFW模式时生成和显示 */
-export interface NpcPrivacyProfile {
-  // === 基础状态 ===
+/** 统一的私密信息模块 (NSFW) */
+export interface PrivacyProfile {
   是否为处女: boolean;
-  是否为处男?: boolean; // 男性NPC专用
-
-  // === 身体开发（核心系统）===
-  身体部位: BodyPartDevelopment[]; // 动态部位列表，可扩展
-  /* 常见部位示例：
-   * 女性：胸部、乳头、小穴、阴蒂、菊穴、嘴唇、舌头、耳朵、脖颈、大腿内侧、腰部、腹部、足部
-   * 男性：阴茎、龟头、菊穴、乳头、嘴唇、耳朵等
-   * 特殊：尾巴（妖族）、角（魔族）、翅膀等
-   */
-
-  // === 性格与取向 ===
-  性格倾向: '纯情' | '主动' | '被动' | '淫荡' | 'M' | 'S' | '双性';
-  性取向: '异性恋' | '同性恋' | '双性恋' | '泛性恋';
-  性癖好?: string[]; // 如：['捆绑', '野外', '多人', '言语羞辱', '窒息', '角色扮演']
-
-  // === 实时状态（用 set 直接替换）===
-  性渴望程度: number; // 0-100，当前性欲强度
-  当前性状态: '正常' | '微湿' | '兴奋' | '发情' | '潮吹' | '高潮' | '连续高潮' | '贤者时间';
-  体液分泌状态?: string; // 如：「微微湿润」「爱液横流」「淫水泛滥」
-
-  // === 性经验与统计 ===
-  性经验总次数: number; // 所有类型性行为的总次数（性交+口交+肛交等）
+  身体部位: BodyPartDevelopment[];
+  性格倾向: string;
+  性取向: string;
+  性癖好: string[];
+  性渴望程度: number;
+  当前性状态: string;
+  体液分泌状态: string;
+  性交总次数: number;
   性伴侣数量: number;
-  性伴侣名单?: string[]; // 所有性伴侣的名字列表
-  最近一次性行为时间?: string; // 游戏时间格式：「X年X月X日」或「从未」
-
-  // === 特殊体质（可选）===
-  特殊体质?: string[]; // 如：['易潮吹', '多重高潮', '性爱成瘾', '淫纹', '媚药体质']
+  性伴侣名单: string[];
+  最近一次性行为时间: string;
+  特殊体质: string[];
 }
 
 /** NPC核心档案 - 精简高效的数据结构 */
@@ -794,7 +778,7 @@ export interface NpcProfile {
   };
 
   // === 可选模块 ===
-  私密信息?: NpcPrivacyProfile; // 仅NSFW模式下存在
+  私密信息?: PrivacyProfile; // 仅NSFW模式下存在
   实时关注: boolean; // 标记为关注的NPC会在AI回合中主动更新
 }
 
