@@ -310,12 +310,19 @@ ${DATA_STRUCTURE_DEFINITIONS}
       saveData.游戏时间 = normalizeGameTime(saveData.游戏时间);
     }
 
+    // 🔥 将状态变更添加到最新的叙事记录中
+    const stateChangesLog: StateChangeLog = { changes, timestamp: new Date().toISOString() };
+    if (saveData.叙事历史 && saveData.叙事历史.length > 0) {
+      const latestNarrative = saveData.叙事历史[saveData.叙事历史.length - 1];
+      (latestNarrative as any).stateChanges = stateChangesLog;
+    }
+
     if (!isInitialization) {
       const gameStateStore = useGameStateStore();
       gameStateStore.loadFromSaveData(saveData);
     }
 
-    return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() } };
+    return { saveData, stateChanges: stateChangesLog };
   }
 
   private executeCommand(command: { action: string; key: string; value?: unknown }, saveData: SaveData): void {
