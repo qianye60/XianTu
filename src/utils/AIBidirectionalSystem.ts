@@ -72,9 +72,6 @@ class AIBidirectionalSystemClass {
       }
       // 移除叙事历史，避免与短期记忆重复
       if (stateForAI.叙事历史) delete stateForAI.叙事历史;
-      // 移除只读字段（装备栏和掌握技能由系统自动计算）
-      if (stateForAI.装备栏) (stateForAI as Partial<SaveData>).装备栏 = undefined;
-      if (stateForAI.掌握技能) (stateForAI as Partial<SaveData>).掌握技能 = undefined;
 
       // 保存短期记忆用于单独发送
       const shortTermMemory = saveData.记忆?.短期记忆 || [];
@@ -159,7 +156,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
       // 如果有短期记忆，作为独立的 assistant 消息发送
       if (shortTermMemory.length > 0) {
         injects.push({
-          content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅，没有断层或者不合理的文本信息`,
+          content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
           role: 'assistant',
           depth: 0,
           position: 'before',
@@ -369,6 +366,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
     }
 
     const rawText = rawResponse.trim();
+    console.log('[parseAIResponse] 原始响应:', rawText.substring(0, 500));
 
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {

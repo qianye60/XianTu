@@ -249,7 +249,7 @@
                         <span class="info-value">
                           {{ selectedPerson.性别 === '女' || selectedPerson.性别 === '其他'
                             ? (selectedPerson.私密信息.是否为处女 ? '✓ 处女' : '✗ 非处')
-                            : (selectedPerson.私密信息.是否为处男 ? '✓ 处男' : '✗ 非处') }}
+                            : (selectedPerson.私密信息.是否为处女 ? '✓ 处男' : '✗ 非处') }}
                         </span>
                       </div>
                       <div class="info-item"><span class="info-label">性格倾向</span><span class="info-value">{{ selectedPerson.私密信息.性格倾向 || '未知' }}</span></div>
@@ -272,7 +272,7 @@
                         <div class="exp-icon">💕</div>
                         <div class="exp-content">
                           <div class="exp-label">性交总次数</div>
-                          <div class="exp-value">{{ (selectedPerson.私密信息 as any).性交总次数 || 0 }}次</div>
+                          <div class="exp-value">{{ (selectedPerson.私密信息 as any).性经验总次数 || 0 }}次</div>
                         </div>
                       </div>
                       <div class="exp-item">
@@ -283,7 +283,7 @@
                         </div>
                       </div>
                     </div>
-                    <div v-if="(selectedPerson.私密信息.性经验总次数 || 0) > 0 && selectedPerson.私密信息.最近一次性行为时间" class="last-time-info">
+                    <div v-if="(selectedPerson.私密信息.性交总次数 || 0) > 0 && selectedPerson.私密信息.最近一次性行为时间" class="last-time-info">
                       <span class="last-time-label">最近一次：</span>
                       <span class="last-time-value">{{ selectedPerson.私密信息.最近一次性行为时间 }}</span>
                     </div>
@@ -298,7 +298,7 @@
                           <span class="part-name">{{ part.部位名称 }}</span>
                           <span v-if="part.特殊标记" class="part-mark">{{ part.特殊标记 }}</span>
                         </div>
-                        <div v-if="part.描述" class="part-description">{{ part.描述 }}</div>
+                        <div v-if="part.特征描述" class="part-description">{{ part.特征描述 }}</div>
                         <div class="part-stats">
                           <div class="part-stat">
                             <span class="stat-label">敏感度</span>
@@ -465,6 +465,9 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
+import type { Talent } from '@/types';
+
+
 
 // 🔥 新架构：从 gameStateStore 获取数据
 const gameStateStore = useGameStateStore();
@@ -592,13 +595,14 @@ const getNpcRecentMemories = (npc: NpcProfile): string[] => {
 };
 
 // 格式化灵根显示
-const formatSpiritRoot = (spiritRoot: NpcProfile['灵根']): string => {
+const formatSpiritRoot = (spiritRoot: any): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
   // 兼容中英文字段名
   if (typeof spiritRoot === 'object') {
-    const name = (spiritRoot as any).name || (spiritRoot as any).名称;
-    const tier = (spiritRoot as any).tier || (spiritRoot as any).品级;
+    const typedSpiritRoot = spiritRoot as { name?: string; 名称?: string; tier?: string; 品级?: string };
+    const name = typedSpiritRoot.name || typedSpiritRoot.名称;
+    const tier = typedSpiritRoot.tier || typedSpiritRoot.品级;
     if (name && tier) {
       return `${name}(${tier})`;
     }
@@ -742,7 +746,7 @@ const editMemory = async (index: number) => {
     if (newEvent === null || newEvent.trim() === '') return;
 
     // 确保类型正确
-    (characterData.value.人物关系[key].记忆 as any[])[index] = newEvent.trim();
+    characterData.value.人物关系[key].记忆[index] = newEvent.trim();
     selectedPerson.value = { ...characterData.value.人物关系[key] };
 
     const { useGameStateStore } = await import('@/stores/gameStateStore');
@@ -969,8 +973,8 @@ const getTalentDescription = (talent: any): string => {
 const showTalentDetail = (talent: any) => {
   const name = getTalentName(talent);
   const desc = getTalentDescription(talent);
-  if (desc && (uiStore as any).showInfoDialog) {
-    (uiStore as any).showInfoDialog({ title: name, message: desc });
+  if (desc) {
+    uiStore.showDetailModal({ title: name, content: desc });
   }
 };
 

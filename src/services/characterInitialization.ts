@@ -501,52 +501,53 @@ async () => {
 
       console.log('[AI验证-诊断] tavern_commands数量:', response.tavern_commands.length);
 
-      // 5. 位置命令检查 - 必须使用完整路径
-      const hasLocationCommand = response.tavern_commands.some((cmd: TavernCommand, index: number) => {
-        const isValid = cmd &&
-          cmd.action === 'set' &&
-          cmd.key === '玩家角色状态.位置.描述'; // 仅接受完整路径
+      // 5. 位置命令检查 - 必须设置整个位置对象
+      const locationCommand = response.tavern_commands.find((cmd: TavernCommand) =>
+        cmd && cmd.action === 'set' && cmd.key === '玩家角色状态.位置'
+      );
 
-        if (!isValid) {
-          console.log(`[AI验证-诊断] 命令${index}:`, {
-            有效: !!cmd,
-            action: cmd?.action,
-            key: cmd?.key,
-            value: typeof cmd?.value === 'string' ? cmd.value.substring(0, 50) : cmd?.value
-          });
-        }
-        return isValid;
-      });
-
-      if (!hasLocationCommand) {
+      if (!locationCommand) {
         console.warn('[AI验证] ❌ 缺少位置命令');
         console.warn('[AI验证] 现有命令keys:', response.tavern_commands.map((c: TavernCommand) => c?.key));
         return false;
       }
 
-      // 6. 位置值验证 - 必须使用完整路径
-      const locationCommand = response.tavern_commands.find((cmd: TavernCommand) =>
-        cmd && cmd.action === 'set' && cmd.key === '玩家角色状态.位置.描述' // 仅接受完整路径
-      );
-
-      if (locationCommand) {
-        const val = locationCommand.value;
-        if (!val || typeof val !== 'string') {
-          console.warn('[AI验证] ❌ 位置值格式错误，类型:', typeof val);
-          console.warn('[AI验证] 位置值:', val);
-          return false;
-        }
-        if (!val.includes('·')) {
-          console.warn('[AI验证] ❌ 位置值缺少"·"分隔符');
-          console.warn('[AI验证] 位置值:', val);
-          return false;
-        }
-        if (val.includes('undefined') || val.includes('null') || val.includes('随机')) {
-          console.warn('[AI验证] ❌ 位置值包含无效内容:', val);
-          return false;
-        }
-        console.log('[AI验证] ✅ 位置命令有效:', val);
+      // 6. 位置对象验证
+      const locationValue = locationCommand.value;
+      if (!locationValue || typeof locationValue !== 'object') {
+        console.warn('[AI验证] ❌ 位置值不是对象，类型:', typeof locationValue);
+        console.warn('[AI验证] 位置值:', locationValue);
+        return false;
       }
+
+      const locationObj = locationValue as { 描述?: string; x?: number; y?: number };
+      
+      // 验证描述字段
+      if (!locationObj.描述 || typeof locationObj.描述 !== 'string') {
+        console.warn('[AI验证] ❌ 位置描述无效');
+        console.warn('[AI验证] 描述值:', locationObj.描述);
+        return false;
+      }
+      
+      if (!locationObj.描述.includes('·')) {
+        console.warn('[AI验证] ❌ 位置描述缺少"·"分隔符');
+        console.warn('[AI验证] 描述值:', locationObj.描述);
+        return false;
+      }
+      
+      if (locationObj.描述.includes('undefined') || locationObj.描述.includes('null') || locationObj.描述.includes('随机')) {
+        console.warn('[AI验证] ❌ 位置描述包含无效内容:', locationObj.描述);
+        return false;
+      }
+
+      // 验证坐标字段
+      if (typeof locationObj.x !== 'number' || typeof locationObj.y !== 'number') {
+        console.warn('[AI验证] ❌ 位置坐标无效');
+        console.warn('[AI验证] x:', locationObj.x, 'y:', locationObj.y);
+        return false;
+      }
+
+      console.log('[AI验证] ✅ 位置命令有效:', locationObj.描述, `(${locationObj.x}, ${locationObj.y})`);
 
       console.log('[AI验证] ✅ 所有验证通过');
       return true;

@@ -146,12 +146,17 @@ export class EnhancedWorldGenerator {
         {
           role: 'system',
           content: prompt
+        },
+        {
+          role: 'user',
+          content: '请根据上述要求生成完整的世界数据JSON。'
         }
       ];
 
       const response = await tavern.generateRaw({
         ordered_prompts: orderedPrompts,
-        should_stream: false
+        should_stream: false,
+        use_world_info: false
       });
       
       console.log('[增强世界生成器] AI响应长度:', String(response).length);
@@ -262,8 +267,15 @@ ${this.previousErrors.join('\n')}
       
       console.log('[增强世界生成器] 提取的JSON前200字符:', jsonText.substring(0, 200));
       
-      const worldDataRaw = JSON.parse(jsonText);
+      let worldDataRaw = JSON.parse(jsonText);
       console.log('[增强世界生成器] JSON解析成功');
+
+      // 🔥 修复：如果AI把数据包裹在world_data字段中，需要提取出来
+      if (worldDataRaw.world_data && typeof worldDataRaw.world_data === 'object') {
+        console.log('[增强世界生成器] 检测到world_data包裹，正在提取实际数据...');
+        worldDataRaw = worldDataRaw.world_data;
+      }
+
       console.log('[增强世界生成器] 解析出的数据结构:', {
         factions_count: worldDataRaw.factions?.length || 0,
         locations_count: worldDataRaw.locations?.length || 0,

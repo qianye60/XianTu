@@ -131,9 +131,17 @@ export class EnhancedWorldPromptBuilder {
 生成会话ID: ${sessionId}
 随机种子: ${uniqueSeed}
 坐标范围: 经度${minLng}-${maxLng}, 纬度${minLat}-${maxLat}
+
+🚨 【最高优先级 - 必须完成】🚨
+你必须生成一个完整的JSON对象，包含：
+1. continents数组：必须包含${finalContinentCount}个大洲对象
+2. factions数组：必须包含${finalFactionCount}个势力对象（不能为空！）
+3. locations数组：必须包含${finalLocationCount}个地点对象（不能为空！）
+
+如果factions或locations数组为空，这次生成将被视为失败！
+
 关键要求: 创造独特多样的修仙世界，每次生成必须显著不同，避免重复固化的势力和地名
 边界随机性: 严格要求每个大洲和势力的边界形状都必须随机生成，绝不能重复之前的多边形形状！
-数量限制: 严格按照配置生成，势力${finalFactionCount}个、地点${finalLocationCount}个，绝不可超出此数量
 
 ## ⚠️ 命名最高指令：必须严格遵循世界背景
 
@@ -385,14 +393,21 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 
 ## 📋 JSON输出格式 (严格数量控制, 仅地图字段)
 
-数量检查清单:
+🚨🚨🚨 【致命错误警告】🚨🚨🚨
+如果你生成的JSON中factions数组或locations数组为空（[]），这将导致整个世界生成失败！
+你必须确保：
+- factions数组包含恰好${finalFactionCount}个完整的势力对象
+- locations数组包含恰好${finalLocationCount}个完整的地点对象
+- 每个对象都必须包含所有必需字段
+
+数量检查清单（生成前必须自查）:
 - ✅ continents数组包含${finalContinentCount}个大洲对象，彼此边界不重叠
 - ✅ 每个大洲的"大洲边界"数组包含4-8个坐标点，绝不为空
 - ✅ 每个大洲的"地理特征"数组包含至少3个特征，绝不为空
 - ✅ 每个大洲的"天然屏障"数组包含至少2个屏障，绝不为空
-- ✅ factions数组包含${finalFactionCount}个势力对象
+- ✅ factions数组包含${finalFactionCount}个势力对象（绝不能为空数组！）
 - ✅ 每个势力的"势力范围"数组包含至少4个坐标点，绝不为空
-- ✅ locations数组包含${finalLocationCount}个地点对象
+- ✅ locations数组包含${finalLocationCount}个地点对象（绝不能为空数组！）
 - ✅ 其中${finalSecretRealmCount}个地点有special_attributes
 - ✅ 每个势力都分配到某个大洲
 
@@ -401,6 +416,11 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 - 仅输出 continents/factions/locations 三个顶级字段！
 - factions数组必须恰好包含${finalFactionCount}个元素，locations数组必须恰好包含${finalLocationCount}个元素！
 - 大陆边界绝对不能重叠，必须相互独立且保持安全距离
+
+⚠️ 生成完成后，请在输出JSON前进行最后检查：
+1. 数一数factions数组中有几个对象 → 必须是${finalFactionCount}个
+2. 数一数locations数组中有几个对象 → 必须是${finalLocationCount}个
+3. 确认每个势力都有完整的leadership和memberCount字段
 
 \`\`\`json
 {
@@ -513,7 +533,22 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 势力页面会直接使用leadership和memberCount字段显示势力信息！
 缺少这些字段将导致页面显示"暂无势力信息"！
 
+---
+
+🔥🔥🔥 【最后的提醒 - 请务必阅读】🔥🔥🔥
+
+在你输出JSON之前，请再次确认：
+1. ✅ factions数组中有${finalFactionCount}个势力对象吗？（不是0个！）
+2. ✅ locations数组中有${finalLocationCount}个地点对象吗？（不是0个！）
+3. ✅ 每个势力都有完整的leadership和memberCount字段吗？
+4. ✅ 每个势力的势力范围数组不是空的吗？（至少4个坐标点）
+5. ✅ 每个大洲的边界数组不是空的吗？（至少4个坐标点）
+
+如果以上任何一项是"否"，请立即修正后再输出JSON！
+
 核心目标: 创造一个独一无二的世界，包含完整的势力组织架构信息！
+
+现在，请生成完整的JSON数据，确保factions和locations数组都不为空！
 `;
   }
 }

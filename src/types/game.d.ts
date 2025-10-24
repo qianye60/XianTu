@@ -475,7 +475,7 @@ export interface PlayerStatus extends AIMetadata {
   状态效果: StatusEffect[];
   宗门信息?: SectMemberInfo;
   任务系统?: SystemTaskData;
-  私密信息?: PrivacyProfile; // [存档迁移] 为玩家添加可选的私密信息字段
+  // 注意: 玩家的NSFW数据存储在 SaveData.身体部位开发 中，不使用 PrivacyProfile
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -705,15 +705,12 @@ export interface BodyPartDevelopment {
   敏感度: number; // 0-100
   开发程度: number; // 0-100
   特殊标记?: string; // 如：「已调教」「极度敏感」「可喷奶」
-  描述?: string; // 部位的详细描述，如："娇小粉嫩，轻触即颤"、"紧致温润，吸附感强"
+  特征描述: string; // 部位的详细描述，如："娇小粉嫩，轻触即颤"、"紧致温润，吸附感强"
 }
 
-/** 玩家身体部位开发数据 */
+/** 玩家身体部位开发数据 - 简化结构 */
 export interface PlayerBodyPart {
-  描述: string;
-  开发等级: number;
-  敏感度?: number;
-  特殊标记?: string;
+  特征描述: string;
 }
 
 /** 统一的私密信息模块 (NSFW) */
@@ -764,7 +761,7 @@ export interface NpcProfile {
   人格底线: string[]; // 如：['背叛信任', '伤害亲友', '公开侮辱', '强迫违背意愿']，触犯后好感度断崖式下跌
 
   // === 记忆系统 ===
-  记忆: Array<{ 时间: string; 事件: string }>;
+  记忆: Array<{ 时间: string; 事件: string } | string>; // 兼容新旧格式：对象或纯字符串
   记忆总结?: string[];
 
   // === 实时状态（用 set 直接替换）===
