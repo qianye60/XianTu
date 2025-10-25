@@ -283,6 +283,37 @@ ${DATA_STRUCTURE_DEFINITIONS}
       saveData.记忆.隐式中期记忆.push(`${timePrefix}${response.mid_term_memory.trim()}`);
     }
 
+    // 🔥 检查短期记忆是否超限，超限则删除最旧的短期记忆，并将对应的隐式中期记忆转化为正式中期记忆
+    // 从 localStorage 读取短期记忆上限配置
+    let SHORT_TERM_LIMIT = 10; // 默认值
+    try {
+      const memorySettings = localStorage.getItem('memory-settings');
+      if (memorySettings) {
+        const settings = JSON.parse(memorySettings);
+        if (typeof settings.shortTermLimit === 'number' && settings.shortTermLimit > 0) {
+          SHORT_TERM_LIMIT = settings.shortTermLimit;
+        }
+      }
+    } catch (error) {
+      console.warn('[AI双向系统] 读取记忆配置失败，使用默认值:', error);
+    }
+
+    if (saveData.记忆?.短期记忆 && saveData.记忆.短期记忆.length > SHORT_TERM_LIMIT) {
+      // 删除最旧的短期记忆（第一个）
+      saveData.记忆.短期记忆.shift();
+      console.log(`[AI双向系统] 短期记忆超限（上限: ${SHORT_TERM_LIMIT}），已删除最旧的短期记忆。当前短期记忆数量: ${saveData.记忆.短期记忆.length}`);
+
+      // 将对应的隐式中期记忆转化为正式中期记忆
+      if (saveData.记忆.隐式中期记忆 && saveData.记忆.隐式中期记忆.length > 0) {
+        const implicitMidTerm = saveData.记忆.隐式中期记忆.shift();
+        if (implicitMidTerm) {
+          if (!saveData.记忆.中期记忆) saveData.记忆.中期记忆 = [];
+          saveData.记忆.中期记忆.push(implicitMidTerm);
+          console.log(`[AI双向系统] 已将隐式中期记忆转化为正式中期记忆。当前中期记忆数量: ${saveData.记忆.中期记忆.length}`);
+        }
+      }
+    }
+
     if (!response.tavern_commands?.length) {
       return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() } };
     }

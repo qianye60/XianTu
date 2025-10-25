@@ -1107,9 +1107,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
   const saveAsNewSlot = async (saveName: string): Promise<string | null> => {
     const active = rootState.value.当前激活存档;
     const profile = activeCharacterProfile.value;
-    const currentSlot = activeSaveSlot.value;
 
-    if (!active || !profile || !currentSlot?.存档数据) {
+    if (!active || !profile) {
       toast.error('没有激活的游戏进度');
       return null;
     }
@@ -1130,26 +1129,47 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
 
     try {
-      // 1. 创建新存档槽位，复制当前存档数据
+      // 🔥 修复：从 gameStateStore 获取当前游戏状态，而不是依赖 activeSaveSlot
+      const gameStateStore = useGameStateStore();
+      const currentSaveData = gameStateStore.toSaveData();
+
+      if (!currentSaveData) {
+        toast.error('无法获取当前游戏状态');
+        return null;
+      }
+
+      // 1. 创建新存档槽位，基于当前游戏状态
       const now = new Date().toISOString();
+      const playerState = currentSaveData.玩家角色状态;
+
       const newSlot: SaveSlot = {
         存档名: saveName,
         保存时间: now,
-        游戏内时间: currentSlot.游戏内时间,
-        游戏时长: currentSlot.游戏时长,
-        角色名字: currentSlot.角色名字,
-        境界: currentSlot.境界,
-        位置: currentSlot.位置,
-        修为进度: currentSlot.修为进度,
-        世界地图: currentSlot.世界地图,
+        角色名字: currentSaveData.角色基础信息?.名字,
+        境界: playerState?.境界?.名称 || '凡人',
+        位置: playerState?.位置?.描述 || '未知',
         // 深拷贝存档数据
-        存档数据: JSON.parse(JSON.stringify(currentSlot.存档数据))
+        存档数据: JSON.parse(JSON.stringify(currentSaveData))
       };
+
+      // 计算修为进度
+      if (playerState?.境界 && playerState.境界.下一级所需 > 0) {
+        newSlot.修为进度 = Math.floor((playerState.境界.当前进度 / playerState.境界.下一级所需) * 100);
+      }
+
+      // 更新游戏时间
+      if (currentSaveData.游戏时间) {
+        const time = currentSaveData.游戏时间;
+        newSlot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
+      }
 
       // 2. 添加到存档列表
       profile.存档列表[saveName] = newSlot;
 
-      // 3. 保存到本地存储
+      // 🔥 新架构：将大的存档数据独立保存到 IndexedDB
+      await storage.saveSaveData(active.角色ID, saveName, currentSaveData);
+
+      // 3. 保存元数据到本地存储
       await commitMetadataToStorage();
 
       toast.success(`已另存为新存档：${saveName}`);
