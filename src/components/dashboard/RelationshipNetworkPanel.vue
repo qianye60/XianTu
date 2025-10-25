@@ -919,6 +919,7 @@ const summarizeMemories = async () => {
   if (!selectedPerson.value) return;
   const npcName = selectedPerson.value.名字;
   isSummarizing.value = true;
+
   try {
     const memories = selectedPerson.value.记忆 || [];
     if (memories.length < 3) {
@@ -931,20 +932,75 @@ const summarizeMemories = async () => {
       memories.length
     );
 
-    // 🔥 [新架构] 使用动作队列请求AI进行记忆总结
-    actionQueue.addAction({
-      type: 'npc_memory_summarize',
-      npcName: npcName,
-      count: countToSummarize,
-      description: `请求AI总结NPC【${npcName}】的最近${countToSummarize}条记忆。`
-    });
+    // 提取最旧的N条记忆
+    const memoriesToSummarizeList = memories.slice(0, countToSummarize);
+    const remainingMemories = memories.slice(countToSummarize);
 
-    uiStore.showToast(`已将“总结${npcName}的记忆”请求加入动作队列`, { type: 'success' });
+    // 构建AI提示词
+    const memoriesText = memoriesToSummarizeList.map((m, i) => `${i + 1}. ${m}`).join('\n');
+
+    const systemPrompt = `你是一个专业的记忆总结助手，擅长将NPC的记忆整合为简洁的摘要。
+
+总结要求：
+1. 按时间顺序梳理事件脉络
+2. 保留关键信息、时间线索、情感变化、关系发展
+3. 字数控制在100-200字
+4. 使用修仙小说的语言风格
+5. 只返回总结内容，不要有任何前缀、后缀或标题`;
+
+    const userPrompt = `请将以下关于【${npcName}】的记忆总结成一条简洁的摘要：
+
+${memoriesText}`;
+
+    uiStore.showToast('正在调用AI总结记忆...', { type: 'info' });
+
+    // 🔥 使用Raw模式直接调用AI
+    const { generateWithRawPrompt } = await import('@/utils/tavernCore');
+    const summary = await generateWithRawPrompt(userPrompt, systemPrompt, false);
+
+    if (!summary || summary.trim().length === 0) {
+      throw new Error('AI返回了空的总结结果');
+    }
+
+    // 更新NPC数据
+    const currentSaveData = gameStateStore.getCurrentSaveData();
+    if (!currentSaveData?.人物关系) {
+      throw new Error('人物关系数据不存在');
+    }
+
+    const npcKey = Object.keys(currentSaveData.人物关系).find(
+      key => currentSaveData.人物关系[key]?.名字 === npcName
+    );
+
+    if (!npcKey) {
+      throw new Error(`找不到名为 ${npcName} 的人物`);
+    }
+
+    const npcProfile = currentSaveData.人物关系[npcKey];
+
+    // 添加到记忆总结数组
+    if (!npcProfile.记忆总结) {
+      npcProfile.记忆总结 = [];
+    }
+    npcProfile.记忆总结.push(summary.trim());
+
+    // 更新记忆数组（删除已总结的记忆）
+    npcProfile.记忆 = remainingMemories;
+
+    // 保存到存档
+    await gameStateStore.saveGame();
+
+    // 更新选中的人物（触发UI刷新）
+    if (selectedPerson.value?.名字 === npcName) {
+      selectedPerson.value = { ...currentSaveData.人物关系[npcKey] };
+    }
+
+    uiStore.showToast(`✅ 已成功总结 ${countToSummarize} 条记忆`, { type: 'success' });
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
-    uiStore.showToast(`操作失败: ${errorMsg}`, { type: 'error' });
-    console.error(`[RelationshipNetworkPanel] 记忆总结请求失败:`, error);
+    uiStore.showToast(`总结失败: ${errorMsg}`, { type: 'error' });
+    console.error(`[RelationshipNetworkPanel] 记忆总结失败:`, error);
   } finally {
     isSummarizing.value = false;
   }

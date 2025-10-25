@@ -2966,6 +2966,10 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   border: 1px solid var(--color-border);
   cursor: pointer;
   transition: all 0.2s ease;
+  /* 🔥 移动端点击优化 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(var(--color-primary-rgb), 0.1);
+  user-select: none;
 }
 
 .dao-item:hover {
@@ -2973,6 +2977,11 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   border-color: var(--color-primary);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.dao-item:active {
+  transform: scale(0.98);
+  background: var(--color-surface-hover);
 }
 
 .dao-item.compact {

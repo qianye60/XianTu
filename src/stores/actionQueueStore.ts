@@ -124,7 +124,7 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
         case 'npc_steal':
           return `尝试从 ${action.npcName} 身上偷取 ${action.itemName}`;
         case 'npc_memory_summarize':
-          return `你开始整理关于 ${action.npcName} 的记忆碎片，试图从中总结出关键信息。`;
+          return `你开始整理关于 ${action.npcName} 的记忆碎片，试图从最旧的 ${action.count || 10} 条记忆中总结出关键信息。`;
         case 'custom':
           return action.description;
         default:
