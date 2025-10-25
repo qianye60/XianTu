@@ -28,10 +28,14 @@ export async function generateWithRawPrompt(
     const response = await tavernHelper.generateRaw({
       ordered_prompts: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
+        { role: 'user', content: "开始任务" }
       ],
       should_stream: streaming,
-      use_world_info: false,
+      overrides: {
+        world_info_before: '',
+        world_info_after: ''
+      }
     });
 
     // 如果响应是对象且包含text字段，返回text

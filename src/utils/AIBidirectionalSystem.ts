@@ -9,6 +9,7 @@ import { set, get, unset, cloneDeep } from 'lodash';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商店
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
@@ -27,6 +28,7 @@ export interface ProcessOptions {
 class AIBidirectionalSystemClass {
   private static instance: AIBidirectionalSystemClass | null = null;
   private stateHistory: StateChangeLog[] = [];
+  private isSummarizing = false; // 添加一个锁，防止并发总结
 
   private constructor() {}
 
@@ -212,8 +214,11 @@ ${DATA_STRUCTURE_DEFINITIONS}
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        use_world_info: false,
         should_stream: options?.useStreaming || false,
+        overrides: {
+          world_info_before: '',
+          world_info_after: ''
+        },
         ...(options?.onStreamChunk ? { onStreamChunk: options.onStreamChunk } : {}),
       });
 
@@ -314,6 +319,21 @@ ${DATA_STRUCTURE_DEFINITIONS}
       }
     }
 
+    // 🔥 检查并处理中期记忆，总结后转入长期记忆
+    // 检查是否达到自动总结阈值，如果达到则“异步”触发，不阻塞当前游戏循环
+    try {
+      const memorySettings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
+      const midTermTrigger = memorySettings.midTermTrigger ?? 25; // 默认25
+      if (saveData.记忆?.中期记忆 && saveData.记忆.中期记忆.length >= midTermTrigger) {
+        this.triggerMemorySummary().catch(error => {
+          console.error('[AI双向系统] 自动记忆总结在后台失败:', error);
+        });
+      }
+    } catch (error) {
+      console.warn('[AI双向系统] 检查自动总结阈值时出错:', error);
+    }
+
+
     if (!response.tavern_commands?.length) {
       return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() } };
     }
@@ -354,6 +374,125 @@ ${DATA_STRUCTURE_DEFINITIONS}
     }
 
     return { saveData, stateChanges: stateChangesLog };
+  }
+
+  /**
+   * 触发记忆总结（公开方法，带锁）
+   * 无论是自动还是手动，都通过此方法执行，以防止竞态条件。
+   */
+  public async triggerMemorySummary(): Promise<void> {
+    if (this.isSummarizing) {
+      toast.warning('已有一个总结任务正在进行中，请稍候...');
+      console.log('[AI双向系统] 检测到已有总结任务在运行，本次触发被跳过。');
+      return;
+    }
+
+    this.isSummarizing = true;
+    console.log('[AI双向系统] 开始记忆总结流程...');
+    toast.loading('正在调用AI总结中期记忆...', { id: 'memory-summary' });
+
+    try {
+      const gameStateStore = useGameStateStore();
+      const characterStore = useCharacterStore();
+      const saveData = gameStateStore.toSaveData();
+
+      if (!saveData || !saveData.记忆) {
+        throw new Error('无法获取存档数据或记忆模块');
+      }
+
+      // 1. 从 localStorage 读取最新配置
+      const settings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
+      const midTermTrigger = settings.midTermTrigger ?? 25;
+      const midTermKeep = settings.midTermKeep ?? 8;
+      const longTermFormat = settings.longTermFormat || '';
+
+      // 2. 再次检查是否需要总结
+      const midTermMemories = saveData.记忆.中期记忆 || [];
+      
+      // 情况1: 未达到触发阈值
+      if (midTermMemories.length < midTermTrigger) {
+        console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})未达到总结阈值(${midTermTrigger})，取消总结。`);
+        toast.info('中期记忆数量不足，已取消总结', { id: 'memory-summary' });
+        return;
+      }
+      
+      // 情况2: 总结后无法保留足够的记忆
+      if (midTermMemories.length <= midTermKeep) {
+        console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})不足以保留${midTermKeep}条，取消总结。`);
+        toast.info('中期记忆不足以保留指定数量，已取消总结', { id: 'memory-summary' });
+        return;
+      }
+
+      // 3. 确定要总结和保留的记忆
+      const numToSummarize = Math.max(0, midTermMemories.length - midTermKeep);
+      if (numToSummarize <= 0) {
+        console.log('[AI双向系统] 需要总结的记忆数量为0，取消操作。');
+        return;
+      }
+
+      const memoriesToSummarize = midTermMemories.slice(0, numToSummarize);
+      const memoriesToKeep = midTermMemories.slice(numToSummarize);
+      const memoriesText = memoriesToSummarize.map((m, i) => `${i + 1}. ${m}`).join('\n');
+
+      // 4. 构建提示词 (使用 MemoryCenterPanel 中更优化的版本)
+      const defaultPrompt = `你是一个专业的记忆总结助手，擅长将中期记忆整合为详细的长期记忆档案。
+总结要求：
+1. 必须包含时间线索、关键事件、人物关系变化、情感波动
+2. 使用第一人称（"我"）的视角描述
+3. 按时间顺序梳理事件脉络，突出因果关系
+4. 保留重要细节，合并琐碎信息
+5. 字数控制在200-350字，确保信息完整详实
+6. 使用修仙小说的语言风格
+7. 只返回总结内容，不要有任何前缀、后缀或标题`;
+
+      const systemPrompt = longTermFormat || defaultPrompt;
+      const userPrompt = `请将以下中期记忆总结成详细的长期记忆档案：\n\n${memoriesText}`;
+
+      // 5. 调用 AI
+      const tavernHelper = getTavernHelper();
+      if (!tavernHelper) throw new Error('TavernHelper 未初始化');
+
+      const response = await tavernHelper.generateRaw({
+        ordered_prompts: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+          { role: 'user', content: "开始任务" }
+        ],
+        should_stream: false,
+        overrides: { world_info_before: '', world_info_after: '' }
+      });
+
+      const summaryText = String(response).trim();
+      if (!summaryText) {
+        throw new Error('AI返回的总结为空');
+      }
+
+      // 6. 更新游戏状态
+      const timePrefix = this._formatGameTime(saveData.游戏时间);
+      const newLongTermMemory = `${timePrefix}【记忆总结】${summaryText}`;
+
+      // 确保 memory 对象存在
+      if (!gameStateStore.memory) {
+        gameStateStore.memory = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+      }
+
+      gameStateStore.memory.长期记忆.push(newLongTermMemory);
+      gameStateStore.memory.中期记忆 = memoriesToKeep;
+
+      // 7. 保存到存档
+      await characterStore.saveCurrentGame();
+
+      console.log(`[AI双向系统] ✅ 总结完成：${numToSummarize}条中期记忆 -> 1条长期记忆。保留 ${memoriesToKeep.length} 条。`);
+      toast.success(`成功总结 ${numToSummarize} 条记忆！`, { id: 'memory-summary' });
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      console.error('[AI双向系统] 记忆总结失败:', error);
+      toast.error(`记忆总结失败: ${errorMsg}`, { id: 'memory-summary' });
+    } finally {
+      this.isSummarizing = false;
+      console.log('[AI双向系统] 记忆总结流程结束，已释放锁。');
+    }
   }
 
   private executeCommand(command: { action: string; key: string; value?: unknown }, saveData: SaveData): void {

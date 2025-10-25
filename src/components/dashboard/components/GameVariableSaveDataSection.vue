@@ -12,6 +12,7 @@
           :value="value"
           :path="String(key)"
           @delete-item="handleDeleteItem"
+          @edit-item="handleEditItem"
         />
       </div>
       <div v-else class="empty-state">
@@ -38,7 +39,17 @@ interface Props {
 
 defineProps<Props>()
 
+const emit = defineEmits(['edit-variable'])
+
 const characterStore = useCharacterStore()
+
+const handleEditItem = (path: string, value: unknown) => {
+  emit('edit-variable', {
+    type: 'saveData',
+    key: path,
+    value: value
+  })
+}
 
 const handleDeleteItem = async (path: string) => {
   debug.log('[TavernSaveData]', `请求删除: ${path}`)
@@ -50,7 +61,7 @@ const handleDeleteItem = async (path: string) => {
     // 路径类似于 '背包_物品.item_123'
     // 我们需要将其转换为 lodash.set 的路径格式
     const pathArray = path.split('.')
-    
+
     // 获取当前激活的存档数据
     const activeSave = characterStore.activeSaveSlot
     if (!activeSave || !activeSave.存档数据) {
@@ -72,9 +83,6 @@ const handleDeleteItem = async (path: string) => {
 
     // 直接用修改后的数据更新整个存档
     await characterStore.updateSaveDataDirectly(saveDataCopy)
-    
-    // 同步到酒馆
-    await characterStore.syncToTavernAndSave({ fullSync: true })
 
     toast.success(`项目 ${path} 已删除`)
     debug.log('[TavernSaveData]', `成功删除并同步: ${path}`)

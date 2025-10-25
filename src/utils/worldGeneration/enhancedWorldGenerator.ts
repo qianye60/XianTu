@@ -156,7 +156,10 @@ export class EnhancedWorldGenerator {
       const response = await tavern.generateRaw({
         ordered_prompts: orderedPrompts,
         should_stream: false,
-        use_world_info: false
+        overrides: {
+          world_info_before: '',
+          world_info_after: ''
+        }
       });
       
       console.log('[增强世界生成器] AI响应长度:', String(response).length);

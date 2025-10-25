@@ -82,7 +82,7 @@ interface EditingItem {
 const isLoading = ref(false)
 const isRefreshing = ref(false)
 const lastUpdateTime = ref('')
-const selectedDataType = ref('core') // 默认显示核心数据
+const selectedDataType = ref('saveData') // 默认显示存档数据
 const searchQuery = ref('')
 const showDataStatsModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
@@ -93,8 +93,9 @@ const coreDataViews = computed(() => {
   const saveData = gameStateStore.toSaveData()
   if (!saveData) return {}
 
+  // 将SaveData放在第一个位置
   return {
-    'SaveData': saveData,
+    '存档数据 (SaveData)': saveData,
     '角色数据': saveData.角色基础信息,
     '记忆数据': saveData.记忆,
     '世界信息': saveData.世界信息
@@ -167,14 +168,14 @@ const getWorldItemCount = () => {
   return 0
 }
 
-// 数据类型配置
+// 数据类型配置 - 将存档数据放在第一个
 const dataTypes = [
-  { key: 'core',      label: '核心数据', icon: 'Database' },
-  { key: 'custom',    label: '自定义选项', icon: 'Settings' },
-  { key: 'character', label: '角色数据', icon: 'Users' },
   { key: 'saveData',  label: '存档数据', icon: 'Archive' },
+  { key: 'core',      label: '核心数据', icon: 'Database' },
+  { key: 'character', label: '角色数据', icon: 'Users' },
   { key: 'worldInfo', label: '世界信息', icon: 'Book' },
   { key: 'memory',    label: '记忆数据', icon: 'Brain' },
+  { key: 'custom',    label: '自定义选项', icon: 'Settings' },
   { key: 'raw',       label: '原始数据', icon: 'Code' }
 ]
 
@@ -247,8 +248,73 @@ const deleteVariable = async () => {
 }
 
 const saveVariable = async () => {
-  toast.warning('新架构下不支持直接编辑变量，数据由Pinia统一管理。请通过游戏操作修改数据。')
-  closeEditModal()
+  if (!editingItem.value) {
+    toast.error('没有要保存的数据')
+    return
+  }
+
+  try {
+    const { key, value } = editingItem.value
+
+    // 解析JSON字符串（如果是对象类型）
+    let parsedValue = value
+    if (typeof value === 'string' && (value.trim().startsWith('{') || value.trim().startsWith('['))) {
+      try {
+        parsedValue = JSON.parse(value)
+      } catch {
+        // 如果解析失败，保持原字符串
+      }
+    }
+
+    console.log('[游戏变量-保存前] Key:', key, 'Value:', parsedValue)
+
+    // 🔥 关键修复：直接使用完整的 key，先转换为 store 的路径格式
+    const keyPrefixMap: Record<string, string> = {
+      '角色基础信息': 'character',
+      '玩家角色状态': 'playerStatus',
+      '背包': 'inventory',
+      '装备栏': 'equipment',
+      '人物关系': 'relationships',
+      '记忆': 'memory',
+      '游戏时间': 'gameTime',
+      '世界信息': 'worldInfo',
+      '任务系统': 'questSystem',
+      '三千大道': 'thousandDao',
+    };
+
+    // 查找匹配的前缀（只替换第一个匹配的前缀）
+    let path: string = key;
+    for (const [chinesePrefix, storeKey] of Object.entries(keyPrefixMap)) {
+      if (key === chinesePrefix) {
+        // 完全匹配，直接替换
+        path = storeKey;
+        break;
+      } else if (key.startsWith(chinesePrefix + '.')) {
+        // 前缀匹配，替换前缀部分
+        path = key.replace(chinesePrefix, storeKey);
+        break;
+      }
+    }
+
+    console.log('[游戏变量-转换后路径]', path)
+
+    // 🔥 直接使用 updateState 更新
+    gameStateStore.updateState(path, parsedValue);
+    console.log('[游戏变量-更新后] Store中的值:', gameStateStore.$state)
+
+    // 保存到数据库
+    await gameStateStore.saveGame()
+
+    toast.success(`✅ 已成功更新 ${key}`)
+    closeEditModal()
+
+    // 刷新显示
+    await refreshData()
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : '未知错误'
+    toast.error(`保存失败: ${errorMsg}`)
+    console.error('[游戏变量] 保存失败:', error)
+  }
 }
 
 const closeEditModal = () => {
