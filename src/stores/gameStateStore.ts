@@ -151,26 +151,29 @@ export const useGameStateStore = defineStore('gameState', {
      * @param saveData 完整的存档数据
      */
     loadFromSaveData(saveData: SaveData) {
-      this.character = saveData.角色基础信息;
-      this.playerStatus = saveData.玩家角色状态;
+      // 🔥 使用 Object.assign 或展开运算符确保响应式
+      this.character = saveData.角色基础信息 ? { ...saveData.角色基础信息 } : null;
+      this.playerStatus = saveData.玩家角色状态 ? { ...saveData.玩家角色状态 } : null;
 
       // 确保角色基础信息和玩家角色状态中的灵根、出生保持同步
       if (this.character && this.playerStatus) {
         if (this.character.灵根) (this.playerStatus as any).灵根 = this.character.灵根;
         if (this.character.出生) (this.playerStatus as any).出生 = this.character.出生;
       }
-      this.inventory = saveData.背包;
-      this.equipment = saveData.装备栏;
-      this.relationships = saveData.人物关系;
-      this.worldInfo = saveData.世界信息 || null;
-      this.memory = saveData.记忆;
-      this.gameTime = saveData.游戏时间;
-      this.narrativeHistory = saveData.叙事历史 || [];
-      this.任务系统 = saveData.任务系统;
+
+      // 🔥 深拷贝嵌套对象以保持响应式
+      this.inventory = saveData.背包 ? JSON.parse(JSON.stringify(saveData.背包)) : null;
+      this.equipment = saveData.装备栏 ? JSON.parse(JSON.stringify(saveData.装备栏)) : null;
+      this.relationships = saveData.人物关系 ? JSON.parse(JSON.stringify(saveData.人物关系)) : null;
+      this.worldInfo = saveData.世界信息 ? JSON.parse(JSON.stringify(saveData.世界信息)) : null;
+      this.memory = saveData.记忆 ? JSON.parse(JSON.stringify(saveData.记忆)) : null;
+      this.gameTime = saveData.游戏时间 ? { ...saveData.游戏时间 } : null;
+      this.narrativeHistory = saveData.叙事历史 ? [...saveData.叙事历史] : [];
+      this.任务系统 = saveData.任务系统 ? JSON.parse(JSON.stringify(saveData.任务系统)) : null;
 
       // 加载其他系统数据
-      this.thousandDao = saveData.三千大道 || null;
-      this.questSystem = saveData.任务系统 || {
+      this.thousandDao = saveData.三千大道 ? JSON.parse(JSON.stringify(saveData.三千大道)) : null;
+      this.questSystem = saveData.任务系统 ? JSON.parse(JSON.stringify(saveData.任务系统)) : {
         配置: {
           启用系统任务: false,
           系统任务类型: '修仙辅助系统',
@@ -187,10 +190,10 @@ export const useGameStateStore = defineStore('gameState', {
           系统任务完成: 0
         }
       };
-      this.cultivationTechnique = saveData.修炼功法 || null;
-      this.masteredSkills = saveData.掌握技能 || [];
-      this.systemConfig = saveData.系统 || null;
-      this.bodyPartDevelopment = saveData.身体部位开发 || null;
+      this.cultivationTechnique = saveData.修炼功法 ? JSON.parse(JSON.stringify(saveData.修炼功法)) : null;
+      this.masteredSkills = saveData.掌握技能 ? JSON.parse(JSON.stringify(saveData.掌握技能)) : [];
+      this.systemConfig = saveData.系统 ? JSON.parse(JSON.stringify(saveData.系统)) : null;
+      this.bodyPartDevelopment = saveData.身体部位开发 ? JSON.parse(JSON.stringify(saveData.身体部位开发)) : null;
 
       this.isGameLoaded = true;
     },
@@ -204,7 +207,8 @@ export const useGameStateStore = defineStore('gameState', {
         return null;
       }
 
-      return {
+      // 🔥 使用深拷贝确保返回的数据是独立的，防止引用污染
+      return JSON.parse(JSON.stringify({
         角色基础信息: this.character,
         玩家角色状态: this.playerStatus,
         背包: this.inventory,
@@ -238,7 +242,7 @@ export const useGameStateStore = defineStore('gameState', {
         系统: this.systemConfig || undefined,
         叙事历史: this.narrativeHistory || [],
         身体部位开发: this.bodyPartDevelopment || undefined
-      };
+      }));
     },
 
     /**
@@ -477,21 +481,18 @@ export const useGameStateStore = defineStore('gameState', {
         return;
       }
 
-      // 对于嵌套属性，需要触发响应式更新
-      // 特别处理 relationships（人物关系）
-      if (rootKey === 'relationships') {
-        // 创建新对象以触发响应式
-        this.relationships = { ...this.relationships };
-        set(this.relationships, parts.slice(1).join('.'), value);
+      // 🔥 关键修复：对于嵌套属性，创建新对象以触发 Vue 3 响应式
+      const currentRoot = (this as any)[rootKey];
+      if (currentRoot && typeof currentRoot === 'object') {
+        // 深拷贝当前对象
+        const newRoot = JSON.parse(JSON.stringify(currentRoot));
+        // 使用 lodash set 修改副本
+        set(newRoot, parts.slice(1).join('.'), value);
+        // 替换整个根对象以触发 Vue 3 响应式
+        (this as any)[rootKey] = newRoot;
+        console.log(`[gameStateStore] ✅ 已更新 ${path} = ${JSON.stringify(value).substring(0, 100)}`);
       } else {
-        // 其他属性也采用同样的策略
-        const currentRoot = (this as any)[rootKey];
-        if (currentRoot && typeof currentRoot === 'object') {
-          (this as any)[rootKey] = { ...currentRoot };
-          set((this as any)[rootKey], parts.slice(1).join('.'), value);
-        } else {
-          set(this, path, value);
-        }
+        set(this, path, value);
       }
     },
 

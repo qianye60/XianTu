@@ -6,9 +6,14 @@
       <span class="key">{{ nodeKey }}:</span>
       <span class="value" v-if="!isObject">{{ displayValue }}</span>
       
-      <button v-if="isDeletable" @click.stop="deleteItem" class="delete-btn" title="删除此项">
-        <Trash2 :size="14" />
-      </button>
+      <div class="action-buttons">
+        <button @click.stop="editItem" class="edit-btn" title="编辑此项">
+          <Edit :size="14" />
+        </button>
+        <button v-if="isDeletable" @click.stop="deleteItem" class="delete-btn" title="删除此项">
+          <Trash2 :size="14" />
+        </button>
+      </div>
     </div>
     <div v-if="isObject && isOpen" class="node-children">
       <TreeNode
@@ -18,6 +23,7 @@
         :value="childValue"
         :path="`${path}.${childKey}`"
         @delete-item="(p: string) => emit('delete-item', p)"
+        @edit-item="(p: string, v: unknown) => emit('edit-item', p, v)"
       />
     </div>
   </div>
@@ -25,7 +31,7 @@
 
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent } from 'vue'
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2, Edit } from 'lucide-vue-next'
 
 // 异步加载自身以处理递归
 const TreeNode = defineAsyncComponent(() => import('./TreeNode.vue'))
@@ -37,7 +43,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits(['delete-item'])
+const emit = defineEmits(['delete-item', 'edit-item'])
 
 const isOpen = ref(false)
 
@@ -69,6 +75,10 @@ const toggle = () => {
 
 const deleteItem = () => {
   emit('delete-item', props.path)
+}
+
+const editItem = () => {
+  emit('edit-item', props.path, props.value)
 }
 </script>
 
@@ -112,20 +122,37 @@ const deleteItem = () => {
   border-left: 1px solid #444;
 }
 
+.action-buttons {
+  margin-left: auto;
+  display: none; /* 默认隐藏 */
+  gap: 4px;
+}
+
+.node-line:hover .action-buttons {
+  display: flex; /* 悬停时显示 */
+}
+
+.edit-btn,
 .delete-btn {
   background: none;
   border: none;
-  color: #ff5555;
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
-  margin-left: auto;
-  display: none; /* 默认隐藏 */
   transition: all 0.2s ease;
 }
 
-.node-line:hover .delete-btn {
-  display: inline-block; /* 悬停时显示 */
+.edit-btn {
+  color: #4a9eff;
+}
+
+.edit-btn:hover {
+  background: rgba(74, 158, 255, 0.2);
+  color: #6eb3ff;
+}
+
+.delete-btn {
+  color: #ff5555;
 }
 
 .delete-btn:hover {

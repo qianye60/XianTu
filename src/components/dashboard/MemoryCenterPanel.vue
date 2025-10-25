@@ -26,22 +26,29 @@
       </div>
     </div>
 
+    <!-- 导出工具 -->
+    <div class="export-section" v-if="!showSettings">
+      <button
+        class="export-btn-main"
+        @click="exportMemoriesAsNovel"
+        title="将完整的叙事历史导出为小说格式的 .txt 文件"
+      >
+        📖 导出为小说
+      </button>
+      <div class="export-hint">
+        将完整的游戏对话历史（基于叙事历史）导出为小说格式，便于阅读和分享。
+      </div>
+    </div>
+
     <!-- 记忆系统设置 -->
     <div class="settings-section" v-if="showSettings">
       <div class="settings-header">
         <span class="settings-title">⚙️ 记忆系统配置</span>
         <div class="header-actions">
           <button
-            class="export-btn"
-            @click="exportMemoriesAsNovel"
-            title="导出对话历史为小说格式"
-          >
-            📖 导出历史
-          </button>
-          <button
             class="test-btn"
-            @click="addTestLongTermMemory"
-            title="添加测试长期记忆"
+            @click="addTestMediumTermMemory"
+            title="添加测试中期记忆"
           >
             🧪 测试
           </button>
@@ -266,6 +273,7 @@ import { useGameStateStore } from '@/stores/gameStateStore'; // 导入 gameState
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
+import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem'; // 导入AI系统
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
@@ -399,83 +407,8 @@ const formatTime = (timestamp: number): string => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 };
 
-/**
- * 将中期记忆总结为长期记忆（使用AI总结）
- * 根据配置，将超过阈值的中期记忆总结为长期记忆，并删除被总结的中期记忆
- */
-const summarizeMidTermToLongTerm = async () => {
-  try {
-    // 计算需要总结的中期记忆数量
-    const midTermCount = mediumTermMemories.value.length;
-    const keepCount = memoryConfig.value.midTermKeep || 8;
-    const summaryCount = Math.max(0, midTermCount - keepCount);
-
-    if (summaryCount <= 0) {
-      debug.log('记忆中心', '中期记忆数量未超过保留阈值，无需总结');
-      return;
-    }
-
-    debug.log('记忆中心', `开始AI总结：将总结 ${summaryCount} 条中期记忆，保留最新 ${keepCount} 条`);
-
-    // 提取要总结的记忆（最早的N条）
-    const memoriesToSummarize = mediumTermMemories.value.slice(0, summaryCount);
-
-    // 构建总结提示词
-    const memoriesText = memoriesToSummarize.map((m, i) => {
-      const content = m.parsedContent
-        ? `${m.parsedContent.事件}（${m.parsedContent.时间}）`
-        : m.content;
-      return `${i + 1}. ${content}`;
-    }).join('\n');
-
-    const defaultPrompt = `你是一个专业的记忆总结助手，擅长将中期记忆整合为详细的长期记忆档案。
-
-总结要求：
-1. 必须包含时间线索、关键事件、人物关系变化、情感波动
-2. 使用第一人称（"我"）的视角描述
-3. 按时间顺序梳理事件脉络，突出因果关系
-4. 保留重要细节，合并琐碎信息
-5. 字数控制在200-350字，确保信息完整详实
-6. 使用修仙小说的语言风格
-7. 只返回总结内容，不要有任何前缀、后缀或标题`;
-
-    const systemPrompt = memoryConfig.value.longTermFormat || defaultPrompt;
-    const userPrompt = `请将以下中期记忆总结成详细的长期记忆档案：
-
-${memoriesText}`;
-
-    // TODO: 使用新的AI接口调用总结
-    // 暂时使用简单合并作为降级方案
-    const summary = memoriesText;
-
-    // 创建长期记忆
-    const longTermMemory: Memory = {
-      type: 'long',
-      content: summary,
-      time: `总结于${formatTime(Date.now())}`,
-      importance: 8,
-      isConverted: true,
-      isSummarized: true
-    };
-
-    // 添加到长期记忆
-    longTermMemories.value.push(longTermMemory);
-
-    // 删除被总结的中期记忆
-    mediumTermMemories.value.splice(0, summaryCount);
-
-    debug.log('记忆中心', `✅ AI总结完成：已将 ${summaryCount} 条中期记忆总结为1条长期记忆`);
-    toast.success(`已将 ${summaryCount} 条中期记忆总结为长期记忆`);
-
-    // 保存到存档
-    await saveMemoriesToStore();
-  } catch (error) {
-    debug.error('记忆中心', 'AI总结失败:', error);
-    const errorMsg = error instanceof Error ? error.message : '未知错误';
-    toast.error(`记忆总结失败: ${errorMsg}`);
-    throw error;
-  }
-};
+// 此函数已废弃，逻辑已移至 AIBidirectionalSystem.ts
+// const summarizeMidTermToLongTerm = async () => { ... };
 
 /**
  * 保存记忆数据到存档
@@ -532,8 +465,8 @@ const convertMemories = () => {
     // 如果启用了自动总结，触发AI总结
     if (memoryConfig.value.autoSummaryEnabled) {
       debug.log('记忆中心', '自动总结已启用，将在后台触发AI总结');
-      // 异步触发总结，不阻塞当前流程
-      summarizeMidTermToLongTerm().catch(error => {
+      // 🔥 [重构] 调用统一的总结入口
+      AIBidirectionalSystem.triggerMemorySummary().catch(error => {
         debug.error('记忆中心', '自动总结失败:', error);
       });
     } else {
@@ -790,14 +723,9 @@ const manualTriggerSummary = async () => {
     return;
   }
 
-  try {
-    toast.loading('正在调用AI总结中期记忆...', { id: 'manual-summary' });
-    await summarizeMidTermToLongTerm();
-    toast.success('手动总结完成！', { id: 'manual-summary' });
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '未知错误';
-    toast.error(`手动总结失败: ${errorMsg}`, { id: 'manual-summary' });
-  }
+  // 🔥 [重构] 直接调用 AIBidirectionalSystem 中的统一方法
+  // 这个方法自带 toast 通知和错误处理
+  await AIBidirectionalSystem.triggerMemorySummary();
 };
 
 /**
@@ -856,35 +784,40 @@ const deleteMemory = async (memory: Memory, displayIndex: number) => {
 };
 
 /**
- * 导出对话历史为小说格式
+ * [重构] 导出叙事历史为小说格式
  */
 const exportMemoriesAsNovel = () => {
   try {
     const characterName = gameStateStore.character?.名字 || '修行者';
     const worldName = gameStateStore.worldInfo?.世界名称 || '修仙世界';
+    const narrativeHistory = gameStateStore.narrativeHistory || [];
 
-    // 获取所有短期记忆（对话历史）
-    const memories = gameStateStore.memory?.短期记忆 || [];
-
-    if (memories.length === 0) {
-      toast.warning('暂无对话历史可导出');
+    if (narrativeHistory.length === 0) {
+      toast.warning('暂无叙事历史可导出');
       return;
     }
 
     // 生成小说格式的文本
-    let novelText = `《${characterName}的修仙之路》\n`;
-    novelText += `世界：${worldName}\n`;
+    let novelText = `《${characterName}的修仙之路》\n\n`;
+    novelText += `世界档案：${worldName}\n`;
     novelText += `导出时间：${new Date().toLocaleString('zh-CN')}\n`;
-    novelText += `总对话数：${memories.length}\n`;
-    novelText += `\n${'='.repeat(50)}\n\n`;
+    novelText += `总段落数：${narrativeHistory.length}\n`;
+    novelText += `\n${'='.repeat(60)}\n\n`;
 
-    // 反转数组，从最早的对话开始（因为unshift存储，最新的在前）
-    const sortedMemories = [...memories].reverse();
+    narrativeHistory.forEach((entry, index) => {
+      const isPlayer = entry.type === 'user' || entry.type === 'player';
+      const content = entry.content.replace(/【.*?】/g, '').trim(); // 移除时间戳
 
-    sortedMemories.forEach((memory, index) => {
-      novelText += `第 ${index + 1} 回\n\n`;
-      novelText += `${memory}\n\n`;
-      novelText += `${'-'.repeat(50)}\n\n`;
+      if (isPlayer) {
+        novelText += `我说道：“${content}”\n\n`;
+      } else {
+        novelText += `${content}\n\n`;
+      }
+      
+      // 每10个段落添加一个分隔符
+      if ((index + 1) % 10 === 0) {
+        novelText += `\n--- ${'◇'.repeat(10)} ---\n\n`;
+      }
     });
 
     // 创建下载
@@ -898,7 +831,7 @@ const exportMemoriesAsNovel = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    toast.success(`已导出 ${memories.length} 条对话历史`);
+    toast.success(`已成功导出 ${narrativeHistory.length} 条叙事历史`);
   } catch (error) {
     console.error('[记忆中心] 导出失败:', error);
     toast.error('导出失败，请查看控制台');
@@ -921,13 +854,13 @@ onMounted(async () => {
   });
 });
 
-// 测试函数：添加一条长期记忆
-const addTestLongTermMemory = async () => {
+// 测试函数：添加一条中期记忆
+const addTestMediumTermMemory = async () => {
   try {
     const testMemory: Memory = {
-      content: `测试长期记忆 ${Date.now()} - 这是一条用于测试的长期记忆记录。`,
+      content: `测试中期记忆 ${Date.now()} - 这是一条用于测试的中期记忆记录。`,
       time: formatTime(Date.now()),
-      type: 'long',
+      type: 'medium',
       isConverted: false,
       isSummarized: false,
       parsedContent: {
@@ -936,13 +869,13 @@ const addTestLongTermMemory = async () => {
       }
     };
 
-    longTermMemories.value.push(testMemory);
+    mediumTermMemories.value.push(testMemory);
 
     // 保存到存档
     await saveMemoriesToStore();
 
-    toast.success(`✅ 测试记忆已添加！当前长期记忆: ${longTermMemories.value.length} 条`);
-    debug.log('记忆中心', '添加测试长期记忆成功', testMemory);
+    toast.success(`✅ 测试记忆已添加！当前中期记忆: ${mediumTermMemories.value.length} 条`);
+    debug.log('记忆中心', '添加测试中期记忆成功', testMemory);
   } catch (error) {
     debug.error('记忆中心', '添加测试记忆失败', error);
     toast.error('添加测试记忆失败');
@@ -964,6 +897,45 @@ const addTestLongTermMemory = async () => {
   padding: 1rem;
   display: flex;
   flex-direction: column;
+  gap: 1rem; /* 为导出区域增加间距 */
+}
+
+/* 导出区域样式 */
+.export-section {
+  padding: 1rem;
+  background: rgba(var(--color-surface-rgb), 0.5);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  backdrop-filter: blur(5px);
+}
+
+.export-btn-main {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.export-btn-main:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+}
+
+.export-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
 }
 
 .filter-section {
