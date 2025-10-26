@@ -272,7 +272,7 @@
                         <div class="exp-icon">💕</div>
                         <div class="exp-content">
                           <div class="exp-label">性交总次数</div>
-                          <div class="exp-value">{{ (selectedPerson.私密信息 as any).性经验总次数 || 0 }}次</div>
+                          <div class="exp-value">{{ selectedPerson.私密信息.性交总次数 || 0 }}次</div>
                         </div>
                       </div>
                       <div class="exp-item">

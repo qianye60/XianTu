@@ -382,9 +382,7 @@
             <div class="body-parts-list">
               <div v-for="part in bodyParts" :key="part.name" class="body-part-item">
                 <div class="part-header">
-                  <span class="part-name">{{ part.name }}</span>
-                  <span v-if="part.level > 0" class="part-level">Lv.{{ part.level }}</span>
-                </div>
+                  <span class="part-name">{{ part.name }}</span>                </div>
                 <div class="part-description">
                   {{ part.description }}
                 </div>
@@ -1058,11 +1056,13 @@ const bodyParts = computed(() => {
 
   return Object.entries(parts)
     .filter(([, details]) => details && typeof details === 'object')
-    .map(([name, details]) => ({
-      name,
-      description: (details as PlayerBodyPart).描述 || '暂无描述',
-      level: (details as PlayerBodyPart).开发等级 || 0,
-    }));
+    .map(([name, details]) => {
+      const part = details as PlayerBodyPart;
+      return {
+        name,
+        description: part.特征描述 || '暂无描述',
+      };
+    });
 });
 
 const hasTechniqueEffects = computed(() => {
@@ -1268,8 +1268,8 @@ const getTalentTierDescription = (talentTier: TalentTier | string | undefined): 
   return '';
 };
 
-const getTalentList = (talents: any | undefined): { name: string; description: string }[] => {
-  let processedTalents: any[] = [];
+const getTalentList = (talents: unknown): { name: string; description: string }[] => {
+  let processedTalents: unknown[] = [];
 
   if (!talents) {
     return [];
@@ -1283,9 +1283,9 @@ const getTalentList = (talents: any | undefined): { name: string; description: s
       const parsed = JSON.parse(talents);
       if (Array.isArray(parsed)) {
         processedTalents = parsed;
-      } else {
+      } else if (typeof parsed === 'string') {
         // It's a valid JSON but not an array (e.g., a string literal "天赋1"), treat as single talent
-        processedTalents = [{ name: String(parsed), description: '' }];
+        processedTalents = [{ name: parsed, description: '' }];
       }
     } catch (error) {
       // It's not a JSON string, so treat the whole string as a single talent name
@@ -1303,12 +1303,13 @@ const getTalentList = (talents: any | undefined): { name: string; description: s
       }
       if (typeof t === 'object' && t !== null) {
         // 修复：正确提取中英文字段的名称和描述
-        const name = t.name || t.名称 || t['名称'] || '';
-        const description = t.description || t.描述 || t['描述'] || '';
-        
+        const talentObj = t as Record<string, unknown>;
+        const name = (talentObj.name || talentObj['名称'] || '') as string;
+        const description = (talentObj.description || talentObj['描述'] || '') as string;
+
         // 只有当名称和描述都为空时才过滤掉
         if (!name && !description) return null;
-        
+
         return {
           name: name || '未知天赋',
           description: description,
@@ -1560,15 +1561,17 @@ onMounted(async () => {
 const getOriginDisplay = (origin: Origin | string | undefined): string => {
   if (!origin) return '待定';
   if (typeof origin === 'string') return origin;
-  return origin.name || '待定';
+  return (origin as any).名称 || origin.name || '待定';
 };
 
 // 显示出身详情
 const showOriginDetails = (origin: Origin | string | undefined) => {
   if (origin && typeof origin === 'object') {
+    const name = (origin as any).名称 || origin.name;
+    const desc = (origin as any).描述 || origin.description;
     uiStore.showDetailModal({
-      title: `出身背景: ${origin.name}`,
-      content: origin.description,
+      title: `出身背景: ${name}`,
+      content: desc,
     });
   }
 };
@@ -1577,8 +1580,8 @@ const showOriginDetails = (origin: Origin | string | undefined) => {
 const getSpiritRootDisplay = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
-  const name = spiritRoot.name || '未知';
-  const tier = spiritRoot.tier;
+  const name = (spiritRoot as any).名称 || spiritRoot.name || '未知';
+  const tier = (spiritRoot as any).品级 || spiritRoot.tier;
   if (tier && tier !== '未知' && tier !== '凡品') {
     return `${name}(${tier})`;
   }
@@ -1589,26 +1592,26 @@ const getSpiritRootDisplay = (spiritRoot: SpiritRoot | string | undefined): stri
 const formatSpiritRoot = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
-  return spiritRoot.name || '未知';
+  return (spiritRoot as any).名称 || spiritRoot.name || '未知';
 };
 
 const getSpiritRootGrade = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (typeof spiritRoot === 'object' && spiritRoot) {
-    return spiritRoot.tier || '凡品';
+    return (spiritRoot as any).品级 || spiritRoot.tier || '凡品';
   }
   return '凡品';
 };
 
 const getSpiritRootDescription = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (typeof spiritRoot === 'object' && spiritRoot) {
-    return spiritRoot.description || '未知';
+    return (spiritRoot as any).描述 || spiritRoot.description || '未知';
   }
   return '未知';
 };
 
 const getSpiritRootClass = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (typeof spiritRoot !== 'object' || !spiritRoot) return 'spirit-unknown';
-  const grade = (spiritRoot.tier || '').toLowerCase();
+  const grade = ((spiritRoot as any).品级 || spiritRoot.tier || '').toLowerCase();
 
   if (grade.includes('神品')) return 'spirit-divine';
   if (grade.includes('极品')) return 'spirit-supreme';

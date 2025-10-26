@@ -278,8 +278,8 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
         种族: (rawPayload as any).race || '人族', // 添加种族
         世界: rawPayload.world || { name: '未知世界' } as any,
         天资: rawPayload.talentTier || { name: '凡品' } as any,
-        出生: rawPayload.origin?.name || '随机出身',
-        灵根: rawPayload.spiritRoot?.name || '随机灵根',
+        出生: rawPayload.origin || '随机出身',
+        灵根: rawPayload.spiritRoot || '随机灵根',
         天赋: (rawPayload.talents?.map((t: Talent) => ({
           id: t.id,
           name: t.name,
@@ -297,12 +297,6 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
           心性: 0,
         }
       };
-
-      // 添加可选的详情字段(使用类型扩展)
-      (baseInfo as any).天资详情 = rawPayload.talentTier;
-      (baseInfo as any).出身详情 = rawPayload.origin;
-      (baseInfo as any).灵根详情 = rawPayload.spiritRoot || undefined;
-      (baseInfo as any).天赋详情 = rawPayload.talents;
 
       const creationPayload = {
         charId: charId, // 使用外层定义的charId
