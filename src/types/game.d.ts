@@ -724,7 +724,6 @@ export interface PrivacyProfile {
   当前性状态: string;
   体液分泌状态: string;
   性交总次数: number;
-  性伴侣数量: number;
   性伴侣名单: string[];
   最近一次性行为时间: string;
   特殊体质: string[];

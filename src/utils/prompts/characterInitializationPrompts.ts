@@ -128,7 +128,7 @@ const CHARACTER_INIT_RULES = `
 #### 生成规则(根据systemSettings)
 
 **1. nsfwMode=true 且 nsfwGenderFilter="female"**
-→ 女性NPC必须包含完整"私密信息"(13字段)
+→ 女性NPC必须包含完整"私密信息"(12字段)
 → 男性NPC不生成
 
 **2. nsfwMode=true 且 nsfwGenderFilter="male"**
@@ -141,7 +141,7 @@ const CHARACTER_INIT_RULES = `
 **4. nsfwMode=false**
 → 所有NPC都不生成私密信息
 
-#### NPC私密信息必填字段(13个)
+#### NPC私密信息必填字段(12个)
 
 1. 是否为处女/处男 (boolean)
 2. 身体部位 (array) - 每个对象含:部位名称、开发度、敏感度、特征描述、特殊印记
@@ -152,14 +152,12 @@ const CHARACTER_INIT_RULES = `
 7. 当前性状态 (string)
 8. 体液分泌状态 (string)
 9. 性交总次数 (number)
-10. 性伴侣数量 (number)
-11. 性伴侣名单 (array)
-12. 最近一次性行为时间 (string)
-13. 特殊体质 (array)
+10. 性伴侣名单 (array)
+11. 最近一次性行为时间 (string)
+12. 特殊体质 (array)
 
 **逻辑一致性:**
-- 处女/处男=true时: 性交总次数=0,性伴侣数量=0,性伴侣名单=[],最近一次="无"
-- 性伴侣数量必须等于性伴侣名单.length
+- 处女/处男=true时: 性交总次数=0,性伴侣名单=[],最近一次="无"
 
 #### 玩家身体部位开发(极简结构)
 
@@ -265,7 +263,7 @@ export const CHARACTER_INITIALIZATION_PROMPT = `
 {"action":"set","key":"人物关系.张三","value":{完整NPC对象，包含所有必填字段}}
 \`\`\`
 - 必须创建完整的NPC对象，不能只设置部分字段
-- 如果nsfwMode=true且性别符合过滤条件，必须包含完整的13字段"私密信息"
+- 如果nsfwMode=true且性别符合过滤条件，必须包含完整的12字段"私密信息"
 
 ### 第7步：大道解锁 (如果天赋对应某大道)
 \`\`\`json
@@ -360,21 +358,21 @@ export function buildCharacterSelectionsSummary(
     if (nsfwFilter === 'female') {
       nsfwRuleText = `
 ✅ **NSFW模式已启用 - 仅女性**
-→ 所有女性NPC必须包含完整的13字段"私密信息"
+→ 所有女性NPC必须包含完整的12字段"私密信息"
 → 男性NPC不生成私密信息
 → 为玩家生成3-5个身体部位开发数据
 `;
     } else if (nsfwFilter === 'male') {
       nsfwRuleText = `
 ✅ **NSFW模式已启用 - 仅男性**
-→ 所有男性NPC必须包含完整的13字段"私密信息"
+→ 所有男性NPC必须包含完整的12字段"私密信息"
 → 女性NPC不生成私密信息
 → 为玩家生成3-5个身体部位开发数据
 `;
     } else {
       nsfwRuleText = `
 ✅ **NSFW模式已启用 - 所有性别**
-→ 所有NPC(无论性别)都必须包含完整的13字段"私密信息"
+→ 所有NPC(无论性别)都必须包含完整的12字段"私密信息"
 → 为玩家生成2-4个身体部位开发数据
 `;
     }

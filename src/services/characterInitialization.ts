@@ -637,15 +637,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
   if (authoritativeOrigin && !hasAIGeneratedOrigin) {
     console.log(`[数据校准] ✅ 同步用户选择的出身: ${authoritativeOrigin.name}`);
     derivedInfo.出生 = authoritativeOrigin;
+  } else if (hasAIGeneratedOrigin) {
+    // 如果用户选择随机，并且一个具体的对象已经存在（由AI或后备逻辑生成），则直接信任和保留它。
+    console.log('[数据校准] ✅ 保留已生成的具体出身:', (derivedInfo.出生 as Origin).name);
   } else if (creationStore.characterPayload.origin_id === null) {
-    // 🔥 修复：安全检查，防止访问undefined对象的属性
-    const 出生对象 = derivedInfo.出生;
-    if (typeof 出生对象 !== 'object' || !出生对象 || !(出生对象 as Origin).name || (出生对象 as Origin).name.includes('随机')) {
-        console.log('[数据校准] 🎲 用户选择随机出身，当前无有效值，标记为随机');
-        derivedInfo.出生 = '随机出身';
-    } else {
-        console.log('[数据校准] ✅ 检测到AI已生成具体出身，保留AI结果:', (出生对象 as Origin).name);
-    }
+    // 仅当没有生成任何具体出身时，才可能需要标记回随机（作为最后的保险措施）
+    console.log('[数据校准] 🎲 用户选择随机出身，但无有效生成值，标记为随机');
+    derivedInfo.出生 = '随机出身';
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的出身数据。');
   }
@@ -657,15 +655,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
   if (authoritativeSpiritRoot && !hasAIGeneratedSpiritRoot) {
     console.log(`[数据校准] ✅ 同步用户选择的灵根: ${authoritativeSpiritRoot.name} (${authoritativeSpiritRoot.tier})`);
     derivedInfo.灵根 = authoritativeSpiritRoot;
+  } else if (hasAIGeneratedSpiritRoot) {
+    // 如果用户选择随机，并且一个具体的对象已经存在（由AI或后备逻辑生成），则直接信任和保留它。
+    console.log('[数据校准] ✅ 保留已生成的具体灵根:', (derivedInfo.灵根 as SpiritRoot).name);
   } else if (creationStore.characterPayload.spirit_root_id === null) {
-    // 🔥 修复：安全检查，防止访问undefined对象的属性
-    const 灵根对象 = derivedInfo.灵根;
-    if (typeof 灵根对象 !== 'object' || !灵根对象 || !(灵根对象 as SpiritRoot).name || (灵根对象 as SpiritRoot).name.includes('随机')) {
-        console.log('[数据校准] 🎲 用户选择随机灵根，当前无有效值，标记为随机');
-        derivedInfo.灵根 = '随机灵根';
-    } else{
-        console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (灵根对象 as SpiritRoot).name);
-    }
+    // 仅当没有生成任何具体灵根时，才可能需要标记回随机（作为最后的保险措施）
+    console.log('[数据校准] 🎲 用户选择随机灵根，但无有效生成值，标记为随机');
+    derivedInfo.灵根 = '随机灵根';
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的灵根数据。');
   }
@@ -730,17 +726,13 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   const creationStore = useCharacterCreationStore();
 
   // 灵根权威覆盖
-  const authoritativeSpiritRoot = creationStore.selectedSpiritRoot;
-  if (authoritativeSpiritRoot) {
-    // 用户手动选择了特定灵根，强制使用用户的选择，不使用AI生成
-    console.log(`[数据最终化] ✅ 用户选择特定灵根，使用用户选择: ${authoritativeSpiritRoot.name}`);
-    mergedBaseInfo.灵根 = authoritativeSpiritRoot;
-  } else {
-    // 用户选择了"随机灵根"，使用AI生成的数据
+  const userChoseRandomSpiritRoot = (typeof baseInfo.灵根 === 'object' && (baseInfo.灵根 as SpiritRoot)?.name?.includes('随机')) ||
+                                (typeof baseInfo.灵根 === 'string' && baseInfo.灵根.includes('随机'));
+
+  if (userChoseRandomSpiritRoot) {
     console.log('[数据最终化] 🎲 用户选择随机灵根，使用AI生成的数据');
     const aiGeneratedSpiritRoot = saveData.角色基础信息?.灵根;
-    console.log('[数据最终化] AI生成的灵根数据:', JSON.stringify(aiGeneratedSpiritRoot));
-    mergedBaseInfo.灵根 = aiGeneratedSpiritRoot || '随机灵根';
+    mergedBaseInfo.灵根 = aiGeneratedSpiritRoot || '随机灵根'; // Fallback to string
 
     // 验证AI是否正确替换了随机灵根
     if (typeof mergedBaseInfo.灵根 === 'string' && mergedBaseInfo.灵根.includes('随机')) {
@@ -774,20 +766,19 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       mergedBaseInfo.灵根 = 随机灵根;
       console.log(`[数据最终化] ✅ 已从本地数据库生成随机灵根: ${随机灵根.name} (${随机灵根.tier})`);
     }
+  } else {
+    console.log(`[数据最终化] ✅ 用户选择特定灵根，强制使用用户选择: ${(baseInfo.灵根 as SpiritRoot)?.name}`);
+    mergedBaseInfo.灵根 = baseInfo.灵根;
   }
 
   // 出生权威覆盖
-  const authoritativeOrigin = creationStore.selectedOrigin;
-  if (authoritativeOrigin) {
-    // 用户手动选择了特定出身，强制使用用户的选择，不使用AI生成
-    console.log(`[数据最终化] ✅ 用户选择特定出身，使用用户选择: ${authoritativeOrigin.name}`);
-    mergedBaseInfo.出生 = authoritativeOrigin;
-  } else {
-    // 用户选择了"随机出身"，使用AI生成的数据
+  const userChoseRandomOrigin = (typeof baseInfo.出生 === 'object' && (baseInfo.出生 as Origin)?.name?.includes('随机')) ||
+                              (typeof baseInfo.出生 === 'string' && baseInfo.出生.includes('随机'));
+
+  if (userChoseRandomOrigin) {
     console.log('[数据最终化] 🎲 用户选择随机出身，使用AI生成的数据');
     const aiGeneratedOrigin = saveData.角色基础信息?.出生;
-    console.log('[数据最终化] AI生成的出身数据:', JSON.stringify(aiGeneratedOrigin));
-    mergedBaseInfo.出生 = aiGeneratedOrigin || '随机出身';
+    mergedBaseInfo.出生 = aiGeneratedOrigin || '随机出身'; // Fallback to string
 
     // 验证AI是否正确替换了随机出身
     if (typeof mergedBaseInfo.出生 === 'string' && mergedBaseInfo.出生.includes('随机')) {
@@ -799,6 +790,9 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       mergedBaseInfo.出生 = 随机出身;
       console.log(`[数据最终化] ✅ 已从本地数据库生成随机出身: ${随机出身.name}`);
     }
+  } else {
+    console.log(`[数据最终化] ✅ 用户选择特定出身，强制使用用户选择: ${(baseInfo.出生 as Origin)?.name}`);
+    mergedBaseInfo.出生 = baseInfo.出生;
   }
 
   // 2. 从详情对象派生基础字段，确保数据一致性
