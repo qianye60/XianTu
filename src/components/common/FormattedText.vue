@@ -429,6 +429,39 @@ const parsedText = computed(() => {
               attribute: '',
               details: []
             }
+
+            // 解析所有其他字段
+            for (let i = 1; i < contentParts.length; i++) {
+              const part = contentParts[i]
+              const [key, value] = part.split(':').map(s => s.trim())
+
+              if (!key || !value) continue
+
+              if (key.includes('骰点') || key.includes('骰子')) {
+                judgement.dice = value
+              } else if (key.includes('难度')) {
+                judgement.difficulty = value
+              } else if (key.includes('加成')) {
+                judgement.bonus = value
+              } else if (key.includes('最终值') || key.includes('总值')) {
+                judgement.finalValue = value
+              } else if (key.match(/^[^\d\s]+$/)) {
+                // 属性名(如"灵性"、"悟性"等)
+                if (!judgement.attribute) {
+                  judgement.attribute = `${key}:${value}`
+                } else {
+                  judgement.details.push(`${key}:${value}`)
+                }
+              } else {
+                // 其他信息放入详情
+                judgement.details.push(part)
+              }
+            }
+
+            parts.push({
+              type: 'judgement-card',
+              content: judgement
+            })
           } else if (titleResult.length === 1) {
             // 处理简单系统提示格式，如"系统提示：星屑吊坠效果触发，悟性+2，灵性+2，凝神静气效果生效。"
             const judgement: any = {
