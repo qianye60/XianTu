@@ -447,7 +447,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
 4. 保留重要细节，合并琐碎信息
 5. 字数控制在200-350字，确保信息完整详实
 6. 使用修仙小说的语言风格
-7. 只返回总结内容，不要有任何前缀、后缀或标题`;
+7. 只返回总结内容本身，不要添加任何时间前缀（如【仙道XX年】）、标题（如【记忆总结】）或其他格式标记`;
 
       const systemPrompt = longTermFormat || defaultPrompt;
       const userPrompt = `请将以下中期记忆总结成详细的长期记忆档案：\n\n${memoriesText}`;
@@ -472,8 +472,8 @@ ${DATA_STRUCTURE_DEFINITIONS}
       }
 
       // 6. 更新游戏状态
-      const timePrefix = this._formatGameTime(saveData.游戏时间);
-      const newLongTermMemory = `${timePrefix}【记忆总结】${summaryText}`;
+      // 长期记忆不需要时间前缀和【记忆总结】标签，直接存储总结内容
+      const newLongTermMemory = summaryText;
 
       // 确保 memory 对象存在
       if (!gameStateStore.memory) {
