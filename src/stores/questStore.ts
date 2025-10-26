@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { get } from 'lodash';
 import { useGameStateStore } from './gameStateStore';
 import { generateQuest, completeQuest } from '@/utils/generators/questGenerators';
-import type { Quest, QuestObjective } from '@/types/game';
+import type { Quest, QuestObjective, QuestType } from '@/types/game';
 import { toast } from '@/utils/toast';
 
 interface QuestConfig {
@@ -157,11 +157,12 @@ export const useQuestStore = defineStore('quest', () => {
 
       // 更新统计
       gameStateStore.questSystem.任务统计.完成总数 += 1;
-      if (quest.任务类型 === '主线') {
-        gameStateStore.questSystem.任务统计.主线完成 += 1;
-      } else {
-        gameStateStore.questSystem.任务统计.支线完成 += 1;
+      // 按类型统计
+      if (!gameStateStore.questSystem.任务统计.各类型完成) {
+        gameStateStore.questSystem.任务统计.各类型完成 = {} as Record<QuestType, number>;
       }
+      const currentCount = gameStateStore.questSystem.任务统计.各类型完成[quest.任务类型] || 0;
+      gameStateStore.questSystem.任务统计.各类型完成[quest.任务类型] = currentCount + 1;
 
       toast.success(`任务完成：${quest.任务名称}`, { id: toastId });
     } catch (error: unknown) {
@@ -180,9 +181,7 @@ export const useQuestStore = defineStore('quest', () => {
         已完成任务: [],
         任务统计: {
           完成总数: 0,
-          主线完成: 0,
-          支线完成: 0,
-          系统任务完成: 0
+          各类型完成: {} as Record<QuestType, number>
         },
         配置: config
       };

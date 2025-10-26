@@ -353,6 +353,7 @@ export function buildCharacterSelectionsSummary(
   userSelections: {
     name: string;
     gender: string;
+    race: string;
     age: number;
     world: World;
     talentTier: TalentTier;
@@ -438,6 +439,7 @@ export function buildCharacterSelectionsSummary(
 ## 基础信息
 - 姓名: ${userSelections.name}
 - 性别: ${userSelections.gender}
+- 种族: ${userSelections.race}
 - 开局年龄: ${userSelections.age}岁
 
 ---

@@ -12,6 +12,7 @@ import type {
   Equipment,
   GameMessage,
   QuestSystem,
+  QuestType,
 } from '@/types/game';
 
 // 定义各个模块的接口
@@ -76,9 +77,7 @@ export const useGameStateStore = defineStore('gameState', {
       已完成任务: [],
       任务统计: {
         完成总数: 0,
-        主线完成: 0,
-        支线完成: 0,
-        系统任务完成: 0
+        各类型完成: {} as Record<QuestType, number>
       }
     },
     cultivationTechnique: null,
@@ -182,9 +181,7 @@ export const useGameStateStore = defineStore('gameState', {
         已完成任务: [],
         任务统计: {
           完成总数: 0,
-          主线完成: 0,
-          支线完成: 0,
-          系统任务完成: 0
+          各类型完成: {} as Record<QuestType, number>
         }
       };
       this.cultivationTechnique = saveData.修炼功法 ? JSON.parse(JSON.stringify(saveData.修炼功法)) : null;
@@ -229,9 +226,7 @@ export const useGameStateStore = defineStore('gameState', {
           已完成任务: [],
           任务统计: {
             完成总数: 0,
-            主线完成: 0,
-            支线完成: 0,
-            系统任务完成: 0
+            各类型完成: {} as Record<QuestType, number>
           }
         },
         修炼功法: this.cultivationTechnique || null,
@@ -341,9 +336,7 @@ export const useGameStateStore = defineStore('gameState', {
         已完成任务: [],
         任务统计: {
           完成总数: 0,
-          主线完成: 0,
-          支线完成: 0,
-          系统任务完成: 0
+          各类型完成: {} as Record<QuestType, number>
         }
       };
       this.cultivationTechnique = null;

@@ -637,10 +637,10 @@ export interface QuestReward {
   自定义描述?: string; // 其他自定义奖励描述
 }
 
-/** 任务类型（合并所有任务分类） */
+/** 任务类型（无主次之分，一切随机） */
 export type QuestType =
-  | '主线' | '支线' | '宗门' | '奇遇' | '日常'  // 传统RPG任务
-  | '系统任务' | '道侣培养' | '修为提升' | '收集资源' | '战斗挑战'; // 穿越者系统任务
+  | '宗门' | '奇遇' | '日常'  // 传统RPG任务类型
+  | '系统任务' | '道侣培养' | '修为提升' | '收集资源' | '战斗挑战'; // 系统任务类型
 
 /** 任务主体（统一格式） */
 export interface Quest {
@@ -687,9 +687,7 @@ export interface QuestSystem {
   已完成任务: Quest[]; // 保留完整任务信息
   任务统计: {
     完成总数: number;
-    主线完成: number;
-    支线完成: number;
-    系统任务完成: number;
+    各类型完成: Record<QuestType, number>; // 按类型统计
   };
 }
 

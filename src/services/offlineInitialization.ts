@@ -1,4 +1,4 @@
-import type { CharacterBaseInfo, SaveData, PlayerStatus } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, QuestType } from '@/types/game';
 import type { World } from '@/types';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { calculateInitialAttributes } from './characterInitialization';
@@ -83,9 +83,7 @@ export async function initializeCharacterOffline(
       已完成任务: [],
       任务统计: {
         完成总数: 0,
-        主线完成: 0,
-        支线完成: 0,
-        系统任务完成: 0
+        各类型完成: {} as Record<QuestType, number>
       }
     },
     记忆: {
