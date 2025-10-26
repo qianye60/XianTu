@@ -310,9 +310,9 @@
                           <div class="part-stat">
                             <span class="stat-label">开发度</span>
                             <div class="stat-bar-mini">
-                              <div class="stat-bar-fill development" :style="{ width: (part.开发程度 || 0) + '%' }"></div>
+                              <div class="stat-bar-fill development" :style="{ width: (part.开发度 || 0) + '%' }"></div>
                             </div>
-                            <span class="stat-value">{{ part.开发程度 || 0 }}%</span>
+                            <span class="stat-value">{{ part.开发度 || 0 }}%</span>
                           </div>
                         </div>
                       </div>

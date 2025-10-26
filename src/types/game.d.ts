@@ -703,7 +703,7 @@ export interface QuestSystem {
 export interface BodyPartDevelopment {
   部位名称: string; // 如：胸部、小穴、菊穴、嘴唇、耳朵等
   敏感度: number; // 0-100
-  开发程度: number; // 0-100
+  开发度: number; // 0-100（统一使用"开发度"，与AI提示词保持一致）
   特殊标记?: string; // 如：「已调教」「极度敏感」「可喷奶」
   特征描述: string; // 部位的详细描述，如："娇小粉嫩，轻触即颤"、"紧致温润，吸附感强"
 }

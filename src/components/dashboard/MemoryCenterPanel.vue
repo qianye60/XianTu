@@ -809,14 +809,19 @@ const exportMemoriesAsNovel = () => {
       const content = entry.content.replace(/【.*?】/g, '').trim(); // 移除时间戳
 
       if (isPlayer) {
-        novelText += `我说道：“${content}”\n\n`;
+        novelText += `我说道："${content}"\n`;
       } else {
-        novelText += `${content}\n\n`;
+        novelText += `${content}\n`;
       }
-      
-      // 每10个段落添加一个分隔符
+
+      // 每条之间添加分隔线
+      novelText += `${'─'.repeat(50)}\n\n`;
+
+      // 每10个段落添加一个章节分隔符
       if ((index + 1) % 10 === 0) {
-        novelText += `\n--- ${'◇'.repeat(10)} ---\n\n`;
+        novelText += `\n${'═'.repeat(50)}\n`;
+        novelText += `第 ${Math.floor((index + 1) / 10)} 章节\n`;
+        novelText += `${'═'.repeat(50)}\n\n`;
       }
     });
 
