@@ -281,13 +281,6 @@ const advancedCustomFields: readonly ModalField[] = [
   { key: 'description', label: '灵根描述', type: 'textarea', placeholder: '描述这个灵根的特性和背景故事...' },
   { key: 'base_multiplier', label: '修炼倍率', type: 'text', placeholder: '例如：1.5' },
   { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：10' },
-  { key: 'rarity', label: '稀有度等级', type: 'select', options: [
-    { value: '1', label: '1 - 常见' },
-    { value: '2', label: '2 - 少见' },
-    { value: '3', label: '3 - 罕见' },
-    { value: '4', label: '4 - 极罕见' },
-    { value: '5', label: '5 - 传说' }
-  ]},
   {
     key: 'special_effects',
     label: '特殊效果',
@@ -308,18 +301,17 @@ type CustomSpiritRootData = {
   description: string;
   base_multiplier: string;
   talent_cost: string;
-  rarity: string;
   special_effects: { effect: string }[];
 };
 
 function validateCustomSpiritRoot(data: Partial<CustomSpiritRootData>) {
     const errors: Record<string, string> = {};
-    
+
     // 必填字段验证
     if (!data.name?.trim()) errors.name = '灵根名称不可为空';
     if (!data.tier) errors.tier = '请选择品级';
     if (!data.description?.trim()) errors.description = '灵根描述不可为空';
-    
+
     // 数值字段验证
     if (data.base_multiplier === undefined || isNaN(parseFloat(data.base_multiplier))) {
       errors.base_multiplier = '修炼倍率必须为数字';
@@ -327,10 +319,7 @@ function validateCustomSpiritRoot(data: Partial<CustomSpiritRootData>) {
     if (data.talent_cost === undefined || isNaN(parseInt(data.talent_cost, 10))) {
       errors.talent_cost = '消耗点数必须为数字';
     }
-    if (data.rarity && (isNaN(parseInt(data.rarity, 10)) || parseInt(data.rarity, 10) < 1 || parseInt(data.rarity, 10) > 5)) {
-      errors.rarity = '稀有度等级必须为1-5的数字';
-    }
-    
+
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -351,11 +340,10 @@ async function handleCustomSubmit(data: CustomSpiritRootData) {
     name: data.name,
     tier: spiritRootTiers.find(t => t.key === data.tier)?.name || data.tier,
     description: data.description,
-    cultivation_speed: `${data.base_multiplier}x`, // 基于修炼倍率生成修炼速度描述
     special_effects: specialEffects,
     base_multiplier: parseFloat(data.base_multiplier) || 1.0,
     talent_cost: parseInt(data.talent_cost, 10) || 0,
-    rarity: parseInt(data.rarity, 10) || 1,
+    rarity: 1,
     source: 'cloud' as const // 自定义的都算作cloud
   }
 
@@ -632,8 +620,7 @@ async function handleEditSubmit(data: CustomSpiritRootData) {
     cultivation_speed: `${data.base_multiplier}x`,
     special_effects: specialEffects,
     base_multiplier: parseFloat(data.base_multiplier) || 1.0,
-    talent_cost: parseInt(data.talent_cost, 10) || 0,
-    rarity: parseInt(data.rarity, 10) || 1
+    talent_cost: parseInt(data.talent_cost, 10) || 0
   };
 
   try {
@@ -654,14 +641,13 @@ async function handleEditSubmit(data: CustomSpiritRootData) {
 // 编辑模态框的初始数据
 const editInitialData = computed(() => {
   if (!editingSpiritRoot.value) return {};
-  
+
   return {
     name: editingSpiritRoot.value.name,
     tier: spiritRootTiers.find(t => t.name === editingSpiritRoot.value!.tier)?.key || 'common',
     description: editingSpiritRoot.value.description,
     base_multiplier: editingSpiritRoot.value.base_multiplier?.toString() || '1.0',
     talent_cost: editingSpiritRoot.value.talent_cost.toString(),
-    rarity: editingSpiritRoot.value.rarity?.toString() || '1',
     special_effects: editingSpiritRoot.value.special_effects?.map(effect => ({ effect })) || []
   };
 });

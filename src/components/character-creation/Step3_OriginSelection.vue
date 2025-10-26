@@ -184,58 +184,22 @@ const originEffectTypes = [
 // 自定义出身字段 - 重新设计为背景设定
 const customOriginFields: ModalField[] = [
   { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
-  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：0（可为负数）' },
-  { key: 'rarity', label: '稀有度等级', type: 'select', options: [
-    { value: '1', label: '1 - 常见' },
-    { value: '2', label: '2 - 少见' },
-    { value: '3', label: '3 - 罕见' },
-    { value: '4', label: '4 - 极罕见' },
-    { value: '5', label: '5 - 传说' }
-  ]},
-  {
-    key: 'background_effects',
-    label: '出身效果',
-    type: 'dynamic-list',
-    columns: [
-      {
-        key: 'type',
-        placeholder: '效果类型',
-        type: 'select' as const,
-        options: originEffectTypes
-      },
-      {
-        key: 'description',
-        placeholder: '具体描述，如：拥有一把传家宝剑'
-      }
-    ]
-  }
+  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' }
 ] as const
 
-// 为自定义出身数据定义完整类型 - 重新设计为背景效果
+// 为自定义出身数据定义完整类型
 type CustomOriginData = {
   name: string;
   description: string;
-  talent_cost: string;
-  rarity: string;
-  background_effects: { type: string; description: string }[];
 };
 
 function validateCustomOrigin(data: Partial<CustomOriginData>) {
     const errors: Record<string, string> = {};
-    
+
     // 必填字段验证
     if (!data.name?.trim()) errors.name = '出身名称不可为空';
     if (!data.description?.trim()) errors.description = '出身描述不可为空';
-    
-    // 数值字段验证
-    const cost = Number(data.talent_cost);
-    if (isNaN(cost)) errors.talent_cost = '消耗点数必须为数字';
-    
-    if (data.rarity && (isNaN(parseInt(data.rarity, 10)) || parseInt(data.rarity, 10) < 1 || parseInt(data.rarity, 10) > 5)) {
-      errors.rarity = '稀有度等级必须为1-5的数字';
-    }
-    
+
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -243,25 +207,15 @@ function validateCustomOrigin(data: Partial<CustomOriginData>) {
 }
 
 async function handleCustomSubmit(data: CustomOriginData) {
-  // 处理出身背景效果
-  const backgroundEffects = data.background_effects?.length 
-    ? data.background_effects
-        .filter(item => item.type && item.description?.trim())
-        .map(item => ({
-          type: item.type,
-          description: item.description.trim()
-        }))
-    : [];
-
   // 创建完整的标准化出身对象
   const newOrigin: Origin = {
     id: Date.now(),
     name: data.name,
     description: data.description,
-    talent_cost: parseInt(data.talent_cost, 10) || 0,
-    attribute_modifiers: {}, // 添加空的属性修正器
-    background_effects: backgroundEffects, // 新的背景效果字段
-    rarity: parseInt(data.rarity, 10) || 1,
+    talent_cost: 0,
+    attribute_modifiers: {},
+    background_effects: [],
+    rarity: 1,
     source: 'local' as const,
   }
 
@@ -390,24 +344,11 @@ async function handleDeleteOrigin(id: number) {
 
 async function handleEditSubmit(data: CustomOriginData) {
   if (!editingOrigin.value) return;
-  
-  // 处理出身背景效果
-  const backgroundEffects = data.background_effects?.length 
-    ? data.background_effects
-        .filter(item => item.type && item.description?.trim())
-        .map(item => ({
-          type: item.type,
-          description: item.description.trim()
-        }))
-    : [];
 
   // 创建更新数据对象
   const updateData: Partial<Origin> = {
     name: data.name,
-    description: data.description,
-    talent_cost: parseInt(data.talent_cost, 10) || 0,
-    rarity: parseInt(data.rarity, 10) || 1,
-    background_effects: backgroundEffects
+    description: data.description
   };
 
   try {
