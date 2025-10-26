@@ -149,10 +149,11 @@ ${DATA_STRUCTURE_DEFINITIONS}
       const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';
 
       // 构建注入消息列表
+      // 注意：使用 assistant 角色而不是 system，避免中转API忽略
       const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
         {
           content: systemPrompt,
-          role: 'system',
+          role: 'assistant',
           depth: 1,
           position: 'before',
         }
@@ -213,9 +214,10 @@ ${DATA_STRUCTURE_DEFINITIONS}
     let gmResponse: GM_Response;
     try {
       // 使用 Raw 模式生成初始消息，跳过世界书和角色卡
+      // 注意：不使用 system 角色，改用 user 角色以避免某些模型的问题
       const response = await tavernHelper!.generateRaw({
         ordered_prompts: [
-          { role: 'system', content: systemPrompt },
+          { role: 'user', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         should_stream: options?.useStreaming || false,
@@ -458,7 +460,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
 
       const response = await tavernHelper.generateRaw({
         ordered_prompts: [
-          { role: 'system', content: systemPrompt },
+          { role: 'user', content: systemPrompt },
           { role: 'user', content: userPrompt },
           { role: 'user', content: "开始任务" }
         ],

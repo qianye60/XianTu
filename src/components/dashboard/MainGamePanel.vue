@@ -1441,10 +1441,11 @@ const generateLongTermSummary = async (memories: string[]): Promise<string | nul
     // 构建纯粹的总结提示
     const memoriesToSummarize = memories.join('\n\n');
 
+    // 注意：使用 user 角色而不是 system，避免中转API忽略
     const response = await helper.generateRaw({
       ordered_prompts: [
         {
-          role: 'system',
+          role: 'user',
           content: '你是记忆整理助手。将提供的多条记忆整理成一段连贯的总结。只输出总结内容，不要任何前言、后语或额外说明。'
         },
         {

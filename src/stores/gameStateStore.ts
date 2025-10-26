@@ -26,7 +26,6 @@ interface GameState {
   gameTime: GameTime | null;
   narrativeHistory: GameMessage[] | null;
   isGameLoaded: boolean;
-  任务系统: QuestSystem | null;
 
   // 三千大道系统
   thousandDao: any | null;
@@ -62,7 +61,6 @@ export const useGameStateStore = defineStore('gameState', {
     gameTime: null,
     narrativeHistory: [],
     isGameLoaded: false,
-    任务系统: null,
 
     // 其他游戏系统
     thousandDao: null,
@@ -169,7 +167,6 @@ export const useGameStateStore = defineStore('gameState', {
       this.memory = saveData.记忆 ? JSON.parse(JSON.stringify(saveData.记忆)) : null;
       this.gameTime = saveData.游戏时间 ? { ...saveData.游戏时间 } : null;
       this.narrativeHistory = saveData.叙事历史 ? [...saveData.叙事历史] : [];
-      this.任务系统 = saveData.任务系统 ? JSON.parse(JSON.stringify(saveData.任务系统)) : null;
 
       // 加载其他系统数据
       this.thousandDao = saveData.三千大道 ? JSON.parse(JSON.stringify(saveData.三千大道)) : null;
@@ -329,7 +326,6 @@ export const useGameStateStore = defineStore('gameState', {
       this.gameTime = null;
       this.narrativeHistory = [];
       this.isGameLoaded = false;
-      this.任务系统 = null;
 
       // 重置其他系统数据
       this.thousandDao = null;

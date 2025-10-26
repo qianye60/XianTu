@@ -63,7 +63,7 @@ export class EnhancedWorldGenerator {
       continentCount: config.continentCount
     };
   }
-  
+
   /**
    * 生成验证过的世界数据 (重构后)
    */
@@ -124,7 +124,7 @@ export class EnhancedWorldGenerator {
       continentCount: this.config.continentCount
     });
   }
-  
+
   /**
    * 生成世界数据 (重构后)
    */
@@ -133,10 +133,10 @@ export class EnhancedWorldGenerator {
     if (!tavern) {
       throw new Error('酒馆系统不可用');
     }
-    
+
     // 构建增强的提示词
     const prompt = this.buildPromptWithErrors();
-    
+
     console.log('[增强世界生成器] 发送AI请求...');
     console.log('[增强世界生成器] 提示词长度:', prompt.length);
 
@@ -144,7 +144,7 @@ export class EnhancedWorldGenerator {
       // 使用 ordered_prompts 参数关闭世界书
       const orderedPrompts: Array<{ role: 'system' | 'user'; content: string }> = [
         {
-          role: 'system',
+          role: 'user',
           content: prompt
         },
         {
@@ -155,21 +155,20 @@ export class EnhancedWorldGenerator {
 
       const response = await tavern.generateRaw({
         ordered_prompts: orderedPrompts,
-        should_stream: false,
         overrides: {
           world_info_before: '',
           world_info_after: ''
         }
       });
-      
+
       console.log('[增强世界生成器] AI响应长度:', String(response).length);
-      
+
       // 解析AI响应
       const worldData = this.parseAIResponse(String(response));
-      
+
       // 转换为标准格式
       return this.convertToWorldInfo(worldData);
-      
+
     } catch (error: unknown) {
       console.error('[增强世界生成器] AI请求失败:', error);
       const message = error instanceof Error ? error.message : String(error);
@@ -179,27 +178,20 @@ export class EnhancedWorldGenerator {
 
   /**
    * 构建带有错误修正信息的提示词
+   * 注意：重试时不添加错误信息，因为数量参数已调整
    */
   private buildPromptWithErrors(): string {
     const basePrompt = this.buildPrompt();
-    if (this.previousErrors.length > 0) {
-      const errorSection = `
----
-请修正以下错误后重新生成:
-${this.previousErrors.join('\n')}
----
-`;
-      return `${basePrompt}${errorSection}`;
-    }
+    // 不再添加错误修正信息，避免用旧数量要求误导AI
     return basePrompt;
   }
-  
+
   /**
    * 构建基础提示词
    */
   private buildPrompt(): string {
       const { factionCount, locationCount, secretRealmsCount, continentCount, mapConfig } = this.config;
-      
+
       const promptConfig: WorldPromptConfig = {
         factionCount,
         totalLocations: locationCount,
@@ -211,29 +203,29 @@ ${this.previousErrors.join('\n')}
         worldName: this.config.worldName,
         mapConfig: mapConfig
       };
-      
+
       return EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
     }
-  
+
   /**
    * 解析AI响应
    */
   private parseAIResponse(response: string): RawWorldData {
     console.log('[增强世界生成器] 开始解析AI响应...');
     console.log('[增强世界生成器] 响应前500字符:', response.substring(0, 500));
-    
+
     try {
       // 多种JSON提取策略
       let jsonMatch = null;
       let jsonText = '';
-      
+
       // 策略1: 寻找完整的JSON代码块
       jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
       if (jsonMatch) {
         jsonText = jsonMatch[1];
         console.log('[增强世界生成器] 使用策略1提取JSON');
       }
-      
+
       // 策略2: 寻找包含factions和locations的JSON对象
       if (!jsonMatch) {
         jsonMatch = response.match(/(\{[\s\S]*?"factions"\s*:\s*\[[\s\S]*?"locations"\s*:\s*\[[\s\S]*?\})/);
@@ -242,7 +234,7 @@ ${this.previousErrors.join('\n')}
           console.log('[增强世界生成器] 使用策略2提取JSON');
         }
       }
-      
+
       // 策略3: 寻找任何JSON对象并检查是否包含必要字段
       if (!jsonMatch) {
         const jsonMatches = response.match(/\{[\s\S]*?\}/g);
@@ -261,15 +253,15 @@ ${this.previousErrors.join('\n')}
           }
         }
       }
-      
+
       if (!jsonText) {
         console.error('[增强世界生成器] 无法从AI响应中提取JSON数据');
         console.error('[增强世界生成器] 完整响应:', response);
         throw new Error('无法解析AI响应中的JSON数据');
       }
-      
+
       console.log('[增强世界生成器] 提取的JSON前200字符:', jsonText.substring(0, 200));
-      
+
       let worldDataRaw = JSON.parse(jsonText);
       console.log('[增强世界生成器] JSON解析成功');
 
@@ -297,7 +289,7 @@ ${this.previousErrors.join('\n')}
       }
 
       return worldData;
-      
+
     } catch (error: unknown) {
       console.error('[增强世界生成器] JSON解析失败:', error);
       console.error('[增强世界生成器] 响应内容:', response);
@@ -305,7 +297,7 @@ ${this.previousErrors.join('\n')}
       throw new Error(`JSON解析失败: ${message}`);
     }
   }
-  
+
   /**
    * 转换为标准WorldInfo格式
    */
@@ -348,7 +340,7 @@ ${this.previousErrors.join('\n')}
           特色: faction.specialties || faction.features || faction.特色 || [],
           与玩家关系: faction.与玩家关系 || '中立',
           声望值: calculated.声望值,
-          
+
           // 组织架构（如果AI返回了则映射并补充）
           leadership: faction.leadership ? {
             宗主: faction.leadership.宗主,
@@ -362,7 +354,7 @@ ${this.previousErrors.join('\n')}
             内门弟子数: faction.leadership.内门弟子数,
             外门弟子数: faction.leadership.外门弟子数
           } : undefined,
-          
+
           // 成员统计（若存在则透传）
           memberCount: faction.memberCount ? {
             total: Number(faction.memberCount.total) || 0,
@@ -403,18 +395,18 @@ ${this.previousErrors.join('\n')}
       版本: '2.0-Enhanced'
     };
   }
-  
+
   /**
    * 校验世界数据 (重构后)
    */
   private validateWorldData(worldInfo: WorldInfo): ValidationResult {
     console.log('[增强世界生成器] 开始校验世界数据...');
-    
+
     const result: ValidationResult = { isValid: true, errors: [] };
-    
+
     // 仅依赖自定义校验
     this.performCustomValidation(worldInfo, result);
-    
+
     if (!result.isValid) {
       // 记录错误，用于下次重试时的提示词优化
       this.previousErrors = result.errors.map(e => e.message);
@@ -422,10 +414,10 @@ ${this.previousErrors.join('\n')}
     } else {
       console.log('[增强世界生成器] 数据校验通过');
     }
-    
+
     return result;
   }
-  
+
   /**
    * 执行自定义校验
    */
@@ -439,7 +431,7 @@ ${this.previousErrors.join('\n')}
         received: worldInfo.势力信息.length
       });
     }
-    
+
     // 检查地点数量
     if (worldInfo.地点信息.length !== this.config.locationCount) {
       result.errors.push({
@@ -449,14 +441,14 @@ ${this.previousErrors.join('\n')}
         received: worldInfo.地点信息.length
       });
     }
-    
+
     // 检查势力等级分布
     const levelCounts = worldInfo.势力信息.reduce((counts: Record<string, number>, faction) => {
       const level = faction.等级;
       counts[level] = (counts[level] || 0) + 1;
       return counts;
     }, {});
-    
+
     if (levelCounts['超级'] > 1) {
       result.errors.push({
         path: '势力信息.等级',
@@ -465,7 +457,7 @@ ${this.previousErrors.join('\n')}
         received: `${levelCounts['超级']}个超级势力`
       });
     }
-    
+
     // 检查名称唯一性
     const factionNames = worldInfo.势力信息.map(f => f.名称);
     const uniqueFactionNames = new Set(factionNames);
@@ -477,7 +469,7 @@ ${this.previousErrors.join('\n')}
         received: '存在重复名称'
       });
     }
-    
+
     const locationNames = worldInfo.地点信息.map(l => l.名称);
     const uniqueLocationNames = new Set(locationNames);
     if (locationNames.length !== uniqueLocationNames.size) {
@@ -488,7 +480,7 @@ ${this.previousErrors.join('\n')}
         received: '存在重复名称'
       });
     }
-    
+
     // 世界名称与用户选择一致性
     if (this.config.worldName && worldInfo.世界名称 !== this.config.worldName) {
       result.errors.push({
@@ -498,7 +490,7 @@ ${this.previousErrors.join('\n')}
         received: worldInfo.世界名称
       });
     }
-    
+
     result.isValid = result.errors.length === 0;
   }
 }

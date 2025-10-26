@@ -20,7 +20,7 @@ export const useQuestStore = defineStore('quest', () => {
 
   // 任务配置
   const questConfig = computed<QuestConfig>(() => {
-    const config = gameStateStore.任务系统?.配置;
+    const config = gameStateStore.questSystem?.配置;
     return {
       启用系统任务: config?.启用系统任务 ?? false,
       系统任务类型: config?.系统任务类型 ?? '修仙辅助系统',
@@ -31,10 +31,10 @@ export const useQuestStore = defineStore('quest', () => {
   });
 
   // 当前任务列表
-  const currentQuests = computed(() => gameStateStore.任务系统?.当前任务列表 || []);
+  const currentQuests = computed(() => gameStateStore.questSystem?.当前任务列表 || []);
 
   // 已完成的任务列表
-  const completedQuests = computed(() => gameStateStore.任务系统?.已完成任务 || []);
+  const completedQuests = computed(() => gameStateStore.questSystem?.已完成任务 || []);
 
   // 进行中的任务
   const activeQuests = computed(() => {
@@ -64,7 +64,18 @@ export const useQuestStore = defineStore('quest', () => {
       }
 
       // 添加到存档
-      gameStateStore.任务系统?.当前任务列表.push(quest);
+      if (!gameStateStore.questSystem) {
+        console.error('[任务系统] 任务系统未初始化');
+        toast.error('任务系统未初始化', { id: toastId });
+        return;
+      }
+
+      gameStateStore.questSystem.当前任务列表.push(quest);
+      console.log('[任务系统] 任务已添加到列表:', quest.任务名称);
+
+      // 保存到存档
+      await gameStateStore.saveGame();
+      console.log('[任务系统] 任务已保存到存档');
 
       toast.success(`新任务：${quest.任务名称}`, { id: toastId });
     } catch (error: unknown) {
@@ -79,7 +90,7 @@ export const useQuestStore = defineStore('quest', () => {
    * 检查任务目标完成情况
    */
   function checkQuestObjective(questId: string, objectiveType: string, targetId: string) {
-    if (!gameStateStore.任务系统) return;
+    if (!gameStateStore.questSystem) return;
 
     const quest = currentQuests.value.find((q: Quest) => q.任务ID === questId);
     if (!quest) return;
@@ -108,11 +119,18 @@ export const useQuestStore = defineStore('quest', () => {
    * 完成任务并领取奖励
    */
   async function finishQuest(questId: string) {
-    if (!gameStateStore.任务系统) return;
+    if (!gameStateStore.questSystem) {
+      console.error('[任务系统] 任务系统未初始化');
+      toast.error('任务系统未初始化');
+      return;
+    }
 
     const questIndex = currentQuests.value.findIndex((q: Quest) => q.任务ID === questId);
     const quest = currentQuests.value[questIndex];
-    if (!quest) return;
+    if (!quest) {
+      console.error('[任务系统] 未找到任务:', questId);
+      return;
+    }
 
     const toastId = toast.loading('正在结算任务奖励...');
 
@@ -134,15 +152,15 @@ export const useQuestStore = defineStore('quest', () => {
       // 更新任务状态并移动到已完成列表
       quest.任务状态 = '已完成';
       quest.完成时间 = new Date().toISOString();
-      gameStateStore.任务系统.已完成任务.push(quest);
-      gameStateStore.任务系统.当前任务列表.splice(questIndex, 1);
+      gameStateStore.questSystem.已完成任务.push(quest);
+      gameStateStore.questSystem.当前任务列表.splice(questIndex, 1);
 
       // 更新统计
-      gameStateStore.任务系统.任务统计.完成总数 += 1;
+      gameStateStore.questSystem.任务统计.完成总数 += 1;
       if (quest.任务类型 === '主线') {
-        gameStateStore.任务系统.任务统计.主线完成 += 1;
+        gameStateStore.questSystem.任务统计.主线完成 += 1;
       } else {
-        gameStateStore.任务系统.任务统计.支线完成 += 1;
+        gameStateStore.questSystem.任务统计.支线完成 += 1;
       }
 
       toast.success(`任务完成：${quest.任务名称}`, { id: toastId });
@@ -156,8 +174,8 @@ export const useQuestStore = defineStore('quest', () => {
    * 更新任务配置
    */
   async function updateQuestConfig(config: QuestConfig) {
-    if (!gameStateStore.任务系统) {
-      gameStateStore.任务系统 = {
+    if (!gameStateStore.questSystem) {
+      gameStateStore.questSystem = {
         当前任务列表: [],
         已完成任务: [],
         任务统计: {
@@ -169,7 +187,7 @@ export const useQuestStore = defineStore('quest', () => {
         配置: config
       };
     } else {
-      gameStateStore.任务系统.配置 = config;
+      gameStateStore.questSystem.配置 = config;
     }
     
     await gameStateStore.saveGame();

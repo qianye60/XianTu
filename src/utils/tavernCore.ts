@@ -25,9 +25,10 @@ export async function generateWithRawPrompt(
   }
 
   try {
+    // 注意：使用 user 角色而不是 system，避免中转API忽略
     const response = await tavernHelper.generateRaw({
       ordered_prompts: [
-        { role: 'system', content: systemPrompt },
+        { role: 'user', content: systemPrompt },
         { role: 'user', content: userPrompt },
         { role: 'user', content: "开始任务" }
       ],
