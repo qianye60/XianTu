@@ -430,7 +430,7 @@ async function createCharacter() {
     const baseInfo = {
       名字: store.characterPayload.character_name,
       性别: store.characterPayload.gender,
-      种族: '人族',
+      种族: store.characterPayload.race,
       // 🔥 关键修复：确保所有核心选择都传递完整对象，而不仅仅是名称或ID
       // 这解决了下游服务（如AI提示生成）无法获取详细描述的问题
       世界: store.selectedWorld,
@@ -478,9 +478,11 @@ async function createCharacter() {
       mode: (store.isLocalCreation ? '单机' : '联机') as '单机' | '联机',
       age: store.characterPayload.current_age,
       gender: store.characterPayload.gender,
+      race: store.characterPayload.race, // 🔥 添加种族字段
     };
 
     console.log('🔥 [角色创建] 当前选择的开局年龄:', store.characterPayload.current_age);
+    console.log('🔥 [角色创建] 当前选择的种族:', store.characterPayload.race);
     console.log('发射creation-complete事件，载荷:', creationPayload);
 
     // 发射事件让App.vue处理创建逻辑

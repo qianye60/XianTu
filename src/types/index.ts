@@ -195,6 +195,7 @@ export interface CharacterCreationPayload {
   mode: '单机' | '联机';
   age: number;
   gender: string;
+  race?: string;  // 种族字段（可选，默认为'人族'）
 }
 
 // --- 创角自定义数据结构 ---

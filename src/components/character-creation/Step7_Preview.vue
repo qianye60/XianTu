@@ -141,8 +141,14 @@ const props = defineProps<{
   isLocalCreation: boolean
 }>()
 
-// 从酒馆获取当前Persona名字
+// 从酒馆获取当前Persona名字（只在名字为空时获取，避免重试时覆盖）
 onMounted(async () => {
+  // 如果已经有名字了，不要重新获取（避免重试时覆盖）
+  if (store.characterPayload.character_name && store.characterPayload.character_name !== '无名者') {
+    console.log('[Step7_Preview] 已有角色名字，跳过获取:', store.characterPayload.character_name)
+    return
+  }
+
   try {
     const helper = getTavernHelper()
     if (helper) {

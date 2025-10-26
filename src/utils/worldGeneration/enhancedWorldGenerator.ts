@@ -40,6 +40,7 @@ export interface EnhancedWorldGenConfig {
   retryDelay: number;
   characterBackground?: string;
   mapConfig?: WorldMapConfig;
+  onStreamChunk?: (chunk: string) => void; // 流式输出回调
 }
 
 export class EnhancedWorldGenerator {
@@ -155,9 +156,16 @@ export class EnhancedWorldGenerator {
 
       const response = await tavern.generateRaw({
         ordered_prompts: orderedPrompts,
+        should_stream: true,
         overrides: {
           world_info_before: '',
           world_info_after: ''
+        },
+        onStreamChunk: (chunk: string) => {
+          // 实时显示世界生成进度
+          if (this.config.onStreamChunk) {
+            this.config.onStreamChunk(chunk);
+          }
         }
       });
 

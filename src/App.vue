@@ -218,6 +218,7 @@ const handleGoToLogin = () => {
 
 const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
   console.log('接收到创角指令...', rawPayload);
+  console.log('[App.vue] 种族字段检查:', rawPayload.race);
 
   // 防止重复创建角色
   if (uiStore.isLoading) {
@@ -275,7 +276,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
         名字: personaName, // 使用从酒馆获取的Persona名字
         性别: (rawPayload.gender === '女' || rawPayload.gender === '其他' ? rawPayload.gender : '男') as '男' | '女' | '其他',
         出生日期: { 年: 0, 月: 1, 日: 1 }, // 临时占位符，后续由角色初始化流程计算
-        种族: (rawPayload as any).race || '人族', // 添加种族
+        种族: rawPayload.race ?? '人族', // 添加种族，使用 ?? 避免空字符串被当作 falsy
         世界: rawPayload.world || { name: '未知世界' } as any,
         天资: rawPayload.talentTier || { name: '凡品' } as any,
         出生: rawPayload.origin || '随机出身',

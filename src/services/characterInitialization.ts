@@ -339,7 +339,11 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
     maxRetries: 3,
     retryDelay: 2000,
     characterBackground: extractName(baseInfo.出生),
-    mapConfig: userWorldConfig.mapConfig
+    mapConfig: userWorldConfig.mapConfig,
+    onStreamChunk: (chunk: string) => {
+      // 实时更新UI显示世界生成进度
+      uiStore.updateLoadingText(`🌍 世界生成中...\n\n${chunk.substring(0, 150)}...`);
+    }
   };
 
   console.log('[初始化流程] 开始调用世界生成器...');
@@ -377,7 +381,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const userSelections = {
     name: baseInfo.名字,
     gender: baseInfo.性别,
-    race: baseInfo.种族 || '人族',
+    race: baseInfo.种族 ?? '人族', // 使用 ?? 而不是 ||，避免空字符串被当作 falsy
     age: age,
     // 🔥 关键修复：传递完整的世界对象而不仅仅是名称
     world: baseInfo.世界 || world, // 优先使用 baseInfo 中的完整对象
@@ -389,6 +393,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   };
 
   console.log('[初始化] 🔥 用户选择数据检查:');
+  console.log('  - 种族:', baseInfo.种族, '->', userSelections.race);
   console.log('  - 天资:', userSelections.talentTier);
   console.log('  - 出身:', userSelections.origin);
   console.log('  - 灵根:', userSelections.spiritRoot);
@@ -718,10 +723,6 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     天赋: baseInfo.天赋, // 强制使用玩家选择的完整天赋列表
   };
 
-  // 🔥 最终权威性覆盖：直接从创角仓库获取最原始的选择，覆盖AI可能产生的任何修改
-  // 【重要】这确保了用户手动选择的信息永远不会被AI或代码修改
-  // 只有用户选择"随机"时，才使用AI生成的数据
-  const creationStore = useCharacterCreationStore();
 
   // 灵根权威覆盖
   const userChoseRandomSpiritRoot = (typeof baseInfo.灵根 === 'object' && (baseInfo.灵根 as SpiritRoot)?.name?.includes('随机')) ||

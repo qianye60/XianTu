@@ -218,61 +218,54 @@ export function normalizeStatusEffect(effect: LegacyStatusEffect, gameTime: Game
 /**
  * 更新状态效果列表，移除过期的状态效果
  * @param saveData 存档数据
- * @returns 是否有状态效果被移除
+ * @returns 返回一个对象，其中包含被移除的状态效果名称列表
  */
-export function updateStatusEffects(saveData: SaveData): boolean {
+export function updateStatusEffects(saveData: SaveData): { removedEffects: string[] } {
+  const removedEffects: string[] = [];
   try {
     const statusEffects = get(saveData, '玩家角色状态.状态效果', []) as StatusEffect[];
     if (!Array.isArray(statusEffects) || statusEffects.length === 0) {
-      return false;
+      return { removedEffects };
     }
 
     const currentGameTime = saveData.游戏时间;
     if (!currentGameTime) {
       console.warn('[状态效果] 游戏时间不存在，无法更新状态效果');
-      return false;
+      return { removedEffects };
     }
 
-    let hasExpired = false;
     const updatedEffects: StatusEffect[] = [];
 
     for (const effect of statusEffects) {
-      // 过滤掉 null/undefined 值
       if (!effect || typeof effect !== 'object') {
         console.warn('[状态效果] 跳过无效的状态效果:', effect);
-        hasExpired = true;
         continue;
       }
 
-      // 规范化状态效果（处理旧格式）
       const normalizedEffect = normalizeStatusEffect(effect, currentGameTime);
       if (!normalizedEffect) {
         console.warn('[状态效果] 跳过无法规范化的状态效果:', effect);
-        hasExpired = true;
         continue;
       }
 
-      // 检查是否过期
       if (isStatusEffectExpired(normalizedEffect, currentGameTime)) {
         console.log(`[状态效果] 状态效果"${normalizedEffect.状态名称}"已过期，将被移除`);
-        hasExpired = true;
+        removedEffects.push(normalizedEffect.状态名称);
       } else {
         updatedEffects.push(normalizedEffect);
       }
     }
 
-    // 更新状态效果数组
-    set(saveData, '玩家角色状态.状态效果', updatedEffects);
-
-    if (hasExpired) {
-      console.log(`[状态效果] 已移除 ${statusEffects.length - updatedEffects.length} 个过期状态效果`);
+    if (removedEffects.length > 0) {
+      set(saveData, '玩家角色状态.状态效果', updatedEffects);
+      console.log(`[状态效果] 已移除 ${removedEffects.length} 个过期状态效果: ${removedEffects.join(', ')}`);
     }
 
-    return hasExpired;
+    return { removedEffects };
 
   } catch (error) {
     console.error('[状态效果] 更新状态效果失败:', error);
-    return false;
+    return { removedEffects };
   }
 }
 

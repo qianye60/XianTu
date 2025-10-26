@@ -15,6 +15,7 @@ import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange,
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import { DATA_STRUCTURE_DEFINITIONS } from './prompts/dataStructureDefinitions';
 import { normalizeGameTime } from './time';
+import { updateStatusEffects } from './statusEffectManager';
 
 type PlainObject = Record<string, unknown>;
 
@@ -220,7 +221,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
           { role: 'user', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        should_stream: options?.useStreaming || false,
+        should_stream: true,
         overrides: {
           world_info_before: '',
           world_info_after: ''
@@ -367,6 +368,12 @@ ${DATA_STRUCTURE_DEFINITIONS}
       saveData.游戏时间 = normalizeGameTime(saveData.游戏时间);
     }
 
+    // 每次AI响应后，检查并移除过期的状态效果
+    const { removedEffects } = updateStatusEffects(saveData);
+    if (removedEffects.length > 0) {
+      console.log(`[AI双向系统] Pinia状态更新前: 移除了 ${removedEffects.length} 个过期效果: ${removedEffects.join(', ')}`);
+    }
+
     // 🔥 将状态变更添加到最新的叙事记录中
     const stateChangesLog: StateChangeLog = { changes, timestamp: new Date().toISOString() };
     if (saveData.叙事历史 && saveData.叙事历史.length > 0) {
@@ -414,14 +421,14 @@ ${DATA_STRUCTURE_DEFINITIONS}
 
       // 2. 再次检查是否需要总结
       const midTermMemories = saveData.记忆.中期记忆 || [];
-      
+
       // 情况1: 未达到触发阈值
       if (midTermMemories.length < midTermTrigger) {
         console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})未达到总结阈值(${midTermTrigger})，取消总结。`);
         toast.info('中期记忆数量不足，已取消总结', { id: 'memory-summary' });
         return;
       }
-      
+
       // 情况2: 总结后无法保留足够的记忆
       if (midTermMemories.length <= midTermKeep) {
         console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})不足以保留${midTermKeep}条，取消总结。`);
