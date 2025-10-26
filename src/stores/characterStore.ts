@@ -1801,18 +1801,18 @@ export const useCharacterStore = defineStore('characterV3', () => {
  * @param npcName 要删除的NPC的名字
  */
 const deleteNpc = async (npcName: string) => {
-  // 🔥 修复：使用 gameStateStore 作为唯一数据源进行操作
+  // 🔥 修复：直接访问 gameStateStore 的响应式数据，而不是副本
   const gameStateStore = useGameStateStore();
-  const saveData = gameStateStore.getCurrentSaveData();
+  const relationships = gameStateStore.relationships;
 
-  if (!saveData?.人物关系) {
+  if (!relationships) {
     const msg = '无法删除NPC：没有激活的存档或人物关系数据。';
     toast.error(msg);
     throw new Error(msg);
   }
 
-  const npcKey = Object.keys(saveData.人物关系).find(
-    key => saveData.人物关系[key]?.名字 === npcName
+  const npcKey = Object.keys(relationships).find(
+    key => relationships[key]?.名字 === npcName
   );
 
   if (!npcKey) {
@@ -1822,11 +1822,11 @@ const deleteNpc = async (npcName: string) => {
   }
 
   // 备份NPC数据以便回滚
-  const backupNpc = { ...saveData.人物关系[npcKey] };
+  const backupNpc = { ...relationships[npcKey] };
 
   try {
-    // 1. 直接修改 gameStateStore 中的数据
-    delete saveData.人物关系[npcKey];
+    // 1. 直接修改 gameStateStore.relationships（响应式数据）
+    delete relationships[npcKey];
     debug.log('角色商店', `已从 gameStateStore 中删除NPC: ${npcName}`);
 
     // 2. 通过 gameStateStore 保存，这将处理所有持久化逻辑
@@ -1838,10 +1838,8 @@ const deleteNpc = async (npcName: string) => {
     debug.error('角色商店', `删除NPC ${npcName} 后保存失败`, error);
 
     // 回滚 gameStateStore 中的内存数据
-    if (saveData.人物关系) {
-      saveData.人物关系[npcKey] = backupNpc;
-      debug.log('角色商店', `已回滚 gameStateStore 中的NPC删除操作: ${npcName}`);
-    }
+    relationships[npcKey] = backupNpc;
+    debug.log('角色商店', `已回滚 gameStateStore 中的NPC删除操作: ${npcName}`);
 
     toast.error(`删除NPC失败: ${error instanceof Error ? error.message : '未知错误'}`);
     throw error; // 向上层抛出错误，让UI组件能够处理

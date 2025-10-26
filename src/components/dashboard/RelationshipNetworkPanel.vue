@@ -43,8 +43,8 @@
                   <div class="person-name">{{ person.名字 }}</div>
                   <div class="person-meta">
                     <span class="relationship-type">{{ person.与玩家关系 || '相识' }}</span>
-                    <div class="card-actions">
-                      <button class="attention-toggle" @click.stop.prevent="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
+                    <div class="card-actions" @click.stop>
+                      <button class="attention-toggle" @click.stop="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
                         <Eye v-if="isAttentionEnabled(person)" :size="14" class="attention-icon active" />
                         <EyeOff v-else :size="14" class="attention-icon inactive" />
                       </button>
@@ -88,7 +88,7 @@
               <div class="detail-info">
                 <div class="name-and-actions">
                   <h3 class="detail-name">{{ selectedPerson.名字 }}</h3>
-                  <button v-if="selectedPerson" @click="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
+                  <button v-if="selectedPerson" @click.stop="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
                     <Trash2 :size="16" />
                   </button>
                 </div>
@@ -465,7 +465,6 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
-import type { Talent } from '@/types';
 
 
 
@@ -855,42 +854,48 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
 
 // 切换NPC关注状态
 const toggleAttention = async (person: NpcProfile) => {
+  console.log('[关注按钮] 点击了关注按钮，人物:', person.名字);
   const npcName = person.名字;
 
-  // 🔥 修复：直接从 gameStateStore 获取最新数据
-  const currentSaveData = gameStateStore.getCurrentSaveData();
-  if (!currentSaveData?.人物关系) {
-    uiStore.showToast('人物关系数据不存在', { type: 'error' });
-    return;
-  }
-
-  const npcKey = Object.keys(currentSaveData.人物关系).find(
-    key => currentSaveData.人物关系[key]?.名字 === npcName
-  );
-
-  if (!npcKey) {
-    uiStore.showToast(`找不到名为 ${npcName} 的人物`, { type: 'error' });
-    return;
-  }
-
   try {
-    // 直接修改 gameStateStore 中的数据
-    const npcProfile = currentSaveData.人物关系[npcKey];
+    // 🔥 直接访问 gameStateStore 的响应式数据，而不是副本
+    const relationships = gameStateStore.relationships;
+    if (!relationships) {
+      uiStore.showToast('人物关系数据不存在', { type: 'error' });
+      return;
+    }
+
+    const npcKey = Object.keys(relationships).find(
+      key => relationships[key]?.名字 === npcName
+    );
+
+    if (!npcKey) {
+      uiStore.showToast(`找不到名为 ${npcName} 的人物`, { type: 'error' });
+      return;
+    }
+
+    // 直接修改 gameStateStore.relationships（响应式数据）
+    const npcProfile = relationships[npcKey];
     const newState = !(npcProfile.实时关注 || false);
     npcProfile.实时关注 = newState;
 
-    // 持久化变更
+    console.log('[关注按钮] 切换状态:', newState, '保存前的数据:', npcProfile.实时关注);
+
+    // 通过 gameStateStore 保存，这将处理所有持久化逻辑
     await gameStateStore.saveGame();
+
+    console.log('[关注按钮] 保存完成');
 
     uiStore.showToast(newState ? `已关注 ${npcName}` : `已取消关注 ${npcName}`, { type: 'success' });
 
     // 强制更新选中的人物（触发响应式）
     if (selectedPerson.value?.名字 === npcName) {
-      selectedPerson.value = { ...currentSaveData.人物关系[npcKey] };
+      selectedPerson.value = { ...relationships[npcKey] };
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     uiStore.showToast(`操作失败: ${errorMsg}`, { type: 'error' });
+    console.error('[关注按钮] 错误:', error);
   }
 };
 
@@ -1303,6 +1308,9 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   border: 1px solid rgba(156, 163, 175, 0.2);
   padding: 0;
   outline: none;
+  position: relative;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .attention-toggle:hover {
@@ -2742,6 +2750,9 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .delete-btn-card {
@@ -2758,6 +2769,9 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   color: #9ca3af;
   padding: 0;
   outline: none;
+  position: relative;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .delete-btn-card:hover {
