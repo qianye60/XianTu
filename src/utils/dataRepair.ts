@@ -3,7 +3,7 @@
  * 当AI返回的数据有问题时，自动修复和清洗，防止前端崩溃
  */
 
-import type { SaveData, Item, NpcProfile, GameTime, Realm } from '@/types/game';
+import type { SaveData, Item, NpcProfile, GameTime, Realm, QuestType } from '@/types/game';
 import type { GradeType } from '@/data/itemQuality';
 import { cloneDeep } from 'lodash';
 
@@ -502,9 +502,7 @@ function createMinimalSaveData(): SaveData {
       已完成任务: [],
       任务统计: {
         完成总数: 0,
-        主线完成: 0,
-        支线完成: 0,
-        系统任务完成: 0
+        各类型完成: {} as Record<QuestType, number>
       }
     },
     记忆: {

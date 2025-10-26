@@ -215,8 +215,8 @@ const localConfig = ref({
   系统任务提示词: ''
 });
 
-// 所有任务类型
-const questTypes: QuestType[] = ['主线', '支线', '宗门', '奇遇', '日常', '系统任务', '道侣培养', '修为提升', '收集资源', '战斗挑战'];
+// 所有任务类型（无主次之分，一切随机）
+const questTypes: QuestType[] = ['宗门', '奇遇', '日常', '系统任务', '道侣培养', '修为提升', '收集资源', '战斗挑战'];
 
 // 初始化配置
 watch(() => questStore.questConfig, (newConfig) => {
@@ -267,8 +267,6 @@ async function saveConfig() {
 // 获取任务类型样式类名
 function getQuestTypeClass(type: QuestType): string {
   const typeMap: Record<QuestType, string> = {
-    '主线': 'type-main',
-    '支线': 'type-side',
     '宗门': 'type-sect',
     '奇遇': 'type-adventure',
     '日常': 'type-daily',

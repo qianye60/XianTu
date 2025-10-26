@@ -7,7 +7,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Continent } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Continent, QuestType } from '@/types/game';
 import type { World, Origin, SpiritRoot } from '@/types';
 import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
@@ -241,9 +241,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       已完成任务: [],
       任务统计: {
         完成总数: 0,
-        主线完成: 0,
-        支线完成: 0,
-        系统任务完成: 0
+        各类型完成: {} as Record<QuestType, number>
       }
     },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] },
@@ -521,20 +519,20 @@ async () => {
       }
 
       const locationObj = locationValue as { 描述?: string; x?: number; y?: number };
-      
+
       // 验证描述字段
       if (!locationObj.描述 || typeof locationObj.描述 !== 'string') {
         console.warn('[AI验证] ❌ 位置描述无效');
         console.warn('[AI验证] 描述值:', locationObj.描述);
         return false;
       }
-      
+
       if (!locationObj.描述.includes('·')) {
         console.warn('[AI验证] ❌ 位置描述缺少"·"分隔符');
         console.warn('[AI验证] 描述值:', locationObj.描述);
         return false;
       }
-      
+
       if (locationObj.描述.includes('undefined') || locationObj.描述.includes('null') || locationObj.描述.includes('随机')) {
         console.warn('[AI验证] ❌ 位置描述包含无效内容:', locationObj.描述);
         return false;
@@ -918,6 +916,14 @@ export async function initializeCharacter(
   age: number
 ): Promise<SaveData> {
   console.log('[初始化流程] ===== initializeCharacter 入口 =====');
+
+  // [Roo] 补丁：修复从创角store到基础信息的种族字段映射问题
+  const creationStore = useCharacterCreationStore();
+  if (!baseInfo.种族 && creationStore.characterPayload.race) {
+    console.log(`[初始化流程] 补丁：从 store 同步种族信息: ${creationStore.characterPayload.race}`);
+    (baseInfo as any).种族 = creationStore.characterPayload.race;
+  }
+
   console.log('[初始化流程] 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
   try {
     // 步骤 1: 准备初始数据
