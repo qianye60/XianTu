@@ -1,4 +1,4 @@
-import { REALM_STAGE_RULE, NSFW_RULE, NPC_MEMORY_UPDATE_RULE, PLAYER_INTENT_RESPECT_RULE } from '@/utils/prompts/sharedRules'
+import { REALM_STAGE_RULE, NSFW_RULE, NPC_MEMORY_UPDATE_RULE, PLAYER_INTENT_RESPECT_RULE, THREE_THOUSAND_DAOS_RULE } from '@/utils/prompts/sharedRules'
 
 // ===================================================================================
 //
@@ -314,8 +314,8 @@ const RESPONSE_FORMAT = `
 const CORE_RULES = `
 # 🔴 核心规则与指南 (Core Rules & Guidelines)
 
-## 1. JSON洁癖 (JSON Purism) - 【最高优先级】
-- **严格遵守结构**: 你的输出必须严格匹配上方定义的结构树。
+## 1. 数据结构严格性 (Data Structure Strictness) - 【最高优先级】
+- **严格遵守结构**: 你的输出必须严格匹配数据结构定义。
 - **禁止添加额外字段**: 严禁在任何对象中添加结构树未定义的字段。例如，NPC的\`境界\`对象只有\`名称\`和\`阶段\`，不可添加\`当前进度\`。
 - **结构错误 > 内容不佳**: 一个结构完全正确但内容平庸的JSON，远好于一个内容丰富但结构错误的JSON。前端解析失败会导致整个对象无法显示。
 
@@ -377,21 +377,7 @@ const CORE_RULES = `
 ${NPC_MEMORY_UPDATE_RULE}
 
 ### 🔴 三千大道解锁 (Dao Unlocking) - 【机缘触发】
-当玩家在游戏中遇到以下情况时，应该解锁相应的大道：
-
-**触发条件（满足任一即可解锁）：**
-1. **感悟契机**：玩家在战斗、修炼、观察自然中有所感悟
-2. **传承获得**：获得功法、秘籍、前辈指点
-3. **特殊经历**：经历生死、顿悟、突破瓶颈
-4. **天赋觉醒**：天赋效果触发，领悟特殊能力
-5. **机缘巧合**：观摩高手、参悟法宝、进入秘境
-
-**常见大道类型：**
-- **武道类**：剑道、刀道、拳道、枪道、掌道
-- **元素类**：火之道、水之道、雷之道、风之道、冰之道
-- **特殊类**：空间之道、时间之道、生死之道、阴阳之道、因果之道
-- **技艺类**：炼丹之道、炼器之道、阵法之道、符箓之道
-- **心性类**：杀戮之道、守护之道、自由之道、仁慈之道
+当玩家通过感悟、传承、特殊经历等方式接触到某个大道时，应该解锁相应的大道。
 
 **解锁大道的完整命令格式：**
 \`\`\`json
@@ -668,6 +654,9 @@ ${EXAMPLES}
 ---
 
 # 【特殊规则注入】
+
+## 规则零：三千大道体系（世界观核心）
+${THREE_THOUSAND_DAOS_RULE}
 
 ## 规则一：尊重玩家意图（最高优先级）
 ${PLAYER_INTENT_RESPECT_RULE}
