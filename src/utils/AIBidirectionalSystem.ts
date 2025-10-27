@@ -14,6 +14,7 @@ import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import { DATA_STRUCTURE_DEFINITIONS } from './prompts/dataStructureDefinitions';
+import { PLAYER_INTENT_RESPECT_RULE } from './prompts/sharedRules';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 
@@ -21,6 +22,7 @@ type PlainObject = Record<string, unknown>;
 
 export interface ProcessOptions {
   onStreamChunk?: (chunk: string) => void;
+  onStreamComplete?: () => void;
   onProgressUpdate?: (progress: string) => void;
   onStateChange?: (newState: PlainObject) => void;
   useStreaming?: boolean;
@@ -131,11 +133,7 @@ class AIBidirectionalSystemClass {
       const stateJsonString = JSON.stringify(stateForAI);
 
       const systemPrompt = `
-# 核心行为准则 (最高优先级)
-1.  **尊重玩家意图**: 你的首要任务是响应玩家的行动和意图。如果玩家没有明确表示要离开当前地点或进行重大活动（如修炼、探索、战斗），你必须专注于当前场景的深度互动。
-2.  **禁止主动推进**: 绝对不要主动提出离开当前场景的建议（例如"我们去xxx看看？"）。将剧情推进的决定权完全交给玩家。
-3.  **丰富当前场景**: 当玩家选择"静止"（例如，只是对话、观察、思考）时，你应该通过细腻的环境描写、NPC的心理活动、更深入的对话选项来丰富当前的体验，而不是试图创造新的事件或转移地点。
-4.  **被动响应**: 你的所有叙述和行动都应该是对玩家输入的直接或间接响应，而不是自发地创造新剧情。
+${PLAYER_INTENT_RESPECT_RULE}
 
 ${coreStatusSummary}
 
@@ -170,17 +168,28 @@ ${DATA_STRUCTURE_DEFINITIONS}
         });
       }
 
+      // 🔥 [流式传输修复]
+      // 使用酒馆的事件系统处理流式传输
+      const useStreaming = options?.useStreaming !== false;
+
       const response = await tavernHelper!.generate({
         user_input: userActionForAI,
-        should_stream: options?.useStreaming || false,
-        generation_id: generationId, // 传入generation_id以支持事件监听
-        ...(options?.onStreamChunk ? { onStreamChunk: options.onStreamChunk } : {}),
+        should_stream: useStreaming,
+        generation_id: generationId,
         injects,
       });
 
+      // 流式传输通过事件系统在 MainGamePanel 中处理
+      // 这里只需要解析最终响应
       gmResponse = this.parseAIResponse(response);
+
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI响应解析失败或为空');
+      }
+
+      // 流式传输完成后调用回调
+      if (useStreaming && options?.onStreamComplete) {
+        options.onStreamComplete();
       }
     } catch (error) {
       console.error('[AI双向系统] AI生成失败:', error);
@@ -214,25 +223,32 @@ ${DATA_STRUCTURE_DEFINITIONS}
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
     let gmResponse: GM_Response;
     try {
-      // 使用 Raw 模式生成初始消息，跳过世界书和角色卡
-      // 注意：不使用 system 角色，改用 user 角色以避免某些模型的问题
+      const useStreaming = options?.useStreaming !== false; // 默认启用流式传输
+
       const response = await tavernHelper!.generateRaw({
         ordered_prompts: [
           { role: 'user', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        should_stream: true,
+        should_stream: useStreaming,
         overrides: {
           world_info_before: '',
           world_info_after: ''
-        },
-        ...(options?.onStreamChunk ? { onStreamChunk: options.onStreamChunk } : {}),
+        }
       });
 
+      // 流式传输通过事件系统在调用方处理
       gmResponse = this.parseAIResponse(String(response));
+
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI响应解析失败或为空');
       }
+
+      // 流式传输完成后调用回调
+      if (useStreaming && options?.onStreamComplete) {
+        options.onStreamComplete();
+      }
+
       return gmResponse;
     } catch (error) {
       console.error('[AI双向系统] 初始消息生成失败:', error);
@@ -326,7 +342,6 @@ ${DATA_STRUCTURE_DEFINITIONS}
       }
     }
 
-    // 🔥 检查并处理中期记忆，总结后转入长期记忆
     // 检查是否达到自动总结阈值，如果达到则“异步”触发，不阻塞当前游戏循环
     try {
       const memorySettings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
@@ -423,7 +438,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
       const midTermMemories = saveData.记忆.中期记忆 || [];
 
       // 情况1: 未达到触发阈值
-      if (midTermMemories.length < midTermTrigger) {
+      if (midTermMemories.length + 1  < midTermTrigger) {
         console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})未达到总结阈值(${midTermTrigger})，取消总结。`);
         toast.info('中期记忆数量不足，已取消总结', { id: 'memory-summary' });
         return;
@@ -454,7 +469,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
 2. 使用第一人称（"我"）的视角描述
 3. 按时间顺序梳理事件脉络，突出因果关系
 4. 保留重要细节，合并琐碎信息
-5. 字数控制在200-350字，确保信息完整详实
+5. 字数控制在400-600简体汉字，确保信息完整详实
 6. 使用修仙小说的语言风格
 7. 只返回总结内容本身，不要添加任何时间前缀（如【仙道XX年】）、标题（如【记忆总结】）或其他格式标记`;
 
@@ -516,6 +531,20 @@ ${DATA_STRUCTURE_DEFINITIONS}
     }
 
     const path = key.toString();
+
+    // 🔥 保护关键数组字段，防止被设为 null
+    const arrayFields = ['玩家角色状态.状态效果', '任务列表', '物品栏.物品', '技能列表', '记忆.短期记忆', '记忆.中期记忆', '记忆.长期记忆', '叙事历史'];
+    if (action === 'set' && arrayFields.some(field => path.includes(field))) {
+      if (value === null || value === undefined) {
+        console.warn(`[AI双向系统] 阻止将数组字段 ${path} 设为 null/undefined，改为空数组`);
+        set(saveData, path, []);
+        return;
+      }
+      if (!Array.isArray(value)) {
+        console.warn(`[AI双向系统] 阻止将数组字段 ${path} 设为非数组值，保持原值`);
+        return;
+      }
+    }
 
     switch (action) {
       case 'set':

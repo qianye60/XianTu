@@ -876,7 +876,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onActivated } from 'vue';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -1554,6 +1554,12 @@ const refreshData = async () => {
 
 onMounted(async () => {
   debug.log('人物详情', '组件挂载，同步数据');
+  await refreshData();
+});
+
+// 每次面板激活时重新获取数据
+onActivated(async () => {
+  debug.log('人物详情', '面板激活，刷新数据');
   await refreshData();
 });
 

@@ -184,6 +184,14 @@
           <div v-if="quest.完成时间" class="quest-time">
             完成时间：{{ formatTime(quest.完成时间) }}
           </div>
+          <!-- 删除按钮 - 所有任务都可以删除 -->
+          <button
+            @click="deleteQuest(quest.任务ID)"
+            class="delete-quest-btn"
+            title="删除任务"
+          >
+            ×
+          </button>
         </div>
       </div>
 
@@ -324,6 +332,15 @@ function getEmptyMessage(): string {
     return '暂无进行中的任务';
   } else {
     return '暂无任务';
+  }
+}
+
+// 删除任务
+async function deleteQuest(questId: string) {
+  try {
+    await questStore.deleteQuest(questId);
+  } catch (error) {
+    console.error('删除任务失败:', error);
   }
 }
 </script>

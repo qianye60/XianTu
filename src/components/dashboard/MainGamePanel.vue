@@ -46,9 +46,16 @@
           </div>
         </div>
 
-        <!-- 上一次的叙述内容（始终显示） -->
-        <div v-if="currentNarrative" class="narrative-content">
-          <div class="narrative-meta" v-if="!isAIProcessing">
+        <!-- 流式输出内容（生成时实时显示，优先级最高） -->
+        <div v-if="isAIProcessing && streamingContent" class="streaming-narrative-content">
+          <div class="streaming-text">
+            <FormattedText :text="streamingContent" />
+          </div>
+        </div>
+
+        <!-- 上一次的叙述内容（非生成时显示） -->
+        <div v-else-if="currentNarrative" class="narrative-content">
+          <div class="narrative-meta">
             <span class="narrative-time">{{ currentNarrative.time }}</span>
             <div class="meta-buttons">
               <!-- 回滚按钮 -->
@@ -77,6 +84,7 @@
             <FormattedText :text="currentNarrative.content" />
           </div>
         </div>
+
         <div v-else class="empty-narrative">
           静待天机变化...
         </div>
@@ -307,8 +315,7 @@ import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalS
 import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
-import { formatGameTimeString } from '@/utils/formatters';
-import type { GameMessage, CharacterProfile } from '@/types/game';
+import type {  CharacterProfile } from '@/types/game';
 import type { GM_Response } from '@/types/AIGameMaster'; // AIGameMaster.d.ts 仍然需要保留
 
 // 定义状态变更日志类型
@@ -406,7 +413,6 @@ const selectedAction = ref<ActionItem | null>(null);
 const selectedTime = ref(1);
 const customTime = ref(1);
 const selectedOption = ref('');
-const showCultivationPanel = ref(false);
 
 // 行动类型定义
 interface ActionItem {
@@ -416,7 +422,7 @@ interface ActionItem {
   description: string;
   timeRequired?: boolean;
   options?: Array<{ key: string; label: string }>;
-  iconComponent?: any;
+  iconComponent?: unknown;
 }
 
 const characterStore = useCharacterStore();
@@ -474,53 +480,6 @@ const getImagePreviewUrl = (file: File): string => {
   return URL.createObjectURL(file);
 };
 
-
-const formatValue = (value: unknown): string => {
-  if (value === null || value === undefined) {
-    return '空';
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? '是' : '否';
-  }
-
-  if (typeof value === 'number') {
-    if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}千`;
-    return value.toString();
-  }
-
-  if (typeof value === 'string') {
-    if (value.length === 0) return '空字符串';
-    if (value.length > 50) return `${value.substring(0, 47)}...`;
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '空数组';
-    if (value.length <= 3) return `[${value.map(v => formatValue(v)).join(', ')}]`;
-    return `[${value.length}项数组]`;
-  }
-
-  if (typeof value === 'object' && value !== null) {
-    const valAsRecord = value as Record<string, unknown>;
-    if (typeof valAsRecord['当前'] === 'number' && typeof valAsRecord['最大'] === 'number') {
-      return `${valAsRecord['当前']} / ${valAsRecord['最大']}`;
-    }
-
-    const keys = Object.keys(value);
-    if (keys.length === 0) return '空对象';
-
-    const jsonString = JSON.stringify(value);
-    if (jsonString.length > 50) {
-      return `${jsonString.substring(0, 47)}...`;
-    }
-    return jsonString;
-  }
-
-  return String(value);
-};
-
 // 显示状态变更详情
 const showStateChanges = (log: StateChangeLog | undefined) => {
   if (!log || !log.changes || log.changes.length === 0) {
@@ -540,7 +499,7 @@ const currentNarrative = computed(() => {
 
   if (narrativeHistory && narrativeHistory.length > 0) {
     const latestNarrative = narrativeHistory[narrativeHistory.length - 1];
-    
+
     // Replace timestamp in content (移除游戏时间前缀)
     const contentWithoutOldTime = latestNarrative.content.replace(/^【.*?】\s*/, '');
 
@@ -631,10 +590,6 @@ defineExpose({
 // 计算属性：检查是否有激活的角色
 const hasActiveCharacter = computed(() => !!gameStateStore.character);
 
-// 计算属性：角色名称
-const characterName = computed(() => {
-  return gameStateStore.character?.名字 || '无名道友';
-});
 
 // 计算属性：是否可以回滚
 const canRollback = computed(() => {
@@ -678,27 +633,9 @@ const flatActions = computed(() => {
   return actions;
 });
 
-const cultivationActions = computed(() => {
-  const cultivationCategory = actionCategories.value.find(c => c.name === '修炼');
-  return cultivationCategory ? cultivationCategory.actions : [];
-});
 
-const cultivationTimes = ref<{ [key: string]: number }>({
-  '基础修炼': 1,
-  '炼体': 1,
-  '冥想': 1
-});
 
-const startCultivation = (action: ActionItem) => {
-  const time = cultivationTimes.value[action.name] || 1;
-  const actionText = `${action.name}（${time}天）`;
-  inputText.value = actionText;
-  showCultivationPanel.value = false;
-  nextTick(() => {
-    inputRef.value?.focus();
-    sendMessage(); // 自动发送
-  });
-};
+
 
 // 时间选项
 const timeOptions = ref([
@@ -1003,16 +940,8 @@ const retryAIResponse = async (
 };
 
 
-const handleStreamingResponse = (chunk: string) => {
-  if (streamingMessageIndex.value !== null) {
-    streamingContent.value += chunk;
-    nextTick(() => {
-      if (contentAreaRef.value) {
-        contentAreaRef.value.scrollTop = contentAreaRef.value.scrollHeight;
-      }
-    });
-  }
-};
+// 存储原始流式内容（用于解析完整JSON）
+const rawStreamingContent = ref('');
 
 // 检查动作是否可撤回
 const isUndoableAction = (action: { type?: string }): boolean => {
@@ -1118,9 +1047,9 @@ const sendMessage = async () => {
   // 用户消息只作为行动趋向提示词，不添加到记忆中
   isAIProcessing.value = true;
 
-  // 🔥 [用户要求] 生成时不清空正文内容，保留上一次的内容显示
-  // 生成完成后会通过 currentNarrative 自动显示新内容
-  streamingContent.value = ''; // 重置流式内容
+  // 🔥 重置流式内容，准备接收新的流式输出
+  streamingContent.value = '';
+  rawStreamingContent.value = ''; // 清除原始流式内容
   streamingMessageIndex.value = 1; // 设置一个虚拟索引以启用流式处理
 
   try {
@@ -1131,17 +1060,6 @@ const sendMessage = async () => {
       throw new Error('角色数据缺失');
     }
 
-    // 🔥 [关键] 对话前保存"上次对话存档"（隐藏存档，用于回档）
-    try {
-      const currentSaveData = gameStateStore.toSaveData();
-      if (currentSaveData) {
-        localStorage.setItem('last_dialogue_save', JSON.stringify(currentSaveData));
-        console.log('[存档] ✅ 已保存上次对话存档（隐藏）');
-      }
-    } catch (error) {
-      console.error('[存档] 保存上次对话存档失败:', error);
-    }
-
     // 使用优化的AI请求系统进行双向交互
     let aiResponse: GM_Response | null = null;
 
@@ -1149,17 +1067,17 @@ const sendMessage = async () => {
       const options: Record<string, unknown> = {
         onProgressUpdate: (progress: string) => {
           console.log('[AI进度]', progress);
-        }
+        },
+        useStreaming: useStreaming.value
       };
-      if (useStreaming.value) {
-        options.onStreamChunk = handleStreamingResponse;
-        options.useStreaming = true;
-      }
+
+      // 注意：流式传输通过酒馆的事件系统处理（STREAM_TOKEN_RECEIVED_INCREMENTALLY）
+      // 不需要设置 onStreamChunk 回调
       // 生成唯一的 generation_id
       const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       currentGenerationId.value = generationId;
       options.generation_id = generationId;
-      
+
       // 添加图片上传支持
       if (selectedImages.value.length > 0) {
         options.image = selectedImages.value;
@@ -1207,12 +1125,9 @@ const sendMessage = async () => {
       }
 
 
-      // 完成流式输出 - 清除流式状态（但保持isAIProcessing为true直到所有处理完成）
-      console.log('[流式输出] 完成，清除流式状态');
-      streamingMessageIndex.value = null;
-      streamingContent.value = ''; // 清空流式内容
-      // 🔥 重要：不在这里设置 isAIProcessing = false，因为还有后续处理
-      // 避免触发 watch 监听器过早更新 currentNarrative
+      // 🔥 流式传输完成回调已经在 onStreamComplete 中处理
+      // 这里不需要再次清除流式状态
+      console.log('[流式输出] AI响应处理开始');
       // isAIProcessing 会在 finally 块中统一设置为 false
 
       // --- 核心逻辑：整合最终文本并更新状态 ---
@@ -1253,15 +1168,6 @@ const sendMessage = async () => {
         latestMessageText.value = null;
         console.error('[AI响应处理] 没有找到有效的文本内容');
       }
-
-      // 🔥 核心修复：记忆数据已在本地处理完毕，直接保存即可
-      // processGmResponse 已经执行了 tavern_commands 并同步到酒馆
-      // 不需要再次 syncFromTavern，避免用酒馆旧数据覆盖本地新数据
-      console.log('[数据同步] ⚠️ 跳过 syncFromTavern（命令已在processGmResponse中同步）');
-
-      // 🔥 [新架构] 跳过记忆同步到酒馆
-      // 记忆已经在 Pinia Store 的 saveData 中，AI 会在 prompt 中接收到完整记忆
-      console.log('[记忆同步] ⚠️ 跳过记忆同步到酒馆（新架构使用 Pinia + prompt 传递）');
 
     // 处理游戏状态更新（仅在有有效AI响应时执行）
     if (aiResponse && aiResponse.stateChanges) {
@@ -1307,9 +1213,10 @@ const sendMessage = async () => {
     } catch (aiError) {
       console.error('[AI处理失败]', aiError);
 
-      // 清理流式输出状态
+      // 🔥 清理流式输出状态（失败时清除所有流式内容）
       streamingMessageIndex.value = null;
       streamingContent.value = '';
+      rawStreamingContent.value = '';
 
       // isAIProcessing 会在 finally 中被清除
       persistAIProcessingState(); // 仍然需要清除会话存储
@@ -1351,18 +1258,32 @@ const sendMessage = async () => {
   } catch (error: unknown) {
     console.error('[AI交互] 处理失败:', error);
 
-    // 清理流式输出状态
+    // 🔥 清理流式输出状态（失败时清除所有流式内容）
     streamingMessageIndex.value = null;
     streamingContent.value = '';
+    rawStreamingContent.value = '';
 
     // 设置当前叙述为错误消息
     // currentNarrative 现在自动显示最新短期记忆
 
     toast.error('天道无应，请稍后再试');
   } finally {
-    isAIProcessing.value = false;
-    // 清除状态持久化
-    persistAIProcessingState();
+    // 🔥 等待一小段时间，让 GENERATION_ENDED 事件有机会触发
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 🔥 只在事件监听器未清除状态时才强制清除（兜底机制）
+    if (isAIProcessing.value) {
+      console.log('[AI响应处理] finally块：事件未触发，强制清除所有状态（兜底）');
+      isAIProcessing.value = false;
+      streamingMessageIndex.value = null;
+      streamingContent.value = '';
+      rawStreamingContent.value = '';
+      currentGenerationId.value = null;
+      persistAIProcessingState();
+    } else {
+      console.log('[AI响应处理] finally块：状态已被事件监听器清除，跳过');
+    }
+
     // 最终统一存档
     try {
       console.log('[AI响应处理] 最终统一存档...');
@@ -1376,91 +1297,6 @@ const sendMessage = async () => {
       console.error('[AI响应处理] 最终统一存档失败:', storageError);
       toast.error('游戏存档失败，请尝试手动保存');
     }
-  }
-};
-
-// 🔥 [已废弃] addToShortTermMemory 函数已移除
-// 记忆处理现在完全由 AIBidirectionalSystem.processGmResponse 统一处理
-// 包括：短期记忆、隐式中期记忆、叙事历史的添加和管理
-
-// 转移到长期记忆 - 直接操作 gameStateStore
-const transferToLongTermMemory = async () => {
-  try {
-    console.log('[记忆管理] 开始转移到长期记忆');
-
-    // 🔥 核心修复：直接从 gameStateStore 获取最新的记忆数据
-    const memory = gameStateStore.memory;
-    if (!memory || !memory.中期记忆) {
-      console.warn('[记忆管理] gameStateStore 或中期记忆数据不可用，无法处理长期记忆转移');
-      return;
-    }
-
-    // 计算需要总结的记忆数量 = 当前中期记忆数量 - 保留数量
-    const memoriesToSummarizeCount = memory.中期记忆.length - midTermKeepCount.value;
-
-    if (memoriesToSummarizeCount > 0) {
-      // 从中期记忆的开头提取（并移除）最旧的记忆进行总结
-      const oldMemories = memory.中期记忆.splice(0, memoriesToSummarizeCount);
-
-      console.log(`[记忆管理] 提取了 ${oldMemories.length} 条中期记忆进行总结。剩余中期记忆: ${memory.中期记忆.length} 条`);
-
-      // 生成长期记忆总结
-      const summary = await generateLongTermSummary(oldMemories);
-      if (summary) {
-        // 确保长期记忆结构存在
-        if (!memory.长期记忆) memory.长期记忆 = [];
-
-        // 添加新的总结到长期记忆开头
-        memory.长期记忆.unshift(summary);
-
-        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${memory.长期记忆.length} 条`);
-        console.log(`[记忆管理] 长期记忆内容预览:`, summary.substring(0, 100));
-        console.log(`[记忆管理] 完整长期记忆数组:`, memory.长期记忆);
-
-        // 🔥 保存到 gameStateStore 和 IndexedDB
-        // saveCurrentGame 会从 gameStateStore 读取最新数据并保存
-        await characterStore.saveCurrentGame();
-        console.log(`[记忆管理] ✅ 已保存中期记忆删除和长期记忆新增`);
-
-      } else {
-        console.warn('[记忆管理] ⚠️ 生成长期记忆总结失败，被移除的中期记忆已丢失:', oldMemories);
-      }
-    }
-  } catch (error) {
-    console.warn('[记忆管理] 转移长期记忆失败:', error);
-  }
-};
-
-
-// 生成长期记忆总结
-const generateLongTermSummary = async (memories: string[]): Promise<string | null> => {
-  try {
-    const helper = getTavernHelper();
-    if (!helper) return null;
-
-    // 构建纯粹的总结提示
-    const memoriesToSummarize = memories.join('\n\n');
-
-    // 注意：使用 user 角色而不是 system，避免中转API忽略
-    const response = await helper.generateRaw({
-      ordered_prompts: [
-        {
-          role: 'user',
-          content: '你是记忆整理助手。将提供的多条记忆整理成一段连贯的总结。只输出总结内容，不要任何前言、后语或额外说明。'
-        },
-        {
-          role: 'user',
-          content: `请将以下记忆总结成一段连贯的文本：\n\n${memoriesToSummarize}`
-        }
-      ],
-      use_world_info: false,
-      should_stream: false
-    });
-
-    return (typeof response === 'string' ? response.trim() : null) || null;
-  } catch (error) {
-    console.warn('[记忆管理] 生成长期记忆总结失败:', error);
-    return null;
   }
 };
 
@@ -1563,13 +1399,11 @@ const initializePanelForSave = async () => {
         }
       } else if (memories && memories.length > 0) {
         // 回退：从短期记忆加载（旧版本存档，没有叙事历史）
-        const latestMemory = memories[memories.length - 1];
         console.log('[主面板] ⚠️ 从短期记忆加载（无叙事历史）');
         // currentNarrative 现在自动显示最新短期记忆
       } else {
         // 未找到记忆或叙事历史，显示欢迎信息
         console.log('[主面板] 未找到叙事记录，显示欢迎信息');
-        const characterName = gameStateStore.character?.名字 || '修行者';
         // currentNarrative 现在自动显示最新短期记忆
       }
       await syncGameState();
@@ -1647,17 +1481,18 @@ onMounted(async () => {
 
     // 🔥 监听酒馆助手的生成事件
     const helper = getTavernHelper();
-    if (helper && helper.registerSlashCommand) {
+    if (helper) {
       console.log('[主面板] 注册酒馆事件监听');
 
       // 辅助函数：解析事件参数（处理多种格式）
-      const parseEventArgs = (args: any): { text?: string; generationId?: string } => {
+      const parseEventArgs = (args: unknown): { text?: string; generationId?: string } => {
         try {
           // 格式1：对象 { text, generation_id }
           if (args && typeof args === 'object' && !Array.isArray(args)) {
+            const argsObj = args as Record<string, unknown>;
             return {
-              text: args.text || args[0] || '',
-              generationId: args.generation_id || args[1] || ''
+              text: (argsObj.text as string) || (argsObj[0] as string) || '',
+              generationId: (argsObj.generation_id as string) || (argsObj[1] as string) || ''
             };
           }
           // 格式2：数组 [text, generation_id]
@@ -1679,99 +1514,26 @@ onMounted(async () => {
         return {};
       };
 
-      // 监听生成开始事件
-      helper.registerSlashCommand('iframe_events.GENERATION_STARTED', async (args: any) => {
-        try {
-          const { generationId } = parseEventArgs(args);
-          console.log('[事件监听] 生成开始', {
-            generationId,
-            当前generation_id: currentGenerationId.value,
-            是否匹配: generationId === currentGenerationId.value
-          });
-          
-          if (generationId === currentGenerationId.value) {
-            console.log('[事件监听] ✅ 生成开始 - 匹配当前请求');
-            // 可选：设置超时保护
-            setTimeout(() => {
-              if (currentGenerationId.value === generationId && isAIProcessing.value) {
-                console.warn('[事件监听] ⚠️ 生成超时（2分钟），自动清除状态');
-                forceResetAIProcessingState();
-                toast.warning('AI生成超时，已自动重置');
-              }
-            }, 120000); // 2分钟超时
-          }
-        } catch (error) {
-          console.error('[事件监听] GENERATION_STARTED 处理失败:', error);
-        }
-      });
+      // 🔥 使用全局 eventOn 函数监听流式事件
+      const eventOn = (window as any).eventOn;
+      const iframe_events = (window as any).TavernHelper.iframe_events;
 
-      // 监听生成结束事件 - 核心功能
-      helper.registerSlashCommand('iframe_events.GENERATION_ENDED', async (args: any) => {
-        try {
-          const { text, generationId } = parseEventArgs(args);
-          
-          console.log('[事件监听] 生成结束', {
-            generationId,
-            当前generation_id: currentGenerationId.value,
-            文本长度: text?.length || 0,
-            是否匹配: generationId === currentGenerationId.value,
-            当前AI处理状态: isAIProcessing.value
-          });
-          
-          // 只处理当前请求的生成结束事件
+      if (eventOn && iframe_events) {
+        eventOn(iframe_events.GENERATION_STARTED, (generationId: string) => {
           if (generationId === currentGenerationId.value) {
-            console.log('[事件监听] ✅ 生成结束 - 匹配当前请求，清除状态');
-            
-            // 清除 AI 处理状态
-            if (isAIProcessing.value) {
-              console.log('[事件监听] 通过事件自动清除 AI 处理状态');
-              isAIProcessing.value = false;
-              persistAIProcessingState();
-            } else {
-              console.warn('[事件监听] ⚠️ 状态已经被清除（可能被其他逻辑处理）');
-            }
-            
-            // 清除当前 generation_id
-            currentGenerationId.value = null;
-            
-            // 清除流式内容（如果有）
-            if (streamingContent.value) {
-              console.log('[事件监听] 清除流式内容，长度:', streamingContent.value.length);
-              streamingContent.value = '';
-              streamingMessageIndex.value = null;
-            }
-          } else {
-            console.log('[事件监听] ⚠️ 生成结束 - ID不匹配，忽略', {
-              期望: currentGenerationId.value,
-              实际: generationId
-            });
+            streamingContent.value = '';
+            rawStreamingContent.value = '';
           }
-        } catch (error) {
-          console.error('[事件监听] GENERATION_ENDED 处理失败:', error);
-          // 发生错误时也要清除状态，避免卡住
-          if (isAIProcessing.value) {
-            console.log('[事件监听] 因错误清除 AI 处理状态');
-            forceResetAIProcessingState();
-          }
-        }
-      });
+        });
 
-      // 监听流式传输事件（完整文本）
-      helper.registerSlashCommand('iframe_events.STREAM_TOKEN_RECEIVED_FULLY', async (args: any) => {
-        try {
-          const { text: fullText, generationId } = parseEventArgs(args);
-          
-          if (generationId === currentGenerationId.value && useStreaming.value) {
-            // 更新流式内容显示
-            if (fullText) {
-              streamingContent.value = fullText;
-              console.log('[事件监听] 流式完整文本更新，长度:', fullText.length);
-            }
+        eventOn(iframe_events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, (chunk: string, generationId: string) => {
+          if (generationId === currentGenerationId.value && useStreaming.value && chunk) {
+            streamingContent.value += chunk;
           }
-        } catch (error) {
-          console.error('[事件监听] STREAM_TOKEN_RECEIVED_FULLY 处理失败:', error);
-        }
-      });
+        });
+
+        console.log('[主面板] ✅ 流式事件监听器已注册');
+      }
 
       console.log('[主面板] ✅ 事件监听器注册完成');
     } else {
@@ -2166,6 +1928,33 @@ const syncGameState = async () => {
   border-radius: 12px; /* 圆角 */
   box-shadow: none !important; /* 移除阴影 */
   background-color: var(--color-background) !important; /* 与padding区域相同背景色 */
+}
+
+/* 流式输出内容样式 */
+.streaming-narrative-content {
+  margin-top: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 8px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.streaming-text {
+  line-height: 1.8;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .content-area {
@@ -2954,6 +2743,16 @@ const syncGameState = async () => {
 /* 确保深色主题下当前叙述区域背景一致 */
 [data-theme="dark"] .current-narrative {
   background: #1e293b;
+}
+
+/* 深色主题 - 流式输出内容 */
+[data-theme="dark"] .streaming-narrative-content {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+[data-theme="dark"] .streaming-text {
+  color: #e2e8f0;
 }
 
 

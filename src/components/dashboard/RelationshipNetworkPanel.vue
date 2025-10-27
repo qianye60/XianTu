@@ -992,12 +992,17 @@ ${memoriesText}`;
     // 更新记忆数组（删除已总结的记忆）
     npcProfile.记忆 = remainingMemories;
 
-    // 保存到存档
+    // 🔥 先更新Pinia状态
+    if (gameStateStore.relationships && gameStateStore.relationships[npcKey]) {
+      gameStateStore.relationships[npcKey] = { ...npcProfile };
+    }
+
+    // 🔥 然后保存到存档
     await gameStateStore.saveGame();
 
     // 更新选中的人物（触发UI刷新）
     if (selectedPerson.value?.名字 === npcName) {
-      selectedPerson.value = { ...currentSaveData.人物关系[npcKey] };
+      selectedPerson.value = { ...npcProfile };
     }
 
     uiStore.showToast(`✅ 已成功总结 ${countToSummarize} 条记忆`, { type: 'success' });

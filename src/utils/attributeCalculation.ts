@@ -40,16 +40,25 @@ export function calculateEquipmentBonuses(equipment: Equipment, inventory: SaveD
       console.log(`[装备加成计算] 找到物品:`, item);
 
       // 检查装备是否有后天六司加成
-      if ('装备增幅' in item && item.装备增幅?.后天六司) {
-        console.log(`[装备加成计算] 物品有装备增幅:`, item.装备增幅);
-        Object.entries(item.装备增幅.后天六司).forEach(([attr, value]) => {
-          if (attr in bonuses && typeof value === 'number') {
-            console.log(`[装备加成计算] 添加属性加成: ${attr} +${value}`);
-            (bonuses as InnateAttributes)[attr as keyof InnateAttributes] += value;
+      if (item.类型 === '装备' && item.装备增幅?.后天六司) {
+        console.log(`[装备加成计算] 物品 ${item.名称} 有装备增幅:`, item.装备增幅);
+        const sixSiBonuses = item.装备增幅.后天六司;
+        
+        Object.entries(sixSiBonuses).forEach(([attr, value]) => {
+          if (attr in bonuses) {
+            const numericValue = Number(value);
+            if (!isNaN(numericValue)) {
+              console.log(`[装备加成计算] 添加属性加成: ${attr} +${numericValue} (原始值: ${value})`);
+              (bonuses as InnateAttributes)[attr as keyof InnateAttributes] += numericValue;
+            } else {
+              console.warn(`[装备加成计算] 属性 ${attr} 的值 "${value}" 不是一个有效的数字，已忽略。物品: ${item.名称}`);
+            }
+          } else {
+            console.warn(`[装备加成计算] 发现未知的后天六司属性 "${attr}"，已忽略。物品: ${item.名称}`);
           }
         });
       } else {
-        console.log(`[装备加成计算] 物品没有装备增幅或后天六司属性`);
+        console.log(`[装备加成计算] 物品 ${item.名称} 没有装备增幅或后天六司属性`);
       }
     } else {
       console.log(`[装备加成计算] 槽位 ${slot} 为空或物品不存在`);

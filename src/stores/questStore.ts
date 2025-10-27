@@ -164,6 +164,10 @@ export const useQuestStore = defineStore('quest', () => {
       const currentCount = gameStateStore.questSystem.任务统计.各类型完成[quest.任务类型] || 0;
       gameStateStore.questSystem.任务统计.各类型完成[quest.任务类型] = currentCount + 1;
 
+      // 🔥 保存到存档
+      await gameStateStore.saveGame();
+      console.log('[任务系统] 任务完成状态已保存到存档');
+
       toast.success(`任务完成：${quest.任务名称}`, { id: toastId });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '未知错误';
@@ -188,9 +192,59 @@ export const useQuestStore = defineStore('quest', () => {
     } else {
       gameStateStore.questSystem.配置 = config;
     }
-    
+
     await gameStateStore.saveGame();
     toast.success('任务配置已保存');
+  }
+
+  /**
+   * 删除任务
+   */
+  async function deleteQuest(questId: string) {
+    if (!gameStateStore.questSystem) {
+      console.error('[任务系统] 任务系统未初始化');
+      toast.error('任务系统未初始化');
+      return;
+    }
+
+    // 先在当前任务列表中查找
+    let questIndex = gameStateStore.questSystem.当前任务列表.findIndex((q: Quest) => q.任务ID === questId);
+    let isCompleted = false;
+
+    // 如果当前任务列表中没有，再在已完成任务列表中查找
+    if (questIndex === -1) {
+      questIndex = gameStateStore.questSystem.已完成任务.findIndex((q: Quest) => q.任务ID === questId);
+      isCompleted = true;
+    }
+
+    if (questIndex === -1) {
+      console.error('[任务系统] 未找到任务:', questId);
+      toast.error('未找到该任务');
+      return;
+    }
+
+    const quest = isCompleted
+      ? gameStateStore.questSystem.已完成任务[questIndex]
+      : gameStateStore.questSystem.当前任务列表[questIndex];
+
+    try {
+      // 从对应的列表中移除
+      if (isCompleted) {
+        gameStateStore.questSystem.已完成任务.splice(questIndex, 1);
+      } else {
+        gameStateStore.questSystem.当前任务列表.splice(questIndex, 1);
+      }
+
+      // 保存到存档
+      await gameStateStore.saveGame();
+
+      toast.success(`已删除任务：${quest.任务名称}`);
+      console.log('[任务系统] 任务已删除:', quest.任务名称);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      console.error('[任务系统] 删除任务失败:', error);
+      toast.error(`删除任务失败：${errorMessage}`);
+    }
   }
 
   return {
@@ -203,5 +257,6 @@ export const useQuestStore = defineStore('quest', () => {
     checkQuestObjective,
     finishQuest,
     updateQuestConfig,
+    deleteQuest,
   };
 });

@@ -122,47 +122,8 @@
           <h4 class="section-title">🎮 游戏功能</h4>
         </div>
         <div class="settings-list">
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">任务系统</label>
-              <span class="setting-desc">启用任务追踪和完成系统</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.enableQuestSystem">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="settings.enableQuestSystem">
-            <div class="setting-info">
-              <label class="setting-name">任务提醒</label>
-              <span class="setting-desc">新任务和完成时的通知提醒</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.questNotifications">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="settings.enableQuestSystem">
-            <div class="setting-info">
-              <label class="setting-name">自动接取任务</label>
-              <span class="setting-desc">自动接取适合等级的任务</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.autoAcceptQuests">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
           <!-- 任务系统配置 -->
-          <div class="setting-item" v-if="settings.enableQuestSystem">
+          <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">系统任务类型</label>
               <span class="setting-desc">选择AI生成任务的风格类型</span>
@@ -179,40 +140,7 @@
             </div>
           </div>
 
-          <div class="setting-item" v-if="settings.enableQuestSystem">
-            <div class="setting-info">
-              <label class="setting-name">自动刷新任务</label>
-              <span class="setting-desc">完成任务后自动生成新任务</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.questAutoRefresh">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="settings.enableQuestSystem">
-            <div class="setting-info">
-              <label class="setting-name">默认任务数量</label>
-              <span class="setting-desc">任务池中保持的未完成任务数量</span>
-            </div>
-            <div class="setting-control">
-              <div class="range-container">
-                <input
-                  type="range"
-                  v-model.number="settings.questDefaultCount"
-                  min="1"
-                  max="10"
-                  step="1"
-                  class="setting-range"
-                >
-                <span class="range-value">{{ settings.questDefaultCount }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="setting-item setting-item-full" v-if="settings.enableQuestSystem">
+          <div class="setting-item setting-item-full">
             <div class="setting-info">
               <label class="setting-name">自定义任务提示词</label>
               <span class="setting-desc">为AI任务生成添加自定义指令（可选，留空使用默认）</span>
@@ -369,12 +297,7 @@ const settings = reactive({
   performanceMonitor: false,
 
   // 任务系统相关设置
-  enableQuestSystem: true,
-  questNotifications: true,
-  autoAcceptQuests: false,
   questSystemType: '修仙辅助系统', // 系统任务类型
-  questAutoRefresh: false, // 自动刷新任务
-  questDefaultCount: 3, // 默认任务数量
   questSystemPrompt: '', // 自定义任务提示词
 
   enableNsfwMode: true, // 默认开启成人内容
@@ -447,13 +370,10 @@ const loadSettings = async () => {
         }
 
         // 加载任务系统配置
-        if (gameStateStore.任务系统?.配置) {
-          const questConfig = gameStateStore.任务系统.配置;
-          settings.enableQuestSystem = questConfig.启用系统任务;
+        if (gameStateStore.questSystem?.配置) {
+          const questConfig = gameStateStore.questSystem.配置;
           settings.questSystemType = questConfig.系统任务类型;
           settings.questSystemPrompt = questConfig.系统任务提示词 || '';
-          settings.questAutoRefresh = questConfig.自动刷新;
-          settings.questDefaultCount = questConfig.默认任务数量;
           debug.log('设置面板', '已从存档读取任务系统配置', questConfig);
         }
       }
@@ -501,12 +421,9 @@ const saveSettings = async () => {
         }
 
         // 同步任务系统配置
-        if (gameStateStore.任务系统?.配置) {
-          gameStateStore.任务系统.配置.启用系统任务 = settings.enableQuestSystem;
-          gameStateStore.任务系统.配置.系统任务类型 = settings.questSystemType;
-          gameStateStore.任务系统.配置.系统任务提示词 = settings.questSystemPrompt || '';
-          gameStateStore.任务系统.配置.自动刷新 = settings.questAutoRefresh;
-          gameStateStore.任务系统.配置.默认任务数量 = settings.questDefaultCount;
+        if (gameStateStore.questSystem?.配置) {
+          gameStateStore.questSystem.配置.系统任务类型 = settings.questSystemType;
+          gameStateStore.questSystem.配置.系统任务提示词 = settings.questSystemPrompt || '';
         }
 
         // 保存到数据库
@@ -645,12 +562,7 @@ const resetSettings = () => {
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,
-        enableQuestSystem: true,
-        questNotifications: true,
-        autoAcceptQuests: false,
         questSystemType: '修仙辅助系统',
-        questAutoRefresh: false,
-        questDefaultCount: 3,
         questSystemPrompt: '',
         enableNsfwMode: true, // 默认开启
         nsfwGenderFilter: 'all', // 默认所有NPC
