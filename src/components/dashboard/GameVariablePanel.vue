@@ -204,7 +204,7 @@ const getWorldItemCount = () => {
 
 // 数据类型配置 - 将存档数据放在第一个
 const dataTypes = [
-  { key: 'saveData',  label: '存档数据', icon: 'Archive' },
+  { key: 'saveData',  label: '存档数据(修改游戏数据)', icon: 'Archive' },
   { key: 'core',      label: '核心数据', icon: 'Database' },
   { key: 'character', label: '角色数据', icon: 'Users' },
   { key: 'worldInfo', label: '世界信息', icon: 'Book' },

@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V2.7.0 正式版</span><!--{{ appVersion }}-->
+          <span class="version-tag">V2.7.2 正式版</span><!--{{ appVersion }}-->
         </div>
         <p class="sub-title">仙路求索 · 万道归天</p>
       </div>

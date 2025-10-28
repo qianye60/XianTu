@@ -120,12 +120,6 @@ export class EnhancedWorldPromptBuilder {
       styleGuide += `\n- 命名风格: 保持多样与独特性，但必须与世界背景描述紧密相关。优先从世界背景中提取关键词进行创作。\n- 灵气浓度: 中等\n- 最高境界: 默认为渡劫期\n- 风格: 保持多样与独特性，根据背景自由发挥，同时遵守数量与边界不重叠的硬性约束。\n`;
     }
 
-    // 调试日志
-    console.log('[增强世界生成器] 最终数量 - 势力:', finalFactionCount, '地点:', finalLocationCount, '特殊属性:', finalSecretRealmCount);
-    console.log('[增强世界生成器] 随机坐标范围:', `经度${minLng}-${maxLng}, 纬度${minLat}-${maxLat}`);
-    console.log('[增强世界生成器] 生成种子:', uniqueSeed, '会话ID:', sessionId);
-    console.log('[增强世界生成器] 选择的大洲形状:', selectedShapes);
-
     return `# 诸天万界势力地图生成任务
 
 生成会话ID: ${sessionId}

@@ -1,6 +1,14 @@
-// Global console patch: show console logs only when debug mode is enabled
-// and, for most methods, when console debugging is enabled as well.
-// Errors still always print.
+/**
+ * 全局Console补丁
+ *
+ * 功能:
+ * - 根据调试模式控制console输出
+ * - 非调试模式下隐藏log/warn/info等输出
+ * - error级别始终显示
+ *
+ * 被以下文件引用:
+ * - src/main.ts (全局初始化)
+ */
 
 import { debugLogger } from '@/utils/debug';
 

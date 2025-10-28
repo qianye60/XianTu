@@ -1490,9 +1490,17 @@ const getDaoModalContent = () => {
   const totalExp = dao.总经验 || 0;
   const progressPercent = getDaoProgress(selectedDao.value);
 
+  // 获取阶段名称，优先使用阶段列表中的名称
+  let stageName: string;
+  if (dao.阶段列表?.[stage]) {
+    stageName = dao.阶段列表[stage].名称;
+  } else {
+    stageName = stage === 0 ? '未门' : `第${stage}阶段`;
+  }
+
   return {
     name: selectedDao.value,
-    stage: `第${stage}阶段`,
+    stage: stageName,
     currentExp,
     totalExp,
     progressPercent,

@@ -1,6 +1,13 @@
 /**
- * @fileoverview 数据修复和清洗工具
- * 当AI返回的数据有问题时，自动修复和清洗，防止前端崩溃
+ * 数据修复和清洗工具
+ *
+ * 功能:
+ * - 修复AI返回的不完整或错误的存档数据
+ * - 填充缺失的必需字段
+ * - 验证并修正数据类型和范围
+ *
+ * 被以下文件引用:
+ * - src/stores/characterStore.ts
  */
 
 import type { SaveData, Item, NpcProfile, GameTime, Realm, QuestType } from '@/types/game';

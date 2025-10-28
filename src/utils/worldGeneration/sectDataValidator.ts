@@ -33,9 +33,7 @@ function getRealmLevel(realm: string): number {
 export function validateAndFixSectRealmData(sectData: any): any {
   if (!sectData) return sectData;
 
-  console.log('[宗门验证] 开始验证宗门数据:', sectData.名称);
-
-  // 🔥 字段名兼容：将英文字段名转换为中文字段名
+  // 字段名兼容：将英文字段名转换为中文字段名
   if (sectData.leadership && !sectData.领导层) {
     sectData.领导层 = sectData.leadership;
     delete sectData.leadership;
@@ -52,8 +50,6 @@ export function validateAndFixSectRealmData(sectData: any): any {
   // 获取最强修为等级
   const maxRealm = sectData.领导层?.最强修为 || sectData.最强修为;
   const maxLevel = getRealmLevel(maxRealm);
-  
-  console.log('[宗门验证] 最强修为:', maxRealm, '等级:', maxLevel);
 
   // 修复境界分布
   if (sectData.成员数量?.按境界) {
@@ -64,13 +60,9 @@ export function validateAndFixSectRealmData(sectData: any): any {
     Object.keys(realmDist).forEach(realm => {
       const realmLevel = getRealmLevel(realm);
       if (realmLevel > maxLevel) {
-        console.log(`[宗门验证] 移除超越最强修为的境界: ${realm} (等级${realmLevel} > ${maxLevel})`);
         delete realmDist[realm];
       }
     });
-
-    console.log('[宗门验证] 修复前境界分布:', originalDist);
-    console.log('[宗门验证] 修复后境界分布:', realmDist);
   }
 
   // 验证长老数量与高境界修士数量的一致性
@@ -78,29 +70,22 @@ export function validateAndFixSectRealmData(sectData: any): any {
     const elderCount = sectData.领导层.长老数量;
     const realmDist = sectData.成员数量.按境界;
     
-    // 计算元婴期及以上的修士总数（通常长老都是元婴期以上）
+    // 计算元婴期及以上的修士总数
     let highRealmCount = 0;
     Object.keys(realmDist).forEach(realm => {
       const realmLevel = getRealmLevel(realm);
-      if (realmLevel >= 4) { // 元婴期及以上
+      if (realmLevel >= 4) {
         highRealmCount += realmDist[realm] || 0;
       }
     });
 
-    console.log(`[宗门验证] 长老数量: ${elderCount}, 高境界修士: ${highRealmCount}`);
-
-    // 如果高境界修士数量明显超过长老数量，进行调整
     if (highRealmCount > elderCount * 1.5) {
-      console.log('[宗门验证] 高境界修士数量过多，进行调整');
-      
-      // 按比例缩减高境界修士数量
       const ratio = elderCount * 1.2 / highRealmCount;
       Object.keys(realmDist).forEach(realm => {
         const realmLevel = getRealmLevel(realm);
         if (realmLevel >= 4) {
           const originalCount = realmDist[realm];
           realmDist[realm] = Math.max(1, Math.round(originalCount * ratio));
-          console.log(`[宗门验证] 调整${realm}: ${originalCount} -> ${realmDist[realm]}`);
         }
       });
     }

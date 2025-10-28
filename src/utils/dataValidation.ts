@@ -1,10 +1,19 @@
+/**
+ * 数据验证工具
+ *
+ * 功能:
+ * - 验证存档数据结构完整性
+ * - 修复NPC数据
+ * - 清理无效数据
+ *
+ * 被以下文件引用:
+ * - src/stores/characterStore.ts
+ * - src/services/characterInitialization.ts
+ */
+
 import type { NpcProfile, SaveData } from '@/types/game';
 import type { TavernHelper } from '@/types';
 
-/**
- * 深度清理对象，移除Vue响应式代理和不可序列化的值
- * 用于修复酒馆助手3.6.11的structuredClone问题
- */
 export function deepCleanForClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }

@@ -13,9 +13,9 @@
  */
 export interface TavernCommand {
   action: "set" | "add" | "delete" | "push" | "pull";
-  scope: "global" | "chat" | "character" | "message";
   key: string; // 支持点状路径, e.g., "character.identity.age"
-  value?: any;
+  value?: unknown;
+  scope?: "global" | "chat" | "character" | "message"; // 可选字段，实际不使用
 }
 
 // =======================================================================

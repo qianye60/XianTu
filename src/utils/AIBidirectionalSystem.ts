@@ -102,31 +102,25 @@ class AIBidirectionalSystemClass {
         return '未知格式';
       };
 
-      let coreStatusSummary = '# 角色核心状态速览 (请密切关注这些数值的变化)\n';
+      let coreStatusSummary = '# 角色核心状态速览\n';
       if (playerStatus) {
-        coreStatusSummary += `\n- **生命状态**:
-  - 气血: ${playerStatus.气血?.当前 ?? '未知'} / ${playerStatus.气血?.上限 ?? '未知'}
-  - 灵气: ${playerStatus.灵气?.当前 ?? '未知'} / ${playerStatus.灵气?.上限 ?? '未知'}
-  - 神识: ${playerStatus.神识?.当前 ?? '未知'} / ${playerStatus.神识?.上限 ?? '未知'}
-  - 寿元: ${playerStatus.寿命?.当前 ?? '未知'} / ${playerStatus.寿命?.上限 ?? '未知'}`;
+        coreStatusSummary += `\n- 生命: 气血${playerStatus.气血?.当前}/${playerStatus.气血?.上限} 灵气${playerStatus.灵气?.当前}/${playerStatus.灵气?.上限} 神识${playerStatus.神识?.当前}/${playerStatus.神识?.上限} 寿元${playerStatus.寿命?.当前}/${playerStatus.寿命?.上限}`;
 
         if (playerStatus.境界) {
           const realm = playerStatus.境界;
-          coreStatusSummary += `\n- **境界状态**: ${realm.名称 || '无'} - ${realm.阶段 || '无'} (${realm.当前进度 ?? 0}/${realm.下一级所需 ?? '??'})`;
+          coreStatusSummary += `\n- 境界: ${realm.名称}-${realm.阶段} (${realm.当前进度}/${realm.下一级所需})`;
         }
 
         if (playerStatus.声望) {
-          coreStatusSummary += `\n- **声望**: ${playerStatus.声望}`;
+          coreStatusSummary += `\n- 声望: ${playerStatus.声望}`;
         }
 
         if (playerStatus.状态效果 && playerStatus.状态效果.length > 0) {
-          coreStatusSummary += `\n- **状态效果**: ${playerStatus.状态效果.map((e: StatusEffect) => e.状态名称).join(', ')}`;
-        } else {
-          coreStatusSummary += `\n- **状态效果**: 无`;
+          coreStatusSummary += `\n- 状态: ${playerStatus.状态效果.map((e: StatusEffect) => e.状态名称).join(', ')}`;
         }
       }
       if (character?.天赋) {
-        coreStatusSummary += `\n- **天赋神通**: ${formatTalentsForPrompt(character.天赋)}`;
+        coreStatusSummary += `\n- 天赋: ${formatTalentsForPrompt(character.天赋)}`;
       }
       // --- 结束 ---
 
@@ -181,7 +175,37 @@ ${DATA_STRUCTURE_DEFINITIONS}
 
       // 流式传输通过事件系统在 MainGamePanel 中处理
       // 这里只需要解析最终响应
-      gmResponse = this.parseAIResponse(response);
+      try {
+        gmResponse = this.parseAIResponse(response);
+      } catch (parseError) {
+        console.error('[AI双向系统] 响应解析失败，尝试容错处理:', parseError);
+
+        // 容错策略：尝试多种方式提取文本内容
+        const responseText = String(response).trim();
+        let extractedText = '';
+
+        // 1. 尝试直接JSON解析（可能只是格式问题）
+        try {
+          const jsonObj = JSON.parse(responseText);
+          extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+        } catch {
+          // 2. 尝试提取JSON中的text字段（使用正则）
+          const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          if (textMatch && textMatch[1]) {
+            extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+          } else {
+            // 3. 最后降级：使用整个响应作为文本
+            extractedText = responseText;
+          }
+        }
+
+        gmResponse = {
+          text: extractedText,
+          mid_term_memory: '',
+          tavern_commands: []
+        };
+        console.warn('[AI双向系统] 使用容错模式提取文本，长度:', extractedText.length);
+      }
 
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI响应解析失败或为空');
@@ -238,7 +262,37 @@ ${DATA_STRUCTURE_DEFINITIONS}
       });
 
       // 流式传输通过事件系统在调用方处理
-      gmResponse = this.parseAIResponse(String(response));
+      try {
+        gmResponse = this.parseAIResponse(String(response));
+      } catch (parseError) {
+        console.error('[AI双向系统] 初始消息解析失败，尝试容错处理:', parseError);
+
+        // 容错策略：尝试多种方式提取文本内容
+        const responseText = String(response).trim();
+        let extractedText = '';
+
+        // 1. 尝试直接JSON解析（可能只是格式问题）
+        try {
+          const jsonObj = JSON.parse(responseText);
+          extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+        } catch {
+          // 2. 尝试提取JSON中的text字段（使用正则）
+          const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          if (textMatch && textMatch[1]) {
+            extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+          } else {
+            // 3. 最后降级：使用整个响应作为文本
+            extractedText = responseText;
+          }
+        }
+
+        gmResponse = {
+          text: extractedText,
+          mid_term_memory: '',
+          tavern_commands: []
+        };
+        console.warn('[AI双向系统] 使用容错模式提取初始消息文本，长度:', extractedText.length);
+      }
 
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI响应解析失败或为空');
@@ -269,7 +323,10 @@ ${DATA_STRUCTURE_DEFINITIONS}
     currentSaveData: SaveData,
     isInitialization = false
   ): Promise<{ saveData: SaveData; stateChanges: StateChangeLog }> {
-    const saveData = cloneDeep(currentSaveData);
+    // 🔥 先修复数据格式，确保所有字段正确
+    const { repairSaveData } = await import('./dataRepair');
+    const repairedData = repairSaveData(currentSaveData);
+    const saveData = cloneDeep(repairedData);
     const changes: StateChange[] = [];
 
     // 确保叙事历史数组存在
@@ -360,7 +417,38 @@ ${DATA_STRUCTURE_DEFINITIONS}
       return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() } };
     }
 
-    for (const command of response.tavern_commands) {
+    // 🔥 验证并清理指令格式
+    const { validateCommands, cleanCommands } = await import('./commandValidator');
+    const validation = validateCommands(response.tavern_commands);
+
+    if (!validation.valid) {
+      console.error('[AI双向系统] 指令格式验证失败:', validation.errors);
+      validation.errors.forEach(err => console.error(`  - ${err}`));
+
+      // 将验证错误添加到changes数组顶部
+      if (validation.invalidCommands && validation.invalidCommands.length > 0) {
+        validation.invalidCommands.forEach(({ command, errors }) => {
+          changes.unshift({
+            key: '❌ 错误指令',
+            action: 'validation_error',
+            oldValue: undefined,
+            newValue: {
+              command: JSON.stringify(command, null, 2),
+              errors: errors
+            }
+          });
+        });
+      }
+    }
+
+    if (validation.warnings.length > 0) {
+      validation.warnings.forEach(warn => console.warn(`[AI双向系统] ${warn}`));
+    }
+
+    // 清理指令，移除多余字段
+    const cleanedCommands = cleanCommands(response.tavern_commands);
+
+    for (const command of cleanedCommands) {
       try {
         const oldValue = get(saveData, command.key);
         this.executeCommand(command, saveData);
@@ -548,6 +636,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
     switch (action) {
       case 'set':
         set(saveData, path, value);
+        this.enforceStatLimits(saveData, path);
         break;
 
       case 'add': {
@@ -556,6 +645,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
           throw new Error(`ADD操作要求数值类型，但得到: ${typeof currentValue}, ${typeof value}`);
         }
         set(saveData, path, currentValue + value);
+        this.enforceStatLimits(saveData, path);
         break;
       }
 
@@ -588,13 +678,46 @@ ${DATA_STRUCTURE_DEFINITIONS}
     }
   }
 
+  /**
+   * 强制执行属性上限限制
+   * 确保当前值不超过上限值
+   */
+  private enforceStatLimits(saveData: SaveData, path: string): void {
+    // 定义需要检查上限的属性映射
+    const statLimits: Record<string, string> = {
+      '玩家角色状态.气血.当前': '玩家角色状态.气血.上限',
+      '玩家角色状态.灵气.当前': '玩家角色状态.灵气.上限',
+      '玩家角色状态.神识.当前': '玩家角色状态.神识.上限',
+      '玩家角色状态.寿命.当前': '玩家角色状态.寿命.上限',
+    };
+
+    // 检查是否是需要限制的属性
+    const limitPath = statLimits[path];
+    if (limitPath) {
+      const currentValue = get(saveData, path);
+      const maxValue = get(saveData, limitPath);
+
+      if (typeof currentValue === 'number' && typeof maxValue === 'number' && currentValue > maxValue) {
+        set(saveData, path, maxValue);
+        console.warn(`[AI双向系统] ${path} 超过上限 (${currentValue} > ${maxValue})，已限制为 ${maxValue}`);
+      }
+    }
+  }
+
   private parseAIResponse(rawResponse: string): GM_Response {
     if (!rawResponse || typeof rawResponse !== 'string') {
       throw new Error('AI响应为空或格式错误');
     }
 
     const rawText = rawResponse.trim();
-    console.log('[parseAIResponse] 原始响应:', rawText.substring(0, 500));
+    console.log('[parseAIResponse] 原始响应长度:', rawText.length);
+    console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
+
+    // 🔥 检测是否有多个JSON对象
+    const jsonCount = (rawText.match(/\{[\s\S]*?"text"[\s\S]*?:/g) || []).length;
+    if (jsonCount > 1) {
+      console.warn(`[parseAIResponse] ⚠️ 检测到 ${jsonCount} 个JSON对象，将只使用第一个`);
+    }
 
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {
@@ -635,11 +758,55 @@ ${DATA_STRUCTURE_DEFINITIONS}
       if (parsedObj) return standardize(parsedObj);
     }
 
-    // 尝试提取JSON对象
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      parsedObj = tryParse(jsonMatch[0]);
-      if (parsedObj) return standardize(parsedObj);
+    // 🔥 修复：提取第一个完整的JSON对象（防止AI返回多个重复的JSON）
+    // 使用更精确的方法：逐字符解析，匹配括号平衡
+    const extractFirstJSON = (text: string): string | null => {
+      const startIndex = text.indexOf('{');
+      if (startIndex === -1) return null;
+
+      let depth = 0;
+      let inString = false;
+      let escapeNext = false;
+
+      for (let i = startIndex; i < text.length; i++) {
+        const char = text[i];
+
+        if (escapeNext) {
+          escapeNext = false;
+          continue;
+        }
+
+        if (char === '\\') {
+          escapeNext = true;
+          continue;
+        }
+
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+
+        if (inString) continue;
+
+        if (char === '{') depth++;
+        if (char === '}') {
+          depth--;
+          if (depth === 0) {
+            return text.substring(startIndex, i + 1);
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const firstJSON = extractFirstJSON(rawText);
+    if (firstJSON) {
+      parsedObj = tryParse(firstJSON);
+      if (parsedObj) {
+        console.log('[parseAIResponse] ✅ 成功提取第一个JSON对象');
+        return standardize(parsedObj);
+      }
     }
 
     throw new Error('无法解析AI响应为有效的JSON格式');

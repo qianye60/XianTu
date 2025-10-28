@@ -18,7 +18,6 @@ export async function getCurrentCharacterName(): Promise<string | null> {
   }
 
   try {
-    // 从变量中获取当前角色名
     const vars = await helper.getVariables({ type: 'global' });
     return (vars['persona.name'] as string) || (vars['name'] as string) || null;
   } catch (error) {
@@ -27,9 +26,6 @@ export async function getCurrentCharacterName(): Promise<string | null> {
   }
 }
 
-/**
- * 清除所有角色数据 - 清空酒馆变量
- */
 export async function clearAllCharacterData(): Promise<void> {
   const helper = getTavernHelper();
   if (!helper) {
@@ -38,9 +34,7 @@ export async function clearAllCharacterData(): Promise<void> {
   }
 
   try {
-    // 使用 insertOrAssignVariables 替换为空对象来清空变量
     await helper.insertOrAssignVariables({}, { type: 'global' });
-    console.log('[Tavern] 已清除所有酒馆变量');
   } catch (error) {
     console.error('[Tavern] 清除酒馆变量失败:', error);
     throw error;

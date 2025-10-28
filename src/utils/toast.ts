@@ -22,8 +22,6 @@ const hide = (id: string | number) => {
 
 const addToast = (type: ToastType, message: string, options: { id?: string | number, duration?: number } = {}) => {
   const id = options.id || `toast-${toastCounter++}`;
-
-  // 如果已存在相同ID的toast，先移除
   hide(id);
 
   const duration = options.duration ?? (type === 'loading' ? undefined : 3000);
@@ -63,7 +61,6 @@ const info = (message: string, options: { id?: string | number, duration?: numbe
 };
 
 const loading = (message: string, options: { id?: string | number, duration?: number } = {}) => {
-  // loading 默认不自动关闭
   const duration = options.duration === undefined ? undefined : options.duration;
   return addToast('loading', message, { ...options, duration });
 };
@@ -78,5 +75,4 @@ export const toast = {
   hide,
 };
 
-// 供 ToastContainer.vue 使用
 export const toastsReadonly = readonly(toasts);

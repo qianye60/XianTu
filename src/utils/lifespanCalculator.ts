@@ -1,7 +1,4 @@
-/**
- * 寿命计算工具
- * 使用出生日期自动计算当前年龄
- */
+
 
 export interface GameTime {
   年: number;
@@ -66,7 +63,7 @@ export function updateLifespanFromGameTime(saveData: any): number {
     }
     saveData.角色基础信息.出生日期 = birthdate;
 
-    console.log('[寿命计算] 初始化玩家出生日期:', birthdate, '当前年龄:', currentAge);
+    
     return currentAge;
   }
 
@@ -107,7 +104,7 @@ export function updateNpcLifespanFromGameTime(npcData: any, globalGameTime: Game
 
     baseInfo.出生日期 = birthdate;
 
-    console.log(`[寿命计算] 初始化NPC出生日期 [${baseInfo.名字 || '未知'}]:`, birthdate, '当前年龄:', currentAge);
+    
     return currentAge;
   }
 

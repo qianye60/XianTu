@@ -24,7 +24,6 @@ export interface CalculatedSectData {
  * 境界实力映射表 - 用于计算战力
  */
 const REALM_POWER_MAP: Record<string, number> = {
-  // 基础境界
   '练气初期': 5, '练气中期': 8, '练气后期': 12, '练气圆满': 15, '练气极境': 18,
   '筑基初期': 20, '筑基中期': 25, '筑基后期': 30, '筑基圆满': 35, '筑基极境': 40,
   '金丹初期': 45, '金丹中期': 52, '金丹后期': 60, '金丹圆满': 68, '金丹极境': 75,
@@ -33,8 +32,6 @@ const REALM_POWER_MAP: Record<string, number> = {
   '炼虚初期': 160, '炼虚中期': 170, '炼虚后期': 180, '炼虚圆满': 190, '炼虚极境': 200,
   '合体初期': 210, '合体中期': 225, '合体后期': 240, '合体圆满': 255, '合体极境': 270,
   '渡劫初期': 280, '渡劫中期': 310, '渡劫后期': 340, '渡劫圆满': 370, '渡劫极境': 400,
-  
-  // 简化境界（兼容性）
   '练气': 10, '筑基': 25, '金丹': 55, '元婴': 90, '化神': 130,
   '炼虚': 175, '合体': 235, '渡劫': 325
 };
@@ -61,25 +58,23 @@ const SECT_LEVEL_MULTIPLIER: Record<string, number> = {
 const SECT_TYPE_MODIFIER: Record<string, number> = {
   '修仙宗门': 1.0,
   '正道宗门': 1.0,
-  '魔道宗门': 1.1,  // 魔道势力通常更强
+  '魔道宗门': 1.1,
   '魔道势力': 1.1,
-  '修仙世家': 0.9,   // 世家偏保守
+  '修仙世家': 0.9,
   '世家': 0.9,
-  '商会': 0.7,       // 商会重商轻武
+  '商会': 0.7,
   '商会组织': 0.7,
-  '中立宗门': 0.85,  // 中立势力相对较弱
-  '散修联盟': 0.75   // 散修联盟松散
+  '中立宗门': 0.85,
+  '散修联盟': 0.75
 };
 
 /**
  * 计算宗门综合战力 - 重新设计更合理的评分系统
  */
 function calculateSectPower(data: SectCalculationData): number {
-  // 1. 基础实力：主要看最强修为
   let baseScore = 0;
   const maxRealm = data.最强修为 || data.宗主修为 || '';
   
-  // 基于境界的基础评分 (0-60分)
   if (maxRealm.includes('练气')) baseScore = 5;
   else if (maxRealm.includes('筑基')) baseScore = 15;
   else if (maxRealm.includes('金丹')) baseScore = 25;
@@ -88,14 +83,12 @@ function calculateSectPower(data: SectCalculationData): number {
   else if (maxRealm.includes('炼虚')) baseScore = 55;
   else if (maxRealm.includes('合体')) baseScore = 65;
   else if (maxRealm.includes('渡劫')) baseScore = 75;
-  else baseScore = 20; // 默认值
+  else baseScore = 20;
   
-  // 2. 规模加成 (0-25分)
   const elderCount = data.长老数量 || 0;
   const totalMembers = (data.核心弟子数 || 0) + (data.内门弟子数 || 0) + (data.外门弟子数 || 0);
   
   let scaleScore = 0;
-  // 长老数量影响 (0-15分)
   if (elderCount >= 50) scaleScore += 15;
   else if (elderCount >= 30) scaleScore += 12;
   else if (elderCount >= 20) scaleScore += 10;
@@ -103,7 +96,6 @@ function calculateSectPower(data: SectCalculationData): number {
   else if (elderCount >= 5) scaleScore += 4;
   else scaleScore += Math.max(0, elderCount);
   
-  // 总人数影响 (0-10分)
   if (totalMembers >= 10000) scaleScore += 10;
   else if (totalMembers >= 5000) scaleScore += 8;
   else if (totalMembers >= 2000) scaleScore += 6;
@@ -111,7 +103,6 @@ function calculateSectPower(data: SectCalculationData): number {
   else if (totalMembers >= 500) scaleScore += 2;
   else scaleScore += Math.max(0, Math.floor(totalMembers / 250));
   
-  // 3. 宗门等级修正 (0-10分)
   let levelBonus = 0;
   switch (data.等级) {
     case '超级':
@@ -134,12 +125,11 @@ function calculateSectPower(data: SectCalculationData): number {
       levelBonus = 0;
   }
   
-  // 4. 类型修正 (-5到+5分)
   let typeBonus = 0;
   switch (data.类型) {
     case '魔道宗门':
     case '魔道势力':
-      typeBonus = 3; // 魔道通常更强
+      typeBonus = 3;
       break;
     case '正道宗门':
     case '修仙宗门':
@@ -147,30 +137,26 @@ function calculateSectPower(data: SectCalculationData): number {
       break;
     case '修仙世家':
     case '世家':
-      typeBonus = -1; // 世家偏保守
+      typeBonus = -1;
       break;
     case '商会':
     case '商会组织':
-      typeBonus = -3; // 商会重商轻武
+      typeBonus = -3;
       break;
     case '散修联盟':
-      typeBonus = -2; // 散修联盟松散
+      typeBonus = -2;
       break;
     default:
       typeBonus = 0;
   }
   
-  // 5. 计算最终评分
   let finalScore = baseScore + scaleScore + levelBonus + typeBonus;
   
-  // 6. 合理性调整
-  // 确保不同境界的宗门有明显差距
   if (maxRealm.includes('渡劫')) finalScore = Math.max(finalScore, 85);
   else if (maxRealm.includes('合体')) finalScore = Math.max(finalScore, 75);
   else if (maxRealm.includes('炼虚')) finalScore = Math.max(finalScore, 65);
   else if (maxRealm.includes('化神')) finalScore = Math.max(finalScore, 55);
   
-  // 限制在1-100范围内
   return Math.min(100, Math.max(1, Math.round(finalScore)));
 }
 
@@ -178,7 +164,6 @@ function calculateSectPower(data: SectCalculationData): number {
  * 计算宗门声望值
  */
 function calculateSectReputation(data: SectCalculationData): number {
-  // 基础声望：根据宗门等级
   let baseReputation = 5;
   
   switch (data.等级) {
@@ -202,22 +187,17 @@ function calculateSectReputation(data: SectCalculationData): number {
       baseReputation = 5;
   }
   
-  // 类型修正
   const typeBonus = SECT_TYPE_MODIFIER[data.类型] || 1.0;
   
-  // 规模修正（小幅影响）
   let scaleBonus = 0;
   const elderCount = data.长老数量 || 0;
   if (elderCount >= 10) scaleBonus += 3;
   else if (elderCount >= 5) scaleBonus += 2;
   else if (elderCount >= 3) scaleBonus += 1;
   
-  // 随机波动（±20%）
   const randomFactor = 0.8 + Math.random() * 0.4;
-  
   const finalReputation = Math.round((baseReputation * typeBonus + scaleBonus) * randomFactor);
   
-  // 限制在合理范围内
   return Math.min(30, Math.max(0, finalReputation));
 }
 

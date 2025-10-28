@@ -10,8 +10,8 @@ import { get, isObject, isArray } from 'lodash';
 
 /** 格式化后的单条变更项 */
 export interface FormattedChange {
-  icon: 'add' | 'remove' | 'update' | 'info'; // 用于UI显示的图标类型
-  color: 'green' | 'red' | 'blue' | 'gray'; // 用于UI显示的颜色
+  icon: 'add' | 'remove' | 'update' | 'info' | 'error'; // 用于UI显示的图标类型
+  color: 'green' | 'red' | 'blue' | 'gray' | 'orange'; // 用于UI显示的颜色
   title: string; // 变更的标题，例如 "获得物品"
   description: string; // 变更的详细描述，例如 "【玄铁剑】x 1"
   details?: string[]; // 更详细的属性变化列表
@@ -23,6 +23,7 @@ export interface FormattedStateChangeLog {
     added: number;
     removed: number;
     updated: number;
+    errors: number;
   };
   changes: FormattedChange[];
 }
@@ -344,14 +345,38 @@ function parseRelationshipChange(change: StateChange): FormattedChange | null {
         color: 'blue',
         title: `【${npcName}】信息更新`,
         description: description,
-        // 对于复杂值的变更，在详情中显示
-        details:
-          (typeof newValue === 'object' && newValue !== null) ||
-          (typeof oldValue === 'object' && oldValue !== null)
-            ? [`旧值: ${JSON.stringify(oldValue)}`, `新值: ${JSON.stringify(newValue)}`]
-            : undefined,
       };
     }
+  }
+
+  return null;
+}
+
+/**
+ * 解析验证错误
+ * @param change - 单条变更记录
+ * @returns FormattedChange | null
+ */
+function parseValidationError(change: StateChange): FormattedChange | null {
+  const { key, action, newValue } = change;
+
+  // 检查是否是验证错误
+  if (action === 'validation_error' && key === '❌ 错误指令') {
+    const errorData = newValue as any;
+    const errors = errorData?.errors || [];
+    const command = errorData?.command || '未知指令';
+
+    return {
+      icon: 'error',
+      color: 'orange',
+      title: '❌ AI指令格式错误',
+      description: `以下指令验证失败，未被执行`,
+      details: [
+        `指令内容:\n${command}`,
+        `\n错误原因:`,
+        ...errors.map((err: string) => `  • ${err}`)
+      ]
+    };
   }
 
   return null;
@@ -364,7 +389,7 @@ function parseRelationshipChange(change: StateChange): FormattedChange | null {
  */
 function parseGenericChange(change: StateChange): FormattedChange {
   const { key, action, oldValue, newValue } = change;
-  
+
   let description = '';
   if (action === 'set' || action === 'update') {
     description = `值从 ${JSON.stringify(oldValue)} 变为 ${JSON.stringify(newValue)}`;
@@ -398,6 +423,7 @@ export function formatStateChanges(log: StateChangeLog): FormattedStateChangeLog
       added: 0,
       removed: 0,
       updated: 0,
+      errors: 0,
     },
     changes: [],
   };
@@ -410,7 +436,11 @@ export function formatStateChanges(log: StateChangeLog): FormattedStateChangeLog
     let parsedChange: FormattedChange | null = null;
 
     // 按优先级尝试不同的解析器
-    parsedChange = parseItemChange(change);
+    // 🔥 优先检查验证错误
+    parsedChange = parseValidationError(change);
+    if (!parsedChange) {
+      parsedChange = parseItemChange(change);
+    }
     if (!parsedChange) {
       parsedChange = parsePlayerStatusChange(change);
     }
@@ -423,13 +453,14 @@ export function formatStateChanges(log: StateChangeLog): FormattedStateChangeLog
     if (!parsedChange) {
       parsedChange = parseGenericChange(change);
     }
-    
+
     formatted.changes.push(parsedChange);
 
     // 更新统计信息
     if (parsedChange.icon === 'add') formatted.summary.added++;
     else if (parsedChange.icon === 'remove') formatted.summary.removed++;
     else if (parsedChange.icon === 'update') formatted.summary.updated++;
+    else if (parsedChange.icon === 'error') formatted.summary.errors++;
   }
 
   return formatted;

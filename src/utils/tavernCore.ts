@@ -39,17 +39,14 @@ export async function generateWithRawPrompt(
       }
     });
 
-    // 如果响应是对象且包含text字段，返回text
     if (response && typeof response === 'object' && 'text' in response) {
       return (response as { text: string }).text;
     }
 
-    // 如果响应是字符串，直接返回
     if (typeof response === 'string') {
       return response;
     }
 
-    // 其他情况，尝试转换为字符串
     return String(response);
   } catch (error) {
     console.error('[TavernCore] 生成响应失败:', error);

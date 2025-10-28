@@ -32,6 +32,12 @@ export const useUIStore = defineStore('ui', () => {
   const isLoading = ref(false);
   const loadingText = ref('');
   const isAIProcessing = ref(false); // AI处理状态（持久化，切换面板时不丢失）
+
+  // 🔥 流式响应状态（全局持久化，切换页面不丢失）
+  const streamingContent = ref('');
+  const currentGenerationId = ref<string | null>(null);
+  const streamingTimestamp = ref<number | null>(null);
+
   const showRetryDialogState = ref(false);
   const retryDialogConfig = ref<RetryDialogConfig | null>(null);
   const wasLoadingBeforeDialog = ref(false); // 记录显示弹窗前的loading状态
@@ -83,6 +89,53 @@ export const useUIStore = defineStore('ui', () => {
 
   function setAIProcessing(value: boolean) {
     isAIProcessing.value = value;
+    // 同步持久化到sessionStorage
+    if (value) {
+      sessionStorage.setItem('ai-processing-state', 'true');
+      sessionStorage.setItem('ai-processing-timestamp', Date.now().toString());
+    } else {
+      sessionStorage.removeItem('ai-processing-state');
+      sessionStorage.removeItem('ai-processing-timestamp');
+    }
+  }
+
+  // 🔥 流式响应状态管理
+  function setStreamingContent(content: string) {
+    streamingContent.value = content;
+  }
+
+  function appendStreamingContent(chunk: string) {
+    streamingContent.value += chunk;
+  }
+
+  function clearStreamingContent() {
+    streamingContent.value = '';
+  }
+
+  function setCurrentGenerationId(id: string | null) {
+    currentGenerationId.value = id;
+  }
+
+  function startStreaming(generationId: string) {
+    currentGenerationId.value = generationId;
+    streamingContent.value = '';
+    streamingTimestamp.value = Date.now();
+    isAIProcessing.value = true;
+  }
+
+  function stopStreaming() {
+    currentGenerationId.value = null;
+    streamingTimestamp.value = null;
+    isAIProcessing.value = false;
+  }
+
+  function resetStreamingState() {
+    streamingContent.value = '';
+    currentGenerationId.value = null;
+    streamingTimestamp.value = null;
+    isAIProcessing.value = false;
+    sessionStorage.removeItem('ai-processing-state');
+    sessionStorage.removeItem('ai-processing-timestamp');
   }
 
   function updateLoadingText(text: string) {
@@ -217,6 +270,19 @@ export const useUIStore = defineStore('ui', () => {
     isLoading,
     loadingText,
     isAIProcessing, // 暴露AI处理状态
+
+    // 🔥 流式响应状态
+    streamingContent,
+    currentGenerationId,
+    streamingTimestamp,
+    setStreamingContent,
+    appendStreamingContent,
+    clearStreamingContent,
+    setCurrentGenerationId,
+    startStreaming,
+    stopStreaming,
+    resetStreamingState,
+
     showRetryDialogState,
     retryDialogConfig,
     startLoading,

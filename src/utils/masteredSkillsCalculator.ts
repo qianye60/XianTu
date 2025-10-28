@@ -1,7 +1,4 @@
-/**
- * @fileoverview 掌握技能自动计算工具
- * 根据背包中功法的修炼进度自动计算已掌握的技能列表
- */
+
 
 import type { SaveData, MasteredSkill, TechniqueItem } from '@/types/game';
 import { debug } from './debug';

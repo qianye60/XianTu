@@ -113,6 +113,15 @@
                     {{ formatItemAttributes(selectedItem.装备增幅) }}
                   </div>
                 </div>
+                <div
+                  v-if="selectedItem?.类型 === '装备' && selectedItem?.特殊效果"
+                  class="modal-attributes"
+                >
+                  <h4>特殊效果:</h4>
+                  <div class="attribute-text">
+                    {{ selectedItem.特殊效果 }}
+                  </div>
+                </div>
               </div>
             </div>
             <div class="modal-actions">
@@ -299,6 +308,15 @@
                 <h4>装备增幅:</h4>
                 <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
+
+              <!-- 装备特殊效果 -->
+              <div
+                v-if="selectedItem.类型 === '装备' && selectedItem.特殊效果"
+                class="details-attributes"
+              >
+                <h4>特殊效果:</h4>
+                <div class="attribute-text">{{ selectedItem.特殊效果 }}</div>
+              </div>
             </div>
             <div class="details-actions">
               <!-- 装备：装备和丢弃 -->
@@ -397,6 +415,10 @@
                   <div v-if="slot.item.类型 === '装备' && slot.item.装备增幅" class="item-effects">
                     <div class="effects-title">增幅效果：</div>
                     <div class="effects-text">{{ formatItemAttributes(slot.item.装备增幅) }}</div>
+                  </div>
+                  <div v-if="slot.item.类型 === '装备' && slot.item.特殊效果" class="item-effects">
+                    <div class="effects-title">特殊效果：</div>
+                    <div class="effects-text">{{ slot.item.特殊效果 }}</div>
                   </div>
                 </div>
               </div>

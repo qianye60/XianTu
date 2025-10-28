@@ -69,15 +69,10 @@ export class EnhancedWorldGenerator {
    * 生成验证过的世界数据 (重构后)
    */
   async generateValidatedWorld(): Promise<{ success: boolean; worldInfo?: WorldInfo; errors?: string[] }> {
-    console.log('[增强世界生成器] 开始生成验证过的世界数据...');
-
     for (let i = 0; i <= this.config.maxRetries; i++) {
       try {
         if (i > 0) {
-          console.log(`[增强世界生成器] 第 ${i} 次重试...`);
           await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * i));
-
-          // 重试时减少数量参数，降低token消耗和AI出错概率
           this.reduceCountsForRetry(i);
         }
 
@@ -85,20 +80,16 @@ export class EnhancedWorldGenerator {
         const validationResult = this.validateWorldData(worldData);
 
         if (validationResult.isValid) {
-          console.log('[增强世界生成器] 世界生成并验证成功！');
           return { success: true, worldInfo: worldData };
         } else {
           this.previousErrors = validationResult.errors.map(e => e.message);
-          console.warn(`[增强世界生成器] 第 ${i} 次尝试验证失败:`, this.previousErrors);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[增强世界生成器] 第 ${i} 次尝试生成失败:`, message);
         this.previousErrors = [message];
       }
     }
 
-    console.error('[增强世界生成器] 世界生成失败，已达最大重试次数。');
     return { success: false, errors: this.previousErrors };
   }
 
@@ -107,23 +98,13 @@ export class EnhancedWorldGenerator {
    * @param retryCount 当前重试次数
    */
   private reduceCountsForRetry(retryCount: number): void {
-    // 每次重试减少约20%的数量（基于原始配置，避免累积减少）
     const reductionFactor = 0.8;
-
-    // 计算减少后的数量（从原始配置计算，而不是从当前config）
     const factor = Math.pow(reductionFactor, retryCount);
 
     this.config.factionCount = Math.max(3, Math.floor(this.originalConfig.factionCount * factor));
     this.config.locationCount = Math.max(5, Math.floor(this.originalConfig.locationCount * factor));
     this.config.secretRealmsCount = Math.max(2, Math.floor(this.originalConfig.secretRealmsCount * factor));
     this.config.continentCount = Math.max(2, Math.floor(this.originalConfig.continentCount * factor));
-
-    console.log(`[增强世界生成器] 重试 ${retryCount} 次后调整数量参数（基于原始配置: faction=${this.originalConfig.factionCount}, location=${this.originalConfig.locationCount}）:`, {
-      factionCount: this.config.factionCount,
-      locationCount: this.config.locationCount,
-      secretRealmsCount: this.config.secretRealmsCount,
-      continentCount: this.config.continentCount
-    });
   }
 
   /**
@@ -135,14 +116,9 @@ export class EnhancedWorldGenerator {
       throw new Error('酒馆系统不可用');
     }
 
-    // 构建增强的提示词
     const prompt = this.buildPromptWithErrors();
 
-    console.log('[增强世界生成器] 发送AI请求...');
-    console.log('[增强世界生成器] 提示词长度:', prompt.length);
-
     try {
-      // 使用 ordered_prompts 参数关闭世界书
       const orderedPrompts: Array<{ role: 'system' | 'user'; content: string }> = [
         {
           role: 'user',
@@ -162,23 +138,16 @@ export class EnhancedWorldGenerator {
           world_info_after: ''
         },
         onStreamChunk: (chunk: string) => {
-          // 实时显示世界生成进度
           if (this.config.onStreamChunk) {
             this.config.onStreamChunk(chunk);
           }
         }
       });
 
-      console.log('[增强世界生成器] AI响应长度:', String(response).length);
-
-      // 解析AI响应
       const worldData = this.parseAIResponse(String(response));
-
-      // 转换为标准格式
       return this.convertToWorldInfo(worldData);
 
     } catch (error: unknown) {
-      console.error('[增强世界生成器] AI请求失败:', error);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`AI生成失败: ${message}`);
     }
@@ -189,9 +158,7 @@ export class EnhancedWorldGenerator {
    * 注意：重试时不添加错误信息，因为数量参数已调整
    */
   private buildPromptWithErrors(): string {
-    const basePrompt = this.buildPrompt();
-    // 不再添加错误修正信息，避免用旧数量要求误导AI
-    return basePrompt;
+    return this.buildPrompt();
   }
 
   /**
@@ -219,31 +186,22 @@ export class EnhancedWorldGenerator {
    * 解析AI响应
    */
   private parseAIResponse(response: string): RawWorldData {
-    console.log('[增强世界生成器] 开始解析AI响应...');
-    console.log('[增强世界生成器] 响应前500字符:', response.substring(0, 500));
-
     try {
-      // 多种JSON提取策略
       let jsonMatch = null;
       let jsonText = '';
 
-      // 策略1: 寻找完整的JSON代码块
       jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
       if (jsonMatch) {
         jsonText = jsonMatch[1];
-        console.log('[增强世界生成器] 使用策略1提取JSON');
       }
 
-      // 策略2: 寻找包含factions和locations的JSON对象
       if (!jsonMatch) {
         jsonMatch = response.match(/(\{[\s\S]*?"factions"\s*:\s*\[[\s\S]*?"locations"\s*:\s*\[[\s\S]*?\})/);
         if (jsonMatch) {
           jsonText = jsonMatch[1];
-          console.log('[增强世界生成器] 使用策略2提取JSON');
         }
       }
 
-      // 策略3: 寻找任何JSON对象并检查是否包含必要字段
       if (!jsonMatch) {
         const jsonMatches = response.match(/\{[\s\S]*?\}/g);
         if (jsonMatches) {
@@ -252,7 +210,6 @@ export class EnhancedWorldGenerator {
               const testParse = JSON.parse(match);
               if (testParse.factions || testParse.locations) {
                 jsonText = match;
-                console.log('[增强世界生成器] 使用策略3提取JSON');
                 break;
               }
             } catch {
@@ -263,44 +220,22 @@ export class EnhancedWorldGenerator {
       }
 
       if (!jsonText) {
-        console.error('[增强世界生成器] 无法从AI响应中提取JSON数据');
-        console.error('[增强世界生成器] 完整响应:', response);
         throw new Error('无法解析AI响应中的JSON数据');
       }
 
-      console.log('[增强世界生成器] 提取的JSON前200字符:', jsonText.substring(0, 200));
-
       let worldDataRaw = JSON.parse(jsonText);
-      console.log('[增强世界生成器] JSON解析成功');
 
-      // 🔥 修复：如果AI把数据包裹在world_data字段中，需要提取出来
       if (worldDataRaw.world_data && typeof worldDataRaw.world_data === 'object') {
-        console.log('[增强世界生成器] 检测到world_data包裹，正在提取实际数据...');
         worldDataRaw = worldDataRaw.world_data;
       }
 
-      console.log('[增强世界生成器] 解析出的数据结构:', {
-        factions_count: worldDataRaw.factions?.length || 0,
-        locations_count: worldDataRaw.locations?.length || 0,
-        has_continents: !!worldDataRaw.continents
-      });
-
-      // 仅保留地图相关字段以节省Token与避免超限
-      const worldData = {
+      return {
         continents: Array.isArray(worldDataRaw.continents) ? worldDataRaw.continents : [],
         factions: Array.isArray(worldDataRaw.factions) ? worldDataRaw.factions : [],
         locations: Array.isArray(worldDataRaw.locations) ? worldDataRaw.locations : []
       };
-      const droppedKeys = Object.keys(worldDataRaw).filter(k => !['continents','factions','locations'].includes(k));
-      if (droppedKeys.length) {
-        console.log('[增强世界生成器] 已丢弃非地图字段:', droppedKeys);
-      }
-
-      return worldData;
 
     } catch (error: unknown) {
-      console.error('[增强世界生成器] JSON解析失败:', error);
-      console.error('[增强世界生成器] 响应内容:', response);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`JSON解析失败: ${message}`);
     }
@@ -311,7 +246,6 @@ export class EnhancedWorldGenerator {
    */
   private convertToWorldInfo(rawData: RawWorldData): WorldInfo {
     return {
-      // 🔥 修复：优先使用用户配置的数据，确保用户选择不被覆盖
       世界名称: this.config.worldName || rawData.world_name || rawData.worldName || '修仙界',
       世界背景: this.config.worldBackground || rawData.world_background || rawData.worldBackground || '',
       大陆信息: (rawData.continents || []).map((continent: Record<string, any>) => ({
@@ -349,7 +283,6 @@ export class EnhancedWorldGenerator {
           与玩家关系: faction.与玩家关系 || '中立',
           声望值: calculated.声望值,
 
-          // 组织架构（如果AI返回了则映射并补充）
           leadership: faction.leadership ? {
             宗主: faction.leadership.宗主,
             宗主修为: faction.leadership.宗主修为,
@@ -363,21 +296,18 @@ export class EnhancedWorldGenerator {
             外门弟子数: faction.leadership.外门弟子数
           } : undefined,
 
-          // 成员统计（若存在则透传）
           memberCount: faction.memberCount ? {
             total: Number(faction.memberCount.total) || 0,
             byRealm: faction.memberCount.byRealm || {},
             byPosition: faction.memberCount.byPosition || {}
           } : undefined,
 
-          // 势力范围详情（若存在）
           territoryInfo: faction.territoryInfo ? {
             controlledAreas: faction.territoryInfo.controlledAreas || [],
             influenceRange: faction.territoryInfo.influenceRange,
             strategicValue: faction.territoryInfo.strategicValue
           } : undefined,
 
-          // 加入相关
           canJoin: faction.canJoin !== undefined ? !!faction.canJoin : true,
           joinRequirements: faction.joinRequirements || [],
           benefits: faction.benefits || []
@@ -395,9 +325,7 @@ export class EnhancedWorldGenerator {
         相关势力: location.related_factions || location.相关势力 || [],
         特殊功能: location.special_functions || location.特殊功能 || []
       })),
-      // 扁平化生成信息
       生成时间: new Date().toISOString(),
-      // 🔥 修复：优先使用用户配置的世界纪元
       世界纪元: this.config.worldEra || rawData.world_era || '修仙纪元',
       特殊设定: rawData.special_settings || [],
       版本: '2.0-Enhanced'
@@ -408,19 +336,11 @@ export class EnhancedWorldGenerator {
    * 校验世界数据 (重构后)
    */
   private validateWorldData(worldInfo: WorldInfo): ValidationResult {
-    console.log('[增强世界生成器] 开始校验世界数据...');
-
     const result: ValidationResult = { isValid: true, errors: [] };
-
-    // 仅依赖自定义校验
     this.performCustomValidation(worldInfo, result);
 
     if (!result.isValid) {
-      // 记录错误，用于下次重试时的提示词优化
       this.previousErrors = result.errors.map(e => e.message);
-      console.warn('[增强世界生成器] 数据校验失败:', result.errors);
-    } else {
-      console.log('[增强世界生成器] 数据校验通过');
     }
 
     return result;

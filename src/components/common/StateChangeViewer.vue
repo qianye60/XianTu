@@ -20,6 +20,10 @@
           <RefreshCw :size="16" />
           <span>更新 {{ formattedLog.summary.updated }}</span>
         </div>
+        <div v-if="formattedLog.summary.errors > 0" class="summary-item errors">
+          <X :size="16" />
+          <span>错误 {{ formattedLog.summary.errors }}</span>
+        </div>
       </div>
       <div class="viewer-content">
         <div v-if="formattedLog.changes.length === 0" class="no-changes">
@@ -36,11 +40,15 @@
               <Plus v-if="change.icon === 'add'" :size="18" />
               <Minus v-else-if="change.icon === 'remove'" :size="18" />
               <RefreshCw v-else-if="change.icon === 'update'" :size="18" />
+              <X v-else-if="change.icon === 'error'" :size="18" />
               <Info v-else :size="18" />
             </div>
             <div class="item-content">
               <p class="item-title">{{ change.title }}</p>
               <p class="item-description">{{ change.description }}</p>
+              <div v-if="change.details && change.details.length > 0" class="item-details">
+                <p v-for="(detail, idx) in change.details" :key="idx">{{ detail }}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -155,8 +163,9 @@ const formattedLog = computed<FormattedStateChangeLog>(() => {
   font-weight: 500;
 }
 .summary-item.added { color: var(--color-success); }
-.summary-item.removed { color: var(--color-error); }
+.summary-item.removed { color: #ff9800; }
 .summary-item.updated { color: var(--color-info); }
+.summary-item.errors { color: var(--color-error); }
 
 .viewer-content {
   overflow-y: auto;
@@ -203,6 +212,7 @@ const formattedLog = computed<FormattedStateChangeLog>(() => {
 .item-red { border-color: var(--color-error); }
 .item-blue { border-color: var(--color-info); }
 .item-gray { border-color: var(--color-text-secondary); }
+.item-orange { border-color: #ff9800; }
 
 .item-icon {
   flex-shrink: 0;
@@ -218,6 +228,7 @@ const formattedLog = computed<FormattedStateChangeLog>(() => {
 .item-red .item-icon { background: var(--color-error); }
 .item-blue .item-icon { background: var(--color-info); }
 .item-gray .item-icon { background: var(--color-text-secondary); }
+.item-orange .item-icon { background: #ff9800; }
 
 .item-content { flex: 1; }
 
@@ -231,6 +242,22 @@ const formattedLog = computed<FormattedStateChangeLog>(() => {
   margin: 0;
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.item-details {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+}
+
+.item-details p {
+  margin: 0.25rem 0;
   white-space: pre-wrap;
   word-break: break-all;
 }

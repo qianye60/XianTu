@@ -1,6 +1,5 @@
 import type { GameTime } from '@/types/game';
 
-// 假设游戏世界使用简化历法
 const DAYS_IN_MONTH = 30;
 const MONTHS_IN_YEAR = 12;
 const HOURS_IN_DAY = 24;
@@ -24,7 +23,6 @@ export function normalizeGameTime(time: GameTime): GameTime {
     小时 %= HOURS_IN_DAY;
   }
 
-  // 使用循环处理跨多个月的天数增加
   while (日 > DAYS_IN_MONTH) {
     月 += 1;
     日 -= DAYS_IN_MONTH;

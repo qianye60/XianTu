@@ -302,7 +302,7 @@
 
 <script setup lang="ts">
 import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
-import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue';
+import { ref, onMounted, onActivated, onUnmounted, nextTick, computed, watch } from 'vue';
 import {
   Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit
 } from 'lucide-vue-next';
@@ -341,7 +341,12 @@ const inputText = computed({
   set: (value: string) => { uiStore.userInputText = value; }
 });
 const isInputFocused = ref(false);
-const isAIProcessing = ref(false);
+// 🔥 使用全局状态替代组件状态
+const isAIProcessing = computed(() => uiStore.isAIProcessing);
+const streamingContent = computed(() => uiStore.streamingContent);
+const currentGenerationId = computed(() => uiStore.currentGenerationId);
+const streamingCharCount = computed(() => uiStore.streamingContent.length);
+
 const inputRef = ref<HTMLTextAreaElement>();
 const contentAreaRef = ref<HTMLDivElement>();
 const memoryExpanded = ref(false);
@@ -352,18 +357,7 @@ const toggleMemory = () => {
   memoryExpanded.value = !memoryExpanded.value;
 };
 
-// AI处理状态持久化 - 在面板切换时保持等待状态
-const persistAIProcessingState = () => {
-  if (isAIProcessing.value) {
-    sessionStorage.setItem('ai-processing-state', 'true');
-    sessionStorage.setItem('ai-processing-timestamp', Date.now().toString());
-  } else {
-    sessionStorage.removeItem('ai-processing-state');
-    sessionStorage.removeItem('ai-processing-timestamp');
-  }
-};
-
-// 恢复AI处理状态
+// 恢复AI处理状态（从sessionStorage）
 const restoreAIProcessingState = () => {
   const saved = sessionStorage.getItem('ai-processing-state');
   const timestamp = sessionStorage.getItem('ai-processing-timestamp');
@@ -373,36 +367,40 @@ const restoreAIProcessingState = () => {
     const elapsed = Date.now() - parseInt(timestamp);
     // 如果超过2分钟，认为已超时，清除状态
     if (elapsed < TIMEOUT_DURATION) {
-      isAIProcessing.value = true;
+      uiStore.setAIProcessing(true);
       console.log('[状态恢复] 恢复AI处理状态');
 
       // 2分钟后自动清除状态
       setTimeout(() => {
-        if (isAIProcessing.value) {
+        if (uiStore.isAIProcessing) {
           console.log('[状态恢复] AI处理超时，自动清除状态');
           forceResetAIProcessingState();
         }
       }, TIMEOUT_DURATION - elapsed); // 从剩余时间开始计时
     } else {
       console.log('[状态恢复] AI处理状态已超时，清除状态');
-      sessionStorage.removeItem('ai-processing-state');
-      sessionStorage.removeItem('ai-processing-timestamp');
-      isAIProcessing.value = false;
+      uiStore.resetStreamingState();
     }
   }
 };
 
-// 监听AI处理状态变化
-watch(isAIProcessing, persistAIProcessingState);
+// 持久化AI处理状态到sessionStorage
+const persistAIProcessingState = () => {
+  if (uiStore.isAIProcessing) {
+    sessionStorage.setItem('ai-processing-state', 'true');
+    sessionStorage.setItem('ai-processing-timestamp', Date.now().toString());
+  } else {
+    sessionStorage.removeItem('ai-processing-state');
+    sessionStorage.removeItem('ai-processing-timestamp');
+  }
+};
 
 // 强制清除AI处理状态的方法
 const forceResetAIProcessingState = () => {
   console.log('[强制重置] 清除AI处理状态和会话存储');
-  isAIProcessing.value = false;
-  sessionStorage.removeItem('ai-processing-state');
-  sessionStorage.removeItem('ai-processing-timestamp');
+  uiStore.resetStreamingState();
   streamingMessageIndex.value = null;
-  streamingContent.value = '';
+  persistAIProcessingState();
   toast.info('AI处理状态已重置');
 };
 
@@ -434,12 +432,10 @@ const bidirectionalSystem = AIBidirectionalSystem;
 
 // 流式输出状态
 const streamingMessageIndex = ref<number | null>(null);
-const streamingContent = ref('');
 const useStreaming = ref(true);
-const streamingCharCount = computed(() => streamingContent.value.length);
 
-// 当前正在处理的 generation_id
-const currentGenerationId = ref<string | null>(null);
+// 🔥 防止重复注册事件监听器的标志
+const eventListenersRegistered = ref(false);
 
 // 图片上传相关
 const selectedImages = ref<File[]>([]);
@@ -879,6 +875,14 @@ const retryAIResponse = async (
     try {
       console.log(`[AI响应重试] 第${attempt}次尝试`);
 
+      // 🔥 重置流式内容，准备新的流式输出
+      uiStore.setStreamingContent('');
+      rawStreamingContent.value = '';
+
+      // 🔥 生成新的 generation_id 用于流式传输
+      const retryGenerationId = `gen_retry_${attempt}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      uiStore.setCurrentGenerationId(retryGenerationId);
+
       // 在用户消息中添加结构要求
       const enhancedMessage = `${userMessage}
 
@@ -916,7 +920,9 @@ const retryAIResponse = async (
         {
           onProgressUpdate: (progress: string) => {
             console.log('[AI重试进度]', progress);
-          }
+          },
+          useStreaming: useStreaming.value, // 🔥 启用流式传输
+          generation_id: retryGenerationId  // 🔥 传递 generation_id
         }
       );
 
@@ -928,10 +934,12 @@ const retryAIResponse = async (
         } else {
           console.warn(`[AI响应重试] 第${attempt}次尝试验证失败:`, validation.errors);
           previousErrors = validation.errors;
+          // 继续下一次重试
         }
       }
     } catch (error) {
       console.error(`[AI响应重试] 第${attempt}次尝试出错:`, error);
+      // 继续下一次重试
     }
   }
 
@@ -1049,10 +1057,11 @@ const sendMessage = async () => {
   });
 
   // 用户消息只作为行动趋向提示词，不添加到记忆中
-  isAIProcessing.value = true;
+  uiStore.setAIProcessing(true);
+  persistAIProcessingState();
 
   // 🔥 重置流式内容，准备接收新的流式输出
-  streamingContent.value = '';
+  uiStore.setStreamingContent('');
   rawStreamingContent.value = ''; // 清除原始流式内容
   streamingMessageIndex.value = 1; // 设置一个虚拟索引以启用流式处理
 
@@ -1079,7 +1088,7 @@ const sendMessage = async () => {
       // 不需要设置 onStreamChunk 回调
       // 生成唯一的 generation_id
       const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      currentGenerationId.value = generationId;
+      uiStore.setCurrentGenerationId(generationId);
       options.generation_id = generationId;
 
       // 添加图片上传支持
@@ -1218,12 +1227,12 @@ const sendMessage = async () => {
       console.error('[AI处理失败]', aiError);
 
       // 🔥 清理流式输出状态（失败时清除所有流式内容）
+      uiStore.setAIProcessing(false);
       streamingMessageIndex.value = null;
-      streamingContent.value = '';
+      uiStore.setStreamingContent('');
       rawStreamingContent.value = '';
-
-      // isAIProcessing 会在 finally 中被清除
-      persistAIProcessingState(); // 仍然需要清除会话存储
+      uiStore.setCurrentGenerationId(null);
+      persistAIProcessingState();
 
       // 显示失败弹窗，明确告知用户生成失败
       const errorMessage = aiError instanceof Error ? aiError.message : '未知错误';
@@ -1243,49 +1252,48 @@ const sendMessage = async () => {
       // currentNarrative 现在自动显示最新短期记忆
     }
 
+    // 🔥 [关键修复] 无论成功失败，都在这里清除AI处理状态
     // 成功的提示
     if (aiResponse) {
       toast.success('天机重现');
-
       // 清空已发送的图片
       clearImages();
-      // 🔥 用户要求：保留输入框内容，不清空
-      // inputText.value = '';
-
-
-      // 状态将在 finally 块中统一清除
-      console.log('[AI响应处理] 成功完成, isAIProcessing 将在 finally 中清除');
-      persistAIProcessingState();
-
     }
+
+    // 🔥 统一清除AI处理状态（成功路径）
+    console.log('[AI响应处理] 处理完成，清除AI处理状态');
+    uiStore.setAIProcessing(false);
+    streamingMessageIndex.value = null;
+    uiStore.setCurrentGenerationId(null);
+    uiStore.setStreamingContent(''); // 清除流式内容
+    rawStreamingContent.value = '';
+    persistAIProcessingState();
 
   } catch (error: unknown) {
     console.error('[AI交互] 处理失败:', error);
 
     // 🔥 清理流式输出状态（失败时清除所有流式内容）
+    uiStore.setAIProcessing(false);
     streamingMessageIndex.value = null;
-    streamingContent.value = '';
+    uiStore.setStreamingContent('');
     rawStreamingContent.value = '';
+    uiStore.setCurrentGenerationId(null);
+    persistAIProcessingState();
 
     // 设置当前叙述为错误消息
     // currentNarrative 现在自动显示最新短期记忆
 
     toast.error('天道无应，请稍后再试');
   } finally {
-    // 🔥 等待一小段时间，让 GENERATION_ENDED 事件有机会触发
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // 🔥 只在事件监听器未清除状态时才强制清除（兜底机制）
+    // 🔥 兜底机制：确保状态一定被清除
     if (isAIProcessing.value) {
-      console.log('[AI响应处理] finally块：事件未触发，强制清除所有状态（兜底）');
-      isAIProcessing.value = false;
+      console.warn('[AI响应处理] finally块：状态未清除，强制清除（兜底）');
+      uiStore.setAIProcessing(false);
       streamingMessageIndex.value = null;
-      streamingContent.value = '';
+      uiStore.setStreamingContent('');
       rawStreamingContent.value = '';
-      currentGenerationId.value = null;
+      uiStore.setCurrentGenerationId(null);
       persistAIProcessingState();
-    } else {
-      console.log('[AI响应处理] finally块：状态已被事件监听器清除，跳过');
     }
 
     // 最终统一存档
@@ -1437,7 +1445,7 @@ const resetPanelState = () => {
   // --- 重置命令日志相关状态 ---
 
   // isAIProcessing 在切换存档时应重置为 false
-  isAIProcessing.value = false;
+  uiStore.setAIProcessing(false);
   persistAIProcessingState(); // 清除持久化状态
 };
 
@@ -1488,55 +1496,40 @@ onMounted(async () => {
     if (helper) {
       console.log('[主面板] 注册酒馆事件监听');
 
-      // 辅助函数：解析事件参数（处理多种格式）
-      const parseEventArgs = (args: unknown): { text?: string; generationId?: string } => {
-        try {
-          // 格式1：对象 { text, generation_id }
-          if (args && typeof args === 'object' && !Array.isArray(args)) {
-            const argsObj = args as Record<string, unknown>;
-            return {
-              text: (argsObj.text as string) || (argsObj[0] as string) || '',
-              generationId: (argsObj.generation_id as string) || (argsObj[1] as string) || ''
-            };
-          }
-          // 格式2：数组 [text, generation_id]
-          if (Array.isArray(args)) {
-            return {
-              text: args[0] || '',
-              generationId: args[1] || ''
-            };
-          }
-          // 格式3：字符串（仅 generation_id）
-          if (typeof args === 'string') {
-            return {
-              generationId: args
-            };
-          }
-        } catch (error) {
-          console.error('[事件解析] 解析失败:', error, args);
-        }
-        return {};
-      };
-
       // 🔥 使用全局 eventOn 函数监听流式事件
-      const eventOn = (window as any).eventOn;
-      const iframe_events = (window as any).TavernHelper.iframe_events;
+      const eventOn = (window as unknown as Record<string, unknown>).eventOn;
+      const iframe_events = (window as unknown as Record<string, unknown>).TavernHelper as Record<string, unknown>;
 
-      if (eventOn && iframe_events) {
-        eventOn(iframe_events.GENERATION_STARTED, (generationId: string) => {
+      // 🔥 防止重复注册：只在第一次挂载时注册事件监听器
+      if (eventOn && iframe_events && typeof eventOn === 'function' && !eventListenersRegistered.value) {
+        const events = iframe_events.iframe_events as Record<string, string>;
+
+        eventOn(events.GENERATION_STARTED, (generationId: string) => {
           if (generationId === currentGenerationId.value) {
-            streamingContent.value = '';
+            uiStore.setStreamingContent('');
             rawStreamingContent.value = '';
           }
         });
 
-        eventOn(iframe_events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, (chunk: string, generationId: string) => {
+        eventOn(events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, (chunk: string, generationId: string) => {
           if (generationId === currentGenerationId.value && useStreaming.value && chunk) {
-            streamingContent.value += chunk;
+            uiStore.setStreamingContent(streamingContent.value + chunk);
           }
         });
 
-        console.log('[主面板] ✅ 流式事件监听器已注册');
+        // 🔥 监听生成完成事件，清除AI处理状态
+        eventOn(events.GENERATION_ENDED, (generationId: string) => {
+          if (generationId === currentGenerationId.value) {
+            console.log('[流式输出] GENERATION_ENDED 事件触发，清除AI处理状态');
+            // 不在这里立即清除，让 sendMessage 的成功路径处理
+            // 这里只是确保事件被触发的日志
+          }
+        });
+
+        eventListenersRegistered.value = true;
+        console.log('[主面板] ✅ 流式事件监听器已注册（首次）');
+      } else if (eventListenersRegistered.value) {
+        console.log('[主面板] ⏭️ 跳过事件监听器注册（已注册）');
       }
 
       console.log('[主面板] ✅ 事件监听器注册完成');

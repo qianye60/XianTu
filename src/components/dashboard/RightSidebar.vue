@@ -222,8 +222,8 @@ const currentAge = computed(() => {
     return calculateAgeFromBirthdate(birthdate, gameTime);
   }
 
-  // 兜底：返回存储的年龄或寿命
-  return characterInfo.value?.年龄 || gameStateStore.playerStatus?.寿命?.当前 || 0;
+  // 兜底：返回寿命当前值
+  return gameStateStore.playerStatus?.寿命?.当前 || 0;
 });
 
 // 收缩状态

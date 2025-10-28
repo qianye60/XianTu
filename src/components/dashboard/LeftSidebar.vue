@@ -10,7 +10,7 @@
         <span>{{ currentRealTime }}</span>
       </div>
     </div>
-    
+
     <div class="sidebar-content">
       <!-- 主要功能区 -->
       <div class="function-section">
@@ -26,7 +26,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn primary" @click="handleCharacterDetails">
             <div class="btn-icon">
               <User :size="18" />
@@ -37,7 +37,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn primary" @click="handleTechniques">
             <div class="btn-icon">
               <BookOpen :size="18" />
@@ -48,7 +48,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn primary" @click="handleThousandDao">
             <div class="btn-icon">
               <Zap :size="18" />
@@ -76,7 +76,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn secondary" @click="handleSect">
             <div class="btn-icon">
               <Home :size="18" />
@@ -87,7 +87,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button
             class="function-btn secondary"
             @click="handleQuests"
@@ -118,7 +118,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn accent" @click="handleMemoryCenter">
             <div class="btn-icon">
               <Brain :size="18" />
@@ -129,7 +129,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn accent" v-if="isOnlineMode" @click="handleOnlinePlay">
             <div class="btn-icon">
               <Globe :size="18" />
@@ -142,9 +142,9 @@
           </button>
         </div>
       </div>
-      
+
       <div class="divider"></div>
-      
+
       <!-- 系统功能区 -->
       <div class="system-section">
         <div class="function-group">
@@ -158,18 +158,18 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn system" @click="handleGameVariables">
             <div class="btn-icon">
               <Database :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">游戏变量</span>
-              <span class="btn-desc">查看原始数据</span>
+              <span class="btn-desc">查看编辑数据</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn system" @click="handleSettings">
             <div class="btn-icon">
               <Settings :size="18" />
@@ -180,7 +180,7 @@
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
-          
+
           <button class="function-btn exit-btn no-arrow" @click="handleBackToMenu">
             <div class="btn-icon">
               <LogOut :size="18" />
@@ -656,20 +656,20 @@ const exitToMenu = async () => {
   .left-sidebar {
     padding: 12px;
   }
-  
+
   .function-btn {
     padding: 10px 14px;
   }
-  
+
   .btn-icon {
     width: 32px;
     height: 32px;
   }
-  
+
   .btn-text {
     font-size: 0.85rem;
   }
-  
+
   .btn-desc {
     font-size: 0.7rem;
   }
