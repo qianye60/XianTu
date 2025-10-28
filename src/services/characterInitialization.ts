@@ -808,10 +808,25 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   // 🔥 关键修复：合并状态，而不是完全覆盖。
   // 以权威计算值为基础，然后应用AI的所有修改（包括境界、位置、属性上限等）。
+  // 🔥 境界字段特殊处理：优先使用AI设置的境界，只在缺失字段时才用初始值补充
+  const mergedRealm = aiModifiedStatus.境界 && typeof aiModifiedStatus.境界 === 'object'
+    ? {
+        名称: aiModifiedStatus.境界.名称 || authoritativeStatus.境界.名称,
+        阶段: aiModifiedStatus.境界.阶段 !== undefined ? aiModifiedStatus.境界.阶段 : authoritativeStatus.境界.阶段,
+        当前进度: aiModifiedStatus.境界.当前进度 !== undefined ? aiModifiedStatus.境界.当前进度 : authoritativeStatus.境界.当前进度,
+        下一级所需: aiModifiedStatus.境界.下一级所需 !== undefined ? aiModifiedStatus.境界.下一级所需 : authoritativeStatus.境界.下一级所需,
+        突破描述: aiModifiedStatus.境界.突破描述 || authoritativeStatus.境界.突破描述
+      }
+    : authoritativeStatus.境界;
+
+  // 🔥 修复：先应用初始值，再应用AI修改，最后确保境界使用合并后的版本
   saveData.玩家角色状态 = {
     ...authoritativeStatus,
     ...aiModifiedStatus,
+    境界: mergedRealm, // 强制使用合并后的完整境界对象（优先AI的值）
   };
+
+  console.log('[数据最终化] 境界合并结果:', mergedRealm);
 
   const aiLocation = saveData.玩家角色状态?.位置; // 从合并后的状态中重新获取位置
 
@@ -948,19 +963,31 @@ export async function initializeCharacter(
     // 步骤 3.5: 核心属性校准
     // AI在生成开场时可能会意外覆盖或删除我们预先计算好的核心属性。
     // 此处强制将我们计算的初始值重新应用到最终存档数据中，以确保数据一致性。
-    // 这会保留AI对“位置”等字段的修改，同时保护“气血”、“寿命”等核心数据。
+    // 这会保留AI对"位置"等字段的修改，同时保护"气血"、"寿命"等核心数据。
     console.log('[初始化流程] 核心属性校准：合并AI修改与初始属性...');
     const authoritativeStatus = calculateInitialAttributes(baseInfo, age);
     const aiModifiedStatus = finalSaveData.玩家角色状态 || {};
 
     // 合并状态：以权威计算值为基础，然后应用AI的所有修改。
-    // 这会保留AI对“境界”、“位置”等剧情相关字段的修改，
-    // 同时确保“气血”、“寿命”等核心计算字段有一个有效的初始值。
+    // 这会保留AI对"境界"、"位置"等剧情相关字段的修改，
+    // 同时确保"气血"、"寿命"等核心计算字段有一个有效的初始值。
+    // 🔥 境界字段特殊处理：优先使用AI设置的境界，只在缺失字段时才用初始值补充
+    const mergedRealmStep3 = aiModifiedStatus.境界 && typeof aiModifiedStatus.境界 === 'object'
+      ? {
+          名称: aiModifiedStatus.境界.名称 || authoritativeStatus.境界.名称,
+          阶段: aiModifiedStatus.境界.阶段 !== undefined ? aiModifiedStatus.境界.阶段 : authoritativeStatus.境界.阶段,
+          当前进度: aiModifiedStatus.境界.当前进度 !== undefined ? aiModifiedStatus.境界.当前进度 : authoritativeStatus.境界.当前进度,
+          下一级所需: aiModifiedStatus.境界.下一级所需 !== undefined ? aiModifiedStatus.境界.下一级所需 : authoritativeStatus.境界.下一级所需,
+          突破描述: aiModifiedStatus.境界.突破描述 || authoritativeStatus.境界.突破描述
+        }
+      : authoritativeStatus.境界;
+
     finalSaveData.玩家角色状态 = {
       ...authoritativeStatus,
       ...aiModifiedStatus,
+      境界: mergedRealmStep3, // 强制使用合并后的完整境界对象（优先AI的值）
     };
-    console.log('[初始化流程] 核心属性校准完成。');
+    console.log('[初始化流程] 核心属性校准完成，境界:', mergedRealmStep3);
 
     // 步骤 4: 最终化并同步数据
     console.log('[初始化流程] 准备最终化并同步数据...');

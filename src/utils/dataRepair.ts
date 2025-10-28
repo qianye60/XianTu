@@ -304,21 +304,24 @@ function repairRealm(realm: any): Realm {
   if (!realm || typeof realm !== 'object') {
     return {
       名称: "凡人",
-      阶段: "初期",
+      阶段: "",
       当前进度: 0,
       下一级所需: 100,
       突破描述: '引气入体，感悟天地灵气，踏上修仙第一步'
     };
   }
 
-  const name = "凡人";
-  const stage = "初期";
+  // 🔥 修复：保留原有境界数据，只补充缺失字段
+  const name = realm.名称 || "凡人";
+  const stage = realm.阶段 !== undefined ? realm.阶段 : "";
+  const progress = validateNumber(realm.当前进度, 0, 999999999, 0);
+  const required = validateNumber(realm.下一级所需, 1, 999999999, 100);
 
   return {
     名称: name,
     阶段: stage,
-    当前进度: 0,
-    下一级所需: 100,
+    当前进度: progress,
+    下一级所需: required,
     突破描述: realm.突破描述 || getDefaultBreakthroughDescription(name, stage)
   };
 }

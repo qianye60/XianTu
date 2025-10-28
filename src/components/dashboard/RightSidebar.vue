@@ -163,15 +163,15 @@
           </div>
           <div v-else class="status-tags-container">
             <div
-              v-for="effect in statusEffects"
-              :key="effect.状态名称"
+              v-for="(effect, index) in statusEffects"
+              :key="effect.状态名称 || `effect-${index}`"
               class="status-tag clickable"
-              :class="[(String(effect.类型).toLowerCase() === 'buff') ? 'buff' : 'debuff']"
+              :class="[(String(effect.类型 || '').toLowerCase() === 'buff') ? 'buff' : 'debuff']"
               @click="showStatusDetail(effect)"
-              :title="`${effect.状态名称}${effect.强度 ? ` - 强度${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? ` - ${formatTimeDisplay(effect.时间)}` : ''}`"
+              :title="`${effect.状态名称 || '未知状态'}${effect.强度 ? ` - 强度${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? ` - ${formatTimeDisplay(effect.时间)}` : ''}`"
             >
-              <span class="tag-icon">{{ String(effect.类型).toLowerCase() === 'buff' ? '增' : '减' }}</span>
-              <span class="tag-name">{{ effect.状态名称 }}</span>
+              <span class="tag-icon">{{ String(effect.类型 || '').toLowerCase() === 'buff' ? '增' : '减' }}</span>
+              <span class="tag-name">{{ effect.状态名称 || '未知状态' }}</span>
               <span v-if="effect.强度" class="tag-intensity">{{ effect.强度 }}</span>
               <span v-if="formatTimeDisplay(effect.时间)" class="tag-time">{{ formatTimeDisplay(effect.时间) }}</span>
             </div>
@@ -211,7 +211,13 @@ const isDataLoaded = computed(() => gameStateStore.isGameLoaded && !!gameStateSt
 // 直接使用中文字段访问数据
 const characterInfo = computed(() => gameStateStore.character);
 const playerStatus = computed(() => gameStateStore.playerStatus);
-const statusEffects = computed(() => (gameStateStore.playerStatus?.状态效果 || []) as StatusEffect[]);
+const statusEffects = computed(() => {
+  const effects = gameStateStore.playerStatus?.状态效果 || [];
+  // 🔥 过滤掉无效的状态效果（undefined、null或缺少状态名称）
+  return effects.filter((effect): effect is StatusEffect =>
+    effect != null && typeof effect === 'object' && '状态名称' in effect
+  );
+});
 
 // 自动计算当前年龄（基于出生日期）
 const currentAge = computed(() => {

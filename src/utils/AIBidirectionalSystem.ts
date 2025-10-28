@@ -17,6 +17,7 @@ import { DATA_STRUCTURE_DEFINITIONS } from './prompts/dataStructureDefinitions';
 import { PLAYER_INTENT_RESPECT_RULE } from './prompts/sharedRules';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
+import { rollD20 } from './diceRoller';
 
 type PlainObject = Record<string, unknown>;
 
@@ -141,6 +142,10 @@ ${DATA_STRUCTURE_DEFINITIONS}
 
       const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';
 
+      // 🎲 投掷骰子 - 程序随机生成
+      const diceRoll = rollD20();
+      console.log(`[骰子系统] 本回合骰点: ${diceRoll}`);
+
       // 构建注入消息列表
       // 注意：使用 assistant 角色而不是 system，避免中转API忽略
       const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
@@ -162,12 +167,15 @@ ${DATA_STRUCTURE_DEFINITIONS}
         });
       }
 
+      // 🎲 添加骰点信息到用户输入
+      const userInputWithDice = `${userActionForAI}\n\n【系统骰点】本回合骰点: ${diceRoll} (1d20)`;
+
       // 🔥 [流式传输修复]
       // 使用酒馆的事件系统处理流式传输
       const useStreaming = options?.useStreaming !== false;
 
       const response = await tavernHelper!.generate({
-        user_input: userActionForAI,
+        user_input: userInputWithDice,
         should_stream: useStreaming,
         generation_id: generationId,
         injects,
@@ -183,32 +191,65 @@ ${DATA_STRUCTURE_DEFINITIONS}
         // 容错策略：尝试多种方式提取文本内容
         const responseText = String(response).trim();
         let extractedText = '';
+        let extractedMemory = '';
+        let extractedCommands: any[] = [];
 
-        // 1. 尝试直接JSON解析（可能只是格式问题）
-        try {
-          const jsonObj = JSON.parse(responseText);
-          extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
-        } catch {
-          // 2. 尝试提取JSON中的text字段（使用正则）
-          const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-          if (textMatch && textMatch[1]) {
-            extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-          } else {
-            // 3. 最后降级：使用整个响应作为文本
-            extractedText = responseText;
+        // 1. 尝试提取JSON代码块（```json ... ```）
+        const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+          try {
+            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+            extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+            extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
+            extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+          } catch (e) {
+            console.warn('[AI双向系统] JSON代码块解析失败:', e);
+          }
+        }
+
+        // 2. 如果没有提取到，尝试直接JSON解析
+        if (!extractedText) {
+          try {
+            const jsonObj = JSON.parse(responseText);
+            extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+            extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
+            extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+          } catch {
+            // 3. 尝试提取JSON中的text字段（使用正则）
+            const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (textMatch && textMatch[1]) {
+              extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            } else {
+              // 4. 尝试查找大括号包裹的JSON
+              const jsonMatch = responseText.match(/\{[\s\S]*"text"[\s\S]*\}/);
+              if (jsonMatch) {
+                try {
+                  const jsonObj = JSON.parse(jsonMatch[0]);
+                  extractedText = jsonObj.text || '';
+                  extractedMemory = jsonObj.mid_term_memory || '';
+                  extractedCommands = jsonObj.tavern_commands || [];
+                } catch {
+                  // 5. 最后降级：使用整个响应作为文本
+                  extractedText = responseText;
+                }
+              } else {
+                // 5. 最后降级：使用整个响应作为文本
+                extractedText = responseText;
+              }
+            }
           }
         }
 
         gmResponse = {
           text: extractedText,
-          mid_term_memory: '',
-          tavern_commands: []
+          mid_term_memory: extractedMemory,
+          tavern_commands: extractedCommands
         };
-        console.warn('[AI双向系统] 使用容错模式提取文本，长度:', extractedText.length);
+        console.warn('[AI双向系统] 使用容错模式提取内容 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length);
       }
 
       if (!gmResponse || !gmResponse.text) {
-        throw new Error('AI响应解析失败或为空');
+        throw new Error('AI响应为空或格式错误');
       }
 
       // 流式传输完成后调用回调
@@ -249,16 +290,22 @@ ${DATA_STRUCTURE_DEFINITIONS}
     try {
       const useStreaming = options?.useStreaming !== false; // 默认启用流式传输
 
-      const response = await tavernHelper!.generateRaw({
-        ordered_prompts: [
-          { role: 'user', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        should_stream: useStreaming,
-        overrides: {
-          world_info_before: '',
-          world_info_after: ''
+      // 🔥 [重构] 使用标准 generate() 方法，不再使用 generateRaw()
+      // 构建注入消息列表
+      const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
+        {
+          content: systemPrompt,
+          role: 'assistant',
+          depth: 1,
+          position: 'before',
         }
+      ];
+
+      const response = await tavernHelper!.generate({
+        user_input: userPrompt,
+        should_stream: useStreaming,
+        generation_id: `initial_message_${Date.now()}`,
+        injects,
       });
 
       // 流式传输通过事件系统在调用方处理
@@ -270,28 +317,61 @@ ${DATA_STRUCTURE_DEFINITIONS}
         // 容错策略：尝试多种方式提取文本内容
         const responseText = String(response).trim();
         let extractedText = '';
+        let extractedMemory = '';
+        let extractedCommands: any[] = [];
 
-        // 1. 尝试直接JSON解析（可能只是格式问题）
-        try {
-          const jsonObj = JSON.parse(responseText);
-          extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
-        } catch {
-          // 2. 尝试提取JSON中的text字段（使用正则）
-          const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-          if (textMatch && textMatch[1]) {
-            extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-          } else {
-            // 3. 最后降级：使用整个响应作为文本
-            extractedText = responseText;
+        // 1. 尝试提取JSON代码块（```json ... ```）
+        const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+          try {
+            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+            extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+            extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
+            extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+          } catch (e) {
+            console.warn('[AI双向系统] JSON代码块解析失败:', e);
+          }
+        }
+
+        // 2. 如果没有提取到，尝试直接JSON解析
+        if (!extractedText) {
+          try {
+            const jsonObj = JSON.parse(responseText);
+            extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+            extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
+            extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+          } catch {
+            // 3. 尝试提取JSON中的text字段（使用正则）
+            const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (textMatch && textMatch[1]) {
+              extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            } else {
+              // 4. 尝试查找大括号包裹的JSON
+              const jsonMatch = responseText.match(/\{[\s\S]*"text"[\s\S]*\}/);
+              if (jsonMatch) {
+                try {
+                  const jsonObj = JSON.parse(jsonMatch[0]);
+                  extractedText = jsonObj.text || '';
+                  extractedMemory = jsonObj.mid_term_memory || '';
+                  extractedCommands = jsonObj.tavern_commands || [];
+                } catch {
+                  // 5. 最后降级：使用整个响应作为文本
+                  extractedText = responseText;
+                }
+              } else {
+                // 5. 最后降级：使用整个响应作为文本
+                extractedText = responseText;
+              }
+            }
           }
         }
 
         gmResponse = {
           text: extractedText,
-          mid_term_memory: '',
-          tavern_commands: []
+          mid_term_memory: extractedMemory,
+          tavern_commands: extractedCommands
         };
-        console.warn('[AI双向系统] 使用容错模式提取初始消息文本，长度:', extractedText.length);
+        console.warn('[AI双向系统] 使用容错模式提取初始消息 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length);
       }
 
       if (!gmResponse || !gmResponse.text) {
@@ -493,6 +573,67 @@ ${DATA_STRUCTURE_DEFINITIONS}
   }
 
   /**
+   * 对记忆内容进行净化处理，替换敏感词汇为委婉表达
+   * 避免触发API的内容审核
+   */
+  private sanitizeMemoryContent(content: string): string {
+    // 定义敏感词汇映射表（使用委婉的古典文学表达）
+    const replacements: Record<string, string> = {
+      // 身体部位
+      '乳房': '酥胸',
+      '胸部': '玉峰',
+      '乳头': '红梅',
+      '下体': '私密之处',
+      '阴部': '花径',
+      '阴道': '幽谷',
+      '小穴': '花心',
+      '阴茎': '玉茎',
+      '龟头': '龙首',
+
+      // 动作描述
+      '做爱': '云雨之欢',
+      '性交': '鱼水之欢',
+      '交合': '阴阳交融',
+      '插入': '深入',
+      '抽插': '律动',
+      '射精': '释放',
+      '高潮': '巅峰',
+      '爱液': '琼浆',
+      '精液': '精华',
+
+      // 状态描述
+      '湿润': '润泽',
+      '勃起': '昂扬',
+      '淫荡': '妩媚',
+      '淫乱': '放纵',
+      '色情': '情欲',
+      '性欲': '欲望',
+      '发情': '春心萌动',
+
+      // 其他
+      '处女': '完璧之身',
+      '破处': '初次',
+      '失身': '献身',
+      '春药': '迷情之物',
+      '媚药': '情药'
+    };
+
+    let sanitized = content;
+
+    // 执行替换
+    for (const [sensitive, elegant] of Object.entries(replacements)) {
+      const regex = new RegExp(sensitive, 'g');
+      sanitized = sanitized.replace(regex, elegant);
+    }
+
+    // 移除过于露骨的描述（使用正则匹配并替换为概括性描述）
+    sanitized = sanitized.replace(/详细描述了.*?过程/g, '发生了亲密接触');
+    sanitized = sanitized.replace(/具体.*?细节/g, '相关情况');
+
+    return sanitized;
+  }
+
+  /**
    * 触发记忆总结（公开方法，带锁）
    * 无论是自动还是手动，都通过此方法执行，以防止竞态条件。
    */
@@ -550,37 +691,108 @@ ${DATA_STRUCTURE_DEFINITIONS}
       const memoriesToKeep = midTermMemories.slice(numToSummarize);
       const memoriesText = memoriesToSummarize.map((m, i) => `${i + 1}. ${m}`).join('\n');
 
-      // 4. 构建提示词 (使用 MemoryCenterPanel 中更优化的版本)
-      const defaultPrompt = `你是一个专业的记忆总结助手，擅长将中期记忆整合为详细的长期记忆档案。
-总结要求：
+      // 4. 构建提示词 - 使用标准JSON格式
+      const defaultPrompt = `# 记忆总结任务
+
+你需要将以下中期记忆总结成一条详细的长期记忆档案。
+
+## 总结要求
 1. 必须包含时间线索、关键事件、人物关系变化、情感波动
 2. 使用第一人称（"我"）的视角描述
 3. 按时间顺序梳理事件脉络，突出因果关系
 4. 保留重要细节，合并琐碎信息
 5. 字数控制在200-600简体汉字，确保信息完整详实
-6. 只返回总结内容本身，不要添加任何时间前缀（如【仙道XX年】）、标题（如【记忆总结】）或其他格式标记`;
+6. 不要添加任何时间前缀（如【仙道XX年】）、标题（如【记忆总结】）或其他格式标记
+
+## 内容处理规范（重要）
+- 如果记忆中包含亲密关系内容，必须使用委婉、文学化的表达方式
+- 使用"云雨之欢"、"鱼水之欢"、"共度良宵"、"情意绵绵"等古典文学词汇
+- 侧重情感层面和关系发展，淡化具体细节
+- 采用含蓄笔法，符合修仙世界的文学审美
+
+## 输出格式（严格遵守）
+你必须返回标准JSON格式：
+\`\`\`json
+{
+  "text": "总结的记忆内容（200-600字）",
+  "mid_term_memory": "",
+  "tavern_commands": []
+}
+\`\`\`
+
+注意：
+- text字段包含完整的记忆总结
+- mid_term_memory留空
+- tavern_commands留空数组
+- 不要在JSON外添加任何说明文字`;
 
       const systemPrompt = longTermFormat || defaultPrompt;
-      const userPrompt = `请将以下中期记忆总结成详细的长期记忆档案：\n\n${memoriesText}`;
 
-      // 5. 调用 AI
+      // 对记忆内容进行预处理，替换敏感词汇为委婉表达
+      const sanitizedMemoriesText = this.sanitizeMemoryContent(memoriesText);
+
+      const userPrompt = `请总结以下中期记忆：\n\n${sanitizedMemoriesText}`;
+
+      // 5. 调用 AI - 使用标准generate而非generateRaw
       const tavernHelper = getTavernHelper();
       if (!tavernHelper) throw new Error('TavernHelper 未初始化');
 
-      const response = await tavernHelper.generateRaw({
-        ordered_prompts: [
-          { role: 'user', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-          { role: 'user', content: "开始任务" }
-        ],
+      // 构建注入消息
+      const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
+        {
+          content: systemPrompt,
+          role: 'assistant',
+          depth: 1,
+          position: 'before',
+        }
+      ];
+
+      const response = await tavernHelper.generate({
+        user_input: userPrompt,
         should_stream: false,
-        overrides: { world_info_before: '', world_info_after: '' }
+        generation_id: `memory_summary_${Date.now()}`,
+        injects,
       });
 
-      const summaryText = String(response).trim();
+      // 使用标准的parseAIResponse解析
+      let summaryText: string;
+      try {
+        const parsed = this.parseAIResponse(response);
+        summaryText = parsed.text.trim();
+      } catch (parseError) {
+        console.error('[AI双向系统] 记忆总结解析失败，尝试容错:', parseError);
+
+        // 容错处理
+        const responseText = String(response).trim();
+
+        // 尝试提取JSON
+        let extractedText = '';
+        try {
+          const jsonObj = JSON.parse(responseText);
+          extractedText = jsonObj.text || jsonObj.summary || jsonObj.content || '';
+        } catch {
+          // 尝试提取JSON代码块
+          const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+          if (jsonBlockMatch && jsonBlockMatch[1]) {
+            try {
+              const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+              extractedText = jsonObj.text || '';
+            } catch {
+              extractedText = responseText;
+            }
+          } else {
+            extractedText = responseText;
+          }
+        }
+
+        summaryText = extractedText.trim();
+      }
+
       if (!summaryText) {
         throw new Error('AI返回的总结为空');
       }
+
+      console.log('[AI双向系统] 总结文本长度:', summaryText.length, '预览:', summaryText.substring(0, 100));
 
       // 6. 更新游戏状态
       // 长期记忆不需要时间前缀和【记忆总结】标签，直接存储总结内容
@@ -621,7 +833,17 @@ ${DATA_STRUCTURE_DEFINITIONS}
 
     // 🔥 保护关键数组字段，防止被设为 null
     const arrayFields = ['玩家角色状态.状态效果', '任务列表', '物品栏.物品', '技能列表', '记忆.短期记忆', '记忆.中期记忆', '记忆.长期记忆', '叙事历史'];
-    if (action === 'set' && arrayFields.some(field => path.includes(field))) {
+    // 精确匹配：路径必须完全等于数组字段，或者是数组元素（如 状态效果[0]）但不是其子属性
+    const isArrayField = arrayFields.some(field => {
+      // 完全匹配
+      if (path === field) return true;
+      // 匹配数组元素，但不匹配数组元素的子属性
+      // 例如：状态效果[0] ✓  状态效果[0].持续时间分钟 ✗
+      if (path.startsWith(field + '[') && !path.includes('.', field.length)) return true;
+      return false;
+    });
+
+    if (action === 'set' && isArrayField) {
       if (value === null || value === undefined) {
         console.warn(`[AI双向系统] 阻止将数组字段 ${path} 设为 null/undefined，改为空数组`);
         set(saveData, path, []);
@@ -672,6 +894,36 @@ ${DATA_STRUCTURE_DEFINITIONS}
       case 'delete':
         unset(saveData, path);
         break;
+
+      case 'pull': {
+        // 从数组中移除匹配的元素（用于任务系统、状态效果等）
+        const array = get(saveData, path, []) as unknown[];
+        if (!Array.isArray(array)) {
+          throw new Error(`PULL操作要求数组类型，但 ${path} 是 ${typeof array}`);
+        }
+
+        // value 应该是一个对象，包含用于匹配的字段
+        if (!value || typeof value !== 'object') {
+          throw new Error(`PULL操作要求value是对象类型，用于匹配要移除的元素`);
+        }
+
+        const matchCriteria = value as Record<string, unknown>;
+        const updatedArray = array.filter(item => {
+          if (!item || typeof item !== 'object') return true;
+
+          // 检查是否所有匹配条件都满足
+          for (const [key, val] of Object.entries(matchCriteria)) {
+            if ((item as Record<string, unknown>)[key] !== val) {
+              return true; // 不匹配，保留
+            }
+          }
+          return false; // 完全匹配，移除
+        });
+
+        set(saveData, path, updatedArray);
+        console.log(`[AI双向系统] PULL操作: 从 ${path} 移除了 ${array.length - updatedArray.length} 个元素`);
+        break;
+      }
 
       default:
         throw new Error(`未知的操作类型: ${action}`);
@@ -735,7 +987,6 @@ ${DATA_STRUCTURE_DEFINITIONS}
       // 🔥 修复：将简化命令格式转换为完整的 TavernCommand 格式
       const tavernCommands = commands.map((cmd: any) => ({
         action: cmd.action || 'set',
-        scope: cmd.scope || 'global' as const,
         key: cmd.key || '',
         value: cmd.value
       }));

@@ -1552,7 +1552,16 @@ const getSkillModalContent = () => {
 const refreshData = async () => {
   isLoading.value = true;
   try {
+    // 🔥 修复：从存储重新加载后，需要同步到 gameStateStore
     await characterStore.reloadFromStorage();
+
+    // 重新加载当前游戏到 gameStateStore
+    const gameStateStore = useGameStateStore();
+    const currentSaveData = characterStore.currentSaveData;
+    if (currentSaveData) {
+      gameStateStore.loadFromSaveData(currentSaveData);
+      debug.log('人物详情', '已同步最新数据到 gameStateStore');
+    }
   } catch (error) {
     debug.error('人物详情', '刷新数据失败', error);
   } finally {
@@ -1562,13 +1571,15 @@ const refreshData = async () => {
 
 onMounted(async () => {
   debug.log('人物详情', '组件挂载，同步数据');
-  await refreshData();
+  // 🔥 修复：首次挂载时不需要重新加载，直接使用 gameStateStore 中的数据
+  // await refreshData();
 });
 
 // 每次面板激活时重新获取数据
 onActivated(async () => {
-  debug.log('人物详情', '面板激活，刷新数据');
-  await refreshData();
+  debug.log('人物详情', '面板激活');
+  // 🔥 修复：面板激活时不需要重新加载存储数据，gameStateStore 中已经是最新的
+  // await refreshData();
 });
 
 // 获取出生地显示文本

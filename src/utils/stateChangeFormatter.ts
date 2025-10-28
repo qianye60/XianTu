@@ -368,7 +368,7 @@ function parseValidationError(change: StateChange): FormattedChange | null {
 
     return {
       icon: 'error',
-      color: 'orange',
+      color: 'red',
       title: '❌ AI指令格式错误',
       description: `以下指令验证失败，未被执行`,
       details: [

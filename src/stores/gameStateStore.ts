@@ -148,9 +148,9 @@ export const useGameStateStore = defineStore('gameState', {
      * @param saveData 完整的存档数据
      */
     loadFromSaveData(saveData: SaveData) {
-      // 🔥 使用 Object.assign 或展开运算符确保响应式
-      this.character = saveData.角色基础信息 ? { ...saveData.角色基础信息 } : null;
-      this.playerStatus = saveData.玩家角色状态 ? { ...saveData.玩家角色状态 } : null;
+      // 🔥 修复：使用深拷贝确保嵌套对象（如境界）不会被引用污染
+      this.character = saveData.角色基础信息 ? JSON.parse(JSON.stringify(saveData.角色基础信息)) : null;
+      this.playerStatus = saveData.玩家角色状态 ? JSON.parse(JSON.stringify(saveData.玩家角色状态)) : null;
 
       // 确保角色基础信息和玩家角色状态中的灵根、出生保持同步
       if (this.character && this.playerStatus) {

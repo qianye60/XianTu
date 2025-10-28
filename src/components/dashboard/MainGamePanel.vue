@@ -434,8 +434,17 @@ const bidirectionalSystem = AIBidirectionalSystem;
 const streamingMessageIndex = ref<number | null>(null);
 const useStreaming = ref(true);
 
-// 🔥 防止重复注册事件监听器的标志
-const eventListenersRegistered = ref(false);
+// 🔥 全局标志：防止重复注册事件监听器（使用 window 对象存储，确保全局唯一）
+const GLOBAL_EVENT_KEY = '__mainGamePanel_eventListenersRegistered__';
+if (!(window as any)[GLOBAL_EVENT_KEY]) {
+  (window as any)[GLOBAL_EVENT_KEY] = false;
+}
+
+// 🔥 存储事件监听器引用，用于清理（也存储在全局）
+const GLOBAL_HANDLERS_KEY = '__mainGamePanel_eventHandlers__';
+if (!(window as any)[GLOBAL_HANDLERS_KEY]) {
+  (window as any)[GLOBAL_HANDLERS_KEY] = {};
+}
 
 // 图片上传相关
 const selectedImages = ref<File[]>([]);
@@ -1034,17 +1043,31 @@ const sendMessage = async () => {
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
 
-  // 🔥 用户输入外层包裹格式化标签
-  const formattedUserMessage = userMessage ? `
-  <用户行动趋向>${userMessage}</用户行动趋向>
-  <强调用户行动趋向>${userMessage}</强调用户行动趋向>
-  <再次强调用户行动趋向>${userMessage}</再次强调用户行动趋向>
-  ` : '';
+  // 🔥 finalUserMessage 包含用户输入和动作队列，用户输入需要特殊强调（三次重复增强权重）
+  let finalUserMessage = '';
+  if (userMessage) {
+    finalUserMessage = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯🎯🎯 【最高优先级】用户明确指示的行动方向 🎯🎯🎯
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // 将格式化后的用户输入和动作队列文本合并
-  const finalUserMessage = actionQueueText ?
-    `${formattedUserMessage}${actionQueueText}` :
-    formattedUserMessage;
+用户输入：${userMessage}
+
+⚠️ 再次强调用户意图：${userMessage}
+
+⚠️ 第三次强调用户意图：${userMessage}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 铁律：必须严格按照用户的行动趋向来推进剧情！
+🚨 铁律：用户的意图是最高优先级，不可忽视！
+🚨 铁律：请围绕用户的行动来展开叙述和状态变更！
+🚨 铁律：如果用户明确要求某个行动，必须在叙事中体现！
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    if (actionQueueText) {
+      finalUserMessage += `\n\n${actionQueueText}`;
+    }
+  } else {
+    finalUserMessage = actionQueueText || '';
+  }
 
   // 清空动作队列（动作已经添加到消息中）
   if (actionQueueText) {
@@ -1500,36 +1523,45 @@ onMounted(async () => {
       const eventOn = (window as unknown as Record<string, unknown>).eventOn;
       const iframe_events = (window as unknown as Record<string, unknown>).TavernHelper as Record<string, unknown>;
 
-      // 🔥 防止重复注册：只在第一次挂载时注册事件监听器
-      if (eventOn && iframe_events && typeof eventOn === 'function' && !eventListenersRegistered.value) {
+      // 🔥 防止重复注册：只在第一次挂载时注册事件监听器（使用全局标志）
+      if (eventOn && iframe_events && typeof eventOn === 'function' && !(window as any)[GLOBAL_EVENT_KEY]) {
         const events = iframe_events.iframe_events as Record<string, string>;
 
-        eventOn(events.GENERATION_STARTED, (generationId: string) => {
+        // 🔥 创建事件处理函数并保存到全局
+        const globalHandlers = (window as any)[GLOBAL_HANDLERS_KEY];
+
+        globalHandlers.onGenerationStarted = (generationId: string) => {
           if (generationId === currentGenerationId.value) {
             uiStore.setStreamingContent('');
             rawStreamingContent.value = '';
+            console.log('[流式输出] GENERATION_STARTED - 已重置状态');
           }
-        });
+        };
 
-        eventOn(events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, (chunk: string, generationId: string) => {
+        globalHandlers.onStreamToken = (chunk: string, generationId: string) => {
           if (generationId === currentGenerationId.value && useStreaming.value && chunk) {
-            uiStore.setStreamingContent(streamingContent.value + chunk);
+            // 增量追加：每次把新内容加到后面
+            uiStore.setStreamingContent(uiStore.streamingContent + chunk);
           }
-        });
+        };
 
-        // 🔥 监听生成完成事件，清除AI处理状态
-        eventOn(events.GENERATION_ENDED, (generationId: string) => {
+        globalHandlers.onGenerationEnded = (generationId: string) => {
           if (generationId === currentGenerationId.value) {
             console.log('[流式输出] GENERATION_ENDED 事件触发，清除AI处理状态');
             // 不在这里立即清除，让 sendMessage 的成功路径处理
             // 这里只是确保事件被触发的日志
           }
-        });
+        };
 
-        eventListenersRegistered.value = true;
-        console.log('[主面板] ✅ 流式事件监听器已注册（首次）');
-      } else if (eventListenersRegistered.value) {
-        console.log('[主面板] ⏭️ 跳过事件监听器注册（已注册）');
+        // 🔥 注册事件监听器
+        eventOn(events.GENERATION_STARTED, globalHandlers.onGenerationStarted);
+        eventOn(events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, globalHandlers.onStreamToken);
+        eventOn(events.GENERATION_ENDED, globalHandlers.onGenerationEnded);
+
+        (window as any)[GLOBAL_EVENT_KEY] = true;
+        console.log('[主面板] ✅ 流式事件监听器已注册（全局唯一）');
+      } else if ((window as any)[GLOBAL_EVENT_KEY]) {
+        console.log('[主面板] ⏭️ 跳过事件监听器注册（全局已注册）');
       }
 
       console.log('[主面板] ✅ 事件监听器注册完成');
@@ -1547,6 +1579,38 @@ onMounted(async () => {
 onActivated(() => {
   console.log('[主面板] 组件激活，恢复AI处理状态');
   restoreAIProcessingState();
+});
+
+// 🔥 组件卸载时清理事件监听器（使用全局标志）
+onUnmounted(() => {
+  console.log('[主面板] 组件卸载，清理事件监听器');
+
+  // 尝试移除事件监听器
+  try {
+    const eventOff = (window as unknown as Record<string, unknown>).eventOff;
+    const iframe_events = (window as unknown as Record<string, unknown>).TavernHelper as Record<string, unknown>;
+
+    if (eventOff && iframe_events && typeof eventOff === 'function' && (window as any)[GLOBAL_EVENT_KEY]) {
+      const events = iframe_events.iframe_events as Record<string, string>;
+      const globalHandlers = (window as any)[GLOBAL_HANDLERS_KEY];
+
+      if (globalHandlers.onGenerationStarted) {
+        eventOff(events.GENERATION_STARTED, globalHandlers.onGenerationStarted);
+      }
+      if (globalHandlers.onStreamToken) {
+        eventOff(events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, globalHandlers.onStreamToken);
+      }
+      if (globalHandlers.onGenerationEnded) {
+        eventOff(events.GENERATION_ENDED, globalHandlers.onGenerationEnded);
+      }
+
+      (window as any)[GLOBAL_EVENT_KEY] = false;
+      (window as any)[GLOBAL_HANDLERS_KEY] = {};
+      console.log('[主面板] ✅ 事件监听器已清理（全局）');
+    }
+  } catch (error) {
+    console.warn('[主面板] ⚠️ 清理事件监听器失败:', error);
+  }
 });
 
 // 🔥 [核心修复] 监听叙事历史变化，自动更新 currentNarrative 为最新一条

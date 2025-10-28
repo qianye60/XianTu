@@ -44,7 +44,7 @@ export function validateCommand(command: unknown, index: number): ValidationResu
   }
 
   // 2. 检查action类型
-  const validActions = ['set', 'add', 'push', 'delete'];
+  const validActions = ['set', 'add', 'push', 'delete', 'pull'];
   if (cmd.action && !validActions.includes(cmd.action)) {
     errors.push(`指令${index}: action值"${cmd.action}"无效，必须是: ${validActions.join(', ')}`);
   }
@@ -252,7 +252,7 @@ function validateValueType(key: string, value: unknown, action: string): string[
   }
 
   // NPC创建/更新
-  if (key.startsWith('人物关系.') && !key.includes('.') || (key.match(/\./g) || []).length === 1) {
+  if (key.startsWith('人物关系.') && (key.match(/\./g) || []).length === 1) {
     if (action === 'set' && typeof value === 'object' && value !== null) {
       const val = value as Record<string, any>;
       const npcRequired = ['名字', '性别', '年龄', '出生日期', '种族', '出生', '外貌描述', '性格特征', '境界', '灵根', '天赋', '先天六司', '与玩家关系', '好感度', '人格底线', '记忆', '记忆总结', '当前位置', '势力归属', '当前外貌状态', '当前内心想法', '背包', '实时关注'];
@@ -267,7 +267,7 @@ function validateValueType(key: string, value: unknown, action: string): string[
           if (realmExtra.length > 0) {
             errors.push(`NPC境界对象包含非法字段: ${realmExtra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
           }
-          if (!val.境界.名称 || !val.境界.阶段) {
+          if (!('名称' in val.境界) || !('阶段' in val.境界)) {
             errors.push('NPC境界必须包含"名称"和"阶段"字段');
           }
         }
@@ -325,7 +325,7 @@ function validateValueType(key: string, value: unknown, action: string): string[
       if (extra.length > 0) {
         errors.push(`NPC境界对象包含非法字段: ${extra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
       }
-      if (!val.名称 || !val.阶段) {
+      if (!('名称' in val) || !('阶段' in val)) {
         errors.push('NPC境界必须包含"名称"和"阶段"字段');
       }
     }

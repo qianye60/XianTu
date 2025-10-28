@@ -636,11 +636,14 @@ const handleDeleteCharacter = (charId: string) => {
   showConfirm(
     '删除角色',
     `确定要彻底删除角色\"${charName}\"及其所有修行记录吗？此操作不可恢复。`,
-    () => {
-      characterStore.deleteCharacter(charId);
+    async () => {
+      // 🔥 修复：如果删除的是当前选中的角色，先清空选中状态
       if (selectedCharId.value === charId) {
         selectedCharId.value = null;
       }
+
+      // 然后执行删除操作
+      await characterStore.deleteCharacter(charId);
     }
   );
 };

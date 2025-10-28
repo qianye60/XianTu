@@ -175,13 +175,67 @@
         <div class="empty-text">{{ getEmptyText() }}</div>
       </div>
 
-      <div v-else class="memory-list">
-        <div
-          v-for="(memory, index) in filteredMemories"
-          :key="index"
-          class="memory-card"
-          :class="`memory-${memory.type}`"
-        >
+      <div v-else>
+        <!-- 分页控制 -->
+        <div class="pagination-controls" v-if="filteredMemoriesAll.length > pageSize">
+          <div class="pagination-info">
+            第 {{ currentPage }} / {{ totalPages }} 页，共 {{ filteredMemoriesAll.length }} 条记忆
+          </div>
+          <div class="pagination-buttons">
+            <button
+              class="page-btn"
+              @click="goToFirstPage"
+              :disabled="currentPage === 1"
+              title="第一页"
+            >
+              ⏮️
+            </button>
+            <button
+              class="page-btn"
+              @click="goToPage(currentPage - 1)"
+              :disabled="currentPage === 1"
+              title="上一页"
+            >
+              ◀️
+            </button>
+            <button
+              class="page-btn"
+              @click="goToPage(currentPage + 1)"
+              :disabled="currentPage === totalPages"
+              title="下一页"
+            >
+              ▶️
+            </button>
+            <button
+              class="page-btn"
+              @click="goToLastPage"
+              :disabled="currentPage === totalPages"
+              title="最后一页"
+            >
+              ⏭️
+            </button>
+          </div>
+          <div class="pagination-jump">
+            <input
+              type="number"
+              v-model="jumpToPage"
+              placeholder="页码"
+              class="jump-input"
+              @keyup.enter="handleJumpToPage"
+              min="1"
+              :max="totalPages"
+            />
+            <button class="jump-btn" @click="handleJumpToPage">跳转</button>
+          </div>
+        </div>
+
+        <div class="memory-list">
+          <div
+            v-for="(memory, index) in filteredMemories"
+            :key="index"
+            class="memory-card"
+            :class="`memory-${memory.type}`"
+          >
           <div class="memory-header">
             <div class="memory-type-badge" :class="`badge-${memory.type}`">
               {{ getTypeIcon(memory.type) }} {{ getTypeName(memory.type) }}
@@ -189,7 +243,7 @@
             <div class="memory-actions">
               <button
                 class="delete-memory-btn"
-                @click.stop="deleteMemory(memory, index)"
+                @click.stop="deleteMemory(memory)"
                 title="删除此记忆"
               >
                 🗑️
@@ -258,6 +312,44 @@
               {{ memory.content }}
             </div>
           </div>
+          </div>
+        </div>
+
+        <!-- 底部分页控制 -->
+        <div class="pagination-controls bottom" v-if="filteredMemoriesAll.length > pageSize">
+          <div class="pagination-info">
+            第 {{ currentPage }} / {{ totalPages }} 页
+          </div>
+          <div class="pagination-buttons">
+            <button
+              class="page-btn"
+              @click="goToFirstPage"
+              :disabled="currentPage === 1"
+            >
+              ⏮️
+            </button>
+            <button
+              class="page-btn"
+              @click="goToPage(currentPage - 1)"
+              :disabled="currentPage === 1"
+            >
+              ◀️
+            </button>
+            <button
+              class="page-btn"
+              @click="goToPage(currentPage + 1)"
+              :disabled="currentPage === totalPages"
+            >
+              ▶️
+            </button>
+            <button
+              class="page-btn"
+              @click="goToLastPage"
+              :disabled="currentPage === totalPages"
+            >
+              ⏭️
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -303,6 +395,11 @@ const loading = ref(false);
 const activeFilter = ref('all');
 const showSettings = ref(false);
 
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(10);
+const jumpToPage = ref('');
+
 // 记忆系统配置
 const memoryConfig = ref({
   shortTermLimit: 3, // 与后端配置同步
@@ -344,8 +441,8 @@ const memoryTypes = [
   { key: 'long', name: '长期', icon: '💾' }
 ];
 
-// 筛选后的记忆
-const filteredMemories = computed(() => {
+// 筛选后的记忆（不分页）
+const filteredMemoriesAll = computed(() => {
   if (activeFilter.value === 'all') {
     return memories.value;
   }
@@ -356,6 +453,18 @@ const filteredMemories = computed(() => {
     case 'long': return longTermMemories.value;
     default: return memories.value;
   }
+});
+
+// 总页数
+const totalPages = computed(() => {
+  return Math.ceil(filteredMemoriesAll.value.length / pageSize.value) || 1;
+});
+
+// 当前页的记忆（分页后）
+const filteredMemories = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return filteredMemoriesAll.value.slice(start, end);
 });
 
 // 总记忆数量
@@ -528,6 +637,32 @@ const addMemory = (type: 'short' | 'medium' | 'long', content: string, importanc
 // 设置活跃筛选器
 const setActiveFilter = (filterKey: string) => {
   activeFilter.value = filterKey;
+  currentPage.value = 1; // 切换筛选器时重置到第一页
+};
+
+// 分页相关函数
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
+};
+
+const goToFirstPage = () => {
+  currentPage.value = 1;
+};
+
+const goToLastPage = () => {
+  currentPage.value = totalPages.value;
+};
+
+const handleJumpToPage = () => {
+  const page = parseInt(jumpToPage.value);
+  if (!isNaN(page) && page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+    jumpToPage.value = '';
+  } else {
+    toast.warning(`请输入 1-${totalPages.value} 之间的页码`);
+  }
 };
 
 // 清理记忆（使用全局确认弹窗）
@@ -732,7 +867,7 @@ const manualTriggerSummary = async () => {
  * 删除单条记忆（同时删除本地显示、IndexedDB存档和酒馆变量）
  * 这是唯一能完整删除记忆的方法，确保三处数据同步
  */
-const deleteMemory = async (memory: Memory, displayIndex: number) => {
+const deleteMemory = async (memory: Memory) => {
   uiStore.showRetryDialog({
     title: '删除记忆',
     message: `确定要删除这条${getTypeName(memory.type)}吗？此操作不可撤销。\n\n内容：${memory.content.substring(0, 50)}...`,
@@ -1704,6 +1839,128 @@ const addTestMediumTermMemory = async () => {
   .memory-item {
     font-size: 0.75rem;
     padding-left: 0.8rem;
+  }
+}
+
+/* 分页控制样式 */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(var(--color-surface-rgb), 0.5);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination-controls.bottom {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.page-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  color: var(--color-text);
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: var(--color-surface-light);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-jump {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.jump-input {
+  width: 70px;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.jump-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.jump-btn {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.jump-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+@media (max-width: 640px) {
+  .pagination-controls {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pagination-info {
+    width: 100%;
+    text-align: center;
+  }
+
+  .pagination-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pagination-jump {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

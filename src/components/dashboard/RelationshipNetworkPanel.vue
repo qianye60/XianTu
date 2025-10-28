@@ -686,6 +686,18 @@ const getIntimacyClass = (intimacy: number | undefined): string => {
 
 const selectPerson = (person: NpcProfile) => {
   const isNewSelection = selectedPerson.value?.名字 !== person.名字;
+
+  // 🔧 数据规范化：确保记忆总结是数组
+  if (person && person.记忆总结) {
+    if (typeof person.记忆总结 === 'string') {
+      // 如果是字符串，转换为数组
+      person.记忆总结 = [person.记忆总结];
+    } else if (!Array.isArray(person.记忆总结)) {
+      // 如果既不是字符串也不是数组，设为空数组
+      person.记忆总结 = [];
+    }
+  }
+
   selectedPerson.value = selectedPerson.value?.名字 === person.名字
     ? null
     : person;
@@ -941,29 +953,107 @@ const summarizeMemories = async () => {
     const memoriesToSummarizeList = memories.slice(0, countToSummarize);
     const remainingMemories = memories.slice(countToSummarize);
 
-    // 构建AI提示词
+    // 构建AI提示词 - 使用标准JSON格式
     const memoriesText = memoriesToSummarizeList.map((m, i) => `${i + 1}. ${m}`).join('\n');
 
-    const systemPrompt = `你是一个专业的记忆总结助手，擅长将NPC的记忆整合为简洁的摘要。
+    const systemPrompt = `# NPC记忆总结任务
 
-总结要求：
+你需要将以下关于【${npcName}】的记忆总结成一条简洁的摘要。
+
+## 总结要求
 1. 按时间顺序梳理事件脉络
 2. 保留关键信息、时间线索、情感变化、关系发展
 3. 字数控制在100-200字
 4. 使用修仙小说的语言风格
-5. 只返回总结内容，不要有任何前缀、后缀或标题`;
 
-    const userPrompt = `请将以下关于【${npcName}】的记忆总结成一条简洁的摘要：
+## 内容处理规范（重要）
+- 如果记忆中包含亲密关系内容，必须使用委婉、文学化的表达方式
+- 使用"云雨之欢"、"鱼水之欢"、"共度良宵"、"情意绵绵"等古典文学词汇
+- 侧重情感层面和关系发展，淡化具体细节
+- 采用含蓄笔法，符合修仙世界的文学审美
+
+## 输出格式（严格遵守）
+这是一个特殊的记忆整理任务，你必须返回标准JSON格式：
+\`\`\`json
+{
+  "text": "总结的记忆内容（100-200字）",
+  "mid_term_memory": "",
+  "tavern_commands": []
+}
+\`\`\`
+
+注意：
+- text字段包含完整的记忆总结
+- mid_term_memory留空（这是特殊任务）
+- tavern_commands留空数组（这是特殊任务）
+- 不要在JSON外添加任何说明文字`;
+
+    const userPrompt = `请总结以下关于【${npcName}】的记忆：
 
 ${memoriesText}`;
 
     uiStore.showToast('正在调用AI总结记忆...', { type: 'info' });
 
-    // 🔥 使用Raw模式直接调用AI
-    const { generateWithRawPrompt } = await import('@/utils/tavernCore');
-    const summary = await generateWithRawPrompt(userPrompt, systemPrompt, false);
+    // 🔥 使用标准generate模式而非Raw模式
+    const { AIBidirectionalSystem } = await import('@/utils/AIBidirectionalSystem');
+    const aiSystem = AIBidirectionalSystem; // 已经是实例，不需要 getInstance()
 
-    if (!summary || summary.trim().length === 0) {
+    // 构建注入消息
+    const tavernHelper = (await import('@/utils/tavern')).getTavernHelper();
+    if (!tavernHelper) {
+      throw new Error('TavernHelper 未初始化');
+    }
+
+    const injects = [
+      {
+        content: systemPrompt,
+        role: 'assistant' as const,
+        depth: 1,
+        position: 'before' as const,
+      }
+    ];
+
+    const response = await tavernHelper.generate({
+      user_input: userPrompt,
+      should_stream: false,
+      generation_id: `npc_memory_summary_${Date.now()}`,
+      injects,
+    });
+
+    // 解析响应
+    let summary: string;
+    try {
+      const parsed = aiSystem['parseAIResponse'](response);
+      summary = parsed.text.trim();
+    } catch (parseError) {
+      console.error('[NPC记忆总结] 解析失败，尝试容错:', parseError);
+
+      // 容错处理
+      const responseText = String(response).trim();
+      let extractedText = '';
+
+      try {
+        const jsonObj = JSON.parse(responseText);
+        extractedText = jsonObj.text || jsonObj.summary || jsonObj.content || '';
+      } catch {
+        // 尝试提取JSON代码块
+        const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+          try {
+            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+            extractedText = jsonObj.text || '';
+          } catch {
+            extractedText = responseText;
+          }
+        } else {
+          extractedText = responseText;
+        }
+      }
+
+      summary = extractedText.trim();
+    }
+
+    if (!summary || summary.length === 0) {
       throw new Error('AI返回了空的总结结果');
     }
 

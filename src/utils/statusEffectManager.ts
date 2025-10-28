@@ -291,10 +291,22 @@ export function removeStatusEffect(saveData: SaveData, effectName: string): bool
     const statusEffects = get(saveData, '玩家角色状态.状态效果', []) as StatusEffect[];
     const initialLength = statusEffects.length;
 
-    const updatedEffects = statusEffects.filter(effect => effect.状态名称 !== effectName);
+    // 🔥 调试日志：显示所有状态效果名称
+    console.log('[状态效果-调试] 尝试移除:', effectName);
+    console.log('[状态效果-调试] 当前状态效果列表:', statusEffects.map(e => e.状态名称 || e.name || '未知'));
+
+    // 🔥 兼容性修复：同时检查 状态名称 和 name 字段
+    const updatedEffects = statusEffects.filter(effect => {
+      const effectNameInData = effect.状态名称 || (effect as any).name;
+      return effectNameInData !== effectName;
+    });
+
     set(saveData, '玩家角色状态.状态效果', updatedEffects);
 
-    return initialLength > updatedEffects.length;
+    const removed = initialLength > updatedEffects.length;
+    console.log('[状态效果-调试] 移除结果:', removed ? '成功' : '失败', `(${initialLength} -> ${updatedEffects.length})`);
+
+    return removed;
 
   } catch (error) {
     console.error('[状态效果] 移除状态效果失败:', error);
