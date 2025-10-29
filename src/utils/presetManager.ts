@@ -200,3 +200,142 @@ export async function clearAllPresets(): Promise<void> {
     throw error;
   }
 }
+
+/**
+ * 导出预设为JSON文件
+ * @param presetIds 要导出的预设ID数组,如果为空则导出所有预设
+ */
+export async function exportPresets(presetIds?: string[]): Promise<void> {
+  try {
+    console.log('[预设管理器] 开始导出预设:', presetIds);
+    
+    const allPresets = await loadPresets();
+    
+    // 如果指定了预设ID,则只导出这些预设,否则导出所有预设
+    const presetsToExport = presetIds && presetIds.length > 0
+      ? allPresets.filter(p => presetIds.includes(p.id))
+      : allPresets;
+    
+    if (presetsToExport.length === 0) {
+      throw new Error('没有可导出的预设');
+    }
+    
+    // 创建导出数据
+    const exportData = {
+      version: '1.0',
+      exportTime: new Date().toISOString(),
+      presets: presetsToExport
+    };
+    
+    // 转换为JSON字符串
+    const jsonString = JSON.stringify(exportData, null, 2);
+    
+    // 创建Blob对象
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // 生成文件名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const fileName = `character-presets-${timestamp}.json`;
+    link.download = fileName;
+    
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log('[预设管理器] 预设导出成功:', fileName);
+  } catch (error) {
+    console.error('[预设管理器] 导出预设失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 从JSON文件导入预设
+ * @param file 要导入的JSON文件
+ * @param mode 导入模式: 'merge' 合并(默认), 'replace' 替换
+ */
+export async function importPresets(file: File, mode: 'merge' | 'replace' = 'merge'): Promise<{ success: number; failed: number }> {
+  try {
+    console.log('[预设管理器] 开始导入预设, 模式:', mode);
+    
+    // 读取文件内容
+    const fileContent = await file.text();
+    const importData = JSON.parse(fileContent);
+    
+    // 验证数据格式
+    if (!importData.presets || !Array.isArray(importData.presets)) {
+      throw new Error('无效的预设文件格式');
+    }
+    
+    // 统计导入结果
+    let successCount = 0;
+    let failedCount = 0;
+    
+    // 获取现有预设
+    const existingPresets = mode === 'replace' ? [] : await loadPresets();
+    const existingIds = new Set(existingPresets.map(p => p.id));
+    
+    // 处理导入的预设
+    const importedPresets: CharacterPreset[] = [];
+    
+    for (const preset of importData.presets) {
+      try {
+        // 验证预设数据结构
+        if (!preset.name || !preset.data) {
+          console.warn('[预设管理器] 跳过无效预设:', preset);
+          failedCount++;
+          continue;
+        }
+        
+        // 如果ID已存在,生成新ID
+        let newId = preset.id;
+        if (existingIds.has(preset.id)) {
+          newId = `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          console.log('[预设管理器] ID冲突,生成新ID:', preset.id, '->', newId);
+        }
+        
+        // 创建新预设对象
+        const newPreset: CharacterPreset = {
+          ...preset,
+          id: newId,
+          savedAt: new Date().toISOString() // 更新保存时间
+        };
+        
+        importedPresets.push(newPreset);
+        existingIds.add(newId);
+        successCount++;
+      } catch (error) {
+        console.error('[预设管理器] 导入预设失败:', preset, error);
+        failedCount++;
+      }
+    }
+    
+    // 合并预设列表
+    const finalPresets = mode === 'replace'
+      ? importedPresets
+      : [...importedPresets, ...existingPresets];
+    
+    // 保存到IndexedDB
+    const updatedList: PresetList = {
+      presets: finalPresets
+    };
+    
+    await saveData(PRESET_LIST_KEY, updatedList);
+    
+    console.log('[预设管理器] 预设导入完成, 成功:', successCount, '失败:', failedCount);
+    
+    return { success: successCount, failed: failedCount };
+  } catch (error) {
+    console.error('[预设管理器] 导入预设失败:', error);
+    throw error;
+  }
+}
