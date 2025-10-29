@@ -60,10 +60,28 @@
       </div>
     </div>
 
+    <!-- 右下角授权状态 -->
+    <div class="auth-status-badge" v-if="AUTH_CONFIG.ENABLE_AUTH">
+      <div class="auth-status-content" @click="handleAuthClick">
+        <span v-if="isAuthorized" class="status-icon verified">✓</span>
+        <span v-else class="status-icon unverified">✗</span>
+        <span class="status-text">{{ isAuthorized ? '已授权' : '未授权' }}</span>
+      </div>
+    </div>
+
     <!-- 右下角设置按钮 -->
     <button class="floating-settings-btn" @click="showSettings = true" title="设置">
       <Settings :size="24" />
     </button>
+
+    <!-- 授权验证弹窗 -->
+    <AuthVerificationModal
+      v-if="AUTH_CONFIG.ENABLE_AUTH"
+      v-model:visible="showAuthModal"
+      :server-url="AUTH_CONFIG.SERVER_URL"
+      @verified="handleAuthVerified"
+      @cancel="handleAuthCancel"
+    />
 
     <!-- 设置模态框 -->
     <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
@@ -83,13 +101,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
+import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
 import { Settings, X } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
+import { AUTH_CONFIG } from '@/config/authConfig';
+import { toast } from '@/utils/toast';
 
 const showSettings = ref(false);
+const showAuthModal = ref(false);
+
+// 使用 ref 而不是 computed，以便手动更新
+const isAuthorized = ref(localStorage.getItem('auth_verified') === 'true');
+
+// 检查授权状态的函数
+const checkAuthStatus = () => {
+  isAuthorized.value = localStorage.getItem('auth_verified') === 'true';
+};
 
 // 后端API服务器地址
 const API_BASE_URL = 'http://127.0.0.1:12345';
@@ -109,6 +139,50 @@ onMounted(async () => {
   //   console.error('Failed to fetch app version:', error);
   //   appVersion.value = 'N/A';
   // }
+
+  // 检查授权状态
+  checkAuthStatus();
+
+  // 如果启用授权验证且本地未授权，尝试服务器验证
+  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
+    try {
+      const machineCode = await generateMachineCode();
+      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check',
+          app_id: AUTH_CONFIG.APP_ID,
+          machine_code: machineCode
+        })
+      });
+
+      const result = await response.json();
+
+      // 如果服务器验证通过，自动保存验证状态
+      if (result.success && result.data?.authorized) {
+        console.log('[页面加载] 服务器验证通过，自动授权');
+        localStorage.setItem('auth_verified', 'true');
+        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+        localStorage.setItem('auth_machine_code', machineCode);
+        if (result.data.expires_at) {
+          localStorage.setItem('auth_expires_at', result.data.expires_at);
+        }
+        checkAuthStatus();
+        return; // 验证通过，不弹窗
+      }
+    } catch (error) {
+      console.warn('[页面加载] 服务器验证失败', error);
+    }
+
+    // 服务器验证失败，且设置了自动弹窗，则弹出验证窗口
+    if (AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
+      setTimeout(() => {
+        showAuthModal.value = true;
+        toast.info('请先完成授权验证');
+      }, 1000);
+    }
+  }
 });
 
 const emit = defineEmits<{
@@ -135,8 +209,178 @@ const selectPath = (mode: 'single' | 'cloud') => {
   emit('start-creation', mode);
 };
 
-const enterCharacterSelection = () => {
+const enterCharacterSelection = async () => {
+  // 如果启用授权验证且本地未授权，先尝试服务器验证
+  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
+    try {
+      // 尝试向服务器验证
+      const machineCode = await generateMachineCode();
+      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check',
+          app_id: AUTH_CONFIG.APP_ID,
+          machine_code: machineCode
+        })
+      });
+
+      const result = await response.json();
+
+      // 如果服务器验证通过，自动保存验证状态
+      if (result.success && result.data?.authorized) {
+        console.log('[授权检查] 服务器验证通过，自动授权');
+        localStorage.setItem('auth_verified', 'true');
+        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+        localStorage.setItem('auth_machine_code', machineCode);
+        if (result.data.expires_at) {
+          localStorage.setItem('auth_expires_at', result.data.expires_at);
+        }
+        checkAuthStatus();
+        toast.success('授权验证通过');
+        emit('show-character-list');
+        return;
+      }
+    } catch (error) {
+      console.warn('[授权检查] 服务器验证失败', error);
+    }
+
+    // 服务器验证失败，提示用户手动验证
+    showAuthModal.value = true;
+    toast.warning('请先完成授权验证');
+    return;
+  }
+
   emit('show-character-list');
+};
+
+// 生成机器码的辅助函数
+const generateMachineCode = async (): Promise<string> => {
+  // 如果已有缓存的机器码，直接使用
+  const cached = localStorage.getItem('auth_machine_code');
+  if (cached) return cached;
+
+  // 否则生成新的机器码
+  try {
+    if (typeof (window as any).generateStableMachineCode === 'function') {
+      return await (window as any).generateStableMachineCode();
+    }
+  } catch (e) {
+    console.warn('生成机器码失败', e);
+  }
+
+  // 降级方案
+  const userAgent = navigator.userAgent;
+  const screen = `${window.screen.width}x${window.screen.height}`;
+  const platform = navigator.platform;
+  const language = navigator.language;
+  const rawString = `${userAgent}-${screen}-${platform}-${language}`;
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(rawString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return `UMC-${hash.substring(0, 8).toUpperCase()}`;
+};
+
+// 授权状态点击处理
+const handleAuthClick = () => {
+  if (isAuthorized.value) {
+    // 已授权，显示授权信息
+    const appId = localStorage.getItem('auth_app_id') || '未知';
+    const expiresAt = localStorage.getItem('auth_expires_at') || '未知';
+    uiStore.showRetryDialog({
+      title: '授权信息',
+      message: `应用ID: ${appId}\n过期时间: ${expiresAt}\n\n点击"解绑授权"将从服务器删除授权记录`,
+      confirmText: '解绑授权',
+      cancelText: '关闭',
+      onConfirm: async () => {
+        try {
+          // 调用服务器解绑接口
+          const machineCode = await generateMachineCode();
+          const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'unbind',
+              app_id: AUTH_CONFIG.APP_ID,
+              machine_code: machineCode
+            })
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            // 服务器解绑成功，清除本地状态
+            localStorage.removeItem('auth_verified');
+            localStorage.removeItem('auth_app_id');
+            localStorage.removeItem('auth_machine_code');
+            localStorage.removeItem('auth_expires_at');
+            toast.success('授权已解绑');
+            checkAuthStatus();
+          } else {
+            toast.error(`解绑失败: ${result.message}`);
+          }
+        } catch (error) {
+          console.error('[解绑授权] 请求失败', error);
+          toast.error('解绑失败，请检查网络连接');
+        }
+      },
+      onCancel: () => {}
+    });
+  } else {
+    // 未授权，打开验证窗口
+    showAuthModal.value = true;
+  }
+};
+
+// 授权验证成功
+const handleAuthVerified = async (data: any) => {
+  console.log('[授权验证] 兑换成功', data);
+
+  // 兑换成功后，立即调用 check 接口验证授权状态
+  try {
+    const machineCode = await generateMachineCode();
+    const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'check',
+        app_id: AUTH_CONFIG.APP_ID,
+        machine_code: machineCode
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.data?.authorized) {
+      console.log('[授权验证] check 验证通过');
+      localStorage.setItem('auth_verified', 'true');
+      localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+      localStorage.setItem('auth_machine_code', machineCode);
+      if (result.data.expires_at) {
+        localStorage.setItem('auth_expires_at', result.data.expires_at);
+      }
+
+      // 立即更新授权状态
+      checkAuthStatus();
+      toast.success('授权验证成功！');
+      showAuthModal.value = false;
+    } else {
+      toast.error('授权验证失败，请重试');
+    }
+  } catch (error) {
+    console.error('[授权验证] check 请求失败', error);
+    toast.error('授权验证失败，请检查网络');
+  }
+};
+
+// 授权验证取消
+const handleAuthCancel = () => {
+  console.log('[授权验证] 用户取消验证');
+  showAuthModal.value = false;
 };
 </script>
 
@@ -631,6 +875,76 @@ const enterCharacterSelection = () => {
     margin-bottom: 0.5rem;
     padding: 0.7rem 1.5rem;
     font-size: 0.9rem;
+  }
+}
+
+/* 授权状态徽章 */
+.auth-status-badge {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 100;
+}
+
+.auth-status-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--color-surface-transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.auth-status-content:hover {
+  background: var(--color-surface);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.status-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status-icon.verified {
+  background: #10b981;
+  color: white;
+}
+
+.status-icon.unverified {
+  background: #ef4444;
+  color: white;
+}
+
+.status-text {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .auth-status-badge {
+    bottom: 16px;
+    left: 16px;
+  }
+
+  .auth-status-content {
+    padding: 0.5rem 0.8rem;
+  }
+
+  .status-text {
+    font-size: 0.8rem;
   }
 }
 </style>

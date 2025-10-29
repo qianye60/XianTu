@@ -270,14 +270,24 @@
         </div>
       </div>
     </div>
+
+    <!-- 授权验证弹窗（由开发者在配置文件中控制） -->
+    <AuthVerificationModal
+      v-model:visible="showAuthModal"
+      :server-url="settings.authServerUrl"
+      @verified="handleAuthVerified"
+      @cancel="handleAuthCancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { Save, RotateCcw, Trash2, Download, Upload } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
+import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
+import { AUTH_CONFIG } from '@/config/authConfig';
 
 // 设置数据结构
 const settings = reactive({
@@ -311,11 +321,28 @@ const settings = reactive({
   // 数据同步
   autoSyncTavern: true,
   validateData: true,
-  backupBeforeSave: true
+  backupBeforeSave: true,
+
+  // 授权验证设置（用户不可见）
+  authServerUrl: 'http://38.55.124.252:12300', // 授权服务器地址
+  authAppId: 'v28_8542ec92' // 默认应用ID
 });
 
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
+
+// 授权验证相关状态
+const showAuthModal = ref(false);
+const authStatus = computed(() => {
+  const verified = localStorage.getItem('auth_verified') === 'true';
+  const appId = localStorage.getItem('auth_app_id') || '';
+  const expiresAt = localStorage.getItem('auth_expires_at') || '';
+  return {
+    verified,
+    appId,
+    expiresAt
+  };
+});
 
 // 监听所有设置变化
 watch(settings, () => {
@@ -685,13 +712,58 @@ const importSettings = () => {
   input.click();
 };
 
+// 授权验证相关方法
+const openAuthModal = () => {
+  showAuthModal.value = true;
+};
+
+const handleAuthVerified = (data: any) => {
+  debug.log('设置面板', '授权验证成功', data);
+  toast.success('授权验证成功');
+  showAuthModal.value = false;
+};
+
+const handleAuthCancel = () => {
+  debug.log('设置面板', '用户取消授权验证');
+  showAuthModal.value = false;
+};
+
+const clearAuthVerification = () => {
+  uiStore.showRetryDialog({
+    title: '清除授权验证',
+    message: '确定要清除当前的授权验证信息吗？清除后需要重新验证。',
+    confirmText: '确认清除',
+    cancelText: '取消',
+    onConfirm: () => {
+      localStorage.removeItem('auth_verified');
+      localStorage.removeItem('auth_app_id');
+      localStorage.removeItem('auth_machine_code');
+      localStorage.removeItem('auth_expires_at');
+      toast.success('授权验证信息已清除');
+      debug.log('设置面板', '授权验证信息已清除');
+    },
+    onCancel: () => {}
+  });
+};
+
 // 组件挂载时加载设置
 onMounted(() => {
   debug.log('设置面板', '组件已加载');
   loadSettings();
-  
+
   // 初始加载时不再强制应用设置，以避免覆盖全局主题
   // applySettings(); // 移除此调用
+
+  // 🔧 开发者控制：如果启用授权验证且未验证，自动弹出验证窗口
+  if (AUTH_CONFIG.ENABLE_AUTH && AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
+    const isVerified = localStorage.getItem('auth_verified') === 'true';
+    if (!isVerified) {
+      setTimeout(() => {
+        showAuthModal.value = true;
+        toast.info('请先完成授权验证');
+      }, 1000);
+    }
+  }
 });
 </script>
 
@@ -1129,6 +1201,72 @@ input:checked + .switch-slider:before {
 
 [data-theme="dark"] .switch-slider {
   background-color: #4b5563;
+}
+
+/* 授权验证相关样式 */
+.form-input-inline {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #374151;
+  font-size: 0.875rem;
+  min-width: 200px;
+  transition: all 0.2s ease;
+}
+
+.form-input-inline:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.auth-status {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.auth-status.verified {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.auth-status.unverified {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.utility-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.utility-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+[data-theme="dark"] .form-input-inline {
+  background: #334155;
+  border-color: #475569;
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .auth-status.verified {
+  background: rgba(5, 150, 105, 0.2);
+  color: #6ee7b7;
+  border-color: rgba(5, 150, 105, 0.3);
+}
+
+[data-theme="dark"] .auth-status.unverified {
+  background: rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
+  border-color: rgba(220, 38, 38, 0.3);
 }
 
 /* 旋转动画 */

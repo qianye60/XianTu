@@ -144,4 +144,93 @@ const router = createRouter({
   routes,
 });
 
+// 全局路由守卫 - 授权验证
+router.beforeEach(async (to, from, next) => {
+  // 动态导入配置以避免循环依赖
+  const { AUTH_CONFIG } = await import('@/config/authConfig');
+
+  // 如果启用了授权验证
+  if (AUTH_CONFIG.ENABLE_AUTH) {
+    const localVerified = localStorage.getItem('auth_verified') === 'true';
+
+    // 如果本地已验证，直接通过
+    if (localVerified) {
+      next();
+      return;
+    }
+
+    // 如果本地未验证，尝试向服务器验证（检查IP/MAC是否匹配）
+    try {
+      const machineCode = await generateMachineCodeForCheck();
+      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check',
+          app_id: AUTH_CONFIG.APP_ID,
+          machine_code: machineCode
+        })
+      });
+
+      const result = await response.json();
+
+      // 如果服务器验证通过（IP或MAC匹配），自动保存验证状态
+      if (result.success && result.data?.authorized) {
+        console.log('[路由守卫] 服务器验证通过，自动授权');
+        localStorage.setItem('auth_verified', 'true');
+        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+        localStorage.setItem('auth_machine_code', machineCode);
+        if (result.data.expires_at) {
+          localStorage.setItem('auth_expires_at', result.data.expires_at);
+        }
+        next();
+        return;
+      }
+    } catch (error) {
+      console.warn('[路由守卫] 服务器验证失败', error);
+    }
+
+    // 如果服务器验证也失败，且不是在首页，重定向到首页
+    if (to.path !== '/') {
+      console.log('[路由守卫] 未授权，重定向到首页');
+      next('/');
+      return;
+    }
+  }
+
+  // 允许通过
+  next();
+});
+
+// 生成机器码的辅助函数
+async function generateMachineCodeForCheck(): Promise<string> {
+  // 如果已有缓存的机器码，直接使用
+  const cached = localStorage.getItem('auth_machine_code');
+  if (cached) return cached;
+
+  // 否则生成新的机器码
+  try {
+    if (typeof (window as any).generateStableMachineCode === 'function') {
+      return await (window as any).generateStableMachineCode();
+    }
+  } catch (e) {
+    console.warn('生成机器码失败', e);
+  }
+
+  // 降级方案
+  const userAgent = navigator.userAgent;
+  const screen = `${window.screen.width}x${window.screen.height}`;
+  const platform = navigator.platform;
+  const language = navigator.language;
+  const rawString = `${userAgent}-${screen}-${platform}-${language}`;
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(rawString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return `UMC-${hash.substring(0, 8).toUpperCase()}`;
+}
+
 export default router;
