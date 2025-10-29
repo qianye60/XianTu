@@ -18,7 +18,8 @@
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc --noEmit src/utils/prompts/*.ts)",
       "Read(//c/Users/15385/Documents/编程项目/Redemption-code-auth/**)",
-      "Read(//c/Users/15385/Downloads/**)"
+      "Read(//c/Users/15385/Downloads/**)",
+      "Bash(php --version)"
     ],
     "deny": [],
     "ask": [],

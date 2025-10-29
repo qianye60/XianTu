@@ -291,7 +291,17 @@ const handleAuthClick = () => {
             toast.success('授权已解绑');
             checkAuthStatus();
           } else {
-            toast.error(`解绑失败: ${result.message}`);
+            // 如果服务器找不到授权记录，也清除本地缓存
+            if (result.message && result.message.includes('No matching authorization')) {
+              localStorage.removeItem('auth_verified');
+              localStorage.removeItem('auth_app_id');
+              localStorage.removeItem('auth_machine_code');
+              localStorage.removeItem('auth_expires_at');
+              toast.info('本地授权状态已清除（服务器无记录）');
+              checkAuthStatus();
+            } else {
+              toast.error(`解绑失败: ${result.message}`);
+            }
           }
         } catch (error) {
           console.error('[解绑授权] 请求失败', error);
