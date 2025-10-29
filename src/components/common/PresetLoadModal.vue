@@ -4,7 +4,17 @@
       <!-- Header -->
       <div class="modal-header">
         <h2 class="modal-title">📂 加载预设</h2>
-        <button class="modal-close" @click="closeModal">×</button>
+        <div class="header-actions">
+          <button class="btn-action import" @click="showImportModal = true">
+            <span class="btn-icon">📥</span>
+            <span class="btn-text">导入</span>
+          </button>
+          <button class="btn-action export" @click="showExportModal = true">
+            <span class="btn-icon">📤</span>
+            <span class="btn-text">导出</span>
+          </button>
+          <button class="modal-close" @click="closeModal">×</button>
+        </div>
       </div>
 
       <!-- Content -->
@@ -59,6 +69,20 @@
         </button>
       </div>
     </div>
+
+    <!-- 导出预设对话框 -->
+    <PresetExportModal
+      :visible="showExportModal"
+      @close="showExportModal = false"
+      @exported="handleExported"
+    />
+
+    <!-- 导入预设对话框 -->
+    <PresetImportModal
+      :visible="showImportModal"
+      @close="showImportModal = false"
+      @imported="handleImported"
+    />
   </div>
 </template>
 
@@ -66,6 +90,8 @@
 import { ref, watch } from 'vue';
 import { loadPresets, deletePreset, type CharacterPreset } from '@/utils/presetManager';
 import { toast } from '@/utils/toast';
+import PresetExportModal from './PresetExportModal.vue';
+import PresetImportModal from './PresetImportModal.vue';
 
 const props = defineProps<{
   visible: boolean;
@@ -80,6 +106,8 @@ const presets = ref<CharacterPreset[]>([]);
 const selectedPreset = ref<CharacterPreset | null>(null);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
+const showExportModal = ref(false);
+const showImportModal = ref(false);
 
 watch(
   () => props.visible,
@@ -164,9 +192,68 @@ async function handleDeletePreset(presetId: string) {
     }
   }
 }
+
+function handleExported() {
+  console.log('[预设加载对话框] 预设已导出');
+  // 导出完成后可以刷新列表
+  loadPresetsList();
+}
+
+async function handleImported(result: { success: number; failed: number }) {
+  console.log('[预设加载对话框] 预设导入完成:', result);
+  // 导入完成后刷新列表
+  await loadPresetsList();
+}
 </script>
 
 <style scoped>
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-lighter);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-action .btn-icon {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+}
+
+.btn-action .btn-text {
+  white-space: nowrap;
+}
+
+.btn-action.import:hover {
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.1), rgba(var(--color-accent-rgb), 0.1));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.btn-action.export:hover {
+  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.1), rgba(var(--color-primary-rgb), 0.1));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-accent-rgb), 0.2);
+}
+
 .btn-delete {
   background: none;
   border: none;
@@ -464,6 +551,15 @@ async function handleDeletePreset(presetId: string) {
 
   .modal-title {
     font-size: 1.1rem;
+  }
+
+  .btn-action .btn-text {
+    display: none;
+  }
+
+  .btn-action {
+    padding: 0.5rem;
+    min-width: 36px;
   }
 
   .modal-content {
