@@ -216,7 +216,7 @@ import CustomCreationModal, { type ModalField } from './CustomCreationModal.vue'
 import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
 import { generateWithRawPrompt } from '../../utils/tavernCore'
-import { SPIRIT_ROOT_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts'
+import { SPIRIT_ROOT_ITEM_GENERATION_PROMPT } from '../../utils/prompts/tasks/gameElementPrompts'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()

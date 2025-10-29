@@ -210,7 +210,7 @@ import CustomCreationModal from './CustomCreationModal.vue';
 import AIPromptModal from './AIPromptModal.vue';
 import { toast } from '../../utils/toast';
 import { generateWithRawPrompt } from '../../utils/tavernCore';
-import { WORLD_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts';
+import { WORLD_ITEM_GENERATION_PROMPT } from '../../utils/prompts/tasks/gameElementPrompts';
 
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { set, get } from 'lodash';
+import { set, get, cloneDeep } from 'lodash';
 import type {
   CharacterBaseInfo,
   PlayerStatus,

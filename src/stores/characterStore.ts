@@ -11,7 +11,7 @@ import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
 import { validateGameData } from '@/utils/dataValidation';
-import { getAIDataRepairSystemPrompt } from '@/utils/prompts/dataRepairPrompts';
+import { getAIDataRepairSystemPrompt } from '@/utils/prompts/tasks/dataRepairPrompts';
 import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/utils/lifespanCalculator'; // <-- 导入寿命计算工具
 import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 导入掌握技能计算工具
 import { updateStatusEffects } from '@/utils/statusEffectManager'; // <-- 导入状态效果管理工具

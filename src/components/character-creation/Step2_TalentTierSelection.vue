@@ -99,7 +99,7 @@ import CustomCreationModal from './CustomCreationModal.vue'
 import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
 import { generateWithRawPrompt } from '../../utils/tavernCore'
-import { TALENT_TIER_ITEM_GENERATION_PROMPT } from '../../utils/prompts/gameElementPrompts'
+import { TALENT_TIER_ITEM_GENERATION_PROMPT } from '../../utils/prompts/tasks/gameElementPrompts'
 
 interface CustomTierData {
   name: string

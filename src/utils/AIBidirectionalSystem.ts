@@ -13,8 +13,7 @@ import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商�
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
-import { DATA_STRUCTURE_DEFINITIONS } from './prompts/dataStructureDefinitions';
-import { PLAYER_INTENT_RESPECT_RULE } from './prompts/sharedRules';
+import { DATA_STRUCTURE_DEFINITIONS, PLAYER_INTENT_AND_JUDGMENT_RULES, assembleSystemPrompt } from './prompts/promptAssembler';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 import { rollD20 } from './diceRoller';
@@ -128,16 +127,13 @@ class AIBidirectionalSystemClass {
       const stateJsonString = JSON.stringify(stateForAI);
 
       const systemPrompt = `
-${PLAYER_INTENT_RESPECT_RULE}
+${assembleSystemPrompt(['cot'])}
 
 ${coreStatusSummary}
 
 # 游戏状态
 你正在修仙世界《大道朝天》中扮演GM。以下是当前完整游戏存档(JSON格式):
 ${stateJsonString}
-
-下面是格式标准规则和命令生成教程参考（仔细查看，字段类型一定不能出错）：
-${DATA_STRUCTURE_DEFINITIONS}
 `.trim();
 
       const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';

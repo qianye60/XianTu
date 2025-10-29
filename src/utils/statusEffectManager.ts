@@ -293,7 +293,7 @@ export function removeStatusEffect(saveData: SaveData, effectName: string): bool
 
     // 🔥 调试日志：显示所有状态效果名称
     console.log('[状态效果-调试] 尝试移除:', effectName);
-    console.log('[状态效果-调试] 当前状态效果列表:', statusEffects.map(e => e.状态名称 || e.name || '未知'));
+    console.log('[状态效果-调试] 当前状态效果列表:', statusEffects.map(e => e.状态名称 || (e as any).name || '未知'));
 
     // 🔥 兼容性修复：同时检查 状态名称 和 name 字段
     const updatedEffects = statusEffects.filter(effect => {

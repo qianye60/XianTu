@@ -12,7 +12,7 @@ import type { World, Origin, SpiritRoot } from '@/types';
 import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
-import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/characterInitializationPrompts';
+import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
 // 移除未使用的旧生成器导入,改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
@@ -172,11 +172,12 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   }
 
 
-  // 🔥 重要：游戏时间将由AI根据世界背景设置，这里只是占位符
-  // AI会在初始化响应中通过tavern_commands设置正确的游戏时间
-  const 临时游戏时间 = { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
+  // 🔥 修复：游戏时间使用age作为初始年份，确保出生日期为0年
+  // AI会在初始化响应中通过tavern_commands设置正确的游戏时间（如果需要）
+  const 临时游戏时间 = { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
 
-  // 出生日期也将由AI根据游戏时间和角色年龄计算
+  // 计算出生日期：游戏时间 - 开局年龄 = 出生年份
+  // 例如：开局年龄18岁，游戏时间18年，则出生日期为0年
   if (!processedBaseInfo.出生日期) {
     processedBaseInfo.出生日期 = {
       年: 临时游戏时间.年 - age,
@@ -185,7 +186,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       小时: 0,
       分钟: 0
     };
-    console.log(`[角色初始化] 临时出生日期(AI将重新计算): ${processedBaseInfo.出生日期.年}年${processedBaseInfo.出生日期.月}月${processedBaseInfo.出生日期.日}日 (当前${age}岁)`);
+    console.log(`[角色初始化] 临时出生日期(AI可能会重新计算): ${processedBaseInfo.出生日期.年}年${processedBaseInfo.出生日期.月}月${processedBaseInfo.出生日期.日}日 (当前${age}岁)`);
   }
 
   // 注意：不再在此处理随机灵根和随机出生，完全交给 AI 处理
@@ -245,8 +246,8 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       }
     },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] },
-    // 🔥 游戏时间占位符 - AI将根据世界背景设置正确的年份
-    游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
+    // 🔥 游戏时间：使用age作为初始年份，AI可以通过tavern_commands修改
+    游戏时间: { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     修炼功法: null, // 初始无修炼功法，数据结构已改为：功法数据和进度合并为一个对象或null
     掌握技能: [], // 初始化为空数组
     系统: {
