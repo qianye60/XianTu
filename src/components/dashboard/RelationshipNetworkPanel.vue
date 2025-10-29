@@ -1015,7 +1015,7 @@ ${memoriesText}`;
 
     const response = await tavernHelper.generate({
       user_input: userPrompt,
-      should_stream: false,
+      should_stream: true,
       generation_id: `npc_memory_summary_${Date.now()}`,
       injects,
     });

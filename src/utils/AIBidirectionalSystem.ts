@@ -743,9 +743,10 @@ ${stateJsonString}
         }
       ];
 
+      // 使用流式生成
       const response = await tavernHelper.generate({
         user_input: userPrompt,
-        should_stream: false,
+        should_stream: true,
         generation_id: `memory_summary_${Date.now()}`,
         injects,
       });

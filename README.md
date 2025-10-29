@@ -1,8 +1,8 @@
-# 🌟 大道朝天
+# 🌟 【大道朝天 1000赞更新V2.8 正式版】
 
 > 一款基于AI驱动的沉浸式修仙文字冒险游戏
 
-[![Version](https://img.shields.io/badge/version-1.0_Beta-blue.svg)](https://github.com/qianye60/dadao-chaotian)
+[![Version](https://img.shields.io/badge/version-V2.8-blue.svg)](https://github.com/qianye60/dadao-chaotian)
 [![License](https://img.shields.io/badge/license-CC_BY--NC--ND_4.0-red.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 [![Vue](https://img.shields.io/badge/Vue-3.5-green.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
@@ -13,6 +13,13 @@
 
 ### ✨ 核心特色
 
+- 🚀 **V2.8 全新特性**
+  - **自定义开局 & 无限重Roll** - 随心所欲定制你的角色！
+  - **移动端完美适配** - 随时随地，掌上修仙！
+  - **AI剧情自动总结** - 轻松回顾冒险历程！
+  - **真·流式响应** - 体验如丝般顺滑的AI叙事！
+  - **18+成人内容模块 (可选)** - 探索更成熟的修仙世界！
+  - **多角色 & 多存档管理** - 开启不同的人生，体验多周目乐趣！
 - 🎲 **智能判定系统** - 根据境界、属性、装备、大道、功法等多维度计算判定结果
 - 🌟 **三千大道系统** - 探索修炼独特的修仙之道，感悟天地法则
 - 📖 **动态剧情生成** - AI实时生成个性化的修仙故事，千人千面
@@ -181,6 +188,26 @@ npm run type-check
 **GitHub**: [https://github.com/qianye60](https://github.com/qianye60)
 
 ## 📝 更新日志
+
+### V2.8 (2025-10-29)
+
+#### ✨ 新增功能
+
+- **自定义开局**：玩家可以完全自定义角色的初始属性、背景和天赋。
+- **属性重Roll**：支持在角色创建时无限次重置属性点，打造完美开局。
+- **移动端适配**：全面优化UI和交互，完美适配手机、平板等移动设备。
+- **AI剧情自动总结**：AI能够自动总结关键剧情，方便玩家回顾。
+- **真·流式响应**：优化AI响应机制，剧情生成更快、更自然。
+- **18+成人内容模块**：为成熟玩家提供可选的深度内容。
+- **多角色与多存档**：支持创建和管理多个独立的角色及其存档。
+
+#### 🎨 界面与体验优化
+
+- **任务系统**：增加任务删除按钮，管理更便捷。
+- **开局流程**：删除了开局时无效的自定义选项，流程更顺畅。
+- **响应式布局**：提升移动端操作体验。
+
+---
 
 ### V1.0 Beta (2025-10-04)
 

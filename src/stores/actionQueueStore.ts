@@ -3,7 +3,7 @@ import { ref } from 'vue';
 
 export interface GameAction {
   id: string;
-  type?: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom' | 'npc_memory_summarize';
+  type?: 'cultivate' | 'equip' | 'use' | 'unequip' | 'discard' | 'npc_trade' | 'npc_request' | 'npc_steal' | 'custom' | 'npc_memory_summarize' | 'comprehend';
   itemName?: string;
   itemType?: string;
   description?: string;
@@ -48,6 +48,12 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
     // 如果添加新的修炼操作，则移除所有旧的
     if (newAction.type === 'cultivate') {
       pendingActions.value = pendingActions.value.filter(a => a.type !== 'cultivate');
+    }
+
+    // 确保任何时候只有一个感悟大道操作
+    // 如果添加新的感悟操作，则移除所有旧的
+    if (newAction.type === 'comprehend') {
+      pendingActions.value = pendingActions.value.filter(a => a.type !== 'comprehend');
     }
     // --- 冲突解决逻辑结束 ---
 
