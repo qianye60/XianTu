@@ -88,9 +88,12 @@ const showDataStatsModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
-// 🔥 [新架构] 数据从 Pinia Store 获取 - 直接使用响应式引用
+// 🔥 [新架构] 数据从 Pinia Store 获取 - 使用 toRaw 强制重新计算
 const coreDataViews = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
+
+  // 通过访问 $state 强制依赖追踪
+  const _ = gameStateStore.$state
 
   return {
     '存档数据 (SaveData)': {

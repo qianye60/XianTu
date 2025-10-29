@@ -293,38 +293,6 @@
         </div>
           </div>
 
-          <!-- 状态效果 -->
-          <div class="info-section">
-            <h3 class="section-title">
-              <div class="title-icon">
-                <Star :size="18" />
-              </div>
-              状态效果
-            </h3>
-            <div v-if="!playerStatus?.状态效果?.length" class="empty-state">
-              <div class="empty-icon">
-                <Bird :size="32" />
-              </div>
-              <span>当前无状态效果</span>
-            </div>
-            <div v-else class="effects-list">
-              <div v-for="effect in playerStatus.状态效果" :key="effect.状态名称"
-                   class="effect-item" :class="`effect-${effect.类型}`">
-                <div class="effect-header">
-                  <span class="effect-name">{{ effect.状态名称 }}</span>
-                  <button class="effect-remove-btn" @click="handleRemoveEffect(effect.状态名称)" title="移除状态效果">
-                    <X :size="14" />
-                  </button>
-                </div>
-                <div class="effect-description">{{ getCleanEffectDescription(effect) }}</div>
-                <div class="effect-time-info">
-                  <span class="effect-created">生成: {{ formatEffectCreatedTime(effect) }}</span>
-                  <span class="effect-remaining">剩余: {{ formatEffectRemainingTime(effect) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- 六司属性 -->
           <div class="info-section">
             <h3 class="section-title">
@@ -1407,21 +1375,23 @@ const formatEffectRemainingTime = (effect: StatusEffect): string => {
 
 // 移除状态效果
 const handleRemoveEffect = async (effectName: string) => {
-  if (!saveData.value) return;
-
   const confirmed = confirm(`确定要移除状态效果"${effectName}"吗？`);
   if (!confirmed) return;
 
   try {
-    // 从存档数据中移除
-    const success = removeStatusEffect(saveData.value, effectName);
+    if (!saveData.value) {
+      debug.error('角色详情面板', '存档数据不存在');
+      return;
+    }
 
-    if (success) {
-      // The `removeStatusEffect` mutates the object. Now we need to persist it.
+    // 使用 statusEffectManager 移除状态效果
+    const removed = removeStatusEffect(saveData.value, effectName);
+
+    if (removed) {
       await characterStore.saveCurrentGame();
       debug.log('角色详情面板', `已移除状态效果: ${effectName}`);
     } else {
-      debug.warn('角色详情面板', `移除状态效果失败: ${effectName}`);
+      debug.warn('角色详情面板', `未找到状态效果: ${effectName}`);
     }
   } catch (error) {
     debug.error('角色详情面板', '移除状态效果失败:', error);
