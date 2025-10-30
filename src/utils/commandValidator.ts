@@ -26,57 +26,68 @@ export function validateCommand(command: unknown, index: number): ValidationResu
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 1. 检查必需字段
-  if (!command || typeof command !== 'object') {
-    errors.push(`指令${index}: 不是有效的对象`);
+  try {
+    // 1. 检查必需字段
+    if (!command || typeof command !== 'object') {
+      errors.push(`指令${index}: 不是有效的对象`);
+      return { valid: false, errors, warnings };
+    }
+
+    // Type assertion after validation
+    const cmd = command as Record<string, any>;
+
+    if (!cmd.action) {
+      errors.push(`指令${index}: 缺少action字段`);
+    }
+
+    if (!cmd.key) {
+      errors.push(`指令${index}: 缺少key字段`);
+    }
+
+    // 2. 检查action类型
+    const validActions = ['set', 'add', 'push', 'delete', 'pull'];
+    if (cmd.action && !validActions.includes(cmd.action)) {
+      errors.push(`指令${index}: action值"${cmd.action}"无效，必须是: ${validActions.join(', ')}`);
+    }
+
+    // 3. 检查key格式
+    if (cmd.key && typeof cmd.key !== 'string') {
+      errors.push(`指令${index}: key必须是字符串类型`);
+    }
+
+    // 4. 检查value（delete操作除外）
+    if (cmd.action !== 'delete' && cmd.value === undefined) {
+      errors.push(`指令${index}: ${cmd.action}操作必须提供value字段`);
+    }
+
+    // 5. 检查多余字段（scope虽然在类型中但不应使用）
+    const allowedFields = ['action', 'key', 'value'];
+    const extraFields = Object.keys(cmd).filter(k => !allowedFields.includes(k));
+    if (extraFields.length > 0) {
+      warnings.push(`指令${index}: 包含多余字段: ${extraFields.join(', ')}（这些字段会被自动移除）`);
+    }
+
+    // 6. 特定路径的值类型检查
+    if (cmd.key && cmd.value !== undefined) {
+      try {
+        const typeErrors = validateValueType(cmd.key, cmd.value, cmd.action);
+        errors.push(...typeErrors.map(e => `指令${index}: ${e}`));
+      } catch (e) {
+        console.error('[指令验证] 值类型检查异常:', e);
+        warnings.push(`指令${index}: 值类型检查时发生异常，已跳过`);
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings
+    };
+  } catch (error) {
+    console.error('[指令验证] validateCommand发生严重异常:', error);
+    errors.push(`指令${index}: 验证过程发生严重异常`);
     return { valid: false, errors, warnings };
   }
-
-  // Type assertion after validation
-  const cmd = command as Record<string, any>;
-
-  if (!cmd.action) {
-    errors.push(`指令${index}: 缺少action字段`);
-  }
-
-  if (!cmd.key) {
-    errors.push(`指令${index}: 缺少key字段`);
-  }
-
-  // 2. 检查action类型
-  const validActions = ['set', 'add', 'push', 'delete', 'pull'];
-  if (cmd.action && !validActions.includes(cmd.action)) {
-    errors.push(`指令${index}: action值"${cmd.action}"无效，必须是: ${validActions.join(', ')}`);
-  }
-
-  // 3. 检查key格式
-  if (cmd.key && typeof cmd.key !== 'string') {
-    errors.push(`指令${index}: key必须是字符串类型`);
-  }
-
-  // 4. 检查value（delete操作除外）
-  if (cmd.action !== 'delete' && cmd.value === undefined) {
-    errors.push(`指令${index}: ${cmd.action}操作必须提供value字段`);
-  }
-
-  // 5. 检查多余字段（scope虽然在类型中但不应使用）
-  const allowedFields = ['action', 'key', 'value'];
-  const extraFields = Object.keys(cmd).filter(k => !allowedFields.includes(k));
-  if (extraFields.length > 0) {
-    warnings.push(`指令${index}: 包含多余字段: ${extraFields.join(', ')}（这些字段会被自动移除）`);
-  }
-
-  // 6. 特定路径的值类型检查
-  if (cmd.key && cmd.value !== undefined) {
-    const typeErrors = validateValueType(cmd.key, cmd.value, cmd.action);
-    errors.push(...typeErrors.map(e => `指令${index}: ${e}`));
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings
-  };
 }
 
 /**
@@ -84,6 +95,8 @@ export function validateCommand(command: unknown, index: number): ValidationResu
  */
 function validateValueType(key: string, value: unknown, action: string): string[] {
   const errors: string[] = [];
+
+  try {
 
   // 数值类型字段
   const numberFields = [
@@ -276,10 +289,11 @@ function validateValueType(key: string, value: unknown, action: string): string[
       //       因此强制要求一组最小的核心字段。
       //       如果不包含"名字"，则假定为部分更新，不检查必需字段。
       if ('名字' in val) {
-        // 🔥 [修复 V3] 采纳用户反馈，优化新NPC创建时的核心字段验证列表
-        // 这个列表只在创建新NPC时生效，不影响对现有NPC的任何部分更新
+        // 🔥 [修复 V4] 优化新NPC创建时的核心字段验证列表
+        // 必需字段：名字、性别、年龄、境界、灵根、性格特征、与玩家关系、好感度
+        // 可选字段：天赋（空数组代表没有特殊天赋）、记忆、人格底线等
         const coreNpcFields = [
-          '名字', '性别', '年龄', '境界', '灵根', '天赋',
+          '名字', '性别', '年龄', '境界', '灵根',
           '性格特征', '与玩家关系', '好感度'
         ];
         const missing = coreNpcFields.filter(f => !(f in val));
@@ -406,6 +420,11 @@ function validateValueType(key: string, value: unknown, action: string): string[
   }
 
   return errors;
+  } catch (error) {
+    console.error('[指令验证] validateValueType发生异常:', error);
+    errors.push(`验证过程发生异常: ${error instanceof Error ? error.message : String(error)}`);
+    return errors;
+  }
 }
 
 /**
@@ -416,35 +435,51 @@ export function validateCommands(commands: unknown[]): ValidationResult {
   const allWarnings: string[] = [];
   const invalidCommands: Array<{ command: any; errors: string[] }> = [];
 
-  if (!Array.isArray(commands)) {
+  try {
+    if (!Array.isArray(commands)) {
+      return {
+        valid: false,
+        errors: ['tavern_commands必须是数组类型'],
+        warnings: [],
+        invalidCommands: []
+      };
+    }
+
+    commands.forEach((cmd, index) => {
+      try {
+        const result = validateCommand(cmd, index);
+        allErrors.push(...result.errors);
+        allWarnings.push(...result.warnings);
+
+        // 记录无效指令
+        if (result.errors.length > 0) {
+          invalidCommands.push({
+            command: cmd,
+            errors: result.errors
+          });
+        }
+      } catch (error) {
+        console.error(`[指令验证] 验证指令${index}时发生异常:`, error);
+        allErrors.push(`指令${index}: 验证时发生异常`);
+        allWarnings.push(`指令${index}: 已跳过异常指令`);
+      }
+    });
+
+    return {
+      valid: allErrors.length === 0,
+      errors: allErrors,
+      warnings: allWarnings,
+      invalidCommands
+    };
+  } catch (error) {
+    console.error('[指令验证] validateCommands发生严重异常:', error);
     return {
       valid: false,
-      errors: ['tavern_commands必须是数组类型'],
+      errors: ['指令数组验证过程发生严重异常'],
       warnings: [],
       invalidCommands: []
     };
   }
-
-  commands.forEach((cmd, index) => {
-    const result = validateCommand(cmd, index);
-    allErrors.push(...result.errors);
-    allWarnings.push(...result.warnings);
-
-    // 记录无效指令
-    if (result.errors.length > 0) {
-      invalidCommands.push({
-        command: cmd,
-        errors: result.errors
-      });
-    }
-  });
-
-  return {
-    valid: allErrors.length === 0,
-    errors: allErrors,
-    warnings: allWarnings,
-    invalidCommands
-  };
 }
 
 /**

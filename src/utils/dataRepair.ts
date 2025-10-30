@@ -20,12 +20,13 @@ import { cloneDeep } from 'lodash';
 export function repairSaveData(saveData: SaveData | null | undefined): SaveData {
   console.log('[数据修复] 开始修复存档数据');
 
-  if (!saveData || typeof saveData !== 'object') {
-    console.error('[数据修复] ❌ 存档数据为空或无效，创建默认存档');
-    return createMinimalSaveData();
-  }
+  try {
+    if (!saveData || typeof saveData !== 'object') {
+      console.error('[数据修复] ❌ 存档数据为空或无效，创建默认存档');
+      return createMinimalSaveData();
+    }
 
-  const repaired = cloneDeep(saveData);
+    const repaired = cloneDeep(saveData);
 
   // 1. 修复角色基础信息
   if (!repaired.角色基础信息 || typeof repaired.角色基础信息 !== 'object') {
@@ -203,8 +204,12 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
   }
 
 
-  console.log('[数据修复] ✅ 存档数据修复完成');
-  return repaired;
+    console.log('[数据修复] ✅ 存档数据修复完成');
+    return repaired;
+  } catch (error) {
+    console.error('[数据修复] ❌ 修复过程发生严重错误，返回默认存档:', error);
+    return createMinimalSaveData();
+  }
 }
 
 /**

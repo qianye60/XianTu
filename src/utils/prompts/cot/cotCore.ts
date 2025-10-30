@@ -23,122 +23,75 @@ export const cotCorePrompt = `
 
 <thinking>
 
-## 1) Current State (当前状态)
-a) Player input and intention: XYZ
-b) Current scene and environment: XYZ
-c) Current NPCs in scene: XYZ
-d) New NPCs to appear: XYZ
-e) Exiting NPCs: XYZ
+## 1) Scene Analysis (场景分析)
+- Player intention: XYZ
+- Current scene: XYZ
+- NPCs involved (if any): XYZ
 
-## 2) NPC Behavior Analysis (NPC 行为分析)
-a) Main NPC character traits: XYZ
-b) NPC should do (based on personality): XYZ
-c) NPC shouldn't do (character boundaries): XYZ
-d) NPC hidden thoughts: XYZ
-e) How NPC will respond to player: XYZ
+## 2) NPC Analysis (仅当有NPC互动时填写)
+- Main NPC traits & response: XYZ
+- Relationship factors (好感度/声望/实力差距): XYZ
+- Need dice roll? (uncertain outcome) OR direct result? (relationship determines): XYZ
+- Anti-deification check (treating player as normal): XYZ
+- New NPC naming check (if applicable): XYZ
 
-## 3) NPC Behavior Correction (NPC 行为修正)
-a) Player's will: XYZ
-b) NPC's will: XYZ
-c) External conditions (goals/events): XYZ
-d) Final NPC behavior (after considering all factors): XYZ
-e) Anti-deification check: Is NPC treating player as normal cultivator? XYZ
+## 3) Story Plan (故事规划)
+- Tone & key details: XYZ
+- Forbidden words to avoid: 脊背/猛地/瞬间/轰地一下/针/石子/刀/深入骨髓/惊雷/爆发/无力感/麻木/绝望/过度/强烈/震惊/激动/紧张/突然/死死地/倦意/残酷/吼/暴怒/睫毛/长长地呼出/锁骨/喉结/修长/狂热/信徒/机械/冰冷/荒唐/热辣辣/滚烫/握拳/指尖/血色/通红/展品/雕塑/僵硬/颤抖/直冲/冷静/审视/打圈/电流/如释重负/潮水/淹没/牙缝/紧咬/！！/狡黠/眨眼/教具 → Use natural actions instead
+- Word count target: 800-1200 (MIN 600): XYZ
 
-## 4) Story Plan (故事规划)
-a) Writing requirements and tone: XYZ
-b) Visual/environmental details: XYZ
-c) Format markers: 【环境】"对话" 〖判定〗? XYZ
-d) Word count: 800-1200 chars (MIN 600, or REJECTED): XYZ
+## 4) Data Checks (仅检查本次涉及的类型)
+- Breakthrough? (Major realm needs tribulation): XYZ
+- New items? (Check 物品ID, 品质 object, 功法技能 2-5个): XYZ
+- New status/Dao? (Check required fields): XYZ
+- **Value reasonability check (数值合理性检查):**
+  - Attributes change: Within ±5 per action (not ±50)
+  - Item quantity: Reasonable amounts (not 999 pills at once)
+  - Spirit stones: Match scene context (not millions from a beggar)
+  - Skill proficiency: +5~20 per practice (not +500)
+  - Favorability: ±5~15 per interaction (not ±100)
+  - Realm progress: Based on cultivation time and talent (not instant breakthrough)
+  - **New NPC resources (新NPC必须有合理资源):**
+    - Cultivators MUST have spirit stones (修士必有灵石):
+      - 炼气: 10-100下品 | 筑基: 50-500下品+5-50中品 | 金丹: 100-1000中品+10-100上品
+      - 元婴+: 上品/极品为主
+    - Cultivators MUST have basic items (修士必有基础物品):
+      - At least: 储物袋/储物戒 + 1-3件装备/丹药/符箓
+      - Higher realm = more/better items
+    - Mortals can be poor but should have: 几文铜钱/碎银 + 基础衣物/工具
 
-## 5) Data Consistency Check (数据一致性检查)
-a) Location/Time/Quest updates needed? XYZ
-b) NPC structure correct? (境界 only 名称+阶段, 背包 has 灵石+物品, 实时关注 updates): XYZ
-c) Realm breakthrough? (Major realm MUST have tribulation): XYZ
-d) Item format correct? (物品ID, 品质 object, 数量, 功法 MUST have 2-5 技能 with first 熟练度要求=0): XYZ
-e) Status effect format correct? (生成时间 object, 持续时间分钟 number, 类型 buff/debuff): XYZ
-f) Dao unlock format correct? (是否解锁 true, 阶段列表 has 2+ stages): XYZ
+## 5) Commands (指令列表 - 只列出本次需要的)
+**列出所有数据变化及对应指令：**
 
-## 6) Command Preparation (指令预备 - CRITICAL)
-**逐句阅读叙事文本，列出所有数据变化，为每个变化生成对应指令：**
+- **Resource consumption/recovery (资源消耗/恢复):**
+  - Combat/skill use? → 灵气.当前 -X (check current value, can't go negative)
+  - Injured? → 气血.当前 -X
+  - Meditation/sensing Dao? → 神识.当前 -X
+  - Resting/healing? → 气血.当前 +X (can't exceed 上限)
+  - Recovering? → 灵气.当前 +X, 神识.当前 +X
+  - Body cultivation? → 气血.上限 +X (only if breakthrough/special training)
 
-### 6.1) 物品操作 (Items)
-a) Player receives items? List each with format: XYZ
-   → set 储物袋.物品.{ID} = {完整对象}
-b) Player consumes items? List each: XYZ
-   → add 储物袋.物品.{ID}.数量 = -X (部分) OR delete 储物袋.物品.{ID} (全部)
-c) Player gives items to NPC? List each: XYZ
-   → delete 储物袋.物品.{ID} + set 人物关系.{NPC名}.背包.物品.{ID}
+- Items: XYZ (set/add/delete 储物袋.物品)
+- Currency: XYZ (add 储物袋.灵石)
+- Attributes: XYZ (add 后天六司)
+- Location: XYZ (set 位置.描述, x, y if major move)
+- Time: XYZ minutes (add 游戏时间.分钟) **[必填]**
+- Status effects: XYZ (push 状态效果)
+- Quests: XYZ (add/set 任务列表)
+- NPC memory: XYZ (push 人物关系.{名}.记忆) **[有NPC必填]**
+- NPC favorability: XYZ (add 人物关系.{名}.好感度)
+- NPC 实时关注: XYZ (set 当前外貌状态/内心想法) **[实时关注=true必填]**
+- Realm: XYZ (set 境界 + add 气血/灵气/神识.上限)
+- Dao: XYZ (add/set 三千大道)
+- Equipment: XYZ (set 装备栏)
+- Skills: XYZ (add 掌握技能.熟练度)
 
-### 6.2) 货币操作 (Currency)
-a) Spirit stones changed? List by grade (下品/中品/上品/极品): XYZ
-   → add 储物袋.灵石.{品级} = ±X
+Total commands: X
 
-### 6.3) 属性操作 (Attributes)
-a) HP/MP/Spirit current changed? List: XYZ
-   → add 气血.当前 = ±X, add 灵气.当前 = ±X, add 神识.当前 = ±X
-b) HP/MP/Spirit max changed (breakthrough only)? List: XYZ
-   → add 气血.上限 = +X, add 灵气.上限 = +X, add 神识.上限 = +X
-c) 后天六司 changed? List: XYZ
-   → add 后天六司.{属性} = ±X
-
-### 6.4) 位置与时间 (Location & Time)
-a) Location changed? XYZ
-   → set 位置.描述 = "大陆·地点" (+ set x, y if major movement)
-   → 注意：x/y 使用经纬度坐标（例如：x: 107.5, y: 30.0），非虚拟坐标
-b) Time progressed? Minutes: XYZ
-   → add 游戏时间.分钟 = X
-
-### 6.5) 状态效果 (Status Effects)
-a) Status effects added? List all: XYZ
-   → push 状态效果 = {状态名称, 类型:"buff"|"debuff", 生成时间:{年月日时分}, 持续时间分钟:number, 状态描述}
-
-### 6.6) 任务操作 (Quests)
-a) Quest progress? List: XYZ
-   → add 任务列表.{ID}.目标列表.{索引}.当前进度 = +X
-b) Quest status changed? List: XYZ
-   → set 任务列表.{ID}.任务状态 = "已完成"|"已失败"
-
-### 6.7) NPC 操作 (NPCs)
-a) NPC memory updates (MUST for all NPCs in scene)? List: XYZ
-   → push 人物关系.{NPC名}.记忆 = "【游戏时间】事件描述"
-b) NPC favorability changed? List: XYZ
-   → add 人物关系.{NPC名}.好感度 = ±X
-c) NPC 实时关注 updates (if 实时关注=true)? List: XYZ
-   → set 人物关系.{NPC名}.当前外貌状态, set 当前内心想法
-
-### 6.8) 境界与大道 (Realm & Dao)
-a) Realm breakthrough? XYZ
-   → set 境界 = {名称, 阶段, 当前进度, 下一级所需, 突破描述}
-   → MUST also: add 气血.上限, add 灵气.上限, add 神识.上限
-b) Dao progress? List: XYZ
-   → add 三千大道.{道名}.当前进度 = +X
-c) Dao unlock? List: XYZ
-   → set 三千大道.{道名} = {是否解锁:true, 当前阶段, 当前进度:0, 阶段列表:[至少2个阶段对象]}
-
-### 6.9) 装备与技能 (Equipment & Skills)
-a) Equipment changed? List: XYZ
-   → set 装备栏.{部位} = {物品ID} OR null
-b) Skill proficiency? List: XYZ
-   → add 掌握技能.{技能名}.熟练度 = +X
-
-### 6.10) 总计确认 (Total Count)
-j) Total commands count: X
-   → Must match actual tavern_commands array length
-
-**⚠️ 强制检查（即使没有明显事件）：**
-- 时间推进？（对话/思考都需要时间，至少1-5分钟）
-- NPC 在场？（在场必须更新记忆）
-- 实时关注的 NPC？（必须更新外貌状态和内心想法）
-
-## 7) Final Check (最终检查)
-a) Text quality: Check against forbidden words list (绝望化/机械化/八股化/过度修饰/过度身体描写)? XYZ
-   - No 麻木/绝望/无力感/机械/冰冷/石子/惊雷/猛地/瞬间/睫毛/锁骨/脊背/颤抖?
-   - Used natural actions and specific details instead?
-b) Text length: 600+ characters (target 800-1200)? XYZ
-c) JSON format: Pure JSON, double quotes, no trailing commas? XYZ
-d) Commands complete: All events have corresponding commands? XYZ
-e) Commands format: All follow correct action/key/value structure? XYZ
-f) Total commands match count in step 6.10j? XYZ
+## 6) Final Check (最终检查)
+- Text quality: No forbidden words (麻木/绝望/机械/石子/惊雷/猛地/睫毛/锁骨/脊背/颤抖)? XYZ
+- Text length: 600+ chars? XYZ
+- Commands complete & correct format? XYZ
 
 </thinking>
 

@@ -119,7 +119,7 @@
                 >
                   <h4>特殊效果:</h4>
                   <div class="attribute-text">
-                    {{ selectedItem.特殊效果 }}
+                    {{ typeof selectedItem.特殊效果 === 'object' ? formatItemAttributes(selectedItem.特殊效果) : selectedItem.特殊效果 }}
                   </div>
                 </div>
               </div>
@@ -315,7 +315,7 @@
                 class="details-attributes"
               >
                 <h4>特殊效果:</h4>
-                <div class="attribute-text">{{ selectedItem.特殊效果 }}</div>
+                <div class="attribute-text">{{ typeof selectedItem.特殊效果 === 'object' ? formatItemAttributes(selectedItem.特殊效果) : selectedItem.特殊效果 }}</div>
               </div>
             </div>
             <div class="details-actions">
@@ -418,7 +418,7 @@
                   </div>
                   <div v-if="slot.item.类型 === '装备' && slot.item.特殊效果" class="item-effects">
                     <div class="effects-title">特殊效果：</div>
-                    <div class="effects-text">{{ slot.item.特殊效果 }}</div>
+                    <div class="effects-text">{{ typeof slot.item.特殊效果 === 'object' ? formatItemAttributes(slot.item.特殊效果) : slot.item.特殊效果 }}</div>
                   </div>
                 </div>
               </div>

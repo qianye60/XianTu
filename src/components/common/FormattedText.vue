@@ -48,37 +48,39 @@
                 <span class="stat-value">{{ part.content.dice }}</span>
               </div>
             </div>
-            <div class="stat-item" v-if="part.content.attribute && part.content.attribute !== '未知属性'">
-              <span class="stat-icon">⚡</span>
-              <div class="stat-info">
-                <span class="stat-label">属性</span>
-                <span class="stat-value">{{ part.content.attribute }}</span>
-              </div>
-            </div>
-            <div class="stat-item" v-if="part.content.bonus">
-              <span class="stat-icon">➕</span>
-              <div class="stat-info">
-                <span class="stat-label">加成</span>
-                <span class="stat-value">{{ part.content.bonus }}</span>
-              </div>
-            </div>
             <div class="stat-item" v-if="part.content.finalValue">
               <span class="stat-icon">✨</span>
               <div class="stat-info">
-                <span class="stat-label">最终值</span>
+                <span class="stat-label">判定值</span>
                 <span class="stat-value">{{ part.content.finalValue }}</span>
               </div>
             </div>
-            <div class="stat-item" v-if="part.content.difficulty">
+            <div class="stat-item difficulty-item" v-if="part.content.difficulty">
               <span class="stat-icon">🎯</span>
               <div class="stat-info">
                 <span class="stat-label">难度</span>
                 <span class="stat-value">{{ part.content.difficulty }}</span>
               </div>
             </div>
+            <div class="stat-item" v-if="part.content.damage">
+              <span class="stat-icon">⚔️</span>
+              <div class="stat-info">
+                <span class="stat-label">伤害</span>
+                <span class="stat-value">{{ part.content.damage }}</span>
+              </div>
+            </div>
+            <div class="stat-item" v-if="part.content.remainingHp">
+              <span class="stat-icon">❤️</span>
+              <div class="stat-info">
+                <span class="stat-label">剩余气血</span>
+                <span class="stat-value">{{ part.content.remainingHp }}</span>
+              </div>
+            </div>
             <div class="details-list" v-if="part.content.details && part.content.details.length > 0">
               <div class="detail-item" v-for="(detail, idx) in part.content.details" :key="idx">
-                {{ detail }}
+                <span class="detail-label">{{ parseDetailLabel(detail) }}</span>
+                <span class="detail-value">{{ parseDetailValue(detail) }}</span>
+                <span class="detail-source" v-if="parseDetailSource(detail)">{{ parseDetailSource(detail) }}</span>
               </div>
             </div>
           </div>
@@ -104,22 +106,22 @@
           <div class="help-section">
             <h4>📊 判定计算公式</h4>
             <div class="formula-box">
-              <strong>判定值</strong> = (先天六司×100% + 后天六司×20%) + 修行状态 + 境界加成 + 装备 + 功法 + 状态效果
+              <strong>判定值</strong> = 先天 + 后天 + 境界 + 装备 + 功法 + 状态 + 骰点(1d20)
             </div>
             <ol>
-              <li><strong>先天六司</strong>：天生资质，权重100%（固定无法改变）</li>
-              <li><strong>后天六司</strong>：修炼提升，权重仅20%（避免过度强化）</li>
-              <li><strong>修行状态</strong>：气血/灵气/神识当前值影响判定</li>
-              <li><strong>境界加成</strong>：练气+10%，筑基+20%，金丹+30%...</li>
-              <li><strong>装备/功法</strong>：法器和功法熟练度提供额外加成</li>
-              <li><strong>状态效果</strong>：buff增强判定，debuff削弱判定</li>
+              <li><strong>先天</strong>：根据判定类型加权（战斗：根骨50%+灵性30%+气运20%，修炼：悟性50%+灵性30%+心性20%）</li>
+              <li><strong>后天</strong>：对应后天六司加权 ÷ 5</li>
+              <li><strong>境界</strong>：炼气5 | 筑基12 | 金丹20 | 元婴30...（阶段：初期+0，中期+2，后期+4，圆满+6）</li>
+              <li><strong>装备</strong>：装备提供的加成</li>
+              <li><strong>功法</strong>：功法品质+熟练度</li>
+              <li><strong>状态</strong>：buff/debuff效果</li>
             </ol>
           </div>
 
           <div class="help-section">
             <h4>🎯 判定结果</h4>
             <div class="formula-note">
-              <strong>计算公式</strong>: 最终值 = 骰点(1d20) + 属性值 + 加成
+              <strong>判定规则</strong>: 判定值与难度对比，骰点影响结果等级
             </div>
             <div class="result-list">
               <div class="result-item perfect">
@@ -128,15 +130,15 @@
               </div>
               <div class="result-item great-success">
                 <span class="result-label">大成功</span>
-                <span class="result-desc">最终值 ≥ 难度+20，显著成果</span>
+                <span class="result-desc">判定值 ≥ 难度+15，超额完成</span>
               </div>
               <div class="result-item success">
                 <span class="result-label">成功</span>
-                <span class="result-desc">最终值 ≥ 难度，达成目标</span>
+                <span class="result-desc">判定值 ≥ 难度，达成目标</span>
               </div>
               <div class="result-item failure">
                 <span class="result-label">失败</span>
-                <span class="result-desc">最终值 &lt; 难度，未达成</span>
+                <span class="result-desc">判定值 &lt; 难度，未达成</span>
               </div>
               <div class="result-item critical-failure">
                 <span class="result-label">大失败</span>
@@ -146,23 +148,27 @@
           </div>
 
           <div class="help-section">
-            <h4>⚔️ 判定类型与属性</h4>
+            <h4>⚔️ 判定类型与属性配比</h4>
             <div class="judgement-types">
               <div class="type-item">
                 <span class="type-name">战斗判定</span>
-                <span class="type-attrs">根骨30% + 灵性40% + 悟性10% + 心性10% + 气运10%</span>
+                <span class="type-attrs">根骨50% + 灵性30% + 气运20%</span>
               </div>
               <div class="type-item">
                 <span class="type-name">修炼判定</span>
-                <span class="type-attrs">灵性20% + 悟性50% + 根骨10% + 心性10% + 气运10%</span>
+                <span class="type-attrs">悟性50% + 灵性30% + 心性20%</span>
               </div>
               <div class="type-item">
-                <span class="type-name">交际判定</span>
-                <span class="type-attrs">魅力20% + 悟性30% + 灵性20% + 心性20% + 气运10%</span>
+                <span class="type-name">技艺判定</span>
+                <span class="type-attrs">悟性50% + 根骨30% + 灵性20%</span>
+              </div>
+              <div class="type-item">
+                <span class="type-name">社交判定</span>
+                <span class="type-attrs">魅力50% + 悟性30% + 心性20%</span>
               </div>
               <div class="type-item">
                 <span class="type-name">探索判定</span>
-                <span class="type-attrs">气运30% + 灵性30% + 悟性20% + 根骨10% + 心性10%</span>
+                <span class="type-attrs">气运50% + 灵性30% + 悟性20%</span>
               </div>
             </div>
           </div>
@@ -218,11 +224,13 @@
           <div class="help-section">
             <h4>💡 提升判定成功率</h4>
             <ul class="tips-list">
-              <li>提升对应属性：不同判定侧重不同的六司属性</li>
-              <li>提升境界：境界越高，判定基础加成越大</li>
-              <li>学习功法：相关功法可提供专项判定加成</li>
-              <li>装备法器：合适的装备能大幅提升判定值</li>
-              <li>天赋效果：某些天赋在特定判定中发挥奇效</li>
+              <li><strong>先天六司</strong>：天赋决定上限，无法改变但影响最大</li>
+              <li><strong>提升境界</strong>：境界越高，判定基础加成越大（炼气+5，筑基+12...）</li>
+              <li><strong>修炼后天</strong>：后天六司可提升，但权重仅20%</li>
+              <li><strong>学习功法</strong>：高品质功法和技能熟练度提供显著加成</li>
+              <li><strong>装备法器</strong>：合适的装备能大幅提升判定值</li>
+              <li><strong>状态效果</strong>：buff增强判定，注意避免debuff</li>
+              <li><strong>境界压制</strong>：高境界对低境界有明显优势，但不是绝对</li>
             </ul>
           </div>
         </div>
@@ -252,6 +260,8 @@ interface JudgementData {
   difficulty?: string
   bonus?: string
   finalValue?: string
+  damage?: string
+  remainingHp?: string
   details?: string[]
 }
 
@@ -422,10 +432,70 @@ const parsedText = computed(() => {
           const titleResult = contentParts[0].split(':')
 
           if (titleResult.length === 2) {
-            const judgement: any = {
+            const judgement: JudgementData = {
               title: titleResult[0].trim(),
               result: titleResult[1].trim(),
               dice: '未知',
+              attribute: '',
+              details: []
+            }
+
+            // 解析所有其他字段
+            for (let i = 1; i < contentParts.length; i++) {
+              const part = contentParts[i]
+              const [key, value] = part.split(':').map(s => s.trim())
+
+              if (!key || !value) continue
+
+              if (key.includes('骰点') || key.includes('骰子')) {
+                judgement.dice = value
+              } else if (key.includes('难度')) {
+                judgement.difficulty = value
+              } else if (key.includes('判定值')) {
+                judgement.finalValue = value
+              } else if (key.includes('加成')) {
+                judgement.bonus = value
+              } else if (key.includes('最终值') || key.includes('总值')) {
+                judgement.finalValue = value
+              } else if (key.includes('先天')) {
+                judgement.details?.push(`先天:${value}`)
+              } else if (key.includes('后天')) {
+                judgement.details?.push(`后天:${value}`)
+              } else if (key.includes('境界')) {
+                judgement.details?.push(`境界:${value}`)
+              } else if (key.includes('装备')) {
+                judgement.details?.push(`装备:${value}`)
+              } else if (key.includes('功法')) {
+                judgement.details?.push(`功法:${value}`)
+              } else if (key.includes('状态')) {
+                judgement.details?.push(`状态:${value}`)
+              } else if (key.includes('造成伤害')) {
+                judgement.damage = value
+              } else if (key.includes('剩余气血')) {
+                judgement.remainingHp = value
+              } else if (key.match(/^[^\d\s]+$/)) {
+                // 属性名(如"灵性"、"悟性"等)
+                if (!judgement.attribute) {
+                  judgement.attribute = `${key}:${value}`
+                } else {
+                  judgement.details?.push(`${key}:${value}`)
+                }
+              } else {
+                // 其他信息放入详情
+                judgement.details?.push(part)
+              }
+            }
+
+            parts.push({
+              type: 'judgement-card',
+              content: judgement
+            })
+          } else if (titleResult.length === 1) {
+            // 处理简单系统提示格式，如"系统提示：星屑吊坠效果触发，悟性+2，灵性+2，凝神静气效果生效。"
+            const judgement: JudgementData = {
+              title: '系统提示',
+              result: markedContent.trim(),
+              dice: '',
               attribute: '',
               details: []
             }
@@ -450,54 +520,11 @@ const parsedText = computed(() => {
                 if (!judgement.attribute) {
                   judgement.attribute = `${key}:${value}`
                 } else {
-                  judgement.details.push(`${key}:${value}`)
+                  judgement.details?.push(`${key}:${value}`)
                 }
               } else {
                 // 其他信息放入详情
-                judgement.details.push(part)
-              }
-            }
-
-            parts.push({
-              type: 'judgement-card',
-              content: judgement
-            })
-          } else if (titleResult.length === 1) {
-            // 处理简单系统提示格式，如"系统提示：星屑吊坠效果触发，悟性+2，灵性+2，凝神静气效果生效。"
-            const judgement: any = {
-              title: '系统提示',
-              result: markedContent.trim(),
-              dice: '',
-              attribute: '',
-              details: [],
-              isSystemMessage: true
-            }
-
-            // 解析所有其他字段
-            for (let i = 1; i < contentParts.length; i++) {
-              const part = contentParts[i]
-              const [key, value] = part.split(':').map(s => s.trim())
-
-              if (!key || !value) continue
-
-              if (key.includes('骰点') || key.includes('骰子')) {
-                judgement.dice = value
-              } else if (key.includes('难度')) {
-                judgement.difficulty = value
-              } else if (key.includes('加成')) {
-                judgement.bonus = value
-              } else if (key.includes('最终值') || key.includes('总值')) {
-                judgement.finalValue = value
-              } else if (key.match(/^[^\d\s]+$/)) {
-                // 属性名(如"灵性"、"悟性"等)
-                if (!judgement.attribute) {
-                  judgement.attribute = `${key}:${value}`
-                } else {
-                  judgement.details.push(`${key}:${value}`)
-                }
-              } else {
-                // 其他信息放入详情
-                judgement.details.push(part)
+                judgement.details?.push(part)
               }
             }
 
@@ -545,6 +572,33 @@ const isSuccessResult = (result: string) => {
 const isFailureResult = (result: string) => {
   return ['失败', '大失败', '失败惨重', '未通过'].includes(result)
 }
+
+// 解析详情字段的辅助函数
+const parseDetailLabel = (detail: string) => {
+  const parts = detail.split(':')
+  return parts[0] + ':'
+}
+
+const parseDetailValue = (detail: string) => {
+  const parts = detail.split(':')
+  if (parts.length < 2) return ''
+
+  // 提取数值部分（可能包含括号内容）
+  const valueWithSource = parts[1]
+  const match = valueWithSource.match(/^([+-]?\d+)/)
+  return match ? match[1] : valueWithSource.split('(')[0].trim()
+}
+
+const parseDetailSource = (detail: string) => {
+  const parts = detail.split(':')
+  if (parts.length < 2) return ''
+
+  // 提取括号内的来源信息
+  const valueWithSource = parts[1]
+  const match = valueWithSource.match(/\(([^)]+)\)/)
+  return match ? `(${match[1]})` : ''
+}
+
 </script>
 
 <style scoped>
@@ -737,6 +791,10 @@ const isFailureResult = (result: string) => {
   min-width: fit-content;
 }
 
+.difficulty-item {
+  min-width: 120px;
+}
+
 .details-list {
   width: 100%;
   margin-top: 0.5rem;
@@ -757,6 +815,24 @@ const isFailureResult = (result: string) => {
   content: '•';
   color: #94a3b8;
 }
+
+.detail-label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.detail-value {
+  font-weight: 700;
+  color: #1e293b;
+  min-width: 2rem;
+}
+
+.detail-source {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
 
 .stat-icon {
   font-size: 1.375rem;
@@ -1319,5 +1395,17 @@ const isFailureResult = (result: string) => {
 
 [data-theme="dark"] .formula-box strong {
   color: #fcd34d;
+}
+
+[data-theme="dark"] .detail-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .detail-value {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .detail-source {
+  color: #64748b;
 }
 </style>

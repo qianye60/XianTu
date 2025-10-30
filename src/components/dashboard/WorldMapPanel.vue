@@ -467,36 +467,43 @@ const startPan = (event: MouseEvent) => {
 const handlePan = (event: MouseEvent) => {
   if (!isPanning.value) return;
 
-  const pan = () => {
-    const deltaX = event.clientX - lastPanPoint.value.x;
-    const deltaY = event.clientY - lastPanPoint.value.y;
+  // 直接计算增量,不使用 requestAnimationFrame 提高响应速度
+  const deltaX = (event.clientX - lastPanPoint.value.x) * 1.5; // 增加灵敏度系数
+  const deltaY = (event.clientY - lastPanPoint.value.y) * 1.5;
 
-    dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
+  dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
 
-    const newPanX = panX.value + deltaX;
-    const newPanY = panY.value + deltaY;
-
-    const containerRect = mapContainer.value?.getBoundingClientRect();
-    if (containerRect) {
-      const scaledMapWidth = mapWidth.value * zoomLevel.value;
-      const scaledMapHeight = mapHeight.value * zoomLevel.value;
-      
-      const minPanX = Math.min(0, containerRect.width - scaledMapWidth);
-      const maxPanX = Math.max(0, containerRect.width - scaledMapWidth);
-      const minPanY = Math.min(0, containerRect.height - scaledMapHeight);
-      const maxPanY = Math.max(0, containerRect.height - scaledMapHeight);
-      
-      panX.value = Math.max(minPanX, Math.min(maxPanX, newPanX));
-      panY.value = Math.max(minPanY, Math.min(maxPanY, newPanY));
+  // 简化边界限制逻辑,只在地图小于容器时限制
+  const containerRect = mapContainer.value?.getBoundingClientRect();
+  if (containerRect) {
+    const scaledMapWidth = mapWidth.value * zoomLevel.value;
+    const scaledMapHeight = mapHeight.value * zoomLevel.value;
+    
+    // 只在地图小于容器时应用边界限制
+    if (scaledMapWidth < containerRect.width) {
+      const maxPanX = (containerRect.width - scaledMapWidth) / 2;
+      panX.value = Math.max(-maxPanX, Math.min(maxPanX, panX.value + deltaX));
     } else {
-      panX.value = newPanX;
-      panY.value = newPanY;
+      // 地图大于容器时,允许更自由的拖动,只限制不超出太多
+      const limit = scaledMapWidth * 0.1; // 允许超出10%
+      panX.value = Math.max(containerRect.width - scaledMapWidth - limit,
+                           Math.min(limit, panX.value + deltaX));
     }
+    
+    if (scaledMapHeight < containerRect.height) {
+      const maxPanY = (containerRect.height - scaledMapHeight) / 2;
+      panY.value = Math.max(-maxPanY, Math.min(maxPanY, panY.value + deltaY));
+    } else {
+      const limit = scaledMapHeight * 0.1;
+      panY.value = Math.max(containerRect.height - scaledMapHeight - limit,
+                           Math.min(limit, panY.value + deltaY));
+    }
+  } else {
+    panX.value += deltaX;
+    panY.value += deltaY;
+  }
 
-    lastPanPoint.value = { x: event.clientX, y: event.clientY };
-  };
-
-  requestAnimationFrame(pan);
+  lastPanPoint.value = { x: event.clientX, y: event.clientY };
 };
 
 const endPan = () => {
@@ -545,32 +552,39 @@ const handleTouchMove = (event: TouchEvent) => {
   }));
 
   if (currentTouches.length === 1 && isPanning.value) {
-    // 单指平移
-    const deltaX = currentTouches[0].x - lastPanPoint.value.x;
-    const deltaY = currentTouches[0].y - lastPanPoint.value.y;
+    // 单指平移 - 提升触摸灵敏度
+    const deltaX = (currentTouches[0].x - lastPanPoint.value.x) * 1.8; // 触摸设备需要更高灵敏度
+    const deltaY = (currentTouches[0].y - lastPanPoint.value.y) * 1.8;
 
     dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
 
-    // 计算新的平移位置
-    const newPanX = panX.value + deltaX;
-    const newPanY = panY.value + deltaY;
-
-    // 应用边界限制
+    // 简化边界逻辑,提升滑动流畅度
     const containerRect = mapContainer.value?.getBoundingClientRect();
     if (containerRect) {
       const scaledMapWidth = mapWidth.value * zoomLevel.value;
       const scaledMapHeight = mapHeight.value * zoomLevel.value;
 
-      const minPanX = Math.min(0, containerRect.width - scaledMapWidth);
-      const maxPanX = Math.max(0, containerRect.width - scaledMapWidth);
-      const minPanY = Math.min(0, containerRect.height - scaledMapHeight);
-      const maxPanY = Math.max(0, containerRect.height - scaledMapHeight);
-
-      panX.value = Math.max(minPanX, Math.min(maxPanX, newPanX));
-      panY.value = Math.max(minPanY, Math.min(maxPanY, newPanY));
+      // 触摸设备允许更宽松的边界
+      if (scaledMapWidth < containerRect.width) {
+        const maxPanX = (containerRect.width - scaledMapWidth) / 2;
+        panX.value = Math.max(-maxPanX, Math.min(maxPanX, panX.value + deltaX));
+      } else {
+        const limit = scaledMapWidth * 0.15; // 触摸允许超出15%
+        panX.value = Math.max(containerRect.width - scaledMapWidth - limit,
+                             Math.min(limit, panX.value + deltaX));
+      }
+      
+      if (scaledMapHeight < containerRect.height) {
+        const maxPanY = (containerRect.height - scaledMapHeight) / 2;
+        panY.value = Math.max(-maxPanY, Math.min(maxPanY, panY.value + deltaY));
+      } else {
+        const limit = scaledMapHeight * 0.15;
+        panY.value = Math.max(containerRect.height - scaledMapHeight - limit,
+                             Math.min(limit, panY.value + deltaY));
+      }
     } else {
-      panX.value = newPanX;
-      panY.value = newPanY;
+      panX.value += deltaX;
+      panY.value += deltaY;
     }
 
     lastPanPoint.value = { x: currentTouches[0].x, y: currentTouches[0].y };

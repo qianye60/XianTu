@@ -301,7 +301,6 @@
 </template>
 
 <script setup lang="ts">
-import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
 import { ref, onMounted, onActivated, onUnmounted, nextTick, computed, watch } from 'vue';
 import {
   Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit
@@ -1020,25 +1019,19 @@ const sendMessage = async () => {
   // 检查角色死亡状态
   const saveData = gameStateStore.toSaveData();
   if (saveData) {
-    const deathStatus = checkCharacterDeath(saveData);
-    if (deathStatus.isDead) {
-      toast.error(`角色已死亡：${deathStatus.deathReason}。无法继续游戏，请重新开始或复活角色。`);
-      // currentNarrative 现在自动显示最新短期记忆
+    // 检查气血
+    if (saveData.玩家角色状态?.气血?.当前 !== undefined && saveData.玩家角色状态.气血.当前 <= 0) {
+      toast.error('角色已死亡，气血耗尽。无法继续游戏，请重新开始或复活角色。');
+      return;
+    }
+    // 检查寿命
+    if (saveData.玩家角色状态?.寿命?.当前 !== undefined && saveData.玩家角色状态.寿命.当前 <= 0) {
+      toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
       return;
     }
   }
 
   const userMessage = inputText.value.trim();
-
-  // 🔥 在发送消息之前，保存当前状态到"上次对话"
-  try {
-    // [核心修复] 调用 characterStore 中正确的 action 来保存存档
-    // 这个 action 会同时保存 SaveData 到 IndexedDB 和元数据
-    await characterStore.saveToSlot('上次对话');
-    console.log('[上次对话] 已通过 saveToSlot 备份当前状态');
-  } catch (error) {
-    console.warn('[上次对话] 备份失败（非致命）:', error);
-  }
 
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
@@ -1104,14 +1097,7 @@ const sendMessage = async () => {
         console.log('[图片上传] 将发送', selectedImages.value.length, '张图片');
       }
 
-      // 在AI调用前计算并同步天道系统
-      const baseInfo = gameStateStore.character;
-      const currentSaveData = gameStateStore.toSaveData();
-      if (currentSaveData && baseInfo) {
-        const { syncHeavenlyPrecalcToTavern } = await import('@/utils/judgement/heavenlyRules');
-        await syncHeavenlyPrecalcToTavern(currentSaveData, baseInfo);
-        console.log('[天道系统] 已同步预计算数据到酒馆');
-      }
+      // 天道系统已整合到COT判定流程中，无需单独同步
 
       aiResponse = await bidirectionalSystem.processPlayerAction(
         finalUserMessage,
@@ -1219,11 +1205,13 @@ const sendMessage = async () => {
       // 检查角色死亡状态（在状态更新后）
       const currentSaveData = gameStateStore.toSaveData();
       if (currentSaveData) {
-        const deathStatus = checkCharacterDeath(currentSaveData);
-        if (deathStatus.isDead) {
-          // 如果死亡，用死亡信息覆盖当前叙述
-          // currentNarrative 现在自动显示最新短期记忆
-          toast.error(`角色已死亡：${deathStatus.deathReason}`);
+        // 检查气血
+        if (currentSaveData.玩家角色状态.气血?.当前 !== undefined && currentSaveData.玩家角色状态.气血.当前 <= 0) {
+          toast.error('角色已死亡，气血耗尽');
+        }
+        // 检查寿命
+        if (currentSaveData.玩家角色状态.寿命?.当前 !== undefined && currentSaveData.玩家角色状态.寿命.当前 <= 0) {
+          toast.error('角色已死亡，寿元耗尽');
         }
       }
     } else if (aiResponse) {
@@ -1240,15 +1228,6 @@ const sendMessage = async () => {
       rawStreamingContent.value = '';
       uiStore.setCurrentGenerationId(null);
       persistAIProcessingState();
-
-      // 显示失败弹窗，明确告知用户生成失败
-      const errorMessage = aiError instanceof Error ? aiError.message : '未知错误';
-      toast.error(`AI生成失败：${errorMessage}`, {
-        duration: 5000
-      });
-
-      // 设置当前叙述为错误消息
-      // currentNarrative 现在自动显示最新短期记忆
 
       // 重要：不设置任何响应对象，确保后续处理跳过
       aiResponse = null;
@@ -1286,11 +1265,6 @@ const sendMessage = async () => {
     rawStreamingContent.value = '';
     uiStore.setCurrentGenerationId(null);
     persistAIProcessingState();
-
-    // 设置当前叙述为错误消息
-    // currentNarrative 现在自动显示最新短期记忆
-
-    toast.error('天道无应，请稍后再试');
   } finally {
     // 🔥 兜底机制：确保状态一定被清除
     if (isAIProcessing.value) {
@@ -1303,18 +1277,28 @@ const sendMessage = async () => {
       persistAIProcessingState();
     }
 
-    // 最终统一存档
-    try {
-      console.log('[AI响应处理] 最终统一存档...');
-      await characterStore.saveCurrentGame();
-      const slot = characterStore.activeSaveSlot;
-      if (slot) {
-        toast.success(`存档【${slot.存档名}】已保存`);
+    // 最终统一存档（仅成功时）
+    if (aiResponse) {
+      try {
+        console.log('[AI响应处理] 最终统一存档...');
+        await characterStore.saveCurrentGame();
+        const slot = characterStore.activeSaveSlot;
+        if (slot) {
+          toast.success(`存档【${slot.存档名}】已保存`);
+        }
+        console.log('[AI响应处理] 最终统一存档完成');
+
+        // 🔥 成功后备份到"上次对话"
+        try {
+          await characterStore.saveToSlot('上次对话');
+          console.log('[上次对话] 已备份当前状态');
+        } catch (backupError) {
+          console.warn('[上次对话] 备份失败（非致命）:', backupError);
+        }
+      } catch (storageError) {
+        console.error('[AI响应处理] 最终统一存档失败:', storageError);
+        toast.error('游戏存档失败，请尝试手动保存');
       }
-      console.log('[AI响应处理] 最终统一存档完成');
-    } catch (storageError) {
-      console.error('[AI响应处理] 最终统一存档失败:', storageError);
-      toast.error('游戏存档失败，请尝试手动保存');
     }
   }
 };

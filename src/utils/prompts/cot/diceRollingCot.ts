@@ -1,49 +1,207 @@
 export const diceRollingCotPrompt = `
-# COT思维链分析流程 (Dice Rolling & Action Judgment)
+# 🎲 判定系统 COT 思维链
+
+当玩家行动需要判定时，按以下思维链进行分析：
 
 ---
 
-## Part 1: Dice Roll & Action Judgment COT (掷骰及行动判定)
+## 步骤一：判定触发分析
 
-### Step 1: Determine if a Roll is Needed (判断是否需要掷骰)
-- Analyze the user's action (\`<行动趋向>\`). Does it involve uncertainty or challenge? (e.g., combat, exploration, persuasion, crafting).
-- If yes, a dice roll is required. Proceed to Step 2.
-- If no (e.g., simple conversation, non-challenging movement), skip to narrative generation.
+**思考：这个行动需要判定吗？**
+- 检查行动类型（战斗/修炼/技能/社交/探索/竞争）
+- 判断是否有不确定性和挑战性
+- 确认是否符合判定触发原则
 
-### Step 2: Data Loading and Analysis (数据载入分析)
-- **Receive Dice**: From the pre-generated "Dice Pool" provided by the system, take the next available dice result (e.g., 1d20). This result is fixed and cannot be changed.
-- **Load Parameters**:
-  - Identify the action type (e.g., "Strength Check", "Spellcasting") and the target difficulty number from the game rules or context.
-  - Retrieve the character's relevant attributes (e.g., \`后天六司.根骨\`), skill bonuses, and equipment bonuses from the SaveData.
-  - Calculate the **Base Value** = Attribute + Skill Bonus + Equipment Bonus.
-- **Calculate Final Value**: **Final Value** = **Base Value** + Dice Result.
+**输出：**
+\`\`\`
+Trigger: [行动描述] → [Yes/No] → [原因]
+\`\`\`
 
-### Step 3: Adjudicate Success Level (成功等级裁定)
-- Compare the **Final Value** against the **Difficulty**.
-- **Critical Success (大成功)**: Dice roll is 20. The action succeeds with an extra positive outcome.
-- **Success (成功)**: Final Value >= Difficulty. The action succeeds as intended.
-- **Failure (失败)**: Final Value < Difficulty. The action fails.
-- **Critical Failure (大失败)**: Dice roll is 1. The action fails with an extra negative consequence.
+---
 
-### Step 4: Combat Judgment (战斗判定)
-- If the action is an attack, perform the following sequence:
-  1.  **Hit Calculation**: The roll from Step 2 determines if the attack hits. If it's a "Success", proceed to damage calculation.
-  2.  **Damage Calculation**:
-      - Attacker's Potential Damage = (Relevant Attribute + Weapon Bonus + Skill Bonus).
-      - Defender's Damage Reduction = (Armor Bonus + Toughness Attribute).
-      - **Final Damage** = Attacker's Potential Damage - Defender's Damage Reduction.
-  3.  **Damage Adjudication**:
-      - If **Final Damage** <= 0, the attack is blocked or ineffective. Describe this clearly.
-      - If **Final Damage** > 0, the attack deals damage. Update the target's health.
-  4.  **Narrate Outcome**: Clearly state the hit/miss, the final damage dealt, and the target's remaining health in the narrative text.
-      - Example: "你的飞剑击中了哥布林，穿透了它的皮甲，造成了7点伤害。哥布林剩余生命值：2/9。"
-      - A character only dies when their health reaches 0.
+## 步骤二：判定类型与难度
 
-### Step 5: Output Generation (输出生成)
-- **Update Data**: Generate the necessary \`tavern_commands\` to reflect all changes (health, item usage, status effects, etc.).
-- **Generate Narrative**:
-  - Write the story text, incorporating the dice roll result and the calculated outcome.
-  - The narrative style should reflect the success level (e.g., a "Success" on a well-prepared action sounds different from a "Success" by pure luck).
-  - **Crucially**, the narrative must explicitly mention the dice roll result and the final outcome (e.g., "你掷出了15点，加上你的力量加成，最终值为18，成功推开了石门。").
-- **Format Judgment**: Include the standardized judgment format in the text: \`〖判定名称:结果,骰点:X,属性:X,加成:X,最终值:X,难度:X〗\`.
+**思考：这是什么类型的判定？难度应该是多少？**
+- 确定判定类型（战斗/修炼/技艺/社交/探索）
+- 评估玩家实力（境界、属性、装备）
+- 评估目标难度（对手实力、任务复杂度）
+- **境界压制计算（战斗判定必须考虑）：**
+  - **大境界差距**：每高/低1大境界 ±30难度
+    - 例：筑基 vs 炼气 → 难度-30（玩家高1境界）
+    - 例：炼气 vs 筑基 → 难度+30（玩家低1境界）
+  - **小阶段差距**：同境界内每高/低1阶段 ±5难度
+    - 例：炼气后期 vs 炼气初期 → 难度-10（高2阶段）
+    - 阶段顺序：初期(0) → 中期(+1) → 后期(+2) → 圆满(+3) → 极境(+4)
+  - **综合计算**：大境界压制 + 小阶段压制
+    - 例：筑基初期 vs 炼气圆满 → -30(大境界) +0(阶段) = -30
+    - 例：炼气后期 vs 筑基中期 → +30(大境界) -5(阶段) = +25
+- 参考难度等级表设定合理难度
+
+**输出：**
+\`\`\`
+Type & Difficulty: [类型] | 基础难度[X] | 境界压制[±Y] | 最终难度[Z]([等级]) | [理由]
+\`\`\`
+
+---
+
+## 步骤三：判定值计算
+
+**思考：玩家的判定值是多少？**
+
+**3.1 计算先天加成**
+- 根据判定类型加权计算（战斗：根骨×0.5+灵性×0.3+气运×0.2，修炼：悟性×0.5+灵性×0.3+心性×0.2，技艺：悟性×0.5+根骨×0.3+灵性×0.2，社交：魅力×0.5+悟性×0.3+心性×0.2，探索：气运×0.5+灵性×0.3+悟性×0.2）
+
+**3.2 计算后天加成**
+- 对应后天六司加权计算 ÷ 5
+
+**3.3 计算境界加成**
+- 查表获取境界基础加成
+- 加上阶段细分加成
+
+**3.4 计算装备加成**
+- 从装备栏读取相关属性加成
+
+**3.5 计算功法加成**
+- 功法品质加成 + 熟练度加成
+
+**3.6 计算状态加成**
+- Σ(buff强度) - Σ(debuff强度)
+
+**3.7 考虑扩展因素**
+- 检查是否有大道、灵根、天赋等显著影响（值≥3）
+
+**3.8 获取骰点**
+- 从骰池获取1d20骰点
+
+**输出：**
+\`\`\`
+Calculation:
+  - 先天: 属性1×权重1+属性2×权重2+属性3×权重3 = [值]
+  - 后天: (属性1×权重1+属性2×权重2+属性3×权重3)÷5 = [值]
+  - 境界: [境界名] = [值]
+  - 装备: [值]
+  - 功法: [值]
+  - 状态: [值]
+  - 骰点: [值]
+  - **Total: [总和]**
+\`\`\`
+
+**示例：**
+修炼判定，先天悟性7/灵性6/心性5，后天悟性10/灵性8/心性6，炼气后期
+- 先天: 悟性7×0.5+灵性6×0.3+心性5×0.2 = 3.5+1.8+1 = 6.3 ≈ 6
+- 后天: (悟性10×0.5+灵性8×0.3+心性6×0.2)÷5 = 7.6÷5 = 1.5 ≈ 1
+- 境界: 炼气后期 = 5+4 = 9
+
+---
+
+## 步骤四：结果判定
+
+**思考：判定结果是什么？会产生什么后果？**
+- 比较判定值与难度
+- 检查是否有大失败（骰点1-2）或完美（骰点19-20）
+- 确定结果等级（大失败/失败/成功/大成功/完美）
+- 描述具体后果
+
+**如果是战斗判定：**
+- 计算伤害：(根骨+灵性)×境界系数+武器伤害
+- 计算防御减免
+- 确定实际伤害和剩余气血
+
+**输出：**
+\`\`\`
+Result: [判定值] vs [难度] → [结果] → [后果描述]
+\`\`\`
+
+---
+
+## 步骤五：数据更新
+
+**思考：需要更新哪些数据？根据判定结果检查以下所有可能的数据变化：**
+
+**角色状态变化：**
+- 气血/灵气/神识变化（战斗、修炼、使用技能）
+- 境界突破（修炼判定成功）
+- 后天六司提升（修炼、突破）
+- 声望变化（完成任务、社交互动）
+- 状态效果添加/移除（buff/debuff）
+- 位置变化（移动、传送）
+
+**背包与物品：**
+- **获得物品**：必须用 set 添加到背包.物品
+- **消耗物品**：必须用 add 减少数量或 delete 删除
+- **使用丹药**：减少数量 + 添加效果
+- **装备穿戴/卸下**：更新装备栏和物品的"已装备"字段
+- 灵石增减（奖励、消费）
+
+**三千大道：**
+- 大道经验增加（修炼、感悟）
+- 大道阶段突破
+- 解锁新大道
+
+**功法与技能：**
+- 功法修炼进度（背包.物品.{功法ID}.修炼进度）
+- 技能熟练度提升
+- 解锁新技能
+
+**人物关系（涉及NPC时）：**
+- **好感度变化**：社交互动、帮助、冲突
+- **NPC记忆添加**：重要互动必须记录
+- **NPC状态更新**：当前外貌状态、当前内心想法
+- **NPC境界更新**：如果剧情中NPC突破或境界变化，必须更新境界.名称和境界.阶段
+- **NPC位置变化**：如果NPC移动
+- **NPC背包变化**：交易、赠送物品
+
+**世界信息：**
+- **势力信息更新**：加入宗门、势力关系变化、声望变化
+- **地点信息添加**：发现新地点
+- **地图更新**：探索新区域
+
+**任务系统：**
+- 任务进度更新（目标列表.当前进度）
+- 任务状态变化（进行中→已完成）
+- 任务统计更新（完成总数）
+- 新任务添加
+
+**游戏时间：**
+- **必须推进时间**：所有判定都需要推进游戏时间.分钟
+
+**特殊情况：**
+- 身体部位开发（NSFW模式）
+- 叙事历史（重要事件）
+
+**输出：**
+\`\`\`
+Data Updates: [完整的tavern_commands列表，确保所有相关数据都已更新]
+\`\`\`
+
+---
+
+## 步骤六：叙事输出
+
+**思考：如何将判定结果融入叙事？**
+- 用描述性语言展现判定过程
+- 体现角色的努力和运气
+- 判定卡片作为数据补充
+- 保持沉浸感
+
+**输出格式：**
+\`\`\`
+[叙事描述]
+
+〖判定类型:结果,判定值:X,难度:Y(难度等级),骰点:Z,先天:A(来源),后天:B(来源),境界:C(来源),装备:D(来源),功法:E(来源),状态:F(来源)〗
+\`\`\`
+
+**格式说明：**
+- **难度**：必须带等级，如 "30(普通)" "50(困难)" "70(艰难)"
+  - ≤10: 极易 | ≤20: 简单 | ≤35: 普通 | ≤50: 困难 | ≤70: 艰难 | ≤90: 极难 | >90: 几乎不可能
+- **加成来源**：每个加成值后必须注明来源，如 "6(悟性7×0.5+灵性6×0.3+心性5×0.2)" "9(炼气后期)" "8(基础剑诀)"
+
+---
+
+**核心原则：**
+1. 判定触发要合理，日常行为不判定
+2. 难度设定要公平，考虑玩家实力
+3. 计算过程要透明，展示影响因素
+4. 结果要可预期，避免随意性
+5. 叙事与数据结合，保持沉浸感
 `.trim();

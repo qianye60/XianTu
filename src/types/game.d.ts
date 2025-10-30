@@ -465,8 +465,8 @@ export interface PlayerStatus extends AIMetadata {
   声望: number;
   位置: {
     描述: string;
-    x?: number; // 地图X坐标 (0-3600)
-    y?: number; // 地图Y坐标 (0-2400)
+    x?: number; // 经度坐标 (Longitude, 通常 100-115)
+    y?: number; // 纬度坐标 (Latitude, 通常 25-35)
   };
   气血: ValuePair<number>;
   灵气: ValuePair<number>;
@@ -748,8 +748,8 @@ export interface NpcProfile {
   好感度: number; // -100 到 100
   当前位置: {
     描述: string;
-    x?: number; // 地图X坐标 (0-3600)
-    y?: number; // 地图Y坐标 (0-2400)
+    x?: number; // 经度坐标 (Longitude, 通常 100-115)
+    y?: number; // 纬度坐标 (Latitude, 通常 25-35)
   };
   势力归属?: string;
 
