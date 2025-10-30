@@ -1,5 +1,4 @@
 import { cotCorePrompt } from './cot/cotCore';
-import { FORBIDDEN_WORDS_RULES } from './definitions/coreRules';
 import * as coreRules from './definitions/coreRules';
 import * as businessRules from './definitions/businessRules';
 import * as textFormats from './definitions/textFormats';
@@ -8,7 +7,6 @@ import { SAVE_DATA_STRUCTURE, DATA_STRUCTURE_EXAMPLES } from './definitions/data
 
 // 导出常用的规则常量
 export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
-export { PLAYER_INTENT_AND_JUDGMENT_RULES } from './definitions/businessRules';
 
 /**
  * 组装最终的系统Prompt
@@ -17,18 +15,22 @@ export { PLAYER_INTENT_AND_JUDGMENT_RULES } from './definitions/businessRules';
  */
 export function assembleSystemPrompt(activePrompts: string[]): string {
   const promptSections = [
-    FORBIDDEN_WORDS_RULES,
-    Object.values(coreRules).join('\n\n'),
-    Object.values(businessRules).join('\n\n'),
+    // 核心规则（JSON格式、响应格式、数据结构严格性）
+    Object.values(coreRules).filter(rule => typeof rule === 'string').join('\n\n'),
+    // 业务规则（境界系统、三千大道、NPC规则、NSFW规则）
+    Object.values(businessRules).filter(rule => typeof rule === 'string').join('\n\n'),
+    // 数据结构定义
     SAVE_DATA_STRUCTURE,
     DATA_STRUCTURE_EXAMPLES,
+    // 文本格式与命名
     Object.values(textFormats).join('\n\n'),
+    // 世界设定参考
     Object.values(worldStandards).join('\n\n'),
   ];
 
   // 根据激活列表来添加可选模块
   if (activePrompts.includes('cot')) {
-    promptSections.unshift(cotCorePrompt); // 将COT放在最前面
+    promptSections.push(cotCorePrompt); // 将COT放在最后面
   }
 
   return promptSections.join('\n\n---\n\n');

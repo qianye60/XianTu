@@ -1527,7 +1527,7 @@ const refreshData = async () => {
 
     // 重新加载当前游戏到 gameStateStore
     const gameStateStore = useGameStateStore();
-    const currentSaveData = characterStore.currentSaveData;
+    const currentSaveData = gameStateStore.getCurrentSaveData();
     if (currentSaveData) {
       gameStateStore.loadFromSaveData(currentSaveData);
       debug.log('人物详情', '已同步最新数据到 gameStateStore');

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, shallowRef, type Component } from 'vue';
 
 interface RetryDialogConfig {
   title: string;
@@ -14,7 +14,9 @@ interface RetryDialogConfig {
 
 interface DetailModalConfig {
   title: string;
-  content: string;
+  content?: string; // Keep for backward compatibility
+  component?: Component;
+  props?: Record<string, any>;
 }
 
 // Toast 类型定义
@@ -47,6 +49,8 @@ export const useUIStore = defineStore('ui', () => {
   const showDetailModalState = ref(false);
   const detailModalTitle = ref('');
   const detailModalContent = ref('');
+  const detailModalComponent = shallowRef<Component | null>(null);
+  const detailModalProps = ref<Record<string, any> | null>(null);
 
   // --- 新增：数据验证错误弹窗状态 ---
   const showDataValidationError = ref(false);
@@ -232,7 +236,9 @@ export const useUIStore = defineStore('ui', () => {
   // --- 新增：通用详情弹窗方法 ---
   function showDetailModal(config: DetailModalConfig) {
     detailModalTitle.value = config.title;
-    detailModalContent.value = config.content;
+    detailModalContent.value = config.content || '';
+    detailModalComponent.value = config.component || null;
+    detailModalProps.value = config.props || null;
     showDetailModalState.value = true;
   }
 
@@ -242,6 +248,8 @@ export const useUIStore = defineStore('ui', () => {
     setTimeout(() => {
       detailModalTitle.value = '';
       detailModalContent.value = '';
+      detailModalComponent.value = null;
+      detailModalProps.value = null;
     }, 300); // Match transition duration
   }
 
@@ -326,6 +334,8 @@ export const useUIStore = defineStore('ui', () => {
     showDetailModalState,
     detailModalTitle,
     detailModalContent,
+    detailModalComponent,
+    detailModalProps,
     showDetailModal,
     hideDetailModal,
   };

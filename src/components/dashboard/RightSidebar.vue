@@ -195,6 +195,7 @@ import { computed, ref } from 'vue';
 import { Activity, Sparkles, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
 import { LOCAL_TALENTS } from '@/data/creationData';
 import DetailModal from '@/components/common/DetailModal.vue';
+import StatusDetailCard from './components/StatusDetailCard.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import type { StatusEffect } from '@/types/game.d.ts';
@@ -328,89 +329,10 @@ const showTalentDetail = (talent: string) => {
 
 // 显示状态效果详情
 const showStatusDetail = (effect: StatusEffect) => {
-  const descriptionText = effect.状态描述 || `${effect.状态名称}状态生效中`;
-  const isBuff = String(effect.类型).toLowerCase() === 'buff';
-
-  // 构建详情HTML - 紧凑优化版
-  let htmlContent = `
-    <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-      <!-- 状态类型标识 - 紧凑版 -->
-      <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.65rem; border-radius: 6px; background: ${isBuff ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; border: 1px solid ${isBuff ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; align-self: flex-start;">
-        <span style="font-size: 1rem; line-height: 1;">${isBuff ? '✨' : '⚠️'}</span>
-        <span style="font-size: 0.8rem; font-weight: 600; color: ${isBuff ? '#10b981' : '#ef4444'};">${isBuff ? '增益状态' : '负面状态'}</span>
-      </div>
-
-      <!-- 状态描述 - 极简版 -->
-      <div style="padding: 0.5rem 0.65rem; background: var(--color-surface-light); border-radius: 6px; border-left: 2px solid ${isBuff ? '#10b981' : '#ef4444'};">
-        <div style="line-height: 1.4; color: var(--color-text); font-size: 0.8rem;">${descriptionText}</div>
-      </div>
-
-      <!-- 详细信息网格 -->
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-  `;
-
-  // 来源信息
-  if (effect.来源) {
-    htmlContent += `
-      <div style="padding: 0.65rem; background: var(--color-surface); border-radius: 8px; border: 1px solid var(--color-border);">
-        <div style="font-size: 0.65rem; color: var(--color-text-muted); margin-bottom: 0.35rem; font-weight: 500;">来源</div>
-        <div style="font-size: 0.85rem; font-weight: 600; color: var(--color-accent);">${effect.来源}</div>
-      </div>
-    `;
-  }
-
-  // 强度信息
-  if (effect.强度) {
-    const strengthLevel = effect.强度 >= 8 ? '极强' : effect.强度 >= 5 ? '中等' : '轻微';
-    const strengthColor = effect.强度 >= 8 ? '#f59e0b' : effect.强度 >= 5 ? '#3b82f6' : '#6b7280';
-    htmlContent += `
-      <div style="padding: 0.65rem; background: var(--color-surface); border-radius: 8px; border: 1px solid var(--color-border);">
-        <div style="font-size: 0.65rem; color: var(--color-text-muted); margin-bottom: 0.35rem; font-weight: 500;">效果强度</div>
-        <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;">
-          <span style="font-size: 0.9rem; font-weight: 700; color: ${strengthColor};">${strengthLevel}</span>
-          <span style="font-size: 0.7rem; color: var(--color-text-secondary);">(${effect.强度}/10)</span>
-        </div>
-        <div style="height: 4px; background: var(--color-surface-light); border-radius: 2px; overflow: hidden;">
-          <div style="height: 100%; width: ${effect.强度 * 10}%; background: ${strengthColor}; transition: width 0.3s ease;"></div>
-        </div>
-      </div>
-    `;
-  }
-
-  // 持续时间信息
-  const durationMinutes = effect.持续时间分钟;
-  if (durationMinutes) {
-    const durationDisplay = durationMinutes === 99999 ? '永久' :
-                           durationMinutes >= 1440 ? `${Math.floor(durationMinutes / 1440)}天` :
-                           durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}时${durationMinutes % 60 > 0 ? durationMinutes % 60 + '分' : ''}` :
-                           `${durationMinutes}分钟`;
-    htmlContent += `
-      <div style="padding: 0.65rem; background: var(--color-surface); border-radius: 8px; border: 1px solid var(--color-border);">
-        <div style="font-size: 0.65rem; color: var(--color-text-muted); margin-bottom: 0.35rem; font-weight: 500;">持续时间</div>
-        <div style="font-size: 0.85rem; font-weight: 600; color: var(--color-primary);">${durationDisplay}</div>
-      </div>
-    `;
-  }
-
-  // 生成时间信息
-  const genTime = effect.生成时间;
-  if (genTime) {
-    htmlContent += `
-      <div style="padding: 0.65rem; background: var(--color-surface); border-radius: 8px; border: 1px solid var(--color-border);">
-        <div style="font-size: 0.65rem; color: var(--color-text-muted); margin-bottom: 0.35rem; font-weight: 500;">生成时间</div>
-        <div style="font-size: 0.75rem; font-weight: 500; color: var(--color-text);">${genTime.年}年${genTime.月}月${genTime.日}日 ${String(genTime.小时).padStart(2, '0')}:${String(genTime.分钟).padStart(2, '0')}</div>
-      </div>
-    `;
-  }
-
-  htmlContent += `
-      </div>
-    </div>
-  `;
-
   uiStore.showDetailModal({
     title: effect.状态名称,
-    content: htmlContent
+    component: StatusDetailCard,
+    props: { effect }
   });
 };
 

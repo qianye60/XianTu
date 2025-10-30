@@ -13,7 +13,8 @@ import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商�
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
-import { DATA_STRUCTURE_DEFINITIONS, PLAYER_INTENT_AND_JUDGMENT_RULES, assembleSystemPrompt } from './prompts/promptAssembler';
+import { DATA_STRUCTURE_DEFINITIONS, assembleSystemPrompt } from './prompts/promptAssembler';
+import { cotCorePrompt } from './prompts/cot/cotCore';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 import { rollD20 } from './diceRoller';
@@ -130,7 +131,7 @@ class AIBidirectionalSystemClass {
       const stateJsonString = JSON.stringify(stateForAI);
 
       const systemPrompt = `
-${assembleSystemPrompt(['cot'])}
+${assembleSystemPrompt([])}
 
 ${coreStatusSummary}
 
@@ -146,11 +147,10 @@ ${stateJsonString}
       console.log(`[骰子系统] 本回合骰点: ${diceRoll}`);
 
       // 构建注入消息列表
-      // 注意：使用 assistant 角色而不是 system，避免中转API忽略
-      const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
+      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'before' }> = [
         {
           content: systemPrompt,
-          role: 'assistant',
+          role: 'user',
           depth: 1,
           position: 'before',
         }
@@ -166,6 +166,14 @@ ${stateJsonString}
         });
       }
 
+      // 🔥 添加 CoT 提示词（放在最后，确保 AI 在输出前进行思维链分析）
+      injects.push({
+        content: cotCorePrompt,
+        role: 'system',
+        depth: 0,
+        position: 'before',
+      });
+
       // 🎲 添加骰点信息到用户输入
       const userInputWithDice = `${userActionForAI}\n\n【系统骰点】本回合骰点: ${diceRoll} (1d20)`;
 
@@ -177,7 +185,7 @@ ${stateJsonString}
         user_input: userInputWithDice,
         should_stream: useStreaming,
         generation_id: generationId,
-        injects,
+        injects: injects as any,
       });
 
       // 流式传输通过事件系统在 MainGamePanel 中处理
@@ -291,10 +299,10 @@ ${stateJsonString}
 
       // 🔥 [重构] 使用标准 generate() 方法，不再使用 generateRaw()
       // 构建注入消息列表
-      const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
+      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'before' }> = [
         {
           content: systemPrompt,
-          role: 'assistant',
+          role: 'user',
           depth: 1,
           position: 'before',
         }
@@ -496,9 +504,12 @@ ${stateJsonString}
       return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() } };
     }
 
+    // 🔥 新增：预处理指令以修复常见的AI错误
+    const preprocessedCommands = this._preprocessCommands(response.tavern_commands);
+
     // 🔥 验证并清理指令格式
     const { validateCommands, cleanCommands } = await import('./commandValidator');
-    const validation = validateCommands(response.tavern_commands);
+    const validation = validateCommands(preprocessedCommands);
 
     if (!validation.valid) {
       console.error('[AI双向系统] 指令格式验证失败:', validation.errors);
@@ -525,7 +536,7 @@ ${stateJsonString}
     }
 
     // 清理指令，移除多余字段
-    const cleanedCommands = cleanCommands(response.tavern_commands);
+    const cleanedCommands = cleanCommands(preprocessedCommands);
 
     for (const command of cleanedCommands) {
       try {
@@ -571,66 +582,6 @@ ${stateJsonString}
     return { saveData, stateChanges: stateChangesLog };
   }
 
-  /**
-   * 对记忆内容进行净化处理，替换敏感词汇为委婉表达
-   * 避免触发API的内容审核
-   */
-  private sanitizeMemoryContent(content: string): string {
-    // 定义敏感词汇映射表（使用委婉的古典文学表达）
-    const replacements: Record<string, string> = {
-      // 身体部位
-      '乳房': '酥胸',
-      '胸部': '玉峰',
-      '乳头': '红梅',
-      '下体': '私密之处',
-      '阴部': '花径',
-      '阴道': '幽谷',
-      '小穴': '花心',
-      '阴茎': '玉茎',
-      '龟头': '龙首',
-
-      // 动作描述
-      '做爱': '云雨之欢',
-      '性交': '鱼水之欢',
-      '交合': '阴阳交融',
-      '插入': '深入',
-      '抽插': '律动',
-      '射精': '释放',
-      '高潮': '巅峰',
-      '爱液': '琼浆',
-      '精液': '精华',
-
-      // 状态描述
-      '湿润': '润泽',
-      '勃起': '昂扬',
-      '淫荡': '妩媚',
-      '淫乱': '放纵',
-      '色情': '情欲',
-      '性欲': '欲望',
-      '发情': '春心萌动',
-
-      // 其他
-      '处女': '完璧之身',
-      '破处': '初次',
-      '失身': '献身',
-      '春药': '迷情之物',
-      '媚药': '情药'
-    };
-
-    let sanitized = content;
-
-    // 执行替换
-    for (const [sensitive, elegant] of Object.entries(replacements)) {
-      const regex = new RegExp(sensitive, 'g');
-      sanitized = sanitized.replace(regex, elegant);
-    }
-
-    // 移除过于露骨的描述（使用正则匹配并替换为概括性描述）
-    sanitized = sanitized.replace(/详细描述了.*?过程/g, '发生了亲密接触');
-    sanitized = sanitized.replace(/具体.*?细节/g, '相关情况');
-
-    return sanitized;
-  }
 
   /**
    * 触发记忆总结（公开方法，带锁）
@@ -727,20 +678,18 @@ ${stateJsonString}
 
       const systemPrompt = longTermFormat || defaultPrompt;
 
-      // 对记忆内容进行预处理，替换敏感词汇为委婉表达
-      const sanitizedMemoriesText = this.sanitizeMemoryContent(memoriesText);
 
-      const userPrompt = `请总结以下中期记忆：\n\n${sanitizedMemoriesText}`;
+      const userPrompt = `请总结以下中期记忆：\n\n${memoriesText}`;
 
       // 5. 调用 AI - 使用标准generate而非generateRaw
       const tavernHelper = getTavernHelper();
       if (!tavernHelper) throw new Error('TavernHelper 未初始化');
 
       // 构建注入消息
-      const injects: Array<{ content: string; role: 'system' | 'assistant'; depth: number; position: 'before' }> = [
+      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'before' }> = [
         {
           content: systemPrompt,
-          role: 'assistant',
+          role: 'user',
           depth: 1,
           position: 'before',
         }
@@ -820,6 +769,33 @@ ${stateJsonString}
       this.isSummarizing = false;
       console.log('[AI双向系统] 记忆总结流程结束，已释放锁。');
     }
+  }
+
+  private _preprocessCommands(commands: any[]): any[] {
+    if (!Array.isArray(commands)) return [];
+
+    return commands.map(cmd => {
+      if (cmd && typeof cmd === 'object') {
+        // 修复: AI推送一个字符串而不是物品对象到物品栏
+        if (cmd.action === 'push' && cmd.key === '背包.物品' && typeof cmd.value === 'string') {
+          console.warn(`[AI双向系统] 预处理: 将字符串物品 "${cmd.value}" 转换为对象。`);
+          const itemName = cmd.value;
+          // 返回一个结构化的新指令值
+          return {
+            ...cmd,
+            value: {
+              物品ID: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              名称: itemName,
+              类型: '杂物', // 默认类型
+              品质: { quality: '凡品', grade: 0 }, // 默认品质
+              数量: 1,
+              描述: `一个普通的${itemName}。`
+            }
+          };
+        }
+      }
+      return cmd;
+    });
   }
 
   private executeCommand(command: { action: string; key: string; value?: unknown }, saveData: SaveData): void {

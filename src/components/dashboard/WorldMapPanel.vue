@@ -169,132 +169,9 @@
                 @mouseenter="onLocationHover(location)"
                 @mouseleave="onLocationLeave"
               >
-                <!-- 地点类型图标 -->
-                <g class="location-icon-group">
-                  <!-- ⛰️ 名山大川 -->
-                  <g v-if="location.type === 'natural_landmark'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Mountain :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- 🏛️ 宗门势力 -->
-                  <g v-else-if="location.type === 'sect_power'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Building2 :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- 🏮 城镇坊市 -->
-                  <g v-else-if="location.type === 'city_town'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Home :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- ⛩️ 洞天福地 -->
-                  <g v-else-if="location.type === 'blessed_land'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Sparkles :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- 💰 奇珍异地 -->
-                  <g v-else-if="location.type === 'treasure_land'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Gem :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- ☠️ 凶险之地 -->
-                  <g v-else-if="location.type === 'dangerous_area'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Skull :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- 🌟 其他特殊 -->
-                  <g v-else-if="location.type === 'special_other'">
-                    <foreignObject 
-                      :x="-getIconSize(location.type).offset" 
-                      :y="-getIconSize(location.type).offset" 
-                      :width="getIconSize(location.type).size" 
-                      :height="getIconSize(location.type).size"
-                    >
-                      <div 
-                        style="display: flex; align-items: center; justify-content: center;" 
-                        :style="{ width: getIconSize(location.type).size + 'px', height: getIconSize(location.type).size + 'px' }"
-                      >
-                        <Zap :size="getIconSize(location.type).size - 4" :color="location.iconColor" />
-                      </div>
-                    </foreignObject>
-                  </g>
-
-                  <!-- 默认图标 -->
-                  <g v-else>
-                    <circle :r="getIconSize('default').offset - 2" :fill="location.iconColor" stroke="white" stroke-width="1"/>
-                    <text class="location-icon-text" text-anchor="middle" dy="2" fill="white" font-size="10px">?</text>
-                  </g>
+                <!-- 地点类型图标 (使用纯SVG组件) -->
+                <g class="location-icon-group" :transform="`scale(${getIconSize(location.type).size / 24})`">
+                  <MapIcon :type="location.type" :color="location.iconColor || '#6B7280'" />
                 </g>
 
                 <!-- 地点名称标签 -->
@@ -426,6 +303,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { Target, Maximize2, Mountain, Building2, Home, Sparkles, Gem, Skull, Zap } from 'lucide-vue-next';
+import MapIcon from './components/MapIcon.vue';
 import { toast } from '@/utils/toast';
 import type { WorldLocation } from '@/types/location';
 import type { CultivationContinent, WorldMapConfig } from '@/types/worldMap';
@@ -555,7 +433,7 @@ const playerPosition = computed(() => {
   }
 
   // 兼容旧数据：经度/纬度字段
-  const loc = location as any;
+  const loc = location as { 经度?: number; 纬度?: number };
   if (loc.经度 !== undefined && loc.纬度 !== undefined) {
     const virtualPos = geoToVirtual(loc.经度, loc.纬度);
     console.log('[玩家定位] 从经纬度转换坐标:', virtualPos);
@@ -589,40 +467,36 @@ const startPan = (event: MouseEvent) => {
 const handlePan = (event: MouseEvent) => {
   if (!isPanning.value) return;
 
-  const deltaX = event.clientX - lastPanPoint.value.x;
-  const deltaY = event.clientY - lastPanPoint.value.y;
+  const pan = () => {
+    const deltaX = event.clientX - lastPanPoint.value.x;
+    const deltaY = event.clientY - lastPanPoint.value.y;
 
-  // 累计拖拽距离
-  dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
+    dragDistance.value += Math.abs(deltaX) + Math.abs(deltaY);
 
-  // 计算新的平移位置
-  const newPanX = panX.value + deltaX;
-  const newPanY = panY.value + deltaY;
+    const newPanX = panX.value + deltaX;
+    const newPanY = panY.value + deltaY;
 
-  // 计算平移边界限制
-  const containerRect = mapContainer.value?.getBoundingClientRect();
-  if (containerRect) {
-    // 计算地图在当前缩放下的实际尺寸
-    const scaledMapWidth = mapWidth.value * zoomLevel.value;
-    const scaledMapHeight = mapHeight.value * zoomLevel.value;
-    
-    // 计算允许的平移范围
-    // 当地图比容器小时，限制平移使地图不会完全移出视野
-    const minPanX = Math.min(0, containerRect.width - scaledMapWidth);
-    const maxPanX = Math.max(0, containerRect.width - scaledMapWidth);
-    const minPanY = Math.min(0, containerRect.height - scaledMapHeight);
-    const maxPanY = Math.max(0, containerRect.height - scaledMapHeight);
-    
-    // 应用边界限制
-    panX.value = Math.max(minPanX, Math.min(maxPanX, newPanX));
-    panY.value = Math.max(minPanY, Math.min(maxPanY, newPanY));
-  } else {
-    // 如果无法获取容器信息，则不限制平移
-    panX.value = newPanX;
-    panY.value = newPanY;
-  }
+    const containerRect = mapContainer.value?.getBoundingClientRect();
+    if (containerRect) {
+      const scaledMapWidth = mapWidth.value * zoomLevel.value;
+      const scaledMapHeight = mapHeight.value * zoomLevel.value;
+      
+      const minPanX = Math.min(0, containerRect.width - scaledMapWidth);
+      const maxPanX = Math.max(0, containerRect.width - scaledMapWidth);
+      const minPanY = Math.min(0, containerRect.height - scaledMapHeight);
+      const maxPanY = Math.max(0, containerRect.height - scaledMapHeight);
+      
+      panX.value = Math.max(minPanX, Math.min(maxPanX, newPanX));
+      panY.value = Math.max(minPanY, Math.min(maxPanY, newPanY));
+    } else {
+      panX.value = newPanX;
+      panY.value = newPanY;
+    }
 
-  lastPanPoint.value = { x: event.clientX, y: event.clientY };
+    lastPanPoint.value = { x: event.clientX, y: event.clientY };
+  };
+
+  requestAnimationFrame(pan);
 };
 
 const endPan = () => {
@@ -1367,7 +1241,7 @@ const loadFactionsData = async () => {
           const territoryData = factionObj.势力范围 || factionObj.territory_bounds || factionObj.territoryBounds;
           if (territoryData && Array.isArray(territoryData) && territoryData.length >= 3) {
             const converted: { x: number; y: number }[] = [];
-            territoryData.forEach((point: any) => {
+            territoryData.forEach((point: { x: number; y: number }) => {
               const x = Number(point?.x);
               const y = Number(point?.y);
               if (Number.isFinite(x) && Number.isFinite(y)) {
@@ -1474,7 +1348,7 @@ const loadLocationsData = async () => {
           if (locationObj.coordinates && typeof locationObj.coordinates === 'object' && 'x' in locationObj.coordinates) {
             // WorldLocation中的coordinates字段：{ coordinates: { x, y } }
             const coords = locationObj.coordinates as LngLat;
-            coordinates = geoToVirtual(Number((coords as any).x), Number((coords as any).y));
+            coordinates = geoToVirtual(Number(coords.x), Number(coords.y));
             console.log(`🏯 [地点加载] 使用coordinates字段加载地点: ${locationObj.名称 || locationObj.name}`, locationObj.coordinates);
           } else if (locationObj.位置 && typeof locationObj.位置 === 'object' && 'x' in locationObj.位置) {
             // 新格式：{ 位置: { x, y } }

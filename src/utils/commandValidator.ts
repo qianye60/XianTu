@@ -205,6 +205,20 @@ function validateValueType(key: string, value: unknown, action: string): string[
     }
   }
 
+  // 物品对象 (push to inventory)
+  if (key === '背包.物品' && action === 'push') {
+    if (typeof value !== 'object' || value === null) {
+      errors.push('推送到 背包.物品 的物品必须是对象类型');
+    } else {
+      const val = value as Record<string, any>;
+      const required = ['物品ID', '名称', '类型', '品质', '数量', '描述'];
+      const missing = required.filter(f => !(f in val));
+      if (missing.length > 0) {
+        errors.push(`物品对象缺少必需字段: ${missing.join(', ')}`);
+      }
+    }
+  }
+
   // 物品对象
   if (key.startsWith('背包.物品.') && action === 'set' && !key.includes('.数量') && !key.includes('.修炼进度')) {
     if (typeof value !== 'object' || value === null) {

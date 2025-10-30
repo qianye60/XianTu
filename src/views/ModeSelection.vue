@@ -14,7 +14,11 @@
 
       <div class="gate-container">
         <!-- Left Gate: Single Player -->
-        <div class="gate-card left-gate" @click="selectPath('single')">
+        <div
+          class="gate-card left-gate"
+          :class="{ selected: selectedMode === 'single' }"
+          @click="selectPath('single')"
+        >
           <div class="gate-icon">
             <!-- Icon: 独修闭关 -->
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -54,7 +58,19 @@
       </div>
 
       <div class="footer-actions">
-        <button class="scroll-btn" @click="enterCharacterSelection">
+        <!-- 新的开始游戏按钮容器 -->
+        <div v-if="selectedMode" class="start-actions-container">
+          <button class="action-btn primary" @click="startNewGame">
+            <Sparkles :size="20" />
+            <span>初 入 仙 途</span>
+          </button>
+          <button class="action-btn" @click="enterCharacterSelection">
+            <History :size="20" />
+            <span>续 前 世 因 缘</span>
+          </button>
+        </div>
+        <!-- 之前的按钮，现在只在未选择模式时显示 -->
+        <button v-else class="scroll-btn" @click="enterCharacterSelection">
           <span>续 前 世 因 缘</span>
         </button>
       </div>
@@ -105,7 +121,7 @@ import { ref, onMounted, computed } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
 import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
-import { Settings, X } from 'lucide-vue-next';
+import { Settings, X, Sparkles, History } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { AUTH_CONFIG } from '@/config/authConfig';
 import { toast } from '@/utils/toast';
@@ -113,6 +129,7 @@ import { generateMachineCode } from '@/utils/machineCode';
 
 const showSettings = ref(false);
 const showAuthModal = ref(false);
+const selectedMode = ref<'single' | 'cloud' | null>(null);
 
 // 使用 ref 而不是 computed，以便手动更新
 const isAuthorized = ref(localStorage.getItem('auth_verified') === 'true');
@@ -144,45 +161,12 @@ onMounted(async () => {
   // 检查授权状态
   checkAuthStatus();
 
-  // 如果启用授权验证且本地未授权，尝试服务器验证
-  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
-    try {
-      const machineCode = await generateMachineCode();
-      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check',
-          app_id: AUTH_CONFIG.APP_ID,
-          machine_code: machineCode
-        })
-      });
-
-      const result = await response.json();
-
-      // 如果服务器验证通过，自动保存验证状态
-      if (result.success && result.data?.authorized) {
-        console.log('[页面加载] 服务器验证通过，自动授权');
-        localStorage.setItem('auth_verified', 'true');
-        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-        localStorage.setItem('auth_machine_code', machineCode);
-        if (result.data.expires_at) {
-          localStorage.setItem('auth_expires_at', result.data.expires_at);
-        }
-        checkAuthStatus();
-        return; // 验证通过，不弹窗
-      }
-    } catch (error) {
-      console.warn('[页面加载] 服务器验证失败', error);
-    }
-
-    // 服务器验证失败，且设置了自动弹窗，则弹出验证窗口
-    if (AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
-      setTimeout(() => {
-        showAuthModal.value = true;
-        toast.info('请先完成授权验证');
-      }, 1000);
-    }
+  // 如果启用授权验证且本地未授权，弹出验证窗口
+  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value && AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
+    setTimeout(() => {
+      showAuthModal.value = true;
+      toast.info('请先完成授权验证');
+    }, 1000);
   }
 });
 
@@ -193,7 +177,6 @@ const emit = defineEmits<{
 
 const uiStore = useUIStore();
 const selectPath = (mode: 'single' | 'cloud') => {
-
   // 全局封锁联机模式
   if (mode === 'cloud') {
     uiStore.showRetryDialog({
@@ -207,46 +190,23 @@ const selectPath = (mode: 'single' | 'cloud') => {
     return;
   }
 
-  emit('start-creation', mode);
+  // 如果重复点击，则取消选择
+  if (selectedMode.value === mode) {
+    selectedMode.value = null;
+  } else {
+    selectedMode.value = mode;
+  }
+};
+
+const startNewGame = () => {
+  if (selectedMode.value) {
+    emit('start-creation', selectedMode.value);
+  }
 };
 
 const enterCharacterSelection = async () => {
-  // 如果启用授权验证且本地未授权，先尝试服务器验证
+  // 如果启用授权验证且本地未授权，提示用户验证
   if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
-    try {
-      // 尝试向服务器验证
-      const machineCode = await generateMachineCode();
-      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check',
-          app_id: AUTH_CONFIG.APP_ID,
-          machine_code: machineCode
-        })
-      });
-
-      const result = await response.json();
-
-      // 如果服务器验证通过，自动保存验证状态
-      if (result.success && result.data?.authorized) {
-        console.log('[授权检查] 服务器验证通过，自动授权');
-        localStorage.setItem('auth_verified', 'true');
-        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-        localStorage.setItem('auth_machine_code', machineCode);
-        if (result.data.expires_at) {
-          localStorage.setItem('auth_expires_at', result.data.expires_at);
-        }
-        checkAuthStatus();
-        toast.success('授权验证通过');
-        emit('show-character-list');
-        return;
-      }
-    } catch (error) {
-      console.warn('[授权检查] 服务器验证失败', error);
-    }
-
-    // 服务器验证失败，提示用户手动验证
     showAuthModal.value = true;
     toast.warning('请先完成授权验证');
     return;
@@ -269,7 +229,11 @@ const handleAuthClick = () => {
       onConfirm: async () => {
         try {
           // 调用服务器解绑接口
-          const machineCode = await generateMachineCode();
+          const machineCode = localStorage.getItem('auth_machine_code');
+          if (!machineCode) {
+            toast.error('未找到机器码');
+            return;
+          }
           const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -319,42 +283,9 @@ const handleAuthClick = () => {
 // 授权验证成功
 const handleAuthVerified = async (data: any) => {
   console.log('[授权验证] 兑换成功', data);
-
-  // 兑换成功后，立即调用 check 接口验证授权状态
-  try {
-    const machineCode = await generateMachineCode();
-    const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'check',
-        app_id: AUTH_CONFIG.APP_ID,
-        machine_code: machineCode
-      })
-    });
-
-    const result = await response.json();
-
-    if (result.success && result.data?.authorized) {
-      console.log('[授权验证] check 验证通过');
-      localStorage.setItem('auth_verified', 'true');
-      localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-      localStorage.setItem('auth_machine_code', machineCode);
-      if (result.data.expires_at) {
-        localStorage.setItem('auth_expires_at', result.data.expires_at);
-      }
-
-      // 立即更新授权状态
-      checkAuthStatus();
-      toast.success('授权验证成功！');
-      showAuthModal.value = false;
-    } else {
-      toast.error('授权验证失败，请重试');
-    }
-  } catch (error) {
-    console.error('[授权验证] check 请求失败', error);
-    toast.error('授权验证失败，请检查网络');
-  }
+  checkAuthStatus();
+  toast.success('授权验证成功！');
+  showAuthModal.value = false;
 };
 
 // 授权验证取消
@@ -492,6 +423,13 @@ const handleAuthCancel = () => {
   background: var(--color-surface);
 }
 
+.gate-card.selected {
+  transform: translateY(-10px) scale(1.03);
+  border-color: var(--color-accent);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25), 0 0 25px rgba(var(--color-accent-rgb), 0.4);
+  background: var(--color-surface);
+}
+
 .gate-card.disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -587,13 +525,88 @@ const handleAuthCancel = () => {
   align-items: center;
   gap: 1rem;
   margin-top: 1rem; /* 减少顶部间距 */
+  width: 100%;
+}
+
+.start-actions-container {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  animation: fadeIn 0.5s ease-out;
+  width: 100%;
+  max-width: 500px; /* 限制最大宽度 */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-surface-transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-serif);
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  padding: 0.8rem 1.5rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
+  transform: translateY(-2px);
+}
+
+.action-btn.primary {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.4);
+}
+
+.action-btn.primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--color-text-on-primary);
+  box-shadow: 0 0 25px rgba(var(--color-primary-rgb), 0.6);
 }
 
 
 @media (max-width: 640px) {
   .footer-actions {
-    margin-top: 1.5rem;
+    margin-top: 1rem; /* 统一间距 */
   }
+
+  .start-actions-container {
+    flex-direction: column;
+    width: 100%;
+    max-width: 350px;
+  }
+
+  .action-btn {
+    font-size: 0.95rem;
+    padding: 0.9rem 1.5rem;
+    letter-spacing: 0.2em;
+  }
+
   .mode-selection-container {
     padding: 1rem;
     height: auto;
@@ -611,7 +624,7 @@ const handleAuthCancel = () => {
     /* 隐藏滚动条但保持滚动功能 */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
-    gap: 1.5rem;
+    gap: 1rem; /* 减少元素间距 */
   }
 
   /* 移动端也隐藏滚动条 */
@@ -624,7 +637,7 @@ const handleAuthCancel = () => {
   }
 
   .header-container {
-    margin-bottom: 2rem;
+    margin-bottom: 1rem; /* 减少间距 */
     flex-shrink: 0;
   }
 
@@ -643,7 +656,7 @@ const handleAuthCancel = () => {
   .gate-container {
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem; /* 减少间距 */
     flex-shrink: 0;
   }
 
@@ -658,7 +671,7 @@ const handleAuthCancel = () => {
   }
 
   .privacy-notice {
-    margin-top: 1.5rem;
+    margin-top: 1rem; /* 减少间距 */
     padding: 1rem;
     max-width: 100%;
     flex-shrink: 0;
@@ -669,7 +682,7 @@ const handleAuthCancel = () => {
   }
 
   .scroll-btn {
-    margin-top: 1.5rem;
+    margin-top: 1rem; /* 减少间距 */
     margin-bottom: 1rem;
     flex-shrink: 0;
     padding: 0.8rem 2rem;

@@ -141,7 +141,7 @@ export default (env, argv) => {
           });
         }
       } : null,
-      !isProduction && !isWatch ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
+      // !isProduction && !isWatch ? new TavernLiveReloadPlugin({ port: 6620 }) : null,
     ].filter(Boolean),
     devServer: {
       static: {

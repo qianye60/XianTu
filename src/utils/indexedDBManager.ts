@@ -357,7 +357,12 @@ export async function loadSaveData(
         const result = request.result;
         if (result && result.data) {
           console.log(`【乾坤宝库-IDB】SaveData 已加载 (${characterId}/${slotId})`);
-          resolve(result.data as SaveData);
+
+          // 🔥 自动修复存档数据格式问题
+          const saveData = result.data as SaveData;
+          const repaired = repairSaveDataOnLoad(saveData);
+
+          resolve(repaired);
         } else {
           console.warn(`【乾坤宝库-IDB】SaveData 不存在 (${characterId}/${slotId})`);
           resolve(null);
@@ -373,6 +378,62 @@ export async function loadSaveData(
     console.error('【乾坤宝库-IDB】加载 SaveData 时出错:', error);
     return null;
   }
+}
+
+/**
+ * 🔥 加载时自动修复存档数据
+ * @param saveData 原始存档数据
+ * @returns 修复后的存档数据
+ */
+function repairSaveDataOnLoad(saveData: SaveData): SaveData {
+  let hasChanges = false;
+  const repairedData = JSON.parse(JSON.stringify(saveData)) as SaveData;
+
+  // 1. 修复灵根品级格式（对象 -> 字符串）
+  if (repairedData.角色基础信息?.灵根 && typeof repairedData.角色基础信息.灵根 === 'object') {
+    const 灵根 = repairedData.角色基础信息.灵根 as any;
+    if (灵根.品级 && typeof 灵根.品级 === 'object' && 灵根.品级 !== null) {
+      const qualityObj = 灵根.品级;
+      let qualityName = qualityObj.quality || '';
+      if (qualityName && !qualityName.endsWith('品')) {
+        qualityName = `${qualityName}品`;
+      }
+      灵根.品级 = qualityName;
+      console.log(`【乾坤宝库-IDB】修复灵根品级: ${JSON.stringify(qualityObj)} -> "${qualityName}"`);
+      hasChanges = true;
+    }
+  }
+
+  // 2. 同步修复玩家角色状态中的灵根
+  const playerStatusAny = repairedData.玩家角色状态 as any;
+  if (playerStatusAny?.灵根 && typeof playerStatusAny.灵根 === 'object') {
+    const 灵根 = playerStatusAny.灵根;
+    if (灵根.品级 && typeof 灵根.品级 === 'object' && 灵根.品级 !== null) {
+      const qualityObj = 灵根.品级;
+      let qualityName = qualityObj.quality || '';
+      if (qualityName && !qualityName.endsWith('品')) {
+        qualityName = `${qualityName}品`;
+      }
+      灵根.品级 = qualityName;
+      hasChanges = true;
+    }
+  }
+
+  // 3. 确保灵根和出生在两处保持同步
+  if (repairedData.角色基础信息 && repairedData.玩家角色状态) {
+    if (repairedData.角色基础信息.灵根) {
+      (repairedData.玩家角色状态 as any).灵根 = repairedData.角色基础信息.灵根;
+    }
+    if (repairedData.角色基础信息.出生) {
+      (repairedData.玩家角色状态 as any).出生 = repairedData.角色基础信息.出生;
+    }
+  }
+
+  if (hasChanges) {
+    console.log('【乾坤宝库-IDB】✅ 存档数据已自动修复');
+  }
+
+  return repairedData;
 }
 
 /**

@@ -8,10 +8,6 @@
  * @returns 机器码字符串
  */
 export async function generateMachineCode(): Promise<string> {
-  // 如果已有缓存的机器码，直接使用
-  const cached = localStorage.getItem('auth_machine_code');
-  if (cached) return cached;
-
   // 优先使用统一机器码系统
   try {
     if (typeof (window as any).generateStableMachineCode === 'function') {

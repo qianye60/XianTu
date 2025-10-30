@@ -9,7 +9,14 @@
           </button>
         </div>
         <div class="modal-content">
-          <div v-html="uiStore.detailModalContent"></div>
+          <!-- Render component if provided -->
+          <component
+            v-if="uiStore.detailModalComponent"
+            :is="uiStore.detailModalComponent"
+            v-bind="uiStore.detailModalProps"
+          />
+          <!-- Fallback to HTML content -->
+          <div v-else v-html="uiStore.detailModalContent"></div>
         </div>
       </div>
     </div>

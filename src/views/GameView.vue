@@ -12,6 +12,13 @@
         </div>
       </div>
 
+      <!-- Mobile Overlay -->
+      <div
+        v-if="isMobile && (!leftSidebarCollapsed || !rightSidebarCollapsed)"
+        class="mobile-sidebar-overlay"
+        @click="closeSidebars"
+      ></div>
+
       <!-- 左侧收缩按钮 -->
       <button
         class="collapse-btn left"
@@ -162,6 +169,11 @@ const checkDeviceAndSetup = () => {
     leftSidebarCollapsed.value = true;
     rightSidebarCollapsed.value = true;
   }
+};
+
+const closeSidebars = () => {
+  leftSidebarCollapsed.value = true;
+  rightSidebarCollapsed.value = true;
 };
 
 // 面板状态管理
@@ -713,28 +725,15 @@ watch(isPanelOpen, (isOpen) => {
     box-sizing: border-box;
   }
 
-  /* 移动端背景遮罩层 - 改为在侧边栏后面，但不影响侧边栏本身 */
-  .left-sidebar:not(.collapsed)::before,
-  .right-panel-area:not(.collapsed)::before {
-    content: '';
+  /* 移动端背景遮罩层 */
+  .mobile-sidebar-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: -1; /* 在侧边栏后面 */
-    pointer-events: none; /* 不阻止点击事件 */
-  }
-
-  /* 左侧遮罩只在侧边栏右侧显示 */
-  .left-sidebar:not(.collapsed)::before {
-    left: 280px; /* 从侧边栏右边缘开始 */
-  }
-
-  /* 右侧遮罩只在侧边栏左侧显示 */
-  .right-panel-area:not(.collapsed)::before {
-    right: 260px; /* 从侧边栏左边缘开始 */
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999; /* Below sidebars (1000) but above everything else */
   }
 
   /* 移动端收缩按钮样式 - 参考电脑版样式 */

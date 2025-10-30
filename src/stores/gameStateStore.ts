@@ -151,6 +151,36 @@ export const useGameStateStore = defineStore('gameState', {
       this.character = saveData.角色基础信息 ? JSON.parse(JSON.stringify(saveData.角色基础信息)) : null;
       this.playerStatus = saveData.玩家角色状态 ? JSON.parse(JSON.stringify(saveData.玩家角色状态)) : null;
 
+      // 🔥 自动修复灵根品级格式
+      if (this.character?.灵根 && typeof this.character.灵根 === 'object') {
+        const 灵根 = this.character.灵根 as any;
+        if (灵根.品级 && typeof 灵根.品级 === 'object') {
+          const qualityObj = 灵根.品级;
+          let qualityName = qualityObj.quality || '';
+          if (qualityName && !qualityName.endsWith('品')) {
+            qualityName = `${qualityName}品`;
+          }
+          灵根.品级 = qualityName;
+          console.log('[GameState] 修复角色灵根品级格式');
+        }
+      }
+
+      if (this.playerStatus) {
+        const playerStatusAny = this.playerStatus as any;
+        if (playerStatusAny.灵根 && typeof playerStatusAny.灵根 === 'object') {
+          const 灵根 = playerStatusAny.灵根;
+          if (灵根.品级 && typeof 灵根.品级 === 'object') {
+            const qualityObj = 灵根.品级;
+            let qualityName = qualityObj.quality || '';
+            if (qualityName && !qualityName.endsWith('品')) {
+              qualityName = `${qualityName}品`;
+            }
+            灵根.品级 = qualityName;
+            console.log('[GameState] 修复玩家状态灵根品级格式');
+          }
+        }
+      }
+
       // 确保角色基础信息和玩家角色状态中的灵根、出生保持同步
       if (this.character && this.playerStatus) {
         if (this.character.灵根) (this.playerStatus as any).灵根 = this.character.灵根;

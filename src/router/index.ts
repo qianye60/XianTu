@@ -151,15 +151,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 如果启用了授权验证
   if (AUTH_CONFIG.ENABLE_AUTH) {
-    const localVerified = localStorage.getItem('auth_verified') === 'true';
-
-    // 如果本地已验证，直接通过
-    if (localVerified) {
-      next();
-      return;
-    }
-
-    // 如果本地未验证，尝试向服务器验证（检查IP/MAC是否匹配）
+    // 始终向服务器验证，不信任本地存储
     try {
       const machineCode = await generateMachineCodeForCheck();
       const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
@@ -174,9 +166,9 @@ router.beforeEach(async (to, from, next) => {
 
       const result = await response.json();
 
-      // 如果服务器验证通过（IP或MAC匹配），自动保存验证状态
+      // 只有服务器验证通过才允许访问
       if (result.success && result.data?.authorized) {
-        console.log('[路由守卫] 服务器验证通过，自动授权');
+        console.log('[路由守卫] 服务器验证通过');
         localStorage.setItem('auth_verified', 'true');
         localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
         localStorage.setItem('auth_machine_code', machineCode);
@@ -190,7 +182,7 @@ router.beforeEach(async (to, from, next) => {
       console.warn('[路由守卫] 服务器验证失败', error);
     }
 
-    // 如果服务器验证也失败，且不是在首页，重定向到首页
+    // 验证失败，且不是在首页，重定向到首页
     if (to.path !== '/') {
       console.log('[路由守卫] 未授权，重定向到首页');
       next('/');

@@ -1045,13 +1045,12 @@ const sendMessage = async () => {
 
   let finalUserMessage = '';
   if (userMessage) {
-    finalUserMessage = `<行动趋向>${userMessage}</行动趋向>
+    const combinedAction = actionQueueText ? `${userMessage}\n\n${actionQueueText}` : userMessage;
+    finalUserMessage = `<行动趋向>${combinedAction}</行动趋向>
 `;
-    if (actionQueueText) {
-      finalUserMessage += `\n\n${actionQueueText}`;
-    }
   } else {
-    finalUserMessage = actionQueueText || '';
+    finalUserMessage = actionQueueText ? `<行动趋向>${actionQueueText}</行动趋向>
+` : '';
   }
 
   // 清空动作队列（动作已经添加到消息中）
