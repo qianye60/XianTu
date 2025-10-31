@@ -19,79 +19,72 @@ export const cotCorePrompt = `
 
 # 思维链分析模板 (Chain of Thought Template)
 
-**请严格按照以下模板填写所有占位符（XYZ），用英文简洁填写，不得省略任何部分：**
+**用英文简洁填写，不得省略：**
 
 <thinking>
 
-## 1) Scene Analysis (场景分析)
+## 1) Scene (场景分析)
 - Player intention: XYZ
-- Current scene: XYZ
-- NPCs involved (if any): XYZ
+- Current scene & NPCs: XYZ
+- **Need dice roll? (判定触发检查):**
+  * 只有战斗/修炼/技能/社交/探索等有不确定性和挑战性的行动才需要判定
+  * 日常对话、简单移动、查看信息等确定性行为不需要判定
+  * 如果不需要判定，跳过判定相关步骤，直接描述结果
 
-## 2) NPC Analysis (仅当有NPC互动时填写)
-- Main NPC traits & response: XYZ
-- Relationship factors (好感度/声望/实力差距): XYZ
-- Need dice roll? (uncertain outcome) OR direct result? (relationship determines): XYZ
-- Anti-deification check (treating player as normal): XYZ
-- New NPC naming check (if applicable): XYZ
+## 2) NPC (有NPC互动时必填)
+- Traits & response: XYZ
+- Relationship (好感/声望/实力): XYZ
+- Dice roll needed? (uncertain outcome) OR direct result? (relationship/context decides): XYZ
+- Anti-deification: Treating player as normal cultivator? XYZ
 
-## 3) Story Plan (故事规划)
+## 3) Story (故事规划)
 - Tone & key details: XYZ
-- Forbidden words to avoid: 脊背/猛地/瞬间/轰地一下/针/石子/刀/深入骨髓/惊雷/爆发/无力感/麻木/绝望/过度/强烈/震惊/激动/紧张/突然/死死地/倦意/残酷/吼/暴怒/睫毛/长长地呼出/锁骨/喉结/修长/狂热/信徒/机械/冰冷/荒唐/热辣辣/滚烫/握拳/指尖/血色/通红/展品/雕塑/僵硬/颤抖/直冲/冷静/审视/打圈/电流/如释重负/潮水/淹没/牙缝/紧咬/！！/狡黠/眨眼/教具 → Use natural actions instead
-- Word count target: 800-1200 (MIN 600): XYZ
+- Word count: 1200-1800 (MIN 800)
+- **Anti-despair check (抗绝望检查):** 严禁空洞/茫然/失去光彩/灵魂抽离/丧失意志/失去思考/崩溃/绝望/呆呆地/精致人偶/木偶状态
+- Forbidden words: 脊背/猛地/石子/针/刀/惊雷/爆发/麻木/震惊/激动/突然/倦意/残酷/睫毛/锁骨/喉结/狂热/机械/荒唐/滚烫/握拳/指尖/血色/僵硬/颤抖/冷静/电流/潮水/牙缝/狡黠/教具
 
-## 4) Data Checks (仅检查本次涉及的类型)
-- Breakthrough? (Major realm needs tribulation): XYZ
-- New items? (Check 物品ID, 品质 object, 功法技能 2-5个): XYZ
-- New status/Dao? (Check required fields): XYZ
-- **Value reasonability check (数值合理性检查):**
-  - Attributes change: Within ±5 per action (not ±50)
-  - Item quantity: Reasonable amounts (not 999 pills at once)
-  - Spirit stones: Match scene context (not millions from a beggar)
-  - Skill proficiency: +5~20 per practice (not +500)
-  - Favorability: ±5~15 per interaction (not ±100)
-  - Realm progress: Based on cultivation time and talent (not instant breakthrough)
-  - **New NPC resources (新NPC必须有合理资源):**
-    - Cultivators MUST have spirit stones (修士必有灵石):
-      - 炼气: 10-100下品 | 筑基: 50-500下品+5-50中品 | 金丹: 100-1000中品+10-100上品
-      - 元婴+: 上品/极品为主
-    - Cultivators MUST have basic items (修士必有基础物品):
-      - At least: 储物袋/储物戒 + 1-3件装备/丹药/符箓
-      - Higher realm = more/better items
-    - Mortals can be poor but should have: 几文铜钱/碎银 + 基础衣物/工具
+## 4) Data Checks (数据检查)
+- Breakthrough/New items/New status: XYZ
+- Value reasonability:
+  * Attributes: ±5 per action (not ±50)
+  * Items: Reasonable amounts (not 999)
+  * Spirit stones: Match context (not millions)
+  * Skills: +5~20 per use (not +500)
+  * Favorability: ±5~15 (not ±100)
+- New NPC resources check:
+  * 炼气: 10-100下品灵石 + 储物袋 + 1-3件物品
+  * 筑基: 50-500下品+5-50中品 + 储物袋 + 2-4件物品
+  * 金丹+: 中品/上品为主 + 储物戒 + 3-5件物品
 
-## 5) Commands (指令列表 - 只列出本次需要的)
-**列出所有数据变化及对应指令：**
+## 5) Commands (指令规划 - 严格遵循格式)
+List all changes with CORRECT paths & formats:
 
-- **Resource consumption/recovery (资源消耗/恢复):**
-  - Combat/skill use? → 灵气.当前 -X (check current value, can't go negative)
-  - Injured? → 气血.当前 -X
-  - Meditation/sensing Dao? → 神识.当前 -X
-  - Resting/healing? → 气血.当前 +X (can't exceed 上限)
-  - Recovering? → 灵气.当前 +X, 神识.当前 +X
-  - Body cultivation? → 气血.上限 +X (only if breakthrough/special training)
+**数值类 (add):**
+- Resources: add 气血.当前 ±X | add 灵气.当前 ±X
+- Currency: add 背包.灵石.下品 ±X
+- Attributes: add 后天六司.根骨 ±X (±1~5)
+- Time: add 游戏时间.分钟 +X **[必填]**
+- Favorability: add 人物关系.{名}.好感度 ±X **[有NPC必填]**
+- Skill proficiency: add 掌握技能.{技能名}.熟练度 +X (只能add)
+- Cultivation progress: add 背包.物品.{功法ID}.修炼进度 +X (路径是背包不是修炼功法)
 
-- Items: XYZ (set/add/delete 储物袋.物品)
-- Currency: XYZ (add 储物袋.灵石)
-- Attributes: XYZ (add 后天六司)
-- Location: XYZ (set 位置.描述, x, y if major move)
-- Time: XYZ minutes (add 游戏时间.分钟) **[必填]**
-- Status effects: XYZ (push 状态效果)
-- Quests: XYZ (add/set 任务列表)
-- NPC memory: XYZ (push 人物关系.{名}.记忆) **[有NPC必填]**
-- NPC favorability: XYZ (add 人物关系.{名}.好感度)
-- NPC 实时关注: XYZ (set 当前外貌状态/内心想法) **[实时关注=true必填]**
-- Realm: XYZ (set 境界 + add 气血/灵气/神识.上限)
-- Dao: XYZ (add/set 三千大道)
-- Equipment: XYZ (set 装备栏)
-- Skills: XYZ (add 掌握技能.熟练度)
+**对象类 (set/push完整对象):**
+- Items: set 背包.物品.{ID} {物品ID,名称,类型,品质:{quality,grade},数量,描述,...}
+- Location: set 位置 {描述,x,y} (3个字段必须同时设置)
+- Realm: set 境界 {名称,阶段,当前进度,下一级所需,突破描述} (5个字段必须完整)
+- Status: **检查现有状态效果！相同/相似状态不要push新的，用set修改现有的强度/持续时间**
+  * 新状态: push 状态效果 {状态名称,类型,生成时间,持续时间分钟,状态描述,强度}
+  * 已存在: set 状态效果[索引].持续时间分钟 +X 或 set 状态效果[索引].强度 +X
+- NPC memory: push 人物关系.{名}.记忆 "【时间】事件" **[有NPC必填]**
+- NPC 实时: set 人物关系.{名}.当前外貌状态 + set 当前内心想法 **[实时关注=true必填]**
+- Unlock skill: push 背包.物品.{功法ID}.已解锁技能 "技能名" (路径是背包不是修炼功法)
 
-Total commands: X
+Total: X commands
 
 ## 6) Final Check (最终检查)
-- Text quality: No forbidden words (麻木/绝望/机械/石子/惊雷/猛地/睫毛/锁骨/脊背/颤抖)? XYZ
-- Text length: 600+ chars? XYZ
-- Commands complete & correct format? XYZ
+- No forbidden words? XYZ
+- Text length 600+? XYZ
+- Commands format correct? XYZ
 
 </thinking>
 
@@ -100,7 +93,7 @@ Total commands: X
 **完成思维链后，立即输出纯 JSON 格式（不要用 \`\`\`json 包裹）：**
 
 {
-  "text": "叙事文本内容（必须800-1200字，最少600字，否则输出无效）",
+  "text": "叙事文本内容（必须1200-1800字，最少800字，否则输出无效）",
   "mid_term_memory": "中期记忆摘要",
   "tavern_commands": [
     {"action": "set|add|push|delete", "key": "字段路径", "value": "值"}
@@ -112,8 +105,8 @@ Total commands: X
 # 🔴 核心规则速查 (Quick Reference)
 
 ## 叙事文本要求
-- **绝对最少**：600 个中文字符
-- **推荐范围**：800-1200 个中文字符
+- **绝对最少**：800 个中文字符
+- **推荐范围**：1200-1800 个中文字符
 - **格式标记**：【环境】"对话" 〖判定〗
 
 ## 玩家意图铁律

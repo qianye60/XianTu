@@ -255,7 +255,8 @@ ${stateJsonString}
         console.warn('[AI双向系统] 使用容错模式提取内容 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length);
       }
 
-      if (!gmResponse || !gmResponse.text) {
+      if (!gmResponse || !gmResponse.text || gmResponse.text.trim() === '') {
+        console.error('[AI双向系统] AI响应为空，原始响应:', String(response).substring(0, 200));
         throw new Error('AI响应为空或格式错误');
       }
 

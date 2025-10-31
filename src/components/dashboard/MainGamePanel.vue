@@ -1065,6 +1065,10 @@ const sendMessage = async () => {
   rawStreamingContent.value = ''; // 清除原始流式内容
   streamingMessageIndex.value = 1; // 设置一个虚拟索引以启用流式处理
 
+  // 使用优化的AI请求系统进行双向交互
+  let aiResponse: GM_Response | null = null;
+  let hasError = false;
+
   try {
     // 获取当前角色
     const character = characterStore.activeCharacterProfile;
@@ -1072,9 +1076,6 @@ const sendMessage = async () => {
     if (!character) {
       throw new Error('角色数据缺失');
     }
-
-    // 使用优化的AI请求系统进行双向交互
-    let aiResponse: GM_Response | null = null;
 
     try {
       const options: Record<string, unknown> = {
@@ -1220,6 +1221,7 @@ const sendMessage = async () => {
 
     } catch (aiError) {
       console.error('[AI处理失败]', aiError);
+      hasError = true;
 
       // 🔥 清理流式输出状态（失败时清除所有流式内容）
       uiStore.setAIProcessing(false);
@@ -1240,20 +1242,22 @@ const sendMessage = async () => {
 
     // 🔥 [关键修复] 无论成功失败，都在这里清除AI处理状态
     // 成功的提示
-    if (aiResponse) {
+    if (!hasError && aiResponse) {
       toast.success('天机重现');
       // 清空已发送的图片
       clearImages();
     }
 
     // 🔥 统一清除AI处理状态（成功路径）
-    console.log('[AI响应处理] 处理完成，清除AI处理状态');
-    uiStore.setAIProcessing(false);
-    streamingMessageIndex.value = null;
-    uiStore.setCurrentGenerationId(null);
-    uiStore.setStreamingContent(''); // 清除流式内容
-    rawStreamingContent.value = '';
-    persistAIProcessingState();
+    if (!hasError) {
+      console.log('[AI响应处理] 处理完成，清除AI处理状态');
+      uiStore.setAIProcessing(false);
+      streamingMessageIndex.value = null;
+      uiStore.setCurrentGenerationId(null);
+      uiStore.setStreamingContent(''); // 清除流式内容
+      rawStreamingContent.value = '';
+      persistAIProcessingState();
+    }
 
   } catch (error: unknown) {
     console.error('[AI交互] 处理失败:', error);
