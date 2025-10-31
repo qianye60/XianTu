@@ -23,68 +23,38 @@ export const cotCorePrompt = `
 
 <thinking>
 
-## 1) Scene (场景分析)
-- Player intention: XYZ
-- Current scene & NPCs: XYZ
-- **Need dice roll? (判定触发检查):**
-  * 只有战斗/修炼/技能/社交/探索等有不确定性和挑战性的行动才需要判定
-  * 日常对话、简单移动、查看信息等确定性行为不需要判定
-  * 如果不需要判定，跳过判定相关步骤，直接描述结果
+## 1) User Intent (最高优先级 - 从<行动趋向>标签获取)
+🚨 <行动趋向>标签 = 用户想做的事（趋向），但执行结果可能成功/失败/部分成功
+Raw input: [<行动趋向>标签内的原始内容]
+Action type: [具体行动类型：移动/对话/修炼/战斗/探索/交易/其他]
+User wants to do: [用户想做什么]
+Possible outcomes: [可能的结果：成功/失败/部分成功/遇到意外]
+Must attempt: [必须尝试的动作] | Can add: [可以合理添加的情节]
+Forbidden: [禁止的内容：与用户意图无关的事件]
 
-## 2) NPC (有NPC互动时必填)
-- Traits & response: XYZ
-- Relationship (好感/声望/实力): XYZ
-- Dice roll needed? (uncertain outcome) OR direct result? (relationship/context decides): XYZ
-- Anti-deification: Treating player as normal cultivator? XYZ
+## 2) Scene & Feasibility
+Situation: XYZ | NPCs: XYZ | Time cost: XYZ分钟
+Feasibility: [符合人体/修仙设定？] | Dice roll: YES/NO (原因)
 
-## 3) Story (故事规划)
-- Tone & key details: XYZ
-- Word count: 1200-1800 (MIN 800)
-- **Anti-despair check (抗绝望检查):** 严禁空洞/茫然/失去光彩/灵魂抽离/丧失意志/失去思考/崩溃/绝望/呆呆地/精致人偶/木偶状态
-- Forbidden words: 脊背/猛地/石子/针/刀/惊雷/爆发/麻木/震惊/激动/突然/倦意/残酷/睫毛/锁骨/喉结/狂热/机械/荒唐/滚烫/握拳/指尖/血色/僵硬/颤抖/冷静/电流/潮水/牙缝/狡黠/教具
+## 3) NPC Handling (if any)
+Traits: XYZ | Response: Dice/Direct | 实时关注: true/false (更新外貌+内心)
+Knowledge: [避免全知视角]
 
-## 4) Data Checks (数据检查)
-- Breakthrough/New items/New status: XYZ
-- Value reasonability:
-  * Attributes: ±5 per action (not ±50)
-  * Items: Reasonable amounts (not 999)
-  * Spirit stones: Match context (not millions)
-  * Skills: +5~20 per use (not +500)
-  * Favorability: ±5~15 (not ±100)
-- New NPC resources check:
-  * 炼气: 10-100下品灵石 + 储物袋 + 1-3件物品
-  * 筑基: 50-500下品+5-50中品 + 储物袋 + 2-4件物品
-  * 金丹+: 中品/上品为主 + 储物戒 + 3-5件物品
+## 4) Story Quality (1200-1800字, min 800)
+Tone: XYZ | Innovation: [如何避免与前文重复？]
+✓ Anti-despair | ✓ 禁用词 | ✓ 情绪控制
 
-## 5) Commands (指令规划 - 严格遵循格式)
-List all changes with CORRECT paths & formats:
+## 5) Data Updates
+Changes: XYZ (突破/物品/状态)
+Reasonable: [数值合理？] | NPC: [背包/境界更新？]
+Time: +X分钟 | Status: [避免重复push]
 
-**数值类 (add):**
-- Resources: add 气血.当前 ±X | add 灵气.当前 ±X
-- Currency: add 背包.灵石.下品 ±X
-- Attributes: add 后天六司.根骨 ±X (±1~5)
-- Time: add 游戏时间.分钟 +X **[必填]**
-- Favorability: add 人物关系.{名}.好感度 ±X **[有NPC必填]**
-- Skill proficiency: add 掌握技能.{技能名}.熟练度 +X (只能add)
-- Cultivation progress: add 背包.物品.{功法ID}.修炼进度 +X (路径是背包不是修炼功法)
+## 6) Commands (Total: X)
+Resources/Time: XYZ | Items/Location/Realm: XYZ | NPC: XYZ
 
-**对象类 (set/push完整对象):**
-- Items: set 背包.物品.{ID} {物品ID,名称,类型,品质:{quality,grade},数量,描述,...}
-- Location: set 位置 {描述,x,y} (3个字段必须同时设置)
-- Realm: set 境界 {名称,阶段,当前进度,下一级所需,突破描述} (5个字段必须完整)
-- Status: **检查现有状态效果！相同/相似状态不要push新的，用set修改现有的强度/持续时间**
-  * 新状态: push 状态效果 {状态名称,类型,生成时间,持续时间分钟,状态描述,强度}
-  * 已存在: set 状态效果[索引].持续时间分钟 +X 或 set 状态效果[索引].强度 +X
-- NPC memory: push 人物关系.{名}.记忆 "【时间】事件" **[有NPC必填]**
-- NPC 实时: set 人物关系.{名}.当前外貌状态 + set 当前内心想法 **[实时关注=true必填]**
-- Unlock skill: push 背包.物品.{功法ID}.已解锁技能 "技能名" (路径是背包不是修炼功法)
-
-Total: X commands
-
-## 6) Final Check (最终检查)
-- No forbidden words? XYZ
-- Text length 600+? XYZ
-- Commands format correct? XYZ
+## 7) Final Check
+✓ 禁用词 | ✓ 字数(800+) | ✓ JSON格式 | ✓ <行动趋向>标签意图已尝试
+✓ 结果合理（成功/失败基于判定） | ✓ 无无关事件 | ✓ 无替玩家做决定
 
 </thinking>
 
@@ -110,10 +80,23 @@ Total: X commands
 - **格式标记**：【环境】"对话" 〖判定〗
 
 ## 玩家意图铁律
-- **用户输入 = 最高指令**：严格按字面意思执行
-- **禁止自作主张**：不得添加用户未要求的行动
-- **禁止突发事件打断**：不得用意外打断用户行动
-- **禁止替玩家做决定**：只描述结果，不选择下一步
+
+### <行动趋向>标签 = 用户想做的事（趋向），不是必然结果
+
+**核心原则：**
+1. **尝试执行**用户想做的事
+2. **结果取决于**：判定（如有）、角色能力、环境、NPC反应
+3. **只写当前行动**，不添加后续或替玩家做决定
+
+**判定使用规则：**
+- **需要判定**：战斗、困难行动、有风险的事（输出〖判定〗格式）
+- **不需要判定**：日常小事、简单对话、确定成功的事（直接描述结果）
+- 例：购买物品（不需要判定）、攀爬悬崖（需要判定）、修炼突破（需要判定）
+
+**禁止事项：**
+- ❌ 添加与行动无关的事件（修炼时突然有人来访）
+- ❌ 超出用户意图（去青云宗后又去了其他地方）
+- ❌ 替玩家做决定（"接下来你打算..."）
 
 ## 判定系统（如果有 <行动趋向> 标签）
 ${diceRollingCotPrompt}

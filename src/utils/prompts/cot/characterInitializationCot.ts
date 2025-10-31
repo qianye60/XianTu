@@ -24,96 +24,37 @@ export const characterInitializationCotPrompt = `
 \`\`\`
 \`\`\`
 
-**禁止：**
-- 在 thinking 标签内使用尖角括号
-- 在 JSON 外添加任何解释文字
-- 颠倒输出顺序
-
 ---
 
-## 思维链分析步骤
+## 思维链分析步骤（用英文简洁填写）
 
 <thinking>
 
-### 1) Player Choices Analysis (玩家选择分析)
-a) Talent tier: XYZ (影响资源和起点)
-b) Origin: XYZ (需要替换随机项吗？)
-c) Spirit root: XYZ (需要替换随机项吗？)
-d) Special talents: XYZ (如何体现在开局？)
-e) World background: XYZ (决定世界观风格)
+### 1) Player Setup Analysis
+World: XYZ | Talent: XYZ | Origin: XYZ | Spirit root: XYZ | Age: XYZ岁
+Special talents: XYZ (如何在开局体现？)
+Random replacements needed: YES/NO (灵根/出身)
 
-### 2) Opening Scene Design (开局场景设计)
-a) Scene location: XYZ (基于出身和世界观)
-b) Scene atmosphere: XYZ (符合角色背景)
-c) Initial realm: XYZ (凡人 or 炼气？)
-   - Does text mention cultivation/techniques/spiritual energy? YES/NO
-   - Does text mention sect disciple/cultivation family? YES/NO
-   - If YES to any → 炼气初期/中期/后期 or 筑基初期
-   - If NO to all → 凡人
-d) Map coordinates: x=XYZ, y=XYZ (经纬度坐标，必须在地图坐标范围内，参考提供的坐标系统)
-   - 使用经纬度坐标系统（例如：x: 107.5, y: 30.0）
-   - 前端会自动转换为显示坐标
-e) NPCs needed: XYZ (只创建文本中明确提到的NPC)
-f) Story hook: XYZ (吸引玩家的开局钩子)
+### 2) Opening Scene Design
+Location: XYZ (x=XYZ, y=XYZ)
+Atmosphere: XYZ (符合世界观和出身)
+Initial realm: 凡人/炼气X期/筑基初期 (based on story content)
+Story hook: XYZ (开局吸引点，埋下伏笔)
 
-### 3) Initial Resources Planning (初始资源规划)
-a) Spirit stones amount: XYZ
-   - Poor origin: 0-50
-   - Common origin: 20-100
-   - Sect disciple: 50-300
-   - Rich family: 100-500+
-b) Initial items (1-6): List each with ID, name, type, quality, description
-   - Item 1: XYZ
-   - Item 2: XYZ
-   - ...
-c) Initial techniques (0-3): List each with skills (2-5, first skill 熟练度要求=0)
-   - Technique 1: XYZ
-   - ...
+### 3) Resources & Items
+Spirit stones: XYZ下品 (Poor:0-50 | Common:20-100 | Sect:50-300 | Rich:100-500+)
+Items (1-6): item_001=XYZ, item_002=XYZ, ...
+Techniques (0-3): 功法1=XYZ (技能2-5个，首个熟练度要求=0), ...
 
-### 4) Random Item Replacement (随机项替换)
-a) Spirit root replacement needed? XYZ
-   - If yes: New name, cultivation bonus, theme (Five Elements/Special)
-b) Origin replacement needed? XYZ
-   - If yes: New backstory, location, family background
+### 4) NPCs (0-3个，只创建文本中明确提到的)
+NPC list: 名字1(性别,境界,关系), 名字2(...), ... or "None"
+NSFW check: nsfwMode=XYZ, filter=XYZ → 私密信息 YES/NO
 
-### 5) NPC Creation Check (NPC创建检查)
-a) NPCs explicitly mentioned in text: List names
-   - NPC 1: Name, gender, realm (名称+阶段 only), relationship, 实时关注=false
-   - NPC 2: ...
-b) NSFW check: nsfwMode=XYZ, nsfwGenderFilter=XYZ
-   - Generate 私密信息 for NPCs? YES/NO for each
+### 5) Commands Count
+Time(2) + Location(1) + Reputation(1) + Random(X) + Resources(X) + NPCs(X) + Daos(X) = Total: X
 
-### 6) Command Preparation (指令准备)
-**按顺序列出所有 tavern_commands：**
-
-a) Time initialization: set 游戏时间 = {年月日时分}
-b) Location: set 位置 = {描述, x, y}
-   - x/y 使用经纬度坐标（参考用户消息中的"地图坐标系统"章节）
-c) Reputation: set 声望 = {value}
-d) Random replacements:
-   - set 灵根 (if random)
-   - set 出身 (if random)
-e) Initial resources:
-   - set 储物袋.灵石.{品级} for each grade
-   - set 储物袋.物品.{ID} for each item
-f) NPCs:
-   - set 人物关系.{NPC名} for each NPC (complete structure)
-g) Daos (if any):
-   - set 三千大道.{道名} (是否解锁:true, 阶段列表 has 2+ stages)
-h) Total commands count: X
-
-### 7) Final Validation (最终验证)
-a) Text length: 1200-2500 characters? XYZ
-b) Text quality: No forbidden words (绝望/机械/八股/过度修饰)? XYZ
-c) Realm consistency: Text matches realm setting? XYZ
-d) Coordinates valid: x and y within map range (check 地图坐标系统 section)? XYZ
-e) JSON format: 3 required fields (text, mid_term_memory, tavern_commands)? XYZ
-f) mid_term_memory: 50-100 characters summary? XYZ
-g) Commands order: Time → Location → Reputation → Random → Resources → NPCs → Daos? XYZ
-h) NPC realm: Only 名称+阶段? XYZ
-i) NPC 实时关注: All set to false? XYZ
-j) Numeric types: All numbers not strings? XYZ
-k) Total commands match count in step 6h? XYZ
+### 6) Final Check
+✓ Text: 1200-2500字 | ✓ 禁用词 | ✓ 境界匹配 | ✓ 坐标范围 | ✓ 数据结构完整
 
 </thinking>
 

@@ -4,6 +4,7 @@
  */
 
 // 境界等级映射 - 支持带"期"和不带"期"的格式
+// 注意：同一境界的不同阶段（初期、中期、后期、圆满、极境）都算同一等级
 const REALM_LEVELS: Record<string, number> = {
   // 不带期的格式
   '练气': 1, '练气初期': 1, '练气中期': 1, '练气后期': 1, '练气圆满': 1, '练气极境': 1,
@@ -14,9 +15,9 @@ const REALM_LEVELS: Record<string, number> = {
   '炼虚': 6, '炼虚初期': 6, '炼虚中期': 6, '炼虚后期': 6, '炼虚圆满': 6, '炼虚极境': 6,
   '合体': 7, '合体初期': 7, '合体中期': 7, '合体后期': 7, '合体圆满': 7, '合体极境': 7,
   '渡劫': 8, '渡劫初期': 8, '渡劫中期': 8, '渡劫后期': 8, '渡劫圆满': 8, '渡劫极境': 8,
-  
+
   // 带期的格式
-  '练气期': 1, '筑基期': 2, '金丹期': 3, '元婴期': 4, '化神期': 5, 
+  '练气期': 1, '筑基期': 2, '金丹期': 3, '元婴期': 4, '化神期': 5,
   '炼虚期': 6, '合体期': 7, '渡劫期': 8
 };
 
@@ -38,6 +39,8 @@ export function validateAndFixSectRealmData(sectData: any): any {
     sectData.领导层 = sectData.leadership;
     delete sectData.leadership;
   }
+
+  // 处理 memberCount 字段
   if (sectData.memberCount && !sectData.成员数量) {
     sectData.成员数量 = {
       总数: sectData.memberCount.total,
@@ -47,23 +50,77 @@ export function validateAndFixSectRealmData(sectData: any): any {
     delete sectData.memberCount;
   }
 
+  // 处理已存在的成员数量字段中的英文子字段
+  if (sectData.成员数量) {
+    const memberCount = sectData.成员数量;
+
+    // 转换 total -> 总数
+    if (memberCount.total !== undefined && memberCount.总数 === undefined) {
+      memberCount.总数 = memberCount.total;
+    }
+
+    // 转换 byRealm -> 按境界
+    if (memberCount.byRealm && !memberCount.按境界) {
+      memberCount.按境界 = memberCount.byRealm;
+    }
+
+    // 转换 byPosition -> 按职位
+    if (memberCount.byPosition && !memberCount.按职位) {
+      memberCount.按职位 = memberCount.byPosition;
+    }
+  }
+
   // 获取最强修为等级
   const maxRealm = sectData.领导层?.最强修为 || sectData.最强修为;
   const maxLevel = getRealmLevel(maxRealm);
 
-  // 修复境界分布
+  console.log(`[宗门验证] ${sectData.名称}: 最强修为="${maxRealm}" → 等级=${maxLevel}`);
+  console.log(`[宗门验证] ${sectData.名称}: 原始境界分布=`, sectData.成员数量?.按境界);
+
+  // 🔥 智能修复：根据境界分布自动设置最强修为
   if (sectData.成员数量?.按境界) {
     const realmDist = sectData.成员数量.按境界;
-    const originalDist = { ...realmDist };
 
-    // 移除超过最强修为的境界
+    // 找出境界分布中的最高境界
+    let highestRealmLevel = 0;
+    let highestRealmName = '';
+
     Object.keys(realmDist).forEach(realm => {
-      const realmLevel = getRealmLevel(realm);
-      if (realmLevel > maxLevel) {
-        delete realmDist[realm];
+      const count = realmDist[realm];
+      if (count > 0) {
+        const realmLevel = getRealmLevel(realm);
+        if (realmLevel > highestRealmLevel) {
+          highestRealmLevel = realmLevel;
+          highestRealmName = realm;
+        }
       }
     });
+
+    // 如果找到了最高境界，用它来更新最强修为
+    if (highestRealmLevel > 0 && highestRealmName) {
+      // 将"练气期"转换为"练气圆满"等更合理的描述
+      const realmNameWithoutSuffix = highestRealmName.replace('期', '');
+      const correctedMaxRealm = `${realmNameWithoutSuffix}圆满`;
+
+      // 更新leadership中的最强修为
+      if (sectData.领导层) {
+        const oldMaxRealm = sectData.领导层.最强修为;
+        sectData.领导层.最强修为 = correctedMaxRealm;
+        console.log(`[宗门验证] ${sectData.名称}: 根据境界分布自动修正最强修为: "${oldMaxRealm}" → "${correctedMaxRealm}"`);
+
+        // 如果宗主修为低于最强修为，也更新宗主修为
+        const masterRealmLevel = getRealmLevel(sectData.领导层.宗主修为 || '');
+        if (masterRealmLevel < highestRealmLevel) {
+          sectData.领导层.宗主修为 = correctedMaxRealm;
+          console.log(`[宗门验证] ${sectData.名称}: 同时更新宗主修为为: "${correctedMaxRealm}"`);
+        }
+      }
+    }
+
+    console.log(`[宗门验证] ${sectData.名称}: 境界分布包含:`, Object.keys(realmDist).filter(r => realmDist[r] > 0));
   }
+
+  console.log(`[宗门验证] ${sectData.名称}: 验证后境界分布=`, sectData.成员数量?.按境界);
 
   // 验证长老数量与高境界修士数量的一致性
   if (sectData.领导层?.长老数量 && sectData.成员数量?.按境界) {

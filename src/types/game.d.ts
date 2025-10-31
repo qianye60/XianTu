@@ -188,12 +188,13 @@ export interface AttributeBonus {
   [key: string]: any; // 允许其他动态属性
 }
 
-/** 功法技能 */
+/** 功法技能（背包中功法物品的技能数组） */
 export interface TechniqueSkill {
   技能名称: string;
   技能描述: string;
   消耗?: string;
-  解锁需要熟练度?: number; // 可选：达到此进度后解锁（0-100百分比）
+  熟练度要求?: number; // 达到此修炼进度后解锁（0-100百分比）
+  [key: string]: any; // 允许其他动态属性
 }
 
 /** 功法效果 */
@@ -337,9 +338,12 @@ export interface SectInfo {
 
 /** 宗门成员数量统计 */
 export interface SectMemberCount {
-  总数: number; // 总成员数
-  按境界: Record<RealmLevel, number>; // 按境界统计
-  按职位: Record<SectPosition, number>; // 按职位统计
+  总数?: number; // 总成员数
+  total?: number; // 英文字段名兼容
+  按境界?: Record<RealmLevel, number>; // 按境界统计
+  byRealm?: Record<string, number>; // 英文字段名兼容
+  按职位?: Record<SectPosition, number>; // 按职位统计
+  byPosition?: Record<string, number>; // 英文字段名兼容
 }
 
 /** 宗门系统数据 */

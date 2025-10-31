@@ -134,16 +134,11 @@ function validateValueType(key: string, value: unknown, action: string): string[
       errors.push('境界必须是对象类型');
     } else {
       const val = value as Record<string, any>;
-      const required = ['名称', '阶段', '当前进度', '下一级所需', '突破描述'];
-      const missing = required.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`境界对象缺少必需字段: ${missing.join(', ')}`);
-      }
-      // 检查字段类型
-      if (val.名称 && typeof val.名称 !== 'string') {
+      // 只检查类型，不强制要求所有字段
+      if (val.名称 !== undefined && typeof val.名称 !== 'string') {
         errors.push('境界.名称必须是字符串类型');
       }
-      if (val.阶段 && typeof val.阶段 !== 'string') {
+      if (val.阶段 !== undefined && typeof val.阶段 !== 'string') {
         errors.push('境界.阶段必须是字符串类型');
       }
       if (val.当前进度 !== undefined && typeof val.当前进度 !== 'number') {
@@ -152,13 +147,8 @@ function validateValueType(key: string, value: unknown, action: string): string[
       if (val.下一级所需 !== undefined && typeof val.下一级所需 !== 'number') {
         errors.push('境界.下一级所需必须是数字类型');
       }
-      if (val.突破描述 && typeof val.突破描述 !== 'string') {
+      if (val.突破描述 !== undefined && typeof val.突破描述 !== 'string') {
         errors.push('境界.突破描述必须是字符串类型');
-      }
-      // 检查多余字段
-      const extra = Object.keys(val).filter(f => !required.includes(f));
-      if (extra.length > 0) {
-        errors.push(`境界对象包含多余字段: ${extra.join(', ')}`);
       }
     }
   }
@@ -169,12 +159,8 @@ function validateValueType(key: string, value: unknown, action: string): string[
       errors.push('位置必须是对象类型');
     } else {
       const val = value as Record<string, any>;
-      const required = ['描述', 'x', 'y'];
-      const missing = required.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`位置对象缺少必需字段: ${missing.join(', ')}`);
-      }
-      if (val.描述 && typeof val.描述 !== 'string') {
+      // 只检查类型，不强制要求所有字段
+      if (val.描述 !== undefined && typeof val.描述 !== 'string') {
         errors.push('位置.描述必须是字符串类型');
       }
       if (val.x !== undefined && typeof val.x !== 'number') {
@@ -192,25 +178,9 @@ function validateValueType(key: string, value: unknown, action: string): string[
       errors.push('状态效果必须是对象类型');
     } else {
       const val = value as Record<string, any>;
-      const required = ['状态名称', '类型', '生成时间', '持续时间分钟', '状态描述'];
-      const missing = required.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`状态效果对象缺少必需字段: ${missing.join(', ')}`);
-      }
-      if (val.类型 && !['buff', 'debuff'].includes(val.类型)) {
+      // 只检查关键字段类型
+      if (val.类型 !== undefined && !['buff', 'debuff'].includes(val.类型)) {
         errors.push(`状态效果类型必须是"buff"或"debuff"，当前值: ${val.类型}`);
-      }
-      // 检查生成时间格式
-      if (val.生成时间) {
-        if (typeof val.生成时间 !== 'object' || val.生成时间 === null) {
-          errors.push('状态效果.生成时间必须是对象类型');
-        } else {
-          const timeRequired = ['年', '月', '日', '小时', '分钟'];
-          const timeMissing = timeRequired.filter(f => !(f in val.生成时间));
-          if (timeMissing.length > 0) {
-            errors.push(`状态效果.生成时间缺少字段: ${timeMissing.join(', ')}`);
-          }
-        }
       }
       if (val.持续时间分钟 !== undefined && typeof val.持续时间分钟 !== 'number') {
         errors.push('状态效果.持续时间分钟必须是数字类型');
@@ -218,59 +188,29 @@ function validateValueType(key: string, value: unknown, action: string): string[
     }
   }
 
-  // 物品对象 (push to inventory)
+  // 物品对象 (push to inventory) - 放宽验证
   if (key === '背包.物品' && action === 'push') {
     if (typeof value !== 'object' || value === null) {
       errors.push('推送到 背包.物品 的物品必须是对象类型');
-    } else {
-      const val = value as Record<string, any>;
-      const required = ['物品ID', '名称', '类型', '品质', '数量', '描述'];
-      const missing = required.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`物品对象缺少必需字段: ${missing.join(', ')}`);
-      }
     }
+    // 不再强制检查所有字段，由数据修复器处理
   }
 
-  // 物品对象
+  // 物品对象 - 放宽验证
   if (key.startsWith('背包.物品.') && action === 'set' && !key.includes('.数量') && !key.includes('.修炼进度')) {
     if (typeof value !== 'object' || value === null) {
       errors.push('物品必须是对象类型');
     } else {
       const val = value as Record<string, any>;
-      const required = ['物品ID', '名称', '类型', '品质', '数量', '描述'];
-      const missing = required.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`物品对象缺少必需字段: ${missing.join(', ')}`);
-      }
-      // 检查品质格式
-      if (val.品质) {
-        if (typeof val.品质 !== 'object' || val.品质 === null) {
-          errors.push('物品.品质必须是对象类型');
-        } else if (!val.品质.quality || val.品质.grade === undefined) {
-          errors.push('物品.品质必须包含quality(字符串)和grade(数字)字段');
-        }
-      }
-      // 检查功法特有字段
-      if (val.类型 === '功法') {
-        if (!val.功法技能 || !Array.isArray(val.功法技能)) {
-          errors.push('功法物品必须包含功法技能数组');
-        } else if (val.功法技能.length === 0) {
-          errors.push('功法物品的功法技能数组不能为空');
+      // 只检查功法技能的基本结构
+      if (val.类型 === '功法' && val.功法技能) {
+        if (!Array.isArray(val.功法技能)) {
+          errors.push('功法物品的功法技能必须是数组类型');
         } else {
-          // 检查每个技能对象
+          // 只检查技能对象类型，不检查字段完整性
           val.功法技能.forEach((skill: any, idx: number) => {
             if (typeof skill !== 'object' || skill === null) {
               errors.push(`功法技能[${idx}]必须是对象类型`);
-            } else {
-              const skillRequired = ['技能名称', '技能描述', '消耗', '解锁需要熟练度'];
-              const skillMissing = skillRequired.filter(f => !(f in skill));
-              if (skillMissing.length > 0) {
-                errors.push(`功法技能[${idx}]缺少字段: ${skillMissing.join(', ')}`);
-              }
-              if (skill.解锁需要熟练度 !== undefined && typeof skill.解锁需要熟练度 !== 'number') {
-                errors.push(`功法技能[${idx}].解锁需要熟练度必须是数字类型`);
-              }
             }
           });
         }
@@ -278,31 +218,12 @@ function validateValueType(key: string, value: unknown, action: string): string[
     }
   }
 
-  // NPC创建/更新
+  // NPC创建/更新 - 放宽验证
   if (key.startsWith('人物关系.') && (key.match(/\./g) || []).length === 1) {
     if (action === 'set' && typeof value === 'object' && value !== null) {
       const val = value as Record<string, any>;
-      
-      // 🔥 [修复 V2] 优化NPC验证逻辑
-      // 目标：允许对现有NPC进行部分更新，同时确保新创建的NPC具有核心字段。
-      // 逻辑：如果指令中包含"名字"字段，我们假定这是一个创建或完整更新操作，
-      //       因此强制要求一组最小的核心字段。
-      //       如果不包含"名字"，则假定为部分更新，不检查必需字段。
-      if ('名字' in val) {
-        // 🔥 [修复 V4] 优化新NPC创建时的核心字段验证列表
-        // 必需字段：名字、性别、年龄、境界、灵根、性格特征、与玩家关系、好感度
-        // 可选字段：天赋（空数组代表没有特殊天赋）、记忆、人格底线等
-        const coreNpcFields = [
-          '名字', '性别', '年龄', '境界', '灵根',
-          '性格特征', '与玩家关系', '好感度'
-        ];
-        const missing = coreNpcFields.filter(f => !(f in val));
-        if (missing.length > 0) {
-          errors.push(`创建新NPC时，对象缺少核心字段: ${missing.join(', ')}`);
-        }
-      }
 
-      // 无论如何，都检查子对象（如境界、天赋）的内部结构是否正确（如果存在）
+      // 只检查关键结构，不强制要求所有字段
       if (val.境界) {
         if (typeof val.境界 !== 'object' || val.境界 === null) {
           errors.push('NPC境界必须是对象类型');
@@ -312,48 +233,20 @@ function validateValueType(key: string, value: unknown, action: string): string[
           if (realmExtra.length > 0) {
             errors.push(`NPC境界对象包含非法字段: ${realmExtra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
           }
-          if (!('名称' in val.境界) || !('阶段' in val.境界)) {
-            errors.push('NPC境界必须包含"名称"和"阶段"字段');
-          }
         }
       }
 
-      // 检查天赋格式
-      if (val.天赋 && !Array.isArray(val.天赋)) {
+      // 检查天赋格式（如果存在）
+      if (val.天赋 !== undefined && !Array.isArray(val.天赋)) {
         errors.push('NPC天赋必须是数组类型');
-      } else if (Array.isArray(val.天赋)) {
-        val.天赋.forEach((talent: any, idx: number) => {
-          if (typeof talent !== 'object' || talent === null) {
-            errors.push(`NPC天赋[${idx}]必须是对象类型`);
-          } else if (!talent.名称 || !talent.描述) {
-            errors.push(`NPC天赋[${idx}]必须包含"名称"和"描述"字段`);
-          }
-        });
       }
 
       // 检查私密信息格式（如果存在）
       if (val.私密信息) {
         if (typeof val.私密信息 !== 'object' || val.私密信息 === null) {
           errors.push('NPC私密信息必须是对象类型');
-        } else {
-          const privateInfo = val.私密信息;
-          if (privateInfo.身体部位) {
-            if (!Array.isArray(privateInfo.身体部位)) {
-              errors.push('NPC私密信息.身体部位必须是数组类型');
-            } else {
-              privateInfo.身体部位.forEach((part: any, idx: number) => {
-                if (typeof part !== 'object' || part === null) {
-                  errors.push(`NPC私密信息.身体部位[${idx}]必须是对象类型`);
-                } else {
-                  const partRequired = ['部位名称', '开发度', '敏感度', '特征描述', '特殊印记'];
-                  const partMissing = partRequired.filter(f => !(f in part));
-                  if (partMissing.length > 0) {
-                    errors.push(`NPC私密信息.身体部位[${idx}]缺少字段: ${partMissing.join(', ')}`);
-                  }
-                }
-              });
-            }
-          }
+        } else if (val.私密信息.身体部位 !== undefined && !Array.isArray(val.私密信息.身体部位)) {
+          errors.push('NPC私密信息.身体部位必须是数组类型');
         }
       }
     }
@@ -370,53 +263,28 @@ function validateValueType(key: string, value: unknown, action: string): string[
       if (extra.length > 0) {
         errors.push(`NPC境界对象包含非法字段: ${extra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
       }
-      if (!('名称' in val) || !('阶段' in val)) {
-        errors.push('NPC境界必须包含"名称"和"阶段"字段');
-      }
     }
   }
 
-  // 三千大道验证
+  // 三千大道验证 - 放宽验证
   if (key.startsWith('三千大道.大道列表.') && action === 'set' && (key.match(/\./g) || []).length === 2) {
     if (typeof value !== 'object' || value === null) {
       errors.push('大道对象必须是对象类型');
     } else {
       const val = value as Record<string, any>;
-      const daoRequired = ['道名', '描述', '阶段列表', '是否解锁', '当前阶段', '当前经验', '总经验'];
-      const missing = daoRequired.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`大道对象缺少必需字段: ${missing.join(', ')}`);
-      }
-      if (val.阶段列表 && !Array.isArray(val.阶段列表)) {
+      // 只检查阶段列表的类型
+      if (val.阶段列表 !== undefined && !Array.isArray(val.阶段列表)) {
         errors.push('大道.阶段列表必须是数组类型');
-      } else if (Array.isArray(val.阶段列表) && val.阶段列表.length > 0) {
-        val.阶段列表.forEach((stage: any, idx: number) => {
-          if (typeof stage !== 'object' || stage === null) {
-            errors.push(`大道.阶段列表[${idx}]必须是对象类型`);
-          } else {
-            const stageRequired = ['名称', '描述', '突破经验'];
-            const stageMissing = stageRequired.filter(f => !(f in stage));
-            if (stageMissing.length > 0) {
-              errors.push(`大道.阶段列表[${idx}]缺少字段: ${stageMissing.join(', ')}`);
-            }
-          }
-        });
       }
     }
   }
 
-  // 任务对象验证
+  // 任务对象验证 - 放宽验证
   if (key === '任务系统.当前任务列表' && action === 'push') {
     if (typeof value !== 'object' || value === null) {
       errors.push('任务对象必须是对象类型');
-    } else {
-      const val = value as Record<string, any>;
-      const questRequired = ['任务ID', '任务名称', '任务描述', '任务类型', '任务状态', '目标列表', '奖励'];
-      const missing = questRequired.filter(f => !(f in val));
-      if (missing.length > 0) {
-        errors.push(`任务对象缺少必需字段: ${missing.join(', ')}`);
-      }
     }
+    // 不再强制检查所有字段
   }
 
   return errors;

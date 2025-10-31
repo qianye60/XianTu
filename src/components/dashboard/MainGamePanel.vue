@@ -135,8 +135,9 @@
           style="display: none"
         />
 
-        <!-- 图片上传按钮 -->
+        <!-- 图片上传按钮 - 已禁用 -->
         <button
+          v-if="false"
           @click="openImagePicker"
           class="action-selector-btn image-upload-btn"
           :disabled="!hasActiveCharacter"
@@ -149,7 +150,9 @@
           </svg>
         </button>
 
+        <!-- 快捷行动按钮 - 已禁用 -->
         <button
+          v-if="false"
           @click="showActionSelector"
           class="action-selector-btn"
           :disabled="!hasActiveCharacter"

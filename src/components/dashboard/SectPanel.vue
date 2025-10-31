@@ -109,31 +109,30 @@
                   <!-- 总体统计 -->
                   <div class="total-members">
                     <span class="total-label">总人数</span>
-                    <span class="total-value">{{ selectedSect.成员数量.总数 }}人</span>
+                    <span class="total-value">{{ selectedSect.成员数量?.总数 || selectedSect.成员数量?.total || 0 }}人</span>
                   </div>
 
                   <!-- 境界分布 -->
-                  <div class="realm-distribution" v-if="selectedSect.成员数量.按境界">
+                  <div class="realm-distribution" v-if="selectedSect.成员数量?.按境界 || selectedSect.成员数量?.byRealm">
                     <h6 class="distribution-title">境界分布</h6>
                     <div class="realm-stats">
                       <div
-                        v-for="(count, realm) in selectedSect.成员数量.按境界"
+                        v-for="(count, realm) in (selectedSect.成员数量?.按境界 || selectedSect.成员数量?.byRealm)"
                         :key="realm"
                         class="realm-item"
-                        v-show="count > 0"
                       >
-                        <span class="realm-name">{{ realm.includes('期') ? realm : realm + '期' }}</span>
+                        <span class="realm-name">{{ formatRealmName(String(realm)) }}</span>
                         <span class="realm-count">{{ count }}人</span>
                       </div>
                     </div>
                   </div>
 
                   <!-- 职位分布 -->
-                  <div class="position-distribution" v-if="selectedSect.成员数量.按职位">
+                  <div class="position-distribution" v-if="selectedSect.成员数量?.按职位 || selectedSect.成员数量?.byPosition">
                     <h6 class="distribution-title">职位分布</h6>
                     <div class="position-stats">
                       <div
-                        v-for="(count, position) in selectedSect.成员数量.按职位"
+                        v-for="(count, position) in (selectedSect.成员数量?.按职位 || selectedSect.成员数量?.byPosition)"
                         :key="position"
                         class="position-item"
                         v-show="count > 0"
@@ -728,6 +727,25 @@ const formatSectLevel = (level: string): string => {
   if (level.includes('宗门')) return level;
   // 否则添加"宗门"后缀
   return level + '宗门';
+};
+
+// 格式化境界名称，智能处理"期"后缀
+const formatRealmName = (realm: string): string => {
+  if (!realm) return '未知';
+
+  // 如果已经包含"期"，直接返回
+  if (realm.includes('期')) return realm;
+
+  // 如果是完整的境界描述（如"练气初期"），直接返回
+  const fullRealmPattern = /(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫)(初期|中期|后期|圆满|极境)/;
+  if (fullRealmPattern.test(realm)) return realm;
+
+  // 如果只是境界名称（如"练气"、"筑基"），添加"期"后缀
+  const simpleRealmPattern = /^(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫)$/;
+  if (simpleRealmPattern.test(realm)) return realm + '期';
+
+  // 其他情况直接返回
+  return realm;
 };
 
 const selectSect = (sect: WorldFaction) => {
@@ -1567,8 +1585,9 @@ onMounted(() => {
 
 .realm-stats, .position-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 0.5rem;
+  max-height: none; /* 允许完整显示 */
 }
 
 .realm-item, .position-item {
