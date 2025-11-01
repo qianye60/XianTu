@@ -5,18 +5,18 @@
       <div class="header-left">
         <div class="header-icon">⚙️</div>
         <div class="header-info">
-          <h3 class="panel-title">游戏设置</h3>
-          <span class="settings-subtitle">自定义您的游戏体验</span>
+          <h3 class="panel-title">{{ t('gameSettings') }}</h3>
+          <span class="settings-subtitle">{{ t('customizeExperience') }}</span>
         </div>
       </div>
       <div class="header-actions">
         <button class="action-btn" @click="resetSettings">
           <RotateCcw :size="16" />
-          <span class="btn-text">重置</span>
+          <span class="btn-text">{{ t('reset') }}</span>
         </button>
         <button class="action-btn primary" @click="saveSettings">
           <Save :size="16" />
-          <span class="btn-text">保存</span>
+          <span class="btn-text">{{ t('save') }}</span>
         </button>
       </div>
     </div>
@@ -26,32 +26,45 @@
       <!-- 显示设置 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🎨 显示设置</h4>
+          <h4 class="section-title">🎨 {{ t('displaySettings') }}</h4>
         </div>
         <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">主题模式</label>
-              <span class="setting-desc">选择明亮或暗黑主题</span>
+              <label class="setting-name">{{ t('languageSettings') }}</label>
+              <span class="setting-desc">{{ t('selectLanguage') }}</span>
             </div>
             <div class="setting-control">
-              <select v-model="settings.theme" class="setting-select" @change="onSettingChange">
-                <option value="light">明亮</option>
-                <option value="dark">暗黑</option>
-                <option value="auto">跟随系统</option>
+              <select v-model="currentLanguage" class="setting-select" @change="onLanguageChange">
+                <option value="zh">{{ t('chinese') }}</option>
+                <option value="en">{{ t('english') }}</option>
               </select>
             </div>
           </div>
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">界面缩放</label>
-              <span class="setting-desc">调整UI界面大小</span>
+              <label class="setting-name">{{ t('themeMode') }}</label>
+              <span class="setting-desc">{{ t('themeDesc') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="settings.theme" class="setting-select" @change="onSettingChange">
+                <option value="light">{{ t('light') }}</option>
+                <option value="dark">{{ t('dark') }}</option>
+                <option value="auto">{{ t('auto') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('uiScale') }}</label>
+              <span class="setting-desc">{{ t('uiScaleDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="range-container">
-                <input 
-                  type="range" 
+                <input
+                  type="range"
                   v-model.number="settings.uiScale"
                   min="80"
                   max="120"
@@ -66,14 +79,14 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">文字大小</label>
-              <span class="setting-desc">调整游戏文字显示大小</span>
+              <label class="setting-name">{{ t('fontSize') }}</label>
+              <span class="setting-desc">{{ t('fontSizeDesc') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="settings.fontSize" class="setting-select" @change="applyFontSize">
-                <option value="small">小</option>
-                <option value="medium">中</option>
-                <option value="large">大</option>
+                <option value="small">{{ t('small') }}</option>
+                <option value="medium">{{ t('medium') }}</option>
+                <option value="large">{{ t('large') }}</option>
               </select>
             </div>
           </div>
@@ -83,14 +96,14 @@
       <!-- 游戏设置 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🎮 游戏设置</h4>
+          <h4 class="section-title">🎮 {{ t('gameplaySettings') }}</h4>
         </div>
         <div class="settings-list">
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">快速动画</label>
-              <span class="setting-desc">加速界面动画和过渡效果</span>
+              <label class="setting-name">{{ t('fastAnimations') }}</label>
+              <span class="setting-desc">{{ t('fastAnimationsDesc') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -315,7 +328,15 @@ import { Save, RotateCcw, Trash2, Download, Upload } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
+import { useI18n } from '@/i18n';
 import { AUTH_CONFIG } from '@/config/authConfig';
+
+const { t, setLanguage, currentLanguage } = useI18n();
+
+const onLanguageChange = () => {
+  setLanguage(currentLanguage.value);
+  toast.success('语言设置已更新');
+};
 
 // 设置数据结构
 const settings = reactive({

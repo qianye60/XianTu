@@ -19,7 +19,7 @@ export function assembleSystemPrompt(activePrompts: string[], customActionPrompt
   const promptSections = [
     // 核心规则（JSON格式、响应格式、数据结构严格性）
     Object.values(coreRules).filter(rule => typeof rule === 'string').join('\n\n'),
-    // 业务规则（境界系统、三千大道、NPC规则、NSFW规则）
+    // 业务规则（境界系统、三千大道、NPC规则、命令路径构建、NSFW规则）
     Object.values(businessRules).filter(rule => typeof rule === 'string').join('\n\n'),
     // 数据结构定义
     SAVE_DATA_STRUCTURE,
