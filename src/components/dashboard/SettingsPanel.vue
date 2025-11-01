@@ -113,6 +113,19 @@
             </div>
           </div>
 
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">行动选项</label>
+              <span class="setting-desc">AI生成可选的行动建议</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="uiStore.enableActionOptions">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -150,6 +163,21 @@
                 v-model="settings.questSystemPrompt"
                 class="setting-textarea"
                 placeholder="例如：生成更多战斗类任务，奖励偏向灵石..."
+                rows="3"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="setting-item setting-item-full">
+            <div class="setting-info">
+              <label class="setting-name">自定义行动选项提示词</label>
+              <span class="setting-desc">指导AI生成特定风格的行动选项（可选，留空使用默认）</span>
+            </div>
+            <div class="setting-control-full">
+              <textarea
+                v-model="uiStore.actionOptionsPrompt"
+                class="setting-textarea"
+                placeholder="例如：多生成修炼和探索类选项，减少战斗选项..."
                 rows="3"
               ></textarea>
             </div>

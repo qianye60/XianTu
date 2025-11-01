@@ -4,6 +4,7 @@ import * as businessRules from './definitions/businessRules';
 import * as textFormats from './definitions/textFormats';
 import * as worldStandards from './definitions/worldStandards';
 import { SAVE_DATA_STRUCTURE, DATA_STRUCTURE_EXAMPLES } from './definitions/dataDefinitions';
+import { ACTION_OPTIONS_RULES } from './definitions/actionOptions';
 
 // 导出常用的规则常量
 export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
@@ -11,9 +12,10 @@ export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
 /**
  * 组装最终的系统Prompt
  * @param activePrompts - 一个包含了当前需要激活的prompt模块名称的数组
+ * @param customActionPrompt - 自定义行动选项提示词（可选）
  * @returns {string} - 拼接好的完整prompt字符串
  */
-export function assembleSystemPrompt(activePrompts: string[]): string {
+export function assembleSystemPrompt(activePrompts: string[], customActionPrompt?: string): string {
   const promptSections = [
     // 核心规则（JSON格式、响应格式、数据结构严格性）
     Object.values(coreRules).filter(rule => typeof rule === 'string').join('\n\n'),
@@ -29,6 +31,12 @@ export function assembleSystemPrompt(activePrompts: string[]): string {
   ];
 
   // 根据激活列表来添加可选模块
+  if (activePrompts.includes('actionOptions')) {
+    const customPromptSection = customActionPrompt || '（无特殊要求，按默认规则生成）';
+    const actionRules = ACTION_OPTIONS_RULES.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection);
+    promptSections.push(actionRules);
+  }
+
   if (activePrompts.includes('cot')) {
     promptSections.push(cotCorePrompt); // 将COT放在最后面
   }

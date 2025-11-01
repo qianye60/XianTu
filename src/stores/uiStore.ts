@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, shallowRef, type Component } from 'vue';
+import { ref, shallowRef, computed, type Component } from 'vue';
 
 interface RetryDialogConfig {
   title: string;
@@ -72,6 +72,10 @@ export const useUIStore = defineStore('ui', () => {
   // 🔥 [NPC自动生成设置] 控制AI是否在人物数量不足时自动生成NPC
   const autoGenerateNpc = ref(true); // 默认开启
   const minNpcCount = ref(3); // 最少NPC数量
+
+  // 🔥 [行动选项设置] 控制AI是否生成行动选项
+  const enableActionOptions = ref(localStorage.getItem('enableActionOptions') === 'true'); // 默认关闭
+  const actionOptionsPrompt = ref(localStorage.getItem('actionOptionsPrompt') || ''); // 自定义行动选项提示词
 
   function openCharacterManagement() {
     showCharacterManagement.value = true;
@@ -326,6 +330,22 @@ export const useUIStore = defineStore('ui', () => {
     // 🔥 [NPC自动生成设置] 暴露NPC自动生成相关状态
     autoGenerateNpc,
     minNpcCount,
+
+    // 🔥 [行动选项设置] 暴露行动选项开关
+    enableActionOptions: computed({
+      get: () => enableActionOptions.value,
+      set: (val) => {
+        enableActionOptions.value = val;
+        localStorage.setItem('enableActionOptions', String(val));
+      }
+    }),
+    actionOptionsPrompt: computed({
+      get: () => actionOptionsPrompt.value,
+      set: (val) => {
+        actionOptionsPrompt.value = val;
+        localStorage.setItem('actionOptionsPrompt', val);
+      }
+    }),
 
     // 暴露用户输入框内容
     userInputText,

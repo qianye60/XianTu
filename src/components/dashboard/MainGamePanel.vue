@@ -83,6 +83,18 @@
           <div class="narrative-text">
             <FormattedText :text="currentNarrative.content" />
           </div>
+
+          <!-- 行动选项 -->
+          <div v-if="uiStore.enableActionOptions && currentNarrative.actionOptions?.length" class="action-options">
+            <button
+              v-for="(option, index) in currentNarrative.actionOptions"
+              :key="index"
+              @click="selectActionOption(option)"
+              class="action-option-btn"
+            >
+              {{ option }}
+            </button>
+          </div>
         </div>
 
         <div v-else class="empty-narrative">
@@ -510,20 +522,23 @@ const currentNarrative = computed(() => {
     // Replace timestamp in content (移除游戏时间前缀)
     const contentWithoutOldTime = latestNarrative.content.replace(/^【.*?】\s*/, '');
 
+    console.log('[MainGamePanel] latestNarrative.actionOptions:', latestNarrative.actionOptions);
     return {
       type: latestNarrative.type || 'narrative',
       content: contentWithoutOldTime, // 内容不再包含时间前缀
       time: currentTimeString, // 显示现实世界时间
-      stateChanges: latestNarrative.stateChanges || { changes: [] }
+      stateChanges: latestNarrative.stateChanges || { changes: [] },
+      actionOptions: latestNarrative.actionOptions || []
     };
   }
 
   // If no narrative history, show default content
   return {
     type: 'system',
-    content: '静待天机变，道心自明澈。请输入你的行动开始修仙之旅。',
+    content: '开局生成失败，请检查API上下文长度是否足够，是否使用支持流式的API，然后返回主页重新开始生成。',
     time: currentTimeString,
-    stateChanges: { changes: [] }
+    stateChanges: { changes: [] },
+    actionOptions: []
   };
 });
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
@@ -1008,6 +1023,12 @@ const removeActionFromQueue = async (index: number) => {
 };
 
 // 发送消息给AI（优化版）
+// 选择行动选项
+const selectActionOption = (option: string) => {
+  inputText.value = option;
+  sendMessage();
+};
+
 const sendMessage = async () => {
   if (!inputText.value.trim()) return;
   if (isAIProcessing.value) {
@@ -1226,6 +1247,10 @@ const sendMessage = async () => {
       console.error('[AI处理失败]', aiError);
       hasError = true;
 
+      // 显示错误提示
+      const errorMsg = aiError instanceof Error ? aiError.message : '未知错误';
+      toast.error(`AI处理失败: ${errorMsg}`);
+
       // 🔥 清理流式输出状态（失败时清除所有流式内容）
       uiStore.setAIProcessing(false);
       streamingMessageIndex.value = null;
@@ -1264,6 +1289,11 @@ const sendMessage = async () => {
 
   } catch (error: unknown) {
     console.error('[AI交互] 处理失败:', error);
+    hasError = true;
+
+    // 显示错误提示
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    toast.error(`请求失败: ${errorMessage}`);
 
     // 🔥 清理流式输出状态（失败时清除所有流式内容）
     uiStore.setAIProcessing(false);
@@ -2277,6 +2307,32 @@ const syncGameState = async () => {
   color: var(--color-text);
   font-size: 0.95rem;
   background: var(--color-surface); /* 确保叙述内容区域背景一致 */
+}
+
+.action-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+}
+
+.action-option-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.action-option-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .narrative-meta {

@@ -20,10 +20,18 @@ export const FORBIDDEN_WORDS = `
 - 无力感、疲惫感、自我厌弃、自暴自弃、破罐子破摔
 - 倦意、无力、脱力、疲惫、虚弱、虚脱
 - 抽干全身力气
+- **眼中的光熄灭、光芒熄灭、眼神熄灭**
+- **灵魂被抽离、灵魂离开、失去灵魂**
+- **空洞、空白、空虚、虚无**
+- **躯壳、空壳、行尸走肉**
+- **彻底、完全、再也（与负面情绪连用时）**
+- **比xxx更可怕的xxx（极端化比较）**
 
 **替代方案：**
 - 用具体的生理反应：呼吸变缓、眼神涣散、肩膀下垂
 - 用动作描写：靠在墙上、闭上眼睛、深吸一口气
+- 用温和的情绪词：有些失落、略显疲惫、沉默不语
+- 保留希望和转机：虽然难过，但还在思考；虽然疲惫，但没有放弃
 
 ## 2. 机械化表达（导致文本失去人性）
 **禁止使用：**
@@ -116,6 +124,15 @@ export const FORBIDDEN_WORDS = `
 - 创造符合修仙世界观的独特表达
 `.trim()
 
+export const CHARACTER_AUTHENTICITY = `
+# 角色真实感原则（最高优先级）
+- 情感驱动优先于逻辑驱动
+- 语言直白生活化，贴近日常对话
+- 不说莫名其妙听不懂的话
+- 角色情绪平稳自然，不戏剧化
+- 真实活人感，不为强调人设而失真
+`.trim()
+
 export const WRITING_QUALITY_STANDARDS = `
 # 文本质量标准
 
@@ -155,6 +172,8 @@ export const WRITING_QUALITY_STANDARDS = `
 
 export const WRITING_QUALITY = `
 # 📝 文本质量规范 (Writing Quality Standards)
+
+${CHARACTER_AUTHENTICITY}
 
 ${FORBIDDEN_WORDS}
 
