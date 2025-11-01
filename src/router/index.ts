@@ -12,16 +12,16 @@ import CharacterManagement from '../components/character-creation/CharacterManag
 const FullscreenCharacterManagement = {
   setup() {
     const router = useRouter();
-    
+
     const handleClose = () => {
       router.push('/');
     };
-    
+
     const handleCharacterSelected = (_character: unknown) => {
       router.push('/game');
     };
-    
-    return () => h(CharacterManagement, { 
+
+    return () => h(CharacterManagement, {
       fullscreen: true,
       onClose: handleClose,
       onCharacterSelected: handleCharacterSelected
@@ -97,7 +97,7 @@ const routes = [
       },
       {
         path: 'thousand-dao',
-        name: 'ThousandDao', 
+        name: 'ThousandDao',
         component: ThousandDaoPanel, // 三千大道面板
       },
       {
@@ -151,9 +151,9 @@ let authCache: {
   expiresAt?: string;
 } | null = null;
 
-const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+const AUTH_CACHE_DURATION = 60 * 60 * 1000; // 30分钟缓存
 
-// 全局路由守卫 - 授权验证
+// 全局路由守卫 - 授权验证（非阻塞）
 router.beforeEach(async (to, from, next) => {
   // 动态导入配置以避免循环依赖
   const { AUTH_CONFIG } = await import('@/config/authConfig');
@@ -220,61 +220,61 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 3. 缓存失效或不存在，向服务器验证
-    console.log('[路由守卫] 缓存失效，向服务器验证');
-    try {
-      const machineCode = await generateMachineCodeForCheck();
-      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check',
-          app_id: AUTH_CONFIG.APP_ID,
-          machine_code: machineCode
-        })
-      });
+    // 3. 缓存失效或不存在，先放行路由，后台异步验证
+    console.log('[路由守卫] 缓存失效，后台异步验证');
+    next(); // 先放行，不阻塞路由
 
-      const result = await response.json();
+    // 后台异步验证
+    (async () => {
+      try {
+        const machineCode = await generateMachineCodeForCheck();
+        const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'check',
+            app_id: AUTH_CONFIG.APP_ID,
+            machine_code: machineCode
+          })
+        });
 
-      // 只有服务器验证通过才允许访问
-      if (result.success && result.data?.authorized) {
-        console.log('[路由守卫] 服务器验证通过');
-        const currentTime = Date.now();
+        const result = await response.json();
 
-        // 更新 localStorage
-        localStorage.setItem('auth_verified', 'true');
-        localStorage.setItem('auth_timestamp', currentTime.toString());
-        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-        localStorage.setItem('auth_machine_code', machineCode);
-        if (result.data.expires_at) {
-          localStorage.setItem('auth_expires_at', result.data.expires_at);
+        // 只有服务器验证通过才更新缓存
+        if (result.success && result.data?.authorized) {
+          console.log('[路由守卫] 后台验证通过');
+          const currentTime = Date.now();
+
+          // 更新 localStorage
+          localStorage.setItem('auth_verified', 'true');
+          localStorage.setItem('auth_timestamp', currentTime.toString());
+          localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+          localStorage.setItem('auth_machine_code', machineCode);
+          if (result.data.expires_at) {
+            localStorage.setItem('auth_expires_at', result.data.expires_at);
+          }
+
+          // 更新内存缓存
+          authCache = {
+            verified: true,
+            timestamp: currentTime,
+            expiresAt: result.data.expires_at
+          };
+        } else {
+          // 验证失败，清除缓存并跳转首页
+          console.warn('[路由守卫] 后台验证失败');
+          authCache = null;
+          localStorage.removeItem('auth_verified');
+          localStorage.removeItem('auth_timestamp');
+          if (router.currentRoute.value.path !== '/') {
+            router.push('/');
+          }
         }
-
-        // 更新内存缓存
-        authCache = {
-          verified: true,
-          timestamp: currentTime,
-          expiresAt: result.data.expires_at
-        };
-
-        next();
-        return;
+      } catch (error) {
+        console.warn('[路由守卫] 后台验证异常', error);
       }
-    } catch (error) {
-      console.warn('[路由守卫] 服务器验证失败', error);
-    }
-
-    // 验证失败，清除缓存
-    authCache = null;
-    localStorage.removeItem('auth_verified');
-    localStorage.removeItem('auth_timestamp');
-
-    // 验证失败，且不是在首页，重定向到首页
-    if (to.path !== '/') {
-      console.log('[路由守卫] 未授权，重定向到首页');
-      next('/');
-      return;
-    }
+    })();
+    return;
   }
 
   // 允许通过
