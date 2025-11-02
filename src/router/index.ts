@@ -144,148 +144,29 @@ const router = createRouter({
   routes,
 });
 
-// 缓存验证结果，避免频繁请求
-let authCache: {
-  verified: boolean;
-  timestamp: number;
-  expiresAt?: string;
-} | null = null;
-
-const AUTH_CACHE_DURATION = 60 * 60 * 1000; // 30分钟缓存
-
-// 全局路由守卫 - 授权验证（非阻塞）
+// 全局路由守卫 - 授权验证（简化版：只检查本地状态）
 router.beforeEach(async (to, from, next) => {
   // 动态导入配置以避免循环依赖
   const { AUTH_CONFIG } = await import('@/config/authConfig');
 
   // 如果启用了授权验证
   if (AUTH_CONFIG.ENABLE_AUTH) {
-    const now = Date.now();
-
-    // 1. 检查内存缓存（优先级最高，最快）
-    if (authCache && authCache.verified) {
-      // 检查缓存是否过期
-      if (now - authCache.timestamp < AUTH_CACHE_DURATION) {
-        // 如果有过期时间，检查是否已过期
-        if (authCache.expiresAt) {
-          const expiresTime = new Date(authCache.expiresAt).getTime();
-          if (now < expiresTime) {
-            console.log('[路由守卫] 使用内存缓存，跳过验证');
-            next();
-            return;
-          }
-        } else {
-          // 没有过期时间，直接使用缓存
-          console.log('[路由守卫] 使用内存缓存，跳过验证');
-          next();
-          return;
-        }
-      }
-    }
-
-    // 2. 检查 localStorage 缓存
     const authVerified = localStorage.getItem('auth_verified');
-    const authTimestamp = localStorage.getItem('auth_timestamp');
-    const authExpiresAt = localStorage.getItem('auth_expires_at');
 
-    if (authVerified === 'true' && authTimestamp) {
-      const cachedTime = parseInt(authTimestamp, 10);
-
-      // 检查缓存是否在有效期内
-      if (now - cachedTime < AUTH_CACHE_DURATION) {
-        // 如果有过期时间，检查是否已过期
-        if (authExpiresAt) {
-          const expiresTime = new Date(authExpiresAt).getTime();
-          if (now < expiresTime) {
-            console.log('[路由守卫] 使用本地缓存，跳过验证');
-            // 更新内存缓存
-            authCache = {
-              verified: true,
-              timestamp: cachedTime,
-              expiresAt: authExpiresAt
-            };
-            next();
-            return;
-          }
-        } else {
-          // 没有过期时间，直接使用缓存
-          console.log('[路由守卫] 使用本地缓存，跳过验证');
-          authCache = {
-            verified: true,
-            timestamp: cachedTime
-          };
-          next();
-          return;
-        }
-      }
+    // 🔴 简化逻辑：只检查本地是否已授权，不再频繁验证
+    if (authVerified === 'true') {
+      // 本地已授权，直接放行
+      console.log('[路由守卫] 本地已授权，直接放行');
+      next();
+      return;
     }
 
-    // 3. 缓存失效或不存在，阻塞路由进行验证
-    console.log('[路由守卫] 缓存失效，进行同步验证');
-
-    // 🔴 改为同步验证，阻塞路由直到验证完成
-    try {
-      const machineCode = await generateMachineCodeForCheck();
-      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'check',
-          app_id: AUTH_CONFIG.APP_ID,
-          machine_code: machineCode
-        })
-      });
-
-      const result = await response.json();
-
-      // 只有服务器验证通过才放行路由
-      if (result.success && result.data?.authorized) {
-        console.log('[路由守卫] 验证通过，放行路由');
-        const currentTime = Date.now();
-
-        // 更新 localStorage
-        localStorage.setItem('auth_verified', 'true');
-        localStorage.setItem('auth_timestamp', currentTime.toString());
-        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-        localStorage.setItem('auth_machine_code', machineCode);
-        if (result.data.expires_at) {
-          localStorage.setItem('auth_expires_at', result.data.expires_at);
-        }
-
-        // 更新内存缓存
-        authCache = {
-          verified: true,
-          timestamp: currentTime,
-          expiresAt: result.data.expires_at
-        };
-
-        // 验证通过，放行路由
-        next();
-      } else {
-        // 验证失败，阻止路由并跳转首页
-        console.warn('[路由守卫] 验证失败，阻止路由');
-        authCache = null;
-        localStorage.removeItem('auth_verified');
-        localStorage.removeItem('auth_timestamp');
-        localStorage.removeItem('auth_app_id');
-        localStorage.removeItem('auth_machine_code');
-        localStorage.removeItem('auth_expires_at');
-
-        // 如果不是首页，跳转到首页
-        if (to.path !== '/') {
-          next('/');
-        } else {
-          next();
-        }
-      }
-    } catch (error) {
-      console.warn('[路由守卫] 验证异常，阻止路由', error);
-      // 网络错误时，如果是首页则放行，否则跳转首页
-      if (to.path === '/') {
-        next();
-      } else {
-        next('/');
-      }
+    // 如果本地没有授权标记，且不是首页，跳转到首页
+    if (to.path !== '/') {
+      console.log('[路由守卫] 无授权标记，跳转首页');
+      next('/');
+    } else {
+      next();
     }
     return;
   }
@@ -293,36 +174,5 @@ router.beforeEach(async (to, from, next) => {
   // 允许通过
   next();
 });
-
-// 生成机器码的辅助函数
-async function generateMachineCodeForCheck(): Promise<string> {
-  // 如果已有缓存的机器码，直接使用
-  const cached = localStorage.getItem('auth_machine_code');
-  if (cached) return cached;
-
-  // 否则生成新的机器码
-  try {
-    if (typeof (window as any).generateStableMachineCode === 'function') {
-      return await (window as any).generateStableMachineCode();
-    }
-  } catch (e) {
-    console.warn('生成机器码失败', e);
-  }
-
-  // 降级方案
-  const userAgent = navigator.userAgent;
-  const screen = `${window.screen.width}x${window.screen.height}`;
-  const platform = navigator.platform;
-  const language = navigator.language;
-  const rawString = `${userAgent}-${screen}-${platform}-${language}`;
-
-  const encoder = new TextEncoder();
-  const data = encoder.encode(rawString);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-  return `UMC-${hash.substring(0, 8).toUpperCase()}`;
-}
 
 export default router;

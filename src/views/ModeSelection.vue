@@ -161,57 +161,90 @@ onMounted(async () => {
   // 检查授权状态
   checkAuthStatus();
 
-  // 🔴 如果启用授权验证，验证本地授权的有效性
-  if (AUTH_CONFIG.ENABLE_AUTH && isAuthorized.value) {
-    try {
-      const machineCode = localStorage.getItem('auth_machine_code');
-      const appId = localStorage.getItem('auth_app_id');
+  // 🔴 每次刷新页面都验证一次（无论本地是否已授权）
+  if (AUTH_CONFIG.ENABLE_AUTH) {
+    console.log('[ModeSelection] 页面刷新，开始自动验证');
 
-      if (machineCode && appId) {
-        // 向服务器验证授权是否仍然有效
+    // 先尝试自动验证（使用机器码）
+    (async () => {
+      try {
+        // 生成或获取机器码
+        let machineCode = localStorage.getItem('auth_machine_code');
+        if (!machineCode) {
+          machineCode = await generateMachineCode();
+          localStorage.setItem('auth_machine_code', machineCode);
+        }
+
+        console.log('[ModeSelection] 使用机器码自动验证:', machineCode);
+
+        // 尝试自动验证
         const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'verify',
-            app_id: appId,
+            action: 'check',
+            app_id: AUTH_CONFIG.APP_ID,
             machine_code: machineCode
           })
         });
 
-        const result = await response.json();
-
-        if (!result.success || !result.is_valid) {
-          // 服务器验证失败，清除本地授权状态
-          console.warn('[授权验证] 服务器验证失败，清除本地授权');
+        if (!response.ok) {
+          console.warn('[ModeSelection] 服务器错误，清除本地授权');
+          // 服务器错误，清除本地授权
           localStorage.removeItem('auth_verified');
           localStorage.removeItem('auth_app_id');
           localStorage.removeItem('auth_machine_code');
           localStorage.removeItem('auth_expires_at');
           checkAuthStatus();
 
-          toast.warning('授权已失效，请重新验证');
-          showAuthModal.value = true;
-        } else {
-          console.log('[授权验证] 服务器验证通过');
+          // 弹出手动验证窗口
+          setTimeout(() => {
+            showAuthModal.value = true;
+            toast.warning('授权验证失败，请重新验证');
+          }, 500);
+          return;
         }
-      } else {
-        // 本地授权信息不完整，清除状态
-        localStorage.removeItem('auth_verified');
-        checkAuthStatus();
-      }
-    } catch (error) {
-      console.warn('[授权验证] 服务器验证失败（网络错误）:', error);
-      // 网络错误时不清除授权，允许离线使用
-    }
-  }
 
-  // 如果启用授权验证且本地未授权，弹出验证窗口
-  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value && AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
-    setTimeout(() => {
-      showAuthModal.value = true;
-      toast.info('请先完成授权验证');
-    }, 1000);
+        const result = await response.json();
+
+        if (result.success && result.data?.authorized) {
+          // ✅ 自动验证成功，静默通过
+          console.log('[ModeSelection] 自动验证成功');
+          localStorage.setItem('auth_verified', 'true');
+          localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+          localStorage.setItem('auth_machine_code', machineCode);
+          localStorage.setItem('auth_expires_at', result.data.expires_at || '');
+          checkAuthStatus();
+          // 不显示成功提示，静默通过
+        } else {
+          // ❌ 自动验证失败，清除本地授权，弹窗
+          console.warn('[ModeSelection] 自动验证失败，授权无效');
+          localStorage.removeItem('auth_verified');
+          localStorage.removeItem('auth_app_id');
+          localStorage.removeItem('auth_machine_code');
+          localStorage.removeItem('auth_expires_at');
+          checkAuthStatus();
+
+          setTimeout(() => {
+            showAuthModal.value = true;
+            toast.warning('授权验证失败，请输入兑换码');
+          }, 500);
+        }
+      } catch (error) {
+        console.warn('[ModeSelection] 网络错误，清除本地授权:', error);
+        // 网络错误，清除本地授权
+        localStorage.removeItem('auth_verified');
+        localStorage.removeItem('auth_app_id');
+        localStorage.removeItem('auth_machine_code');
+        localStorage.removeItem('auth_expires_at');
+        checkAuthStatus();
+
+        setTimeout(() => {
+          showAuthModal.value = true;
+          toast.error('网络错误，请检查连接后重试');
+        }, 500);
+      }
+    })();
   }
 });
 

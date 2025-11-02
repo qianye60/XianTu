@@ -189,6 +189,7 @@ const handleVerify = async () => {
 
       // 保存验证信息到localStorage
       localStorage.setItem('auth_verified', 'true');
+      localStorage.setItem('auth_timestamp', Date.now().toString()); // 🔴 添加时间戳
       localStorage.setItem('auth_app_id', formData.appId);
       localStorage.setItem('auth_machine_code', formData.machineCode);
       localStorage.setItem('auth_expires_at', result.data?.expires_at || '');

@@ -7,6 +7,7 @@
       @refresh="refreshData"
       @export="exportData"
       @show-stats="showDataStats"
+      @show-format-guide="showFormatGuideModal = true"
     />
 
     <GameVariableDataSelector
@@ -52,6 +53,11 @@
       :getWorldItemCount="getWorldItemCount"
       @close="showDataStatsModal = false"
     />
+
+    <GameVariableFormatGuideModal
+      v-if="showFormatGuideModal"
+      @close="showFormatGuideModal = false"
+    />
   </div>
 </template>
 
@@ -65,6 +71,7 @@ import GameVariableDataSelector from './components/GameVariableDataSelector.vue'
 import GameVariableDataDisplay from './components/GameVariableDataDisplay.vue'
 import GameVariableEditModal from './components/GameVariableEditModal.vue'
 import GameVariableStatsModal from './components/GameVariableStatsModal.vue'
+import GameVariableFormatGuideModal from './components/GameVariableFormatGuideModal.vue'
 import { useI18n } from '@/i18n'
 
 const { t } = useI18n()
@@ -88,6 +95,7 @@ const lastUpdateTime = ref('')
 const selectedDataType = ref('saveData') // 默认显示存档数据
 const searchQuery = ref('')
 const showDataStatsModal = ref(false)
+const showFormatGuideModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 

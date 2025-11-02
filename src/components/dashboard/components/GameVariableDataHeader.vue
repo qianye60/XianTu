@@ -15,13 +15,17 @@
             class="search-input"
           />
         </div>
+        <button class="format-guide-btn" @click="$emit('show-format-guide')" title="查看数据格式说明">
+          <BookOpen :size="16" />
+          <span>格式说明</span>
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Database, Search } from 'lucide-vue-next'
+import { Database, Search, BookOpen } from 'lucide-vue-next'
 
 interface Props {
   searchQuery: string
@@ -32,6 +36,7 @@ defineProps<Props>()
 
 defineEmits<{
   'update:search-query': [value: string]
+  'show-format-guide': []
 }>()
 </script>
 
@@ -80,6 +85,26 @@ defineEmits<{
   color: var(--color-text);
   font-size: 0.875rem;
   flex: 1;
+}
+
+.format-guide-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.format-guide-btn:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
 }
 
 /* 手机端适配 */

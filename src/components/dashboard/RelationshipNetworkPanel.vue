@@ -749,22 +749,23 @@ const editMemory = async (index: number) => {
   const name = selectedPerson.value.名字;
   const key = findRelationshipKeyByName(name);
   if (!key) return;
-  if (!characterData.value?.人物关系?.[key]?.记忆) return;
 
-  const current = characterData.value.人物关系[key].记忆[index];
+  // 🔴 修复：直接从 gameStateStore.relationships 获取记忆
+  if (!gameStateStore.relationships?.[key]?.记忆) return;
+
+  const current = gameStateStore.relationships[key].记忆[index];
 
   // 新格式：字符串记忆
   if (typeof current === 'string') {
     const newEvent = window.prompt('编辑记忆内容', current);
     if (newEvent === null || newEvent.trim() === '') return;
 
-    // 确保类型正确
-    characterData.value.人物关系[key].记忆[index] = newEvent.trim();
-    selectedPerson.value = { ...characterData.value.人物关系[key] };
+    // 🔴 修复：直接修改 gameStateStore.relationships
+    gameStateStore.relationships[key].记忆[index] = newEvent.trim();
+    selectedPerson.value = { ...gameStateStore.relationships[key] };
 
-    const { useGameStateStore } = await import('@/stores/gameStateStore');
-    const gameStateStore = useGameStateStore();
     await gameStateStore.saveGame();
+    uiStore.showToast('记忆已更新', { type: 'success' });
     return;
   }
 
@@ -779,16 +780,16 @@ const editMemory = async (index: number) => {
     const newEvent = window.prompt('编辑记忆事件', currentEvent);
     if (newEvent === null) return;
 
-    characterData.value.人物关系[key].记忆[index] = {
+    // 🔴 修复：直接修改 gameStateStore.relationships
+    gameStateStore.relationships[key].记忆[index] = {
       时间: newTime.trim(),
       事件: newEvent.trim()
     };
 
-    selectedPerson.value = { ...characterData.value.人物关系[key] };
+    selectedPerson.value = { ...gameStateStore.relationships[key] };
 
-    const { useGameStateStore } = await import('@/stores/gameStateStore');
-    const gameStateStore = useGameStateStore();
     await gameStateStore.saveGame();
+    uiStore.showToast('记忆已更新', { type: 'success' });
   }
 };
 
@@ -803,14 +804,20 @@ const deleteMemory = async (index: number) => {
       const name = selectedPerson.value!.名字;
       const key = findRelationshipKeyByName(name);
       if (!key) return;
-      if (!characterData.value?.人物关系?.[key]?.记忆) return;
-      characterData.value.人物关系[key].记忆.splice(index, 1);
-      selectedPerson.value = { ...characterData.value.人物关系[key] };
 
-      // 使用 gameStateStore 保存
-      const { useGameStateStore } = await import('@/stores/gameStateStore');
-      const gameStateStore = useGameStateStore();
+      // 🔴 修复：直接修改 gameStateStore.relationships，而不是 characterData
+      if (!gameStateStore.relationships?.[key]?.记忆) return;
+
+      // 删除记忆
+      gameStateStore.relationships[key].记忆.splice(index, 1);
+
+      // 更新选中的人物
+      selectedPerson.value = { ...gameStateStore.relationships[key] };
+
+      // 保存到数据库
       await gameStateStore.saveGame();
+
+      uiStore.showToast('记忆已删除', { type: 'success' });
     },
     onCancel: () => {}
   });
@@ -960,39 +967,50 @@ const summarizeMemories = async () => {
 
     const systemPrompt = `# NPC记忆总结任务
 
-你需要将以下关于【${npcName}】的记忆总结成一条简洁的摘要。
+你需要将【${npcName}】的记忆总结成一条简洁的摘要。
+
+## 🔴 核心要求（必须遵守）
+1. **这是${npcName}自己的记忆**，不是玩家关于${npcName}的记忆
+2. **必须从${npcName}的第一人称视角**总结（使用"我"）
+3. **只总结记忆中的事实**，不要编造、推测或添加未出现的情节
+4. **不要写成故事**，要写成记忆摘要
 
 ## 总结要求
-1. 按时间顺序梳理事件脉络
-2. 保留关键信息、时间线索、情感变化、关系发展
-3. 字数控制在100-200字
-4. 使用修仙小说的语言风格
+1. 使用第一人称（"我"）的视角，站在${npcName}的角度回忆
+2. 按时间顺序梳理事件脉络
+3. 保留关键信息：时间、地点、人物、事件、情感变化
+4. 字数控制在100-200字
+5. 使用简洁的记忆摘要风格，不要写成叙事故事
 
-## 内容处理规范（重要）
-- 如果记忆中包含亲密关系内容，必须使用委婉、文学化的表达方式
-- 使用"云雨之欢"、"鱼水之欢"、"共度良宵"、"情意绵绵"等古典文学词汇
+## 示例对比
+❌ 错误（故事风格）："那是一个月明星稀的夜晚，${npcName}独自站在山巅..."
+✅ 正确（记忆摘要）："我在【时间】与玩家在【地点】相遇，当时我正在..."
+
+## 内容处理规范
+- 如果记忆中包含亲密关系内容，使用委婉、文学化的表达
+- 使用"云雨之欢"、"鱼水之欢"、"共度良宵"等古典词汇
 - 侧重情感层面和关系发展，淡化具体细节
-- 采用含蓄笔法，符合修仙世界的文学审美
 
 ## 输出格式（严格遵守）
-这是一个特殊的记忆整理任务，你必须返回标准JSON格式：
 \`\`\`json
 {
-  "text": "总结的记忆内容（100-200字）",
+  "text": "总结的记忆内容（100-200字，第一人称）",
   "mid_term_memory": "",
   "tavern_commands": []
 }
 \`\`\`
 
 注意：
-- text字段包含完整的记忆总结
-- mid_term_memory留空（这是特殊任务）
-- tavern_commands留空数组（这是特殊任务）
+- text字段必须是第一人称视角的记忆摘要
+- mid_term_memory留空
+- tavern_commands留空数组
 - 不要在JSON外添加任何说明文字`;
 
-    const userPrompt = `请总结以下关于【${npcName}】的记忆：
+    const userPrompt = `请从【${npcName}】的第一人称视角，总结以下记忆：
 
-${memoriesText}`;
+${memoriesText}
+
+记住：你是${npcName}，用"我"来总结这些记忆。`;
 
     uiStore.showToast('正在调用AI总结记忆...', { type: 'info' });
 
@@ -1015,11 +1033,19 @@ ${memoriesText}`;
       }
     ];
 
+    // 🔴 使用 overrides 清空角色卡信息，只专注于记忆总结
     const response = await tavernHelper.generate({
       user_input: userPrompt,
       should_stream: true,
       generation_id: `npc_memory_summary_${Date.now()}`,
       injects,
+      overrides: {
+        char_description: '',  // 清空角色描述
+        char_personality: '',  // 清空角色性格
+        scenario: '',          // 清空场景
+        example_dialogue: '',  // 清空示例对话
+      },
+      max_chat_history: 0,     // 不加载聊天历史
     });
 
     // 解析响应

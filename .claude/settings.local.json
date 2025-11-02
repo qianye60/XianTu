@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node find_untranslated.cjs)",
       "Bash(node -e \"\nconst fs = require(''fs'');\nconst i18nContent = fs.readFileSync(''src/i18n/index.ts'', ''utf-8'');\nconst missingTexts = [\n  ''搜索人物...'', ''正在读取人际关系...'', ''尚未建立人际关系'', \n  ''在游戏中与更多人物互动建立关系'', ''取消关注'', ''添加关注'', ''删除人物'',\n  ''基础档案'', ''外貌与性格'', ''性格特征'', ''天赋能力'', ''最近记忆'', ''人格底线'',\n  ''当前状态（实时）'', ''外貌状态'', ''内心想法'', ''私密信息'', ''状态与欲望'',\n  ''性状态'', ''性渴望'', ''贞洁'', ''处女'', ''非处'', ''处男'', ''性格倾向'', ''性取向'',\n  ''异性恋'', ''性伴侣名单'', ''性经验统计'', ''性交总次数'', ''次'', ''性伴侣数量'',\n  ''最近一次：'', ''身体部位开发'', ''部位名称'', ''特殊标记'', ''特征描述'',\n  ''敏感度'', ''开发度'', ''体液状态'', ''癖好与体质'', ''性癖好'', ''特殊体质'',\n  ''记忆档案'', ''记忆'', ''条'', ''总结中...'', ''上一页'', ''下一页'', ''此人暂无记忆''\n];\n\nconst missing = [];\nmissingTexts.forEach(text => {\n  if (!i18nContent.includes(\"\"''\"\" + text + \"\"''\"\")) {\n    missing.push(text);\n  }\n});\n\nif (missing.length > 0) {\n  console.log(''缺失的翻译（共'', missing.length, ''个）：'');\n  missing.forEach(t => console.log(t));\n} else {\n  console.log(''所有翻译都已存在'');\n}\n\")",
-      "Bash(node -e \"\nconst fs = require(''fs'');\nconst i18nContent = fs.readFileSync(''src/i18n/index.ts'', ''utf-8'');\nconst texts = [''正在加载存档...'', ''开始游戏后可以创建存档''];\ntexts.forEach(t => {\n  if (!i18nContent.includes(\"\"''\"\" + t + \"\"''\"\")) {\n    console.log(''缺失:'', t);\n  }\n});\n\")"
+      "Bash(node -e \"\nconst fs = require(''fs'');\nconst i18nContent = fs.readFileSync(''src/i18n/index.ts'', ''utf-8'');\nconst texts = [''正在加载存档...'', ''开始游戏后可以创建存档''];\ntexts.forEach(t => {\n  if (!i18nContent.includes(\"\"''\"\" + t + \"\"''\"\")) {\n    console.log(''缺失:'', t);\n  }\n});\n\")",
+      "Bash(cat package.json)"
     ],
     "deny": [],
     "ask": [],
