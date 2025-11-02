@@ -785,6 +785,7 @@ const autoTranslateMap: Record<string, string> = {
   'AI响应格式不正确，正在重试...': 'AI response format is incorrect, retrying...',
   'AI响应格式错误，多次重试失败': 'AI response format error, and multiple retries failed',
   'AI处理失败': 'AI processing failed',
+  'AI处理状态已重置': 'AI processing state has been reset',
   '存档 "{0}" 成功': 'Save "{0}" successful',
   '存档失败': 'Save failed',
   '已备份到"上次对话"': 'Backed up to "Last Conversation"',

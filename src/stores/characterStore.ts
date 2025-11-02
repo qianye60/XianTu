@@ -1014,8 +1014,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
     console.log('[角色商店-删除存档] 当前存档列表:', Object.keys(profile.存档列表));
 
     // 检查是否为最后一个可删除的存档
-    const deletableSavesCount = Object.values(profile.存档列表).filter(
-      slot => slot && slot.存档名 !== '上次对话' && slot.存档数据
+    const deletableSavesCount = Object.entries(profile.存档列表).filter(
+      ([key, slot]) => slot && key !== '上次对话'
     ).length;
 
     console.log('[角色商店-删除存档] 可删除存档数量:', deletableSavesCount);
@@ -1062,6 +1062,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
     console.log('[角色商店-删除存档] 执行 delete 操作');
     delete profile.存档列表[slotKey];
 
+    // 触发响应式更新
+    profile.存档列表 = { ...profile.存档列表 };
+
     console.log('[角色商店-删除存档] 删除后存档列表:', Object.keys(profile.存档列表));
     console.log('[角色商店-删除存档] 开始保存到 IndexedDB');
 
@@ -1077,7 +1080,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.error('角色商店', '删除存档后同步云端失败', error);
     }
 
-    toast.success(`存档【${saveName}】已删除`);
+    toast.success('存档已删除');
     console.log('[角色商店-删除存档] 删除存档完成');
   };
 

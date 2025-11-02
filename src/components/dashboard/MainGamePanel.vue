@@ -375,27 +375,9 @@ const toggleMemory = () => {
 // 恢复AI处理状态（从sessionStorage）
 const restoreAIProcessingState = () => {
   const saved = sessionStorage.getItem('ai-processing-state');
-  const timestamp = sessionStorage.getItem('ai-processing-timestamp');
-  const TIMEOUT_DURATION = 2 * 60 * 1000; // 2分钟超时
-
-  if (saved === 'true' && timestamp) {
-    const elapsed = Date.now() - parseInt(timestamp);
-    // 如果超过2分钟，认为已超时，清除状态
-    if (elapsed < TIMEOUT_DURATION) {
-      uiStore.setAIProcessing(true);
-      console.log('[状态恢复] 恢复AI处理状态');
-
-      // 2分钟后自动清除状态
-      setTimeout(() => {
-        if (uiStore.isAIProcessing) {
-          console.log('[状态恢复] AI处理超时，自动清除状态');
-          forceResetAIProcessingState();
-        }
-      }, TIMEOUT_DURATION - elapsed); // 从剩余时间开始计时
-    } else {
-      console.log('[状态恢复] AI处理状态已超时，清除状态');
-      uiStore.resetStreamingState();
-    }
+  if (saved === 'true') {
+    uiStore.setAIProcessing(true);
+    console.log('[状态恢复] 恢复AI处理状态');
   }
 };
 
@@ -415,8 +397,9 @@ const forceResetAIProcessingState = () => {
   console.log('[强制重置] 清除AI处理状态和会话存储');
   uiStore.resetStreamingState();
   streamingMessageIndex.value = null;
+  rawStreamingContent.value = '';
   persistAIProcessingState();
-  toast.info('AI处理状态已重置');
+  toast.info(t('AI处理状态已重置'));
 };
 
 
@@ -1284,7 +1267,8 @@ const sendMessage = async () => {
       uiStore.setAIProcessing(false);
       streamingMessageIndex.value = null;
       uiStore.setCurrentGenerationId(null);
-      uiStore.setStreamingContent(''); // 清除流式内容
+      // 🔥 关键修复：清除流式内容，防止下次显示旧内容
+      uiStore.resetStreamingState();
       rawStreamingContent.value = '';
       persistAIProcessingState();
     }
@@ -1310,7 +1294,7 @@ const sendMessage = async () => {
       console.warn('[AI响应处理] finally块：状态未清除，强制清除（兜底）');
       uiStore.setAIProcessing(false);
       streamingMessageIndex.value = null;
-      uiStore.setStreamingContent('');
+      uiStore.resetStreamingState();
       rawStreamingContent.value = '';
       uiStore.setCurrentGenerationId(null);
       persistAIProcessingState();
@@ -1547,8 +1531,9 @@ onMounted(async () => {
 
         globalHandlers.onStreamToken = (chunk: string, generationId: string) => {
           if (generationId === currentGenerationId.value && useStreaming.value && chunk) {
-            // 增量追加：每次把新内容加到后面
-            uiStore.setStreamingContent(uiStore.streamingContent + chunk);
+            // 增量追加到原始内容
+            rawStreamingContent.value += chunk;
+            uiStore.setStreamingContent(rawStreamingContent.value);
           }
         };
 

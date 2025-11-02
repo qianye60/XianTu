@@ -296,7 +296,7 @@
                       <div v-for="part in selectedPerson.私密信息.身体部位" :key="part.部位名称" class="body-part-item">
                         <div class="part-header">
                           <span class="part-name">{{ part.部位名称 }}</span>
-                          <span v-if="part.特殊标记" class="part-mark">{{ part.特殊标记 }}</span>
+                          <span v-if="part.特殊印记 && part.特殊印记 !== '无'" class="part-mark">{{ part.特殊印记 }}</span>
                         </div>
                         <div v-if="part.特征描述" class="part-description">{{ part.特征描述 }}</div>
                         <div class="part-stats">
