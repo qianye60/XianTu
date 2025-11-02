@@ -144,6 +144,7 @@ import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { getCurrentCharacterName } from '../utils/tavern';
+import { useI18n } from '../i18n';
 
 
 const props = defineProps<{
@@ -154,6 +155,7 @@ const emit = defineEmits<{
   (e: 'creation-complete', payload: { error?: unknown; [key: string]: unknown }): void; // 允许传递错误对象
 }>()
 const store = useCharacterCreationStore();
+const { t } = useI18n();
 const isCodeModalVisible = ref(false)
 const isGenerating = ref(false) // This now primarily acts as a state guard for buttons
 const currentAIType = ref<'world' | 'talent_tier' | 'origin' | 'spirit_root' | 'talent'>('world')
