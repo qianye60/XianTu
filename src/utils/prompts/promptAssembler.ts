@@ -32,7 +32,9 @@ export function assembleSystemPrompt(activePrompts: string[], customActionPrompt
 
   // 根据激活列表来添加可选模块
   if (activePrompts.includes('actionOptions')) {
-    const customPromptSection = customActionPrompt || '（无特殊要求，按默认规则生成）';
+    const customPromptSection = customActionPrompt
+      ? `**用户自定义要求**：${customActionPrompt}\n\n请严格按照以上自定义要求生成行动选项。`
+      : '（无特殊要求，按默认规则生成）';
     const actionRules = ACTION_OPTIONS_RULES.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection);
     promptSections.push(actionRules);
   }

@@ -35,7 +35,7 @@
         <!-- 功能面板覆盖层 -->
         <div v-if="isPanelOpen" class="panel-overlay">
           <div class="panel-header compact" aria-label="功能面板导航">
-            <button class="back-btn" @click="closePanel" title="返回对话" aria-label="返回对话">
+            <button class="back-btn" @click="closePanel" :title="$t('返回')" :aria-label="$t('返回')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
@@ -67,9 +67,9 @@
           <div class="panel-header">
             <h2 class="panel-title">
               <Users2 :size="20" class="panel-title-icon" />
-              角色管理
+              {{ $t('角色管理') }}
             </h2>
-            <button class="panel-close-btn" @click="uiStore.closeCharacterManagement()" title="关闭面板">
+            <button class="panel-close-btn" @click="uiStore.closeCharacterManagement()" :title="$t('关闭')">
               <X :size="20" />
             </button>
           </div>
@@ -112,23 +112,23 @@
           <div class="loading-spinner"></div>
           <div class="spinner-glow"></div>
         </div>
-        <h2 class="loading-title">道法自然，天地初开</h2>
-        <p class="loading-message">正在加载修仙世界...</p>
+        <h2 class="loading-title">{{ $t('道法自然，天地初开') }}</h2>
+        <p class="loading-message">{{ $t('正在加载修仙世界...') }}</p>
         <div class="loading-steps">
           <div class="loading-step">
             <span class="step-icon">✓</span>
-            <span class="step-text">连接天道</span>
+            <span class="step-text">{{ $t('连接天道') }}</span>
           </div>
           <div class="loading-step">
             <span class="step-icon">✓</span>
-            <span class="step-text">加载角色数据</span>
+            <span class="step-text">{{ $t('加载角色数据') }}</span>
           </div>
           <div class="loading-step active">
             <span class="step-icon">○</span>
-            <span class="step-text">读取存档信息</span>
+            <span class="step-text">{{ $t('读取存档信息') }}</span>
           </div>
         </div>
-        <p class="loading-hint">提示：请在左侧菜单选择角色并加载存档</p>
+        <p class="loading-hint">{{ $t('提示：请在左侧菜单选择角色并加载存档') }}</p>
       </div>
     </div>
   </div>

@@ -5,18 +5,18 @@
       <div class="header-left">
         <div class="header-icon">⚙️</div>
         <div class="header-info">
-          <h3 class="panel-title">{{ t('gameSettings') }}</h3>
-          <span class="settings-subtitle">{{ t('customizeExperience') }}</span>
+          <h3 class="panel-title">{{ t('游戏设置') }}</h3>
+          <span class="settings-subtitle">{{ t('自定义您的游戏体验') }}</span>
         </div>
       </div>
       <div class="header-actions">
         <button class="action-btn" @click="resetSettings">
           <RotateCcw :size="16" />
-          <span class="btn-text">{{ t('reset') }}</span>
+          <span class="btn-text">{{ t('重置') }}</span>
         </button>
         <button class="action-btn primary" @click="saveSettings">
           <Save :size="16" />
-          <span class="btn-text">{{ t('save') }}</span>
+          <span class="btn-text">{{ t('保存') }}</span>
         </button>
       </div>
     </div>
@@ -26,40 +26,40 @@
       <!-- 显示设置 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🎨 {{ t('displaySettings') }}</h4>
+          <h4 class="section-title">🎨 {{ t('显示设置') }}</h4>
         </div>
         <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('languageSettings') }}</label>
-              <span class="setting-desc">{{ t('selectLanguage') }}</span>
+              <label class="setting-name">{{ t('语言设置') }}</label>
+              <span class="setting-desc">{{ t('选择界面语言') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="currentLanguage" class="setting-select" @change="onLanguageChange">
-                <option value="zh">{{ t('chinese') }}</option>
-                <option value="en">{{ t('english') }}</option>
+                <option value="zh">中文</option>
+                <option value="en">English</option>
               </select>
             </div>
           </div>
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('themeMode') }}</label>
-              <span class="setting-desc">{{ t('themeDesc') }}</span>
+              <label class="setting-name">{{ t('主题模式') }}</label>
+              <span class="setting-desc">{{ t('选择明亮或暗黑主题') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="settings.theme" class="setting-select" @change="onSettingChange">
-                <option value="light">{{ t('light') }}</option>
-                <option value="dark">{{ t('dark') }}</option>
-                <option value="auto">{{ t('auto') }}</option>
+                <option value="light">{{ t('明亮') }}</option>
+                <option value="dark">{{ t('暗黑') }}</option>
+                <option value="auto">{{ t('跟随系统') }}</option>
               </select>
             </div>
           </div>
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('uiScale') }}</label>
-              <span class="setting-desc">{{ t('uiScaleDesc') }}</span>
+              <label class="setting-name">{{ t('界面缩放') }}</label>
+              <span class="setting-desc">{{ t('调整UI界面大小') }}</span>
             </div>
             <div class="setting-control">
               <div class="range-container">
@@ -79,14 +79,14 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('fontSize') }}</label>
-              <span class="setting-desc">{{ t('fontSizeDesc') }}</span>
+              <label class="setting-name">{{ t('文字大小') }}</label>
+              <span class="setting-desc">{{ t('调整游戏文字显示大小') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="settings.fontSize" class="setting-select" @change="applyFontSize">
-                <option value="small">{{ t('small') }}</option>
-                <option value="medium">{{ t('medium') }}</option>
-                <option value="large">{{ t('large') }}</option>
+                <option value="small">{{ t('小') }}</option>
+                <option value="medium">{{ t('中') }}</option>
+                <option value="large">{{ t('大') }}</option>
               </select>
             </div>
           </div>
@@ -96,14 +96,14 @@
       <!-- 游戏设置 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🎮 {{ t('gameplaySettings') }}</h4>
+          <h4 class="section-title">🎮 {{ t('游戏设置') }}</h4>
         </div>
         <div class="settings-list">
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('fastAnimations') }}</label>
-              <span class="setting-desc">{{ t('fastAnimationsDesc') }}</span>
+              <label class="setting-name">{{ t('快速动画') }}</label>
+              <span class="setting-desc">{{ t('加速界面动画和过渡效果') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -115,8 +115,8 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">显示提示</label>
-              <span class="setting-desc">显示操作提示和帮助信息</span>
+              <label class="setting-name">{{ t('显示提示') }}</label>
+              <span class="setting-desc">{{ t('显示操作提示和帮助信息') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -128,8 +128,8 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">行动选项</label>
-              <span class="setting-desc">AI生成可选的行动建议</span>
+              <label class="setting-name">{{ t('行动选项') }}</label>
+              <span class="setting-desc">{{ t('AI生成可选的行动建议') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -145,37 +145,37 @@
       <!-- 游戏功能 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🎮 游戏功能</h4>
+          <h4 class="section-title">🎮 {{ t('游戏功能') }}</h4>
         </div>
         <div class="settings-list">
           <!-- 任务系统配置 -->
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">系统任务类型</label>
-              <span class="setting-desc">选择AI生成任务的风格类型</span>
+              <label class="setting-name">{{ t('系统任务类型') }}</label>
+              <span class="setting-desc">{{ t('选择AI生成任务的风格类型') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="settings.questSystemType" class="setting-select">
-                <option value="修仙辅助系统">修仙辅助系统</option>
-                <option value="道侣养成系统">道侣养成系统</option>
-                <option value="宗门发展系统">宗门发展系统</option>
-                <option value="探索冒险系统">探索冒险系统</option>
-                <option value="战斗挑战系统">战斗挑战系统</option>
-                <option value="资源收集系统">资源收集系统</option>
+                <option value="修仙辅助系统">{{ t('修仙辅助系统') }}</option>
+                <option value="道侣养成系统">{{ t('道侣养成系统') }}</option>
+                <option value="宗门发展系统">{{ t('宗门发展系统') }}</option>
+                <option value="探索冒险系统">{{ t('探索冒险系统') }}</option>
+                <option value="战斗挑战系统">{{ t('战斗挑战系统') }}</option>
+                <option value="资源收集系统">{{ t('资源收集系统') }}</option>
               </select>
             </div>
           </div>
 
           <div class="setting-item setting-item-full">
             <div class="setting-info">
-              <label class="setting-name">自定义任务提示词</label>
-              <span class="setting-desc">为AI任务生成添加自定义指令（可选，留空使用默认）</span>
+              <label class="setting-name">{{ t('自定义任务提示词') }}</label>
+              <span class="setting-desc">{{ t('为AI任务生成添加自定义指令（可选，留空使用默认）') }}</span>
             </div>
             <div class="setting-control-full">
               <textarea
                 v-model="settings.questSystemPrompt"
                 class="setting-textarea"
-                placeholder="例如：生成更多战斗类任务，奖励偏向灵石..."
+                :placeholder="t('例如：生成更多战斗类任务，奖励偏向灵石...')"
                 rows="3"
               ></textarea>
             </div>
@@ -183,14 +183,14 @@
 
           <div class="setting-item setting-item-full">
             <div class="setting-info">
-              <label class="setting-name">自定义行动选项提示词</label>
-              <span class="setting-desc">指导AI生成特定风格的行动选项（可选，留空使用默认）</span>
+              <label class="setting-name">{{ t('自定义行动选项提示词') }}</label>
+              <span class="setting-desc">{{ t('指导AI生成特定风格的行动选项（可选，留空使用默认）') }}</span>
             </div>
             <div class="setting-control-full">
               <textarea
                 v-model="uiStore.actionOptionsPrompt"
                 class="setting-textarea"
-                placeholder="例如：多生成修炼和探索类选项，减少战斗选项..."
+                :placeholder="t('例如：多生成修炼和探索类选项，减少战斗选项...')"
                 rows="3"
               ></textarea>
             </div>
@@ -198,8 +198,8 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">🔞 启用成人内容（私密信息）</label>
-              <span class="setting-desc">生成和显示NPC的私密信息模块（包含成人向内容，默认开启）</span>
+              <label class="setting-name">{{ t('🔞 启用成人内容（私密信息）') }}</label>
+              <span class="setting-desc">{{ t('生成和显示NPC的私密信息模块（包含成人向内容，默认开启）') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -211,14 +211,14 @@
 
           <div class="setting-item" v-if="settings.enableNsfwMode">
             <div class="setting-info">
-              <label class="setting-name">👥 私密信息生成范围</label>
-              <span class="setting-desc">选择为哪些性别的NPC生成私密信息</span>
+              <label class="setting-name">{{ t('👥 私密信息生成范围') }}</label>
+              <span class="setting-desc">{{ t('选择为哪些性别的NPC生成私密信息') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="settings.nsfwGenderFilter" class="setting-select">
-                <option value="all">所有NPC</option>
-                <option value="female">仅女性</option>
-                <option value="male">仅男性</option>
+                <option value="all">{{ t('所有NPC') }}</option>
+                <option value="female">{{ t('仅女性') }}</option>
+                <option value="male">{{ t('仅男性') }}</option>
               </select>
             </div>
           </div>
@@ -228,13 +228,13 @@
       <!-- 高级设置 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🔧 高级设置</h4>
+          <h4 class="section-title">{{ t('🔧 高级设置') }}</h4>
         </div>
         <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">调试模式</label>
-              <span class="setting-desc">启用开发者调试信息和详细日志</span>
+              <label class="setting-name">{{ t('调试模式') }}</label>
+              <span class="setting-desc">{{ t('启用开发者调试信息和详细日志') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -246,8 +246,8 @@
 
           <div class="setting-item" v-if="settings.debugMode">
             <div class="setting-info">
-              <label class="setting-name">控制台调试</label>
-              <span class="setting-desc">在浏览器控制台显示详细调试信息</span>
+              <label class="setting-name">{{ t('控制台调试') }}</label>
+              <span class="setting-desc">{{ t('在浏览器控制台显示详细调试信息') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -259,8 +259,8 @@
 
           <div class="setting-item" v-if="settings.debugMode">
             <div class="setting-info">
-              <label class="setting-name">性能监控</label>
-              <span class="setting-desc">监控组件性能和加载时间</span>
+              <label class="setting-name">{{ t('性能监控') }}</label>
+              <span class="setting-desc">{{ t('监控组件性能和加载时间') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -272,39 +272,39 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">导入设置</label>
-              <span class="setting-desc">从文件恢复设置配置</span>
+              <label class="setting-name">{{ t('导入设置') }}</label>
+              <span class="setting-desc">{{ t('从文件恢复设置配置') }}</span>
             </div>
             <div class="setting-control">
               <button class="utility-btn" @click="importSettings">
                 <Upload :size="16" />
-                导入
+                {{ t('导入') }}
               </button>
             </div>
           </div>
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">清理缓存</label>
-              <span class="setting-desc">清除游戏临时数据和缓存</span>
+              <label class="setting-name">{{ t('清理缓存') }}</label>
+              <span class="setting-desc">{{ t('清除游戏临时数据和缓存') }}</span>
             </div>
             <div class="setting-control">
               <button class="utility-btn" @click="clearCache">
                 <Trash2 :size="16" />
-                清理
+                {{ t('清理') }}
               </button>
             </div>
           </div>
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">导出设置</label>
-              <span class="setting-desc">备份当前设置配置</span>
+              <label class="setting-name">{{ t('导出设置') }}</label>
+              <span class="setting-desc">{{ t('备份当前设置配置') }}</span>
             </div>
             <div class="setting-control">
               <button class="utility-btn" @click="exportSettings">
                 <Download :size="16" />
-                导出
+                {{ t('导出') }}
               </button>
             </div>
           </div>

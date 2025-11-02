@@ -2,15 +2,15 @@
   <div class="character-details-wrapper">
     <div v-if="isLoading" class="loading-container">
       <div class="loading-spinner"></div>
-      <p>加载角色数据..</p>
+      <p>{{ t('加载角色数据..') }}</p>
     </div>
 
     <div v-else-if="!baseInfo || !saveData" class="error-container">
       <div class="error-icon">
         <AlertCircle :size="48" />
       </div>
-      <p>无法加载角色数据</p>
-      <button class="retry-btn" @click="refreshData">重试</button>
+      <p>{{ t('无法加载角色数据') }}</p>
+      <button class="retry-btn" @click="refreshData">{{ t('重试') }}</button>
     </div>
 
     <div v-else-if="baseInfo" class="character-details-content">
@@ -35,13 +35,13 @@
               <div class="character-subtitle">
                 <template v-if="baseInfo.性别">
                   <span class="subtitle-item" :class="`gender-badge gender-${baseInfo.性别}`">
-                    {{ (baseInfo.性别 === '男' ? '♂' : '♀') + ' ' + baseInfo.性别 }}
+                    {{ (baseInfo.性别 === '男' ? '♂' : '♀') + ' ' + t(baseInfo.性别) }}
                   </span>
                   <span class="subtitle-divider">·</span>
                 </template>
-                <span class="subtitle-item race-text">{{ baseInfo.种族 || '人族' }}</span>
+                <span class="subtitle-item race-text">{{ t(baseInfo.种族 || '人族') }}</span>
                 <span class="subtitle-divider">·</span>
-                <span class="subtitle-item age-text">{{ currentAge }}岁</span>
+                <span class="subtitle-item age-text">{{ currentAge }}{{ t('岁') }}</span>
                 <span class="subtitle-divider">·</span>
                 <span class="subtitle-item origin-text">
                   {{ getOriginDisplay(baseInfo.出生) }}
@@ -58,8 +58,8 @@
                 <Mountain :size="20" />
               </div>
               <div class="card-content">
-                <div class="card-label">境界</div>
-                <div class="card-value realm-value">{{ formatRealmDisplay(playerStatus?.境界?.名称) || '凡人' }}</div>
+                <div class="card-label">{{ t('境界') }}</div>
+                <div class="card-value realm-value">{{ formatRealmDisplay(playerStatus?.境界?.名称) || t('凡人') }}</div>
               </div>
             </div>
 
@@ -69,7 +69,7 @@
                 <Sparkles :size="20" />
               </div>
               <div class="card-content">
-                <div class="card-label">灵根</div>
+                <div class="card-label">{{ t('灵根') }}</div>
                 <div class="card-value spirit-value">{{ formatSpiritRoot(baseInfo.灵根) }}</div>
               </div>
             </div>
@@ -80,7 +80,7 @@
                 <MapPin :size="20" />
               </div>
               <div class="card-content">
-                <div class="card-label">位置</div>
+                <div class="card-label">{{ t('位置') }}</div>
                 <div class="card-value location-value">{{ playerStatus.位置.描述 }}</div>
               </div>
             </div>
@@ -90,13 +90,13 @@
               class="stat-card origin-card clickable"
               v-if="baseInfo.出生"
               @click="showOriginDetails(baseInfo.出生)"
-              :title="typeof baseInfo.出生 === 'object' ? '点击查看详情' : ''"
+              :title="typeof baseInfo.出生 === 'object' ? t('点击查看详情') : ''"
             >
               <div class="card-icon">
                 <Sprout :size="20" />
               </div>
               <div class="card-content">
-                <div class="card-label">出生</div>
+                <div class="card-label">{{ t('出生') }}</div>
                 <div class="card-value origin-value">{{ getOriginDisplay(baseInfo.出生) }}</div>
               </div>
             </div>
@@ -107,7 +107,7 @@
                 <Star :size="20" />
               </div>
               <div class="card-content">
-                <div class="card-label">声望</div>
+                <div class="card-label">{{ t('声望') }}</div>
                 <div class="card-value reputation-value">{{ playerStatus.声望 }}</div>
               </div>
             </div>
@@ -121,7 +121,7 @@
             </div>
             <div v-else-if="hasValidCultivation()" class="cultivation-progress-card">
               <div class="progress-header">
-                <span class="progress-label">修为进度</span>
+                <span class="progress-label">{{ t('修为进度') }}</span>
                 <span class="progress-percentage">{{ getCultivationProgress() }}%</span>
               </div>
               <div class="progress-bar-container">
@@ -135,7 +135,7 @@
             </div>
             <div v-else class="cultivation-status waiting-status">
               <div class="status-icon">✨</div>
-              <div class="status-text">等待仙缘</div>
+              <div class="status-text">{{ t('等待仙缘') }}</div>
             </div>
           </div>
         </div>
@@ -144,13 +144,13 @@
       <!-- 主要内容区域 -->
       <div class="content-grid">
           <!-- 生命状态 -->
-          <div class="info-section">
-            <h3 class="section-title">
-              <div class="title-icon">
-                <Heart :size="18" />
-              </div>
-              生命状态
-            </h3>
+      <div class="info-section">
+        <h3 class="section-title">
+          <div class="title-icon">
+            <Heart :size="18" />
+          </div>
+          {{ t('生命状态') }}
+        </h3>
             <div class="vitals-grid">
               <div class="vital-item" v-for="vital in vitalsData" :key="vital.label">
                 <div class="vital-label">{{ vital.label }}</div>
@@ -167,10 +167,10 @@
               </div>
               <!-- 声望显示 -->
               <div class="vital-item reputation-item">
-                <div class="vital-label">声望</div>
+                <div class="vital-label">{{ t('声望') }}</div>
                 <div class="reputation-display">
                   <span class="reputation-value">
-                    {{ playerStatus?.声望 || '籍籍无名' }}
+                    {{ playerStatus?.声望 || t('籍籍无名') }}
                   </span>
                 </div>
               </div>
@@ -183,31 +183,31 @@
               <div class="title-icon">
                 <Users :size="18" />
               </div>
-              角色背景
+              {{ t('角色背景') }}
             </h3>
             <div class="basic-info-grid">
               <div class="basic-info-item">
-                <span class="info-label">境界</span>
+                <span class="info-label">{{ t('境界') }}</span>
                 <span class="info-value realm">{{ formatRealmDisplay(playerStatus?.境界) }}</span>
               </div>
               <div v-if="baseInfo.性别" class="basic-info-item">
-                <span class="info-label">性别</span>
-                <span class="info-value gender" :class="`gender-${baseInfo.性别}`">{{ baseInfo.性别 }}</span>
+                <span class="info-label">{{ t('性别') }}</span>
+                <span class="info-value gender" :class="`gender-${baseInfo.性别}`">{{ t(baseInfo.性别) }}</span>
               </div>
               <div class="basic-info-item">
-                <span class="info-label">灵根</span>
+                <span class="info-label">{{ t('灵根') }}</span>
                 <span class="info-value spirit-root" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">{{ getSpiritRootDisplay(baseInfo.灵根) }}</span>
               </div>
               <div class="basic-info-item">
-                <span class="info-label">年龄</span>
-                <span class="info-value">{{ currentAge }}岁</span>
+                <span class="info-label">{{ t('年龄') }}</span>
+                <span class="info-value">{{ currentAge }}{{ t('岁') }}</span>
               </div>
               <div v-if="playerStatus?.位置?.描述" class="basic-info-item">
-                <span class="info-label">位置</span>
+                <span class="info-label">{{ t('位置') }}</span>
                 <span class="info-value location">{{ playerStatus.位置.描述 }}</span>
               </div>
               <div v-else-if="baseInfo.世界" class="basic-info-item">
-                <span class="info-label">世界</span>
+                <span class="info-label">{{ t('世界') }}</span>
                 <span class="info-value world">{{ baseInfo.世界 }}</span>
               </div>
             </div>
@@ -219,14 +219,14 @@
           <div class="title-icon">
             <Sparkles :size="18" />
           </div>
-          天赋与灵根
+          {{ t('天赋与灵根') }}
         </h3>
         <div class="talent-content">
           <!-- 天资等级卡片 -->
           <div class="talent-tier-card">
             <div class="tier-header">
               <div class="tier-icon">🌟</div>
-              <span class="tier-label">天资等级</span>
+              <span class="tier-label">{{ t('天资等级') }}</span>
             </div>
             <div class="tier-value-display">
               <span class="tier-value" :class="`tier-${getTalentTierName(baseInfo.天资)}`">{{ getTalentTierName(baseInfo.天资) }}</span>
@@ -240,8 +240,8 @@
           <div class="spirit-root-card" @click="showSpiritRootDetails">
             <div class="root-header">
               <div class="root-icon">⚡</div>
-              <span class="root-label">灵根属性</span>
-              <span class="click-hint">点击查看详情</span>
+              <span class="root-label">{{ t('灵根属性') }}</span>
+              <span class="click-hint">{{ t('点击查看详情') }}</span>
             </div>
             <div class="root-main-info">
               <span class="root-name" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
@@ -249,7 +249,7 @@
               </span>
               <div class="property-badges">
                 <span class="prop-badge grade-badge" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
-                  {{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
+                  {{ t(getSpiritRootGrade(baseInfo.灵根) || '凡品') }}
                 </span>
                 <span class="prop-badge speed-badge">
                   {{ getSpiritRootCultivationSpeed(baseInfo) }}
@@ -272,7 +272,7 @@
           <div class="talents-card">
             <div class="talents-header">
               <div class="talents-icon">✨</div>
-              <span class="talents-label">天赋特质</span>
+              <span class="talents-label">{{ t('天赋特质') }}</span>
               <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
             </div>
             <div v-if="getTalentList(baseInfo.天赋)?.length" class="talents-container">
@@ -286,7 +286,7 @@
             </div>
             <div v-else class="talents-container no-talents">
               <div class="talent-item no-talent">
-                <div class="talent-name">无</div>
+                <div class="talent-name">{{ t('无') }}</div>
               </div>
             </div>
           </div>
@@ -299,15 +299,15 @@
               <div class="title-icon">
                 <BarChart3 :size="18" />
               </div>
-              六司属性
+              {{ t('六司属性') }}
             </h3>
             <div class="attributes-display">
               <!-- 最终属性 -->
               <div class="final-attributes">
-                <h4 class="attribute-group-title">最终六司</h4>
+                <h4 class="attribute-group-title">{{ t('最终六司') }}</h4>
                 <div class="attributes-grid">
                   <div v-for="(value, key) in finalAttributes" :key="key" class="attribute-item final">
-                    <span class="attr-name">{{ key }}</span>
+                    <span class="attr-name">{{ t(String(key)) }}</span>
                     <span class="attr-value">{{ value }}</span>
                   </div>
                 </div>
@@ -316,21 +316,21 @@
               <!-- 属性详�?-->
               <div class="attribute-breakdown">
                 <div class="innate-attrs">
-                  <h4 class="attribute-group-title">先天六司</h4>
+                  <h4 class="attribute-group-title">{{ t('先天六司') }}</h4>
                   <div class="attributes-grid compact">
                     <div v-for="(value, key) in innateAttributesWithDefaults" :key="key" class="attribute-item innate">
-                      <span class="attr-name">{{ key }}</span>
+                      <span class="attr-name">{{ t(String(key)) }}</span>
                       <span class="attr-value">{{ value }}</span>
                     </div>
                   </div>
                 </div>
 
                 <div class="acquired-attrs">
-                  <h4 class="attribute-group-title">后天六司</h4>
+                  <h4 class="attribute-group-title">{{ t('后天六司') }}</h4>
                   <div class="attributes-grid compact">
                     <div v-for="(value, key) in acquiredAttributes" :key="key" class="attribute-item acquired"
                          :class="{ 'has-bonus': value > 0 }">
-                      <span class="attr-name">{{ key }}</span>
+                      <span class="attr-name">{{ t(String(key)) }}</span>
                       <span class="attr-value">{{ value > 0 ? `+${value}` : value }}</span>
                     </div>
                   </div>
@@ -345,7 +345,7 @@
               <div class="title-icon">
                 <Sparkles :size="18" />
               </div>
-              身体部位开发
+              {{ t('身体部位开发') }}
             </h3>
             <div class="body-parts-list">
               <div v-for="part in bodyParts" :key="part.name" class="body-part-item">
@@ -364,13 +364,13 @@
               <div class="title-icon">
                 <BookOpen :size="18" />
               </div>
-              修炼功法
+              {{ t('修炼功法') }}
             </h3>
             <div v-if="!fullCultivationTechnique" class="empty-state">
               <div class="empty-icon">
                 <BookOpen :size="32" />
               </div>
-              <span>尚未修炼功法</span>
+              <span>{{ t('尚未修炼功法') }}</span>
             </div>
             <div v-else class="cultivation-display">
               <div class="technique-info">
@@ -380,7 +380,7 @@
                       {{ fullCultivationTechnique?.名称 }}
                     </h4>
                     <div class="technique-quality">
-                      {{ fullCultivationTechnique?.品质?.quality || '未知' }}品{{ fullCultivationTechnique?.品质?.grade ? `${fullCultivationTechnique.品质.grade}阶` : '' }}</div>
+                      {{ t(fullCultivationTechnique?.品质?.quality || '未知') }}{{ t('品') }}{{ fullCultivationTechnique?.品质?.grade ? `${fullCultivationTechnique.品质.grade}${t('阶')}` : '' }}</div>
                   </div>
                   <div class="technique-toggle">
                     <ChevronDown
@@ -394,39 +394,39 @@
                 <!-- 功法详情（可折叠�?-->
                 <div v-show="showTechniqueDetails" class="technique-details">
                   <div class="technique-description">
-                    <p>{{ fullCultivationTechnique?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。' }}</p>
+                    <p>{{ t(fullCultivationTechnique?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。') }}</p>
                   </div>
 
                   <div v-if="hasTechniqueEffects && fullCultivationTechnique?.功法效果" class="technique-effects">
-                    <h5 class="effects-title">功法效果</h5>
+                    <h5 class="effects-title">{{ t('功法效果') }}</h5>
                     <div class="effects-list">
                       <div v-if="fullCultivationTechnique.功法效果.修炼速度加成" class="effect-item">
-                        <span class="effect-label">修炼加成：</span>
+                        <span class="effect-label">{{ t('修炼加成：') }}</span>
                         <span class="effect-value">{{ (fullCultivationTechnique.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span>
                       </div>
                       <div v-if="fullCultivationTechnique.功法效果.属性加成" class="effect-item">
-                        <span class="effect-label">属性提升：</span>
+                        <span class="effect-label">{{ t('属性提升：') }}</span>
                         <div class="attribute-bonuses">
                           <span
                             v-for="(value, attr) in fullCultivationTechnique.功法效果.属性加成"
                             :key="attr"
                             class="bonus-tag"
                           >
-                            {{ attr }} +{{ value }}
+                            {{ t(String(attr)) }} +{{ value }}
                           </span>
                         </div>
                       </div>
                     </div>
                   </div>
                   <div v-else-if="fullCultivationTechnique" class="technique-effects no-effects">
-                    <h5 class="effects-title">功法效果</h5>
-                    <p class="no-effects-text">此功法无特殊效果</p>
+                    <h5 class="effects-title">{{ t('功法效果') }}</h5>
+                    <p class="no-effects-text">{{ t('此功法无特殊效果') }}</p>
                   </div>
                 </div>
 
                 <div class="technique-progress">
                   <div class="progress-item" v-if="fullCultivationTechnique">
-                    <span class="progress-label">修炼进度</span>
+                    <span class="progress-label">{{ t('修为进度') }}</span>
                     <div class="progress-bar">
                       <div class="progress-fill" :style="{ width: Math.max(2, fullCultivationTechnique.修炼进度 || 0) + '%' }"></div>
                     </div>
@@ -438,8 +438,8 @@
               <!-- 已学技能 -->
               <div v-if="allLearnedSkills.length" class="learned-skills">
                 <div class="skills-header" @click="toggleSkillsDetails">
-                  <h4 class="skills-title">已掌握技能</h4>
-                  <div class="skills-count">({{ totalSkillsCount }}个)</div>
+                  <h4 class="skills-title">{{ t('已掌握技能') }}</h4>
+                  <div class="skills-count">({{ totalSkillsCount }}{{ t('个') }})</div>
                   <ChevronDown
                     :size="14"
                     :class="{ 'rotated': isSkillsExpanded }"
@@ -463,7 +463,7 @@
                 <div v-show="isSkillsExpanded" class="skills-details">
                   <!-- 所有已掌握的技�?-->
                   <div v-if="allLearnedSkills.length" class="skill-category">
-                    <h5 class="category-title">所有技能</h5>
+                    <h5 class="category-title">{{ t('所有技能') }}</h5>
                     <div class="skills-grid">
                       <div
                         v-for="skill in allLearnedSkills"
@@ -472,10 +472,10 @@
                         @click="showSkillDetails(skill)"
                       >
                         <div class="skill-name">{{ skill.name }}</div>
-                        <div class="skill-type">{{ skill.type }}</div>
+                        <div class="skill-type">{{ t(skill.type) }}</div>
                         <div class="skill-source">{{ skill.source }}</div>
                         <div class="skill-proficiency-mini">
-                          熟练度 {{ skill.proficiency }}%
+                          {{ t('熟练度') }} {{ skill.proficiency }}%
                         </div>
                         <div class="skill-status">
                           <Star :size="12" class="unlock-icon" />
@@ -486,7 +486,7 @@
 
                   <!-- 未解锁的功法技能 -->
                   <div v-if="skillsList.length > 0" class="skill-category">
-                    <h5 class="category-title">未解锁技能</h5>
+                    <h5 class="category-title">{{ t('未解锁技能') }}</h5>
                     <div class="skills-grid">
                       <div
                         v-for="skill in skillsList"
@@ -495,7 +495,7 @@
                         @click="showSkillDetails(skill)"
                       >
                         <div class="skill-name">{{ skill.name }}</div>
-                        <div class="skill-type">{{ skill.type }}</div>
+                        <div class="skill-type">{{ t(skill.type) }}</div>
                         <div class="skill-unlock">
                           {{ skill.unlockCondition }}
                         </div>
@@ -513,20 +513,20 @@
               <div class="title-icon">
                 <Zap :size="18" />
               </div>
-              三千大道
+              {{ t('三千大道') }}
             </h3>
             <div v-if="!unlockedDaoList.length" class="empty-state">
               <div class="empty-icon">
                 <Sprout :size="32" />
               </div>
-              <span>尚未解锁大道</span>
+              <span>{{ t('尚未解锁大道') }}</span>
             </div>
             <div v-else class="dao-list">
               <div class="dao-header-section">
                 <div class="dao-summary">
-                  <span class="dao-count">已解 {{ unlockedDaoList.length }} 条大道</span>
+                  <span class="dao-count">{{ t('已解') }} {{ unlockedDaoList.length }} {{ t('条大道') }}</span>
                   <button class="dao-expand-btn" @click="toggleDaoDetails">
-                    <span>{{ showDaoDetails ? '收起' : '展开' }}</span>
+                    <span>{{ showDaoDetails ? t('收起') : t('展开') }}</span>
                     <ChevronDown
                       :size="14"
                       :class="{ 'rotated': showDaoDetails }"
@@ -545,7 +545,7 @@
                 >
                   <div class="dao-header">
                     <span class="dao-name">{{ daoName }}</span>
-                    <span class="dao-stage">第{{ getDaoStage(daoName) }}阶段</span>
+                    <span class="dao-stage">{{ t('第') }}{{ getDaoStage(daoName) }}{{ t('阶段') }}</span>
                   </div>
                   <div class="dao-progress">
                     <div class="progress-bar small">
@@ -555,7 +555,7 @@
                   </div>
                 </div>
                 <div v-if="unlockedDaoList.length > 2" class="more-dao">
-                  还有 {{ unlockedDaoList.length - 2 }} 条大道..
+                  {{ t('还有') }} {{ unlockedDaoList.length - 2 }} {{ t('条大道..') }}
                 </div>
               </div>
 
@@ -568,7 +568,7 @@
                 >
                   <div class="dao-header">
                     <span class="dao-name">{{ daoName }}</span>
-                    <span class="dao-stage">第{{ getDaoStage(daoName) }}阶段</span>
+                    <span class="dao-stage">{{ t('第') }}{{ getDaoStage(daoName) }}{{ t('阶段') }}</span>
                   </div>
                   <div class="dao-progress">
                     <div class="progress-bar small">
@@ -579,11 +579,11 @@
 
                   <div class="dao-stats">
                     <div class="stat-item">
-                      <span class="stat-label">当前经验</span>
+                      <span class="stat-label">{{ t('当前经验') }}</span>
                       <span class="stat-value">{{ getDaoCurrentExp(daoName) }}</span>
                     </div>
                     <div class="stat-item">
-                      <span class="stat-label">总经验</span>
+                      <span class="stat-label">{{ t('总经验') }}</span>
                       <span class="stat-value">{{ getDaoTotalExp(daoName) }}</span>
                     </div>
                   </div>
@@ -598,22 +598,22 @@
               <div class="title-icon">
                 <Users :size="18" />
               </div>
-              人际关系
+              {{ t('人际关系') }}
             </h3>
             <div v-if="!relationshipCount" class="empty-state">
               <div class="empty-icon">
                 <Handshake :size="32" />
               </div>
-              <span>暂无人际关系</span>
+              <span>{{ t('暂无人际关系') }}</span>
             </div>
             <div v-else class="relationships-summary">
               <div class="relationship-stats">
                 <div class="stat-item">
-                  <span class="stat-label">总人数</span>
+                  <span class="stat-label">{{ t('总人数') }}</span>
                   <span class="stat-value">{{ relationshipCount }}</span>
                 </div>
                 <div class="stat-item">
-                  <span class="stat-label">平均好感</span>
+                  <span class="stat-label">{{ t('平均好感') }}</span>
                   <span class="stat-value">{{ averageFavorability }}%</span>
                 </div>
               </div>
@@ -626,28 +626,28 @@
               <div class="title-icon">
                 <Backpack :size="18" />
               </div>
-              背包概览
+              {{ t('背包概览') }}
             </h3>
             <div class="inventory-summary">
               <div class="inventory-stats">
                 <div class="stat-group">
                   <div class="stat-item">
-                    <span class="stat-label">物品总数</span>
+                    <span class="stat-label">{{ t('物品总数') }}</span>
                     <span class="stat-value">{{ inventoryItemCount }}</span>
                   </div>
                   <div class="stat-item">
-                    <span class="stat-label">法宝数量</span>
+                    <span class="stat-label">{{ t('法宝数量') }}</span>
                     <span class="stat-value">{{ getItemTypeCount('法宝') }}</span>
                   </div>
                   <div class="stat-item">
-                    <span class="stat-label">功法数量</span>
+                    <span class="stat-label">{{ t('功法数量') }}</span>
                     <span class="stat-value">{{ getItemTypeCount('功法') }}</span>
                   </div>
                 </div>
               </div>
 
               <div class="spirit-stones">
-                <h4 class="stones-title">灵石储备</h4>
+                <h4 class="stones-title">{{ t('灵石储备') }}</h4>
                 <div class="stones-grid">
                   <div v-for="grade in spiritStoneGrades" :key="grade.name"
                        class="stone-item" :class="grade.class">
@@ -665,7 +665,7 @@
               <div class="title-icon">
                 <Mountain :size="18" />
               </div>
-              宗门信息
+              {{ t('宗门信息') }}
             </h3>
             <div class="sect-info">
               <div class="sect-header">
@@ -674,15 +674,15 @@
               </div>
               <div class="sect-details">
                 <div class="detail-row">
-                  <span class="detail-label">职位</span>
+                  <span class="detail-label">{{ t('职位') }}</span>
                   <span class="detail-value">{{ playerStatus?.宗门信息?.职位 }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">贡献值</span>
+                  <span class="detail-label">{{ t('贡献值') }}</span>
                   <span class="detail-value">{{ playerStatus?.宗门信息?.贡献 }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">关系</span>
+                  <span class="detail-label">{{ t('关系') }}</span>
                   <span class="detail-value" :class="`relationship-${playerStatus?.宗门信息?.关系}`">
                     {{ playerStatus?.宗门信息?.关系 }}
                   </span>
@@ -704,30 +704,30 @@
           <div class="modal-content">
             <div class="skill-detail-grid">
               <div class="skill-detail-item">
-                <span class="detail-label">类型</span>
-                <span class="detail-value">{{ getSkillModalContent()?.type }}</span>
+                <span class="detail-label">{{ t('类型') }}</span>
+                <span class="detail-value">{{ t(getSkillModalContent()?.type ?? '未知') }}</span>
               </div>
               <div class="skill-detail-item">
-                <span class="detail-label">状态</span>
+                <span class="detail-label">{{ t('状态') }}</span>
                 <span class="detail-value" :class="`status-${getSkillModalContent()?.status === '已解锁' ? 'unlocked' : 'locked'}`">
-                  {{ getSkillModalContent()?.status }}
+                  {{ t(getSkillModalContent()?.status ?? '未知') }}
                 </span>
               </div>
               <div class="skill-detail-item">
-                <span class="detail-label">熟练度</span>
-                <span class="detail-value">{{ getSkillModalContent()?.proficiency ? getSkillModalContent()?.proficiency + '%' : '未知' }}</span>
+                <span class="detail-label">{{ t('熟练度') }}</span>
+                <span class="detail-value">{{ getSkillModalContent()?.proficiency ? getSkillModalContent()?.proficiency + '%' : t('未知') }}</span>
               </div>
               <div class="skill-detail-item">
-                <span class="detail-label">解锁条件</span>
+                <span class="detail-label">{{ t('解锁条件') }}</span>
                 <span class="detail-value">{{ getSkillModalContent()?.condition }}</span>
               </div>
               <div class="skill-detail-item">
-                <span class="detail-label">技能来源</span>
+                <span class="detail-label">{{ t('技能来源') }}</span>
                 <span class="detail-value">{{ getSkillModalContent()?.source }}</span>
               </div>
             </div>
             <div class="skill-description">
-              <h4>技能描述</h4>
+              <h4>{{ t('技能描述') }}</h4>
               <p>{{ getSkillModalContent()?.description }}</p>
             </div>
           </div>
@@ -746,7 +746,7 @@
           <div class="modal-content">
             <div class="dao-progress-section">
               <div class="dao-stage-info">
-                <span class="stage-label">当前阶段</span>
+                <span class="stage-label">{{ t('当前阶段') }}</span>
                 <span class="stage-value">{{ getDaoModalContent()?.stage }}</span>
               </div>
               <div class="dao-progress-bar">
@@ -758,16 +758,16 @@
             </div>
             <div class="dao-stats-grid">
               <div class="dao-stat-item">
-                <span class="stat-label">当前经验</span>
+                <span class="stat-label">{{ t('当前经验') }}</span>
                 <span class="stat-value">{{ getDaoModalContent()?.currentExp }}</span>
               </div>
               <div class="dao-stat-item">
-                <span class="stat-label">总经验</span>
+                <span class="stat-label">{{ t('总经验') }}</span>
                 <span class="stat-value">{{ getDaoModalContent()?.totalExp }}</span>
               </div>
             </div>
             <div class="dao-description">
-              <h4>修炼感悟</h4>
+              <h4>{{ t('修炼感悟') }}</h4>
               <p>{{ getDaoModalContent()?.description }}</p>
             </div>
           </div>
@@ -778,7 +778,7 @@
       <div v-if="showSpiritRootModal" class="modal-overlay" @click="closeModals">
         <div class="spirit-root-modal" @click.stop>
           <div class="modal-header">
-            <h3>{{ getSpiritRootDisplay(baseInfo.灵根) }} 详情</h3>
+            <h3>{{ getSpiritRootDisplay(baseInfo.灵根) }} {{ t('详情') }}</h3>
             <button class="modal-close-btn" @click="closeModals">
               <X :size="20" />
             </button>
@@ -788,7 +788,7 @@
               <div class="detail-card">
                 <div class="detail-header">
                   <span class="detail-icon">⚡</span>
-                  <span class="detail-title">灵根类型</span>
+                  <span class="detail-title">{{ t('灵根类型') }}</span>
                 </div>
                 <div class="detail-value type-value" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
                   {{ getSpiritRootDisplay(baseInfo.灵根) }}
@@ -797,16 +797,16 @@
               <div class="detail-card">
                 <div class="detail-header">
                   <span class="detail-icon">⭐</span>
-                  <span class="detail-title">灵根品级</span>
+                  <span class="detail-title">{{ t('灵根品级') }}</span>
                 </div>
                 <div class="detail-value grade-value" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
-                  {{ getSpiritRootGrade(baseInfo.灵根) || '凡品' }}
+                  {{ t(getSpiritRootGrade(baseInfo.灵根) || '凡品') }}
                 </div>
               </div>
               <div class="detail-card">
                 <div class="detail-header">
                   <span class="detail-icon">🚀</span>
-                  <span class="detail-title">修炼速度</span>
+                  <span class="detail-title">{{ t('修炼速度') }}</span>
                 </div>
                 <div class="detail-value speed-value">
                   {{ getSpiritRootCultivationSpeed(baseInfo) }}
@@ -815,7 +815,7 @@
             </div>
 
             <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="spirit-root-effects-section">
-              <h4>特殊效果</h4>
+              <h4>{{ t('特殊效果') }}</h4>
               <div class="effects-grid">
                 <span v-for="effect in getSpiritRootEffects(baseInfo)" :key="effect" class="effect-tag-modal">
                   {{ effect }}
@@ -824,14 +824,14 @@
             </div>
 
             <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根" class="advanced-details">
-              <h4>详细信息</h4>
+              <h4>{{ t('详细信息') }}</h4>
               <div class="advanced-grid">
                 <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根.base_multiplier" class="advanced-item">
-                  <span class="advanced-label">基础倍率:</span>
+                  <span class="advanced-label">{{ t('基础倍率:') }}</span>
                   <span class="advanced-value">{{ baseInfo.灵根.base_multiplier }}x</span>
                 </div>
                 <div v-if="typeof baseInfo.灵根 === 'object' && baseInfo.灵根.cultivation_speed" class="advanced-item">
-                  <span class="advanced-label">修炼速度:</span>
+                  <span class="advanced-label">{{ t('修炼速度:') }}</span>
                   <span class="advanced-value">{{ baseInfo.灵根.cultivation_speed }}</span>
                 </div>
               </div>
@@ -845,6 +845,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated } from 'vue';
+import { useI18n } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -872,6 +873,7 @@ import {
 } from 'lucide-vue-next';
 
 // 使用 gameStateStore 获取数据
+const { t } = useI18n();
 const uiStore = useUIStore();
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
@@ -963,19 +965,19 @@ const vitalsData = computed(() => {
   };
   return [
     {
-      label: '气血',
+      label: t('气血'),
       current: safe(playerStatus.value.气血?.当前),
       max: safeMax(playerStatus.value.气血?.上限),
       color: 'red'
     },
     {
-      label: '灵气',
+      label: t('灵气'),
       current: safe(playerStatus.value.灵气?.当前),
       max: safeMax(playerStatus.value.灵气?.上限),
       color: 'blue'
     },
     {
-      label: '神识',
+      label: t('神识'),
       current: safe(playerStatus.value.神识?.当前),
       max: safeMax(playerStatus.value.神识?.上限),
       color: 'gold'
@@ -1028,7 +1030,7 @@ const bodyParts = computed(() => {
       const part = details as PlayerBodyPart;
       return {
         name,
-        description: part.特征描述 || '暂无描述',
+        description: part.特征描述 || t('暂无描述'),
       };
     });
 });
@@ -1058,8 +1060,8 @@ const skillsList = computed((): SkillInfo[] => {
       return {
         name: skillInfo.技能名称,
         description: skillInfo.技能描述 || '',
-        type: '功法技能',
-        unlockCondition: requiredProficiency === 0 ? '自动解锁' : `需要熟练度 ${requiredProficiency}%`,
+        type: t('功法技能'),
+        unlockCondition: requiredProficiency === 0 ? t('自动解锁') : t('需要熟练度 {0}%').replace('{0}', String(requiredProficiency)),
         unlocked: false,
       };
     });
@@ -1083,9 +1085,9 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
         return {
           name: skillInfo.技能名称,
           proficiency: getPersistentProficiency(skillInfo.技能名称, 'technique'),
-          source: technique.名称 || '功法',
-          type: '功法技能',
-          description: skillInfo.技能描述 || '通过功法修炼掌握',
+          source: technique.名称 || t('功法'),
+          type: t('功法技能'),
+          description: skillInfo.技能描述 || t('通过功法修炼掌握'),
           unlocked: true,
         };
       });
@@ -1095,7 +1097,7 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
     name: s.技能名称,
     proficiency: s.熟练度,
     source: s.来源,
-    type: '掌握技能',
+    type: t('掌握技能'),
     description: s.技能描述,
     unlocked: true,
   })), ...fromTechnique];
@@ -1139,10 +1141,10 @@ const inventoryItemCount = computed(() => {
 });
 
 const spiritStoneGrades = [
-  { name: '下品', class: 'grade-common' },
-  { name: '中品', class: 'grade-rare' },
-  { name: '上品', class: 'grade-epic' },
-  { name: '极品', class: 'grade-legend' }
+  { name: t('下品'), class: 'grade-common' },
+  { name: t('中品'), class: 'grade-rare' },
+  { name: t('上品'), class: 'grade-epic' },
+  { name: t('极品'), class: 'grade-legend' }
 ];
 
 // 方法
@@ -1159,14 +1161,14 @@ const getAnimalStageDisplay = (): string => {
   switch (realmName) {
     case '凡人':
     case '普通人':
-      return '等待仙缘';
+      return t('等待仙缘');
     case '蛮兽':
     case '灵兽':
-      return '野性本能';
+      return t('野性本能');
     case '动物':
-      return '自然状态';
+      return t('自然状态');
     default:
-      return '等待觉醒';
+      return t('等待觉醒');
   }
 };
 
@@ -1223,9 +1225,9 @@ const getCultivationProgress = (): number => {
 
 // 获取天资等级名称
 const getTalentTierName = (talentTier: TalentTier | string | undefined): string => {
-  if (!talentTier) return '未知';
+  if (!talentTier) return t('未知');
   if (typeof talentTier === 'string') return talentTier;
-  return talentTier.name || '未知';
+  return talentTier.name || t('未知');
 };
 
 // 获取天资等级描述
@@ -1265,13 +1267,13 @@ const getTalentList = (talents: unknown): { name: string; description: string }[
   }
 
   return processedTalents
-    .map(t => {
-      if (typeof t === 'string') {
-        return { name: t, description: '' };
+    .map(talent => {
+      if (typeof talent === 'string') {
+        return { name: talent, description: '' };
       }
-      if (typeof t === 'object' && t !== null) {
+      if (typeof talent === 'object' && talent !== null) {
         // 修复：正确提取中英文字段的名称和描述
-        const talentObj = t as Record<string, unknown>;
+        const talentObj = talent as Record<string, unknown>;
         const name = (talentObj.name || talentObj['名称'] || '') as string;
         const description = (talentObj.description || talentObj['描述'] || '') as string;
 
@@ -1279,7 +1281,7 @@ const getTalentList = (talents: unknown): { name: string; description: string }[
         if (!name && !description) return null;
 
         return {
-          name: name || '未知天赋',
+          name: name || t('未知天赋'),
           description: description,
         };
       }
@@ -1295,7 +1297,7 @@ const getPercentage = (current: number, max: number): number => {
 
 const getItemQualityClass = (item: { 品质?: ItemQuality } | null, type: 'border' | 'text' = 'border'): string => {
   if (!item) return '';
-  const quality = item.品质?.quality || '未知';
+  const quality = item.品质?.quality || t('未知');
   return `${type}-quality-${quality}`;
 };
 
@@ -1335,7 +1337,7 @@ const getItemTypeCount = (type: string): number => {
 };
 
 const getSpiritStoneCount = (grade: '下品' | '中品' | '上品' | '极品'): number => {
-  return saveData.value?.背包?.灵石?.[grade] || 0;
+return saveData.value?.背包?.灵石?.[t(grade) as '下品' | '中品' | '上品' | '极品'] || 0;
 };
 
 // 清理状态效果描述，去除重复的时间信息
@@ -1350,37 +1352,37 @@ const getCleanEffectDescription = (effect: StatusEffect): string => {
     // 移除包含时间信息的句子或短语
     description = description
       .replace(new RegExp(`[^。]*${duration}[^。]*。`, 'g'), '')
-      .replace(new RegExp(`持续时间[：][^。]*${duration}[^。]*。`, 'g'), '')
-      .replace(new RegExp(`剩余时间[：][^。]*${duration}[^。]*。`, 'g'), '')
-      .replace(new RegExp(`时间[：][^。]*${duration}[^。]*。`, 'g'), '')
+      .replace(new RegExp(t('持续时间[：][^。]*{0}[^。]*。').replace('{0}', duration), 'g'), '')
+      .replace(new RegExp(t('剩余时间[：][^。]*{0}[^。]*。').replace('{0}', duration), 'g'), '')
+      .replace(new RegExp(t('时间[：][^。]*{0}[^。]*。').replace('{0}', duration), 'g'), '')
       .trim();
   }
 
-  return description || '无描述';
+  return description || t('无描述');
 };
 
 // 格式化状态效果生成时间
 const formatEffectCreatedTime = (effect: StatusEffect): string => {
-  if (!effect.生成时间) return '未知';
+  if (!effect.生成时间) return t('未知');
   const { 年, 月, 日, 小时, 分钟 } = effect.生成时间;
-  return `${年}年${月}月${日}日 ${小时 || 0}:${String(分钟 ?? 0).padStart(2, '0')}`;
+  return t('{0}年{1}月{2}日 {3}:{4}').replace('{0}', String(年)).replace('{1}', String(月)).replace('{2}', String(日)).replace('{3}', String(小时 || 0)).replace('{4}', String(分钟 ?? 0).padStart(2, '0'));
 };
 
 // 格式化状态效果剩余时间
 const formatEffectRemainingTime = (effect: StatusEffect): string => {
-  if (!saveData.value?.游戏时间) return '未知';
+  if (!saveData.value?.游戏时间) return t('未知');
   const remainingMinutes = calculateRemainingMinutes(effect, saveData.value.游戏时间);
   return formatMinutesToDuration(remainingMinutes);
 };
 
 // 移除状态效果
 const handleRemoveEffect = async (effectName: string) => {
-  const confirmed = confirm(`确定要移除状态效果"${effectName}"吗？`);
+  const confirmed = confirm(t('确定要移除状态效果"{0}"吗？').replace('{0}', effectName));
   if (!confirmed) return;
 
   try {
     if (!saveData.value) {
-      debug.error('角色详情面板', '存档数据不存在');
+      debug.error(t('角色详情面板'), t('存档数据不存在'));
       return;
     }
 
@@ -1389,12 +1391,12 @@ const handleRemoveEffect = async (effectName: string) => {
 
     if (removed) {
       await characterStore.saveCurrentGame();
-      debug.log('角色详情面板', `已移除状态效果: ${effectName}`);
+      debug.log(t('角色详情面板'), t('已移除状态效果: {0}').replace('{0}', effectName));
     } else {
-      debug.warn('角色详情面板', `未找到状态效果: ${effectName}`);
+      debug.warn(t('角色详情面板'), t('未找到状态效果: {0}').replace('{0}', effectName));
     }
   } catch (error) {
-    debug.error('角色详情面板', '移除状态效果失败:', error);
+    debug.error(t('角色详情面板'), t('移除状态效果失败:'), error);
   }
 };
 
@@ -1447,11 +1449,11 @@ const getDaoModalContent = () => {
   if (!dao) {
     return {
       name: selectedDao.value,
-      stage: '初始阶段',
+      stage: t('初始阶段'),
       currentExp: 0,
       totalExp: 0,
       progressPercent: 0,
-      description: '此大道已解锁，但尚未开始修炼'
+      description: t('此大道已解锁，但尚未开始修炼')
     };
   }
 
@@ -1465,7 +1467,7 @@ const getDaoModalContent = () => {
   if (dao.阶段列表?.[stage]) {
     stageName = dao.阶段列表[stage].名称;
   } else {
-    stageName = stage === 0 ? '未门' : `第${stage}阶段`;
+    stageName = stage === 0 ? t('未门') : t('第{0}阶段').replace('{0}', String(stage));
   }
 
   return {
@@ -1474,7 +1476,7 @@ const getDaoModalContent = () => {
     currentExp,
     totalExp,
     progressPercent,
-    description: dao.描述 || '此道深奥玄妙，需持之以恒方能有所成就'
+    description: dao.描述 || t('此道深奥玄妙，需持之以恒方能有所成就')
   };
 };
 
@@ -1487,8 +1489,8 @@ const getSkillModalContent = () => {
     return {
       name: skill.name,
       type: skill.type,
-      status: '已解锁',
-      condition: '已掌握',
+      status: t('已解锁'),
+      condition: t('已掌握'),
       description: skill.description,
       source: skill.source,
       proficiency: skill.proficiency
@@ -1499,11 +1501,11 @@ const getSkillModalContent = () => {
   if (typeof selectedSkill.value === 'string') {
     return {
       name: selectedSkill.value,
-      type: '功法技能',
-      status: '已解锁',
-      condition: '修炼完成',
-      description: '通过修炼功法获得的技能',
-      source: '功法修炼'
+      type: t('功法技能'),
+      status: t('已解锁'),
+      condition: t('修炼完成'),
+      description: t('通过修炼功法获得的技能'),
+      source: t('功法修炼')
     };
   }
 
@@ -1512,10 +1514,10 @@ const getSkillModalContent = () => {
   return {
     name: skill.name,
     type: skill.type,
-    status: skill.unlocked ? '已解锁' : '未解锁',
-    condition: skill.unlocked ? '修炼完成' : skill.unlockCondition,
+    status: skill.unlocked ? t('已解锁') : t('未解锁'),
+    condition: skill.unlocked ? t('修炼完成') : skill.unlockCondition,
     description: skill.description,
-    source: '功法传承'
+    source: t('功法传承')
   };
 };
 
@@ -1530,33 +1532,33 @@ const refreshData = async () => {
     const currentSaveData = gameStateStore.getCurrentSaveData();
     if (currentSaveData) {
       gameStateStore.loadFromSaveData(currentSaveData);
-      debug.log('人物详情', '已同步最新数据到 gameStateStore');
+      debug.log(t('人物详情'), t('已同步最新数据到 gameStateStore'));
     }
   } catch (error) {
-    debug.error('人物详情', '刷新数据失败', error);
+    debug.error(t('人物详情'), t('刷新数据失败'), error);
   } finally {
     isLoading.value = false;
   }
 };
 
 onMounted(async () => {
-  debug.log('人物详情', '组件挂载，同步数据');
+  debug.log(t('人物详情'), t('组件挂载，同步数据'));
   // 🔥 修复：首次挂载时不需要重新加载，直接使用 gameStateStore 中的数据
   // await refreshData();
 });
 
 // 每次面板激活时重新获取数据
 onActivated(async () => {
-  debug.log('人物详情', '面板激活');
+  debug.log(t('人物详情'), t('面板激活'));
   // 🔥 修复：面板激活时不需要重新加载存储数据，gameStateStore 中已经是最新的
   // await refreshData();
 });
 
 // 获取出生地显示文本
 const getOriginDisplay = (origin: Origin | string | undefined): string => {
-  if (!origin) return '待定';
+  if (!origin) return t('待定');
   if (typeof origin === 'string') return origin;
-  return (origin as any).名称 || origin.name || '待定';
+  return (origin as any).名称 || origin.name || t('待定');
 };
 
 // 显示出身详情
@@ -1565,7 +1567,7 @@ const showOriginDetails = (origin: Origin | string | undefined) => {
     const name = (origin as any).名称 || origin.name;
     const desc = (origin as any).描述 || origin.description;
     uiStore.showDetailModal({
-      title: `出身背景: ${name}`,
+      title: t('出身背景: {0}').replace('{0}', name),
       content: desc,
     });
   }
@@ -1573,35 +1575,35 @@ const showOriginDetails = (origin: Origin | string | undefined) => {
 
 // 增强的灵根系统 - 简化版
 const getSpiritRootDisplay = (spiritRoot: SpiritRoot | string | undefined): string => {
-  if (!spiritRoot) return '未知';
+  if (!spiritRoot) return t('未知');
   if (typeof spiritRoot === 'string') return spiritRoot;
-  const name = (spiritRoot as any).名称 || spiritRoot.name || '未知';
+  const name = (spiritRoot as any).名称 || spiritRoot.name || t('未知');
   const tier = (spiritRoot as any).品级 || spiritRoot.tier;
-  if (tier && tier !== '未知' && tier !== '凡品') {
-    return `${name}(${tier})`;
+  if (tier && tier !== t('未知') && tier !== t('凡品')) {
+    return `${name}(${t(tier)})`;
   }
   return name;
 };
 
 // 格式化灵根显示（简洁版，用于顶部）
 const formatSpiritRoot = (spiritRoot: SpiritRoot | string | undefined): string => {
-  if (!spiritRoot) return '未知';
+  if (!spiritRoot) return t('未知');
   if (typeof spiritRoot === 'string') return spiritRoot;
-  return (spiritRoot as any).名称 || spiritRoot.name || '未知';
+  return (spiritRoot as any).名称 || spiritRoot.name || t('未知');
 };
 
 const getSpiritRootGrade = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (typeof spiritRoot === 'object' && spiritRoot) {
-    return (spiritRoot as any).品级 || spiritRoot.tier || '凡品';
+    return (spiritRoot as any).品级 || spiritRoot.tier || t('凡品');
   }
-  return '凡品';
+  return t('凡品');
 };
 
 const getSpiritRootDescription = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (typeof spiritRoot === 'object' && spiritRoot) {
-    return (spiritRoot as any).描述 || spiritRoot.description || '未知';
+    return (spiritRoot as any).描述 || spiritRoot.description || t('未知');
   }
-  return '未知';
+  return t('未知');
 };
 
 const getSpiritRootClass = (spiritRoot: SpiritRoot | string | undefined): string => {
@@ -1641,7 +1643,7 @@ const getSpiritRootCultivationSpeed = (baseInfo: CharacterBaseInfo | undefined):
     '上品': '1.6x',
     '极品': '2.0x',
     '神品': '2.8x',
-    '特殊': '特殊'
+    '特殊': t('特殊')
   };
 
   return speedMap[grade] || '1.0x';

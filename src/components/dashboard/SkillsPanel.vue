@@ -9,7 +9,7 @@
           @click="activeTab = 'cultivation'"
         >
           <Zap :size="16" class="tab-icon" />
-          <span class="tab-name">修炼</span>
+          <span class="tab-name">{{ t('修炼') }}</span>
         </button>
         <button
           class="filter-tab"
@@ -17,7 +17,7 @@
           @click="activeTab = 'library'"
         >
           <BookOpen :size="16" class="tab-icon" />
-          <span class="tab-name">功法库</span>
+          <span class="tab-name">{{ t('功法库') }}</span>
           <span class="tab-count">{{ inventoryTechniques.length }}</span>
         </button>
       </div>
@@ -235,9 +235,11 @@ import { Zap, BookOpen, Sparkles, PackageOpen, ScrollText, Package, Check, Lock 
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useI18n } from '@/i18n';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
 import type { TechniqueItem, TechniqueSkill } from '@/types/game';
 
+const { t } = useI18n();
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
@@ -332,8 +334,8 @@ const equipTechnique = async (technique: TechniqueItem) => {
 
   if (cultivationSkills.value) {
     uiStore.showRetryDialog({
-      title: '切换功法',
-      message: `当前正在修炼《${cultivationSkills.value.名称}》，确定要切换到《${technique.名称}》吗？`,
+      title: t('切换功法'),
+      message: `${t('当前正在修炼')}《${cultivationSkills.value.名称}》，${t('确定要切换到')}《${technique.名称}》${t('吗')}？`,
       onConfirm: action,
       onCancel: () => {},
     });
@@ -346,10 +348,10 @@ const unequipSkill = async () => {
   if (!cultivationSkills.value?.物品ID) return;
   const skillToUnequip = cultivationSkills.value;
   uiStore.showRetryDialog({
-    title: '卸下功法',
-    message: `确定要卸下《${skillToUnequip.名称}》吗？`,
-    confirmText: '确定卸下',
-    cancelText: '取消',
+    title: t('卸下功法'),
+    message: `${t('确定要卸下')}《${skillToUnequip.名称}》${t('吗')}？`,
+    confirmText: t('确定卸下'),
+    cancelText: t('取消'),
     onConfirm: async () => {
       try {
         await characterStore.unequipTechnique(skillToUnequip.物品ID!);
@@ -377,7 +379,7 @@ const handleCultivationConfirm = async (totalDays: number) => {
     useActionQueueStore().addAction({
       type: 'cultivate',
       itemName: cultivationSkills.value.名称,
-      itemType: '功法',
+      itemType: t('功法'),
       description: `对《${cultivationSkills.value.名称}》进行${totalDays}天的深度修炼`,
     });
   } catch (error) {

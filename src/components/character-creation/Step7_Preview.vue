@@ -1,18 +1,18 @@
 <template>
   <div class="preview-container">
-    <h2 class="title">最终预览</h2>
-    <p class="subtitle">请确认你的选择，此为踏入仙途的最后一步。</p>
+    <h2 class="title">{{ $t('最终预览') }}</h2>
+    <p class="subtitle">{{ $t('请确认你的选择，此为踏入仙途的最后一步。') }}</p>
 
     <div class="preview-grid">
       <!-- Character Name -->
       <div class="preview-item name-item">
-        <label for="characterName">道号:</label>
+        <label for="characterName">{{ $t('道号:') }}</label>
         <input
           type="text"
           id="characterName"
           class="named readonly-input"
           v-model="store.characterPayload.character_name"
-          placeholder="正在从酒馆获取..."
+          :placeholder="$t('正在从酒馆获取...')"
           readonly
           @mousedown.stop
           @click.stop
@@ -22,13 +22,13 @@
 
       <!-- Character Race -->
       <div class="preview-item race-item input-field">
-        <label for="characterRace">种族:</label>
+        <label for="characterRace">{{ $t('种族:') }}</label>
         <input
           type="text"
           id="characterRace"
           class="named"
           v-model="store.characterPayload.race"
-          placeholder="人族"
+          :placeholder="$t('人族')"
           @mousedown.stop
           @click.stop
           @select.stop
@@ -37,93 +37,93 @@
 
       <!-- Gender Selection -->
       <div class="preview-item gender-item">
-        <h3>性别</h3>
+        <h3>{{ $t('性别') }}</h3>
         <div class="gender-control">
           <label class="gender-label">
             <input type="radio" name="gender" value="男" v-model="store.characterPayload.gender">
-            <span>男</span>
+            <span>{{ $t('男') }}</span>
           </label>
           <label class="gender-label">
             <input type="radio" name="gender" value="女" v-model="store.characterPayload.gender">
-            <span>女</span>
+            <span>{{ $t('女') }}</span>
           </label>
           <label class="gender-label">
             <input type="radio" name="gender" value="双性" v-model="store.characterPayload.gender">
-            <span>双性</span>
+            <span>{{ $t('双性') }}</span>
           </label>
         </div>
       </div>
 
       <!-- Birth Age -->
       <div class="preview-item age-item">
-        <h3>初始年龄</h3>
+        <h3>{{ $t('初始年龄') }}</h3>
         <div class="age-control">
           <button type="button" @click="decrementAge" :disabled="store.characterPayload.current_age <= 0" class="age-btn">-</button>
-          <span class="age-display">{{ store.characterPayload.current_age }} 岁</span>
+          <span class="age-display">{{ store.characterPayload.current_age }} {{ $t('岁') }}</span>
           <button type="button" @click="incrementAge" :disabled="store.characterPayload.current_age >= 18" class="age-btn">+</button>
         </div>
       </div>
 
       <!-- World -->
       <div class="preview-item">
-        <h3>所选世界</h3>
-        <h4>{{ store.selectedWorld?.name || '未选择' }}</h4>
-        <p class="item-description">{{ store.selectedWorld?.description || '暂无描述' }}</p>
+        <h3>{{ $t('所选世界') }}</h3>
+        <h4>{{ store.selectedWorld?.name || $t('未选择') }}</h4>
+        <p class="item-description">{{ store.selectedWorld?.description || $t('暂无描述') }}</p>
       </div>
 
       <!-- Talent Tier -->
       <div class="preview-item">
-        <h3>天资</h3>
+        <h3>{{ $t('天资') }}</h3>
         <h4 :style="{ color: store.selectedTalentTier?.color || 'inherit' }">
-          {{ store.selectedTalentTier?.name || '未选择' }}
+          {{ store.selectedTalentTier?.name || $t('未选择') }}
         </h4>
-        <p class="item-description">{{ store.selectedTalentTier?.description || '暂无描述' }}</p>
+        <p class="item-description">{{ store.selectedTalentTier?.description || $t('暂无描述') }}</p>
       </div>
 
       <!-- Origin -->
       <div class="preview-item">
-        <h3>出身</h3>
-        <h4>{{ store.selectedOrigin?.name || '随机出身' }}</h4>
-        <p class="item-description">{{ store.selectedOrigin?.description || '暂无描述' }}</p>
+        <h3>{{ $t('出身') }}</h3>
+        <h4>{{ store.selectedOrigin?.name || $t('随机出身') }}</h4>
+        <p class="item-description">{{ store.selectedOrigin?.description || $t('暂无描述') }}</p>
       </div>
 
       <!-- Spirit Root -->
       <div class="preview-item">
-        <h3>灵根</h3>
-        <h4>{{ store.selectedSpiritRoot?.name || '随机灵根' }}</h4>
-        <p class="item-description">{{ store.selectedSpiritRoot?.description || '暂无描述' }}</p>
+        <h3>{{ $t('灵根') }}</h3>
+        <h4>{{ store.selectedSpiritRoot?.name || $t('随机灵根') }}</h4>
+        <p class="item-description">{{ store.selectedSpiritRoot?.description || $t('暂无描述') }}</p>
       </div>
 
       <!-- Talents -->
       <div class="preview-item talents-item">
-        <h3>天赋</h3>
+        <h3>{{ $t('天赋') }}</h3>
         <ul v-if="store.selectedTalents.length">
           <li v-for="talent in store.selectedTalents" :key="talent.id">
             <strong>{{ talent.name }}</strong>
             <p class="item-description">{{ talent.description }}</p>
           </li>
         </ul>
-        <p v-else>未选择任何天赋</p>
+        <p v-else>{{ $t('未选择任何天赋') }}</p>
       </div>
 
       <!-- Attributes -->
       <div v-if="props.isLocalCreation" class="preview-item attributes-item">
-        <h3>先天六司</h3>
+        <h3>{{ $t('先天六司') }}</h3>
         <ul>
-          <li>根骨: {{ store.attributes.root_bone }}</li>
-          <li>灵性: {{ store.attributes.spirituality }}</li>
-          <li>悟性: {{ store.attributes.comprehension }}</li>
-          <li>气运: {{ store.attributes.fortune }}</li>
-          <li>魅力: {{ store.attributes.charm }}</li>
-          <li>心性: {{ store.attributes.temperament }}</li>
+          <li>{{ $t('根骨') }}: {{ store.attributes.root_bone }}</li>
+          <li>{{ $t('灵性') }}: {{ store.attributes.spirituality }}</li>
+          <li>{{ $t('悟性') }}: {{ store.attributes.comprehension }}</li>
+          <li>{{ $t('气运') }}: {{ store.attributes.fortune }}</li>
+          <li>{{ $t('魅力') }}: {{ store.attributes.charm }}</li>
+          <li>{{ $t('心性') }}: {{ store.attributes.temperament }}</li>
         </ul>
       </div>
 
       <!-- Cloud Mode Placeholder -->
       <div v-else class="preview-item cloud-info-item">
-        <h3>命格天定</h3>
+        <h3>{{ $t('命格天定') }}</h3>
         <p class="cloud-info-text">
-          联机模式下，角色的初始命格将由所选世界的天道法则在云端生成，以确保公平与平衡。
+          {{ $t('联机模式下，角色的初始命格将由所选世界的天道法则在云端生成，以确保公平与平衡。') }}
         </p>
       </div>
     </div>

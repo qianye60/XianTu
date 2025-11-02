@@ -65,6 +65,9 @@ import GameVariableDataSelector from './components/GameVariableDataSelector.vue'
 import GameVariableDataDisplay from './components/GameVariableDataDisplay.vue'
 import GameVariableEditModal from './components/GameVariableEditModal.vue'
 import GameVariableStatsModal from './components/GameVariableStatsModal.vue'
+import { useI18n } from '@/i18n'
+
+const { t } = useI18n()
 
 // 🔥 [新架构] 使用 Pinia 作为单一数据源
 const gameStateStore = useGameStateStore()
@@ -96,34 +99,34 @@ const coreDataViews = computed(() => {
   const _ = gameStateStore.$state
 
   return {
-    '存档数据 (SaveData)': {
-      角色基础信息: gameStateStore.character,
-      玩家角色状态: gameStateStore.playerStatus,
-      背包: gameStateStore.inventory,
-      装备栏: gameStateStore.equipment,
-      人物关系: gameStateStore.relationships,
-      记忆: gameStateStore.memory,
-      游戏时间: gameStateStore.gameTime,
-      世界信息: gameStateStore.worldInfo,
-      三千大道: gameStateStore.thousandDao,
-      任务系统: gameStateStore.questSystem,
-      修炼功法: gameStateStore.cultivationTechnique,
-      掌握技能: gameStateStore.masteredSkills,
-      系统: gameStateStore.systemConfig,
-      叙事历史: gameStateStore.narrativeHistory,
-      身体部位开发: gameStateStore.bodyPartDevelopment
+    [t('存档数据 (SaveData)')]: {
+      [t('角色基础信息')]: gameStateStore.character,
+      [t('玩家角色状态')]: gameStateStore.playerStatus,
+      [t('背包')]: gameStateStore.inventory,
+      [t('装备栏')]: gameStateStore.equipment,
+      [t('人物关系')]: gameStateStore.relationships,
+      [t('记忆')]: gameStateStore.memory,
+      [t('游戏时间')]: gameStateStore.gameTime,
+      [t('世界信息')]: gameStateStore.worldInfo,
+      [t('三千大道')]: gameStateStore.thousandDao,
+      [t('任务系统')]: gameStateStore.questSystem,
+      [t('修炼功法')]: gameStateStore.cultivationTechnique,
+      [t('掌握技能')]: gameStateStore.masteredSkills,
+      [t('系统')]: gameStateStore.systemConfig,
+      [t('叙事历史')]: gameStateStore.narrativeHistory,
+      [t('身体部位开发')]: gameStateStore.bodyPartDevelopment
     },
-    '角色数据': gameStateStore.character,
-    '记忆数据': gameStateStore.memory,
-    '世界信息': gameStateStore.worldInfo
+    [t('角色数据')]: gameStateStore.character,
+    [t('记忆数据')]: gameStateStore.memory,
+    [t('世界信息')]: gameStateStore.worldInfo
   }
 })
 
 const customOptions = computed(() => {
   // 自定义选项可以保留为空或添加一些全局配置
   return {
-    '游戏版本': '2.0.0',
-    '架构模式': 'Pinia内存 + DB持久化'
+    [t('游戏版本')]: '2.0.0',
+    [t('架构模式')]: 'Pinia内存 + DB持久化'
   }
 })
 
@@ -132,21 +135,21 @@ const saveData = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
 
   return {
-    角色基础信息: gameStateStore.character,
-    玩家角色状态: gameStateStore.playerStatus,
-    背包: gameStateStore.inventory,
-    装备栏: gameStateStore.equipment,
-    人物关系: gameStateStore.relationships,
-    记忆: gameStateStore.memory,
-    游戏时间: gameStateStore.gameTime,
-    世界信息: gameStateStore.worldInfo,
-    三千大道: gameStateStore.thousandDao,
-    任务系统: gameStateStore.questSystem,
-    修炼功法: gameStateStore.cultivationTechnique,
-    掌握技能: gameStateStore.masteredSkills,
-    系统: gameStateStore.systemConfig,
-    叙事历史: gameStateStore.narrativeHistory,
-    身体部位开发: gameStateStore.bodyPartDevelopment
+    [t('角色基础信息')]: gameStateStore.character,
+    [t('玩家角色状态')]: gameStateStore.playerStatus,
+    [t('背包')]: gameStateStore.inventory,
+    [t('装备栏')]: gameStateStore.equipment,
+    [t('人物关系')]: gameStateStore.relationships,
+    [t('记忆')]: gameStateStore.memory,
+    [t('游戏时间')]: gameStateStore.gameTime,
+    [t('世界信息')]: gameStateStore.worldInfo,
+    [t('三千大道')]: gameStateStore.thousandDao,
+    [t('任务系统')]: gameStateStore.questSystem,
+    [t('修炼功法')]: gameStateStore.cultivationTechnique,
+    [t('掌握技能')]: gameStateStore.masteredSkills,
+    [t('系统')]: gameStateStore.systemConfig,
+    [t('叙事历史')]: gameStateStore.narrativeHistory,
+    [t('身体部位开发')]: gameStateStore.bodyPartDevelopment
   }
 })
 const worldInfo = computed(() => gameStateStore.worldInfo || {})
@@ -207,13 +210,13 @@ const getWorldItemCount = () => {
 
 // 数据类型配置 - 将存档数据放在第一个
 const dataTypes = [
-  { key: 'saveData',  label: '存档数据(修改游戏数据)', icon: 'Archive' },
-  { key: 'core',      label: '核心数据', icon: 'Database' },
-  { key: 'character', label: '角色数据', icon: 'Users' },
-  { key: 'worldInfo', label: '世界信息', icon: 'Book' },
-  { key: 'memory',    label: '记忆数据', icon: 'Brain' },
-  { key: 'custom',    label: '自定义选项', icon: 'Settings' },
-  { key: 'raw',       label: '原始数据', icon: 'Code' }
+  { key: 'saveData',  label: t('存档数据(修改游戏数据)'), icon: 'Archive' },
+  { key: 'core',      label: t('核心数据'), icon: 'Database' },
+  { key: 'character', label: t('角色数据'), icon: 'Users' },
+  { key: 'worldInfo', label: t('世界信息'), icon: 'Book' },
+  { key: 'memory',    label: t('记忆数据'), icon: 'Brain' },
+  { key: 'custom',    label: t('自定义选项'), icon: 'Settings' },
+  { key: 'raw',       label: t('原始数据'), icon: 'Code' }
 ]
 
 // 🔥 [新架构] 刷新数据 = 从 gameStateStore 重新读取
@@ -224,15 +227,15 @@ const refreshData = async () => {
   try {
     // 检查游戏是否已加载
     if (!gameStateStore.isGameLoaded) {
-      toast.warning('请先加载游戏存档')
+      toast.warning(t('请先加载游戏存档'))
       return
     }
 
     lastUpdateTime.value = new Date().toLocaleString('zh-CN')
-    toast.success('数据已从Pinia Store刷新')
+    toast.success(t('数据已从Pinia Store刷新'))
   } catch (error) {
     console.error('[游戏变量] 刷新失败:', error)
-    toast.error('数据刷新失败: ' + (error instanceof Error ? error.message : '未知错误'))
+    toast.error(t('数据刷新失败: ') + (error instanceof Error ? error.message : t('未知错误')))
   } finally {
     isLoading.value = false
     isRefreshing.value = false
@@ -249,10 +252,10 @@ const exportData = () => {
     link.download = `game-variables-${Date.now()}.json`
     link.click()
     URL.revokeObjectURL(url)
-    toast.success('数据导出成功')
+    toast.success(t('数据导出成功'))
   } catch (error) {
     console.error('[游戏变量] 导出失败:', error)
-    toast.error('数据导出失败')
+    toast.error(t('数据导出失败'))
   }
 }
 
@@ -261,7 +264,7 @@ const showDataStats = () => {
 }
 
 const addNewVariable = () => {
-  toast.warning('新架构下不支持直接添加变量，请通过游戏操作修改数据')
+  toast.warning(t('新架构下不支持直接添加变量，请通过游戏操作修改数据'))
 }
 
 const editVariable = (item: EditingItem) => {
@@ -273,20 +276,20 @@ const copyVariable = async (key: string, value: GameVariableValue) => {
   try {
     const text = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
     await navigator.clipboard.writeText(`${key}: ${text}`)
-    toast.success('已复制到剪贴板')
+    toast.success(t('已复制到剪贴板'))
   } catch (error) {
     console.error('[游戏变量] 复制失败:', error)
-    toast.error('复制失败')
+    toast.error(t('复制失败'))
   }
 }
 
 const deleteVariable = async () => {
-  toast.warning('新架构下不支持直接删除变量，请通过游戏操作修改数据')
+  toast.warning(t('新架构下不支持直接删除变量，请通过游戏操作修改数据'))
 }
 
 const saveVariable = async (item: EditingItem) => {
   if (!item) {
-    toast.error('没有要保存的数据')
+    toast.error(t('没有要保存的数据'))
     return
   }
 
@@ -382,14 +385,14 @@ const saveVariable = async (item: EditingItem) => {
 
     console.log('=== [诊断日志] 保存变量结束 ===')
 
-    toast.success(`✅ 已成功更新 ${key}`)
+    toast.success(t('✅ 已成功更新 ') + `${key}`)
     closeEditModal()
 
     // 刷新显示
     await refreshData()
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '未知错误'
-    toast.error(`保存失败: ${errorMsg}`)
+    const errorMsg = error instanceof Error ? error.message : t('未知错误')
+    toast.error(t('保存失败: ') + `${errorMsg}`)
     console.error('[游戏变量] 保存失败:', error)
   }
 }
@@ -401,18 +404,18 @@ const closeEditModal = () => {
 
 const debugLogData = () => {
   console.group('[游戏变量] 详细调试信息 (Pinia模式)')
-  console.log('基本统计:', {
-    游戏已加载: gameStateStore.isGameLoaded,
-    角色名: gameStateStore.character?.名字,
+  console.log(t('基本统计:'), {
+    [t('游戏已加载')]: gameStateStore.isGameLoaded,
+    [t('角色名')]: gameStateStore.character?.名字,
     coreDataViewsCount: Object.keys(coreDataViews.value).length,
     customOptionsCount: Object.keys(customOptions.value).length,
     lastUpdateTime: lastUpdateTime.value
   })
-  console.log('核心数据键名:', Object.keys(coreDataViews.value))
-  console.log('自定义选项键名:', Object.keys(customOptions.value))
-  console.log('完整SaveData:', gameStateStore.toSaveData())
+  console.log(t('核心数据键名:'), Object.keys(coreDataViews.value))
+  console.log(t('自定义选项键名:'), Object.keys(customOptions.value))
+  console.log(t('完整SaveData:'), gameStateStore.toSaveData())
   console.groupEnd()
-  toast.success('调试信息已输出到控制台')
+  toast.success(t('调试信息已输出到控制台'))
 }
 
 // 组件挂载

@@ -1,7 +1,7 @@
 <template>
   <div class="talent-selection-container">
-    <div v-if="store.isLoading" class="loading-state">于时光长河中搜寻天赋...</div>
-    <div v-else-if="store.error" class="error-state">天机紊乱：{{ store.error }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('于时光长河中搜寻天赋...') }}</div>
+    <div v-else-if="store.error" class="error-state">{{ $t('天机紊乱') }}：{{ store.error }}</div>
 
     <div v-else class="talent-layout">
       <!-- 左侧面板：列表和操作按钮 -->
@@ -13,10 +13,10 @@
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">自定义天赋</span>
+            <span class="action-name">{{ $t('自定义天赋') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
-            <span class="action-name">AI推演</span>
+            <span class="action-name">{{ $t('AI推演') }}</span>
           </button>
         </div>
 
@@ -33,13 +33,13 @@
           >
             <div class="item-content">
               <span class="talent-name">{{ talent.name }}</span>
-              <span class="talent-cost">{{ talent.talent_cost || 0 }}点</span>
+              <span class="talent-cost">{{ talent.talent_cost || 0 }}{{ $t('点') }}</span>
             </div>
             <div v-if="talent.source === 'cloud' || talent.source === 'local'" class="action-buttons">
-              <button @click.stop="openEditModal(talent)" class="edit-btn" title="编辑此项">
+              <button @click.stop="openEditModal(talent)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="handleDeleteTalent(talent.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteTalent(talent.id)" class="delete-btn" :title="$t('删除此项')">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -51,26 +51,26 @@
         <div v-if="activeTalent" class="talent-details">
           <h2>{{ activeTalent.name }}</h2>
           <div class="description-scroll">
-            <p>{{ activeTalent.description || '此天赋之玄妙，需自行领悟。' }}</p>
+            <p>{{ activeTalent.description || $t('此天赋之玄妙，需自行领悟。') }}</p>
           </div>
         </div>
-        <div v-else class="placeholder">请选择天赋。</div>
+        <div v-else class="placeholder">{{ $t('请选择天赋。') }}</div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      title="自定义天赋"
+      :title="$t('自定义天赋')"
       :fields="customTalentFields"
       :validationFn="validateCustomTalent"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-    
+
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      title="编辑天赋"
+      :title="$t('编辑天赋')"
       :fields="customTalentFields"
       :validationFn="validateCustomTalent"
       :initialData="editInitialData"

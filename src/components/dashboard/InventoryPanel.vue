@@ -12,7 +12,7 @@
           @click="activeTab = tab.id"
         >
           <component :is="tab.icon" :size="16" />
-          <span>{{ tab.label }}</span>
+          <span>{{ t(tab.label) }}</span>
         </button>
       </div>
 
@@ -23,26 +23,26 @@
           <input
             type="text"
             v-model="searchQuery"
-            :placeholder="isMobile ? '搜索...' : '搜索物品...'"
+            :placeholder="isMobile ? t('搜索...') : t('搜索物品...')"
           />
         </div>
         <div class="filter-buttons">
           <select v-model="selectedCategory" class="filter-select">
-            <option value="all">全部物品</option>
+            <option value="all">{{ t('全部物品') }}</option>
             <option v-for="cat in itemCategories" :key="cat" :value="cat">
-              {{ cat }}
+              {{ t(cat) }}
             </option>
           </select>
           <select v-model="sortBy" class="filter-select">
-            <option value="default">默认排序</option>
-            <option value="quality">品质排序</option>
-            <option value="name">名称排序</option>
+            <option value="default">{{ t('默认排序') }}</option>
+            <option value="quality">{{ t('品质排序') }}</option>
+            <option value="name">{{ t('名称排序') }}</option>
           </select>
           <button
             class="refresh-btn"
             @click="refreshFromTavern"
             :disabled="refreshing"
-            title="从酒馆同步最新数据"
+            :title="t('从酒馆同步最新数据')"
           >
             <RotateCcw :size="16" :class="{ spinning: refreshing }" />
           </button>
@@ -72,9 +72,9 @@
             </div>
             <div class="confirm-actions">
               <button class="confirm-btn cancel-btn" @click="showCustomConfirm = false">
-                取消
+                {{ t('取消') }}
               </button>
-              <button class="confirm-btn confirm-btn" @click="handleConfirm">确定</button>
+              <button class="confirm-btn confirm-btn" @click="handleConfirm">{{ t('确定') }}</button>
             </div>
           </div>
         </div>
@@ -94,13 +94,13 @@
               </div>
               <div class="modal-info">
                 <div class="modal-meta">
-                  {{ selectedItem?.类型 }} / {{ selectedItem?.品质?.quality || '未知' }}
+                  {{ t(selectedItem?.类型 ?? '未知') }} / {{ selectedItem?.品质?.quality ? t(selectedItem.品质.quality) : t('未知') }}
                   <span
                     v-if="selectedItem?.品质?.grade !== undefined"
                     class="grade-display"
                     :class="getGradeClass(selectedItem.品质.grade)"
                   >
-                    {{ getGradeText(selectedItem.品质.grade) }}({{ selectedItem.品质.grade }})
+                    {{ t(getGradeText(selectedItem.品质.grade)) }}({{ selectedItem.品质.grade }})
                   </span>
                 </div>
                 <p class="modal-description">{{ selectedItem?.描述 }}</p>
@@ -108,7 +108,7 @@
                   v-if="selectedItem?.类型 === '装备' && selectedItem?.装备增幅"
                   class="modal-attributes"
                 >
-                  <h4>装备增幅:</h4>
+                  <h4>{{ t('装备增幅:') }}</h4>
                   <div class="attribute-text">
                     {{ formatItemAttributes(selectedItem.装备增幅) }}
                   </div>
@@ -117,7 +117,7 @@
                   v-if="selectedItem?.类型 === '装备' && selectedItem?.特殊效果"
                   class="modal-attributes"
                 >
-                  <h4>特殊效果:</h4>
+                  <h4>{{ t('特殊效果:') }}</h4>
                   <div class="attribute-text">
                     {{ typeof selectedItem.特殊效果 === 'object' ? formatItemAttributes(selectedItem.特殊效果) : selectedItem.特殊效果 }}
                   </div>
@@ -133,10 +133,10 @@
                   :disabled="equipBusy"
                   @click="toggleEquip(selectedItem)"
                 >
-                  {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
+                  {{ isEquipped(selectedItem) ? t('卸下') : t('装备') }}
                 </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
-                  丢弃
+                  {{ t('丢弃') }}
                 </button>
               </template>
               <!-- 功法：修炼和丢弃 -->
@@ -147,17 +147,17 @@
                   :disabled="cultivateBusy"
                   @click="toggleCultivate(selectedItem)"
                 >
-                  {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
+                  {{ isCultivating(selectedItem) ? t('停止修炼') : t('修炼') }}
                 </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
-                  丢弃
+                  {{ t('丢弃') }}
                 </button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
               <template v-else-if="selectedItem">
-                <button class="action-btn use-btn" @click="useItem(selectedItem)">使用</button>
+                <button class="action-btn use-btn" @click="useItem(selectedItem)">{{ t('使用') }}</button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
-                  丢弃
+                  {{ t('丢弃') }}
                 </button>
               </template>
             </div>
@@ -167,16 +167,16 @@
         <div class="items-grid">
           <div v-if="loading" class="grid-placeholder">
             <div class="loading-spinner"></div>
-            <p>加载中...</p>
+            <p>{{ t('加载中...') }}</p>
           </div>
           <div v-else-if="filteredItems.length === 0" class="grid-placeholder">
             <BoxSelect :size="48" />
-            <p v-if="selectedCategory === 'all'">空空如也</p>
-            <p v-else-if="selectedCategory === '装备'">暂无装备</p>
-            <p v-else-if="selectedCategory === '功法'">暂无功法</p>
-            <p v-else-if="selectedCategory === '其他'">暂无其他物品</p>
-            <p v-else>暂无{{ selectedCategory }}</p>
-            <span v-if="selectedCategory !== 'all'" class="filter-tip"> 可以试试搜索其他分类 </span>
+            <p v-if="selectedCategory === 'all'">{{ t('空空如也') }}</p>
+            <p v-else-if="selectedCategory === '装备'">{{ t('暂无装备') }}</p>
+            <p v-else-if="selectedCategory === '功法'">{{ t('暂无功法') }}</p>
+            <p v-else-if="selectedCategory === '其他'">{{ t('暂无其他物品') }}</p>
+            <p v-else>{{ t('暂无{0}').replace('{0}', t(selectedCategory)) }}</p>
+            <span v-if="selectedCategory !== 'all'" class="filter-tip"> {{ t('可以试试搜索其他分类') }} </span>
           </div>
           <div
             v-else
@@ -191,7 +191,7 @@
               <div class="item-icon-area" :class="getItemQualityClass(item, 'border')">
                 <div class="item-type-icon">{{ getItemTypeIcon(item.类型) }}</div>
                 <div class="item-quality-badge" :class="getItemQualityClass(item, 'text')">
-                  {{ item.品质?.quality || '未知' }}
+                  {{ item.品质?.quality ? t(item.品质.quality) : t('未知') }}
                 </div>
               </div>
             </div>
@@ -206,13 +206,13 @@
 
             <!-- 底部信息：类型和品级 -->
             <div class="item-bottom-section">
-              <div class="item-type-label">{{ item.类型 }}</div>
+              <div class="item-type-label">{{ t(item.类型) }}</div>
               <div
                 v-if="item.品质?.grade !== undefined"
                 class="item-grade-info"
                 :class="getGradeClass(item.品质.grade)"
               >
-                {{ getGradeText(item.品质.grade) }}({{ item.品质.grade }})
+                {{ t(getGradeText(item.品质.grade)) }}({{ item.品质.grade }})
               </div>
             </div>
           </div>
@@ -228,13 +228,13 @@
               <div class="details-title-area">
                 <h3>{{ selectedItem.名称 }}</h3>
                 <div class="details-meta">
-                  {{ selectedItem.类型 }} / {{ selectedItem.品质?.quality || '未知' }}
+                  {{ t(selectedItem.类型) }} / {{ selectedItem.品质?.quality ? t(selectedItem.品质.quality) : t('未知') }}
                   <span
                     v-if="selectedItem.品质?.grade !== undefined"
                     class="grade-display"
                     :class="getGradeClass(selectedItem.品质.grade)"
                   >
-                    {{ getGradeText(selectedItem.品质.grade) }}({{ selectedItem.品质.grade }})
+                    {{ t(getGradeText(selectedItem.品质.grade)) }}({{ selectedItem.品质.grade }})
                   </span>
                 </div>
               </div>
@@ -246,22 +246,22 @@
               <template v-if="selectedItem.类型 === '功法'">
                 <!-- 功法效果 -->
                 <div v-if="selectedItem.功法效果" class="details-attributes">
-                  <h4>功法效果:</h4>
+                  <h4>{{ t('功法效果:') }}</h4>
                   <div class="skill-effects">
                     <div v-if="selectedItem.功法效果.修炼速度加成" class="effect-item">
-                      <span class="effect-label">修炼速度:</span>
+                      <span class="effect-label">{{ t('修炼速度:') }}</span>
                       <span class="effect-value"
                         >+{{ (selectedItem.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span
                       >
                     </div>
                     <div v-if="selectedItem.功法效果.属性加成" class="effect-item">
-                      <span class="effect-label">属性加成:</span>
+                      <span class="effect-label">{{ t('属性加成:') }}</span>
                       <span class="effect-value">{{
                         formatAttributeBonus(selectedItem.功法效果.属性加成)
                       }}</span>
                     </div>
                     <div v-if="selectedItem.功法效果.特殊能力?.length" class="effect-item">
-                      <span class="effect-label">特殊能力:</span>
+                      <span class="effect-label">{{ t('特殊能力:') }}</span>
                       <div class="special-abilities">
                         <span
                           v-for="ability in selectedItem.功法效果.特殊能力"
@@ -280,7 +280,7 @@
                   v-if="selectedItem.功法技能 && Array.isArray(selectedItem.功法技能) && selectedItem.功法技能.length > 0"
                   class="details-attributes"
                 >
-                  <h4>功法技能:</h4>
+                  <h4>{{ t('功法技能:') }}</h4>
                   <div class="technique-skills">
                     <div
                       v-for="(skill, index) in selectedItem.功法技能"
@@ -290,11 +290,11 @@
                       <div class="skill-header">
                         <span class="skill-name">{{ skill.技能名称 }}</span>
                         <span v-if="skill.解锁需要熟练度" class="skill-unlock-requirement">
-                          需要: {{ skill.解锁需要熟练度 }}%
+                          {{ t('需要:') }} {{ skill.解锁需要熟练度 }}%
                         </span>
                       </div>
                       <div class="skill-description">{{ skill.技能描述 }}</div>
-                      <div v-if="skill.消耗" class="skill-cost">消耗: {{ skill.消耗 }}</div>
+                      <div v-if="skill.消耗" class="skill-cost">{{ t('消耗:') }} {{ skill.消耗 }}</div>
                     </div>
                   </div>
                 </div>
@@ -305,7 +305,7 @@
                 v-if="selectedItem.类型 === '装备' && selectedItem.装备增幅"
                 class="details-attributes"
               >
-                <h4>装备增幅:</h4>
+                <h4>{{ t('装备增幅:') }}</h4>
                 <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
 
@@ -314,7 +314,7 @@
                 v-if="selectedItem.类型 === '装备' && selectedItem.特殊效果"
                 class="details-attributes"
               >
-                <h4>特殊效果:</h4>
+                <h4>{{ t('特殊效果:') }}</h4>
                 <div class="attribute-text">{{ typeof selectedItem.特殊效果 === 'object' ? formatItemAttributes(selectedItem.特殊效果) : selectedItem.特殊效果 }}</div>
               </div>
             </div>
@@ -327,10 +327,10 @@
                   :disabled="equipBusy"
                   @click="toggleEquip(selectedItem)"
                 >
-                  {{ isEquipped(selectedItem) ? '卸下' : '装备' }}
+                  {{ isEquipped(selectedItem) ? t('卸下') : t('装备') }}
                 </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
-                  丢弃
+                  {{ t('丢弃') }}
                 </button>
               </template>
               <!-- 功法：修炼和丢弃 -->
@@ -341,24 +341,24 @@
                   :disabled="cultivateBusy"
                   @click="toggleCultivate(selectedItem)"
                 >
-                  {{ isCultivating(selectedItem) ? '停止修炼' : '修炼' }}
+                  {{ isCultivating(selectedItem) ? t('停止修炼') : t('修炼') }}
                 </button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem)">
-                  丢弃
+                  {{ t('丢弃') }}
                 </button>
               </template>
               <!-- 其他物品：使用和丢弃 -->
               <template v-else>
-                <button class="action-btn use-btn" @click="useItem(selectedItem!)">使用</button>
+                <button class="action-btn use-btn" @click="useItem(selectedItem!)">{{ t('使用') }}</button>
                 <button class="action-btn discard-btn" @click="discardItem(selectedItem!)">
-                  丢弃
+                  {{ t('丢弃') }}
                 </button>
               </template>
             </div>
           </div>
           <div v-else class="details-placeholder">
             <BoxSelect :size="48" />
-            <p>选择物品查看详情</p>
+            <p>{{ t('选择物品查看详情') }}</p>
           </div>
         </div>
       </div>
@@ -380,7 +380,7 @@
                     class="action-btn unequip-btn"
                     :disabled="equipBusy"
                     @click="unequipItem(slot)"
-                    title="卸下装备"
+                    :title="t('卸下装备')"
                   >
                     <X :size="12" />
                   </button>
@@ -389,7 +389,7 @@
 
               <div v-if="slot.item" class="equipment-item" :class="getItemQualityClass(slot.item)">
                 <div class="item-icon" :class="getItemQualityClass(slot.item, 'border')">
-                  <div class="item-type-text">装备</div>
+                  <div class="item-type-text">{{ t('装备') }}</div>
                 </div>
                 <div class="item-info">
                   <div
@@ -400,24 +400,24 @@
                     {{ slot.item.名称 }}
                   </div>
                   <div class="item-quality">
-                    {{ slot.item.品质?.quality || '？' }}品
+                    {{ slot.item.品质?.quality ? t(slot.item.品质.quality) : '？' }}{{t('品')}}
                     <span
                       v-if="slot.item.品质?.grade !== undefined"
                       class="item-grade"
                       :class="getGradeClass(slot.item.品质.grade)"
                     >
-                      {{ getGradeText(slot.item.品质.grade) }}({{ slot.item.品质.grade }})
+                      {{ t(getGradeText(slot.item.品质.grade)) }}({{ slot.item.品质.grade }})
                     </span>
                   </div>
                   <div v-if="slot.item.描述" class="item-description" :title="slot.item.描述">
                     {{ slot.item.描述 }}
                   </div>
                   <div v-if="slot.item.类型 === '装备' && slot.item.装备增幅" class="item-effects">
-                    <div class="effects-title">增幅效果：</div>
+                    <div class="effects-title">{{ t('增幅效果：') }}</div>
                     <div class="effects-text">{{ formatItemAttributes(slot.item.装备增幅) }}</div>
                   </div>
                   <div v-if="slot.item.类型 === '装备' && slot.item.特殊效果" class="item-effects">
-                    <div class="effects-title">特殊效果：</div>
+                    <div class="effects-title">{{ t('特殊效果：') }}</div>
                     <div class="effects-text">{{ typeof slot.item.特殊效果 === 'object' ? formatItemAttributes(slot.item.特殊效果) : slot.item.特殊效果 }}</div>
                   </div>
                 </div>
@@ -427,8 +427,8 @@
                 <div class="empty-icon">
                   <Package :size="24" />
                 </div>
-                <div class="empty-text">空槽位</div>
-                <div class="empty-hint">可装备装备</div>
+                <div class="empty-text">{{ t('空槽位') }}</div>
+                <div class="empty-hint">{{ t('可装备装备') }}</div>
               </div>
             </div>
           </div>
@@ -450,7 +450,7 @@
               </div>
               <div class="currency-info">
                 <div class="currency-amount">{{ (gameStateStore.inventory?.灵石?.[grade.name] || 0) }}</div>
-                <div class="currency-label">{{ grade.name }}灵石</div>
+                <div class="currency-label">{{ t(grade.name) }}{{t('灵石')}}</div>
               </div>
             </div>
             <div v-if="grade.canExchange || grade.canExchangeDown" class="currency-exchange">
@@ -459,18 +459,18 @@
                 class="exchange-btn"
                 @click="handleExchange(grade.name, 'up')"
                 :disabled="((gameStateStore.inventory?.灵石?.[grade.name] || 0) < 100)"
-                :title="`兑换为${grade.exchangeUp}灵石 (100:1)`"
+                :title="t('兑换为{0}灵石 (100:1)').replace('{0}', t(grade.exchangeUp))"
               >
-                ↑ 兑换
+                {{ t('↑ 兑换') }}
               </button>
               <button
                 v-if="grade.canExchangeDown"
                 class="exchange-btn down"
                 @click="handleExchange(grade.name, 'down')"
                 :disabled="((gameStateStore.inventory?.灵石?.[grade.name] || 0) < 1)"
-                :title="`分解为${grade.exchangeDown}灵石 (1:100)`"
+                :title="t('分解为{0}灵石 (1:100)').replace('{0}', t(grade.exchangeDown))"
               >
-                ↓ 分解
+                {{ t('↓ 分解') }}
               </button>
             </div>
           </div>
@@ -496,6 +496,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next'
+import { useI18n } from '@/i18n'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { useActionQueueStore } from '@/stores/actionQueueStore'
@@ -505,6 +506,7 @@ import { toast } from '@/utils/toast'
 import { debug } from '@/utils/debug'
 import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue'
 
+const { t } = useI18n()
 const characterStore = useCharacterStore()
 const gameStateStore = useGameStateStore()
 const actionQueue = useActionQueueStore()
@@ -549,7 +551,7 @@ const tabs = computed(() => [
 // 装备槽位 - 修正位置：装备栏在存档数据根级别
 const equipmentSlots = computed(() => {
   const equipment = gameStateStore.equipment
-  const slotNames = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6']
+  const slotNames = [t('装备1'), t('装备2'), t('装备3'), t('装备4'), t('装备5'), t('装备6')]
 
   if (!equipment) {
     return slotNames.map((name) => ({ name, item: null }))
@@ -600,18 +602,18 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
   equipBusy.value = true
   const itemToUnequip = slot.item
 
-  debug.log('背包面板', '卸下装备', itemToUnequip.名称)
+  debug.log(t('背包面板'), t('卸下装备'), itemToUnequip.名称)
 
   try {
     // 检查数据是否存在
     if (!gameStateStore.equipment) {
-      toast.error('装备栏数据不存在')
+      toast.error(t('装备栏数据不存在'))
       return
     }
 
     // 检查背包是否存在
     if (!gameStateStore.inventory?.物品) {
-      toast.error('背包数据不存在')
+      toast.error(t('背包数据不存在'))
       return
     }
 
@@ -634,14 +636,14 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
       type: 'unequip',
       itemName: itemToUnequip.名称,
       itemType: itemToUnequip.类型,
-      description: `卸下了《${itemToUnequip.名称}》装备`,
+      description: t('卸下了《{0}》装备').replace('{0}', itemToUnequip.名称),
     })
 
-    toast.success(`已卸下《${itemToUnequip.名称}》`)
-    debug.log('背包面板', '装备卸下成功', itemToUnequip.名称)
+    toast.success(t('已卸下《{0}》').replace('{0}', itemToUnequip.名称))
+    debug.log(t('背包面板'), t('装备卸下成功'), itemToUnequip.名称)
   } catch (error) {
-    debug.error('背包面板', '卸下装备失败', error)
-    toast.error('卸下装备失败')
+    debug.error(t('背包面板'), t('卸下装备失败'), error)
+    toast.error(t('卸下装备失败'))
   } finally {
     equipBusy.value = false
   }
@@ -665,7 +667,7 @@ const itemList = computed<Item[]>(() => {
 
       // 🔍 调试：检查品质数据是否缺失
       if (!item.品质 && (item.类型 === '功法' || item.类型 === '装备')) {
-        console.warn('[背包面板-警告] 物品缺少品质数据:', {
+        console.warn(t('[背包面板-警告] 物品缺少品质数据:'), {
           物品ID: item.物品ID,
           名称: item.名称,
           类型: item.类型,
@@ -852,7 +854,7 @@ const getGradeClass = (grade: number): string => {
 const removeItemFromInventory = async (item: Item) => {
   const items = gameStateStore.inventory?.物品
   if (!items || typeof items !== 'object') {
-    throw new Error('背包数据不存在或格式不正确')
+    throw new Error(t('背包数据不存在或格式不正确'))
   }
 
   // [REFACTORED] 从对象中移除物品
@@ -861,7 +863,7 @@ const removeItemFromInventory = async (item: Item) => {
   // 保存数据
   await characterStore.saveCurrentGame()
 
-  debug.log('背包面板', '物品移除成功', item.名称)
+  debug.log(t('背包面板'), t('物品移除成功'), item.名称)
 
   // 如果当前选中的是被移除的物品，清除选择
   if (selectedItem.value?.物品ID === item.物品ID) {
@@ -878,7 +880,7 @@ const removeItemFromInventory = async (item: Item) => {
 const updateItemInInventory = async (item: Item) => {
   const items = gameStateStore.inventory?.物品
   if (!items || typeof items !== 'object') {
-    throw new Error('背包数据不存在或格式不正确')
+    throw new Error(t('背包数据不存在或格式不正确'))
   }
 
   // [REFACTORED] 更新对象中的物品
@@ -888,9 +890,9 @@ const updateItemInInventory = async (item: Item) => {
     // 保存数据
     await characterStore.saveCurrentGame()
 
-    debug.log('背包面板', '物品更新成功', item.名称)
+    debug.log(t('背包面板'), t('物品更新成功'), item.名称)
   } else {
-    throw new Error(`尝试更新一个不存在于背包的物品: ${item.名称}`)
+    throw new Error(t('尝试更新一个不存在于背包的物品: {0}').replace('{0}', item.名称))
   }
 
   // 如果当前选中的是被更新的物品，更新选择
@@ -903,7 +905,7 @@ const updateItemInInventory = async (item: Item) => {
 const toggleCultivate = async (item: Item) => {
   if (cultivateBusy.value) return
   if (item.类型 !== '功法') {
-    toast.error('只有功法才能修炼')
+    toast.error(t('只有功法才能修炼'))
     return
   }
   cultivateBusy.value = true
@@ -924,16 +926,16 @@ const useItem = async (item: Item) => {
     return
   }
 
-  debug.log('背包面板', '使用物品', item.名称)
+  debug.log(t('背包面板'), t('使用物品'), item.名称)
 
   // 如果物品数量大于1，弹出数量选择弹窗
   if (item.数量 > 1) {
     quantityModalItem.value = item
-    quantityModalTitle.value = '使用物品'
-    quantityModalActionLabel.value = '使用数量'
+    quantityModalTitle.value = t('使用物品')
+    quantityModalActionLabel.value = t('使用数量')
     quantityModalType.value = 'use'
-    quantityModalConfirmText.value = '确定使用'
-    quantityModalDescription.value = (item.类型 === '其他' ? item.使用效果 : '') || '暂无特殊效果'
+    quantityModalConfirmText.value = t('确定使用')
+    quantityModalDescription.value = (item.类型 === '其他' ? item.使用效果 : '') || t('暂无特殊效果')
     quantityModalCallback.value = (quantity: number) => useItemWithQuantity(item, quantity)
     showQuantityModal.value = true
     return
@@ -946,7 +948,7 @@ const useItem = async (item: Item) => {
 const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
     if (item.类型 !== '其他') {
-      toast.error('该物品无法直接使用')
+      toast.error(t('该物品无法直接使用'))
       return
     }
     // 使用增强版动作队列管理器
@@ -958,10 +960,10 @@ const useItemWithQuantity = async (item: Item, quantity: number) => {
     }
     selectedItem.value = null
 
-    debug.log('背包面板', '使用物品成功', item.名称)
+    debug.log(t('背包面板'), t('使用物品成功'), item.名称)
   } catch (error) {
-    debug.error('背包面板', '使用物品失败', error)
-    toast.error('使用物品失败')
+    debug.error(t('背包面板'), t('使用物品失败'), error)
+    toast.error(t('使用物品失败'))
   }
 }
 
@@ -993,14 +995,14 @@ const discardItem = async (item: Item) => {
   // 如果物品数量大于1，弹出数量选择弹窗
   if (item.数量 > 1) {
     const itemQuality = item.品质?.quality || '凡'
-    const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`
+    const qualityColor = itemQuality === '凡' ? '' : `【${t(itemQuality)}】`
 
     quantityModalItem.value = item
-    quantityModalTitle.value = '丢弃物品'
-    quantityModalActionLabel.value = '丢弃数量'
+    quantityModalTitle.value = t('丢弃物品')
+    quantityModalActionLabel.value = t('丢弃数量')
     quantityModalType.value = 'discard'
-    quantityModalConfirmText.value = '确定丢弃'
-    quantityModalDescription.value = `${qualityColor}${item.名称} - 此操作不可撤销！`
+    quantityModalConfirmText.value = t('确定丢弃')
+    quantityModalDescription.value = `${qualityColor}${item.名称} - ${t('此操作不可撤销！')}`
     quantityModalCallback.value = (quantity: number) => discardItemWithQuantity(item, quantity)
     showQuantityModal.value = true
     return
@@ -1008,9 +1010,9 @@ const discardItem = async (item: Item) => {
 
   // 数量为1时使用确认弹窗
   const itemQuality = item.品质?.quality || '凡'
-  const qualityColor = itemQuality === '凡' ? '' : `【${itemQuality}】`
-  confirmTitle.value = '丢弃物品'
-  confirmMessage.value = `确定要丢弃 ${qualityColor}${item.名称} 吗？\n\n此操作不可撤销！`
+  const qualityColor = itemQuality === '凡' ? '' : `【${t(itemQuality)}】`
+  confirmTitle.value = t('丢弃物品')
+  confirmMessage.value = t('确定要丢弃 {0}{1} 吗？\n\n此操作不可撤销！').replace('{0}', qualityColor).replace('{1}', item.名称)
   confirmCallback.value = async () => {
     await discardItemWithQuantity(item, 1)
   }
@@ -1018,17 +1020,17 @@ const discardItem = async (item: Item) => {
 }
 
 const discardItemWithQuantity = async (item: Item, quantity: number) => {
-  debug.log('背包面板', '丢弃物品', { 物品名称: item.名称, 数量: quantity })
+  debug.log(t('背包面板'), t('丢弃物品'), { 物品名称: item.名称, 数量: quantity })
   try {
     if (quantity >= item.数量) {
       // 全部丢弃
       await removeItemFromInventory(item)
-      toast.success(`已丢弃《${item.名称}》`)
+      toast.success(t('已丢弃《{0}》').replace('{0}', item.名称))
     } else {
       // 部分丢弃，减少数量
       const updatedItem = { ...item, 数量: item.数量 - quantity }
       await updateItemInInventory(updatedItem)
-      toast.success(`已丢弃 ${quantity} 个《${item.名称}》`)
+      toast.success(t('已丢弃 {0} 个《{1}》').replace('{0}', quantity.toString()).replace('{1}', item.名称))
     }
 
     if (isMobile.value) {
@@ -1036,14 +1038,14 @@ const discardItemWithQuantity = async (item: Item, quantity: number) => {
     }
     selectedItem.value = null
   } catch (error) {
-    debug.error('背包面板', '丢弃失败', error)
-    toast.error('丢弃物品失败')
+    debug.error(t('背包面板'), t('丢弃失败'), error)
+    toast.error(t('丢弃物品失败'))
   }
 }
 const toggleEquip = async (item: Item) => {
   if (!item || equipBusy.value) return
   if (item.类型 !== '装备') {
-    toast.error('只有装备才能穿戴')
+    toast.error(t('只有装备才能穿戴'))
     return
   }
   equipBusy.value = true
@@ -1058,7 +1060,7 @@ const toggleEquip = async (item: Item) => {
     }
   } catch (error) {
     console.error('装备切换失败:', error)
-    toast.error('装备操作失败，请稍后重试')
+    toast.error(t('装备操作失败，请稍后重试'))
   } finally {
     equipBusy.value = false
   }
@@ -1214,10 +1216,10 @@ const refreshFromTavern = async () => {
 
   refreshing.value = true
   try {
-    debug.log('背包面板', '手动刷新酒馆数据')
+    debug.log(t('背包面板'), t('手动刷新酒馆数据'))
     await characterStore.reloadFromStorage()
   } catch (error) {
-    debug.error('背包面板', '刷新数据失败', error)
+    debug.error(t('背包面板'), t('刷新数据失败'), error)
   } finally {
     refreshing.value = false
   }

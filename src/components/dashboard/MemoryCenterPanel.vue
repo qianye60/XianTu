@@ -12,14 +12,14 @@
           @click="setActiveFilter(type.key)"
         >
           <span class="tab-icon">{{ type.icon }}</span>
-          <span class="tab-name">{{ type.name }}</span>
+          <span class="tab-name">{{ t(type.name) }}</span>
           <span class="tab-count">{{ getTypeCount(type.key) }}</span>
         </button>
         <button
           class="settings-toggle-btn"
           @click="showSettings = !showSettings"
           :class="{ active: showSettings }"
-          title="记忆系统设置"
+          :title="t('记忆系统设置')"
         >
           <Settings :size="16" />
         </button>
@@ -31,26 +31,26 @@
       <button
         class="export-btn-main"
         @click="exportMemoriesAsNovel"
-        title="将完整的叙事历史导出为小说格式的 .txt 文件"
+        :title="t('将完整的游戏对话历史（基于叙事历史）导出为小说格式，方便阅读和分享。')"
       >
-        📖 导出为小说
+        📖 {{ t('📖 导出为小说') }}
       </button>
       <div class="export-hint">
-        将完整的游戏对话历史（基于叙事历史）导出为小说格式，便于阅读和分享。
+        {{ t('将完整的游戏对话历史（基于叙事历史）导出为小说格式，方便阅读和分享。') }}
       </div>
     </div>
 
     <!-- 记忆系统设置 -->
     <div class="settings-section" v-if="showSettings">
       <div class="settings-header">
-        <span class="settings-title">⚙️ 记忆系统配置</span>
+        <span class="settings-title">⚙️ {{ t('记忆系统配置') }}</span>
         <div class="header-actions">
           <button
             class="test-btn"
             @click="addTestMediumTermMemory"
-            title="添加测试中期记忆"
+            :title="t('添加测试中期记忆')"
           >
-            🧪 测试
+            🧪 {{ t('测试') }}
           </button>
           <button
             class="settings-close-btn"
@@ -61,7 +61,7 @@
 
       <div class="settings-content">
         <div class="setting-item">
-          <label class="setting-label">短期记忆限制 (条):</label>
+          <label class="setting-label">{{ t('短期记忆上限（条）：') }}</label>
           <input
             type="number"
             v-model.number="memoryConfig.shortTermLimit"
@@ -69,11 +69,11 @@
             max="10"
             class="setting-input"
           />
-          <span class="setting-hint">默认: 3</span>
+          <span class="setting-hint">{{ t('默认') }}: 3</span>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">中期记忆转化阈值 (条):</label>
+          <label class="setting-label">{{ t('中期记忆转化阈值（条）：') }}</label>
           <input
             type="number"
             v-model.number="memoryConfig.midTermTrigger"
@@ -81,11 +81,11 @@
             max="50"
             class="setting-input"
           />
-          <span class="setting-hint">中期记忆积累达到此数量时转化为长期记忆，默认: 25</span>
+          <span class="setting-hint">{{ t('中期记忆达到此数量时，转化为长期记忆。默认：25') }}</span>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">中期记忆保留数量 (条):</label>
+          <label class="setting-label">{{ t('中期记忆保留数量（条）：') }}</label>
           <input
             type="number"
             v-model.number="memoryConfig.midTermKeep"
@@ -93,7 +93,7 @@
             max="15"
             class="setting-input"
           />
-          <span class="setting-hint">转化为长期记忆时保留最新的中期记忆数量，默认: 8</span>
+          <span class="setting-hint">{{ t('转化为长期记忆时，保留最新的这么多条中期记忆。默认：8') }}</span>
         </div>
 
         <div class="setting-item">
@@ -103,31 +103,31 @@
               v-model="memoryConfig.autoSummaryEnabled"
               class="setting-checkbox"
             />
-            启用自动记忆转化
+            {{ t('启用自动记忆转化') }}
           </label>
-          <span class="setting-hint">开启后自动将中期记忆转化为长期记忆，关闭则不进行转化</span>
+          <span class="setting-hint">{{ t('启用后，自动将中期记忆转化为长期记忆。禁用则不转化。') }}</span>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">中期记忆自定义格式:</label>
+          <label class="setting-label">{{ t('自定义中期记忆格式：') }}</label>
           <textarea
             v-model="memoryConfig.midTermFormat"
             class="setting-textarea"
-            placeholder="留空使用默认格式。可自定义AI提示词来控制中期记忆的生成格式..."
+            :placeholder="t('留空使用默认格式。可自定义AI提示词来控制记忆的生成格式...')"
             rows="4"
           ></textarea>
-          <span class="setting-hint">自定义中期记忆的AI提示词格式，留空使用系统默认</span>
+          <span class="setting-hint">{{ t('自定义中期记忆的AI提示词格式。留空使用系统默认。') }}</span>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">长期记忆自定义格式:</label>
+          <label class="setting-label">{{ t('自定义长期记忆格式：') }}</label>
           <textarea
             v-model="memoryConfig.longTermFormat"
             class="setting-textarea"
-            placeholder="留空使用默认格式。可自定义AI提示词来控制长期记忆的生成格式..."
+            :placeholder="t('留空使用默认格式。可自定义AI提示词来控制记忆的生成格式...')"
             rows="4"
           ></textarea>
-          <span class="setting-hint">自定义长期记忆的AI提示词格式，留空使用系统默认</span>
+          <span class="setting-hint">{{ t('自定义长期记忆的AI提示词格式。留空使用系统默认。') }}</span>
         </div>
 
         <div class="settings-actions">
@@ -135,29 +135,29 @@
             class="action-btn success"
             @click="saveMemoryConfig"
           >
-            💾 保存配置
+            💾 {{ t('保存配置') }}
           </button>
           <button
             class="action-btn info"
             @click="resetMemoryConfig"
           >
-            重置默认
+            {{ t('重置为默认') }}
           </button>
         </div>
 
         <!-- 手动总结触发 -->
         <div class="manual-summary-section">
           <div class="summary-info">
-            <span class="info-text">当前中期记忆: {{ mediumTermMemories.length }} 条</span>
-            <span class="info-hint">（达到 {{ memoryConfig.midTermTrigger }} 条时自动触发总结）</span>
+            <span class="info-text">{{ t('当前中期记忆：') }} {{ mediumTermMemories.length }} {{ t('条') }}</span>
+            <span class="info-hint">{{ t('autoSummaryTriggerHint', { count: memoryConfig.midTermTrigger }) }}</span>
           </div>
           <button
             class="action-btn warning"
             @click="manualTriggerSummary"
             :disabled="mediumTermMemories.length < memoryConfig.midTermKeep + 5"
-            :title="mediumTermMemories.length < memoryConfig.midTermKeep + 5 ? `至少需要 ${memoryConfig.midTermKeep + 5} 条中期记忆才能总结` : '手动触发AI总结'"
+            :title="mediumTermMemories.length < memoryConfig.midTermKeep + 5 ? t('manualSummaryRequirement', { count: memoryConfig.midTermKeep + 5 }) : t('手动触发AI总结')"
           >
-            📝 手动总结中期记忆
+            📝 {{ t('手动总结中期记忆') }}
           </button>
         </div>
       </div>
@@ -167,7 +167,7 @@
     <div class="panel-content" v-if="!showSettings">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner">⏳</div>
-        <div class="loading-text">正在读取记忆...</div>
+        <div class="loading-text">{{ t('正在读取记忆...') }}</div>
       </div>
 
       <div v-else-if="filteredMemories.length === 0" class="empty-state">
@@ -179,14 +179,14 @@
         <!-- 分页控制 -->
         <div class="pagination-controls" v-if="filteredMemoriesAll.length > pageSize">
           <div class="pagination-info">
-            第 {{ currentPage }} / {{ totalPages }} 页，共 {{ filteredMemoriesAll.length }} 条记忆
+            {{ t('第 {currentPage} / {totalPages} 页，共 {total} 条记忆', { currentPage, totalPages, total: filteredMemoriesAll.length }) }}
           </div>
           <div class="pagination-buttons">
             <button
               class="page-btn"
               @click="goToFirstPage"
               :disabled="currentPage === 1"
-              title="第一页"
+              :title="t('首页')"
             >
               ⏮️
             </button>
@@ -194,7 +194,7 @@
               class="page-btn"
               @click="goToPage(currentPage - 1)"
               :disabled="currentPage === 1"
-              title="上一页"
+              :title="t('上一页')"
             >
               ◀️
             </button>
@@ -202,7 +202,7 @@
               class="page-btn"
               @click="goToPage(currentPage + 1)"
               :disabled="currentPage === totalPages"
-              title="下一页"
+              :title="t('下一页')"
             >
               ▶️
             </button>
@@ -210,7 +210,7 @@
               class="page-btn"
               @click="goToLastPage"
               :disabled="currentPage === totalPages"
-              title="最后一页"
+              :title="t('末页')"
             >
               ⏭️
             </button>
@@ -219,13 +219,13 @@
             <input
               type="number"
               v-model="jumpToPage"
-              placeholder="页码"
+              :placeholder="t('页')"
               class="jump-input"
               @keyup.enter="handleJumpToPage"
               min="1"
               :max="totalPages"
             />
-            <button class="jump-btn" @click="handleJumpToPage">跳转</button>
+            <button class="jump-btn" @click="handleJumpToPage">{{ t('跳转') }}</button>
           </div>
         </div>
 
@@ -244,7 +244,7 @@
               <button
                 class="delete-memory-btn"
                 @click.stop="deleteMemory(memory)"
-                title="删除此记忆"
+                :title="t('删除此记忆')"
               >
                 🗑️
               </button>
@@ -290,7 +290,7 @@
               >
                 <div class="memory-section">
                   <span class="memory-icon">📝</span>
-                  <span class="memory-section-title">其他记录</span>
+                  <span class="memory-section-title">{{ t('其他记录') }}</span>
                 </div>
                 <!-- 确保只在数组时才遍历，字符串直接显示 -->
                 <template v-if="Array.isArray(memory.parsedContent.sections['general'])">
@@ -318,7 +318,7 @@
         <!-- 底部分页控制 -->
         <div class="pagination-controls bottom" v-if="filteredMemoriesAll.length > pageSize">
           <div class="pagination-info">
-            第 {{ currentPage }} / {{ totalPages }} 页
+            {{ t('页') }} {{ currentPage }} / {{ totalPages }}
           </div>
           <div class="pagination-buttons">
             <button
@@ -359,6 +359,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { Settings } from 'lucide-vue-next';
+import { useI18n } from '@/i18n';
 import { panelBus } from '@/utils/panelBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore'; // 导入 gameStateStore
@@ -390,6 +391,7 @@ interface Memory {
 
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore(); // 实例化 gameStateStore
+const { t } = useI18n();
 // const saveData = computed(() => characterStore.activeSaveSlot?.存档数据); // [已废弃]
 const loading = ref(false);
 const activeFilter = ref('all');
@@ -434,12 +436,12 @@ const memories = computed(() => {
 });
 
 // 记忆类型
-const memoryTypes = [
-  { key: 'all', name: '全部', icon: '🧠' },
-  { key: 'short', name: '短期', icon: '⚡' },
-  { key: 'medium', name: '中期', icon: '💭' },
-  { key: 'long', name: '长期', icon: '💾' }
-];
+const memoryTypes = computed(() => [
+  { key: 'all', name: t('全部'), icon: '🧠' },
+  { key: 'short', name: t('短期'), icon: '⚡' },
+  { key: 'medium', name: t('中期'), icon: '💭' },
+  { key: 'long', name: t('长期'), icon: '💾' }
+]);
 
 // 筛选后的记忆（不分页）
 const filteredMemoriesAll = computed(() => {
@@ -485,9 +487,9 @@ const getTypeCount = (type: string): number => {
 
 // 获取空状态文本
 const getEmptyText = (): string => {
-  if (activeFilter.value === 'all') return '心境空明如镜，尚未记录修行感悟';
-  const type = memoryTypes.find(t => t.key === activeFilter.value);
-  return `暂无${type?.name}记忆`;
+  if (activeFilter.value === 'all') return t('心如明镜，尚未记录任何修行感悟');
+  const type = memoryTypes.value.find(t => t.key === activeFilter.value);
+  return t('noMemoryOfType', { type: type?.name });
 };
 
 // 获取类型图标
@@ -503,11 +505,11 @@ const getTypeIcon = (type: string): string => {
 // 获取类型名称
 const getTypeName = (type: string): string => {
   const nameMap: Record<string, string> = {
-    'short': '短期记忆',
-    'medium': '中期记忆',
-    'long': '长期记忆'
+    'short': t('短期记忆'),
+    'medium': t('中期记忆'),
+    'long': t('长期记忆')
   };
-  return nameMap[type] || '未知';
+  return nameMap[type] || t('未知');
 };
 
 // 格式化时间
@@ -559,7 +561,7 @@ const convertMemories = () => {
       const convertedMemory: Memory = {
         ...oldestShort,
         type: 'medium',
-        time: `转化于${formatTime(Date.now())}`,
+        time: t('convertedAt', { time: formatTime(Date.now()) }),
         isConverted: true
       };
       mediumTermMemories.value.push(convertedMemory);
@@ -585,7 +587,7 @@ const convertMemories = () => {
         const convertedMemory: Memory = {
           ...oldestMedium,
           type: 'long',
-          time: `归档于${formatTime(Date.now())}`,
+          time: t('archivedAt', { time: formatTime(Date.now()) }),
           importance: Math.max(oldestMedium.importance || 5, 7),
           isConverted: true
         };
@@ -604,7 +606,7 @@ const convertMemories = () => {
   }
 
   if (hasConversion) {
-    toast.success('记忆已重新整理，旧记忆已转化');
+    toast.success(t('记忆已重新整理，旧记忆已转化'));
   }
 };
 
@@ -670,10 +672,10 @@ import { useUIStore } from '@/stores/uiStore';
 const uiStore = useUIStore();
 const clearMemory = async () => {
   uiStore.showRetryDialog({
-    title: '清理记忆',
-    message: '确定要清理所有记忆吗？此操作不可撤销，将同步清理酒馆数据。',
-    confirmText: '确认清理',
-    cancelText: '取消',
+    title: t('清空记忆'),
+    message: t('确定要清空所有记忆吗？此操作不可撤销，同时会清空酒馆数据。'),
+    confirmText: t('确认清空'),
+    cancelText: t('取消'),
     onConfirm: async () => {
       try {
         // 清理本地显示数据
@@ -691,10 +693,10 @@ const clearMemory = async () => {
         // 保存变更
         await characterStore.saveCurrentGame();
 
-        toast.success('记忆已清理并同步到酒馆');
+        toast.success(t('记忆已清空并同步到酒馆'));
       } catch (error) {
         console.error('[记忆中心] 清理记忆失败:', error);
-        toast.error('清理记忆失败，请重试');
+        toast.error(t('清空记忆失败，请重试'));
       }
     },
     onCancel: () => {}
@@ -854,7 +856,7 @@ const resetMemoryConfig = () => {
 const manualTriggerSummary = async () => {
   const minRequired = memoryConfig.value.midTermKeep + 5;
   if (mediumTermMemories.value.length < minRequired) {
-    toast.warning(`中期记忆不足，至少需要 ${minRequired} 条才能总结`);
+    toast.warning(t('insufficientMemoriesForSummary', { minRequired }));
     return;
   }
 
@@ -869,10 +871,10 @@ const manualTriggerSummary = async () => {
  */
 const deleteMemory = async (memory: Memory) => {
   uiStore.showRetryDialog({
-    title: '删除记忆',
-    message: `确定要删除这条${getTypeName(memory.type)}吗？此操作不可撤销。\n\n内容：${memory.content.substring(0, 50)}...`,
-    confirmText: '删除',
-    cancelText: '取消',
+    title: t('删除记忆'),
+    message: t('confirmDeleteMemory', { type: getTypeName(memory.type), content: memory.content.substring(0, 50) }),
+    confirmText: t('删除'),
+    cancelText: t('取消'),
     onConfirm: async () => {
       try {
         // 🔥 步骤1：从显示数组中删除
@@ -899,7 +901,7 @@ const deleteMemory = async (memory: Memory) => {
         }
 
         if (actualIndex === -1) {
-          toast.error('找不到要删除的记忆');
+          toast.error(t('未找到要删除的记忆'));
           return;
         }
 
@@ -907,11 +909,11 @@ const deleteMemory = async (memory: Memory) => {
         await saveMemoriesToStore();
 
         debug.log('记忆中心', `✅ 已删除${getTypeName(memory.type)}并同步到存档`);
-        toast.success(`已删除${getTypeName(memory.type)}`);
+        toast.success(t('memoryDeleted', { type: getTypeName(memory.type) }));
       } catch (error) {
         debug.error('记忆中心', '删除记忆失败:', error);
         const errorMsg = error instanceof Error ? error.message : '未知错误';
-        toast.error(`删除失败: ${errorMsg}`);
+        toast.error(t('deleteFailed', { error: errorMsg }));
       }
     },
     onCancel: () => {}
@@ -923,20 +925,20 @@ const deleteMemory = async (memory: Memory) => {
  */
 const exportMemoriesAsNovel = () => {
   try {
-    const characterName = gameStateStore.character?.名字 || '修行者';
-    const worldName = gameStateStore.worldInfo?.世界名称 || '修仙世界';
+    const characterName = gameStateStore.character?.名字 || t('修仙者');
+    const worldName = gameStateStore.worldInfo?.世界名称 || t('修仙世界');
     const narrativeHistory = gameStateStore.narrativeHistory || [];
 
     if (narrativeHistory.length === 0) {
-      toast.warning('暂无叙事历史可导出');
+      toast.warning(t('没有叙事历史可导出'));
       return;
     }
 
     // 生成小说格式的文本
-    let novelText = `《${characterName}的修仙之路》\n\n`;
-    novelText += `世界档案：${worldName}\n`;
-    novelText += `导出时间：${new Date().toLocaleString('zh-CN')}\n`;
-    novelText += `总段落数：${narrativeHistory.length}\n`;
+    let novelText = t('novelTitle', { characterName }) + '\n\n';
+    novelText += `${t('世界档案')}: ${worldName}\n`;
+    novelText += `${t('导出时间')}: ${new Date().toLocaleString('zh-CN')}\n`;
+    novelText += `${t('总段落数')}: ${narrativeHistory.length}\n`;
     novelText += `\n${'='.repeat(60)}\n\n`;
 
     narrativeHistory.forEach((entry, index) => {
@@ -944,7 +946,7 @@ const exportMemoriesAsNovel = () => {
       const content = entry.content.replace(/【.*?】/g, '').trim(); // 移除时间戳
 
       if (isPlayer) {
-        novelText += `我说道："${content}"\n`;
+        novelText += `${t('我说')}: "${content}"\n`;
       } else {
         novelText += `${content}\n`;
       }
@@ -955,7 +957,7 @@ const exportMemoriesAsNovel = () => {
       // 每10个段落添加一个章节分隔符
       if ((index + 1) % 10 === 0) {
         novelText += `\n${'═'.repeat(50)}\n`;
-        novelText += `第 ${Math.floor((index + 1) / 10)} 章节\n`;
+        novelText += `${t('第')} ${Math.floor((index + 1) / 10)}\n`;
         novelText += `${'═'.repeat(50)}\n\n`;
       }
     });
@@ -971,10 +973,10 @@ const exportMemoriesAsNovel = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    toast.success(`已成功导出 ${narrativeHistory.length} 条叙事历史`);
+    toast.success(t('narrativeHistoryExported', { count: narrativeHistory.length }));
   } catch (error) {
     console.error('[记忆中心] 导出失败:', error);
-    toast.error('导出失败，请查看控制台');
+    toast.error(t('导出失败，请查看控制台'));
   }
 };
 
@@ -1014,11 +1016,11 @@ const addTestMediumTermMemory = async () => {
     // 保存到存档
     await saveMemoriesToStore();
 
-    toast.success(`✅ 测试记忆已添加！当前中期记忆: ${mediumTermMemories.value.length} 条`);
+    toast.success(t('testMemoryAdded', { count: mediumTermMemories.value.length }));
     debug.log('记忆中心', '添加测试中期记忆成功', testMemory);
   } catch (error) {
     debug.error('记忆中心', '添加测试记忆失败', error);
-    toast.error('添加测试记忆失败');
+    toast.error(t('添加测试记忆失败'));
   }
 };
 </script>

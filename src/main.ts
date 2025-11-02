@@ -20,7 +20,17 @@ async function initializeApp() {
   const app = createApp(App);
 
   // 全局注册 i18n
-  app.config.globalProperties.$t = useI18n().t;
+  const { t } = useI18n();
+  app.config.globalProperties.$t = t;
+
+  // 全局混入，让所有组件都能使用 t 函数
+  app.mixin({
+    methods: {
+      t(key: string): string {
+        return t(key);
+      }
+    }
+  });
 
   app.use(createPinia());
   app.use(router);

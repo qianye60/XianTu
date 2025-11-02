@@ -1,7 +1,7 @@
 <template>
   <div class="top-bar">
     <div class="left-section">
-      <h1 class="game-title">大道朝天</h1>
+      <h1 class="game-title">{{ t('大道朝天') }}</h1>
       <div class="character-quick-info" v-if="characterName">
         <span class="character-name">{{ characterName }}</span>
         <span class="character-realm">{{ characterRealm }}</span>
@@ -30,7 +30,10 @@ import { computed, ref, onMounted } from 'vue'
 import { Maximize, Minimize } from 'lucide-vue-next'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { formatRealmWithStage } from '@/utils/realmUtils'
+import { useI18n } from '@/i18n'
 import type { GameTime } from '@/types/game'
+
+const { t } = useI18n()
 
 /**
  * 从GameTime获取分钟数
@@ -57,16 +60,16 @@ const characterRealm = computed(() => {
     return formatRealmWithStage(gameStateStore.playerStatus?.境界)
   } catch (e) {
     console.error('[TopBar] Error getting characterRealm:', e)
-    return '凡人'
+    return t('凡人')
   }
 })
 
 const currentLocation = computed(() => {
   try {
-    return gameStateStore.playerStatus?.位置?.描述 || '初始地'
+    return gameStateStore.playerStatus?.位置?.描述 || t('初始地')
   } catch (e) {
     console.error('[TopBar] Error getting currentLocation:', e)
-    return '初始地'
+    return t('初始地')
   }
 })
 
@@ -77,12 +80,12 @@ const gameTime = computed(() => {
       const minutes = getMinutes(time)
       const formattedMinutes = minutes.toString().padStart(2, '0')
       const formattedHours = time.小时.toString().padStart(2, '0')
-      return `仙道${time.年}年${time.月}月${time.日}日 ${formattedHours}:${formattedMinutes}`
+      return `${t('仙道')}${time.年}${t('年')}${time.月}${t('月')}${time.日}${t('日')} ${formattedHours}:${formattedMinutes}`
     }
-    return '仙道元年1月1日 00:00'
+    return `${t('仙道')}${t('元年')}1${t('月')}1${t('日')} 00:00`
   } catch (e) {
     console.error('[TopBar] Error getting gameTime:', e)
-    return '仙道元年1月1日 00:00'
+    return `${t('仙道')}${t('元年')}1${t('月')}1${t('日')} 00:00`
   }
 })
 

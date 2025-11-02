@@ -4,7 +4,7 @@
     <div class="dao-main">
       <div v-if="loading" class="loading-placeholder">
         <div class="loading-spinner"></div>
-        <p>加载三千大道数据中...</p>
+        <p>{{ t('加载三千大道数据中...') }}</p>
       </div>
 
       <!-- 大道概览 -->
@@ -16,21 +16,21 @@
             <div class="stat-icon">🎯</div>
             <div class="stat-info">
               <div class="stat-value">{{ unlockedDaosCount }}</div>
-              <div class="stat-label">已解锁大道</div>
+              <div class="stat-label">{{ t('已解锁大道') }}</div>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">⚡</div>
             <div class="stat-info">
               <div class="stat-value">{{ totalDaoExperience }}</div>
-              <div class="stat-label">总感悟经验</div>
+              <div class="stat-label">{{ t('总感悟经验') }}</div>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">🏆</div>
             <div class="stat-info">
               <div class="stat-value">{{ highestStageCount }}</div>
-              <div class="stat-label">高阶段大道</div>
+              <div class="stat-label">{{ t('高阶段大道') }}</div>
             </div>
           </div>
         </div>
@@ -41,12 +41,12 @@
           <div class="dao-section">
             <h4 class="section-title">
               <span class="title-icon">✨</span>
-              已解锁大道 ({{ unlockedDaosCount }})
+              {{ t('已解锁大道') }} ({{ unlockedDaosCount }})
             </h4>
             <div v-if="unlockedDaosCount === 0" class="empty-state">
               <div class="empty-icon">🌱</div>
-              <p>尚未解锁任何大道</p>
-              <span class="empty-tip">通过机缘、顿悟和修行来解锁新的大道</span>
+              <p>{{ t('尚未解锁任何大道') }}</p>
+              <span class="empty-tip">{{ t('通过机缘、顿悟和修行来解锁新的大道') }}</span>
             </div>
             <div v-else class="dao-grid">
               <div
@@ -101,27 +101,27 @@
         </div>
         <div class="details-content">
           <div class="detail-section" v-if="getDaoData(selectedDao)">
-            <h4>大道描述</h4>
-            <p class="dao-description">{{ getDaoData(selectedDao)?.描述 || '此道深奥，需要进一步感悟才能理解其精髓。' }}</p>
+            <h4>{{ t('大道描述') }}</h4>
+            <p class="dao-description">{{ getDaoData(selectedDao)?.描述 || t('此道深奥玄妙，需持之以恒方能有所成就') }}</p>
           </div>
-          
+
           <div class="detail-section">
-            <h4>感悟统计</h4>
+            <h4>{{ t('感悟统计') }}</h4>
             <div class="dao-stats-detail">
               <div class="stat-row">
-                <span>当前经验:</span>
+                <span>{{ t('当前经验') }}:</span>
                 <span class="stat-highlight">{{ selectedDaoProgress.当前经验 ?? 0 }}</span>
               </div>
               <div class="stat-row">
-                <span>当前阶段:</span>
+                <span>{{ t('当前阶段') }}:</span>
                 <span class="stat-highlight">{{ getDaoStageDisplay(selectedDao) }}</span>
               </div>
               <div class="stat-row" v-if="getNextStageName(selectedDao)">
-                <span>下一阶段:</span>
+                <span>{{ t('下一阶段') }}:</span>
                 <span class="next-stage">{{ getNextStageName(selectedDao) }}</span>
               </div>
               <div class="stat-row" v-if="getNextStageRequirement(selectedDao)">
-                <span>突破所需:</span>
+                <span>{{ t('突破所需') }}:</span>
                 <span class="stat-highlight">{{ getNextStageRequirement(selectedDao) }}</span>
               </div>
             </div>
@@ -179,10 +179,12 @@ import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { DaoData, ThousandDaoSystem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
 import { toast } from '@/utils/toast';
+import { useI18n } from '@/i18n';
 
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 const actionQueueStore = useActionQueueStore();
+const { t } = useI18n();
 const loading = ref(false);
 const selectedDao = ref<string | null>(null);
 

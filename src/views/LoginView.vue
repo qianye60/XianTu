@@ -1,23 +1,23 @@
 <template>
   <div class="login-container">
     <div class="login-panel">
-      <h2 class="title">{{ isRegisterMode ? '初入道门' : '登入洞天' }}</h2>
-      <p class="subtitle">{{ isRegisterMode ? '注册新道号，踏入修仙之路。' : '验证道友身份，以便同步云端天机。' }}</p>
+      <h2 class="title">{{ isRegisterMode ? $t('初入道门') : $t('登入洞天') }}</h2>
+      <p class="subtitle">{{ isRegisterMode ? $t('注册新道号，踏入修仙之路。') : $t('验证道友身份，以便同步云端天机。') }}</p>
 
       <form @submit.prevent="isRegisterMode ? handleRegister() : handleLogin()">
         <div class="form-group">
-          <label for="username">道号</label>
-          <input type="text" id="username" v-model="username" placeholder="请输入您的道号" required />
+          <label for="username">{{ $t('道号') }}</label>
+          <input type="text" id="username" v-model="username" :placeholder="$t('请输入您的道号')" required />
         </div>
 
         <div class="form-group">
-          <label for="password">令牌</label>
-          <input type="password" id="password" v-model="password" placeholder="请输入您的身份令牌" required />
+          <label for="password">{{ $t('令牌') }}</label>
+          <input type="password" id="password" v-model="password" :placeholder="$t('请输入您的身份令牌')" required />
         </div>
 
         <div v-if="isRegisterMode" class="form-group">
-          <label for="confirmPassword">确认令牌</label>
-          <input type="password" id="confirmPassword" v-model="confirmPassword" placeholder="请再次输入令牌" required />
+          <label for="confirmPassword">{{ $t('确认令牌') }}</label>
+          <input type="password" id="confirmPassword" v-model="confirmPassword" :placeholder="$t('请再次输入令牌')" required />
         </div>
 
         <!-- Cloudflare Turnstile Widget -->
@@ -32,15 +32,15 @@
         </div>
 
         <div class="form-actions">
-           <button type="button" @click="props.onBack" class="btn btn-secondary">返回</button>
+           <button type="button" @click="props.onBack" class="btn btn-secondary">{{ $t('返回') }}</button>
            <button type="submit" class="btn" :class="{ 'is-loading': isLoading }" :disabled="isLoading">
-             <span class="btn-text">{{ isRegisterMode ? '注册' : '登入' }}</span>
+             <span class="btn-text">{{ isRegisterMode ? $t('注册') : $t('登入') }}</span>
            </button>
         </div>
 
         <div class="form-footer">
           <a href="#" @click.prevent="toggleMode" class="link">
-            {{ isRegisterMode ? '已有道号？立即登入' : '初来乍到？注册道号' }}
+            {{ isRegisterMode ? $t('已有道号？立即登入') : $t('初来乍到？注册道号') }}
           </a>
         </div>
       </form>

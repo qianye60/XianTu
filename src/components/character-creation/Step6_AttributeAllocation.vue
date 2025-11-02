@@ -1,9 +1,9 @@
 <template>
   <div class="attribute-allocation-container">
     <div class="header">
-      <h2>先天六命分配</h2>
+      <h2>{{ $t('先天六命分配') }}</h2>
       <div class="points-display">
-        剩余天道点:
+        {{ $t('剩余天道点:') }}
         <span :class="{ negative: store.remainingTalentPoints < 0 }">{{
           store.remainingTalentPoints
         }}</span>
@@ -31,9 +31,9 @@
     </div>
 
     <div class="actions">
-      <button @click="resetPoints" class="btn btn-secondary">重置</button>
-      <button @click="randomizePoints" class="btn btn-warning">🎲 随机</button>
-      <button @click="balancePoints" class="btn btn-success">⚖️ 均衡</button>
+      <button @click="resetPoints" class="btn btn-secondary">{{ $t('重置') }}</button>
+      <button @click="randomizePoints" class="btn btn-warning">{{ $t('🎲 随机') }}</button>
+      <button @click="balancePoints" class="btn btn-success">{{ $t('⚖️ 均衡') }}</button>
     </div>
   </div>
 </template>

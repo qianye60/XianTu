@@ -20,12 +20,12 @@
           <div class="list-content">
             <div v-if="isLoading" class="loading-state">
               <Loader2 :size="32" class="animate-spin" />
-              <p>正在读取人际关系...</p>
+              <p>{{ t('正在读取人际关系...') }}</p>
             </div>
             <div v-else-if="filteredRelationships.length === 0" class="empty-state">
               <Users2 :size="48" class="empty-icon" />
-              <p class="empty-text">尚未建立人际关系</p>
-              <p class="empty-hint">在游戏中与更多人物互动建立关系</p>
+              <p class="empty-text">{{ t('尚未建立人际关系') }}</p>
+              <p class="empty-hint">{{ t('在游戏中与更多人物互动建立关系') }}</p>
             </div>
             <div v-else class="person-list">
               <div
@@ -456,6 +456,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
+import { useI18n } from '@/i18n';
 import type { NpcProfile, Item } from '@/types/game';
 import {
   Users2, Search,
@@ -470,6 +471,7 @@ import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
 
 // 🔥 新架构：从 gameStateStore 获取数据
 const gameStateStore = useGameStateStore();
+const { t } = useI18n();
 const characterData = computed(() => gameStateStore.getCurrentSaveData());
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();

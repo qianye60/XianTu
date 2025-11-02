@@ -33,11 +33,11 @@
           </div>
           <div class="save-stats">
             <div class="stat-item">
-              <span class="stat-label">创建时间</span>
+              <span class="stat-label">{{ t('创建时间') }}</span>
               <span class="stat-value">{{ formatTime(currentSave.保存时间 || '') }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-label">最后保存</span>
+              <span class="stat-label">{{ t('最后保存') }}</span>
               <span class="stat-value">{{ formatTime(currentSave.最后保存时间 ?? currentSave.保存时间 ?? '') }}</span>
             </div>
           </div>
@@ -58,13 +58,13 @@
 
         <div v-if="loading" class="loading-state">
           <div class="loading-spinner">⏳</div>
-          <div class="loading-text">正在加载存档...</div>
+          <div class="loading-text">{{ t('正在加载存档...') }}</div>
         </div>
 
         <div v-else-if="savesList.length === 0" class="empty-state">
           <div class="empty-icon">📂</div>
-          <div class="empty-text">修仙路上尚未留存，创建存档记录道途</div>
-          <div class="empty-hint">开始游戏后可以创建存档</div>
+          <div class="empty-text">{{ t('修仙路上尚未留存，创建存档记录道途') }}</div>
+          <div class="empty-hint">{{ t('开始游戏后可以创建存档') }}</div>
         </div>
 
         <div v-else class="saves-list">
@@ -180,7 +180,7 @@
           </div>
           <div class="setting-item" v-if="timeBasedSaveEnabled">
             <div class="setting-info">
-              <label class="setting-name">存档间隔</label>
+              <label class="setting-name">{{ t('存档间隔') }}</label>
               <span class="setting-desc">自动存档的时间间隔（真实时间）</span>
             </div>
             <div class="setting-control">
@@ -201,7 +201,7 @@
             <Download :size="16" />
             <div class="btn-content">
               <span class="btn-title">导出存档</span>
-              <span class="btn-desc">备份所有存档到文件</span>
+              <span class="btn-desc">{{ t('备份所有存档到文件') }}</span>
             </div>
           </button>
 
@@ -209,15 +209,15 @@
             <Upload :size="16" />
             <div class="btn-content">
               <span class="btn-title">导入存档</span>
-              <span class="btn-desc">从文件恢复存档</span>
+              <span class="btn-desc">{{ t('从文件恢复存档') }}</span>
             </div>
           </button>
 
           <button class="operation-btn danger" @click="clearAllSaves" :disabled="loading || savesList.length === 0">
             <Trash2 :size="16" />
             <div class="btn-content">
-              <span class="btn-title">清空存档</span>
-              <span class="btn-desc">删除所有存档数据</span>
+              <span class="btn-title">{{ t('清空存档') }}</span>
+              <span class="btn-desc">{{ t('删除所有存档数据') }}</span>
             </div>
           </button>
         </div>
@@ -235,9 +235,12 @@ import { panelBus } from '@/utils/panelBus';
 import { RefreshCw, Save, Play, Trash2, Download, Upload, History, Clock, Plus } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { useI18n } from '@/i18n';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import type { SaveSlot } from '@/types/game';
+
+const { t } = useI18n();
 
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();

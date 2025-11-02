@@ -7,7 +7,7 @@
         <div class="header-top">
           <!-- 左侧：模式指示 -->
           <div class="mode-indicator">
-            {{ store.isLocalCreation ? '单机模式' : '联机模式' }}
+            {{ store.isLocalCreation ? $t('单机模式') : $t('联机模式') }}
           </div>
 
           <!-- 右侧：云端同步按钮（仅单机模式显示） -->
@@ -79,13 +79,13 @@
       <!-- 导航 -->
       <div class="navigation-buttons">
         <button @click.prevent="handleBack" type="button" class="btn btn-secondary">
-          {{ store.currentStep === 1 ? '返回道途' : '上一步' }}
+          {{ store.currentStep === 1 ? $t('返回道途') : $t('上一步') }}
         </button>
 
         <!-- 剩余点数显示 -->
         <div class="points-display">
           <div v-if="store.currentStep >= 3 && store.currentStep <= 7" class="destiny-points">
-            <span class="points-label">剩余天道点:</span>
+            <span class="points-label">{{ $t('剩余天道点') }}:</span>
             <span class="points-value" :class="{ low: store.remainingTalentPoints < 0 }">
               {{ store.remainingTalentPoints }}
             </span>
@@ -106,7 +106,7 @@
             'disabled': isGenerating || isNextDisabled || (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           }"
         >
-          {{ store.currentStep === store.totalSteps ? '开启仙途' : '下一步' }}
+          {{ store.currentStep === store.totalSteps ? $t('开启仙途') : $t('下一步') }}
         </button>
       </div>
     </div>
@@ -286,15 +286,15 @@ defineExpose({
   handleAIGenerateClick,
 })
 
-const stepLabels = [
-  '诸天问道',
-  '仙缘初定',
-  '转世因果',
-  '测灵问道',
-  '神通择定',
-  '命格天成',
-  '窥天算命',
-]
+const stepLabels = computed(() => [
+  t('诸天问道'),
+  t('仙缘初定'),
+  t('转世因果'),
+  t('测灵问道'),
+  t('神通择定'),
+  t('命格天成'),
+  t('窥天算命'),
+])
 
 
 const handleBack = () => {

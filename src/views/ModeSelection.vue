@@ -7,9 +7,9 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V2.9 正式版</span><!--{{ appVersion }}-->
+          <span class="version-tag">V2.9 {{ $t('正式版') }}</span><!--{{ appVersion }}-->
         </div>
-        <p class="sub-title">仙路漫漫 · 逆行九天</p>
+        <p class="sub-title">{{ $t('仙路漫漫 · 逆行九天') }}</p>
       </div>
 
       <div class="gate-container">
@@ -28,9 +28,9 @@
             </svg>
           </div>
           <div class="gate-text">
-            <h2 class="gate-title">单机闭关</h2>
-            <p class="gate-description">避世清修·心无旁骛</p>
-            <p class="gate-detail">独居洞府，专心致志炼就大道根基<br/>所有进度本地存储，断网亦可修行</p>
+            <h2 class="gate-title">{{ $t('单机闭关') }}</h2>
+            <p class="gate-description">{{ $t('避世清修·心无旁骛') }}</p>
+            <p class="gate-detail">{{ $t('独居洞府，专心致志炼就大道根基') }}<br/>{{ $t('所有进度本地存储，断网亦可修行') }}</p>
           </div>
         </div>
 
@@ -44,17 +44,17 @@
             </svg>
           </div>
           <div class="gate-text">
-            <h2 class="gate-title">联机共修（未开放）</h2>
-            <p class="gate-description">功能研发中，敬请期待</p>
-            <p class="gate-detail">当前版本已封锁联机入口，不影响单机闭关体验</p>
+            <h2 class="gate-title">{{ $t('联机共修') }}（{{ $t('未开放') }}）</h2>
+            <p class="gate-description">{{ $t('功能研发中，敬请期待') }}</p>
+            <p class="gate-detail">{{ $t('当前版本已封锁联机入口，不影响单机闭关体验') }}</p>
           </div>
         </div>
       </div>
 
       <!-- 隐私说明 -->
       <div class="privacy-notice">
-        <p>本联机谨遵天道法则：<strong>不存储任何对话记录</strong></p>
-        <p>仅保留法身属性、境界进度等修行要素，确保道友隐私清净无染</p>
+        <p>{{ $t('本联机谨遵天道法则：不存储任何对话记录') }}</p>
+        <p>{{ $t('仅保留法身属性、境界进度等修行要素，确保道友隐私清净无染') }}</p>
       </div>
 
       <div class="footer-actions">
@@ -62,16 +62,16 @@
         <div v-if="selectedMode" class="start-actions-container">
           <button class="action-btn primary" @click="startNewGame">
             <Sparkles :size="20" />
-            <span>初 入 仙 途</span>
+            <span>{{ $t('初入仙途') }}</span>
           </button>
           <button class="action-btn" @click="enterCharacterSelection">
             <History :size="20" />
-            <span>续 前 世 因 缘</span>
+            <span>{{ $t('续前世因缘') }}</span>
           </button>
         </div>
         <!-- 之前的按钮，现在只在未选择模式时显示 -->
         <button v-else class="scroll-btn" @click="enterCharacterSelection">
-          <span>续 前 世 因 缘</span>
+          <span>{{ $t('续前世因缘') }}</span>
         </button>
       </div>
     </div>
@@ -81,12 +81,12 @@
       <div class="auth-status-content" @click="handleAuthClick">
         <span v-if="isAuthorized" class="status-icon verified">✓</span>
         <span v-else class="status-icon unverified">✗</span>
-        <span class="status-text">{{ isAuthorized ? '已授权' : '未授权' }}</span>
+        <span class="status-text">{{ isAuthorized ? $t('已授权') : $t('未授权') }}</span>
       </div>
     </div>
 
     <!-- 右下角设置按钮 -->
-    <button class="floating-settings-btn" @click="showSettings = true" title="设置">
+    <button class="floating-settings-btn" @click="showSettings = true" :title="$t('设置')">
       <Settings :size="24" />
     </button>
 
@@ -298,44 +298,31 @@ const handleAuthCancel = () => {
 <style scoped>
 .mode-selection-container {
   width: 100%;
-  height: auto;
-  min-height: 100%;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 1rem;
   box-sizing: border-box;
   background: transparent;
-  overflow: hidden; /* 移除滚动 */
+  overflow: hidden;
 }
 
 .selection-content {
-  /* 添加透明磨砂效果 */
   background: var(--color-surface-transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 20px;
-  padding: 2rem;
+  padding: 1.5rem;
   border: 1px solid var(--color-border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  /* 调整到合适高度，确保内容完全可见 */
-  height: auto;
-  max-height: 90vh;
+  max-height: 95vh;
   max-width: 1000px;
   width: 90%;
-  overflow-y: auto;  /* 允许内部滚动 */
-  overflow-x: hidden;
-  /* 隐藏滚动条但保持滚动功能 */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-}
-
-/* 隐藏Webkit浏览器的滚动条 */
-.selection-content::-webkit-scrollbar {
-  display: none;
+  gap: 1rem;
 }
 
 
@@ -344,7 +331,7 @@ const handleAuthCancel = () => {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  margin-bottom: 1.5rem; /* 减少底部间距 */
+  flex-shrink: 0;
 }
 
 .title-version-row {

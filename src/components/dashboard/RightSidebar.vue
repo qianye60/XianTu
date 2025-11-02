@@ -4,7 +4,7 @@
     <div class="sidebar-header">
       <h3 class="sidebar-title">
         <Activity :size="18" class="title-icon" />
-        <span>角色状态</span>
+        <span>{{ t('角色状态') }}</span>
       </h3>
     </div>
 
@@ -13,14 +13,14 @@
       <div class="vitals-section">
         <h3 class="section-title">
           <Heart :size="14" class="section-icon" />
-          <span>修行状态</span>
+          <span>{{ t('修行状态') }}</span>
         </h3>
         <div class="vitals-list">
           <div class="vital-item">
             <div class="vital-info">
               <span class="vital-name">
                 <Droplet :size="12" class="vital-icon blood" />
-                <span>气血</span>
+                <span>{{ t('气血') }}</span>
               </span>
               <span class="vital-text">{{ playerStatus?.气血?.当前 }} / {{ playerStatus?.气血?.上限 }}</span>
             </div>
@@ -33,7 +33,7 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Sparkles :size="12" class="vital-icon mana" />
-                <span>灵气</span>
+                <span>{{ t('灵气') }}</span>
               </span>
               <span class="vital-text">{{ playerStatus?.灵气?.当前 }} / {{ playerStatus?.灵气?.上限 }}</span>
             </div>
@@ -46,7 +46,7 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Brain :size="12" class="vital-icon spirit" />
-                <span>神识</span>
+                <span>{{ t('神识') }}</span>
               </span>
               <span class="vital-text">{{ playerStatus?.神识?.当前 }} / {{ playerStatus?.神识?.上限 }}</span>
             </div>
@@ -59,7 +59,7 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Clock :size="12" class="vital-icon lifespan" />
-                <span>寿元</span>
+                <span>{{ t('寿元') }}</span>
               </span>
               <span class="vital-text">{{ currentAge }} / {{ playerStatus?.寿命?.上限 }}</span>
             </div>
@@ -74,7 +74,7 @@
       <div class="cultivation-section">
         <h3 class="section-title">
           <Star :size="14" class="section-icon" />
-          <span>境界状态</span>
+          <span>{{ t('境界状态') }}</span>
         </h3>
         <div class="realm-display">
           <div class="realm-info">
@@ -83,7 +83,7 @@
           </div>
           <!-- 凡人境界显示等待引气入体 -->
           <div v-if="playerStatus?.境界?.名称 === '凡人'" class="realm-mortal">
-            <span class="mortal-text">等待仙缘，引气入体</span>
+            <span class="mortal-text">{{ t('等待仙缘，引气入体') }}</span>
           </div>
           <!-- 修炼境界显示进度条 -->
           <div v-else class="realm-progress">
@@ -100,7 +100,7 @@
             <div class="reputation-info">
               <span class="reputation-label">
                 <Star :size="12" class="vital-icon reputation" />
-                <span>声望</span>
+                <span>{{ t('声望') }}</span>
               </span>
               <span class="reputation-value" :class="getReputationClass()">
                 {{ getReputationDisplay() }}
@@ -116,7 +116,7 @@
         <div class="section-header" @click="talentsCollapsed = !talentsCollapsed">
           <h3 class="section-title">
             <Star :size="14" class="section-icon gold" />
-            <span>天赋神通</span>
+            <span>{{ t('天赋神通') }}</span>
           </h3>
           <button class="collapse-toggle" :class="{ 'collapsed': talentsCollapsed }">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
@@ -139,7 +139,7 @@
           <!-- 空状态显示 -->
           <div v-if="!characterInfo.天赋 || characterInfo.天赋.length === 0" class="empty-talents">
             <div class="empty-icon">✨</div>
-            <div class="empty-text">暂无天赋神通</div>
+            <div class="empty-text">{{ t('暂无天赋神通') }}</div>
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@
         <div class="section-header" @click="statusCollapsed = !statusCollapsed">
           <h3 class="section-title">
             <Zap :size="14" class="section-icon" />
-            <span>状态效果</span>
+            <span>{{ t('状态效果') }}</span>
           </h3>
           <button class="collapse-toggle" :class="{ 'collapsed': statusCollapsed }">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
@@ -159,7 +159,7 @@
         </div>
         <div v-show="!statusCollapsed" class="status-effects">
           <div v-if="statusEffects.length === 0" class="empty-status">
-            <span class="empty-text">清净无为</span>
+            <span class="empty-text">{{ t('清净无为') }}</span>
           </div>
           <div v-else class="status-tags-container">
             <div
@@ -170,7 +170,7 @@
               @click="showStatusDetail(effect)"
               :title="`${effect.状态名称 || '未知状态'}${effect.强度 ? ` - 强度${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? ` - ${formatTimeDisplay(effect.时间)}` : ''}`"
             >
-              <span class="tag-icon">{{ String(effect.类型 || '').toLowerCase() === 'buff' ? '增' : '减' }}</span>
+              <span class="tag-icon">{{ String(effect.类型 || '').toLowerCase() === 'buff' ? t('增') : t('减') }}</span>
               <span class="tag-name">{{ effect.状态名称 || '未知状态' }}</span>
               <span v-if="effect.强度" class="tag-intensity">{{ effect.强度 }}</span>
               <span v-if="formatTimeDisplay(effect.时间)" class="tag-time">{{ formatTimeDisplay(effect.时间) }}</span>
@@ -182,7 +182,7 @@
 
     <!-- 无角色数据 -->
     <div v-else class="no-character">
-      <div class="no-char-text">请选择角色开启修仙之旅</div>
+      <div class="no-char-text">{{ t('请选择角色开启修仙之旅') }}</div>
     </div>
 
     <!-- 详情模态框 -->
@@ -201,6 +201,9 @@ import { useUIStore } from '@/stores/uiStore';
 import type { StatusEffect } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
+import { useI18n } from '@/i18n';
+
+const { t } = useI18n();
 
 
 const gameStateStore = useGameStateStore();

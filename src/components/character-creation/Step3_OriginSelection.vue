@@ -1,7 +1,7 @@
 <template>
   <div class="origin-selection-container">
-    <div v-if="store.isLoading" class="loading-state">追溯过往，探寻出身...</div>
-    <div v-else-if="store.error" class="error-state">因果不明：{{ store.error }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('追溯过往，探寻出身...') }}</div>
+    <div v-else-if="store.error" class="error-state">{{ $t('因果不明') }}：{{ store.error }}</div>
 
     <div v-else class="origin-layout">
       <!-- 左侧栏：列表和操作按钮 -->
@@ -13,10 +13,10 @@
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">自定义出身</span>
+            <span class="action-name">{{ $t('自定义出身') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
-            <span class="action-name">AI推演</span>
+            <span class="action-name">{{ $t('AI推演') }}</span>
           </button>
         </div>
 
@@ -27,8 +27,8 @@
            @click="handleSelectRandom"
            @mouseover="activeOrigin = 'random'"
           >
-           <span class="origin-name">随机出身</span>
-           <span class="origin-cost">0 点</span>
+           <span class="origin-name">{{ $t('随机出身') }}</span>
+           <span class="origin-cost">{{ $t('0 点') }}</span>
           </div>
           <div class="divider"></div>
           <div
@@ -44,13 +44,13 @@
           >
             <div class="item-content">
               <span class="origin-name">{{ origin.name }}</span>
-              <span class="origin-cost">{{ origin.talent_cost }} 点</span>
+              <span class="origin-cost">{{ origin.talent_cost }} {{ $t('点') }}</span>
             </div>
             <div v-if="origin.source === 'cloud'" class="action-buttons">
-              <button @click.stop="openEditModal(origin)" class="edit-btn" title="编辑此项">
+              <button @click.stop="openEditModal(origin)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="handleDeleteOrigin(origin.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteOrigin(origin.id)" class="delete-btn" :title="$t('删除此项')">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -65,25 +65,25 @@
           <div class="description-scroll">
             <p>{{ activeDescription }}</p>
           </div>
-          <div class="cost-display">消耗天道点: {{ activeCost }}</div>
+          <div class="cost-display">{{ $t('消耗天道点: {0}').replace('{0}', String(activeCost)) }}</div>
         </div>
-        <div v-else class="placeholder">请选择一处出身，或听天由命。</div>
+        <div v-else class="placeholder">{{ $t('请选择一处出身，或听天由命。') }}</div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      title="自定义出身"
+      :title="$t('自定义出身')"
       :fields="customOriginFields"
       :validationFn="validateCustomOrigin"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-    
+
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      title="编辑出身"
+      :title="$t('编辑出身')"
       :fields="customOriginFields"
       :validationFn="validateCustomOrigin"
       :initialData="editInitialData"

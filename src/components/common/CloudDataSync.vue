@@ -18,6 +18,7 @@ import { ref } from 'vue';
 import { cloudDataSync } from '../../utils/cloudDataSync';
 import { toast } from '../../utils/toast';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
+import { useI18n } from '../../i18n';
 
 // Props
 defineProps<{
@@ -33,6 +34,7 @@ const emit = defineEmits<{
 
 // Store
 const store = useCharacterCreationStore();
+const { t } = useI18n();
 
 // State
 const isSyncing = ref(false);
@@ -40,23 +42,23 @@ const hasSynced = ref(false);
 
 // 获取同步按钮文本
 function getSyncButtonText() {
-  if (isSyncing.value) return '同步中';
-  if (hasSynced.value) return '已获取';
-  return '获取云端';
+  if (isSyncing.value) return t('同步中');
+  if (hasSynced.value) return t('已获取');
+  return t('获取云端');
 }
 
 // 获取按钮提示文本
 function getSyncButtonTooltip() {
-  if (isSyncing.value) return '正在同步云端数据...';
-  if (hasSynced.value) return '云端数据已获取';
-  return '获取云端数据';
+  if (isSyncing.value) return t('正在同步云端数据...');
+  if (hasSynced.value) return t('云端数据已获取');
+  return t('获取云端数据');
 }
 
 // 处理云端数据同步
 async function handleSyncCloudData() {
   if (isSyncing.value || hasSynced.value) {
     if (hasSynced.value) {
-      toast.info('云端数据已获取，无需重复操作');
+      toast.info(t('云端数据已获取，无需重复操作'));
     }
     return;
   }
@@ -64,29 +66,29 @@ async function handleSyncCloudData() {
   isSyncing.value = true;
   emit('syncStarted');
   const toastId = 'cloud-sync-toast';
-  toast.loading('正在获取云端数据...', { id: toastId });
-  
+  toast.loading(t('正在获取云端数据...'), { id: toastId });
+
   try {
     const newItemsCount = await store.fetchAllCloudData();
-    
+
     if (newItemsCount > 0) {
-      toast.success(`同步成功！新增 ${newItemsCount} 项云端数据`, { id: toastId });
+      toast.success(t('同步成功！新增 {0} 项云端数据').replace('{0}', String(newItemsCount)), { id: toastId });
       hasSynced.value = true;
     } else {
-      toast.info('所有云端数据已是最新', { id: toastId });
+      toast.info(t('所有云端数据已是最新'), { id: toastId });
       hasSynced.value = true;
     }
 
     emit('syncCompleted', {
       success: true,
       newItemsCount: newItemsCount,
-      message: '同步成功'
+      message: t('同步成功')
     });
 
   } catch (error) {
     console.error('[云端同步组件] 同步云端数据失败:', error);
-    const message = error instanceof Error ? error.message : '同步失败';
-    toast.error(`同步失败: ${message}`, { id: toastId });
+    const message = error instanceof Error ? error.message : t('同步失败');
+    toast.error(t('同步失败: {0}').replace('{0}', message), { id: toastId });
     emit('syncCompleted', {
       success: false,
       newItemsCount: 0,

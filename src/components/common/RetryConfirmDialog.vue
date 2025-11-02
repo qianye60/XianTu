@@ -2,22 +2,22 @@
   <div v-if="show" class="retry-dialog-overlay" @click="handleCancel">
     <div class="retry-dialog" @click.stop>
       <div class="dialog-header">
-        <h3>{{ config?.title || 'AI生成失败' }}</h3>
+        <h3>{{ config?.title || $t('AI生成失败') }}</h3>
       </div>
 
       <div class="dialog-content">
         <div class="error-icon">
           <AlertTriangle :size="48" />
         </div>
-        <p class="message">{{ config?.message || '生成过程遇到问题' }}</p>
+        <p class="message">{{ config?.message || $t('生成过程遇到问题') }}</p>
       </div>
 
       <div class="dialog-actions">
         <button class="btn-secondary" @click="handleCancel">
-          {{ config?.cancelText || '取消创建' }}
+          {{ config?.cancelText || $t('取消') }}
         </button>
         <button class="btn-primary" @click="handleConfirm">
-          {{ config?.confirmText || '继续重试' }}
+          {{ config?.confirmText || $t('重试') }}
         </button>
       </div>
     </div>

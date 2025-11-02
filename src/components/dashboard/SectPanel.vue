@@ -19,12 +19,12 @@
           <div class="list-content">
             <div v-if="isLoading" class="loading-state">
               <Loader2 :size="32" class="animate-spin" />
-              <p>正在读取宗门信息...</p>
+              <p>{{ t('正在读取宗门信息...') }}</p>
             </div>
             <div v-else-if="filteredSects.length === 0" class="empty-state">
               <Building :size="48" class="empty-icon" />
-              <p class="empty-text">暂无宗门信息</p>
-              <p class="empty-hint">世界信息将由AI根据游戏进程生成</p>
+              <p class="empty-text">{{ t('暂无宗门信息') }}</p>
+              <p class="empty-hint">{{ t('世界信息将由AI根据游戏进程生成') }}</p>
               <!-- 调试信息显示 -->
               <div class="debug-info" style="margin-top: 1rem; font-size: 0.8rem; color: #666; text-align: left;">
                 <details>
@@ -417,6 +417,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { useI18n } from '@/i18n';
 import type { WorldFaction, SectMemberInfo, WorldInfo } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
@@ -428,6 +429,7 @@ import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataVali
 
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
+const { t } = useI18n();
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');

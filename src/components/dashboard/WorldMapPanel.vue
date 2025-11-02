@@ -269,31 +269,31 @@
           <div class="legend-icon">
             <Home :size="16" color="#F57C00" />
           </div>
-          <span>城镇坊市</span>
+          <span>{{ t('城镇坊市') }}</span>
         </div>
         <div class="legend-item">
           <div class="legend-icon">
             <Sparkles :size="16" color="#7B1FA2" />
           </div>
-          <span>洞天福地</span>
+          <span>{{ t('洞天福地') }}</span>
         </div>
         <div class="legend-item">
           <div class="legend-icon">
             <Gem :size="16" color="#388E3C" />
           </div>
-          <span>奇珍异地</span>
+          <span>{{ t('奇珍异地') }}</span>
         </div>
         <div class="legend-item">
           <div class="legend-icon">
             <Skull :size="16" color="#D32F2F" />
           </div>
-          <span>凶险之地</span>
+          <span>{{ t('凶险之地') }}</span>
         </div>
         <div class="legend-item">
           <div class="legend-icon">
             <Zap :size="16" color="#6B7280" />
           </div>
-          <span>其他特殊</span>
+          <span>{{ t('其他特殊') }}</span>
         </div>
       </div>
     </div>
@@ -305,9 +305,12 @@ import { ref, onMounted, computed } from 'vue';
 import { Target, Maximize2, Mountain, Building2, Home, Sparkles, Gem, Skull, Zap } from 'lucide-vue-next';
 import MapIcon from './components/MapIcon.vue';
 import { toast } from '@/utils/toast';
+import { useI18n } from '@/i18n';
 import type { WorldLocation } from '@/types/location';
 import type { CultivationContinent, WorldMapConfig } from '@/types/worldMap';
 import { useGameStateStore } from '@/stores/gameStateStore';
+
+const { t } = useI18n();
 
 // --- 类型定义 ---
 // Note: Local CultivationLocation interface is removed, using WorldLocation from types.

@@ -94,7 +94,7 @@
     <div v-if="showHelpModal" class="help-modal-overlay" @click="closeHelpModal">
       <div class="help-modal" @click.stop>
         <div class="help-modal-header">
-          <h3>🎲 判定规则说明</h3>
+          <h3>🎲 {{ $t('判定规则说明') }}</h3>
           <button class="close-btn" @click="closeHelpModal">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -104,133 +104,133 @@
         </div>
         <div class="help-modal-content">
           <div class="help-section">
-            <h4>📊 判定计算公式</h4>
+            <h4>📊 {{ $t('判定计算公式') }}</h4>
             <div class="formula-box">
-              <strong>判定值</strong> = 先天 + 后天 + 境界 + 装备 + 功法 + 状态 + 骰点(1d20)
+              <strong>{{ $t('判定值') }}</strong> = {{ $t('先天') }} + {{ $t('后天') }} + {{ $t('境界') }} + {{ $t('装备') }} + {{ $t('功法') }} + {{ $t('状态') }} + {{ $t('骰点') }}(1d20)
             </div>
             <ol>
-              <li><strong>先天</strong>：根据判定类型加权（战斗：根骨50%+灵性30%+气运20%，修炼：悟性50%+灵性30%+心性20%）</li>
-              <li><strong>后天</strong>：对应后天六司加权 ÷ 5</li>
-              <li><strong>境界</strong>：炼气5 | 筑基12 | 金丹20 | 元婴30...（阶段：初期+0，中期+2，后期+4，圆满+6）</li>
-              <li><strong>装备</strong>：装备提供的加成</li>
-              <li><strong>功法</strong>：功法品质+熟练度</li>
-              <li><strong>状态</strong>：buff/debuff效果</li>
+              <li><strong>{{ $t('先天') }}</strong>：{{ $t('根据判定类型加权（战斗：根骨50%+灵性30%+气运20%，修炼：悟性50%+灵性30%+心性20%）') }}</li>
+              <li><strong>{{ $t('后天') }}</strong>：{{ $t('对应后天六司加权 ÷ 5') }}</li>
+              <li><strong>{{ $t('境界') }}</strong>：{{ $t('炼气5 | 筑基12 | 金丹20 | 元婴30...（阶段：初期+0，中期+2，后期+4，圆满+6）') }}</li>
+              <li><strong>{{ $t('装备') }}</strong>：{{ $t('装备提供的加成') }}</li>
+              <li><strong>{{ $t('功法') }}</strong>：{{ $t('功法品质+熟练度') }}</li>
+              <li><strong>{{ $t('状态') }}</strong>：{{ $t('buff/debuff效果') }}</li>
             </ol>
           </div>
 
           <div class="help-section">
-            <h4>🎯 判定结果</h4>
+            <h4>🎯 {{ $t('判定结果') }}</h4>
             <div class="formula-note">
-              <strong>判定规则</strong>: 判定值与难度对比，骰点影响结果等级
+              <strong>{{ $t('判定规则') }}</strong>: {{ $t('判定值与难度对比，骰点影响结果等级') }}
             </div>
             <div class="result-list">
               <div class="result-item perfect">
-                <span class="result-label">完美</span>
-                <span class="result-desc">骰点19-20，必定成功且额外奖励</span>
+                <span class="result-label">{{ $t('完美') }}</span>
+                <span class="result-desc">{{ $t('骰点19-20，必定成功且额外奖励') }}</span>
               </div>
               <div class="result-item great-success">
-                <span class="result-label">大成功</span>
-                <span class="result-desc">判定值 ≥ 难度+15，超额完成</span>
+                <span class="result-label">{{ $t('大成功') }}</span>
+                <span class="result-desc">{{ $t('判定值 ≥ 难度+15，超额完成') }}</span>
               </div>
               <div class="result-item success">
-                <span class="result-label">成功</span>
-                <span class="result-desc">判定值 ≥ 难度，达成目标</span>
+                <span class="result-label">{{ $t('成功') }}</span>
+                <span class="result-desc">{{ $t('判定值 ≥ 难度，达成目标') }}</span>
               </div>
               <div class="result-item failure">
-                <span class="result-label">失败</span>
-                <span class="result-desc">判定值 &lt; 难度，未达成</span>
+                <span class="result-label">{{ $t('失败') }}</span>
+                <span class="result-desc">{{ $t('判定值 < 难度，未达成') }}</span>
               </div>
               <div class="result-item critical-failure">
-                <span class="result-label">大失败</span>
-                <span class="result-desc">骰点1-2，必定失败且负面后果</span>
+                <span class="result-label">{{ $t('大失败') }}</span>
+                <span class="result-desc">{{ $t('骰点1-2，必定失败且负面后果') }}</span>
               </div>
             </div>
           </div>
 
           <div class="help-section">
-            <h4>⚔️ 判定类型与属性配比</h4>
+            <h4>⚔️ {{ $t('判定类型与属性配比') }}</h4>
             <div class="judgement-types">
               <div class="type-item">
-                <span class="type-name">战斗判定</span>
-                <span class="type-attrs">根骨50% + 灵性30% + 气运20%</span>
+                <span class="type-name">{{ $t('战斗判定') }}</span>
+                <span class="type-attrs">{{ $t('根骨50% + 灵性30% + 气运20%') }}</span>
               </div>
               <div class="type-item">
-                <span class="type-name">修炼判定</span>
-                <span class="type-attrs">悟性50% + 灵性30% + 心性20%</span>
+                <span class="type-name">{{ $t('修炼判定') }}</span>
+                <span class="type-attrs">{{ $t('悟性50% + 灵性30% + 心性20%') }}</span>
               </div>
               <div class="type-item">
-                <span class="type-name">技艺判定</span>
-                <span class="type-attrs">悟性50% + 根骨30% + 灵性20%</span>
+                <span class="type-name">{{ $t('技艺判定') }}</span>
+                <span class="type-attrs">{{ $t('悟性50% + 根骨30% + 灵性20%') }}</span>
               </div>
               <div class="type-item">
-                <span class="type-name">社交判定</span>
-                <span class="type-attrs">魅力50% + 悟性30% + 心性20%</span>
+                <span class="type-name">{{ $t('社交判定') }}</span>
+                <span class="type-attrs">{{ $t('魅力50% + 悟性30% + 心性20%') }}</span>
               </div>
               <div class="type-item">
-                <span class="type-name">探索判定</span>
-                <span class="type-attrs">气运50% + 灵性30% + 悟性20%</span>
+                <span class="type-name">{{ $t('探索判定') }}</span>
+                <span class="type-attrs">{{ $t('气运50% + 灵性30% + 悟性20%') }}</span>
               </div>
             </div>
           </div>
 
           <div class="help-section">
-            <h4>📖 六司属性说明</h4>
+            <h4>📖 {{ $t('六司属性说明') }}</h4>
             <div class="attributes-desc">
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">💪</span>
-                  <span class="attr-name">根骨</span>
+                  <span class="attr-name">{{ $t('根骨') }}</span>
                 </div>
-                <p>决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力。</p>
+                <p>{{ $t('决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">✨</span>
-                  <span class="attr-name">灵性</span>
+                  <span class="attr-name">{{ $t('灵性') }}</span>
                 </div>
-                <p>决定灵气上限、吸收效率。影响修炼速度、法术威力。</p>
+                <p>{{ $t('决定灵气上限、吸收效率。影响修炼速度、法术威力。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">🧠</span>
-                  <span class="attr-name">悟性</span>
+                  <span class="attr-name">{{ $t('悟性') }}</span>
                 </div>
-                <p>决定神识上限、学习效率。影响功法领悟、技能掌握速度。</p>
+                <p>{{ $t('决定神识上限、学习效率。影响功法领悟、技能掌握速度。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">🍀</span>
-                  <span class="attr-name">气运</span>
+                  <span class="attr-name">{{ $t('气运') }}</span>
                 </div>
-                <p>决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助。</p>
+                <p>{{ $t('决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">🌺</span>
-                  <span class="attr-name">魅力</span>
+                  <span class="attr-name">{{ $t('魅力') }}</span>
                 </div>
-                <p>决定初始好感度、社交加成。影响NPC互动、门派声望获取。</p>
+                <p>{{ $t('决定初始好感度、社交加成。影响NPC互动、门派声望获取。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">💎</span>
-                  <span class="attr-name">心性</span>
+                  <span class="attr-name">{{ $t('心性') }}</span>
                 </div>
-                <p>决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择。</p>
+                <p>{{ $t('决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择。') }}</p>
               </div>
             </div>
           </div>
 
           <div class="help-section">
-            <h4>💡 提升判定成功率</h4>
+            <h4>💡 {{ $t('提升判定成功率') }}</h4>
             <ul class="tips-list">
-              <li><strong>先天六司</strong>：天赋决定上限，无法改变但影响最大</li>
-              <li><strong>提升境界</strong>：境界越高，判定基础加成越大（炼气+5，筑基+12...）</li>
-              <li><strong>修炼后天</strong>：后天六司可提升，但权重仅20%</li>
-              <li><strong>学习功法</strong>：高品质功法和技能熟练度提供显著加成</li>
-              <li><strong>装备法器</strong>：合适的装备能大幅提升判定值</li>
-              <li><strong>状态效果</strong>：buff增强判定，注意避免debuff</li>
-              <li><strong>境界压制</strong>：高境界对低境界有明显优势，但不是绝对</li>
+              <li>{{ $t('先天六司：天赋决定上限，无法改变但影响最大') }}</li>
+              <li>{{ $t('提升境界：境界越高，判定基础加成越大（炼气+5，筑基+12...）') }}</li>
+              <li>{{ $t('修炼后天：后天六司可提升，但权重仅20%') }}</li>
+              <li>{{ $t('学习功法：高品质功法和技能熟练度提供显著加成') }}</li>
+              <li>{{ $t('装备法器：合适的装备能大幅提升判定值') }}</li>
+              <li>{{ $t('状态效果：buff增强判定，注意避免debuff') }}</li>
+              <li>{{ $t('境界压制：高境界对低境界有明显优势，但不是绝对') }}</li>
             </ul>
           </div>
         </div>

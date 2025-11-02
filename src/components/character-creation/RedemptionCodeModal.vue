@@ -4,13 +4,13 @@
       <!-- 第一步：输入兑换码 -->
       <div v-if="currentStep === 'code'" class="step-content">
         <h2 class="modal-title">{{ title }}</h2>
-        <p class="modal-subtitle">请输入兑换码以接引天机进行AI推演。</p>
+        <p class="modal-subtitle">{{ $t('请输入兑换码以接引天机进行AI推演。') }}</p>
         <form @submit.prevent="submitCode">
           <div class="form-group">
             <input
               v-model="code"
               type="text"
-              placeholder="请输入兑换码"
+              :placeholder="$t('请输入兑换码')"
               class="code-input"
               ref="inputRef"
             />
@@ -18,10 +18,10 @@
           <div v-if="error" class="error-message">{{ error }}</div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" @click="handleClose">
-              取消
+              {{ $t('取消') }}
             </button>
             <button type="submit" class="btn" :disabled="!code.trim() || isValidating">
-              {{ isValidating ? '验证中...' : '下一步' }}
+              {{ isValidating ? $t('验证中...') : $t('下一步') }}
             </button>
           </div>
         </form>
@@ -29,11 +29,11 @@
 
       <!-- 第二步：输入提示词 -->
       <div v-else-if="currentStep === 'prompt'" class="step-content">
-        <h2 class="modal-title">自定义AI推演</h2>
+        <h2 class="modal-title">{{ $t('自定义AI推演') }}</h2>
         <p class="modal-subtitle">{{ getPromptHint() }}</p>
-        
+
         <div class="prompt-section">
-          <label class="prompt-label">提示词 (可选)</label>
+          <label class="prompt-label">{{ $t('提示词 (可选)') }}</label>
           <textarea 
             v-model="userPrompt"
             class="prompt-input"
@@ -46,7 +46,7 @@
         </div>
 
         <div class="suggested-prompts" v-if="getSuggestedPrompts().length > 0">
-          <h4 class="suggestions-title">建议提示词</h4>
+          <h4 class="suggestions-title">{{ $t('建议提示词') }}</h4>
           <div class="suggestions-grid">
             <button 
               v-for="suggestion in getSuggestedPrompts()"
@@ -61,10 +61,10 @@
 
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" @click="goBack">
-            返回
+            {{ $t('返回') }}
           </button>
           <button type="button" class="btn" @click="submitPrompt">
-            开始推演
+            {{ $t('开始推演') }}
           </button>
         </div>
       </div>

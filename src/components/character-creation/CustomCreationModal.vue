@@ -34,7 +34,7 @@
             <div v-else-if="field.type === 'dynamic-list'" class="dynamic-list-container">
               <div class="list-header">
                 <span>{{ field.label }}</span>
-                <button @click="addListItem(field)" class="add-btn" type="button">+ 添加</button>
+                <button @click="addListItem(field)" class="add-btn" type="button">+ {{ $t('添加') }}</button>
               </div>
               <div v-if="Array.isArray(formData[field.key]) && (formData[field.key] as unknown[]).length > 0" class="list-items">
                 <div v-for="(item, index) in (formData[field.key] as Record<string, unknown>[])" :key="index" class="list-item">
@@ -53,7 +53,7 @@
                 </div>
               </div>
               <div v-else class="empty-list">
-                <span>暂无条目，点击"添加"按钮开始</span>
+                <span>{{ $t('暂无数据') }}</span>
               </div>
             </div>
           </div>
@@ -64,8 +64,8 @@
         </div>
 
         <div class="modal-actions">
-          <button @click="close" class="btn btn-secondary">关闭</button>
-          <button @click="submit" class="btn">确认</button>
+          <button @click="close" class="btn btn-secondary">{{ $t('关闭') }}</button>
+          <button @click="submit" class="btn">{{ $t('确认') }}</button>
         </div>
       </div>
     </div>

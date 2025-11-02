@@ -58,6 +58,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { AttributeKey, InnateAttributesEnglish } from '@/types/game';
+import { useI18n } from '@/i18n';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<{
   stats: Partial<InnateAttributesEnglish>;
@@ -73,13 +76,14 @@ const radius = computed(() => props.size / 2 * 0.7); // 70% of half size to leav
 const gridLevels = 5;
 
 const statOrder: AttributeKey[] = ['root_bone', 'spirituality', 'comprehension', 'fortune', 'charm', 'temperament'];
+
 const statNames: Record<AttributeKey, string> = {
-  root_bone: '根骨',
-  spirituality: '灵性',
-  comprehension: '悟性',
-  fortune: '气运',
-  charm: '魅力',
-  temperament: '心性',
+  root_bone: t('根骨'),
+  spirituality: t('灵性'),
+  comprehension: t('悟性'),
+  fortune: t('气运'),
+  charm: t('魅力'),
+  temperament: t('心性'),
 };
 
 const getHexagonPoints = (scale = 1) => {

@@ -14,7 +14,7 @@ import { WRITING_QUALITY } from '../definitions/writingQuality';
 
 export const cotCorePrompt = `
 # 🔴 CoT 思维链 v2.1 (Chain of Thought) - 必须遵守
-
+{{ACTION_OPTIONS_GUIDANCE}}
 ## 输出流程（严格按顺序）
 **第一步：必须先输出思维链**
 <thinking>
@@ -41,6 +41,7 @@ export const cotCorePrompt = `
 
 ### 精简模式（日常/无判定/无NPC）
 <thinking>
+print：<行动趋向>用户的输入</行动趋向>
 Intent: [用户想做什么] | Dice: NO
 Data: 时间+[X]分 | [其他变化]
 Words: 500-800字 | ✓禁用词
@@ -49,6 +50,7 @@ Words: 500-800字 | ✓禁用词
 ### 完整模式（判定/NPC/重要剧情）
 <thinking>
 ## 1. Intent
+print：<行动趋向>用户的输入</行动趋向>
 Action: [类型] | Goal: [目标] | Dice: [YES/NO]
 Time: [对话1-5分/移动5-30分/战斗5-30分/修炼数小时]
 
@@ -59,6 +61,7 @@ Innovation: [场景特色/剧情转折/角色成长]
 
 ## 3. Data
 Changes: [角色/物品/NPC/任务/时间/位置]
+Options: [根据提示词生成3-5个选项] (if enabled)
 Commands:
 - 需要更新的变量 → [哪些字段需要改]
 - 路径构建 → [顶层.动态键.目标] 是否正确

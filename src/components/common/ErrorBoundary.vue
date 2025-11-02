@@ -2,16 +2,16 @@
   <div v-if="hasError" class="error-boundary">
     <div class="error-container">
       <div class="error-icon">⚠️</div>
-      <h2>道法受阻</h2>
+      <h2>{{ $t('道法受阻') }}</h2>
       <p class="error-message">{{ errorMessage }}</p>
       <div class="error-details" v-if="showDetails">
         <pre>{{ errorDetails }}</pre>
       </div>
       <div class="error-actions">
-        <button @click="retry" class="btn-retry">重试</button>
-        <button @click="goBack" class="btn-back">返回</button>
+        <button @click="retry" class="btn-retry">{{ $t('重试') }}</button>
+        <button @click="goBack" class="btn-back">{{ $t('返回') }}</button>
         <button @click="toggleDetails" class="btn-details">
-          {{ showDetails ? '隐藏详情' : '查看详情' }}
+          {{ showDetails ? $t('隐藏详情') : $t('查看详情') }}
         </button>
       </div>
     </div>

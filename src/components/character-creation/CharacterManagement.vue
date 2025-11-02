@@ -22,10 +22,10 @@
             @click="handleModalCancel"
             class="btn-dialog-cancel"
           >
-            取消
+            {{ $t('取消') }}
           </button>
           <button @click="handleModalConfirm" class="btn-dialog-confirm">
-            确认
+            {{ $t('确认') }}
           </button>
         </div>
       </div>
@@ -38,11 +38,11 @@
       <div v-if="isFullscreen" class="fullscreen-header">
         <button @click="handleClose" class="fullscreen-back-btn">
           <ArrowLeft :size="20" />
-          <span>返回道途</span>
+          <span>{{ $t('返回道途') }}</span>
         </button>
         <div class="fullscreen-title">
-          <h1>续前世因缘</h1>
-          <p>择一法身，入道重修</p>
+          <h1>{{ $t('续前世因缘') }}</h1>
+          <p>{{ $t('择一法身，入道重修') }}</p>
         </div>
       </div>
 
@@ -58,12 +58,12 @@
             <span></span>
             <span></span>
           </div>
-          <span class="menu-text">角色列表</span>
+          <span class="menu-text">{{ $t('角色列表') }}</span>
         </button>
         <div class="mobile-title">
-          <h2>角色管理</h2>
+          <h2>{{ $t('角色管理') }}</h2>
           <div v-if="selectedCharacter" class="selected-info">
-            {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}模式
+            {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}{{ $t('模式') }}
           </div>
         </div>
       </div>
@@ -74,11 +74,11 @@
       <!-- 无角色提示 -->
       <div v-if="Object.keys(characterStore.rootState.角色列表).length === 0" class="empty-state">
         <div class="empty-icon">🌟</div>
-        <h2>道途未启</h2>
-        <p>尚未创建任何法身，请返回道途开启修仙之旅</p>
+        <h2>{{ $t('道途未启') }}</h2>
+        <p>{{ $t('尚未创建任何法身，请返回道途开启修仙之旅') }}</p>
         <div class="empty-actions">
-          <button @click="goBack" class="btn-create">踏入仙途</button>
-          <button @click="importCharacter" class="btn-import">导入角色</button>
+          <button @click="goBack" class="btn-create">{{ $t('踏入仙途') }}</button>
+          <button @click="importCharacter" class="btn-import">{{ $t('导入角色') }}</button>
         </div>
       </div>
 
@@ -89,29 +89,29 @@
           <!-- 第1行：标题栏 -->
           <div class="grid-header-left">
             <div class="header-title-group">
-              <h2>角色列表</h2>
-              <div class="character-count">{{ allCharacterCount }} 个角色</div>
+              <h2>{{ $t('角色列表') }}</h2>
+              <div class="character-count">{{ allCharacterCount }} {{ $t('个角色') }}</div>
             </div>
-            <button @click="importCharacter" class="btn-header-action import" title="导入新角色">
+            <button @click="importCharacter" class="btn-header-action import" :title="$t('导入角色')">
               <Upload :size="16" />
-              <span>导入</span>
+              <span>{{ $t('导入') }}</span>
             </button>
           </div>
           <div class="grid-header-right">
             <div class="header-left-content">
-              <h2>存档管理</h2>
+              <h2>{{ $t('存档管理') }}</h2>
               <div v-if="selectedCharacter" class="selected-char-info">
-                {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}模式
+                {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}{{ $t('模式') }}
               </div>
             </div>
             <div v-if="selectedCharacter" class="save-actions-buttons">
-              <button @click="exportSaves" class="btn-save-action export" title="导出选中角色的存档">
+              <button @click="exportSaves" class="btn-save-action export" :title="$t('导出选中角色的存档')">
                 <Download :size="18" />
-                <span>导出存档</span>
+                <span>{{ $t('导出存档') }}</span>
               </button>
-              <button @click="importSaves" class="btn-save-action import" title="向选中角色导入存档">
+              <button @click="importSaves" class="btn-save-action import" :title="$t('向选中角色导入存档')">
                 <Upload :size="18" />
-                <span>导入存档</span>
+                <span>{{ $t('导入存档') }}</span>
               </button>
             </div>
           </div>
@@ -133,7 +133,7 @@
                 <div class="card-header">
                   <div class="char-avatar" :class="profile.模式">
                     <span class="avatar-text">{{ profile.角色基础信息.名字[0] }}</span>
-                    <div class="mode-indicator">{{ profile.模式 === '单机' ? '单' : '联' }}</div>
+                    <div class="mode-indicator">{{ profile.模式 === $t('单机') ? $t('单机') : $t('联机') }}</div>
                   </div>
                   <div class="char-info">
                     <h3 class="char-name">{{ profile.角色基础信息.名字 }}</h3>
@@ -144,15 +144,15 @@
                   </div>
                   <div class="save-count">
                     <span class="count">{{ getSaveCount(profile) }}</span>
-                    <span class="label">存档</span>
+                    <span class="label">{{ $t('存档管理') }}</span>
                   </div>
                 </div>
 
                 <!-- 卡片底部操作 -->
                 <div class="card-actions">
-                  <button @click.stop="showCharacterDetails(String(charId))" class="btn-details">详情</button>
-                  <button @click.stop="exportCharacter(String(charId))" class="btn-export">导出</button>
-                  <button @click.stop="handleDeleteCharacter(String(charId))" class="btn-delete">删除</button>
+                  <button @click.stop="showCharacterDetails(String(charId))" class="btn-details">{{ $t('详情') }}</button>
+                  <button @click.stop="exportCharacter(String(charId))" class="btn-export">{{ $t('导出') }}</button>
+                  <button @click.stop="handleDeleteCharacter(String(charId))" class="btn-delete">{{ $t('删除') }}</button>
                 </div>
               </div>
             </div>
@@ -163,13 +163,13 @@
             <!-- 未选择角色 -->
             <div v-if="!selectedCharacter" class="no-selection">
               <div class="no-selection-icon">📋</div>
-              <p>请选择左侧角色查看存档详情</p>
+              <p>{{ $t('请选择左侧角色查看存档详情') }}</p>
             </div>
 
             <!-- 正在加载存档 -->
             <div v-else-if="isLoadingSaves" class="loading-saves">
               <div class="loading-spinner"></div>
-              <p>正在加载存档...</p>
+              <p>{{ $t('正在加载存档...') }}</p>
             </div>
 
             <!-- 单机模式存档 -->
@@ -178,9 +178,9 @@
                 <!-- 手动存档区 - 仅单机模式显示 -->
                 <div v-if="selectedCharacter.模式 === '单机'" class="manual-saves-section">
                   <div class="manual-saves-header">
-                    <h3>手动存档</h3>
+                    <h3>{{ $t('手动存档') }}</h3>
                     <div class="save-info-text">
-                      <span>存档通过游戏内保存功能创建</span>
+                      <span>{{ $t('存档通过游戏内保存功能创建') }}</span>
                     </div>
                   </div>
 
@@ -205,13 +205,13 @@
                            <div class="save-actions">
                              <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
                                      class="btn-edit-save"
-                                     title="重命名"
-                                     :disabled="slotKey === '上次对话' || slotKey === '时间点存档'">编</button>
+                                     :title="$t('重命名')"
+                                     :disabled="slotKey === '上次对话' || slotKey === '时间点存档'">{{ $t('编') }}</button>
                              <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))"
                                      class="btn-delete-save"
                                      :class="{ 'disabled': !canDeleteSave(selectedCharacter, String(slotKey)) }"
                                      :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
-                                     :title="getDeleteTooltip(selectedCharacter, String(slotKey))">删</button>
+                                     :title="getDeleteTooltip(selectedCharacter, String(slotKey))">{{ $t('删') }}</button>
                            </div>
                          </div>
 
@@ -249,8 +249,8 @@
 
                       <div v-else class="save-empty">
                         <div class="empty-slot-icon">📁</div>
-                        <span class="empty-text">空存档槽</span>
-                        <span class="empty-desc">通过游戏内保存创建</span>
+                        <span class="empty-text">{{ $t('空存档槽') }}</span>
+                        <span class="empty-desc">{{ $t('通过游戏内保存创建') }}</span>
                       </div>
                     </div>
                   </div>
@@ -262,15 +262,15 @@
             <div v-else-if="selectedCharacter.模式 === '联机'" class="online-saves-container">
               <div v-if="!isLoggedIn" class="login-prompt">
                 <div class="login-icon">🔐</div>
-                <h3>需要登录</h3>
-                <p>请先登录以管理联机角色存档</p>
-                <button @click="handleLogin" class="btn-login">登入道籍</button>
+                <h3>{{ $t('需要登录') }}</h3>
+                <p>{{ $t('请先登录以管理联机角色存档') }}</p>
+                <button @click="handleLogin" class="btn-login">{{ $t('登入道籍') }}</button>
               </div>
 
               <div v-else-if="selectedCharacter.存档" class="online-save-card">
                 <div v-if="selectedCharacter.存档.存档数据" class="save-data">
                   <div class="save-header">
-                    <h4 class="save-name">云端存档</h4>
+                    <h4 class="save-name">{{ $t('云端存档') }}</h4>
                     <div class="save-badges">
                       <span class="realm-badge">{{ getRealmName(selectedCharacter.存档.存档数据.玩家角色状态?.境界) }}</span>
                       <span class="age-badge">{{ selectedCharacter.存档.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
@@ -302,21 +302,21 @@
                     <span class="location">{{ selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '初始地' }}</span>
                     <div class="sync-info">
                       <span class="sync-status" :class="{ 'synced': !selectedCharacter.存档.云端同步信息?.需要同步 }">
-                        {{ selectedCharacter.存档.云端同步信息?.需要同步 ? '待同步' : '已同步' }}
+                        {{ selectedCharacter.存档.云端同步信息?.需要同步 ? $t('待同步') : $t('已同步') }}
                       </span>
                     </div>
                   </div>
 
                   <div class="online-actions">
-                    <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">进入游戏</button>
-                    <button v-if="selectedCharacter.存档.云端同步信息?.需要同步" class="btn-sync">同步云端</button>
+                    <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">{{ $t('进入游戏') }}</button>
+                    <button v-if="selectedCharacter.存档.云端同步信息?.需要同步" class="btn-sync">{{ $t('同步云端') }}</button>
                   </div>
                 </div>
 
                 <div v-else class="save-empty">
                   <div class="empty-slot-icon">☁️</div>
-                  <span class="empty-text">尚未开始修行</span>
-                  <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">开始游戏</button>
+                  <span class="empty-text">{{ $t('尚未开始修行') }}</span>
+                  <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">{{ $t('开始游戏') }}</button>
                 </div>
               </div>
             </div>
@@ -337,44 +337,44 @@
     <div v-if="showDetailsModal" class="modal-overlay" @click="closeDetailsModal">
       <div class="details-modal" @click.stop>
         <div class="modal-header">
-          <h3>{{ detailsCharacter?.角色基础信息.名字 }} - 详细信息</h3>
+          <h3>{{ detailsCharacter?.角色基础信息.名字 }} - {{ $t('详情') }}</h3>
           <button @click="closeDetailsModal" class="btn-close">×</button>
         </div>
 
         <div v-if="detailsCharacter" class="modal-content">
           <div class="details-grid">
             <div class="detail-section">
-              <h4>基础信息</h4>
+              <h4>{{ $t('基础信息') }}</h4>
               <div class="detail-items">
                 <div class="detail-item">
-                  <span class="label">道号</span>
+                  <span class="label">{{ $t('道号') }}</span>
                   <span class="value">{{ detailsCharacter.角色基础信息.名字 }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">世界</span>
+                  <span class="label">{{ $t('世界') }}</span>
                   <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.世界) }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">天资</span>
+                  <span class="label">{{ $t('天资') }}</span>
                   <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.天资) }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">出身</span>
+                  <span class="label">{{ $t('出身') }}</span>
                   <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.出生) }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">灵根</span>
+                  <span class="label">{{ $t('灵根') }}</span>
                   <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.灵根) }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">模式</span>
+                  <span class="label">{{ $t('模式') }}</span>
                   <span class="value">{{ detailsCharacter.模式 }}</span>
                 </div>
               </div>
             </div>
 
             <div class="detail-section">
-              <h4>先天六司</h4>
+              <h4>{{ $t('先天六司') }}</h4>
               <div class="attributes-display">
                 <HexagonChart
                   v-if="detailsCharacter.角色基础信息.先天六司"
@@ -386,7 +386,7 @@
             </div>
 
             <div class="detail-section">
-              <h4>天赋神通</h4>
+              <h4>{{ $t('天赋神通') }}</h4>
               <div class="talents-list">
                 <div v-if="detailsCharacter.角色基础信息.天赋?.length" class="talent-items">
                   <span
@@ -398,7 +398,7 @@
                     {{ getTalentName(talent) }}
                   </span>
                 </div>
-                <span v-else class="no-talents">暂无天赋</span>
+                <span v-else class="no-talents">{{ $t('暂无天赋') }}</span>
               </div>
             </div>
           </div>

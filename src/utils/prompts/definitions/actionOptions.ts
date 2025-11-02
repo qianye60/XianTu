@@ -9,7 +9,7 @@
 export const ACTION_OPTIONS_RULES = `
 # 行动选项规范
 
-## 自定义要求
+## ⚠️ 重要：自定义要求（必须严格遵守）
 {{CUSTOM_ACTION_PROMPT}}
 
 ## 输出格式

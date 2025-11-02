@@ -1,7 +1,7 @@
 <template>
   <div class="spirit-root-selection-container">
-    <div v-if="store.isLoading" class="loading-state">天地玄黄，探查灵根...</div>
-    <div v-else-if="store.error" class="error-state">天机混沌：{{ store.error }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('天地玄黄，探查灵根...') }}</div>
+    <div v-else-if="store.error" class="error-state">{{ $t('天机混沌：') }}{{ store.error }}</div>
 
     <div v-else class="spirit-root-layout">
       <!-- 左侧面板：选择和操作 -->
@@ -13,13 +13,13 @@
             @click="isAdvancedCustomVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">高级自定义</span>
+            <span class="action-name">{{ $t('高级自定义') }}</span>
           </button>
-          <button 
-            @click="handleAIGenerate" 
+          <button
+            @click="handleAIGenerate"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">AI推演</span>
+            <span class="action-name">{{ $t('AI推演') }}</span>
           </button>
         </div>
 
@@ -30,14 +30,14 @@
             @click="selectionMode = 'preset'"
             class="mode-tab"
           >
-            预设灵根
+            {{ $t('预设灵根') }}
           </button>
-          <button 
+          <button
             :class="{ active: selectionMode === 'custom' }"
             @click="selectionMode = 'custom'"
             class="mode-tab"
           >
-            组合选择
+            {{ $t('组合选择') }}
           </button>
         </div>
 
@@ -50,8 +50,8 @@
               @click="handleSelectRandom"
               @mouseover="activeSpiritRoot = 'random'"
             >
-              <span class="spirit-root-name">随机灵根</span>
-              <span class="spirit-root-cost">0 点</span>
+              <span class="spirit-root-name">{{ $t('随机灵根') }}</span>
+              <span class="spirit-root-cost">{{ $t('0 点') }}</span>
             </div>
             <div class="divider"></div>
             <div
@@ -72,7 +72,7 @@
                     {{ getSpiritRootTier(root) }}
                   </span>
                 </div>
-                <span class="spirit-root-cost">{{ root.talent_cost }} 点</span>
+                <span class="spirit-root-cost">{{ root.talent_cost }} {{ $t('点') }}</span>
               </div>
               <div v-if="root.source === 'cloud'" class="action-buttons">
                 <button @click.stop="openEditModal(root)" class="edit-btn" title="编辑此项">
@@ -91,7 +91,7 @@
           <div class="custom-selection-container">
             <!-- 灵根类型选择 -->
             <div class="selection-group">
-              <label class="selection-label">灵根类型</label>
+              <label class="selection-label">{{ $t('灵根类型') }}</label>
               <div class="spirit-type-grid">
                 <button
                   v-for="type in spiritRootTypes"
@@ -109,7 +109,7 @@
 
             <!-- 品级选择 -->
             <div class="selection-group">
-              <label class="selection-label">灵根品级</label>
+              <label class="selection-label">{{ $t('灵根品级') }}</label>
               <div class="tier-selection">
                 <button
                   v-for="tier in spiritRootTiers"
@@ -130,7 +130,7 @@
 
             <!-- 预览和确认 -->
             <div class="custom-preview">
-              <div class="preview-title">预览</div>
+              <div class="preview-title">{{ $t('预览') }}</div>
               <div class="preview-content">
                 <div class="preview-name">
                   <span>{{ getCustomSpiritName() }}</span>
@@ -139,8 +139,8 @@
                   </span>
                 </div>
                 <div class="preview-stats">
-                  <div class="stat">修炼倍率: {{ getCustomSpiritMultiplier() }}x</div>
-                  <div class="stat">消耗点数: {{ getCustomSpiritCost() }}点</div>
+                  <div class="stat">{{ $t('修炼倍率:') }} {{ getCustomSpiritMultiplier() }}x</div>
+                  <div class="stat">{{ $t('消耗点数:') }} {{ getCustomSpiritCost() }}{{ $t('点') }}</div>
                 </div>
               </div>
               <button 
@@ -148,7 +148,7 @@
                 :disabled="!isCustomSpiritValid()"
                 class="confirm-custom-button"
               >
-                确认选择
+                {{ $t('确认选择') }}
               </button>
             </div>
           </div>
@@ -164,23 +164,23 @@
           </div>
           <div class="stats-display">
             <div class="stat-item">
-              <span class="stat-label">修炼倍率:</span>
+              <span class="stat-label">{{ $t('修炼倍率:') }}</span>
               <span class="stat-value">{{ getActiveMultiplier() }}x</span>
             </div>
             <div class="stat-item">
-              <span class="stat-label">消耗天道点:</span>
-              <span class="stat-value">{{ getActiveCost() }}点</span>
+              <span class="stat-label">{{ $t('消耗天道点:') }}</span>
+              <span class="stat-value">{{ getActiveCost() }}{{ $t('点') }}</span>
             </div>
           </div>
         </div>
-        <div v-else class="placeholder">请选择一种灵根，或听天由命。</div>
+        <div v-else class="placeholder">{{ $t('请选择一种灵根，或听天由命。') }}</div>
       </div>
     </div>
 
     <!-- 高级自定义模态框 -->
     <CustomCreationModal
       :visible="isAdvancedCustomVisible"
-      title="高级自定义灵根"
+      :title="$t('高级自定义灵根')"
       :fields="advancedCustomFields"
       :validationFn="validateAdvancedCustom"
       @close="isAdvancedCustomVisible = false"
@@ -190,7 +190,7 @@
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      title="编辑灵根"
+      :title="$t('编辑灵根')"
       :fields="advancedCustomFields"
       :validationFn="validateAdvancedCustom"
       :initialData="editInitialData"

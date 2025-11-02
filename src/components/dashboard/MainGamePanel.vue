@@ -3,7 +3,7 @@
     <!-- 短期记忆区域 -->
     <div class="memory-section" v-if="showMemorySection">
       <div class="memory-header" @click="toggleMemory">
-        <span class="memory-title">短期记忆</span>
+        <span class="memory-title">{{ t('短期记忆') }}</span>
         <ChevronDown v-if="memoryExpanded" :size="16" class="memory-icon" />
         <ChevronRight v-else :size="16" class="memory-icon" />
       </div>
@@ -16,7 +16,7 @@
               {{ memory }}
             </div>
             <div v-if="recentMemories.length === 0" class="no-memory">
-              脑海中一片清净，尚未留下修行痕迹...
+              {{ t('脑海中一片清净，尚未留下修行痕迹...') }}
             </div>
           </div>
         </div>
@@ -33,13 +33,13 @@
             <span class="narrative-time">{{ formatCurrentTime() }}</span>
             <div class="streaming-indicator">
               <span class="streaming-dot"></span>
-              <span class="streaming-text">{{ streamingContent ? `${streamingCharCount} 字` : '天道感应中...' }}</span>
+              <span class="streaming-text">{{ streamingContent ? `${streamingCharCount} ${t('字')}` : t('天道感应中...') }}</span>
             </div>
             <!-- 重置按钮 - 右侧 -->
             <button
               @click="forceResetAIProcessingState"
               class="reset-state-btn"
-              title="如果长时间无响应，点击此处重置状态"
+              :title="t('如果长时间无响应，点击此处重置状态')"
             >
               <RotateCcw :size="16" />
             </button>
@@ -63,7 +63,7 @@
                 v-if="canRollback"
                 @click="rollbackToLastConversation"
                 class="header-action-btn rollback-btn"
-                title="回滚到上次对话前的状态"
+                :title="t('回滚到上次对话前的状态')"
               >
                 <RotateCcw :size="24" />
               </button>
@@ -73,7 +73,7 @@
                 class="variable-updates-toggle"
                 :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
                 :disabled="currentNarrativeStateChanges.length === 0"
-                :title="currentNarrativeStateChanges.length > 0 ? '查看本次对话的变更日志' : '本次对话无变更记录'"
+                :title="currentNarrativeStateChanges.length > 0 ? t('查看本次对话的变更日志') : t('本次对话无变更记录')"
               >
                 <ScrollText :size="16" />
                 <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
@@ -98,7 +98,7 @@
         </div>
 
         <div v-else class="empty-narrative">
-          静待天机变化...
+          {{ t('静待天机变化...') }}
         </div>
       </div>
     </div>
@@ -109,8 +109,8 @@
       <!-- 动作队列显示区域 -->
       <div v-if="actionQueue.pendingActions.length > 0" class="action-queue-display">
         <div class="queue-header">
-          <span class="queue-title">最近操作</span>
-          <button @click="clearActionQueue" class="clear-queue-btn" title="清空记录">
+          <span class="queue-title">{{ t('最近操作') }}</span>
+          <button @click="clearActionQueue" class="clear-queue-btn" :title="t('清空记录')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
@@ -127,7 +127,7 @@
               <button
                 @click="removeActionFromQueue(index)"
                 class="remove-action-btn"
-                :title="isUndoableAction(action) ? '撤回并恢复' : '删除此动作'"
+                :title="isUndoableAction(action) ? t('撤回并恢复') : t('删除此动作')"
               >
                 ×
               </button>
@@ -153,7 +153,7 @@
           @click="openImagePicker"
           class="action-selector-btn image-upload-btn"
           :disabled="!hasActiveCharacter"
-          title="上传图片"
+          :title="t('上传图片')"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -168,7 +168,7 @@
           @click="showActionSelector"
           class="action-selector-btn"
           :disabled="!hasActiveCharacter"
-          title="快捷行动"
+          :title="t('快捷行动')"
         >
           <ChevronDown :size="16" />
         </button>
@@ -182,7 +182,7 @@
               class="image-preview-item"
             >
               <img :src="getImagePreviewUrl(image)" :alt="image.name" />
-              <button @click="removeImage(index)" class="remove-image-btn" title="移除图片">
+              <button @click="removeImage(index)" class="remove-image-btn" :title="t('移除图片')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
@@ -196,7 +196,7 @@
             @blur="isInputFocused = false"
             @keydown="handleKeyDown"
             @input="handleInput"
-            :placeholder="hasActiveCharacter ? '请输入您的选择或行动...' : '请先选择角色...'"
+            :placeholder="hasActiveCharacter ? t('请输入您的选择或行动...') : t('请先选择角色...')"
             class="game-input"
             ref="inputRef"
             rows="1"
@@ -207,7 +207,7 @@
           <!-- 流式传输选项在输入框内部右侧 -->
           <label class="stream-toggle-inside">
             <input type="checkbox" v-model="useStreaming" />
-            <span class="label-text">流式</span>
+            <span class="label-text">{{ t('流式') }}</span>
           </label>
         </div>
 
@@ -225,7 +225,7 @@
       <div v-if="showActionModal" class="action-modal-overlay" @click.self="hideActionSelector">
         <div class="action-modal">
           <div class="modal-header">
-            <h3>快捷行动</h3>
+            <h3>{{ t('快捷行动') }}</h3>
             <button @click="hideActionSelector" class="close-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 6L6 18M6 6l12 12"/>
@@ -259,7 +259,7 @@
 
             <!-- 时间配置 -->
             <div v-if="selectedAction.timeRequired" class="config-section">
-              <label class="config-label">修炼时间</label>
+              <label class="config-label">{{ t('修炼时间') }}</label>
               <div class="time-selector">
                 <button
                   v-for="timeOption in timeOptions"
@@ -272,20 +272,20 @@
                 </button>
               </div>
               <div class="time-custom">
-                <label>自定义：</label>
+                <label>{{ t('自定义：') }}</label>
                 <input
                   v-model.number="customTime"
                   type="number"
                   min="1"
                   max="365"
                   class="time-input"
-                /> 天
+                /> {{ t('天') }}
               </div>
             </div>
 
             <!-- 其他配置选项 -->
             <div v-if="selectedAction.options" class="config-section">
-              <label class="config-label">选项</label>
+              <label class="config-label">{{ t('选项') }}</label>
               <div class="action-options">
                 <label
                   v-for="option in selectedAction.options"
@@ -304,8 +304,8 @@
             </div>
           </div>
           <div class="config-actions">
-            <button @click="cancelAction" class="cancel-btn">取消</button>
-            <button @click="confirmAction" class="confirm-btn">确认</button>
+            <button @click="cancelAction" class="cancel-btn">{{ t('取消') }}</button>
+            <button @click="confirmAction" class="confirm-btn">{{ t('确认') }}</button>
           </div>
         </div>
       </div>
@@ -320,6 +320,7 @@ import { ref, onMounted, onActivated, onUnmounted, nextTick, computed, watch } f
 import {
   Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit
 } from 'lucide-vue-next';
+import { useI18n } from '@/i18n';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -437,6 +438,7 @@ interface ActionItem {
   iconComponent?: unknown;
 }
 
+const { t } = useI18n();
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();

@@ -1,13 +1,13 @@
 <template>
   <div class="quest-panel">
     <div class="panel-header">
-      <h2>任务</h2>
+      <h2>{{ t('任务') }}</h2>
       <div class="header-actions">
-        <button @click="showConfigDialog = true" class="config-btn" title="任务系统配置">
+        <button @click="showConfigDialog = true" class="config-btn" :title="t('任务系统配置')">
           <Settings :size="16" />
         </button>
         <button @click="questStore.generateNewQuest()" :disabled="questStore.isGenerating" class="generate-btn">
-          {{ questStore.isGenerating ? '推演中...' : '寻找机缘' }}
+          {{ questStore.isGenerating ? t('推演中...') : t('寻找机缘') }}
         </button>
       </div>
     </div>
@@ -17,19 +17,19 @@
         :class="{ active: activeTab === 'all' }"
         @click="activeTab = 'all'"
       >
-        全部 ({{ questStore.currentQuests.length }})
+        {{ t('全部') }} ({{ questStore.currentQuests.length }})
       </button>
       <button
         :class="{ active: activeTab === 'active' }"
         @click="activeTab = 'active'"
       >
-        进行中 ({{ questStore.activeQuests.length }})
+        {{ t('进行中') }} ({{ questStore.activeQuests.length }})
       </button>
       <button
         :class="{ active: activeTab === 'completed' }"
         @click="activeTab = 'completed'"
       >
-        已完成 ({{ questStore.completedQuests.length }})
+        {{ t('已完成') }} ({{ questStore.completedQuests.length }})
       </button>
     </div>
 
@@ -49,25 +49,25 @@
     <div v-if="showConfigDialog" class="config-overlay" @click="showConfigDialog = false">
       <div class="config-dialog" @click.stop>
         <div class="config-header">
-          <h3>任务系统配置</h3>
+          <h3>{{ t('任务系统配置') }}</h3>
           <button class="close-btn" @click="showConfigDialog = false">×</button>
         </div>
         <div class="config-content">
           <div class="config-section">
-            <label class="config-label">系统任务类型</label>
+            <label class="config-label">{{ t('系统任务类型') }}</label>
             <select v-model="localConfig.系统任务类型" class="config-select">
-              <option value="修仙辅助系统">修仙辅助系统</option>
-              <option value="道侣养成系统">道侣养成系统</option>
-              <option value="宗门发展系统">宗门发展系统</option>
-              <option value="探索冒险系统">探索冒险系统</option>
-              <option value="战斗挑战系统">战斗挑战系统</option>
-              <option value="资源收集系统">资源收集系统</option>
+              <option value="修仙辅助系统">{{ t('修仙辅助系统') }}</option>
+              <option value="道侣养成系统">{{ t('道侣养成系统') }}</option>
+              <option value="宗门发展系统">{{ t('宗门发展系统') }}</option>
+              <option value="探索冒险系统">{{ t('探索冒险系统') }}</option>
+              <option value="战斗挑战系统">{{ t('战斗挑战系统') }}</option>
+              <option value="资源收集系统">{{ t('资源收集系统') }}</option>
             </select>
-            <span class="config-desc">选择AI生成任务的风格类型</span>
+            <span class="config-desc">{{ t('选择AI生成任务的风格类型') }}</span>
           </div>
 
           <div class="config-section">
-            <label class="config-label">默认任务数量</label>
+            <label class="config-label">{{ t('默认任务数量') }}</label>
             <div class="range-input">
               <input
                 type="range"
@@ -78,31 +78,31 @@
               />
               <span class="range-value">{{ localConfig.默认任务数量 }}</span>
             </div>
-            <span class="config-desc">任务池中保持的未完成任务数量</span>
+            <span class="config-desc">{{ t('任务池中保持的未完成任务数量') }}</span>
           </div>
 
           <div class="config-section">
             <label class="config-label">
               <input type="checkbox" v-model="localConfig.自动刷新" class="config-checkbox" />
-              自动刷新任务
+              {{ t('自动刷新任务') }}
             </label>
-            <span class="config-desc">完成任务后自动生成新任务</span>
+            <span class="config-desc">{{ t('完成任务后自动生成新任务') }}</span>
           </div>
 
           <div class="config-section full-width">
-            <label class="config-label">自定义任务提示词</label>
+            <label class="config-label">{{ t('自定义任务提示词') }}</label>
             <textarea
               v-model="localConfig.系统任务提示词"
               class="config-textarea"
-              placeholder="例如：生成更多战斗类任务，奖励偏向灵石..."
+              :placeholder="t('例如：生成更多战斗类任务，奖励偏向灵石...')"
               rows="3"
             ></textarea>
-            <span class="config-desc">为AI任务生成添加自定义指令（可选）</span>
+            <span class="config-desc">{{ t('为AI任务生成添加自定义指令（可选）') }}</span>
           </div>
         </div>
         <div class="config-footer">
-          <button class="config-btn-secondary" @click="showConfigDialog = false">取消</button>
-          <button class="config-btn-primary" @click="saveConfig">保存配置</button>
+          <button class="config-btn-secondary" @click="showConfigDialog = false">{{ t('取消') }}</button>
+          <button class="config-btn-primary" @click="saveConfig">{{ t('保存配置') }}</button>
         </div>
       </div>
     </div>
@@ -202,31 +202,24 @@
       </div>
     </div>
 
-    <DetailModal
-      v-if="selectedQuest"
-      :show="!!selectedQuest"
-      :title="selectedQuest.任务名称"
-      @close="closeQuestDetails"
-    >
-      <div v-if="selectedQuest" class="quest-detail-content">
-        <p style="white-space: pre-wrap;">{{ selectedQuest.任务描述 }}</p>
-      </div>
-    </DetailModal>
+    <!-- DetailModal is now handled globally by uiStore -->
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useQuestStore } from '@/stores/questStore';
+import { useUIStore } from '@/stores/uiStore';
+import { useI18n } from '@/i18n';
 import type { Quest, QuestType, InnateAttributes } from '@/types/game';
 import { Settings } from 'lucide-vue-next';
-import DetailModal from '@/components/common/DetailModal.vue';
 
 const questStore = useQuestStore();
+const uiStore = useUIStore();
+const { t } = useI18n();
 const activeTab = ref<'all' | 'active' | 'completed'>('active');
 const selectedType = ref<QuestType | null>(null);
 const showConfigDialog = ref(false);
-const selectedQuest = ref<Quest | null>(null);
 
 // 本地配置状态
 const localConfig = ref({
@@ -359,11 +352,10 @@ async function deleteQuest(questId: string) {
 }
 
 function openQuestDetails(quest: Quest) {
-  selectedQuest.value = quest;
-}
-
-function closeQuestDetails() {
-  selectedQuest.value = null;
+  uiStore.showDetailModal({
+    title: quest.任务名称,
+    content: quest.任务描述,
+  });
 }
 </script>
 

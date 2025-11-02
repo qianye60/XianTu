@@ -2,7 +2,7 @@
   <div v-if="visible" class="modal-overlay" @click.self="handleClose">
     <div class="deep-cultivation-modal">
       <div class="modal-header">
-        <h3>深度修炼</h3>
+        <h3>{{ $t('深度修炼') }}</h3>
         <button class="close-btn" @click="handleClose">
           <X :size="20" />
         </button>
@@ -24,7 +24,7 @@
           <!-- 当前修炼进度 -->
           <div class="progress-section">
             <div class="progress-label">
-              <span>当前修炼进度</span>
+              <span>{{ $t('当前修炼进度') }}</span>
               <span class="progress-percent">{{ currentProgress }}%</span>
             </div>
             <div class="progress-bar-bg">
@@ -34,15 +34,15 @@
 
           <!-- 功法效果 -->
           <div v-if="technique.功法效果" class="effects-section">
-            <h5>功法效果</h5>
+            <h5>{{ $t('功法效果') }}</h5>
             <ul class="effects-list">
               <li v-if="technique.功法效果.修炼速度加成">
                 <span class="effect-icon">🚀</span>
-                修炼速度: +{{ ((technique.功法效果.修炼速度加成 - 1) * 100).toFixed(0) }}%
+                {{ $t('修炼速度: +{0}%').replace('{0}', ((technique.功法效果.修炼速度加成 - 1) * 100).toFixed(0)) }}
               </li>
               <li v-if="technique.功法效果.属性加成">
                 <span class="effect-icon">💪</span>
-                属性加成:
+                {{ $t('属性加成:') }}
                 <span v-for="(value, key) in technique.功法效果.属性加成" :key="key" class="attr-bonus">
                   {{ key }}+{{ value }}
                 </span>
@@ -53,8 +53,8 @@
 
         <!-- 修炼天数选择 -->
         <div class="cultivation-days-section">
-          <label class="section-label">选择修炼天数</label>
-          <p class="section-hint">AI将根据修炼天数生成详细的修炼过程和结果</p>
+          <label class="section-label">{{ $t('选择修炼天数') }}</label>
+          <p class="section-hint">{{ $t('AI将根据修炼天数生成详细的修炼过程和结果') }}</p>
 
           <div class="input-group">
             <input
@@ -64,9 +64,9 @@
               :max="3650"
               :step="1"
               class="days-input"
-              placeholder="输入天数"
+              :placeholder="$t('输入天数')"
             />
-            <span class="input-unit">天</span>
+            <span class="input-unit">{{ $t('天') }}</span>
           </div>
 
           <!-- 快捷选择 -->
@@ -85,13 +85,13 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-cancel" @click="handleClose">取消</button>
+        <button class="btn btn-cancel" @click="handleClose">{{ $t('取消') }}</button>
         <button
           class="btn btn-confirm"
           :disabled="!isValidDays"
           @click="handleConfirm"
         >
-          开始修炼
+          {{ $t('开始修炼') }}
         </button>
       </div>
     </div>
@@ -102,6 +102,9 @@
 import { ref, computed, watch } from 'vue';
 import { X } from 'lucide-vue-next';
 import type { TechniqueItem } from '@/types/game';
+import { useI18n } from '@/i18n';
+
+const { t } = useI18n();
 
 interface Props {
   visible: boolean;

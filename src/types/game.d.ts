@@ -220,6 +220,7 @@ export interface BaseItem {
 export interface EquipmentItem extends BaseItem {
   类型: '装备';
   装备增幅?: AttributeBonus;
+  特殊效果?: string | AttributeBonus;
 }
 
 /** 功法类型物品 */

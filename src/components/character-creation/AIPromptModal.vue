@@ -2,23 +2,23 @@
   <div v-if="visible" class="modal-overlay" @click.self="handleClose">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>AI推演</h3>
+        <h3>{{ $t('AI推演') }}</h3>
         <button class="close-btn" @click="handleClose">×</button>
       </div>
       <div class="modal-body">
-        <p class="hint">请描述你想生成什么内容：</p>
+        <p class="hint">{{ $t('请描述你想生成什么内容：') }}</p>
         <textarea
           v-model="userPrompt"
           class="prompt-input"
-          placeholder="例如：生成一个火属性的天赋，适合剑修..."
+          :placeholder="$t('例如：生成一个火属性的天赋，适合剑修...')"
           rows="6"
           @keydown.ctrl.enter="handleSubmit"
         ></textarea>
       </div>
       <div class="modal-footer">
-        <button class="cancel-btn" @click="handleClose">取消</button>
+        <button class="cancel-btn" @click="handleClose">{{ $t('取消') }}</button>
         <button class="submit-btn" @click="handleSubmit" :disabled="!userPrompt.trim()">
-          开始推演
+          {{ $t('开始推演') }}
         </button>
       </div>
     </div>

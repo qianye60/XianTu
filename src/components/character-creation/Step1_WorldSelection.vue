@@ -1,22 +1,22 @@
 <template>
   <div class="world-selection-container">
-    <div v-if="store.isLoading" class="loading-state">正在推演诸天万界...</div>
-    <div v-else-if="store.error" class="error-state">天机紊乱：{{ store.error }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('正在推演诸天万界...') }}</div>
+    <div v-else-if="store.error" class="error-state">{{ $t('天机紊乱') }}：{{ store.error }}</div>
 
     <div v-else class="world-layout">
       <!-- 左侧面板：世界列表 -->
       <div class="left-panel">
         <!-- 顶部功能按钮 -->
         <div class="top-actions-container">
-          <button 
+          <button
             v-if="store.isLocalCreation"
-            @click="isCustomModalVisible = true" 
+            @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">自定义世界</span>
+            <span class="action-name">{{ $t('自定义世界') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
-            <span class="action-name">AI推演</span>
+            <span class="action-name">{{ $t('AI推演') }}</span>
           </button>
         </div>
 
@@ -24,10 +24,10 @@
           <div v-if="worldsList.length === 0" class="no-worlds-message">
             <div class="no-worlds-icon">🌌</div>
             <div class="no-worlds-text">
-              {{ store.isLocalCreation ? '暂无本地世界数据' : '暂无云端世界数据' }}
+              {{ store.isLocalCreation ? $t('暂无本地世界数据') : $t('暂无云端世界数据') }}
             </div>
             <div v-if="!store.isLocalCreation" class="no-worlds-hint">
-              请检查网络连接或联系管理员
+              {{ $t('请检查网络连接或联系管理员') }}
             </div>
           </div>
           <div v-else
@@ -42,10 +42,10 @@
               <span class="item-name">{{ world.name }}</span>
             </div>
             <div v-if="world.source === 'cloud'" class="action-buttons">
-              <button @click.stop="openEditModal(world)" class="edit-btn" title="编辑此项">
+              <button @click.stop="openEditModal(world)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="handleDeleteWorld(world.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteWorld(world.id)" class="delete-btn" :title="$t('删除此项')">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -58,30 +58,30 @@
         <div v-if="activeWorld" class="world-details">
           <div class="details-header">
             <h2 class="details-title">{{ activeWorld.name }}</h2>
-            <button class="map-settings-btn" @click="showMapOptions = !showMapOptions" title="地图生成选项">
+            <button class="map-settings-btn" @click="showMapOptions = !showMapOptions" :title="$t('地图生成选项')">
               <Settings :size="16" />
-              <span class="btn-text">设置</span>
+              <span class="btn-text">{{ $t('设置') }}</span>
             </button>
           </div>
-          <p class="era">【{{ activeWorld.era || '时代未知' }}】</p>
+          <p class="era">【{{ activeWorld.era || $t('时代未知') }}】</p>
 
           <!-- 地图生成选项（移入右侧详情内，避免整体高度溢出） -->
           <div class="map-options" v-show="showMapOptions">
-            <div class="map-options-header">世界规模配置</div>
+            <div class="map-options-header">{{ $t('世界规模配置') }}</div>
 
             <!-- 配置警告提示 -->
             <div class="config-warning" v-if="isConfigRisky">
               <div class="warning-icon">⚠️</div>
               <div class="warning-text">
-                <div class="warning-title">配置过高警告</div>
-                <div class="warning-desc">当前配置可能导致生成失败，建议调整至合理范围</div>
+                <div class="warning-title">{{ $t('配置过高警告') }}</div>
+                <div class="warning-desc">{{ $t('当前配置可能导致生成失败，建议调整至合理范围') }}</div>
               </div>
             </div>
 
             <!-- 核心游戏配置 -->
             <div class="map-options-grid">
               <label class="option-item">
-                <span class="option-label">主要势力</span>
+                <span class="option-label">{{ $t('主要势力') }}</span>
                 <input
                   type="number"
                   min="1"
@@ -90,10 +90,10 @@
                   v-model.number="worldConfig.majorFactionsCount"
                   :class="{ 'config-risky': worldConfig.majorFactionsCount > 8 }"
                 />
-                <span class="config-hint">推荐: 3-8</span>
+                <span class="config-hint">{{ $t('推荐: 3-8') }}</span>
               </label>
               <label class="option-item">
-                <span class="option-label">地点总数</span>
+                <span class="option-label">{{ $t('地点总数') }}</span>
                 <input
                   type="number"
                   min="5"
@@ -102,10 +102,10 @@
                   v-model.number="worldConfig.totalLocations"
                   :class="{ 'config-risky': worldConfig.totalLocations > 15 }"
                 />
-                <span class="config-hint">推荐: 8-15</span>
+                <span class="config-hint">{{ $t('推荐: 8-15') }}</span>
               </label>
               <label class="option-item">
-                <span class="option-label">秘境数量</span>
+                <span class="option-label">{{ $t('秘境数量') }}</span>
                 <input
                   type="number"
                   min="0"
@@ -114,19 +114,19 @@
                   v-model.number="worldConfig.secretRealmsCount"
                   :class="{ 'config-risky': worldConfig.secretRealmsCount > 10 }"
                 />
-                <span class="config-hint">推荐: 3-10</span>
+                <span class="config-hint">{{ $t('推荐: 3-10') }}</span>
               </label>
               <label class="option-item">
-                <span class="option-label">大陆数量</span>
+                <span class="option-label">{{ $t('大陆数量') }}</span>
                 <input
                   type="number"
                   min="3"
                   max="7"
                   step="1"
                   v-model.number="worldConfig.continentCount"
-                  title="大陆数量决定世界的宏观格局，3-7片大陆形成不同的地缘政治结构"
+                  :title="$t('大陆数量决定世界的宏观格局，3-7片大陆形成不同的地缘政治结构')"
                 />
-                <span class="config-hint">范围: 3-7</span>
+                <span class="config-hint">{{ $t('范围: 3-7') }}</span>
               </label>
             </div>
 
@@ -134,37 +134,37 @@
             <div class="advanced-section">
               <button class="advanced-toggle" @click="showAdvancedOptions = !showAdvancedOptions">
                 <span>{{ showAdvancedOptions ? '▼' : '▶' }}</span>
-                <span>高级选项（地图技术参数）</span>
+                <span>{{ $t('高级选项（地图技术参数）') }}</span>
               </button>
 
               <div v-show="showAdvancedOptions" class="advanced-content">
                 <div class="map-options-grid">
                   <label class="option-item">
-                    <span class="option-label">地图宽度</span>
+                    <span class="option-label">{{ $t('地图宽度') }}</span>
                     <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.width" />
-                    <span class="config-hint">推荐: 3600</span>
+                    <span class="config-hint">{{ $t('推荐: 3600') }}</span>
                   </label>
                   <label class="option-item">
-                    <span class="option-label">地图高度</span>
+                    <span class="option-label">{{ $t('地图高度') }}</span>
                     <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.height" />
-                    <span class="config-hint">推荐: 2400</span>
+                    <span class="config-hint">{{ $t('推荐: 2400') }}</span>
                   </label>
                 </div>
                 <div class="map-options-grid geo-grid">
                   <label class="option-item">
-                    <span class="option-label">经度范围</span>
+                    <span class="option-label">{{ $t('经度范围') }}</span>
                     <div class="range-inputs">
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLng" placeholder="最小经度" />
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLng" :placeholder="$t('最小经度')" />
                       <span>-</span>
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLng" placeholder="最大经度" />
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLng" :placeholder="$t('最大经度')" />
                     </div>
                   </label>
                   <label class="option-item">
-                    <span class="option-label">纬度范围</span>
+                    <span class="option-label">{{ $t('纬度范围') }}</span>
                     <div class="range-inputs">
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLat" placeholder="最小纬度" />
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLat" :placeholder="$t('最小纬度')" />
                       <span>-</span>
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLat" placeholder="最大纬度" />
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLat" :placeholder="$t('最大纬度')" />
                     </div>
                   </label>
                 </div>
@@ -172,34 +172,34 @@
             </div>
 
             <div class="map-options-actions">
-              <button class="opt-btn" @click="randomizeConfig">随机</button>
-              <button class="opt-btn" @click="resetConfig">重置</button>
+              <button class="opt-btn" @click="randomizeConfig">{{ $t('随机') }}</button>
+              <button class="opt-btn" @click="resetConfig">{{ $t('重置') }}</button>
             </div>
           </div>
 
           <div class="description-scroll" v-show="!showMapOptions">
-            <p>{{ activeWorld.description || '此界一片混沌，尚无描述。' }}</p>
+            <p>{{ activeWorld.description || $t('此界一片混沌，尚无描述。') }}</p>
           </div>
         </div>
         <div v-else class="placeholder">
-          请择一方大千世界，以定道基。
+          {{ $t('请择一方大千世界，以定道基。') }}
         </div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      title="自定义世界"
+      :title="$t('自定义世界')"
       :fields="customWorldFields"
       :validationFn="validateCustomWorld"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-    
+
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      title="编辑世界"
+      :title="$t('编辑世界')"
       :fields="customWorldFields"
       :validationFn="validateCustomWorld"
       :initialData="editInitialData"

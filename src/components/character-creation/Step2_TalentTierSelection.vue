@@ -1,22 +1,22 @@
 <template>
   <div class="talent-tier-selection">
-    <div v-if="store.isLoading" class="loading-state">感应天道，测算天资...</div>
-    <div v-else-if="store.error" class="error-state">天机混沌：{{ store.error }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('感应天道，测算天资...') }}</div>
+    <div v-else-if="store.error" class="error-state">{{ $t('天机混沌') }}：{{ store.error }}</div>
 
     <div v-else class="tier-layout">
       <!-- 左侧面板：列表和操作按钮 -->
       <div class="tier-left-panel">
         <!-- 顶部功能按钮 -->
         <div class="top-actions-container">
-          <button 
-            v-if="store.isLocalCreation" 
-            @click="isCustomModalVisible = true" 
+          <button
+            v-if="store.isLocalCreation"
+            @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">自定义天资</span>
+            <span class="action-name">{{ $t('自定义天资') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
-            <span class="action-name">AI推演</span>
+            <span class="action-name">{{ $t('AI推演') }}</span>
           </button>
         </div>
 
@@ -32,13 +32,13 @@
           >
             <div class="item-content">
               <span class="tier-name">{{ tier.name }}</span>
-              <span class="tier-points">{{ tier.total_points }} 点</span>
+              <span class="tier-points">{{ tier.total_points }} {{ $t('点') }}</span>
             </div>
             <div v-if="tier.source === 'cloud'" class="action-buttons">
-              <button @click.stop="openEditModal(tier)" class="edit-btn" title="编辑此项">
+              <button @click.stop="openEditModal(tier)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>
-              <button @click.stop="handleDeleteTalentTier(tier.id)" class="delete-btn" title="删除此项">
+              <button @click.stop="handleDeleteTalentTier(tier.id)" class="delete-btn" :title="$t('删除此项')">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -55,25 +55,25 @@
           <div class="description-scroll">
             <p>{{ activeTier.description }}</p>
           </div>
-          <div class="points-display">天道点: {{ activeTier.total_points }}</div>
+          <div class="points-display">{{ $t('天道点') }}: {{ activeTier.total_points }}</div>
         </div>
-        <div v-else class="placeholder">请选择你的天资等级，这将决定你的起点。</div>
+        <div v-else class="placeholder">{{ $t('请选择你的天资等级，这将决定你的起点。') }}</div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      title="自定义天资"
+      :title="$t('自定义天资')"
       :fields="customTierFields"
       :validationFn="validateCustomTier"
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-    
+
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      title="编辑天资"
+      :title="$t('编辑天资')"
       :fields="customTierFields"
       :validationFn="validateCustomTier"
       :initialData="editInitialData"

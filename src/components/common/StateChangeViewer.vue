@@ -2,7 +2,7 @@
   <div class="state-change-overlay" @click.self="$emit('close')">
     <div class="state-change-viewer">
       <div class="viewer-header">
-        <h3><ScrollText :size="18" /> 变更日志</h3>
+        <h3><ScrollText :size="18" /> {{ $t('变更日志') }}</h3>
         <button @click="$emit('close')" class="close-btn">
           <X :size="20" />
         </button>
@@ -10,24 +10,24 @@
       <div class="viewer-summary">
         <div class="summary-item added">
           <PlusCircle :size="16" />
-          <span>新增 {{ formattedLog.summary.added }}</span>
+          <span>{{ $t('新增') }} {{ formattedLog.summary.added }}</span>
         </div>
         <div class="summary-item removed">
           <MinusCircle :size="16" />
-          <span>移除 {{ formattedLog.summary.removed }}</span>
+          <span>{{ $t('移除') }} {{ formattedLog.summary.removed }}</span>
         </div>
         <div class="summary-item updated">
           <RefreshCw :size="16" />
-          <span>更新 {{ formattedLog.summary.updated }}</span>
+          <span>{{ $t('更新') }} {{ formattedLog.summary.updated }}</span>
         </div>
         <div v-if="formattedLog.summary.errors > 0" class="summary-item errors">
           <X :size="16" />
-          <span>错误 {{ formattedLog.summary.errors }}</span>
+          <span>{{ $t('错误') }} {{ formattedLog.summary.errors }}</span>
         </div>
       </div>
       <div class="viewer-content">
         <div v-if="formattedLog.changes.length === 0" class="no-changes">
-          <p>本次操作没有产生可见的状态变更。</p>
+          <p>{{ $t('本次操作没有产生可见的状态变更。') }}</p>
         </div>
         <div v-else class="changes-list">
           <div

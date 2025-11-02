@@ -2,68 +2,68 @@
   <div v-if="isVisible" class="auth-modal-overlay" @click.self="handleCancel">
     <div class="auth-modal">
       <div class="auth-modal-header">
-        <h3 class="auth-modal-title">🔐 授权验证</h3>
-        <button class="auth-modal-close" @click="handleCancel" aria-label="关闭">×</button>
+        <h3 class="auth-modal-title">🔐 {{ $t('授权验证') }}</h3>
+        <button class="auth-modal-close" @click="handleCancel" :aria-label="$t('关闭')">×</button>
       </div>
 
       <div class="auth-modal-body">
         <div class="auth-info">
           <p class="auth-description">
-            欢迎使用授权系统快速入门功能。请输入您的兑换码和机器码进行验证。
+            {{ $t('欢迎使用授权系统快速入门功能。请输入您的兑换码和机器码进行验证。') }}
           </p>
         </div>
 
         <div class="auth-form">
           <div class="form-group">
-            <label class="form-label">应用 ID</label>
+            <label class="form-label">{{ $t('应用 ID') }}</label>
             <input
               v-model="formData.appId"
               type="text"
               class="form-input"
-              placeholder="请输入应用ID"
+              :placeholder="$t('请输入应用ID')"
               :disabled="isVerifying"
             />
           </div>
 
           <div class="form-group">
-            <label class="form-label">兑换码</label>
+            <label class="form-label">{{ $t('兑换码') }}</label>
             <input
               v-model="formData.code"
               type="text"
               class="form-input"
-              placeholder="请输入兑换码"
+              :placeholder="$t('请输入兑换码')"
               :disabled="isVerifying"
             />
           </div>
 
           <div class="form-group">
-            <label class="form-label">机器码</label>
+            <label class="form-label">{{ $t('机器码') }}</label>
             <div class="machine-code-group">
               <input
                 v-model="formData.machineCode"
                 type="text"
                 class="form-input"
-                placeholder="自动生成或手动输入"
+                :placeholder="$t('自动生成或手动输入')"
                 :disabled="isVerifying"
               />
               <button
                 class="generate-btn"
                 @click="generateMachineCode"
                 :disabled="isVerifying"
-                title="生成机器码"
+                :title="$t('生成机器码')"
               >
                 🔄
               </button>
             </div>
-            <span class="form-hint">使用统一机器码系统自动生成</span>
+            <span class="form-hint">{{ $t('使用统一机器码系统自动生成') }}</span>
           </div>
 
           <div class="form-group">
-            <label class="form-label">绑定类型</label>
+            <label class="form-label">{{ $t('绑定类型') }}</label>
             <select v-model="formData.bindingType" class="form-select" :disabled="isVerifying">
-              <option value="machine_only">仅机器码</option>
-              <option value="ip_only">仅IP</option>
-              <option value="both">双重绑定</option>
+              <option value="machine_only">{{ $t('仅机器码') }}</option>
+              <option value="ip_only">{{ $t('仅IP') }}</option>
+              <option value="both">{{ $t('双重绑定') }}</option>
             </select>
           </div>
         </div>
@@ -83,15 +83,15 @@
           @click="handleCancel"
           :disabled="isVerifying"
         >
-          取消
+          {{ $t('取消') }}
         </button>
         <button
           class="auth-btn auth-btn-verify"
           @click="handleVerify"
           :disabled="isVerifying || !isFormValid"
         >
-          <span v-if="isVerifying">验证中...</span>
-          <span v-else>验证授权</span>
+          <span v-if="isVerifying">{{ $t('验证中...') }}</span>
+          <span v-else>{{ $t('验证授权') }}</span>
         </button>
       </div>
     </div>

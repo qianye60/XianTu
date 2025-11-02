@@ -26,6 +26,7 @@
 import { ref, computed } from 'vue';
 import { toast } from '../../utils/toast';
 import PresetSaveModal from './PresetSaveModal.vue';
+import { useI18n } from '../../i18n';
 
 // Props
 const props = defineProps<{
@@ -45,6 +46,7 @@ const emit = defineEmits<{
 const isStoring = ref(false);
 const hasStored = ref(false);
 const showSaveModal = ref(false);
+const { t } = useI18n();
 
 // 是否启用按钮（仅在最后一步启用）
 const isEnabled = computed(() => {
@@ -56,28 +58,28 @@ const isEnabled = computed(() => {
 
 // 获取按钮文本
 function getButtonText() {
-  if (isStoring.value) return '存储中';
-  if (hasStored.value) return '已存储';
-  return '存储预设';
+  if (isStoring.value) return t('存储中');
+  if (hasStored.value) return t('已存储');
+  return t('存储预设');
 }
 
 // 获取按钮提示文本
 function getButtonTooltip() {
   if (!isEnabled.value) {
-    return '请完成所有步骤后再保存预设';
+    return t('请完成所有步骤后再保存预设');
   }
-  if (isStoring.value) return '正在存储预设...';
-  if (hasStored.value) return '预设已存储';
-  return '保存当前选择为预设';
+  if (isStoring.value) return t('正在存储预设...');
+  if (hasStored.value) return t('预设已存储');
+  return t('保存当前选择为预设');
 }
 
 // 处理点击存储预设按钮
 function handleStorePreset() {
   if (isStoring.value || hasStored.value || !isEnabled.value) {
     if (hasStored.value) {
-      toast.info('预设已存储，无需重复操作');
+      toast.info(t('预设已存储，无需重复操作'));
     } else if (!isEnabled.value) {
-      toast.warning('请完成所有步骤后再保存预设');
+      toast.warning(t('请完成所有步骤后再保存预设'));
     }
     return;
   }
@@ -91,34 +93,34 @@ function handleStorePreset() {
 async function handleSavePreset(data: { presetName: string; presetDescription: string }) {
   isStoring.value = true;
   const toastId = 'store-preset-toast';
-  toast.loading('正在保存预设...', { id: toastId });
-  
+  toast.loading(t('正在保存预设...'), { id: toastId });
+
   try {
     // TODO: 实现预设存储逻辑
     // 这里应该获取当前的角色创建数据并保存
     await new Promise(resolve => setTimeout(resolve, 800));
-    
+
     const presetData = {
       name: data.presetName,
       description: data.presetDescription,
       savedAt: new Date().toISOString()
       // TODO: 添加实际的角色数据
     };
-    
-    toast.success(`预设「${data.presetName}」保存成功！`, { id: toastId });
+
+    toast.success(t('预设「{0}」保存成功！').replace('{0}', data.presetName), { id: toastId });
     hasStored.value = true;
     showSaveModal.value = false;
 
     emit('storeCompleted', {
       success: true,
-      message: '预设保存成功',
+      message: t('预设保存成功'),
       presetData
     });
 
   } catch (error) {
     console.error('[存储预设组件] 存储失败:', error);
-    const message = error instanceof Error ? error.message : '存储失败';
-    toast.error(`存储失败: ${message}`, { id: toastId });
+    const message = error instanceof Error ? error.message : t('存储失败');
+    toast.error(t('存储失败: {0}').replace('{0}', message), { id: toastId });
     emit('storeCompleted', {
       success: false,
       message: message

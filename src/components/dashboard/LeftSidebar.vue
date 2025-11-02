@@ -3,7 +3,7 @@
     <div class="sidebar-header">
       <h3 class="sidebar-title">
         <Compass :size="20" class="title-icon" />
-        {{ t('gameFunctions') }}
+        {{ t('游戏功能') }}
       </h3>
       <div class="real-time">
         <Clock :size="14" class="time-icon" />
@@ -14,15 +14,15 @@
     <div class="sidebar-content">
       <!-- 主要功能区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('cultivation') }}</div>
+        <div class="section-title">{{ t('修行管理') }}</div>
         <div class="function-group">
           <button class="function-btn primary" @click="handleInventory">
             <div class="btn-icon">
               <Package :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('inventory') }}</span>
-              <span class="btn-desc">{{ t('inventoryDesc') }}</span>
+              <span class="btn-text">{{ t('背包物品') }}</span>
+              <span class="btn-desc">{{ t('查看道具装备') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -32,8 +32,8 @@
               <User :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('characterDetails') }}</span>
-              <span class="btn-desc">{{ t('characterDetailsDesc') }}</span>
+              <span class="btn-text">{{ t('人物详情') }}</span>
+              <span class="btn-desc">{{ t('查看修为境界') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -43,8 +43,8 @@
               <BookOpen :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('techniques') }}</span>
-              <span class="btn-desc">{{ t('techniquesDesc') }}</span>
+              <span class="btn-text">{{ t('修炼功法') }}</span>
+              <span class="btn-desc">{{ t('功法修炼技能') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -54,8 +54,8 @@
               <Zap :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('thousandDao') }}</span>
-              <span class="btn-desc">{{ t('thousandDaoDesc') }}</span>
+              <span class="btn-text">{{ t('三千大道') }}</span>
+              <span class="btn-desc">{{ t('修炼万法道途') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -64,15 +64,15 @@
 
       <!-- 社交功能区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('worldAffairs') }}</div>
+        <div class="section-title">{{ t('红尘俗事') }}</div>
         <div class="function-group">
           <button class="function-btn secondary" @click="handleRelationships">
             <div class="btn-icon">
               <Users :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('relationships') }}</span>
-              <span class="btn-desc">{{ t('relationshipsDesc') }}</span>
+              <span class="btn-text">{{ t('人物关系') }}</span>
+              <span class="btn-desc">{{ t('人情世故网络') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -82,8 +82,8 @@
               <Home :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('sectInfo') }}</span>
-              <span class="btn-desc">{{ t('sectInfoDesc') }}</span>
+              <span class="btn-text">{{ t('宗门信息') }}</span>
+              <span class="btn-desc">{{ t('门派势力详情') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -96,8 +96,8 @@
               <Scroll :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('questLog') }}</span>
-              <span class="btn-desc">{{ t('questLogDesc') }}</span>
+              <span class="btn-text">{{ t('任务日志') }}</span>
+              <span class="btn-desc">{{ t('当前任务进度') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -106,15 +106,15 @@
 
       <!-- 探索功能区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('worldExplore') }}</div>
+        <div class="section-title">{{ t('世界探索') }}</div>
         <div class="function-group">
           <button class="function-btn accent" @click="handleWorldMap">
             <div class="btn-icon">
               <Map :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('worldMapBtn') }}</span>
-              <span class="btn-desc">{{ t('worldMapDesc') }}</span>
+              <span class="btn-text">{{ t('世界地图') }}</span>
+              <span class="btn-desc">{{ t('坤舆图志') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -124,8 +124,8 @@
               <Brain :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('memoryCenter') }}</span>
-              <span class="btn-desc">{{ t('memoryCenterDesc') }}</span>
+              <span class="btn-text">{{ t('记忆中心') }}</span>
+              <span class="btn-desc">{{ t('重要事件回顾') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -135,8 +135,8 @@
               <Globe :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">论道交友</span>
-              <span class="btn-desc">与道友论道</span>
+              <span class="btn-text">{{ t('论道交友') }}</span>
+              <span class="btn-desc">{{ t('与道友论道') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -153,8 +153,8 @@
               <Save :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('saveGame') }}</span>
-              <span class="btn-desc">{{ t('saveGameDesc') }}</span>
+              <span class="btn-text">{{ t('保存游戏') }}</span>
+              <span class="btn-desc">{{ t('保存当前进度') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -164,8 +164,8 @@
               <Database :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('gameVariables') }}</span>
-              <span class="btn-desc">{{ t('gameVariablesDesc') }}</span>
+              <span class="btn-text">{{ t('游戏变量') }}</span>
+              <span class="btn-desc">{{ t('查看游戏数据') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -175,8 +175,8 @@
               <Settings :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('settingsBtn') }}</span>
-              <span class="btn-desc">{{ t('settingsDesc') }}</span>
+              <span class="btn-text">{{ t('系统设置') }}</span>
+              <span class="btn-desc">{{ t('偏好设置') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -186,8 +186,8 @@
               <LogOut :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">返回道途</span>
-              <span class="btn-desc">退出当前游戏</span>
+              <span class="btn-text">{{ t('返回道途') }}</span>
+              <span class="btn-desc">{{ t('退出当前游戏') }}</span>
             </div>
           </button>
         </div>
@@ -282,7 +282,7 @@ const handleWorldMap = () => {
 
 const handleOnlinePlay = () => {
   // 这个功能保持原样，因为不是真正的面板
-  toast.info('联机功能开发中...');
+  toast.info(t('联机功能开发中...'));
 };
 
 const handleSettings = () => {
@@ -295,11 +295,11 @@ const handleGameVariables = () => {
 
 const handleBackToMenu = () => {
   uiStore.showRetryDialog({
-    title: '返回道途',
-    message: '您想如何退出当前游戏？',
-    confirmText: '保存并退出',
-    cancelText: '取消',
-    neutralText: '不保存直接退出',
+    title: t('返回道途'),
+    message: t('您想如何退出当前游戏？'),
+    confirmText: t('保存并退出'),
+    cancelText: t('取消'),
+    neutralText: t('不保存直接退出'),
     onConfirm: async () => {
       console.log('[返回道途] 用户选择保存并退出...');
       try {
@@ -307,16 +307,16 @@ const handleBackToMenu = () => {
         const { useGameStateStore } = await import('@/stores/gameStateStore');
         const gameStateStore = useGameStateStore();
         await gameStateStore.saveBeforeExit();
-        toast.success('游戏已保存');
+        toast.success(t('游戏已保存'));
       } catch (error) {
         console.error('[返回道途] 保存游戏失败:', error);
-        toast.error('游戏保存失败，但仍会继续退出。');
+        toast.error(t('游戏保存失败，但仍会继续退出。'));
       }
       await exitToMenu();
     },
     onNeutral: async () => {
       console.log('[返回道途] 用户选择不保存直接退出...');
-      toast.info('游戏进度未保存');
+      toast.info(t('游戏进度未保存'));
       await exitToMenu(); // 传入 false 表示不保存
     },
     onCancel: () => {
