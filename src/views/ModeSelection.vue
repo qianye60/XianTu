@@ -161,6 +161,51 @@ onMounted(async () => {
   // 检查授权状态
   checkAuthStatus();
 
+  // 🔴 如果启用授权验证，验证本地授权的有效性
+  if (AUTH_CONFIG.ENABLE_AUTH && isAuthorized.value) {
+    try {
+      const machineCode = localStorage.getItem('auth_machine_code');
+      const appId = localStorage.getItem('auth_app_id');
+
+      if (machineCode && appId) {
+        // 向服务器验证授权是否仍然有效
+        const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'verify',
+            app_id: appId,
+            machine_code: machineCode
+          })
+        });
+
+        const result = await response.json();
+
+        if (!result.success || !result.is_valid) {
+          // 服务器验证失败，清除本地授权状态
+          console.warn('[授权验证] 服务器验证失败，清除本地授权');
+          localStorage.removeItem('auth_verified');
+          localStorage.removeItem('auth_app_id');
+          localStorage.removeItem('auth_machine_code');
+          localStorage.removeItem('auth_expires_at');
+          checkAuthStatus();
+
+          toast.warning('授权已失效，请重新验证');
+          showAuthModal.value = true;
+        } else {
+          console.log('[授权验证] 服务器验证通过');
+        }
+      } else {
+        // 本地授权信息不完整，清除状态
+        localStorage.removeItem('auth_verified');
+        checkAuthStatus();
+      }
+    } catch (error) {
+      console.warn('[授权验证] 服务器验证失败（网络错误）:', error);
+      // 网络错误时不清除授权，允许离线使用
+    }
+  }
+
   // 如果启用授权验证且本地未授权，弹出验证窗口
   if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value && AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
     setTimeout(() => {
@@ -199,6 +244,13 @@ const selectPath = (mode: 'single' | 'cloud') => {
 };
 
 const startNewGame = () => {
+  // 如果启用授权验证且本地未授权，提示用户验证
+  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
+    showAuthModal.value = true;
+    toast.warning('请先完成授权验证');
+    return;
+  }
+
   if (selectedMode.value) {
     emit('start-creation', selectedMode.value);
   }

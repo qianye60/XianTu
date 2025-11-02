@@ -392,11 +392,8 @@ export const useGameStateStore = defineStore('gameState', {
       // 1. 保存到当前激活的存档
       await characterStore.saveCurrentGame();
 
-      // 2. 如果启用了对话后自动存档，则保存到 "上次对话" 存档槽
-      if (this.conversationAutoSaveEnabled) {
-        await characterStore.saveToSlot('上次对话');
-        console.log('[GameState] Saved to "上次对话" slot');
-      }
+      // 2. 注意："上次对话"备份已移至 MainGamePanel.sendMessage() 的开始处（发送消息前）
+      // 这样回滚时才能恢复到对话前的状态
 
       // 3. 检查是否需要创建时间点存档
       await this.checkAndCreateTimeBasedSave();

@@ -1040,6 +1040,17 @@ const sendMessage = async () => {
     }
   }
 
+  // 🔥 在发送消息前备份到"上次对话"（用于回滚）
+  if (gameStateStore.conversationAutoSaveEnabled) {
+    try {
+      await characterStore.saveToSlot('上次对话');
+      console.log('[上次对话] 已在发送消息前备份当前状态');
+    } catch (backupError) {
+      console.warn('[上次对话] 备份失败（非致命）:', backupError);
+      // 备份失败不阻止发送消息
+    }
+  }
+
   const userMessage = inputText.value.trim();
 
   // 获取动作队列中的文本
@@ -1310,14 +1321,6 @@ const sendMessage = async () => {
           toast.success(`存档【${slot.存档名}】已保存`);
         }
         console.log('[AI响应处理] 最终统一存档完成');
-
-        // 🔥 成功后备份到"上次对话"
-        try {
-          await characterStore.saveToSlot('上次对话');
-          console.log('[上次对话] 已备份当前状态');
-        } catch (backupError) {
-          console.warn('[上次对话] 备份失败（非致命）:', backupError);
-        }
       } catch (storageError) {
         console.error('[AI响应处理] 最终统一存档失败:', storageError);
         toast.error('游戏存档失败，请尝试手动保存');

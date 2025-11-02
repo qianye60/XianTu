@@ -220,60 +220,73 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 3. 缓存失效或不存在，先放行路由，后台异步验证
-    console.log('[路由守卫] 缓存失效，后台异步验证');
-    next(); // 先放行，不阻塞路由
+    // 3. 缓存失效或不存在，阻塞路由进行验证
+    console.log('[路由守卫] 缓存失效，进行同步验证');
 
-    // 后台异步验证
-    (async () => {
-      try {
-        const machineCode = await generateMachineCodeForCheck();
-        const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'check',
-            app_id: AUTH_CONFIG.APP_ID,
-            machine_code: machineCode
-          })
-        });
+    // 🔴 改为同步验证，阻塞路由直到验证完成
+    try {
+      const machineCode = await generateMachineCodeForCheck();
+      const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check',
+          app_id: AUTH_CONFIG.APP_ID,
+          machine_code: machineCode
+        })
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        // 只有服务器验证通过才更新缓存
-        if (result.success && result.data?.authorized) {
-          console.log('[路由守卫] 后台验证通过');
-          const currentTime = Date.now();
+      // 只有服务器验证通过才放行路由
+      if (result.success && result.data?.authorized) {
+        console.log('[路由守卫] 验证通过，放行路由');
+        const currentTime = Date.now();
 
-          // 更新 localStorage
-          localStorage.setItem('auth_verified', 'true');
-          localStorage.setItem('auth_timestamp', currentTime.toString());
-          localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-          localStorage.setItem('auth_machine_code', machineCode);
-          if (result.data.expires_at) {
-            localStorage.setItem('auth_expires_at', result.data.expires_at);
-          }
-
-          // 更新内存缓存
-          authCache = {
-            verified: true,
-            timestamp: currentTime,
-            expiresAt: result.data.expires_at
-          };
-        } else {
-          // 验证失败，清除缓存并跳转首页
-          console.warn('[路由守卫] 后台验证失败');
-          authCache = null;
-          localStorage.removeItem('auth_verified');
-          localStorage.removeItem('auth_timestamp');
-          if (router.currentRoute.value.path !== '/') {
-            router.push('/');
-          }
+        // 更新 localStorage
+        localStorage.setItem('auth_verified', 'true');
+        localStorage.setItem('auth_timestamp', currentTime.toString());
+        localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
+        localStorage.setItem('auth_machine_code', machineCode);
+        if (result.data.expires_at) {
+          localStorage.setItem('auth_expires_at', result.data.expires_at);
         }
-      } catch (error) {
-        console.warn('[路由守卫] 后台验证异常', error);
+
+        // 更新内存缓存
+        authCache = {
+          verified: true,
+          timestamp: currentTime,
+          expiresAt: result.data.expires_at
+        };
+
+        // 验证通过，放行路由
+        next();
+      } else {
+        // 验证失败，阻止路由并跳转首页
+        console.warn('[路由守卫] 验证失败，阻止路由');
+        authCache = null;
+        localStorage.removeItem('auth_verified');
+        localStorage.removeItem('auth_timestamp');
+        localStorage.removeItem('auth_app_id');
+        localStorage.removeItem('auth_machine_code');
+        localStorage.removeItem('auth_expires_at');
+
+        // 如果不是首页，跳转到首页
+        if (to.path !== '/') {
+          next('/');
+        } else {
+          next();
+        }
       }
-    })();
+    } catch (error) {
+      console.warn('[路由守卫] 验证异常，阻止路由', error);
+      // 网络错误时，如果是首页则放行，否则跳转首页
+      if (to.path === '/') {
+        next();
+      } else {
+        next('/');
+      }
+    }
     return;
   }
 
