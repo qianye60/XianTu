@@ -30,6 +30,7 @@ export const cotCorePrompt = `
 ## ⚠️ 输出流程（严格按顺序，违反将被拒绝）
 
 **🔴 第一步：必须先输出完整思维链**
+
 <thinking>
 ## 1. Intent & Context
 [必填]

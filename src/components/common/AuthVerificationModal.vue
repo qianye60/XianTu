@@ -131,8 +131,11 @@ const isVerifying = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 
+// 当前版本的应用ID（更新版本时修改这里）
+const CURRENT_APP_ID = 'v295_a1469682';
+
 const formData = reactive({
-  appId: 'v28_8542ec92', // 默认应用ID
+  appId: CURRENT_APP_ID,
   code: '',
   machineCode: '',
   bindingType: 'both' as 'machine_only' | 'ip_only' | 'both'
@@ -229,6 +232,17 @@ const handleClose = () => {
 
 // Lifecycle
 onMounted(() => {
+  // 检查并更新旧版本的应用ID
+  const cachedAppId = localStorage.getItem('auth_app_id');
+  if (cachedAppId && cachedAppId !== CURRENT_APP_ID) {
+    // 版本不匹配，清除旧授权
+    console.log(`[授权] 检测到旧版本授权 (${cachedAppId})，已清除`);
+    localStorage.removeItem('auth_verified');
+    localStorage.removeItem('auth_app_id');
+    localStorage.removeItem('auth_expires_at');
+    toast.info('检测到版本更新，请重新验证授权');
+  }
+
   // 优先从 localStorage 读取已缓存的机器码
   const cachedMachineCode = localStorage.getItem('auth_machine_code');
   if (cachedMachineCode) {
