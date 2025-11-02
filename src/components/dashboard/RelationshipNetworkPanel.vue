@@ -458,6 +458,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useI18n } from '@/i18n';
 import type { NpcProfile, Item } from '@/types/game';
+import type { SpiritRoot } from '@/types';
 import {
   Users2, Search,
   Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff, Trash2, ArrowLeft
@@ -566,11 +567,11 @@ const getNpcSpiritRoot = (npc: NpcProfile): string => {
 };
 
 // 获取NPC出生信息
-const getNpcOrigin = (origin: any): string => {
+const getNpcOrigin = (origin: string | { 名称?: string; 描述?: string; name?: string; description?: string } | undefined): string => {
   if (!origin) return '未知';
   if (typeof origin === 'string') return origin;
   if (typeof origin === 'object') {
-    return origin.描述 || origin.description || origin.name || '未知';
+    return origin.描述 || origin.description || origin.名称 || origin.name || '未知';
   }
   return '未知';
 };
@@ -596,7 +597,7 @@ const getNpcRecentMemories = (npc: NpcProfile): string[] => {
 };
 
 // 格式化灵根显示
-const formatSpiritRoot = (spiritRoot: any): string => {
+const formatSpiritRoot = (spiritRoot: string | SpiritRoot | { 名称?: string; 品级?: string; 描述?: string } | undefined): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
   // 兼容中英文字段名
@@ -979,8 +980,9 @@ const summarizeMemories = async () => {
 1. 使用第一人称（"我"）的视角，站在${npcName}的角度回忆
 2. 按时间顺序梳理事件脉络
 3. 保留关键信息：时间、地点、人物、事件、情感变化
-4. 字数控制在100-200字
+4. 🔴 字数严格控制在50-80字，超过80字将被拒绝
 5. 使用简洁的记忆摘要风格，不要写成叙事故事
+6. 只保留最核心的事件，删除所有修饰词和细节描述
 
 ## 示例对比
 ❌ 错误（故事风格）："那是一个月明星稀的夜晚，${npcName}独自站在山巅..."
@@ -994,7 +996,7 @@ const summarizeMemories = async () => {
 ## 输出格式（严格遵守）
 \`\`\`json
 {
-  "text": "总结的记忆内容（100-200字，第一人称）",
+  "text": "总结的记忆内容（50-80字，第一人称，简洁）",
   "mid_term_memory": "",
   "tavern_commands": []
 }
@@ -1002,6 +1004,8 @@ const summarizeMemories = async () => {
 
 注意：
 - text字段必须是第一人称视角的记忆摘要
+- 🔴 字数必须在50-80字之间，不能超过80字
+- 只写核心事件，删除所有修饰词
 - mid_term_memory留空
 - tavern_commands留空数组
 - 不要在JSON外添加任何说明文字`;
@@ -1010,75 +1014,65 @@ const summarizeMemories = async () => {
 
 ${memoriesText}
 
-记住：你是${npcName}，用"我"来总结这些记忆。`;
+🔴 重要提醒：
+1. 你是${npcName}，用"我"来总结这些记忆
+2. 字数必须严格控制在50-80字，不能超过80字
+3. 只写核心事件，删除所有修饰词和细节描述`;
 
     uiStore.showToast('正在调用AI总结记忆...', { type: 'info' });
 
-    // 🔥 使用标准generate模式而非Raw模式
-    const { AIBidirectionalSystem } = await import('@/utils/AIBidirectionalSystem');
-    const aiSystem = AIBidirectionalSystem; // 已经是实例，不需要 getInstance()
-
-    // 构建注入消息
+    // 🔴 使用 Raw 模式，完全不加载角色卡和聊天历史
     const tavernHelper = (await import('@/utils/tavern')).getTavernHelper();
     if (!tavernHelper) {
       throw new Error('TavernHelper 未初始化');
     }
 
-    const injects = [
-      {
-        content: systemPrompt,
-        role: 'assistant' as const,
-        depth: 1,
-        position: 'before' as const,
-      }
-    ];
+    // 构建完整的提示词（system + user）
+    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
-    // 🔴 使用 overrides 清空角色卡信息，只专注于记忆总结
-    const response = await tavernHelper.generate({
-      user_input: userPrompt,
-      should_stream: true,
-      generation_id: `npc_memory_summary_${Date.now()}`,
-      injects,
-      overrides: {
-        char_description: '',  // 清空角色描述
-        char_personality: '',  // 清空角色性格
-        scenario: '',          // 清空场景
-        example_dialogue: '',  // 清空示例对话
-      },
-      max_chat_history: 0,     // 不加载聊天历史
+    // 使用 generateRaw 直接调用 AI
+    const response = await tavernHelper.generateRaw({
+      prompt: fullPrompt,
+      use_mancer: false,
+      api: 'openai',
+      model: '',  // 使用默认模型
+      max_length: 500,  // 限制生成长度
+      temperature: 0.7,
+      top_p: 1,
+      top_k: 0,
+      rep_pen: 1,
+      rep_pen_range: 0,
+      rep_pen_slope: 0,
+      streaming: false,
     });
 
-    // 解析响应
+    // 解析响应（Raw 模式）
     let summary: string;
-    try {
-      const parsed = aiSystem['parseAIResponse'](response);
-      summary = parsed.text.trim();
-    } catch (parseError) {
-      console.error('[NPC记忆总结] 解析失败，尝试容错:', parseError);
+    const responseText = String(response).trim();
+    console.log('[NPC记忆总结] Raw响应:', responseText.substring(0, 200));
 
-      // 容错处理
-      const responseText = String(response).trim();
-      let extractedText = '';
-
+    // 1. 尝试提取 JSON 代码块
+    const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (jsonBlockMatch && jsonBlockMatch[1]) {
+      try {
+        const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+        summary = (jsonObj.text || jsonObj.summary || jsonObj.content || '').trim();
+        console.log('[NPC记忆总结] 从JSON代码块提取成功');
+      } catch (e) {
+        console.error('[NPC记忆总结] JSON代码块解析失败:', e);
+        summary = '';
+      }
+    } else {
+      // 2. 尝试直接解析为 JSON
       try {
         const jsonObj = JSON.parse(responseText);
-        extractedText = jsonObj.text || jsonObj.summary || jsonObj.content || '';
+        summary = (jsonObj.text || jsonObj.summary || jsonObj.content || '').trim();
+        console.log('[NPC记忆总结] 直接JSON解析成功');
       } catch {
-        // 尝试提取JSON代码块
-        const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-        if (jsonBlockMatch && jsonBlockMatch[1]) {
-          try {
-            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
-            extractedText = jsonObj.text || '';
-          } catch {
-            extractedText = responseText;
-          }
-        } else {
-          extractedText = responseText;
-        }
+        // 3. 直接使用响应文本
+        summary = responseText.trim();
+        console.log('[NPC记忆总结] 使用原始文本');
       }
-
-      summary = extractedText.trim();
     }
 
     if (!summary || summary.length === 0) {
@@ -1136,7 +1130,7 @@ ${memoriesText}
 
 // 删除NPC
 // 获取天赋名称的辅助函数
-const getTalentName = (talent: any): string => {
+const getTalentName = (talent: string | { 名称?: string; name?: string } | undefined): string => {
   if (typeof talent === 'string') return talent;
   if (typeof talent === 'object' && talent !== null) {
     return talent.名称 || talent.name || talent['名称'] || talent['name'] || '未知天赋';
@@ -1145,7 +1139,7 @@ const getTalentName = (talent: any): string => {
 };
 
 // 获取天赋描述的辅助函数
-const getTalentDescription = (talent: any): string => {
+const getTalentDescription = (talent: string | { 描述?: string; description?: string } | undefined): string => {
   if (typeof talent === 'string') return '';
   if (typeof talent === 'object' && talent !== null) {
     return talent.描述 || talent.description || talent['描述'] || talent['description'] || '';
@@ -1154,7 +1148,7 @@ const getTalentDescription = (talent: any): string => {
 };
 
 // 显示天赋详情
-const showTalentDetail = (talent: any) => {
+const showTalentDetail = (talent: string | { 名称?: string; name?: string; 描述?: string; description?: string } | undefined) => {
   const name = getTalentName(talent);
   const desc = getTalentDescription(talent);
   if (desc) {
