@@ -37,13 +37,16 @@ export const cotCorePrompt = `
 ## 2. Dice Rolling (if Dice: YES)
 [战斗场景必填]
 
-## 3. Character Analysis (if NPC involved)
+## 3. Writing Quality Check
+[必填 - 🔴 优先检查，防止机械化/绝望化/八股]
+
+## 4. Character Analysis (if NPC involved)
 [有NPC必填]
 
-## 4. Writing Execution
+## 5. Writing Execution
 [必填]
 
-## 5. Data & Commands
+## 6. Data & Commands
 [必填]
 </thinking>
 
@@ -95,28 +98,30 @@ Calculation:
 验算: [逐项相加] = [最终判定值] ✓
 Result: [判定值] vs [难度] → [成功/失败] → [后果]
 
-## 3. Character Analysis (if NPC involved)
+## 3. Writing Quality Check (🔴 优先检查)
+Check List - 必须在写作前检查：
+- ✓无机械化（分析/数据/程序比喻）
+- ✓无绝望化（空洞/失魂/麻木）
+- ✓无八股（石子/惊雷/针刀）
+- ✓有生理细节/环境描写/对话推进
+- ✓NPC有真实情感，会关心他人，有人性化反应
+- ✓避免：冷血、机械化、过度理性、工具人化
+
+## 4. Character Analysis (if NPC involved)
 NPC: [名称] | 性格:[3词] | 关系:[好感度/立场]
 - 会做: [符合性格的具体动作/反应]
 - 不会: [违背性格的行为]
 - 情感: [当前情绪状态，如：担心/高兴/生气/犹豫]
 - 内心: [真实想法，1-2句，非分析式，要有情感温度]
 - 外在: [说什么/做什么，基于关系和情感]
-✓必须：NPC有真实情感，会关心他人，有人性化反应
-✓避免：冷血、机械化、过度理性、工具人化
 
-## 4. Writing Execution
+## 5. Writing Execution
 Words: [简单500-800/复杂1000-1500] | 核心叙事≥60%
 Flow: 角色想法→具体动作→场景细节→氛围渲染
-Check List:
-- ✓无机械化（分析/数据/程序比喻）
-- ✓无绝望化（空洞/失魂/麻木）
-- ✓无八股（石子/惊雷/针刀）
-- ✓有生理细节/环境描写/对话推进
 Focus: [本次重点场景类型]
 Innovation: [场景特色/剧情转折/角色成长点]
 
-## 5. Data & Commands
+## 6. Data & Commands
 Changes: [角色状态/物品/NPC/任务/时间/位置]
 Commands: [预计X条]
 Verify:
@@ -131,7 +136,7 @@ Verify:
   * 使用技能/法术/神通/法宝 → 必须扣除灵气或神识
   * 已掌握技能：按"消耗"字段扣除 + 增加使用次数
   * 先检查资源是否足够，不足时在叙事中说明无法施展
-Options: [3-5个行动选项] (if enabled)
+Options: [3-6个本次对话的行动选项，具体根据设置来] (if enabled)
 </thinking>
 
 ---
