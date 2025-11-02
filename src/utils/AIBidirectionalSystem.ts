@@ -709,19 +709,12 @@ ${stateJsonString}
       const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
       const finalUserPrompt = `${randomPrefix}\n${userPrompt}`;
 
-      // 🔴 使用 overrides 清空角色卡信息，只专注于记忆总结
+      // 使用流式生成
       const response = await tavernHelper.generate({
         user_input: finalUserPrompt,
         should_stream: true,
         generation_id: `memory_summary_${Date.now()}`,
         injects,
-        overrides: {
-          char_description: '',  // 清空角色描述
-          char_personality: '',  // 清空角色性格
-          scenario: '',          // 清空场景
-          example_dialogue: '',  // 清空示例对话
-        },
-        max_chat_history: 0,     // 不加载聊天历史
       });
 
       // 强制提取JSON代码块（忽略外部思维链等内容）
