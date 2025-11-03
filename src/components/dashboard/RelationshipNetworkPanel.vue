@@ -966,112 +966,51 @@ const summarizeMemories = async () => {
     // 构建AI提示词 - 使用标准JSON格式
     const memoriesText = memoriesToSummarizeList.map((m, i) => `${i + 1}. ${m}`).join('\n');
 
-    const systemPrompt = `# NPC记忆总结任务
+    const systemPrompt = `你是${npcName}，用第一人称总结以下记忆。
 
-你需要将【${npcName}】的记忆总结成一条简洁的摘要。
+要求：
+1. 30-50字，只写核心事件
+2. 用"我"，不要修饰词
+3. 亲密内容用"云雨之欢"等委婉词
 
-## 🔴 核心要求（必须遵守）
-1. **这是${npcName}自己的记忆**，不是玩家关于${npcName}的记忆
-2. **必须从${npcName}的第一人称视角**总结（使用"我"）
-3. **只总结记忆中的事实**，不要编造、推测或添加未出现的情节
-4. **不要写成故事**，要写成记忆摘要
-
-## 总结要求
-1. 使用第一人称（"我"）的视角，站在${npcName}的角度回忆
-2. 按时间顺序梳理事件脉络
-3. 保留关键信息：时间、地点、人物、事件、情感变化
-4. 🔴 字数严格控制在50-80字，超过80字将被拒绝
-5. 使用简洁的记忆摘要风格，不要写成叙事故事
-6. 只保留最核心的事件，删除所有修饰词和细节描述
-
-## 示例对比
-❌ 错误（故事风格）："那是一个月明星稀的夜晚，${npcName}独自站在山巅..."
-✅ 正确（记忆摘要）："我在【时间】与玩家在【地点】相遇，当时我正在..."
-
-## 内容处理规范
-- 如果记忆中包含亲密关系内容，使用委婉、文学化的表达
-- 使用"云雨之欢"、"鱼水之欢"、"共度良宵"等古典词汇
-- 侧重情感层面和关系发展，淡化具体细节
-
-## 输出格式（严格遵守）
+输出JSON：
 \`\`\`json
-{
-  "text": "总结的记忆内容（50-80字，第一人称，简洁）",
-  "mid_term_memory": "",
-  "tavern_commands": []
-}
-\`\`\`
+{"text": "总结内容"}
+\`\`\``;
 
-注意：
-- text字段必须是第一人称视角的记忆摘要
-- 🔴 字数必须在50-80字之间，不能超过80字
-- 只写核心事件，删除所有修饰词
-- mid_term_memory留空
-- tavern_commands留空数组
-- 不要在JSON外添加任何说明文字`;
-
-    const userPrompt = `请从【${npcName}】的第一人称视角，总结以下记忆：
-
-${memoriesText}
-
-🔴 重要提醒：
-1. 你是${npcName}，用"我"来总结这些记忆
-2. 字数必须严格控制在50-80字，不能超过80字
-3. 只写核心事件，删除所有修饰词和细节描述`;
+    const userPrompt = `记忆：\n${memoriesText}`;
 
     uiStore.showToast('正在调用AI总结记忆...', { type: 'info' });
 
-    // 🔴 使用 Raw 模式，完全不加载角色卡和聊天历史
     const tavernHelper = (await import('@/utils/tavern')).getTavernHelper();
     if (!tavernHelper) {
       throw new Error('TavernHelper 未初始化');
     }
 
-    // 构建完整的提示词（system + user）
-    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-
-    // 使用 generateRaw 直接调用 AI
     const response = await tavernHelper.generateRaw({
-      prompt: fullPrompt,
-      use_mancer: false,
-      api: 'openai',
-      model: '',  // 使用默认模型
-      max_length: 500,  // 限制生成长度
-      temperature: 0.7,
-      top_p: 1,
-      top_k: 0,
-      rep_pen: 1,
-      rep_pen_range: 0,
-      rep_pen_slope: 0,
-      streaming: false,
+      ordered_prompts: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+        { role: 'user', content: '开始任务' }
+      ],
+      should_stream: false
     });
 
-    // 解析响应（Raw 模式）
     let summary: string;
     const responseText = String(response).trim();
-    console.log('[NPC记忆总结] Raw响应:', responseText.substring(0, 200));
 
-    // 1. 尝试提取 JSON 代码块
     const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    if (jsonBlockMatch && jsonBlockMatch[1]) {
+    if (jsonBlockMatch?.[1]) {
       try {
-        const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
-        summary = (jsonObj.text || jsonObj.summary || jsonObj.content || '').trim();
-        console.log('[NPC记忆总结] 从JSON代码块提取成功');
-      } catch (e) {
-        console.error('[NPC记忆总结] JSON代码块解析失败:', e);
+        summary = JSON.parse(jsonBlockMatch[1].trim()).text?.trim() || '';
+      } catch {
         summary = '';
       }
     } else {
-      // 2. 尝试直接解析为 JSON
       try {
-        const jsonObj = JSON.parse(responseText);
-        summary = (jsonObj.text || jsonObj.summary || jsonObj.content || '').trim();
-        console.log('[NPC记忆总结] 直接JSON解析成功');
+        summary = JSON.parse(responseText).text?.trim() || '';
       } catch {
-        // 3. 直接使用响应文本
         summary = responseText.trim();
-        console.log('[NPC记忆总结] 使用原始文本');
       }
     }
 
