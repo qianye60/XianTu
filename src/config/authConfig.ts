@@ -14,7 +14,7 @@ export const AUTH_CONFIG = {
   SERVER_URL: 'https://auth.ddct.top',
 
   // 应用ID（已写死）
-  APP_ID: 'v295_a1469682',
+  APP_ID: 'v30_3c7fb661',
 
   // 是否在启动时自动弹出验证窗口（如果未验证）
   AUTO_SHOW_ON_STARTUP: true,

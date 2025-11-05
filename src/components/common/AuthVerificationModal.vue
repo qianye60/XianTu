@@ -132,7 +132,7 @@ const errorMessage = ref('');
 const successMessage = ref('');
 
 // 当前版本的应用ID（更新版本时修改这里）
-const CURRENT_APP_ID = 'v295_a1469682';
+const CURRENT_APP_ID = 'v30_3c7fb661';
 
 const formData = reactive({
   appId: CURRENT_APP_ID,

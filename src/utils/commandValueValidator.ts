@@ -53,9 +53,15 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
     }
 
     // 6. NPC对象（创建或更新）
+    // 🔥 修复：只在创建新NPC时验证完整性，更新现有NPC时不验证
+    // 判断是否是创建新NPC：value包含多个必需字段（姓名、性别、年龄等）
     if (key.startsWith('人物关系.') && (key.match(/\./g) || []).length === 1 && action === 'set') {
-      const result = validateNPCObject(value);
-      errors.push(...result.errors);
+      // 检查是否是完整的NPC对象（包含姓名字段）
+      if (value && typeof value === 'object' && (value as any).姓名) {
+        const result = validateNPCObject(value);
+        errors.push(...result.errors);
+      }
+      // 如果不包含姓名字段，说明是部分更新，跳过验证
     }
 
     // 7. NPC境界对象
