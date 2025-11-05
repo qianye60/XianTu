@@ -123,8 +123,8 @@ function validateValueType(key: string, value: unknown, action: string): string[
         errors.push(`${key}不能添加负数，当前值: ${value}。如需减少灵石，请使用正确的消耗逻辑`);
       }
     }
-    // 检查后天六司
-    if (key.includes('后天六司.') && houTianFields.some(f => key.endsWith(`.${f}`))) {
+    // 检查后天六司（正确路径：角色基础信息.后天六司.{field}）
+    if ((key.startsWith('角色基础信息.后天六司.') || key.includes('.后天六司.')) && houTianFields.some(f => key.endsWith(`.${f}`))) {
       if (typeof value !== 'number') {
         errors.push(`${key}使用add操作时value必须是数字，当前类型: ${typeof value}`);
       }
@@ -235,6 +235,13 @@ function validateValueType(key: string, value: unknown, action: string): string[
           const realmExtra = Object.keys(val.境界).filter(f => !realmAllowed.includes(f));
           if (realmExtra.length > 0) {
             errors.push(`NPC境界对象包含非法字段: ${realmExtra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
+          }
+          // 验证字段类型
+          if (val.境界.名称 !== undefined && typeof val.境界.名称 !== 'string') {
+            errors.push('NPC境界.名称必须是字符串类型');
+          }
+          if (val.境界.阶段 !== undefined && typeof val.境界.阶段 !== 'string') {
+            errors.push('NPC境界.阶段必须是字符串类型');
           }
         }
       }

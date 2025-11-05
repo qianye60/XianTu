@@ -207,6 +207,7 @@ function validateItemObject(value: any): ValidationResult {
         } else {
           if (!skill.技能名称) errors.push(`功法技能[${index}]缺少"技能名称"字段`);
           if (skill.技能描述 === undefined) errors.push(`功法技能[${index}]缺少"技能描述"字段`);
+          if (typeof skill.熟练度要求 !== 'number') errors.push(`功法技能[${index}]缺少"熟练度要求"字段或类型错误`);
         }
       });
     }
