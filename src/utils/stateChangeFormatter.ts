@@ -360,8 +360,8 @@ function parseRelationshipChange(change: StateChange): FormattedChange | null {
 function parseValidationError(change: StateChange): FormattedChange | null {
   const { key, action, newValue } = change;
 
-  // 检查是否是验证错误
-  if (action === 'validation_error' && key === '❌ 错误指令') {
+  // 检查是否是验证错误（支持两种key格式）
+  if (action === 'validation_error' && (key === '❌ 错误指令' || key === '❌ 格式错误（已拒绝）')) {
     const errorData = newValue as any;
     const errors = errorData?.errors || [];
     const command = errorData?.command || '未知指令';
