@@ -135,6 +135,10 @@ export class EnhancedActionQueueManager {
       // 注意：不从背包中移除物品，装备和背包是独立的
       // 被替换的装备也不放回背包，而是丢失（符合游戏逻辑）
 
+      // 应用装备属性加成
+      const { applyEquipmentBonus } = await import('./equipmentBonusApplier');
+      applyEquipmentBonus(saveData, item.物品ID);
+
       // 🔥 [新架构] 更新 gameStateStore 并保存到 IndexedDB
       gameStateStore.loadFromSaveData(saveData);
       await gameStateStore.saveGame();
@@ -260,6 +264,10 @@ export class EnhancedActionQueueManager {
       }
 
       // 注意：不需要将装备放回背包，因为装备从未从背包中移除
+
+      // 移除装备属性加成
+      const { removeEquipmentBonus } = await import('./equipmentBonusApplier');
+      removeEquipmentBonus(saveData, item.物品ID);
 
       // 🔥 [新架构] 更新 gameStateStore 并保存到 IndexedDB
       gameStateStore.loadFromSaveData(saveData);
