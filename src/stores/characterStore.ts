@@ -393,8 +393,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[角色商店] 准备调用initializeCharacter...');
       let initialSaveData: SaveData | null = null;
       try {
-        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age });
-        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age);
+        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age, useStreaming: creationStore.useStreamingStart });
+        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age, creationStore.useStreamingStart);
         console.log('[角色商店] ✅ initializeCharacter返回成功,数据有效:', !!initialSaveData);
       } catch (e) {
         console.error('[角色商店] ❌ initializeCharacter失败:', e);

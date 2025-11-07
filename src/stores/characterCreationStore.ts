@@ -114,7 +114,8 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const currentStep = ref(1);
   const isLocalCreation = ref(true);
   const initialGameMessage = ref<string | null>(null);
-  
+  const useStreamingStart = ref(true); // 开局是否使用流式传输（默认启用）
+
   // 世界生成配置
   const worldGenerationConfig = ref({
     majorFactionsCount: Math.floor(Math.random() * 4) + 5, // 5-8 随机势力数量
@@ -761,7 +762,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   async function startCloudCreation() { await resetCharacter(); isLocalCreation.value = false; mode.value = 'cloud'; }
 
   return {
-    mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig,
+    mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig, useStreamingStart,
     totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
     removeWorld, removeTalentTier, removeOrigin, removeSpiritRoot, removeTalent, // 导出删除函数

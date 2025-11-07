@@ -54,6 +54,24 @@
         </div>
       </div>
 
+      <!-- Streaming Mode Selection -->
+      <div class="preview-item streaming-item">
+        <h3>{{ $t('开局模式') }}</h3>
+        <div class="streaming-control">
+          <label class="streaming-label">
+            <input type="radio" name="streaming" :value="true" v-model="store.useStreamingStart">
+            <span>{{ $t('流式开局') }}</span>
+          </label>
+          <label class="streaming-label">
+            <input type="radio" name="streaming" :value="false" v-model="store.useStreamingStart">
+            <span>{{ $t('非流式开局') }}</span>
+          </label>
+        </div>
+        <p class="streaming-hint">
+          {{ store.useStreamingStart ? $t('流式开局：更快，可能被中断') : $t('非流式开局：一次性生成完整内容，更稳定可靠') }}
+        </p>
+      </div>
+
       <!-- Birth Age -->
       <div class="preview-item age-item">
         <h3>{{ $t('初始年龄') }}</h3>
@@ -356,6 +374,47 @@ const decrementAge = () => {
   margin: 0;
 }
 
+/* 开局模式选择 */
+.streaming-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.streaming-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  color: var(--color-text);
+  transition: all 0.2s ease;
+}
+
+.streaming-label:hover {
+  background: var(--color-surface-light);
+}
+
+.streaming-label input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.streaming-hint {
+  font-size: 0.85rem !important;
+  color: var(--color-text-secondary) !important;
+  margin-top: 0.5rem !important;
+  padding: 0.5rem;
+  background: var(--color-surface-light);
+  border-radius: 4px;
+  border-left: 3px solid var(--color-primary);
+  line-height: 1.4;
+}
+
 /* 年龄控制 */
 .age-control {
   display: flex;
@@ -439,18 +498,18 @@ const decrementAge = () => {
   .preview-container {
     padding: 1rem;
   }
-  
+
   .preview-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .gender-control {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: space-around;
   }
-  
+
   .gender-label {
     flex: 1;
     min-width: 80px;

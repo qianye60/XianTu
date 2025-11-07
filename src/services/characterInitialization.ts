@@ -370,9 +370,10 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
  * @param baseInfo - 角色基础信息
  * @param world - 世界信息
  * @param age - 开局年龄
+ * @param useStreaming - 是否使用流式传输（默认true）
  * @returns 包含开场剧情和AI指令的响应
  */
-async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number) {
+async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number, useStreaming: boolean = true) {
   console.log('[初始化流程] 3. 生成开场剧情');
   const uiStore = useUIStore();
   uiStore.updateLoadingText('天道正在为你书写命运之章...');
@@ -447,10 +448,10 @@ async () => {
   try {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
     const aiSystem = AIBidirectionalSystem;
-    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt);
+    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, { useStreaming });
 
     const elapsed = Date.now() - startTime;
-    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms`);
+    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms, 流式模式: ${useStreaming}`);
 
     // generateInitialMessage 内部已经解析，这里直接返回
     return response;
@@ -929,7 +930,8 @@ export async function initializeCharacter(
   charId: string,
   baseInfo: CharacterBaseInfo,
   world: World,
-  age: number
+  age: number,
+  useStreaming: boolean = true
 ): Promise<SaveData> {
   console.log('[初始化流程] ===== initializeCharacter 入口 =====');
 
@@ -957,7 +959,8 @@ export async function initializeCharacter(
 
     // 步骤 3: 生成开场剧情 (已包含独立的地点生成步骤)
     console.log('[初始化流程] 准备调用generateOpeningScene...');
-    const { finalSaveData } = await generateOpeningScene(initialSaveData, processedBaseInfo, world, age);
+    console.log('[初始化流程] 使用流式模式:', useStreaming);
+    const { finalSaveData } = await generateOpeningScene(initialSaveData, processedBaseInfo, world, age, useStreaming);
     console.log('[初始化流程] generateOpeningScene已返回');
 
     // 步骤 3.5: 核心属性校准
@@ -1017,10 +1020,11 @@ export async function createNewSaveSlot(
   slotName: string,
   baseInfo: CharacterBaseInfo,
   world: World,
-  age: number
+  age: number,
+  useStreaming: boolean = true
 ): Promise<SaveData> {
   // 调用初始化流程
-  const saveData = await initializeCharacter(charId, baseInfo, world, age);
+  const saveData = await initializeCharacter(charId, baseInfo, world, age, useStreaming);
 
   // 添加一些新存档槽位特定的逻辑
   toast.success(`新存档《${slotName}》创建成功！`);
