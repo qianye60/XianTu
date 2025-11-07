@@ -291,12 +291,18 @@ export interface LorebookEntry {
 // 提示词注入类型定义(根据@types文档)
 export interface InjectionPrompt {
   id: string;
-  // 🔥 修复：根据酒馆实际API扩展类型，允许 'before' 和 'after'
-  position: 'in_chat' | 'none' | 'before' | 'after';
+  /**
+   * 要注入的位置
+   * - 'in_chat': 插入到聊天中
+   * - 'none': 不会发给 AI, 但能用来激活世界书条目.
+   */
+  position: 'in_chat' | 'none';
   depth: number;
   role: 'system' | 'assistant' | 'user';
   content: string;
+  /** 提示词在什么情况下启用; 默认为始终 */
   filter?: (() => boolean) | (() => Promise<boolean>);
+  /** 是否作为欲扫描文本, 加入世界书绿灯条目扫描文本中; 默认为任意 */
   should_scan?: boolean;
 }
 
