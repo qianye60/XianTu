@@ -1051,12 +1051,12 @@ const skillsList = computed((): SkillInfo[] => {
   return technique.功法技能
     .filter((skillInfo: TechniqueSkill) => {
       const isExplicitlyUnlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
-      const requiredProficiency = skillInfo.解锁需要熟练度 ?? 100;
+      const requiredProficiency = skillInfo.熟练度要求 ?? 100;
       const isUnlockedByProficiency = (technique.修炼进度 || 0) >= requiredProficiency;
       return !(isExplicitlyUnlocked || isUnlockedByProficiency);
     })
     .map((skillInfo: TechniqueSkill) => {
-      const requiredProficiency = skillInfo.解锁需要熟练度 ?? 100;
+      const requiredProficiency = skillInfo.熟练度要求 ?? 100;
       return {
         name: skillInfo.技能名称,
         description: skillInfo.技能描述 || '',
@@ -1078,7 +1078,7 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
     fromTechnique = technique.功法技能
       .filter((skillInfo: TechniqueSkill) => {
         const isExplicitlyUnlocked = (technique.已解锁技能 || []).includes(skillInfo.技能名称);
-        const isUnlockedByProficiency = (technique.修炼进度 || 0) >= (skillInfo.解锁需要熟练度 ?? 100);
+        const isUnlockedByProficiency = (technique.修炼进度 || 0) >= (skillInfo.熟练度要求 ?? 100);
         return isExplicitlyUnlocked || isUnlockedByProficiency;
       })
       .map((skillInfo: TechniqueSkill) => {
