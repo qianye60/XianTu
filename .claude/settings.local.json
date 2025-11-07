@@ -6,7 +6,8 @@
       "Bash(node -e \"\nconst fs = require(''fs'');\nconst i18nContent = fs.readFileSync(''src/i18n/index.ts'', ''utf-8'');\nconst texts = [''正在加载存档...'', ''开始游戏后可以创建存档''];\ntexts.forEach(t => {\n  if (!i18nContent.includes(\"\"''\"\" + t + \"\"''\"\")) {\n    console.log(''缺失:'', t);\n  }\n});\n\")",
       "Bash(cat package.json)",
       "Bash(npx tsc --noEmit src/utils/prompts/cot/cotCore.ts)",
-      "Bash(npx tsc --noEmit src/utils/prompts/definitions/coreRules.ts)"
+      "Bash(npx tsc --noEmit src/utils/prompts/definitions/coreRules.ts)",
+      "Bash(git checkout src/utils/prompts/cot/characterInitializationCot.ts)"
     ],
     "deny": [],
     "ask": [],
