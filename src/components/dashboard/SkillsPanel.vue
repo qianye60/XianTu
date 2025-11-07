@@ -297,7 +297,7 @@ const unmasteredSkills = computed(() => {
 const sortedSkills = computed(() => {
   if (!cultivationSkills.value?.功法技能) return [];
   return [...cultivationSkills.value.功法技能].sort(
-    (a, b) => (a.熟练度要求 || a.解锁需要熟练度 || 0) - (b.熟练度要求 || b.解锁需要熟练度 || 0)
+    (a, b) => (a.熟练度要求 || 0) - (b.熟练度要求 || 0)
   );
 });
 
@@ -307,7 +307,7 @@ const isSkillUnlocked = (skillName: string): boolean => {
 
 const getSkillUnlockProgress = (skill: TechniqueSkill): number => {
   const currentProgress = cultivationSkills.value?.修炼进度 || 0;
-  const requiredProgress = skill.熟练度要求 || skill.解锁需要熟练度 || 100;
+  const requiredProgress = skill.熟练度要求 || 100;
   return Math.min(100, (currentProgress / requiredProgress) * 100);
 };
 
@@ -413,7 +413,7 @@ const checkAndUnlockSkills = () => {
   }
 
   technique.功法技能.forEach(skill => {
-    const unlockThreshold = skill.熟练度要求 || skill.解锁需要熟练度 || 0;
+    const unlockThreshold = skill.熟练度要求 || 0;
     if (currentProgress >= unlockThreshold && !technique.已解锁技能!.includes(skill.技能名称)) {
       technique.已解锁技能!.push(skill.技能名称);
       console.log(`[SkillsPanel] 自动解锁技能: ${skill.技能名称} (阈值: ${unlockThreshold}%)`);

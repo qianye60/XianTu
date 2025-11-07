@@ -1906,7 +1906,7 @@ const equipTechnique = async (itemId: string) => {
     const currentProgress = item.修炼进度 || 0;
     debug.log('角色商店', `[技能解锁检查] 功法: ${item.名称}, 进度: ${currentProgress}%, 技能数: ${item.功法技能.length}`);
     item.功法技能.forEach((skill: any) => {
-      const unlockThreshold = skill.解锁需要熟练度 || 0;
+      const unlockThreshold = skill.熟练度要求 || 0;
       debug.log('角色商店', `  检查技能: ${skill.技能名称}, 阈值: ${unlockThreshold}%, 当前进度: ${currentProgress}%, 应解锁: ${currentProgress >= unlockThreshold}`);
       if (currentProgress >= unlockThreshold && !item.已解锁技能!.includes(skill.技能名称)) {
         item.已解锁技能!.push(skill.技能名称);
@@ -1947,7 +1947,7 @@ const equipTechnique = async (itemId: string) => {
     const currentProgress = itemInStore.修炼进度 || 0;
     if (itemInStore.功法技能 && Array.isArray(itemInStore.功法技能)) {
       itemInStore.功法技能.forEach((skill: any) => {
-        const unlockThreshold = skill.解锁需要熟练度 || 0;
+        const unlockThreshold = skill.熟练度要求 || 0;
         if (currentProgress >= unlockThreshold && !itemInStore.已解锁技能!.includes(skill.技能名称)) {
           itemInStore.已解锁技能!.push(skill.技能名称);
           debug.log('角色商店', `[二次确认] 解锁技能: ${skill.技能名称}`);
