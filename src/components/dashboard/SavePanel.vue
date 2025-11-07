@@ -555,24 +555,52 @@ const deleteSave = async (save: SaveSlot) => {
 // 导出存档
 const exportSaves = () => {
   try {
+    console.log('[存档导出] 开始导出存档...');
+    console.log('[存档导出] savesList.value:', savesList.value);
+    console.log('[存档导出] savesList 数量:', savesList.value.length);
+
+    if (!savesList.value || savesList.value.length === 0) {
+      toast.warning('没有可导出的存档');
+      console.warn('[存档导出] 没有可导出的存档');
+      return;
+    }
+
     const exportData = {
       saves: savesList.value,
       exportTime: new Date().toISOString(),
-      version: '1.0.0'
+      version: '1.0.0',
+      characterId: characterStore.rootState.当前激活存档?.角色ID,
+      characterName: characterStore.activeCharacterProfile?.角色基础信息?.名字
     };
+
+    console.log('[存档导出] 导出数据:', exportData);
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
 
+    console.log('[存档导出] 数据大小:', (dataStr.length / 1024).toFixed(2), 'KB');
+
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `大道朝天-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `大道朝天-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = fileName;
+
+    // 添加到DOM并触发点击
+    document.body.appendChild(link);
     link.click();
 
-    toast.success('存档已导出');
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 100);
+
+    console.log('[存档导出] 导出成功，文件名:', fileName);
+    toast.success(`已导出 ${savesList.value.length} 个存档`);
   } catch (error) {
+    console.error('[存档导出] 导出失败:', error);
     debug.error('存档面板', '导出失败', error);
-    toast.error('导出存档失败');
+    toast.error(`导出存档失败: ${error instanceof Error ? error.message : '未知错误'}`);
   }
 };
 

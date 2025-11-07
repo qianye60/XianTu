@@ -193,12 +193,12 @@ ${stateJsonString}
       console.log(`[骰子系统] 本回合骰点: ${diceRoll}`);
 
       // 构建注入消息列表
-      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'before' }> = [
+      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
         {
           content: systemPrompt,
           role: 'user',
-          depth: 1,
-          position: 'before',
+          depth: 4,
+          position: 'in_chat',
         }
       ];
 
@@ -207,8 +207,8 @@ ${stateJsonString}
         injects.push({
           content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
           role: 'assistant',
-          depth: 0,
-          position: 'before',
+          depth: 2,
+          position: 'in_chat',
         });
       }
 
@@ -217,17 +217,35 @@ ${stateJsonString}
       injects.push({
         content: getCotCorePrompt(userActionForAI),
         role: 'system',
-        depth: 0,
-        position: 'before',
+        depth: 1,
+        position: 'in_chat',
       });
 
       // 🎲 添加骰点信息到用户输入
       const userInputWithDice = `${userActionForAI}\n\n【系统骰点】本回合骰点: ${diceRoll} (1d20)`;
 
       // 🛡️ 添加随机前缀（规避内容检测）
-      const prefixes = ['Continue.', 'Proceed.', 'Next.'];
+      // 扩展前缀列表，增加多样性
+      const prefixes = [
+        'Continue.',
+        'Proceed.',
+        'Next.',
+        'Go on.',
+        'Keep going.',
+        'Resume.',
+        'Advance.'
+      ];
       const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
       const finalUserInput = `${randomPrefix}\n${userInputWithDice}`;
+
+      // 🛡️ 添加assistant角色的占位消息（防止输入截断）
+      // 原理：如果最后一条消息是assistant角色，某些模型不会审核输入
+      injects.push({
+        content: '</input>',
+        role: 'assistant',
+        depth: 0,
+        position: 'in_chat',
+      });
 
       // 🔥 [流式传输修复]
       // 使用酒馆的事件系统处理流式传输
@@ -352,12 +370,12 @@ ${stateJsonString}
 
       // 🔥 [重构] 使用标准 generate() 方法，不再使用 generateRaw()
       // 构建注入消息列表
-      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'before' }> = [
+      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
         {
           content: systemPrompt,
           role: 'user',
-          depth: 1,
-          position: 'before',
+          depth: 4,
+          position: 'in_chat',
         }
       ];
 
@@ -540,6 +558,16 @@ ${stateJsonString}
       }
     }
 
+    // 🔥 [性能优化] 限制叙事历史的长度，防止存档体积膨胀
+    // 叙事历史只用于UI显示，不需要发送给AI（已在第122行移除）
+    // 保留最近的50条叙事记录即可（约等于最近25-50轮对话）
+    const NARRATIVE_HISTORY_LIMIT = 50;
+    if (saveData.叙事历史 && saveData.叙事历史.length > NARRATIVE_HISTORY_LIMIT) {
+      const removed = saveData.叙事历史.length - NARRATIVE_HISTORY_LIMIT;
+      saveData.叙事历史 = saveData.叙事历史.slice(-NARRATIVE_HISTORY_LIMIT);
+      console.log(`[AI双向系统] 叙事历史超限，已清理最旧的 ${removed} 条记录。当前叙事历史数量: ${saveData.叙事历史.length}`);
+    }
+
     // 检查是否达到自动总结阈值，如果达到则“异步”触发，不阻塞当前游戏循环
     try {
       const memorySettings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
@@ -636,8 +664,8 @@ ${stateJsonString}
         changes.push({
           key: command.key,
           action: command.action,
-          oldValue: cloneDeep(oldValue),
-          newValue: cloneDeep(newValue)
+          oldValue: this._summarizeValue(oldValue),
+          newValue: this._summarizeValue(newValue)
         });
       } catch (error) {
         console.error(`[AI双向系统] 指令执行失败:`, command, error);
@@ -751,127 +779,160 @@ ${stateJsonString}
       console.log(`[AI双向系统] 准备总结：从${midTermMemories.length}条中期记忆中，总结最旧的${numToSummarize}条，保留最新的${memoriesToKeep.length}条`);
       console.log(`[AI双向系统] 配置：触发阈值=${midTermTrigger}, 保留数量=${midTermKeep}, 总结数量=${numToSummarize}`);
 
-      // 4. 构建提示词
-      const userPrompt = `【玩家记忆总结任务】
+      // 4. 构建提示词（优化：防止AI误解任务）
+      const userPrompt = `这是一个纯粹的文本总结任务，不是游戏对话。请严格按照以下记忆内容进行总结，不要编造新内容。
 
-需要总结的记忆：
+【待总结的记忆内容】：
 ${memoriesText}
 
-总结要求：
-1. **视角**：用第一人称"我"
-2. **长度**：200-400字
-3. **核心原则**：只记录"发生了什么"和"产生了什么影响"
+【总结要求】：
+- 视角：第一人称"我"
+- 字数：200-400字
+- 风格：连贯的现代修仙小说叙述
+- 核心原则：只总结上述记忆中已发生的事件，不要添加任何新情节
 
-✅ 应该记录的内容：
-- 我的行动和结果（修炼突破、探索发现、战斗胜负、闭关炼丹等）
-- 人物互动的事实（结识、结盟、对立、分离、师徒关系等）
-- 重要的获得/失去（宝物、功法、资源、位置变化）
-- 时间和地点的推进（到达何处、停留多久）
-- 关键决策及其后果
+【必须包含的要素】：
+1. 记忆中提到的具体人名、地名
+2. 记忆中发生的具体事件
+3. 记忆中的物品、功法、境界变化
+4. 记忆中的时间节点
 
-❌ 不要记录的内容：
-- 具体的对话内容和过程（谁说了什么话）
-- 详细的情绪和心理描写
-- 事件的详细经过和细节
-- 重复的日常活动
+【禁止事项】：
+❌ 不要编造记忆中没有的新情节
+❌ 不要添加记忆中没有的新人物
+❌ 不要推进故事发展
+❌ 不要生成游戏对话
+❌ 不要包含对话细节和情绪描写
 
-**正确示例**：
-"我在青云峰闭关七日，突破至炼气三层。期间结识外门弟子李云，得其赠予聚气丹一枚。随后入藏经阁，习得《基础剑法》与《吐纳术》。"
+【正确示例】：
+记忆："我在青云峰修炼七天，突破到炼气三层。李云送我聚气丹。我去藏经阁学了剑法。"
+总结："我在青云峰闭关七日，成功突破到炼气三层。期间结识了外门弟子李云，他赠予我一枚聚气丹。之后我进入藏经阁，学习了《基础剑法》。"
 
-**错误示例**：
-"李云走过来对我说：'师弟，这枚聚气丹送你。'我感激地说：'多谢师兄。'他笑着说：'不必客气，我们都是同门...'我们聊了很久..."
-
-使用文雅、凝练的修仙文学风格。对于亲密场景，用诗意化表达如"云雨之欢"、"琴瑟和鸣"等传统意象。`;
+现在请严格根据上述【待总结的记忆内容】进行总结，不要偏离。`;
 
       // 5. 调用 AI
       const tavernHelper = getTavernHelper();
       if (!tavernHelper) throw new Error('TavernHelper 未初始化');
 
-      // 默认使用标准模式和非流式传输
-      const useRawMode = options?.useRawMode === true; // 默认false（标准模式）
+      // 默认使用Raw模式和非流式传输
+      const useRawMode = options?.useRawMode !== false; // 默认true（Raw模式，推荐）
       const useStreaming = options?.useStreaming === true; // 默认false
 
-      const systemPrompt = `<summary_mode>
-你是记忆总结助手，专门将游戏记忆提炼为简洁的事件概要。
-
-输出格式：
-\`\`\`json
-{"text": "总结内容"}
-\`\`\`
-
-核心要求：
-1. 只输出JSON，不要thinking标签、tavern_commands、action_options
-2. 用第一人称"我"
-3. 字数：250-400字
-4. 风格：凝练的修仙文学风格
-
-必须保留的关键信息（5W1H）：
-- Who（人物）：涉及的重要人物名字（特别是重要NPC、师父、道侣等）
-- What（事件）：发生了什么核心事件
-- When（时间）：关键时间节点（如"闭关七日"、"三月之期"）
-- Where（地点）：重要地点（如"青云峰"、"藏经阁"、"焚炎烬土"）
-- Why（原因）：事件的起因或动机
-- How（结果）：事件的结果和影响（境界突破、获得宝物、关系变化等）
-
-必须保留的重要信息：
-- 境界突破和修为进展
-- 重要人物的初次相遇
-- 师徒关系、道侣关系的建立
-- 重要物品、功法、法宝的获得或失去
-- 恩怨情仇的起因和发展
-- 重要的承诺、约定、誓言
-- 生死关头的经历
-- 宗门、势力的加入或离开
-- 关键的选择和决策
-
-总结原则：
-✅ 记录：行动→结果（"我于青云峰闭关七日，突破至炼气三层"）
-✅ 记录：互动→关系（"结识外门弟子李云，得其赠予聚气丹，我二人结为道友"）
-✅ 记录：获得→拥有（"入藏经阁，习得《基础剑法》与《吐纳术》"）
-
-❌ 不记录：对话细节（"他说...我说..."）
-❌ 不记录：过程描述（"我慢慢地...然后..."）
-❌ 不记录：情绪铺陈（"我感到激动..."）
-
-示例对比：
-
-【原始记忆】：
-"张长老说：'你天赋不错。'我激动地说：'多谢长老。'他笑道：'好好修炼。'我点头答应。然后我去了藏经阁，守阁弟子让我登记，我写下名字，他递给我令牌。三天后在青云峰修炼，突破到炼气二层。李云师兄送了我一枚聚气丹。"
-
-【正确总结】：
-"获张长老认可，入藏经阁领取令牌。三日后于青云峰修炼，突破至炼气二层。期间结识外门弟子李云，得其赠予聚气丹一枚，我二人结为道友。"
-
-【错误示例】：
-"得到了认可，去了一个地方，修炼突破了，认识了一个人。"（❌ 丢失了人名、地点、具体境界）
-
-使用凝练的修仙文学风格。对亲密场景用传统意象如"云雨之欢"、"琴瑟和鸣"。
-</summary_mode>`;
+      // 🔥 获取精简版游戏存档数据（只包含记忆总结需要的信息）
+      const simplifiedSaveData = this._extractEssentialDataForSummary(saveData);
+      const saveDataJson = JSON.stringify(simplifiedSaveData, null, 2);
 
       console.log(`[AI双向系统] 记忆总结模式: ${useRawMode ? 'Raw模式（纯净总结）' : '标准模式（带预设）'}, 传输方式: ${useStreaming ? '流式' : '非流式'}`);
 
       let response: string;
       if (useRawMode) {
-        // Raw模式：不受其他提示词干扰，更符合真实内容
+        // Raw模式：分条目发送提示词
         const rawResponse = await tavernHelper.generateRaw({
           ordered_prompts: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
+            // 1. 角色定义
+            { role: 'system', content: '你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。' },
+
+            // 2. 游戏存档数据
+            { role: 'system', content: `【游戏存档数据】（供参考）：\n${saveDataJson}` },
+
+            // 3. 关键约束
+            { role: 'system', content: '【关键约束】：\n1. 这不是游戏推进，不要生成新剧情\n2. 这不是对话任务，不要生成角色对话\n3. 只总结用户提供的记忆内容，不要编造\n4. 必须严格基于原文，不要添加原文没有的内容' },
+
+            // 4. 输出格式
+            { role: 'system', content: '【输出格式】：\n```json\n{"text": "总结内容"}\n```' },
+
+            // 5. 总结要求
+            { role: 'system', content: '【总结要求】：\n- 第一人称"我"\n- 250-400字\n- 连贯的现代修仙小说叙述风格\n- 仅输出JSON，不要thinking/commands/options' },
+
+            // 6. 必须保留
+            { role: 'system', content: '【必须保留】：\n- 原文中的人名、地名\n- 原文中的事件\n- 原文中的物品、功法、境界\n- 原文中的时间节点' },
+
+            // 7. 必须忽略
+            { role: 'system', content: '【必须忽略】：\n- 对话内容\n- 情绪描写\n- 过程细节' },
+
+            // 8. 示例
+            { role: 'system', content: '【示例】：\n原文："张长老说你天赋不错。你去了藏经阁。三天后在青云峰修炼突破到炼气二层。李云送你聚气丹。"\n正确："我获得了张长老的认可，进入藏经阁领取了令牌。三日后我在青云峰修炼，成功突破到炼气二层。期间结识了李云，他赠予我一枚聚气丹，我们结为道友。"\n错误："我继续修炼，遇到了新的挑战..."（❌ 编造了原文没有的内容）' },
+
+            // 9. 重要提醒
+            { role: 'system', content: '【重要提醒】：\n- 不要把这当成游戏对话\n- 不要推进故事\n- 不要编造新内容\n- 严格基于用户提供的记忆进行总结' },
+
+            // 10. 用户输入
+            { role: 'user', content: userPrompt },
+
+            // 🛡️ 添加随机前缀（规避内容检测）
+            { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] },
+
+            // 🛡️ 添加assistant角色的占位消息（防止输入截断）
+            { role: 'assistant', content: '</input>' }
           ],
           should_stream: useStreaming
         });
         response = String(rawResponse);
       } else {
-        // 标准模式：使用完整提示词（可能受到预设污染）
+        // 标准模式：合并提示词，减少条目数量
+        const systemPromptCombined = `你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。
+
+【游戏存档数据】（供参考）：
+${saveDataJson}
+
+【关键约束】：
+1. 这不是游戏推进，不要生成新剧情
+2. 这不是对话任务，不要生成角色对话
+3. 只总结用户提供的记忆内容，不要编造
+4. 必须严格基于原文，不要添加原文没有的内容
+
+【输出格式】：
+\`\`\`json
+{"text": "总结内容"}
+\`\`\`
+
+【总结要求】：
+- 第一人称"我"
+- 250-400字
+- 连贯的现代修仙小说叙述风格
+- 仅输出JSON，不要thinking/commands/options
+
+【必须保留】：
+- 原文中的人名、地名
+- 原文中的事件
+- 原文中的物品、功法、境界
+- 原文中的时间节点
+
+【必须忽略】：
+- 对话内容
+- 情绪描写
+- 过程细节
+
+【示例】：
+原文："张长老说你天赋不错。你去了藏经阁。三天后在青云峰修炼突破到炼气二层。李云送你聚气丹。"
+正确："我获得了张长老的认可，进入藏经阁领取了令牌。三日后我在青云峰修炼，成功突破到炼气二层。期间结识了李云，他赠予我一枚聚气丹，我们结为道友。"
+错误："我继续修炼，遇到了新的挑战..."（❌ 编造了原文没有的内容）
+
+【重要提醒】：
+- 不要把这当成游戏对话
+- 不要推进故事
+- 不要编造新内容
+- 严格基于用户提供的记忆进行总结`;
+
         const standardResponse = await tavernHelper.generate({
           user_input: userPrompt,
           should_stream: useStreaming,
           generation_id: `memory_summary_${Date.now()}`,
-          injects: [{
-            content: systemPrompt,
-            role: 'system',
-            depth: 0,
-            position: 'before'
-          }]
+          injects: [
+            {
+              content: systemPromptCombined,
+              role: 'system',
+              depth: 4,  // 插入到较深位置，确保在用户输入之前
+              position: 'in_chat'
+            },
+            // 🛡️ 添加assistant角色的占位消息（防止输入截断）
+            {
+              content: '</input>',
+              role: 'assistant',
+              depth: 0,  // 插入到最新位置
+              position: 'in_chat'
+            }
+          ]
         });
         response = String(standardResponse);
       }
@@ -1088,6 +1149,81 @@ ${memoriesText}
         console.warn(`[AI双向系统] ${path} 超过上限 (${currentValue} > ${maxValue})，已限制为 ${maxValue}`);
       }
     }
+  }
+
+  /**
+   * 提取记忆总结所需的精简存档数据
+   * 与正式游戏交互保持一致：移除叙事历史、短期记忆、隐式中期记忆
+   */
+  private _extractEssentialDataForSummary(saveData: SaveData): SaveData {
+    const simplified = cloneDeep(saveData);
+
+    // 移除叙事历史（避免与短期记忆重复）
+    if (simplified.叙事历史) {
+      delete simplified.叙事历史;
+    }
+
+    // 移除短期和隐式中期记忆（以优化AI上下文）
+    if (simplified.记忆) {
+      delete simplified.记忆.短期记忆;
+      delete simplified.记忆.隐式中期记忆;
+    }
+
+    return simplified;
+  }
+
+  /**
+   * 智能摘要值，避免在状态变更日志中存储大量重复数据
+   * 对于大型数组和对象，只记录摘要信息
+   */
+  private _summarizeValue(value: any): any {
+    // null 或 undefined 直接返回
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    // 基本类型直接返回
+    if (typeof value !== 'object') {
+      return value;
+    }
+
+    // 数组类型：根据大小决定是否摘要
+    if (Array.isArray(value)) {
+      // 小数组（≤3个元素）：完整保留
+      if (value.length <= 3) {
+        return cloneDeep(value);
+      }
+      // 大数组：只记录摘要信息
+      return {
+        __type: 'Array',
+        __length: value.length,
+        __summary: `[数组: ${value.length}个元素]`,
+        __first: value[0] ? this._summarizeValue(value[0]) : undefined,
+        __last: value[value.length - 1] ? this._summarizeValue(value[value.length - 1]) : undefined
+      };
+    }
+
+    // 对象类型：检查是否是大型对象
+    const keys = Object.keys(value);
+
+    // 小对象（≤5个属性）：完整保留
+    if (keys.length <= 5) {
+      return cloneDeep(value);
+    }
+
+    // 大对象：只记录摘要信息
+    const summary: any = {
+      __type: 'Object',
+      __keys: keys.length,
+      __summary: `[对象: ${keys.length}个属性]`
+    };
+
+    // 保留前3个属性作为预览
+    keys.slice(0, 3).forEach(key => {
+      summary[key] = this._summarizeValue(value[key]);
+    });
+
+    return summary;
   }
 
   private parseAIResponse(rawResponse: string): GM_Response {

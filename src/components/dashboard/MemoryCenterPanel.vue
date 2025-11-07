@@ -146,12 +146,13 @@
             {{ t('使用Raw模式') }}
           </label>
           <span class="setting-hint">
-            ✅ <strong>勾选（Raw模式）</strong>：只总结，不受角色卡、世界观等预设干扰<br>
-            • 适用场景：需要纯净客观记录时<br>
+            ✅ <strong>勾选（Raw模式，推荐）</strong>：只总结，不受角色卡、世界观等预设干扰<br>
+            • 避免提示词污染，更符合真实内容<br>
+            • 适用场景：玩家记忆总结、NPC记忆总结（推荐）<br>
             <br>
-            ⚠️ <strong>不勾选（标准模式，推荐）</strong>：包含完整提示词，结合角色设定和世界观<br>
-            • 玩家记忆：推荐（更符合游戏背景）<br>
-            • NPC记忆：推荐（更符合NPC性格和背景）
+            ⚠️ <strong>不勾选（标准模式）</strong>：包含完整提示词，结合角色设定和世界观<br>
+            • 容易受预设提示词污染，可能偏离原始内容<br>
+            • 适用场景：需要遵守世界观的特殊生成
           </span>
         </div>
 
@@ -165,8 +166,8 @@
             {{ t('使用流式传输') }}
           </label>
           <span class="setting-hint">
-            ⚡ <strong>勾选（流式传输）</strong>：更快，实时显示生成过程<br>
-            🛡️ <strong>不勾选（非流式传输，推荐）</strong>：更稳定，一次性返回完整结果
+            ⚡ <strong>勾选（流式传输，推荐）</strong>：更快，实时显示生成过程<br>
+            🛡️ <strong>不勾选（非流式传输）</strong>：更稳定，一次性返回完整结果
           </span>
         </div>
 
@@ -451,8 +452,8 @@ const memoryConfig = ref({
   midTermFormat: '',
   longTermFormat: '',
   // 总结模式配置
-  useRawMode: false, // 默认使用标准模式（包含完整提示词）
-  useStreaming: false, // 默认使用非流式传输（更稳定）
+  useRawMode: true, // 默认使用Raw模式（推荐，避免提示词污染）
+  useStreaming: true, // 默认使用流式传输（更快，实时反馈）
 });
 
 // 记忆转化配置
@@ -892,8 +893,8 @@ const resetMemoryConfig = () => {
     autoSummaryEnabled: true,
     midTermFormat: '',
     longTermFormat: '',
-    useRawMode: false,
-    useStreaming: false,
+    useRawMode: true,
+    useStreaming: true,
   };
   toast.success('配置已重置为默认值');
 };
