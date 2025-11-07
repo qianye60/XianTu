@@ -669,23 +669,37 @@ ${stateJsonString}
       // 2. 再次检查是否需要总结
       const midTermMemories = saveData.记忆.中期记忆 || [];
 
-      // 情况2: 总结后无法保留足够的记忆
-      if (midTermMemories.length <= midTermKeep) {
-        console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})不足以保留${midTermKeep}条，取消总结。`);
-        toast.info('中期记忆不足以保留指定数量，已取消总结', { id: 'memory-summary' });
+      // 检查中期记忆数量是否达到触发阈值
+      if (midTermMemories.length < midTermTrigger) {
+        console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})未达到触发阈值(${midTermTrigger})，取消总结。`);
+        toast.info(`中期记忆未达到触发阈值(${midTermTrigger}条)，已取消总结`, { id: 'memory-summary' });
         return;
       }
 
       // 3. 确定要总结和保留的记忆
-      const numToSummarize = Math.max(0, midTermMemories.length - midTermKeep);
+      // 需要总结的数量 = 触发阈值 - 保留数量（例如：25 - 8 = 17条）
+      const numToSummarize = midTermTrigger - midTermKeep;
+
       if (numToSummarize <= 0) {
-        console.log('[AI双向系统] 需要总结的记忆数量为0，取消操作。');
+        console.log('[AI双向系统] 计算出的总结数量 <= 0，配置错误，取消操作。');
+        toast.error('记忆配置错误：触发阈值必须大于保留数量', { id: 'memory-summary' });
         return;
       }
 
+      if (midTermMemories.length < numToSummarize) {
+        console.log(`[AI双向系统] 中期记忆数量(${midTermMemories.length})不足以总结${numToSummarize}条，取消总结。`);
+        toast.info(`中期记忆不足${numToSummarize}条，已取消总结`, { id: 'memory-summary' });
+        return;
+      }
+
+      // 从最旧的记忆开始（数组前面），取出需要总结的数量
       const memoriesToSummarize = midTermMemories.slice(0, numToSummarize);
+      // 保留剩余的记忆（从 numToSummarize 位置开始到末尾）
       const memoriesToKeep = midTermMemories.slice(numToSummarize);
       const memoriesText = memoriesToSummarize.map((m, i) => `${i + 1}. ${m}`).join('\n');
+
+      console.log(`[AI双向系统] 准备总结：从${midTermMemories.length}条中期记忆中，总结最旧的${numToSummarize}条，保留最新的${memoriesToKeep.length}条`);
+      console.log(`[AI双向系统] 配置：触发阈值=${midTermTrigger}, 保留数量=${midTermKeep}, 总结数量=${numToSummarize}`);
 
       // 4. 构建提示词
       const userPrompt = `【玩家记忆总结任务】
@@ -702,25 +716,36 @@ ${memoriesText}
 - 使用文雅、含蓄、古典的修仙文学语言风格
 - 对于亲密场景，使用诗意化、意境化的表达方式，如"云雨之欢"、"鸳鸯交颈"、"琴瑟和鸣"等传统文学意象`;
 
-      // 5. 调用 AI - 使用generate方法（带预设）
+      // 5. 调用 AI - 使用 generateRaw 方法（Raw模式，非流式）
       const tavernHelper = getTavernHelper();
       if (!tavernHelper) throw new Error('TavernHelper 未初始化');
 
-      // 启用总结模式的注入
-      const injects = [
-        {
-          content: '<summary_mode>\n你是记忆总结助手，当前任务是总结记忆，不是游戏推进。\n\n输出要求：\n1. 只输出JSON格式，不需要thinking标签\n2. 格式：```json\\n{"text": "总结内容"}\\n```\n3. 不要输出tavern_commands\n4. 不要输出action_options\n\n总结要求：\n- 玩家记忆：用第一人称"我"，200-400字\n- 包含时间线索、关键事件、情感变化\n- 只记录已发生事件，不编造\n- 保留所有剧情内容，不要删减或省略任何情节\n- 使用文雅、含蓄、古典的修仙文学语言风格\n- 对于亲密场景，使用诗意化、意境化的表达方式，如"云雨之欢"、"鸳鸯交颈"、"琴瑟和鸣"等传统文学意象\n</summary_mode>',
-          role: 'system' as const,
-          depth: 0,
-          position: 'before' as const
-        }
-      ];
+      const systemPrompt = `<summary_mode>
+你是记忆总结助手，当前任务是总结记忆，不是游戏推进。
 
-      const response = await tavernHelper.generate({
-        user_input: userPrompt,
-        should_stream: false,
-        generation_id: `memory_summary_${Date.now()}`,
-        injects
+输出要求：
+1. 只输出JSON格式，不需要thinking标签
+2. 格式：\`\`\`json
+{"text": "总结内容"}
+\`\`\`
+3. 不要输出tavern_commands
+4. 不要输出action_options
+
+总结要求：
+- 玩家记忆：用第一人称"我"，200-400字
+- 包含时间线索、关键事件、情感变化
+- 只记录已发生事件，不编造
+- 保留所有剧情内容，不要删减或省略任何情节
+- 使用文雅、含蓄、古典的修仙文学语言风格
+- 对于亲密场景，使用诗意化、意境化的表达方式，如"云雨之欢"、"鸳鸯交颈"、"琴瑟和鸣"等传统文学意象
+</summary_mode>`;
+
+      const response = await tavernHelper.generateRaw({
+        ordered_prompts: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        should_stream: false
       });
 
       // 解析响应（与NPC记忆总结相同的方式）
