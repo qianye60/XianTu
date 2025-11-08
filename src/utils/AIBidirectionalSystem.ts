@@ -196,7 +196,7 @@ ${stateJsonString}
       const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
         {
           content: systemPrompt,
-          role: 'user',
+          role: 'system',
           depth: 4,
           position: 'in_chat',
         }
