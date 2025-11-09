@@ -1,4 +1,4 @@
-import { diceRollingCotPrompt } from './diceRollingCot';
+import { DICE_ROLLING_RULES } from '../definitions/textFormats';
 import { WRITING_QUALITY } from '../definitions/writingQuality';
 
 /**
@@ -19,8 +19,6 @@ export function getCotCorePrompt(userInput: string): string {
 ## 输出要求
 必须按顺序输出：<thinking>...</thinking> → \`\`\`json...}\`\`\`
 ❌ 禁止跳过thinking或JSON格式错误
-
-{{ACTION_OPTIONS_GUIDANCE}}
 
 ---
 
@@ -46,7 +44,7 @@ export function getCotCorePrompt(userInput: string): string {
 Type: [战斗/修炼/技艺/社交/探索] | Difficulty: 基础[X]±压制[Y]=[Z]
 Calculation: 先天[A](公式)+后天[B](÷5)+境界[C]+加成[D]+骰点[E] = 判定值[F]
 验算: A+B=X, X+C=Y, Y+D=Z, Z+E=F ✓
-Result: [F] vs [Z] → 基础[成功/失败/大成功/完美] → 修正[1-2降/19-20升] → 最终[结果]
+Result: [F] vs [Z] → 基础[成功/失败/大成功/完美] → 修正[1降/20升] → 最终[结果]
 DiceCard: 〖类型:结果,判定值:F,难度:Z(等级),骰点:E,先天:A,后天:B,境界:C,加成:D〗
 
 **判定规则速查**：
@@ -54,7 +52,7 @@ DiceCard: 〖类型:结果,判定值:F,难度:Z(等级),骰点:E,先天:A,后天
 - 境界加成: 凡人0/炼气5/筑基12/金丹20/元婴30/化神42/炼虚56/合体72/渡劫90 + 阶段(初期+0/中期+2/后期+4/圆满+6/极境+8)
 - 境界压制: 大境界±30/境，小阶段±5/阶
 - 基础结果: <难度失败 | ≥难度成功 | ≥难度+15大成功 | ≥难度+30完美
-- 骰点修正: 1-2降一级 | 19-20升一级 | 其他不变 (大失败↔失败↔成功↔大成功↔完美)
+- 骰点修正: 1降一级 | 20升一级 | 其他不变 (大失败↔失败↔成功↔大成功↔完美)
 
 ### 3. Writing Quality (质量检查 - 写作前必查)
 **禁止清单**：
@@ -160,7 +158,7 @@ DiceCard: 〖类型:结果,判定值:F,难度:Z(等级),骰点:E,先天:A,后天
 - 实力碾压
 
 **原则：对话永不判定，95%场景直接叙述**
-${diceRollingCotPrompt}
+${DICE_ROLLING_RULES}
 
 ### 文本质量
 ${WRITING_QUALITY}

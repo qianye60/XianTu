@@ -4,10 +4,16 @@
 
 /**
  * 投掷一个 d20 骰子（1-20）
+ * 特殊规则：骰到1时有50%概率重投
  * @returns 1-20 之间的随机整数
  */
 export function rollD20(): number {
-  return Math.floor(Math.random() * 20) + 1;
+  const result = Math.floor(Math.random() * 20) + 1;
+  // 骰到1时，50%概率重投
+  if (result === 1 && Math.random() < 0.5) {
+    return Math.floor(Math.random() * 20) + 1;
+  }
+  return result;
 }
 
 /**
@@ -33,18 +39,6 @@ export function rollMultipleDice(count: number, sides: number): number {
   return total;
 }
 
-/**
- * 判定骰点结果类型
- * @param dice 骰点值（1-20）
- * @returns 结果类型
- */
-export function getDiceResultType(dice: number): 'critical-failure' | 'failure' | 'success' | 'great-success' | 'perfect' {
-  if (dice <= 2) return 'critical-failure'; // 大失败
-  if (dice >= 19) return 'perfect'; // 完美
-  if (dice >= 16) return 'great-success'; // 大成功
-  if (dice >= 8) return 'success'; // 成功
-  return 'failure'; // 失败
-}
 
 /**
  * 计算判定最终值
@@ -57,49 +51,4 @@ export function calculateFinalValue(dice: number, attribute: number, bonus: numb
   return dice + attribute + bonus;
 }
 
-/**
- * 执行完整判定
- * @param attribute 属性值
- * @param bonus 加成
- * @param difficulty 难度
- * @returns 判定结果
- */
-export interface JudgementResult {
-  dice: number;
-  attribute: number;
-  bonus: number;
-  finalValue: number;
-  difficulty: number;
-  success: boolean;
-  resultType: 'critical-failure' | 'failure' | 'success' | 'great-success' | 'perfect';
-}
 
-export function performJudgement(
-  attribute: number,
-  bonus: number = 0,
-  difficulty: number = 10
-): JudgementResult {
-  const dice = rollD20();
-  const finalValue = calculateFinalValue(dice, attribute, bonus);
-  const resultType = getDiceResultType(dice);
-
-  // 大失败必定失败，完美必定成功
-  let success: boolean;
-  if (resultType === 'critical-failure') {
-    success = false;
-  } else if (resultType === 'perfect') {
-    success = true;
-  } else {
-    success = finalValue >= difficulty;
-  }
-
-  return {
-    dice,
-    attribute,
-    bonus,
-    finalValue,
-    difficulty,
-    success,
-    resultType
-  };
-}

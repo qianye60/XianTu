@@ -37,6 +37,8 @@ export interface CharacterPreset {
   savedAt: string;
   data: {
     character_name?: string;
+    gender?: '男' | '女' | '其他';
+    race?: string;
     current_age?: number;
     world: World | null;
     talentTier: TalentTier | null;

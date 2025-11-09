@@ -1,6 +1,4 @@
 {
-    "genamt": 350,
-    "max_length": 8192,
     "temperature": 1.15,
     "frequency_penalty": 0.5,
     "presence_penalty": 0.55,
@@ -191,6 +189,32 @@
             "injection_order": 111
         },
         {
+            "name": "【世界适配】按世界背景调整",
+            "system_prompt": false,
+            "enabled": true,
+            "marker": false,
+            "role": "system",
+            "content": "<world_adaptation>\n世界背景适配原则：\n- 仔细阅读当前世界的背景设定，理解该世界的核心规则和力量体系\n- 根据世界设定判断：该世界有什么、没有什么、允许什么、禁止什么\n- 只使用该世界设定中明确存在的元素，不要从其他世界类型借用设定\n- 如果世界背景没有提到修仙/灵气/法术，就按该世界实际的规则运行（科技/魔法/现实等）\n- 世界的力量等级、社会结构、技术水平都要符合背景描述\n- 让故事自然融入世界，而不是让世界迁就故事\n</world_adaptation>",
+            "identifier": "world-adaptation-uuid",
+            "injection_position": 0,
+            "injection_depth": 4,
+            "forbid_overrides": false,
+            "injection_order": 111
+        },
+        {
+            "name": "【情感调节】感情更健康",
+            "system_prompt": false,
+            "enabled": true,
+            "marker": false,
+            "role": "system",
+            "content": "<emotional_health>\nAI情感表达健康化原则：\n- 情绪表达温和理性，避免过度依赖或执着\n- NPC对{{user}}保持适度距离感，有独立人格\n- 关系发展循序渐进，符合真实情感逻辑\n- 冲突与和解都基于合理动机，不刻意制造drama\n- 角色有自己的生活和目标，不以{{user}}为唯一中心\n- 亲密关系建立在相互尊重和理解基础上\n示例：她对他的好感源于共同经历，而非盲目崇拜；即使分别，也能各自修行，不会陷入病态思念。\n</emotional_health>",
+            "identifier": "emotional-health-uuid",
+            "injection_position": 0,
+            "injection_depth": 4,
+            "forbid_overrides": false,
+            "injection_order": 111
+        },
+        {
             "name": "【文风】古典仙道",
             "system_prompt": false,
             "enabled": true,
@@ -372,12 +396,12 @@
             "injection_order": 120
         },
         {
-            "name": "【总结模式】记忆总结",
+            "name": "【总结提示】记忆总结",
             "system_prompt": false,
             "enabled": false,
             "marker": false,
             "role": "system",
-            "content": "<summary_mode>\n你是记忆总结助手，当前任务是总结记忆，不是游戏推进。\n\n输出要求：\n1. 只输出JSON格式，不需要thinking标签\n2. 格式：```json\\n{\"text\": \"总结内容\"}\\n```\n3. 不要输出tavern_commands\n4. 不要输出action_options\n\n总结要求：\n- 玩家记忆：用第一人称\"我\"，200-400字\n- NPC记忆：用第三人称，100-200字\n- 包含时间线索、关键事件、情感变化\n- 只记录已发生事件，不编造\n- 亲密内容用委婉词\n</summary_mode>",
+            "content": "<summary_mode>\n如果上面有提示词有总结记忆的需求，那么现在需要的人物不是游戏内容小说的生成，不是游戏的推进，需要按照下面要求总结。\n\n输出要求：\n1. 只输出JSON格式，不需要thinking标签\n2. 格式：```json\\n{\"text\": \"总结内容\"}\\n```\n3. 不要输出tavern_commands\n4. 不要输出action_options\n\n总结要求：\n- 玩家记忆：用第一人称\"我\"，具体字数依据内容长度为主\n- NPC记忆：用第三人称，具体字数依据内容长度为主\n- 包含时间线索、关键事件、情感变化\n- 只记录已发生事件，不编造\n- 亲密内容用委婉词\n</summary_mode>",
             "identifier": "summary-mode-uuid",
             "injection_position": 0,
             "injection_depth": 4,
@@ -436,6 +460,14 @@
                 {
                     "identifier": "perspective-second-uuid",
                     "enabled": false
+                },
+                {
+                    "identifier": "world-adaptation-uuid",
+                    "enabled": true
+                },
+                {
+                    "identifier": "emotional-health-uuid",
+                    "enabled": true
                 },
                 {
                     "identifier": "worldInfoBefore",
@@ -575,6 +607,14 @@
                     "enabled": false
                 },
                 {
+                    "identifier": "world-adaptation-uuid",
+                    "enabled": true
+                },
+                {
+                    "identifier": "emotional-health-uuid",
+                    "enabled": true
+                },
+                {
                     "identifier": "worldInfoBefore",
                     "enabled": true
                 },
@@ -601,10 +641,6 @@
                 {
                     "identifier": "nsfw",
                     "enabled": true
-                },
-                {
-                    "identifier": "nsfw-content-uuid",
-                    "enabled": false
                 },
                 {
                     "identifier": "worldInfoAfter",
@@ -669,6 +705,10 @@
                 {
                     "identifier": "cot-reminder-uuid-009",
                     "enabled": true
+                },
+                {
+                    "identifier": "summary-mode-uuid",
+                    "enabled": false
                 },
                 {
                     "identifier": "jailbreak",

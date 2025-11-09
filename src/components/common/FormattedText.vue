@@ -457,32 +457,13 @@ const parsedText = computed(() => {
                 judgement.bonus = value
               } else if (key.includes('最终值') || key.includes('总值')) {
                 judgement.finalValue = value
-              } else if (key.includes('先天')) {
-                judgement.details?.push(`先天:${value}`)
-              } else if (key.includes('后天')) {
-                judgement.details?.push(`后天:${value}`)
-              } else if (key.includes('境界')) {
-                judgement.details?.push(`境界:${value}`)
-              } else if (key.includes('装备')) {
-                judgement.details?.push(`装备:${value}`)
-              } else if (key.includes('功法')) {
-                judgement.details?.push(`功法:${value}`)
-              } else if (key.includes('状态')) {
-                judgement.details?.push(`状态:${value}`)
               } else if (key.includes('造成伤害')) {
                 judgement.damage = value
               } else if (key.includes('剩余气血')) {
                 judgement.remainingHp = value
-              } else if (key.match(/^[^\d\s]+$/)) {
-                // 属性名(如"灵性"、"悟性"等)
-                if (!judgement.attribute) {
-                  judgement.attribute = `${key}:${value}`
-                } else {
-                  judgement.details?.push(`${key}:${value}`)
-                }
               } else {
-                // 其他信息放入详情
-                judgement.details?.push(part)
+                // 通用字段处理：自动识别所有加成字段（先天、后天、境界、装备、功法、状态、天赋、大道、阵法、法宝等）
+                judgement.details?.push(`${key}:${value}`)
               }
             }
 

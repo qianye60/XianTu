@@ -301,6 +301,8 @@ const stepLabels = computed(() => [
 
 const characterDataForPreset = computed(() => ({
   character_name: store.characterPayload.character_name,
+  gender: store.characterPayload.gender,
+  race: store.characterPayload.race,
   current_age: store.characterPayload.current_age,
   world: store.selectedWorld,
   talentTier: store.selectedTalentTier,
@@ -619,6 +621,8 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
     const newPayload = {
       ...store.characterPayload,
       character_name: presetData.character_name || '无名者',
+      gender: presetData.gender || '男',
+      race: presetData.race || '人族',
       current_age: presetData.current_age ?? 16,
       world_id: worldId,
       talent_tier_id: talentTierId,
