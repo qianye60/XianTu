@@ -558,15 +558,8 @@ ${stateJsonString}
       }
     }
 
-    // 🔥 [性能优化] 限制叙事历史的长度，防止存档体积膨胀
-    // 叙事历史只用于UI显示，不需要发送给AI（已在第122行移除）
-    // 保留最近的50条叙事记录即可（约等于最近25-50轮对话）
-    const NARRATIVE_HISTORY_LIMIT = 50;
-    if (saveData.叙事历史 && saveData.叙事历史.length > NARRATIVE_HISTORY_LIMIT) {
-      const removed = saveData.叙事历史.length - NARRATIVE_HISTORY_LIMIT;
-      saveData.叙事历史 = saveData.叙事历史.slice(-NARRATIVE_HISTORY_LIMIT);
-      console.log(`[AI双向系统] 叙事历史超限，已清理最旧的 ${removed} 条记录。当前叙事历史数量: ${saveData.叙事历史.length}`);
-    }
+    // 🔥 叙事历史存储在IndexedDB中，不限制条数
+    // 叙事历史只用于UI显示和导出小说，不需要发送给AI（已在第122行移除）
 
     // 检查是否达到自动总结阈值，如果达到则“异步”触发，不阻塞当前游戏循环
     try {
