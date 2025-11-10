@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python -m json.tool \"【大道朝天】专用预设.json\")",
       "Bash(/dev/null)",
-      "Bash(python -c \"\nimport json\n\nwith open(''【大道朝天】专用预设.json'', ''r'', encoding=''utf-8'') as f:\n    data = json.load(f)\n\n# 打印当前顺序\nfor i, p in enumerate(data[''prompts'']):\n    name = p.get(''name'', p.get(''identifier'', ''''))\n    order = p.get(''injection_order'', 0)\n    print(f''{i+1}. [{order:3d}] {name}'')\n\")"
+      "Bash(python -c \"\nimport json\n\nwith open(''【大道朝天】专用预设.json'', ''r'', encoding=''utf-8'') as f:\n    data = json.load(f)\n\n# 打印当前顺序\nfor i, p in enumerate(data[''prompts'']):\n    name = p.get(''name'', p.get(''identifier'', ''''))\n    order = p.get(''injection_order'', 0)\n    print(f''{i+1}. [{order:3d}] {name}'')\n\")",
+      "Bash(npm run type-check)"
     ],
     "deny": [],
     "ask": [],
