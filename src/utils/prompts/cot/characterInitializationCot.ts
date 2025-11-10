@@ -1,7 +1,7 @@
 export const characterInitializationCotPrompt = `
 # 角色初始化思维链 (Character Initialization COT)
 
-## ⚠️ 输出格式要求（最高优先级）
+## [注意] 输出格式要求（最高优先级）
 
 **你必须严格按照以下顺序输出：**
 

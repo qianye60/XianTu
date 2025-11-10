@@ -73,8 +73,6 @@ import GameVariableEditModal from './components/GameVariableEditModal.vue'
 import GameVariableStatsModal from './components/GameVariableStatsModal.vue'
 import GameVariableFormatGuideModal from './components/GameVariableFormatGuideModal.vue'
 import { useI18n } from '@/i18n'
-import { calculateFinalAttributes } from '@/utils/attributeCalculation'
-import type { InnateAttributes } from '@/types/game.d'
 
 const { t } = useI18n()
 
@@ -101,26 +99,7 @@ const showFormatGuideModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
-// 🔥 计算最终六司（与人物详情面板保持一致）
-const calculatedAttributes = computed(() => {
-  if (!gameStateStore.isGameLoaded || !gameStateStore.character?.先天六司) {
-    return null
-  }
-
-  try {
-    const saveData = gameStateStore.toSaveData()
-    if (!saveData) {
-      return null
-    }
-    const innateAttributes = gameStateStore.character.先天六司 as InnateAttributes
-    return calculateFinalAttributes(innateAttributes, saveData)
-  } catch (error) {
-    console.error('[游戏变量] 计算六司失败:', error)
-    return null
-  }
-})
-
-// 🔥 [新架构] 数据从 Pinia Store 获取 - 使用 toRaw 强制重新计算
+// 🔥 [新架构] 数据从 Pinia Store 获取
 const coreDataViews = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
 
@@ -128,21 +107,9 @@ const coreDataViews = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _state = gameStateStore.$state
 
-  // 构建角色基础信息，添加计算后的六司数据
-  const characterWithCalculatedAttrs = {
-    ...gameStateStore.character,
-    ...(calculatedAttributes.value ? {
-      '🔢 计算后的六司': {
-        '先天六司': calculatedAttributes.value.先天六司,
-        '后天六司': calculatedAttributes.value.后天六司,
-        '最终六司': calculatedAttributes.value.最终六司
-      }
-    } : {})
-  }
-
   return {
     [t('存档数据 (SaveData)')]: {
-      [t('角色基础信息')]: characterWithCalculatedAttrs,
+      [t('角色基础信息')]: gameStateStore.character,
       [t('玩家角色状态')]: gameStateStore.playerStatus,
       [t('背包')]: gameStateStore.inventory,
       [t('装备栏')]: gameStateStore.equipment,
@@ -158,7 +125,7 @@ const coreDataViews = computed(() => {
       [t('叙事历史')]: gameStateStore.narrativeHistory,
       [t('身体部位开发')]: gameStateStore.bodyPartDevelopment
     },
-    [t('角色数据')]: characterWithCalculatedAttrs,
+    [t('角色数据')]: gameStateStore.character,
     [t('记忆数据')]: gameStateStore.memory,
     [t('世界信息')]: gameStateStore.worldInfo
   }
@@ -173,37 +140,14 @@ const customOptions = computed(() => {
 })
 
 const characterData = computed(() => {
-  const baseCharacter = gameStateStore.character || {}
-  // 添加计算后的六司数据
-  return {
-    ...baseCharacter,
-    ...(calculatedAttributes.value ? {
-      '🔢 计算后的六司': {
-        '先天六司': calculatedAttributes.value.先天六司,
-        '后天六司': calculatedAttributes.value.后天六司,
-        '最终六司': calculatedAttributes.value.最终六司
-      }
-    } : {})
-  }
+  return gameStateStore.character || {}
 })
 
 const saveData = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
 
-  // 构建角色基础信息，添加计算后的六司数据
-  const characterWithCalculatedAttrs = {
-    ...gameStateStore.character,
-    ...(calculatedAttributes.value ? {
-      '🔢 计算后的六司': {
-        '先天六司': calculatedAttributes.value.先天六司,
-        '后天六司': calculatedAttributes.value.后天六司,
-        '最终六司': calculatedAttributes.value.最终六司
-      }
-    } : {})
-  }
-
   return {
-    [t('角色基础信息')]: characterWithCalculatedAttrs,
+    [t('角色基础信息')]: gameStateStore.character,
     [t('玩家角色状态')]: gameStateStore.playerStatus,
     [t('背包')]: gameStateStore.inventory,
     [t('装备栏')]: gameStateStore.equipment,
@@ -392,6 +336,11 @@ const saveVariable = async (item: EditingItem) => {
       '世界信息': 'worldInfo',
       '任务系统': 'questSystem',
       '三千大道': 'thousandDao',
+      '修炼功法': 'cultivationTechnique',
+      '掌握技能': 'masteredSkills',
+      '系统': 'systemConfig',
+      '叙事历史': 'narrativeHistory',
+      '身体部位开发': 'bodyPartDevelopment'
     };
 
     // 查找匹配的前缀（只替换第一个匹配的前缀）

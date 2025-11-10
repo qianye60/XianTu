@@ -14,6 +14,7 @@ import type {
   QuestSystem,
   QuestType,
 } from '@/types/game';
+import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 
 // 定义各个模块的接口
 interface GameState {
@@ -229,8 +230,8 @@ export const useGameStateStore = defineStore('gameState', {
         return null;
       }
 
-      // 🔥 使用深拷贝确保返回的数据是独立的，防止引用污染
-      return JSON.parse(JSON.stringify({
+      // 🔥 构建临时SaveData用于计算后天六司
+      const tempSaveData: SaveData = {
         角色基础信息: this.character,
         玩家角色状态: this.playerStatus,
         背包: this.inventory,
@@ -239,8 +240,6 @@ export const useGameStateStore = defineStore('gameState', {
         记忆: this.memory,
         游戏时间: this.gameTime,
         世界信息: this.worldInfo || undefined,
-
-        // 其他系统数据
         三千大道: this.thousandDao || { 大道列表: {} },
         任务系统: this.questSystem || {
           配置: {
@@ -261,7 +260,30 @@ export const useGameStateStore = defineStore('gameState', {
         系统: this.systemConfig || undefined,
         叙事历史: this.narrativeHistory || [],
         身体部位开发: this.bodyPartDevelopment || undefined
-      }));
+      };
+
+      // 🔥 计算实际的后天六司（装备+天赋+功法加成）
+      try {
+        const calculatedAttrs = calculateFinalAttributes(this.character.先天六司, tempSaveData);
+
+        // 🔥 更新角色基础信息中的后天六司为计算后的值
+        const updatedCharacter = {
+          ...this.character,
+          后天六司: calculatedAttrs.后天六司
+        };
+
+        console.log('[toSaveData] 计算后的后天六司:', calculatedAttrs.后天六司);
+
+        // 🔥 使用深拷贝确保返回的数据是独立的，防止引用污染
+        return JSON.parse(JSON.stringify({
+          ...tempSaveData,
+          角色基础信息: updatedCharacter
+        }));
+      } catch (error) {
+        console.error('[toSaveData] 计算后天六司失败:', error);
+        // 如果计算失败，返回原始数据
+        return JSON.parse(JSON.stringify(tempSaveData));
+      }
     },
 
     /**

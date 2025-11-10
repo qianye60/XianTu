@@ -77,6 +77,9 @@ export const useUIStore = defineStore('ui', () => {
   const enableActionOptions = ref(localStorage.getItem('enableActionOptions') === 'true'); // 默认关闭
   const actionOptionsPrompt = ref(localStorage.getItem('actionOptionsPrompt') || ''); // 自定义行动选项提示词
 
+  // 🔥 [流式传输设置] 控制是否启用流式传输（全局持久化）
+  const useStreaming = ref(localStorage.getItem('useStreaming') !== 'false'); // 默认开启
+
   function openCharacterManagement() {
     showCharacterManagement.value = true;
   }
@@ -344,6 +347,15 @@ export const useUIStore = defineStore('ui', () => {
       set: (val) => {
         actionOptionsPrompt.value = val;
         localStorage.setItem('actionOptionsPrompt', val);
+      }
+    }),
+
+    // 🔥 [流式传输设置] 暴露流式传输开关（全局持久化）
+    useStreaming: computed({
+      get: () => useStreaming.value,
+      set: (val) => {
+        useStreaming.value = val;
+        localStorage.setItem('useStreaming', String(val));
       }
     }),
 

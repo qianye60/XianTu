@@ -4,7 +4,11 @@
       "Bash(python -m json.tool \"【大道朝天】专用预设.json\")",
       "Bash(/dev/null)",
       "Bash(python -c \"\nimport json\n\nwith open(''【大道朝天】专用预设.json'', ''r'', encoding=''utf-8'') as f:\n    data = json.load(f)\n\n# 打印当前顺序\nfor i, p in enumerate(data[''prompts'']):\n    name = p.get(''name'', p.get(''identifier'', ''''))\n    order = p.get(''injection_order'', 0)\n    print(f''{i+1}. [{order:3d}] {name}'')\n\")",
-      "Bash(npm run type-check)"
+      "Bash(npm run type-check)",
+      "Bash(cat \"c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\【小猫之神】3.7 Full (2).json\")",
+      "Bash(cat \"c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\【大道朝天】专用预设.json\")",
+      "Bash(python -c \"\nimport json\nwith open(''c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\【大道朝天】专用预设.json'', ''r'', encoding=''utf-8'') as f:\n    data = json.load(f)\nprint(f''Total prompts: {len(data[\"\"prompts\"\"])}'')\nfor i, p in enumerate(data[''prompts'']):\n    name = p.get(''name'', p.get(''identifier'', ''''))\n    enabled = p.get(''enabled'', True)\n    order = p.get(''injection_order'', 0)\n    status = ''✓'' if enabled else ''✗''\n    print(f''{i+1}. [{status}] [{order:3d}] {name}'')\n\")",
+      "Bash(python -c \"\nimport os\nimport re\n\n# 定义替换规则\nreplacements = {\n    ''✅'': ''[正确]'',\n    ''❌'': ''[错误]'',\n    ''🔴'': ''[重要]'',\n    ''⚠️'': ''[注意]'',\n}\n\ndef replace_emojis(content):\n    for emoji, text in replacements.items():\n        content = content.replace(emoji, text)\n    return content\n\n# 遍历所有.ts文件\nfor root, dirs, files in os.walk(''.''):\n    for file in files:\n        if file.endswith(''.ts''):\n            filepath = os.path.join(root, file)\n            try:\n                with open(filepath, ''r'', encoding=''utf-8'') as f:\n                    content = f.read()\n                \n                new_content = replace_emojis(content)\n                \n                if new_content != content:\n                    with open(filepath, ''w'', encoding=''utf-8'') as f:\n                        f.write(new_content)\n                    print(f''Updated: {filepath}'')\n            except Exception as e:\n                print(f''Error processing {filepath}: {e}'')\n\nprint(''Done!'')\n\")"
     ],
     "deny": [],
     "ask": [],

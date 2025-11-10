@@ -431,7 +431,11 @@ const bidirectionalSystem = AIBidirectionalSystem;
 
 // 流式输出状态
 const streamingMessageIndex = ref<number | null>(null);
-const useStreaming = ref(true);
+// 🔥 使用全局流式传输开关（从 uiStore 获取，切换页面不丢失）
+const useStreaming = computed({
+  get: () => uiStore.useStreaming,
+  set: (val) => { uiStore.useStreaming = val; }
+});
 
 // 🔥 全局标志：防止重复注册事件监听器（使用 window 对象存储，确保全局唯一）
 const GLOBAL_EVENT_KEY = '__mainGamePanel_eventListenersRegistered__';

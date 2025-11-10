@@ -110,7 +110,7 @@
                 >
                   <h4>{{ t('装备增幅:') }}</h4>
                   <div class="attribute-text">
-                    {{ formatItemAttributes(selectedItem.装备增幅) }}
+                    {{ typeof selectedItem.装备增幅 === 'string' ? selectedItem.装备增幅 : formatItemAttributes(selectedItem.装备增幅) }}
                   </div>
                 </div>
                 <div
@@ -119,7 +119,7 @@
                 >
                   <h4>{{ t('特殊效果:') }}</h4>
                   <div class="attribute-text">
-                    {{ typeof selectedItem.特殊效果 === 'object' ? formatItemAttributes(selectedItem.特殊效果) : selectedItem.特殊效果 }}
+                    {{ typeof selectedItem.特殊效果 === 'string' ? selectedItem.特殊效果 : formatItemAttributes(selectedItem.特殊效果) }}
                   </div>
                 </div>
               </div>
@@ -247,31 +247,8 @@
                 <!-- 功法效果 -->
                 <div v-if="selectedItem.功法效果" class="details-attributes">
                   <h4>{{ t('功法效果:') }}</h4>
-                  <div class="skill-effects">
-                    <div v-if="selectedItem.功法效果.修炼速度加成" class="effect-item">
-                      <span class="effect-label">{{ t('修炼速度:') }}</span>
-                      <span class="effect-value"
-                        >+{{ (selectedItem.功法效果.修炼速度加成 * 100).toFixed(0) }}%</span
-                      >
-                    </div>
-                    <div v-if="selectedItem.功法效果.属性加成" class="effect-item">
-                      <span class="effect-label">{{ t('属性加成:') }}</span>
-                      <span class="effect-value">{{
-                        formatAttributeBonus(selectedItem.功法效果.属性加成)
-                      }}</span>
-                    </div>
-                    <div v-if="selectedItem.功法效果.特殊能力?.length" class="effect-item">
-                      <span class="effect-label">{{ t('特殊能力:') }}</span>
-                      <div class="special-abilities">
-                        <span
-                          v-for="ability in selectedItem.功法效果.特殊能力"
-                          :key="ability"
-                          class="ability-tag"
-                        >
-                          {{ ability }}
-                        </span>
-                      </div>
-                    </div>
+                  <div class="attribute-text">
+                    {{ typeof selectedItem.功法效果 === 'string' ? selectedItem.功法效果 : JSON.stringify(selectedItem.功法效果) }}
                   </div>
                 </div>
 
@@ -306,7 +283,7 @@
                 class="details-attributes"
               >
                 <h4>{{ t('装备增幅:') }}</h4>
-                <div class="attribute-text">{{ formatItemAttributes(selectedItem.装备增幅) }}</div>
+                <div class="attribute-text">{{ typeof selectedItem.装备增幅 === 'string' ? selectedItem.装备增幅 : formatItemAttributes(selectedItem.装备增幅) }}</div>
               </div>
 
               <!-- 装备特殊效果 -->
@@ -315,7 +292,7 @@
                 class="details-attributes"
               >
                 <h4>{{ t('特殊效果:') }}</h4>
-                <div class="attribute-text">{{ typeof selectedItem.特殊效果 === 'object' ? formatItemAttributes(selectedItem.特殊效果) : selectedItem.特殊效果 }}</div>
+                <div class="attribute-text">{{ typeof selectedItem.特殊效果 === 'string' ? selectedItem.特殊效果 : formatItemAttributes(selectedItem.特殊效果) }}</div>
               </div>
             </div>
             <div class="details-actions">
@@ -414,11 +391,11 @@
                   </div>
                   <div v-if="slot.item.类型 === '装备' && slot.item.装备增幅" class="item-effects">
                     <div class="effects-title">{{ t('增幅效果：') }}</div>
-                    <div class="effects-text">{{ formatItemAttributes(slot.item.装备增幅) }}</div>
+                    <div class="effects-text">{{ typeof slot.item.装备增幅 === 'string' ? slot.item.装备增幅 : formatItemAttributes(slot.item.装备增幅) }}</div>
                   </div>
                   <div v-if="slot.item.类型 === '装备' && slot.item.特殊效果" class="item-effects">
                     <div class="effects-title">{{ t('特殊效果：') }}</div>
-                    <div class="effects-text">{{ typeof slot.item.特殊效果 === 'object' ? formatItemAttributes(slot.item.特殊效果) : slot.item.特殊效果 }}</div>
+                    <div class="effects-text">{{ typeof slot.item.特殊效果 === 'string' ? slot.item.特殊效果 : formatItemAttributes(slot.item.特殊效果) }}</div>
                   </div>
                 </div>
               </div>

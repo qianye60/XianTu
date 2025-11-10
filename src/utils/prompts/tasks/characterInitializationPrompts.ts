@@ -228,28 +228,28 @@ export function buildCharacterSelectionsSummary(
   const nsfwMode = worldContext?.systemSettings?.nsfwMode;
   const nsfwFilter = worldContext?.systemSettings?.nsfwGenderFilter || 'female';
   let nsfwRuleText = `
-❌ **NSFW模式已禁用**
+[错误] **NSFW模式已禁用**
 → 所有NPC都不生成私密信息
 → 不生成玩家身体部位开发
 `;
   if (nsfwMode) {
     if (nsfwFilter === 'female') {
       nsfwRuleText = `
-✅ **NSFW模式已启用 - 仅女性**
+[正确] **NSFW模式已启用 - 仅女性**
 → 所有女性NPC必须包含完整的12字段"私密信息"
 → 男性NPC不生成私密信息
 → 为玩家生成3-5个身体部位开发数据
 `;
     } else if (nsfwFilter === 'male') {
       nsfwRuleText = `
-✅ **NSFW模式已启用 - 仅男性**
+[正确] **NSFW模式已启用 - 仅男性**
 → 所有男性NPC必须包含完整的12字段"私密信息"
 → 女性NPC不生成私密信息
 → 为玩家生成3-5个身体部位开发数据
 `;
     } else {
       nsfwRuleText = `
-✅ **NSFW模式已启用 - 所有性别**
+[正确] **NSFW模式已启用 - 所有性别**
 → 所有NPC(无论性别)都必须包含完整的12字段"私密信息"
 → 为玩家生成2-4个身体部位开发数据
 `;
@@ -257,7 +257,7 @@ export function buildCharacterSelectionsSummary(
   }
 
   const selectionsSummary = `
-# 🔴 玩家角色创建数据 (详细信息)
+# [重要] 玩家角色创建数据 (详细信息)
 
 ## 基础信息
 - 姓名: ${userSelections.name}
@@ -269,23 +269,23 @@ export function buildCharacterSelectionsSummary(
 ## 世界背景 🌍 (开局故事必须基于此构建)
 - 世界名称: ${worldName}
 - 世界时代: ${worldEra}
-- 🔴 **世界描述**: ${worldDesc}
+- [重要] **世界描述**: ${worldDesc}
 
 ---
 ## 天资等级 ✨ (角色资质必须符合此描述)
 - 天资名称: ${talentTierName}
-- 🔴 **天资描述**: ${talentTierDesc}
+- [重要] **天资描述**: ${talentTierDesc}
 
 ---
 ## 出身背景 👤 (开局故事核心)
 - 出身名称: ${originName}
-- 🔴 **出身描述**: ${originDesc}
+- [重要] **出身描述**: ${originDesc}
 
 ---
 ## 灵根资质 🔥 (修炼天赋必须体现此描述)
 - 灵根名称: ${spiritRootName}
 - 灵根品级: ${spiritRootTier}
-- 🔴 **灵根描述**: ${spiritRootDesc}
+- [重要] **灵根描述**: ${spiritRootDesc}
 
 ---
 ## 天赋列表 🎁 (必须在开局故事或数据中体现)
@@ -307,7 +307,7 @@ ${locationsList}
 ${mapCoordinateInfo}
 
 ---
-## 🔴🔴 系统设置 (NSFW内容生成控制) 🔴🔴
+## [重要][重要] 系统设置 (NSFW内容生成控制) [重要][重要]
 **当前系统配置 (必须严格遵守)**:
 - **nsfwMode**: ${nsfwMode ? 'true (已启用)' : 'false (已禁用)'}
 - **nsfwGenderFilter**: ${nsfwFilter}
@@ -317,7 +317,7 @@ ${nsfwRuleText}
 🚨 **严重警告**: 未按照上述设置生成私密信息将被视为任务失败!
 
 ---
-## 🔴🔴🔴 输出格式要求 (极其重要!) 🔴🔴🔴
+## [重要][重要][重要] 输出格式要求 (极其重要!) [重要][重要][重要]
 你必须输出一个纯JSON对象,不要使用markdown代码块!
 \`\`\`json
 {
