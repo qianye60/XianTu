@@ -8,7 +8,7 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { Item, SaveData, CultivationTechniqueReference } from '@/types/game';
 import { toast } from './toast';
-import { getTavernHelper } from '@/utils/tavern';
+// import { getTavernHelper } from '@/utils/tavern'; // 已废弃：新架构中不再使用
 
 export interface UndoAction {
   type: 'equip' | 'unequip' | 'use' | 'discard' | 'cultivate' | 'stop_cultivation';
@@ -51,7 +51,6 @@ export class EnhancedActionQueueManager {
    * 装备物品 - 直接修改装备栏并支持撤回
    */
   async equipItem(item: Item): Promise<boolean> {
-    const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
 
     try {
@@ -135,7 +134,7 @@ export class EnhancedActionQueueManager {
       // 注意：不从背包中移除物品，装备和背包是独立的
       // 被替换的装备也不放回背包，而是丢失（符合游戏逻辑）
 
-      // 应用装备属性加成
+      // 应用装备属性加成到存档的 角色基础信息.后天六司
       const { applyEquipmentBonus } = await import('./equipmentBonusApplier');
       applyEquipmentBonus(saveData, item.物品ID);
 
@@ -180,7 +179,6 @@ export class EnhancedActionQueueManager {
    * 卸下装备 - 直接修改装备栏并支持撤回
    */
   async unequipItem(item: Item): Promise<boolean> {
-    const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
 
     try {
@@ -265,7 +263,7 @@ export class EnhancedActionQueueManager {
 
       // 注意：不需要将装备放回背包，因为装备从未从背包中移除
 
-      // 移除装备属性加成
+      // 移除装备属性加成从存档的 角色基础信息.后天六司
       const { removeEquipmentBonus } = await import('./equipmentBonusApplier');
       removeEquipmentBonus(saveData, item.物品ID);
 
@@ -307,7 +305,6 @@ export class EnhancedActionQueueManager {
    * 使用物品 - 直接减少数量并支持撤回
    */
   async useItem(item: Item, quantity: number = 1): Promise<boolean> {
-    const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
 
     try {
@@ -378,7 +375,6 @@ export class EnhancedActionQueueManager {
    * 修炼功法 - 直接修改修炼状态并支持撤回
    */
   async cultivateItem(item: Item): Promise<boolean> {
-    const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
 
     try {
@@ -489,7 +485,6 @@ export class EnhancedActionQueueManager {
    * 停止修炼功法
    */
   async stopCultivation(item: Item): Promise<boolean> {
-    const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
 
     try {
@@ -581,11 +576,12 @@ export class EnhancedActionQueueManager {
 
     const lastAction = this.undoActions.pop()!;
     this.saveUndoHistoryToStorage();
-    const characterStore = useCharacterStore();
     const actionQueue = useActionQueueStore();
-    
+
     try {
-      const saveData = characterStore.activeSaveSlot?.存档数据;
+      // 🔥 [新架构] 从 gameStateStore 获取存档数据
+      const gameStateStore = useGameStateStore();
+      const saveData = gameStateStore.toSaveData();
       if (!saveData) {
         toast.error('存档数据不存在');
         return false;
@@ -596,7 +592,7 @@ export class EnhancedActionQueueManager {
           await this.undoEquip(lastAction, saveData);
           break;
         case 'unequip':
-          await this.undoUnequip(lastAction);
+          await this.undoUnequip(lastAction, saveData);
           break;
         case 'use':
           await this.undoUse(lastAction, saveData);
@@ -666,7 +662,7 @@ export class EnhancedActionQueueManager {
           await this.undoEquip(action, saveData);
           break;
         case 'unequip':
-          await this.undoUnequip(action);
+          await this.undoUnequip(action, saveData);
           break;
         case 'use':
           await this.undoUse(action, saveData);
@@ -707,6 +703,10 @@ export class EnhancedActionQueueManager {
       const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
       const slotItem = saveData.装备栏[slotKey];
       if (slotItem && typeof slotItem === 'object' && '物品ID' in slotItem && slotItem.物品ID === action.itemId) {
+        // 移除装备属性加成（撤回装备 = 卸下装备）
+        const { removeEquipmentBonus } = await import('./equipmentBonusApplier');
+        removeEquipmentBonus(saveData, action.itemId);
+
         // 卸下装备
         saveData.装备栏[slotKey] = null;
 
@@ -718,6 +718,10 @@ export class EnhancedActionQueueManager {
 
         // 如果有被替换的装备，恢复它
         if (action.restoreData?.replacedItem) {
+          // 应用被替换装备的属性加成
+          const { applyEquipmentBonus } = await import('./equipmentBonusApplier');
+          applyEquipmentBonus(saveData, action.restoreData.replacedItem.物品ID);
+
           saveData.装备栏[slotKey] = {
             物品ID: action.restoreData.replacedItem.物品ID,
             名称: action.restoreData.replacedItem.名称
@@ -729,7 +733,6 @@ export class EnhancedActionQueueManager {
           }
         }
 
-        // 🔥 [新架构] 移除酒馆同步
         break;
       }
     }
@@ -749,14 +752,27 @@ export class EnhancedActionQueueManager {
     }
   }
   
-  private async undoUnequip(action: UndoAction): Promise<void> {
-    // 由于卸下装备不涉及背包操作，撤回时需要从装备栏历史数据恢复
-    // 这里简化处理：如果有原始槽位信息，则重新装备
+  private async undoUnequip(action: UndoAction, saveData: SaveData): Promise<void> {
+    // 撤回卸下操作 = 重新装备
     if (!action.restoreData?.originalSlot) return;
-    
-    // 注意：由于我们不再在背包中存储卸下的装备，这里撤回操作有限制
-    // 实际游戏中可能需要更复杂的历史记录机制
-    toast.warning('装备撤回功能受限，卸下的装备无法完全恢复');
+
+    const originalSlot = action.restoreData.originalSlot;
+
+    // 重新装备到原来的槽位
+    saveData.装备栏[originalSlot as keyof typeof saveData.装备栏] = {
+      物品ID: action.itemId,
+      名称: action.itemName
+    };
+
+    // 设置物品的已装备标记
+    if (saveData.背包?.物品?.[action.itemId]) {
+      const inventoryItem = saveData.背包.物品[action.itemId];
+      saveData.背包.物品[action.itemId] = { ...inventoryItem, 已装备: true };
+    }
+
+    // 应用装备属性加成
+    const { applyEquipmentBonus } = await import('./equipmentBonusApplier');
+    applyEquipmentBonus(saveData, action.itemId);
   }
   
   private async undoUse(action: UndoAction, saveData: SaveData): Promise<void> {
@@ -851,8 +867,8 @@ export class EnhancedActionQueueManager {
    * 通过名称查找物品（辅助函数）
    */
   private findItemByName(itemName: string): Item | null {
-    const characterStore = useCharacterStore();
-    const saveData = characterStore.activeSaveSlot?.存档数据;
+    const gameStateStore = useGameStateStore();
+    const saveData = gameStateStore.toSaveData();
     if (!saveData) return null;
     
     // 在背包中查找

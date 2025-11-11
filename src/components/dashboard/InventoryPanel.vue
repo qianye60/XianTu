@@ -594,19 +594,31 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
       return
     }
 
-    // 清空装备槽位 - 更新为新的装备栏结构
-    const equipment = gameStateStore.equipment
-    const slotKey = slot.name as keyof typeof equipment
-    equipment[slotKey] = null // 设置为null
-
-    // 清除物品的已装备标记 - 物品是对象结构
-    const itemInInventory = gameStateStore.inventory?.物品?.[itemToUnequip.物品ID]
-    if (itemInInventory) {
-      itemInInventory.已装备 = false
+    // 获取存档数据
+    const saveData = gameStateStore.toSaveData()
+    if (!saveData) {
+      toast.error(t('存档数据不存在'))
+      return
     }
 
-    // 保存数据
-    await characterStore.saveCurrentGame()
+    // 找到装备在哪个槽位
+    const slotKey = slot.name as keyof typeof saveData.装备栏
+
+    // 清空装备槽位
+    saveData.装备栏[slotKey] = null
+
+    // 清除物品的已装备标记
+    if (saveData.背包?.物品?.[itemToUnequip.物品ID]) {
+      saveData.背包.物品[itemToUnequip.物品ID].已装备 = false
+    }
+
+    // 移除装备属性加成
+    const { removeEquipmentBonus } = await import('@/utils/equipmentBonusApplier')
+    removeEquipmentBonus(saveData, itemToUnequip.物品ID)
+
+    // 更新 gameStateStore 并保存
+    gameStateStore.loadFromSaveData(saveData)
+    await gameStateStore.saveGame()
 
     // 添加到操作队列
     actionQueue.addAction({

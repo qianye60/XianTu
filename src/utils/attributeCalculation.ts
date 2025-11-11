@@ -239,40 +239,25 @@ export function calculateFinalAttributes(
   后天六司: InnateAttributes,
   最终六司: InnateAttributes
 } {
-  // 装备加成
-  const equipmentBonuses = saveData.装备栏 && saveData.背包
-    ? calculateEquipmentBonuses(saveData.装备栏, saveData.背包)
-    : { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
-
-  // 天赋加成：从角色基础信息中的天赋计算
-  const talentBonuses = calculateTalentBonusesFromCharacter(saveData);
-
-  // 功法加成
-  const techniqueBonuses = calculateTechniqueBonuses(saveData);
-
-  // 合并所有后天加成
-  const totalAcquiredBonuses: InnateAttributes = {
-    根骨: equipmentBonuses.根骨 + talentBonuses.根骨 + techniqueBonuses.根骨,
-    灵性: equipmentBonuses.灵性 + talentBonuses.灵性 + techniqueBonuses.灵性,
-    悟性: equipmentBonuses.悟性 + talentBonuses.悟性 + techniqueBonuses.悟性,
-    气运: equipmentBonuses.气运 + talentBonuses.气运 + techniqueBonuses.气运,
-    魅力: equipmentBonuses.魅力 + talentBonuses.魅力 + techniqueBonuses.魅力,
-    心性: equipmentBonuses.心性 + talentBonuses.心性 + techniqueBonuses.心性,
+  // 🔥 [修复] 直接从存档读取后天六司，不再动态计算装备加成
+  // 装备加成已由 equipmentBonusApplier 写入 角色基础信息.后天六司
+  const storedAcquiredAttributes = saveData.角色基础信息?.后天六司 || {
+    根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0
   };
 
-  // 计算最终属性
+  // 计算最终属性（先天 + 后天）
   const finalAttributes: InnateAttributes = {
-    根骨: innateAttributes.根骨 + totalAcquiredBonuses.根骨,
-    灵性: innateAttributes.灵性 + totalAcquiredBonuses.灵性,
-    悟性: innateAttributes.悟性 + totalAcquiredBonuses.悟性,
-    气运: innateAttributes.气运 + totalAcquiredBonuses.气运,
-    魅力: innateAttributes.魅力 + totalAcquiredBonuses.魅力,
-    心性: innateAttributes.心性 + totalAcquiredBonuses.心性,
+    根骨: innateAttributes.根骨 + storedAcquiredAttributes.根骨,
+    灵性: innateAttributes.灵性 + storedAcquiredAttributes.灵性,
+    悟性: innateAttributes.悟性 + storedAcquiredAttributes.悟性,
+    气运: innateAttributes.气运 + storedAcquiredAttributes.气运,
+    魅力: innateAttributes.魅力 + storedAcquiredAttributes.魅力,
+    心性: innateAttributes.心性 + storedAcquiredAttributes.心性,
   };
 
   return {
     先天六司: innateAttributes,
-    后天六司: totalAcquiredBonuses,
+    后天六司: storedAcquiredAttributes,
     最终六司: finalAttributes
   };
 }
