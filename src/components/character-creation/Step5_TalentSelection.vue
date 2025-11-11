@@ -132,17 +132,45 @@ const filteredTalents = computed(() => {
 });
 
 // 自定义天赋字段 - 支持简单描述和结构化格式
+// 根据 types/index.ts 中的 Talent 接口定义字段
 const customTalentFields: ModalField[] = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
   { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的本质...' },
   { key: 'talent_cost', label: '天道点消耗', type: 'number', placeholder: '例如：3' },
+  { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
+  {
+    key: 'effects',
+    label: '天赋效果',
+    type: 'dynamic-list',
+    columns: [
+      {
+        key: '类型',
+        placeholder: '效果类型',
+        type: 'select',
+        options: [
+          { value: '属性加成', label: '属性加成' },
+          { value: '技能解锁', label: '技能解锁' },
+          { value: '特殊能力', label: '特殊能力' },
+          { value: '修炼加成', label: '修炼加成' }
+        ]
+      },
+      { key: '目标', placeholder: '目标（如：根骨、悟性）' },
+      { key: '数值', placeholder: '数值（如：+2、+10%）' }
+    ]
+  }
 ]
 
 // 自定义天赋数据类型 - 与标准数据格式保持一致
 type CustomTalentData = {
   name: string;
   description: string;
-  talent_cost: number;
+  talent_cost: number | string;
+  rarity: number | string;
+  effects: Array<{
+    类型: string;
+    目标?: string;
+    数值: number | string;
+  }>;
 };
 
 function validateCustomTalent(data: Partial<CustomTalentData>) {
@@ -151,10 +179,18 @@ function validateCustomTalent(data: Partial<CustomTalentData>) {
     // 必填字段验证
     if (!data.name?.trim()) errors.name = '天赋名称不可为空';
     if (!data.description?.trim()) errors.description = '天赋描述不可为空';
-    if (data.talent_cost === undefined || data.talent_cost === null || isNaN(data.talent_cost)) {
+
+    // 数值字段验证
+    const talentCost = Number(data.talent_cost);
+    if (data.talent_cost === undefined || data.talent_cost === null || data.talent_cost === '' || isNaN(talentCost)) {
         errors.talent_cost = '天道点消耗必须填写';
-    } else if (data.talent_cost < 0) {
+    } else if (talentCost < 0) {
         errors.talent_cost = '天道点消耗不能为负数';
+    }
+
+    const rarity = Number(data.rarity);
+    if (data.rarity !== undefined && data.rarity !== '' && (isNaN(rarity) || rarity < 1 || rarity > 10)) {
+      errors.rarity = '稀有度必须在1-10之间';
     }
 
     return {
@@ -164,13 +200,25 @@ function validateCustomTalent(data: Partial<CustomTalentData>) {
 }
 
 async function handleCustomSubmit(data: CustomTalentData) {
-  // 创建简化的天赋对象
+  // 处理天赋效果数组
+  const effects = Array.isArray(data.effects)
+    ? data.effects
+        .filter(effect => effect.类型 && effect.数值)
+        .map(effect => ({
+          类型: effect.类型,
+          目标: effect.目标 || undefined,
+          数值: Number(effect.数值) || 0
+        }))
+    : [];
+
+  // 创建完整的天赋对象
   const newTalent: Talent = {
     id: Date.now(),
     name: data.name,
     description: data.description,
     talent_cost: Number(data.talent_cost) || 0,
-    rarity: 1,
+    rarity: Number(data.rarity) || 1,
+    effects: effects.length > 0 ? effects : undefined,
     source: 'local' as const,
   }
 

@@ -30,7 +30,7 @@ export const RESPONSE_FORMAT_RULES = `
 \`\`\`json
 {
   "text": "叙事文本内容（必填，不能为空字符串）",
-  "mid_term_memory": "中期记忆摘要（选填，可为空字符串）",
+  "mid_term_memory": "中期记忆摘要（必填，不能为空）",
   "tavern_commands": [
     {"action": "set|add|push|pull|delete", "key": "字段路径", "value": "值"}
   ],

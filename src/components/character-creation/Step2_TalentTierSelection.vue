@@ -105,6 +105,7 @@ interface CustomTierData {
   name: string
   description: string
   total_points: string
+  rarity: string
   color: string
 }
 
@@ -143,10 +144,12 @@ const filteredTalentTiers = computed(() => {
   }
 });
 
+// 根据 types/index.ts 中的 TalentTier 接口定义字段
 const customTierFields = [
   { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },
   { key: 'description', label: '天资描述', type: 'textarea', placeholder: '描述此天资的特点...' },
-  { key: 'total_points', label: '天道点', type: 'text', placeholder: '例如：10' },
+  { key: 'total_points', label: '天道点', type: 'number', placeholder: '例如：10' },
+  { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
   { key: 'color', label: '辉光颜色', type: 'color', placeholder: '例如：#808080' },
 ] as const
 
@@ -155,6 +158,8 @@ function validateCustomTier(data: Partial<CustomTierData>) {
     if (!data.name?.trim()) errors.name = '天资名称不可为空';
     const points = Number(data.total_points);
     if (isNaN(points) || points < 0) errors.total_points = '天道点必须是非负数';
+    const rarity = Number(data.rarity);
+    if (isNaN(rarity) || rarity < 1 || rarity > 10) errors.rarity = '稀有度必须在1-10之间';
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -167,8 +172,8 @@ async function handleCustomSubmit(data: CustomTierData) {
     name: data.name,
     description: data.description,
     total_points: parseInt(data.total_points, 10) || 10,
+    rarity: parseInt(data.rarity, 10) || 1,
     color: data.color || '#808080',
-    rarity: 1, // Custom tiers have a default rarity
   }
   
   try {
@@ -281,6 +286,7 @@ async function handleEditSubmit(data: CustomTierData) {
     name: data.name,
     description: data.description,
     total_points: parseInt(data.total_points, 10) || 10,
+    rarity: parseInt(data.rarity, 10) || 1,
     color: data.color || '#808080'
   };
 
@@ -302,11 +308,12 @@ async function handleEditSubmit(data: CustomTierData) {
 // 编辑模态框的初始数据
 const editInitialData = computed(() => {
   if (!editingTier.value) return {};
-  
+
   return {
     name: editingTier.value.name,
     description: editingTier.value.description,
     total_points: editingTier.value.total_points.toString(),
+    rarity: editingTier.value.rarity?.toString() || '1',
     color: editingTier.value.color
   };
 });

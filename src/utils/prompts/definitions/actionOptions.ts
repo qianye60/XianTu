@@ -20,7 +20,7 @@ export const ACTION_OPTIONS_RULES = `
 \`\`\`json
 {
   "text": "...",
-  "mid_term_memory": "...",
+  "mid_term_memory": "...（必填）",
   "tavern_commands": [...],
   "action_options": ["选项1", "选项2", "选项3", "选项4"]
 }

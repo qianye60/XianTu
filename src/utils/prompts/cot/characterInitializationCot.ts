@@ -18,7 +18,7 @@ export const characterInitializationCotPrompt = `
 \`\`\`json
 {
   "text": "...",
-  "mid_term_memory": "...",
+  "mid_term_memory": "...（必填）",
   "tavern_commands": [...]
 }
 \`\`\`
@@ -100,7 +100,7 @@ Time(2) + Location(1) + Reputation(1) + Random(X) + Resources(X) + NPCs(X) + Dao
 ### JSON 输出要求
 - **必须包含 3 个字段**：text, mid_term_memory, tavern_commands
 - **text**：1200-2500 个中文字符
-- **mid_term_memory**：50-100 字符摘要
+- **mid_term_memory**：50-100 字符摘要（必填，不能为空）
 - **tavern_commands**：数组，包含所有初始化指令
 - **格式**：用 \`\`\`json 包裹，纯 JSON，双引号，无尾随逗号
 

@@ -275,12 +275,15 @@ const filteredSpiritRoots = computed(() => {
 });
 
 // 高级自定义字段 - 使用动态列表格式
+// 根据 types/index.ts 中的 SpiritRoot 接口定义字段
 const advancedCustomFields: readonly ModalField[] = [
   { key: 'name', label: '灵根名称', type: 'text', placeholder: '例如：混沌灵根' },
   { key: 'tier', label: '品级', type: 'select', options: spiritRootTiers.map(t => ({ value: t.key, label: t.name })) },
   { key: 'description', label: '灵根描述', type: 'textarea', placeholder: '描述这个灵根的特性和背景故事...' },
-  { key: 'base_multiplier', label: '修炼倍率', type: 'text', placeholder: '例如：1.5' },
-  { key: 'talent_cost', label: '消耗天道点', type: 'text', placeholder: '例如：10' },
+  { key: 'cultivation_speed', label: '修炼速度', type: 'text', placeholder: '例如：极快、快速、普通、缓慢' },
+  { key: 'base_multiplier', label: '修炼倍率', type: 'number', placeholder: '例如：1.5' },
+  { key: 'talent_cost', label: '消耗天道点', type: 'number', placeholder: '例如：10' },
+  { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
   {
     key: 'special_effects',
     label: '特殊效果',
@@ -299,8 +302,10 @@ type CustomSpiritRootData = {
   name: string;
   tier: string;
   description: string;
-  base_multiplier: string;
-  talent_cost: string;
+  cultivation_speed: string;
+  base_multiplier: string | number;
+  talent_cost: string | number;
+  rarity: string | number;
   special_effects: { effect: string }[];
 };
 
@@ -313,11 +318,19 @@ function validateCustomSpiritRoot(data: Partial<CustomSpiritRootData>) {
     if (!data.description?.trim()) errors.description = '灵根描述不可为空';
 
     // 数值字段验证
-    if (data.base_multiplier === undefined || isNaN(parseFloat(data.base_multiplier))) {
+    const baseMultiplier = Number(data.base_multiplier);
+    if (data.base_multiplier !== undefined && data.base_multiplier !== '' && isNaN(baseMultiplier)) {
       errors.base_multiplier = '修炼倍率必须为数字';
     }
-    if (data.talent_cost === undefined || isNaN(parseInt(data.talent_cost, 10))) {
+
+    const talentCost = Number(data.talent_cost);
+    if (data.talent_cost !== undefined && data.talent_cost !== '' && isNaN(talentCost)) {
       errors.talent_cost = '消耗点数必须为数字';
+    }
+
+    const rarity = Number(data.rarity);
+    if (data.rarity !== undefined && data.rarity !== '' && (isNaN(rarity) || rarity < 1 || rarity > 10)) {
+      errors.rarity = '稀有度必须在1-10之间';
     }
 
     return {
@@ -340,10 +353,11 @@ async function handleCustomSubmit(data: CustomSpiritRootData) {
     name: data.name,
     tier: spiritRootTiers.find(t => t.key === data.tier)?.name || data.tier,
     description: data.description,
+    cultivation_speed: data.cultivation_speed || '普通',
     special_effects: specialEffects,
-    base_multiplier: parseFloat(data.base_multiplier) || 1.0,
-    talent_cost: parseInt(data.talent_cost, 10) || 0,
-    rarity: 1,
+    base_multiplier: Number(data.base_multiplier) || 1.0,
+    talent_cost: Number(data.talent_cost) || 0,
+    rarity: Number(data.rarity) || 1,
     source: 'cloud' as const // 自定义的都算作cloud
   }
 
@@ -425,7 +439,7 @@ async function handleAIPromptSubmit(userPrompt: string) {
     console.log('【AI推演-灵根】完整响应:', aiResponse);
 
     // 解析AI返回的JSON
-    let parsedRoot: any;
+    let parsedRoot: Record<string, unknown>;
     try {
       const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
       const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
@@ -445,12 +459,12 @@ async function handleAIPromptSubmit(userPrompt: string) {
     // 创建灵根对象
     const newRoot: SpiritRoot = {
       id: Date.now(),
-      name: parsedRoot.name || parsedRoot.名称 || '未命名灵根',
-      tier: parsedRoot.tier || parsedRoot.品级 || parsedRoot.等级 || '',
-      description: parsedRoot.description || parsedRoot.描述 || parsedRoot.说明 || '',
-      base_multiplier: parsedRoot.base_multiplier || parsedRoot.修炼倍率 || 1.0,
-      talent_cost: parsedRoot.talent_cost || parsedRoot.天道点消耗 || parsedRoot.点数消耗 || 5,
-      rarity: parsedRoot.rarity || parsedRoot.稀有度 || 3,
+      name: String(parsedRoot.name || parsedRoot['名称'] || '未命名灵根'),
+      tier: String(parsedRoot.tier || parsedRoot['品级'] || parsedRoot['等级'] || ''),
+      description: String(parsedRoot.description || parsedRoot['描述'] || parsedRoot['说明'] || ''),
+      base_multiplier: Number(parsedRoot.base_multiplier || parsedRoot['修炼倍率']) || 1.0,
+      talent_cost: Number(parsedRoot.talent_cost || parsedRoot['天道点消耗'] || parsedRoot['点数消耗']) || 5,
+      rarity: Number(parsedRoot.rarity || parsedRoot['稀有度']) || 3,
       source: 'local'
     };
 
@@ -461,9 +475,10 @@ async function handleAIPromptSubmit(userPrompt: string) {
 
     toast.success(`AI推演完成！灵根 "${newRoot.name}" 已生成`, { id: toastId });
 
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('【AI推演-灵根】失败:', e);
-    toast.error(`AI推演失败: ${e.message}`, { id: toastId });
+    const errorMessage = e instanceof Error ? e.message : '未知错误';
+    toast.error(`AI推演失败: ${errorMessage}`, { id: toastId });
   }
 }
 
@@ -619,8 +634,8 @@ async function handleEditSubmit(data: CustomSpiritRootData) {
     description: data.description,
     cultivation_speed: `${data.base_multiplier}x`,
     special_effects: specialEffects,
-    base_multiplier: parseFloat(data.base_multiplier) || 1.0,
-    talent_cost: parseInt(data.talent_cost, 10) || 0
+    base_multiplier: parseFloat(String(data.base_multiplier)) || 1.0,
+    talent_cost: parseInt(String(data.talent_cost), 10) || 0
   };
 
   try {

@@ -73,7 +73,7 @@ ${characterInitializationCotPrompt}
 \`\`\`json
 {
   "text": "1200-2500字的沉浸式开局故事",
-  "mid_term_memory": "开局事件的简短摘要",
+  "mid_term_memory": "开局事件的简短摘要（必填，不能为空）",
   "tavern_commands": [
     {"action": "set", "key": "游戏时间.年", "value": 1000}
   ]
@@ -322,7 +322,7 @@ ${nsfwRuleText}
 \`\`\`json
 {
   "text": "1200-2500字的开局故事...",
-  "mid_term_memory": "text的缩短版",
+  "mid_term_memory": "text的缩短版（必填，不能为空）",
   "tavern_commands": [
     {"action": "set", "key": "玩家角色状态.位置", "value": {...}},
     ...
@@ -357,7 +357,7 @@ ${characterInitializationCotPrompt}
 \`\`\`json
 {
   "text": "1200-2500字的沉浸式开局故事",
-  "mid_term_memory": "开局事件的简短摘要",
+  "mid_term_memory": "开局事件的简短摘要（必填，不能为空）",
   "tavern_commands": [
     {"action": "set", "key": "游戏时间.年", "value": 1000}
   ]

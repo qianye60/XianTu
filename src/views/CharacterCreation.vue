@@ -300,15 +300,20 @@ const stepLabels = computed(() => [
 ])
 
 const characterDataForPreset = computed(() => ({
+  // 基础信息
   character_name: store.characterPayload.character_name,
   gender: store.characterPayload.gender,
   race: store.characterPayload.race,
   current_age: store.characterPayload.current_age,
+
+  // 创角选择（完整对象）
   world: store.selectedWorld,
   talentTier: store.selectedTalentTier,
   origin: store.selectedOrigin,
   spiritRoot: store.selectedSpiritRoot,
   talents: store.selectedTalents,
+
+  // 先天六司
   baseAttributes: {
     root_bone: store.attributes.root_bone,
     spirituality: store.attributes.spirituality,

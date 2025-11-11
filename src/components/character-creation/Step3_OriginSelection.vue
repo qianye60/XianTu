@@ -122,21 +122,21 @@ const filteredOrigins = computed(() => {
   const allOrigins = store.creationData.origins;
   console.log("【出身选择】所有出身数据:", allOrigins);
   console.log("【出身选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
-  
+
   if (store.isLocalCreation) {
     // 单机模式显示本地数据和云端同步的数据
-    const availableOrigins = allOrigins.filter(origin => 
+    const availableOrigins = allOrigins.filter(origin =>
       origin.source === 'local' || origin.source === 'cloud'
     );
     console.log("【出身选择】单机模式可用出身列表:", availableOrigins);
     return availableOrigins;
   } else {
-    const cloudOrigins = allOrigins.filter(origin => 
+    const cloudOrigins = allOrigins.filter(origin =>
       origin.source === 'cloud'
     );
     console.log("【出身选择】联机模式出身列表:", cloudOrigins);
     console.log("【出身选择】云端出身数量:", cloudOrigins.length);
-    
+
     if (cloudOrigins.length === 0) {
       console.warn("【出身选择】警告：联机模式下没有找到云端出身数据！");
       console.log("【出身选择】所有出身的source分布:", allOrigins.reduce((acc: Record<string, number>, o) => {
@@ -144,7 +144,7 @@ const filteredOrigins = computed(() => {
         return acc;
       }, {}));
     }
-    
+
     return cloudOrigins;
   }
 });
@@ -172,25 +172,54 @@ const modifierOptions = [
   { value: '5', label: '+5' }
 ] as const
 
-// 出身背景效果类型
-const originEffectTypes = [
-  { value: '初始资源', label: '初始资源' },
-  { value: '社会关系', label: '社会关系' },
-  { value: '特殊身份', label: '特殊身份' },
-  { value: '传承知识', label: '传承知识' },
-  { value: '起始装备', label: '起始装备' }
-] as const
 
 // 自定义出身字段 - 重新设计为背景设定
+// 根据 types/index.ts 中的 Origin 接口定义字段
 const customOriginFields: ModalField[] = [
   { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
-  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' }
+  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' },
+  { key: 'talent_cost', label: '天道点消耗', type: 'number', placeholder: '选择此出身需要消耗的天道点，可为负数表示奖励' },
+  { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
+  {
+    key: 'attribute_modifiers',
+    label: '属性修正',
+    type: 'dynamic-list',
+    columns: [
+      {
+        key: 'attribute',
+        placeholder: '属性名称',
+        type: 'select',
+        options: [
+          { value: '根骨', label: '根骨' },
+          { value: '灵性', label: '灵性' },
+          { value: '悟性', label: '悟性' },
+          { value: '气运', label: '气运' },
+          { value: '魅力', label: '魅力' },
+          { value: '心性', label: '心性' }
+        ]
+      },
+      { key: 'value', placeholder: '修正值（可为负数）', type: 'text' }
+    ]
+  },
+  {
+    key: 'background_effects',
+    label: '背景效果',
+    type: 'dynamic-list',
+    columns: [
+      { key: 'type', placeholder: '效果类型（如：技能、资源、关系）' },
+      { key: 'description', placeholder: '效果描述' }
+    ]
+  }
 ] as const
 
 // 为自定义出身数据定义完整类型
 type CustomOriginData = {
   name: string;
   description: string;
+  talent_cost: string | number;
+  rarity: string | number;
+  attribute_modifiers: Array<{ attribute: string; value: string }>;
+  background_effects: Array<{ type: string; description: string }>;
 };
 
 function validateCustomOrigin(data: Partial<CustomOriginData>) {
@@ -200,6 +229,17 @@ function validateCustomOrigin(data: Partial<CustomOriginData>) {
     if (!data.name?.trim()) errors.name = '出身名称不可为空';
     if (!data.description?.trim()) errors.description = '出身描述不可为空';
 
+    // 数值字段验证
+    const talentCost = Number(data.talent_cost);
+    if (data.talent_cost !== undefined && data.talent_cost !== '' && isNaN(talentCost)) {
+      errors.talent_cost = '天道点消耗必须是数字';
+    }
+
+    const rarity = Number(data.rarity);
+    if (data.rarity !== undefined && data.rarity !== '' && (isNaN(rarity) || rarity < 1 || rarity > 10)) {
+      errors.rarity = '稀有度必须在1-10之间';
+    }
+
     return {
         valid: Object.keys(errors).length === 0,
         errors: Object.values(errors),
@@ -207,15 +247,30 @@ function validateCustomOrigin(data: Partial<CustomOriginData>) {
 }
 
 async function handleCustomSubmit(data: CustomOriginData) {
+  // 处理属性修正：将数组转换为对象格式
+  const attributeModifiers: Record<string, number> = {};
+  if (Array.isArray(data.attribute_modifiers)) {
+    data.attribute_modifiers.forEach(mod => {
+      if (mod.attribute && mod.value) {
+        attributeModifiers[mod.attribute] = Number(mod.value) || 0;
+      }
+    });
+  }
+
+  // 处理背景效果
+  const backgroundEffects = Array.isArray(data.background_effects)
+    ? data.background_effects.filter(effect => effect.type && effect.description)
+    : [];
+
   // 创建完整的标准化出身对象
   const newOrigin: Origin = {
     id: Date.now(),
     name: data.name,
     description: data.description,
-    talent_cost: 0,
-    attribute_modifiers: {},
-    background_effects: [],
-    rarity: 1,
+    talent_cost: Number(data.talent_cost) || 0,
+    attribute_modifiers: attributeModifiers,
+    background_effects: backgroundEffects,
+    rarity: Number(data.rarity) || 1,
     source: 'local' as const,
   }
 
@@ -369,7 +424,7 @@ async function handleEditSubmit(data: CustomOriginData) {
 // 编辑模态框的初始数据
 const editInitialData = computed(() => {
   if (!editingOrigin.value) return {};
-  
+
   return {
     name: editingOrigin.value.name,
     description: editingOrigin.value.description,
@@ -687,7 +742,7 @@ const activeCost = computed(() => {
     grid-template-columns: 1fr 1.5fr;
     gap: 1.2rem;
   }
-  
+
   .origin-details h2 {
     font-size: 1.6rem;
   }
@@ -711,24 +766,24 @@ const activeCost = computed(() => {
     overflow: visible;
     padding: 0.8rem;
   }
-  
+
   .origin-left-panel {
     order: 1;
     max-height: 40vh;
   }
-  
+
   .origin-details-container {
     order: 2;
     min-height: 300px;
   }
-  
+
   .origin-list-container {
     max-height: 35vh;
     /* 添加触摸滚动优化 */
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
   }
-  
+
   /* 优化触摸体验 */
   .origin-item,
   .action-item {
@@ -742,37 +797,37 @@ const activeCost = computed(() => {
     gap: 0.8rem;
     padding: 0.6rem;
   }
-  
+
   .origin-left-panel {
     max-height: 35vh;
   }
-  
+
   .origin-list-container {
     max-height: 30vh;
     padding: 0.5rem;
   }
-  
+
   .origin-item {
     padding: 0.7rem;
     font-size: 0.95rem;
     margin-bottom: 0.4rem;
   }
-  
+
   .single-actions-container {
     padding: 0.5rem;
     gap: 0.4rem;
   }
-  
+
   .action-item {
     padding: 0.7rem 1rem;
     font-size: 0.9rem;
   }
-  
+
   .origin-details-container {
     padding: 1.2rem;
     min-height: 250px;
   }
-  
+
   .origin-details h2 {
     font-size: 1.4rem;
     margin-bottom: 0.8rem;
@@ -802,66 +857,66 @@ const activeCost = computed(() => {
     max-height: none;
     border-radius: 6px;
   }
-  
+
   .origin-list-container {
     max-height: 26vh;
     padding: 0.4rem;
   }
-  
+
   .origin-item {
     padding: 0.6rem 0.8rem;
     font-size: 0.9rem;
     margin-bottom: 0.3rem;
     border-radius: 4px;
   }
-  
+
   .origin-name {
     font-size: 0.9rem;
   }
-  
+
   .origin-cost {
     font-size: 0.8rem;
   }
-  
+
   .divider {
     margin: 0.3rem 0;
   }
-  
+
   .single-actions-container {
     flex-direction: column;
     gap: 0.4rem;
     padding: 0.4rem;
   }
-  
+
   .action-item {
     padding: 0.6rem;
     font-size: 0.85rem;
     border-radius: 4px;
   }
-  
+
   .origin-details-container {
     padding: 1rem;
     min-height: 200px;
     border-radius: 6px;
   }
-  
+
   .origin-details h2 {
     font-size: 1.3rem;
     margin-bottom: 0.6rem;
   }
-  
+
   .description-scroll {
     font-size: 0.9rem;
     line-height: 1.5;
     padding-right: 0.3rem;
     margin-bottom: 0.8rem;
   }
-  
+
   .cost-display {
     font-size: 1rem;
     text-align: center;
   }
-  
+
   .placeholder {
     font-size: 1rem;
     padding: 1rem;
@@ -914,59 +969,59 @@ const activeCost = computed(() => {
   .origin-selection-container {
     padding: 0.3rem;
   }
-  
+
   .origin-layout {
     gap: 0.4rem;
   }
-  
+
   .origin-left-panel {
     max-height: 28vh;
   }
-  
+
   .origin-list-container {
     max-height: 24vh;
     padding: 0.3rem;
   }
-  
+
   .origin-item {
     padding: 0.5rem 0.6rem;
     font-size: 0.85rem;
     margin-bottom: 0.2rem;
   }
-  
+
   .origin-name {
     font-size: 0.8rem;
   }
-  
+
   .origin-cost {
     font-size: 0.75rem;
   }
-  
+
   .origin-details-container {
     padding: 0.8rem;
     min-height: 180px;
   }
-  
+
   .origin-details h2 {
     font-size: 1.1rem;
     margin-bottom: 0.5rem;
   }
-  
+
   .description-scroll {
     font-size: 0.85rem;
     line-height: 1.4;
     margin-bottom: 0.6rem;
   }
-  
+
   .cost-display {
     font-size: 0.9rem;
   }
-  
+
   .action-item {
     padding: 0.5rem;
     font-size: 0.8rem;
   }
-  
+
   .placeholder {
     font-size: 0.9rem;
     padding: 0.8rem;

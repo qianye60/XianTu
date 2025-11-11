@@ -298,6 +298,7 @@ const worldsList = computed(() => {
   }
 });
 
+// 根据 types/index.ts 中的 World 接口定义字段
 const customWorldFields = [
   { key: 'name', label: '世界名称', type: 'text', placeholder: '例如：九霄界' },
   { key: 'era', label: '时代背景', type: 'text', placeholder: '例如：仙道昌隆' },
