@@ -53,8 +53,19 @@ export function applyEquipmentBonus(saveData: SaveData, equipmentItemId: string)
       console.log(`[装备增幅] 神识上限: ${current神识.上限} -> ${new上限} (+${bonus.神识上限})`);
     }
 
-    // 后天六司加成已由 attributeCalculation.ts 的 calculateEquipmentBonuses 处理
-    // 无需在这里重复计算
+    // 应用后天六司加成
+    if (bonus.后天六司) {
+      const 后天六司属性 = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'];
+      后天六司属性.forEach(attr => {
+        const bonusValue = bonus.后天六司?.[attr];
+        if (bonusValue && typeof bonusValue === 'number') {
+          const currentValue = get(saveData, `角色基础信息.后天六司.${attr}`, 0);
+          const newValue = currentValue + bonusValue;
+          set(saveData, `角色基础信息.后天六司.${attr}`, newValue);
+          console.log(`[装备增幅] 后天六司.${attr}: ${currentValue} -> ${newValue} (+${bonusValue})`);
+        }
+      });
+    }
 
     console.log(`[装备增幅] ✅ 成功应用装备 ${item.名称} 的属性加成`);
     return true;
@@ -128,6 +139,20 @@ export function removeEquipmentBonus(saveData: SaveData, equipmentItemId: string
       }
 
       console.log(`[装备增幅] 神识上限: ${current神识.上限} -> ${new上限} (-${bonus.神识上限})`);
+    }
+
+    // 移除后天六司加成
+    if (bonus.后天六司) {
+      const 后天六司属性 = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'];
+      后天六司属性.forEach(attr => {
+        const bonusValue = bonus.后天六司?.[attr];
+        if (bonusValue && typeof bonusValue === 'number') {
+          const currentValue = get(saveData, `角色基础信息.后天六司.${attr}`, 0);
+          const newValue = Math.max(0, currentValue - bonusValue);
+          set(saveData, `角色基础信息.后天六司.${attr}`, newValue);
+          console.log(`[装备增幅] 后天六司.${attr}: ${currentValue} -> ${newValue} (-${bonusValue})`);
+        }
+      });
     }
 
     console.log(`[装备增幅] ✅ 成功移除装备 ${item.名称} 的属性加成`);
