@@ -22,6 +22,7 @@ export const characterInitializationCotPrompt = `
   "tavern_commands": [...]
 }
 \`\`\`
+
 \`\`\`
 
 ---
