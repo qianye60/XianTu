@@ -39,7 +39,7 @@ import SkillsPanel from '../components/dashboard/SkillsPanel.vue'; // 功法面�
 import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue'; // 新的三千大道面板
 import SettingsPanel from '../components/dashboard/SettingsPanel.vue';
 import SavePanel from '../components/dashboard/SavePanel.vue';
-import WorldMapPanel from '../components/dashboard/WorldMapPanel.vue';
+import GameMapPanel from '../components/dashboard/GameMapPanel.vue'; // 新的游戏地图组件（使用Pixi.js）
 import QuestPanel from '../components/dashboard/QuestPanel.vue';
 import SectPanel from '../components/dashboard/SectPanel.vue';
 import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
@@ -113,7 +113,7 @@ const routes = [
       {
         path: 'world-map',
         name: 'WorldMap',
-        component: WorldMapPanel,
+        component: GameMapPanel, // 使用新的游戏地图组件
       },
       {
         path: 'quests',

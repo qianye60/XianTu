@@ -118,10 +118,9 @@ function validateValueType(key: string, value: unknown, action: string): string[
     if (numberFields.some(f => key === f || key.endsWith(`.${f.split('.').pop()}`))) {
       if (typeof value !== 'number') {
         errors.push(`${key}使用add操作时value必须是数字，当前类型: ${typeof value}`);
-      } else if (key.includes('灵石') && value < 0) {
-        // 灵石不能添加负数（会导致负数bug）
-        errors.push(`${key}不能添加负数，当前值: ${value}。如需减少灵石，请使用正确的消耗逻辑`);
       }
+      // 移除灵石负数限制，允许通过 add 负数来减少灵石
+      // 注意：实际执行时会由 tavernCore 确保不会变成负数
     }
     // 检查后天六司（正确路径：角色基础信息.后天六司.{field}）
     if ((key.startsWith('角色基础信息.后天六司.') || key.includes('.后天六司.')) && houTianFields.some(f => key.endsWith(`.${f}`))) {

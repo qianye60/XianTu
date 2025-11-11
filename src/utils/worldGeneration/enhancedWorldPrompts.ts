@@ -4,6 +4,7 @@ import { WorldMapConfig } from '@/types/worldMap';
  * 增强的世界生成提示词系统
  * 解决势力重复、命名固化、规模不合理等问题
  * 支持不同修仙世界背景适配
+ * 使用游戏坐标系统 (0-10000)
  */
 
 export interface WorldPromptConfig {
@@ -43,33 +44,24 @@ export class EnhancedWorldPromptBuilder {
     const worldEraInfo = config.worldEra ? `\n世界时代: ${config.worldEra}` : '';
     const worldNameInfo = config.worldName ? `\n世界名称: ${config.worldName}` : '';
 
-    // 坐标范围配置
-    let minLng, maxLng, minLat, maxLat;
-    if (config.mapConfig) {
-      minLng = config.mapConfig.minLng;
-      maxLng = config.mapConfig.maxLng;
-      minLat = config.mapConfig.minLat;
-      maxLat = config.mapConfig.maxLat;
-    } else {
-      const baseMinLng = 100 + Math.random() * 20;
-      const baseMaxLng = baseMinLng + 5 + Math.random() * 10;
-      const baseMinLat = 25 + Math.random() * 15;
-      const baseMaxLat = baseMinLat + 3 + Math.random() * 8;
-      minLng = Math.round(baseMinLng * 10) / 10;
-      maxLng = Math.round(baseMaxLng * 10) / 10;
-      minLat = Math.round(baseMinLat * 10) / 10;
-      maxLat = Math.round(baseMaxLat * 10) / 10;
-    }
+    // 游戏坐标系统配置 (0-10000)
+    const minX = 0;
+    const maxX = 10000;
+    const minY = 0;
+    const maxY = 10000;
 
     const uniqueSeed = Date.now() + Math.floor(Math.random() * 1000000);
     const sessionId = Math.random().toString(36).substring(7);
 
-    // 大洲形状指导
+    // 大洲形状指导（简化版）
     const continentShapes = [
-      '狭长型（南北向长条形）', '椭圆型（东西向宽椭圆）', '不规则多角形（8-12个顶点）',
-      '群岛型（多个连接岛屿）', '半月型（弯曲月牙）', '三角形', '葫芦型', '星形（多尖角）'
+      '矩形（四个角点）',
+      '梯形（上窄下宽或上宽下窄）',
+      '五边形（矩形切角）',
+      '矩形变体（某边中间有凸起）',
+      '不规则四边形（略微倾斜的矩形）'
     ];
-    const selectedShapes = continentShapes.sort(() => Math.random() - 0.5).slice(0, 4);
+    const selectedShapes = continentShapes.sort(() => Math.random() - 0.5).slice(0, Math.min(finalContinentCount, 5));
 
     // 世界风格适配
     const bgRaw = `${(config.worldName || '')} ${(config.worldBackground || '')}`;
@@ -92,15 +84,22 @@ export class EnhancedWorldPromptBuilder {
       styleGuide += `- 命名: 保持多样性，紧密关联世界背景\n- 灵气: 中等\n- 境界: 默认渡劫期\n- 风格: 根据背景自由发挥\n`;
     }
 
+    // 计算网格分割
     const gridRows = Math.ceil(Math.sqrt(finalContinentCount));
     const gridCols = Math.ceil(finalContinentCount / gridRows);
-    const lngStep = Math.round(((maxLng - minLng) / gridCols) * 10) / 10;
-    const latStep = Math.round(((maxLat - minLat) / gridRows) * 10) / 10;
+    const xStep = Math.floor((maxX - minX) / gridCols);
+    const yStep = Math.floor((maxY - minY) / gridRows);
 
     return `# 诸天万界势力地图生成任务
 
 会话ID: ${sessionId} | 随机种子: ${uniqueSeed}
-坐标范围: 经度${minLng}-${maxLng}, 纬度${minLat}-${maxLat}
+
+## 🎮 游戏坐标系统说明
+**重要**：本项目使用游戏坐标系统，不是经纬度！
+- 坐标范围：x: 0-10000, y: 0-10000（像素坐标）
+- 原点(0,0)在左上角，x向右增加，y向下增加
+- 所有位置、边界、范围都必须使用此坐标系统
+- 禁止使用经纬度或任何地理坐标系统
 
 ## 🚨 最高优先级要求
 必须生成完整JSON：
@@ -132,32 +131,60 @@ ${styleGuide}
 宗门(40-50%) | 世家(20-30%) | 魔道(10-20%) | 散修联盟(10-15%) | 商会(5-15%) | 妖族(5-10%)
 
 ## 大洲生成要求（${finalContinentCount}个）
+### 🚨 关键要求：大洲必须完全覆盖地图，边界必须相连！
+
 ### 网格分割法（强制执行）
 - 网格布局: ${gridRows}行 × ${gridCols}列
-- 经度分段: 每段${lngStep}度
-- 纬度分段: 每段${latStep}度
-- 每个大洲只能在专属网格单元内生成边界
+- X轴分段: 每段${xStep}像素（游戏坐标）
+- Y轴分段: 每段${yStep}像素（游戏坐标）
+- 每个大洲占据一个网格单元
+
+### 大洲边界生成规则（重要！）
+**必须使用以下方法确保边界相连：**
+
+1. **第一个大洲（左上角）**：
+   - 左上角: (0, 0)
+   - 右上角: (${xStep}, 0)
+   - 右下角: (${xStep}, ${yStep})
+   - 左下角: (0, ${yStep})
+   - 可在中间添加1-2个点形成自然形状
+
+2. **其他大洲**：
+   - 必须与相邻大洲共享边界点
+   - 网格边界的四个角点必须精确对齐
+   - 可在边界中间添加1-2个点形成自然曲线
+   - 总点数：4-6个（推荐4-5个）
 
 ### 大洲要求
-- 边界: 4-8个坐标点的简单多边形，严禁重叠
-- 覆盖: 必须完全覆盖地图区域，无空隙
-- 命名: 独特名称，避免方位词
-- 特色: 独特地理特征（雪域、沙漠、森林等）
+- 边界: 4-5个坐标点（最多6个），形成简单多边形
+- 坐标格式: {"x": 整数, "y": 整数}，范围0-10000
+- **覆盖: 必须完全覆盖地图，相邻大洲边界必须精确对接，不留空隙**
+- 命名: 独特名称，避免方位词，符合世界背景
+- 描述: 详细描述大陆的地理特征、气候、文化特色
+- 特色: 独特地理特征（雪域、沙漠、森林、山脉、海洋等）
 - 势力: 每个大洲1-3个主要势力
 
-### 形状指导
-${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\n')}
+### 推荐形状（简单规则）
+- **矩形变体**：在矩形基础上，某条边中间加1个点形成凸起或凹陷
+- **梯形**：上下边不等长的四边形
+- **五边形**：在矩形基础上切掉一个角
+- ❌ 禁止：复杂的多角星形、不规则锯齿状
 
 ### 边界铁律
-- 严格限制在专属网格单元内
-- 所有坐标点必须在专属经纬度范围内
-- 禁止跨越网格边界
-- 相邻大洲可共享边界线但绝不重叠
+- ✅ 相邻大洲必须共享边界点（精确到像素）
+- ✅ 网格角点必须对齐（如 (${xStep}, 0) 必须是两个大洲的共同顶点）
+- ✅ 边界点按顺时针或逆时针顺序排列
+- ✅ 形状简洁，不要奇形怪状
+- ❌ 禁止：边界中间断开、留有空隙
+- ❌ 禁止：跨越网格边界
+- ❌ 禁止：过于复杂的形状（超过6个点）
 
 ## 势力生成要求（${finalFactionCount}个）
-### 规模关系
-- 大洲: 超大地理板块，跨度5-10经纬度
-- 势力范围: 占大洲8%-25%，跨度0.5-1.5经纬度
+### 规模关系（游戏坐标）
+- 大洲: 超大地理板块，跨度2000-5000像素（游戏坐标）
+- **势力范围: 占大洲3%-8%，跨度150-400像素（游戏坐标）** ⚠️ 不要太大！
+- 势力位置: 必须在对应大洲边界内，使用游戏坐标{"x": 数字, "y": 数字}
+- 势力范围形状: 简单的4-5边形，不要复杂形状
 
 ### 必需字段
 1. **基础信息**
@@ -223,24 +250,27 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 - 自然景观: ${otherSites}个
 
 ### 7种标准类型
-1. natural_landmark - 自然地标
-2. sect_power - 势力总部
-3. city_town - 城镇聚居地
-4. blessed_land - 修炼圣地
-5. treasure_land - 资源宝地
-6. dangerous_area - 危险区域
-7. special_other - 特殊地点
+1. natural_landmark - 自然地标（名山大川）
+2. sect_power - 势力总部（宗门山门）
+3. city_town - 城镇聚居地（坊市、城池）
+4. blessed_land - 修炼圣地（洞天福地）
+5. treasure_land - 资源宝地（奇珍异地）
+6. dangerous_area - 危险区域（凶险之地）
+7. special_other - 特殊地点（其他特殊）
 
 ### 特殊属性（${finalSecretRealmCount}个）
 - 机遇之地: ${opportunityRealms}个
 - 传承遗迹: ${heritageRealms}个
 - 危险禁地: ${dangerousRealms}个
 
-### 地点原则
-- 不强制每势力有地点
-- 地点位置在对应大洲范围内
+### 地点坐标要求（重要）
+- 坐标格式: "coordinates": {"x": 数字, "y": 数字}
+- 坐标范围: x和y必须在0-10000之间（游戏坐标）
+- 地点位置必须在对应大洲边界内
+- 势力总部地点坐标应该与势力"位置"坐标相同或接近
 - 可在势力范围内外
 - 中立地点可不属于任何势力
+- 禁止使用经纬度或其他坐标系统
 
 ## 数据结构检查
 ### 严禁错误格式
@@ -255,9 +285,23 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 - ✗ 大洲边界点顺序错误（必须按顺时针或逆时针排列，相邻点连接）
 
 ### 必需字段
-**势力**：位置（对象）、势力范围（≥4点，按顺时针或逆时针顺序）、leadership（完整）、memberCount（完整）
-**地点**：coordinates（对象）、name、type、description
-**大洲**：大洲边界（4-8点，**必须按顺时针或逆时针顺序排列形成闭合多边形**）、地理特征（≥3个）、天然屏障（≥2个）
+**势力**：
+- 位置（对象，游戏坐标）: {"x": 数字, "y": 数字}
+- 势力范围（≥4点，按顺时针或逆时针顺序，游戏坐标）
+- leadership（完整）
+- memberCount（完整）
+
+**地点**：
+- coordinates（对象，游戏坐标）: {"x": 数字, "y": 数字}
+- name（字符串）
+- type（7种类型之一）
+- description（详细描述）
+
+**大洲**：
+- 大洲边界（4-6点，推荐4-5点，**必须按顺时针或逆时针顺序排列形成闭合多边形**，游戏坐标）
+- 地理特征（≥3个）
+- 天然屏障（≥2个）
+- 描述（详细的地理和文化描述）
 
 ## JSON输出格式
 \`\`\`json
@@ -271,13 +315,17 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
       "地理特征": ["特征1", "特征2", "特征3"],
       "天然屏障": ["屏障1", "屏障2"],
       "大洲边界": [
-        {"x": ${minLng}, "y": ${minLat}},
-        {"x": ${minLng + lngStep}, "y": ${minLat}},
-        {"x": ${minLng + lngStep}, "y": ${minLat + latStep}},
-        {"x": ${minLng}, "y": ${minLat + latStep}}
+        {"x": 0, "y": 0},
+        {"x": ${xStep}, "y": 0},
+        {"x": ${xStep}, "y": ${yStep}},
+        {"x": 0, "y": ${yStep}}
       ],
+      // ⚠️ 游戏坐标系统：x: 0-10000, y: 0-10000（像素坐标，不是经纬度）
       // ⚠️ 大洲边界必须按顺时针或逆时针顺序排列，相邻点连接形成闭合多边形
-      // ⚠️ 不能随机排列坐标，否则边界线会交叉
+      // ⚠️ 相邻大洲必须共享边界点，确保无缝对接！
+      // ⚠️ 网格角点必须精确对齐（如第一个大洲的右上角 (${xStep}, 0) 必须是第二个大洲的左上角）
+      // ⚠️ 推荐4-5个点，最多6个点，保持形状简洁
+      // ⚠️ 示例：矩形变体可以在右边中间加一个点 {"x": ${xStep}, "y": ${Math.floor(yStep/2)}} 形成凸起
       "主要势力": ["势力ID列表"]
     }
   ],
@@ -291,13 +339,19 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
       "特色": ["专长1", "专长2"],
       "与玩家关系": "中立",
       "声望值": "程序自动计算",
-      "位置": {"x": ${minLng + 2.5}, "y": ${minLat + 1.5}},
+      "位置": {"x": 2500, "y": 1500},
+      // ⚠️ 位置使用游戏坐标 (0-10000)，不是经纬度
       "势力范围": [
-        {"x": ${minLng + 2.0}, "y": ${minLat + 1.0}},
-        {"x": ${minLng + 3.5}, "y": ${minLat + 1.2}},
-        {"x": ${minLng + 3.2}, "y": ${minLat + 2.5}},
-        {"x": ${minLng + 1.8}, "y": ${minLat + 2.0}}
+        {"x": 2300, "y": 1300},
+        {"x": 2700, "y": 1300},
+        {"x": 2700, "y": 1700},
+        {"x": 2300, "y": 1700}
       ],
+      // ⚠️ 势力范围坐标必须在游戏坐标系统内 (0-10000)，不是经纬度
+      // ⚠️ 势力范围必须按顺时针或逆时针顺序排列
+      // ⚠️ 势力范围必须在对应大洲边界内
+      // ⚠️ 势力范围不要太大！跨度建议150-400像素，占大洲3%-8%
+      // ⚠️ 形状简单：4-5个点的矩形或五边形即可
       "leadership": {
         "宗主": "欧阳烈风",
         "宗主修为": "化神中期",
@@ -338,13 +392,16 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
       "id": "loc_1",
       "name": "地点名称",
       "type": "sect_power",
-      "coordinates": {"x": ${minLng + 2.0}, "y": ${minLat + 1.0}},
+      "coordinates": {"x": 2500, "y": 1500},
+      // ⚠️ 地点坐标使用游戏坐标系统 (0-10000)，不是经纬度
+      // ⚠️ 地点坐标必须在对应大洲边界内
+      // ⚠️ 势力总部地点坐标应与势力"位置"坐标相同
       "description": "地点详细描述",
-      "danger_level": "安全/普通/危险/极危险",
-      "suitable_for": ["适合群体"],
-      "controlled_by": "控制势力",
-      "special_features": ["地点特色"],
-      "special_attributes": ["特殊属性（可选）"]
+      "danger_level": "安全",
+      "suitable_for": ["筑基期以上"],
+      "controlled_by": "青云宗",
+      "special_features": ["护山大阵", "灵气充沛"],
+      "special_attributes": []
     }
   ]
 }
@@ -358,7 +415,7 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 4. ✅ 每个势力有完整leadership和memberCount
 5. ✅ 每个势力范围≥4个坐标点
 6. ✅ 每个大洲边界4-8个坐标点
-7. ✅ 所有坐标为数字类型
+7. ✅ 所有坐标为数字类型，范围在0-10000之间
 8. ✅ memberCount数据一致性
 9. ✅ byRealm境界≤最强修为
 10. ✅ 避免重复名称

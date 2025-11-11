@@ -174,6 +174,11 @@ class AIBidirectionalSystemClass {
         activePrompts.push('actionOptions');
       }
 
+      // 🔥 根据任务系统配置决定是否激活任务系统提示词
+      if (stateForAI.任务系统?.配置?.启用系统任务) {
+        activePrompts.push('questSystem');
+      }
+
       const systemPrompt = `
 ${assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt)}
 
@@ -215,7 +220,7 @@ ${stateJsonString}
       // 🔥 添加 CoT 提示词（放在最后，确保 AI 在输出前进行思维链分析）
       // 将用户输入直接传递给 CoT，避免 AI 自己编造或误读
       injects.push({
-        content: getCotCorePrompt(userActionForAI),
+        content: getCotCorePrompt(userActionForAI, uiStore.enableActionOptions),
         role: 'system',
         depth: 1,
         position: 'in_chat',
@@ -1054,7 +1059,16 @@ ${saveDataJson}
         if (typeof currentValue !== 'number' || typeof value !== 'number') {
           throw new Error(`ADD操作要求数值类型，但得到: ${typeof currentValue}, ${typeof value}`);
         }
-        set(saveData, path, currentValue + value);
+        const newValue = currentValue + value;
+        
+        // 🔥 防止灵石变成负数
+        if (path.includes('灵石') && newValue < 0) {
+          console.warn(`[AI双向系统] ${path} 执行add后会变成负数 (${currentValue} + ${value} = ${newValue})，已限制为0`);
+          set(saveData, path, 0);
+        } else {
+          set(saveData, path, newValue);
+        }
+        
         this.enforceStatLimits(saveData, path);
         break;
       }

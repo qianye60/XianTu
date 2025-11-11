@@ -55,9 +55,9 @@ export function applyEquipmentBonus(saveData: SaveData, equipmentItemId: string)
 
     // 应用后天六司加成
     if (bonus.后天六司) {
-      const 后天六司属性 = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'];
+      const 后天六司属性 = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'] as const;
       后天六司属性.forEach(attr => {
-        const bonusValue = bonus.后天六司?.[attr];
+        const bonusValue = bonus.后天六司?.[attr as keyof typeof bonus.后天六司];
         if (bonusValue && typeof bonusValue === 'number') {
           const currentValue = get(saveData, `角色基础信息.后天六司.${attr}`, 0);
           const newValue = currentValue + bonusValue;
@@ -143,9 +143,9 @@ export function removeEquipmentBonus(saveData: SaveData, equipmentItemId: string
 
     // 移除后天六司加成
     if (bonus.后天六司) {
-      const 后天六司属性 = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'];
+      const 后天六司属性 = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'] as const;
       后天六司属性.forEach(attr => {
-        const bonusValue = bonus.后天六司?.[attr];
+        const bonusValue = bonus.后天六司?.[attr as keyof typeof bonus.后天六司];
         if (bonusValue && typeof bonusValue === 'number') {
           const currentValue = get(saveData, `角色基础信息.后天六司.${attr}`, 0);
           const newValue = Math.max(0, currentValue - bonusValue);

@@ -195,34 +195,37 @@ export function buildCharacterSelectionsSummary(
     ? worldContext.availableLocations.slice(0, 10).map((l: ContextItem) => `  - **${l.name || l.名称}** (${l.type || l.类型}): ${l.description || l.描述}`).join('\n')
     : '  (未生成)';
 
-  // 地图坐标范围（经纬度系统）
-  const minLng = worldContext?.mapConfig?.minLng || 100;
-  const maxLng = worldContext?.mapConfig?.maxLng || 115;
-  const minLat = worldContext?.mapConfig?.minLat || 25;
-  const maxLat = worldContext?.mapConfig?.maxLat || 35;
+  // 地图坐标范围（游戏坐标系统）
+  // 注意：这些变量保留是为了兼容性，但实际使用固定的 0-10000 范围
+  const minLng = 0;
+  const maxLng = 10000;
+  const minLat = 0;
+  const maxLat = 10000;
 
   const mapCoordinateInfo = `
 ## 🗺️ 地图坐标系统 (CRITICAL - 必须严格遵守)
 **坐标系统说明**:
-- 本系统使用**经纬度坐标系统**（类似真实地理坐标）
-- x 代表经度（Longitude），y 代表纬度（Latitude）
-- 前端会自动将经纬度转换为显示坐标
+- 本系统使用**游戏坐标系统**（像素坐标，不是经纬度）
+- x 代表横坐标（从左到右），y 代表纵坐标（从上到下）
+- 坐标范围：x: 0-10000, y: 0-10000
 
 **坐标范围**:
-- **X 轴（经度）范围**: ${minLng} ~ ${maxLng}
-- **Y 轴（纬度）范围**: ${minLat} ~ ${maxLat}
+- **X 轴范围**: 0 ~ 10000（横向，从左到右）
+- **Y 轴范围**: 0 ~ 10000（纵向，从上到下）
 
 **坐标生成规则**:
-- 位置坐标必须在上述经纬度范围内
-- 推荐使用中心区域: X: ${(minLng + (maxLng - minLng) * 0.3).toFixed(1)} ~ ${(minLng + (maxLng - minLng) * 0.7).toFixed(1)}, Y: ${(minLat + (maxLat - minLat) * 0.3).toFixed(1)} ~ ${(minLat + (maxLat - minLat) * 0.7).toFixed(1)}
-- 避免使用边缘坐标
+- 位置坐标必须在 0-10000 范围内
+- 推荐使用中心区域: X: 3000 ~ 7000, Y: 3000 ~ 7000
+- 避免使用边缘坐标（0-500 或 9500-10000）
 
 **示例坐标**:
-- 中心位置: {x: ${((minLng + maxLng) / 2).toFixed(1)}, y: ${((minLat + maxLat) / 2).toFixed(1)}}
-- 东部区域: {x: ${(minLng + (maxLng - minLng) * 0.7).toFixed(1)}, y: ${((minLat + maxLat) / 2).toFixed(1)}}
-- 西部区域: {x: ${(minLng + (maxLng - minLng) * 0.3).toFixed(1)}, y: ${((minLat + maxLat) / 2).toFixed(1)}}
-- 北部区域: {x: ${((minLng + maxLng) / 2).toFixed(1)}, y: ${(minLat + (maxLat - minLat) * 0.3).toFixed(1)}}
-- 南部区域: {x: ${((minLng + maxLng) / 2).toFixed(1)}, y: ${(minLat + (maxLat - minLat) * 0.7).toFixed(1)}}
+- 中心位置: {x: 5000, y: 5000}
+- 东部区域: {x: 7000, y: 5000}
+- 西部区域: {x: 3000, y: 5000}
+- 北部区域: {x: 5000, y: 3000}
+- 南部区域: {x: 5000, y: 7000}
+- 东北角: {x: 7000, y: 3000}
+- 西南角: {x: 3000, y: 7000}
 `;
 
   const nsfwMode = worldContext?.systemSettings?.nsfwMode;

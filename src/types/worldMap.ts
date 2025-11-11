@@ -83,6 +83,8 @@ export interface CultivationContinent {
   地理特征?: string[];
   natural_barriers?: string[];
   天然屏障?: string[];
+  特点?: string;
+  主要势力?: string[];
 }
 
 /**

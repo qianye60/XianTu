@@ -5,6 +5,7 @@ import * as textFormats from './definitions/textFormats';
 import * as worldStandards from './definitions/worldStandards';
 import { SAVE_DATA_STRUCTURE, DATA_STRUCTURE_EXAMPLES } from './definitions/dataDefinitions';
 import { ACTION_OPTIONS_RULES } from './definitions/actionOptions';
+import { QUEST_SYSTEM_RULES } from './definitions/questSystemRules';
 
 // 导出常用的规则常量
 export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
@@ -37,6 +38,10 @@ export function assembleSystemPrompt(activePrompts: string[], customActionPrompt
       : '（无特殊要求，按默认规则生成）';
     const actionRules = ACTION_OPTIONS_RULES.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection);
     promptSections.push(actionRules);
+  }
+
+  if (activePrompts.includes('questSystem')) {
+    promptSections.push(QUEST_SYSTEM_RULES);
   }
 
   if (activePrompts.includes('cot')) {
