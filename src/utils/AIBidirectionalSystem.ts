@@ -28,6 +28,7 @@ export interface ProcessOptions {
   onProgressUpdate?: (progress: string) => void;
   onStateChange?: (newState: PlainObject) => void;
   useStreaming?: boolean;
+  generateMode?: 'generate' | 'generateRaw'; // 生成模式：generate（标准）或 generateRaw（纯净）
 }
 
 /**
@@ -230,19 +231,7 @@ ${stateJsonString}
       // 🎲 添加骰点信息到用户输入
       const userInputWithDice = `${userActionForAI}\n\n【系统骰点】本回合骰点: ${diceRoll} (1d20)`;
 
-      // 🛡️ 添加随机前缀（规避内容检测）
-      // 扩展前缀列表，增加多样性
-      const prefixes = [
-        'Continue.',
-        'Proceed.',
-        'Next.',
-        'Go on.',
-        'Keep going.',
-        'Resume.',
-        'Advance.'
-      ];
-      const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-      const finalUserInput = `${randomPrefix}\n${userInputWithDice}`;
+      const finalUserInput = `${userInputWithDice}`;
 
       // 🛡️ 添加assistant角色的占位消息（防止输入截断）
       // 原理：如果最后一条消息是assistant角色，某些模型不会审核输入
@@ -315,9 +304,6 @@ ${stateJsonString}
                   // 5. 最后降级：使用整个响应作为文本
                   extractedText = responseText;
                 }
-              } else {
-                // 5. 最后降级：使用整个响应作为文本
-                extractedText = responseText;
               }
             }
           }
@@ -342,7 +328,7 @@ ${stateJsonString}
       }
     } catch (error) {
       console.error('[AI双向系统] AI生成失败:', error);
-      throw new Error(`AI生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      gmResponse = { text: '（AI生成失败）', mid_term_memory: '', tavern_commands: [] };
     }
 
     // 3. 执行AI指令
@@ -355,7 +341,7 @@ ${stateJsonString}
       return gmResponse;
     } catch (error) {
       console.error('[AI双向系统] 指令执行失败:', error);
-      throw new Error(`指令执行失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      return gmResponse;
     }
   }
 
@@ -373,24 +359,40 @@ ${stateJsonString}
     let gmResponse: GM_Response;
     try {
       const useStreaming = options?.useStreaming !== false; // 默认启用流式传输
+      const generateMode = options?.generateMode || 'generate'; // 默认使用 generate 模式
 
-      // 🔥 [重构] 使用标准 generate() 方法，不再使用 generateRaw()
-      // 构建注入消息列表
-      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
-        {
-          content: systemPrompt,
-          role: 'user',
-          depth: 4,
-          position: 'in_chat',
-        }
-      ];
+      let response: string;
 
-      const response = await tavernHelper!.generate({
-        user_input: userPrompt,
-        should_stream: useStreaming,
-        generation_id: `initial_message_${Date.now()}`,
-        injects,
-      });
+      if (generateMode === 'generateRaw') {
+        // 🔥 使用 generateRaw 模式：纯净生成，不使用角色卡预设
+        console.log('[AI双向系统] 使用 generateRaw 模式生成初始消息');
+        response = String(await tavernHelper.generateRaw({
+          ordered_prompts: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          should_stream: useStreaming,
+          generation_id: `initial_message_raw_${Date.now()}`,
+        }));
+      } else {
+        // 🔥 使用标准 generate 模式：包含角色卡预设和聊天历史
+        console.log('[AI双向系统] 使用 generate 模式生成初始消息');
+        const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
+          {
+            content: systemPrompt,
+            role: 'user',
+            depth: 4,
+            position: 'in_chat',
+          }
+        ];
+
+        response = await tavernHelper.generate({
+          user_input: userPrompt,
+          should_stream: useStreaming,
+          generation_id: `initial_message_${Date.now()}`,
+          injects,
+        });
+      }
 
       // 流式传输通过事件系统在调用方处理
       try {
@@ -442,9 +444,6 @@ ${stateJsonString}
                   // 5. 最后降级：使用整个响应作为文本
                   extractedText = responseText;
                 }
-              } else {
-                // 5. 最后降级：使用整个响应作为文本
-                extractedText = responseText;
               }
             }
           }
@@ -668,7 +667,6 @@ ${stateJsonString}
         });
       } catch (error) {
         console.error(`[AI双向系统] 指令执行失败:`, command, error);
-        toast.error(`指令执行失败: ${error instanceof Error ? error.message : '未知错误'}`);
       }
     }
 
@@ -1061,7 +1059,7 @@ ${saveDataJson}
           throw new Error(`ADD操作要求数值类型，但得到: ${typeof currentValue}, ${typeof value}`);
         }
         const newValue = currentValue + value;
-        
+
         // 🔥 防止灵石变成负数
         if (path.includes('灵石') && newValue < 0) {
           console.warn(`[AI双向系统] ${path} 执行add后会变成负数 (${currentValue} + ${value} = ${newValue})，已限制为0`);
@@ -1069,7 +1067,7 @@ ${saveDataJson}
         } else {
           set(saveData, path, newValue);
         }
-        
+
         this.enforceStatLimits(saveData, path);
         break;
       }

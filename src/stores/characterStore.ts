@@ -398,8 +398,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[角色商店] 准备调用initializeCharacter...');
       let initialSaveData: SaveData | null = null;
       try {
-        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age, useStreaming: creationStore.useStreamingStart });
-        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age, creationStore.useStreamingStart);
+        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age, useStreaming: creationStore.useStreamingStart, generateMode: creationStore.generateMode });
+        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age, creationStore.useStreamingStart, creationStore.generateMode);
         console.log('[角色商店] ✅ initializeCharacter返回成功,数据有效:', !!initialSaveData);
       } catch (e) {
         console.error('[角色商店] ❌ initializeCharacter失败:', e);
@@ -612,21 +612,21 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 在加载前执行数据骨架验证
-      if (targetSlot.存档数据) {
-        const validationResult = validateGameData(targetSlot.存档数据, profile);
-        if (!validationResult.isValid) {
-          debug.error('角色商店', '存档数据验证失败', validationResult.errors);
-          uiStore.showDataValidationErrorDialog(
-            validationResult.errors,
-            () => {
-              // [核心改造] 用户确认后，调用AI进行智能修复
-              repairCharacterDataWithAI(charId, slotKey);
-            },
-            'loading' // [核心改造] 明确告知UI这是“加载”场景
-          );
-          return false; // 中断加载流程
-        }
-      }
+      // if (targetSlot.存档数据) {
+      //   const validationResult = validateGameData(targetSlot.存档数据, profile);
+      //   if (!validationResult.isValid) {
+      //     debug.error('角色商店', '存档数据验证失败', validationResult.errors);
+      //     uiStore.showDataValidationErrorDialog(
+      //       validationResult.errors,
+      //       () => {
+      //         // [核心改造] 用户确认后，调用AI进行智能修复
+      //         repairCharacterDataWithAI(charId, slotKey);
+      //       },
+      //       'loading' // [核心改造] 明确告知UI这是"加载"场景
+      //     );
+      //     return false; // 中断加载流程
+      //   }
+      // }
 
       try {
         uiStore.startLoading('开始加载存档...');
@@ -2098,7 +2098,6 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
       }
     } catch (error) {
       debug.error('角色商店', `[loadCharacterSaves] 加载角色 ${charId} 的存档时出错`, error);
-      toast.error('加载存档数据失败');
     }
   };
 

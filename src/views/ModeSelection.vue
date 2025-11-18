@@ -872,6 +872,23 @@ const handleAuthCancel = () => {
   padding: 0;
 }
 
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
 /* 移动端优化 */
 @media (max-width: 768px) {
   .floating-settings-btn {

@@ -13,57 +13,35 @@
  */
 
 export const JSON_OUTPUT_RULES = `
-# 规则：JSON输出格式 (最高优先级)
+# JSON 输出规范 (最高优先级)
 
-1.  **必须输出纯JSON对象**：你的最终输出必须是一个完整的、语法正确的JSON对象。
-2.  **禁止Markdown代码块**：严禁使用 \`\`\`json ... \`\`\` 包裹JSON输出。
-    - [正确] 正确: {"key": "value"}
-3.  **双引号规则**：所有的键(key)和字符串值(string value)都必须使用双引号 " "。
-4.  **禁止尾随逗号**：在对象或数组的最后一项后面，绝对不能有逗号。
-`.trim()
-
-export const RESPONSE_FORMAT_RULES = `
-# JSON强制响应格式 - 必须严格遵守
-
-## 1. JSON输出格式
-你的每次响应必须是一个有效的JSON对象，格式如下：
+## 1. 格式要求
+- **Markdown包裹**: 必须使用 \`\`\`json ... \`\`\` 包裹 JSON 内容。
+- **纯净 JSON**: 确保语法正确，无尾随逗号，所有键值对使用双引号。
+- **结构定义**:
 \`\`\`json
 {
-  "text": "叙事文本内容（必填，不能为空字符串）",
-  "mid_term_memory": "中期记忆摘要（必填，不能为空）",
+  "text": "叙事文本 (必填，禁含游戏数据)",
+  "mid_term_memory": "记忆摘要 (必填，客观第三人称)",
   "tavern_commands": [
-    {"action": "set|add|push|pull|delete", "key": "字段路径", "value": "值"}
+    {"action": "set|add|push|delete", "key": "路径", "value": "值"}
   ],
-  "action_options": ["选项1", "选项2", "选项3"]
+  "action_options": ["选项1", "选项2"] // 仅在启用时返回
 }
 \`\`\`
 
-注意：\`action_options\` 字段仅在启用行动选项功能时需要返回
+## 2. 字段约束
+- **text**: 纯小说叙事，严禁包含数值/属性/进度等游戏数据。
+- **mid_term_memory**:
+  - 区分主角({{user}})与NPC。
+  - 仅记录已发生事实，不编造，不推测。
+- **tavern_commands**:
+  - 必须是数组。
+  - 仅包含 action, key, value 字段。
+  - action 仅限: set, add, push, pull, delete。
+`.trim()
 
-## 2. 关键要求
-1. **必须是纯JSON** - 不要在JSON前后添加任何说明文字。
-2. **text字段必填** - 即使没有叙事内容，也要提供占位文本。
-3. **text字段禁止游戏数据** - text是小说叙事文本，严禁包含游戏数据（如境界进度、属性数值、存档信息等），这些数据只能通过tavern_commands修改。
-4. **tavern_commands是数组** - 即使只有一条指令，也要用 \`[{...}]\` 包裹。
-5. **所有字符串必须用双引号**。
-6. **不要有尾随逗号**。
-7. **特殊字符必须转义** (如 \`\\n\`, \`\\"\`)。
-
-## 3. mid_term_memory 记忆摘要规则
-- **严格区分主角和NPC**：必须明确标注"{{user}}"或NPC名称，禁止混淆
-- **只记录已发生事件**：严禁编造、推测或添加未在text中出现的情节
-- **客观记录**：用第三人称客观描述，不添加主观解读
-- **示例**：
-  - [正确] 正确："{{user}}与青梅竹马林婉儿一同前往仙门"
-  - [错误] 错误："逃婚后与林婉儿一同前往仙门"（编造情节）
-  - [错误] 错误："我与林婉儿一同前往仙门"（混淆主角身份）
-
-## 3. 指令对象格式
-每个指令对象必须且只能包含以下字段：
-- \`action\`: 必需，值为 "set" | "add" | "push" | "pull" | "delete"。
-- \`key\`: 必需，字符串类型，表示字段路径。
-- \`value\`: 必需（delete操作除外）。
-- **严禁添加任何其他字段**。
+export const RESPONSE_FORMAT_RULES = `
 `.trim()
 
 export const DATA_STRUCTURE_STRICTNESS = `

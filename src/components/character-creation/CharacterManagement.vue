@@ -470,9 +470,8 @@ const updateScreenWidth = () => {
 
 onMounted(async () => {
   window.addEventListener('resize', updateScreenWidth);
-  updateScreenWidth(); // 初始化时设置
+  updateScreenWidth();
 
-  // 预加载所有角色的存档数据以正确显示存档数量
   const characterIds = Object.keys(characterStore.rootState.角色列表);
   for (const charId of characterIds) {
     try {
@@ -482,7 +481,6 @@ onMounted(async () => {
     }
   }
 
-  // 自动选中第一个角色（如果存在）
   const firstCharId = characterIds[0];
   if (firstCharId) {
     selectCharacter(firstCharId);
@@ -527,35 +525,19 @@ const toggleCharacterPanel = () => {
 };
 
 const selectCharacter = async (charId: string) => {
-  if (selectedCharId.value === charId) return; // 如果已经是选中角色，则不重复加载
+  if (selectedCharId.value === charId) return;
 
   selectedCharId.value = charId;
-  isLoadingSaves.value = true; // 开始加载
-
-  console.log('[CharacterManagement] 开始选择角色:', charId);
+  isLoadingSaves.value = true;
 
   try {
-    // 🔥 核心变更：按需加载所选角色的存档数据
     await characterStore.loadCharacterSaves(charId);
-
-    // 调试：检查加载后的存档数据
-    const profile = characterStore.rootState.角色列表[charId];
-    if (profile?.存档列表) {
-      console.log('[CharacterManagement] 存档加载完成，存档列表:', Object.keys(profile.存档列表));
-      Object.entries(profile.存档列表).forEach(([key, slot]: [string, any]) => {
-        console.log(`  - ${key}: 有数据=${!!slot.存档数据}`);
-      });
-    } else {
-      console.warn('[CharacterManagement] ⚠️ 角色没有存档列表');
-    }
   } catch (error) {
     console.error('[CharacterManagement] 加载存档数据失败:', error);
-    toast.error('加载存档数据失败');
   } finally {
-    isLoadingSaves.value = false; // 结束加载
+    isLoadingSaves.value = false;
   }
 
-  // 在移动端选择角色后自动关闭面板
   if (isMobile.value) {
     isCharacterPanelOpen.value = false;
   }

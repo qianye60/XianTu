@@ -3802,15 +3802,24 @@ const syncGameState = async () => {
 
 /* 手机端响应式修复 */
 @media (max-width: 768px) {
-  .content-area {
-    padding: 12px;
+  .main-game-panel {
+    width: 100%;
+    max-width: 100vw;
     overflow-x: hidden;
+  }
+
+  .content-area {
+    padding: 4px;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .current-narrative {
     min-width: 0;
     max-width: 100%;
     overflow-x: hidden;
+    width: 100%;
   }
 
   .streaming-narrative-content,
@@ -3818,6 +3827,8 @@ const syncGameState = async () => {
     overflow-x: hidden;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    max-width: 100%;
+    padding: 8px;
   }
 
   .streaming-text,
@@ -3826,6 +3837,35 @@ const syncGameState = async () => {
     overflow-x: hidden;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    font-size: 0.85rem;
+  }
+
+  .input-wrapper {
+    gap: 4px;
+    padding: 4px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .input-container {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .game-input {
+    font-size: 0.85rem;
+    padding: 6px 8px;
+  }
+
+  .send-button {
+    padding: 8px 12px;
+    flex-shrink: 0;
+    min-width: 44px;
+  }
+
+  .stream-toggle-inside {
+    font-size: 0.75rem;
+    padding: 0 6px;
   }
 }
 </style>

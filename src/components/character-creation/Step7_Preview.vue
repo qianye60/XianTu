@@ -72,6 +72,24 @@
         </p>
       </div>
 
+      <!-- Generate Mode Selection -->
+      <div class="preview-item generate-mode-item">
+        <h3>{{ $t('生成方式') }}</h3>
+        <div class="generate-mode-control">
+          <label class="generate-mode-label">
+            <input type="radio" name="generateMode" value="generate" v-model="store.generateMode">
+            <span>{{ $t('标准模式') }}</span>
+          </label>
+          <label class="generate-mode-label">
+            <input type="radio" name="generateMode" value="generateRaw" v-model="store.generateMode">
+            <span>{{ $t('纯净模式') }}</span>
+          </label>
+        </div>
+        <p class="generate-mode-hint">
+          {{ store.generateMode === 'generate' ? $t('标准模式：使用角色卡预设和聊天历史，更符合角色设定') : $t('纯净模式：仅使用系统提示词，生成更纯粹的开局内容') }}
+        </p>
+      </div>
+
       <!-- Birth Age -->
       <div class="preview-item age-item">
         <h3>{{ $t('初始年龄') }}</h3>
@@ -419,6 +437,47 @@ const validateAge = () => {
 }
 
 .streaming-hint {
+  font-size: 0.85rem !important;
+  color: var(--color-text-secondary) !important;
+  margin-top: 0.5rem !important;
+  padding: 0.5rem;
+  background: var(--color-surface-light);
+  border-radius: 4px;
+  border-left: 3px solid var(--color-primary);
+  line-height: 1.4;
+}
+
+/* 生成方式选择 */
+.generate-mode-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.generate-mode-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  color: var(--color-text);
+  transition: all 0.2s ease;
+}
+
+.generate-mode-label:hover {
+  background: var(--color-surface-light);
+}
+
+.generate-mode-label input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.generate-mode-hint {
   font-size: 0.85rem !important;
   color: var(--color-text-secondary) !important;
   margin-top: 0.5rem !important;
