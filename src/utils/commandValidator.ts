@@ -230,10 +230,11 @@ function validateValueType(key: string, value: unknown, action: string): string[
         if (typeof val.境界 !== 'object' || val.境界 === null) {
           errors.push('NPC境界必须是对象类型');
         } else {
-          const realmAllowed = ['名称', '阶段'];
+          const realmAllowed = ['名称', '阶段', '当前进度', '下一级所需', '突破描述'];
           const realmExtra = Object.keys(val.境界).filter(f => !realmAllowed.includes(f));
           if (realmExtra.length > 0) {
-            errors.push(`NPC境界对象包含非法字段: ${realmExtra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
+            // 额外字段只记录警告，不阻止执行
+            console.warn(`NPC境界包含额外字段: ${realmExtra.join(', ')}，已忽略`);
           }
           // 验证字段类型
           if (val.境界.名称 !== undefined && typeof val.境界.名称 !== 'string') {
@@ -267,10 +268,17 @@ function validateValueType(key: string, value: unknown, action: string): string[
       errors.push('NPC境界必须是对象类型');
     } else {
       const val = value as Record<string, any>;
-      const allowed = ['名称', '阶段'];
+      const allowed = ['名称', '阶段', '当前进度', '下一级所需', '突破描述'];
       const extra = Object.keys(val).filter(f => !allowed.includes(f));
       if (extra.length > 0) {
-        errors.push(`NPC境界对象包含非法字段: ${extra.join(', ')}。NPC境界只能有"名称"和"阶段"字段`);
+        // 额外字段只记录警告，不阻止执行
+        console.warn(`NPC境界包含额外字段: ${extra.join(', ')}，已忽略`);
+      }
+      if (val.名称 !== undefined && typeof val.名称 !== 'string') {
+        errors.push('NPC境界.名称必须是字符串类型');
+      }
+      if (val.阶段 !== undefined && typeof val.阶段 !== 'string') {
+        errors.push('NPC境界.阶段必须是字符串类型');
       }
     }
   }

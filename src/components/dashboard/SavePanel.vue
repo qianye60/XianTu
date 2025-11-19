@@ -109,6 +109,14 @@
                   <RefreshCw :size="14" />
                 </button>
                 <button
+                  class="card-btn info"
+                  @click.stop="exportSingleSave(save)"
+                  :disabled="loading"
+                  title="导出此存档"
+                >
+                  <Download :size="14" />
+                </button>
+                <button
                   class="card-btn primary"
                   @click.stop="overwriteSave(save)"
                   :disabled="loading || !currentSave"
@@ -197,10 +205,18 @@
           <h4 class="section-title">🛠️ 存档操作</h4>
         </div>
         <div class="operations-list">
+          <button class="operation-btn" @click="exportCharacter" :disabled="loading || !characterStore.activeCharacterProfile">
+            <Download :size="16" />
+            <div class="btn-content">
+              <span class="btn-title">导出角色</span>
+              <span class="btn-desc">导出当前角色及其所有存档</span>
+            </div>
+          </button>
+
           <button class="operation-btn" @click="exportSaves" :disabled="loading || savesList.length === 0">
             <Download :size="16" />
             <div class="btn-content">
-              <span class="btn-title">导出存档</span>
+              <span class="btn-title">导出所有存档</span>
               <span class="btn-desc">{{ t('备份所有存档到文件') }}</span>
             </div>
           </button>
@@ -552,7 +568,130 @@ const deleteSave = async (save: SaveSlot) => {
   });
 };
 
-// 导出存档
+// 导出单个存档
+const exportSingleSave = async (save: SaveSlot) => {
+  try {
+    console.log('[单个存档导出] 开始导出存档:', save.存档名);
+
+    // 从IndexedDB加载完整的存档数据
+    const characterId = characterStore.rootState.当前激活存档?.角色ID;
+    if (!characterId) {
+      toast.error('无法获取角色ID');
+      return;
+    }
+
+    const { loadSaveData } = await import('@/utils/indexedDBManager');
+    const fullSaveData = await loadSaveData(characterId, save.存档名);
+
+    if (!fullSaveData) {
+      toast.error('无法加载存档数据');
+      return;
+    }
+
+    const exportData = {
+      type: 'single_save',
+      save: {
+        ...save,
+        完整数据: fullSaveData
+      },
+      exportTime: new Date().toISOString(),
+      version: '1.0.0',
+      characterId,
+      characterName: characterStore.activeCharacterProfile?.角色基础信息?.名字
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    const fileName = `大道朝天-${save.存档名}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 100);
+
+    console.log('[单个存档导出] 导出成功，文件名:', fileName);
+    toast.success(`已导出存档: ${save.存档名}`);
+  } catch (error) {
+    console.error('[单个存档导出] 导出失败:', error);
+    toast.error(`导出存档失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
+};
+
+// 导出整个角色（包含所有存档）
+const exportCharacter = async () => {
+  try {
+    console.log('[角色导出] 开始导出角色...');
+
+    const characterId = characterStore.rootState.当前激活存档?.角色ID;
+    if (!characterId) {
+      toast.error('无法获取角色ID');
+      return;
+    }
+
+    const characterProfile = characterStore.activeCharacterProfile;
+    if (!characterProfile) {
+      toast.error('无法获取角色信息');
+      return;
+    }
+
+    // 加载所有存档的完整数据
+    const { loadSaveData } = await import('@/utils/indexedDBManager');
+    const savesWithFullData = await Promise.all(
+      savesList.value.map(async (save) => {
+        const fullData = await loadSaveData(characterId, save.存档名);
+        return {
+          ...save,
+          完整数据: fullData
+        };
+      })
+    );
+
+    const exportData = {
+      type: 'character',
+      character: {
+        角色ID: characterId,
+        角色信息: characterProfile,
+        存档列表: savesWithFullData
+      },
+      exportTime: new Date().toISOString(),
+      version: '1.0.0'
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    console.log('[角色导出] 数据大小:', (dataStr.length / 1024).toFixed(2), 'KB');
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    const characterName = characterProfile.角色基础信息?.名字 || '未命名角色';
+    const fileName = `大道朝天-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 100);
+
+    console.log('[角色导出] 导出成功，文件名:', fileName);
+    toast.success(`已导出角色: ${characterName} (含 ${savesWithFullData.length} 个存档)`);
+  } catch (error) {
+    console.error('[角色导出] 导出失败:', error);
+    toast.error(`导出角色失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
+};
+
+// 导出所有存档
 const exportSaves = () => {
   try {
     console.log('[存档导出] 开始导出存档...');
@@ -566,6 +705,7 @@ const exportSaves = () => {
     }
 
     const exportData = {
+      type: 'saves',
       saves: savesList.value,
       exportTime: new Date().toISOString(),
       version: '1.0.0',
@@ -1167,6 +1307,16 @@ onMounted(() => {
   border-color: #f59e0b;
 }
 
+.card-btn.info {
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+
+.card-btn.info:hover {
+  background: #f0f9ff;
+  border-color: #0284c7;
+}
+
 /* 新建存档按钮 */
 .new-save-btn {
   display: flex;
@@ -1394,6 +1544,15 @@ onMounted(() => {
 
 [data-theme="dark"] .card-btn.warning:hover {
   background: #78350f;
+}
+
+[data-theme="dark"] .card-btn.info {
+  color: #0ea5e9;
+  border-color: #0c4a6e;
+}
+
+[data-theme="dark"] .card-btn.info:hover {
+  background: #0c4a6e;
 }
 
 [data-theme="dark"] .new-save-btn {

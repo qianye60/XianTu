@@ -74,7 +74,7 @@ Time(2) + Location(1) + Reputation(1) + Random(X) + Resources(X) + NPCs(X) + Dao
 
 ### NPC 创建原则
 - **只创建文本中明确提到的 NPC**（有名字、对话、互动）
-- **NPC 境界对象**：只有 {名称, 阶段} 两个字段
+- **NPC 境界对象**：{名称, 阶段, 当前进度?, 下一级所需?, 突破描述?}
 - **实时关注**：初始化时全部设为 false
 - **NSFW**：检查 nsfwMode 和 nsfwGenderFilter，符合条件才生成私密信息
 

@@ -171,11 +171,64 @@ export function removeEquipmentBonus(saveData: SaveData, equipmentItemId: string
 export function recalculateAllEquipmentBonuses(saveData: SaveData): void {
   console.log('[装备增幅] 开始重新计算所有装备的属性加成...');
 
-  // TODO: 实现完整的重新计算逻辑
-  // 1. 获取基础属性（不含装备加成）
-  // 2. 遍历所有已装备的装备
-  // 3. 累加所有装备的加成
-  // 4. 更新到角色属性
+  try {
+    // 1. 重置后天六司为0（清除所有装备加成）
+    if (!saveData.角色基础信息) {
+      console.error('[装备增幅] 存档数据缺少角色基础信息');
+      return;
+    }
 
-  console.warn('[装备增幅] recalculateAllEquipmentBonuses 尚未实现');
+    saveData.角色基础信息.后天六司 = {
+      根骨: 0,
+      灵性: 0,
+      悟性: 0,
+      气运: 0,
+      魅力: 0,
+      心性: 0
+    };
+
+    console.log('[装备增幅] 已重置后天六司为0');
+
+    // 2. 遍历装备栏中的所有装备
+    if (!saveData.装备栏 || !saveData.背包?.物品) {
+      console.log('[装备增幅] 没有装备栏或背包数据');
+      return;
+    }
+
+    const totalBonuses = {
+      根骨: 0,
+      灵性: 0,
+      悟性: 0,
+      气运: 0,
+      魅力: 0,
+      心性: 0
+    };
+
+    // 3. 累加所有已装备的装备加成
+    Object.entries(saveData.装备栏).forEach(([slot, itemId]) => {
+      if (!itemId) return;
+
+      const item = saveData.背包.物品[itemId];
+      if (!item || item.类型 !== '装备') return;
+
+      const bonus = item.装备增幅;
+      if (!bonus || !bonus.后天六司) return;
+
+      console.log(`[装备增幅] 处理装备 ${item.名称} (${slot}):`, bonus.后天六司);
+
+      // 累加后天六司加成
+      Object.entries(bonus.后天六司).forEach(([attr, value]) => {
+        if (attr in totalBonuses && typeof value === 'number') {
+          totalBonuses[attr as keyof typeof totalBonuses] += value;
+        }
+      });
+    });
+
+    // 4. 应用累加后的加成
+    saveData.角色基础信息.后天六司 = totalBonuses;
+
+    console.log('[装备增幅] ✅ 重新计算完成，最终后天六司:', totalBonuses);
+  } catch (error) {
+    console.error('[装备增幅] 重新计算失败:', error);
+  }
 }

@@ -239,25 +239,41 @@ export function calculateFinalAttributes(
   后天六司: InnateAttributes,
   最终六司: InnateAttributes
 } {
-  // 🔥 [修复] 直接从存档读取后天六司，不再动态计算装备加成
-  // 装备加成已由 equipmentBonusApplier 写入 角色基础信息.后天六司
+  // 🔥 [BUG修复] 动态计算后天六司，确保装备和天赋加成正确显示
+  // 1. 从存档读取基础后天六司（可能包含永久加成）
   const storedAcquiredAttributes = saveData.角色基础信息?.后天六司 || {
     根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0
   };
 
-  // 计算最终属性（先天 + 后天）
+  // 2. 计算装备加成（实时计算，确保准确）
+  const equipmentBonuses = calculateEquipmentBonuses(saveData.装备栏, saveData.背包);
+
+  // 3. 计算天赋加成
+  const talentBonuses = calculateTalentBonusesFromCharacter(saveData);
+
+  // 4. 合并所有后天加成
+  const totalAcquiredAttributes: InnateAttributes = {
+    根骨: storedAcquiredAttributes.根骨 + equipmentBonuses.根骨 + talentBonuses.根骨,
+    灵性: storedAcquiredAttributes.灵性 + equipmentBonuses.灵性 + talentBonuses.灵性,
+    悟性: storedAcquiredAttributes.悟性 + equipmentBonuses.悟性 + talentBonuses.悟性,
+    气运: storedAcquiredAttributes.气运 + equipmentBonuses.气运 + talentBonuses.气运,
+    魅力: storedAcquiredAttributes.魅力 + equipmentBonuses.魅力 + talentBonuses.魅力,
+    心性: storedAcquiredAttributes.心性 + equipmentBonuses.心性 + talentBonuses.心性,
+  };
+
+  // 5. 计算最终属性（先天 + 后天）
   const finalAttributes: InnateAttributes = {
-    根骨: innateAttributes.根骨 + storedAcquiredAttributes.根骨,
-    灵性: innateAttributes.灵性 + storedAcquiredAttributes.灵性,
-    悟性: innateAttributes.悟性 + storedAcquiredAttributes.悟性,
-    气运: innateAttributes.气运 + storedAcquiredAttributes.气运,
-    魅力: innateAttributes.魅力 + storedAcquiredAttributes.魅力,
-    心性: innateAttributes.心性 + storedAcquiredAttributes.心性,
+    根骨: innateAttributes.根骨 + totalAcquiredAttributes.根骨,
+    灵性: innateAttributes.灵性 + totalAcquiredAttributes.灵性,
+    悟性: innateAttributes.悟性 + totalAcquiredAttributes.悟性,
+    气运: innateAttributes.气运 + totalAcquiredAttributes.气运,
+    魅力: innateAttributes.魅力 + totalAcquiredAttributes.魅力,
+    心性: innateAttributes.心性 + totalAcquiredAttributes.心性,
   };
 
   return {
     先天六司: innateAttributes,
-    后天六司: storedAcquiredAttributes,
+    后天六司: totalAcquiredAttributes,
     最终六司: finalAttributes
   };
 }
