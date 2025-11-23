@@ -759,7 +759,7 @@ export interface NpcProfile {
   势力归属?: string;
 
   // === 人格系统 ===
-  人格底线: string[]; // 如：['背叛信任', '伤害亲友', '公开侮辱', '强迫违背意愿']，触犯后好感度断崖式下跌
+  人格底线: string[] | string; // 如：['背叛信任', '伤害亲友', '公开侮辱', '强迫违背意愿']，触犯后好感度断崖式下跌
 
   // === 记忆系统 ===
   记忆: Array<{ 时间: string; 事件: string } | string>; // 兼容新旧格式：对象或纯字符串
@@ -778,6 +778,10 @@ export interface NpcProfile {
   // === 可选模块 ===
   私密信息?: PrivacyProfile; // 仅NSFW模式下存在
   实时关注: boolean; // 标记为关注的NPC会在AI回合中主动更新
+
+  // === 旧数据兼容字段 ===
+  外貌?: string;
+  性格?: string;
 }
 
 

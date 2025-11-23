@@ -48,13 +48,3 @@ export const REPUTATION_GUIDE = `
 - **正面行为**: 击败强敌 (+10~100), 完成任务 (+20~200), 救助民众 (+5~50)
 - **负面行为**: 滥杀无辜 (-50~500), 背叛宗门 (-100~1000), 抢夺财物 (-10~100)
 `.trim()
-
-export const WORLD_STANDARDS = `
-# 🎯 世界设定参考 (World Setting Reference)
-
-${REALM_ATTRIBUTE_STANDARDS}
-
-${QUALITY_SYSTEM}
-
-${REPUTATION_GUIDE}
-`.trim()

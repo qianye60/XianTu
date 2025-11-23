@@ -51,16 +51,20 @@
             </div>
           </div>
           <div class="panel-content compact">
-            <keep-alive>
-              <router-view />
-            </keep-alive>
+            <router-view v-slot="{ Component }">
+              <keep-alive>
+                <component :is="Component" />
+              </keep-alive>
+            </router-view>
           </div>
         </div>
 
         <!-- 正常路由视图 -->
-        <keep-alive v-else-if="!uiStore.showCharacterManagement">
-          <router-view />
-        </keep-alive>
+        <router-view v-else-if="!uiStore.showCharacterManagement" v-slot="{ Component }">
+          <keep-alive>
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
 
         <!-- 角色管理面板 -->
         <div v-if="uiStore.showCharacterManagement" class="panel-overlay">

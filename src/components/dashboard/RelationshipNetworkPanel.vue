@@ -301,7 +301,7 @@
                   <div class="nsfw-subsection" v-if="selectedPerson.私密信息.身体部位?.length">
                     <h6 class="subsection-title">身体部位开发</h6>
                     <div class="body-parts-list">
-                      <div v-for="part in selectedPerson.私密信息.身体部位" :key="part.部位名称" class="body-part-item">
+                      <div v-for="part in filteredBodyParts" :key="part.部位名称" class="body-part-item">
                         <div class="part-header">
                           <span class="part-name">{{ part.部位名称 }}</span>
                           <span v-if="part.特殊印记 && part.特殊印记 !== '无'" class="part-mark">{{ part.特殊印记 }}</span>
@@ -523,7 +523,7 @@ import type { SaveData } from '@/types/game';
  * 提取NPC记忆总结所需的精简存档数据
  * 与正式游戏交互保持一致：移除叙事历史、短期记忆、隐式中期记忆
  */
-function extractEssentialDataForNPCSummary(saveData: SaveData | null, npcName: string): SaveData | Record<string, never> {
+function extractEssentialDataForNPCSummary(saveData: SaveData | null): SaveData | Record<string, never> {
   if (!saveData) return {};
 
   const simplified = cloneDeep(saveData);
@@ -577,6 +577,13 @@ const tabs = computed(() => {
   baseTabs.push({ id: 'raw', label: '原始数据(JSON)', icon: '🔧' });
 
   return baseTabs;
+});
+
+const filteredBodyParts = computed(() => {
+  if (!selectedPerson.value?.私密信息?.身体部位) {
+    return [];
+  }
+  return selectedPerson.value.私密信息.身体部位.filter(part => part);
 });
 
 // 记忆总结状态
@@ -1052,7 +1059,7 @@ const summarizeMemories = async () => {
 
     // 🔥 获取精简版游戏存档数据（只包含NPC记忆总结需要的信息）
     const saveData = gameStateStore.toSaveData();
-    const simplifiedSaveData = extractEssentialDataForNPCSummary(saveData, npcName);
+    const simplifiedSaveData = extractEssentialDataForNPCSummary(saveData);
     const saveDataJson = JSON.stringify(simplifiedSaveData, null, 2);
 
 
@@ -1361,14 +1368,18 @@ const exportToWorldBook = async () => {
     const npcName = npc.名字;
 
     // 获取或创建聊天世界书
-    const tavernHelper = (window as any).TavernHelper;
+    const tavernHelper = (await import('@/utils/tavern')).getTavernHelper();
     if (!tavernHelper) {
       uiStore.showToast('酒馆助手未初始化', { type: 'error' });
       return;
     }
 
     // 获取或创建当前聊天的世界书
-    const worldbookName = await tavernHelper.getOrCreateChatWorldbook('current', '大道朝天_人物');
+    const lorebooks = await tavernHelper.getLorebooks();
+    const worldbookName = '大道朝天_人物';
+    if (!lorebooks.includes(worldbookName)) {
+      await tavernHelper.createLorebook(worldbookName);
+    }
 
     // 构建世界书条目内容（完整版，排除记忆）
     let entryContent = `# ${npcName}\n\n`;
@@ -1415,8 +1426,8 @@ const exportToWorldBook = async () => {
     // 人格底线
     if (npc.人格底线 && Array.isArray(npc.人格底线) && npc.人格底线.length > 0) {
       entryContent += `\n**人格底线**\n${npc.人格底线.map(b => `- ${b}`).join('\n')}\n`;
-    } else if ((npc as any).人格底线) {
-      entryContent += `\n**人格底线**\n${(npc as any).人格底线}\n`;
+    } else if (npc.人格底线 && typeof npc.人格底线 === 'string') {
+      entryContent += `\n**人格底线**\n${npc.人格底线}\n`;
     }
 
     // 当前状态（实时）
@@ -1455,6 +1466,7 @@ const exportToWorldBook = async () => {
       if (privacy.身体部位 && Array.isArray(privacy.身体部位) && privacy.身体部位.length > 0) {
         entryContent += `\n**身体部位开发**\n`;
         privacy.身体部位.forEach(part => {
+          if (!part) return;
           entryContent += `- ${part.部位名称}：\n`;
           if (part.特殊印记) entryContent += `  - 特殊标记：${part.特殊印记}\n`;
           if (part.特征描述) entryContent += `  - 特征描述：${part.特征描述}\n`;
@@ -1478,7 +1490,7 @@ const exportToWorldBook = async () => {
     // 背包物品
     if (npc.背包?.物品 && Object.keys(npc.背包.物品).length > 0) {
       entryContent += `\n**背包物品**\n`;
-      Object.values(npc.背包.物品).forEach((item: any) => {
+      Object.values(npc.背包.物品).forEach((item: Item) => {
         entryContent += `- ${item.名称}`;
         if (item.数量 > 1) entryContent += ` x${item.数量}`;
         if (item.描述) entryContent += `：${item.描述}`;
@@ -1545,7 +1557,7 @@ const exportToWorldBook = async () => {
     };
 
     // 创建世界书条目
-    await tavernHelper.createWorldbookEntries(worldbookName, [newEntry]);
+    await tavernHelper.createLorebookEntries(worldbookName, [newEntry]);
 
     uiStore.showToast(`✅ 已将 ${npcName} 添加到世界书「${worldbookName}」`, { type: 'success' });
   } catch (error) {

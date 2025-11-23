@@ -13,25 +13,26 @@ import { DICE_ROLLING_RULES } from '../definitions/textFormats';
  */
 
 export function getCotCorePrompt(userInput: string, enableActionOptions: boolean = false): string {
+  // 提取 <行动趋向> 标签中的内容，如果存在的话
+  const intentMatch = userInput.match(/<行动趋向>([\s\S]*?)<\/行动趋向>/);
+  const actualIntent = intentMatch ? intentMatch[1].trim() : (userInput || '无');
+
   return `
 # 🧠 思维链 (CoT) 协议
 
-**【强制要求】必须先输出完整的 <thinking> 标签，逐项仔细分析后再输出 JSON。跳过或敷衍thinking将导致变量遗漏。**
+**【强制要求】必须先输出 <thinking>...</thinking> 标签，逐项分析后再输出 JSON。禁止跳过thinking。**
 
 ## 思维链模板
 <thinking>
-1. 意图: [${userInput || '无'}] → [目标/场景]
-2. 判定: [是否触发] → [公式/结果]
-3. NPC: [人格/好感度/反应]
-4. 变量: [NPC外貌/内心/记忆/好感] [亲密私密信息] [战斗气血/状态] [物品/灵石] [时间+X分钟]
-5. 输出: [字数/风格确认]
+1. 用户意图: "${actualIntent}" → 用户想做什么？必须严格按此执行，不得擅自改变
+2. 判定: 是否需要判定？→ 公式/结果
+3. NPC: 人格/好感度/反应
+4. 变量: 需要修改哪些数据？
+5. 输出: 字数/风格确认
 </thinking>
 
-## 核心原则
-1. 严格执行用户输入，不替玩家决定
-2. 判定克制，仅关键节点触发
-3. NPC独立人格，拒绝工具人
-4. 数据严谨，符合世界观
+## 🚨 强制约束
+**你必须严格按照用户输入"${actualIntent}"来推进剧情，不得擅自改变用户的行动意图或替玩家做决定。**
 
 ${DICE_ROLLING_RULES}
 `;
