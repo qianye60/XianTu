@@ -8,7 +8,10 @@
       "Bash(npm install pixi.js@^7.4.2)",
       "Bash(npm install pixi-viewport@^5.0.2)",
       "Bash(npm uninstall pixi-viewport)",
-      "Bash(uniq -w32 -D)"
+      "Bash(uniq -w32 -D)",
+      "Bash(node test-prompt-length.cjs)",
+      "Bash(for f in *.ts)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": [],

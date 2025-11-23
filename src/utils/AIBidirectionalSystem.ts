@@ -821,44 +821,36 @@ ${memoriesText}
 
       console.log(`[AI双向系统] 记忆总结模式: ${useRawMode ? 'Raw模式（纯净总结）' : '标准模式（带预设）'}, 传输方式: ${useStreaming ? '流式' : '非流式'}`);
 
+      // 🔥 提取共享提示词内容（避免重复）
+      const MEMORY_SUMMARY_PROMPTS = {
+        roleDefinition: '你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。',
+        saveData: `【游戏存档数据】（供参考）：\n${saveDataJson}`,
+        keyConstraints: '【关键约束】：\n1. 这不是游戏推进，不要生成新剧情\n2. 这不是对话任务，不要生成角色对话\n3. 只总结用户提供的记忆内容，不要编造\n4. 必须严格基于原文，不要添加原文没有的内容',
+        outputFormat: '【输出格式】：\n```json\n{"text": "总结内容"}\n```',
+        summaryRequirements: '【总结要求】：\n- 第一人称"我"\n- 250-400字\n- 连贯的现代修仙小说叙述风格\n- 仅输出JSON，不要thinking/commands/options',
+        mustKeep: '【必须保留】：\n- 原文中的人名、地名\n- 原文中的事件\n- 原文中的物品、功法、境界\n- 原文中的时间节点',
+        mustIgnore: '【必须忽略】：\n- 对话内容\n- 情绪描写\n- 过程细节',
+        example: '【示例】：\n原文："张长老说你天赋不错。你去了藏经阁。三天后在青云峰修炼突破到炼气二层。李云送你聚气丹。"\n正确："我获得了张长老的认可，进入藏经阁领取了令牌。三日后我在青云峰修炼，成功突破到炼气二层。期间结识了李云，他赠予我一枚聚气丹，我们结为道友。"\n错误："我继续修炼，遇到了新的挑战..."（❌ 编造了原文没有的内容）',
+        reminder: '【重要提醒】：\n- 不要把这当成游戏对话\n- 不要推进故事\n- 不要编造新内容\n- 严格基于用户提供的记忆进行总结'
+      };
+
       let response: string;
       if (useRawMode) {
         // Raw模式：分条目发送提示词
         const rawResponse = await tavernHelper.generateRaw({
           ordered_prompts: [
-            // 1. 角色定义
-            { role: 'system', content: '你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。' },
-
-            // 2. 游戏存档数据
-            { role: 'system', content: `【游戏存档数据】（供参考）：\n${saveDataJson}` },
-
-            // 3. 关键约束
-            { role: 'system', content: '【关键约束】：\n1. 这不是游戏推进，不要生成新剧情\n2. 这不是对话任务，不要生成角色对话\n3. 只总结用户提供的记忆内容，不要编造\n4. 必须严格基于原文，不要添加原文没有的内容' },
-
-            // 4. 输出格式
-            { role: 'system', content: '【输出格式】：\n```json\n{"text": "总结内容"}\n```' },
-
-            // 5. 总结要求
-            { role: 'system', content: '【总结要求】：\n- 第一人称"我"\n- 250-400字\n- 连贯的现代修仙小说叙述风格\n- 仅输出JSON，不要thinking/commands/options' },
-
-            // 6. 必须保留
-            { role: 'system', content: '【必须保留】：\n- 原文中的人名、地名\n- 原文中的事件\n- 原文中的物品、功法、境界\n- 原文中的时间节点' },
-
-            // 7. 必须忽略
-            { role: 'system', content: '【必须忽略】：\n- 对话内容\n- 情绪描写\n- 过程细节' },
-
-            // 8. 示例
-            { role: 'system', content: '【示例】：\n原文："张长老说你天赋不错。你去了藏经阁。三天后在青云峰修炼突破到炼气二层。李云送你聚气丹。"\n正确："我获得了张长老的认可，进入藏经阁领取了令牌。三日后我在青云峰修炼，成功突破到炼气二层。期间结识了李云，他赠予我一枚聚气丹，我们结为道友。"\n错误："我继续修炼，遇到了新的挑战..."（❌ 编造了原文没有的内容）' },
-
-            // 9. 重要提醒
-            { role: 'system', content: '【重要提醒】：\n- 不要把这当成游戏对话\n- 不要推进故事\n- 不要编造新内容\n- 严格基于用户提供的记忆进行总结' },
-
-            // 10. 用户输入
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.roleDefinition },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.saveData },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.keyConstraints },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.outputFormat },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.summaryRequirements },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.mustKeep },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.mustIgnore },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.example },
+            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.reminder },
             { role: 'user', content: userPrompt },
-
             // 🛡️ 添加随机前缀（规避内容检测）
             { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] },
-
             // 🛡️ 添加assistant角色的占位消息（防止输入截断）
             { role: 'assistant', content: '</input>' }
           ],
@@ -867,49 +859,23 @@ ${memoriesText}
         response = String(rawResponse);
       } else {
         // 标准模式：合并提示词，减少条目数量
-        const systemPromptCombined = `你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。
+        const systemPromptCombined = `${MEMORY_SUMMARY_PROMPTS.roleDefinition}
 
-【游戏存档数据】（供参考）：
-${saveDataJson}
+${MEMORY_SUMMARY_PROMPTS.saveData}
 
-【关键约束】：
-1. 这不是游戏推进，不要生成新剧情
-2. 这不是对话任务，不要生成角色对话
-3. 只总结用户提供的记忆内容，不要编造
-4. 必须严格基于原文，不要添加原文没有的内容
+${MEMORY_SUMMARY_PROMPTS.keyConstraints}
 
-【输出格式】：
-\`\`\`json
-{"text": "总结内容"}
-\`\`\`
+${MEMORY_SUMMARY_PROMPTS.outputFormat}
 
-【总结要求】：
-- 第一人称"我"
-- 250-400字
-- 连贯的现代修仙小说叙述风格
-- 仅输出JSON，不要thinking/commands/options
+${MEMORY_SUMMARY_PROMPTS.summaryRequirements}
 
-【必须保留】：
-- 原文中的人名、地名
-- 原文中的事件
-- 原文中的物品、功法、境界
-- 原文中的时间节点
+${MEMORY_SUMMARY_PROMPTS.mustKeep}
 
-【必须忽略】：
-- 对话内容
-- 情绪描写
-- 过程细节
+${MEMORY_SUMMARY_PROMPTS.mustIgnore}
 
-【示例】：
-原文："张长老说你天赋不错。你去了藏经阁。三天后在青云峰修炼突破到炼气二层。李云送你聚气丹。"
-正确："我获得了张长老的认可，进入藏经阁领取了令牌。三日后我在青云峰修炼，成功突破到炼气二层。期间结识了李云，他赠予我一枚聚气丹，我们结为道友。"
-错误："我继续修炼，遇到了新的挑战..."（❌ 编造了原文没有的内容）
+${MEMORY_SUMMARY_PROMPTS.example}
 
-【重要提醒】：
-- 不要把这当成游戏对话
-- 不要推进故事
-- 不要编造新内容
-- 严格基于用户提供的记忆进行总结`;
+${MEMORY_SUMMARY_PROMPTS.reminder}`;
 
         const standardResponse = await tavernHelper.generate({
           user_input: userPrompt,
