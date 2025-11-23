@@ -41,13 +41,6 @@
             </div>
           </div>
           <div class="card-body">
-            <div class="stat-item">
-              <span class="stat-icon">🎲</span>
-              <div class="stat-info">
-                <span class="stat-label">骰点</span>
-                <span class="stat-value">{{ part.content.dice }}</span>
-              </div>
-            </div>
             <div class="stat-item" v-if="part.content.finalValue">
               <span class="stat-icon">✨</span>
               <div class="stat-info">
@@ -106,7 +99,7 @@
           <div class="help-section">
             <h4>📊 {{ $t('判定计算公式') }}</h4>
             <div class="formula-box">
-              <strong>{{ $t('判定值') }}</strong> = {{ $t('先天') }} + {{ $t('后天') }} + {{ $t('境界') }} + {{ $t('装备') }} + {{ $t('功法') }} + {{ $t('状态') }} + {{ $t('骰点') }}(1d20)
+              <strong>{{ $t('判定值') }}</strong> = {{ $t('先天') }} + {{ $t('后天') }} + {{ $t('境界') }} + {{ $t('装备') }} + {{ $t('功法') }} + {{ $t('状态') }}
             </div>
             <ol>
               <li><strong>{{ $t('先天') }}</strong>：{{ $t('根据判定类型加权（战斗：根骨50%+灵性30%+气运20%，修炼：悟性50%+灵性30%+心性20%）') }}</li>
@@ -121,12 +114,12 @@
           <div class="help-section">
             <h4>🎯 {{ $t('判定结果') }}</h4>
             <div class="formula-note">
-              <strong>{{ $t('判定规则') }}</strong>: {{ $t('判定值与难度对比，骰点影响结果等级') }}
+              <strong>{{ $t('判定规则') }}</strong>: {{ $t('判定值与难度对比，完全基于属性、境界和加成') }}
             </div>
             <div class="result-list">
               <div class="result-item perfect">
                 <span class="result-label">{{ $t('完美') }}</span>
-                <span class="result-desc">{{ $t('判定值 ≥ 难度+30，或骰点20时结果升级') }}</span>
+                <span class="result-desc">{{ $t('判定值 ≥ 难度+30') }}</span>
               </div>
               <div class="result-item great-success">
                 <span class="result-label">{{ $t('大成功') }}</span>
@@ -142,7 +135,7 @@
               </div>
               <div class="result-item critical-failure">
                 <span class="result-label">{{ $t('大失败') }}</span>
-                <span class="result-desc">{{ $t('判定值远低于难度，或骰点1时结果降级') }}</span>
+                <span class="result-desc">{{ $t('判定值远低于难度（难度-15以下）') }}</span>
               </div>
             </div>
           </div>
@@ -447,9 +440,7 @@ const parsedText = computed(() => {
 
               if (!key || !value) continue
 
-              if (key.includes('骰点') || key.includes('骰子')) {
-                judgement.dice = value
-              } else if (key.includes('难度')) {
+              if (key.includes('难度')) {
                 judgement.difficulty = value
               } else if (key.includes('判定值')) {
                 judgement.finalValue = value
@@ -488,9 +479,7 @@ const parsedText = computed(() => {
 
               if (!key || !value) continue
 
-              if (key.includes('骰点') || key.includes('骰子')) {
-                judgement.dice = value
-              } else if (key.includes('难度')) {
+              if (key.includes('难度')) {
                 judgement.difficulty = value
               } else if (key.includes('加成')) {
                 judgement.bonus = value

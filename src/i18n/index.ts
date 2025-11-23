@@ -908,14 +908,13 @@ const autoTranslateMap: Record<string, string> = {
   '判定规则说明': 'Judgement Rules',
   '判定计算公式': 'Judgement Formula',
   '判定值': 'Judgement Value',
-  '骰点': 'Dice Roll',
   '判定结果': 'Judgement Results',
   '判定规则': 'Judgement Rules',
-  '判定值 ≥ 难度+30，或骰点20时结果升级': 'Value ≥ Difficulty+30, or dice 20 upgrades result',
+  '判定值 ≥ 难度+30': 'Value ≥ Difficulty+30',
   '判定值 ≥ 难度+15，超额完成': 'Value ≥ Difficulty+15, exceeded',
   '判定值 ≥ 难度，达成目标': 'Value ≥ Difficulty, achieved',
   '判定值 < 难度，未达成': 'Value < Difficulty, failed',
-  '判定值远低于难度，或骰点1时结果降级': 'Value far below difficulty, or dice 1 downgrades result',
+  '判定值远低于难度（难度-15以下）': 'Value far below difficulty (below difficulty-15)',
   '判定类型与属性配比': 'Judgement Types & Attributes',
   '战斗判定': 'Combat Judgement',
   '根骨50% + 灵性30% + 气运20%': 'Root Bone 50% + Spirituality 30% + Fortune 20%',
@@ -945,7 +944,7 @@ const autoTranslateMap: Record<string, string> = {
   '装备提供的加成': 'Equipment bonuses',
   '功法品质+熟练度': 'Technique quality + proficiency',
   'buff/debuff效果': 'Buff/debuff effects',
-  '判定值与难度对比，骰点影响结果等级': 'Judgement value vs difficulty, dice affects result level',
+  '判定值与难度对比，完全基于属性、境界和加成': 'Judgement value vs difficulty, based on attributes, realm and bonuses',
 }
 
 export function useI18n() {
