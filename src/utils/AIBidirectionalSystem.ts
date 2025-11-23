@@ -18,7 +18,6 @@ import {  assembleSystemPrompt } from './prompts/promptAssembler';
 import { getCotCorePrompt } from './prompts/cot/cotCore';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
-import { rollD20 } from './diceRoller';
 
 type PlainObject = Record<string, unknown>;
 
@@ -194,10 +193,6 @@ ${stateJsonString}
       console.log('[AI双向系统] 用户输入 userMessage:', userMessage);
       console.log('[AI双向系统] 处理后 userActionForAI:', userActionForAI);
 
-      // 🎲 投掷骰子 - 程序随机生成
-      const diceRoll = rollD20();
-      console.log(`[骰子系统] 本回合骰点: ${diceRoll}`);
-
       // 构建注入消息列表
       const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
         {
@@ -228,10 +223,7 @@ ${stateJsonString}
         });
       }
 
-      // 🎲 添加骰点信息到用户输入
-      const userInputWithDice = `${userActionForAI}\n\n【系统骰点】本回合骰点: ${diceRoll} (1d20)`;
-
-      const finalUserInput = `${userInputWithDice}`;
+      const finalUserInput = userActionForAI;
 
       // 🛡️ 添加assistant角色的占位消息（防止输入截断）
       // 原理：如果最后一条消息是assistant角色，某些模型不会审核输入

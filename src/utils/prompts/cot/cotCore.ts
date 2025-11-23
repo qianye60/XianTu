@@ -1,12 +1,12 @@
 import { DICE_ROLLING_RULES } from '../definitions/textFormats';
 
 /**
- * @fileoverview CoT 核心提示词 v2.2.0
- * @version 2.2.0
- * @lastUpdated 2025-11-19
+ * @fileoverview CoT 核心提示词 v3.0.0
+ * @version 3.0.0
+ * @lastUpdated 2025-11-23
  *
  * 【更新日志】
- * - v2.2.0: 强化判定系统，明确d20骰点使用规则
+ * - v3.0.0: 移除骰点系统，判定完全基于属性和境界
  * - v2.2.0: 新增NPC独立演绎逻辑，区分玩家与NPC
  * - v2.2.0: 强化数据变更约束，防止越权修改
  * - v2.2.0: 新增修仙世界观一致性检查
