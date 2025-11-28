@@ -1927,7 +1927,7 @@ const syncGameState = async () => {
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--color-background);
+  background: var(--color-surface);
   border: 1px solid #e2e8f0;
   border-top: none;
   border-radius: 0 0 12px 12px;
@@ -2193,7 +2193,7 @@ const syncGameState = async () => {
   align-items: stretch; /* 让内部元素垂直拉伸 */
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  background: var(--color-background);
+  background: var(--color-surface);
   transition: all 0.2s ease;
   min-height: 32px; /* 减小最小高度以对应单行 */
   max-width: 100%; /* 防止横向扩展 */
@@ -2302,7 +2302,7 @@ const syncGameState = async () => {
   line-height: 1.8;
   color: var(--color-text);
   font-size: 0.95rem;
-  background: var(--color-surface); /* 确保叙述内容区域背景一致 */
+  background: var(--color-background); /* 确保叙述内容区域背景一致 */
 }
 
 .action-options {
@@ -2760,7 +2760,7 @@ const syncGameState = async () => {
 
 /* 叙述内容深色主题 */
 [data-theme="dark"] .narrative-content {
-  background: #1e293b;
+  background: var(--color-background);
   color: #e2e8f0;
 }
 
@@ -2836,7 +2836,7 @@ const syncGameState = async () => {
 
 /* 确保深色主题下当前叙述区域背景一致 */
 [data-theme="dark"] .current-narrative {
-  background: #1e293b;
+  background: var(--color-background);
 }
 
 /* 深色主题 - 流式输出内容 */
@@ -2851,7 +2851,7 @@ const syncGameState = async () => {
 
 
 [data-theme="dark"] .ai-processing-display {
-  background: #1e293b !important;
+  background: var(--color-background) !important;
 }
 
 [data-theme="dark"] .reset-state-btn {
@@ -2866,7 +2866,7 @@ const syncGameState = async () => {
 }
 
 [data-theme="dark"] .narrative-content {
-  background: #1e293b !important;
+  background: var(--color-background) !important;
 }
 
 [data-theme="dark"] .input-section {
@@ -3029,7 +3029,7 @@ const syncGameState = async () => {
 }
 
 .action-modal {
-  background: var(--color-background);
+  background: var(--color-surface);
   border-radius: 12px;
   max-width: 480px;
   width: 90%;
@@ -3038,7 +3038,7 @@ const syncGameState = async () => {
 }
 
 .action-config-modal {
-  background: var(--color-background);
+  background: var(--color-surface);
   border-radius: 12px;
   max-width: 400px;
   width: 90%;
@@ -3098,7 +3098,7 @@ const syncGameState = async () => {
   padding: 12px 8px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: var(--color-background);
+  background: var(--color-surface);
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.8rem;
@@ -3201,7 +3201,7 @@ const syncGameState = async () => {
   padding: 8px 16px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  background: var(--color-background);
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 0.875rem;
   transition: all 0.2s ease;
@@ -3278,7 +3278,7 @@ const syncGameState = async () => {
 
 .cancel-btn {
   border: 1px solid #d1d5db;
-  background: var(--color-background);
+  background: var(--color-surface);
   color: #6b7280;
 }
 

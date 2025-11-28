@@ -252,6 +252,26 @@
           </div>
 
           <template v-if="aiConfig.mode === 'custom'">
+            <!-- 道号修改（仅自定义API模式） -->
+            <div class="setting-item setting-item-full" v-if="currentPlayerName">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('修改道号') }}</label>
+                <span class="setting-desc">{{ t('修改当前角色的名字（仅自定义API模式可用）') }}</span>
+              </div>
+              <div class="setting-control-full" style="display: flex; gap: 0.5rem;">
+                <input
+                  v-model="newPlayerName"
+                  class="form-input-inline"
+                  :placeholder="currentPlayerName"
+                  style="flex: 1;"
+                >
+                <button class="utility-btn primary" @click="updatePlayerName" :disabled="!newPlayerName || newPlayerName === currentPlayerName">
+                  <Save :size="16" />
+                  {{ t('确认') }}
+                </button>
+              </div>
+            </div>
+
             <div class="setting-item setting-item-full">
               <div class="setting-info">
                 <label class="setting-name">{{ t('API地址') }}</label>
@@ -291,7 +311,7 @@
                   <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
                 </select>
                 <button class="utility-btn" @click="fetchModels" :disabled="isFetchingModels" style="margin-left: 0.5rem;">
-                  <Download :size="16" :class="{ spinning: isFetchingModels }" />
+                  <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
                   {{ isFetchingModels ? t('获取中...') : t('获取') }}
                 </button>
               </div>
@@ -515,15 +535,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { Save, RotateCcw, Trash2, Download, Upload, FileText } from 'lucide-vue-next';
+import { Save, RotateCcw, Trash2, Download, Upload, FileText, RefreshCw } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
 import { useI18n } from '@/i18n';
 import { AUTH_CONFIG } from '@/config/authConfig';
 import { aiService } from '@/services/aiService';
+import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
 
 const { t, setLanguage, currentLanguage } = useI18n();
+const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore();
 
 const onLanguageChange = () => {
   setLanguage(currentLanguage.value);
@@ -555,6 +579,35 @@ const checkTavernAvailability = () => {
   tavernAvailable.value = typeof window !== 'undefined' && !!(window as any).TavernHelper;
 };
 
+// 道号修改相关
+const newPlayerName = ref('');
+const currentPlayerName = computed(() => {
+  return gameStateStore.characterBaseInfo?.名字 || '';
+});
+
+// 更新玩家道号
+const updatePlayerName = async () => {
+  if (!newPlayerName.value || newPlayerName.value === currentPlayerName.value) {
+    return;
+  }
+
+  try {
+    // 更新 gameStateStore 中的角色基础信息
+    if (gameStateStore.characterBaseInfo) {
+      gameStateStore.characterBaseInfo.名字 = newPlayerName.value;
+    }
+
+    // 同步到 characterStore 并保存
+    await characterStore.saveCurrentSlot();
+
+    toast.success(`道号已修改为「${newPlayerName.value}」`);
+    newPlayerName.value = ''; // 清空输入框
+  } catch (error) {
+    console.error('修改道号失败:', error);
+    toast.error('修改道号失败，请重试');
+  }
+};
+
 // 获取模型列表
 const fetchModels = async () => {
   if (isFetchingModels.value) return;
@@ -565,6 +618,8 @@ const fetchModels = async () => {
     const models = await aiService.fetchModels();
     if (models.length > 0) {
       availableModels.value = models;
+      // 保存模型列表到 localStorage
+      localStorage.setItem('ai_available_models', JSON.stringify(models));
       toast.success(`成功获取 ${models.length} 个模型`);
     } else {
       toast.warning('未获取到模型列表');
@@ -683,14 +738,31 @@ const loadSettings = async () => {
     Object.assign(aiConfig, savedAIConfig);
     debug.log('设置面板', 'AI配置加载成功', savedAIConfig);
 
+    // 加载保存的模型列表
+    const savedModels = localStorage.getItem('ai_available_models');
+    if (savedModels) {
+      try {
+        const models = JSON.parse(savedModels);
+        if (Array.isArray(models) && models.length > 0) {
+          availableModels.value = models;
+          debug.log('设置面板', `已加载保存的模型列表: ${models.length} 个`);
+        }
+      } catch (e) {
+        debug.warn('设置面板', '解析保存的模型列表失败');
+      }
+    }
+
+    // 确保已保存的模型名称在可选列表中
+    if (savedAIConfig.customAPI?.model && !availableModels.value.includes(savedAIConfig.customAPI.model)) {
+      availableModels.value = [savedAIConfig.customAPI.model, ...availableModels.value];
+      debug.log('设置面板', `已将保存的模型 ${savedAIConfig.customAPI.model} 添加到可选列表`);
+    }
+
     // 检测酒馆可用性
     checkTavernAvailability();
 
     // 🔥 从gameStateStore加载存档配置
     try {
-      const { useGameStateStore } = await import('@/stores/gameStateStore');
-      const gameStateStore = useGameStateStore();
-
       if (gameStateStore.isGameLoaded) {
         // 加载NSFW设置
         if (gameStateStore.systemConfig) {
@@ -1594,13 +1666,13 @@ input:checked + .switch-slider:before {
   border-color: rgba(220, 38, 38, 0.3);
 }
 
-/* 旋转动画 */
-.spinning {
-  animation: spin 1s linear infinite;
+/* 加载脉冲动画 */
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 </style>

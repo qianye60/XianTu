@@ -1,0 +1,518 @@
+/**
+ * 统一的步骤选择组件样式 - 深色玻璃拟态风格
+ * 用于 Step1-Step5 的选项卡样式
+ */
+
+/* ========== 容器布局 ========== */
+.step-selection-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ========== 左侧面板 ========== */
+.step-left-panel {
+  display: flex;
+  flex-direction: column;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* 顶部操作按钮 */
+.step-top-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(30, 41, 59, 0.3);
+  justify-content: flex-end;
+}
+
+.step-action-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+}
+
+.step-action-btn:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
+}
+
+/* 列表容器 */
+.step-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
+}
+
+.step-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.step-list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.step-list-container::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+  border-radius: 3px;
+}
+
+.step-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 197, 253, 0.5);
+}
+
+/* ========== 选项卡样式 ========== */
+.step-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+  background: rgba(30, 41, 59, 0.4);
+  position: relative;
+}
+
+.step-item:hover {
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(147, 197, 253, 0.2);
+}
+
+.step-item.selected {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: rgba(147, 197, 253, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(147, 197, 253, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.step-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.step-item.disabled:hover {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: transparent;
+}
+
+.step-item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+  gap: 0.75rem;
+}
+
+.step-item-name {
+  font-weight: 500;
+  color: #f1f5f9;
+  font-size: 0.95rem;
+}
+
+.step-item.selected .step-item-name {
+  color: #bfdbfe;
+}
+
+.step-item-cost {
+  color: #93c5fd;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* 操作按钮组 */
+.step-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: 0.5rem;
+}
+
+.step-item:hover .step-item-actions {
+  opacity: 1;
+}
+
+.step-item-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.step-item-btn:hover {
+  color: #93c5fd;
+  background: rgba(147, 197, 253, 0.1);
+}
+
+.step-item-btn.danger:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* 分隔线 */
+.step-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(147, 197, 253, 0.2), transparent);
+  margin: 0.5rem 0;
+}
+
+/* ========== 右侧详情面板 ========== */
+.step-details-container {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.step-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.step-details-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #93c5fd;
+  text-shadow: 0 0 20px rgba(147, 197, 253, 0.3);
+}
+
+.step-details-subtitle {
+  font-style: italic;
+  color: #fbbf24;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.step-details-scroll {
+  flex: 1;
+  overflow-y: auto;
+  line-height: 1.7;
+  padding-right: 0.5rem;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
+}
+
+.step-details-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.step-details-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.step-details-scroll::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+  border-radius: 3px;
+}
+
+.step-details-scroll p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #94a3b8;
+}
+
+.step-details-footer {
+  text-align: right;
+  font-weight: 600;
+  color: #fbbf24;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.step-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.1rem;
+  color: #64748b;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* ========== 状态样式 ========== */
+.step-loading,
+.step-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.1rem;
+  color: #94a3b8;
+}
+
+.step-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  text-align: center;
+  color: #64748b;
+}
+
+.step-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.step-empty-text {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.step-empty-hint {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .step-left-panel,
+[data-theme="light"] .step-details-container {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .step-top-actions {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .step-action-btn {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .step-action-btn:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1e293b;
+}
+
+[data-theme="light"] .step-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .step-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .step-item.selected {
+  background: rgba(219, 234, 254, 0.8);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="light"] .step-item-name {
+  color: #1e293b;
+}
+
+[data-theme="light"] .step-item.selected .step-item-name {
+  color: #1e40af;
+}
+
+[data-theme="light"] .step-item-cost {
+  color: #3b82f6;
+}
+
+[data-theme="light"] .step-details-title {
+  color: #2563eb;
+}
+
+[data-theme="light"] .step-details-scroll p {
+  color: #475569;
+}
+
+[data-theme="light"] .step-placeholder {
+  color: #94a3b8;
+}
+
+/* ========== 响应式适配 ========== */
+@media (max-width: 1024px) {
+  .step-layout {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .step-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 0.75rem;
+    height: auto;
+    overflow: visible;
+  }
+
+  .step-left-panel {
+    order: 1;
+    max-height: 40vh;
+  }
+
+  .step-details-container {
+    order: 2;
+    min-height: 280px;
+  }
+
+  .step-list-container {
+    max-height: 35vh;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .step-top-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .step-action-btn {
+    flex: 1;
+    text-align: center;
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .step-layout {
+    gap: 0.5rem;
+  }
+
+  .step-left-panel {
+    max-height: 35vh;
+    border-radius: 8px;
+  }
+
+  .step-list-container {
+    max-height: 28vh;
+    padding: 0.4rem;
+  }
+
+  .step-item {
+    padding: 0.7rem 0.8rem;
+    margin-bottom: 0.4rem;
+    border-radius: 6px;
+  }
+
+  .step-item-name {
+    font-size: 0.9rem;
+  }
+
+  .step-item-cost {
+    font-size: 0.8rem;
+  }
+
+  .step-top-actions {
+    flex-direction: column;
+    padding: 0.5rem;
+    gap: 0.4rem;
+  }
+
+  .step-action-btn {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .step-details-container {
+    padding: 1rem;
+    min-height: 220px;
+    border-radius: 8px;
+  }
+
+  .step-details-title {
+    font-size: 1.3rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .step-details-scroll {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .step-placeholder {
+    font-size: 0.95rem;
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .step-left-panel {
+    max-height: 30vh;
+  }
+
+  .step-list-container {
+    max-height: 24vh;
+    padding: 0.3rem;
+  }
+
+  .step-item {
+    padding: 0.6rem 0.7rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .step-item-name {
+    font-size: 0.85rem;
+  }
+
+  .step-item-cost {
+    font-size: 0.75rem;
+  }
+
+  .step-details-container {
+    padding: 0.8rem;
+    min-height: 180px;
+  }
+
+  .step-details-title {
+    font-size: 1.1rem;
+  }
+
+  .step-details-scroll {
+    font-size: 0.85rem;
+  }
+}

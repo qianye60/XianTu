@@ -556,6 +556,8 @@ async function onStoreCompleted(result: { success: boolean; message: string; pre
         description: result.presetData.description,
         data: {
           character_name: store.characterPayload.character_name,
+          gender: store.characterPayload.gender,       // 🔥 保存性别
+          race: store.characterPayload.race,           // 🔥 保存种族
           current_age: store.characterPayload.current_age,
           world: store.selectedWorld,
           talentTier: store.selectedTalentTier,
@@ -685,9 +687,11 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
 </style>
 
 <style scoped>
+/* ========== 基础布局 - 深色玻璃拟态风格 ========== */
 .step-wrapper {
   height: 100%;
 }
+
 .creation-container {
   width: 100%;
   height: 100%;
@@ -696,33 +700,33 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
   align-items: center;
   position: relative;
   overflow: hidden;
-  padding: 0; /* 移除内边距，充满屏幕 */
   box-sizing: border-box;
+  background: transparent; /* 透明背景以显示视频 */
 }
 
 .creation-scroll {
-  width: 95%; /* 增加宽度利用率 */
-  max-width: 1400px; /* 增加最大宽度 */
-  height: 90vh;
-  max-height: 90vh; /* 使用视口高度 */
-  background: var(--color-surface-transparent);
-  border: 1px solid var(--color-border);
-  border-radius: 15px;
-  box-shadow: 0 0 40px rgba(var(--color-primary-rgb), 0.3);
+  width: 95%;
+  max-width: 1200px;
+  height: 92vh;
+  max-height: 92vh;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   padding: 2rem;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   position: relative;
   z-index: 1;
-  overflow: hidden; /* 容器本身不滚动 */
+  overflow: hidden;
 }
 
+/* ========== 头部区域 ========== */
 .header-container {
-  /* This container no longer needs flex properties */
-  margin-bottom: 2rem;
-  flex-shrink: 0; /* 防止被压缩 */
+  margin-bottom: 1.5rem;
+  flex-shrink: 0;
 }
 
 .header-top {
@@ -731,51 +735,53 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
   align-items: center;
   margin-bottom: 1rem;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .mode-indicator {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  color: #fbbf24;
   padding: 0.25rem 0.75rem;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid var(--color-primary);
-  border-radius: 15px;
-  white-space: nowrap;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
 }
 
 .cloud-sync-container {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
+/* ========== 进度步骤 ========== */
 .progress-steps {
   display: flex;
-  justify-content: space-between; /* 电脑端两端对齐 */
-  width: 100%; /* Ensure the container spans the full width */
+  justify-content: space-between;
+  width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  gap: 1rem;
+  gap: 0.5rem;
   padding: 0.5rem 0;
-  /* 隐藏滚动条但保留滚动功能 */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .progress-steps::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+  display: none;
 }
 
 .step {
   display: flex;
   flex-direction: column;
   align-items: center;
-  opacity: 0.5;
-  transition: opacity 0.3s ease;
-  flex-shrink: 0; /* 防止步骤被压缩 */
-  min-width: 60px; /* 确保最小宽度 */
+  opacity: 0.4;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  min-width: 60px;
+  cursor: default;
 }
 
 .step.active {
@@ -783,249 +789,185 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
 }
 
 .step-circle {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #333;
-  border: 2px solid #555;
+  background: rgba(30, 41, 59, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1.2rem;
-  font-weight: bold;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #94a3b8;
   transition: all 0.3s ease;
 }
 
 .step.active .step-circle {
-  background: var(--color-accent);
-  color: var(--color-background);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.5);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+  color: #ffffff;
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
 }
 
 .step-label {
   margin-top: 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  color: #64748b;
+  text-align: center;
+  letter-spacing: 0.05em;
 }
 
+.step.active .step-label {
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
+/* ========== 内容区域 ========== */
 .step-content {
   flex: 1 1 0;
-  min-height: 0; /* 允许flex子元素缩小 */
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 2rem 1rem; /* 增加内边距，内容更舒适 */
-  margin: 0; /* 移除margin避免多余空间 */
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  padding: 1.5rem 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
 
-/* Chrome, Safari and Opera */
 .step-content::-webkit-scrollbar {
-  display: none;
+  width: 6px;
 }
 
+.step-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.step-content::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+  border-radius: 3px;
+}
+
+.step-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 197, 253, 0.5);
+}
+
+/* ========== 导航按钮 ========== */
 .navigation-buttons {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
-  background: var(--color-surface-transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-top: 1px solid var(--color-border);
-  position: relative; /* For absolute positioning of points-display */
-  z-index: 10;
-
-  /* Stretch to cover parent padding */
-  margin: 0 -2rem -2rem -2rem;
-  padding: 1rem 2rem;
-  border-bottom-left-radius: 15px;
-  border-bottom-right-radius: 15px;
+  padding-top: 1.5rem;
+  position: relative;
 }
 
 .points-display {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 2rem;
-  /* Center element for flexbox without affecting button spacing */
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
 }
 
-.destiny-points,
-.attribute-points {
+.destiny-points {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid var(--color-primary);
-  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
 }
 
 .points-label {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 
 .points-value {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: var(--color-accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #93c5fd;
 }
 
 .points-value.low {
-  color: var(--color-danger);
+  color: #f87171;
   animation: pulse 1s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-.code-redeem-fab {
-  position: absolute;
-  bottom: 2rem;
-  left: 2rem;
-  z-index: 10;
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .creation-scroll {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
-/* 移动端适配 */
+[data-theme="light"] .mode-indicator {
+  color: #d97706;
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+[data-theme="light"] .step-circle {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #64748b;
+}
+
+[data-theme="light"] .step.active .step-circle {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+[data-theme="light"] .step-label {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .step.active .step-label {
+  color: #1e293b;
+}
+
+[data-theme="light"] .step-content {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .destiny-points {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .points-label {
+  color: #64748b;
+}
+
+[data-theme="light"] .points-value {
+  color: #3b82f6;
+}
+
+/* ========== 平板适配 ========== */
 @media (max-width: 768px) {
   .creation-scroll {
     width: 98%;
     height: 95vh;
     max-height: 95vh;
-    padding: 1rem;
-    border-radius: 10px;
+    padding: 1.5rem;
+    border-radius: 12px;
   }
 
   .header-container {
     margin-bottom: 1rem;
-    flex-shrink: 0;
-  }
-
-  .header-top {
-    gap: 0.75rem;
-  }
-
-  .mode-indicator {
-    font-size: 0.8rem;
-    padding: 0.2rem 0.6rem;
-  }
-
-  .cloud-sync-container {
-    gap: 0.5rem;
   }
 
   .progress-steps {
-    justify-content: flex-start; /* 平板端左对齐，便于横向滚动 */
-    gap: 0.5rem;
-    padding: 0 0.25rem;
-  }
-
-  .step {
-    min-width: 60px;
-  }
-
-  .step-circle {
-    width: 32px;
-    height: 32px;
-    font-size: 1rem;
-  }
-
-  .step-label {
-    font-size: 0.7rem;
-    margin-top: 0.3rem;
-  }
-
-  .step-content {
-    padding: 1.5rem 0.5rem;
-    flex: 1 1 0;
-    min-height: 0;
-  }
-
-  .navigation-buttons {
-      display: flex; /* Explicitly set display */
-      justify-content: space-between;
-      padding: 1rem;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      flex-shrink: 0;
-      margin: 0; /* Reset negative margins */
-      border-radius: 0; /* Reset radius */
-    }
-
-    .points-display {
-      flex-basis: 100%;
-      order: -1;
-      margin-bottom: 0.5rem;
-      position: static; /* Unset absolute positioning */
-      transform: none;
-    }
-
-  .destiny-points,
-  .attribute-points {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
-  }
-
-  .points-label {
-    font-size: 0.8rem;
-  }
-
-  .points-value {
-    font-size: 1rem;
-  }
-
-  .navigation-buttons button {
-    flex: 1;
-    min-width: 100px;
-    font-size: 0.9rem;
-    padding: 0.6rem 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .creation-scroll {
-    width: 100%;
-    height: 100vh;
-    max-height: 100vh;
-    padding: 0.75rem;
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); /* 适配刘海屏底部安全区域 */
-    border-radius: 0;
-  }
-
-  .header-container {
-    flex-shrink: 0;
-  }
-
-  .header-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .mode-indicator {
-    text-align: center;
-  }
-
-  .cloud-sync-container {
-    justify-content: center;
-  }
-
-  .progress-steps {
-    justify-content: flex-start; /* 移动端左对齐，便于横向滚动 */
+    justify-content: flex-start;
     gap: 0.75rem;
   }
 
@@ -1034,9 +976,9 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
   }
 
   .step-circle {
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
   }
 
   .step-label {
@@ -1045,20 +987,79 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
 
   .step-content {
     padding: 1rem 0.25rem;
-    flex: 1 1 0;
-    min-height: 0;
   }
 
   .navigation-buttons {
-    display: flex;
-    flex-direction: row;
     flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0.75rem;
-    margin: 0 -0.75rem -0.75rem -0.75rem;
-    flex-shrink: 0;
+  }
+
+  .points-display {
+    flex-basis: 100%;
+    order: -1;
+    margin-bottom: 0.5rem;
+    position: static;
+    transform: none;
+  }
+
+  .navigation-buttons button {
+    flex: 1;
+    min-width: 100px;
+  }
+}
+
+/* ========== 手机适配 ========== */
+@media (max-width: 480px) {
+  .creation-scroll {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    padding: 1rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
     border-radius: 0;
-    overflow: hidden; /* 防止内容溢出 */
+    box-shadow: none;
+  }
+
+  .header-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .mode-indicator {
+    text-align: center;
+    font-size: 0.7rem;
+  }
+
+  .cloud-sync-container {
+    justify-content: center;
+  }
+
+  .progress-steps {
+    gap: 0.4rem;
+  }
+
+  .step {
+    min-width: 46px;
+  }
+
+  .step-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+
+  .step-label {
+    font-size: 0.55rem;
+  }
+
+  .step-content {
+    padding: 0.75rem 0.25rem;
+  }
+
+  .navigation-buttons {
+    padding-top: 0.75rem;
+    gap: 0.5rem;
   }
 
   .points-display {
@@ -1069,18 +1070,14 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
     position: static;
     transform: none;
     justify-content: center;
-    flex-shrink: 0;
   }
 
-  .destiny-points,
-  .attribute-points {
-    padding: 0.35rem 0.7rem;
-    font-size: 0.8rem;
+  .destiny-points {
+    padding: 0.4rem 0.75rem;
   }
 
   .points-label {
-    font-size: 0.7rem;
-    white-space: nowrap;
+    font-size: 0.75rem;
   }
 
   .points-value {
@@ -1090,12 +1087,29 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
   .navigation-buttons button {
     flex: 1 1 calc(50% - 0.25rem);
     min-width: 0;
-    max-width: calc(50% - 0.25rem);
-    padding: 0.7rem 0.5rem;
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 0.6rem 0.4rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* ========== 超小屏幕适配 ========== */
+@media (max-width: 360px) {
+  .creation-scroll {
+    padding: 0.75rem;
+  }
+
+  .step {
+    min-width: 42px;
+  }
+
+  .step-circle {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
+  }
+
+  .step-label {
+    font-size: 0.5rem;
   }
 }
 </style>

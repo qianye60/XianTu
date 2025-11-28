@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V3.5 {{ $t('正式版') }}</span>
+          <span class="version-tag">V3.6 {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
       </div>
@@ -333,13 +333,15 @@ const handleAuthCancel = () => {
 .mode-selection-container {
   width: 100%;
   height: 100vh;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   box-sizing: border-box;
-  background: transparent;
-  overflow: hidden;
+  background: transparent; /* 透明背景以显示视频 */
+  overflow: auto; /* 允许滚动以适应小屏幕 */
+  -webkit-overflow-scrolling: touch; /* iOS滚动优化 */
 }
 
 .selection-content {
@@ -448,6 +450,9 @@ const handleAuthCancel = () => {
   color: var(--mode-selection-icon, #93c5fd);
   margin-bottom: 1.5rem;
   opacity: 0.9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .gate-card:hover .gate-icon {
@@ -801,45 +806,112 @@ const handleAuthCancel = () => {
 
 @media (max-width: 480px) {
   .mode-selection-container {
-    padding: 1rem;
+    padding: 0.75rem;
+    align-items: flex-start;
+    padding-top: 1rem;
   }
 
   .selection-content {
-    padding: 1.5rem 1.25rem;
-    gap: 1.5rem;
+    padding: 1.25rem 1rem;
+    gap: 1.25rem;
     border-radius: 12px;
+    max-height: none;
   }
 
   .main-title {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
+    letter-spacing: 0.2em;
   }
 
   .sub-title {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
   }
 
   .gate-card {
-    padding: 1.5rem 1.25rem;
+    padding: 1.25rem 1rem;
+  }
+
+  .gate-icon {
+    margin-bottom: 1rem;
+  }
+
+  .gate-icon svg {
+    width: 36px;
+    height: 36px;
   }
 
   .gate-title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+  }
+
+  .gate-description {
+    font-size: 0.85rem;
+  }
+
+  .gate-detail {
+    font-size: 0.75rem;
   }
 
   .privacy-notice {
-    padding: 0.75rem 1rem;
+    padding: 0.6rem 0.8rem;
+  }
+
+  .privacy-notice p {
+    font-size: 0.7rem;
+  }
+
+  .action-btn {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.85rem;
   }
 
   .floating-settings-btn {
-    bottom: 16px;
-    right: 16px;
-    width: 44px;
-    height: 44px;
+    bottom: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
   }
 
   .auth-status-badge {
-    bottom: 16px;
-    left: 16px;
+    bottom: 12px;
+    left: 12px;
+  }
+
+  .auth-status-content {
+    padding: 0.4rem 0.7rem;
+  }
+
+  .status-text {
+    font-size: 0.7rem;
+  }
+}
+
+/* 超小屏幕适配 (360px以下) */
+@media (max-width: 360px) {
+  .mode-selection-container {
+    padding: 0.5rem;
+  }
+
+  .selection-content {
+    padding: 1rem 0.75rem;
+    gap: 1rem;
+  }
+
+  .main-title {
+    font-size: 1.4rem;
+  }
+
+  .sub-title {
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+
+  .gate-card {
+    padding: 1rem 0.75rem;
+  }
+
+  .gate-title {
+    font-size: 1rem;
   }
 }
 </style>

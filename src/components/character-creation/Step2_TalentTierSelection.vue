@@ -322,88 +322,108 @@ const editInitialData = computed(() => {
 </script>
 
 <style scoped>
-/* 顶部功能按钮 */
-.top-actions-container {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.1);
-  justify-content: flex-end;
-}
-
-.top-actions-container .action-item {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.top-actions-container .action-item:hover {
-  background: var(--color-surface-lighter);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
+/* ========== 深色玻璃拟态风格 ========== */
 .talent-tier-selection {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.loading-state,
-.error-state,
-.placeholder {
+.loading-state, .error-state, .placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
-  font-size: 1.2rem;
-  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .tier-layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 2rem;
+  gap: 1.5rem;
   height: 100%;
   overflow: hidden;
 }
 
+/* ========== 左侧面板 ========== */
 .tier-left-panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   overflow: hidden;
-  background: var(--color-surface);
+}
+
+/* 顶部功能按钮 */
+.top-actions-container {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(30, 41, 59, 0.3);
+  justify-content: flex-end;
+}
+
+.top-actions-container .action-item {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+}
+
+.top-actions-container .action-item:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
 }
 
 .tiers-list-container {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
 
-.tiers-list-container::-webkit-scrollbar { width: 8px; }
-.tiers-list-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
-.tiers-list-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
-.tiers-list-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
+.tiers-list-container::-webkit-scrollbar { width: 6px; }
+.tiers-list-container::-webkit-scrollbar-track { background: transparent; }
+.tiers-list-container::-webkit-scrollbar-thumb { background: rgba(147, 197, 253, 0.3); border-radius: 3px; }
+.tiers-list-container::-webkit-scrollbar-thumb:hover { background: rgba(147, 197, 253, 0.5); }
 
+/* ========== 选项卡样式（带天资辉光） ========== */
 .tier-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1rem;
   margin-bottom: 0.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border-left: 3px solid transparent;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.tier-item:hover {
+  background: rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.15);
+  border-color: rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.25);
+}
+
+.tier-item.selected {
+  background: rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.2);
+  border-color: rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.4);
+  box-shadow: 0 0 20px rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.25),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .item-content {
@@ -413,11 +433,23 @@ const editInitialData = computed(() => {
   flex-grow: 1;
 }
 
+.tier-name {
+  font-weight: 600;
+  color: var(--tier-glow-color, #f1f5f9);
+  text-shadow: 0 0 10px rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.3);
+}
+
+.tier-points {
+  color: #fbbf24;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
 /* 按钮组容器 */
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.2s;
   margin-left: 0.5rem;
@@ -427,109 +459,42 @@ const editInitialData = computed(() => {
   opacity: 1;
 }
 
-/* 编辑按钮 */
-.edit-btn {
+.edit-btn, .delete-btn {
   background: none;
   border: none;
-  color: var(--color-text-secondary);
+  color: #64748b;
   cursor: pointer;
-  padding: 0.3rem;
+  padding: 0.35rem;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .edit-btn:hover {
-  color: var(--color-primary);
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-.delete-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 0.3rem;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+  color: #93c5fd;
+  background: rgba(147, 197, 253, 0.1);
 }
 
 .delete-btn:hover {
-  color: var(--color-danger);
-  background-color: rgba(255, 0, 0, 0.1);
-}
-
-.tier-item:hover {
-  background: rgba(var(--tier-glow-color-rgb, 229, 192, 123), 0.1);
-}
-
-.tier-item.selected {
-  background: rgba(var(--tier-glow-color-rgb, 229, 192, 123), 0.2);
-  color: var(--tier-glow-color, #e5c07b);
-  border-left: 3px solid var(--tier-glow-color, #e5c07b);
-  box-shadow: 0 0 15px rgba(var(--tier-glow-color-rgb, 229, 192, 123), 0.3);
-}
-
-.tier-name {
-  font-weight: 600;
-  color: var(--tier-glow-color, inherit);
-}
-
-.tier-points {
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-.single-actions-container {
-  border-top: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-item {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  font-size: 1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.action-item:hover {
-  background: var(--color-surface-lighter);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
 }
 
 .action-name {
   font-weight: 500;
 }
 
+/* ========== 右侧详情面板 ========== */
 .tier-details-container {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 1.5rem;
-  background: var(--color-surface);
 }
 
 .tier-details {
@@ -540,42 +505,78 @@ const editInitialData = computed(() => {
 }
 
 .tier-details h2 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 2rem;
+  margin: 0 0 1rem 0;
+  font-size: 1.8rem;
   text-align: center;
   flex-shrink: 0;
-  text-shadow: 0 0 20px currentColor;
+  text-shadow: 0 0 30px currentColor;
 }
 
 .description-scroll {
   flex: 1;
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.7;
   padding-right: 0.5rem;
   min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
+
+.description-scroll::-webkit-scrollbar { width: 6px; }
+.description-scroll::-webkit-scrollbar-track { background: transparent; }
+.description-scroll::-webkit-scrollbar-thumb { background: rgba(147, 197, 253, 0.3); border-radius: 3px; }
 
 .description-scroll p {
   margin: 0;
   white-space: pre-wrap;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
 }
-
-.description-scroll::-webkit-scrollbar { width: 8px; }
-.description-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
-.description-scroll::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
-.description-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
 .points-display {
   text-align: center;
-  font-weight: bold;
-  color: var(--color-accent);
+  font-weight: 600;
+  color: #fbbf24;
   font-size: 1.2rem;
   padding-top: 1rem;
   margin-top: 1rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+}
+
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .tier-left-panel,
+[data-theme="light"] .tier-details-container {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .top-actions-container {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .top-actions-container .action-item {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .top-actions-container .action-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1e293b;
+}
+
+[data-theme="light"] .tier-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .description-scroll p {
+  color: #475569;
+}
+
+[data-theme="light"] .points-display {
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
 /* 响应式适配 - 手机端优化 */

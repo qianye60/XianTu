@@ -10,14 +10,11 @@
         <input
           type="text"
           id="characterName"
-          class="named readonly-input"
+          class="named"
           v-model="store.characterPayload.character_name"
-          :placeholder="$t('正在从酒馆获取...')"
-          readonly
-          @mousedown.stop
-          @click.stop
-          @select.stop
+          :placeholder="$t('请输入道号')"
         />
+        <span class="name-hint">{{ $t('可自定义修改') }}</span>
       </div>
 
       <!-- Character Race -->
@@ -151,42 +148,76 @@ const props = defineProps<{
 // 从酒馆获取当前Persona名字（只在名字为空时获取，避免重试时覆盖）
 onMounted(async () => {
   // 如果已经有名字了，不要重新获取（避免重试时覆盖）
-  if (store.characterPayload.character_name && store.characterPayload.character_name !== '无名者') {
+  if (store.characterPayload.character_name && store.characterPayload.character_name !== '无名者' && store.characterPayload.character_name.trim() !== '') {
     console.log('[Step7_Preview] 已有角色名字，跳过获取:', store.characterPayload.character_name)
     return
   }
 
+  // 尝试从酒馆获取名字
+  let nameObtained = false
+
   try {
-    const helper = getTavernHelper()
-    if (helper) {
-      // 优先使用宏解析，这是最可靠的方式
-      const personaName = await helper.substitudeMacros('{{user}}');
-      console.log('[Step7_Preview] 解析宏 {{user}} ->', personaName);
+    // 直接检查原生 TavernHelper 是否存在
+    const nativeTavernHelper = typeof window !== 'undefined' ? (window as any).TavernHelper : null
 
-      if (personaName && personaName !== '{{user}}' && typeof personaName === 'string' && personaName.trim()) {
-        store.characterPayload.character_name = personaName.trim()
-        console.log('[Step7_Preview] ✅ 从酒馆宏获取用户名字:', personaName)
-      } else {
-        // 如果宏解析失败，回退到旧的全局变量方法
-        console.warn('[Step7_Preview] ⚠️ 宏 {{user}} 解析失败, 尝试从全局变量获取')
-        const vars = await helper.getVariables({ type: 'global' })
-        console.log('[Step7_Preview] 酒馆全局变量:', vars)
+    if (nativeTavernHelper) {
+      // 方法1: 使用 substitudeMacros 解析 {{user}} 宏
+      if (!nameObtained && typeof nativeTavernHelper.substitudeMacros === 'function') {
+        try {
+          const personaName = await nativeTavernHelper.substitudeMacros('{{user}}')
+          console.log('[Step7_Preview] substitudeMacros {{user}} ->', personaName)
 
-        const fallbackName = vars['persona.name'] || vars['name'] || vars['user_name']
-        console.log('[Step7_Preview] 检测到Persona名字 (fallback):', fallbackName)
+          if (personaName && personaName !== '{{user}}' && typeof personaName === 'string' && personaName.trim()) {
+            store.characterPayload.character_name = personaName.trim()
+            console.log('[Step7_Preview] ✅ 从酒馆宏获取用户名字:', personaName)
+            nameObtained = true
+          }
+        } catch (e) {
+          console.warn('[Step7_Preview] ⚠️ substitudeMacros 失败:', e)
+        }
+      }
 
-        if (fallbackName && typeof fallbackName === 'string' && fallbackName.trim()) {
-          store.characterPayload.character_name = fallbackName.trim()
-          console.log('[Step7_Preview] ✅ 从酒馆获取Persona名字 (fallback):', fallbackName)
-        } else {
-          console.warn('[Step7_Preview] ⚠️ 未获取到有效的Persona名字，保持默认值')
+      // 方法2: 从全局变量获取
+      if (!nameObtained && typeof nativeTavernHelper.getVariables === 'function') {
+        try {
+          const vars = await nativeTavernHelper.getVariables({ type: 'global' })
+          const fallbackName = vars['persona.name'] || vars['name'] || vars['user_name'] || vars['user']
+          console.log('[Step7_Preview] 全局变量中的名字:', fallbackName)
+
+          if (fallbackName && typeof fallbackName === 'string' && fallbackName.trim()) {
+            store.characterPayload.character_name = fallbackName.trim()
+            console.log('[Step7_Preview] ✅ 从全局变量获取名字:', fallbackName)
+            nameObtained = true
+          }
+        } catch (e) {
+          console.warn('[Step7_Preview] ⚠️ getVariables 失败:', e)
+        }
+      }
+
+      // 方法3: 从角色数据获取
+      if (!nameObtained && typeof nativeTavernHelper.getCharData === 'function') {
+        try {
+          const charData = await nativeTavernHelper.getCharData()
+          if (charData?.name && typeof charData.name === 'string' && charData.name.trim()) {
+            store.characterPayload.character_name = charData.name.trim()
+            console.log('[Step7_Preview] ✅ 从角色数据获取名字:', charData.name)
+            nameObtained = true
+          }
+        } catch (e) {
+          console.warn('[Step7_Preview] ⚠️ getCharData 失败:', e)
         }
       }
     } else {
-      console.warn('[Step7_Preview] ⚠️ 酒馆助手不可用')
+      console.log('[Step7_Preview] 非酒馆模式，跳过名字获取')
     }
   } catch (error) {
     console.error('[Step7_Preview] ❌ 无法从酒馆获取Persona名字:', error)
+  }
+
+  // 如果未能获取到名字，清空默认值让用户自行输入
+  if (!nameObtained) {
+    store.characterPayload.character_name = ''
+    console.log('[Step7_Preview] 📝 未获取到名字，请用户自行输入道号')
   }
 })
 
@@ -211,30 +242,38 @@ const validateAge = () => {
 </script>
 
 <style scoped>
+/* ========== 深色玻璃拟态风格 ========== */
 /* 主容器 */
 .preview-container {
   height: 100%;
   padding: 2rem;
   box-sizing: border-box;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
+
+.preview-container::-webkit-scrollbar { width: 6px; }
+.preview-container::-webkit-scrollbar-track { background: transparent; }
+.preview-container::-webkit-scrollbar-thumb { background: rgba(147, 197, 253, 0.3); border-radius: 3px; }
 
 /* 标题 */
 .title {
   text-align: center;
-  color: var(--color-accent);
+  color: #93c5fd;
   margin: 0 0 0.5rem 0;
   font-family: var(--font-family-serif);
   font-size: 2rem;
   font-weight: 600;
+  text-shadow: 0 0 20px rgba(147, 197, 253, 0.3);
 }
 
 .subtitle {
   text-align: center;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
   margin: 0 0 2rem 0;
   font-size: 1rem;
-  opacity: 0.8;
+  font-style: italic;
 }
 
 /* 网格布局 */
@@ -246,19 +285,25 @@ const validateAge = () => {
 
 /* 基础卡片样式 */
 .preview-item {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  transition: all 0.25s ease;
+}
+
+.preview-item:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(147, 197, 253, 0.2);
 }
 
 .preview-item h3 {
   margin: 0;
-  color: var(--color-primary);
-  border-bottom: 1px solid var(--color-border);
+  color: #93c5fd;
+  border-bottom: 1px solid rgba(147, 197, 253, 0.2);
   padding-bottom: 0.5rem;
   font-size: 1.1rem;
   font-weight: 600;
@@ -267,7 +312,7 @@ const validateAge = () => {
 .preview-item p {
   margin: 0;
   font-size: 1rem;
-  color: var(--color-text);
+  color: #f1f5f9;
   line-height: 1.5;
 }
 
@@ -275,20 +320,19 @@ const validateAge = () => {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: #bfdbfe;
 }
 
 .item-description {
   font-size: 0.9rem !important;
-  color: var(--color-text-secondary) !important;
+  color: #94a3b8 !important;
   margin-top: 0.5rem !important;
-  opacity: 0.9;
 }
 
 .talents-item li .item-description {
   margin-top: 0.25rem !important;
   padding-left: 0.5rem;
-  border-left: 2px solid var(--color-border);
+  border-left: 2px solid rgba(147, 197, 253, 0.3);
 }
 
 /* 名字输入 */
@@ -305,41 +349,52 @@ const validateAge = () => {
 .name-item label {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-primary);
+  color: #93c5fd;
   margin-bottom: 0.5rem;
   display: block;
 }
 
 .name-item input, .input-field input {
   width: 100%;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 1rem;
   box-sizing: border-box;
+  transition: all 0.25s ease;
 }
 
 .input-field input {
-    background: var(--color-surface);
+  background: rgba(30, 41, 59, 0.4);
 }
 
 .name-item input:focus, .input-field input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.1);
 }
 
 /* 只读输入框样式 */
 .readonly-input {
-  background: var(--color-surface-light) !important;
+  background: rgba(30, 41, 59, 0.3) !important;
   cursor: not-allowed !important;
-  opacity: 0.8;
+  opacity: 0.7;
   user-select: none;
 }
 
 .readonly-input:focus {
-  border-color: var(--color-border) !important;
+  border-color: rgba(147, 197, 253, 0.2) !important;
+  box-shadow: none !important;
+}
+
+/* 名字提示文字 */
+.name-hint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
+  display: block;
 }
 
 /* 性别选择 */
@@ -355,19 +410,24 @@ const validateAge = () => {
   gap: 0.5rem;
   cursor: pointer;
   font-size: 1rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
 }
 
 .gender-label:hover {
-  background: var(--color-surface-light);
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(147, 197, 253, 0.2);
 }
 
 .gender-label input[type="radio"] {
   width: 16px;
   height: 16px;
   margin: 0;
+  accent-color: #93c5fd;
 }
 
 /* 开局模式选择 */
@@ -463,33 +523,34 @@ const validateAge = () => {
 .age-btn {
   width: 32px;
   height: 32px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-radius: 4px;
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  background: rgba(30, 41, 59, 0.6);
+  color: #93c5fd;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.25s ease;
 }
 
 .age-btn:hover:not(:disabled) {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #93c5fd;
+  color: #bfdbfe;
 }
 
 .age-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .age-display {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: #f1f5f9;
   min-width: 60px;
   text-align: center;
 }
@@ -497,20 +558,20 @@ const validateAge = () => {
 .age-input {
   width: 80px;
   padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-background);
-  color: var(--color-text);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #f1f5f9;
   font-size: 1.1rem;
   font-weight: 600;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .age-input:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.1);
 }
 
 .age-input::-webkit-inner-spin-button,
@@ -525,7 +586,7 @@ const validateAge = () => {
 
 .age-unit {
   font-size: 1rem;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
   font-weight: 500;
 }
 
@@ -539,28 +600,35 @@ const validateAge = () => {
 .preview-item li {
   margin-bottom: 0.75rem;
   padding: 0.75rem;
-  background: var(--color-surface-light);
-  border-radius: 4px;
-  color: var(--color-text);
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: 8px;
+  color: #f1f5f9;
   line-height: 1.4;
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+}
+
+.preview-item li:hover {
+  background: rgba(51, 65, 85, 0.5);
+  border-color: rgba(147, 197, 253, 0.15);
 }
 
 .preview-item li strong {
   display: block;
   margin-bottom: 0.25rem;
-  color: var(--color-primary);
+  color: #93c5fd;
 }
 
 /* 云端信息 */
 .cloud-info-item {
   text-align: center;
-  background: var(--color-surface-light);
-  border: 1px dashed var(--color-border);
+  background: rgba(30, 41, 59, 0.3);
+  border: 1px dashed rgba(147, 197, 253, 0.3);
 }
 
 .cloud-info-text {
   font-size: 0.95rem;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
   line-height: 1.6;
   font-style: italic;
 }
@@ -595,39 +663,96 @@ const validateAge = () => {
   }
 }
 
-/* 暗色主题 */
-[data-theme="dark"] .preview-item {
-  background: #1f2937;
-  border-color: #374151;
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .preview-item {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
-[data-theme="dark"] .name-item input {
-  background: #111827;
-  border-color: #374151;
-  color: #f9fafb;
+[data-theme="light"] .preview-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 
-[data-theme="dark"] .readonly-input {
-  background: #374151 !important;
+[data-theme="light"] .preview-item h3 {
+  color: #2563eb;
+  border-bottom-color: rgba(59, 130, 246, 0.2);
 }
 
-[data-theme="dark"] .gender-label:hover {
-  background: #374151;
+[data-theme="light"] .preview-item h4 {
+  color: #1e40af;
 }
 
-[data-theme="dark"] .age-btn {
-  background: #374151;
-  border-color: #4b5563;
-  color: #f9fafb;
+[data-theme="light"] .preview-item p {
+  color: #1e293b;
 }
 
-[data-theme="dark"] .preview-item li {
-  background: #374151;
-  color: #e5e7eb;
+[data-theme="light"] .title {
+  color: #2563eb;
 }
 
-[data-theme="dark"] .cloud-info-item {
-  background: #374151;
+[data-theme="light"] .subtitle {
+  color: #475569;
+}
+
+[data-theme="light"] .name-item label {
+  color: #2563eb;
+}
+
+[data-theme="light"] .name-item input,
+[data-theme="light"] .input-field input {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1e293b;
+}
+
+[data-theme="light"] .gender-label {
+  background: rgba(255, 255, 255, 0.6);
+  color: #1e293b;
+}
+
+[data-theme="light"] .gender-label:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .age-btn {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
+}
+
+[data-theme="light"] .age-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+[data-theme="light"] .age-input {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1e293b;
+}
+
+[data-theme="light"] .preview-item li {
+  background: rgba(255, 255, 255, 0.6);
+  color: #1e293b;
+}
+
+[data-theme="light"] .preview-item li:hover {
+  background: rgba(241, 245, 249, 0.95);
+}
+
+[data-theme="light"] .preview-item li strong {
+  color: #2563eb;
+}
+
+[data-theme="light"] .cloud-info-item {
+  background: rgba(248, 250, 252, 0.6);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="light"] .cloud-info-text {
+  color: #475569;
 }
 
 @media (max-width: 480px) {

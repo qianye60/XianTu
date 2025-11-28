@@ -1,141 +1,117 @@
 /**
  * @fileoverview 角色初始化AI提示词
  *
- * 【职责】
- * - 定义角色初始化专用的规则(随机选项处理、位置设置、命名风格等)
- * - 构建角色初始化的完整提示词
- * - 生成用户选择摘要
- *
- * 【设计原则】
- * - 只包含角色初始化场景特有的规则
- * - 通用规则从 sharedRules 导入
- * - 数据结构从 dataStructureDefinitions 导入
+ * 开局流程：世界生成 → 角色初始化（本文件）
  */
 
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
 import type { WorldInfo, WorldMapConfig, SystemConfig } from '@/types/game';
-import { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS } from '../definitions/dataDefinitions';
+import { SAVE_DATA_STRUCTURE } from '../definitions/dataDefinitions';
 import { characterInitializationCotPrompt } from '../cot/characterInitializationCot';
 import { assembleSystemPrompt } from '../promptAssembler';
 
 // =====================================================================
-// 角色初始化专用规则
+// 响应格式定义
 // =====================================================================
 
-const CHARACTER_INIT_RULES = `
-## 🎯 角色初始化核心要求
+const RESPONSE_FORMAT = `
+## 响应格式（必须严格遵守）
 
-### 1. 数据路径规范
-- 所有命令的 key 路径必须严格匹配数据结构定义
-- NPC 创建必须使用 \`set\` 操作创建完整对象
-- 严禁修改只读字段（角色基础信息，除出生日期.年外）
-
-### 2. 随机选项处理
-- 当灵根或出身为"随机"时，必须创造独特内容并用 \`set\` 替换
-- 根据世界背景、天资等级设计合理内容
-
-### 3. 位置与命名
-- 位置必须包含 描述、x、y 三个字段
-- 位置必须从提供的可用大陆和地点中选择
-- 命名风格必须与世界背景一致
-
-### 4. 初始资源范围
-- **灵石**：贫困 0-50，普通 20-100，宗门 50-300，富裕 100-500+
-- **物品**：1-6 件（基于故事逻辑）
-- **功法**：0-3 部（基于出身）
-- **NPC**：0-3 个（只创建文本中明确提到的）
-
-### 5. 叙事要求
-- **篇幅**：1200-2500 字
-- **风格**：通过行为和感受展现特质，禁止游戏术语
-- **年龄**：严格按玩家选择的年龄开始，禁止时间跳跃
-- **文本质量**：避免禁用词汇（绝望化/机械化/八股化/过度修饰）
-
-### 6. 初始境界判定
-- **有修炼内容**（功法/灵气/术法/宗门弟子）→ 炼气初期/中期/后期 或 筑基初期
-- **完全无修炼内容** → 凡人
-
-### 7. NSFW 内容生成
-- **NPC 私密信息**：nsfwMode=true 且性别符合 nsfwGenderFilter 时，生成完整 12 字段私密信息
-- **玩家身体部位**：nsfwMode=true 时，生成 3-5 个身体部位开发数据
-`.trim();
-
-export const CHARACTER_INITIALIZATION_PROMPT = `
-# 任务:角色初始化 (生成开局故事)
-
-# 思维链 (COT)
-${characterInitializationCotPrompt}
-
----
-
-## 1. 【强制JSON响应格式】- 最高优先级
-你必须返回一个有效的、纯粹的JSON对象，格式如下：
+返回纯JSON对象，禁止Markdown标记：
 \`\`\`json
 {
-  "text": "1200-2500字的沉浸式开局故事",
-  "mid_term_memory": "开局事件的简短摘要（必填，不能为空）",
+  "text": "1200-2500字开局故事",
+  "mid_term_memory": "故事摘要（必填）",
   "tavern_commands": [
-    {"action": "set", "key": "游戏时间.年", "value": 1000}
-  ]
+    {"action": "set", "key": "路径", "value": 值}
+  ],
+  "action_options": ["选项1", "选项2", "选项3", "选项4", "选项5"]
 }
 \`\`\`
-- **关键要求**: 必须是纯JSON，不带任何Markdown标记或解释性文字。\`tavern_commands\` 必须是数组。
+
+**字段说明**：
+- text: 沉浸式开局叙事，通过行为展现角色特质，禁止游戏术语
+- mid_term_memory: text的简短摘要
+- tavern_commands: 初始化数据的命令数组
+- action_options: 5个基于情境的行动选项
+`.trim();
+
+// =====================================================================
+// 初始化命令规则
+// =====================================================================
+
+const COMMANDS_RULES = `
+## 初始化命令（tavern_commands）
+
+按顺序执行：
+
+1. **时间** - 设置 \`游戏时间\` 和 \`角色基础信息.出生日期.年\`（出生年=游戏年-年龄）
+2. **位置** - 设置 \`玩家角色状态.位置\`，必须包含 {描述, x, y}，从可用地点选择
+3. **声望** - 设置 \`玩家角色状态.声望\`（普通0-10, 宗门10-50, 名门50-100）
+4. **随机项** - 若灵根/出身为"随机"，用 \`set\` 替换为具体内容
+5. **资源** - 设置 \`背包.灵石\` 和初始物品（1-6件）、功法（0-3部）
+6. **NPC** - 仅创建文本中明确提到的重要人物（0-3个），必须一次性创建完整对象
+7. **大道** - 若天赋对应某大道，解锁该大道
+`.trim();
+
+// =====================================================================
+// 叙事规则
+// =====================================================================
+
+const NARRATIVE_RULES = `
+## 叙事要求
+
+- **篇幅**: 1200-2500字
+- **风格**: 通过行为和感受展现特质，禁止游戏术语
+- **年龄**: 严格从玩家选择的年龄开始
+- **一致性**: 必须与玩家选择完全匹配
+`.trim();
+
+// =====================================================================
+// 资源范围参考
+// =====================================================================
+
+const RESOURCE_RANGES = `
+## 初始资源参考
+
+- **灵石**: 贫困0-50, 普通20-100, 宗门50-300, 富裕100-500+
+- **物品**: 1-6件（基于故事逻辑）
+- **功法**: 0-3部（基于出身）
+- **NPC**: 0-3个（只创建文本中明确提到的）
+- **境界**: 有修炼内容→炼气期, 无修炼→凡人
+`.trim();
+
+// =====================================================================
+// 导出的提示词常量（用于提示词管理UI显示）
+// =====================================================================
+
+export const CHARACTER_INITIALIZATION_PROMPT = `
+# 角色初始化任务
+
+${RESPONSE_FORMAT}
 
 ---
 
-## 2. 【开局故事 (text)】
-生成1200-2500字的沉浸式开场，体现角色的出身、天赋和所处环境。
-- **叙事要求**: 通过行为和感受来展现角色特质，禁止直接提及游戏术语。
-- **一致性**: 故事内容必须与玩家的选择完全匹配。
-- **年龄**: 严格从玩家选择的开局年龄开始。
+${COMMANDS_RULES}
 
 ---
 
-## 3. 【初始世界状态 (tavern_commands)】
-根据开局故事，通过commands添加初始实体。**命令必须按以下顺序执行**：
-
-### 第1步：时间设置 (最优先)
-- 设置 \`游戏时间\` 和 \`角色基础信息.出生日期.年\`。
-- 出生年 = 游戏年份 - 角色年龄。
-
-### 第2步：位置设置 (必需)
-- 设置 \`玩家角色状态.位置\`，包含 \`描述\`, \`x\`, \`y\`。
-- 必须从提供的可用大陆和地点中选择。
-
-### 第3步：声望设置 (必需)
-- 设置 \`玩家角色状态.声望\` (参考范围: 普通0-10, 宗门10-50, 名门50-100)。
-
-### 第4步：随机项替换 (如果需要)
-- 如果灵根或出身包含"随机"，必须使用 \`set\` 命令将其替换为具体内容。
-
-### 第5步：初始资源 (必需)
-- 设置 \`背包.灵石\` (参考范围: 贫困0-50, 普通20-100, 富裕100-500+)。
-- 添加1-6件初始物品和0-3部功法。
-
-### 第6步：NPC创建 (可选, 0-3个)
-- **🚨 最高优先级：NPC 必须一次性创建完整对象！**
-- **核心原则**: 只生成开局文本中明确提到的、有互动的重要人物。严禁凭空编造。
-- 如果文本只是泛泛提到"路人"或无人提及，则不创建NPC。
-- **创建方式**: 使用 \`set\` 操作创建包含所有必需字段的完整 NPC 对象。
-- **严禁**: 先创建空对象再逐个添加字段，或只添加部分字段。
-
-### 第7步：大道解锁 (如果天赋对应)
-- 如果天赋与某个大道相关，使用 \`set\` 命令解锁该大道。
+${NARRATIVE_RULES}
 
 ---
 
-# 角色初始化规则
-${CHARACTER_INIT_RULES}
+${RESOURCE_RANGES}
 
 ---
 
 # 数据结构
-${DATA_STRUCTURE_DEFINITIONS}
+${SAVE_DATA_STRUCTURE}
 `.trim();
 
-/*
- * 构建角色创建时用户选择的摘要,用于插入到用户消息中。
- */
+// =====================================================================
+// 构建函数
+// =====================================================================
+
 interface ContextItem {
   name?: string;
   名称?: string;
@@ -145,6 +121,9 @@ interface ContextItem {
   类型?: string;
 }
 
+/**
+ * 构建玩家选择摘要
+ */
 export function buildCharacterSelectionsSummary(
   userSelections: {
     name: string;
@@ -166,256 +145,121 @@ export function buildCharacterSelectionsSummary(
     systemSettings?: SystemConfig;
   }
 ): string {
-  // 数据提取
-  const worldName = userSelections.world.name;
-  const worldDesc = userSelections.world.description;
-  const worldEra = userSelections.world.era;
+  // 提取数据
+  const { name, gender, race, age, world, talentTier, origin, spiritRoot, talents, attributes } = userSelections;
 
-  const talentTierName = userSelections.talentTier.name;
-  const talentTierDesc = userSelections.talentTier.description;
+  const originIsObj = typeof origin === 'object' && origin !== null;
+  const spiritRootIsObj = typeof spiritRoot === 'object' && spiritRoot !== null;
 
-  const originIsObject = typeof userSelections.origin === 'object' && userSelections.origin !== null;
-  const originName = originIsObject ? (userSelections.origin as Origin).name : userSelections.origin;
-  const originDesc = originIsObject ? (userSelections.origin as Origin).description : '(随机出身,需AI根据世界背景创造性生成)';
+  // 格式化天赋列表
+  const talentsList = talents.length > 0
+    ? talents.map(t => `- ${t.name}: ${t.description}`).join('\n')
+    : '无';
 
-  const spiritRootName = typeof userSelections.spiritRoot === 'object' ? userSelections.spiritRoot.name : userSelections.spiritRoot;
-  const spiritRootTier = typeof userSelections.spiritRoot === 'object' ? userSelections.spiritRoot.tier : '';
-  const spiritRootDesc = typeof userSelections.spiritRoot === 'object' ? userSelections.spiritRoot.description : '(随机灵根,需AI根据天资等级创造性生成)';
+  // 格式化属性
+  const attrList = Object.entries(attributes).map(([k, v]) => `${k}:${v}`).join(', ');
 
-  const talentsList = userSelections.talents.length > 0
-    ? userSelections.talents.map(t => `  - **${t.name}**: ${t.description}`).join('\n')
-    : '  无';
+  // 格式化地点
+  const continents = worldContext?.availableContinents
+    ?.map(c => `- ${c.name || c.名称}`)
+    .join('\n') || '(未生成)';
 
-  const attributesText = Object.entries(userSelections.attributes)
-    .map(([key, value]) => `  - ${key}: ${value}`)
-    .join('\n');
+  const locations = worldContext?.availableLocations
+    ?.slice(0, 8)
+    .map(l => `- ${l.name || l.名称} (${l.type || l.类型})`)
+    .join('\n') || '(未生成)';
 
-  const continentsList = worldContext?.availableContinents
-    ? worldContext.availableContinents.map((c: ContextItem) => `  - **${c.name || c.名称}**: ${c.description || c.描述}`).join('\n')
-    : '  (未生成)';
-
-  const locationsList = worldContext?.availableLocations?.slice(0, 10)
-    ? worldContext.availableLocations.slice(0, 10).map((l: ContextItem) => `  - **${l.name || l.名称}** (${l.type || l.类型}): ${l.description || l.描述}`).join('\n')
-    : '  (未生成)';
-
-  // 地图坐标范围（游戏坐标系统）
-  // 注意：这些变量保留是为了兼容性，但实际使用固定的 0-10000 范围
-  const minLng = 0;
-  const maxLng = 10000;
-  const minLat = 0;
-  const maxLat = 10000;
-
-  const mapCoordinateInfo = `
-## 🗺️ 地图坐标系统 (CRITICAL - 必须严格遵守)
-**坐标系统说明**:
-- 本系统使用**游戏坐标系统**（像素坐标，不是经纬度）
-- x 代表横坐标（从左到右），y 代表纵坐标（从上到下）
-- 坐标范围：x: 0-10000, y: 0-10000
-
-**坐标范围**:
-- **X 轴范围**: 0 ~ 10000（横向，从左到右）
-- **Y 轴范围**: 0 ~ 10000（纵向，从上到下）
-
-**坐标生成规则**:
-- 位置坐标必须在 0-10000 范围内
-- 推荐使用中心区域: X: 3000 ~ 7000, Y: 3000 ~ 7000
-- 避免使用边缘坐标（0-500 或 9500-10000）
-
-**示例坐标**:
-- 中心位置: {x: 5000, y: 5000}
-- 东部区域: {x: 7000, y: 5000}
-- 西部区域: {x: 3000, y: 5000}
-- 北部区域: {x: 5000, y: 3000}
-- 南部区域: {x: 5000, y: 7000}
-- 东北角: {x: 7000, y: 3000}
-- 西南角: {x: 3000, y: 7000}
-`;
-
+  // NSFW设置
   const nsfwMode = worldContext?.systemSettings?.nsfwMode;
   const nsfwFilter = worldContext?.systemSettings?.nsfwGenderFilter || 'female';
-  let nsfwRuleText = `
-[错误] **NSFW模式已禁用**
-→ 所有NPC都不生成私密信息
-→ 不生成玩家身体部位开发
-`;
+  let nsfwRule = '禁用 - 不生成私密信息';
   if (nsfwMode) {
-    if (nsfwFilter === 'female') {
-      nsfwRuleText = `
-[正确] **NSFW模式已启用 - 仅女性**
-→ 所有女性NPC必须包含完整的12字段"私密信息"
-→ 男性NPC不生成私密信息
-→ 为玩家生成3-5个身体部位开发数据
-`;
-    } else if (nsfwFilter === 'male') {
-      nsfwRuleText = `
-[正确] **NSFW模式已启用 - 仅男性**
-→ 所有男性NPC必须包含完整的12字段"私密信息"
-→ 女性NPC不生成私密信息
-→ 为玩家生成3-5个身体部位开发数据
-`;
-    } else {
-      nsfwRuleText = `
-[正确] **NSFW模式已启用 - 所有性别**
-→ 所有NPC(无论性别)都必须包含完整的12字段"私密信息"
-→ 为玩家生成2-4个身体部位开发数据
-`;
-    }
+    const filterMap: Record<string, string> = {
+      'female': '仅女性NPC生成私密信息',
+      'male': '仅男性NPC生成私密信息',
+      'all': '所有NPC生成私密信息'
+    };
+    nsfwRule = filterMap[nsfwFilter] || filterMap['female'];
   }
 
-  const selectionsSummary = `
-# [重要] 玩家角色创建数据 (详细信息)
+  return `
+# 玩家角色数据
 
 ## 基础信息
-- 姓名: ${userSelections.name}
-- 性别: ${userSelections.gender}
-- 种族: ${userSelections.race}
-- 开局年龄: ${userSelections.age}岁
+姓名: ${name} | 性别: ${gender} | 种族: ${race} | 年龄: ${age}岁
 
----
-## 世界背景 🌍 (开局故事必须基于此构建)
-- 世界名称: ${worldName}
-- 世界时代: ${worldEra}
-- [重要] **世界描述**: ${worldDesc}
+## 世界
+${world.name} (${world.era})
+${world.description}
 
----
-## 天资等级 ✨ (角色资质必须符合此描述)
-- 天资名称: ${talentTierName}
-- [重要] **天资描述**: ${talentTierDesc}
+## 天资
+${talentTier.name}: ${talentTier.description}
 
----
-## 出身背景 👤 (开局故事核心)
-- 出身名称: ${originName}
-- [重要] **出身描述**: ${originDesc}
+## 出身
+${originIsObj ? (origin as Origin).name : origin}: ${originIsObj ? (origin as Origin).description : '(随机，需AI生成)'}
 
----
-## 灵根资质 🔥 (修炼天赋必须体现此描述)
-- 灵根名称: ${spiritRootName}
-- 灵根品级: ${spiritRootTier}
-- [重要] **灵根描述**: ${spiritRootDesc}
+## 灵根
+${spiritRootIsObj ? `${(spiritRoot as SpiritRoot).name} (${(spiritRoot as SpiritRoot).tier})` : spiritRoot}: ${spiritRootIsObj ? (spiritRoot as SpiritRoot).description : '(随机，需AI生成)'}
 
----
-## 天赋列表 🎁 (必须在开局故事或数据中体现)
+## 天赋
 ${talentsList}
 
----
-## 先天六司 📊
-${attributesText}
+## 先天六司
+${attrList}
 
 ---
-## 可用地点参考 🗺️
-- **可用大陆**:
-${continentsList}
-- **主要地点**:
-${locationsList}
-**重要**: 位置设置必须从这些地点中选择!
+
+## 可用地点
+**大陆**:
+${continents}
+
+**地点**:
+${locations}
+
+⚠️ 位置必须从上述地点选择，坐标范围: x:0-10000, y:0-10000
 
 ---
-${mapCoordinateInfo}
+
+## NSFW设置
+${nsfwRule}
 
 ---
-## [重要][重要] 系统设置 (NSFW内容生成控制) [重要][重要]
-**当前系统配置 (必须严格遵守)**:
-- **nsfwMode**: ${nsfwMode ? 'true (已启用)' : 'false (已禁用)'}
-- **nsfwGenderFilter**: ${nsfwFilter}
 
-**生成规则 (最高优先级)**:
-${nsfwRuleText}
-🚨 **严重警告**: 未按照上述设置生成私密信息将被视为任务失败!
-
----
-## [重要][重要][重要] 输出格式要求 (极其重要!) [重要][重要][重要]
-你必须输出一个纯JSON对象,不要使用markdown代码块!
-\`\`\`json
-{
-  "text": "1200-2500字的开局故事...",
-  "mid_term_memory": "text的缩短版（必填，不能为空）",
-  "tavern_commands": [
-    {"action": "set", "key": "玩家角色状态.位置", "value": {...}},
-    ...
-  ]
-}
-\`\`\`
-`;
-
-  return selectionsSummary;
+## 输出要求
+返回纯JSON: {text, mid_term_memory, tavern_commands, action_options}
+- action_options: 5个基于开局情境的行动选项
+`.trim();
 }
 
 /**
- * 构建角色初始化的系统提示词
+ * 构建角色初始化系统提示词
  */
 export async function buildCharacterInitializationPrompt(): Promise<string> {
-  // 使用 assembleSystemPrompt 获取完整的通用规则（不包含COT，因为初始化有专用COT）
   const basePrompt = await assembleSystemPrompt([]);
 
-  // 添加角色初始化专用的COT和规则
   return `${basePrompt}
 
 ---
 
-# 任务:角色初始化 (生成开局故事)
+# 角色初始化任务
 
 ${characterInitializationCotPrompt}
 
 ---
 
-## 1. 【强制JSON响应格式】- 最高优先级
-你必须返回一个有效的、纯粹的JSON对象，格式如下：
-\`\`\`json
-{
-  "text": "1200-2500字的沉浸式开局故事",
-  "mid_term_memory": "开局事件的简短摘要（必填，不能为空）",
-  "tavern_commands": [
-    {"action": "set", "key": "游戏时间.年", "value": 1000}
-  ]
-}
-\`\`\`
-- **关键要求**: 必须是纯JSON，不带任何Markdown标记或解释性文字。\`tavern_commands\` 必须是数组。
+${RESPONSE_FORMAT}
 
 ---
 
-## 2. 【开局故事 (text)】
-生成1200-2500字的沉浸式开场，体现角色的出身、天赋和所处环境。
-- **叙事要求**: 通过行为和感受来展现角色特质，禁止直接提及游戏术语。
-- **一致性**: 故事内容必须与玩家的选择完全匹配。
-- **年龄**: 严格从玩家选择的开局年龄开始。
+${COMMANDS_RULES}
 
 ---
 
-## 3. 【初始世界状态 (tavern_commands)】
-根据开局故事，通过commands添加初始实体。**命令必须按以下顺序执行**：
-
-### 第1步：时间设置 (最优先)
-- 设置 \`游戏时间\` 和 \`角色基础信息.出生日期.年\`。
-- 出生年 = 游戏年份 - 角色年龄。
-
-### 第2步：位置设置 (必需)
-- 设置 \`玩家角色状态.位置\`，包含 \`描述\`, \`x\`, \`y\`。
-- 必须从提供的可用大陆和地点中选择。
-
-### 第3步：声望设置 (必需)
-- 设置 \`玩家角色状态.声望\` (参考范围: 普通0-10, 宗门10-50, 名门50-100)。
-
-### 第4步：随机项替换 (如果需要)
-- 如果灵根或出身包含"随机"，必须使用 \`set\` 命令将其替换为具体内容。
-
-### 第5步：初始资源 (必需)
-- 设置 \`背包.灵石\` (参考范围: 贫困0-50, 普通20-100, 富裕100-500+)。
-- 添加1-6件初始物品和0-3部功法。
-
-### 第6步：NPC创建 (可选, 0-3个)
-- **🚨 最高优先级：NPC 必须一次性创建完整对象！**
-- **核心原则**: 只生成开局文本中明确提到的、有互动的重要人物。严禁凭空编造。
-- 如果文本只是泛泛提到"路人"或无人提及，则不创建NPC。
-- **创建方式**: 使用 \`set\` 操作创建包含所有必需字段的完整 NPC 对象。
-- **严禁**: 先创建空对象再逐个添加字段，或只添加部分字段。
-
-### 第7步：大道解锁 (如果天赋对应)
-- 如果天赋与某个大道相关，使用 \`set\` 命令解锁该大道。
+${NARRATIVE_RULES}
 
 ---
 
-# 角色初始化规则
-${CHARACTER_INIT_RULES}
+${RESOURCE_RANGES}
 `.trim();
 }
 
@@ -423,25 +267,15 @@ ${CHARACTER_INIT_RULES}
  * 地点名称生成提示词
  */
 export const LOCATION_NAME_GENERATION_PROMPT = `
-# 任务：为大陆生成层级地点名
+# 任务：生成层级地点名
 
-为大陆生成具体、有层级、有特色的地点名称。
-
-输入:
-\`\`\`json
-INPUT_PLACEHOLDER
-\`\`\`
-
-输出:
-\`\`\`json
-{"location_name": "具体地点(不含大陆名)"}
-\`\`\`
+输入: INPUT_PLACEHOLDER
+输出: {"location_name": "区域·建筑·场所"}
 
 要求:
-1. 2-3层级, 用"·"分隔, 从大到小 (例如: 区域·建筑·场所)。
-2. 体现大陆特点 (修仙世界使用宗门/洞府, 都市世界使用建筑/街道)。
-3. 只返回地点名，系统会自动拼接大陆名。
-4. 必须是有效的JSON，无注释或额外文本。
+1. 2-3层级，用"·"分隔
+2. 体现世界特点
+3. 只返回JSON
 `.trim();
 
 export const GAME_START_INITIALIZATION_PROMPT = '';

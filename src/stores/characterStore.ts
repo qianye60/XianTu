@@ -2001,9 +2001,9 @@ const equipTechnique = async (itemId: string) => {
 
 /**
  * [新增] 导入一个完整的角色档案
- * @param profileData 从JSON文件解析的角色档案数据
+ * @param profileData 从JSON文件解析的角色档案数据（可能包含 _导入存档列表 字段）
  */
-const importCharacter = async (profileData: CharacterProfile) => {
+const importCharacter = async (profileData: CharacterProfile & { _导入存档列表?: any[] }) => {
   if (!profileData || !profileData.角色基础信息 || !profileData.模式) {
     throw new Error('无效的角色文件格式。');
   }
@@ -2023,14 +2023,56 @@ const importCharacter = async (profileData: CharacterProfile) => {
     throw new Error(`角色 "${characterName}" 已存在，请先删除或重命名现有角色。`);
   }
 
+  // 🔥 提取并处理导入的存档列表
+  const importedSaves = profileData._导入存档列表;
+  // 删除临时字段，不保存到角色数据中
+  delete (profileData as any)._导入存档列表;
+
+  // 初始化存档列表
+  if (!profileData.存档列表) {
+    profileData.存档列表 = {};
+  }
+
+  // 🔥 如果有导入的存档，将存档数据保存到 IndexedDB
+  if (importedSaves && Array.isArray(importedSaves) && importedSaves.length > 0) {
+    debug.log('角色商店', `开始导入 ${importedSaves.length} 个存档...`);
+
+    for (const save of importedSaves) {
+      const saveName = save.存档名 || '导入存档';
+
+      // 生成唯一的存档名称，避免冲突
+      let finalSaveName = saveName;
+      let counter = 1;
+      while (profileData.存档列表[finalSaveName]) {
+        finalSaveName = `${saveName}_${counter}`;
+        counter++;
+      }
+
+      // 将存档数据保存到 IndexedDB
+      if (save.存档数据) {
+        await storage.saveSaveData(newCharId, finalSaveName, save.存档数据);
+        debug.log('角色商店', `✅ 已将存档数据保存到 IndexedDB: ${newCharId}/${finalSaveName}`);
+      }
+
+      // 保存存档元数据（不包含存档数据本身）
+      const saveMetadata = { ...save };
+      delete saveMetadata.存档数据;
+      profileData.存档列表[finalSaveName] = {
+        ...saveMetadata,
+        存档名: finalSaveName
+      };
+    }
+
+    debug.log('角色商店', `✅ 成功导入 ${importedSaves.length} 个存档`);
+  }
+
   // 将角色数据添加到列表
   rootState.value.角色列表[newCharId] = {
     ...profileData,
-    // 可以选择在这里清理或验证存档数据
   };
 
   await commitMetadataToStorage();
-  debug.log('角色商店', `成功导入角色: ${characterName} (新ID: ${newCharId})`);
+  debug.log('角色商店', `成功导入角色: ${characterName} (新ID: ${newCharId})，含 ${Object.keys(profileData.存档列表).length} 个存档`);
 };
 
 /**

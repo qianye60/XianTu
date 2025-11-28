@@ -328,14 +328,22 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
     return String(value ?? '');
   };
 
+  // 🔥 使用用户配置的世界规模参数，这些参数会直接影响AI生成的世界内容
+  console.log('[世界生成] 用户配置的世界规模:', {
+    主要势力: userWorldConfig.majorFactionsCount,
+    地点总数: userWorldConfig.totalLocations,
+    秘境数量: userWorldConfig.secretRealmsCount,
+    大陆数量: userWorldConfig.continentCount
+  });
+
   const enhancedConfig = {
     worldName: selectedWorld?.name || world.name,
     worldBackground: selectedWorld?.description || world.description,
     worldEra: selectedWorld?.era || world.era,
-    factionCount: userWorldConfig.majorFactionsCount || 7,
-    locationCount: userWorldConfig.totalLocations || 25,
-    secretRealmsCount: userWorldConfig.secretRealmsCount || 8,
-    continentCount: userWorldConfig.continentCount || Math.floor(Math.random() * 5) + 3,
+    factionCount: userWorldConfig.majorFactionsCount || 5,      // 默认5个主要势力
+    locationCount: userWorldConfig.totalLocations || 12,        // 默认12个地点
+    secretRealmsCount: userWorldConfig.secretRealmsCount || 5,  // 默认5个秘境
+    continentCount: userWorldConfig.continentCount || 4,        // 默认4片大陆
     maxRetries: 3,
     retryDelay: 2000,
     characterBackground: extractName(baseInfo.出生),
