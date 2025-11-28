@@ -135,10 +135,14 @@ body {
   padding: 0;
   /* 移除 overflow: hidden; 应用内滚动由 #app 控制 */
   font-family: var(--font-family-serif);
-  background-color: transparent; /* 移除背景色，让视频透出 */
+  /* 透明背景以显示视频背景（VideoBackground组件使用z-index:-10） */
+  background-color: transparent;
   color: var(--color-text);
   /* 遵道友法旨，去除所有文字阴影，返璞归真。 */
   text-shadow: none;
+  /* 确保在iframe中也能正确填充 */
+  width: 100%;
+  height: 100%;
 }
 
 #app {
@@ -155,6 +159,21 @@ body {
   zoom: var(--ui-scale);
   /* 应用基础字体大小 */
   font-size: var(--base-font-size);
+  /* 透明背景以显示视频背景 */
+  background-color: transparent;
+}
+
+#app-container {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  /* 透明背景以显示视频背景 */
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: hidden;
+  position: relative;
 }
 
 /* --- Reusable Button Class (The Master's Touch) --- */
@@ -374,6 +393,7 @@ body {
   justify-content: center; /* 垂直居中 */
   padding: 1rem 0; /* 减小内部垂直边距 */
   box-sizing: border-box; /* 确保 padding 不会导致溢出 */
+  background: transparent; /* 透明背景以显示视频 */
 }
 
 .video-background {
@@ -685,15 +705,7 @@ body {
   opacity: 0;
 }
 
-#app-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow-x: hidden;
-  position: relative;
-}
+/* #app-container 样式已在上方定义，此处合并 */
 
 /* --- Author Modal Styles --- */
 .author-modal-overlay {

@@ -32,6 +32,12 @@ export class GameMapManager {
   private lastPosition = { x: 0, y: 0 };
   private dragDistance = 0;
 
+  // 双指缩放状态
+  private isPinching = false;
+  private initialPinchDistance = 0;
+  private initialPinchScale = 1;
+  private pinchCenter = { x: 0, y: 0 };
+
   // 保存绑定的事件处理函数引用，用于正确移除监听器
   private boundOnDragStart: (e: MouseEvent) => void;
   private boundOnDragMove: (e: MouseEvent) => void;
@@ -313,15 +319,46 @@ export class GameMapManager {
 
 
   /**
+   * 计算两个触摸点之间的距离
+   */
+  private getTouchDistance(touches: TouchList): number {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * 计算两个触摸点的中心点
+   */
+  private getTouchCenter(touches: TouchList): { x: number; y: number } {
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    };
+  }
+
+  /**
    * 触摸开始
    */
   private onTouchStart(e: TouchEvent) {
     e.preventDefault();
-    if (e.touches.length === 1) {
+
+    if (e.touches.length === 2) {
+      // 双指触摸 - 开始缩放
+      this.isDragging = false;
+      this.isPinching = true;
+      this.initialPinchDistance = this.getTouchDistance(e.touches);
+      this.initialPinchScale = this.worldContainer.scale.x;
+      this.pinchCenter = this.getTouchCenter(e.touches);
+      this.lastPosition = { x: this.worldContainer.x, y: this.worldContainer.y };
+    } else if (e.touches.length === 1) {
+      // 单指触摸 - 开始拖拽
+      this.isPinching = false;
       const touch = e.touches[0];
       this.isDragging = true;
       this.dragStart = { x: touch.clientX, y: touch.clientY };
       this.lastPosition = { x: this.worldContainer.x, y: this.worldContainer.y };
+      this.dragDistance = 0;
     }
   }
 
@@ -330,19 +367,65 @@ export class GameMapManager {
    */
   private onTouchMove(e: TouchEvent) {
     e.preventDefault();
-    if (!this.isDragging || e.touches.length !== 1) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - this.dragStart.x;
-    const dy = touch.clientY - this.dragStart.y;
-    this.worldContainer.x = this.lastPosition.x + dx;
-    this.worldContainer.y = this.lastPosition.y + dy;
+
+    if (e.touches.length === 2 && this.isPinching) {
+      // 双指缩放
+      const currentDistance = this.getTouchDistance(e.touches);
+      const currentCenter = this.getTouchCenter(e.touches);
+
+      // 计算缩放比例
+      const scale = (currentDistance / this.initialPinchDistance) * this.initialPinchScale;
+
+      // 限制缩放范围
+      const minScale = this.config.minZoom || 0.1;
+      const maxScale = this.config.maxZoom || 4;
+      const clampedScale = Math.max(minScale, Math.min(maxScale, scale));
+
+      // 计算缩放中心点在世界坐标系中的位置
+      const worldPosX = (this.pinchCenter.x - this.lastPosition.x) / this.initialPinchScale;
+      const worldPosY = (this.pinchCenter.y - this.lastPosition.y) / this.initialPinchScale;
+
+      // 应用缩放
+      this.worldContainer.scale.set(clampedScale);
+
+      // 调整位置，使缩放中心点保持不变，同时支持平移
+      const centerDx = currentCenter.x - this.pinchCenter.x;
+      const centerDy = currentCenter.y - this.pinchCenter.y;
+      this.worldContainer.x = this.pinchCenter.x - worldPosX * clampedScale + centerDx;
+      this.worldContainer.y = this.pinchCenter.y - worldPosY * clampedScale + centerDy;
+    } else if (e.touches.length === 1 && this.isDragging && !this.isPinching) {
+      // 单指拖拽
+      const touch = e.touches[0];
+      const dx = touch.clientX - this.dragStart.x;
+      const dy = touch.clientY - this.dragStart.y;
+
+      // 累计拖拽距离
+      this.dragDistance += Math.abs(dx - (this.worldContainer.x - this.lastPosition.x)) +
+                           Math.abs(dy - (this.worldContainer.y - this.lastPosition.y));
+
+      this.worldContainer.x = this.lastPosition.x + dx;
+      this.worldContainer.y = this.lastPosition.y + dy;
+    }
   }
 
   /**
    * 触摸结束
    */
-  private onTouchEnd() {
-    this.isDragging = false;
+  private onTouchEnd(e: TouchEvent) {
+    // 如果还有触摸点，可能是从双指变为单指
+    if (e.touches.length === 1 && this.isPinching) {
+      // 从双指缩放切换到单指拖拽
+      this.isPinching = false;
+      this.isDragging = true;
+      const touch = e.touches[0];
+      this.dragStart = { x: touch.clientX, y: touch.clientY };
+      this.lastPosition = { x: this.worldContainer.x, y: this.worldContainer.y };
+      this.dragDistance = 0;
+    } else if (e.touches.length === 0) {
+      // 所有触摸结束
+      this.isDragging = false;
+      this.isPinching = false;
+    }
   }
 
   /**

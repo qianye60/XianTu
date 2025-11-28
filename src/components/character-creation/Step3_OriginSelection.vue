@@ -518,61 +518,87 @@ const activeCost = computed(() => {
 </script>
 
 <style scoped>
+/* ========== 深色玻璃拟态风格 ========== */
 .origin-selection-container {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.loading-state,
-.error-state,
-.placeholder {
+.loading-state, .error-state, .placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
-  font-size: 1.2rem;
-  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .origin-layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 2rem;
+  gap: 1.5rem;
   height: 100%;
   overflow: hidden;
 }
 
+/* ========== 左侧面板 ========== */
 .origin-left-panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   overflow: hidden;
-  background: var(--color-surface);
 }
 
 .origin-list-container {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
 
-.origin-list-container::-webkit-scrollbar { width: 8px; }
-.origin-list-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
-.origin-list-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
-.origin-list-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
+.origin-list-container::-webkit-scrollbar { width: 6px; }
+.origin-list-container::-webkit-scrollbar-track { background: transparent; }
+.origin-list-container::-webkit-scrollbar-thumb { background: rgba(147, 197, 253, 0.3); border-radius: 3px; }
+.origin-list-container::-webkit-scrollbar-thumb:hover { background: rgba(147, 197, 253, 0.5); }
 
+/* ========== 选项卡样式 ========== */
 .origin-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1rem;
   margin-bottom: 0.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border-left: 3px solid transparent;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.origin-item:hover {
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(147, 197, 253, 0.2);
+}
+
+.origin-item.selected {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: rgba(147, 197, 253, 0.4);
+  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.origin-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.origin-item.disabled:hover {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: transparent;
 }
 
 .item-content {
@@ -582,11 +608,26 @@ const activeCost = computed(() => {
   flex-grow: 1;
 }
 
+.origin-name {
+  font-weight: 500;
+  color: #f1f5f9;
+}
+
+.origin-item.selected .origin-name {
+  color: #bfdbfe;
+}
+
+.origin-cost {
+  color: #fbbf24;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 /* 按钮组容器 */
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.2s;
   margin-left: 0.5rem;
@@ -596,125 +637,48 @@ const activeCost = computed(() => {
   opacity: 1;
 }
 
-/* 编辑按钮 */
-.edit-btn {
+.edit-btn, .delete-btn {
   background: none;
   border: none;
-  color: var(--color-text-secondary);
+  color: #64748b;
   cursor: pointer;
-  padding: 0.3rem;
+  padding: 0.35rem;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .edit-btn:hover {
-  color: var(--color-primary);
-  background-color: rgba(59, 130, 246, 0.1);
+  color: #93c5fd;
+  background: rgba(147, 197, 253, 0.1);
 }
 
-.delete-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 0.3rem;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
-}
-
-/* 移除原有的删除按钮hover逻辑，因为现在按钮组统一管理 */
 .delete-btn:hover {
-  color: var(--color-danger);
-  background-color: rgba(255, 0, 0, 0.1);
-}
-
-.origin-item:hover {
-  background: var(--color-surface-light);
-}
-
-.origin-item.selected {
-  background: rgba(var(--color-primary-rgb), 0.2);
-  color: var(--color-primary);
-  font-weight: 600;
-  border-left: 3px solid var(--color-primary);
-}
-
-.origin-item.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: transparent;
-  color: var(--color-text-disabled);
-}
-.origin-item.disabled:hover {
-  background: var(--color-surface-danger);
-}
-
-.origin-name {
-  font-weight: 500;
-}
-
-.origin-cost {
-  color: var(--color-accent);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
 }
 
 .divider {
- height: 1px;
- background: linear-gradient(to right, transparent, rgba(var(--color-primary-rgb), 0.2), transparent);
- margin: 0.5rem 0;
-}
-
-.single-actions-container {
-  border-top: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.action-item {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  font-size: 1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.action-item:hover {
-  background: var(--color-surface-lighter);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(147, 197, 253, 0.2), transparent);
+  margin: 0.5rem 0;
 }
 
 .action-name {
   font-weight: 500;
 }
 
+/* ========== 右侧详情面板 ========== */
 .origin-details-container {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 1.5rem;
-  background: var(--color-surface);
 }
 
 .origin-details {
@@ -725,36 +689,75 @@ const activeCost = computed(() => {
 }
 
 .origin-details h2 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: var(--color-primary);
+  margin: 0 0 1rem 0;
+  color: #93c5fd;
   flex-shrink: 0;
+  font-size: 1.5rem;
+  text-shadow: 0 0 20px rgba(147, 197, 253, 0.3);
 }
 
 .description-scroll {
   flex: 1;
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.7;
   margin-bottom: 1rem;
   padding-right: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
+
+.description-scroll::-webkit-scrollbar { width: 6px; }
+.description-scroll::-webkit-scrollbar-track { background: transparent; }
+.description-scroll::-webkit-scrollbar-thumb { background: rgba(147, 197, 253, 0.3); border-radius: 3px; }
 
 .description-scroll p {
   margin: 0;
   white-space: pre-wrap;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
 }
-
-.description-scroll::-webkit-scrollbar { width: 8px; }
-.description-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
-.description-scroll::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 4px; }
-.description-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
 .cost-display {
   text-align: right;
-  font-weight: bold;
-  color: var(--color-accent);
+  font-weight: 600;
+  color: #fbbf24;
   flex-shrink: 0;
+}
+
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .origin-left-panel,
+[data-theme="light"] .origin-details-container {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .origin-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .origin-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .origin-item.selected {
+  background: rgba(219, 234, 254, 0.8);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="light"] .origin-name {
+  color: #1e293b;
+}
+
+[data-theme="light"] .origin-item.selected .origin-name {
+  color: #1e40af;
+}
+
+[data-theme="light"] .origin-details h2 {
+  color: #2563eb;
+}
+
+[data-theme="light"] .description-scroll p {
+  color: #475569;
 }
 
 /* 响应式适配 - 手机端优化 */
@@ -965,32 +968,50 @@ const activeCost = computed(() => {
   }
 }
 
-/* 顶部功能按钮 */
+/* 顶部功能按钮 - 深色玻璃拟态风格 */
 .top-actions-container {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(147, 197, 253, 0.15);
+  background: rgba(30, 41, 59, 0.3);
   justify-content: flex-end;
 }
 
 .top-actions-container .action-item {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(147, 197, 253, 0.3);
   border-radius: 6px;
-  background: var(--color-surface-light);
-  color: var(--color-text);
+  background: rgba(30, 41, 59, 0.6);
+  color: #93c5fd;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   font-size: 0.9rem;
   white-space: nowrap;
 }
 
 .top-actions-container .action-item:hover {
-  background: var(--color-surface-lighter);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #93c5fd;
+  color: #bfdbfe;
+}
+
+/* 亮色主题顶部按钮 */
+[data-theme="light"] .top-actions-container {
+  background: rgba(241, 245, 249, 0.6);
+  border-bottom-color: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="light"] .top-actions-container .action-item {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
+}
+
+[data-theme="light"] .top-actions-container .action-item:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  color: #1e40af;
 }
 
 @media (max-width: 360px) {

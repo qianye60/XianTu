@@ -105,10 +105,6 @@
               </div>
             </div>
             <div v-if="selectedCharacter" class="save-actions-buttons">
-              <button @click="exportSaves" class="btn-save-action export" :title="$t('导出选中角色的存档')">
-                <Download :size="18" />
-                <span>{{ $t('导出存档') }}</span>
-              </button>
               <button @click="importSaves" class="btn-save-action import" :title="$t('向选中角色导入存档')">
                 <Upload :size="18" />
                 <span>{{ $t('导入存档') }}</span>
@@ -203,6 +199,9 @@
                              {{ slot.存档名 || slotKey }}
                            </h4>
                            <div class="save-actions">
+                             <button @click.stop="exportSingleSave(selectedCharId!, String(slotKey), slot)"
+                                     class="btn-export-save"
+                                     :title="$t('导出此存档')">{{ $t('导') }}</button>
                              <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
                                      class="btn-edit-save"
                                      :title="$t('重命名')"
@@ -875,19 +874,95 @@ const closeModal = () => {
   modalState.value.show = false;
 };
 
-// 导出角色
-const exportCharacter = (charId: string) => {
+// 导出角色 - 统一格式: { type: 'character', character: {...} }
+const exportCharacter = async (charId: string) => {
+  loading.value = true;
   try {
     const character = characterStore.rootState.角色列表[charId];
     if (!character) {
       toast.error('角色不存在');
+      loading.value = false;
       return;
     }
 
+    // 🔥 修复：从 IndexedDB 加载所有存档的完整数据
+    const { loadSaveData } = await import('@/utils/indexedDBManager');
+    const saveSlots = Object.values(character.存档列表 || {}) as SaveSlot[];
+    const savesWithFullData = await Promise.all(
+      saveSlots.map(async (save) => {
+        const fullData = await loadSaveData(charId, save.存档名);
+        return {
+          ...save,
+          存档数据: fullData  // 统一字段名
+        };
+      })
+    );
+
+    // 统一格式：与 SavePanel.vue 的 exportCharacter 一致
     const exportData = {
-      ...character,
+      type: 'character',
+      character: {
+        角色ID: charId,
+        角色信息: character,
+        存档列表: savesWithFullData
+      },
+      exportTime: new Date().toISOString(),
+      version: '1.0.0'
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    console.log('[角色导出] 数据大小:', (dataStr.length / 1024).toFixed(2), 'KB');
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    const characterName = character.角色基础信息?.名字 || '未命名角色';
+    link.download = `大道朝天-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
+
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 100);
+
+    toast.success(`已导出角色: ${characterName} (含 ${savesWithFullData.length} 个存档)`);
+  } catch (error) {
+    console.error('导出角色失败', error);
+    toast.error('导出角色失败: ' + (error instanceof Error ? error.message : '未知错误'));
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 导出单个存档
+const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot) => {
+  loading.value = true;
+  try {
+    // 从 IndexedDB 加载完整的存档数据
+    const { loadSaveData } = await import('@/utils/indexedDBManager');
+    const fullSaveData = await loadSaveData(charId, slotKey);
+
+    if (!fullSaveData) {
+      toast.error('无法加载存档数据');
+      loading.value = false;
+      return;
+    }
+
+    // 使用统一格式: { type: 'saves', saves: [...] }
+    const exportData = {
+      type: 'saves',
+      saves: [{
+        ...slot,
+        存档名: slotKey,
+        存档数据: fullSaveData
+      }],
       exportTime: new Date().toISOString(),
       version: '1.0.0',
+      characterId: charId,
+      characterName: selectedCharacter.value?.角色基础信息?.名字
     };
 
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -895,50 +970,98 @@ const exportCharacter = (charId: string) => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `大道朝天-${character.角色基础信息.名字}-角色备份-${new Date().toISOString().split('T')[0]}.json`;
+    const saveName = slot.存档名 || slotKey;
+    link.download = `大道朝天-${saveName}-${new Date().toISOString().split('T')[0]}.json`;
+
+    document.body.appendChild(link);
     link.click();
 
-    toast.success(`角色 "${character.角色基础信息.名字}" 已导出`);
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 100);
+
+    toast.success(`已导出存档: ${saveName}`);
   } catch (error) {
-    console.error('导出角色失败', error);
-    toast.error('导出角色失败');
+    console.error('导出存档失败', error);
+    toast.error('导出存档失败: ' + (error instanceof Error ? error.message : '未知错误'));
+  } finally {
+    loading.value = false;
   }
 };
 
-// 导出存档
-const exportSaves = () => {
-  if (!selectedCharacter.value) {
+// 导出存档 - 统一格式: { type: 'saves', saves: [...] } (批量导出，保留但不在UI显示)
+const exportSaves = async () => {
+  if (!selectedCharacter.value || !selectedCharId.value) {
     toast.error('请先选择一个角色');
     return;
   }
+
+  loading.value = true;
   try {
     const character = selectedCharacter.value;
-    const savesToExport = Object.values(character.存档列表 || {}).filter((slot: SaveSlot) => slot.存档数据);
+    const charId = selectedCharId.value;
+    const saveSlots = Object.values(character.存档列表 || {}) as SaveSlot[];
 
-    if (savesToExport.length === 0) {
+    if (saveSlots.length === 0) {
       toast.info('该角色没有可导出的存档');
+      loading.value = false;
+      return;
+    }
+
+    // 🔥 修复：从 IndexedDB 加载每个存档的完整数据
+    const { loadSaveData } = await import('@/utils/indexedDBManager');
+    const savesWithFullData = await Promise.all(
+      saveSlots.map(async (save) => {
+        const fullData = await loadSaveData(charId, save.存档名);
+        return {
+          ...save,
+          存档数据: fullData  // 使用统一的字段名
+        };
+      })
+    );
+
+    // 过滤掉没有数据的存档
+    const validSaves = savesWithFullData.filter(save => save.存档数据);
+
+    if (validSaves.length === 0) {
+      toast.info('该角色没有可导出的存档数据');
+      loading.value = false;
       return;
     }
 
     const exportData = {
-      saves: savesToExport,
+      type: 'saves',
+      saves: validSaves,
       exportTime: new Date().toISOString(),
       version: '1.0.0',
+      characterId: charId,
       characterName: character.角色基础信息.名字,
     };
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
 
+    console.log('[存档导出] 数据大小:', (dataStr.length / 1024).toFixed(2), 'KB');
+
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     link.download = `大道朝天-${character.角色基础信息.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+
+    document.body.appendChild(link);
     link.click();
 
-    toast.success('存档已导出');
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 100);
+
+    toast.success(`已导出 ${validSaves.length} 个存档`);
   } catch (error) {
     console.error('导出失败', error);
-    toast.error('导出存档失败');
+    toast.error('导出存档失败: ' + (error instanceof Error ? error.message : '未知错误'));
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -959,6 +1082,7 @@ const importCharacter = () => {
 };
 
 // 处理导入文件
+// 统一格式: 存档文件 { type: 'saves', saves: [...] }, 角色文件 { 角色基础信息, 模式, ... }
 const handleImportFile = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -974,9 +1098,16 @@ const handleImportFile = async (event: Event) => {
     const data = JSON.parse(text);
 
     if (importMode.value === 'saves') {
-      if (!data.saves || !Array.isArray(data.saves)) {
-        throw new Error('文件格式无效，请选择一个存档文件。');
+      // 统一格式: { type: 'saves', saves: [...] }
+      if (data.type !== 'saves' || !Array.isArray(data.saves)) {
+        throw new Error('无效的存档文件格式，请使用本游戏导出的存档文件');
       }
+
+      const savesToImport = data.saves;
+      if (savesToImport.length === 0) {
+        throw new Error('文件中没有找到有效的存档数据');
+      }
+
       if (!selectedCharId.value || !selectedCharacter.value) {
         toast.error('请先选择一个角色以导入存档');
         resetInput();
@@ -988,15 +1119,14 @@ const handleImportFile = async (event: Event) => {
 
       showConfirm(
         '导入存档',
-        `确定要将 ${data.saves.length} 个存档导入到角色 "${charName}" 吗？同名存档将被覆盖。`,
+        `确定要将 ${savesToImport.length} 个存档导入到角色 "${charName}" 吗？同名存档将被覆盖。`,
         async () => {
           loading.value = true;
           try {
-            for (const save of data.saves) {
+            for (const save of savesToImport) {
               await characterStore.importSave(charId, save);
             }
-            toast.success(`成功为角色 "${charName}" 导入 ${data.saves.length} 个存档`);
-            // 重新加载存档以更新UI
+            toast.success(`成功为角色 "${charName}" 导入 ${savesToImport.length} 个存档`);
             await selectCharacter(charId);
           } catch (error) {
             console.error('导入存档失败', error);
@@ -1009,10 +1139,19 @@ const handleImportFile = async (event: Event) => {
         resetInput
       );
     } else if (importMode.value === 'character') {
-      if (!data.角色基础信息 || !data.模式) {
-        throw new Error('文件格式无效，请选择一个角色文件。');
+      // 统一格式: { type: 'character', character: { 角色ID, 角色信息, 存档列表 } }
+      if (data.type !== 'character' || !data.character || !data.character.角色信息) {
+        throw new Error('无效的角色文件格式，请使用本游戏导出的角色文件');
       }
-      const charName = data.角色基础信息?.名字 || '未知角色';
+
+      const characterData = data.character.角色信息;
+      const charName = characterData?.角色基础信息?.名字 || '未知角色';
+
+      // 清空原有元数据，由存档列表完全接管
+      characterData.存档列表 = {};
+      if (data.character.存档列表 && Array.isArray(data.character.存档列表)) {
+        characterData._导入存档列表 = data.character.存档列表;
+      }
 
       showConfirm(
         '导入角色',
@@ -1020,7 +1159,7 @@ const handleImportFile = async (event: Event) => {
         async () => {
           loading.value = true;
           try {
-            await characterStore.importCharacter(data);
+            await characterStore.importCharacter(characterData);
             toast.success(`成功导入角色 "${charName}"`);
           } catch (error) {
             console.error('导入角色失败', error);
@@ -2208,25 +2347,39 @@ const handleImportFile = async (event: Event) => {
 /* 存档操作按钮 */
 .save-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
+.btn-export-save,
 .btn-edit-save,
 .btn-delete-save {
   cursor: pointer;
   padding: 0.3rem 0.5rem;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   font-size: 0.7rem;
   font-weight: 600;
   border: 1px solid;
   backdrop-filter: blur(5px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  min-width: 24px;
-  height: 24px;
+  min-width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn-export-save {
+  background: rgba(var(--color-success-rgb), 0.1);
+  border-color: rgba(var(--color-success-rgb), 0.3);
+  color: var(--color-success);
+}
+
+.btn-export-save:hover {
+  background: rgba(var(--color-success-rgb), 0.2);
+  border-color: rgba(var(--color-success-rgb), 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(var(--color-success-rgb), 0.2);
 }
 
 .btn-edit-save {
@@ -3105,5 +3258,513 @@ const handleImportFile = async (event: Event) => {
   .save-count { min-width: var(--cm-save-count-minw); }
   .save-count .count { font-size: var(--cm-save-count-count-font); }
   .save-count .label { font-size: var(--cm-save-count-label-font); }
+}
+
+/* ========== 深色玻璃拟态风格适配 ========== */
+[data-theme="dark"] .character-management-panel {
+  background: rgb(30, 41, 59);
+}
+
+[data-theme="dark"] .fullscreen-header {
+  background: rgba(30, 41, 59, 0.9);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .fullscreen-back-btn {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .fullscreen-back-btn:hover {
+  background: rgba(51, 65, 85, 0.8);
+  color: #f1f5f9;
+  border-color: rgba(147, 197, 253, 0.3);
+}
+
+[data-theme="dark"] .fullscreen-title h1 {
+  color: #f1f5f9;
+  text-shadow: 0 0 20px rgba(147, 197, 253, 0.4);
+}
+
+[data-theme="dark"] .fullscreen-title p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mobile-header {
+  background: rgba(30, 41, 59, 0.9);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .mobile-menu-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mobile-menu-btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.3);
+}
+
+[data-theme="dark"] .mobile-menu-btn.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+  color: #ffffff;
+  border-color: rgba(147, 197, 253, 0.5);
+}
+
+[data-theme="dark"] .mobile-title h2 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .mobile-title .selected-info {
+  color: #94a3b8;
+}
+
+/* 网格布局暗色适配 */
+[data-theme="dark"] .grid-header-left,
+[data-theme="dark"] .grid-header-right {
+  background: rgba(30, 41, 59, 0.8);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .grid-header-left h2,
+[data-theme="dark"] .grid-header-right h2 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .character-count {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .selected-char-info {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .grid-content-left,
+[data-theme="dark"] .grid-content-right {
+  background: rgb(30, 41, 59);
+}
+
+[data-theme="dark"] .grid-content-left.characters-panel {
+  background: rgba(30, 41, 59, 0.95);
+}
+
+/* 分割线暗色适配 */
+[data-theme="dark"] .grid-header-left,
+[data-theme="dark"] .grid-content-left,
+[data-theme="dark"] .grid-footer-left {
+  border-right-color: rgba(147, 197, 253, 0.3);
+}
+
+/* 角色卡片暗色适配 */
+[data-theme="dark"] .character-card {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .character-card:hover {
+  background: rgba(51, 65, 85, 0.7);
+  border-color: rgba(147, 197, 253, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .character-card.active {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: rgba(147, 197, 253, 0.5);
+}
+
+[data-theme="dark"] .character-card.single-mode {
+  border-left-color: #9ece6a;
+}
+
+[data-theme="dark"] .character-card.online-mode {
+  border-left-color: #93c5fd;
+}
+
+[data-theme="dark"] .char-name {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .char-meta {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .save-count .count {
+  color: #c0caf5;
+}
+
+[data-theme="dark"] .save-count .label {
+  color: #64748b;
+}
+
+[data-theme="dark"] .card-actions {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .btn-details,
+[data-theme="dark"] .btn-export,
+[data-theme="dark"] .btn-delete {
+  background: rgba(30, 41, 59, 0.6);
+}
+
+[data-theme="dark"] .btn-details {
+  color: #77cdfe;
+  border-color: rgba(119, 205, 254, 0.4);
+}
+
+[data-theme="dark"] .btn-details:hover {
+  background: #77cdfe;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .btn-export {
+  color: #9ece6a;
+  border-color: rgba(158, 206, 106, 0.4);
+}
+
+[data-theme="dark"] .btn-export:hover {
+  background: #9ece6a;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .btn-delete {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+[data-theme="dark"] .btn-delete:hover {
+  background: #f87171;
+  color: #0f172a;
+}
+
+/* 存档面板暗色适配 */
+[data-theme="dark"] .saves-panel {
+  background: rgb(30, 41, 59);
+}
+
+[data-theme="dark"] .no-selection {
+  color: #64748b;
+}
+
+[data-theme="dark"] .manual-saves-header h3 {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .save-info-text {
+  color: #64748b;
+}
+
+/* 存档卡片暗色适配 */
+[data-theme="dark"] .save-card,
+[data-theme="dark"] .online-save-card {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(15px);
+}
+
+[data-theme="dark"] .save-card::before,
+[data-theme="dark"] .online-save-card::before {
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.08), rgba(192, 202, 245, 0.04));
+}
+
+[data-theme="dark"] .save-card:hover,
+[data-theme="dark"] .online-save-card:hover {
+  border-color: rgba(147, 197, 253, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .save-card.has-data {
+  border-left-color: #9ece6a;
+  border-color: rgba(158, 206, 106, 0.5);
+}
+
+[data-theme="dark"] .save-card.auto-save {
+  border-left-color: #77cdfe;
+  border-color: rgba(119, 205, 254, 0.5);
+}
+
+[data-theme="dark"] .save-card.has-data::after {
+  background: #9ece6a;
+  box-shadow: 0 0 8px rgba(158, 206, 106, 0.6);
+}
+
+[data-theme="dark"] .save-name {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .realm-badge {
+  background: rgba(158, 206, 106, 0.2);
+  color: #9ece6a;
+}
+
+[data-theme="dark"] .age-badge {
+  background: rgba(192, 202, 245, 0.2);
+  color: #c0caf5;
+}
+
+[data-theme="dark"] .stat .label {
+  color: #64748b;
+}
+
+[data-theme="dark"] .stat .value {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .save-footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #64748b;
+}
+
+[data-theme="dark"] .sync-status.synced {
+  background: rgba(158, 206, 106, 0.2);
+  color: #9ece6a;
+}
+
+[data-theme="dark"] .save-empty {
+  color: #64748b;
+}
+
+/* 存档操作按钮暗色适配 */
+[data-theme="dark"] .btn-export-save {
+  background: rgba(158, 206, 106, 0.15);
+  border-color: rgba(158, 206, 106, 0.3);
+  color: #9ece6a;
+}
+
+[data-theme="dark"] .btn-export-save:hover {
+  background: rgba(158, 206, 106, 0.25);
+  border-color: rgba(158, 206, 106, 0.5);
+}
+
+[data-theme="dark"] .btn-edit-save {
+  background: rgba(119, 205, 254, 0.15);
+  border-color: rgba(119, 205, 254, 0.3);
+  color: #77cdfe;
+}
+
+[data-theme="dark"] .btn-edit-save:hover {
+  background: rgba(119, 205, 254, 0.25);
+  border-color: rgba(119, 205, 254, 0.5);
+}
+
+[data-theme="dark"] .btn-delete-save {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+[data-theme="dark"] .btn-delete-save:hover:not(.disabled):not(:disabled) {
+  background: rgba(248, 113, 113, 0.25);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+/* 按钮暗色适配 */
+[data-theme="dark"] .btn-start,
+[data-theme="dark"] .btn-play,
+[data-theme="dark"] .btn-sync {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+  border-color: rgba(147, 197, 253, 0.4);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .btn-start:hover,
+[data-theme="dark"] .btn-play:hover,
+[data-theme="dark"] .btn-sync:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .btn-header-action {
+  background: rgba(30, 41, 59, 0.6);
+}
+
+[data-theme="dark"] .btn-header-action.import {
+  color: #77cdfe;
+  border-color: rgba(119, 205, 254, 0.4);
+}
+
+[data-theme="dark"] .btn-header-action.import:hover {
+  background: rgba(119, 205, 254, 0.15);
+  border-color: #77cdfe;
+}
+
+[data-theme="dark"] .btn-save-action {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .btn-save-action.export {
+  color: #9ece6a;
+  border-color: rgba(158, 206, 106, 0.4);
+}
+
+[data-theme="dark"] .btn-save-action.export:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9ece6a, rgba(158, 206, 106, 0.8));
+  color: #0f172a;
+}
+
+[data-theme="dark"] .btn-save-action.import {
+  color: #77cdfe;
+  border-color: rgba(119, 205, 254, 0.4);
+}
+
+[data-theme="dark"] .btn-save-action.import:hover:not(:disabled) {
+  background: linear-gradient(135deg, #77cdfe, rgba(119, 205, 254, 0.8));
+  color: #0f172a;
+}
+
+/* 对话框暗色适配 */
+[data-theme="dark"] .dialog-overlay {
+  background: rgba(10, 15, 25, 0.7);
+}
+
+[data-theme="dark"] .dialog-box {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .dialog-title {
+  color: #c0caf5;
+}
+
+[data-theme="dark"] .dialog-message {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .dialog-input {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .dialog-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.2);
+}
+
+[data-theme="dark"] .btn-dialog-confirm {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+  border-color: rgba(147, 197, 253, 0.4);
+}
+
+[data-theme="dark"] .btn-dialog-cancel {
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-dialog-cancel:hover {
+  background: rgba(51, 65, 85, 0.8);
+  color: #f1f5f9;
+}
+
+/* 详情弹窗暗色适配 */
+[data-theme="dark"] .modal-overlay {
+  background: rgba(10, 15, 25, 0.7);
+}
+
+[data-theme="dark"] .details-modal {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .modal-header h3 {
+  color: #c0caf5;
+}
+
+[data-theme="dark"] .btn-close {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #64748b;
+}
+
+[data-theme="dark"] .btn-close:hover {
+  background: rgba(51, 65, 85, 0.6);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .detail-section {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(147, 197, 253, 0.15);
+}
+
+[data-theme="dark"] .detail-section h4 {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .detail-item {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .detail-item .label {
+  color: #64748b;
+}
+
+[data-theme="dark"] .detail-item .value {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .talent-tag {
+  background: rgba(192, 202, 245, 0.2);
+  color: #c0caf5;
+}
+
+[data-theme="dark"] .no-talents {
+  color: #64748b;
+}
+
+/* 空状态暗色适配 */
+[data-theme="dark"] .empty-state h2 {
+  color: #c0caf5;
+}
+
+[data-theme="dark"] .empty-state p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-create {
+  background: linear-gradient(135deg, #9ece6a, #77cdfe);
+  border-color: rgba(158, 206, 106, 0.5);
+}
+
+[data-theme="dark"] .btn-import {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(192, 202, 245, 0.8));
+  border-color: rgba(147, 197, 253, 0.5);
+}
+
+/* 联机模式暗色适配 */
+[data-theme="dark"] .login-prompt h3 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .login-prompt p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-login {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+  border-color: rgba(147, 197, 253, 0.4);
+}
+
+/* 加载状态暗色适配 */
+[data-theme="dark"] .loading-saves p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .loading-spinner {
+  border-color: rgba(147, 197, 253, 0.2);
+  border-top-color: #93c5fd;
 }
 </style>

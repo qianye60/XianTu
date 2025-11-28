@@ -79,6 +79,12 @@ class AIService {
 
   saveConfig(config: Partial<AIConfig>) {
     this.config = { ...this.config, ...config };
+    // 自动清理自定义API URL末尾的 /v1 和 / 后缀
+    if (this.config.customAPI?.url) {
+      this.config.customAPI.url = this.config.customAPI.url
+        .replace(/\/v1\/?$/, '')  // 移除末尾的 /v1 或 /v1/
+        .replace(/\/+$/, '');      // 移除末尾的斜杠
+    }
     localStorage.setItem('ai_service_config', JSON.stringify(this.config));
     console.log('[AI服务] 配置已保存:', this.config.mode);
   }

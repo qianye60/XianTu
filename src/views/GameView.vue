@@ -624,7 +624,7 @@ watch(isPanelOpen, (isOpen) => {
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  background: var(--color-surface);
+  background: var(--color-background);
   border-radius: 8px;
   border: 1px solid var(--color-border);
   transition: all 0.3s ease;
@@ -668,7 +668,7 @@ watch(isPanelOpen, (isOpen) => {
   color: var(--color-text-secondary);
   margin: 0;
   padding: 12px 20px;
-  background: var(--color-surface);
+  background: var(--color-background);
   border-radius: 8px;
   border-left: 3px solid var(--color-primary);
 }
@@ -917,6 +917,133 @@ watch(isPanelOpen, (isOpen) => {
     white-space: normal;
     word-wrap: break-word;
   }
+}
+
+/* ========== 深色玻璃拟态风格适配 ========== */
+[data-theme="dark"] .game-view {
+  background: rgb(30, 41, 59);
+}
+
+[data-theme="dark"] .game-content {
+  background: rgb(30, 41, 59);
+}
+
+[data-theme="dark"] .left-sidebar,
+[data-theme="dark"] .right-panel-area {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .main-content {
+  background: rgb(30, 41, 59);
+}
+
+[data-theme="dark"] .collapse-btn {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .collapse-btn:hover {
+  background: rgba(51, 65, 85, 0.95);
+  color: #f1f5f9;
+  border-color: rgba(147, 197, 253, 0.3);
+}
+
+[data-theme="dark"] .panel-overlay {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .panel-header {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+[data-theme="dark"] .panel-header::after {
+  background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.4), transparent);
+}
+
+[data-theme="dark"] .back-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .back-btn:hover {
+  background: rgba(51, 65, 85, 0.8);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .panel-title-compact .title-text {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .panel-title-icon {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .action-btn-compact {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .action-btn-compact:hover {
+  background: rgba(51, 65, 85, 0.8);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .data-loading {
+  background: rgba(30, 41, 59, 0.95);
+}
+
+[data-theme="dark"] .data-loading::before {
+  background: radial-gradient(circle at 50% 50%, rgba(147, 197, 253, 0.08) 0%, transparent 70%);
+}
+
+[data-theme="dark"] .loading-title {
+  background: linear-gradient(135deg, #93c5fd 0%, #c0caf5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="dark"] .loading-message {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .loading-step {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .loading-step.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(147, 197, 253, 0.4);
+}
+
+[data-theme="dark"] .step-icon {
+  color: #9ece6a;
+}
+
+[data-theme="dark"] .loading-step.active .step-icon {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .step-text {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .loading-hint {
+  background: rgba(30, 41, 59, 0.6);
+  border-left-color: #93c5fd;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .spinner-glow {
+  background: radial-gradient(circle, rgba(147, 197, 253, 0.4) 0%, transparent 70%);
+}
+
+[data-theme="dark"] .loading-spinner {
+  border-top-color: #93c5fd;
+  border-right-color: #93c5fd;
 }
 
 /* 超小屏幕适配 */

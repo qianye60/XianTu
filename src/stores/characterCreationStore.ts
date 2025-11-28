@@ -117,23 +117,12 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const useStreamingStart = ref(true); // 开局是否使用流式传输（默认启用）
   const generateMode = ref<'generate' | 'generateRaw'>('generate'); // 开局生成模式（默认使用 generate）
 
-  // 世界生成配置
+  // 世界生成配置 - 使用固定默认值，用户可在界面中修改
   const worldGenerationConfig = ref({
-    majorFactionsCount: Math.floor(Math.random() * 4) + 5, // 5-8 随机势力数量
-    totalLocations: Math.floor(Math.random() * 11) + 20, // 20-30 随机地点数量
-    secretRealmsCount: Math.floor(Math.random() * 6) + 6, // 6-11 随机秘境数量
-    continentCount: Math.floor(Math.random() * 5) + 3, // 3-7 随机大陆数量
-    hasImmortalEmpires: false,
-    hasDemonicFactions: true,
-    hasAncientSects: true,
-    mapConfig: {
-      width: 3600,
-      height: 2400,
-      minLng: 100.0,
-      maxLng: 130.0,
-      minLat: 25.0,
-      maxLat: 45.0,
-    }
+    majorFactionsCount: 5, // 默认5个主要势力
+    totalLocations: 12, // 默认12个地点
+    secretRealmsCount: 5, // 默认5个秘境
+    continentCount: 4 // 默认4片大陆
   });
 
   // --- GETTERS ---

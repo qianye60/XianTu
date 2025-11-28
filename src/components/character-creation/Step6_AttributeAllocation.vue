@@ -148,11 +148,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 深色玻璃拟态风格 ========== */
 .attribute-allocation-container {
   height: 100%;
   display: flex;
   flex-direction: column;
   color: var(--color-text);
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.5rem;
 }
 
 .header {
@@ -161,44 +166,61 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid rgba(147, 197, 253, 0.2);
 }
 
 .points-display .negative {
-  color: var(--color-error) !important;
+  color: #f87171 !important;
 }
 
 h2 {
   margin: 0;
-  color: var(--color-accent);
+  color: #93c5fd;
+  font-size: 1.5rem;
+  text-shadow: 0 0 20px rgba(147, 197, 253, 0.3);
 }
 
 .points-display {
   font-size: 1.2rem;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
 }
 
 .points-display span {
-  font-weight: bold;
-  color: var(--color-primary);
+  font-weight: 600;
+  color: #fbbf24;
   font-size: 1.5rem;
 }
 
 .attributes-list {
   overflow-y: auto;
   flex-grow: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
+
+.attributes-list::-webkit-scrollbar { width: 6px; }
+.attributes-list::-webkit-scrollbar-track { background: transparent; }
+.attributes-list::-webkit-scrollbar-thumb { background: rgba(147, 197, 253, 0.3); border-radius: 3px; }
 
 .attribute-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--color-border);
+  padding: 1rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+}
+
+.attribute-item:hover {
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(147, 197, 253, 0.2);
 }
 
 .attribute-item:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .attribute-info {
@@ -208,12 +230,12 @@ h2 {
 .attribute-name {
   font-size: 1.1rem;
   font-weight: 500;
-  color: var(--color-accent);
+  color: #93c5fd;
 }
 
 .attribute-desc {
   font-size: 0.85rem;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
   margin: 0.3rem 0 0 0;
   line-height: 1.4;
 }
@@ -228,9 +250,9 @@ h2 {
   width: 35px;
   height: 35px;
   border-radius: 50%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-accent);
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  color: #93c5fd;
   font-size: 1.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -240,26 +262,26 @@ h2 {
 }
 
 .attribute-controls button:hover:not(:disabled) {
-  background: var(--color-accent);
-  color: var(--color-surface);
-  border-color: var(--color-accent);
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #93c5fd;
+  color: #bfdbfe;
 }
 
 .attribute-controls button:disabled,
 .attribute-controls button.disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  background: var(--color-surface-light);
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
+  background: rgba(30, 41, 59, 0.3);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #64748b;
 }
 
 .attribute-value {
   font-size: 1.4rem;
-  font-weight: bold;
+  font-weight: 600;
   min-width: 30px;
   text-align: center;
-  color: var(--color-text);
+  color: #f1f5f9;
 }
 
 .actions {
@@ -272,47 +294,50 @@ h2 {
 
 .actions button {
   padding: 0.5rem 1.5rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-radius: 6px;
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  background: rgba(30, 41, 59, 0.6);
+  color: #f1f5f9;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .actions button:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-hover);
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.5);
 }
 
 .actions .btn-secondary {
-  border-color: var(--color-text-secondary);
-  color: var(--color-text-secondary);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
 }
 
 .actions .btn-secondary:hover {
-  background: var(--color-text-secondary);
-  color: var(--color-surface);
+  background: rgba(148, 163, 184, 0.2);
+  border-color: #94a3b8;
+  color: #f1f5f9;
 }
 
 .actions .btn-warning {
-  border-color: var(--color-warning);
-  color: var(--color-warning);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
 }
 
 .actions .btn-warning:hover {
-  background: var(--color-warning);
-  color: var(--color-surface);
+  background: rgba(251, 191, 36, 0.2);
+  border-color: #fbbf24;
+  color: #fef3c7;
 }
 
 .actions .btn-success {
-  border-color: var(--color-success);
-  color: var(--color-success);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #34d399;
 }
 
 .actions .btn-success:hover {
-  background: var(--color-success);
-  color: var(--color-surface);
+  background: rgba(52, 211, 153, 0.2);
+  border-color: #34d399;
+  color: #a7f3d0;
 }
 
 /* 响应式设计 */
@@ -493,5 +518,70 @@ h2 {
     padding: 0.6rem 0.75rem;
     font-size: 0.85rem;
   }
+}
+
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .attribute-allocation-container {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .header {
+  border-bottom-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] h2 {
+  color: #2563eb;
+}
+
+[data-theme="light"] .points-display {
+  color: #475569;
+}
+
+[data-theme="light"] .points-display span {
+  color: #d97706;
+}
+
+[data-theme="light"] .attribute-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .attribute-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .attribute-name {
+  color: #2563eb;
+}
+
+[data-theme="light"] .attribute-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .attribute-value {
+  color: #1e293b;
+}
+
+[data-theme="light"] .attribute-controls button {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
+}
+
+[data-theme="light"] .attribute-controls button:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+[data-theme="light"] .actions button {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1e293b;
+}
+
+[data-theme="light"] .actions button:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.5);
 }
 </style>

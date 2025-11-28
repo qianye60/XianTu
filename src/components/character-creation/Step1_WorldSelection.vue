@@ -130,47 +130,6 @@
               </label>
             </div>
 
-            <!-- 高级选项折叠区 -->
-            <div class="advanced-section">
-              <button class="advanced-toggle" @click="showAdvancedOptions = !showAdvancedOptions">
-                <span>{{ showAdvancedOptions ? '▼' : '▶' }}</span>
-                <span>{{ $t('高级选项（地图技术参数）') }}</span>
-              </button>
-
-              <div v-show="showAdvancedOptions" class="advanced-content">
-                <div class="map-options-grid">
-                  <label class="option-item">
-                    <span class="option-label">{{ $t('地图宽度') }}</span>
-                    <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.width" />
-                    <span class="config-hint">{{ $t('推荐: 3600') }}</span>
-                  </label>
-                  <label class="option-item">
-                    <span class="option-label">{{ $t('地图高度') }}</span>
-                    <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.height" />
-                    <span class="config-hint">{{ $t('推荐: 2400') }}</span>
-                  </label>
-                </div>
-                <div class="map-options-grid geo-grid">
-                  <label class="option-item">
-                    <span class="option-label">{{ $t('经度范围') }}</span>
-                    <div class="range-inputs">
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLng" :placeholder="$t('最小经度')" />
-                      <span>-</span>
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLng" :placeholder="$t('最大经度')" />
-                    </div>
-                  </label>
-                  <label class="option-item">
-                    <span class="option-label">{{ $t('纬度范围') }}</span>
-                    <div class="range-inputs">
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLat" :placeholder="$t('最小纬度')" />
-                      <span>-</span>
-                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLat" :placeholder="$t('最大纬度')" />
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
             <div class="map-options-actions">
               <button class="opt-btn" @click="randomizeConfig">{{ $t('随机') }}</button>
               <button class="opt-btn" @click="resetConfig">{{ $t('重置') }}</button>
@@ -232,7 +191,6 @@ const store = useCharacterCreationStore();
 const activeWorld = ref<World | null>(null); // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false);
 const showMapOptions = ref(false);
-const showAdvancedOptions = ref(false);
 const isEditModalVisible = ref(false);
 const isAIPromptModalVisible = ref(false);
 const editingWorld = ref<World | null>(null);
@@ -244,30 +202,32 @@ const createDefaultWorldConfig = () => ({
   majorFactionsCount: 5,
   totalLocations: 12,
   secretRealmsCount: 5,
-  continentCount: 4,
-  mapConfig: {
-    width: 3600,
-    height: 2400,
-    minLng: 100.0,
-    maxLng: 130.0,
-    minLat: 25.0,
-    maxLat: 45.0,
-  }
+  continentCount: 4
 });
 
-// 初始时使用随机配置，但结构基于默认配置
-const worldConfig = ref({
-  majorFactionsCount: Math.floor(Math.random() * 3) + 4, // 4-6
-  totalLocations: Math.floor(Math.random() * 4) + 10, // 10-13
-  secretRealmsCount: Math.floor(Math.random() * 3) + 4, // 4-6
-  continentCount: Math.floor(Math.random() * 3) + 3, // 3-5
-  mapConfig: { ...createDefaultWorldConfig().mapConfig }
-});
+// 从 store 读取已保存的配置，如果没有则使用默认配置
+const getInitialConfig = () => {
+  const savedConfig = store.worldGenerationConfig;
+  if (savedConfig && savedConfig.majorFactionsCount) {
+    console.log('[世界配置] 从store恢复已保存的配置:', savedConfig);
+    return {
+      majorFactionsCount: savedConfig.majorFactionsCount,
+      totalLocations: savedConfig.totalLocations,
+      secretRealmsCount: savedConfig.secretRealmsCount,
+      continentCount: savedConfig.continentCount
+    };
+  }
+  // 如果没有保存的配置，使用默认值（不是随机值）
+  console.log('[世界配置] 使用默认配置');
+  return createDefaultWorldConfig();
+};
+
+const worldConfig = ref(getInitialConfig());
 
 // 监听配置变化并自动保存到store
 watch(worldConfig, (newConfig) => {
   store.setWorldGenerationConfig(newConfig);
-  console.log('[世界配置] 配置已更新:', newConfig);
+  console.log('[世界配置] 配置已更新并保存:', newConfig);
 }, { deep: true });
 
 const worldsList = computed(() => {
@@ -406,34 +366,20 @@ function handleSelectWorld(world: World) {
   store.setWorldGenerationConfig(worldConfig.value);
 }
 
-// 随机配置功能（增强版）
+// 随机配置功能
 function randomizeConfig() {
   const factionOptions = [3, 4, 5, 6, 7];
   const locationOptions = [8, 10, 12, 15, 18];
   const realmOptions = [3, 4, 5, 6, 8];
   const continentOptions = [3, 4, 5, 6];
 
-  // 随机化地理坐标
-  const baseMinLng = 90 + Math.random() * 30; // 90-120
-  const lngRange = 20 + Math.random() * 20; // 20-40
-  const baseMinLat = 20 + Math.random() * 20; // 20-40
-  const latRange = 15 + Math.random() * 15; // 15-30
-
   worldConfig.value = {
     majorFactionsCount: factionOptions[Math.floor(Math.random() * factionOptions.length)],
     totalLocations: locationOptions[Math.floor(Math.random() * locationOptions.length)],
     secretRealmsCount: realmOptions[Math.floor(Math.random() * realmOptions.length)],
-    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)],
-    mapConfig: {
-      width: 3600,
-      height: 2400,
-      minLng: parseFloat(baseMinLng.toFixed(1)),
-      maxLng: parseFloat((baseMinLng + lngRange).toFixed(1)),
-      minLat: parseFloat(baseMinLat.toFixed(1)),
-      maxLat: parseFloat((baseMinLat + latRange).toFixed(1)),
-    }
+    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)]
   };
-  
+
   store.setWorldGenerationConfig(worldConfig.value);
   toast.info('已随机生成世界配置');
 }
@@ -447,14 +393,9 @@ function resetConfig() {
 
 // 检查配置是否存在风险
 const isConfigRisky = computed(() => {
-  const mapCfg = worldConfig.value.mapConfig;
   return worldConfig.value.majorFactionsCount > 8 ||
          worldConfig.value.totalLocations > 15 ||
-         worldConfig.value.secretRealmsCount > 10 ||
-         mapCfg.width > 6000 ||
-         mapCfg.height > 6000 ||
-         mapCfg.minLng >= mapCfg.maxLng ||
-         mapCfg.minLat >= mapCfg.maxLat;
+         worldConfig.value.secretRealmsCount > 10;
 });
 
 // 编辑功能
@@ -513,33 +454,7 @@ const editInitialData = computed(() => {
 </script>
 
 <style scoped>
-/* 顶部功能按钮 */
-.top-actions-container {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.1);
-  justify-content: flex-end;
-}
-
-.top-actions-container .action-item {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.top-actions-container .action-item:hover {
-  background: var(--color-surface-lighter);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
+/* ========== 深色玻璃拟态风格 ========== */
 .world-selection-container {
   height: 100%;
   display: flex;
@@ -551,42 +466,107 @@ const editInitialData = computed(() => {
   justify-content: center;
   align-items: center;
   height: 100%;
-  font-size: 1.2rem;
-  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .world-layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 2rem;
+  gap: 1.5rem;
   height: 100%;
   overflow: hidden;
 }
 
+/* ========== 左侧面板 ========== */
 .left-panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   overflow: hidden;
-  background: var(--color-surface);
+}
+
+/* 顶部功能按钮 */
+.top-actions-container {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(30, 41, 59, 0.3);
+  justify-content: flex-end;
+}
+
+.top-actions-container .action-item {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+}
+
+.top-actions-container .action-item:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
 }
 
 .list-container {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
 
+.list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.list-container::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+  border-radius: 3px;
+}
+
+.list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 197, 253, 0.5);
+}
+
+/* ========== 选项卡样式 ========== */
 .list-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1rem;
   margin-bottom: 0.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.list-item:hover {
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(147, 197, 253, 0.2);
+}
+
+.list-item.selected {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: rgba(147, 197, 253, 0.4);
+  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .item-content {
@@ -598,13 +578,19 @@ const editInitialData = computed(() => {
 
 .item-name {
   flex-grow: 1;
+  font-weight: 500;
+  color: #f1f5f9;
+}
+
+.list-item.selected .item-name {
+  color: #bfdbfe;
 }
 
 /* 按钮组容器 */
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.2s;
   margin-left: 0.5rem;
@@ -614,63 +600,39 @@ const editInitialData = computed(() => {
   opacity: 1;
 }
 
-/* 编辑按钮 */
-.edit-btn {
+.edit-btn, .delete-btn {
   background: none;
   border: none;
-  color: var(--color-text-secondary);
+  color: #64748b;
   cursor: pointer;
-  padding: 0.3rem;
+  padding: 0.35rem;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .edit-btn:hover {
-  color: var(--color-primary);
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-.delete-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 0.3rem;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+  color: #93c5fd;
+  background: rgba(147, 197, 253, 0.1);
 }
 
 .delete-btn:hover {
-  color: var(--color-danger);
-  background-color: rgba(255, 0, 0, 0.1);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
 }
 
-.list-item:hover {
-  background: var(--color-surface-light);
-}
-
-.list-item.selected {
-  background: rgba(var(--color-primary-rgb), 0.2);
-  color: var(--color-primary);
-  font-weight: 600;
-  border-left: 3px solid var(--color-primary);
-}
-
+/* ========== 右侧详情面板 ========== */
 .details-container {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  background: var(--color-surface);
 }
 
 .world-details {
@@ -690,80 +652,100 @@ const editInitialData = computed(() => {
 
 .details-title {
   margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #93c5fd;
+  text-shadow: 0 0 20px rgba(147, 197, 253, 0.3);
 }
 
 .map-settings-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface-light);
-  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
   cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
 }
 
 .map-settings-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
 }
 
 .world-details h2 {
   margin-top: 0;
-  color: var(--color-primary);
+  color: #93c5fd;
   flex-shrink: 0;
 }
 
 .world-details .era {
   font-style: italic;
-  color: var(--color-accent);
+  color: #fbbf24;
   margin-bottom: 1rem;
   flex-shrink: 0;
+  font-size: 0.9rem;
 }
 
 .description-scroll {
   flex: 1;
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.7;
   padding-right: 0.5rem;
   min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
+}
+
+.description-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.description-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.description-scroll::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+  border-radius: 3px;
 }
 
 .description-scroll p {
   margin: 0;
   white-space: pre-wrap;
+  color: #94a3b8;
 }
 
-/* 地图生成选项样式 */
+/* ========== 地图生成选项样式 ========== */
 .map-options {
   margin-top: 0.8rem;
-  border: 1px dashed var(--color-border);
+  border: 1px dashed rgba(147, 197, 253, 0.2);
   border-radius: 8px;
-  padding: 0.8rem;
-  background: var(--color-surface);
-  /* 当显示设置时，该区域可占满并内部滚动 */
+  padding: 1rem;
+  background: rgba(30, 41, 59, 0.4);
   flex: 1 1 auto;
   overflow: auto;
 }
 
-/* 配置警告样式 */
 .config-warning {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem;
   margin-bottom: 1rem;
-  background: rgba(255, 193, 7, 0.1);
-  border: 1px solid rgba(255, 193, 7, 0.3);
-  border-radius: 6px;
-  color: #856404;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 8px;
 }
 
 .warning-icon {
   font-size: 1.2rem;
   flex-shrink: 0;
-  margin-top: 0.1rem;
 }
 
 .warning-text {
@@ -772,51 +754,43 @@ const editInitialData = computed(() => {
 
 .warning-title {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   margin-bottom: 0.25rem;
-  color: #856404;
+  color: #fbbf24;
 }
 
 .warning-desc {
-  font-size: 0.85rem;
-  color: #6c5ce7;
+  font-size: 0.8rem;
+  color: #94a3b8;
   line-height: 1.4;
 }
 
-/* 风险配置输入框样式 */
 .option-item input.config-risky {
-  border-color: #ffc107;
-  background-color: rgba(255, 193, 7, 0.05);
-  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.1);
+  border-color: rgba(251, 191, 36, 0.5);
+  background-color: rgba(251, 191, 36, 0.05);
 }
 
-.option-item input.config-risky:focus {
-  border-color: #ff9800;
-  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
-}
-
-/* 配置提示文字 */
 .config-hint {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  opacity: 0.8;
+  font-size: 0.7rem;
+  color: #64748b;
   margin-top: 0.2rem;
 }
 
 .map-options-header {
-  font-weight: 700;
-  color: var(--color-primary);
-  margin-bottom: 0.6rem;
+  font-weight: 600;
+  color: #93c5fd;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
 }
 
 .map-options-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.8rem;
+  gap: 0.75rem;
 }
 
 .geo-grid {
-  margin-top: 0.8rem;
+  margin-top: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
@@ -832,72 +806,87 @@ const editInitialData = computed(() => {
 }
 
 .range-inputs span {
-  color: var(--color-text-secondary);
+  color: #64748b;
 }
 
 .option-item {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .option-label {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .option-item input {
   width: 100%;
   padding: 0.5rem 0.6rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: rgba(30, 41, 59, 0.6);
+  color: #f1f5f9;
+  font-size: 0.85rem;
+}
+
+.option-item input:focus {
+  outline: none;
+  border-color: rgba(147, 197, 253, 0.4);
 }
 
 .map-options-actions {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.6rem;
+  margin-top: 0.75rem;
 }
 
 .opt-btn {
-  padding: 0.45rem 0.8rem;
-  border: 1px solid var(--color-border);
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  background: var(--color-surface-light);
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
   cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
 }
 
 .opt-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
 }
 
-/* Custom Scrollbar */
-.list-container::-webkit-scrollbar,
-.description-scroll::-webkit-scrollbar {
-  width: 8px;
+/* 高级选项 */
+.advanced-section {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.75rem;
 }
 
-.list-container::-webkit-scrollbar-track,
-.description-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.25rem 0;
+  transition: color 0.2s;
 }
 
-.list-container::-webkit-scrollbar-thumb,
-.description-scroll::-webkit-scrollbar-thumb {
-  background: rgba(var(--color-primary-rgb), 0.3);
-  border-radius: 4px;
+.advanced-toggle:hover {
+  color: #94a3b8;
 }
 
-.list-container::-webkit-scrollbar-thumb:hover,
-.description-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--color-primary-rgb), 0.5);
+.advanced-content {
+  margin-top: 0.75rem;
 }
 
-/* 无世界数据时的显示 */
+/* ========== 空状态 ========== */
 .no-worlds-message {
   display: flex;
   flex-direction: column;
@@ -905,11 +894,11 @@ const editInitialData = computed(() => {
   justify-content: center;
   height: 200px;
   text-align: center;
-  color: var(--color-text-secondary);
+  color: #64748b;
 }
 
 .no-worlds-icon {
-  font-size: 3rem;
+  font-size: 2.5rem;
   margin-bottom: 1rem;
   opacity: 0.6;
 }
@@ -917,60 +906,94 @@ const editInitialData = computed(() => {
 .no-worlds-text {
   font-size: 1rem;
   margin-bottom: 0.5rem;
+  color: #94a3b8;
 }
 
 .no-worlds-hint {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   opacity: 0.7;
   font-style: italic;
 }
 
-.single-actions-container {
-  border-top: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .left-panel,
+[data-theme="light"] .details-container {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
-.action-item {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  font-size: 1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+[data-theme="light"] .top-actions-container {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
-.action-item:hover {
-  background: var(--color-surface-lighter);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+[data-theme="light"] .top-actions-container .action-item {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .top-actions-container .action-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1e293b;
+}
+
+[data-theme="light"] .list-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .list-item:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .list-item.selected {
+  background: rgba(219, 234, 254, 0.8);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="light"] .item-name {
+  color: #1e293b;
+}
+
+[data-theme="light"] .list-item.selected .item-name {
+  color: #1e40af;
+}
+
+[data-theme="light"] .details-title,
+[data-theme="light"] .world-details h2 {
+  color: #2563eb;
+}
+
+[data-theme="light"] .description-scroll p {
+  color: #475569;
+}
+
+[data-theme="light"] .map-options {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .option-item input {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+}
+
+[data-theme="light"] .opt-btn {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .opt-btn:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .action-name {
   font-weight: 500;
-  margin-left: 0.25rem;
-}
-
-.action-icon {
-  font-size: 1.1em;
-  vertical-align: middle;
-}
-
-.action-item:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* 响应式适配 */

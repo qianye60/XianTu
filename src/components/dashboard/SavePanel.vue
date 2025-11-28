@@ -649,7 +649,7 @@ const exportCharacter = async () => {
         const fullData = await loadSaveData(characterId, save.存档名);
         return {
           ...save,
-          完整数据: fullData
+          存档数据: fullData  // 统一字段名
         };
       })
     );
@@ -769,6 +769,7 @@ const importSaves = () => {
 };
 
 // 处理导入文件
+// 统一格式: { type: 'saves', saves: [...] }
 const handleImportFile = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -778,27 +779,32 @@ const handleImportFile = async (event: Event) => {
     const text = await file.text();
     const data = JSON.parse(text);
 
-    if (!data.saves || !Array.isArray(data.saves)) {
-      throw new Error('无效的存档文件格式');
+    // 只认统一格式
+    if (data.type !== 'saves' || !Array.isArray(data.saves)) {
+      throw new Error('无效的存档文件格式，请使用本游戏导出的存档文件');
     }
 
-    // 导入存档
+    const savesToImport = data.saves;
+    if (savesToImport.length === 0) {
+      throw new Error('文件中没有找到有效的存档数据');
+    }
+
     const activeCharId = characterStore.rootState.当前激活存档?.角色ID;
     if (!activeCharId) {
       throw new Error('无法导入存档，当前没有激活的角色');
     }
-    for (const save of data.saves) {
+
+    for (const save of savesToImport) {
       await characterStore.importSave(activeCharId, save);
     }
 
     await refreshSaves();
-    toast.success(`成功导入 ${data.saves.length} 个存档`);
+    toast.success(`成功导入 ${savesToImport.length} 个存档`);
   } catch (error) {
     debug.error('存档面板', '导入失败', error);
     toast.error('导入存档失败: ' + (error as Error).message);
   } finally {
     loading.value = false;
-    // 清空文件输入
     if (fileInput.value) {
       fileInput.value.value = '';
     }

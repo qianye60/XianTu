@@ -41,15 +41,15 @@ export const PROMPT_CATEGORIES = {
     description: '记忆总结时使用的提示词',
     icon: '📝'
   },
-  generation: {
-    name: '生成类提示词',
-    description: '世界/NPC/任务等内容生成的提示词',
-    icon: '🎨'
-  },
   initialization: {
-    name: '初始化提示词',
-    description: '角色创建和游戏初始化时使用的提示词',
+    name: '开局初始化提示词',
+    description: '开局时世界生成和角色初始化的提示词',
     icon: '🚀'
+  },
+  generation: {
+    name: '动态生成提示词',
+    description: '游戏中动态生成NPC/任务/物品的提示词',
+    icon: '🎨'
   }
 };
 
@@ -185,17 +185,36 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       order: 2
     },
 
-    // ==================== 生成类提示词 ====================
-    worldGeneration: {
-      name: '世界生成提示词',
-      content: EnhancedWorldPromptBuilder.buildPrompt({
-        factionCount: 5,
-        totalLocations: 10,
-        secretRealms: 3,
-        continentCount: 3
-      }),
+    // ==================== 动态生成提示词 ====================
+    npcGeneration: {
+      name: 'NPC生成提示词',
+      content: `生成一个修仙世界的NPC角色。
+
+【场景信息】：
+{{场景信息}}
+
+【生成要求】：
+1. 姓名符合修仙世界设定（两字或三字姓名）
+2. 性格特点鲜明，有独特的说话方式
+3. 背景故事合理，与当前场景有联系
+4. 修为境界明确，符合场景定位
+
+【输出格式】：
+\`\`\`json
+{
+  "姓名": "NPC姓名",
+  "性别": "男/女",
+  "年龄": 数字,
+  "境界": {"名称": "境界名", "阶段": "初期/中期/后期/圆满"},
+  "性格": "性格描述（50字内）",
+  "外貌": "外貌描述（100字内）",
+  "背景": "背景故事（200字内）",
+  "说话风格": "说话特点",
+  "初始好感度": 50
+}
+\`\`\``,
       category: 'generation',
-      description: '生成修仙世界设定的完整提示词',
+      description: '游戏中动态生成NPC角色',
       order: 1
     },
     questGeneration: {
@@ -236,39 +255,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 }
 \`\`\``,
       category: 'generation',
-      description: '根据场景和玩家信息生成任务',
+      description: '游戏中动态生成任务',
       order: 2
-    },
-    npcGeneration: {
-      name: 'NPC生成提示词',
-      content: `生成一个修仙世界的NPC角色。
-
-【场景信息】：
-{{场景信息}}
-
-【生成要求】：
-1. 姓名符合修仙世界设定（两字或三字姓名）
-2. 性格特点鲜明，有独特的说话方式
-3. 背景故事合理，与当前场景有联系
-4. 修为境界明确，符合场景定位
-
-【输出格式】：
-\`\`\`json
-{
-  "姓名": "NPC姓名",
-  "性别": "男/女",
-  "年龄": 数字,
-  "境界": {"名称": "境界名", "阶段": "初期/中期/后期/圆满"},
-  "性格": "性格描述（50字内）",
-  "外貌": "外貌描述（100字内）",
-  "背景": "背景故事（200字内）",
-  "说话风格": "说话特点",
-  "初始好感度": 50
-}
-\`\`\``,
-      category: 'generation',
-      description: '生成NPC角色的完整提示词',
-      order: 3
     },
     itemGeneration: {
       name: '物品生成提示词',
@@ -298,46 +286,28 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 }
 \`\`\``,
       category: 'generation',
-      description: '生成物品的提示词',
-      order: 4
+      description: '游戏中动态生成物品',
+      order: 3
     },
 
-    // ==================== 初始化提示词 ====================
-    characterInit: {
-      name: '角色初始化提示词',
-      content: CHARACTER_INITIALIZATION_PROMPT,
+    // ==================== 开局初始化提示词 ====================
+    worldGeneration: {
+      name: '1. 世界生成提示词',
+      content: EnhancedWorldPromptBuilder.buildPrompt({
+        factionCount: 5,
+        totalLocations: 10,
+        secretRealms: 3,
+        continentCount: 3
+      }),
       category: 'initialization',
-      description: '创建新角色时生成初始剧情和状态',
+      description: '开局第一步：生成修仙世界的大陆、势力、地点等设定',
       order: 1
     },
-    firstMessage: {
-      name: '开局首条消息提示词',
-      content: `你是修仙世界《大道朝天》的GM。现在要为一个新角色生成开局第一条叙事。
-
-【角色信息】：
-{{角色信息}}
-
-【世界信息】：
-{{世界信息}}
-
-【生成要求】：
-1. 以第三人称描写角色的当前处境
-2. 200-400字的小说风格叙事
-3. 交代角色的出身、当前位置、周围环境
-4. 自然引入一个可以互动的元素（NPC/事件/物品）
-5. 不要替角色做任何决定
-
-【输出格式】：
-\`\`\`json
-{
-  "text": "叙事文本",
-  "mid_term_memory": "开局记忆摘要",
-  "tavern_commands": [],
-  "action_options": ["行动选项1", "行动选项2", "行动选项3", "行动选项4", "行动选项5"]
-}
-\`\`\``,
+    characterInit: {
+      name: '2. 角色初始化提示词',
+      content: CHARACTER_INITIALIZATION_PROMPT,
       category: 'initialization',
-      description: '生成角色开局第一条叙事消息',
+      description: '开局第二步：根据玩家选择生成角色初始状态和开场剧情',
       order: 2
     }
   };
