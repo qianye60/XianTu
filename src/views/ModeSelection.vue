@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V3.6 {{ $t('正式版') }}</span>
+          <span class="version-tag">V3.6.2 {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
       </div>

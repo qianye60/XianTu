@@ -129,10 +129,15 @@ class PromptStorage {
 
   async get(key: string): Promise<string> {
     await this.init();
-    const saved = await this.db!.get('prompts', key);
-    if (saved) return saved.content;
-
     const defaults = getSystemPrompts();
+    const saved = await this.db!.get('prompts', key);
+
+    // 如果有保存且标记为已修改，使用用户自定义内容
+    // 否则始终使用最新的默认值（确保代码更新后提示词也更新）
+    if (saved?.modified) {
+      return saved.content;
+    }
+
     return defaults[key]?.content || '';
   }
 

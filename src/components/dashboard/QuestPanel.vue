@@ -36,6 +36,12 @@
     <!-- 任务类型筛选 - 只在"全部"和"进行中"标签页显示 -->
     <div v-if="activeTab !== 'completed'" class="quest-filters">
       <button
+        :class="['filter-btn', { active: selectedType === null }]"
+        @click="selectedType = null"
+      >
+        {{ t('全部') }}
+      </button>
+      <button
         v-for="type in questTypes"
         :key="type"
         :class="['filter-btn', { active: selectedType === type }]"

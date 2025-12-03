@@ -106,22 +106,19 @@ function validateRealmObject(value: any, type: '玩家' | 'NPC'): ValidationResu
     return { valid: false, errors };
   }
 
-  if (type === '玩家') {
-    // 玩家境界：必需字段
-    if (!value.名称) errors.push('境界缺少"名称"字段');
-    if (!value.阶段) errors.push('境界缺少"阶段"字段');
-    if (typeof value.当前进度 !== 'number') errors.push('境界缺少"当前进度"字段或类型错误');
-    if (typeof value.下一级所需 !== 'number') errors.push('境界缺少"下一级所需"字段或类型错误');
-    if (value.突破描述 === undefined) errors.push('境界缺少"突破描述"字段');
-  } else {
-    // NPC境界：只允许名称和阶段
-    const allowed = ['名称', '阶段'];
-    const extra = Object.keys(value).filter(k => !allowed.includes(k));
-    if (extra.length > 0) {
-      errors.push(`NPC境界包含非法字段: ${extra.join(', ')}`);
-    }
-    if (!value.名称) errors.push('NPC境界缺少"名称"字段');
-    if (!value.阶段) errors.push('NPC境界缺少"阶段"字段');
+  // 玩家和NPC境界统一验证：必需名称和阶段，其他字段可选
+  if (!value.名称) errors.push('境界缺少"名称"字段');
+  if (!value.阶段) errors.push('境界缺少"阶段"字段');
+
+  // 可选字段类型检查（如果提供了就检查类型）
+  if (value.当前进度 !== undefined && typeof value.当前进度 !== 'number') {
+    errors.push('境界"当前进度"字段类型错误，应为数字');
+  }
+  if (value.下一级所需 !== undefined && typeof value.下一级所需 !== 'number') {
+    errors.push('境界"下一级所需"字段类型错误，应为数字');
+  }
+  if (value.突破描述 !== undefined && typeof value.突破描述 !== 'string') {
+    errors.push('境界"突破描述"字段类型错误，应为字符串');
   }
 
   return { valid: errors.length === 0, errors };

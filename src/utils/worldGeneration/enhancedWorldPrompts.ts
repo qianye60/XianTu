@@ -53,36 +53,6 @@ export class EnhancedWorldPromptBuilder {
     const uniqueSeed = Date.now() + Math.floor(Math.random() * 1000000);
     const sessionId = Math.random().toString(36).substring(7);
 
-    // 大洲形状指导（简化版）
-    const continentShapes = [
-      '矩形（四个角点）',
-      '梯形（上窄下宽或上宽下窄）',
-      '五边形（矩形切角）',
-      '矩形变体（某边中间有凸起）',
-      '不规则四边形（略微倾斜的矩形）'
-    ];
-    const selectedShapes = continentShapes.sort(() => Math.random() - 0.5).slice(0, Math.min(finalContinentCount, 5));
-
-    // 世界风格适配
-    const bgRaw = `${(config.worldName || '')} ${(config.worldBackground || '')}`;
-    const has = (re: RegExp) => re.test(bgRaw);
-    const isHongHuang = has(/洪荒|上古|巫妖|盘古|女娲|三皇五帝/);
-    const isEarth = has(/地球|现实|现代|都市|蓝星|人间/);
-    const isSciFi = has(/星际|太空|科幻|联邦|宇宙/);
-    const isWuxiaXianxia = has(/仙侠|玄幻|修仙|道门|宗门/);
-
-    let styleGuide = `\n## 世界风格适配指引\n`;
-    if (isHongHuang) {
-      styleGuide += `- 命名: 洪荒神话风格（不周山、瑶池圣地、巫族、妖庭）\n- 灵气: 极高（先天灵气充沛）\n- 境界: 可达仙人、圣人\n- 地理: 九州四海式宏观板块，巨型自然断裂\n- 势力: 天庭/地府/部族/圣地/妖族祖庭\n- 地点: 神山、仙岛、天河、祖脉、上古战场\n`;
-    } else if (isEarth) {
-      styleGuide += `- 命名: 现代现实风格（龙虎山、武当派、国际异能者协会），严禁"XX宗"、"XX阁"\n- 灵气: 极低（末法时代）\n- 境界: 严格限制筑基期及以下，禁止金丹期以上\n- 地理: 抽象化现实大洲，结界/秘境连接\n- 势力: 隐世门派、古老世家、修行者协会\n- 地点: 隐秘道场、古迹遗址、地下遗迹\n- 隐蔽性: 所有超凡力量高度隐蔽\n`;
-    } else if (isSciFi) {
-      styleGuide += `- 命名: 科幻风格（星际联邦、银河帝国、火种公司）\n- 灵气: 可变（高灵能星球/科技星球）\n- 境界: 基因锁、灵能等级体系\n- 地理: 多星系板块，扇区/环带/引力井\n- 势力: 联邦/星盟/舰队修会\n- 地点: 母港、环轨道城、星门、遗迹舰坟\n`;
-    } else if (isWuxiaXianxia) {
-      styleGuide += `- 命名: 传统仙侠（青云门、天机阁、蜀山剑派）\n- 灵气: 中到高\n- 境界: 可达渡劫期、大乘期\n- 地理: 传统仙侠大陆，灵脉走向决定边界\n- 势力: 宗门/世家/魔道/商会/散修联盟\n- 地点: 山门、坊市、炼丹谷、秘境、洞天福地\n`;
-    } else {
-      styleGuide += `- 命名: 保持多样性，紧密关联世界背景\n- 灵气: 中等\n- 境界: 默认渡劫期\n- 风格: 根据背景自由发挥\n`;
-    }
 
     // 计算网格分割
     const gridRows = Math.ceil(Math.sqrt(finalContinentCount));
@@ -107,9 +77,16 @@ export class EnhancedWorldPromptBuilder {
 2. factions数组：${finalFactionCount}个势力（不能为空）
 3. locations数组：${finalLocationCount}个地点（不能为空）
 
-## 命名规则
+## 世界设定
 ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
-${styleGuide}
+
+## 🚨 世界风格适配（重要）
+**必须根据上述世界背景，自行判断并选择合适的风格：**
+- 命名风格：势力、地点的命名必须符合世界背景设定
+- 境界体系：根据世界背景选择合适的境界体系（如武道世界用后天/先天/宗师，修仙世界用炼气/筑基/金丹等）
+- 势力类型：根据世界背景选择合适的势力类型（如武侠用门派/帮会，修仙用宗门/世家等）
+- 保持一致性：整个世界的风格必须统一，不要混搭
+
 **禁用词根**：本心、问心、见性、归一、太玄、太虚、紫薇、天机、青霞、无量、昊天、玄天、太清、太上、无极、九天
 
 **重要**：

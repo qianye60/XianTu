@@ -8,6 +8,7 @@ import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWo
 import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
 import { WorldMapConfig } from '@/types/worldMap';
+import { promptStorage } from '@/services/promptStorage';
 
 // 重新定义 ValidationResult 接口，解除对外部文件的依赖
 interface ValidationError {
@@ -116,7 +117,7 @@ export class EnhancedWorldGenerator {
       throw new Error('AI服务未初始化，请在设置中配置AI服务');
     }
 
-    const prompt = this.buildPromptWithErrors();
+    const prompt = await this.buildPromptWithErrors();
 
     try {
       const orderedPrompts: Array<{ role: 'system' | 'user'; content: string }> = [
@@ -157,16 +158,20 @@ export class EnhancedWorldGenerator {
    * 构建带有错误修正信息的提示词
    * 注意：重试时不添加错误信息，因为数量参数已调整
    */
-  private buildPromptWithErrors(): string {
-    return this.buildPrompt();
+  private async buildPromptWithErrors(): Promise<string> {
+    return await this.buildPrompt();
   }
 
   /**
    * 构建基础提示词
+   * 优先使用用户自定义的提示词，如果没有则使用默认生成的
    */
-  private buildPrompt(): string {
-      const { factionCount, locationCount, secretRealmsCount, continentCount, mapConfig } = this.config;
+  private async buildPrompt(): Promise<string> {
+      // 优先从 promptStorage 获取用户修改过的提示词
+      const customPrompt = await promptStorage.get('worldGeneration');
 
+      // 获取默认提示词用于比较
+      const { factionCount, locationCount, secretRealmsCount, continentCount, mapConfig } = this.config;
       const promptConfig: WorldPromptConfig = {
         factionCount,
         totalLocations: locationCount,
@@ -178,8 +183,19 @@ export class EnhancedWorldGenerator {
         worldName: this.config.worldName,
         mapConfig: mapConfig
       };
+      const defaultPrompt = EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
 
-      return EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
+      // 如果用户有自定义提示词且不为空，使用自定义的
+      // 注意：promptStorage.get 在用户未修改时会返回默认值，所以需要检查是否真的被修改过
+      if (customPrompt && customPrompt.trim()) {
+        // 检查是否是用户修改过的（通过检查 modified 标记）
+        const allPrompts = await promptStorage.loadAll();
+        if (allPrompts['worldGeneration']?.modified) {
+          return customPrompt;
+        }
+      }
+
+      return defaultPrompt;
     }
 
   /**

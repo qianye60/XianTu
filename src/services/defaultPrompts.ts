@@ -7,15 +7,32 @@
  * 3. 生成类提示词 - 世界/NPC/任务等生成
  * 4. 角色初始化提示词 - 创建角色时使用
  */
-import { SAVE_DATA_STRUCTURE, DATA_STRUCTURE_EXAMPLES } from '@/utils/prompts/definitions/dataDefinitions';
+import { SAVE_DATA_STRUCTURE } from '@/utils/prompts/definitions/dataDefinitions';
 import { CHARACTER_INITIALIZATION_PROMPT } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { getCotCorePrompt } from '@/utils/prompts/cot/cotCore';
 import { EnhancedWorldPromptBuilder } from '@/utils/worldGeneration/enhancedWorldPrompts';
 import { promptStorage } from './promptStorage';
-import * as coreRules from '@/utils/prompts/definitions/coreRules';
-import * as businessRules from '@/utils/prompts/definitions/businessRules';
-import * as textFormats from '@/utils/prompts/definitions/textFormats';
-import * as worldStandards from '@/utils/prompts/definitions/worldStandards';
+// 核心规则 - 逐个导入
+import { JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS } from '@/utils/prompts/definitions/coreRules';
+// 业务规则 - 逐个导入
+import {
+  REALM_SYSTEM_RULES,
+  THREE_THOUSAND_DAOS_RULES,
+  NPC_RULES,
+  GRAND_CONCEPT_CONSTRAINTS,
+  SKILL_AND_SPELL_USAGE_RULES,
+  CULTIVATION_DETAIL_RULES,
+  STATUS_EFFECT_RULES,
+  LOCATION_UPDATE_RULES,
+  COMMAND_PATH_CONSTRUCTION_RULES,
+  TECHNIQUE_SYSTEM_RULES,
+  PLAYER_AUTONOMY_RULES,
+  NSFW_CONTENT_RULES
+} from '@/utils/prompts/definitions/businessRules';
+// 文本格式 - 逐个导入
+import { TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAGE_RULES, NAMING_CONVENTIONS } from '@/utils/prompts/definitions/textFormats';
+// 世界标准 - 逐个导入
+import { REALM_ATTRIBUTE_STANDARDS, QUALITY_SYSTEM, REPUTATION_GUIDE } from '@/utils/prompts/definitions/worldStandards';
 import { ACTION_OPTIONS_RULES } from '@/utils/prompts/definitions/actionOptions';
 import { QUEST_SYSTEM_RULES } from '@/utils/prompts/definitions/questSystemRules';
 
@@ -54,72 +71,199 @@ export const PROMPT_CATEGORIES = {
 };
 
 export function getSystemPrompts(): Record<string, PromptDefinition> {
-  // 合并所有业务规则
-  const allBusinessRules = Object.values(businessRules).filter(r => typeof r === 'string').join('\n\n---\n\n');
-  // 合并核心规则
-  const allCoreRules = Object.values(coreRules).filter(r => typeof r === 'string').join('\n\n---\n\n');
-  // 合并文本格式
-  const allTextFormats = Object.values(textFormats).filter(r => typeof r === 'string').join('\n\n---\n\n');
-  // 合并世界标准
-  const allWorldStandards = Object.values(worldStandards).filter(r => typeof r === 'string').join('\n\n---\n\n');
-
   return {
-    // ==================== 核心请求提示词（按顺序） ====================
-    coreRules: {
-      name: '1. 核心输出规则',
-      content: allCoreRules,
+    // ==================== 核心输出规则（拆分） ====================
+    jsonOutputRules: {
+      name: '1.1 JSON输出规范',
+      content: JSON_OUTPUT_RULES,
       category: 'coreRequest',
-      description: 'JSON输出格式、响应格式要求、数据结构严格性规则',
+      description: 'JSON输出格式、字段要求',
       order: 1
     },
-    businessRules: {
-      name: '2. 业务规则',
-      content: allBusinessRules,
+    responseFormatRules: {
+      name: '1.2 数据同步规则',
+      content: RESPONSE_FORMAT_RULES,
       category: 'coreRequest',
-      description: '游戏业务逻辑规则、NPC行为规范、战斗修炼规则',
+      description: 'text与tavern_commands同步检查表',
       order: 2
     },
+    dataStructureStrictness: {
+      name: '1.3 数据结构严格性',
+      content: DATA_STRUCTURE_STRICTNESS,
+      category: 'coreRequest',
+      description: '只读字段、境界更新、NPC创建规则',
+      order: 3
+    },
+
+    // ==================== 业务规则（拆分） ====================
+    realmSystemRules: {
+      name: '2.1 境界体系规则',
+      content: REALM_SYSTEM_RULES,
+      category: 'coreRequest',
+      description: '境界层级、突破机制、境界压制',
+      order: 4
+    },
+    threeThousandDaosRules: {
+      name: '2.2 三千大道规则',
+      content: THREE_THOUSAND_DAOS_RULES,
+      category: 'coreRequest',
+      description: '大道体系、解锁与进度更新',
+      order: 5
+    },
+    npcRules: {
+      name: '2.3 NPC行为准则',
+      content: NPC_RULES,
+      category: 'coreRequest',
+      description: 'NPC创建、独立人格、行为逻辑、境界更新',
+      order: 6
+    },
+    grandConceptConstraints: {
+      name: '2.4 宏大概念约束',
+      content: GRAND_CONCEPT_CONSTRAINTS,
+      category: 'coreRequest',
+      description: '境界权限、禁止玄学归因',
+      order: 7
+    },
+    skillAndSpellUsageRules: {
+      name: '2.5 技能消耗规则',
+      content: SKILL_AND_SPELL_USAGE_RULES,
+      category: 'coreRequest',
+      description: '技能/法术必须消耗资源',
+      order: 8
+    },
+    cultivationDetailRules: {
+      name: '2.6 修炼细节描写',
+      content: CULTIVATION_DETAIL_RULES,
+      category: 'coreRequest',
+      description: '灵力运转、法诀过程、突破描写',
+      order: 9
+    },
+    statusEffectRules: {
+      name: '2.7 状态效果规则',
+      content: STATUS_EFFECT_RULES,
+      category: 'coreRequest',
+      description: '状态添加/修改，禁止删除',
+      order: 10
+    },
+    locationUpdateRules: {
+      name: '2.8 位置更新规则',
+      content: LOCATION_UPDATE_RULES,
+      category: 'coreRequest',
+      description: '位置变化时必须更新位置字段',
+      order: 11
+    },
+    commandPathConstructionRules: {
+      name: '2.9 命令路径构建',
+      content: COMMAND_PATH_CONSTRUCTION_RULES,
+      category: 'coreRequest',
+      description: '常用操作速查表',
+      order: 12
+    },
+    techniqueSystem: {
+      name: '2.10 功法系统规则',
+      content: TECHNIQUE_SYSTEM_RULES,
+      category: 'coreRequest',
+      description: '功法学习、修炼、切换流程',
+      order: 13
+    },
+    playerAutonomy: {
+      name: '2.11 玩家自主权规则',
+      content: PLAYER_AUTONOMY_RULES,
+      category: 'coreRequest',
+      description: '防止AI抢话、替玩家做决定',
+      order: 14
+    },
+    nsfwContentRules: {
+      name: '2.12 NSFW内容规则',
+      content: NSFW_CONTENT_RULES,
+      category: 'coreRequest',
+      description: 'NSFW内容生成与更新规则',
+      order: 15
+    },
+
+    // ==================== 数据结构定义 ====================
     dataDefinitions: {
       name: '3. 数据结构定义',
       content: SAVE_DATA_STRUCTURE,
       category: 'coreRequest',
       description: '游戏存档数据结构完整定义',
-      order: 3
+      order: 16
     },
-    textFormats: {
-      name: '4. 文本格式规范',
-      content: allTextFormats,
+
+    // ==================== 文本格式规范（拆分） ====================
+    textFormatMarkers: {
+      name: '4.1 文本格式标记',
+      content: TEXT_FORMAT_MARKERS,
       category: 'coreRequest',
-      description: '叙事文本格式标记、判定系统、战斗伤害公式',
-      order: 4
+      description: '环境描写、内心思考、对话、判定标记',
+      order: 17
     },
-    worldStandards: {
-      name: '5. 世界观标准',
-      content: allWorldStandards,
+    diceRollingRules: {
+      name: '4.2 判定系统',
+      content: DICE_ROLLING_RULES,
       category: 'coreRequest',
-      description: '境界属性标准、品质系统、声望变化指南',
-      order: 5
+      description: '判定触发、公式、结果分级',
+      order: 18
     },
+    combatDamageRules: {
+      name: '4.3 战斗伤害公式',
+      content: COMBAT_DAMAGE_RULES,
+      category: 'coreRequest',
+      description: '伤害计算、境界系数',
+      order: 19
+    },
+    namingConventions: {
+      name: '4.4 命名约定',
+      content: NAMING_CONVENTIONS,
+      category: 'coreRequest',
+      description: '物品ID、位置、品质格式',
+      order: 20
+    },
+
+    // ==================== 世界观标准（拆分） ====================
+    realmAttributeStandards: {
+      name: '5.1 境界属性标准',
+      content: REALM_ATTRIBUTE_STANDARDS,
+      category: 'coreRequest',
+      description: '各境界寿命/气血/灵力/神识参考值',
+      order: 21
+    },
+    qualitySystem: {
+      name: '5.2 品质系统',
+      content: QUALITY_SYSTEM,
+      category: 'coreRequest',
+      description: '凡/黄/玄/地/天/仙/神品质定义',
+      order: 22
+    },
+    reputationGuide: {
+      name: '5.3 声望指南',
+      content: REPUTATION_GUIDE,
+      category: 'coreRequest',
+      description: '正面/负面行为声望变化',
+      order: 23
+    },
+
+    // ==================== 其他核心规则 ====================
     cotCore: {
       name: '6. CoT思维链',
       content: getCotCorePrompt('{{用户输入}}', false),
       category: 'coreRequest',
       description: '强制AI先思考后输出的思维链协议',
-      order: 6
+      order: 24
     },
     actionOptions: {
       name: '7. 行动选项规则',
       content: ACTION_OPTIONS_RULES,
       category: 'coreRequest',
-      description: '生成玩家行动选项的规范（可选启用）',
-      order: 7
+      description: '生成玩家行动选项的规范',
+      order: 25
     },
     questSystemRules: {
       name: '8. 任务系统规则',
       content: QUEST_SYSTEM_RULES,
       category: 'coreRequest',
-      description: '任务系统开关控制和触发条件（可选启用）',
-      order: 8
+      description: '任务系统开关控制和触发条件',
+      order: 26
     },
 
     // ==================== 总结请求提示词 ====================
