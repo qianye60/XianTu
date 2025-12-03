@@ -272,16 +272,32 @@
               </div>
             </div>
 
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('API提供商') }}</label>
+                <span class="setting-desc">{{ t('选择AI服务提供商') }}</span>
+              </div>
+              <div class="setting-control">
+                <select v-model="aiConfig.customAPI.provider" class="setting-select" @change="onProviderChange">
+                  <option value="openai">OpenAI</option>
+                  <option value="claude">Claude</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="custom">{{ t('自定义(OpenAI兼容)') }}</option>
+                </select>
+              </div>
+            </div>
+
             <div class="setting-item setting-item-full">
               <div class="setting-info">
                 <label class="setting-name">{{ t('API地址') }}</label>
-                <span class="setting-desc">{{ t('OpenAI兼容的API端点（如：https://api.openai.com）') }}</span>
+                <span class="setting-desc">{{ aiConfig.customAPI.provider === 'custom' ? t('OpenAI兼容的API端点') : t('可使用默认地址或自定义代理') }}</span>
               </div>
               <div class="setting-control-full">
                 <input
                   v-model="aiConfig.customAPI.url"
                   class="form-input-inline"
-                  placeholder="https://api.openai.com"
+                  :placeholder="API_PROVIDER_PRESETS[aiConfig.customAPI.provider]?.url || 'https://api.openai.com'"
                 >
               </div>
             </div>
@@ -555,19 +571,34 @@ const onLanguageChange = () => {
 };
 
 // AI服务配置
+import { API_PROVIDER_PRESETS, type APIProvider } from '@/services/aiService';
+
 const aiConfig = reactive({
   mode: 'tavern' as 'tavern' | 'custom',
   streaming: true,
   memorySummaryMode: 'raw' as 'raw' | 'standard',
   initMode: 'generate' as 'generate' | 'generateRaw',
   customAPI: {
+    provider: 'openai' as APIProvider,
     url: '',
     apiKey: '',
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o',
     temperature: 0.7,
-    maxTokens: 20000
+    maxTokens: 16000
   }
 });
+
+// API提供商切换处理
+const onProviderChange = () => {
+  const preset = API_PROVIDER_PRESETS[aiConfig.customAPI.provider];
+  if (preset && aiConfig.customAPI.provider !== 'custom') {
+    aiConfig.customAPI.url = preset.url;
+    aiConfig.customAPI.model = preset.defaultModel;
+    // 更新可选模型列表
+    availableModels.value = [preset.defaultModel];
+  }
+  aiService.saveConfig(aiConfig);
+};
 
 // 酒馆可用性检测
 const tavernAvailable = ref(false);
@@ -582,7 +613,7 @@ const checkTavernAvailability = () => {
 // 道号修改相关
 const newPlayerName = ref('');
 const currentPlayerName = computed(() => {
-  return gameStateStore.characterBaseInfo?.名字 || '';
+  return gameStateStore.character?.名字 || '';
 });
 
 // 更新玩家道号
@@ -593,8 +624,8 @@ const updatePlayerName = async () => {
 
   try {
     // 更新 gameStateStore 中的角色基础信息
-    if (gameStateStore.characterBaseInfo) {
-      gameStateStore.characterBaseInfo.名字 = newPlayerName.value;
+    if (gameStateStore.character) {
+      (gameStateStore.character as any).名字 = newPlayerName.value;
     }
 
     // 同步到 characterStore 并保存

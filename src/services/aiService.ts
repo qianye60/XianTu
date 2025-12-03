@@ -6,6 +6,9 @@
  */
 import axios from 'axios';
 
+// ============ API提供商类型 ============
+export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'custom';
+
 // ============ 配置接口 ============
 export interface AIConfig {
   mode: 'tavern' | 'custom';
@@ -13,6 +16,7 @@ export interface AIConfig {
   memorySummaryMode?: 'raw' | 'standard';
   initMode?: 'generate' | 'generateRaw';
   customAPI?: {
+    provider: APIProvider;  // API提供商
     url: string;
     apiKey: string;
     model: string;
@@ -20,6 +24,15 @@ export interface AIConfig {
     maxTokens?: number;
   };
 }
+
+// API提供商预设配置
+export const API_PROVIDER_PRESETS: Record<APIProvider, { url: string; defaultModel: string; name: string }> = {
+  openai: { url: 'https://api.openai.com', defaultModel: 'gpt-4o', name: 'OpenAI' },
+  claude: { url: 'https://api.anthropic.com', defaultModel: 'claude-sonnet-4-20250514', name: 'Claude' },
+  gemini: { url: 'https://generativelanguage.googleapis.com', defaultModel: 'gemini-2.0-flash', name: 'Gemini' },
+  deepseek: { url: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', name: 'DeepSeek' },
+  custom: { url: '', defaultModel: '', name: '自定义(OpenAI兼容)' }
+};
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -52,11 +65,12 @@ class AIService {
     memorySummaryMode: 'raw',
     initMode: 'generate',
     customAPI: {
+      provider: 'openai',
       url: '',
       apiKey: '',
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o',
       temperature: 0.7,
-      maxTokens: 20000
+      maxTokens: 16000  // 输出token上限
     }
   };
 
@@ -206,7 +220,7 @@ class AIService {
       console.log('[AI服务-自定义] 已添加用户输入');
     }
 
-    return this.callOpenAICompatibleAPI(messages, options.should_stream || false, options.onStreamChunk);
+    return this.callAPI(messages, options.should_stream || false, options.onStreamChunk);
   }
 
   private async generateRawWithCustomAPI(options: GenerateOptions): Promise<string> {
@@ -220,9 +234,33 @@ class AIService {
     const messages = (options.ordered_prompts || []).filter(msg => msg.content !== '</input>');
 
     console.log(`[AI服务-自定义Raw] 消息数量: ${messages.length}`);
-    return this.callOpenAICompatibleAPI(messages, options.should_stream || false, options.onStreamChunk);
+    return this.callAPI(messages, options.should_stream || false, options.onStreamChunk);
   }
 
+  private async callAPI(
+    messages: AIMessage[],
+    streaming: boolean,
+    onStreamChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+
+    console.log(`[AI服务-API调用] Provider: ${provider}, URL: ${url}, Model: ${model}, 消息数: ${messages.length}, 流式: ${streaming}`);
+
+    // 根据provider选择不同的调用方式
+    switch (provider) {
+      case 'claude':
+        return this.callClaudeAPI(messages, streaming, onStreamChunk);
+      case 'gemini':
+        return this.callGeminiAPI(messages, streaming, onStreamChunk);
+      case 'openai':
+      case 'deepseek':
+      case 'custom':
+      default:
+        return this.callOpenAICompatibleAPI(messages, streaming, onStreamChunk);
+    }
+  }
+
+  // OpenAI兼容格式（OpenAI、DeepSeek、自定义）
   private async callOpenAICompatibleAPI(
     messages: AIMessage[],
     streaming: boolean,
@@ -230,21 +268,17 @@ class AIService {
   ): Promise<string> {
     const { url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
-    console.log(`[AI服务-API调用] URL: ${url}, Model: ${model}, 消息数: ${messages.length}, 流式: ${streaming}`);
-
     try {
       if (streaming) {
-        // 流式传输
-        return await this.streamingRequest(url, apiKey, model, messages, temperature || 0.7, maxTokens || 2000, onStreamChunk);
+        return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, maxTokens || 16000, onStreamChunk);
       } else {
-        // 非流式传输
         const response = await axios.post(
           `${url}/v1/chat/completions`,
           {
             model,
             messages,
             temperature: temperature || 0.7,
-            max_tokens: maxTokens || 2000,
+            max_tokens: maxTokens || 16000,
             stream: false
           },
           {
@@ -252,16 +286,16 @@ class AIService {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json'
             },
-            timeout: 120000 // 2分钟超时
+            timeout: 120000
           }
         );
 
         const content = response.data.choices[0].message.content;
-        console.log(`[AI服务-API调用] 响应长度: ${content.length}`);
+        console.log(`[AI服务-OpenAI] 响应长度: ${content.length}`);
         return content;
       }
     } catch (error) {
-      console.error('[AI服务-API调用] 失败:', error);
+      console.error('[AI服务-OpenAI] 失败:', error);
       if (axios.isAxiosError(error)) {
         if (error.response) {
           throw new Error(`API错误 ${error.response.status}: ${JSON.stringify(error.response.data)}`);
@@ -269,11 +303,143 @@ class AIService {
           throw new Error('网络错误：无法连接到API服务器');
         }
       }
-      throw new Error(`自定义API调用失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      throw new Error(`OpenAI API调用失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
 
-  private async streamingRequest(
+  // Claude API格式
+  private async callClaudeAPI(
+    messages: AIMessage[],
+    streaming: boolean,
+    onStreamChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const { url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+
+    // 转换消息格式：提取system消息，其余转为Claude格式
+    let systemPrompt = '';
+    const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemPrompt += (systemPrompt ? '\n\n' : '') + msg.content;
+      } else {
+        claudeMessages.push({ role: msg.role as 'user' | 'assistant', content: msg.content });
+      }
+    }
+
+    // 确保第一条是user消息（Claude要求）
+    if (claudeMessages.length === 0 || claudeMessages[0].role !== 'user') {
+      claudeMessages.unshift({ role: 'user', content: '请开始。' });
+    }
+
+    const baseUrl = url || 'https://api.anthropic.com';
+
+    try {
+      if (streaming) {
+        return await this.streamingRequestClaude(baseUrl, apiKey, model, systemPrompt, claudeMessages, temperature || 0.7, maxTokens || 16000, onStreamChunk);
+      } else {
+        const response = await axios.post(
+          `${baseUrl}/v1/messages`,
+          {
+            model,
+            max_tokens: maxTokens || 16000,
+            system: systemPrompt || undefined,
+            messages: claudeMessages,
+            temperature: temperature || 0.7
+          },
+          {
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'Content-Type': 'application/json'
+            },
+            timeout: 120000
+          }
+        );
+
+        const content = response.data.content[0]?.text || '';
+        console.log(`[AI服务-Claude] 响应长度: ${content.length}`);
+        return content;
+      }
+    } catch (error) {
+      console.error('[AI服务-Claude] 失败:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          throw new Error(`Claude API错误 ${error.response.status}: ${JSON.stringify(error.response.data)}`);
+        }
+      }
+      throw new Error(`Claude API调用失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  }
+
+  // Gemini API格式
+  private async callGeminiAPI(
+    messages: AIMessage[],
+    streaming: boolean,
+    onStreamChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const { url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+
+    // 转换为Gemini格式
+    let systemInstruction = '';
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemInstruction += (systemInstruction ? '\n\n' : '') + msg.content;
+      } else {
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      }
+    }
+
+    // 确保至少有一条消息
+    if (contents.length === 0) {
+      contents.push({ role: 'user', parts: [{ text: '请开始。' }] });
+    }
+
+    const baseUrl = url || 'https://generativelanguage.googleapis.com';
+    const endpoint = streaming ? 'streamGenerateContent' : 'generateContent';
+
+    try {
+      if (streaming) {
+        return await this.streamingRequestGemini(baseUrl, apiKey, model, systemInstruction, contents, temperature || 0.7, maxTokens || 16000, onStreamChunk);
+      } else {
+        const response = await axios.post(
+          `${baseUrl}/v1beta/models/${model}:${endpoint}?key=${apiKey}`,
+          {
+            contents,
+            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+            generationConfig: {
+              temperature: temperature || 0.7,
+              maxOutputTokens: maxTokens || 16000
+            }
+          },
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 120000
+          }
+        );
+
+        const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
+        return content;
+      }
+    } catch (error) {
+      console.error('[AI服务-Gemini] 失败:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          throw new Error(`Gemini API错误 ${error.response.status}: ${JSON.stringify(error.response.data)}`);
+        }
+      }
+      throw new Error(`Gemini API调用失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  }
+
+  // OpenAI格式流式请求
+  private async streamingRequestOpenAI(
     url: string,
     apiKey: string,
     model: string,
@@ -282,7 +448,7 @@ class AIService {
     maxTokens: number,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
-    console.log('[AI服务-流式] 开始流式请求');
+    console.log('[AI服务-OpenAI流式] 开始');
 
     const response = await fetch(`${url}/v1/chat/completions`, {
       method: 'POST',
@@ -303,6 +469,98 @@ class AIService {
       throw new Error(`API错误 ${response.status}: ${await response.text()}`);
     }
 
+    return this.processSSEStream(response, (data) => {
+      const parsed = JSON.parse(data);
+      return parsed.choices[0]?.delta?.content || '';
+    }, onStreamChunk);
+  }
+
+  // Claude格式流式请求
+  private async streamingRequestClaude(
+    url: string,
+    apiKey: string,
+    model: string,
+    systemPrompt: string,
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    temperature: number,
+    maxTokens: number,
+    onStreamChunk?: (chunk: string) => void
+  ): Promise<string> {
+    console.log('[AI服务-Claude流式] 开始');
+
+    const response = await fetch(`${url}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        system: systemPrompt || undefined,
+        messages,
+        temperature,
+        stream: true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Claude API错误 ${response.status}: ${await response.text()}`);
+    }
+
+    return this.processSSEStream(response, (data) => {
+      const parsed = JSON.parse(data);
+      // Claude流式响应格式：content_block_delta事件
+      if (parsed.type === 'content_block_delta') {
+        return parsed.delta?.text || '';
+      }
+      return '';
+    }, onStreamChunk);
+  }
+
+  // Gemini格式流式请求
+  private async streamingRequestGemini(
+    url: string,
+    apiKey: string,
+    model: string,
+    systemInstruction: string,
+    contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>,
+    temperature: number,
+    maxTokens: number,
+    onStreamChunk?: (chunk: string) => void
+  ): Promise<string> {
+    console.log('[AI服务-Gemini流式] 开始');
+
+    const response = await fetch(`${url}/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+        generationConfig: {
+          temperature,
+          maxOutputTokens: maxTokens
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API错误 ${response.status}: ${await response.text()}`);
+    }
+
+    return this.processSSEStream(response, (data) => {
+      const parsed = JSON.parse(data);
+      return parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }, onStreamChunk);
+  }
+
+  // 通用SSE流处理（带thinking标签过滤）
+  private async processSSEStream(
+    response: Response,
+    extractContent: (data: string) => string,
+    onStreamChunk?: (chunk: string) => void
+  ): Promise<string> {
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error('无法获取响应流');
@@ -311,8 +569,8 @@ class AIService {
     const decoder = new TextDecoder();
     let fullText = '';
     let buffer = '';
-    let inThinkingTag = false; // 标记是否在thinking标签内
-    let thinkingBuffer = ''; // 缓存可能的thinking标签
+    let inThinkingTag = false;
+    let thinkingBuffer = '';
 
     try {
       while (true) {
@@ -331,47 +589,36 @@ class AIService {
           if (data === '[DONE]') continue;
 
           try {
-            const parsed = JSON.parse(data);
-            const content = parsed.choices[0]?.delta?.content;
+            const content = extractContent(data);
             if (content) {
               // 处理thinking标签过滤
               for (let i = 0; i < content.length; i++) {
                 const char = content[i];
                 thinkingBuffer += char;
 
-                // 检测thinking标签开始
                 if (thinkingBuffer.includes('<thinking>')) {
                   inThinkingTag = true;
                   thinkingBuffer = '';
                   continue;
                 }
 
-                // 检测thinking标签结束
                 if (inThinkingTag && thinkingBuffer.includes('</thinking>')) {
                   inThinkingTag = false;
                   thinkingBuffer = '';
                   continue;
                 }
 
-                // 如果不在thinking标签内，且缓冲区不包含可能的标签开始
                 if (!inThinkingTag) {
-                  // 检查缓冲区是否可能是标签的开始部分
                   const possibleTagStart = '<thinking>'.startsWith(thinkingBuffer) ||
                                           '</thinking>'.startsWith(thinkingBuffer);
-                  
+
                   if (!possibleTagStart && thinkingBuffer.length > 0) {
-                    // 输出缓冲区内容（不是标签）
                     fullText += thinkingBuffer;
-                    if (onStreamChunk) {
-                      onStreamChunk(thinkingBuffer);
-                    }
+                    if (onStreamChunk) onStreamChunk(thinkingBuffer);
                     thinkingBuffer = '';
                   } else if (thinkingBuffer.length > 10) {
-                    // 缓冲区太长，不可能是标签，输出
                     fullText += thinkingBuffer;
-                    if (onStreamChunk) {
-                      onStreamChunk(thinkingBuffer);
-                    }
+                    if (onStreamChunk) onStreamChunk(thinkingBuffer);
                     thinkingBuffer = '';
                   }
                 }
@@ -383,12 +630,9 @@ class AIService {
         }
       }
 
-      // 处理剩余缓冲区
       if (!inThinkingTag && thinkingBuffer.length > 0) {
         fullText += thinkingBuffer;
-        if (onStreamChunk) {
-          onStreamChunk(thinkingBuffer);
-        }
+        if (onStreamChunk) onStreamChunk(thinkingBuffer);
       }
     } finally {
       reader.releaseLock();

@@ -492,33 +492,40 @@ const showStateChanges = (log: StateChangeLog | undefined) => {
   uiStore.openStateChangeViewer(log);
 };
 
-// 当前显示的叙述内容（只显示最新的AI回复）
-// 当前叙述 - 统一从叙事历史获取内容和状态变更，确保同步
+// 当前显示的叙述内容
+// 文本内容优先使用短期记忆最后一条，actionOptions和stateChanges从叙事历史获取
 const currentNarrative = computed(() => {
   const narrativeHistory = gameStateStore.narrativeHistory;
-  // 🔥 使用现实世界时间作为对话时间戳
+  const shortTermMemory = gameStateStore.memory?.短期记忆;
   const currentTimeString = formatCurrentTime();
 
+  // 优先从短期记忆获取文本内容
+  let content = '';
+  if (shortTermMemory && shortTermMemory.length > 0) {
+    // 短期记忆最新的在前面（unshift添加的）
+    const latestMemory = shortTermMemory[0];
+    content = latestMemory.replace(/^【.*?】\s*/, ''); // 移除时间前缀
+  } else if (narrativeHistory && narrativeHistory.length > 0) {
+    // 回退到叙事历史
+    content = narrativeHistory[narrativeHistory.length - 1].content.replace(/^【.*?】\s*/, '');
+  }
+
+  // 从叙事历史获取actionOptions和stateChanges
   if (narrativeHistory && narrativeHistory.length > 0) {
     const latestNarrative = narrativeHistory[narrativeHistory.length - 1];
-
-    // Replace timestamp in content (移除游戏时间前缀)
-    const contentWithoutOldTime = latestNarrative.content.replace(/^【.*?】\s*/, '');
-
-    console.log('[MainGamePanel] latestNarrative.actionOptions:', latestNarrative.actionOptions);
     return {
       type: latestNarrative.type || 'narrative',
-      content: contentWithoutOldTime, // 内容不再包含时间前缀
-      time: currentTimeString, // 显示现实世界时间
+      content: content || '...',
+      time: currentTimeString,
       stateChanges: latestNarrative.stateChanges || { changes: [] },
       actionOptions: latestNarrative.actionOptions || []
     };
   }
 
-  // If no narrative history, show default content
+  // 无数据时的默认内容
   return {
     type: 'system',
-    content: '开局生成失败，请检查API上下文长度是否足够，是否使用支持流式的API，然后返回主页重新开始生成。',
+    content: content || '开局生成失败，请检查API上下文长度是否足够，是否使用支持流式的API，然后返回主页重新开始生成。',
     time: currentTimeString,
     stateChanges: { changes: [] },
     actionOptions: []
@@ -1005,11 +1012,9 @@ const removeActionFromQueue = async (index: number) => {
   }
 };
 
-// 发送消息给AI（优化版）
-// 选择行动选项
+// 选择行动选项（只填充到输入框，不自动发送，防止误触）
 const selectActionOption = (option: string) => {
   inputText.value = option;
-  sendMessage();
 };
 
 const sendMessage = async () => {
