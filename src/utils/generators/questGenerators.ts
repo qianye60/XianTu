@@ -63,46 +63,27 @@ const QUEST_GENERATION_PROMPT = `
 ⚠️ **奖励底线**：奖励不能低于当前境界的最低标准，否则玩家没有动力完成任务
 
 ## 输出格式
-使用 tavern_commands 创建任务：
+使用标签格式创建任务：
 
-\`\`\`json
-{
-  "text": "任务触发的剧情描述（200-500字）",
-  "tavern_commands": [
-    {
-      "action": "push",
-      "key": "任务系统.当前任务列表",
-      "value": {
-        "任务ID": "quest_支线_1000_0315_001",
-        "任务名称": "任务标题",
-        "任务描述": "详细描述",
-        "任务类型": "宗门",
-        "任务状态": "进行中",
-        "目标列表": [
-          {
-            "描述": "击败3只黑风狼",
-            "类型": "击杀",
-            "目标ID": "monster_黑风狼",
-            "需求数量": 3,
-            "当前进度": 0,
-            "已完成": false
-          }
-        ],
-        "奖励": {
-          "修为": 100,
-          "灵石": { "下品": 50 },
-          "物品": [
-            { "物品ID": "item_healing_pill", "名称": "疗伤丹", "数量": 2 }
-          ]
-        },
-        "发布者": "村长李大山",
-        "AI生成": true,
-        "创建时间": "{{当前游戏时间}}"
-      }
-    }
-  ]
-}
-\`\`\`
+<narrative>
+任务触发的剧情描述（200-500字）
+</narrative>
+
+<memory>
+简短的任务触发摘要
+</memory>
+
+<commands>
+push|任务系统.当前任务列表|{"任务ID":"quest_支线_1000_0315_001","任务名称":"任务标题","任务描述":"详细描述","任务类型":"宗门","任务状态":"进行中","目标列表":[{"描述":"击败3只黑风狼","类型":"击杀","目标ID":"monster_黑风狼","需求数量":3,"当前进度":0,"已完成":false}],"奖励":{"修为":100,"灵石":{"下品":50},"物品":[{"物品ID":"item_healing_pill","名称":"疗伤丹","数量":2}]},"发布者":"村长李大山","AI生成":true,"创建时间":"{{当前游戏时间}}"}
+</commands>
+
+<options>
+立即前往执行任务
+先做准备再出发
+询问更多任务细节
+暂时搁置此任务
+查看其他任务
+</options>
 
 ## 目标类型说明
 - **击杀**: 目标ID为怪物名称，如 "monster_黑风狼"
@@ -127,23 +108,27 @@ const QUEST_UPDATE_PROMPT = `
 3. 检查是否完成所有目标
 
 ## 输出格式
-\`\`\`json
-{
-  "text": "任务进度更新的描述",
-  "tavern_commands": [
-    {
-      "action": "set",
-      "key": "任务系统.当前任务列表.{{任务ID}}.目标列表.0.当前进度",
-      "value": 1
-    },
-    {
-      "action": "set",
-      "key": "任务系统.当前任务列表.{{任务ID}}.目标列表.0.已完成",
-      "value": false
-    }
-  ]
-}
-\`\`\`
+
+<narrative>
+任务进度更新的描述
+</narrative>
+
+<memory>
+任务进度变化摘要
+</memory>
+
+<commands>
+set|任务系统.当前任务列表.{{任务ID}}.目标列表.0.当前进度|1
+set|任务系统.当前任务列表.{{任务ID}}.目标列表.0.已完成|false
+</commands>
+
+<options>
+继续执行任务
+暂时休息调整
+查看任务详情
+放弃当前任务
+寻求帮助
+</options>
 `;
 
 const QUEST_COMPLETE_PROMPT = `
@@ -153,62 +138,40 @@ const QUEST_COMPLETE_PROMPT = `
 {{任务JSON}}
 
 ## 发放奖励
-根据任务奖励配置，使用 tavern_commands 发放：
+根据任务奖励配置发放奖励
 
-\`\`\`json
-{
-  "text": "任务完成的庆祝描述和奖励发放场景（200-300字）",
-  "tavern_commands": [
-    // 1. 设置任务状态和完成时间
-    {
-      "action": "set",
-      "key": "任务系统.当前任务列表.0.任务状态",
-      "value": "已完成"
-    },
-    {
-      "action": "set",
-      "key": "任务系统.当前任务列表.0.完成时间",
-      "value": {{当前游戏时间}}
-    },
-    // 2. 发放奖励
-    {
-      "action": "add",
-      "key": "玩家角色状态.境界.当前进度",
-      "value": {{奖励修为}}
-    },
-    {
-      "action": "add",
-      "key": "背包.灵石.下品",
-      "value": {{奖励灵石}}
-    },
-    {
-      "action": "set",
-      "key": "背包.物品.{{物品ID}}",
-      "value": {{物品对象}}
-    },
-    // 3. 更新统计
-    {
-      "action": "add",
-      "key": "任务系统.任务统计.完成总数",
-      "value": 1
-    },
-    {
-      "action": "add",
-      "key": "任务系统.任务统计.{{任务类型}}完成",
-      "value": 1
-    }
-  ]
-}
-\`\`\`
+## 输出格式
+
+<narrative>
+任务完成的庆祝描述和奖励发放场景（200-300字）
+</narrative>
+
+<memory>
+任务完成摘要和获得的奖励
+</memory>
+
+<commands>
+set|任务系统.当前任务列表.0.任务状态|已完成
+set|任务系统.当前任务列表.0.完成时间|{{当前游戏时间}}
+add|玩家角色状态.境界.当前进度|{{奖励修为}}
+add|背包.灵石.下品|{{奖励灵石}}
+add|任务系统.任务统计.完成总数|1
+</commands>
+
+<options>
+查看新的可接任务
+继续探索当前区域
+返回休息调整状态
+与任务发布者交谈
+整理获得的奖励
+</options>
 
 ## 奖励类型说明
-- **修为**: 增加 玩家角色状态.境界.当前进度
-- **灵石**: 增加 背包.灵石.{品级}
-- **物品**: 设置 背包.物品.{物品ID}
-- **声望**: 增加 玩家角色状态.声望
-- **属性加成**: 增加 角色基础信息.后天六司.{属性}
-- **好感度**: 增加 人物关系.{NPC名称}.好感度
-- **技能**: 需要通过剧情描述,系统会自动添加到掌握技能
+- **修为**: add|玩家角色状态.境界.当前进度|数值
+- **灵石**: add|背包.灵石.品级|数值
+- **物品**: set|背包.物品.物品ID|{物品对象}
+- **声望**: add|玩家角色状态.声望|数值
+- **好感度**: add|人物关系.NPC名称.好感度|数值
 `;
 
 /**
@@ -242,20 +205,37 @@ export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
 
     const response = await generateWithRawPrompt('生成一个适合当前情况的任务', prompt, false);
 
-    // 解析AI返回的JSON
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!jsonMatch) {
-      throw new Error('AI响应格式错误');
+    // 尝试解析标签格式
+    const commandsMatch = response.match(/<commands>([\s\S]*?)<\/commands>/i);
+    if (commandsMatch) {
+      const commandLines = commandsMatch[1].trim().split('\n');
+      for (const line of commandLines) {
+        const parts = line.trim().split('|');
+        if (parts.length >= 3 && parts[0].toLowerCase() === 'push' && parts[1] === '任务系统.当前任务列表') {
+          try {
+            return JSON.parse(parts.slice(2).join('|'));
+          } catch {
+            console.warn('解析任务JSON失败:', parts.slice(2).join('|'));
+          }
+        }
+      }
     }
 
-    const result = JSON.parse(jsonMatch[1]);
+    // 兼容旧的JSON格式
+    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      try {
+        const result = JSON.parse(jsonMatch[1]);
+        const questCommand = result.tavern_commands?.find(
+          (cmd: any) => cmd.action === 'push' && cmd.key === '任务系统.当前任务列表'
+        );
+        return questCommand?.value || null;
+      } catch {
+        console.warn('解析JSON失败');
+      }
+    }
 
-    // 从 tavern_commands 中提取任务数据
-    const questCommand = result.tavern_commands?.find(
-      (cmd: any) => cmd.action === 'push' && cmd.key === '任务系统.当前任务列表'
-    );
-
-    return questCommand?.value || null;
+    return null;
   } catch (error) {
     console.error('生成任务失败:', error);
     return null;
@@ -275,11 +255,35 @@ export async function updateQuestProgress(
       .replace('{{玩家最近行为}}', playerAction);
 
     const response = await generateWithRawPrompt('更新任务进度', prompt, false);
+
+    // 尝试解析标签格式
+    const commandsMatch = response.match(/<commands>([\s\S]*?)<\/commands>/i);
+    if (commandsMatch) {
+      const commands: any[] = [];
+      const commandLines = commandsMatch[1].trim().split('\n');
+      for (const line of commandLines) {
+        const parts = line.trim().split('|');
+        if (parts.length >= 2) {
+          let value: any = parts.slice(2).join('|').trim();
+          if (value.startsWith('{') || value.startsWith('[')) {
+            try { value = JSON.parse(value); } catch {}
+          } else if (!isNaN(Number(value))) {
+            value = Number(value);
+          } else if (value === 'true') value = true;
+          else if (value === 'false') value = false;
+          commands.push({ action: parts[0].trim(), key: parts[1].trim(), value });
+        }
+      }
+      const narrativeMatch = response.match(/<narrative>([\s\S]*?)<\/narrative>/i);
+      return { text: narrativeMatch?.[1]?.trim() || '', tavern_commands: commands };
+    }
+
+    // 兼容旧的JSON格式
     const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-
-    if (!jsonMatch) return null;
-
-    return JSON.parse(jsonMatch[1]);
+    if (jsonMatch) {
+      try { return JSON.parse(jsonMatch[1]); } catch {}
+    }
+    return null;
   } catch (error) {
     console.error('更新任务进度失败:', error);
     return null;
@@ -297,11 +301,35 @@ export async function completeQuest(quest: Quest): Promise<any> {
       .replace('{{奖励灵石}}', String(quest.奖励.灵石?.下品 || 0));
 
     const response = await generateWithRawPrompt('完成任务', prompt, false);
+
+    // 尝试解析标签格式
+    const commandsMatch = response.match(/<commands>([\s\S]*?)<\/commands>/i);
+    if (commandsMatch) {
+      const commands: any[] = [];
+      const commandLines = commandsMatch[1].trim().split('\n');
+      for (const line of commandLines) {
+        const parts = line.trim().split('|');
+        if (parts.length >= 2) {
+          let value: any = parts.slice(2).join('|').trim();
+          if (value.startsWith('{') || value.startsWith('[')) {
+            try { value = JSON.parse(value); } catch {}
+          } else if (!isNaN(Number(value))) {
+            value = Number(value);
+          } else if (value === 'true') value = true;
+          else if (value === 'false') value = false;
+          commands.push({ action: parts[0].trim(), key: parts[1].trim(), value });
+        }
+      }
+      const narrativeMatch = response.match(/<narrative>([\s\S]*?)<\/narrative>/i);
+      return { text: narrativeMatch?.[1]?.trim() || '', tavern_commands: commands };
+    }
+
+    // 兼容旧的JSON格式
     const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-
-    if (!jsonMatch) return null;
-
-    return JSON.parse(jsonMatch[1]);
+    if (jsonMatch) {
+      try { return JSON.parse(jsonMatch[1]); } catch {}
+    }
+    return null;
   } catch (error) {
     console.error('完成任务失败:', error);
     return null;

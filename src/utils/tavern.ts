@@ -1,6 +1,26 @@
 import { aiService } from '@/services/aiService';
 import type { TavernHelper } from '@/types';
 
+function getNativeTavernHelper(): any | null {
+  if (typeof window === 'undefined') return null;
+  if ((window as any).TavernHelper) return (window as any).TavernHelper;
+  try {
+    if (window.parent && (window.parent as any).TavernHelper) {
+      return (window.parent as any).TavernHelper;
+    }
+    if (window.top && (window.top as any).TavernHelper) {
+      return (window.top as any).TavernHelper;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function isTavernEnv(): boolean {
+  return !!getNativeTavernHelper();
+}
+
 /**
  * 获取酒馆助手（兼容包装器）
  * 现在返回一个兼容的包装器，支持酒馆和自定义API两种模式
@@ -16,16 +36,18 @@ export function getTavernHelper(): TavernHelper | null {
     },
     getVariables: async (options: any) => {
       // 如果是酒馆模式，调用真实的 TavernHelper
-      if (typeof window !== 'undefined' && (window as any).TavernHelper) {
-        return await (window as any).TavernHelper.getVariables(options);
+      const nativeHelper = getNativeTavernHelper();
+      if (nativeHelper) {
+        return await nativeHelper.getVariables(options);
       }
       // 自定义API模式不支持变量系统
       return {};
     },
     insertOrAssignVariables: async (variables: any, options: any) => {
       // 如果是酒馆模式，调用真实的 TavernHelper
-      if (typeof window !== 'undefined' && (window as any).TavernHelper) {
-        return await (window as any).TavernHelper.insertOrAssignVariables(variables, options);
+      const nativeHelper = getNativeTavernHelper();
+      if (nativeHelper) {
+        return await nativeHelper.insertOrAssignVariables(variables, options);
       }
       // 自定义API模式不支持变量系统
       return;

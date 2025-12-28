@@ -32,3 +32,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+# Windows reserved device name accidentally created by tools
+nul
+NUL

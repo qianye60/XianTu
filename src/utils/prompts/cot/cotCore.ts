@@ -72,6 +72,12 @@ export function getCotCorePrompt(userInput: string, enableActionOptions: boolean
 - 叙事字数: 1500-2500字
 - 叙事风格: 修仙小说风格，五感描写，避免数据化
 - 核心场景: [本次重点描写什么]
+
+## 8. 行动选项检查（必须！）
+- action_options 是必填字段，禁止省略或为空
+- 必须生成 3-5 个选项
+- 选项方向: [保守/中立/积极/特殊]
+- 预设选项: [列出将要生成的选项]
 </thinking>
 
 ## 🌟 世界观铁律
@@ -79,12 +85,20 @@ export function getCotCorePrompt(userInput: string, enableActionOptions: boolean
 - 筑基+无需饮食睡眠，NPC有独立目标
 
 ## 🔄 数据同步铁律
-**text写了什么，tavern_commands就必须更新什么！**
+**叙事写了什么，<commands>就必须更新什么！**
 
-- 场景变化 → set位置{描述,x,y}
-- 任何行动 → add游戏时间.分钟
-- NPC出场 → set外貌状态/内心想法
-- NPC互动 → push记忆 + add好感度
+- 场景变化 → set|玩家角色状态.位置|{描述,x,y}
+- 任何行动 → add|游戏时间.分钟|数值
+- NPC出场 → set|人物关系.NPC名.当前外貌状态|描述
+- NPC互动 → push|人物关系.NPC名.记忆|事件 + add|好感度|数值
+
+## 🚨 输出格式（必须使用五个标签）
+按顺序输出五个标签：
+1. \`<thinking>\` - 思维链分析（先完成上方模板）
+2. \`<narrative>\` - 叙事文本（1500-2500字）
+3. \`<memory>\` - 事件摘要（50-100字）
+4. \`<commands>\` - 数据指令（每行一条）
+5. \`<options>\` - 行动选项（3-5个）
 
 ${DICE_ROLLING_RULES}
 `;

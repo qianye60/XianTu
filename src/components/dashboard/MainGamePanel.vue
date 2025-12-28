@@ -321,6 +321,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { panelBus } from '@/utils/panelBus';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
+import { isTavernEnv } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -415,11 +416,18 @@ interface ActionItem {
   iconComponent?: unknown;
 }
 
+interface ActionCategory {
+  name: string;
+  icon: string;
+  actions: ActionItem[];
+}
+
 const { t } = useI18n();
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
 const gameStateStore = useGameStateStore();
+const isTavernEnvFlag = isTavernEnv();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem;
 
@@ -433,14 +441,15 @@ const useStreaming = computed({
 
 // 🔥 全局标志：防止重复注册事件监听器（使用 window 对象存储，确保全局唯一）
 const GLOBAL_EVENT_KEY = '__mainGamePanel_eventListenersRegistered__';
-if (!(window as any)[GLOBAL_EVENT_KEY]) {
-  (window as any)[GLOBAL_EVENT_KEY] = false;
+const globalWindowState = window as unknown as Record<string, unknown>;
+if (!globalWindowState[GLOBAL_EVENT_KEY]) {
+  globalWindowState[GLOBAL_EVENT_KEY] = false;
 }
 
 // 🔥 存储事件监听器引用，用于清理（也存储在全局）
 const GLOBAL_HANDLERS_KEY = '__mainGamePanel_eventHandlers__';
-if (!(window as any)[GLOBAL_HANDLERS_KEY]) {
-  (window as any)[GLOBAL_HANDLERS_KEY] = {};
+if (!globalWindowState[GLOBAL_HANDLERS_KEY]) {
+  globalWindowState[GLOBAL_HANDLERS_KEY] = {};
 }
 
 // 图片上传相关
@@ -658,7 +667,7 @@ const timeOptions = ref([
 ]);
 
 // 行动分类数据
-const actionCategories = ref([
+const actionCategories = ref<ActionCategory[]>([
   {
     name: '修炼',
     icon: '',
@@ -758,6 +767,16 @@ const actionCategories = ref([
     ]
   }
 ]);
+
+if (!isTavernEnvFlag) {
+  actionCategories.value = actionCategories.value.map((category) => ({
+    ...category,
+    actions: category.actions.map((action) => {
+      const filteredOptions = action.options?.filter((option) => option.key !== 'tavern');
+      return filteredOptions ? { ...action, options: filteredOptions } : action;
+    })
+  }));
+}
 
 // 行动选择器函数
 const showActionSelector = () => {
@@ -1521,20 +1540,22 @@ onMounted(async () => {
     });
 
     // 🔥 监听酒馆助手的生成事件
-    const helper = getTavernHelper();
-    if (helper) {
-      console.log('[主面板] 注册酒馆事件监听');
+    if (isTavernEnvFlag) {
+      const helper = getTavernHelper();
+      if (helper) {
+        console.log('[主面板] 注册酒馆事件监听');
 
       // 🔥 使用全局 eventOn 函数监听流式事件
       const eventOn = (window as unknown as Record<string, unknown>).eventOn;
       const iframe_events = (window as unknown as Record<string, unknown>).TavernHelper as Record<string, unknown>;
 
       // 🔥 防止重复注册：只在第一次挂载时注册事件监听器（使用全局标志）
-      if (eventOn && iframe_events && typeof eventOn === 'function' && !(window as any)[GLOBAL_EVENT_KEY]) {
-        const events = iframe_events.iframe_events as Record<string, string>;
+      const listenersRegistered = Boolean(globalWindowState[GLOBAL_EVENT_KEY]);
+      if (eventOn && iframe_events && typeof eventOn === 'function' && !listenersRegistered) {
+        const events = (iframe_events as unknown as { iframe_events: Record<string, string> }).iframe_events;
 
         // 🔥 创建事件处理函数并保存到全局
-        const globalHandlers = (window as any)[GLOBAL_HANDLERS_KEY];
+        const globalHandlers = globalWindowState[GLOBAL_HANDLERS_KEY] as Record<string, unknown>;
 
         globalHandlers.onGenerationStarted = (generationId: string) => {
           if (generationId === currentGenerationId.value) {
@@ -1565,15 +1586,16 @@ onMounted(async () => {
         eventOn(events.STREAM_TOKEN_RECEIVED_INCREMENTALLY, globalHandlers.onStreamToken);
         eventOn(events.GENERATION_ENDED, globalHandlers.onGenerationEnded);
 
-        (window as any)[GLOBAL_EVENT_KEY] = true;
+        globalWindowState[GLOBAL_EVENT_KEY] = true;
         console.log('[主面板] ✅ 流式事件监听器已注册（全局唯一）');
-      } else if ((window as any)[GLOBAL_EVENT_KEY]) {
+      } else if (listenersRegistered) {
         console.log('[主面板] ⏭️ 跳过事件监听器注册（全局已注册）');
       }
 
-      console.log('[主面板] ✅ 事件监听器注册完成');
-    } else {
-      console.warn('[主面板] ⚠️ 酒馆助手不可用，事件监听未注册');
+        console.log('[主面板] ✅ 事件监听器注册完成');
+      } else {
+        console.warn('[主面板] ⚠️ 酒馆助手不可用，事件监听未注册');
+      }
     }
 
   } catch (error) {
@@ -1592,14 +1614,19 @@ onActivated(() => {
 onUnmounted(() => {
   console.log('[主面板] 组件卸载，清理事件监听器');
 
+  if (!isTavernEnvFlag) {
+    return;
+  }
+
   // 尝试移除事件监听器
   try {
     const eventOff = (window as unknown as Record<string, unknown>).eventOff;
     const iframe_events = (window as unknown as Record<string, unknown>).TavernHelper as Record<string, unknown>;
 
-    if (eventOff && iframe_events && typeof eventOff === 'function' && (window as any)[GLOBAL_EVENT_KEY]) {
-      const events = iframe_events.iframe_events as Record<string, string>;
-      const globalHandlers = (window as any)[GLOBAL_HANDLERS_KEY];
+    const listenersRegistered = Boolean(globalWindowState[GLOBAL_EVENT_KEY]);
+    if (eventOff && iframe_events && typeof eventOff === 'function' && listenersRegistered) {
+      const events = (iframe_events as unknown as { iframe_events: Record<string, string> }).iframe_events;
+      const globalHandlers = globalWindowState[GLOBAL_HANDLERS_KEY] as Record<string, unknown>;
 
       if (globalHandlers.onGenerationStarted) {
         eventOff(events.GENERATION_STARTED, globalHandlers.onGenerationStarted);
@@ -1611,8 +1638,8 @@ onUnmounted(() => {
         eventOff(events.GENERATION_ENDED, globalHandlers.onGenerationEnded);
       }
 
-      (window as any)[GLOBAL_EVENT_KEY] = false;
-      (window as any)[GLOBAL_HANDLERS_KEY] = {};
+      globalWindowState[GLOBAL_EVENT_KEY] = false;
+      globalWindowState[GLOBAL_HANDLERS_KEY] = {};
       console.log('[主面板] ✅ 事件监听器已清理（全局）');
     }
   } catch (error) {

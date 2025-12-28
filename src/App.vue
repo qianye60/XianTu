@@ -133,7 +133,7 @@ import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
 import { useUIStore } from './stores/uiStore';
 import { toast } from './utils/toast';
-import { getTavernHelper } from './utils/tavern'; // 添加导入
+import { getTavernHelper, isTavernEnv } from './utils/tavern'; // 添加导入
 import type { CharacterBaseInfo } from '@/types/game';
 import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
 
@@ -144,6 +144,7 @@ const globalThemeCheckbox = ref<HTMLInputElement>();
 const globalFullscreenCheckbox = ref<HTMLInputElement>();
 const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
+const isTavernEnvFlag = ref(isTavernEnv());
 
 // --- 路由与视图管理 ---
 const router = useRouter();
@@ -180,13 +181,14 @@ const uiStore = useUIStore();
 // --- 事件处理器 ---
 const handleStartCreation = async (mode: 'single' | 'cloud') => {
   try {
-    // 全局封锁联机模式，强制仅允许单机
-    if (mode !== 'single') {
+    // 全局封锁联机模式：只有酒馆环境允许进入 cloud
+    if (mode !== 'single' && !isTavernEnvFlag.value) {
       toast.info('联机共修开发中，当前版本暂未开放');
       switchView('ModeSelection');
       return;
     }
-    creationStore.setMode('single');
+    const targetMode = (mode === 'cloud' && isTavernEnvFlag.value) ? 'cloud' : 'single';
+    creationStore.setMode(targetMode);
     if (true) {
       switchView('CharacterCreation');
     }
@@ -457,6 +459,14 @@ const showHelp = () => {
 
 // --- 生命周期钩子 ---
 onMounted(async () => {
+  // SillyTavern 可能在页面加载后才注入 TavernHelper，这里短暂轮询以避免误判为“非酒馆环境”
+  const start = Date.now();
+  const poll = setInterval(() => {
+    isTavernEnvFlag.value = isTavernEnv();
+    if (isTavernEnvFlag.value || Date.now() - start > 5000) {
+      clearInterval(poll);
+    }
+  }, 200);
   // 0. 等待 characterStore 初始化完成（加载 IndexedDB 数据）
   console.log('[App] 等待 characterStore 初始化...');
   await characterStore.initializeStore();

@@ -37,6 +37,9 @@ defineProps<Props>()
 defineEmits<{
   'update:search-query': [value: string]
   'show-format-guide': []
+  'refresh': []
+  'export': []
+  'show-stats': []
 }>()
 </script>
 

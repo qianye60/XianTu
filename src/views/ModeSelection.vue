@@ -27,20 +27,19 @@
           <p class="gate-detail">{{ $t('独居洞府，专心致志炼就大道根基') }}<br/>{{ $t('所有进度本地存储，断网亦可修行') }}</p>
         </div>
 
-        <!-- Right Gate: Multiplayer (temporarily disabled) -->
-        <div class="gate-card disabled" @click="selectPath('cloud')">
+        <!-- Right Gate: Multiplayer / Tavern -->
+        <div
+          class="gate-card"
+          :class="{ selected: selectedMode === 'cloud', disabled: !isTavernEnvFlag }"
+          @click="selectPath('cloud')"
+        >
           <div class="gate-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
+            <Users :size="44" :stroke-width="1.5" />
           </div>
           <h2 class="gate-title">{{ $t('联机共修') }}</h2>
-          <p class="gate-description">{{ $t('功能研发中，敬请期待') }}</p>
-          <p class="gate-detail">{{ $t('当前版本已封锁联机入口，不影响单机闭关体验') }}</p>
-          <span class="coming-soon-badge">{{ $t('未开放') }}</span>
+          <p class="gate-description">{{ isTavernEnvFlag ? '酒馆环境可用，继续共修之路' : $t('功能研发中，敬请期待') }}</p>
+          <p class="gate-detail">{{ isTavernEnvFlag ? '当前检测到酒馆环境，可使用酒馆API继续游戏（含18+内容）' : $t('当前版本已封锁联机入口，不影响单机闭关体验') }}</p>
+          <span v-if="!isTavernEnvFlag" class="coming-soon-badge">{{ $t('未开放') }}</span>
         </div>
       </div>
 
@@ -117,10 +116,12 @@ import { useUIStore } from '@/stores/uiStore';
 import { AUTH_CONFIG } from '@/config/authConfig';
 import { toast } from '@/utils/toast';
 import { generateMachineCode } from '@/utils/machineCode';
+import { isTavernEnv } from '@/utils/tavern';
 
 const showSettings = ref(false);
 const showAuthModal = ref(false);
 const selectedMode = ref<'single' | 'cloud' | null>(null);
+const isTavernEnvFlag = ref(isTavernEnv());
 
 const isAuthorized = ref(localStorage.getItem('auth_verified') === 'true');
 
@@ -129,6 +130,15 @@ const checkAuthStatus = () => {
 };
 
 onMounted(async () => {
+  // SillyTavern 可能在页面加载后才注入 TavernHelper，这里短暂轮询以避免误判为“非酒馆环境”
+  const start = Date.now();
+  const poll = setInterval(() => {
+    isTavernEnvFlag.value = isTavernEnv();
+    if (isTavernEnvFlag.value || Date.now() - start > 5000) {
+      clearInterval(poll);
+    }
+  }, 200);
+
   checkAuthStatus();
 
   if (AUTH_CONFIG.ENABLE_AUTH) {
@@ -216,7 +226,7 @@ const emit = defineEmits<{
 const uiStore = useUIStore();
 
 const selectPath = (mode: 'single' | 'cloud') => {
-  if (mode === 'cloud') {
+  if (mode === 'cloud' && !isTavernEnvFlag.value) {
     uiStore.showRetryDialog({
       title: '功能未开放',
       message: '联机共修开发中，当前版本已封锁入口。请先选择"单机闭关"。',

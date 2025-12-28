@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="settings-panel">
     <!-- 头部 -->
     <div class="panel-header">
@@ -133,19 +133,6 @@
             </div>
           </div>
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('行动选项') }}</label>
-              <span class="setting-desc">{{ t('AI生成可选的行动建议') }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="uiStore.enableActionOptions">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
         </div>
       </div>
 
@@ -188,6 +175,19 @@
             </div>
           </div>
 
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('行动选项') }}</label>
+              <span class="setting-desc">{{ t('AI生成可选的行动建议') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="uiStore.enableActionOptions">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
           <div class="setting-item setting-item-full">
             <div class="setting-info">
               <label class="setting-name">{{ t('自定义行动选项提示词') }}</label>
@@ -203,32 +203,6 @@
             </div>
           </div>
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('🔞 启用成人内容（私密信息）') }}</label>
-              <span class="setting-desc">{{ t('生成和显示NPC的私密信息模块（包含成人向内容，默认开启）') }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.enableNsfwMode">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="settings.enableNsfwMode">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('👥 私密信息生成范围') }}</label>
-              <span class="setting-desc">{{ t('选择为哪些性别的NPC生成私密信息') }}</span>
-            </div>
-            <div class="setting-control">
-              <select v-model="settings.nsfwGenderFilter" class="setting-select">
-                <option value="all">{{ t('所有NPC') }}</option>
-                <option value="female">{{ t('仅女性') }}</option>
-                <option value="male">{{ t('仅男性') }}</option>
-              </select>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -238,40 +212,63 @@
           <h4 class="section-title">🤖 {{ t('AI服务配置') }}</h4>
         </div>
         <div class="settings-list">
-          <div class="setting-item">
+          <!-- 道号修改 -->
+          <div class="setting-item setting-item-full" v-if="currentPlayerName">
             <div class="setting-info">
-              <label class="setting-name">{{ t('AI服务模式') }}</label>
-              <span class="setting-desc">{{ t('选择使用酒馆或自定义API') }}</span>
+              <label class="setting-name">{{ t('修改道号') }}</label>
+              <span class="setting-desc">{{ t('修改当前角色的名字') }}</span>
             </div>
-            <div class="setting-control">
-              <select v-model="aiConfig.mode" class="setting-select" @change="onAIModeChange">
-                <option value="tavern">{{ t('酒馆模式（SillyTavern）') }}</option>
-                <option value="custom">{{ t('自定义API（OpenAI兼容）') }}</option>
-              </select>
+            <div class="setting-control-full" style="display: flex; gap: 0.5rem;">
+              <input
+                v-model="newPlayerName"
+                class="form-input-inline"
+                :placeholder="currentPlayerName"
+                style="flex: 1;"
+              >
+              <button class="utility-btn primary" @click="updatePlayerName" :disabled="!newPlayerName || newPlayerName === currentPlayerName">
+                <Save :size="16" />
+                {{ t('确认') }}
+              </button>
             </div>
           </div>
 
-          <template v-if="aiConfig.mode === 'custom'">
-            <!-- 道号修改（仅自定义API模式） -->
-            <div class="setting-item setting-item-full" v-if="currentPlayerName">
+          <div v-if="isTavernEnvFlag" class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('AI模式') }}</label>
+              <span class="setting-desc">当前为酒馆环境：默认使用酒馆API。非酒馆环境才需要配置自定义API。</span>
+            </div>
+          </div>
+
+          <template v-if="isTavernEnvFlag">
+            <div class="setting-item">
               <div class="setting-info">
-                <label class="setting-name">{{ t('修改道号') }}</label>
-                <span class="setting-desc">{{ t('修改当前角色的名字（仅自定义API模式可用）') }}</span>
+                <label class="setting-name">{{ t('🔞 启用成人内容（私密信息）') }}</label>
+                <span class="setting-desc">{{ t('生成和显示NPC的私密信息模块（包含成人向内容，默认开启）') }}</span>
               </div>
-              <div class="setting-control-full" style="display: flex; gap: 0.5rem;">
-                <input
-                  v-model="newPlayerName"
-                  class="form-input-inline"
-                  :placeholder="currentPlayerName"
-                  style="flex: 1;"
-                >
-                <button class="utility-btn primary" @click="updatePlayerName" :disabled="!newPlayerName || newPlayerName === currentPlayerName">
-                  <Save :size="16" />
-                  {{ t('确认') }}
-                </button>
+              <div class="setting-control">
+                <label class="setting-switch">
+                  <input type="checkbox" v-model="settings.enableNsfwMode">
+                  <span class="switch-slider"></span>
+                </label>
               </div>
             </div>
 
+            <div class="setting-item" v-if="settings.enableNsfwMode">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('👥 私密信息生成范围') }}</label>
+                <span class="setting-desc">{{ t('选择为哪些性别的NPC生成私密信息') }}</span>
+              </div>
+              <div class="setting-control">
+                <select v-model="settings.nsfwGenderFilter" class="setting-select">
+                  <option value="female">{{ t('仅女性') }}</option>
+                  <option value="male">{{ t('仅男性') }}</option>
+                  <option value="all">{{ t('所有性别') }}</option>
+                </select>
+              </div>
+            </div>
+          </template>
+
+          <template v-if="!isTavernEnvFlag">
             <div class="setting-item">
               <div class="setting-info">
                 <label class="setting-name">{{ t('API提供商') }}</label>
@@ -369,7 +366,6 @@
                 >
               </div>
             </div>
-
           </template>
 
           <!-- 通用AI设置 -->
@@ -412,17 +408,6 @@
             </div>
           </div>
 
-          <div class="setting-item" v-if="aiConfig.mode === 'tavern'">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('酒馆状态') }}</label>
-              <span class="setting-desc">{{ t('检测SillyTavern连接状态') }}</span>
-            </div>
-            <div class="setting-control">
-              <span :class="['auth-status', tavernAvailable ? 'verified' : 'unverified']">
-                {{ tavernAvailable ? '✓ 已连接' : '✗ 未连接' }}
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -560,10 +545,12 @@ import { AUTH_CONFIG } from '@/config/authConfig';
 import { aiService } from '@/services/aiService';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { isTavernEnv } from '@/utils/tavern';
 
 const { t, setLanguage, currentLanguage } = useI18n();
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
+const isTavernEnvFlag = isTavernEnv();
 
 const onLanguageChange = () => {
   setLanguage(currentLanguage.value);
@@ -574,7 +561,7 @@ const onLanguageChange = () => {
 import { API_PROVIDER_PRESETS, type APIProvider } from '@/services/aiService';
 
 const aiConfig = reactive({
-  mode: 'tavern' as 'tavern' | 'custom',
+  mode: (isTavernEnvFlag ? 'tavern' : 'custom') as 'tavern' | 'custom',
   streaming: true,
   memorySummaryMode: 'raw' as 'raw' | 'standard',
   initMode: 'generate' as 'generate' | 'generateRaw',
@@ -600,15 +587,9 @@ const onProviderChange = () => {
   aiService.saveConfig(aiConfig);
 };
 
-// 酒馆可用性检测
-const tavernAvailable = ref(false);
+// 可用模型列表
 const availableModels = ref<string[]>(['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']);
 const isFetchingModels = ref(false);
-
-// 检测酒馆是否可用
-const checkTavernAvailability = () => {
-  tavernAvailable.value = typeof window !== 'undefined' && !!(window as any).TavernHelper;
-};
 
 // 道号修改相关
 const newPlayerName = ref('');
@@ -628,8 +609,11 @@ const updatePlayerName = async () => {
       (gameStateStore.character as any).名字 = newPlayerName.value;
     }
 
-    // 同步到 characterStore 并保存
-    await characterStore.saveCurrentSlot();
+    // 同步到 characterStore 并保存到当前存档槽位
+    const currentSlotName = characterStore.rootState.当前激活存档?.存档槽位;
+    if (currentSlotName) {
+      await characterStore.saveToSlot(currentSlotName);
+    }
 
     toast.success(`道号已修改为「${newPlayerName.value}」`);
     newPlayerName.value = ''; // 清空输入框
@@ -662,21 +646,10 @@ const fetchModels = async () => {
   }
 };
 
-// AI模式切换处理
-const onAIModeChange = () => {
-  aiService.saveConfig(aiConfig);
-  toast.success(`已切换到${aiConfig.mode === 'tavern' ? '酒馆' : '自定义API'}模式`);
-
-  // 检查可用性
-  const availability = aiService.checkAvailability();
-  if (!availability.available) {
-    toast.warning(availability.message);
-  }
-};
-
 // 监听AI配置变化
 watch(aiConfig, () => {
   hasUnsavedChanges.value = true;
+  aiService.saveConfig(aiConfig);
 }, { deep: true });
 
 // 设置数据结构
@@ -690,6 +663,10 @@ const settings = reactive({
   fastAnimations: false,
   showHints: true,
 
+  // 🔞 成人内容（仅酒馆环境可用；非酒馆环境将被忽略/隐藏）
+  enableNsfwMode: true,
+  nsfwGenderFilter: 'female' as 'all' | 'male' | 'female',
+
 
   // 高级设置
   debugMode: false,
@@ -700,16 +677,12 @@ const settings = reactive({
   questSystemType: '修仙辅助系统', // 系统任务类型
   questSystemPrompt: '', // 自定义任务提示词
 
-  enableNsfwMode: true, // 默认开启成人内容
-  nsfwGenderFilter: 'all', // 默认所有NPC ('all' | 'female' | 'male')
-
   // 游戏体验
   enableSoundEffects: true,
   backgroundMusic: true,
   notificationSounds: true,
 
   // 数据同步
-  autoSyncTavern: true,
   validateData: true,
   backupBeforeSave: true,
 
@@ -767,6 +740,9 @@ const loadSettings = async () => {
     // 🔥 加载AI服务配置
     const savedAIConfig = aiService.getConfig();
     Object.assign(aiConfig, savedAIConfig);
+    if (isTavernEnvFlag) {
+      aiConfig.mode = 'tavern';
+    }
     debug.log('设置面板', 'AI配置加载成功', savedAIConfig);
 
     // 加载保存的模型列表
@@ -789,28 +765,10 @@ const loadSettings = async () => {
       debug.log('设置面板', `已将保存的模型 ${savedAIConfig.customAPI.model} 添加到可选列表`);
     }
 
-    // 检测酒馆可用性
-    checkTavernAvailability();
-
     // 🔥 从gameStateStore加载存档配置
     try {
-      if (gameStateStore.isGameLoaded) {
-        // 加载NSFW设置
-        if (gameStateStore.systemConfig) {
-          const 存档中的nsfwMode = gameStateStore.systemConfig.nsfwMode;
-          const 存档中的nsfwGenderFilter = gameStateStore.systemConfig.nsfwGenderFilter;
-
-          if (存档中的nsfwMode !== undefined) {
-            settings.enableNsfwMode = 存档中的nsfwMode;
-            debug.log('设置面板', `已从存档读取nsfwMode: ${存档中的nsfwMode}`);
-          }
-
-          if (存档中的nsfwGenderFilter !== undefined) {
-            settings.nsfwGenderFilter = 存档中的nsfwGenderFilter;
-            debug.log('设置面板', `已从存档读取nsfwGenderFilter: ${存档中的nsfwGenderFilter}`);
-          }
-        }
-
+      const hasActiveSave = !!characterStore.rootState.当前激活存档 && !!characterStore.activeSaveSlot;
+      if (gameStateStore.isGameLoaded && hasActiveSave) {
         // 加载任务系统配置
         if (gameStateStore.questSystem?.配置) {
           const questConfig = gameStateStore.questSystem.配置;
@@ -859,13 +817,8 @@ const saveSettings = async () => {
       const gameStateStore = useGameStateStore();
 
       // 更新存档中的系统设置
-      if (gameStateStore.isGameLoaded) {
-        // 同步NSFW设置
-        if (gameStateStore.systemConfig) {
-          gameStateStore.systemConfig.nsfwMode = settings.enableNsfwMode;
-          gameStateStore.systemConfig.nsfwGenderFilter = settings.nsfwGenderFilter;
-        }
-
+      const hasActiveSave = !!characterStore.rootState.当前激活存档 && !!characterStore.activeSaveSlot;
+      if (gameStateStore.isGameLoaded && hasActiveSave) {
         // 同步任务系统配置
         if (gameStateStore.questSystem?.配置) {
           gameStateStore.questSystem.配置.系统任务类型 = settings.questSystemType;
@@ -1004,12 +957,9 @@ const resetSettings = () => {
         performanceMonitor: false,
         questSystemType: '修仙辅助系统',
         questSystemPrompt: '',
-        enableNsfwMode: true,
-        nsfwGenderFilter: 'all',
         enableSoundEffects: true,
         backgroundMusic: true,
         notificationSounds: true,
-        autoSyncTavern: true,
         validateData: true,
         backupBeforeSave: true
       });

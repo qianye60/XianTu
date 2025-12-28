@@ -7,11 +7,12 @@
  * 3. 生成类提示词 - 世界/NPC/任务等生成
  * 4. 角色初始化提示词 - 创建角色时使用
  */
-import { SAVE_DATA_STRUCTURE } from '@/utils/prompts/definitions/dataDefinitions';
-import { CHARACTER_INITIALIZATION_PROMPT } from '@/utils/prompts/tasks/characterInitializationPrompts';
+import { getSaveDataStructureForEnv } from '@/utils/prompts/definitions/dataDefinitions';
+import { getCharacterInitializationPromptForEnv } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { getCotCorePrompt } from '@/utils/prompts/cot/cotCore';
 import { EnhancedWorldPromptBuilder } from '@/utils/worldGeneration/enhancedWorldPrompts';
 import { promptStorage } from './promptStorage';
+import { isTavernEnv } from '@/utils/tavern';
 // 核心规则
 import { JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS } from '@/utils/prompts/definitions/coreRules';
 // 业务规则
@@ -26,8 +27,7 @@ import {
   LOCATION_UPDATE_RULES,
   COMMAND_PATH_CONSTRUCTION_RULES,
   TECHNIQUE_SYSTEM_RULES,
-  PLAYER_AUTONOMY_RULES,
-  NSFW_CONTENT_RULES
+  PLAYER_AUTONOMY_RULES
 } from '@/utils/prompts/definitions/businessRules';
 // 文本格式
 import { TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAGE_RULES, NAMING_CONVENTIONS } from '@/utils/prompts/definitions/textFormats';
@@ -85,8 +85,7 @@ const BUSINESS_RULES = [
   LOCATION_UPDATE_RULES,
   COMMAND_PATH_CONSTRUCTION_RULES,
   TECHNIQUE_SYSTEM_RULES,
-  PLAYER_AUTONOMY_RULES,
-  NSFW_CONTENT_RULES
+  PLAYER_AUTONOMY_RULES
 ].join('\n\n');
 
 // 合并文本格式规范
@@ -96,6 +95,7 @@ const TEXT_FORMAT_RULES = [TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAG
 const WORLD_STANDARDS = [REALM_ATTRIBUTE_STANDARDS, QUALITY_SYSTEM, REPUTATION_GUIDE].join('\n\n');
 
 export function getSystemPrompts(): Record<string, PromptDefinition> {
+  const tavernEnv = isTavernEnv();
   return {
     // ==================== 核心请求提示词（合并版） ====================
     coreOutputRules: {
@@ -114,7 +114,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     dataDefinitions: {
       name: '3. 数据结构定义',
-      content: SAVE_DATA_STRUCTURE,
+      content: getSaveDataStructureForEnv(tavernEnv),
       category: 'coreRequest',
       description: '游戏存档数据结构完整定义',
       order: 3
@@ -338,7 +338,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     characterInit: {
       name: '2. 角色初始化提示词',
-      content: CHARACTER_INITIALIZATION_PROMPT,
+      content: getCharacterInitializationPromptForEnv(tavernEnv),
       category: 'initialization',
       description: '开局第二步：根据玩家选择生成角色初始状态和开场剧情',
       order: 2

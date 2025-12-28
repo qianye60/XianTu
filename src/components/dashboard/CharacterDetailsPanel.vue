@@ -340,14 +340,14 @@
           </div>
 
           <!-- 身体部位开发 -->
-          <div v-if="bodyParts.length" class="info-section">
+          <div v-if="isTavernEnvFlag" class="info-section">
             <h3 class="section-title">
               <div class="title-icon">
                 <Sparkles :size="18" />
               </div>
               {{ t('身体部位开发') }}
             </h3>
-            <div class="body-parts-list">
+            <div v-if="bodyParts.length" class="body-parts-list">
               <div v-for="part in bodyParts" :key="part.name" class="body-part-item">
                 <div class="part-header">
                   <span class="part-name">{{ part.name }}</span>                </div>
@@ -355,6 +355,12 @@
                   {{ part.description }}
                 </div>
               </div>
+            </div>
+            <div v-else class="empty-state">
+              <div class="empty-icon">
+                <Sparkles :size="32" />
+              </div>
+              <span>{{ t('暂无数据') }}</span>
             </div>
           </div>
 
@@ -849,6 +855,7 @@ import { useI18n } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { isTavernEnv } from '@/utils/tavern';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, PlayerBodyPart, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
@@ -877,6 +884,7 @@ const { t } = useI18n();
 const uiStore = useUIStore();
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
+const isTavernEnvFlag = isTavernEnv();
 const isLoading = ref(false);
 
 // 从 gameStateStore 获取数据的计算属性

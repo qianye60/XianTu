@@ -64,6 +64,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useGameStateStore } from '@/stores/gameStateStore'
+import { isTavernEnv } from '@/utils/tavern'
 import { toast } from '@/utils/toast'
 import { panelBus } from '@/utils/panelBus'
 import GameVariableDataHeader from './components/GameVariableDataHeader.vue'
@@ -100,6 +101,8 @@ const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
 // 🔥 [新架构] 数据从 Pinia Store 获取
+const isTavernEnvFlag = isTavernEnv()
+
 const coreDataViews = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
 
@@ -123,7 +126,7 @@ const coreDataViews = computed(() => {
       [t('掌握技能')]: gameStateStore.masteredSkills,
       [t('系统')]: gameStateStore.systemConfig,
       [t('叙事历史')]: gameStateStore.narrativeHistory,
-      [t('身体部位开发')]: gameStateStore.bodyPartDevelopment
+      ...(isTavernEnvFlag ? { [t('身体部位开发')]: gameStateStore.bodyPartDevelopment } : {})
     },
     [t('角色数据')]: gameStateStore.character,
     [t('记忆数据')]: gameStateStore.memory,
@@ -161,7 +164,7 @@ const saveData = computed(() => {
     [t('掌握技能')]: gameStateStore.masteredSkills,
     [t('系统')]: gameStateStore.systemConfig,
     [t('叙事历史')]: gameStateStore.narrativeHistory,
-    [t('身体部位开发')]: gameStateStore.bodyPartDevelopment
+    ...(isTavernEnvFlag ? { [t('身体部位开发')]: gameStateStore.bodyPartDevelopment } : {})
   }
 })
 const worldInfo = computed(() => gameStateStore.worldInfo || {})
@@ -284,10 +287,10 @@ const editVariable = (item: EditingItem) => {
   showEditModal.value = true
 }
 
-const copyVariable = async (key: string, value: GameVariableValue) => {
+const copyVariable = async (event: { key: string; value: GameVariableValue }) => {
   try {
-    const text = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
-    await navigator.clipboard.writeText(`${key}: ${text}`)
+    const text = typeof event.value === 'object' ? JSON.stringify(event.value, null, 2) : String(event.value)
+    await navigator.clipboard.writeText(`${event.key}: ${text}`)
     toast.success(t('已复制到剪贴板'))
   } catch (error) {
     console.error('[游戏变量] 复制失败:', error)

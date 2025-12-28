@@ -6,34 +6,57 @@
 
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
 import type { WorldInfo, WorldMapConfig, SystemConfig } from '@/types/game';
-import { SAVE_DATA_STRUCTURE } from '../definitions/dataDefinitions';
+import { SAVE_DATA_STRUCTURE, stripNsfwContent } from '../definitions/dataDefinitions';
 import { characterInitializationCotPrompt } from '../cot/characterInitializationCot';
 import { assembleSystemPrompt } from '../promptAssembler';
+import { isTavernEnv } from '@/utils/tavern';
 
 // =====================================================================
 // 响应格式定义
 // =====================================================================
 
 const RESPONSE_FORMAT = `
-## 响应格式（必须严格遵守）
+## 响应格式（必须严格遵守，五个标签全部必填）
 
-返回纯JSON对象，禁止Markdown标记：
-\`\`\`json
-{
-  "text": "1200-2500字开局故事",
-  "mid_term_memory": "故事摘要（必填）",
-  "tavern_commands": [
-    {"action": "set", "key": "路径", "value": 值}
-  ],
-  "action_options": ["选项1", "选项2", "选项3", "选项4", "选项5"]
-}
-\`\`\`
+依次输出五个标签：
 
-**字段说明**：
-- text: 沉浸式开局叙事，通过行为展现角色特质，禁止游戏术语
-- mid_term_memory: text的简短摘要
-- tavern_commands: 初始化数据的命令数组
-- action_options: 5个基于情境的行动选项
+<thinking>
+## 1. 角色分析
+- 姓名/性别/年龄: [读取]
+- 出身/灵根/天赋: [读取]
+- 初始境界判定: [有修炼背景→炼气期，无→凡人]
+
+## 2. 开局规划
+- 初始位置: [从可用地点选择]
+- 初始资源: [基于出身]
+- 出场NPC: [0-3个]
+</thinking>
+
+<narrative>
+[1200-2500字开局故事，沉浸式叙事，禁止包含游戏数据]
+</narrative>
+
+<memory>
+[故事摘要，50-100字]
+</memory>
+
+<commands>
+[初始化指令，每行一条，格式：操作|路径|值]
+set|游戏时间|{"年":1050,"月":1,"日":1,"小时":8,"分钟":0}
+set|玩家角色状态.位置|{"描述":"某地","x":5000,"y":5000}
+set|背包.灵石|{"下品":100,"中品":0,"上品":0,"极品":0}
+</commands>
+
+<options>
+[5个基于开局情境的行动选项，每行一个]
+四处走动熟悉环境
+查看自身状态
+与附近的人交谈
+寻找修炼之地
+打听周围消息
+</options>
+
+**五个标签全部必填！**
 `.trim();
 
 // =====================================================================
@@ -108,6 +131,11 @@ ${RESOURCE_RANGES}
 ${SAVE_DATA_STRUCTURE}
 `.trim();
 
+export function getCharacterInitializationPromptForEnv(isTavern: boolean): string {
+  if (isTavern) return CHARACTER_INITIALIZATION_PROMPT;
+  return stripNsfwContent(CHARACTER_INITIALIZATION_PROMPT);
+}
+
 // =====================================================================
 // 构建函数
 // =====================================================================
@@ -169,19 +197,6 @@ export function buildCharacterSelectionsSummary(
     .map(l => `- ${l.name || l.名称} (${l.type || l.类型})`)
     .join('\n') || '(未生成)';
 
-  // NSFW设置
-  const nsfwMode = worldContext?.systemSettings?.nsfwMode;
-  const nsfwFilter = worldContext?.systemSettings?.nsfwGenderFilter || 'female';
-  let nsfwRule = '禁用 - 不生成私密信息';
-  if (nsfwMode) {
-    const filterMap: Record<string, string> = {
-      'female': '仅女性NPC生成私密信息',
-      'male': '仅男性NPC生成私密信息',
-      'all': '所有NPC生成私密信息'
-    };
-    nsfwRule = filterMap[nsfwFilter] || filterMap['female'];
-  }
-
   return `
 # 玩家角色数据
 
@@ -220,14 +235,10 @@ ${locations}
 
 ---
 
-## NSFW设置
-${nsfwRule}
-
----
-
 ## 输出要求
-返回纯JSON: {text, mid_term_memory, tavern_commands, action_options}
-- action_options: 5个基于开局情境的行动选项
+依次输出五个标签：<thinking>、<narrative>、<memory>、<commands>、<options>
+- <thinking>: 角色分析和开局规划
+- <options>: 5个基于开局情境的行动选项，每行一个
 `.trim();
 }
 
@@ -237,7 +248,7 @@ ${nsfwRule}
 export async function buildCharacterInitializationPrompt(): Promise<string> {
   const basePrompt = await assembleSystemPrompt([]);
 
-  return `${basePrompt}
+  const prompt = `${basePrompt}
 
 ---
 
@@ -261,6 +272,8 @@ ${NARRATIVE_RULES}
 
 ${RESOURCE_RANGES}
 `.trim();
+
+  return isTavernEnv() ? prompt : stripNsfwContent(prompt);
 }
 
 /**

@@ -11,6 +11,7 @@ import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Continent, Q
 import type { World, Origin, SpiritRoot } from '@/types';
 import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
+import { isTavernEnv } from '@/utils/tavern';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
@@ -223,6 +224,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   const playerStatus = calculateInitialAttributes(processedBaseInfo, age);
 
   // 创建基础存档结构
+  const tavernEnv = isTavernEnv();
   const saveData: SaveData = {
     角色基础信息: processedBaseInfo,
     玩家角色状态: playerStatus,
@@ -260,32 +262,34 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
         '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
         '装备栏字段：装备1-6'
       ],
-      // 🔥 NSFW设置：从localStorage读取用户设置
-      nsfwMode: (() => {
-        try {
-          const savedSettings = localStorage.getItem('dad_game_settings');
-          if (savedSettings) {
-            const parsed = JSON.parse(savedSettings);
-            // 如果用户设置了enableNsfwMode，使用用户设置，否则默认true
-            return parsed.enableNsfwMode !== undefined ? parsed.enableNsfwMode : true;
+      ...(tavernEnv ? {
+        // 🔥 NSFW设置：从localStorage读取用户设置
+        nsfwMode: (() => {
+          try {
+            const savedSettings = localStorage.getItem('dad_game_settings');
+            if (savedSettings) {
+              const parsed = JSON.parse(savedSettings);
+              // 如果用户设置了enableNsfwMode，使用用户设置，否则默认true
+              return parsed.enableNsfwMode !== undefined ? parsed.enableNsfwMode : true;
+            }
+          } catch (e) {
+            console.error('[初始化] 读取NSFW设置失败:', e);
           }
-        } catch (e) {
-          console.error('[初始化] 读取NSFW设置失败:', e);
-        }
-        return true; // 默认开启
-      })(),
-      nsfwGenderFilter: (() => {
-        try {
-          const savedSettings = localStorage.getItem('dad_game_settings');
-          if (savedSettings) {
-            const parsed = JSON.parse(savedSettings);
-            return parsed.nsfwGenderFilter || 'female'; // 默认仅女性
+          return true; // 默认开启
+        })(),
+        nsfwGenderFilter: (() => {
+          try {
+            const savedSettings = localStorage.getItem('dad_game_settings');
+            if (savedSettings) {
+              const parsed = JSON.parse(savedSettings);
+              return parsed.nsfwGenderFilter || 'female'; // 默认仅女性
+            }
+          } catch (e) {
+            console.error('[初始化] 读取NSFW性别过滤设置失败:', e);
           }
-        } catch (e) {
-          console.error('[初始化] 读取NSFW性别过滤设置失败:', e);
-        }
-        return 'female'; // 默认仅女性
-      })()
+          return 'female'; // 默认仅女性
+        })()
+      } : {})
     }
   };
 
@@ -295,7 +299,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
 
   // 🔥 初始化玩家身体部位（NSFW模式）
   // 注意：这里只是初始化占位符，AI会在角色初始化响应中生成详细描述
-  if (saveData.系统?.nsfwMode) {
+  if (tavernEnv && saveData.系统?.nsfwMode) {
     console.log('[角色初始化] NSFW模式已开启，将由AI生成身体部位详细描述');
     // 创建空对象，等待AI填充
     saveData.身体部位开发 = {};
@@ -347,7 +351,7 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
     maxRetries: 3,
     retryDelay: 2000,
     characterBackground: extractName(baseInfo.出生),
-    mapConfig: userWorldConfig.mapConfig,
+    mapConfig: (userWorldConfig as any).mapConfig,
     onStreamChunk: (chunk: string) => {
       // 实时更新UI显示世界生成进度
       uiStore.updateLoadingText(`🌍 世界生成中...\n\n${chunk.substring(0, 150)}...`);
@@ -410,6 +414,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('  - 天赋数量:', userSelections.talents?.length);
 
   // 🔥 准备世界上下文信息
+  const tavernEnv = isTavernEnv();
   const worldContext = {
     worldInfo: saveData.世界信息,
     availableContinents: saveData.世界信息?.大陆信息?.map((continent: Continent) => ({
@@ -425,7 +430,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       coordinates: location.coordinates
     })) || [],
     mapConfig: saveData.世界信息?.地图配置,
-    systemSettings: saveData.系统 || { nsfwMode: true, nsfwGenderFilter: 'all' }
+    systemSettings: saveData.系统 || (tavernEnv ? { nsfwMode: true, nsfwGenderFilter: 'all' } : {})
   };
 
   console.log('[初始化] 🔥 世界信息检查:');
@@ -561,6 +566,17 @@ async () => {
       }
 
       console.log('[AI验证] ✅ 位置命令有效:', locationObj.描述, `(${locationObj.x}, ${locationObj.y})`);
+
+      // 7. 🔥 action_options检查
+      if (!Array.isArray(response.action_options)) {
+        console.warn('[AI验证] ⚠️ action_options不是数组，将使用默认选项');
+        // 不返回false，因为解析层会补充默认选项
+      } else if (response.action_options.length === 0) {
+        console.warn('[AI验证] ⚠️ action_options是空数组，将使用默认选项');
+        // 不返回false，因为解析层会补充默认选项
+      } else {
+        console.log('[AI验证] ✅ action_options有效，数量:', response.action_options.length);
+      }
 
       console.log('[AI验证] ✅ 所有验证通过');
       return true;

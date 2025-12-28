@@ -1,4 +1,4 @@
-import { ref, computed, triggerRef } from 'vue';
+﻿import { ref, computed, triggerRef } from 'vue';
 import { defineStore } from 'pinia';
 import { set as setLodash, cloneDeep } from 'lodash';
 import { toast } from '@/utils/toast';
@@ -6,7 +6,7 @@ import { debug } from '@/utils/debug';
 import { useUIStore } from './uiStore'; // 导入UI Store
 import { useCharacterCreationStore } from './characterCreationStore'; // 导入创角Store
 import * as storage from '@/utils/indexedDBManager';
-import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
+import { getTavernHelper, clearAllCharacterData, isTavernEnv } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
@@ -192,6 +192,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     const active = rootState.value.当前激活存档;
     const profile = activeCharacterProfile.value;
     const slot = activeSaveSlot.value;
+    const gameStateStore = useGameStateStore();
 
     if (!active || !profile || !slot?.存档数据) {
       debug.warn('角色商店', '[同步] 没有激活的存档数据');
@@ -711,9 +712,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
     const active = rootState.value.当前激活存档;
     const profile = activeCharacterProfile.value;
     const slot = activeSaveSlot.value;
+    const gameStateStore = useGameStateStore();
 
     if (!active || !profile || !slot) {
-      debug.warn('角色商店', '没有激活的存档，无法从 IndexedDB 同步数据');
+      debug.warn('角色商店', '当前没有激活的存档，跳过同步/保存');
       return;
     }
 
@@ -871,6 +873,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     const active = rootState.value.当前激活存档;
     const profile = activeCharacterProfile.value;
     const slot = activeSaveSlot.value;
+    const gameStateStore = useGameStateStore();
 
     if (!active || !profile || !slot || !updatedSaveData) {
       debug.warn('角色商店', '[直接更新] 缺少必要参数，跳过更新');
@@ -917,13 +920,20 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * [核心改造] 保存当前游戏进度到激活的存档槽
    * 使用分片加载替代完整SaveData
    */
-  const saveCurrentGame = async () => {
+  const saveCurrentGame = async (options?: { notifyIfNoActive?: boolean }) => {
+    if (!initialized.value) {
+      await initializeStore();
+    }
     const active = rootState.value.当前激活存档;
     const profile = activeCharacterProfile.value;
     const slot = activeSaveSlot.value;
+    const gameStateStore = useGameStateStore();
 
     if (!active || !profile || !slot) {
-      toast.error('没有激活的存档，无法保存！');
+      if (options?.notifyIfNoActive && gameStateStore.isGameLoaded) {
+        toast.error('没有激活的存档，无法保存！', { id: 'save-no-active' });
+      }
+      debug.warn('角色商店', '当前没有激活的存档，跳过保存');
       return;
     }
 
@@ -936,7 +946,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[10] 当前激活存档:', { 角色ID: active.角色ID, 存档槽位: active.存档槽位 })
 
       // 1. 从 gameStateStore 获取最新、最完整的游戏状态
-      const gameStateStore = useGameStateStore();
       const currentSaveData = gameStateStore.toSaveData();
 
       if (!currentSaveData) {
@@ -1045,10 +1054,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[角色商店-删除存档] 删除的是当前激活存档，清理酒馆环境');
       try {
         await clearAllCharacterData();
-        toast.info('当前存档已激活，同步清理酒馆环境变量。');
+        toast.info(isTavernEnv() ? '当前存档已激活，同步清理酒馆环境变量。' : '当前存档已激活，已清理环境变量。');
       } catch (error) {
         debug.error('角色商店', '删除激活存档时清理酒馆数据失败', error);
-        toast.error('清理酒馆环境变量失败，建议刷新页面。');
+        toast.error(isTavernEnv() ? '清理酒馆环境变量失败，建议刷新页面。' : '清理环境变量失败，建议刷新页面。');
       }
       rootState.value.当前激活存档 = null;
     }
@@ -1555,7 +1564,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       await clearAllCharacterData();
       rootState.value.当前激活存档 = null;
       await commitMetadataToStorage();
-      toast.success('已成功退出游戏，酒馆环境已重置。');
+      toast.success(isTavernEnv() ? '已成功退出游戏，酒馆环境已重置。' : '已成功退出游戏。');
     } catch (error) {
       debug.error('角色商店', '退出游戏会话失败', error);
       toast.error('退出游戏失败，建议刷新页面以确保环境纯净。');
@@ -2245,3 +2254,5 @@ return {
   loadCharacterSaves, // 新增：按需加载存档
 };
 });
+
+

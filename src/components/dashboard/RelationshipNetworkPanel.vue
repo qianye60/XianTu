@@ -92,7 +92,7 @@
                     <button @click="downloadCharacterData" class="action-btn download-btn" title="下载完整人物数据">
                       <Download :size="16" />
                     </button>
-                    <button @click="exportToWorldBook" class="action-btn export-btn" title="导出到世界书（不含记忆）">
+                    <button v-if="isTavernEnvFlag" @click="exportToWorldBook" class="action-btn export-btn" title="导出到世界书（不含记忆）">
                       <BookOpen :size="16" />
                     </button>
                     <button v-if="selectedPerson" @click.stop="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
@@ -226,135 +226,31 @@
                 </div>
                 </div>
 
-                <!-- Tab 3: 私密资料 (NSFW) -->
-                <div v-show="activeTab === 'nsfw'" class="tab-panel" v-if="selectedPerson.私密信息">
-                <div class="detail-section nsfw-section">
-                  <h5 class="section-title">🔞 私密信息</h5>
+                <!-- Tab: 私密信息（仅酒馆环境） -->
+                <div v-if="isTavernEnvFlag" v-show="activeTab === 'nsfw'" class="tab-panel">
+                  <div class="detail-section">
+                    <h5 class="section-title">🔞 私密信息</h5>
 
-                  <!-- 性欲与状态 -->
-                  <div class="nsfw-subsection">
-                    <h6 class="subsection-title">状态与欲望</h6>
-                    <div class="info-grid">
-                      <div class="info-item"><span class="info-label">性状态</span><span class="info-value status-badge" :class="'status-' + selectedPerson.私密信息.当前性状态">{{ selectedPerson.私密信息.当前性状态 }}</span></div>
-                      <div class="info-item">
-                        <span class="info-label">性渴望</span>
-                        <span class="info-value">{{ selectedPerson.私密信息.性渴望程度 || 0 }}%</span>
-                      </div>
+                    <div v-if="!nsfwEnabled" class="bottomline-empty">
+                      成人内容未启用（可在设置面板开启）
                     </div>
-                    <div class="dev-bar-item" style="margin-top: 0.5rem;">
-                      <div class="dev-bar-track">
-                        <div class="dev-bar-fill desire-fill" :style="{ width: (selectedPerson.私密信息.性渴望程度 || 0) + '%' }"></div>
-                      </div>
-                    </div>
-                  </div>
 
-                  <!-- 基础信息 -->
-                  <div class="nsfw-subsection">
-                    <h6 class="subsection-title">基础信息</h6>
-                    <div class="info-grid">
-                      <div class="info-item">
-                        <span class="info-label">贞洁</span>
-                        <span class="info-value">
-                          {{ selectedPerson.性别 === '女' || selectedPerson.性别 === '其他'
-                            ? (selectedPerson.私密信息.是否为处女 ? '✓ 处女' : '✗ 非处')
-                            : (selectedPerson.私密信息.是否为处女 ? '✓ 处男' : '✗ 非处') }}
-                        </span>
-                      </div>
-                      <div class="info-item"><span class="info-label">性格倾向</span><span class="info-value">{{ selectedPerson.私密信息.性格倾向 || '未知' }}</span></div>
-                      <div class="info-item"><span class="info-label">性取向</span><span class="info-value">{{ selectedPerson.私密信息.性取向 || '异性恋' }}</span></div>
+                    <div v-else-if="selectedPerson?.私密信息" class="info-grid-responsive">
+                      <div class="info-item-row"><span class="info-label">是否为处女</span><span class="info-value">{{ selectedPerson.私密信息.是否为处女 ? '是' : '否' }}</span></div>
+                      <div class="info-item-row"><span class="info-label">性渴望程度</span><span class="info-value">{{ selectedPerson.私密信息.性渴望程度 }}</span></div>
+                      <div class="info-item-row"><span class="info-label">当前性状态</span><span class="info-value">{{ selectedPerson.私密信息.当前性状态 }}</span></div>
+                      <div class="info-item-row"><span class="info-label">体液分泌状态</span><span class="info-value">{{ selectedPerson.私密信息.体液分泌状态 }}</span></div>
+                      <div class="info-item-row"><span class="info-label">性交总次数</span><span class="info-value">{{ selectedPerson.私密信息.性交总次数 }}</span></div>
+                      <div class="info-item-row"><span class="info-label">特殊体质</span><span class="info-value">{{ (selectedPerson.私密信息.特殊体质 || []).join('、') || '无' }}</span></div>
                     </div>
-                    <!-- 性伴侣名单 -->
-                    <div v-if="selectedPerson.私密信息.性伴侣名单?.length" class="partner-list">
-                      <div class="mini-label">性伴侣名单 ({{ selectedPerson.私密信息.性伴侣名单?.length || 0 }}人)</div>
-                      <div class="talents-grid">
-                        <span v-for="(partner, index) in [...new Set(selectedPerson.私密信息.性伴侣名单)]" :key="index" class="partner-tag">{{ partner }}</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <!-- 性经验统计 -->
-                  <div class="nsfw-subsection">
-                    <h6 class="subsection-title">性经验统计</h6>
-                    <div class="experience-grid">
-                      <div class="exp-item">
-                        <div class="exp-icon">💕</div>
-                        <div class="exp-content">
-                          <div class="exp-label">性交总次数</div>
-                          <div class="exp-value">{{ selectedPerson.私密信息.性交总次数 || 0 }}次</div>
-                        </div>
-                      </div>
-                      <div class="exp-item">
-                        <div class="exp-icon">👥</div>
-                        <div class="exp-content">
-                          <div class="exp-label">性伴侣数量</div>
-                          <div class="exp-value">{{ selectedPerson.私密信息.性伴侣名单?.length || 0 }}人</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div v-if="(selectedPerson.私密信息.性交总次数 || 0) > 0 && selectedPerson.私密信息.最近一次性行为时间" class="last-time-info">
-                      <span class="last-time-label">最近一次：</span>
-                      <span class="last-time-value">{{ selectedPerson.私密信息.最近一次性行为时间 }}</span>
-                    </div>
-                  </div>
-
-                  <!-- 身体部位开发 -->
-                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.身体部位?.length">
-                    <h6 class="subsection-title">身体部位开发</h6>
-                    <div class="body-parts-list">
-                      <div v-for="part in filteredBodyParts" :key="part.部位名称" class="body-part-item">
-                        <div class="part-header">
-                          <span class="part-name">{{ part.部位名称 }}</span>
-                          <span v-if="part.特殊印记 && part.特殊印记 !== '无'" class="part-mark">{{ part.特殊印记 }}</span>
-                        </div>
-                        <div v-if="part.特征描述" class="part-description">{{ part.特征描述 }}</div>
-                        <div class="part-stats">
-                          <div class="part-stat">
-                            <span class="stat-label">敏感度</span>
-                            <div class="stat-bar-mini">
-                              <div class="stat-bar-fill sensitivity" :style="{ width: (part.敏感度 || 0) + '%' }"></div>
-                            </div>
-                            <span class="stat-value">{{ part.敏感度 || 0 }}%</span>
-                          </div>
-                          <div class="part-stat">
-                            <span class="stat-label">开发度</span>
-                            <div class="stat-bar-mini">
-                              <div class="stat-bar-fill development" :style="{ width: (part.开发度 || 0) + '%' }"></div>
-                            </div>
-                            <span class="stat-value">{{ part.开发度 || 0 }}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-
-                  <!-- 体液状态 -->
-                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.体液分泌状态">
-                    <h6 class="subsection-title">体液状态</h6>
-                    <div class="fluid-status">💧 {{ selectedPerson.私密信息.体液分泌状态 }}</div>
-                  </div>
-
-                  <!-- 性癖好与体质 -->
-                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.性癖好?.length || selectedPerson.私密信息.特殊体质?.length">
-                    <h6 class="subsection-title">癖好与体质</h6>
-                    <div v-if="selectedPerson.私密信息.性癖好?.length" style="margin-bottom: 0.75rem;">
-                      <div class="mini-label">性癖好</div>
-                      <div class="talents-grid">
-                        <span v-for="fetish in selectedPerson.私密信息.性癖好" :key="fetish" class="fetish-tag">{{ fetish }}</span>
-                      </div>
-                    </div>
-                    <div v-if="selectedPerson.私密信息.特殊体质?.length">
-                      <div class="mini-label">特殊体质</div>
-                      <div class="talents-grid">
-                        <span v-for="trait in selectedPerson.私密信息.特殊体质" :key="trait" class="special-trait-tag">{{ trait }}</span>
-                      </div>
+                    <div v-else class="bottomline-empty">
+                      暂无私密信息（等待AI生成）
                     </div>
                   </div>
                 </div>
 
-                </div>
-
-                <!-- Tab 4: 记忆档案 -->
+                <!-- Tab 3: 记忆档案 -->
                 <div v-show="activeTab === 'memory'" class="tab-panel">
 
                 <!-- 详细记忆区域 -->
@@ -516,6 +412,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
+import { isTavernEnv } from '@/utils/tavern';
 import { cloneDeep } from 'lodash';
 import type { SaveData } from '@/types/game';
 
@@ -544,6 +441,7 @@ function extractEssentialDataForNPCSummary(saveData: SaveData | null): SaveData 
 
 // 🔥 新架构：从 gameStateStore 获取数据
 const gameStateStore = useGameStateStore();
+const isTavernEnvFlag = isTavernEnv();
 const { t } = useI18n();
 const characterData = computed(() => gameStateStore.getCurrentSaveData());
 const actionQueue = useActionQueueStore();
@@ -554,6 +452,17 @@ const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
 const isDetailViewActive = ref(false); // 用于移动端视图切换
 
+const nsfwEnabled = computed(() => {
+  try {
+    const raw = localStorage.getItem('dad_game_settings');
+    if (!raw) return true;
+    const parsed = JSON.parse(raw) as { enableNsfwMode?: boolean };
+    return parsed.enableNsfwMode !== false;
+  } catch {
+    return true;
+  }
+});
+
 // Tab管理
 const activeTab = ref('basic');
 const tabs = computed(() => {
@@ -562,9 +471,8 @@ const tabs = computed(() => {
     { id: 'status', label: '实时状态', icon: '💭' },
   ];
 
-  // 如果有NSFW信息，添加私密资料tab
-  if (selectedPerson.value?.私密信息) {
-    baseTabs.push({ id: 'nsfw', label: '私密资料', icon: '🔞' });
+  if (isTavernEnvFlag) {
+    baseTabs.push({ id: 'nsfw', label: '私密信息', icon: '🔞' });
   }
 
   // 添加记忆档案tab
@@ -577,13 +485,6 @@ const tabs = computed(() => {
   baseTabs.push({ id: 'raw', label: '原始数据(JSON)', icon: '🔧' });
 
   return baseTabs;
-});
-
-const filteredBodyParts = computed(() => {
-  if (!selectedPerson.value?.私密信息?.身体部位) {
-    return [];
-  }
-  return selectedPerson.value.私密信息.身体部位.filter(part => part);
 });
 
 // 记忆总结状态
@@ -1370,7 +1271,7 @@ const exportToWorldBook = async () => {
     // 获取或创建聊天世界书
     const tavernHelper = (await import('@/utils/tavern')).getTavernHelper();
     if (!tavernHelper) {
-      uiStore.showToast('酒馆助手未初始化', { type: 'error' });
+      uiStore.showToast(isTavernEnvFlag ? '酒馆助手未初始化' : '当前环境不可用', { type: 'error' });
       return;
     }
 
@@ -1434,58 +1335,6 @@ const exportToWorldBook = async () => {
     entryContent += `\n**当前状态（实时）**\n`;
     if (npc.当前外貌状态) entryContent += `- 外貌状态：${npc.当前外貌状态}\n`;
     if (npc.当前内心想法) entryContent += `- 内心想法：${npc.当前内心想法}\n`;
-
-    // 私密信息（NSFW）
-    if (npc.私密信息) {
-      const privacy = npc.私密信息;
-      entryContent += `\n**私密信息**\n`;
-
-      // 状态与欲望
-      if (privacy.当前性状态) entryContent += `- 性状态：${privacy.当前性状态}\n`;
-      if (privacy.性渴望程度 !== undefined) entryContent += `- 性渴望：${privacy.性渴望程度}/100\n`;
-      if (privacy.是否为处女 !== undefined) {
-        const virginStatus = npc.性别 === '男' ? (privacy.是否为处女 ? '处男' : '非处') : (privacy.是否为处女 ? '处女' : '非处');
-        entryContent += `- 贞洁：${virginStatus}\n`;
-      }
-
-      // 性格倾向
-      if (privacy.性格倾向) entryContent += `- 性格倾向：${privacy.性格倾向}\n`;
-      if (privacy.性取向) entryContent += `- 性取向：${privacy.性取向}\n`;
-
-      // 性伴侣名单
-      if (privacy.性伴侣名单 && Array.isArray(privacy.性伴侣名单) && privacy.性伴侣名单.length > 0) {
-        entryContent += `- 性伴侣名单：${privacy.性伴侣名单.join('、')}\n`;
-      }
-
-      // 性经验统计
-      if (privacy.性交总次数 !== undefined) entryContent += `- 性交总次数：${privacy.性交总次数}次\n`;
-      if (privacy.性伴侣名单) entryContent += `- 性伴侣数量：${privacy.性伴侣名单.length}人\n`;
-      if (privacy.最近一次性行为时间) entryContent += `- 最近一次：${privacy.最近一次性行为时间}\n`;
-
-      // 身体部位开发
-      if (privacy.身体部位 && Array.isArray(privacy.身体部位) && privacy.身体部位.length > 0) {
-        entryContent += `\n**身体部位开发**\n`;
-        privacy.身体部位.forEach(part => {
-          if (!part) return;
-          entryContent += `- ${part.部位名称}：\n`;
-          if (part.特殊印记) entryContent += `  - 特殊标记：${part.特殊印记}\n`;
-          if (part.特征描述) entryContent += `  - 特征描述：${part.特征描述}\n`;
-          if (part.敏感度 !== undefined) entryContent += `  - 敏感度：${part.敏感度}/100\n`;
-          if (part.开发度 !== undefined) entryContent += `  - 开发度：${part.开发度}/100\n`;
-        });
-      }
-
-      // 体液状态
-      if (privacy.体液分泌状态) entryContent += `\n**体液状态**\n${privacy.体液分泌状态}\n`;
-
-      // 癖好与体质
-      if (privacy.性癖好 && Array.isArray(privacy.性癖好) && privacy.性癖好.length > 0) {
-        entryContent += `\n**性癖好**\n${privacy.性癖好.map(p => `- ${p}`).join('\n')}\n`;
-      }
-      if (privacy.特殊体质 && Array.isArray(privacy.特殊体质) && privacy.特殊体质.length > 0) {
-        entryContent += `\n**特殊体质**\n${privacy.特殊体质.map(c => `- ${c}`).join('\n')}\n`;
-      }
-    }
 
     // 背包物品
     if (npc.背包?.物品 && Object.keys(npc.背包.物品).length > 0) {

@@ -364,27 +364,10 @@ export class EnhancedWorldGenerator {
 
   /**
    * 执行自定义校验
+   * 注意：不再检查数量，AI生成多少就是多少
    */
   private performCustomValidation(worldInfo: WorldInfo, result: ValidationResult): void {
-    // 检查势力数量
-    if (worldInfo.势力信息.length !== this.config.factionCount) {
-      result.errors.push({
-        path: '势力信息',
-        message: `势力数量不正确，期望${this.config.factionCount}个，实际${worldInfo.势力信息.length}个`,
-        expected: this.config.factionCount,
-        received: worldInfo.势力信息.length
-      });
-    }
-
-    // 检查地点数量
-    if (worldInfo.地点信息.length !== this.config.locationCount) {
-      result.errors.push({
-        path: '地点信息',
-        message: `地点数量不正确，期望${this.config.locationCount}个，实际${worldInfo.地点信息.length}个`,
-        expected: this.config.locationCount,
-        received: worldInfo.地点信息.length
-      });
-    }
+    // 势力数量和地点数量不再检查，AI生成多少都接受
 
     // 检查势力等级分布
     const levelCounts = worldInfo.势力信息.reduce((counts: Record<string, number>, faction) => {

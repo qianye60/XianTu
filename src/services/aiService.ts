@@ -78,6 +78,10 @@ class AIService {
     this.loadConfig();
   }
 
+  private syncModeWithEnvironment() {
+    this.config.mode = this.isTavernEnvironment() ? 'tavern' : 'custom';
+  }
+
   private loadConfig() {
     try {
       const saved = localStorage.getItem('ai_service_config');
@@ -85,7 +89,12 @@ class AIService {
         const parsed = JSON.parse(saved);
         this.config = { ...this.config, ...parsed };
         console.log('[AI服务] 配置已加载:', this.config.mode);
+        // 强制按运行环境选择默认模式：酒馆=酒馆API，非酒馆=自定义API
+        this.syncModeWithEnvironment();
+        return;
       }
+      // 没有保存配置时：酒馆默认用酒馆模式，网页版默认用自定义API
+      this.syncModeWithEnvironment();
     } catch (e) {
       console.error('[AI服务] 加载配置失败:', e);
     }
@@ -93,6 +102,8 @@ class AIService {
 
   saveConfig(config: Partial<AIConfig>) {
     this.config = { ...this.config, ...config };
+    // 强制按运行环境选择默认模式：酒馆=酒馆API，非酒馆=自定义API
+    this.syncModeWithEnvironment();
     // 自动清理自定义API URL末尾的 /v1 和 / 后缀
     if (this.config.customAPI?.url) {
       this.config.customAPI.url = this.config.customAPI.url
@@ -132,6 +143,7 @@ class AIService {
    * 标准生成（带角色卡、聊天历史）
    */
   async generate(options: GenerateOptions): Promise<string> {
+    this.syncModeWithEnvironment();
     console.log(`[AI服务] 调用generate，模式: ${this.config.mode}`);
 
     if (this.config.mode === 'tavern') {
@@ -145,6 +157,7 @@ class AIService {
    * 纯净生成（不带角色卡）
    */
   async generateRaw(options: GenerateOptions): Promise<string> {
+    this.syncModeWithEnvironment();
     console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}`);
 
     if (this.config.mode === 'tavern') {
@@ -158,7 +171,9 @@ class AIService {
   private async generateWithTavern(options: GenerateOptions): Promise<string> {
     const tavernHelper = this.getTavernHelper();
     if (!tavernHelper) {
-      throw new Error('酒馆环境不可用，请切换到自定义API模式或在SillyTavern中打开');
+      throw new Error(this.isTavernEnvironment()
+        ? '酒馆环境不可用，请切换到自定义API模式或在SillyTavern中打开'
+        : '当前环境不可用，请切换到自定义API模式');
     }
 
     console.log('[AI服务-酒馆] 调用tavernHelper.generate');
@@ -168,7 +183,9 @@ class AIService {
   private async generateRawWithTavern(options: GenerateOptions): Promise<string> {
     const tavernHelper = this.getTavernHelper();
     if (!tavernHelper) {
-      throw new Error('酒馆环境不可用，请切换到自定义API模式或在SillyTavern中打开');
+      throw new Error(this.isTavernEnvironment()
+        ? '酒馆环境不可用，请切换到自定义API模式或在SillyTavern中打开'
+        : '当前环境不可用，请切换到自定义API模式');
     }
 
     console.log('[AI服务-酒馆] 调用tavernHelper.generateRaw');
@@ -177,10 +194,25 @@ class AIService {
   }
 
   private getTavernHelper(): any {
-    if (typeof window !== 'undefined' && (window as any).TavernHelper) {
+    if (typeof window === 'undefined') return null;
+    if ((window as any).TavernHelper) {
       return (window as any).TavernHelper;
     }
+    try {
+      if (window.parent && (window.parent as any).TavernHelper) {
+        return (window.parent as any).TavernHelper;
+      }
+      if (window.top && (window.top as any).TavernHelper) {
+        return (window.top as any).TavernHelper;
+      }
+    } catch {
+      return null;
+    }
     return null;
+  }
+
+  private isTavernEnvironment(): boolean {
+    return !!this.getTavernHelper();
   }
 
   // ============ 自定义API模式实现 ============
@@ -651,7 +683,9 @@ class AIService {
       if (!tavernHelper) {
         return {
           available: false,
-          message: '酒馆环境不可用。请在SillyTavern中打开，或切换到自定义API模式。'
+          message: this.isTavernEnvironment()
+            ? '酒馆环境不可用。请在SillyTavern中打开，或切换到自定义API模式。'
+            : '当前环境不可用，请切换到自定义API模式。'
         };
       }
       return { available: true, message: '酒馆模式已就绪' };

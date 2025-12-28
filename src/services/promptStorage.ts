@@ -67,7 +67,7 @@ class PromptStorage {
         key,
         name: defaults[key].name,
         content: currentContent,
-        modified: saved?.modified && saved?.content !== defaults[key].content,
+        modified: !!saved && saved.content !== defaults[key].content,
         default: defaults[key].content,
         category: defaults[key].category,
         description: defaults[key].description,

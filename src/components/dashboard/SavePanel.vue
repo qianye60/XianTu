@@ -404,7 +404,7 @@ const quickSave = async () => {
 
   loading.value = true;
   try {
-    await characterStore.saveCurrentGame();
+    await characterStore.saveCurrentGame({ notifyIfNoActive: true });
     toast.success('快速存档完成');
   } catch (error) {
     debug.error('存档面板', '快速存档失败', error);
@@ -432,7 +432,7 @@ const createNewSave = async () => {
   loading.value = true;
   try {
     // 先保存当前数据
-    await characterStore.saveCurrentGame();
+    await characterStore.saveCurrentGame({ notifyIfNoActive: true });
 
     // 再另存为新存档
     const newSlotId = await characterStore.saveAsNewSlot(saveName.trim());
@@ -465,7 +465,7 @@ const overwriteSave = async (save: SaveSlot) => {
       loading.value = true;
       try {
         // 先保存当前数据
-        await characterStore.saveCurrentGame();
+        await characterStore.saveCurrentGame({ notifyIfNoActive: true });
 
         // 覆盖指定存档
         await characterStore.saveToSlot(save.存档名);

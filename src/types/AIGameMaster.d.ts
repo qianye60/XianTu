@@ -217,6 +217,6 @@ export interface GM_Response {
   };
   stateChanges?: import('./game').StateChangeLog;
   system_messages?: string[];
-  /** 行动选项 */
-  action_options?: string[];
+  /** 行动选项（必填，3-5个选项） */
+  action_options: string[];
 }

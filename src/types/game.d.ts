@@ -811,7 +811,7 @@ export interface GameMessage {
   content: string;
   time: string;
   stateChanges?: StateChangeLog; // 状态变更记录
-  actionOptions?: string[]; // 行动选项
+  actionOptions: string[]; // 行动选项（必填）
   metadata?: {
     commands?: any[];
   };

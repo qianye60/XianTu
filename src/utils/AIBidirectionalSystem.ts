@@ -241,8 +241,10 @@ ${stateJsonString}
         position: 'in_chat',
       });
 
-      // 🔥 [流式传输修复]
-      const useStreaming = options?.useStreaming !== false;
+      // 🔥 [流式传输修复] 优先使用配置中的streaming设置
+      const { aiService } = await import('@/services/aiService');
+      const aiConfig = aiService.getConfig();
+      const useStreaming = options?.useStreaming ?? aiConfig.streaming ?? true;
 
       let response: string;
       if (tavernHelper) {
@@ -325,6 +327,18 @@ ${stateJsonString}
           }
         }
 
+        // 🔥 确保 action_options 不为空
+        if (!extractedActionOptions || extractedActionOptions.length === 0) {
+          console.warn('[AI双向系统] ⚠️ 容错模式：action_options为空，使用默认选项');
+          extractedActionOptions = [
+            '继续当前活动',
+            '观察周围环境',
+            '与附近的人交谈',
+            '查看自身状态',
+            '稍作休息调整'
+          ];
+        }
+
         gmResponse = {
           text: extractedText,
           mid_term_memory: extractedMemory,
@@ -345,7 +359,12 @@ ${stateJsonString}
       }
     } catch (error) {
       console.error('[AI双向系统] AI生成失败:', error);
-      gmResponse = { text: '（AI生成失败）', mid_term_memory: '', tavern_commands: [] };
+      gmResponse = {
+        text: '（AI生成失败）',
+        mid_term_memory: '',
+        tavern_commands: [],
+        action_options: ['重试当前操作', '查看自身状态', '稍作休息']
+      };
     }
 
     // 3. 执行AI指令
@@ -381,7 +400,10 @@ ${stateJsonString}
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
     let gmResponse: GM_Response;
     try {
-      const useStreaming = options?.useStreaming !== false; // 默认启用流式传输
+      // 🔥 [流式传输修复] 优先使用配置中的streaming设置
+      const { aiService } = await import('@/services/aiService');
+      const aiConfig = aiService.getConfig();
+      const useStreaming = options?.useStreaming ?? aiConfig.streaming ?? true;
       const generateMode = options?.generateMode || 'generate'; // 默认使用 generate 模式
 
       let response: string;
@@ -509,12 +531,36 @@ ${stateJsonString}
           }
         }
 
+        // 🔥 初始消息也需要 action_options
+        let extractedActionOptions: string[] = [];
+        // 尝试从已解析的JSON中提取
+        try {
+          const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+          if (jsonBlockMatch && jsonBlockMatch[1]) {
+            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+            extractedActionOptions = jsonObj.action_options || [];
+          }
+        } catch { /* 忽略 */ }
+
+        // 确保不为空
+        if (!extractedActionOptions || extractedActionOptions.length === 0) {
+          console.warn('[AI双向系统] ⚠️ 初始消息：action_options为空，使用默认选项');
+          extractedActionOptions = [
+            '四处走动熟悉环境',
+            '查看自身状态',
+            '与附近的人交谈',
+            '寻找修炼之地',
+            '打听周围消息'
+          ];
+        }
+
         gmResponse = {
           text: extractedText,
           mid_term_memory: extractedMemory,
-          tavern_commands: extractedCommands
+          tavern_commands: extractedCommands,
+          action_options: extractedActionOptions
         };
-        console.warn('[AI双向系统] 使用容错模式提取初始消息 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length);
+        console.warn('[AI双向系统] 使用容错模式提取初始消息 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
       }
 
       if (!gmResponse || !gmResponse.text) {
@@ -1250,11 +1296,103 @@ ${saveDataJson}`;
     console.log('[parseAIResponse] 原始响应长度:', rawText.length);
     console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
 
-    // 🔥 检测是否有多个JSON对象
-    const jsonCount = (rawText.match(/\{[\s\S]*?"text"[\s\S]*?:/g) || []).length;
-    if (jsonCount > 1) {
-      console.warn(`[parseAIResponse] ⚠️ 检测到 ${jsonCount} 个JSON对象，将只使用第一个`);
+    // ==================== 新标签格式解析 ====================
+    // 尝试解析新的标签格式：<narrative>, <memory>, <commands>, <options>
+    const parseTagFormat = (text: string): GM_Response | null => {
+      // 提取 <narrative> 标签内容
+      const narrativeMatch = text.match(/<narrative>([\s\S]*?)<\/narrative>/i);
+      // 提取 <memory> 标签内容
+      const memoryMatch = text.match(/<memory>([\s\S]*?)<\/memory>/i);
+      // 提取 <commands> 标签内容
+      const commandsMatch = text.match(/<commands>([\s\S]*?)<\/commands>/i);
+      // 提取 <options> 标签内容
+      const optionsMatch = text.match(/<options>([\s\S]*?)<\/options>/i);
+
+      // 至少需要 narrative 标签才认为是标签格式
+      if (!narrativeMatch) {
+        return null;
+      }
+
+      console.log('[parseAIResponse] ✅ 检测到标签格式');
+
+      const narrative = narrativeMatch[1].trim();
+      const memory = memoryMatch ? memoryMatch[1].trim() : '';
+
+      // 解析 commands：每行一条，格式 操作|路径|值
+      const tavernCommands: Array<{action: "set" | "add" | "delete" | "push" | "pull"; key: string; value: any}> = [];
+      if (commandsMatch) {
+        const commandLines = commandsMatch[1].trim().split('\n');
+        for (const line of commandLines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith('[') || trimmedLine.startsWith('#')) continue;
+
+          // 格式：操作|路径|值
+          const parts = trimmedLine.split('|');
+          if (parts.length >= 2) {
+            const actionStr = parts[0].trim().toLowerCase();
+            const key = parts[1].trim();
+            let value: any = parts.slice(2).join('|').trim(); // 值可能包含 |
+
+            // 尝试解析值为JSON（对象或数组）
+            if (value.startsWith('{') || value.startsWith('[')) {
+              try {
+                value = JSON.parse(value);
+              } catch {
+                // 保持字符串格式
+              }
+            } else if (value === 'true') {
+              value = true;
+            } else if (value === 'false') {
+              value = false;
+            } else if (!isNaN(Number(value)) && value !== '') {
+              value = Number(value);
+            }
+
+            if (['set', 'add', 'push', 'delete', 'pull'].includes(actionStr)) {
+              tavernCommands.push({ action: actionStr as "set" | "add" | "delete" | "push" | "pull", key, value });
+            }
+          }
+        }
+        console.log(`[parseAIResponse] 解析到 ${tavernCommands.length} 条指令`);
+      }
+
+      // 解析 options：每行一个选项
+      let actionOptions: string[] = [];
+      if (optionsMatch) {
+        const optionLines = optionsMatch[1].trim().split('\n');
+        actionOptions = optionLines
+          .map(line => line.trim())
+          .filter(line => line && !line.startsWith('[') && !line.startsWith('#') && line.length > 2);
+      }
+
+      // 确保选项不为空
+      if (actionOptions.length === 0) {
+        console.warn('[parseAIResponse] ⚠️ options为空，使用默认选项');
+        actionOptions = [
+          '继续当前活动',
+          '观察周围环境',
+          '与附近的人交谈',
+          '查看自身状态',
+          '稍作休息调整'
+        ];
+      }
+
+      return {
+        text: narrative,
+        mid_term_memory: memory,
+        tavern_commands: tavernCommands,
+        action_options: actionOptions
+      };
+    };
+
+    // 优先尝试标签格式
+    const tagResult = parseTagFormat(rawText);
+    if (tagResult) {
+      return tagResult;
     }
+
+    // ==================== 旧JSON格式解析（兼容） ====================
+    console.log('[parseAIResponse] 标签格式未匹配，尝试JSON格式');
 
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {
@@ -1269,22 +1407,39 @@ ${saveDataJson}`;
                       Array.isArray(obj.指令) ? obj.指令 :
                       Array.isArray(obj.commands) ? obj.commands : [];
 
-      // 🔥 修复：将简化命令格式转换为完整的 TavernCommand 格式
       const tavernCommands = commands.map((cmd: any) => ({
         action: cmd.action || 'set',
         key: cmd.key || '',
         value: cmd.value
       }));
 
+      let actionOptions = Array.isArray(obj.action_options) ? obj.action_options :
+                          Array.isArray(obj.行动选项) ? obj.行动选项 : [];
+
+      actionOptions = actionOptions.filter((opt: unknown) =>
+        typeof opt === 'string' && opt.trim().length > 0
+      );
+
+      if (actionOptions.length === 0) {
+        console.warn('[parseAIResponse] ⚠️ action_options为空，使用默认选项');
+        actionOptions = [
+          '继续当前活动',
+          '观察周围环境',
+          '与附近的人交谈',
+          '查看自身状态',
+          '稍作休息调整'
+        ];
+      }
+
       return {
         text: String(obj.text || obj.叙事文本 || obj.narrative || ''),
         mid_term_memory: String(obj.mid_term_memory || obj.中期记忆 || obj.memory || ''),
         tavern_commands: tavernCommands,
-        action_options: Array.isArray(obj.action_options) ? obj.action_options : []
+        action_options: actionOptions
       };
     };
 
-    // 尝试直接解析
+    // 尝试直接解析JSON
     let parsedObj = tryParse(rawText);
     if (parsedObj) return standardize(parsedObj);
 
@@ -1295,8 +1450,7 @@ ${saveDataJson}`;
       if (parsedObj) return standardize(parsedObj);
     }
 
-    // 🔥 修复：提取第一个完整的JSON对象（防止AI返回多个重复的JSON）
-    // 使用更精确的方法：逐字符解析，匹配括号平衡
+    // 提取第一个完整的JSON对象
     const extractFirstJSON = (text: string): string | null => {
       const startIndex = text.indexOf('{');
       if (startIndex === -1) return null;
@@ -1346,7 +1500,7 @@ ${saveDataJson}`;
       }
     }
 
-    throw new Error('无法解析AI响应为有效的JSON格式');
+    throw new Error('无法解析AI响应：未找到有效的标签格式或JSON格式');
   }
 }
 

@@ -36,7 +36,7 @@
                     <p>世界信息.势力信息存在: {{ !!gameStateStore.worldInfo?.势力信息 }}</p>
                     <p>世界信息.势力信息数量: {{ gameStateStore.worldInfo?.势力信息?.length || 0 }}</p>
                     <p>筛选后数量: {{ filteredSects.length }}</p>
-                    <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    <button v-if="isTavernEnvFlag" @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
                       从酒馆同步数据
                     </button>
                     <button @click="forceRefresh" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
@@ -418,6 +418,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useI18n } from '@/i18n';
+import { isTavernEnv } from '@/utils/tavern';
 import type { WorldFaction, SectMemberInfo, WorldInfo } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
@@ -430,6 +431,7 @@ import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataVali
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
 const { t } = useI18n();
+const isTavernEnvFlag = isTavernEnv();
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');

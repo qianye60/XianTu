@@ -362,6 +362,7 @@ import { Settings } from 'lucide-vue-next';
 import { useI18n } from '@/i18n';
 import { panelBus } from '@/utils/panelBus';
 import { useCharacterStore } from '@/stores/characterStore';
+import { isTavernEnv } from '@/utils/tavern';
 import { useGameStateStore } from '@/stores/gameStateStore'; // 导入 gameStateStore
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
@@ -390,6 +391,7 @@ interface Memory {
 }
 
 const characterStore = useCharacterStore();
+const isTavernEnvFlag = isTavernEnv();
 const gameStateStore = useGameStateStore(); // 实例化 gameStateStore
 const { t } = useI18n();
 // const saveData = computed(() => characterStore.activeSaveSlot?.存档数据); // [已废弃]
@@ -679,7 +681,9 @@ const uiStore = useUIStore();
 const clearMemory = async () => {
   uiStore.showRetryDialog({
     title: t('清空记忆'),
-    message: t('确定要清空所有记忆吗？此操作不可撤销，同时会清空酒馆数据。'),
+    message: isTavernEnvFlag
+      ? t('确定要清空所有记忆吗？此操作不可撤销，同时会清空酒馆数据。')
+      : '确定要清空所有记忆吗？此操作不可撤销。',
     confirmText: t('确认清空'),
     cancelText: t('取消'),
     onConfirm: async () => {
@@ -699,7 +703,7 @@ const clearMemory = async () => {
         // 保存变更
         await characterStore.saveCurrentGame();
 
-        toast.success(t('记忆已清空并同步到酒馆'));
+        toast.success(isTavernEnvFlag ? t('记忆已清空并同步到酒馆') : '记忆已清空');
       } catch (error) {
         console.error('[记忆中心] 清理记忆失败:', error);
         toast.error(t('清空记忆失败，请重试'));

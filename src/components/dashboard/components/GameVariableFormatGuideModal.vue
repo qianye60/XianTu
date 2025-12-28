@@ -307,13 +307,15 @@
 import { ref } from 'vue'
 import { BookOpen, X, Copy } from 'lucide-vue-next'
 import { toast } from '@/utils/toast'
-import { SAVE_DATA_STRUCTURE } from '@/utils/prompts/definitions/dataDefinitions'
+import { getSaveDataStructureForEnv } from '@/utils/prompts/definitions/dataDefinitions'
+import { isTavernEnv } from '@/utils/tavern'
 
 defineEmits<{
   close: []
 }>()
 
 const activeSection = ref('character')
+const saveDataStructure = getSaveDataStructureForEnv(isTavernEnv())
 
 const sections = [
   { id: 'character', title: '角色信息' },
@@ -334,7 +336,7 @@ const scrollToSection = (sectionId: string) => {
 
 const copyAllFormats = async () => {
   try {
-    await navigator.clipboard.writeText(SAVE_DATA_STRUCTURE)
+    await navigator.clipboard.writeText(saveDataStructure)
     toast.success('已复制完整数据格式说明')
   } catch (error) {
     console.error('复制失败:', error)

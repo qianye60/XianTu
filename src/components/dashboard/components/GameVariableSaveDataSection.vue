@@ -27,6 +27,7 @@
 import { Archive } from 'lucide-vue-next'
 import { defineAsyncComponent } from 'vue'
 import { useCharacterStore } from '@/stores/characterStore'
+import { useGameStateStore } from '@/stores/gameStateStore'
 import { toast } from '@/utils/toast'
 import { debug } from '@/utils/debug'
 
@@ -42,6 +43,7 @@ defineProps<Props>()
 const emit = defineEmits(['edit-variable'])
 
 const characterStore = useCharacterStore()
+const gameStateStore = useGameStateStore()
 
 const handleEditItem = (path: string, value: unknown) => {
   emit('edit-variable', {
@@ -62,14 +64,14 @@ const handleDeleteItem = async (path: string) => {
     // 我们需要将其转换为 lodash.set 的路径格式
     const pathArray = path.split('.')
 
-    // 获取当前激活的存档数据
-    const activeSave = characterStore.activeSaveSlot
-    if (!activeSave || !activeSave.存档数据) {
+    // 从 gameStateStore 获取当前存档数据（而非 activeSaveSlot，因为那个可能没有存档数据）
+    const currentSaveData = gameStateStore.getCurrentSaveData()
+    if (!currentSaveData) {
       throw new Error('没有激活的存档数据')
     }
 
     // 创建一个深拷贝以进行修改
-    const saveDataCopy = JSON.parse(JSON.stringify(activeSave.存档数据))
+    const saveDataCopy = JSON.parse(JSON.stringify(currentSaveData))
 
     // 使用动态方式删除嵌套对象中的属性
     let current = saveDataCopy
@@ -83,6 +85,9 @@ const handleDeleteItem = async (path: string) => {
 
     // 直接用修改后的数据更新整个存档
     await characterStore.updateSaveDataDirectly(saveDataCopy)
+
+    // 同步更新 gameStateStore
+    gameStateStore.loadFromSaveData(saveDataCopy)
 
     toast.success(`项目 ${path} 已删除`)
     debug.log('[TavernSaveData]', `成功删除并同步: ${path}`)
