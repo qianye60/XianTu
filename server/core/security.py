@@ -5,6 +5,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from passlib.exc import UnknownHashError
 
+from server.core import config
+
 # --- 密码哈希 ---
 # 使用 bcrypt 算法，这是目前非常安全的选择
 # Accept multiple legacy schemes to smooth migrations
@@ -20,11 +22,9 @@ pwd_context = CryptContext(
 )
 
 # --- JWT 令牌设置 ---
-# !! 警告: 这个密钥在生产环境中必须替换为一个真正的、随机生成的、保密的字符串 !!
-# !! 可以通过 `openssl rand -hex 32` 命令生成
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10080 # 令牌有效期 (7天)
+SECRET_KEY = config.settings.SECRET_KEY
+ALGORITHM = config.settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = config.settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """验证明文密码与哈希密码是否匹配。若哈希不可识别，返回 False 而非抛错。"""

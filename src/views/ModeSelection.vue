@@ -66,28 +66,10 @@
       </div>
     </div>
 
-    <!-- 右下角授权状态 -->
-    <div class="auth-status-badge" v-if="AUTH_CONFIG.ENABLE_AUTH">
-      <div class="auth-status-content" @click="handleAuthClick">
-        <span v-if="isAuthorized" class="status-icon verified">✓</span>
-        <span v-else class="status-icon unverified">✗</span>
-        <span class="status-text">{{ isAuthorized ? $t('已授权') : $t('未授权') }}</span>
-      </div>
-    </div>
-
     <!-- 右下角设置按钮 -->
     <button class="floating-settings-btn" @click="showSettings = true" :title="$t('设置')">
       <Settings :size="22" />
     </button>
-
-    <!-- 授权验证弹窗 -->
-    <AuthVerificationModal
-      v-if="AUTH_CONFIG.ENABLE_AUTH"
-      v-model:visible="showAuthModal"
-      :server-url="AUTH_CONFIG.SERVER_URL"
-      @verified="handleAuthVerified"
-      @cancel="handleAuthCancel"
-    />
 
     <!-- 设置模态框 -->
     <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
@@ -110,24 +92,13 @@
 import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
-import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
 import { Settings, X, Sparkles, History, User, Users } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
-import { AUTH_CONFIG } from '@/config/authConfig';
-import { toast } from '@/utils/toast';
-import { generateMachineCode } from '@/utils/machineCode';
 import { isTavernEnv } from '@/utils/tavern';
 
 const showSettings = ref(false);
-const showAuthModal = ref(false);
 const selectedMode = ref<'single' | 'cloud' | null>(null);
 const isTavernEnvFlag = ref(isTavernEnv());
-
-const isAuthorized = ref(localStorage.getItem('auth_verified') === 'true');
-
-const checkAuthStatus = () => {
-  isAuthorized.value = localStorage.getItem('auth_verified') === 'true';
-};
 
 onMounted(async () => {
   // SillyTavern 可能在页面加载后才注入 TavernHelper，这里短暂轮询以避免误判为“非酒馆环境”
@@ -138,84 +109,6 @@ onMounted(async () => {
       clearInterval(poll);
     }
   }, 200);
-
-  checkAuthStatus();
-
-  if (AUTH_CONFIG.ENABLE_AUTH) {
-    console.log('[ModeSelection] 页面刷新，开始自动验证');
-
-    (async () => {
-      try {
-        let machineCode = localStorage.getItem('auth_machine_code');
-        if (!machineCode) {
-          machineCode = await generateMachineCode();
-          localStorage.setItem('auth_machine_code', machineCode);
-        }
-
-        console.log('[ModeSelection] 使用机器码自动验证:', machineCode);
-
-        const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'check',
-            app_id: AUTH_CONFIG.APP_ID,
-            machine_code: machineCode
-          })
-        });
-
-        if (!response.ok) {
-          console.warn('[ModeSelection] 服务器错误，清除本地授权');
-          localStorage.removeItem('auth_verified');
-          localStorage.removeItem('auth_app_id');
-          localStorage.removeItem('auth_machine_code');
-          localStorage.removeItem('auth_expires_at');
-          checkAuthStatus();
-
-          setTimeout(() => {
-            showAuthModal.value = true;
-            toast.warning('授权验证失败，请重新验证');
-          }, 500);
-          return;
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.data?.authorized) {
-          console.log('[ModeSelection] 自动验证成功');
-          localStorage.setItem('auth_verified', 'true');
-          localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
-          localStorage.setItem('auth_machine_code', machineCode);
-          localStorage.setItem('auth_expires_at', result.data.expires_at || '');
-          checkAuthStatus();
-        } else {
-          console.warn('[ModeSelection] 自动验证失败，授权无效');
-          localStorage.removeItem('auth_verified');
-          localStorage.removeItem('auth_app_id');
-          localStorage.removeItem('auth_machine_code');
-          localStorage.removeItem('auth_expires_at');
-          checkAuthStatus();
-
-          setTimeout(() => {
-            showAuthModal.value = true;
-            toast.warning('授权验证失败，请输入兑换码');
-          }, 500);
-        }
-      } catch (error) {
-        console.warn('[ModeSelection] 网络错误，清除本地授权:', error);
-        localStorage.removeItem('auth_verified');
-        localStorage.removeItem('auth_app_id');
-        localStorage.removeItem('auth_machine_code');
-        localStorage.removeItem('auth_expires_at');
-        checkAuthStatus();
-
-        setTimeout(() => {
-          showAuthModal.value = true;
-          toast.error('网络错误，请检查连接后重试');
-        }, 500);
-      }
-    })();
-  }
 });
 
 const emit = defineEmits<{
@@ -246,96 +139,13 @@ const selectPath = (mode: 'single' | 'cloud') => {
 };
 
 const startNewGame = () => {
-  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
-    showAuthModal.value = true;
-    toast.warning('请先完成授权验证');
-    return;
-  }
-
   if (selectedMode.value) {
     emit('start-creation', selectedMode.value);
   }
 };
 
 const enterCharacterSelection = async () => {
-  if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
-    showAuthModal.value = true;
-    toast.warning('请先完成授权验证');
-    return;
-  }
-
   emit('show-character-list');
-};
-
-const handleAuthClick = () => {
-  if (isAuthorized.value) {
-    const appId = localStorage.getItem('auth_app_id') || '未知';
-    const expiresAt = localStorage.getItem('auth_expires_at') || '未知';
-    uiStore.showRetryDialog({
-      title: '授权信息',
-      message: `应用ID: ${appId}\n过期时间: ${expiresAt}\n\n点击"解绑授权"将从服务器删除授权记录`,
-      confirmText: '解绑授权',
-      cancelText: '关闭',
-      onConfirm: async () => {
-        try {
-          const machineCode = localStorage.getItem('auth_machine_code');
-          if (!machineCode) {
-            toast.error('未找到机器码');
-            return;
-          }
-          const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'unbind',
-              app_id: AUTH_CONFIG.APP_ID,
-              machine_code: machineCode
-            })
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            localStorage.removeItem('auth_verified');
-            localStorage.removeItem('auth_app_id');
-            localStorage.removeItem('auth_machine_code');
-            localStorage.removeItem('auth_expires_at');
-            toast.success('授权已解绑');
-            checkAuthStatus();
-          } else {
-            if (result.message && result.message.includes('No matching authorization')) {
-              localStorage.removeItem('auth_verified');
-              localStorage.removeItem('auth_app_id');
-              localStorage.removeItem('auth_machine_code');
-              localStorage.removeItem('auth_expires_at');
-              toast.info('本地授权状态已清除（服务器无记录）');
-              checkAuthStatus();
-            } else {
-              toast.error(`解绑失败: ${result.message}`);
-            }
-          }
-        } catch (error) {
-          console.error('[解绑授权] 请求失败', error);
-          toast.error('解绑失败，请检查网络连接');
-        }
-      },
-      onCancel: () => {}
-    });
-  } else {
-    showAuthModal.value = true;
-  }
-};
-
-const handleAuthVerified = async (data: any) => {
-  console.log('[授权验证] 兑换成功', data);
-  checkAuthStatus();
-  toast.success('授权验证成功！');
-  showAuthModal.value = false;
-};
-
-const handleAuthCancel = () => {
-  console.log('[授权验证] 用户取消验证');
-  showAuthModal.value = false;
 };
 </script>
 

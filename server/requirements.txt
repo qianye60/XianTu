@@ -1,4 +1,13 @@
 fastapi
 uvicorn[standard]
-PyMySQL
+tortoise-orm
+aerich
+aiosqlite
+aiomysql
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic
+pydantic-settings
+python-multipart
+httpx
 requests

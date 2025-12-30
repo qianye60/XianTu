@@ -14,7 +14,7 @@ class TokenData(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
-    turnstile_token: str
+    turnstile_token: Optional[str] = None
 
 class TokenPayload(BaseModel):
     sub: str
@@ -33,7 +33,7 @@ class PlayerAccountCreate(BaseModel):
     password: str
 
 class PlayerAccountCreateWithTurnstile(PlayerAccountCreate):
-    turnstile_token: str
+    turnstile_token: Optional[str] = None
 
 class PlayerAccountUpdate(BaseModel):
     user_name: Optional[str] = None

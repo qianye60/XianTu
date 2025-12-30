@@ -21,12 +21,13 @@ const FullscreenCharacterManagement = {
       router.push('/game');
     };
 
-    return () => h(CharacterManagement, {
-      fullscreen: true,
-      onClose: handleClose,
-      onCharacterSelected: handleCharacterSelected
-    });
-  }
+    return () =>
+      h(CharacterManagement, {
+        fullscreen: true,
+        onClose: handleClose,
+        onCharacterSelected: handleCharacterSelected,
+      });
+  },
 };
 
 // 静态导入所有组件，避免代码分割
@@ -154,37 +155,6 @@ const routes = [
 const router = createRouter({
   history: createMemoryHistory(),
   routes,
-});
-
-// 全局路由守卫 - 授权验证（简化版：只检查本地状态）
-router.beforeEach(async (to, from, next) => {
-  // 动态导入配置以避免循环依赖
-  const { AUTH_CONFIG } = await import('@/config/authConfig');
-
-  // 如果启用了授权验证
-  if (AUTH_CONFIG.ENABLE_AUTH) {
-    const authVerified = localStorage.getItem('auth_verified');
-
-    // 🔴 简化逻辑：只检查本地是否已授权，不再频繁验证
-    if (authVerified === 'true') {
-      // 本地已授权，直接放行
-      console.log('[路由守卫] 本地已授权，直接放行');
-      next();
-      return;
-    }
-
-    // 如果本地没有授权标记，且不是首页，跳转到首页
-    if (to.path !== '/') {
-      console.log('[路由守卫] 无授权标记，跳转首页');
-      next('/');
-    } else {
-      next();
-    }
-    return;
-  }
-
-  // 允许通过
-  next();
 });
 
 export default router;

@@ -1,13 +1,24 @@
 {
-  "name": "-",
-  "version": "0.0.0",
+  "name": "dadao-chaotian",
+  "version": "3.6.5",
+  "description": "AI驱动的沉浸式修仙文字冒险游戏（SillyTavern / 自定义API，Vue3 + TypeScript）",
   "private": true,
   "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://www.ddct.top/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qianye60/dadao-chaotian.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qianye60/dadao-chaotian/issues"
+  },
   "scripts": {
     "build": "webpack --mode production",
     "watch": "webpack --mode development --watch",
     "serve": "webpack-dev-server --mode development",
     "lint": "eslint . --ext .ts,.vue --fix",
+    "lint:check": "eslint . --ext .ts,.vue",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

@@ -7,6 +7,11 @@
     <meta name="keywords" content="大道朝天,修仙游戏,AI游戏,文字游戏,修仙世界,思维链AI">
     <meta name="author" content="大道朝天开发团队">
     <title>大道朝天 - AI驱动的修仙世界 | 官方网站</title>
+    <meta name="theme-color" content="#0a0e23">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="大道朝天 - AI驱动的修仙世界">
+    <meta property="og:description" content="AI驱动的沉浸式修仙文字冒险游戏：动态生成剧情、NPC互动与世界事件。">
+    <meta property="og:url" content="https://www.ddct.top/">
     <!-- 引入Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入Inter字体 (一个优雅的无衬线字体) -->
@@ -220,10 +225,11 @@
 
         <!-- 导航栏 -->
         <nav class="sticky-nav sticky top-0 z-50 w-full" role="navigation" aria-label="主导航">
-            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-                <div class="text-3xl font-black text-gradient">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center gap-4">
+                <a href="#home" class="text-3xl font-black text-gradient focus:outline-none focus:ring-2 focus:ring-amber-300/60 rounded-lg px-2 py-1">
                     大道朝天
-                </div>
+                </a>
+
                 <div class="hidden md:flex space-x-8 text-lg text-white/90">
                     <a href="#home" class="hover:text-amber-300 transition-colors">首页</a>
                     <a href="#about" class="hover:text-amber-300 transition-colors">世界观</a>
@@ -231,10 +237,17 @@
                     <a href="#gallery" class="hover:text-amber-300 transition-colors">道途一瞥</a>
                     <a href="#news" class="hover:text-amber-300 transition-colors">更新日志</a>
                 </div>
-                <div class="flex items-center gap-4">
-                    <a href="https://www.ddct.top" class="hidden sm:block px-6 py-2 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
+
+                <div class="flex items-center gap-3">
+                    <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="hidden sm:flex items-center gap-2 px-5 py-2 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-base font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20" aria-label="前往 GitHub 开源仓库（新窗口打开）">
+                        <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                        GitHub
+                    </a>
+
+                    <a href="https://www.ddct.top" target="_blank" rel="noopener noreferrer" class="hidden sm:block px-6 py-2 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
                         开始修行
                     </a>
+
                     <button class="hamburger" aria-label="菜单" onclick="toggleMobileMenu()">
                         <span></span>
                         <span></span>
@@ -251,7 +264,10 @@
             <a href="#features" onclick="toggleMobileMenu()">核心特色</a>
             <a href="#gallery" onclick="toggleMobileMenu()">道途一瞥</a>
             <a href="#news" onclick="toggleMobileMenu()">更新日志</a>
-            <a href="index.html" class="px-8 py-3 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm">
+            <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="px-8 py-3 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300">
+                前往 GitHub
+            </a>
+            <a href="https://www.ddct.top" target="_blank" rel="noopener noreferrer" class="px-8 py-3 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300">
                 开始修行
             </a>
         </div>
@@ -271,7 +287,11 @@
                     了解核心特色
                 </a>
                 <a href="#news" class="px-8 sm:px-10 py-3 sm:py-4 bg-white/10 text-white border-2 border-white/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
-                    查看V3.6.5更新
+                    查看更新日志
+                </a>
+                <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="px-8 sm:px-10 py-3 sm:py-4 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20 flex items-center justify-center gap-2" aria-label="前往 GitHub 开源仓库（新窗口打开）">
+                    <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                    GitHub 开源
                 </a>
             </div>
         </header>
@@ -718,6 +738,9 @@
         <footer class="text-center p-8 sm:p-20 text-blue-200 opacity-60 mt-12 sm:mt-20 space-y-3 sm:space-y-4 border-t border-white/10">
             <p class="text-sm sm:text-base">凡是过往，皆为序章。 | 道阻且长，行则将至。</p>
             <p class="text-sm sm:text-base">星光不问赶路人，岁月不负有心人。</p>
+            <p class="text-sm sm:text-base">
+                <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="underline hover:text-amber-200 transition-colors">GitHub：qianye60/dadao-chaotian</a>
+            </p>
             <p class="text-xs sm:text-sm mt-4">© 2025 大道朝天. 版权所有.</p>
         </footer>
 
@@ -744,6 +767,7 @@
         let canvasWidth = window.innerWidth;
         let canvasHeight = window.innerHeight;
         let animationId;
+        const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         function resizeCanvas() {
             canvasWidth = window.innerWidth;
@@ -763,12 +787,13 @@
                 const colors = ['#FFFFFF', '#F0E68C', '#ADD8E6'];
                 this.color = colors[Math.floor(Math.random() * colors.length)];
                 this.opacity = Math.random() * 0.5 + 0.2; // 粒子透明度
+                this.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${this.opacity})`;
             }
 
             draw() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${this.opacity})`;
+                ctx.fillStyle = this.fillStyle;
                 ctx.fill();
             }
 
@@ -800,6 +825,7 @@
 
         function initParticles() {
             particles = [];
+            if (prefersReducedMotion) return;
             // 根据屏幕大小调整粒子数量，移动端减少粒子
             const isMobile = window.innerWidth < 768;
             const particleCount = Math.floor((canvasWidth * canvasHeight) / (isMobile ? 20000 : 10000));
@@ -809,6 +835,7 @@
         }
 
         function animate() {
+            if (prefersReducedMotion) return;
             ctx.clearRect(0, 0, canvasWidth, canvasHeight);
             for (let particle of particles) {
                 particle.update();
@@ -856,10 +883,14 @@
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
+                    if (prefersReducedMotion) {
+                        target.scrollIntoView({ block: 'start' });
+                    } else {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
                 }
             });
         });
