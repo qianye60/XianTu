@@ -13,6 +13,14 @@ dist
 dist-ssr
 coverage
 *.local
+.env
+.env.*
+!.env.example
+.claude/
+*.sqlite3
+*.db
+backup/
+bug/
 
 /cypress/videos/
 /cypress/screenshots/
@@ -35,5 +43,3 @@ __pycache__/
 # Windows reserved device name accidentally created by tools
 nul
 NUL
-
-index.html

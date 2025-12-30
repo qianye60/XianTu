@@ -150,7 +150,6 @@ import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
-import { authService } from '@/services/authService';
 
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
@@ -319,7 +318,6 @@ onMounted(async () => {
   window.addEventListener('resize', checkDeviceAndSetup);
 
   // 🔴 启动游戏内定期授权验证（每30分钟验证一次）
-  authService.startPeriodicVerification();
 });
 
 // 组件卸载时清理
@@ -327,7 +325,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', checkDeviceAndSetup);
 
   // 🔴 停止定期授权验证
-  authService.stopPeriodicVerification();
 });
 
 // 监听面板状态变化，智能调整布局

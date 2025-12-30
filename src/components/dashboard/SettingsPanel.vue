@@ -524,13 +524,6 @@
       </div>
     </div>
 
-    <!-- 授权验证弹窗（由开发者在配置文件中控制） -->
-    <AuthVerificationModal
-      v-model:visible="showAuthModal"
-      :server-url="settings.authServerUrl"
-      @verified="handleAuthVerified"
-      @cancel="handleAuthCancel"
-    />
   </div>
 </template>
 
@@ -539,9 +532,7 @@ import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { Save, RotateCcw, Trash2, Download, Upload, FileText, RefreshCw } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
-import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
 import { useI18n } from '@/i18n';
-import { AUTH_CONFIG } from '@/config/authConfig';
 import { aiService } from '@/services/aiService';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -685,27 +676,10 @@ const settings = reactive({
   // 数据同步
   validateData: true,
   backupBeforeSave: true,
-
-  // 授权验证设置（用户不可见）
-  authServerUrl: 'http://38.55.124.252:12300', // 授权服务器地址
-  authAppId: 'v28_8542ec92' // 默认应用ID
 });
 
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
-
-// 授权验证相关状态
-const showAuthModal = ref(false);
-const authStatus = computed(() => {
-  const verified = localStorage.getItem('auth_verified') === 'true';
-  const appId = localStorage.getItem('auth_app_id') || '';
-  const expiresAt = localStorage.getItem('auth_expires_at') || '';
-  return {
-    verified,
-    appId,
-    expiresAt
-  };
-});
 
 // 监听所有设置变化
 watch(settings, () => {
@@ -1075,22 +1049,6 @@ const importSettings = () => {
   input.click();
 };
 
-// 授权验证相关方法
-const openAuthModal = () => {
-  showAuthModal.value = true;
-};
-
-const handleAuthVerified = (data: any) => {
-  debug.log('设置面板', '授权验证成功', data);
-  toast.success('授权验证成功');
-  showAuthModal.value = false;
-};
-
-const handleAuthCancel = () => {
-  debug.log('设置面板', '用户取消授权验证');
-  showAuthModal.value = false;
-};
-
 const openPromptManagement = () => {
   // 检查当前是否在游戏中（/game路由下）
   const currentPath = router.currentRoute.value.path;
@@ -1106,24 +1064,6 @@ const openPromptManagement = () => {
 import { useRouter } from 'vue-router';
 const router = useRouter();
 
-const clearAuthVerification = () => {
-  uiStore.showRetryDialog({
-    title: '清除授权验证',
-    message: '确定要清除当前的授权验证信息吗？清除后需要重新验证。',
-    confirmText: '确认清除',
-    cancelText: '取消',
-    onConfirm: () => {
-      localStorage.removeItem('auth_verified');
-      localStorage.removeItem('auth_app_id');
-      localStorage.removeItem('auth_machine_code');
-      localStorage.removeItem('auth_expires_at');
-      toast.success('授权验证信息已清除');
-      debug.log('设置面板', '授权验证信息已清除');
-    },
-    onCancel: () => {}
-  });
-};
-
 // 组件挂载时加载设置
 onMounted(() => {
   debug.log('设置面板', '组件已加载');
@@ -1133,15 +1073,6 @@ onMounted(() => {
   // applySettings(); // 移除此调用
 
   // 🔧 开发者控制：如果启用授权验证且未验证，自动弹出验证窗口
-  if (AUTH_CONFIG.ENABLE_AUTH && AUTH_CONFIG.AUTO_SHOW_ON_STARTUP) {
-    const isVerified = localStorage.getItem('auth_verified') === 'true';
-    if (!isVerified) {
-      setTimeout(() => {
-        showAuthModal.value = true;
-        toast.info('请先完成授权验证');
-      }, 1000);
-    }
-  }
 });
 </script>
 

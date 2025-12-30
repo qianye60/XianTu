@@ -20,9 +20,6 @@
           <input type="password" id="confirmPassword" v-model="confirmPassword" :placeholder="$t('请再次输入令牌')" required />
         </div>
 
-        <!-- Cloudflare Turnstile Widget -->
-        <div ref="turnstileContainer" class="form-group turnstile-container"></div>
-
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
@@ -49,23 +46,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref } from 'vue';
 import { toast } from '../utils/toast';
 import { request } from '../services/request';
-
-declare global {
-  interface Window {
-    turnstile: {
-      render: (container: HTMLElement, options: {
-        sitekey: string;
-        callback: (token: string) => void;
-        'expired-callback': () => void;
-      }) => string | undefined;
-      reset: (widgetId: string) => void;
-    };
-    onTurnstileLoad: () => void;
-  }
-}
 
 const props = defineProps<{
   onBack: () => void;
@@ -80,47 +63,6 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
 const isRegisterMode = ref(false);
-const turnstileToken = ref<string | null>(null);
-const turnstileContainer = ref<HTMLElement | null>(null);
-const turnstileWidgetId = ref<string | null>(null);
-const isDev = process.env.NODE_ENV === 'development';
-
-const renderTurnstile = () => {
-  if (turnstileContainer.value && window.turnstile) {
-    // 如果已有部件，先重置
-    if (turnstileWidgetId.value) {
-      window.turnstile.reset(turnstileWidgetId.value);
-    } else {
-      const widgetId = window.turnstile.render(turnstileContainer.value, {
-        sitekey: isDev ? '1x00000000000000000000AA' : '0x4AAAAAABsSt_IBcfz18lmt', // 开发环境使用测试密钥
-        callback: (token) => {
-          turnstileToken.value = token;
-        },
-        'expired-callback': () => {
-          turnstileToken.value = null;
-        },
-      });
-      turnstileWidgetId.value = widgetId || null;
-    }
-  }
-};
-
-onMounted(() => {
-  // Define the global callback
-  window.onTurnstileLoad = () => {
-    renderTurnstile();
-  };
-
-  // If the script is already loaded, render it immediately
-  if (window.turnstile) {
-    renderTurnstile();
-  }
-});
-
-onUnmounted(() => {
-  // Clean up the global callback
-  (window as any).onTurnstileLoad = undefined;
-});
 
 const toggleMode = () => {
   isRegisterMode.value = !isRegisterMode.value;
@@ -128,26 +70,12 @@ const toggleMode = () => {
   successMessage.value = null;
   password.value = '';
   confirmPassword.value = '';
-  turnstileToken.value = null;
-
-  // Reset the widget on mode toggle
-  nextTick(() => {
-     if (turnstileWidgetId.value && window.turnstile) {
-        window.turnstile.reset(turnstileWidgetId.value);
-     }
-  });
 };
 
 const handleRegister = async () => {
   if (isLoading.value) return; // 防止重复提交
   if (password.value !== confirmPassword.value) {
     error.value = '两次输入的令牌不一致！';
-    return;
-  }
-
-  if (!turnstileToken.value && !isDev) {
-    error.value = '请先完成人机验证。';
-    toast.error('请先完成人机验证。');
     return;
   }
 
@@ -161,7 +89,6 @@ const handleRegister = async () => {
       body: JSON.stringify({
         user_name: username.value,
         password: password.value,
-        turnstile_token: turnstileToken.value,
       }),
     });
 
@@ -191,12 +118,6 @@ const handleRegister = async () => {
 
 const handleLogin = async () => {
   if (isLoading.value) return; // 防止重复提交
-  if (!turnstileToken.value && !isDev) {
-    error.value = '请先完成人机验证。';
-    toast.error('请先完成人机验证。');
-    return;
-  }
-
   isLoading.value = true;
   error.value = null;
   successMessage.value = null;
@@ -205,7 +126,6 @@ const handleLogin = async () => {
     const body = {
       username: username.value,
       password: password.value,
-      turnstile_token: turnstileToken.value,
     };
 
     const data = await request<any>('/api/v1/auth/token', {
@@ -302,13 +222,6 @@ const handleLogin = async () => {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
-}
-
-.turnstile-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 1.5rem;
 }
 
 .error-message {

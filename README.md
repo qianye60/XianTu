@@ -1,210 +1,131 @@
-# 🌟 【大道朝天 V2.8】
+<p align="center">
+  <img src="https://img.shields.io/badge/大道朝天-AI修仙游戏-gold?style=for-the-badge" alt="大道朝天"/>
+</p>
 
-> 一款基于AI驱动的沉浸式修仙文字冒险游戏
+<h1 align="center">大道朝天</h1>
 
-[![Version](https://img.shields.io/badge/version-V2.8-blue.svg)](https://github.com/qianye60/dadao-chaotian)
-[![License](https://img.shields.io/badge/license-CC_BY--NC--ND_4.0-red.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-[![Vue](https://img.shields.io/badge/Vue-3.5-green.svg)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
+<p align="center">
+  <strong>AI 驱动的沉浸式修仙文字冒险游戏</strong>
+</p>
 
-## 📖 游戏简介
+<p align="center">
+  <a href="#功能概览">功能</a> •
+  <a href="#技术栈">技术栈</a> •
+  <a href="#快速开始">快速开始</a> •
+  <a href="#更新日志">更新日志</a> •
+  <a href="#许可证">许可证</a>
+</p>
 
-《大道朝天》是一款结合 **SillyTavern** 与 **Gemini AI** 的修仙世界冒险游戏，为玩家打造无限可能的修仙之旅。游戏采用先进的AI叙事技术，动态生成剧情、NPC互动和世界事件，每一次游玩都是独一无二的体验。
+<p align="center">
+  <img src="https://img.shields.io/badge/Vue-3-4FC08D?style=flat-square&logo=vue.js&logoColor=white" alt="Vue 3"/>
+  <img src="https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Pinia-yellow?style=flat-square&logo=vue.js&logoColor=white" alt="Pinia"/>
+  <img src="https://img.shields.io/badge/Webpack-5-8DD6F9?style=flat-square&logo=webpack&logoColor=black" alt="Webpack"/>
+  <img src="https://img.shields.io/badge/Python-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/>
+</p>
 
-### ✨ 核心特色
+<p align="center">
+  <img src="https://img.shields.io/badge/AI-Gemini-4285F4?style=flat-square&logo=google&logoColor=white" alt="Gemini"/>
+  <img src="https://img.shields.io/badge/AI-Claude-orange?style=flat-square&logo=anthropic&logoColor=white" alt="Claude"/>
+  <img src="https://img.shields.io/badge/AI-OpenAI-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI"/>
+  <img src="https://img.shields.io/badge/SillyTavern-兼容-purple?style=flat-square" alt="SillyTavern"/>
+</p>
 
-- 🚀 **V2.8 全新特性**
-  - **开放性预设导入/导出** - 自由分享、定制你的修仙世界！
-  - **自定义开局 & 无限重Roll** - 随心所欲定制你的角色！
-  - **移动端完美适配** - 随时随地，掌上修仙！
-  - **AI剧情自动总结** - 轻松回顾冒险历程！
-  - **真·流式响应** - 体验如丝般顺滑的AI叙事！
-  - **18+成人内容模块 (可选)** - 探索更成熟的修仙世界！
-  - **多角色 & 多存档管理** - 开启不同的人生，体验多周目乐趣！
-- 🎲 **智能判定系统** - 根据境界、属性、装备、大道、功法等多维度计算判定结果
-- 🌟 **三千大道系统** - 探索修炼独特的修仙之道，感悟天地法则
-- 📖 **动态剧情生成** - AI实时生成个性化的修仙故事，千人千面
-- 💾 **智能存档管理** - 自动存档+上次对话备份，永不丢失进度
-- ⚔️ **深度RPG系统** - 境界突破、功法学习、装备炼制、NPC互动
-- 🗺️ **开放世界探索** - 自由探索朝天大陆，触发奇遇事件
-- 🎨 **精美修仙UI** - 仙侠风格界面，支持亮暗双主题
-- 💬 **格式化渲染** - 环境描写、心理活动、对话、判定结果分别渲染
+<p align="center">
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=qianye60.DaoDaoChaoTian&left_color=gray&right_color=blue" alt="visitors"/>
+  <img src="https://img.shields.io/github/stars/qianye60/DaoDaoChaoTian?style=flat-square&color=yellow" alt="stars"/>
+  <img src="https://img.shields.io/github/forks/qianye60/DaoDaoChaoTian?style=flat-square" alt="forks"/>
+  <img src="https://img.shields.io/github/license/qianye60/DaoDaoChaoTian?style=flat-square" alt="license"/>
+</p>
 
-## 🎮 游玩教程
+<p align="center">
+  <a href="https://qianye60.github.io/DaoDaoChaoTian/游戏介绍.html">📖 游戏介绍</a> •
+  <a href="https://www.ddct.top/">🎮 在线体验</a>
+</p>
 
-### 1️⃣ 下载酒馆助手 (JS-Slash-Runner)
+---
 
-**推荐指定安装 Ver `3.4.19` 版本**（这是开发环境版本，其他版本兼容性未测试）
+## ✨ 功能概览
 
-- **国内用户推荐**: [GitLab 下载](https://gitlab.com/novi028/JS-Slash-Runner) （无需科学上网）
-- **国外用户**: [GitHub 下载](https://github.com/N0VI028/JS-Slash-Runner)
+🤖 **AI 动态叙事** — 支持 Gemini / Claude / OpenAI / DeepSeek 等多种大模型，实时生成个性化剧情
 
-### 2️⃣ 使用推荐预设
+⚔️ **完整修仙体系** — 境界突破、三千大道、功法修炼、装备炼制、NPC 互动
 
-本游戏已调配好专用预设，预设中涉及内容的部分只有**写作助手**和**文风**。
+🎲 **智能判定系统** — 基于境界、属性、装备、功法等多维度计算判定结果
 
-> ⚠️ **重要提示**：如需更换预设，请注意以下事项：
->
-> - **禁止打开 COT（思维链）功能**，会导致游戏逻辑异常
-> - 只替换写作助手部分，其他配置请保持默认
-> - 文风可以根据个人喜好调整
+💾 **多存档管理** — 多角色、多存档槽位，支持导入导出与云同步
 
-### 3️⃣ 开始游戏
+🗺️ **开放世界** — 自由探索朝天大陆，触发奇遇事件，建立人物关系网络
 
-1. 启动 SillyTavern
-2. 加载游戏预设
-3. 进入游戏界面，创建角色
-4. 开始你的修仙之旅！
+📱 **全平台适配** — 完美支持桌面端与移动端，亮/暗双主题
 
-> 💡 **注意**：初始化生成时间较长属于正常现象，包含两个部分：
->
-> - 地图生成（构建修仙世界）
-> - 内容生成（角色背景故事）
+🍺 **酒馆兼容** — 支持 SillyTavern 嵌入式环境与独立网页版
 
-## 🎯 游戏功能
-
-### 🔄 存档系统
-
-- **自动存档** - 每次对话后自动保存，无需手动操作
-- **上次对话** - 自动备份上一次的游戏状态，可随时回退
-- **手动存档** - 支持另存为新存档，保留关键剧情节点
-- **多存档管理** - 最多支持10个存档槽位，多周目游玩
-
-### 🎲 判定系统
-
-游戏采用综合判定公式：
-
-```
-判定值 = 基础(先天+后天)
-       + 境界加成
-       + 修正(五行/环境/道心)
-       + 装备加成
-       + 功法加成
-       + 状态加成
-```
-
-判定场景包括：
-
-- 战斗对抗（攻击、闪避、防御）
-- 修炼突破（境界提升、功法领悟）
-- 社交互动（说服、谈判、魅力）
-- 探索发现（搜寻、感知、破解）
-- 炼丹炼器（制作成功率、品质判定）
-
-### 🌟 境界系统
-
-完整的修仙境界体系（10大境界 × 4个阶段）：
-
-| 境界 | 初期 | 中期 | 后期 | 圆满 |
-| ---- | ---- | ---- | ---- | ---- |
-| 凡人 | 0    | -    | -    | -    |
-| 练气 | 7    | 8    | 9    | 10   |
-| 筑基 | 12   | 13   | 14   | 15   |
-| 金丹 | 17   | 18   | 19   | 20   |
-| 元婴 | 22   | 23   | 24   | 25   |
-| 化神 | 27   | 28   | 29   | 30   |
-| 炼虚 | 32   | 33   | 34   | 35   |
-| 合体 | 37   | 38   | 39   | 40   |
-| 大乘 | 42   | 43   | 44   | 45   |
-| 渡劫 | 47   | 48   | 49   | 50   |
-
-### 💬 记忆系统
-
-- **短期记忆** - 记录最近的剧情发展
-- **中期记忆** - 保存关键事件和转折点
-- **长期记忆** - 永久保存重要人物和里程碑
-- **隐式记忆** - AI自动提取重要信息转入中期记忆
+---
 
 ## 🛠️ 技术栈
 
-- **前端框架**: Vue 3 + TypeScript
-- **状态管理**: Pinia
-- **AI引擎**: SillyTavern + Gemini API
-- **地图渲染**: OpenLayers
-- **UI组件**: Ant Design Vue + Lucide Icons
-- **构建工具**: Webpack 5
+| 前端 | 后端 | AI |
+|:---:|:---:|:---:|
+| Vue 3 + TypeScript | Python + FastAPI | Gemini API |
+| Pinia 状态管理 | SQLite / PostgreSQL | Claude API |
+| Vue Router | JWT 认证 | OpenAI API |
+| Webpack | WebSocket | SillyTavern |
+| Chart.js + Pixi.js | | DeepSeek |
+| IndexedDB | | |
 
-## 📦 本地开发
+---
 
-### 环境要求
+## 🚀 快速开始
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-
-### 安装依赖
+### 前端
 
 ```bash
+# 安装依赖
 npm install
-```
 
-### 开发模式
-
-```bash
+# 开发模式
 npm run serve
-```
 
-### 生产构建
-
-```bash
+# 生产构建
 npm run build
 ```
 
-### 类型检查
+### 后端（可选）
+
+后端用于提供账号/存档等 API，默认使用 SQLite，开箱即用。
 
 ```bash
-npm run type-check
+pip install -r server/requirements.txt
+uvicorn server.main:app --reload --port 12345
 ```
 
-## 🙏 致谢
+环境变量配置见 `server/.env.example`
 
-- **Storm** - 提供精美的视频背景素材
-- **小伙伴们** - 提供丰富的文风资料和测试反馈
-- **SillyTavern 社区** - 提供强大的AI对话框架
-- **Vue.js 团队** - 提供优秀的前端框架
+---
 
-## ⚖️ 版权声明
+## 📖 更新日志
 
-© 2025 千夜 版权所有
+查看完整更新历史：[CHANGELOG.md](./CHANGELOG.md)
 
-本作品采用 **CC BY-NC-ND 4.0** 协议授权
+---
 
-### ✅ 允许
+## 🤝 贡献
 
-- 个人免费使用、学习交流
-- 分享转发时须注明原作者
+欢迎提交 Issue 和 Pull Request！
 
-### ❌ 禁止
+详见 [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-- 商业用途（包括但不限于售卖、收费推广等）
-- 修改后重新发布
-- 移除或修改版权信息
+---
 
-⚠️ **违反上述条款将追究法律责任**
+## 📄 许可证
 
-## 👨‍💻 作者信息
+本项目采用 **非商业许可** 发布，详见 [LICENSE](./LICENSE)。
 
-**作者**: 千夜
-**GitHub**: [https://github.com/qianye60](https://github.com/qianye60)
+如需商用（包括但不限于：收费分发、付费服务、商业化集成、以盈利为目的的推广/运营），请联系作者获取书面商业授权。
 
-## 📝 更新日志
+---
 
-> 📜 **[点击此处查看完整的更新历史 (View Full Changelog)](./CHANGELOG.md)**
-
-### V2.8 (2025-10-29)
-
-#### ✨ 新增功能
-
-- **开放性预设导入/导出**：支持玩家自由分享、导入和导出包含世界观、文风、规则的完整游戏预设，开启社区创作时代。
-- **自定义开局**：玩家可以完全自定义角色的初始属性、背景和天赋。
-- **属性重Roll**：支持在角色创建时无限次重置属性点，打造完美开局。
-- **移动端适配**：全面优化UI和交互，完美适配手机、平板等移动设备。
-- **AI剧情自动总结**：AI能够自动总结关键剧情，方便玩家回顾。
-- **真·流式响应**：优化AI响应机制，剧情生成更快、更自然。
-- **18+成人内容模块**：为成熟玩家提供可选的深度内容。
-- **多角色与多存档**：支持创建和管理多个独立的角色及其存档。
-
-#### 🎨 界面与体验优化
-
-- **任务系统**：增加任务删除按钮，管理更便捷。
-- **开局流程**：删除了开局时无效的自定义选项，流程更顺畅。
-- **响应式布局**：提升移动端操作体验。
+<p align="center">
+  <sub>如果觉得有帮助，请给个 ⭐ Star 支持一下！</sub>
+</p>
