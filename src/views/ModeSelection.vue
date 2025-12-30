@@ -6,7 +6,7 @@
     <div class="selection-content">
       <div class="header-container">
         <div class="title-version-row">
-          <h1 class="main-title">大 道 朝 天</h1>
+          <h1 class="main-title">仙 途</h1>
           <span class="version-tag">V3.6.5 {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>

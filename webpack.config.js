@@ -21,7 +21,7 @@ export default (env, argv) => {
     entry: './src/main.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: isWatch ? 'inline.js' : (isProduction ? 'daodaochaotian.[contenthash:8].js' : 'daodaochaotian.js'),
+      filename: isWatch ? 'inline.js' : (isProduction ? 'XianTu.[contenthash:8].js' : 'XianTu.js'),
       clean: true,
       publicPath: './', // 使用相对路径，便于部署
     },

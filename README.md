@@ -2,7 +2,7 @@
   <img src="https://ddct.top/XianTu.png">
 </p>
 
-<h1 align="center">仙途</h1>
+<h1 align="center">仙途（Xian Tu）</h1>
 
 <p align="center">
   <strong>AI 驱动的沉浸式修仙文字冒险游戏</strong>
@@ -32,14 +32,14 @@
 </p>
 
 <p align="center">
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=qianye60.DaoDaoChaoTian&left_color=gray&right_color=blue" alt="visitors"/>
-  <img src="https://img.shields.io/github/stars/qianye60/DaoDaoChaoTian?style=flat-square&color=yellow" alt="stars"/>
-  <img src="https://img.shields.io/github/forks/qianye60/DaoDaoChaoTian?style=flat-square" alt="forks"/>
-  <img src="https://img.shields.io/github/license/qianye60/DaoDaoChaoTian?style=flat-square" alt="license"/>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=qianye60.XianTu&left_color=gray&right_color=blue" alt="visitors"/>
+  <img src="https://img.shields.io/github/stars/qianye60/XianTu?style=flat-square&color=yellow" alt="stars"/>
+  <img src="https://img.shields.io/github/forks/qianye60/XianTu?style=flat-square" alt="forks"/>
+  <img src="https://img.shields.io/github/license/qianye60/XianTu?style=flat-square" alt="license"/>
 </p>
 
 <p align="center">
-  <a href="https://qianye60.github.io/DaoDaoChaoTian/游戏介绍.html">📖 游戏介绍</a> •
+  <a href="https://qianye60.github.io/XianTu/游戏介绍.html">📖 游戏介绍</a> •
   <a href="https://www.ddct.top/">🎮 在线体验</a>
 </p>
 

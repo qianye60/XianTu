@@ -146,6 +146,7 @@ import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { getCurrentCharacterName } from '../utils/tavern';
 import { useI18n } from '../i18n';
+import type { CharacterPreset } from '@/utils/presetManager';
 
 
 const props = defineProps<{
@@ -160,6 +161,13 @@ const { t } = useI18n();
 const isCodeModalVisible = ref(false)
 const isGenerating = ref(false) // This now primarily acts as a state guard for buttons
 const currentAIType = ref<'world' | 'talent_tier' | 'origin' | 'spirit_root' | 'talent'>('world')
+
+type PresetGender = NonNullable<CharacterPreset['data']['gender']>;
+
+function normalizeGender(value: unknown): CharacterPreset['data']['gender'] {
+  if (value === '男' || value === '女' || value === '其他') return value satisfies PresetGender;
+  return undefined;
+}
 
 onMounted(async () => {
   // 1. 初始化创世神殿（确保数据已加载）
@@ -544,26 +552,29 @@ function onDataCleared(type: string, count: number) {
 }
 
 // 处理存储预设完成事件
-async function onStoreCompleted(result: { success: boolean; message: string; presetData?: any }) {
+async function onStoreCompleted(result: { success: boolean; message: string; presetData?: { name?: unknown; description?: unknown } }) {
   console.log('[角色创建] 存储预设完成:', result);
   if (result.success && result.presetData) {
     try {
       const { savePreset } = await import('@/utils/presetManager');
       
+      const presetName = typeof result.presetData.name === 'string' ? result.presetData.name : '未命名预设';
+      const presetDescription = typeof result.presetData.description === 'string' ? result.presetData.description : '';
+
       // 构造预设数据
-      const presetData = {
-        name: result.presetData.name,
-        description: result.presetData.description,
+      const presetData: Omit<CharacterPreset, 'id' | 'savedAt'> = {
+        name: presetName,
+        description: presetDescription,
         data: {
           character_name: store.characterPayload.character_name,
-          gender: store.characterPayload.gender,       // 🔥 保存性别
-          race: store.characterPayload.race,           // 🔥 保存种族
+          gender: normalizeGender(store.characterPayload.gender),
+          race: store.characterPayload.race,
           current_age: store.characterPayload.current_age,
-          world: store.selectedWorld,
-          talentTier: store.selectedTalentTier,
-          origin: store.selectedOrigin,
-          spiritRoot: store.selectedSpiritRoot,
-          talents: store.selectedTalents,
+          world: store.selectedWorld ?? null,
+          talentTier: store.selectedTalentTier ?? null,
+          origin: store.selectedOrigin ?? null,
+          spiritRoot: store.selectedSpiritRoot ?? null,
+          talents: store.selectedTalents ?? [],
           baseAttributes: {
             root_bone: store.attributes.root_bone,
             spirituality: store.attributes.spirituality,
@@ -587,7 +598,7 @@ async function onStoreCompleted(result: { success: boolean; message: string; pre
 }
 
 // 处理加载预设完成事件
-async function onLoadCompleted(result: { success: boolean; message: string; presetData?: any }) {
+async function onLoadCompleted(result: { success: boolean; message: string; presetData?: CharacterPreset }) {
   console.log('[角色创建] 加载预设完成:', result);
   
   if (!result.success) {
