@@ -30,7 +30,7 @@
     "pinia": "^2.3.1",
     "pixi.js": "^7.4.3",
     "vue": "^3.5.18",
-    "vue-router": "^4.5.1",
+    "vue-router": "^4.6.4",
     "vue-tsc": "^3.1.1"
   },
   "devDependencies": {
