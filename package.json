@@ -36,7 +36,7 @@
   "devDependencies": {
     "@types/jquery": "^3.5.32",
     "@types/jqueryui": "^1.12.24",
-    "@types/lodash": "^4.17.20",
+    "@types/lodash": "^4.17.21",
     "@types/node": "^22.17.2",
     "@types/webpack-env": "^1.18.8",
     "@vue/compiler-sfc": "^3.5.18",
