@@ -1,18 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run build)",
-      "Bash(curl:*)"
+      "Bash(tree:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
-    "ask": [],
-    "defaultMode": "acceptEdits",
-    "additionalDirectories": [
-      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\character-creation",
-      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\components\\dashboard",
-      "c:\\Users\\15385\\Documents\\编程项目\\大道朝天",
-      "C:\\c\\Users\\15385\\Documents\\编程项目",
-      "C:\\d C:\\Users\\15385\\Documents\\编程项目"
-    ]
+    "ask": []
   }
 }

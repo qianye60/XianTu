@@ -35,3 +35,5 @@ __pycache__/
 # Windows reserved device name accidentally created by tools
 nul
 NUL
+
+index.html
