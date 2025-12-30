@@ -62,8 +62,8 @@ async def lifespan(app: FastAPI):
 
 # --- 应用与法阵初始化 ---
 app = FastAPI(
-    title="大道朝天 - 后端灵脉",
-    description="为大道朝天项目提供数据支持的核心API。",
+    title="仙途 - 后端灵脉",
+    description="为仙途项目提供数据支持的核心API。",
     version="3.0.0",
     lifespan=lifespan
 )

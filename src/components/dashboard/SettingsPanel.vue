@@ -71,7 +71,7 @@
                   step="5"
                   class="setting-range"
                   @input="applyUIScale"
-                >
+                />
                 <span class="range-value">{{ settings.uiScale }}%</span>
               </div>
             </div>
@@ -92,7 +92,7 @@
                   step="1"
                   class="setting-range"
                   @input="applyFontSize"
-                >
+                />
                 <span class="range-value">{{ settings.fontSize }}px</span>
               </div>
             </div>
@@ -106,7 +106,6 @@
           <h4 class="section-title">🎮 {{ t('游戏设置') }}</h4>
         </div>
         <div class="settings-list">
-
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('快速动画') }}</label>
@@ -114,7 +113,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.fastAnimations">
+                <input type="checkbox" v-model="settings.fastAnimations" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -127,12 +126,11 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.showHints">
+                <input type="checkbox" v-model="settings.showHints" />
                 <span class="switch-slider"></span>
               </label>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -163,7 +161,9 @@
           <div class="setting-item setting-item-full">
             <div class="setting-info">
               <label class="setting-name">{{ t('自定义任务提示词') }}</label>
-              <span class="setting-desc">{{ t('为AI任务生成添加自定义指令（可选，留空使用默认）') }}</span>
+              <span class="setting-desc">{{
+                t('为AI任务生成添加自定义指令（可选，留空使用默认）')
+              }}</span>
             </div>
             <div class="setting-control-full">
               <textarea
@@ -182,7 +182,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="uiStore.enableActionOptions">
+                <input type="checkbox" v-model="uiStore.enableActionOptions" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -191,7 +191,9 @@
           <div class="setting-item setting-item-full">
             <div class="setting-info">
               <label class="setting-name">{{ t('自定义行动选项提示词') }}</label>
-              <span class="setting-desc">{{ t('指导AI生成特定风格的行动选项（可选，留空使用默认）') }}</span>
+              <span class="setting-desc">{{
+                t('指导AI生成特定风格的行动选项（可选，留空使用默认）')
+              }}</span>
             </div>
             <div class="setting-control-full">
               <textarea
@@ -202,7 +204,6 @@
               ></textarea>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -218,14 +219,18 @@
               <label class="setting-name">{{ t('修改道号') }}</label>
               <span class="setting-desc">{{ t('修改当前角色的名字') }}</span>
             </div>
-            <div class="setting-control-full" style="display: flex; gap: 0.5rem;">
+            <div class="setting-control-full" style="display: flex; gap: 0.5rem">
               <input
                 v-model="newPlayerName"
                 class="form-input-inline"
                 :placeholder="currentPlayerName"
-                style="flex: 1;"
+                style="flex: 1"
+              />
+              <button
+                class="utility-btn primary"
+                @click="updatePlayerName"
+                :disabled="!newPlayerName || newPlayerName === currentPlayerName"
               >
-              <button class="utility-btn primary" @click="updatePlayerName" :disabled="!newPlayerName || newPlayerName === currentPlayerName">
                 <Save :size="16" />
                 {{ t('确认') }}
               </button>
@@ -235,7 +240,9 @@
           <div v-if="isTavernEnvFlag" class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('AI模式') }}</label>
-              <span class="setting-desc">当前为酒馆环境：默认使用酒馆API。非酒馆环境才需要配置自定义API。</span>
+              <span class="setting-desc"
+                >当前为酒馆环境：默认使用酒馆API。非酒馆环境才需要配置自定义API。</span
+              >
             </div>
           </div>
 
@@ -243,11 +250,13 @@
             <div class="setting-item">
               <div class="setting-info">
                 <label class="setting-name">{{ t('🔞 启用成人内容（私密信息）') }}</label>
-                <span class="setting-desc">{{ t('生成和显示NPC的私密信息模块（包含成人向内容，默认开启）') }}</span>
+                <span class="setting-desc">{{
+                  t('生成和显示NPC的私密信息模块（包含成人向内容，默认开启）')
+                }}</span>
               </div>
               <div class="setting-control">
                 <label class="setting-switch">
-                  <input type="checkbox" v-model="settings.enableNsfwMode">
+                  <input type="checkbox" v-model="settings.enableNsfwMode" />
                   <span class="switch-slider"></span>
                 </label>
               </div>
@@ -275,7 +284,11 @@
                 <span class="setting-desc">{{ t('选择AI服务提供商') }}</span>
               </div>
               <div class="setting-control">
-                <select v-model="aiConfig.customAPI.provider" class="setting-select" @change="onProviderChange">
+                <select
+                  v-model="aiConfig.customAPI.provider"
+                  class="setting-select"
+                  @change="onProviderChange"
+                >
                   <option value="openai">OpenAI</option>
                   <option value="claude">Claude</option>
                   <option value="gemini">Gemini</option>
@@ -288,14 +301,21 @@
             <div class="setting-item setting-item-full">
               <div class="setting-info">
                 <label class="setting-name">{{ t('API地址') }}</label>
-                <span class="setting-desc">{{ aiConfig.customAPI.provider === 'custom' ? t('OpenAI兼容的API端点') : t('可使用默认地址或自定义代理') }}</span>
+                <span class="setting-desc">{{
+                  aiConfig.customAPI.provider === 'custom'
+                    ? t('OpenAI兼容的API端点')
+                    : t('可使用默认地址或自定义代理')
+                }}</span>
               </div>
               <div class="setting-control-full">
                 <input
                   v-model="aiConfig.customAPI.url"
                   class="form-input-inline"
-                  :placeholder="API_PROVIDER_PRESETS[aiConfig.customAPI.provider]?.url || 'https://api.openai.com'"
-                >
+                  :placeholder="
+                    API_PROVIDER_PRESETS[aiConfig.customAPI.provider]?.url ||
+                    'https://api.openai.com'
+                  "
+                />
               </div>
             </div>
 
@@ -310,7 +330,7 @@
                   type="password"
                   class="form-input-inline"
                   placeholder="sk-..."
-                >
+                />
               </div>
             </div>
 
@@ -321,9 +341,16 @@
               </div>
               <div class="setting-control">
                 <select v-model="aiConfig.customAPI.model" class="setting-select">
-                  <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
+                  <option v-for="model in availableModels" :key="model" :value="model">
+                    {{ model }}
+                  </option>
                 </select>
-                <button class="utility-btn" @click="fetchModels" :disabled="isFetchingModels" style="margin-left: 0.5rem;">
+                <button
+                  class="utility-btn"
+                  @click="fetchModels"
+                  :disabled="isFetchingModels"
+                  style="margin-left: 0.5rem"
+                >
                   <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
                   {{ isFetchingModels ? t('获取中...') : t('获取') }}
                 </button>
@@ -344,7 +371,7 @@
                     max="2"
                     step="0.1"
                     class="setting-range"
-                  >
+                  />
                   <span class="range-value">{{ aiConfig.customAPI.temperature }}</span>
                 </div>
               </div>
@@ -363,7 +390,7 @@
                   placeholder="2000"
                   min="100"
                   max="8000"
-                >
+                />
               </div>
             </div>
           </template>
@@ -376,7 +403,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="aiConfig.streaming">
+                <input type="checkbox" v-model="aiConfig.streaming" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -407,7 +434,6 @@
               </select>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -424,7 +450,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.debugMode" @change="onSettingChange">
+                <input type="checkbox" v-model="settings.debugMode" @change="onSettingChange" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -437,7 +463,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.consoleDebug" @change="onSettingChange">
+                <input type="checkbox" v-model="settings.consoleDebug" @change="onSettingChange" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -450,7 +476,11 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.performanceMonitor" @change="onSettingChange">
+                <input
+                  type="checkbox"
+                  v-model="settings.performanceMonitor"
+                  @change="onSettingChange"
+                />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -459,11 +489,13 @@
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('使用系统CoT') }}</label>
-              <span class="setting-desc">{{ t('启用内置思维链提示词（关闭后使用预设中的CoT）') }}</span>
+              <span class="setting-desc">{{
+                t('启用内置思维链提示词（关闭后使用预设中的CoT）')
+              }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="uiStore.useSystemCot">
+                <input type="checkbox" v-model="uiStore.useSystemCot" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -523,7 +555,6 @@
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -829,15 +860,15 @@ const saveSettings = async () => {
 // 验证设置
 const validateSettings = () => {
   debug.group('设置验证');
-  
+
   try {
     // 验证UI缩放
     if (settings.uiScale < 50 || settings.uiScale > 200) {
       settings.uiScale = Math.max(50, Math.min(200, settings.uiScale));
       debug.warn('设置面板', `UI缩放值已修正为: ${settings.uiScale}%`);
     }
-    
-    
+
+
     debug.log('设置面板', '设置验证完成');
   } catch (error) {
     debug.error('设置面板', '设置验证失败', error);
@@ -850,23 +881,23 @@ const validateSettings = () => {
 // 应用设置
 const applySettings = async () => {
   debug.group('应用设置');
-  
+
   try {
     // 应用主题
     applyTheme();
-    
+
     // 应用UI缩放
     applyUIScale();
-    
+
     // 应用字体大小
     applyFontSize();
-    
+
     // 应用动画设置
     applyAnimationSettings();
-    
+
     // 应用调试模式
     debug.setMode(settings.debugMode);
-    
+
     debug.log('设置面板', '所有设置已应用');
   } catch (error) {
     debug.error('设置面板', '应用设置时出错', error);
@@ -879,11 +910,11 @@ const applySettings = async () => {
 // 应用主题
 const applyTheme = () => {
   let targetTheme = settings.theme;
-  
+
   if (settings.theme === 'auto') {
     targetTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  
+
   document.documentElement.setAttribute('data-theme', targetTheme);
   debug.log('设置面板', `主题已应用: ${targetTheme}`);
 };
@@ -977,7 +1008,7 @@ const clearCache = async () => {
 // 导出设置
 const exportSettings = () => {
   debug.log('设置面板', '开始导出设置');
-  
+
   try {
     const exportData = {
       settings: settings,
@@ -985,27 +1016,27 @@ const exportSettings = () => {
         timestamp: new Date().toISOString(),
         version: '1.0.0',
         userAgent: navigator.userAgent,
-        gameVersion: '大道朝天 v1.0.0'
+        gameVersion: '仙途 v1.0.0'
       }
     };
-    
+
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
+
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const dateStr = new Date().toISOString().split('T')[0];
-    link.download = `大道朝天-设置备份-${dateStr}.json`;
-    
+    link.download = `仙途-设置备份-${dateStr}.json`;
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     URL.revokeObjectURL(link.href);
-    
+
     debug.log('设置面板', '设置导出成功');
     toast.success('设置已导出');
-    
+
   } catch (error) {
     debug.error('设置面板', '导出设置失败', error);
     toast.error('导出设置失败');
@@ -1015,26 +1046,26 @@ const exportSettings = () => {
 // 导入设置
 const importSettings = () => {
   debug.log('设置面板', '开始导入设置');
-  
+
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json';
-  
+
   input.onchange = async (event) => {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    
+
     try {
       const text = await file.text();
       const importData = JSON.parse(text);
-      
+
       if (importData.settings) {
         // 验证导入的设置
         const validatedSettings = { ...settings, ...importData.settings };
         Object.assign(settings, validatedSettings);
-        
+
         await saveSettings();
-        
+
         debug.log('设置面板', '设置导入成功', importData);
         toast.success('设置导入成功并已应用');
       } else {
@@ -1045,7 +1076,7 @@ const importSettings = () => {
       toast.error('导入设置失败，请检查文件格式');
     }
   };
-  
+
   input.click();
 };
 
@@ -1169,7 +1200,7 @@ onMounted(() => {
   overflow-y: auto;
   min-height: 0;
   padding: 0 0.5rem 3rem 0.5rem;
-  
+
   /* 滚动条样式 */
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.3) rgba(243, 244, 246, 0.5);
@@ -1319,14 +1350,14 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-[data-theme="dark"] .setting-select {
+[data-theme='dark'] .setting-select {
   background-color: #374151;
   border-color: #4b5563;
   color: #e5e7eb;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e5e7eb' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
 }
 
-[data-theme="dark"] .setting-select:hover {
+[data-theme='dark'] .setting-select:hover {
   border-color: #6b7280;
 }
 
@@ -1358,7 +1389,7 @@ onMounted(() => {
 
 .switch-slider:before {
   position: absolute;
-  content: "";
+  content: '';
   height: 18px;
   width: 18px;
   left: 3px;
@@ -1410,13 +1441,13 @@ input:checked + .switch-slider:before {
   color: #9ca3af;
 }
 
-[data-theme="dark"] .setting-textarea {
+[data-theme='dark'] .setting-textarea {
   background: #374151;
   border-color: #4b5563;
   color: #e5e7eb;
 }
 
-[data-theme="dark"] .setting-textarea::placeholder {
+[data-theme='dark'] .setting-textarea::placeholder {
   color: #6b7280;
 }
 
@@ -1447,68 +1478,68 @@ input:checked + .switch-slider:before {
     align-items: flex-start;
     gap: 0.75rem;
   }
-  
+
   .setting-control {
     width: 100%;
     justify-content: flex-end;
   }
-  
+
   .range-container {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .header-actions .btn-text {
     display: none;
   }
 }
 
 /* 深色主题 */
-[data-theme="dark"] .settings-panel {
+[data-theme='dark'] .settings-panel {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
 }
 
-[data-theme="dark"] .panel-header,
-[data-theme="dark"] .settings-section {
+[data-theme='dark'] .panel-header,
+[data-theme='dark'] .settings-section {
   background: #1e293b;
   border-color: #475569;
 }
 
-[data-theme="dark"] .section-header {
+[data-theme='dark'] .section-header {
   background: #334155;
   border-bottom-color: #475569;
 }
 
-[data-theme="dark"] .panel-title,
-[data-theme="dark"] .section-title,
-[data-theme="dark"] .setting-name {
+[data-theme='dark'] .panel-title,
+[data-theme='dark'] .section-title,
+[data-theme='dark'] .setting-name {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .settings-subtitle,
-[data-theme="dark"] .setting-desc {
+[data-theme='dark'] .settings-subtitle,
+[data-theme='dark'] .setting-desc {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .setting-item:hover {
+[data-theme='dark'] .setting-item:hover {
   background: #334155;
 }
 
-[data-theme="dark"] .action-btn,
-[data-theme="dark"] .setting-select,
-[data-theme="dark"] .utility-btn {
+[data-theme='dark'] .action-btn,
+[data-theme='dark'] .setting-select,
+[data-theme='dark'] .utility-btn {
   background: #374151;
   border-color: #4b5563;
   color: #e5e7eb;
 }
 
-[data-theme="dark"] .action-btn:hover,
-[data-theme="dark"] .utility-btn:hover {
+[data-theme='dark'] .action-btn:hover,
+[data-theme='dark'] .utility-btn:hover {
   background: #4b5563;
   border-color: #6b7280;
 }
 
-[data-theme="dark"] .switch-slider {
+[data-theme='dark'] .switch-slider {
   background-color: #4b5563;
 }
 
@@ -1560,19 +1591,19 @@ input:checked + .switch-slider:before {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-[data-theme="dark"] .form-input-inline {
+[data-theme='dark'] .form-input-inline {
   background: #334155;
   border-color: #475569;
   color: #e5e7eb;
 }
 
-[data-theme="dark"] .auth-status.verified {
+[data-theme='dark'] .auth-status.verified {
   background: rgba(5, 150, 105, 0.2);
   color: #6ee7b7;
   border-color: rgba(5, 150, 105, 0.3);
 }
 
-[data-theme="dark"] .auth-status.unverified {
+[data-theme='dark'] .auth-status.unverified {
   background: rgba(220, 38, 38, 0.2);
   color: #fca5a5;
   border-color: rgba(220, 38, 38, 0.3);
@@ -1584,7 +1615,12 @@ input:checked + .switch-slider:before {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 </style>

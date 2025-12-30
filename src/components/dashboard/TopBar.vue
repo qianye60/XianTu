@@ -1,7 +1,7 @@
 <template>
   <div class="top-bar">
     <div class="left-section">
-      <h1 class="game-title">{{ t('大道朝天') }}</h1>
+      <h1 class="game-title">{{ t('仙途') }}</h1>
       <div class="character-quick-info" v-if="characterName">
         <span class="character-name">{{ characterName }}</span>
         <span class="character-realm">{{ characterRealm }}</span>
@@ -138,9 +138,24 @@ onMounted(() => {
   flex: 1;
 }
 
-.game-title { font-size: 1.1rem; font-weight: 700; color: var(--color-text); margin: 0; letter-spacing: 0.2px; white-space: nowrap; }
+.game-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
 
-.character-quick-info { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--color-surface-light); border-radius: 14px; border: 1px solid var(--color-border); }
+.character-quick-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--color-surface-light);
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+}
 
 .character-name {
   font-size: 0.875rem;
@@ -163,7 +178,16 @@ onMounted(() => {
   justify-content: center;
 }
 
-.location-time-info { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--color-surface-light); border: 1px solid var(--color-border); border-radius: 10px; white-space: nowrap; }
+.location-time-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  white-space: nowrap;
+}
 
 .location-text {
   font-size: 0.9rem;
@@ -192,7 +216,20 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.fullscreen-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: var(--color-surface-light); border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; font-size: 16px; color: var(--color-text-secondary); transition: all 0.2s ease; }
+.fullscreen-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
 
 .fullscreen-btn:hover {
   background: var(--color-surface-hover);
@@ -321,68 +358,68 @@ onMounted(() => {
   .top-bar {
     padding: 0 16px;
   }
-  
+
   .game-title {
     font-size: 1.1rem;
   }
-  
+
   .left-section {
     gap: 12px;
   }
-  
+
   .right-section {
     gap: 10px;
   }
 }
 
 /* 深色主题 */
-[data-theme="dark"] .top-bar {
+[data-theme='dark'] .top-bar {
   background: #1e293b;
   border-bottom-color: #334155;
 }
 
-[data-theme="dark"] .game-title {
+[data-theme='dark'] .game-title {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .character-quick-info {
+[data-theme='dark'] .character-quick-info {
   background: #334155;
   border-color: #475569;
 }
 
-[data-theme="dark"] .character-name {
+[data-theme='dark'] .character-name {
   color: #e2e8f0;
 }
 
-[data-theme="dark"] .character-realm {
+[data-theme='dark'] .character-realm {
   background: rgba(167, 139, 250, 0.2);
   color: #a78bfa;
 }
 
-[data-theme="dark"] .location-time-info {
+[data-theme='dark'] .location-time-info {
   background: #334155;
   border-color: #475569;
 }
 
-[data-theme="dark"] .location-text {
+[data-theme='dark'] .location-text {
   color: #34d399;
 }
 
-[data-theme="dark"] .separator {
+[data-theme='dark'] .separator {
   color: #64748b;
 }
 
-[data-theme="dark"] .time-value {
+[data-theme='dark'] .time-value {
   color: #cbd5e1;
 }
 
-[data-theme="dark"] .fullscreen-btn {
+[data-theme='dark'] .fullscreen-btn {
   background: transparent;
   border-color: #475569;
   color: #94a3b8;
 }
 
-[data-theme="dark"] .fullscreen-btn:hover {
+[data-theme='dark'] .fullscreen-btn:hover {
   background: #334155;
   border-color: #64748b;
   color: #e2e8f0;

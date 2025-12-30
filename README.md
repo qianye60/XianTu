@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://ddct.top/DaDaoChaoTian.png">
+  <img src="https://ddct.top/XianTu.png">
 </p>
 
-<h1 align="center">大道朝天</h1>
+<h1 align="center">仙途</h1>
 
 <p align="center">
   <strong>AI 驱动的沉浸式修仙文字冒险游戏</strong>
@@ -65,14 +65,14 @@
 
 ## 🛠️ 技术栈
 
-| 前端 | 后端 | AI |
-|:---:|:---:|:---:|
-| Vue 3 + TypeScript | Python + FastAPI | Gemini API |
-| Pinia 状态管理 | SQLite / PostgreSQL | Claude API |
-| Vue Router | JWT 认证 | OpenAI API |
-| Webpack | WebSocket | SillyTavern |
-| Chart.js + Pixi.js | | DeepSeek |
-| IndexedDB | | |
+|        前端        |        后端         |     AI      |
+| :----------------: | :-----------------: | :---------: |
+| Vue 3 + TypeScript |  Python + FastAPI   | Gemini API  |
+|   Pinia 状态管理   | SQLite / PostgreSQL | Claude API  |
+|     Vue Router     |      JWT 认证       | OpenAI API  |
+|      Webpack       |      WebSocket      | SillyTavern |
+| Chart.js + Pixi.js |                     |  DeepSeek   |
+|     IndexedDB      |                     |             |
 
 ---
 

@@ -13,24 +13,38 @@
     <!-- 全局操作按钮 - 只在非游戏界面显示 -->
     <div v-if="!isInGameView" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
-        <input type="checkbox" ref="globalThemeCheckbox" :checked="!isDarkMode">
+        <input type="checkbox" ref="globalThemeCheckbox" :checked="!isDarkMode" />
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="moon">
-          <path d="M223.5 32C100 32 0 132.3 0 256S100 480 223.5 480c60.6 0 115.5-24.2 155.8-63.4c5-4.9 6.3-12.5 3.1-18.7s-10.1-9.7-17-8.5c-9.8 1.7-19.8 2.6-30.1 2.6c-96.9 0-175.5-78.8-175.5-176c0-65.8 36-123.1 89.3-153.3c6.1-3.5 9.2-10.5 7.7-17.3s-7.3-11.9-14.3-12.5c-6.3-.5-12.6-.8-19-.8z"></path>
+          <path
+            d="M223.5 32C100 32 0 132.3 0 256S100 480 223.5 480c60.6 0 115.5-24.2 155.8-63.4c5-4.9 6.3-12.5 3.1-18.7s-10.1-9.7-17-8.5c-9.8 1.7-19.8 2.6-30.1 2.6c-96.9 0-175.5-78.8-175.5-176c0-65.8 36-123.1 89.3-153.3c6.1-3.5 9.2-10.5 7.7-17.3s-7.3-11.9-14.3-12.5c-6.3-.5-12.6-.8-19-.8z"
+          ></path>
         </svg>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="sun">
-          <path d="M361.5 1.2c5 2.1 8.6 6.6 9.6 11.9L391 121l107.9 19.8c5.3 1 9.8 4.6 11.9 9.6s1.5 10.7-1.6 15.2L446.9 256l62.3 90.3c3.1 4.5 3.7 10.2 1.6 15.2s-6.6 8.6-11.9 9.6L391 391 371.1 498.9c-1 5.3-4.6 9.8-9.6 11.9s-10.7 1.5-15.2-1.6L256 446.9l-90.3 62.3c-4.5 3.1-10.2 3.7-15.2 1.6s-8.6-6.6-9.6-11.9L121 391 13.1 371.1c-5.3-1-9.8-4.6-11.9-9.6s-1.5-10.7 1.6-15.2L65.1 256 2.8 165.7c-3.1-4.5-3.7-10.2-1.6-15.2s6.6-8.6 11.9-9.6L121 121 140.9 13.1c1-5.3 4.6-9.8 9.6-11.9s10.7-1.5 15.2 1.6L256 65.1 346.3 2.8c4.5-3.1 10.2-3.7 15.2-1.6zM160 256a96 96 0 1 1 192 0 96 96 0 1 1 -192 0zm224 0a128 128 0 1 0 -256 0 128 128 0 1 0 256 0z"></path>
+          <path
+            d="M361.5 1.2c5 2.1 8.6 6.6 9.6 11.9L391 121l107.9 19.8c5.3 1 9.8 4.6 11.9 9.6s1.5 10.7-1.6 15.2L446.9 256l62.3 90.3c3.1 4.5 3.7 10.2 1.6 15.2s-6.6 8.6-11.9 9.6L391 391 371.1 498.9c-1 5.3-4.6 9.8-9.6 11.9s-10.7 1.5-15.2-1.6L256 446.9l-90.3 62.3c-4.5 3.1-10.2 3.7-15.2 1.6s-8.6-6.6-9.6-11.9L121 391 13.1 371.1c-5.3-1-9.8-4.6-11.9-9.6s-1.5-10.7 1.6-15.2L65.1 256 2.8 165.7c-3.1-4.5-3.7-10.2-1.6-15.2s6.6-8.6 11.9-9.6L121 121 140.9 13.1c1-5.3 4.6-9.8 9.6-11.9s10.7-1.5 15.2 1.6L256 65.1 346.3 2.8c4.5-3.1 10.2-3.7 15.2-1.6zM160 256a96 96 0 1 1 192 0 96 96 0 1 1 -192 0zm224 0a128 128 0 1 0 -256 0 128 128 0 1 0 256 0z"
+          ></path>
         </svg>
       </label>
       <label class="fullscreen-toggle" @click.prevent="toggleFullscreen">
-        <input type="checkbox" ref="globalFullscreenCheckbox">
+        <input type="checkbox" ref="globalFullscreenCheckbox" />
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="expand">
-          <path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"></path>
+          <path
+            d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"
+          ></path>
         </svg>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="compress">
-          <path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V64zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32H96v64c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32H32zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V64zM320 320c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32s32-14.3 32-32V384h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320z"></path>
+          <path
+            d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V64zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32H96v64c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32H32zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V64zM320 320c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32s32-14.3 32-32V384h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320z"
+          ></path>
         </svg>
       </label>
-      <a href="https://ddct.top" target="_blank" rel="noopener noreferrer" class="theme-toggle" title="教程">
+      <a
+        href="https://ddct.top"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="theme-toggle"
+        title="教程"
+      >
         <HelpCircle :size="24" />
       </a>
     </div>
@@ -38,7 +52,8 @@
     <!-- 路由视图将在这里渲染所有页面 -->
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
-        <component :is="Component"
+        <component
+          :is="Component"
           @start-creation="handleStartCreation"
           @show-character-list="handleShowCharacterList"
           @back="handleBack"
@@ -53,7 +68,7 @@
     <div v-if="showAuthorModal" class="author-modal-overlay" @click.self="showAuthorModal = false">
       <div class="author-modal">
         <div class="author-modal-header">
-          <h3>🎮 大道朝天 - 游戏信息</h3>
+          <h3>🎮 仙途 - 游戏信息</h3>
           <button class="close-btn" @click="showAuthorModal = false">&times;</button>
         </div>
         <div class="author-modal-body">
@@ -61,8 +76,17 @@
 
           <div class="info-section">
             <h4>📝 关于游戏</h4>
-            <p>《大道朝天》是一款基于AI驱动的沉浸式修仙文字冒险游戏，结合SillyTavern与Gemini AI，为玩家打造无限可能的修仙世界。</p>
-            <p> <span style="color: yellow;">游玩尽量使用推荐预设，在了解原理后可自行更换调整，<span style="color: red;">禁止打开COT</span></span></p>
+            <p>
+              《仙途》是一款基于AI驱动的沉浸式修仙文字冒险游戏，结合SillyTavern与Gemini
+              AI，为玩家打造无限可能的修仙世界。
+            </p>
+            <p>
+              <span style="color: yellow"
+                >游玩尽量使用推荐预设，在了解原理后可自行更换调整，<span style="color: red"
+                  >禁止打开COT</span
+                ></span
+              >
+            </p>
           </div>
 
           <div class="info-section">
@@ -93,7 +117,9 @@
 
           <div class="info-section">
             <h4>📢 版本说明</h4>
-            <p class="version-note">当前为<strong>V1.0 Beta</strong>测试版本，部分功能仍在开发完善中。欢迎反馈建议！</p>
+            <p class="version-note">
+              当前为<strong>V1.0 Beta</strong>测试版本，部分功能仍在开发完善中。欢迎反馈建议！
+            </p>
           </div>
 
           <div class="info-section">
@@ -113,7 +139,6 @@
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -813,74 +838,74 @@ watch(route, (newRoute, oldRoute) => {
 }
 
 /* 深色主题 */
-[data-theme="dark"] .author-modal {
+[data-theme='dark'] .author-modal {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
 }
 
-[data-theme="dark"] .author-modal-header {
+[data-theme='dark'] .author-modal-header {
   border-bottom-color: #334155;
 }
 
-[data-theme="dark"] .info-section h4 {
+[data-theme='dark'] .info-section h4 {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .info-section p {
+[data-theme='dark'] .info-section p {
   color: #cbd5e1;
 }
 
-[data-theme="dark"] .feature-list li {
+[data-theme='dark'] .feature-list li {
   color: #cbd5e1;
   border-bottom-color: #334155;
 }
 
-[data-theme="dark"] .feature-list strong {
+[data-theme='dark'] .feature-list strong {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .tech-stack {
+[data-theme='dark'] .tech-stack {
   background: #0f172a;
   color: #94a3b8;
   border-left-color: #667eea;
 }
 
-[data-theme="dark"] .version-note {
+[data-theme='dark'] .version-note {
   background: linear-gradient(135deg, #422006 0%, #713f12 100%);
   color: #fde68a;
   border-left-color: #f59e0b;
 }
 
-[data-theme="dark"] .version-note strong {
+[data-theme='dark'] .version-note strong {
   color: #fbbf24;
 }
 
-[data-theme="dark"] .copyright-notice {
+[data-theme='dark'] .copyright-notice {
   background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
   border-color: #dc2626;
 }
 
-[data-theme="dark"] .copyright-notice p {
+[data-theme='dark'] .copyright-notice p {
   color: #fecaca;
 }
 
-[data-theme="dark"] .copyright-notice p:first-child {
+[data-theme='dark'] .copyright-notice p:first-child {
   color: #fca5a5;
 }
 
-[data-theme="dark"] .copyright-notice strong {
+[data-theme='dark'] .copyright-notice strong {
   color: #fca5a5;
 }
 
-[data-theme="dark"] .copyright-list li {
+[data-theme='dark'] .copyright-list li {
   color: #fecaca;
   border-bottom-color: #7f1d1d;
 }
 
-[data-theme="dark"] .copyright-list strong {
+[data-theme='dark'] .copyright-list strong {
   color: #fef2f2;
 }
 
-[data-theme="dark"] .copyright-warning {
+[data-theme='dark'] .copyright-warning {
   background: #dc2626;
   color: white;
 }
@@ -904,15 +929,15 @@ watch(route, (newRoute, oldRoute) => {
   background: #94a3b8;
 }
 
-[data-theme="dark"] .author-modal::-webkit-scrollbar-track {
+[data-theme='dark'] .author-modal::-webkit-scrollbar-track {
   background: #0f172a;
 }
 
-[data-theme="dark"] .author-modal::-webkit-scrollbar-thumb {
+[data-theme='dark'] .author-modal::-webkit-scrollbar-thumb {
   background: #475569;
 }
 
-[data-theme="dark"] .author-modal::-webkit-scrollbar-thumb:hover {
+[data-theme='dark'] .author-modal::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
 </style>

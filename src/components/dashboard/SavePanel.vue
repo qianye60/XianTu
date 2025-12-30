@@ -1,6 +1,5 @@
 <template>
   <div class="save-panel">
-
     <!-- 存档容器 -->
     <div class="saves-container">
       <!-- 当前存档状态 -->
@@ -8,7 +7,11 @@
         <div class="section-header">
           <h4 class="section-title">
             <History v-if="currentSave.存档名 === '上次对话'" :size="16" class="last-save-icon" />
-            <Clock v-else-if="currentSave.存档名 === '时间点存档'" :size="16" class="time-save-icon" />
+            <Clock
+              v-else-if="currentSave.存档名 === '时间点存档'"
+              :size="16"
+              class="time-save-icon"
+            />
             📍 当前进度 - {{ currentSave.存档名 }}
           </h4>
         </div>
@@ -38,7 +41,9 @@
             </div>
             <div class="stat-item">
               <span class="stat-label">{{ t('最后保存') }}</span>
-              <span class="stat-value">{{ formatTime(currentSave.最后保存时间 ?? currentSave.保存时间 ?? '') }}</span>
+              <span class="stat-value">{{
+                formatTime(currentSave.最后保存时间 ?? currentSave.保存时间 ?? '')
+              }}</span>
             </div>
           </div>
         </div>
@@ -49,7 +54,12 @@
         <div class="section-header">
           <h4 class="section-title">💿 存档列表</h4>
           <div class="header-actions">
-            <button class="new-save-btn" @click="createNewSave" :disabled="loading" title="新建存档">
+            <button
+              class="new-save-btn"
+              @click="createNewSave"
+              :disabled="loading"
+              title="新建存档"
+            >
               <Plus :size="16" />
             </button>
             <div class="saves-count">{{ savesList.length }}/10</div>
@@ -68,11 +78,11 @@
         </div>
 
         <div v-else class="saves-list">
-          <div 
-            v-for="(save, index) in savesList" 
+          <div
+            v-for="(save, index) in savesList"
             :key="save.id"
             class="save-card"
-            :class="{ 'active': save.id === currentSave?.id }"
+            :class="{ active: save.id === currentSave?.id }"
             @click="selectSave(save)"
           >
             <div class="card-header">
@@ -81,12 +91,18 @@
                 <div class="preview-info">
                   <div class="save-name">
                     <History v-if="save.存档名 === '上次对话'" :size="14" class="last-save-icon" />
-                    <Clock v-else-if="save.存档名 === '时间点存档'" :size="14" class="time-save-icon" />
+                    <Clock
+                      v-else-if="save.存档名 === '时间点存档'"
+                      :size="14"
+                      class="time-save-icon"
+                    />
                     {{ save.存档名 || save.id || `存档${index + 1}` }}
                   </div>
                   <div class="character-name-small">{{ save.角色名字 || '无名道友' }}</div>
                   <!-- 显示最后保存时间 -->
-                  <div class="save-time">{{ formatTime(save.最后保存时间 ?? save.保存时间 ?? null) }}</div>
+                  <div class="save-time">
+                    {{ formatTime(save.最后保存时间 ?? save.保存时间 ?? null) }}
+                  </div>
                 </div>
               </div>
               <div class="card-actions">
@@ -94,7 +110,11 @@
                   class="card-btn"
                   @click.stop="loadSave(save)"
                   :disabled="loading"
-                  v-if="save.id !== currentSave?.id && save.存档名 !== '上次对话' && save.存档名 !== '时间点存档'"
+                  v-if="
+                    save.id !== currentSave?.id &&
+                    save.存档名 !== '上次对话' &&
+                    save.存档名 !== '时间点存档'
+                  "
                   title="读取存档"
                 >
                   <Play :size="14" />
@@ -148,14 +168,16 @@
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">修改:</span>
-                  <span class="detail-value">{{ formatTime(save.最后保存时间 ?? save.保存时间 ?? '') }}</span>
+                  <span class="detail-value">{{
+                    formatTime(save.最后保存时间 ?? save.保存时间 ?? '')
+                  }}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
- 
+
       <!-- 自动存档设置 -->
       <div class="auto-save-settings-section">
         <div class="section-header">
@@ -169,7 +191,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="conversationAutoSaveEnabled">
+                <input type="checkbox" v-model="conversationAutoSaveEnabled" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -181,7 +203,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="timeBasedSaveEnabled">
+                <input type="checkbox" v-model="timeBasedSaveEnabled" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -192,7 +214,12 @@
               <span class="setting-desc">自动存档的时间间隔（真实时间）</span>
             </div>
             <div class="setting-control">
-              <input type="number" min="1" v-model.number="timeBasedSaveInterval" class="interval-input" />
+              <input
+                type="number"
+                min="1"
+                v-model.number="timeBasedSaveInterval"
+                class="interval-input"
+              />
               <span class="unit-label">分钟</span>
             </div>
           </div>
@@ -201,11 +228,15 @@
 
       <!-- 存档操作 -->
       <div class="operations-section">
-         <div class="section-header">
+        <div class="section-header">
           <h4 class="section-title">🛠️ 存档操作</h4>
         </div>
         <div class="operations-list">
-          <button class="operation-btn" @click="exportCharacter" :disabled="loading || !characterStore.activeCharacterProfile">
+          <button
+            class="operation-btn"
+            @click="exportCharacter"
+            :disabled="loading || !characterStore.activeCharacterProfile"
+          >
             <Download :size="16" />
             <div class="btn-content">
               <span class="btn-title">导出角色</span>
@@ -213,7 +244,11 @@
             </div>
           </button>
 
-          <button class="operation-btn" @click="exportSaves" :disabled="loading || savesList.length === 0">
+          <button
+            class="operation-btn"
+            @click="exportSaves"
+            :disabled="loading || savesList.length === 0"
+          >
             <Download :size="16" />
             <div class="btn-content">
               <span class="btn-title">导出所有存档</span>
@@ -229,7 +264,11 @@
             </div>
           </button>
 
-          <button class="operation-btn danger" @click="clearAllSaves" :disabled="loading || savesList.length === 0">
+          <button
+            class="operation-btn danger"
+            @click="clearAllSaves"
+            :disabled="loading || savesList.length === 0"
+          >
             <Trash2 :size="16" />
             <div class="btn-content">
               <span class="btn-title">{{ t('清空存档') }}</span>
@@ -241,7 +280,13 @@
     </div>
 
     <!-- 隐藏的文件输入 -->
-    <input ref="fileInput" type="file" accept=".json" @change="handleImportFile" style="display: none">
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".json"
+      @change="handleImportFile"
+      style="display: none"
+    />
   </div>
 </template>
 
@@ -606,7 +651,7 @@ const exportSingleSave = async (save: SaveSlot) => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const fileName = `大道朝天-${save.存档名}-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `仙途-${save.存档名}-${new Date().toISOString().split('T')[0]}.json`;
     link.download = fileName;
 
     document.body.appendChild(link);
@@ -673,7 +718,7 @@ const exportCharacter = async () => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const characterName = characterProfile.角色基础信息?.名字 || '未命名角色';
-    const fileName = `大道朝天-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `仙途-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
     link.download = fileName;
 
     document.body.appendChild(link);
@@ -741,7 +786,7 @@ const exportSaves = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const fileName = `大道朝天-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `仙途-存档备份-${new Date().toISOString().split('T')[0]}.json`;
     link.download = fileName;
 
     // 添加到DOM并触发点击
@@ -846,17 +891,17 @@ const clearAllSaves = async () => {
 // 格式化时间
 const formatTime = (timestamp: number | string | null | undefined): string => {
   if (!timestamp) return '未知';
-  
+
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return '未知';
-  
+
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  
+
   if (diff < 60000) return '刚刚';
   if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
-  
+
   return date.toLocaleDateString('zh-CN', {
     month: 'short',
     day: 'numeric',
@@ -984,8 +1029,12 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 存档容器 */
@@ -994,7 +1043,7 @@ onMounted(() => {
   overflow-y: auto;
   min-height: 0;
   padding: 0 0.5rem 3rem 0.5rem;
-  
+
   /* 滚动条样式 */
   scrollbar-width: thin;
   scrollbar-color: rgba(2, 132, 199, 0.3) rgba(243, 244, 246, 0.5);
@@ -1471,35 +1520,35 @@ onMounted(() => {
   .save-stats {
     gap: 1rem;
   }
-  
+
   .card-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
   }
-  
+
   .save-preview {
     justify-content: center;
   }
-  
+
   .card-actions {
     justify-content: center;
   }
-  
+
   .header-actions .btn-text {
     display: none;
   }
 }
 
 /* 深色主题 */
-[data-theme="dark"] .save-panel {
+[data-theme='dark'] .save-panel {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
 }
 
-[data-theme="dark"] .panel-header,
-[data-theme="dark"] .current-save-section,
-[data-theme="dark"] .saves-section,
-[data-theme="dark"] .operations-section {
+[data-theme='dark'] .panel-header,
+[data-theme='dark'] .current-save-section,
+[data-theme='dark'] .saves-section,
+[data-theme='dark'] .operations-section {
   background: #1e293b;
   border-color: #475569;
 }
@@ -1520,96 +1569,96 @@ onMounted(() => {
   color: #3b82f6;
 }
 
-[data-theme="dark"] .section-header {
+[data-theme='dark'] .section-header {
   background: #334155;
   border-bottom-color: #475569;
 }
 
-[data-theme="dark"] .panel-title,
-[data-theme="dark"] .section-title,
-[data-theme="dark"] .character-name,
-[data-theme="dark"] .save-name {
+[data-theme='dark'] .panel-title,
+[data-theme='dark'] .section-title,
+[data-theme='dark'] .character-name,
+[data-theme='dark'] .save-name {
   color: #0ea5e9;
 }
 
-[data-theme="dark"] .character-name-small {
+[data-theme='dark'] .character-name-small {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .save-subtitle,
-[data-theme="dark"] .saves-count {
+[data-theme='dark'] .save-subtitle,
+[data-theme='dark'] .saves-count {
   color: #38bdf8;
 }
 
-[data-theme="dark"] .action-btn,
-[data-theme="dark"] .card-btn {
+[data-theme='dark'] .action-btn,
+[data-theme='dark'] .card-btn {
   background: #374151;
   border-color: #475569;
   color: #0ea5e9;
 }
 
-[data-theme="dark"] .action-btn:hover,
-[data-theme="dark"] .card-btn:hover {
+[data-theme='dark'] .action-btn:hover,
+[data-theme='dark'] .card-btn:hover {
   background: #4b5563;
 }
 
-[data-theme="dark"] .card-btn.primary {
+[data-theme='dark'] .card-btn.primary {
   color: #10b981;
   border-color: #065f46;
 }
 
-[data-theme="dark"] .card-btn.primary:hover {
+[data-theme='dark'] .card-btn.primary:hover {
   background: #065f46;
 }
 
-[data-theme="dark"] .card-btn.warning {
+[data-theme='dark'] .card-btn.warning {
   color: #f59e0b;
   border-color: #78350f;
 }
 
-[data-theme="dark"] .card-btn.warning:hover {
+[data-theme='dark'] .card-btn.warning:hover {
   background: #78350f;
 }
 
-[data-theme="dark"] .card-btn.info {
+[data-theme='dark'] .card-btn.info {
   color: #0ea5e9;
   border-color: #0c4a6e;
 }
 
-[data-theme="dark"] .card-btn.info:hover {
+[data-theme='dark'] .card-btn.info:hover {
   background: #0c4a6e;
 }
 
-[data-theme="dark"] .new-save-btn {
+[data-theme='dark'] .new-save-btn {
   background: #374151;
   border-color: #10b981;
   color: #10b981;
 }
 
-[data-theme="dark"] .new-save-btn:hover {
+[data-theme='dark'] .new-save-btn:hover {
   background: #065f46;
   border-color: #059669;
 }
 
-[data-theme="dark"] .save-card {
+[data-theme='dark'] .save-card {
   background: #374151;
   border-color: #4b5563;
 }
 
-[data-theme="dark"] .save-card:hover {
+[data-theme='dark'] .save-card:hover {
   background: #4b5563;
 }
 
-[data-theme="dark"] .save-card.active {
+[data-theme='dark'] .save-card.active {
   background: #1e40af;
   border-color: #0ea5e9;
 }
 
-[data-theme="dark"] .operation-btn:hover {
+[data-theme='dark'] .operation-btn:hover {
   background: #374151;
 }
 
-[data-theme="dark"] .btn-title {
+[data-theme='dark'] .btn-title {
   color: #e5e7eb;
 }
 
@@ -1689,7 +1738,7 @@ onMounted(() => {
 
 .switch-slider:before {
   position: absolute;
-  content: "";
+  content: '';
   height: 18px;
   width: 18px;
   left: 3px;
@@ -1735,28 +1784,28 @@ input:checked + .switch-slider:before {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-[data-theme="dark"] .auto-save-settings-section {
+[data-theme='dark'] .auto-save-settings-section {
   background: #1e293b;
   border-color: #475569;
 }
 
-[data-theme="dark"] .setting-item:hover {
+[data-theme='dark'] .setting-item:hover {
   background: #334155;
 }
 
-[data-theme="dark"] .setting-name {
+[data-theme='dark'] .setting-name {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .setting-desc {
+[data-theme='dark'] .setting-desc {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .switch-slider {
+[data-theme='dark'] .switch-slider {
   background-color: #4b5563;
 }
 
-[data-theme="dark"] .setting-select {
+[data-theme='dark'] .setting-select {
   background-color: #374151;
   border-color: #4b5563;
   color: #e5e7eb;
@@ -1776,13 +1825,13 @@ input:checked + .switch-slider:before {
   color: #64748b;
 }
 
-[data-theme="dark"] .interval-input {
+[data-theme='dark'] .interval-input {
   background-color: #374151;
   border-color: #4b5563;
   color: #e5e7eb;
 }
 
-[data-theme="dark"] .unit-label {
+[data-theme='dark'] .unit-label {
   color: #94a3b8;
 }
 </style>

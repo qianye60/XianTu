@@ -1,5 +1,5 @@
 <template>
-  <div class="character-management-panel" :class="{ 'fullscreen': isFullscreen }">
+  <div class="character-management-panel" :class="{ fullscreen: isFullscreen }">
     <VideoBackground v-if="isFullscreen" />
 
     <!-- 自定义对话框 -->
@@ -33,7 +33,13 @@
 
     <!-- 主体区域 -->
     <main class="main-content" :class="{ 'fullscreen-content': isFullscreen }">
-      <input ref="fileInput" type="file" accept=".json" @change="handleImportFile" style="display: none">
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".json"
+        @change="handleImportFile"
+        style="display: none"
+      />
       <!-- 返回按钮 - 仅在全屏模式显示 -->
       <div v-if="isFullscreen" class="fullscreen-header">
         <button @click="handleClose" class="fullscreen-back-btn">
@@ -51,7 +57,7 @@
         <button
           class="mobile-menu-btn"
           @click="toggleCharacterPanel"
-          :class="{ 'active': isCharacterPanelOpen }"
+          :class="{ active: isCharacterPanelOpen }"
         >
           <div class="hamburger">
             <span></span>
@@ -69,7 +75,11 @@
       </div>
 
       <!-- 遮罩层 -->
-      <div v-if="isCharacterPanelOpen && isMobile" class="panel-overlay" @click="isCharacterPanelOpen = false"></div>
+      <div
+        v-if="isCharacterPanelOpen && isMobile"
+        class="panel-overlay"
+        @click="isCharacterPanelOpen = false"
+      ></div>
 
       <!-- 无角色提示 -->
       <div v-if="Object.keys(characterStore.rootState.角色列表).length === 0" class="empty-state">
@@ -92,7 +102,11 @@
               <h2>{{ $t('角色列表') }}</h2>
               <div class="character-count">{{ allCharacterCount }} {{ $t('个角色') }}</div>
             </div>
-            <button @click="importCharacter" class="btn-header-action import" :title="$t('导入角色')">
+            <button
+              @click="importCharacter"
+              class="btn-header-action import"
+              :title="$t('导入角色')"
+            >
               <Upload :size="16" />
               <span>{{ $t('导入') }}</span>
             </button>
@@ -101,11 +115,16 @@
             <div class="header-left-content">
               <h2>{{ $t('存档管理') }}</h2>
               <div v-if="selectedCharacter" class="selected-char-info">
-                {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}{{ $t('模式') }}
+                {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式
+                }}{{ $t('模式') }}
               </div>
             </div>
             <div v-if="selectedCharacter" class="save-actions-buttons">
-              <button @click="importSaves" class="btn-save-action import" :title="$t('向选中角色导入存档')">
+              <button
+                @click="importSaves"
+                class="btn-save-action import"
+                :title="$t('向选中角色导入存档')"
+              >
                 <Upload :size="18" />
                 <span>{{ $t('导入存档') }}</span>
               </button>
@@ -113,23 +132,29 @@
           </div>
 
           <!-- 第2行：主要内容区 -->
-          <section class="grid-content-left characters-panel" :class="{ 'is-open': isCharacterPanelOpen }">
+          <section
+            class="grid-content-left characters-panel"
+            :class="{ 'is-open': isCharacterPanelOpen }"
+          >
             <div class="characters-grid">
-              <div v-for="(profile, charId) in characterStore.rootState.角色列表"
-                   :key="charId"
-                   class="character-card"
-                   :class="{
-                     'active': selectedCharId === String(charId),
-                     'single-mode': profile.模式 === '单机',
-                     'online-mode': profile.模式 === '联机'
-                   }"
-                   @click="selectCharacter(String(charId))">
-
+              <div
+                v-for="(profile, charId) in characterStore.rootState.角色列表"
+                :key="charId"
+                class="character-card"
+                :class="{
+                  active: selectedCharId === String(charId),
+                  'single-mode': profile.模式 === '单机',
+                  'online-mode': profile.模式 === '联机',
+                }"
+                @click="selectCharacter(String(charId))"
+              >
                 <!-- 卡片头部 -->
                 <div class="card-header">
                   <div class="char-avatar" :class="profile.模式">
                     <span class="avatar-text">{{ profile.角色基础信息.名字[0] }}</span>
-                    <div class="mode-indicator">{{ profile.模式 === $t('单机') ? $t('单机') : $t('联机') }}</div>
+                    <div class="mode-indicator">
+                      {{ profile.模式 === $t('单机') ? $t('单机') : $t('联机') }}
+                    </div>
                   </div>
                   <div class="char-info">
                     <h3 class="char-name">{{ profile.角色基础信息.名字 }}</h3>
@@ -146,9 +171,15 @@
 
                 <!-- 卡片底部操作 -->
                 <div class="card-actions">
-                  <button @click.stop="showCharacterDetails(String(charId))" class="btn-details">{{ $t('详情') }}</button>
-                  <button @click.stop="exportCharacter(String(charId))" class="btn-export">{{ $t('导出') }}</button>
-                  <button @click.stop="handleDeleteCharacter(String(charId))" class="btn-delete">{{ $t('删除') }}</button>
+                  <button @click.stop="showCharacterDetails(String(charId))" class="btn-details">
+                    {{ $t('详情') }}
+                  </button>
+                  <button @click.stop="exportCharacter(String(charId))" class="btn-export">
+                    {{ $t('导出') }}
+                  </button>
+                  <button @click.stop="handleDeleteCharacter(String(charId))" class="btn-delete">
+                    {{ $t('删除') }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -181,57 +212,96 @@
                   </div>
 
                   <div class="manual-saves-grid">
-                    <div v-for="(slot, slotKey) in getAllSaves(selectedCharacter)"
-                         :key="slotKey"
-                         class="save-card manual-save"
-                         :class="{
-                           'has-data': slot.存档数据,
-                           'auto-save': slotKey === '上次对话' || slotKey === '时间点存档'
-                         }"
-                         @click="slot.存档数据 && handleSelect(selectedCharId!, String(slotKey), true)"
-                         :style="{ cursor: slot.存档数据 ? 'pointer' : 'default' }">
- 
-                       <div v-if="slot.存档数据" class="save-data">
-                         <div class="save-header">
-                           <h4 class="save-name">
-                             <History v-if="slotKey === '上次对话'" :size="16" class="save-icon last-save-icon" />
-                             <Clock v-else-if="slotKey === '时间点存档'" :size="16" class="save-icon time-save-icon" />
-                             {{ slot.存档名 || slotKey }}
-                           </h4>
-                           <div class="save-actions">
-                             <button @click.stop="exportSingleSave(selectedCharId!, String(slotKey), slot)"
-                                     class="btn-export-save"
-                                     :title="$t('导出此存档')">{{ $t('导') }}</button>
-                             <button @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
-                                     class="btn-edit-save"
-                                     :title="$t('重命名')"
-                                     :disabled="slotKey === '上次对话' || slotKey === '时间点存档'">{{ $t('编') }}</button>
-                             <button @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))"
-                                     class="btn-delete-save"
-                                     :class="{ 'disabled': !canDeleteSave(selectedCharacter, String(slotKey)) }"
-                                     :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
-                                     :title="getDeleteTooltip(selectedCharacter, String(slotKey))">{{ $t('删') }}</button>
-                           </div>
-                         </div>
+                    <div
+                      v-for="(slot, slotKey) in getAllSaves(selectedCharacter)"
+                      :key="slotKey"
+                      class="save-card manual-save"
+                      :class="{
+                        'has-data': slot.存档数据,
+                        'auto-save': slotKey === '上次对话' || slotKey === '时间点存档',
+                      }"
+                      @click="slot.存档数据 && handleSelect(selectedCharId!, String(slotKey), true)"
+                      :style="{ cursor: slot.存档数据 ? 'pointer' : 'default' }"
+                    >
+                      <div v-if="slot.存档数据" class="save-data">
+                        <div class="save-header">
+                          <h4 class="save-name">
+                            <History
+                              v-if="slotKey === '上次对话'"
+                              :size="16"
+                              class="save-icon last-save-icon"
+                            />
+                            <Clock
+                              v-else-if="slotKey === '时间点存档'"
+                              :size="16"
+                              class="save-icon time-save-icon"
+                            />
+                            {{ slot.存档名 || slotKey }}
+                          </h4>
+                          <div class="save-actions">
+                            <button
+                              @click.stop="exportSingleSave(selectedCharId!, String(slotKey), slot)"
+                              class="btn-export-save"
+                              :title="$t('导出此存档')"
+                            >
+                              {{ $t('导') }}
+                            </button>
+                            <button
+                              @click.stop="handleEditSaveName(selectedCharId!, String(slotKey))"
+                              class="btn-edit-save"
+                              :title="$t('重命名')"
+                              :disabled="slotKey === '上次对话' || slotKey === '时间点存档'"
+                            >
+                              {{ $t('编') }}
+                            </button>
+                            <button
+                              @click.stop="handleDeleteSave(selectedCharId!, String(slotKey))"
+                              class="btn-delete-save"
+                              :class="{
+                                disabled: !canDeleteSave(selectedCharacter, String(slotKey)),
+                              }"
+                              :disabled="!canDeleteSave(selectedCharacter, String(slotKey))"
+                              :title="getDeleteTooltip(selectedCharacter, String(slotKey))"
+                            >
+                              {{ $t('删') }}
+                            </button>
+                          </div>
+                        </div>
 
                         <div class="save-badges">
-                          <span class="realm-badge">{{ getRealmName(slot.存档数据.玩家角色状态?.境界) }}</span>
-                          <span class="age-badge">{{ slot.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
+                          <span class="realm-badge">{{
+                            getRealmName(slot.存档数据.玩家角色状态?.境界)
+                          }}</span>
+                          <span class="age-badge"
+                            >{{ slot.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span
+                          >
                         </div>
 
                         <div class="save-stats">
                           <div class="stat-grid">
                             <div class="stat">
                               <span class="label">气血</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.气血?.上限 || 0 }}</span>
+                              <span class="value"
+                                >{{ slot.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{
+                                  slot.存档数据.玩家角色状态?.气血?.上限 || 0
+                                }}</span
+                              >
                             </div>
                             <div class="stat">
                               <span class="label">灵气</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.灵气?.上限 || 0 }}</span>
+                              <span class="value"
+                                >{{ slot.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{
+                                  slot.存档数据.玩家角色状态?.灵气?.上限 || 0
+                                }}</span
+                              >
                             </div>
                             <div class="stat">
                               <span class="label">神识</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.神识?.上限 || 0 }}</span>
+                              <span class="value"
+                                >{{ slot.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{
+                                  slot.存档数据.玩家角色状态?.神识?.上限 || 0
+                                }}</span
+                              >
                             </div>
                             <div class="stat">
                               <span class="label">声望</span>
@@ -241,7 +311,9 @@
                         </div>
 
                         <div class="save-footer">
-                          <span class="location">{{ slot.存档数据.玩家角色状态?.位置?.描述 || '初始地' }}</span>
+                          <span class="location">{{
+                            slot.存档数据.玩家角色状态?.位置?.描述 || '初始地'
+                          }}</span>
                           <span class="save-time">{{ formatTime(slot.保存时间) }}</span>
                         </div>
                       </div>
@@ -271,8 +343,14 @@
                   <div class="save-header">
                     <h4 class="save-name">{{ $t('云端存档') }}</h4>
                     <div class="save-badges">
-                      <span class="realm-badge">{{ getRealmName(selectedCharacter.存档.存档数据.玩家角色状态?.境界) }}</span>
-                      <span class="age-badge">{{ selectedCharacter.存档.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
+                      <span class="realm-badge">{{
+                        getRealmName(selectedCharacter.存档.存档数据.玩家角色状态?.境界)
+                      }}</span>
+                      <span class="age-badge"
+                        >{{
+                          selectedCharacter.存档.存档数据.玩家角色状态?.寿命?.当前 || 18
+                        }}岁</span
+                      >
                     </div>
                   </div>
 
@@ -280,42 +358,71 @@
                     <div class="stat-grid">
                       <div class="stat">
                         <span class="label">气血</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.上限 || 0 }}</span>
+                        <span class="value"
+                          >{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{
+                            selectedCharacter.存档.存档数据.玩家角色状态?.气血?.上限 || 0
+                          }}</span
+                        >
                       </div>
                       <div class="stat">
                         <span class="label">灵气</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.上限 || 0 }}</span>
+                        <span class="value"
+                          >{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{
+                            selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.上限 || 0
+                          }}</span
+                        >
                       </div>
                       <div class="stat">
                         <span class="label">神识</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.上限 || 0 }}</span>
+                        <span class="value"
+                          >{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{
+                            selectedCharacter.存档.存档数据.玩家角色状态?.神识?.上限 || 0
+                          }}</span
+                        >
                       </div>
                       <div class="stat">
                         <span class="label">声望</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.声望 || 0 }}</span>
+                        <span class="value">{{
+                          selectedCharacter.存档.存档数据.玩家角色状态?.声望 || 0
+                        }}</span>
                       </div>
                     </div>
                   </div>
 
                   <div class="save-footer">
-                    <span class="location">{{ selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '初始地' }}</span>
+                    <span class="location">{{
+                      selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '初始地'
+                    }}</span>
                     <div class="sync-info">
-                      <span class="sync-status" :class="{ 'synced': !selectedCharacter.存档.云端同步信息?.需要同步 }">
-                        {{ selectedCharacter.存档.云端同步信息?.需要同步 ? $t('待同步') : $t('已同步') }}
+                      <span
+                        class="sync-status"
+                        :class="{ synced: !selectedCharacter.存档.云端同步信息?.需要同步 }"
+                      >
+                        {{
+                          selectedCharacter.存档.云端同步信息?.需要同步
+                            ? $t('待同步')
+                            : $t('已同步')
+                        }}
                       </span>
                     </div>
                   </div>
 
                   <div class="online-actions">
-                    <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">{{ $t('进入游戏') }}</button>
-                    <button v-if="selectedCharacter.存档.云端同步信息?.需要同步" class="btn-sync">{{ $t('同步云端') }}</button>
+                    <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">
+                      {{ $t('进入游戏') }}
+                    </button>
+                    <button v-if="selectedCharacter.存档.云端同步信息?.需要同步" class="btn-sync">
+                      {{ $t('同步云端') }}
+                    </button>
                   </div>
                 </div>
 
                 <div v-else class="save-empty">
                   <div class="empty-slot-icon">☁️</div>
                   <span class="empty-text">{{ $t('尚未开始修行') }}</span>
-                  <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">{{ $t('开始游戏') }}</button>
+                  <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">
+                    {{ $t('开始游戏') }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -918,7 +1025,7 @@ const exportCharacter = async (charId: string) => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const characterName = character.角色基础信息?.名字 || '未命名角色';
-    link.download = `大道朝天-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();
@@ -971,7 +1078,7 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const saveName = slot.存档名 || slotKey;
-    link.download = `大道朝天-${saveName}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-${saveName}-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();
@@ -1046,7 +1153,7 @@ const exportSaves = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `大道朝天-${character.角色基础信息.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-${character.角色基础信息.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();
@@ -1271,7 +1378,9 @@ const handleImportFile = async (event: Event) => {
   color: var(--color-text);
   font-size: 1rem;
   margin-bottom: 1.5rem;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
 }
 
 .dialog-input:focus {
@@ -1425,7 +1534,8 @@ const handleImportFile = async (event: Event) => {
   align-items: center;
   gap: 0.6rem;
   padding: 0.8rem 1rem;
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-surface-rgb), 0.8),
     rgba(var(--color-background-rgb), 0.6)
   );
@@ -1442,7 +1552,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 .mobile-menu-btn:hover {
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-surface-rgb), 0.9),
     rgba(var(--color-background-rgb), 0.7)
   );
@@ -1548,7 +1659,8 @@ const handleImportFile = async (event: Event) => {
   margin-top: 1rem;
 }
 
-.btn-create, .btn-import {
+.btn-create,
+.btn-import {
   padding: 1rem 2rem;
   color: white;
   border-radius: 12px;
@@ -1591,9 +1703,9 @@ const handleImportFile = async (event: Event) => {
   grid-template-columns: 320px 1fr;
   grid-template-rows: auto 1fr auto;
   grid-template-areas:
-    "header-left header-right"
-    "content-left content-right"
-    "footer-left footer-right";
+    'header-left header-right'
+    'content-left content-right'
+    'footer-left footer-right';
   height: 100%;
   overflow: hidden;
   /* 使用单一垂直分割线 */
@@ -1613,7 +1725,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 /* 标题栏 - 简化样式 */
-.grid-header-left, .grid-header-right {
+.grid-header-left,
+.grid-header-right {
   padding: 0.8rem 1rem;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -1623,7 +1736,8 @@ const handleImportFile = async (event: Event) => {
   gap: 1rem;
 }
 
-.grid-header-left h2, .grid-header-right h2 {
+.grid-header-left h2,
+.grid-header-right h2 {
   margin: 0;
   font-size: 1rem;
   color: var(--color-text);
@@ -1691,7 +1805,8 @@ const handleImportFile = async (event: Event) => {
 .selected-char-info {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-primary-rgb), 0.1),
     rgba(var(--color-accent-rgb), 0.05)
   );
@@ -1722,7 +1837,8 @@ const handleImportFile = async (event: Event) => {
   font-size: 0.85rem;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-surface-rgb), 0.8),
     rgba(var(--color-background-rgb), 0.6)
   );
@@ -1768,12 +1884,14 @@ const handleImportFile = async (event: Event) => {
 }
 
 /* 内容区域 - 简化样式 */
-.grid-content-left, .grid-content-right {
+.grid-content-left,
+.grid-content-right {
   background: var(--color-background);
 }
 
 /* 底部区域 */
-.grid-footer-left, .grid-footer-right {
+.grid-footer-left,
+.grid-footer-right {
   min-height: 0;
 }
 
@@ -1915,7 +2033,9 @@ const handleImportFile = async (event: Event) => {
   border-top: 1px solid var(--color-border);
 }
 
-.btn-details, .btn-export, .btn-delete {
+.btn-details,
+.btn-export,
+.btn-delete {
   flex: 1;
   padding: 0.3rem 0.5rem;
   border-radius: 4px;
@@ -2008,7 +2128,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 /* 存档容器 */
-.saves-container, .online-saves-container {
+.saves-container,
+.online-saves-container {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -2121,8 +2242,10 @@ const handleImportFile = async (event: Event) => {
 }
 
 /* 存档卡片 */
-.save-card, .online-save-card {
-  background: linear-gradient(135deg,
+.save-card,
+.online-save-card {
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-surface-rgb), 0.9),
     rgba(var(--color-background-rgb), 0.7)
   );
@@ -2140,14 +2263,16 @@ const handleImportFile = async (event: Event) => {
   touch-action: manipulation;
 }
 
-.save-card::before, .online-save-card::before {
+.save-card::before,
+.online-save-card::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-primary-rgb), 0.06),
     rgba(var(--color-accent-rgb), 0.03)
   );
@@ -2156,11 +2281,13 @@ const handleImportFile = async (event: Event) => {
   border-radius: 8px;
 }
 
-.save-card:hover::before, .online-save-card:hover::before {
+.save-card:hover::before,
+.online-save-card:hover::before {
   opacity: 1;
 }
 
-.save-card:hover, .online-save-card:hover {
+.save-card:hover,
+.online-save-card:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
   box-shadow:
@@ -2232,7 +2359,8 @@ const handleImportFile = async (event: Event) => {
   flex-shrink: 0;
 }
 
-.realm-badge, .age-badge {
+.realm-badge,
+.age-badge {
   padding: 2px 6px;
   border-radius: 8px;
   font-size: 0.7rem;
@@ -2420,7 +2548,9 @@ const handleImportFile = async (event: Event) => {
 }
 
 /* 按钮样式 */
-.btn-start, .btn-play, .btn-sync {
+.btn-start,
+.btn-play,
+.btn-sync {
   padding: 0.6rem 1rem;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   color: white;
@@ -2435,12 +2565,16 @@ const handleImportFile = async (event: Event) => {
   overflow: hidden;
 }
 
-.btn-start:hover, .btn-play:hover, .btn-sync:hover {
+.btn-start:hover,
+.btn-play:hover,
+.btn-sync:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.35);
 }
 
-.btn-start::before, .btn-play::before, .btn-sync::before {
+.btn-start::before,
+.btn-play::before,
+.btn-sync::before {
   content: '';
   position: absolute;
   top: 0;
@@ -2451,7 +2585,9 @@ const handleImportFile = async (event: Event) => {
   transition: left 0.4s;
 }
 
-.btn-start:hover::before, .btn-play:hover::before, .btn-sync:hover::before {
+.btn-start:hover::before,
+.btn-play:hover::before,
+.btn-sync:hover::before {
   left: 100%;
 }
 
@@ -2490,7 +2626,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 .online-save-card {
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-surface-rgb), 0.9),
     rgba(var(--color-background-rgb), 0.7)
   );
@@ -2578,7 +2715,8 @@ const handleImportFile = async (event: Event) => {
 }
 
 .detail-section {
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(var(--color-primary-rgb), 0.08),
     rgba(var(--color-accent-rgb), 0.06)
   );
@@ -2679,7 +2817,8 @@ const handleImportFile = async (event: Event) => {
     max-width: 260px;
   }
 
-  .save-card, .online-save-card {
+  .save-card,
+  .online-save-card {
     padding: 0.8rem;
   }
 
@@ -2714,9 +2853,9 @@ const handleImportFile = async (event: Event) => {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr auto;
     grid-template-areas:
-      "header-right"
-      "content-main"
-      "footer-main";
+      'header-right'
+      'content-main'
+      'footer-main';
     order: 1;
   }
 
@@ -2801,7 +2940,8 @@ const handleImportFile = async (event: Event) => {
     border-left: none;
   }
 
-  .saves-container, .online-saves-container {
+  .saves-container,
+  .online-saves-container {
     padding: 1rem 1.2rem;
     flex: 1;
     min-height: 0;
@@ -2846,7 +2986,8 @@ const handleImportFile = async (event: Event) => {
 
   .character-card:active {
     transform: scale(0.98);
-    background: linear-gradient(135deg,
+    background: linear-gradient(
+      135deg,
       rgba(var(--color-primary-rgb), 0.05),
       rgba(var(--color-accent-rgb), 0.03)
     );
@@ -2908,7 +3049,9 @@ const handleImportFile = async (event: Event) => {
     background: rgba(var(--color-primary-rgb), 0.1);
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    transition: width 0.3s ease, height 0.3s ease;
+    transition:
+      width 0.3s ease,
+      height 0.3s ease;
     pointer-events: none;
   }
 
@@ -2917,13 +3060,15 @@ const handleImportFile = async (event: Event) => {
     height: 200px;
   }
 
-  .save-card, .online-save-card {
+  .save-card,
+  .online-save-card {
     padding: 1rem;
     position: relative;
     overflow: hidden;
   }
 
-  .save-card::after, .online-save-card::after {
+  .save-card::after,
+  .online-save-card::after {
     content: '';
     position: absolute;
     top: 50%;
@@ -2933,11 +3078,14 @@ const handleImportFile = async (event: Event) => {
     background: rgba(var(--color-success-rgb), 0.1);
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    transition: width 0.3s ease, height 0.3s ease;
+    transition:
+      width 0.3s ease,
+      height 0.3s ease;
     pointer-events: none;
   }
 
-  .save-card:active::after, .online-save-card:active::after {
+  .save-card:active::after,
+  .online-save-card:active::after {
     width: 150px;
     height: 150px;
   }
@@ -2956,7 +3104,8 @@ const handleImportFile = async (event: Event) => {
     flex-direction: column;
   }
 
-  .btn-create, .btn-import {
+  .btn-create,
+  .btn-import {
     width: 100%;
   }
 
@@ -3023,14 +3172,16 @@ const handleImportFile = async (event: Event) => {
     font-size: 0.8rem;
   }
 
-  .saves-container, .online-saves-container {
+  .saves-container,
+  .online-saves-container {
     padding: 0.8rem;
     flex: 1;
     min-height: 0;
     max-height: none;
   }
 
-  .save-card, .online-save-card {
+  .save-card,
+  .online-save-card {
     padding: 0.9rem;
     min-height: 120px;
   }
@@ -3079,13 +3230,17 @@ const handleImportFile = async (event: Event) => {
     padding: 1rem;
   }
 
-  .btn-details, .btn-export, .btn-delete {
+  .btn-details,
+  .btn-export,
+  .btn-delete {
     min-height: 36px;
     font-size: 0.85rem;
     padding: 0.6rem 0.8rem;
   }
 
-  .btn-start, .btn-play, .btn-sync {
+  .btn-start,
+  .btn-play,
+  .btn-sync {
     min-height: 40px;
     padding: 0.7rem 1rem;
     font-size: 0.85rem;
@@ -3123,7 +3278,8 @@ const handleImportFile = async (event: Event) => {
     min-height: 70px;
   }
 
-  .save-card, .online-save-card {
+  .save-card,
+  .online-save-card {
     padding: 0.8rem;
     min-height: 100px;
   }
@@ -3178,7 +3334,8 @@ const handleImportFile = async (event: Event) => {
     min-height: 0;
   }
 
-  .saves-container, .online-saves-container {
+  .saves-container,
+  .online-saves-container {
     flex: 1;
     min-height: 0;
     padding: 0.6rem;
@@ -3204,7 +3361,9 @@ const handleImportFile = async (event: Event) => {
 
 /* Style unification overrides */
 /* Replace absolute divider with contextual borders */
-.grid-container::before { content: none; }
+.grid-container::before {
+  content: none;
+}
 .grid-header-left,
 .grid-content-left,
 .grid-footer-left {
@@ -3221,25 +3380,45 @@ const handleImportFile = async (event: Event) => {
 }
 
 /* Consistent radii across controls */
-.dialog-box { border-radius: var(--cm-radius-lg); }
-.dialog-input { border-radius: var(--cm-radius-md); }
+.dialog-box {
+  border-radius: var(--cm-radius-lg);
+}
+.dialog-input {
+  border-radius: var(--cm-radius-md);
+}
 .btn-dialog-confirm,
-.btn-dialog-cancel { border-radius: var(--cm-radius-md); }
-.fullscreen-back-btn { border-radius: var(--cm-radius-md); }
-.character-card { border-radius: var(--cm-radius-sm); }
+.btn-dialog-cancel {
+  border-radius: var(--cm-radius-md);
+}
+.fullscreen-back-btn {
+  border-radius: var(--cm-radius-md);
+}
+.character-card {
+  border-radius: var(--cm-radius-sm);
+}
 .save-card,
-.online-save-card { border-radius: var(--cm-radius-md); }
+.online-save-card {
+  border-radius: var(--cm-radius-md);
+}
 .btn-details,
-.btn-delete { border-radius: var(--cm-radius-md); }
+.btn-delete {
+  border-radius: var(--cm-radius-md);
+}
 .btn-start,
 .btn-play,
-.btn-sync { border-radius: var(--cm-radius-md); }
+.btn-sync {
+  border-radius: var(--cm-radius-md);
+}
 .btn-login,
-.btn-close { border-radius: var(--cm-radius-md); }
+.btn-close {
+  border-radius: var(--cm-radius-md);
+}
 
 /* Desktop card density adjustments: make character list less flat */
 @media (min-width: 769px) {
-  .characters-grid { padding: 0.8rem; }
+  .characters-grid {
+    padding: 0.8rem;
+  }
   .character-card {
     min-height: var(--cm-card-min-h);
     padding: var(--cm-card-padding);
@@ -3253,517 +3432,527 @@ const handleImportFile = async (event: Event) => {
     height: var(--cm-avatar-size);
     font-size: 0.95rem;
   }
-  .char-name { font-size: var(--cm-name-font); }
-  .char-meta { font-size: var(--cm-meta-font); }
-  .save-count { min-width: var(--cm-save-count-minw); }
-  .save-count .count { font-size: var(--cm-save-count-count-font); }
-  .save-count .label { font-size: var(--cm-save-count-label-font); }
+  .char-name {
+    font-size: var(--cm-name-font);
+  }
+  .char-meta {
+    font-size: var(--cm-meta-font);
+  }
+  .save-count {
+    min-width: var(--cm-save-count-minw);
+  }
+  .save-count .count {
+    font-size: var(--cm-save-count-count-font);
+  }
+  .save-count .label {
+    font-size: var(--cm-save-count-label-font);
+  }
 }
 
 /* ========== 深色玻璃拟态风格适配 ========== */
-[data-theme="dark"] .character-management-panel {
+[data-theme='dark'] .character-management-panel {
   background: rgb(30, 41, 59);
 }
 
-[data-theme="dark"] .fullscreen-header {
+[data-theme='dark'] .fullscreen-header {
   background: rgba(30, 41, 59, 0.9);
   border-bottom-color: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px);
 }
 
-[data-theme="dark"] .fullscreen-back-btn {
+[data-theme='dark'] .fullscreen-back-btn {
   background: rgba(30, 41, 59, 0.6);
   border-color: rgba(255, 255, 255, 0.1);
   color: #94a3b8;
 }
 
-[data-theme="dark"] .fullscreen-back-btn:hover {
+[data-theme='dark'] .fullscreen-back-btn:hover {
   background: rgba(51, 65, 85, 0.8);
   color: #f1f5f9;
   border-color: rgba(147, 197, 253, 0.3);
 }
 
-[data-theme="dark"] .fullscreen-title h1 {
+[data-theme='dark'] .fullscreen-title h1 {
   color: #f1f5f9;
   text-shadow: 0 0 20px rgba(147, 197, 253, 0.4);
 }
 
-[data-theme="dark"] .fullscreen-title p {
+[data-theme='dark'] .fullscreen-title p {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .mobile-header {
+[data-theme='dark'] .mobile-header {
   background: rgba(30, 41, 59, 0.9);
   border-bottom-color: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px);
 }
 
-[data-theme="dark"] .mobile-menu-btn {
+[data-theme='dark'] .mobile-menu-btn {
   background: rgba(30, 41, 59, 0.8);
   border-color: rgba(255, 255, 255, 0.1);
   color: #94a3b8;
 }
 
-[data-theme="dark"] .mobile-menu-btn:hover {
+[data-theme='dark'] .mobile-menu-btn:hover {
   background: rgba(51, 65, 85, 0.9);
   color: #93c5fd;
   border-color: rgba(147, 197, 253, 0.3);
 }
 
-[data-theme="dark"] .mobile-menu-btn.active {
+[data-theme='dark'] .mobile-menu-btn.active {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
   color: #ffffff;
   border-color: rgba(147, 197, 253, 0.5);
 }
 
-[data-theme="dark"] .mobile-title h2 {
+[data-theme='dark'] .mobile-title h2 {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .mobile-title .selected-info {
+[data-theme='dark'] .mobile-title .selected-info {
   color: #94a3b8;
 }
 
 /* 网格布局暗色适配 */
-[data-theme="dark"] .grid-header-left,
-[data-theme="dark"] .grid-header-right {
+[data-theme='dark'] .grid-header-left,
+[data-theme='dark'] .grid-header-right {
   background: rgba(30, 41, 59, 0.8);
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="dark"] .grid-header-left h2,
-[data-theme="dark"] .grid-header-right h2 {
+[data-theme='dark'] .grid-header-left h2,
+[data-theme='dark'] .grid-header-right h2 {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .character-count {
+[data-theme='dark'] .character-count {
   background: rgba(15, 23, 42, 0.6);
   border-color: rgba(255, 255, 255, 0.08);
   color: #94a3b8;
 }
 
-[data-theme="dark"] .selected-char-info {
+[data-theme='dark'] .selected-char-info {
   background: rgba(59, 130, 246, 0.15);
   border-color: rgba(147, 197, 253, 0.3);
   color: #93c5fd;
 }
 
-[data-theme="dark"] .grid-content-left,
-[data-theme="dark"] .grid-content-right {
+[data-theme='dark'] .grid-content-left,
+[data-theme='dark'] .grid-content-right {
   background: rgb(30, 41, 59);
 }
 
-[data-theme="dark"] .grid-content-left.characters-panel {
+[data-theme='dark'] .grid-content-left.characters-panel {
   background: rgba(30, 41, 59, 0.95);
 }
 
 /* 分割线暗色适配 */
-[data-theme="dark"] .grid-header-left,
-[data-theme="dark"] .grid-content-left,
-[data-theme="dark"] .grid-footer-left {
+[data-theme='dark'] .grid-header-left,
+[data-theme='dark'] .grid-content-left,
+[data-theme='dark'] .grid-footer-left {
   border-right-color: rgba(147, 197, 253, 0.3);
 }
 
 /* 角色卡片暗色适配 */
-[data-theme="dark"] .character-card {
+[data-theme='dark'] .character-card {
   background: rgba(30, 41, 59, 0.6);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="dark"] .character-card:hover {
+[data-theme='dark'] .character-card:hover {
   background: rgba(51, 65, 85, 0.7);
   border-color: rgba(147, 197, 253, 0.3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .character-card.active {
+[data-theme='dark'] .character-card.active {
   background: rgba(30, 58, 138, 0.4);
   border-color: rgba(147, 197, 253, 0.5);
 }
 
-[data-theme="dark"] .character-card.single-mode {
+[data-theme='dark'] .character-card.single-mode {
   border-left-color: #9ece6a;
 }
 
-[data-theme="dark"] .character-card.online-mode {
+[data-theme='dark'] .character-card.online-mode {
   border-left-color: #93c5fd;
 }
 
-[data-theme="dark"] .char-name {
+[data-theme='dark'] .char-name {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .char-meta {
+[data-theme='dark'] .char-meta {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .save-count .count {
+[data-theme='dark'] .save-count .count {
   color: #c0caf5;
 }
 
-[data-theme="dark"] .save-count .label {
+[data-theme='dark'] .save-count .label {
   color: #64748b;
 }
 
-[data-theme="dark"] .card-actions {
+[data-theme='dark'] .card-actions {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="dark"] .btn-details,
-[data-theme="dark"] .btn-export,
-[data-theme="dark"] .btn-delete {
+[data-theme='dark'] .btn-details,
+[data-theme='dark'] .btn-export,
+[data-theme='dark'] .btn-delete {
   background: rgba(30, 41, 59, 0.6);
 }
 
-[data-theme="dark"] .btn-details {
+[data-theme='dark'] .btn-details {
   color: #77cdfe;
   border-color: rgba(119, 205, 254, 0.4);
 }
 
-[data-theme="dark"] .btn-details:hover {
+[data-theme='dark'] .btn-details:hover {
   background: #77cdfe;
   color: #0f172a;
 }
 
-[data-theme="dark"] .btn-export {
+[data-theme='dark'] .btn-export {
   color: #9ece6a;
   border-color: rgba(158, 206, 106, 0.4);
 }
 
-[data-theme="dark"] .btn-export:hover {
+[data-theme='dark'] .btn-export:hover {
   background: #9ece6a;
   color: #0f172a;
 }
 
-[data-theme="dark"] .btn-delete {
+[data-theme='dark'] .btn-delete {
   color: #f87171;
   border-color: rgba(248, 113, 113, 0.4);
 }
 
-[data-theme="dark"] .btn-delete:hover {
+[data-theme='dark'] .btn-delete:hover {
   background: #f87171;
   color: #0f172a;
 }
 
 /* 存档面板暗色适配 */
-[data-theme="dark"] .saves-panel {
+[data-theme='dark'] .saves-panel {
   background: rgb(30, 41, 59);
 }
 
-[data-theme="dark"] .no-selection {
+[data-theme='dark'] .no-selection {
   color: #64748b;
 }
 
-[data-theme="dark"] .manual-saves-header h3 {
+[data-theme='dark'] .manual-saves-header h3 {
   color: #fbbf24;
 }
 
-[data-theme="dark"] .save-info-text {
+[data-theme='dark'] .save-info-text {
   color: #64748b;
 }
 
 /* 存档卡片暗色适配 */
-[data-theme="dark"] .save-card,
-[data-theme="dark"] .online-save-card {
+[data-theme='dark'] .save-card,
+[data-theme='dark'] .online-save-card {
   background: rgba(30, 41, 59, 0.7);
   border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(15px);
 }
 
-[data-theme="dark"] .save-card::before,
-[data-theme="dark"] .online-save-card::before {
+[data-theme='dark'] .save-card::before,
+[data-theme='dark'] .online-save-card::before {
   background: linear-gradient(135deg, rgba(147, 197, 253, 0.08), rgba(192, 202, 245, 0.04));
 }
 
-[data-theme="dark"] .save-card:hover,
-[data-theme="dark"] .online-save-card:hover {
+[data-theme='dark'] .save-card:hover,
+[data-theme='dark'] .online-save-card:hover {
   border-color: rgba(147, 197, 253, 0.4);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-[data-theme="dark"] .save-card.has-data {
+[data-theme='dark'] .save-card.has-data {
   border-left-color: #9ece6a;
   border-color: rgba(158, 206, 106, 0.5);
 }
 
-[data-theme="dark"] .save-card.auto-save {
+[data-theme='dark'] .save-card.auto-save {
   border-left-color: #77cdfe;
   border-color: rgba(119, 205, 254, 0.5);
 }
 
-[data-theme="dark"] .save-card.has-data::after {
+[data-theme='dark'] .save-card.has-data::after {
   background: #9ece6a;
   box-shadow: 0 0 8px rgba(158, 206, 106, 0.6);
 }
 
-[data-theme="dark"] .save-name {
+[data-theme='dark'] .save-name {
   color: #fbbf24;
 }
 
-[data-theme="dark"] .realm-badge {
+[data-theme='dark'] .realm-badge {
   background: rgba(158, 206, 106, 0.2);
   color: #9ece6a;
 }
 
-[data-theme="dark"] .age-badge {
+[data-theme='dark'] .age-badge {
   background: rgba(192, 202, 245, 0.2);
   color: #c0caf5;
 }
 
-[data-theme="dark"] .stat .label {
+[data-theme='dark'] .stat .label {
   color: #64748b;
 }
 
-[data-theme="dark"] .stat .value {
+[data-theme='dark'] .stat .value {
   color: #e2e8f0;
 }
 
-[data-theme="dark"] .save-footer {
+[data-theme='dark'] .save-footer {
   border-top-color: rgba(255, 255, 255, 0.08);
   color: #64748b;
 }
 
-[data-theme="dark"] .sync-status.synced {
+[data-theme='dark'] .sync-status.synced {
   background: rgba(158, 206, 106, 0.2);
   color: #9ece6a;
 }
 
-[data-theme="dark"] .save-empty {
+[data-theme='dark'] .save-empty {
   color: #64748b;
 }
 
 /* 存档操作按钮暗色适配 */
-[data-theme="dark"] .btn-export-save {
+[data-theme='dark'] .btn-export-save {
   background: rgba(158, 206, 106, 0.15);
   border-color: rgba(158, 206, 106, 0.3);
   color: #9ece6a;
 }
 
-[data-theme="dark"] .btn-export-save:hover {
+[data-theme='dark'] .btn-export-save:hover {
   background: rgba(158, 206, 106, 0.25);
   border-color: rgba(158, 206, 106, 0.5);
 }
 
-[data-theme="dark"] .btn-edit-save {
+[data-theme='dark'] .btn-edit-save {
   background: rgba(119, 205, 254, 0.15);
   border-color: rgba(119, 205, 254, 0.3);
   color: #77cdfe;
 }
 
-[data-theme="dark"] .btn-edit-save:hover {
+[data-theme='dark'] .btn-edit-save:hover {
   background: rgba(119, 205, 254, 0.25);
   border-color: rgba(119, 205, 254, 0.5);
 }
 
-[data-theme="dark"] .btn-delete-save {
+[data-theme='dark'] .btn-delete-save {
   background: rgba(248, 113, 113, 0.15);
   border-color: rgba(248, 113, 113, 0.3);
   color: #f87171;
 }
 
-[data-theme="dark"] .btn-delete-save:hover:not(.disabled):not(:disabled) {
+[data-theme='dark'] .btn-delete-save:hover:not(.disabled):not(:disabled) {
   background: rgba(248, 113, 113, 0.25);
   border-color: rgba(248, 113, 113, 0.5);
 }
 
 /* 按钮暗色适配 */
-[data-theme="dark"] .btn-start,
-[data-theme="dark"] .btn-play,
-[data-theme="dark"] .btn-sync {
+[data-theme='dark'] .btn-start,
+[data-theme='dark'] .btn-play,
+[data-theme='dark'] .btn-sync {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
   border-color: rgba(147, 197, 253, 0.4);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-[data-theme="dark"] .btn-start:hover,
-[data-theme="dark"] .btn-play:hover,
-[data-theme="dark"] .btn-sync:hover {
+[data-theme='dark'] .btn-start:hover,
+[data-theme='dark'] .btn-play:hover,
+[data-theme='dark'] .btn-sync:hover {
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
-[data-theme="dark"] .btn-header-action {
+[data-theme='dark'] .btn-header-action {
   background: rgba(30, 41, 59, 0.6);
 }
 
-[data-theme="dark"] .btn-header-action.import {
+[data-theme='dark'] .btn-header-action.import {
   color: #77cdfe;
   border-color: rgba(119, 205, 254, 0.4);
 }
 
-[data-theme="dark"] .btn-header-action.import:hover {
+[data-theme='dark'] .btn-header-action.import:hover {
   background: rgba(119, 205, 254, 0.15);
   border-color: #77cdfe;
 }
 
-[data-theme="dark"] .btn-save-action {
+[data-theme='dark'] .btn-save-action {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(10px);
 }
 
-[data-theme="dark"] .btn-save-action.export {
+[data-theme='dark'] .btn-save-action.export {
   color: #9ece6a;
   border-color: rgba(158, 206, 106, 0.4);
 }
 
-[data-theme="dark"] .btn-save-action.export:hover:not(:disabled) {
+[data-theme='dark'] .btn-save-action.export:hover:not(:disabled) {
   background: linear-gradient(135deg, #9ece6a, rgba(158, 206, 106, 0.8));
   color: #0f172a;
 }
 
-[data-theme="dark"] .btn-save-action.import {
+[data-theme='dark'] .btn-save-action.import {
   color: #77cdfe;
   border-color: rgba(119, 205, 254, 0.4);
 }
 
-[data-theme="dark"] .btn-save-action.import:hover:not(:disabled) {
+[data-theme='dark'] .btn-save-action.import:hover:not(:disabled) {
   background: linear-gradient(135deg, #77cdfe, rgba(119, 205, 254, 0.8));
   color: #0f172a;
 }
 
 /* 对话框暗色适配 */
-[data-theme="dark"] .dialog-overlay {
+[data-theme='dark'] .dialog-overlay {
   background: rgba(10, 15, 25, 0.7);
 }
 
-[data-theme="dark"] .dialog-box {
+[data-theme='dark'] .dialog-box {
   background: rgba(30, 41, 59, 0.95);
   border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
 }
 
-[data-theme="dark"] .dialog-title {
+[data-theme='dark'] .dialog-title {
   color: #c0caf5;
 }
 
-[data-theme="dark"] .dialog-message {
+[data-theme='dark'] .dialog-message {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .dialog-input {
+[data-theme='dark'] .dialog-input {
   background: rgba(15, 23, 42, 0.6);
   border-color: rgba(255, 255, 255, 0.1);
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .dialog-input:focus {
+[data-theme='dark'] .dialog-input:focus {
   border-color: #93c5fd;
   box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.2);
 }
 
-[data-theme="dark"] .btn-dialog-confirm {
+[data-theme='dark'] .btn-dialog-confirm {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
   border-color: rgba(147, 197, 253, 0.4);
 }
 
-[data-theme="dark"] .btn-dialog-cancel {
+[data-theme='dark'] .btn-dialog-cancel {
   background: rgba(51, 65, 85, 0.6);
   border-color: rgba(255, 255, 255, 0.1);
   color: #94a3b8;
 }
 
-[data-theme="dark"] .btn-dialog-cancel:hover {
+[data-theme='dark'] .btn-dialog-cancel:hover {
   background: rgba(51, 65, 85, 0.8);
   color: #f1f5f9;
 }
 
 /* 详情弹窗暗色适配 */
-[data-theme="dark"] .modal-overlay {
+[data-theme='dark'] .modal-overlay {
   background: rgba(10, 15, 25, 0.7);
 }
 
-[data-theme="dark"] .details-modal {
+[data-theme='dark'] .details-modal {
   background: rgba(30, 41, 59, 0.95);
   border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
 }
 
-[data-theme="dark"] .modal-header {
+[data-theme='dark'] .modal-header {
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="dark"] .modal-header h3 {
+[data-theme='dark'] .modal-header h3 {
   color: #c0caf5;
 }
 
-[data-theme="dark"] .btn-close {
+[data-theme='dark'] .btn-close {
   border-color: rgba(255, 255, 255, 0.1);
   color: #64748b;
 }
 
-[data-theme="dark"] .btn-close:hover {
+[data-theme='dark'] .btn-close:hover {
   background: rgba(51, 65, 85, 0.6);
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .detail-section {
+[data-theme='dark'] .detail-section {
   background: rgba(30, 41, 59, 0.6);
   border-color: rgba(147, 197, 253, 0.15);
 }
 
-[data-theme="dark"] .detail-section h4 {
+[data-theme='dark'] .detail-section h4 {
   color: #fbbf24;
 }
 
-[data-theme="dark"] .detail-item {
+[data-theme='dark'] .detail-item {
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-[data-theme="dark"] .detail-item .label {
+[data-theme='dark'] .detail-item .label {
   color: #64748b;
 }
 
-[data-theme="dark"] .detail-item .value {
+[data-theme='dark'] .detail-item .value {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .talent-tag {
+[data-theme='dark'] .talent-tag {
   background: rgba(192, 202, 245, 0.2);
   color: #c0caf5;
 }
 
-[data-theme="dark"] .no-talents {
+[data-theme='dark'] .no-talents {
   color: #64748b;
 }
 
 /* 空状态暗色适配 */
-[data-theme="dark"] .empty-state h2 {
+[data-theme='dark'] .empty-state h2 {
   color: #c0caf5;
 }
 
-[data-theme="dark"] .empty-state p {
+[data-theme='dark'] .empty-state p {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .btn-create {
+[data-theme='dark'] .btn-create {
   background: linear-gradient(135deg, #9ece6a, #77cdfe);
   border-color: rgba(158, 206, 106, 0.5);
 }
 
-[data-theme="dark"] .btn-import {
+[data-theme='dark'] .btn-import {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(192, 202, 245, 0.8));
   border-color: rgba(147, 197, 253, 0.5);
 }
 
 /* 联机模式暗色适配 */
-[data-theme="dark"] .login-prompt h3 {
+[data-theme='dark'] .login-prompt h3 {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .login-prompt p {
+[data-theme='dark'] .login-prompt p {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .btn-login {
+[data-theme='dark'] .btn-login {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
   border-color: rgba(147, 197, 253, 0.4);
 }
 
 /* 加载状态暗色适配 */
-[data-theme="dark"] .loading-saves p {
+[data-theme='dark'] .loading-saves p {
   color: #94a3b8;
 }
 
-[data-theme="dark"] .loading-spinner {
+[data-theme='dark'] .loading-spinner {
   border-color: rgba(147, 197, 253, 0.2);
   border-top-color: #93c5fd;
 }

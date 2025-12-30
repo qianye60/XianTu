@@ -1,5 +1,5 @@
 {
-  "name": "dadao-chaotian",
+  "name": "XianTu",
   "version": "3.6.5",
   "description": "AI驱动的沉浸式修仙文字冒险游戏（SillyTavern / 自定义API，Vue3 + TypeScript）",
   "private": true,
@@ -8,10 +8,10 @@
   "homepage": "https://www.ddct.top/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qianye60/dadao-chaotian.git"
+    "url": "git+https://github.com/qianye60/XianTu.git"
   },
   "bugs": {
-    "url": "https://github.com/qianye60/dadao-chaotian/issues"
+    "url": "https://github.com/qianye60/XianTu/issues"
   },
   "scripts": {
     "build": "webpack --mode production",

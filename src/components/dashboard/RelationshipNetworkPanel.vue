@@ -9,11 +9,7 @@
             <h3 class="panel-title">人物关系</h3>
             <div class="search-bar">
               <Search :size="16" />
-              <input
-                v-model="searchQuery"
-                placeholder="搜索人物..."
-                class="search-input"
-              />
+              <input v-model="searchQuery" placeholder="搜索人物..." class="search-input" />
             </div>
           </div>
 
@@ -25,10 +21,15 @@
             <div v-else-if="filteredRelationships.length === 0" class="empty-state">
               <Users2 :size="48" class="empty-icon" />
               <p class="empty-text">
-                {{ relationshipStats.total > 0 ? '人物关系数据不完整或未能解析' : t('尚未建立人际关系') }}
+                {{
+                  relationshipStats.total > 0
+                    ? '人物关系数据不完整或未能解析'
+                    : t('尚未建立人际关系')
+                }}
               </p>
               <p class="empty-hint" v-if="relationshipStats.total > 0">
-                已检测到 {{ relationshipStats.total }} 条关系记录，但有效NPC为 0；建议继续进行一回合以触发数据修复，或在「调试信息」里执行同步/强制刷新。
+                已检测到 {{ relationshipStats.total }} 条关系记录，但有效NPC为
+                0；建议继续进行一回合以触发数据修复，或在「调试信息」里执行同步/强制刷新。
               </p>
               <p class="empty-hint" v-else>{{ t('在游戏中与更多人物互动建立关系') }}</p>
             </div>
@@ -49,11 +50,23 @@
                   <div class="person-meta">
                     <span class="relationship-type">{{ person.与玩家关系 || '相识' }}</span>
                     <div class="card-actions" @click.stop>
-                      <button class="attention-toggle" @click.stop="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
-                        <Eye v-if="isAttentionEnabled(person)" :size="14" class="attention-icon active" />
+                      <button
+                        class="attention-toggle"
+                        @click.stop="toggleAttention(person)"
+                        :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'"
+                      >
+                        <Eye
+                          v-if="isAttentionEnabled(person)"
+                          :size="14"
+                          class="attention-icon active"
+                        />
                         <EyeOff v-else :size="14" class="attention-icon inactive" />
                       </button>
-                      <button @click.stop="confirmDeleteNpc(person)" class="delete-btn-card" title="删除人物">
+                      <button
+                        @click.stop="confirmDeleteNpc(person)"
+                        class="delete-btn-card"
+                        title="删除人物"
+                      >
                         <Trash2 :size="14" />
                       </button>
                     </div>
@@ -84,9 +97,9 @@
           <template v-if="selectedPerson">
             <!-- 详情头部 -->
             <div class="detail-header">
-               <button @click="isDetailViewActive = false" class="back-to-list-btn">
-                 <ArrowLeft :size="20" />
-               </button>
+              <button @click="isDetailViewActive = false" class="back-to-list-btn">
+                <ArrowLeft :size="20" />
+              </button>
               <div class="detail-avatar">
                 <span class="avatar-text">{{ selectedPerson.名字.charAt(0) }}</span>
               </div>
@@ -94,13 +107,27 @@
                 <div class="name-and-actions">
                   <h3 class="detail-name">{{ selectedPerson.名字 }}</h3>
                   <div class="action-buttons">
-                    <button @click="downloadCharacterData" class="action-btn download-btn" title="下载完整人物数据">
+                    <button
+                      @click="downloadCharacterData"
+                      class="action-btn download-btn"
+                      title="下载完整人物数据"
+                    >
                       <Download :size="16" />
                     </button>
-                    <button v-if="isTavernEnvFlag" @click="exportToWorldBook" class="action-btn export-btn" title="导出到世界书（不含记忆）">
+                    <button
+                      v-if="isTavernEnvFlag"
+                      @click="exportToWorldBook"
+                      class="action-btn export-btn"
+                      title="导出到世界书（不含记忆）"
+                    >
                       <BookOpen :size="16" />
                     </button>
-                    <button v-if="selectedPerson" @click.stop="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
+                    <button
+                      v-if="selectedPerson"
+                      @click.stop="confirmDeleteNpc(selectedPerson)"
+                      class="delete-npc-btn"
+                      title="删除此人物"
+                    >
                       <Trash2 :size="16" />
                     </button>
                   </div>
@@ -111,7 +138,9 @@
                     好感 {{ selectedPerson.好感度 || 0 }}
                   </span>
                   <span class="race-badge">{{ selectedPerson.种族 || '人族' }}</span>
-                  <span v-if="selectedPerson.势力归属" class="faction-badge">{{ selectedPerson.势力归属 }}</span>
+                  <span v-if="selectedPerson.势力归属" class="faction-badge">{{
+                    selectedPerson.势力归属
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -136,99 +165,174 @@
                 <div v-show="activeTab === 'basic'" class="tab-panel">
                   <!-- 基础档案 -->
                   <div class="detail-section">
-                  <h5 class="section-title">基础档案</h5>
-                  <div class="info-grid-responsive">
-                    <div class="info-item-row"><span class="info-label">境界</span><span class="info-value">{{ getNpcRealm(selectedPerson) }}</span></div>
-                    <div class="info-item-row"><span class="info-label">性别</span><span class="info-value">{{ selectedPerson.性别 || '未知' }}</span></div>
-                    <div class="info-item-row"><span class="info-label">年龄</span><span class="info-value">{{ getNpcAge(selectedPerson) }}</span></div>
-                    <div class="info-item-row"><span class="info-label">灵根</span><span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span></div>
-                    <div class="info-item-row" v-if="selectedPerson.当前位置"><span class="info-label">位置</span><span class="info-value">{{ selectedPerson.当前位置.描述 }}</span></div>
-                    <div class="info-item-row" v-if="selectedPerson.出生"><span class="info-label">出生</span><span class="info-value">{{ getNpcOrigin(selectedPerson.出生) }}</span></div>
-                  </div>
-                </div>
-
-                <!-- 外貌与性格 -->
-                <div class="detail-section" v-if="selectedPerson.外貌描述 || selectedPerson.性格特征?.length">
-                  <h5 class="section-title">外貌与性格</h5>
-                  <div v-if="selectedPerson.外貌描述" class="appearance-description">
-                    <p class="description-text">{{ selectedPerson.外貌描述 }}</p>
-                  </div>
-                   <div v-if="selectedPerson.性格特征?.length" class="talents-grid" style="margin-top: 1rem;">
-                      <span v-for="trait in selectedPerson.性格特征" :key="trait" class="talent-tag">{{ trait }}</span>
+                    <h5 class="section-title">基础档案</h5>
+                    <div class="info-grid-responsive">
+                      <div class="info-item-row">
+                        <span class="info-label">境界</span
+                        ><span class="info-value">{{ getNpcRealm(selectedPerson) }}</span>
+                      </div>
+                      <div class="info-item-row">
+                        <span class="info-label">性别</span
+                        ><span class="info-value">{{ selectedPerson.性别 || '未知' }}</span>
+                      </div>
+                      <div class="info-item-row">
+                        <span class="info-label">年龄</span
+                        ><span class="info-value">{{ getNpcAge(selectedPerson) }}</span>
+                      </div>
+                      <div class="info-item-row">
+                        <span class="info-label">灵根</span
+                        ><span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span>
+                      </div>
+                      <div class="info-item-row" v-if="selectedPerson.当前位置">
+                        <span class="info-label">位置</span
+                        ><span class="info-value">{{ selectedPerson.当前位置.描述 }}</span>
+                      </div>
+                      <div class="info-item-row" v-if="selectedPerson.出生">
+                        <span class="info-label">出生</span
+                        ><span class="info-value">{{ getNpcOrigin(selectedPerson.出生) }}</span>
+                      </div>
                     </div>
-                </div>
+                  </div>
 
-                <!-- 天赋与六司 -->
-                <div class="detail-section" v-if="selectedPerson.天赋?.length || selectedPerson.先天六司">
-                   <h5 class="section-title">天赋与六司</h5>
-                   <div v-if="selectedPerson.天赋?.length">
+                  <!-- 外貌与性格 -->
+                  <div
+                    class="detail-section"
+                    v-if="selectedPerson.外貌描述 || selectedPerson.性格特征?.length"
+                  >
+                    <h5 class="section-title">外貌与性格</h5>
+                    <div v-if="selectedPerson.外貌描述" class="appearance-description">
+                      <p class="description-text">{{ selectedPerson.外貌描述 }}</p>
+                    </div>
+                    <div
+                      v-if="selectedPerson.性格特征?.length"
+                      class="talents-grid"
+                      style="margin-top: 1rem"
+                    >
+                      <span
+                        v-for="trait in selectedPerson.性格特征"
+                        :key="trait"
+                        class="talent-tag"
+                        >{{ trait }}</span
+                      >
+                    </div>
+                  </div>
+
+                  <!-- 天赋与六司 -->
+                  <div
+                    class="detail-section"
+                    v-if="selectedPerson.天赋?.length || selectedPerson.先天六司"
+                  >
+                    <h5 class="section-title">天赋与六司</h5>
+                    <div v-if="selectedPerson.天赋?.length">
                       <h6 class="subsection-title">天赋能力</h6>
                       <div class="talents-grid">
-                        <span v-for="(talent, index) in selectedPerson.天赋" :key="index" class="talent-tag" @click="showTalentDetail(talent)" style="cursor: pointer;">
+                        <span
+                          v-for="(talent, index) in selectedPerson.天赋"
+                          :key="index"
+                          class="talent-tag"
+                          @click="showTalentDetail(talent)"
+                          style="cursor: pointer"
+                        >
                           {{ getTalentName(talent) }}
                         </span>
                       </div>
-                   </div>
-                   <div v-if="selectedPerson.先天六司" style="margin-top: 1rem;">
+                    </div>
+                    <div v-if="selectedPerson.先天六司" style="margin-top: 1rem">
                       <h6 class="subsection-title">先天六司</h6>
                       <div class="attributes-grid">
-                        <div class="attribute-item"><span class="attr-label">根骨</span><span class="attr-value">{{ selectedPerson.先天六司.根骨 || 0 }}</span></div>
-                        <div class="attribute-item"><span class="attr-label">灵性</span><span class="attr-value">{{ selectedPerson.先天六司.灵性 || 0 }}</span></div>
-                        <div class="attribute-item"><span class="attr-label">悟性</span><span class="attr-value">{{ selectedPerson.先天六司.悟性 || 0 }}</span></div>
-                        <div class="attribute-item"><span class="attr-label">气运</span><span class="attr-value">{{ selectedPerson.先天六司.气运 || 0 }}</span></div>
-                        <div class="attribute-item"><span class="attr-label">魅力</span><span class="attr-value">{{ selectedPerson.先天六司.魅力 || 0 }}</span></div>
-                        <div class="attribute-item"><span class="attr-label">心性</span><span class="attr-value">{{ selectedPerson.先天六司.心性 || 0 }}</span></div>
+                        <div class="attribute-item">
+                          <span class="attr-label">根骨</span
+                          ><span class="attr-value">{{ selectedPerson.先天六司.根骨 || 0 }}</span>
+                        </div>
+                        <div class="attribute-item">
+                          <span class="attr-label">灵性</span
+                          ><span class="attr-value">{{ selectedPerson.先天六司.灵性 || 0 }}</span>
+                        </div>
+                        <div class="attribute-item">
+                          <span class="attr-label">悟性</span
+                          ><span class="attr-value">{{ selectedPerson.先天六司.悟性 || 0 }}</span>
+                        </div>
+                        <div class="attribute-item">
+                          <span class="attr-label">气运</span
+                          ><span class="attr-value">{{ selectedPerson.先天六司.气运 || 0 }}</span>
+                        </div>
+                        <div class="attribute-item">
+                          <span class="attr-label">魅力</span
+                          ><span class="attr-value">{{ selectedPerson.先天六司.魅力 || 0 }}</span>
+                        </div>
+                        <div class="attribute-item">
+                          <span class="attr-label">心性</span
+                          ><span class="attr-value">{{ selectedPerson.先天六司.心性 || 0 }}</span>
+                        </div>
                       </div>
-                   </div>
-                </div>
-
-                <!-- 最近记忆 -->
-                <div class="detail-section" v-if="getNpcRecentMemories(selectedPerson).length > 0">
-                  <h5 class="section-title">📝 最近记忆</h5>
-                  <div class="npc-memories-list">
-                    <div v-for="(memory, index) in getNpcRecentMemories(selectedPerson)" :key="index" class="npc-memory-item">
-                      <div class="npc-memory-content">{{ memory }}</div>
                     </div>
                   </div>
-                </div>
 
-                <!-- 人格底线（所有NPC都有）-->
-                <div class="detail-section personality-section">
-                  <h5 class="section-title">⚠️ 人格底线</h5>
-                  <div class="personality-bottomlines">
-                    <div v-if="selectedPerson.人格底线?.length" class="bottomline-tags">
-                      <span v-for="(line, index) in selectedPerson.人格底线" :key="index" class="bottomline-tag">{{ line }}</span>
+                  <!-- 最近记忆 -->
+                  <div
+                    class="detail-section"
+                    v-if="getNpcRecentMemories(selectedPerson).length > 0"
+                  >
+                    <h5 class="section-title">📝 最近记忆</h5>
+                    <div class="npc-memories-list">
+                      <div
+                        v-for="(memory, index) in getNpcRecentMemories(selectedPerson)"
+                        :key="index"
+                        class="npc-memory-item"
+                      >
+                        <div class="npc-memory-content">{{ memory }}</div>
+                      </div>
                     </div>
-                    <div v-else class="bottomline-empty">未记录人格底线</div>
                   </div>
-                  <div class="bottomline-warning">
-                    <span class="warning-icon">⚡</span>
-                    <span class="warning-text">触犯人格底线将导致好感度断崖式下跌（-30 ~ -60），关系破裂且极难修复</span>
+
+                  <!-- 人格底线（所有NPC都有）-->
+                  <div class="detail-section personality-section">
+                    <h5 class="section-title">⚠️ 人格底线</h5>
+                    <div class="personality-bottomlines">
+                      <div v-if="selectedPerson.人格底线?.length" class="bottomline-tags">
+                        <span
+                          v-for="(line, index) in selectedPerson.人格底线"
+                          :key="index"
+                          class="bottomline-tag"
+                          >{{ line }}</span
+                        >
+                      </div>
+                      <div v-else class="bottomline-empty">未记录人格底线</div>
+                    </div>
+                    <div class="bottomline-warning">
+                      <span class="warning-icon">⚡</span>
+                      <span class="warning-text"
+                        >触犯人格底线将导致好感度断崖式下跌（-30 ~ -60），关系破裂且极难修复</span
+                      >
+                    </div>
                   </div>
-                </div>
                 </div>
 
                 <!-- Tab 2: 实时状态 -->
                 <div v-show="activeTab === 'status'" class="tab-panel">
-                <div class="detail-section highlight-section">
-                  <h5 class="section-title">💭 当前状态（实时）</h5>
-                  <div class="realtime-status">
-                    <div class="status-item">
-                      <span class="status-icon">😶</span>
-                      <div class="status-content">
-                        <div class="status-label">外貌状态</div>
-                        <div class="status-text">{{ selectedPerson.当前外貌状态 || '神态自然，衣衫整洁' }}</div>
+                  <div class="detail-section highlight-section">
+                    <h5 class="section-title">💭 当前状态（实时）</h5>
+                    <div class="realtime-status">
+                      <div class="status-item">
+                        <span class="status-icon">😶</span>
+                        <div class="status-content">
+                          <div class="status-label">外貌状态</div>
+                          <div class="status-text">
+                            {{ selectedPerson.当前外貌状态 || '神态自然，衣衫整洁' }}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div class="status-item">
-                      <span class="status-icon">💭</span>
-                      <div class="status-content">
-                        <div class="status-label">内心想法</div>
-                        <div class="status-text">{{ selectedPerson.当前内心想法 || '心如止水，平静无波' }}</div>
+                      <div class="status-item">
+                        <span class="status-icon">💭</span>
+                        <div class="status-content">
+                          <div class="status-label">内心想法</div>
+                          <div class="status-text">
+                            {{ selectedPerson.当前内心想法 || '心如止水，平静无波' }}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
                 </div>
 
                 <!-- Tab: 私密信息（仅酒馆环境） -->
@@ -246,22 +350,49 @@
                         <h6 class="subsection-title">概览</h6>
 
                         <div class="info-grid-responsive">
-                          <div class="info-item-row"><span class="info-label">是否为处女</span><span class="info-value">{{ privacy.是否为处女 ? '是' : '否' }}</span></div>
-                          <div class="info-item-row"><span class="info-label">性格倾向</span><span class="info-value">{{ privacy.性格倾向 || '无' }}</span></div>
-                          <div class="info-item-row"><span class="info-label">性取向</span><span class="info-value">{{ privacy.性取向 || '无' }}</span></div>
-                          <div class="info-item-row"><span class="info-label">当前性状态</span><span class="info-value">{{ privacy.当前性状态 || '无' }}</span></div>
-                          <div class="info-item-row"><span class="info-label">体液分泌状态</span><span class="info-value"><span class="status-badge" :class="`status-${privacy.体液分泌状态 || '正常'}`">{{ privacy.体液分泌状态 || '正常' }}</span></span></div>
-                          <div class="info-item-row"><span class="info-label">性交总次数</span><span class="info-value">{{ privacy.性交总次数 ?? 0 }}</span></div>
+                          <div class="info-item-row">
+                            <span class="info-label">是否为处女</span
+                            ><span class="info-value">{{ privacy.是否为处女 ? '是' : '否' }}</span>
+                          </div>
+                          <div class="info-item-row">
+                            <span class="info-label">性格倾向</span
+                            ><span class="info-value">{{ privacy.性格倾向 || '无' }}</span>
+                          </div>
+                          <div class="info-item-row">
+                            <span class="info-label">性取向</span
+                            ><span class="info-value">{{ privacy.性取向 || '无' }}</span>
+                          </div>
+                          <div class="info-item-row">
+                            <span class="info-label">当前性状态</span
+                            ><span class="info-value">{{ privacy.当前性状态 || '无' }}</span>
+                          </div>
+                          <div class="info-item-row">
+                            <span class="info-label">体液分泌状态</span
+                            ><span class="info-value"
+                              ><span
+                                class="status-badge"
+                                :class="`status-${privacy.体液分泌状态 || '正常'}`"
+                                >{{ privacy.体液分泌状态 || '正常' }}</span
+                              ></span
+                            >
+                          </div>
+                          <div class="info-item-row">
+                            <span class="info-label">性交总次数</span
+                            ><span class="info-value">{{ privacy.性交总次数 ?? 0 }}</span>
+                          </div>
                         </div>
 
-                        <div class="development-bars" style="margin-top: 0.75rem;">
+                        <div class="development-bars" style="margin-top: 0.75rem">
                           <div class="dev-bar-item">
                             <div class="dev-bar-header">
                               <span class="dev-label">性渴望程度</span>
                               <span class="dev-value">{{ privacy.性渴望程度 ?? 0 }}/100</span>
                             </div>
                             <div class="dev-bar-track">
-                              <div class="dev-bar-fill desire-fill" :style="{ width: `${clampPercent(privacy.性渴望程度)}%` }"></div>
+                              <div
+                                class="dev-bar-fill desire-fill"
+                                :style="{ width: `${clampPercent(privacy.性渴望程度)}%` }"
+                              ></div>
                             </div>
                           </div>
                         </div>
@@ -273,13 +404,30 @@
                       </div>
 
                       <!-- 偏好/体质 -->
-                      <div v-if="privacyFetishesAll.length || privacyTraitsAll.length" class="nsfw-subsection">
+                      <div
+                        v-if="privacyFetishesAll.length || privacyTraitsAll.length"
+                        class="nsfw-subsection"
+                      >
                         <h6 class="subsection-title">偏好与体质</h6>
                         <div v-if="privacyFetishesAll.length" class="bottomline-tags">
-                          <span v-for="(kink, index) in privacyFetishesAll" :key="`${kink}-${index}`" class="fetish-tag">{{ kink }}</span>
+                          <span
+                            v-for="(kink, index) in privacyFetishesAll"
+                            :key="`${kink}-${index}`"
+                            class="fetish-tag"
+                            >{{ kink }}</span
+                          >
                         </div>
-                        <div v-if="privacyTraitsAll.length" class="bottomline-tags" style="margin-top: 0.5rem;">
-                          <span v-for="(trait, index) in privacyTraitsAll" :key="`${trait}-${index}`" class="special-trait-tag">{{ trait }}</span>
+                        <div
+                          v-if="privacyTraitsAll.length"
+                          class="bottomline-tags"
+                          style="margin-top: 0.5rem"
+                        >
+                          <span
+                            v-for="(trait, index) in privacyTraitsAll"
+                            :key="`${trait}-${index}`"
+                            class="special-trait-tag"
+                            >{{ trait }}</span
+                          >
                         </div>
                       </div>
 
@@ -287,7 +435,12 @@
                       <div v-if="privacyPartnersAll.length" class="nsfw-subsection">
                         <h6 class="subsection-title">性伴侣名单</h6>
                         <div class="bottomline-tags partner-list">
-                          <span v-for="(partner, index) in privacyPartners" :key="`${partner}-${index}`" class="partner-tag">{{ partner }}</span>
+                          <span
+                            v-for="(partner, index) in privacyPartners"
+                            :key="`${partner}-${index}`"
+                            class="partner-tag"
+                            >{{ partner }}</span
+                          >
                         </div>
                         <button
                           v-if="privacyPartnersAll.length > privacyPartners.length"
@@ -298,7 +451,10 @@
                           显示全部（{{ privacyPartnersAll.length }}）
                         </button>
                         <button
-                          v-else-if="privacyPartnersAll.length > privacyPartnersPreviewLimit && showAllPrivacyPartners"
+                          v-else-if="
+                            privacyPartnersAll.length > privacyPartnersPreviewLimit &&
+                            showAllPrivacyPartners
+                          "
                           class="toggle-more-btn"
                           @click="showAllPrivacyPartners = false"
                           type="button"
@@ -312,24 +468,40 @@
                         <h6 class="subsection-title">身体部位</h6>
 
                         <div class="body-parts-list">
-                          <div v-for="(part, index) in privacyBodyParts" :key="`${part.部位名称}-${index}`" class="body-part-item">
+                          <div
+                            v-for="(part, index) in privacyBodyParts"
+                            :key="`${part.部位名称}-${index}`"
+                            class="body-part-item"
+                          >
                             <div class="part-header">
-                              <span class="part-name">{{ part.部位名称 || `部位${index + 1}` }}</span>
-                              <span v-if="part.特殊印记" class="part-mark">{{ part.特殊印记 }}</span>
+                              <span class="part-name">{{
+                                part.部位名称 || `部位${index + 1}`
+                              }}</span>
+                              <span v-if="part.特殊印记" class="part-mark">{{
+                                part.特殊印记
+                              }}</span>
                             </div>
-                            <div v-if="part.特征描述" class="part-description">{{ part.特征描述 }}</div>
+                            <div v-if="part.特征描述" class="part-description">
+                              {{ part.特征描述 }}
+                            </div>
                             <div class="part-stats">
                               <div class="part-stat">
                                 <span class="stat-label">敏感度</span>
                                 <div class="stat-bar-mini">
-                                  <div class="stat-bar-fill sensitivity" :style="{ width: `${clampPercent(part.敏感度)}%` }"></div>
+                                  <div
+                                    class="stat-bar-fill sensitivity"
+                                    :style="{ width: `${clampPercent(part.敏感度)}%` }"
+                                  ></div>
                                 </div>
                                 <span class="stat-value">{{ part.敏感度 ?? 0 }}</span>
                               </div>
                               <div class="part-stat">
                                 <span class="stat-label">开发度</span>
                                 <div class="stat-bar-mini">
-                                  <div class="stat-bar-fill development" :style="{ width: `${clampPercent(part.开发度)}%` }"></div>
+                                  <div
+                                    class="stat-bar-fill development"
+                                    :style="{ width: `${clampPercent(part.开发度)}%` }"
+                                  ></div>
                                 </div>
                                 <span class="stat-value">{{ part.开发度 ?? 0 }}</span>
                               </div>
@@ -346,7 +518,10 @@
                           显示全部（{{ privacyBodyPartsAll.length }}）
                         </button>
                         <button
-                          v-else-if="privacyBodyPartsAll.length > privacyBodyPartsPreviewLimit && showAllPrivacyBodyParts"
+                          v-else-if="
+                            privacyBodyPartsAll.length > privacyBodyPartsPreviewLimit &&
+                            showAllPrivacyBodyParts
+                          "
                           class="toggle-more-btn"
                           @click="showAllPrivacyBodyParts = false"
                           type="button"
@@ -356,131 +531,226 @@
                       </div>
                     </div>
 
-                    <div v-else class="bottomline-empty">
-                      暂无私密信息（等待AI生成）
-                    </div>
+                    <div v-else class="bottomline-empty">暂无私密信息（等待AI生成）</div>
                   </div>
                 </div>
 
                 <!-- Tab 3: 记忆档案 -->
                 <div v-show="activeTab === 'memory'" class="tab-panel">
-
-                <!-- 详细记忆区域 -->
-                <div class="detail-section" v-if="selectedPerson.记忆?.length">
-                  <div class="memory-header">
-                    <h5 class="section-title" style="border: none; padding: 0; margin: 0;">📝 详细记忆</h5>
-                    <div class="memory-actions-header">
-                      <div class="memory-count">{{ selectedPerson.记忆?.length || 0 }} 条</div>
-                      <div class="memory-controls-group">
-                        <button class="download-memory-btn" @click="downloadMemories" title="下载所有记忆">
-                          💾 下载记忆
-                        </button>
-                        <div v-if="(selectedPerson.记忆?.length || 0) >= 3" class="summarize-controls">
-                          <input
-                            type="number"
-                            v-model.number="memoriesToSummarize"
-                            :min="3"
-                            :max="selectedPerson.记忆?.length || 3"
-                            class="summarize-input"
-                            placeholder="条数"
-                            title="从最旧开始总结的记忆条数"
-                          />
-                          <button class="summarize-btn" @click="summarizeMemories" :disabled="isSummarizing" title="总结最旧的记忆">
-                            {{ isSummarizing ? '总结中...' : '📝 总结' }}
+                  <!-- 详细记忆区域 -->
+                  <div class="detail-section" v-if="selectedPerson.记忆?.length">
+                    <div class="memory-header">
+                      <h5 class="section-title" style="border: none; padding: 0; margin: 0">
+                        📝 详细记忆
+                      </h5>
+                      <div class="memory-actions-header">
+                        <div class="memory-count">{{ selectedPerson.记忆?.length || 0 }} 条</div>
+                        <div class="memory-controls-group">
+                          <button
+                            class="download-memory-btn"
+                            @click="downloadMemories"
+                            title="下载所有记忆"
+                          >
+                            💾 下载记忆
+                          </button>
+                          <div
+                            v-if="(selectedPerson.记忆?.length || 0) >= 3"
+                            class="summarize-controls"
+                          >
+                            <input
+                              type="number"
+                              v-model.number="memoriesToSummarize"
+                              :min="3"
+                              :max="selectedPerson.记忆?.length || 3"
+                              class="summarize-input"
+                              placeholder="条数"
+                              title="从最旧开始总结的记忆条数"
+                            />
+                            <button
+                              class="summarize-btn"
+                              @click="summarizeMemories"
+                              :disabled="isSummarizing"
+                              title="总结最旧的记忆"
+                            >
+                              {{ isSummarizing ? '总结中...' : '📝 总结' }}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- 总结模式提示 -->
+                    <div class="summary-mode-hint">
+                      ℹ️ 总结模式配置（Raw/标准、流式/非流式）请前往 <strong>记忆中心面板</strong> →
+                      设置
+                    </div>
+                    <div class="memory-list">
+                      <div
+                        v-for="(memory, index) in paginatedMemory"
+                        :key="index"
+                        class="memory-item"
+                      >
+                        <div class="memory-content">
+                          <div v-if="getMemoryTime(memory)" class="memory-time">
+                            {{ getMemoryTime(memory) }}
+                          </div>
+                          <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+                        </div>
+                        <div class="memory-actions">
+                          <button
+                            class="memory-btn edit"
+                            @click="editMemory((currentMemoryPage - 1) * memoryPageSize + index)"
+                          >
+                            编辑
+                          </button>
+                          <button
+                            class="memory-btn delete"
+                            @click="deleteMemory((currentMemoryPage - 1) * memoryPageSize + index)"
+                          >
+                            删除
                           </button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <!-- 总结模式提示 -->
-                  <div class="summary-mode-hint">
-                    ℹ️ 总结模式配置（Raw/标准、流式/非流式）请前往 <strong>记忆中心面板</strong> → 设置
-                  </div>
-                  <div class="memory-list">
-                    <div v-for="(memory, index) in paginatedMemory" :key="index" class="memory-item">
-                      <div class="memory-content">
-                        <div v-if="getMemoryTime(memory)" class="memory-time">{{ getMemoryTime(memory) }}</div>
-                        <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
+                    <div class="memory-pagination" v-if="totalMemoryPages > 1">
+                      <button
+                        class="pagination-btn"
+                        :disabled="currentMemoryPage <= 1"
+                        @click="goToMemoryPage(currentMemoryPage - 1)"
+                      >
+                        上一页
+                      </button>
+                      <div class="pagination-controls">
+                        <span class="pagination-info"
+                          >{{ currentMemoryPage }} / {{ totalMemoryPages }}</span
+                        >
+                        <div class="jump-to-page">
+                          <input
+                            type="number"
+                            v-model.number="jumpToPageInput"
+                            :min="1"
+                            :max="totalMemoryPages"
+                            class="page-input"
+                            placeholder="页码"
+                            @keyup.enter="jumpToSpecificPage"
+                          />
+                          <button class="jump-btn" @click="jumpToSpecificPage">跳转</button>
+                        </div>
                       </div>
-                      <div class="memory-actions">
-                        <button class="memory-btn edit" @click="editMemory((currentMemoryPage - 1) * memoryPageSize + index)">编辑</button>
-                        <button class="memory-btn delete" @click="deleteMemory((currentMemoryPage - 1) * memoryPageSize + index)">删除</button>
-                      </div>
+                      <button
+                        class="pagination-btn"
+                        :disabled="currentMemoryPage >= totalMemoryPages"
+                        @click="goToMemoryPage(currentMemoryPage + 1)"
+                      >
+                        下一页
+                      </button>
                     </div>
                   </div>
-                  <div class="memory-pagination" v-if="totalMemoryPages > 1">
-                    <button class="pagination-btn" :disabled="currentMemoryPage <= 1" @click="goToMemoryPage(currentMemoryPage - 1)">上一页</button>
-                    <div class="pagination-controls">
-                      <span class="pagination-info">{{ currentMemoryPage }} / {{ totalMemoryPages }}</span>
-                      <div class="jump-to-page">
-                        <input
-                          type="number"
-                          v-model.number="jumpToPageInput"
-                          :min="1"
-                          :max="totalMemoryPages"
-                          class="page-input"
-                          placeholder="页码"
-                          @keyup.enter="jumpToSpecificPage"
-                        />
-                        <button class="jump-btn" @click="jumpToSpecificPage">跳转</button>
-                      </div>
-                    </div>
-                    <button class="pagination-btn" :disabled="currentMemoryPage >= totalMemoryPages" @click="goToMemoryPage(currentMemoryPage + 1)">下一页</button>
-                  </div>
-                </div>
 
-                <!-- 记忆总结区域 -->
-                <div class="detail-section memory-summary-section" v-if="selectedPerson.记忆总结?.length">
-                  <h5 class="section-title">📜 记忆总结</h5>
-                  <div class="memory-summary-list">
-                    <div v-for="(summary, index) in selectedPerson.记忆总结" :key="index" class="memory-summary-item">
-                      <div class="summary-icon">📜</div>
-                      <div class="summary-text">{{ summary }}</div>
+                  <!-- 记忆总结区域 -->
+                  <div
+                    class="detail-section memory-summary-section"
+                    v-if="selectedPerson.记忆总结?.length"
+                  >
+                    <h5 class="section-title">📜 记忆总结</h5>
+                    <div class="memory-summary-list">
+                      <div
+                        v-for="(summary, index) in selectedPerson.记忆总结"
+                        :key="index"
+                        class="memory-summary-item"
+                      >
+                        <div class="summary-icon">📜</div>
+                        <div class="summary-text">{{ summary }}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- 空状态提示 -->
-                <div v-if="!selectedPerson.记忆?.length && !selectedPerson.记忆总结?.length" class="detail-section">
-                  <div class="empty-state-small">
-                    <BookOpen :size="24" class="empty-icon" />
-                    <p>此人暂无记忆</p>
-                    <p class="empty-hint">在游戏中与该人物互动会生成记忆</p>
+                  <!-- 空状态提示 -->
+                  <div
+                    v-if="!selectedPerson.记忆?.length && !selectedPerson.记忆总结?.length"
+                    class="detail-section"
+                  >
+                    <div class="empty-state-small">
+                      <BookOpen :size="24" class="empty-icon" />
+                      <p>此人暂无记忆</p>
+                      <p class="empty-hint">在游戏中与该人物互动会生成记忆</p>
+                    </div>
                   </div>
-                </div>
                 </div>
                 <!-- End of Tab 4: 记忆档案 -->
 
                 <!-- Tab 5: 背包 -->
                 <div v-show="activeTab === 'inventory'" class="tab-panel">
-                <div class="detail-section">
-                  <h5 class="section-title">背包</h5>
-                  <div v-if="selectedPerson.背包?.灵石" class="spirit-stones-grid">
-                    <div class="spirit-stone-item"><span>下品灵石</span><span>{{ selectedPerson.背包.灵石.下品 || 0 }}</span></div>
-                    <div class="spirit-stone-item"><span>中品灵石</span><span>{{ selectedPerson.背包.灵石.中品 || 0 }}</span></div>
-                    <div class="spirit-stone-item"><span>上品灵石</span><span>{{ selectedPerson.背包.灵石.上品 || 0 }}</span></div>
-                    <div class="spirit-stone-item"><span>极品灵石</span><span>{{ selectedPerson.背包.灵石.极品 || 0 }}</span></div>
-                  </div>
-                  <div class="npc-inventory" style="margin-top: 1rem;">
-                    <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
-                      <div v-for="(item, itemId) in selectedPerson.背包.物品" :key="itemId" class="npc-item-card" :class="getItemQualityClass(item.品质?.quality)">
-                        <div class="item-header">
-                          <span class="item-name">{{ item.名称 || itemId }}</span>
-                          <span class="item-type">{{ item.类型 || '其他' }}</span>
-                        </div>
-                        <div class="item-quality" v-if="item.品质"><span class="quality-text">{{ item.品质?.quality || '未知' }}{{ item.品质?.grade ? getGradeText(item.品质.grade) : '' }}</span></div>
-                        <div class="item-quantity" v-if="item.数量 > 1"><span>x{{ item.数量 }}</span></div>
-                        <div class="item-description" v-if="item.描述"><p>{{ item.描述 }}</p></div>
-                        <div class="item-actions">
-                          <button class="trade-btn" @click="initiateTradeWithNpc(selectedPerson, item)" title="尝试交易此物品"><ArrowRightLeft :size="12" />交易</button>
-                          <button class="request-btn" @click="requestItemFromNpc(selectedPerson, item)" title="请求获得此物品">🙏 索要</button>
-                          <button class="steal-btn" @click="attemptStealFromNpc(selectedPerson, item)" title="尝试偷取此物品">🥷 偷窃</button>
-                        </div>
+                  <div class="detail-section">
+                    <h5 class="section-title">背包</h5>
+                    <div v-if="selectedPerson.背包?.灵石" class="spirit-stones-grid">
+                      <div class="spirit-stone-item">
+                        <span>下品灵石</span><span>{{ selectedPerson.背包.灵石.下品 || 0 }}</span>
+                      </div>
+                      <div class="spirit-stone-item">
+                        <span>中品灵石</span><span>{{ selectedPerson.背包.灵石.中品 || 0 }}</span>
+                      </div>
+                      <div class="spirit-stone-item">
+                        <span>上品灵石</span><span>{{ selectedPerson.背包.灵石.上品 || 0 }}</span>
+                      </div>
+                      <div class="spirit-stone-item">
+                        <span>极品灵石</span><span>{{ selectedPerson.背包.灵石.极品 || 0 }}</span>
                       </div>
                     </div>
-                    <div v-else class="empty-inventory"><Package :size="24" class="empty-icon" /><p>此人身上没有物品</p></div>
+                    <div class="npc-inventory" style="margin-top: 1rem">
+                      <div v-if="hasNpcItems(selectedPerson)" class="npc-items-grid">
+                        <div
+                          v-for="(item, itemId) in selectedPerson.背包.物品"
+                          :key="itemId"
+                          class="npc-item-card"
+                          :class="getItemQualityClass(item.品质?.quality)"
+                        >
+                          <div class="item-header">
+                            <span class="item-name">{{ item.名称 || itemId }}</span>
+                            <span class="item-type">{{ item.类型 || '其他' }}</span>
+                          </div>
+                          <div class="item-quality" v-if="item.品质">
+                            <span class="quality-text"
+                              >{{ item.品质?.quality || '未知'
+                              }}{{ item.品质?.grade ? getGradeText(item.品质.grade) : '' }}</span
+                            >
+                          </div>
+                          <div class="item-quantity" v-if="item.数量 > 1">
+                            <span>x{{ item.数量 }}</span>
+                          </div>
+                          <div class="item-description" v-if="item.描述">
+                            <p>{{ item.描述 }}</p>
+                          </div>
+                          <div class="item-actions">
+                            <button
+                              class="trade-btn"
+                              @click="initiateTradeWithNpc(selectedPerson, item)"
+                              title="尝试交易此物品"
+                            >
+                              <ArrowRightLeft :size="12" />交易
+                            </button>
+                            <button
+                              class="request-btn"
+                              @click="requestItemFromNpc(selectedPerson, item)"
+                              title="请求获得此物品"
+                            >
+                              🙏 索要
+                            </button>
+                            <button
+                              class="steal-btn"
+                              @click="attemptStealFromNpc(selectedPerson, item)"
+                              title="尝试偷取此物品"
+                            >
+                              🥷 偷窃
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="empty-inventory">
+                        <Package :size="24" class="empty-icon" />
+                        <p>此人身上没有物品</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
                 </div>
                 <!-- End of Tab 5: 背包 -->
 
@@ -499,8 +769,8 @@
             </div>
             <!-- End of detail-body -->
           </template>
-         <div v-else class="no-selection">
-           <Users2 :size="64" class="placeholder-icon" />
+          <div v-else class="no-selection">
+            <Users2 :size="64" class="placeholder-icon" />
             <p class="placeholder-text">选择一个人物查看详细信息</p>
             <p class="placeholder-hint">在游戏中与人物互动会建立关系记录</p>
           </div>
@@ -1486,7 +1756,7 @@ const exportToWorldBook = async () => {
 
     // 获取或创建当前聊天的世界书
     const lorebooks = await tavernHelper.getLorebooks();
-    const worldbookName = '大道朝天_人物';
+    const worldbookName = '仙途_人物';
     if (!lorebooks.includes(worldbookName)) {
       await tavernHelper.createLorebook(worldbookName);
     }
@@ -1608,7 +1878,7 @@ const exportToWorldBook = async () => {
         delay: null
       },
       extra: {
-        来源: '大道朝天',
+        来源: '仙途',
         导出时间: new Date().toLocaleString('zh-CN'),
         人物ID: npcName
       }
@@ -1807,7 +2077,8 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   padding: 0.5rem;
 }
 
-.loading-state, .empty-state {
+.loading-state,
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1988,14 +2259,30 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   transition: width 0.3s ease;
 }
 
-.intimacy-high { background: linear-gradient(90deg, #22c55e, #16a34a); }
-.intimacy-good { background: linear-gradient(90deg, #3b82f6, #1d4ed8); }
-.intimacy-medium { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
-.intimacy-low { background: linear-gradient(90deg, #f59e0b, #d97706); }
-.intimacy-neutral { background: linear-gradient(90deg, #6b7280, #4b5563); }
-.intimacy-dislike { background: linear-gradient(90deg, #f97316, #ea580c); }
-.intimacy-hostile { background: linear-gradient(90deg, #dc2626, #b91c1c); }
-.intimacy-enemy { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.intimacy-high {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+.intimacy-good {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+.intimacy-medium {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+}
+.intimacy-low {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+.intimacy-neutral {
+  background: linear-gradient(90deg, #6b7280, #4b5563);
+}
+.intimacy-dislike {
+  background: linear-gradient(90deg, #f97316, #ea580c);
+}
+.intimacy-hostile {
+  background: linear-gradient(90deg, #dc2626, #b91c1c);
+}
+.intimacy-enemy {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
 
 .intimacy-value {
   font-size: 0.75rem;
@@ -2066,7 +2353,10 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   flex-wrap: wrap;
 }
 
-.relationship-badge, .intimacy-badge, .race-badge, .faction-badge {
+.relationship-badge,
+.intimacy-badge,
+.race-badge,
+.faction-badge {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -2105,8 +2395,14 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .empty-state-small {
@@ -2443,7 +2739,10 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   line-height: 1.5;
 }
 
-.memory-actions { display: flex; gap: 6px; }
+.memory-actions {
+  display: flex;
+  gap: 6px;
+}
 
 .memory-btn {
   padding: 4px 8px;
@@ -2453,8 +2752,14 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   cursor: pointer;
   background: var(--color-background);
 }
-.memory-btn.edit { color: #2563eb; border-color: #bfdbfe; }
-.memory-btn.delete { color: #dc2626; border-color: #fecaca; }
+.memory-btn.edit {
+  color: #2563eb;
+  border-color: #bfdbfe;
+}
+.memory-btn.delete {
+  color: #dc2626;
+  border-color: #fecaca;
+}
 
 /* 简化：外貌描述样式 */
 .appearance-description {
@@ -2528,7 +2833,6 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 .npc-inventory {
   margin-top: 0.75rem;
 }
-
 
 .npc-items-grid {
   display: grid;
@@ -2759,8 +3063,12 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* === NSFW 私密信息样式 === */
@@ -3237,7 +3545,8 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }

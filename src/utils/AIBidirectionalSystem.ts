@@ -191,7 +191,7 @@ ${assembledPrompt}
 ${coreStatusSummary}
 
 # 游戏状态
-你正在修仙世界《大道朝天》中扮演GM。以下是当前完整游戏存档(JSON格式):
+你正在修仙世界《仙途》中扮演GM。以下是当前完整游戏存档(JSON格式):
 ${stateJsonString}
 `.trim();
 

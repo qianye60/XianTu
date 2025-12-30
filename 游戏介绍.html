@@ -1,936 +1,1188 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="大道朝天 - AI驱动的修仙世界。体验思维链AI、动态地图、开放预设系统，开启你的修行之旅。">
-    <meta name="keywords" content="大道朝天,修仙游戏,AI游戏,文字游戏,修仙世界,思维链AI">
-    <meta name="author" content="大道朝天开发团队">
-    <title>大道朝天 - AI驱动的修仙世界 | 官方网站</title>
-    <meta name="theme-color" content="#0a0e23">
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="大道朝天 - AI驱动的修仙世界">
-    <meta property="og:description" content="AI驱动的沉浸式修仙文字冒险游戏：动态生成剧情、NPC互动与世界事件。">
-    <meta property="og:url" content="https://www.ddct.top/">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="仙途 - AI驱动的修仙世界。体验思维链AI、动态地图、开放预设系统，开启你的修行之旅。"
+    />
+    <meta name="keywords" content="仙途,修仙游戏,AI游戏,文字游戏,修仙世界,思维链AI" />
+    <meta name="author" content="仙途开发团队" />
+    <title>仙途 - AI驱动的修仙世界 | 官方网站</title>
+    <meta name="theme-color" content="#0a0e23" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="仙途 - AI驱动的修仙世界" />
+    <meta
+      property="og:description"
+      content="AI驱动的沉浸式修仙文字冒险游戏：动态生成剧情、NPC互动与世界事件。"
+    />
+    <meta property="og:url" content="https://www.ddct.top/" />
     <!-- 引入Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入Inter字体 (一个优雅的无衬线字体) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        /* 自定义样式 - 定义仙气背景、粒子、玻璃拟态和字体 */
+      /* 自定义样式 - 定义仙气背景、粒子、玻璃拟态和字体 */
 
-        body {
-            /* 核心的"仙气"渐变：从底部的凡间到顶部的天界 */
-            background: linear-gradient(to top, #0a0e23 0%, #0f1a4a 30%, #5e79c2 70%, #f0f4ff 100%);
-            background-attachment: fixed; /* 固定背景，营造深邃感 */
-            font-family: 'Inter', 'Microsoft YaHei', 'SimSun', sans-serif;
-            overflow-x: hidden; /* 防止水平滚动 */
-            color: #E0E7FF; /* 基础文字颜色改为淡蓝色，更柔和 */
-            scroll-behavior: smooth; /* 页面内锚点平滑滚动 */
-        }
+      body {
+        /* 核心的"仙气"渐变：从底部的凡间到顶部的天界 */
+        background: linear-gradient(to top, #0a0e23 0%, #0f1a4a 30%, #5e79c2 70%, #f0f4ff 100%);
+        background-attachment: fixed; /* 固定背景，营造深邃感 */
+        font-family: 'Inter', 'Microsoft YaHei', 'SimSun', sans-serif;
+        overflow-x: hidden; /* 防止水平滚动 */
+        color: #e0e7ff; /* 基础文字颜色改为淡蓝色，更柔和 */
+        scroll-behavior: smooth; /* 页面内锚点平滑滚动 */
+      }
 
-        /* 粒子画布，固定在背景中 */
-        #particle-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none; /* 允许点击穿透 */
-        }
+      /* 粒子画布，固定在背景中 */
+      #particle-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none; /* 允许点击穿透 */
+      }
 
-        /* 自定义玻璃拟态效果 (毛玻璃) */
-        .glass-card {
-            background: rgba(10, 14, 35, 0.45); /* 增加一点不透明度 */
-            backdrop-filter: blur(12px); /* 模糊背景 */
-            border: 1px solid rgba(255, 255, 255, 0.1); /* 模拟高光边缘 */
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); /* 增加深度 */
-            transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-            border-color: rgba(255, 255, 255, 0.3); /* 悬浮时边框更亮 */
-        }
+      /* 自定义玻璃拟态效果 (毛玻璃) */
+      .glass-card {
+        background: rgba(10, 14, 35, 0.45); /* 增加一点不透明度 */
+        backdrop-filter: blur(12px); /* 模糊背景 */
+        border: 1px solid rgba(255, 255, 255, 0.1); /* 模拟高光边缘 */
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); /* 增加深度 */
+        transition: all 0.3s ease;
+      }
+      .glass-card:hover {
+        border-color: rgba(255, 255, 255, 0.3); /* 悬浮时边框更亮 */
+      }
 
-        /* 标题的渐变文字 */
-        .text-gradient {
-            background: linear-gradient(to right, #ffffff, #d4e0ff, #fde68a); /* 白 -> 淡蓝 -> 淡金 */
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-fill-color: transparent;
-        }
+      /* 标题的渐变文字 */
+      .text-gradient {
+        background: linear-gradient(to right, #ffffff, #d4e0ff, #fde68a); /* 白 -> 淡蓝 -> 淡金 */
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-fill-color: transparent;
+      }
 
-        /* 内容容器，确保在粒子之上 */
-        .content-wrapper {
-            position: relative;
-            z-index: 1;
-        }
+      /* 内容容器，确保在粒子之上 */
+      .content-wrapper {
+        position: relative;
+        z-index: 1;
+      }
 
-        /* 导航栏毛玻璃效果 */
-        nav.sticky-nav {
-            background: rgba(10, 14, 35, 0.3);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: background 0.3s ease;
-        }
-        nav.sticky-nav:hover {
-            background: rgba(10, 14, 35, 0.5);
-        }
+      /* 导航栏毛玻璃效果 */
+      nav.sticky-nav {
+        background: rgba(10, 14, 35, 0.3);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        transition: background 0.3s ease;
+      }
+      nav.sticky-nav:hover {
+        background: rgba(10, 14, 35, 0.5);
+      }
 
-        /* 移动端菜单 */
-        .mobile-menu {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            background: rgba(10, 14, 35, 0.98);
-            backdrop-filter: blur(20px);
-            z-index: 100;
-            padding: 2rem;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 2rem;
-        }
-        .mobile-menu.active {
-            display: flex;
-        }
-        .mobile-menu a {
-            font-size: 1.5rem;
-            color: white;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-        .mobile-menu a:hover {
-            color: #fbbf24;
-        }
+      /* 移动端菜单 */
+      .mobile-menu {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: rgba(10, 14, 35, 0.98);
+        backdrop-filter: blur(20px);
+        z-index: 100;
+        padding: 2rem;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 2rem;
+      }
+      .mobile-menu.active {
+        display: flex;
+      }
+      .mobile-menu a {
+        font-size: 1.5rem;
+        color: white;
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+      .mobile-menu a:hover {
+        color: #fbbf24;
+      }
 
-        /* 汉堡菜单按钮 */
+      /* 汉堡菜单按钮 */
+      .hamburger {
+        display: none;
+        flex-direction: column;
+        gap: 4px;
+        cursor: pointer;
+        z-index: 101;
+      }
+      .hamburger span {
+        width: 25px;
+        height: 3px;
+        background: white;
+        transition: all 0.3s ease;
+        border-radius: 2px;
+      }
+      .hamburger.active span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+      }
+      .hamburger.active span:nth-child(2) {
+        opacity: 0;
+      }
+      .hamburger.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px);
+      }
+      @media (max-width: 768px) {
         .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 4px;
-            cursor: pointer;
-            z-index: 101;
+          display: flex;
         }
-        .hamburger span {
-            width: 25px;
-            height: 3px;
-            background: white;
-            transition: all 0.3s ease;
-            border-radius: 2px;
-        }
-        .hamburger.active span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-        }
-        .hamburger.active span:nth-child(2) {
-            opacity: 0;
-        }
-        .hamburger.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(7px, -6px);
-        }
-        @media (max-width: 768px) {
-            .hamburger {
-                display: flex;
-            }
-        }
+      }
 
-        /* 更新日志的代码样式 */
-        .changelog-code {
-            background-color: rgba(0, 0, 0, 0.25);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 0.9em;
-            color: #fde68a; /* 淡金色代码 */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+      /* 更新日志的代码样式 */
+      .changelog-code {
+        background-color: rgba(0, 0, 0, 0.25);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.9em;
+        color: #fde68a; /* 淡金色代码 */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
 
-        /* 滚动条美化 */
-        ::-webkit-scrollbar {
-            width: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(10, 14, 35, 0.5);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
+      /* 滚动条美化 */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(10, 14, 35, 0.5);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
 
-        /* 返回顶部按钮 */
-        .back-to-top {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 50;
-            color: white;
-            font-size: 24px;
-        }
-        .back-to-top.show {
-            display: flex;
-        }
-        .back-to-top:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: translateY(-5px);
-        }
+      /* 返回顶部按钮 */
+      .back-to-top {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        width: 50px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 50;
+        color: white;
+        font-size: 24px;
+      }
+      .back-to-top.show {
+        display: flex;
+      }
+      .back-to-top:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-5px);
+      }
 
-        /* 加载动画 */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+      /* 加载动画 */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
         }
-        .fade-in {
-            animation: fadeIn 0.6s ease-out;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
+      .fade-in {
+        animation: fadeIn 0.6s ease-out;
+      }
 
-        /* 卡片悬浮增强 */
-        .glass-card {
-            will-change: transform;
-        }
+      /* 卡片悬浮增强 */
+      .glass-card {
+        will-change: transform;
+      }
     </style>
-</head>
-<body class="min-h-screen">
+  </head>
+  <body class="min-h-screen">
     <!-- 粒子画布 -->
     <canvas id="particle-canvas"></canvas>
 
     <!-- 页面内容容器 -->
     <div class="content-wrapper">
+      <!-- 导航栏 -->
+      <nav class="sticky-nav sticky top-0 z-50 w-full" role="navigation" aria-label="主导航">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center gap-4">
+          <a
+            href="#home"
+            class="text-3xl font-black text-gradient focus:outline-none focus:ring-2 focus:ring-amber-300/60 rounded-lg px-2 py-1"
+          >
+            仙途
+          </a>
 
-        <!-- 导航栏 -->
-        <nav class="sticky-nav sticky top-0 z-50 w-full" role="navigation" aria-label="主导航">
-            <div class="container mx-auto px-6 py-4 flex justify-between items-center gap-4">
-                <a href="#home" class="text-3xl font-black text-gradient focus:outline-none focus:ring-2 focus:ring-amber-300/60 rounded-lg px-2 py-1">
-                    大道朝天
-                </a>
+          <div class="hidden md:flex space-x-8 text-lg text-white/90">
+            <a href="#home" class="hover:text-amber-300 transition-colors">首页</a>
+            <a href="#about" class="hover:text-amber-300 transition-colors">世界观</a>
+            <a href="#features" class="hover:text-amber-300 transition-colors">核心特色</a>
+            <a href="#gallery" class="hover:text-amber-300 transition-colors">道途一瞥</a>
+            <a href="#news" class="hover:text-amber-300 transition-colors">更新日志</a>
+          </div>
 
-                <div class="hidden md:flex space-x-8 text-lg text-white/90">
-                    <a href="#home" class="hover:text-amber-300 transition-colors">首页</a>
-                    <a href="#about" class="hover:text-amber-300 transition-colors">世界观</a>
-                    <a href="#features" class="hover:text-amber-300 transition-colors">核心特色</a>
-                    <a href="#gallery" class="hover:text-amber-300 transition-colors">道途一瞥</a>
-                    <a href="#news" class="hover:text-amber-300 transition-colors">更新日志</a>
-                </div>
-
-                <div class="flex items-center gap-3">
-                    <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="hidden sm:flex items-center gap-2 px-5 py-2 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-base font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20" aria-label="前往 GitHub 开源仓库（新窗口打开）">
-                        <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                        GitHub
-                    </a>
-
-                    <a href="https://www.ddct.top" target="_blank" rel="noopener noreferrer" class="hidden sm:block px-6 py-2 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
-                        开始修行
-                    </a>
-
-                    <button class="hamburger" aria-label="菜单" onclick="toggleMobileMenu()">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- 移动端菜单 -->
-        <div class="mobile-menu" id="mobileMenu">
-            <a href="#home" onclick="toggleMobileMenu()">首页</a>
-            <a href="#about" onclick="toggleMobileMenu()">世界观</a>
-            <a href="#features" onclick="toggleMobileMenu()">核心特色</a>
-            <a href="#gallery" onclick="toggleMobileMenu()">道途一瞥</a>
-            <a href="#news" onclick="toggleMobileMenu()">更新日志</a>
-            <a href="https://github.com/qianye60/DaoDaoChaoTian" target="_blank" rel="noopener noreferrer" class="px-8 py-3 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300">
-                前往 GitHub
+          <div class="flex items-center gap-3">
+            <a
+              href="https://github.com/qianye60/XianTu"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hidden sm:flex items-center gap-2 px-5 py-2 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-base font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20"
+              aria-label="前往 GitHub 开源仓库（新窗口打开）"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path
+                  d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                />
+              </svg>
+              GitHub
             </a>
-            <a href="https://www.ddct.top" target="_blank" rel="noopener noreferrer" class="px-8 py-3 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300">
-                开始修行
+
+            <a
+              href="https://www.ddct.top"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hidden sm:block px-6 py-2 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20"
+            >
+              开始修行
             </a>
-        </div>
 
-        <!-- 英雄区域 -->
-        <header id="home" class="min-h-screen flex flex-col items-center justify-center text-center p-4 sm:p-8 pt-24 sm:pt-16 md:pt-8">
-            <h1 class="text-4xl sm:text-6xl md:text-8xl font-black text-gradient drop-shadow-2xl px-4">
-                AI驱动的修仙世界
-            </h1>
-            <p class="text-base sm:text-xl md:text-3xl mt-6 sm:mt-8 text-blue-100 opacity-80 max-w-4xl leading-relaxed px-4">
-                这是一个由AI驱动，真正<span class="text-white font-semibold">"活"</span>着的修仙世界。
-                <br>
-                <span class="text-sm sm:text-lg md:text-2xl">在这里，你的选择会被记录并持续影响世界与人物；故事由你推动，数据由系统同步。</span>
+            <button class="hamburger" aria-label="菜单" onclick="toggleMobileMenu()">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- 移动端菜单 -->
+      <div class="mobile-menu" id="mobileMenu">
+        <a href="#home" onclick="toggleMobileMenu()">首页</a>
+        <a href="#about" onclick="toggleMobileMenu()">世界观</a>
+        <a href="#features" onclick="toggleMobileMenu()">核心特色</a>
+        <a href="#gallery" onclick="toggleMobileMenu()">道途一瞥</a>
+        <a href="#news" onclick="toggleMobileMenu()">更新日志</a>
+        <a
+          href="https://github.com/qianye60/DaoDaoChaoTian"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-8 py-3 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300"
+        >
+          前往 GitHub
+        </a>
+        <a
+          href="https://www.ddct.top"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-8 py-3 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300"
+        >
+          开始修行
+        </a>
+      </div>
+
+      <!-- 英雄区域 -->
+      <header
+        id="home"
+        class="min-h-screen flex flex-col items-center justify-center text-center p-4 sm:p-8 pt-24 sm:pt-16 md:pt-8"
+      >
+        <h1 class="text-4xl sm:text-6xl md:text-8xl font-black text-gradient drop-shadow-2xl px-4">
+          AI驱动的修仙世界
+        </h1>
+        <p
+          class="text-base sm:text-xl md:text-3xl mt-6 sm:mt-8 text-blue-100 opacity-80 max-w-4xl leading-relaxed px-4"
+        >
+          这是一个由AI驱动，真正<span class="text-white font-semibold">"活"</span>着的修仙世界。
+          <br />
+          <span class="text-sm sm:text-lg md:text-2xl"
+            >在这里，你的选择会被记录并持续影响世界与人物；故事由你推动，数据由系统同步。</span
+          >
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 mt-8 sm:mt-12 px-4 w-full sm:w-auto">
+          <a
+            href="#features"
+            class="px-8 sm:px-10 py-3 sm:py-4 bg-amber-500/10 text-amber-300 border-2 border-amber-500/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-500/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20"
+          >
+            了解核心特色
+          </a>
+          <a
+            href="#news"
+            class="px-8 sm:px-10 py-3 sm:py-4 bg-white/10 text-white border-2 border-white/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20"
+          >
+            查看更新日志
+          </a>
+          <a
+            href="https://github.com/qianye60/XianTu"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="px-8 sm:px-10 py-3 sm:py-4 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20 flex items-center justify-center gap-2"
+            aria-label="前往 GitHub 开源仓库（新窗口打开）"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+            GitHub 开源
+          </a>
+        </div>
+      </header>
+
+      <!-- 过场分隔 -->
+      <div
+        class="text-center py-12 sm:py-24 text-base sm:text-xl text-white/60 leading-relaxed px-4"
+      >
+        记录每一次选择，推进属于你的修行进程。
+      </div>
+
+      <!-- 游戏介绍 -->
+      <section id="about" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+          关于 朝天大陆
+        </h2>
+        <div
+          class="glass-card rounded-2xl p-6 sm:p-8 md:p-12 text-base sm:text-lg text-blue-100/90 leading-relaxed space-y-4 sm:space-y-6 max-w-5xl mx-auto"
+        >
+          <p>
+            欢迎来到<span class="text-white font-semibold">《仙途》</span
+            >。这是一个由AI驱动的修仙世界：人物会记得与你的互动，世界会随时间推进而变化。你将扮演一名修行者，在探索、修炼与社交中逐步建立自己的道路。
+          </p>
+          <p>
+            你可以选择不同的成长方向：剑修、体修、丹道、阵法等体系各有侧重。角色的境界、技能与资源会通过结构化存档持续累积，并在后续剧情与交互中发挥作用。
+          </p>
+          <p>
+            世界并不会替你做决定：有的选择偏向稳健积累，有的选择更具风险与回报。无论你偏好探索、修炼、任务推进还是与NPC建立关系，系统都会把叙事与数据同步下来，形成连贯可持续的个人进程。
+          </p>
+        </div>
+      </section>
+
+      <!-- 核心特色 -->
+      <section id="features" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+          核心特色
+        </h2>
+        <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+          <!-- 特色 1: CoT AI -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">
+              更聪明的NPC
+            </h3>
+            <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+              我们重构了AI内核。NPC不再是冰冷的数据，他们拥有<span class="text-white">思维链</span
+              >，会根据自己的记忆、性格、人格底线和核心利益作出合理行动，构建一个真实、动态、充满因果的修仙社会。
             </p>
-            <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 mt-8 sm:mt-12 px-4 w-full sm:w-auto">
-                <a href="#features" class="px-8 sm:px-10 py-3 sm:py-4 bg-amber-500/10 text-amber-300 border-2 border-amber-500/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-500/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20">
-                    了解核心特色
-                </a>
-                <a href="#news" class="px-8 sm:px-10 py-3 sm:py-4 bg-white/10 text-white border-2 border-white/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
-                    查看更新日志
-                </a>
-                <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="px-8 sm:px-10 py-3 sm:py-4 bg-amber-500/10 text-amber-200 border-2 border-amber-400/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-300/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20 flex items-center justify-center gap-2" aria-label="前往 GitHub 开源仓库（新窗口打开）">
-                    <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                    GitHub 开源
-                </a>
-            </div>
-        </header>
+          </div>
 
-        <!-- 过场分隔 -->
-        <div class="text-center py-12 sm:py-24 text-base sm:text-xl text-white/60 leading-relaxed px-4">
-            记录每一次选择，推进属于你的修行进程。
-        </div>
-
-        <!-- 游戏介绍 -->
-        <section id="about" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
-                关于 朝天大陆
-            </h2>
-            <div class="glass-card rounded-2xl p-6 sm:p-8 md:p-12 text-base sm:text-lg text-blue-100/90 leading-relaxed space-y-4 sm:space-y-6 max-w-5xl mx-auto">
-                <p>
-                    欢迎来到<span class="text-white font-semibold">《大道朝天》</span>。这是一个由AI驱动的修仙世界：人物会记得与你的互动，世界会随时间推进而变化。你将扮演一名修行者，在探索、修炼与社交中逐步建立自己的道路。
-                </p>
-                <p>
-                    你可以选择不同的成长方向：剑修、体修、丹道、阵法等体系各有侧重。角色的境界、技能与资源会通过结构化存档持续累积，并在后续剧情与交互中发挥作用。
-                </p>
-                <p>
-                    世界并不会替你做决定：有的选择偏向稳健积累，有的选择更具风险与回报。无论你偏好探索、修炼、任务推进还是与NPC建立关系，系统都会把叙事与数据同步下来，形成连贯可持续的个人进程。
-                </p>
-            </div>
-        </section>
-
-        <!-- 核心特色 -->
-        <section id="features" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
-                核心特色
-            </h2>
-            <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
-
-                <!-- 特色 1: CoT AI -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">更聪明的NPC</h3>
-                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
-                        我们重构了AI内核。NPC不再是冰冷的数据，他们拥有<span class="text-white">思维链</span>，会根据自己的记忆、性格、人格底线和核心利益作出合理行动，构建一个真实、动态、充满因果的修仙社会。
-                    </p>
-                </div>
-
-                <!-- 特色 2: 地图系统 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">可交互地图</h3>
-                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
-                        告别纯文字。V3.2版本带来了全新的<span class="text-white">动态游戏地图</span>系统。你可以在广袤的朝天大陆上自由探索、缩放、拖拽。洞府、宗门、城镇与秘境的位置都将直观展现。
-                    </p>
-                </div>
-
-                <!-- 特色 3: 开放预设 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">预设与社区创作</h3>
-                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
-                        游戏已升级为<span class="text-white">开放式社区创作平台</span>。你可以自由分享、导入和导出包含世界观、文风、规则的完整游戏预设。在这里，你可以创造属于你自己的修仙宇宙。
-                    </p>
-                </div>
-
-                <!-- 特色 4: 境界体系 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">森严的境界壁垒</h3>
-                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
-                        从炼气、筑基、金丹、元婴... 直至渡劫飞升。我们拥有最严谨的<span class="text-white">境界压制</span>法则。高阶修士一言可定一国兴衰，低阶修士在凡人眼中已是九天仙神。
-                    </p>
-                </div>
-
-                <!-- 特色 5: 三千大道 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">三千大道 万法归宗</h3>
-                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
-                        大道三千，皆可证道。除了主修境界，你还可以精研<span class="text-white">炼丹、炼器、符箓、阵法</span>等修仙百艺，甚至以琴棋书画入道。每一种技艺皆可通神，成为一方宗师。
-                    </p>
-                </div>
-
-                <!-- 特色 6: 真实随机 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">真随机与骰子系统</h3>
-                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
-                        道途非坦途，气运亦是实力。游戏内置<span class="text-white">程序端真随机骰子系统</span>，你的每一次行动、每一次突破、每一次奇遇，都可能需要"天道"的垂青。
-                    </p>
-                </div>
-
-            </div>
-        </section>
-
-        <!-- 游戏一瞥 -->
-        <section id="gallery" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
-                道途一瞥
-            </h2>
-            <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
-                <!-- 截图 1: 地图 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <div class="aspect-video bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10">
-                        <svg class="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-                        </svg>
-                    </div>
-                    <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">广袤的游戏地图</h4>
-                    <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">探索宗门、城镇与未知秘境</p>
-                </div>
-                <!-- 截图 2: 角色 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <div class="aspect-video bg-gradient-to-br from-blue-900/50 to-cyan-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10">
-                        <svg class="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </div>
-                    <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">深度角色养成</h4>
-                    <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">八字、灵根、功法、三千大道</p>
-                </div>
-                <!-- 截图 3: 对话 -->
-                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
-                    <div class="aspect-video bg-gradient-to-br from-violet-900/50 to-pink-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10">
-                        <svg class="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                        </svg>
-                    </div>
-                    <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">思维链AI互动</h4>
-                    <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">NPC会记住你的所作所为</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- 过场分隔 -->
-        <div class="text-center py-12 sm:py-24 text-base sm:text-xl text-white/60 leading-relaxed px-4">
-            更新日志与使用说明请见下方。
-        </div>
-
-        <!-- 最新更新 -->
-        <section id="news" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
-                最新更新日志
-            </h2>
-
-            <!-- 最新版本高亮卡片 -->
-            <div class="glass-card rounded-2xl p-6 sm:p-8 max-w-5xl mx-auto mb-8 border-l-4 border-amber-400">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                    <div>
-                        <span class="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-sm font-semibold mb-2">最新版本</span>
-                        <h3 class="text-2xl sm:text-3xl font-bold text-white">V3.6.5 正式版</h3>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-blue-200/70 text-sm">发布日期</p>
-                        <p class="text-white font-mono">2025-12-29</p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2 mb-4">
-                    <span class="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">体验优化</span>
-                    <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">系统优化</span>
-                    <span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">入口修复</span>
-                    <span class="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs">Bug修复</span>
-                </div>
-                <p class="text-blue-100/80 text-sm">新版输出格式 | 解析容错增强 | 人物关系不显示修复</p>
-            </div>
-
-            <div class="glass-card rounded-2xl p-6 sm:p-8 md:p-12 max-w-5xl mx-auto text-blue-100/90 leading-relaxed">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl sm:text-2xl font-bold text-white">完整更新记录</h3>
-                    <span class="text-xs text-blue-200/50 font-mono">同步自 CHANGELOG.md</span>
-                </div>
-
-                <div class="changelog-content space-y-8">
-                    <!-- V3.6.5 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-amber-300">V3.6.5</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-12-29</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🎯</span> 提示词与格式升级
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 启用新版输出格式：<span class="text-white">thinking + JSON代码块</span>（text/mid_term_memory/tavern_commands，action_options按设置可选）</li>
-                                    <li>• 解析与校验更容错：减少“格式出错”导致的回合失败</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🐛</span> Bug修复
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 人物关系不显示修复：NPC条目缺少名字时自动回填并保留展示</li>
-                                    <li>• 私密信息与关系面板优化：分组展示与长列表折叠</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- V3.6.3 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-amber-300">V3.6.3</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-12-28</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">✨</span> 体验优化
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 环境识别增强：支持父/顶层窗口与延迟注入</li>
-                                    <li>• 模式入口修复：嵌入式环境“联机共修”入口可用</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🎯</span> 系统优化
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• AI服务默认策略：嵌入式环境使用内置接口，非嵌入环境默认自定义API</li>
-                                    <li>• 界面精简：非嵌入环境隐藏专属功能与相关字段（不影响嵌入模式）</li>
-                                    <li>• 设置面板回归：恢复“行动选项”开关</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🐛</span> Bug修复
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 修复无激活存档时保存重复弹错</li>
-                                    <li>• 修复行动选项配置项导致的 TS 报错</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- V3.6.2 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-amber-300">V3.6.2</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-28</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🎨</span> 界面全面升级
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• <strong class="text-white">角色创建流程视觉重构</strong>：全新深色玻璃拟态风格</li>
-                                    <li class="pl-4 text-blue-100/60">Step1-7 全部重构，共计 +1900 行修改</li>
-                                    <li>• <strong class="text-white">角色管理面板增强</strong>：新增单个存档导出功能</li>
-                                    <li>• <strong class="text-white">模式选择页面优化</strong>：深色玻璃拟态风格适配</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🗺️</span> 地图系统优化
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 修复移动端地图双指缩放失效问题</li>
-                                    <li>• 优化触摸事件处理逻辑</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🎯</span> 系统优化
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• <strong class="text-white">存档系统重构</strong>：统一导出格式，简化导入逻辑</li>
-                                    <li>• <strong class="text-white">提示词系统精简</strong>：-466行冗余代码</li>
-                                    <li>• <strong class="text-white">样式系统统一</strong>：统一深色/亮色主题颜色变量</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🐛</span> Bug修复
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 修复存档导入时出现重复存档的问题</li>
-                                    <li>• 修复移动端地图缩放不响应的问题</li>
-                                    <li>• 修复角色创建步骤间样式不一致的问题</li>
-                                    <li>• 修复设置面板部分选项显示异常</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- V3.6 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-blue-300">V3.6</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-28</span>
-                        </div>
-                        <p class="text-sm text-blue-100/70 pl-4 border-l-2 border-white/5">与 V3.6.2 内容相同，首个深色玻璃拟态风格版本发布</p>
-                    </div>
-
-                    <!-- V3.5 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-blue-300">V3.5</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-27</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🚀</span> 重大更新
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• <strong class="text-white">全新提示词管理系统</strong>：玩家可完全掌控AI行为</li>
-                                    <li>• <strong class="text-white">自定义API支持</strong>：摆脱酒馆限制，直连AI服务</li>
-                                </ul>
-                            </div>
-
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">✨</span> 功能增强
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• 设置面板全面升级，新增AI服务配置区块</li>
-                                    <li>• 模式选择页面重构，全新仙侠美学设计</li>
-                                    <li>• 关系网络面板优化，改进NPC关系显示</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- V3.2 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-blue-300">V3.2</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-11</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🚀</span> 重大更新
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• <strong class="text-white">重构全新地图系统</strong>：朝天大陆游戏地图正式上线！</li>
-                                    <li class="pl-4 text-blue-100/60">支持地图缩放、拖拽、地点交互，精美SVG图标</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- V3.0 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-blue-300">V3.0</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-08</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🚀</span> 核心更新
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• <strong class="text-white">思维链系统</strong>：引入CoT v3.0，简化思维链流程</li>
-                                    <li>• <strong class="text-white">判定系统</strong>：完全基于属性、境界和加成，移除随机性</li>
-                                    <li>• <strong class="text-white">提示词优化</strong>：新增600+行业务规则</li>
-                                    <li>• <strong class="text-white">AI系统增强</strong>：容错解析、流式传输、指令验证</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- V2.8 -->
-                    <div class="version-block">
-                        <div class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                            <span class="version-number text-lg font-bold text-blue-300">V2.8</span>
-                            <span class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">正式版</span>
-                            <span class="version-date text-blue-200/50 text-sm ml-auto">2025-10-29</span>
-                        </div>
-
-                        <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
-                            <div class="update-category">
-                                <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
-                                    <span class="text-lg">🚀</span> 核心亮点：开放性与智能化
-                                </h4>
-                                <ul class="space-y-1 text-sm text-blue-100/80">
-                                    <li>• <strong class="text-white">开放性预设导入/导出</strong>：升级为开放式社区创作平台</li>
-                                    <li>• <strong class="text-white">思维链内核 (CoT) 驱动</strong>：AI模拟"思考"过程</li>
-                                    <li>• <strong class="text-white">【大道朝天 3.0】预设实装</strong>：全新世界观与叙事风格</li>
-                                    <li>• <strong class="text-white">真·流式响应</strong>：逐字流式输出，告别等待</li>
-                                    <li>• <strong class="text-white">指令安全验证系统</strong>：杜绝存档损坏问题</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 更早版本折叠 -->
-                    <details class="group">
-                        <summary class="cursor-pointer text-blue-300 hover:text-blue-200 transition-colors flex items-center gap-2 py-2">
-                            <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                            查看更早版本 (V2.6.8 - V0.1)
-                        </summary>
-                        <div class="mt-4 space-y-6 text-sm text-blue-100/70">
-                            <div class="version-block-mini">
-                                <p class="font-semibold text-blue-200">V2.6.8 (2025-10-26)</p>
-                                <p>修复开局出生种族选择、状态效果移除、功法技能解锁等多个Bug</p>
-                            </div>
-                            <div class="version-block-mini">
-                                <p class="font-semibold text-blue-200">V2.5 (2025-10-24)</p>
-                                <p>重构代码逻辑，抛弃酒馆变量；新增预设加载、任务系统</p>
-                            </div>
-                            <div class="version-block-mini">
-                                <p class="font-semibold text-blue-200">V2.0 Beta (2025-10-15)</p>
-                                <p>优化提示词结构、强化JSON结构生成</p>
-                            </div>
-                            <div class="version-block-mini">
-                                <p class="font-semibold text-blue-200">V1.5 Beta (2025-10-08)</p>
-                                <p>增加重Roll、人物18+模块；改用IndexedDB存储</p>
-                            </div>
-                            <div class="version-block-mini">
-                                <p class="font-semibold text-blue-200">V1.0 Beta (2025-10-04)</p>
-                                <p>完整角色创建系统、智能判定系统、三千大道系统、动态剧情生成</p>
-                            </div>
-                            <div class="version-block-mini">
-                                <p class="font-semibold text-blue-200">V0.1 Alpha (2025-09-18)</p>
-                                <p>完善基础框架、初始化选择界面、UI设计、游戏主体搭建</p>
-                            </div>
-                        </div>
-                    </details>
-                </div>
-            </div>
-        </section>
-
-
-        <!-- 页脚 -->
-        <footer class="text-center p-8 sm:p-20 text-blue-200 opacity-60 mt-12 sm:mt-20 space-y-3 sm:space-y-4 border-t border-white/10">
-            <p class="text-sm sm:text-base">凡是过往，皆为序章。 | 道阻且长，行则将至。</p>
-            <p class="text-sm sm:text-base">星光不问赶路人，岁月不负有心人。</p>
-            <p class="text-sm sm:text-base">
-                <a href="https://github.com/qianye60/dadao-chaotian" target="_blank" rel="noopener noreferrer" class="underline hover:text-amber-200 transition-colors">GitHub：qianye60/dadao-chaotian</a>
+          <!-- 特色 2: 地图系统 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">
+              可交互地图
+            </h3>
+            <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+              告别纯文字。V3.2版本带来了全新的<span class="text-white">动态游戏地图</span
+              >系统。你可以在广袤的朝天大陆上自由探索、缩放、拖拽。洞府、宗门、城镇与秘境的位置都将直观展现。
             </p>
-            <p class="text-xs sm:text-sm mt-4">© 2025 大道朝天. 版权所有.</p>
-        </footer>
+          </div>
 
+          <!-- 特色 3: 开放预设 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">
+              预设与社区创作
+            </h3>
+            <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+              游戏已升级为<span class="text-white">开放式社区创作平台</span
+              >。你可以自由分享、导入和导出包含世界观、文风、规则的完整游戏预设。在这里，你可以创造属于你自己的修仙宇宙。
+            </p>
+          </div>
+
+          <!-- 特色 4: 境界体系 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">
+              森严的境界壁垒
+            </h3>
+            <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+              从炼气、筑基、金丹、元婴... 直至渡劫飞升。我们拥有最严谨的<span class="text-white"
+                >境界压制</span
+              >法则。高阶修士一言可定一国兴衰，低阶修士在凡人眼中已是九天仙神。
+            </p>
+          </div>
+
+          <!-- 特色 5: 三千大道 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">
+              三千大道 万法归宗
+            </h3>
+            <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+              大道三千，皆可证道。除了主修境界，你还可以精研<span class="text-white"
+                >炼丹、炼器、符箓、阵法</span
+              >等修仙百艺，甚至以琴棋书画入道。每一种技艺皆可通神，成为一方宗师。
+            </p>
+          </div>
+
+          <!-- 特色 6: 真实随机 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">
+              真随机与骰子系统
+            </h3>
+            <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+              道途非坦途，气运亦是实力。游戏内置<span class="text-white">程序端真随机骰子系统</span
+              >，你的每一次行动、每一次突破、每一次奇遇，都可能需要"天道"的垂青。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 游戏一瞥 -->
+      <section id="gallery" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+          道途一瞥
+        </h2>
+        <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+          <!-- 截图 1: 地图 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <div
+              class="aspect-video bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10"
+            >
+              <svg
+                class="w-16 h-16 text-white/30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                ></path>
+              </svg>
+            </div>
+            <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">广袤的游戏地图</h4>
+            <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">
+              探索宗门、城镇与未知秘境
+            </p>
+          </div>
+          <!-- 截图 2: 角色 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <div
+              class="aspect-video bg-gradient-to-br from-blue-900/50 to-cyan-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10"
+            >
+              <svg
+                class="w-16 h-16 text-white/30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                ></path>
+              </svg>
+            </div>
+            <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">深度角色养成</h4>
+            <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">
+              八字、灵根、功法、三千大道
+            </p>
+          </div>
+          <!-- 截图 3: 对话 -->
+          <div
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+          >
+            <div
+              class="aspect-video bg-gradient-to-br from-violet-900/50 to-pink-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10"
+            >
+              <svg
+                class="w-16 h-16 text-white/30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                ></path>
+              </svg>
+            </div>
+            <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">思维链AI互动</h4>
+            <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">
+              NPC会记住你的所作所为
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 过场分隔 -->
+      <div
+        class="text-center py-12 sm:py-24 text-base sm:text-xl text-white/60 leading-relaxed px-4"
+      >
+        更新日志与使用说明请见下方。
+      </div>
+
+      <!-- 最新更新 -->
+      <section id="news" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+          最新更新日志
+        </h2>
+
+        <!-- 最新版本高亮卡片 -->
+        <div
+          class="glass-card rounded-2xl p-6 sm:p-8 max-w-5xl mx-auto mb-8 border-l-4 border-amber-400"
+        >
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div>
+              <span
+                class="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-sm font-semibold mb-2"
+                >最新版本</span
+              >
+              <h3 class="text-2xl sm:text-3xl font-bold text-white">V3.6.5 正式版</h3>
+            </div>
+            <div class="text-right">
+              <p class="text-blue-200/70 text-sm">发布日期</p>
+              <p class="text-white font-mono">2025-12-29</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span class="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">体验优化</span>
+            <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">系统优化</span>
+            <span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">入口修复</span>
+            <span class="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs">Bug修复</span>
+          </div>
+          <p class="text-blue-100/80 text-sm">新版输出格式 | 解析容错增强 | 人物关系不显示修复</p>
+        </div>
+
+        <div
+          class="glass-card rounded-2xl p-6 sm:p-8 md:p-12 max-w-5xl mx-auto text-blue-100/90 leading-relaxed"
+        >
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl sm:text-2xl font-bold text-white">完整更新记录</h3>
+            <span class="text-xs text-blue-200/50 font-mono">同步自 CHANGELOG.md</span>
+          </div>
+
+          <div class="changelog-content space-y-8">
+            <!-- V3.6.5 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-amber-300">V3.6.5</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-12-29</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🎯</span> 提示词与格式升级
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      • 启用新版输出格式：<span class="text-white">thinking + JSON代码块</span
+                      >（text/mid_term_memory/tavern_commands，action_options按设置可选）
+                    </li>
+                    <li>• 解析与校验更容错：减少“格式出错”导致的回合失败</li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🐛</span> Bug修复
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• 人物关系不显示修复：NPC条目缺少名字时自动回填并保留展示</li>
+                    <li>• 私密信息与关系面板优化：分组展示与长列表折叠</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V3.6.3 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-amber-300">V3.6.3</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-12-28</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">✨</span> 体验优化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• 环境识别增强：支持父/顶层窗口与延迟注入</li>
+                    <li>• 模式入口修复：嵌入式环境“联机共修”入口可用</li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🎯</span> 系统优化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• AI服务默认策略：嵌入式环境使用内置接口，非嵌入环境默认自定义API</li>
+                    <li>• 界面精简：非嵌入环境隐藏专属功能与相关字段（不影响嵌入模式）</li>
+                    <li>• 设置面板回归：恢复“行动选项”开关</li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🐛</span> Bug修复
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• 修复无激活存档时保存重复弹错</li>
+                    <li>• 修复行动选项配置项导致的 TS 报错</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V3.6.2 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-amber-300">V3.6.2</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-28</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🎨</span> 界面全面升级
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      •
+                      <strong class="text-white">角色创建流程视觉重构</strong>：全新深色玻璃拟态风格
+                    </li>
+                    <li class="pl-4 text-blue-100/60">Step1-7 全部重构，共计 +1900 行修改</li>
+                    <li>
+                      • <strong class="text-white">角色管理面板增强</strong>：新增单个存档导出功能
+                    </li>
+                    <li>
+                      • <strong class="text-white">模式选择页面优化</strong>：深色玻璃拟态风格适配
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🗺️</span> 地图系统优化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• 修复移动端地图双指缩放失效问题</li>
+                    <li>• 优化触摸事件处理逻辑</li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🎯</span> 系统优化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      • <strong class="text-white">存档系统重构</strong>：统一导出格式，简化导入逻辑
+                    </li>
+                    <li>• <strong class="text-white">提示词系统精简</strong>：-466行冗余代码</li>
+                    <li>
+                      • <strong class="text-white">样式系统统一</strong>：统一深色/亮色主题颜色变量
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🐛</span> Bug修复
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• 修复存档导入时出现重复存档的问题</li>
+                    <li>• 修复移动端地图缩放不响应的问题</li>
+                    <li>• 修复角色创建步骤间样式不一致的问题</li>
+                    <li>• 修复设置面板部分选项显示异常</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V3.6 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-blue-300">V3.6</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-28</span>
+              </div>
+              <p class="text-sm text-blue-100/70 pl-4 border-l-2 border-white/5">
+                与 V3.6.2 内容相同，首个深色玻璃拟态风格版本发布
+              </p>
+            </div>
+
+            <!-- V3.5 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-blue-300">V3.5</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-27</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🚀</span> 重大更新
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      • <strong class="text-white">全新提示词管理系统</strong>：玩家可完全掌控AI行为
+                    </li>
+                    <li>
+                      • <strong class="text-white">自定义API支持</strong>：摆脱酒馆限制，直连AI服务
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">✨</span> 功能增强
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>• 设置面板全面升级，新增AI服务配置区块</li>
+                    <li>• 模式选择页面重构，全新仙侠美学设计</li>
+                    <li>• 关系网络面板优化，改进NPC关系显示</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V3.2 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-blue-300">V3.2</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-11</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🚀</span> 重大更新
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      •
+                      <strong class="text-white">重构全新地图系统</strong
+                      >：朝天大陆游戏地图正式上线！
+                    </li>
+                    <li class="pl-4 text-blue-100/60">支持地图缩放、拖拽、地点交互，精美SVG图标</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V3.0 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-blue-300">V3.0</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-11-08</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🚀</span> 核心更新
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      • <strong class="text-white">思维链系统</strong>：引入CoT v3.0，简化思维链流程
+                    </li>
+                    <li>
+                      •
+                      <strong class="text-white">判定系统</strong
+                      >：完全基于属性、境界和加成，移除随机性
+                    </li>
+                    <li>• <strong class="text-white">提示词优化</strong>：新增600+行业务规则</li>
+                    <li>
+                      • <strong class="text-white">AI系统增强</strong>：容错解析、流式传输、指令验证
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V2.8 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-blue-300">V2.8</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2025-10-29</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🚀</span> 核心亮点：开放性与智能化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      •
+                      <strong class="text-white">开放性预设导入/导出</strong
+                      >：升级为开放式社区创作平台
+                    </li>
+                    <li>
+                      • <strong class="text-white">思维链内核 (CoT) 驱动</strong>：AI模拟"思考"过程
+                    </li>
+                    <li>
+                      •
+                      <strong class="text-white">【仙途 3.0】预设实装</strong>：全新世界观与叙事风格
+                    </li>
+                    <li>
+                      • <strong class="text-white">真·流式响应</strong>：逐字流式输出，告别等待
+                    </li>
+                    <li>
+                      • <strong class="text-white">指令安全验证系统</strong>：杜绝存档损坏问题
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- 更早版本折叠 -->
+            <details class="group">
+              <summary
+                class="cursor-pointer text-blue-300 hover:text-blue-200 transition-colors flex items-center gap-2 py-2"
+              >
+                <svg
+                  class="w-4 h-4 transition-transform group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  ></path>
+                </svg>
+                查看更早版本 (V2.6.8 - V0.1)
+              </summary>
+              <div class="mt-4 space-y-6 text-sm text-blue-100/70">
+                <div class="version-block-mini">
+                  <p class="font-semibold text-blue-200">V2.6.8 (2025-10-26)</p>
+                  <p>修复开局出生种族选择、状态效果移除、功法技能解锁等多个Bug</p>
+                </div>
+                <div class="version-block-mini">
+                  <p class="font-semibold text-blue-200">V2.5 (2025-10-24)</p>
+                  <p>重构代码逻辑，抛弃酒馆变量；新增预设加载、任务系统</p>
+                </div>
+                <div class="version-block-mini">
+                  <p class="font-semibold text-blue-200">V2.0 Beta (2025-10-15)</p>
+                  <p>优化提示词结构、强化JSON结构生成</p>
+                </div>
+                <div class="version-block-mini">
+                  <p class="font-semibold text-blue-200">V1.5 Beta (2025-10-08)</p>
+                  <p>增加重Roll、人物18+模块；改用IndexedDB存储</p>
+                </div>
+                <div class="version-block-mini">
+                  <p class="font-semibold text-blue-200">V1.0 Beta (2025-10-04)</p>
+                  <p>完整角色创建系统、智能判定系统、三千大道系统、动态剧情生成</p>
+                </div>
+                <div class="version-block-mini">
+                  <p class="font-semibold text-blue-200">V0.1 Alpha (2025-09-18)</p>
+                  <p>完善基础框架、初始化选择界面、UI设计、游戏主体搭建</p>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- 页脚 -->
+      <footer
+        class="text-center p-8 sm:p-20 text-blue-200 opacity-60 mt-12 sm:mt-20 space-y-3 sm:space-y-4 border-t border-white/10"
+      >
+        <p class="text-sm sm:text-base">凡是过往，皆为序章。 | 道阻且长，行则将至。</p>
+        <p class="text-sm sm:text-base">星光不问赶路人，岁月不负有心人。</p>
+        <p class="text-sm sm:text-base">
+          <a
+            href="https://github.com/qianye60/XianTu"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline hover:text-amber-200 transition-colors"
+            >GitHub：qianye60/XianTu</a
+          >
+        </p>
+        <p class="text-xs sm:text-sm mt-4">© 2025 仙途. 版权所有.</p>
+      </footer>
     </div>
 
     <!-- 返回顶部按钮 -->
-    <button class="back-to-top" id="backToTop" aria-label="返回顶部">
-        ↑
-    </button>
+    <button class="back-to-top" id="backToTop" aria-label="返回顶部">↑</button>
 
     <script>
-        // 移动端菜单切换
-        function toggleMobileMenu() {
-            const menu = document.getElementById('mobileMenu');
-            const hamburger = document.querySelector('.hamburger');
-            menu.classList.toggle('active');
-            hamburger.classList.toggle('active');
-        }
+      // 移动端菜单切换
+      function toggleMobileMenu() {
+          const menu = document.getElementById('mobileMenu');
+          const hamburger = document.querySelector('.hamburger');
+          menu.classList.toggle('active');
+          hamburger.classList.toggle('active');
+      }
 
-        // 简单的"仙气"粒子效果
-        const canvas = document.getElementById('particle-canvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-        let canvasWidth = window.innerWidth;
-        let canvasHeight = window.innerHeight;
-        let animationId;
-        const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // 简单的"仙气"粒子效果
+      const canvas = document.getElementById('particle-canvas');
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let canvasWidth = window.innerWidth;
+      let canvasHeight = window.innerHeight;
+      let animationId;
+      const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        function resizeCanvas() {
-            canvasWidth = window.innerWidth;
-            canvasHeight = window.innerHeight;
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-        }
+      function resizeCanvas() {
+          canvasWidth = window.innerWidth;
+          canvasHeight = window.innerHeight;
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+      }
 
-        // 粒子类
-        class Particle {
-            constructor() {
-                this.x = Math.random() * canvasWidth;
-                this.y = Math.random() * canvasHeight + canvasHeight; // 从底部开始
-                this.speed = Math.random() * 1.5 + 0.5; // 缓慢上升
-                this.radius = Math.random() * 1.5 + 1; // 粒子大小
-                // 粒子颜色：白色、淡金色、淡蓝色
-                const colors = ['#FFFFFF', '#F0E68C', '#ADD8E6'];
-                this.color = colors[Math.floor(Math.random() * colors.length)];
-                this.opacity = Math.random() * 0.5 + 0.2; // 粒子透明度
-                this.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${this.opacity})`;
-            }
+      // 粒子类
+      class Particle {
+          constructor() {
+              this.x = Math.random() * canvasWidth;
+              this.y = Math.random() * canvasHeight + canvasHeight; // 从底部开始
+              this.speed = Math.random() * 1.5 + 0.5; // 缓慢上升
+              this.radius = Math.random() * 1.5 + 1; // 粒子大小
+              // 粒子颜色：白色、淡金色、淡蓝色
+              const colors = ['#FFFFFF', '#F0E68C', '#ADD8E6'];
+              this.color = colors[Math.floor(Math.random() * colors.length)];
+              this.opacity = Math.random() * 0.5 + 0.2; // 粒子透明度
+              this.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${this.opacity})`;
+          }
 
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.fillStyle;
-                ctx.fill();
-            }
+          draw() {
+              ctx.beginPath();
+              ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+              ctx.fillStyle = this.fillStyle;
+              ctx.fill();
+          }
 
-            update() {
-                this.y -= this.speed;
-                // 如果粒子飘出顶部，重置到底部
-                if (this.y < -10) {
-                    this.y = canvasHeight + 10;
-                    this.x = Math.random() * canvasWidth;
-                    this.speed = Math.random() * 1.5 + 0.5;
-                    this.radius = Math.random() * 1.5 + 1;
-                }
-            }
+          update() {
+              this.y -= this.speed;
+              // 如果粒子飘出顶部，重置到底部
+              if (this.y < -10) {
+                  this.y = canvasHeight + 10;
+                  this.x = Math.random() * canvasWidth;
+                  this.speed = Math.random() * 1.5 + 0.5;
+                  this.radius = Math.random() * 1.5 + 1;
+              }
+          }
 
-            hexToRgb(hex) {
-                let r = 0, g = 0, b = 0;
-                if (hex.length == 4) {
-                    r = parseInt(hex[1] + hex[1], 16);
-                    g = parseInt(hex[2] + hex[2], 16);
-                    b = parseInt(hex[3] + hex[3], 16);
-                } else if (hex.length == 7) {
-                    r = parseInt(hex.substring(1, 3), 16);
-                    g = parseInt(hex.substring(3, 5), 16);
-                    b = parseInt(hex.substring(5, 7), 16);
-                }
-                return `${r}, ${g}, ${b}`;
-            }
-        }
+          hexToRgb(hex) {
+              let r = 0, g = 0, b = 0;
+              if (hex.length == 4) {
+                  r = parseInt(hex[1] + hex[1], 16);
+                  g = parseInt(hex[2] + hex[2], 16);
+                  b = parseInt(hex[3] + hex[3], 16);
+              } else if (hex.length == 7) {
+                  r = parseInt(hex.substring(1, 3), 16);
+                  g = parseInt(hex.substring(3, 5), 16);
+                  b = parseInt(hex.substring(5, 7), 16);
+              }
+              return `${r}, ${g}, ${b}`;
+          }
+      }
 
-        function initParticles() {
-            particles = [];
-            if (prefersReducedMotion) return;
-            // 根据屏幕大小调整粒子数量，移动端减少粒子
-            const isMobile = window.innerWidth < 768;
-            const particleCount = Math.floor((canvasWidth * canvasHeight) / (isMobile ? 20000 : 10000));
-            for (let i = 0; i < particleCount; i++) {
-                particles.push(new Particle());
-            }
-        }
+      function initParticles() {
+          particles = [];
+          if (prefersReducedMotion) return;
+          // 根据屏幕大小调整粒子数量，移动端减少粒子
+          const isMobile = window.innerWidth < 768;
+          const particleCount = Math.floor((canvasWidth * canvasHeight) / (isMobile ? 20000 : 10000));
+          for (let i = 0; i < particleCount; i++) {
+              particles.push(new Particle());
+          }
+      }
 
-        function animate() {
-            if (prefersReducedMotion) return;
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-            for (let particle of particles) {
-                particle.update();
-                particle.draw();
-            }
-            animationId = requestAnimationFrame(animate);
-        }
+      function animate() {
+          if (prefersReducedMotion) return;
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+          for (let particle of particles) {
+              particle.update();
+              particle.draw();
+          }
+          animationId = requestAnimationFrame(animate);
+      }
 
-        // 防抖函数
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
+      // 防抖函数
+      function debounce(func, wait) {
+          let timeout;
+          return function executedFunction(...args) {
+              const later = () => {
+                  clearTimeout(timeout);
+                  func(...args);
+              };
+              clearTimeout(timeout);
+              timeout = setTimeout(later, wait);
+          };
+      }
 
-        // 初始化并监听窗口大小变化（使用防抖）
-        window.addEventListener('resize', debounce(() => {
-            resizeCanvas();
-            initParticles();
-        }, 250));
+      // 初始化并监听窗口大小变化（使用防抖）
+      window.addEventListener('resize', debounce(() => {
+          resizeCanvas();
+          initParticles();
+      }, 250));
 
-        // 页面可见性API - 页面不可见时暂停动画
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                cancelAnimationFrame(animationId);
-            } else {
-                animate();
-            }
-        });
+      // 页面可见性API - 页面不可见时暂停动画
+      document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+              cancelAnimationFrame(animationId);
+          } else {
+              animate();
+          }
+      });
 
-        // 首次加载
-        resizeCanvas();
-        initParticles();
-        animate();
+      // 首次加载
+      resizeCanvas();
+      initParticles();
+      animate();
 
-        // 平滑滚动增强
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    if (prefersReducedMotion) {
-                        target.scrollIntoView({ block: 'start' });
-                    } else {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }
-                }
-            });
-        });
+      // 平滑滚动增强
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function (e) {
+              e.preventDefault();
+              const target = document.querySelector(this.getAttribute('href'));
+              if (target) {
+                  if (prefersReducedMotion) {
+                      target.scrollIntoView({ block: 'start' });
+                  } else {
+                      target.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start'
+                      });
+                  }
+              }
+          });
+      });
 
-        // 返回顶部按钮
-        const backToTopBtn = document.getElementById('backToTop');
-        window.addEventListener('scroll', () => {
-            if (window.pageYOffset > 300) {
-                backToTopBtn.classList.add('show');
-            } else {
-                backToTopBtn.classList.remove('show');
-            }
-        });
+      // 返回顶部按钮
+      const backToTopBtn = document.getElementById('backToTop');
+      window.addEventListener('scroll', () => {
+          if (window.pageYOffset > 300) {
+              backToTopBtn.classList.add('show');
+          } else {
+              backToTopBtn.classList.remove('show');
+          }
+      });
 
-        backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        });
+      backToTopBtn.addEventListener('click', () => {
+          window.scrollTo({
+              top: 0,
+              behavior: 'smooth'
+          });
+      });
 
-        // 滚动动画 - Intersection Observer
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
+      // 滚动动画 - Intersection Observer
+      const observerOptions = {
+          threshold: 0.1,
+          rootMargin: '0px 0px -50px 0px'
+      };
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('fade-in');
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, observerOptions);
+      const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                  entry.target.classList.add('fade-in');
+                  observer.unobserve(entry.target);
+              }
+          });
+      }, observerOptions);
 
-        // 观察所有section和卡片
-        document.querySelectorAll('section, .glass-card').forEach(el => {
-            observer.observe(el);
-        });
+      // 观察所有section和卡片
+      document.querySelectorAll('section, .glass-card').forEach(el => {
+          observer.observe(el);
+      });
     </script>
-</body>
+  </body>
 </html>
