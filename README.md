@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/大道朝天-AI修仙游戏-gold?style=for-the-badge" alt="大道朝天"/>
+  <img src="https://ddct.top/DaDaoChaoTian.png">
 </p>
 
 <h1 align="center">大道朝天</h1>
