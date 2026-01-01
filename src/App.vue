@@ -444,11 +444,6 @@ const toggleTheme = () => {
 };
 
 const toggleFullscreen = () => {
-  if (!isFullscreenEnabled()) {
-    toast.error(explainFullscreenError(new TypeError('Fullscreen API not supported')));
-    return;
-  }
-
   if (!getFullscreenElement()) {
     requestFullscreen(document.documentElement as any).then(() => {
       isFullscreenMode.value = true;

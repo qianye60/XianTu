@@ -186,7 +186,7 @@ import { GameMapManager } from '@/utils/gameMapManager';
 import { normalizeLocationsData, normalizeContinentBounds } from '@/utils/coordinateConverter';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { toast } from '@/utils/toast';
-import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen';
+import { getFullscreenElement, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen';
 import type { WorldLocation } from '@/types/location';
 import type { GameCoordinates } from '@/types/gameMap';
 
@@ -536,11 +536,6 @@ const centerToPlayer = () => {
  */
 const toggleFullscreen = () => {
   if (mapContainerRef.value) {
-    if (!isFullscreenEnabled()) {
-      toast.error(explainFullscreenError(new TypeError('Fullscreen API not supported')));
-      return;
-    }
-
     if (getFullscreenElement()) {
       exitFullscreen().catch((err) => {
         console.error('[地图] 无法退出全屏模式:', err);

@@ -31,7 +31,7 @@ import { Maximize, Minimize } from 'lucide-vue-next'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { formatRealmWithStage } from '@/utils/realmUtils'
 import { useI18n } from '@/i18n'
-import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen'
+import { getFullscreenElement, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen'
 import type { GameTime } from '@/types/game'
 
 const { t } = useI18n()
@@ -91,11 +91,6 @@ const gameTime = computed(() => {
 })
 
 const toggleFullscreen = () => {
-  if (!isFullscreenEnabled()) {
-    console.error(explainFullscreenError(new TypeError('Fullscreen API not supported')))
-    return
-  }
-
   if (!getFullscreenElement()) {
     requestFullscreen(document.documentElement as any).catch(err => {
       console.error(explainFullscreenError(err))

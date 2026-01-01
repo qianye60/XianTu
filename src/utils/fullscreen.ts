@@ -10,21 +10,15 @@ export function getFullscreenElement(): Element | null {
 }
 
 export function isFullscreenEnabled(): boolean {
-  const doc = document as any;
-  const enabled = !!(
-    document.fullscreenEnabled ||
-    doc.webkitFullscreenEnabled ||
-    doc.mozFullScreenEnabled ||
-    doc.msFullscreenEnabled
-  );
-
   const hasRequest =
     !!(document.documentElement as any).requestFullscreen ||
     !!(document.documentElement as any).webkitRequestFullscreen ||
     !!(document.documentElement as any).mozRequestFullScreen ||
     !!(document.documentElement as any).msRequestFullscreen;
 
-  return enabled || hasRequest;
+  // Some environments report *FullscreenEnabled=false* but still allow the call;
+  // treat “API exists” as enabled and rely on the actual request error for details.
+  return hasRequest;
 }
 
 export function isInIframe(): boolean {
@@ -97,8 +91,22 @@ export function explainFullscreenError(error: unknown): string {
   const name = String(err?.name || '');
   const message = String(err?.message || '');
 
+  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '').toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(ua);
+  const isSafari = ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios') && !ua.includes('edgios');
+
   if (name === 'TypeError') {
-    return '当前浏览器/环境不支持全屏 API（常见于 iOS Safari 或部分内置浏览器）。';
+    return '当前浏览器/环境不支持全屏 API（iOS Safari 网页通常无法全屏；嵌入式WebView也可能禁用）。';
+  }
+
+  if (message.toLowerCase().includes('not supported') || message.toLowerCase().includes('not supported in this browser')) {
+    if (isInIframe()) {
+      return '嵌入环境可能不支持或未允许全屏（需要 allowfullscreen / allow="fullscreen"）。建议在浏览器新标签打开再全屏。';
+    }
+    if (isIOS && isSafari) {
+      return 'iOS Safari 网页通常无法进入全屏（除视频播放器）。建议使用其他浏览器或以“添加到主屏幕/PWA”方式打开。';
+    }
+    return '当前浏览器/环境不支持全屏 API。';
   }
 
   if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -114,4 +122,3 @@ export function explainFullscreenError(error: unknown): string {
 
   return '无法进入全屏模式（可能被浏览器或嵌入环境限制）。';
 }
-
