@@ -91,6 +91,12 @@ npm run serve
 npm run build
 ```
 
+## ☁️ 提交后自动构建/部署（GitHub Pages）
+
+- 已有 CI：`.github/workflows/ci.yml`（push/PR 自动 `type-check` + `build`）
+- 已加 Pages 发布：`.github/workflows/pages.yml`（push 到 `master` 自动构建并发布 `dist/`）
+- 启用方式：仓库 `Settings → Pages → Build and deployment → Source: GitHub Actions`
+
 ### 后端（可选）
 
 后端用于提供账号/存档等 API，默认使用 SQLite，开箱即用。
