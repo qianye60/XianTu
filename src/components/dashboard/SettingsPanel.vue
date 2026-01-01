@@ -501,6 +501,23 @@
             </div>
           </div>
 
+          <div class="setting-item setting-item-full">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('自定义正则删标签') }}</label>
+              <span class="setting-desc">{{
+                t('对AI输出的显示文本做正则替换删除（每行一个；支持 /pattern/flags 或纯pattern；保存后生效）')
+              }}</span>
+            </div>
+            <div class="setting-control-full">
+              <textarea
+                v-model="settings.customStripRegex"
+                class="setting-textarea"
+                :placeholder="t('例如：\\n<thinking>[\\\\s\\\\S]*?<\\\\/thinking>\\n<analysis>[\\\\s\\\\S]*?<\\\\/analysis>')"
+                rows="4"
+              ></textarea>
+            </div>
+          </div>
+
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('提示词管理') }}</label>
@@ -704,6 +721,7 @@ const settings = reactive({
   debugMode: false,
   consoleDebug: false,
   performanceMonitor: false,
+  customStripRegex: '',
 
   // 任务系统相关设置
   questSystemType: '修仙辅助系统', // 系统任务类型
@@ -881,6 +899,13 @@ const validateSettings = () => {
       debug.warn('设置面板', `UI缩放值已修正为: ${settings.uiScale}%`);
     }
 
+    // 自定义正则删标签：确保是字符串且限制长度，避免卡顿/存储膨胀
+    if (typeof (settings as any).customStripRegex !== 'string') {
+      (settings as any).customStripRegex = '';
+    } else if ((settings as any).customStripRegex.length > 4000) {
+      (settings as any).customStripRegex = (settings as any).customStripRegex.slice(0, 4000);
+    }
+
 
     debug.log('设置面板', '设置验证完成');
   } catch (error) {
@@ -972,6 +997,7 @@ const resetSettings = () => {
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,
+        customStripRegex: '',
         questSystemType: '修仙辅助系统',
         questSystemPrompt: '',
         enableSoundEffects: true,
@@ -1026,9 +1052,9 @@ const exportSettings = () => {
       settings: settings,
       exportInfo: {
         timestamp: new Date().toISOString(),
-        version: '1.0.0',
+        version: '3.6.7',
         userAgent: navigator.userAgent,
-        gameVersion: '仙途 v1.0.0'
+        gameVersion: '仙途 v3.6.7'
       }
     };
 

@@ -18,6 +18,7 @@ import {  assembleSystemPrompt } from './prompts/promptAssembler';
 import { getPrompt } from '@/services/defaultPrompts';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
+import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
 
 type PlainObject = Record<string, unknown>;
 
@@ -606,7 +607,7 @@ ${stateJsonString}
     // 处理text：添加到叙事历史和短期记忆
     if (response.text?.trim()) {
       const timePrefix = this._formatGameTime(saveData.游戏时间);
-      const textContent = response.text.trim();
+      const textContent = sanitizeAITextForDisplay(response.text).trim();
 
       // 1. 添加到叙事历史（用于UI显示）
       const newNarrative = {
@@ -631,11 +632,12 @@ ${stateJsonString}
     }
 
     // 处理mid_term_memory：添加到隐式中期记忆
-    if (response.mid_term_memory?.trim()) {
+    const memoryContent = sanitizeAITextForDisplay(response.mid_term_memory || '').trim();
+    if (memoryContent) {
       if (!saveData.记忆) saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
       if (!saveData.记忆.隐式中期记忆) saveData.记忆.隐式中期记忆 = [];
       const timePrefix = this._formatGameTime(saveData.游戏时间);
-      saveData.记忆.隐式中期记忆.push(`${timePrefix}${response.mid_term_memory.trim()}`);
+      saveData.记忆.隐式中期记忆.push(`${timePrefix}${memoryContent}`);
     }
 
     // 🔥 检查短期记忆是否超限，超限则删除最旧的短期记忆，并将对应的隐式中期记忆转化为正式中期记忆

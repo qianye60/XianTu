@@ -581,7 +581,7 @@
                 class="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-sm font-semibold mb-2"
                 >最新版本</span
               >
-              <h3 class="text-2xl sm:text-3xl font-bold text-white">V3.6.6 正式版</h3>
+              <h3 class="text-2xl sm:text-3xl font-bold text-white">V3.6.7 正式版</h3>
             </div>
             <div class="text-right">
               <p class="text-blue-200/70 text-sm">发布日期</p>
@@ -591,10 +591,10 @@
           <div class="flex flex-wrap gap-2 mb-4">
             <span class="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">体验优化</span>
             <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">系统优化</span>
-            <span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">入口修复</span>
+            <span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">输出清理</span>
             <span class="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs">Bug修复</span>
           </div>
-          <p class="text-blue-100/80 text-sm">流式/非流式开关修复 | 流式兼容降级 | 上下文长度保护</p>
+          <p class="text-blue-100/80 text-sm">自定义正则删标签 | 流式/非流式显示清理 | 不影响JSON解析</p>
         </div>
 
         <div
@@ -606,6 +606,33 @@
           </div>
 
           <div class="changelog-content space-y-8">
+            <!-- V3.6.7 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-amber-300">V3.6.7</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2026-01-01</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🧹</span> 输出清理
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      ✨ 自定义正则删标签：可配置正则规则，对AI输出的显示文本做删除/清理（流式/非流式、网页版/酒馆版均生效），且不影响AI JSON解析
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <!-- V3.6.6 -->
             <div class="version-block">
               <div

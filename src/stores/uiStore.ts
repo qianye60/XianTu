@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, shallowRef, computed, type Component } from 'vue';
+import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
 
 interface RetryDialogConfig {
   title: string;
@@ -37,6 +38,7 @@ export const useUIStore = defineStore('ui', () => {
 
   // 🔥 流式响应状态（全局持久化，切换页面不丢失）
   const streamingContent = ref('');
+  const rawStreamingContent = ref('');
   const currentGenerationId = ref<string | null>(null);
   const streamingTimestamp = ref<number | null>(null);
 
@@ -115,15 +117,18 @@ export const useUIStore = defineStore('ui', () => {
 
   // 🔥 流式响应状态管理
   function setStreamingContent(content: string) {
-    streamingContent.value = content;
+    rawStreamingContent.value = content;
+    streamingContent.value = sanitizeAITextForDisplay(content);
   }
 
   function appendStreamingContent(chunk: string) {
-    streamingContent.value += chunk;
+    rawStreamingContent.value += chunk;
+    streamingContent.value = sanitizeAITextForDisplay(rawStreamingContent.value);
   }
 
   function clearStreamingContent() {
     streamingContent.value = '';
+    rawStreamingContent.value = '';
   }
 
   function setCurrentGenerationId(id: string | null) {
@@ -133,6 +138,7 @@ export const useUIStore = defineStore('ui', () => {
   function startStreaming(generationId: string) {
     currentGenerationId.value = generationId;
     streamingContent.value = '';
+    rawStreamingContent.value = '';
     streamingTimestamp.value = Date.now();
     isAIProcessing.value = true;
   }
@@ -145,6 +151,7 @@ export const useUIStore = defineStore('ui', () => {
 
   function resetStreamingState() {
     streamingContent.value = '';
+    rawStreamingContent.value = '';
     currentGenerationId.value = null;
     streamingTimestamp.value = null;
     isAIProcessing.value = false;
