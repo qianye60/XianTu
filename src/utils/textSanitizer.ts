@@ -3,18 +3,30 @@ type ParsedRegex = { pattern: string; flags: string } | null;
 const MAX_RULES = 30;
 const MAX_LINE_LENGTH = 500;
 
-let cachedRawRules: string | null = null;
+let cachedSettingsKey: string | null = null;
 let cachedCompiledRules: RegExp[] = [];
 
-function safeGetCustomStripRulesRaw(): string {
+type SanitizerSettings = {
+  customStripRegex: string;
+  customStripTags: string;
+  customStripText: string;
+};
+
+function safeGetSanitizerSettings(): SanitizerSettings {
   try {
-    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return '';
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return { customStripRegex: '', customStripTags: '', customStripText: '' };
+    }
     const raw = localStorage.getItem('dad_game_settings');
-    if (!raw) return '';
+    if (!raw) return { customStripRegex: '', customStripTags: '', customStripText: '' };
     const parsed = JSON.parse(raw);
-    return typeof parsed?.customStripRegex === 'string' ? parsed.customStripRegex : '';
+    return {
+      customStripRegex: typeof parsed?.customStripRegex === 'string' ? parsed.customStripRegex : '',
+      customStripTags: typeof parsed?.customStripTags === 'string' ? parsed.customStripTags : '',
+      customStripText: typeof parsed?.customStripText === 'string' ? parsed.customStripText : ''
+    };
   } catch {
-    return '';
+    return { customStripRegex: '', customStripTags: '', customStripText: '' };
   }
 }
 
@@ -62,16 +74,65 @@ function compileCustomStripRules(rawRules: string): RegExp[] {
   return rules;
 }
 
-function getCompiledCustomStripRules(): RegExp[] {
-  const rawRules = safeGetCustomStripRulesRaw();
-  if (rawRules === cachedRawRules) return cachedCompiledRules;
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
-  cachedRawRules = rawRules;
-  cachedCompiledRules = compileCustomStripRules(rawRules);
+function compileTagStripRules(rawTags: string): RegExp[] {
+  const lines = rawTags.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rules: RegExp[] = [];
+
+  for (const line of lines) {
+    if (rules.length >= MAX_RULES) break;
+    if (line.startsWith('#') || line.startsWith('//')) continue;
+    if (line.length > 50) continue;
+    if (!/^[a-zA-Z][\w:-]*$/.test(line)) continue;
+
+    const tag = line;
+    try {
+      rules.push(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'));
+      rules.push(new RegExp(`<\\/?${tag}\\b[^>]*\\/?>`, 'gi'));
+    } catch {
+      // ignore
+    }
+  }
+
+  return rules;
+}
+
+function compileTextStripRules(rawText: string): RegExp[] {
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rules: RegExp[] = [];
+
+  for (const line of lines) {
+    if (rules.length >= MAX_RULES) break;
+    if (line.startsWith('#') || line.startsWith('//')) continue;
+    if (line.length > MAX_LINE_LENGTH) continue;
+    try {
+      rules.push(new RegExp(escapeRegExp(line), 'g'));
+    } catch {
+      // ignore
+    }
+  }
+
+  return rules;
+}
+
+function getCompiledCustomStripRules(): RegExp[] {
+  const settings = safeGetSanitizerSettings();
+  const settingsKey = `${settings.customStripTags}\u0000${settings.customStripText}\u0000${settings.customStripRegex}`;
+  if (settingsKey === cachedSettingsKey) return cachedCompiledRules;
+
+  cachedSettingsKey = settingsKey;
+  cachedCompiledRules = [
+    ...compileTagStripRules(settings.customStripTags),
+    ...compileTextStripRules(settings.customStripText),
+    ...compileCustomStripRules(settings.customStripRegex)
+  ].slice(0, MAX_RULES);
   return cachedCompiledRules;
 }
 
-export function sanitizeAITextForDisplay(text: string): string {
+function sanitizeWithRules(text: string, customRules: RegExp[]): string {
   if (!text) return '';
 
   let result = text;
@@ -83,7 +144,6 @@ export function sanitizeAITextForDisplay(text: string): string {
     .replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
     .replace(/<\/?analysis>/gi, '');
 
-  const customRules = getCompiledCustomStripRules();
   for (const rule of customRules) {
     result = result.replace(rule, '');
   }
@@ -91,3 +151,6 @@ export function sanitizeAITextForDisplay(text: string): string {
   return result;
 }
 
+export function sanitizeAITextForDisplay(text: string): string {
+  return sanitizeWithRules(text, getCompiledCustomStripRules());
+}
