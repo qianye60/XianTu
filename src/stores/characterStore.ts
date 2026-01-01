@@ -7,6 +7,7 @@ import { useUIStore } from './uiStore'; // 导入UI Store
 import { useCharacterCreationStore } from './characterCreationStore'; // 导入创角Store
 import * as storage from '@/utils/indexedDBManager';
 import { getTavernHelper, clearAllCharacterData, isTavernEnv } from '@/utils/tavern';
+import { ensureSaveDataHasTavernNsfw } from '@/utils/nsfw';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
@@ -1508,7 +1509,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     // 🔥 关键修复：先将存档数据保存到 IndexedDB
     if (saveData.存档数据) {
-      await storage.saveSaveData(charId, importName, saveData.存档数据);
+      const patched = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(saveData.存档数据) as any) : saveData.存档数据;
+      await storage.saveSaveData(charId, importName, patched);
       debug.log('角色商店', `✅ 已将导入的存档数据保存到 IndexedDB: ${charId}/${importName}`);
     }
 
@@ -2059,7 +2061,8 @@ const importCharacter = async (profileData: CharacterProfile & { _导入存档�
 
       // 将存档数据保存到 IndexedDB
       if (save.存档数据) {
-        await storage.saveSaveData(newCharId, finalSaveName, save.存档数据);
+	        const patched = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(save.存档数据) as any) : save.存档数据;
+	        await storage.saveSaveData(newCharId, finalSaveName, patched);
         debug.log('角色商店', `✅ 已将存档数据保存到 IndexedDB: ${newCharId}/${finalSaveName}`);
       }
 

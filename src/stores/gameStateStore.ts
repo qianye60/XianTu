@@ -15,6 +15,8 @@ import type {
   QuestType,
 } from '@/types/game';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
+import { isTavernEnv } from '@/utils/tavern';
+import { ensureSystemConfigHasNsfw } from '@/utils/nsfw';
 
 // 定义各个模块的接口
 interface GameState {
@@ -216,6 +218,9 @@ export const useGameStateStore = defineStore('gameState', {
       this.cultivationTechnique = saveData.修炼功法 ? JSON.parse(JSON.stringify(saveData.修炼功法)) : null;
       this.masteredSkills = saveData.掌握技能 ? JSON.parse(JSON.stringify(saveData.掌握技能)) : [];
       this.systemConfig = saveData.系统 ? JSON.parse(JSON.stringify(saveData.系统)) : null;
+      if (isTavernEnv() && this.systemConfig) {
+        this.systemConfig = ensureSystemConfigHasNsfw(this.systemConfig) as any;
+      }
       this.bodyPartDevelopment = saveData.身体部位开发 ? JSON.parse(JSON.stringify(saveData.身体部位开发)) : null;
 
       this.isGameLoaded = true;

@@ -159,6 +159,7 @@ import { useCharacterStore } from './stores/characterStore';
 import { useUIStore } from './stores/uiStore';
 import { toast } from './utils/toast';
 import { getTavernHelper, isTavernEnv } from './utils/tavern'; // 添加导入
+import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFullscreen, explainFullscreenError } from './utils/fullscreen';
 import type { CharacterBaseInfo } from '@/types/game';
 import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
 
@@ -443,39 +444,40 @@ const toggleTheme = () => {
 };
 
 const toggleFullscreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().then(() => {
+  if (!isFullscreenEnabled()) {
+    toast.error(explainFullscreenError(new TypeError('Fullscreen API not supported')));
+    return;
+  }
+
+  if (!getFullscreenElement()) {
+    requestFullscreen(document.documentElement as any).then(() => {
       isFullscreenMode.value = true;
       localStorage.setItem('fullscreen', 'true');
       console.log('[全屏] 已进入全屏模式并保存状态');
     }).catch(err => {
       console.error('无法进入全屏模式:', err);
-      toast.error('无法进入全屏模式');
+      toast.error(explainFullscreenError(err));
     });
-  } else if (document.exitFullscreen) {
-    document.exitFullscreen().then(() => {
+  } else {
+    exitFullscreen().then(() => {
       isFullscreenMode.value = false;
       localStorage.setItem('fullscreen', 'false');
       console.log('[全屏] 已退出全屏模式并保存状态');
     }).catch(err => {
       console.error('无法退出全屏模式:', err);
-      toast.error('无法退出全屏模式');
+      toast.error(explainFullscreenError(err));
     });
   }
 };
 
 // 全屏状态恢复函数
 const restoreFullscreenIfNeeded = () => {
-  if (isFullscreenMode.value && !document.fullscreenElement) {
+  // 大多数浏览器不允许在非用户手势下自动进入全屏，这里仅做“状态纠正”，不强行 requestFullscreen。
+  if (isFullscreenMode.value && !getFullscreenElement()) {
     console.log('[全屏] 检测到需要恢复全屏状态');
-    document.documentElement.requestFullscreen().then(() => {
-      console.log('[全屏] 全屏状态已恢复');
-    }).catch(err => {
-      console.warn('[全屏] 无法恢复全屏状态:', err);
-      // 如果无法恢复全屏，更新状态
-      isFullscreenMode.value = false;
-      localStorage.setItem('fullscreen', 'false');
-    });
+    console.warn('[全屏] 浏览器限制：无法自动恢复全屏，请手动点击全屏按钮。');
+    isFullscreenMode.value = false;
+    localStorage.setItem('fullscreen', 'false');
   }
 };
 
@@ -533,7 +535,7 @@ onMounted(async () => {
 
   // 3. 全屏状态同步
   const syncFullscreenState = () => {
-    const isCurrentlyFullscreen = !!document.fullscreenElement;
+    const isCurrentlyFullscreen = !!getFullscreenElement();
     isFullscreenMode.value = isCurrentlyFullscreen;
     localStorage.setItem('fullscreen', isCurrentlyFullscreen.toString());
 
