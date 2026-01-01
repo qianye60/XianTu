@@ -525,6 +525,8 @@ import type { CharacterProfile, SaveSlot } from '@/types/game';
 import "@/style.css";
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import { toast } from '@/utils/toast';
+import { isTavernEnv } from '@/utils/tavern';
+import { ensureSaveDataHasTavernNsfw } from '@/utils/nsfw';
 
 interface Props {
   fullscreen?: boolean;
@@ -998,9 +1000,10 @@ const exportCharacter = async (charId: string) => {
     const savesWithFullData = await Promise.all(
       saveSlots.map(async (save) => {
         const fullData = await loadSaveData(charId, save.存档名);
+        const patchedData = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(fullData) as any) : fullData;
         return {
           ...save,
-          存档数据: fullData  // 统一字段名
+          存档数据: patchedData  // 统一字段名
         };
       })
     );
@@ -1050,7 +1053,8 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
   try {
     // 从 IndexedDB 加载完整的存档数据
     const { loadSaveData } = await import('@/utils/indexedDBManager');
-    const fullSaveData = await loadSaveData(charId, slotKey);
+    const fullSaveDataRaw = await loadSaveData(charId, slotKey);
+    const fullSaveData = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(fullSaveDataRaw) as any) : fullSaveDataRaw;
 
     if (!fullSaveData) {
       toast.error('无法加载存档数据');
@@ -1121,9 +1125,10 @@ const exportSaves = async () => {
     const savesWithFullData = await Promise.all(
       saveSlots.map(async (save) => {
         const fullData = await loadSaveData(charId, save.存档名);
+        const patchedData = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(fullData) as any) : fullData;
         return {
           ...save,
-          存档数据: fullData  // 使用统一的字段名
+          存档数据: patchedData  // 使用统一的字段名
         };
       })
     );

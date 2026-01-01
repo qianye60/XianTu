@@ -12,6 +12,7 @@ import type { World, Origin, SpiritRoot } from '@/types';
 import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { isTavernEnv } from '@/utils/tavern';
+import { getNsfwSettingsFromStorage, ensureSystemConfigHasNsfw } from '@/utils/nsfw';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
@@ -264,31 +265,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       ],
       ...(tavernEnv ? {
         // 🔥 NSFW设置：从localStorage读取用户设置
-        nsfwMode: (() => {
-          try {
-            const savedSettings = localStorage.getItem('dad_game_settings');
-            if (savedSettings) {
-              const parsed = JSON.parse(savedSettings);
-              // 如果用户设置了enableNsfwMode，使用用户设置，否则默认true
-              return parsed.enableNsfwMode !== undefined ? parsed.enableNsfwMode : true;
-            }
-          } catch (e) {
-            console.error('[初始化] 读取NSFW设置失败:', e);
-          }
-          return true; // 默认开启
-        })(),
-        nsfwGenderFilter: (() => {
-          try {
-            const savedSettings = localStorage.getItem('dad_game_settings');
-            if (savedSettings) {
-              const parsed = JSON.parse(savedSettings);
-              return parsed.nsfwGenderFilter || 'female'; // 默认仅女性
-            }
-          } catch (e) {
-            console.error('[初始化] 读取NSFW性别过滤设置失败:', e);
-          }
-          return 'female'; // 默认仅女性
-        })()
+        ...getNsfwSettingsFromStorage()
       } : {})
     }
   };
@@ -430,7 +407,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       coordinates: location.coordinates
     })) || [],
     mapConfig: saveData.世界信息?.地图配置,
-    systemSettings: saveData.系统 || (tavernEnv ? { nsfwMode: true, nsfwGenderFilter: 'all' } : {})
+    systemSettings: tavernEnv ? (ensureSystemConfigHasNsfw(saveData.系统) as any) : (saveData.系统 || {})
   };
 
   console.log('[初始化] 🔥 世界信息检查:');

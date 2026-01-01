@@ -31,6 +31,7 @@ import { Maximize, Minimize } from 'lucide-vue-next'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { formatRealmWithStage } from '@/utils/realmUtils'
 import { useI18n } from '@/i18n'
+import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen'
 import type { GameTime } from '@/types/game'
 
 const { t } = useI18n()
@@ -90,13 +91,18 @@ const gameTime = computed(() => {
 })
 
 const toggleFullscreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(err => {
-      console.error('无法进入全屏模式:', err)
+  if (!isFullscreenEnabled()) {
+    console.error(explainFullscreenError(new TypeError('Fullscreen API not supported')))
+    return
+  }
+
+  if (!getFullscreenElement()) {
+    requestFullscreen(document.documentElement as any).catch(err => {
+      console.error(explainFullscreenError(err))
     })
   } else {
-    document.exitFullscreen().catch(err => {
-      console.error('无法退出全屏模式:', err)
+    exitFullscreen().catch(err => {
+      console.error(explainFullscreenError(err))
     })
   }
 }
@@ -104,7 +110,7 @@ const toggleFullscreen = () => {
 onMounted(() => {
   console.log('[TopBar] Component mounted')
   const handleFullscreenChange = () => {
-    isFullscreen.value = !!document.fullscreenElement
+    isFullscreen.value = !!getFullscreenElement()
   }
 
   document.addEventListener('fullscreenchange', handleFullscreenChange)
