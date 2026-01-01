@@ -383,16 +383,17 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
           title: '角色创建失败',
           message: `角色创建过程中遇到问题：\n\n${errorMessage}\n\n是否重新尝试创建角色？`,
           confirmText: '重新创建',
-          cancelText: '返回创建页面',
+          cancelText: '返回主页重新开始',
           onConfirm: async () => {
             console.log('[角色创建] 用户选择重新创建');
             resolve(await attemptCreation()); // 递归重试，使用相同的charId
           },
           onCancel: () => {
-            console.log('[角色创建] 用户选择返回创建页面');
-            toast.info('已返回角色创建页面，您可以调整设置后重新开始');
-            router.push('/creation'); // 跳转回角色创建页面
-            resolve(false); // 返回到角色创建页面
+            console.log('[角色创建] 用户选择返回主页重新开始');
+            toast.info('已返回主页，可重新开始生成');
+            creationStore.resetCharacter();
+            router.push('/');
+            resolve(false);
           }
         });
       });

@@ -68,6 +68,24 @@
         </div>
       </div>
 
+      <!-- Start Mode (Streaming / Non-Streaming) -->
+      <div v-if="props.isLocalCreation" class="preview-item">
+        <h3>{{ $t('开局模式') }}</h3>
+        <div class="streaming-control">
+          <label class="streaming-label">
+            <input type="radio" name="startMode" :value="true" v-model="store.useStreamingStart">
+            <span>{{ $t('流式开局') }}</span>
+          </label>
+          <label class="streaming-label">
+            <input type="radio" name="startMode" :value="false" v-model="store.useStreamingStart">
+            <span>{{ $t('非流式开局') }}</span>
+          </label>
+        </div>
+        <p class="streaming-hint">
+          {{ store.useStreamingStart ? $t('流式开局：更快，可能被中断') : $t('非流式开局：一次性生成完整内容，更稳定可靠') }}
+        </p>
+      </div>
+
       <!-- World -->
       <div class="preview-item">
         <h3>{{ $t('所选世界') }}</h3>

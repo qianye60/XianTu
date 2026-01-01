@@ -252,7 +252,8 @@ class AIService {
       console.log('[AI服务-自定义] 已添加用户输入');
     }
 
-    return this.callAPI(messages, options.should_stream || false, options.onStreamChunk);
+    const shouldStream = options.should_stream ?? this.config.streaming ?? false;
+    return this.callAPI(messages, shouldStream, options.onStreamChunk);
   }
 
   private async generateRawWithCustomAPI(options: GenerateOptions): Promise<string> {
@@ -266,7 +267,8 @@ class AIService {
     const messages = (options.ordered_prompts || []).filter(msg => msg.content !== '</input>');
 
     console.log(`[AI服务-自定义Raw] 消息数量: ${messages.length}`);
-    return this.callAPI(messages, options.should_stream || false, options.onStreamChunk);
+    const shouldStream = options.should_stream ?? this.config.streaming ?? false;
+    return this.callAPI(messages, shouldStream, options.onStreamChunk);
   }
 
   private async callAPI(
@@ -293,16 +295,114 @@ class AIService {
   }
 
   // OpenAI兼容格式（OpenAI、DeepSeek、自定义）
+  private estimateTokensForText(text: string): number {
+    if (!text) return 0;
+    let cjkCount = 0;
+    for (const ch of text) {
+      const code = ch.charCodeAt(0);
+      if (code >= 0x4e00 && code <= 0x9fff) cjkCount++;
+    }
+    const nonCjkCount = Math.max(0, text.length - cjkCount);
+    return cjkCount + Math.ceil(nonCjkCount / 4);
+  }
+
+  private estimateTokensForMessages(messages: Array<{ content: string }>): number {
+    const overheadPerMessage = 8;
+    return messages.reduce((sum, msg) => sum + overheadPerMessage + this.estimateTokensForText(msg.content || ''), 0);
+  }
+
+  private getApproxContextWindow(provider: APIProvider, model: string): number | null {
+    const m = (model || '').toLowerCase();
+
+    // Provider/model with known large context windows
+    if (provider === 'claude' || m.includes('claude')) return 200_000;
+    if (provider === 'gemini' || m.includes('gemini')) return 1_000_000;
+
+    // Many OpenAI-compatible providers expose these model names; match by model string first.
+    if (m.includes('deepseek')) return 64_000;
+    if (m.includes('moonshot') || m.includes('kimi')) return 128_000;
+
+    // OpenAI-compatible defaults
+    if (m.includes('gpt-4o') || m.includes('gpt-4.1') || m.includes('o1') || m.includes('o3')) return 128_000;
+    if (m.includes('gpt-4')) return 128_000;
+    if (m.includes('gpt-3.5')) return 16_385;
+
+    // Unknown model: don't guess (this project often uses 10k+ token prompts).
+    return null;
+  }
+
+  private clampMaxTokensForContext(
+    provider: APIProvider,
+    model: string,
+    messagesForEstimate: Array<{ content: string }>,
+    requestedMaxTokens: number
+  ): number {
+    const contextWindow = this.getApproxContextWindow(provider, model);
+    if (!contextWindow) return requestedMaxTokens;
+
+    const inputTokens = this.estimateTokensForMessages(messagesForEstimate);
+    const safety = 512;
+    const available = contextWindow - inputTokens - safety;
+
+    if (available < 256) {
+      throw new Error(`API上下文长度不足：输入过长（估算输入≈${inputTokens} tokens），请减少世界/提示词长度或更换更大上下文模型。`);
+    }
+
+    const clamped = Math.min(requestedMaxTokens, Math.max(256, available));
+    if (clamped < requestedMaxTokens) {
+      console.warn(`[AI服务] maxTokens过大，已自动下调：${requestedMaxTokens} -> ${clamped}（估算输入≈${inputTokens}，模型上下文≈${contextWindow}）`);
+    }
+    return clamped;
+  }
+
+  private isStreamUnsupportedError(message: string): boolean {
+    const m = (message || '').toLowerCase();
+    return (
+      (m.includes('stream') && (m.includes('not supported') || m.includes('unsupported') || m.includes('invalid') || m.includes('unknown'))) ||
+      m.includes('text/event-stream') ||
+      m.includes('sse')
+    );
+  }
+
   private async callOpenAICompatibleAPI(
     messages: AIMessage[],
     streaming: boolean,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
-    const { url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+    const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+    const safeMaxTokens = this.clampMaxTokensForContext(provider, model, messages, maxTokens || 16000);
 
     try {
       if (streaming) {
-        return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, maxTokens || 16000, onStreamChunk);
+        try {
+          return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, safeMaxTokens, onStreamChunk);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!this.isStreamUnsupportedError(msg)) throw e;
+          console.warn('[AI服务-OpenAI兼容] 当前API可能不支持流式传输，已自动降级为非流式请求。');
+
+          const response = await axios.post(
+            `${url}/v1/chat/completions`,
+            {
+              model,
+              messages,
+              temperature: temperature || 0.7,
+              max_tokens: safeMaxTokens,
+              stream: false
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+              },
+              timeout: 120000
+            }
+          );
+
+          const content = response.data.choices[0].message.content;
+          console.log(`[AIæœåŠ¡-OpenAI] å“åº”é•¿åº¦: ${content.length}`);
+          return content;
+        }
       } else {
         const response = await axios.post(
           `${url}/v1/chat/completions`,
@@ -310,7 +410,7 @@ class AIService {
             model,
             messages,
             temperature: temperature || 0.7,
-            max_tokens: maxTokens || 16000,
+            max_tokens: safeMaxTokens,
             stream: false
           },
           {
@@ -345,7 +445,7 @@ class AIService {
     streaming: boolean,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
-    const { url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+    const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
     // 转换消息格式：提取system消息，其余转为Claude格式
     let systemPrompt = '';
@@ -365,16 +465,54 @@ class AIService {
     }
 
     const baseUrl = url || 'https://api.anthropic.com';
+    const safeMaxTokens = this.clampMaxTokensForContext(
+      provider,
+      model,
+      [
+        ...(systemPrompt ? [{ content: systemPrompt }] : []),
+        ...claudeMessages.map(m => ({ content: m.content })),
+      ],
+      maxTokens || 16000
+    );
 
     try {
       if (streaming) {
-        return await this.streamingRequestClaude(baseUrl, apiKey, model, systemPrompt, claudeMessages, temperature || 0.7, maxTokens || 16000, onStreamChunk);
+        try {
+          return await this.streamingRequestClaude(baseUrl, apiKey, model, systemPrompt, claudeMessages, temperature || 0.7, safeMaxTokens, onStreamChunk);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!this.isStreamUnsupportedError(msg)) throw e;
+          console.warn('[AI服务-Claude] 当前API可能不支持流式传输，已自动降级为非流式请求。');
+
+          const response = await axios.post(
+            `${baseUrl}/v1/messages`,
+            {
+              model,
+              max_tokens: safeMaxTokens,
+              system: systemPrompt || undefined,
+              messages: claudeMessages,
+              temperature: temperature || 0.7
+            },
+            {
+              headers: {
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'Content-Type': 'application/json'
+              },
+              timeout: 120000
+            }
+          );
+
+          const content = response.data.content[0]?.text || '';
+          console.log(`[AI服务-Claude] 响应长度: ${content.length}`);
+          return content;
+        }
       } else {
         const response = await axios.post(
           `${baseUrl}/v1/messages`,
           {
             model,
-            max_tokens: maxTokens || 16000,
+            max_tokens: safeMaxTokens,
             system: systemPrompt || undefined,
             messages: claudeMessages,
             temperature: temperature || 0.7
@@ -410,7 +548,7 @@ class AIService {
     streaming: boolean,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
-    const { url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+    const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
     // 转换为Gemini格式
     let systemInstruction = '';
@@ -434,10 +572,45 @@ class AIService {
 
     const baseUrl = url || 'https://generativelanguage.googleapis.com';
     const endpoint = streaming ? 'streamGenerateContent' : 'generateContent';
+    const safeMaxTokens = this.clampMaxTokensForContext(
+      provider,
+      model,
+      [
+        ...(systemInstruction ? [{ content: systemInstruction }] : []),
+        ...contents.map(c => ({ content: (c.parts || []).map(p => p.text).join('\n') })),
+      ],
+      maxTokens || 16000
+    );
 
     try {
       if (streaming) {
-        return await this.streamingRequestGemini(baseUrl, apiKey, model, systemInstruction, contents, temperature || 0.7, maxTokens || 16000, onStreamChunk);
+        try {
+          return await this.streamingRequestGemini(baseUrl, apiKey, model, systemInstruction, contents, temperature || 0.7, safeMaxTokens, onStreamChunk);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!this.isStreamUnsupportedError(msg)) throw e;
+          console.warn('[AI服务-Gemini] 当前API可能不支持流式传输，已自动降级为非流式请求。');
+
+          const response = await axios.post(
+            `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              contents,
+              systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+              generationConfig: {
+                temperature: temperature || 0.7,
+                maxOutputTokens: safeMaxTokens
+              }
+            },
+            {
+              headers: { 'Content-Type': 'application/json' },
+              timeout: 120000
+            }
+          );
+
+          const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
+          return content;
+        }
       } else {
         const response = await axios.post(
           `${baseUrl}/v1beta/models/${model}:${endpoint}?key=${apiKey}`,
@@ -446,7 +619,7 @@ class AIService {
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
             generationConfig: {
               temperature: temperature || 0.7,
-              maxOutputTokens: maxTokens || 16000
+              maxOutputTokens: safeMaxTokens
             }
           },
           {
@@ -486,6 +659,7 @@ class AIService {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'text/event-stream',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -499,6 +673,11 @@ class AIService {
 
     if (!response.ok) {
       throw new Error(`API错误 ${response.status}: ${await response.text()}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+      throw new Error(`Stream unsupported (content-type=${contentType || 'unknown'})`);
     }
 
     return this.processSSEStream(response, (data) => {
@@ -525,6 +704,7 @@ class AIService {
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'Accept': 'text/event-stream',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -539,6 +719,11 @@ class AIService {
 
     if (!response.ok) {
       throw new Error(`Claude API错误 ${response.status}: ${await response.text()}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+      throw new Error(`Stream unsupported (content-type=${contentType || 'unknown'})`);
     }
 
     return this.processSSEStream(response, (data) => {
@@ -566,7 +751,7 @@ class AIService {
 
     const response = await fetch(`${url}/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Accept': 'text/event-stream', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents,
         systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
@@ -579,6 +764,11 @@ class AIService {
 
     if (!response.ok) {
       throw new Error(`Gemini API错误 ${response.status}: ${await response.text()}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+      throw new Error(`Stream unsupported (content-type=${contentType || 'unknown'})`);
     }
 
     return this.processSSEStream(response, (data) => {
@@ -615,9 +805,10 @@ class AIService {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          if (!trimmed || !trimmed.startsWith('data:')) continue;
 
-          const data = trimmed.slice(6);
+          let data = trimmed.slice(5);
+          if (data.startsWith(' ')) data = data.slice(1);
           if (data === '[DONE]') continue;
 
           try {

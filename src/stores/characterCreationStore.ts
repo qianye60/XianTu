@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type {
   World,
   TalentTier,
@@ -8,6 +8,7 @@ import type {
   Talent,
   DADCustomData,
 } from '../types';
+import { aiService } from '@/services/aiService';
 // Import the Tavern helper to interact with Tavern's variable system
 import { getTavernHelper, getCurrentCharacterName } from '../utils/tavern';
 import { fetchWorlds, fetchTalentTiers, fetchOrigins, fetchSpiritRoots, fetchTalents } from '../services/request';
@@ -123,6 +124,44 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     totalLocations: 12, // 默认12个地点
     secretRealmsCount: 5, // 默认5个秘境
     continentCount: 4 // 默认4片大陆
+  });
+
+  // 同步“开局流式/生成模式”与 AI 配置，并做本地持久化（网页版/酒馆版本都适用）
+  try {
+    const cfg = aiService.getConfig();
+    useStreamingStart.value = cfg.streaming !== false;
+    generateMode.value = (cfg.initMode === 'generateRaw' ? 'generateRaw' : 'generate');
+  } catch {
+    // ignore (e.g. storage unavailable)
+  }
+
+  try {
+    const savedUseStreamingStart = localStorage.getItem('dad_creation_useStreamingStart');
+    if (savedUseStreamingStart !== null) {
+      useStreamingStart.value = savedUseStreamingStart !== 'false';
+    }
+    const savedGenerateMode = localStorage.getItem('dad_creation_generateMode');
+    if (savedGenerateMode === 'generate' || savedGenerateMode === 'generateRaw') {
+      generateMode.value = savedGenerateMode;
+    }
+  } catch {
+    // ignore
+  }
+
+  watch(useStreamingStart, (val) => {
+    try {
+      localStorage.setItem('dad_creation_useStreamingStart', String(val));
+    } catch {
+      // ignore
+    }
+  });
+
+  watch(generateMode, (val) => {
+    try {
+      localStorage.setItem('dad_creation_generateMode', val);
+    } catch {
+      // ignore
+    }
   });
 
   // --- GETTERS ---

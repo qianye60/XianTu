@@ -403,7 +403,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="aiConfig.streaming" />
+                <input type="checkbox" v-model="streamingEnabled" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -567,11 +567,13 @@ import { useI18n } from '@/i18n';
 import { aiService } from '@/services/aiService';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { useUIStore } from '@/stores/uiStore';
 import { isTavernEnv } from '@/utils/tavern';
 
 const { t, setLanguage, currentLanguage } = useI18n();
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
+const uiStore = useUIStore();
 const isTavernEnvFlag = isTavernEnv();
 
 const onLanguageChange = () => {
@@ -594,6 +596,14 @@ const aiConfig = reactive({
     model: 'gpt-4o',
     temperature: 0.7,
     maxTokens: 16000
+  }
+});
+
+const streamingEnabled = computed({
+  get: () => uiStore.useStreaming,
+  set: (val: boolean) => {
+    uiStore.useStreaming = val;
+    aiConfig.streaming = val;
   }
 });
 
@@ -745,6 +755,9 @@ const loadSettings = async () => {
     // 🔥 加载AI服务配置
     const savedAIConfig = aiService.getConfig();
     Object.assign(aiConfig, savedAIConfig);
+    // 同步“流式传输”开关到游戏内实际使用的全局开关
+    uiStore.useStreaming = aiConfig.streaming !== false;
+    aiConfig.streaming = uiStore.useStreaming;
     if (isTavernEnvFlag) {
       aiConfig.mode = 'tavern';
     }
@@ -940,8 +953,7 @@ const applyAnimationSettings = () => {
   debug.log('设置面板', `动画速度已应用: ${animationSpeed}x`);
 };
 
-import { useUIStore } from '@/stores/uiStore';
-const uiStore = useUIStore();
+// uiStore 已在脚本顶部初始化
 // 重置设置
 const resetSettings = () => {
   uiStore.showRetryDialog({
