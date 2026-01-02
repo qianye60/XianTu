@@ -10,6 +10,11 @@
           <span class="version-tag">V{{ appVersion }} {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
+        <!-- 酒馆环境指示器 -->
+        <div class="env-indicator" :class="backendReady ? 'backend' : 'offline'">
+          <span class="env-dot"></span>
+          <span>{{ backendReady ? '后端已连接 · 联机可用' : '未配置后端 · 联机/创意工坊不可用' }}</span>
+        </div>
       </div>
 
       <div class="gate-container">
@@ -22,24 +27,28 @@
           <div class="gate-icon">
             <User :size="44" :stroke-width="1.5" />
           </div>
-          <h2 class="gate-title">{{ $t('单机闭关') }}</h2>
-          <p class="gate-description">{{ $t('避世清修·心无旁骛') }}</p>
+          <h2 class="gate-title">{{ $t('单机闯关') }}</h2>
+          <p class="gate-description">{{ $t('避世清修·心无无斧') }}</p>
           <p class="gate-detail">{{ $t('独居洞府，专心致志炼就大道根基') }}<br/>{{ $t('所有进度本地存储，断网亦可修行') }}</p>
         </div>
 
         <!-- Right Gate: Multiplayer / Tavern -->
         <div
           class="gate-card"
-          :class="{ selected: selectedMode === 'cloud', disabled: !isTavernEnvFlag }"
+          :class="{ selected: selectedMode === 'cloud', disabled: !backendReady }"
           @click="selectPath('cloud')"
         >
           <div class="gate-icon">
             <Users :size="44" :stroke-width="1.5" />
           </div>
           <h2 class="gate-title">{{ $t('联机共修') }}</h2>
-          <p class="gate-description">{{ isTavernEnvFlag ? '酒馆环境可用，继续共修之路' : $t('功能研发中，敬请期待') }}</p>
-          <p class="gate-detail">{{ isTavernEnvFlag ? '当前检测到酒馆环境，可使用酒馆API继续游戏（含18+内容）' : $t('当前版本已封锁联机入口，不影响单机闭关体验') }}</p>
-          <span v-if="!isTavernEnvFlag" class="coming-soon-badge">{{ $t('未开放') }}</span>
+          <p class="gate-description">
+            {{ backendReady ? $t('后端已连接，进入联机共修') : $t('未配置后端，联机暂不可用') }}
+          </p>
+          <p class="gate-detail">
+            {{ backendReady ? $t('联机数据由后端权威控制，防止作弊') : $t('由开发者配置后端后开放') }}
+          </p>
+          <span v-if="!backendReady" class="coming-soon-badge">{{ $t('未启用') }}</span>
         </div>
       </div>
 
@@ -70,33 +79,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { Sparkles, History, User, Users } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
-import { isTavernEnv } from '@/utils/tavern';
+import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
 
-const appVersion = APP_VERSION;
+const appVersion = ref(APP_VERSION);
 
 const selectedMode = ref<'single' | 'cloud' | null>(null);
-const isTavernEnvFlag = ref(isTavernEnv());
-let poll: ReturnType<typeof setInterval> | null = null;
+const backendReady = ref(isBackendConfigured());
 
 onMounted(async () => {
-  // SillyTavern 可能在页面加载后才注入 TavernHelper，这里短暂轮询以避免误判为“非酒馆环境”
-  const start = Date.now();
-  poll = setInterval(() => {
-    isTavernEnvFlag.value = isTavernEnv();
-    if (isTavernEnvFlag.value || Date.now() - start > 5000) {
-      if (poll) clearInterval(poll);
-      poll = null;
-    }
-  }, 200);
-});
-
-onUnmounted(() => {
-  if (poll) clearInterval(poll);
-  poll = null;
+  if (!backendReady.value) return;
+  const backendVersion = await fetchBackendVersion();
+  if (backendVersion) {
+    appVersion.value = backendVersion;
+  }
 });
 
 const emit = defineEmits<{
@@ -107,12 +106,12 @@ const emit = defineEmits<{
 const uiStore = useUIStore();
 
 const selectPath = (mode: 'single' | 'cloud') => {
-  if (mode === 'cloud' && !isTavernEnvFlag.value) {
+  if (mode === 'cloud' && !backendReady.value) {
     uiStore.showRetryDialog({
-      title: '功能未开放',
-      message: '联机共修开发中，当前版本已封锁入口。请先选择"单机闭关"。',
+      title: '联机未启用',
+      message: '未配置后端服务器，无法使用联机共修与登录功能。请先选择"单机闯关"。',
       confirmText: '知道了',
-      cancelText: '取消',
+      cancelText: '??',
       onConfirm: () => {},
       onCancel: () => {}
     });
@@ -210,6 +209,43 @@ const enterCharacterSelection = async () => {
   letter-spacing: 0.2em;
   margin: 0;
   font-weight: 300;
+}
+
+/* 环境指示器 */
+.env-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.env-indicator.backend {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.env-indicator.offline {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #fca5a5;
+}
+
+.env-indicator .env-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .gate-container {

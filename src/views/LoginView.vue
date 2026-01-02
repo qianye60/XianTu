@@ -2,9 +2,12 @@
   <div class="login-container">
     <div class="login-panel">
       <h2 class="title">{{ isRegisterMode ? $t('初入道门') : $t('登入洞天') }}</h2>
-      <p class="subtitle">{{ isRegisterMode ? $t('注册新道号，踏入修仙之路。') : $t('验证道友身份，以便同步云端天机。') }}</p>
+      <p v-if="backendReady" class="subtitle">
+        {{ isRegisterMode ? $t('注册新道号，踏入修仙之路。') : $t('验证道友身份，以便同步云端天机。') }}
+      </p>
+      <p v-else class="subtitle">未配置后端服务器，登录/注册不可用</p>
 
-      <form @submit.prevent="isRegisterMode ? handleRegister() : handleLogin()">
+      <form v-if="backendReady" @submit.prevent="isRegisterMode ? handleRegister() : handleLogin()">
         <div class="form-group">
           <label for="username">{{ $t('道号') }}</label>
           <input type="text" id="username" v-model="username" :placeholder="$t('请输入您的道号')" required />
@@ -45,6 +48,10 @@
           </a>
         </div>
       </form>
+
+      <div v-else class="form-actions">
+        <button type="button" @click="emit('back')" class="btn btn-secondary">{{ $t('??') }}</button>
+      </div>
     </div>
   </div>
 </template>
@@ -54,6 +61,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { toast } from '../utils/toast';
 import { request } from '../services/request';
 import { TURNSTILE_SITE_KEY, waitForTurnstile, renderTurnstile, resetTurnstile, removeTurnstile } from '../services/turnstile';
+import { isBackendConfigured } from '@/services/backendConfig';
 
 const emit = defineEmits(['loggedIn', 'back']);
 
@@ -64,6 +72,7 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
 const isRegisterMode = ref(false);
+const backendReady = ref(isBackendConfigured());
 
 const turnstileContainer = ref<HTMLElement | null>(null);
 const turnstileWidgetId = ref<string | null>(null);
@@ -116,6 +125,7 @@ const initTurnstile = async () => {
 };
 
 onMounted(() => {
+  if (!backendReady.value) return;
   void initTurnstile();
 });
 
@@ -124,7 +134,11 @@ onBeforeUnmount(() => {
 });
 
 const handleRegister = async () => {
-  if (isLoading.value) return; // 防止重复提交
+  if (isLoading.value) return;
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，注册不可用');
+    return;
+  } // 防止重复提交
   if (password.value !== confirmPassword.value) {
     error.value = '两次输入的令牌不一致！';
     return;
@@ -185,7 +199,11 @@ const handleRegister = async () => {
 };
 
 const handleLogin = async () => {
-  if (isLoading.value) return; // 防止重复提交
+  if (isLoading.value) return;
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，登录不可用');
+    return;
+  } // 防止重复提交
   if (!turnstileToken.value) {
     error.value = '请先完成人机验证';
     toast.error(error.value);

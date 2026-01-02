@@ -6,12 +6,15 @@
       <div class="header">
         <div class="title-row">
           <h2 class="title">创意工坊</h2>
-          <div class="auth-pill" :class="{ ok: authState === 'authed', warn: authState !== 'authed' }">
+          <div v-if="backendReady" class="auth-pill" :class="{ ok: authState === 'authed', warn: authState !== 'authed' }">
             <span v-if="authState === 'checking'">检测中…</span>
             <span v-else-if="authState === 'authed'">已验证</span>
             <span v-else>未验证</span>
             <button v-if="authState !== 'authed'" class="pill-link" @click="goLogin">去验证</button>
             <button class="pill-link" @click="refreshAuth">刷新</button>
+          </div>
+          <div v-else class="auth-pill warn">
+            <span>未配置后端</span>
           </div>
         </div>
         <p class="subtitle">用于玩家之间上传/分享：设置、提示词、开局配置、存档等内容</p>
@@ -20,6 +23,14 @@
         </p>
       </div>
 
+      <div v-if="!backendReady" class="backend-locked">
+        <p>未配置后端服务器，创意工坊不可用。</p>
+        <div class="actions">
+          <button class="btn btn-secondary" @click="goBack">返回</button>
+        </div>
+      </div>
+
+      <template v-else>
       <div class="tabs">
         <button class="tab" :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">浏览</button>
         <button class="tab" :class="{ active: activeTab === 'upload' }" @click="activeTab = 'upload'">上传</button>
@@ -125,9 +136,13 @@
         <button class="btn btn-secondary" @click="goBack">返回</button>
         <button class="btn" @click="activeTab = 'upload'">去上传</button>
       </div>
+      </template>
+
     </div>
 
+
     <!-- 下载/导入弹窗 -->
+
     <div v-if="downloadModal.open" class="modal-overlay" @click.self="closeDownloadModal">
       <div class="modal">
         <div class="modal-header">
@@ -182,9 +197,13 @@ import { toast } from '@/utils/toast';
 import { promptStorage } from '@/services/promptStorage';
 import { createWorkshopItem, downloadWorkshopItem, listWorkshopItems, type WorkshopItemOut, type WorkshopItemType } from '@/services/workshop';
 import { useCharacterStore } from '@/stores/characterStore';
+import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
 
 const router = useRouter();
 const characterStore = useCharacterStore();
+
+const backendReady = ref(isBackendConfigured());
+const appVersion = ref(APP_VERSION);
 
 const authState = ref<'checking' | 'authed' | 'unauthed'>('checking');
 const activeTab = ref<'browse' | 'upload'>('browse');
@@ -197,6 +216,10 @@ const typeLabel: Record<string, string> = {
 };
 
 const refreshAuth = async () => {
+  if (!backendReady.value) {
+    authState.value = 'unauthed';
+    return;
+  }
   authState.value = 'checking';
   try {
     const ok = await verifyStoredToken();
@@ -206,7 +229,12 @@ const refreshAuth = async () => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
+  if (!backendReady.value) return;
+  const backendVersion = await fetchBackendVersion();
+  if (backendVersion) {
+    appVersion.value = backendVersion;
+  }
   void refreshAuth();
   void refreshList();
 });
@@ -216,6 +244,10 @@ const goBack = () => {
 };
 
 const goLogin = () => {
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，登录不可用');
+    return;
+  }
   router.push('/login');
 };
 
@@ -226,6 +258,10 @@ const items = ref<WorkshopItemOut[]>([]);
 const loadingList = ref(false);
 
 const refreshList = async () => {
+  if (!backendReady.value) {
+    items.value = [];
+    return;
+  }
   loadingList.value = true;
   try {
     const res = await listWorkshopItems({ type: filterType.value, q: query.value, page: 1, pageSize: 20 });
@@ -379,10 +415,10 @@ const loadLocalSettings = () => {
     const settings = JSON.parse(raw);
     uploadPayload.value = {
       settings,
-      exportInfo: { timestamp: new Date().toISOString(), version: APP_VERSION, gameVersion: `仙途 v${APP_VERSION}` },
+      exportInfo: { timestamp: new Date().toISOString(), version: appVersion.value, gameVersion: `仙途 v${appVersion.value}` },
     };
     payloadHint.value = '已从本地读取 dad_game_settings';
-    if (!uploadTitle.value) uploadTitle.value = `设置-${APP_VERSION}`;
+    if (!uploadTitle.value) uploadTitle.value = `设置-${appVersion.value}`;
   } catch (_e) {
     toast.error('读取本地设置失败');
   }
@@ -393,7 +429,7 @@ const loadLocalPrompts = async () => {
     const data = await promptStorage.exportAll();
     uploadPayload.value = data;
     payloadHint.value = '已从本地导出提示词';
-    if (!uploadTitle.value) uploadTitle.value = `提示词-${APP_VERSION}`;
+    if (!uploadTitle.value) uploadTitle.value = `提示词-${appVersion.value}`;
   } catch (_e) {
     toast.error('导出本地提示词失败');
   }
@@ -430,7 +466,7 @@ const submitUpload = async () => {
       description: uploadDesc.value.trim() || undefined,
       tags: parseTags(uploadTagsText.value),
       payload: uploadPayload.value,
-      game_version: `仙途 v${APP_VERSION}`,
+      game_version: `仙途 v${appVersion.value}`,
       data_version: '1',
     });
     toast.success('上传成功');

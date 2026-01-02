@@ -1033,7 +1033,6 @@ const validateSettings = () => {
       }));
     }
 
-
     debug.log('设置面板', '设置验证完成');
   } catch (error) {
     debug.error('设置面板', '设置验证失败', error);

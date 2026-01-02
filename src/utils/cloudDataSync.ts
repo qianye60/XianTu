@@ -6,6 +6,7 @@
 import { request } from '../services/request';
 import { toast } from '../utils/toast';
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from '../types';
+import { buildBackendUrl, isBackendConfigured } from '../services/backendConfig';
 
 // 本地存储键名
 const SYNC_HISTORY_KEY = 'dad_cloud_data_sync_history';
@@ -143,6 +144,21 @@ export class CloudDataSync {
     message: string;
   }> {
     try {
+      if (!isBackendConfigured()) {
+        const message = '未配置后端服务器，无法同步云端数据';
+        toast.info(message);
+        return {
+          success: false,
+          newItems: {
+            worlds: 0,
+            talentTiers: 0,
+            origins: 0,
+            spiritRoots: 0,
+            talents: 0,
+          },
+          message,
+        };
+      }
       toast.info('正在连接云端获取数据...');
       
       // 获取所有云端数据
@@ -279,7 +295,12 @@ export class CloudDataSync {
   async checkCloudDataAvailability(): Promise<boolean> {
     try {
       // 简单的健康检查
-      const response = await fetch('http://127.0.0.1:12345/api/health', { method: 'HEAD' });
+      if (!isBackendConfigured()) {
+        return false;
+      }
+      const healthUrl = buildBackendUrl('/api/health');
+      if (!healthUrl) return false;
+      const response = await fetch(healthUrl, { method: 'HEAD' });
       return response.ok;
     } catch {
       return false;

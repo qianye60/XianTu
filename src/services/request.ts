@@ -1,8 +1,8 @@
 import { toast } from '../utils/toast';
 import type { World } from '@/types';
+import { buildBackendUrl, isBackendConfigured } from './backendConfig';
 
 // 后端API服务器地址
-const API_BASE_URL = 'http://127.0.0.1:12345';
 
 // 统一的请求函数
 export async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -24,7 +24,10 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
   };
 
   try {
-    const fullUrl = `${API_BASE_URL}${url}`;
+    if (!isBackendConfigured()) {
+      throw new Error('未配置后端服务器');
+    }
+    const fullUrl = buildBackendUrl(url);
     console.log(`[Request] 发起请求: ${config.method || 'GET'} ${fullUrl}`);
     const response = await fetch(fullUrl, config);
 
@@ -99,6 +102,10 @@ request.delete = <T>(url: string, options: Omit<RequestInit, 'method'> = {}) =>
 // 检查并验证存储的Token
 export async function verifyStoredToken(): Promise<boolean> {
   const token = localStorage.getItem('access_token');
+  if (!isBackendConfigured()) {
+    console.log('[验证令牌] 未配置后端，跳过验证');
+    return false;
+  }
   console.log('[验证令牌] 从localStorage获取到的token:', token ? `${token.substring(0, 20)}...` : 'null');
 
   if (!token) {

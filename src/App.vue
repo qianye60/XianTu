@@ -58,7 +58,7 @@
           <Settings :size="18" />
           <span>设置</span>
         </button>
-        <button class="action-menu-item" @click="router.push('/workshop'); close()">
+        <button class="action-menu-item" :class="{ 'is-disabled': !backendReady }" @click="openWorkshop(close)">
           <Store :size="18" />
           <span>创意工坊</span>
         </button>
@@ -264,12 +264,13 @@ import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
 import { useUIStore } from './stores/uiStore';
 import { toast } from './utils/toast';
-import { getTavernHelper, isTavernEnv } from './utils/tavern'; // 添加导入
+import { getTavernHelper } from './utils/tavern'; // 添加导入
+import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
 import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFullscreen, explainFullscreenError } from './utils/fullscreen';
 import type { CharacterBaseInfo } from '@/types/game';
 import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
 
-const appVersion = APP_VERSION;
+const appVersion = ref(APP_VERSION);
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
@@ -277,7 +278,7 @@ const isDarkMode = ref(localStorage.getItem('theme') !== 'light');
 const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
 const showSettingsModal = ref(false);
-const isTavernEnvFlag = ref(isTavernEnv());
+const backendReady = ref(isBackendConfigured());
 
 // --- 路由与视图管理 ---
 const router = useRouter();
@@ -318,13 +319,13 @@ const uiStore = useUIStore();
 // --- 事件处理器 ---
 const handleStartCreation = async (mode: 'single' | 'cloud') => {
   try {
-    // 全局封锁联机模式：只有酒馆环境允许进入 cloud
-    if (mode !== 'single' && !isTavernEnvFlag.value) {
-      toast.info('联机共修开发中，当前版本暂未开放');
+    // 全局封锁联机模式：未配置后端则禁止进入 cloud
+    if (mode === 'cloud' && !backendReady.value) {
+      toast.info('未配置后端服务器，联机共修不可用');
       switchView('ModeSelection');
       return;
     }
-    const targetMode = (mode === 'cloud' && isTavernEnvFlag.value) ? 'cloud' : 'single';
+    const targetMode = mode === 'cloud' ? 'cloud' : 'single';
     creationStore.setMode(targetMode);
     if (true) {
       switchView('CharacterCreation');
@@ -352,7 +353,20 @@ const handleLoggedIn = () => {
 };
 
 const handleGoToLogin = () => {
- switchView('Login');
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，登录不可用');
+    return;
+  }
+  switchView('Login');
+};
+
+const openWorkshop = (close: () => void) => {
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，创意工坊不可用');
+    return;
+  }
+  router.push('/workshop');
+  close();
 };
 
 const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
@@ -589,14 +603,12 @@ const showHelp = () => {
 
 // --- 生命周期钩子 ---
 onMounted(async () => {
-  // SillyTavern 可能在页面加载后才注入 TavernHelper，这里短暂轮询以避免误判为“非酒馆环境”
-  const start = Date.now();
-  const poll = setInterval(() => {
-    isTavernEnvFlag.value = isTavernEnv();
-    if (isTavernEnvFlag.value || Date.now() - start > 5000) {
-      clearInterval(poll);
+  if (backendReady.value) {
+    const backendVersion = await fetchBackendVersion();
+    if (backendVersion) {
+      appVersion.value = backendVersion;
     }
-  }, 200);
+  }
   // 0. 等待 characterStore 初始化完成（加载 IndexedDB 数据）
   console.log('[App] 等待 characterStore 初始化...');
   await characterStore.initializeStore();

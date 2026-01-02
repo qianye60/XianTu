@@ -8,6 +8,7 @@ declare module '*.vue' {
 }
 
 declare const APP_VERSION: string;
+declare const BACKEND_BASE_URL: string;
 
 // Augment Window with TavernHelper from tavernCore
 type TavernHelper = import('./utils/tavernCore').TavernHelper;

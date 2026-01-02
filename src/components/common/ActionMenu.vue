@@ -144,6 +144,12 @@ const offsetStyle = computed(() => {
   transform: translateX(-2px);
 }
 
+:deep(.action-menu-item.is-disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 :deep(.action-menu-item span) {
   font-size: 0.95rem;
   letter-spacing: 0.05em;

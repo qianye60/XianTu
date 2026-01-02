@@ -107,7 +107,8 @@ export default (env, argv) => {
         __VUE_OPTIONS_API__: JSON.stringify(true),
         __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
         __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
-        'APP_VERSION': JSON.stringify(packageJson.version)
+        'APP_VERSION': JSON.stringify(packageJson.version),
+        'BACKEND_BASE_URL': JSON.stringify("http://back.ddct.top" || '')
       }),
       new HtmlWebpackPlugin({
         template: './index.html',
