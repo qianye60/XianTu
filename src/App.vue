@@ -70,6 +70,10 @@
           <component :is="isFullscreenMode ? Minimize2 : Maximize2" :size="18" />
           <span>{{ isFullscreenMode ? '退出全屏' : '进入全屏' }}</span>
         </button>
+        <a href="游戏介绍.html" target="_blank" class="action-menu-item" @click="close()">
+          <Globe :size="18" />
+          <span>官网介绍</span>
+        </a>
         <button class="action-menu-item" @click="showHelp(); close()">
           <HelpCircle :size="18" />
           <span>教程 / 说明</span>
@@ -107,68 +111,133 @@
     </div>
 
     <!-- Author Info Modal -->
-    <div v-if="showAuthorModal" class="author-modal-overlay" @click.self="showAuthorModal = false">
-      <div class="author-modal">
-        <div class="author-modal-header">
-          <h3>🎮 仙途 - 游戏信息</h3>
-          <button class="close-btn" @click="showAuthorModal = false">&times;</button>
+    <div v-if="showAuthorModal" class="game-info-overlay" @click.self="showAuthorModal = false">
+      <div class="game-info-modal">
+        <!-- 顶部标题区域 -->
+        <div class="game-info-header">
+          <div class="header-bg"></div>
+          <div class="header-content">
+            <div class="game-title">
+              <span class="title-icon">⚔️</span>
+              <span class="title-text">仙途</span>
+              <span class="version-tag">v{{ appVersion }}</span>
+            </div>
+            <p class="game-subtitle">AI驱动的沉浸式修仙文字冒险</p>
+          </div>
+          <button class="close-btn" @click="showAuthorModal = false">
+            <span>&times;</span>
+          </button>
         </div>
-        <div class="author-modal-body">
-          <div class="version-badge">V{{ appVersion }}</div>
 
-          <div class="info-section">
-            <h4>📝 关于游戏</h4>
-            <p>
-              《仙途》是一款基于AI驱动的沉浸式修仙文字冒险游戏，结合SillyTavern与Gemini
-              AI，为玩家打造无限可能的修仙世界。
-            </p>
-            <p>
-              <span style="color: yellow"
-                >游玩尽量使用推荐预设，在了解原理后可自行更换调整，<span style="color: red"
-                  >禁止打开COT</span
-                ></span
-              >
+        <!-- 内容区域 -->
+        <div class="game-info-body">
+          <!-- 警告提示 -->
+          <div class="warning-banner">
+            <span class="warning-icon">⚠️</span>
+            <span>游玩尽量使用推荐预设，在了解原理后可自行更换调整，<strong>禁止打开COT</strong></span>
+          </div>
+
+          <!-- 关于游戏 -->
+          <div class="info-card">
+            <div class="card-header">
+              <span class="card-icon">📜</span>
+              <h4>关于游戏</h4>
+            </div>
+            <p class="card-desc">
+              《仙途》是一款基于AI驱动的沉浸式修仙文字冒险游戏，结合SillyTavern与Gemini AI，为玩家打造无限可能的修仙世界。
             </p>
           </div>
 
-          <div class="info-section">
-            <h4>✨ 核心功能</h4>
-            <ul class="feature-list">
-              <li>🎲 <strong>智能判定系统</strong> - 根据境界、属性、装备、大道等全方位计算判定</li>
-              <li>🌟 <strong>三千大道系统</strong> - 探索修炼独特的修仙之道，提升实力</li>
-              <li>📖 <strong>动态剧情生成</strong> - AI实时生成个性化的修仙故事</li>
-              <li>💾 <strong>多存档管理</strong> - 支持多角色、多周目游玩</li>
-              <li>⚔️ <strong>深度RPG系统</strong> - 境界突破、功法学习、装备炼制、NPC互动</li>
-              <li>🗺️ <strong>世界探索</strong> - 自由探索朝天大陆，触发奇遇事件</li>
-              <li>🎨 <strong>精美UI</strong> - 修仙风格界面，支持亮暗双主题</li>
-              <li>💬 <strong>格式化文本</strong> - 环境描写、心理活动、对话、判定结果分别渲染</li>
-            </ul>
+          <!-- 核心功能 -->
+          <div class="info-card">
+            <div class="card-header">
+              <span class="card-icon">✨</span>
+              <h4>核心功能</h4>
+            </div>
+            <div class="feature-grid">
+              <div class="feature-item">
+                <span class="feature-icon">🎲</span>
+                <div class="feature-text">
+                  <strong>智能判定</strong>
+                  <span>全方位计算判定</span>
+                </div>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">🌟</span>
+                <div class="feature-text">
+                  <strong>三千大道</strong>
+                  <span>探索独特修仙之道</span>
+                </div>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">📖</span>
+                <div class="feature-text">
+                  <strong>动态剧情</strong>
+                  <span>AI实时生成故事</span>
+                </div>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">💾</span>
+                <div class="feature-text">
+                  <strong>多存档</strong>
+                  <span>多角色多周目</span>
+                </div>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">⚔️</span>
+                <div class="feature-text">
+                  <strong>深度RPG</strong>
+                  <span>境界突破装备炼制</span>
+                </div>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">🗺️</span>
+                <div class="feature-text">
+                  <strong>世界探索</strong>
+                  <span>自由探索触发奇遇</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="info-section">
-            <h4>👨‍💻 作者信息</h4>
-            <p><strong>作者:</strong> 千夜</p>
-            <p>
-              <strong>GitHub:</strong>
-              <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer">
-                https://github.com/qianye60
-              </a>
-            </p>
-            <p class="tech-stack"><strong>技术栈:</strong> Vue 3 + TypeScript + SillyTavern</p>
+          <!-- 作者信息 -->
+          <div class="info-card author-card">
+            <div class="card-header">
+              <span class="card-icon">👨‍💻</span>
+              <h4>作者信息</h4>
+            </div>
+            <div class="author-info">
+              <div class="author-row">
+                <span class="label">作者</span>
+                <span class="value">千夜</span>
+              </div>
+              <div class="author-row">
+                <span class="label">GitHub</span>
+                <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer" class="value link">
+                  github.com/qianye60
+                </a>
+              </div>
+              <div class="author-row">
+                <span class="label">技术栈</span>
+                <span class="value tech">Vue 3 + TypeScript + SillyTavern</span>
+              </div>
+            </div>
           </div>
 
-          <div class="info-section">
-            <h4>⚖️ 版权声明</h4>
-            <div class="copyright-notice">
-              <p>© 2025 千夜 版权所有</p>
-              <p>本作品采用 <strong>Apache License 2.0</strong> 协议授权</p>
-              <ul class="copyright-list">
-                <li>✅ <strong>允许</strong> - 个人/商用使用、学习交流</li>
-                <li>✅ <strong>允许</strong> - 修改并发布衍生作品</li>
-                <li>✅ <strong>允许</strong> - 复制、分发、再发布</li>
-                <li>ℹ️ <strong>要求</strong> - 分发时保留版权声明与 LICENSE/NOTICE，并在修改文件中标注变更</li>
-                <li>⚠️ <strong>免责声明</strong> - 按“原样”提供，不提供任何担保</li>
-              </ul>
+          <!-- 版权声明 -->
+          <div class="info-card copyright-card">
+            <div class="card-header">
+              <span class="card-icon">⚖️</span>
+              <h4>版权声明</h4>
+            </div>
+            <div class="copyright-content">
+              <p class="copyright-title">© 2025 千夜 · Apache License 2.0</p>
+              <div class="license-items">
+                <span class="license-tag allow">✓ 个人/商用</span>
+                <span class="license-tag allow">✓ 修改发布</span>
+                <span class="license-tag allow">✓ 复制分发</span>
+                <span class="license-tag require">ⓘ 保留声明</span>
+              </div>
             </div>
           </div>
         </div>
@@ -181,7 +250,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store } from 'lucide-vue-next'; // 导入图标
+import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
@@ -632,15 +701,12 @@ watch(route, (newRoute, oldRoute) => {
 </script>
 
 <style scoped>
-/* 作者信息模态框样式 */
-.author-modal-overlay {
+/* ============ 游戏信息弹窗样式 ============ */
+.game-info-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -648,48 +714,341 @@ watch(route, (newRoute, oldRoute) => {
   padding: 1rem;
 }
 
-.author-modal {
+.game-info-modal {
   background: var(--color-surface);
-  color: var(--color-text);
   border-radius: 16px;
-  max-width: 600px;
+  max-width: 520px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
   border: 1px solid var(--color-border);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modalFadeIn 0.25s ease-out;
 }
 
-@keyframes modalSlideIn {
+@keyframes modalFadeIn {
   from {
     opacity: 0;
-    transform: translateY(-20px) scale(0.95);
+    transform: scale(0.95) translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
-.author-modal-header {
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  border-radius: 16px 16px 0 0;
+/* 顶部标题区域 */
+.game-info-header {
+  position: relative;
+  padding: 1.5rem 1.5rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
 }
 
-.author-modal-header h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
+.game-info-header .header-bg {
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+.game-info-header .header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.game-info-header .game-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.game-info-header .title-icon {
+  font-size: 1.75rem;
+}
+
+.game-info-header .title-text {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.game-info-header .version-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+  backdrop-filter: blur(4px);
+}
+
+.game-info-header .game-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+  font-weight: 500;
+}
+
+.game-info-header .close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.game-info-header .close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+/* 内容区域 */
+.game-info-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* 警告横幅 */
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.warning-banner .warning-icon {
+  font-size: 1rem;
+}
+
+.warning-banner strong {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* 信息卡片 */
+.info-card {
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.info-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-card .card-icon {
+  font-size: 1.1rem;
+}
+
+.info-card .card-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.info-card .card-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* 功能网格 */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: var(--color-surface);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.feature-item .feature-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.feature-item .feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.feature-item .feature-text strong {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.feature-item .feature-text span {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* 作者信息 */
+.author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.author-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.author-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.author-row .label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  min-width: 50px;
+}
+
+.author-row .value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.author-row .value.link {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.author-row .value.link:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.author-row .value.tech {
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 0.8rem;
+  background: var(--color-code-bg);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* 版权声明 */
+.copyright-content .copyright-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.license-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.license-tag {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.license-tag.allow {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.license-tag.require {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+/* 深色主题适配 */
+[data-theme='dark'] .game-info-header {
+  background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
+}
+
+[data-theme='dark'] .warning-banner {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.12) 0%, rgba(251, 191, 36, 0.05) 100%);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+[data-theme='dark'] .warning-banner strong {
+  color: #f87171;
+}
+
+[data-theme='dark'] .license-tag.allow {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+[data-theme='dark'] .license-tag.require {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* 滚动条美化 */
+.game-info-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.game-info-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.game-info-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.game-info-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 
 .settings-modal-overlay {
@@ -756,268 +1115,5 @@ watch(route, (newRoute, oldRoute) => {
 
 .close-btn:hover {
   background: var(--color-surface-hover);
-}
-
-.author-modal-body {
-  padding: 2rem;
-}
-
-.version-badge {
-  display: inline-block;
-  background: rgba(var(--color-primary-rgb), 0.12);
-  color: var(--color-primary);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.22);
-  padding: 0.5rem 1.25rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
-}
-
-.info-section {
-  margin-bottom: 2rem;
-}
-
-.info-section:last-child {
-  margin-bottom: 0;
-}
-
-.info-section h4 {
-  color: var(--color-text);
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.info-section p {
-  color: var(--color-text-secondary);
-  line-height: 1.7;
-  margin: 0.5rem 0;
-}
-
-.info-section a {
-  color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 600;
-  transition: color 0.2s;
-}
-
-.info-section a:hover {
-  color: var(--color-primary-hover);
-  text-decoration: underline;
-}
-
-.feature-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.feature-list li {
-  padding: 0.75rem 0;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.feature-list li:last-child {
-  border-bottom: none;
-}
-
-.feature-list strong {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.tech-stack {
-  color: var(--color-text-secondary);
-  font-size: 0.95rem;
-  padding: 1rem;
-  background: var(--color-code-bg);
-  border-radius: 8px;
-  border-left: 4px solid var(--color-primary);
-}
-
-.version-note {
-  color: var(--color-text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  padding: 1rem;
-  background: rgba(var(--color-warning-rgb), 0.15);
-  border-radius: 8px;
-  border-left: 4px solid #f59e0b;
-}
-
-.version-note strong {
-  color: #92400e;
-}
-
-.copyright-notice {
-  padding: 1.25rem;
-  background: rgba(var(--color-error-rgb), 0.08);
-  border-radius: 8px;
-  border: 1px solid rgba(var(--color-error-rgb), 0.35);
-}
-
-.copyright-notice p {
-  margin: 0.5rem 0;
-  color: var(--color-text);
-}
-
-.copyright-notice p:first-child {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--color-danger);
-  margin-bottom: 0.75rem;
-}
-
-.copyright-notice strong {
-  color: #dc2626;
-  font-weight: 700;
-}
-
-.copyright-list {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0;
-}
-
-.copyright-list li {
-  padding: 0.5rem 0;
-  color: #475569;
-  line-height: 1.5;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-bottom: 1px solid #fee2e2;
-}
-
-.copyright-list li:last-child {
-  border-bottom: none;
-}
-
-.copyright-list strong {
-  color: #1e293b;
-  font-weight: 600;
-}
-
-.copyright-warning {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: #dc2626;
-  color: white;
-  border-radius: 6px;
-  font-weight: 600;
-  text-align: center;
-}
-
-/* 深色主题 */
-[data-theme='dark'] .author-modal {
-  background: var(--color-surface);
-}
-
-[data-theme='dark'] .author-modal-header {
-  border-bottom-color: var(--color-border);
-}
-
-[data-theme='dark'] .info-section h4 {
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .info-section p {
-  color: var(--color-text-secondary);
-}
-
-[data-theme='dark'] .feature-list li {
-  color: var(--color-text-secondary);
-  border-bottom-color: var(--color-border);
-}
-
-[data-theme='dark'] .feature-list strong {
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .tech-stack {
-  background: var(--color-code-bg);
-  color: var(--color-text-secondary);
-  border-left-color: var(--color-primary);
-}
-
-[data-theme='dark'] .version-note {
-  background: rgba(var(--color-warning-rgb), 0.15);
-  color: var(--color-text-secondary);
-  border-left-color: var(--color-warning);
-}
-
-[data-theme='dark'] .version-note strong {
-  color: var(--color-warning);
-}
-
-[data-theme='dark'] .copyright-notice {
-  background: rgba(var(--color-error-rgb), 0.12);
-  border-color: rgba(var(--color-error-rgb), 0.35);
-}
-
-[data-theme='dark'] .copyright-notice p {
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .copyright-notice p:first-child {
-  color: var(--color-danger);
-}
-
-[data-theme='dark'] .copyright-notice strong {
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .copyright-list li {
-  color: var(--color-text-secondary);
-  border-bottom-color: rgba(var(--color-error-rgb), 0.25);
-}
-
-[data-theme='dark'] .copyright-list strong {
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .copyright-warning {
-  background: var(--color-danger);
-  color: var(--color-white-soft);
-}
-
-/* 滚动条美化 */
-.author-modal::-webkit-scrollbar {
-  width: 8px;
-}
-
-.author-modal::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 4px;
-}
-
-.author-modal::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.author-modal::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-[data-theme='dark'] .author-modal::-webkit-scrollbar-track {
-  background: #0f172a;
-}
-
-[data-theme='dark'] .author-modal::-webkit-scrollbar-thumb {
-  background: #475569;
-}
-
-[data-theme='dark'] .author-modal::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
 }
 </style>

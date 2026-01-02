@@ -520,37 +520,6 @@
             </div>
           </div>
 
-          <div class="setting-item setting-item-full">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('自定义正则删标签') }}</label>
-              <span class="setting-desc">{{
-                t('不用写正则：填要删除的“标签名/文字”；进阶：可写正则（每行一个）')
-              }}</span>
-            </div>
-            <div class="setting-control-full">
-              <textarea
-                v-model="settings.customStripTags"
-                class="setting-textarea"
-                :placeholder="t('【简单】要删除的标签名（每行一个）\\n例如：thinking\\nanalysis\\nimage')"
-                rows="3"
-              ></textarea>
-              <textarea
-                v-model="settings.customStripText"
-                class="setting-textarea"
-                :placeholder="t('【简单】要删除的固定文字（每行一个，会按原样删除）\\n例如：千夜\\n[图片]')"
-                rows="3"
-                style="margin-top: 0.5rem"
-              ></textarea>
-              <textarea
-                v-model="settings.customStripRegex"
-                class="setting-textarea"
-                :placeholder="t('【进阶】正则规则（每行一个）\\n支持：/pattern/flags 或 纯pattern\\n例如：\\n<thinking>[\\\\s\\\\S]*?<\\\\/thinking>\\n<analysis>[\\\\s\\\\S]*?<\\\\/analysis>')"
-                rows="4"
-                style="margin-top: 0.5rem"
-              ></textarea>
-            </div>
-          </div>
-
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('正则替换规则') }}</label>
@@ -852,9 +821,6 @@ const settings = reactive({
   debugMode: false,
   consoleDebug: false,
   performanceMonitor: false,
-  customStripRegex: '',
-  customStripTags: '',
-  customStripText: '',
   replaceRules: [] as TextReplaceRule[],
 
   // 任务系统相关设置
@@ -1049,23 +1015,6 @@ const validateSettings = () => {
       (settings as any).splitResponseGeneration = false;
     }
 
-    // 自定义正则删标签：确保是字符串且限制长度，避免卡顿/存储膨胀
-    if (typeof (settings as any).customStripRegex !== 'string') {
-      (settings as any).customStripRegex = '';
-    } else if ((settings as any).customStripRegex.length > 4000) {
-      (settings as any).customStripRegex = (settings as any).customStripRegex.slice(0, 4000);
-    }
-    if (typeof (settings as any).customStripTags !== 'string') {
-      (settings as any).customStripTags = '';
-    } else if ((settings as any).customStripTags.length > 2000) {
-      (settings as any).customStripTags = (settings as any).customStripTags.slice(0, 2000);
-    }
-    if (typeof (settings as any).customStripText !== 'string') {
-      (settings as any).customStripText = '';
-    } else if ((settings as any).customStripText.length > 2000) {
-      (settings as any).customStripText = (settings as any).customStripText.slice(0, 2000);
-    }
-
     // 正则替换规则：确保结构正确并限制大小，避免卡顿/存储膨胀
     const rawReplaceRules = (settings as any).replaceRules;
     if (!Array.isArray(rawReplaceRules)) {
@@ -1176,9 +1125,6 @@ const resetSettings = () => {
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,
-        customStripRegex: '',
-        customStripTags: '',
-        customStripText: '',
         questSystemType: '修仙辅助系统',
         questSystemPrompt: '',
         enableSoundEffects: true,

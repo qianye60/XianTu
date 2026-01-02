@@ -283,3 +283,41 @@ class SystemConfigUpdate(BaseModel):
 
 class SystemConfig(SystemConfigBase):
    model_config = ConfigDict(from_attributes=True)
+
+
+# --- 创意工坊 ---
+
+class WorkshopItemBase(BaseModel):
+    type: str
+    title: str
+    description: Optional[str] = None
+    tags: List[str] = []
+    game_version: Optional[str] = None
+    data_version: Optional[str] = None
+
+
+class WorkshopItemCreate(WorkshopItemBase):
+    payload: Any
+
+
+class WorkshopItemOut(WorkshopItemBase):
+    id: int
+    author_id: int
+    author_name: str
+    downloads: int
+    likes: int
+    is_public: bool
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+class WorkshopItemsResponse(BaseModel):
+    items: List[WorkshopItemOut]
+    total: int
+    page: int
+    page_size: int
+
+
+class WorkshopItemDownloadResponse(BaseModel):
+    item: WorkshopItemOut
+    payload: Any

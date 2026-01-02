@@ -193,3 +193,40 @@ class SystemConfig(Model):
 
    class Meta:
        table = "system_config"
+
+
+# --- 创意工坊 ---
+
+class WorkshopItem(Model):
+    """
+    玩家之间分享的内容载体：
+    - settings: 设置备份（dad_game_settings）
+    - prompts: 提示词包（promptStorage.exportAll）
+    - saves: 存档导出（SavePanel / CharacterManagement 导出格式）
+    - start_config: 开局配置（预留）
+    """
+    id = fields.IntField(pk=True)
+
+    type = fields.CharField(max_length=32, description="内容类型")
+    title = fields.CharField(max_length=120, description="标题")
+    description = fields.TextField(null=True, description="说明")
+    tags = fields.JSONField(null=True, description="标签数组")
+
+    # 核心内容，直接存储导出的 JSON
+    payload = fields.JSONField(description="导出的内容")
+    game_version = fields.CharField(max_length=32, null=True, description="内容对应的游戏版本")
+    data_version = fields.CharField(max_length=32, null=True, description="内容格式版本（预留）")
+
+    author = fields.ForeignKeyField("models.PlayerAccount", related_name="workshop_items", description="作者")
+
+    downloads = fields.IntField(default=0, description="下载次数")
+    likes = fields.IntField(default=0, description="点赞数（预留）")
+
+    is_public = fields.BooleanField(default=True, description="是否公开")
+    is_deleted = fields.BooleanField(default=False, description="是否删除（软删除）")
+
+    created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
+    updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
+
+    class Meta:
+        table = "workshop_items"

@@ -181,3 +181,82 @@ async def create_admin_account(
         is_active=admin_data.is_active
     )
     return admin
+
+
+# --- 创意工坊管理 ---
+
+@router.get("/workshop/items", tags=["创意工坊"])
+async def list_workshop_items_admin(
+    q: str | None = None,
+    item_type: str | None = None,
+    include_deleted: bool = False,
+    page: int = 1,
+    page_size: int = 50,
+    current_admin: AdminAccount = Depends(deps.get_admin_or_super_admin),
+):
+    from server.models import WorkshopItem
+    from tortoise.expressions import Q as TQ
+
+    qs = WorkshopItem.all().prefetch_related("author").order_by("-created_at")
+    if not include_deleted:
+        qs = qs.filter(is_deleted=False)
+    if item_type:
+        qs = qs.filter(type=item_type)
+    if q:
+        keyword = q.strip()
+        if keyword:
+            qs = qs.filter(
+                TQ(title__icontains=keyword)
+                | TQ(description__icontains=keyword)
+                | TQ(author__user_name__icontains=keyword)
+            )
+
+    page = max(1, page)
+    page_size = max(1, min(100, page_size))
+    total = await qs.count()
+    offset = (page - 1) * page_size
+    rows = await qs.offset(offset).limit(page_size)
+
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row.id,
+                "type": row.type,
+                "title": row.title,
+                "description": row.description,
+                "tags": row.tags or [],
+                "game_version": row.game_version,
+                "author_id": row.author_id,
+                "author_name": row.author.user_name if row.author else "未知",
+                "downloads": row.downloads,
+                "likes": row.likes,
+                "is_public": row.is_public,
+                "is_deleted": row.is_deleted,
+                "created_at": row.created_at,
+                "updated_at": row.updated_at,
+            }
+        )
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+@router.post("/workshop/items/{item_id}/visibility", tags=["创意工坊"])
+async def set_workshop_item_visibility(
+    item_id: int,
+    payload: dict,
+    current_admin: AdminAccount = Depends(deps.get_admin_or_super_admin),
+):
+    from server.models import WorkshopItem
+
+    item = await WorkshopItem.get_or_none(id=item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="工坊内容不存在")
+
+    if "is_public" in payload:
+        item.is_public = bool(payload["is_public"])
+    if "is_deleted" in payload:
+        item.is_deleted = bool(payload["is_deleted"])
+
+    await item.save()
+    return {"message": "已更新"}

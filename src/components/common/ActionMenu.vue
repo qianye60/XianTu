@@ -80,10 +80,10 @@ const offsetStyle = computed(() => {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
+  background: var(--color-surface);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
-  color: var(--mode-selection-subtitle, #94a3b8);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -91,12 +91,15 @@ const offsetStyle = computed(() => {
   transition: all 0.25s ease;
   position: relative;
   z-index: 2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .fab:hover {
-  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
-  color: var(--mode-selection-text-hover, #e2e8f0);
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .menu {
@@ -107,9 +110,9 @@ const offsetStyle = computed(() => {
   gap: 8px;
   padding: 10px;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   z-index: 2;
@@ -122,18 +125,23 @@ const offsetStyle = computed(() => {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(30, 41, 59, 0.55);
-  color: #e2e8f0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
   width: 100%;
+  text-decoration: none; /* For <a> tags */
+  font-family: inherit;
+  font-size: 0.95rem;
 }
 
 :deep(.action-menu-item:hover) {
-  background: rgba(51, 65, 85, 0.75);
-  border-color: rgba(147, 197, 253, 0.22);
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateX(-2px);
 }
 
 :deep(.action-menu-item span) {
@@ -143,11 +151,12 @@ const offsetStyle = computed(() => {
 
 :deep(.action-menu-item.is-danger) {
   border-color: rgba(239, 68, 68, 0.25);
+  color: var(--color-error);
 }
 
 :deep(.action-menu-item.is-danger:hover) {
-  border-color: rgba(239, 68, 68, 0.45);
-  background: rgba(127, 29, 29, 0.35);
+  border-color: var(--color-error);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .pos-bottom-right .menu {

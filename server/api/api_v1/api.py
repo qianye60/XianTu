@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from .endpoints import worlds, characters, rules, auth, redemption, admin, talents, spirit_roots, origins, ai, talent_tiers, users, ban_management, system
+from .endpoints import worlds, characters, rules, auth, redemption, admin, talents, spirit_roots, origins, ai, talent_tiers, users, ban_management, system, workshop
 
 api_router = APIRouter()
 
@@ -19,3 +19,4 @@ api_router.include_router(origins.router, prefix="/origins", tags=["出身体系
 api_router.include_router(ai.router, prefix="/ai", tags=["AI服务"])
 api_router.include_router(talent_tiers.router, prefix="/talent_tiers", tags=["天资等级"])
 api_router.include_router(ban_management.router, prefix="/ban", tags=["封号管理"])
+api_router.include_router(workshop.router, prefix="/workshop", tags=["创意工坊"])

@@ -450,6 +450,7 @@
           <button class="tab-btn" data-tab="talent_tiers">天资管理</button>
           <button class="tab-btn" data-tab="spirit_roots">灵根管理</button>
           <button class="tab-btn" data-tab="codes">兑换码管理</button>
+          <button class="tab-btn" data-tab="workshop">创意工坊</button>
           <button class="tab-btn" data-tab="system">⚙️ 系统设置</button>
         </nav>
 
@@ -1044,6 +1045,37 @@
                        };
                        break;
 
+                   case 'workshop':
+                       endpoint = '/admin/workshop/items?include_deleted=true&page=1&page_size=100';
+                       columns = ['ID', '类型', '标题', '作者', '下载', '公开', '删除', '创建时间', '操作'];
+                       formatRow = (item) => {
+                           const typeMap = {
+                               settings: '设置',
+                               prompts: '提示词',
+                               saves: '单机存档',
+                               start_config: '开局配置',
+                           };
+                           const canManage = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+                           let actions = '';
+                           if (canManage) {
+                               actions += `<button class="action-btn" onclick="toggleWorkshopPublic(${item.id}, ${item.is_public ? 'false' : 'true'})">${item.is_public ? '隐藏' : '公开'}</button>`;
+                               actions += ` <button class="action-btn delete" onclick="toggleWorkshopDeleted(${item.id}, ${item.is_deleted ? 'false' : 'true'})">${item.is_deleted ? '恢复' : '删除'}</button>`;
+                           }
+                           const title = item.title && item.title.length > 40 ? item.title.substring(0, 40) + '...' : (item.title || '-');
+                           return [
+                               item.id,
+                               typeMap[item.type] || item.type,
+                               title,
+                               item.author_name || `用户${item.author_id}`,
+                               item.downloads || 0,
+                               `<span class="status-badge ${item.is_public ? 'status-active' : 'status-banned'}">${item.is_public ? '公开' : '隐藏'}</span>`,
+                               `<span class="status-badge ${item.is_deleted ? 'status-banned' : 'status-active'}">${item.is_deleted ? '已删除' : '正常'}</span>`,
+                               item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-',
+                               `<div class="action-buttons">${actions}</div>`,
+                           ];
+                       };
+                       break;
+
                   case 'system':
                       renderSystemSettings();
                       return; //  直接返回，不走下面的表格渲染逻辑
@@ -1063,7 +1095,8 @@
                }
 
                const data = await response.json();
-               displayTable(columns, data, formatRow);
+               const rows = tabName === 'workshop' ? (data.items || []) : data;
+               displayTable(columns, rows, formatRow);
 
            } catch (error) {
                console.error('数据加载失败:', error);
@@ -2305,6 +2338,49 @@
               saveBtn.disabled = false;
               saveBtn.textContent = '保存设置';
                setTimeout(() => saveStatus.classList.add('hidden'), 5000);
+          }
+      }
+
+      // 创意工坊管理
+      async function toggleWorkshopPublic(itemId, isPublic) {
+          try {
+              const response = await fetch(`${API_BASE}/admin/workshop/items/${itemId}/visibility`, {
+                  method: 'POST',
+                  headers: {
+                      'Authorization': `Bearer ${authToken}`,
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ is_public: isPublic })
+              });
+              if (response.ok) {
+                  refreshCurrentTab();
+              } else {
+                  const error = await response.json();
+                  alert(error.detail || '更新失败');
+              }
+          } catch (error) {
+              alert('网络错误');
+          }
+      }
+
+      async function toggleWorkshopDeleted(itemId, isDeleted) {
+          try {
+              const response = await fetch(`${API_BASE}/admin/workshop/items/${itemId}/visibility`, {
+                  method: 'POST',
+                  headers: {
+                      'Authorization': `Bearer ${authToken}`,
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ is_deleted: isDeleted })
+              });
+              if (response.ok) {
+                  refreshCurrentTab();
+              } else {
+                  const error = await response.json();
+                  alert(error.detail || '更新失败');
+              }
+          } catch (error) {
+              alert('网络错误');
           }
       }
     </script>
