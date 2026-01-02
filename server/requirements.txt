@@ -6,6 +6,7 @@ aiosqlite
 aiomysql
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt<4.0.0
 pydantic
 pydantic-settings
 python-multipart
