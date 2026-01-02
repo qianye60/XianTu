@@ -197,3 +197,85 @@ async def update_rate_limit_config(config_in: RateLimitConfigUpdate):
         await set_configs(updates)
 
     return {"message": "限流配置已更新", "updated_keys": list(updates.keys())}
+
+
+@router.post(
+    "/admin/test-smtp",
+    summary="测试SMTP连接",
+    dependencies=[Depends(deps.get_super_admin_user)],
+)
+async def test_smtp_connection():
+    """
+    测试SMTP邮箱连接是否正常。
+    需要超级管理员权限。
+    """
+    import socket
+    import smtplib
+    import ssl
+
+    config = await get_email_config()
+
+    smtp_host = config["smtp_host"]
+    smtp_port = int(config["smtp_port"])
+    smtp_user = config["smtp_user"]
+    smtp_password = config["smtp_password"]
+
+    if not smtp_user or not smtp_password:
+        return {"success": False, "error": "SMTP用户名或密码未配置"}
+
+    results = {
+        "host": smtp_host,
+        "port": smtp_port,
+        "user": smtp_user,
+        "tests": []
+    }
+
+    # 1. 测试DNS解析
+    try:
+        ip = socket.gethostbyname(smtp_host)
+        results["tests"].append({"name": "DNS解析", "success": True, "detail": f"解析到IP: {ip}"})
+    except socket.gaierror as e:
+        results["tests"].append({"name": "DNS解析", "success": False, "detail": str(e)})
+        results["success"] = False
+        results["error"] = "DNS解析失败"
+        return results
+
+    # 2. 测试端口连通性
+    try:
+        sock = socket.create_connection((smtp_host, smtp_port), timeout=10)
+        sock.close()
+        results["tests"].append({"name": "端口连通", "success": True, "detail": f"端口 {smtp_port} 可连接"})
+    except (socket.timeout, ConnectionRefusedError, OSError) as e:
+        results["tests"].append({"name": "端口连通", "success": False, "detail": str(e)})
+        results["success"] = False
+        results["error"] = f"端口 {smtp_port} 无法连接，可能被防火墙拦截"
+        return results
+
+    # 3. 测试SMTP连接和认证
+    try:
+        if smtp_port == 465:
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=30) as server:
+                server.login(smtp_user, smtp_password)
+                results["tests"].append({"name": "SMTP认证", "success": True, "detail": "SSL连接和登录成功"})
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+                server.ehlo()
+                if smtp_port == 587:
+                    server.starttls()
+                    server.ehlo()
+                server.login(smtp_user, smtp_password)
+                results["tests"].append({"name": "SMTP认证", "success": True, "detail": "STARTTLS连接和登录成功"})
+
+        results["success"] = True
+        results["error"] = None
+    except smtplib.SMTPAuthenticationError as e:
+        results["tests"].append({"name": "SMTP认证", "success": False, "detail": f"认证失败: {e}"})
+        results["success"] = False
+        results["error"] = "SMTP认证失败，请检查用户名和授权码"
+    except Exception as e:
+        results["tests"].append({"name": "SMTP认证", "success": False, "detail": f"{type(e).__name__}: {e}"})
+        results["success"] = False
+        results["error"] = f"SMTP连接失败: {type(e).__name__}"
+
+    return results
