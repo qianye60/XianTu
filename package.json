@@ -1,6 +1,6 @@
 {
   "name": "XianTu",
-  "version": "3.6.8",
+  "version": "3.7.0",
   "description": "AI驱动的沉浸式修仙文字冒险游戏（SillyTavern / 自定义API，Vue3 + TypeScript）",
   "private": true,
   "type": "module",

@@ -106,8 +106,8 @@ npm run build
 - **GitHub Release**：创建 Release 并上传构建产物 zip 包
 
 ```bash
-git tag v3.6.8
-git push origin v3.6.8
+git tag v3.7.0
+git push origin v3.7.0
 ```
 
 其他工作流：

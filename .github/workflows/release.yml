@@ -37,3 +37,13 @@ jobs:
         with:
           files: XianTu-${{ github.ref_name }}.zip
           generate_release_notes: true
+          body: |
+            ## 使用说明
+
+            1. 下载 `XianTu-${{ github.ref_name }}.zip` 压缩包
+            2. 解压到任意目录
+            3. 双击打开 `index.html` 即可使用
+
+            > 压缩包内为打包好的静态文件（HTML、JS、CSS），无需安装任何依赖。
+
+            ---
