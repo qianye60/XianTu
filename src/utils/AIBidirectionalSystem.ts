@@ -264,39 +264,7 @@ ${stateJsonString}
       let response = '';
       if (isSplitEnabled) {
         const buildSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
-          const step1Rules = `
-# 分步生成（第1步：思维链 + 正文）
-【最高优先级】本步只生成“正文 text”，其余字段全部留到第2步。
-
-## 输出格式（严格按顺序）
-1) 输出 \`<thinking>...\u003c/thinking>\`
-   - 只写与“如何写好本回合正文”相关的简短思考（不要输出JSON/字段名/额外标签）
-   - 建议模板：意图 → 连贯性(承接最近事件) → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
-2) 输出一个 \`\`\`json 代码块，只包含一个 JSON 对象：
-   - 必须只有：{ "text": "..." }
-   - text：只写小说正文，不要夹带指令、字段名、JSON片段、标签
-
-## 禁止
-- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
-- JSON 必须严格合法（双引号、无注释、无尾逗号）
-  `.trim();
-
-          const step2Rules = `
-# 分步生成（第2步：思维链(可选) + 记忆/指令/行动选项）
-【最高优先级】本步只生成“结构化字段”，不要生成正文。
-
-你将收到：用户本次操作 + 第1步思维链 + 第1步正文。请基于这些内容，生成对应的：中期记忆、指令同步、行动选项。
-
-## 输出格式
-- 允许先输出 \`<thinking>...\u003c/thinking>\`（可选，尽量短；只用于对齐指令/记忆，不要写正文）
-- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
-
-## JSON 字段要求
-- 不要输出 text，不要重复正文
-- mid_term_memory: 0-100字摘要（可为空字符串，但建议填写）
-- tavern_commands: 数组（可为空），元素格式：{ "action": "set|add|push|delete", "key": "点路径", "value": 任意JSON }
-- action_options: 仅在启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段
-  `.trim();
+          const stepRules = (await getPrompt(step === 1 ? 'splitGenerationStep1' : 'splitGenerationStep2')).trim();
 
           const tavernEnv = !!tavernHelper;
           const [coreOutputRulesPrompt, businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
@@ -309,7 +277,7 @@ ${stateJsonString}
 
           const sanitizedDataDefinitionsPrompt = tavernEnv ? dataDefinitionsPrompt : stripNsfwContent(dataDefinitionsPrompt);
           const sections: string[] = [
-            step === 1 ? step1Rules : step2Rules,
+            stepRules,
             coreOutputRulesPrompt,
             businessRulesPrompt,
             sanitizedDataDefinitionsPrompt,
@@ -610,37 +578,10 @@ ${step1Text}
       let response = '';
 
       if (isSplitEnabled) {
-        const buildInitialSplitSystemPrompt = (step: 1 | 2): string => {
-          const step1Rules = `
-# 分步生成（开局-第1步：思维链 + 正文）
-【最高优先级】本步只生成“正文 text”，不要生成记忆/指令/行动选项。
-
-## 输出格式（严格按顺序）
-1) 输出 \`<thinking>...\u003c/thinking>\`
-   - 内容模板：意图 → 场景 → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
-2) 输出一个 \`\`\`json 代码块，只包含：{ "text": "..." }
-
-## 禁止
-- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
-- 不要输出额外解释、字段名或多余标签
-          `.trim();
-
-          const step2Rules = `
-# 分步生成（开局-第2步：记忆/指令/行动选项）
-【最高优先级】本步只生成结构化字段，不要生成正文 text。
-
-你将收到：开局用户提示 + 第1步思维链 + 第1步正文。请基于这些内容生成：
-- mid_term_memory（0-100字，可为空但建议填写）
-- tavern_commands（数组，可为空）
-- action_options（仅当启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段）
-
-## 输出格式
-- 允许先输出 \`<thinking>...\u003c/thinking>\`（可选，尽量短）
-- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
-          `.trim();
-
+        const buildInitialSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
+          const stepRules = (await getPrompt(step === 1 ? 'splitInitStep1' : 'splitInitStep2')).trim();
           return `
-${step === 1 ? step1Rules : step2Rules}
+${stepRules}
 
 ---
 
@@ -701,7 +642,7 @@ ${systemPrompt}
         options?.onProgressUpdate?.('分步生成：第1步（开局正文）…');
         const step1Raw = await generateOnce({
           step: 1,
-          system: buildInitialSplitSystemPrompt(1),
+          system: await buildInitialSplitSystemPrompt(1),
           user: userPrompt,
           should_stream: useStreaming,
           onStreamChunk: options?.onStreamChunk,
@@ -740,7 +681,7 @@ ${step1Text}
 
         const step2Raw = await generateOnce({
           step: 2,
-          system: buildInitialSplitSystemPrompt(2),
+          system: await buildInitialSplitSystemPrompt(2),
           user: step2UserPrompt,
           should_stream: false,
         });

@@ -154,6 +154,94 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       description: '任务系统开关控制和触发条件',
       order: 8
     },
+    splitGenerationStep1: {
+      name: '9. 分步生成（第1步：正文）',
+      content: `
+# 分步生成（第1步：思维链 + 正文）
+【最高优先级】本步只生成“正文 text”，其余字段全部留到第2步。
+
+## 输出格式（严格按顺序）
+1) 输出 \`<thinking>...</thinking>\`
+   - 只写与“如何写好本回合正文”相关的简短思考（不要输出 JSON / 字段名 / 额外标签）
+   - 建议模板：意图 → 连贯性(承接最近事件) → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
+2) 输出一个 \`\`\`json 代码块，只包含一个 JSON 对象：
+   - 必须只有：{ "text": "..." }
+   - text：只写小说正文，不要夹带指令、字段名、JSON片段、标签
+
+## 正文优化（可自定义）
+- 语言更“小说化”：多用动作/细节/感官，少用总结式旁白
+- 段落清晰：1-3句一段，节奏快慢有起伏
+- 信息承接：开头用 1-2 句自然回扣“最近事件”
+- 收束落点：结尾停在需要玩家决定/回应的节点（对话、抉择、战斗开端、发现线索）
+
+## 禁止
+- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
+- JSON 必须严格合法（双引号、无注释、无尾逗号）
+`.trim(),
+      category: 'coreRequest',
+      description: '开启“分步生成”后：第1步只出正文 text（可在此处专门优化叙事正文）',
+      order: 9
+    },
+    splitGenerationStep2: {
+      name: '10. 分步生成（第2步：记忆/指令/行动选项）',
+      content: `
+# 分步生成（第2步：思维链(可选) + 记忆/指令/行动选项）
+【最高优先级】本步只生成“结构化字段”，不要生成正文。
+
+你将收到：用户本次操作 + 第1步思维链 + 第1步正文。请基于这些内容，生成对应的：中期记忆、指令同步、行动选项。
+
+## 输出格式
+- 允许先输出 \`<thinking>...</thinking>\`（可选，尽量短；只用于对齐指令/记忆，不要写正文）
+- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
+
+## JSON 字段要求
+- 不要输出 text，不要重复正文
+- mid_term_memory: 0-100字摘要（可为空字符串，但建议填写）
+- tavern_commands: 数组（可为空），元素格式：{ "action": "set|add|push|delete|pull", "key": "点路径", "value": 任意JSON }
+- action_options: 仅在启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段
+`.trim(),
+      category: 'coreRequest',
+      description: '开启“分步生成”后：第2步只出 JSON（记忆/指令/行动选项），不允许再写正文',
+      order: 10
+    },
+    splitInitStep1: {
+      name: '11. 分步生成（开局-第1步：正文）',
+      content: `
+# 分步生成（开局-第1步：思维链 + 正文）
+【最高优先级】本步只生成“正文 text”，不要生成记忆/指令/行动选项。
+
+## 输出格式（严格按顺序）
+1) 输出 \`<thinking>...</thinking>\`
+   - 内容模板：意图 → 场景 → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
+2) 输出一个 \`\`\`json 代码块，只包含：{ "text": "..." }
+
+## 禁止
+- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
+- 不要输出额外解释、字段名或多余标签
+`.trim(),
+      category: 'coreRequest',
+      description: '开局分步模式：第1步只出开局正文 text（可在此处优化开局叙事风格）',
+      order: 11
+    },
+    splitInitStep2: {
+      name: '12. 分步生成（开局-第2步：记忆/指令/行动选项）',
+      content: `
+# 分步生成（开局-第2步：记忆/指令/行动选项）
+【最高优先级】本步只生成结构化字段，不要生成正文 text。
+
+你将收到：开局用户提示 + 第1步思维链 + 第1步正文。请基于这些内容生成：
+- mid_term_memory（0-100字，可为空但建议填写）
+- tavern_commands（数组，可为空）
+- action_options（仅当启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段）
+
+## 输出格式
+- 允许先输出 \`<thinking>...</thinking>\`（可选，尽量短）
+- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
+`.trim(),
+      category: 'coreRequest',
+      description: '开局分步模式：第2步只出 JSON（记忆/指令/行动选项），不允许再写正文',
+      order: 12
+    },
 
     // ==================== 总结请求提示词 ====================
     memorySummary: {
