@@ -1,10 +1,10 @@
 {
   "name": "XianTu",
-  "version": "3.6.7",
+  "version": "3.6.8",
   "description": "AI驱动的沉浸式修仙文字冒险游戏（SillyTavern / 自定义API，Vue3 + TypeScript）",
   "private": true,
   "type": "module",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "Apache-2.0",
   "homepage": "https://www.ddct.top/",
   "repository": {
     "type": "git",

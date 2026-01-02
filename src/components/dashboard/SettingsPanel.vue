@@ -113,20 +113,7 @@
             </div>
             <div class="setting-control">
               <label class="setting-switch">
-                <input type="checkbox" v-model="settings.fastAnimations" />
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('显示提示') }}</label>
-              <span class="setting-desc">{{ t('显示操作提示和帮助信息') }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.showHints" />
+                <input type="checkbox" v-model="settings.fastAnimations" @change="applyAnimationSettings(); onSettingChange()" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -404,6 +391,19 @@
             <div class="setting-control">
               <label class="setting-switch">
                 <input type="checkbox" v-model="streamingEnabled" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('分步生成') }}</label>
+              <span class="setting-desc">{{ t('一次生成分两步：第1步（可流式）先出正文；第2步（非流式）再出记忆/指令/行动选项（会多一次API调用；thinking会自动隐藏）') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.splitResponseGeneration" @change="onSettingChange" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -724,7 +724,8 @@ const settings = reactive({
 
   // 游戏设置
   fastAnimations: false,
-  showHints: true,
+  showHints: false,
+  splitResponseGeneration: false,
 
   // 🔞 成人内容（仅酒馆环境可用；非酒馆环境将被忽略/隐藏）
   enableNsfwMode: true,
@@ -915,6 +916,10 @@ const validateSettings = () => {
       debug.warn('设置面板', `UI缩放值已修正为: ${settings.uiScale}%`);
     }
 
+    if (typeof (settings as any).splitResponseGeneration !== 'boolean') {
+      (settings as any).splitResponseGeneration = false;
+    }
+
     // 自定义正则删标签：确保是字符串且限制长度，避免卡顿/存储膨胀
     if (typeof (settings as any).customStripRegex !== 'string') {
       (settings as any).customStripRegex = '';
@@ -999,9 +1004,9 @@ const applyFontSize = () => {
 
 // 应用动画设置
 const applyAnimationSettings = () => {
-  const animationSpeed = settings.fastAnimations ? '0.5' : '1';
-  document.documentElement.style.setProperty('--animation-speed', animationSpeed);
-  debug.log('设置面板', `动画速度已应用: ${animationSpeed}x`);
+  const transitionSeconds = settings.fastAnimations ? 0.12 : 0.2;
+  document.documentElement.style.setProperty('--transition-fast', `all ${transitionSeconds}s ease-in-out`);
+  debug.log('设置面板', `动画速度已应用: ${transitionSeconds}s`);
 };
 
 // uiStore 已在脚本顶部初始化
@@ -1019,7 +1024,8 @@ const resetSettings = () => {
         uiScale: 100,
         fontSize: 16,
         fastAnimations: false,
-        showHints: true,
+        showHints: false,
+        splitResponseGeneration: false,
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,

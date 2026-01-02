@@ -78,7 +78,15 @@
 
 ## 🚀 快速开始
 
-### 前端
+### Docker 部署（推荐）
+
+```bash
+docker run -d -p 8080:80 qianye60/xiantu:latest
+```
+
+访问 http://localhost:8080 即可使用。
+
+### 本地开发
 
 ```bash
 # 安装依赖
@@ -91,11 +99,20 @@ npm run serve
 npm run build
 ```
 
-## ☁️ 提交后自动构建/部署（GitHub Pages）
+## ☁️ 自动构建/部署
 
-- 已有 CI：`.github/workflows/ci.yml`（push/PR 自动 `type-check` + `build`）
-- 已加 Pages 发布：`.github/workflows/pages.yml`（push 到 `master` 自动构建并发布 `dist/`）
-- 启用方式：仓库 `Settings → Pages → Build and deployment → Source: GitHub Actions`
+推送 `v*` 格式的 tag 时自动触发：
+- **Docker 镜像**：构建并推送到 Docker Hub
+- **GitHub Release**：创建 Release 并上传构建产物 zip 包
+
+```bash
+git tag v3.6.8
+git push origin v3.6.8
+```
+
+其他工作流：
+- CI：`.github/workflows/ci.yml`（push/PR 自动 `type-check` + `build`）
+- Pages：`.github/workflows/pages.yml`（push 到 `master` 自动部署到 GitHub Pages）
 
 ### 后端（可选）
 
@@ -126,9 +143,9 @@ uvicorn server.main:app --reload --port 12345
 
 ## 📄 许可证
 
-本项目采用 **非商业许可** 发布，详见 [LICENSE](./LICENSE)。
+本项目采用 **Apache License 2.0** 发布，详见 [LICENSE](./LICENSE)。
 
-如需商用（包括但不限于：收费分发、付费服务、商业化集成、以盈利为目的的推广/运营），请联系作者获取书面商业授权。
+你可以自由地商用/修改/分发，但请在分发时保留版权声明、[LICENSE](./LICENSE) 与 [NOTICE](./NOTICE)（如适用），并在修改过的文件中标注变更。
 
 ---
 

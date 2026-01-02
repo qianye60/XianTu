@@ -19,6 +19,7 @@ import { getPrompt } from '@/services/defaultPrompts';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
+import { stripNsfwContent } from '@/utils/prompts/definitions/dataDefinitions';
 
 type PlainObject = Record<string, unknown>;
 
@@ -29,6 +30,7 @@ export interface ProcessOptions {
   onStateChange?: (newState: PlainObject) => void;
   useStreaming?: boolean;
   generateMode?: 'generate' | 'generateRaw'; // 生成模式：generate（标准）或 generateRaw（纯净）
+  splitResponseGeneration?: boolean;
 }
 
 /**
@@ -116,7 +118,7 @@ class AIBidirectionalSystemClass {
 
     // 2. 准备AI上下文
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
-    let gmResponse: GM_Response;
+    let gmResponse: GM_Response = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] };
     try {
       const stateForAI = cloneDeep(saveData);
       if (stateForAI.记忆) {
@@ -247,8 +249,192 @@ ${stateJsonString}
       const aiConfig = aiService.getConfig();
       const useStreaming = options?.useStreaming ?? aiConfig.streaming ?? true;
 
-      let response: string;
-      if (tavernHelper) {
+      const isSplitEnabled = (() => {
+        if (typeof options?.splitResponseGeneration === 'boolean') return options.splitResponseGeneration;
+        try {
+          const raw = localStorage.getItem('dad_game_settings');
+          if (!raw) return false;
+          const parsed = JSON.parse(raw);
+          return parsed?.splitResponseGeneration === true;
+        } catch {
+          return false;
+        }
+      })();
+
+      let response = '';
+      if (isSplitEnabled) {
+        const buildSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
+          const step1Rules = `
+# 分步生成（第1步：思维链 + 正文）
+【最高优先级】本步只生成“正文 text”，其余字段全部留到第2步。
+
+## 输出格式（严格按顺序）
+1) 输出 \`<thinking>...\u003c/thinking>\`
+   - 只写与“如何写好本回合正文”相关的简短思考（不要输出JSON/字段名/额外标签）
+   - 建议模板：意图 → 连贯性(承接最近事件) → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
+2) 输出一个 \`\`\`json 代码块，只包含一个 JSON 对象：
+   - 必须只有：{ "text": "..." }
+   - text：只写小说正文，不要夹带指令、字段名、JSON片段、标签
+
+## 禁止
+- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
+- JSON 必须严格合法（双引号、无注释、无尾逗号）
+  `.trim();
+
+          const step2Rules = `
+# 分步生成（第2步：思维链(可选) + 记忆/指令/行动选项）
+【最高优先级】本步只生成“结构化字段”，不要生成正文。
+
+你将收到：用户本次操作 + 第1步思维链 + 第1步正文。请基于这些内容，生成对应的：中期记忆、指令同步、行动选项。
+
+## 输出格式
+- 允许先输出 \`<thinking>...\u003c/thinking>\`（可选，尽量短；只用于对齐指令/记忆，不要写正文）
+- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
+
+## JSON 字段要求
+- 不要输出 text，不要重复正文
+- mid_term_memory: 0-100字摘要（可为空字符串，但建议填写）
+- tavern_commands: 数组（可为空），元素格式：{ "action": "set|add|push|delete", "key": "点路径", "value": 任意JSON }
+- action_options: 仅在启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段
+  `.trim();
+
+          const tavernEnv = !!tavernHelper;
+          const [coreOutputRulesPrompt, businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
+            getPrompt('coreOutputRules'),
+            getPrompt('businessRules'),
+            getPrompt('dataDefinitions'),
+            getPrompt('textFormatRules'),
+            getPrompt('worldStandards')
+          ]);
+
+          const sanitizedDataDefinitionsPrompt = tavernEnv ? dataDefinitionsPrompt : stripNsfwContent(dataDefinitionsPrompt);
+          const sections: string[] = [
+            step === 1 ? step1Rules : step2Rules,
+            coreOutputRulesPrompt,
+            businessRulesPrompt,
+            sanitizedDataDefinitionsPrompt,
+            textFormatsPrompt,
+            worldStandardsPrompt
+          ];
+
+          if (step === 2 && uiStore.enableActionOptions) {
+            const actionOptionsPrompt = await getPrompt('actionOptions');
+            const customPromptSection = uiStore.actionOptionsPrompt
+              ? `**用户自定义要求**：${uiStore.actionOptionsPrompt}\n\n请严格按以上要求生成行动选项。`
+              : '（无特殊要求，按默认规则生成）';
+            sections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
+          }
+
+          if (step === 1 && (stateForAI as any).任务系统?.配置?.启用系统任务) {
+            sections.push(await getPrompt('questGeneration'));
+          }
+
+          const assembled = sections.join('\n\n---\n\n');
+          return `
+${assembled}
+
+${coreStatusSummary}
+
+# 游戏状态（JSON）
+${stateJsonString}
+`.trim();
+        };
+
+        const buildSplitInjects = (systemPrompt: string) => {
+          const splitInjects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
+            { content: systemPrompt, role: 'system', depth: 4, position: 'in_chat' }
+          ];
+          if (shortTermMemory.length > 0) {
+            splitInjects.push({
+              content: `# 【最近事件】\n${shortTermMemory.join('\n')}`,
+              role: 'assistant',
+              depth: 2,
+              position: 'in_chat',
+            });
+          }
+          splitInjects.push({ content: '</input>', role: 'assistant', depth: 0, position: 'in_chat' });
+          return splitInjects;
+        };
+
+        const generateOnce = async (args: { user_input: string; should_stream: boolean; generation_id: string; injects: any; onStreamChunk?: (chunk: string) => void; }) => {
+          if (tavernHelper) {
+            return await tavernHelper.generate({
+              user_input: args.user_input,
+              should_stream: args.should_stream,
+              generation_id: args.generation_id,
+              injects: args.injects,
+            });
+          }
+          return await aiService.generate({
+            user_input: args.user_input,
+            should_stream: args.should_stream,
+            generation_id: args.generation_id,
+            injects: args.injects,
+            onStreamChunk: args.onStreamChunk,
+          });
+        };
+
+        options?.onProgressUpdate?.('分步生成：第1步（正文）…');
+        const systemPromptStep1 = await buildSplitSystemPrompt(1);
+        const injectsStep1 = buildSplitInjects(systemPromptStep1);
+        const step1Raw = await generateOnce({
+          user_input: finalUserInput,
+          should_stream: useStreaming,
+          generation_id: `${generationId}_step1`,
+          injects: injectsStep1 as any,
+          onStreamChunk: options?.onStreamChunk,
+        });
+
+        const step1Thinking = (() => {
+          const match = String(step1Raw).match(/<thinking>([\s\S]*?)<\/thinking>/i);
+          return match?.[1]?.trim() || '';
+        })();
+
+        const step1Text = (() => {
+          try {
+            return this.parseAIResponse(String(step1Raw)).text?.trim() || '';
+          } catch {
+            return String(step1Raw).replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+          }
+        })();
+
+        options?.onProgressUpdate?.('分步生成：第2步（记忆/指令/行动选项）…');
+        const systemPromptStep2 = await buildSplitSystemPrompt(2);
+        const injectsStep2 = buildSplitInjects(systemPromptStep2);
+        const step2UserInput = `
+【用户本次操作】
+${finalUserInput}
+
+【第1步思维链】
+${step1Thinking || '（无）'}
+
+【第1步正文】
+${step1Text}
+
+请按“分步生成（第2步）”规则输出 JSON。
+`.trim();
+
+        response = await generateOnce({
+          user_input: step2UserInput,
+          should_stream: false,
+          generation_id: `${generationId}_step2`,
+          injects: injectsStep2 as any,
+        });
+
+        let parsedStep2: GM_Response;
+        try {
+          parsedStep2 = this.parseAIResponse(String(response));
+        } catch {
+          parsedStep2 = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] } as GM_Response;
+        }
+
+        gmResponse = {
+          text: step1Text,
+          mid_term_memory: parsedStep2.mid_term_memory || '',
+          tavern_commands: parsedStep2.tavern_commands || [],
+          action_options: uiStore.enableActionOptions ? (parsedStep2.action_options || []) : []
+        };
+      } else if (tavernHelper) {
         // 酒馆模式
         response = await tavernHelper.generate({
           user_input: finalUserInput,
@@ -270,9 +456,10 @@ ${stateJsonString}
 
       // 流式传输通过事件系统在 MainGamePanel 中处理
       // 这里只需要解析最终响应
-      try {
-        gmResponse = this.parseAIResponse(response);
-      } catch (parseError) {
+      if (!isSplitEnabled) {
+        try {
+          gmResponse = this.parseAIResponse(response);
+        } catch (parseError) {
         console.error('[AI双向系统] 响应解析失败，尝试容错处理:', parseError);
 
         // 容错策略：尝试多种方式提取文本内容
@@ -348,6 +535,7 @@ ${stateJsonString}
         };
         console.warn('[AI双向系统] 使用容错模式提取内容 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
       }
+      }
 
       if (!gmResponse || !gmResponse.text || gmResponse.text.trim() === '') {
         console.error('[AI双向系统] AI响应为空，原始响应:', String(response).substring(0, 200));
@@ -388,6 +576,7 @@ ${stateJsonString}
     options?: ProcessOptions
   ): Promise<GM_Response> {
     const tavernHelper = getTavernHelper();
+    const uiStore = useUIStore();
 
     // 检查AI服务可用性（酒馆或自定义API）
     if (!tavernHelper) {
@@ -406,8 +595,184 @@ ${stateJsonString}
       const aiConfig = aiService.getConfig();
       const useStreaming = options?.useStreaming ?? aiConfig.streaming ?? true;
       const generateMode = options?.generateMode || 'generate'; // 默认使用 generate 模式
+      const isSplitEnabled = (() => {
+        if (typeof options?.splitResponseGeneration === 'boolean') return options.splitResponseGeneration;
+        try {
+          const raw = localStorage.getItem('dad_game_settings');
+          if (!raw) return false;
+          const parsed = JSON.parse(raw);
+          return parsed?.splitResponseGeneration === true;
+        } catch {
+          return false;
+        }
+      })();
 
-      let response: string;
+      let response = '';
+
+      if (isSplitEnabled) {
+        const buildInitialSplitSystemPrompt = (step: 1 | 2): string => {
+          const step1Rules = `
+# 分步生成（开局-第1步：思维链 + 正文）
+【最高优先级】本步只生成“正文 text”，不要生成记忆/指令/行动选项。
+
+## 输出格式（严格按顺序）
+1) 输出 \`<thinking>...\u003c/thinking>\`
+   - 内容模板：意图 → 场景 → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
+2) 输出一个 \`\`\`json 代码块，只包含：{ "text": "..." }
+
+## 禁止
+- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
+- 不要输出额外解释、字段名或多余标签
+          `.trim();
+
+          const step2Rules = `
+# 分步生成（开局-第2步：记忆/指令/行动选项）
+【最高优先级】本步只生成结构化字段，不要生成正文 text。
+
+你将收到：开局用户提示 + 第1步思维链 + 第1步正文。请基于这些内容生成：
+- mid_term_memory（0-100字，可为空但建议填写）
+- tavern_commands（数组，可为空）
+- action_options（仅当启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段）
+
+## 输出格式
+- 允许先输出 \`<thinking>...\u003c/thinking>\`（可选，尽量短）
+- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
+          `.trim();
+
+          return `
+${step === 1 ? step1Rules : step2Rules}
+
+---
+
+# 原始系统提示词（供参考；若与本步目标冲突，以本步规则为准）
+${systemPrompt}
+          `.trim();
+        };
+
+        const generateOnce = async (args: { step: 1 | 2; system: string; user: string; should_stream: boolean; onStreamChunk?: (chunk: string) => void; }): Promise<string> => {
+          const generationId = `initial_message_split_step${args.step}_${Date.now()}`;
+          if (tavernHelper) {
+            if (generateMode === 'generateRaw') {
+              return String(await tavernHelper.generateRaw({
+                ordered_prompts: [
+                  { role: 'system', content: args.system },
+                  { role: 'user', content: args.user }
+                ],
+                should_stream: args.should_stream,
+                generation_id: generationId,
+              }));
+            }
+
+            const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
+              { content: args.system, role: 'user', depth: 4, position: 'in_chat' }
+            ];
+            return await tavernHelper.generate({
+              user_input: args.user,
+              should_stream: args.should_stream,
+              generation_id: generationId,
+              injects,
+            });
+          }
+
+          if (generateMode === 'generateRaw') {
+            return await aiService.generateRaw({
+              ordered_prompts: [
+                { role: 'system', content: args.system },
+                { role: 'user', content: args.user }
+              ],
+              should_stream: args.should_stream,
+              generation_id: generationId,
+              onStreamChunk: args.onStreamChunk,
+            });
+          }
+
+          const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
+            { content: args.system, role: 'user', depth: 4, position: 'in_chat' }
+          ];
+          return await aiService.generate({
+            user_input: args.user,
+            should_stream: args.should_stream,
+            generation_id: generationId,
+            injects: injects as any,
+            onStreamChunk: args.onStreamChunk,
+          });
+        };
+
+        options?.onProgressUpdate?.('分步生成：第1步（开局正文）…');
+        const step1Raw = await generateOnce({
+          step: 1,
+          system: buildInitialSplitSystemPrompt(1),
+          user: userPrompt,
+          should_stream: useStreaming,
+          onStreamChunk: options?.onStreamChunk,
+        });
+
+        const step1Thinking = (() => {
+          const match = String(step1Raw).match(/<thinking>([\s\S]*?)<\/thinking>/i);
+          return match?.[1]?.trim() || '';
+        })();
+
+        const step1Text = (() => {
+          try {
+            return this.parseAIResponse(String(step1Raw)).text?.trim() || '';
+          } catch {
+            return String(step1Raw).replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+          }
+        })();
+
+        if (useStreaming && options?.onStreamComplete) {
+          options.onStreamComplete();
+        }
+
+        options?.onProgressUpdate?.('分步生成：第2步（开局记忆/指令/行动选项）…');
+        const step2UserPrompt = `
+【开局用户提示】
+${userPrompt}
+
+【第1步思维链】
+${step1Thinking || '（无）'}
+
+【第1步正文】
+${step1Text}
+
+请按“分步生成（开局-第2步）”规则输出 JSON。
+        `.trim();
+
+        const step2Raw = await generateOnce({
+          step: 2,
+          system: buildInitialSplitSystemPrompt(2),
+          user: step2UserPrompt,
+          should_stream: false,
+        });
+
+        let parsedStep2: GM_Response;
+        try {
+          parsedStep2 = this.parseAIResponse(String(step2Raw));
+        } catch {
+          parsedStep2 = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] } as GM_Response;
+        }
+
+        const defaultInitialActionOptions = [
+          '四处走动熟悉环境',
+          '查看自身状态',
+          '与附近的人交谈',
+          '寻找修炼之地',
+          '打听周围消息'
+        ];
+
+        gmResponse = {
+          text: step1Text,
+          mid_term_memory: parsedStep2.mid_term_memory || '',
+          tavern_commands: parsedStep2.tavern_commands || [],
+          action_options: uiStore.enableActionOptions ? (parsedStep2.action_options?.length ? parsedStep2.action_options : defaultInitialActionOptions) : []
+        };
+
+        if (!gmResponse || !gmResponse.text) {
+          throw new Error('AI响应解析失败或为空');
+        }
+
+        return gmResponse;
+      }
 
       if (tavernHelper) {
         // 酒馆模式
@@ -1047,28 +1412,102 @@ ${saveDataJson}`;
   private _preprocessCommands(commands: any[]): any[] {
     if (!Array.isArray(commands)) return [];
 
-    return commands.map(cmd => {
-      if (cmd && typeof cmd === 'object') {
-        // 修复: AI推送一个字符串而不是物品对象到物品栏
-        if (cmd.action === 'push' && cmd.key === '背包.物品' && typeof cmd.value === 'string') {
-          console.warn(`[AI双向系统] 预处理: 将字符串物品 "${cmd.value}" 转换为对象。`);
-          const itemName = cmd.value;
-          // 返回一个结构化的新指令值
-          return {
-            ...cmd,
-            value: {
-              物品ID: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              名称: itemName,
-              类型: '杂物', // 默认类型
-              品质: { quality: '凡品', grade: 0 }, // 默认品质
-              数量: 1,
-              描述: `一个普通的${itemName}。`
-            }
-          };
-        }
+    const inventoryRootKeys = new Set(['背包.物品', '物品栏.物品']);
+
+    return commands.map((cmd) => {
+      if (!cmd || typeof cmd !== 'object') return cmd;
+
+      // 修复: AI推送一个字符串而不是物品对象到物品栏
+      if (cmd.action === 'push' && inventoryRootKeys.has(cmd.key) && typeof cmd.value === 'string') {
+        console.warn(`[AI双向系统] 预处理: 将字符串物品 "${cmd.value}" 转换为对象。`);
+        const itemName = cmd.value;
+        return {
+          ...cmd,
+          value: {
+            物品ID: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            名称: itemName,
+            类型: '杂物',
+            品质: { quality: '凡品', grade: 0 },
+            数量: 1,
+            描述: `一个普通的${itemName}。`
+          }
+        };
       }
+
+      // 修复: 新增功法但缺少功法技能数组，导致后续生成/校验报错
+      const isInventoryItemCreation =
+        (cmd.action === 'push' && inventoryRootKeys.has(cmd.key)) ||
+        (cmd.action === 'set' &&
+          typeof cmd.key === 'string' &&
+          Array.from(inventoryRootKeys).some((root) => cmd.key.startsWith(root + '.')));
+
+      if (isInventoryItemCreation && cmd.value && typeof cmd.value === 'object' && cmd.value.类型 === '功法') {
+        return { ...cmd, value: this._repairTechniqueItem(cmd.value) };
+      }
+
       return cmd;
     });
+  }
+
+  private _repairTechniqueItem(item: any): any {
+    if (!item || typeof item !== 'object') return item;
+    if (item.类型 !== '功法') return item;
+
+    const repaired: any = { ...item };
+
+    const techniqueName = typeof repaired.名称 === 'string' && repaired.名称.trim() ? repaired.名称.trim() : '未知功法';
+
+    const progress =
+      typeof repaired.修炼进度 === 'number' && Number.isFinite(repaired.修炼进度) ? repaired.修炼进度 : 0;
+    repaired.修炼进度 = progress;
+
+    if (!Array.isArray(repaired.功法技能)) {
+      repaired.功法技能 = [];
+    }
+
+    repaired.功法技能 = repaired.功法技能
+      .filter((s: any) => s && typeof s === 'object')
+      .map((s: any, idx: number) => {
+        const skillName =
+          typeof s.技能名称 === 'string' && s.技能名称.trim() ? s.技能名称.trim() : `${techniqueName}·招式${idx + 1}`;
+        const skillDescription = typeof s.技能描述 === 'string' ? s.技能描述 : '';
+        const unlockThreshold =
+          typeof s.熟练度要求 === 'number' && Number.isFinite(s.熟练度要求) ? s.熟练度要求 : 0;
+        const cost = typeof s.消耗 === 'string' ? s.消耗 : '';
+        return { ...s, 技能名称: skillName, 技能描述: skillDescription, 熟练度要求: unlockThreshold, 消耗: cost };
+      });
+
+    if (repaired.功法技能.length === 0) {
+      console.warn(`[AI双向系统] 预处理: 功法 "${techniqueName}" 缺少功法技能，已自动补齐基础技能以防报错。`);
+      repaired.功法技能 = [
+        {
+          技能名称: `${techniqueName}·运功`,
+          技能描述: `运转${techniqueName}的基础法门，凝聚灵气并稳固气机。`,
+          熟练度要求: 0,
+          消耗: '灵气10'
+        }
+      ];
+    }
+
+    if (!Array.isArray(repaired.已解锁技能)) {
+      repaired.已解锁技能 = [];
+    }
+    repaired.已解锁技能 = repaired.已解锁技能
+      .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
+      .map((v: string) => v.trim());
+
+    for (const s of repaired.功法技能) {
+      const unlockThreshold = typeof s.熟练度要求 === 'number' ? s.熟练度要求 : 0;
+      if (progress >= unlockThreshold && typeof s.技能名称 === 'string' && !repaired.已解锁技能.includes(s.技能名称)) {
+        repaired.已解锁技能.push(s.技能名称);
+      }
+    }
+
+    if (typeof repaired.已装备 !== 'boolean') {
+      repaired.已装备 = false;
+    }
+
+    return repaired;
   }
 
   private executeCommand(command: { action: string; key: string; value?: unknown }, saveData: SaveData): void {

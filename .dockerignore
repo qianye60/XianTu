@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+*.md
+.gitignore
+.eslintrc*
+.prettierrc*
+*.log
+.DS_Store
+.vscode
+.idea

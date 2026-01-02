@@ -116,23 +116,16 @@
           </div>
 
           <div class="info-section">
-            <h4>📢 版本说明</h4>
-            <p class="version-note">
-              当前为<strong>V1.0 Beta</strong>测试版本，部分功能仍在开发完善中。欢迎反馈建议！
-            </p>
-          </div>
-
-          <div class="info-section">
             <h4>⚖️ 版权声明</h4>
             <div class="copyright-notice">
               <p>© 2025 千夜 版权所有</p>
-              <p>本作品采用 <strong>CC BY-NC-ND 4.0</strong> 协议授权</p>
+              <p>本作品采用 <strong>Apache License 2.0</strong> 协议授权</p>
               <ul class="copyright-list">
-                <li>✅ <strong>允许</strong> - 个人免费使用、学习交流</li>
-                <li>✅ <strong>允许</strong> - 分享转发时须注明原作者</li>
-                <li>❌ <strong>禁止</strong> - 商业用途（包括但不限于售卖、收费推广等）</li>
-                <li>❌ <strong>禁止</strong> - 修改后重新发布</li>
-                <li>❌ <strong>禁止</strong> - 移除或修改版权信息</li>
+                <li>✅ <strong>允许</strong> - 个人/商用使用、学习交流</li>
+                <li>✅ <strong>允许</strong> - 修改并发布衍生作品</li>
+                <li>✅ <strong>允许</strong> - 复制、分发、再发布</li>
+                <li>ℹ️ <strong>要求</strong> - 分发时保留版权声明与 LICENSE/NOTICE，并在修改文件中标注变更</li>
+                <li>⚠️ <strong>免责声明</strong> - 按“原样”提供，不提供任何担保</li>
               </ul>
             </div>
           </div>

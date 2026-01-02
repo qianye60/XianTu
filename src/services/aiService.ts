@@ -789,7 +789,7 @@ class AIService {
     }
 
     const decoder = new TextDecoder();
-    let fullText = '';
+    let rawFullText = '';
     let buffer = '';
     let inThinkingTag = false;
     let thinkingBuffer = '';
@@ -814,6 +814,7 @@ class AIService {
           try {
             const content = extractContent(data);
             if (content) {
+              rawFullText += content;
               // 处理thinking标签过滤
               for (let i = 0; i < content.length; i++) {
                 const char = content[i];
@@ -842,7 +843,6 @@ class AIService {
                     const carry = thinkingBuffer.slice(fenceIndex);
                     inThinkingTag = false;
                     thinkingBuffer = '';
-                    fullText += carry;
                     if (onStreamChunk) onStreamChunk(carry);
                     continue;
                   }
@@ -853,11 +853,9 @@ class AIService {
                                           '</thinking>'.startsWith(thinkingBuffer);
 
                   if (!possibleTagStart && thinkingBuffer.length > 0) {
-                    fullText += thinkingBuffer;
                     if (onStreamChunk) onStreamChunk(thinkingBuffer);
                     thinkingBuffer = '';
                   } else if (thinkingBuffer.length > 10) {
-                    fullText += thinkingBuffer;
                     if (onStreamChunk) onStreamChunk(thinkingBuffer);
                     thinkingBuffer = '';
                   }
@@ -871,15 +869,14 @@ class AIService {
       }
 
       if (!inThinkingTag && thinkingBuffer.length > 0) {
-        fullText += thinkingBuffer;
         if (onStreamChunk) onStreamChunk(thinkingBuffer);
       }
     } finally {
       reader.releaseLock();
     }
 
-    console.log(`[AI服务-流式] 完成，总长度: ${fullText.length}`);
-    return fullText;
+    console.log(`[AI服务-流式] 完成，总长度: ${rawFullText.length}`);
+    return rawFullText;
   }
 
   /**
