@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file:
+      - server/.env
+    ports:
+      - "12345:12345"
+    restart: unless-stopped
+    # If you use SQLite inside container, uncomment to persist data:
+    # volumes:
+    #   - ./data:/data
