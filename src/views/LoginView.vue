@@ -20,6 +20,17 @@
           <input type="password" id="confirmPassword" v-model="confirmPassword" :placeholder="$t('请再次输入令牌')" required />
         </div>
 
+        <div class="form-group turnstile-group">
+          <label>Cloudflare Turnstile</label>
+          <div ref="turnstileContainer" class="turnstile-container"></div>
+          <div v-if="turnstileLoadError" class="turnstile-hint error-message">
+            {{ turnstileLoadError }}
+          </div>
+          <div v-else-if="!turnstileToken" class="turnstile-hint">
+            请先完成人机验证后再继续
+          </div>
+        </div>
+
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
@@ -46,9 +57,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { toast } from '../utils/toast';
 import { request } from '../services/request';
+import { TURNSTILE_SITE_KEY, waitForTurnstile, renderTurnstile, resetTurnstile, removeTurnstile } from '../services/turnstile';
 
 const props = defineProps<{
   onBack: () => void;
@@ -64,12 +76,21 @@ const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
 const isRegisterMode = ref(false);
 
+const turnstileContainer = ref<HTMLElement | null>(null);
+const turnstileWidgetId = ref<string | null>(null);
+const turnstileToken = ref('');
+const turnstileLoadError = ref<string | null>(null);
+const pendingAutoLogin = ref(false);
+
 const toggleMode = () => {
   isRegisterMode.value = !isRegisterMode.value;
   error.value = null;
   successMessage.value = null;
+  pendingAutoLogin.value = false;
   password.value = '';
   confirmPassword.value = '';
+  turnstileToken.value = '';
+  resetTurnstile(turnstileWidgetId.value);
 };
 
 const handleRegister = async () => {

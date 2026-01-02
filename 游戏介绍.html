@@ -605,12 +605,58 @@
           </div>
 
           <div class="changelog-content space-y-8">
-            <!-- V3.6.8 -->
+            <!-- V3.7.2 -->
             <div class="version-block">
               <div
                 class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
               >
-                <span class="version-number text-lg font-bold text-amber-300">V3.6.8</span>
+                <span class="version-number text-lg font-bold text-amber-300">V3.7.2</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
+                  >正式版</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2026-01-02</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🔧</span> 关键修复
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      ✨ 指令格式统一：修复提示词中指令示例格式错误（旧格式 action|key|value → 正确JSON格式），大幅减少AI生成格式错误
+                    </li>
+                    <li>
+                      🩹 物品属性修改修复：修复修改物品子属性时被误判为"物品必须是对象类型"的验证错误
+                    </li>
+                    <li>
+                      🩹 功法生成修复：优化功法物品的预处理和验证逻辑，确保功法技能数组正确生成
+                    </li>
+                  </ul>
+                </div>
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">✨</span> 新功能
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      🧪 API测试功能：新增API连接测试，可在配置后验证API可用性
+                    </li>
+                    <li>
+                      📝 分步提示词自定义：支持自定义分步生成的提示词配置
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- V3.7.0 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-amber-300">V3.7.0</span>
                 <span
                   class="version-type px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs"
                   >正式版</span
