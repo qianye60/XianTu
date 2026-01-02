@@ -21,14 +21,7 @@
         </div>
 
         <div class="form-group turnstile-group">
-          <label>Cloudflare Turnstile</label>
           <div ref="turnstileContainer" class="turnstile-container"></div>
-          <div v-if="turnstileLoadError" class="turnstile-hint error-message">
-            {{ turnstileLoadError }}
-          </div>
-          <div v-else-if="!turnstileToken" class="turnstile-hint">
-            请先完成人机验证后再继续
-          </div>
         </div>
 
         <div v-if="error" class="error-message">
@@ -75,7 +68,6 @@ const isRegisterMode = ref(false);
 const turnstileContainer = ref<HTMLElement | null>(null);
 const turnstileWidgetId = ref<string | null>(null);
 const turnstileToken = ref('');
-const turnstileLoadError = ref<string | null>(null);
 const pendingAutoLogin = ref(false);
 
 const toggleMode = () => {
@@ -92,10 +84,9 @@ const toggleMode = () => {
 const initTurnstile = async () => {
   if (!turnstileContainer.value) return;
 
-  turnstileLoadError.value = null;
   const ok = await waitForTurnstile();
   if (!ok) {
-    turnstileLoadError.value = 'Turnstile 加载失败，请检查网络或刷新页面后重试';
+    error.value = '人机验证组件加载失败，请检查网络或刷新页面后重试';
     return;
   }
 
@@ -120,7 +111,7 @@ const initTurnstile = async () => {
     });
   } catch (e) {
     console.error('[Turnstile] render failed:', e);
-    turnstileLoadError.value = 'Turnstile 渲染失败，请刷新页面后重试';
+    error.value = '人机验证组件渲染失败，请刷新页面后重试';
   }
 };
 
@@ -140,13 +131,13 @@ const handleRegister = async () => {
   }
 
   if (!turnstileToken.value) {
-    error.value = '请先完成 Cloudflare Turnstile 人机验证';
+    error.value = '请先完成人机验证';
     toast.error(error.value);
     return;
   }
 
   if (!turnstileToken.value) {
-    error.value = '请先完成 Cloudflare Turnstile 人机验证';
+    error.value = '请先完成人机验证';
     toast.error(error.value);
     return;
   }
@@ -196,7 +187,7 @@ const handleRegister = async () => {
 const handleLogin = async () => {
   if (isLoading.value) return; // 防止重复提交
   if (!turnstileToken.value) {
-    error.value = '请先完成 Cloudflare Turnstile 人机验证';
+    error.value = '请先完成人机验证';
     toast.error(error.value);
     return;
   }
@@ -321,13 +312,6 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   min-height: 72px;
-}
-
-.turnstile-hint {
-  margin-top: 0.5rem;
-  text-align: center;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
 }
 
 .error-message {

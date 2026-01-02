@@ -54,6 +54,14 @@
     <!-- 全局操作按钮（合并菜单） - 只在非游戏界面显示 -->
     <ActionMenu v-if="!isInGameView" position="top-right" openTitle="功能" closeTitle="关闭">
       <template #menu="{ close }">
+        <button class="action-menu-item" @click="showSettingsModal = true; close()">
+          <Settings :size="18" />
+          <span>设置</span>
+        </button>
+        <button class="action-menu-item" @click="router.push('/workshop'); close()">
+          <Store :size="18" />
+          <span>创意工坊</span>
+        </button>
         <button class="action-menu-item" @click="toggleTheme(); close()">
           <component :is="isDarkMode ? Sun : Moon" :size="18" />
           <span>{{ isDarkMode ? '切换到亮色' : '切换到暗色' }}</span>
@@ -85,6 +93,19 @@
       </transition>
     </router-view>
 
+    <!-- Settings Modal -->
+    <div v-if="showSettingsModal" class="settings-modal-overlay" @click.self="showSettingsModal = false">
+      <div class="settings-modal-content">
+        <div class="settings-modal-header">
+          <h3>设置</h3>
+          <button class="close-btn" @click="showSettingsModal = false">&times;</button>
+        </div>
+        <div class="settings-modal-body">
+          <SettingsPanel />
+        </div>
+      </div>
+    </div>
+
     <!-- Author Info Modal -->
     <div v-if="showAuthorModal" class="author-modal-overlay" @click.self="showAuthorModal = false">
       <div class="author-modal">
@@ -93,7 +114,7 @@
           <button class="close-btn" @click="showAuthorModal = false">&times;</button>
         </div>
         <div class="author-modal-body">
-          <div class="version-badge">V1.0 Beta</div>
+          <div class="version-badge">V{{ appVersion }}</div>
 
           <div class="info-section">
             <h4>📝 关于游戏</h4>
@@ -160,7 +181,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { HelpCircle, Maximize2, Minimize2, Moon, Sun } from 'lucide-vue-next'; // 导入图标
+import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
@@ -168,6 +189,7 @@ import DataValidationErrorDialog from './components/common/DataValidationErrorDi
 import StateChangeViewer from './components/common/StateChangeViewer.vue';
 import DetailModal from './components/common/DetailModal.vue';
 import ActionMenu from './components/common/ActionMenu.vue';
+import SettingsPanel from './components/dashboard/SettingsPanel.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
@@ -178,11 +200,14 @@ import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFulls
 import type { CharacterBaseInfo } from '@/types/game';
 import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
 
+const appVersion = APP_VERSION;
+
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
 const isDarkMode = ref(localStorage.getItem('theme') !== 'light');
 const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
+const showSettingsModal = ref(false);
 const isTavernEnvFlag = ref(isTavernEnv());
 
 // --- 路由与视图管理 ---
@@ -193,6 +218,10 @@ type ViewName = 'ModeSelection' | 'CharacterCreation' | 'Login' | 'CharacterMana
 // 判断是否在游戏界面（包括所有游戏子路由）
 const isInGameView = computed(() => {
   return route.path.startsWith('/game');
+});
+
+watch(isInGameView, (inGame) => {
+  if (inGame) showSettingsModal.value = false;
 });
 
 const switchView = (viewName: ViewName) => {
@@ -620,12 +649,14 @@ watch(route, (newRoute, oldRoute) => {
 }
 
 .author-modal {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  background: var(--color-surface);
+  color: var(--color-text);
   border-radius: 16px;
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  border: 1px solid var(--color-border);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: modalSlideIn 0.3s ease-out;
 }
@@ -643,12 +674,12 @@ watch(route, (newRoute, oldRoute) => {
 
 .author-modal-header {
   padding: 1.5rem 2rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--color-surface-light);
+  color: var(--color-text);
   border-radius: 16px 16px 0 0;
 }
 
@@ -661,10 +692,57 @@ watch(route, (newRoute, oldRoute) => {
   gap: 0.5rem;
 }
 
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  padding: 20px;
+}
+
+.settings-modal-content {
+  background: var(--color-surface, #ffffff);
+  border-radius: 14px;
+  width: min(760px, 100%);
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--color-border);
+  animation: modalIn 0.2s ease;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.settings-modal-body {
+  flex: 1;
+  overflow: auto;
+}
+
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   font-size: 1.5rem;
   width: 32px;
   height: 32px;
@@ -677,8 +755,7 @@ watch(route, (newRoute, oldRoute) => {
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: rotate(90deg);
+  background: var(--color-surface-hover);
 }
 
 .author-modal-body {
@@ -687,14 +764,14 @@ watch(route, (newRoute, oldRoute) => {
 
 .version-badge {
   display: inline-block;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: rgba(var(--color-primary-rgb), 0.12);
+  color: var(--color-primary);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.22);
   padding: 0.5rem 1.25rem;
   border-radius: 20px;
   font-size: 0.9rem;
   font-weight: 700;
   margin-bottom: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.3);
 }
 
 .info-section {
@@ -706,7 +783,7 @@ watch(route, (newRoute, oldRoute) => {
 }
 
 .info-section h4 {
-  color: #1e293b;
+  color: var(--color-text);
   font-size: 1.1rem;
   font-weight: 700;
   margin-bottom: 1rem;
@@ -716,20 +793,20 @@ watch(route, (newRoute, oldRoute) => {
 }
 
 .info-section p {
-  color: #475569;
+  color: var(--color-text-secondary);
   line-height: 1.7;
   margin: 0.5rem 0;
 }
 
 .info-section a {
-  color: #667eea;
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s;
 }
 
 .info-section a:hover {
-  color: #764ba2;
+  color: var(--color-primary-hover);
   text-decoration: underline;
 }
 
@@ -741,12 +818,12 @@ watch(route, (newRoute, oldRoute) => {
 
 .feature-list li {
   padding: 0.75rem 0;
-  color: #475569;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .feature-list li:last-child {
@@ -754,25 +831,25 @@ watch(route, (newRoute, oldRoute) => {
 }
 
 .feature-list strong {
-  color: #1e293b;
+  color: var(--color-text);
   font-weight: 600;
 }
 
 .tech-stack {
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 0.95rem;
   padding: 1rem;
-  background: #f1f5f9;
+  background: var(--color-code-bg);
   border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid var(--color-primary);
 }
 
 .version-note {
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 0.95rem;
   line-height: 1.6;
   padding: 1rem;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: rgba(var(--color-warning-rgb), 0.15);
   border-radius: 8px;
   border-left: 4px solid #f59e0b;
 }
@@ -783,20 +860,20 @@ watch(route, (newRoute, oldRoute) => {
 
 .copyright-notice {
   padding: 1.25rem;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  background: rgba(var(--color-error-rgb), 0.08);
   border-radius: 8px;
-  border: 2px solid #dc2626;
+  border: 1px solid rgba(var(--color-error-rgb), 0.35);
 }
 
 .copyright-notice p {
   margin: 0.5rem 0;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .copyright-notice p:first-child {
   font-weight: 700;
   font-size: 1.05rem;
-  color: #dc2626;
+  color: var(--color-danger);
   margin-bottom: 0.75rem;
 }
 
@@ -842,75 +919,75 @@ watch(route, (newRoute, oldRoute) => {
 
 /* 深色主题 */
 [data-theme='dark'] .author-modal {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: var(--color-surface);
 }
 
 [data-theme='dark'] .author-modal-header {
-  border-bottom-color: #334155;
+  border-bottom-color: var(--color-border);
 }
 
 [data-theme='dark'] .info-section h4 {
-  color: #f1f5f9;
+  color: var(--color-text);
 }
 
 [data-theme='dark'] .info-section p {
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
 }
 
 [data-theme='dark'] .feature-list li {
-  color: #cbd5e1;
-  border-bottom-color: #334155;
+  color: var(--color-text-secondary);
+  border-bottom-color: var(--color-border);
 }
 
 [data-theme='dark'] .feature-list strong {
-  color: #f1f5f9;
+  color: var(--color-text);
 }
 
 [data-theme='dark'] .tech-stack {
-  background: #0f172a;
-  color: #94a3b8;
-  border-left-color: #667eea;
+  background: var(--color-code-bg);
+  color: var(--color-text-secondary);
+  border-left-color: var(--color-primary);
 }
 
 [data-theme='dark'] .version-note {
-  background: linear-gradient(135deg, #422006 0%, #713f12 100%);
-  color: #fde68a;
-  border-left-color: #f59e0b;
+  background: rgba(var(--color-warning-rgb), 0.15);
+  color: var(--color-text-secondary);
+  border-left-color: var(--color-warning);
 }
 
 [data-theme='dark'] .version-note strong {
-  color: #fbbf24;
+  color: var(--color-warning);
 }
 
 [data-theme='dark'] .copyright-notice {
-  background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
-  border-color: #dc2626;
+  background: rgba(var(--color-error-rgb), 0.12);
+  border-color: rgba(var(--color-error-rgb), 0.35);
 }
 
 [data-theme='dark'] .copyright-notice p {
-  color: #fecaca;
+  color: var(--color-text);
 }
 
 [data-theme='dark'] .copyright-notice p:first-child {
-  color: #fca5a5;
+  color: var(--color-danger);
 }
 
 [data-theme='dark'] .copyright-notice strong {
-  color: #fca5a5;
+  color: var(--color-text);
 }
 
 [data-theme='dark'] .copyright-list li {
-  color: #fecaca;
-  border-bottom-color: #7f1d1d;
+  color: var(--color-text-secondary);
+  border-bottom-color: rgba(var(--color-error-rgb), 0.25);
 }
 
 [data-theme='dark'] .copyright-list strong {
-  color: #fef2f2;
+  color: var(--color-text);
 }
 
 [data-theme='dark'] .copyright-warning {
-  background: #dc2626;
-  color: white;
+  background: var(--color-danger);
+  color: var(--color-white-soft);
 }
 
 /* 滚动条美化 */

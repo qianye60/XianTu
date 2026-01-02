@@ -7,6 +7,8 @@ declare module '*.vue' {
   export default component
 }
 
+declare const APP_VERSION: string;
+
 // Augment Window with TavernHelper from tavernCore
 type TavernHelper = import('./utils/tavernCore').TavernHelper;
 interface Window {

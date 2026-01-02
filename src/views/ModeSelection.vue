@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">仙 途</h1>
-          <span class="version-tag">V3.7.2 {{ $t('正式版') }}</span>
+          <span class="version-tag">V{{ appVersion }} {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
       </div>
@@ -66,74 +66,45 @@
       </div>
     </div>
 
-    <!-- 右下角功能入口（合并按钮） -->
-    <ActionMenu position="bottom-right">
-      <template #menu="{ close }">
-        <button class="action-menu-item" @click="openSettings(); close()">
-          <Settings :size="18" />
-          <span>{{ $t('设置') }}</span>
-        </button>
-        <button class="action-menu-item" @click="openWorkshop(); close()">
-          <Store :size="18" />
-          <span>{{ $t('创意工坊') }}</span>
-        </button>
-        <button class="action-menu-item" @click="openGameIntro(); close()">
-          <BookOpen :size="18" />
-          <span>{{ $t('游戏介绍') }}</span>
-        </button>
-      </template>
-    </ActionMenu>
-
-    <!-- 设置模态框 -->
-    <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
-      <div class="settings-modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>游戏设置</h3>
-          <button class="close-btn" @click="showSettings = false">
-            <X :size="18" />
-          </button>
-        </div>
-        <div class="modal-body">
-          <SettingsPanel />
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import ActionMenu from '@/components/common/ActionMenu.vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
-import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
-import { Settings, X, Sparkles, History, User, Users, BookOpen, Store } from 'lucide-vue-next';
+import { Sparkles, History, User, Users } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { isTavernEnv } from '@/utils/tavern';
 
-const showSettings = ref(false);
+const appVersion = APP_VERSION;
+
 const selectedMode = ref<'single' | 'cloud' | null>(null);
 const isTavernEnvFlag = ref(isTavernEnv());
+let poll: ReturnType<typeof setInterval> | null = null;
 
 onMounted(async () => {
   // SillyTavern 可能在页面加载后才注入 TavernHelper，这里短暂轮询以避免误判为“非酒馆环境”
   const start = Date.now();
-  const poll = setInterval(() => {
+  poll = setInterval(() => {
     isTavernEnvFlag.value = isTavernEnv();
     if (isTavernEnvFlag.value || Date.now() - start > 5000) {
-      clearInterval(poll);
+      if (poll) clearInterval(poll);
+      poll = null;
     }
   }, 200);
+});
+
+onUnmounted(() => {
+  if (poll) clearInterval(poll);
+  poll = null;
 });
 
 const emit = defineEmits<{
   (e: 'start-creation', mode: 'single' | 'cloud'): void;
   (e: 'show-character-list'): void;
-  (e: 'show-help'): void;
 }>();
 
 const uiStore = useUIStore();
-const router = useRouter();
 
 const selectPath = (mode: 'single' | 'cloud') => {
   if (mode === 'cloud' && !isTavernEnvFlag.value) {
@@ -159,18 +130,6 @@ const startNewGame = () => {
   if (selectedMode.value) {
     emit('start-creation', selectedMode.value);
   }
-};
-
-const openWorkshop = () => {
-  router.push('/workshop');
-};
-
-const openGameIntro = () => {
-  emit('show-help');
-};
-
-const openSettings = () => {
-  showSettings.value = true;
 };
 
 const enterCharacterSelection = async () => {
@@ -432,80 +391,6 @@ const enterCharacterSelection = async () => {
   background: var(--mode-selection-card-bg, rgba(30, 41, 59, 0.5));
   border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
   color: var(--mode-selection-text-hover, #e2e8f0);
-}
-
-/* 设置模态框 */
-.settings-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.settings-modal-content {
-  background: var(--mode-selection-modal-bg, #1e293b);
-  border-radius: 12px;
-  width: 100%;
-  max-width: 700px;
-  max-height: 80vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
-  animation: modalIn 0.25s ease;
-}
-
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: var(--mode-selection-text, #f1f5f9);
-  letter-spacing: 0.05em;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--mode-selection-muted, #64748b);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--mode-selection-subtitle, #94a3b8);
-}
-
-.modal-body {
-  flex: 1;
-  overflow-y: auto;
 }
 
 /* 授权状态徽章 */

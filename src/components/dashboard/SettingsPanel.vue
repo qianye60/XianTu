@@ -1233,9 +1233,9 @@ const exportSettings = () => {
       settings: settings,
       exportInfo: {
         timestamp: new Date().toISOString(),
-        version: '3.7.2',
+        version: '3.7.4',
         userAgent: navigator.userAgent,
-        gameVersion: '仙途 v3.7.2'
+        gameVersion: '仙途 v3.7.4'
       }
     };
 
