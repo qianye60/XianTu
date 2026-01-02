@@ -219,6 +219,13 @@ ${locations}
 
 ---
 
+## 系统设置
+${worldContext?.systemSettings?.nsfwMode ? `- **NSFW模式**: 已开启
+- **私密信息生成范围**: ${worldContext?.systemSettings?.nsfwGenderFilter === 'all' ? '所有NPC' : worldContext?.systemSettings?.nsfwGenderFilter === 'female' ? '仅女性NPC' : '仅男性NPC'}
+⚠️ 创建NPC时，若NPC性别符合上述范围，必须生成完整的"私密信息(PrivacyProfile)"字段` : '- **NSFW模式**: 已关闭（不生成私密信息）'}
+
+---
+
 ## 输出要求
 严格遵循系统的JSON输出规则：
 - 输出 "<thinking>...</thinking>" + 一个json代码块（用markdown代码围栏包裹）
