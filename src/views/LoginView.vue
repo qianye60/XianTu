@@ -23,7 +23,31 @@
           <input type="password" id="confirmPassword" v-model="confirmPassword" :placeholder="$t('请再次输入令牌')" required />
         </div>
 
-        <div class="form-group turnstile-group">
+        <!-- 邮箱验证（仅注册且启用时显示） -->
+        <template v-if="isRegisterMode && emailVerificationEnabled">
+          <div class="form-group">
+            <label for="email">{{ $t('邮箱') }}</label>
+            <div class="email-input-row">
+              <input type="email" id="email" v-model="email" :placeholder="$t('请输入您的邮箱')" required />
+              <button
+                type="button"
+                class="btn btn-small"
+                @click="sendEmailCode"
+                :disabled="sendingCode || emailCooldown > 0"
+              >
+                {{ emailCooldown > 0 ? `${emailCooldown}s` : (sendingCode ? '发送中...' : '发送验证码') }}
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="emailCode">{{ $t('验证码') }}</label>
+            <input type="text" id="emailCode" v-model="emailCode" :placeholder="$t('请输入邮箱验证码')" required />
+          </div>
+        </template>
+
+        <!-- Turnstile 人机验证 -->
+        <div v-if="turnstileEnabled" class="form-group turnstile-group">
           <div ref="turnstileContainer" class="turnstile-container"></div>
         </div>
 
@@ -57,10 +81,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { toast } from '../utils/toast';
 import { request } from '../services/request';
-import { TURNSTILE_SITE_KEY, waitForTurnstile, renderTurnstile, resetTurnstile, removeTurnstile } from '../services/turnstile';
+import { waitForTurnstile, renderTurnstile, resetTurnstile, removeTurnstile } from '../services/turnstile';
 import { isBackendConfigured } from '@/services/backendConfig';
 
 const emit = defineEmits(['loggedIn', 'back']);
@@ -68,16 +92,47 @@ const emit = defineEmits(['loggedIn', 'back']);
 const username = ref('');
 const password = ref('');
 const confirmPassword = ref('');
+const email = ref('');
+const emailCode = ref('');
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
 const isRegisterMode = ref(false);
 const backendReady = ref(isBackendConfigured());
 
+// 安全配置（从后端获取）
+const turnstileEnabled = ref(false);
+const turnstileSiteKey = ref('');
+const emailVerificationEnabled = ref(false);
+
+// Turnstile 相关
 const turnstileContainer = ref<HTMLElement | null>(null);
 const turnstileWidgetId = ref<string | null>(null);
 const turnstileToken = ref('');
 const pendingAutoLogin = ref(false);
+
+// 邮箱验证码相关
+const sendingCode = ref(false);
+const emailCooldown = ref(0);
+let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+
+// 从后端获取安全配置
+const fetchSecuritySettings = async () => {
+  try {
+    const data = await request<{
+      turnstile_enabled: boolean;
+      turnstile_site_key: string;
+      email_verification_enabled: boolean;
+    }>('/api/v1/auth/security-settings');
+    turnstileEnabled.value = data.turnstile_enabled;
+    turnstileSiteKey.value = data.turnstile_site_key || '';
+    emailVerificationEnabled.value = data.email_verification_enabled;
+  } catch (e) {
+    console.warn('[Security] 获取配置失败:', e);
+    turnstileEnabled.value = false;
+    emailVerificationEnabled.value = false;
+  }
+};
 
 const toggleMode = () => {
   isRegisterMode.value = !isRegisterMode.value;
@@ -86,11 +141,65 @@ const toggleMode = () => {
   pendingAutoLogin.value = false;
   password.value = '';
   confirmPassword.value = '';
+  email.value = '';
+  emailCode.value = '';
   turnstileToken.value = '';
-  resetTurnstile(turnstileWidgetId.value);
+  if (turnstileEnabled.value) {
+    resetTurnstile(turnstileWidgetId.value);
+  }
+};
+
+// 发送邮箱验证码
+const sendEmailCode = async () => {
+  if (!email.value) {
+    error.value = '请先输入邮箱';
+    return;
+  }
+
+  // 简单的邮箱格式验证
+  const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailPattern.test(email.value)) {
+    error.value = '邮箱格式不正确';
+    return;
+  }
+
+  sendingCode.value = true;
+  error.value = null;
+
+  try {
+    const res = await request<{ success: boolean; message: string }>('/api/v1/auth/send-email-code', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email.value,
+        purpose: 'register',
+      }),
+    });
+
+    if (res.success) {
+      toast.success('验证码已发送，请查收邮件');
+      // 开始倒计时
+      emailCooldown.value = 60;
+      cooldownTimer = setInterval(() => {
+        emailCooldown.value--;
+        if (emailCooldown.value <= 0) {
+          if (cooldownTimer) {
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+          }
+        }
+      }, 1000);
+    } else {
+      error.value = res.message || '发送失败';
+    }
+  } catch (e: any) {
+    error.value = e.detail || e.message || '发送验证码失败';
+  } finally {
+    sendingCode.value = false;
+  }
 };
 
 const initTurnstile = async () => {
+  if (!turnstileEnabled.value || !turnstileSiteKey.value) return;
   if (!turnstileContainer.value) return;
 
   const ok = await waitForTurnstile();
@@ -102,7 +211,7 @@ const initTurnstile = async () => {
   try {
     removeTurnstile(turnstileWidgetId.value);
     turnstileWidgetId.value = renderTurnstile(turnstileContainer.value, {
-      siteKey: TURNSTILE_SITE_KEY,
+      siteKey: turnstileSiteKey.value,
       theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
       onSuccess: (token) => {
         turnstileToken.value = token;
@@ -126,13 +235,23 @@ const initTurnstile = async () => {
   }
 };
 
-onMounted(() => {
+// 监听 turnstileEnabled 变化，启用后初始化
+watch(turnstileEnabled, (enabled) => {
+  if (enabled && turnstileSiteKey.value) {
+    setTimeout(() => void initTurnstile(), 100);
+  }
+});
+
+onMounted(async () => {
   if (!backendReady.value) return;
-  void initTurnstile();
+  await fetchSecuritySettings();
 });
 
 onBeforeUnmount(() => {
   removeTurnstile(turnstileWidgetId.value);
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+  }
 });
 
 const handleRegister = async () => {
@@ -140,19 +259,26 @@ const handleRegister = async () => {
   if (!backendReady.value) {
     toast.info('未配置后端服务器，注册不可用');
     return;
-  } // 防止重复提交
+  }
   if (password.value !== confirmPassword.value) {
     error.value = '两次输入的令牌不一致！';
     return;
   }
 
-  if (!turnstileToken.value) {
-    error.value = '请先完成人机验证';
-    toast.error(error.value);
-    return;
+  // 邮箱验证检查
+  if (emailVerificationEnabled.value) {
+    if (!email.value) {
+      error.value = '请输入邮箱';
+      return;
+    }
+    if (!emailCode.value) {
+      error.value = '请输入邮箱验证码';
+      return;
+    }
   }
 
-  if (!turnstileToken.value) {
+  // Turnstile 验证检查
+  if (turnstileEnabled.value && !turnstileToken.value) {
     error.value = '请先完成人机验证';
     toast.error(error.value);
     return;
@@ -163,23 +289,40 @@ const handleRegister = async () => {
   successMessage.value = null;
 
   try {
-    const resData = await request<any>('/api/v1/auth/register', {
+    const body: Record<string, any> = {
+      user_name: username.value,
+      password: password.value,
+    };
+
+    // 添加邮箱验证信息
+    if (emailVerificationEnabled.value) {
+      body.email = email.value;
+      body.email_code = emailCode.value;
+    }
+
+    // 添加 Turnstile token
+    if (turnstileEnabled.value && turnstileToken.value) {
+      body.turnstile_token = turnstileToken.value;
+    }
+
+    await request<any>('/api/v1/auth/register', {
       method: 'POST',
-      body: JSON.stringify({
-        user_name: username.value,
-        password: password.value,
-        turnstile_token: turnstileToken.value,
-      }),
+      body: JSON.stringify(body),
     });
 
-    successMessage.value = '注册成功！请再次完成人机验证以自动登录...';
     toast.success('道号注册成功，欢迎踏入修仙之路！');
 
-    // Turnstile token 通常为单次有效；注册成功后重置并等待新 token 再自动登录
-    pendingAutoLogin.value = true;
-    isRegisterMode.value = false;
-    turnstileToken.value = '';
-    resetTurnstile(turnstileWidgetId.value);
+    if (turnstileEnabled.value) {
+      successMessage.value = '注册成功！请再次完成人机验证以自动登录...';
+      pendingAutoLogin.value = true;
+      turnstileToken.value = '';
+      resetTurnstile(turnstileWidgetId.value);
+      isRegisterMode.value = false;
+    } else {
+      successMessage.value = '注册成功！正在自动登录...';
+      isRegisterMode.value = false;
+      await handleLogin();
+    }
 
   } catch (e: unknown) {
     pendingAutoLogin.value = false;
@@ -196,7 +339,9 @@ const handleRegister = async () => {
   } finally {
     isLoading.value = false;
     turnstileToken.value = '';
-    resetTurnstile(turnstileWidgetId.value);
+    if (turnstileEnabled.value) {
+      resetTurnstile(turnstileWidgetId.value);
+    }
   }
 };
 
@@ -205,8 +350,10 @@ const handleLogin = async () => {
   if (!backendReady.value) {
     toast.info('未配置后端服务器，登录不可用');
     return;
-  } // 防止重复提交
-  if (!turnstileToken.value) {
+  }
+
+  // Turnstile 验证检查
+  if (turnstileEnabled.value && !turnstileToken.value) {
     error.value = '请先完成人机验证';
     toast.error(error.value);
     return;
@@ -217,11 +364,13 @@ const handleLogin = async () => {
   successMessage.value = null;
 
   try {
-    const body = {
+    const body: Record<string, any> = {
       username: username.value,
       password: password.value,
-      turnstile_token: turnstileToken.value,
     };
+    if (turnstileEnabled.value && turnstileToken.value) {
+      body.turnstile_token = turnstileToken.value;
+    }
 
     const data = await request<any>('/api/v1/auth/token', {
       method: 'POST',
@@ -231,7 +380,6 @@ const handleLogin = async () => {
       body: JSON.stringify(body),
     });
 
-    // 保存token和用户名到localStorage
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('username', username.value);
 
@@ -253,7 +401,9 @@ const handleLogin = async () => {
   } finally {
     isLoading.value = false;
     turnstileToken.value = '';
-    resetTurnstile(turnstileWidgetId.value);
+    if (turnstileEnabled.value) {
+      resetTurnstile(turnstileWidgetId.value);
+    }
   }
 };
 </script>
@@ -322,6 +472,22 @@ const handleLogin = async () => {
   box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
 }
 
+.email-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.email-input-row input {
+  flex: 1;
+}
+
+.btn-small {
+  padding: 0.8rem 1rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
 .turnstile-group {
   margin-top: 0.25rem;
 }
@@ -371,6 +537,30 @@ const handleLogin = async () => {
 .link:hover {
     color: var(--color-primary-hover);
     text-decoration: underline;
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--color-surface);
 }
 
 @keyframes fadeIn {

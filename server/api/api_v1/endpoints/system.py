@@ -42,6 +42,19 @@ async def get_app_version():
         return {"version": str(config_data)}
 
 
+@router.get("/turnstile-config", summary="获取 Turnstile 公开配置")
+async def get_public_turnstile_config():
+    """
+    获取 Turnstile 人机验证的公开配置（是否启用、site_key）。
+    这是一个公开接口，用于前端判断是否需要显示人机验证。
+    """
+    config = await get_turnstile_config()
+    return {
+        "enabled": config.get("turnstile_enabled", False),
+        "site_key": config.get("turnstile_site_key", "") if config.get("turnstile_enabled", False) else "",
+    }
+
+
 @router.put(
     "/admin/version",
     summary="更新应用版本号",
