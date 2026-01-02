@@ -346,6 +346,25 @@
 
             <div class="setting-item">
               <div class="setting-info">
+                <label class="setting-name">{{ t('AI API测试') }}</label>
+                <span class="setting-desc">{{ t('让AI仅返回“仙途本-连通测试-OK”，检测到即成功') }}</span>
+              </div>
+              <div class="setting-control" style="display: flex; gap: 0.5rem; align-items: center">
+                <button class="utility-btn" @click="testAIApi" :disabled="aiApiTestState === 'testing'">
+                  <FlaskConical :size="16" :class="{ 'loading-pulse': aiApiTestState === 'testing' }" />
+                  {{ aiApiTestState === 'testing' ? t('测试中...') : t('测试') }}
+                </button>
+                <span v-if="aiApiTestState === 'success'" class="auth-status verified">{{ t('成功') }}</span>
+                <span v-else-if="aiApiTestState === 'fail'" class="auth-status unverified">{{ t('失败') }}</span>
+                <button v-if="aiApiTestState !== 'idle'" class="utility-btn" @click="openAIApiTestDetails">
+                  <FileText :size="16" />
+                  {{ t('详情') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
                 <label class="setting-name">{{ t('温度参数') }}</label>
                 <span class="setting-desc">{{ t('控制输出随机性（0-2）') }}</span>
               </div>
@@ -591,7 +610,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { Save, RotateCcw, Trash2, Download, Upload, FileText, RefreshCw } from 'lucide-vue-next';
+import { Save, RotateCcw, Trash2, Download, Upload, FileText, RefreshCw, FlaskConical } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
@@ -706,6 +725,82 @@ const fetchModels = async () => {
     toast.error(error instanceof Error ? error.message : '获取模型失败');
   } finally {
     isFetchingModels.value = false;
+  }
+};
+
+const AI_API_TEST_TOKEN = '仙途本-连通测试-OK';
+const aiApiTestState = ref<'idle' | 'testing' | 'success' | 'fail'>('idle');
+const aiApiTestResponse = ref('');
+const aiApiTestError = ref('');
+
+const normalizeAIApiTestText = (text: string): string => {
+  return String(text || '')
+    .trim()
+    .toLowerCase()
+    .replace(
+      /[\s"'`“”‘’《》<>()[\]{}，。！？、；：…·—\-_=+~!@#$%^&*|\\/.,?;:]/g,
+      ''
+    );
+};
+
+const openAIApiTestDetails = () => {
+  uiStore.showDetailModal({
+    title: t('AI API测试详情'),
+    content: [
+      `Token: ${AI_API_TEST_TOKEN}`,
+      `Provider: ${aiConfig.customAPI.provider}`,
+      `Model: ${aiConfig.customAPI.model}`,
+      `URL: ${aiConfig.customAPI.url || '(empty)'}`,
+      aiApiTestError.value ? `Error: ${aiApiTestError.value}` : '',
+      '',
+      'Response:',
+      aiApiTestResponse.value || '(empty)',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  });
+};
+
+const testAIApi = async () => {
+  if (aiApiTestState.value === 'testing') return;
+
+  aiApiTestState.value = 'testing';
+  aiApiTestResponse.value = '';
+  aiApiTestError.value = '';
+
+  try {
+    const availability = aiService.checkAvailability();
+    if (!availability.available) {
+      throw new Error(availability.message);
+    }
+
+    const prompt = [
+      '你正在进行AI API连通性测试。',
+      `请仅输出以下字符串（必须包含且尽量一致）：${AI_API_TEST_TOKEN}`,
+      '不要输出解释、标点或多余文字。',
+    ].join('\n');
+
+    const response = await aiService.generate({
+      user_input: prompt,
+      should_stream: false,
+      generation_id: `ai_api_test_${Date.now()}`,
+    });
+
+    const text = String(response ?? '').trim();
+    aiApiTestResponse.value = text;
+
+    const ok = normalizeAIApiTestText(text).includes(normalizeAIApiTestText(AI_API_TEST_TOKEN));
+    if (!ok) {
+      throw new Error(`未检测到特征串「${AI_API_TEST_TOKEN}」`);
+    }
+
+    aiApiTestState.value = 'success';
+    toast.success(`AI API测试成功：检测到「${AI_API_TEST_TOKEN}」`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    aiApiTestError.value = message;
+    aiApiTestState.value = 'fail';
+    toast.error(`AI API测试失败：${message}`);
   }
 };
 
@@ -1086,9 +1181,9 @@ const exportSettings = () => {
       settings: settings,
       exportInfo: {
         timestamp: new Date().toISOString(),
-        version: '3.7.0',
+        version: '3.7.2',
         userAgent: navigator.userAgent,
-        gameVersion: '仙途 v3.7.0'
+        gameVersion: '仙途 v3.7.2'
       }
     };
 

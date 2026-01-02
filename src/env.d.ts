@@ -11,5 +11,13 @@ declare module '*.vue' {
 type TavernHelper = import('./utils/tavernCore').TavernHelper;
 interface Window {
   TavernHelper?: TavernHelper;
-}
 
+  // Cloudflare Turnstile
+  turnstile?: {
+    render: (container: HTMLElement, params: Record<string, unknown>) => string;
+    reset: (widgetId?: string) => void;
+    remove?: (widgetId: string) => void;
+  };
+  turnstileCallbacks?: Array<() => void>;
+  onTurnstileLoad?: () => void;
+}

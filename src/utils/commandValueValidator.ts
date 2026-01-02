@@ -76,9 +76,18 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
     }
 
     // 5. 物品对象（set操作）
-    if (key.startsWith('背包.物品.') && action === 'set' && !key.includes('.数量') && !key.includes('.修炼进度')) {
-      const result = validateItemObject(value);
-      errors.push(...result.errors);
+    // 只验证完整物品对象，跳过设置物品子属性的操作（如 .描述、.使用效果、.数量、.修炼进度 等）
+    if (key.startsWith('背包.物品.') && action === 'set') {
+      // 计算 key 中的点数量来判断是设置完整物品还是物品属性
+      // 背包.物品.item_xxx = 2个点 = 设置完整物品对象
+      // 背包.物品.item_xxx.描述 = 3个点 = 设置物品的子属性
+      const dotCount = (key.match(/\./g) || []).length;
+      if (dotCount === 2) {
+        // 只有设置完整物品对象时才验证
+        const result = validateItemObject(value);
+        errors.push(...result.errors);
+      }
+      // dotCount >= 3 时是设置子属性，跳过验证
     }
 
     // 6. NPC对象（创建或更新）

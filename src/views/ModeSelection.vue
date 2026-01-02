@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">仙 途</h1>
-          <span class="version-tag">V3.7.0 {{ $t('正式版') }}</span>
+          <span class="version-tag">V3.7.2 {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
       </div>
@@ -71,6 +71,11 @@
       <Settings :size="22" />
     </button>
 
+    <!-- 右下角游戏介绍按钮 -->
+    <button class="floating-intro-btn" @click="openGameIntro" :title="$t('游戏介绍')">
+      <BookOpen :size="22" />
+    </button>
+
     <!-- 设置模态框 -->
     <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
       <div class="settings-modal-content" @click.stop>
@@ -92,7 +97,7 @@
 import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
-import { Settings, X, Sparkles, History, User, Users } from 'lucide-vue-next';
+import { Settings, X, Sparkles, History, User, Users, BookOpen } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { isTavernEnv } from '@/utils/tavern';
 
@@ -142,6 +147,10 @@ const startNewGame = () => {
   if (selectedMode.value) {
     emit('start-creation', selectedMode.value);
   }
+};
+
+const openGameIntro = () => {
+  window.open('./游戏介绍.html', '_blank');
 };
 
 const enterCharacterSelection = async () => {
@@ -431,6 +440,32 @@ const enterCharacterSelection = async () => {
   border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
 }
 
+/* 浮动游戏介绍按钮 */
+.floating-intro-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 84px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
+  color: var(--mode-selection-subtitle, #94a3b8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  z-index: 100;
+}
+
+.floating-intro-btn:hover {
+  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
+  color: var(--mode-selection-text-hover, #e2e8f0);
+  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
+}
+
 /* 设置模态框 */
 .settings-modal-overlay {
   position: fixed;
@@ -688,6 +723,13 @@ const enterCharacterSelection = async () => {
   .floating-settings-btn {
     bottom: 12px;
     right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .floating-intro-btn {
+    bottom: 12px;
+    right: 60px;
     width: 40px;
     height: 40px;
   }
