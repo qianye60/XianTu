@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
+  <a href="https://qm.qq.com/q/mKtqgX0FSo">💬 QQ群：1079437686</a> •
   <a href="#功能概览">功能</a> •
   <a href="#技术栈">技术栈</a> •
   <a href="#快速开始">快速开始</a> •
-  <a href="#更新日志">更新日志</a> •
   <a href="#许可证">许可证</a>
 </p>
 
@@ -35,7 +35,6 @@
   <img src="https://visitor-badge.laobi.icu/badge?page_id=qianye60.XianTu&left_color=gray&right_color=blue" alt="visitors"/>
   <img src="https://img.shields.io/github/stars/qianye60/XianTu?style=flat-square&color=yellow" alt="stars"/>
   <img src="https://img.shields.io/github/forks/qianye60/XianTu?style=flat-square" alt="forks"/>
-  <img src="https://img.shields.io/github/license/qianye60/XianTu?style=flat-square" alt="license"/>
 </p>
 
 <p align="center">
@@ -143,9 +142,20 @@ uvicorn server.main:app --reload --port 12345
 
 ## 📄 许可证
 
-本项目采用 **Apache License 2.0** 发布，详见 [LICENSE](./LICENSE)。
+本项目个人学习、研究免费使用。商业用途请先联系作者。
 
-你可以自由地商用/修改/分发，但请在分发时保留版权声明、[LICENSE](./LICENSE) 与 [NOTICE](./NOTICE)（如适用），并在修改过的文件中标注变更。
+详见 [LICENSE](./LICENSE) | 联系方式：[QQ群 1079437686](https://qm.qq.com/q/mKtqgX0FSo)
+
+---
+
+## ☕ 支持项目
+
+如果这个项目对你有帮助，欢迎赞助支持~
+
+<p align="center">
+  <img src="https://ddct.top/weixing.jpg" width="200" alt="微信赞助"/>
+  <img src="https://ddct.top/zhifubao.jpg" width="200" alt="支付宝赞助"/>
+</p>
 
 ---
 
