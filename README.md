@@ -64,14 +64,14 @@
 
 ## 🛠️ 技术栈
 
-|        前端        |        后端         |     AI      |
+|        前端        |        后端        |     AI     |
 | :----------------: | :-----------------: | :---------: |
-| Vue 3 + TypeScript |  Python + FastAPI   | Gemini API  |
-|   Pinia 状态管理   | SQLite / PostgreSQL | Claude API  |
-|     Vue Router     |      JWT 认证       | OpenAI API  |
-|      Webpack       |      WebSocket      | SillyTavern |
-| Chart.js + Pixi.js |                     |  DeepSeek   |
-|     IndexedDB      |                     |             |
+| Vue 3 + TypeScript |  Python + FastAPI  | Gemini API |
+|   Pinia 状态管理   | SQLite / PostgreSQL | Claude API |
+|     Vue Router     |      JWT 认证      | OpenAI API |
+|      Webpack      |      WebSocket      | SillyTavern |
+| Chart.js + Pixi.js |                    |  DeepSeek  |
+|     IndexedDB     |                    |            |
 
 ---
 
@@ -101,6 +101,7 @@ npm run build
 ## ☁️ 自动构建/部署
 
 推送 `v*` 格式的 tag 时自动触发：
+
 - **Docker 镜像**：构建并推送到 Docker Hub
 - **GitHub Release**：创建 Release 并上传构建产物 zip 包
 
@@ -110,6 +111,7 @@ git push origin v3.7.0
 ```
 
 其他工作流：
+
 - CI：`.github/workflows/ci.yml`（push/PR 自动 `type-check` + `build`）
 - Pages：`.github/workflows/pages.yml`（push 到 `master` 自动部署到 GitHub Pages）
 
@@ -144,7 +146,7 @@ uvicorn server.main:app --reload --port 12345
 
 本项目个人学习、研究免费使用。商业用途请先联系作者。
 
-详见 [LICENSE](./LICENSE) | 联系方式：[QQ群 1079437686](https://qm.qq.com/q/mKtqgX0FSo)
+详见 [LICENSE](./LICENSE) | 联系方式：QQ 1538548527
 
 ---
 
