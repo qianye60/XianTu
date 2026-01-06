@@ -25,26 +25,12 @@
               <Building :size="48" class="empty-icon" />
               <p class="empty-text">{{ t('暂无宗门信息') }}</p>
               <p class="empty-hint">{{ t('世界信息将由AI根据游戏进程生成') }}</p>
-              <!-- 调试信息显示 -->
-              <div class="debug-info" style="margin-top: 1rem; font-size: 0.8rem; color: #666; text-align: left;">
-                <details>
-                  <summary style="cursor: pointer;">调试信息 (点击展开)</summary>
-                  <div style="margin-top: 0.5rem;">
-                    <p>存档数据存在: {{ !!gameStateStore.toSaveData() }}</p>
-                    <p>存档数据字段: {{ gameStateStore.toSaveData() ? Object.keys(gameStateStore.toSaveData() || {}).join(', ') : '无' }}</p>
-                    <p>世界信息存在: {{ !!gameStateStore.worldInfo }}</p>
-                    <p>世界信息.势力信息存在: {{ !!gameStateStore.worldInfo?.势力信息 }}</p>
-                    <p>世界信息.势力信息数量: {{ gameStateStore.worldInfo?.势力信息?.length || 0 }}</p>
-                    <p>筛选后数量: {{ filteredSects.length }}</p>
-                    <button v-if="isTavernEnvFlag" @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                      从酒馆同步数据
-                    </button>
-                    <button @click="forceRefresh" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
-                      强制刷新
-                    </button>
-                  </div>
-                </details>
+              <div class="empty-actions">
+                <button class="empty-action-btn primary" @click="sendSectGenerationPrompt">生成势力信息</button>
+                <button class="empty-action-btn" @click="forceRefresh">刷新</button>
+                <button v-if="isTavernEnvFlag" class="empty-action-btn" @click="syncFromTavern">从酒馆同步</button>
               </div>
+              <p class="empty-prompt-hint">提示：点击“生成势力信息”会自动发送到对话并写入 <code>世界.信息.势力信息</code>。</p>
             </div>
             <div v-else class="sect-list-content">
               <div
@@ -145,18 +131,6 @@
                 </div>
               </div>
 
-              <!-- 成员统计缺失提示 -->
-              <div v-else class="detail-section missing-data-notice">
-                <h5 class="section-title">
-                  <Users :size="16" />
-                  <span>成员统计</span>
-                </h5>
-                <div class="notice-content">
-                  <p class="notice-text">暂无详细的成员统计信息</p>
-                  <p class="notice-hint">包括境界分布、职位分布等数据需要重新生成世界获取</p>
-                </div>
-              </div>
-
               <!-- 基础信息 -->
               <div class="detail-section">
                 <h5 class="section-title">
@@ -212,13 +186,6 @@
                       </span>
                     </div>
                   </div>
-                </div>
-
-                <!-- 领导层信息缺失提示 -->
-                <div v-else class="missing-data-notice">
-                  <h6 class="notice-title">宗门领导信息</h6>
-                  <p class="notice-text">暂无详细的宗门领导层信息</p>
-                  <p class="notice-hint">需要重新生成世界数据以获取完整信息</p>
                 </div>
 
                 <div class="sect-description">
@@ -414,7 +381,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useI18n } from '@/i18n';
@@ -426,33 +394,39 @@ import {
   ChevronRight, Map
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
+import { sendChat } from '@/utils/chatBus';
 import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataValidator';
 
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
+const router = useRouter();
 const { t } = useI18n();
 const isTavernEnvFlag = isTavernEnv();
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');
 
-// 获取世界中的宗门势力数据 - 统一数据源，支持多种数据结构
+const SECT_GENERATION_PROMPT = `你是GM，请根据当前剧情与世界设定，生成/补全「世界.信息.势力信息」（数组）。\n\n要求：\n- 每条势力至少包含：名称、类型、等级、描述、宗门驻地、主要资源、可否加入、加入条件、领导层、成员数量、势力范围详情、与玩家关系、声望值。\n- 内容要与当前世界一致，避免与已存在信息冲突。\n- 严格输出一个 JSON 对象（不要代码块/解释/额外文本，不要 <thinking>）：\n{\n  \"text\": \"【系统】势力信息已补全。\",\n  \"mid_term_memory\": \"\",\n  \"tavern_commands\": [\n    {\"action\":\"set\",\"key\":\"世界.信息.势力信息\",\"value\":[/*...势力数组...*/]}\n  ],\n  \"action_options\": []\n}`;
+
+const sendSectGenerationPrompt = () => {
+  sendChat(SECT_GENERATION_PROMPT);
+  toast.success('已发送到对话');
+};
+
+// 获取世界中的宗门势力数据 - 统一数据源（V3：世界.信息.势力信息）
 const sectSystemData = computed(() => {
   const data = gameStateStore.getCurrentSaveData();
 
   if (!data) {
-    console.log('[宗门系统] 存档数据不存在，返回空数组');
     return { availableSects: [] };
   }
 
   let availableSects: WorldFaction[] = [];
+  const sectSystem = gameStateStore.sectSystem;
 
-  // 从世界信息.势力信息中获取宗门数据
-  const worldInfo = data?.世界信息 as WorldInfo | undefined;
+  // 从 世界.信息.势力信息 中获取宗门数据
+  const worldInfo = (data as any)?.世界?.信息 as WorldInfo | undefined;
   if (worldInfo?.势力信息) {
-    console.log('[宗门系统] 发现世界信息.势力信息，数量:', worldInfo.势力信息.length);
-    console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: WorldFaction) => f.类型));
-
     // 筛选出宗门类型的势力
     const sectFactions = worldInfo.势力信息.filter((faction: WorldFaction) => {
       if (!faction.类型) return false;
@@ -462,16 +436,15 @@ const sectSystemData = computed(() => {
       const excludeTypes = ['秘境', '遗迹', '禁地', '森林', '山脉', '湖泊', '城池'];
       const shouldExclude = excludeTypes.some(exclude => type.includes(exclude.toLowerCase()));
 
-      if (shouldExclude) {
-        console.log('[宗门系统] 排除非宗门势力:', faction.名称, faction.类型);
-        return false;
-      }
-
-      console.log('[宗门系统] 包含势力:', faction.名称, faction.类型);
+      if (shouldExclude) return false;
       return true;
     });
 
     availableSects = sectFactions;
+  }
+
+  if (availableSects.length === 0 && sectSystem?.宗门档案 && Object.keys(sectSystem.宗门档案).length > 0) {
+    availableSects = Object.values(sectSystem.宗门档案);
   }
   // 去重并应用数据验证
   const uniqueSects = availableSects.filter((sect, index, arr) =>
@@ -481,15 +454,12 @@ const sectSystemData = computed(() => {
   // 应用宗门数据验证和修复
   const validatedSects = validateAndFixSectDataList(uniqueSects);
 
-  console.log('[宗门系统] 最终宗门数量:', validatedSects.length);
-  console.log('[宗门系统] 最终宗门列表:', validatedSects.map((s: WorldFaction) => s.名称));
-
   return { availableSects: validatedSects };
 });
 
 // 玩家的宗门信息
 const playerSectInfo = computed((): SectMemberInfo | undefined => {
-  return gameStateStore.playerStatus?.宗门信息;
+  return gameStateStore.sectMemberInfo || undefined;
 });
 
 // 获取所有宗门列表
@@ -761,19 +731,28 @@ const requestJoinSect = (sect: WorldFaction) => {
   toast.info(`申请加入 ${sect.名称}（功能开发中）`);
 };
 
-const showSectMissions = () => toast.info('宗门任务（功能开发中）');
-const showContribution = () => toast.info('贡献兑换（功能开发中）');
-const showSectLibrary = () => toast.info('宗门藏书（功能开发中）');
-const showSectMembers = () => toast.info('同门师兄弟（功能开发中）');
+const showSectMissions = () => {
+  router.push({ name: 'SectMissions' });
+};
+
+const showContribution = () => {
+  router.push({ name: 'SectContribution' });
+};
+
+const showSectLibrary = () => {
+  router.push({ name: 'SectLibrary' });
+};
+
+const showSectMembers = () => {
+  router.push({ name: 'SectMembers' });
+};
 
 // 🔥 [新架构] syncFromTavern 方法已被移除，数据统一从 Pinia Store 获取
 const syncFromTavern = async () => {
   try {
     // 新架构下不再需要从酒馆同步，数据已在 Pinia Store 中
     toast.info('新架构下数据已统一由 Pinia Store 管理');
-    console.warn('[宗门系统] syncFromTavern 已在新架构中移除');
   } catch (error) {
-    console.error('[宗门系统] 同步失败:', error);
     toast.error('同步失败: ' + (error instanceof Error ? error.message : '未知错误'));
   }
 };
@@ -784,25 +763,6 @@ const forceRefresh = () => {
   toast.info('已强制刷新数据');
 };
 
-onMounted(() => {
-  console.log('[宗门系统] 宗门势力面板已载入');
-  console.log('[宗门系统] characterStore状态:', characterStore);
-  console.log('[宗门系统] activeSaveSlot:', characterStore.activeSaveSlot);
-  console.log('[宗门系统] 存档数据:', gameStateStore.toSaveData());
-  console.log('[宗门系统] 世界信息:', gameStateStore.worldInfo);
-  console.log('[宗门系统] 势力信息:', gameStateStore.worldInfo?.势力信息);
-  console.log('[宗门系统] sectSystemData:', sectSystemData.value);
-  console.log('[宗门系统] filteredSects:', filteredSects.value);
-
-  // 添加数据监控
-  setInterval(() => {
-    console.log('[宗门系统] 定时检查 - 筛选后宗门数量:', filteredSects.value?.length || 0);
-    console.log('[宗门系统] 定时检查 - 是否加载中:', isLoading.value);
-    console.log('[宗门系统] 定时检查 - 存档数据存在:', !!gameStateStore.getCurrentSaveData());
-    console.log('[宗门系统] 定时检查 - 世界信息存在:', !!gameStateStore.worldInfo);
-    console.log('[宗门系统] 定时检查 - 势力信息存在:', !!gameStateStore.worldInfo?.势力信息);
-  }, 5000);
-});
 </script>
 
 <style scoped>
@@ -898,6 +858,54 @@ onMounted(() => {
 .empty-hint {
   font-size: 0.8rem;
   opacity: 0.8;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.empty-action-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.85rem;
+}
+
+.empty-action-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary);
+}
+
+.empty-action-btn.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.empty-action-btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.empty-prompt-hint {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.empty-prompt-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .sect-list-content {

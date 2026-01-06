@@ -1,6 +1,6 @@
 from tortoise import fields
 from tortoise.models import Model
-from datetime import datetime
+from datetime import datetime, date
 
 # --- 核心账户模型 (无大改动) ---
 
@@ -259,3 +259,225 @@ class IPRateLimitRecord(Model):
 
     class Meta:
         table = "ip_rate_limit_records"
+
+
+# =====================================================================
+# 联机穿越（POI 坐标地图）- M1 基础数据模型
+# =====================================================================
+
+
+class PlayerTravelProfile(Model):
+    """
+    玩家穿越点与签到状态（M1）。
+    """
+
+    id = fields.IntField(pk=True)
+    player = fields.OneToOneField("models.PlayerAccount", related_name="travel_profile")
+    travel_points = fields.IntField(default=0, description="穿越点（TP）")
+    last_signin_at = fields.DateField(null=True, description="上次签到日期（UTC）")
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "player_travel_profiles"
+
+
+class WorldInstance(Model):
+    """
+    联机主世界实例（每个联机角色一个主世界）。
+    世界永久改变写入该实例（通过事件日志 + 快照）。
+    """
+
+    id = fields.IntField(pk=True)
+
+    owner = fields.ForeignKeyField("models.PlayerAccount", related_name="world_instances")
+    owner_char_id = fields.CharField(max_length=128, null=True, description="所属角色 char_id（可选，用于绑定联机角色）")
+
+    visibility_mode = fields.CharField(
+        max_length=16,
+        default="public",
+        description="public|hidden|locked",
+    )
+
+    world_state = fields.JSONField(
+        null=True,
+        description="世界快照（规则/警戒/势力态度/背景版本等）",
+    )
+    revision = fields.IntField(default=1)
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "online_world_instances"
+        indexes = (("owner_id",), ("visibility_mode",))
+
+
+class MapInstance(Model):
+    """
+    世界内的地图实例（大陆/洞府/秘境等）。
+    """
+
+    id = fields.IntField(pk=True)
+    world = fields.ForeignKeyField("models.WorldInstance", related_name="maps")
+    map_key = fields.CharField(max_length=64, description="mainland/manor/secret_realm/...")
+    map_state = fields.JSONField(null=True, description="地图快照（POI/Edge索引、资源参数等）")
+    revision = fields.IntField(default=1)
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "online_map_instances"
+        unique_together = (("world_id", "map_key"),)
+        indexes = (("world_id",), ("map_key",))
+
+
+class Poi(Model):
+    """
+    POI 点位（坐标化地图核心）。
+    """
+
+    id = fields.IntField(pk=True)
+    map = fields.ForeignKeyField("models.MapInstance", related_name="pois")
+
+    poi_key = fields.CharField(max_length=64, description="safehouse/market/wild/...")
+    x = fields.IntField(default=0)
+    y = fields.IntField(default=0)
+
+    type = fields.CharField(max_length=32, default="wild", description="town|manor|resource|portal|...")
+    tags = fields.JSONField(null=True, description="标签数组（safe/core/public/hidden/danger/lootable等）")
+
+    visibility_policy = fields.CharField(max_length=16, default="default", description="default|hidden|public")
+    state = fields.JSONField(null=True, description="点位状态（资源库存/建筑耐久/门禁/陷阱等）")
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "online_pois"
+        unique_together = (("map_id", "poi_key"),)
+        indexes = (("map_id",), ("poi_key",), ("type",))
+
+
+class Edge(Model):
+    """
+    POI 连接边（路径/传送/暗道等）。
+    """
+
+    id = fields.IntField(pk=True)
+    map = fields.ForeignKeyField("models.MapInstance", related_name="edges")
+
+    from_poi = fields.ForeignKeyField("models.Poi", related_name="edges_from")
+    to_poi = fields.ForeignKeyField("models.Poi", related_name="edges_to")
+
+    edge_type = fields.CharField(max_length=32, default="road", description="road|trail|portal|secret_tunnel")
+    travel_cost = fields.IntField(default=1)
+    risk = fields.IntField(default=0, description="0-100 风险（预留）")
+    requirements = fields.JSONField(null=True, description="进入条件（钥匙/境界/破阵等）")
+    one_way = fields.BooleanField(default=False)
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "online_edges"
+        indexes = (("map_id",), ("from_poi_id",), ("to_poi_id",), ("edge_type",))
+
+
+class EntityState(Model):
+    """
+    世界实体（玩家/NPC/离线玩家）。
+    M1 仅实现 POI 级定位与移动。
+    """
+
+    id = fields.IntField(pk=True)
+    world = fields.ForeignKeyField("models.WorldInstance", related_name="entities")
+    map = fields.ForeignKeyField("models.MapInstance", related_name="entities")
+    poi = fields.ForeignKeyField("models.Poi", related_name="entities")
+
+    entity_type = fields.CharField(max_length=32, description="player_online|player_offline|npc")
+    owner = fields.ForeignKeyField("models.PlayerAccount", related_name="entities", null=True)
+    owner_char_id = fields.CharField(max_length=128, null=True)
+
+    stats = fields.JSONField(null=True, description="关键状态（HP/境界/状态效果等）")
+    inventory_summary = fields.JSONField(null=True, description="资产摘要（预留）")
+
+    ai_memory = fields.JSONField(null=True, description="权谋记忆/警戒/仇恨（预留）")
+    state_flags = fields.JSONField(null=True, description="状态标记（idle/alert/engaged/dead等）")
+
+    is_active = fields.BooleanField(default=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "online_entity_states"
+        indexes = (("world_id",), ("map_id", "poi_id"), ("owner_id",), ("entity_type",))
+
+
+class TravelSession(Model):
+    """
+    穿越会话（入侵/访问）。
+    """
+
+    id = fields.IntField(pk=True)
+    visitor = fields.ForeignKeyField("models.PlayerAccount", related_name="travel_sessions")
+    target_world = fields.ForeignKeyField("models.WorldInstance", related_name="incoming_sessions")
+
+    visitor_entity = fields.ForeignKeyField("models.EntityState", related_name="as_visitor_session", null=True)
+
+    entry_map = fields.ForeignKeyField("models.MapInstance", related_name="entry_sessions")
+    entry_poi = fields.ForeignKeyField("models.Poi", related_name="entry_sessions")
+
+    return_anchor = fields.JSONField(null=True, description="回城锚点（home_world/map/poi）")
+    policy = fields.JSONField(null=True, description="权限与规则（可否掠夺/可否破坏等）")
+
+    state = fields.CharField(max_length=16, default="active", description="active|ended|settled")
+    started_at = fields.DatetimeField(auto_now_add=True)
+    ended_at = fields.DatetimeField(null=True)
+
+    class Meta:
+        table = "online_travel_sessions"
+        indexes = (("visitor_id",), ("target_world_id",), ("state",))
+
+
+class WorldEventLog(Model):
+    """
+    世界事件日志（事实源）。
+    """
+
+    id = fields.IntField(pk=True)
+    world = fields.ForeignKeyField("models.WorldInstance", related_name="event_logs")
+    map = fields.ForeignKeyField("models.MapInstance", related_name="event_logs")
+    poi = fields.ForeignKeyField("models.Poi", related_name="event_logs", null=True)
+
+    actor_entity = fields.ForeignKeyField("models.EntityState", related_name="events_as_actor", null=True)
+    target_entity = fields.ForeignKeyField("models.EntityState", related_name="events_as_target", null=True)
+
+    event_type = fields.CharField(max_length=32)
+    payload = fields.JSONField(null=True)
+    server_verdict = fields.JSONField(null=True, description="裁决原因（合理性审查/双境触发等）")
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "online_world_event_logs"
+        indexes = (("world_id",), ("map_id",), ("event_type",), ("created_at",))
+
+
+class InvasionReport(Model):
+    """
+    入侵报告（上线查看），由服务端基于事件日志生成。
+    """
+
+    id = fields.IntField(pk=True)
+    world = fields.ForeignKeyField("models.WorldInstance", related_name="invasion_reports")
+    victim = fields.ForeignKeyField("models.PlayerAccount", related_name="invasion_reports")
+    session = fields.ForeignKeyField("models.TravelSession", related_name="report", null=True)
+
+    summary = fields.JSONField(null=True)
+    unread = fields.BooleanField(default=True)
+
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "online_invasion_reports"
+        indexes = (("victim_id", "unread"), ("world_id",))

@@ -46,6 +46,60 @@ export class EnhancedActionQueueManager {
     }
     return this.instance;
   }
+
+  private getEquipmentSlotItemId(slotValue: unknown): string | null {
+    if (!slotValue) return null;
+    if (typeof slotValue === 'string') return slotValue;
+    if (typeof slotValue === 'object' && slotValue !== null && '物品ID' in slotValue) {
+      const itemId = (slotValue as any).物品ID;
+      return typeof itemId === 'string' ? itemId : null;
+    }
+    return null;
+  }
+
+  /**
+   * 装备槽位只存物品ID(string|null)；完整物品数据在 角色.背包.物品
+   * 兼容旧槽位存 {物品ID,名称} 的格式，并在此处统一归一化。
+   */
+  private ensureEquipmentSlots(saveData: SaveData): Record<string, string | null> {
+    const defaultSlots: Record<string, string | null> = {
+      装备1: null,
+      装备2: null,
+      装备3: null,
+      装备4: null,
+      装备5: null,
+      装备6: null,
+    };
+
+    const anySave = saveData as any;
+    if (!anySave.角色) anySave.角色 = {};
+    const rawSlots = (anySave.角色.装备 ?? defaultSlots) as Record<string, unknown>;
+    const normalized: Record<string, string | null> = { ...defaultSlots };
+
+    for (let i = 1; i <= 6; i++) {
+      const key = `装备${i}`;
+      normalized[key] = this.getEquipmentSlotItemId(rawSlots?.[key]) ?? null;
+    }
+
+    anySave.角色.装备 = normalized;
+    return normalized;
+  }
+
+  private ensureRoleBackpack(saveData: SaveData): any {
+    const anySave = saveData as any;
+    if (!anySave.角色) anySave.角色 = {};
+    if (!anySave.角色.背包) anySave.角色.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+    if (!anySave.角色.背包.物品) anySave.角色.背包.物品 = {};
+    if (!anySave.角色.背包.灵石) anySave.角色.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
+    return anySave.角色.背包;
+  }
+
+  private ensureRoleCultivation(saveData: SaveData): any {
+    const anySave = saveData as any;
+    if (!anySave.角色) anySave.角色 = {};
+    if (!anySave.角色.修炼) anySave.角色.修炼 = { 修炼功法: null, 修炼状态: { 模式: '未修炼' } };
+    return anySave.角色.修炼;
+  }
   
   /**
    * 装备物品 - 直接修改装备栏并支持撤回
@@ -62,12 +116,10 @@ export class EnhancedActionQueueManager {
         return false;
       }
 
-      if (!saveData.装备栏) {
-        saveData.装备栏 = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
-      }
+      const equipmentSlots = this.ensureEquipmentSlots(saveData);
 
       // 检查是否已装备 - 物品是对象结构
-      const inventoryItems = saveData.背包?.物品;
+      const inventoryItems = this.ensureRoleBackpack(saveData).物品;
       if (!inventoryItems || typeof inventoryItems !== 'object') {
         toast.error('背包数据异常');
         return false;
@@ -87,8 +139,8 @@ export class EnhancedActionQueueManager {
       let replacedItem: Item | null = null;
 
       for (let i = 1; i <= 6; i++) {
-        const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-        const slotItem = saveData.装备栏[slotKey];
+        const slotKey = `装备${i}`;
+        const slotItem = equipmentSlots[slotKey];
         if (!slotItem || slotItem === null) {
           targetSlot = slotKey;
           break;
@@ -98,24 +150,17 @@ export class EnhancedActionQueueManager {
       if (!targetSlot) {
         // 装备栏已满，替换第一个槽位
         targetSlot = '装备1';
-        const slotKey = targetSlot as keyof typeof saveData.装备栏;
-        const existingSlotItem = saveData.装备栏[slotKey];
-        if (existingSlotItem && typeof existingSlotItem === 'object' && '物品ID' in existingSlotItem) {
-          // 获取被替换物品的完整信息
-          const replacedItemId = existingSlotItem.物品ID;
+        const replacedItemId = equipmentSlots[targetSlot];
+        if (replacedItemId) {
           replacedItem = inventoryItems[replacedItemId] || null;
-          // 清除被替换物品的已装备状态
           if (replacedItem) {
-            replacedItem.已装备 = false;
+            inventoryItems[replacedItemId] = { ...replacedItem, 已装备: false };
           }
         }
       }
 
-      // 执行装备操作 - 存储引用格式而不是完整对象
-      saveData.装备栏[targetSlot as keyof typeof saveData.装备栏] = {
-        物品ID: item.物品ID,
-        名称: item.名称
-      };
+      // 执行装备操作 - 槽位仅存物品ID
+      equipmentSlots[targetSlot] = item.物品ID;
 
       // 设置物品的已装备标记 - 使用响应式替换
       if (inventoryItem) {
@@ -128,13 +173,13 @@ export class EnhancedActionQueueManager {
       console.log('装备操作完成:', {
         槽位: targetSlot,
         物品: item,
-        装备栏状态: saveData.装备栏
+        装备栏状态: equipmentSlots
       });
 
       // 注意：不从背包中移除物品，装备和背包是独立的
       // 被替换的装备也不放回背包，而是丢失（符合游戏逻辑）
 
-      // 应用装备属性加成到存档的 角色基础信息.后天六司
+      // 应用装备属性加成到存档的 角色.身份.后天六司（V3）
       const { applyEquipmentBonus } = await import('./equipmentBonusApplier');
       applyEquipmentBonus(saveData, item.物品ID);
 
@@ -185,13 +230,15 @@ export class EnhancedActionQueueManager {
       // 🔥 [新架构] 从 gameStateStore 获取存档数据
       const gameStateStore = useGameStateStore();
       const saveData = gameStateStore.toSaveData();
-      if (!saveData || !saveData.装备栏) {
+      if (!saveData) {
         toast.error('装备栏数据不存在');
         return false;
       }
 
+      const equipmentSlots = this.ensureEquipmentSlots(saveData);
+
       // 检查物品是否已装备 - 物品是对象结构
-      const inventoryItems = saveData.背包?.物品;
+      const inventoryItems = this.ensureRoleBackpack(saveData).物品;
       if (!inventoryItems || typeof inventoryItems !== 'object') {
         toast.error('背包数据异常');
         return false;
@@ -203,10 +250,9 @@ export class EnhancedActionQueueManager {
         // 即使物品状态已经是"未装备"，也尝试同步一下装备栏，以防数据不一致
         let foundInSlots = false;
         for (let i = 1; i <= 6; i++) {
-          const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-          const slotItem = saveData.装备栏[slotKey];
-          if (slotItem && typeof slotItem === 'object' && slotItem.物品ID === item.物品ID) {
-            saveData.装备栏[slotKey] = null; // 清理掉残留的装备槽位
+          const slotKey = `装备${i}`;
+          if (equipmentSlots[slotKey] === item.物品ID) {
+            equipmentSlots[slotKey] = null; // 清理掉残留的装备槽位
             foundInSlots = true;
           }
         }
@@ -223,9 +269,8 @@ export class EnhancedActionQueueManager {
       // 找到物品在哪个槽位 - 只支持新的引用格式
       let sourceSlot: string | null = null;
       for (let i = 1; i <= 6; i++) {
-        const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-        const slotItem = saveData.装备栏[slotKey];
-        if (slotItem && typeof slotItem === 'object' && '物品ID' in slotItem && slotItem.物品ID === item.物品ID) {
+        const slotKey = `装备${i}`;
+        if (equipmentSlots[slotKey] === item.物品ID) {
           sourceSlot = slotKey;
           break;
         }
@@ -234,16 +279,15 @@ export class EnhancedActionQueueManager {
       if (!sourceSlot) {
         toast.error('装备栏中未找到该装备，数据可能不一致');
         // 即使装备栏中没找到，也要清除已装备标记
-        if (saveData.背包?.物品?.[item.物品ID]) {
-          saveData.背包.物品[item.物品ID].已装备 = false;
-        }
+        const backpack = this.ensureRoleBackpack(saveData);
+        if (backpack?.物品?.[item.物品ID]) backpack.物品[item.物品ID].已装备 = false;
         gameStateStore.loadFromSaveData(saveData);
         await gameStateStore.saveGame();
         return true;
       }
 
       // 执行卸下操作
-      saveData.装备栏[sourceSlot as keyof typeof saveData.装备栏] = null;
+      equipmentSlots[sourceSlot] = null;
 
       // 清除物品的已装备标记 - 使用响应式替换
       if (inventoryItem) {
@@ -263,7 +307,7 @@ export class EnhancedActionQueueManager {
 
       // 注意：不需要将装备放回背包，因为装备从未从背包中移除
 
-      // 移除装备属性加成从存档的 角色基础信息.后天六司
+      // 移除装备属性加成从存档的 角色.身份.后天六司（V3）
       const { removeEquipmentBonus } = await import('./equipmentBonusApplier');
       removeEquipmentBonus(saveData, item.物品ID);
 
@@ -316,7 +360,8 @@ export class EnhancedActionQueueManager {
         return false;
       }
 
-      const inventoryItem = saveData.背包?.物品?.[item.物品ID];
+      const backpack = this.ensureRoleBackpack(saveData);
+      const inventoryItem = backpack?.物品?.[item.物品ID];
       if (!inventoryItem || inventoryItem.数量 < quantity) {
         toast.error('物品数量不足');
         return false;
@@ -328,14 +373,14 @@ export class EnhancedActionQueueManager {
       // 执行使用操作
       if (inventoryItem.数量 === quantity) {
         // 完全使用完，删除物品
-        delete saveData.背包.物品[item.物品ID];
+        delete backpack.物品[item.物品ID];
       } else {
         // 减少数量
         inventoryItem.数量 -= quantity;
       }
 
       // 🔥 [新架构] 更新 gameStateStore 并保存到 IndexedDB
-      gameStateStore.updateInventory({ 物品: saveData.背包.物品 });
+      gameStateStore.updateInventory({ 物品: backpack.物品 });
       await gameStateStore.saveGame();
 
       // 创建撤回数据
@@ -353,7 +398,8 @@ export class EnhancedActionQueueManager {
       this.saveUndoHistoryToStorage();
 
       // 添加到动作队列显示
-      const useEffect = (item.类型 === '其他' && '使用效果' in item) ? item.使用效果 : item.描述 || '无特殊效果';
+      const consumableTypes = ['丹药', '材料', '其他'];
+      const useEffect = (consumableTypes.includes(item.类型) && '使用效果' in item) ? item.使用效果 : item.描述 || '无特殊效果';
       actionQueue.addAction({
         type: 'use',
         itemName: item.名称,
@@ -392,7 +438,7 @@ export class EnhancedActionQueueManager {
       }
 
       // 获取背包物品对象
-      const inventoryItems = saveData.背包?.物品;
+      const inventoryItems = this.ensureRoleBackpack(saveData).物品;
       if (!inventoryItems || typeof inventoryItems !== 'object') {
         toast.error('背包数据异常');
         return false;
@@ -401,7 +447,8 @@ export class EnhancedActionQueueManager {
       let previousTechnique: CultivationTechniqueReference | null = null;
 
       // 检查是否已经在修炼其他功法
-      const currentTechnique = saveData.修炼功法;
+      const cultivationState = this.ensureRoleCultivation(saveData);
+      const currentTechnique = cultivationState.修炼功法;
       if (currentTechnique && currentTechnique.物品ID !== item.物品ID) {
         // 保存完整的功法数据+进度
         previousTechnique = { ...currentTechnique };
@@ -427,7 +474,7 @@ export class EnhancedActionQueueManager {
 
       // 设置修炼功法 - 只存储引用（物品ID和名称）
       // 修炼进度存储在背包物品中，不存储在这里
-      saveData.修炼功法 = {
+      cultivationState.修炼功法 = {
         物品ID: inventoryItem.物品ID,
         名称: inventoryItem.名称
       };
@@ -491,12 +538,18 @@ export class EnhancedActionQueueManager {
       // 🔥 [新架构] 从 gameStateStore 获取存档数据
       const gameStateStore = useGameStateStore();
       const saveData = gameStateStore.toSaveData();
-      if (!saveData?.修炼功法) {
+      if (!saveData) {
+        toast.error('存档数据不存在');
+        return false;
+      }
+
+      const cultivationState = this.ensureRoleCultivation(saveData);
+      if (!cultivationState?.修炼功法) {
         toast.error('当前没有正在修炼的功法');
         return false;
       }
 
-      const techniqueToStop = saveData.修炼功法;
+      const techniqueToStop = cultivationState.修炼功法;
       const techniqueId = techniqueToStop.物品ID;
       const techniqueName = techniqueToStop.名称;
 
@@ -506,7 +559,7 @@ export class EnhancedActionQueueManager {
       }
 
       // 获取背包物品对象
-      const inventoryItems = saveData.背包?.物品;
+      const inventoryItems = this.ensureRoleBackpack(saveData).物品;
       if (!inventoryItems || typeof inventoryItems !== 'object') {
         toast.error('背包数据异常');
         return false;
@@ -515,7 +568,7 @@ export class EnhancedActionQueueManager {
       const inventoryItem = inventoryItems[techniqueId];
 
       // 清空修炼槽位，设置修炼状态为false（设置为null）
-      saveData.修炼功法 = null;
+      cultivationState.修炼功法 = null;
 
       // 清除功法的已装备和修炼中标记 - 使用响应式替换
       if (inventoryItem && inventoryItem.类型 === '功法') {
@@ -698,22 +751,23 @@ export class EnhancedActionQueueManager {
   }
   
   private async undoEquip(action: UndoAction, saveData: SaveData): Promise<void> {
+    const equipmentSlots = this.ensureEquipmentSlots(saveData);
+    const inventoryItems = this.ensureRoleBackpack(saveData).物品;
     // 找到装备的位置并卸下
     for (let i = 1; i <= 6; i++) {
-      const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-      const slotItem = saveData.装备栏[slotKey];
-      if (slotItem && typeof slotItem === 'object' && '物品ID' in slotItem && slotItem.物品ID === action.itemId) {
+      const slotKey = `装备${i}`;
+      if (equipmentSlots[slotKey] === action.itemId) {
         // 移除装备属性加成（撤回装备 = 卸下装备）
         const { removeEquipmentBonus } = await import('./equipmentBonusApplier');
         removeEquipmentBonus(saveData, action.itemId);
 
         // 卸下装备
-        saveData.装备栏[slotKey] = null;
+        equipmentSlots[slotKey] = null;
 
         // 清除物品的已装备标记
-        if (saveData.背包?.物品?.[action.itemId]) {
-          const inventoryItem = saveData.背包.物品[action.itemId];
-          saveData.背包.物品[action.itemId] = { ...inventoryItem, 已装备: false };
+        if (inventoryItems?.[action.itemId]) {
+          const inventoryItem = inventoryItems[action.itemId];
+          inventoryItems[action.itemId] = { ...inventoryItem, 已装备: false };
         }
 
         // 如果有被替换的装备，恢复它
@@ -722,14 +776,11 @@ export class EnhancedActionQueueManager {
           const { applyEquipmentBonus } = await import('./equipmentBonusApplier');
           applyEquipmentBonus(saveData, action.restoreData.replacedItem.物品ID);
 
-          saveData.装备栏[slotKey] = {
-            物品ID: action.restoreData.replacedItem.物品ID,
-            名称: action.restoreData.replacedItem.名称
-          };
+          equipmentSlots[slotKey] = action.restoreData.replacedItem.物品ID;
           // 设置被替换物品的已装备标记
-          if (saveData.背包?.物品?.[action.restoreData.replacedItem.物品ID]) {
-            const replacedInventoryItem = saveData.背包.物品[action.restoreData.replacedItem.物品ID];
-            saveData.背包.物品[action.restoreData.replacedItem.物品ID] = { ...replacedInventoryItem, 已装备: true };
+          if (inventoryItems?.[action.restoreData.replacedItem.物品ID]) {
+            const replacedInventoryItem = inventoryItems[action.restoreData.replacedItem.物品ID];
+            inventoryItems[action.restoreData.replacedItem.物品ID] = { ...replacedInventoryItem, 已装备: true };
           }
         }
 
@@ -757,17 +808,16 @@ export class EnhancedActionQueueManager {
     if (!action.restoreData?.originalSlot) return;
 
     const originalSlot = action.restoreData.originalSlot;
+    const equipmentSlots = this.ensureEquipmentSlots(saveData);
 
     // 重新装备到原来的槽位
-    saveData.装备栏[originalSlot as keyof typeof saveData.装备栏] = {
-      物品ID: action.itemId,
-      名称: action.itemName
-    };
+    equipmentSlots[originalSlot] = action.itemId;
 
     // 设置物品的已装备标记
-    if (saveData.背包?.物品?.[action.itemId]) {
-      const inventoryItem = saveData.背包.物品[action.itemId];
-      saveData.背包.物品[action.itemId] = { ...inventoryItem, 已装备: true };
+    const inventoryItems = this.ensureRoleBackpack(saveData).物品;
+    if (inventoryItems?.[action.itemId]) {
+      const inventoryItem = inventoryItems[action.itemId];
+      inventoryItems[action.itemId] = { ...inventoryItem, 已装备: true };
     }
 
     // 应用装备属性加成
@@ -777,11 +827,8 @@ export class EnhancedActionQueueManager {
   
   private async undoUse(action: UndoAction, saveData: SaveData): Promise<void> {
     if (action.itemData) {
-        if (!saveData.背包) saveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
-        if (!saveData.背包.物品) saveData.背包.物品 = {};
-        
-        // Restore the item to its state before it was used
-        saveData.背包.物品[action.itemId] = JSON.parse(JSON.stringify(action.itemData));
+        const backpack = this.ensureRoleBackpack(saveData);
+        backpack.物品[action.itemId] = JSON.parse(JSON.stringify(action.itemData));
     } else {
         toast.warning('物品已完全消失，且无备份数据，无法恢复');
     }
@@ -792,17 +839,19 @@ export class EnhancedActionQueueManager {
     if (!cultivationState) return;
 
     // 获取背包物品对象
-    const inventoryItems = saveData.背包?.物品;
+    const inventoryItems = this.ensureRoleBackpack(saveData).物品;
     if (!inventoryItems || typeof inventoryItems !== 'object') {
       console.error('背包数据异常，无法撤回修炼');
       return;
     }
 
+    const cultivation = this.ensureRoleCultivation(saveData);
+
     // 由于修炼功法不再涉及背包操作，撤回时只需要恢复修炼状态
     if (cultivationState.previousTechnique) {
       // 恢复之前的修炼功法 - previousTechnique 现在已包含完整的数据+进度
       const previousId = cultivationState.previousTechnique.物品ID;
-      saveData.修炼功法 = { ...cultivationState.previousTechnique };
+      cultivation.修炼功法 = { ...cultivationState.previousTechnique };
 
       // 标记背包中的功法为已装备和修炼中
       const previousItem = inventoryItems[previousId];
@@ -815,7 +864,7 @@ export class EnhancedActionQueueManager {
       }
     } else {
       // 清空修炼槽位
-      saveData.修炼功法 = null;
+      cultivation.修炼功法 = null;
     }
 
   }
@@ -870,31 +919,26 @@ export class EnhancedActionQueueManager {
     const gameStateStore = useGameStateStore();
     const saveData = gameStateStore.toSaveData();
     if (!saveData) return null;
+
+    const equipmentSlots = this.ensureEquipmentSlots(saveData);
+    const inventoryItems = this.ensureRoleBackpack(saveData).物品;
     
     // 在背包中查找
-    if (saveData.背包?.物品) {
-      for (const item of Object.values(saveData.背包.物品)) {
-        if (item && typeof item === 'object' && item.名称 === itemName) {
-          return item;
+    if (inventoryItems) {
+      for (const item of Object.values(inventoryItems as Record<string, any>)) {
+        if (item && typeof item === 'object' && (item as any).名称 === itemName) {
+          return item as Item;
         }
       }
     }
     
-    // 在装备栏中查找
-    if (saveData.装备栏) {
-      for (let i = 1; i <= 6; i++) {
-        const slotKey = `装备${i}` as keyof typeof saveData.装备栏;
-        const slotItem = saveData.装备栏[slotKey];
-        if (slotItem && typeof slotItem === 'object' && '名称' in slotItem && slotItem.名称 === itemName) {
-          // 需要从背包中获取完整的物品数据
-          if (saveData.背包?.物品) {
-            const fullItem = Object.values(saveData.背包.物品).find(item => item.名称 === itemName);
-            if (fullItem) {
-              return fullItem;
-            }
-          }
-        }
-      }
+    // 在装备槽位中查找（槽位存物品ID，需回查背包）
+    for (let i = 1; i <= 6; i++) {
+      const slotKey = `装备${i}`;
+      const equippedItemId = equipmentSlots[slotKey];
+      if (!equippedItemId) continue;
+      const equippedItem = inventoryItems?.[equippedItemId];
+      if (equippedItem && equippedItem.名称 === itemName) return equippedItem;
     }
     
     return null;

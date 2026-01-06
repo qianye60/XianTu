@@ -58,7 +58,7 @@ const characterName = computed(() => {
 
 const characterRealm = computed(() => {
   try {
-    return formatRealmWithStage(gameStateStore.playerStatus?.境界)
+    return formatRealmWithStage(gameStateStore.attributes?.境界)
   } catch (e) {
     console.error('[TopBar] Error getting characterRealm:', e)
     return t('凡人')
@@ -67,7 +67,7 @@ const characterRealm = computed(() => {
 
 const currentLocation = computed(() => {
   try {
-    return gameStateStore.playerStatus?.位置?.描述 || t('初始地')
+    return gameStateStore.location?.描述 || t('初始地')
   } catch (e) {
     console.error('[TopBar] Error getting currentLocation:', e)
     return t('初始地')

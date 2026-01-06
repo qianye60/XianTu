@@ -10,15 +10,19 @@ import { getTavernHelper, clearAllCharacterData, isTavernEnv } from '@/utils/tav
 import { ensureSaveDataHasTavernNsfw } from '@/utils/nsfw';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
-import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
+import { createCharacter as createCharacterAPI, fetchCharacterProfile, updateCharacterSave, verifyStoredToken } from '@/services/request';
+import { isBackendConfigured } from '@/services/backendConfig';
 import { validateGameData } from '@/utils/dataValidation';
 import { getAIDataRepairSystemPrompt } from '@/utils/prompts/tasks/dataRepairPrompts';
 import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/utils/lifespanCalculator'; // <-- 导入寿命计算工具
 import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 导入掌握技能计算工具
 import { updateStatusEffects } from '@/utils/statusEffectManager'; // <-- 导入状态效果管理工具
+import { detectLegacySaveData, isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import SaveMigrationModal from '@/components/dashboard/components/SaveMigrationModal.vue';
 import type { World} from '@/types';
-import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm, NpcProfile, Item } from '@/types/game.d.ts';
+import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm, NpcProfile, Item } from '@/types/game';
 
 // 假设的创角数据包，实际应从创角流程获取
 interface CreationPayload {
@@ -116,9 +120,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
         const enhancedSlot = {
           ...slot,
           id: key,
-          角色名字: slot.角色名字 || profile.角色基础信息?.名字 || '未知',
-          境界: slot.境界 || slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
-          位置: slot.位置 || slot.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+          角色名字: slot.角色名字 || profile.角色?.名字 || '未知',
+          境界: slot.境界 || slot.存档数据?.属性?.境界?.名称 || '凡人',
+          位置: slot.位置 || slot.存档数据?.位置?.描述 || '未知',
           保存时间: slot.保存时间 || null,
           最后保存时间: slot.最后保存时间 ?? slot.保存时间 ?? null,
           游戏时长: slot.游戏时长 || 0
@@ -130,9 +134,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const enhancedSlot = {
         ...profile.存档,
         id: 'online_save',
-        角色名字: profile.存档.角色名字 || profile.角色基础信息?.名字 || '未知',
-        境界: profile.存档.境界 || profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
-        位置: profile.存档.位置 || profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+        角色名字: profile.存档.角色名字 || profile.角色?.名字 || '未知',
+        境界: profile.存档.境界 || profile.存档.存档数据?.属性?.境界?.名称 || '凡人',
+        位置: profile.存档.位置 || profile.存档.存档数据?.位置?.描述 || '未知',
         保存时间: profile.存档.保存时间 || null,
         最后保存时间: profile.存档.最后保存时间 ?? profile.存档.保存时间 ?? null,
         游戏时长: profile.存档.游戏时长 || 0
@@ -207,26 +211,29 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.log('角色商店', `[同步] 自动更新玩家年龄: ${更新后年龄}岁`);
 
         // 更新所有NPC的年龄（添加安全检查，避免访问已删除的NPC）
-        if (slot.存档数据?.人物关系 && slot.存档数据.游戏时间) {
+        const npcMap = (slot.存档数据 as any)?.社交?.关系;
+        const gameTime = (slot.存档数据 as any)?.元数据?.时间;
+        if (npcMap && typeof npcMap === 'object' && gameTime) {
           let npcCount = 0;
-          Object.entries(slot.存档数据.人物关系).forEach(([key, npc]: [string, NpcProfile]) => {
+          Object.entries(npcMap as Record<string, any>).forEach(([key, npc]) => {
+            const npcProfile = npc as NpcProfile;
             // 🔥 添加详细的安全检查
-            if (!npc || typeof npc !== 'object') {
+            if (!npcProfile || typeof npcProfile !== 'object') {
               debug.warn('角色商店', `[同步] 跳过无效的NPC数据: ${key}`);
               return;
             }
-            if (!npc.名字) {
+            if (!npcProfile.名字) {
               debug.warn('角色商店', `[同步] 跳过缺少名字的NPC: ${key}`);
               return;
             }
 
             try {
               if (slot.存档数据) {
-                updateNpcLifespanFromGameTime(npc, slot.存档数据.游戏时间);
+                updateNpcLifespanFromGameTime(npcProfile, gameTime);
                 npcCount++;
               }
             } catch (npcError) {
-              debug.warn('角色商店', `[同步] 更新NPC ${npc.名字} 年龄失败:`, npcError);
+              debug.warn('角色商店', `[同步] 更新NPC ${npcProfile.名字} 年龄失败:`, npcError);
             }
           });
           debug.log('角色商店', `[同步] 自动更新${npcCount}个NPC年龄`);
@@ -243,25 +250,27 @@ export const useCharacterStore = defineStore('characterV3', () => {
       slot.保存时间 = new Date().toISOString();
 
       // 提取元数据用于存档列表显示
-      slot.角色名字 = slot.存档数据.角色基础信息?.名字;
-      const playerState = slot.存档数据.玩家角色状态;
-      if (playerState) {
+      slot.角色名字 = (slot.存档数据 as any).角色?.身份?.名字;
+      const playerAttributes = (slot.存档数据 as any).角色?.属性 ?? null;
+      const playerLocation = (slot.存档数据 as any).角色?.位置 ?? null;
+      if (playerAttributes) {
         // 境界统一为 Realm 对象
-        slot.境界 = playerState.境界?.名称 || '凡人';
-        slot.位置 = playerState.位置?.描述 || '未知';
+        slot.境界 = playerAttributes.境界?.名称 || '凡人';
 
         // 计算修为进度百分比（从境界的当前进度获取）
-        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
-          const realm = playerState.境界 as Realm;
+        if (typeof playerAttributes.境界 === 'object' && playerAttributes.境界 !== null) {
+          const realm = playerAttributes.境界 as Realm;
           if (realm.下一级所需 > 0) {
             slot.修为进度 = Math.floor((realm.当前进度 / realm.下一级所需) * 100);
           }
         }
       }
 
-      // 游戏时间
-      if (slot.存档数据.游戏时间) {
-        const time = slot.存档数据.游戏时间;
+      slot.位置 = playerLocation?.描述 || '未知';
+
+      // 时间
+      const time = (slot.存档数据 as any)?.元数据?.时间;
+      if (time) {
         slot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
       }
 
@@ -333,7 +342,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
   /**
    * 创建一个全新的角色 (AI增强版)
-   * @param payload 包含角色基础信息和世界数据的数据包
+   * @param payload 包含角色和世界数据的数据包
    * @returns 创建成功则返回角色的基础信息，否则返回 undefined
    */
   const createNewCharacter = async (payload: CreationPayload): Promise<CharacterBaseInfo | undefined> => {
@@ -418,7 +427,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         const now = new Date().toISOString();
         newProfile = {
           模式: '单机',
-          角色基础信息: initialSaveData.角色基础信息 || authoritativeBaseInfo, // 使用AI处理后的数据
+          角色: (initialSaveData as any)?.角色?.身份 || authoritativeBaseInfo, // 仅存静态身份信息
           存档列表: {
             '存档1': {
               存档名: '存档1',
@@ -440,7 +449,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       } else { // 联机模式
         newProfile = {
           模式: '联机',
-          角色基础信息: initialSaveData.角色基础信息 || authoritativeBaseInfo, // 使用AI处理后的数据
+          角色: (initialSaveData as any)?.角色?.身份 || authoritativeBaseInfo, // 仅存静态身份信息
           存档: {
             存档名: '云端修行',
             保存时间: new Date().toISOString(),
@@ -516,7 +525,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       return;
     }
 
-    const characterName = rootState.value.角色列表[charId]?.角色基础信息.名字 || charId;
+    const characterName = rootState.value.角色列表[charId]?.角色.名字 || charId;
 
     // 🔥 [新架构] 如果删除的是当前激活的角色，清理 gameStateStore
     if (rootState.value.当前激活存档?.角色ID === charId) {
@@ -590,6 +599,48 @@ export const useCharacterStore = defineStore('characterV3', () => {
         return false;
       }
 
+      // 联机模式：优先从云端拉取权威存档（失败则回退到本地缓存）
+      if (profile.模式 === '联机' && isBackendConfigured()) {
+        // 先验证token有效性
+        const tokenValid = await verifyStoredToken();
+        if (!tokenValid) {
+          debug.warn('角色商店', '联机模式token无效，跳过云端拉取');
+          // 不阻止加载，继续使用本地缓存
+        } else {
+          try {
+            const cloudProfile = await fetchCharacterProfile(charId) as any;
+            const cloudSave = cloudProfile?.game_save;
+            const cloudSaveData = cloudSave?.save_data;
+
+            if (cloudSaveData) {
+              targetSlot.存档数据 = cloudSaveData as SaveData;
+
+              if (cloudSave?.game_time && typeof cloudSave.game_time === 'string') {
+                targetSlot.游戏内时间 = cloudSave.game_time;
+              }
+              if (cloudSave?.world_map && typeof cloudSave.world_map === 'object') {
+                (targetSlot as any).世界地图 = cloudSave.world_map;
+              }
+
+              await storage.saveSaveData(charId, slotKey, targetSlot.存档数据);
+
+              if (profile.存档) {
+                profile.存档.云端同步信息 = {
+                  最后同步: cloudSave?.last_sync ? String(cloudSave.last_sync) : new Date().toISOString(),
+                  版本: typeof cloudSave?.version === 'number' ? cloudSave.version : (profile.存档.云端同步信息?.版本 ?? 1),
+                  需要同步: false,
+                };
+                await commitMetadataToStorage();
+              }
+
+              debug.log('角色商店', '联机存档已从云端拉取并缓存到本地');
+            }
+          } catch (error) {
+            debug.warn('角色商店', '联机存档云端拉取失败，回退本地缓存', error);
+          }
+        }
+      }
+
       // 🔥 [关键修复] 如果存档数据不在内存中，先从 IndexedDB 加载
       if (!targetSlot.存档数据) {
         console.log('=== [诊断日志-loadGame] 从IndexedDB加载 ===')
@@ -598,7 +649,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         try {
           const saveData = await storage.loadSaveData(charId, slotKey);
           if (saveData) {
-            console.log('[15] 从IndexedDB加载的背包.灵石数据:', saveData.背包?.灵石)
+            console.log('[15] 从IndexedDB加载的角色.背包.灵石数据:', (saveData as any).角色?.背包?.灵石)
             targetSlot.存档数据 = saveData;
             debug.log('角色商店', `✅ 已从 IndexedDB 加载存档数据`);
           } else {
@@ -610,6 +661,64 @@ export const useCharacterStore = defineStore('characterV3', () => {
           debug.error('角色商店', '从 IndexedDB 加载存档数据失败', error);
           toast.error('加载存档数据失败！');
           return false;
+        }
+      }
+
+      // V3 迁移：检测到旧结构必须先迁移（写回同槽位），否则不允许加载
+      if (targetSlot.存档数据) {
+        const detection = detectLegacySaveData(targetSlot.存档数据);
+        if (detection.needsMigration) {
+          const shouldContinue = await new Promise<boolean>((resolve) => {
+            uiStore.showDetailModal({
+              title: '存档迁移（必须）',
+              component: SaveMigrationModal,
+              props: {
+                characterId: charId,
+                saveSlot: slotKey,
+                legacyKeysFound: detection.legacyKeysFound,
+                onConfirm: async () => {
+                  try {
+                    const original = targetSlot!.存档数据 as SaveData;
+                    const backupSlot = `__backup__${slotKey}__${new Date().toISOString().replace(/[:.]/g, '-')}`;
+                    await storage.saveSaveData(charId, backupSlot, original);
+
+                    const { migrated, report } = migrateSaveDataToLatest(original);
+                    const validation = validateSaveDataV3(migrated as any);
+                    if (!validation.isValid) {
+                      console.error('[存档迁移] 迁移后校验失败:', validation.errors, report);
+                      toast.error('迁移失败：新结构校验不通过，请查看控制台');
+                      resolve(false);
+                      return;
+                    }
+
+                    if (validation.warnings.length > 0) {
+                      console.warn('[存档迁移] 迁移告警:', validation.warnings);
+                    }
+
+                    await storage.saveSaveData(charId, slotKey, migrated as any);
+                    targetSlot!.存档数据 = migrated as any;
+                    debug.log('角色商店', `[存档迁移] ✅ 已写回 V3：${charId}/${slotKey}`);
+                    resolve(true);
+                  } catch (e) {
+                    console.error('[存档迁移] ❌ 迁移过程异常:', e);
+                    toast.error('迁移失败：发生异常，请查看控制台');
+                    resolve(false);
+                  } finally {
+                    uiStore.hideDetailModal();
+                  }
+                },
+                onCancel: () => {
+                  uiStore.hideDetailModal();
+                  resolve(false);
+                },
+              }
+            });
+          });
+
+          if (!shouldContinue) {
+            toast.info('已取消迁移，存档未加载');
+            return false;
+          }
         }
       }
 
@@ -648,10 +757,31 @@ export const useCharacterStore = defineStore('characterV3', () => {
       if (targetSlot.存档数据) {
         gameStateStore.loadFromSaveData(targetSlot.存档数据);
         debug.log('角色商店', '✅ 存档数据已加载到 gameStateStore');
+
+        // 🔥 初始化向量记忆服务并导入现有长期记忆
+        try {
+          const { vectorMemoryService } = await import('@/services/vectorMemoryService');
+          const saveSlotId = `${charId}_${slotKey}`;
+          await vectorMemoryService.init(saveSlotId);
+
+          // 如果启用了向量记忆且向量库为空，导入现有长期记忆
+          if (vectorMemoryService.isEnabled()) {
+            const existingMemories = (targetSlot.存档数据 as any).社交?.记忆?.长期记忆 || [];
+            if (existingMemories.length > 0) {
+              const stats = await vectorMemoryService.getStats();
+              if (stats.total === 0) {
+                debug.log('角色商店', `向量记忆库为空，开始导入 ${existingMemories.length} 条长期记忆`);
+                await vectorMemoryService.importLongTermMemories(existingMemories);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[角色商店] 初始化向量记忆服务失败（非致命）:', e);
+        }
       }
 
       debug.log('角色商店', '加载完成');
-      toast.success(`已成功加载【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名 || slotKey}`);
+      toast.success(`已成功加载【${profile.角色?.名字 || '未知角色'}】的存档: ${targetSlot.存档名 || slotKey}`);
       return true;
 
     } catch (error) {
@@ -694,7 +824,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 直接将存档数据保存到 IndexedDB
       await storage.saveSaveData(active.角色ID, active.存档槽位, currentSlot.存档数据);
 
-      debug.log('角色商店', `✅ 已将【${profile.角色基础信息.名字}】的存档保存至 IndexedDB`);
+      debug.log('角色商店', `✅ 已将【${profile.角色.名字}】的存档保存至 IndexedDB`);
 
     } catch (error) {
       debug.error('角色商店', '保存角色存档失败', error);
@@ -731,9 +861,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       debug.log('角色商店', '✅ 从 IndexedDB 加载存档数据');
 
-      // 修复三千大道数据：确保经验值不是undefined
-      if (saveData.三千大道) {
-        const daoSystem = saveData.三千大道;
+      // 修复大道数据：确保经验值不是undefined
+      if (saveData.大道) {
+        const daoSystem = saveData.大道;
 
         // 修复大道数据（新结构：数据+进度合并）
         if (daoSystem.大道列表) {
@@ -770,17 +900,18 @@ export const useCharacterStore = defineStore('characterV3', () => {
         }
       }
 
-      // 根据游戏时间自动更新寿命（年龄）- 用于实时显示
+      // 根据时间自动更新寿命（年龄）- 用于实时显示
       try {
         const 更新后年龄 = updateLifespanFromGameTime(saveData);
         debug.log('角色商店', `[同步] 自动更新玩家年龄: ${更新后年龄}岁`);
 
         // 更新所有NPC的年龄
-        if (saveData.人物关系 && saveData.游戏时间) {
+        if ((saveData as any).社交?.关系 && (saveData as any).元数据?.时间) {
           let npcCount = 0;
-          Object.values(saveData.人物关系).forEach((npc: NpcProfile) => {
-            if (npc && typeof npc === 'object') {
-              updateNpcLifespanFromGameTime(npc, saveData.游戏时间);
+          Object.values((saveData as any).社交.关系 as Record<string, any>).forEach((npc) => {
+            const npcProfile = npc as NpcProfile;
+            if (npcProfile && typeof npcProfile === 'object') {
+              updateNpcLifespanFromGameTime(npcProfile, (saveData as any).元数据.时间);
               npcCount++;
             }
           });
@@ -812,17 +943,22 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // ⚠️ 保留本地的记忆数据，避免被酒馆的旧数据覆盖
       // 因为在AI响应流程中，记忆会在本地先更新，然后才同步到酒馆
-      const localMemory = slot.存档数据?.记忆;
+      const localMemory = (slot.存档数据 as any)?.社交?.记忆;
       if (localMemory) {
-        saveData.记忆 = localMemory;
+        (saveData as any).社交 = (saveData as any).社交 || {};
+        (saveData as any).社交.记忆 = localMemory;
         debug.log('角色商店', '[同步] 保留本地记忆数据，避免被酒馆旧数据覆盖');
       }
 
       // ⚠️ 保留本地的叙事历史，避免被酒馆的旧数据覆盖
       // 叙事历史包含了状态变更日志，不应该被同步覆盖
-      const localNarrativeHistory = slot.存档数据?.叙事历史;
+      const localNarrativeHistory = (slot.存档数据 as any)?.系统?.历史?.叙事;
       if (localNarrativeHistory && Array.isArray(localNarrativeHistory) && localNarrativeHistory.length > 0) {
-        saveData.叙事历史 = localNarrativeHistory;
+        (saveData as any).系统 = (saveData as any).系统 || {};
+        (saveData as any).系统.历史 = {
+          ...(((saveData as any).系统.历史 ?? {}) as any),
+          叙事: localNarrativeHistory,
+        };
         debug.log('角色商店', `[同步] 保留本地叙事历史数据 (${localNarrativeHistory.length}条)，避免被酒馆旧数据覆盖`);
       }
 
@@ -851,8 +987,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       await commitMetadataToStorage();
       debug.log('角色商店', '✅ 已从酒馆同步最新存档数据');
-      debug.log('角色商店', `最终背包物品数量: ${Object.keys(saveData.背包?.物品 || {}).length}`);
-      debug.log('角色商店', `是否有世界信息: ${!!saveData.世界信息}`);
+      debug.log('角色商店', `最终背包物品数量: ${Object.keys((saveData as any).角色?.背包?.物品 || {}).length}`);
+      debug.log('角色商店', `是否有世界: ${!!(saveData as any).世界?.信息}`);
 
       // 🔥 [新架构] 状态效果已在saveData中更新，会在下次保存时持久化到IndexedDB
       // 不再需要同步到酒馆
@@ -887,9 +1023,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
     debug.log('角色商店', '[直接更新] 开始更新存档数据到Store...');
 
     // 保留本地专有数据（叙事历史）
-    const localNarrativeHistory = slot.存档数据?.叙事历史;
+    const localNarrativeHistory = slot.存档数据?.历史?.叙事;
     if (localNarrativeHistory && Array.isArray(localNarrativeHistory) && localNarrativeHistory.length > 0) {
-      updatedSaveData.叙事历史 = localNarrativeHistory;
+      updatedSaveData.历史 = {
+        ...(updatedSaveData.历史 ?? {}),
+        叙事: localNarrativeHistory,
+      };
       debug.log('角色商店', `[直接更新] 保留本地叙事历史数据 (${localNarrativeHistory.length}条)`);
     }
 
@@ -953,15 +1092,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
         throw new Error('无法生成存档数据，游戏状态不完整。');
       }
 
-      console.log('[11] toSaveData()返回的背包.灵石数据:', currentSaveData.背包?.灵石)
+      console.log('[11] toSaveData()返回的角色.背包.灵石数据:', (currentSaveData as any).角色?.背包?.灵石)
 
       // 2. 自动更新年龄、技能等派生数据
       updateLifespanFromGameTime(currentSaveData);
       updateMasteredSkills(currentSaveData);
-      if (currentSaveData.人物关系 && currentSaveData.游戏时间) {
-        Object.values(currentSaveData.人物关系).forEach((npc) => {
+      if ((currentSaveData as any).社交?.关系 && (currentSaveData as any).元数据?.时间) {
+        Object.values((currentSaveData as any).社交.关系).forEach((npc) => {
           if (npc && typeof npc === 'object') {
-            updateNpcLifespanFromGameTime(npc as NpcProfile, currentSaveData.游戏时间);
+            updateNpcLifespanFromGameTime(npc as NpcProfile, (currentSaveData as any).元数据.时间);
           }
         });
       }
@@ -969,7 +1108,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[12] 即将保存到IndexedDB的数据:', {
         角色ID: active.角色ID,
         存档槽位: active.存档槽位,
-        背包灵石: currentSaveData.背包?.灵石
+        背包灵石: (currentSaveData as any).角色?.背包?.灵石
       })
 
       // 3. 🔥 核心变更：将巨大的SaveData独立保存到IndexedDB
@@ -979,13 +1118,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 4. 更新Pinia Store中的 *元数据*
       slot.保存时间 = new Date().toISOString();
-      const playerState = currentSaveData.玩家角色状态;
-      if (playerState) {
-        slot.境界 = playerState.境界?.名称 || '凡人';
-        slot.位置 = playerState.位置?.描述 || '未知';
-      }
-      if (currentSaveData.游戏时间) {
-        const time = currentSaveData.游戏时间;
+      const playerAttributes = (currentSaveData as any).角色?.属性;
+      const playerLocation = (currentSaveData as any).角色?.位置;
+      slot.境界 = playerAttributes?.境界?.名称 || '凡人';
+      slot.位置 = playerLocation?.描述 || '未知';
+      if ((currentSaveData as any).元数据?.时间) {
+        const time = (currentSaveData as any).元数据.时间;
         slot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
       }
       // 确保存档数据在内存中也被移除，以保持一致性
@@ -999,8 +1137,44 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
       await commitMetadataToStorage();
 
-      // 6. 云端同步（可选）
-      // ... (云端同步逻辑保持不变)
+      // 6. 云端同步（联机模式）
+      if (profile.模式 === '联机') {
+        try {
+          const worldMapToSync = (slot as any).世界地图 ?? {};
+          const gameTimeToSync = slot.游戏内时间 ?? null;
+
+          const result = await updateCharacterSave(active.角色ID, {
+            save_data: currentSaveData,
+            world_map: worldMapToSync,
+            game_time: gameTimeToSync
+          });
+
+          const nextVersion =
+            typeof (result as any)?.version === 'number'
+              ? (result as any).version
+              : (profile.存档?.云端同步信息?.版本 ?? 1) + 1;
+
+          if (profile.存档) {
+            profile.存档.云端同步信息 = {
+              最后同步: new Date().toISOString(),
+              版本: nextVersion,
+              需要同步: false,
+            };
+          }
+
+          await commitMetadataToStorage();
+        } catch (error) {
+          debug.warn('角色商店', '云端同步失败（联机模式）', error);
+          if (profile.存档) {
+            profile.存档.云端同步信息 = {
+              最后同步: profile.存档.云端同步信息?.最后同步 || new Date().toISOString(),
+              版本: profile.存档.云端同步信息?.版本 || 1,
+              需要同步: true,
+            };
+            await commitMetadataToStorage();
+          }
+        }
+      }
 
       debug.log('角色商店', `存档【${slot.存档名}】元数据已更新`);
 
@@ -1173,26 +1347,27 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 1. 创建新存档槽位，基于当前游戏状态
       const now = new Date().toISOString();
-      const playerState = currentSaveData.玩家角色状态;
+      const playerAttributes = (currentSaveData as any).角色?.属性;
+      const playerLocation = (currentSaveData as any).角色?.位置;
 
       const newSlot: SaveSlot = {
         存档名: saveName,
         保存时间: now,
-        角色名字: currentSaveData.角色基础信息?.名字,
-        境界: playerState?.境界?.名称 || '凡人',
-        位置: playerState?.位置?.描述 || '未知',
+        角色名字: (currentSaveData as any).角色?.身份?.名字,
+        境界: playerAttributes?.境界?.名称 || '凡人',
+        位置: playerLocation?.描述 || '未知',
         // 深拷贝存档数据
         存档数据: JSON.parse(JSON.stringify(currentSaveData))
       };
 
       // 计算修为进度
-      if (playerState?.境界 && playerState.境界.下一级所需 > 0) {
-        newSlot.修为进度 = Math.floor((playerState.境界.当前进度 / playerState.境界.下一级所需) * 100);
+      if (playerAttributes?.境界 && playerAttributes.境界.下一级所需 > 0) {
+        newSlot.修为进度 = Math.floor((playerAttributes.境界.当前进度 / playerAttributes.境界.下一级所需) * 100);
       }
 
-      // 更新游戏时间
-      if (currentSaveData.游戏时间) {
-        const time = currentSaveData.游戏时间;
+      // 更新时间
+      if ((currentSaveData as any).元数据?.时间) {
+        const time = (currentSaveData as any).元数据.时间;
         newSlot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
       }
 
@@ -1257,10 +1432,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 2. 自动更新年龄
       try {
         updateLifespanFromGameTime(currentSaveData);
-        if (currentSaveData.人物关系 && currentSaveData.游戏时间) {
-          Object.values(currentSaveData.人物关系).forEach((npc) => {
+        if ((currentSaveData as any).社交?.关系 && (currentSaveData as any).元数据?.时间) {
+          Object.values((currentSaveData as any).社交.关系).forEach((npc) => {
             if (npc && typeof npc === 'object') {
-              updateNpcLifespanFromGameTime(npc as NpcProfile, currentSaveData.游戏时间);
+              updateNpcLifespanFromGameTime(npc as NpcProfile, (currentSaveData as any).元数据.时间);
             }
           });
         }
@@ -1269,7 +1444,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 3. 提取元数据
-      const playerState = currentSaveData.玩家角色状态;
+      const playerAttributes = (currentSaveData as any).角色?.属性;
+      const playerLocation = (currentSaveData as any).角色?.位置;
       const now = new Date().toISOString();
 
       const targetSlotList = profile.存档列表;
@@ -1277,7 +1453,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       console.log(`[saveToSlot] 保存到槽位 "${slotName}"`, {
         角色ID: active.角色ID,
-        角色名: profile.角色基础信息?.名字,
+        角色名: profile.角色?.名字,
         当前激活槽位: active.存档槽位,
         目标槽位: slotName,
         说明: '特殊存档不受当前激活存档影响，始终保存到角色级别'
@@ -1288,21 +1464,21 @@ export const useCharacterStore = defineStore('characterV3', () => {
         存档名: slotName,
         保存时间: now,
         存档数据: currentSaveData,
-        角色名字: currentSaveData.角色基础信息?.名字,
-        境界: playerState?.境界?.名称 || '凡人',
-        位置: playerState?.位置?.描述 || '未知',
+        角色名字: (currentSaveData as any).角色?.身份?.名字,
+        境界: playerAttributes?.境界?.名称 || '凡人',
+        位置: playerLocation?.描述 || '未知',
         修为进度: 0,
         游戏内时间: undefined
       };
 
       // 计算修为进度
-      if (playerState?.境界 && playerState.境界.下一级所需 > 0) {
-        newSlotData.修为进度 = Math.floor((playerState.境界.当前进度 / playerState.境界.下一级所需) * 100);
+      if (playerAttributes?.境界 && playerAttributes.境界.下一级所需 > 0) {
+        newSlotData.修为进度 = Math.floor((playerAttributes.境界.当前进度 / playerAttributes.境界.下一级所需) * 100);
       }
 
-      // 更新游戏时间
-      if (currentSaveData.游戏时间) {
-        const time = currentSaveData.游戏时间;
+      // 更新时间
+      if ((currentSaveData as any).元数据?.时间) {
+        const time = (currentSaveData as any).元数据.时间;
         newSlotData.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
       }
 
@@ -1510,7 +1686,29 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 🔥 关键修复：先将存档数据保存到 IndexedDB
     if (saveData.存档数据) {
       const patched = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(saveData.存档数据) as any) : saveData.存档数据;
-      await storage.saveSaveData(charId, importName, patched);
+      const v3Data = (isSaveDataV3(patched as any) ? patched : migrateSaveDataToLatest(patched as any).migrated) as any;
+      const validation = validateSaveDataV3(v3Data as any);
+      if (!validation.isValid) {
+        console.error('[导入存档] V3校验失败:', validation.errors);
+        toast.error(`导入失败：存档结构不合法（${validation.errors[0] || '未知原因'}）`);
+        return;
+      }
+
+      await storage.saveSaveData(charId, importName, v3Data);
+
+      const attrs = (v3Data as any)?.角色?.属性;
+      const loc = (v3Data as any)?.角色?.位置;
+      saveData = {
+        ...saveData,
+        角色名字: saveData.角色名字 ?? (v3Data as any)?.角色?.身份?.名字,
+        境界: saveData.境界 ?? attrs?.境界?.名称,
+        位置: saveData.位置 ?? loc?.描述,
+        游戏内时间: saveData.游戏内时间 ?? (() => {
+          const t = (v3Data as any)?.元数据?.时间;
+          return t ? `${t.年}年${t.月}月${t.日}日` : undefined;
+        })(),
+        存档数据: cloneDeep(v3Data),
+      };
       debug.log('角色商店', `✅ 已将导入的存档数据保存到 IndexedDB: ${charId}/${importName}`);
     }
 
@@ -1601,7 +1799,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         lastConversationSlot = {
           id: '上次对话',
           存档名: '上次对话',
-          角色名字: loadedData.角色基础信息?.名字 || profile.角色基础信息?.名字 || '未知',
+          角色名字: (loadedData as any).角色?.身份?.名字 || profile.角色?.名字 || '未知',
           境界: '未知',
           位置: '未知',
           保存时间: new Date().toISOString(),
@@ -1629,13 +1827,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
     activeSlot.保存时间 = new Date().toISOString();
 
     // 🔥 修复：更新元数据
-    const playerState = rolledBackData.玩家角色状态;
-    if (playerState) {
-      activeSlot.境界 = playerState.境界?.名称 || '凡人';
-      activeSlot.位置 = playerState.位置?.描述 || '未知';
-    }
-    if (rolledBackData.游戏时间) {
-      const time = rolledBackData.游戏时间;
+    const playerAttributes = (rolledBackData as any).角色?.属性;
+    const playerLocation = (rolledBackData as any).角色?.位置;
+    activeSlot.境界 = playerAttributes?.境界?.名称 || '凡人';
+    activeSlot.位置 = playerLocation?.描述 || '未知';
+    if ((rolledBackData as any).元数据?.时间) {
+      const time = (rolledBackData as any).元数据.时间;
       activeSlot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
     }
 
@@ -1825,7 +2022,7 @@ const deleteNpc = async (npcName: string) => {
   const relationships = gameStateStore.relationships;
 
   if (!relationships) {
-    const msg = '无法删除NPC：没有激活的存档或人物关系数据。';
+    const msg = '无法删除NPC：没有激活的存档或关系数据。';
     toast.error(msg);
     throw new Error(msg);
   }
@@ -1866,11 +2063,11 @@ const deleteNpc = async (npcName: string) => {
 
     // 🔥 [调试] 验证保存后的数据
     const savedData = gameStateStore.toSaveData();
-    if (savedData?.人物关系) {
-      const npcStillExists = Object.values(savedData.人物关系).some((npc: any) => npc?.名字 === npcName);
+    if ((savedData as any)?.社交?.关系) {
+      const npcStillExists = Object.values((savedData as any).社交.关系).some((npc: any) => npc?.名字 === npcName);
       console.log(`[删除NPC-调试] toSaveData() 返回的数据中是否还存在该NPC:`, npcStillExists);
-      console.log(`[删除NPC-调试] toSaveData() 返回的人物关系数量:`, Object.keys(savedData.人物关系).length);
-      console.log(`[删除NPC-调试] toSaveData() 返回的NPC列表:`, Object.values(savedData.人物关系).map((npc: any) => npc?.名字));
+      console.log(`[删除NPC-调试] toSaveData() 返回的关系数量:`, Object.keys((savedData as any).社交.关系).length);
+      console.log(`[删除NPC-调试] toSaveData() 返回的NPC列表:`, Object.values((savedData as any).社交.关系).map((npc: any) => npc?.名字));
     }
 
     debug.log('角色商店', `✅ NPC ${npcName} 已成功删除并保存`);
@@ -1903,7 +2100,7 @@ const equipTechnique = async (itemId: string) => {
     return;
   }
 
-  const item = saveData.背包?.物品?.[itemId];
+  const item = (saveData as any).角色?.背包?.物品?.[itemId];
 
   if (!item || item.类型 !== '功法') {
     toast.error('要装备的物品不是一个有效的功法');
@@ -1919,7 +2116,7 @@ const equipTechnique = async (itemId: string) => {
   });
 
   // 1. 卸下当前所有功法
-  Object.values(saveData.背包.物品).forEach((i: Item) => {
+  Object.values(((saveData as any).角色?.背包?.物品 ?? {}) as Record<string, Item>).forEach((i) => {
     if (i.类型 === '功法') {
       i.已装备 = false;
     }
@@ -1955,9 +2152,12 @@ const equipTechnique = async (itemId: string) => {
   }
 
   // 3. 创建或更新修炼槽位（只存储引用）
-  saveData.修炼功法 = {
-    物品ID: item.物品ID,
-    名称: item.名称,
+  (saveData as any).角色.修炼 = {
+    ...(((saveData as any).角色.修炼 ?? {}) as any),
+    修炼功法: {
+      物品ID: item.物品ID,
+      名称: item.名称,
+    },
   };
 
   debug.log('角色商店', `已装备功法: ${item.名称}`);
@@ -1997,7 +2197,7 @@ const equipTechnique = async (itemId: string) => {
   await saveCurrentGame(); // 使用 saveCurrentGame 保存完整存档数据
 
   // 🔍 调试：同步后再次检查品质数据
-  const itemAfterSync = saveData.背包?.物品?.[itemId];
+  const itemAfterSync = (saveData as any).角色?.背包?.物品?.[itemId];
   console.log('[角色商店-调试] 持久化后的功法数据:', {
     功法名称: itemAfterSync?.名称,
     品质字段存在: !!itemAfterSync?.品质,
@@ -2015,17 +2215,17 @@ const equipTechnique = async (itemId: string) => {
  * @param profileData 从JSON文件解析的角色档案数据（可能包含 _导入存档列表 字段）
  */
 const importCharacter = async (profileData: CharacterProfile & { _导入存档列表?: any[] }) => {
-  if (!profileData || !profileData.角色基础信息 || !profileData.模式) {
+  if (!profileData || !profileData.角色 || !profileData.模式) {
     throw new Error('无效的角色文件格式。');
   }
 
   // 为导入的角色生成一个新的唯一ID，避免覆盖现有角色
   const newCharId = `char_${Date.now()}`;
-  const characterName = profileData.角色基础信息.名字 || '未知角色';
+  const characterName = profileData.角色.名字 || '未知角色';
 
   // 检查角色名是否重复
   const isDuplicate = Object.values(rootState.value.角色列表).some(
-    p => p.角色基础信息.名字 === characterName
+    p => p.角色.名字 === characterName
   );
 
   if (isDuplicate) {
@@ -2062,7 +2262,24 @@ const importCharacter = async (profileData: CharacterProfile & { _导入存档�
       // 将存档数据保存到 IndexedDB
       if (save.存档数据) {
 	        const patched = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(save.存档数据) as any) : save.存档数据;
-	        await storage.saveSaveData(newCharId, finalSaveName, patched);
+	        const v3Data = (isSaveDataV3(patched as any) ? patched : migrateSaveDataToLatest(patched as any).migrated) as any;
+	        const validation = validateSaveDataV3(v3Data as any);
+	        if (!validation.isValid) {
+	          console.error('[导入角色] 存档V3校验失败:', validation.errors);
+	          throw new Error(`导入角色失败：存档结构不合法（${validation.errors[0] || '未知原因'}）`);
+	        }
+
+	        await storage.saveSaveData(newCharId, finalSaveName, v3Data);
+
+	        const attrs = (v3Data as any)?.角色?.属性;
+	        const loc = (v3Data as any)?.角色?.位置;
+	        save.角色名字 = save.角色名字 ?? (v3Data as any)?.角色?.身份?.名字;
+	        save.境界 = save.境界 ?? attrs?.境界?.名称;
+	        save.位置 = save.位置 ?? loc?.描述;
+	        save.游戏内时间 = save.游戏内时间 ?? (() => {
+	          const t = (v3Data as any)?.元数据?.时间;
+	          return t ? `${t.年}年${t.月}月${t.日}日` : undefined;
+	        })();
         debug.log('角色商店', `✅ 已将存档数据保存到 IndexedDB: ${newCharId}/${finalSaveName}`);
       }
 
@@ -2164,7 +2381,7 @@ const unequipTechnique = async (itemId: string) => {
     toast.error('存档数据不存在');
     return;
   }
-  const item = saveData.背包?.物品?.[itemId];
+  const item = (saveData as any).角色?.背包?.物品?.[itemId];
 
   // 🔥 修复：使用与UI一致的验证逻辑，检查背包中的已装备状态
   if (!item || item.类型 !== '功法' || !item.已装备) {
@@ -2184,8 +2401,11 @@ const unequipTechnique = async (itemId: string) => {
   item.已装备 = false;
 
   // 3. 清空修炼槽（如果存在的话，确保数据一致性）
-  if (saveData.修炼功法?.物品ID === itemId) {
-    saveData.修炼功法 = null;
+  if ((saveData as any).角色?.修炼?.修炼功法?.物品ID === itemId) {
+    (saveData as any).角色.修炼 = {
+      ...(((saveData as any).角色.修炼 ?? {}) as any),
+      修炼功法: null,
+    };
   }
 
   debug.log('角色商店', `已卸下功法: ${item.名称}`);
@@ -2257,5 +2477,3 @@ return {
   loadCharacterSaves, // 新增：按需加载存档
 };
 });
-
-

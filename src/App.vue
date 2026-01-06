@@ -91,6 +91,7 @@
         :is="Component"
         @start-creation="handleStartCreation"
         @show-character-list="handleShowCharacterList"
+        @go-to-login="handleGoToLogin"
         @back="handleBack"
         @creation-complete="handleCreationComplete"
         @loggedIn="handleLoggedIn"

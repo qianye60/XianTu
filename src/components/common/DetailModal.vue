@@ -5,7 +5,8 @@
         <div class="modal-header">
           <h3 class="modal-title">{{ uiStore.detailModalTitle }}</h3>
           <button class="modal-close-button" @click="closeModal">
-            <X :size="24" />
+            <span>关闭</span>
+            <X :size="16" />
           </button>
         </div>
         <div class="modal-content">
@@ -75,10 +76,24 @@ const closeModal = () => {
 }
 
 .modal-close-button {
-  background: none;
-  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   cursor: pointer;
   color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.modal-close-button:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
 }
 
 .modal-content {

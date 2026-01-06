@@ -10,9 +10,11 @@
  * - src/stores/characterStore.ts
  */
 
-import type { SaveData, Item, NpcProfile, GameTime, Realm, QuestType } from '@/types/game';
+import type { SaveData, Item, NpcProfile, GameTime, Realm, QuestType, PlayerAttributes, PlayerLocation } from '@/types/game';
 import type { GradeType } from '@/data/itemQuality';
 import { cloneDeep } from 'lodash';
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 
 /**
  * 修复并清洗存档数据，确保所有必需字段存在且格式正确
@@ -23,42 +25,41 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
   try {
     if (!saveData || typeof saveData !== 'object') {
       console.error('[数据修复] ❌ 存档数据为空或无效，创建默认存档');
-      return createMinimalSaveData();
+      return createMinimalSaveDataV3();
     }
 
-    const repaired = cloneDeep(saveData);
+    // 统一入口：非V3一律先迁移到V3（迁移后只保留V3结构）
+    const migrated = isSaveDataV3(saveData) ? (saveData as any) : migrateSaveDataToLatest(saveData as any).migrated;
+    const repaired = cloneDeep(migrated) as any;
 
-  // 1. 修复角色基础信息
-  if (!repaired.角色基础信息 || typeof repaired.角色基础信息 !== 'object') {
-    console.warn('[数据修复] 角色基础信息缺失，创建默认值');
-    repaired.角色基础信息 = {
-      名字: '无名修士',
-      性别: '男',
-      出生日期: { 年: 982, 月: 1, 日: 1 },
-      世界: '朝天大陆' as any,
-      天资: '凡人' as any,
-      出生: '散修',
-      灵根: '五行杂灵根',
-      天赋: [],
-      先天六司: { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 },
-      后天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 }
-    };
-  } else {
-    // 确保必需字段存在
-    repaired.角色基础信息.名字 = repaired.角色基础信息.名字 || '无名修士';
-    repaired.角色基础信息.性别 = repaired.角色基础信息.性别 || '男';
-    repaired.角色基础信息.世界 = repaired.角色基础信息.世界 || '朝天大陆';
-
-    // 确保出生日期字段存在
-    if (!repaired.角色基础信息.出生日期) {
-      repaired.角色基础信息.出生日期 = { 年: 982, 月: 1, 日: 1 };
+    // 运行期校验（允许轻微修复，但结构必须是 V3 五领域）
+    const validation = validateSaveDataV3(repaired);
+    if (!validation.isValid) {
+      console.warn('[数据修复] ⚠️ 存档结构不合格，使用最小V3模板兜底:', validation.errors);
+      return createMinimalSaveDataV3();
     }
 
-    // 修复先天六司
-    if (!repaired.角色基础信息.先天六司 || typeof repaired.角色基础信息.先天六司 !== 'object') {
-      repaired.角色基础信息.先天六司 = { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 };
+    // --- 元数据 ---
+    repaired.元数据 = repaired.元数据 && typeof repaired.元数据 === 'object' ? repaired.元数据 : createMinimalSaveDataV3().元数据;
+    repaired.元数据.版本号 = 3;
+    repaired.元数据.存档ID = repaired.元数据.存档ID || `save_${Date.now()}`;
+    repaired.元数据.存档名 = repaired.元数据.存档名 || '自动存档';
+    repaired.元数据.创建时间 = repaired.元数据.创建时间 || new Date().toISOString();
+    repaired.元数据.更新时间 = new Date().toISOString();
+    repaired.元数据.游戏时长秒 = validateNumber(repaired.元数据.游戏时长秒, 0, 999999999, 0);
+    repaired.元数据.时间 = repairGameTime(repaired.元数据.时间);
+
+    // --- 角色 ---
+    repaired.角色 = repaired.角色 && typeof repaired.角色 === 'object' ? repaired.角色 : createMinimalSaveDataV3().角色;
+    repaired.角色.身份 = repaired.角色.身份 && typeof repaired.角色.身份 === 'object' ? repaired.角色.身份 : createMinimalSaveDataV3().角色.身份;
+
+    repaired.角色.身份.名字 = repaired.角色.身份.名字 || '无名修士';
+    repaired.角色.身份.性别 = repaired.角色.身份.性别 || '男';
+    if (!repaired.角色.身份.出生日期) repaired.角色.身份.出生日期 = { 年: 982, 月: 1, 日: 1 };
+    if (!repaired.角色.身份.先天六司 || typeof repaired.角色.身份.先天六司 !== 'object') {
+      repaired.角色.身份.先天六司 = { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 };
     } else {
-      const attrs = repaired.角色基础信息.先天六司;
+      const attrs = repaired.角色.身份.先天六司;
       attrs.根骨 = validateNumber(attrs.根骨, 0, 10, 5);
       attrs.灵性 = validateNumber(attrs.灵性, 0, 10, 5);
       attrs.悟性 = validateNumber(attrs.悟性, 0, 10, 5);
@@ -66,162 +67,149 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
       attrs.魅力 = validateNumber(attrs.魅力, 0, 10, 5);
       attrs.心性 = validateNumber(attrs.心性, 0, 10, 5);
     }
-
-    // 修复后天六司
-    if (!repaired.角色基础信息.后天六司 || typeof repaired.角色基础信息.后天六司 !== 'object') {
-      repaired.角色基础信息.后天六司 = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
-    }
-  }
-
-  // 2. 修复玩家角色状态
-  if (!repaired.玩家角色状态 || typeof repaired.玩家角色状态 !== 'object') {
-    console.warn('[数据修复] 玩家角色状态缺失，创建默认值');
-    repaired.玩家角色状态 = createDefaultPlayerStatus();
-  } else {
-    // 修复境界
-    repaired.玩家角色状态.境界 = repairRealm(repaired.玩家角色状态.境界);
-
-    // 修复属性
-    repaired.玩家角色状态.气血 = repairValuePair(repaired.玩家角色状态.气血, 100, 100);
-    repaired.玩家角色状态.灵气 = repairValuePair(repaired.玩家角色状态.灵气, 50, 50);
-    repaired.玩家角色状态.神识 = repairValuePair(repaired.玩家角色状态.神识, 30, 30);
-    repaired.玩家角色状态.寿命 = repairValuePair(repaired.玩家角色状态.寿命, 18, 80);
-
-    // 修复位置
-    if (!repaired.玩家角色状态.位置 || typeof repaired.玩家角色状态.位置 !== 'object') {
-      repaired.玩家角色状态.位置 = { 描述: '朝天大陆·无名之地' };
-    } else if (!repaired.玩家角色状态.位置.描述) {
-      repaired.玩家角色状态.位置.描述 = '朝天大陆·无名之地';
+    if (!repaired.角色.身份.后天六司 || typeof repaired.角色.身份.后天六司 !== 'object') {
+      repaired.角色.身份.后天六司 = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
     }
 
-    // 修复状态效果
-    if (!Array.isArray(repaired.玩家角色状态.状态效果)) {
-      repaired.玩家角色状态.状态效果 = [];
-    }
-
-    // 修复声望
-    repaired.玩家角色状态.声望 = validateNumber(repaired.玩家角色状态.声望, 0, 999999, 0);
-  }
-
-  // 3. 修复装备栏
-  if (!repaired.装备栏 || typeof repaired.装备栏 !== 'object') {
-    repaired.装备栏 = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
-  }
-
-  // 4. 修复背包
-  if (!repaired.背包 || typeof repaired.背包 !== 'object') {
-    repaired.背包 = {
-      灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-      物品: {}
-    };
-  } else {
-    // 修复灵石
-    if (!repaired.背包.灵石 || typeof repaired.背包.灵石 !== 'object') {
-      repaired.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
+    // --- 属性 ---
+    if (!repaired.角色.属性 || typeof repaired.角色.属性 !== 'object') {
+      console.warn('[数据修复] 属性缺失，创建默认值');
+      repaired.角色.属性 = createDefaultAttributes();
     } else {
-      repaired.背包.灵石.下品 = validateNumber(repaired.背包.灵石.下品, 0, 999999999, 0);
-      repaired.背包.灵石.中品 = validateNumber(repaired.背包.灵石.中品, 0, 999999999, 0);
-      repaired.背包.灵石.上品 = validateNumber(repaired.背包.灵石.上品, 0, 999999999, 0);
-      repaired.背包.灵石.极品 = validateNumber(repaired.背包.灵石.极品, 0, 999999999, 0);
+      repaired.角色.属性.境界 = repairRealm(repaired.角色.属性.境界);
+      repaired.角色.属性.气血 = repairValuePair(repaired.角色.属性.气血, 100, 100);
+      repaired.角色.属性.灵气 = repairValuePair(repaired.角色.属性.灵气, 50, 50);
+      repaired.角色.属性.神识 = repairValuePair(repaired.角色.属性.神识, 30, 30);
+      repaired.角色.属性.寿命 = repairValuePair(repaired.角色.属性.寿命, 18, 80);
+      repaired.角色.属性.声望 = validateNumber(repaired.角色.属性.声望, 0, 999999, 0);
     }
 
-    // 修复物品
-    if (!repaired.背包.物品 || typeof repaired.背包.物品 !== 'object') {
-      repaired.背包.物品 = {};
+    // --- 位置 ---
+    if (!repaired.角色.位置 || typeof repaired.角色.位置 !== 'object') {
+      repaired.角色.位置 = createDefaultLocation();
+    } else if (!repaired.角色.位置.描述) {
+      repaired.角色.位置.描述 = '朝天大陆·无名之地';
+    }
+
+    // --- 效果 ---
+    if (!Array.isArray(repaired.角色.效果)) repaired.角色.效果 = [];
+
+    // --- 装备（槽位只存物品ID）---
+    const defaultEquipment = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
+    if (!repaired.角色.装备 || typeof repaired.角色.装备 !== 'object') repaired.角色.装备 = { ...defaultEquipment };
+    for (let i = 1; i <= 6; i++) {
+      const key = `装备${i}`;
+      const slotValue = repaired.角色.装备[key];
+      if (slotValue == null) repaired.角色.装备[key] = null;
+      else if (typeof slotValue === 'string') repaired.角色.装备[key] = slotValue;
+      else if (typeof slotValue === 'object' && slotValue !== null && '物品ID' in slotValue) {
+        repaired.角色.装备[key] = String((slotValue as any).物品ID || '');
+      } else repaired.角色.装备[key] = null;
+    }
+
+    // --- 背包 ---
+    if (!repaired.角色.背包 || typeof repaired.角色.背包 !== 'object') {
+      repaired.角色.背包 = { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} };
     } else {
-      // 清理无效物品
-      const validItems: Record<string, Item> = {};
-      for (const [id, item] of Object.entries(repaired.背包.物品)) {
-        if (item && typeof item === 'object' && item.名称) {
-          validItems[id] = repairItem(item as Item);
-        }
-      }
-      repaired.背包.物品 = validItems;
-    }
-  }
-
-  // 5. 修复人物关系
-  if (!repaired.人物关系 || typeof repaired.人物关系 !== 'object') {
-    repaired.人物关系 = {};
-  } else {
-    // 清理并修复 NPC：允许缺少“名字”字段（用键名回填）
-    const raw = repaired.人物关系 as Record<string, unknown>;
-    const validNpcs: Record<string, NpcProfile> = {};
-
-    for (const [key, value] of Object.entries(raw)) {
-      // 跳过元数据（例如 _AI重要提醒）或其它非NPC键
-      if (key.startsWith('_')) continue;
-      if (!value || typeof value !== 'object') continue;
-
-      const npc = value as any;
-      const nameFromValue = typeof npc.名字 === 'string' ? npc.名字.trim() : '';
-      const nameFromKey = typeof key === 'string' ? key.trim() : '';
-      const finalName = nameFromValue || nameFromKey;
-      if (!finalName) continue;
-
-      npc.名字 = finalName;
-      validNpcs[finalName] = repairNpc(npc as NpcProfile);
-    }
-
-    repaired.人物关系 = validNpcs;
-  }
-
-  // 6. 修复记忆
-  if (!repaired.记忆 || typeof repaired.记忆 !== 'object') {
-    repaired.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
-  } else {
-    repaired.记忆.短期记忆 = Array.isArray(repaired.记忆.短期记忆) ? repaired.记忆.短期记忆 : [];
-    repaired.记忆.中期记忆 = Array.isArray(repaired.记忆.中期记忆) ? repaired.记忆.中期记忆 : [];
-    repaired.记忆.长期记忆 = Array.isArray(repaired.记忆.长期记忆) ? repaired.记忆.长期记忆 : [];
-    repaired.记忆.隐式中期记忆 = Array.isArray(repaired.记忆.隐式中期记忆) ? repaired.记忆.隐式中期记忆 : [];
-  }
-
-  // 7. 修复游戏时间
-  repaired.游戏时间 = repairGameTime(repaired.游戏时间);
-
-  // 8. 修复三千大道
-  if (!repaired.三千大道 || typeof repaired.三千大道 !== 'object' || !repaired.三千大道.大道列表) {
-    repaired.三千大道 = { 大道列表: {} };
-  }
-
-  // 9. 修复修炼功法引用
-  if (repaired.修炼功法 && typeof repaired.修炼功法 === 'object') {
-    const technique = repaired.修炼功法 as any;
-
-    // 检查引用对象是否有效
-    if (!technique.物品ID) {
-      console.warn('[数据修复] 修炼功法缺少物品ID，清空');
-      repaired.修炼功法 = null;
-    } else {
-      // 验证引用的物品是否存在于背包中
-      const referencedItem = repaired.背包?.物品?.[technique.物品ID];
-      if (!referencedItem) {
-        console.warn('[数据修复] 修炼功法引用的物品不存在于背包，清空引用');
-        repaired.修炼功法 = null;
-      } else if (referencedItem.类型 !== '功法') {
-        console.warn('[数据修复] 修炼功法引用的物品不是功法类型，清空引用');
-        repaired.修炼功法 = null;
+      if (!repaired.角色.背包.灵石 || typeof repaired.角色.背包.灵石 !== 'object') {
+        repaired.角色.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
       } else {
-        // 确保名称与背包中的物品一致
-        if (!technique.名称 || technique.名称 !== referencedItem.名称) {
-          console.log('[数据修复] 同步修炼功法名称与背包物品');
+        repaired.角色.背包.灵石.下品 = validateNumber(repaired.角色.背包.灵石.下品, 0, 999999999, 0);
+        repaired.角色.背包.灵石.中品 = validateNumber(repaired.角色.背包.灵石.中品, 0, 999999999, 0);
+        repaired.角色.背包.灵石.上品 = validateNumber(repaired.角色.背包.灵石.上品, 0, 999999999, 0);
+        repaired.角色.背包.灵石.极品 = validateNumber(repaired.角色.背包.灵石.极品, 0, 999999999, 0);
+      }
+
+      if (!repaired.角色.背包.物品 || typeof repaired.角色.背包.物品 !== 'object') {
+        repaired.角色.背包.物品 = {};
+      } else {
+        const validItems: Record<string, Item> = {};
+        for (const [id, item] of Object.entries(repaired.角色.背包.物品 as Record<string, unknown>)) {
+          const rawItem = item as any;
+          if (rawItem && typeof rawItem === 'object' && typeof rawItem.名称 === 'string' && rawItem.名称.trim()) {
+            validItems[id] = repairItem(rawItem as Item);
+          }
+        }
+        repaired.角色.背包.物品 = validItems;
+      }
+    }
+
+    // --- 社交.关系 ---
+    if (!repaired.社交 || typeof repaired.社交 !== 'object') repaired.社交 = createMinimalSaveDataV3().社交;
+    if (!repaired.社交.关系 || typeof repaired.社交.关系 !== 'object') {
+      repaired.社交.关系 = {};
+    } else {
+      const raw = repaired.社交.关系 as Record<string, unknown>;
+      const validNpcs: Record<string, NpcProfile> = {};
+
+      for (const [key, value] of Object.entries(raw)) {
+        if (key.startsWith('_')) continue;
+        if (!value || typeof value !== 'object') continue;
+
+        const npc = value as any;
+        const nameFromValue = typeof npc.名字 === 'string' ? npc.名字.trim() : '';
+        const nameFromKey = typeof key === 'string' ? key.trim() : '';
+        const finalName = nameFromValue || nameFromKey;
+        if (!finalName) continue;
+
+        npc.名字 = finalName;
+        validNpcs[finalName] = repairNpc(npc as NpcProfile);
+      }
+
+      repaired.社交.关系 = validNpcs;
+    }
+
+    // --- 社交.记忆 ---
+    if (!repaired.社交.记忆 || typeof repaired.社交.记忆 !== 'object') {
+      repaired.社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+    } else {
+      repaired.社交.记忆.短期记忆 = Array.isArray(repaired.社交.记忆.短期记忆) ? repaired.社交.记忆.短期记忆 : [];
+      repaired.社交.记忆.中期记忆 = Array.isArray(repaired.社交.记忆.中期记忆) ? repaired.社交.记忆.中期记忆 : [];
+      repaired.社交.记忆.长期记忆 = Array.isArray(repaired.社交.记忆.长期记忆) ? repaired.社交.记忆.长期记忆 : [];
+      repaired.社交.记忆.隐式中期记忆 = Array.isArray(repaired.社交.记忆.隐式中期记忆) ? repaired.社交.记忆.隐式中期记忆 : [];
+    }
+
+    // --- 系统.历史 ---
+    if (!repaired.系统 || typeof repaired.系统 !== 'object') repaired.系统 = createMinimalSaveDataV3().系统;
+    if (!repaired.系统.历史 || typeof repaired.系统.历史 !== 'object') repaired.系统.历史 = { 叙事: [] };
+    if (!Array.isArray(repaired.系统.历史.叙事)) repaired.系统.历史.叙事 = [];
+
+    // --- 角色子模块最小化补全 ---
+    if (!repaired.角色.大道 || typeof repaired.角色.大道 !== 'object') repaired.角色.大道 = { 大道列表: {} };
+    if (!repaired.角色.功法 || typeof repaired.角色.功法 !== 'object') repaired.角色.功法 = { 当前功法ID: null, 功法进度: {}, 功法套装: { 主修: null, 辅修: [] } };
+    if (!repaired.角色.修炼 || typeof repaired.角色.修炼 !== 'object') repaired.角色.修炼 = { 修炼功法: null, 修炼状态: { 模式: '未修炼' } };
+    if (!repaired.角色.技能 || typeof repaired.角色.技能 !== 'object') repaired.角色.技能 = { 掌握技能: [], 装备栏: [], 冷却: {} };
+
+    // --- 社交.任务 ---
+    if (!repaired.社交.任务 || typeof repaired.社交.任务 !== 'object') {
+      repaired.社交.任务 = {
+        配置: { 启用系统任务: false, 系统任务类型: '修仙辅助系统', 系统任务提示词: '', 自动刷新: false, 默认任务数量: 3 },
+        当前任务列表: [],
+        任务统计: { 完成总数: 0, 各类型完成: {} as Record<QuestType, number> },
+      };
+    }
+
+    // --- 修炼.修炼功法引用校验 ---
+    if (repaired.角色.修炼?.修炼功法 && typeof repaired.角色.修炼.修炼功法 === 'object') {
+      const technique = repaired.角色.修炼.修炼功法 as any;
+      if (!technique.物品ID) {
+        repaired.角色.修炼.修炼功法 = null;
+      } else {
+        const referencedItem = repaired.角色?.背包?.物品?.[technique.物品ID];
+        if (!referencedItem || referencedItem.类型 !== '功法') {
+          repaired.角色.修炼.修炼功法 = null;
+        } else if (!technique.名称 || technique.名称 !== referencedItem.名称) {
           technique.名称 = referencedItem.名称;
         }
       }
     }
-  }
-
-  // 10. 修复掌握技能
-  if (!Array.isArray(repaired.掌握技能)) {
-    repaired.掌握技能 = [];
-  }
 
 
     console.log('[数据修复] ✅ 存档数据修复完成');
     return repaired;
   } catch (error) {
     console.error('[数据修复] ❌ 修复过程发生严重错误，返回默认存档:', error);
-    return createMinimalSaveData();
+    return createMinimalSaveDataV3();
   }
 }
 
@@ -401,7 +389,7 @@ function repairItem(item: Item): Item {
   }
 
   // 确保类型有效
-  const validTypes = ['装备', '功法', '其他'];
+  const validTypes = ['装备', '功法', '丹药', '材料', '其他'];
   if (!validTypes.includes(repaired.类型)) {
     repaired.类型 = '其他';
   }
@@ -474,7 +462,7 @@ function validateNumber(value: any, min: number, max: number, defaultValue: numb
 /**
  * 创建默认玩家状态
  */
-function createDefaultPlayerStatus() {
+function createDefaultAttributes(): PlayerAttributes {
   return {
     境界: {
       名称: '凡人',
@@ -484,62 +472,95 @@ function createDefaultPlayerStatus() {
       突破描述: '引气入体，感悟天地灵气，踏上修仙第一步'
     },
     声望: 0,
-    位置: { 描述: '朝天大陆·无名之地' },
     气血: { 当前: 100, 上限: 100 },
     灵气: { 当前: 50, 上限: 50 },
     神识: { 当前: 30, 上限: 30 },
     寿命: { 当前: 18, 上限: 80 },
-    状态效果: []
-  };
+  } as PlayerAttributes;
+}
+
+function createDefaultLocation(): PlayerLocation {
+  return { 描述: '朝天大陆·无名之地', x: 5000, y: 5000 } as PlayerLocation;
 }
 
 /**
  * 创建最小可用存档
  */
 function createMinimalSaveData(): SaveData {
+  return createMinimalSaveDataV3();
+}
+
+function createMinimalSaveDataV3(): SaveData {
+  const nowIso = new Date().toISOString();
+  const time = { 年: 1000, 月: 1, 日: 1, 小时: 8, 分钟: 0 } as GameTime;
   return {
-    角色基础信息: {
-      名字: '无名修士',
-      性别: '男',
-      出生日期: { 年: 982, 月: 1, 日: 1 },
-      世界: '朝天大陆' as any,
-      天资: '凡人' as any,
-      出生: '散修',
-      灵根: '五行杂灵根',
-      天赋: [],
-      先天六司: { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 },
-      后天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 }
+    元数据: {
+      版本号: 3,
+      存档ID: `save_${Date.now()}`,
+      存档名: '自动存档',
+      游戏版本: '0.0.0',
+      创建时间: nowIso,
+      更新时间: nowIso,
+      游戏时长秒: 0,
+      时间: time,
     },
-    玩家角色状态: createDefaultPlayerStatus(),
-    装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
-    三千大道: { 大道列表: {} },
-    背包: {
-      灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-      物品: {}
-    },
-    人物关系: {},
-    任务系统: {
-      配置: {
-        启用系统任务: false,
-        系统任务类型: '修仙辅助系统',
-        系统任务提示词: '',
-        自动刷新: false,
-        默认任务数量: 3
+    角色: {
+      身份: {
+        名字: '无名修士',
+        性别: '男',
+        出生日期: { 年: 982, 月: 1, 日: 1 },
+        种族: '人族',
+        世界: '朝天大陆' as any,
+        天资: '凡人' as any,
+        出生: '散修',
+        灵根: '五行杂灵根',
+        天赋: [],
+        先天六司: { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 },
+        后天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 },
       },
-      当前任务列表: [],
-      任务统计: {
-        完成总数: 0,
-        各类型完成: {} as Record<QuestType, number>
-      }
+      属性: createDefaultAttributes(),
+      位置: createDefaultLocation(),
+      效果: [],
+      身体: { 总体状况: '', 部位: {} },
+      背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
+      装备: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
+      功法: { 当前功法ID: null, 功法进度: {}, 功法套装: { 主修: null, 辅修: [] } },
+      修炼: { 修炼功法: null, 修炼状态: { 模式: '未修炼' } },
+      大道: { 大道列表: {} },
+      技能: { 掌握技能: [], 装备栏: [], 冷却: {} },
     },
-    记忆: {
-      短期记忆: [],
-      中期记忆: [],
-      长期记忆: [],
-      隐式中期记忆: []
+    社交: {
+      关系: {},
+      宗门: null,
+      任务: {
+        配置: { 启用系统任务: false, 系统任务类型: '修仙辅助系统', 系统任务提示词: '', 自动刷新: false, 默认任务数量: 3 },
+        当前任务列表: [],
+        任务统计: { 完成总数: 0, 各类型完成: {} as Record<QuestType, number> },
+      },
+      记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] },
     },
-    游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: 8, 分钟: 0 },
-    修炼功法: null,
-    掌握技能: []
-  };
+    世界: {
+      信息: {
+        世界名称: '朝天大陆',
+        大陆信息: [],
+        势力信息: [],
+        地点信息: [],
+        生成时间: nowIso,
+        世界背景: '',
+        世界纪元: '',
+        特殊设定: [],
+        版本: 'v1',
+      },
+      状态: { 环境: {}, 事件: [], 历史: [], NPC状态: {} },
+    },
+    系统: {
+      配置: {},
+      设置: {},
+      缓存: { 掌握技能: [], 临时统计: {} },
+      行动队列: { actions: [] },
+      历史: { 叙事: [] },
+      扩展: {},
+      联机: { 模式: '单机', 房间ID: null, 玩家ID: null, 只读路径: ['世界'], 世界曝光: false, 冲突策略: '服务器' },
+    },
+  } as any;
 }

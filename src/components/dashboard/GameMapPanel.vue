@@ -343,7 +343,7 @@ onUnmounted(() => {
 
 // 监听玩家位置变化
 watch(
-  () => gameStateStore.playerStatus?.位置,
+  () => gameStateStore.location,
   (newPos) => {
     if (newPos && mapManager.value) {
       const playerName = gameStateStore.character?.名字 || '道友';
@@ -419,7 +419,7 @@ const loadMapData = async () => {
     }
 
     // 更新玩家位置
-    const playerPos = gameStateStore.playerStatus?.位置;
+    const playerPos = gameStateStore.location;
     if (playerPos) {
       const playerName = gameStateStore.character?.名字 || '道友';
       mapManager.value?.updatePlayerPosition(playerPos as GameCoordinates, playerName);
@@ -507,7 +507,7 @@ const closePopup = () => {
  * 定位到玩家
  */
 const centerToPlayer = () => {
-  const playerPos = gameStateStore.playerStatus?.位置;
+  const playerPos = gameStateStore.location;
   console.log('[地图] 玩家位置数据:', playerPos);
 
   if (!playerPos) {

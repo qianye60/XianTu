@@ -44,17 +44,14 @@ function getQuantity(item: Item | Record<string, any>): number {
 
 /**
  * 解析物品变更
- * 🔥 支持两种路径格式：分片路径(背包_物品) 和 SaveData内部路径(背包.物品)
+ * V3：角色.背包.物品
  * @param change - 单条变更记录
  * @returns FormattedChange | null
  */
 function parseItemChange(change: StateChange): FormattedChange | null {
   const { key, action, oldValue, newValue } = change;
 
-  // 🔥 支持两种格式：
-  // 1. 分片路径：背包_物品.xxx
-  // 2. SaveData内部路径：背包.物品.xxx
-  const isInventoryItem = key.includes('背包.物品') || key.includes('背包_物品');
+  const isInventoryItem = key.includes('角色.背包.物品');
 
   if (isInventoryItem) {
     if (action === 'set' && newValue && !oldValue) {
@@ -103,10 +100,8 @@ function parseItemChange(change: StateChange): FormattedChange | null {
     }
   }
 
-  // 🔥 支持两种灵石路径格式：
-  // 1. 分片路径：背包_灵石.下品
-  // 2. SaveData内部路径：背包.灵石.下品
-  if (key.startsWith('背包.灵石') || key.startsWith('背包_灵石') || key.includes('.灵石.')) {
+  // 灵石（V3：角色.背包.灵石.下品/中品/上品/极品）
+  if (key.startsWith('角色.背包.灵石.') || key.includes('.背包.灵石.')) {
     const stoneType = key.split('.').pop() || '灵石';
     const oldNum = typeof oldValue === 'number' ? oldValue : 0;
     const newNum = typeof newValue === 'number' ? newValue : 0;
@@ -134,23 +129,18 @@ function parseItemChange(change: StateChange): FormattedChange | null {
 
 /**
  * 解析角色核心属性变更 (修为、气血等)
- * 🔥 支持新的分片路径格式 + SaveData内部路径格式
+ * V3：角色.属性 / 角色.位置
  * @param change - 单条变更记录
  * @returns FormattedChange | null
  */
 function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
   const { key, action, oldValue, newValue } = change;
 
-  // 🔥 支持两种路径格式：
-  // 1. 分片路径：境界.名称, 属性.气血.当前, 位置.描述
-  // 2. SaveData内部路径：玩家角色状态.境界.名称, 玩家角色状态.气血.当前, 玩家角色状态.位置.描述
   const isPlayerStatus =
-    key.startsWith('玩家角色状态') ||
-    key.startsWith('境界.') ||
-    key.startsWith('属性.') ||
-    key.startsWith('位置.') ||
-    key.includes('.境界.') ||
-    key.includes('.位置.') ||
+    key.startsWith('角色.属性.') ||
+    key.startsWith('角色.位置.') ||
+    key.includes('.角色.属性.') ||
+    key.includes('.角色.位置.') ||
     key.includes('.气血') ||
     key.includes('.灵气') ||
     key.includes('.神识') ||
@@ -160,8 +150,8 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
 
   const attributeName = key.split('.').pop() || '属性';
 
-  // 🔥 处理境界突破（支持两种路径格式）
-  if (key === '境界.名称' || key.endsWith('.境界.名称') || key === '玩家角色状态.境界.名称') {
+  // 境界突破
+  if (key === '角色.属性.境界.名称' || key.endsWith('.境界.名称')) {
     return {
       icon: 'add',
       color: 'green',
@@ -170,7 +160,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     };
   }
 
-  if (key === '境界.阶段' || key.endsWith('.境界.阶段') || key === '玩家角色状态.境界.阶段') {
+  if (key === '角色.属性.境界.阶段' || key.endsWith('.境界.阶段')) {
     return {
       icon: 'update',
       color: 'blue',
@@ -179,8 +169,8 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     };
   }
 
-  // 🔥 处理位置变更（支持两种路径格式）
-  if (key === '位置.描述' || key.endsWith('.位置.描述') || key === '玩家角色状态.位置.描述') {
+  // 位置变更
+  if (key === '角色.位置.描述' || key.endsWith('.位置.描述')) {
     // 提取描述字符串（处理对象和字符串两种情况）
     const extractLocation = (val: unknown): string => {
       if (!val) return '未知';
@@ -202,7 +192,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
   }
 
   // 🔥 修复：识别"上限"和"当前"的单独变更
-  // 路径格式: 属性.气血.上限, 属性.气血.当前, 气血.上限, 气血.当前
+  // 路径格式: 角色.属性.气血.上限 / 角色.属性.气血.当前（以及其它属性同理）
   const pathParts = key.split('.');
   const fieldType = pathParts[pathParts.length - 1]; // "上限"/"当前"/"最大"
   const attributeBaseName = pathParts[pathParts.length - 2] || attributeName; // "气血"/"灵气"/"神识"
@@ -280,17 +270,16 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
 
 /**
  * 解析NPC关系变更
- * 🔥 支持两种路径格式：分片路径(人物关系) 和 SaveData内部路径(人物关系)
+ * V3：社交.关系
  * @param change - 单条变更记录
  * @returns FormattedChange | null
  */
 function parseRelationshipChange(change: StateChange): FormattedChange | null {
   const { key, action, oldValue, newValue } = change;
 
-  // 支持两种格式：人物关系.xxx（分片和SaveData路径相同）
-  if (key.startsWith('人物关系.') || key.includes('.人物关系.')) {
+  if (key.startsWith('社交.关系.') || key.includes('.社交.关系.')) {
     const parts = key.split('.');
-    const npcName = parts[1] || '某人'; // 人物关系.云裳仙子.好感度 -> 云裳仙子
+    const npcName = parts[2] || '某人'; // 社交.关系.云裳仙子.好感度 -> 云裳仙子
     const field = parts[parts.length - 1]; // 好感度
 
     // 好感度变化

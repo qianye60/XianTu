@@ -3,6 +3,8 @@
  * 支持自定义记忆格式模板和解析规则
  */
 
+import { escapeRegExp } from '@/utils/regex';
+
 export interface MemorySection {
   icon: string;
   title: string;
@@ -229,8 +231,14 @@ export function parseMemoryContent(content: string): ParsedMemory {
     result.format = matchedFormat;
     
     // 按照格式解析各个部分
+    const allIconsPattern = MEMORY_FORMAT_PRESETS
+      .flatMap(f => f.sections.map(s => escapeRegExp(s.icon)))
+      .join('|');
+
     matchedFormat.sections.forEach(section => {
-      const sectionRegex = new RegExp(`${section.icon}\\s*\\*\\*${section.title}\\*\\*([\\s\\S]*?)(?=${MEMORY_FORMAT_PRESETS.map(f => f.sections.map(s => s.icon)).flat().join('|')}|$)`);
+      const sectionRegex = new RegExp(
+        `${escapeRegExp(section.icon)}\\s*\\*\\*${escapeRegExp(section.title)}\\*\\*([\\s\\S]*?)(?=${allIconsPattern}|$)`
+      );
       const sectionMatch = content.match(sectionRegex);
       
       if (sectionMatch) {

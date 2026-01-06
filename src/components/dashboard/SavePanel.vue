@@ -12,7 +12,7 @@
               :size="16"
               class="time-save-icon"
             />
-            📍 当前进度 - {{ currentSave.存档名 }}
+            当前进度 - {{ currentSave.存档名 }}
           </h4>
         </div>
         <div class="current-save-card">
@@ -27,10 +27,10 @@
               </div>
               <!-- 特殊存档说明 -->
               <div v-if="currentSave.存档名 === '上次对话'" class="current-save-hint last">
-                🔄 每次对话前自动备份，可用于回退到上次对话前的状态
+                每次对话前自动备份，可用于回退到上次对话前的状态
               </div>
               <div v-else-if="currentSave.存档名 === '时间点存档'" class="current-save-hint time">
-                ⏰ 按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失
+                按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失
               </div>
             </div>
           </div>
@@ -52,7 +52,7 @@
       <!-- 存档列表 -->
       <div class="saves-section">
         <div class="section-header">
-          <h4 class="section-title">💿 存档列表</h4>
+          <h4 class="section-title">存档列表</h4>
           <div class="header-actions">
             <button
               class="new-save-btn"
@@ -67,12 +67,12 @@
         </div>
 
         <div v-if="loading" class="loading-state">
-          <div class="loading-spinner">⏳</div>
+          <div class="loading-spinner"><RefreshCw :size="18" class="animate-spin" /></div>
           <div class="loading-text">{{ t('正在加载存档...') }}</div>
         </div>
 
         <div v-else-if="savesList.length === 0" class="empty-state">
-          <div class="empty-icon">📂</div>
+          <div class="empty-icon"><Save :size="32" /></div>
           <div class="empty-text">{{ t('修仙路上尚未留存，创建存档记录道途') }}</div>
           <div class="empty-hint">{{ t('开始游戏后可以创建存档') }}</div>
         </div>
@@ -181,12 +181,12 @@
       <!-- 自动存档设置 -->
       <div class="auto-save-settings-section">
         <div class="section-header">
-          <h4 class="section-title">⚙️ 自动存档设置</h4>
+          <h4 class="section-title">{{ t('自动存档设置') }}</h4>
         </div>
         <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">🔄 对话前自动备份</label>
+              <label class="setting-name">{{ t('对话前自动备份') }}</label>
               <span class="setting-desc">每次对话前自动备份，用于回退到上次对话前的状态</span>
             </div>
             <div class="setting-control">
@@ -198,7 +198,7 @@
           </div>
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">⏰ 时间点存档</label>
+              <label class="setting-name">{{ t('时间点存档') }}</label>
               <span class="setting-desc">按设定时间间隔自动覆盖保存，防止长时间游玩数据丢失</span>
             </div>
             <div class="setting-control">
@@ -229,7 +229,7 @@
       <!-- 存档操作 -->
       <div class="operations-section">
         <div class="section-header">
-          <h4 class="section-title">🛠️ 存档操作</h4>
+          <h4 class="section-title">{{ t('存档操作') }}</h4>
         </div>
         <div class="operations-list">
           <button
@@ -300,6 +300,9 @@ import { useI18n } from '@/i18n';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import type { SaveSlot } from '@/types/game';
+import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 
 const { t } = useI18n();
 
@@ -342,7 +345,7 @@ const savesList = computed(() => {
   // 仅过滤掉 null 的槽位，保留所有有效存档，包括没有数据的自动存档槽位
   return characterStore.saveSlots.filter((slot: SaveSlot) => {
     if (!slot) return false;
-    // 🔥 修复：确保存档有有效的标识信息
+    // 修复：确保存档有有效的标识信息
     return slot.存档名 || slot.id;
   });
 });
@@ -633,18 +636,21 @@ const exportSingleSave = async (save: SaveSlot) => {
       return;
     }
 
-    // 🔥 修复：使用与 CharacterManagement.vue 一致的格式，支持互相导入
-    const exportData = {
-      type: 'saves',  // 使用 saves 类型，与批量导出一致
+    // 修复：使用与 CharacterManagement.vue 一致的格式，支持互相导入
+    const v3SaveData = isSaveDataV3(fullSaveData as any) ? (fullSaveData as any) : migrateSaveDataToLatest(fullSaveData as any).migrated;
+    const validation = validateSaveDataV3(v3SaveData as any);
+    if (!validation.isValid) {
+      throw new Error(validation.errors[0] || '存档结构校验失败');
+    }
+
+    const exportData = createDadBundle('saves', {
+      characterId,
+      characterName: characterStore.activeCharacterProfile?.角色?.名字,
       saves: [{
         ...save,
-        存档数据: fullSaveData  // 使用统一的字段名
-      }],
-      exportTime: new Date().toISOString(),
-      version: '1.0.0',
-      characterId,
-      characterName: characterStore.activeCharacterProfile?.角色基础信息?.名字
-    };
+        存档数据: v3SaveData  // V3-only
+      }]
+    });
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -694,21 +700,29 @@ const exportCharacter = async () => {
         const fullData = await loadSaveData(characterId, save.存档名);
         return {
           ...save,
-          存档数据: fullData  // 统一字段名
+          存档数据: fullData, // 统一字段名
         };
-      })
+      }),
     );
 
-    const exportData = {
-      type: 'character',
-      character: {
-        角色ID: characterId,
-        角色信息: characterProfile,
-        存档列表: savesWithFullData
-      },
-      exportTime: new Date().toISOString(),
-      version: '1.0.0'
-    };
+    const normalizedSaves = savesWithFullData.map((s) => {
+      const rawSaveData = (s as any).存档数据;
+      if (!rawSaveData) {
+        throw new Error(`存档「${s.存档名}」缺少存档数据，无法导出`);
+      }
+      const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+      const validation = validateSaveDataV3(v3SaveData as any);
+      if (!validation.isValid) {
+        throw new Error(`存档「${s.存档名}」校验失败：${validation.errors[0] || '未知原因'}`);
+      }
+      return { ...s, 存档数据: v3SaveData };
+    });
+
+    const exportData = createDadBundle('character', {
+      角色ID: characterId,
+      角色信息: JSON.parse(JSON.stringify(characterProfile)),
+      存档列表: normalizedSaves,
+    });
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -717,7 +731,7 @@ const exportCharacter = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const characterName = characterProfile.角色基础信息?.名字 || '未命名角色';
+    const characterName = characterProfile.角色?.名字 || '未命名角色';
     const fileName = `仙途-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
     link.download = fileName;
 
@@ -756,7 +770,7 @@ const exportSaves = async () => {
       return;
     }
 
-    // 🔥 修复：从 IndexedDB 加载每个存档的完整数据
+    // 修复：从 IndexedDB 加载每个存档的完整数据
     const { loadSaveData } = await import('@/utils/indexedDBManager');
     const savesWithFullData = await Promise.all(
       savesList.value.map(async (save) => {
@@ -768,14 +782,21 @@ const exportSaves = async () => {
       })
     );
 
-    const exportData = {
-      type: 'saves',
-      saves: savesWithFullData,
-      exportTime: new Date().toISOString(),
-      version: '1.0.0',
+    const normalizedSaves = savesWithFullData.map((s) => {
+      const rawSaveData = (s as any).存档数据;
+      const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+      const validation = validateSaveDataV3(v3SaveData as any);
+      if (!validation.isValid) {
+        throw new Error(`存档「${s.存档名}」校验失败：${validation.errors[0] || '未知原因'}`);
+      }
+      return { ...s, 存档数据: v3SaveData };
+    });
+
+    const exportData = createDadBundle('saves', {
       characterId,
-      characterName: characterStore.activeCharacterProfile?.角色基础信息?.名字
-    };
+      characterName: characterStore.activeCharacterProfile?.角色?.名字,
+      saves: normalizedSaves,
+    });
 
     console.log('[存档导出] 导出数据:', exportData);
 
@@ -824,12 +845,12 @@ const handleImportFile = async (event: Event) => {
     const text = await file.text();
     const data = JSON.parse(text);
 
-    // 只认统一格式
-    if (data.type !== 'saves' || !Array.isArray(data.saves)) {
+    const unwrapped = unwrapDadBundle(data);
+    if (unwrapped.type !== 'saves' || !Array.isArray(unwrapped.payload?.saves)) {
       throw new Error('无效的存档文件格式，请使用本游戏导出的存档文件');
     }
 
-    const savesToImport = data.saves;
+    const savesToImport = unwrapped.payload.saves;
     if (savesToImport.length === 0) {
       throw new Error('文件中没有找到有效的存档数据');
     }

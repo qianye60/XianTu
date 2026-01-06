@@ -104,9 +104,16 @@ onMounted(async () => {
 const emit = defineEmits<{
   (e: 'start-creation', mode: 'single' | 'cloud'): void;
   (e: 'show-character-list'): void;
+  (e: 'go-to-login'): void;
 }>();
 
 const uiStore = useUIStore();
+
+// 检查是否已登录
+const isLoggedIn = () => {
+  const token = localStorage.getItem('access_token');
+  return !!token;
+};
 
 const selectPath = (mode: 'single' | 'cloud') => {
   if (mode === 'cloud' && !backendReady.value) {
@@ -129,9 +136,24 @@ const selectPath = (mode: 'single' | 'cloud') => {
 };
 
 const startNewGame = () => {
-  if (selectedMode.value) {
-    emit('start-creation', selectedMode.value);
+  if (!selectedMode.value) return;
+
+  // 联机模式需要先登录
+  if (selectedMode.value === 'cloud' && !isLoggedIn()) {
+    uiStore.showRetryDialog({
+      title: '请先登录',
+      message: '联机共修需要先登录账号，是否前往登录？',
+      confirmText: '前往登录',
+      cancelText: '取消',
+      onConfirm: () => {
+        emit('go-to-login');
+      },
+      onCancel: () => {}
+    });
+    return;
   }
+
+  emit('start-creation', selectedMode.value);
 };
 
 const enterCharacterSelection = async () => {

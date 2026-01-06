@@ -21,6 +21,7 @@
       :isLoading="isLoading"
       :selectedDataType="selectedDataType"
       :searchQuery="searchQuery"
+      :readOnly="isOnlineMode"
       :coreDataViews="coreDataViews"
       :customOptions="customOptions"
       :characterData="characterData"
@@ -64,9 +65,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useGameStateStore } from '@/stores/gameStateStore'
-import { isTavernEnv } from '@/utils/tavern'
+import { useCharacterStore } from '@/stores/characterStore'
 import { toast } from '@/utils/toast'
 import { panelBus } from '@/utils/panelBus'
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration'
 import GameVariableDataHeader from './components/GameVariableDataHeader.vue'
 import GameVariableDataSelector from './components/GameVariableDataSelector.vue'
 import GameVariableDataDisplay from './components/GameVariableDataDisplay.vue'
@@ -79,6 +81,8 @@ const { t } = useI18n()
 
 // 🔥 [新架构] 使用 Pinia 作为单一数据源
 const gameStateStore = useGameStateStore()
+const characterStore = useCharacterStore()
+const isOnlineMode = computed(() => characterStore.activeCharacterProfile?.模式 === '联机')
 
 // 类型定义
 type GameVariableValue = string | number | boolean | object | null | undefined
@@ -101,7 +105,44 @@ const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
 // 🔥 [新架构] 数据从 Pinia Store 获取
-const isTavernEnvFlag = isTavernEnv()
+
+const saveDataView = computed(() => {
+  if (!gameStateStore.isGameLoaded) return {}
+
+  const activeSlot = characterStore.activeSaveSlot
+  const activeProfile = characterStore.activeCharacterProfile
+  const onlineSync = activeProfile?.模式 === '联机' ? activeProfile.存档?.云端同步信息 : undefined
+
+  const raw = (gameStateStore.toSaveData() as any) || {}
+  const v3 = isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw).migrated
+
+  // 只展示 V3 五域，彻底隐藏任何旧顶层 key（即使仍残留在对象上）
+  const data: any = {
+    元数据: v3.元数据,
+    角色: v3.角色,
+    社交: v3.社交,
+    世界: v3.世界,
+    系统: v3.系统,
+  }
+
+  data.元数据 = {
+    ...(data.元数据 && typeof data.元数据 === 'object' ? data.元数据 : {}),
+    存档ID: activeSlot?.id ?? activeSlot?.存档名 ?? undefined,
+    角色ID: characterStore.rootState.当前激活存档?.角色ID,
+    模式: activeProfile?.模式,
+    游玩时长: activeSlot?.游戏时长,
+    创建时间: activeSlot?.保存时间 ?? undefined,
+    更新时间: activeSlot?.最后保存时间 ?? activeSlot?.保存时间 ?? undefined
+  }
+
+  if (onlineSync) {
+    if (!data.系统 || typeof data.系统 !== 'object') data.系统 = {}
+    if (!data.系统.联机 || typeof data.系统.联机 !== 'object') data.系统.联机 = {}
+    data.系统.联机.同步状态 = onlineSync
+  }
+
+  return data
+})
 
 const coreDataViews = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
@@ -111,25 +152,10 @@ const coreDataViews = computed(() => {
   const _state = gameStateStore.$state
 
   return {
-    [t('存档数据 (SaveData)')]: {
-      [t('角色基础信息')]: gameStateStore.character,
-      [t('玩家角色状态')]: gameStateStore.playerStatus,
-      [t('背包')]: gameStateStore.inventory,
-      [t('装备栏')]: gameStateStore.equipment,
-      [t('人物关系')]: gameStateStore.relationships,
-      [t('记忆')]: gameStateStore.memory,
-      [t('游戏时间')]: gameStateStore.gameTime,
-      [t('世界信息')]: gameStateStore.worldInfo,
-      [t('三千大道')]: gameStateStore.thousandDao,
-      [t('任务系统')]: gameStateStore.questSystem,
-      [t('修炼功法')]: gameStateStore.cultivationTechnique,
-      [t('掌握技能')]: gameStateStore.masteredSkills,
-      [t('系统')]: gameStateStore.systemConfig,
-      [t('叙事历史')]: gameStateStore.narrativeHistory,
-    },
-    [t('角色数据')]: gameStateStore.character,
-    [t('记忆数据')]: gameStateStore.memory,
-    [t('世界信息')]: gameStateStore.worldInfo
+    [t('存档数据 (短路径)')]: saveDataView.value,
+    [t('角色')]: gameStateStore.character,
+    [t('记忆')]: gameStateStore.memory,
+    [t('世界')]: gameStateStore.worldInfo
   }
 })
 
@@ -147,23 +173,7 @@ const characterData = computed(() => {
 
 const saveData = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
-
-  return {
-    [t('角色基础信息')]: gameStateStore.character,
-    [t('玩家角色状态')]: gameStateStore.playerStatus,
-    [t('背包')]: gameStateStore.inventory,
-    [t('装备栏')]: gameStateStore.equipment,
-    [t('人物关系')]: gameStateStore.relationships,
-    [t('记忆')]: gameStateStore.memory,
-    [t('游戏时间')]: gameStateStore.gameTime,
-    [t('世界信息')]: gameStateStore.worldInfo,
-    [t('三千大道')]: gameStateStore.thousandDao,
-    [t('任务系统')]: gameStateStore.questSystem,
-    [t('修炼功法')]: gameStateStore.cultivationTechnique,
-    [t('掌握技能')]: gameStateStore.masteredSkills,
-    [t('系统')]: gameStateStore.systemConfig,
-    [t('叙事历史')]: gameStateStore.narrativeHistory,
-  }
+  return saveDataView.value
 })
 const worldInfo = computed(() => gameStateStore.worldInfo || {})
 const memoryData = computed(() => gameStateStore.memory || {})
@@ -223,7 +233,7 @@ const getWorldItemCount = () => {
 
 // 数据类型配置 - 将存档数据放在第一个
 const dataTypes = [
-  { key: 'saveData',  label: t('存档数据(修改游戏数据)'), icon: 'Archive' },
+  { key: 'saveData',  label: t('存档数据(短路径)'), icon: 'Archive' },
   { key: 'core',      label: t('核心数据'), icon: 'Database' },
   { key: 'character', label: t('角色数据'), icon: 'Users' },
   { key: 'worldInfo', label: t('世界信息'), icon: 'Book' },
@@ -281,6 +291,10 @@ const addNewVariable = () => {
 }
 
 const editVariable = (item: EditingItem) => {
+  if (isOnlineMode.value) {
+    toast.warning(t('联机模式下不允许直接修改变量（服务器权威控制）'))
+    return
+  }
   editingItem.value = { ...item }
   showEditModal.value = true
 }
@@ -297,12 +311,20 @@ const copyVariable = async (event: { key: string; value: GameVariableValue }) =>
 }
 
 const deleteVariable = async () => {
+  if (isOnlineMode.value) {
+    toast.warning(t('联机模式下不允许直接删除变量（服务器权威控制）'))
+    return
+  }
   toast.warning(t('新架构下不支持直接删除变量，请通过游戏操作修改数据'))
 }
 
 const saveVariable = async (item: EditingItem) => {
   if (!item) {
     toast.error(t('没有要保存的数据'))
+    return
+  }
+  if (isOnlineMode.value) {
+    toast.warning(t('联机模式下不允许直接修改变量（服务器权威控制）'))
     return
   }
 
@@ -326,44 +348,71 @@ const saveVariable = async (item: EditingItem) => {
     console.log('[2-C] parsedValue:', parsedValue, 'typeof:', typeof parsedValue)
 
     // 🔥 关键修复：直接使用完整的 key，先转换为 store 的路径格式
-    const keyPrefixMap: Record<string, string> = {
-      '角色基础信息': 'character',
-      '玩家角色状态': 'playerStatus',
-      '背包': 'inventory',
-      '装备栏': 'equipment',
-      '人物关系': 'relationships',
-      '记忆': 'memory',
-      '游戏时间': 'gameTime',
-      '世界信息': 'worldInfo',
-      '任务系统': 'questSystem',
-      '三千大道': 'thousandDao',
-      '修炼功法': 'cultivationTechnique',
-      '掌握技能': 'masteredSkills',
-      '系统': 'systemConfig',
-      '叙事历史': 'narrativeHistory',
-    };
-
-    // 查找匹配的前缀（只替换第一个匹配的前缀）
-    let path: string = key;
-    for (const [chinesePrefix, storeKey] of Object.entries(keyPrefixMap)) {
-      if (key === chinesePrefix) {
-        // 完全匹配，直接替换
-        path = storeKey;
-        break;
-      } else if (key.startsWith(chinesePrefix + '.')) {
-        // 前缀匹配，替换前缀部分
-        path = key.replace(chinesePrefix, storeKey);
-        break;
+    // V3（五域）路径 -> Pinia store 字段映射
+    const mapSavePathToStorePath = (pathValue: string): string | null => {
+      const replacePrefix = (from: string, to: string) => {
+        if (pathValue === from) return to
+        if (pathValue.startsWith(`${from}.`)) return `${to}${pathValue.slice(from.length)}`
+        return null
       }
+
+      const mappings: Array<{ from: string; to: string }> = [
+        // 元数据
+        { from: '元数据.时间', to: 'gameTime' },
+        { from: '元数据', to: 'saveMeta' },
+
+        // 角色（store.character 对应 角色.身份）
+        { from: '角色.身份', to: 'character' },
+        { from: '角色.属性', to: 'attributes' },
+        { from: '角色.位置', to: 'location' },
+        { from: '角色.效果', to: 'effects' },
+        { from: '角色.身体.部位开发', to: 'bodyPartDevelopment' },
+        { from: '角色.背包', to: 'inventory' },
+        { from: '角色.装备', to: 'equipment' },
+        { from: '角色.功法', to: 'techniqueSystem' },
+        { from: '角色.修炼', to: 'cultivation' },
+        { from: '角色.大道', to: 'thousandDao' },
+        { from: '角色.技能', to: 'skillState' },
+
+        // 社交
+        { from: '社交.关系', to: 'relationships' },
+        { from: '社交.宗门', to: 'sectSystem' },
+        { from: '社交.任务', to: 'questSystem' },
+        { from: '社交.记忆', to: 'memory' },
+
+        // 世界
+        { from: '世界.信息', to: 'worldInfo' },
+
+        // 系统
+        { from: '系统.配置', to: 'systemConfig' },
+        { from: '系统.设置', to: 'userSettings' },
+        { from: '系统.缓存.掌握技能', to: 'masteredSkills' },
+        { from: '系统.历史.叙事', to: 'narrativeHistory' },
+        { from: '系统.联机', to: 'onlineState' },
+      ]
+
+      for (const { from, to } of mappings) {
+        const mapped = replacePrefix(from, to)
+        if (mapped) return mapped
+      }
+
+      toast.warning(t('不支持的字段路径（仅支持V3五域路径）'))
+      return null
     }
 
-    console.log('[3] 转换后路径:', path)
+    const mappedPath = mapSavePathToStorePath(key)
+    if (!mappedPath) {
+      toast.warning(t('字段路径无法映射到 Store，请检查路径是否正确'))
+      return
+    }
+
+    console.log('[3] 映射后Store路径:', mappedPath)
 
     // 🔥 关键诊断：检查 parsedValue 是否正确
     console.log('[3.5] 🔍 即将传给updateState的值:', parsedValue, '类型:', typeof parsedValue)
 
     // 🔥 检查 updateState 前的值
-    const pathParts = path.split('.')
+    const pathParts = mappedPath.split('.')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let beforeValue: any = gameStateStore
     for (const part of pathParts) {
@@ -375,7 +424,7 @@ const saveVariable = async (item: EditingItem) => {
     console.log('[4-CRITICAL] 即将传递给updateState的parsedValue:', parsedValue, 'typeof:', typeof parsedValue, 'JSON:', JSON.stringify(parsedValue))
 
     // 🔥 直接使用 updateState 更新
-    gameStateStore.updateState(path, parsedValue);
+    gameStateStore.updateState(mappedPath, parsedValue);
 
     // 🔥 检查 updateState 后的值
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -386,22 +435,9 @@ const saveVariable = async (item: EditingItem) => {
     console.log('[5] updateState后的Store值:', afterValue)
 
     // 🔥 检查 toSaveData() 的结果
-    const saveDataBefore = gameStateStore.toSaveData()
-    console.log('[6] toSaveData()返回的完整数据:', saveDataBefore)
-
-    // 检查具体路径在 SaveData 中的值
-    const chinesePathParts = key.split('.')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let saveDataValue: any = saveDataBefore
-    for (const part of chinesePathParts) {
-      saveDataValue = saveDataValue?.[part]
-    }
-    console.log(`[7] toSaveData()中${key}的值:`, saveDataValue)
-
-    // 保存到数据库
-    console.log('[8] 开始调用 gameStateStore.saveGame()')
+    console.log('[6] 开始调用 gameStateStore.saveGame()')
     await gameStateStore.saveGame()
-    console.log('[9] gameStateStore.saveGame() 完成')
+    console.log('[7] gameStateStore.saveGame() 完成')
 
     console.log('=== [诊断日志] 保存变量结束 ===')
 

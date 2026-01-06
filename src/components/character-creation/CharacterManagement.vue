@@ -40,6 +40,13 @@
         @change="handleImportFile"
         style="display: none"
       />
+      <LegacySaveMigrationModal
+        :open="showLegacyMigrationModal"
+        :targetCharId="selectedCharId"
+        :targetCharName="selectedCharacter?.角色?.名字"
+        @close="showLegacyMigrationModal = false"
+        @imported="handleLegacyImported"
+      />
       <!-- 返回按钮 - 仅在全屏模式显示 -->
       <div v-if="isFullscreen" class="fullscreen-header">
         <button @click="handleClose" class="fullscreen-back-btn">
@@ -68,8 +75,8 @@
         </button>
         <div class="mobile-title">
           <h2>{{ $t('角色管理') }}</h2>
-          <div v-if="selectedCharacter" class="selected-info">
-            {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}{{ $t('模式') }}
+          <div v-if="selectedCharacter?.角色?.名字" class="selected-info">
+            {{ selectedCharacter.角色.名字 }} - {{ selectedCharacter.模式 }}{{ $t('模式') }}
           </div>
         </div>
       </div>
@@ -83,7 +90,7 @@
 
       <!-- 无角色提示 -->
       <div v-if="Object.keys(characterStore.rootState.角色列表).length === 0" class="empty-state">
-        <div class="empty-icon">🌟</div>
+        <div class="empty-icon"><Star :size="32" /></div>
         <h2>{{ $t('道途未启') }}</h2>
         <p>{{ $t('尚未创建任何法身，请返回道途开启修仙之旅') }}</p>
         <div class="empty-actions">
@@ -114,8 +121,8 @@
           <div class="grid-header-right">
             <div class="header-left-content">
               <h2>{{ $t('存档管理') }}</h2>
-              <div v-if="selectedCharacter" class="selected-char-info">
-                {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式
+              <div v-if="selectedCharacter?.角色?.名字" class="selected-char-info">
+                {{ selectedCharacter.角色.名字 }} - {{ selectedCharacter.模式
                 }}{{ $t('模式') }}
               </div>
             </div>
@@ -128,6 +135,15 @@
                 <Upload :size="18" />
                 <span>{{ $t('导入存档') }}</span>
               </button>
+              <button
+                @click="openLegacyMigration"
+                class="btn-save-action migrate"
+                :disabled="selectedCharacter.模式 !== '单机'"
+                title="旧存档转化（单机）"
+              >
+                <Wrench :size="18" />
+                <span>旧存档转化</span>
+              </button>
             </div>
           </div>
 
@@ -138,7 +154,7 @@
           >
             <div class="characters-grid">
               <div
-                v-for="(profile, charId) in characterStore.rootState.角色列表"
+                v-for="[charId, profile] in validCharacterList"
                 :key="charId"
                 class="character-card"
                 :class="{
@@ -151,16 +167,16 @@
                 <!-- 卡片头部 -->
                 <div class="card-header">
                   <div class="char-avatar" :class="profile.模式">
-                    <span class="avatar-text">{{ profile.角色基础信息.名字[0] }}</span>
+                    <span class="avatar-text">{{ profile.角色.名字[0] }}</span>
                     <div class="mode-indicator">
                       {{ profile.模式 === $t('单机') ? $t('单机') : $t('联机') }}
                     </div>
                   </div>
                   <div class="char-info">
-                    <h3 class="char-name">{{ profile.角色基础信息.名字 }}</h3>
+                    <h3 class="char-name">{{ profile.角色.名字 }}</h3>
                     <div class="char-meta">
-                      <span class="world">{{ profile.角色基础信息.世界.name }}</span>
-                      <span class="talent">{{ getFieldName(profile.角色基础信息.天资.name) }}</span>
+                      <span class="world">{{ profile.角色.世界.name }}</span>
+                      <span class="talent">{{ getFieldName(profile.角色.天资.name) }}</span>
                     </div>
                   </div>
                   <div class="save-count">
@@ -189,7 +205,7 @@
           <section class="grid-content-right saves-panel">
             <!-- 未选择角色 -->
             <div v-if="!selectedCharacter" class="no-selection">
-              <div class="no-selection-icon">📋</div>
+              <div class="no-selection-icon"><Wrench :size="30" /></div>
               <p>{{ $t('请选择左侧角色查看存档详情') }}</p>
             </div>
 
@@ -270,10 +286,10 @@
 
                         <div class="save-badges">
                           <span class="realm-badge">{{
-                            getRealmName(slot.存档数据.玩家角色状态?.境界)
+                            getRealmName(normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.境界)
                           }}</span>
                           <span class="age-badge"
-                            >{{ slot.存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span
+                            >{{ normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.寿命?.当前 ?? 18 }}岁</span
                           >
                         </div>
 
@@ -282,37 +298,37 @@
                             <div class="stat">
                               <span class="label">气血</span>
                               <span class="value"
-                                >{{ slot.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{
-                                  slot.存档数据.玩家角色状态?.气血?.上限 || 0
+                                >{{ normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.气血?.当前 ?? 0 }}/{{
+                                  normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.气血?.上限 ?? 0
                                 }}</span
                               >
                             </div>
                             <div class="stat">
                               <span class="label">灵气</span>
                               <span class="value"
-                                >{{ slot.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{
-                                  slot.存档数据.玩家角色状态?.灵气?.上限 || 0
+                                >{{ normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.灵气?.当前 ?? 0 }}/{{
+                                  normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.灵气?.上限 ?? 0
                                 }}</span
                               >
                             </div>
                             <div class="stat">
                               <span class="label">神识</span>
                               <span class="value"
-                                >{{ slot.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{
-                                  slot.存档数据.玩家角色状态?.神识?.上限 || 0
+                                >{{ normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.神识?.当前 ?? 0 }}/{{
+                                  normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.神识?.上限 ?? 0
                                 }}</span
                               >
                             </div>
                             <div class="stat">
                               <span class="label">声望</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.声望 || 0 }}</span>
+                              <span class="value">{{ normalizeSaveDataV3(slot.存档数据)?.角色?.属性?.声望 ?? 0 }}</span>
                             </div>
                           </div>
                         </div>
 
                         <div class="save-footer">
                           <span class="location">{{
-                            slot.存档数据.玩家角色状态?.位置?.描述 || '初始地'
+                            normalizeSaveDataV3(slot.存档数据)?.角色?.位置?.描述 || '初始地'
                           }}</span>
                           <span class="save-time">{{ formatTime(slot.保存时间) }}</span>
                         </div>
@@ -344,11 +360,11 @@
                     <h4 class="save-name">{{ $t('云端存档') }}</h4>
                     <div class="save-badges">
                       <span class="realm-badge">{{
-                        getRealmName(selectedCharacter.存档.存档数据.玩家角色状态?.境界)
+                        getRealmName(normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.境界)
                       }}</span>
                       <span class="age-badge"
                         >{{
-                          selectedCharacter.存档.存档数据.玩家角色状态?.寿命?.当前 || 18
+                          normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.寿命?.当前 ?? 18
                         }}岁</span
                       >
                     </div>
@@ -359,31 +375,31 @@
                       <div class="stat">
                         <span class="label">气血</span>
                         <span class="value"
-                          >{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{
-                            selectedCharacter.存档.存档数据.玩家角色状态?.气血?.上限 || 0
+                          >{{ normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.气血?.当前 ?? 0 }}/{{
+                            normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.气血?.上限 ?? 0
                           }}</span
                         >
                       </div>
                       <div class="stat">
                         <span class="label">灵气</span>
                         <span class="value"
-                          >{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{
-                            selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.上限 || 0
+                          >{{ normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.灵气?.当前 ?? 0 }}/{{
+                            normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.灵气?.上限 ?? 0
                           }}</span
                         >
                       </div>
                       <div class="stat">
                         <span class="label">神识</span>
                         <span class="value"
-                          >{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{
-                            selectedCharacter.存档.存档数据.玩家角色状态?.神识?.上限 || 0
+                          >{{ normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.神识?.当前 ?? 0 }}/{{
+                            normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.神识?.上限 ?? 0
                           }}</span
                         >
                       </div>
                       <div class="stat">
                         <span class="label">声望</span>
                         <span class="value">{{
-                          selectedCharacter.存档.存档数据.玩家角色状态?.声望 || 0
+                          normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.声望 ?? 0
                         }}</span>
                       </div>
                     </div>
@@ -391,7 +407,7 @@
 
                   <div class="save-footer">
                     <span class="location">{{
-                      selectedCharacter.存档.存档数据.玩家角色状态?.位置?.描述 || '初始地'
+                      normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.位置?.描述 || '初始地'
                     }}</span>
                     <div class="sync-info">
                       <span
@@ -441,9 +457,9 @@
 
     <!-- 角色详情弹窗 -->
     <div v-if="showDetailsModal" class="modal-overlay" @click="closeDetailsModal">
-      <div class="details-modal" @click.stop>
+        <div class="details-modal" @click.stop>
         <div class="modal-header">
-          <h3>{{ detailsCharacter?.角色基础信息.名字 }} - {{ $t('详情') }}</h3>
+          <h3>{{ detailsCharacter?.角色?.名字 }} - {{ $t('详情') }}</h3>
           <button @click="closeDetailsModal" class="btn-close">×</button>
         </div>
 
@@ -454,23 +470,23 @@
               <div class="detail-items">
                 <div class="detail-item">
                   <span class="label">{{ $t('道号') }}</span>
-                  <span class="value">{{ detailsCharacter.角色基础信息.名字 }}</span>
+                  <span class="value">{{ detailsCharacter.角色.名字 }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">{{ $t('世界') }}</span>
-                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.世界) }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色.世界) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">{{ $t('天资') }}</span>
-                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.天资) }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色.天资) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">{{ $t('出身') }}</span>
-                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.出生) }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色.出生) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">{{ $t('灵根') }}</span>
-                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.灵根) }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色.灵根) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">{{ $t('模式') }}</span>
@@ -483,8 +499,8 @@
               <h4>{{ $t('先天六司') }}</h4>
               <div class="attributes-display">
                 <HexagonChart
-                  v-if="detailsCharacter.角色基础信息.先天六司"
-                  :stats="convertToStats(detailsCharacter.角色基础信息.先天六司)"
+                  v-if="detailsCharacter.角色.先天六司"
+                  :stats="convertToStats(detailsCharacter.角色.先天六司)"
                   :size="150"
                   :maxValue="10"
                 />
@@ -494,9 +510,9 @@
             <div class="detail-section">
               <h4>{{ $t('天赋神通') }}</h4>
               <div class="talents-list">
-                <div v-if="detailsCharacter.角色基础信息.天赋?.length" class="talent-items">
+                <div v-if="detailsCharacter.角色.天赋?.length" class="talent-items">
                   <span
-                    v-for="(talent, index) in detailsCharacter.角色基础信息.天赋"
+                    v-for="(talent, index) in detailsCharacter.角色.天赋"
                     :key="index"
                     class="talent-tag"
                     :title="getTalentDescription(talent)"
@@ -520,13 +536,18 @@ import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import HexagonChart from '@/components/common/HexagonChart.vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
-import { ArrowLeft, Download, Upload, History, Clock } from 'lucide-vue-next';
+import { ArrowLeft, Upload, History, Clock, Star, Wrench } from 'lucide-vue-next';
+import LegacySaveMigrationModal from './LegacySaveMigrationModal.vue';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
 import "@/style.css";
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import { toast } from '@/utils/toast';
 import { isTavernEnv } from '@/utils/tavern';
 import { ensureSaveDataHasTavernNsfw } from '@/utils/nsfw';
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { validateSaveDataV3 } from '@/utils/saveValidationV3';
+import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
+import type { SaveDataV3 } from '@/types/saveSchemaV3';
 
 interface Props {
   fullscreen?: boolean;
@@ -558,6 +579,7 @@ const isCharacterPanelOpen = ref(false);
 const loading = ref(false);
 const isLoadingSaves = ref(false); // 新增：用于控制存档加载状态
 const importMode = ref<'character' | 'saves'>('character');
+const showLegacyMigrationModal = ref(false);
 
 // 响应式屏幕尺寸检测
 const screenWidth = ref(window.innerWidth);
@@ -574,6 +596,23 @@ const updateScreenWidth = () => {
     // 小屏手机：默认关闭面板，避免遮挡主要内容
     isCharacterPanelOpen.value = false;
   }
+};
+
+const openLegacyMigration = () => {
+  if (!selectedCharacter.value) {
+    toast.info('请先选择一个单机角色');
+    return;
+  }
+  if (selectedCharacter.value.模式 !== '单机') {
+    toast.error('联机角色不支持旧存档转化/导入');
+    return;
+  }
+  showLegacyMigrationModal.value = true;
+};
+
+const handleLegacyImported = async () => {
+  if (!selectedCharId.value) return;
+  await selectCharacter(selectedCharId.value);
 };
 
 onMounted(async () => {
@@ -618,6 +657,25 @@ const modalState = ref({
 
 // 计算属性
 const allCharacterCount = computed(() => Object.keys(characterStore.rootState.角色列表).length);
+
+// 过滤有效的角色列表（排除角色或名字为空的无效数据）
+const validCharacterList = computed(() => {
+  const list = characterStore.rootState.角色列表;
+  const entries = Object.entries(list);
+
+  // 调试：打印原始数据结构
+  if (entries.length > 0) {
+    console.log('[CharacterManagement] 第一个角色的数据结构:', JSON.stringify(entries[0][1], null, 2).substring(0, 500));
+  }
+
+  return entries.filter(([, profile]) => {
+    // 兼容两种数据结构：
+    // 1. profile.角色.名字 (旧格式)
+    // 2. profile.角色.身份.名字 (V3格式)
+    const 名字 = profile?.角色?.名字 || (profile?.角色 as any)?.身份?.名字;
+    return !!名字;
+  });
+});
 
 const selectedCharacter = computed(() => {
   if (!selectedCharId.value) return null;
@@ -722,7 +780,7 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
 };
 
 const handleDeleteCharacter = (charId: string) => {
-  const charName = characterStore.rootState.角色列表[charId]?.角色基础信息.名字;
+  const charName = characterStore.rootState.角色列表[charId]?.角色.名字;
   showConfirm(
     '删除角色',
     `确定要彻底删除角色\"${charName}\"及其所有修行记录吗？此操作不可恢复。`,
@@ -740,7 +798,7 @@ const handleDeleteCharacter = (charId: string) => {
 
 const handleDeleteSave = (charId: string, slotKey: string) => {
   const character = characterStore.rootState.角色列表[charId];
-  const charName = character?.角色基础信息.名字;
+  const charName = character?.角色.名字;
   const saveName = slotKey === '上次对话' ? '上次对话存档' : slotKey;
 
   // 检查是否可以删除存档
@@ -848,6 +906,12 @@ const handleLogin = () => {
   emit('login');
 };
 
+const normalizeSaveDataV3 = (saveData: unknown): SaveDataV3 | null => {
+  if (!saveData || typeof saveData !== 'object') return null;
+  const raw = saveData as any;
+  return (isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw).migrated) as SaveDataV3;
+};
+
 // 境界显示：统一为“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
 const getRealmName = (realm: unknown): string => {
   return formatRealmWithStage(realm as { 境界: string; 境界等级?: number; 阶段?: string } | null);
@@ -878,21 +942,23 @@ const convertToStats = (innateAttrs: Record<string, number>) => {
 };
 
 // 获取天赋名称（兼容字符串和对象格式）
-const getTalentName = (talent: string | { 名称: string; 描述?: string } | { name: string; description?: string }): string => {
+const getTalentName = (talent: unknown): string => {
   if (typeof talent === 'string') return talent;
   if (talent && typeof talent === 'object') {
-    return (talent as { 名称?: string; name?: string }).名称 || (talent as { 名称?: string; name?: string }).name || '未知天赋';
+    const t = talent as Record<string, unknown>;
+    return String(t['名称'] || t['name'] || '未知天赋');
   }
   return '未知天赋';
 };
 
 // 获取天赋描述（兼容字符串和对象格式）
-const getTalentDescription = (talent: string | { 名称: string; 描述?: string } | { name: string; description?: string }): string => {
+const getTalentDescription = (talent: unknown): string => {
   if (typeof talent === 'string') return `天赋《${talent}》`;
   if (talent && typeof talent === 'object') {
-    const desc = (talent as { 描述?: string; description?: string }).描述 || (talent as { 描述?: string; description?: string }).description || '';
-    const name = getTalentName(talent as string | { 名称: string; 描述?: string } | { name: string; description?: string });
-    return desc || `天赋《${name}》`;
+    const t = talent as Record<string, unknown>;
+    const desc = t['描述'] || t['description'] || '';
+    const name = getTalentName(talent);
+    return desc ? String(desc) : `天赋《${name}》`;
   }
   return '未知天赋';
 };
@@ -1008,17 +1074,24 @@ const exportCharacter = async (charId: string) => {
       })
     );
 
-    // 统一格式：与 SavePanel.vue 的 exportCharacter 一致
-    const exportData = {
-      type: 'character',
-      character: {
-        角色ID: charId,
-        角色信息: character,
-        存档列表: savesWithFullData
-      },
-      exportTime: new Date().toISOString(),
-      version: '1.0.0'
-    };
+    const normalizedSaves = savesWithFullData.map((s) => {
+      const rawSaveData = (s as any).存档数据;
+      if (!rawSaveData) {
+        throw new Error(`存档「${s.存档名}」缺少存档数据，无法导出`);
+      }
+      const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+      const validation = validateSaveDataV3(v3SaveData as any);
+      if (!validation.isValid) {
+        throw new Error(`存档「${s.存档名}」校验失败：${validation.errors[0] || '未知原因'}`);
+      }
+      return { ...s, 存档数据: v3SaveData };
+    });
+
+    const exportData = createDadBundle('character', {
+      角色ID: charId,
+      角色信息: JSON.parse(JSON.stringify(character)),
+      存档列表: normalizedSaves,
+    });
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1027,7 +1100,7 @@ const exportCharacter = async (charId: string) => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const characterName = character.角色基础信息?.名字 || '未命名角色';
+    const characterName = character.角色?.名字 || '未命名角色';
     link.download = `仙途-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
@@ -1038,7 +1111,7 @@ const exportCharacter = async (charId: string) => {
       URL.revokeObjectURL(link.href);
     }, 100);
 
-    toast.success(`已导出角色: ${characterName} (含 ${savesWithFullData.length} 个存档)`);
+    toast.success(`已导出角色: ${characterName} (含 ${normalizedSaves.length} 个存档)`);
   } catch (error) {
     console.error('导出角色失败', error);
     toast.error('导出角色失败: ' + (error instanceof Error ? error.message : '未知错误'));
@@ -1062,19 +1135,21 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
       return;
     }
 
-    // 使用统一格式: { type: 'saves', saves: [...] }
-    const exportData = {
-      type: 'saves',
+    const v3SaveData = isSaveDataV3(fullSaveData as any) ? fullSaveData : migrateSaveDataToLatest(fullSaveData as any).migrated;
+    const validation = validateSaveDataV3(v3SaveData as any);
+    if (!validation.isValid) {
+      throw new Error(validation.errors[0] || '存档结构校验失败');
+    }
+
+    const exportData = createDadBundle('saves', {
+      characterId: charId,
+      characterName: selectedCharacter.value?.角色?.名字,
       saves: [{
         ...slot,
         存档名: slotKey,
-        存档数据: fullSaveData
+        存档数据: v3SaveData,
       }],
-      exportTime: new Date().toISOString(),
-      version: '1.0.0',
-      characterId: charId,
-      characterName: selectedCharacter.value?.角色基础信息?.名字
-    };
+    });
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1142,14 +1217,21 @@ const exportSaves = async () => {
       return;
     }
 
-    const exportData = {
-      type: 'saves',
-      saves: validSaves,
-      exportTime: new Date().toISOString(),
-      version: '1.0.0',
+    const normalizedSaves = validSaves.map((s) => {
+      const rawSaveData = (s as any).存档数据;
+      const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+      const validation = validateSaveDataV3(v3SaveData as any);
+      if (!validation.isValid) {
+        throw new Error(`存档「${s.存档名}」校验失败：${validation.errors[0] || '未知原因'}`);
+      }
+      return { ...s, 存档数据: v3SaveData };
+    });
+
+    const exportData = createDadBundle('saves', {
       characterId: charId,
-      characterName: character.角色基础信息.名字,
-    };
+      characterName: character.角色.名字,
+      saves: normalizedSaves,
+    });
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1158,7 +1240,7 @@ const exportSaves = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `仙途-${character.角色基础信息.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-${character.角色.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();
@@ -1168,7 +1250,7 @@ const exportSaves = async () => {
       URL.revokeObjectURL(link.href);
     }, 100);
 
-    toast.success(`已导出 ${validSaves.length} 个存档`);
+    toast.success(`已导出 ${normalizedSaves.length} 个存档`);
   } catch (error) {
     console.error('导出失败', error);
     toast.error('导出存档失败: ' + (error instanceof Error ? error.message : '未知错误'));
@@ -1194,7 +1276,7 @@ const importCharacter = () => {
 };
 
 // 处理导入文件
-// 统一格式: 存档文件 { type: 'saves', saves: [...] }, 角色文件 { 角色基础信息, 模式, ... }
+// 统一格式: 存档文件 { type: 'saves', saves: [...] }, 角色文件 { 角色, 模式, ... }
 const handleImportFile = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -1208,14 +1290,19 @@ const handleImportFile = async (event: Event) => {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
+    const unwrapped = unwrapDadBundle(data);
 
     if (importMode.value === 'saves') {
-      // 统一格式: { type: 'saves', saves: [...] }
-      if (data.type !== 'saves' || !Array.isArray(data.saves)) {
+      const savesToImport = (() => {
+        if (unwrapped.type === 'saves' && Array.isArray(unwrapped.payload?.saves)) return unwrapped.payload.saves;
+        // 兼容：用户可能选了“角色文件”但点了“导入存档”
+        if (unwrapped.type === 'character' && Array.isArray(unwrapped.payload?.存档列表)) return unwrapped.payload.存档列表;
+        return null;
+      })();
+
+      if (!savesToImport) {
         throw new Error('无效的存档文件格式，请使用本游戏导出的存档文件');
       }
-
-      const savesToImport = data.saves;
       if (savesToImport.length === 0) {
         throw new Error('文件中没有找到有效的存档数据');
       }
@@ -1227,7 +1314,7 @@ const handleImportFile = async (event: Event) => {
       }
 
       const charId = selectedCharId.value;
-      const charName = selectedCharacter.value.角色基础信息.名字;
+      const charName = selectedCharacter.value.角色.名字;
 
       showConfirm(
         '导入存档',
@@ -1251,18 +1338,18 @@ const handleImportFile = async (event: Event) => {
         resetInput
       );
     } else if (importMode.value === 'character') {
-      // 统一格式: { type: 'character', character: { 角色ID, 角色信息, 存档列表 } }
-      if (data.type !== 'character' || !data.character || !data.character.角色信息) {
+      // 统一格式: dad.bundle(type=character) payload: { 角色ID, 角色信息, 存档列表 }
+      if (unwrapped.type !== 'character' || !unwrapped.payload?.角色信息) {
         throw new Error('无效的角色文件格式，请使用本游戏导出的角色文件');
       }
 
-      const characterData = data.character.角色信息;
-      const charName = characterData?.角色基础信息?.名字 || '未知角色';
+      const characterData = unwrapped.payload.角色信息;
+      const charName = characterData?.角色?.名字 || '未知角色';
 
       // 清空原有元数据，由存档列表完全接管
       characterData.存档列表 = {};
-      if (data.character.存档列表 && Array.isArray(data.character.存档列表)) {
-        characterData._导入存档列表 = data.character.存档列表;
+      if (Array.isArray(unwrapped.payload?.存档列表)) {
+        characterData._导入存档列表 = unwrapped.payload.存档列表;
       }
 
       showConfirm(
@@ -1875,6 +1962,19 @@ const handleImportFile = async (event: Event) => {
   border-color: var(--color-info);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(var(--color-info-rgb), 0.3);
+}
+
+.btn-save-action.migrate {
+  color: var(--color-warning);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
+}
+
+.btn-save-action.migrate:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-warning), rgba(var(--color-warning-rgb), 0.85));
+  color: #1a1a1a;
+  border-color: var(--color-warning);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-warning-rgb), 0.3);
 }
 
 .btn-save-action:disabled {
@@ -3811,6 +3911,16 @@ const handleImportFile = async (event: Event) => {
 
 [data-theme='dark'] .btn-save-action.import:hover:not(:disabled) {
   background: linear-gradient(135deg, #77cdfe, rgba(119, 205, 254, 0.8));
+  color: #0f172a;
+}
+
+[data-theme='dark'] .btn-save-action.migrate {
+  color: var(--color-warning);
+  border-color: rgba(var(--color-warning-rgb), 0.45);
+}
+
+[data-theme='dark'] .btn-save-action.migrate:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-warning), rgba(var(--color-warning-rgb), 0.85));
   color: #0f172a;
 }
 

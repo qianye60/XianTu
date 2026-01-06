@@ -22,13 +22,17 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@vueuse/core": "^14.1.0",
     "axios": "^1.11.0",
     "chart.js": "^4.5.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "idb": "^8.0.3",
     "jquery": "^3.7.1",
     "lucide-vue-next": "^0.541.0",
     "pinia": "^3.0.4",
     "pixi.js": "^7.4.3",
+    "tailwind-merge": "^3.4.0",
     "vue": "^3.5.18",
     "vue-router": "^4.6.4",
     "vue-tsc": "^3.1.1"

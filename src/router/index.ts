@@ -45,8 +45,14 @@ import SavePanel from '../components/dashboard/SavePanel.vue';
 import GameMapPanel from '../components/dashboard/GameMapPanel.vue'; // 新的游戏地图组件（使用Pixi.js）
 import QuestPanel from '../components/dashboard/QuestPanel.vue';
 import SectPanel from '../components/dashboard/SectPanel.vue';
+import SectSystemPanel from '../components/dashboard/SectSystemPanel.vue';
+import SectMembersContent from '../components/dashboard/components/SectMembersContent.vue';
+import SectMissionsContent from '../components/dashboard/components/SectMissionsContent.vue';
+import SectLibraryContent from '../components/dashboard/components/SectLibraryContent.vue';
+import SectContributionContent from '../components/dashboard/components/SectContributionContent.vue';
 import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
+import OnlineTravelPanel from '../components/dashboard/OnlineTravelPanel.vue';
 
 const routes = [
   {
@@ -143,7 +149,38 @@ const routes = [
       {
         path: 'sect',
         name: 'Sect',
-        component: SectPanel,
+        component: SectSystemPanel,
+        children: [
+          {
+            path: '',
+            redirect: { name: 'SectOverview' },
+          },
+          {
+            path: 'overview',
+            name: 'SectOverview',
+            component: SectPanel,
+          },
+          {
+            path: 'members',
+            name: 'SectMembers',
+            component: SectMembersContent,
+          },
+          {
+            path: 'missions',
+            name: 'SectMissions',
+            component: SectMissionsContent,
+          },
+          {
+            path: 'library',
+            name: 'SectLibrary',
+            component: SectLibraryContent,
+          },
+          {
+            path: 'contribution',
+            name: 'SectContribution',
+            component: SectContributionContent,
+          },
+        ],
       },
       {
         path: 'game-variables',
@@ -154,6 +191,11 @@ const routes = [
         path: 'prompts',
         name: 'Prompts',
         component: PromptManagementPanel,
+      },
+      {
+        path: 'travel',
+        name: 'Travel',
+        component: OnlineTravelPanel,
       },
     ],
   },

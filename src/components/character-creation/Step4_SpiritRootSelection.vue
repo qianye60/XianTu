@@ -217,6 +217,7 @@ import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
 import { generateWithRawPrompt } from '../../utils/tavernCore'
 import { SPIRIT_ROOT_ITEM_GENERATION_PROMPT } from '../../utils/prompts/tasks/gameElementPrompts'
+import { parseJsonFromText } from '@/utils/jsonExtract'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
@@ -441,9 +442,7 @@ async function handleAIPromptSubmit(userPrompt: string) {
     // 解析AI返回的JSON
     let parsedRoot: Record<string, unknown>;
     try {
-      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
-      parsedRoot = JSON.parse(jsonStr.trim());
+      parsedRoot = parseJsonFromText(aiResponse);
     } catch (parseError) {
       console.error('【AI推演-灵根】JSON解析失败:', parseError);
       toast.error('AI推演结果格式错误，无法解析', { id: toastId });

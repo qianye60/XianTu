@@ -4,13 +4,14 @@
       <h3 class="section-title">Save Data (存档数据)</h3>
     </div>
     <div class="save-data-content">
-      <div v-if="saveData && Object.keys(saveData).length > 0" class="data-tree">
+      <div v-if="displaySaveData && Object.keys(displaySaveData).length > 0" class="data-tree">
         <TreeNode
-          v-for="(value, key) in saveData"
+          v-for="(value, key) in displaySaveData"
           :key="key"
           :node-key="key"
           :value="value"
           :path="String(key)"
+          :read-only="readOnly"
           @delete-item="handleDeleteItem"
           @edit-item="handleEditItem"
         />
@@ -25,27 +26,47 @@
 
 <script setup lang="ts">
 import { Archive } from 'lucide-vue-next'
-import { defineAsyncComponent } from 'vue'
-import { useCharacterStore } from '@/stores/characterStore'
+import { computed, defineAsyncComponent } from 'vue'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { toast } from '@/utils/toast'
 import { debug } from '@/utils/debug'
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration'
 
 // 异步加载 TreeNode 组件以避免循环依赖
 const TreeNode = defineAsyncComponent(() => import('./TreeNode.vue'))
 
 interface Props {
   saveData: any
+  readOnly?: boolean
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  readOnly: false
+})
 
 const emit = defineEmits(['edit-variable'])
 
-const characterStore = useCharacterStore()
 const gameStateStore = useGameStateStore()
 
+const displaySaveData = computed(() => {
+  const raw = props.saveData ?? {}
+  const v3 = isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw as any).migrated
+
+  // 只展示 V3 五域（彻底隐藏旧顶层 key）
+  return {
+    元数据: (v3 as any).元数据,
+    角色: (v3 as any).角色,
+    社交: (v3 as any).社交,
+    世界: (v3 as any).世界,
+    系统: (v3 as any).系统,
+  }
+})
+
 const handleEditItem = (path: string, value: unknown) => {
+  if (props.readOnly) {
+    toast.warning('联机模式下不允许直接修改存档数据（服务器权威控制）');
+    return;
+  }
   emit('edit-variable', {
     type: 'saveData',
     key: path,
@@ -54,40 +75,46 @@ const handleEditItem = (path: string, value: unknown) => {
 }
 
 const handleDeleteItem = async (path: string) => {
+  if (props.readOnly) {
+    toast.warning('联机模式下不允许直接删除存档数据（服务器权威控制）');
+    return;
+  }
   debug.log('[TavernSaveData]', `请求删除: ${path}`)
   if (!confirm(`确定要删除此项目吗？\n路径: ${path}\n\n此操作不可撤销！`)) {
     return
   }
 
   try {
-    // 路径类似于 '背包_物品.item_123'
-    // 我们需要将其转换为 lodash.set 的路径格式
-    const pathArray = path.split('.')
+    const segments = path.split('.')
+    const isInventoryItem = path.startsWith('角色.背包.物品.') && segments.length === 4
+    const isNpc = path.startsWith('社交.关系.') && segments.length === 3
 
-    // 从 gameStateStore 获取当前存档数据（而非 activeSaveSlot，因为那个可能没有存档数据）
-    const currentSaveData = gameStateStore.getCurrentSaveData()
-    if (!currentSaveData) {
-      throw new Error('没有激活的存档数据')
+    if (!isInventoryItem && !isNpc) {
+      toast.warning('该路径暂不支持删除，请通过游戏内操作处理')
+      return
     }
 
-    // 创建一个深拷贝以进行修改
-    const saveDataCopy = JSON.parse(JSON.stringify(currentSaveData))
-
-    // 使用动态方式删除嵌套对象中的属性
-    let current = saveDataCopy
-    for (let i = 0; i < pathArray.length - 1; i++) {
-      current = current[pathArray[i]]
-      if (current === undefined) {
-        throw new Error(`路径无效: ${path}`)
+    if (isInventoryItem) {
+      const itemId = segments[3]
+      const inventory = gameStateStore.inventory
+      if (!inventory?.物品?.[itemId]) {
+        throw new Error(`物品不存在: ${itemId}`)
       }
+      const nextInventory = JSON.parse(JSON.stringify(inventory))
+      delete nextInventory.物品[itemId]
+      gameStateStore.updateState('inventory', nextInventory)
+    } else {
+      const npcKey = segments[2]
+      const relationships = gameStateStore.relationships
+      if (!relationships?.[npcKey]) {
+        throw new Error(`NPC不存在: ${npcKey}`)
+      }
+      const nextRelationships = JSON.parse(JSON.stringify(relationships))
+      delete nextRelationships[npcKey]
+      gameStateStore.updateState('relationships', nextRelationships)
     }
-    delete current[pathArray[pathArray.length - 1]]
 
-    // 直接用修改后的数据更新整个存档
-    await characterStore.updateSaveDataDirectly(saveDataCopy)
-
-    // 同步更新 gameStateStore
-    gameStateStore.loadFromSaveData(saveDataCopy)
+    await gameStateStore.saveGame()
 
     toast.success(`项目 ${path} 已删除`)
     debug.log('[TavernSaveData]', `成功删除并同步: ${path}`)

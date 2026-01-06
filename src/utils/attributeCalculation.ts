@@ -1,4 +1,4 @@
-import type { InnateAttributes, Item, Equipment, SaveData } from '../types/game.d';
+import type { InnateAttributes, Item, Equipment, SaveData } from '@/types/game';
 import type { Talent } from '../types/index';
 import { LOCAL_TALENTS } from '../data/creationData';
 
@@ -82,8 +82,9 @@ export function calculateTalentBonusesFromCharacter(saveData: SaveData): InnateA
     心性: 0
   };
 
-  // 获取角色的天赋名称列表，兼容两种格式
-  const characterTalents = saveData.角色基础信息?.天赋 || [];
+  // 获取角色的天赋名称列表（V3：角色.身份）
+  const character = (saveData as any).角色?.身份 ?? null;
+  const characterTalents = character?.天赋 || [];
 
   // 提取天赋名称，兼容字符串数组和对象数组两种格式
   const characterTalentNames: string[] = characterTalents.map((talent: any) => {
@@ -207,14 +208,14 @@ export function calculateTalentBonuses(talents: Talent[]): InnateAttributes {
 export function calculateTechniqueBonuses(saveData: SaveData): InnateAttributes {
   const bonuses: InnateAttributes = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
 
-  if (!saveData.背包?.物品) {
+  const itemsMap = (saveData as any)?.角色?.背包?.物品 ?? (saveData as any)?.背包?.物品;
+  if (!itemsMap) {
     return bonuses;
   }
 
   // 查找已装备的功法
-  const equippedTechnique = Object.values(saveData.背包.物品).find(
-    item => item?.类型 === '功法' && item?.已装备 === true
-  );
+  const items = (itemsMap ?? {}) as Record<string, Item>;
+  const equippedTechnique = Object.values(items).find((item) => item.类型 === '功法' && item.已装备 === true);
 
   if (equippedTechnique && equippedTechnique.类型 === '功法' && equippedTechnique.功法效果?.属性加成) {
     const attributeBonuses = equippedTechnique.功法效果.属性加成;
@@ -241,12 +242,15 @@ export function calculateFinalAttributes(
 } {
   // 🔥 [BUG修复] 动态计算后天六司，确保装备和天赋加成正确显示
   // 1. 从存档读取基础后天六司（可能包含永久加成）
-  const storedAcquiredAttributes = saveData.角色基础信息?.后天六司 || {
+  const character = (saveData as any).角色?.身份 ?? null;
+  const storedAcquiredAttributes = character?.后天六司 || {
     根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0
   };
 
   // 2. 计算装备加成（实时计算，确保准确）
-  const equipmentBonuses = calculateEquipmentBonuses(saveData.装备栏, saveData.背包);
+  const equipmentState = (saveData as any).角色?.装备 ?? null;
+  const inventoryState = (saveData as any).角色?.背包 ?? null;
+  const equipmentBonuses = calculateEquipmentBonuses(equipmentState, inventoryState);
 
   // 3. 计算天赋加成
   const talentBonuses = calculateTalentBonusesFromCharacter(saveData);

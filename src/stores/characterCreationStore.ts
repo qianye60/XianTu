@@ -148,6 +148,70 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     // ignore
   }
 
+  // 工坊“开局配置”落地：允许从本地存储读取并覆盖默认开局参数（一次性应用，可在界面继续修改）
+  const applyStartConfig = (cfg: unknown) => {
+    if (!cfg || typeof cfg !== 'object') return;
+    const anyCfg = cfg as any;
+
+    const aiCfg = (anyCfg.ai && typeof anyCfg.ai === 'object') ? anyCfg.ai : anyCfg;
+    const streaming = aiCfg.streaming ?? aiCfg.useStreamingStart;
+    if (typeof streaming === 'boolean') useStreamingStart.value = streaming;
+    const initMode = aiCfg.initMode ?? aiCfg.generateMode;
+    if (initMode === 'generate' || initMode === 'generateRaw') generateMode.value = initMode;
+
+    const worldCfg =
+      (anyCfg.world && typeof anyCfg.world === 'object')
+        ? anyCfg.world
+        : (anyCfg.worldGenerationConfig && typeof anyCfg.worldGenerationConfig === 'object')
+          ? anyCfg.worldGenerationConfig
+          : null;
+
+    const clampInt = (value: unknown, min: number, max: number): number | null => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return null;
+      const i = Math.floor(n);
+      return Math.min(max, Math.max(min, i));
+    };
+
+    if (worldCfg) {
+      const next = { ...worldGenerationConfig.value };
+      const majorFactionsCount = clampInt(worldCfg.majorFactionsCount, 1, 30);
+      const totalLocations = clampInt(worldCfg.totalLocations, 1, 60);
+      const secretRealmsCount = clampInt(worldCfg.secretRealmsCount, 0, 30);
+      const continentCount = clampInt(worldCfg.continentCount, 1, 12);
+      if (majorFactionsCount !== null) next.majorFactionsCount = majorFactionsCount;
+      if (totalLocations !== null) next.totalLocations = totalLocations;
+      if (secretRealmsCount !== null) next.secretRealmsCount = secretRealmsCount;
+      if (continentCount !== null) next.continentCount = continentCount;
+      worldGenerationConfig.value = next;
+    }
+
+    const charCfg = (anyCfg.character && typeof anyCfg.character === 'object') ? anyCfg.character : null;
+    if (charCfg) {
+      const next = { ...characterPayload.value };
+      const name = typeof charCfg.character_name === 'string' ? charCfg.character_name.trim() : null;
+      const gender = typeof charCfg.gender === 'string' ? charCfg.gender.trim() : null;
+      const race = typeof charCfg.race === 'string' ? charCfg.race.trim() : null;
+      const currentAge = clampInt(charCfg.current_age, 1, 3000);
+
+      if (name) next.character_name = name;
+      if (gender) next.gender = gender;
+      if (race) next.race = race;
+      if (currentAge !== null) next.current_age = currentAge;
+
+      characterPayload.value = next;
+    }
+  };
+
+  try {
+    const rawStartConfig = localStorage.getItem('dad_start_config');
+    if (rawStartConfig) {
+      applyStartConfig(JSON.parse(rawStartConfig));
+    }
+  } catch {
+    // ignore (invalid json / storage unavailable)
+  }
+
   watch(useStreamingStart, (val) => {
     try {
       localStorage.setItem('dad_creation_useStreamingStart', String(val));
@@ -340,42 +404,54 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         creationData.value.spiritRoots = merge(localSpiritRoots, savedCloudSpiritRoots);
         creationData.value.talents = merge(localTalents, savedCloudTalents);
       } else {
-        console.log("【创世神殿】初始化联机模式，加载本地及缓存的云端数据！");
-        const helper = getTavernHelper();
-        let savedData: DADCustomData = { worlds: [], talentTiers: [], origins: [], spiritRoots: [], talents: [] };
-        if (helper) {
-          const globalVars = await helper.getVariables({ type: 'global' });
-          const potentialData = globalVars?.['DAD_creationData'];
-          if (isDADCustomData(potentialData)) {
-            savedData = potentialData;
-            console.log("【创世神殿】从全局变量中加载了已缓存的云端创世数据！");
+        console.log("【创世神殿】初始化联机模式，从后端获取云端数据！");
+
+        // 联机模式：主动从后端请求数据
+        const { isBackendConfigured } = await import('@/services/backendConfig');
+
+        if (isBackendConfigured()) {
+          try {
+            console.log("【创世神殿】后端已配置，开始请求云端数据...");
+            const [cloudWorlds, cloudTalentTiers, cloudOrigins, cloudSpiritRoots, cloudTalents] = await Promise.all([
+              fetchWorlds(),
+              fetchTalentTiers(),
+              fetchOrigins(),
+              fetchSpiritRoots(),
+              fetchTalents()
+            ]);
+
+            console.log("【创世神殿】成功获取云端数据:", {
+              worlds: cloudWorlds.length,
+              talentTiers: cloudTalentTiers.length,
+              origins: cloudOrigins.length,
+              spiritRoots: cloudSpiritRoots.length,
+              talents: cloudTalents.length
+            });
+
+            // 标记为云端数据
+            creationData.value.worlds = cloudWorlds.map(w => ({...w, source: 'cloud' as DataSource}));
+            creationData.value.talentTiers = cloudTalentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
+            creationData.value.origins = cloudOrigins.map(o => ({...o, source: 'cloud' as DataSource}));
+            creationData.value.spiritRoots = cloudSpiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
+            creationData.value.talents = cloudTalents.map(t => ({...t, source: 'cloud' as DataSource}));
+
+          } catch (fetchError) {
+            console.error("【创世神殿】获取云端数据失败，回退到本地数据:", fetchError);
+            // 回退到本地数据
+            creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+            creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
+            creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
+            creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
+            creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
           }
+        } else {
+          console.warn("【创世神殿】后端未配置，使用本地数据！");
+          creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+          creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
+          creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
+          creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
+          creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
         }
-
-        const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-        const localTalentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-        const localOrigins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-        const localSpiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-        const localTalents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
-
-        const savedCloudWorlds = savedData.worlds.map(w => ({...w, source: 'cloud' as DataSource}));
-        const savedCloudTalentTiers = savedData.talentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
-        const savedCloudOrigins = savedData.origins.map(o => ({...o, source: 'cloud' as DataSource}));
-        const savedCloudSpiritRoots = savedData.spiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
-        const savedCloudTalents = savedData.talents.map(t => ({...t, source: 'cloud' as DataSource}));
-        
-        const merge = <T extends { id: number }>(local: T[], cloud: T[]): T[] => {
-            const map = new Map<number, T>();
-            local.forEach(item => map.set(item.id, item));
-            cloud.forEach(item => map.set(item.id, item));
-            return Array.from(map.values());
-        };
-        
-        creationData.value.worlds = merge(localWorlds, savedCloudWorlds);
-        creationData.value.talentTiers = merge(localTalentTiers, savedCloudTalentTiers);
-        creationData.value.origins = merge(localOrigins, savedCloudOrigins);
-        creationData.value.spiritRoots = merge(localSpiritRoots, savedCloudSpiritRoots);
-        creationData.value.talents = merge(localTalents, savedCloudTalents);
       }
     } catch (e) {
       console.error("加载数据失败:", e);
@@ -607,7 +683,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     }
   }
   
-  // --- 新增：删除功�?---
+  // --- 新增：删除功能 ---
   type CreationDataType = 'worlds' | 'talentTiers' | 'origins' | 'spiritRoots' | 'talents';
 
   async function removeItem(type: CreationDataType, id: number) {
@@ -691,7 +767,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const removeSpiritRoot = async (id: number) => await removeItem('spiritRoots', id);
   const removeTalent = async (id: number) => await removeItem('talents', id);
 
-  // --- 新增：编辑功�?---
+  // --- 新增：编辑功能 ---
   function updateItem<T extends { id: number }>(type: CreationDataType, id: number, updatedData: Partial<T>) {
     const index = creationData.value[type].findIndex(item => item.id === id);
     if (index > -1) {

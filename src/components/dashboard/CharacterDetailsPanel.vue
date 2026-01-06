@@ -75,13 +75,13 @@
             </div>
 
             <!-- 位置卡片 -->
-            <div class="stat-card location-card" v-if="playerStatus?.位置?.描述" :title="playerStatus.位置.描述">
+            <div class="stat-card location-card" v-if="playerLocation?.描述" :title="playerLocation.描述">
               <div class="card-icon">
                 <MapPin :size="20" />
               </div>
               <div class="card-content">
                 <div class="card-label">{{ t('位置') }}</div>
-                <div class="card-value location-value">{{ playerStatus.位置.描述 }}</div>
+                <div class="card-value location-value">{{ playerLocation.描述 }}</div>
               </div>
             </div>
 
@@ -134,7 +134,7 @@
               <div class="progress-text">{{ formatCultivationText() }}</div>
             </div>
             <div v-else class="cultivation-status waiting-status">
-              <div class="status-icon">✨</div>
+              <div class="status-icon"><Sparkles :size="18" /></div>
               <div class="status-text">{{ t('等待仙缘') }}</div>
             </div>
           </div>
@@ -202,9 +202,9 @@
                 <span class="info-label">{{ t('年龄') }}</span>
                 <span class="info-value">{{ currentAge }}{{ t('岁') }}</span>
               </div>
-              <div v-if="playerStatus?.位置?.描述" class="basic-info-item">
+              <div v-if="playerLocation?.描述" class="basic-info-item">
                 <span class="info-label">{{ t('位置') }}</span>
-                <span class="info-value location">{{ playerStatus.位置.描述 }}</span>
+                <span class="info-value location">{{ playerLocation.描述 }}</span>
               </div>
               <div v-else-if="baseInfo.世界" class="basic-info-item">
                 <span class="info-label">{{ t('世界') }}</span>
@@ -225,7 +225,7 @@
           <!-- 天资等级卡片 -->
           <div class="talent-tier-card">
             <div class="tier-header">
-              <div class="tier-icon">🌟</div>
+              <div class="tier-icon"><Star :size="18" /></div>
               <span class="tier-label">{{ t('天资等级') }}</span>
             </div>
             <div class="tier-value-display">
@@ -239,7 +239,7 @@
           <!-- 灵根属性卡片 (Re-designed) -->
           <div class="spirit-root-card" @click="showSpiritRootDetails">
             <div class="root-header">
-              <div class="root-icon">⚡</div>
+              <div class="root-icon"><Zap :size="18" /></div>
               <span class="root-label">{{ t('灵根属性') }}</span>
               <span class="click-hint">{{ t('点击查看详情') }}</span>
             </div>
@@ -271,7 +271,7 @@
           <!-- 天赋列表卡片 -->
           <div class="talents-card">
             <div class="talents-header">
-              <div class="talents-icon">✨</div>
+              <div class="talents-icon"><Sparkles :size="18" /></div>
               <span class="talents-label">{{ t('天赋特质') }}</span>
               <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
             </div>
@@ -313,7 +313,7 @@
                 </div>
               </div>
 
-              <!-- 属性详�?-->
+              <!-- 属性详情 -->
               <div class="attribute-breakdown">
                 <div class="innate-attrs">
                   <h4 class="attribute-group-title">{{ t('先天六司') }}</h4>
@@ -372,7 +372,7 @@
                   </div>
                 </div>
 
-                <!-- 功法详情（可折叠�?-->
+                <!-- 功法详情（可折叠） -->
                 <div v-show="showTechniqueDetails" class="technique-details">
                   <div class="technique-description">
                     <p>{{ t(fullCultivationTechnique?.描述 || '此功法奥妙无穷，随修炼加深方可领悟其真意。') }}</p>
@@ -442,7 +442,7 @@
                 </div>
 
                 <div v-show="isSkillsExpanded" class="skills-details">
-                  <!-- 所有已掌握的技�?-->
+                  <!-- 所有已掌握的技能 -->
                   <div v-if="allLearnedSkills.length" class="skill-category">
                     <h5 class="category-title">{{ t('所有技能') }}</h5>
                     <div class="skills-grid">
@@ -641,7 +641,7 @@
           </div>
 
           <!-- 宗门信息 -->
-          <div class="info-section" v-if="playerStatus?.宗门信息">
+          <div class="info-section" v-if="playerSectInfo">
             <h3 class="section-title">
               <div class="title-icon">
                 <Mountain :size="18" />
@@ -650,22 +650,22 @@
             </h3>
             <div class="sect-info">
               <div class="sect-header">
-                <h4 class="sect-name">{{ playerStatus?.宗门信息?.宗门名称 }}</h4>
-                <span class="sect-type">{{ playerStatus?.宗门信息?.宗门类型 }}</span>
+                <h4 class="sect-name">{{ playerSectInfo?.宗门名称 }}</h4>
+                <span class="sect-type">{{ playerSectInfo?.宗门类型 }}</span>
               </div>
               <div class="sect-details">
                 <div class="detail-row">
                   <span class="detail-label">{{ t('职位') }}</span>
-                  <span class="detail-value">{{ playerStatus?.宗门信息?.职位 }}</span>
+                  <span class="detail-value">{{ playerSectInfo?.职位 }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">{{ t('贡献值') }}</span>
-                  <span class="detail-value">{{ playerStatus?.宗门信息?.贡献 }}</span>
+                  <span class="detail-value">{{ playerSectInfo?.贡献 }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">{{ t('关系') }}</span>
-                  <span class="detail-value" :class="`relationship-${playerStatus?.宗门信息?.关系}`">
-                    {{ playerStatus?.宗门信息?.关系 }}
+                  <span class="detail-value" :class="`relationship-${playerSectInfo?.关系}`">
+                    {{ playerSectInfo?.关系 }}
                   </span>
                 </div>
               </div>
@@ -766,9 +766,9 @@
           </div>
           <div class="modal-content">
             <div class="spirit-root-detail-grid">
-              <div class="detail-card">
-                <div class="detail-header">
-                  <span class="detail-icon">⚡</span>
+                <div class="detail-card">
+                  <div class="detail-header">
+                  <span class="detail-icon"><Zap :size="14" /></span>
                   <span class="detail-title">{{ t('灵根类型') }}</span>
                 </div>
                 <div class="detail-value type-value" :class="`root-${getSpiritRootClass(baseInfo.灵根)}`">
@@ -777,7 +777,7 @@
               </div>
               <div class="detail-card">
                 <div class="detail-header">
-                  <span class="detail-icon">⭐</span>
+                  <span class="detail-icon"><Star :size="14" /></span>
                   <span class="detail-title">{{ t('灵根品级') }}</span>
                 </div>
                 <div class="detail-value grade-value" :class="`grade-${getSpiritRootGrade(baseInfo.灵根) || '凡品'}`">
@@ -786,7 +786,7 @@
               </div>
               <div class="detail-card">
                 <div class="detail-header">
-                  <span class="detail-icon">🚀</span>
+                  <span class="detail-icon"><Rocket :size="14" /></span>
                   <span class="detail-title">{{ t('修炼速度') }}</span>
                 </div>
                 <div class="detail-value speed-value">
@@ -833,7 +833,8 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { isTavernEnv } from '@/utils/tavern';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
+import { escapeRegExp } from '@/utils/regex';
+import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, TechniqueSkill, GameTime, NpcProfile, TechniqueItem, MasteredSkill } from '@/types/game.d.ts';
 import type { Origin, TalentTier, SpiritRoot } from '@/types';
 
 const calculateAgeFromBirthdate = (birthdate: GameTime, currentTime: GameTime): number => {
@@ -851,7 +852,7 @@ import {
 } from '@/utils/statusEffectManager';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
-  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X, MapPin
+  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X, MapPin, Rocket
 } from 'lucide-vue-next';
 
 // 使用 gameStateStore 获取数据
@@ -865,7 +866,9 @@ const isLoading = ref(false);
 // 从 gameStateStore 获取数据的计算属性
 const saveData = computed(() => gameStateStore.toSaveData());
 const baseInfo = computed(() => gameStateStore.character);
-const playerStatus = computed(() => gameStateStore.playerStatus);
+const playerStatus = computed(() => gameStateStore.attributes);
+const playerLocation = computed(() => gameStateStore.location);
+const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
 const daoData = computed(() => gameStateStore.thousandDao);
 const showDaoDetails = ref(false);
 const showSkillModal = ref(false);
@@ -896,7 +899,7 @@ const nameInitial = computed(() => {
 // 自动计算当前年龄
 const currentAge = computed(() => {
   const birthdate = baseInfo.value?.出生日期;
-  const gameTime = saveData.value?.游戏时间;
+  const gameTime = saveData.value?.元数据?.时间;
 
   if (birthdate && gameTime) {
     // 为可选的 birthdate 属性提供默认值以匹配 GameTime 类型
@@ -916,14 +919,14 @@ const currentAge = computed(() => {
 
 // fullCultivationTechnique数据 - 从背包中解析完整功法数据
 const fullCultivationTechnique = computed((): TechniqueItem | null => {
-  if (!saveData.value?.修炼功法 || !saveData.value?.背包?.物品) {
+  if (!saveData.value?.角色?.修炼?.修炼功法 || !saveData.value?.角色?.背包?.物品) {
     return null;
   }
-  const techniqueId = saveData.value.修炼功法.物品ID;
+  const techniqueId = saveData.value.角色?.修炼?.修炼功法?.物品ID;
   if (!techniqueId) {
     return null;
   }
-  const techniqueItem = saveData.value.背包.物品[techniqueId];
+  const techniqueItem = saveData.value.角色.背包.物品[techniqueId];
   if (techniqueItem && techniqueItem.类型 === '功法') {
     // 明确类型转换为TechniqueItem
     return techniqueItem as TechniqueItem;
@@ -1037,7 +1040,7 @@ const skillsList = computed((): SkillInfo[] => {
 
 // 已学技能（所有已掌握的技能）
 const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
-  const mastered = saveData.value?.掌握技能 || [];
+  const mastered = saveData.value?.技能?.掌握技能 || [];
 
   let fromTechnique: LearnedSkillDisplay[] = [];
   if (fullCultivationTechnique.value && fullCultivationTechnique.value.功法技能) {
@@ -1061,7 +1064,7 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
       });
   }
 
-  const allSkills = [...mastered.map(s => ({
+  const allSkills = [...mastered.map((s: MasteredSkill) => ({
     name: s.技能名称,
     proficiency: s.熟练度,
     source: s.来源,
@@ -1087,13 +1090,13 @@ const totalSkillsCount = computed(() => {
 
 // 人际关系统计
 const relationshipCount = computed(() => {
-  const relations = saveData.value?.人物关系 || {};
+  const relations = saveData.value?.社交?.关系 || {};
   return (Object.values(relations) as NpcProfile[]).filter(npc => npc && npc.名字).length;
 });
 
 const averageFavorability = computed(() => {
-  if (!saveData.value?.人物关系) return 0;
-  const relations = (Object.values(saveData.value.人物关系) as NpcProfile[]).filter(npc => npc && npc.名字);
+  if (!saveData.value?.社交?.关系) return 0;
+  const relations = (Object.values(saveData.value.社交.关系) as NpcProfile[]).filter(npc => npc && npc.名字);
   if (relations.length === 0) return 0;
   const total = relations.reduce((sum, rel) => sum + (rel.好感度 || 0), 0);
   return Math.round(total / relations.length);
@@ -1101,7 +1104,7 @@ const averageFavorability = computed(() => {
 
 // 背包统计
 const inventoryItemCount = computed(() => {
-  const items = saveData.value?.背包?.物品 || {};
+  const items = saveData.value?.角色?.背包?.物品 || {};
   // 仅统计有效物品：键不以下划线开头，值为对象且包含名称
   return Object.entries(items)
     .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object' && typeof (val as Item).名称 === 'string')
@@ -1297,7 +1300,7 @@ const getDaoTotalExp = (daoName: string): number => {
 };
 
 const getItemTypeCount = (type: string): number => {
-  const items = saveData.value?.背包?.物品 || {};
+  const items = saveData.value?.角色?.背包?.物品 || {};
   return Object.entries(items)
     .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
     .map(([, val]) => val as Item)
@@ -1305,7 +1308,7 @@ const getItemTypeCount = (type: string): number => {
 };
 
 const getSpiritStoneCount = (grade: '下品' | '中品' | '上品' | '极品'): number => {
-return saveData.value?.背包?.灵石?.[t(grade) as '下品' | '中品' | '上品' | '极品'] || 0;
+return saveData.value?.角色?.背包?.灵石?.[t(grade) as '下品' | '中品' | '上品' | '极品'] || 0;
 };
 
 // 清理状态效果描述，去除重复的时间信息
@@ -1313,16 +1316,17 @@ const getCleanEffectDescription = (effect: StatusEffect): string => {
   if (!effect || !effect.状态描述) return '';
 
   let description = effect.状态描述;
-  const duration = effect.时间;
+  const durationText = effect.时间 == null ? '' : String(effect.时间);
 
   // 如果描述中包含了时间信息，则移除重复部分
-  if (duration && description.includes(duration)) {
+  if (durationText && description.includes(durationText)) {
+    const escapedDuration = escapeRegExp(durationText);
     // 移除包含时间信息的句子或短语
     description = description
-      .replace(new RegExp(`[^。]*${duration}[^。]*。`, 'g'), '')
-      .replace(new RegExp(t('持续时间[：][^。]*{0}[^。]*。').replace('{0}', duration), 'g'), '')
-      .replace(new RegExp(t('剩余时间[：][^。]*{0}[^。]*。').replace('{0}', duration), 'g'), '')
-      .replace(new RegExp(t('时间[：][^。]*{0}[^。]*。').replace('{0}', duration), 'g'), '')
+      .replace(new RegExp(`[^。]*${escapedDuration}[^。]*。`, 'g'), '')
+      .replace(new RegExp(t('持续时间[：][^。]*{0}[^。]*。').replace('{0}', escapedDuration), 'g'), '')
+      .replace(new RegExp(t('剩余时间[：][^。]*{0}[^。]*。').replace('{0}', escapedDuration), 'g'), '')
+      .replace(new RegExp(t('时间[：][^。]*{0}[^。]*。').replace('{0}', escapedDuration), 'g'), '')
       .trim();
   }
 
@@ -1338,8 +1342,8 @@ const formatEffectCreatedTime = (effect: StatusEffect): string => {
 
 // 格式化状态效果剩余时间
 const formatEffectRemainingTime = (effect: StatusEffect): string => {
-  if (!saveData.value?.游戏时间) return t('未知');
-  const remainingMinutes = calculateRemainingMinutes(effect, saveData.value.游戏时间);
+  if (!saveData.value?.元数据?.时间) return t('未知');
+  const remainingMinutes = calculateRemainingMinutes(effect, saveData.value.元数据.时间);
   return formatMinutesToDuration(remainingMinutes);
 };
 
@@ -1641,7 +1645,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   overflow-y: auto;
 }
 
-/* 加载和错误状�?*/
+/* 加载和错误状态 */
 .loading-container, .error-container {
   display: flex;
   flex-direction: column;
@@ -2039,7 +2043,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   min-width: 100px;
 }
 
-/* 凡人修炼状态样�?*/
+/* 凡人修炼状态样式 */
 .stat-display.mortal-state {
   padding: 8px 16px;
   background: rgba(var(--color-primary-rgb), 0.05);
@@ -2142,7 +2146,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   border-radius: 8px;
 }
 
-/* 生命状�?*/
+/* 生命状态 */
 .vitals-grid {
   display: flex;
   flex-direction: column;
@@ -2184,7 +2188,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 .bar-info { background: linear-gradient(90deg, var(--color-info), var(--color-info-hover)); }
 .bar-accent { background: linear-gradient(90deg, var(--color-warning), var(--color-warning-hover)); }
 
-/* 生命状态颜�?红蓝金三�?*/
+/* 生命状态颜色（红蓝金三色） */
 .bar-red { background: linear-gradient(90deg, var(--vital-health), var(--vital-health)); }
 .bar-blue { background: linear-gradient(90deg, var(--vital-lingqi), var(--vital-lingqi)); }
 .bar-gold { background: linear-gradient(90deg, var(--vital-spirit), var(--vital-spirit)); }
@@ -2196,7 +2200,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   min-width: 60px;
 }
 
-/* 天赋与灵�?*/
+/* 天赋与灵根 */
 .talent-grid {
   display: flex;
   flex-direction: column;
@@ -2256,7 +2260,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   font-weight: 500;
 }
 
-/* 状态效�?*/
+/* 状态效果 */
 .effects-list {
   display: flex;
   flex-direction: column;
@@ -2376,7 +2380,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   opacity: 0.8;
 }
 
-/* 六司属�?*/
+/* 六司属性 */
 .basic-info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2624,7 +2628,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   padding-top: 8px;
 }
 
-/* 技能系统样�?*/
+/* 技能系统样式 */
 .skills-header {
   display: flex;
   align-items: center;
@@ -2834,7 +2838,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .progress-fill {
   height: 100%;
-  min-width: 2px; /* 确保即使0%时也有最小宽度显�?*/
+  min-width: 2px; /* 确保即使0%时也有最小宽度显示 */
   background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
   transition: width 0.3s ease;
   border-radius: 4px; /* 稍微圆润的角 */
@@ -3180,7 +3184,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   color: var(--color-text);
 }
 
-/* 空状�?*/
+/* 空状态 */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -3211,7 +3215,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 .relationship-良好 { color: var(--color-success) !important; }
 .relationship-亲密 { color: var(--color-info) !important; }
 
-/* 响应式设�?*/
+/* 响应式设计 */
 @media (max-width: 1400px) {
   .content-grid {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -3313,7 +3317,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   .attribute-item {
     min-height: 36px;
     padding: 8px;
-    min-width: 70px; /* 确保移动端也有足够空�?*/
+  min-width: 70px; /* 确保移动端也有足够空间 */
     width: 100%;
   }
 
@@ -3422,7 +3426,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   }
 }
 
-/* 自定义弹窗样�?*/
+/* 自定义弹窗样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -3521,7 +3525,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   max-height: calc(80vh - 80px);
 }
 
-/* 技能详情样�?*/
+/* 技能详情样式 */
 .skill-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -3714,7 +3718,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   font-style: italic;
 }
 
-/* 响应式优�?*/
+/* 响应式优化 */
 @media (max-width: 640px) {
   .skill-detail-grid {
     grid-template-columns: 1fr;
@@ -3737,7 +3741,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   }
 }
 
-/* 新的结构化数据样�?*/
+/* 新的结构化数据样式 */
 .spirit-root-display {
   display: flex;
   flex-direction: column;

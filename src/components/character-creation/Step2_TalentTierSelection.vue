@@ -100,6 +100,7 @@ import AIPromptModal from './AIPromptModal.vue'
 import { toast } from '../../utils/toast'
 import { generateWithRawPrompt } from '../../utils/tavernCore'
 import { TALENT_TIER_ITEM_GENERATION_PROMPT } from '../../utils/prompts/tasks/gameElementPrompts'
+import { parseJsonFromText } from '@/utils/jsonExtract'
 
 interface CustomTierData {
   name: string
@@ -213,9 +214,7 @@ async function handleAIPromptSubmit(userPrompt: string) {
     // 解析AI返回的JSON
     let parsedTier: any;
     try {
-      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
-      parsedTier = JSON.parse(jsonStr.trim());
+      parsedTier = parseJsonFromText(aiResponse);
     } catch (parseError) {
       console.error('【AI推演-天资】JSON解析失败:', parseError);
       toast.error('AI推演结果格式错误，无法解析', { id: toastId });

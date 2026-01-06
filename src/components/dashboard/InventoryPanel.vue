@@ -480,7 +480,7 @@ import { useGameStateStore } from '@/stores/gameStateStore'
 import { useActionQueueStore } from '@/stores/actionQueueStore'
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue'
 import { isTavernEnv } from '@/utils/tavern'
-import type { Item } from '@/types/game'
+import type { Item, ConsumableItem } from '@/types/game'
 import { toast } from '@/utils/toast'
 import { debug } from '@/utils/debug'
 import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue'
@@ -528,29 +528,28 @@ const tabs = computed(() => [
   { id: 'currency', label: '灵石', icon: Gem },
 ])
 
-// 装备槽位 - 修正位置：装备栏在存档数据根级别
+// 装备槽位（短路径：装备）
 const equipmentSlots = computed(() => {
   const equipment = gameStateStore.equipment
-  const slotNames = [t('装备1'), t('装备2'), t('装备3'), t('装备4'), t('装备5'), t('装备6')]
+  const slotKeys = ['装备1', '装备2', '装备3', '装备4', '装备5', '装备6'] as const
 
   if (!equipment) {
-    return slotNames.map((name) => ({ name, item: null }))
+    return slotKeys.map((slotKey) => ({ name: t(slotKey), slotKey, item: null }))
   }
 
-  return slotNames.map((slotKey) => {
-    const key = slotKey as keyof typeof equipment
-    const equippedItem = equipment[key]
+  return slotKeys.map((slotKey) => {
+    const equippedValue = (equipment as any)[slotKey] as unknown
     let item: Item | null = null
 
-    // 只处理新的引用格式：{名称: string, 物品ID: string}
-    if (
-      equippedItem &&
-      typeof equippedItem === 'object' &&
-      '物品ID' in equippedItem &&
-      '名称' in equippedItem
-    ) {
-      // 从背包获取完整物品信息
-      const itemId = equippedItem.物品ID
+    const itemId =
+      typeof equippedValue === 'string'
+        ? equippedValue
+        : typeof equippedValue === 'object' && equippedValue !== null && '物品ID' in equippedValue
+          ? String((equippedValue as any).物品ID || '')
+          : ''
+
+    if (itemId) {
+      // 从背包获取完整物品信息（背包.物品 是 Record<string, Item>）
       const bag = gameStateStore.inventory?.物品 || {} // 物品是对象
       const fromInv = bag[itemId] // 直接通过物品ID获取
       if (fromInv && typeof fromInv === 'object') {
@@ -559,7 +558,10 @@ const equipmentSlots = computed(() => {
         // 如果背包中没有找到，构造一个最小对象
         item = {
           物品ID: itemId,
-          名称: equippedItem.名称,
+          名称:
+            typeof equippedValue === 'object' && equippedValue !== null && '名称' in equippedValue
+              ? String((equippedValue as any).名称 || itemId)
+              : itemId,
           类型: '装备',
           品质: { quality: '凡', grade: 1 },
           描述: '装备数据缺失',
@@ -571,12 +573,12 @@ const equipmentSlots = computed(() => {
       item = null
     }
 
-    return { name: slotKey, item }
+    return { name: t(slotKey), slotKey, item }
   })
 })
 
 // 卸下装备功能
-const unequipItem = async (slot: { name: string; item: Item | null }) => {
+const unequipItem = async (slot: { name: string; slotKey: string; item: Item | null }) => {
   if (equipBusy.value) return
   if (!slot.item) return
   equipBusy.value = true
@@ -604,15 +606,19 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
       return
     }
 
-    // 找到装备在哪个槽位
-    const slotKey = slot.name as keyof typeof saveData.装备栏
+    const saveAny = saveData as any
+    if (!saveAny.角色) saveAny.角色 = {}
+    if (!saveAny.角色.装备) {
+      saveAny.角色.装备 = { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null }
+    }
+    const slotKey = slot.slotKey as keyof typeof saveAny.角色.装备
 
     // 清空装备槽位
-    saveData.装备栏[slotKey] = null
+    saveAny.角色.装备[slotKey] = null
 
     // 清除物品的已装备标记
-    if (saveData.背包?.物品?.[itemToUnequip.物品ID]) {
-      saveData.背包.物品[itemToUnequip.物品ID].已装备 = false
+    if (saveAny.角色?.背包?.物品?.[itemToUnequip.物品ID]) {
+      saveAny.角色.背包.物品[itemToUnequip.物品ID].已装备 = false
     }
 
     // 移除装备属性加成
@@ -671,7 +677,7 @@ const itemList = computed<Item[]>(() => {
         ...item,
         物品ID: String(item.物品ID || ''),
         名称: String(item.名称 || ''),
-        类型: String(item.类型 || '其他') as '功法' | '装备' | '其他',
+        类型: String(item.类型 || '其他') as '装备' | '功法' | '丹药' | '材料' | '其他',
         品质: item.品质 || { quality: '凡', grade: 1 },
         描述: String(item.描述 || ''),
         数量: Number(item.数量 || 1),
@@ -681,8 +687,8 @@ const itemList = computed<Item[]>(() => {
 })
 
 const itemCategories = computed(() => {
-  // 固定三个分类：装备、功法、其他
-  return ['装备', '功法', '其他']
+  // 五个分类：装备、功法、丹药、材料、其他
+  return ['装备', '功法', '丹药', '材料', '其他']
 })
 
 // 品质排序映射，兼容 "*阶" 与简写
@@ -706,10 +712,11 @@ const qualityOrder: { [key: string]: number } = {
 const filteredItems = computed(() => {
   let items = [...itemList.value]
 
-  // 标准化物品类型和品质：只允许装备、功法、其他三种类型，并确保品质格式正确
+  // 标准化物品类型和品质：允许装备、功法、丹药、材料、其他五种类型，并确保品质格式正确
+  const validTypes = ['装备', '功法', '丹药', '材料', '其他']
   items = items.map((item) => {
-    // 标准化类型
-    const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他'
+    // 标准化类型：不在有效类型列表中的归为"其他"
+    const normalizedType = validTypes.includes(item.类型) ? item.类型 : '其他'
 
     // 标准化品质字段
     let normalizedQuality = item.品质
@@ -746,11 +753,7 @@ const filteredItems = computed(() => {
   }
 
   if (selectedCategory.value !== 'all') {
-    items = items.filter((item) => {
-      // 确保过滤时也使用标准化的类型
-      const normalizedType = item.类型 === '装备' || item.类型 === '功法' ? item.类型 : '其他'
-      return normalizedType === selectedCategory.value
-    })
+    items = items.filter((item) => item.类型 === selectedCategory.value)
   }
 
   if (sortBy.value === 'quality') {
@@ -808,6 +811,8 @@ const getItemTypeIcon = (type: string): string => {
   const typeIcons: Record<string, string> = {
     装备: '⚔️',
     功法: '📜',
+    丹药: '💊',
+    材料: '💎',
     其他: '📦',
   }
   return typeIcons[type] || '📦'
@@ -927,7 +932,9 @@ const useItem = async (item: Item) => {
     quantityModalActionLabel.value = t('使用数量')
     quantityModalType.value = 'use'
     quantityModalConfirmText.value = t('确定使用')
-    quantityModalDescription.value = (item.类型 === '其他' ? item.使用效果 : '') || t('暂无特殊效果')
+    // 丹药、材料、其他类型都可能有使用效果
+    const consumableTypes = ['丹药', '材料', '其他']
+    quantityModalDescription.value = (consumableTypes.includes(item.类型) && '使用效果' in item ? (item as ConsumableItem).使用效果 : '') || t('暂无特殊效果')
     quantityModalCallback.value = (quantity: number) => useItemWithQuantity(item, quantity)
     showQuantityModal.value = true
     return
@@ -939,7 +946,9 @@ const useItem = async (item: Item) => {
 
 const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
-    if (item.类型 !== '其他') {
+    // 丹药、材料、其他类型可以直接使用
+    const consumableTypes = ['丹药', '材料', '其他']
+    if (!consumableTypes.includes(item.类型)) {
       toast.error(t('该物品无法直接使用'))
       return
     }
@@ -1072,29 +1081,12 @@ const isEquipped = (item: Item | null): boolean => {
   return currentItemState.已装备 === true
 }
 
-// 检查功法是否正在修炼 - 优先检查背包物品标记，兼容修炼功法字段
+// 检查功法是否正在修炼 - 以 角色.修炼.修炼功法 为准
 const isCultivating = (item: Item | null): boolean => {
   if (!item || !item.物品ID) return false
 
-  const inventoryItems = gameStateStore.inventory?.物品
-  if (inventoryItems) {
-    // 优先检查背包中物品的已装备/修炼中标记（动作队列使用的逻辑）
-    const currentItemState = inventoryItems[item.物品ID]
-    if (currentItemState) {
-      // 功法的已装备状态表示正在修炼（已装备字段统一表示装备中/修炼中）
-      if (currentItemState.已装备 === true) {
-        return true
-      }
-    }
-  }
-
-  // 兼容：如果背包中没有标记，检查修炼功法字段（功法面板使用的逻辑）
-  const cultivationData = gameStateStore.cultivationTechnique as { 物品ID?: string; 正在修炼?: boolean } | null | undefined
-  if (cultivationData && cultivationData.物品ID === item.物品ID) {
-    return cultivationData.正在修炼 !== false
-  }
-
-  return false
+  const cultivatingId = (gameStateStore.cultivation as any)?.修炼功法?.物品ID
+  return cultivatingId === item.物品ID
 }
 
 const getItemQualityClass = (

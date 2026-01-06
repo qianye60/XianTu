@@ -17,9 +17,9 @@
         v-else
         :is="getCurrentDataComponent()"
         v-bind="getCurrentDataProps()"
-        @edit-variable="(item) => $emit('edit-variable', item)"
-        @copy-variable="(item) => $emit('copy-variable', item)"
-        @delete-variable="(item) => $emit('delete-variable', item)"
+        @edit-variable="(item: { type: string; key: string; value: GameVariableValue }) => $emit('edit-variable', item)"
+        @copy-variable="(item: { key: string; value: GameVariableValue }) => $emit('copy-variable', item)"
+        @delete-variable="(item: { type: string; key: string }) => $emit('delete-variable', item)"
         @add-new-variable="$emit('add-new-variable', $event)"
         @debug-log="$emit('debug-log')"
       />
@@ -43,6 +43,7 @@ interface Props {
   isLoading: boolean
   selectedDataType: string
   searchQuery: string
+  readOnly?: boolean
   coreDataViews: Record<string, GameVariableValue>
   customOptions: Record<string, GameVariableValue>
   characterData: Record<string, GameVariableValue>
@@ -52,9 +53,12 @@ interface Props {
   allGameData: Record<string, GameVariableValue>
   filteredCoreDataViews: Record<string, GameVariableValue>
   filteredCustomOptions: Record<string, GameVariableValue>
+  filteredChatVariables?: Record<string, GameVariableValue>
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  readOnly: false
+})
 
 defineEmits<{
   (e: 'edit-variable', event: { type: string; key: string; value: GameVariableValue }): void
@@ -91,11 +95,13 @@ const getCurrentDataComponent = () => {
   }
 }
 
-const getCurrentDataProps = () => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getCurrentDataProps = (): any => {
   const baseProps = {
     searchQuery: props.searchQuery,
     coreDataViews: props.coreDataViews || {},
     customOptions: props.customOptions || {},
+    readOnly: props.readOnly,
   }
 
   switch (props.selectedDataType) {
@@ -117,7 +123,8 @@ const getCurrentDataProps = () => {
       }
     case 'saveData':
       return {
-        saveData: props.saveData
+        saveData: props.saveData,
+        readOnly: props.readOnly,
       }
     case 'worldInfo':
       return {

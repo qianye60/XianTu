@@ -185,6 +185,7 @@ import AIPromptModal from './AIPromptModal.vue';
 import { toast } from '../../utils/toast';
 import { generateWithRawPrompt } from '../../utils/tavernCore';
 import { WORLD_ITEM_GENERATION_PROMPT } from '../../utils/prompts/tasks/gameElementPrompts';
+import { parseJsonFromText } from '@/utils/jsonExtract';
 
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
@@ -243,15 +244,19 @@ const worldsList = computed(() => {
     console.log("【世界选择】单机模式可用世界列表:", availableWorlds);
     return availableWorlds;
   } else {
+    // 联机模式：优先显示云端数据，如果没有则回退到本地数据
     const cloudWorlds = allWorlds.filter(world =>
       world.source === 'cloud'
     );
-    console.log("【世界选择】联机模式世界列表:", cloudWorlds);
+    console.log("【世界选择】联机模式云端世界列表:", cloudWorlds);
     console.log("【世界选择】云端世界数量:", cloudWorlds.length);
 
     if (cloudWorlds.length === 0) {
-      console.warn("【世界选择】警告：联机模式下没有找到云端世界数据！");
-      console.log("【世界选择】尝试查看所有世界的source字段:", allWorlds.map(w => ({ name: w.name, source: w.source, id: w.id })));
+      console.warn("【世界选择】警告：联机模式下没有云端世界数据，回退到本地数据！");
+      // 回退显示本地数据
+      const localWorlds = allWorlds.filter(world => world.source === 'local');
+      console.log("【世界选择】回退使用本地世界:", localWorlds);
+      return localWorlds;
     }
 
     return cloudWorlds;
@@ -322,10 +327,7 @@ async function handleAIPromptSubmit(userPrompt: string) {
     // 解析AI返回的JSON
     let parsedWorld: any;
     try {
-      // 尝试提取JSON（可能包含在代码块中）
-      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponse;
-      parsedWorld = JSON.parse(jsonStr.trim());
+      parsedWorld = parseJsonFromText(aiResponse);
     } catch (parseError) {
       console.error('【AI推演-世界】JSON解析失败:', parseError);
       toast.error('AI推演结果格式错误，无法解析', { id: toastId });

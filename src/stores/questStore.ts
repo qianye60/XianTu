@@ -31,20 +31,6 @@ export const useQuestStore = defineStore('quest', () => {
     }
   }
 
-  // 一次性数据迁移：将旧的已完成任务合并到主列表
-  if (gameStateStore.questSystem && (gameStateStore.questSystem as any).已完成任务?.length > 0) {
-    console.log('[任务系统] 检测到旧版存档数据，正在迁移已完成任务...');
-    const existingIds = new Set(gameStateStore.questSystem.当前任务列表.map(q => q.任务ID));
-    const questsToMigrate = (gameStateStore.questSystem as any).已完成任务.filter((q: Quest) => !existingIds.has(q.任务ID));
-
-    if (questsToMigrate.length > 0) {
-      gameStateStore.questSystem.当前任务列表.push(...questsToMigrate);
-      delete (gameStateStore.questSystem as any).已完成任务;
-      gameStateStore.saveGame();
-      toast.info('任务数据已更新至新版格式');
-    }
-  }
-
   // 任务配置
   const questConfig = computed<QuestConfig>(() => {
     const config = gameStateStore.questSystem?.配置;
@@ -267,16 +253,87 @@ export const useQuestStore = defineStore('quest', () => {
     }
   }
 
+  /**
+   * 接取任务
+   */
+  async function acceptQuest(questId: string) {
+    if (!gameStateStore.questSystem) {
+      console.error('[任务系统] 任务系统未初始化');
+      toast.error('任务系统未初始化');
+      return;
+    }
+
+    const quest = gameStateStore.questSystem.当前任务列表.find((q: Quest) => q.任务ID === questId);
+
+    if (!quest) {
+      console.error('[任务系统] 未找到任务:', questId);
+      toast.error('未找到该任务');
+      return;
+    }
+
+    quest.任务状态 = '进行中';
+    await gameStateStore.saveGame();
+    console.log('[任务系统] 任务已接取:', quest.任务名称);
+  }
+
+  /**
+   * 放弃任务
+   */
+  async function abandonQuest(questId: string) {
+    if (!gameStateStore.questSystem) {
+      console.error('[任务系统] 任务系统未初始化');
+      toast.error('任务系统未初始化');
+      return;
+    }
+
+    const quest = gameStateStore.questSystem.当前任务列表.find((q: Quest) => q.任务ID === questId);
+
+    if (!quest) {
+      console.error('[任务系统] 未找到任务:', questId);
+      toast.error('未找到该任务');
+      return;
+    }
+
+    // 重置任务状态和进度
+    quest.任务状态 = undefined;
+    quest.目标列表.forEach((obj: QuestObjective) => {
+      obj.当前进度 = 0;
+      obj.已完成 = false;
+    });
+
+    await gameStateStore.saveGame();
+    console.log('[任务系统] 任务已放弃:', quest.任务名称);
+  }
+
+  /**
+   * 设置追踪任务
+   */
+  const trackedQuestId = ref<string | null>(null);
+
+  function setTrackedQuest(questId: string | null) {
+    trackedQuestId.value = questId;
+  }
+
+  const trackedQuest = computed(() => {
+    if (!trackedQuestId.value) return null;
+    return currentQuests.value.find((q: Quest) => q.任务ID === trackedQuestId.value) || null;
+  });
+
   return {
     currentQuests,
     activeQuests,
     completedQuests,
     questConfig,
     isGenerating,
+    trackedQuestId,
+    trackedQuest,
     generateNewQuest,
     checkQuestObjective,
     finishQuest,
     updateQuestConfig,
     deleteQuest,
+    acceptQuest,
+    abandonQuest,
+    setTrackedQuest,
   };
 });

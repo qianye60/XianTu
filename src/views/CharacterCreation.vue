@@ -501,7 +501,6 @@ async function createCharacter() {
       origin: store.selectedOrigin,
       spiritRoot: store.selectedSpiritRoot,
       talents: store.selectedTalents,
-      角色基础信息: baseInfo,
       baseAttributes: {
         root_bone: store.attributes.root_bone,
         spirituality: store.attributes.spirituality,

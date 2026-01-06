@@ -1,169 +1,270 @@
 <template>
-  <div class="thousand-dao-content">
-    <!-- 主要内容 -->
-    <div class="dao-main">
-      <div v-if="loading" class="loading-placeholder">
-        <div class="loading-spinner"></div>
-        <p>{{ t('加载三千大道数据中...') }}</p>
-      </div>
-
-      <!-- 大道概览 -->
-      <div v-else class="dao-overview">
-        <!-- 三千大道页不再显示功法，当前修炼已移至修炼面板 -->
-
-        <div class="dao-stats">
-          <div class="stat-card">
-            <div class="stat-icon">🎯</div>
-            <div class="stat-info">
-              <div class="stat-value">{{ unlockedDaosCount }}</div>
-              <div class="stat-label">{{ t('已解锁大道') }}</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">⚡</div>
-            <div class="stat-info">
-              <div class="stat-value">{{ totalDaoExperience }}</div>
-              <div class="stat-label">{{ t('总感悟经验') }}</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">🏆</div>
-            <div class="stat-info">
-              <div class="stat-value">{{ highestStageCount }}</div>
-              <div class="stat-label">{{ t('高阶段大道') }}</div>
-            </div>
-          </div>
+  <div class="dao-panel">
+    <!-- 顶部统计卡片 -->
+    <div class="dao-stats-header">
+      <div class="stats-card">
+        <div class="stats-icon enlightened">
+          <Sparkles :size="20" />
         </div>
-
-        <!-- 大道列表 -->
-        <div class="dao-sections">
-          <!-- 已解锁大道 -->
-          <div class="dao-section">
-            <h4 class="section-title">
-              <span class="title-icon">✨</span>
-              {{ t('已解锁大道') }} ({{ unlockedDaosCount }})
-            </h4>
-            <div v-if="unlockedDaosCount === 0" class="empty-state">
-              <div class="empty-icon">🌱</div>
-              <p>{{ t('尚未解锁任何大道') }}</p>
-              <span class="empty-tip">{{ t('通过机缘、顿悟和修行来解锁新的大道') }}</span>
-            </div>
-            <div v-else class="dao-grid">
-              <div
-                v-for="daoName in unlockedDaosList"
-                :key="daoName"
-                class="dao-card"
-                :class="{ 'selected': selectedDao === daoName }"
-                @click="selectDao(daoName)"
-              >
-                <div class="dao-card-header">
-                  <h5 class="dao-name">{{ daoName }}</h5>
-                  <div class="dao-stage">
-                    {{ getDaoStageDisplay(daoName) }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 可解锁大道提示 -->
-          <div class="dao-section">
-            <h4 class="section-title">
-              <span class="title-icon">🔮</span>
-              大道感悟
-            </h4>
-            <div class="dao-discover-hint">
-              <div class="discover-card">
-                <div class="discover-icon">🌌</div>
-                <div class="discover-content">
-                  <h5>无量大道，由心而生</h5>
-                  <p>大道三千，各有奥妙。通过机缘、顿悟、修行，可解锁更多大道路径。</p>
-                  <ul class="discover-methods">
-                    <li>🧘 深度感悟现有功法</li>
-                    <li>💫 感悟天地自然规律</li>
-                    <li>🎁 获得特殊机缘造化</li>
-                    <li>📚 研习古籍典藏</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="stats-info">
+          <span class="stats-value">{{ unlockedDaosCount }}</span>
+          <span class="stats-label">已悟大道</span>
         </div>
       </div>
+      <div class="stats-card">
+        <div class="stats-icon experience">
+          <Zap :size="20" />
+        </div>
+        <div class="stats-info">
+          <span class="stats-value">{{ formatNumber(totalDaoExperience) }}</span>
+          <span class="stats-label">总悟道值</span>
+        </div>
+      </div>
+      <div class="stats-actions">
+        <button class="action-btn-icon" @click="openDaoExplore" title="探索新道">
+          <Compass :size="18" />
+        </button>
+        <button class="action-btn-icon" @click="startMeditation" title="冥想感悟">
+          <Moon :size="18" />
+        </button>
+      </div>
+    </div>
 
-      <!-- 大道详情侧边栏 -->
-      <div v-if="selectedDao && selectedDaoProgress" class="dao-details-sidebar">
-        <div class="details-header">
-          <h3>{{ selectedDao }}</h3>
-          <button class="close-details" @click="selectedDao = null">
-            <X :size="20" />
+    <!-- 筛选和排序栏 -->
+    <div v-if="unlockedDaosCount > 0" class="dao-filter-bar">
+      <div class="filter-tags">
+        <button
+          v-for="category in daoCategories"
+          :key="category.key"
+          class="filter-tag"
+          :class="{ active: activeCategory === category.key }"
+          @click="activeCategory = category.key"
+        >
+          <component :is="category.icon" :size="14" />
+          <span>{{ category.label }}</span>
+          <span class="tag-count">{{ getCategoryCount(category.key) }}</span>
+        </button>
+      </div>
+      <div class="sort-dropdown">
+        <select v-model="activeSortKey" class="sort-select">
+          <option v-for="option in sortOptions" :key="option.key" :value="option.key">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="dao-content">
+      <!-- 无大道时的快速入门 -->
+      <div v-if="unlockedDaosCount === 0" class="dao-empty">
+        <div class="empty-illustration">
+          <div class="empty-icon-wrapper">
+            <Sparkles :size="48" />
+          </div>
+          <div class="empty-rings">
+            <div class="ring ring-1"></div>
+            <div class="ring ring-2"></div>
+            <div class="ring ring-3"></div>
+          </div>
+        </div>
+        <h3 class="empty-title">尚未领悟任何大道</h3>
+        <p class="empty-desc">天地法则蕴含无穷奥秘，静心感悟方能窥见一二</p>
+        <div class="quick-actions">
+          <button class="action-btn primary" @click="comprehendFromSkill">
+            <BookOpen :size="16" />
+            从功法领悟
+          </button>
+          <button class="action-btn secondary" @click="comprehendFromNature">
+            <Sparkles :size="16" />
+            观天地悟道
           </button>
         </div>
-        <div class="details-content">
-          <div class="detail-section" v-if="getDaoData(selectedDao)">
-            <h4>{{ t('大道描述') }}</h4>
-            <p class="dao-description">{{ getDaoData(selectedDao)?.描述 || t('此道深奥玄妙，需持之以恒方能有所成就') }}</p>
+      </div>
+
+      <!-- 大道列表 -->
+      <div v-else class="dao-list">
+        <div
+          v-for="daoName in sortedDaosList"
+          :key="daoName"
+          class="dao-card"
+          :class="{ active: selectedDao === daoName }"
+          @click="selectDao(daoName)"
+        >
+          <div class="dao-card-header">
+            <div class="dao-icon">
+              <Sparkles :size="18" />
+            </div>
+            <div class="dao-title-group">
+              <span class="dao-name">{{ daoName }}</span>
+              <span class="dao-stage-badge" :class="getDaoStageClass(daoName)">
+                {{ getDaoStageDisplay(daoName) }}
+              </span>
+            </div>
           </div>
 
-          <div class="detail-section">
-            <h4>{{ t('感悟统计') }}</h4>
-            <div class="dao-stats-detail">
-              <div class="stat-row">
-                <span>{{ t('当前经验') }}:</span>
-                <span class="stat-highlight">{{ selectedDaoProgress.当前经验 ?? 0 }}</span>
+          <div class="dao-card-body">
+            <div class="dao-progress-wrapper">
+              <div class="dao-progress-bar">
+                <div
+                  class="dao-progress-fill"
+                  :style="{ width: getDaoProgressPercent(daoName) + '%' }"
+                ></div>
+                <div class="dao-progress-glow"></div>
               </div>
-              <div class="stat-row">
-                <span>{{ t('当前阶段') }}:</span>
-                <span class="stat-highlight">{{ getDaoStageDisplay(selectedDao) }}</span>
+              <span class="dao-progress-text">{{ getDaoProgressPercent(daoName) }}%</span>
+            </div>
+            <div class="dao-exp-info">
+              <span class="exp-current">{{ formatNumber(getDaoData(daoName)?.当前经验 ?? 0) }}</span>
+              <span class="exp-divider">/</span>
+              <span class="exp-required">{{ formatNumber(getNextStageRequirement(daoName)) }}</span>
+            </div>
+          </div>
+
+          <!-- 快捷操作 -->
+          <div class="dao-card-actions" @click.stop>
+            <button class="dao-action-btn cultivate" @click="cultivateDao(daoName)" title="感悟">
+              <Zap :size="14" />
+            </button>
+            <button class="dao-action-btn meditate" @click="meditateDao(daoName)" title="参悟">
+              <Moon :size="14" />
+            </button>
+            <button
+              v-if="canBreakthroughDao(daoName)"
+              class="dao-action-btn breakthrough"
+              @click="attemptDaoBreakthrough(daoName)"
+              title="突破"
+            >
+              <TrendingUp :size="14" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 选中大道的详情面板 -->
+      <div v-if="selectedDao && selectedDaoProgress" class="dao-detail-panel">
+        <div class="detail-header">
+          <div class="detail-title-group">
+            <div class="detail-icon">
+              <Sparkles :size="24" />
+            </div>
+            <div>
+              <h3 class="detail-title">{{ selectedDao }}</h3>
+              <span class="detail-stage">{{ getDaoStageDisplay(selectedDao) }}</span>
+            </div>
+          </div>
+          <button class="close-btn" @click="selectedDao = null">
+            <span>关闭</span>
+            <X :size="16" />
+          </button>
+        </div>
+
+        <div class="detail-body">
+          <!-- 核心数据卡片 -->
+          <div class="detail-stats-grid">
+            <div class="detail-stat-card">
+              <div class="stat-card-icon">
+                <Award :size="16" />
               </div>
-              <div class="stat-row" v-if="getNextStageName(selectedDao)">
-                <span>{{ t('下一阶段') }}:</span>
-                <span class="next-stage">{{ getNextStageName(selectedDao) }}</span>
+              <div class="stat-card-content">
+                <span class="stat-card-value">{{ getDaoStageDisplay(selectedDao) }}</span>
+                <span class="stat-card-label">当前阶段</span>
               </div>
-              <div class="stat-row" v-if="getNextStageRequirement(selectedDao)">
-                <span>{{ t('突破所需') }}:</span>
-                <span class="stat-highlight">{{ getNextStageRequirement(selectedDao) }}</span>
+            </div>
+            <div class="detail-stat-card">
+              <div class="stat-card-icon">
+                <Zap :size="16" />
+              </div>
+              <div class="stat-card-content">
+                <span class="stat-card-value">{{ formatNumber(selectedDaoProgress.当前经验 ?? 0) }}</span>
+                <span class="stat-card-label">当前经验</span>
+              </div>
+            </div>
+            <div class="detail-stat-card">
+              <div class="stat-card-icon">
+                <Target :size="16" />
+              </div>
+              <div class="stat-card-content">
+                <span class="stat-card-value">{{ formatNumber(getNextStageRequirement(selectedDao)) }}</span>
+                <span class="stat-card-label">突破所需</span>
+              </div>
+            </div>
+            <div class="detail-stat-card">
+              <div class="stat-card-icon progress-icon">
+                <TrendingUp :size="16" />
+              </div>
+              <div class="stat-card-content">
+                <span class="stat-card-value">{{ getDaoProgressPercent(selectedDao) }}%</span>
+                <span class="stat-card-label">进度</span>
               </div>
             </div>
           </div>
 
-          <!-- 大道阶段列表 -->
-          <div class="detail-section" v-if="getDaoData(selectedDao)?.阶段列表?.length">
-            <h4>境界阶段</h4>
-            <div class="stages-list">
+          <!-- 阶段进度轨道 -->
+          <div class="stage-progress-section" v-if="getDaoData(selectedDao)?.阶段列表?.length">
+            <h4 class="section-title">修炼阶段</h4>
+            <div class="stage-timeline">
               <div
                 v-for="(stage, index) in getDaoData(selectedDao)?.阶段列表"
                 :key="index"
-                class="stage-item"
+                class="stage-node"
                 :class="{
-                  'completed': index < (selectedDaoProgress?.当前阶段 ?? 0),
-                  'current': index === (selectedDaoProgress?.当前阶段 ?? 0),
-                  'locked': index > (selectedDaoProgress?.当前阶段 ?? 0)
+                  done: index < (selectedDaoProgress?.当前阶段 ?? 0),
+                  current: index === (selectedDaoProgress?.当前阶段 ?? 0),
+                  locked: index > (selectedDaoProgress?.当前阶段 ?? 0)
                 }"
               >
-                <div class="stage-marker">
-                  <span v-if="index < (selectedDaoProgress?.当前阶段 ?? 0)">✅</span>
-                  <span v-else-if="index === (selectedDaoProgress?.当前阶段 ?? 0)">🔥</span>
-                  <span v-else>🔒</span>
+                <div class="node-marker">
+                  <Check v-if="index < (selectedDaoProgress?.当前阶段 ?? 0)" :size="12" />
+                  <span v-else class="node-number">{{ index + 1 }}</span>
                 </div>
-                <div class="stage-details">
-                  <div class="stage-name">{{ stage.名称 }}</div>
-                  <div class="stage-desc">{{ stage.描述 }}</div>
-                  <!-- 只有未达到的阶段才显示"需要经验" -->
-                  <div v-if="index > (selectedDaoProgress?.当前阶段 ?? 0)" class="stage-req">
-                    突破所需: {{ stage.突破经验 }}
-                  </div>
+                <div class="node-content">
+                  <span class="node-name">{{ stage.名称 }}</span>
+                  <span class="node-desc">{{ stage.描述 }}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        <div class="details-actions">
-          <button class="action-btn cultivate-dao" @click="cultivateDao(selectedDao)">
-            <Zap :size="16" />
-            深入感悟此道
-          </button>
+
+          <!-- 突破指引 -->
+          <div v-if="canBreakthroughDao(selectedDao)" class="breakthrough-guide">
+            <div class="guide-header">
+              <TrendingUp :size="16" />
+              <span>突破指引</span>
+            </div>
+            <div class="guide-content">
+              <p class="guide-desc">当前悟道值已达到突破要求，可尝试突破至下一阶段</p>
+              <ul class="guide-tips">
+                <li>确保状态良好，无负面效果干扰</li>
+                <li>选择灵气充沛之地进行突破</li>
+                <li>准备护道丹药以防万一</li>
+              </ul>
+              <div class="breakthrough-chance">
+                <span class="chance-label">预估成功率:</span>
+                <span class="chance-value">{{ getDaoBreakthroughChance(selectedDao) }}%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="detail-actions">
+            <button class="action-btn primary large" @click="cultivateDao(selectedDao)">
+              <Zap :size="18" />
+              感悟此道
+            </button>
+            <button class="action-btn secondary large" @click="meditateDao(selectedDao)">
+              <Moon :size="18" />
+              深度参悟
+            </button>
+            <button
+              v-if="canBreakthroughDao(selectedDao)"
+              class="action-btn warning large"
+              @click="attemptDaoBreakthrough(selectedDao)"
+            >
+              <TrendingUp :size="18" />
+              尝试突破
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -171,106 +272,175 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { X, Zap } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { X, Zap, Moon, TrendingUp, Compass, BookOpen, Sparkles, Check, Award, Target, Flame, Scale, Sword, Sun } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
-import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { DaoData, ThousandDaoSystem } from '@/types/game.d.ts';
-import { panelBus } from '@/utils/panelBus';
 import { toast } from '@/utils/toast';
-import { useI18n } from '@/i18n';
 
 const gameStateStore = useGameStateStore();
-const characterStore = useCharacterStore();
 const actionQueueStore = useActionQueueStore();
-const { t } = useI18n();
-const loading = ref(false);
 const selectedDao = ref<string | null>(null);
 
-// 功法展示已从三千大道面板移除（请到修炼面板查看当前修炼功法）
+// 筛选和排序状态
+const activeCategory = ref('all');
+const activeSortKey = ref('progress');
 
-// 获取三千大道系统数据
-const daoSystem = computed((): ThousandDaoSystem => {
-  return gameStateStore.thousandDao || {
-    大道列表: {}
+// 大道分类定义
+const daoCategories = [
+  { key: 'all', label: '全部', icon: Sparkles },
+  { key: 'nature', label: '自然', icon: Sun },
+  { key: 'concept', label: '法则', icon: Scale },
+  { key: 'combat', label: '战斗', icon: Sword },
+  { key: 'cultivation', label: '修行', icon: Flame },
+];
+
+// 排序选项
+const sortOptions = [
+  { key: 'progress', label: '按进度' },
+  { key: 'stage', label: '按阶段' },
+  { key: 'experience', label: '按经验' },
+  { key: 'name', label: '按名称' },
+];
+
+// 获取大道分类
+const getDaoCategory = (daoName: string): string => {
+  const categoryMap: Record<string, string> = {
+    '剑': 'combat', '刀': 'combat', '拳': 'combat', '枪': 'combat', '戟': 'combat',
+    '金': 'nature', '木': 'nature', '水': 'nature', '火': 'nature', '土': 'nature',
+    '风': 'nature', '雷': 'nature', '冰': 'nature', '雪': 'nature',
+    '因果': 'concept', '轮回': 'concept', '时间': 'concept', '空间': 'concept', '命运': 'concept',
+    '丹': 'cultivation', '炼器': 'cultivation', '阵': 'cultivation', '符': 'cultivation',
   };
+  for (const [keyword, category] of Object.entries(categoryMap)) {
+    if (daoName.includes(keyword)) return category;
+  }
+  return 'other';
+};
+
+// 获取分类数量
+const getCategoryCount = (categoryKey: string): number => {
+  if (categoryKey === 'all') return unlockedDaosList.value.length;
+  return unlockedDaosList.value.filter(daoName => getDaoCategory(daoName) === categoryKey).length;
+};
+
+// 格式化数字
+const formatNumber = (num: number): string => {
+  if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'k';
+  }
+  return num.toString();
+};
+
+// 三千大道数据
+const daoSystem = computed((): ThousandDaoSystem => {
+  return gameStateStore.thousandDao || { 大道列表: {} };
 });
 
-// 已解锁大道列表（已解锁的大道名称数组）
+// 已解锁大道
 const unlockedDaosList = computed(() => {
   return Object.entries(daoSystem.value.大道列表)
     .filter(([_, daoData]) => daoData.是否解锁)
-    .map(([daoName, _]) => daoName);
+    .map(([daoName]) => daoName);
 });
 
-// 已解锁大道数量
-const unlockedDaosCount = computed(() => {
-  return unlockedDaosList.value.length;
+const unlockedDaosCount = computed(() => unlockedDaosList.value.length);
+
+// 筛选后的大道列表
+const filteredDaosList = computed(() => {
+  if (activeCategory.value === 'all') return unlockedDaosList.value;
+  return unlockedDaosList.value.filter(daoName => getDaoCategory(daoName) === activeCategory.value);
 });
 
-// 选中的大道进度数据
+// 排序后的大道列表
+const sortedDaosList = computed(() => {
+  const list = [...filteredDaosList.value];
+  switch (activeSortKey.value) {
+    case 'progress':
+      return list.sort((a, b) => getDaoProgressPercent(b) - getDaoProgressPercent(a));
+    case 'stage':
+      return list.sort((a, b) => {
+        const stageA = getDaoData(a)?.当前阶段 ?? 0;
+        const stageB = getDaoData(b)?.当前阶段 ?? 0;
+        return stageB - stageA;
+      });
+    case 'experience':
+      return list.sort((a, b) => {
+        const expA = getDaoData(a)?.总经验 ?? 0;
+        const expB = getDaoData(b)?.总经验 ?? 0;
+        return expB - expA;
+      });
+    case 'name':
+      return list.sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    default:
+      return list;
+  }
+});
+
 const selectedDaoProgress = computed((): DaoData | null => {
   if (!selectedDao.value) return null;
   return daoSystem.value.大道列表[selectedDao.value] || null;
 });
 
-// 总感悟经验
 const totalDaoExperience = computed(() => {
   return Object.values(daoSystem.value.大道列表).reduce((total, daoData) => {
     return total + (daoData.总经验 ?? 0);
   }, 0);
 });
 
-// 高阶段大道数量（阶段>=5的大道）
-const highestStageCount = computed(() => {
-  return Object.values(daoSystem.value.大道列表).filter(daoData => {
-    return (daoData.当前阶段 ?? 0) >= 5;
-  }).length;
-});
-
-// 获取大道数据（包含路径和进度）
+// 获取大道数据
 const getDaoData = (daoName: string): DaoData | null => {
   return daoSystem.value.大道列表[daoName] || null;
+};
+
+// 获取阶段样式类
+const getDaoStageClass = (daoName: string): string => {
+  const daoData = getDaoData(daoName);
+  if (!daoData) return 'stage-0';
+  const stage = daoData.当前阶段 ?? 0;
+  if (stage >= 5) return 'stage-max';
+  if (stage >= 3) return 'stage-high';
+  if (stage >= 1) return 'stage-mid';
+  return 'stage-low';
 };
 
 // 获取大道阶段显示
 const getDaoStageDisplay = (daoName: string): string => {
   const daoData = getDaoData(daoName);
-  if (!daoData) return '未门';
-
+  if (!daoData) return '未悟';
   const stage = daoData.当前阶段 ?? 0;
-
-  if (daoData.阶段列表?.[stage]) {
-    return daoData.阶段列表[stage].名称;
-  }
-
-  return stage === 0 ? '未门' : `第${stage}阶段`;
+  return daoData.阶段列表?.[stage]?.名称 || `第${stage}阶`;
 };
 
-// 获取下一阶段名称
-const getNextStageName = (daoName: string): string | null => {
+// 获取大道进度百分比
+const getDaoProgressPercent = (daoName: string): number => {
   const daoData = getDaoData(daoName);
-  if (!daoData) return null;
-
-  const nextStage = (daoData.当前阶段 ?? 0) + 1;
-
-  return daoData.阶段列表?.[nextStage]?.名称 || null;
+  if (!daoData) return 0;
+  const currentExp = daoData.当前经验 ?? 0;
+  const required = getNextStageRequirement(daoName);
+  return Math.min(100, Math.round((currentExp / required) * 100));
 };
 
 // 获取下一阶段所需经验
 const getNextStageRequirement = (daoName: string): number => {
   const daoData = getDaoData(daoName);
   if (!daoData) return 100;
-
   const currentStage = daoData.当前阶段 ?? 0;
+  return daoData.阶段列表?.[currentStage]?.突破经验 ?? (currentStage + 1) * 100;
+};
 
-  if (daoData.阶段列表?.[currentStage]?.突破经验) {
-    return daoData.阶段列表[currentStage].突破经验;
-  }
-
-  // 默认经验计算：每阶段所需经验递增
-  return (currentStage + 1) * 100;
+// 获取突破成功率预估
+const getDaoBreakthroughChance = (daoName: string): number => {
+  const daoData = getDaoData(daoName);
+  if (!daoData) return 0;
+  const stage = daoData.当前阶段 ?? 0;
+  // 阶段越高，突破越难
+  const baseChance = Math.max(30, 90 - stage * 10);
+  return baseChance;
 };
 
 // 选择大道
@@ -278,828 +448,936 @@ const selectDao = (daoName: string) => {
   selectedDao.value = selectedDao.value === daoName ? null : daoName;
 };
 
+// 判断是否可突破
+const canBreakthroughDao = (daoName: string): boolean => {
+  const daoData = getDaoData(daoName);
+  if (!daoData) return false;
+  const currentExp = daoData.当前经验 ?? 0;
+  return currentExp >= getNextStageRequirement(daoName);
+};
+
+// === 功能操作 ===
+
 // 感悟大道
 const cultivateDao = (daoName: string) => {
-  console.log('[三千大道面板] 开始感悟大道:', daoName);
-  
-  // 添加感悟大道动作到队列
   actionQueueStore.addAction({
     type: 'comprehend',
     itemName: daoName,
     itemType: '大道',
-    description: `深入感悟《${daoName}》，领悟其中奥义`
+    description: `感悟《${daoName}》`
   });
-  
-  console.log('[三千大道面板] 已将感悟大道动作加入队列');
+  toast.success(`开始感悟《${daoName}》`);
 };
 
-// 🔥 [新架构] 刷新大道数据 - syncFromTavern 已移除
-const refreshDaoData = async () => {
-  loading.value = true;
-  try {
-    const activeSave = characterStore.rootState.当前激活存档;
-    if (activeSave) {
-      console.log(`[三千大道面板] Refreshing data from IndexedDB for ${activeSave.角色ID} - ${activeSave.存档槽位}`);
-      await gameStateStore.loadGame(activeSave.角色ID, activeSave.存档槽位);
-      toast.success('大道数据已刷新');
-    } else {
-      console.warn('[三千大道面板] No active character/slot found, skipping refresh.');
-      toast.warning('没有激活的存档，无法刷新数据');
-    }
-  } catch (error) {
-    console.error('[三千大道面板] 刷新数据失败:', error);
-    toast.error('刷新大道数据失败');
-  } finally {
-    loading.value = false;
-  }
+// 深度参悟
+const meditateDao = (daoName: string) => {
+  actionQueueStore.addAction({
+    type: 'meditate',
+    itemName: daoName,
+    itemType: '参悟',
+    description: `深度参悟《${daoName}》`
+  });
+  toast.info(`进入《${daoName}》参悟状态`);
 };
 
-onMounted(async () => {
-  console.log('[三千大道面板] 组件挂载...');
-  // 移除自动同步，避免覆盖其他面板的状态
-  panelBus.on('refresh', () => refreshDaoData());
-});
+// 尝试突破
+const attemptDaoBreakthrough = (daoName: string) => {
+  actionQueueStore.addAction({
+    type: 'dao_breakthrough',
+    itemName: daoName,
+    itemType: '突破',
+    description: `尝试突破《${daoName}》境界`
+  });
+  toast.warning(`尝试突破《${daoName}》`);
+};
+
+// 探索新道
+const openDaoExplore = () => {
+  actionQueueStore.addAction({
+    type: 'explore',
+    itemName: '大道',
+    itemType: '探索',
+    description: '探索未知大道，寻求新的感悟'
+  });
+  toast.info('开始探索新的大道...');
+};
+
+// 冥想感悟
+const startMeditation = () => {
+  actionQueueStore.addAction({
+    type: 'meditate',
+    itemName: '天地',
+    itemType: '冥想',
+    description: '静心冥想，感悟天地法则'
+  });
+  toast.info('进入冥想状态...');
+};
+
+// 从功法领悟
+const comprehendFromSkill = () => {
+  actionQueueStore.addAction({
+    type: 'comprehend',
+    itemName: '功法',
+    itemType: '领悟',
+    description: '从已修炼的功法中领悟大道'
+  });
+  toast.info('尝试从功法中领悟大道...');
+};
+
+// 观天地悟道
+const comprehendFromNature = () => {
+  actionQueueStore.addAction({
+    type: 'comprehend',
+    itemName: '天地',
+    itemType: '悟道',
+    description: '观察天地自然，感悟大道法则'
+  });
+  toast.info('开始观天地悟道...');
+};
 </script>
 
 <style scoped>
-.thousand-dao-content {
-  width: 100%;
+.dao-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--color-background);
-  overflow: hidden;
 }
 
-/* 顶栏动作统一处理 */
-
-/* 头部样式 */
-.dao-header {
+/* 顶部统计区 */
+.dao-stats-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background: var(--color-surface);
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-background);
   border-bottom: 1px solid var(--color-border);
 }
 
-.header-left {
+.stats-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  min-width: 100px;
 }
 
-.header-icon {
-  width: 40px;
-  height: 40px;
+.stats-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  background: var(--color-primary);
-  border-radius: 10px;
-  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
 }
 
-.panel-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+.stats-icon.enlightened {
+  background: linear-gradient(135deg, rgba(130, 163, 245, 0.2), rgba(192, 202, 245, 0.2));
+  color: var(--color-primary);
+}
+
+.stats-icon.experience {
+  background: linear-gradient(135deg, rgba(255, 213, 0, 0.2), rgba(255, 179, 0, 0.2));
+  color: var(--color-warning);
+}
+
+.stats-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-value {
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--color-text);
+  line-height: 1.2;
 }
 
-.panel-subtitle {
-  font-size: 0.85rem;
+.stats-label {
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
 }
 
-.refresh-btn {
+.stats-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-background);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
+  gap: 6px;
+  margin-left: auto;
 }
 
-.refresh-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
+.action-btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn-icon:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+/* 筛选和排序栏 */
+.dao-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-tag:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.filter-tag.active {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.tag-count {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.sort-dropdown {
+  flex-shrink: 0;
+}
+
+.sort-select {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  color: var(--color-text);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.sort-select:hover,
+.sort-select:focus {
   border-color: var(--color-primary);
 }
 
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 主要内容 */
-.dao-main {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-
-.dao-overview {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* 大道统计 */
-.dao-stats {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  background: var(--color-surface-light);
-}
-
-.stat-card {
-  flex: 1;
+/* 空状态插图 */
+.empty-illustration {
+  position: relative;
+  width: 120px;
+  height: 120px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: var(--color-surface);
-  border-radius: 12px;
+  justify-content: center;
+}
+
+.empty-icon-wrapper {
+  position: relative;
+  z-index: 2;
+  color: var(--color-primary);
+  opacity: 0.6;
+}
+
+.empty-rings {
+  position: absolute;
+  inset: 0;
+}
+
+.ring {
+  position: absolute;
   border: 1px solid var(--color-border);
+  border-radius: 50%;
+  opacity: 0.4;
 }
 
-.stat-icon {
-  font-size: 1.5rem;
-  opacity: 0.8;
+.ring-1 {
+  inset: 20%;
 }
 
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
+.ring-2 {
+  inset: 10%;
+}
+
+.ring-3 {
+  inset: 0;
+}
+
+.empty-title {
+  margin: 0;
+  font-size: 1rem;
   color: var(--color-text);
 }
 
-.stat-label {
+.empty-desc {
+  margin: 0;
   font-size: 0.85rem;
   color: var(--color-text-secondary);
+  text-align: center;
+  max-width: 280px;
 }
 
-/* 大道章节 */
-.dao-sections {
-  flex: 1;
-  padding: 1rem;
-  overflow-y: auto;
-}
-
-.cultivating-section {
-  padding: 1rem;
-  padding-bottom: 0;
-}
-
-.cultivating-card {
-  background: var(--color-surface);
-  border: 2px solid var(--color-primary);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
-}
-
-.cultivating-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.cultivating-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.cultivating-level {
-  background: var(--color-primary);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.cultivating-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dao-section {
-  margin-bottom: 2rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 16px 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.title-icon {
-  font-size: 1rem;
-}
-
-/* 空状态 */
-.empty-state {
+/* 大道卡片 */
+.dao-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 40px;
-  text-align: center;
-  color: var(--color-text-secondary);
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-tip {
-  font-size: 0.85rem;
-  margin-top: 8px;
-  opacity: 0.8;
-}
-
-/* 大道网格 */
-.dao-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.dao-card {
+  gap: 8px;
+  padding: 12px;
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
+  position: relative;
 }
 
 .dao-card:hover {
   border-color: var(--color-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
 }
 
-.dao-card.selected {
+.dao-card.active {
   border-color: var(--color-primary);
   background: rgba(var(--color-primary-rgb), 0.05);
 }
 
 .dao-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 10px;
 }
 
-.dao-name {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text);
+.dao-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(130, 163, 245, 0.15), rgba(192, 202, 245, 0.15));
+  border-radius: 8px;
+  color: var(--color-primary);
 }
 
-.dao-stage {
-  background: var(--color-info);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-/* 进度条 */
-.dao-progress {
+.dao-title-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  flex: 1;
 }
 
-.progress-bar {
+.dao-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dao-progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dao-progress-bar {
   flex: 1;
   height: 6px;
   background: var(--color-border);
   border-radius: 3px;
   overflow: hidden;
+  position: relative;
 }
 
-.progress-fill {
+.dao-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-success), var(--color-info));
+  background: linear-gradient(90deg, var(--color-primary), var(--color-info));
   border-radius: 3px;
-  transition: width 0.5s ease;
+  transition: width 0.3s ease;
 }
 
-.progress-text {
+.dao-progress-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: glow-sweep 2s infinite;
+}
+
+@keyframes glow-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.dao-progress-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 36px;
+  text-align: right;
+}
+
+.dao-exp-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.exp-current {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.exp-divider {
+  color: var(--color-text-muted);
+}
+
+.exp-required {
+  color: var(--color-text-secondary);
+}
+
+.dao-card-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.dao-card:hover .dao-card-actions {
+  opacity: 1;
+}
+
+.dao-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dao-action-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.dao-action-btn.cultivate:hover {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.dao-action-btn.breakthrough {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.dao-action-btn.breakthrough:hover {
+  background: #f59e0b;
+  color: white;
+}
+
+/* 阶段徽章 */
+.dao-stage-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.dao-stage-badge.stage-low {
+  background: rgba(var(--color-info-rgb), 0.15);
+  color: var(--color-info);
+}
+
+.dao-stage-badge.stage-mid {
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+}
+
+.dao-stage-badge.stage-high {
+  background: rgba(var(--color-warning-rgb), 0.15);
+  color: var(--color-warning);
+}
+
+.dao-stage-badge.stage-max {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.2));
+  color: #ffa500;
+}
+
+/* 详情面板 */
+.dao-detail-panel {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.detail-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(130, 163, 245, 0.2), rgba(192, 202, 245, 0.2));
+  border-radius: 10px;
+  color: var(--color-primary);
+}
+
+.detail-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.detail-stage {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
-  font-weight: 600;
-  min-width: 35px;
 }
 
-.dao-experience {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
+.detail-body {
+  margin-top: 16px;
 }
 
-/* 发现提示 */
-.dao-discover-hint {
-  padding: 0;
+.detail-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
-.discover-card {
+.detail-stat-card {
   display: flex;
-  gap: 20px;
-  padding: 24px;
-  background: linear-gradient(135deg, var(--color-surface) 0%, rgba(var(--color-primary-rgb), 0.05) 100%);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  align-items: flex-start;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-background);
+  border-radius: 8px;
 }
 
-.discover-icon {
-  font-size: 3rem;
-  opacity: 0.8;
-  flex-shrink: 0;
+.stat-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: 6px;
+  color: var(--color-primary);
 }
 
-.discover-content h5 {
-  margin: 0 0 12px 0;
-  font-size: 1.1rem;
+.stat-card-icon.progress-icon {
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+}
+
+.stat-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-card-value {
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--color-text);
 }
 
-.discover-content p {
-  margin: 0 0 16px 0;
+.stat-card-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+/* 阶段进度区 */
+.stage-progress-section {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  margin: 0 0 10px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.stage-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stage-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--color-background);
+  border-radius: 8px;
+  border-left: 3px solid var(--color-border);
+}
+
+.stage-node.done {
+  border-left-color: var(--color-success);
+}
+
+.stage-node.current {
+  border-left-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.stage-node.locked {
+  opacity: 0.5;
+}
+
+.node-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stage-node.done .node-marker {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.stage-node.current .node-marker {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.node-number {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.node-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.node-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* 突破指引 */
+.breakthrough-guide {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.05));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  border-left: 4px solid #f59e0b;
+}
+
+.guide-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+.guide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guide-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.guide-tips {
+  margin: 0;
+  padding-left: 20px;
+  list-style: disc;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
-.discover-methods {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
+.guide-tips li {
+  margin-bottom: 4px;
 }
 
-.discover-methods li {
-  padding: 8px 12px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+.breakthrough-chance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(245, 158, 11, 0.1);
   border-radius: 8px;
-  font-size: 0.9rem;
-  color: var(--color-text);
-  transition: all 0.2s ease;
+  margin-top: 6px;
 }
 
-.discover-methods li:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-primary);
+.chance-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
-/* 阶段显示增强 */
-.stage-display {
+.chance-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 工具栏 */
+.dao-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-}
-
-.stage-name {
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.stage-number {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-light);
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.progress-detail {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  margin-top: 4px;
-}
-
-/* 统计高亮 */
-.stat-highlight {
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.next-stage {
-  font-weight: 500;
-  color: var(--color-info);
-}
-
-/* 阶段列表 */
-.stages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.stage-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.stage-item.completed {
-  background: rgba(var(--color-success-rgb), 0.1);
-  border: 1px solid rgba(var(--color-success-rgb), 0.3);
-}
-
-.stage-item.current {
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.15);
-}
-
-.stage-item.locked {
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
-  opacity: 0.7;
-}
-
-.stage-marker {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-}
-
-.stage-details {
-  flex: 1;
-}
-
-.stage-details .stage-name {
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 4px;
-}
-
-.stage-desc {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-  margin-bottom: 4px;
-}
-
-.stage-req {
-  font-size: 0.8rem;
-  color: var(--color-info);
-  font-weight: 500;
-}
-
-/* 增强按钮样式 */
-.cultivate-dao {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
   padding: 12px 16px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.cultivate-dao::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.cultivate-dao:hover::before {
-  left: 100%;
-}
-
-.cultivate-dao:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
-}
-
-/* 大道详情侧边栏 */
-.dao-details-sidebar {
-  width: 320px;
   background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-}
-
-.details-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
   border-bottom: 1px solid var(--color-border);
 }
 
-.details-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.close-details {
-  background: none;
-  border: none;
-  padding: 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  transition: all 0.2s ease;
-}
-
-.close-details:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-
-.details-content {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.detail-section {
-  margin-bottom: 24px;
-}
-
-.detail-section h4 {
-  margin: 0 0 12px 0;
+.toolbar-left {
+  display: flex;
+  gap: 16px;
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
+}
+
+.dao-count {
+  color: var(--color-primary);
   font-weight: 600;
 }
 
-.stage-info {
+.dao-exp {
+  color: var(--color-text-secondary);
+}
+
+.toolbar-right {
   display: flex;
-  flex-direction: column;
   gap: 8px;
 }
 
-.current-stage {
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-.dao-description {
-  color: var(--color-text);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.dao-stats-detail {
+.tool-btn {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.status-badge.unlocked {
-  background: var(--color-success);
-  color: white;
-}
-
-/* 详情操作 */
-.details-actions {
-  padding: 16px 20px;
-  border-top: 1px solid var(--color-border);
-}
-
-.cultivate-dao {
-  width: 100%;
-  padding: 10px 16px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.cultivate-dao:hover {
-  background: var(--color-primary-hover);
+.tool-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-/* 加载状态 */
-.loading-placeholder {
+/* 主内容 */
+.dao-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+}
+
+/* 空状态 */
+.dao-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  gap: 20px;
   color: var(--color-text-secondary);
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--color-border);
-  border-top: 3px solid var(--color-primary);
-  border-radius: 50%;
-  margin-bottom: 16px;
-  opacity: 0.8;
+.quick-actions {
+  display: flex;
+  gap: 12px;
 }
 
-/* 响应式设计 */
+/* 大道列表 */
+.dao-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dao-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* 通用按钮 */
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.action-btn.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.action-btn.primary:hover {
+  opacity: 0.9;
+}
+
+.action-btn.secondary {
+  background: #ffb534d0;
+  border-color: var(--color-border);
+}
+
+.action-btn.warning {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: white;
+}
+
+.action-btn.warning:hover {
+  opacity: 0.9;
+}
+
+.action-btn.large {
+  padding: 12px 20px;
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+/* 响应式 */
 @media (max-width: 640px) {
-  .thousand-dao-content {
-    padding: 0;
+  .dao-stats-header {
+    flex-wrap: wrap;
   }
 
-  .dao-header {
-    padding: 1rem;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--color-surface);
+  .stats-card {
+    min-width: auto;
+    flex: 1;
   }
 
-  .header-left {
-    gap: 0.5rem;
-  }
-
-  .panel-title {
-    font-size: 1.1rem;
-  }
-
-  .panel-subtitle {
-    display: none;
-  }
-
-  .refresh-btn {
-    padding: 0.5rem;
-    font-size: 0.8rem;
-  }
-
-  .dao-main {
+  .quick-actions {
     flex-direction: column;
-    padding: 0;
-  }
-  
-  .dao-stats {
-    padding: 1rem;
-    gap: 0.75rem;
   }
 
-  .stat-card {
-    padding: 1rem;
-    min-height: 80px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .stat-icon {
-    font-size: 1.25rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .stat-value {
-    font-size: 1.25rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .stat-label {
-    font-size: 0.8rem;
-  }
-
-  .dao-sections {
-    padding: 1rem;
-  }
-
-  .dao-grid {
+  .detail-stats-grid {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .dao-card {
-    padding: 1rem;
-  }
-
-  .dao-card-header {
-    margin-bottom: 0.75rem;
-  }
-
-  .dao-name {
-    font-size: 0.95rem;
-  }
-
-  .dao-stage {
-    font-size: 0.7rem;
-  }
-  
-  .dao-details-sidebar {
-    width: 100%;
-    max-height: 60vh;
-    border-left: none;
-    border-top: 1px solid var(--color-border);
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 200;
-    border-radius: 1rem 1rem 0 0;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-  }
-
-  .details-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
-    border-radius: 1rem 1rem 0 0;
-  }
-
-  .details-header h3 {
-    font-size: 1.1rem;
-  }
-
-  .details-content {
-    padding: 1rem;
-    max-height: calc(60vh - 120px);
-    overflow-y: auto;
-  }
-
-  .detail-section {
-    margin-bottom: 1.5rem;
-  }
-
-  .detail-section h4 {
-    font-size: 0.85rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .details-actions {
-    padding: 1rem;
-    background: var(--color-surface);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .cultivate-dao {
-    padding: 0.75rem;
-    font-size: 0.9rem;
   }
 }
 </style>

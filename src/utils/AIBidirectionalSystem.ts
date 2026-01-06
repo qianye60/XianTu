@@ -20,6 +20,7 @@ import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
 import { stripNsfwContent } from '@/utils/prompts/definitions/dataDefinitions';
+import { isSaveDataV3, migrateSaveDataToLatest } from './saveMigration';
 
 type PlainObject = Record<string, unknown>;
 
@@ -75,6 +76,45 @@ class AIBidirectionalSystemClass {
   private stateHistory: StateChangeLog[] = [];
   private isSummarizing = false; // 添加一个锁，防止并发总结
 
+  private extractNarrativeText(raw: string): string {
+    // 🔥 移除思维链标签（兜底保护）
+    const cleaned = String(raw || '')
+      .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+      .trim();
+
+    if (!cleaned) return '';
+
+    // 如果是JSON格式，提取text字段
+    if (cleaned.startsWith('{') || cleaned.includes('```')) {
+      try {
+        const parsed = this.parseAIResponse(cleaned);
+        return parsed?.text?.trim() || '';
+      } catch {
+        // JSON解析失败，尝试提取代码块
+        const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        if (codeBlockMatch?.[1]) {
+          try {
+            const obj = JSON.parse(codeBlockMatch[1].trim()) as Record<string, unknown>;
+            return String(obj.text || obj.叙事文本 || obj.narrative || '').trim();
+          } catch {
+            // 代码块内容本身就是文本
+            return codeBlockMatch[1].trim();
+          }
+        }
+      }
+    }
+
+    return cleaned;
+  }
+
+  private sanitizeActionOptionsForDisplay(options: unknown): string[] {
+    if (!Array.isArray(options)) return [];
+    return options
+      .filter((opt) => typeof opt === 'string')
+      .map((opt) => sanitizeAITextForDisplay(opt).trim())
+      .filter((opt) => opt.length > 0);
+  }
+
   private constructor() {}
 
   public static getInstance(): AIBidirectionalSystemClass {
@@ -125,21 +165,47 @@ class AIBidirectionalSystemClass {
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
     let gmResponse: GM_Response = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] };
     try {
-      const stateForAI = cloneDeep(saveData);
-      if (stateForAI.记忆) {
-        // 移除短期和隐式中期记忆，以优化AI上下文
-        delete stateForAI.记忆.短期记忆;
-        delete stateForAI.记忆.隐式中期记忆;
+      const v3 = isSaveDataV3(saveData) ? (saveData as any) : migrateSaveDataToLatest(saveData).migrated;
+
+      // 发送给 AI 的状态：严格使用 V3 五域结构（命令 key 也必须按此结构输出）
+      const stateForAI = cloneDeep(v3);
+      if (stateForAI.社交?.记忆) {
+        // 移除短期和隐式中期记忆，以优化AI上下文（短期记忆单独发送）
+        delete stateForAI.社交.记忆.短期记忆;
+        delete stateForAI.社交.记忆.隐式中期记忆;
       }
-      // 移除叙事历史，避免与短期记忆重复
-      if (stateForAI.叙事历史) delete stateForAI.叙事历史;
+      // 移除叙事历史，避免与短期记忆重复/爆token
+      if (stateForAI.系统?.历史?.叙事) {
+        delete stateForAI.系统.历史.叙事;
+      }
+
+      // 🔥 向量记忆检索：如果启用，替换全量长期记忆为相关记忆
+      let vectorMemorySection = '';
+      try {
+        const { vectorMemoryService } = await import('@/services/vectorMemoryService');
+        if (vectorMemoryService.isEnabled() && stateForAI.社交?.记忆?.长期记忆?.length > 0) {
+          const searchQuery = userMessage || '';
+          const context = {
+            currentLocation: stateForAI.角色?.位置?.描述,
+          };
+          const results = await vectorMemoryService.searchMemories(searchQuery, context);
+          if (results.length > 0) {
+            vectorMemorySection = vectorMemoryService.formatForAI(results);
+            // 清空全量长期记忆，使用向量检索结果
+            stateForAI.社交.记忆.长期记忆 = [];
+            console.log(`[向量记忆] 检索到 ${results.length} 条相关记忆`);
+          }
+        }
+      } catch (e) {
+        console.warn('[向量记忆] 检索失败，使用全量模式:', e);
+      }
 
       // 保存短期记忆用于单独发送
-      const shortTermMemory = saveData.记忆?.短期记忆 || [];
+      const shortTermMemory = v3?.社交?.记忆?.短期记忆 || [];
 
       // --- 角色核心状态速览 ---
-      const playerStatus = stateForAI.玩家角色状态;
-      const character = stateForAI.角色基础信息;
+      const attributes = stateForAI.角色?.属性;
+      const character = stateForAI.角色?.身份;
       const formatTalentsForPrompt = (talents: any): string => {
         if (!talents) return '无';
         if (typeof talents === 'string') return talents;
@@ -156,20 +222,21 @@ class AIBidirectionalSystemClass {
       };
 
       let coreStatusSummary = '# 角色核心状态速览\n';
-      if (playerStatus) {
-        coreStatusSummary += `\n- 生命: 气血${playerStatus.气血?.当前}/${playerStatus.气血?.上限} 灵气${playerStatus.灵气?.当前}/${playerStatus.灵气?.上限} 神识${playerStatus.神识?.当前}/${playerStatus.神识?.上限} 寿元${playerStatus.寿命?.当前}/${playerStatus.寿命?.上限}`;
+      if (attributes) {
+        coreStatusSummary += `\n- 生命: 气血${attributes.气血?.当前}/${attributes.气血?.上限} 灵气${attributes.灵气?.当前}/${attributes.灵气?.上限} 神识${attributes.神识?.当前}/${attributes.神识?.上限} 寿元${attributes.寿命?.当前}/${attributes.寿命?.上限}`;
 
-        if (playerStatus.境界) {
-          const realm = playerStatus.境界;
+        if (attributes.境界) {
+          const realm = attributes.境界;
           coreStatusSummary += `\n- 境界: ${realm.名称}-${realm.阶段} (${realm.当前进度}/${realm.下一级所需})`;
         }
 
-        if (playerStatus.声望) {
-          coreStatusSummary += `\n- 声望: ${playerStatus.声望}`;
+        if (attributes.声望) {
+          coreStatusSummary += `\n- 声望: ${attributes.声望}`;
         }
 
-        if (playerStatus.状态效果 && playerStatus.状态效果.length > 0) {
-          coreStatusSummary += `\n- 状态: ${playerStatus.状态效果
+        const effects = (stateForAI.角色?.效果 ?? []) as StatusEffect[];
+        if (Array.isArray(effects) && effects.length > 0) {
+          coreStatusSummary += `\n- 效果: ${effects
             .filter((e: StatusEffect) => e && typeof e === 'object' && e.状态名称)
             .map((e: StatusEffect) => e.状态名称)
             .join(', ')}`;
@@ -178,6 +245,22 @@ class AIBidirectionalSystemClass {
       if (character?.天赋) {
         coreStatusSummary += `\n- 天赋: ${formatTalentsForPrompt(character.天赋)}`;
       }
+
+      // 🎲 生成判定骰子（前端真随机，气运修正）
+      const diceRoll = Math.floor(Math.random() * 100) + 1; // 1-100
+      const innate = character?.先天六司 || {};
+      const acquired = character?.后天六司 || {};
+      const fortune = (innate.气运 || 5) + (acquired.气运 || 0); // 先天+后天气运
+      const fortuneMultiplier = 1 + fortune / 100; // 气运修正系数
+      const modifiedDice = Math.round(diceRoll * fortuneMultiplier);
+      const diceBonus = Math.round((modifiedDice - 50) / 5); // 转换为判定加成
+
+      coreStatusSummary += `\n\n# 本回合判定骰子（前端真随机）
+- dice_roll: ${diceRoll} (原始1-100)
+- 气运: ${fortune} (先天${innate.气运 || 5}+后天${acquired.气运 || 0})
+- 修正后骰子: ${modifiedDice} (${diceRoll}×${fortuneMultiplier.toFixed(2)})
+- 判定加成: ${diceBonus >= 0 ? '+' : ''}${diceBonus}
+**注意：判定时必须使用此骰子加成，不可自行生成随机数！**`;
       // --- 结束 ---
 
       const stateJsonString = JSON.stringify(stateForAI);
@@ -188,7 +271,7 @@ class AIBidirectionalSystemClass {
       }
 
       // 🔥 根据任务系统配置决定是否激活任务系统提示词
-      if (stateForAI.任务系统?.配置?.启用系统任务) {
+      if (stateForAI.社交?.任务?.配置?.启用系统任务) {
         activePrompts.push('questSystem');
       }
 
@@ -197,7 +280,7 @@ class AIBidirectionalSystemClass {
 ${assembledPrompt}
 
 ${coreStatusSummary}
-
+${vectorMemorySection ? `\n${vectorMemorySection}\n` : ''}
 # 游戏状态
 你正在修仙世界《仙途》中扮演GM。以下是当前完整游戏存档(JSON格式):
 ${stateJsonString}
@@ -281,14 +364,22 @@ ${stateJsonString}
           ]);
 
           const sanitizedDataDefinitionsPrompt = tavernEnv ? dataDefinitionsPrompt : stripNsfwContent(dataDefinitionsPrompt);
-          const sections: string[] = [
-            stepRules,
-            coreOutputRulesPrompt,
-            businessRulesPrompt,
-            sanitizedDataDefinitionsPrompt,
-            textFormatsPrompt,
-            worldStandardsPrompt
-          ];
+          const sections: string[] = [stepRules];
+
+          // 第1步只输出正文纯文本：不注入“结构/指令/点路径/状态JSON”，避免把第2步内容串进正文
+          if (step === 1) {
+            // 只保留写作相关的格式与世界观标准；业务/结构/指令规则全部推迟到第2步
+            sections.push(textFormatsPrompt, worldStandardsPrompt);
+            const assembledStep1 = sections.join('\n\n---\n\n');
+            return `
+${assembledStep1}
+
+${coreStatusSummary}
+`.trim();
+          }
+
+          // 第2步：固定生成结构化记忆/指令/行动选项（可由设置决定是否“流式返回”，但不流式展示到正文区）
+          sections.push(coreOutputRulesPrompt, businessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
 
           if (step === 2 && uiStore.enableActionOptions) {
             const actionOptionsPrompt = await getPrompt('actionOptions');
@@ -298,7 +389,8 @@ ${stateJsonString}
             sections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
           }
 
-          if (step === 1 && (stateForAI as any).任务系统?.配置?.启用系统任务) {
+          // 任务系统的结构化更新属于“指令”范畴：放到第2步生成
+          if (step === 2 && (stateForAI as any).社交?.任务?.配置?.启用系统任务) {
             sections.push(await getPrompt('questGeneration'));
           }
 
@@ -313,13 +405,14 @@ ${stateJsonString}
 `.trim();
         };
 
-        const buildSplitInjects = (systemPrompt: string) => {
+        const buildSplitInjects = (systemPrompt: string, includeShortTermMemory: boolean = false) => {
           const splitInjects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
             { content: systemPrompt, role: 'system', depth: 4, position: 'in_chat' }
           ];
-          if (shortTermMemory.length > 0) {
+          // 🔥 只在第1步注入短期记忆，避免重复
+          if (includeShortTermMemory && shortTermMemory.length > 0) {
             splitInjects.push({
-              content: `# 【最近事件】\n${shortTermMemory.join('\n')}`,
+              content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
               role: 'assistant',
               depth: 2,
               position: 'in_chat',
@@ -349,7 +442,8 @@ ${stateJsonString}
 
         options?.onProgressUpdate?.('分步生成：第1步（正文）…');
         const systemPromptStep1 = await buildSplitSystemPrompt(1);
-        const injectsStep1 = buildSplitInjects(systemPromptStep1);
+        // 🔥 第1步注入短期记忆
+        const injectsStep1 = buildSplitInjects(systemPromptStep1, true);
         const step1Raw = await generateOnce({
           user_input: finalUserInput,
           should_stream: useStreaming,
@@ -358,45 +452,29 @@ ${stateJsonString}
           onStreamChunk: options?.onStreamChunk,
         });
 
-        const step1Thinking = (() => {
-          const match = String(step1Raw).match(/<thinking>([\s\S]*?)<\/thinking>/i);
-          return match?.[1]?.trim() || '';
-        })();
-
-        const step1Text = (() => {
-          try {
-            return this.parseAIResponse(String(step1Raw)).text?.trim() || '';
-          } catch {
-            return String(step1Raw).replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
-          }
-        })();
+        const step1Text = this.extractNarrativeText(String(step1Raw));
 
         options?.onProgressUpdate?.('分步生成：第2步（记忆/指令/行动选项）…');
         const systemPromptStep2 = await buildSplitSystemPrompt(2);
-        const injectsStep2 = buildSplitInjects(systemPromptStep2);
+        // 🔥 第2步不注入短期记忆，避免重复
+        const injectsStep2 = buildSplitInjects(systemPromptStep2, false);
         const step2UserInput = `
 【用户本次操作】
 ${finalUserInput}
 
-【第1步思维链】
-${step1Thinking || '（无）'}
-
 【第1步正文】
 ${step1Text}
 
-请按“分步生成（第2步）”规则输出 JSON。
+请按"分步生成（第2步）"规则输出 JSON。
 `.trim();
-
-        if (useStreaming && options?.onStreamChunk) {
-          options.onStreamChunk('\n\n---\n\n**正在生成指令与记忆...**\n\n');
-        }
 
         response = await generateOnce({
           user_input: step2UserInput,
-          should_stream: useStreaming,
+          // 第2步固定非流式生成：只返回最终结构化结果，不把chunk串到前端正文流里
+          should_stream: false,
           generation_id: `${generationId}_step2`,
           injects: injectsStep2 as any,
-          onStreamChunk: options?.onStreamChunk,
+          onStreamChunk: undefined,
         });
 
         let parsedStep2: GM_Response;
@@ -410,7 +488,7 @@ ${step1Text}
           text: step1Text,
           mid_term_memory: parsedStep2.mid_term_memory || '',
           tavern_commands: parsedStep2.tavern_commands || [],
-          action_options: uiStore.enableActionOptions ? (parsedStep2.action_options || []) : []
+          action_options: uiStore.enableActionOptions ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options || []) : []
         };
       } else if (tavernHelper) {
         // 酒馆模式
@@ -509,7 +587,7 @@ ${step1Text}
           text: extractedText,
           mid_term_memory: extractedMemory,
           tavern_commands: extractedCommands,
-          action_options: extractedActionOptions
+          action_options: this.sanitizeActionOptionsForDisplay(extractedActionOptions)
         };
         console.warn('[AI双向系统] 使用容错模式提取内容 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
       }
@@ -658,18 +736,7 @@ ${systemPrompt}
           onStreamChunk: options?.onStreamChunk,
         });
 
-        const step1Thinking = (() => {
-          const match = String(step1Raw).match(/<thinking>([\s\S]*?)<\/thinking>/i);
-          return match?.[1]?.trim() || '';
-        })();
-
-        const step1Text = (() => {
-          try {
-            return this.parseAIResponse(String(step1Raw)).text?.trim() || '';
-          } catch {
-            return String(step1Raw).replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
-          }
-        })();
+        const step1Text = this.extractNarrativeText(String(step1Raw));
 
         if (useStreaming && options?.onStreamComplete) {
           options.onStreamComplete();
@@ -680,25 +747,19 @@ ${systemPrompt}
 【开局用户提示】
 ${userPrompt}
 
-【第1步思维链】
-${step1Thinking || '（无）'}
-
 【第1步正文】
 ${step1Text}
 
 请按“分步生成（开局-第2步）”规则输出 JSON。
         `.trim();
 
-        if (useStreaming && options?.onStreamChunk) {
-          options.onStreamChunk('\n\n---\n\n**正在生成指令与记忆...**\n\n');
-        }
-
         const step2Raw = await generateOnce({
           step: 2,
           system: await buildInitialSplitSystemPrompt(2),
           user: step2UserPrompt,
+          // 第2步只生成结构化指令：是否流式仍由设置决定，但不把chunk串到前端正文流里
           should_stream: useStreaming,
-          onStreamChunk: options?.onStreamChunk,
+          onStreamChunk: undefined,
         });
 
         let parsedStep2: GM_Response;
@@ -720,7 +781,11 @@ ${step1Text}
           text: step1Text,
           mid_term_memory: parsedStep2.mid_term_memory || '',
           tavern_commands: parsedStep2.tavern_commands || [],
-          action_options: uiStore.enableActionOptions ? (parsedStep2.action_options?.length ? parsedStep2.action_options : defaultInitialActionOptions) : []
+          action_options: uiStore.enableActionOptions
+            ? this.sanitizeActionOptionsForDisplay(
+                parsedStep2.action_options?.length ? parsedStep2.action_options : defaultInitialActionOptions
+              )
+            : []
         };
 
         if (!gmResponse || !gmResponse.text) {
@@ -880,7 +945,7 @@ ${step1Text}
           text: extractedText,
           mid_term_memory: extractedMemory,
           tavern_commands: extractedCommands,
-          action_options: extractedActionOptions
+          action_options: this.sanitizeActionOptionsForDisplay(extractedActionOptions)
         };
         console.warn('[AI双向系统] 使用容错模式提取初始消息 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
       }
@@ -920,14 +985,14 @@ ${step1Text}
     const saveData = cloneDeep(repairedData);
     const changes: StateChange[] = [];
 
-    // 确保叙事历史数组存在
-    if (!saveData.叙事历史) {
-      saveData.叙事历史 = [];
-    }
+    // 确保叙事历史数组存在（V3：系统.历史.叙事）
+    if (!(saveData as any).系统) (saveData as any).系统 = {};
+    if (!(saveData as any).系统.历史) (saveData as any).系统.历史 = { 叙事: [] };
+    if (!Array.isArray((saveData as any).系统.历史.叙事)) (saveData as any).系统.历史.叙事 = [];
 
     // 处理text：添加到叙事历史和短期记忆
     if (response.text?.trim()) {
-      const timePrefix = this._formatGameTime(saveData.游戏时间);
+      const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
       const textContent = sanitizeAITextForDisplay(response.text).trim();
 
       // 1. 添加到叙事历史（用于UI显示）
@@ -936,29 +1001,31 @@ ${step1Text}
         role: 'assistant' as const,
         content: `${timePrefix}${textContent}`,
         time: timePrefix,
-        actionOptions: response.action_options || []
+        actionOptions: this.sanitizeActionOptionsForDisplay(response.action_options || [])
       };
-      saveData.叙事历史.push(newNarrative);
+      (saveData as any).系统.历史.叙事.push(newNarrative);
       changes.push({
-        key: `叙事历史[${saveData.叙事历史.length - 1}]`,
+        key: `系统.历史.叙事[${(saveData as any).系统.历史.叙事.length - 1}]`,
         action: 'push',
         oldValue: undefined,
         newValue: cloneDeep(newNarrative)
       });
 
       // 2. 添加到短期记忆（用于AI上下文）
-      if (!saveData.记忆) saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
-      if (!saveData.记忆.短期记忆) saveData.记忆.短期记忆 = [];
-      saveData.记忆.短期记忆.push(`${timePrefix}${textContent}`);
+      if (!(saveData as any).社交) (saveData as any).社交 = {};
+      if (!(saveData as any).社交.记忆) (saveData as any).社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+      if (!Array.isArray((saveData as any).社交.记忆.短期记忆)) (saveData as any).社交.记忆.短期记忆 = [];
+      (saveData as any).社交.记忆.短期记忆.push(`${timePrefix}${textContent}`);
     }
 
     // 处理mid_term_memory：添加到隐式中期记忆
     const memoryContent = sanitizeAITextForDisplay(response.mid_term_memory || '').trim();
     if (memoryContent) {
-      if (!saveData.记忆) saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
-      if (!saveData.记忆.隐式中期记忆) saveData.记忆.隐式中期记忆 = [];
-      const timePrefix = this._formatGameTime(saveData.游戏时间);
-      saveData.记忆.隐式中期记忆.push(`${timePrefix}${memoryContent}`);
+      if (!(saveData as any).社交) (saveData as any).社交 = {};
+      if (!(saveData as any).社交.记忆) (saveData as any).社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+      if (!Array.isArray((saveData as any).社交.记忆.隐式中期记忆)) (saveData as any).社交.记忆.隐式中期记忆 = [];
+      const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
+      (saveData as any).社交.记忆.隐式中期记忆.push(`${timePrefix}${memoryContent}`);
     }
 
     // 🔥 检查短期记忆是否超限，超限则删除最旧的短期记忆，并将对应的隐式中期记忆转化为正式中期记忆
@@ -976,18 +1043,18 @@ ${step1Text}
       console.warn('[AI双向系统] 读取记忆配置失败，使用默认值:', error);
     }
 
-    while (saveData.记忆?.短期记忆 && saveData.记忆.短期记忆.length > SHORT_TERM_LIMIT) {
+    while ((saveData as any).社交?.记忆?.短期记忆 && (saveData as any).社交.记忆.短期记忆.length > SHORT_TERM_LIMIT) {
       // 删除最旧的短期记忆（第一个）
-      saveData.记忆.短期记忆.shift();
-      console.log(`[AI双向系统] 短期记忆超过上限（${SHORT_TERM_LIMIT}条），已删除最旧的短期记忆。当前短期记忆数量: ${saveData.记忆.短期记忆.length}`);
+      (saveData as any).社交.记忆.短期记忆.shift();
+      console.log(`[AI双向系统] 短期记忆超过上限（${SHORT_TERM_LIMIT}条），已删除最旧的短期记忆。当前短期记忆数量: ${(saveData as any).社交.记忆.短期记忆.length}`);
 
       // 将对应的隐式中期记忆转化为正式中期记忆
-      if (saveData.记忆.隐式中期记忆 && saveData.记忆.隐式中期记忆.length > 0) {
-        const implicitMidTerm = saveData.记忆.隐式中期记忆.shift();
+      if ((saveData as any).社交.记忆.隐式中期记忆 && (saveData as any).社交.记忆.隐式中期记忆.length > 0) {
+        const implicitMidTerm = (saveData as any).社交.记忆.隐式中期记忆.shift();
         if (implicitMidTerm) {
-          if (!saveData.记忆.中期记忆) saveData.记忆.中期记忆 = [];
-          saveData.记忆.中期记忆.push(implicitMidTerm);
-          console.log(`[AI双向系统] 已将隐式中期记忆转化为正式中期记忆。当前中期记忆数量: ${saveData.记忆.中期记忆.length}`);
+          if (!Array.isArray((saveData as any).社交.记忆.中期记忆)) (saveData as any).社交.记忆.中期记忆 = [];
+          (saveData as any).社交.记忆.中期记忆.push(implicitMidTerm);
+          console.log(`[AI双向系统] 已将隐式中期记忆转化为正式中期记忆。当前中期记忆数量: ${(saveData as any).社交.记忆.中期记忆.length}`);
         }
       }
     }
@@ -999,7 +1066,7 @@ ${step1Text}
     try {
       const memorySettings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
       const midTermTrigger = memorySettings.midTermTrigger ?? 25; // 默认25
-      if (saveData.记忆?.中期记忆 && saveData.记忆.中期记忆.length >= midTermTrigger) {
+      if ((saveData as any).社交?.记忆?.中期记忆 && (saveData as any).社交.记忆.中期记忆.length >= midTermTrigger) {
         this.triggerMemorySummary().catch(error => {
           console.error('[AI双向系统] 自动记忆总结在后台失败:', error);
         });
@@ -1081,9 +1148,19 @@ ${step1Text}
     // 🔥 步骤3：清理指令，移除多余字段（只处理通过验证的指令）
     const cleanedCommands = cleanCommands(validCommands);
 
-    console.log(`[AI双向系统] 执行 ${cleanedCommands.length} 条有效指令，拒绝 ${rejectedCommands.length} 条无效指令`);
+    // 🔥 步骤4：对指令排序，确保 set 上限的操作先于 set/add 当前值的操作
+    // 这样突破时先改上限再改当前值，避免当前值被错误限制
+    const sortedCommands = [...cleanedCommands].sort((a, b) => {
+      const isASetMax = a.action === 'set' && a.key.endsWith('.上限');
+      const isBSetMax = b.action === 'set' && b.key.endsWith('.上限');
+      if (isASetMax && !isBSetMax) return -1;
+      if (!isASetMax && isBSetMax) return 1;
+      return 0;
+    });
 
-    for (const command of cleanedCommands) {
+    console.log(`[AI双向系统] 执行 ${sortedCommands.length} 条有效指令，拒绝 ${rejectedCommands.length} 条无效指令`);
+
+    for (const command of sortedCommands) {
       try {
         const oldValue = get(saveData, command.key);
         this.executeCommand(command, saveData);
@@ -1101,8 +1178,8 @@ ${step1Text}
 
     updateMasteredSkills(saveData);
 
-    if (saveData.游戏时间) {
-      saveData.游戏时间 = normalizeGameTime(saveData.游戏时间);
+    if ((saveData as any).元数据?.时间) {
+      (saveData as any).元数据.时间 = normalizeGameTime((saveData as any).元数据.时间);
     }
 
     // 每次AI响应后，检查并移除过期的状态效果
@@ -1113,8 +1190,8 @@ ${step1Text}
 
     // 🔥 将状态变更添加到最新的叙事记录中
     const stateChangesLog: StateChangeLog = { changes, timestamp: new Date().toISOString() };
-    if (saveData.叙事历史 && saveData.叙事历史.length > 0) {
-      const latestNarrative = saveData.叙事历史[saveData.叙事历史.length - 1];
+    if ((saveData as any).系统?.历史?.叙事 && (saveData as any).系统.历史.叙事.length > 0) {
+      const latestNarrative = (saveData as any).系统.历史.叙事[(saveData as any).系统.历史.叙事.length - 1];
       (latestNarrative as any).stateChanges = stateChangesLog;
     }
 
@@ -1160,7 +1237,7 @@ ${step1Text}
       const characterStore = useCharacterStore();
       const saveData = gameStateStore.toSaveData();
 
-      if (!saveData || !saveData.记忆) {
+      if (!saveData || !(saveData as any).社交?.记忆) {
         throw new Error('无法获取存档数据或记忆模块');
       }
 
@@ -1171,7 +1248,7 @@ ${step1Text}
       const longTermFormat = settings.longTermFormat || '';
 
       // 2. 再次检查是否需要总结
-      const midTermMemories = saveData.记忆.中期记忆 || [];
+      const midTermMemories = (saveData as any).社交.记忆.中期记忆 || [];
 
       // 检查中期记忆数量是否达到触发阈值
       if (midTermMemories.length < midTermTrigger) {
@@ -1200,7 +1277,7 @@ ${step1Text}
       const memoriesToSummarize = midTermMemories.slice(0, numToSummarize);
       // 保留剩余的记忆（从 numToSummarize 位置开始到末尾）
       const memoriesToKeep = midTermMemories.slice(numToSummarize);
-      const memoriesText = memoriesToSummarize.map((m, i) => `${i + 1}. ${m}`).join('\n');
+      const memoriesText = memoriesToSummarize.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n');
 
       console.log(`[AI双向系统] 准备总结：从${midTermMemories.length}条中期记忆中，总结最旧的${numToSummarize}条，保留最新的${memoriesToKeep.length}条`);
       console.log(`[AI双向系统] 配置：触发阈值=${midTermTrigger}, 保留数量=${midTermKeep}, 总结数量=${numToSummarize}`);
@@ -1349,6 +1426,17 @@ ${saveDataJson}`;
       gameStateStore.memory.长期记忆.push(newLongTermMemory);
       gameStateStore.memory.中期记忆 = memoriesToKeep;
 
+      // 🔥 同步到向量记忆库（如果启用）
+      try {
+        const { vectorMemoryService } = await import('@/services/vectorMemoryService');
+        if (vectorMemoryService.isEnabled()) {
+          await vectorMemoryService.addMemory(newLongTermMemory, 7);
+          console.log('[向量记忆] 新长期记忆已添加到向量库');
+        }
+      } catch (e) {
+        console.warn('[向量记忆] 添加到向量库失败:', e);
+      }
+
       // 7. 保存到存档
       await characterStore.saveCurrentGame();
 
@@ -1474,9 +1562,23 @@ ${saveDataJson}`;
     }
 
     const path = key.toString();
+    const allowedRoots = ['元数据', '角色', '社交', '世界', '系统'] as const;
+    const isV3Path = allowedRoots.some((root) => path === root || path.startsWith(`${root}.`));
+    if (!isV3Path) {
+      throw new Error(`指令key必须以 ${allowedRoots.join(' / ')} 开头（V3短路径），当前: ${path}`);
+    }
 
     // 🔥 保护关键数组字段，防止被设为 null
-    const arrayFields = ['玩家角色状态.状态效果', '任务列表', '物品栏.物品', '技能列表', '记忆.短期记忆', '记忆.中期记忆', '记忆.长期记忆', '叙事历史'];
+    const arrayFields = [
+      // V3
+      '角色.效果',
+      '社交.任务.当前任务列表',
+      '社交.记忆.短期记忆',
+      '社交.记忆.中期记忆',
+      '社交.记忆.长期记忆',
+      '社交.记忆.隐式中期记忆',
+      '系统.历史.叙事',
+    ];
     // 精确匹配：路径必须完全等于数组字段，或者是数组元素（如 状态效果[0]）但不是其子属性
     const isArrayField = arrayFields.some(field => {
       // 完全匹配
@@ -1502,7 +1604,6 @@ ${saveDataJson}`;
     switch (action) {
       case 'set':
         set(saveData, path, value);
-        this.enforceStatLimits(saveData, path);
         break;
 
       case 'add': {
@@ -1520,7 +1621,6 @@ ${saveDataJson}`;
           set(saveData, path, newValue);
         }
 
-        this.enforceStatLimits(saveData, path);
         break;
       }
 
@@ -1531,11 +1631,15 @@ ${saveDataJson}`;
         }
         let valueToPush: unknown = value ?? null;
         // 当向记忆数组推送时，自动添加时间戳（但跳过隐式中期记忆，因为已在processGmResponse中处理）
-        if (typeof valueToPush === 'string' && path.startsWith('记忆.') && path !== '记忆.隐式中期记忆') {
+        const isMemoryPath =
+          path.startsWith('社交.记忆.') || path.startsWith('记忆.');
+        const isImplicitMid =
+          path === '社交.记忆.隐式中期记忆' || path === '记忆.隐式中期记忆';
+        if (typeof valueToPush === 'string' && isMemoryPath && !isImplicitMid) {
           if (!valueToPush.trim()) {
             break;
           }
-          const timePrefix = this._formatGameTime(saveData.游戏时间);
+          const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
           valueToPush = `${timePrefix}${valueToPush}`;
         }
         array.push(valueToPush);
@@ -1584,32 +1688,6 @@ ${saveDataJson}`;
   }
 
   /**
-   * 强制执行属性上限限制
-   * 确保当前值不超过上限值
-   */
-  private enforceStatLimits(saveData: SaveData, path: string): void {
-    // 定义需要检查上限的属性映射
-    const statLimits: Record<string, string> = {
-      '玩家角色状态.气血.当前': '玩家角色状态.气血.上限',
-      '玩家角色状态.灵气.当前': '玩家角色状态.灵气.上限',
-      '玩家角色状态.神识.当前': '玩家角色状态.神识.上限',
-      '玩家角色状态.寿命.当前': '玩家角色状态.寿命.上限',
-    };
-
-    // 检查是否是需要限制的属性
-    const limitPath = statLimits[path];
-    if (limitPath) {
-      const currentValue = get(saveData, path);
-      const maxValue = get(saveData, limitPath);
-
-      if (typeof currentValue === 'number' && typeof maxValue === 'number' && currentValue > maxValue) {
-        set(saveData, path, maxValue);
-        console.warn(`[AI双向系统] ${path} 超过上限 (${currentValue} > ${maxValue})，已限制为 ${maxValue}`);
-      }
-    }
-  }
-
-  /**
    * 提取记忆总结所需的精简存档数据
    * 与正式游戏交互保持一致：移除叙事历史、短期记忆、隐式中期记忆
    */
@@ -1617,8 +1695,8 @@ ${saveDataJson}`;
     const simplified = cloneDeep(saveData);
 
     // 移除叙事历史（避免与短期记忆重复）
-    if (simplified.叙事历史) {
-      delete simplified.叙事历史;
+    if (simplified.历史?.叙事) {
+      delete simplified.历史.叙事;
     }
 
     // 移除短期和隐式中期记忆（以优化AI上下文）
@@ -1693,12 +1771,8 @@ ${saveDataJson}`;
     console.log('[parseAIResponse] 原始响应长度:', rawText.length);
     console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
 
-    // ==================== 旧JSON格式解析（稳定版） ====================
-    // 兼容形态：
-    // 1) 纯 JSON 文本
-    // 2) ```json ... ``` 代码块
-    // 3) 文本前后夹杂内容（比如 <thinking>...</thinking>），从中提取第一个完整 JSON 对象
-    console.log('[parseAIResponse] 使用JSON解析流程');
+    // 🔥 移除思维链（兜底保护）
+    const cleanedText = rawText.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
 
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {
@@ -1741,22 +1815,22 @@ ${saveDataJson}`;
         text: String(obj.text || obj.叙事文本 || obj.narrative || ''),
         mid_term_memory: String(obj.mid_term_memory || obj.中期记忆 || obj.memory || ''),
         tavern_commands: tavernCommands,
-        action_options: actionOptions
+        action_options: this.sanitizeActionOptionsForDisplay(actionOptions)
       };
     };
 
-    // 尝试直接解析JSON
-    let parsedObj = tryParse(rawText);
+    // 1. 直接解析
+    let parsedObj = tryParse(cleanedText);
     if (parsedObj) return standardize(parsedObj);
 
-    // 尝试提取代码块
-    const codeBlockMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (codeBlockMatch && codeBlockMatch[1]) {
+    // 2. 提取代码块
+    const codeBlockMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (codeBlockMatch?.[1]) {
       parsedObj = tryParse(codeBlockMatch[1].trim());
       if (parsedObj) return standardize(parsedObj);
     }
 
-    // 提取第一个完整的JSON对象
+    // 3. 提取第一个JSON对象
     const extractFirstJSON = (text: string): string | null => {
       const startIndex = text.indexOf('{');
       if (startIndex === -1) return null;
@@ -1767,37 +1841,21 @@ ${saveDataJson}`;
 
       for (let i = startIndex; i < text.length; i++) {
         const char = text[i];
-
-        if (escapeNext) {
-          escapeNext = false;
-          continue;
-        }
-
-        if (char === '\\') {
-          escapeNext = true;
-          continue;
-        }
-
-        if (char === '"') {
-          inString = !inString;
-          continue;
-        }
-
+        if (escapeNext) { escapeNext = false; continue; }
+        if (char === '\\') { escapeNext = true; continue; }
+        if (char === '"') { inString = !inString; continue; }
         if (inString) continue;
 
         if (char === '{') depth++;
         if (char === '}') {
           depth--;
-          if (depth === 0) {
-            return text.substring(startIndex, i + 1);
-          }
+          if (depth === 0) return text.substring(startIndex, i + 1);
         }
       }
-
       return null;
     };
 
-    const firstJSON = extractFirstJSON(rawText);
+    const firstJSON = extractFirstJSON(cleanedText);
     if (firstJSON) {
       parsedObj = tryParse(firstJSON);
       if (parsedObj) {

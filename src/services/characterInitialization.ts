@@ -16,6 +16,7 @@ import { getNsfwSettingsFromStorage, ensureSystemConfigHasNsfw } from '@/utils/n
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
+import { migrateSaveDataToLatest } from '@/utils/saveMigration';
 // 移除未使用的旧生成器导入,改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
@@ -142,8 +143,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     气血: { 当前: 初始气血, 上限: 初始气血 },
     灵气: { 当前: 初始灵气, 上限: 初始灵气 },
     神识: { 当前: 初始神识, 上限: 初始神识 },
-    寿命: { 当前: age, 上限: 最大寿命 },
-    状态效果: [] // 使用新的StatusEffect数组格式
+    寿命: { 当前: age, 上限: 最大寿命 }
   };
 }
 
@@ -153,7 +153,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
 
 /**
  * 准备初始存档数据结构
- * @param baseInfo - 角色基础信息
+ * @param baseInfo - 角色
  * @param age - 角色年龄
  * @returns 初始化后的存档数据和经过处理的baseInfo
  */
@@ -174,17 +174,17 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   }
 
 
-  // 🔥 修复：游戏时间使用age作为初始年份，确保出生日期为0年
-  // AI会在初始化响应中通过tavern_commands设置正确的游戏时间（如果需要）
-  const 临时游戏时间 = { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
+  // 🔥 修复：时间使用age作为初始年份，确保出生日期为0年
+  // AI会在初始化响应中通过tavern_commands设置正确的时间（如果需要）
+  const 临时时间 = { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
 
-  // 计算出生日期：游戏时间 - 开局年龄 = 出生年份
-  // 例如：开局年龄18岁，游戏时间18年，则出生日期为0年
+  // 计算出生日期：时间 - 开局年龄 = 出生年份
+  // 例如：开局年龄18岁，时间18年，则出生日期为0年
   if (!processedBaseInfo.出生日期) {
     processedBaseInfo.出生日期 = {
-      年: 临时游戏时间.年 - age,
-      月: 临时游戏时间.月,
-      日: 临时游戏时间.日,
+      年: 临时时间.年 - age,
+      月: 临时时间.月,
+      日: 临时时间.日,
       小时: 0,
       分钟: 0
     };
@@ -223,17 +223,39 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
 
   // 计算初始属性
   const playerStatus = calculateInitialAttributes(processedBaseInfo, age);
+  const attributes = {
+    境界: playerStatus.境界,
+    声望: playerStatus.声望,
+    气血: playerStatus.气血,
+    灵气: playerStatus.灵气,
+    神识: playerStatus.神识,
+    寿命: playerStatus.寿命,
+  };
+  const location = playerStatus.位置;
 
   // 创建基础存档结构
   const tavernEnv = isTavernEnv();
-  const saveData: SaveData = {
-    角色基础信息: processedBaseInfo,
-    玩家角色状态: playerStatus,
-    装备栏: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
-    三千大道: createEmptyThousandDaoSystem(),
+  const legacySaveData: SaveData = {
+    角色: processedBaseInfo,
+    属性: attributes as any,
+    位置: location as any,
+    效果: [],
+    // 🔥 时间：使用age作为初始年份，AI可以通过tavern_commands修改
+    时间: { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
-    人物关系: {},
-    任务系统: {
+    装备: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
+    功法: {
+      当前功法ID: null,
+      功法进度: {},
+      功法套装: { 主修: null, 辅修: [] },
+    },
+    修炼: {
+      修炼功法: null,
+    },
+    大道: createEmptyThousandDaoSystem(),
+    技能: { 掌握技能: [], 装备栏: [], 冷却: {} },
+    宗门: undefined,
+    任务: {
       配置: {
         启用系统任务: false,
         系统任务类型: '修仙辅助系统',
@@ -248,20 +270,18 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
       }
     },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] },
-    // 🔥 游戏时间：使用age作为初始年份，AI可以通过tavern_commands修改
-    游戏时间: { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
-    修炼功法: null, // 初始无修炼功法，数据结构已改为：功法数据和进度合并为一个对象或null
-    掌握技能: [], // 初始化为空数组
+    关系: {},
+    历史: { 叙事: [] },
     系统: {
       规则: {
         属性上限: { 先天六司: { 每项上限: 10 } },
         // 装备系统
-        装备系统: '装备栏存储引用{物品ID,名称}，完整数据在背包.物品中',
+        装备系统: '装备存储引用{物品ID,名称}，完整数据在背包.物品中',
         品质控制: '严格遵守境界对应品质范围，仙品世界上几乎没有，每一个都是令世界动荡的存在，神品不存在'
       },
       提示: [
         '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
-        '装备栏字段：装备1-6'
+        '装备字段：装备1-6'
       ],
       ...(tavernEnv ? {
         // 🔥 NSFW设置：从localStorage读取用户设置
@@ -270,26 +290,27 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     }
   };
 
-  // 注入AI元数据提示
-  (saveData.装备栏 as unknown as Record<string, unknown>)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在';
-  (saveData.人物关系 as unknown as Record<string, unknown>)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
-
   // 🔥 初始化玩家身体部位（NSFW模式）
   // 注意：这里只是初始化占位符，AI会在角色初始化响应中生成详细描述
-  if (tavernEnv && saveData.系统?.nsfwMode) {
+  if (tavernEnv && (legacySaveData as any).系统?.nsfwMode) {
     console.log('[角色初始化] NSFW模式已开启，将由AI生成身体部位详细描述');
     // 创建空对象，等待AI填充
-    saveData.身体部位开发 = {};
+    legacySaveData.身体 = {
+      ...(legacySaveData.身体 ?? {}),
+      部位开发: {},
+    };
   }
 
-  return { saveData, processedBaseInfo };
+  // 开局阶段统一返回 V3 五域结构，保证后续提示词/指令使用短路径生效
+  const { migrated } = migrateSaveDataToLatest(legacySaveData as any);
+  return { saveData: migrated as any, processedBaseInfo };
 }
 
 /**
  * 生成世界数据
- * @param baseInfo - 角色基础信息
- * @param world - 基础世界信息
- * @returns 生成的世界信息
+ * @param baseInfo - 角色
+ * @param world - 基础世界
+ * @returns 生成的世界
  */
 async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise<WorldInfo> {
   console.log('[初始化流程] 2. 生成世界数据');
@@ -319,8 +340,8 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
 
   const enhancedConfig = {
     worldName: selectedWorld?.name || world.name,
-    worldBackground: selectedWorld?.description || world.description,
-    worldEra: selectedWorld?.era || world.era,
+    worldBackground: (selectedWorld?.description ?? world.description) ?? undefined,
+    worldEra: (selectedWorld?.era ?? world.era) ?? undefined,
     factionCount: userWorldConfig.majorFactionsCount || 5,      // 默认5个主要势力
     locationCount: userWorldConfig.totalLocations || 12,        // 默认12个地点
     secretRealmsCount: userWorldConfig.secretRealmsCount || 5,  // 默认5个秘境
@@ -356,8 +377,8 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
 /**
  * 生成开场剧情和初始状态
  * @param saveData - 当前存档数据
- * @param baseInfo - 角色基础信息
- * @param world - 世界信息
+ * @param baseInfo - 角色
+ * @param world - 世界
  * @param age - 开局年龄
  * @param useStreaming - 是否使用流式传输（默认true）
  * @param generateMode - 生成模式：generate（标准）或 generateRaw（纯净）
@@ -393,25 +414,27 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   // 🔥 准备世界上下文信息
   const tavernEnv = isTavernEnv();
   const worldContext = {
-    worldInfo: saveData.世界信息,
-    availableContinents: saveData.世界信息?.大陆信息?.map((continent: Continent) => ({
+    worldInfo: (saveData as any).世界?.信息,
+    availableContinents: (saveData as any).世界?.信息?.大陆信息?.map((continent: Continent) => ({
       名称: continent.名称,
       描述: continent.描述,
       大洲边界: continent.大洲边界
     })) || [],
-    availableLocations: saveData.世界信息?.地点信息?.map((location: { name?: string; 名称?: string; type?: string; 类型?: string; description?: string; 描述?: string; faction?: string; 所属势力?: string; coordinates?: unknown }) => ({
+    availableLocations: (saveData as any).世界?.信息?.地点信息?.map((location: { name?: string; 名称?: string; type?: string; 类型?: string; description?: string; 描述?: string; faction?: string; 所属势力?: string; coordinates?: unknown }) => ({
       名称: location.name || location.名称,
       类型: location.type || location.类型,
       描述: location.description || location.描述,
       所属势力: location.faction || location.所属势力,
       coordinates: location.coordinates
     })) || [],
-    mapConfig: saveData.世界信息?.地图配置,
-    systemSettings: tavernEnv ? (ensureSystemConfigHasNsfw(saveData.系统) as any) : (saveData.系统 || {})
+    mapConfig: (saveData as any).世界?.信息?.地图配置,
+    systemSettings: tavernEnv
+      ? (ensureSystemConfigHasNsfw((saveData as any).系统?.配置 ?? {}) as any)
+      : ((saveData as any).系统?.配置 || {})
   };
 
-  console.log('[初始化] 🔥 世界信息检查:');
-  console.log('  - 世界描述:', saveData.世界信息?.世界背景 || '未找到');
+  console.log('[初始化] 🔥 世界检查:');
+  console.log('  - 世界描述:', (saveData as any).世界?.信息?.世界背景 || '未找到');
   console.log('  - 大陆数量:', worldContext.availableContinents.length);
   console.log('  - 地点数量:', worldContext.availableLocations.length);
 
@@ -429,7 +452,7 @@ ${selectionsSummary}
 - 这只是一个开始，我的人生我做主`;
 
   console.log(`[初始化] 准备生成开场剧情，角色: ${baseInfo.名字}`);
-  console.log(`[初始化] 可用大陆列表:`, worldContext.availableContinents.map(c => c.名称));
+  console.log(`[初始化] 可用大陆列表:`, worldContext.availableContinents.map((c: any) => c.名称));
   console.log(`[初始化] 可用地点数量:`, worldContext.availableLocations?.length || 0);
 
   let fullStreamingText = '';
@@ -514,7 +537,7 @@ async () => {
       // 5. 位置命令检查 - 兼容旧路径/新路径；缺失则交给后续兜底
       const locationCommand = response.tavern_commands.find((cmd: TavernCommand) => {
         if (!cmd || cmd.action !== 'set') return false;
-        return cmd.key === '玩家角色状态.位置' || cmd.key === '玩家角色状态位置';
+        return cmd.key === '角色.位置' || cmd.key === '位置';
       });
 
       if (!locationCommand) {
@@ -583,16 +606,16 @@ async () => {
 
   // [Roo] 强制TS重新评估类型
   // 如果用户选择了随机灵根，用AI生成的具体灵根替换
-  if (creationStore.selectedSpiritRoot?.name === '随机灵根' && saveDataAfterCommands.角色基础信息.灵根) {
-    const aiSpiritRoot = saveDataAfterCommands.角色基础信息.灵根;
+  if (creationStore.selectedSpiritRoot?.name === '随机灵根' && (saveDataAfterCommands as any).角色?.身份?.灵根) {
+    const aiSpiritRoot = (saveDataAfterCommands as any).角色.身份.灵根;
     if (typeof aiSpiritRoot === 'object') {
       creationStore.setAIGeneratedSpiritRoot(aiSpiritRoot as SpiritRoot);
     }
   }
 
   // 如果用户选择了随机出生，用AI生成的具体出生替换
-  if (creationStore.selectedOrigin?.name === '随机出身' && saveDataAfterCommands.角色基础信息.出生) {
-    const aiOrigin = saveDataAfterCommands.角色基础信息.出生;
+  if (creationStore.selectedOrigin?.name === '随机出身' && (saveDataAfterCommands as any).角色?.身份?.出生) {
+    const aiOrigin = (saveDataAfterCommands as any).角色.身份.出生;
     if (typeof aiOrigin === 'object') {
       creationStore.setAIGeneratedOrigin(aiOrigin as Origin);
     }
@@ -609,8 +632,9 @@ async () => {
 
 
   // 将 stateChanges 添加到最后一条叙事记录中
-  if (saveDataAfterCommands.叙事历史 && saveDataAfterCommands.叙事历史.length > 0) {
-    saveDataAfterCommands.叙事历史[saveDataAfterCommands.叙事历史.length - 1].stateChanges = stateChanges;
+  if ((saveDataAfterCommands as any).系统?.历史?.叙事 && (saveDataAfterCommands as any).系统.历史.叙事.length > 0) {
+    (saveDataAfterCommands as any).系统.历史.叙事[(saveDataAfterCommands as any).系统.历史.叙事.length - 1].stateChanges =
+      stateChanges;
   }
 
 
@@ -712,8 +736,8 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
 /**
  * 合并、验证并同步最终数据
  * @param saveData - 经过AI处理的存档
- * @param baseInfo - 原始角色基础信息
- * @param world - 原始世界信息
+ * @param baseInfo - 原始角色
+ * @param world - 原始世界
  * @param age - 原始年龄
  * @returns 最终完成的存档数据
  */
@@ -724,7 +748,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   // 1. 合并AI生成的数据和用户选择的原始数据，并保护核心字段
   const mergedBaseInfo: CharacterBaseInfo = {
-    ...saveData.角色基础信息, // AI可能添加了新字段
+    ...((saveData as any).角色?.身份 ?? {}), // AI可能添加了新字段
     ...baseInfo,              // 用户的原始选择（包含*详情）优先级更高
     // 强制保护核心不可变字段
     名字: baseInfo.名字,
@@ -741,7 +765,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   if (userChoseRandomSpiritRoot) {
     console.log('[数据最终化] 🎲 用户选择随机灵根，使用AI生成的数据');
-    const aiGeneratedSpiritRoot = saveData.角色基础信息?.灵根;
+    const aiGeneratedSpiritRoot = (saveData as any).角色?.身份?.灵根;
     mergedBaseInfo.灵根 = aiGeneratedSpiritRoot || '随机灵根'; // Fallback to string
 
     // 验证AI是否正确替换了随机灵根
@@ -787,7 +811,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   if (userChoseRandomOrigin) {
     console.log('[数据最终化] 🎲 用户选择随机出身，使用AI生成的数据');
-    const aiGeneratedOrigin = saveData.角色基础信息?.出生;
+    const aiGeneratedOrigin = (saveData as any).角色?.身份?.出生;
     mergedBaseInfo.出生 = aiGeneratedOrigin || '随机出身'; // Fallback to string
 
     // 验证AI是否正确替换了随机出身
@@ -807,7 +831,8 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   // 2. 从详情对象派生基础字段，确保数据一致性
   const finalBaseInfo = deriveBaseFieldsFromDetails(mergedBaseInfo);
-  saveData.角色基础信息 = finalBaseInfo;
+  if (!(saveData as any).角色) (saveData as any).角色 = {};
+  (saveData as any).角色.身份 = finalBaseInfo;
 
   // 3. 核心状态权威性校准
   // AI返回的数据可能会覆盖或损坏预先计算好的核心状态。
@@ -815,34 +840,42 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   // 以确保其权威性和完整性，然后只保留AI对剧情至关重要的"位置"信息。
   console.log('[数据最终化] 重新计算并校准核心玩家状态...');
   const authoritativeStatus = calculateInitialAttributes(baseInfo, age);
-  const aiModifiedStatus = saveData.玩家角色状态 || {}; // 提取AI修改过的状态
+  const aiModifiedAttributes = (saveData as any).角色?.属性 ?? (saveData as any).属性 ?? {};
+  // 🔥 V3格式：位置在 角色.位置 下
+  const aiLocationCandidate = (saveData as any).角色?.位置 ?? (saveData as any).位置;
 
   // 🔥 关键修复：合并状态，而不是完全覆盖。
   // 以权威计算值为基础，然后应用AI的所有修改（包括境界、位置、属性上限等）。
   // 🔥 境界字段特殊处理：优先使用AI设置的境界，只在缺失字段时才用初始值补充
-  const mergedRealm = aiModifiedStatus.境界 && typeof aiModifiedStatus.境界 === 'object'
+  const mergedRealm = aiModifiedAttributes.境界 && typeof aiModifiedAttributes.境界 === 'object'
     ? {
-        名称: aiModifiedStatus.境界.名称 || authoritativeStatus.境界.名称,
-        阶段: aiModifiedStatus.境界.阶段 !== undefined ? aiModifiedStatus.境界.阶段 : authoritativeStatus.境界.阶段,
-        当前进度: aiModifiedStatus.境界.当前进度 !== undefined ? aiModifiedStatus.境界.当前进度 : authoritativeStatus.境界.当前进度,
-        下一级所需: aiModifiedStatus.境界.下一级所需 !== undefined ? aiModifiedStatus.境界.下一级所需 : authoritativeStatus.境界.下一级所需,
-        突破描述: aiModifiedStatus.境界.突破描述 || authoritativeStatus.境界.突破描述
+        名称: aiModifiedAttributes.境界.名称 || authoritativeStatus.境界.名称,
+        阶段: aiModifiedAttributes.境界.阶段 !== undefined ? aiModifiedAttributes.境界.阶段 : authoritativeStatus.境界.阶段,
+        当前进度: aiModifiedAttributes.境界.当前进度 !== undefined ? aiModifiedAttributes.境界.当前进度 : authoritativeStatus.境界.当前进度,
+        下一级所需: aiModifiedAttributes.境界.下一级所需 !== undefined ? aiModifiedAttributes.境界.下一级所需 : authoritativeStatus.境界.下一级所需,
+        突破描述: aiModifiedAttributes.境界.突破描述 || authoritativeStatus.境界.突破描述
       }
     : authoritativeStatus.境界;
 
-  // 🔥 修复：先应用初始值，再应用AI修改，最后确保境界使用合并后的版本
-  saveData.玩家角色状态 = {
-    ...authoritativeStatus,
-    ...aiModifiedStatus,
-    境界: mergedRealm, // 强制使用合并后的完整境界对象（优先AI的值）
+  // 🔥 新架构：不再写入 saveData.状态，改为短路径拆分：属性 + 位置
+  (saveData as any).属性 = {
+    境界: mergedRealm,
+    声望: typeof aiModifiedAttributes.声望 === 'number' ? aiModifiedAttributes.声望 : authoritativeStatus.声望,
+    气血: aiModifiedAttributes.气血 ?? authoritativeStatus.气血,
+    灵气: aiModifiedAttributes.灵气 ?? authoritativeStatus.灵气,
+    神识: aiModifiedAttributes.神识 ?? authoritativeStatus.神识,
+    寿命: aiModifiedAttributes.寿命 ?? authoritativeStatus.寿命,
   };
 
   console.log('[数据最终化] 境界合并结果:', mergedRealm);
 
-  const aiLocation = saveData.玩家角色状态?.位置; // 从合并后的状态中重新获取位置
+  const aiLocation = aiLocationCandidate; // 从V3路径 角色.位置 提取
 
   // 🔥 位置信息应该已经通过验证器检查，这里只是确认
   if (aiLocation && typeof aiLocation.描述 === 'string' && aiLocation.描述.includes('·')) {
+    // V3格式：位置存储在 角色.位置
+    if (!(saveData as any).角色) (saveData as any).角色 = {};
+    (saveData as any).角色.位置 = aiLocation as any;
     console.log(`[数据最终化] ✅ 已保留AI生成的位置信息: "${aiLocation.描述}"`);
   } else {
     // 如果没有有效位置，记录详细的诊断信息
@@ -852,7 +885,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     console.error('[数据最终化-诊断] 完整saveData keys:', Object.keys(saveData));
 
     // 尝试从叙事历史中找到位置命令
-    const narrativeHistory = saveData.叙事历史 || [];
+    const narrativeHistory = saveData.历史?.叙事 || [];
     if (narrativeHistory.length > 0) {
       const lastEntry = narrativeHistory[narrativeHistory.length - 1];
       console.error('[数据最终化-诊断] 最后的叙事历史:', JSON.stringify(lastEntry).substring(0, 500));
@@ -862,25 +895,34 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   }
   console.log('[数据最终化] 核心玩家状态校准完成。');
 
-  // 🔥 重新计算出生日期（基于AI生成的游戏时间）
-  if (saveData.游戏时间) {
+  // 兼容清理：不允许旧字段遗留
+  delete (saveData as any).状态;
+
+  // 🔥 重新计算出生日期（基于AI生成的时间）
+  // V3格式：时间在 元数据.时间 下
+  const gameTime = (saveData as any).元数据?.时间 ?? saveData.时间;
+  if (gameTime) {
     const 正确的出生日期 = {
-      年: saveData.游戏时间.年 - age,
-      月: saveData.游戏时间.月,
-      日: saveData.游戏时间.日,
+      年: gameTime.年 - age,
+      月: gameTime.月,
+      日: gameTime.日,
       小时: 0,
       分钟: 0
     };
-    saveData.角色基础信息.出生日期 = 正确的出生日期;
-    console.log(`[数据最终化] 重新计算出生日期: ${正确的出生日期.年}年${正确的出生日期.月}月${正确的出生日期.日}日 (游戏时间${saveData.游戏时间.年}年 - 开局年龄${age}岁)`);
+    if (!(saveData as any).角色) (saveData as any).角色 = {};
+    (saveData as any).角色.身份 = (saveData as any).角色.身份 || {};
+    (saveData as any).角色.身份.出生日期 = 正确的出生日期;
+    console.log(`[数据最终化] 重新计算出生日期: ${正确的出生日期.年}年${正确的出生日期.月}月${正确的出生日期.日}日 (时间${gameTime.年}年 - 开局年龄${age}岁)`);
 
     // 🔥 验证所有NPC的出生日期是否合理（调试日志）
-    if (saveData.人物关系 && Object.keys(saveData.人物关系).length > 0) {
+    // V3格式：关系在 社交.关系 下
+    const relationships = (saveData as any).社交?.关系 ?? saveData.关系;
+    if (relationships && Object.keys(relationships).length > 0) {
       console.log('[数据最终化] 验证NPC出生日期:');
-      Object.entries(saveData.人物关系).forEach(([npcName, npcData]) => {
+      Object.entries(relationships).forEach(([npcName, npcData]) => {
         const npc = npcData as { 出生日期?: { 年: number }; 年龄?: number };
         if (npc.出生日期 && npc.年龄) {
-          const 计算年龄 = saveData.游戏时间.年 - npc.出生日期.年;
+          const 计算年龄 = gameTime.年 - npc.出生日期.年;
           console.log(`  - ${npcName}: 出生${npc.出生日期.年}年, 声称年龄${npc.年龄}岁, 实际年龄${计算年龄}岁 ${计算年龄 === npc.年龄 ? '✅' : '❌不匹配'}`);
         }
       });
@@ -889,35 +931,46 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   // 3. 最终位置信息确认日志
   // 位置已经在验证器中严格检查，这里只是最后确认
-  const finalLocation = saveData.玩家角色状态?.位置?.描述;
+  // V3格式：位置在 角色.位置 下
+  const finalLocation = (saveData as any).角色?.位置?.描述;
   console.log(`[数据校准] ✅ 位置信息最终确认: "${finalLocation}"`);
 
   // 双重保险：如果位置格式仍然有问题（理论上不会发生）
   if (!finalLocation || !finalLocation.includes('·')) {
     console.error('[数据校准] ❌ 位置格式异常，这不应该发生（验证器应该已拦截）');
+    console.error('[数据校准-诊断] saveData.角色.位置:', (saveData as any).角色?.位置);
     throw new Error(`位置格式验证失败: "${finalLocation}"`);
   }
 
-  // 4. 最终数据校验
-  const finalValidation = validateGameData(saveData, { 角色基础信息: baseInfo, 模式: '单机' }, 'creation');
+  // 4. 迁移到 V3 并最终数据校验（落盘只允许 V3）
+  const { migrated, report } = migrateSaveDataToLatest(saveData);
+  if (report.legacyKeysFound.length > 0) {
+    console.log('[数据最终化] 迁移报告 legacyKeysFound:', report.legacyKeysFound);
+  }
+
+  const finalValidation = validateGameData(migrated as any, { 角色: baseInfo, 模式: '单机' }, 'creation');
   if (!finalValidation.isValid) {
     throw new Error(`角色数据最终验证失败: ${finalValidation.errors.join(', ')}`);
   }
 
   // 5. 数据一致性强力校验：根除“幽灵功法”
-  // 检查是否存在一个“正在修炼”的功法记录，但背包里却没有对应的、已装备的实体物品。
+  // 检查是否存在一个“正在修炼”的功法引用，但背包里却没有对应的实体物品。
   // 这种情况通常是AI指令错误导致的，必须在此处修正。
-  if (saveData.修炼功法) {
-    const techniqueName = saveData.修炼功法.名称;
-    const correspondingItemInInventory = Object.values(saveData.背包?.物品 || {}).find(
-      item => item.类型 === '功法' && item.名称 === techniqueName && item.已装备
-    );
+  const cultivating = (migrated as any)?.角色?.修炼?.修炼功法;
+  const items = ((migrated as any)?.角色?.背包?.物品 ?? {}) as Record<string, any>;
+  if (cultivating?.物品ID && typeof cultivating.名称 === 'string') {
+    const corresponding = items[cultivating.物品ID];
+    const ok =
+      corresponding &&
+      corresponding.类型 === '功法' &&
+      (corresponding.名称 === cultivating.名称 || corresponding.名称) &&
+      (corresponding.修炼中 === true || corresponding.已装备 === true);
 
-    if (!correspondingItemInInventory) {
-      console.warn(`[数据校准] 检测到无效的“幽灵功法”：修炼槽非空，但背包中无对应实体。正在清除无效修炼状态...`);
-      saveData.修炼功法 = null; // 彻底清除无效的修炼记录
+    if (!ok) {
+      console.warn(`[数据校准] 检测到无效的“幽灵功法”：角色.修炼.修炼功法 非空，但角色.背包.物品中无对应实体。正在清除无效修炼状态...`);
+      if ((migrated as any).角色?.修炼) (migrated as any).角色.修炼.修炼功法 = null;
     } else {
-      console.log(`[数据校准] 功法一致性校验通过: "${techniqueName}"`);
+      console.log(`[数据校准] 功法一致性校验通过: "${cultivating.名称}"`);
     }
   }
 
@@ -927,8 +980,8 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   console.log('[初始化流程] ✅ 角色创建完成（新架构跳过酒馆同步）');
   uiStore.updateLoadingText('✅ 角色创建完成！');
 
-  console.log('[初始化流程] finalizeAndSyncData即将返回saveData');
-  return saveData;
+  console.log('[初始化流程] finalizeAndSyncData即将返回 V3 saveData');
+  return migrated as any;
 }
 
 // #endregion
@@ -960,11 +1013,12 @@ export async function initializeCharacter(
 
     // 步骤 2: 生成世界
     const worldInfo = await generateWorld(processedBaseInfo, world);
-    initialSaveData.世界信息 = worldInfo;
+    if (!(initialSaveData as any).世界) (initialSaveData as any).世界 = { 信息: {}, 状态: {} };
+    (initialSaveData as any).世界.信息 = worldInfo;
 
-    // 步骤 2.5: 🔥 [新架构] 跳过世界信息保存到酒馆
-    // 世界信息已经在 saveData 中，AI会在prompt中接收到完整状态
-    console.log('[初始化流程] 2.5 世界信息已包含在saveData中（新架构跳过酒馆同步）');
+    // 步骤 2.5: 🔥 [新架构] 跳过世界保存到酒馆
+    // 世界已经在 saveData 中，AI会在prompt中接收到完整状态
+    console.log('[初始化流程] 2.5 世界已包含在saveData中（新架构跳过酒馆同步）');
     console.log('[初始化流程] 世界包含', worldInfo.大陆信息?.length || 0, '个大陆');
     console.log('[初始化流程] 大陆列表:', worldInfo.大陆信息?.map((c: Continent) => c.名称 || c.name).join('、'));
 
@@ -981,7 +1035,7 @@ export async function initializeCharacter(
     // 这会保留AI对"位置"等字段的修改，同时保护"气血"、"寿命"等核心数据。
     console.log('[初始化流程] 核心属性校准：合并AI修改与初始属性...');
     const authoritativeStatus = calculateInitialAttributes(baseInfo, age);
-    const aiModifiedStatus = finalSaveData.玩家角色状态 || {};
+    const aiModifiedStatus = finalSaveData.状态 || {};
 
     // 合并状态：以权威计算值为基础，然后应用AI的所有修改。
     // 这会保留AI对"境界"、"位置"等剧情相关字段的修改，
@@ -997,7 +1051,7 @@ export async function initializeCharacter(
         }
       : authoritativeStatus.境界;
 
-    finalSaveData.玩家角色状态 = {
+    finalSaveData.状态 = {
       ...authoritativeStatus,
       ...aiModifiedStatus,
       境界: mergedRealmStep3, // 强制使用合并后的完整境界对象（优先AI的值）

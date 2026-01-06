@@ -807,14 +807,14 @@ function extractEssentialDataForNPCSummary(saveData: SaveData | null): SaveData 
   const simplified = cloneDeep(saveData);
 
   // 移除叙事历史（避免与短期记忆重复）
-  if (simplified.叙事历史) {
-    delete simplified.叙事历史;
+  if ((simplified as any).系统?.历史?.叙事) {
+    delete (simplified as any).系统.历史.叙事;
   }
 
   // 移除短期和隐式中期记忆（以优化AI上下文）
-  if (simplified.记忆) {
-    delete simplified.记忆.短期记忆;
-    delete simplified.记忆.隐式中期记忆;
+  if ((simplified as any).社交?.记忆) {
+    delete (simplified as any).社交.记忆.短期记忆;
+    delete (simplified as any).社交.记忆.隐式中期记忆;
   }
 
   return simplified;
@@ -1081,17 +1081,18 @@ const formatSpiritRoot = (spiritRoot: string | SpiritRoot | { 名称?: string; �
 
 // 计算NPC年龄
 const getNpcAge = (npc: NpcProfile | null): string => {
-  if (!npc || !npc.出生日期 || !characterData.value?.游戏时间) {
+  const gameTime = (characterData.value as any)?.元数据?.时间;
+  if (!npc || !npc.出生日期 || !gameTime) {
     return '未知';
   }
   const birthYear = npc.出生日期.年;
-  const currentYear = characterData.value.游戏时间.年;
+  const currentYear = gameTime.年;
   const age = currentYear - birthYear;
   return age > 0 ? `${age}岁` : '1岁以内';
 };
 
 const relationshipStats = computed(() => {
-  const raw = characterData.value?.人物关系;
+  const raw = (characterData.value as any)?.社交?.关系;
   if (!raw || typeof raw !== 'object') {
     return { total: 0, valid: 0, invalid: 0, list: [] as NpcProfile[] };
   }
@@ -1212,8 +1213,9 @@ onMounted(async () => {
 });
 // -- 记忆编辑与删除 --
 const findRelationshipKeyByName = (name: string): string | null => {
-  if (!characterData.value?.人物关系) return null;
-  return Object.keys(characterData.value.人物关系).find(key => characterData.value!.人物关系[key]?.名字 === name) || null;
+  const relations = (characterData.value as any)?.社交?.关系;
+  if (!relations) return null;
+  return Object.keys(relations).find(key => relations[key]?.名字 === name) || null;
 };
 
 const editMemory = async (index: number) => {
@@ -1611,19 +1613,20 @@ ${saveDataJson}
 
     // 更新NPC数据
     const currentSaveData = gameStateStore.getCurrentSaveData();
-    if (!currentSaveData?.人物关系) {
-      throw new Error('人物关系数据不存在');
+    const relations = (currentSaveData as any)?.社交?.关系;
+    if (!relations) {
+      throw new Error('社交.关系 数据不存在');
     }
 
-    const npcKey = Object.keys(currentSaveData.人物关系).find(
-      key => currentSaveData.人物关系[key]?.名字 === npcName
+    const npcKey = Object.keys(relations).find(
+      key => relations[key]?.名字 === npcName
     );
 
     if (!npcKey) {
       throw new Error(`找不到名为 ${npcName} 的人物`);
     }
 
-    const npcProfile = currentSaveData.人物关系[npcKey];
+    const npcProfile = relations[npcKey];
 
     // 添加到记忆总结数组
     if (!npcProfile.记忆总结) {
@@ -1897,25 +1900,27 @@ const exportToWorldBook = async () => {
 
 // 删除NPC
 // 获取天赋名称的辅助函数
-const getTalentName = (talent: string | { 名称?: string; name?: string } | undefined): string => {
+const getTalentName = (talent: unknown): string => {
   if (typeof talent === 'string') return talent;
   if (typeof talent === 'object' && talent !== null) {
-    return talent.名称 || talent.name || talent['名称'] || talent['name'] || '未知天赋';
+    const t = talent as Record<string, unknown>;
+    return String(t['名称'] || t['name'] || '未知天赋');
   }
   return '未知天赋';
 };
 
 // 获取天赋描述的辅助函数
-const getTalentDescription = (talent: string | { 描述?: string; description?: string } | undefined): string => {
+const getTalentDescription = (talent: unknown): string => {
   if (typeof talent === 'string') return '';
   if (typeof talent === 'object' && talent !== null) {
-    return talent.描述 || talent.description || talent['描述'] || talent['description'] || '';
+    const t = talent as Record<string, unknown>;
+    return String(t['描述'] || t['description'] || '');
   }
   return '';
 };
 
 // 显示天赋详情
-const showTalentDetail = (talent: string | { 名称?: string; name?: string; 描述?: string; description?: string } | undefined) => {
+const showTalentDetail = (talent: unknown) => {
   const name = getTalentName(talent);
   const desc = getTalentDescription(talent);
   if (desc) {

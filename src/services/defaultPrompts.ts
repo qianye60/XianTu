@@ -14,7 +14,7 @@ import { EnhancedWorldPromptBuilder } from '@/utils/worldGeneration/enhancedWorl
 import { promptStorage } from './promptStorage';
 import { isTavernEnv } from '@/utils/tavern';
 // 核心规则
-import { JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS } from '@/utils/prompts/definitions/coreRules';
+import { JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS, NARRATIVE_PURITY_RULES } from '@/utils/prompts/definitions/coreRules';
 // 业务规则
 import {
   REALM_SYSTEM_RULES,
@@ -27,7 +27,15 @@ import {
   LOCATION_UPDATE_RULES,
   COMMAND_PATH_CONSTRUCTION_RULES,
   TECHNIQUE_SYSTEM_RULES,
-  PLAYER_AUTONOMY_RULES
+  PLAYER_AUTONOMY_RULES,
+  RATIONALITY_AUDIT_RULES,
+  DUAL_REALM_NARRATIVE_RULES,
+  DIFFICULTY_ENHANCEMENT_RULES,
+  SECT_SYSTEM_RULES,
+  COMBAT_ALCHEMY_RISK_RULES,
+  CULTIVATION_PRACTICE_RULES,
+  DAO_COMPREHENSION_RULES,
+  TASK_SYSTEM_RULES
 } from '@/utils/prompts/definitions/businessRules';
 // 文本格式
 import { TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAGE_RULES, NAMING_CONVENTIONS } from '@/utils/prompts/definitions/textFormats';
@@ -42,6 +50,7 @@ export interface PromptDefinition {
   category: string;
   description?: string;
   order?: number;
+  weight?: number; // 权重 1-10，越高越重要
 }
 
 /**
@@ -71,21 +80,33 @@ export const PROMPT_CATEGORIES = {
 };
 
 // 合并核心输出规则
-const CORE_OUTPUT_RULES = [JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS].join('\n\n');
+const CORE_OUTPUT_RULES = [JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS, NARRATIVE_PURITY_RULES].join('\n\n');
 
-// 合并业务规则
+// 合并业务规则（精简版，核心规则优先）
 const BUSINESS_RULES = [
+  RATIONALITY_AUDIT_RULES,
+  DUAL_REALM_NARRATIVE_RULES,
+  DIFFICULTY_ENHANCEMENT_RULES,
   REALM_SYSTEM_RULES,
-  THREE_THOUSAND_DAOS_RULES,
   NPC_RULES,
+  COMMAND_PATH_CONSTRUCTION_RULES,
+  TECHNIQUE_SYSTEM_RULES,
+  COMBAT_ALCHEMY_RISK_RULES,
+  PLAYER_AUTONOMY_RULES
+].join('\n\n');
+
+// 扩展业务规则（可选，用户可自定义开启）
+const EXTENDED_BUSINESS_RULES = [
+  THREE_THOUSAND_DAOS_RULES,
   GRAND_CONCEPT_CONSTRAINTS,
   SKILL_AND_SPELL_USAGE_RULES,
   CULTIVATION_DETAIL_RULES,
   STATUS_EFFECT_RULES,
   LOCATION_UPDATE_RULES,
-  COMMAND_PATH_CONSTRUCTION_RULES,
-  TECHNIQUE_SYSTEM_RULES,
-  PLAYER_AUTONOMY_RULES
+  SECT_SYSTEM_RULES,
+  CULTIVATION_PRACTICE_RULES,
+  DAO_COMPREHENSION_RULES,
+  TASK_SYSTEM_RULES
 ].join('\n\n');
 
 // 合并文本格式规范
@@ -99,321 +120,185 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
   return {
     // ==================== 核心请求提示词（合并版） ====================
     coreOutputRules: {
-      name: '1. 核心输出规则',
+      name: '1. 输出格式',
       content: CORE_OUTPUT_RULES,
       category: 'coreRequest',
-      description: 'JSON输出格式、数据同步、结构严格性',
-      order: 1
+      description: 'JSON格式、数据同步',
+      order: 1,
+      weight: 10
     },
     businessRules: {
-      name: '2. 业务规则',
+      name: '2. 核心规则',
       content: BUSINESS_RULES,
       category: 'coreRequest',
-      description: '境界体系、大道、NPC、功法、状态效果等游戏规则',
-      order: 2
+      description: '境界、NPC、战斗规则',
+      order: 2,
+      weight: 9
+    },
+    extendedBusinessRules: {
+      name: '2.5 扩展规则',
+      content: EXTENDED_BUSINESS_RULES,
+      category: 'coreRequest',
+      description: '大道、宗门等扩展',
+      order: 2.5,
+      weight: 5
     },
     dataDefinitions: {
-      name: '3. 数据结构定义',
+      name: '3. 数据结构',
       content: getSaveDataStructureForEnv(tavernEnv),
       category: 'coreRequest',
-      description: '游戏存档数据结构完整定义',
-      order: 3
+      description: '存档结构定义',
+      order: 3,
+      weight: 10
     },
     textFormatRules: {
-      name: '4. 文本格式规范',
+      name: '4. 文本格式',
       content: TEXT_FORMAT_RULES,
       category: 'coreRequest',
-      description: '文本标记、判定系统、战斗伤害、命名约定',
-      order: 4
+      description: '判定、伤害、命名',
+      order: 4,
+      weight: 6
     },
     worldStandards: {
-      name: '5. 世界观标准',
+      name: '5. 世界标准',
       content: WORLD_STANDARDS,
       category: 'coreRequest',
-      description: '境界属性、品质系统、声望指南',
-      order: 5
+      description: '境界属性、品质',
+      order: 5,
+      weight: 7
+    },
+    // ==================== 联机模式提示词 ====================
+    onlineModeRules: {
+      name: '联机规则',
+      content: `# 联机模式
+- 共享世界，玩家行为影响他人
+- 禁止修改世界设定/重要NPC
+- 禁止跨区域瞬移
+- 穿越消耗穿越点，受目标世界约束`,
+      category: 'coreRequest',
+      description: '联机模式限制',
+      order: 6,
+      weight: 4
     },
     cotCore: {
-      name: '6. CoT思维链',
+      name: '6. 自检协议',
       content: getCotCorePrompt('{{用户输入}}', false),
       category: 'coreRequest',
-      description: '强制AI先思考后输出的思维链协议',
-      order: 6
+      description: '禁止思维链输出',
+      order: 6,
+      weight: 8
     },
     actionOptions: {
-      name: '7. 行动选项规则',
+      name: '7. 行动选项',
       content: ACTION_OPTIONS_RULES,
       category: 'coreRequest',
-      description: '生成玩家行动选项的规范',
-      order: 7
+      description: '生成玩家选项',
+      order: 7,
+      weight: 6
     },
     questSystemRules: {
-      name: '8. 任务系统规则',
+      name: '8. 任务系统',
       content: QUEST_SYSTEM_RULES,
       category: 'coreRequest',
-      description: '任务系统开关控制和触发条件',
-      order: 8
+      description: '任务触发控制',
+      order: 8,
+      weight: 5
     },
     splitGenerationStep1: {
-      name: '9. 分步生成（第1步：正文）',
-      content: `
-# 分步生成（第1步：思维链 + 正文）
-【最高优先级】本步只生成“正文 text”，其余字段全部留到第2步。
-
-## 输出格式（严格按顺序）
-1) 输出 \`<thinking>...</thinking>\`
-   - 只写与“如何写好本回合正文”相关的简短思考（不要输出 JSON / 字段名 / 额外标签）
-   - 建议模板：意图 → 连贯性(承接最近事件) → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
-2) 输出一个 \`\`\`json 代码块，只包含一个 JSON 对象：
-   - 必须只有：{ "text": "..." }
-   - text：只写小说正文，不要夹带指令、字段名、JSON片段、标签
-
-## 正文优化（可自定义）
-- 语言更“小说化”：多用动作/细节/感官，少用总结式旁白
-- 段落清晰：1-3句一段，节奏快慢有起伏
-- 信息承接：开头用 1-2 句自然回扣“最近事件”
-- 收束落点：结尾停在需要玩家决定/回应的节点（对话、抉择、战斗开端、发现线索）
-
-## 禁止
-- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
-- JSON 必须严格合法（双引号、无注释、无尾逗号）
-`.trim(),
+      name: '9. 分步正文',
+      content: `# 分步生成 1/2：正文
+禁止：<thinking>/JSON/字段名/解释
+只输出：纯文本小说正文
+要求：承接情节、多描写少总结、结尾留钩子`.trim(),
       category: 'coreRequest',
-      description: '开启“分步生成”后：第1步只出正文 text（可在此处专门优化叙事正文）',
-      order: 9
+      description: '分步模式第1步',
+      order: 9,
+      weight: 7
     },
     splitGenerationStep2: {
-      name: '10. 分步生成（第2步：记忆/指令/行动选项）',
-      content: `
-# 分步生成（第2步：思维链(可选) + 记忆/指令/行动选项）
-【最高优先级】本步只生成“结构化字段”，不要生成正文。
-
-你将收到：用户本次操作 + 第1步思维链 + 第1步正文。请基于这些内容，生成对应的：中期记忆、指令同步、行动选项。
-
-## 输出格式
-- 允许先输出 \`<thinking>...</thinking>\`（可选，尽量短；只用于对齐指令/记忆，不要写正文）
-- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
-
-## JSON 字段要求
-- 不要输出 text，不要重复正文
-- mid_term_memory: 0-100字摘要（可为空字符串，但建议填写）
-- tavern_commands: 数组（可为空），元素格式：{ "action": "set|add|push|delete|pull", "key": "点路径", "value": 任意JSON }
-- action_options: 仅在启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段
-`.trim(),
+      name: '10. 分步指令',
+      content: `# 分步生成 2/2：JSON指令
+禁止：正文/text字段/<thinking>
+只输出：{mid_term_memory, tavern_commands, action_options}`.trim(),
       category: 'coreRequest',
-      description: '开启“分步生成”后：第2步只出 JSON（记忆/指令/行动选项），不允许再写正文',
-      order: 10
+      description: '分步模式第2步',
+      order: 10,
+      weight: 7
     },
     splitInitStep1: {
-      name: '11. 分步生成（开局-第1步：正文）',
-      content: `
-# 分步生成（开局-第1步：思维链 + 正文）
-【最高优先级】本步只生成“正文 text”，不要生成记忆/指令/行动选项。
-
-## 输出格式（严格按顺序）
-1) 输出 \`<thinking>...</thinking>\`
-   - 内容模板：意图 → 场景 → 关键事件 → 氛围情绪 → 需要同步的状态变化点 → 结尾钩子
-2) 输出一个 \`\`\`json 代码块，只包含：{ "text": "..." }
-
-## 禁止
-- 不要输出 \`mid_term_memory\` / \`tavern_commands\` / \`action_options\`
-- 不要输出额外解释、字段名或多余标签
-`.trim(),
+      name: '11. 开局正文',
+      content: `# 开局分步 1/2：正文
+禁止：<thinking>/JSON/指令
+只输出：开局纯文本正文
+要求：交代场景、结尾留钩子`.trim(),
       category: 'coreRequest',
-      description: '开局分步模式：第1步只出开局正文 text（可在此处优化开局叙事风格）',
-      order: 11
+      description: '开局分步第1步',
+      order: 11,
+      weight: 7
     },
     splitInitStep2: {
-      name: '12. 分步生成（开局-第2步：记忆/指令/行动选项）',
-      content: `
-# 分步生成（开局-第2步：记忆/指令/行动选项）
-【最高优先级】本步只生成结构化字段，不要生成正文 text。
-
-你将收到：开局用户提示 + 第1步思维链 + 第1步正文。请基于这些内容生成：
-- mid_term_memory（0-100字，可为空但建议填写）
-- tavern_commands（数组，可为空）
-- action_options（仅当启用“行动选项”时输出 4-5 个字符串；未启用则不要输出该字段）
-
-## 输出格式
-- 允许先输出 \`<thinking>...</thinking>\`（可选，尽量短）
-- 然后输出一个 \`\`\`json 代码块，只包含一个 JSON 对象（不要额外文字）
-`.trim(),
+      name: '12. 开局指令',
+      content: `# 开局分步 2/2：JSON指令
+禁止：正文/text/<thinking>
+只输出：{mid_term_memory, tavern_commands, action_options}`.trim(),
       category: 'coreRequest',
-      description: '开局分步模式：第2步只出 JSON（记忆/指令/行动选项），不允许再写正文',
-      order: 12
+      description: '开局分步第2步',
+      order: 12,
+      weight: 7
     },
 
     // ==================== 总结请求提示词 ====================
     memorySummary: {
-      name: '记忆总结提示词',
-      content: `你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。
-
-【待总结的记忆内容】：
-{{记忆内容}}
-
-【总结要求】：
-- 第一人称"我"
-- 250-400字
-- 连贯的现代修仙小说叙述风格
-- 仅输出JSON，不要thinking/commands/options
-
-【必须保留】：
-- 原文中的人名、地名
-- 原文中的事件
-- 原文中的物品、功法、境界
-- 原文中的时间节点
-
-【必须忽略】：
-- 对话内容
-- 情绪描写
-- 过程细节
-
-【输出格式】：
-\`\`\`json
-{"text": "总结内容"}
-\`\`\`
-
-【示例】：
-原文："我在青云峰修炼七天，突破到炼气三层。李云送我聚气丹。我去藏经阁学了剑法。"
-总结："我在青云峰闭关七日，成功突破到炼气三层。期间结识了外门弟子李云，他赠予我一枚聚气丹。之后我进入藏经阁，学习了《基础剑法》。"`,
+      name: '记忆总结',
+      content: `记忆总结助手。第一人称"我"，250-400字，保留人名/地名/事件/物品/境界，忽略对话/情绪/细节。
+输出：{"text": "总结内容"}`,
       category: 'summary',
-      description: '中期记忆转化为长期记忆时的总结提示词',
-      order: 1
+      description: '中期→长期记忆',
+      order: 1,
+      weight: 6
     },
     npcMemorySummary: {
-      name: 'NPC记忆总结提示词',
-      content: `你是NPC记忆总结助手。总结指定NPC与主角的互动记忆。
-
-【待总结的NPC记忆】：
-{{NPC记忆内容}}
-
-【NPC信息】：
-- 姓名：{{NPC姓名}}
-- 与主角关系：{{关系}}
-
-【总结要求】：
-- 第三人称，以NPC视角
-- 100-200字
-- 保留关键事件和情感变化
-- 仅输出JSON
-
-【输出格式】：
-\`\`\`json
-{"text": "总结内容"}
-\`\`\``,
+      name: 'NPC记忆总结',
+      content: `NPC记忆总结。第三人称，100-200字，保留关键事件和情感变化。
+输出：{"text": "总结内容"}`,
       category: 'summary',
-      description: 'NPC记忆总结的提示词',
-      order: 2
+      description: 'NPC记忆总结',
+      order: 2,
+      weight: 5
     },
 
     // ==================== 动态生成提示词 ====================
     npcGeneration: {
-      name: 'NPC生成提示词',
-      content: `生成一个修仙世界的NPC角色。
-
-【场景信息】：
-{{场景信息}}
-
-【生成要求】：
-1. 姓名符合修仙世界设定（两字或三字姓名）
-2. 性格特点鲜明，有独特的说话方式
-3. 背景故事合理，与当前场景有联系
-4. 修为境界明确，符合场景定位
-
-【输出格式】：
-\`\`\`json
-{
-  "姓名": "NPC姓名",
-  "性别": "男/女",
-  "年龄": 数字,
-  "境界": {"名称": "境界名", "阶段": "初期/中期/后期/圆满"},
-  "性格": "性格描述（50字内）",
-  "外貌": "外貌描述（100字内）",
-  "背景": "背景故事（200字内）",
-  "说话风格": "说话特点",
-  "初始好感度": 50
-}
-\`\`\``,
+      name: 'NPC生成',
+      content: `生成修仙世界NPC。要求：2-3字姓名、性格鲜明、背景合理、境界明确。
+输出JSON：{姓名,性别,年龄,境界:{名称,阶段},性格,外貌,背景,说话风格,初始好感度:50}`,
       category: 'generation',
-      description: '游戏中动态生成NPC角色',
-      order: 1
+      description: '动态生成NPC',
+      order: 1,
+      weight: 5
     },
     questGeneration: {
-      name: '任务生成提示词',
-      content: `生成一个修仙世界的任务。
-
-【当前场景信息】：
-{{场景信息}}
-
-【玩家信息】：
-- 境界：{{玩家境界}}
-- 宗门：{{所属宗门}}
-
-【要求】：
-1. 任务名称要有修仙特色
-2. 目标明确可量化
-3. 奖励合理（修为/灵石/物品/声望）
-4. 难度符合玩家当前境界
-
-【输出格式】：
-\`\`\`json
-{
-  "任务ID": "quest_时间戳",
-  "任务名称": "任务名",
-  "任务描述": "详细描述",
-  "任务类型": "主线/支线/日常/宗门",
-  "目标列表": [
-    {"目标描述": "具体目标", "当前进度": 0, "目标进度": 数量, "完成状态": false}
-  ],
-  "奖励": {
-    "修为": 数值,
-    "灵石": {"下品": 数值},
-    "声望": 数值,
-    "物品": []
-  },
-  "时限": "无/X天",
-  "难度": "简单/普通/困难/极难"
-}
-\`\`\``,
+      name: '任务生成',
+      content: `生成修仙世界任务。要求：修仙特色名称、目标可量化、奖励合理、难度匹配境界。
+输出JSON：{任务ID,任务名称,任务描述,任务类型,目标列表,奖励,时限,难度}`,
       category: 'generation',
-      description: '游戏中动态生成任务',
-      order: 2
+      description: '动态生成任务',
+      order: 2,
+      weight: 5
     },
     itemGeneration: {
-      name: '物品生成提示词',
-      content: `生成一个修仙世界的物品。
-
-【物品类型】：{{物品类型}}
-【品质要求】：{{品质要求}}
-【场景信息】：{{场景信息}}
-
-【品质系统】：
-- 凡品(grade:1-3): 普通物品
-- 黄阶(grade:4-5): 入门级法宝/功法
-- 玄阶(grade:6-7): 中级法宝/功法
-- 地阶(grade:8-9): 高级法宝/功法
-- 天阶(grade:10): 顶级法宝/功法
-
-【输出格式】：
-\`\`\`json
-{
-  "物品ID": "item_类型_时间戳",
-  "名称": "物品名称",
-  "类型": "装备/功法/丹药/材料/其他",
-  "品质": {"quality": "凡/黄/玄/地/天", "grade": 1-10},
-  "描述": "物品描述（100字内）",
-  "数量": 1,
-  "效果": "效果描述"
-}
-\`\`\``,
+      name: '物品生成',
+      content: `生成修仙世界物品。品质：凡(1-3)/黄(4-5)/玄(6-7)/地(8-9)/天(10)。
+输出JSON：{物品ID,名称,类型,品质:{quality,grade},描述,数量,效果}`,
       category: 'generation',
-      description: '游戏中动态生成物品',
-      order: 3
+      description: '动态生成物品',
+      order: 3,
+      weight: 5
     },
 
     // ==================== 开局初始化提示词 ====================
     worldGeneration: {
-      name: '1. 世界生成提示词',
+      name: '世界生成',
       content: EnhancedWorldPromptBuilder.buildPrompt({
         factionCount: 5,
         totalLocations: 10,
@@ -421,15 +306,26 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
         continentCount: 3
       }),
       category: 'initialization',
-      description: '开局第一步：生成修仙世界的大陆、势力、地点等设定',
-      order: 1
+      description: '生成大陆、势力、地点',
+      order: 1,
+      weight: 8
     },
     characterInit: {
-      name: '2. 角色初始化提示词',
+      name: '角色初始化',
       content: getCharacterInitializationPromptForEnv(tavernEnv),
       category: 'initialization',
-      description: '开局第二步：根据玩家选择生成角色初始状态和开场剧情',
-      order: 2
+      description: '生成角色和开场',
+      order: 2,
+      weight: 9
+    },
+    newbieGuide: {
+      name: '新手引导',
+      content: `新手引导（前3回合）。原则：自然融入叙事，不打破沉浸感，通过NPC对话传递。
+内容：行动方式/查看状态/物品使用/交流/探索。`,
+      category: 'initialization',
+      description: '自然新手引导',
+      order: 3,
+      weight: 4
     }
   };
 }

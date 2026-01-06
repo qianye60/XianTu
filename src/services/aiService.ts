@@ -177,7 +177,11 @@ class AIService {
     }
 
     console.log('[AI服务-酒馆] 调用tavernHelper.generate');
-    return await tavernHelper.generate(options);
+    try {
+      return await this.withRetry('tavern.generate', () => tavernHelper.generate(options));
+    } catch (error) {
+      throw this.toUserFacingError(error);
+    }
   }
 
   private async generateRawWithTavern(options: GenerateOptions): Promise<string> {
@@ -189,8 +193,96 @@ class AIService {
     }
 
     console.log('[AI服务-酒馆] 调用tavernHelper.generateRaw');
-    const result = await tavernHelper.generateRaw(options);
-    return String(result);
+    try {
+      const result = await this.withRetry('tavern.generateRaw', () => tavernHelper.generateRaw(options));
+      return String(result);
+    } catch (error) {
+      throw this.toUserFacingError(error);
+    }
+  }
+
+  private async withRetry<T>(
+    label: string,
+    fn: () => Promise<T>,
+    opts?: { retries?: number; baseDelayMs?: number },
+  ): Promise<T> {
+    const retries = opts?.retries ?? 2; // 总尝试次数 = 1 + retries
+    const baseDelayMs = opts?.baseDelayMs ?? 800;
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        const retryable = this.isRetryableError(error);
+        if (!retryable || attempt >= retries) break;
+
+        const jitter = Math.floor(Math.random() * 250);
+        const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
+        console.warn(`[AI服务] ${label} 失败，准备重试 (${attempt + 1}/${retries + 1})，${delay}ms`, error);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    throw lastError;
+  }
+
+  private isRetryableError(error: unknown): boolean {
+    const message = (() => {
+      if (!error) return '';
+      if (typeof error === 'string') return error;
+      if (error instanceof Error) return error.message || '';
+      return String(error);
+    })();
+
+    // axios / fetch-like errors
+    const status = (() => {
+      const anyErr = error as any;
+      return anyErr?.status ?? anyErr?.response?.status ?? anyErr?.cause?.status ?? anyErr?.cause?.response?.status;
+    })();
+
+    if (typeof status === 'number') {
+      return [408, 409, 425, 429, 500, 502, 503, 504].includes(status);
+    }
+
+    // SillyTavern/OpenAI proxy errors often只有 message
+    if (/service unavailable/i.test(message)) return true;
+    if (/\b(429|500|502|503|504)\b/.test(message)) return true;
+    if (/timeout|timed out|network error|fetch failed/i.test(message)) return true;
+
+    return false;
+  }
+
+  private toUserFacingError(error: unknown): Error {
+    const anyErr = error as any;
+    const message = (() => {
+      if (!error) return '未知错误';
+      if (typeof error === 'string') return error;
+      if (error instanceof Error) return error.message || '未知错误';
+      return String(error);
+    })();
+
+    const status = anyErr?.status ?? anyErr?.response?.status ?? anyErr?.cause?.status ?? anyErr?.cause?.response?.status;
+
+    // 重点提示：503/服务不可用（用户日志里就是这个）
+    if (status === 503 || /service unavailable/i.test(message)) {
+      const e = new Error(
+        'AI 服务暂不可用（Service Unavailable/503）。我已自动重试仍失败：如果在 SillyTavern 内使用，请检查当前 API 提供方/代理/额度是否正常；也可能是上游临时故障，稍后再试。'
+      );
+      (e as any).cause = error;
+      return e;
+    }
+
+    if (status === 429 || /\b429\b/.test(message)) {
+      const e = new Error('AI 请求过于频繁（429）。我已自动重试，仍失败请稍后再试或降低并发/频率。');
+      (e as any).cause = error;
+      return e;
+    }
+
+    // 保留原始信息，但避免直接把对象打印到 toast 里
+    const e = new Error(message || 'AI 调用失败');
+    (e as any).cause = error;
+    return e;
   }
 
   /**
@@ -898,13 +990,17 @@ class AIService {
                                           '</thinking>'.startsWith(thinkingBuffer);
 
                     if (!possibleTagStart && thinkingBuffer.length > 0) {
-                      console.log('[AI服务-流式] 发送chunk到前端:', thinkingBuffer.length, '字符');
-                      if (onStreamChunk) onStreamChunk(thinkingBuffer);
+                      if (onStreamChunk) {
+                        console.log('[AI服务-流式] 发送chunk到前端:', thinkingBuffer.length, '字符');
+                        onStreamChunk(thinkingBuffer);
+                      }
                       await maybeYield(thinkingBuffer.length);
                       thinkingBuffer = '';
                     } else if (thinkingBuffer.length > 10) {
-                      console.log('[AI服务-流式] 发送chunk到前端(缓冲区过大):', thinkingBuffer.length, '字符');
-                      if (onStreamChunk) onStreamChunk(thinkingBuffer);
+                      if (onStreamChunk) {
+                        console.log('[AI服务-流式] 发送chunk到前端(缓冲区过大):', thinkingBuffer.length, '字符');
+                        onStreamChunk(thinkingBuffer);
+                      }
                       await maybeYield(thinkingBuffer.length);
                       thinkingBuffer = '';
                     }

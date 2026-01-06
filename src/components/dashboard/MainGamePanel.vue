@@ -319,6 +319,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
 import { panelBus } from '@/utils/panelBus';
+import { chatBus, type ChatBusPayload } from '@/utils/chatBus';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
 import { isTavernEnv } from '@/utils/tavern';
@@ -361,6 +362,28 @@ const inputRef = ref<HTMLTextAreaElement>();
 const contentAreaRef = ref<HTMLDivElement>();
 const memoryExpanded = ref(false);
 const showMemorySection = ref(true);
+
+const handleChatPrefill = async ({ text, focus }: ChatBusPayload) => {
+  uiStore.userInputText = text;
+  if (focus !== false) {
+    await nextTick();
+    inputRef.value?.focus();
+  }
+};
+
+const handleChatSend = async ({ text, focus }: ChatBusPayload) => {
+  if (uiStore.isAIProcessing) {
+    toast.warning(t('AI正在生成中，请稍后再试'));
+    return;
+  }
+  uiStore.userInputText = text;
+  if (focus !== false) {
+    await nextTick();
+    inputRef.value?.focus();
+  }
+  await nextTick();
+  sendMessage();
+};
 
 // 切换记忆面板
 const toggleMemory = () => {
@@ -1065,14 +1088,14 @@ const sendMessage = async () => {
   const saveData = gameStateStore.toSaveData();
   if (saveData) {
     // 检查气血
-    if (saveData.玩家角色状态?.气血?.当前 !== undefined && saveData.玩家角色状态.气血.当前 <= 0) {
+    if ((saveData as any).角色?.属性?.气血?.当前 !== undefined && (saveData as any).角色.属性.气血.当前 <= 0) {
       toast.error('角色已死亡，气血耗尽。无法继续游戏，请重新开始或复活角色。');
       return;
     }
     // 检查寿命
-    if (saveData.玩家角色状态?.寿命?.当前 !== undefined &&
-        saveData.玩家角色状态?.寿命?.上限 !== undefined &&
-        saveData.玩家角色状态.寿命.当前 >= saveData.玩家角色状态.寿命.上限) {
+    if ((saveData as any).角色?.属性?.寿命?.当前 !== undefined &&
+        (saveData as any).角色?.属性?.寿命?.上限 !== undefined &&
+        (saveData as any).角色.属性.寿命.当前 >= (saveData as any).角色.属性.寿命.上限) {
       toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
       return;
     }
@@ -1279,13 +1302,13 @@ const sendMessage = async () => {
       const currentSaveData = gameStateStore.toSaveData();
       if (currentSaveData) {
         // 检查气血
-        if (currentSaveData.玩家角色状态.气血?.当前 !== undefined && currentSaveData.玩家角色状态.气血.当前 <= 0) {
+        if (currentSaveData.属性?.气血?.当前 !== undefined && currentSaveData.属性.气血.当前 <= 0) {
           toast.error('角色已死亡，气血耗尽');
         }
         // 检查寿命
-        if (currentSaveData.玩家角色状态.寿命?.当前 !== undefined &&
-            currentSaveData.玩家角色状态.寿命?.上限 !== undefined &&
-            currentSaveData.玩家角色状态.寿命.当前 >= currentSaveData.玩家角色状态.寿命.上限) {
+        if (currentSaveData.属性?.寿命?.当前 !== undefined &&
+            currentSaveData.属性?.寿命?.上限 !== undefined &&
+            currentSaveData.属性.寿命.当前 >= currentSaveData.属性.寿命.上限) {
           toast.error('角色已死亡，寿元耗尽');
         }
       }
@@ -1562,6 +1585,10 @@ onMounted(async () => {
       }
     });
 
+    // 监听来自其他面板的“填充/发送到对话”事件（替代复制提示词）
+    chatBus.on('prefill', handleChatPrefill);
+    chatBus.on('send', handleChatSend);
+
     // 🔥 监听酒馆助手的生成事件
     if (isTavernEnvFlag) {
       const helper = getTavernHelper();
@@ -1590,6 +1617,9 @@ onMounted(async () => {
 
         globalHandlers.onGenerationStarted = (generationId: string) => {
           if (isMatchingGenerationId(generationId)) {
+            const currentId = currentGenerationId.value;
+            const isStep2 = currentId ? generationId.startsWith(`${currentId}_step2`) : false;
+            if (isStep2) return;
             uiStore.setStreamingContent('');
             rawStreamingContent.value = '';
             console.log('[流式输出] GENERATION_STARTED - 已重置状态');
@@ -1598,6 +1628,9 @@ onMounted(async () => {
 
         globalHandlers.onStreamToken = (chunk: string, generationId: string) => {
           if (isMatchingGenerationId(generationId) && useStreaming.value && chunk) {
+            const currentId = currentGenerationId.value;
+            const isStep2 = currentId ? generationId.startsWith(`${currentId}_step2`) : false;
+            if (isStep2) return;
             // 增量追加到原始内容
             rawStreamingContent.value += chunk;
             uiStore.setStreamingContent(rawStreamingContent.value);
@@ -1644,6 +1677,9 @@ onActivated(() => {
 // 🔥 组件卸载时清理事件监听器（使用全局标志）
 onUnmounted(() => {
   console.log('[主面板] 组件卸载，清理事件监听器');
+
+  chatBus.off('prefill', handleChatPrefill);
+  chatBus.off('send', handleChatSend);
 
   if (!isTavernEnvFlag) {
     return;
@@ -2060,8 +2096,8 @@ const syncGameState = async () => {
 .streaming-narrative-content {
   margin-top: 16px;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(59, 130, 246, 0.03) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   animation: fadeIn 0.3s ease-in;
 }
@@ -2095,6 +2131,11 @@ const syncGameState = async () => {
   min-height: 200px;
   display: flex; /* 让子元素可以撑满高度 */
   box-shadow: none !important; /* 移除阴影 */
+}
+
+/* 深色主题下 content-area 背景与内部一致 */
+[data-theme="dark"] .content-area {
+  background-color: #1E293B !important;
 }
 
 /* WebKit滚动条样式 */
@@ -2900,13 +2941,13 @@ const syncGameState = async () => {
 
 /* 确保深色主题下当前叙述区域背景一致 */
 [data-theme="dark"] .current-narrative {
-  background: var(--color-background);
+  background-color: #1E293B !important;
 }
 
 /* 深色主题 - 流式输出内容 */
 [data-theme="dark"] .streaming-narrative-content {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
-  border-color: rgba(99, 102, 241, 0.25);
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
 [data-theme="dark"] .streaming-text {
@@ -2930,7 +2971,7 @@ const syncGameState = async () => {
 }
 
 [data-theme="dark"] .narrative-content {
-  background: var(--color-background) !important;
+  background: #1E293B !important;
 }
 
 [data-theme="dark"] .input-section {

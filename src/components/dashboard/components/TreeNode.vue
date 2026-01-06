@@ -7,10 +7,10 @@
       <span class="value" v-if="!isObject">{{ displayValue }}</span>
       
       <div class="action-buttons">
-        <button @click.stop="editItem" class="edit-btn" title="编辑此项">
+        <button @click.stop="editItem" class="edit-btn" title="编辑此项" :disabled="readOnly">
           <Edit :size="14" />
         </button>
-        <button v-if="isDeletable" @click.stop="deleteItem" class="delete-btn" title="删除此项">
+        <button v-if="isDeletable" @click.stop="deleteItem" class="delete-btn" title="删除此项" :disabled="readOnly">
           <Trash2 :size="14" />
         </button>
       </div>
@@ -22,6 +22,7 @@
         :node-key="childKey"
         :value="childValue"
         :path="`${path}.${childKey}`"
+        :read-only="readOnly"
         @delete-item="(p: string) => emit('delete-item', p)"
         @edit-item="(p: string, v: unknown) => emit('edit-item', p, v)"
       />
@@ -40,9 +41,12 @@ interface Props {
   nodeKey: string | number
   value: unknown
   path: string
+  readOnly?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  readOnly: false
+})
 const emit = defineEmits(['delete-item', 'edit-item'])
 
 const isOpen = ref(false)
@@ -60,10 +64,10 @@ const displayValue = computed(() => {
 // 检查当前节点是否是可删除的项（如物品或NPC）
 const isDeletable = computed(() => {
   const path = props.path
-  // 检查路径是否为 `背包_物品.xxx` 或 `人物关系.xxx` 的形式
+  // V3：检查路径是否为 `角色.背包.物品.xxx` 或 `社交.关系.xxx` 的形式
   // 确保它是一个直接子节点，而不是更深层的属性
-  const isItem = path.startsWith('背包_物品.') && path.split('.').length === 2
-  const isNpc = path.startsWith('人物关系.') && path.split('.').length === 2
+  const isItem = path.startsWith('角色.背包.物品.') && path.split('.').length === 4
+  const isNpc = path.startsWith('社交.关系.') && path.split('.').length === 3
   return isItem || isNpc
 })
 
@@ -74,10 +78,12 @@ const toggle = () => {
 }
 
 const deleteItem = () => {
+  if (props.readOnly) return
   emit('delete-item', props.path)
 }
 
 const editItem = () => {
+  if (props.readOnly) return
   emit('edit-item', props.path, props.value)
 }
 </script>
@@ -142,6 +148,12 @@ const editItem = () => {
   transition: all 0.2s ease;
 }
 
+.edit-btn:disabled,
+.delete-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .edit-btn {
   color: #4a9eff;
 }
@@ -151,6 +163,11 @@ const editItem = () => {
   color: #6eb3ff;
 }
 
+.edit-btn:disabled:hover {
+  background: none;
+  color: #4a9eff;
+}
+
 .delete-btn {
   color: #ff5555;
 }
@@ -158,5 +175,10 @@ const editItem = () => {
 .delete-btn:hover {
   background: rgba(255, 85, 85, 0.2);
   color: #ff8080;
+}
+
+.delete-btn:disabled:hover {
+  background: none;
+  color: #ff5555;
 }
 </style>

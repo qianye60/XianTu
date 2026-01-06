@@ -27,7 +27,7 @@
     </div>
 
     <!-- 导出工具 -->
-    <div class="export-section" v-if="!showSettings">
+    <div class="export-section" v-if="!showSettings && activeFilter !== 'vector'">
       <button
         class="export-btn-main"
         @click="exportMemoriesAsNovel"
@@ -165,6 +165,92 @@
 
     <!-- 记忆列表 -->
     <div class="panel-content" v-if="!showSettings">
+      <template v-if="activeFilter === 'vector'">
+        <div class="vector-toolbar">
+          <div class="vector-status">
+            <span class="status-dot" :class="{ enabled: vectorEnabled }"></span>
+            <span class="status-text">
+              {{ vectorEnabled ? '向量检索已启用' : '向量检索未启用（不会参与AI检索）' }}
+            </span>
+          </div>
+          <div class="vector-actions">
+            <button class="action-btn info" @click="refreshVectorMemories" :disabled="vectorLoading">刷新</button>
+            <button class="action-btn warning" @click="clearVectorMemories" :disabled="vectorLoading || vectorTotalCount === 0">清空向量库</button>
+          </div>
+        </div>
+
+        <div v-if="vectorLoading" class="loading-state">
+          <div class="loading-spinner">⏳</div>
+          <div class="loading-text">正在读取向量库...</div>
+        </div>
+
+        <div v-else-if="vectorError" class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-text">{{ vectorError }}</div>
+        </div>
+
+        <div v-else-if="vectorTotalCount === 0" class="empty-state">
+          <div class="empty-icon">🧬</div>
+          <div class="empty-text">向量库为空</div>
+        </div>
+
+        <div v-else class="vector-content">
+          <div class="vector-stats" v-if="vectorStats">
+            <div class="stats-item">
+              <span class="stats-label">总数</span>
+              <span class="stats-value">{{ vectorStats.total }}</span>
+            </div>
+            <div class="stats-item" v-if="Object.keys(vectorStats.byCategory).length">
+              <span class="stats-label">分类</span>
+              <span class="stats-value">
+                <span v-for="(entry, idx) in Object.entries(vectorStats.byCategory)" :key="entry[0]" class="stats-chip">
+                  {{ entry[0] }}: {{ entry[1] }}<span v-if="idx < Object.keys(vectorStats.byCategory).length - 1"> · </span>
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div class="pagination-controls" v-if="vectorTotalCount > pageSize">
+            <div class="pagination-info">第 {{ currentPage }} / {{ vectorTotalPages }} 页，共 {{ vectorTotalCount }} 条</div>
+            <div class="pagination-buttons">
+              <button class="page-btn" @click="goToFirstPage" :disabled="currentPage === 1">⏮️</button>
+              <button class="page-btn" @click="goToPage(currentPage - 1)" :disabled="currentPage === 1">◀️</button>
+              <button class="page-btn" @click="goToPage(currentPage + 1)" :disabled="currentPage === vectorTotalPages">▶️</button>
+              <button class="page-btn" @click="goToLastPage" :disabled="currentPage === vectorTotalPages">⏭️</button>
+            </div>
+            <div class="pagination-jump">
+              <input
+                type="number"
+                v-model="jumpToPage"
+                placeholder="页"
+                class="jump-input"
+                @keyup.enter="handleJumpToPage"
+                min="1"
+                :max="vectorTotalPages"
+              />
+              <button class="jump-btn" @click="handleJumpToPage">跳转</button>
+            </div>
+          </div>
+
+          <div class="vector-list">
+            <div v-for="entry in vectorEntriesPaged" :key="entry.id" class="vector-card">
+              <div class="vector-card-header">
+                <div class="vector-badges">
+                  <span class="vector-badge">{{ entry.category }}</span>
+                  <span class="vector-badge secondary">重要: {{ entry.importance }}</span>
+                </div>
+                <div class="vector-time">{{ formatTime(entry.timestamp) }}</div>
+              </div>
+              <div class="vector-tags" v-if="entry.tags?.length">
+                <span v-for="tag in entry.tags" :key="tag" class="vector-tag">#{{ tag }}</span>
+              </div>
+              <div class="vector-text">{{ entry.content }}</div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template v-else>
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner">⏳</div>
         <div class="loading-text">{{ t('正在读取记忆...') }}</div>
@@ -352,6 +438,7 @@
           </div>
         </div>
       </div>
+      </template>
     </div>
   </div>
 </template>
@@ -368,6 +455,7 @@ import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem'; // 导入AI系统
+import { vectorMemoryService, type VectorMemoryEntry } from '@/services/vectorMemoryService';
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
@@ -430,6 +518,20 @@ const shortTermMemories = ref<Memory[]>([]);
 const mediumTermMemories = ref<Memory[]>([]);
 const longTermMemories = ref<Memory[]>([]);
 
+// 向量记忆（IndexedDB）
+const vectorEntries = ref<VectorMemoryEntry[]>([]);
+const vectorStats = ref<Awaited<ReturnType<typeof vectorMemoryService.getStats>> | null>(null);
+const vectorLoading = ref(false);
+const vectorError = ref('');
+const vectorEnabled = computed(() => vectorMemoryService.getConfig().enabled);
+const vectorTotalCount = computed(() => vectorStats.value?.total ?? vectorEntries.value.length);
+const vectorTotalPages = computed(() => Math.ceil(vectorTotalCount.value / pageSize.value) || 1);
+const vectorEntriesPaged = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return vectorEntries.value.slice(start, end);
+});
+
 // 合并所有记忆用于显示
 const memories = computed(() => {
   const allMemories = [
@@ -445,7 +547,8 @@ const memoryTypes = computed(() => [
   { key: 'all', name: t('全部'), icon: '🧠' },
   { key: 'short', name: t('短期'), icon: '⚡' },
   { key: 'medium', name: t('中期'), icon: '💭' },
-  { key: 'long', name: t('长期'), icon: '💾' }
+  { key: 'long', name: t('长期'), icon: '💾' },
+  { key: 'vector', name: '向量库', icon: '🧬' }
 ]);
 
 // 筛选后的记忆（不分页）
@@ -486,6 +589,7 @@ const getTypeCount = (type: string): number => {
     case 'short': return shortTermMemories.value.length;
     case 'medium': return mediumTermMemories.value.length;
     case 'long': return longTermMemories.value.length;
+    case 'vector': return vectorTotalCount.value;
     default: return 0;
   }
 };
@@ -644,15 +748,41 @@ const addMemory = (type: 'short' | 'medium' | 'long', content: string, importanc
   convertMemories();
 };
 
+const refreshVectorMemories = async () => {
+  if (vectorLoading.value) return;
+  vectorLoading.value = true;
+  vectorError.value = '';
+  try {
+    const [entries, stats] = await Promise.all([
+      vectorMemoryService.getAllMemories(),
+      vectorMemoryService.getStats(),
+    ]);
+    vectorEntries.value = [...entries].sort((a, b) => b.timestamp - a.timestamp);
+    vectorStats.value = stats;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || '');
+    vectorError.value = message ? `向量库读取失败：${message}` : '向量库读取失败';
+  } finally {
+    vectorLoading.value = false;
+  }
+};
+
 // 设置活跃筛选器
-const setActiveFilter = (filterKey: string) => {
+const setActiveFilter = async (filterKey: string) => {
   activeFilter.value = filterKey;
   currentPage.value = 1; // 切换筛选器时重置到第一页
+  jumpToPage.value = '';
+  if (filterKey === 'vector') {
+    await refreshVectorMemories();
+  }
 };
+
+const getActiveTotalPages = () => (activeFilter.value === 'vector' ? vectorTotalPages.value : totalPages.value);
 
 // 分页相关函数
 const goToPage = (page: number) => {
-  if (page >= 1 && page <= totalPages.value) {
+  const max = getActiveTotalPages();
+  if (page >= 1 && page <= max) {
     currentPage.value = page;
   }
 };
@@ -662,22 +792,42 @@ const goToFirstPage = () => {
 };
 
 const goToLastPage = () => {
-  currentPage.value = totalPages.value;
+  currentPage.value = getActiveTotalPages();
 };
 
 const handleJumpToPage = () => {
   const page = parseInt(jumpToPage.value);
-  if (!isNaN(page) && page >= 1 && page <= totalPages.value) {
+  const max = getActiveTotalPages();
+  if (!isNaN(page) && page >= 1 && page <= max) {
     currentPage.value = page;
     jumpToPage.value = '';
   } else {
-    toast.warning(`请输入 1-${totalPages.value} 之间的页码`);
+    toast.warning(`请输入 1-${max} 之间的页码`);
   }
 };
 
 // 清理记忆（使用全局确认弹窗）
 import { useUIStore } from '@/stores/uiStore';
 const uiStore = useUIStore();
+const clearVectorMemories = async () => {
+  uiStore.showRetryDialog({
+    title: '清空向量库',
+    message: '确定要清空向量库吗？此操作不可撤销。',
+    confirmText: '确认清空',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        await vectorMemoryService.clear();
+        await refreshVectorMemories();
+        toast.success('向量库已清空');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '');
+        toast.error(message ? `清空失败：${message}` : '清空失败');
+      }
+    },
+    onCancel: () => {}
+  });
+};
 const clearMemory = async () => {
   uiStore.showRetryDialog({
     title: t('清空记忆'),
@@ -998,6 +1148,11 @@ const exportMemoriesAsNovel = () => {
 onMounted(async () => {
   await loadMemoryData();
   await loadMemoryConfig();
+  try {
+    vectorStats.value = await vectorMemoryService.getStats();
+  } catch {
+    // ignore
+  }
   // 绑定统一顶栏动作
   panelBus.on('refresh', async () => {
     loading.value = true;
@@ -1957,6 +2112,142 @@ const addTestMediumTermMemory = async () => {
 .jump-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.vector-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.vector-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.status-dot.enabled {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+.vector-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vector-content {
+  padding: 1rem;
+}
+
+.vector-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.stats-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text);
+}
+
+.stats-label {
+  opacity: 0.7;
+}
+
+.stats-value {
+  font-weight: 600;
+}
+
+.vector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.vector-card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: var(--color-surface);
+}
+
+.vector-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.vector-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.vector-badge {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(var(--color-primary-rgb), 0.12);
+  color: var(--color-primary);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+}
+
+.vector-badge.secondary {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--color-text);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.vector-time {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.vector-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.vector-tag {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: var(--color-text);
+}
+
+.vector-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--color-text);
 }
 
 @media (max-width: 640px) {

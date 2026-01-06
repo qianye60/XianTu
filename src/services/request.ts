@@ -24,6 +24,38 @@ const normalizeRequestErrorMessage = (message: string): string => {
   return trimmed;
 };
 
+const formatFastApiErrorDetail = (detail: unknown): string => {
+  if (typeof detail === 'string') return detail;
+  if (detail == null) return '服务器返回了未知错误。';
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => {
+        if (!item || typeof item !== 'object') return String(item);
+        const record = item as Record<string, unknown>;
+        const msg = typeof record.msg === 'string' ? record.msg : undefined;
+        const loc = Array.isArray(record.loc)
+          ? record.loc.filter((x) => typeof x === 'string' || typeof x === 'number')
+          : undefined;
+        const locStr = loc?.length ? ` (${loc.join('.')})` : '';
+        return msg ? `${msg}${locStr}` : JSON.stringify(record);
+      })
+      .filter(Boolean);
+    return parts.length ? parts.join('；') : '请求参数不合法。';
+  }
+  if (typeof detail === 'object') return JSON.stringify(detail);
+  return String(detail);
+};
+
+const extractErrorMessageFromBody = (body: unknown): string | null => {
+  if (body == null) return null;
+  if (typeof body === 'string') return body;
+  if (typeof body !== 'object') return String(body);
+  const record = body as Record<string, unknown>;
+  if ('detail' in record) return formatFastApiErrorDetail(record.detail);
+  if (typeof record.message === 'string') return record.message;
+  return JSON.stringify(record);
+};
+
 const shouldSkipAuthRedirect = (path: string): boolean =>
   path.includes('/api/v1/auth/token') ||
   path.includes('/api/v1/auth/register') ||
@@ -82,8 +114,8 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
 
       let errorMessage = `服务器错误 ${response.status}`;
       try {
-        const errorJson = JSON.parse(rawText);
-        errorMessage = errorJson.detail || JSON.stringify(errorJson);
+        const errorJson = JSON.parse(rawText) as unknown;
+        errorMessage = extractErrorMessageFromBody(errorJson) || errorMessage;
       } catch (_e) {
         // 如果响应不是JSON，就使用原始文本的前100个字符作为错误信息
         errorMessage = rawText.substring(0, 100) || '无法解析服务器响应。';
@@ -133,14 +165,14 @@ request.post = <T>(url: string, data?: unknown, options: Omit<RequestInit, 'meth
   request<T>(url, {
     ...options,
     method: 'POST',
-    body: data ? JSON.stringify(data) : undefined
+    body: data !== undefined ? JSON.stringify(data) : undefined
   });
 
 request.put = <T>(url: string, data?: unknown, options: Omit<RequestInit, 'method' | 'body'> = {}) =>
   request<T>(url, {
     ...options,
     method: 'PUT',
-    body: data ? JSON.stringify(data) : undefined
+    body: data !== undefined ? JSON.stringify(data) : undefined
   });
 
 request.delete = <T>(url: string, options: Omit<RequestInit, 'method'> = {}) =>
@@ -240,7 +272,7 @@ export async function fetchSpiritRoots(): Promise<unknown[]> {
 /**
  * 从服务器获取所有天赋选项
  */
-type RawTalent = { tier?: { id?: number } } & Record<string, unknown>;
+type RawTalent = { tier?: { id?: number }; tier_id?: number | null } & Record<string, unknown>;
 export async function fetchTalents(): Promise<RawTalent[]> {
   try {
     const talents = await request.get<RawTalent[]>('/api/v1/talents/');
@@ -249,7 +281,7 @@ export async function fetchTalents(): Promise<RawTalent[]> {
     // 转换后端数据结构，提取tier_id
     const convertedTalents = (talents || []).map((talent: RawTalent) => ({
       ...talent,
-      tier_id: talent.tier?.id || null, // 从嵌套的tier对象中提取id
+      tier_id: talent.tier_id ?? talent.tier?.id ?? null, // 兼容后端同时返回 tier_id 与 tier 对象
       // 保留原有的tier对象以备后用，但主要使用tier_id
     }));
 
@@ -290,6 +322,21 @@ export async function updateCharacterSave(charId: string, saveData: unknown): Pr
   } catch (error) {
     console.error('[API] 存档同步失败:', error);
     toast.error('存档同步失败，请检查网络或联系管理员。');
+    throw error;
+  }
+}
+
+/**
+ * 获取角色详情（联机模式：用于拉取云端权威存档）
+ */
+export async function fetchCharacterProfile(charId: string): Promise<unknown> {
+  try {
+    const result = await request.get<unknown>(`/api/v1/characters/${charId}`);
+    console.log('[API] 成功获取角色详情:', { charId });
+    return result;
+  } catch (error) {
+    console.error('[API] 获取角色详情失败:', error);
+    toast.error('获取云端角色数据失败，请检查网络或联系管理员。');
     throw error;
   }
 }

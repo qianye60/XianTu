@@ -11,6 +11,7 @@ interface PromptsDB extends DBSchema {
       key: string;
       content: string;
       modified: boolean;
+      enabled: boolean;
       updatedAt: string;
     };
   };
@@ -21,10 +22,12 @@ export interface PromptItem {
   name: string;
   content: string;
   modified: boolean;
+  enabled: boolean;
   default: string;
   category: string;
   description?: string;
   order?: number;
+  weight?: number;
 }
 
 export interface PromptsByCategory {
@@ -63,15 +66,19 @@ class PromptStorage {
     for (const key in defaults) {
       const saved = await this.db!.get('prompts', key);
       const currentContent = saved?.content || defaults[key].content;
+      // enabled 默认为 true，只有明确设置为 false 时才禁用
+      const isEnabled = saved?.enabled !== false;
       result[key] = {
         key,
         name: defaults[key].name,
         content: currentContent,
         modified: !!saved && saved.content !== defaults[key].content,
+        enabled: isEnabled,
         default: defaults[key].content,
         category: defaults[key].category,
         description: defaults[key].description,
-        order: defaults[key].order
+        order: defaults[key].order,
+        weight: defaults[key].weight
       };
     }
 
@@ -117,14 +124,42 @@ class PromptStorage {
     return result;
   }
 
-  async save(key: string, content: string) {
+  async save(key: string, content: string, enabled: boolean = true) {
     await this.init();
     await this.db!.put('prompts', {
       key,
       content,
       modified: true,
+      enabled,
       updatedAt: new Date().toISOString()
     });
+  }
+
+  /**
+   * 切换提示词启用状态
+   */
+  async setEnabled(key: string, enabled: boolean) {
+    await this.init();
+    const defaults = getSystemPrompts();
+    const saved = await this.db!.get('prompts', key);
+    const content = saved?.content || defaults[key]?.content || '';
+    const modified = saved?.modified || false;
+
+    await this.db!.put('prompts', {
+      key,
+      content,
+      modified,
+      enabled,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  /**
+   * 获取启用的提示词列表
+   */
+  async getEnabledPrompts(): Promise<string[]> {
+    const allPrompts = await this.loadAll();
+    return Object.keys(allPrompts).filter(key => allPrompts[key].enabled);
   }
 
   async get(key: string): Promise<string> {

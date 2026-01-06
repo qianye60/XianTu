@@ -102,11 +102,12 @@ class InnateAttributes(BaseModel):
 
 class CharacterBaseInfo(BaseModel):
     名字: str
-    世界: str
-    天资: str
-    出生: str
-    灵根: str
-    天赋: List[str]
+    # 兼容前端传入“完整对象”（用于扩展/AI提示）与旧版“字符串”
+    世界: Any
+    天资: Any
+    出生: Any
+    灵根: Any
+    天赋: List[Any]
     先天六司: InnateAttributes
 
 class CharacterCreateV3(BaseModel):
@@ -166,6 +167,7 @@ class Talent(BaseModel):
     effects: Optional[Any] = None
     rarity: int = 2
     talent_cost: int = 1
+    tier_id: Optional[int] = None
     tier: Optional[TalentTier] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -241,6 +243,7 @@ class TalentCreate(BaseModel):
     effects: Optional[Any] = None
     rarity: int = 2
     talent_cost: int = 1
+    tier_id: Optional[int] = None
 
 class TalentUpdate(BaseModel):
     name: Optional[str] = None
@@ -248,6 +251,7 @@ class TalentUpdate(BaseModel):
     effects: Optional[Any] = None
     rarity: Optional[int] = None
     talent_cost: Optional[int] = None
+    tier_id: Optional[int] = None
 
 class CreationDataResponse(BaseModel):
     origins: Optional[List[Dict[str, Any]]] = None
@@ -399,3 +403,99 @@ class WorkshopItemsResponse(BaseModel):
 class WorkshopItemDownloadResponse(BaseModel):
     item: WorkshopItemOut
     payload: Any
+
+
+# =====================================================================
+# 联机穿越（POI 坐标地图）- API Schemas（M1）
+# =====================================================================
+
+
+class TravelSigninResponse(BaseModel):
+    travel_points: int
+    signed_in: bool
+    message: str
+
+
+class WorldVisibilityUpdate(BaseModel):
+    visibility_mode: str  # public|hidden|locked
+
+
+class OnlineWorldInstanceSummary(BaseModel):
+    world_instance_id: int
+    owner_player_id: int
+    owner_char_id: Optional[str] = None
+    visibility_mode: str
+    revision: int
+    maps: List[Dict[str, Any]] = []
+
+
+class PoiOut(BaseModel):
+    id: int
+    poi_key: str
+    x: int
+    y: int
+    type: str
+    tags: Optional[Any] = None
+    state: Optional[Any] = None
+
+
+class EdgeOut(BaseModel):
+    id: int
+    from_poi_id: int
+    to_poi_id: int
+    edge_type: str
+    travel_cost: int
+    risk: int
+    one_way: bool
+
+
+class MapGraphResponse(BaseModel):
+    map_id: int
+    map_key: str
+    pois: List[PoiOut]
+    edges: List[EdgeOut]
+    viewer_poi_id: Optional[int] = None
+
+
+class TravelStartRequest(BaseModel):
+    target_username: str
+    invite_code: Optional[str] = None  # 预留：hidden/locked 世界需要
+
+
+class TravelStartResponse(BaseModel):
+    session_id: int
+    target_world_instance_id: int
+    entry_map_id: int
+    entry_poi_id: int
+    return_anchor: Dict[str, Any]
+    travel_points_left: int
+
+
+class TravelEndRequest(BaseModel):
+    session_id: int
+
+
+class TravelEndResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class WorldActionRequest(BaseModel):
+    session_id: Optional[int] = None
+    action_type: str  # move (M1)
+    intent: Dict[str, Any] = {}
+
+
+class WorldActionResponse(BaseModel):
+    success: bool
+    message: str
+    new_map_id: Optional[int] = None
+    new_poi_id: Optional[int] = None
+
+
+class InvasionReportOut(BaseModel):
+    id: int
+    world_instance_id: int
+    created_at: datetime.datetime
+    unread: bool
+    summary: Optional[Any] = None

@@ -190,6 +190,9 @@
             <button v-if="downloadModal.item?.type === 'prompts'" class="btn" @click="applyPromptsFromPayload">
               导入到本地提示词
             </button>
+            <button v-if="downloadModal.item?.type === 'start_config'" class="btn" @click="applyStartConfigFromPayload">
+              应用到开局配置
+            </button>
           </div>
 
           <div v-if="downloadModal.item?.type === 'saves'" class="import-saves">
@@ -220,6 +223,9 @@ import { promptStorage } from '@/services/promptStorage';
 import { createWorkshopItem, deleteWorkshopItem, downloadWorkshopItem, listMyWorkshopItems, listWorkshopItems, type WorkshopItemOut, type WorkshopItemType } from '@/services/workshop';
 import { useCharacterStore } from '@/stores/characterStore';
 import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
+import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 
 const router = useRouter();
 const characterStore = useCharacterStore();
@@ -437,7 +443,8 @@ const downloadAsFile = () => {
 
 const applySettingsFromPayload = () => {
   const payload = downloadModal.value.payload as any;
-  const settings = payload?.settings ?? payload;
+  const unwrapped = unwrapDadBundle(payload);
+  const settings = unwrapped.type === 'settings' ? unwrapped.payload : payload?.settings ?? payload;
   if (!settings || typeof settings !== 'object') {
     toast.error('设置内容格式不正确');
     return;
@@ -448,12 +455,26 @@ const applySettingsFromPayload = () => {
 
 const applyPromptsFromPayload = async () => {
   const payload = downloadModal.value.payload as any;
-  if (!payload || typeof payload !== 'object') {
+  const unwrapped = unwrapDadBundle(payload);
+  const promptsPayload = unwrapped.type === 'prompts' ? unwrapped.payload : payload;
+  if (!promptsPayload || typeof promptsPayload !== 'object') {
     toast.error('提示词内容格式不正确');
     return;
   }
-  const count = await promptStorage.importPrompts(payload);
+  const count = await promptStorage.importPrompts(promptsPayload);
   toast.success(`已导入 ${count} 条提示词（如未生效请刷新页面）`);
+};
+
+const applyStartConfigFromPayload = () => {
+  const payload = downloadModal.value.payload as any;
+  const unwrapped = unwrapDadBundle(payload);
+  const startConfig = unwrapped.type === 'start_config' ? unwrapped.payload : payload;
+  if (!startConfig || typeof startConfig !== 'object') {
+    toast.error('开局配置格式不正确');
+    return;
+  }
+  localStorage.setItem('dad_start_config', JSON.stringify(startConfig));
+  toast.success('已应用到本地开局配置（重新打开开局页面生效）');
 };
 
 const localCharacters = computed(() => {
@@ -462,21 +483,30 @@ const localCharacters = computed(() => {
     .filter((c: any) => c?.模式 === '单机')
     .map((c: any) => ({
       角色ID: c.角色ID,
-      name: c?.角色基础信息?.名字 || c.角色ID,
+      name: c?.角色?.名字 || c.角色ID,
     }));
 });
 
 const applySavesFromPayload = async () => {
   if (!targetCharId.value) return;
   const payload = downloadModal.value.payload as any;
-  if (payload?.type !== 'saves' || !Array.isArray(payload.saves)) {
+  const unwrapped = unwrapDadBundle(payload);
+
+  const saves = (() => {
+    if (unwrapped.type === 'saves' && Array.isArray(unwrapped.payload?.saves)) return unwrapped.payload.saves;
+    if (unwrapped.type === 'character' && Array.isArray(unwrapped.payload?.存档列表)) return unwrapped.payload.存档列表;
+    return null;
+  })();
+
+  if (!saves) {
     toast.error('存档内容格式不正确');
     return;
   }
-  for (const save of payload.saves) {
+
+  for (const save of saves) {
     await characterStore.importSave(targetCharId.value, save);
   }
-  toast.success(`已导入 ${payload.saves.length} 个存档到本地单机角色`);
+  toast.success(`已导入 ${saves.length} 个存档到本地单机角色`);
 };
 
 // --- 上传 ---
@@ -558,27 +588,84 @@ const submitUpload = async () => {
     return;
   }
 
-  if (uploadType.value === 'saves') {
-    const payload = uploadPayload.value as any;
-    // 支持两种格式：
-    // 1. 存档文件: { type: 'saves', saves: [...] }
-    // 2. 角色文件: { type: 'character', character: { 存档列表: [...] } }
-    const isSavesFormat = payload?.type === 'saves' && Array.isArray(payload.saves);
-    const isCharacterFormat = payload?.type === 'character' && Array.isArray(payload.character?.存档列表);
-    if (!isSavesFormat && !isCharacterFormat) {
-      toast.error('单机存档必须使用游戏导出的存档或角色文件');
-      return;
+  // 统一：工坊上传 payload 全部使用 dad.bundle（导入时仍兼容旧格式）
+  const normalizeUploadPayload = (): { bundleType: 'settings' | 'prompts' | 'saves' | 'character' | 'start_config'; bundle: unknown } => {
+    const raw = uploadPayload.value as any;
+    const unwrapped = unwrapDadBundle(raw);
+
+    if (uploadType.value === 'settings') {
+      const settings = unwrapped.type === 'settings' ? unwrapped.payload : raw?.settings ?? raw;
+      if (!settings || typeof settings !== 'object') throw new Error('设置内容格式不正确');
+      return { bundleType: 'settings', bundle: createDadBundle('settings', settings, { appVersion: versionLabel.value }) };
     }
-  }
+
+    if (uploadType.value === 'prompts') {
+      const promptsPayload = unwrapped.type === 'prompts' ? unwrapped.payload : raw;
+      if (!promptsPayload || typeof promptsPayload !== 'object') throw new Error('提示词内容格式不正确');
+      return { bundleType: 'prompts', bundle: createDadBundle('prompts', promptsPayload, { appVersion: versionLabel.value }) };
+    }
+
+    if (uploadType.value === 'start_config') {
+      const startConfig = unwrapped.type === 'start_config' ? unwrapped.payload : raw;
+      if (!startConfig || typeof startConfig !== 'object') throw new Error('开局配置格式不正确');
+      return { bundleType: 'start_config', bundle: createDadBundle('start_config', startConfig, { appVersion: versionLabel.value }) };
+    }
+
+    // saves：允许上传“存档包 / 角色包”（工坊类型仍为 saves）
+    if (uploadType.value === 'saves') {
+      const bundleType = unwrapped.type === 'character' ? 'character' : 'saves';
+
+      const saves = (() => {
+        if (unwrapped.type === 'saves' && Array.isArray(unwrapped.payload?.saves)) return unwrapped.payload.saves;
+        if (unwrapped.type === 'character' && Array.isArray(unwrapped.payload?.存档列表)) return unwrapped.payload.存档列表;
+
+        // 兼容：旧格式（未包裹 dad.bundle）
+        if (raw?.type === 'saves' && Array.isArray(raw.saves)) return raw.saves;
+        if (raw?.type === 'character' && Array.isArray(raw.character?.存档列表)) return raw.character.存档列表;
+
+        return null;
+      })();
+
+      if (!saves) throw new Error('单机存档必须使用游戏导出的存档或角色文件');
+
+      const normalizedSaves = saves.map((s: any) => {
+        const rawSaveData = s?.存档数据;
+        if (!rawSaveData) throw new Error(`存档「${s?.存档名 ?? '未知'}」缺少存档数据`);
+        const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+        const validation = validateSaveDataV3(v3SaveData as any);
+        if (!validation.isValid) throw new Error(`存档「${s?.存档名 ?? '未知'}」校验失败：${validation.errors[0] || '未知原因'}`);
+        return { ...s, 存档数据: v3SaveData };
+      });
+
+      if (bundleType === 'character') {
+        const payload = {
+          角色ID: raw?.角色ID ?? unwrapped.payload?.角色ID,
+          角色信息: JSON.parse(JSON.stringify(raw?.角色信息 ?? unwrapped.payload?.角色信息 ?? {})),
+          存档列表: normalizedSaves,
+        };
+        return { bundleType: 'character', bundle: createDadBundle('character', payload, { appVersion: versionLabel.value }) };
+      }
+
+      const payload = {
+        characterId: raw?.characterId ?? unwrapped.payload?.characterId,
+        characterName: raw?.characterName ?? unwrapped.payload?.characterName,
+        saves: normalizedSaves,
+      };
+      return { bundleType: 'saves', bundle: createDadBundle('saves', payload, { appVersion: versionLabel.value }) };
+    }
+
+    throw new Error('不支持的上传类型');
+  };
 
   uploading.value = true;
   try {
+    const normalized = normalizeUploadPayload();
     await createWorkshopItem({
       type: uploadType.value,
       title,
       description: uploadDesc.value.trim() || undefined,
       tags: parseTags(uploadTagsText.value),
-      payload: uploadPayload.value,
+      payload: normalized.bundle,
       game_version: `仙途 v${versionLabel.value}`,
       data_version: '1',
     });

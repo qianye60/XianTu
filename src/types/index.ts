@@ -2,6 +2,7 @@
 
 // 从 game.d.ts 导出 TechniqueItem 类型以修复编译错误
 export type { TechniqueItem } from './game.d';
+import type { SaveDataV3 } from './saveSchemaV3';
 
 // --- 核心AI交互结构 (保留) ---
 export interface GM_Request {
@@ -24,15 +25,15 @@ export interface GM_Response {
 export interface World {
   id: number;
   name: string;
-  era: string;
-  description: string;
+  era?: string | null;
+  description?: string | null;
   source?: 'local' | 'cloud';
 }
 
 export interface TalentTier {
   id: number;
   name: string;
-  description: string;
+  description?: string | null;
   total_points: number;
   rarity: number;
   color: string;
@@ -42,9 +43,9 @@ export interface TalentTier {
 export interface Origin {
   id: number;
   name: string;
-  description: string;
+  description?: string | null;
   talent_cost: number;
-  attribute_modifiers: Record<string, number>;
+  attribute_modifiers?: Record<string, number> | null;
   rarity: number;
   source?: 'local' | 'cloud';
   background_effects?: { type: string; description: string }[];
@@ -53,8 +54,8 @@ export interface Origin {
 export interface SpiritRoot {
   id: number;
   name: string;
-  tier: string;
-  description: string;
+  tier?: string | null;
+  description?: string | null;
   cultivation_speed?: string;
   special_effects?: string[];
   base_multiplier: number;
@@ -68,9 +69,11 @@ export interface SpiritRoot {
 export interface Talent {
   id: number; // 统一为数字ID以匹配后端
   name: string;
-  description: string;
+  description?: string | null;
   talent_cost: number;
   rarity: number;
+  tier_id?: number | null;
+  tier?: TalentTier | null;
   source?: 'local' | 'cloud';
   effects?: Array<{
     类型: string;
@@ -184,7 +187,6 @@ export interface CharacterCreationPayload {
   origin: Origin | null;  // 允许为null，表示随机出身
   spiritRoot: SpiritRoot | null;  // 允许为null，表示随机灵根
   talents: Talent[];
-  角色基础信息: any;
   baseAttributes: {
     root_bone: number;
     spirituality: number;
@@ -269,15 +271,8 @@ export interface WorldInfo {
   地点信息?: any[];
 }
 
-export interface SaveData {
-  世界信息?: WorldInfo;
-  玩家角色状态?: any;
-  记忆?: {
-    短期记忆?: string[];
-  };
-  对话历史?: any[];
-  [key: string]: any;
-}
+// 存档结构以 V3 为准（见 docs/save-schema-v3.md）
+export type SaveData = SaveDataV3;
 
 // --- TavernHelper API 类型定义 ---
 

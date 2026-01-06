@@ -141,17 +141,21 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3 } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins } from 'lucide-vue-next';
 import { panelBus, type PanelAction } from '@/utils/panelBus';
+import { detectSectMigration } from '@/utils/sectMigration';
 import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
+import SectMigrationModal from '@/components/dashboard/components/SectMigrationModal.vue';
 
 const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore();
 const uiStore = useUIStore();
 const router = useRouter();
 const route = useRoute();
@@ -179,16 +183,48 @@ const closeSidebars = () => {
   rightSidebarCollapsed.value = true;
 };
 
+const lastMigrationPromptKey = ref<string | null>(null);
+
+const getActiveSaveKey = () => {
+  const active = characterStore.rootState.当前激活存档;
+  if (!active) return null;
+  return `${active.角色ID}::${active.存档槽位}`;
+};
+
+const maybePromptSectMigration = () => {
+  if (!gameStateStore.isGameLoaded) return;
+  const saveKey = getActiveSaveKey();
+  if (!saveKey || lastMigrationPromptKey.value === saveKey) return;
+
+  const saveData = gameStateStore.getCurrentSaveData();
+  const check = detectSectMigration(saveData);
+  if (!check.needed) {
+    return;
+  }
+
+  lastMigrationPromptKey.value = saveKey;
+  uiStore.showDetailModal({
+    title: '宗门存档迁移',
+    component: SectMigrationModal,
+    props: {
+      reasons: check.reasons,
+      fromVersion: check.fromVersion,
+      toVersion: check.toVersion,
+    }
+  });
+};
+
 // 面板状态管理
 const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
-  'Quests', 'Sect', 'GameVariables'
+  'Quests', 'Sect', 'SectOverview', 'SectMembers', 'SectMissions', 'SectLibrary', 'SectContribution', 'GameVariables'
 ]);
 
 // 右侧相关面板（应该影响右侧收缩按钮）
 const rightPanelRoutes = new Set([
-  'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'Sect'
+  'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save',
+  'Sect', 'SectOverview', 'SectMembers', 'SectMissions', 'SectLibrary', 'SectContribution'
 ]);
 
 type IconComponent = typeof Package;
@@ -206,6 +242,11 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   WorldMap: { title: '世界地图', icon: Map },
   Quests: { title: '任务系统', icon: Scroll },
   Sect: { title: '宗门势力', icon: Home },
+  SectOverview: { title: '宗门概览', icon: Home },
+  SectMembers: { title: '宗门成员', icon: Users },
+  SectMissions: { title: '宗门任务', icon: Scroll },
+  SectLibrary: { title: '宗门藏经', icon: BookOpen },
+  SectContribution: { title: '贡献兑换', icon: Coins },
   GameVariables: { title: '游戏变量', icon: Database }
 };
 
@@ -326,6 +367,18 @@ onBeforeUnmount(() => {
 
   // 🔴 停止定期授权验证
 });
+
+watch(
+  () => [gameStateStore.isGameLoaded, characterStore.rootState.当前激活存档?.角色ID, characterStore.rootState.当前激活存档?.存档槽位],
+  ([isLoaded]) => {
+    if (!isLoaded) {
+      lastMigrationPromptKey.value = null;
+      return;
+    }
+    maybePromptSectMigration();
+  },
+  { immediate: true }
+);
 
 // 监听面板状态变化，智能调整布局
 watch(isPanelOpen, (isOpen) => {
@@ -949,7 +1002,7 @@ watch(isPanelOpen, (isOpen) => {
 }
 
 [data-theme="dark"] .panel-overlay {
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--color-background);
   backdrop-filter: blur(20px);
 }
 

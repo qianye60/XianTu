@@ -1,13 +1,13 @@
 <template>
   <div class="variable-section">
     <div class="section-header">
-      <h3 class="section-title">{{ type === 'chat' ? 'Chat Variables (聊天变量)' : 'Custom Options (自定义选项)' }}</h3>
-      <button @click="$emit('add-new-variable', type)" class="add-btn">
+      <h3 class="section-title">{{ type === 'chat' ? 'Chat Variables (聊天变量)' : type === 'core' ? 'Core Data (核心数据)' : 'Custom Options (自定义选项)' }}</h3>
+      <button @click="$emit('add-new-variable', type)" class="add-btn" :disabled="readOnly">
         <Plus :size="14" />
         <span>新增变量</span>
       </button>
     </div>
-    
+
     <div class="variable-content">
       <div v-if="Object.keys(variables).length > 0" class="variable-list">
         <div v-for="(value, key) in variables" :key="key" class="variable-item">
@@ -15,13 +15,13 @@
             <span class="variable-key">{{ key }}</span>
             <span class="variable-type">{{ getDataType(value) }}</span>
             <div class="variable-actions">
-              <button @click="$emit('edit-variable', { type, key, value })" class="action-btn edit" title="编辑">
+              <button @click="$emit('edit-variable', { type, key, value })" class="action-btn edit" title="编辑" :disabled="readOnly">
                 <Edit3 :size="12" />
               </button>
               <button @click="$emit('copy-variable', { key, value })" class="action-btn copy" title="复制">
                 <Copy :size="12" />
               </button>
-              <button @click="$emit('delete-variable', { type, key })" class="action-btn delete" title="删除">
+              <button @click="$emit('delete-variable', { type, key })" class="action-btn delete" title="删除" :disabled="readOnly">
                 <Trash2 :size="12" />
               </button>
             </div>
@@ -32,18 +32,18 @@
           </div>
         </div>
       </div>
-      
+
       <div v-else class="empty-state">
         <Package :size="32" />
         <p v-if="searchQuery">无匹配的变量</p>
-        <p v-else>{{ type === 'chat' ? '暂无聊天变量' : '暂无自定义选项' }}</p>
-        
+        <p v-else>{{ type === 'chat' ? '暂无聊天变量' : type === 'core' ? '暂无核心数据' : '暂无自定义选项' }}</p>
+
         <div class="debug-info">
           <details>
             <summary>🔍 调试信息 (点击展开)</summary>
             <div class="debug-content">
               <p><strong>连接状态:</strong> ✅已连接</p>
-              <p><strong>{{ type === 'chat' ? '聊天' : '自定义' }}变量数量:</strong> {{ Object.keys(type === 'chat' ? chatVariables : customOptions).length }}</p>
+              <p><strong>变量数量:</strong> {{ Object.keys(variables).length }}</p>
               <div class="debug-actions">
                 <button @click="$emit('debug-log')" class="debug-btn">
                   🖼️ 控制台输出
@@ -63,14 +63,18 @@ import { Plus, Edit3, Copy, Trash2, Package } from 'lucide-vue-next'
 type GameVariableValue = string | number | boolean | object | null | undefined
 
 interface Props {
-  type: 'chat' | 'custom'
+  type: 'chat' | 'custom' | 'core'
   variables: Record<string, GameVariableValue>
   searchQuery: string
-  chatVariables: Record<string, GameVariableValue>
-  customOptions: Record<string, GameVariableValue>
+  readOnly?: boolean
+  chatVariables?: Record<string, GameVariableValue>
+  customOptions?: Record<string, GameVariableValue>
+  coreDataViews?: Record<string, GameVariableValue>
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  readOnly: false
+})
 
 defineEmits<{
   (e: 'edit-variable', event: { type: string; key: string; value: GameVariableValue }): void
@@ -128,6 +132,12 @@ const getDataType = (value: GameVariableValue): string => {
 
 .add-btn:hover {
   background: var(--color-primary-hover);
+}
+
+.add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-border);
 }
 
 .variable-content {
@@ -198,6 +208,22 @@ const getDataType = (value: GameVariableValue): string => {
 .action-btn:hover {
   background: var(--color-hover);
   color: var(--color-text);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.action-btn.edit:disabled:hover,
+.action-btn.copy:disabled:hover,
+.action-btn.delete:disabled:hover {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
 }
 
 .action-btn.edit:hover {

@@ -2,7 +2,8 @@ import { defineStore } from 'pinia';
 import { set, get, cloneDeep } from 'lodash';
 import type {
   CharacterBaseInfo,
-  PlayerStatus,
+  PlayerAttributes,
+  PlayerLocation,
   Inventory,
   NpcProfile,
   WorldInfo,
@@ -13,19 +14,48 @@ import type {
   GameMessage,
   QuestSystem,
   QuestType,
+  SectMemberInfo,
+  SectSystemV2,
+  StatusEffect,
 } from '@/types/game';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import { isTavernEnv } from '@/utils/tavern';
 import { ensureSystemConfigHasNsfw } from '@/utils/nsfw';
+import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+
+function buildTechniqueProgress(inventory: Inventory | null) {
+  const progress: Record<string, { 熟练度: number; 已解锁技能: string[] }> = {};
+  const items = inventory?.物品 || {};
+
+  Object.values(items).forEach((item: any) => {
+    if (item?.类型 !== '功法') return;
+    const itemId = item.物品ID;
+    if (!itemId) return;
+    progress[itemId] = {
+      熟练度: Number(item.修炼进度 ?? item.熟练度 ?? 0),
+      已解锁技能: Array.isArray(item.已解锁技能) ? item.已解锁技能 : []
+    };
+  });
+
+  return progress;
+}
 
 // 定义各个模块的接口
 interface GameState {
+  // --- V3 元数据/系统字段（随存档保存）---
+  saveMeta: any | null;
+  onlineState: any | null;
+  userSettings: any | null;
+
   character: CharacterBaseInfo | null;
-  playerStatus: PlayerStatus | null;
+  attributes: PlayerAttributes | null;
+  location: PlayerLocation | null;
   inventory: Inventory | null;
   equipment: Equipment | null;
   relationships: Record<string, NpcProfile> | null;
   worldInfo: WorldInfo | null;
+  sectSystem: SectSystemV2 | null;
+  sectMemberInfo: SectMemberInfo | null;
   memory: Memory | null;
   gameTime: GameTime | null;
   narrativeHistory: GameMessage[] | null;
@@ -37,6 +67,14 @@ interface GameState {
   questSystem: QuestSystem;
   // 修炼功法
   cultivationTechnique: any | null;
+  // 修炼模块（完整结构）
+  cultivation: any | null;
+  // 功法模块（进度/套装）
+  techniqueSystem: any | null;
+  // 技能模块（掌握技能/冷却）
+  skillState: any | null;
+  // 效果（buff/debuff数组）
+  effects: StatusEffect[] | null;
   // 掌握技能
   masteredSkills: any[] | null;
   // 系统配置
@@ -55,12 +93,19 @@ interface GameState {
 
 export const useGameStateStore = defineStore('gameState', {
   state: (): GameState => ({
+    saveMeta: null,
+    onlineState: null,
+    userSettings: null,
+
     character: null,
-    playerStatus: null,
+    attributes: null,
+    location: null,
     inventory: null,
     equipment: null,
     relationships: null,
     worldInfo: null,
+    sectSystem: null,
+    sectMemberInfo: null,
     memory: null,
     gameTime: null,
     narrativeHistory: [],
@@ -83,6 +128,10 @@ export const useGameStateStore = defineStore('gameState', {
       }
     },
     cultivationTechnique: null,
+    cultivation: null,
+    techniqueSystem: null,
+    skillState: null,
+    effects: [],
     masteredSkills: null,
     systemConfig: null,
     bodyPartDevelopment: null,
@@ -150,78 +199,129 @@ export const useGameStateStore = defineStore('gameState', {
      * @param saveData 完整的存档数据
      */
     loadFromSaveData(saveData: SaveData) {
-      // 🔥 修复：使用深拷贝确保嵌套对象（如境界）不会被引用污染
-      this.character = saveData.角色基础信息 ? JSON.parse(JSON.stringify(saveData.角色基础信息)) : null;
-      this.playerStatus = saveData.玩家角色状态 ? JSON.parse(JSON.stringify(saveData.玩家角色状态)) : null;
+      const v3 = (isSaveDataV3(saveData) ? saveData : migrateSaveDataToLatest(saveData).migrated) as any;
 
-      // 🔥 自动修复灵根品级格式
-      if (this.character?.灵根 && typeof this.character.灵根 === 'object') {
-        const 灵根 = this.character.灵根 as any;
-        if (灵根.品级 && typeof 灵根.品级 === 'object') {
-          const qualityObj = 灵根.品级;
-          let qualityName = qualityObj.quality || '';
-          if (qualityName && !qualityName.endsWith('品')) {
-            qualityName = `${qualityName}品`;
-          }
-          灵根.品级 = qualityName;
-          console.log('[GameState] 修复角色灵根品级格式');
+      const deepCopy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+      // V3 保存的元数据/联机/设置也读入到 store（用于后续保存回写）
+      this.saveMeta = v3?.元数据 ? deepCopy(v3.元数据) : null;
+      this.onlineState = v3?.系统?.联机 ? deepCopy(v3.系统.联机) : null;
+      this.userSettings = v3?.系统?.设置 ? deepCopy(v3.系统.设置) : null;
+      const normalizeQualitySuffix = (obj: any, field: string) => {
+        if (!obj || typeof obj !== 'object') return;
+
+        const raw = obj[field];
+        if (raw == null) return;
+
+        if (typeof raw === 'string') {
+          if (raw && !raw.endsWith('品')) obj[field] = `${raw}品`;
+          return;
         }
-      }
 
-      if (this.playerStatus) {
-        const playerStatusAny = this.playerStatus as any;
-        if (playerStatusAny.灵根 && typeof playerStatusAny.灵根 === 'object') {
-          const 灵根 = playerStatusAny.灵根;
-          if (灵根.品级 && typeof 灵根.品级 === 'object') {
-            const qualityObj = 灵根.品级;
-            let qualityName = qualityObj.quality || '';
-            if (qualityName && !qualityName.endsWith('品')) {
-              qualityName = `${qualityName}品`;
-            }
-            灵根.品级 = qualityName;
-            console.log('[GameState] 修复玩家状态灵根品级格式');
-          }
-        }
-      }
-
-      // 确保角色基础信息和玩家角色状态中的灵根、出生保持同步
-      if (this.character && this.playerStatus) {
-        if (this.character.灵根) (this.playerStatus as any).灵根 = this.character.灵根;
-        if (this.character.出生) (this.playerStatus as any).出生 = this.character.出生;
-      }
-
-      // 🔥 深拷贝嵌套对象以保持响应式
-      this.inventory = saveData.背包 ? JSON.parse(JSON.stringify(saveData.背包)) : null;
-      this.equipment = saveData.装备栏 ? JSON.parse(JSON.stringify(saveData.装备栏)) : null;
-      this.relationships = saveData.人物关系 ? JSON.parse(JSON.stringify(saveData.人物关系)) : null;
-      this.worldInfo = saveData.世界信息 ? JSON.parse(JSON.stringify(saveData.世界信息)) : null;
-      this.memory = saveData.记忆 ? JSON.parse(JSON.stringify(saveData.记忆)) : null;
-      this.gameTime = saveData.游戏时间 ? { ...saveData.游戏时间 } : null;
-      this.narrativeHistory = saveData.叙事历史 ? [...saveData.叙事历史] : [];
-
-      // 加载其他系统数据
-      this.thousandDao = saveData.三千大道 ? JSON.parse(JSON.stringify(saveData.三千大道)) : null;
-      this.questSystem = saveData.任务系统 ? JSON.parse(JSON.stringify(saveData.任务系统)) : {
-        配置: {
-          启用系统任务: false,
-          系统任务类型: '修仙辅助系统',
-          系统任务提示词: '',
-          自动刷新: false,
-          默认任务数量: 3
-        },
-        当前任务列表: [],
-        任务统计: {
-          完成总数: 0,
-          各类型完成: {} as Record<QuestType, number>
+        if (typeof raw === 'object') {
+          const qualityName = String((raw as any).quality ?? (raw as any).品质 ?? (raw as any).品阶 ?? '');
+          if (!qualityName) return;
+          obj[field] = qualityName.endsWith('品') ? qualityName : `${qualityName}品`;
         }
       };
-      this.cultivationTechnique = saveData.修炼功法 ? JSON.parse(JSON.stringify(saveData.修炼功法)) : null;
-      this.masteredSkills = saveData.掌握技能 ? JSON.parse(JSON.stringify(saveData.掌握技能)) : [];
-      this.systemConfig = saveData.系统 ? JSON.parse(JSON.stringify(saveData.系统)) : null;
+
+      const character: CharacterBaseInfo | null = v3?.角色?.身份 ? deepCopy(v3.角色.身份) : null;
+      const attributes: PlayerAttributes | null = v3?.角色?.属性 ? deepCopy(v3.角色.属性) : null;
+      const location: PlayerLocation | null = v3?.角色?.位置 ? deepCopy(v3.角色.位置) : null;
+      const inventory: Inventory | null = v3?.角色?.背包 ? deepCopy(v3.角色.背包) : null;
+      const equipment: Equipment | null = v3?.角色?.装备 ? deepCopy(v3.角色.装备) : null;
+      const relationships: Record<string, NpcProfile> | null = v3?.社交?.关系 ? deepCopy(v3.社交.关系) : null;
+      const worldInfo: WorldInfo | null = v3?.世界?.信息 ? deepCopy(v3.世界.信息) : null;
+      const sectSystem: SectSystemV2 | null = v3?.社交?.宗门 ? deepCopy(v3.社交.宗门) : null;
+      const sectMemberInfo: SectMemberInfo | null = (v3?.社交?.宗门 as any)?.成员信息 ? deepCopy((v3.社交.宗门 as any).成员信息) : null;
+      const memory: Memory | null = v3?.社交?.记忆 ? deepCopy(v3.社交.记忆) : null;
+      const gameTime: GameTime | null = v3?.元数据?.时间 ? deepCopy(v3.元数据.时间) : null;
+
+      const narrativeHistory: GameMessage[] = Array.isArray(v3?.系统?.历史?.叙事) ? deepCopy(v3.系统.历史.叙事) : [];
+
+      const daoSystem = v3?.角色?.大道 ? deepCopy(v3.角色.大道) : null;
+      const questSystem: QuestSystem | null = v3?.社交?.任务 ? deepCopy(v3.社交.任务) : null;
+      const cultivation = v3?.角色?.修炼 ? deepCopy(v3.角色.修炼) : null;
+      const techniqueSystem = v3?.角色?.功法 ? deepCopy(v3.角色.功法) : null;
+      const skillState = v3?.角色?.技能 ? deepCopy(v3.角色.技能) : null;
+
+      const effects: StatusEffect[] = Array.isArray(v3?.角色?.效果) ? deepCopy(v3.角色.效果) : [];
+
+      const systemConfig = v3?.系统?.配置 ? deepCopy(v3.系统.配置) : null;
+      const bodyPartDevelopment =
+        (v3?.角色?.身体 as any)?.部位开发 ? deepCopy((v3.角色.身体 as any).部位开发) : null;
+
+      // 基础模块
+      this.character = character;
+      this.attributes = attributes;
+      this.location = location;
+
+      // 灵根/境界品质字段容错（AI偶尔会返回 {quality,grade} 结构）
+      if (this.character?.灵根 && typeof this.character.灵根 === 'object') {
+        normalizeQualitySuffix(this.character.灵根 as any, 'tier');
+      }
+      if (this.attributes?.境界 && typeof this.attributes.境界 === 'object') {
+        normalizeQualitySuffix(this.attributes.境界 as any, '品质');
+        normalizeQualitySuffix(this.attributes.境界 as any, '品阶');
+      }
+
+      this.inventory = inventory;
+      this.equipment = equipment;
+      this.relationships = relationships;
+      this.worldInfo = worldInfo;
+      this.sectSystem = sectSystem;
+      this.sectMemberInfo = sectMemberInfo;
+      this.memory = memory;
+      this.gameTime = gameTime;
+      this.narrativeHistory = narrativeHistory;
+
+      // 系统模块
+      this.thousandDao = daoSystem ? deepCopy(daoSystem) : null;
+      this.questSystem = questSystem
+        ? deepCopy(questSystem)
+        : {
+            配置: {
+              启用系统任务: false,
+              系统任务类型: '修仙辅助系统',
+              系统任务提示词: '',
+              自动刷新: false,
+              默认任务数量: 3,
+            },
+            当前任务列表: [],
+            任务统计: {
+              完成总数: 0,
+              各类型完成: {} as Record<QuestType, number>,
+            },
+          };
+
+      this.cultivation = cultivation ? deepCopy(cultivation) : null;
+      this.cultivationTechnique = (this.cultivation as any)?.修炼功法 ?? null;
+
+      this.techniqueSystem = techniqueSystem ? deepCopy(techniqueSystem) : null;
+      this.skillState = skillState ? deepCopy(skillState) : null;
+      this.masteredSkills = (this.skillState as any)?.掌握技能
+        ? deepCopy((this.skillState as any).掌握技能)
+        : deepCopy((v3?.系统?.缓存?.掌握技能 ?? []) as any);
+
+      this.effects = Array.isArray(effects) ? deepCopy(effects) : [];
+      this.systemConfig = systemConfig ? deepCopy(systemConfig) : null;
       if (isTavernEnv() && this.systemConfig) {
         this.systemConfig = ensureSystemConfigHasNsfw(this.systemConfig) as any;
       }
-      this.bodyPartDevelopment = saveData.身体部位开发 ? JSON.parse(JSON.stringify(saveData.身体部位开发)) : null;
+      this.bodyPartDevelopment = bodyPartDevelopment ? deepCopy(bodyPartDevelopment) : null;
+
+      // 兜底：旧存档可能没有模块对象
+      if (!this.skillState) {
+        this.skillState = {
+          掌握技能: this.masteredSkills ?? [],
+          装备栏: [],
+          冷却: {},
+        } as any;
+      }
+
+      if (!this.cultivation) {
+        this.cultivation = { 修炼功法: this.cultivationTechnique ?? null } as any;
+      }
 
       this.isGameLoaded = true;
     },
@@ -231,73 +331,130 @@ export const useGameStateStore = defineStore('gameState', {
      * @returns 完整的存档数据
      */
     toSaveData(): SaveData | null {
-      if (!this.character || !this.playerStatus || !this.inventory || !this.relationships || !this.memory || !this.gameTime || !this.equipment) {
+      if (!this.character || !this.attributes || !this.location || !this.inventory || !this.relationships || !this.memory || !this.gameTime || !this.equipment) {
         return null;
       }
 
-      // 🔥 构建临时SaveData用于计算后天六司
-      const tempSaveData: SaveData = {
-        角色基础信息: this.character,
-        玩家角色状态: this.playerStatus,
-        背包: this.inventory,
-        装备栏: this.equipment,
-        人物关系: this.relationships,
-        记忆: this.memory,
-        游戏时间: this.gameTime,
-        世界信息: this.worldInfo || undefined,
-        三千大道: this.thousandDao || { 大道列表: {} },
-        任务系统: this.questSystem || {
-          配置: {
-            启用系统任务: false,
-            系统任务类型: '修仙辅助系统',
-            系统任务提示词: '',
-            自动刷新: false,
-            默认任务数量: 3
-          },
-          当前任务列表: [],
-          任务统计: {
-            完成总数: 0,
-            各类型完成: {} as Record<QuestType, number>
-          }
-        },
-        修炼功法: this.cultivationTechnique || null,
-        掌握技能: this.masteredSkills || [],
-        系统: this.systemConfig || undefined,
-        叙事历史: this.narrativeHistory || [],
-        身体部位开发: this.bodyPartDevelopment || undefined
+      const deepCopy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+      const techniqueProgress = buildTechniqueProgress(this.inventory);
+      const currentTechniqueId = (this.cultivationTechnique as any)?.物品ID ?? null;
+
+      const techniqueSystem = {
+        ...(this.techniqueSystem || {}),
+        当前功法ID: (this.techniqueSystem as any)?.当前功法ID ?? currentTechniqueId,
+        功法进度: (this.techniqueSystem as any)?.功法进度 ?? techniqueProgress,
+        功法套装: (this.techniqueSystem as any)?.功法套装 ?? { 主修: null, 辅修: [] },
+      } as any;
+
+      const skillState = {
+        ...(this.skillState || {}),
+        掌握技能: (this.skillState as any)?.掌握技能 ?? this.masteredSkills ?? [],
+        装备栏: (this.skillState as any)?.装备栏 ?? [],
+        冷却: (this.skillState as any)?.冷却 ?? {},
+      } as any;
+
+      const cultivation = {
+        ...(this.cultivation || {}),
+        修炼功法: (this.cultivation as any)?.修炼功法 ?? this.cultivationTechnique ?? null,
+      } as any;
+
+      const nowIso = new Date().toISOString();
+      const meta = {
+        ...(this.saveMeta || {}),
+        版本号: 3,
+        存档ID: (this.saveMeta as any)?.存档ID ?? `save_${Date.now()}`,
+        存档名: (this.saveMeta as any)?.存档名 ?? '自动存档',
+        游戏版本: (this.saveMeta as any)?.游戏版本,
+        创建时间: (this.saveMeta as any)?.创建时间 ?? nowIso,
+        更新时间: nowIso,
+        游戏时长秒: Number((this.saveMeta as any)?.游戏时长秒 ?? 0),
+        时间: this.gameTime,
       };
 
-      // 🔥 计算实际的后天六司（装备+天赋+功法加成）
-      try {
-        const calculatedAttrs = calculateFinalAttributes(this.character.先天六司, tempSaveData);
+      const daoNormalized =
+        this.thousandDao && typeof this.thousandDao === 'object' && (this.thousandDao as any).大道列表
+          ? this.thousandDao
+          : { 大道列表: {} };
 
-        // 🔥 更新角色基础信息中的后天六司为计算后的值
-        const updatedCharacter = {
-          ...this.character,
-          后天六司: calculatedAttrs.后天六司
+      const sectNormalized =
+        this.sectSystem || this.sectMemberInfo
+          ? { ...(this.sectSystem || {}), ...(this.sectMemberInfo ? { 成员信息: this.sectMemberInfo } : {}) }
+          : null;
+
+      const settings =
+        this.userSettings ?? {
+          timeBasedSaveEnabled: this.timeBasedSaveEnabled,
+          timeBasedSaveInterval: this.timeBasedSaveInterval,
+          conversationAutoSaveEnabled: this.conversationAutoSaveEnabled,
         };
 
-        console.log('[toSaveData] 计算后的后天六司:', calculatedAttrs.后天六司);
+      const online =
+        this.onlineState ?? { 模式: '单机', 房间ID: null, 玩家ID: null, 只读路径: ['世界'], 世界曝光: false, 冲突策略: '服务器' };
 
-        // 🔥 使用深拷贝确保返回的数据是独立的，防止引用污染
-        return JSON.parse(JSON.stringify({
-          ...tempSaveData,
-          角色基础信息: updatedCharacter
-        }));
+      const v3: any = {
+        元数据: meta,
+        角色: {
+          身份: this.character,
+          属性: this.attributes,
+          位置: this.location,
+          效果: this.effects ?? [],
+          身体: this.bodyPartDevelopment ? { 部位开发: this.bodyPartDevelopment } : undefined,
+          背包: this.inventory,
+          装备: this.equipment,
+          功法: techniqueSystem,
+          修炼: cultivation,
+          大道: daoNormalized,
+          技能: skillState,
+        },
+        社交: {
+          关系: this.relationships ?? {},
+          宗门: sectNormalized,
+          任务: this.questSystem,
+          记忆: this.memory,
+        },
+        世界: { 信息: this.worldInfo ?? {}, 状态: {} },
+        系统: {
+          配置: this.systemConfig ?? {},
+          设置: settings,
+          缓存: { 掌握技能: this.masteredSkills ?? (skillState as any)?.掌握技能 ?? [] },
+          历史: { 叙事: this.narrativeHistory || [] },
+          扩展: {},
+          联机: online,
+        },
+      };
+
+      // 动态计算后天六司（装备/天赋加成）
+      try {
+        const calculatedAttrs = calculateFinalAttributes((this.character as any).先天六司, v3 as any);
+
+        const updatedCharacter = {
+          ...this.character,
+          后天六司: calculatedAttrs.后天六司,
+        };
+
+        console.log('[toSaveData] 后天六司(动态计算):', calculatedAttrs.后天六司);
+
+        return deepCopy({ ...v3, 角色: { ...v3.角色, 身份: updatedCharacter } } as any);
       } catch (error) {
-        console.error('[toSaveData] 计算后天六司失败:', error);
-        // 如果计算失败，返回原始数据
-        return JSON.parse(JSON.stringify(tempSaveData));
+        console.error('[toSaveData] 动态计算后天六司失败，回退为原始数据:', error);
+        return deepCopy(v3 as any);
       }
     },
 
     /**
-     * 更新玩家状态
-     * @param updates 部分 PlayerStatus 对象
+     * 更新玩家属性（动态数值）
+     * @param updates 部分属性对象
      */
-    updatePlayerStatus(updates: Partial<PlayerStatus>) {
-      if (this.playerStatus) {
-        this.playerStatus = { ...this.playerStatus, ...updates };
+    updatePlayerStatus(updates: Partial<PlayerAttributes>) {
+      if (this.attributes) {
+        this.attributes = { ...this.attributes, ...(updates as any) };
+      }
+    },
+
+    updateLocation(updates: Partial<PlayerLocation>) {
+      if (this.location) {
+        this.location = { ...this.location, ...(updates as any) };
       }
     },
 
@@ -365,12 +522,18 @@ export const useGameStateStore = defineStore('gameState', {
      * 重置游戏状态
      */
     resetState() {
+      this.saveMeta = null;
+      this.onlineState = null;
+      this.userSettings = null;
       this.character = null;
-      this.playerStatus = null;
+      this.attributes = null;
+      this.location = null;
       this.inventory = null;
       this.equipment = null;
       this.relationships = null;
       this.worldInfo = null;
+      this.sectSystem = null;
+      this.sectMemberInfo = null;
       this.memory = null;
       this.gameTime = null;
       this.narrativeHistory = [];
@@ -393,6 +556,10 @@ export const useGameStateStore = defineStore('gameState', {
         }
       };
       this.cultivationTechnique = null;
+      this.cultivation = null;
+      this.techniqueSystem = null;
+      this.skillState = null;
+      this.effects = [];
       this.masteredSkills = null;
       this.systemConfig = null;
       this.bodyPartDevelopment = null;

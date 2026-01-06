@@ -9,11 +9,11 @@
     </div>
 
     <div v-if="isDataLoaded && characterInfo" class="sidebar-content">
-      <!-- 修行状态 -->
+      <!-- 核心数值 -->
       <div class="vitals-section">
         <h3 class="section-title">
           <Heart :size="14" class="section-icon" />
-          <span>{{ t('修行状态') }}</span>
+          <span>{{ t('核心数值') }}</span>
         </h3>
         <div class="vitals-list">
           <div class="vital-item">
@@ -214,9 +214,9 @@ const isDataLoaded = computed(() => gameStateStore.isGameLoaded && !!gameStateSt
 
 // 直接使用中文字段访问数据
 const characterInfo = computed(() => gameStateStore.character);
-const playerStatus = computed(() => gameStateStore.playerStatus);
+const playerStatus = computed(() => gameStateStore.attributes);
 const statusEffects = computed(() => {
-  const effects = gameStateStore.playerStatus?.状态效果 || [];
+  const effects = gameStateStore.effects || [];
   // 🔥 过滤掉无效的状态效果（undefined、null或缺少状态名称）
   return effects.filter((effect): effect is StatusEffect =>
     effect != null && typeof effect === 'object' && '状态名称' in effect
@@ -233,7 +233,7 @@ const currentAge = computed(() => {
   }
 
   // 兜底：返回寿命当前值
-  return gameStateStore.playerStatus?.寿命?.当前 || 0;
+  return gameStateStore.attributes?.寿命?.当前 || 0;
 });
 
 // 收缩状态
@@ -265,30 +265,30 @@ const formatTimeDisplay = (time: string | undefined): string => {
 
 // 计算百分比的工具方法
 const realmProgressPercent = computed(() => {
-  if (!gameStateStore.playerStatus?.境界) return 0;
-  const progress = gameStateStore.playerStatus.境界.当前进度;
-  const maxProgress = gameStateStore.playerStatus.境界.下一级所需;
+  if (!gameStateStore.attributes?.境界) return 0;
+  const progress = gameStateStore.attributes.境界.当前进度;
+  const maxProgress = gameStateStore.attributes.境界.下一级所需;
   return progress && maxProgress ? Math.round((progress / maxProgress) * 100) : 0;
 });
 
 // 计算生命体征百分比
 const getVitalPercent = (type: '气血' | '灵气' | '神识') => {
-  if (!gameStateStore.playerStatus) return 0;
-  const vital = gameStateStore.playerStatus[type];
+  if (!gameStateStore.attributes) return 0;
+  const vital = (gameStateStore.attributes as any)[type];
   if (!vital?.当前 || !vital?.上限) return 0;
   return Math.round((vital.当前 / vital.上限) * 100);
 };
 
 // 计算寿命百分比（使用计算后的年龄）
 const getLifespanPercent = () => {
-  const maxLifespan = gameStateStore.playerStatus?.寿命?.上限;
+  const maxLifespan = gameStateStore.attributes?.寿命?.上限;
   if (!maxLifespan) return 0;
   return Math.round((currentAge.value / maxLifespan) * 100);
 };
 
 // 获取天赋数据
 const getTalentData = (talent: string): any => {
-  // 从角色基础信息的天赋列表中查找
+  // 从角色身份信息（V3：gameStateStore.character）的天赋列表中查找
   const baseInfoValue = gameStateStore.character;
   if (baseInfoValue?.天赋 && Array.isArray(baseInfoValue.天赋)) {
     const talentDetail = baseInfoValue.天赋.find((t: any) => t.名称 === talent);
@@ -316,7 +316,7 @@ const showTalentDetail = (talent: string) => {
   const talentInfo = customTalent ? {
     description: customTalent.description || '自定义天赋'
   } : localTalent ? {
-    description: localTalent.description
+    description: localTalent.description || ''
   } : {
     description: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。`
   };

@@ -13,6 +13,7 @@
 
 import type { NpcProfile, SaveData } from '@/types/game';
 import type { TavernHelper } from '@/types';
+import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 
 export function deepCleanForClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
@@ -30,25 +31,26 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
     return saveData;
   }
 
-  // 确保基本字段存在
-  if (!saveData.背包) {
-    saveData.背包 = {
+  const anySave = saveData as any;
+  if (!anySave.角色 || typeof anySave.角色 !== 'object') anySave.角色 = {};
+  if (!anySave.角色.背包 || typeof anySave.角色.背包 !== 'object') {
+    anySave.角色.背包 = {
       灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
       物品: {}
     };
   }
 
-  if (!saveData.背包.物品) {
-    saveData.背包.物品 = {};
+  if (!anySave.角色.背包.物品 || typeof anySave.角色.背包.物品 !== 'object') {
+    anySave.角色.背包.物品 = {};
   }
 
-  if (!saveData.背包.灵石) {
-    saveData.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
+  if (!anySave.角色.背包.灵石 || typeof anySave.角色.背包.灵石 !== 'object') {
+    anySave.角色.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
   }
 
   // 清理无效的物品数据
-  if (saveData.背包?.物品) {
-    const items = saveData.背包.物品;
+  if (anySave.角色?.背包?.物品) {
+    const items = anySave.角色.背包.物品 as Record<string, any>;
     Object.keys(items).forEach(key => {
       const item = items[key];
       // 移除无效的物品（例如null、undefined或缺少必要字段）
@@ -215,49 +217,23 @@ export function validateGameData(
   profile?: any,
   context?: string
 ): { isValid: boolean; errors: string[] } {
-  const errors: string[] = [];
+  if (!saveData) return { isValid: false, errors: ['存档数据为空'] };
 
-  // 1. 基础数据验证
-  if (!saveData) {
-    errors.push('存档数据为空');
-    return { isValid: false, errors };
+  const result = validateSaveDataV3(saveData);
+  const errors: string[] = [...result.errors];
+
+  if (profile?.角色) {
+    const baseInfo = profile.角色;
+    if (!baseInfo.名字 || typeof baseInfo.名字 !== 'string') errors.push('角色姓名无效');
+    if (!baseInfo.性别) errors.push('角色性别缺失');
   }
 
-  // 2. 验证必要字段
-  if (!saveData.背包) {
-    errors.push('背包数据缺失');
-  } else {
-    if (!saveData.背包.灵石) {
-      errors.push('灵石数据缺失');
-    }
-    if (!saveData.背包.物品) {
-      errors.push('物品数据缺失');
-    }
-  }
-
-  // 3. 验证角色基础信息（如果提供了profile）
-  if (profile?.角色基础信息) {
-    const baseInfo = profile.角色基础信息;
-    if (!baseInfo.名字 || typeof baseInfo.名字 !== 'string') {
-      errors.push('角色姓名无效');
-    }
-    if (!baseInfo.性别) {
-      errors.push('角色性别缺失');
-    }
-  }
-
-  // 4. 在创建上下文中进行额外验证
   if (context === 'creation') {
-    if (!saveData.玩家角色状态?.位置) {
-      errors.push('当前位置信息缺失');
-    }
-    if (!saveData.玩家角色状态?.境界) {
-      errors.push('境界信息缺失');
-    }
+    const loc = (saveData as any)?.角色?.位置;
+    if (!loc || typeof loc !== 'object') errors.push('角色.位置 缺失');
+    const realm = (saveData as any)?.角色?.属性?.境界;
+    if (!realm || typeof realm !== 'object') errors.push('角色.属性.境界 缺失');
   }
 
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
+  return { isValid: errors.length === 0, errors };
 }

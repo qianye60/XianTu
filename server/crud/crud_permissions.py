@@ -72,7 +72,7 @@ def create_or_update_user_permissions(user_id: int, perms: schema.PermissionCrea
                 message = "天官权柄已册封"
             
             conn.commit()
-            return {"user_id": user_id, **perms.dict()}, message
+            return {"user_id": user_id, **perms.model_dump()}, message
     except pymysql.MySQLError as e:
         conn.rollback()
         return None, f"册封/变更权柄失败: {e}"

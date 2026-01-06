@@ -14,15 +14,16 @@ export function calculateMasteredSkills(saveData: SaveData): MasteredSkill[] {
   const masteredSkills: MasteredSkill[] = [];
 
   // 检查背包物品是否存在
-  if (!saveData?.背包?.物品) {
+  const itemsMap = (saveData as any)?.角色?.背包?.物品;
+  if (!itemsMap) {
     debug.warn('掌握技能计算', '背包物品不存在，返回空数组');
     return masteredSkills;
   }
 
   // 遍历背包中的所有物品
-  for (const [itemId, item] of Object.entries(saveData.背包.物品)) {
+  for (const [itemId, item] of Object.entries(itemsMap as Record<string, any>)) {
     // 只处理功法类型的物品
-    if (item.类型 !== '功法') {
+    if ((item as any)?.类型 !== '功法') {
       continue;
     }
 
@@ -100,10 +101,10 @@ export function updateMasteredSkills(saveData: SaveData): MasteredSkill[] {
 
   // 🔥 保留现有技能的熟练度和使用次数
   // 如果技能之前就已经掌握，保留其熟练度和使用次数
-  const existingSkills = saveData.掌握技能 || [];
+  const existingSkills = (((saveData as any).系统?.缓存?.掌握技能) || []) as MasteredSkill[];
 
   for (const newSkill of calculatedSkills) {
-    const existingSkill = existingSkills.find(s =>
+    const existingSkill = existingSkills.find((s: MasteredSkill) =>
       s.技能名称 === newSkill.技能名称 && s.来源 === newSkill.来源
     );
 
@@ -115,7 +116,9 @@ export function updateMasteredSkills(saveData: SaveData): MasteredSkill[] {
   }
 
   // 更新存档数据
-  saveData.掌握技能 = calculatedSkills;
+  if (!(saveData as any).系统) (saveData as any).系统 = {};
+  if (!(saveData as any).系统.缓存) (saveData as any).系统.缓存 = {};
+  (saveData as any).系统.缓存.掌握技能 = calculatedSkills;
 
   debug.log('掌握技能计算', '已更新存档数据中的掌握技能数组');
   return calculatedSkills;

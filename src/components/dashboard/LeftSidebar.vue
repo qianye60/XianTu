@@ -12,59 +12,104 @@
     </div>
 
     <div class="sidebar-content">
-      <!-- 主要功能区 -->
+      <!-- 角色信息区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('修行管理') }}</div>
+        <div class="section-title">{{ t('角色信息') }}</div>
         <div class="function-group">
+          <button class="function-btn primary" @click="handleCharacterDetails">
+            <div class="btn-icon">
+              <User :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('人物属性') }}</span>
+              <span class="btn-desc">{{ t('修为境界状态') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
           <button class="function-btn primary" @click="handleInventory">
             <div class="btn-icon">
               <Package :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('背包物品') }}</span>
-              <span class="btn-desc">{{ t('查看道具装备') }}</span>
-            </div>
-            <ChevronRight :size="14" class="btn-arrow" />
-          </button>
-
-          <button class="function-btn primary" @click="handleCharacterDetails">
-            <div class="btn-icon">
-              <User :size="18" />
-            </div>
-            <div class="btn-content">
-              <span class="btn-text">{{ t('人物详情') }}</span>
-              <span class="btn-desc">{{ t('查看修为境界') }}</span>
-            </div>
-            <ChevronRight :size="14" class="btn-arrow" />
-          </button>
-
-          <button class="function-btn primary" @click="handleTechniques">
-            <div class="btn-icon">
-              <BookOpen :size="18" />
-            </div>
-            <div class="btn-content">
-              <span class="btn-text">{{ t('修炼功法') }}</span>
-              <span class="btn-desc">{{ t('功法修炼技能') }}</span>
-            </div>
-            <ChevronRight :size="14" class="btn-arrow" />
-          </button>
-
-          <button class="function-btn primary" @click="handleThousandDao">
-            <div class="btn-icon">
-              <Zap :size="18" />
-            </div>
-            <div class="btn-content">
-              <span class="btn-text">{{ t('三千大道') }}</span>
-              <span class="btn-desc">{{ t('修炼万法道途') }}</span>
+              <span class="btn-desc">{{ t('管理道具装备') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
         </div>
       </div>
 
-      <!-- 社交功能区 -->
+      <!-- 修炼系统区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('红尘俗事') }}</div>
+        <div class="section-title">{{ t('修炼系统') }}</div>
+        <div class="function-group">
+          <button class="function-btn cultivation" @click="handleTechniques">
+            <div class="btn-icon">
+              <BookOpen :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('功法技能') }}</span>
+              <span class="btn-desc">{{ t('修炼突破晋级') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn cultivation" @click="handleThousandDao">
+            <div class="btn-icon">
+              <Zap :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('大道感悟') }}</span>
+              <span class="btn-desc">{{ t('领悟天地法则') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+        </div>
+      </div>
+
+      <!-- 任务与探索区 -->
+      <div class="function-section">
+        <div class="section-title">{{ t('任务探索') }}</div>
+        <div class="function-group">
+          <button class="function-btn quest" @click="handleQuests">
+            <div class="btn-icon">
+              <Scroll :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('任务') }}</span>
+              <span class="btn-desc">{{ t('接取完成任务') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleWorldMap">
+            <div class="btn-icon">
+              <Map :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('世界地图') }}</span>
+              <span class="btn-desc">{{ t('探索天下各地') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" v-if="isOnlineMode" @click="handleOnlinePlay">
+            <div class="btn-icon">
+              <Globe :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('穿越') }}</span>
+              <span class="btn-desc">{{ t('进入他人世界') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+        </div>
+      </div>
+
+      <!-- 社交势力区 -->
+      <div class="function-section">
+        <div class="section-title">{{ t('社交势力') }}</div>
         <div class="function-group">
           <button class="function-btn secondary" @click="handleRelationships">
             <div class="btn-icon">
@@ -72,7 +117,7 @@
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('人物关系') }}</span>
-              <span class="btn-desc">{{ t('人情世故网络') }}</span>
+              <span class="btn-desc">{{ t('人脉交际管理') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -82,61 +127,19 @@
               <Home :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('宗门信息') }}</span>
-              <span class="btn-desc">{{ t('门派势力详情') }}</span>
+              <span class="btn-text">{{ t('宗门') }}</span>
+              <span class="btn-desc">{{ t('门派事务管理') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
-          <button
-            class="function-btn secondary"
-            @click="handleQuests"
-          >
-            <div class="btn-icon">
-              <Scroll :size="18" />
-            </div>
-            <div class="btn-content">
-              <span class="btn-text">{{ t('任务日志') }}</span>
-              <span class="btn-desc">{{ t('当前任务进度') }}</span>
-            </div>
-            <ChevronRight :size="14" class="btn-arrow" />
-          </button>
-        </div>
-      </div>
-
-      <!-- 探索功能区 -->
-      <div class="function-section">
-        <div class="section-title">{{ t('世界探索') }}</div>
-        <div class="function-group">
-          <button class="function-btn accent" @click="handleWorldMap">
-            <div class="btn-icon">
-              <Map :size="18" />
-            </div>
-            <div class="btn-content">
-              <span class="btn-text">{{ t('世界地图') }}</span>
-              <span class="btn-desc">{{ t('坤舆图志') }}</span>
-            </div>
-            <ChevronRight :size="14" class="btn-arrow" />
-          </button>
-
-          <button class="function-btn accent" @click="handleMemoryCenter">
+          <button class="function-btn secondary" @click="handleMemoryCenter">
             <div class="btn-icon">
               <Brain :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('记忆中心') }}</span>
+              <span class="btn-text">{{ t('记忆') }}</span>
               <span class="btn-desc">{{ t('重要事件回顾') }}</span>
-            </div>
-            <ChevronRight :size="14" class="btn-arrow" />
-          </button>
-
-          <button class="function-btn accent" v-if="isOnlineMode" @click="handleOnlinePlay">
-            <div class="btn-icon">
-              <Globe :size="18" />
-            </div>
-            <div class="btn-content">
-              <span class="btn-text">{{ t('论道交友') }}</span>
-              <span class="btn-desc">{{ t('与道友论道') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -292,8 +295,7 @@ const handleWorldMap = () => {
 };
 
 const handleOnlinePlay = () => {
-  // 这个功能保持原样，因为不是真正的面板
-  toast.info(t('联机功能开发中...'));
+  router.push('/game/travel');
 };
 
 const handlePrompts = () => {
@@ -592,13 +594,26 @@ const exitToMenu = async () => {
   border-color: rgba(16, 185, 129, 0.3);
 }
 
-.function-btn.accent .btn-icon {
+/* 修炼系统 - 金色 */
+.function-btn.cultivation .btn-icon {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: rgb(245, 158, 11);
+}
+
+.function-btn.cultivation:hover .btn-icon {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* 任务探索 - 紫色 */
+.function-btn.quest .btn-icon {
   background: rgba(139, 92, 246, 0.1);
   border: 1px solid rgba(139, 92, 246, 0.2);
   color: rgb(139, 92, 246);
 }
 
-.function-btn.accent:hover .btn-icon {
+.function-btn.quest:hover .btn-icon {
   background: rgba(139, 92, 246, 0.15);
   border-color: rgba(139, 92, 246, 0.3);
 }

@@ -326,21 +326,24 @@
                 <label class="setting-name">{{ t('模型名称') }}</label>
                 <span class="setting-desc">{{ t('使用的AI模型') }}</span>
               </div>
-              <div class="setting-control">
-                <select v-model="aiConfig.customAPI.model" class="setting-select">
-                  <option v-for="model in availableModels" :key="model" :value="model">
-                    {{ model }}
-                  </option>
-                </select>
-                <button
-                  class="utility-btn"
-                  @click="fetchModels"
-                  :disabled="isFetchingModels"
-                  style="margin-left: 0.5rem"
-                >
-                  <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
-                  {{ isFetchingModels ? t('获取中...') : t('获取') }}
-                </button>
+              <div class="setting-control model-control">
+                <input
+                  v-model="modelSearchQuery"
+                  type="search"
+                  class="form-input-inline model-search"
+                  :placeholder="t('搜索模型...')"
+                />
+                <div class="model-select-row">
+                  <select v-model="aiConfig.customAPI.model" class="setting-select">
+                    <option v-for="model in filteredModels" :key="model" :value="model">
+                      {{ model }}
+                    </option>
+                  </select>
+                  <button class="utility-btn" @click="fetchModels" :disabled="isFetchingModels">
+                    <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
+                    {{ isFetchingModels ? t('获取中...') : t('获取') }}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -418,7 +421,7 @@
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('分步生成') }}</label>
-              <span class="setting-desc">{{ t('一次生成分两步：第1步（可流式）先出正文；第2步（非流式）再出记忆/指令/行动选项（会多一次API调用；thinking会自动隐藏）') }}</span>
+              <span class="setting-desc">{{ t('一次生成分两步：第1步（可流式）只出正文；第2步（非流式）只出记忆/指令/行动选项（会多一次API调用；不需要thinking）') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -437,6 +440,34 @@
               <select v-model="aiConfig.memorySummaryMode" class="setting-select">
                 <option value="raw">{{ t('Raw模式（推荐）') }}</option>
                 <option value="standard">{{ t('标准模式') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('向量记忆检索') }}</label>
+              <span class="setting-desc">{{ t('启用后长期记忆将按相关性检索，而非全量发送（减少token消耗）') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="vectorMemoryEnabled" @change="onVectorMemoryChange" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="vectorMemoryEnabled">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('检索数量') }}</label>
+              <span class="setting-desc">{{ t('每次最多检索的相关记忆条数') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model.number="vectorMemoryMaxCount" @change="onVectorMemoryChange" class="setting-select">
+                <option :value="5">5条</option>
+                <option :value="10">10条（推荐）</option>
+                <option :value="15">15条</option>
+                <option :value="20">20条</option>
               </select>
             </div>
           </div>
@@ -603,6 +634,7 @@ import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
 import { aiService } from '@/services/aiService';
+import { vectorMemoryService } from '@/services/vectorMemoryService';
 import TextReplaceRulesModal from '@/components/common/TextReplaceRulesModal.vue';
 import type { TextReplaceRule } from '@/types/textRules';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -647,6 +679,32 @@ const streamingEnabled = computed({
   }
 });
 
+// 向量记忆配置
+const vectorMemoryEnabled = ref(false);
+const vectorMemoryMaxCount = ref(10);
+
+// 加载向量记忆配置
+const loadVectorMemoryConfig = () => {
+  const config = vectorMemoryService.getConfig();
+  vectorMemoryEnabled.value = config.enabled;
+  vectorMemoryMaxCount.value = config.maxRetrieveCount;
+};
+
+// 保存向量记忆配置
+const onVectorMemoryChange = () => {
+  vectorMemoryService.saveConfig({
+    enabled: vectorMemoryEnabled.value,
+    maxRetrieveCount: vectorMemoryMaxCount.value
+  });
+  hasUnsavedChanges.value = true;
+
+  if (vectorMemoryEnabled.value) {
+    toast.success(`向量记忆检索已启用，每次最多检索 ${vectorMemoryMaxCount.value} 条`);
+  } else {
+    toast.info('向量记忆检索已禁用，将使用全量发送模式');
+  }
+};
+
 // API提供商切换处理
 const onProviderChange = () => {
   const preset = API_PROVIDER_PRESETS[aiConfig.customAPI.provider];
@@ -662,6 +720,13 @@ const onProviderChange = () => {
 // 可用模型列表
 const availableModels = ref<string[]>(['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']);
 const isFetchingModels = ref(false);
+const modelSearchQuery = ref('');
+
+const filteredModels = computed(() => {
+  const query = modelSearchQuery.value.trim().toLowerCase();
+  if (!query) return availableModels.value;
+  return availableModels.value.filter((m) => String(m).toLowerCase().includes(query));
+});
 
 // 道号修改相关
 const newPlayerName = ref('');
@@ -676,7 +741,7 @@ const updatePlayerName = async () => {
   }
 
   try {
-    // 更新 gameStateStore 中的角色基础信息
+    // 更新 gameStateStore 中的角色身份信息（V3：gameStateStore.character）
     if (gameStateStore.character) {
       (gameStateStore.character as any).名字 = newPlayerName.value;
     }
@@ -847,8 +912,39 @@ const enabledReplaceRulesCount = computed(() => {
   return rules.filter(r => r && r.enabled).length;
 });
 
+const normalizeReplaceRules = (rawRules: unknown): TextReplaceRule[] => {
+  if (!Array.isArray(rawRules)) return [];
+  return rawRules.slice(0, 50).map((r: any, idx: number) => ({
+    id: typeof r?.id === 'string' ? r.id.slice(0, 80) : `rule_${idx}`,
+    enabled: r?.enabled !== false,
+    mode: r?.mode === 'text' ? 'text' : 'regex',
+    pattern: typeof r?.pattern === 'string' ? r.pattern.slice(0, 500) : '',
+    replacement: typeof r?.replacement === 'string' ? r.replacement.slice(0, 1500) : '',
+    ignoreCase: !!r?.ignoreCase,
+    global: r?.global !== false,
+    multiline: !!r?.multiline,
+    dotAll: !!r?.dotAll,
+  }));
+};
+
+const persistReplaceRules = (rules: TextReplaceRule[]) => {
+  try {
+    const raw = localStorage.getItem('dad_game_settings');
+    const parsed = raw ? JSON.parse(raw) : {};
+    const base =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed
+        : {};
+    const next = { ...base, replaceRules: rules };
+    localStorage.setItem('dad_game_settings', JSON.stringify(next));
+  } catch {
+  }
+};
+
 const handleSaveReplaceRules = (rules: TextReplaceRule[]) => {
-  (settings as any).replaceRules = rules;
+  const normalizedRules = normalizeReplaceRules(rules);
+  (settings as any).replaceRules = normalizedRules;
+  persistReplaceRules(normalizedRules);
   onSettingChange();
 };
 
@@ -1017,21 +1113,7 @@ const validateSettings = () => {
 
     // 正则替换规则：确保结构正确并限制大小，避免卡顿/存储膨胀
     const rawReplaceRules = (settings as any).replaceRules;
-    if (!Array.isArray(rawReplaceRules)) {
-      (settings as any).replaceRules = [];
-    } else {
-      (settings as any).replaceRules = rawReplaceRules.slice(0, 50).map((r: any, idx: number) => ({
-        id: typeof r?.id === 'string' ? r.id.slice(0, 80) : `rule_${idx}`,
-        enabled: r?.enabled !== false,
-        mode: r?.mode === 'text' ? 'text' : 'regex',
-        pattern: typeof r?.pattern === 'string' ? r.pattern.slice(0, 500) : '',
-        replacement: typeof r?.replacement === 'string' ? r.replacement.slice(0, 1500) : '',
-        ignoreCase: !!r?.ignoreCase,
-        global: r?.global !== false,
-        multiline: !!r?.multiline,
-        dotAll: !!r?.dotAll,
-      }));
-    }
+    (settings as any).replaceRules = normalizeReplaceRules(rawReplaceRules);
 
     debug.log('设置面板', '设置验证完成');
   } catch (error) {
@@ -1263,6 +1345,7 @@ const router = useRouter();
 onMounted(() => {
   debug.log('设置面板', '组件已加载');
   loadSettings();
+  loadVectorMemoryConfig();
 
   // 初始加载时不再强制应用设置，以避免覆盖全局主题
   // applySettings(); // 移除此调用
@@ -1450,6 +1533,22 @@ onMounted(() => {
 .setting-control {
   display: flex;
   align-items: center;
+}
+
+.model-control {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.model-select-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.model-search {
+  width: 100%;
 }
 
 /* 控件样式 */
@@ -1646,6 +1745,22 @@ input:checked + .switch-slider:before {
   .setting-control {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .model-control {
+    justify-content: flex-start;
+  }
+
+  .model-select-row {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .model-select-row .setting-select,
+  .model-select-row .utility-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .range-container {

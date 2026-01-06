@@ -29,9 +29,9 @@
           <div class="format-sections">
             <!-- 角色信息 -->
             <section id="character" class="format-section">
-              <h4 class="section-title">1. 角色信息</h4>
+              <h4 class="section-title">1. 角色与状态</h4>
               <div class="section-content">
-                <h5>1.1 角色基础信息（只读）</h5>
+                <h5>1.1 角色（基础档案）</h5>
                 <pre class="code-block">名字: string (只读)
 性别: "男"|"女"|"其他" (只读)
 年龄: number (自动计算)
@@ -39,7 +39,7 @@
 先天六司: {根骨, 灵性, 悟性, 气运, 魅力, 心性} (只读，1-10)
 后天六司: {根骨, 灵性, 悟性, 气运, 魅力, 心性} (可修改，用add)</pre>
 
-                <h5>1.2 玩家角色状态（可修改）</h5>
+                <h5>1.2 属性（可修改）</h5>
                 <pre class="code-block">境界: {名称, 阶段, 当前进度, 下一级所需, 突破描述}
   → 用set更新整个对象
   → 突破时必须更新突破描述
@@ -47,10 +47,16 @@
 气血/灵气/神识: {当前, 上限}
   → 当前用add，上限突破时用add
 
-位置: {描述:"大陆·地点", x, y}
-  → 用set更新整个对象，三个字段必须同时设置
+寿命: {当前, 上限}
+  → 当前用add/或在时间推进时由系统更新，上限突破时用add
 
-状态效果: [{状态名称, 类型, 生成时间, 持续时间分钟, 状态描述}]
+声望: number
+  → 用add增减或set覆盖
+
+位置: {描述:"大陆·地点", x, y}
+  → 顶级字段 key="位置"，用set更新整个对象，三个字段必须同时设置
+
+效果: [{状态名称, 类型, 生成时间, 持续时间分钟, 状态描述}]
   → 只能用push添加
   → 类型必须是"buff"或"debuff"（全小写）
   → 生成时间使用当前游戏时间
@@ -61,7 +67,7 @@
                   <pre class="code-block">// 添加增益状态
 {
   "action": "push",
-  "key": "玩家角色状态.状态效果",
+  "key": "效果",
   "value": {
     "状态名称": "灵气充盈",
     "类型": "buff",
@@ -76,7 +82,7 @@
 
             <!-- 三千大道 -->
             <section id="dao" class="format-section">
-              <h4 class="section-title">2. 三千大道</h4>
+              <h4 class="section-title">2. 大道</h4>
               <div class="section-content">
                 <pre class="code-block">大道列表: {道名: DaoData对象}
   - 道名: string
@@ -92,7 +98,7 @@
                   <pre class="code-block">// 解锁并初始化大道
 {
   "action": "set",
-  "key": "三千大道.大道列表.剑道",
+  "key": "大道.大道列表.剑道",
   "value": {
     "道名": "剑道",
     "描述": "以剑入道，剑气纵横",
@@ -110,7 +116,7 @@
 // 增加经验
 {
   "action": "add",
-  "key": "三千大道.大道列表.剑道.当前经验",
+  "key": "大道.大道列表.剑道.当前经验",
   "value": 50
 }</pre>
                 </div>
@@ -128,16 +134,16 @@
 物品类型:
   - 装备: {物品ID, 名称, 类型:"装备", 品质, 数量, 描述, 装备增幅, 特殊效果}
   - 功法: {物品ID, 名称, 类型:"功法", 品质, 数量, 描述, 功法效果, 功法技能[], 修炼进度, 已解锁技能[]}
-  - 丹药: {物品ID, 名称, 类型:"丹药", 品质, 数量, 描述, 使用效果}
+  - 消耗品/材料: {物品ID, 名称, 类型:"丹药"|"材料"|"其他", 品质, 数量, 描述, 使用效果?}
 
 品质格式: {quality:"凡"|"黄"|"玄"|"地"|"天"|"仙"|"神", grade:0-10}</pre>
 
                 <div class="warning-box">
                   <strong>⚠️ 重要：</strong>
                   <ul>
-                    <li>修炼进度和已解锁技能存储在<strong>背包.物品.{功法ID}</strong>中</li>
-                    <li>❌ 错误：修改"修炼功法"字段</li>
-                    <li>✅ 正确：修改"背包.物品.{功法ID}.修炼进度"</li>
+                    <li>修炼进度和已解锁技能存储在<strong>角色.背包.物品.{功法ID}</strong>中</li>
+                    <li>❌ 错误：修改"角色.修炼.修炼功法"字段（这是引用槽位，不是进度来源）</li>
+                    <li>✅ 正确：修改"角色.背包.物品.{功法ID}.修炼进度"</li>
                   </ul>
                 </div>
 
@@ -146,14 +152,14 @@
                   <pre class="code-block">// 增加功法修炼进度
 {
   "action": "add",
-  "key": "背包.物品.gongfa_001.修炼进度",
+  "key": "角色.背包.物品.gongfa_001.修炼进度",
   "value": 10
 }
 
 // 解锁新技能
 {
   "action": "push",
-  "key": "背包.物品.gongfa_001.已解锁技能",
+  "key": "角色.背包.物品.gongfa_001.已解锁技能",
   "value": "御剑术"
 }</pre>
                 </div>
@@ -162,9 +168,9 @@
 
             <!-- 人物关系 -->
             <section id="relationships" class="format-section">
-              <h4 class="section-title">4. 人物关系</h4>
+              <h4 class="section-title">4. 关系</h4>
               <div class="section-content">
-                <pre class="code-block">人物关系: {NPC名字: NPC档案对象}
+                <pre class="code-block">关系: {NPC名字: NPC档案对象}
   - 名字: string
   - 性别: "男"|"女"|"其他"
   - 境界: {名称, 阶段} (⚠️ NPC境界是简化结构，严禁添加"当前进度"等玩家专属字段)
@@ -187,21 +193,21 @@
                   <pre class="code-block">// 增加好感度
 {
   "action": "add",
-  "key": "人物关系.张三.好感度",
+  "key": "关系.张三.好感度",
   "value": 10
 }
 
 // 添加记忆
 {
   "action": "push",
-  "key": "人物关系.张三.记忆",
+  "key": "关系.张三.记忆",
   "value": "【1000年3月15日】与玩家一起修炼，感觉很愉快"
 }
 
 // 更新关系
 {
   "action": "set",
-  "key": "人物关系.张三.与玩家关系",
+  "key": "关系.张三.与玩家关系",
   "value": "朋友"
 }</pre>
                 </div>
@@ -210,9 +216,9 @@
 
             <!-- 世界信息 -->
             <section id="world" class="format-section">
-              <h4 class="section-title">5. 世界信息</h4>
+              <h4 class="section-title">5. 世界</h4>
               <div class="section-content">
-                <pre class="code-block">世界信息:
+                <pre class="code-block">世界:
   - 势力信息: [{名称, 类型, 等级, 位置, 与玩家关系, 声望值, ...}]
   - 地点信息: [{名称, 类型, 位置, coordinates, ...}]
 
@@ -230,21 +236,21 @@
                   <pre class="code-block">// 修改宗主
 {
   "action": "set",
-  "key": "世界信息.势力信息[0].领导层.宗主",
+  "key": "世界.势力信息[0].领导层.宗主",
   "value": "新宗主名字"
 }
 
 // 增加声望
 {
   "action": "add",
-  "key": "世界信息.势力信息[2].声望值",
+  "key": "世界.势力信息[2].声望值",
   "value": 50
 }
 
 // 添加新地点
 {
   "action": "push",
-  "key": "世界信息.地点信息",
+  "key": "世界.地点信息",
   "value": {
     "名称": "xx秘境",
     "类型": "秘境",
@@ -260,9 +266,9 @@
 
             <!-- 任务系统 -->
             <section id="quest" class="format-section">
-              <h4 class="section-title">6. 任务系统</h4>
+              <h4 class="section-title">6. 任务</h4>
               <div class="section-content">
-                <pre class="code-block">任务系统:
+                <pre class="code-block">任务:
   - 当前任务列表: [任务对象]
   - 任务统计: {完成总数, 各类型完成}
 
@@ -280,7 +286,7 @@
                   <pre class="code-block">// 更新任务进度
 {
   "action": "add",
-  "key": "任务系统.当前任务列表[0].目标列表[0].当前进度",
+  "key": "任务.当前任务列表[0].目标列表[0].当前进度",
   "value": 1
 }</pre>
                 </div>
@@ -318,12 +324,12 @@ const activeSection = ref('character')
 const saveDataStructure = getSaveDataStructureForEnv(isTavernEnv())
 
 const sections = [
-  { id: 'character', title: '角色信息' },
-  { id: 'dao', title: '三千大道' },
+  { id: 'character', title: '角色/状态' },
+  { id: 'dao', title: '大道' },
   { id: 'inventory', title: '背包物品' },
-  { id: 'relationships', title: '人物关系' },
-  { id: 'world', title: '世界信息' },
-  { id: 'quest', title: '任务系统' }
+  { id: 'relationships', title: '关系' },
+  { id: 'world', title: '世界' },
+  { id: 'quest', title: '任务' }
 ]
 
 const scrollToSection = (sectionId: string) => {

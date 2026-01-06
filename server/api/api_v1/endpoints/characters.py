@@ -60,7 +60,7 @@ async def create_character(
     new_char, error_msg = await _create_character_base(
         player_id=current_user.id,
         char_id=character_data.char_id,
-        base_info=character_data.base_info.dict()
+        base_info=character_data.base_info.model_dump()
     )
 
     if not new_char:
@@ -79,7 +79,7 @@ async def create_character_by_admin(
     new_char, error_msg = await _create_character_base(
         player_id=character_data.player_id,
         char_id=character_data.char_id,
-        base_info=character_data.base_info.dict()
+        base_info=character_data.base_info.model_dump()
     )
 
     if not new_char:

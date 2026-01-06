@@ -12,13 +12,9 @@ import type { World, TalentTier, Origin, SpiritRoot, Talent } from './index';
 export type { WorldMapConfig } from './worldMap';
 
 // --- AI 元数据通用接口 ---
-// 说明：为了允许在多处数据结构中嵌入给 AI 的说明/约束提示，
-// 在不破坏原有强类型约束的前提下，为常用结构追加可选的元数据字段。
-export interface AIMetadata {
-  _AI说明?: string;
-  _AI修改规则?: any;
-  _AI重要提醒?: string;
-}
+// 注意：存档落盘结构不允许出现 `_AI说明/_AI修改规则/_AI重要提醒` 等字段；
+// 这些提示仅允许存在于提示词/代码内部，不进入 SaveData。
+export interface AIMetadata {}
 
 // --- 系统与规则（可嵌入提示与限制） ---
 export interface AttributeLimitConfig {
@@ -204,11 +200,14 @@ export interface TechniqueEffects {
   特殊能力?: string[];
 }
 
+/** 物品类型 */
+export type ItemType = '装备' | '功法' | '丹药' | '材料' | '其他';
+
 /** 基础物品接口 */
 export interface BaseItem {
   物品ID: string;
   名称: string;
-  类型: '装备' | '功法' | '其他';
+  类型: ItemType;
   品质: ItemQuality;
   数量: number;
   已装备?: boolean; // true表示装备中/修炼中，false表示未装备
@@ -234,9 +233,9 @@ export interface TechniqueItem extends BaseItem {
   // 注意：新代码应使用 已装备 字段，修炼中 仅为向后兼容
 }
 
-/** 其他/消耗品类型物品 */
+/** 消耗品/材料类型物品（丹药、材料、其他） */
 export interface ConsumableItem extends BaseItem {
-  类型: '其他';
+  类型: '丹药' | '材料' | '其他';
   使用效果?: string;
 }
 
@@ -352,6 +351,26 @@ export interface SectSystemData extends AIMetadata {
   availableSects: SectInfo[]; // 可用的宗门列表
   sectRelationships: Record<string, number>; // 与各宗门的关系值
   sectHistory: string[]; // 宗门历史记录 (修复拼写错误)
+}
+
+/** 宗门系统迁移记录 */
+export interface SectMigrationRecord {
+  来源版本: number;
+  目标版本: number;
+  时间: string;
+  说明?: string;
+}
+
+/** 宗门系统数据 - V2 */
+export interface SectSystemV2 extends AIMetadata {
+  版本: number;
+  当前宗门?: string | null;
+  宗门档案: Record<string, WorldFaction>;
+  宗门成员?: Record<string, string[]>;
+  宗门任务?: Record<string, string[]>;
+  宗门藏经阁?: Record<string, any[]>;
+  宗门贡献商店?: Record<string, any[]>;
+  迁移记录?: SectMigrationRecord;
 }
 
 // --- 三千大道系统 ---
@@ -477,11 +496,17 @@ export interface PlayerStatus extends AIMetadata {
   灵气: ValuePair<number>;
   神识: ValuePair<number>;
   寿命: ValuePair<number>;
-  状态效果: StatusEffect[];
+  状态效果?: StatusEffect[];
   宗门信息?: SectMemberInfo;
   任务系统?: SystemTaskData;
   // 注意: 玩家的NSFW数据存储在 SaveData.身体部位开发 中，不使用 PrivacyProfile
 }
+
+// --- MECE短路径：拆分“属性/位置/效果” ---
+// 属性：动态数值（境界/气血/灵气/神识/寿命/声望等）
+export type PlayerAttributes = Pick<PlayerStatus, '境界' | '声望' | '气血' | '灵气' | '神识' | '寿命'>;
+// 位置：空间信息（从 PlayerStatus.位置 提取）
+export type PlayerLocation = PlayerStatus['位置'];
 
 /** 用于UI组件显示的角色状态信息 */
 export interface CharacterStatusForDisplay {
@@ -653,7 +678,7 @@ export interface Quest {
   任务名称: string;
   任务描述: string;
   任务类型: QuestType;
-  任务状态: '未接取' | '进行中' | '已完成' | '已失败' | '已过期';
+  任务状态?: '未接取' | '进行中' | '已完成' | '已失败' | '已过期';
   目标列表: QuestObjective[];
   奖励: QuestReward;
   失败惩罚?: string;
@@ -819,23 +844,9 @@ export interface GameMessage {
 
 // 保持人物关系为严格的字典，键为NPC名称/ID，值为NpcProfile
 
-  export interface SaveData {
-      玩家角色状态: PlayerStatus;
-      装备栏: Equipment;
-      三千大道: ThousandDaoSystem;
-      背包: Inventory;
-      人物关系: Record<string, NpcProfile>; // 使用平衡的NPC格式
-      任务系统: QuestSystem; // 统一的任务系统
-      记忆: Memory;
-      游戏时间: GameTime;
-      角色基础信息: CharacterBaseInfo; // 必填，包含天赋数据+进度
-      世界信息?: WorldInfo;
-      修炼功法: CultivationTechniqueReference | null; // ✅ 只存引用，可为null表示未修炼
-      掌握技能: MasteredSkill[]; // 技能数据+进度合并
-      系统?: SystemConfig; // 可选：系统规则/提示（嵌入到存储结构中）
-      叙事历史?: GameMessage[]; // 存储对话历史及其状态变更日志
-      身体部位开发?: Record<string, PlayerBodyPart>; // 可选：身体部位开发
-    }
+export interface SaveData {
+  [key: string]: any;
+}
 
 
 // --- 单个存档槽位 ---
@@ -879,7 +890,8 @@ export interface CharacterBaseInfo extends AIMetadata {
 
 export interface CharacterProfile {
   模式: '单机' | '联机';
-  角色基础信息: CharacterBaseInfo;
+  // 角色身份（静态信息，用于列表展示/导出）
+  角色: CharacterBaseInfo;
   // 单机模式下有多个存档槽位
   存档列表?: Record<string, SaveSlot>;
   // 联机模式下只有一个存档

@@ -1,5 +1,6 @@
 import { generateWithRawPrompt } from '@/utils/tavernCore';
 import type { Quest, SaveData, QuestType } from '@/types/game';
+import { parseJsonFromText } from '@/utils/jsonExtract';
 
 const QUEST_GENERATION_PROMPT = `
 # 任务生成系统
@@ -74,7 +75,7 @@ const QUEST_GENERATION_PROMPT = `
 </memory>
 
 <commands>
-push|任务系统.当前任务列表|{"任务ID":"quest_支线_1000_0315_001","任务名称":"任务标题","任务描述":"详细描述","任务类型":"宗门","任务状态":"进行中","目标列表":[{"描述":"击败3只黑风狼","类型":"击杀","目标ID":"monster_黑风狼","需求数量":3,"当前进度":0,"已完成":false}],"奖励":{"修为":100,"灵石":{"下品":50},"物品":[{"物品ID":"item_healing_pill","名称":"疗伤丹","数量":2}]},"发布者":"村长李大山","AI生成":true,"创建时间":"{{当前游戏时间}}"}
+push|社交.任务.当前任务列表|{"任务ID":"quest_支线_1000_0315_001","任务名称":"任务标题","任务描述":"详细描述","任务类型":"宗门","任务状态":"进行中","目标列表":[{"描述":"击败3只黑风狼","类型":"击杀","目标ID":"monster_黑风狼","需求数量":3,"当前进度":0,"已完成":false}],"奖励":{"修为":100,"灵石":{"下品":50},"物品":[{"物品ID":"item_healing_pill","名称":"疗伤丹","数量":2}]},"发布者":"村长李大山","AI生成":true,"创建时间":"{{当前游戏时间}}"}
 </commands>
 
 <options>
@@ -118,8 +119,8 @@ const QUEST_UPDATE_PROMPT = `
 </memory>
 
 <commands>
-set|任务系统.当前任务列表.{{任务ID}}.目标列表.0.当前进度|1
-set|任务系统.当前任务列表.{{任务ID}}.目标列表.0.已完成|false
+set|社交.任务.当前任务列表.{{任务ID}}.目标列表.0.当前进度|1
+set|社交.任务.当前任务列表.{{任务ID}}.目标列表.0.已完成|false
 </commands>
 
 <options>
@@ -151,11 +152,11 @@ const QUEST_COMPLETE_PROMPT = `
 </memory>
 
 <commands>
-set|任务系统.当前任务列表.0.任务状态|已完成
-set|任务系统.当前任务列表.0.完成时间|{{当前游戏时间}}
-add|玩家角色状态.境界.当前进度|{{奖励修为}}
-add|背包.灵石.下品|{{奖励灵石}}
-add|任务系统.任务统计.完成总数|1
+set|社交.任务.当前任务列表.0.任务状态|已完成
+set|社交.任务.当前任务列表.0.完成时间|{{当前游戏时间}}
+add|角色.属性.境界.当前进度|{{奖励修为}}
+add|角色.背包.灵石.下品|{{奖励灵石}}
+add|社交.任务.任务统计.完成总数|1
 </commands>
 
 <options>
@@ -167,11 +168,11 @@ add|任务系统.任务统计.完成总数|1
 </options>
 
 ## 奖励类型说明
-- **修为**: add|玩家角色状态.境界.当前进度|数值
-- **灵石**: add|背包.灵石.品级|数值
-- **物品**: set|背包.物品.物品ID|{物品对象}
-- **声望**: add|玩家角色状态.声望|数值
-- **好感度**: add|人物关系.NPC名称.好感度|数值
+- **修为**: add|角色.属性.境界.当前进度|数值
+- **灵石**: add|角色.背包.灵石.品级|数值
+- **物品**: set|角色.背包.物品.物品ID|{物品对象}
+- **声望**: add|角色.属性.声望|数值
+- **好感度**: add|社交.关系.NPC名称.好感度|数值
 `;
 
 /**
@@ -180,13 +181,13 @@ add|任务系统.任务统计.完成总数|1
 export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
   try {
     const context = {
-      玩家姓名: saveData.角色基础信息.名字,
-      当前境界: `${saveData.玩家角色状态.境界.名称}${saveData.玩家角色状态.境界.阶段}`,
-      当前位置: saveData.玩家角色状态.位置.描述,
+      玩家姓名: (saveData as any).角色?.身份?.名字 || (saveData as any).角色?.名字 || '无名修士',
+      当前境界: `${(saveData as any).角色?.属性?.境界?.名称 || '凡人'}${(saveData as any).角色?.属性?.境界?.阶段 || ''}`,
+      当前位置: (saveData as any).角色?.位置?.描述 || '未知',
     };
 
     // 读取任务系统配置
-    const questConfig = saveData.任务系统?.配置;
+    const questConfig = (saveData as any).社交?.任务?.配置;
     let prompt = QUEST_GENERATION_PROMPT
       .replace('{{玩家姓名}}', context.玩家姓名)
       .replace('{{当前境界}}', context.当前境界)
@@ -211,7 +212,7 @@ export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
       const commandLines = commandsMatch[1].trim().split('\n');
       for (const line of commandLines) {
         const parts = line.trim().split('|');
-        if (parts.length >= 3 && parts[0].toLowerCase() === 'push' && parts[1] === '任务系统.当前任务列表') {
+        if (parts.length >= 3 && parts[0].toLowerCase() === 'push' && parts[1] === '社交.任务.当前任务列表') {
           try {
             return JSON.parse(parts.slice(2).join('|'));
           } catch {
@@ -221,18 +222,15 @@ export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
       }
     }
 
-    // 兼容旧的JSON格式
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      try {
-        const result = JSON.parse(jsonMatch[1]);
-        const questCommand = result.tavern_commands?.find(
-          (cmd: any) => cmd.action === 'push' && cmd.key === '任务系统.当前任务列表'
-        );
-        return questCommand?.value || null;
-      } catch {
-        console.warn('解析JSON失败');
-      }
+    // 兼容旧的JSON格式（从自由文本中提取 JSON）
+    try {
+      const result: any = parseJsonFromText(response);
+      const questCommand = result.tavern_commands?.find(
+        (cmd: any) => cmd.action === 'push' && cmd.key === '社交.任务.当前任务列表'
+      );
+      return questCommand?.value || null;
+    } catch {
+      // ignore
     }
 
     return null;
@@ -278,11 +276,8 @@ export async function updateQuestProgress(
       return { text: narrativeMatch?.[1]?.trim() || '', tavern_commands: commands };
     }
 
-    // 兼容旧的JSON格式
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      try { return JSON.parse(jsonMatch[1]); } catch {}
-    }
+    // 兼容旧的JSON格式（从自由文本中提取 JSON）
+    try { return parseJsonFromText(response); } catch {}
     return null;
   } catch (error) {
     console.error('更新任务进度失败:', error);
@@ -324,11 +319,8 @@ export async function completeQuest(quest: Quest): Promise<any> {
       return { text: narrativeMatch?.[1]?.trim() || '', tavern_commands: commands };
     }
 
-    // 兼容旧的JSON格式
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      try { return JSON.parse(jsonMatch[1]); } catch {}
-    }
+    // 兼容旧的JSON格式（从自由文本中提取 JSON）
+    try { return parseJsonFromText(response); } catch {}
     return null;
   } catch (error) {
     console.error('完成任务失败:', error);

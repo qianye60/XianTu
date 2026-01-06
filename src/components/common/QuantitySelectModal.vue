@@ -3,7 +3,10 @@
     <div class="quantity-modal" @click.stop>
       <div class="modal-header">
         <h3>{{ title || '选择数量' }}</h3>
-        <button class="close-btn" @click="$emit('close')">×</button>
+        <button class="close-btn" @click="$emit('close')">
+          <span>关闭</span>
+          <X :size="16" />
+        </button>
       </div>
       
       <div class="modal-body">
@@ -75,6 +78,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { X } from 'lucide-vue-next';
 
 interface Item {
   物品ID: string;
@@ -154,6 +158,8 @@ function getItemIcon(type?: string): string {
   const iconMap: Record<string, string> = {
     '装备': '⚔️',
     '功法': '📜',
+    '丹药': '💊',
+    '材料': '💎',
     '其他': '📦'
   };
   return iconMap[type || '其他'] || '📦';
@@ -215,19 +221,24 @@ function getItemIcon(type?: string): string {
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  font-size: 24px;
-  cursor: pointer;
-  padding: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .close-btn:hover {
   background: var(--color-surface-hover);
   color: var(--color-text);
+  border-color: var(--color-primary);
 }
 
 .modal-body {

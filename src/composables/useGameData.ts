@@ -9,7 +9,8 @@ import { computed } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type {
   CharacterBaseInfo,
-  PlayerStatus,
+  PlayerAttributes,
+  PlayerLocation,
   Inventory,
   NpcProfile,
   Equipment,
@@ -24,14 +25,24 @@ export function useGameData() {
   // ==================== 只读计算属性 ====================
 
   /**
-   * 角色基础信息（只读）
+   * 角色身份（只读）
    */
   const character = computed<CharacterBaseInfo | null>(() => gameState.character);
 
   /**
-   * 玩家角色状态（只读）
+   * 玩家属性（只读）
    */
-  const playerStatus = computed<PlayerStatus | null>(() => gameState.playerStatus);
+  const attributes = computed<PlayerAttributes | null>(() => gameState.attributes);
+
+  /**
+   * 玩家位置（只读）
+   */
+  const location = computed<PlayerLocation | null>(() => gameState.location);
+
+  /**
+   * 效果（只读）
+   */
+  const effects = computed(() => gameState.effects);
 
   /**
    * 背包（只读）
@@ -39,12 +50,12 @@ export function useGameData() {
   const inventory = computed<Inventory | null>(() => gameState.inventory);
 
   /**
-   * 装备栏（只读）
+   * 装备（只读）
    */
   const equipment = computed<Equipment | null>(() => gameState.equipment);
 
   /**
-   * 人物关系（只读）
+   * 社交关系（只读）
    */
   const relationships = computed(() => gameState.relationships);
 
@@ -64,7 +75,7 @@ export function useGameData() {
   const gameTime = computed<GameTime | null>(() => gameState.gameTime);
 
   /**
-   * 叙事历史（只读）
+   * 叙事记录（只读）
    */
   const narrativeHistory = computed(() => gameState.narrativeHistory);
 
@@ -83,17 +94,17 @@ export function useGameData() {
   /**
    * 当前境界
    */
-  const currentRealm = computed(() => gameState.playerStatus?.境界?.名称 || '凡人');
+  const currentRealm = computed(() => gameState.attributes?.境界?.名称 || '凡人');
 
   /**
    * 当前位置
    */
-  const currentLocation = computed(() => gameState.playerStatus?.位置?.描述 || '未知');
+  const currentLocation = computed(() => gameState.location?.描述 || '未知');
 
   /**
-   * 灵石数量
+   * 灵石（分品阶）
    */
-  const spiritStones = computed(() => gameState.inventory?.灵石 || 0);
+  const spiritStones = computed(() => gameState.inventory?.灵石 ?? { 下品: 0, 中品: 0, 上品: 0, 极品: 0 });
 
   /**
    * 背包物品数量
@@ -109,8 +120,16 @@ export function useGameData() {
    * 更新玩家状态
    * @param updates 要更新的部分状态
    */
-  const updateStatus = (updates: Partial<PlayerStatus>) => {
+  const updateAttributes = (updates: Partial<PlayerAttributes>) => {
     gameState.updatePlayerStatus(updates);
+  };
+
+  /**
+   * 更新位置
+   * @param updates 要更新的部分位置
+   */
+  const updateLocation = (updates: Partial<PlayerLocation>) => {
+    gameState.updateLocation(updates);
   };
 
   /**
@@ -191,7 +210,9 @@ export function useGameData() {
   return {
     // 只读数据
     character,
-    playerStatus,
+    attributes,
+    location,
+    effects,
     inventory,
     equipment,
     relationships,
@@ -209,7 +230,8 @@ export function useGameData() {
     inventoryItemCount,
 
     // 更新方法
-    updateStatus,
+    updateAttributes,
+    updateLocation,
     updateInventory,
     updateRelationship,
     advanceTime,

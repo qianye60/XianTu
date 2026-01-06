@@ -169,7 +169,7 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
    - 描述、历史背景
    - 特色专长（数组格式）
 
-2. **leadership字段**（前端直接显示）
+2. **领导层字段**（前端直接显示）
 \`\`\`json
 {
   "宗主": "具体姓名（如：欧阳烈风）",
@@ -182,17 +182,17 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 }
 \`\`\`
 
-3. **memberCount字段**（前端显示）
+3. **成员数量字段**（前端显示）
 \`\`\`json
 {
-  "total": 总人数,
-  "byRealm": {
-    // 🚨 境界不能超过leadership.最强修为
+  "总数": 总人数,
+  "按境界": {
+    // 🚨 境界不能超过领导层.最强修为
     // 境界等级：练气期 < 筑基期 < 金丹期 < 元婴期 < 化神期 < 炼虚期 < 合体期 < 渡劫期
     "练气期": 数量,
     "筑基期": 数量
   },
-  "byPosition": {
+  "按职位": {
     "散修": 0,
     "外门弟子": 数量,
     "内门弟子": 数量,
@@ -208,9 +208,9 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 \`\`\`
 
 ### 数据一致性
-- total = byPosition所有职位总和
-- byRealm总和 = total
-- byRealm境界 ≤ 最强修为
+- 总数 = 按职位所有职位总和
+- 按境界总和 = 总数
+- 按境界境界 ≤ 最强修为
 - 所有数值必须是数字类型
 
 ### 人名要求
@@ -241,7 +241,7 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 - 危险禁地: ${dangerousRealms}个
 
 ### 地点坐标要求（重要）
-- 坐标格式: "coordinates": {"x": 数字, "y": 数字}
+- 坐标格式: "坐标": {"x": 数字, "y": 数字}
 - 坐标范围: x和y必须在0-10000之间（游戏坐标）
 - 地点位置必须在对应大洲边界内
 - 势力总部地点坐标应该与势力"位置"坐标相同或接近
@@ -265,14 +265,14 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 **势力**：
 - 位置（对象，游戏坐标）: {"x": 数字, "y": 数字}
 - 势力范围（≥4点，按顺时针或逆时针顺序，游戏坐标）
-- leadership（完整）
-- memberCount（完整）
+- 领导层（完整）
+- 成员数量（完整）
 
 **地点**：
-- coordinates（对象，游戏坐标）: {"x": 数字, "y": 数字}
-- name（字符串）
-- type（7种类型之一）
-- description（详细描述）
+- 坐标（对象，游戏坐标）: {"x": 数字, "y": 数字}
+- 名称（字符串）
+- 类型（7种类型之一）
+- 描述（详细描述）
 
 **大洲**：
 - 大洲边界（4-6点，推荐4-5点，**必须按顺时针或逆时针顺序排列形成闭合多边形**，游戏坐标）
@@ -329,7 +329,7 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
       // ⚠️ 势力范围必须在对应大洲边界内
       // ⚠️ 势力范围不要太大！跨度建议150-400像素，占大洲3%-8%
       // ⚠️ 形状简单：4-5个点的矩形或五边形即可
-      "leadership": {
+      "领导层": {
         "宗主": "欧阳烈风",
         "宗主修为": "化神中期",
         "副宗主": "王明月",
@@ -339,16 +339,16 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
         "内门弟子数": 300,
         "外门弟子数": 1200
       },
-      "memberCount": {
-        "total": 1565,
-        "byRealm": {
+      "成员数量": {
+        "总数": 1565,
+        "按境界": {
           "练气期": 1200,
           "筑基期": 300,
           "金丹期": 50,
           "元婴期": 10,
           "化神期": 5
         },
-        "byPosition": {
+        "按职位": {
           "散修": 0,
           "外门弟子": 1200,
           "内门弟子": 300,
@@ -361,24 +361,24 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
           "掌门": 1
         }
       },
-      "continent_id": "continent_1"
+      "所属大洲": "continent_1"
     }
   ],
   "locations": [
     {
       "id": "loc_1",
-      "name": "地点名称",
-      "type": "sect_power",
-      "coordinates": {"x": 2500, "y": 1500},
+      "名称": "地点名称",
+      "类型": "sect_power",
+      "坐标": {"x": 2500, "y": 1500},
       // ⚠️ 地点坐标使用游戏坐标系统 (0-10000)，不是经纬度
       // ⚠️ 地点坐标必须在对应大洲边界内
       // ⚠️ 势力总部地点坐标应与势力"位置"坐标相同
-      "description": "地点详细描述",
-      "danger_level": "安全",
-      "suitable_for": ["筑基期以上"],
-      "controlled_by": "青云宗",
-      "special_features": ["护山大阵", "灵气充沛"],
-      "special_attributes": []
+      "描述": "地点详细描述",
+      "安全等级": "安全",
+      "适合境界": ["筑基期以上"],
+      "所属势力": "青云宗",
+      "特殊特征": ["护山大阵", "灵气充沛"],
+      "特殊属性": []
     }
   ]
 }
@@ -389,12 +389,12 @@ ${backgroundInfo}${worldBackgroundInfo}${worldEraInfo}${worldNameInfo}
 1. ✅ continents数组有${finalContinentCount}个对象，边界不重叠
 2. ✅ factions数组有${finalFactionCount}个对象（不是0个）
 3. ✅ locations数组有${finalLocationCount}个对象（不是0个）
-4. ✅ 每个势力有完整leadership和memberCount
+4. ✅ 每个势力有完整领导层和成员数量
 5. ✅ 每个势力范围≥4个坐标点
 6. ✅ 每个大洲边界4-8个坐标点
 7. ✅ 所有坐标为数字类型，范围在0-10000之间
-8. ✅ memberCount数据一致性
-9. ✅ byRealm境界≤最强修为
+8. ✅ 成员数量数据一致性
+9. ✅ 按境界境界≤最强修为
 10. ✅ 避免重复名称
 
 🔥 核心目标：创造独一无二的世界，包含完整势力组织架构！

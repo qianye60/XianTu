@@ -2,6 +2,7 @@
 from typing import Optional, List, Tuple
 from tortoise.exceptions import IntegrityError
 from server.models import Talent as TalentModel
+from server.models import TalentTier as TalentTierModel
 from server.schemas.schema import TalentCreate, TalentUpdate
 
 async def get_talent_by_name(name: str) -> Optional[TalentModel]:
@@ -12,8 +13,13 @@ async def create_talent(talent: TalentCreate) -> Tuple[Optional[TalentModel], st
     """创建新天赋"""
     if await get_talent_by_name(talent.name):
         return None, f"名为 '{talent.name}' 的天赋已存在。"
+
+    if talent.tier_id is not None:
+        tier = await TalentTierModel.get_or_none(id=talent.tier_id)
+        if not tier:
+            return None, f"未找到指定的天资等级 tier_id={talent.tier_id}。"
     try:
-        talent_obj = await TalentModel.create(**talent.model_dump())
+        talent_obj = await TalentModel.create(**talent.model_dump(exclude_unset=True))
         return talent_obj, "天赋创建成功。"
     except IntegrityError:
         return None, "数据冲突，可能存在同名天赋。"
@@ -41,6 +47,11 @@ async def update_talent(talent_id: int, talent_data: TalentUpdate) -> Tuple[Opti
     if "name" in update_data and update_data["name"] != talent.name:
         if await get_talent_by_name(update_data["name"]):
             return None, f"名为 '{update_data['name']}' 的天赋已存在。"
+
+    if "tier_id" in update_data and update_data["tier_id"] is not None:
+        tier = await TalentTierModel.get_or_none(id=update_data["tier_id"])
+        if not tier:
+            return None, f"未找到指定的天资等级 tier_id={update_data['tier_id']}。"
 
     try:
         for key, value in update_data.items():

@@ -43,9 +43,17 @@
                   </div>
                 </div>
                 <div class="header-actions">
-                  <button class="action-btn primary" @click="showCultivationDialog">
-                    <Sparkles :size="16" class="btn-icon" />
-                    <span class="btn-text">深度修炼</span>
+                  <button class="action-btn primary" @click="startCultivation('normal')">
+                    <Zap :size="16" class="btn-icon" />
+                    <span class="btn-text">修炼</span>
+                  </button>
+                  <button class="action-btn accent" @click="startCultivation('secluded')">
+                    <Moon :size="16" class="btn-icon" />
+                    <span class="btn-text">闭关</span>
+                  </button>
+                  <button class="action-btn warning" v-if="canBreakthrough" @click="attemptBreakthrough">
+                    <TrendingUp :size="16" class="btn-icon" />
+                    <span class="btn-text">突破</span>
                   </button>
                   <button class="action-btn" @click="unequipSkill">
                     <PackageOpen :size="16" class="btn-icon" />
@@ -106,6 +114,46 @@
                 </div>
                 <div v-if="upcomingSkill" class="upcoming-skill-info">
                   下一技能: <strong>{{ upcomingSkill.技能名称 }}</strong> ({{ upcomingSkill.熟练度要求 || upcomingSkill.解锁需要熟练度 || 0 }}%)
+                </div>
+
+                <!-- 修炼统计信息 -->
+                <div class="cultivation-stats">
+                  <div class="stat-card">
+                    <div class="stat-icon">
+                      <TrendingUp :size="16" />
+                    </div>
+                    <div class="stat-info">
+                      <span class="stat-label">修炼速度</span>
+                      <span class="stat-value">{{ cultivationSpeed }}%/日</span>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon">
+                      <Clock :size="16" />
+                    </div>
+                    <div class="stat-info">
+                      <span class="stat-label">预计完成</span>
+                      <span class="stat-value">{{ estimatedCompletionTime }}</span>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon">
+                      <Target :size="16" />
+                    </div>
+                    <div class="stat-info">
+                      <span class="stat-label">下一技能</span>
+                      <span class="stat-value">{{ nextSkillInfo }}</span>
+                    </div>
+                  </div>
+                  <div v-if="canBreakthrough" class="stat-card highlight">
+                    <div class="stat-icon">
+                      <Sparkles :size="16" />
+                    </div>
+                    <div class="stat-info">
+                      <span class="stat-label">突破预估</span>
+                      <span class="stat-value">{{ breakthroughChance }}%成功率</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -205,7 +253,10 @@
       <div class="technique-modal" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">{{ selectedTechnique.名称 }}</h3>
-          <button class="close-btn" @click="closeModal">×</button>
+          <button class="close-btn" @click="closeModal">
+            <span>关闭</span>
+            <X :size="16" />
+          </button>
         </div>
         <div class="modal-content">
           <p>{{ selectedTechnique.描述 }}</p>
@@ -231,7 +282,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Zap, BookOpen, Sparkles, PackageOpen, ScrollText, Package, Check, Lock } from 'lucide-vue-next';
+import { Zap, BookOpen, Sparkles, PackageOpen, ScrollText, Package, Check, Lock, Moon, TrendingUp, Clock, Target, X } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -309,6 +360,110 @@ const getSkillUnlockProgress = (skill: TechniqueSkill): number => {
   const currentProgress = cultivationSkills.value?.修炼进度 || 0;
   const requiredProgress = skill.熟练度要求 || 100;
   return Math.min(100, (currentProgress / requiredProgress) * 100);
+};
+
+// 判断是否可以突破（熟练度达到100%）
+const canBreakthrough = computed(() => {
+  if (!cultivationSkills.value) return false;
+  return (cultivationSkills.value.修炼进度 || 0) >= 100;
+});
+
+// 品质对应的修炼速度加成
+const getQualitySpeedBonus = (quality?: string): number => {
+  const bonusMap: Record<string, number> = {
+    '仙': 3.0, '神': 2.5, '圣': 2.0, '天': 1.8, '地': 1.5, '玄': 1.3, '黄': 1.1, '凡': 1.0
+  };
+  return bonusMap[quality || '凡'] || 1.0;
+};
+
+// 修炼速度计算
+const cultivationSpeed = computed(() => {
+  const technique = cultivationSkills.value;
+  if (!technique) return '0';
+  const baseSpeed = 1; // 基础速度1%/日
+  const qualityBonus = getQualitySpeedBonus(technique.品质?.quality);
+  const effectBonus = technique.功法效果?.修炼速度加成 || 1;
+  return (baseSpeed * qualityBonus * effectBonus).toFixed(1);
+});
+
+// 预计完成时间
+const estimatedCompletionTime = computed(() => {
+  const progress = cultivationSkills.value?.修炼进度 || 0;
+  const remaining = 100 - progress;
+  if (remaining <= 0) return '已满';
+  const speed = parseFloat(cultivationSpeed.value);
+  if (speed <= 0) return '未知';
+  const days = Math.ceil(remaining / speed);
+  if (days > 365) return `约${Math.ceil(days/365)}年`;
+  if (days > 30) return `约${Math.ceil(days/30)}月`;
+  return `约${days}天`;
+});
+
+// 下一技能信息
+const nextSkillInfo = computed(() => {
+  const upcoming = upcomingSkill.value;
+  if (!upcoming) return '已全部解锁';
+  const current = cultivationSkills.value?.修炼进度 || 0;
+  const required = upcoming.熟练度要求 || 0;
+  const remaining = required - current;
+  if (remaining <= 0) return upcoming.技能名称;
+  return `还需${remaining.toFixed(1)}%`;
+});
+
+// 突破成功率预估
+const breakthroughChance = computed(() => {
+  if (!canBreakthrough.value) return 0;
+  const technique = cultivationSkills.value;
+  if (!technique) return 0;
+  // 基于功法品质计算突破成功率
+  const qualityChanceMap: Record<string, number> = {
+    '仙': 30, '神': 40, '圣': 50, '天': 60, '地': 70, '玄': 75, '黄': 80, '凡': 85
+  };
+  const baseChance = qualityChanceMap[technique.品质?.quality || '凡'] || 70;
+  return Math.min(95, baseChance);
+});
+
+// 开始修炼（普通/闭关）
+const startCultivation = async (type: 'normal' | 'secluded') => {
+  if (!cultivationSkills.value) return;
+
+  const { useActionQueueStore } = await import('@/stores/actionQueueStore');
+  const actionQueue = useActionQueueStore();
+
+  if (type === 'normal') {
+    actionQueue.addAction({
+      type: 'cultivate',
+      itemName: cultivationSkills.value.名称,
+      itemType: t('功法'),
+      description: `开始修炼《${cultivationSkills.value.名称}》，提升功法熟练度`,
+    });
+    uiStore.showToast(`开始修炼《${cultivationSkills.value.名称}》`, { type: 'success' });
+  } else {
+    // 闭关修炼 - 更高效但需要更多时间
+    actionQueue.addAction({
+      type: 'secluded_cultivation',
+      itemName: cultivationSkills.value.名称,
+      itemType: t('闭关'),
+      description: `进入闭关状态，专心修炼《${cultivationSkills.value.名称}》，效率大幅提升`,
+    });
+    uiStore.showToast(`进入闭关修炼《${cultivationSkills.value.名称}》`, { type: 'info' });
+  }
+};
+
+// 尝试突破
+const attemptBreakthrough = async () => {
+  if (!cultivationSkills.value || !canBreakthrough.value) return;
+
+  const { useActionQueueStore } = await import('@/stores/actionQueueStore');
+  const actionQueue = useActionQueueStore();
+
+  actionQueue.addAction({
+    type: 'breakthrough',
+    itemName: cultivationSkills.value.名称,
+    itemType: t('突破'),
+    description: `尝试突破《${cultivationSkills.value.名称}》的当前境界，进入更高层次`,
+  });
+  uiStore.showToast(`尝试突破《${cultivationSkills.value.名称}》`, { type: 'warning' });
 };
 
 const techniqueForModal = computed((): TechniqueItem | null => {
@@ -686,6 +841,75 @@ watch(cultivationSkills, () => {
   color: var(--color-primary);
 }
 
+/* --- 修炼统计信息 --- */
+.cultivation-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+.stat-card.highlight {
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
+}
+
+.stat-card.highlight .stat-icon {
+  color: var(--color-warning);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: 8px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat-info .stat-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.stat-info .stat-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* --- Skills List --- */
 .skills-list-section {
   margin-top: 1rem;
@@ -946,11 +1170,89 @@ watch(cultivationSkills, () => {
   display: flex; justify-content: space-between; align-items: center;
 }
 .modal-title { font-size: 1.125rem; font-weight: 600; margin: 0; }
-.close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-text-secondary); }
+.close-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.close-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
 .modal-content { padding: 1rem; }
 .modal-actions {
   padding: 1rem;
   border-top: 1px solid var(--color-border);
   display: flex; gap: 0.5rem; justify-content: flex-end;
+}
+
+/* 按钮样式 */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-light);
+  transform: translateY(-1px);
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark, #2563eb));
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.action-btn.primary:hover {
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.action-btn.accent {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  border-color: #8b5cf6;
+  color: white;
+}
+
+.action-btn.accent:hover {
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.action-btn.warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: #f59e0b;
+  color: white;
+}
+
+.action-btn.warning:hover {
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-icon {
+  flex-shrink: 0;
+}
+
+.btn-text {
+  white-space: nowrap;
 }
 </style>

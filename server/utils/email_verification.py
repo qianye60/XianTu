@@ -83,7 +83,7 @@ async def send_verification_email(email: str, code: str, purpose: str = "registe
     expire_minutes = config["email_code_expire_minutes"]
     html_content = f"""
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: 'Microsoft YaHei', sans-serif;">
-        <h2 style="color: #1e4a9a; text-align: center;">仙途游戏</h2>
+        <h2 style="color: #1e4a9a; text-align: center;">仙途官方</h2>
         <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <p>您好，修仙者！</p>
             <p>您的验证码是：</p>

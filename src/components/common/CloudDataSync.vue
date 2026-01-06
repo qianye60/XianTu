@@ -14,11 +14,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { cloudDataSync } from '../../utils/cloudDataSync';
 import { toast } from '../../utils/toast';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import { useI18n } from '../../i18n';
+import { isBackendConfigured } from '../../services/backendConfig';
 
 // Props
 defineProps<{
@@ -40,8 +41,8 @@ const { t } = useI18n();
 const isSyncing = ref(false);
 const hasSynced = ref(false);
 
-// 🔥 暂时禁用云端功能（后端未上线）
-const isDisabled = ref(true);
+// 根据后端配置状态决定是否禁用云端功能
+const isDisabled = computed(() => !isBackendConfigured());
 
 // 获取同步按钮文本
 function getSyncButtonText() {

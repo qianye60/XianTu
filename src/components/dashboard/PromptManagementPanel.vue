@@ -48,7 +48,7 @@
       <!-- 分类显示 -->
       <div v-for="(categoryData, categoryKey) in promptsByCategory" :key="categoryKey" class="category-section">
         <!-- 分类头部 -->
-        <div class="category-header" @click="toggleCategory(categoryKey)">
+        <div class="category-header" @click="toggleCategory(String(categoryKey))">
           <div class="category-title">
             <span class="category-icon">{{ categoryData.info.icon }}</span>
             <span class="category-name">{{ categoryData.info.name }}</span>
@@ -71,13 +71,25 @@
           <div v-for="prompt in categoryData.prompts" :key="prompt.key" class="prompt-item">
             <div class="prompt-header" @click="togglePrompt(prompt.key)">
               <div class="prompt-title-area">
+                <!-- 启用/禁用开关 -->
+                <label class="toggle-switch" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="prompt.enabled"
+                    @change="toggleEnabled(prompt.key, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
                 <!-- 显示顺序号（仅核心请求提示词） -->
                 <span v-if="categoryKey === 'coreRequest' && prompt.order" class="prompt-order">
                   {{ prompt.order }}
                 </span>
-                <span class="prompt-title">{{ prompt.name }}</span>
+                <span class="prompt-title" :class="{ disabled: !prompt.enabled }">{{ prompt.name }}</span>
               </div>
               <div class="prompt-meta">
+                <span v-if="prompt.weight" class="prompt-weight" :class="getWeightClass(prompt.weight)">
+                  W{{ prompt.weight }}
+                </span>
                 <span v-if="prompt.description" class="prompt-desc" :title="prompt.description">
                   {{ truncateText(prompt.description, 30) }}
                 </span>
@@ -154,6 +166,20 @@ function togglePrompt(key: string) {
   expandedPrompts.value[key] = !expandedPrompts.value[key];
 }
 
+async function toggleEnabled(key: string, enabled: boolean) {
+  // 更新本地状态
+  for (const categoryKey in promptsByCategory.value) {
+    const prompt = promptsByCategory.value[categoryKey].prompts.find(p => p.key === key);
+    if (prompt) {
+      prompt.enabled = enabled;
+      break;
+    }
+  }
+  // 保存到存储
+  await promptStorage.setEnabled(key, enabled);
+  toast.info(enabled ? '已启用' : '已禁用');
+}
+
 function expandAllCategories() {
   for (const key in promptsByCategory.value) {
     expandedCategories.value[key] = true;
@@ -171,6 +197,12 @@ function collapseAllCategories() {
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
+}
+
+function getWeightClass(weight: number): string {
+  if (weight >= 9) return 'weight-high';
+  if (weight >= 6) return 'weight-medium';
+  return 'weight-low';
 }
 
 function markModified(key: string) {
@@ -469,6 +501,57 @@ function downloadJSON(data: any, filename: string) {
   gap: 0.75rem;
 }
 
+/* 开关样式 */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-border);
+  transition: 0.3s;
+  border-radius: 20px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--color-primary);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(16px);
+}
+
+.toggle-switch:hover .toggle-slider {
+  box-shadow: 0 0 4px rgba(var(--color-primary-rgb), 0.4);
+}
+
 .prompt-order {
   display: inline-flex;
   align-items: center;
@@ -486,6 +569,12 @@ function downloadJSON(data: any, filename: string) {
 .prompt-title {
   font-weight: 500;
   color: var(--color-text);
+  transition: opacity 0.2s;
+}
+
+.prompt-title.disabled {
+  opacity: 0.5;
+  text-decoration: line-through;
 }
 
 .prompt-meta {
@@ -514,6 +603,28 @@ function downloadJSON(data: any, filename: string) {
 .prompt-status.modified {
   background: rgba(var(--color-warning-rgb), 0.2);
   color: var(--color-warning);
+}
+
+.prompt-weight {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.prompt-weight.weight-high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.prompt-weight.weight-medium {
+  background: rgba(234, 179, 8, 0.2);
+  color: #eab308;
+}
+
+.prompt-weight.weight-low {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
 }
 
 .prompt-content {

@@ -50,33 +50,20 @@ export function calculateBirthdateFromAge(currentAge: number, currentTime: GameT
  * @returns 计算得到的年龄
  */
 export function updateLifespanFromGameTime(saveData: any): number {
-  const currentTime = saveData.游戏时间 || { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
+  const currentTime = saveData?.元数据?.时间 ?? { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
+  const identity = saveData?.角色?.身份 ?? null;
 
-  // 如果没有出生日期，根据当前年龄推算出生日期
-  if (!saveData.角色基础信息?.出生日期) {
-    const currentAge = saveData.角色基础信息?.年龄 || 18;
-    const birthdate = calculateBirthdateFromAge(currentAge, currentTime);
+  if (!identity || typeof identity !== 'object') return 0;
 
-    // 保存出生日期到角色基础信息
-    if (!saveData.角色基础信息) {
-      saveData.角色基础信息 = {};
-    }
-    saveData.角色基础信息.出生日期 = birthdate;
-
-    
-    return currentAge;
+  // 如果没有出生日期，按默认年龄18推算（只补全出生日期，不写“年龄”冗余字段）
+  if (!identity.出生日期) {
+    const defaultAge = 18;
+    identity.出生日期 = calculateBirthdateFromAge(defaultAge, currentTime);
+    return defaultAge;
   }
 
   // 根据出生日期计算当前年龄
-  const birthdate = saveData.角色基础信息.出生日期;
-  const calculatedAge = calculateAgeFromBirthdate(birthdate, currentTime);
-
-  // 只更新基础信息中的年龄（用于显示），不再更新寿命.当前
-  if (saveData.角色基础信息) {
-    saveData.角色基础信息.年龄 = calculatedAge;
-  }
-
-  return calculatedAge;
+  return calculateAgeFromBirthdate(identity.出生日期, currentTime);
 }
 
 /**
@@ -88,18 +75,11 @@ export function updateLifespanFromGameTime(saveData: any): number {
 export function updateNpcLifespanFromGameTime(npcData: any, globalGameTime: GameTime): number {
   const currentTime = globalGameTime || { 年: 1, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
 
-  // NPC可能在不同层级存储信息
-  const statusSource = npcData.玩家角色状态 || npcData.角色状态 || npcData;
-  const baseInfo = npcData.角色基础信息 || npcData;
-
-  // 如果NPC已死亡，返回死亡时年龄
-  if (statusSource.已死亡) {
-    return statusSource.寿命?.当前 || baseInfo.年龄 || 0;
-  }
+  const baseInfo = npcData;
 
   // 如果没有出生日期，根据当前年龄推算出生日期
   if (!baseInfo.出生日期) {
-    const currentAge = baseInfo.年龄 || statusSource.寿命?.当前 || 18;
+    const currentAge = baseInfo.年龄 || 18;
     const birthdate = calculateBirthdateFromAge(currentAge, currentTime);
 
     baseInfo.出生日期 = birthdate;
@@ -112,13 +92,8 @@ export function updateNpcLifespanFromGameTime(npcData: any, globalGameTime: Game
   const birthdate = baseInfo.出生日期;
   const calculatedAge = calculateAgeFromBirthdate(birthdate, currentTime);
 
-  // 更新年龄到各个位置
-  if (baseInfo.年龄 !== undefined) {
-    baseInfo.年龄 = calculatedAge;
-  }
-  if (statusSource.寿命) {
-    statusSource.寿命.当前 = calculatedAge;
-  }
+  // 更新年龄字段（如果存在）
+  if (baseInfo.年龄 !== undefined) baseInfo.年龄 = calculatedAge;
 
   return calculatedAge;
 }

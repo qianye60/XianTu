@@ -7,7 +7,6 @@
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
 import type { WorldInfo, WorldMapConfig, SystemConfig } from '@/types/game';
 import { SAVE_DATA_STRUCTURE, stripNsfwContent } from '../definitions/dataDefinitions';
-import { characterInitializationCotPrompt } from '../cot/characterInitializationCot';
 import { assembleSystemPrompt } from '../promptAssembler';
 import { isTavernEnv } from '@/utils/tavern';
 
@@ -18,10 +17,7 @@ import { isTavernEnv } from '@/utils/tavern';
 const RESPONSE_FORMAT = `
 ## 输出格式（最高优先级）
 
-严格按以下顺序输出：
-
-1) <thinking>...</thinking>（允许简短；用于规划，不要在这里输出JSON）
-2) 一个 \`\`\`json 代码块，且只包含一个JSON对象（无额外标签/解释）
+仅输出一个 JSON 对象（可用 \`\`\`json 代码围栏包裹）；不要输出任何解释性文字/标签。
 
 JSON结构：
 \`\`\`json
@@ -29,9 +25,9 @@ JSON结构：
   "text": "1200-2500字开局叙事（沉浸式、禁止包含任何游戏数据/JSON/标签）",
   "mid_term_memory": "50-100字摘要（必填，不能为空）",
   "tavern_commands": [
-    {"action":"set","key":"游戏时间","value":{"年":1050,"月":1,"日":1,"小时":8,"分钟":0}},
-    {"action":"set","key":"玩家角色状态.位置","value":{"描述":"大陆·地点","x":5000,"y":5000}},
-    {"action":"set","key":"背包.灵石","value":{"下品":100,"中品":0,"上品":0,"极品":0}}
+    {"action":"set","key":"元数据.时间","value":{"年":1050,"月":1,"日":1,"小时":8,"分钟":0}},
+    {"action":"set","key":"角色.位置","value":{"描述":"大陆·地点","x":5000,"y":5000}},
+    {"action":"set","key":"角色.背包.灵石","value":{"下品":100,"中品":0,"上品":0,"极品":0}}
   ],
   "action_options": ["选项1","选项2","选项3","选项4","选项5"]
 }
@@ -41,6 +37,7 @@ JSON结构：
 - text 只写故事正文；不要夹带命令、数据、变量名
 - tavern_commands 必须是数组；用 {action,key,value} 格式
 - action_options 必须输出5个且不能为空
+- 严禁输出 \`<thinking>\` / 思维链 / 推理过程
 `.trim();
 
 // =====================================================================
@@ -52,13 +49,16 @@ const COMMANDS_RULES = `
 
 按顺序执行：
 
-1. **时间** - 设置 \`游戏时间\` 和 \`角色基础信息.出生日期.年\`（出生年=游戏年-年龄）
-2. **位置** - 设置 \`玩家角色状态.位置\`，必须包含 {描述, x, y}，从可用地点选择
-3. **声望** - 设置 \`玩家角色状态.声望\`（普通0-10, 宗门10-50, 名门50-100）
-4. **随机项** - 若灵根/出身为"随机"，用 \`set\` 替换为具体内容
-5. **资源** - 设置 \`背包.灵石\` 和初始物品（1-6件）、功法（0-3部）
-6. **NPC** - 仅创建文本中明确提到的重要人物（0-3个），必须一次性创建完整对象
-7. **大道** - 若天赋对应某大道，解锁该大道
+1. **时间** - 设置 \`元数据.时间\`；并设置 \`角色.身份.出生日期\`（出生年 = 元数据.时间.年 - 开局年龄）
+2. **位置** - 设置 \`角色.位置\`，必须包含 {描述, x, y}，从可用地点选择
+3. **声望** - 设置 \`角色.属性.声望\`（普通0-10, 宗门10-50, 名门50-100）
+4. **随机项** - 若灵根/出身为"随机"，用 \`set\` 写入 \`角色.身份.灵根\` / \`角色.身份.出生\` 的具体内容
+5. **资源** - 设置 \`角色.背包.灵石\` 与 \`角色.背包.物品.{物品ID}\`；功法只作为“物品.类型=功法”进入背包
+6. **NPC** - 仅创建文本中明确提到的重要人物（0-3个），写入 \`社交.关系.{npcKey}\`（npcKey 用 npc_姓名 拼音/英文均可，但要稳定）
+7. **大道** - 若天赋/功法影响大道，写入 \`角色.大道.大道列表.{道名}\`，必须包含完整对象：{道名,描述,阶段列表:[{阶段名,需求经验}],是否解锁:true,当前阶段:0,当前经验:0,总经验:0}
+
+约束：
+- 所有 key 必须以 \`元数据/角色/社交/世界/系统\` 开头（短路径）
 `.trim();
 
 // =====================================================================
@@ -228,7 +228,7 @@ ${worldContext?.systemSettings?.nsfwMode ? `- **NSFW模式**: 已开启
 
 ## 输出要求
 严格遵循系统的JSON输出规则：
-- 输出 "<thinking>...</thinking>" + 一个json代码块（用markdown代码围栏包裹）
+- 不要输出 \`<thinking>\` / 思维链 / 任何推理过程标签
 - 正文写入 JSON 的 "text" 字段（不要再输出 "<narrative>" 等标签）
 - 行动选项写入 JSON 的 "action_options" 字段（5个）
 `.trim();
@@ -245,8 +245,6 @@ export async function buildCharacterInitializationPrompt(): Promise<string> {
 ---
 
 # 角色初始化任务
-
-${characterInitializationCotPrompt}
 
 ---
 

@@ -52,48 +52,48 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
 
   try {
     // 1. 玩家境界对象
-    if (key === '玩家角色状态.境界' && action === 'set') {
+    if (key === '角色.属性.境界' && action === 'set') {
       const result = validateRealmObject(value, '玩家');
       errors.push(...result.errors);
     }
 
     // 2. 玩家位置对象
-    if (key === '玩家角色状态.位置' && action === 'set') {
+    if (key === '角色.位置' && action === 'set') {
       const result = validateLocationObject(value);
       errors.push(...result.errors);
     }
 
     // 3. 状态效果对象（push操作）
-    if (key === '玩家角色状态.状态效果' && action === 'push') {
+    if (key === '角色.效果' && action === 'push') {
       const result = validateStatusEffectObject(value);
       errors.push(...result.errors);
     }
 
     // 4. 物品对象（push到背包）
-    if (key === '背包.物品' && action === 'push') {
+    if (key === '角色.背包.物品' && action === 'push') {
       const result = validateItemObject(value);
       errors.push(...result.errors);
     }
 
     // 5. 物品对象（set操作）
     // 只验证完整物品对象，跳过设置物品子属性的操作（如 .描述、.使用效果、.数量、.修炼进度 等）
-    if (key.startsWith('背包.物品.') && action === 'set') {
+    if (key.startsWith('角色.背包.物品.') && action === 'set') {
       // 计算 key 中的点数量来判断是设置完整物品还是物品属性
-      // 背包.物品.item_xxx = 2个点 = 设置完整物品对象
-      // 背包.物品.item_xxx.描述 = 3个点 = 设置物品的子属性
+      // 角色.背包.物品.item_xxx = 3个点 = 设置完整物品对象
+      // 角色.背包.物品.item_xxx.描述 = 4个点 = 设置物品的子属性
       const dotCount = (key.match(/\./g) || []).length;
-      if (dotCount === 2) {
+      if (dotCount === 3) {
         // 只有设置完整物品对象时才验证
         const result = validateItemObject(value);
         errors.push(...result.errors);
       }
-      // dotCount >= 3 时是设置子属性，跳过验证
+      // dotCount >= 4 时是设置子属性，跳过验证
     }
 
     // 6. NPC对象（创建或更新）
     // 🔥 只在“创建/完整覆盖NPC对象”时验证完整性；更新现有NPC时不验证
     // 判断是否是创建新NPC：value包含多个核心字段（名字、性别、出生日期、外貌等）
-    if (key.startsWith('人物关系.') && (key.match(/\./g) || []).length === 1 && action === 'set') {
+    if (key.startsWith('社交.关系.') && (key.match(/\./g) || []).length === 2 && action === 'set') {
       const isLikelyFullNpcObject =
         value &&
         typeof value === 'object' &&
@@ -107,23 +107,25 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
         const result = validateNPCObject(value);
         errors.push(...result.errors);
       }
-      // 否则视为部分更新，跳过验证（避免误伤 set|人物关系.NPC|{"好感度":...} 之类的指令）
+      // 否则视为部分更新，跳过验证（避免误伤 set|社交.关系.NPC|{"好感度":...} 之类的指令）
     }
 
     // 7. NPC境界对象
-    if (key.includes('人物关系.') && key.endsWith('.境界') && action === 'set') {
+    if (key.includes('社交.关系.') && key.endsWith('.境界') && action === 'set') {
       const result = validateRealmObject(value, 'NPC');
       errors.push(...result.errors);
     }
 
     // 8. 大道对象
-    if (key.startsWith('三千大道.大道列表.') && action === 'set' && (key.match(/\./g) || []).length === 2) {
-      const result = validateDaoObject(value);
+    if (key.startsWith('角色.大道.大道列表.') && action === 'set' && (key.match(/\./g) || []).length === 3) {
+      // 从 key 中提取道名（如 "角色.大道.大道列表.剑道" -> "剑道"）
+      const daoName = key.split('.')[3];
+      const result = validateDaoObject(value, daoName);
       errors.push(...result.errors);
     }
 
     // 9. 任务对象
-    if (key === '任务系统.当前任务列表' && action === 'push') {
+    if (key === '社交.任务.当前任务列表' && action === 'push') {
       const result = validateTaskObject(value);
       errors.push(...result.errors);
     }
@@ -186,8 +188,9 @@ function validateLocationObject(value: any): ValidationResult {
   }
 
   if (!value.描述) errors.push('位置缺少"描述"字段');
-  if (typeof value.x !== 'number') errors.push('位置缺少"x"字段或类型错误');
-  if (typeof value.y !== 'number') errors.push('位置缺少"y"字段或类型错误');
+  if (value.x !== undefined && typeof value.x !== 'number') errors.push('位置.x类型错误，应为数字');
+  if (value.y !== undefined && typeof value.y !== 'number') errors.push('位置.y类型错误，应为数字');
+  if (value.地图ID !== undefined && typeof value.地图ID !== 'string') errors.push('位置.地图ID类型错误，应为字符串');
 
   return { valid: errors.length === 0, errors };
 }
@@ -324,8 +327,11 @@ function validateNPCObject(value: any): ValidationResult {
 
 /**
  * 验证大道对象
+ * 支持自动补全缺失字段
+ * @param value 大道对象
+ * @param daoNameFromKey 从 key 中提取的道名（如 "剑道"）
  */
-function validateDaoObject(value: any): ValidationResult {
+function validateDaoObject(value: any, daoNameFromKey?: string): ValidationResult {
   const errors: string[] = [];
 
   if (typeof value !== 'object' || value === null) {
@@ -333,12 +339,46 @@ function validateDaoObject(value: any): ValidationResult {
     return { valid: false, errors };
   }
 
-  if (!value.道名) errors.push('大道对象缺少"道名"字段');
-  if (value.描述 === undefined) errors.push('大道对象缺少"描述"字段');
-  if (!Array.isArray(value.阶段列表)) errors.push('大道对象缺少"阶段列表"数组');
-  if (typeof value.是否解锁 !== 'boolean') errors.push('大道对象缺少"是否解锁"字段或类型错误');
-  if (typeof value.当前阶段 !== 'number') errors.push('大道对象缺少"当前阶段"字段或类型错误');
-  if (typeof value.当前经验 !== 'number') errors.push('大道对象缺少"当前经验"字段或类型错误');
+  // 🔥 自动补全缺失字段，而不是直接拒绝
+  // 优先使用 key 中提取的道名
+  if (!value.道名) {
+    const possibleName = daoNameFromKey || value.name || value.名称;
+    if (possibleName) {
+      value.道名 = possibleName;
+    } else {
+      errors.push('大道对象缺少"道名"字段');
+    }
+  }
+
+  if (value.描述 === undefined) {
+    value.描述 = value.description || '修行之道';
+  }
+
+  if (!Array.isArray(value.阶段列表)) {
+    // 提供默认阶段列表
+    value.阶段列表 = [
+      { 阶段名: '入门', 需求经验: 100 },
+      { 阶段名: '小成', 需求经验: 500 },
+      { 阶段名: '大成', 需求经验: 2000 },
+      { 阶段名: '圆满', 需求经验: 10000 }
+    ];
+  }
+
+  if (typeof value.是否解锁 !== 'boolean') {
+    value.是否解锁 = true; // 默认解锁
+  }
+
+  if (typeof value.当前阶段 !== 'number') {
+    value.当前阶段 = 0; // 默认入门阶段
+  }
+
+  if (typeof value.当前经验 !== 'number') {
+    value.当前经验 = 0;
+  }
+
+  if (typeof value.总经验 !== 'number') {
+    value.总经验 = 0;
+  }
 
   return { valid: errors.length === 0, errors };
 }

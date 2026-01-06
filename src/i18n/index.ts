@@ -37,7 +37,7 @@ const autoTranslateMap: Record<string, string> = {
   '当前版本已封锁联机入口，不影响单机闭关体验': 'Online locked', '已授权': 'Authorized', '未授权': 'Unauthorized',
 
   // === 角色状态 ===
-  '角色状态': 'Character', '修行状态': 'Cultivation', '气血': 'Qi', '灵气': 'Spiritual',
+  '角色状态': 'Character', '修行状态': 'Cultivation', '核心数值': 'Vitals', '气血': 'Qi', '灵气': 'Spiritual',
   '神识': 'Consciousness', '寿元': 'Lifespan', '境界状态': 'Realm', '境界进度': 'Progress',
   '声望': 'Reputation', '天赋神通': 'Talents', '状态效果': 'Effects', '籍籍无名': 'Unknown',
   '等待仙缘，引气入体': 'Awaiting fate, drawing qi', '暂无天赋神通': 'No talents yet',
