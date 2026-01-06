@@ -84,6 +84,7 @@ import VideoBackground from '@/components/common/VideoBackground.vue';
 import { Sparkles, History, User, Users } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
+import { verifyStoredToken } from '@/services/request';
 
 const backendVersion = ref<string | null>(null);
 
@@ -115,7 +116,7 @@ const isLoggedIn = () => {
   return !!token;
 };
 
-const selectPath = (mode: 'single' | 'cloud') => {
+const selectPath = async (mode: 'single' | 'cloud') => {
   if (mode === 'cloud' && !backendReady.value) {
     uiStore.showRetryDialog({
       title: '联机未启用',
@@ -128,6 +129,20 @@ const selectPath = (mode: 'single' | 'cloud') => {
     return;
   }
 
+  // 联机模式：验证 token 有效性
+  if (mode === 'cloud') {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      const isValid = await verifyStoredToken();
+      if (!isValid) {
+        // token 无效，清除并提示重新登录
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('username');
+        console.log('[ModeSelection] Token 无效，已清除');
+      }
+    }
+  }
+
   if (selectedMode.value === mode) {
     selectedMode.value = null;
   } else {
@@ -135,22 +150,25 @@ const selectPath = (mode: 'single' | 'cloud') => {
   }
 };
 
-const startNewGame = () => {
+const startNewGame = async () => {
   if (!selectedMode.value) return;
 
-  // 联机模式需要先登录
-  if (selectedMode.value === 'cloud' && !isLoggedIn()) {
-    uiStore.showRetryDialog({
-      title: '请先登录',
-      message: '联机共修需要先登录账号，是否前往登录？',
-      confirmText: '前往登录',
-      cancelText: '取消',
-      onConfirm: () => {
-        emit('go-to-login');
-      },
-      onCancel: () => {}
-    });
-    return;
+  // 联机模式需要先登录并验证 token 有效性
+  if (selectedMode.value === 'cloud') {
+    const isValid = await verifyStoredToken();
+    if (!isValid) {
+      uiStore.showRetryDialog({
+        title: '请先登录',
+        message: '联机共修需要先登录账号，是否前往登录？',
+        confirmText: '前往登录',
+        cancelText: '取消',
+        onConfirm: () => {
+          emit('go-to-login');
+        },
+        onCancel: () => {}
+      });
+      return;
+    }
   }
 
   emit('start-creation', selectedMode.value);

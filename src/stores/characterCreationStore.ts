@@ -408,41 +408,54 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
         // 联机模式：主动从后端请求数据
         const { isBackendConfigured } = await import('@/services/backendConfig');
+        const { verifyStoredToken } = await import('@/services/request');
 
         if (isBackendConfigured()) {
-          try {
-            console.log("【创世神殿】后端已配置，开始请求云端数据...");
-            const [cloudWorlds, cloudTalentTiers, cloudOrigins, cloudSpiritRoots, cloudTalents] = await Promise.all([
-              fetchWorlds(),
-              fetchTalentTiers(),
-              fetchOrigins(),
-              fetchSpiritRoots(),
-              fetchTalents()
-            ]);
-
-            console.log("【创世神殿】成功获取云端数据:", {
-              worlds: cloudWorlds.length,
-              talentTiers: cloudTalentTiers.length,
-              origins: cloudOrigins.length,
-              spiritRoots: cloudSpiritRoots.length,
-              talents: cloudTalents.length
-            });
-
-            // 标记为云端数据
-            creationData.value.worlds = cloudWorlds.map(w => ({...w, source: 'cloud' as DataSource}));
-            creationData.value.talentTiers = cloudTalentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
-            creationData.value.origins = cloudOrigins.map(o => ({...o, source: 'cloud' as DataSource}));
-            creationData.value.spiritRoots = cloudSpiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
-            creationData.value.talents = cloudTalents.map(t => ({...t, source: 'cloud' as DataSource}));
-
-          } catch (fetchError) {
-            console.error("【创世神殿】获取云端数据失败，回退到本地数据:", fetchError);
-            // 回退到本地数据
+          // 验证 token 有效性
+          const tokenValid = await verifyStoredToken();
+          if (!tokenValid) {
+            console.warn("【创世神殿】联机模式 token 无效，回退到本地数据");
             creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
             creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
             creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
             creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
             creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
+            error.value = "联机模式需要先登录";
+          } else {
+            try {
+              console.log("【创世神殿】后端已配置且 token 有效，开始请求云端数据...");
+              const [cloudWorlds, cloudTalentTiers, cloudOrigins, cloudSpiritRoots, cloudTalents] = await Promise.all([
+                fetchWorlds(),
+                fetchTalentTiers(),
+                fetchOrigins(),
+                fetchSpiritRoots(),
+                fetchTalents()
+              ]);
+
+              console.log("【创世神殿】成功获取云端数据:", {
+                worlds: cloudWorlds.length,
+                talentTiers: cloudTalentTiers.length,
+                origins: cloudOrigins.length,
+                spiritRoots: cloudSpiritRoots.length,
+                talents: cloudTalents.length
+              });
+
+              // 标记为云端数据
+              creationData.value.worlds = cloudWorlds.map(w => ({...w, source: 'cloud' as DataSource}));
+              creationData.value.talentTiers = cloudTalentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
+              creationData.value.origins = cloudOrigins.map(o => ({...o, source: 'cloud' as DataSource}));
+              creationData.value.spiritRoots = cloudSpiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
+              creationData.value.talents = cloudTalents.map(t => ({...t, source: 'cloud' as DataSource}));
+
+            } catch (fetchError) {
+              console.error("【创世神殿】获取云端数据失败，回退到本地数据:", fetchError);
+              // 回退到本地数据
+              creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+              creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
+              creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
+              creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
+              creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
+            }
           }
         } else {
           console.warn("【创世神殿】后端未配置，使用本地数据！");

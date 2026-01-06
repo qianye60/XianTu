@@ -18,8 +18,8 @@ import { ref, computed } from 'vue';
 import { cloudDataSync } from '../../utils/cloudDataSync';
 import { toast } from '../../utils/toast';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
+import { useUIStore } from '../../stores/uiStore';
 import { useI18n } from '../../i18n';
-import { isBackendConfigured } from '../../services/backendConfig';
 
 // Props
 defineProps<{
@@ -35,14 +35,15 @@ const emit = defineEmits<{
 
 // Store
 const store = useCharacterCreationStore();
+const uiStore = useUIStore();
 const { t } = useI18n();
 
 // State
 const isSyncing = ref(false);
 const hasSynced = ref(false);
 
-// 根据后端配置状态决定是否禁用云端功能
-const isDisabled = computed(() => !isBackendConfigured());
+// 根据后端配置状态决定是否禁用云端功能（使用统一状态）
+const isDisabled = computed(() => !uiStore.isBackendConfiguredComputed);
 
 // 获取同步按钮文本
 function getSyncButtonText() {
