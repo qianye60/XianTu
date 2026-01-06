@@ -1,7 +1,7 @@
 export const DAD_BUNDLE_SCHEMA = 'dad.bundle';
 export const DAD_BUNDLE_VERSION = 1 as const;
 
-export type DadBundleType = 'settings' | 'prompts' | 'saves' | 'character' | 'start_config';
+export type DadBundleType = 'settings' | 'prompts' | 'saves' | 'character' | 'start_config' | 'presets';
 
 export interface DadBundleV1<TPayload = unknown> {
   schema: typeof DAD_BUNDLE_SCHEMA;
@@ -59,6 +59,20 @@ export function unwrapDadBundle(value: unknown): { type: DadBundleType | null; p
     }
     if (legacyType === 'start_config') {
       return { type: 'start_config', payload: value, isBundle: false };
+    }
+  }
+
+  // 兼容：旧预设导出格式 { version, exportTime, presets }
+  if (isPlainObject(value) && Array.isArray((value as any).presets) && (value as any).version) {
+    return { type: 'presets', payload: { presets: (value as any).presets }, isBundle: false };
+  }
+
+  // 兼容：旧提示词导出格式（直接是 Record<string, string>，没有 type 字段）
+  if (isPlainObject(value) && !value.type && !value.schema) {
+    // 如果对象的所有值都是字符串，可能是提示词导出
+    const keys = Object.keys(value);
+    if (keys.length > 0 && keys.every(k => typeof value[k] === 'string')) {
+      return { type: 'prompts', payload: value, isBundle: false };
     }
   }
 

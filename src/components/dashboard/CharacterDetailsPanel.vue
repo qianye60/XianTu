@@ -1583,14 +1583,20 @@ const getSpiritRootDescription = (spiritRoot: SpiritRoot | string | undefined): 
 
 const getSpiritRootClass = (spiritRoot: SpiritRoot | string | undefined): string => {
   if (typeof spiritRoot !== 'object' || !spiritRoot) return 'spirit-unknown';
-  const grade = ((spiritRoot as any).品级 || spiritRoot.tier || '').toLowerCase();
+  let grade = (spiritRoot as any).品级 || spiritRoot.tier || '';
+  // 处理对象类型的 tier/品级
+  if (typeof grade === 'object' && grade) {
+    grade = grade.quality || grade.grade || '';
+  }
+  // 安全转换为字符串并转小写
+  const gradeStr = String(grade).toLowerCase();
 
-  if (grade.includes('神品')) return 'spirit-divine';
-  if (grade.includes('极品')) return 'spirit-supreme';
-  if (grade.includes('上品')) return 'spirit-superior';
-  if (grade.includes('中品')) return 'spirit-medium';
-  if (grade.includes('下品')) return 'spirit-inferior';
-  if (grade.includes('凡品')) return 'spirit-common';
+  if (gradeStr.includes('神品')) return 'spirit-divine';
+  if (gradeStr.includes('极品')) return 'spirit-supreme';
+  if (gradeStr.includes('上品')) return 'spirit-superior';
+  if (gradeStr.includes('中品')) return 'spirit-medium';
+  if (gradeStr.includes('下品')) return 'spirit-inferior';
+  if (gradeStr.includes('凡品')) return 'spirit-common';
 
   return 'spirit-unknown';
 };
