@@ -263,8 +263,14 @@
           <!-- 更多详情... -->
         </div>
         <div class="modal-actions">
-          <button class="action-btn primary" @click="equipTechnique(selectedTechnique)">装备修炼</button>
-          <button class="action-btn" @click="closeModal">取消</button>
+          <button class="action-btn primary" @click="equipTechnique(selectedTechnique)">
+            <Zap :size="16" />
+            装备修炼
+          </button>
+          <button class="action-btn" @click="closeModal">
+            <X :size="16" />
+            取消
+          </button>
         </div>
       </div>
     </div>

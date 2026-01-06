@@ -28,6 +28,7 @@
 
 import { saveData, loadFromIndexedDB } from './indexedDBManager';
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+import { createDadBundle, unwrapDadBundle } from './dadBundle';
 
 
 export interface CharacterPreset {
@@ -212,49 +213,47 @@ export async function clearAllPresets(): Promise<void> {
 export async function exportPresets(presetIds?: string[]): Promise<void> {
   try {
     console.log('[预设管理器] 开始导出预设:', presetIds);
-    
+
     const allPresets = await loadPresets();
-    
+
     // 如果指定了预设ID,则只导出这些预设,否则导出所有预设
     const presetsToExport = presetIds && presetIds.length > 0
       ? allPresets.filter(p => presetIds.includes(p.id))
       : allPresets;
-    
+
     if (presetsToExport.length === 0) {
       throw new Error('没有可导出的预设');
     }
-    
-    // 创建导出数据
-    const exportData = {
-      version: '1.0',
-      exportTime: new Date().toISOString(),
+
+    // 使用 dad.bundle 格式包装导出数据
+    const exportData = createDadBundle('presets', {
       presets: presetsToExport
-    };
-    
+    });
+
     // 转换为JSON字符串
     const jsonString = JSON.stringify(exportData, null, 2);
-    
+
     // 创建Blob对象
     const blob = new Blob([jsonString], { type: 'application/json' });
-    
+
     // 创建下载链接
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    
+
     // 生成文件名
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const fileName = `character-presets-${timestamp}.json`;
     link.download = fileName;
-    
+
     // 触发下载
     document.body.appendChild(link);
     link.click();
-    
+
     // 清理
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     console.log('[预设管理器] 预设导出成功:', fileName);
   } catch (error) {
     console.error('[预设管理器] 导出预设失败:', error);
@@ -270,28 +269,37 @@ export async function exportPresets(presetIds?: string[]): Promise<void> {
 export async function importPresets(file: File, mode: 'merge' | 'replace' = 'merge'): Promise<{ success: number; failed: number }> {
   try {
     console.log('[预设管理器] 开始导入预设, 模式:', mode);
-    
+
     // 读取文件内容
     const fileContent = await file.text();
-    const importData = JSON.parse(fileContent);
-    
-    // 验证数据格式
-    if (!importData.presets || !Array.isArray(importData.presets)) {
+    const rawData = JSON.parse(fileContent);
+
+    // 使用 unwrapDadBundle 解析，兼容新旧格式
+    const unwrapped = unwrapDadBundle(rawData);
+    let presetsArray: CharacterPreset[];
+
+    if (unwrapped.type === 'presets' && Array.isArray(unwrapped.payload?.presets)) {
+      // 新格式: dad.bundle 包装的预设
+      presetsArray = unwrapped.payload.presets;
+    } else if (Array.isArray(rawData.presets)) {
+      // 旧格式: { version, exportTime, presets }
+      presetsArray = rawData.presets;
+    } else {
       throw new Error('无效的预设文件格式');
     }
-    
+
     // 统计导入结果
     let successCount = 0;
     let failedCount = 0;
-    
+
     // 获取现有预设
     const existingPresets = mode === 'replace' ? [] : await loadPresets();
     const existingIds = new Set(existingPresets.map(p => p.id));
-    
+
     // 处理导入的预设
     const importedPresets: CharacterPreset[] = [];
-    
-    for (const preset of importData.presets) {
+
+    for (const preset of presetsArray) {
       try {
         // 验证预设数据结构
         if (!preset.name || !preset.data) {
@@ -299,21 +307,21 @@ export async function importPresets(file: File, mode: 'merge' | 'replace' = 'mer
           failedCount++;
           continue;
         }
-        
+
         // 如果ID已存在,生成新ID
         let newId = preset.id;
         if (existingIds.has(preset.id)) {
           newId = `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           console.log('[预设管理器] ID冲突,生成新ID:', preset.id, '->', newId);
         }
-        
+
         // 创建新预设对象
         const newPreset: CharacterPreset = {
           ...preset,
           id: newId,
           savedAt: new Date().toISOString() // 更新保存时间
         };
-        
+
         importedPresets.push(newPreset);
         existingIds.add(newId);
         successCount++;
@@ -322,21 +330,21 @@ export async function importPresets(file: File, mode: 'merge' | 'replace' = 'mer
         failedCount++;
       }
     }
-    
+
     // 合并预设列表
     const finalPresets = mode === 'replace'
       ? importedPresets
       : [...importedPresets, ...existingPresets];
-    
+
     // 保存到IndexedDB
     const updatedList: PresetList = {
       presets: finalPresets
     };
-    
+
     await saveData(PRESET_LIST_KEY, updatedList);
-    
+
     console.log('[预设管理器] 预设导入完成, 成功:', successCount, '失败:', failedCount);
-    
+
     return { success: successCount, failed: failedCount };
   } catch (error) {
     console.error('[预设管理器] 导入预设失败:', error);

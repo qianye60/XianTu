@@ -917,15 +917,22 @@ select.input option {
 .item-list {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, 280px);
+  justify-content: center;
   gap: 0.9rem;
 }
 
 .item-card {
+  width: 280px;
+  height: 200px;
   padding: 1rem 1.1rem;
   border-radius: 14px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .item-top {
@@ -939,6 +946,11 @@ select.input option {
   font-weight: 800;
   font-size: 1.05rem;
   color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .item-type {
@@ -955,6 +967,11 @@ select.input option {
   margin-top: 0.5rem;
   color: var(--color-text-secondary);
   line-height: 1.6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  flex-shrink: 0;
 }
 
 .item-meta {
@@ -964,6 +981,8 @@ select.input option {
   gap: 0.9rem;
   color: var(--color-text-muted);
   font-size: 0.9rem;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .tags {
@@ -971,6 +990,9 @@ select.input option {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  overflow: hidden;
+  max-height: 1.8rem;
+  flex-shrink: 0;
 }
 
 .tag {
@@ -983,10 +1005,12 @@ select.input option {
 }
 
 .item-actions {
-  margin-top: 0.9rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.6rem;
+  flex-shrink: 0;
 }
 
 .btn.danger {

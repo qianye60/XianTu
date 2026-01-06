@@ -126,6 +126,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { promptStorage, type PromptItem, type PromptsByCategory } from '@/services/promptStorage';
 import { toast } from '@/utils/toast';
+import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
 
 const router = useRouter();
 
@@ -261,7 +262,7 @@ function exportSingle(key: string) {
   for (const categoryKey in promptsByCategory.value) {
     const prompt = promptsByCategory.value[categoryKey].prompts.find(p => p.key === key);
     if (prompt) {
-      const data = { [key]: prompt.content };
+      const data = createDadBundle('prompts', { [key]: prompt.content });
       downloadJSON(data, `prompt_${key}.json`);
       break;
     }
@@ -269,7 +270,8 @@ function exportSingle(key: string) {
 }
 
 async function exportPrompts() {
-  const data = await promptStorage.exportAll();
+  const rawData = await promptStorage.exportAll();
+  const data = createDadBundle('prompts', rawData);
   downloadJSON(data, 'prompts_all.json');
   toast.success('已导出全部提示词');
 }
@@ -283,8 +285,11 @@ function importPrompts() {
     if (!file) return;
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
-      const count = await promptStorage.importPrompts(data);
+      const rawData = JSON.parse(text);
+      // 使用 unwrapDadBundle 解析，兼容新旧格式
+      const unwrapped = unwrapDadBundle(rawData);
+      const promptsData = unwrapped.type === 'prompts' ? unwrapped.payload : rawData;
+      const count = await promptStorage.importPrompts(promptsData);
       // 重新加载
       await loadPrompts();
       toast.success(`成功导入 ${count} 个提示词`);
