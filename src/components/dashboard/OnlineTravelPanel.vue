@@ -151,7 +151,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { toast } from '@/utils/toast';
 import { useI18n } from '@/i18n';
-import { isBackendConfigured } from '@/services/backendConfig';
+import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { ArrowRight, CalendarCheck, Coins, CornerUpLeft, Globe, Lock, Map as MapIcon, RefreshCw, ScrollText, Shield } from 'lucide-vue-next';
 
@@ -178,6 +178,7 @@ import {
 } from '@/services/onlineTravel';
 
 const { t } = useI18n();
+const uiStore = useUIStore();
 const characterStore = useCharacterStore();
 
 const isLoading = ref(false);
@@ -191,7 +192,8 @@ const session = ref<TravelStartResponse | null>(null);
 const graph = ref<MapGraphResponse | null>(null);
 const reports = ref<InvasionReportOut[]>([]);
 
-const backendReady = computed(() => isBackendConfigured());
+// 使用 uiStore 的统一后端状态
+const backendReady = computed(() => uiStore.isBackendConfiguredComputed);
 const isOnlineMode = computed(() => characterStore.activeCharacterProfile?.模式 === '联机');
 const canStart = computed(
   () => travelPoints.value > 0 && targetUsername.value.trim().length > 0 && backendReady.value && isOnlineMode.value
