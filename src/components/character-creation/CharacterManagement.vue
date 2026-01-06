@@ -548,6 +548,8 @@ import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
 import type { SaveDataV3 } from '@/types/saveSchemaV3';
+import { verifyStoredToken } from '@/services/request';
+import { isBackendConfigured } from '@/services/backendConfig';
 
 interface Props {
   fullscreen?: boolean;
@@ -733,6 +735,16 @@ const closeDetailsModal = () => {
 const handleSelect = async (charId: string, slotKey: string, hasData: boolean) => {
   console.log('选择存档:', charId, slotKey, hasData);
   const character = characterStore.rootState.角色列表[charId];
+
+  // 联机模式：先检测登录状态
+  if (character?.模式 === '联机' && isBackendConfigured()) {
+    const tokenValid = await verifyStoredToken();
+    if (!tokenValid) {
+      toast.warning('联机模式需要登录，正在跳转...');
+      router.push('/login');
+      return;
+    }
+  }
 
   if (hasData) {
     // 对于有数据的存档，直接进入

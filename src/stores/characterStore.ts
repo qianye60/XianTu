@@ -599,13 +599,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         return false;
       }
 
-      // 联机模式：优先从云端拉取权威存档（失败则回退到本地缓存）
+      // 联机模式：必须登录才能加载
       if (profile.模式 === '联机' && isBackendConfigured()) {
         // 先验证token有效性
         const tokenValid = await verifyStoredToken();
         if (!tokenValid) {
-          debug.warn('角色商店', '联机模式token无效，跳过云端拉取');
-          // 不阻止加载，继续使用本地缓存
+          debug.warn('角色商店', '联机模式token无效，需要登录');
+          toast.warning('联机模式需要登录');
+          return false;
         } else {
           try {
             const cloudProfile = await fetchCharacterProfile(charId) as any;
