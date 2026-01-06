@@ -14,6 +14,7 @@ export type { WorldMapConfig } from './worldMap';
 // --- AI 元数据通用接口 ---
 // 注意：存档落盘结构不允许出现 `_AI说明/_AI修改规则/_AI重要提醒` 等字段；
 // 这些提示仅允许存在于提示词/代码内部，不进入 SaveData。
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface AIMetadata {}
 
 // --- 系统与规则（可嵌入提示与限制） ---
