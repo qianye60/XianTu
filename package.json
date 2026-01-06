@@ -35,7 +35,7 @@
     "tailwind-merge": "^3.4.0",
     "vue": "^3.5.18",
     "vue-router": "^4.6.4",
-    "vue-tsc": "^3.1.1"
+    "vue-tsc": "^3.2.2"
   },
   "devDependencies": {
     "@types/jquery": "^3.5.32",
