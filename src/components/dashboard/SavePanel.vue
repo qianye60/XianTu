@@ -965,7 +965,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  background: var(--color-background);
   overflow: hidden;
   padding: 1rem;
   gap: 1rem;
@@ -1577,7 +1577,7 @@ onMounted(() => {
 
 /* 深色主题 */
 [data-theme='dark'] .save-panel {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: var(--color-background);
 }
 
 [data-theme='dark'] .panel-header,

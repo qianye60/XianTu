@@ -1218,7 +1218,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: var(--color-background);
   overflow: hidden;
   padding: 1rem;
   gap: 1rem;
@@ -1634,7 +1634,7 @@ input:checked + .switch-slider:before {
 
 /* 深色主题 */
 [data-theme='dark'] .settings-panel {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: var(--color-background);
 }
 
 [data-theme='dark'] .panel-header,

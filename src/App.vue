@@ -82,6 +82,10 @@
           <HelpCircle :size="18" />
           <span>教程 / 说明</span>
         </button>
+        <a href="https://afdian.com/a/qianye60" target="_blank" rel="noopener noreferrer" class="action-menu-item sponsor-item" @click="close()">
+          <Heart :size="18" />
+          <span>赞助支持</span>
+        </a>
       </template>
     </ActionMenu>
 
@@ -253,7 +257,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle } from 'lucide-vue-next'; // 导入图标
+import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';

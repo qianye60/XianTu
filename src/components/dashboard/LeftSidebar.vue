@@ -18,7 +18,7 @@
         <div class="function-group">
           <button class="function-btn primary" @click="handleCharacterDetails">
             <div class="btn-icon">
-              <User :size="18" />
+              <User :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('人物属性') }}</span>
@@ -29,7 +29,7 @@
 
           <button class="function-btn primary" @click="handleInventory">
             <div class="btn-icon">
-              <Package :size="18" />
+              <Package :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('背包物品') }}</span>
@@ -46,7 +46,7 @@
         <div class="function-group">
           <button class="function-btn cultivation" @click="handleTechniques">
             <div class="btn-icon">
-              <BookOpen :size="18" />
+              <BookOpen :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('功法技能') }}</span>
@@ -57,7 +57,7 @@
 
           <button class="function-btn cultivation" @click="handleThousandDao">
             <div class="btn-icon">
-              <Zap :size="18" />
+              <Zap :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('大道感悟') }}</span>
@@ -74,7 +74,7 @@
         <div class="function-group">
           <button class="function-btn quest" @click="handleQuests">
             <div class="btn-icon">
-              <Scroll :size="18" />
+              <Scroll :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('任务') }}</span>
@@ -85,7 +85,7 @@
 
           <button class="function-btn quest" @click="handleWorldMap">
             <div class="btn-icon">
-              <Map :size="18" />
+              <Map :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('世界地图') }}</span>
@@ -96,7 +96,7 @@
 
           <button class="function-btn quest" v-if="isOnlineMode" @click="handleOnlinePlay">
             <div class="btn-icon">
-              <Globe :size="18" />
+              <Globe :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('穿越') }}</span>
@@ -113,7 +113,7 @@
         <div class="function-group">
           <button class="function-btn secondary" @click="handleRelationships">
             <div class="btn-icon">
-              <Users :size="18" />
+              <Users :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('人物关系') }}</span>
@@ -124,7 +124,7 @@
 
           <button class="function-btn secondary" @click="handleSect">
             <div class="btn-icon">
-              <Home :size="18" />
+              <Home :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('宗门') }}</span>
@@ -135,7 +135,7 @@
 
           <button class="function-btn secondary" @click="handleMemoryCenter">
             <div class="btn-icon">
-              <Brain :size="18" />
+              <Brain :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('记忆') }}</span>
@@ -153,7 +153,7 @@
         <div class="function-group">
           <button class="function-btn system" @click="handleSaveGame" :disabled="!activeCharacter">
             <div class="btn-icon">
-              <Save :size="18" />
+              <Save :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('保存游戏') }}</span>
@@ -164,7 +164,7 @@
 
           <button class="function-btn system" v-if="!isOnlineMode" @click="handleGameVariables">
             <div class="btn-icon">
-              <Database :size="18" />
+              <Database :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('游戏变量') }}</span>
@@ -175,7 +175,7 @@
 
           <button class="function-btn system" @click="handlePrompts">
             <div class="btn-icon">
-              <FileText :size="18" />
+              <FileText :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('提示词管理') }}</span>
@@ -186,7 +186,7 @@
 
           <button class="function-btn system" @click="handleAPIManagement">
             <div class="btn-icon">
-              <Plug :size="18" />
+              <Plug :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('API管理') }}</span>
@@ -197,7 +197,7 @@
 
           <button class="function-btn system" @click="handleSettings">
             <div class="btn-icon">
-              <Settings :size="18" />
+              <Settings :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('系统设置') }}</span>
@@ -208,7 +208,7 @@
 
           <button class="function-btn exit-btn no-arrow" @click="handleBackToMenu">
             <div class="btn-icon">
-              <LogOut :size="18" />
+              <LogOut :size="16" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('返回道途') }}</span>
@@ -452,14 +452,14 @@ const exitToMenu = async () => {
 
 /* 功能分区样式 */
 .function-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .section-title {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-secondary);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   padding: 0 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -468,28 +468,28 @@ const exitToMenu = async () => {
 .function-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .system-section {
   border-top: 1px solid var(--color-border);
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
 .divider {
   height: 1px;
   background: var(--color-border);
-  margin: 16px 0;
+  margin: 12px 0;
 }
 
 /* 增强的按钮样式 */
 .function-btn {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 8px 10px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: inherit;
@@ -531,11 +531,11 @@ const exitToMenu = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: var(--color-background);
-  margin-right: 12px;
+  margin-right: 8px;
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
@@ -550,7 +550,7 @@ const exitToMenu = async () => {
 }
 
 .btn-text {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-text);
   line-height: 1.2;
@@ -560,7 +560,7 @@ const exitToMenu = async () => {
 }
 
 .btn-desc {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--color-text-secondary);
   line-height: 1.1;
   white-space: nowrap;
@@ -717,20 +717,20 @@ const exitToMenu = async () => {
   }
 
   .function-btn {
-    padding: 10px 14px;
+    padding: 6px 8px;
   }
 
   .btn-icon {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
   }
 
   .btn-text {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
   }
 
   .btn-desc {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
   }
 }
 </style>

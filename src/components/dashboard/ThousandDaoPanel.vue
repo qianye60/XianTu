@@ -552,6 +552,7 @@ const comprehendFromNature = () => {
   padding: 12px 16px;
   background: var(--color-background);
   border-bottom: 1px solid var(--color-border);
+  border-radius: 12px 12px 0 0;
 }
 
 .stats-card {

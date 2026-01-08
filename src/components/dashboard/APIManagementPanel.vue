@@ -231,26 +231,30 @@
 
           <div class="form-group">
             <label>{{ t('模型名称') }}</label>
-            <div class="model-input-row">
-              <input
-                v-model="editingAPI.model"
-                class="form-input"
-                :placeholder="getProviderPresetModel(editingAPI.provider || 'openai')"
-              />
-              <button class="utility-btn" @click="fetchModelsForEditing" :disabled="isFetchingModels">
-                <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
-              </button>
-            </div>
-            <div v-if="availableModels.length > 0" class="model-list">
-              <button
-                v-for="model in availableModels.slice(0, 10)"
-                :key="model"
-                class="model-tag"
-                @click="editingAPI.model = model"
-                :class="{ active: editingAPI.model === model }"
-              >
-                {{ model }}
-              </button>
+            <div class="model-select-wrapper">
+              <div class="model-input-row">
+                <input
+                  v-model="editingAPI.model"
+                  class="form-input"
+                  :placeholder="getProviderPresetModel(editingAPI.provider || 'openai')"
+                  @focus="showModelDropdown = true"
+                  @input="filterModels"
+                />
+                <button class="utility-btn" @click="fetchModelsForEditing" :disabled="isFetchingModels">
+                  <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
+                </button>
+              </div>
+              <div v-if="showModelDropdown && filteredModels.length > 0" class="model-dropdown">
+                <div
+                  v-for="model in filteredModels"
+                  :key="model"
+                  class="model-dropdown-item"
+                  :class="{ active: editingAPI.model === model }"
+                  @mousedown.prevent="selectModel(model)"
+                >
+                  {{ model }}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -346,6 +350,25 @@ const editingAPIId = ref<string | null>(null);
 // 模型获取状态
 const isFetchingModels = ref(false);
 const availableModels = ref<string[]>([]);
+const showModelDropdown = ref(false);
+
+// 过滤后的模型列表
+const filteredModels = computed(() => {
+  const query = editingAPI.value.model?.toLowerCase() || '';
+  if (!query) return availableModels.value;
+  return availableModels.value.filter(m => m.toLowerCase().includes(query));
+});
+
+// 过滤模型
+const filterModels = () => {
+  showModelDropdown.value = true;
+};
+
+// 选择模型
+const selectModel = (model: string) => {
+  editingAPI.value.model = model;
+  showModelDropdown.value = false;
+};
 
 // API测试状态
 const testingApiId = ref<string | null>(null);
@@ -655,7 +678,7 @@ const handleImport = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: var(--color-background);
   overflow: hidden;
   padding: 1rem;
   gap: 1rem;
@@ -1168,6 +1191,43 @@ input:checked + .switch-slider:before {
   flex: 1;
 }
 
+.model-select-wrapper {
+  position: relative;
+}
+
+.model-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.model-dropdown-item {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #374151;
+  transition: background 0.15s ease;
+}
+
+.model-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
+.model-dropdown-item.active {
+  background: #eff6ff;
+  color: #3b82f6;
+  font-weight: 500;
+}
+
 .utility-btn {
   display: flex;
   align-items: center;
@@ -1288,7 +1348,7 @@ input:checked + .switch-slider:before {
 
 /* 深色主题 */
 [data-theme='dark'] .api-management-panel {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: var(--color-background);
 }
 
 [data-theme='dark'] .panel-header,
@@ -1364,5 +1424,23 @@ input:checked + .switch-slider:before {
   background: #475569;
   border-color: #4b5563;
   color: #e5e7eb;
+}
+
+[data-theme='dark'] .model-dropdown {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+[data-theme='dark'] .model-dropdown-item {
+  color: #e5e7eb;
+}
+
+[data-theme='dark'] .model-dropdown-item:hover {
+  background: #4b5563;
+}
+
+[data-theme='dark'] .model-dropdown-item.active {
+  background: #1e40af;
+  color: #93c5fd;
 }
 </style>

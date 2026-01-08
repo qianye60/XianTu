@@ -615,7 +615,7 @@ const handleResize = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  background: var(--color-background);
 }
 
 /* 世界信息头部 */

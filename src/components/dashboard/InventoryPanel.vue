@@ -1519,6 +1519,8 @@ const refreshFromTavern = async () => {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   padding: 16px;
+  flex-shrink: 0;
+  border-radius: 12px 12px 0 0;
 }
 
 .tabs-nav {

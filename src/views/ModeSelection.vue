@@ -182,12 +182,15 @@ const enterCharacterSelection = async () => {
 <style scoped>
 .mode-selection-container {
   width: 100%;
-  height: 100vh;
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background: transparent; /* 透明背景以显示视频 */
   overflow: auto; /* 允许滚动以适应小屏幕 */
@@ -553,9 +556,15 @@ const enterCharacterSelection = async () => {
 
 /* 响应式 */
 @media (max-width: 768px) {
+  .mode-selection-container {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
   .selection-content {
     padding: 2rem 1.5rem;
     gap: 2rem;
+    max-height: none;
   }
 
   .main-title {
@@ -595,7 +604,9 @@ const enterCharacterSelection = async () => {
   .mode-selection-container {
     padding: 0.75rem;
     align-items: flex-start;
-    padding-top: 1rem;
+    justify-content: flex-start;
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
   }
 
   .selection-content {
@@ -670,6 +681,8 @@ const enterCharacterSelection = async () => {
 @media (max-width: 360px) {
   .mode-selection-container {
     padding: 0.5rem;
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
   }
 
   .selection-content {

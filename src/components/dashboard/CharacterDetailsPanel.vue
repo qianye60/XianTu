@@ -2089,11 +2089,10 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   white-space: nowrap;
 }
 
-/* 内容网格 - 改为更灵活的响应式布局 */
+/* 内容网格 - 瀑布流布局 */
 .content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
+  column-count: 2;
+  column-gap: 16px;
   padding: 16px;
   max-width: 100%;
   overflow: hidden;
@@ -2112,6 +2111,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   overflow: hidden;
   box-sizing: border-box;
   min-width: 0;
+  break-inside: avoid;
+  margin-bottom: 16px;
 }
 
 .info-section:hover {
@@ -3224,16 +3225,16 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 /* 响应式设计 */
 @media (max-width: 1400px) {
   .content-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 12px;
+    column-count: 2;
+    column-gap: 12px;
     padding: 12px;
   }
 }
 
 @media (max-width: 1200px) {
   .content-grid {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 12px;
+    column-count: 2;
+    column-gap: 12px;
   }
 
   .right-column {
@@ -3249,8 +3250,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 @media (max-width: 900px) {
   .content-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    column-count: 1;
+    column-gap: 12px;
     padding: 8px;
   }
 
@@ -3278,9 +3279,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   }
 
   .content-grid {
-    grid-template-columns: 1fr;
+    column-count: 1;
     padding: 8px;
-    gap: 12px;
   }
 
   .right-column {
@@ -3376,8 +3376,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   }
 
   .content-grid {
+    column-count: 1;
     padding: 6px;
-    gap: 8px;
   }
 
   .info-section {
@@ -4369,31 +4369,23 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 /* ==================== 全新顶部卡片设计 ==================== */
 .character-header-card {
   position: relative;
-  background: linear-gradient(135deg, #1a1f35 0%, #0f1419 100%);
-  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  margin-bottom: 16px;
 }
 
 .header-bg-decoration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 50%, rgba(168, 85, 247, 0.15) 0%, transparent 50%);
-  pointer-events: none;
+  display: none;
 }
 
 .header-content {
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 24px;
-  padding: 28px;
+  gap: 20px;
+  padding: 20px;
   align-items: center;
 }
 
@@ -4408,40 +4400,26 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 }
 
 .avatar-circle {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
   position: relative;
   z-index: 2;
 }
 
 .avatar-text {
   color: #fff;
-  font-size: 2rem;
-  font-weight: 800;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .avatar-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
-  border-radius: 50%;
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  display: none;
 }
 
 .identity-info {
@@ -4451,12 +4429,10 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 }
 
 .character-title {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-text);
   margin: 0;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-  letter-spacing: 0.5px;
 }
 
 .character-subtitle {
@@ -4467,8 +4443,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 }
 
 .subtitle-item {
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -4491,11 +4467,11 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 }
 
 .subtitle-divider {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--color-text-muted);
 }
 
 .age-text, .origin-text, .race-text {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-secondary);
 }
 
 .core-stats-grid {
@@ -4509,18 +4485,16 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  transition: all 0.3s ease;
+  padding: 10px 14px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
 }
 
 .stat-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 .card-icon {
@@ -4562,16 +4536,14 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .card-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-secondary);
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .card-value {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
   line-height: 1.4;
   word-break: break-all;
 }
@@ -4586,11 +4558,10 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 }
 
 .cultivation-progress-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 16px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -4604,14 +4575,14 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .progress-label {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-secondary);
   font-weight: 600;
 }
 
 .progress-percentage {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #60a5fa;
+  color: var(--color-primary);
 }
 
 .progress-bar-container {
@@ -4619,8 +4590,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 }
 
 .progress-bar-bg {
-  height: 10px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 8px;
+  background: var(--color-border);
   border-radius: 999px;
   overflow: hidden;
   position: relative;
@@ -4628,25 +4599,19 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-info));
   border-radius: 999px;
   position: relative;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .progress-bar-shine {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  /* 移除动画效果 */
+  display: none;
 }
 
 .progress-text {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 
@@ -4655,21 +4620,21 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  padding: 14px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
 }
 
 .status-icon {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  color: var(--color-primary);
 }
 
 .status-text {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-text-secondary);
 }
 
 /* 响应式设计 */

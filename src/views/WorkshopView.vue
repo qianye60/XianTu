@@ -689,12 +689,15 @@ const submitUpload = async () => {
 <style scoped>
 .workshop-container {
   width: 100%;
-  height: 100vh;
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
   overflow: auto;
 }
@@ -1178,9 +1181,29 @@ select.input option {
 }
 
 @media (max-width: 768px) {
+  .workshop-container {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 1rem;
+    padding-top: calc(1rem + env(safe-area-inset-top));
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
   .workshop-panel { padding: 2rem 1.5rem; }
   .filters { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .label { padding-top: 0; }
+}
+
+@media (max-width: 480px) {
+  .workshop-container {
+    padding: 0.75rem;
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .workshop-panel {
+    padding: 1.5rem 1rem;
+  }
 }
 </style>
