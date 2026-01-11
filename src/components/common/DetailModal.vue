@@ -1,7 +1,7 @@
 <template>
   <transition name="modal-fade">
     <div v-if="uiStore.showDetailModalState" class="modal-overlay" @click="closeModal">
-      <div class="modal-container" @click.stop>
+      <div class="modal-container" :class="uiStore.detailModalClass" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">{{ uiStore.detailModalTitle }}</h3>
           <button class="modal-close-button" @click="closeModal">
@@ -47,17 +47,26 @@ const closeModal = () => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .modal-container {
-  background: var(--color-surface);
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.02)) , var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-container.modal-wide {
+  width: min(96vw, 960px);
+  max-width: 960px;
+  max-height: 88svh;
 }
 
 .modal-header {
@@ -66,6 +75,7 @@ const closeModal = () => {
   align-items: center;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(59, 130, 246, 0.02));
 }
 
 .modal-title {
@@ -80,7 +90,7 @@ const closeModal = () => {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: var(--color-background);
+  background: rgba(15, 23, 42, 0.06);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   cursor: pointer;

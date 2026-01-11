@@ -101,7 +101,6 @@ const buildSectSystem = (
       ...(existing.宗门档案 || {})
     },
     宗门成员: existing.宗门成员 ?? membersBySect,
-    宗门任务: existing.宗门任务 ?? {},
     宗门藏经阁: existing.宗门藏经阁 ?? {},
     宗门贡献商店: existing.宗门贡献商店 ?? {},
     迁移记录: {

@@ -9,14 +9,15 @@ import type {
   MasteredSkill,
   Memory,
   NpcProfile,
-  QuestSystem,
   SectMemberInfo,
   SectSystemV2,
   StatusEffect,
   SystemConfig,
   PlayerAttributes,
   PlayerLocation,
-  WorldInfo
+  WorldInfo,
+  EventSystem,
+  BodyStats
 } from '@/types/game';
 
 /**
@@ -92,7 +93,7 @@ export interface SaveDataV3 {
     属性: PlayerAttributes;
     位置: PlayerLocation;
     效果: StatusEffect[];
-    身体?: unknown;
+    身体?: BodyStats;
     背包: Inventory;
     装备: Equipment;
     功法: TechniqueSystemV3;
@@ -103,7 +104,7 @@ export interface SaveDataV3 {
   社交: {
     关系: Record<string, NpcProfile>;
     宗门?: (SectSystemV2 & { 成员信息?: SectMemberInfo }) | null;
-    任务: QuestSystem;
+    事件: EventSystem;
     记忆: Memory;
   };
   世界: {

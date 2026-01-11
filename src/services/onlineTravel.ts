@@ -13,6 +13,24 @@ export type TravelStartResponse = {
   entry_poi_id: number;
   return_anchor: Record<string, unknown>;
   travel_points_left: number;
+  // 目标世界主人的离线代理提示词
+  owner_offline_agent_prompt?: string | null;
+  // 目标世界主人的角色信息（用于AI扮演）
+  owner_character_info?: {
+    name?: string;
+    cultivation_level?: string;
+    sect?: string;
+    personality?: string;
+  } | null;
+};
+
+export type TravelSessionStatusResponse = {
+  session_id: number;
+  state: 'active' | 'ended' | 'settled';
+  end_reason: 'normal' | 'owner_online' | 'kicked' | null;
+  target_world_instance_id: number;
+  entry_map_id: number;
+  entry_poi_id: number;
 };
 
 export type MapGraphResponse = {
@@ -44,6 +62,8 @@ export type WorldInstanceSummary = {
   owner_player_id: number;
   owner_char_id?: string | null;
   visibility_mode: string;
+  allow_offline_travel?: boolean;
+  offline_agent_prompt?: string | null;
   revision: number;
   maps: Array<{ map_id: number; map_key: string; revision: number }>;
 };
@@ -54,6 +74,9 @@ export type TravelableWorld = {
   owner_username: string;
   owner_char_id: string | null;
   visibility_mode: string;
+  allow_offline_travel?: boolean;
+  owner_online?: boolean;
+  owner_last_heartbeat_at?: string | null;
   revision: number;
   created_at: string;
 };
@@ -78,6 +101,10 @@ export async function getActiveTravelSession(): Promise<TravelStartResponse | nu
   return request.get<TravelStartResponse | null>('/api/v1/travel/active');
 }
 
+export async function getTravelSessionStatus(sessionId: number): Promise<TravelSessionStatusResponse> {
+  return request.get<TravelSessionStatusResponse>(`/api/v1/travel/status/${sessionId}`);
+}
+
 export async function startTravel(target_username: string, invite_code?: string): Promise<TravelStartResponse> {
   return request.post<TravelStartResponse>('/api/v1/travel/start', { target_username, invite_code });
 }
@@ -94,6 +121,14 @@ export async function updateMyWorldVisibility(visibility_mode: 'public' | 'hidde
   return request.post<WorldInstanceSummary>('/api/v1/worlds/instance/me/visibility', { visibility_mode });
 }
 
+export async function updateMyWorldPolicy(allow_offline_travel: boolean): Promise<WorldInstanceSummary> {
+  return request.post<WorldInstanceSummary>('/api/v1/worlds/instance/me/policy', { allow_offline_travel });
+}
+
+export async function updateMyWorldOfflinePrompt(offline_agent_prompt: string): Promise<WorldInstanceSummary> {
+  return request.post<WorldInstanceSummary>('/api/v1/worlds/instance/me/offline-prompt', { offline_agent_prompt });
+}
+
 export async function getMapGraph(
   world_instance_id: number,
   map_id: number,
@@ -101,6 +136,28 @@ export async function getMapGraph(
 ): Promise<MapGraphResponse> {
   const qs = session_id ? `?session_id=${encodeURIComponent(String(session_id))}` : '';
   return request.get<MapGraphResponse>(`/api/v1/worlds/instance/${world_instance_id}/map/${map_id}/graph${qs}`);
+}
+
+export type TravelSessionEvent = {
+  created_at: string;
+  event_type: string;
+  map_id?: number | null;
+  poi_id?: number | null;
+  payload?: unknown;
+};
+
+export type TravelSessionLogsResponse = {
+  session_id: number;
+  state: 'active' | 'ended' | 'settled' | string;
+  end_reason: 'normal' | 'owner_online' | 'kicked' | null;
+  target_world_instance_id: number;
+  entry_map_id: number;
+  entry_poi_id: number;
+  events: TravelSessionEvent[];
+};
+
+export async function getTravelSessionLogs(session_id: number): Promise<TravelSessionLogsResponse> {
+  return request.get<TravelSessionLogsResponse>(`/api/v1/travel/logs/${session_id}`);
 }
 
 export async function moveInWorld(

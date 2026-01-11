@@ -89,7 +89,7 @@ export function validateSaveDataV3(saveData: SaveData): SaveValidationResult {
   }
 
   if (!isPlainObject(anySave.社交?.关系)) errors.push('社交.关系 必填且必须是对象');
-  if (!isPlainObject(anySave.社交?.任务)) errors.push('社交.任务 必填且必须是对象');
+  if (!isPlainObject(anySave.社交?.事件)) errors.push('社交.事件 必填且必须是对象');
   if (!isPlainObject(anySave.社交?.记忆)) errors.push('社交.记忆 必填且必须是对象');
 
   if (!isPlainObject(anySave.世界?.信息)) errors.push('世界.信息 必填且必须是对象');
@@ -100,4 +100,3 @@ export function validateSaveDataV3(saveData: SaveData): SaveValidationResult {
 
   return { isValid: errors.length === 0, errors, warnings };
 }
-

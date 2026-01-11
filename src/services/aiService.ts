@@ -1,8 +1,14 @@
 /**
  * 统一AI服务 - 支持酒馆和自定义API
- * 提供统一的AI调用接口，支持两种模式：
- * 1. 酒馆模式（SillyTavern）- 默认模式
- * 2. 自定义API模式（OpenAI兼容）
+ *
+ * 双模式架构：
+ * 1. 酒馆模式（Tavern）:
+ *    - 主API（main）: 永远通过酒馆TavernHelper调用，使用酒馆配置的API
+ *    - 辅助功能（cot/text_optimization等）: 如果配置了独立API，则使用自定义API调用
+ *
+ * 2. 网页模式（Web/Custom）:
+ *    - 所有功能都通过配置的自定义API调用
+ *    - 可为不同功能分配不同的API
  */
 import axios from 'axios';
 import type { APIUsageType, APIConfig as StoreAPIConfig } from '@/stores/apiManagementStore';
@@ -171,16 +177,32 @@ class AIService {
 
   /**
    * 标准生成（带角色卡、聊天历史）
+   *
+   * 酒馆端逻辑：
+   * - usageType='main' 或未指定 → 永远走酒馆TavernHelper
+   * - 其他usageType且配置了独立API → 走自定义API
+   *
+   * 网页端逻辑：
+   * - 根据usageType查找对应API配置
+   * - 如果没有配置独立API，使用默认API
    */
   async generate(options: GenerateOptions): Promise<string> {
     this.syncModeWithEnvironment();
-    console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${options.usageType || '默认'}`);
+    const usageType = options.usageType || 'main';
+    console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${usageType}`);
 
-    // 检查是否需要使用特定功能的 API 配置
-    if (options.usageType && this.config.mode === 'custom') {
-      const apiConfig = this.getAPIConfigForUsageType(options.usageType);
+    // 酒馆模式特殊处理
+    if (this.config.mode === 'tavern') {
+      // 主API（main）永远通过酒馆调用
+      if (usageType === 'main') {
+        console.log('[AI服务-酒馆] 主API调用，使用酒馆TavernHelper');
+        return this.generateWithTavern(options);
+      }
+
+      // 辅助功能：检查是否配置了独立API
+      const apiConfig = this.getAPIConfigForUsageType(usageType);
       if (apiConfig) {
-        console.log(`[AI服务] 使用功能[${options.usageType}]分配的API: ${apiConfig.name}`);
+        console.log(`[AI服务-酒馆] 辅助功能[${usageType}]使用独立API: ${apiConfig.name}`);
         return this.generateWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -190,27 +212,58 @@ class AIService {
           maxTokens: apiConfig.maxTokens
         });
       }
+
+      // 辅助功能没有配置独立API，也走酒馆
+      console.log(`[AI服务-酒馆] 辅助功能[${usageType}]未配置独立API，使用酒馆TavernHelper`);
+      return this.generateWithTavern(options);
     }
 
-    if (this.config.mode === 'tavern') {
-      return this.generateWithTavern(options);
-    } else {
-      return this.generateWithCustomAPI(options);
+    // 网页模式：检查是否需要使用特定功能的 API 配置
+    const apiConfig = this.getAPIConfigForUsageType(usageType);
+    if (apiConfig) {
+      console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
+      return this.generateWithAPIConfig(options, {
+        provider: apiConfig.provider,
+        url: apiConfig.url,
+        apiKey: apiConfig.apiKey,
+        model: apiConfig.model,
+        temperature: apiConfig.temperature,
+        maxTokens: apiConfig.maxTokens
+      });
     }
+
+    // 网页模式默认
+    return this.generateWithCustomAPI(options);
   }
 
   /**
    * 纯净生成（不带角色卡）
+   *
+   * 酒馆端逻辑：
+   * - usageType='main' 或未指定 → 永远走酒馆TavernHelper
+   * - 其他usageType且配置了独立API → 走自定义API
+   *
+   * 网页端逻辑：
+   * - 根据usageType查找对应API配置
+   * - 如果没有配置独立API，使用默认API
    */
   async generateRaw(options: GenerateOptions): Promise<string> {
     this.syncModeWithEnvironment();
-    console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}, usageType: ${options.usageType || '默认'}`);
+    const usageType = options.usageType || 'main';
+    console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}, usageType: ${usageType}`);
 
-    // 检查是否需要使用特定功能的 API 配置
-    if (options.usageType && this.config.mode === 'custom') {
-      const apiConfig = this.getAPIConfigForUsageType(options.usageType);
+    // 酒馆模式特殊处理
+    if (this.config.mode === 'tavern') {
+      // 主API（main）永远通过酒馆调用
+      if (usageType === 'main') {
+        console.log('[AI服务-酒馆] 主API Raw调用，使用酒馆TavernHelper');
+        return this.generateRawWithTavern(options);
+      }
+
+      // 辅助功能：检查是否配置了独立API
+      const apiConfig = this.getAPIConfigForUsageType(usageType);
       if (apiConfig) {
-        console.log(`[AI服务] 使用功能[${options.usageType}]分配的API: ${apiConfig.name}`);
+        console.log(`[AI服务-酒馆] 辅助功能[${usageType}]使用独立API: ${apiConfig.name}`);
         return this.generateRawWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -220,13 +273,28 @@ class AIService {
           maxTokens: apiConfig.maxTokens
         });
       }
+
+      // 辅助功能没有配置独立API，也走酒馆
+      console.log(`[AI服务-酒馆] 辅助功能[${usageType}]未配置独立API，使用酒馆TavernHelper`);
+      return this.generateRawWithTavern(options);
     }
 
-    if (this.config.mode === 'tavern') {
-      return this.generateRawWithTavern(options);
-    } else {
-      return this.generateRawWithCustomAPI(options);
+    // 网页模式：检查是否需要使用特定功能的 API 配置
+    const apiConfig = this.getAPIConfigForUsageType(usageType);
+    if (apiConfig) {
+      console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
+      return this.generateRawWithAPIConfig(options, {
+        provider: apiConfig.provider,
+        url: apiConfig.url,
+        apiKey: apiConfig.apiKey,
+        model: apiConfig.model,
+        temperature: apiConfig.temperature,
+        maxTokens: apiConfig.maxTokens
+      });
     }
+
+    // 网页模式默认
+    return this.generateRawWithCustomAPI(options);
   }
 
   /**

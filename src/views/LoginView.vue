@@ -51,10 +51,6 @@
           <div ref="turnstileContainer" class="turnstile-container"></div>
         </div>
 
-        <div v-if="error" class="error-message">
-          {{ error }}
-        </div>
-
         <div v-if="successMessage" class="success-message">
           {{ successMessage }}
         </div>
@@ -70,6 +66,12 @@
           <a href="#" @click.prevent="toggleMode" class="link">
             {{ isRegisterMode ? $t('已有道号？立即登入') : $t('初来乍到？注册道号') }}
           </a>
+          <div v-if="!isRegisterMode" class="admin-login-toggle">
+            <label class="admin-checkbox">
+              <input type="checkbox" v-model="isAdminLogin" />
+              <span>{{ $t('仙官登录') }}</span>
+            </label>
+          </div>
         </div>
       </form>
 
@@ -98,6 +100,7 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
 const isRegisterMode = ref(false);
+const isAdminLogin = ref(false);
 const backendReady = ref(isBackendConfigured());
 
 // 安全配置（从后端获取）
@@ -109,7 +112,6 @@ const emailVerificationEnabled = ref(false);
 const turnstileContainer = ref<HTMLElement | null>(null);
 const turnstileWidgetId = ref<string | null>(null);
 const turnstileToken = ref('');
-const pendingAutoLogin = ref(false);
 
 // 邮箱验证码相关
 const sendingCode = ref(false);
@@ -138,7 +140,6 @@ const toggleMode = () => {
   isRegisterMode.value = !isRegisterMode.value;
   error.value = null;
   successMessage.value = null;
-  pendingAutoLogin.value = false;
   password.value = '';
   confirmPassword.value = '';
   email.value = '';
@@ -216,10 +217,6 @@ const initTurnstile = async () => {
       onSuccess: (token) => {
         turnstileToken.value = token;
         error.value = null;
-        if (pendingAutoLogin.value && !isRegisterMode.value && !isLoading.value) {
-          pendingAutoLogin.value = false;
-          void handleLogin();
-        }
       },
       onExpired: () => {
         turnstileToken.value = '';
@@ -312,20 +309,15 @@ const handleRegister = async () => {
 
     toast.success('道号注册成功，欢迎踏入修仙之路！');
 
+    // 注册成功后切换到登录模式，让用户手动登录
+    successMessage.value = '注册成功！请登录您的道号';
+    isRegisterMode.value = false;
+    turnstileToken.value = '';
     if (turnstileEnabled.value) {
-      successMessage.value = '注册成功！请再次完成人机验证以自动登录...';
-      pendingAutoLogin.value = true;
-      turnstileToken.value = '';
       resetTurnstile(turnstileWidgetId.value);
-      isRegisterMode.value = false;
-    } else {
-      successMessage.value = '注册成功！正在自动登录...';
-      isRegisterMode.value = false;
-      await handleLogin();
     }
 
   } catch (e: unknown) {
-    pendingAutoLogin.value = false;
     let errorMessage = '一个未知的错误发生了';
     if (typeof e === 'object' && e !== null) {
       if ('detail' in e && typeof (e as any).detail === 'string') {
@@ -367,6 +359,7 @@ const handleLogin = async () => {
     const body: Record<string, any> = {
       username: username.value,
       password: password.value,
+      is_admin: isAdminLogin.value,
     };
     if (turnstileEnabled.value && turnstileToken.value) {
       body.turnstile_token = turnstileToken.value;
@@ -383,11 +376,17 @@ const handleLogin = async () => {
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('username', username.value);
 
+    // 根据用户勾选的状态设置管理员标记
+    if (isAdminLogin.value) {
+      localStorage.setItem('is_admin', 'true');
+    } else {
+      localStorage.removeItem('is_admin');
+    }
+
     toast.success('登入成功，天机已连通！');
     emit('loggedIn');
 
   } catch (e: unknown) {
-    pendingAutoLogin.value = false;
     let errorMessage = '一个未知的错误发生了';
     if (typeof e === 'object' && e !== null) {
       if ('detail' in e && typeof (e as any).detail === 'string') {
@@ -537,6 +536,31 @@ const handleLogin = async () => {
 .link:hover {
     color: var(--color-primary-hover);
     text-decoration: underline;
+}
+
+.admin-login-toggle {
+    margin-top: 1rem;
+}
+
+.admin-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+
+.admin-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--color-warning);
+}
+
+.admin-checkbox:hover {
+    color: var(--color-warning);
 }
 
 .btn {

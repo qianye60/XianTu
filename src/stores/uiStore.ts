@@ -19,6 +19,7 @@ interface DetailModalConfig {
   content?: string; // Keep for backward compatibility
   component?: Component;
   props?: Record<string, any>;
+  className?: string;
 }
 
 // Toast 类型定义
@@ -54,6 +55,7 @@ export const useUIStore = defineStore('ui', () => {
   const detailModalContent = ref('');
   const detailModalComponent = shallowRef<Component | null>(null);
   const detailModalProps = ref<Record<string, any> | null>(null);
+  const detailModalClass = ref('');
 
   // --- 新增：数据验证错误弹窗状态 ---
   const showDataValidationError = ref(false);
@@ -77,7 +79,7 @@ export const useUIStore = defineStore('ui', () => {
   const minNpcCount = ref(3); // 最少NPC数量
 
   // 🔥 [行动选项设置] 控制AI是否生成行动选项
-  const enableActionOptions = ref(localStorage.getItem('enableActionOptions') === 'true'); // 默认关闭
+  const enableActionOptions = ref(localStorage.getItem('enableActionOptions') !== 'false'); // 默认开启
   const actionOptionsPrompt = ref(localStorage.getItem('actionOptionsPrompt') || ''); // 自定义行动选项提示词
 
   // 🔥 [流式传输设置] 控制是否启用流式传输（全局持久化）
@@ -290,6 +292,7 @@ export const useUIStore = defineStore('ui', () => {
     detailModalContent.value = config.content || '';
     detailModalComponent.value = config.component || null;
     detailModalProps.value = config.props || null;
+    detailModalClass.value = config.className || '';
     showDetailModalState.value = true;
   }
 
@@ -301,6 +304,7 @@ export const useUIStore = defineStore('ui', () => {
       detailModalContent.value = '';
       detailModalComponent.value = null;
       detailModalProps.value = null;
+      detailModalClass.value = '';
     }, 300); // Match transition duration
   }
 
@@ -427,6 +431,7 @@ export const useUIStore = defineStore('ui', () => {
     detailModalContent,
     detailModalComponent,
     detailModalProps,
+    detailModalClass,
     showDetailModal,
     hideDetailModal,
   };

@@ -594,6 +594,14 @@ export class GameMapManager {
     const locationLayer = this.layers.get(4); // MapLayer.LOCATION
     if (!locationLayer) return;
 
+    // 势力等级决定图标缩放（基础缩放提升至2.5倍）
+    const levelText = String(location.等级 || (location as any).level || '').toLowerCase();
+    let scale = 2.5; // 提升基础缩放
+    if (levelText.includes('超')) scale = 3.5;
+    else if (levelText.includes('一')) scale = 3.2;
+    else if (levelText.includes('二')) scale = 2.8;
+    else if (levelText.includes('三')) scale = 2.5;
+
     // 创建地点容器
     const locationContainer = new PIXI.Container();
     locationContainer.x = location.coordinates?.x || 0;
@@ -603,20 +611,21 @@ export class GameMapManager {
 
     // 绘制图标
     const icon = this.createLocationIcon(location.type, location.iconColor || '#6B7280');
+    icon.scale.set(scale);
     locationContainer.addChild(icon);
 
-    // 添加文字标签
+    // 添加文字标签（增大字体）
     const label = new PIXI.Text(location.name, {
       fontFamily: 'Microsoft YaHei, SimHei, sans-serif',
-      fontSize: 36, // 更大的地点名称字体
+      fontSize: 38 * scale, // 增大标签字体
       fill: location.iconColor || '#6B7280',
       fontWeight: '700',
       align: 'center',
       stroke: '#ffffff',
-      strokeThickness: 4,
+      strokeThickness: 5,
     });
     label.anchor.set(0.5, 0);
-    label.y = 28;
+    label.y = 32 * scale; // 调整标签位置
     label.eventMode = 'none';
     locationContainer.addChild(label);
 
@@ -638,55 +647,71 @@ export class GameMapManager {
   }
 
   /**
-   * 创建地点图标
+   * 创建地点图标（增大尺寸，增强视觉效果）
    */
   private createLocationIcon(type: string, colorStr: string): PIXI.Graphics {
     const graphics = new PIXI.Graphics();
     const color = parseInt(colorStr.replace('#', ''), 16);
 
-    graphics.alpha = 0.9;
+    graphics.alpha = 0.95;
 
     switch (type) {
       case 'natural_landmark':
-        // 山形图标
-        graphics.beginFill(color, 0.8);
-        graphics.moveTo(0, -12);
-        graphics.lineTo(-8, 8);
-        graphics.lineTo(8, 8);
+      case '名山大川':
+        // 山形图标（放大2倍）
+        graphics.beginFill(color, 0.9);
+        graphics.moveTo(0, -24);
+        graphics.lineTo(-16, 16);
+        graphics.lineTo(16, 16);
         graphics.closePath();
         graphics.endFill();
+        // 添加边框
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.moveTo(0, -24);
+        graphics.lineTo(-16, 16);
+        graphics.lineTo(16, 16);
+        graphics.closePath();
         break;
 
       case 'sect_power':
-        // 建筑图标
-        graphics.beginFill(color, 0.8);
-        graphics.drawRect(-8, -8, 16, 16);
+        // 建筑图标（放大2倍）- 仅兼容旧数据
+        graphics.beginFill(color, 0.9);
+        graphics.drawRect(-16, -16, 32, 32);
         graphics.endFill();
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.drawRect(-16, -16, 32, 32);
         graphics.beginFill(0xffffff, 0.9);
-        graphics.drawRect(-3, 0, 6, 8);
+        graphics.drawRect(-6, 0, 12, 16);
         graphics.endFill();
         break;
 
       case 'city_town':
-        // 城市图标
-        graphics.beginFill(color, 0.8);
-        graphics.drawCircle(0, 0, 10);
+      case '城镇坊市':
+        // 城市图标（放大2倍）
+        graphics.beginFill(color, 0.9);
+        graphics.drawCircle(0, 0, 20);
         graphics.endFill();
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.drawCircle(0, 0, 20);
+        // 内圈
         graphics.beginFill(0xffffff, 0.9);
-        graphics.drawCircle(0, 0, 4);
+        graphics.drawCircle(0, 0, 8);
         graphics.endFill();
         break;
 
       case 'blessed_land':
-        // 星形图标
-        graphics.beginFill(color, 0.7);
-        graphics.drawCircle(0, 0, 10);
+      case '洞天福地':
+        // 星形图标（放大2倍）
+        graphics.beginFill(color, 0.8);
+        graphics.drawCircle(0, 0, 20);
         graphics.endFill();
-        // 手动绘制星形（v7 没有 drawStar 方法）
-        graphics.beginFill(0xffffff, 0.9);
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.drawCircle(0, 0, 20);
+        // 星形
+        graphics.beginFill(0xffffff, 0.95);
         const points = 5;
-        const outerRadius = 6;
-        const innerRadius = 3;
+        const outerRadius = 12;
+        const innerRadius = 6;
         for (let i = 0; i < points * 2; i++) {
           const radius = i % 2 === 0 ? outerRadius : innerRadius;
           const angle = (Math.PI / points) * i - Math.PI / 2;
@@ -703,47 +728,67 @@ export class GameMapManager {
         break;
 
       case 'treasure_land':
-        // 菱形图标
-        graphics.beginFill(color, 0.8);
-        graphics.moveTo(0, -10);
-        graphics.lineTo(8, 0);
-        graphics.lineTo(0, 10);
-        graphics.lineTo(-8, 0);
+      case '奇珍异地':
+        // 菱形图标（放大2倍）
+        graphics.beginFill(color, 0.9);
+        graphics.moveTo(0, -20);
+        graphics.lineTo(16, 0);
+        graphics.lineTo(0, 20);
+        graphics.lineTo(-16, 0);
         graphics.closePath();
         graphics.endFill();
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.moveTo(0, -20);
+        graphics.lineTo(16, 0);
+        graphics.lineTo(0, 20);
+        graphics.lineTo(-16, 0);
+        graphics.closePath();
         break;
 
       case 'dangerous_area':
-        // 警告图标
-        graphics.beginFill(color, 0.8);
-        graphics.drawCircle(0, 0, 10);
+      case '凶险之地':
+        // 警告图标（放大2倍）
+        graphics.beginFill(color, 0.9);
+        graphics.drawCircle(0, 0, 20);
         graphics.endFill();
-        graphics.lineStyle(2, 0xffffff);
-        graphics.moveTo(0, -6);
-        graphics.lineTo(0, 2);
+        graphics.lineStyle(3, 0xffffff, 0.9);
+        graphics.drawCircle(0, 0, 20);
+        graphics.moveTo(0, -12);
+        graphics.lineTo(0, 4);
         graphics.beginFill(0xffffff);
-        graphics.drawCircle(0, 5, 1.5);
+        graphics.drawCircle(0, 10, 3);
         graphics.endFill();
         break;
 
       case 'special_other':
-        // 闪电图标
-        graphics.beginFill(color, 0.8);
-        graphics.moveTo(2, -10);
-        graphics.lineTo(-6, 2);
-        graphics.lineTo(0, 2);
-        graphics.lineTo(-2, 10);
-        graphics.lineTo(6, -2);
-        graphics.lineTo(0, -2);
+      case '其他特殊':
+        // 闪电图标（放大2倍）
+        graphics.beginFill(color, 0.9);
+        graphics.moveTo(4, -20);
+        graphics.lineTo(-12, 4);
+        graphics.lineTo(0, 4);
+        graphics.lineTo(-4, 20);
+        graphics.lineTo(12, -4);
+        graphics.lineTo(0, -4);
         graphics.closePath();
         graphics.endFill();
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.moveTo(4, -20);
+        graphics.lineTo(-12, 4);
+        graphics.lineTo(0, 4);
+        graphics.lineTo(-4, 20);
+        graphics.lineTo(12, -4);
+        graphics.lineTo(0, -4);
+        graphics.closePath();
         break;
 
       default:
-        // 默认圆形
-        graphics.beginFill(color, 0.8);
-        graphics.drawCircle(0, 0, 8);
+        // 默认圆形（放大2倍）
+        graphics.beginFill(color, 0.9);
+        graphics.drawCircle(0, 0, 16);
         graphics.endFill();
+        graphics.lineStyle(2, 0xffffff, 0.8);
+        graphics.drawCircle(0, 0, 16);
     }
 
     return graphics;
@@ -826,9 +871,109 @@ export class GameMapManager {
   /**
    * 更新玩家位置
    */
+  /**
+   * 更新玩家位置
+   */
+  clearPlayerMarker() {
+    const playerLayer = this.layers.get(5); // MapLayer.PLAYER
+    if (!playerLayer) return;
+    playerLayer.removeChildren();
+  }
+
+  /**
+   * 更新NPC位置
+   */
+  updateNPCPositions(npcs: Array<{ name: string; coordinates: GameCoordinates }>) {
+    const playerLayer = this.layers.get(5); // MapLayer.PLAYER (NPC也显示在同一层)
+    if (!playerLayer) return;
+
+    // 清除所有旧的NPC标记（保留玩家标记）
+    const children = [...playerLayer.children];
+    children.forEach((child) => {
+      const userData = (child as any).userData;
+      if (userData && userData.type === 'npc') {
+        playerLayer.removeChild(child);
+        try {
+          child.destroy({ children: true, texture: false, baseTexture: false });
+        } catch {
+          // 忽略销毁错误
+        }
+      }
+    });
+
+    // 渲染所有NPC
+    npcs.forEach((npc) => {
+      if (!Number.isFinite(npc.coordinates?.x) || !Number.isFinite(npc.coordinates?.y)) {
+        return;
+      }
+
+      const npcContainer = new PIXI.Container();
+      npcContainer.x = npc.coordinates.x;
+      npcContainer.y = npc.coordinates.y;
+
+      // 标记为NPC
+      (npcContainer as any).userData = { type: 'npc', name: npc.name };
+
+      // 绘制NPC光环（紫色系）
+      const aura = new PIXI.Graphics();
+      aura.beginFill(0x8b5cf6, 0.25);
+      aura.drawCircle(0, 0, 35);
+      aura.endFill();
+      npcContainer.addChild(aura);
+
+      // 绘制NPC标记（圆形头像样式）
+      const marker = new PIXI.Graphics();
+      marker.beginFill(0x8b5cf6, 0.9);
+      marker.drawCircle(0, 0, 22);
+      marker.endFill();
+
+      // 边框
+      marker.lineStyle(3, 0xffffff, 0.9);
+      marker.drawCircle(0, 0, 22);
+
+      // 内部简单人形图标
+      marker.lineStyle(0);
+      marker.beginFill(0xffffff, 0.95);
+      marker.drawCircle(0, -6, 6); // 头部
+      marker.endFill();
+      marker.beginFill(0xffffff, 0.95);
+      marker.moveTo(-8, 4);
+      marker.lineTo(8, 4);
+      marker.lineTo(8, 14);
+      marker.lineTo(-8, 14);
+      marker.closePath();
+      marker.endFill();
+
+      npcContainer.addChild(marker);
+
+      // 添加NPC名称
+      const label = new PIXI.Text(npc.name, {
+        fontFamily: 'Microsoft YaHei, sans-serif',
+        fontSize: 40,
+        fill: 0x8b5cf6,
+        fontWeight: '600',
+        align: 'center',
+        stroke: '#ffffff',
+        strokeThickness: 5,
+      });
+      label.anchor.set(0.5, 0);
+      label.y = 32;
+      npcContainer.addChild(label);
+
+      playerLayer.addChild(npcContainer);
+    });
+
+    console.log(`[地图管理器] 更新NPC位置: 共${npcs.length}个NPC`);
+  }
+
   updatePlayerPosition(position: GameCoordinates, playerName: string = '玩家') {
     const playerLayer = this.layers.get(5); // MapLayer.PLAYER
     if (!playerLayer) return;
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+      this.clearPlayerMarker();
+      return;
+    }
+
 
     // 清除旧的玩家标记
     playerLayer.removeChildren();
@@ -838,56 +983,57 @@ export class GameMapManager {
     playerContainer.x = position.x;
     playerContainer.y = position.y;
 
-    // 绘制光环动画（使用简单的圆形代替动画）
+    // 绘制光环动画（增大尺寸，增强效果）
     const aura1 = new PIXI.Graphics();
-    aura1.beginFill(0xef4444, 0.25);
-    aura1.drawCircle(0, 0, 20);
+    aura1.beginFill(0xef4444, 0.3);
+    aura1.drawCircle(0, 0, 45);
     aura1.endFill();
     playerContainer.addChild(aura1);
 
     const aura2 = new PIXI.Graphics();
-    aura2.beginFill(0xfbbf24, 0.4);
-    aura2.drawCircle(0, 0, 12);
+    aura2.beginFill(0xfbbf24, 0.5);
+    aura2.drawCircle(0, 0, 28);
     aura2.endFill();
     playerContainer.addChild(aura2);
 
-    // 绘制玩家标记（三角形）
+    // 绘制玩家标记（三角形 - 放大2.5倍）
     const marker = new PIXI.Graphics();
     marker.beginFill(0xdc2626);
-    marker.moveTo(0, -12);
-    marker.lineTo(-8, 8);
-    marker.lineTo(8, 8);
+    marker.moveTo(0, -30);
+    marker.lineTo(-20, 20);
+    marker.lineTo(20, 20);
     marker.closePath();
     marker.endFill();
 
-    marker.lineStyle(2, 0xfef2f2);
-    marker.moveTo(0, -12);
-    marker.lineTo(-8, 8);
-    marker.lineTo(8, 8);
+    // 增强边框
+    marker.lineStyle(4, 0xfef2f2, 0.95);
+    marker.moveTo(0, -30);
+    marker.lineTo(-20, 20);
+    marker.lineTo(20, 20);
     marker.closePath();
 
-    // 中心点
+    // 中心点（增大）
     marker.beginFill(0xfef2f2);
-    marker.drawCircle(0, 0, 3);
+    marker.drawCircle(0, 0, 8);
     marker.endFill();
     marker.beginFill(0xdc2626);
-    marker.drawCircle(0, 0, 1.5);
+    marker.drawCircle(0, 0, 4);
     marker.endFill();
 
     playerContainer.addChild(marker);
 
-    // 添加玩家名称
+    // 添加玩家名称（增大字体）
     const label = new PIXI.Text(playerName, {
       fontFamily: 'Microsoft YaHei, sans-serif',
-      fontSize: 40, // 更大的玩家名称字体
+      fontSize: 48, // 增大玩家名称字体
       fill: 0xdc2626,
       fontWeight: '700',
       align: 'center',
       stroke: '#ffffff',
-      strokeThickness: 5,
+      strokeThickness: 6,
     });
     label.anchor.set(0.5, 0);
-    label.y = 32;
+    label.y = 40; // 调整位置
     playerContainer.addChild(label);
 
     playerLayer.addChild(playerContainer);

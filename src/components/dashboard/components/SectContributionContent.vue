@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="sect-contribution">
     <!-- 玩家信息栏 -->
     <div class="player-info-bar">
@@ -87,7 +87,7 @@
       <div class="tips-list">
         <div class="tip-item">
           <Scroll :size="12" />
-          <span>完成宗门任务</span>
+          <span>参与宗门事务</span>
         </div>
         <div class="tip-item">
           <Package :size="12" />
@@ -139,64 +139,38 @@ const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
 const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
 const playerContribution = computed(() => playerSectInfo.value?.贡献 || 0);
 
-// 可兑换物品列表（示例数据，实际应从存档读取）
-const exchangeItems = computed(() => {
-  // 这里应该从世界信息中读取宗门可兑换物品
-  // 暂时返回示例数据，实际应由AI生成
-  return [
-    {
-      id: 'pill_001',
-      name: '聚气丹',
-      icon: '💊',
-      type: '丹药',
-      quality: '黄品下',
-      description: '服用后可增加50点修为进度',
-      cost: 100,
-      stock: 10
-    },
-    {
-      id: 'pill_002',
-      name: '疗伤丹',
-      icon: '💊',
-      type: '丹药',
-      quality: '黄品中',
-      description: '服用后可恢复30%气血',
-      cost: 150,
-      stock: 5
-    },
-    {
-      id: 'tech_001',
-      name: '基础剑诀',
-      icon: '📜',
-      type: '功法',
-      quality: '黄品下',
-      description: '外门入门剑法，可解锁基础剑术',
-      cost: 300,
-      stock: undefined
-    },
-    {
-      id: 'equip_001',
-      name: '弟子剑',
-      icon: '⚔️',
-      type: '装备',
-      quality: '凡品',
-      description: '宗门制式佩剑，攻击+5',
-      cost: 200,
-      stock: 3
-    },
-    {
-      id: 'mat_001',
-      name: '灵草',
-      icon: '🌿',
-      type: '材料',
-      quality: '凡品',
-      description: '常见炼丹材料',
-      cost: 50,
-      stock: 20
-    }
-  ];
+// 可兑换物品列表（来自宗门系统）
+type ExchangeItem = {
+  id: string;
+  name: string;
+  icon: string;
+  type: string;
+  quality: string;
+  description: string;
+  cost: number;
+  stock?: number;
+};
+
+const normalizeExchangeItem = (raw: any, index: number): ExchangeItem => ({
+  id: raw?.id || raw?.物品ID || `sect_item_${index}`,
+  name: raw?.name || raw?.名称 || '未知物品',
+  icon: raw?.icon || 'O',
+  type: raw?.type || raw?.类型 || '其他',
+  quality: raw?.quality || raw?.品质 || '凡品',
+  description: raw?.description || raw?.描述 || '',
+  cost: Number(raw?.cost ?? raw?.价格 ?? 0),
+  stock: raw?.stock ?? raw?.库存,
 });
 
+const exchangeItems = computed<ExchangeItem[]>(() => {
+  const sectName = playerSectInfo.value?.宗门名称;
+  if (!sectName) return [];
+
+  const rawItems = gameStateStore.sectSystem?.宗门贡献商店?.[sectName];
+  if (!Array.isArray(rawItems)) return [];
+
+  return rawItems.map(normalizeExchangeItem);
+});
 // 过滤后的物品
 const filteredItems = computed(() => {
   if (activeTab.value === 'all') return exchangeItems.value;
@@ -519,3 +493,4 @@ function sendPrompt(text: string) {
   color: #3b82f6;
 }
 </style>
+

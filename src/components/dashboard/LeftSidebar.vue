@@ -2,7 +2,7 @@
   <div class="left-sidebar">
     <div class="sidebar-header">
       <h3 class="sidebar-title">
-        <Compass :size="20" class="title-icon" />
+        <LayoutGrid :size="20" class="title-icon" />
         {{ t('游戏功能') }}
       </h3>
       <div class="real-time">
@@ -18,7 +18,7 @@
         <div class="function-group">
           <button class="function-btn primary" @click="handleCharacterDetails">
             <div class="btn-icon">
-              <User :size="16" />
+              <User :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('人物属性') }}</span>
@@ -29,7 +29,7 @@
 
           <button class="function-btn primary" @click="handleInventory">
             <div class="btn-icon">
-              <Package :size="16" />
+              <Package :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('背包物品') }}</span>
@@ -46,7 +46,7 @@
         <div class="function-group">
           <button class="function-btn cultivation" @click="handleTechniques">
             <div class="btn-icon">
-              <BookOpen :size="16" />
+              <BookOpen :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('功法技能') }}</span>
@@ -57,7 +57,7 @@
 
           <button class="function-btn cultivation" @click="handleThousandDao">
             <div class="btn-icon">
-              <Zap :size="16" />
+              <Zap :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('大道感悟') }}</span>
@@ -68,24 +68,24 @@
         </div>
       </div>
 
-      <!-- 任务与探索区 -->
+      <!-- 事件与探索区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('任务探索') }}</div>
+        <div class="section-title">{{ t('事件探索') }}</div>
         <div class="function-group">
-          <button class="function-btn quest" @click="handleQuests">
+          <button class="function-btn quest" @click="handleEvents">
             <div class="btn-icon">
-              <Scroll :size="16" />
+              <Bell :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('任务') }}</span>
-              <span class="btn-desc">{{ t('接取完成任务') }}</span>
+              <span class="btn-text">{{ t('世界事件') }}</span>
+              <span class="btn-desc">{{ t('世界变革与危机') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
           <button class="function-btn quest" @click="handleWorldMap">
             <div class="btn-icon">
-              <Map :size="16" />
+              <Map :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('世界地图') }}</span>
@@ -96,7 +96,7 @@
 
           <button class="function-btn quest" v-if="isOnlineMode" @click="handleOnlinePlay">
             <div class="btn-icon">
-              <Globe :size="16" />
+              <Globe :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('穿越') }}</span>
@@ -113,7 +113,7 @@
         <div class="function-group">
           <button class="function-btn secondary" @click="handleRelationships">
             <div class="btn-icon">
-              <Users :size="16" />
+              <Users :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('人物关系') }}</span>
@@ -124,7 +124,7 @@
 
           <button class="function-btn secondary" @click="handleSect">
             <div class="btn-icon">
-              <Home :size="16" />
+              <Home :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('宗门') }}</span>
@@ -135,7 +135,7 @@
 
           <button class="function-btn secondary" @click="handleMemoryCenter">
             <div class="btn-icon">
-              <Brain :size="16" />
+              <Brain :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('记忆') }}</span>
@@ -153,7 +153,7 @@
         <div class="function-group">
           <button class="function-btn system" @click="handleSaveGame" :disabled="!activeCharacter">
             <div class="btn-icon">
-              <Save :size="16" />
+              <Save :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('保存游戏') }}</span>
@@ -164,7 +164,7 @@
 
           <button class="function-btn system" v-if="!isOnlineMode" @click="handleGameVariables">
             <div class="btn-icon">
-              <Database :size="16" />
+              <Database :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('游戏变量') }}</span>
@@ -175,29 +175,29 @@
 
           <button class="function-btn system" @click="handlePrompts">
             <div class="btn-icon">
-              <FileText :size="16" />
+              <FileText :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('提示词管理') }}</span>
-              <span class="btn-desc">{{ t('自定义AI提示词') }}</span>
+              <span class="btn-desc">{{ t('自定义提示词') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
           <button class="function-btn system" @click="handleAPIManagement">
             <div class="btn-icon">
-              <Plug :size="16" />
+              <Plug :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('API管理') }}</span>
-              <span class="btn-desc">{{ t('多API配置与分配') }}</span>
+              <span class="btn-desc">{{ t('多API配置') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
           <button class="function-btn system" @click="handleSettings">
             <div class="btn-icon">
-              <Settings :size="16" />
+              <Settings :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('系统设置') }}</span>
@@ -206,9 +206,20 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
+          <button v-if="isAdmin" class="function-btn admin" @click="handleBackendAdmin">
+            <div class="btn-icon">
+              <Shield :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('仙官后台') }}</span>
+              <span class="btn-desc">{{ t('管理员控制台') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
           <button class="function-btn exit-btn no-arrow" @click="handleBackToMenu">
             <div class="btn-icon">
-              <LogOut :size="16" />
+              <LogOut :size="18" />
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('返回道途') }}</span>
@@ -218,22 +229,46 @@
         </div>
       </div>
     </div>
+
+    <!-- 版本号显示 -->
+    <div class="sidebar-footer">
+      <span class="app-version">V{{ displayVersion }}</span>
+      <div class="footer-links">
+        <a href="https://github.com/qianye60/XianTu" target="_blank" class="footer-link github" title="GitHub">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+        </a>
+        <a href="https://afdian.com/a/qianye60" target="_blank" class="footer-link sponsor" title="赞助支持">
+          <Heart :size="14" />
+        </a>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database, Clock, FileText, Plug } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Bell, ChevronRight, Database, Clock, FileText, Plug, LayoutGrid, Heart, Shield } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
 import { useI18n } from '@/i18n';
+import { isBackendConfigured, fetchBackendVersion } from '@/services/backendConfig';
 
 const router = useRouter();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
 const { t } = useI18n();
+
+// 版本号相关
+const backendReady = ref(false);
+const backendVersion = ref<string | null>(null);
+
+const displayVersion = computed(() => (
+  backendReady.value ? (backendVersion.value ?? '同步中') : APP_VERSION
+));
 
 // 实时北京时间
 const currentRealTime = ref('');
@@ -250,9 +285,18 @@ const updateRealTime = () => {
   currentRealTime.value = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-onMounted(() => {
+onMounted(async () => {
   updateRealTime();
   timeInterval = window.setInterval(updateRealTime, 1000);
+
+  // 获取后端版本
+  if (isBackendConfigured()) {
+    const version = await fetchBackendVersion();
+    if (version) {
+      backendReady.value = true;
+      backendVersion.value = version;
+    }
+  }
 });
 
 onUnmounted(() => {
@@ -264,6 +308,7 @@ onUnmounted(() => {
 // 使用 store 的 getters 获取数据
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
 const isOnlineMode = computed(() => activeCharacter.value?.模式 === '联机');
+const isAdmin = computed(() => localStorage.getItem('is_admin') === 'true');
 
 const handleSaveGame = async () => {
   router.push('/game/save');
@@ -277,8 +322,8 @@ const handleCharacterDetails = () => {
   router.push('/game/character-details');
 };
 
-const handleQuests = () => {
-  router.push('/game/quests');
+const handleEvents = () => {
+  router.push('/game/events');
 };
 
 const handleSect = () => {
@@ -323,6 +368,10 @@ const handleAPIManagement = () => {
 
 const handleGameVariables = () => {
   router.push('/game/game-variables');
+};
+
+const handleBackendAdmin = () => {
+  router.push('/backend-admin');
 };
 
 const handleBackToMenu = () => {
@@ -391,6 +440,82 @@ const exitToMenu = async () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  padding-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.footer-links {
+  display: flex;
+  gap: 6px;
+}
+
+.footer-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: all 0.2s ease;
+}
+
+.footer-link:hover {
+  transform: scale(1.1);
+}
+
+.footer-link.github {
+  color: var(--color-text-secondary);
+}
+
+.footer-link.github:hover {
+  color: #fff;
+  background: #333;
+  border-color: #333;
+}
+
+.footer-link.sponsor {
+  color: #f472b6;
+}
+
+.footer-link.sponsor:hover {
+  color: #fff;
+  background: #ec4899;
+  border-color: #ec4899;
+}
+
+.app-version {
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #67e8f9;
+  padding: 0.25rem 0.6rem;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 6px;
+  display: inline-block;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+  transition: all 0.3s ease;
+}
+
+.app-version:hover {
+  color: #a5f3fc;
+  border-color: rgba(34, 211, 238, 0.5);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.7);
 }
 
 .sidebar-title {
@@ -432,7 +557,7 @@ const exitToMenu = async () => {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  scrollbar-color: transparent transparent;
   padding-right: 4px;
 }
 
@@ -443,16 +568,16 @@ const exitToMenu = async () => {
   background: transparent;
 }
 .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
   border-radius: 2px;
 }
 [data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb-color);
+  background: transparent;
 }
 
 /* 功能分区样式 */
 .function-section {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .section-title {
@@ -468,12 +593,12 @@ const exitToMenu = async () => {
 .function-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .system-section {
-  border-top: 1px solid var(--color-border);
-  padding-top: 12px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .divider {
@@ -486,10 +611,10 @@ const exitToMenu = async () => {
 .function-btn {
   display: flex;
   align-items: center;
-  padding: 8px 10px;
+  padding: 12px 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: inherit;
@@ -531,11 +656,11 @@ const exitToMenu = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   background: var(--color-background);
-  margin-right: 8px;
+  margin-right: 12px;
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
@@ -550,19 +675,19 @@ const exitToMenu = async () => {
 }
 
 .btn-text {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
-  line-height: 1.2;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .btn-desc {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--color-text-secondary);
-  line-height: 1.1;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -708,6 +833,26 @@ const exitToMenu = async () => {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+/* 管理员按钮样式 */
+.function-btn.admin .btn-icon {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: rgb(245, 158, 11);
+}
+
+.function-btn.admin:hover .btn-icon {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.function-btn.admin .btn-text {
+  color: rgb(245, 158, 11);
+}
+
+.function-btn.admin .btn-desc {
+  color: rgba(245, 158, 11, 0.7);
+}
+
 /* 深色主题无需额外适配：已统一使用主题变量 */
 
 /* 响应式适配 */
@@ -717,20 +862,23 @@ const exitToMenu = async () => {
   }
 
   .function-btn {
-    padding: 6px 8px;
+    padding: 10px 12px;
   }
 
   .btn-icon {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
   }
 
   .btn-text {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
 
   .btn-desc {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
   }
 }
+
+/* ========== iframe环境（酒馆端）样式 ========== */
+/* 不做特殊放大，使用与网页版相同的样式 */
 </style>

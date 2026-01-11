@@ -3,7 +3,7 @@
   <div class="right-sidebar">
     <div class="sidebar-header">
       <h3 class="sidebar-title">
-        <Activity :size="18" class="title-icon" />
+        <User :size="18" class="title-icon" />
         <span>{{ t('角色状态') }}</span>
       </h3>
     </div>
@@ -88,9 +88,17 @@
           <!-- 修炼境界显示进度条 -->
           <div v-else class="realm-progress">
             <div class="progress-bar">
-              <div class="progress-fill cultivation" :style="{ width: realmProgressPercent + '%' }"></div>
+              <div
+                class="progress-fill cultivation"
+                :class="getRealmProgressClass()"
+                :style="{ width: realmProgressPercent + '%' }"
+              ></div>
             </div>
-            <span class="progress-text">{{ realmProgressPercent }}%</span>
+            <span class="progress-text" :class="getRealmProgressClass()">
+              {{ realmProgressPercent }}%
+              <span v-if="realmProgressPercent >= 100" class="breakthrough-hint">可突破!</span>
+              <span v-else-if="realmProgressPercent >= 90" class="sprint-hint">可冲刺</span>
+            </span>
           </div>
         </div>
 
@@ -138,7 +146,6 @@
 
           <!-- 空状态显示 -->
           <div v-if="!characterInfo.天赋 || characterInfo.天赋.length === 0" class="empty-talents">
-            <div class="empty-icon">✨</div>
             <div class="empty-text">{{ t('暂无天赋神通') }}</div>
           </div>
         </div>
@@ -192,7 +199,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Activity, Sparkles, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
+import { User, Sparkles, Heart, Droplet, Brain, Clock, Star, Zap } from 'lucide-vue-next';
 import { LOCAL_TALENTS } from '@/data/creationData';
 import DetailModal from '@/components/common/DetailModal.vue';
 import StatusDetailCard from './components/StatusDetailCard.vue';
@@ -270,6 +277,14 @@ const realmProgressPercent = computed(() => {
   const maxProgress = gameStateStore.attributes.境界.下一级所需;
   return progress && maxProgress ? Math.round((progress / maxProgress) * 100) : 0;
 });
+
+// 根据进度百分比返回CSS类名
+const getRealmProgressClass = (): string => {
+  const percent = realmProgressPercent.value;
+  if (percent >= 100) return 'realm-breakthrough';  // 红色 - 可突破
+  if (percent >= 90) return 'realm-sprint';         // 黄色 - 可冲刺
+  return '';                                         // 紫色 - 默认
+};
 
 // 计算生命体征百分比
 const getVitalPercent = (type: '气血' | '灵气' | '神识') => {
@@ -422,7 +437,7 @@ const getReputationClass = (): string => {
 
 .sidebar-header {
   margin-bottom: 16px;
-  padding: 12px 0;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--color-border);
   background: transparent;
 }
@@ -460,7 +475,7 @@ const getReputationClass = (): string => {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .sidebar-content::-webkit-scrollbar {
@@ -472,12 +487,12 @@ const getReputationClass = (): string => {
 }
 
 .sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
   border-radius: 2px;
 }
 
 [data-theme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb-color);
+  background: transparent;
 }
 
 /* 角色基本信息样式 */
@@ -555,6 +570,60 @@ const getReputationClass = (): string => {
 
 .progress-fill.cultivation {
   background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+/* 境界进度条 - 冲刺状态（90-99%）黄色 */
+.progress-fill.cultivation.realm-sprint {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+/* 境界进度条 - 突破状态（100%）红色 */
+.progress-fill.cultivation.realm-breakthrough {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  animation: breakthrough-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes breakthrough-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+  }
+}
+
+/* 进度文本颜色变化 */
+.progress-text.realm-sprint {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.progress-text.realm-breakthrough {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* 突破和冲刺提示 */
+.breakthrough-hint {
+  font-size: 0.6rem;
+  color: #ef4444;
+  font-weight: 700;
+  margin-left: 4px;
+  animation: hint-blink 1s ease-in-out infinite;
+}
+
+.sprint-hint {
+  font-size: 0.6rem;
+  color: #f59e0b;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+@keyframes hint-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* 收缩区域通用样式 */
@@ -816,20 +885,15 @@ const getReputationClass = (): string => {
 }
 
 /* 空状态样式 */
-.empty-talents {
+.empty-talents,
+.empty-status {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: 16px;
   text-align: center;
   gap: 0.5rem;
-}
-
-.empty-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-  opacity: 0.7;
 }
 
 .empty-text {
@@ -839,26 +903,9 @@ const getReputationClass = (): string => {
   margin-bottom: 0.25rem;
 }
 
-.empty-hint {
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-  line-height: 1.4;
-  max-width: 200px;
-}
-
 /* 状态效果特定样式 */
 .status-effects {
   padding: 0 16px 16px;
-}
-
-.empty-status {
-  padding: 20px;
-  text-align: center;
-}
-.empty-text {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  font-style: italic;
 }
 
 /* 新的标签式状态效果样式 - 紧凑且美观 */
@@ -866,7 +913,7 @@ const getReputationClass = (): string => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 12px;
+  padding: 16px;
 }
 
 .status-tag {

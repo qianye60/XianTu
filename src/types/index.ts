@@ -3,6 +3,7 @@
 // 从 game.d.ts 导出 TechniqueItem 类型以修复编译错误
 export type { TechniqueItem } from './game.d';
 import type { SaveDataV3 } from './saveSchemaV3';
+import type { APIUsageType } from '@/stores/apiManagementStore';
 
 // --- 核心AI交互结构 (保留) ---
 export interface GM_Request {
@@ -269,6 +270,11 @@ export interface WorldInfo {
   大陆信息?: any[];
   势力信息?: any[];
   地点信息?: any[];
+  世界背景?: string;
+  世界纪元?: string;
+  生成时间?: string;
+  特殊设定?: string[];
+  版本?: string;
 }
 
 // 存档结构以 V3 为准（见 docs/save-schema-v3.md）
@@ -325,6 +331,7 @@ export interface TavernHelper {
     max_chat_history?: 'all' | number;
     custom_api?: Record<string, unknown>;
     generation_id?: string;
+    usageType?: APIUsageType;
   }) => Promise<string>; // 更新generate方法签名
   generateRaw: (config: Record<string, unknown>) => Promise<unknown>; // 更改为接受配置对象
   triggerSlash: (command: string) => Promise<unknown>;

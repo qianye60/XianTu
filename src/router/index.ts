@@ -5,6 +5,7 @@ import LoginView from '../views/LoginView.vue';
 import WorkshopView from '../views/WorkshopView.vue';
 import GameView from '../views/GameView.vue';
 import AccountCenter from '../views/AccountCenter.vue';
+import BackendAdminView from '../views/BackendAdminView.vue';
 
 // 创建一个包装组件来传递fullscreen属性
 import { h } from 'vue';
@@ -43,11 +44,10 @@ import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue'; // 
 import SettingsPanel from '../components/dashboard/SettingsPanel.vue';
 import SavePanel from '../components/dashboard/SavePanel.vue';
 import GameMapPanel from '../components/dashboard/GameMapPanel.vue'; // 新的游戏地图组件（使用Pixi.js）
-import QuestPanel from '../components/dashboard/QuestPanel.vue';
+import EventPanel from '../components/dashboard/EventPanel.vue';
 import SectPanel from '../components/dashboard/SectPanel.vue';
 import SectSystemPanel from '../components/dashboard/SectSystemPanel.vue';
 import SectMembersContent from '../components/dashboard/components/SectMembersContent.vue';
-import SectMissionsContent from '../components/dashboard/components/SectMissionsContent.vue';
 import SectLibraryContent from '../components/dashboard/components/SectLibraryContent.vue';
 import SectContributionContent from '../components/dashboard/components/SectContributionContent.vue';
 import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
@@ -80,6 +80,11 @@ const routes = [
     path: '/account',
     name: 'AccountCenter',
     component: AccountCenter,
+  },
+  {
+    path: '/backend-admin',
+    name: 'BackendAdmin',
+    component: BackendAdminView,
   },
   {
     // 提示词管理 - 独立顶级路由，不需要加载游戏数据
@@ -143,9 +148,9 @@ const routes = [
         component: GameMapPanel, // 使用新的游戏地图组件
       },
       {
-        path: 'quests',
-        name: 'Quests',
-        component: QuestPanel,
+        path: 'events',
+        name: 'Events',
+        component: EventPanel,
       },
       {
         path: 'sect',
@@ -165,11 +170,6 @@ const routes = [
             path: 'members',
             name: 'SectMembers',
             component: SectMembersContent,
-          },
-          {
-            path: 'missions',
-            name: 'SectMissions',
-            component: SectMissionsContent,
           },
           {
             path: 'library',

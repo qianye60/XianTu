@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="settings-panel">
     <!-- 头部 -->
     <div class="panel-header">
@@ -143,41 +143,6 @@
             </div>
           </div>
 
-          <!-- 任务系统配置 -->
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('系统任务类型') }}</label>
-              <span class="setting-desc">{{ t('选择AI生成任务的风格类型') }}</span>
-            </div>
-            <div class="setting-control">
-              <select v-model="settings.questSystemType" class="setting-select">
-                <option value="修仙辅助系统">{{ t('修仙辅助系统') }}</option>
-                <option value="道侣养成系统">{{ t('道侣养成系统') }}</option>
-                <option value="宗门发展系统">{{ t('宗门发展系统') }}</option>
-                <option value="探索冒险系统">{{ t('探索冒险系统') }}</option>
-                <option value="战斗挑战系统">{{ t('战斗挑战系统') }}</option>
-                <option value="资源收集系统">{{ t('资源收集系统') }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="setting-item setting-item-full">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('自定义任务提示词') }}</label>
-              <span class="setting-desc">{{
-                t('为AI任务生成添加自定义指令（可选，留空使用默认）')
-              }}</span>
-            </div>
-            <div class="setting-control-full">
-              <textarea
-                v-model="settings.questSystemPrompt"
-                class="setting-textarea"
-                :placeholder="t('例如：生成更多战斗类任务，奖励偏向灵石...')"
-                rows="3"
-              ></textarea>
-            </div>
-          </div>
-
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('行动选项') }}</label>
@@ -205,165 +170,6 @@
                 :placeholder="t('例如：多生成修炼和探索类选项，减少战斗选项...')"
                 rows="3"
               ></textarea>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- AI服务配置 -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h4 class="section-title">🤖 {{ t('AI服务配置') }}</h4>
-        </div>
-        <div class="settings-list">
-          <div v-if="isTavernEnvFlag" class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('AI模式') }}</label>
-              <span class="setting-desc"
-                >当前为酒馆环境：默认使用酒馆API。非酒馆环境才需要配置自定义API。</span
-              >
-            </div>
-          </div>
-
-          <template v-if="isTavernEnvFlag">
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('🔞 启用成人内容（私密信息）') }}</label>
-                <span class="setting-desc">{{
-                  t('生成和显示NPC的私密信息模块（包含成人向内容，默认开启）')
-                }}</span>
-              </div>
-              <div class="setting-control">
-                <label class="setting-switch">
-                  <input type="checkbox" v-model="settings.enableNsfwMode" />
-                  <span class="switch-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <div class="setting-item" v-if="settings.enableNsfwMode">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('👥 私密信息生成范围') }}</label>
-                <span class="setting-desc">{{ t('选择为哪些性别的NPC生成私密信息') }}</span>
-              </div>
-              <div class="setting-control">
-                <select v-model="settings.nsfwGenderFilter" class="setting-select">
-                  <option value="female">{{ t('仅女性') }}</option>
-                  <option value="male">{{ t('仅男性') }}</option>
-                  <option value="all">{{ t('所有性别') }}</option>
-                </select>
-              </div>
-            </div>
-          </template>
-
-          <template v-if="!isTavernEnvFlag">
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('API配置管理') }}</label>
-                <span class="setting-desc">{{ t('配置多个API和功能分配') }}</span>
-              </div>
-              <div class="setting-control">
-                <button class="utility-btn primary" @click="openAPIManagement">
-                  <Plug :size="16" />
-                  {{ t('打开API管理') }}
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <!-- 通用AI设置 -->
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('流式传输') }}</label>
-              <span class="setting-desc">{{ t('实时显示AI生成内容') }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="streamingEnabled" />
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('分步生成') }}</label>
-              <span class="setting-desc">{{ t('一次生成分两步：第1步（可流式）只出正文；第2步（非流式）只出记忆/指令/行动选项（会多一次API调用；不需要thinking）') }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.splitResponseGeneration" @change="onSettingChange" />
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('记忆总结模式') }}</label>
-              <span class="setting-desc">{{ t('Raw模式更准确，标准模式包含预设') }}</span>
-            </div>
-            <div class="setting-control">
-              <select v-model="aiConfig.memorySummaryMode" class="setting-select">
-                <option value="raw">{{ t('Raw模式（推荐）') }}</option>
-                <option value="standard">{{ t('标准模式') }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('向量记忆检索') }}</label>
-              <span class="setting-desc">{{ t('启用后长期记忆将按相关性检索，而非全量发送（减少token消耗）') }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="vectorMemoryEnabled" @change="onVectorMemoryChange" />
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="vectorMemoryEnabled">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('检索数量') }}</label>
-              <span class="setting-desc">{{ t('每次最多检索的相关记忆条数') }}</span>
-            </div>
-            <div class="setting-control">
-              <select v-model.number="vectorMemoryMaxCount" @change="onVectorMemoryChange" class="setting-select">
-                <option :value="5">5条</option>
-                <option :value="10">10条（推荐）</option>
-                <option :value="15">15条</option>
-                <option :value="20">20条</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('开局生成模式') }}</label>
-              <span class="setting-desc">{{ t('角色初始化使用的生成模式') }}</span>
-            </div>
-            <div class="setting-control">
-              <select v-model="aiConfig.initMode" class="setting-select">
-                <option value="generate">{{ t('标准模式') }}</option>
-                <option value="generateRaw">{{ t('Raw模式') }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('使用系统CoT') }}</label>
-              <span class="setting-desc">{{
-                t('启用内置思维链提示词（关闭后使用预设中的CoT）')
-              }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="uiStore.useSystemCot" />
-                <span class="switch-slider"></span>
-              </label>
             </div>
           </div>
         </div>
@@ -437,20 +243,7 @@
             @save="handleSaveReplaceRules"
           />
 
-          <!-- API管理弹窗 -->
-          <Teleport to="body">
-            <div v-if="showAPIManagementModal" class="api-modal-overlay" @click="showAPIManagementModal = false">
-              <div class="api-modal-container" @click.stop>
-                <div class="api-modal-header">
-                  <h3>{{ t('API管理') }}</h3>
-                  <button class="close-btn" @click="showAPIManagementModal = false">✕</button>
-                </div>
-                <div class="api-modal-content">
-                  <APIManagementPanel />
-                </div>
-              </div>
-            </div>
-          </Teleport>
+          
 
           <div class="setting-item">
             <div class="setting-info">
@@ -498,105 +291,25 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { Save, RotateCcw, Trash2, Download, Upload, Plug } from 'lucide-vue-next';
+import { Save, RotateCcw, Trash2, Download, Upload } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
-import { aiService } from '@/services/aiService';
-import { vectorMemoryService } from '@/services/vectorMemoryService';
 import TextReplaceRulesModal from '@/components/common/TextReplaceRulesModal.vue';
-import APIManagementPanel from '@/components/dashboard/APIManagementPanel.vue';
 import type { TextReplaceRule } from '@/types/textRules';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
-import { isTavernEnv } from '@/utils/tavern';
+import { unwrapDadBundle } from '@/utils/dadBundle';
 
 const { t, setLanguage, currentLanguage } = useI18n();
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
 const uiStore = useUIStore();
-const isTavernEnvFlag = isTavernEnv();
-
 const onLanguageChange = () => {
   setLanguage(currentLanguage.value);
   toast.success('语言设置已更新');
 };
-
-// AI服务配置
-import { API_PROVIDER_PRESETS, type APIProvider } from '@/services/aiService';
-
-const aiConfig = reactive({
-  mode: (isTavernEnvFlag ? 'tavern' : 'custom') as 'tavern' | 'custom',
-  streaming: true,
-  memorySummaryMode: 'raw' as 'raw' | 'standard',
-  initMode: 'generate' as 'generate' | 'generateRaw',
-  customAPI: {
-    provider: 'openai' as APIProvider,
-    url: '',
-    apiKey: '',
-    model: 'gpt-4o',
-    temperature: 0.7,
-    maxTokens: 16000
-  }
-});
-
-const streamingEnabled = computed({
-  get: () => uiStore.useStreaming,
-  set: (val: boolean) => {
-    uiStore.useStreaming = val;
-    aiConfig.streaming = val;
-  }
-});
-
-// 向量记忆配置
-const vectorMemoryEnabled = ref(false);
-const vectorMemoryMaxCount = ref(10);
-
-// 加载向量记忆配置
-const loadVectorMemoryConfig = () => {
-  const config = vectorMemoryService.getConfig();
-  vectorMemoryEnabled.value = config.enabled;
-  vectorMemoryMaxCount.value = config.maxRetrieveCount;
-};
-
-// 保存向量记忆配置
-const onVectorMemoryChange = () => {
-  vectorMemoryService.saveConfig({
-    enabled: vectorMemoryEnabled.value,
-    maxRetrieveCount: vectorMemoryMaxCount.value
-  });
-  hasUnsavedChanges.value = true;
-
-  if (vectorMemoryEnabled.value) {
-    toast.success(`向量记忆检索已启用，每次最多检索 ${vectorMemoryMaxCount.value} 条`);
-  } else {
-    toast.info('向量记忆检索已禁用，将使用全量发送模式');
-  }
-};
-
-// API提供商切换处理
-const onProviderChange = () => {
-  const preset = API_PROVIDER_PRESETS[aiConfig.customAPI.provider];
-  if (preset && aiConfig.customAPI.provider !== 'custom') {
-    aiConfig.customAPI.url = preset.url;
-    aiConfig.customAPI.model = preset.defaultModel;
-    // 更新可选模型列表
-    availableModels.value = [preset.defaultModel];
-  }
-  aiService.saveConfig(aiConfig);
-};
-
-// 可用模型列表
-const availableModels = ref<string[]>(['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']);
-const isFetchingModels = ref(false);
-const modelSearchQuery = ref('');
-
-const filteredModels = computed(() => {
-  const query = modelSearchQuery.value.trim().toLowerCase();
-  if (!query) return availableModels.value;
-  return availableModels.value.filter((m) => String(m).toLowerCase().includes(query));
-});
 
 // 道号修改相关
 const newPlayerName = ref('');
@@ -630,111 +343,6 @@ const updatePlayerName = async () => {
   }
 };
 
-// 获取模型列表
-const fetchModels = async () => {
-  if (isFetchingModels.value) return;
-
-  isFetchingModels.value = true;
-  try {
-    aiService.saveConfig(aiConfig);
-    const models = await aiService.fetchModels();
-    if (models.length > 0) {
-      availableModels.value = models;
-      // 保存模型列表到 localStorage
-      localStorage.setItem('ai_available_models', JSON.stringify(models));
-      toast.success(`成功获取 ${models.length} 个模型`);
-    } else {
-      toast.warning('未获取到模型列表');
-    }
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : '获取模型失败');
-  } finally {
-    isFetchingModels.value = false;
-  }
-};
-
-const AI_API_TEST_TOKEN = '仙途本-连通测试-OK';
-const aiApiTestState = ref<'idle' | 'testing' | 'success' | 'fail'>('idle');
-const aiApiTestResponse = ref('');
-const aiApiTestError = ref('');
-
-const normalizeAIApiTestText = (text: string): string => {
-  return String(text || '')
-    .trim()
-    .toLowerCase()
-    .replace(
-      /[\s"'`“”‘’《》<>()[\]{}，。！？、；：…·—\-_=+~!@#$%^&*|\\/.,?;:]/g,
-      ''
-    );
-};
-
-const openAIApiTestDetails = () => {
-  uiStore.showDetailModal({
-    title: t('AI API测试详情'),
-    content: [
-      `Token: ${AI_API_TEST_TOKEN}`,
-      `Provider: ${aiConfig.customAPI.provider}`,
-      `Model: ${aiConfig.customAPI.model}`,
-      `URL: ${aiConfig.customAPI.url || '(empty)'}`,
-      aiApiTestError.value ? `Error: ${aiApiTestError.value}` : '',
-      '',
-      'Response:',
-      aiApiTestResponse.value || '(empty)',
-    ]
-      .filter(Boolean)
-      .join('\n'),
-  });
-};
-
-const testAIApi = async () => {
-  if (aiApiTestState.value === 'testing') return;
-
-  aiApiTestState.value = 'testing';
-  aiApiTestResponse.value = '';
-  aiApiTestError.value = '';
-
-  try {
-    const availability = aiService.checkAvailability();
-    if (!availability.available) {
-      throw new Error(availability.message);
-    }
-
-    const prompt = [
-      '你正在进行AI API连通性测试。',
-      `请仅输出以下字符串（必须包含且尽量一致）：${AI_API_TEST_TOKEN}`,
-      '不要输出解释、标点或多余文字。',
-    ].join('\n');
-
-    const response = await aiService.generate({
-      user_input: prompt,
-      should_stream: false,
-      generation_id: `ai_api_test_${Date.now()}`,
-    });
-
-    const text = String(response ?? '').trim();
-    aiApiTestResponse.value = text;
-
-    const ok = normalizeAIApiTestText(text).includes(normalizeAIApiTestText(AI_API_TEST_TOKEN));
-    if (!ok) {
-      throw new Error(`未检测到特征串「${AI_API_TEST_TOKEN}」`);
-    }
-
-    aiApiTestState.value = 'success';
-    toast.success(`AI API测试成功：检测到「${AI_API_TEST_TOKEN}」`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    aiApiTestError.value = message;
-    aiApiTestState.value = 'fail';
-    toast.error(`AI API测试失败：${message}`);
-  }
-};
-
-// 监听AI配置变化
-watch(aiConfig, () => {
-  hasUnsavedChanges.value = true;
-  aiService.saveConfig(aiConfig);
-}, { deep: true });
-
 // 设置数据结构
 const settings = reactive({
   // 显示设置
@@ -756,16 +364,11 @@ const settings = reactive({
   consoleDebug: false,
   performanceMonitor: false,
   replaceRules: [] as TextReplaceRule[],
-
-  // 任务系统相关设置
-  questSystemType: '修仙辅助系统', // 系统任务类型
-  questSystemPrompt: '', // 自定义任务提示词
 });
 
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
 const showReplaceRulesModal = ref(false);
-const showAPIManagementModal = ref(false);
 
 const enabledReplaceRulesCount = computed(() => {
   const rules = (settings as any).replaceRules as TextReplaceRule[] | undefined;
@@ -839,54 +442,6 @@ const loadSettings = async () => {
       debug.log('设置面板', '使用默认设置');
     }
 
-    // 🔥 加载AI服务配置
-    const savedAIConfig = aiService.getConfig();
-    Object.assign(aiConfig, savedAIConfig);
-    // 同步“流式传输”开关到游戏内实际使用的全局开关
-    uiStore.useStreaming = aiConfig.streaming !== false;
-    aiConfig.streaming = uiStore.useStreaming;
-    if (isTavernEnvFlag) {
-      aiConfig.mode = 'tavern';
-    }
-    debug.log('设置面板', 'AI配置加载成功', savedAIConfig);
-
-    // 加载保存的模型列表
-    const savedModels = localStorage.getItem('ai_available_models');
-    if (savedModels) {
-      try {
-        const models = JSON.parse(savedModels);
-        if (Array.isArray(models) && models.length > 0) {
-          availableModels.value = models;
-          debug.log('设置面板', `已加载保存的模型列表: ${models.length} 个`);
-        }
-      } catch (e) {
-        debug.warn('设置面板', '解析保存的模型列表失败');
-      }
-    }
-
-    // 确保已保存的模型名称在可选列表中
-    if (savedAIConfig.customAPI?.model && !availableModels.value.includes(savedAIConfig.customAPI.model)) {
-      availableModels.value = [savedAIConfig.customAPI.model, ...availableModels.value];
-      debug.log('设置面板', `已将保存的模型 ${savedAIConfig.customAPI.model} 添加到可选列表`);
-    }
-
-    // 🔥 从gameStateStore加载存档配置
-    try {
-      const hasActiveSave = !!characterStore.rootState.当前激活存档 && !!characterStore.activeSaveSlot;
-      if (gameStateStore.isGameLoaded && hasActiveSave) {
-        // 加载任务系统配置
-        if (gameStateStore.questSystem?.配置) {
-          const questConfig = gameStateStore.questSystem.配置;
-          settings.questSystemType = questConfig.系统任务类型;
-          settings.questSystemPrompt = questConfig.系统任务提示词 || '';
-          debug.log('设置面板', '已从存档读取任务系统配置', questConfig);
-        }
-      }
-    } catch {
-      // 如果还没有激活存档，这里会失败，不是问题
-      debug.log('设置面板', '当前没有激活的存档，使用localStorage中的设置');
-    }
-
   } catch (error) {
     debug.error('设置面板', '加载设置失败', error);
     toast.error('加载设置失败，将使用默认设置');
@@ -908,39 +463,8 @@ const saveSettings = async () => {
 
     // 保存到localStorage
     localStorage.setItem('dad_game_settings', JSON.stringify(settings));
+
     debug.log('设置面板', '设置已保存到localStorage', settings);
-
-    // 🔥 保存AI服务配置
-    aiService.saveConfig(aiConfig);
-    debug.log('设置面板', 'AI配置已保存', aiConfig);
-
-    // 🔥 同步设置到存档
-    try {
-      const { useCharacterStore } = await import('@/stores/characterStore');
-      const characterStore = useCharacterStore();
-      const { useGameStateStore } = await import('@/stores/gameStateStore');
-      const gameStateStore = useGameStateStore();
-
-      // 更新存档中的系统设置
-      const hasActiveSave = !!characterStore.rootState.当前激活存档 && !!characterStore.activeSaveSlot;
-      if (gameStateStore.isGameLoaded && hasActiveSave) {
-        // 同步任务系统配置
-        if (gameStateStore.questSystem?.配置) {
-          gameStateStore.questSystem.配置.系统任务类型 = settings.questSystemType;
-          gameStateStore.questSystem.配置.系统任务提示词 = settings.questSystemPrompt || '';
-        }
-
-        // 保存到数据库
-        await characterStore.saveCurrentGame();
-
-        debug.log('设置面板', '设置已同步到存档');
-      } else {
-        debug.warn('设置面板', '当前没有激活的存档，设置仅保存到localStorage');
-      }
-    } catch (error) {
-      debug.error('设置面板', '同步设置到存档失败（非致命）', error);
-      // 不抛出错误，允许保存继续
-    }
 
     // 应用设置
     await applySettings();
@@ -1066,8 +590,6 @@ const resetSettings = () => {
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,
-        questSystemType: '修仙辅助系统',
-        questSystemPrompt: ''
       });
       saveSettings();
       toast.info('设置已重置为默认值');
@@ -1160,21 +682,38 @@ const importSettings = () => {
       const text = await file.text();
       const importData = JSON.parse(text);
 
-      if (importData.settings) {
-        // 验证导入的设置
-        const validatedSettings = { ...settings, ...importData.settings };
-        Object.assign(settings, validatedSettings);
+      // 🔥 支持 dad.bundle 格式和旧格式
+      const unwrapped = unwrapDadBundle(importData);
 
-        await saveSettings();
+      // 提取设置数据
+      let settingsData: any = null;
 
-        debug.log('设置面板', '设置导入成功', importData);
-        toast.success('设置导入成功并已应用');
-      } else {
+      if (unwrapped.type === 'settings') {
+        // dad.bundle 格式或旧格式 { type: 'settings', settings: {...} }
+        settingsData = unwrapped.payload;
+      } else if (importData.settings) {
+        // 旧导出格式 { settings: {...}, exportInfo: {...} }
+        settingsData = importData.settings;
+      } else if (unwrapped.type === null && typeof unwrapped.payload === 'object') {
+        // 直接是设置对象（最旧的格式）
+        settingsData = unwrapped.payload;
+      }
+
+      if (!settingsData || typeof settingsData !== 'object') {
         throw new Error('无效的设置文件格式');
       }
+
+      // 验证并合并设置
+      const validatedSettings = { ...settings, ...settingsData };
+      Object.assign(settings, validatedSettings);
+
+      await saveSettings();
+
+      debug.log('设置面板', '设置导入成功', settingsData);
+      toast.success('设置导入成功并已应用');
     } catch (error) {
       debug.error('设置面板', '导入设置失败', error);
-      toast.error('导入设置失败，请检查文件格式');
+      toast.error(`导入设置失败: ${error instanceof Error ? error.message : '请检查文件格式'}`);
     }
   };
 
@@ -1193,8 +732,10 @@ const openPromptManagement = () => {
   }
 };
 
-const openAPIManagement = () => {
-  showAPIManagementModal.value = true;
+// 加载向量记忆配置（占位函数）
+const loadVectorMemoryConfig = () => {
+  debug.log('设置面板', '向量记忆配置加载（功能待实现）');
+  // TODO: 实现向量记忆配置加载逻辑
 };
 
 import { useRouter } from 'vue-router';
@@ -1309,7 +850,7 @@ onMounted(() => {
 
   /* 滚动条样式 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.3) rgba(243, 244, 246, 0.5);
+  scrollbar-color: transparent transparent;
 }
 
 .settings-container::-webkit-scrollbar {
@@ -1317,18 +858,18 @@ onMounted(() => {
 }
 
 .settings-container::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
+  background: transparent;
   border-radius: 4px;
 }
 
 .settings-container::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.3);
+  background: transparent;
   border-radius: 4px;
   transition: background 0.2s ease;
 }
 
 .settings-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.5);
+  background: transparent;
 }
 
 /* 设置区块 */
@@ -1762,93 +1303,4 @@ input:checked + .switch-slider:before {
   }
 }
 
-/* API管理弹窗样式 */
-.api-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.api-modal-container {
-  background: var(--color-surface, #fff);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-
-.api-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--color-border, #e2e8f0);
-  background: var(--color-surface-light, #f8fafc);
-}
-
-.api-modal-header h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text, #1e293b);
-}
-
-.api-modal-header .close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 6px;
-  font-size: 1.25rem;
-  color: var(--color-text-secondary, #64748b);
-  transition: all 0.2s ease;
-}
-
-.api-modal-header .close-btn:hover {
-  background: var(--color-border, #e2e8f0);
-  color: var(--color-text, #1e293b);
-}
-
-.api-modal-content {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.api-modal-content :deep(.api-management-panel) {
-  height: 100%;
-  max-height: 70vh;
-}
-
-[data-theme='dark'] .api-modal-container {
-  background: #1e293b;
-}
-
-[data-theme='dark'] .api-modal-header {
-  background: #334155;
-  border-bottom-color: #475569;
-}
-
-[data-theme='dark'] .api-modal-header h3 {
-  color: #f1f5f9;
-}
-
-[data-theme='dark'] .api-modal-header .close-btn {
-  color: #94a3b8;
-}
-
-[data-theme='dark'] .api-modal-header .close-btn:hover {
-  background: #475569;
-  color: #f1f5f9;
-}
 </style>

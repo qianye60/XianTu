@@ -1,281 +1,229 @@
 <template>
-  <div class="game-panel skills-panel">
-    <!-- 顶部标签页 -->
-    <div class="filter-section">
-      <div class="filter-tabs">
-        <button
-          class="filter-tab"
-          :class="{ active: activeTab === 'cultivation' }"
-          @click="activeTab = 'cultivation'"
-        >
-          <Zap :size="16" class="tab-icon" />
-          <span class="tab-name">{{ t('修炼') }}</span>
-        </button>
-        <button
-          class="filter-tab"
-          :class="{ active: activeTab === 'library' }"
-          @click="activeTab = 'library'"
-        >
-          <BookOpen :size="16" class="tab-icon" />
-          <span class="tab-name">{{ t('功法库') }}</span>
-          <span class="tab-count">{{ inventoryTechniques.length }}</span>
-        </button>
-      </div>
+  <div class="skills-panel">
+    <!-- 标签页导航 -->
+    <div class="panel-tabs">
+      <button
+        class="panel-tab"
+        :class="{ active: activeTab === 'cultivation' }"
+        @click="activeTab = 'cultivation'"
+      >
+        <Zap :size="16" />
+        <span>{{ t('修炼') }}</span>
+      </button>
+      <button
+        class="panel-tab"
+        :class="{ active: activeTab === 'mastered' }"
+        @click="activeTab = 'mastered'"
+      >
+        <Sparkles :size="16" />
+        <span>{{ t('掌握技能') }}</span>
+        <span v-if="masteredSkills.length" class="tab-count">{{ masteredSkills.length }}</span>
+      </button>
+      <button
+        class="panel-tab"
+        :class="{ active: activeTab === 'library' }"
+        @click="activeTab = 'library'"
+      >
+        <BookOpen :size="16" />
+        <span>{{ t('功法库') }}</span>
+        <span v-if="techniqueTotalCount" class="tab-count">{{ techniqueTotalCount }}</span>
+      </button>
     </div>
 
-    <!-- 内容区域 -->
-    <div class="panel-content">
-      <!-- 修炼标签页 -->
-      <div v-if="activeTab === 'cultivation'" class="cultivation-tab-content">
-        <!-- 当前修炼功法 -->
-        <div class="current-cultivation-card" :class="cultivationSkills ? getQualityClass(cultivationSkills) : ''">
-          <div class="card-background-glow"></div>
-          <div class="card-content-wrapper">
-            <div v-if="cultivationSkills" class="detail-content">
-              <div class="detail-header">
-                <div class="title-group">
-                  <div class="title-icon-wrapper">
-                    <ScrollText :size="24" class="title-icon" />
-                  </div>
-                  <div>
-                    <p class="cultivation-status">正在修炼</p>
-                    <h3 class="detail-title">{{ cultivationSkills.名称 }}</h3>
-                  </div>
-                </div>
-                <div class="header-actions">
-                  <button class="action-btn primary" @click="startCultivation('normal')">
-                    <Zap :size="16" class="btn-icon" />
-                    <span class="btn-text">修炼</span>
-                  </button>
-                  <button class="action-btn accent" @click="startCultivation('secluded')">
-                    <Moon :size="16" class="btn-icon" />
-                    <span class="btn-text">闭关</span>
-                  </button>
-                  <button class="action-btn warning" v-if="canBreakthrough" @click="attemptBreakthrough">
-                    <TrendingUp :size="16" class="btn-icon" />
-                    <span class="btn-text">突破</span>
-                  </button>
-                  <button class="action-btn" @click="unequipSkill">
-                    <PackageOpen :size="16" class="btn-icon" />
-                    <span class="btn-text">卸下</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- 功法基本信息 -->
-              <div class="technique-info-container">
-                <div class="info-row">
-                  <span class="info-label">品质</span>
-                  <span class="info-value" :class="getQualityTextClass(cultivationSkills)">{{ cultivationSkills.品质?.quality || '凡' }}品</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">类型</span>
-                  <span class="info-value">{{ cultivationSkills.类型 || '功法' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">技能数</span>
-                  <span class="info-value">{{ (cultivationSkills.功法技能?.length || 0) }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">已解锁</span>
-                  <span class="info-value text-success">{{ allLearnedSkills.length }}</span>
-                </div>
-              </div>
-
-              <!-- 修炼进度 -->
-              <div class="progress-section">
-                <div class="progress-info">
-                  <div class="progress-label">
-                    <div class="label-icon">
-                      <Zap :size="16" />
-                    </div>
-                    <span class="label-text">修炼熟练度</span>
-                  </div>
-                  <span class="progress-value">{{ formatProgress(cultivationSkills.修炼进度) }}%</span>
-                </div>
-                <div class="progress-bar-wrapper">
-                  <div class="progress-bar large">
-                    <div class="progress-fill" :style="{ width: formatProgress(cultivationSkills.修炼进度) + '%' }">
-                      <div class="progress-shine"></div>
-                    </div>
-                    <div class="progress-milestones">
-                      <div
-                        v-for="skill in sortedSkills"
-                        :key="skill.技能名称"
-                        class="milestone"
-                        :class="{ 'unlocked': isSkillUnlocked(skill.技能名称) }"
-                        :style="{ left: (skill.熟练度要求 || skill.解锁需要熟练度 || 0) + '%' }"
-                        :title="`${skill.技能名称} - ${skill.熟练度要求 || skill.解锁需要熟练度 || 0}%`"
-                      >
-                        <span class="milestone-name">{{ skill.技能名称 }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="upcomingSkill" class="upcoming-skill-info">
-                  下一技能: <strong>{{ upcomingSkill.技能名称 }}</strong> ({{ upcomingSkill.熟练度要求 || upcomingSkill.解锁需要熟练度 || 0 }}%)
-                </div>
-
-                <!-- 修炼统计信息 -->
-                <div class="cultivation-stats">
-                  <div class="stat-card">
-                    <div class="stat-icon">
-                      <TrendingUp :size="16" />
-                    </div>
-                    <div class="stat-info">
-                      <span class="stat-label">修炼速度</span>
-                      <span class="stat-value">{{ cultivationSpeed }}%/日</span>
-                    </div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-icon">
-                      <Clock :size="16" />
-                    </div>
-                    <div class="stat-info">
-                      <span class="stat-label">预计完成</span>
-                      <span class="stat-value">{{ estimatedCompletionTime }}</span>
-                    </div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-icon">
-                      <Target :size="16" />
-                    </div>
-                    <div class="stat-info">
-                      <span class="stat-label">下一技能</span>
-                      <span class="stat-value">{{ nextSkillInfo }}</span>
-                    </div>
-                  </div>
-                  <div v-if="canBreakthrough" class="stat-card highlight">
-                    <div class="stat-icon">
-                      <Sparkles :size="16" />
-                    </div>
-                    <div class="stat-info">
-                      <span class="stat-label">突破预估</span>
-                      <span class="stat-value">{{ breakthroughChance }}%成功率</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    <!-- 修炼页面 -->
+    <div v-if="activeTab === 'cultivation'" class="tab-content">
+      <!-- 当前修炼功法 -->
+      <div class="cultivation-card" :class="cultivationSkills ? getQualityBorderClass(cultivationSkills) : ''">
+        <div class="cultivation-header">
+          <div class="cultivation-info">
+            <div class="technique-icon" :class="cultivationSkills ? getQualityBgClass(cultivationSkills) : ''">
+              <ScrollText :size="20" />
             </div>
-            
-            <div v-else class="empty-state">
-              <ScrollText :size="48" class="empty-icon" />
-              <p class="empty-text">从功法库中选择一部功法开始修炼</p>
-              <p class="empty-hint">功法中蕴含多种技能，随着熟练度提升逐步解锁</p>
+            <div class="technique-meta">
+              <span class="meta-label">{{ cultivationSkills ? t('当前修炼') : t('未在修炼') }}</span>
+              <span class="technique-name" :class="cultivationSkills ? getQualityTextClass(cultivationSkills) : ''">
+                {{ cultivationSkills?.名称 || t('请从功法库选择功法') }}
+              </span>
             </div>
+          </div>
+
+          <div class="cultivation-actions">
+            <template v-if="cultivationSkills">
+              <button class="action-btn primary" @click="startCultivation('normal')" :title="t('修炼')">
+                <Zap :size="16" />
+                <span>{{ t('修炼') }}</span>
+              </button>
+              <button class="action-btn" @click="startCultivation('secluded')" :title="t('闭关')">
+                <Moon :size="16" />
+                <span>{{ t('闭关') }}</span>
+              </button>
+              <button class="action-btn" @click="showCultivationDialog" :title="t('深修')">
+                <Clock :size="16" />
+                <span>{{ t('深修') }}</span>
+              </button>
+              <button v-if="canBreakthrough" class="action-btn warning" @click="attemptBreakthrough" :title="t('突破')">
+                <TrendingUp :size="16" />
+                <span>{{ t('突破') }}</span>
+              </button>
+              <button class="action-btn danger" @click="unequipSkill" :title="t('卸下')">
+                <X :size="16" />
+                <span>{{ t('卸下') }}</span>
+              </button>
+            </template>
           </div>
         </div>
 
-        <!-- 技能列表 -->
-        <div v-if="cultivationSkills" class="skills-list-section">
-          <!-- 已掌握技能 -->
-          <div v-if="allLearnedSkills.length > 0" class="skills-category">
-            <div class="category-header">
-              <h4 class="list-title">
-                <div class="title-badge success">
-                  <Check :size="16" />
-                </div>
-                已掌握技能
-              </h4>
-              <span class="skill-count">{{ allLearnedSkills.length }}/{{ (cultivationSkills.功法技能?.length || 0) }}</span>
-            </div>
-            <div class="skills-grid">
-              <div v-for="skill in allLearnedSkills" :key="skill.技能名称" class="skill-card mastered">
-                <div class="skill-header">
-                  <span class="skill-name">{{ skill.技能名称 }}</span>
-                  <span class="unlock-badge">已解锁</span>
-                </div>
-                <p class="skill-description">{{ skill.技能描述 }}</p>
-                <div class="skill-footer">
-                  <span class="unlock-condition">解锁于 {{ skill.熟练度要求 || skill.解锁需要熟练度 || 0 }}%</span>
-                </div>
-              </div>
-            </div>
+        <!-- 修炼统计 -->
+        <div v-if="cultivationSkills" class="cultivation-stats">
+          <div class="stat-item">
+            <span class="stat-label">{{ t('品质') }}</span>
+            <span class="stat-value" :class="getQualityTextClass(cultivationSkills)">{{ cultivationSkills.品质?.quality || '凡' }}品</span>
           </div>
+          <div class="stat-item">
+            <span class="stat-label">{{ t('进度') }}</span>
+            <span class="stat-value">{{ formatProgress(cultivationSkills.修炼进度) }}%</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">{{ t('速度') }}</span>
+            <span class="stat-value">{{ cultivationSpeed }}%/日</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">{{ t('已解锁') }}</span>
+            <span class="stat-value success">{{ allLearnedSkills.length }}/{{ sortedSkills.length }}</span>
+          </div>
+          <div v-if="canBreakthrough" class="stat-item highlight">
+            <span class="stat-label">{{ t('突破率') }}</span>
+            <span class="stat-value warning">{{ breakthroughChance }}%</span>
+          </div>
+        </div>
 
-          <!-- 待解锁技能 -->
-          <div v-if="unmasteredSkills.length > 0" class="skills-category">
-            <div class="category-header">
-              <h4 class="list-title">
-                <div class="title-badge warning">
-                  <Lock :size="16" />
-                </div>
-                待解锁技能
-              </h4>
-              <span class="skill-count">{{ unmasteredSkills.length }} 个</span>
-            </div>
-            <div class="skills-grid">
-              <div v-for="skill in unmasteredSkills" :key="skill.技能名称" class="skill-card locked">
-                <div class="skill-header">
-                  <span class="skill-name">{{ skill.技能名称 }}</span>
-                  <span class="lock-icon">🔒</span>
-                </div>
-                <p class="skill-description dimmed">{{ skill.技能描述 }}</p>
-                <div class="skill-footer">
-                  <span class="unlock-condition">需要熟练度 {{ skill.熟练度要求 || skill.解锁需要熟练度 || 0 }}%</span>
-                  <div class="unlock-progress-bar">
-                    <div
-                      class="unlock-progress-fill"
-                      :style="{ width: getSkillUnlockProgress(skill) + '%' }"
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- 进度条 -->
+        <div v-if="cultivationSkills" class="progress-bar">
+          <div class="progress-fill" :style="{ width: formatProgress(cultivationSkills.修炼进度) + '%' }"></div>
         </div>
       </div>
 
-      <!-- 功法库标签页 -->
-      <div v-if="activeTab === 'library'" class="library-tab-content">
-        <div v-if="inventoryTechniques.length === 0" class="empty-state">
-          <Package :size="48" class="empty-icon" />
-          <p class="empty-text">功法库为空，探索世界获取功法秘籍</p>
+      <!-- 功法技能列表 -->
+      <div v-if="cultivationSkills && sortedSkills.length > 0" class="skills-section">
+        <div class="section-header">
+          <Sparkles :size="16" />
+          <span>{{ t('功法技能') }}</span>
+          <span class="section-count">{{ allLearnedSkills.length }}/{{ sortedSkills.length }}</span>
         </div>
-        <div v-else class="items-grid techniques-grid">
+        <div class="skills-grid">
           <div
-            v-for="technique in inventoryTechniques"
-            :key="technique.物品ID"
-            class="item-card technique-card"
-            @click="selectTechnique(technique)"
+            v-for="skill in sortedSkills"
+            :key="skill.技能名称"
+            class="skill-card"
+            :class="{ unlocked: isTechniqueSkillUnlocked(skill.技能名称) }"
           >
-            <div class="item-quality-indicator" :class="getQualityClass(technique)"></div>
-            <div class="item-icon">功</div>
-            <div class="item-name" :class="getQualityTextClass(technique)">{{ technique.名称 }}</div>
-            <div class="item-info">{{ technique.品质?.quality || '凡' }}品</div>
+            <div class="skill-header">
+              <span class="skill-name">{{ skill.技能名称 }}</span>
+              <span class="skill-badge" :class="isTechniqueSkillUnlocked(skill.技能名称) ? 'success' : 'locked'">
+                {{ isTechniqueSkillUnlocked(skill.技能名称) ? t('已解锁') : t('未解锁') }}
+              </span>
+            </div>
+            <p class="skill-desc">{{ skill.技能描述 || t('暂无描述') }}</p>
+            <div v-if="!isTechniqueSkillUnlocked(skill.技能名称)" class="skill-progress">
+              <div class="progress-info">
+                <span>{{ formatProgress(cultivationSkills.修炼进度) }}%</span>
+                <span>/</span>
+                <span>{{ getTechniqueSkillUnlockAt(skill) }}%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" :style="{ width: getTechniqueSkillUnlockProgress(skill) + '%' }"></div>
+              </div>
+            </div>
+            <div v-else class="skill-cost">
+              <span>{{ t('消耗') }}: {{ skill.消耗 || t('无') }}</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 功法详情弹窗 (样式待根据全局弹窗组件调整) -->
-    <div v-if="selectedTechnique" class="technique-modal-overlay" @click="closeModal">
-      <div class="technique-modal" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">{{ selectedTechnique.名称 }}</h3>
-          <button class="close-btn" @click="closeModal">
-            <span>关闭</span>
-            <X :size="16" />
-          </button>
-        </div>
-        <div class="modal-content">
-          <p>{{ selectedTechnique.描述 }}</p>
-          <!-- 更多详情... -->
-        </div>
-        <div class="modal-actions">
-          <button class="action-btn primary" @click="equipTechnique(selectedTechnique)">
-            <Zap :size="16" />
-            装备修炼
-          </button>
-          <button class="action-btn" @click="closeModal">
-            <X :size="16" />
-            取消
-          </button>
+    <!-- 掌握技能 -->
+    <div v-else-if="activeTab === 'mastered'" class="tab-content">
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <Search :size="16" />
+        <input v-model="masteredQuery" type="text" :placeholder="t('搜索技能...')" />
+      </div>
+
+      <div v-if="masteredSkillsFiltered.length === 0" class="empty-state">
+        <Sparkles :size="32" class="empty-icon" />
+        <p>{{ masteredQuery.trim() ? t('没有匹配的技能') : t('暂无掌握技能') }}</p>
+      </div>
+
+      <div v-else class="mastered-grid">
+        <div
+          v-for="skill in masteredSkillsFiltered"
+          :key="skill.技能名称 + '::' + (skill.来源 || '')"
+          class="mastered-card"
+          :class="{ active: selectedMasteredSkillKey === (skill.技能名称 + '::' + (skill.来源 || '')) }"
+          @click="selectMasteredSkill(skill)"
+        >
+          <div class="mastered-header">
+            <span class="mastered-name">{{ skill.技能名称 }}</span>
+            <span class="mastered-badge">{{ t('已掌握') }}</span>
+          </div>
+          <p class="mastered-desc">{{ skill.技能描述 || t('暂无描述') }}</p>
+          <div class="mastered-meta">
+            <span class="meta-tag">{{ skill.来源 || t('未知来源') }}</span>
+            <span class="meta-stat">{{ t('熟练度') }} {{ skill.熟练度 ?? 0 }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 深度修炼对话框 -->
+    <!-- 功法库 -->
+    <div v-else class="tab-content">
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <Search :size="16" />
+        <input v-model="techniqueQuery" type="text" :placeholder="t('搜索功法...')" />
+      </div>
+
+      <div v-if="filteredInventoryTechniques.length === 0" class="empty-state">
+        <BookOpen :size="32" class="empty-icon" />
+        <p>{{ t('功法库为空或无匹配结果') }}</p>
+      </div>
+
+      <div v-else class="library-grid">
+        <div
+          v-for="technique in filteredInventoryTechniques"
+          :key="technique.物品ID"
+          class="technique-card"
+          :class="[
+            { equipped: isEquipped(technique) },
+            getQualityBorderClass(technique)
+          ]"
+        >
+          <div class="technique-header">
+            <span class="technique-name" :class="getQualityTextClass(technique)">{{ technique.名称 }}</span>
+            <span v-if="isEquipped(technique)" class="equipped-badge">{{ t('修炼中') }}</span>
+          </div>
+          <p class="technique-desc">{{ technique.描述 || t('暂无描述') }}</p>
+          <div class="technique-footer">
+            <span class="quality-tag" :class="getQualityTextClass(technique)">{{ (technique.品质?.quality || '凡') }}品</span>
+            <span class="skill-count">{{ technique.功法技能?.length || 0 }} {{ t('技能') }}</span>
+          </div>
+          <div class="technique-actions">
+            <button
+              v-if="isEquipped(technique)"
+              class="tech-btn"
+              disabled
+            >{{ t('修炼中') }}</button>
+            <button
+              v-else
+              class="tech-btn primary"
+              @click.stop="equipTechnique(technique)"
+            >{{ t('装备') }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <DeepCultivationModal
       :visible="showDialog"
       :technique="techniqueForModal"
@@ -287,55 +235,67 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { Zap, BookOpen, Sparkles, PackageOpen, ScrollText, Package, Check, Lock, Moon, TrendingUp, Clock, Target, X } from 'lucide-vue-next';
-import { useGameStateStore } from '@/stores/gameStateStore';
-import { useCharacterStore } from '@/stores/characterStore';
-import { useUIStore } from '@/stores/uiStore';
-import { useI18n } from '@/i18n';
+import { computed, ref, watch } from 'vue';
+import { BookOpen, Clock, Moon, ScrollText, Search, Sparkles, TrendingUp, X, Zap } from 'lucide-vue-next';
 import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
-import type { TechniqueItem, TechniqueSkill } from '@/types/game';
+import { useI18n } from '@/i18n';
+import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
+import { useUIStore } from '@/stores/uiStore';
+import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
+import type { MasteredSkill, TechniqueItem, TechniqueSkill } from '@/types/game';
 
 const { t } = useI18n();
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
 
-const upcomingSkill = computed(() => {
-  if (!cultivationSkills.value) return null;
-  // Find the first skill in the sorted list that is not yet unlocked
-  return sortedSkills.value.find(s => !isSkillUnlocked(s.技能名称)) || null;
-});
-
-const activeTab = ref('cultivation');
-const selectedTechnique = ref<TechniqueItem | null>(null);
+const activeTab = ref<'cultivation' | 'mastered' | 'library'>('cultivation');
 const showDialog = ref(false);
+
+const techniqueQuery = ref('');
+const masteredQuery = ref('');
+const selectedMasteredSkillKey = ref<string | null>(null);
 
 const cultivationSkills = computed((): TechniqueItem | null => {
   const inventory = gameStateStore.inventory?.物品;
   if (!inventory) return null;
-  const cultivatingTechnique = Object.values(inventory).find(
-    item => item?.类型 === '功法' && item?.已装备 === true
-  );
-  const result = (cultivatingTechnique as TechniqueItem) || null;
 
-  // 调试日志：检查功法技能数据
-  if (result && (!result.功法技能 || result.功法技能.length === 0)) {
-    console.warn('[SkillsPanel] 功法技能为空或未定义', {
-      功法名称: result.名称,
-      功法技能: result.功法技能,
-      完整数据: result
-    });
+  const refId = (gameStateStore as any).cultivationTechnique?.物品ID as string | undefined;
+  if (refId && inventory[refId]) {
+    return inventory[refId] as TechniqueItem;
   }
 
-  return result;
+  const found = Object.values(inventory).find(item => {
+    const type = (item as any)?.类型 || (item as any)?.type;
+    const isTechnique = type === '功法' || String(type || '').includes('功法');
+    const equipped = (item as any)?.已装备 === true || (item as any)?.修炼中 === true;
+    return isTechnique && equipped;
+  });
+  return (found as TechniqueItem) || null;
+});
+
+const allTechniques = computed((): TechniqueItem[] => {
+  const inventory = gameStateStore.inventory?.物品;
+  if (!inventory) return [];
+  return Object.values(inventory).filter((item): item is TechniqueItem => {
+    const type = (item as any)?.类型 || (item as any)?.type;
+    return type === '功法' || String(type || '').includes('功法');
+  });
 });
 
 const inventoryTechniques = computed((): TechniqueItem[] => {
-  const inventory = gameStateStore.inventory?.物品;
-  if (!inventory) return [];
-  return Object.values(inventory).filter((item): item is TechniqueItem =>
-    item?.类型 === '功法' && !item.已装备
+  return allTechniques.value.filter(t => !(t as any).已装备 && !(t as any).修炼中);
+});
+
+const techniqueTotalCount = computed(() => {
+  return allTechniques.value.length;
+});
+
+const sortedSkills = computed(() => {
+  if (!cultivationSkills.value?.功法技能) return [];
+  return [...cultivationSkills.value.功法技能].sort((a, b) =>
+    (getTechniqueSkillUnlockAt(a)) - (getTechniqueSkillUnlockAt(b))
   );
 });
 
@@ -345,91 +305,70 @@ const allLearnedSkills = computed(() => {
   return cultivationSkills.value.功法技能.filter(s => unlocked.includes(s.技能名称));
 });
 
-const unmasteredSkills = computed(() => {
-  if (!cultivationSkills.value?.功法技能) return [];
-  const unlocked = cultivationSkills.value.已解锁技能 || [];
-  return cultivationSkills.value.功法技能.filter(s => !unlocked.includes(s.技能名称));
-});
+const getTechniqueSkillUnlockAt = (skill: TechniqueSkill): number => {
+  const raw = (skill.熟练度要求 ?? (skill as any).解锁需要熟练度) as unknown;
+  const n = typeof raw === 'number' ? raw : Number(raw || 0);
+  if (isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+};
 
-const sortedSkills = computed(() => {
-  if (!cultivationSkills.value?.功法技能) return [];
-  return [...cultivationSkills.value.功法技能].sort(
-    (a, b) => (a.熟练度要求 || 0) - (b.熟练度要求 || 0)
-  );
-});
-
-const isSkillUnlocked = (skillName: string): boolean => {
+const isTechniqueSkillUnlocked = (skillName: string): boolean => {
   return cultivationSkills.value?.已解锁技能?.includes(skillName) || false;
 };
 
-const getSkillUnlockProgress = (skill: TechniqueSkill): number => {
+const getTechniqueSkillUnlockProgress = (skill: TechniqueSkill): number => {
   const currentProgress = cultivationSkills.value?.修炼进度 || 0;
-  const requiredProgress = skill.熟练度要求 || 100;
+  const requiredProgress = getTechniqueSkillUnlockAt(skill) || 100;
   return Math.min(100, (currentProgress / requiredProgress) * 100);
 };
 
-// 判断是否可以突破（熟练度达到100%）
+const masteredSkills = computed((): MasteredSkill[] => {
+  return (gameStateStore.masteredSkills || []) as MasteredSkill[];
+});
+
+const masteredSkillsFiltered = computed(() => {
+  const q = masteredQuery.value.trim().toLowerCase();
+  if (!q) return masteredSkills.value;
+  return masteredSkills.value.filter(s => {
+    const hay = `${s.技能名称} ${s.技能描述 || ''} ${s.来源 || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
+});
+
+const selectMasteredSkill = (skill: MasteredSkill) => {
+  selectedMasteredSkillKey.value = skill.技能名称 + '::' + (skill.来源 || '');
+};
+
 const canBreakthrough = computed(() => {
   if (!cultivationSkills.value) return false;
   return (cultivationSkills.value.修炼进度 || 0) >= 100;
 });
 
-// 品质对应的修炼速度加成
 const getQualitySpeedBonus = (quality?: string): number => {
   const bonusMap: Record<string, number> = {
-    '仙': 3.0, '神': 2.5, '圣': 2.0, '天': 1.8, '地': 1.5, '玄': 1.3, '黄': 1.1, '凡': 1.0
+    仙: 3.0, 神: 2.5, 圣: 2.0, 天: 1.8, 地: 1.5, 玄: 1.3, 黄: 1.1, 凡: 1.0
   };
   return bonusMap[quality || '凡'] || 1.0;
 };
 
-// 修炼速度计算
 const cultivationSpeed = computed(() => {
   const technique = cultivationSkills.value;
   if (!technique) return '0';
-  const baseSpeed = 1; // 基础速度1%/日
+  const baseSpeed = 1;
   const qualityBonus = getQualitySpeedBonus(technique.品质?.quality);
   const effectBonus = technique.功法效果?.修炼速度加成 || 1;
   return (baseSpeed * qualityBonus * effectBonus).toFixed(1);
 });
 
-// 预计完成时间
-const estimatedCompletionTime = computed(() => {
-  const progress = cultivationSkills.value?.修炼进度 || 0;
-  const remaining = 100 - progress;
-  if (remaining <= 0) return '已满';
-  const speed = parseFloat(cultivationSpeed.value);
-  if (speed <= 0) return '未知';
-  const days = Math.ceil(remaining / speed);
-  if (days > 365) return `约${Math.ceil(days/365)}年`;
-  if (days > 30) return `约${Math.ceil(days/30)}月`;
-  return `约${days}天`;
-});
-
-// 下一技能信息
-const nextSkillInfo = computed(() => {
-  const upcoming = upcomingSkill.value;
-  if (!upcoming) return '已全部解锁';
-  const current = cultivationSkills.value?.修炼进度 || 0;
-  const required = upcoming.熟练度要求 || 0;
-  const remaining = required - current;
-  if (remaining <= 0) return upcoming.技能名称;
-  return `还需${remaining.toFixed(1)}%`;
-});
-
-// 突破成功率预估
 const breakthroughChance = computed(() => {
   if (!canBreakthrough.value) return 0;
   const technique = cultivationSkills.value;
   if (!technique) return 0;
-  // 基于功法品质计算突破成功率
-  const qualityChanceMap: Record<string, number> = {
-    '仙': 30, '神': 40, '圣': 50, '天': 60, '地': 70, '玄': 75, '黄': 80, '凡': 85
-  };
+  const qualityChanceMap: Record<string, number> = { 仙: 30, 神: 40, 圣: 50, 天: 60, 地: 70, 玄: 75, 黄: 80, 凡: 85 };
   const baseChance = qualityChanceMap[technique.品质?.quality || '凡'] || 70;
   return Math.min(95, baseChance);
 });
 
-// 开始修炼（普通/闭关）
 const startCultivation = async (type: 'normal' | 'secluded') => {
   if (!cultivationSkills.value) return;
 
@@ -445,7 +384,6 @@ const startCultivation = async (type: 'normal' | 'secluded') => {
     });
     uiStore.showToast(`开始修炼《${cultivationSkills.value.名称}》`, { type: 'success' });
   } else {
-    // 闭关修炼 - 更高效但需要更多时间
     actionQueue.addAction({
       type: 'secluded_cultivation',
       itemName: cultivationSkills.value.名称,
@@ -456,7 +394,6 @@ const startCultivation = async (type: 'normal' | 'secluded') => {
   }
 };
 
-// 尝试突破
 const attemptBreakthrough = async () => {
   if (!cultivationSkills.value || !canBreakthrough.value) return;
 
@@ -472,33 +409,27 @@ const attemptBreakthrough = async () => {
   uiStore.showToast(`尝试突破《${cultivationSkills.value.名称}》`, { type: 'warning' });
 };
 
-const techniqueForModal = computed((): TechniqueItem | null => {
-  return cultivationSkills.value;
-});
+const techniqueForModal = computed((): TechniqueItem | null => cultivationSkills.value);
 
-const formatProgress = (progress?: number): string => {
-  return Math.min(100, Math.max(0, progress || 0)).toFixed(1);
-};
+const formatProgress = (progress?: number): string => Math.min(100, Math.max(0, progress || 0)).toFixed(1);
 
-const getQualityClass = (item: TechniqueItem): string => `quality-${item?.品质?.quality || '凡'}`;
 const getQualityTextClass = (item: TechniqueItem): string => `text-quality-${item?.品质?.quality || '凡'}`;
+const getQualityBorderClass = (item: TechniqueItem): string => `border-quality-${item?.品质?.quality || '凡'}`;
+const getQualityBgClass = (item: TechniqueItem): string => `bg-quality-${item?.品质?.quality || '凡'}`;
+
+const isEquipped = (technique: TechniqueItem): boolean => {
+  return (technique as any).已装备 === true || (technique as any).修炼中 === true;
+};
 
 const getCultivationProgress = (): number => cultivationSkills.value?.修炼进度 || 0;
 
-const selectTechnique = (technique: TechniqueItem) => {
-  selectedTechnique.value = technique;
-};
-
-const closeModal = () => {
-  selectedTechnique.value = null;
-};
-
 const equipTechnique = async (technique: TechniqueItem) => {
   if (!technique?.物品ID) return;
+  if ((technique as any).已装备 === true || (technique as any).修炼中 === true) return;
   const action = async () => {
     try {
       await characterStore.equipTechnique(technique.物品ID!);
-      closeModal();
+      activeTab.value = 'cultivation';
     } catch (error) {
       console.error('[SkillsPanel] Equip technique failed:', error);
     }
@@ -516,6 +447,8 @@ const equipTechnique = async (technique: TechniqueItem) => {
   }
 };
 
+const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
+
 const unequipSkill = async () => {
   if (!cultivationSkills.value?.物品ID) return;
   const skillToUnequip = cultivationSkills.value;
@@ -526,6 +459,12 @@ const unequipSkill = async () => {
     cancelText: t('取消'),
     onConfirm: async () => {
       try {
+        // 检查是否有正在修炼的功法，且与要卸下的功法匹配
+        const cultivatingId = (gameStateStore.cultivation as any)?.修炼功法?.物品ID;
+        if (cultivatingId === skillToUnequip.物品ID) {
+          // 只有当前正在修炼这个功法时才停止修炼
+          await enhancedActionQueue.stopCultivation(skillToUnequip as any);
+        }
         await characterStore.unequipTechnique(skillToUnequip.物品ID!);
       } catch (error) {
         console.error('[SkillsPanel] Unequip technique failed:', error);
@@ -559,716 +498,706 @@ const handleCultivationConfirm = async (totalDays: number) => {
   }
 };
 
-// 🔥 [修复] 页面加载时自动检查并解锁应该解锁的技能
 const checkAndUnlockSkills = () => {
   if (!cultivationSkills.value) return;
-
   const technique = cultivationSkills.value;
   if (!technique.功法技能 || !Array.isArray(technique.功法技能)) return;
 
   const currentProgress = technique.修炼进度 || 0;
   let unlocked = false;
 
-  if (!technique.已解锁技能) {
-    technique.已解锁技能 = [];
-  }
+  if (!technique.已解锁技能) technique.已解锁技能 = [];
 
   technique.功法技能.forEach(skill => {
     const unlockThreshold = skill.熟练度要求 || 0;
     if (currentProgress >= unlockThreshold && !technique.已解锁技能!.includes(skill.技能名称)) {
       technique.已解锁技能!.push(skill.技能名称);
-      console.log(`[SkillsPanel] 自动解锁技能: ${skill.技能名称} (阈值: ${unlockThreshold}%)`);
       unlocked = true;
     }
   });
 
-  if (unlocked) {
-    // 保存更新
-    characterStore.saveCurrentGame();
-  }
+  if (unlocked) characterStore.saveCurrentGame();
 };
 
-// 监听 cultivationSkills 变化，自动检查技能解锁
 watch(cultivationSkills, () => {
   checkAndUnlockSkills();
 }, { immediate: true });
+
+const filteredInventoryTechniques = computed(() => {
+  const q = techniqueQuery.value.trim().toLowerCase();
+  const list = allTechniques.value.filter(t => {
+    if (!q) return true;
+    const name = String(t.名称 || '').toLowerCase();
+    const desc = String(t.描述 || '').toLowerCase();
+    return name.includes(q) || desc.includes(q);
+  });
+
+  const qualityRank: Record<string, number> = { 仙: 1, 神: 2, 圣: 3, 道: 4, 天: 5, 地: 6, 玄: 7, 黄: 8, 凡: 9 };
+  return [...list].sort((a, b) => {
+    const ae = (a as any).已装备 === true || (a as any).修炼中 === true;
+    const be = (b as any).已装备 === true || (b as any).修炼中 === true;
+    if (ae !== be) return ae ? -1 : 1;
+    const qa = qualityRank[a.品质?.quality || '凡'] ?? 99;
+    const qb = qualityRank[b.品质?.quality || '凡'] ?? 99;
+    if (qa !== qb) return qa - qb;
+    return String(a.名称 || '').localeCompare(String(b.名称 || ''), 'zh-Hans-CN');
+  });
+});
 </script>
 
 <style scoped>
 .skills-panel {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  background: var(--color-background-light);
+  height: 100%;
+  padding: 16px;
+  gap: 16px;
+  overflow: hidden;
 }
 
-.panel-content {
-  padding: 1rem;
-  overflow-y: auto;
+/* 标签页导航 */
+.panel-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.panel-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.panel-tab:hover {
+  background: rgba(var(--color-primary-rgb), 0.08);
+  color: var(--color-text);
+}
+
+.panel-tab.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.tab-count {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+}
+
+.panel-tab:not(.active) .tab-count {
+  background: rgba(var(--color-primary-rgb), 0.15);
+  color: var(--color-primary);
+}
+
+/* 内容区域 */
+.tab-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
   min-height: 0;
 }
 
-/* --- Current Cultivation Card --- */
-.current-cultivation-card {
-  background: var(--color-surface);
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 1rem;
-  transition: all 0.3s ease;
-}
-
-.card-background-glow {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.1) 0%, rgba(var(--color-primary-rgb), 0) 70%);
-  animation: rotateGlow 15s linear infinite;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-
-.current-cultivation-card.quality-凡 .card-background-glow { opacity: 0; }
-.current-cultivation-card.quality-人 .card-background-glow { background: radial-gradient(circle, rgba(var(--color-success-rgb), 0.1) 0%, transparent 70%); opacity: 1; }
-.current-cultivation-card.quality-地 .card-background-glow { background: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.15) 0%, transparent 70%); opacity: 1; }
-.current-cultivation-card.quality-天 .card-background-glow { background: radial-gradient(circle, rgba(var(--color-accent-rgb), 0.2) 0%, transparent 70%); opacity: 1; }
-.current-cultivation-card.quality-道 .card-background-glow { background: radial-gradient(circle, rgba(var(--color-warning-rgb), 0.25) 0%, transparent 70%); opacity: 1; }
-
-
-@keyframes rotateGlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.card-content-wrapper {
-  position: relative;
-  z-index: 1;
-  padding: 1.25rem;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.title-group {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.title-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: rgba(var(--color-primary-rgb), 0.1);
-}
-.title-icon {
-  color: var(--color-primary);
-  margin: 0;
-}
-
-.cultivation-status {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  margin: 0 0 0.25rem 0;
-  text-transform: uppercase;
-}
-
-.detail-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-/* --- Progress Section --- */
-.progress-section {
-  margin-top: 1.5rem;
-}
-
-.progress-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.progress-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.label-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  color: white;
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.3);
-}
-
-.label-text {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.progress-value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.progress-bar-wrapper {
-  position: relative;
-  padding-top: 2rem; /* Space for milestone labels */
-  margin-bottom: 1rem; /* Space below the bar */
-}
-
-.progress-bar.large {
-  height: 16px;
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  overflow: visible;
-  position: relative;
-}
-
-.progress-fill {
-  background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary));
-  border-radius: 8px;
-  position: relative;
-  overflow: hidden;
-}
-
-.progress-shine {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-  animation: shine 2.5s ease-in-out infinite;
-}
-
-@keyframes shine {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.progress-milestones {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.milestone {
-  position: absolute;
-  bottom: 100%; /* Position above the bar */
-  transform: translateX(-50%);
-  padding-bottom: 8px; /* Space for the line */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: all;
-}
-
-.milestone::after { /* This will be the line */
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  height: 8px;
-  background: var(--color-border);
-}
-
-.milestone-name { /* This is the text box */
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-light);
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-  border: 1px solid var(--color-border);
-}
-
-.milestone.unlocked .milestone-name {
-  color: var(--color-success);
-  border-color: var(--color-success);
-  font-weight: 600;
-}
-
-.milestone.unlocked::after {
-  background: var(--color-success);
-}
-
-.upcoming-skill-info {
-  margin-top: 0.75rem;
-  text-align: center;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-light);
-  padding: 0.5rem;
-  border-radius: 6px;
-}
-.upcoming-skill-info strong {
-  color: var(--color-primary);
-}
-
-/* --- 修炼统计信息 --- */
-.cultivation-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-border);
-}
-
-.stat-card {
+/* 搜索栏 */
+.search-bar {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  transition: all 0.2s ease;
+  color: var(--color-text-secondary);
 }
 
-.stat-card:hover {
-  border-color: var(--color-primary);
-  background: var(--color-surface-hover);
+.search-bar input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 14px;
 }
 
-.stat-card.highlight {
-  background: rgba(var(--color-warning-rgb), 0.1);
-  border-color: rgba(var(--color-warning-rgb), 0.4);
+/* 修炼卡片 */
+.cultivation-card {
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.03) 0%, var(--color-surface) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
 }
 
-.stat-card.highlight .stat-icon {
-  color: var(--color-warning);
+.cultivation-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-.stat-icon {
+.cultivation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cultivation-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.technique-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
   background: rgba(var(--color-primary-rgb), 0.1);
-  border-radius: 8px;
   color: var(--color-primary);
-  flex-shrink: 0;
 }
 
-.stat-info {
+.technique-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 4px;
 }
 
-.stat-info .stat-label {
-  font-size: 0.7rem;
+.meta-label {
+  font-size: 12px;
   color: var(--color-text-secondary);
-  font-weight: 500;
 }
 
-.stat-info .stat-value {
-  font-size: 0.85rem;
-  font-weight: 600;
+.technique-name {
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* --- Skills List --- */
-.skills-list-section {
-  margin-top: 1rem;
-}
-
-.skills-category {
-  background: var(--color-surface);
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.category-header {
+.cultivation-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
+  gap: 8px;
 }
 
-.list-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.title-badge {
+.action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-}
-
-.title-badge.success {
-  background: rgba(var(--color-success-rgb), 0.15);
-  color: var(--color-success);
-}
-
-.title-badge.warning {
-  background: rgba(var(--color-warning-rgb), 0.15);
-  color: var(--color-warning);
-}
-
-.skill-count {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  padding: 0.25rem 0.75rem;
-  background: var(--color-surface-light);
-  border-radius: 12px;
-}
-
-.skills-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.skill-card {
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: var(--color-surface-light);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.skill-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: var(--color-primary);
-}
-
-.skill-card.mastered {
-  background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-success-rgb), 0.05));
-}
-
-.skill-card.locked {
-  background: linear-gradient(135deg, var(--color-surface), rgba(var(--color-warning-rgb), 0.05));
-}
-
-.skill-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.skill-name {
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--color-text);
-}
-
-.unlock-badge {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(var(--color-success-rgb), 0.15);
-  color: var(--color-success);
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.lock-icon {
-  font-size: 1rem;
-  color: var(--color-warning);
-}
-
-.skill-description {
-  margin: 0 0 1rem 0;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--color-text-secondary);
-  flex-grow: 1;
-}
-
-.skill-description.dimmed {
-  color: var(--color-text-secondary);
-  filter: blur(1px);
-  opacity: 0.7;
-}
-
-.skill-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  margin-top: auto;
-}
-
-.unlock-condition {
-  font-weight: 500;
-}
-
-.unlock-progress-bar {
-  height: 6px;
-  background: var(--color-border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.unlock-progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-.techniques-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1rem;
-}
-
-.technique-card {
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.technique-card:hover {
-  transform: translateY(-4px) scale(1.03);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-  border-color: var(--color-primary);
-}
-
-.technique-card .item-quality-indicator {
-  height: 4px;
-}
-
-.technique-card .item-icon {
-  font-size: 2rem;
-  font-weight: bold;
-  line-height: 1;
-  text-align: center;
-  padding: 1rem 0;
-  color: var(--color-text);
-}
-
-.technique-card .item-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-align: center;
-  padding: 0.5rem;
-  background: var(--color-surface-light);
-  border-top: 1px solid var(--color-border);
-}
-
-.technique-card .item-info {
-  display: none; /* Hide old info */
-}
-
-/* 功法信息 */
-.technique-info-container {
-  background: var(--color-surface-light);
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: 0.875rem;
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.technique-modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000;
-}
-.technique-modal {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  max-width: 500px; width: 90%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-.modal-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--color-border);
-  display: flex; justify-content: space-between; align-items: center;
-}
-.modal-title { font-size: 1.125rem; font-weight: 600; margin: 0; }
-.close-btn {
-  display: flex;
-  align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: var(--color-background);
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-.close-btn:hover {
-  color: var(--color-text);
-  border-color: var(--color-primary);
-  background: var(--color-surface-hover);
-}
-.modal-content { padding: 1rem; }
-.modal-actions {
-  padding: 1rem;
-  border-top: 1px solid var(--color-border);
-  display: flex; gap: 0.5rem; justify-content: flex-end;
-}
-
-/* 按钮样式 */
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
   border-radius: 8px;
-  border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 0.8rem;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  font-weight: 500;
 }
 
 .action-btn:hover {
   border-color: var(--color-primary);
-  background: var(--color-surface-light);
-  transform: translateY(-1px);
+  background: rgba(var(--color-primary-rgb), 0.08);
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark, #2563eb));
+  background: var(--color-primary);
   border-color: var(--color-primary);
-  color: white;
-}
-
-.action-btn.primary:hover {
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
-}
-
-.action-btn.accent {
-  background: linear-gradient(135deg, #2e8b57, #267349);
-  border-color: #2e8b57;
-  color: white;
-}
-
-.action-btn.accent:hover {
-  box-shadow: 0 4px 12px rgba(46, 139, 87, 0.3);
+  color: #fff;
 }
 
 .action-btn.warning {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  border-color: #f59e0b;
-  color: white;
+  background: rgba(var(--color-warning-rgb), 0.15);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }
 
-.action-btn.warning:hover {
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+.action-btn.danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
 }
 
-.btn-icon {
-  flex-shrink: 0;
-  color: inherit;
-  display: inline-flex;
+.action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+/* 修炼统计 */
+.cultivation-stats {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  min-width: 80px;
+}
+
+.stat-item.highlight {
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border-color: rgba(var(--color-warning-rgb), 0.3);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.stat-value.success { color: var(--color-success); }
+.stat-value.warning { color: var(--color-warning); }
+
+/* 进度条 */
+.progress-bar {
+  height: 6px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), rgba(var(--color-primary-rgb), 0.6));
+  transition: width 0.3s;
+}
+
+/* 功法技能区域 */
+.skills-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.section-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.skill-card {
+  padding: 12px;
+  background: rgba(var(--color-primary-rgb), 0.03);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.skill-card.unlocked {
+  background: rgba(var(--color-success-rgb), 0.05);
+  border-color: rgba(var(--color-success-rgb), 0.2);
+}
+
+.skill-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.skill-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.skill-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.skill-badge.success {
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+}
+
+.skill-badge.locked {
+  background: rgba(var(--color-text-secondary-rgb, 128, 128, 128), 0.1);
+  color: var(--color-text-secondary);
+}
+
+.skill-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 8px 0;
+}
+
+.skill-progress {
+  margin-top: 8px;
+}
+
+.progress-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.progress-track {
+  height: 4px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.skill-cost {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.02) 0%, transparent 100%);
+  border-radius: 12px;
+  border: 1px dashed var(--color-border);
 }
 
-/* 确保 lucide 图标 SVG 继承颜色 */
-.action-btn :deep(svg) {
-  color: inherit;
-  stroke: currentColor;
+.empty-icon {
+  opacity: 0.4;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
 }
 
-.btn-text {
-  white-space: nowrap;
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 掌握技能网格 */
+.mastered-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.mastered-card {
+  padding: 16px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mastered-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), rgba(var(--color-primary-rgb), 0.5));
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.mastered-card:hover {
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.mastered-card:hover::before {
+  transform: scaleX(1);
+}
+
+.mastered-card.active {
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  box-shadow: 0 4px 16px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.mastered-card.active::before {
+  transform: scaleX(1);
+}
+
+.mastered-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mastered-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mastered-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+}
+
+.mastered-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+}
+
+.mastered-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.meta-tag {
+  padding: 2px 8px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: 6px;
+  color: var(--color-primary);
+}
+
+.meta-stat {
+  color: var(--color-text-secondary);
+}
+
+/* 品质文本 */
+.text-quality-仙 { color: #f59e0b; }
+.text-quality-神 { color: #ef4444; }
+.text-quality-圣 { color: #a855f7; }
+.text-quality-道 { color: #3b82f6; }
+.text-quality-天 { color: #22c55e; }
+.text-quality-地 { color: #06b6d4; }
+.text-quality-玄 { color: #8b5cf6; }
+.text-quality-黄 { color: #eab308; }
+.text-quality-凡 { color: var(--color-text-secondary); }
+
+/* 品质边框 */
+.border-quality-仙 { border-color: rgba(245, 158, 11, 0.4); }
+.border-quality-神 { border-color: rgba(239, 68, 68, 0.4); }
+.border-quality-圣 { border-color: rgba(168, 85, 247, 0.4); }
+.border-quality-道 { border-color: rgba(59, 130, 246, 0.4); }
+.border-quality-天 { border-color: rgba(34, 197, 94, 0.4); }
+.border-quality-地 { border-color: rgba(6, 182, 212, 0.4); }
+.border-quality-玄 { border-color: rgba(139, 92, 246, 0.4); }
+.border-quality-黄 { border-color: rgba(234, 179, 8, 0.4); }
+.border-quality-凡 { border-color: var(--color-border); }
+
+/* 品质背景 */
+.bg-quality-仙 { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.bg-quality-神 { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.bg-quality-圣 { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+.bg-quality-道 { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.bg-quality-天 { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.bg-quality-地 { background: rgba(6, 182, 212, 0.15); color: #06b6d4; }
+.bg-quality-玄 { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.bg-quality-黄 { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.bg-quality-凡 { background: rgba(var(--color-primary-rgb), 0.1); }
+
+/* 功法库网格 */
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.technique-card {
+  padding: 16px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.technique-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), rgba(var(--color-primary-rgb), 0.5));
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.technique-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.technique-card:hover::before {
+  transform: scaleX(1);
+}
+
+.technique-card.active {
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.technique-card.equipped {
+  border-color: var(--color-success);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.05) 0%, var(--color-surface) 100%);
+  box-shadow: 0 4px 16px rgba(var(--color-success-rgb), 0.15);
+}
+
+.technique-card.equipped::before {
+  background: linear-gradient(90deg, var(--color-success), rgba(var(--color-success-rgb), 0.5));
+  transform: scaleX(1);
+}
+
+.technique-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.technique-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.technique-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.quality-tag {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.skill-count {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.equipped-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+}
+
+.technique-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tech-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tech-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tech-btn.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.tech-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .panel-tabs {
+    flex-wrap: wrap;
+  }
+
+  .cultivation-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cultivation-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .cultivation-stats {
+    flex-direction: column;
+  }
+
+  .stat-item {
+    width: 100%;
+  }
 }
 </style>

@@ -12,6 +12,14 @@
  */
 
 import { openDB, type IDBPDatabase } from 'idb';
+import type { APIProvider } from '@/services/aiService';
+import { isTavernEnv } from '@/utils/tavern';
+import {
+  createEmbeddings,
+  normalizeBaseUrl,
+  normalizeToUnitVector,
+  type EmbeddingRequestConfig,
+} from '@/services/embeddingService';
 
 // ============ 类型定义 ============
 
@@ -20,6 +28,8 @@ export interface VectorMemoryEntry {
   content: string;
   tags: string[];
   vector: number[];
+  vectorType?: 'tfidf' | 'embedding';
+  embeddingModel?: string;
   timestamp: number;
   importance: number;
   category: 'combat' | 'social' | 'cultivation' | 'exploration' | 'event' | 'other';
@@ -226,6 +236,20 @@ class SimpleVectorizer {
 
 // ============ 向量记忆服务类 ============
 
+function fnv1a32(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function stableMemoryId(content: string): string {
+  const normalized = (content || '').trim().replace(/\s+/g, ' ');
+  return `mem_${fnv1a32(normalized)}`;
+}
+
 class VectorMemoryService {
   private db: IDBPDatabase | null = null;
   private vectorizer: SimpleVectorizer;
@@ -296,6 +320,77 @@ class VectorMemoryService {
   }
 
   /**
+   * 是否允许自动写入向量库（存储与检索解耦）
+   * - 配置了 Embedding API 时：即使未启用检索，也会自动增量写入
+   * - 未配置 Embedding 时：仅在启用检索时写入（保持旧逻辑）
+   */
+  canAutoIndex(): boolean {
+    return !!this.db && (this.config.enabled || !!this.getEmbeddingRequestConfig());
+  }
+
+  private getEmbeddingRequestConfig(): EmbeddingRequestConfig | null {
+    try {
+      // 动态导入 store 避免循环依赖
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { useAPIManagementStore } = require('@/stores/apiManagementStore');
+      const apiStore = useAPIManagementStore();
+      const cfg = apiStore.getAPIForType('embedding');
+      if (!cfg || cfg.enabled === false) return null;
+
+      // 酒馆环境下默认API来自酒馆配置，但这里无法用于Embedding（缺少Key/协议）
+      if (isTavernEnv() && cfg.id === 'default') return null;
+
+      const baseUrl = normalizeBaseUrl(cfg.url);
+      const apiKey = (cfg.apiKey || '').trim();
+      const model = (cfg.model || '').trim();
+      if (!baseUrl || !apiKey || !model) return null;
+
+      return {
+        provider: cfg.provider as APIProvider,
+        url: baseUrl,
+        apiKey,
+        model,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  getEmbeddingStatus(): { available: boolean; provider?: APIProvider; model?: string; reason?: string } {
+    const cfg = this.getEmbeddingRequestConfig();
+    if (cfg) return { available: true, provider: cfg.provider, model: cfg.model };
+
+    if (isTavernEnv()) {
+      return { available: false, reason: '酒馆环境下需为 Embedding 分配独立API（非默认）并填写 Key/模型' };
+    }
+    return { available: false, reason: '请在 API管理 中为 Embedding 配置 API 地址/Key/模型' };
+  }
+
+  private async embedText(text: string): Promise<{ vector: number[]; model: string } | null> {
+    const cfg = this.getEmbeddingRequestConfig();
+    if (!cfg) return null;
+    try {
+      const [vec] = await createEmbeddings(cfg, [text]);
+      return { vector: normalizeToUnitVector(vec), model: cfg.model };
+    } catch (e) {
+      console.warn('[向量记忆] Embedding 生成失败，回退到本地向量:', e);
+      return null;
+    }
+  }
+
+  private async embedBatch(texts: string[]): Promise<{ vectors: number[][]; model: string } | null> {
+    const cfg = this.getEmbeddingRequestConfig();
+    if (!cfg) return null;
+    try {
+      const vecs = await createEmbeddings(cfg, texts);
+      return { vectors: vecs.map(v => normalizeToUnitVector(v)), model: cfg.model };
+    } catch (e) {
+      console.warn('[向量记忆] Embedding 批量生成失败，回退到本地向量:', e);
+      return null;
+    }
+  }
+
+  /**
    * 添加记忆到向量库
    */
   async addMemory(content: string, importance: number = 5): Promise<VectorMemoryEntry | null> {
@@ -304,15 +399,21 @@ class VectorMemoryService {
       return null;
     }
 
+    const trimmed = (content || '').trim();
+    if (!trimmed) return null;
+
     const tags = extractTags(content);
     const category = inferCategory(content, tags);
-    const vector = this.vectorizer.vectorize(content);
+    const embedded = await this.embedText(trimmed);
+    const vector = embedded ? embedded.vector : this.vectorizer.vectorize(trimmed);
 
     const entry: VectorMemoryEntry = {
-      id: `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      content,
+      id: stableMemoryId(trimmed),
+      content: trimmed,
       tags,
       vector,
+      vectorType: embedded ? 'embedding' : 'tfidf',
+      embeddingModel: embedded?.model,
       timestamp: Date.now(),
       importance,
       category,
@@ -324,6 +425,83 @@ class VectorMemoryService {
     await this.db.put('memories', entry);
     console.log(`[向量记忆] 添加记忆: ${content.substring(0, 50)}... 标签: ${tags.join(', ')}`);
     return entry;
+  }
+
+  /**
+   * 重建向量库：清空后将长期记忆全部向量化写入
+   * - 优先使用 Embedding（若已配置），否则回退本地 TF-IDF
+   */
+  async rebuildFromLongTermMemories(
+    memories: string[],
+    options?: {
+      importance?: number;
+      batchSize?: number;
+      onProgress?: (done: number, total: number) => void;
+    },
+  ): Promise<{ imported: number; vectorType: 'embedding' | 'tfidf'; embeddingModel?: string }> {
+    if (!this.db) throw new Error('向量库未初始化');
+    const list = (memories || []).map(m => (m || '').trim()).filter(Boolean);
+    const total = list.length;
+    const importance = options?.importance ?? 7;
+    const batchSize = Math.max(1, Math.min(64, options?.batchSize ?? 24));
+
+    await this.clear();
+
+    let imported = 0;
+    let usedEmbeddingModel: string | undefined;
+    let vectorType: 'embedding' | 'tfidf' = 'tfidf';
+
+    for (let i = 0; i < list.length; i += batchSize) {
+      const chunk = list.slice(i, i + batchSize);
+      const embedded = await this.embedBatch(chunk);
+
+      if (embedded && embedded.vectors.length === chunk.length) {
+        vectorType = 'embedding';
+        usedEmbeddingModel = embedded.model;
+        for (let j = 0; j < chunk.length; j++) {
+          const content = chunk[j];
+          const tags = extractTags(content);
+          const category = inferCategory(content, tags);
+          const entry: VectorMemoryEntry = {
+            id: stableMemoryId(content),
+            content,
+            tags,
+            vector: embedded.vectors[j],
+            vectorType: 'embedding',
+            embeddingModel: embedded.model,
+            timestamp: Date.now(),
+            importance,
+            category,
+            metadata: { npcs: tags.filter(t => !CULTIVATION_KEYWORDS.has(t)).slice(0, 5) },
+          };
+          await this.db.put('memories', entry);
+          imported++;
+        }
+      } else {
+        for (const content of chunk) {
+          const tags = extractTags(content);
+          const category = inferCategory(content, tags);
+          const entry: VectorMemoryEntry = {
+            id: stableMemoryId(content),
+            content,
+            tags,
+            vector: this.vectorizer.vectorize(content),
+            vectorType: 'tfidf',
+            timestamp: Date.now(),
+            importance,
+            category,
+            metadata: { npcs: tags.filter(t => !CULTIVATION_KEYWORDS.has(t)).slice(0, 5) },
+          };
+          await this.db.put('memories', entry);
+          imported++;
+        }
+      }
+
+      options?.onProgress?.(Math.min(i + chunk.length, total), total);
+    }
+
+    console.log(`[向量记忆] 重建完成：${imported}/${total} 条，模式=${vectorType}${usedEmbeddingModel ? `(${usedEmbeddingModel})` : ''}`);
+    return { imported, vectorType, embeddingModel: usedEmbeddingModel };
   }
 
   /**
@@ -354,7 +532,6 @@ class VectorMemoryService {
     }
 
     const queryTags = extractTags(query);
-    const queryVector = this.vectorizer.vectorize(query);
 
     // 添加上下文标签
     if (context?.involvedNpcs) {
@@ -367,25 +544,67 @@ class VectorMemoryService {
     const allMemories = await this.db.getAll('memories') as VectorMemoryEntry[];
     const results: MemorySearchResult[] = [];
 
+    const queryTextForEmbedding = [
+      query,
+      context?.currentLocation ? `地点: ${context.currentLocation}` : '',
+      ...(context?.recentEvents || []).slice(0, 3).map(e => `事件: ${e}`),
+    ].filter(Boolean).join('\n');
+
+    const embeddedQuery = await this.embedText(queryTextForEmbedding);
+    const embeddingModel = embeddedQuery?.model;
+    const embeddingQueryVector = embeddedQuery?.vector;
+
+    const hasMatchingEmbeddingEntries =
+      !!embeddingQueryVector &&
+      allMemories.some(e =>
+        (e.vectorType || 'tfidf') === 'embedding' &&
+        (!!embeddingModel ? e.embeddingModel === embeddingModel : true) &&
+        Array.isArray(e.vector) &&
+        e.vector.length === embeddingQueryVector.length
+      );
+
+    const queryVectorType: 'embedding' | 'tfidf' = hasMatchingEmbeddingEntries ? 'embedding' : 'tfidf';
+    const queryVector = queryVectorType === 'embedding' && embeddingQueryVector
+      ? embeddingQueryVector
+      : this.vectorizer.vectorize(query);
+
+    const scored: MemorySearchResult[] = [];
+
     for (const entry of allMemories) {
+      const entryVectorType = (entry.vectorType || 'tfidf') as 'embedding' | 'tfidf';
+      if (entryVectorType !== queryVectorType) continue;
+      if (entryVectorType === 'embedding') {
+        if (embeddingModel && entry.embeddingModel && entry.embeddingModel !== embeddingModel) continue;
+        if (entry.vector.length !== queryVector.length) continue;
+      }
+
       // 计算标签匹配分数
       const matchedTags = entry.tags.filter(t => queryTags.includes(t));
       const tagScore = matchedTags.length / Math.max(queryTags.length, 1);
 
       // 计算向量相似度
-      const vectorScore = this.vectorizer.cosineSimilarity(queryVector, entry.vector);
+      const vectorScore =
+        entryVectorType === 'tfidf'
+          ? this.vectorizer.cosineSimilarity(queryVector, entry.vector)
+          : (() => {
+            let dot = 0;
+            for (let i = 0; i < queryVector.length; i++) dot += queryVector[i] * entry.vector[i];
+            return dot;
+          })();
 
       // 综合分数
       const score = tagScore * this.config.tagWeight + vectorScore * this.config.vectorWeight;
 
-      if (score >= this.config.minSimilarity) {
-        results.push({ entry, score, matchedTags });
-      }
+      scored.push({ entry, score, matchedTags });
     }
 
     // 按分数排序，取前 N 条
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, this.config.maxRetrieveCount);
+    scored.sort((a, b) => b.score - a.score);
+
+    const filtered = scored.filter(r => r.score >= this.config.minSimilarity);
+    const picked = (filtered.length > 0 ? filtered : scored).slice(0, this.config.maxRetrieveCount);
+    results.push(...picked);
+    return results;
   }
 
   /**
@@ -403,17 +622,26 @@ class VectorMemoryService {
     total: number;
     byCategory: Record<string, number>;
     topTags: { tag: string; count: number }[];
+    byVectorType: Record<string, number>;
+    byEmbeddingModel: Record<string, number>;
   }> {
     if (!this.db) {
-      return { total: 0, byCategory: {}, topTags: [] };
+      return { total: 0, byCategory: {}, topTags: [], byVectorType: {}, byEmbeddingModel: {} };
     }
 
     const memories = await this.db.getAll('memories') as VectorMemoryEntry[];
     const byCategory: Record<string, number> = {};
     const tagCounts: Record<string, number> = {};
+    const byVectorType: Record<string, number> = {};
+    const byEmbeddingModel: Record<string, number> = {};
 
     for (const mem of memories) {
       byCategory[mem.category] = (byCategory[mem.category] || 0) + 1;
+      const vt = mem.vectorType || 'tfidf';
+      byVectorType[vt] = (byVectorType[vt] || 0) + 1;
+      if (vt === 'embedding' && mem.embeddingModel) {
+        byEmbeddingModel[mem.embeddingModel] = (byEmbeddingModel[mem.embeddingModel] || 0) + 1;
+      }
       for (const tag of mem.tags) {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       }
@@ -428,6 +656,8 @@ class VectorMemoryService {
       total: memories.length,
       byCategory,
       topTags,
+      byVectorType,
+      byEmbeddingModel,
     };
   }
 

@@ -1,6 +1,14 @@
 import { aiService } from '@/services/aiService';
 import type { TavernHelper } from '@/types';
 
+function shouldDebugTavern(): boolean {
+  try {
+    return localStorage.getItem('dad_debug_tavern') === '1';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 递归向上查找 TavernHelper，兼容多层 iframe 嵌套
  * 最多查找 5 层，防止无限循环
@@ -8,28 +16,31 @@ import type { TavernHelper } from '@/types';
 function getNativeTavernHelper(): any | null {
   if (typeof window === 'undefined') return null;
 
-  console.log('[Tavern检测] 开始查找 TavernHelper...');
-  console.log('[Tavern检测] 当前window.location:', window.location.href);
+  const debug = shouldDebugTavern();
+  if (debug) {
+    console.log('[Tavern检测] 开始查找 TavernHelper...');
+    console.log('[Tavern检测] 当前window.location:', window.location.href);
+  }
 
   // 先检查当前 window
   if ((window as any).TavernHelper) {
-    console.log('[Tavern检测] ✅ 在当前window找到TavernHelper');
+    if (debug) console.log('[Tavern检测] ✅ 在当前window找到TavernHelper');
     return (window as any).TavernHelper;
   }
 
   try {
     // 尝试直接访问 top（最顶层窗口）
-    console.log('[Tavern检测] 尝试访问window.top...');
+    if (debug) console.log('[Tavern检测] 尝试访问window.top...');
     if (window.top && window.top !== window) {
-      console.log('[Tavern检测] window.top可访问，检查TavernHelper...');
+      if (debug) console.log('[Tavern检测] window.top可访问，检查TavernHelper...');
       if ((window.top as any).TavernHelper) {
-        console.log('[Tavern检测] ✅ 在window.top找到TavernHelper');
+        if (debug) console.log('[Tavern检测] ✅ 在window.top找到TavernHelper');
         return (window.top as any).TavernHelper;
       }
-      console.log('[Tavern检测] window.top没有TavernHelper');
+      if (debug) console.log('[Tavern检测] window.top没有TavernHelper');
     }
   } catch (e) {
-    console.log('[Tavern检测] ⚠️ 访问window.top失败（跨域）:', e);
+    if (debug) console.log('[Tavern检测] ⚠️ 访问window.top失败（跨域）:', e);
   }
 
   // 逐层向上查找，最多 5 层
@@ -37,24 +48,24 @@ function getNativeTavernHelper(): any | null {
   for (let i = 0; i < 5; i++) {
     try {
       if (currentWindow.parent && currentWindow.parent !== currentWindow) {
-        console.log(`[Tavern检测] 检查第${i + 1}层parent...`);
+        if (debug) console.log(`[Tavern检测] 检查第${i + 1}层parent...`);
         if ((currentWindow.parent as any).TavernHelper) {
-          console.log(`[Tavern检测] ✅ 在第${i + 1}层parent找到TavernHelper`);
+          if (debug) console.log(`[Tavern检测] ✅ 在第${i + 1}层parent找到TavernHelper`);
           return (currentWindow.parent as any).TavernHelper;
         }
-        console.log(`[Tavern检测] 第${i + 1}层parent没有TavernHelper，继续向上`);
+        if (debug) console.log(`[Tavern检测] 第${i + 1}层parent没有TavernHelper，继续向上`);
         currentWindow = currentWindow.parent;
       } else {
-        console.log(`[Tavern检测] 已到达顶层（第${i + 1}层）`);
+        if (debug) console.log(`[Tavern检测] 已到达顶层（第${i + 1}层）`);
         break;
       }
     } catch (e) {
-      console.log(`[Tavern检测] ⚠️ 访问第${i + 1}层parent失败（跨域）:`, e);
+      if (debug) console.log(`[Tavern检测] ⚠️ 访问第${i + 1}层parent失败（跨域）:`, e);
       break;
     }
   }
 
-  console.log('[Tavern检测] ❌ 未找到TavernHelper');
+  if (debug) console.log('[Tavern检测] ❌ 未找到TavernHelper');
   return null;
 }
 

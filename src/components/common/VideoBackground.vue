@@ -167,6 +167,7 @@ const onError = (event: Event) => {
   object-fit: cover;
   transform: translate(-50%, -50%);
   z-index: -2;
+  filter: brightness(1.15) saturate(1.1);
 }
 
 .video-overlay {

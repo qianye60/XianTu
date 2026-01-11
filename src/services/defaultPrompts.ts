@@ -29,20 +29,24 @@ import {
   TECHNIQUE_SYSTEM_RULES,
   PLAYER_AUTONOMY_RULES,
   RATIONALITY_AUDIT_RULES,
+  PROFESSION_MASTERY_RULES,
+  ANTI_SYCOPHANCY_RULES,
   DUAL_REALM_NARRATIVE_RULES,
   DIFFICULTY_ENHANCEMENT_RULES,
   SECT_SYSTEM_RULES,
   COMBAT_ALCHEMY_RISK_RULES,
   CULTIVATION_PRACTICE_RULES,
   DAO_COMPREHENSION_RULES,
-  TASK_SYSTEM_RULES
+  CULTIVATION_SPEED_RULES,
+  SIX_SI_ACQUISITION_RULES,
+  SECT_DYNAMIC_GENERATION_RULES
 } from '@/utils/prompts/definitions/businessRules';
 // 文本格式
 import { TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAGE_RULES, NAMING_CONVENTIONS } from '@/utils/prompts/definitions/textFormats';
 // 世界标准
 import { REALM_ATTRIBUTE_STANDARDS, QUALITY_SYSTEM, REPUTATION_GUIDE } from '@/utils/prompts/definitions/worldStandards';
 import { ACTION_OPTIONS_RULES } from '@/utils/prompts/definitions/actionOptions';
-import { QUEST_SYSTEM_RULES } from '@/utils/prompts/definitions/questSystemRules';
+import { EVENT_SYSTEM_RULES } from '@/utils/prompts/definitions/eventSystemRules';
 
 export interface PromptDefinition {
   name: string;
@@ -74,7 +78,7 @@ export const PROMPT_CATEGORIES = {
   },
   generation: {
     name: '动态生成提示词',
-    description: '游戏中动态生成NPC/任务/物品的提示词',
+    description: '游戏中动态生成NPC/事件/物品的提示词',
     icon: '🎨'
   },
   online: {
@@ -90,6 +94,8 @@ const CORE_OUTPUT_RULES = [JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCT
 // 合并业务规则（精简版，核心规则优先）
 const BUSINESS_RULES = [
   RATIONALITY_AUDIT_RULES,
+  ANTI_SYCOPHANCY_RULES,
+  PROFESSION_MASTERY_RULES,
   DUAL_REALM_NARRATIVE_RULES,
   DIFFICULTY_ENHANCEMENT_RULES,
   REALM_SYSTEM_RULES,
@@ -111,7 +117,9 @@ const EXTENDED_BUSINESS_RULES = [
   SECT_SYSTEM_RULES,
   CULTIVATION_PRACTICE_RULES,
   DAO_COMPREHENSION_RULES,
-  TASK_SYSTEM_RULES
+  CULTIVATION_SPEED_RULES,
+  SIX_SI_ACQUISITION_RULES,
+  SECT_DYNAMIC_GENERATION_RULES
 ].join('\n\n');
 
 // 合并文本格式规范
@@ -225,11 +233,11 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       order: 7,
       weight: 6
     },
-    questSystemRules: {
-      name: '8. 任务系统',
-      content: QUEST_SYSTEM_RULES,
+    eventSystemRules: {
+      name: '8. 世界事件',
+      content: EVENT_SYSTEM_RULES,
       category: 'coreRequest',
-      description: '任务触发控制',
+      description: '世界事件演变与影响',
       order: 8,
       weight: 5
     },
@@ -299,19 +307,40 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     // ==================== 动态生成提示词 ====================
     npcGeneration: {
       name: 'NPC生成',
-      content: `生成修仙世界NPC。要求：2-3字姓名、性格鲜明、背景合理、境界明确。
-输出JSON：{姓名,性别,年龄,境界:{名称,阶段},性格,外貌,背景,说话风格,初始好感度:50}`,
+      content: `生成修仙世界NPC。
+核心：世界不以玩家为中心，NPC有独立生活；严禁参考玩家境界生成"镜像NPC"或"量身对手"。
+要求：根据场景合理分布境界、姓名性格多样化、身份决定行为。
+输出JSON：{姓名,性别,年龄,境界:{名称,阶段},性格,外貌,背景,说话风格,当前行为,个人目标,初始好感度:50}`,
       category: 'generation',
       description: '动态生成NPC',
       order: 1,
       weight: 5
     },
-    questGeneration: {
-      name: '任务生成',
-      content: `生成修仙世界任务。要求：修仙特色名称、目标可量化、奖励合理、难度匹配境界。
-输出JSON：{任务ID,任务名称,任务描述,任务类型,目标列表,奖励,时限,难度}`,
+    eventGeneration: {
+      name: '事件生成',
+      content: `生成修仙世界“刚刚发生”的世界事件（用于影响玩家与世界演变）。要求：
+- 必须让玩家受到影响（危险/资源/关系/位置/修炼环境/势力格局至少一项）
+- 事件可以是宗门大战、世界变化、异宝降世、秘境现世、好友出事/突破等
+- 涉及好友时，需参考关系/好感度与境界，不能无端超规格
+- 不要公告式总结，要有现场感（刚发生）
+输出JSON（不要代码块/解释/额外文本）：
+{
+  "event": {
+    "事件ID": "event_时间戳_随机数",
+    "事件名称": "string",
+    "事件类型": "string",
+    "事件描述": "string",
+    "影响等级": "轻微|中等|重大|灾难",
+    "影响范围": "string",
+    "相关人物": ["string"],
+    "相关势力": ["string"],
+    "事件来源": "随机",
+    "发生时间": {"年":0,"月":1,"日":1,"小时":0,"分钟":0}
+  },
+  "prompt_addition": "一段可直接注入主叙事的事件快照（强调刚刚发生）"
+}`,
       category: 'generation',
-      description: '动态生成任务',
+      description: '动态生成世界事件',
       order: 2,
       weight: 5
     },
@@ -355,6 +384,40 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       description: '自然新手引导',
       order: 3,
       weight: 4
+    },
+
+    // ==================== 文本优化提示词 ====================
+    textOptimization: {
+      name: '文本优化',
+      content: `# 文本优化助手
+
+你是一个专业的中文文学编辑，负责优化修仙小说文本。
+
+## 优化原则
+1. **保持原意**：不改变故事情节、人物行为、对话内容
+2. **提升文采**：使用更优美、更具画面感的表达
+3. **修仙风格**：保持修仙世界的语言风格和氛围
+4. **流畅自然**：确保行文流畅，过渡自然
+5. **精简冗余**：删除重复、啰嗦的表达
+
+## 优化重点
+- 动作描写：更加生动形象
+- 环境描写：增加意境和氛围
+- 对话：保持人物性格特色
+- 心理描写：更加细腻深入
+
+## 禁止事项
+- 不要添加新的情节或角色
+- 不要改变原有的判定结果
+- 不要输出任何JSON格式内容
+- 不要添加解释或评论
+
+## 输出格式
+直接输出优化后的纯文本，不要任何额外内容。`,
+      category: 'summary',
+      description: '优化AI生成的文本',
+      order: 3,
+      weight: 5
     }
   };
 }

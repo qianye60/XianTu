@@ -168,12 +168,14 @@
                 <div class="card-header">
                   <div class="char-avatar" :class="profile.模式">
                     <span class="avatar-text">{{ profile.角色.名字[0] }}</span>
-                    <div class="mode-indicator">
-                      {{ profile.模式 === $t('单机') ? $t('单机') : $t('联机') }}
-                    </div>
                   </div>
                   <div class="char-info">
-                    <h3 class="char-name">{{ profile.角色.名字 }}</h3>
+                    <div class="name-row">
+                      <h3 class="char-name">{{ profile.角色.名字 }}</h3>
+                      <span class="mode-badge" :class="profile.模式 === '联机' ? 'online' : 'single'">
+                        {{ profile.模式 === $t('单机') ? $t('单机') : $t('联机') }}
+                      </span>
+                    </div>
                     <div class="char-meta">
                       <span class="world">{{ profile.角色.世界.name }}</span>
                       <span class="talent">{{ getFieldName(profile.角色.天资.name) }}</span>
@@ -360,17 +362,17 @@
                 <span>{{ $t('正在加载云端存档...') }}</span>
               </div>
 
-              <div v-else-if="selectedCharacter.存档?.存档数据" class="online-save-card">
+              <div v-else-if="selectedCharacter.存档列表?.['云端修行']?.存档数据" class="online-save-card">
                 <div class="save-data">
                   <div class="save-header">
                     <h4 class="save-name">{{ $t('云端存档') }}</h4>
                     <div class="save-badges">
                       <span class="realm-badge">{{
-                        getRealmName(normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.境界)
+                        getRealmName(normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.境界)
                       }}</span>
                       <span class="age-badge"
                         >{{
-                          normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.寿命?.当前 ?? 18
+                          normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.寿命?.当前 ?? 18
                         }}岁</span
                       >
                     </div>
@@ -381,31 +383,31 @@
                       <div class="stat">
                         <span class="label">气血</span>
                         <span class="value"
-                          >{{ normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.气血?.当前 ?? 0 }}/{{
-                            normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.气血?.上限 ?? 0
+                          >{{ normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.气血?.当前 ?? 0 }}/{{
+                            normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.气血?.上限 ?? 0
                           }}</span
                         >
                       </div>
                       <div class="stat">
                         <span class="label">灵气</span>
                         <span class="value"
-                          >{{ normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.灵气?.当前 ?? 0 }}/{{
-                            normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.灵气?.上限 ?? 0
+                          >{{ normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.灵气?.当前 ?? 0 }}/{{
+                            normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.灵气?.上限 ?? 0
                           }}</span
                         >
                       </div>
                       <div class="stat">
                         <span class="label">神识</span>
                         <span class="value"
-                          >{{ normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.神识?.当前 ?? 0 }}/{{
-                            normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.神识?.上限 ?? 0
+                          >{{ normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.神识?.当前 ?? 0 }}/{{
+                            normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.神识?.上限 ?? 0
                           }}</span
                         >
                       </div>
                       <div class="stat">
                         <span class="label">声望</span>
                         <span class="value">{{
-                          normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.属性?.声望 ?? 0
+                          normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.声望 ?? 0
                         }}</span>
                       </div>
                     </div>
@@ -413,15 +415,15 @@
 
                   <div class="save-footer">
                     <span class="location">{{
-                      normalizeSaveDataV3(selectedCharacter.存档.存档数据)?.角色?.位置?.描述 || '初始地'
+                      normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.位置?.描述 || '初始地'
                     }}</span>
                     <div class="sync-info">
                       <span
                         class="sync-status"
-                        :class="{ synced: !selectedCharacter.存档.云端同步信息?.需要同步 }"
+                        :class="{ synced: !selectedCharacter.存档列表['云端修行'].云端同步信息?.需要同步 }"
                       >
                         {{
-                          selectedCharacter.存档.云端同步信息?.需要同步
+                          selectedCharacter.存档列表['云端修行'].云端同步信息?.需要同步
                             ? $t('待同步')
                             : $t('已同步')
                         }}
@@ -430,10 +432,10 @@
                   </div>
 
                   <div class="online-actions">
-                    <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">
+                    <button @click="handleSelect(selectedCharId!, '云端修行', true)" class="btn-play">
                       {{ $t('进入游戏') }}
                     </button>
-                    <button v-if="selectedCharacter.存档?.云端同步信息?.需要同步" class="btn-sync">
+                    <button v-if="selectedCharacter.存档列表['云端修行']?.云端同步信息?.需要同步" class="btn-sync">
                       {{ $t('同步云端') }}
                     </button>
                   </div>
@@ -446,7 +448,7 @@
                   <div class="empty-slot-icon">☁️</div>
                   <span class="empty-text">{{ $t('尚未开始修行') }}</span>
                   <p class="empty-hint">{{ $t('开始您的联机修仙之旅，存档将自动同步到云端') }}</p>
-                  <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">
+                  <button @click="handleSelect(selectedCharId!, '云端修行', false)" class="btn-start">
                     {{ $t('开始游戏') }}
                   </button>
                 </div>
@@ -728,7 +730,7 @@ const getSaveCount = (profile: CharacterProfile) => {
       .filter(([key, slot]: [string, SaveSlot]) => key !== '上次对话' && slot.存档数据);
     return saves.length;
   } else {
-    return profile.存档?.存档数据 ? 1 : 0;
+    return profile.存档列表?.['云端修行']?.存档数据 ? 1 : 0;
   }
 };
 
@@ -1084,17 +1086,26 @@ const exportCharacter = async (charId: string) => {
 
     // 🔥 修复：从 IndexedDB 加载所有存档的完整数据
     const { loadSaveData } = await import('@/utils/indexedDBManager');
-    const saveSlots = Object.values(character.存档列表 || {}) as SaveSlot[];
+
+    // 🔥 统一结构：单机和联机都使用存档列表，过滤掉"上次对话"
+    const saveSlots = Object.values(character.存档列表 || {})
+      .filter(save => save.存档名 !== '上次对话') as SaveSlot[];
+
     const savesWithFullData = await Promise.all(
       saveSlots.map(async (save) => {
-        const fullData = await loadSaveData(charId, save.存档名);
+        const slotKey = save.id || save.存档名;
+        const fullData = await loadSaveData(charId, slotKey);
+        if (!fullData) {
+          console.warn(`[角色导出] 存档「${save.存档名}」数据为空，跳过`);
+          return null;
+        }
         const patchedData = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(fullData) as any) : fullData;
         return {
           ...save,
-          存档数据: patchedData  // 统一字段名
+          存档数据: patchedData
         };
       })
-    );
+    ).then(results => results.filter(Boolean)); // 🔥 过滤掉空的存档
 
     const normalizedSaves = savesWithFullData.map((s) => {
       const rawSaveData = (s as any).存档数据;
@@ -2075,53 +2086,69 @@ const handleImportFile = async (event: Event) => {
 
 .char-avatar {
   position: relative;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
   color: white;
-  font-size: 0.8rem;
+  font-size: 1.2rem;
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--color-success), var(--color-info));
+  background: linear-gradient(135deg, #10b981, #3b82f6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .char-avatar.联机 {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
-}
-
-.mode-indicator {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 10px;
-  height: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: var(--color-warning);
-  border-radius: 50%;
-  font-size: 0.45rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  border: 1px solid var(--color-background);
+  background: linear-gradient(135deg, #3b82f6, #0ea5e9);
 }
 
 .char-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .char-name {
-  margin: 0 0 0.1rem 0;
-  font-size: 0.85rem;
+  margin: 0;
+  font-size: 1rem;
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.5px;
+}
+
+.mode-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mode-badge.single {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.mode-badge.online {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .char-meta {

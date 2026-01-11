@@ -12,8 +12,7 @@ import type {
   SaveData,
   Equipment,
   GameMessage,
-  QuestSystem,
-  QuestType,
+  EventSystem,
   SectMemberInfo,
   SectSystemV2,
   StatusEffect,
@@ -63,8 +62,8 @@ interface GameState {
 
   // 三千大道系统
   thousandDao: any | null;
-  // 任务系统
-  questSystem: QuestSystem;
+  // 事件系统
+  eventSystem: EventSystem;
   // 修炼功法
   cultivationTechnique: any | null;
   // 修炼模块（完整结构）
@@ -79,6 +78,8 @@ interface GameState {
   masteredSkills: any[] | null;
   // 系统配置
   systemConfig: any | null;
+  // 角色.身体（完整对象，包含酒馆端扩展字段）
+  body: Record<string, any> | null;
   // 身体部位开发
   bodyPartDevelopment: Record<string, any> | null;
 
@@ -113,19 +114,15 @@ export const useGameStateStore = defineStore('gameState', {
 
     // 其他游戏系统
     thousandDao: null,
-    questSystem: {
+    eventSystem: {
       配置: {
-        启用系统任务: false,
-        系统任务类型: '修仙辅助系统',
-        系统任务提示词: '',
-        自动刷新: false,
-        默认任务数量: 3
+        启用随机事件: true,
+        最小间隔年: 1,
+        最大间隔年: 10,
+        事件提示词: '',
       },
-      当前任务列表: [],
-      任务统计: {
-        完成总数: 0,
-        各类型完成: {} as Record<QuestType, number>
-      }
+      下次事件时间: null,
+      事件记录: [],
     },
     cultivationTechnique: null,
     cultivation: null,
@@ -134,6 +131,7 @@ export const useGameStateStore = defineStore('gameState', {
     effects: [],
     masteredSkills: null,
     systemConfig: null,
+    body: null,
     bodyPartDevelopment: null,
 
     // 时间点存档配置（默认关闭，用户可在设置中开启）
@@ -228,6 +226,10 @@ export const useGameStateStore = defineStore('gameState', {
       const character: CharacterBaseInfo | null = v3?.角色?.身份 ? deepCopy(v3.角色.身份) : null;
       const attributes: PlayerAttributes | null = v3?.角色?.属性 ? deepCopy(v3.角色.属性) : null;
       const location: PlayerLocation | null = v3?.角色?.位置 ? deepCopy(v3.角色.位置) : null;
+      if (location && (this.onlineState as any)?.模式 === '联机') {
+        delete (location as any).x;
+        delete (location as any).y;
+      }
       const inventory: Inventory | null = v3?.角色?.背包 ? deepCopy(v3.角色.背包) : null;
       const equipment: Equipment | null = v3?.角色?.装备 ? deepCopy(v3.角色.装备) : null;
       const relationships: Record<string, NpcProfile> | null = v3?.社交?.关系 ? deepCopy(v3.社交.关系) : null;
@@ -240,7 +242,7 @@ export const useGameStateStore = defineStore('gameState', {
       const narrativeHistory: GameMessage[] = Array.isArray(v3?.系统?.历史?.叙事) ? deepCopy(v3.系统.历史.叙事) : [];
 
       const daoSystem = v3?.角色?.大道 ? deepCopy(v3.角色.大道) : null;
-      const questSystem: QuestSystem | null = v3?.社交?.任务 ? deepCopy(v3.社交.任务) : null;
+      const eventSystem: EventSystem | null = v3?.社交?.事件 ? deepCopy(v3.社交.事件) : null;
       const cultivation = v3?.角色?.修炼 ? deepCopy(v3.角色.修炼) : null;
       const techniqueSystem = v3?.角色?.功法 ? deepCopy(v3.角色.功法) : null;
       const skillState = v3?.角色?.技能 ? deepCopy(v3.角色.技能) : null;
@@ -248,8 +250,10 @@ export const useGameStateStore = defineStore('gameState', {
       const effects: StatusEffect[] = Array.isArray(v3?.角色?.效果) ? deepCopy(v3.角色.效果) : [];
 
       const systemConfig = v3?.系统?.配置 ? deepCopy(v3.系统.配置) : null;
-      const bodyPartDevelopment =
-        (v3?.角色?.身体 as any)?.部位开发 ? deepCopy((v3.角色.身体 as any).部位开发) : null;
+
+      const body = v3?.角色?.身体 ? deepCopy(v3.角色.身体) : null;
+      let bodyPartDevelopment =
+        body && typeof body === 'object' && (body as any).部位开发 ? deepCopy((body as any).部位开发) : null;
 
       // 基础模块
       this.character = character;
@@ -277,21 +281,17 @@ export const useGameStateStore = defineStore('gameState', {
 
       // 系统模块
       this.thousandDao = daoSystem ? deepCopy(daoSystem) : null;
-      this.questSystem = questSystem
-        ? deepCopy(questSystem)
+      this.eventSystem = eventSystem
+        ? deepCopy(eventSystem)
         : {
             配置: {
-              启用系统任务: false,
-              系统任务类型: '修仙辅助系统',
-              系统任务提示词: '',
-              自动刷新: false,
-              默认任务数量: 3,
+              启用随机事件: true,
+              最小间隔年: 1,
+              最大间隔年: 10,
+              事件提示词: '',
             },
-            当前任务列表: [],
-            任务统计: {
-              完成总数: 0,
-              各类型完成: {} as Record<QuestType, number>,
-            },
+            下次事件时间: null,
+            事件记录: [],
           };
 
       this.cultivation = cultivation ? deepCopy(cultivation) : null;
@@ -308,6 +308,19 @@ export const useGameStateStore = defineStore('gameState', {
       if (isTavernEnv() && this.systemConfig) {
         this.systemConfig = ensureSystemConfigHasNsfw(this.systemConfig) as any;
       }
+
+      // Tavern 兜底：即使存档没带“角色.身体”，也保证 UI/变量面板有可写路径
+      if (isTavernEnv()) {
+        const bodyObj: Record<string, any> =
+          body && typeof body === 'object' ? deepCopy(body) : {};
+        if (bodyObj.部位 === undefined) bodyObj.部位 = {};
+        if (bodyObj.部位开发 === undefined) bodyObj.部位开发 = bodyPartDevelopment ?? {};
+        bodyPartDevelopment = bodyObj.部位开发 ?? bodyPartDevelopment;
+        this.body = bodyObj;
+      } else {
+        this.body = body && typeof body === 'object' ? deepCopy(body) : null;
+      }
+
       this.bodyPartDevelopment = bodyPartDevelopment ? deepCopy(bodyPartDevelopment) : null;
 
       // 兜底：旧存档可能没有模块对象
@@ -331,7 +344,21 @@ export const useGameStateStore = defineStore('gameState', {
      * @returns 完整的存档数据
      */
     toSaveData(): SaveData | null {
-      if (!this.character || !this.attributes || !this.location || !this.inventory || !this.relationships || !this.memory || !this.gameTime || !this.equipment) {
+      // 🔥 详细的数据检查和日志输出，帮助诊断联机模式下的问题
+      const missingFields: string[] = [];
+      if (!this.character) missingFields.push('character');
+      if (!this.attributes) missingFields.push('attributes');
+      if (!this.location) missingFields.push('location');
+      if (!this.inventory) missingFields.push('inventory');
+      if (!this.relationships) missingFields.push('relationships');
+      if (!this.memory) missingFields.push('memory');
+      if (!this.gameTime) missingFields.push('gameTime');
+      if (!this.equipment) missingFields.push('equipment');
+
+      if (missingFields.length > 0) {
+        console.error('[gameStateStore.toSaveData] 存档数据不完整，缺少以下字段:', missingFields.join(', '));
+        console.error('[gameStateStore.toSaveData] 联机状态:', this.onlineState);
+        console.error('[gameStateStore.toSaveData] 游戏是否已加载:', this.isGameLoaded);
         return null;
       }
 
@@ -392,14 +419,36 @@ export const useGameStateStore = defineStore('gameState', {
       const online =
         this.onlineState ?? { 模式: '单机', 房间ID: null, 玩家ID: null, 只读路径: ['世界'], 世界曝光: false, 冲突策略: '服务器' };
 
+      const location = deepCopy(this.location);
+      if (location && (online as any)?.模式 === '联机') {
+        delete (location as any).x;
+        delete (location as any).y;
+      }
+
+      const body = (() => {
+        const baseBody: Record<string, any> =
+          this.body && typeof this.body === 'object' ? deepCopy(this.body) : {};
+
+        if (this.bodyPartDevelopment && typeof this.bodyPartDevelopment === 'object') {
+          baseBody.部位开发 = deepCopy(this.bodyPartDevelopment);
+        }
+
+        if (isTavernEnv()) {
+          if (baseBody.部位 === undefined) baseBody.部位 = {};
+          if (baseBody.部位开发 === undefined) baseBody.部位开发 = {};
+        }
+
+        return Object.keys(baseBody).length > 0 ? baseBody : undefined;
+      })();
+
       const v3: any = {
         元数据: meta,
         角色: {
           身份: this.character,
           属性: this.attributes,
-          位置: this.location,
+          位置: location,
           效果: this.effects ?? [],
-          身体: this.bodyPartDevelopment ? { 部位开发: this.bodyPartDevelopment } : undefined,
+          身体: body,
           背包: this.inventory,
           装备: this.equipment,
           功法: techniqueSystem,
@@ -410,7 +459,7 @@ export const useGameStateStore = defineStore('gameState', {
         社交: {
           关系: this.relationships ?? {},
           宗门: sectNormalized,
-          任务: this.questSystem,
+          事件: this.eventSystem,
           记忆: this.memory,
         },
         世界: { 信息: this.worldInfo ?? {}, 状态: {} },
@@ -425,21 +474,12 @@ export const useGameStateStore = defineStore('gameState', {
       };
 
       // 动态计算后天六司（装备/天赋加成）
-      try {
-        const calculatedAttrs = calculateFinalAttributes((this.character as any).先天六司, v3 as any);
-
-        const updatedCharacter = {
-          ...this.character,
-          后天六司: calculatedAttrs.后天六司,
-        };
-
-        console.log('[toSaveData] 后天六司(动态计算):', calculatedAttrs.后天六司);
-
-        return deepCopy({ ...v3, 角色: { ...v3.角色, 身份: updatedCharacter } } as any);
-      } catch (error) {
-        console.error('[toSaveData] 动态计算后天六司失败，回退为原始数据:', error);
-        return deepCopy(v3 as any);
-      }
+      // 注意：这里不能将计算后的"后天六司"（总值）保存回 character.后天六司（基值），
+      // 否则会导致下次加载时重复叠加天赋/装备加成（基值被污染为总值，再算一遍加成）。
+      // character.后天六司 应该只存储永久性的消耗品加成。
+      // 天赋/装备加成应在运行时动态计算，不落盘到该字段。
+      
+      return deepCopy(v3 as any);
     },
 
     /**
@@ -541,19 +581,15 @@ export const useGameStateStore = defineStore('gameState', {
 
       // 重置其他系统数据
       this.thousandDao = null;
-      this.questSystem = {
+      this.eventSystem = {
         配置: {
-          启用系统任务: false,
-          系统任务类型: '修仙辅助系统',
-          系统任务提示词: '',
-          自动刷新: false,
-          默认任务数量: 3
+          启用随机事件: true,
+          最小间隔年: 1,
+          最大间隔年: 10,
+          事件提示词: '',
         },
-        当前任务列表: [],
-        任务统计: {
-          完成总数: 0,
-          各类型完成: {} as Record<QuestType, number>
-        }
+        下次事件时间: null,
+        事件记录: [],
       };
       this.cultivationTechnique = null;
       this.cultivation = null;
@@ -562,6 +598,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.effects = [];
       this.masteredSkills = null;
       this.systemConfig = null;
+      this.body = null;
       this.bodyPartDevelopment = null;
 
       console.log('[GameState] State has been reset');

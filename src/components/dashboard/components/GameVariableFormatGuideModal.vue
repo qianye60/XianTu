@@ -264,30 +264,45 @@
               </div>
             </section>
 
-            <!-- 任务系统 -->
-            <section id="quest" class="format-section">
-              <h4 class="section-title">6. 任务</h4>
+            <!-- 世界事件系统 -->
+            <section id="event" class="format-section">
+              <h4 class="section-title">6. 事件</h4>
               <div class="section-content">
-                <pre class="code-block">任务:
-  - 当前任务列表: [任务对象]
-  - 任务统计: {完成总数, 各类型完成}
+                <pre class="code-block">社交.事件:
+  - 配置: {启用随机事件, 最小间隔年, 最大间隔年, 事件提示词}
+  - 下次事件时间: {年, 月, 日, 小时, 分钟} | null
+  - 事件记录: [事件对象]
 
-任务对象结构:
-  - 任务ID: string (格式: quest_类型_时间戳)
-  - 任务名称: string
-  - 任务描述: string
-  - 任务类型: "宗门"|"奇遇"|"日常"|"系统任务"
-  - 任务状态: "进行中"|"已完成"|"已失败"
-  - 目标列表: [{描述, 类型, 目标ID, 需求数量, 当前进度, 已完成}]
-  - 奖励: {修为?, 灵石?, 物品?, 声望?, 属性加成?, 好感度?}</pre>
+事件对象结构:
+  - 事件ID: string (格式: event_时间戳_随机数)
+  - 事件名称: string
+  - 事件类型: string (宗门大战/世界变化/异宝降世/秘境现世/好友遭遇等)
+  - 事件描述: string
+  - 影响等级: "轻微"|"中等"|"重大"|"灾难"
+  - 影响范围: string
+  - 相关人物: string[]
+  - 相关势力: string[]
+  - 事件来源: "随机"|"玩家行为"|"剧情"
+  - 发生时间: {年, 月, 日, 小时, 分钟}</pre>
 
                 <div class="example-box">
                   <strong>示例：</strong>
-                  <pre class="code-block">// 更新任务进度
+                  <pre class="code-block">// 添加一条刚刚发生的世界事件
 {
-  "action": "add",
-  "key": "任务.当前任务列表[0].目标列表[0].当前进度",
-  "value": 1
+  "action": "push",
+  "key": "社交.事件.事件记录",
+  "value": {
+    "事件ID": "event_1700000000000_42",
+    "事件名称": "青冥宗与赤炎谷开战",
+    "事件类型": "宗门大战",
+    "事件描述": "……",
+    "影响等级": "重大",
+    "影响范围": "东玄大陆北境",
+    "相关人物": [],
+    "相关势力": ["青冥宗", "赤炎谷"],
+    "事件来源": "随机",
+    "发生时间": {"年": 12, "月": 3, "日": 18, "小时": 14, "分钟": 0}
+  }
 }</pre>
                 </div>
               </div>
@@ -329,7 +344,7 @@ const sections = [
   { id: 'inventory', title: '背包物品' },
   { id: 'relationships', title: '关系' },
   { id: 'world', title: '世界' },
-  { id: 'quest', title: '任务' }
+  { id: 'event', title: '事件' }
 ]
 
 const scrollToSection = (sectionId: string) => {
