@@ -637,7 +637,9 @@ const exportSingleSave = async (save: SaveSlot) => {
     }
 
     const { loadSaveData } = await import('@/utils/indexedDBManager');
-    const fullSaveData = await loadSaveData(characterId, save.存档名);
+    // 🔥 修复：使用 save.id 或 save.存档名 作为槽位键
+    const slotKey = save.id || save.存档名;
+    const fullSaveData = await loadSaveData(characterId, slotKey);
 
     if (!fullSaveData) {
       toast.error('无法加载存档数据');
@@ -704,13 +706,17 @@ const exportCharacter = async () => {
     // 加载所有存档的完整数据
     const { loadSaveData } = await import('@/utils/indexedDBManager');
     const savesWithFullData = await Promise.all(
-      savesList.value.map(async (save) => {
-        const fullData = await loadSaveData(characterId, save.存档名);
-        return {
-          ...save,
-          存档数据: fullData, // 统一字段名
-        };
-      }),
+      savesList.value
+        .filter(save => save.存档名 !== '上次对话') // 🔥 过滤掉"上次对话"存档
+        .map(async (save) => {
+          // 🔥 修复：使用 save.id 或 save.存档名 作为槽位键
+          const slotKey = save.id || save.存档名;
+          const fullData = await loadSaveData(characterId, slotKey);
+          return {
+            ...save,
+            存档数据: fullData, // 统一字段名
+          };
+        }),
     );
 
     const normalizedSaves = savesWithFullData.map((s) => {
@@ -1075,7 +1081,7 @@ onMounted(() => {
 
   /* 滚动条样式 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(2, 132, 199, 0.3) rgba(243, 244, 246, 0.5);
+  scrollbar-color: transparent transparent;
 }
 
 .saves-container::-webkit-scrollbar {
@@ -1083,18 +1089,18 @@ onMounted(() => {
 }
 
 .saves-container::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
+  background: transparent;
   border-radius: 4px;
 }
 
 .saves-container::-webkit-scrollbar-thumb {
-  background: rgba(2, 132, 199, 0.3);
+  background: transparent;
   border-radius: 4px;
   transition: background 0.2s ease;
 }
 
 .saves-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(2, 132, 199, 0.5);
+  background: transparent;
 }
 
 /* 区块样式 */

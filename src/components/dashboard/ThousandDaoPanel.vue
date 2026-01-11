@@ -754,7 +754,7 @@ const comprehendFromNature = () => {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
   text-align: center;
-  max-width: 280px;
+  max-width: 350px;
 }
 
 /* 大道卡片 */

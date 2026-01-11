@@ -5,6 +5,7 @@
  */
 
 import { aiService } from '@/services/aiService';
+import type { APIUsageType } from '@/stores/apiManagementStore';
 
 /**
  * 使用原始提示词生成AI响应
@@ -16,7 +17,8 @@ import { aiService } from '@/services/aiService';
 export async function generateWithRawPrompt(
   userPrompt: string,
   systemPrompt: string,
-  streaming: boolean = false
+  streaming: boolean = false,
+  usageType?: APIUsageType
 ): Promise<string> {
   try {
     // 注意：使用 user 角色而不是 system，避免中转API忽略
@@ -27,6 +29,7 @@ export async function generateWithRawPrompt(
         { role: 'user', content: "开始任务" }
       ],
       should_stream: streaming,
+      usageType,
       overrides: {
         world_info_before: '',
         world_info_after: ''

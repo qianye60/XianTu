@@ -133,62 +133,59 @@
     </div>
 
     <!-- 地图图例 -->
-    <div class="map-legend">
-      <div class="legend-title">{{ worldName }}图例</div>
-      <div class="legend-items">
-        <!-- 名山大川 - 山形图标 -->
+    <div class="map-legend" :class="{ collapsed: legendCollapsed }">
+      <div class="legend-header" @click="legendCollapsed = !legendCollapsed">
+        <div class="legend-title">{{ worldName }}图例</div>
+        <button class="legend-toggle">
+          <ChevronUp v-if="!legendCollapsed" :size="16" />
+          <ChevronDown v-if="legendCollapsed" :size="16" />
+        </button>
+      </div>
+      <div v-if="!legendCollapsed" class="legend-items">
+        <!-- 名山大川 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="12,6 4,20 20,20" fill="#2D7D32" opacity="0.8"/>
-          </svg>
+          <Mountain :size="16" class="legend-icon mountain" />
           <span>名山大川</span>
         </div>
-        <!-- 宗门势力 - 建筑图标 -->
+        <!-- 宗门势力 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="6" width="12" height="12" fill="#1565C0" opacity="0.8"/>
-            <rect x="10" y="12" width="4" height="6" fill="white" opacity="0.9"/>
-          </svg>
+          <Building2 :size="16" class="legend-icon faction" />
           <span>宗门势力</span>
         </div>
-        <!-- 城镇坊市 - 圆形图标 -->
+        <!-- 城镇坊市 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="8" fill="#F57C00" opacity="0.8"/>
-            <circle cx="12" cy="12" r="3" fill="white" opacity="0.9"/>
-          </svg>
+          <Store :size="16" class="legend-icon town" />
           <span>城镇坊市</span>
         </div>
-        <!-- 洞天福地 - 星形图标 -->
+        <!-- 洞天福地 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="8" fill="#7B1FA2" opacity="0.7"/>
-            <polygon points="12,5 13.5,9.5 18,10 14.5,13 15.5,17.5 12,15 8.5,17.5 9.5,13 6,10 10.5,9.5" fill="white" opacity="0.9"/>
-          </svg>
+          <Sparkles :size="16" class="legend-icon blessed" />
           <span>洞天福地</span>
         </div>
-        <!-- 奇珍异地 - 菱形图标 -->
+        <!-- 奇珍异地 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="12,4 20,12 12,20 4,12" fill="#388E3C" opacity="0.8"/>
-          </svg>
+          <Gem :size="16" class="legend-icon treasure" />
           <span>奇珍异地</span>
         </div>
-        <!-- 凶险之地 - 警告图标 -->
+        <!-- 凶险之地 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="8" fill="#D32F2F" opacity="0.8"/>
-            <line x1="12" y1="8" x2="12" y2="14" stroke="white" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="12" cy="17" r="1.5" fill="white"/>
-          </svg>
+          <AlertTriangle :size="16" class="legend-icon danger" />
           <span>凶险之地</span>
         </div>
-        <!-- 其他特殊 - 闪电图标 -->
+        <!-- 其他特殊 -->
         <div class="legend-item">
-          <svg class="legend-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="13,4 8,14 12,14 11,20 16,10 12,10" fill="#6B7280" opacity="0.8"/>
-          </svg>
+          <Zap :size="16" class="legend-icon special" />
           <span>其他特殊</span>
+        </div>
+        <!-- 玩家位置 -->
+        <div class="legend-item">
+          <User :size="16" class="legend-icon player" />
+          <span>玩家位置</span>
+        </div>
+        <!-- NPC位置 -->
+        <div class="legend-item">
+          <Users :size="16" class="legend-icon npc" />
+          <span>NPC位置</span>
         </div>
       </div>
     </div>
@@ -197,6 +194,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { Mountain, Building2, Store, Sparkles, Gem, AlertTriangle, Zap, User, Users, ChevronUp, ChevronDown } from 'lucide-vue-next';
 import { GameMapManager } from '@/utils/gameMapManager';
 import { normalizeLocationsData, normalizeContinentBounds } from '@/utils/coordinateConverter';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -214,9 +212,24 @@ const selectedContinent = ref<any | null>(null);
 const mapStatus = ref('初始化中...');
 const popupPosition = ref({ x: 0, y: 0 });
 const isInitializing = ref(false);
+const legendCollapsed = ref(false);
 
 const worldName = computed(() => gameStateStore.worldInfo?.世界名称 || '修仙界');
 const worldBackground = computed(() => gameStateStore.worldInfo?.世界背景 || '');
+const mapRenderConfig = computed(() => {
+  const mapConfig = (gameStateStore.worldInfo as any)?.['地图配置'];
+  const width = Number(mapConfig?.width) || 10000;
+  const height = Number(mapConfig?.height) || 10000;
+  const tileSize = Math.max(80, Math.round(Math.min(width, height) / 80));
+  return {
+    width,
+    height,
+    tileSize,
+    minZoom: 0.1,
+    maxZoom: 4,
+  };
+});
+const mapSizeKey = computed(() => `${mapRenderConfig.value.width}x${mapRenderConfig.value.height}`);
 
 // 检查地图是否有内容 (地点或势力)
 const hasMapContent = computed(() => {
@@ -227,8 +240,9 @@ const hasMapContent = computed(() => {
   return hasLocations || hasFactions;
 });
 
-// 地点类型中文名称映射
+// 地点类型中文名称映射（支持英文和中文类型）
 const locationTypeNames: Record<string, string> = {
+  // 英文类型（兼容旧数据）
   natural_landmark: '名山大川',
   sect_power: '宗门势力',
   city_town: '城镇坊市',
@@ -236,10 +250,17 @@ const locationTypeNames: Record<string, string> = {
   treasure_land: '奇珍异地',
   dangerous_area: '凶险之地',
   special_other: '其他特殊',
+  // 中文类型（新数据）
+  '名山大川': '名山大川',
+  '城镇坊市': '城镇坊市',
+  '洞天福地': '洞天福地',
+  '奇珍异地': '奇珍异地',
+  '凶险之地': '凶险之地',
+  '其他特殊': '其他特殊',
 };
 
 const getLocationTypeName = (type: string): string => {
-  return locationTypeNames[type] || '未知类型';
+  return locationTypeNames[type] || type || '未知类型';
 };
 
 /**
@@ -308,56 +329,55 @@ const popupStyle = computed(() => {
   };
 });
 
-onMounted(async () => {
-  if (canvasRef.value && mapContainerRef.value) {
-    try {
-      mapStatus.value = '正在初始化地图...';
+const setupMapManager = async () => {
+  if (!canvasRef.value || !mapContainerRef.value) return;
 
-      // 等待下一帧，确保 DOM 完全渲染
-      await new Promise(resolve => requestAnimationFrame(resolve));
+  try {
+    mapStatus.value = '正在初始化地图...';
 
-      // 获取容器尺寸并设置 canvas 尺寸
-      const rect = mapContainerRef.value.getBoundingClientRect();
-      const canvas = canvasRef.value;
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+    // 等待下一帧，确保 DOM 完全渲染
+    await new Promise(resolve => requestAnimationFrame(resolve));
 
-      console.log('[地图] Canvas 尺寸:', { width: rect.width, height: rect.height });
+    // 获取容器尺寸并设置 canvas 尺寸
+    const rect = mapContainerRef.value.getBoundingClientRect();
+    const canvas = canvasRef.value;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
 
-      // 初始化地图管理器
-      mapManager.value = new GameMapManager(canvas, {
-        width: 10000,
-        height: 10000,
-        tileSize: 100,
-        minZoom: 0.1,
-        maxZoom: 4,
-      });
+    console.log('[地图] Canvas 尺寸:', { width: rect.width, height: rect.height });
 
-      // 监听地图事件
-      mapManager.value.on('locationClick', (data: unknown) => {
-        handleLocationClick(data);
-      });
+    // 重新初始化地图管理器，确保地图尺寸更新
+    mapManager.value?.destroy();
+    mapManager.value = new GameMapManager(canvas, mapRenderConfig.value);
 
-      mapManager.value.on('continentClick', (data: unknown) => {
-        handleContinentClick(data);
-      });
+    // 监听地图事件
+    mapManager.value.on('locationClick', (data: unknown) => {
+      handleLocationClick(data);
+    });
 
-      // 加载地图数据
-      await loadMapData();
+    mapManager.value.on('continentClick', (data: unknown) => {
+      handleContinentClick(data);
+    });
 
-      // 监听窗口大小变化
-      window.addEventListener('resize', handleResize);
+    // 加载地图数据
+    await loadMapData({ silent: true, reset: true });
 
-      // 监听全屏变化
-      document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-      mapStatus.value = '地图加载完成';
-    } catch (error) {
-      console.error('[地图] 初始化失败:', error);
-      mapStatus.value = '地图加载失败';
-      toast.error('地图初始化失败: ' + (error as Error).message);
-    }
+    mapStatus.value = '地图加载完成';
+  } catch (error) {
+    console.error('[地图] 初始化失败:', error);
+    mapStatus.value = '地图加载失败';
+    toast.error('地图初始化失败: ' + (error as Error).message);
   }
+};
+
+onMounted(async () => {
+  await setupMapManager();
+
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize);
+
+  // 监听全屏变化
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
 });
 
 onUnmounted(() => {
@@ -378,6 +398,58 @@ watch(
   { deep: true }
 );
 
+// 监听NPC关系变化，更新NPC位置
+watch(
+  () => gameStateStore.relationships,
+  (relationships) => {
+    if (!relationships || !mapManager.value) return;
+
+    const npcs: Array<{ name: string; coordinates: GameCoordinates }> = [];
+
+    Object.entries(relationships).forEach(([npcName, npcData]: [string, any]) => {
+      const coords = npcData?.当前位置 || npcData?.位置 || npcData?.coordinates;
+      if (coords && Number.isFinite(coords.x) && Number.isFinite(coords.y)) {
+        npcs.push({
+          name: npcName,
+          coordinates: coords as GameCoordinates
+        });
+      }
+    });
+
+    mapManager.value.updateNPCPositions(npcs);
+  },
+  { deep: true }
+);
+
+watch(
+  () => mapSizeKey.value,
+  (next, prev) => {
+    if (!mapManager.value || next === prev) return;
+    setupMapManager();
+  }
+);
+
+// 🔥 修复：使用浅层监听 + 长度检查，避免深度监听导致的无限循环
+watch(
+  () => [
+    gameStateStore.worldInfo?.大陆信息?.length,
+    gameStateStore.worldInfo?.势力信息?.length,
+    gameStateStore.worldInfo?.地点信息?.length,
+  ],
+  (newLengths, oldLengths) => {
+    // 只有在长度发生变化时才重新加载（避免无限循环）
+    if (!mapManager.value || isInitializing.value) return;
+
+    // 检查是否真的有变化
+    if (oldLengths && newLengths.every((len, i) => len === oldLengths[i])) {
+      return;
+    }
+
+    console.log('[地图] 检测到世界数据变化，重新加载地图', { newLengths, oldLengths });
+    loadMapData({ silent: true, reset: true });
+  }
+);
+
 /**
  * 初始化地图 - 生成势力和地点
  */
@@ -392,15 +464,29 @@ const initializeMap = async () => {
   mapStatus.value = '开始生成地图内容...';
 
   try {
+    const continentCount = worldInfo.大陆信息?.length || 3;
+    const factionCount = Math.max(3, Math.round(continentCount * 2));
+    const locationCount = Math.max(8, Math.round(continentCount * 4));
+    const secretRealmsCount = Math.max(2, Math.round(locationCount * 0.25));
+    const mapConfig = (worldInfo as any)?.['地图配置'] || {
+      width: mapRenderConfig.value.width,
+      height: mapRenderConfig.value.height,
+      minLng: 0,
+      maxLng: mapRenderConfig.value.width,
+      minLat: 0,
+      maxLat: mapRenderConfig.value.height,
+    };
+
     // 创建世界生成器
     const generator = new EnhancedWorldGenerator({
       worldName: worldInfo.世界名称,
       worldBackground: worldInfo.世界背景,
-      worldEra: worldInfo.世界时代 || '修真盛世',
-      factionCount: 5,           // 生成5个势力
-      locationCount: 12,         // 生成12个地点
-      secretRealmsCount: 3,      // 生成3个秘境
-      continentCount: worldInfo.大陆信息?.length || 3,  // 保持现有大陆数量
+      worldEra: worldInfo.世界纪元 || '修真盛世',
+      factionCount: factionCount,
+      locationCount: locationCount,
+      secretRealmsCount: secretRealmsCount,
+      continentCount: continentCount,
+      mapConfig: mapConfig,
       maxRetries: 3,
       retryDelay: 1000,
       onStreamChunk: (chunk: string) => {
@@ -426,7 +512,7 @@ const initializeMap = async () => {
       gameStateStore.updateState('worldInfo', updatedWorldInfo);
 
       // 重新加载地图数据
-      await loadMapData();
+      await loadMapData({ reset: true });
 
       toast.success('地图初始化完成！');
       console.log('[地图] 地图初始化完成');
@@ -447,17 +533,25 @@ const initializeMap = async () => {
 /**
  * 加载地图数据
  */
-const loadMapData = async () => {
+const loadMapData = async (options?: { silent?: boolean; reset?: boolean }) => {
   try {
+    const { silent = false, reset = true } = options ?? {};
     mapStatus.value = '正在加载世界数据...';
 
     const worldInfo = gameStateStore.worldInfo;
     if (!worldInfo) {
-      toast.warning('未找到世界数据');
+      if (!silent) {
+        toast.warning('未找到世界数据');
+      }
       mapStatus.value = '未找到世界数据';
       return;
     }
 
+    if (reset) {
+      mapManager.value?.clear();
+    }
+
+    const mapConfig = mapRenderConfig.value;
     let locationCount = 0;
 
     // 加载大陆
@@ -467,7 +561,7 @@ const loadMapData = async () => {
           // 标准化大陆边界坐标
           if (continent.大洲边界 || continent.continent_bounds) {
             const bounds = continent.大洲边界 || continent.continent_bounds;
-            continent.continent_bounds = normalizeContinentBounds(bounds);
+            continent.continent_bounds = normalizeContinentBounds(bounds, mapConfig.width, mapConfig.height);
             continent.大洲边界 = continent.continent_bounds;
           }
           mapManager.value?.addContinent(continent);
@@ -480,7 +574,7 @@ const loadMapData = async () => {
 
     // 加载势力（带势力范围）
     if (worldInfo.势力信息 && Array.isArray(worldInfo.势力信息)) {
-      const factions = normalizeLocationsData(worldInfo.势力信息);
+      const factions = normalizeLocationsData(worldInfo.势力信息, mapConfig);
       factions.forEach((faction: WorldLocation) => {
         try {
           // 只添加势力范围，不添加地点标记（避免与地点信息重复）
@@ -497,7 +591,7 @@ const loadMapData = async () => {
 
     // 加载地点（包括所有类型）
     if (worldInfo.地点信息 && Array.isArray(worldInfo.地点信息)) {
-      const locations = normalizeLocationsData(worldInfo.地点信息);
+      const locations = normalizeLocationsData(worldInfo.地点信息, mapConfig);
       locations.forEach((location: WorldLocation) => {
         try {
           mapManager.value?.addLocation(location);
@@ -517,8 +611,32 @@ const loadMapData = async () => {
       console.log('[地图] 已更新玩家位置');
     }
 
+    // 更新NPC位置（从关系数据中提取）
+    const relationships = gameStateStore.relationships;
+    if (relationships && typeof relationships === 'object') {
+      const npcs: Array<{ name: string; coordinates: GameCoordinates }> = [];
+
+      Object.entries(relationships).forEach(([npcName, npcData]: [string, any]) => {
+        // 检查NPC是否有坐标信息
+        const coords = npcData?.当前位置 || npcData?.位置 || npcData?.coordinates;
+        if (coords && Number.isFinite(coords.x) && Number.isFinite(coords.y)) {
+          npcs.push({
+            name: npcName,
+            coordinates: coords as GameCoordinates
+          });
+        }
+      });
+
+      if (npcs.length > 0) {
+        mapManager.value?.updateNPCPositions(npcs);
+        console.log(`[地图] 已更新 ${npcs.length} 个NPC位置`);
+      }
+    }
+
     mapStatus.value = `已加载 ${locationCount} 个地点`;
-    toast.success('地图加载完成');
+    if (!silent) {
+      toast.success('地图加载完成');
+    }
   } catch (error) {
     console.error('[地图] 加载数据失败:', error);
     mapStatus.value = '数据加载失败';
@@ -608,6 +726,14 @@ const handleResize = () => {
     }
   }
 };
+
+/**
+ * 处理全屏状态变化
+ */
+const handleFullscreenChange = () => {
+  // 全屏状态变化时可能需要调整地图大小
+  handleResize();
+};
 </script>
 
 <style scoped>
@@ -626,6 +752,7 @@ const handleResize = () => {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
   backdrop-filter: blur(8px);
 }
 
@@ -634,6 +761,7 @@ const handleResize = () => {
   font-weight: 700;
   color: #1e40af;
   text-shadow: 0 1px 2px rgba(30, 64, 175, 0.1);
+  white-space: nowrap;
 }
 
 .world-background {
@@ -884,30 +1012,65 @@ canvas:active {
   backdrop-filter: blur(12px);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  padding: 20px;
   z-index: 1000;
   min-width: 200px;
   max-width: 280px;
   border: 2px solid rgba(59, 130, 246, 0.3);
   pointer-events: auto;
+  transition: all 0.3s ease;
+}
+
+.map-legend.collapsed {
+  min-width: auto;
+}
+
+.legend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 14px 14px 0 0;
+  transition: background 0.2s ease;
+}
+
+.legend-header:hover {
+  background: rgba(59, 130, 246, 0.05);
 }
 
 .legend-title {
   font-weight: 700;
   color: #1e40af;
-  margin-bottom: 16px;
-  font-size: 1.1rem;
-  text-align: center;
-  border-bottom: 3px solid #3b82f6;
-  padding-bottom: 10px;
+  font-size: 1.05rem;
+  flex: 1;
+}
+
+.legend-toggle {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.legend-toggle:hover {
+  background: rgba(59, 130, 246, 0.1);
+  transform: scale(1.1);
 }
 
 .legend-items {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   max-height: 400px;
   overflow-y: auto;
+  padding: 0 20px 20px;
 }
 
 .legend-items::-webkit-scrollbar {
@@ -915,40 +1078,85 @@ canvas:active {
 }
 
 .legend-items::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
+  background: transparent;
   border-radius: 3px;
 }
 
 .legend-items::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.3);
+  background: transparent;
   border-radius: 3px;
 }
 
 .legend-items::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.5);
+  background: transparent;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.95rem;
+  gap: 10px;
+  font-size: 0.9rem;
   color: #374151;
-  padding: 6px 8px;
+  padding: 8px 10px;
   font-weight: 600;
   border-radius: 8px;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
 }
 
 .legend-item:hover {
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(59, 130, 246, 0.08);
+  transform: translateX(2px);
 }
 
 .legend-icon {
-  width: 24px;
-  height: 24px;
   flex-shrink: 0;
-  display: block;
+}
+
+/* 图标颜色 */
+.legend-icon.mountain {
+  color: #2D7D32;
+}
+
+.legend-icon.faction {
+  color: #1565C0;
+}
+
+.legend-icon.town {
+  color: #F57C00;
+}
+
+.legend-icon.blessed {
+  color: #7B1FA2;
+}
+
+.legend-icon.treasure {
+  color: #388E3C;
+}
+
+.legend-icon.danger {
+  color: #D32F2F;
+}
+
+.legend-icon.special {
+  color: #6B7280;
+}
+
+.legend-icon.player {
+  color: #3b82f6;
+  animation: pulse-player 2s ease-in-out infinite;
+}
+
+.legend-icon.npc {
+  color: #8b5cf6;
+}
+
+@keyframes pulse-player {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* 全屏模式优化 */
@@ -973,11 +1181,24 @@ canvas:active {
 
 /* 响应式设计 */
 @media (max-width: 640px) {
+  .world-info-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .world-background {
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.5;
+  }
+
   .map-legend {
-    bottom: 10px;
-    right: 10px;
-    padding: 8px;
-    min-width: 120px;
+    position: static;
+    margin: 10px 0 0;
+    width: 100%;
+    max-width: none;
+    padding: 12px;
   }
 
   .location-popup {

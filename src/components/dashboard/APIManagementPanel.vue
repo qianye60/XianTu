@@ -42,8 +42,9 @@
           >
             <div class="api-card-header">
               <div class="api-info">
-                <span class="api-name">{{ api.name }}</span>
-                <span class="api-provider">{{ getProviderName(api.provider) }}</span>
+                <span class="api-name">{{ getDisplayName(api) }}</span>
+                <span class="api-provider" v-if="!(isTavernEnvFlag && api.id === 'default')">{{ getProviderName(api.provider) }}</span>
+                <span class="api-provider tavern-tag" v-else>🍺 酒馆配置</span>
               </div>
               <div class="api-actions">
                 <label class="setting-switch" :title="t('启用/禁用')">
@@ -71,20 +72,28 @@
               </div>
             </div>
             <div class="api-card-body">
-              <div class="api-detail">
-                <span class="detail-label">{{ t('模型') }}:</span>
-                <span class="detail-value">{{ api.model }}</span>
-              </div>
-              <div class="api-detail">
-                <span class="detail-label">{{ t('地址') }}:</span>
-                <span class="detail-value url">{{ api.url || t('默认') }}</span>
-              </div>
-              <div class="api-detail">
-                <span class="detail-label">{{ t('状态') }}:</span>
-                <span class="detail-value" :class="getAPIStatus(api.id)">
-                  {{ getAPIStatusText(api.id) }}
-                </span>
-              </div>
+              <!-- 酒馆模式下默认API显示特殊提示 -->
+              <template v-if="isTavernEnvFlag && api.id === 'default'">
+                <div class="tavern-api-hint">
+                  <span class="hint-text">🍺 API配置由酒馆管理，此处无需配置</span>
+                </div>
+              </template>
+              <template v-else>
+                <div class="api-detail">
+                  <span class="detail-label">{{ t('模型') }}:</span>
+                  <span class="detail-value">{{ api.model }}</span>
+                </div>
+                <div class="api-detail">
+                  <span class="detail-label">{{ t('地址') }}:</span>
+                  <span class="detail-value url">{{ api.url || t('默认') }}</span>
+                </div>
+                <div class="api-detail">
+                  <span class="detail-label">{{ t('状态') }}:</span>
+                  <span class="detail-value" :class="getAPIStatus(api.id)">
+                    {{ getAPIStatusText(api.id) }}
+                  </span>
+                </div>
+              </template>
             </div>
             <div class="api-card-footer" v-if="getAssignedFunctions(api.id).length > 0">
               <span class="assigned-label">{{ t('已分配功能') }}:</span>
@@ -106,21 +115,127 @@
       <div class="settings-section">
         <div class="section-header">
           <h4 class="section-title">⚙️ {{ t('功能分配') }}</h4>
+          <span class="mode-badge" :class="isTavernEnvFlag ? 'tavern' : 'web'">
+            {{ isTavernEnvFlag ? '酒馆模式' : '网页模式' }}
+          </span>
+        </div>
+
+        <!-- 模式说明 -->
+        <div class="mode-hint" :class="isTavernEnvFlag ? 'tavern' : 'web'">
+          <div class="hint-icon">{{ isTavernEnvFlag ? '🍺' : '🌐' }}</div>
+          <div class="hint-content" v-if="isTavernEnvFlag">
+            <strong>酒馆模式：</strong>主游戏流程（main）<em>永远</em>使用酒馆配置的API。
+            辅助功能如需使用独立API，请在下方分配非"默认API"的配置。
+            <br/>
+            <span class="hint-example">提示：未配置独立API的辅助功能也会走酒馆API，实现请求合并。</span>
+          </div>
+          <div class="hint-content" v-else>
+            <strong>网页模式：</strong>所有功能都通过配置的自定义API调用。
+            可为不同功能分配不同的API，实现灵活调度。
+            <br/>
+            <span class="hint-example">提示：配置了相同API的功能会自动合并请求，节省调用次数。</span>
+          </div>
+        </div>
+
+        <div class="pipeline-hint">
+          <div class="hint-icon">💡</div>
+          <div class="hint-content">
+            <strong>智能流水线：</strong>只有配置了独立API的功能才会触发额外调用。
+            如果所有功能都使用"默认API"，系统会合并请求以节省调用次数。
+            <br/>
+            <span class="hint-example">示例：CoT + Main 使用同一API = 1次调用 | CoT + Main 使用不同API = 2次调用</span>
+          </div>
         </div>
         <div class="settings-list">
+          <!-- ========== 主游戏流程（3个） ========== -->
+          <div class="function-group-header">
+            <h5 class="group-title">🎮 主游戏流程</h5>
+            <span class="group-desc">控制游戏主要生成流程的API分配</span>
+          </div>
+
+          <!-- 1. 主游戏流程 -->
           <div
-            v-for="assignment in apiStore.apiAssignments"
-            :key="assignment.type"
             class="setting-item"
+            :class="{ 'tavern-locked': isTavernEnvFlag && apiStore.apiAssignments.find(a => a.type === 'main') }"
           >
             <div class="setting-info">
-              <label class="setting-name">{{ getFunctionName(assignment.type) }}</label>
-              <span class="setting-desc">{{ getFunctionDesc(assignment.type) }}</span>
+              <label class="setting-name">
+                {{ getFunctionName('main') }}
+                <span v-if="isTavernEnvFlag" class="locked-badge">🔒 酒馆API</span>
+              </label>
+              <span class="setting-desc">{{ getFunctionDesc('main') }}</span>
+            </div>
+            <div class="setting-control">
+              <template v-if="isTavernEnvFlag">
+                <span class="locked-text">使用酒馆配置</span>
+              </template>
+              <template v-else>
+                <select
+                  :value="apiStore.apiAssignments.find(a => a.type === 'main')?.apiId"
+                  @change="updateAssignment('main', ($event.target as HTMLSelectElement).value)"
+                  class="setting-select"
+                >
+                  <option
+                    v-for="api in apiStore.enabledAPIs"
+                    :key="api.id"
+                    :value="api.id"
+                  >
+                    {{ getDisplayName(api) }}
+                  </option>
+                </select>
+              </template>
+            </div>
+          </div>
+
+          <!-- 2. 思维链（CoT）+ 启用系统CoT开关 -->
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ getFunctionName('cot') }}</label>
+              <span class="setting-desc">{{ getFunctionDesc('cot') }}</span>
+            </div>
+            <div class="setting-control">
+              <div class="control-row">
+                <!-- 启用系统CoT开关 -->
+                <div class="inline-toggle">
+                  <label class="toggle-label">启用</label>
+                  <label class="setting-switch compact">
+                    <input
+                      type="checkbox"
+                      :checked="apiStore.aiGenerationSettings.enableSystemCoT"
+                      @change="apiStore.updateAIGenerationSettings({ enableSystemCoT: ($event.target as HTMLInputElement).checked })"
+                    />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <!-- API分配 -->
+                <select
+                  :value="apiStore.apiAssignments.find(a => a.type === 'cot')?.apiId"
+                  @change="updateAssignment('cot', ($event.target as HTMLSelectElement).value)"
+                  class="setting-select"
+                  :disabled="!apiStore.aiGenerationSettings.enableSystemCoT"
+                >
+                  <option
+                    v-for="api in apiStore.enabledAPIs"
+                    :key="api.id"
+                    :value="api.id"
+                  >
+                    {{ getDisplayName(api) }}
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. 指令生成 -->
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ getFunctionName('instruction_generation') }}</label>
+              <span class="setting-desc">{{ getFunctionDesc('instruction_generation') }}</span>
             </div>
             <div class="setting-control">
               <select
-                :value="assignment.apiId"
-                @change="updateAssignment(assignment.type, ($event.target as HTMLSelectElement).value)"
+                :value="apiStore.apiAssignments.find(a => a.type === 'instruction_generation')?.apiId"
+                @change="updateAssignment('instruction_generation', ($event.target as HTMLSelectElement).value)"
                 class="setting-select"
               >
                 <option
@@ -128,24 +243,100 @@
                   :key="api.id"
                   :value="api.id"
                 >
-                  {{ api.name }}
+                  {{ getDisplayName(api) }}
                 </option>
               </select>
+            </div>
+          </div>
+
+          <!-- 自动分步生成提示 -->
+          <div v-if="apiStore.shouldEnableSplitGeneration" class="auto-split-hint">
+            <div class="hint-icon">⚡</div>
+            <div class="hint-text">
+              <strong>自动分步生成已启用：</strong>
+              检测到主游戏流程中有功能使用了独立API，系统将自动启用分步生成以优化性能。
+            </div>
+          </div>
+
+          <!-- ========== 辅助功能（6个） ========== -->
+          <div class="function-group-header">
+            <h5 class="group-title">🛠️ 辅助功能</h5>
+            <span class="group-desc">可选的辅助生成功能，支持Raw/标准模式切换</span>
+          </div>
+
+          <!-- 辅助功能列表 -->
+            <div
+              v-for="funcType in ['memory_summary', 'text_optimization', 'world_generation', 'event_generation', 'sect_generation', 'embedding']"
+              :key="funcType"
+              class="setting-item"
+            >
+            <div class="setting-info">
+              <label class="setting-name">
+                {{ getFunctionName(funcType as APIUsageType) }}
+                <span v-if="funcType !== 'embedding'" class="mode-indicator">
+                  {{ apiStore.getFunctionMode(funcType as APIUsageType) === 'raw' ? 'Raw' : '标准' }}
+                </span>
+              </label>
+              <span class="setting-desc">{{ getFunctionDesc(funcType as APIUsageType) }}</span>
+            </div>
+            <div class="setting-control">
+              <div class="control-row">
+                <!-- embedding 功能的启用开关 -->
+                <div v-if="funcType === 'embedding'" class="inline-toggle">
+                  <label class="toggle-label">启用</label>
+                  <label class="setting-switch compact">
+                    <input
+                      type="checkbox"
+                      :checked="vectorMemoryEnabled"
+                      @change="onVectorMemoryChange"
+                    />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <!-- API分配下拉框 -->
+                <select
+                  :value="apiStore.apiAssignments.find(a => a.type === funcType)?.apiId"
+                  @change="updateAssignment(funcType as APIUsageType, ($event.target as HTMLSelectElement).value)"
+                  class="setting-select"
+                  :disabled="funcType === 'embedding' && !vectorMemoryEnabled"
+                >
+                  <option value="default">使用主API</option>
+                  <option
+                    v-for="api in apiStore.enabledAPIs.filter(a => a.id !== 'default')"
+                    :key="api.id"
+                    :value="api.id"
+                  >
+                    {{ getDisplayName(api) }}
+                  </option>
+                </select>
+
+                <!-- Raw/标准模式选择（仅非embedding功能且为酒馆模式时显示） -->
+                <select
+                  v-if="funcType !== 'embedding' && isTavernEnvFlag"
+                  :value="apiStore.getFunctionMode(funcType as APIUsageType)"
+                  @change="updateFunctionMode(funcType as APIUsageType, ($event.target as HTMLSelectElement).value as any)"
+                  class="setting-select mode-select"
+                >
+                  <option value="raw">Raw</option>
+                  <option value="standard">标准</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 通用AI设置区 -->
+      <!-- AI生成设置 -->
       <div class="settings-section">
         <div class="section-header">
-          <h4 class="section-title">🤖 {{ t('通用AI设置') }}</h4>
+          <h4 class="section-title">🤖 {{ t('AI生成设置') }}</h4>
         </div>
         <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('流式传输') }}</label>
-              <span class="setting-desc">{{ t('实时显示AI生成内容') }}</span>
+              <label class="setting-name">{{ t('流式输出') }}</label>
+              <span class="setting-desc">{{ t('开启后AI响应逐字显示') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -155,28 +346,44 @@
             </div>
           </div>
 
-          <div class="setting-item">
+          <div v-if="vectorMemoryEnabled" class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('记忆总结模式') }}</label>
-              <span class="setting-desc">{{ t('Raw模式更准确，标准模式包含预设') }}</span>
+              <label class="setting-name">{{ t('检索数量') }}</label>
+              <span class="setting-desc">{{ t('每次检索的最大记忆条数') }}</span>
             </div>
             <div class="setting-control">
-              <select v-model="memorySummaryMode" class="setting-select">
-                <option value="raw">{{ t('Raw模式（推荐）') }}</option>
-                <option value="standard">{{ t('标准模式') }}</option>
+              <select v-model.number="vectorMemoryMaxCount" @change="onVectorMemoryChange" class="setting-select">
+                <option :value="5">5条</option>
+                <option :value="10">10条（推荐）</option>
+                <option :value="15">15条</option>
+                <option :value="20">20条</option>
               </select>
             </div>
           </div>
 
-          <div class="setting-item">
+          <div v-if="isTavernEnvFlag" class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('开局生成模式') }}</label>
-              <span class="setting-desc">{{ t('角色初始化使用的生成模式') }}</span>
+              <label class="setting-name">{{ t('🔞 成人内容模式') }}</label>
+              <span class="setting-desc">{{ t('启用后NPC可能产生成人向互动内容') }}</span>
             </div>
             <div class="setting-control">
-              <select v-model="initMode" class="setting-select">
-                <option value="generate">{{ t('标准模式') }}</option>
-                <option value="generateRaw">{{ t('Raw模式') }}</option>
+              <label class="setting-switch">
+                <input type="checkbox" v-model="nsfwMode" @change="saveNsfwSettings" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div v-if="isTavernEnvFlag && nsfwMode" class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('🔞 性别偏好过滤') }}</label>
+              <span class="setting-desc">{{ t('过滤参与成人互动的NPC性别') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="nsfwGenderFilter" @change="saveNsfwSettings" class="setting-select">
+                <option value="female">{{ t('仅女性') }}</option>
+                <option value="male">{{ t('仅男性') }}</option>
+                <option value="all">{{ t('不限性别') }}</option>
               </select>
             </div>
           </div>
@@ -297,6 +504,9 @@ import { Plus, Edit2, Trash2, Upload, Download, X, RefreshCw, FlaskConical } fro
 import { useAPIManagementStore, type APIConfig, type APIUsageType } from '@/stores/apiManagementStore';
 import { aiService, API_PROVIDER_PRESETS, type APIProvider } from '@/services/aiService';
 import { useUIStore } from '@/stores/uiStore';
+import { vectorMemoryService } from '@/services/vectorMemoryService';
+import { getNsfwSettingsFromStorage, type NsfwGenderFilter } from '@/utils/nsfw';
+import { isTavernEnv } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import { useI18n } from '@/i18n';
 
@@ -308,26 +518,75 @@ const uiStore = useUIStore();
 onMounted(() => {
   apiStore.loadFromStorage();
   loadAIServiceConfig();
+  loadLocalSettings();
+  loadVectorMemoryConfig();
 });
 
 // AI服务通用配置
 const streamingEnabled = ref(true);
-const memorySummaryMode = ref<'raw' | 'standard'>('raw');
-const initMode = ref<'generate' | 'generateRaw'>('generate');
+const vectorMemoryEnabled = ref(false);
+const vectorMemoryMaxCount = ref(10);
+const isTavernEnvFlag = ref(isTavernEnv());
+const nsfwMode = ref(true);
+const nsfwGenderFilter = ref<NsfwGenderFilter>('female');
+
+const readGameSettings = (): Record<string, unknown> => {
+  try {
+    const raw = localStorage.getItem('dad_game_settings');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveGameSettings = (updates: Record<string, unknown>) => {
+  const base = readGameSettings();
+  localStorage.setItem('dad_game_settings', JSON.stringify({ ...base, ...updates }));
+};
 
 const loadAIServiceConfig = () => {
   const config = aiService.getConfig();
   streamingEnabled.value = config.streaming !== false;
-  memorySummaryMode.value = config.memorySummaryMode || 'raw';
-  initMode.value = config.initMode || 'generate';
+};
+
+const loadLocalSettings = () => {
+  const nsfwSettings = getNsfwSettingsFromStorage();
+  nsfwMode.value = nsfwSettings.nsfwMode;
+  nsfwGenderFilter.value = nsfwSettings.nsfwGenderFilter;
+  isTavernEnvFlag.value = isTavernEnv();
+};
+
+const saveNsfwSettings = () => {
+  saveGameSettings({
+    enableNsfwMode: nsfwMode.value,
+    nsfwGenderFilter: nsfwGenderFilter.value,
+  });
+};
+
+const loadVectorMemoryConfig = () => {
+  const config = vectorMemoryService.getConfig();
+  vectorMemoryEnabled.value = config.enabled;
+  vectorMemoryMaxCount.value = config.maxRetrieveCount;
+};
+
+const onVectorMemoryChange = () => {
+  vectorMemoryService.saveConfig({
+    enabled: vectorMemoryEnabled.value,
+    maxRetrieveCount: vectorMemoryMaxCount.value,
+  });
+  if (vectorMemoryEnabled.value) {
+    toast.success(`向量记忆检索已启用，每次最多检索 ${vectorMemoryMaxCount.value} 条`);
+  } else {
+    toast.info('向量记忆检索已禁用，将使用全量发送模式');
+  }
 };
 
 // 监听通用配置变化
-watch([streamingEnabled, memorySummaryMode, initMode], () => {
+watch(streamingEnabled, () => {
   aiService.saveConfig({
-    streaming: streamingEnabled.value,
-    memorySummaryMode: memorySummaryMode.value,
-    initMode: initMode.value
+    streaming: streamingEnabled.value
   });
   uiStore.useStreaming = streamingEnabled.value;
 });
@@ -379,6 +638,17 @@ const getProviderName = (provider: APIProvider): string => {
   return API_PROVIDER_PRESETS[provider]?.name || provider;
 };
 
+/**
+ * 获取API的显示名称
+ * 酒馆模式下，默认API显示为"酒馆API"
+ */
+const getDisplayName = (api: APIConfig): string => {
+  if (isTavernEnvFlag.value && api.id === 'default') {
+    return '🍺 酒馆API';
+  }
+  return api.name;
+};
+
 const getProviderPresetUrl = (provider: APIProvider): string => {
   return API_PROVIDER_PRESETS[provider]?.url || 'https://api.openai.com';
 };
@@ -401,27 +671,53 @@ const getFunctionName = (type: APIUsageType): string => {
   const names: Record<APIUsageType, string> = {
     main: '主游戏流程',
     memory_summary: '记忆总结',
+    embedding: '向量检索(Embedding)',
     text_optimization: '文本优化',
     cot: '思维链',
+    instruction_generation: '指令生成',
     world_generation: '世界生成',
-    quest_generation: '任务生成',
-    npc_generation: 'NPC生成'
-  };
+      event_generation: '事件生成',
+      sect_generation: '宗门生成'
+    };
   return names[type] || type;
 };
 
 // 获取功能描述
 const getFunctionDesc = (type: APIUsageType): string => {
-  const descs: Record<APIUsageType, string> = {
-    main: '游戏主要交互和剧情生成',
-    memory_summary: '压缩和总结历史记忆',
-    text_optimization: '优化AI输出的文本质量',
-    cot: '思维链推理辅助',
-    world_generation: '生成世界、地点等内容',
-    quest_generation: '生成任务和目标',
-    npc_generation: '生成NPC角色'
-  };
-  return descs[type] || '';
+  if (isTavernEnvFlag.value) {
+    // 酒馆模式的描述
+    const descs: Record<APIUsageType, string> = {
+      main: '游戏主要交互（酒馆模式下永远使用酒馆API）',
+      memory_summary: '压缩总结历史记忆，包括NPC记忆（可配置Raw/标准模式）',
+      embedding: '向量记忆语义检索用Embedding（需要embedding模型，建议使用独立API）',
+      text_optimization: '优化AI输出文本（可配置Raw/标准模式）',
+      cot: '思维链推理（启用后可配置独立API）',
+      instruction_generation: '将用户模糊指令转化为明确游戏指令（一次对话生成）',
+      world_generation: '生成世界、地点等（可配置Raw/标准模式）',
+        event_generation: '生成世界事件（可配置Raw/标准模式）',
+        sect_generation: '生成宗门内容如藏经阁、贡献商店（可配置Raw/标准模式）'
+      };
+    return descs[type] || '';
+  } else {
+    // 网页模式的描述
+    const descs: Record<APIUsageType, string> = {
+      main: '游戏主要交互和剧情生成（核心API）',
+      memory_summary: '压缩总结历史记忆，包括NPC记忆（可用快速模型节省成本）',
+      embedding: '向量记忆语义检索用Embedding（需要embedding模型）',
+      text_optimization: '优化AI输出的文本质量',
+      cot: '思维链推理（启用后可配置独立API）',
+      instruction_generation: '将用户模糊指令转化为明确游戏指令（一次对话生成）',
+      world_generation: '生成世界、地点等内容（开局时使用）',
+        event_generation: '生成世界事件（可用快速模型）',
+        sect_generation: '生成宗门内容如藏经阁、贡献商店（可用快速模型）'
+      };
+    return descs[type] || '';
+  }
+};
+
+const updateFunctionMode = (type: APIUsageType, mode: 'raw' | 'standard') => {
+  apiStore.setFunctionMode(type, mode);
+  toast.success(`${getFunctionName(type)} ${t('模式已设置为')} ${mode}`);
 };
 
 // 获取已分配到某API的功能列表
@@ -767,7 +1063,7 @@ const handleImport = () => {
   min-height: 0;
   padding: 0 0.5rem 3rem 0.5rem;
   scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.3) rgba(243, 244, 246, 0.5);
+  scrollbar-color: transparent transparent;
 }
 
 .settings-container::-webkit-scrollbar {
@@ -775,12 +1071,12 @@ const handleImport = () => {
 }
 
 .settings-container::-webkit-scrollbar-track {
-  background: rgba(243, 244, 246, 0.5);
+  background: transparent;
   border-radius: 4px;
 }
 
 .settings-container::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.3);
+  background: transparent;
   border-radius: 4px;
 }
 
@@ -806,12 +1102,88 @@ const handleImport = () => {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text, #1e293b);
+}
+
+/* 流水线提示 */
+.pipeline-hint {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(147, 51, 234, 0.08));
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hint-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.hint-content {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #64748b);
+  line-height: 1.5;
+}
+
+.hint-content strong {
+  color: var(--color-text, #1e293b);
+}
+
+.hint-example {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94a3b8);
+  font-style: italic;
 }
 
 .section-count {
   font-size: 0.875rem;
   color: #64748b;
+}
+
+/* 模式标识 */
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mode-badge.tavern {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.mode-badge.web {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+/* 模式说明 */
+.mode-hint {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.mode-hint.tavern {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.08));
+}
+
+.mode-hint.web {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.08));
+}
+
+.mode-hint .hint-content em {
+  font-style: normal;
+  font-weight: 600;
+  color: #dc2626;
 }
 
 /* API卡片列表 */
@@ -872,6 +1244,13 @@ const handleImport = () => {
   border-radius: 1rem;
 }
 
+.api-provider.tavern-tag {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  font-weight: 500;
+}
+
 .api-actions {
   display: flex;
   align-items: center;
@@ -914,6 +1293,18 @@ const handleImport = () => {
   gap: 1rem;
 }
 
+/* 酒馆模式下默认API的提示样式 */
+.tavern-api-hint {
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+.tavern-api-hint .hint-text {
+  font-size: 0.875rem;
+  color: #92400e;
+  font-style: italic;
+}
+
 .api-detail {
   display: flex;
   align-items: center;
@@ -922,11 +1313,11 @@ const handleImport = () => {
 }
 
 .detail-label {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .detail-value {
-  color: #1e293b;
+  color: var(--color-text);
   font-weight: 500;
 }
 
@@ -946,7 +1337,7 @@ const handleImport = () => {
 }
 
 .detail-value.unknown {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .api-card-footer {
@@ -983,6 +1374,58 @@ const handleImport = () => {
   padding: 0.5rem;
 }
 
+/* 功能分组头部 */
+.function-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.5rem;
+  margin-top: 1rem;
+}
+
+.function-group-header:first-child {
+  margin-top: 0;
+}
+
+.group-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.group-desc {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* 自动分步生成提示 */
+.auto-split-hint {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  margin: 0.75rem 0.5rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(37, 99, 235, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+}
+
+.auto-split-hint .hint-icon {
+  font-size: 1.25rem;
+}
+
+.auto-split-hint .hint-text {
+  flex: 1;
+  font-size: 0.875rem;
+  color: #1e40af;
+  line-height: 1.5;
+}
+
+.auto-split-hint .hint-text strong {
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
 .setting-item {
   display: flex;
   align-items: center;
@@ -994,6 +1437,45 @@ const handleImport = () => {
 
 .setting-item:hover {
   background: #f8fafc;
+}
+
+/* 控制行样式 */
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 内联开关样式 */
+.inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+.toggle-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.setting-switch.compact {
+  transform: scale(0.85);
+}
+
+/* 模式指示器 */
+.mode-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.4rem;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: 1px solid #93c5fd;
 }
 
 .setting-info {
@@ -1013,9 +1495,63 @@ const handleImport = () => {
   color: #64748b;
 }
 
+/* 酒馆模式锁定状态 */
+.setting-item.tavern-locked {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.05));
+  border-radius: 0.5rem;
+}
+
+.locked-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  border: 1px solid #f59e0b;
+}
+
+.locked-text {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border: 1px dashed #d1d5db;
+  border-radius: 0.5rem;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
 .setting-control {
   display: flex;
   align-items: center;
+}
+
+.assignment-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+
+.function-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mode-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.setting-select.mode-select {
+  min-width: 120px;
 }
 
 .setting-select {
@@ -1365,13 +1901,15 @@ input:checked + .switch-slider:before {
 [data-theme='dark'] .panel-title,
 [data-theme='dark'] .section-title,
 [data-theme='dark'] .setting-name,
-[data-theme='dark'] .api-name {
+[data-theme='dark'] .api-name,
+[data-theme='dark'] .group-title {
   color: #f1f5f9;
 }
 
 [data-theme='dark'] .settings-subtitle,
 [data-theme='dark'] .setting-desc,
-[data-theme='dark'] .detail-label {
+[data-theme='dark'] .detail-label,
+[data-theme='dark'] .group-desc {
   color: #94a3b8;
 }
 
@@ -1399,6 +1937,10 @@ input:checked + .switch-slider:before {
   color: #e5e7eb;
 }
 
+[data-theme='dark'] .form-group label {
+  color: #e2e8f0;
+}
+
 [data-theme='dark'] .modal-content {
   background: #1e293b;
 }
@@ -1418,6 +1960,16 @@ input:checked + .switch-slider:before {
 [data-theme='dark'] .api-provider {
   background: #475569;
   color: #e5e7eb;
+}
+
+[data-theme='dark'] .api-provider.tavern-tag {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  color: #fef3c7;
+  border-color: #b45309;
+}
+
+[data-theme='dark'] .tavern-api-hint .hint-text {
+  color: #fcd34d;
 }
 
 [data-theme='dark'] .model-tag {
@@ -1442,5 +1994,47 @@ input:checked + .switch-slider:before {
 [data-theme='dark'] .model-dropdown-item.active {
   background: #1e40af;
   color: #93c5fd;
+}
+
+/* 深色主题 - 模式标识 */
+[data-theme='dark'] .mode-badge.tavern {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  color: #fef3c7;
+  border-color: #b45309;
+}
+
+[data-theme='dark'] .mode-badge.web {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #dbeafe;
+  border-color: #2563eb;
+}
+
+[data-theme='dark'] .mode-hint.tavern {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.3), rgba(146, 64, 14, 0.2));
+}
+
+[data-theme='dark'] .mode-hint.web {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.3), rgba(30, 64, 175, 0.2));
+}
+
+[data-theme='dark'] .mode-hint .hint-content em {
+  color: #fca5a5;
+}
+
+/* 深色主题 - 锁定状态 */
+[data-theme='dark'] .setting-item.tavern-locked {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.2), rgba(146, 64, 14, 0.15));
+}
+
+[data-theme='dark'] .locked-badge {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  color: #fef3c7;
+  border-color: #b45309;
+}
+
+[data-theme='dark'] .locked-text {
+  background: #334155;
+  border-color: #475569;
+  color: #94a3b8;
 }
 </style>

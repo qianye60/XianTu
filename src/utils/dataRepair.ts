@@ -10,7 +10,7 @@
  * - src/stores/characterStore.ts
  */
 
-import type { SaveData, Item, NpcProfile, GameTime, Realm, QuestType, PlayerAttributes, PlayerLocation } from '@/types/game';
+import type { SaveData, Item, NpcProfile, GameTime, Realm, PlayerAttributes, PlayerLocation } from '@/types/game';
 import type { GradeType } from '@/data/itemQuality';
 import { cloneDeep } from 'lodash';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
@@ -180,13 +180,21 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     if (!repaired.角色.修炼 || typeof repaired.角色.修炼 !== 'object') repaired.角色.修炼 = { 修炼功法: null, 修炼状态: { 模式: '未修炼' } };
     if (!repaired.角色.技能 || typeof repaired.角色.技能 !== 'object') repaired.角色.技能 = { 掌握技能: [], 装备栏: [], 冷却: {} };
 
-    // --- 社交.任务 ---
-    if (!repaired.社交.任务 || typeof repaired.社交.任务 !== 'object') {
-      repaired.社交.任务 = {
-        配置: { 启用系统任务: false, 系统任务类型: '修仙辅助系统', 系统任务提示词: '', 自动刷新: false, 默认任务数量: 3 },
-        当前任务列表: [],
-        任务统计: { 完成总数: 0, 各类型完成: {} as Record<QuestType, number> },
+    // --- 社交.事件 ---
+    if (!repaired.社交.事件 || typeof repaired.社交.事件 !== 'object') {
+      repaired.社交.事件 = {
+        配置: { 启用随机事件: true, 最小间隔年: 1, 最大间隔年: 10, 事件提示词: '' },
+        下次事件时间: null,
+        事件记录: [],
       };
+    } else {
+      if (!repaired.社交.事件.配置 || typeof repaired.社交.事件.配置 !== 'object') {
+        repaired.社交.事件.配置 = { 启用随机事件: true, 最小间隔年: 1, 最大间隔年: 10, 事件提示词: '' };
+      }
+      if (!Array.isArray(repaired.社交.事件.事件记录)) repaired.社交.事件.事件记录 = [];
+      if (repaired.社交.事件.下次事件时间 && typeof repaired.社交.事件.下次事件时间 !== 'object') {
+        repaired.社交.事件.下次事件时间 = null;
+      }
     }
 
     // --- 修炼.修炼功法引用校验 ---
@@ -532,10 +540,10 @@ function createMinimalSaveDataV3(): SaveData {
     社交: {
       关系: {},
       宗门: null,
-      任务: {
-        配置: { 启用系统任务: false, 系统任务类型: '修仙辅助系统', 系统任务提示词: '', 自动刷新: false, 默认任务数量: 3 },
-        当前任务列表: [],
-        任务统计: { 完成总数: 0, 各类型完成: {} as Record<QuestType, number> },
+      事件: {
+        配置: { 启用随机事件: true, 最小间隔年: 1, 最大间隔年: 10, 事件提示词: '' },
+        下次事件时间: null,
+        事件记录: [],
       },
       记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] },
     },

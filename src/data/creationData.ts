@@ -70,13 +70,13 @@ export const LOCAL_WORLDS: Omit<World, 'source'>[] = [
 //                           本地天资数据
 // =======================================================================
 export const LOCAL_TALENT_TIERS: Omit<TalentTier, 'source'>[] = [
-  { id: 1, name: '废柴', description: '资质平平，毫无出奇之处，仙路渺茫。', total_points: 10, rarity: 1, color: '#808080' },
-  { id: 2, name: '凡人', description: '芸芸众生中的一员，不好不坏，有缘可入仙途。', total_points: 20, rarity: 2, color: '#FFFFFF' },
-  { id: 3, name: '俊杰', description: '百里挑一的人才，略有不凡，在宗门中可为内门弟子。', total_points: 30, rarity: 3, color: '#4169E1' },
-  { id: 4, name: '天骄', description: '千年难遇的奇才，注定耀眼，是宗门未来的希望。', total_points: 40, rarity: 4, color: '#9932CC' },
-  { id: 5, name: '妖孽', description: '万古无一的怪物，逆天而行，可与上古神魔比肩。', total_points: 50, rarity: 5, color: '#FFD700' },
-  { id: 6, name: '谪仙转世', description: '仙人转世，天生道胎，记忆蒙尘但灵性不昧，修行一日千里。', total_points: 60, rarity: 6, color: '#FF4500' },
-  { id: 7, name: '大道之子', description: '大道化身，天生与道相合，万法皆通，是此纪元的应劫之人。', total_points: 70, rarity: 7, color: '#DAA520' },
+  { id: 1, name: '废柴', description: '资质平平，毫无出奇之处，仙路渺茫。虽有向道之心，奈何天赋所限，每一步都需付出常人百倍的努力。', total_points: 10, rarity: 1, color: '#718096' },
+  { id: 2, name: '凡人', description: '芸芸众生中的一员，不好不坏，有缘可入仙途。若有大机缘，亦可成就一番事业。', total_points: 20, rarity: 2, color: '#E2E8F0' },
+  { id: 3, name: '俊杰', description: '百里挑一的人才，略有不凡，在宗门中可为内门弟子。悟性尚可，勤勉修行有望窥得大道门径。', total_points: 35, rarity: 3, color: '#63B3ED' },
+  { id: 4, name: '天骄', description: '千年难遇的奇才，注定耀眼，是宗门未来的希望。天资聪颖，修行速度远超常人，往往能越阶而战。', total_points: 50, rarity: 4, color: '#9F7AEA' },
+  { id: 5, name: '妖孽', description: '万古无一的怪物，逆天而行，可与上古神魔比肩。打破常理的存在，天道似乎都对其格外宽容或格外严苛。', total_points: 70, rarity: 5, color: '#F6E05E' },
+  { id: 6, name: '谪仙转世', description: '仙人转世，天生道胎，记忆蒙尘但灵性不昧，修行一日千里。自带仙气，凡尘俗世的法则难以束缚。', total_points: 85, rarity: 6, color: '#F56565' },
+  { id: 7, name: '大道之子', description: '大道化身，天生与道相合，万法皆通，是此纪元的应劫之人。言出法随，气运逆天，整个世界都在为其让路。', total_points: 100, rarity: 7, color: '#ED8936' },
 ];
 
 // =======================================================================

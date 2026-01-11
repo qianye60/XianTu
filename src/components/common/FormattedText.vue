@@ -97,17 +97,15 @@
         </div>
         <div class="help-modal-content">
           <div class="help-section">
-            <h4>📊 {{ $t('判定计算公式') }}</h4>
+            <h4>📊 {{ $t('判定计算公式') }} (v6.0)</h4>
             <div class="formula-box">
-              <strong>{{ $t('判定值') }}</strong> = {{ $t('先天') }} + {{ $t('后天') }} + {{ $t('境界') }} + {{ $t('装备') }} + {{ $t('功法') }} + {{ $t('状态') }}
+              <strong>{{ $t('最终判定值') }}</strong> = {{ $t('基础值') }} + {{ $t('骰子加成') }} + {{ $t('环境修正') }} + {{ $t('状态修正') }}
             </div>
             <ol>
-              <li><strong>{{ $t('先天') }}</strong>：{{ $t('根据判定类型加权（战斗：根骨50%+灵性30%+气运20%，修炼：悟性50%+灵性30%+心性20%）') }}</li>
-              <li><strong>{{ $t('后天') }}</strong>：{{ $t('对应后天六司加权 ÷ 5') }}</li>
-              <li><strong>{{ $t('境界') }}</strong>：{{ $t('炼气5 | 筑基12 | 金丹20 | 元婴30...（阶段：初期+0，中期+2，后期+4，圆满+6）') }}</li>
-              <li><strong>{{ $t('装备') }}</strong>：{{ $t('装备提供的加成') }}</li>
-              <li><strong>{{ $t('功法') }}</strong>：{{ $t('功法品质+熟练度') }}</li>
-              <li><strong>{{ $t('状态') }}</strong>：{{ $t('buff/debuff效果') }}</li>
+              <li><strong>{{ $t('基础值') }}</strong>：{{ $t('先天属性加权 + 境界加成 + 技艺加成') }}</li>
+              <li><strong>{{ $t('骰子加成') }}</strong>：{{ $t('(原始骰子 × 气运系数 - 50) ÷ 5') }} <span class="note">({{ $t('受【气运】影响，点数<50为负') }})</span></li>
+              <li><strong>{{ $t('环境修正') }}</strong>：{{ $t('灵气浓度影响（修炼/炼丹/战斗），探索社交不受影响') }}</li>
+              <li><strong>{{ $t('状态修正') }}</strong>：{{ $t('生命状态（重伤/虚弱）及 Buff/Debuff 影响') }}</li>
             </ol>
           </div>
 
@@ -612,70 +610,50 @@ const parseDetailSource = (detail: string) => {
   color: var(--color-text, #1a1a1a);
 }
 
-/* 判定卡片样式 - 重新设计 */
+/* 判定卡片样式 - 清爽版 */
 .judgement-card {
   display: flex;
   gap: 1rem;
   margin: 1.25rem 0;
   padding: 1.25rem;
-  background: linear-gradient(135deg, #fefefe 0%, #f8f9fa 100%);
-  border-radius: 16px;
-  border: 2px solid #e2e8f0;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    0 4px 16px rgba(0, 0, 0, 0.02);
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   text-indent: 0;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.judgement-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--card-color, #6366f1) 50%,
-    transparent 100%);
+  transition: all 0.2s ease;
 }
 
 .judgement-card:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.06),
-    0 8px 24px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* 成功状态 */
 .judgement-card.is-success {
-  border-color: #86efac;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-left: 4px solid #10b981;
+  background: rgba(16, 185, 129, 0.05); /* 极淡的绿色背景 */
   --card-color: #10b981;
 }
 
 .judgement-card.is-great-success {
-  border-color: #fbbf24;
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-left: 4px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
   --card-color: #f59e0b;
-  animation: pulse-success 2s ease-in-out infinite;
 }
 
 /* 失败状态 */
 .judgement-card.is-failure {
-  border-color: #fca5a5;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-left: 4px solid #ef4444;
+  background: rgba(239, 68, 68, 0.05);
   --card-color: #ef4444;
 }
 
 .judgement-card.is-great-failure {
-  border-color: #c084fc;
-  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+  border-left: 4px solid #a855f7;
+  background: rgba(168, 85, 247, 0.05);
   --card-color: #a855f7;
-  animation: pulse-failure 2s ease-in-out infinite;
 }
 
 @keyframes pulse-success {
@@ -1137,37 +1115,28 @@ const parseDetailSource = (detail: string) => {
   opacity: 1;
 }
 
-/* -- 为不同结果类型设置文字颜色 -- */
+/* -- 统一文字颜色，仅保留强调色 -- */
 
-/* 完美 */
-.result-item.perfect .result-label,
-.result-item.perfect .result-desc {
-  color: #92400e;
+.result-item {
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
-/* 大成功 */
-.result-item.great-success .result-label,
-.result-item.great-success .result-desc {
-  color: #14532d;
+.result-label {
+  font-weight: 700;
+  color: var(--color-text);
 }
 
-/* 成功 */
-.result-item.success .result-label,
-.result-item.success .result-desc {
-  color: #1e40af;
+.result-desc {
+  color: var(--color-text-secondary);
 }
 
-/* 失败 */
-.result-item.failure .result-label,
-.result-item.failure .result-desc {
-  color: #991b1b;
-}
-
-/* 大失败 */
-.result-item.critical-failure .result-label,
-.result-item.critical-failure .result-desc {
-  color: #581c87;
-}
+/* 仅在标签上应用颜色 */
+.result-item.perfect .result-label { color: #f59e0b; }
+.result-item.great-success .result-label { color: #10b981; }
+.result-item.success .result-label { color: #10b981; }
+.result-item.failure .result-label { color: #ef4444; }
+.result-item.critical-failure .result-label { color: #a855f7; }
 
 .formula-note {
   padding: 0.75rem 1rem;
@@ -1282,31 +1251,13 @@ const parseDetailSource = (detail: string) => {
   color: var(--color-text-secondary, #94a3b8);
 }
 
-/* -- 深色主题下的结果文字颜色 -- */
-[data-theme="dark"] .result-item.perfect .result-label,
-[data-theme="dark"] .result-item.perfect .result-desc {
-  color: #fcd34d;
-}
-
-[data-theme="dark"] .result-item.great-success .result-label,
-[data-theme="dark"] .result-item.great-success .result-desc {
-  color: #86efac;
-}
-
-[data-theme="dark"] .result-item.success .result-label,
-[data-theme="dark"] .result-item.success .result-desc {
-  color: #93c5fd;
-}
-
-[data-theme="dark"] .result-item.failure .result-label,
-[data-theme="dark"] .result-item.failure .result-desc {
-  color: #fca5a5;
-}
-
-[data-theme="dark"] .result-item.critical-failure .result-label,
-[data-theme="dark"] .result-item.critical-failure .result-desc {
-  color: #d8b4fe;
-}
+/* -- 深色主题适配 -- */
+/* 仅调整标签颜色以适应深色背景 */
+[data-theme="dark"] .result-item.perfect .result-label { color: #fcd34d; }
+[data-theme="dark"] .result-item.great-success .result-label { color: #86efac; }
+[data-theme="dark"] .result-item.success .result-label { color: #93c5fd; }
+[data-theme="dark"] .result-item.failure .result-label { color: #fca5a5; }
+[data-theme="dark"] .result-item.critical-failure .result-label { color: #d8b4fe; }
 
 [data-theme="dark"] .close-btn {
   background: rgba(255, 255, 255, 0.05);

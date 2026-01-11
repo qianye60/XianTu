@@ -126,11 +126,11 @@ const filteredTalentTiers = computed(() => {
   
   if (store.isLocalCreation) {
     // 单机模式显示本地数据和云端同步的数据
-    const availableTiers = allTiers.filter(tier => 
+    const availableTiers = allTiers.filter(tier =>
       tier.source === 'local' || tier.source === 'cloud'
     );
     console.log("【天资选择】单机模式可用天资列表:", availableTiers);
-    return availableTiers;
+    return availableTiers.sort((a, b) => a.total_points - b.total_points);
   } else {
     // 联机模式显示所有数据，包括本地数据作为后备
     const availableTiers = allTiers.length > 0 ? allTiers : [];
@@ -141,7 +141,7 @@ const filteredTalentTiers = computed(() => {
       console.warn("【天资选择】警告：联机模式下没有找到任何天资数据！");
     }
     
-    return availableTiers;
+    return availableTiers.sort((a, b) => a.total_points - b.total_points);
   }
 });
 
@@ -149,7 +149,7 @@ const filteredTalentTiers = computed(() => {
 const customTierFields = [
   { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },
   { key: 'description', label: '天资描述', type: 'textarea', placeholder: '描述此天资的特点...' },
-  { key: 'total_points', label: '天道点', type: 'number', placeholder: '例如：10' },
+  { key: 'total_points', label: '天道点', type: 'number', placeholder: '例如：20' },
   { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
   { key: 'color', label: '辉光颜色', type: 'color', placeholder: '例如：#808080' },
 ] as const
@@ -363,7 +363,7 @@ const editInitialData = computed(() => {
   padding: 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(30, 41, 59, 0.3);
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .top-actions-container .action-item {
@@ -404,9 +404,9 @@ const editInitialData = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.9rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 8px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 0.6rem;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.25s ease;
   border: 1px solid transparent;
@@ -421,8 +421,7 @@ const editInitialData = computed(() => {
 .tier-item.selected {
   background: rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.2);
   border-color: rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.4);
-  box-shadow: 0 0 20px rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.25),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 8px rgba(var(--tier-glow-color-rgb, 147, 197, 253), 0.2);
 }
 
 .item-content {
@@ -459,9 +458,9 @@ const editInitialData = computed(() => {
 }
 
 .edit-btn, .delete-btn {
-  background: none;
-  border: none;
-  color: #64748b;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
   cursor: pointer;
   padding: 0.35rem;
   border-radius: 4px;
@@ -473,12 +472,14 @@ const editInitialData = computed(() => {
 
 .edit-btn:hover {
   color: #93c5fd;
-  background: rgba(147, 197, 253, 0.1);
+  background: rgba(147, 197, 253, 0.15);
+  border-color: rgba(147, 197, 253, 0.3);
 }
 
 .delete-btn:hover {
   color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.3);
 }
 
 .action-name {
@@ -556,14 +557,14 @@ const editInitialData = computed(() => {
 
 [data-theme="light"] .top-actions-container .action-item {
   background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(0, 0, 0, 0.1);
-  color: #475569;
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
 }
 
 [data-theme="light"] .top-actions-container .action-item:hover {
-  background: rgba(241, 245, 249, 0.95);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #1e293b;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  color: #1e40af;
 }
 
 [data-theme="light"] .tier-item {
@@ -576,6 +577,26 @@ const editInitialData = computed(() => {
 
 [data-theme="light"] .points-display {
   border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* 亮色主题下的编辑/删除按钮 */
+[data-theme="light"] .edit-btn,
+[data-theme="light"] .delete-btn {
+  background: rgba(241, 245, 249, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  color: #475569;
+}
+
+[data-theme="light"] .edit-btn:hover {
+  color: #2563eb;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="light"] .delete-btn:hover {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* 响应式适配 - 手机端优化 */

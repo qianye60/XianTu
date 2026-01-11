@@ -171,6 +171,10 @@ class PromptStorage {
     const defaults = getSystemPrompts();
     const saved = await this.db!.get('prompts', key);
 
+    if (saved?.enabled === false) {
+      return '';
+    }
+
     // 如果有保存且标记为已修改，使用用户自定义内容
     // 否则始终使用最新的默认值（确保代码更新后提示词也更新）
     if (saved?.modified) {

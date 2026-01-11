@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Home, Users, Scroll, BookOpen, Coins } from 'lucide-vue-next';
+import { Home, Users, BookOpen, Coins } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
 
 const route = useRoute();
@@ -39,7 +39,6 @@ const hasJoinedSect = computed(() => {
 const allTabs = [
   { name: 'SectOverview', label: '宗门概览', icon: Home, requireJoin: false },
   { name: 'SectMembers', label: '宗门成员', icon: Users, requireJoin: true },
-  { name: 'SectMissions', label: '宗门任务', icon: Scroll, requireJoin: true },
   { name: 'SectLibrary', label: '宗门藏经', icon: BookOpen, requireJoin: true },
   { name: 'SectContribution', label: '贡献兑换', icon: Coins, requireJoin: true },
 ];

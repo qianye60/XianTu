@@ -65,7 +65,7 @@
                 class="header-action-btn rollback-btn"
                 :title="t('回滚到上次对话前的状态')"
               >
-                <RotateCcw :size="24" />
+                <RotateCcw :size="20" />
               </button>
               <!-- 命令日志按钮 -->
               <button
@@ -304,7 +304,6 @@
         </div>
       </div>
     </div>
-
 
   </div>
 </template>
@@ -563,6 +562,58 @@ const currentNarrative = computed(() => {
     actionOptions: []
   };
 });
+
+// 绘图相关逻辑
+const isGeneratingImage = ref(false);
+const showImageModal = ref(false);
+const currentSceneImage = ref('');
+const isImageFullScreen = ref(false);
+
+const generateSceneImage = async () => {
+  if (isGeneratingImage.value) return;
+  
+  const text = currentNarrative.value?.content;
+  if (!text || text.length < 5) {
+    toast.warning('当前剧情内容过少，无法生成');
+    return;
+  }
+
+  isGeneratingImage.value = true;
+  try {
+    // 构建提示词
+    const location = gameStateStore.character?.所在位置?.名称 || '未知地点';
+    const basePrompt = `中国古风水墨画，修仙玄幻风格，高品质，细节丰富。当前地点：${location}。剧情描述：`;
+    // 截取前500字作为提示词
+    const prompt = basePrompt + text.substring(0, 500);
+
+    const imageUrl = await aiService.generateImage(prompt);
+    
+    currentSceneImage.value = imageUrl;
+    showImageModal.value = true;
+    toast.success('场景绘卷生成成功');
+  } catch (error) {
+    console.error('绘图失败:', error);
+    toast.error(`绘图失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  } finally {
+    isGeneratingImage.value = false;
+  }
+};
+
+const closeImageModal = () => {
+  showImageModal.value = false;
+  isImageFullScreen.value = false;
+};
+
+const toggleFullScreenImage = () => {
+  isImageFullScreen.value = !isImageFullScreen.value;
+};
+
+const saveImageToGallery = () => {
+  // TODO: 实现画廊功能，目前仅做提示
+  toast.success('已保存到临时画册 (功能开发中)');
+  closeImageModal();
+};
+
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
 
 // 短期记忆设置 - 可配置
@@ -2126,7 +2177,7 @@ const syncGameState = async () => {
   overflow-y: auto;
   scrollbar-width: thin;
   /* 显示可见的滚动拇指，但轨道透明 */
-  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+  scrollbar-color: transparent transparent;
   box-sizing: border-box;
   min-height: 200px;
   display: flex; /* 让子元素可以撑满高度 */
@@ -2154,12 +2205,12 @@ const syncGameState = async () => {
 
 .content-area::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background-color: rgba(148, 163, 184, 0.6);
+  background-color: transparent;
 }
 
 /* 悬停时略微增强可见度 */
 .content-area:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.8);
+  background-color: transparent;
 }
 
 .content-area::-webkit-scrollbar-button {
@@ -2338,7 +2389,7 @@ const syncGameState = async () => {
   line-height: 1.4;
   /* 透明滚动条（Firefox） */
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .input-container .game-input:focus {
@@ -2360,11 +2411,11 @@ const syncGameState = async () => {
 
 .input-container .game-input::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background-color: rgba(148, 163, 184, 0.6);
+  background-color: transparent;
 }
 
 .input-container .game-input:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.8);
+  background-color: transparent;
 }
 
 /* 输入框内部的流式传输选项 */
@@ -2440,6 +2491,32 @@ const syncGameState = async () => {
 .action-option-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.4);
+}
+
+/* 绘图按钮 */
+.header-action-btn.image-gen-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-primary);
+  /* cursor: pointer; */
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-right: 4px;
+}
+
+.header-action-btn.image-gen-btn:hover:not(:disabled) {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.header-action-btn.image-gen-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .narrative-meta {
@@ -2813,28 +2890,27 @@ const syncGameState = async () => {
 }
 
 .send-button {
-  padding: 12px 24px;
-  background: #3b82f6;
+  width: 42px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  font-family: inherit;
-  min-height: 32px; /* 减小最小高度以匹配输入框 */
-  align-self: stretch; /* 垂直拉伸以匹配容器高度 */
+  min-height: 32px;
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
+  margin-left: 8px;
 }
 
 .send-button:hover:not(:disabled) {
-  background: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .send-button:disabled {
@@ -3898,6 +3974,7 @@ const syncGameState = async () => {
 [data-theme="dark"] .cultivation-card .time-display {
   color: #f3f4f6;
 }
+
 
 /* 手机端响应式修复 */
 @media (max-width: 768px) {

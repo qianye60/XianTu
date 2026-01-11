@@ -37,7 +37,7 @@
         <button class="tab" :class="{ active: activeTab === 'upload' }" @click="switchTab('upload')">上传</button>
       </div>
 
-      <div v-if="activeTab !== 'upload'" class="browse">
+      <div v-if="activeTab !== 'upload'" class="browse scroll-content">
         <div class="filters">
           <select v-model="filterType" class="input">
             <option value="">全部类型</option>
@@ -98,7 +98,7 @@
         </div>
       </div>
 
-      <div v-else class="upload">
+      <div v-else class="upload scroll-content">
         <div v-if="authState !== 'authed'" class="upload-locked">
           <p>上传需要先完成账号验证（用于标识作者与权限控制）。</p>
           <div class="actions">
@@ -444,37 +444,109 @@ const downloadAsFile = () => {
 const applySettingsFromPayload = () => {
   const payload = downloadModal.value.payload as any;
   const unwrapped = unwrapDadBundle(payload);
-  const settings = unwrapped.type === 'settings' ? unwrapped.payload : payload?.settings ?? payload;
-  if (!settings || typeof settings !== 'object') {
+
+  // 提取设置数据（支持多种格式）
+  let settingsData: any = null;
+
+  if (unwrapped.type === 'settings') {
+    // dad.bundle 格式
+    settingsData = unwrapped.payload;
+  } else if (payload?.settings) {
+    // 旧导出格式 { settings: {...}, exportInfo: {...} }
+    settingsData = payload.settings;
+  } else if (unwrapped.type === null && typeof unwrapped.payload === 'object') {
+    // 直接是设置对象
+    settingsData = unwrapped.payload;
+  }
+
+  if (!settingsData || typeof settingsData !== 'object') {
     toast.error('设置内容格式不正确');
     return;
   }
-  localStorage.setItem('dad_game_settings', JSON.stringify(settings));
-  toast.success('已导入本地设置（如未生效请刷新页面）');
+
+  try {
+    // 读取当前设置
+    const currentSettings = (() => {
+      try {
+        const raw = localStorage.getItem('dad_game_settings');
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    // 合并设置（保留当前设置中未被覆盖的字段）
+    const mergedSettings = { ...currentSettings, ...settingsData };
+
+    // 保存到 localStorage
+    localStorage.setItem('dad_game_settings', JSON.stringify(mergedSettings));
+
+    toast.success('已导入本地设置（刷新页面后生效）');
+    closeDownloadModal();
+  } catch (error) {
+    console.error('导入设置失败:', error);
+    toast.error('导入设置失败，请重试');
+  }
 };
 
 const applyPromptsFromPayload = async () => {
   const payload = downloadModal.value.payload as any;
   const unwrapped = unwrapDadBundle(payload);
-  const promptsPayload = unwrapped.type === 'prompts' ? unwrapped.payload : payload;
-  if (!promptsPayload || typeof promptsPayload !== 'object') {
+
+  // 提取提示词数据（支持多种格式）
+  let promptsData: any = null;
+
+  if (unwrapped.type === 'prompts') {
+    // dad.bundle 格式
+    promptsData = unwrapped.payload;
+  } else if (typeof payload === 'object' && !Array.isArray(payload)) {
+    // 直接是提示词对象
+    promptsData = payload;
+  }
+
+  if (!promptsData || typeof promptsData !== 'object') {
     toast.error('提示词内容格式不正确');
     return;
   }
-  const count = await promptStorage.importPrompts(promptsPayload);
-  toast.success(`已导入 ${count} 条提示词（如未生效请刷新页面）`);
+
+  try {
+    const count = await promptStorage.importPrompts(promptsData);
+    toast.success(`已导入 ${count} 条提示词（刷新页面后生效）`);
+    closeDownloadModal();
+  } catch (error) {
+    console.error('导入提示词失败:', error);
+    toast.error('导入提示词失败，请重试');
+  }
 };
 
 const applyStartConfigFromPayload = () => {
   const payload = downloadModal.value.payload as any;
   const unwrapped = unwrapDadBundle(payload);
-  const startConfig = unwrapped.type === 'start_config' ? unwrapped.payload : payload;
-  if (!startConfig || typeof startConfig !== 'object') {
+
+  // 提取开局配置数据（支持多种格式）
+  let startConfigData: any = null;
+
+  if (unwrapped.type === 'start_config') {
+    // dad.bundle 格式
+    startConfigData = unwrapped.payload;
+  } else if (typeof payload === 'object' && !Array.isArray(payload)) {
+    // 直接是开局配置对象
+    startConfigData = payload;
+  }
+
+  if (!startConfigData || typeof startConfigData !== 'object') {
     toast.error('开局配置格式不正确');
     return;
   }
-  localStorage.setItem('dad_start_config', JSON.stringify(startConfig));
-  toast.success('已应用到本地开局配置（重新打开开局页面生效）');
+
+  try {
+    localStorage.setItem('dad_start_config', JSON.stringify(startConfigData));
+    toast.success('已应用到本地开局配置（重新打开开局页面生效）');
+    closeDownloadModal();
+  } catch (error) {
+    console.error('导入开局配置失败:', error);
+    toast.error('导入开局配置失败，请重试');
+  }
 };
 
 const localCharacters = computed(() => {
@@ -705,6 +777,7 @@ const submitUpload = async () => {
 .workshop-panel {
   width: 100%;
   max-width: 1100px;
+  max-height: 90vh;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -713,6 +786,9 @@ const submitUpload = async () => {
   -webkit-backdrop-filter: blur(20px);
   padding: 2.5rem;
   color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .title-row {
@@ -786,13 +862,12 @@ const submitUpload = async () => {
 .actions {
   margin-top: 2rem;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
 }
 
 .btn {
-  flex: 1;
-  padding: 0.9rem 1rem;
+  padding: 0.9rem 1.5rem;
   border-radius: 10px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-light);
@@ -817,12 +892,39 @@ const submitUpload = async () => {
 
 .tabs {
   margin-top: 1.25rem;
+  margin-bottom: 1rem;
   display: flex;
   gap: 0.75rem;
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 6px;
+  flex-shrink: 0;
+}
+
+.scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
+}
+
+.scroll-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-content::-webkit-scrollbar-thumb {
+  background: rgba(147, 197, 253, 0.3);
+  border-radius: 3px;
+}
+
+.scroll-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 197, 253, 0.5);
 }
 
 .tab {
@@ -1063,7 +1165,7 @@ select.input option {
 
 .form-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 110px minmax(300px, 600px);
   gap: 0.75rem;
   align-items: start;
 }
@@ -1178,6 +1280,23 @@ select.input option {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
+}
+
+@media (max-height: 720px) {
+  .workshop-container {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .workshop-panel {
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-height: 600px) {
+  .workshop-panel {
+    padding: 1.5rem 1.25rem;
+  }
 }
 
 @media (max-width: 768px) {

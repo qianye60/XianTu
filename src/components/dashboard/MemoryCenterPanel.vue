@@ -149,7 +149,7 @@
         <div class="manual-summary-section">
           <div class="summary-info">
             <span class="info-text">{{ t('当前中期记忆：') }} {{ mediumTermMemories.length }} {{ t('条') }}</span>
-            <span class="info-hint">{{ t('autoSummaryTriggerHint', { count: memoryConfig.midTermTrigger }) }}</span>
+            <span class="info-hint">{{ t('达到{count}条时将自动触发总结', { count: memoryConfig.midTermTrigger }) }}</span>
           </div>
           <button
             class="action-btn warning"
@@ -172,8 +172,24 @@
             <span class="status-text">
               {{ vectorEnabled ? '向量检索已启用' : '向量检索未启用（不会参与AI检索）' }}
             </span>
+            <div class="status-subtext" :class="{ warning: !embeddingStatus.available }">
+              <template v-if="embeddingStatus.available">
+                Embedding：{{ embeddingStatus.provider }}/{{ embeddingStatus.model }}
+              </template>
+              <template v-else>
+                {{ embeddingStatus.reason }}
+              </template>
+            </div>
           </div>
           <div class="vector-actions">
+            <button
+              class="action-btn info"
+              @click="rebuildVectorFromLongTerm"
+              :disabled="vectorLoading || vectorConverting || longTermMemories.length === 0"
+              :title="longTermMemories.length === 0 ? '当前没有长期记忆可转化' : '清空并重新生成向量库（优先使用Embedding）'"
+            >
+              一键转化长期记忆
+            </button>
             <button class="action-btn info" @click="refreshVectorMemories" :disabled="vectorLoading">刷新</button>
             <button class="action-btn warning" @click="clearVectorMemories" :disabled="vectorLoading || vectorTotalCount === 0">清空向量库</button>
           </div>
@@ -181,7 +197,7 @@
 
         <div v-if="vectorLoading" class="loading-state">
           <div class="loading-spinner">⏳</div>
-          <div class="loading-text">正在读取向量库...</div>
+          <div class="loading-text">{{ vectorLoadingText }}</div>
         </div>
 
         <div v-else-if="vectorError" class="empty-state">
@@ -192,6 +208,13 @@
         <div v-else-if="vectorTotalCount === 0" class="empty-state">
           <div class="empty-icon">🧬</div>
           <div class="empty-text">向量库为空</div>
+          <button
+            class="action-btn info"
+            @click="rebuildVectorFromLongTerm"
+            :disabled="vectorConverting || longTermMemories.length === 0"
+          >
+            一键转化长期记忆
+          </button>
         </div>
 
         <div v-else class="vector-content">
@@ -213,10 +236,10 @@
           <div class="pagination-controls" v-if="vectorTotalCount > pageSize">
             <div class="pagination-info">第 {{ currentPage }} / {{ vectorTotalPages }} 页，共 {{ vectorTotalCount }} 条</div>
             <div class="pagination-buttons">
-              <button class="page-btn" @click="goToFirstPage" :disabled="currentPage === 1">⏮️</button>
-              <button class="page-btn" @click="goToPage(currentPage - 1)" :disabled="currentPage === 1">◀️</button>
-              <button class="page-btn" @click="goToPage(currentPage + 1)" :disabled="currentPage === vectorTotalPages">▶️</button>
-              <button class="page-btn" @click="goToLastPage" :disabled="currentPage === vectorTotalPages">⏭️</button>
+              <button class="page-btn" @click="goToFirstPage" :disabled="currentPage === 1"><ChevronsLeft :size="16" /></button>
+              <button class="page-btn" @click="goToPage(currentPage - 1)" :disabled="currentPage === 1"><ChevronLeft :size="16" /></button>
+              <button class="page-btn" @click="goToPage(currentPage + 1)" :disabled="currentPage === vectorTotalPages"><ChevronRight :size="16" /></button>
+              <button class="page-btn" @click="goToLastPage" :disabled="currentPage === vectorTotalPages"><ChevronsRight :size="16" /></button>
             </div>
             <div class="pagination-jump">
               <input
@@ -274,7 +297,7 @@
               :disabled="currentPage === 1"
               :title="t('首页')"
             >
-              ⏮️
+              <ChevronsLeft :size="16" />
             </button>
             <button
               class="page-btn"
@@ -282,7 +305,7 @@
               :disabled="currentPage === 1"
               :title="t('上一页')"
             >
-              ◀️
+              <ChevronLeft :size="16" />
             </button>
             <button
               class="page-btn"
@@ -290,7 +313,7 @@
               :disabled="currentPage === totalPages"
               :title="t('下一页')"
             >
-              ▶️
+              <ChevronRight :size="16" />
             </button>
             <button
               class="page-btn"
@@ -298,7 +321,7 @@
               :disabled="currentPage === totalPages"
               :title="t('末页')"
             >
-              ⏭️
+              <ChevronsRight :size="16" />
             </button>
           </div>
           <div class="pagination-jump">
@@ -412,28 +435,28 @@
               @click="goToFirstPage"
               :disabled="currentPage === 1"
             >
-              ⏮️
+              <ChevronsLeft :size="16" />
             </button>
             <button
               class="page-btn"
               @click="goToPage(currentPage - 1)"
               :disabled="currentPage === 1"
             >
-              ◀️
+              <ChevronLeft :size="16" />
             </button>
             <button
               class="page-btn"
               @click="goToPage(currentPage + 1)"
               :disabled="currentPage === totalPages"
             >
-              ▶️
+              <ChevronRight :size="16" />
             </button>
             <button
               class="page-btn"
               @click="goToLastPage"
               :disabled="currentPage === totalPages"
             >
-              ⏭️
+              <ChevronsRight :size="16" />
             </button>
           </div>
         </div>
@@ -445,7 +468,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { Settings } from 'lucide-vue-next';
+import { Settings, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-vue-next';
 import { useI18n } from '@/i18n';
 import { panelBus } from '@/utils/panelBus';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -523,13 +546,24 @@ const vectorEntries = ref<VectorMemoryEntry[]>([]);
 const vectorStats = ref<Awaited<ReturnType<typeof vectorMemoryService.getStats>> | null>(null);
 const vectorLoading = ref(false);
 const vectorError = ref('');
+const vectorConverting = ref(false);
+const vectorConvertProgress = ref({ done: 0, total: 0 });
 const vectorEnabled = computed(() => vectorMemoryService.getConfig().enabled);
+const embeddingStatus = computed(() => vectorMemoryService.getEmbeddingStatus());
 const vectorTotalCount = computed(() => vectorStats.value?.total ?? vectorEntries.value.length);
 const vectorTotalPages = computed(() => Math.ceil(vectorTotalCount.value / pageSize.value) || 1);
 const vectorEntriesPaged = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
   return vectorEntries.value.slice(start, end);
+});
+const vectorLoadingText = computed(() => {
+  if (vectorConverting.value) {
+    const { done, total } = vectorConvertProgress.value;
+    const suffix = total > 0 ? `（${done}/${total}）` : '';
+    return `正在向量化长期记忆...${suffix}`;
+  }
+  return '正在读取向量库...';
 });
 
 // 合并所有记忆用于显示
@@ -598,7 +632,7 @@ const getTypeCount = (type: string): number => {
 const getEmptyText = (): string => {
   if (activeFilter.value === 'all') return t('心如明镜，尚未记录任何修行感悟');
   const type = memoryTypes.value.find(t => t.key === activeFilter.value);
-  return t('noMemoryOfType', { type: type?.name });
+  return t('暂无{type}记忆', { type: type?.name });
 };
 
 // 获取类型图标
@@ -809,6 +843,51 @@ const handleJumpToPage = () => {
 // 清理记忆（使用全局确认弹窗）
 import { useUIStore } from '@/stores/uiStore';
 const uiStore = useUIStore();
+
+const rebuildVectorFromLongTerm = async () => {
+  if (vectorLoading.value || vectorConverting.value) return;
+  if (longTermMemories.value.length === 0) {
+    toast.warning('当前没有长期记忆可转化');
+    return;
+  }
+
+  const count = longTermMemories.value.length;
+  uiStore.showRetryDialog({
+    title: '一键转化长期记忆',
+    message: `将清空当前向量库，并把 ${count} 条长期记忆转化为向量（优先使用Embedding；未配置则回退本地向量）。此操作可能产生 Embedding API 调用与费用。`,
+    confirmText: '开始转化',
+    cancelText: '取消',
+    onConfirm: async () => {
+      vectorLoading.value = true;
+      vectorConverting.value = true;
+      vectorConvertProgress.value = { done: 0, total: count };
+      try {
+        const memories = longTermMemories.value.map(m => m.content).filter(Boolean);
+        const result = await vectorMemoryService.rebuildFromLongTermMemories(memories, {
+          batchSize: 24,
+          onProgress: (done, total) => {
+            vectorConvertProgress.value = { done, total };
+          },
+        });
+        toast.success(
+          result.vectorType === 'embedding'
+            ? `转化完成：${result.imported} 条（Embedding: ${result.embeddingModel || 'unknown'}）`
+            : `转化完成：${result.imported} 条（本地向量）`
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '');
+        toast.error(message ? `转化失败：${message}` : '转化失败');
+      } finally {
+        vectorConverting.value = false;
+        vectorLoading.value = false;
+        vectorConvertProgress.value = { done: 0, total: 0 };
+        await refreshVectorMemories();
+      }
+    },
+    onCancel: () => { },
+  });
+};
+
 const clearVectorMemories = async () => {
   uiStore.showRetryDialog({
     title: '清空向量库',
@@ -1206,48 +1285,51 @@ const addTestMediumTermMemory = async () => {
   box-sizing: border-box;
   container-type: inline-size;
   margin: 0;
-  padding: 1rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* 为导出区域增加间距 */
+  gap: 1.25rem;
 }
 
 /* 导出区域样式 */
 .export-section {
-  padding: 1rem;
-  background: rgba(var(--color-surface-rgb), 0.5);
-  border: 1px solid rgba(var(--color-border-rgb), 0.3);
-  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.08) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.15);
+  border-radius: 14px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  backdrop-filter: blur(5px);
+  gap: 1.25rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 }
 
 .export-btn-main {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
   border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
+  letter-spacing: 0.3px;
 }
 
 .export-btn-main:hover {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
 }
 
 .export-hint {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--color-text-secondary);
-  line-height: 1.4;
+  line-height: 1.5;
+  opacity: 0.85;
 }
 
 .filter-section {
@@ -1255,23 +1337,23 @@ const addTestMediumTermMemory = async () => {
   max-width: 100%;
   overflow: hidden;
   box-sizing: border-box;
+  background: rgba(var(--color-surface-rgb), 0.6);
+  border: 1px solid rgba(var(--color-border-rgb), 0.2);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .filter-tabs {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
-  width: 100%;
-  max-width: 100%;
   overflow: hidden;
   box-sizing: border-box;
   align-items: center;
-  margin: 0 0 1rem 0;
-  padding: 1rem;
-  background: rgba(var(--color-surface-rgb), 0.3);
-  border: 1px solid rgba(var(--color-border-rgb), 0.3);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0.75rem;
 }
 
 .filter-tabs .filter-tab {
@@ -1290,40 +1372,44 @@ const addTestMediumTermMemory = async () => {
   text-overflow: ellipsis;
   max-width: 150px;
   margin: 0;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border-radius: 8px;
+  padding: 0.7rem 1.2rem;
+  border: 1.5px solid rgba(100, 116, 139, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+  color: #475569;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   box-sizing: border-box;
   font-size: 0.875rem;
-  font-weight: 500;
-  min-height: 40px;
+  font-weight: 600;
+  min-height: 42px;
   position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  letter-spacing: 0.3px;
 }
 
 .filter-tab:hover {
-  background: var(--color-surface-light);
-  border-color: var(--color-border-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 1);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #1e293b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .filter-tab.active {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  border-color: var(--color-primary);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: transparent;
   color: white;
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
 }
 
 .filter-tab .tab-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1331,33 +1417,26 @@ const addTestMediumTermMemory = async () => {
 
 .filter-tab .tab-name {
   font-weight: 500;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
 .filter-tab .tab-count {
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--color-text);
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
   padding: 0.2rem 0.5rem;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   min-width: 20px;
   text-align: center;
   line-height: 1;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .filter-tab.active .tab-count {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.3);
   color: white;
-}
-
-.filter-section {
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .panel-content {
@@ -1486,7 +1565,7 @@ const addTestMediumTermMemory = async () => {
   min-height: 0;
   padding: 1rem;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .settings-content::-webkit-scrollbar {
@@ -1494,17 +1573,17 @@ const addTestMediumTermMemory = async () => {
 }
 
 .settings-content::-webkit-scrollbar-track {
-  background: rgba(var(--color-border-rgb), 0.1);
+  background: transparent;
   border-radius: 4px;
 }
 
 .settings-content::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: transparent;
   border-radius: 4px;
 }
 
 .settings-content::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-hover);
+  background: transparent;
 }
 
 .setting-item {
@@ -1688,37 +1767,38 @@ const addTestMediumTermMemory = async () => {
 }
 
 .settings-toggle-btn {
-  background: rgba(var(--color-surface-rgb), 0.8);
-  border: 1px solid var(--color-border);
-  padding: 0.6rem;
-  border-radius: 8px;
+  background: rgba(var(--color-surface-rgb), 0.9);
+  border: 1.5px solid rgba(var(--color-border-rgb), 0.4);
+  padding: 0.65rem;
+  border-radius: 10px;
   cursor: pointer;
   color: var(--color-text-secondary);
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   box-sizing: border-box;
   backdrop-filter: blur(10px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .settings-toggle-btn:hover,
 .settings-toggle-btn.active {
-  background: rgba(var(--color-primary-rgb), 0.15);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 /* 记忆卡片特定样式 */
 .memory-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -1726,11 +1806,11 @@ const addTestMediumTermMemory = async () => {
 }
 
 .memory-card {
-  padding: 1rem;
+  padding: 1.25rem 1.5rem;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  transition: var(--transition-fast);
+  border: 1.5px solid rgba(var(--color-border-rgb), 0.5);
+  border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   width: 100%;
   max-width: 100%;
@@ -1738,20 +1818,23 @@ const addTestMediumTermMemory = async () => {
   box-sizing: border-box;
   word-wrap: break-word;
   word-break: break-word;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .memory-card:hover {
   background: var(--color-surface-light);
-  border-color: var(--color-border-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
+  border-color: rgba(59, 130, 246, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.12);
 }
 
 .memory-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.15);
 }
 
 .memory-actions {
@@ -1779,13 +1862,15 @@ const addTestMediumTermMemory = async () => {
 }
 
 .memory-type-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
   font-size: 0.75rem;
-  font-weight: 500;
-  border: 1px solid var(--color-border);
+  font-weight: 600;
+  border: 1.5px solid var(--color-border);
   background: var(--color-surface-light);
   color: var(--color-text-secondary);
+  letter-spacing: 0.3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .badge-short {
@@ -2019,17 +2104,19 @@ const addTestMediumTermMemory = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(var(--color-surface-rgb), 0.5);
-  border: 1px solid rgba(var(--color-border-rgb), 0.3);
-  border-radius: 8px;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(var(--color-surface-rgb), 0.6);
+  border: 1.5px solid rgba(var(--color-border-rgb), 0.2);
+  border-radius: 12px;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .pagination-controls.bottom {
-  margin-top: 1rem;
+  margin-top: 1.25rem;
   margin-bottom: 0;
 }
 
@@ -2047,29 +2134,31 @@ const addTestMediumTermMemory = async () => {
 
 .page-btn {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
+  border: 1.5px solid rgba(var(--color-border-rgb), 0.4);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
   cursor: pointer;
   font-size: 1rem;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--color-text);
-  min-width: 40px;
+  min-width: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .page-btn:hover:not(:disabled) {
   background: var(--color-surface-light);
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.15);
 }
 
 .page-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
+  filter: grayscale(0.3);
 }
 
 .pagination-jump {
@@ -2079,39 +2168,44 @@ const addTestMediumTermMemory = async () => {
 }
 
 .jump-input {
-  width: 70px;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  width: 75px;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid rgba(var(--color-border-rgb), 0.4);
+  border-radius: 8px;
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.875rem;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  font-weight: 500;
 }
 
 .jump-input:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .jump-btn {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
   border: none;
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  padding: 0.6rem 1.25rem;
   cursor: pointer;
   font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+  letter-spacing: 0.3px;
 }
 
 .jump-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 }
 
 .vector-toolbar {
@@ -2127,8 +2221,20 @@ const addTestMediumTermMemory = async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
   font-size: 0.9rem;
   color: var(--color-text);
+}
+
+.status-subtext {
+  flex-basis: 100%;
+  margin-left: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.status-subtext.warning {
+  color: var(--color-warning);
 }
 
 .status-dot {
@@ -2270,5 +2376,170 @@ const addTestMediumTermMemory = async () => {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ========== 亮色主题适配 ========== */
+[data-theme="light"] .filter-tab {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #475569;
+}
+
+[data-theme="light"] .filter-tab:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #1e293b;
+}
+
+[data-theme="light"] .filter-tab.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-color: #3b82f6;
+  color: white;
+}
+
+[data-theme="light"] .settings-toggle-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #475569;
+}
+
+[data-theme="light"] .settings-toggle-btn:hover,
+[data-theme="light"] .settings-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+[data-theme="light"] .memory-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="light"] .memory-card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="light"] .export-btn-main {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+[data-theme="light"] .export-btn-main:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+/* ========== 深色主题适配 ========== */
+[data-theme="dark"] .filter-tab {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .filter-tab:hover {
+  background: rgba(51, 65, 85, 0.95);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .filter-tab.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .filter-tab .tab-count {
+  background: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .filter-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+[data-theme="dark"] .settings-toggle-btn {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .settings-toggle-btn:hover,
+[data-theme="dark"] .settings-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .memory-card {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .memory-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] .export-section {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .export-btn-main {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .export-btn-main:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .pagination-controls {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .page-btn {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .page-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+}
+
+[data-theme="dark"] .jump-input {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .jump-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+[data-theme="dark"] .settings-section {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .settings-header {
+  border-bottom-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .vector-card {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .vector-stats {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 </style>

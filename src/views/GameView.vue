@@ -22,7 +22,7 @@
       <!-- 左侧收缩按钮 -->
       <button
         class="collapse-btn left"
-        v-show="!isPanelOpen"
+        :class="{ collapsed: leftSidebarCollapsed }"
         @click="leftSidebarCollapsed = !leftSidebarCollapsed"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -87,7 +87,6 @@
       <button
         class="collapse-btn right"
         :class="{ collapsed: rightSidebarCollapsed }"
-        v-show="!isPanelOpen"
         @click="rightSidebarCollapsed = !rightSidebarCollapsed"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -144,7 +143,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug, Globe } from 'lucide-vue-next';
 import { panelBus, type PanelAction } from '@/utils/panelBus';
 import { detectSectMigration } from '@/utils/sectMigration';
 import TopBar from '@/components/dashboard/TopBar.vue'
@@ -218,8 +217,8 @@ const maybePromptSectMigration = () => {
 const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
-  'Quests', 'Sect', 'SectOverview', 'SectMembers', 'SectMissions', 'SectLibrary', 'SectContribution', 'GameVariables',
-  'Prompts', 'APIManagement'
+  'Events', 'Sect', 'SectOverview', 'SectMembers', 'SectLibrary', 'SectContribution', 'GameVariables',
+  'Prompts', 'APIManagement', 'Travel'
 ]);
 
 // 不需要角色数据就能访问的面板（设置类）
@@ -230,7 +229,7 @@ const noDataRequiredRoutes = new Set([
 // 右侧相关面板（应该影响右侧收缩按钮）
 const rightPanelRoutes = new Set([
   'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save',
-  'Sect', 'SectOverview', 'SectMembers', 'SectMissions', 'SectLibrary', 'SectContribution'
+  'Sect', 'SectOverview', 'SectMembers', 'SectLibrary', 'SectContribution'
 ]);
 
 type IconComponent = typeof Package;
@@ -246,16 +245,16 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   Settings: { title: '系统设置', icon: Settings },
   Save: { title: '保存游戏', icon: Save },
   WorldMap: { title: '世界地图', icon: Map },
-  Quests: { title: '任务系统', icon: Scroll },
+  Events: { title: '世界事件', icon: Bell },
   Sect: { title: '宗门势力', icon: Home },
   SectOverview: { title: '宗门概览', icon: Home },
   SectMembers: { title: '宗门成员', icon: Users },
-  SectMissions: { title: '宗门任务', icon: Scroll },
   SectLibrary: { title: '宗门藏经', icon: BookOpen },
   SectContribution: { title: '贡献兑换', icon: Coins },
   GameVariables: { title: '游戏变量', icon: Database },
   Prompts: { title: '提示词管理', icon: FileText },
-  APIManagement: { title: 'API管理', icon: Plug }
+  APIManagement: { title: 'API管理', icon: Plug },
+  Travel: { title: '联机穿越', icon: Globe }
 };
 
 const isPanelOpen = computed(() => {
@@ -287,7 +286,7 @@ const panelActionMap: Record<string, Array<{ key: string; title: string; icon: I
     { key: 'test', title: '测试转化', icon: FlaskConical, action: 'test' },
     { key: 'clear', title: '清理', icon: Trash2, action: 'clear' },
   ],
-  Quests: [
+  Events: [
     { key: 'refresh', title: '刷新', icon: RefreshCw, action: 'refresh' },
   ],
   Save: [
@@ -437,7 +436,8 @@ watch(isPanelOpen, (isOpen) => {
 }
 
 .left-sidebar {
-  width: 240px;
+  width: 260px;
+  min-width: 260px;
   background: var(--color-surface);
   transition: all 0.3s ease;
   z-index: 10;
@@ -449,6 +449,7 @@ watch(isPanelOpen, (isOpen) => {
 
 .left-sidebar.collapsed {
   width: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -510,13 +511,13 @@ watch(isPanelOpen, (isOpen) => {
 
 /* 左侧收缩按钮 */
 .collapse-btn.left {
-  left: 240px;
+  left: 260px;
   border-radius: 0 8px 8px 0;
   transition: left 0.3s ease, background 0.2s ease;
 }
 
 /* 左侧栏收缩时，按钮移动到最左侧 */
-.left-sidebar.collapsed ~ .collapse-btn.left {
+.collapse-btn.left.collapsed {
   left: 0;
 }
 
@@ -538,13 +539,23 @@ watch(isPanelOpen, (isOpen) => {
   display: none;
 }
 
+.game-content.panel-mode .collapse-btn.right {
+  display: none;
+}
+
 .panel-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   background: var(--color-background);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  z-index: 100;
 }
 
 .panel-header { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 12px; min-height: 30px; height: auto; background: transparent; border-bottom: none; flex-shrink: 0; }
@@ -846,9 +857,9 @@ watch(isPanelOpen, (isOpen) => {
     transition: transform 0.3s ease, background 0.2s ease;
   }
 
-  /* 左侧栏展开时，按钮跟随移动 280px */
+  /* 左侧栏展开时，按钮跟随移动 260px */
   .left-sidebar:not(.collapsed) ~ .collapse-btn.left {
-    transform: translateX(280px) translateY(-50%);
+    transform: translateX(260px) translateY(-50%);
   }
 
   /* 右侧按钮：默认在右边缘，跟随侧边栏一起移动 */
@@ -1128,12 +1139,12 @@ watch(isPanelOpen, (isOpen) => {
   }
 
   .left-sidebar {
-    width: 240px;
+    width: 260px;
   }
 
-  /* 左侧栏展开时，按钮跟随移动 240px（匹配侧边栏宽度） */
+  /* 左侧栏展开时，按钮跟随移动 260px（匹配侧边栏宽度） */
   .left-sidebar:not(.collapsed) ~ .collapse-btn.left {
-    transform: translateX(240px) translateY(-50%);
+    transform: translateX(260px) translateY(-50%);
   }
 
   .right-panel-area {

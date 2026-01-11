@@ -28,7 +28,6 @@
               <div class="empty-actions">
                 <button class="empty-action-btn primary" @click="sendSectGenerationPrompt">生成势力信息</button>
                 <button class="empty-action-btn" @click="forceRefresh">刷新</button>
-                <button v-if="isTavernEnvFlag" class="empty-action-btn" @click="syncFromTavern">从酒馆同步</button>
               </div>
               <p class="empty-prompt-hint">提示：点击“生成势力信息”会自动发送到对话并写入 <code>世界.信息.势力信息</code>。</p>
             </div>
@@ -158,31 +157,35 @@
                 </div>
 
                 <!-- 宗门领导层 -->
-                <div v-if="selectedSect.领导层" class="leadership-info">
+                <div v-if="selectedLeadership" class="leadership-info">
                   <h6 class="leadership-title">宗门领导</h6>
 
                   <div class="leader-grid">
                     <div class="leader-item primary-leader">
                       <span class="leader-role">宗主</span>
-                      <span class="leader-name">{{ selectedSect.领导层.宗主 }}</span>
-                      <span class="leader-realm" v-if="selectedSect.领导层.宗主修为">{{ selectedSect.领导层.宗主修为 }}</span>
+                      <span class="leader-name">{{ selectedLeadership.宗主 }}</span>
+                      <span class="leader-realm" v-if="selectedLeadership.宗主修为">{{ selectedLeadership.宗主修为 }}</span>
                     </div>
-                    <div v-if="selectedSect.领导层.副宗主" class="leader-item">
+                    <div v-if="selectedLeadership.副宗主" class="leader-item">
                       <span class="leader-role">副宗主</span>
-                      <span class="leader-name">{{ selectedSect.领导层.副宗主 }}</span>
+                      <span class="leader-name">{{ selectedLeadership.副宗主 }}</span>
+                    </div>
+                    <div v-if="selectedLeadership.圣女" class="leader-item">
+                      <span class="leader-role">圣女</span>
+                      <span class="leader-name">{{ selectedLeadership.圣女 }}</span>
                     </div>
                   </div>
 
                   <div class="sect-strength">
                     <div class="strength-item">
                       <span class="strength-label">最强修为</span>
-                      <span class="strength-value peak-power">{{ selectedSect.领导层.最强修为 }}</span>
+                      <span class="strength-value peak-power">{{ selectedLeadership.最强修为 || selectedLeadership.宗主修为 }}</span>
                     </div>
-                    <div v-if="selectedSect.领导层?.综合战力" class="strength-item">
+                    <div v-if="selectedLeadership?.综合战力" class="strength-item">
                       <span class="strength-label">综合战力</span>
-                      <span class="strength-value power-rating" :class="getPowerRatingClass(selectedSect.领导层.综合战力 || 0)">
-                        {{ selectedSect.领导层.综合战力 || 0 }}/100
-                        <span class="power-level">({{ getPowerLevel(selectedSect.领导层.综合战力 || 0) }})</span>
+                      <span class="strength-value power-rating" :class="getPowerRatingClass(selectedLeadership.综合战力 || 0)">
+                        {{ selectedLeadership.综合战力 || 0 }}/100
+                        <span class="power-level">({{ getPowerLevel(selectedLeadership.综合战力 || 0) }})</span>
                       </span>
                     </div>
                   </div>
@@ -341,16 +344,18 @@
                       <span class="status-value join-date">{{ formatJoinDate(playerSectInfo?.加入日期) }}</span>
                     </div>
                   </div>
+                  <div class="member-actions">
+                    <button class="leave-btn" @click="requestLeaveSect(selectedSect)">
+                      <LogOut :size="16" />
+                      <span>退出宗门</span>
+                    </button>
+                  </div>
                 </div>
 
-                <!-- 宗门任务 -->
+                <!-- 宗门功能 -->
                 <div class="sect-actions">
                   <h6 class="actions-title">宗门势力</h6>
                   <div class="action-buttons">
-                    <button class="sect-action-btn" @click="showSectMissions">
-                      <Scroll :size="16" />
-                      <span>宗门任务</span>
-                    </button>
                     <button class="sect-action-btn" @click="showContribution">
                       <Coins :size="16" />
                       <span>贡献兑换</span>
@@ -390,12 +395,13 @@ import { isTavernEnv } from '@/utils/tavern';
 import type { WorldFaction, SectMemberInfo, WorldInfo } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
-  Gift, Scroll, Coins, Book, Search, Loader2,
-  ChevronRight, Map
+  Gift, Coins, Book, Search, Loader2,
+  ChevronRight, Map, LogOut
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
 import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataValidator';
+import { createJoinedSectState } from '@/utils/sectSystemFactory';
 
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
@@ -406,10 +412,22 @@ const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');
 
-const SECT_GENERATION_PROMPT = `你是GM，请根据当前剧情与世界设定，生成/补全「世界.信息.势力信息」（数组）。\n\n要求：\n- 每条势力至少包含：名称、类型、等级、描述、宗门驻地、主要资源、可否加入、加入条件、领导层、成员数量、势力范围详情、与玩家关系、声望值。\n- 内容要与当前世界一致，避免与已存在信息冲突。\n- 严格输出一个 JSON 对象（不要代码块/解释/额外文本，不要 <thinking>）：\n{\n  \"text\": \"【系统】势力信息已补全。\",\n  \"mid_term_memory\": \"\",\n  \"tavern_commands\": [\n    {\"action\":\"set\",\"key\":\"世界.信息.势力信息\",\"value\":[/*...势力数组...*/]}\n  ],\n  \"action_options\": []\n}`;
+const selectedLeadership = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sect = selectedSect.value as any;
+  return sect?.领导层 || sect?.leadership || null;
+});
+
+const buildSectGenerationPrompt = () => {
+  const mapConfig = (gameStateStore.worldInfo as any)?.地图配置;
+  const width = Number(mapConfig?.width) || 10000;
+  const height = Number(mapConfig?.height) || 10000;
+
+  return `你是GM，请根据当前剧情与世界设定，生成/补全「世界.信息.势力信息」（数组）。\n\n要求：\n- 每条势力至少包含：名称、类型、等级、描述、宗门驻地、主要资源、可否加入、加入条件、领导层、成员数量、势力范围详情、与玩家关系、声望值。\n- 坐标范围：x 0-${width}，y 0-${height}（游戏坐标，左上角为原点）。\n- 势力必须包含「位置」坐标（对象，含x/y）与「势力范围」（至少4个坐标点）。\n- 内容要与当前世界一致，避免与已存在信息冲突。\n- 严格输出一个 JSON 对象（不要代码块/解释/额外文本，不要 <thinking>）：\n{\n  \"text\": \"【系统】势力信息已补全。\",\n  \"mid_term_memory\": \"\",\n  \"tavern_commands\": [\n    {\"action\":\"set\",\"key\":\"世界.信息.势力信息\",\"value\":[/*...势力数组...*/]}\n  ],\n  \"action_options\": []\n}`;
+};
 
 const sendSectGenerationPrompt = () => {
-  sendChat(SECT_GENERATION_PROMPT);
+  sendChat(buildSectGenerationPrompt());
   toast.success('已发送到对话');
 };
 
@@ -726,13 +744,54 @@ const selectSect = (sect: WorldFaction) => {
   selectedSect.value = selectedSect.value?.名称 === sect.名称 ? null : sect;
 };
 
-// 占位函数
-const requestJoinSect = (sect: WorldFaction) => {
-  toast.info(`申请加入 ${sect.名称}（功能开发中）`);
+const confirmLeave = (currentName: string, nextName?: string) => {
+  const tip = nextName
+    ? `你已加入${currentName}，是否退出并加入${nextName}？退出后将清空该宗门的贡献与兑换数据。`
+    : `确定退出${currentName}？退出后将清空该宗门的贡献与兑换数据。`;
+  return window.confirm(tip);
 };
 
-const showSectMissions = () => {
-  router.push({ name: 'SectMissions' });
+const applyLeave = (sectName: string) => {
+  gameStateStore.updateState('sectMemberInfo', null);
+  gameStateStore.updateState('sectSystem', null);
+  toast.success(`已退出 ${sectName}`);
+};
+
+const requestLeaveSect = (sect: WorldFaction | null) => {
+  const currentName = playerSectInfo.value?.宗门名称;
+  if (!currentName) {
+    toast.info('尚未加入宗门');
+    return;
+  }
+  if (!confirmLeave(currentName)) return;
+  applyLeave(currentName);
+  if (sect?.名称 && selectedSect.value?.名称 === sect.名称) {
+    selectedSect.value = null;
+  }
+};
+
+const requestJoinSect = (sect: WorldFaction) => {
+  if (!sect.可否加入) {
+    toast.warning('该宗门暂不接受加入');
+    return;
+  }
+
+  const currentName = playerSectInfo.value?.宗门名称;
+  if (currentName === sect.名称) {
+    toast.info(`你已加入 ${sect.名称}`);
+    return;
+  }
+
+  if (currentName && currentName !== sect.名称) {
+    const shouldSwitch = confirmLeave(currentName, sect.名称);
+    if (!shouldSwitch) return;
+    applyLeave(currentName);
+  }
+
+  const { sectSystem, memberInfo } = createJoinedSectState(sect);
+  gameStateStore.updateState('sectMemberInfo', memberInfo);
+  gameStateStore.updateState('sectSystem', sectSystem);
+  toast.success(`已加入 ${sect.名称}`);
 };
 
 const showContribution = () => {
@@ -745,16 +804,6 @@ const showSectLibrary = () => {
 
 const showSectMembers = () => {
   router.push({ name: 'SectMembers' });
-};
-
-// 🔥 [新架构] syncFromTavern 方法已被移除，数据统一从 Pinia Store 获取
-const syncFromTavern = async () => {
-  try {
-    // 新架构下不再需要从酒馆同步，数据已在 Pinia Store 中
-    toast.info('新架构下数据已统一由 Pinia Store 管理');
-  } catch (error) {
-    toast.error('同步失败: ' + (error instanceof Error ? error.message : '未知错误'));
-  }
 };
 
 // 强制刷新
@@ -1452,6 +1501,32 @@ const forceRefresh = () => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+}
+
+.member-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.leave-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.leave-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .status-item {

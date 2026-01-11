@@ -781,7 +781,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onActivated, watch } from 'vue';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useI18n } from '@/i18n';
 import type { NpcProfile, Item, BodyPartDevelopment, PrivacyProfile, SaveData } from '@/types/game';
@@ -892,7 +892,15 @@ function normalizeBodyParts(value: unknown): BodyPartDevelopment[] {
 
 // 🔥 新架构：从 gameStateStore 获取数据
 const gameStateStore = useGameStateStore();
-const isTavernEnvFlag = isTavernEnv();
+const isTavernEnvFlag = ref(isTavernEnv());
+
+onMounted(() => {
+  isTavernEnvFlag.value = isTavernEnv();
+});
+
+onActivated(() => {
+  isTavernEnvFlag.value = isTavernEnv();
+});
 const { t } = useI18n();
 const characterData = computed(() => gameStateStore.getCurrentSaveData());
 const actionQueue = useActionQueueStore();
@@ -943,7 +951,7 @@ const tabs = computed(() => {
     { id: 'status', label: '实时状态', icon: '💭' },
   ];
 
-  if (isTavernEnvFlag) {
+  if (isTavernEnvFlag.value) {
     baseTabs.push({ id: 'nsfw', label: '私密信息', icon: '🔞' });
   }
 
@@ -1061,19 +1069,55 @@ const getNpcRecentMemories = (npc: NpcProfile): string[] => {
 };
 
 // 格式化灵根显示
+const formatSpiritRootTier = (tier: unknown): string => {
+  if (!tier) return '';
+  if (typeof tier === 'string') return tier;
+  if (typeof tier === 'object') {
+    const tierObj = tier as Record<string, unknown>;
+    const qualityValue =
+      tierObj.quality ?? tierObj.品质 ?? tierObj.品级 ?? tierObj.quality_name ?? tierObj.name ?? tierObj.名称;
+    const gradeValue = tierObj.grade ?? tierObj.阶 ?? tierObj.等级 ?? tierObj.level;
+    const rawQuality = typeof qualityValue === 'string' ? qualityValue.trim() : '';
+    const cleaned = rawQuality ? rawQuality.replace(/\d+/g, '').replace(/[阶品级]/g, '').trim() : '';
+    const grade =
+      typeof gradeValue === 'number' || typeof gradeValue === 'string'
+        ? String(gradeValue).trim()
+        : '';
+    if (cleaned) {
+      const qualityLabel = cleaned.endsWith('品级') ? cleaned : `${cleaned}品质`;
+      const gradeSuffix = grade ? `${grade}阶` : '';
+      return `${qualityLabel}${gradeSuffix}`.trim();
+    }
+  }
+  return '';
+};
+
+// 格式化灵根显示
 const formatSpiritRoot = (spiritRoot: string | SpiritRoot | { 名称?: string; 品级?: string; 描述?: string } | undefined): string => {
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
-  // 兼容中英文字段名
+  // ????????
   if (typeof spiritRoot === 'object') {
-    const typedSpiritRoot = spiritRoot as { name?: string; 名称?: string; tier?: string; 品级?: string };
-    const name = typedSpiritRoot.name || typedSpiritRoot.名称;
-    const tier = typedSpiritRoot.tier || typedSpiritRoot.品级;
-    if (name && tier) {
-      return `${name}(${tier})`;
+    const typedSpiritRoot = spiritRoot as {
+      name?: string;
+      名称?: string;
+      tier?: unknown;
+      品级?: unknown;
+      quality?: unknown;
+      grade?: unknown;
+    };
+    const nameValue = typedSpiritRoot.name || typedSpiritRoot.名称;
+    const tier = formatSpiritRootTier(
+      typedSpiritRoot.tier ?? typedSpiritRoot.品级 ?? typedSpiritRoot.quality ?? typedSpiritRoot.grade
+    );
+    if (nameValue && tier) {
+      return `${nameValue}(${tier})`;
     }
-    if (name) {
-      return `${name}(未知品级)`;
+    if (nameValue) {
+      return `${nameValue}(未知品级)`;
+    }
+    if (tier) {
+      return tier;
     }
   }
   return '格式错误';
@@ -1516,7 +1560,8 @@ ${memoriesText}
           // 🛡️ 添加assistant角色的占位消息（防止输入截断）
           { role: 'assistant', content: '</input>' }
         ],
-        should_stream: useStreaming
+        should_stream: useStreaming,
+        usageType: 'memory_summary'
       });
       response = String(rawResponse);
     } else {
@@ -1570,6 +1615,7 @@ ${saveDataJson}
         user_input: userPrompt,
         should_stream: useStreaming,
         generation_id: `npc_memory_summary_${npcName}_${Date.now()}`,
+        usageType: 'memory_summary',
         injects: [
           {
             content: systemPromptCombined,
@@ -1753,7 +1799,7 @@ const exportToWorldBook = async () => {
     // 获取或创建聊天世界书
     const tavernHelper = (await import('@/utils/tavern')).getTavernHelper();
     if (!tavernHelper) {
-      uiStore.showToast(isTavernEnvFlag ? '酒馆助手未初始化' : '当前环境不可用', { type: 'error' });
+      uiStore.showToast(isTavernEnvFlag.value ? '酒馆助手未初始化' : '当前环境不可用', { type: 'error' });
       return;
     }
 

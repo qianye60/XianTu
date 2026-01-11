@@ -141,10 +141,11 @@ import Step5_TalentSelection from '../components/character-creation/Step5_Talent
 import Step6_AttributeAllocation from '../components/character-creation/Step6_AttributeAllocation.vue'
 import Step7_Preview from '../components/character-creation/Step7_Preview.vue'
 import RedemptionCodeModal from '../components/character-creation/RedemptionCodeModal.vue'
-import { request } from '../services/request'
+import { request, verifyStoredToken } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
-import { getCurrentCharacterName, isTavernEnv } from '../utils/tavern';
+import { getCurrentCharacterName } from '../utils/tavern';
+import { isBackendConfigured } from '@/services/backendConfig';
 import { useI18n } from '../i18n';
 import type { CharacterPreset } from '@/utils/presetManager';
 
@@ -239,24 +240,82 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
     // 1. 验证兑换码 (可选，后端会做最终验证)
     toast.loading('正在验证仙缘信物...', { id: toastId });
     try {
-      const validateResponse = await request<{is_used: boolean}>(`/api/v1/redemption/validate/${code}`, { method: 'POST' });
-      if (validateResponse?.is_used) {
-        toast.error('仙缘信物已被使用或无效！', { id: toastId });
-        isGenerating.value = false;
-        return;
-      }
-    } catch (error) {
-      console.warn('兑换码预验证失败，继续执行:', error);
+      // 后端返回完整的 RedemptionCode 对象，验证成功说明可用
+      await request<{ id: number; code: string; times_used: number; max_uses: number }>(`/api/v1/redemption/validate/${code}`, { method: 'POST' });
+      // 如果请求成功，说明兑换码有效且未过期/未用完
+    } catch (error: unknown) {
+      // 后端会返回具体错误信息（404=不存在，400=已用完/已过期）
+      const message = error instanceof Error ? error.message : '仙缘信物验证失败';
+      toast.error(message, { id: toastId });
+      isGenerating.value = false;
+      return;
     }
 
-    // 2. 开始AI生成
+    // 2. 前端调用AI生成
     toast.loading('已连接天机阁，正在推演...', { id: toastId });
-    // tavernAI 模块已移除,这个功能已不再可用
-    toast.error('AI生成功能暂时不可用（tavernAI模块已移除）', { id: toastId });
-    isGenerating.value = false;
-    return;
 
-    // 3. 保存到云端 (此功能已移除)
+    // 构建AI提示词
+    const typeNameMap: Record<string, string> = {
+      'world': '世界背景',
+      'talent_tier': '天资等级',
+      'origin': '出身背景',
+      'spirit_root': '灵根',
+      'talent': '天赋'
+    };
+    const typeName = typeNameMap[type] || type;
+    const prompt = userPrompt || `请为修仙游戏生成一个${typeName}选项，包含name、description等字段，返回JSON格式`;
+
+    // 使用前端aiService生成内容
+    const { aiService } = await import('@/services/aiService');
+    const aiResponse = await aiService.generate({
+      ordered_prompts: [
+        { role: 'system', content: `你是一个修仙游戏内容生成器。请根据用户要求生成${typeName}内容，返回有效的JSON对象。` },
+        { role: 'user', content: prompt }
+      ],
+      usageType: 'main'
+    });
+
+    if (!aiResponse) {
+      toast.error('天机阁未能推演出结果', { id: toastId });
+      isGenerating.value = false;
+      return;
+    }
+
+    // 解析AI生成的内容
+    let generatedContent;
+    try {
+      // 尝试从响应中提取JSON
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        generatedContent = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('未找到有效JSON');
+      }
+    } catch {
+      toast.error('天机推演结果格式异常', { id: toastId });
+      isGenerating.value = false;
+      return;
+    }
+
+    // 3. 保存到云端并消耗兑换码
+    toast.loading('正在记录天机...', { id: toastId });
+
+    const saveResponse = await request<{ message: string; saved_id: number }>('/api/v1/ai/save', {
+      method: 'POST',
+      body: JSON.stringify({
+        code: code,
+        type: type,
+        content: generatedContent
+      }),
+    });
+
+    if (saveResponse) {
+      toast.success(`天机已定！${saveResponse.message}`, { id: toastId });
+      // 刷新数据以显示新生成的内容
+      await store.fetchAllCloudData();
+    } else {
+      toast.error('记录天机失败', { id: toastId });
+    }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '未知错误';
     if (message.includes('兑换码') || message.includes('信物')) {
@@ -421,9 +480,6 @@ async function createCharacter() {
   }
   console.log('[CharacterCreation.vue] createCharacter() called.');
 
-  // 立即设置生成状态，防止重复点击
-  isGenerating.value = true;
-
   // 1. 统一数据校验
   console.log('[DEBUG] 开始数据校验');
   console.log('[DEBUG] 角色名:', store.characterPayload.character_name);
@@ -448,14 +504,25 @@ async function createCharacter() {
   // 出身和灵根可以为空（表示随机选择）
   console.log('[DEBUG] selectedOrigin:', store.selectedOrigin, '(可为空，表示随机出生)');
   console.log('[DEBUG] selectedSpiritRoot:', store.selectedSpiritRoot, '(可为空，表示随机灵根)');
-  if (!store.isLocalCreation && !isTavernEnv()) {
-    console.log('[DEBUG] 验证失败：联机模式但非SillyTavern环境');
-    toast.error('联机模式需要在SillyTavern扩展中运行。');
-    return;
+
+  // 进入创建流程后锁定按钮，防止重复点击/重复请求
+  isGenerating.value = true;
+
+  if (!store.isLocalCreation) {
+    if (!isBackendConfigured()) {
+      toast.error('联机模式需要先配置后端服务器地址');
+      isGenerating.value = false;
+      return;
+    }
+    const tokenOk = await verifyStoredToken();
+    if (!tokenOk) {
+      toast.error('联机模式需要先登录');
+      isGenerating.value = false;
+      return;
+    }
   }
 
   console.log('[DEBUG] 数据校验通过，开始创建角色');
-  isGenerating.value = true;
 
   try {
     // 2. 角色名由酒馆助手的角色管理功能编辑，此处不同步

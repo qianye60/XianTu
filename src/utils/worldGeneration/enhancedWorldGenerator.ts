@@ -3,7 +3,7 @@
  * 确保生成数据的质量和一致性
  */
 
-import { getTavernHelper } from '../tavern';
+import { getTavernHelper, isTavernEnv } from '../tavern';
 import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
 import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
@@ -134,6 +134,7 @@ export class EnhancedWorldGenerator {
       const response = await tavern.generateRaw({
         ordered_prompts: orderedPrompts,
         should_stream: true,
+        usageType: 'world_generation',
         overrides: {
           world_info_before: '',
           world_info_after: ''
@@ -170,6 +171,13 @@ export class EnhancedWorldGenerator {
       // 优先从 promptStorage 获取用户修改过的提示词
       const customPrompt = await promptStorage.get('worldGeneration');
 
+      // 🔥 彩蛋：酒馆端 70% 概率生成合欢宗
+      // "这个概率就是随机数，超过30%就会生成合欢宗" -> 随机数(0-100) > 30 -> 70% 概率
+      const shouldGenerateHehuan = isTavernEnv() && Math.random() > 0.3;
+      if (shouldGenerateHehuan) {
+        console.log('[世界生成] 🎲 彩蛋触发：将强制生成合欢宗');
+      }
+
       // 获取默认提示词用于比较
       const { factionCount, locationCount, secretRealmsCount, continentCount, mapConfig } = this.config;
       const promptConfig: WorldPromptConfig = {
@@ -183,7 +191,15 @@ export class EnhancedWorldGenerator {
         worldName: this.config.worldName,
         mapConfig: mapConfig
       };
-      const defaultPrompt = EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
+      let defaultPrompt = EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
+
+      // 🔥 注入合欢宗要求
+      if (shouldGenerateHehuan) {
+        defaultPrompt += `
+
+【特殊要求】
+请务必在势力列表中包含一个名为"合欢宗"的宗门。设定为魔道或中立，以双修采补闻名，宗门风气开放。`;
+      }
 
       // 如果用户有自定义提示词且不为空，使用自定义的
       // 注意：promptStorage.get 在用户未修改时会返回默认值，所以需要检查是否真的被修改过
@@ -211,8 +227,10 @@ export class EnhancedWorldGenerator {
         jsonText = jsonMatch[1];
       }
 
+      // 🔥 修改：支持仅包含continents的JSON（仅生成大陆模式）
       if (!jsonMatch) {
-        jsonMatch = response.match(/(\{[\s\S]*?"factions"\s*:\s*\[[\s\S]*?"locations"\s*:\s*\[[\s\S]*?\})/);
+        // 优先匹配包含continents的完整JSON
+        jsonMatch = response.match(/(\{[\s\S]*?"continents"\s*:\s*\[[\s\S]*?\][\s\S]*?\})/);
         if (jsonMatch) {
           jsonText = jsonMatch[1];
         }
@@ -224,7 +242,8 @@ export class EnhancedWorldGenerator {
           for (const match of jsonMatches) {
             try {
               const testParse = JSON.parse(match);
-              if (testParse.factions || testParse.locations) {
+              // 🔥 修改：只要有continents就接受（支持仅生成大陆模式）
+              if (testParse.continents || testParse.factions || testParse.locations) {
                 jsonText = match;
                 break;
               }
@@ -287,6 +306,41 @@ export class EnhancedWorldGenerator {
           外门弟子数: faction.leadership?.外门弟子数
         };
         const calculated = calculateSectData(calcInput);
+        const factionName = String(faction.name || faction.名称 || '');
+        const isHehuan = factionName.includes('合欢');
+
+        const leadership = faction.leadership
+          ? {
+              宗主: faction.leadership.宗主,
+              宗主修为: faction.leadership.宗主修为,
+              副宗主: faction.leadership.副宗主 ?? undefined,
+              圣女: isHehuan ? (faction.leadership.圣女 ?? undefined) : undefined,
+              圣子: isHehuan ? (faction.leadership.圣子 ?? undefined) : undefined,
+              太上长老: faction.leadership.太上长老 ?? undefined,
+              太上长老修为: faction.leadership.太上长老修为 ?? undefined,
+              最强修为: faction.leadership.最强修为 || faction.leadership.宗主修为,
+              综合战力: calculated.综合战力,
+              核心弟子数: faction.leadership.核心弟子数,
+              内门弟子数: faction.leadership.内门弟子数,
+              外门弟子数: faction.leadership.外门弟子数
+            }
+          : undefined;
+
+        const memberCount = faction.memberCount
+          ? {
+              total: Number(faction.memberCount.total) || 0,
+              byRealm: faction.memberCount.byRealm || {},
+              byPosition: faction.memberCount.byPosition || {}
+            }
+          : undefined;
+
+        const territoryInfo = faction.territoryInfo
+          ? {
+              controlledAreas: faction.territoryInfo.controlledAreas || [],
+              influenceRange: faction.territoryInfo.influenceRange,
+              strategicValue: faction.territoryInfo.strategicValue
+            }
+          : undefined;
 
         return {
           名称: faction.name || faction.名称,
@@ -299,33 +353,34 @@ export class EnhancedWorldGenerator {
           与玩家关系: faction.与玩家关系 || '中立',
           声望值: calculated.声望值,
 
-          leadership: faction.leadership ? {
-            宗主: faction.leadership.宗主,
-            宗主修为: faction.leadership.宗主修为,
-            副宗主: faction.leadership.副宗主 ?? undefined,
-            太上长老: faction.leadership.太上长老 ?? undefined,
-            太上长老修为: faction.leadership.太上长老修为 ?? undefined,
-            最强修为: faction.leadership.最强修为 || faction.leadership.宗主修为,
-            综合战力: calculated.综合战力,
-            核心弟子数: faction.leadership.核心弟子数,
-            内门弟子数: faction.leadership.内门弟子数,
-            外门弟子数: faction.leadership.外门弟子数
-          } : undefined,
+          // 同时提供中英字段，兼容旧UI/新生成器
+          领导层: leadership,
+          leadership,
 
-          memberCount: faction.memberCount ? {
-            total: Number(faction.memberCount.total) || 0,
-            byRealm: faction.memberCount.byRealm || {},
-            byPosition: faction.memberCount.byPosition || {}
-          } : undefined,
+          成员数量: memberCount
+            ? {
+                总数: memberCount.total,
+                按境界: memberCount.byRealm,
+                按职位: memberCount.byPosition,
+                ...memberCount
+              }
+            : undefined,
+          memberCount,
 
-          territoryInfo: faction.territoryInfo ? {
-            controlledAreas: faction.territoryInfo.controlledAreas || [],
-            influenceRange: faction.territoryInfo.influenceRange,
-            strategicValue: faction.territoryInfo.strategicValue
-          } : undefined,
+          势力范围详情: territoryInfo
+            ? {
+                控制区域: territoryInfo.controlledAreas,
+                影响范围: territoryInfo.influenceRange,
+                战略价值: territoryInfo.strategicValue
+              }
+            : undefined,
+          territoryInfo,
 
+          可否加入: faction.canJoin !== undefined ? !!faction.canJoin : true,
           canJoin: faction.canJoin !== undefined ? !!faction.canJoin : true,
+          加入条件: faction.joinRequirements || [],
           joinRequirements: faction.joinRequirements || [],
+          加入好处: faction.benefits || [],
           benefits: faction.benefits || []
         };
       }),
@@ -341,6 +396,14 @@ export class EnhancedWorldGenerator {
         相关势力: location.related_factions || location.相关势力 || [],
         特殊功能: location.special_functions || location.特殊功能 || []
       })),
+      地图配置: this.config.mapConfig || (rawData as any).地图配置 || (rawData as any).map_config || {
+        width: 10000,
+        height: 10000,
+        minLng: 0,
+        maxLng: 10000,
+        minLat: 0,
+        maxLat: 10000,
+      },
       生成时间: new Date().toISOString(),
       世界纪元: this.config.worldEra || rawData.world_era || '修仙纪元',
       特殊设定: rawData.special_settings || [],

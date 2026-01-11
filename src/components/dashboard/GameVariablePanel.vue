@@ -377,7 +377,7 @@ const saveVariable = async (item: EditingItem) => {
         // 社交
         { from: '社交.关系', to: 'relationships' },
         { from: '社交.宗门', to: 'sectSystem' },
-        { from: '社交.任务', to: 'questSystem' },
+        { from: '社交.事件', to: 'eventSystem' },
         { from: '社交.记忆', to: 'memory' },
 
         // 世界

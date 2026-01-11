@@ -162,25 +162,49 @@ const libraryFloors = computed(() => {
   ];
 });
 
-// 获取可用功法列表（从世界信息或预设中获取）
-function getAvailableTechniques() {
-  // 这里可以从世界信息中获取宗门功法，暂时返回示例数据
-  // 实际应该让AI在剧情中生成功法到宗门藏书中
+type LibraryTechnique = {
+  id: string;
+  name: string;
+  quality: string;
+  qualityTier: string;
+  cost: number;
+  description: string;
+  owned: boolean;
+  canAfford: boolean;
+};
+
+const extractQualityTier = (quality: string) => {
+  const match = quality.match(/[凡黄玄地天仙神]/);
+  return match ? match[0] : '凡';
+};
+
+// 获取可用功法列表（来自宗门系统）
+function getAvailableTechniques(): LibraryTechnique[] {
   const sectName = playerSectInfo.value?.宗门名称;
   if (!sectName) return [];
 
-  // 示例功法数据 - 实际应该从存档数据中读取
-  const exampleTechniques = [
-    { id: 'tech_basic_001', name: '基础吐纳术', quality: '凡品', qualityTier: '凡', cost: 100, description: '入门级呼吸吐纳之法，可引灵气入体' },
-    { id: 'tech_basic_002', name: '引气诀', quality: '黄品下', qualityTier: '黄', cost: 300, description: '外门弟子必修功法，引导灵气运转经脉' },
-    { id: 'tech_sword_001', name: '青锋剑诀', quality: '黄品中', qualityTier: '黄', cost: 500, description: '基础剑法，剑气凌厉' },
-  ];
+  const rawTechniques = gameStateStore.sectSystem?.宗门藏经阁?.[sectName];
+  if (!Array.isArray(rawTechniques)) return [];
 
-  return exampleTechniques.map(tech => ({
-    ...tech,
-    owned: ownedTechniqueIds.value.includes(tech.id),
-    canAfford: playerContribution.value >= tech.cost
-  }));
+  return rawTechniques.map((raw: any, index: number) => {
+    const id = raw?.id || raw?.物品ID || `sect_tech_${index}`;
+    const name = raw?.name || raw?.名称 || '未知功法';
+    const quality = raw?.quality || raw?.品质 || '凡品';
+    const qualityTier = raw?.qualityTier || extractQualityTier(String(quality));
+    const cost = Number(raw?.cost ?? raw?.价格 ?? 0);
+    const description = raw?.description || raw?.描述 || '';
+
+    return {
+      id,
+      name,
+      quality,
+      qualityTier,
+      cost,
+      description,
+      owned: ownedTechniqueIds.value.includes(id),
+      canAfford: playerContribution.value >= cost,
+    };
+  });
 }
 
 function toggleFloor(floor: { level: number; accessible: boolean }) {

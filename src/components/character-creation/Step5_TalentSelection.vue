@@ -414,27 +414,29 @@ const editInitialData = computed(() => {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem;
-  border-bottom: 1px solid rgba(147, 197, 253, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(30, 41, 59, 0.3);
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .top-actions-container .action-item {
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(147, 197, 253, 0.3);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   background: rgba(30, 41, 59, 0.6);
-  color: #93c5fd;
+  color: #cbd5e1;
   cursor: pointer;
   transition: all 0.25s ease;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   white-space: nowrap;
+  letter-spacing: 0.05em;
 }
 
 .top-actions-container .action-item:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #93c5fd;
-  color: #bfdbfe;
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: #f1f5f9;
 }
 
 /* 亮色主题顶部按钮 */
@@ -473,9 +475,9 @@ const editInitialData = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.9rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 8px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 0.6rem;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.25s ease;
   border: 1px solid transparent;
@@ -512,9 +514,9 @@ const editInitialData = computed(() => {
 }
 
 .edit-btn, .delete-btn {
-  background: none;
-  border: none;
-  color: #64748b;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
   cursor: pointer;
   padding: 0.35rem;
   border-radius: 4px;
@@ -542,7 +544,7 @@ const editInitialData = computed(() => {
 .talent-item.selected {
   background: rgba(30, 58, 138, 0.4);
   border-color: rgba(147, 197, 253, 0.4);
-  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
 .talent-name {
@@ -921,5 +923,25 @@ const editInitialData = computed(() => {
 
 [data-theme="light"] .description-scroll p {
   color: #475569;
+}
+
+/* 亮色主题下的编辑/删除按钮 */
+[data-theme="light"] .edit-btn,
+[data-theme="light"] .delete-btn {
+  background: rgba(241, 245, 249, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  color: #475569;
+}
+
+[data-theme="light"] .edit-btn:hover {
+  color: #2563eb;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="light"] .delete-btn:hover {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 </style>

@@ -1,4 +1,4 @@
-import type { SaveData, GameTime, QuestSystem } from '@/types/game';
+import type { SaveData, GameTime, EventSystem } from '@/types/game';
 import type { SaveDataV3 } from '@/types/saveSchemaV3';
 
 export type SaveMigrationIssue =
@@ -30,6 +30,7 @@ const LEGACY_ROOT_KEYS = [
   '叙事历史',
   '对话历史',
   '任务系统',
+  '事件系统',
   '宗门系统',
   '世界信息',
   '人物关系',
@@ -117,16 +118,15 @@ export function detectLegacySaveData(saveData: SaveData | null | undefined): Sav
   };
 }
 
-const buildDefaultQuestSystem = (): QuestSystem => ({
+const buildDefaultEventSystem = (): EventSystem => ({
   配置: {
-    启用系统任务: false,
-    系统任务类型: '修仙辅助系统',
-    系统任务提示词: '',
-    自动刷新: false,
-    默认任务数量: 3,
+    启用随机事件: true,
+    最小间隔年: 1,
+    最大间隔年: 10,
+    事件提示词: '',
   },
-  当前任务列表: [],
-  任务统计: { 完成总数: 0, 各类型完成: {} as any },
+  下次事件时间: null,
+  事件记录: [],
 });
 
 const buildDefaultOnline = (): SaveDataV3['系统']['联机'] => ({
@@ -245,28 +245,16 @@ export function migrateSaveDataToLatest(raw: SaveData): { migrated: SaveDataV3; 
   const flatMemory =
     source.记忆 ?? { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
 
-  const flatQuestRaw = source.任务 ?? source.任务系统 ?? buildDefaultQuestSystem();
-  const flatQuest = (() => {
-    const quest = isPlainObject(flatQuestRaw) ? (deepClone(flatQuestRaw) as any) : (buildDefaultQuestSystem() as any);
+  const flatEventRaw = source.事件 ?? source.事件系统 ?? buildDefaultEventSystem();
+  const flatEvent = (() => {
+    const eventSystem = isPlainObject(flatEventRaw)
+      ? (deepClone(flatEventRaw) as any)
+      : (buildDefaultEventSystem() as any);
 
-    if (!Array.isArray(quest.当前任务列表)) quest.当前任务列表 = [];
+    if (!Array.isArray(eventSystem.事件记录)) eventSystem.事件记录 = [];
+    if (!isPlainObject(eventSystem.下次事件时间)) eventSystem.下次事件时间 = null;
 
-    // 旧字段兼容：已完成任务[] 合并进 当前任务列表（迁移时清理掉旧字段，运行期不再兼容）
-    if (Array.isArray(quest.已完成任务) && quest.已完成任务.length > 0) {
-      const existingIds = new Set(
-        quest.当前任务列表.map((q: any) => q?.任务ID).filter((id: any) => typeof id === 'string' && id.length > 0)
-      );
-      for (const q of quest.已完成任务) {
-        const id = q?.任务ID;
-        if (typeof id === 'string' && id.length > 0 && !existingIds.has(id)) {
-          quest.当前任务列表.push(q);
-          existingIds.add(id);
-        }
-      }
-      delete quest.已完成任务;
-    }
-
-    return quest as any;
+    return eventSystem as any;
   })();
 
   const worldInfoCandidate = source.世界?.信息 ?? source.世界 ?? source.世界信息 ?? source.worldInfo ?? undefined;
@@ -312,7 +300,7 @@ export function migrateSaveDataToLatest(raw: SaveData): { migrated: SaveDataV3; 
     社交: {
       关系: flatRelationships,
       宗门: flatSect ?? null,
-      任务: flatQuest,
+      事件: flatEvent,
       记忆: flatMemory,
     },
     世界: {

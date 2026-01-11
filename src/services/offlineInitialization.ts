@@ -1,4 +1,4 @@
-import type { CharacterBaseInfo, SaveData, PlayerStatus, QuestType } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, PlayerStatus } from '@/types/game';
 import type { World } from '@/types';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { calculateInitialAttributes } from './characterInitialization';
@@ -88,16 +88,15 @@ export async function initializeCharacterOffline(
     社交: {
       关系: {},
       宗门: null,
-      任务: {
+      事件: {
         配置: {
-          启用系统任务: false,
-          系统任务类型: '修仙辅助系统',
-          系统任务提示词: '',
-          自动刷新: false,
-          默认任务数量: 3,
+          启用随机事件: true,
+          最小间隔年: 1,
+          最大间隔年: 10,
+          事件提示词: '',
         },
-        当前任务列表: [],
-        任务统计: { 完成总数: 0, 各类型完成: {} as Record<QuestType, number> },
+        下次事件时间: null,
+        事件记录: [],
       },
       记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] },
     },
@@ -138,4 +137,3 @@ export async function initializeCharacterOffline(
   console.log('[离线初始化] 本地角色创建完成:', saveData);
   return saveData;
 }
-

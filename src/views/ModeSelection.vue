@@ -4,101 +4,131 @@
     <VideoBackground />
 
     <div class="selection-content">
-      <div class="header-container">
-        <div class="title-version-row">
-          <h1 class="main-title">仙 途</h1>
-          <span class="version-tag">V{{ displayVersion }} {{ $t('正式版') }}</span>
+      <!-- 右上角信息 -->
+      <div class="top-info">
+        <div class="status-indicator" :class="backendReady ? 'online' : 'offline'">
+          <span class="status-dot"></span>
+          <span>{{ backendReady ? '已连接' : '离线' }}</span>
         </div>
-        <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
-        <!-- 酒馆环境指示器 -->
-        <div class="env-indicator" :class="backendReady ? 'backend' : 'offline'">
-          <span class="env-dot"></span>
-          <span>{{ backendReady ? '后端已连接 · 联机可用' : '未配置后端 · 联机/创意工坊不可用' }}</span>
-        </div>
+        <div class="version-tag">V{{ displayVersion }}</div>
       </div>
 
-      <div class="gate-container">
-        <!-- Left Gate: Single Player -->
-        <div
-          class="gate-card"
-          :class="{ selected: selectedMode === 'single' }"
-          @click="selectPath('single')"
-        >
-          <div class="gate-icon">
-            <User :size="44" :stroke-width="1.5" />
+      <!-- 标题区域 -->
+      <div class="header-section">
+        <h1 class="main-title">仙 途</h1>
+        <p class="sub-title">闲时坐看涛生灭，千古不过酒一壶</p>
+      </div>
+
+      <!-- 道途选择 -->
+      <div class="paths-section">
+        <div class="section-header">
+          <span class="line"></span>
+          <span class="text">择一道途</span>
+          <span class="line"></span>
+        </div>
+
+        <div class="gate-container">
+          <!-- 单机模式 -->
+          <div
+            class="gate-card"
+            :class="{ selected: selectedMode === 'single' }"
+            @click="selectPath('single')"
+          >
+            <div class="gate-icon">
+              <div class="icon-bg"></div>
+              <User :size="36" :stroke-width="1.5" />
+            </div>
+            <div class="gate-info">
+              <h2 class="gate-title">{{ $t('独自修行') }}</h2>
+              <p class="gate-desc">避世清修 · 心无旁骛</p>
+              <p class="gate-detail">独居洞府，专心修炼，所有进度本地存储</p>
+              <div class="gate-tags">
+                <span class="tag-local">本地存储</span>
+                <span class="tag-offline">离线可用</span>
+              </div>
+            </div>
+            <div v-if="selectedMode === 'single'" class="check-mark">
+              <Check :size="18" />
+            </div>
           </div>
-          <h2 class="gate-title">{{ $t('单机闯关') }}</h2>
-          <p class="gate-description">{{ $t('避世清修·心无无斧') }}</p>
-          <p class="gate-detail">{{ $t('独居洞府，专心致志炼就大道根基') }}<br/>{{ $t('所有进度本地存储，断网亦可修行') }}</p>
-        </div>
 
-        <!-- Right Gate: Multiplayer / Tavern -->
-        <div
-          class="gate-card"
-          :class="{ selected: selectedMode === 'cloud', disabled: !backendReady }"
-          @click="selectPath('cloud')"
-        >
-          <div class="gate-icon">
-            <Users :size="44" :stroke-width="1.5" />
+          <!-- 联机模式 -->
+          <div
+            class="gate-card"
+            :class="{ selected: selectedMode === 'cloud', disabled: !backendReady }"
+            @click="selectPath('cloud')"
+          >
+            <div class="gate-icon">
+              <div class="icon-bg"></div>
+              <Users :size="36" :stroke-width="1.5" />
+            </div>
+            <div class="gate-info">
+              <h2 class="gate-title">{{ $t('联机共修') }}</h2>
+              <p class="gate-desc">{{ backendReady ? '道友相伴 · 共证大道' : '仙门未启 · 暂不可入' }}</p>
+              <p class="gate-detail">云端存档，多端同步，与道友共闯仙途</p>
+              <div class="gate-tags">
+                <span class="tag-cloud">云端同步</span>
+                <span class="tag-secure">数据安全</span>
+              </div>
+            </div>
+            <div v-if="selectedMode === 'cloud'" class="check-mark">
+              <Check :size="18" />
+            </div>
+            <div v-if="!backendReady" class="disabled-mask">
+              <Lock :size="20" />
+              <span>{{ $t('未启用') }}</span>
+            </div>
           </div>
-          <h2 class="gate-title">{{ $t('联机共修') }}</h2>
-          <p class="gate-description">
-            {{ backendReady ? $t('后端已连接，进入联机共修') : $t('未配置后端，联机暂不可用') }}
-          </p>
-          <p class="gate-detail">
-            {{ backendReady ? $t('联机数据由后端权威控制，防止作弊') : $t('由开发者配置后端后开放') }}
-          </p>
-          <span v-if="!backendReady" class="coming-soon-badge">{{ $t('未启用') }}</span>
         </div>
       </div>
 
-      <!-- 隐私说明 -->
-      <div class="privacy-notice">
-        <p>{{ $t('本联机谨遵天道法则：不存储任何对话记录') }}</p>
-        <p>{{ $t('仅保留法身属性、境界进度等修行要素，确保道友隐私清净无染') }}</p>
-      </div>
-
-      <div class="footer-actions">
-        <div v-if="selectedMode" class="start-actions-container">
-          <button class="action-btn primary" @click="startNewGame">
-            <Sparkles :size="18" />
-            <span>{{ $t('初入仙途') }}</span>
-          </button>
-          <button class="action-btn" @click="enterCharacterSelection">
-            <History :size="18" />
-            <span>{{ $t('续前世因缘') }}</span>
-          </button>
-        </div>
-        <button v-else class="scroll-btn" @click="enterCharacterSelection">
+      <!-- 操作按钮 -->
+      <div class="actions-section">
+        <transition name="fade-up">
+          <div v-if="selectedMode" class="action-group">
+            <button class="btn-primary" @click="startNewGame">
+              <Sparkles :size="18" />
+              <span>{{ $t('初入仙途') }}</span>
+            </button>
+            <button class="btn-secondary" @click="enterCharacterSelection">
+              <History :size="18" />
+              <span>{{ $t('续前世因缘') }}</span>
+            </button>
+          </div>
+        </transition>
+        <button v-if="!selectedMode" class="btn-ghost" @click="enterCharacterSelection">
+          <History :size="18" />
           <span>{{ $t('续前世因缘') }}</span>
         </button>
       </div>
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
-import { Sparkles, History, User, Users } from 'lucide-vue-next';
+import { Sparkles, History, User, Users, Check, Lock } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
-import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
+import { isBackendConfigured, fetchBackendVersion } from '@/services/backendConfig';
 import { verifyStoredToken } from '@/services/request';
 
+const selectedMode = ref<'single' | 'cloud' | null>(null);
+const backendReady = ref(false);
 const backendVersion = ref<string | null>(null);
 
-const selectedMode = ref<'single' | 'cloud' | null>(null);
-const backendReady = ref(isBackendConfigured());
 const displayVersion = computed(() => (
   backendReady.value ? (backendVersion.value ?? '同步中') : APP_VERSION
 ));
 
 onMounted(async () => {
-  if (!backendReady.value) return;
-  const fetchedVersion = await fetchBackendVersion();
-  if (fetchedVersion) {
-    backendVersion.value = fetchedVersion;
+  // 真正检测后端连接状态，而不是只检查配置
+  if (isBackendConfigured()) {
+    const version = await fetchBackendVersion();
+    if (version) {
+      backendReady.value = true;
+      backendVersion.value = version;
+    }
   }
 });
 
@@ -122,7 +152,7 @@ const selectPath = async (mode: 'single' | 'cloud') => {
       title: '联机未启用',
       message: '未配置后端服务器，无法使用联机共修与登录功能。请先选择"单机闯关"。',
       confirmText: '知道了',
-      cancelText: '??',
+      cancelText: '取消',
       onConfirm: () => {},
       onCancel: () => {}
     });
@@ -180,531 +210,586 @@ const enterCharacterSelection = async () => {
 </script>
 
 <style scoped>
+/* 容器 - 可滚动 */
 .mode-selection-container {
   width: 100%;
   min-height: 100vh;
   min-height: 100svh;
-  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
-  padding-top: calc(1.5rem + env(safe-area-inset-top));
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding: 2rem;
+  padding-top: calc(2rem + env(safe-area-inset-top));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
-  background: transparent; /* 透明背景以显示视频 */
-  overflow: auto; /* 允许滚动以适应小屏幕 */
-  -webkit-overflow-scrolling: touch; /* iOS滚动优化 */
+  overflow: hidden;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
+/* 主内容区 */
 .selection-content {
-  background: var(--mode-selection-bg, rgba(15, 23, 42, 0.75));
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.85) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 3rem;
-  border: 1px solid var(--mode-selection-border, rgba(255, 255, 255, 0.08));
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  max-height: 90vh;
-  max-width: 920px;
+  border-radius: 24px;
+  padding: 2.5rem 3rem;
+  border: 1px solid rgba(147, 197, 253, 0.12);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  max-width: 820px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2.5rem;
+  gap: 2rem;
+  position: relative;
+  max-height: calc(100svh - 4rem);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.header-container {
-  text-align: center;
+/* 版本号 - 青蓝色发光 */
+.version-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #67e8f9;
+  padding: 0.25rem 0.6rem;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 6px;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+  transition: all 0.3s ease;
 }
 
-.title-version-row {
+.version-tag:hover {
+  color: #a5f3fc;
+  border-color: rgba(34, 211, 238, 0.5);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.7);
+}
+
+/* 右上角信息 */
+.top-info {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+  gap: 0.75rem;
 }
 
-.main-title {
-  font-family: var(--font-family-serif);
-  font-size: 3rem;
-  font-weight: 400;
-  letter-spacing: 0.5em;
-  color: var(--mode-selection-title, #f8fafc);
-  margin: 0;
-  padding-left: 0.5em;
-  text-shadow: 0 0 40px var(--mode-selection-glow, rgba(147, 197, 253, 0.3));
-}
-
-.version-tag {
-  font-size: 0.7rem;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  color: #fbbf24;
-  padding: 0.25rem 0.6rem;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.25);
-  border-radius: 4px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-}
-
-.sub-title {
-  font-size: 1.1rem;
-  color: var(--mode-selection-subtitle, #94a3b8);
-  letter-spacing: 0.2em;
-  margin: 0;
-  font-weight: 300;
-}
-
-/* 环境指示器 */
-.env-indicator {
-  display: inline-flex;
+/* 状态指示器 */
+.status-indicator {
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.35rem 0.85rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
 }
 
-.env-indicator.backend {
+.status-indicator.online {
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.3);
   color: #4ade80;
 }
 
-.env-indicator.offline {
-  background: rgba(248, 113, 113, 0.12);
-  border: 1px solid rgba(248, 113, 113, 0.3);
+.status-indicator.offline {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.25);
   color: #fca5a5;
 }
 
-.env-indicator .env-dot {
-  width: 6px;
-  height: 6px;
+.status-dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: currentColor;
-  animation: pulse 2s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.gate-container {
-  display: flex;
-  gap: 1.5rem;
-  width: 100%;
-  justify-content: center;
-}
-
-.gate-card {
-  flex: 1;
-  max-width: 340px;
-  padding: 2.5rem 2rem;
-  background: var(--mode-selection-card-bg, rgba(30, 41, 59, 0.5));
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
-  border-radius: 12px;
-  cursor: pointer;
+/* 标题区域 */
+.header-section {
   text-align: center;
-  transition: all 0.3s ease;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.gate-card:hover {
-  background: var(--mode-selection-card-hover, rgba(30, 41, 59, 0.8));
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
+.main-title {
+  font-family: var(--font-family-serif);
+  font-size: 3.5rem;
+  font-weight: 400;
+  letter-spacing: 0.5em;
+  color: #f8fafc;
+  margin: 0;
+  text-shadow: 0 0 40px rgba(147, 197, 253, 0.3);
 }
 
-.gate-card.selected {
-  background: var(--mode-selection-card-selected, rgba(30, 58, 138, 0.4));
-  border-color: var(--mode-selection-accent-strong, rgba(147, 197, 253, 0.4));
-  box-shadow:
-    0 20px 40px -15px rgba(0, 0, 0, 0.4),
-    0 0 0 1px var(--mode-selection-accent, rgba(147, 197, 253, 0.1)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.sub-title {
+  padding: 0.5rem;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  letter-spacing: 0.15em;
+  margin: 0;
 }
 
-.gate-card.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
+/* 道途选择 */
+.paths-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.gate-icon {
-  color: var(--mode-selection-icon, #93c5fd);
-  margin-bottom: 1.5rem;
-  opacity: 0.9;
+.section-header {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
 }
 
-.gate-card:hover .gate-icon {
-  opacity: 1;
+.section-header .line {
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.4), transparent);
 }
 
+.section-header .text {
+  padding: 0.5rem;
+  font-family: var(--font-family-serif);
+  font-size: 1rem;
+  color: #64748b;
+  letter-spacing: 0.2em;
+}
+
+/* 卡片容器 */
+.gate-container {
+  padding: 0.5rem;
+  display: flex;
+  gap: 1.5rem;
+}
+
+/* 卡片 */
+.gate-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem 1.75rem;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  min-height: 120px;
+}
+
+.gate-card:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(147, 197, 253, 0.2);
+  transform: translateY(-2px);
+}
+
+.gate-card.selected {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: rgba(147, 197, 253, 0.35);
+}
+
+.gate-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gate-card.disabled:hover {
+  transform: none;
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 卡片图标 */
+.gate-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #93c5fd;
+  flex-shrink: 0;
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.icon-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border: 1px solid rgba(147, 197, 253, 0.15);
+  border-radius: 16px;
+}
+
+.gate-icon svg {
+  position: relative;
+  z-index: 1;
+}
+
+.gate-card:hover .gate-icon,
 .gate-card.selected .gate-icon {
-  color: var(--mode-selection-icon-selected, #bfdbfe);
+  color: #bfdbfe;
+}
+
+.gate-card:hover .icon-bg,
+.gate-card.selected .icon-bg {
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+  border-color: rgba(147, 197, 253, 0.25);
+}
+
+/* 卡片信息 */
+.gate-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .gate-title {
   font-family: var(--font-family-serif);
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 400;
-  margin: 0 0 0.5rem 0;
-  color: var(--mode-selection-text, #f1f5f9);
+  margin: 0 0 0.35rem 0;
+  color: #f1f5f9;
   letter-spacing: 0.1em;
 }
 
-.gate-description {
-  font-size: 0.95rem;
-  color: var(--mode-selection-subtitle, #94a3b8);
-  margin: 0 0 0.75rem 0;
-  font-weight: 400;
+.gate-desc {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin: 0 0 0.4rem 0;
 }
 
 .gate-detail {
   font-size: 0.8rem;
-  color: var(--mode-selection-muted, #64748b);
-  line-height: 1.6;
-  margin: 0;
+  color: #64748b;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
 }
 
-.coming-soon-badge {
+.gate-tags {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.gate-tags span {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+}
+
+/* 本地存储 - 琥珀色 */
+.tag-local {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+/* 离线可用 - 青色 */
+.tag-offline {
+  color: #22d3d1;
+  background: rgba(34, 211, 209, 0.1);
+  border: 1px solid rgba(34, 211, 209, 0.25);
+}
+
+/* 云端同步 - 蓝色 */
+.tag-cloud {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+/* 数据安全 - 绿色 */
+.tag-secure {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+}
+
+/* 选中标记 */
+.check-mark {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  font-size: 0.65rem;
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
-  padding: 0.2rem 0.5rem;
-  border-radius: 3px;
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
 }
 
-.privacy-notice {
-  padding: 1rem 1.5rem;
-  background: rgba(251, 191, 36, 0.05);
-  border: 1px solid rgba(251, 191, 36, 0.1);
-  border-radius: 8px;
-  max-width: 560px;
-  text-align: center;
-}
-
-.privacy-notice p {
+/* 禁用遮罩 */
+.disabled-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(2px);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: #94a3b8;
   font-size: 0.8rem;
-  color: var(--mode-selection-subtitle, #94a3b8);
-  margin: 0.3rem 0;
-  line-height: 1.5;
 }
 
-.footer-actions {
+/* 操作按钮区域 */
+.actions-section {
   display: flex;
   justify-content: center;
+  min-height: 52px;
+  padding-bottom: 0.5rem;
 }
 
-.start-actions-container {
+.action-group {
   display: flex;
   gap: 1rem;
-  animation: fadeIn 0.4s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.action-btn {
+/* 按钮基础 */
+button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  background: var(--mode-selection-btn-bg, rgba(30, 41, 59, 0.6));
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
-  color: var(--mode-selection-btn-text, #cbd5e1);
+  gap: 0.6rem;
   font-family: var(--font-family-serif);
-  font-size: 0.95rem;
-  letter-spacing: 0.15em;
-  padding: 0.8rem 1.8rem;
-  border-radius: 8px;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  padding: 0.85rem 1.75rem;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s ease;
+  border: none;
 }
 
-.action-btn:hover {
-  background: var(--mode-selection-btn-hover, rgba(51, 65, 85, 0.8));
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
-  color: var(--mode-selection-text, #f1f5f9);
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.action-btn.primary {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
-  border-color: rgba(96, 165, 250, 0.3);
-  color: #ffffff;
+.btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
 }
 
-.action-btn.primary:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 1));
-  box-shadow: 0 8px 25px -8px rgba(59, 130, 246, 0.5);
+.btn-secondary {
+  background: rgba(51, 65, 85, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
 }
 
-.scroll-btn {
+.btn-secondary:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(147, 197, 253, 0.2);
+}
+
+.btn-ghost {
   background: transparent;
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.1));
-  color: var(--mode-selection-subtitle, #94a3b8);
-  font-family: var(--font-family-serif);
-  font-size: 0.95rem;
-  letter-spacing: 0.2em;
-  padding: 0.75rem 2rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.25s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
 }
 
-.scroll-btn:hover {
-  background: var(--mode-selection-card-bg, rgba(30, 41, 59, 0.5));
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
-  color: var(--mode-selection-text-hover, #e2e8f0);
+.btn-ghost:hover {
+  background: rgba(51, 65, 85, 0.4);
+  color: #e2e8f0;
 }
 
-/* 授权状态徽章 */
-.auth-status-badge {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  z-index: 100;
+/* 过渡动画 */
+.fade-up-enter-active,
+.fade-up-leave-active {
+  transition: all 0.3s ease;
 }
 
-.auth-status-content {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.9rem;
-  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.auth-status-content:hover {
-  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
-}
-
-.status-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.status-icon.verified {
-  background: #10b981;
-  color: white;
-}
-
-.status-icon.unverified {
-  background: #ef4444;
-  color: white;
-}
-
-.status-text {
-  font-size: 0.8rem;
-  color: var(--mode-selection-subtitle, #94a3b8);
-  font-weight: 500;
+.fade-up-enter-from,
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 /* 亮色主题 */
-[data-theme="light"] .mode-selection-container {
-  --mode-selection-bg: rgba(255, 255, 255, 0.85);
-  --mode-selection-border: rgba(0, 0, 0, 0.08);
-  --mode-selection-title: #1e293b;
-  --mode-selection-glow: rgba(59, 130, 246, 0.2);
-  --mode-selection-subtitle: #64748b;
-  --mode-selection-text: #1e293b;
-  --mode-selection-text-hover: #334155;
-  --mode-selection-muted: #94a3b8;
-  --mode-selection-card-bg: rgba(248, 250, 252, 0.8);
-  --mode-selection-card-border: rgba(0, 0, 0, 0.08);
-  --mode-selection-card-hover: rgba(241, 245, 249, 0.95);
-  --mode-selection-card-selected: rgba(219, 234, 254, 0.8);
-  --mode-selection-accent: rgba(59, 130, 246, 0.3);
-  --mode-selection-accent-strong: rgba(59, 130, 246, 0.5);
-  --mode-selection-icon: #3b82f6;
-  --mode-selection-icon-selected: #2563eb;
-  --mode-selection-btn-bg: rgba(248, 250, 252, 0.8);
-  --mode-selection-btn-text: #475569;
-  --mode-selection-btn-hover: rgba(241, 245, 249, 0.95);
-  --mode-selection-float-bg: rgba(255, 255, 255, 0.9);
-  --mode-selection-float-hover: rgba(248, 250, 252, 1);
-  --mode-selection-modal-bg: #ffffff;
+[data-theme="light"] .selection-content {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.92) 100%);
+  border-color: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .main-title {
+  color: #1e293b;
+  text-shadow: none;
+}
+
+[data-theme="light"] .sub-title {
+  color: #64748b;
+}
+
+[data-theme="light"] .gate-card {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .gate-card:hover,
+[data-theme="light"] .gate-card.selected {
+  background: rgba(239, 246, 255, 0.9);
+}
+
+[data-theme="light"] .gate-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .gate-icon {
+  color: #3b82f6;
+}
+
+[data-theme="light"] .icon-bg {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%);
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="light"] .gate-detail {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .btn-secondary {
+  background: rgba(248, 250, 252, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #475569;
+}
+
+[data-theme="light"] .btn-ghost {
+  color: #64748b;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .version-tag {
+  color: #0891b2;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(56, 189, 248, 0.1) 100%);
+  border-color: rgba(34, 211, 238, 0.35);
+  text-shadow: none;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.1);
 }
 
 /* 响应式 */
 @media (max-width: 768px) {
   .mode-selection-container {
+    padding: 1rem;
     align-items: flex-start;
-    justify-content: flex-start;
+    padding-top: calc(1rem + env(safe-area-inset-top));
   }
 
   .selection-content {
     padding: 2rem 1.5rem;
-    gap: 2rem;
-    max-height: none;
+    gap: 1.5rem;
+    max-height: calc(100svh - 2rem);
+  }
+
+  .top-info {
+    top: 1rem;
+    right: 1rem;
+    gap: 0.5rem;
   }
 
   .main-title {
-    font-size: 2.2rem;
-    letter-spacing: 0.3em;
+    font-size: 2.5rem;
+    letter-spacing: 0.4em;
   }
 
-  .title-version-row {
-    flex-direction: column;
-    gap: 0.5rem;
+  .sub-title {
+    font-size: 1rem;
   }
 
   .gate-container {
     flex-direction: column;
-    align-items: center;
   }
 
   .gate-card {
-    width: 100%;
-    max-width: 320px;
-    padding: 2rem 1.5rem;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem 1.5rem;
+    min-height: auto;
   }
 
-  .start-actions-container {
+  .gate-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .gate-info {
+    width: 100%;
+  }
+
+  .gate-detail {
+    display: none;
+  }
+
+  .gate-tags {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .gate-tags span {
+    white-space: nowrap;
+  }
+
+  .action-group {
     flex-direction: column;
     width: 100%;
-    max-width: 280px;
   }
 
-  .action-btn {
+  button {
     width: 100%;
-    justify-content: center;
+    min-height: 46px;
   }
 }
 
 @media (max-width: 480px) {
-  .mode-selection-container {
-    padding: 0.75rem;
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding-top: calc(0.75rem + env(safe-area-inset-top));
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
-  }
-
   .selection-content {
-    padding: 1.25rem 1rem;
+    padding: 1.75rem 1.25rem;
     gap: 1.25rem;
-    border-radius: 12px;
-    max-height: none;
+  }
+
+  .top-info {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
   }
 
   .main-title {
-    font-size: 1.6rem;
-    letter-spacing: 0.2em;
+    font-size: 2rem;
+    letter-spacing: 0.35em;
   }
 
   .sub-title {
-    font-size: 0.85rem;
-  }
-
-  .gate-card {
-    padding: 1.25rem 1rem;
-  }
-
-  .gate-icon {
-    margin-bottom: 1rem;
-  }
-
-  .gate-icon svg {
-    width: 36px;
-    height: 36px;
+    font-size: 0.9rem;
   }
 
   .gate-title {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
   }
 
-  .gate-description {
+  .gate-desc {
     font-size: 0.85rem;
   }
 
-  .gate-detail {
-    font-size: 0.75rem;
+  button {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
   }
 
-  .privacy-notice {
-    padding: 0.6rem 0.8rem;
-  }
-
-  .privacy-notice p {
+  .version-tag,
+  .status-indicator {
     font-size: 0.7rem;
-  }
-
-  .action-btn {
-    padding: 0.7rem 1.2rem;
-    font-size: 0.85rem;
-  }
-
-  .auth-status-badge {
-    bottom: 12px;
-    left: 12px;
-  }
-
-  .auth-status-content {
-    padding: 0.4rem 0.7rem;
-  }
-
-  .status-text {
-    font-size: 0.7rem;
-  }
-}
-
-/* 超小屏幕适配 (360px以下) */
-@media (max-width: 360px) {
-  .mode-selection-container {
-    padding: 0.5rem;
-    padding-top: calc(0.5rem + env(safe-area-inset-top));
-    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
-  }
-
-  .selection-content {
-    padding: 1rem 0.75rem;
-    gap: 1rem;
-  }
-
-  .main-title {
-    font-size: 1.4rem;
-  }
-
-  .sub-title {
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
-  }
-
-  .gate-card {
-    padding: 1rem 0.75rem;
-  }
-
-  .gate-title {
-    font-size: 1rem;
+    padding: 0.2rem 0.5rem;
   }
 }
 </style>

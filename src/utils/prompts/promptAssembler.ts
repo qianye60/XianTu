@@ -46,17 +46,27 @@ export async function assembleSystemPrompt(activePrompts: string[], customAction
 
   // 根据激活列表来添加可选模块
   if (activePrompts.includes('actionOptions')) {
-    const actionOptionsPrompt = await getPrompt('actionOptions');
+    const actionOptionsPrompt = (await getPrompt('actionOptions')).trim();
     const customPromptSection = customActionPrompt
-      ? `**用户自定义要求**：${customActionPrompt}\n\n请严格按照以上自定义要求生成行动选项。`
+      ? `**用户自定义要求**：${customActionPrompt}
+
+请严格按照以上自定义要求生成行动选项。`
       : '（无特殊要求，按默认规则生成）';
-    promptSections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
+    if (actionOptionsPrompt) {
+      promptSections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
+    }
   }
 
-  if (activePrompts.includes('questSystem')) {
-    const questPrompt = await getPrompt('questGeneration');
-    promptSections.push(questPrompt);
+  if (activePrompts.includes('eventSystem')) {
+    const eventRules = (await getPrompt('eventSystemRules')).trim();
+    if (eventRules) {
+      promptSections.push(eventRules);
+    }
   }
 
-  return promptSections.join('\n\n---\n\n');
+  const normalizedSections = promptSections
+    .map(section => section.trim())
+    .filter(Boolean);
+
+  return normalizedSections.join('\n\n---\n\n');
 }

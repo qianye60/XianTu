@@ -1,11 +1,6 @@
 <template>
   <div class="prompt-panel">
     <div class="panel-header compact">
-      <button class="back-btn" @click="goBack" title="返回">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-      </button>
       <div class="panel-title-compact">
         <span class="title-text">📝 提示词管理</span>
       </div>
@@ -86,10 +81,7 @@
                   />
                   <span class="toggle-slider"></span>
                 </label>
-                <!-- 显示顺序号（仅核心请求提示词） -->
-                <span v-if="categoryKey === 'coreRequest' && prompt.order" class="prompt-order">
-                  {{ prompt.order }}
-                </span>
+                <!-- 序号已包含在name中，不再单独显示 -->
                 <span class="prompt-title" :class="{ disabled: !prompt.enabled }">{{ prompt.name }}</span>
               </div>
               <div class="prompt-meta">
@@ -142,13 +134,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { promptStorage, type PromptItem, type PromptsByCategory } from '@/services/promptStorage';
 import { toast } from '@/utils/toast';
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
 import { useCharacterStore } from '@/stores/characterStore';
 
-const router = useRouter();
 const characterStore = useCharacterStore();
 
 // 检测是否为联机模式
@@ -173,17 +163,6 @@ async function loadPrompts() {
   }
 }
 
-function goBack() {
-  // 根据来源决定返回位置
-  // 如果是从独立路由访问，返回首页
-  // 如果是从游戏内访问，返回设置页
-  const currentPath = router.currentRoute.value.path;
-  if (currentPath === '/prompts') {
-    router.push('/');
-  } else {
-    router.push('/game/settings');
-  }
-}
 
 function toggleCategory(categoryKey: string) {
   expandedCategories.value[categoryKey] = !expandedCategories.value[categoryKey];
@@ -406,25 +385,6 @@ function downloadJSON(data: any, filename: string) {
   background: var(--color-surface);
 }
 
-.back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.back-btn:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-primary);
-}
 
 .panel-title-compact {
   display: flex;
@@ -434,7 +394,7 @@ function downloadJSON(data: any, filename: string) {
 }
 
 .title-text {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--color-text);
 }

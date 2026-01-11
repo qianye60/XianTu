@@ -40,6 +40,25 @@ export function validateAndFixSectRealmData(sectData: any): any {
     delete sectData.leadership;
   }
 
+  // 特殊规则：合欢宗若缺失“圣女”，自动补齐（避免只生成宗门不生成关键职位）
+  const sectName = String(sectData.名称 || sectData.name || '');
+  if (sectName.includes('合欢')) {
+    if (!sectData.领导层) {
+      sectData.领导层 = {
+        宗主: '合欢老魔',
+        宗主修为: sectData.最强修为 || '化神期',
+        最强修为: sectData.最强修为 || '化神期',
+        圣女: '灰夫人(合欢圣女)'
+      };
+    } else if (!sectData.领导层.圣女) {
+      sectData.领导层.圣女 = '灰夫人(合欢圣女)';
+    }
+  } else if (sectData.领导层) {
+    // 彩蛋限定：其他宗门不应出现“圣女/圣子”字段（即便AI生成了也移除）
+    if ('圣女' in sectData.领导层) delete sectData.领导层.圣女;
+    if ('圣子' in sectData.领导层) delete sectData.领导层.圣子;
+  }
+
   // 处理 memberCount 字段
   if (sectData.memberCount && !sectData.成员数量) {
     sectData.成员数量 = {

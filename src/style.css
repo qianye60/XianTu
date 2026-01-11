@@ -1,13 +1,13 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
-  /* --- Light Theme Colors (柔和护眼版) --- */
-  --color-background: #e1ddd4; /* 枣米色基底，更轻柔 */
-  --color-background-transparent: rgba(225, 221, 212, 0.9);
-  --color-surface: #f1eee7; /* 主面板更亮，但不过分刺眼 */
-  --color-surface-transparent: rgba(241, 238, 231, 0.82);
-  --color-surface-light: #e7e3db; /* 略深一档做层次 */
+  /* --- Light Theme Colors (现代深邃版) --- */
+  --color-background: #c8c3b8; /* 更深的基底色，增加层次 */
+  --color-background-transparent: rgba(200, 195, 184, 0.92);
+  --color-surface: #d8d4c9; /* 面板色，比背景稍亮 */
+  --color-surface-transparent: rgba(216, 212, 201, 0.88);
+  --color-surface-light: #cec9bd; /* 更深一档做层次 */
   /* Derived/interactive states (light) */
-  --color-surface-hover: #ebe7df; /* 悬浮时的柔和色 */
+  --color-surface-hover: #e0dcd2; /* 悬浮时的柔和色 */
   --color-primary: #1e4a9a; /* 更深的主色调 */
   --color-primary-rgb: 30, 74, 154;
   --color-primary-hover: #163d82;
@@ -50,8 +50,8 @@
   --vital-lifespan: #c253ff; /* 寿元(紫色) */
 
   /* Derived RGB triplets for rgba() usage (light) */
-  --color-background-rgb: 225, 221, 212;
-  --color-surface-rgb: 241, 238, 231;
+  --color-background-rgb: 200, 195, 184;
+  --color-surface-rgb: 216, 212, 201;
   --color-accent-rgb: 46, 139, 87;
   --color-border-rgb: 0, 0, 0;
   --color-success-rgb: 46, 139, 50;
@@ -199,7 +199,7 @@ body {
 /* --- Button States (Guaranteed Visual Feedback) --- */
 .btn:hover {
   background-color: var(--color-primary);
-  color: var(--color-background);
+  color: #fff;
   box-shadow: 0 0 15px rgba(200, 160, 100, 0.5);
 }
 
@@ -246,7 +246,7 @@ body {
 
 .btn.btn-complete:hover {
   background-color: var(--color-accent);
-  color: var(--color-background);
+  color: #fff;
   box-shadow: 0 0 20px rgba(111, 179, 184, 0.5);
 }
 

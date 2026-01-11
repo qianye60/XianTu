@@ -12,7 +12,7 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商店
 import { useUIStore } from '@/stores/uiStore';
 import type { GM_Response } from '@/types/AIGameMaster';
-import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
+import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect, EventSystem, GameEvent } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import {  assembleSystemPrompt } from './prompts/promptAssembler';
 import { getPrompt } from '@/services/defaultPrompts';
@@ -75,6 +75,111 @@ class AIBidirectionalSystemClass {
   private static instance: AIBidirectionalSystemClass | null = null;
   private stateHistory: StateChangeLog[] = [];
   private isSummarizing = false; // 添加一个锁，防止并发总结
+
+  private compareGameTime(a: GameTime, b: GameTime): number {
+    const fields: Array<keyof GameTime> = ['年', '月', '日', '小时', '分钟'];
+    for (const f of fields) {
+      const av = Number(a?.[f] ?? 0);
+      const bv = Number(b?.[f] ?? 0);
+      if (av > bv) return 1;
+      if (av < bv) return -1;
+    }
+    return 0;
+  }
+
+  private addYears(time: GameTime, years: number): GameTime {
+    return { ...time, 年: Number(time.年 ?? 0) + years };
+  }
+
+  private randomIntInclusive(min: number, max: number): number {
+    const a = Math.ceil(min);
+    const b = Math.floor(max);
+    return Math.floor(Math.random() * (b - a + 1)) + a;
+  }
+
+  private normalizeEventConfig(config: any): { enabled: boolean; minYears: number; maxYears: number; customPrompt: string } {
+    const enabled = config?.启用随机事件 !== false;
+    const minYears = Math.max(1, Number(config?.最小间隔年 ?? 1));
+    const maxYears = Math.max(minYears, Number(config?.最大间隔年 ?? 10));
+    const customPrompt = String(config?.事件提示词 ?? '').trim();
+    return { enabled, minYears, maxYears, customPrompt };
+  }
+
+  private scheduleNextEventTime(now: GameTime, minYears: number, maxYears: number): GameTime {
+    const years = this.randomIntInclusive(minYears, maxYears);
+    return this.addYears(now, years);
+  }
+
+  private async maybeTriggerScheduledWorldEvent(args: {
+    v3: any;
+    stateForAI: any;
+    shortTermMemoryForPrompt: string[];
+  }): Promise<void> {
+    const { v3, stateForAI, shortTermMemoryForPrompt } = args;
+
+    const now: GameTime | null = v3?.元数据?.时间 ?? null;
+    if (!now) return;
+
+    const eventSystem = (v3?.社交?.事件 ?? null) as EventSystem | null;
+    if (!eventSystem || typeof eventSystem !== 'object') return;
+
+    const { enabled, minYears, maxYears, customPrompt } = this.normalizeEventConfig((eventSystem as any).配置);
+    if (!enabled) return;
+
+    const next = (eventSystem as any).下次事件时间 as GameTime | null;
+    if (!next) {
+      const scheduled = this.scheduleNextEventTime(now, minYears, maxYears);
+      (eventSystem as any).下次事件时间 = scheduled;
+      if (stateForAI?.社交?.事件) stateForAI.社交.事件.下次事件时间 = scheduled;
+      const gameStateStore = useGameStateStore();
+      if ((gameStateStore as any).eventSystem) {
+        (gameStateStore as any).eventSystem.下次事件时间 = scheduled;
+      }
+      return;
+    }
+
+    if (this.compareGameTime(now, next) < 0) return;
+
+    try {
+      const { generateWorldEvent } = await import('@/utils/generators/eventGenerators');
+      const generated = await generateWorldEvent({ saveData: v3 as SaveData, now, customPrompt });
+      const scheduled = this.scheduleNextEventTime(now, minYears, maxYears);
+
+      if (!generated) {
+        (eventSystem as any).下次事件时间 = scheduled;
+        if (stateForAI?.社交?.事件) stateForAI.社交.事件.下次事件时间 = scheduled;
+        const gameStateStore = useGameStateStore();
+        if ((gameStateStore as any).eventSystem) {
+          (gameStateStore as any).eventSystem.下次事件时间 = scheduled;
+        }
+        return;
+      }
+
+      const event: GameEvent = { ...generated.event, 发生时间: now, 事件来源: generated.event.事件来源 || '随机' };
+
+      if (!Array.isArray((eventSystem as any).事件记录)) (eventSystem as any).事件记录 = [];
+      (eventSystem as any).事件记录.push(event);
+      (eventSystem as any).下次事件时间 = scheduled;
+
+      if (stateForAI?.社交?.事件) {
+        if (!Array.isArray(stateForAI.社交.事件.事件记录)) stateForAI.社交.事件.事件记录 = [];
+        stateForAI.社交.事件.事件记录.push(event);
+        stateForAI.社交.事件.下次事件时间 = scheduled;
+      }
+
+      const gameStateStore = useGameStateStore();
+      if ((gameStateStore as any).eventSystem) {
+        const storeEventSystem = (gameStateStore as any).eventSystem as any;
+        if (!Array.isArray(storeEventSystem.事件记录)) storeEventSystem.事件记录 = [];
+        storeEventSystem.事件记录.push(event);
+        storeEventSystem.下次事件时间 = scheduled;
+      }
+
+      shortTermMemoryForPrompt.push(`【刚刚发生的世界事件】${generated.prompt_addition}`);
+    } catch (e) {
+      console.warn('[世界事件] 调度/生成失败:', e);
+    }
+  }
 
   private extractNarrativeText(raw: string): string {
     // 🔥 移除思维链标签（兜底保护）
@@ -164,6 +269,17 @@ class AIBidirectionalSystemClass {
     options?.onProgressUpdate?.('获取存档数据…');
     const saveData = gameStateStore.toSaveData();
     if (!saveData) {
+      // 🔥 特殊处理联机模式：检查是否是联机模式导致的数据不完整
+      const onlineState = gameStateStore.onlineState as any;
+      if (onlineState?.模式 === '联机') {
+        // 联机模式下数据不完整,给出更详细的错误信息
+        console.error('[AI双向系统-联机模式] 游戏数据不完整，无法进行AI推演');
+        console.error('[AI双向系统-联机模式] 请确保：');
+        console.error('  1. 已经成功穿越到目标世界');
+        console.error('  2. 角色数据已正确加载');
+        console.error('  3. 世界数据已从服务器同步');
+        throw new Error('联机模式下游戏数据不完整，无法进行AI推演。请返回主世界或重新穿越。');
+      }
       throw new Error('无法获取存档数据，请确保角色已加载');
     }
 
@@ -185,21 +301,26 @@ class AIBidirectionalSystemClass {
         delete stateForAI.系统.历史.叙事;
       }
 
-      // 🔥 向量记忆检索：如果启用，替换全量长期记忆为相关记忆
+      // 🔥 向量记忆检索：如果启用，使用 TopK 相关记忆替代全量长期记忆
       let vectorMemorySection = '';
       try {
         const { vectorMemoryService } = await import('@/services/vectorMemoryService');
-        if (vectorMemoryService.isEnabled() && stateForAI.社交?.记忆?.长期记忆?.length > 0) {
-          const searchQuery = userMessage || '';
-          const context = {
-            currentLocation: stateForAI.角色?.位置?.描述,
-          };
-          const results = await vectorMemoryService.searchMemories(searchQuery, context);
-          if (results.length > 0) {
+        const longTermMemories = stateForAI.社交?.记忆?.长期记忆 || [];
+        if (vectorMemoryService.isEnabled() && Array.isArray(longTermMemories) && longTermMemories.length > 0) {
+          const stats = await vectorMemoryService.getStats();
+          if (stats.total === 0) {
+            console.warn('[向量记忆] 向量库为空：请先在【记忆中心 -> 向量库】一键转化长期记忆');
+          } else {
+            const recentShort = (v3?.社交?.记忆?.短期记忆 || []).slice(-2).join('\n');
+            const searchQuery = [userMessage || '', recentShort].filter(Boolean).join('\n');
+            const context = {
+              currentLocation: stateForAI.角色?.位置?.描述,
+            };
+            const results = await vectorMemoryService.searchMemories(searchQuery, context);
             vectorMemorySection = vectorMemoryService.formatForAI(results);
-            // 清空全量长期记忆，使用向量检索结果
+            // 清空全量长期记忆，改用向量检索结果（即使为空也不再全量发送，避免token爆炸）
             stateForAI.社交.记忆.长期记忆 = [];
-            console.log(`[向量记忆] 检索到 ${results.length} 条相关记忆`);
+            console.log(`[向量记忆] 已注入 ${results.length} 条相关长期记忆（向量库总数：${stats.total}）`);
           }
         }
       } catch (e) {
@@ -252,7 +373,7 @@ class AIBidirectionalSystemClass {
         coreStatusSummary += `\n- 天赋: ${formatTalentsForPrompt(character.天赋)}`;
       }
 
-      // 🎲 生成判定骰子（前端真随机，气运修正）
+      // 🎲 前端计算判定相关数值（确保准确性）
       const diceRoll = Math.floor(Math.random() * 100) + 1; // 1-100
       const innate = character?.先天六司 || {};
       const acquired = character?.后天六司 || {};
@@ -261,12 +382,38 @@ class AIBidirectionalSystemClass {
       const modifiedDice = Math.round(diceRoll * fortuneMultiplier);
       const diceBonus = Math.round((modifiedDice - 50) / 5); // 转换为判定加成
 
-      coreStatusSummary += `\n\n# 本回合判定骰子（前端真随机）
-- dice_roll: ${diceRoll} (原始1-100)
-- 气运: ${fortune} (先天${innate.气运 || 5}+后天${acquired.气运 || 0})
-- 修正后骰子: ${modifiedDice} (${diceRoll}×${fortuneMultiplier.toFixed(2)})
-- 判定加成: ${diceBonus >= 0 ? '+' : ''}${diceBonus}
-**注意：判定时必须使用此骰子加成，不可自行生成随机数！**`;
+      // 计算灵气浓度的环境修正（如果有位置信息）
+      const currentLocation = stateForAI.角色?.位置;
+      const spiritDensity = currentLocation?.灵气浓度 || 50; // 默认50
+
+      // 🔥 结构化判定数据（直接传给AI使用，无需AI自己计算）
+      const judgmentData = {
+        骰子: {
+          原始值: diceRoll,
+          气运总和: fortune,
+          气运系数: fortuneMultiplier,
+          修正后值: modifiedDice,
+          最终加成: diceBonus
+        },
+        环境: {
+          灵气浓度: spiritDensity,
+          修炼修正: Math.round((spiritDensity - 50) / 10),  // 修炼突破用
+          炼制修正: Math.round((spiritDensity - 50) / 15),  // 炼丹炼器用
+          战斗修正: Math.round((spiritDensity - 50) / 20)   // 战斗用
+        }
+      };
+
+      coreStatusSummary += `\n\n# 本回合判定数据（前端已计算）
+**骰子加成**: ${diceBonus >= 0 ? '+' : ''}${diceBonus} (原始骰子${diceRoll} × 气运系数${fortuneMultiplier.toFixed(2)} = ${modifiedDice})
+**环境修正**:
+  - 灵气浓度: ${spiritDensity}
+  - 修炼/突破: ${judgmentData.环境.修炼修正 >= 0 ? '+' : ''}${judgmentData.环境.修炼修正}
+  - 炼丹/炼器: ${judgmentData.环境.炼制修正 >= 0 ? '+' : ''}${judgmentData.环境.炼制修正}
+  - 战斗施法: ${judgmentData.环境.战斗修正 >= 0 ? '+' : ''}${judgmentData.环境.战斗修正}
+
+⚠️ **重要**：判定时直接使用以上数值，不要自己计算！
+- 骰子加成固定为: ${diceBonus >= 0 ? '+' : ''}${diceBonus}
+- 环境修正根据判定类型选择对应的值`;
       // --- 结束 ---
 
       const stateJsonString = JSON.stringify(stateForAI);
@@ -276,10 +423,12 @@ class AIBidirectionalSystemClass {
         activePrompts.push('actionOptions');
       }
 
-      // 🔥 根据任务系统配置决定是否激活任务系统提示词
-      if (stateForAI.社交?.任务?.配置?.启用系统任务) {
-        activePrompts.push('questSystem');
-      }
+      // 🔥 世界事件规则始终注入（用于“世界会变化”的叙事一致性）
+      activePrompts.push('eventSystem');
+
+      // 🔥 固定随机事件：若已到触发时间，则先生成“刚刚发生”的事件并注入短期记忆
+      const shortTermMemoryForPrompt = Array.isArray(shortTermMemory) ? [...shortTermMemory] : [];
+      await this.maybeTriggerScheduledWorldEvent({ v3, stateForAI, shortTermMemoryForPrompt });
 
       const assembledPrompt = await assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt);
       const systemPrompt = `
@@ -307,9 +456,10 @@ ${stateJsonString}
       ];
 
       // 如果有短期记忆，作为独立的 assistant 消息发送
-      if (shortTermMemory.length > 0) {
+      const memoryToSend = (typeof shortTermMemoryForPrompt !== 'undefined' ? shortTermMemoryForPrompt : shortTermMemory) as string[];
+      if (memoryToSend.length > 0) {
         injects.push({
-          content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
+          content: `# 【最近事件】\n${memoryToSend.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
           role: 'assistant',
           depth: 2,
           position: 'in_chat',
@@ -323,6 +473,29 @@ ${stateJsonString}
           content: cotPrompt.replace('{{用户输入}}', userActionForAI),
           role: 'system',
           depth: 1,
+          position: 'in_chat',
+        });
+      }
+
+      // 🌐 添加离线代理提示词（穿越到其他玩家世界时）
+      const travelTarget = stateForAI?.系统?.联机?.穿越目标;
+      if (travelTarget?.离线代理提示词) {
+        const ownerInfo = travelTarget.角色信息;
+        let agentPrompt = `# 【离线玩家代理】\n你正在扮演另一位玩家的角色。`;
+        if (ownerInfo) {
+          agentPrompt += `\n该角色信息：`;
+          if (ownerInfo.name) agentPrompt += `\n- 名称：${ownerInfo.name}`;
+          if (ownerInfo.cultivation_level) agentPrompt += `\n- 境界：${ownerInfo.cultivation_level}`;
+          if (ownerInfo.sect) agentPrompt += `\n- 宗门：${ownerInfo.sect}`;
+          if (ownerInfo.personality) agentPrompt += `\n- 性格：${ownerInfo.personality}`;
+        }
+        agentPrompt += `\n\n该玩家设定的行为指南：\n${travelTarget.离线代理提示词}`;
+        agentPrompt += `\n\n请根据以上设定来扮演这位离线玩家的角色，与当前玩家互动。`;
+
+        injects.push({
+          content: agentPrompt,
+          role: 'system',
+          depth: 2,
           position: 'in_chat',
         });
       }
@@ -395,9 +568,9 @@ ${coreStatusSummary}
             sections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
           }
 
-          // 任务系统的结构化更新属于“指令”范畴：放到第2步生成
-          if (step === 2 && (stateForAI as any).社交?.任务?.配置?.启用系统任务) {
-            sections.push(await getPrompt('questGeneration'));
+          // 世界事件规则：用于让“世界会变化”的叙事一致
+          if (step === 2) {
+            sections.push(await getPrompt('eventSystemRules'));
           }
 
           const assembled = sections.join('\n\n---\n\n');
@@ -416,9 +589,10 @@ ${stateJsonString}
             { content: systemPrompt, role: 'system', depth: 4, position: 'in_chat' }
           ];
           // 🔥 只在第1步注入短期记忆，避免重复
-          if (includeShortTermMemory && shortTermMemory.length > 0) {
+          const memoryToSend = (typeof shortTermMemoryForPrompt !== 'undefined' ? shortTermMemoryForPrompt : shortTermMemory) as string[];
+          if (includeShortTermMemory && memoryToSend.length > 0) {
             splitInjects.push({
-              content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
+              content: `# 【最近事件】\n${memoryToSend.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
               role: 'assistant',
               depth: 2,
               position: 'in_chat',
@@ -434,6 +608,7 @@ ${stateJsonString}
               user_input: args.user_input,
               should_stream: args.should_stream,
               generation_id: args.generation_id,
+              usageType: 'main',
               injects: args.injects,
             });
           }
@@ -441,6 +616,7 @@ ${stateJsonString}
             user_input: args.user_input,
             should_stream: args.should_stream,
             generation_id: args.generation_id,
+            usageType: 'main',
             injects: args.injects,
             onStreamChunk: args.onStreamChunk,
           });
@@ -502,6 +678,7 @@ ${step1Text}
           user_input: finalUserInput,
           should_stream: useStreaming,
           generation_id: generationId,
+          usageType: 'main',
           injects: injects as any,
         });
       } else {
@@ -511,6 +688,7 @@ ${step1Text}
           user_input: finalUserInput,
           should_stream: useStreaming,
           generation_id: generationId,
+          usageType: 'main',
           injects: injects as any,
           onStreamChunk: options?.onStreamChunk,
         });
@@ -695,6 +873,7 @@ ${systemPrompt}
                 ],
                 should_stream: args.should_stream,
                 generation_id: generationId,
+                usageType: 'main',
               }));
             }
 
@@ -705,6 +884,7 @@ ${systemPrompt}
               user_input: args.user,
               should_stream: args.should_stream,
               generation_id: generationId,
+              usageType: 'main',
               injects,
             });
           }
@@ -717,6 +897,7 @@ ${systemPrompt}
               ],
               should_stream: args.should_stream,
               generation_id: generationId,
+              usageType: 'main',
               onStreamChunk: args.onStreamChunk,
             });
           }
@@ -728,6 +909,7 @@ ${systemPrompt}
             user_input: args.user,
             should_stream: args.should_stream,
             generation_id: generationId,
+            usageType: 'main',
             injects: injects as any,
             onStreamChunk: args.onStreamChunk,
           });
@@ -764,7 +946,7 @@ ${step1Text}
           system: await buildInitialSplitSystemPrompt(2),
           user: step2UserPrompt,
           // 第2步只生成结构化指令：是否流式仍由设置决定，但不把chunk串到前端正文流里
-          should_stream: useStreaming,
+          should_stream: false,
           onStreamChunk: undefined,
         });
 
@@ -813,6 +995,7 @@ ${step1Text}
             ],
             should_stream: useStreaming,
             generation_id: `initial_message_raw_${Date.now()}`,
+            usageType: 'main',
           }));
         } else {
           // 🔥 使用标准 generate 模式：包含角色卡预设和聊天历史
@@ -830,6 +1013,7 @@ ${step1Text}
             user_input: userPrompt,
             should_stream: useStreaming,
             generation_id: `initial_message_${Date.now()}`,
+            usageType: 'main',
             injects,
           });
         }
@@ -846,6 +1030,7 @@ ${step1Text}
             ],
             should_stream: useStreaming,
             generation_id: `initial_message_raw_${Date.now()}`,
+            usageType: 'main',
             onStreamChunk: options?.onStreamChunk,
           });
         } else {
@@ -863,6 +1048,7 @@ ${step1Text}
             user_input: userPrompt,
             should_stream: useStreaming,
             generation_id: `initial_message_${Date.now()}`,
+            usageType: 'main',
             injects: injects as any,
             onStreamChunk: options?.onStreamChunk,
           });
@@ -1295,11 +1481,22 @@ ${step1Text}
       // 5. 调用 AI
       const tavernHelper = getTavernHelper();
 
-      // 从aiService读取配置
+      // 从aiService读取通用配置（流式等）
       const { aiService } = await import('@/services/aiService');
       const aiConfig = aiService.getConfig();
-      const useRawMode = aiConfig.memorySummaryMode === 'raw';
       const useStreaming = aiConfig.streaming !== false;
+
+      // 记忆总结模式：从 API管理 的“功能分配 -> 模式”读取（酒馆端有效）
+      let useRawMode = true;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { useAPIManagementStore } = require('@/stores/apiManagementStore');
+        const apiStore = useAPIManagementStore();
+        useRawMode = apiStore.getFunctionMode('memory_summary') === 'raw';
+      } catch {
+        // 兼容旧配置
+        useRawMode = aiConfig.memorySummaryMode === 'raw';
+      }
 
       // 检查AI服务可用性
       if (!tavernHelper) {
@@ -1328,7 +1525,8 @@ ${step1Text}
               { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] },
               { role: 'assistant', content: '</input>' }
             ],
-            should_stream: useStreaming
+            should_stream: useStreaming,
+            usageType: 'memory_summary'
           });
           response = String(rawResponse);
         } else {
@@ -1342,6 +1540,7 @@ ${saveDataJson}`;
             user_input: userPrompt,
             should_stream: useStreaming,
             generation_id: `memory_summary_${Date.now()}`,
+            usageType: 'memory_summary',
             injects: [
               {
                 content: systemPromptCombined,
@@ -1370,7 +1569,8 @@ ${saveDataJson}`;
               { role: 'user', content: userPrompt },
               { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] }
             ],
-            should_stream: useStreaming
+            should_stream: useStreaming,
+            usageType: 'memory_summary'
           });
         } else {
           console.log('[AI双向系统] 自定义API模式 - 标准模式记忆总结');
@@ -1383,6 +1583,7 @@ ${saveDataJson}`;
             user_input: userPrompt,
             should_stream: useStreaming,
             generation_id: `memory_summary_${Date.now()}`,
+            usageType: 'memory_summary',
             injects: [
               {
                 content: systemPromptCombined,
@@ -1435,7 +1636,7 @@ ${saveDataJson}`;
       // 🔥 同步到向量记忆库（如果启用）
       try {
         const { vectorMemoryService } = await import('@/services/vectorMemoryService');
-        if (vectorMemoryService.isEnabled()) {
+        if (vectorMemoryService.canAutoIndex()) {
           await vectorMemoryService.addMemory(newLongTermMemory, 7);
           console.log('[向量记忆] 新长期记忆已添加到向量库');
         }
