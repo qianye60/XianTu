@@ -356,31 +356,47 @@ const handleLogin = async () => {
   successMessage.value = null;
 
   try {
-    const body: Record<string, any> = {
-      username: username.value,
-      password: password.value,
-      is_admin: isAdminLogin.value,
-    };
-    if (turnstileEnabled.value && turnstileToken.value) {
-      body.turnstile_token = turnstileToken.value;
-    }
-
-    const data = await request<any>('/api/v1/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('username', username.value);
-
-    // 根据用户勾选的状态设置管理员标记
     if (isAdminLogin.value) {
+      // 仙官登录：走 /api/v1/admin/token（OAuth2PasswordRequestForm）
+      const form = new URLSearchParams();
+      form.set('username', username.value);
+      form.set('password', password.value);
+
+      const data = await request<any>('/api/v1/admin/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: form.toString(),
+      });
+
+      // 仙官登录与修者登录分离：清理修者token，避免后续请求混用
+      localStorage.removeItem('access_token');
+      localStorage.setItem('admin_access_token', data.access_token);
       localStorage.setItem('is_admin', 'true');
+      localStorage.setItem('username', username.value);
     } else {
+      // 修者登录：走 /api/v1/auth/token（LoginRequest）
+      const body: Record<string, any> = {
+        username: username.value,
+        password: password.value,
+      };
+      if (turnstileEnabled.value && turnstileToken.value) {
+        body.turnstile_token = turnstileToken.value;
+      }
+
+      const data = await request<any>('/api/v1/auth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('username', username.value);
       localStorage.removeItem('is_admin');
+      localStorage.removeItem('admin_access_token');
     }
 
     toast.success('登入成功，天机已连通！');

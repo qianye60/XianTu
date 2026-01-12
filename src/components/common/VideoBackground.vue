@@ -28,73 +28,65 @@ const props = withDefaults(defineProps<{
 const videoRef = ref<HTMLVideoElement>()
 
 const loadVideo = async (originalUrl: string) => {
-  if (!videoRef.value) {
-    console.warn('[VideoBackground] video元素未准备好')
-    return
-  }
+  if (!videoRef.value) return
 
   // 在加载新视频前，如果存在旧的 object URL，先释放掉
   if (videoRef.value.src.startsWith('blob:')) {
-    console.log(`[VideoBackground] 释放旧的 Object URL: ${videoRef.value.src}`)
     URL.revokeObjectURL(videoRef.value.src)
   }
 
   try {
     // 使用原始 URL 作为缓存的键
     const cachedVideo = await getVideo(originalUrl)
+    if (!videoRef.value) return // 组件可能已卸载
+
     if (cachedVideo) {
-      console.log(`[VideoBackground] 从IndexedDB加载视频: ${originalUrl}`)
       const objectURL = URL.createObjectURL(cachedVideo)
-      console.log(`[VideoBackground] 创建新的 Object URL: ${objectURL}`)
       videoRef.value.src = objectURL
     } else {
-      // 直接尝试从原始 URL 获取
-      console.log(`[VideoBackground] 尝试从网络加载视频: ${originalUrl}`);
       const response = await fetch(originalUrl);
       if (!response.ok) {
         throw new Error(`网络响应错误: ${response.statusText}`);
       }
       const videoBlob = await response.blob();
+      if (!videoRef.value) return // 组件可能已卸载
 
       // 存入缓存
       await setVideo(originalUrl, videoBlob);
-      console.log(`[VideoBackground] 视频已成功存入缓存: ${originalUrl}`);
 
+      if (!videoRef.value) return // 组件可能已卸载
       const objectURL = URL.createObjectURL(videoBlob);
-      console.log(`[VideoBackground] 创建新的 Object URL: ${objectURL}`);
       videoRef.value.src = objectURL;
     }
     videoRef.value.load();
-  } catch (error) {
-    console.warn(`[VideoBackground] 加载或缓存视频失败:`, error);
-    console.log(`[VideoBackground] 可能是跨域（CORS）问题，无法缓存。正在回退到直接播放模式...`);
+  } catch (_error) {
     // 如果发生错误（很可能是CORS错误），则直接使用原始URL
+    if (!videoRef.value) return
     videoRef.value.src = originalUrl;
     videoRef.value.load();
   }
 
+  if (!videoRef.value) return
+
   // 使用用户交互来启动播放
   const tryPlay = async () => {
+    if (!videoRef.value) return
     try {
-      await videoRef.value!.play()
-      console.log(`[VideoBackground] 视频播放成功`)
+      await videoRef.value.play()
     } catch {
-      console.log('[VideoBackground] 自动播放失败，等待用户交互')
       // 监听用户交互来启动播放
       const handleUserInteraction = async () => {
+        if (!videoRef.value) return
         try {
-          await videoRef.value!.play()
-          console.log(`[VideoBackground] 用户交互后视频播放成功`)
-          // 移除事件监听器
+          await videoRef.value.play()
           document.removeEventListener('click', handleUserInteraction)
           document.removeEventListener('keydown', handleUserInteraction)
           document.removeEventListener('touchstart', handleUserInteraction)
-        } catch (playError) {
-          console.warn('[VideoBackground] 即使用户交互后仍无法播放:', playError)
+        } catch {
+          // 忽略播放错误
         }
       }
 
-      // 添加多种用户交互事件监听
       document.addEventListener('click', handleUserInteraction, { once: true })
       document.addEventListener('keydown', handleUserInteraction, { once: true })
       document.addEventListener('touchstart', handleUserInteraction, { once: true })
@@ -125,24 +117,15 @@ onUnmounted(() => {
     videoRef.value.pause()
     // 组件卸载时，释放 object URL
     if (videoRef.value.src.startsWith('blob:')) {
-      console.log(`[VideoBackground] 组件卸载，释放 Object URL: ${videoRef.value.src}`)
       URL.revokeObjectURL(videoRef.value.src)
     }
   }
 })
 
 // 事件处理
-const onLoadStart = () => {
-  console.log('[VideoBackground] 开始加载视频')
-}
-
-const onCanPlayThrough = () => {
-  console.log('[VideoBackground] 视频可以流畅播放')
-}
-
-const onError = (event: Event) => {
-  console.error('[VideoBackground] 视频播放错误:', event)
-}
+const onLoadStart = () => {}
+const onCanPlayThrough = () => {}
+const onError = () => {}
 </script>
 
 <style scoped>

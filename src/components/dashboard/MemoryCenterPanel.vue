@@ -180,6 +180,23 @@
                 {{ embeddingStatus.reason }}
               </template>
             </div>
+            <div class="embedding-api-selector">
+              <label class="selector-label">Embedding API：</label>
+              <select
+                v-model="selectedEmbeddingApiId"
+                @change="updateEmbeddingApiId(selectedEmbeddingApiId)"
+                class="api-select"
+              >
+                <option :value="undefined">使用默认（embedding 类型分配的 API）</option>
+                <option
+                  v-for="api in availableAPIs"
+                  :key="api.id"
+                  :value="api.id"
+                >
+                  {{ api.name }} ({{ api.provider }}/{{ api.model }})
+                </option>
+              </select>
+            </div>
           </div>
           <div class="vector-actions">
             <button
@@ -479,6 +496,7 @@ import { debug } from '@/utils/debug';
 import { type MemoryFormatConfig } from '@/utils/memoryFormatConfig';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem'; // 导入AI系统
 import { vectorMemoryService, type VectorMemoryEntry } from '@/services/vectorMemoryService';
+import { useAPIManagementStore } from '@/stores/apiManagementStore'; // 导入API管理Store
 
 interface Memory {
   type: 'short' | 'medium' | 'long';
@@ -504,6 +522,7 @@ interface Memory {
 const characterStore = useCharacterStore();
 const isTavernEnvFlag = isTavernEnv();
 const gameStateStore = useGameStateStore(); // 实例化 gameStateStore
+const apiManagementStore = useAPIManagementStore(); // 实例化 API管理Store
 const { t } = useI18n();
 // const saveData = computed(() => characterStore.activeSaveSlot?.存档数据); // [已废弃]
 const loading = ref(false);
@@ -565,6 +584,10 @@ const vectorLoadingText = computed(() => {
   }
   return '正在读取向量库...';
 });
+
+// Embedding API 选择
+const selectedEmbeddingApiId = ref<string | undefined>(vectorMemoryService.getConfig().embeddingApiId);
+const availableAPIs = computed(() => apiManagementStore.enabledAPIs);
 
 // 合并所有记忆用于显示
 const memories = computed(() => {
@@ -799,6 +822,13 @@ const refreshVectorMemories = async () => {
   } finally {
     vectorLoading.value = false;
   }
+};
+
+// 更新 Embedding API 选择
+const updateEmbeddingApiId = (apiId: string | undefined) => {
+  selectedEmbeddingApiId.value = apiId;
+  vectorMemoryService.saveConfig({ embeddingApiId: apiId });
+  toast.success('Embedding API 配置已更新');
 };
 
 // 设置活跃筛选器
@@ -2235,6 +2265,43 @@ const addTestMediumTermMemory = async () => {
 
 .status-subtext.warning {
   color: var(--color-warning);
+}
+
+.embedding-api-selector {
+  flex-basis: 100%;
+  margin-left: 1.5rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.selector-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.api-select {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.api-select:hover {
+  border-color: var(--color-primary);
+}
+
+.api-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .status-dot {

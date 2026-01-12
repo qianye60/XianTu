@@ -117,6 +117,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const initialGameMessage = ref<string | null>(null);
   const useStreamingStart = ref(true); // 开局是否使用流式传输（默认启用）
   const generateMode = ref<'generate' | 'generateRaw'>('generate'); // 开局生成模式（默认使用 generate）
+  const splitResponseGeneration = ref(true); // 第七步是否使用分步生成（默认启用，提高开局稳定性）
 
   // 世界生成配置 - 使用固定默认值，用户可在界面中修改
   const worldGenerationConfig = ref({
@@ -917,7 +918,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   async function startCloudCreation() { await resetCharacter(); isLocalCreation.value = false; mode.value = 'cloud'; }
 
   return {
-    mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig, useStreamingStart, generateMode,
+    mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig, useStreamingStart, generateMode, splitResponseGeneration,
     gameDifficulty, currentDifficultyPrompt, // 难度配置
     totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,

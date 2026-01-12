@@ -6,7 +6,7 @@
  * 3. 更新并返回游戏状态
  */
 import { set, get, unset, cloneDeep } from 'lodash';
-import { getTavernHelper } from '@/utils/tavern';
+import { getTavernHelper, isTavernEnv } from '@/utils/tavern';
 import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商店
@@ -141,18 +141,54 @@ class AIBidirectionalSystemClass {
     if (this.compareGameTime(now, next) < 0) return;
 
     try {
-      const { generateWorldEvent } = await import('@/utils/generators/eventGenerators');
-      const generated = await generateWorldEvent({ saveData: v3 as SaveData, now, customPrompt });
+      const { generateWorldEvent, generateSpecialNpcEvent } = await import('@/utils/generators/eventGenerators');
+      const gameStateStore = useGameStateStore();
+
+      // 酒馆端专属：随机触发“特殊NPC登场”事件（不会在网页端触发）
+      let npcToAdd: any | null = null;
+      let generated: { event: GameEvent; prompt_addition: string; npcProfile?: unknown } | null =
+        isTavernEnv() && Math.random() < 0.2
+          ? await generateSpecialNpcEvent({ saveData: v3 as SaveData, now, customPrompt })
+          : null;
+
+      if (generated && (generated as any).npcProfile) {
+        npcToAdd = (generated as any).npcProfile;
+      } else {
+        generated = await generateWorldEvent({ saveData: v3 as SaveData, now, customPrompt });
+      }
       const scheduled = this.scheduleNextEventTime(now, minYears, maxYears);
 
       if (!generated) {
         (eventSystem as any).下次事件时间 = scheduled;
         if (stateForAI?.社交?.事件) stateForAI.社交.事件.下次事件时间 = scheduled;
-        const gameStateStore = useGameStateStore();
         if ((gameStateStore as any).eventSystem) {
           (gameStateStore as any).eventSystem.下次事件时间 = scheduled;
         }
         return;
+      }
+
+      // 若本次事件引入了特殊NPC，则写入人物关系（同时更新 stateForAI 与 store，保证提示词/存档同步）
+      if (npcToAdd && npcToAdd.名字) {
+        // v3 写入（用于后续提示词 stateForAI 继续携带）
+        if (!v3.社交) v3.社交 = {};
+        if (!v3.社交.关系 || typeof v3.社交.关系 !== 'object') v3.社交.关系 = {};
+        if (!v3.社交.关系[npcToAdd.名字]) {
+          v3.社交.关系[npcToAdd.名字] = npcToAdd;
+        }
+
+        if (stateForAI?.社交) {
+          if (!stateForAI.社交.关系 || typeof stateForAI.社交.关系 !== 'object') stateForAI.社交.关系 = {};
+          if (!stateForAI.社交.关系[npcToAdd.名字]) {
+            stateForAI.社交.关系[npcToAdd.名字] = npcToAdd;
+          }
+        }
+
+        const current = (gameStateStore.relationships && typeof gameStateStore.relationships === 'object')
+          ? gameStateStore.relationships
+          : {};
+        if (!current[npcToAdd.名字]) {
+          gameStateStore.updateState('relationships', { ...current, [npcToAdd.名字]: npcToAdd });
+        }
       }
 
       const event: GameEvent = { ...generated.event, 发生时间: now, 事件来源: generated.event.事件来源 || '随机' };
@@ -167,7 +203,6 @@ class AIBidirectionalSystemClass {
         stateForAI.社交.事件.下次事件时间 = scheduled;
       }
 
-      const gameStateStore = useGameStateStore();
       if ((gameStateStore as any).eventSystem) {
         const storeEventSystem = (gameStateStore as any).eventSystem as any;
         if (!Array.isArray(storeEventSystem.事件记录)) storeEventSystem.事件记录 = [];
@@ -175,7 +210,32 @@ class AIBidirectionalSystemClass {
         storeEventSystem.下次事件时间 = scheduled;
       }
 
-      shortTermMemoryForPrompt.push(`【刚刚发生的世界事件】${generated.prompt_addition}`);
+      // 把事件文本写入“短期记忆”，并作为本回合注入文本，保证主游戏流程可承接“刚刚发生”的事件
+      const memoryEntry = `${this._formatGameTime(now)}【世界事件】${generated.prompt_addition}`;
+      shortTermMemoryForPrompt.push(memoryEntry);
+
+      // 同步落盘：将事件快照写入存档短期记忆（否则下回合不会带上这段“刚刚发生”的承接文本）
+      if (!v3.社交) v3.社交 = {};
+      if (!v3.社交.记忆 || typeof v3.社交.记忆 !== 'object') v3.社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      if (!Array.isArray(v3.社交.记忆.短期记忆)) v3.社交.记忆.短期记忆 = [];
+      v3.社交.记忆.短期记忆.push(memoryEntry);
+
+      if (gameStateStore.memory && typeof gameStateStore.memory === 'object') {
+        const nextMemory = cloneDeep(gameStateStore.memory) as any;
+        if (!Array.isArray(nextMemory.短期记忆)) nextMemory.短期记忆 = [];
+        nextMemory.短期记忆.push(memoryEntry);
+        gameStateStore.updateState('memory', nextMemory);
+      }
+
+      // 酒馆端：若触发了“特殊NPC登场”，立刻存档一次，确保人物关系与事件快照不丢失
+      if (npcToAdd && npcToAdd.名字 && isTavernEnv()) {
+        try {
+          const characterStore = useCharacterStore();
+          await characterStore.saveCurrentGame();
+        } catch (e) {
+          console.warn('[世界事件] 特殊NPC触发后自动存档失败:', e);
+        }
+      }
     } catch (e) {
       console.warn('[世界事件] 调度/生成失败:', e);
     }
@@ -479,6 +539,21 @@ ${stateJsonString}
 
       // 🌐 添加离线代理提示词（穿越到其他玩家世界时）
       const travelTarget = stateForAI?.系统?.联机?.穿越目标;
+
+      // 🌐 联机穿越：注入“穿越场景”提示，确保叙事从对方世界续写
+      const onlineSessionId = stateForAI?.系统?.联机?.房间ID;
+      if (onlineSessionId && travelTarget?.世界ID) {
+        const ownerName = travelTarget?.主人用户名 || '世界主人';
+        const ownerLoc = travelTarget?.世界主人位置?.描述 || '';
+        const entryHint = ownerLoc ? `\n- 世界主人位置：${ownerLoc}` : '';
+        injects.push({
+          content: `# 【联机穿越】\n你当前处于联机穿越/入侵状态（会话ID：${onlineSessionId}），已进入「${ownerName}」的世界。\n叙事必须承接“穿越到对方世界”的场景继续书写，不要写成仍在原世界。${entryHint}`,
+          role: 'system',
+          depth: 3,
+          position: 'in_chat',
+        });
+      }
+
       if (travelTarget?.离线代理提示词) {
         const ownerInfo = travelTarget.角色信息;
         let agentPrompt = `# 【离线玩家代理】\n你正在扮演另一位玩家的角色。`;
@@ -802,6 +877,32 @@ ${step1Text}
       const { saveData: updatedSaveData } = await this.processGmResponse(gmResponse, saveData);
       if (options?.onStateChange) {
         options.onStateChange(updatedSaveData as unknown as PlainObject);
+      }
+
+      // 🌐 联机穿越：每回合追加一条“被入侵者视角”的简短入侵日志到服务器
+      try {
+        const gameStateStore = useGameStateStore();
+        const onlineState = gameStateStore.onlineState as any;
+        const sessionIdRaw = onlineState?.房间ID;
+        const target = onlineState?.穿越目标;
+        const inTravel = onlineState?.模式 === '联机' && sessionIdRaw && target?.世界ID;
+        const sessionId = Number(sessionIdRaw);
+        if (inTravel && Number.isFinite(sessionId) && sessionId > 0) {
+          const actorName = gameStateStore.character?.名字 || '陌生人';
+          const place = gameStateStore.location?.描述 || '未知之地';
+          const action = (userMessage && String(userMessage).trim()) || '继续行动';
+          const snippet = String((gmResponse as any)?.text || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 80);
+          const note = snippet
+            ? `你离线期间，${actorName}出现在「${place}」，并尝试：${action}。异动概述：${snippet}`
+            : `你离线期间，${actorName}出现在「${place}」，并尝试：${action}`;
+          const { appendTravelNote } = await import('@/services/onlineTravel');
+          await appendTravelNote(sessionId, note, { place, action, snippet });
+        }
+      } catch (e) {
+        console.warn('[AI双向系统] travel note append failed', e);
       }
       return gmResponse;
     } catch (error) {

@@ -5,7 +5,10 @@
     <div class="workshop-panel">
       <div class="header">
         <div class="title-row">
-          <h2 class="title">创意工坊</h2>
+          <div class="title-group">
+            <span class="title-icon">✦</span>
+            <h2 class="title">创意工坊</h2>
+          </div>
           <div v-if="backendReady" class="auth-pill" :class="{ ok: authState === 'authed', warn: authState !== 'authed' }">
             <span v-if="authState === 'checking'">检测中…</span>
             <span v-else-if="authState === 'authed'">已验证</span>
@@ -17,9 +20,9 @@
             <span>未配置后端</span>
           </div>
         </div>
-        <p class="subtitle">用于玩家之间上传/分享：设置、提示词、开局配置、存档等内容</p>
+        <p class="subtitle">分享设置、提示词、开局配置、存档</p>
         <p class="notice">
-          说明：创意工坊内容只对<strong>单机本地</strong>生效；联机模式的数据由后端权威控制（用于防作弊），不会被工坊内容覆盖。
+          工坊内容仅对<strong>单机本地</strong>生效，联机模式由后端控制。
         </p>
       </div>
 
@@ -761,34 +764,49 @@ const submitUpload = async () => {
 <style scoped>
 .workshop-container {
   width: 100%;
-  min-height: 100vh;
-  min-height: 100svh;
-  height: auto;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 1.5rem;
-  padding-top: calc(1.5rem + env(safe-area-inset-top));
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding: 12px;
+  padding-top: calc(12px + env(safe-area-inset-top));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
   box-sizing: border-box;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .workshop-panel {
   width: 100%;
-  max-width: 1100px;
-  max-height: 90vh;
+  max-width: 880px;
+  height: 100%;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  padding: 2.5rem;
+  padding: 20px 24px;
   color: var(--color-text);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
+}
+
+.workshop-panel > .header {
+  flex: 0 0 auto;
+}
+
+.workshop-panel > .tabs {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: 50px;
+}
+
+.workshop-panel > .actions {
+  flex: 0 0 auto;
 }
 
 .title-row {
@@ -798,10 +816,22 @@ const submitUpload = async () => {
   gap: 1rem;
 }
 
+.title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.title-icon {
+  font-size: 1.4rem;
+  color: var(--color-primary);
+  opacity: 0.8;
+}
+
 .title {
   margin: 0;
   font-family: var(--font-family-serif);
-  font-size: 2rem;
+  font-size: 1.5rem;
   color: var(--color-primary);
 }
 
@@ -847,33 +877,33 @@ const submitUpload = async () => {
 }
 
 .subtitle {
-  margin: 0.75rem 0 0;
+  margin: 0.5rem 0 0;
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-size: 0.9rem;
 }
 
 .notice {
-  margin: 0.6rem 0 0;
+  margin: 0.4rem 0 0;
   color: var(--color-text-muted);
-  font-size: 0.92rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
 }
 
 .actions {
-  margin-top: 2rem;
+  margin-top: 1.25rem;
   display: flex;
   justify-content: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .btn {
-  padding: 0.9rem 1.5rem;
-  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-light);
   color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.9rem;
 }
 
 .btn:hover {
@@ -891,15 +921,18 @@ const submitUpload = async () => {
 }
 
 .tabs {
-  margin-top: 1.25rem;
-  margin-bottom: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 0.75rem;
   display: flex;
-  gap: 0.75rem;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.5rem;
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 6px;
-  flex-shrink: 0;
+  border-radius: 10px;
+  padding: 4px;
+  flex: 0 0 auto;
+  height: auto;
 }
 
 .scroll-content {
@@ -928,14 +961,20 @@ const submitUpload = async () => {
 }
 
 .tab {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 0.9rem;
 }
 
 .tab.active {
@@ -1022,16 +1061,13 @@ select.input option {
 .item-list {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, 280px);
-  justify-content: center;
-  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
 }
 
 .item-card {
-  width: 280px;
-  height: 200px;
-  padding: 1rem 1.1rem;
-  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   overflow: hidden;
@@ -1048,8 +1084,8 @@ select.input option {
 }
 
 .item-title {
-  font-weight: 800;
-  font-size: 1.05rem;
+  font-weight: 700;
+  font-size: 0.95rem;
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1059,19 +1095,20 @@ select.input option {
 }
 
 .item-type {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
-  padding: 0.2rem 0.6rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--color-surface-light);
   white-space: nowrap;
 }
 
 .item-desc {
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.5;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1080,29 +1117,29 @@ select.input option {
 }
 
 .item-meta {
-  margin-top: 0.6rem;
+  margin-top: 0.4rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem;
+  gap: 0.6rem;
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   overflow: hidden;
   flex-shrink: 0;
 }
 
 .tags {
-  margin-top: 0.6rem;
+  margin-top: 0.4rem;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
   overflow: hidden;
-  max-height: 1.8rem;
+  max-height: 1.6rem;
   flex-shrink: 0;
 }
 
 .tag {
-  font-size: 0.8rem;
-  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-light);
@@ -1110,11 +1147,11 @@ select.input option {
 }
 
 .item-actions {
-  margin-top: auto;
-  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 
@@ -1283,32 +1320,27 @@ select.input option {
 }
 
 @media (max-height: 720px) {
-  .workshop-container {
-    align-items: flex-start;
-    justify-content: flex-start;
-  }
-
   .workshop-panel {
-    padding: 2rem 1.5rem;
+    padding: 14px;
   }
 }
 
 @media (max-height: 600px) {
   .workshop-panel {
-    padding: 1.5rem 1.25rem;
+    padding: 12px;
   }
 }
 
 @media (max-width: 768px) {
   .workshop-container {
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding: 1rem;
-    padding-top: calc(1rem + env(safe-area-inset-top));
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
-  .workshop-panel { padding: 2rem 1.5rem; }
+  .workshop-panel { padding: 14px; }
+  .tabs { gap: 0.25rem; padding: 3px; }
+  .tab { padding: 0.5rem 0.4rem; font-size: 0.85rem; }
   .filters { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .label { padding-top: 0; }
@@ -1316,13 +1348,13 @@ select.input option {
 
 @media (max-width: 480px) {
   .workshop-container {
-    padding: 0.75rem;
-    padding-top: calc(0.75rem + env(safe-area-inset-top));
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    padding: 8px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
 
   .workshop-panel {
-    padding: 1.5rem 1rem;
+    padding: 12px;
   }
 }
 </style>

@@ -135,7 +135,7 @@
     <!-- 地图图例 -->
     <div class="map-legend" :class="{ collapsed: legendCollapsed }">
       <div class="legend-header" @click="legendCollapsed = !legendCollapsed">
-        <div class="legend-title">{{ worldName }}图例</div>
+        <div class="legend-title">{{ worldName || '联机地图' }}图例</div>
         <button class="legend-toggle">
           <ChevronUp v-if="!legendCollapsed" :size="16" />
           <ChevronDown v-if="legendCollapsed" :size="16" />
@@ -341,10 +341,18 @@ const setupMapManager = async () => {
     // 获取容器尺寸并设置 canvas 尺寸
     const rect = mapContainerRef.value.getBoundingClientRect();
     const canvas = canvasRef.value;
-    canvas.width = rect.width;
-    canvas.height = rect.height;
 
-    console.log('[地图] Canvas 尺寸:', { width: rect.width, height: rect.height });
+    // 确保canvas有有效的尺寸
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn('[地图] 容器尺寸无效，使用默认值');
+      canvas.width = 800;
+      canvas.height = 600;
+    } else {
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+
+    console.log('[地图] Canvas 尺寸:', { width: canvas.width, height: canvas.height });
 
     // 重新初始化地图管理器，确保地图尺寸更新
     mapManager.value?.destroy();
@@ -366,7 +374,16 @@ const setupMapManager = async () => {
   } catch (error) {
     console.error('[地图] 初始化失败:', error);
     mapStatus.value = '地图加载失败';
-    toast.error('地图初始化失败: ' + (error as Error).message);
+    const errorMessage = (error as Error).message;
+
+    // 提供更有帮助的错误信息
+    if (errorMessage.includes('shader') || errorMessage.includes('WebGL')) {
+      toast.error('地图初始化失败：显卡不支持或WebGL被禁用。请尝试更新浏览器或显卡驱动。');
+    } else if (errorMessage.includes('canvas')) {
+      toast.error('地图初始化失败：Canvas元素无效。请刷新页面重试。');
+    } else {
+      toast.error('地图初始化失败: ' + errorMessage);
+    }
   }
 };
 

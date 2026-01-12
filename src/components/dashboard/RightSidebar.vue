@@ -78,15 +78,11 @@
         </h3>
         <div class="realm-display">
           <div class="realm-info">
-            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.境界?.名称) }}</span>
+            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.境界) }}</span>
             <span v-if="playerStatus?.境界?.突破描述" class="realm-breakthrough">{{ playerStatus?.境界?.突破描述 }}</span>
           </div>
-          <!-- 凡人境界显示等待引气入体 -->
-          <div v-if="playerStatus?.境界?.名称 === '凡人'" class="realm-mortal">
-            <span class="mortal-text">{{ t('等待仙缘，引气入体') }}</span>
-          </div>
-          <!-- 修炼境界显示进度条 -->
-          <div v-else class="realm-progress">
+          <!-- 有进度数据：显示进度条（包含凡人 -> 引气入体） -->
+          <div v-if="isRealmProgressAvailable" class="realm-progress">
             <div class="progress-bar">
               <div
                 class="progress-fill cultivation"
@@ -99,6 +95,10 @@
               <span v-if="realmProgressPercent >= 100" class="breakthrough-hint">可突破!</span>
               <span v-else-if="realmProgressPercent >= 90" class="sprint-hint">可冲刺</span>
             </span>
+          </div>
+          <!-- 无进度数据：显示等待提示 -->
+          <div v-else class="realm-mortal">
+            <span class="mortal-text">{{ realmWaitingText }}</span>
           </div>
         </div>
 
@@ -275,7 +275,19 @@ const realmProgressPercent = computed(() => {
   if (!gameStateStore.attributes?.境界) return 0;
   const progress = gameStateStore.attributes.境界.当前进度;
   const maxProgress = gameStateStore.attributes.境界.下一级所需;
-  return progress && maxProgress ? Math.round((progress / maxProgress) * 100) : 0;
+  if (!maxProgress || maxProgress <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((progress / maxProgress) * 100)));
+});
+
+const isRealmProgressAvailable = computed(() => {
+  const maxProgress = gameStateStore.attributes?.境界?.下一级所需;
+  return typeof maxProgress === 'number' && maxProgress > 0;
+});
+
+const realmWaitingText = computed(() => {
+  const desc = playerStatus.value?.境界?.突破描述;
+  if (desc) return `${t('等待仙缘')} · ${desc}`;
+  return t('等待仙缘');
 });
 
 // 根据进度百分比返回CSS类名
@@ -358,12 +370,8 @@ const showStatusDetail = (effect: StatusEffect) => {
   });
 };
 
-// 显示境界：统一返回"境界+阶段"（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (name?: string): string => {
-  const progress = playerStatus.value?.境界?.当前进度;
-  const maxProgress = playerStatus.value?.境界?.下一级所需;
-  const stage = playerStatus.value?.境界?.阶段;
-  return formatRealmWithStage({ name, 阶段: stage, progress, maxProgress });
+const formatRealmDisplay = (realm?: unknown): string => {
+  return formatRealmWithStage(realm);
 };
 
 // 获取声望显示文本
@@ -903,10 +911,6 @@ const getReputationClass = (): string => {
   margin-bottom: 0.25rem;
 }
 
-/* 状态效果特定样式 */
-.status-effects {
-  padding: 0 16px 16px;
-}
 
 /* 新的标签式状态效果样式 - 紧凑且美观 */
 .status-tags-container {
@@ -1370,8 +1374,9 @@ const getReputationClass = (): string => {
 
 /* 状态效果样式 */
 .status-effects {
+  padding: 0 16px 16px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
 }
 
@@ -1708,6 +1713,3 @@ const getReputationClass = (): string => {
   }
 }
 </style>
-
-
-

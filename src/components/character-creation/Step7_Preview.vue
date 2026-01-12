@@ -86,6 +86,24 @@
         </p>
       </div>
 
+      <!-- Split Response Generation -->
+      <div v-if="props.isLocalCreation" class="preview-item">
+        <h3>{{ $t('生成方式') }}</h3>
+        <div class="generate-mode-control">
+          <label class="generate-mode-label">
+            <input type="radio" name="splitMode" :value="true" v-model="store.splitResponseGeneration">
+            <span>{{ $t('分步生成') }}</span>
+          </label>
+          <label class="generate-mode-label">
+            <input type="radio" name="splitMode" :value="false" v-model="store.splitResponseGeneration">
+            <span>{{ $t('一次性生成') }}</span>
+          </label>
+        </div>
+        <p class="generate-mode-hint">
+          {{ store.splitResponseGeneration ? $t('分步生成：分步调用AI，提高开局稳定性（推荐）') : $t('一次性生成：一次性生成所有内容，速度更快但可能不稳定') }}
+        </p>
+      </div>
+
       <!-- World -->
       <div class="preview-item">
         <h3>{{ $t('所选世界') }}</h3>

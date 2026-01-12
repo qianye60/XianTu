@@ -160,6 +160,32 @@ export async function getTravelSessionLogs(session_id: number): Promise<TravelSe
   return request.get<TravelSessionLogsResponse>(`/api/v1/travel/logs/${session_id}`);
 }
 
+export type TravelWorldSnapshotResponse = {
+  session_id: number;
+  target_world_instance_id: number;
+  owner_player_id: number;
+  owner_username: string;
+  owner_char_id?: string | null;
+  save_version?: number | null;
+  game_time?: string | null;
+  world_info?: unknown | null;
+  owner_location?: unknown | null;
+  owner_base_info?: unknown | null;
+  relationships?: unknown | null;
+};
+
+export async function getTravelWorldSnapshot(session_id: number): Promise<TravelWorldSnapshotResponse> {
+  return request.get<TravelWorldSnapshotResponse>(`/api/v1/travel/snapshot/${session_id}`);
+}
+
+export async function appendTravelNote(
+  session_id: number,
+  note: string,
+  meta?: unknown
+): Promise<{ success: boolean; message: string }> {
+  return request.post<{ success: boolean; message: string }>(`/api/v1/travel/note`, { session_id, note, meta });
+}
+
 export async function moveInWorld(
   world_instance_id: number,
   to_poi_id: number,

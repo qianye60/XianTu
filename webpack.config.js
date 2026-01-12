@@ -151,6 +151,26 @@ export default (env, argv) => {
       compress: true,
       port: 8080,
       hot: true,
+      // 配置代理，解决CORS问题
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',  // 本地后端服务器
+          changeOrigin: true,
+          secure: false,
+          logLevel: 'debug',
+          onProxyReq: (proxyReq, req, res) => {
+            console.log('[代理请求]', req.method, req.url);
+          },
+          onProxyRes: (proxyRes, req, res) => {
+            console.log('[代理响应]', proxyRes.statusCode, req.url);
+          },
+          onError: (err, req, res) => {
+            console.error('[代理错误]', err);
+          }
+        }
+      },
+      // 允许通过任意host访问
+      allowedHosts: 'all',
     },
   }
 }
