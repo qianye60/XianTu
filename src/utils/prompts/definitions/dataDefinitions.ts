@@ -64,6 +64,23 @@ const CHARACTER_STRUCTURE = `
 - 装备4: string|null
 - 装备5: string|null
 - 装备6: string|null
+
+### 1.6 法身（NSFW/酒馆端；路径：\`角色.身体\`）
+仅当 **系统配置.nsfwMode=true** 且为酒馆端时，才会生成/更新。
+
+- 身高?: number (cm)
+- 体重?: number (kg)
+- 体脂率?: number (%)
+- 三围?: {胸围:number, 腰围:number, 臀围:number}
+- 外观特征?: string[]
+- 敏感点?: string[]
+- 开发度?: {部位名称: number} (0-100)
+- 纹身与印记?: string[]
+- 胸部描述?: string
+- 私处描述?: string
+- 生殖器描述?: string
+- 部位?: object (预留)
+- 部位开发?: object (预留；用于变量面板/扩展系统写入)
 `
 
 const DAO_STRUCTURE = `
@@ -403,7 +420,7 @@ export const DATA_STRUCTURE_EXAMPLES = ``
 export function stripNsfwContent(input: string): string {
   return input
     .split('\n')
-    .filter((line) => !/nsfw|私密信息|身体部位开发|privacy/i.test(line))
+    .filter((line) => !/nsfw|私密信息|身体部位开发|法身|角色\.身体|privacy/i.test(line))
     .join('\n')
     .trim();
 }

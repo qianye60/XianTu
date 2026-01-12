@@ -65,16 +65,35 @@ export class GameMapManager {
     const canvasHeight = rect.height || canvas.clientHeight || 600;
 
     // 初始化Pixi应用（Pixi.js v7 同步方式）
-    this.app = new PIXI.Application({
-      view: canvas,
-      width: canvasWidth,
-      height: canvasHeight,
-      backgroundColor: 0xf8fafc,
-      antialias: true,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
-      eventMode: 'none', // 禁用 PixiJS 内置事件系统
-    });
+    // 添加错误处理，避免shader相关错误
+    try {
+      this.app = new PIXI.Application({
+        view: canvas,
+        width: canvasWidth,
+        height: canvasHeight,
+        backgroundColor: 0xf8fafc,
+        antialias: true,
+        resolution: Math.min(window.devicePixelRatio || 1, 2), // 限制最大分辨率避免shader问题
+        autoDensity: true,
+        eventMode: 'none', // 禁用 PixiJS 内置事件系统
+        // 添加WebGL选项以提高兼容性
+        powerPreference: 'high-performance',
+      });
+    } catch (error) {
+      console.error('[地图管理器] Pixi初始化失败，尝试降级方案:', error);
+      // 降级方案：使用更保守的配置
+      this.app = new PIXI.Application({
+        view: canvas,
+        width: canvasWidth,
+        height: canvasHeight,
+        backgroundColor: 0xf8fafc,
+        antialias: false, // 禁用抗锯齿
+        resolution: 1, // 使用标准分辨率
+        autoDensity: true,
+        eventMode: 'none',
+        powerPreference: 'low-power',
+      });
+    }
 
     // 完全禁用 PixiJS 的事件系统
     if (this.app.renderer.events) {

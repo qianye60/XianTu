@@ -271,30 +271,6 @@
           </div>
         </div>
 
-        <!-- 地图标签 -->
-        <div v-else-if="activeTab === 'map'" class="map-tab">
-          <div v-if="!session || !graph" class="empty-state">
-            <MapIcon :size="48" class="empty-icon" />
-            <p>{{ t('请先发起穿越') }}</p>
-          </div>
-          <div v-else class="map-layout map-layout-v2">
-            <div class="map-canvas map-canvas-v2">
-              <GameMapPanel />
-            </div>
-            <div class="poi-sidebar">
-              <div class="current-loc">{{ t('当前位置') }}: {{ currentPoiLabel }}</div>
-              <div class="poi-list">
-                <button v-for="p in graph.pois" :key="p.id" class="poi-item"
-                  :class="{ active: p.id === graph.viewer_poi_id, reachable: isReachable(p.id) }"
-                  @click="handleMove(p.id)" :disabled="isLoading || p.id === graph.viewer_poi_id || !isReachable(p.id)">
-                  <span class="poi-name">{{ poiKeyToName(p.poi_key) }}</span>
-                  <span class="poi-meta">#{{ p.id }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 报告标签 -->
         <div v-else-if="activeTab === 'reports'" class="reports-tab">
           <div class="reports-header">
@@ -312,6 +288,7 @@
               <span :class="['badge', r.unread ? 'unread' : 'read']">{{ r.unread ? t('未读') : t('已读') }}</span>
               <span>world: {{ r.world_instance_id }}</span>
               <span class="muted">{{ r.created_at }}</span>
+              <div v-if="getReportPreview(r)" class="report-preview">{{ getReportPreview(r) }}</div>
             </div>
           </div>
         </div>
@@ -354,12 +331,10 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type { WorldInfo, PlayerLocation } from '@/types/game';
-import { ArrowRight, CalendarCheck, Coins, CornerUpLeft, Globe, Lock, Map as MapIcon, RefreshCw, ScrollText, Shield, FileText, Save } from 'lucide-vue-next';
-import GameMapPanel from '@/components/dashboard/GameMapPanel.vue';
+import { ArrowRight, CalendarCheck, Coins, CornerUpLeft, Globe, Lock, RefreshCw, ScrollText, Shield, FileText, Save } from 'lucide-vue-next';
 
 const tabs = [
   { id: 'travel', label: '穿越', icon: Globe },
-  { id: 'map', label: '地图', icon: MapIcon },
   { id: 'reports', label: '入侵报告', icon: ScrollText },
   { id: 'logs', label: '会话日志', icon: FileText },
 ];
@@ -370,11 +345,11 @@ import {
   getMapGraph,
   getMyInvasionReports,
   getMyWorldInstance,
+  getTravelWorldSnapshot,
   getTravelSessionLogs,
   getTravelProfile,
   getTravelableWorlds,
   getTravelSessionStatus,
-  moveInWorld,
   signinTravel,
   startTravel,
   updateMyWorldPolicy,
@@ -387,6 +362,7 @@ import {
   type TravelSessionLogsResponse,
   type WorldInstanceSummary,
   type InvasionReportOut,
+  type TravelWorldSnapshotResponse,
 } from '@/services/onlineTravel';
 
 import { getMyPresence, type PresenceStatusResponse } from '@/services/presence';
@@ -406,6 +382,7 @@ const apiError = ref('');
 const myWorld = ref<WorldInstanceSummary | null>(null);
 const session = ref<TravelStartResponse | null>(null);
 const graph = ref<MapGraphResponse | null>(null);
+const travelSnapshot = ref<TravelWorldSnapshotResponse | null>(null);
 const reports = ref<InvasionReportOut[]>([]);
 const sessionLogs = ref<TravelSessionLogsResponse | null>(null);
 const myPresence = ref<PresenceStatusResponse | null>(null);
@@ -447,36 +424,6 @@ const canTravelToSelected = computed(() => {
   );
 });
 
-const poiById = computed(() => {
-  const pois = graph.value?.pois ?? [];
-  return new Map(pois.map((p) => [p.id, p] as const));
-});
-
-const currentPoiLabel = computed(() => {
-  if (!graph.value?.viewer_poi_id) return t('未知');
-  const poi = poiById.value.get(graph.value.viewer_poi_id);
-  return poi ? `${poiKeyToName(poi.poi_key)} (#${poi.id})` : `#${graph.value.viewer_poi_id}`;
-});
-
-const viewBox = computed(() => {
-  const pois = graph.value?.pois ?? [];
-  if (pois.length === 0) return '0 0 600 400';
-  let minX = pois[0].x;
-  let maxX = pois[0].x;
-  let minY = pois[0].y;
-  let maxY = pois[0].y;
-  for (const p of pois) {
-    minX = Math.min(minX, p.x);
-    maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y);
-    maxY = Math.max(maxY, p.y);
-  }
-  const pad = 60;
-  const w = Math.max(200, maxX - minX + pad * 2);
-  const h = Math.max(160, maxY - minY + pad * 2);
-  return `${minX - pad} ${minY - pad} ${w} ${h}`;
-});
-
 const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const onlineBackupPrefix = 'dad_online_world_backup_';
 const getBackupKey = () => {
@@ -485,7 +432,7 @@ const getBackupKey = () => {
   return `${onlineBackupPrefix}${characterId}`;
 };
 
-const readWorldBackup = (): { worldInfo: WorldInfo | null; location: PlayerLocation | null; onlineState: any | null } | null => {
+const readWorldBackup = (): { worldInfo: WorldInfo | null; location: PlayerLocation | null; relationships: any | null; onlineState: any | null } | null => {
   const raw = localStorage.getItem(getBackupKey());
   if (!raw) return null;
   try {
@@ -502,6 +449,7 @@ const storeWorldBackup = (force: boolean = false) => {
   const payload = {
     worldInfo: gameStateStore.worldInfo ? cloneJson(gameStateStore.worldInfo) : null,
     location: gameStateStore.location ? cloneJson(gameStateStore.location) : null,
+    relationships: gameStateStore.relationships ? cloneJson(gameStateStore.relationships) : null,
     onlineState: gameStateStore.onlineState ? cloneJson(gameStateStore.onlineState) : null,
   };
   localStorage.setItem(key, JSON.stringify(payload));
@@ -512,6 +460,7 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
   if (backup) {
     if (backup.worldInfo) gameStateStore.updateState('worldInfo', backup.worldInfo);
     if (backup.location) gameStateStore.updateState('location', backup.location);
+    if (backup.relationships) gameStateStore.updateState('relationships', backup.relationships);
     if (backup.onlineState) gameStateStore.updateState('onlineState', backup.onlineState);
     localStorage.removeItem(getBackupKey());
     if (options.persist) await characterStore.saveCurrentGame();
@@ -528,65 +477,33 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
   return false;
 };
 
+const PLACEHOLDER_POI_KEYS = new Set([
+  'safehouse',
+  'market',
+  'wild',
+  'forest',
+  'mountain',
+  'river',
+  'spirit_spring',
+  'ancient_ruins',
+  'cave',
+  'temple',
+  'demon_nest',
+]);
+
 const poiKeyToName = (key: string): string => {
   const normalized = String(key || '').trim();
-  if (!normalized) return '未知地点';
-  const map: Record<string, string> = {
-    safehouse: '安全屋',
-    market: '坊市',
-    wild: '荒野',
-    forest: '灵森',
-    mountain: '名山',
-    river: '灵河',
-    spirit_spring: '灵泉',
-    ancient_ruins: '古遗迹',
-    cave: '幽洞',
-    temple: '古庙',
-    demon_nest: '魔巢',
-  };
-  return map[normalized] || normalized;
+  if (!normalized) return '';
+  if (PLACEHOLDER_POI_KEYS.has(normalized)) return '';
+  return normalized;
 };
 
-const poiToWorldLocationType = (poi: { poi_key?: string; type?: string }): string => {
-  const key = poi?.poi_key ? String(poi.poi_key) : '';
-  const t = poi?.type ? String(poi.type) : '';
-  if (key === 'market' || t === 'town') return 'city_town';
-  if (key === 'safehouse' || t === 'safehouse') return 'blessed_land';
-  if (key === 'wild' || t === 'wild') return 'dangerous_area';
-  return t || 'special_other';
-};
-
-const buildWorldInfoFromGraph = (mapGraph: MapGraphResponse, worldLabel: string): WorldInfo => {
-  const pois = mapGraph.pois || [];
-  const maxX = pois.reduce((m, p) => Math.max(m, Number(p.x) || 0), 0);
-  const maxY = pois.reduce((m, p) => Math.max(m, Number(p.y) || 0), 0);
-  const mapWidth = Math.max(1200, maxX + 300);
-  const mapHeight = Math.max(900, maxY + 300);
-
-  const locations = pois.map((poi) => ({
-    名称: poiKeyToName(poi.poi_key) || `POI ${poi.id}`,
-    类型: poiToWorldLocationType(poi),
-    位置: poiKeyToName(poi.poi_key) || `坐标(${poi.x}, ${poi.y})`,
-    coordinates: { x: poi.x, y: poi.y },
-    描述: poi.poi_key ? `联机地点：${poiKeyToName(poi.poi_key)}` : '联机地点',
-    特色: '',
-    安全等级: '较安全' as const,
-    开放状态: '开放' as const,
-  }));
-
-  return {
-    世界名称: worldLabel,
-    大陆信息: [],
-    势力信息: [],
-    地点信息: locations,
-    地图配置: { width: mapWidth, height: mapHeight },
-    生成时间: new Date().toISOString(),
-    世界背景: mapGraph.map_key ? `联机地图：${mapGraph.map_key}` : '联机世界',
-    世界纪元: '联机',
-    特殊设定: [],
-    版本: 'online',
-  };
-};
+function poiDisplayName(poi: { poi_key: string; state?: unknown }): string {
+  const state = poi?.state && typeof poi.state === 'object' ? (poi.state as any) : null;
+  const n = state?.名称 ?? state?.name;
+  if (typeof n === 'string' && n.trim().length > 0) return n.trim();
+  return poiKeyToName(poi.poi_key);
+}
 
 const calculateSpiritDensity = (poi: any): number => {
   if (!poi) return 20;
@@ -638,7 +555,11 @@ const calculateSpiritDensity = (poi: any): number => {
 const buildOnlineLocation = (mapGraph: MapGraphResponse, worldLabel: string): PlayerLocation => {
   const viewerId = mapGraph.viewer_poi_id ?? mapGraph.pois?.[0]?.id;
   const viewerPoi = viewerId ? mapGraph.pois.find((poi) => poi.id === viewerId) : undefined;
-  const label = viewerPoi?.poi_key ? `${poiKeyToName(viewerPoi.poi_key)}` : worldLabel;
+  const rawLabel = viewerPoi ? `${poiDisplayName(viewerPoi as any)}`.trim() : '';
+  const label =
+    viewerPoi
+      ? (rawLabel || `未知地点 (#${viewerPoi.id})`)
+      : worldLabel;
   const spiritDensity = calculateSpiritDensity(viewerPoi);
 
   return {
@@ -649,17 +570,38 @@ const buildOnlineLocation = (mapGraph: MapGraphResponse, worldLabel: string): Pl
   };
 };
 
-const syncTravelState = async (mapGraph: MapGraphResponse, activeSession: TravelStartResponse) => {
+const syncTravelState = async (
+  mapGraph: MapGraphResponse,
+  activeSession: TravelStartResponse,
+  snapshot?: TravelWorldSnapshotResponse | null
+) => {
   storeWorldBackup();
 
   const worldLabel = selectedWorld.value?.owner_username
     ? `${selectedWorld.value.owner_username}的世界`
     : `联机世界 #${activeSession.target_world_instance_id}`;
-  const worldInfo = buildWorldInfoFromGraph(mapGraph, worldLabel);
+  const worldInfo =
+    snapshot?.world_info && typeof snapshot.world_info === 'object'
+      ? (snapshot.world_info as any as WorldInfo)
+      : ({
+        世界名称: worldLabel,
+        大陆信息: [],
+        势力信息: [],
+        地点信息: [],
+        地图配置: { width: 1200, height: 900 },
+        生成时间: new Date().toISOString(),
+        世界背景: '',
+        世界纪元: '联机',
+        特殊设定: [],
+        版本: 'online',
+      } as any as WorldInfo);
   const location = buildOnlineLocation(mapGraph, worldLabel);
 
   gameStateStore.updateState('worldInfo', worldInfo);
   gameStateStore.updateState('location', location);
+  if (snapshot?.relationships && typeof snapshot.relationships === 'object') {
+    gameStateStore.updateState('relationships', snapshot.relationships as any);
+  }
 
   const currentOnline = gameStateStore.onlineState ?? {
     模式: '联机',
@@ -675,6 +617,25 @@ const syncTravelState = async (mapGraph: MapGraphResponse, activeSession: Travel
     模式: '联机',
     房间ID: String(activeSession.session_id),
     只读路径: (currentOnline as any).只读路径 ?? ['世界'],
+    穿越目标: {
+      ...((currentOnline as any).穿越目标 ?? {}),
+      世界ID: activeSession.target_world_instance_id,
+      主人用户名: snapshot?.owner_username ?? selectedWorld.value?.owner_username ?? null,
+      世界主人位置: snapshot?.owner_location ?? null,
+      世界主人档案: (() => {
+        const base = snapshot?.owner_base_info;
+        if (!base || typeof base !== 'object') return null;
+        const b = base as any;
+        return {
+          名字: b.名字 ?? b.name ?? null,
+          性别: b.性别 ?? b.gender ?? null,
+          种族: b.种族 ?? b.race ?? null,
+          世界: b.世界?.name ?? b.世界 ?? null,
+        };
+      })(),
+      存档版本: snapshot?.save_version ?? null,
+      游戏时间: snapshot?.game_time ?? null,
+    },
   });
 };
 
@@ -739,8 +700,14 @@ const refreshGraph = async () => {
     return;
   }
   graph.value = await getMapGraph(session.value.target_world_instance_id, session.value.entry_map_id, session.value.session_id);
+  travelSnapshot.value = null;
+  try {
+    travelSnapshot.value = await getTravelWorldSnapshot(session.value.session_id);
+  } catch {
+    travelSnapshot.value = null;
+  }
   if (graph.value) {
-    await syncTravelState(graph.value, session.value);
+    await syncTravelState(graph.value, session.value, travelSnapshot.value);
   }
 };
 
@@ -933,34 +900,15 @@ const handleEndTravel = async () => {
       stopSessionPolling();
       session.value = null;
       graph.value = null;
+      travelSnapshot.value = null;
       await restoreWorldBackup({ persist: true });
+      gameStateStore.addToShortTermMemory(`你结束了联机穿越，返回原世界。`);
+      await characterStore.saveCurrentGame();
       await refreshReports();
       await loadSessionLogs(endedSessionId);
       activeTab.value = 'logs';
     } catch (e: any) {
       toast.error(e?.message || t('返回失败'));
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const isReachable = (poiId: number): boolean => {
-  if (!graph.value) return false;
-  const from = graph.value.viewer_poi_id;
-  if (!from) return false;
-  return graph.value.edges.some((e) => e.from_poi_id === from && e.to_poi_id === poiId);
-};
-
-const handleMove = async (poiId: number) => {
-  if (!session.value || !graph.value) return;
-  if (!isReachable(poiId)) return;
-  if (isLoading.value) return;
-  isLoading.value = true;
-  try {
-    await moveInWorld(session.value.target_world_instance_id, poiId, session.value.session_id);
-    await refreshGraph();
-  } catch (e: any) {
-    toast.error(e?.message || '移动失败');
   } finally {
     isLoading.value = false;
   }
@@ -1008,6 +956,17 @@ const loadMore = () => {
   loadWorlds(false);
 };
 
+const getReportPreview = (r: InvasionReportOut): string => {
+  const summary = (r as any)?.summary;
+  if (!summary || typeof summary !== 'object') return '';
+  const notes = (summary as any).notes;
+  if (!Array.isArray(notes) || notes.length === 0) return '';
+  const first = notes[0];
+  const text = first && typeof first === 'object' ? (first as any).note : null;
+  if (typeof text !== 'string' || !text.trim()) return '';
+  return text.trim();
+};
+
 // 新增: 选择世界
 const selectWorld = (world: TravelableWorld) => {
   selectedWorld.value = world;
@@ -1048,6 +1007,10 @@ const handleStartTravelToSelected = async () => {
     await characterStore.saveCurrentGame();
     await refreshGraph();
     startSessionPolling();
+    const owner = selectedWorld.value?.owner_username || '对方';
+    const loc = gameStateStore.location?.描述 || '未知位置';
+    gameStateStore.addToShortTermMemory(`你进行了联机穿越，抵达${owner}的世界，落点：${loc}。`);
+    await characterStore.saveCurrentGame();
     toast.success(t('穿越成功'));
   } catch (e: any) {
     toast.error(e?.message || t('穿越失败'));
@@ -1676,6 +1639,8 @@ onUnmounted(() => {
 .poi-item.reachable { border-color: #22c55e; }
 .poi-name { font-weight: 500; font-size: 0.875rem; }
 .poi-meta { font-size: 0.75rem; color: var(--color-text-secondary); }
+.owner-loc { font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
+.report-preview { margin-top: 0.35rem; font-size: 0.8rem; color: var(--color-text-secondary); }
 
 /* Reports Tab */
 .reports-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }

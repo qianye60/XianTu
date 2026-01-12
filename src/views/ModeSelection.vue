@@ -15,7 +15,7 @@
 
       <!-- 标题区域 -->
       <div class="header-section">
-        <h1 class="main-title">仙 途</h1>
+        <h1 class="main-title"><span class="header-title">仙</span> 途</h1>
         <p class="sub-title">闲时坐看涛生灭，千古不过酒一壶</p>
       </div>
 
@@ -210,6 +210,23 @@ const enterCharacterSelection = async () => {
 </script>
 
 <style scoped>
+  .header-title{
+  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.6)) drop-shadow(0 0 12px rgba(129, 140, 248, 0.4));
+  animation: glow-pulse 3s ease-in-out infinite;
+  }
+
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.6)) drop-shadow(0 0 12px rgba(129, 140, 248, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(96, 165, 250, 0.8)) drop-shadow(0 0 18px rgba(129, 140, 248, 0.5));
+  }
+}
 /* 容器 - 可滚动 */
 .mode-selection-container {
   width: 100%;
@@ -222,7 +239,7 @@ const enterCharacterSelection = async () => {
   padding-top: calc(2rem + env(safe-area-inset-top));
   padding-bottom: calc(2rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
@@ -242,9 +259,8 @@ const enterCharacterSelection = async () => {
   flex-direction: column;
   gap: 2rem;
   position: relative;
-  max-height: calc(100svh - 4rem);
-  overflow-y: auto;
-  overflow-x: hidden;
+  max-height: none;
+  overflow: visible;
 }
 
 /* 版本号 - 青蓝色发光 */
@@ -684,12 +700,14 @@ button {
     padding: 1rem;
     align-items: flex-start;
     padding-top: calc(1rem + env(safe-area-inset-top));
+    min-height: auto;
   }
 
   .selection-content {
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1.25rem;
     gap: 1.5rem;
-    max-height: calc(100svh - 2rem);
+    max-height: none;
+    min-height: auto;
   }
 
   .top-info {
@@ -753,9 +771,17 @@ button {
 }
 
 @media (max-width: 480px) {
+  .mode-selection-container {
+    padding: 0.75rem;
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
   .selection-content {
-    padding: 1.75rem 1.25rem;
+    padding: 1.5rem 1rem;
     gap: 1.25rem;
+    max-height: none;
+    width: 100%;
   }
 
   .top-info {

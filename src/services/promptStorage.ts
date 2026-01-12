@@ -29,6 +29,7 @@ export interface PromptItem {
   description?: string;
   order?: number;
   weight?: number;
+  condition?: 'onlineMode' | 'splitGeneration' | 'eventSystem' | 'always';
 }
 
 export interface PromptsByCategory {
@@ -81,7 +82,8 @@ class PromptStorage {
         category: defaults[key].category,
         description: defaults[key].description,
         order: defaults[key].order,
-        weight: currentWeight
+        weight: currentWeight,
+        condition: defaults[key].condition
       };
     }
 
@@ -89,9 +91,14 @@ class PromptStorage {
   }
 
   /**
-   * 按分类加载所有提示词
+   * 按分类加载所有提示词（支持条件过滤）
+   * @param filterOptions 过滤选项
    */
-  async loadByCategory(): Promise<PromptsByCategory> {
+  async loadByCategory(filterOptions?: {
+    isOnlineMode?: boolean;
+    isSplitGeneration?: boolean;
+    isEventSystemEnabled?: boolean;
+  }): Promise<PromptsByCategory> {
     await this.init();
     const allPrompts = await this.loadAll();
     const result: PromptsByCategory = {};
@@ -104,9 +111,23 @@ class PromptStorage {
       };
     }
 
-    // 按分类整理提示词
+    // 按分类整理提示词，并根据条件过滤
     for (const key in allPrompts) {
       const prompt = allPrompts[key];
+
+      // 根据条件过滤提示词
+      if (filterOptions && prompt.condition) {
+        if (prompt.condition === 'onlineMode' && !filterOptions.isOnlineMode) {
+          continue; // 跳过联机模式专用提示词
+        }
+        if (prompt.condition === 'splitGeneration' && !filterOptions.isSplitGeneration) {
+          continue; // 跳过分步生成专用提示词
+        }
+        if (prompt.condition === 'eventSystem' && !filterOptions.isEventSystemEnabled) {
+          continue; // 跳过事件系统专用提示词
+        }
+      }
+
       const category = prompt.category;
       if (result[category]) {
         result[category].prompts.push(prompt);

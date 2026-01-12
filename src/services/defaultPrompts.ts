@@ -55,6 +55,7 @@ export interface PromptDefinition {
   description?: string;
   order?: number;
   weight?: number; // 权重 1-10，越高越重要
+  condition?: 'onlineMode' | 'splitGeneration' | 'eventSystem' | 'always'; // 显示条件
 }
 
 /**
@@ -191,7 +192,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'online',
       description: '联机模式限制',
       order: 1,
-      weight: 8
+      weight: 8,
+      condition: 'onlineMode'
     },
     onlineWorldSync: {
       name: '联机世界同步',
@@ -203,7 +205,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'online',
       description: '世界同步机制',
       order: 2,
-      weight: 7
+      weight: 7,
+      condition: 'onlineMode'
     },
     onlineInteraction: {
       name: '联机交互',
@@ -215,7 +218,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'online',
       description: '玩家交互规则',
       order: 3,
-      weight: 6
+      weight: 6,
+      condition: 'onlineMode'
     },
     cotCore: {
       name: '6. 自检协议',
@@ -239,7 +243,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'coreRequest',
       description: '世界事件演变与影响',
       order: 8,
-      weight: 5
+      weight: 5,
+      condition: 'eventSystem'
     },
     splitGenerationStep1: {
       name: '9. 分步正文',
@@ -250,7 +255,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'coreRequest',
       description: '分步模式第1步',
       order: 9,
-      weight: 7
+      weight: 7,
+      condition: 'splitGeneration'
     },
     splitGenerationStep2: {
       name: '10. 分步指令',
@@ -260,28 +266,162 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'coreRequest',
       description: '分步模式第2步',
       order: 10,
-      weight: 7
+      weight: 7,
+      condition: 'splitGeneration'
     },
     splitInitStep1: {
       name: '11. 开局正文',
-      content: `# 开局分步 1/2：正文
-禁止：<thinking>/JSON/指令
-只输出：开局纯文本正文
-要求：交代场景、结尾留钩子`.trim(),
+      content: `# 天道书写命运之章 - 第一步：开局叙事
+
+## 你的任务
+根据玩家的角色设定，书写一段沉浸式的开局叙事文本。
+
+## 输出要求
+**只输出纯文本正文，不要任何JSON、标签、指令！**
+
+## 叙事要求
+1. **字数**: 1200-2500字
+2. **视角**: 第三人称，以玩家角色为主视角
+3. **内容结构**:
+   - 开篇：交代时间、地点、环境氛围
+   - 中段：展现角色的出身背景、当前处境
+   - 结尾：留下悬念或行动契机，自然过渡到玩家可以做出选择的时刻
+
+## 文风要求
+- **修仙正剧风**: 语言古朴凝练，富有画面感
+- **沉浸式体验**: 侧重环境氛围、内心感悟、灵气流动的触感
+- **严禁游戏术语**: 不要出现"玩家"、"获得"、"装备了"、"等级提升"等出戏词汇
+- **严禁数据罗列**: 不要在正文中出现任何游戏数据、JSON、变量名
+
+## 修仙逻辑
+- **成仙之难**: 修仙是"逆天而行"，每一步都充满艰辛
+- **时间感知**: 体现时间流逝感（如"寒来暑往"、"枯坐数日"）
+- **境界严谨**: 凡人开局不可能在此次生成中直接突破到练气期
+
+## 角色塑造
+- **年龄匹配**: 行为举止要符合玩家选择的年龄段
+- **出身一致**: 出身决定眼界和起点，必须与玩家选择完全匹配
+- **尊重选择**: 玩家选择什么样的出身、天赋、灵根，你就如实展现，不要强加预设剧情
+
+## 禁止事项
+- ❌ 不要输出 <thinking> 或任何思维链标签
+- ❌ 不要输出 JSON 格式
+- ❌ 不要输出游戏指令或数据
+- ❌ 不要输出"记忆"、"行动选项"等结构化内容
+- ❌ 不要在文本中夹带命令、数据、变量名
+
+## 示例开头（仅供参考风格）
+"仙历一千零五十年，初春。东荒大陆，青云山脉外围，一座不起眼的小村庄笼罩在晨雾之中。村口的老槐树下，一个少年正静静地坐着，目光望向远方连绵的群山..."
+
+现在，请根据用户提供的角色信息，书写开局叙事。`.trim(),
       category: 'coreRequest',
       description: '开局分步第1步',
       order: 11,
-      weight: 7
+      weight: 7,
+      condition: 'splitGeneration'
     },
     splitInitStep2: {
       name: '12. 开局指令',
-      content: `# 开局分步 2/2：JSON指令
-禁止：正文/text/<thinking>
-只输出：{mid_term_memory, tavern_commands, action_options}`.trim(),
+      content: `# 天道书写命运之章 - 第二步：初始化数据
+
+## 你的任务
+根据第一步生成的开局叙事，输出初始化游戏数据。
+
+## 输出格式（最高优先级）
+**只输出一个 JSON 对象，不要任何解释性文字！**
+
+\`\`\`json
+{
+  "mid_term_memory": "50-100字摘要（必填，不能为空）",
+  "tavern_commands": [
+    {"action":"set","key":"元数据.时间","value":{"年":1050,"月":1,"日":1,"小时":8,"分钟":0}},
+    {"action":"set","key":"角色.身份.出生日期","value":{"年":1032,"月":1,"日":1,"小时":0,"分钟":0}},
+    {"action":"set","key":"角色.位置","value":{"描述":"大陆·地点","x":5000,"y":5000}},
+    {"action":"set","key":"角色.背包.灵石","value":{"下品":100,"中品":0,"上品":0,"极品":0}}
+  ],
+  "action_options": ["选项1","选项2","选项3","选项4","选项5"]
+}
+\`\`\`
+
+## 初始化命令规则（tavern_commands）
+
+### 必须执行的命令（按顺序）：
+
+1. **时间** - 设置 \`元数据.时间\`
+   - 并设置 \`角色.身份.出生日期\`（出生年 = 元数据.时间.年 - 开局年龄）
+
+2. **位置** - 设置 \`角色.位置\`
+   - 必须包含 {描述, x, y}
+   - 描述格式：大陆·地点（用·分隔）
+   - 从可用地点列表中选择
+   - 坐标范围: x:0-10000, y:0-10000
+
+3. **声望** - 设置 \`角色.属性.声望\`
+   - 普通出身: 0-10
+   - 宗门出身: 10-50
+   - 名门出身: 50-100
+
+4. **随机项** - 若灵根/出身为"随机"
+   - 用 \`set\` 写入 \`角色.身份.灵根\` 或 \`角色.身份.出生\` 的具体内容
+
+5. **资源** - 设置初始资源
+   - \`角色.背包.灵石\`（根据出身决定数量）
+   - \`角色.背包.物品.{物品ID}\`（如有初始物品）
+   - 功法只作为"物品.类型=功法"进入背包
+
+6. **NPC** - 仅创建文本中明确提到的重要人物（0-3个）
+   - 写入 \`社交.关系.{NPC中文名}\`
+   - key直接使用NPC的中文名字（如：张三、李媚娘）
+   - NPC对象内的 \`名字\` 字段必须与key一致
+
+7. **大道** - 若天赋/功法影响大道
+   - 写入 \`角色.大道.大道列表.{道名}\`
+   - 必须包含完整对象
+
+### 初始资源控制（严格执行）
+
+**灵石**（基于出身）:
+- 贫困/流浪: 0-10
+- 凡人/普通: 10-50
+- 修仙世家/宗门: 100-300
+- 富裕/商贾: 300-800
+
+**物品与装备**:
+- 数量: 1-5件，宁缺毋滥
+- 品质: 初始物品必须以**凡品**为主
+- 功法: 0-2部（大多数凡人开局不应自带功法）
+
+**NPC与关系**:
+- 数量: 0-3个（必须是剧情中产生深刻羁绊的重要人物）
+- 关系: 初始好感度不宜过高（除非是血亲）
+
+**境界判定**:
+- 凡人: 绝大多数开局应为凡人（境界进度0）
+- 练气: 仅当出身为"修仙家族"且年龄较大时才允许
+
+## 中期记忆（mid_term_memory）
+- 50-100字摘要
+- 必填，不能为空
+- 概括开局的核心信息（出身、处境、关键事件）
+
+## 行动选项（action_options）
+- 必须输出5个选项
+- 不能为空
+- 要符合当前场景和角色处境
+- 示例：["四处走动熟悉环境","查看自身状态","与附近的人交谈","寻找修炼之地","打听周围消息"]
+
+## 禁止事项
+- ❌ 不要输出 <thinking> 或任何思维链
+- ❌ 不要输出正文文本（text字段留空或不输出）
+- ❌ 不要输出解释性文字
+- ❌ 所有 key 必须以 \`元数据/角色/社交/世界/系统\` 开头（V3短路径）
+
+现在，请根据第一步的开局叙事和用户的角色信息，输出初始化JSON数据。`.trim(),
       category: 'coreRequest',
       description: '开局分步第2步',
       order: 12,
-      weight: 7
+      weight: 7,
+      condition: 'splitGeneration'
     },
 
     // ==================== 总结请求提示词 ====================
@@ -318,7 +458,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     eventGeneration: {
       name: '事件生成',
-      content: `生成修仙世界“刚刚发生”的世界事件（用于影响玩家与世界演变）。要求：
+      content: `生成修仙世界"刚刚发生"的世界事件（用于影响玩家与世界演变）。要求：
 - 必须让玩家受到影响（危险/资源/关系/位置/修炼环境/势力格局至少一项）
 - 事件可以是宗门大战、世界变化、异宝降世、秘境现世、好友出事/突破等
 - 涉及好友时，需参考关系/好感度与境界，不能无端超规格
@@ -342,7 +482,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       category: 'generation',
       description: '动态生成世界事件',
       order: 2,
-      weight: 5
+      weight: 5,
+      condition: 'eventSystem'
     },
     itemGeneration: {
       name: '物品生成',

@@ -138,12 +138,33 @@ import { promptStorage, type PromptItem, type PromptsByCategory } from '@/servic
 import { toast } from '@/utils/toast';
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useGameStateStore } from '@/stores/gameStateStore';
 
 const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore();
 
 // 检测是否为联机模式
 const isOnlineMode = computed(() => {
   return characterStore.activeCharacterProfile?.模式 === '联机';
+});
+
+// 检测是否开启分步生成
+const isSplitGeneration = computed(() => {
+  const settings = localStorage.getItem('dad_game_settings');
+  if (settings) {
+    try {
+      const parsed = JSON.parse(settings);
+      return parsed.splitResponseGeneration !== false; // 默认为true
+    } catch {
+      return true;
+    }
+  }
+  return true;
+});
+
+// 检测是否开启事件系统
+const isEventSystemEnabled = computed(() => {
+  return gameStateStore.eventSystem?.配置?.启用随机事件 !== false;
 });
 
 const promptsByCategory = ref<PromptsByCategory>({});
@@ -155,7 +176,11 @@ onMounted(async () => {
 });
 
 async function loadPrompts() {
-  promptsByCategory.value = await promptStorage.loadByCategory();
+  promptsByCategory.value = await promptStorage.loadByCategory({
+    isOnlineMode: isOnlineMode.value,
+    isSplitGeneration: isSplitGeneration.value,
+    isEventSystemEnabled: isEventSystemEnabled.value
+  });
   // 默认展开第一个分类
   const firstCategory = Object.keys(promptsByCategory.value)[0];
   if (firstCategory) {

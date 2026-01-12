@@ -59,7 +59,8 @@ const extractErrorMessageFromBody = (body: unknown): string | null => {
 const shouldSkipAuthRedirect = (path: string): boolean =>
   path.includes('/api/v1/auth/token') ||
   path.includes('/api/v1/auth/register') ||
-  path.includes('/api/v1/auth/me');
+  path.includes('/api/v1/auth/me') ||
+  path.includes('/api/v1/admin/token');
 
 const redirectToLogin = () => {
   localStorage.removeItem('access_token');
@@ -96,12 +97,10 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
       throw new Error('未配置后端服务器');
     }
     const fullUrl = buildBackendUrl(url);
-    console.log(`[Request] 发起请求: ${config.method || 'GET'} ${fullUrl}`);
     const response = await fetch(fullUrl, config);
 
     // 如果响应是空的 (例如 204 No Content), 直接返回
     if (response.status === 204) {
-      console.log(`[Request] 收到 204 No Content 响应 from ${fullUrl}`);
       return null as T;
     }
 
@@ -109,9 +108,6 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
     const rawText = await response.text();
 
     if (!response.ok) {
-      console.error(`[Request] 请求失败! Status: ${response.status} ${response.statusText} from ${fullUrl}`);
-      console.error('[Request] 原始响应体:', rawText);
-
       let errorMessage = `服务器错误 ${response.status}`;
       try {
         const errorJson = JSON.parse(rawText) as unknown;
@@ -122,7 +118,13 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
       }
 
       errorMessage = normalizeRequestErrorMessage(errorMessage);
-      if (response.status === 401 && !shouldSkipAuthRedirect(url)) {
+
+      // 登录相关的 401 错误不自动弹 toast，让调用方处理
+      if (shouldSkipAuthRedirect(url)) {
+        throw new Error(errorMessage);
+      }
+
+      if (response.status === 401) {
         errorMessage = '登录已失效或未登录，请先登录后再试。';
         toast.info(errorMessage);
         didToast = true;
@@ -138,18 +140,16 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
       const data = JSON.parse(rawText);
       return data as T;
     } catch (_e) {
-      console.error(`[Request] JSON 解析失败 from ${fullUrl}. 原始响应体:`, rawText);
       throw new Error('解析服务器响应失败，返回的不是有效的JSON格式。');
     }
 
   } catch (error) {
-    console.error(`[Request] 网络层或未知错误 for url: ${url}`, error);
     const errorMessage = normalizeRequestErrorMessage(
       error instanceof Error ? error.message : '网络连接失败或后端地址无效，请检查后端服务。'
     );
 
-    // 避免重复显示由 !response.ok 块已经处理过的错误
-    if (!didToast) {
+    // 避免重复显示由 !response.ok 块已经处理过的错误，以及登录相关错误
+    if (!didToast && !shouldSkipAuthRedirect(url)) {
       toast.error(errorMessage);
     }
 
@@ -182,29 +182,22 @@ request.delete = <T>(url: string, options: Omit<RequestInit, 'method'> = {}) =>
 export async function verifyStoredToken(): Promise<boolean> {
   const token = localStorage.getItem('access_token');
   if (!isBackendConfigured()) {
-    console.log('[验证令牌] 未配置后端，跳过验证');
     return false;
   }
-  console.log('[验证令牌] 从localStorage获取到的token:', token ? `${token.substring(0, 20)}...` : 'null');
 
   if (!token) {
-    console.log('[验证令牌] 未找到令牌，直接返回false');
     return false;
   }
 
   try {
-    console.log('[验证令牌] 开始发送验证请求到 /api/v1/auth/me');
     const userData = await request<{ user_name?: string }>('/api/v1/auth/me', { method: 'GET' });
-    console.log('[验证令牌] 验证成功，用户数据:', userData);
 
     if (userData && userData.user_name) {
         localStorage.setItem('username', userData.user_name);
         return true;
     }
     throw new Error('无效的用户数据');
-  } catch (error) {
-    console.error('[验证令牌] 验证失败，错误详情:', error);
-    console.warn('[验证令牌] 注意：暂时保留令牌，不自动清除');
+  } catch (_error) {
     return false;
   }
 }
@@ -215,12 +208,9 @@ export async function verifyStoredToken(): Promise<boolean> {
 export async function fetchWorlds(): Promise<World[]> {
   try {
     const worlds = await request.get<World[]>('/api/v1/worlds/');
-    console.log('[API] 成功获取世界列表:', worlds);
     return worlds || [];
-  } catch (error) {
-    console.error('[API] 获取世界列表失败:', error);
-    toast.error('获取世界列表失败，请检查网络或联系管理员。');
-    return []; // 返回空数组以避免页面崩溃
+  } catch (_error) {
+    return [];
   }
 }
 
@@ -230,11 +220,8 @@ export async function fetchWorlds(): Promise<World[]> {
 export async function fetchTalentTiers(): Promise<TalentTier[]> {
   try {
     const talentTiers = await request.get<TalentTier[]>('/api/v1/talent_tiers/');
-    console.log('[API] 成功获取天资等级列表:', talentTiers);
     return talentTiers || [];
-  } catch (error) {
-    console.error('[API] 获取天资等级失败:', error);
-    toast.error('获取天资等级失败，请检查网络或联系管理员。');
+  } catch (_error) {
     return [];
   }
 }
@@ -245,11 +232,8 @@ export async function fetchTalentTiers(): Promise<TalentTier[]> {
 export async function fetchOrigins(): Promise<Origin[]> {
   try {
     const origins = await request.get<Origin[]>('/api/v1/origins/');
-    console.log('[API] 成功获取出身列表:', origins);
     return origins || [];
-  } catch (error) {
-    console.error('[API] 获取出身列表失败:', error);
-    toast.error('获取出身列表失败，请检查网络或联系管理员。');
+  } catch (_error) {
     return [];
   }
 }
@@ -260,11 +244,8 @@ export async function fetchOrigins(): Promise<Origin[]> {
 export async function fetchSpiritRoots(): Promise<SpiritRoot[]> {
   try {
     const spiritRoots = await request.get<SpiritRoot[]>('/api/v1/spirit_roots/');
-    console.log('[API] 成功获取灵根列表:', spiritRoots);
     return spiritRoots || [];
-  } catch (error) {
-    console.error('[API] 获取灵根列表失败:', error);
-    toast.error('获取灵根列表失败，请检查网络或联系管理员。');
+  } catch (_error) {
     return [];
   }
 }
@@ -276,7 +257,6 @@ type RawTalent = Partial<Talent> & { tier?: { id?: number }; tier_id?: number | 
 export async function fetchTalents(): Promise<Talent[]> {
   try {
     const talents = await request.get<RawTalent[]>('/api/v1/talents/');
-    console.log('[API] 成功获取天赋列表:', talents);
 
     // 转换后端数据结构，提取tier_id
     const convertedTalents: Talent[] = (talents || []).map((talent: RawTalent) => ({
@@ -291,11 +271,8 @@ export async function fetchTalents(): Promise<Talent[]> {
       effects: talent.effects,
     }));
 
-    console.log('[API] 天赋数据转换完成，示例:', convertedTalents.slice(0, 2));
     return convertedTalents;
-  } catch (error) {
-    console.error('[API] 获取天赋列表失败:', error);
-    toast.error('获取天赋列表失败，请检查网络或联系管理员。');
+  } catch (_error) {
     return [];
   }
 }
@@ -304,45 +281,22 @@ export async function fetchTalents(): Promise<Talent[]> {
  * 向后端提交角色创建信息
  */
 export async function createCharacter(characterData: unknown): Promise<unknown> {
-  try {
-    console.log('[API] 正在向后端提交角色创建信息:', characterData);
-    const result = await request.post<unknown>('/api/v1/characters/create', characterData);
-    console.log('[API] 角色创建成功，后端返回:', result);
-    return result;
-  } catch (error) {
-    console.error('[API] 角色创建失败:', error);
-    toast.error('角色创建失败，请检查网络或联系管理员。');
-    throw error;
-  }
+  const result = await request.post<unknown>('/api/v1/characters/create', characterData);
+  return result;
 }
 
 /**
  * 更新角色存档数据到云端
  */
 export async function updateCharacterSave(charId: string, saveData: unknown): Promise<unknown> {
-  try {
-    console.log('[API] 正在向云端同步存档数据:', { charId, saveData });
-    const result = await request.put<unknown>(`/api/v1/characters/${charId}/save`, saveData);
-    console.log('[API] 存档同步成功，后端返回:', result);
-    return result;
-  } catch (error) {
-    console.error('[API] 存档同步失败:', error);
-    toast.error('存档同步失败，请检查网络或联系管理员。');
-    throw error;
-  }
+  const result = await request.put<unknown>(`/api/v1/characters/${charId}/save`, saveData);
+  return result;
 }
 
 /**
  * 获取角色详情（联机模式：用于拉取云端权威存档）
  */
 export async function fetchCharacterProfile(charId: string): Promise<unknown> {
-  try {
-    const result = await request.get<unknown>(`/api/v1/characters/${charId}`);
-    console.log('[API] 成功获取角色详情:', { charId });
-    return result;
-  } catch (error) {
-    console.error('[API] 获取角色详情失败:', error);
-    toast.error('获取云端角色数据失败，请检查网络或联系管理员。');
-    throw error;
-  }
+  const result = await request.get<unknown>(`/api/v1/characters/${charId}`);
+  return result;
 }

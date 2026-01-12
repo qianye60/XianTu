@@ -53,6 +53,7 @@ export interface VectorMemoryConfig {
   minSimilarity: number;     // 最低相似度阈值
   tagWeight: number;         // 标签匹配权重 (0-1)
   vectorWeight: number;      // 向量相似度权重 (0-1)
+  embeddingApiId?: string;   // Embedding API ID（可选，默认使用 'embedding' 类型分配的API）
 }
 
 // ============ 默认配置 ============
@@ -63,6 +64,7 @@ const DEFAULT_CONFIG: VectorMemoryConfig = {
   minSimilarity: 0.3,
   tagWeight: 0.4,
   vectorWeight: 0.6,
+  embeddingApiId: undefined,  // 默认使用 'embedding' 类型分配的API
 };
 
 // ============ 中文分词和关键词提取 ============
@@ -334,7 +336,15 @@ class VectorMemoryService {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { useAPIManagementStore } = require('@/stores/apiManagementStore');
       const apiStore = useAPIManagementStore();
-      const cfg = apiStore.getAPIForType('embedding');
+
+      // 如果配置了特定的 API ID，使用该 API；否则使用 'embedding' 类型分配的 API
+      let cfg;
+      if (this.config.embeddingApiId) {
+        cfg = apiStore.apiConfigs.find((api: any) => api.id === this.config.embeddingApiId && api.enabled);
+      } else {
+        cfg = apiStore.getAPIForType('embedding');
+      }
+
       if (!cfg || cfg.enabled === false) return null;
 
       // 酒馆环境下默认API来自酒馆配置，但这里无法用于Embedding（缺少Key/协议）

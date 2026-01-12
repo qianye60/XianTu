@@ -3,74 +3,199 @@
     <div class="event-toolbar">
       <div class="title">
         <span class="title-text">世界事件</span>
-        <span class="meta" v-if="nextEventText">· 下次事件：{{ nextEventText }}</span>
+        <span class="meta">· 下次事件：{{ nextEventText || '未卜' }}</span>
       </div>
-      <button class="tool-btn" @click="showConfig = !showConfig">
-        {{ showConfig ? '隐藏配置' : '事件配置' }}
-      </button>
+      <div class="toolbar-actions">
+        <button class="tool-btn subtle" @click="resetNextEventTime">
+          {{ nextEventText ? '重新抽取' : '抽取' }}
+        </button>
+        <button class="tool-btn" @click="showConfig = !showConfig">
+          {{ showConfig ? '隐藏配置' : '事件配置' }}
+        </button>
+      </div>
     </div>
 
     <!-- 配置区域 -->
     <div v-if="showConfig" class="config-section">
-      <div class="config-item">
-        <div class="config-label">
-          <span class="label-text">启用世界事件</span>
-          <span class="label-hint">游戏时间推进时自动发生影响世界的事件</span>
+      <!-- 基础配置 -->
+      <div class="config-group">
+        <div class="group-title">基础设置</div>
+
+        <div class="config-item">
+          <div class="config-label">
+            <span class="label-text">启用世界事件</span>
+            <span class="label-hint">游戏时间推进时自动发生影响世界的事件</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="config.enabled" @change="saveConfig" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" v-model="config.enabled" @change="saveConfig" />
-          <span class="toggle-slider"></span>
-        </label>
+
+        <div class="config-item">
+          <div class="config-label">
+            <span class="label-text">事件间隔（最小）</span>
+            <span class="label-hint">随机事件最短间隔（年）</span>
+          </div>
+          <input
+            type="number"
+            class="config-input"
+            min="1"
+            step="1"
+            v-model.number="config.minYears"
+            @change="saveConfig"
+          />
+        </div>
+
+        <div class="config-item">
+          <div class="config-label">
+            <span class="label-text">事件间隔（最大）</span>
+            <span class="label-hint">随机事件最长间隔（年）</span>
+          </div>
+          <input
+            type="number"
+            class="config-input"
+            min="1"
+            step="1"
+            v-model.number="config.maxYears"
+            @change="saveConfig"
+          />
+        </div>
       </div>
 
-      <div class="config-item">
-        <div class="config-label">
-          <span class="label-text">事件间隔（最小）</span>
-          <span class="label-hint">随机事件最短间隔（年）</span>
+      <!-- 事件类型开关 -->
+      <div class="config-group">
+        <div class="group-title">事件类型</div>
+
+        <div class="event-types-grid">
+          <div v-for="(enabled, type) in config.eventTypes" :key="type" class="event-type-item">
+            <label class="event-type-label">
+              <input type="checkbox" v-model="config.eventTypes[type]" @change="saveConfig" />
+              <span class="event-type-name">{{ type }}</span>
+            </label>
+          </div>
         </div>
-        <input
-          type="number"
-          class="config-input"
-          min="1"
-          step="1"
-          v-model.number="config.minYears"
-          @change="saveConfig"
-        />
+
+        <!-- 特殊NPC概率 -->
+        <div class="config-item config-item-full" v-if="config.eventTypes['特殊NPC']">
+          <div class="config-label">
+            <span class="label-text">特殊NPC触发概率</span>
+            <span class="label-hint">当触发事件时，有此概率生成特殊NPC登场事件（{{ config.specialNpcProbability }}%）</span>
+          </div>
+          <input
+            type="range"
+            class="config-slider"
+            min="0"
+            max="100"
+            step="5"
+            v-model.number="config.specialNpcProbability"
+            @change="saveConfig"
+          />
+        </div>
       </div>
 
-      <div class="config-item">
-        <div class="config-label">
-          <span class="label-text">事件间隔（最大）</span>
-          <span class="label-hint">随机事件最长间隔（年）</span>
+      <!-- 自定义提示词 -->
+      <div class="config-group">
+        <div class="group-title">自定义提示词</div>
+
+        <div class="config-item config-item-full">
+          <div class="config-label">
+            <span class="label-hint">为世界事件生成添加自定义指令（可选）</span>
+          </div>
+          <textarea
+            v-model="config.prompt"
+            class="config-textarea"
+            placeholder="例如：更偏向宗门大战、秘境现世、好友遭遇，并尽量让事件影响玩家..."
+            rows="3"
+            @change="saveConfig"
+          ></textarea>
         </div>
-        <input
-          type="number"
-          class="config-input"
-          min="1"
-          step="1"
-          v-model.number="config.maxYears"
-          @change="saveConfig"
-        />
       </div>
 
-      <div class="config-item config-item-full">
-        <div class="config-label">
-          <span class="label-text">自定义事件提示词</span>
-          <span class="label-hint">为世界事件生成添加自定义指令（可选）</span>
+      <!-- 自定义事件模板 -->
+      <div class="config-group">
+        <div class="group-title">
+          自定义事件模板
+          <button class="add-btn" @click="showAddCustomEvent = true">+ 添加</button>
         </div>
-        <textarea
-          v-model="config.prompt"
-          class="config-textarea"
-          placeholder="例如：更偏向宗门大战、秘境现世、好友遭遇，并尽量让事件影响玩家..."
-          rows="3"
-          @change="saveConfig"
-        ></textarea>
+
+        <div v-if="config.customEvents.length === 0" class="empty-hint">
+          暂无自定义事件，点击"添加"创建
+        </div>
+
+        <div v-else class="custom-events-list">
+          <div v-for="(event, index) in config.customEvents" :key="event.id" class="custom-event-item">
+            <div class="custom-event-header">
+              <label class="custom-event-checkbox">
+                <input type="checkbox" v-model="event.启用" @change="saveConfig" />
+                <span class="custom-event-name">{{ event.名称 }}</span>
+              </label>
+              <div class="custom-event-actions">
+                <button class="icon-btn" @click="editCustomEvent(index)" title="编辑">✏️</button>
+                <button class="icon-btn" @click="deleteCustomEvent(index)" title="删除">🗑️</button>
+              </div>
+            </div>
+            <div class="custom-event-info">
+              <span class="custom-event-type">{{ event.类型 }}</span>
+              <span class="custom-event-level">{{ event.影响等级 }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="config-actions">
         <button class="action-btn" @click="resetNextEventTime">
           重新抽取下次事件时间
         </button>
+      </div>
+    </div>
+
+    <!-- 自定义事件编辑弹窗 -->
+    <div v-if="showAddCustomEvent || editingEventIndex !== null" class="modal-overlay" @click.self="closeCustomEventModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>{{ editingEventIndex !== null ? '编辑' : '添加' }}自定义事件</h3>
+          <button class="close-btn" @click="closeCustomEventModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-item">
+            <label>事件名称</label>
+            <input v-model="customEventForm.名称" type="text" placeholder="例如：神秘宝藏现世" />
+          </div>
+          <div class="form-item">
+            <label>事件类型</label>
+            <select v-model="customEventForm.类型">
+              <option value="宗门大战">宗门大战</option>
+              <option value="世界变革">世界变革</option>
+              <option value="异宝降世">异宝降世</option>
+              <option value="秘境现世">秘境现世</option>
+              <option value="人物风波">人物风波</option>
+              <option value="势力变动">势力变动</option>
+              <option value="天灾人祸">天灾人祸</option>
+            </select>
+          </div>
+          <div class="form-item">
+            <label>影响等级</label>
+            <select v-model="customEventForm.影响等级">
+              <option value="轻微">轻微</option>
+              <option value="中等">中等</option>
+              <option value="重大">重大</option>
+              <option value="灾难">灾难</option>
+            </select>
+          </div>
+          <div class="form-item">
+            <label>事件描述模板</label>
+            <textarea
+              v-model="customEventForm.描述模板"
+              placeholder="支持占位符：{玩家名}、{位置}、{境界}&#10;例如：{玩家名}在{位置}发现了一处神秘洞府..."
+              rows="4"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="closeCustomEventModal">取消</button>
+          <button class="confirm-btn" @click="saveCustomEvent">保存</button>
+        </div>
       </div>
     </div>
 
@@ -98,15 +223,17 @@
 import { computed, reactive, ref, onMounted } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore';
-import type { GameEvent, GameTime } from '@/types/game';
+import type { EventSystem, GameEvent, GameTime, CustomEventTemplate } from '@/types/game';
 import { toast } from '@/utils/toast';
 
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 
 const showConfig = ref(false);
+const showAddCustomEvent = ref(false);
+const editingEventIndex = ref<number | null>(null);
 
-const eventSystem = computed(() => (gameStateStore as any).eventSystem);
+const eventSystem = computed<EventSystem>(() => gameStateStore.eventSystem);
 
 const events = computed<GameEvent[]>(() => {
   const list = (eventSystem.value?.事件记录 || []) as GameEvent[];
@@ -125,16 +252,51 @@ const config = reactive({
   minYears: 1,
   maxYears: 10,
   prompt: '',
+  eventTypes: {
+    '宗门大战': true,
+    '世界变革': true,
+    '异宝降世': true,
+    '秘境现世': true,
+    '人物风波': true,
+    '势力变动': true,
+    '天灾人祸': true,
+    '特殊NPC': true,
+  } as Record<string, boolean>,
+  specialNpcProbability: 20,
+  customEvents: [] as CustomEventTemplate[],
+});
+
+// 自定义事件表单
+const customEventForm = reactive({
+  名称: '',
+  类型: '世界变革' as any,
+  描述模板: '',
+  影响等级: '中等' as any,
 });
 
 // 加载配置
 const loadConfig = () => {
   if (eventSystem.value?.配置) {
-    const cfg = eventSystem.value.配置 as any;
+    const cfg = eventSystem.value.配置;
     config.enabled = cfg.启用随机事件 !== false;
     config.minYears = Number(cfg.最小间隔年 ?? 1);
     config.maxYears = Number(cfg.最大间隔年 ?? 10);
     config.prompt = String(cfg.事件提示词 ?? '');
+
+    // 加载事件类型开关
+    if (cfg.启用事件类型) {
+      Object.keys(config.eventTypes).forEach(type => {
+        if (type in cfg.启用事件类型!) {
+          config.eventTypes[type] = cfg.启用事件类型![type as keyof typeof cfg.启用事件类型] !== false;
+        }
+      });
+    }
+
+    // 加载特殊NPC概率
+    config.specialNpcProbability = Number(cfg.特殊NPC概率 ?? 20);
+
+    // 加载自定义事件
+    config.customEvents = (cfg.自定义事件 || []).map(e => ({ ...e }));
   }
 };
 
@@ -142,11 +304,23 @@ const loadConfig = () => {
 const saveConfig = async () => {
   try {
     if (eventSystem.value?.配置) {
-      const cfg = eventSystem.value.配置 as any;
+      const cfg = eventSystem.value.配置;
       cfg.启用随机事件 = config.enabled;
       cfg.最小间隔年 = Math.max(1, Math.floor(config.minYears));
       cfg.最大间隔年 = Math.max(cfg.最小间隔年, Math.floor(config.maxYears));
       cfg.事件提示词 = config.prompt || '';
+
+      // 保存事件类型开关
+      if (!cfg.启用事件类型) cfg.启用事件类型 = {};
+      Object.keys(config.eventTypes).forEach(type => {
+        cfg.启用事件类型![type as keyof typeof cfg.启用事件类型] = config.eventTypes[type];
+      });
+
+      // 保存特殊NPC概率
+      cfg.特殊NPC概率 = config.specialNpcProbability;
+
+      // 保存自定义事件
+      cfg.自定义事件 = config.customEvents.map(e => ({ ...e }));
 
       // 保存到数据库
       await characterStore.saveCurrentGame();
@@ -158,14 +332,94 @@ const saveConfig = async () => {
   }
 };
 
+// 编辑自定义事件
+const editCustomEvent = (index: number) => {
+  const event = config.customEvents[index];
+  customEventForm.名称 = event.名称;
+  customEventForm.类型 = event.类型;
+  customEventForm.描述模板 = event.描述模板;
+  customEventForm.影响等级 = event.影响等级;
+  editingEventIndex.value = index;
+};
+
+// 删除自定义事件
+const deleteCustomEvent = async (index: number) => {
+  if (confirm('确定要删除这个自定义事件吗？')) {
+    config.customEvents.splice(index, 1);
+    await saveConfig();
+    toast.success('已删除自定义事件');
+  }
+};
+
+// 关闭自定义事件弹窗
+const closeCustomEventModal = () => {
+  showAddCustomEvent.value = false;
+  editingEventIndex.value = null;
+  customEventForm.名称 = '';
+  customEventForm.类型 = '世界变革';
+  customEventForm.描述模板 = '';
+  customEventForm.影响等级 = '中等';
+};
+
+// 保存自定义事件
+const saveCustomEvent = async () => {
+  if (!customEventForm.名称.trim()) {
+    toast.error('请输入事件名称');
+    return;
+  }
+  if (!customEventForm.描述模板.trim()) {
+    toast.error('请输入事件描述模板');
+    return;
+  }
+
+  const eventData: CustomEventTemplate = {
+    id: editingEventIndex.value !== null
+      ? config.customEvents[editingEventIndex.value].id
+      : `custom_${Date.now()}`,
+    名称: customEventForm.名称.trim(),
+    类型: customEventForm.类型,
+    描述模板: customEventForm.描述模板.trim(),
+    影响等级: customEventForm.影响等级,
+    启用: true,
+  };
+
+  if (editingEventIndex.value !== null) {
+    config.customEvents[editingEventIndex.value] = eventData;
+    toast.success('已更新自定义事件');
+  } else {
+    config.customEvents.push(eventData);
+    toast.success('已添加自定义事件');
+  }
+
+  await saveConfig();
+  closeCustomEventModal();
+};
+
 // 重置下次事件时间
 const resetNextEventTime = async () => {
   try {
-    if (eventSystem.value) {
-      (eventSystem.value as any).下次事件时间 = null;
-      await characterStore.saveCurrentGame();
-      toast.success('已重新抽取下次世界事件时间');
+    const now = gameStateStore.gameTime;
+    if (!now) {
+      toast.error('无法获取当前游戏时间');
+      return;
     }
+
+    const minYears = Math.max(1, Math.floor(config.minYears));
+    const maxYears = Math.max(minYears, Math.floor(config.maxYears));
+    const years = Math.floor(Math.random() * (maxYears - minYears + 1)) + minYears;
+
+    const newTime: GameTime = {
+      年: now.年 + years,
+      月: now.月,
+      日: now.日,
+      小时: now.小时,
+      分钟: now.分钟,
+    };
+
+    // 使用 store 的通用更新方法，确保嵌套对象响应式更新
+    gameStateStore.updateState('eventSystem.下次事件时间', newTime);
+    await characterStore.saveCurrentGame();
+    toast.success('已重新抽取下次世界事件时间');
   } catch (error) {
     console.error('重置下次事件失败:', error);
     toast.error('重置失败，请重试');
@@ -173,7 +427,9 @@ const resetNextEventTime = async () => {
 };
 
 function formatGameTime(time: GameTime): string {
-  return `${time.年}年${time.月}月${time.日}日 ${String(time.小时).padStart(2, '0')}:${String(time.分钟).padStart(2, '0')}`;
+  const hh = String(time.小时 ?? 0).padStart(2, '0');
+  const mm = String(time.分钟 ?? 0).padStart(2, '0');
+  return `${time.年}年${time.月}月${time.日}日 ${hh}:${mm}`;
 }
 
 onMounted(() => {
@@ -229,6 +485,16 @@ onMounted(() => {
   border-color: var(--color-border-hover);
 }
 
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-btn.subtle {
+  color: var(--color-text-secondary);
+}
+
 /* 配置区域 */
 .config-section {
   padding: 12px;
@@ -237,7 +503,43 @@ onMounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 配置分组 */
+.config-group {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+}
+
+.group-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.add-btn {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 .config-item {
@@ -310,6 +612,307 @@ onMounted(() => {
 
 .config-textarea::placeholder {
   color: var(--color-text-muted);
+}
+
+/* 事件类型网格 */
+.event-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.event-type-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  transition: all 0.2s ease;
+}
+
+.event-type-item:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+.event-type-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.event-type-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.event-type-name {
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+/* 滑块样式 */
+.config-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  outline: none;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.config-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.config-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.config-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.config-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* 自定义事件列表 */
+.custom-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-event-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+
+.custom-event-item:hover {
+  border-color: var(--color-primary);
+}
+
+.custom-event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.custom-event-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.custom-event-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.custom-event-name {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.custom-event-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-hover);
+  transform: scale(1.1);
+}
+
+.custom-event-info {
+  display: flex;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.custom-event-type,
+.custom-event-level {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
+}
+
+.empty-hint {
+  padding: 12px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.close-btn {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.form-item {
+  margin-bottom: 16px;
+}
+
+.form-item label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.form-item input[type="text"],
+.form-item select,
+.form-item textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.form-item input:focus,
+.form-item select:focus,
+.form-item textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.form-item textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.cancel-btn,
+.confirm-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.cancel-btn:hover {
+  background: var(--color-surface-hover);
+}
+
+.confirm-btn {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.confirm-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 /* 开关样式 */
@@ -451,4 +1054,3 @@ input:checked + .toggle-slider:before {
   white-space: pre-wrap;
 }
 </style>
-

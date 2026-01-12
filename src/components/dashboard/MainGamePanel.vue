@@ -67,6 +67,21 @@
               >
                 <RotateCcw :size="20" />
               </button>
+
+              <button
+                @click="openEventsPanel"
+                class="header-action-btn event-btn"
+                :title="t('世界事件')"
+              >
+                <Bell :size="20" />
+              </button>
+
+              <span
+                v-if="isOnlineTraveling"
+                class="traveling-badge"
+                :title="travelingTooltip"
+              >穿越中</span>
+
               <!-- 命令日志按钮 -->
               <button
                 @click="showStateChanges(currentNarrative.stateChanges)"
@@ -311,8 +326,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onActivated, onUnmounted, nextTick, computed, watch } from 'vue';
 import {
-  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit
+  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit, Bell
 } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 import { useI18n } from '@/i18n';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
@@ -445,6 +461,7 @@ interface ActionCategory {
 }
 
 const { t } = useI18n();
+const router = useRouter();
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
@@ -452,6 +469,28 @@ const gameStateStore = useGameStateStore();
 const isTavernEnvFlag = isTavernEnv();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem;
+
+const isOnlineTraveling = computed(() => {
+  const online = gameStateStore.onlineState as any;
+  return online?.模式 === '联机' && !!online?.房间ID;
+});
+
+const travelingTooltip = computed(() => {
+  if (!isOnlineTraveling.value) return '';
+  const online = gameStateStore.onlineState as any;
+  const sessionId = online?.房间ID ? String(online.房间ID) : '';
+  const owner = online?.穿越目标?.主人用户名 ? String(online.穿越目标.主人用户名) : '';
+  const worldId = online?.穿越目标?.世界ID != null ? String(online.穿越目标.世界ID) : '';
+  const parts = ['联机穿越中'];
+  if (owner) parts.push(`目标：${owner}`);
+  if (worldId) parts.push(`世界#${worldId}`);
+  if (sessionId) parts.push(`会话#${sessionId}`);
+  return parts.join(' · ');
+});
+
+const openEventsPanel = () => {
+  router.push('/game/events');
+};
 
 // 流式输出状态
 const streamingMessageIndex = ref<number | null>(null);
@@ -581,16 +620,17 @@ const generateSceneImage = async () => {
   isGeneratingImage.value = true;
   try {
     // 构建提示词
-    const location = gameStateStore.character?.所在位置?.名称 || '未知地点';
+    const location = gameStateStore.location?.描述 || '未知地点';
     const basePrompt = `中国古风水墨画，修仙玄幻风格，高品质，细节丰富。当前地点：${location}。剧情描述：`;
     // 截取前500字作为提示词
     const prompt = basePrompt + text.substring(0, 500);
 
-    const imageUrl = await aiService.generateImage(prompt);
-    
-    currentSceneImage.value = imageUrl;
-    showImageModal.value = true;
-    toast.success('场景绘卷生成成功');
+    // TODO: 实现图片生成功能
+    // const imageUrl = await aiService.generateImage(prompt);
+    // currentSceneImage.value = imageUrl;
+    // showImageModal.value = true;
+    toast.warning('场景绘卷功能暂未实现');
+    console.log('绘图提示词:', prompt);
   } catch (error) {
     console.error('绘图失败:', error);
     toast.error(`绘图失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -2550,6 +2590,49 @@ const syncGameState = async () => {
 .header-action-btn.rollback-btn:hover {
   background: var(--color-surface-hover);
   color: var(--color-primary);
+}
+
+.header-action-btn.event-btn {
+  background: rgba(99, 102, 241, 0.10);
+  border: 1px solid rgba(99, 102, 241, 0.20);
+  color: rgba(99, 102, 241, 0.95);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.header-action-btn.event-btn:hover {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.traveling-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(234, 88, 12, 0.95);
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.25);
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .header-action-btn.event-btn {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.25);
+  color: rgba(165, 180, 252, 0.95);
+}
+
+[data-theme="dark"] .traveling-badge {
+  color: rgba(251, 146, 60, 0.95);
+  background: rgba(251, 146, 60, 0.16);
+  border-color: rgba(251, 146, 60, 0.28);
 }
 
 .narrative-time {

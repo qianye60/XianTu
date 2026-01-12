@@ -212,7 +212,9 @@
                   :value="apiStore.apiAssignments.find(a => a.type === 'cot')?.apiId"
                   @change="updateAssignment('cot', ($event.target as HTMLSelectElement).value)"
                   class="setting-select"
+                  :class="{ 'disabled-hint': !apiStore.aiGenerationSettings.enableSystemCoT }"
                   :disabled="!apiStore.aiGenerationSettings.enableSystemCoT"
+                  :title="!apiStore.aiGenerationSettings.enableSystemCoT ? '请先启用思维链功能' : ''"
                 >
                   <option
                     v-for="api in apiStore.enabledAPIs"
@@ -287,7 +289,7 @@
                   <label class="setting-switch compact">
                     <input
                       type="checkbox"
-                      :checked="vectorMemoryEnabled"
+                      v-model="vectorMemoryEnabled"
                       @change="onVectorMemoryChange"
                     />
                     <span class="switch-slider"></span>
@@ -299,15 +301,18 @@
                   :value="apiStore.apiAssignments.find(a => a.type === funcType)?.apiId"
                   @change="updateAssignment(funcType as APIUsageType, ($event.target as HTMLSelectElement).value)"
                   class="setting-select"
+                  :class="{ 'disabled-hint': funcType === 'embedding' && !vectorMemoryEnabled }"
                   :disabled="funcType === 'embedding' && !vectorMemoryEnabled"
+                  :title="funcType === 'embedding' && !vectorMemoryEnabled ? '请先启用向量检索功能' : ''"
                 >
                   <option value="default">使用主API</option>
                   <option
-                    v-for="api in apiStore.enabledAPIs.filter(a => a.id !== 'default')"
+                    v-for="api in apiStore.apiConfigs.filter(a => a.id !== 'default')"
                     :key="api.id"
                     :value="api.id"
+                    :disabled="!api.enabled"
                   >
-                    {{ getDisplayName(api) }}
+                    {{ getDisplayName(api) }}{{ !api.enabled ? ' (未启用)' : '' }}
                   </option>
                 </select>
 
@@ -520,6 +525,7 @@ onMounted(() => {
   loadAIServiceConfig();
   loadLocalSettings();
   loadVectorMemoryConfig();
+
 });
 
 // AI服务通用配置
@@ -1568,6 +1574,18 @@ const handleImport = () => {
   cursor: pointer;
   appearance: none;
   min-width: 140px;
+}
+
+.setting-select.disabled-hint {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f3f4f6;
+}
+
+.setting-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f3f4f6;
 }
 
 /* 开关样式 */

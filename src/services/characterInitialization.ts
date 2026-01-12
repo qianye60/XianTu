@@ -288,49 +288,12 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
 
   // 🔥 初始化玩家身体详细数据（NSFW/酒馆模式）
   // 根据性别初始化不同的身体结构，AI将在后续流程中填充详细描述
-  if (tavernEnv && (legacySaveData as any).系统?.nsfwMode) {
-    console.log(`[角色初始化] NSFW模式已开启，正在初始化[${baseInfo.性别}]性身体结构...`);
-
-    const isFemale = baseInfo.性别 === '女';
-    const isMale = baseInfo.性别 === '男';
-
-    // 随机生成函数
-    const randomInRange = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-    // 基础骨架 - 使用随机值
-    const bodyStats: any = {
-      身高: isMale ? randomInRange(170, 185) : (isFemale ? randomInRange(158, 172) : randomInRange(165, 178)), // cm
-      体重: isMale ? randomInRange(65, 80) : (isFemale ? randomInRange(45, 58) : randomInRange(55, 70)),  // kg
-      体脂率: isMale ? randomInRange(12, 18) : (isFemale ? randomInRange(18, 26) : randomInRange(15, 22)), // %
-      三围: {
-        胸围: isMale ? randomInRange(92, 105) : (isFemale ? randomInRange(80, 95) : randomInRange(85, 98)),
-        腰围: isMale ? randomInRange(75, 88) : (isFemale ? randomInRange(58, 68) : randomInRange(65, 78)),
-        臀围: isMale ? randomInRange(90, 100) : (isFemale ? randomInRange(85, 98) : randomInRange(88, 95))
-      },
-      外观特征: [], // 如：长腿、冷白皮、泪痣
-      敏感点: [],   // 如：耳垂、后颈
-      开发度: {},   // 部位 -> 进度
-      纹身与印记: []
-    };
-
-    // 性别特定字段初始化
-    if (isFemale) {
-      const cupSizes = ['A', 'B', 'C', 'D', 'E'];
-      bodyStats.罩杯 = cupSizes[randomInRange(0, cupSizes.length - 1)];
-      bodyStats.胸部描述 = '形状饱满，肤如凝脂';
-      bodyStats.私处描述 = '紧致粉嫩，毛发稀疏';
-      bodyStats.生殖器描述 = '名器天成'; // 内部结构或特殊描述
-    } else if (isMale) {
-      bodyStats.胸部描述 = '胸肌结实，轮廓分明';
-      bodyStats.生殖器描述 = '尺寸惊人，青筋暴起'; // 阳具描述
-      // 男性通常没有私处(Vagina)描述，但有生殖器(Penis)描述
-    } else {
-      // 其他/扶他等情况
-      bodyStats.胸部描述 = '待AI生成';
-      bodyStats.生殖器描述 = '待AI生成';
-    }
-
-    legacySaveData.身体 = bodyStats;
+  const nsfwEnabled =
+    tavernEnv &&
+    Boolean((legacySaveData as any).系统?.nsfwMode ?? (legacySaveData as any).系统?.配置?.nsfwMode);
+  if (nsfwEnabled) {
+    console.log('[角色初始化] NSFW模式已开启：初始化角色.身体骨架（等待AI生成详细法身数据）');
+    legacySaveData.身体 = { 部位开发: {}, 部位: {} } as any;
   }
 
   // 开局阶段统一返回 V3 五域结构，保证后续提示词/指令使用短路径生效
@@ -432,7 +395,12 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
 async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number, useStreaming: boolean = true, generateMode: 'generate' | 'generateRaw' = 'generate') {
   console.log('[初始化流程] 3. 生成开场剧情');
   const uiStore = useUIStore();
-  uiStore.updateLoadingText('天道正在为你书写命运之章...');
+  const tavernEnv = isTavernEnv();
+  const nsfwEnabled = tavernEnv && Boolean((saveData as any).系统?.配置?.nsfwMode);
+  const loadingHeaderHtml = nsfwEnabled
+    ? '天道正在为你书写命运之章...<br/><span style="font-size: 0.85em; opacity: 0.8;">（法身数据生成中…）</span>'
+    : '天道正在为你书写命运之章...';
+  uiStore.updateLoadingText(loadingHeaderHtml);
 
   // 🔥 现在baseInfo中的字段已经是完整对象了
   const characterCreationStore = useCharacterCreationStore();
@@ -460,7 +428,6 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('  - 难度:', characterCreationStore.gameDifficulty);
 
   // 🔥 准备世界上下文信息
-  const tavernEnv = isTavernEnv();
   const worldContext = {
     worldInfo: (saveData as any).世界?.信息,
     availableContinents: (saveData as any).世界?.信息?.大陆信息?.map((continent: Continent) => ({
@@ -511,7 +478,7 @@ ${selectionsSummary}
       ? '...' + fullStreamingText.slice(-300) 
       : fullStreamingText;
     // 使用 pre-wrap 样式保持换行
-    uiStore.updateLoadingText(`天道正在为你书写命运之章...<br/><br/><div style="text-align: left; font-size: 0.9em; opacity: 0.8; white-space: pre-wrap;">${displayWindow}</div>`);
+    uiStore.updateLoadingText(`${loadingHeaderHtml}<br/><br/><div style="text-align: left; font-size: 0.9em; opacity: 0.8; white-space: pre-wrap;">${displayWindow}</div>`);
   };
 
   const initialMessageResponse = await robustAICall(
@@ -672,6 +639,17 @@ async () => {
   // 应用到Pinia Store
   const gameStateStore = useGameStateStore();
   gameStateStore.loadFromSaveData(saveDataAfterCommands);
+
+  if (nsfwEnabled) {
+    const hasBodyCommands = Array.isArray((initialMessageResponse as any).tavern_commands)
+      ? ((initialMessageResponse as any).tavern_commands as TavernCommand[]).some((cmd) => {
+          if (!cmd || cmd.action !== 'set') return false;
+          const key = (cmd as any).key;
+          return typeof key === 'string' && (key.startsWith('角色.身体') || key.startsWith('身体.'));
+        })
+      : false;
+    if (hasBodyCommands) toast.success('已生成法身数据（酒馆）');
+  }
 
   const openingStory = String(initialMessageResponse.text || '');
   if (!openingStory.trim()) {

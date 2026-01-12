@@ -701,12 +701,37 @@ export interface GameEvent {
   发生时间: GameTime;
 }
 
+/** 自定义事件模板 */
+export interface CustomEventTemplate {
+  id: string;
+  名称: string;
+  类型: EventType;
+  描述模板: string; // 支持占位符如 {玩家名}、{位置}
+  影响等级: '轻微' | '中等' | '重大' | '灾难';
+  启用: boolean;
+}
+
 /** 事件系统配置 */
 export interface EventSystemConfig {
   启用随机事件: boolean;
   最小间隔年: number;
   最大间隔年: number;
   事件提示词: string;
+  // 事件类型开关
+  启用事件类型?: {
+    宗门大战?: boolean;
+    世界变革?: boolean;
+    异宝降世?: boolean;
+    秘境现世?: boolean;
+    人物风波?: boolean;
+    势力变动?: boolean;
+    天灾人祸?: boolean;
+    特殊NPC?: boolean;
+  };
+  // 特殊NPC事件触发概率 (0-100)
+  特殊NPC概率?: number;
+  // 自定义事件模板
+  自定义事件?: CustomEventTemplate[];
 }
 
 /** 事件系统（统一管理世界事件） */
@@ -834,6 +859,13 @@ export interface NpcProfile {
   // === 可选模块 ===
   私密信息?: PrivacyProfile; // 仅NSFW模式下存在
   实时关注: boolean; // 标记为关注的NPC会在AI回合中主动更新
+
+  // === 扩展字段（用于“特殊NPC/定制人物”等业务标记，不影响核心生成）===
+  扩展?: {
+    specialNpc?: boolean;
+    specialNpcId?: string;
+    specialNpcTags?: string[];
+  };
 
   // === 旧数据兼容字段 ===
   外貌?: string;
