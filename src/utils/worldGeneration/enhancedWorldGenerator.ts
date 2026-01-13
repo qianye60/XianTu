@@ -42,6 +42,7 @@ export interface EnhancedWorldGenConfig {
   characterBackground?: string;
   mapConfig?: WorldMapConfig;
   onStreamChunk?: (chunk: string) => void; // 流式输出回调
+  enableHehuanEasterEgg?: boolean; // 是否启用合欢宗彩蛋（仅在地图初始化时启用）
 }
 
 export class EnhancedWorldGenerator {
@@ -171,9 +172,8 @@ export class EnhancedWorldGenerator {
       // 优先从 promptStorage 获取用户修改过的提示词
       const customPrompt = await promptStorage.get('worldGeneration');
 
-      // 🔥 彩蛋：酒馆端 70% 概率生成合欢宗
-      // "这个概率就是随机数，超过30%就会生成合欢宗" -> 随机数(0-100) > 30 -> 70% 概率
-      const shouldGenerateHehuan = isTavernEnv() && Math.random() > 0.3;
+      // 🔥 彩蛋：合欢宗生成由调用方决定（通过 enableHehuanEasterEgg 参数）
+      const shouldGenerateHehuan = this.config.enableHehuanEasterEgg && isTavernEnv();
       if (shouldGenerateHehuan) {
         console.log('[世界生成] 🎲 彩蛋触发：将强制生成合欢宗');
       }
@@ -198,7 +198,11 @@ export class EnhancedWorldGenerator {
         defaultPrompt += `
 
 【特殊要求】
-请务必在势力列表中包含一个名为"合欢宗"的宗门。设定为魔道或中立，以双修采补闻名，宗门风气开放。`;
+请务必在势力列表中包含一个名为"合欢宗"的宗门：
+- 类型：魔道宗门 或 中立宗门
+- 等级：二流 或 三流（必须明确填写，不能为空）
+- 特色：以双修采补闻名，宗门风气开放
+- 必须包含圣女职位（leadership.圣女字段）`;
       }
 
       // 如果用户有自定义提示词且不为空，使用自定义的

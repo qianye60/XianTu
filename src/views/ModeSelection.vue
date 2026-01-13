@@ -16,7 +16,7 @@
       <!-- 标题区域 -->
       <div class="header-section">
         <h1 class="main-title"><span class="header-title">仙</span> 途</h1>
-        <p class="sub-title">闲时坐看涛生灭，千古不过酒一壶</p>
+        <p class="sub-title">闲时坐看涛生灭，千秋不过酒一壶</p>
       </div>
 
       <!-- 道途选择 -->

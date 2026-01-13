@@ -853,6 +853,7 @@ const fetchModelsForEditing = async () => {
 
     const models = await aiService.fetchModels();
     availableModels.value = models;
+    showModelDropdown.value = true;
     toast.success(`${t('获取到')} ${models.length} ${t('个模型')}`);
 
     // 恢复配置

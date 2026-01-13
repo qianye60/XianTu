@@ -20,7 +20,7 @@
     </div>
 
     <div v-else class="content">
-      <div class="map-area">
+      <div class="map-area full-width">
         <div v-if="isLoading" class="map-overlay muted">加载中...</div>
         <div v-else-if="errorText" class="map-overlay error">{{ errorText }}</div>
         <div v-else-if="!graph || graph.pois.length === 0" class="map-overlay muted">暂无地图数据</div>
@@ -59,38 +59,6 @@
             </g>
           </g>
         </svg>
-      </div>
-
-      <div class="side">
-        <div class="card">
-          <div class="card-title">当前位置</div>
-          <div class="card-value">{{ currentPoiLabel }}</div>
-          <div v-if="ownerLocLabel" class="card-sub">世界主人：{{ ownerLocLabel }}</div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">可移动地点</div>
-
-          <div v-if="isLoading" class="muted">加载中...</div>
-          <div v-else-if="errorText" class="error">{{ errorText }}</div>
-          <div v-else-if="!graph || graph.pois.length === 0" class="muted">暂无地点数据</div>
-          <div v-else-if="isPlaceholderGraph" class="muted">
-            对方世界没有同步地图数据（或后端返回了占位地点），已隐藏占位点位。
-          </div>
-          <div v-else class="poi-list">
-            <button
-              v-for="p in graph.pois"
-              :key="p.id"
-              class="poi-item"
-              :class="{ active: p.id === graph.viewer_poi_id, reachable: isReachable(p.id) }"
-              @click="handleMove(p.id)"
-              :disabled="isLoading || p.id === graph.viewer_poi_id || !isReachable(p.id)"
-            >
-              <span class="poi-name">{{ poiDisplayName(p) }}</span>
-              <span class="poi-meta">#{{ p.id }}</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -157,23 +125,6 @@ function poiDisplayName(poi: { id: number; poi_key: string; state?: unknown }): 
 const poiById = computed(() => {
   const pois = graph.value?.pois ?? [];
   return new Map(pois.map((p) => [p.id, p] as const));
-});
-
-const currentPoiLabel = computed(() => {
-  if (!graph.value?.viewer_poi_id) return '未知';
-  const poi = poiById.value.get(graph.value.viewer_poi_id);
-  return poi ? `${poiDisplayName(poi as any)} (#${poi.id})` : `#${graph.value.viewer_poi_id}`;
-});
-
-const ownerLocLabel = computed(() => {
-  const loc = snapshot.value?.owner_location;
-  if (!loc || typeof loc !== 'object') return '';
-  const d = (loc as any).描述 ?? (loc as any).description ?? (loc as any).位置 ?? (loc as any).location ?? (loc as any).地点 ?? null;
-  if (typeof d === 'string' && d.trim()) return d.trim();
-  const legacy = (loc as any).描述 ?? (loc as any).location ?? (loc as any).位置 ?? null;
-  if (typeof legacy === 'string' && legacy.trim()) return legacy.trim();
-  const legacy2 = (loc as any).描述 ?? (loc as any).location ?? (loc as any).位置 ?? null;
-  return typeof legacy2 === 'string' ? legacy2 : '';
 });
 
 const isPlaceholderGraph = computed(() => {
@@ -361,9 +312,7 @@ watch([sessionId, targetWorldId], () => {
 }
 
 .content {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 12px;
+  display: flex;
   min-height: 0;
   flex: 1;
 }
@@ -375,6 +324,10 @@ watch([sessionId, targetWorldId], () => {
   overflow: hidden;
   background: var(--color-surface, #fff);
   position: relative;
+}
+
+.map-area.full-width {
+  flex: 1;
 }
 
 .map-overlay {
@@ -440,37 +393,6 @@ watch([sessionId, targetWorldId], () => {
   font-weight: 700;
 }
 
-.side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-}
-
-.card {
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 12px;
-  background: var(--color-surface, #fff);
-  padding: 12px;
-}
-
-.card-title {
-  font-weight: 700;
-  margin-bottom: 6px;
-  color: var(--color-text, #111827);
-}
-
-.card-value {
-  font-weight: 600;
-  color: var(--color-text, #111827);
-}
-
-.card-sub {
-  margin-top: 6px;
-  color: var(--color-text-muted, #6b7280);
-  font-size: 0.85rem;
-}
-
 .muted {
   color: var(--color-text-muted, #6b7280);
   font-size: 0.9rem;
@@ -479,62 +401,5 @@ watch([sessionId, targetWorldId], () => {
 .error {
   color: #dc2626;
   font-size: 0.9rem;
-}
-
-.poi-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 52vh;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.poi-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border, #e2e8f0);
-  background: var(--color-surface, #fff);
-  cursor: pointer;
-  text-align: left;
-}
-
-.poi-item.reachable {
-  border-color: rgba(34, 197, 94, 0.45);
-}
-
-.poi-item.active {
-  border-color: rgba(99, 102, 241, 0.6);
-  background: rgba(99, 102, 241, 0.08);
-}
-
-.poi-item:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.poi-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.poi-meta {
-  color: var(--color-text-muted, #6b7280);
-  font-size: 0.85rem;
-  flex: 0 0 auto;
-}
-
-@media (max-width: 980px) {
-  .content {
-    grid-template-columns: 1fr;
-  }
-  .poi-list {
-    max-height: 40vh;
-  }
 }
 </style>

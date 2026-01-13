@@ -14,7 +14,7 @@ export type SpecialNpcDefinition = {
   id: string;
   /** 用于候选列表展示（不一定等于最终 NPC 名字，但建议一致） */
   displayName: string;
-  /** 场景标签：用于筛选“更适合当前世界/地点”的NPC */
+  /** 场景标签：用于筛选"更适合当前世界/地点"的NPC */
   sceneTags: SpecialNpcSceneTag[];
   /** 人设提示词：用于让AI写出更贴合的登场事件（不会直接注入正文，避免污染） */
   personaPrompt: string;
@@ -22,96 +22,7 @@ export type SpecialNpcDefinition = {
   createProfile: (ctx: { now: GameTime; playerLocationDesc?: string; worldInfo?: WorldInfo | null }) => NpcProfile;
 };
 
-const mortalRealm = {
-  名称: '凡人',
-  阶段: '',
-  当前进度: 0,
-  下一级所需: 100,
-  突破描述: '引气入体，感悟天地灵气，踏上修仙第一步',
-};
-
 export const SPECIAL_NPCS: SpecialNpcDefinition[] = [
-  {
-    id: 'earth_transfer_student_linzx',
-    displayName: '林知夏',
-    sceneTags: ['earth', 'modern', 'campus', 'city'],
-    personaPrompt: `【人设】林知夏：神秘转校生/来历不明/观察力极强/对“异常现象”异常敏感。
-【风格】克制、理性、话少但句句关键；偶尔露出不合时宜的古怪熟悉感（像是见过超自然）。
-【禁忌】不要写成“天降救世主”，不要直接开挂碾压世界规则。`.trim(),
-    createProfile: ({ now, playerLocationDesc }): NpcProfile => ({
-      名字: '林知夏',
-      性别: '女',
-      出生日期: { 年: Math.max(0, Number(now.年 ?? 0) - 18), 月: 6, 日: 12 },
-      种族: '人族',
-      出生: '地球·江城',
-      外貌描述: '白衬衫与深色外套一丝不乱，眼神清冷，像在用显微镜审视周围的细节。',
-      性格特征: ['冷静', '理性', '敏锐', '克制'],
-      境界: mortalRealm as any,
-      灵根: '未知灵根' as any,
-      天赋: [] as any,
-      先天六司: { 根骨: 4, 灵性: 3, 悟性: 7, 气运: 6, 魅力: 6, 心性: 7 },
-      与玩家关系: '陌生人',
-      好感度: 0,
-      当前位置: { 描述: playerLocationDesc || '玩家附近' },
-      人格底线: ['不滥杀无辜', '不背叛救命之恩'],
-      记忆: [],
-      当前外貌状态: '神情平静，目光短暂停在你身上又移开。',
-      当前内心想法: '（这个人身上…有不该存在的“痕迹”。）',
-      背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
-      实时关注: false,
-      扩展: {
-        specialNpc: true,
-        specialNpcId: 'earth_transfer_student_linzx',
-        specialNpcTags: ['earth', 'modern', 'campus', 'city'],
-      },
-    }),
-  },
-  {
-    id: 'xianxia_wandering_swordsman_qiuyu',
-    displayName: '秋雨',
-    sceneTags: ['xianxia', 'jianghu', 'city'],
-    personaPrompt: `【人设】秋雨：云游散修/剑修旁门/嘴毒心软/不愿受宗门束缚。
-【风格】江湖气浓，行事果断；对规则嗤之以鼻，但对承诺极重。
-【禁忌】不要把她写成“无条件跟随玩家”的工具人。`.trim(),
-    createProfile: ({ now, playerLocationDesc, worldInfo }): NpcProfile => {
-      const place = playerLocationDesc || '某处坊市';
-      const faction = (worldInfo?.势力信息 || []).find((f: any) => String(f?.名称 || f?.name || '').includes('坊'))?.名称;
-      return {
-        名字: '秋雨',
-        性别: '女',
-        出生日期: { 年: Math.max(0, Number(now.年 ?? 0) - 23), 月: 9, 日: 3 },
-        种族: '人族',
-        出生: '江湖散修',
-        外貌描述: '黑发以木簪束起，衣袍朴素却干净，腰间一柄旧剑，剑鞘磨损处透出冷意。',
-        性格特征: ['果断', '嘴毒', '讲义气', '谨慎'],
-        境界: {
-          名称: '炼气',
-          阶段: '后期',
-          当前进度: 0,
-          下一级所需: 100,
-          突破描述: '聚气成海，筑基立道',
-        } as any,
-        灵根: { name: '金水双灵根', tier: '中品', 描述: '金锐水柔，偏向剑势与身法。' } as any,
-        天赋: [{ name: '剑感', description: '对剑意与杀伐之气格外敏锐。' }] as any,
-        先天六司: { 根骨: 6, 灵性: 6, 悟性: 7, 气运: 5, 魅力: 5, 心性: 6 },
-        与玩家关系: '陌生人',
-        好感度: 0,
-        当前位置: { 描述: place },
-        势力归属: faction || undefined,
-        人格底线: ['不害无辜', '不背信弃义'],
-        记忆: [],
-        当前外貌状态: '右手始终搭在剑柄附近，像随时准备出鞘。',
-        当前内心想法: '（这地方不对劲…得先弄清楚再说。）',
-        背包: { 灵石: { 下品: 30, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
-        实时关注: false,
-        扩展: {
-          specialNpc: true,
-          specialNpcId: 'xianxia_wandering_swordsman_qiuyu',
-          specialNpcTags: ['xianxia', 'jianghu', 'city'],
-        },
-      };
-    },
-  },
   {
     id: 'campus_dual_cultivation_cailian',
     displayName: '彩莲',
@@ -125,7 +36,7 @@ export const SPECIAL_NPCS: SpecialNpcDefinition[] = [
     createProfile: ({ now, playerLocationDesc }): NpcProfile => ({
       名字: '彩莲',
       性别: '男',
-      出生日期: { 年: Math.max(0, Number(now.年 ?? 0) - 14), 月: 3, 日: 15 },
+      出生日期: { 年: Number(now.年 ?? 0) - 14, 月: 3, 日: 15 },
       种族: '人族',
       出生: '隐世修真世家',
       外貌描述: '黑色狼尾长发内层染桃粉色，戴黑框眼镜和口罩，左右耳各三颗黑色耳钉，左手无名指戴黑钢戒指。雌雄莫辨的绝色容貌，穿着整洁的蓝白校服。',
@@ -207,4 +118,3 @@ export const SPECIAL_NPCS: SpecialNpcDefinition[] = [
     }),
   },
 ];
-

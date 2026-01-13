@@ -28,7 +28,7 @@
         </div>
         <div class="card-content">
           <div class="card-header">
-            <span class="judgement-title">{{ part.content.title }}</span>
+            <span class="judgement-title" :class="getTitleClass(part.content.result)">{{ part.content.title }}</span>
             <div class="header-right">
               <span class="judgement-badge">{{ part.content.result }}</span>
               <button class="help-btn" @click.stop="showJudgementHelp" title="查看判定规则">
@@ -41,6 +41,13 @@
             </div>
           </div>
           <div class="card-body">
+            <div class="stat-item lucky-item" v-if="part.content.lucky" :class="{ 'lucky-positive': parseInt(part.content.lucky) >= 0, 'lucky-negative': parseInt(part.content.lucky) < 0 }">
+              <span class="stat-icon">🍀</span>
+              <div class="stat-info">
+                <span class="stat-label">幸运</span>
+                <span class="stat-value lucky-value">{{ part.content.lucky }}</span>
+              </div>
+            </div>
             <div class="stat-item" v-if="part.content.finalValue">
               <span class="stat-icon">✨</span>
               <div class="stat-info">
@@ -87,7 +94,7 @@
     <div v-if="showHelpModal" class="help-modal-overlay" @click="closeHelpModal">
       <div class="help-modal" @click.stop>
         <div class="help-modal-header">
-          <h3>🎲 {{ $t('判定规则说明') }}</h3>
+          <h3>🍀 {{ $t('判定规则说明') }}</h3>
           <button class="close-btn" @click="closeHelpModal">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -97,13 +104,13 @@
         </div>
         <div class="help-modal-content">
           <div class="help-section">
-            <h4>📊 {{ $t('判定计算公式') }} (v6.0)</h4>
+            <h4>📊 {{ $t('判定计算公式') }} (v7.0)</h4>
             <div class="formula-box">
-              <strong>{{ $t('最终判定值') }}</strong> = {{ $t('基础值') }} + {{ $t('骰子加成') }} + {{ $t('环境修正') }} + {{ $t('状态修正') }}
+              <strong>{{ $t('最终判定值') }}</strong> = {{ $t('基础值') }} + {{ $t('幸运点') }} + {{ $t('环境修正') }} + {{ $t('状态修正') }}
             </div>
             <ol>
               <li><strong>{{ $t('基础值') }}</strong>：{{ $t('先天属性加权 + 境界加成 + 技艺加成') }}</li>
-              <li><strong>{{ $t('骰子加成') }}</strong>：{{ $t('(原始骰子 × 气运系数 - 50) ÷ 5') }} <span class="note">({{ $t('受【气运】影响，点数<50为负') }})</span></li>
+              <li><strong>{{ $t('幸运点') }}</strong>：{{ $t('基于气运的随机波动（约-10到+15）') }} <span class="note">({{ $t('气运越高，期望值和上限越高') }})</span></li>
               <li><strong>{{ $t('环境修正') }}</strong>：{{ $t('灵气浓度影响（修炼/炼丹/战斗），探索社交不受影响') }}</li>
               <li><strong>{{ $t('状态修正') }}</strong>：{{ $t('生命状态（重伤/虚弱）及 Buff/Debuff 影响') }}</li>
             </ol>
@@ -253,6 +260,7 @@ interface JudgementData {
   finalValue?: string
   damage?: string
   remainingHp?: string
+  lucky?: string  // 幸运点
   details?: string[]
 }
 
@@ -442,6 +450,8 @@ const parsedText = computed(() => {
                 judgement.difficulty = value
               } else if (key.includes('判定值')) {
                 judgement.finalValue = value
+              } else if (key.includes('幸运')) {
+                judgement.lucky = value
               } else if (key.includes('加成')) {
                 judgement.bonus = value
               } else if (key.includes('最终值') || key.includes('总值')) {
@@ -539,6 +549,16 @@ const isSuccessResult = (result: string) => {
 
 const isFailureResult = (result: string) => {
   return ['失败', '大失败', '失败惨重', '未通过'].includes(result)
+}
+
+// 根据结果获取标题样式类
+const getTitleClass = (result: string) => {
+  if (result?.includes('完美')) return 'title-perfect'
+  if (result?.includes('大成功')) return 'title-great-success'
+  if (result?.includes('成功') || result?.includes('通过')) return 'title-success'
+  if (result?.includes('大失败') || result?.includes('失败惨重')) return 'title-great-failure'
+  if (result?.includes('失败') || result?.includes('未通过')) return 'title-failure'
+  return ''
 }
 
 // 解析详情字段的辅助函数
@@ -700,10 +720,50 @@ const parseDetailSource = (detail: string) => {
 .judgement-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #1e293b;
   letter-spacing: -0.01em;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
   opacity: 1;
+}
+
+/* 标题渐变色 - 根据结果 */
+.judgement-title.title-perfect {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+}
+
+.judgement-title.title-great-success {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+}
+
+.judgement-title.title-success {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+}
+
+.judgement-title.title-failure {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 50%, #dc2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+}
+
+.judgement-title.title-great-failure {
+  background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #9333ea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
 }
 
 .judgement-badge {
@@ -741,6 +801,34 @@ const parseDetailSource = (detail: string) => {
 
 .difficulty-item {
   min-width: 120px;
+}
+
+/* 幸运点样式 */
+.lucky-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.lucky-item.lucky-positive {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #86efac;
+}
+
+.lucky-item.lucky-negative {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+}
+
+.lucky-value {
+  font-weight: 800;
+}
+
+.lucky-positive .lucky-value {
+  color: #16a34a;
+}
+
+.lucky-negative .lucky-value {
+  color: #dc2626;
 }
 
 .details-list {
@@ -876,6 +964,46 @@ const parseDetailSource = (detail: string) => {
 
 [data-theme="dark"] .card-header {
   color: var(--color-text, #f7f7f5);
+}
+
+/* 深色主题标题渐变色 */
+[data-theme="dark"] .judgement-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .judgement-title.title-perfect {
+  background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="dark"] .judgement-title.title-great-success {
+  background: linear-gradient(135deg, #6ee7b7 0%, #34d399 50%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="dark"] .judgement-title.title-success {
+  background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 50%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="dark"] .judgement-title.title-failure {
+  background: linear-gradient(135deg, #fca5a5 0%, #f87171 50%, #ef4444 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="dark"] .judgement-title.title-great-failure {
+  background: linear-gradient(135deg, #d8b4fe 0%, #c084fc 50%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 [data-theme="dark"] .result-text,
@@ -1316,6 +1444,25 @@ const parseDetailSource = (detail: string) => {
 
 [data-theme="dark"] .formula-box strong {
   color: #fcd34d;
+}
+
+/* 深色主题幸运点样式 */
+[data-theme="dark"] .lucky-item.lucky-positive {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+  border-color: rgba(134, 239, 172, 0.5);
+}
+
+[data-theme="dark"] .lucky-item.lucky-negative {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(239, 68, 68, 0.1) 100%);
+  border-color: rgba(252, 165, 165, 0.5);
+}
+
+[data-theme="dark"] .lucky-positive .lucky-value {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .lucky-negative .lucky-value {
+  color: #f87171;
 }
 
 [data-theme="dark"] .detail-label {

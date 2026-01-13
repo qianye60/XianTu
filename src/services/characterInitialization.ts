@@ -474,8 +474,8 @@ ${selectionsSummary}
   const onStreamChunk = (chunk: string) => {
     fullStreamingText += chunk;
     // 只显示最后300个字符，避免遮挡loading界面
-    const displayWindow = fullStreamingText.length > 300 
-      ? '...' + fullStreamingText.slice(-300) 
+    const displayWindow = fullStreamingText.length > 300
+      ? '...' + fullStreamingText.slice(-300)
       : fullStreamingText;
     // 使用 pre-wrap 样式保持换行
     uiStore.updateLoadingText(`${loadingHeaderHtml}<br/><br/><div style="text-align: left; font-size: 0.9em; opacity: 0.8; white-space: pre-wrap;">${displayWindow}</div>`);
@@ -488,8 +488,8 @@ async () => {
   try {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
     const aiSystem = AIBidirectionalSystem;
-    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, { 
-      useStreaming, 
+    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, {
+      useStreaming,
       generateMode,
       onStreamChunk: onStreamChunk
     });
@@ -1075,7 +1075,7 @@ export async function initializeCharacter(
         const greyLady: NpcProfile = {
           名字: "灰夫人(合欢圣女)",
           性别: "女",
-          出生日期: { 年: Math.max(0, age - 20), 月: 1, 日: 1 }, // 设定为20岁左右
+          出生日期: { 年: age - 18, 月: 1, 日: 1 }, // 设定为20岁（允许负数出生年）
           种族: "人族",
           出生: "合欢宗",
           外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",

@@ -1,13 +1,13 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
-  /* --- Light Theme Colors (现代深邃版) --- */
-  --color-background: #c8c3b8; /* 更深的基底色，增加层次 */
-  --color-background-transparent: rgba(200, 195, 184, 0.92);
-  --color-surface: #d8d4c9; /* 面板色，比背景稍亮 */
-  --color-surface-transparent: rgba(216, 212, 201, 0.88);
-  --color-surface-light: #cec9bd; /* 更深一档做层次 */
+  /* --- Light Theme Colors (明亮版) --- */
+  --color-background: #f5f2ed; /* 更白的基底色 */
+  --color-background-transparent: rgba(245, 242, 237, 0.92);
+  --color-surface: #ffffff; /* 纯白面板色 */
+  --color-surface-transparent: rgba(255, 255, 255, 0.88);
+  --color-surface-light: #f0ede8; /* 浅灰做层次 */
   /* Derived/interactive states (light) */
-  --color-surface-hover: #e0dcd2; /* 悬浮时的柔和色 */
+  --color-surface-hover: #faf8f5; /* 悬浮时的柔和色 */
   --color-primary: #1e4a9a; /* 更深的主色调 */
   --color-primary-rgb: 30, 74, 154;
   --color-primary-hover: #163d82;
@@ -50,8 +50,8 @@
   --vital-lifespan: #c253ff; /* 寿元(紫色) */
 
   /* Derived RGB triplets for rgba() usage (light) */
-  --color-background-rgb: 200, 195, 184;
-  --color-surface-rgb: 216, 212, 201;
+  --color-background-rgb: 245, 242, 237;
+  --color-surface-rgb: 255, 255, 255;
   --color-accent-rgb: 46, 139, 87;
   --color-border-rgb: 0, 0, 0;
   --color-success-rgb: 46, 139, 50;

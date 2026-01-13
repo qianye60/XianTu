@@ -189,19 +189,88 @@
         </div>
       </div>
     </div>
+
+    <!-- 地图操作按钮 -->
+    <div v-if="hasMapContent" class="map-actions">
+      <div class="actions-header">地图操作</div>
+      <div class="actions-content">
+        <button
+          @click="showGenerateModal = true"
+          class="action-btn"
+          :disabled="isGenerating"
+        >
+          <Plus :size="14" />
+          <span>追加生成</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 追加生成弹窗 -->
+    <div v-if="showGenerateModal" class="generate-modal-overlay" @click.self="showGenerateModal = false">
+      <div class="generate-modal">
+        <div class="modal-header">
+          <h3>追加生成内容</h3>
+          <button @click="showGenerateModal = false" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="generate-option">
+            <label>
+              <input type="checkbox" v-model="generateOptions.locations" />
+              生成地点
+            </label>
+            <input
+              type="number"
+              v-model.number="generateOptions.locationCount"
+              min="1"
+              max="10"
+              :disabled="!generateOptions.locations"
+              class="count-input"
+            />
+            <span class="count-label">个</span>
+          </div>
+          <div class="generate-option">
+            <label>
+              <input type="checkbox" v-model="generateOptions.factions" />
+              生成势力
+            </label>
+            <input
+              type="number"
+              v-model.number="generateOptions.factionCount"
+              min="1"
+              max="5"
+              :disabled="!generateOptions.factions"
+              class="count-input"
+            />
+            <span class="count-label">个</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showGenerateModal = false" class="cancel-btn">取消</button>
+          <button
+            @click="generateAdditionalContent"
+            class="confirm-btn"
+            :disabled="isGenerating || (!generateOptions.locations && !generateOptions.factions)"
+          >
+            {{ isGenerating ? '生成中...' : '开始生成' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { Mountain, Building2, Store, Sparkles, Gem, AlertTriangle, Zap, User, Users, ChevronUp, ChevronDown } from 'lucide-vue-next';
+import { Mountain, Building2, Store, Sparkles, Gem, AlertTriangle, Zap, User, Users, ChevronUp, ChevronDown, Plus } from 'lucide-vue-next';
 import { GameMapManager } from '@/utils/gameMapManager';
 import { normalizeLocationsData, normalizeContinentBounds } from '@/utils/coordinateConverter';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { toast } from '@/utils/toast';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
+import { isTavernEnv } from '@/utils/tavern';
 import type { WorldLocation } from '@/types/location';
 import type { GameCoordinates } from '@/types/gameMap';
+import type { NpcProfile, GameTime } from '@/types/game';
 
 const gameStateStore = useGameStateStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -213,6 +282,16 @@ const mapStatus = ref('初始化中...');
 const popupPosition = ref({ x: 0, y: 0 });
 const isInitializing = ref(false);
 const legendCollapsed = ref(false);
+
+// 追加生成相关
+const showGenerateModal = ref(false);
+const isGenerating = ref(false);
+const generateOptions = ref({
+  locations: true,
+  locationCount: 3,
+  factions: false,
+  factionCount: 1
+});
 
 const worldName = computed(() => gameStateStore.worldInfo?.世界名称 || '修仙界');
 const worldBackground = computed(() => gameStateStore.worldInfo?.世界背景 || '');
@@ -494,6 +573,12 @@ const initializeMap = async () => {
       maxLat: mapRenderConfig.value.height,
     };
 
+    // 🔥 随机判断是否生成合欢宗（30%概率，仅酒馆环境）
+    const shouldGenerateHehuan = isTavernEnv() && Math.random() < 0.3;
+    if (shouldGenerateHehuan) {
+      console.log('[地图] 🎲 随机触发合欢宗彩蛋');
+    }
+
     // 创建世界生成器
     const generator = new EnhancedWorldGenerator({
       worldName: worldInfo.世界名称,
@@ -506,6 +591,7 @@ const initializeMap = async () => {
       mapConfig: mapConfig,
       maxRetries: 3,
       retryDelay: 1000,
+      enableHehuanEasterEgg: shouldGenerateHehuan, // 🔥 根据随机结果决定是否生成合欢宗
       onStreamChunk: (chunk: string) => {
         // 更新生成状态显示
         mapStatus.value = chunk;
@@ -528,6 +614,72 @@ const initializeMap = async () => {
       // 更新游戏状态
       gameStateStore.updateState('worldInfo', updatedWorldInfo);
 
+      // 🔥 如果触发了合欢宗彩蛋，创建灰夫人NPC
+      if (shouldGenerateHehuan) {
+        const hehuanSect = (result.worldInfo.势力信息 || []).find(
+          (f: any) => String(f.名称 || f.name || '').includes('合欢')
+        );
+        const sectName = hehuanSect?.名称 || (hehuanSect as any)?.name || '合欢宗';
+        const gameTime = gameStateStore.gameTime as GameTime;
+        const greyLady: NpcProfile = {
+          名字: "灰夫人(合欢圣女)",
+          性别: "女",
+          出生日期: { 年: (gameTime?.年 || 1000) - 20, 月: 1, 日: 1 },
+          种族: "人族",
+          出生: "合欢宗",
+          外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
+          性格特征: ["平易近人", "开放", "双性恋", "M体质", "S体质", "痴女(潜在)"],
+          境界: { 名称: "金丹", 阶段: "圆满", 当前进度: 0, 下一级所需: 100, 突破描述: "阴阳调和，丹破婴生" },
+          灵根: { name: "天阴灵根", tier: "天品" } as any,
+          天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
+          先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          与玩家关系: "陌生人",
+          好感度: 10,
+          当前位置: { 描述: `${sectName}驻地` },
+          势力归属: sectName,
+          人格底线: [],
+          记忆: [
+            "我是合欢宗的圣女，人称灰夫人。",
+            "我的真实姓名是一个秘密，只有真正征服我的人才能知道。",
+            "我渴望体验世间极致的快乐与痛苦，无论是给予还是接受。"
+          ],
+          当前外貌状态: "衣衫半解，媚眼如丝",
+          当前内心想法: "观察着周围的人，寻找能让我感兴趣的猎物",
+          背包: { 灵石: { 下品: 5000, 中品: 500, 上品: 50, 极品: 0 }, 物品: {} },
+          实时关注: true,
+          私密信息: {
+            是否为处女: true,
+            身体部位: [
+              { 部位名称: "后庭", 特征描述: "九曲回廊，紧致幽深，内壁褶皱繁复，仿佛能吞噬一切", 敏感度: 80, 开发度: 0, 特殊印记: "未开发" },
+              { 部位名称: "阴道", 特征描述: "春水玉壶，名器天成，常年湿润，紧致如初", 敏感度: 90, 开发度: 0, 特殊印记: "白虎" },
+              { 部位名称: "腰部", 特征描述: "七寸盘蛇，柔若无骨，可做出任何高难度姿势", 敏感度: 70, 开发度: 0 },
+              { 部位名称: "手", 特征描述: "纤手观音，指若削葱，灵活多变，擅长挑逗", 敏感度: 60, 开发度: 0 },
+              { 部位名称: "足", 特征描述: "玲珑鸳鸯，弓足如玉，脚趾圆润可爱，足弓优美", 敏感度: 85, 开发度: 0 },
+              { 部位名称: "嘴", 特征描述: "如意鱼唇，樱桃小口，舌头灵活，深喉天赋异禀", 敏感度: 75, 开发度: 0 },
+              { 部位名称: "胸部", 特征描述: "乳燕玉峰，波涛汹涌，乳晕粉嫩，乳头敏感易硬", 敏感度: 95, 开发度: 0 },
+            ],
+            性格倾向: "开放且顺从(待调教)",
+            性取向: "双性恋",
+            性癖好: ["BDSM", "足交", "乳交", "捆绑", "调教", "采补", "角色扮演", "支配", "被支配", "露出", "放尿", "凌辱", "刑具"],
+            性渴望程度: 80,
+            当前性状态: "渴望",
+            体液分泌状态: "充沛",
+            性交总次数: 0,
+            性伴侣名单: [],
+            最近一次性行为时间: "无",
+            特殊体质: ["合欢圣体", "名器合集"]
+          }
+        };
+        const currentRelations = gameStateStore.relationships || {};
+        if (!currentRelations[greyLady.名字]) {
+          gameStateStore.updateState('relationships', {
+            ...currentRelations,
+            [greyLady.名字]: greyLady
+          });
+          console.log('[地图] 🎲 合欢宗彩蛋：已生成灰夫人NPC');
+        }
+      }
+
       // 重新加载地图数据
       await loadMapData({ reset: true });
 
@@ -544,6 +696,149 @@ const initializeMap = async () => {
   } finally {
     isInitializing.value = false;
     mapStatus.value = '初始化完成';
+  }
+};
+
+/**
+ * 追加生成地点/势力
+ */
+const generateAdditionalContent = async () => {
+  const worldInfo = gameStateStore.worldInfo;
+  if (!worldInfo) {
+    toast.error('未找到世界信息');
+    return;
+  }
+
+  const { locations, locationCount, factions, factionCount } = generateOptions.value;
+  if (!locations && !factions) {
+    toast.warning('请至少选择一种生成类型');
+    return;
+  }
+
+  isGenerating.value = true;
+  showGenerateModal.value = false;
+
+  try {
+    const mapConfig = (worldInfo as any)?.['地图配置'] || {
+      width: mapRenderConfig.value.width,
+      height: mapRenderConfig.value.height,
+    };
+
+    // 🔥 随机判断是否生成合欢宗（30%概率，仅酒馆环境且生成势力时）
+    const shouldGenerateHehuan = factions && isTavernEnv() && Math.random() < 0.3;
+    if (shouldGenerateHehuan) {
+      console.log('[地图] 🎲 追加生成：随机触发合欢宗彩蛋');
+    }
+
+    const generator = new EnhancedWorldGenerator({
+      worldName: worldInfo.世界名称,
+      worldBackground: worldInfo.世界背景,
+      worldEra: worldInfo.世界纪元 || '修真盛世',
+      factionCount: factions ? factionCount : 0,
+      locationCount: locations ? locationCount : 0,
+      secretRealmsCount: 0,
+      continentCount: worldInfo.大陆信息?.length || 1,
+      mapConfig: mapConfig,
+      maxRetries: 2,
+      retryDelay: 500,
+      enableHehuanEasterEgg: shouldGenerateHehuan,
+    });
+
+    const result = await generator.generateValidatedWorld();
+
+    if (result.success && result.worldInfo) {
+      // 合并新生成的内容到现有数据
+      const newFactions = result.worldInfo.势力信息 || [];
+      const newLocations = result.worldInfo.地点信息 || [];
+
+      const updatedWorldInfo = {
+        ...worldInfo,
+        势力信息: [...(worldInfo.势力信息 || []), ...newFactions],
+        地点信息: [...(worldInfo.地点信息 || []), ...newLocations],
+      };
+
+      gameStateStore.updateState('worldInfo', updatedWorldInfo);
+
+      // 🔥 如果触发了合欢宗彩蛋，创建灰夫人NPC
+      if (shouldGenerateHehuan) {
+        const hehuanSect = newFactions.find(
+          (f: any) => String(f.名称 || f.name || '').includes('合欢')
+        );
+        const sectName = hehuanSect?.名称 || (hehuanSect as any)?.name || '合欢宗';
+        const gameTime = gameStateStore.gameTime as GameTime;
+        const greyLady: NpcProfile = {
+          名字: "灰夫人(合欢圣女)",
+          性别: "女",
+          出生日期: { 年: (gameTime?.年 || 1000) - 20, 月: 1, 日: 1 },
+          种族: "人族",
+          出生: "合欢宗",
+          外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
+          性格特征: ["平易近人", "开放", "双性恋", "M体质", "S体质", "痴女(潜在)"],
+          境界: { 名称: "金丹", 阶段: "圆满", 当前进度: 0, 下一级所需: 100, 突破描述: "阴阳调和，丹破婴生" },
+          灵根: { name: "天阴灵根", tier: "天品" } as any,
+          天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
+          先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          与玩家关系: "陌生人",
+          好感度: 10,
+          当前位置: { 描述: `${sectName}驻地` },
+          势力归属: sectName,
+          人格底线: [],
+          记忆: [
+            "我是合欢宗的圣女，人称灰夫人。",
+            "我的真实姓名是一个秘密，只有真正征服我的人才能知道。",
+            "我渴望体验世间极致的快乐与痛苦，无论是给予还是接受。"
+          ],
+          当前外貌状态: "衣衫半解，媚眼如丝",
+          当前内心想法: "观察着周围的人，寻找能让我感兴趣的猎物",
+          背包: { 灵石: { 下品: 5000, 中品: 500, 上品: 50, 极品: 0 }, 物品: {} },
+          实时关注: true,
+          私密信息: {
+            是否为处女: true,
+            身体部位: [
+              { 部位名称: "后庭", 特征描述: "九曲回廊，紧致幽深，内壁褶皱繁复，仿佛能吞噬一切", 敏感度: 80, 开发度: 0, 特殊印记: "未开发" },
+              { 部位名称: "阴道", 特征描述: "春水玉壶，名器天成，常年湿润，紧致如初", 敏感度: 90, 开发度: 0, 特殊印记: "白虎" },
+              { 部位名称: "腰部", 特征描述: "七寸盘蛇，柔若无骨，可做出任何高难度姿势", 敏感度: 70, 开发度: 0 },
+              { 部位名称: "手", 特征描述: "纤手观音，指若削葱，灵活多变，擅长挑逗", 敏感度: 60, 开发度: 0 },
+              { 部位名称: "足", 特征描述: "玲珑鸳鸯，弓足如玉，脚趾圆润可爱，足弓优美", 敏感度: 85, 开发度: 0 },
+              { 部位名称: "嘴", 特征描述: "如意鱼唇，樱桃小口，舌头灵活，深喉天赋异禀", 敏感度: 75, 开发度: 0 },
+              { 部位名称: "胸部", 特征描述: "乳燕玉峰，波涛汹涌，乳晕粉嫩，乳头敏感易硬", 敏感度: 95, 开发度: 0 },
+            ],
+            性格倾向: "开放且顺从(待调教)",
+            性取向: "双性恋",
+            性癖好: ["BDSM", "足交", "乳交", "捆绑", "调教", "采补", "角色扮演", "支配", "被支配", "露出", "放尿", "凌辱", "刑具"],
+            性渴望程度: 80,
+            当前性状态: "渴望",
+            体液分泌状态: "充沛",
+            性交总次数: 0,
+            性伴侣名单: [],
+            最近一次性行为时间: "无",
+            特殊体质: ["合欢圣体", "名器合集"]
+          }
+        };
+        const currentRelations = gameStateStore.relationships || {};
+        if (!currentRelations[greyLady.名字]) {
+          gameStateStore.updateState('relationships', {
+            ...currentRelations,
+            [greyLady.名字]: greyLady
+          });
+          console.log('[地图] 🎲 追加生成：合欢宗彩蛋已生成灰夫人NPC');
+        }
+      }
+
+      await loadMapData({ reset: true });
+
+      const msg = [];
+      if (newFactions.length) msg.push(`${newFactions.length}个势力`);
+      if (newLocations.length) msg.push(`${newLocations.length}个地点`);
+      toast.success(`已追加生成: ${msg.join('、')}`);
+    } else {
+      toast.error('生成失败: ' + (result.errors?.join(', ') || '未知错误'));
+    }
+  } catch (error) {
+    console.error('[地图] 追加生成失败:', error);
+    toast.error('生成失败: ' + (error as Error).message);
+  } finally {
+    isGenerating.value = false;
   }
 };
 
@@ -1194,6 +1489,171 @@ canvas:active {
 .game-map-panel:fullscreen .location-popup {
   background: rgba(0, 0, 0, 0.9);
   color: white;
+}
+
+/* 地图操作按钮 */
+.map-actions {
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 100;
+}
+
+.actions-header {
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  margin-bottom: 8px;
+}
+
+.actions-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 追加生成弹窗 */
+.generate-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.generate-modal {
+  background: #1e293b;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  width: 320px;
+  max-width: 90vw;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #e2e8f0;
+}
+
+.modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.generate-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.generate-option label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e2e8f0;
+  font-size: 14px;
+  flex: 1;
+}
+
+.count-input {
+  width: 50px;
+  padding: 4px 8px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 14px;
+  text-align: center;
+}
+
+.count-input:disabled {
+  opacity: 0.5;
+}
+
+.count-label {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.cancel-btn, .confirm-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #94a3b8;
+}
+
+.cancel-btn:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.confirm-btn {
+  background: rgba(59, 130, 246, 0.8);
+  border: none;
+  color: white;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 1);
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 响应式设计 */
