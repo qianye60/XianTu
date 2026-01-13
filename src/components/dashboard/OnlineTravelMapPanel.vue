@@ -2,7 +2,7 @@
   <div class="online-travel-map-panel">
     <div class="panel-header">
       <div class="title">
-        <span class="title-text">联机地图</span>
+        <span class="title-text">联机世界信息</span>
         <span v-if="sessionId" class="meta">· 会话 #{{ sessionId }}</span>
         <span v-if="targetWorldId" class="meta">· 世界 #{{ targetWorldId }}</span>
         <span v-if="ownerUsername" class="meta">· 主人：{{ ownerUsername }}</span>
@@ -16,49 +16,69 @@
 
     <div v-if="!sessionId || !targetWorldId" class="empty-state">
       <div class="empty-title">未处于联机穿越中</div>
-      <div class="empty-hint">开始穿越后，这里会展示对方世界的地图与可移动地点。</div>
+      <div class="empty-hint">开始穿越后，这里会展示对方世界的信息。</div>
     </div>
 
     <div v-else class="content">
-      <div class="map-area full-width">
-        <div v-if="isLoading" class="map-overlay muted">加载中...</div>
-        <div v-else-if="errorText" class="map-overlay error">{{ errorText }}</div>
-        <div v-else-if="!graph || graph.pois.length === 0" class="map-overlay muted">暂无地图数据</div>
-        <div v-else-if="isPlaceholderGraph" class="map-overlay muted">
-          对方世界没有同步地图数据（或后端返回了占位地点），已隐藏占位点位。
+      <div v-if="isLoading" class="loading-state">加载中...</div>
+      <div v-else-if="errorText" class="error-state">{{ errorText }}</div>
+      <div v-else-if="!worldInfo" class="empty-state">
+        <div class="empty-title">暂无世界数据</div>
+        <div class="empty-hint">对方世界尚未生成或同步世界信息。</div>
+      </div>
+      <div v-else class="world-info-container">
+        <!-- 世界基本信息 -->
+        <div class="info-section">
+          <div class="section-title">世界概况</div>
+          <div class="info-grid">
+            <div class="info-item" v-if="worldInfo.世界名称">
+              <span class="label">名称：</span>{{ worldInfo.世界名称 }}
+            </div>
+            <div class="info-item" v-if="worldInfo.世界纪元">
+              <span class="label">纪元：</span>{{ worldInfo.世界纪元 }}
+            </div>
+            <div class="info-item" v-if="worldInfo.版本">
+              <span class="label">版本：</span>{{ worldInfo.版本 }}
+            </div>
+          </div>
+          <div class="info-desc" v-if="worldInfo.世界背景">{{ worldInfo.世界背景 }}</div>
         </div>
-        <svg v-else class="map-svg" :viewBox="viewBox" aria-label="联机地图" role="img">
-          <g class="edges">
-            <line
-              v-for="e in edgeLines"
-              :key="`${e.fromId}->${e.toId}`"
-              :x1="e.x1"
-              :y1="e.y1"
-              :x2="e.x2"
-              :y2="e.y2"
-              class="edge-line"
-            />
-          </g>
 
-          <g class="nodes">
-            <g
-              v-for="p in graph.pois"
-              :key="p.id"
-              class="node"
-              :class="{
-                current: p.id === graph.viewer_poi_id,
-                reachable: isReachable(p.id),
-                unreachable: p.id !== graph.viewer_poi_id && !isReachable(p.id),
-              }"
-              @click="handleMove(p.id)"
-            >
-              <circle :cx="p.x" :cy="p.y" r="18" class="node-dot" />
-              <text :x="p.x + 26" :y="p.y + 5" class="node-label">
-                {{ poiDisplayName(p) }} (#{{ p.id }})
-              </text>
-            </g>
-          </g>
-        </svg>
+        <!-- 大陆信息 -->
+        <div class="info-section" v-if="continents.length > 0">
+          <div class="section-title">大陆信息 ({{ continents.length }})</div>
+          <div class="list-container">
+            <div v-for="(c, i) in continents" :key="i" class="list-item">
+              <div class="item-name">{{ c.名称 || c.name || `大陆${i+1}` }}</div>
+              <div class="item-desc" v-if="c.描述 || c.description">{{ c.描述 || c.description }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 势力信息 -->
+        <div class="info-section" v-if="factions.length > 0">
+          <div class="section-title">势力信息 ({{ factions.length }})</div>
+          <div class="list-container">
+            <div v-for="(f, i) in factions" :key="i" class="list-item">
+              <div class="item-name">{{ f.名称 || f.name || `势力${i+1}` }}</div>
+              <div class="item-meta" v-if="f.类型 || f.type">类型：{{ f.类型 || f.type }}</div>
+              <div class="item-desc" v-if="f.描述 || f.description">{{ f.描述 || f.description }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 地点信息 -->
+        <div class="info-section" v-if="locations.length > 0">
+          <div class="section-title">地点信息 ({{ locations.length }})</div>
+          <div class="list-container">
+            <div v-for="(l, i) in locations" :key="i" class="list-item">
+              <div class="item-name">{{ l.名称 || l.name || `地点${i+1}` }}</div>
+              <div class="item-meta" v-if="l.类型 || l.type">类型：{{ l.类型 || l.type }}</div>
+              <div class="item-meta" v-if="l.所属势力">所属：{{ l.所属势力 }}</div>
+              <div class="item-desc" v-if="l.描述 || l.description">{{ l.描述 || l.description }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -67,15 +87,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
-import { toast } from '@/utils/toast';
 import {
   getActiveTravelSession,
   getMapGraph,
-  getTravelWorldSnapshot,
-  moveInWorld,
   type MapGraphResponse,
   type TravelStartResponse,
-  type TravelWorldSnapshotResponse,
 } from '@/services/onlineTravel';
 
 const gameStateStore = useGameStateStore();
@@ -85,7 +101,6 @@ const errorText = ref('');
 
 const session = ref<TravelStartResponse | null>(null);
 const graph = ref<MapGraphResponse | null>(null);
-const snapshot = ref<TravelWorldSnapshotResponse | null>(null);
 
 const onlineState = computed(() => gameStateStore.onlineState as any);
 const sessionId = computed(() => {
@@ -98,81 +113,23 @@ const targetWorldId = computed(() => {
 });
 const ownerUsername = computed(() => onlineState.value?.穿越目标?.主人用户名 ?? null);
 
-const PLACEHOLDER_POI_KEYS = new Set([
-  'safehouse',
-  'market',
-  'wild',
-  'forest',
-  'mountain',
-  'river',
-  'spirit_spring',
-  'ancient_ruins',
-  'cave',
-  'temple',
-  'demon_nest',
-]);
-
-function poiDisplayName(poi: { id: number; poi_key: string; state?: unknown }): string {
-  const state = poi?.state && typeof poi.state === 'object' ? (poi.state as any) : null;
-  const n = state?.名称 ?? state?.name ?? state?.display_name ?? null;
-  if (typeof n === 'string' && n.trim()) return n.trim();
-
-  const key = String(poi.poi_key || '').trim();
-  if (key && !PLACEHOLDER_POI_KEYS.has(key)) return key;
-  return `地点 #${poi.id}`;
-}
-
-const poiById = computed(() => {
-  const pois = graph.value?.pois ?? [];
-  return new Map(pois.map((p) => [p.id, p] as const));
+// 从 graph 中获取原始世界数据
+const worldInfo = computed(() => graph.value?.world_info ?? null);
+const continents = computed(() => {
+  const info = worldInfo.value as any;
+  if (!info) return [];
+  return (info.大陆信息 ?? info.continents ?? []) as any[];
 });
-
-const isPlaceholderGraph = computed(() => {
-  const pois = graph.value?.pois ?? [];
-  if (pois.length === 0) return false;
-  return pois.every((p) => PLACEHOLDER_POI_KEYS.has(String(p.poi_key || '').trim()));
+const factions = computed(() => {
+  const info = worldInfo.value as any;
+  if (!info) return [];
+  return (info.势力信息 ?? info.factions ?? []) as any[];
 });
-
-const viewBox = computed(() => {
-  const pois = graph.value?.pois ?? [];
-  if (pois.length === 0) return '0 0 600 400';
-  let minX = pois[0].x;
-  let maxX = pois[0].x;
-  let minY = pois[0].y;
-  let maxY = pois[0].y;
-  for (const p of pois) {
-    minX = Math.min(minX, p.x);
-    maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y);
-    maxY = Math.max(maxY, p.y);
-  }
-  const pad = 80;
-  const w = Math.max(200, maxX - minX + pad * 2);
-  const h = Math.max(200, maxY - minY + pad * 2);
-  return `${minX - pad} ${minY - pad} ${w} ${h}`;
+const locations = computed(() => {
+  const info = worldInfo.value as any;
+  if (!info) return [];
+  return (info.地点信息 ?? info.locations ?? []) as any[];
 });
-
-type EdgeLine = { fromId: number; toId: number; x1: number; y1: number; x2: number; y2: number };
-const edgeLines = computed<EdgeLine[]>(() => {
-  const g = graph.value;
-  if (!g) return [];
-  const byId = poiById.value;
-  const out: EdgeLine[] = [];
-  for (const e of g.edges) {
-    const a = byId.get(e.from_poi_id);
-    const b = byId.get(e.to_poi_id);
-    if (!a || !b) continue;
-    out.push({ fromId: e.from_poi_id, toId: e.to_poi_id, x1: a.x, y1: a.y, x2: b.x, y2: b.y });
-  }
-  return out;
-});
-
-const isReachable = (poiId: number): boolean => {
-  if (!graph.value) return false;
-  const from = graph.value.viewer_poi_id;
-  if (!from) return false;
-  return graph.value.edges.some((e) => e.from_poi_id === from && e.to_poi_id === poiId);
-};
 
 const refreshAll = async () => {
   if (!sessionId.value) return;
@@ -183,39 +140,12 @@ const refreshAll = async () => {
     if (!active) {
       session.value = null;
       graph.value = null;
-      snapshot.value = null;
       return;
     }
     session.value = active;
     graph.value = await getMapGraph(active.target_world_instance_id, active.entry_map_id, active.session_id);
-    try {
-      snapshot.value = await getTravelWorldSnapshot(active.session_id);
-    } catch {
-      snapshot.value = null;
-    }
   } catch (e: any) {
-    errorText.value = e?.message || '加载联机地图失败';
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const handleMove = async (poiId: number) => {
-  if (isLoading.value) return;
-  if (!sessionId.value || !targetWorldId.value) return;
-  if (!graph.value) return;
-  if (isPlaceholderGraph.value) {
-    toast.warning('对方世界未同步地图数据，无法移动');
-    return;
-  }
-  if (!isReachable(poiId)) return;
-
-  isLoading.value = true;
-  try {
-    await moveInWorld(targetWorldId.value, poiId, sessionId.value);
-    await refreshAll();
-  } catch (e: any) {
-    toast.error(e?.message || '移动失败');
+    errorText.value = e?.message || '加载世界信息失败';
   } finally {
     isLoading.value = false;
   }
@@ -313,93 +243,96 @@ watch([sessionId, targetWorldId], () => {
 
 .content {
   display: flex;
+  flex-direction: column;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
 }
 
-.map-area {
-  min-height: 0;
+.loading-state,
+.error-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.error-state {
+  color: #dc2626;
+}
+
+.world-info-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px;
+}
+
+.info-section {
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 12px;
-  overflow: hidden;
   background: var(--color-surface, #fff);
-  position: relative;
+  padding: 14px;
 }
 
-.map-area.full-width {
-  flex: 1;
-}
-
-.map-overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: 12px;
-}
-
-.map-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.10), transparent 42%),
-    radial-gradient(circle at 80% 60%, rgba(16, 185, 129, 0.10), transparent 46%),
-    linear-gradient(180deg, rgba(2, 6, 23, 0.02), rgba(2, 6, 23, 0.00));
-}
-
-.edge-line {
-  stroke: rgba(100, 116, 139, 0.55);
-  stroke-width: 2;
-}
-
-.node {
-  cursor: pointer;
-}
-
-.node.unreachable {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-.node-dot {
-  fill: rgba(99, 102, 241, 0.12);
-  stroke: rgba(99, 102, 241, 0.60);
-  stroke-width: 2;
-}
-
-.node.current .node-dot {
-  fill: rgba(245, 158, 11, 0.20);
-  stroke: rgba(245, 158, 11, 0.75);
-}
-
-.node.reachable:not(.current) .node-dot {
-  fill: rgba(34, 197, 94, 0.16);
-  stroke: rgba(34, 197, 94, 0.60);
-}
-
-.node-label {
-  font-size: 14px;
-  fill: rgba(15, 23, 42, 0.95);
-  user-select: none;
-}
-
-.node.unreachable .node-label {
-  fill: rgba(100, 116, 139, 0.9);
-}
-
-.node.current .node-label {
+.section-title {
   font-weight: 700;
+  color: var(--color-text, #111827);
+  margin-bottom: 10px;
+  font-size: 0.95rem;
 }
 
-.muted {
+.info-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 8px;
+}
+
+.info-item {
+  font-size: 0.9rem;
+  color: var(--color-text, #111827);
+}
+
+.info-item .label {
   color: var(--color-text-muted, #6b7280);
-  font-size: 0.9rem;
 }
 
-.error {
-  color: #dc2626;
-  font-size: 0.9rem;
+.info-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #6b7280);
+  line-height: 1.5;
+}
+
+.list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.list-item {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--color-bg, #f8fafc);
+}
+
+.item-name {
+  font-weight: 600;
+  color: var(--color-text, #111827);
+  margin-bottom: 4px;
+}
+
+.item-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.item-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #6b7280);
+  margin-top: 4px;
+  line-height: 1.4;
 }
 </style>

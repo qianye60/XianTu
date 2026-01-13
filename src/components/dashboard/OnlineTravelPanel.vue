@@ -477,96 +477,11 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
   return false;
 };
 
-const PLACEHOLDER_POI_KEYS = new Set([
-  'safehouse',
-  'market',
-  'wild',
-  'forest',
-  'mountain',
-  'river',
-  'spirit_spring',
-  'ancient_ruins',
-  'cave',
-  'temple',
-  'demon_nest',
-]);
-
-const poiKeyToName = (key: string): string => {
-  const normalized = String(key || '').trim();
-  if (!normalized) return '';
-  if (PLACEHOLDER_POI_KEYS.has(normalized)) return '';
-  return normalized;
-};
-
-function poiDisplayName(poi: { poi_key: string; state?: unknown }): string {
-  const state = poi?.state && typeof poi.state === 'object' ? (poi.state as any) : null;
-  const n = state?.名称 ?? state?.name;
-  if (typeof n === 'string' && n.trim().length > 0) return n.trim();
-  return poiKeyToName(poi.poi_key);
-}
-
-const calculateSpiritDensity = (poi: any): number => {
-  if (!poi) return 20;
-
-  // 根据类型设定灵气浓度范围
-  let min = 10, max = 30;
-
-  switch (poi.type) {
-    case 'sect_power': // 宗门
-      min = 50; max = 90;
-      break;
-    case 'safehouse':
-    case 'blessed_land': // 洞天福地
-      min = 70; max = 100;
-      break;
-    case 'treasure_land': // 奇珍异地
-      min = 60; max = 90;
-      break;
-    case 'natural_landmark': // 名山大川
-      min = 30; max = 70;
-      break;
-    case 'dangerous_area': // 凶险之地
-      min = 20; max = 80;
-      break;
-    case 'town':
-    case 'city_town': // 城镇
-      min = 15; max = 40;
-      break;
-    default: // 其他
-      min = 10; max = 30;
-  }
-
-  // 基于POI ID的确定性随机，保证同一个地点的灵气浓度不变
-  let seedVal = 0;
-  if (typeof poi.id === 'number') {
-    seedVal = poi.id;
-  } else if (typeof poi.id === 'string') {
-    for (let i = 0; i < poi.id.length; i++) seedVal += poi.id.charCodeAt(i);
-  }
-
-  const seed = (seedVal || 0) * 123.45;
-  const rand = Math.abs(Math.sin(seed)); // 0-1
-
-  if (isNaN(rand)) return 20; // 安全兜底
-
-  return Math.floor(min + rand * (max - min));
-};
-
 const buildOnlineLocation = (mapGraph: MapGraphResponse, worldLabel: string): PlayerLocation => {
-  const viewerId = mapGraph.viewer_poi_id ?? mapGraph.pois?.[0]?.id;
-  const viewerPoi = viewerId ? mapGraph.pois.find((poi) => poi.id === viewerId) : undefined;
-  const rawLabel = viewerPoi ? `${poiDisplayName(viewerPoi as any)}`.trim() : '';
-  const label =
-    viewerPoi
-      ? (rawLabel || `未知地点 (#${viewerPoi.id})`)
-      : worldLabel;
-  const spiritDensity = calculateSpiritDensity(viewerPoi);
-
+  // 现在不再使用 POI，直接返回世界标签作为位置描述
   return {
-    描述: label,
-    x: viewerPoi?.x,
-    y: viewerPoi?.y,
-    灵气浓度: spiritDensity
+    描述: worldLabel,
+    灵气浓度: 20
   };
 };
 
@@ -580,9 +495,12 @@ const syncTravelState = async (
   const worldLabel = selectedWorld.value?.owner_username
     ? `${selectedWorld.value.owner_username}的世界`
     : `联机世界 #${activeSession.target_world_instance_id}`;
+
+  // 优先使用 mapGraph.world_info（来自 /graph 接口），其次使用 snapshot.world_info
+  const rawWorldInfo = mapGraph.world_info ?? snapshot?.world_info;
   const worldInfo =
-    snapshot?.world_info && typeof snapshot.world_info === 'object'
-      ? (snapshot.world_info as any as WorldInfo)
+    rawWorldInfo && typeof rawWorldInfo === 'object'
+      ? (rawWorldInfo as any as WorldInfo)
       : ({
         世界名称: worldLabel,
         大陆信息: [],
@@ -599,8 +517,10 @@ const syncTravelState = async (
 
   gameStateStore.updateState('worldInfo', worldInfo);
   gameStateStore.updateState('location', location);
-  if (snapshot?.relationships && typeof snapshot.relationships === 'object') {
-    gameStateStore.updateState('relationships', snapshot.relationships as any);
+  // 优先使用 mapGraph.relationships，其次使用 snapshot.relationships
+  const rels = mapGraph.relationships ?? snapshot?.relationships;
+  if (rels && typeof rels === 'object') {
+    gameStateStore.updateState('relationships', rels as any);
   }
 
   const currentOnline = gameStateStore.onlineState ?? {
@@ -621,9 +541,9 @@ const syncTravelState = async (
       ...((currentOnline as any).穿越目标 ?? {}),
       世界ID: activeSession.target_world_instance_id,
       主人用户名: snapshot?.owner_username ?? selectedWorld.value?.owner_username ?? null,
-      世界主人位置: snapshot?.owner_location ?? null,
+      世界主人位置: mapGraph.owner_location ?? snapshot?.owner_location ?? null,
       世界主人档案: (() => {
-        const base = snapshot?.owner_base_info;
+        const base = mapGraph.owner_base_info ?? snapshot?.owner_base_info;
         if (!base || typeof base !== 'object') return null;
         const b = base as any;
         return {
@@ -677,9 +597,9 @@ const refreshPresence = async () => {
 const loadSessionLogs = async (sessionId: number) => {
   try {
     sessionLogs.value = await getTravelSessionLogs(sessionId);
-  } catch (e: any) {
+  } catch {
     sessionLogs.value = null;
-    toast.error(e?.message || t('获取会话日志失败'));
+    // request.ts 已统一处理错误弹窗
   }
 };
 
@@ -815,8 +735,8 @@ const handleSignin = async () => {
     travelPoints.value = res.travel_points;
     signedIn.value = !!res.signed_in;
     toast.success(res.message);
-  } catch (e: any) {
-    toast.error(e?.message || '签到失败');
+  } catch {
+    // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
   }
@@ -830,8 +750,8 @@ const toggleVisibility = async () => {
     const next = myWorld.value.visibility_mode === 'public' ? 'hidden' : myWorld.value.visibility_mode === 'hidden' ? 'locked' : 'public';
     myWorld.value = await updateMyWorldVisibility(next);
     toast.success(`世界隐私已切换为 ${myWorld.value.visibility_mode}`);
-  } catch (e: any) {
-    toast.error(e?.message || '切换失败');
+  } catch {
+    // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
   }
@@ -846,8 +766,8 @@ const toggleOfflineAgent = async () => {
     const next = !current;
     myWorld.value = await updateMyWorldPolicy(next);
     toast.success(next ? t('已开启下线代理') : t('已关闭下线代理'));
-  } catch (e: any) {
-    toast.error(e?.message || t('切换失败'));
+  } catch {
+    // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
   }
@@ -860,8 +780,8 @@ const saveOfflinePrompt = async () => {
   try {
     myWorld.value = await updateMyWorldOfflinePrompt(offlinePromptDraft.value.trim());
     toast.success(t('离线代理提示词已保存'));
-  } catch (e: any) {
-    toast.error(e?.message || t('保存失败'));
+  } catch {
+    // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
   }
@@ -882,8 +802,8 @@ const handleStartTravel = async () => {
     await refreshGraph();
     startSessionPolling();
     toast.success(t('穿越成功'));
-  } catch (e: any) {
-    toast.error(e?.message || t('穿越失败'));
+  } catch {
+    // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
   }
@@ -907,8 +827,8 @@ const handleEndTravel = async () => {
       await refreshReports();
       await loadSessionLogs(endedSessionId);
       activeTab.value = 'logs';
-    } catch (e: any) {
-      toast.error(e?.message || t('返回失败'));
+    } catch {
+      // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
   }
@@ -942,8 +862,8 @@ const loadWorlds = async (reset: boolean = false) => {
     } else {
       worldsList.value = [...worldsList.value, ...worlds];
     }
-  } catch (e: any) {
-    toast.error(e?.message || t('加载世界列表失败'));
+  } catch {
+    // request.ts 已统一处理错误弹窗
   } finally {
     isLoadingWorlds.value = false;
   }
@@ -1016,8 +936,8 @@ const handleStartTravelToSelected = async () => {
     gameStateStore.addToShortTermMemory(`你进行了联机穿越，抵达${owner}的世界，坐标(${x}, ${y})，所在大陆：${continentName}。`);
     await characterStore.saveCurrentGame();
     toast.success(t('穿越成功'));
-  } catch (e: any) {
-    toast.error(e?.message || t('穿越失败'));
+  } catch {
+    // request.ts 已统一处理错误弹窗，此处不再重复
   } finally {
     isLoading.value = false;
   }

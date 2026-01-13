@@ -37,24 +37,23 @@ export type MapGraphResponse = {
   map_id: number;
   map_key: string;
   viewer_poi_id?: number | null;
-  pois: Array<{
-    id: number;
-    poi_key: string;
-    x: number;
-    y: number;
-    type: string;
-    tags?: unknown;
-    state?: unknown;
-  }>;
-  edges: Array<{
-    id: number;
-    from_poi_id: number;
-    to_poi_id: number;
-    edge_type: string;
-    travel_cost: number;
-    risk: number;
-    one_way: boolean;
-  }>;
+  // 原始世界数据（大陆信息、势力信息、地点信息）
+  world_info?: {
+    世界名称?: string;
+    大陆信息?: unknown[];
+    势力信息?: unknown[];
+    地点信息?: unknown[];
+    世界背景?: string;
+    世界纪元?: string;
+    生成时间?: string;
+    特殊设定?: string[];
+    版本?: string;
+  } | null;
+  // 世界主人角色信息
+  owner_base_info?: Record<string, unknown> | null;
+  owner_location?: Record<string, unknown> | null;
+  // NPC/社交关系
+  relationships?: Record<string, unknown> | null;
 };
 
 export type WorldInstanceSummary = {
