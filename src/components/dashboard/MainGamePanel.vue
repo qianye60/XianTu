@@ -2216,8 +2216,8 @@ const syncGameState = async () => {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  /* 显示可见的滚动拇指，但轨道透明 */
-  scrollbar-color: transparent transparent;
+  /* 显示可见的滚动拇指，轨道透明 */
+  scrollbar-color: var(--color-border) transparent;
   box-sizing: border-box;
   min-height: 200px;
   display: flex; /* 让子元素可以撑满高度 */
@@ -2245,12 +2245,12 @@ const syncGameState = async () => {
 
 .content-area::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background-color: transparent;
+  background-color: var(--color-border);
 }
 
 /* 悬停时略微增强可见度 */
 .content-area:hover::-webkit-scrollbar-thumb {
-  background-color: transparent;
+  background-color: var(--color-text-secondary);
 }
 
 .content-area::-webkit-scrollbar-button {

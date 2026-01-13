@@ -1008,8 +1008,12 @@ const handleStartTravelToSelected = async () => {
     await refreshGraph();
     startSessionPolling();
     const owner = selectedWorld.value?.owner_username || '对方';
-    const loc = gameStateStore.location?.描述 || '未知位置';
-    gameStateStore.addToShortTermMemory(`你进行了联机穿越，抵达${owner}的世界，落点：${loc}。`);
+    const loc = gameStateStore.location;
+    const x = loc?.x ?? 0;
+    const y = loc?.y ?? 0;
+    const continents = gameStateStore.worldInfo?.大陆信息 || [];
+    const continentName = continents.length > 0 ? (continents[0].名称 || continents[0].name || '未知大陆') : '未知大陆';
+    gameStateStore.addToShortTermMemory(`你进行了联机穿越，抵达${owner}的世界，坐标(${x}, ${y})，所在大陆：${continentName}。`);
     await characterStore.saveCurrentGame();
     toast.success(t('穿越成功'));
   } catch (e: any) {

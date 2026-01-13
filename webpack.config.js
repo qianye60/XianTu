@@ -15,13 +15,14 @@ const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, './packag
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isWatch = argv.watch === true // 检测是否是 watch 模式
+  const isSingleFile = env?.single === true // 检测是否是单文件模式
 
   return {
     mode: isProduction ? 'production' : 'development',
     entry: './src/main.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: isWatch ? 'inline.js' : 'XianTu.js',
+      filename: (isWatch || isSingleFile) ? 'inline.js' : 'XianTu.js',
       clean: true,
       publicPath: './', // 使用相对路径，便于部署
     },
@@ -126,13 +127,13 @@ export default (env, argv) => {
           minifyURLs: true,
         } : false
       }),
-      // watch 模式下内联 JS 到 HTML
-      isWatch ? new HtmlInlineScriptPlugin({
+      // watch 或 single 模式下内联 JS 到 HTML
+      (isWatch || isSingleFile) ? new HtmlInlineScriptPlugin({
         htmlMatchPattern: [/index\.html$/],
         scriptMatchPattern: [/inline\.js$/],
       }) : null,
-      // watch 模式下删除临时 JS 文件
-      isWatch ? {
+      // watch 或 single 模式下删除临时 JS 文件
+      (isWatch || isSingleFile) ? {
         apply: (compiler) => {
           compiler.hooks.afterEmit.tap('DeleteInlineJS', (compilation) => {
             const inlineJsPath = path.join(__dirname, 'dist', 'inline.js');

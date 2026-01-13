@@ -9,7 +9,6 @@ import * as storage from '@/utils/indexedDBManager';
 import { getTavernHelper, clearAllCharacterData, isTavernEnv } from '@/utils/tavern';
 import { ensureSaveDataHasTavernNsfw } from '@/utils/nsfw';
 import { initializeCharacter } from '@/services/characterInitialization';
-import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, fetchCharacterProfile, updateCharacterSave, verifyStoredToken } from '@/services/request';
 import { isBackendConfigured } from '@/services/backendConfig';
 import { validateGameData } from '@/utils/dataValidation';
@@ -537,12 +536,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
         console.log('[角色商店] ✅ initializeCharacter返回成功,数据有效:', !!initialSaveData);
       } catch (e) {
         console.error('[角色商店] ❌ initializeCharacter失败:', e);
-        if (mode === '单机') { // 单机
-          console.log('[角色商店] 单机模式,尝试离线初始化...');
-          initialSaveData = await initializeCharacterOffline(charId, authoritativeBaseInfo, world, age);
-        } else {
-          throw e;
-        }
+        // 🔥 修复：AI生成失败时直接抛出错误，不再自动回退到离线初始化
+        // 让上层（App.vue）处理错误，显示重试对话框让用户选择
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        throw new Error(`角色初始化失败: ${errorMessage}`);
       }
 
       // Tavern 兜底：确保系统NSFW配置与“角色.身体”骨架存在（避免界面不展示/路径缺失）
