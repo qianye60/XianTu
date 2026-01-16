@@ -43,6 +43,8 @@ export interface EnhancedWorldGenConfig {
   mapConfig?: WorldMapConfig;
   onStreamChunk?: (chunk: string) => void; // 流式输出回调
   enableHehuanEasterEgg?: boolean; // 是否启用合欢宗彩蛋（仅在地图初始化时启用）
+  existingFactions?: Array<{ 名称: string; 位置?: any; 势力范围?: any[] }>; // 现有势力（防止重叠）
+  existingLocations?: Array<{ 名称: string; coordinates?: any }>; // 现有地点（防止重叠）
 }
 
 export class EnhancedWorldGenerator {
@@ -203,6 +205,26 @@ export class EnhancedWorldGenerator {
 - 等级：二流 或 三流（必须明确填写，不能为空）
 - 特色：以双修采补闻名，宗门风气开放
 - 必须包含圣女职位（leadership.圣女字段）`;
+      }
+
+      // 🔥 注入现有地点和势力信息（防止重叠）
+      if (this.config.existingFactions?.length || this.config.existingLocations?.length) {
+        defaultPrompt += `
+
+【已有地点势力（禁止重叠）】
+新生成的地点和势力必须避开以下已有位置，坐标不能重叠：`;
+        if (this.config.existingFactions?.length) {
+          const factionList = this.config.existingFactions.map(f =>
+            `- ${f.名称}${f.位置 ? `(位置:${JSON.stringify(f.位置)})` : ''}`
+          ).join('\n');
+          defaultPrompt += `\n已有势力：\n${factionList}`;
+        }
+        if (this.config.existingLocations?.length) {
+          const locationList = this.config.existingLocations.map(l =>
+            `- ${l.名称}${l.coordinates ? `(坐标:x=${l.coordinates.x},y=${l.coordinates.y})` : ''}`
+          ).join('\n');
+          defaultPrompt += `\n已有地点：\n${locationList}`;
+        }
       }
 
       // 如果用户有自定义提示词且不为空，使用自定义的
@@ -392,7 +414,7 @@ export class EnhancedWorldGenerator {
         名称: location.name || location.名称,
         类型: location.type || location.类型,
         位置: location.位置,
-        coordinates: location.coordinates,
+        coordinates: location.coordinates || location.坐标,
         描述: location.description || location.描述,
         特色: location.features || location.特色,
         安全等级: location.safety_level || location.danger_level || location.安全等级 || '较安全',
@@ -435,22 +457,7 @@ export class EnhancedWorldGenerator {
    */
   private performCustomValidation(worldInfo: WorldInfo, result: ValidationResult): void {
     // 势力数量和地点数量不再检查，AI生成多少都接受
-
-    // 检查势力等级分布
-    const levelCounts = worldInfo.势力信息.reduce((counts: Record<string, number>, faction) => {
-      const level = faction.等级;
-      counts[level] = (counts[level] || 0) + 1;
-      return counts;
-    }, {});
-
-    if (levelCounts['超级'] > 1) {
-      result.errors.push({
-        path: '势力信息.等级',
-        message: '超级势力不能超过1个',
-        expected: '1个超级势力',
-        received: `${levelCounts['超级']}个超级势力`
-      });
-    }
+    // 超级宗门数量也不再限制，避免因数量问题导致生成失败
 
     // 检查名称唯一性
     const factionNames = worldInfo.势力信息.map(f => f.名称);

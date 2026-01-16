@@ -1061,51 +1061,62 @@ select.input option {
 .item-list {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
 }
 
 .item-card {
-  padding: 0.9rem 1rem;
-  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  min-height: 180px;
+  transition: all 0.2s ease;
+}
+
+.item-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
 }
 
 .item-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .item-title {
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  line-height: 1.4;
 }
 
 .item-type {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--color-primary);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  background: var(--color-surface-light);
+  background: rgba(147, 197, 253, 0.1);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .item-desc {
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   color: var(--color-text-secondary);
   font-size: 0.85rem;
   line-height: 1.5;
@@ -1114,41 +1125,48 @@ select.input option {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   flex-shrink: 0;
+  min-height: 2.55em;
 }
 
 .item-meta {
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.5rem 0.8rem;
   color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   overflow: hidden;
   flex-shrink: 0;
+  max-height: 1.8em;
+}
+
+.item-meta span {
+  white-space: nowrap;
 }
 
 .tags {
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   display: flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   flex-wrap: wrap;
   overflow: hidden;
-  max-height: 1.6rem;
+  max-height: 1.5rem;
   flex-shrink: 0;
 }
 
 .tag {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-light);
   color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 .item-actions {
-  margin-top: 0.5rem;
-  padding-top: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.6rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
@@ -1344,6 +1362,16 @@ select.input option {
   .filters { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .label { padding-top: 0; }
+
+  .item-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .item-card {
+    min-height: 160px;
+    padding: 0.85rem 1rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1355,6 +1383,28 @@ select.input option {
 
   .workshop-panel {
     padding: 12px;
+  }
+
+  .item-list {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .item-card {
+    min-height: auto;
+    padding: 0.75rem 0.9rem;
+  }
+
+  .item-card:hover {
+    transform: none;
+  }
+
+  .item-title {
+    font-size: 0.95rem;
+  }
+
+  .item-desc {
+    min-height: auto;
   }
 }
 </style>

@@ -549,12 +549,19 @@ const isLoading = computed(() => isRefreshing.value || !gameStateStore.isGameLoa
 
 const extractRealmName = (realm?: string) => {
   if (!realm) return 'mortal';
+  // 默认境界体系
   if (realm.includes('炼气')) return 'qi-refining';
   if (realm.includes('筑基')) return 'foundation';
   if (realm.includes('金丹')) return 'golden-core';
   if (realm.includes('元婴')) return 'nascent-soul';
   if (realm.includes('化神')) return 'soul-formation';
-  return 'mortal';
+  if (realm.includes('炼虚')) return 'void-refining';
+  if (realm.includes('合体')) return 'body-integration';
+  if (realm.includes('渡劫')) return 'tribulation';
+  // 凡人/无境界
+  if (realm.includes('凡人') || realm === '凡人') return 'mortal';
+  // 自定义境界 - 返回 'custom' 使用通用高亮样式
+  return 'custom';
 };
 
 // ... 你的所有其他 computed (baseInfo, playerStatus, fullCultivationTechnique 等) ...
@@ -1198,8 +1205,17 @@ const closeModals = () => {
 .identity-info { min-width: 0; }
 
 /* 境界光效 */
-.avatar-circle[data-realm='golden-core'] { border-color: #ffd700; color: #ffd700; }
 .avatar-circle[data-realm='mortal'] { border-color: #a0a0a0; }
+.avatar-circle[data-realm='qi-refining'] { border-color: #90cdf4; color: #90cdf4; }
+.avatar-circle[data-realm='foundation'] { border-color: #68d391; color: #68d391; }
+.avatar-circle[data-realm='golden-core'] { border-color: #ffd700; color: #ffd700; }
+.avatar-circle[data-realm='nascent-soul'] { border-color: #f687b3; color: #f687b3; }
+.avatar-circle[data-realm='soul-formation'] { border-color: #b794f4; color: #b794f4; }
+.avatar-circle[data-realm='void-refining'] { border-color: #63b3ed; color: #63b3ed; }
+.avatar-circle[data-realm='body-integration'] { border-color: #fc8181; color: #fc8181; }
+.avatar-circle[data-realm='tribulation'] { border-color: #faf089; color: #faf089; }
+/* 自定义境界 - 使用渐变色彩 */
+.avatar-circle[data-realm='custom'] { border-color: #a78bfa; color: #a78bfa; }
 
 .realm-aura {
   position: absolute; inset: -5px;

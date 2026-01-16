@@ -202,10 +202,12 @@ import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
 import { useUIStore } from './stores/uiStore';
+import { useGameStateStore } from './stores/gameStateStore';
 import { toast } from './utils/toast';
 import { getTavernHelper } from './utils/tavern'; // 添加导入
 import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
 import { heartbeatPresenceSilent } from '@/services/presence';
+import { endTravelBeacon } from '@/services/onlineTravel';
 import { getFullscreenElement, requestFullscreen, exitFullscreen, explainFullscreenError } from './utils/fullscreen';
 import type { CharacterBaseInfo } from '@/types/game';
 import type { CharacterCreationPayload, Talent } from '@/types';
@@ -260,6 +262,7 @@ const switchView = (viewName: ViewName) => {
 const creationStore = useCharacterCreationStore();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
+const gameStateStore = useGameStateStore();
 
 // --- 联机在线心跳（进入联机存档即轮询，停掉=下线） ---
 const onlineHeartbeatTimer = ref<number | null>(null);
@@ -547,8 +550,10 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
     }
     // 不要自动跳转,让用户可以重试
   } finally {
-    console.log('[App.vue] finally: 停止loading');
+    console.log('[App.vue] finally: 停止loading并重置创建状态');
     uiStore.stopLoading();
+    // 重置 characterCreationStore 中的创建状态，确保按钮可以再次点击
+    creationStore.resetCreationState();
   }
 };
 
@@ -706,11 +711,26 @@ onMounted(async () => {
     }
   }, 5 * 60 * 1000); // 5分钟
 
+  // 6. 页面关闭时尝试结束穿越会话
+  const handleBeforeUnload = () => {
+    // 检查是否有活跃的穿越会话
+    const onlineState = gameStateStore.onlineState as any;
+    const sessionId = onlineState?.房间ID;
+    if (sessionId && characterStore.activeCharacterProfile?.模式 === '联机') {
+      // 尝试结束穿越会话
+      endTravelBeacon(Number(sessionId));
+      console.log('[App] beforeunload: 尝试结束穿越会话', sessionId);
+    }
+  };
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
   // 统一的清理逻辑
   onUnmounted(() => {
     stopOnlineHeartbeat();
     // 清理定时保存定时器
     clearInterval(saveInterval);
+    // 清理 beforeunload 监听
+    window.removeEventListener('beforeunload', handleBeforeUnload);
     // 清理父窗口resize监听
     try {
       if (targetParentWindow) {

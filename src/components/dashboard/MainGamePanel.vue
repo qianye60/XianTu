@@ -339,6 +339,7 @@ import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
 import { isTavernEnv } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
+import { aiService } from '@/services/aiService';
 import FormattedText from '@/components/common/FormattedText.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type {  CharacterProfile } from '@/types/game';
@@ -428,6 +429,8 @@ const persistAIProcessingState = () => {
 // 强制清除AI处理状态的方法
 const forceResetAIProcessingState = () => {
   console.log('[强制重置] 清除AI处理状态和会话存储');
+  // 取消所有正在进行的AI请求（包括重试中的）
+  aiService.cancelAllRequests();
   uiStore.resetStreamingState();
   streamingMessageIndex.value = null;
   rawStreamingContent.value = '';

@@ -486,7 +486,39 @@ class AIBidirectionalSystemClass {
 - 环境修正根据判定类型选择对应的值`;
       // --- 结束 ---
 
-      const stateJsonString = JSON.stringify(stateForAI);
+      // 🔥 构建精简版存档数据（用于叙事判定，减少token消耗）
+      // 无论单步还是分步模式，都使用精简版存档
+      const buildNarrativeState = (): Record<string, unknown> => {
+        return {
+          元数据: { 时间: stateForAI.元数据?.时间 },
+          角色: {
+            身份: stateForAI.角色?.身份,
+            属性: stateForAI.角色?.属性,
+            位置: stateForAI.角色?.位置,
+            效果: stateForAI.角色?.效果,
+            身体: stateForAI.角色?.身体,
+            背包: stateForAI.角色?.背包,
+            装备: stateForAI.角色?.装备,
+            功法: stateForAI.角色?.功法,
+            修炼: stateForAI.角色?.修炼,
+            大道: stateForAI.角色?.大道,
+            技能: stateForAI.角色?.技能,
+          },
+          社交: {
+            关系: stateForAI.社交?.关系,
+            宗门: stateForAI.社交?.宗门,
+            任务: stateForAI.社交?.任务,
+            事件: stateForAI.社交?.事件,
+            记忆: {
+              中期记忆: stateForAI.社交?.记忆?.中期记忆,
+              长期记忆: stateForAI.社交?.记忆?.长期记忆,
+            },
+          },
+          世界: stateForAI.世界,
+        };
+      };
+
+      const stateJsonString = JSON.stringify(buildNarrativeState());
 
       const activePrompts: string[] = [];
       if (uiStore.enableActionOptions) {
@@ -501,9 +533,78 @@ class AIBidirectionalSystemClass {
       await this.maybeTriggerScheduledWorldEvent({ v3, stateForAI, shortTermMemoryForPrompt });
 
       const assembledPrompt = await assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt);
+
+      // 🌐 构建穿越状态提示（直接写入主提示词，确保AI一定能看到）
+      const onlineState = stateForAI?.系统?.联机;
+      const travelTargetForPrompt = onlineState?.穿越目标;
+      let travelStatusPrompt = '';
+      if (onlineState?.模式 === '联机' && onlineState?.房间ID) {
+        const ownerName = travelTargetForPrompt?.主人用户名 || '世界主人';
+        const worldName = stateForAI?.世界?.信息?.世界名称 || '异世界';
+        const ownerProfile = travelTargetForPrompt?.世界主人档案;
+        const ownerCharName = ownerProfile?.名字 || ownerName;
+        const playerLocation = stateForAI?.角色?.位置;
+        const ownerLocation = travelTargetForPrompt?.世界主人位置;
+        const offlinePrompt = travelTargetForPrompt?.离线代理提示词;
+
+        // 构建世界主人详细信息
+        let ownerDetailInfo = `- 名字：${ownerCharName}`;
+        if (ownerProfile?.境界) ownerDetailInfo += `\n- 境界：${ownerProfile.境界}`;
+        if (ownerProfile?.门派) ownerDetailInfo += `\n- 门派：${ownerProfile.门派}`;
+        if (ownerProfile?.性别) ownerDetailInfo += `\n- 性别：${ownerProfile.性别}`;
+        if (ownerProfile?.种族) ownerDetailInfo += `\n- 种族：${ownerProfile.种族}`;
+        if (ownerProfile?.气血) ownerDetailInfo += `\n- 气血：${JSON.stringify(ownerProfile.气血)}`;
+        if (ownerProfile?.灵气) ownerDetailInfo += `\n- 灵气：${JSON.stringify(ownerProfile.灵气)}`;
+        if (ownerProfile?.神识) ownerDetailInfo += `\n- 神识：${JSON.stringify(ownerProfile.神识)}`;
+        if (ownerLocation) {
+          const ox = ownerLocation.x ?? ownerLocation.坐标?.x;
+          const oy = ownerLocation.y ?? ownerLocation.坐标?.y;
+          if (ox != null && oy != null) {
+            ownerDetailInfo += `\n- 位置坐标：(${ox}, ${oy})`;
+          }
+          if (ownerLocation.描述) ownerDetailInfo += `\n- 位置描述：${ownerLocation.描述}`;
+        }
+
+        travelStatusPrompt = `
+# ⚠️⚠️⚠️ 【极重要：联机穿越状态 - 必读】⚠️⚠️⚠️
+
+## 当前状态
+玩家已经**穿越时空**，来到了「${ownerName}」的世界「${worldName}」。
+这是一个**完全陌生的异世界**，不是玩家原来的世界！
+
+## 世界主人详细信息（用于AI代理）
+${ownerDetailInfo}
+${offlinePrompt ? `\n### 世界主人性格/行为提示词\n${offlinePrompt}` : ''}
+
+## 玩家当前位置
+- 位置描述：${playerLocation?.描述 || '未知'}
+- 坐标：(${playerLocation?.x ?? '未知'}, ${playerLocation?.y ?? '未知'})
+
+## 🎯 世界主人是真实存在的角色（极重要！）
+世界主人「${ownerCharName}」是这个世界中**真实存在的修士/角色**，玩家可以：
+- **寻找世界主人**：根据上述位置信息，玩家可以前往寻找
+- **与世界主人互动**：对话、切磋、交易、结交等
+- **遭遇世界主人**：在世界主人所在位置附近活动时可能偶遇
+
+## AI代理规则（当玩家遇到或寻找世界主人时）
+你需要**代理扮演**世界主人「${ownerCharName}」这个角色：
+- 使用世界主人的属性值进行战斗/切磋判定
+- 根据性格提示词决定世界主人的行为和态度
+- 世界主人对入侵者（玩家）的态度取决于性格，可能友好、中立或敌对
+- 世界主人有自己的日常活动（修炼、巡视、采药等），不会一直待在原地
+
+## 核心规则（必须遵守）
+1. **所有NPC都不认识玩家** - 玩家是外来者
+2. **不要使用原世界的任何设定** - 当前世界信息已完全切换
+3. **NPC初始态度**：警惕/好奇/中立（取决于NPC性格）
+4. **描述要体现陌生感** - 玩家对这个世界一无所知
+5. **世界主人可被找到** - 玩家想寻找世界主人时，引导其前往世界主人位置
+`;
+      }
+
       const systemPrompt = `
 ${assembledPrompt}
-
+${travelStatusPrompt}
 ${coreStatusSummary}
 ${vectorMemorySection ? `\n${vectorMemorySection}\n` : ''}
 # 游戏状态
@@ -550,14 +651,59 @@ ${stateJsonString}
       // 🌐 添加离线代理提示词（穿越到其他玩家世界时）
       const travelTarget = stateForAI?.系统?.联机?.穿越目标;
 
-      // 🌐 联机穿越：注入“穿越场景”提示，确保叙事从对方世界续写
+      // 🌐 联机穿越：注入"穿越场景"提示，确保叙事从对方世界续写
       const onlineSessionId = stateForAI?.系统?.联机?.房间ID;
       if (onlineSessionId && travelTarget?.世界ID) {
         const ownerName = travelTarget?.主人用户名 || '世界主人';
         const ownerLoc = travelTarget?.世界主人位置?.描述 || '';
-        const entryHint = ownerLoc ? `\n- 世界主人位置：${ownerLoc}` : '';
+        const ownerProfile = travelTarget?.世界主人档案;
+        const entryHint = ownerLoc ? `\n- 世界主人「${ownerName}」当前位置：${ownerLoc}（可以前往寻找）` : '';
+
+        // 构建世界主人信息
+        let ownerInfoText = '';
+        if (ownerProfile) {
+          const parts = [];
+          if (ownerProfile.名字) parts.push(`名字：${ownerProfile.名字}`);
+          if (ownerProfile.境界) parts.push(`境界：${ownerProfile.境界}`);
+          if (ownerProfile.种族) parts.push(`种族：${ownerProfile.种族}`);
+          if (parts.length > 0) {
+            ownerInfoText = `\n- 世界主人基本信息：${parts.join('，')}`;
+          }
+        }
+
         injects.push({
-          content: `# 【联机穿越】\n你当前处于联机穿越/入侵状态（会话ID：${onlineSessionId}），已进入「${ownerName}」的世界。\n叙事必须承接“穿越到对方世界”的场景继续书写，不要写成仍在原世界。${entryHint}`,
+          content: `# 【联机穿越 - 入侵者身份】
+你当前处于联机穿越/入侵状态（会话ID：${onlineSessionId}），已进入「${ownerName}」的世界。
+
+## ⚠️ 核心设定：你是入侵者
+- 你通过神秘的空间裂隙/虚空通道穿越到了这个世界
+- 这是**别人的世界**，不是你的主世界
+- 世界主人「${ownerName}」是这个世界的主人，**真实存在于世界中**${ownerInfoText}${entryHint}
+
+## 🎯 世界主人可以被找到！
+- 世界主人「${ownerName}」是一个**真实存在的角色**，不是虚无的概念
+- 玩家可以**主动寻找**世界主人，前往其所在位置
+- 当玩家表示想找世界主人时，**引导玩家前往世界主人的位置**
+- 遇到世界主人时，由你（AI）代理扮演世界主人与玩家互动
+
+## 🎭 NPC反应规则（重要！）
+1. **所有NPC都不认识你**：你对他们来说是完全陌生的外来者
+2. **凭空出现会引起注意**：
+   - 如果你出现在有NPC的地方，他们会**惊讶/警惕**
+   - 修士会感知到空间波动，凡人会觉得你"不知从哪冒出来的"
+   - 高境界修士可能会察觉你身上的"异界气息"
+3. **NPC内心戏要充足**：
+   - 描写NPC看到陌生人突然出现时的心理活动
+   - 根据NPC性格决定反应：警惕、好奇、敌意、友善等
+4. **不要假设任何既有关系**：
+   - 不要继承世界主人与NPC的好感度或互动历史
+   - 你需要从零开始与这个世界的NPC建立关系
+
+## 📝 叙事要求
+- 体现"异乡人"的陌生感和新鲜感
+- 描写你对这个陌生世界的观察和感受
+- NPC的反应要自然合理，符合"突然看到陌生人"的情境
+- 如果是首次穿越，要描写穿越的过程（空间扭曲、虚空通道等）`,
           role: 'system',
           depth: 3,
           position: 'in_chat',
@@ -614,20 +760,53 @@ ${stateJsonString}
       })();
 
       let response = '';
-      if (isSplitEnabled) {
-        // 🔥 获取 API 管理配置
-        const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
-        const apiStore = useAPIManagementStore();
-        const enableCot = apiStore.aiGenerationSettings.enableSystemCoT;
-        const cotApiConfig = apiStore.getAPIForType('cot');
-        const instructionApiConfig = apiStore.getAPIForType('instruction_generation');
-        // 判断是否有独立的 COT API 配置
-        const hasCotApi = enableCot && cotApiConfig && cotApiConfig.id !== 'default';
-        // 判断是否有独立的指令生成 API 配置
-        const hasInstructionApi = instructionApiConfig && instructionApiConfig.id !== 'default';
 
-        const buildSplitSystemPrompt = async (step: 1 | 2 | 3): Promise<string> => {
+      // 🔥 获取 API 管理配置，判断是否真正需要分步生成
+      const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
+      const apiStore = useAPIManagementStore();
+      const enableCot = apiStore.aiGenerationSettings.enableSystemCoT;
+      const cotApiConfig = apiStore.getAPIForType('cot');
+      const instructionApiConfig = apiStore.getAPIForType('instruction_generation');
+      // 判断是否有独立的 COT API 配置
+      const hasCotApi = enableCot && cotApiConfig && cotApiConfig.id !== 'default';
+      // 判断是否有独立的指令生成 API 配置
+      const hasInstructionApi = instructionApiConfig && instructionApiConfig.id !== 'default';
+
+      // 🔥 分步生成：只根据开关按钮判断，同一个API也可以分步（减少单次输出压力）
+      const shouldActuallySplit = isSplitEnabled;
+
+      if (shouldActuallySplit) {
+        // 🔥 分步生成第1步直接复用 buildNarrativeState（已在上方定义）
+        const buildNarrativeStateForStep1 = (): string => JSON.stringify(buildNarrativeState());
+
+        const buildSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
           const tavernEnv = !!tavernHelper;
+
+          if (step === 1) {
+            // 第1步：只输出正文纯文本，不需要JSON格式和指令相关的提示词
+            const stepRules = (await getPrompt('splitGenerationStep1')).trim();
+            const worldStandardsPrompt = await getPrompt('worldStandards');
+            // 🔥 添加精简版存档数据，用于叙事判定（知道玩家装备、状态、NPC关系等）
+            const narrativeStateJson = buildNarrativeStateForStep1();
+            // 只给叙事相关的提示词，不给coreOutputRules/dataDefinitions等指令格式提示词
+            return `
+${stepRules}
+
+---
+
+# 世界观设定
+${worldStandardsPrompt}
+
+---
+
+${coreStatusSummary}
+${vectorMemorySection ? `\n${vectorMemorySection}\n` : ''}
+# 当前游戏状态（用于叙事判定，无需输出指令）
+${narrativeStateJson}
+`.trim();
+          }
+
+          // 第2步：COT + 指令生成（合并），需要完整的提示词
           const [coreOutputRulesPrompt, businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
             getPrompt('coreOutputRules'),
             getPrompt('businessRules'),
@@ -638,53 +817,27 @@ ${stateJsonString}
 
           const sanitizedDataDefinitionsPrompt = tavernEnv ? dataDefinitionsPrompt : stripNsfwContent(dataDefinitionsPrompt);
 
-          if (step === 1) {
-            // 第1步：只输出正文纯文本
-            const stepRules = (await getPrompt('splitGenerationStep1')).trim();
-            const sections: string[] = [stepRules, textFormatsPrompt, worldStandardsPrompt];
-            const assembledStep1 = sections.join('\n\n---\n\n');
-            return `
-${assembledStep1}
-
-${coreStatusSummary}
-`.trim();
-          }
-
-          if (step === 2) {
-            // 第2步：思维链（COT）- 分析正文，生成推理
-            const cotPrompt = await getPrompt('cotCore');
-            const sections: string[] = [
-              '# 分步生成（第2步：思维链分析）',
-              '你需要分析第1步生成的正文内容，进行思维链推理。',
-              '根据正文内容，分析：',
-              '1. 场景变化（位置、时间、环境）',
-              '2. NPC状态变化（出场、互动、好感度）',
-              '3. 玩家状态变化（气血、灵气、效果）',
-              '4. 物品/灵石变化',
-              '5. 修炼进度变化',
-              '',
-              cotPrompt,
-              '',
-              '---',
-              '',
-              businessRulesPrompt,
-              sanitizedDataDefinitionsPrompt,
-              textFormatsPrompt,
-              worldStandardsPrompt
-            ];
-            return `
-${sections.join('\n')}
-
-${coreStatusSummary}
-
-# 游戏状态（JSON）
-${stateJsonString}
-`.trim();
-          }
-
-          // 第3步：指令生成
+          // 第2步：COT + 指令生成（合并）
           const stepRules = (await getPrompt('splitGenerationStep2')).trim();
-          const sections: string[] = [stepRules, coreOutputRulesPrompt, businessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt];
+          const cotPrompt = enableCot ? await getPrompt('cotCore') : '';
+          const sections: string[] = [stepRules];
+
+          // 如果启用COT，添加思维链提示
+          if (enableCot && cotPrompt) {
+            sections.push(`
+# 思维链分析（先分析再生成指令）
+根据第1步正文内容，分析：
+1. 场景变化（位置、时间、环境）
+2. NPC状态变化（出场、互动、好感度）
+3. 玩家状态变化（气血、灵气、效果）
+4. 物品/灵石变化
+5. 修炼进度变化
+
+${cotPrompt}
+`.trim());
+          }
+
+          sections.push(coreOutputRulesPrompt, businessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
 
           if (uiStore.enableActionOptions) {
             const actionOptionsPrompt = await getPrompt('actionOptions');
@@ -725,7 +878,7 @@ ${stateJsonString}
           return splitInjects;
         };
 
-        type SplitUsageType = 'main' | 'cot' | 'instruction_generation';
+        type SplitUsageType = 'main' | 'instruction_generation';
         const generateOnce = async (args: { user_input: string; should_stream: boolean; generation_id: string; injects: any; usageType?: SplitUsageType; onStreamChunk?: (chunk: string) => void; }) => {
           const usageType = args.usageType || 'main';
           if (tavernHelper) {
@@ -747,91 +900,75 @@ ${stateJsonString}
           });
         };
 
-        // ========== 第1步：正文生成 ==========
+        // ========== 第1步：正文生成（失败重试1次） ==========
         options?.onProgressUpdate?.('分步生成：第1步（正文）…');
         const systemPromptStep1 = await buildSplitSystemPrompt(1);
         const injectsStep1 = buildSplitInjects(systemPromptStep1, true);
-        const step1Raw = await generateOnce({
-          user_input: finalUserInput,
-          should_stream: useStreaming,
-          generation_id: `${generationId}_step1`,
-          injects: injectsStep1 as any,
-          usageType: 'main',
-          onStreamChunk: options?.onStreamChunk,
-        });
+        let step1Text = '';
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            if (attempt > 1) options?.onProgressUpdate?.('分步生成：第1步重试…');
+            const step1Raw = await generateOnce({
+              user_input: finalUserInput,
+              should_stream: useStreaming,
+              generation_id: `${generationId}_step1_${attempt}`,
+              injects: injectsStep1 as any,
+              usageType: 'main',
+              onStreamChunk: options?.onStreamChunk,
+            });
+            step1Text = this.extractNarrativeText(String(step1Raw));
+            if (step1Text.trim().length > 0) break;
+            step1Text = '';
+          } catch (e) {
+            console.warn(`[分步生成] 第1步第${attempt}次失败:`, e);
+          }
+        }
 
-        const step1Text = this.extractNarrativeText(String(step1Raw));
+        // ========== 第2步：指令生成（COT已合并到提示词中，可选开启） ==========
+        options?.onProgressUpdate?.('分步生成：第2步（指令生成）…');
+        const systemPromptStep2 = await buildSplitSystemPrompt(2);
+        const injectsStep2 = buildSplitInjects(systemPromptStep2, false);
 
-        // ========== 第2步：思维链（如果启用且有独立API） ==========
-        let cotAnalysis = '';
-        if (hasCotApi) {
-          options?.onProgressUpdate?.('分步生成：第2步（思维链分析）…');
-          const systemPromptStep2 = await buildSplitSystemPrompt(2);
-          const injectsStep2 = buildSplitInjects(systemPromptStep2, false);
-          const step2UserInput = `
+        const step2UserInput = `
 【用户本次操作】
 ${finalUserInput}
 
 【第1步正文】
 ${step1Text}
 
-请进行思维链分析，输出你的推理过程和状态变化判断。
-`.trim();
-
-          const step2Raw = await generateOnce({
-            user_input: step2UserInput,
-            should_stream: useStreaming,
-            generation_id: `${generationId}_step2_cot`,
-            injects: injectsStep2 as any,
-            usageType: 'cot',
-            onStreamChunk: useStreaming ? options?.onStreamChunk : undefined,
-          });
-          cotAnalysis = String(step2Raw);
-        }
-
-        // ========== 第3步：指令生成 ==========
-        options?.onProgressUpdate?.(`分步生成：第${hasCotApi ? 3 : 2}步（记忆/指令/行动选项）…`);
-        const systemPromptStep3 = await buildSplitSystemPrompt(3);
-        const injectsStep3 = buildSplitInjects(systemPromptStep3, false);
-
-        let step3UserInput = `
-【用户本次操作】
-${finalUserInput}
-
-【第1步正文】
-${step1Text}
-`;
-        if (cotAnalysis) {
-          step3UserInput += `
-【第2步思维链分析】
-${cotAnalysis}
-`;
-        }
-        step3UserInput += `
 请按"分步生成（第2步）"规则输出 JSON。
 `.trim();
 
-        response = await generateOnce({
-          user_input: step3UserInput,
-          should_stream: useStreaming,
-          generation_id: `${generationId}_step3_instruction`,
-          injects: injectsStep3 as any,
-          usageType: hasInstructionApi ? 'instruction_generation' : 'main',
-          onStreamChunk: useStreaming ? options?.onStreamChunk : undefined,
-        });
-
-        let parsedStep3: GM_Response;
-        try {
-          parsedStep3 = this.parseAIResponse(String(response));
-        } catch {
-          parsedStep3 = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] } as GM_Response;
+        // 🔥 第2步指令生成：根据设置决定是否使用流式传输，失败重试1次
+        const step2Streaming = apiStore.aiGenerationSettings.splitStep2Streaming;
+        let parsedStep2: GM_Response | null = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            if (attempt > 1) options?.onProgressUpdate?.(`分步生成：第2步重试…`);
+            const step2Response = await generateOnce({
+              user_input: step2UserInput,
+              should_stream: step2Streaming,
+              generation_id: `${generationId}_step2_${attempt}`,
+              injects: injectsStep2 as any,
+              usageType: hasInstructionApi ? 'instruction_generation' : 'main',
+              onStreamChunk: undefined,
+            });
+            parsedStep2 = this.parseAIResponse(String(step2Response));
+            if (parsedStep2.tavern_commands && parsedStep2.tavern_commands.length > 0) break;
+            parsedStep2 = null;
+          } catch (e) {
+            console.warn(`[分步生成] 第2步第${attempt}次失败:`, e);
+          }
+        }
+        if (!parsedStep2) {
+          parsedStep2 = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] } as GM_Response;
         }
 
         gmResponse = {
           text: step1Text,
-          mid_term_memory: parsedStep3.mid_term_memory || '',
-          tavern_commands: parsedStep3.tavern_commands || [],
-          action_options: uiStore.enableActionOptions ? this.sanitizeActionOptionsForDisplay(parsedStep3.action_options || []) : []
+          mid_term_memory: parsedStep2.mid_term_memory || '',
+          tavern_commands: parsedStep2.tavern_commands || [],
+          action_options: uiStore.enableActionOptions ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options || []) : []
         };
       } else if (tavernHelper) {
         // 酒馆模式
@@ -1038,68 +1175,71 @@ ${cotAnalysis}
 
       let response = '';
 
-      if (isSplitEnabled) {
-        // 🔥 获取 API 管理配置
-        const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
-        const apiStore = useAPIManagementStore();
-        const enableCot = apiStore.aiGenerationSettings.enableSystemCoT;
-        const cotApiConfig = apiStore.getAPIForType('cot');
-        const instructionApiConfig = apiStore.getAPIForType('instruction_generation');
-        // 判断是否有独立的 COT API 配置
-        const hasCotApi = enableCot && cotApiConfig && cotApiConfig.id !== 'default';
-        // 判断是否有独立的指令生成 API 配置
-        const hasInstructionApi = instructionApiConfig && instructionApiConfig.id !== 'default';
+      // 🔥 获取 API 管理配置，判断是否真正需要分步生成
+      const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
+      const apiStore = useAPIManagementStore();
+      const enableCot = apiStore.aiGenerationSettings.enableSystemCoT;
+      const instructionApiConfig = apiStore.getAPIForType('instruction_generation');
+      // 判断是否有独立的指令生成 API 配置
+      const hasInstructionApi = instructionApiConfig && instructionApiConfig.id !== 'default';
 
-        const buildInitialSplitSystemPrompt = async (step: 1 | 2 | 3): Promise<string> => {
+      // 🔥 开局分步生成：只根据开关按钮判断，固定用主API分步
+      const shouldActuallySplit = isSplitEnabled;
+
+      if (shouldActuallySplit) {
+
+        const buildInitialSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
           if (step === 1) {
+            // 第1步：只输出正文，不需要JSON格式和指令相关的提示词
             const stepRules = (await getPrompt('splitInitStep1')).trim();
+            const worldStandardsPrompt = await getPrompt('worldStandards');
             return `
 ${stepRules}
 
 ---
 
-# 原始系统提示词（供参考；若与本步目标冲突，以本步规则为准）
-${systemPrompt}
+# 世界观设定
+${worldStandardsPrompt}
+
+---
+
+# 角色设定
+${userPrompt}
             `.trim();
           }
 
-          if (step === 2) {
-            // 第2步：思维链（COT）
-            const cotPrompt = await getPrompt('cotCore');
-            return `
-# 分步生成（开局-第2步：思维链分析）
+          // 第2步：COT + 指令生成（合并）
+          const stepRules = (await getPrompt('splitInitStep2')).trim();
+          const cotPrompt = enableCot ? await getPrompt('cotCore') : '';
+          let prompt = stepRules;
 
-你需要分析第1步生成的开局正文内容，进行思维链推理。
+          // 如果启用COT，添加思维链提示
+          if (enableCot && cotPrompt) {
+            prompt += `
 
-根据正文内容，分析：
+---
+
+# 思维链分析（先分析再生成指令）
+根据第1步正文内容，分析：
 1. 初始场景设定（位置、时间、环境）
 2. 出场NPC的状态
 3. 玩家初始状态
 4. 可能的发展方向
 
-${cotPrompt}
+${cotPrompt}`;
+          }
+
+          prompt += `
 
 ---
 
 # 原始系统提示词（供参考）
-${systemPrompt}
-            `.trim();
-          }
-
-          // 第3步：指令生成
-          const stepRules = (await getPrompt('splitInitStep2')).trim();
-          return `
-${stepRules}
-
----
-
-# 原始系统提示词（供参考；若与本步目标冲突，以本步规则为准）
-${systemPrompt}
-          `.trim();
+${systemPrompt}`;
+          return prompt.trim();
         };
 
-        type InitialSplitUsageType = 'main' | 'cot' | 'instruction_generation';
-        const generateOnce = async (args: { step: 1 | 2 | 3; system: string; user: string; should_stream: boolean; usageType?: InitialSplitUsageType; onStreamChunk?: (chunk: string) => void; }): Promise<string> => {
+        type InitialSplitUsageType = 'main' | 'instruction_generation';
+        const generateOnce = async (args: { step: 1 | 2; system: string; user: string; should_stream: boolean; usageType?: InitialSplitUsageType; onStreamChunk?: (chunk: string) => void; }): Promise<string> => {
           const generationId = `initial_message_split_step${args.step}_${Date.now()}`;
           const usageType = args.usageType || 'main';
           if (tavernHelper) {
@@ -1170,65 +1310,43 @@ ${systemPrompt}
           options.onStreamComplete();
         }
 
-        // ========== 第2步：思维链（如果启用且有独立API） ==========
-        let cotAnalysis = '';
-        if (hasCotApi) {
-          options?.onProgressUpdate?.('分步生成：第2步（思维链分析）…');
-          const step2UserPrompt = `
+        // ========== 第2步：COT + 指令生成（合并） ==========
+        options?.onProgressUpdate?.('分步生成：第2步（思维链+指令生成）…');
+
+        const step2UserPrompt = `
 【开局用户提示】
 ${userPrompt}
 
 【第1步正文】
 ${step1Text}
 
-请进行思维链分析，输出你的推理过程。
-          `.trim();
-
-          const step2Raw = await generateOnce({
-            step: 2,
-            system: await buildInitialSplitSystemPrompt(2),
-            user: step2UserPrompt,
-            should_stream: useStreaming,
-            usageType: 'cot',
-            onStreamChunk: useStreaming ? options?.onStreamChunk : undefined,
-          });
-          cotAnalysis = String(step2Raw);
-        }
-
-        // ========== 第3步：指令生成 ==========
-        options?.onProgressUpdate?.(`分步生成：第${hasCotApi ? 3 : 2}步（开局记忆/指令/行动选项）…`);
-
-        let step3UserPrompt = `
-【开局用户提示】
-${userPrompt}
-
-【第1步正文】
-${step1Text}
-`;
-        if (cotAnalysis) {
-          step3UserPrompt += `
-【第2步思维链分析】
-${cotAnalysis}
-`;
-        }
-        step3UserPrompt += `
 请按"分步生成（开局-第2步）"规则输出 JSON。
         `.trim();
 
-        const step3Raw = await generateOnce({
-          step: 3,
-          system: await buildInitialSplitSystemPrompt(3),
-          user: step3UserPrompt,
-          should_stream: useStreaming,
-          usageType: hasInstructionApi ? 'instruction_generation' : 'main',
-          onStreamChunk: useStreaming ? options?.onStreamChunk : undefined,
-        });
-
-        let parsedStep3: GM_Response;
-        try {
-          parsedStep3 = this.parseAIResponse(String(step3Raw));
-        } catch {
-          parsedStep3 = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] } as GM_Response;
+        // 🔥 第2步指令生成：根据设置决定是否使用流式传输，失败重试1次
+        const step2StreamingInitial = apiStore.aiGenerationSettings.splitStep2Streaming;
+        options?.onProgressUpdate?.('分步生成：第2步（指令生成）…');
+        let parsedStep2: GM_Response | null = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            if (attempt > 1) options?.onProgressUpdate?.(`分步生成：第2步重试…`);
+            const step2Response = await generateOnce({
+              step: 2,
+              system: await buildInitialSplitSystemPrompt(2),
+              user: step2UserPrompt,
+              should_stream: step2StreamingInitial,
+              usageType: hasInstructionApi ? 'instruction_generation' : 'main',
+              onStreamChunk: undefined,
+            });
+            parsedStep2 = this.parseAIResponse(String(step2Response));
+            if (parsedStep2.tavern_commands && parsedStep2.tavern_commands.length > 0) break;
+            parsedStep2 = null;
+          } catch (e) {
+            console.warn(`[分步生成-开局] 第2步第${attempt}次失败:`, e);
+          }
+        }
+        if (!parsedStep2) {
+          parsedStep2 = { text: '', mid_term_memory: '', tavern_commands: [], action_options: [] } as GM_Response;
         }
 
         const defaultInitialActionOptions = [
@@ -1241,10 +1359,10 @@ ${cotAnalysis}
 
         gmResponse = {
           text: step1Text,
-          mid_term_memory: parsedStep3.mid_term_memory || '',
-          tavern_commands: parsedStep3.tavern_commands || [],
+          mid_term_memory: parsedStep2.mid_term_memory || '',
+          tavern_commands: parsedStep2.tavern_commands || [],
           action_options: uiStore.enableActionOptions
-            ? this.sanitizeActionOptionsForDisplay(parsedStep3.action_options?.length ? parsedStep3.action_options : defaultInitialActionOptions)
+            ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options?.length ? parsedStep2.action_options : defaultInitialActionOptions)
             : []
         };
       } else if (tavernHelper) {
@@ -1319,95 +1437,108 @@ ${cotAnalysis}
         }
       }
 
-      // 流式传输通过事件系统在调用方处理
-      try {
-        gmResponse = this.parseAIResponse(String(response));
-      } catch (parseError) {
-        console.error('[AI双向系统] 初始消息解析失败，尝试容错处理:', parseError);
+      // 🔥 非分步模式才需要解析response（分步模式已在上面设置了gmResponse）
+      if (!shouldActuallySplit) {
+        // 🔥 调试日志：检查酒馆/API返回的原始响应
+        console.log('[AI双向系统] 原始响应类型:', typeof response);
+        console.log('[AI双向系统] 原始响应长度:', String(response).length);
+        console.log('[AI双向系统] 原始响应前500字符:', String(response).substring(0, 500));
 
-        // 容错策略：尝试多种方式提取文本内容
-        const responseText = String(response).trim();
-        let extractedText = '';
-        let extractedMemory = '';
-        let extractedCommands: any[] = [];
-
-        // 1. 尝试提取JSON代码块（```json ... ```）
-        const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-        if (jsonBlockMatch && jsonBlockMatch[1]) {
-          try {
-            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
-            extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
-            extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
-            extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
-          } catch (e) {
-            console.warn('[AI双向系统] JSON代码块解析失败:', e);
-          }
+        // 🔥 检测空响应并给出更明确的错误提示
+        if (!response || String(response).trim().length === 0) {
+          throw new Error('AI返回了空响应。可能原因：1) 模型使用了reasoning_content字段而非content字段（如Gemini 3 Pro）；2) API配置错误；3) 网络问题。建议：在酒馆设置中关闭流式传输，或更换模型。');
         }
 
-        // 2. 如果没有提取到，尝试直接JSON解析
-        if (!extractedText) {
-          try {
-            const jsonObj = JSON.parse(responseText);
-            extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
-            extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
-            extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
-          } catch {
-            // 3. 尝试提取JSON中的text字段（使用正则）
-            const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-            if (textMatch && textMatch[1]) {
-              extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-            } else {
-              // 4. 尝试查找大括号包裹的JSON
-              const jsonMatch = responseText.match(/\{[\s\S]*"text"[\s\S]*\}/);
-              if (jsonMatch) {
-                try {
-                  const jsonObj = JSON.parse(jsonMatch[0]);
-                  extractedText = jsonObj.text || '';
-                  extractedMemory = jsonObj.mid_term_memory || '';
-                  extractedCommands = jsonObj.tavern_commands || [];
-                } catch {
-                  // 5. 最后降级：使用整个响应作为文本
-                  extractedText = responseText;
+        // 流式传输通过事件系统在调用方处理
+        try {
+          gmResponse = this.parseAIResponse(String(response));
+        } catch (parseError) {
+          console.error('[AI双向系统] 初始消息解析失败，尝试容错处理:', parseError);
+
+          // 容错策略：尝试多种方式提取文本内容
+          const responseText = String(response).trim();
+          let extractedText = '';
+          let extractedMemory = '';
+          let extractedCommands: any[] = [];
+
+          // 1. 尝试提取JSON代码块（结尾```可选）
+          const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?(?:```|$)/);
+          if (jsonBlockMatch && jsonBlockMatch[1]) {
+            try {
+              const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
+              extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+              extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
+              extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+            } catch (e) {
+              console.warn('[AI双向系统] JSON代码块解析失败:', e);
+            }
+          }
+
+          // 2. 如果没有提取到，尝试直接JSON解析
+          if (!extractedText) {
+            try {
+              const jsonObj = JSON.parse(responseText);
+              extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
+              extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
+              extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+            } catch {
+              // 3. 尝试提取JSON中的text字段（使用正则）
+              const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+              if (textMatch && textMatch[1]) {
+                extractedText = textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+              } else {
+                // 4. 尝试查找大括号包裹的JSON
+                const jsonMatch = responseText.match(/\{[\s\S]*"text"[\s\S]*\}/);
+                if (jsonMatch) {
+                  try {
+                    const jsonObj = JSON.parse(jsonMatch[0]);
+                    extractedText = jsonObj.text || '';
+                    extractedMemory = jsonObj.mid_term_memory || '';
+                    extractedCommands = jsonObj.tavern_commands || [];
+                  } catch {
+                    // 5. 最后降级：使用整个响应作为文本
+                    extractedText = responseText;
+                  }
                 }
               }
             }
           }
-        }
 
-        // 🔥 初始消息也需要 action_options
-        let extractedActionOptions: string[] = [];
-        // 尝试从已解析的JSON中提取
-        try {
-          const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-          if (jsonBlockMatch && jsonBlockMatch[1]) {
-            const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
-            extractedActionOptions = jsonObj.action_options || [];
+          // 🔥 初始消息也需要 action_options
+          let extractedActionOptions: string[] = [];
+          // 尝试从已解析的JSON中提取
+          try {
+            const jsonBlockMatch2 = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?(?:```|$)/);
+            if (jsonBlockMatch2 && jsonBlockMatch2[1]) {
+              const jsonObj = JSON.parse(jsonBlockMatch2[1].trim());
+              extractedActionOptions = jsonObj.action_options || [];
+            }
+          } catch { /* 忽略 */ }
+
+          // 确保不为空
+          if (!extractedActionOptions || extractedActionOptions.length === 0) {
+            console.warn('[AI双向系统] ⚠️ 初始消息：action_options为空，使用默认选项');
+            extractedActionOptions = [
+              '四处走动熟悉环境',
+              '查看自身状态',
+              '与附近的人交谈',
+              '寻找修炼之地',
+              '打听周围消息'
+            ];
           }
-        } catch { /* 忽略 */ }
 
-        // 确保不为空
-        if (!extractedActionOptions || extractedActionOptions.length === 0) {
-          console.warn('[AI双向系统] ⚠️ 初始消息：action_options为空，使用默认选项');
-          extractedActionOptions = [
-            '四处走动熟悉环境',
-            '查看自身状态',
-            '与附近的人交谈',
-            '寻找修炼之地',
-            '打听周围消息'
-          ];
+          gmResponse = {
+            text: extractedText,
+            mid_term_memory: extractedMemory,
+            tavern_commands: extractedCommands,
+            action_options: this.sanitizeActionOptionsForDisplay(extractedActionOptions)
+          };
+          console.warn('[AI双向系统] 使用容错模式提取初始消息 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
         }
 
-        gmResponse = {
-          text: extractedText,
-          mid_term_memory: extractedMemory,
-          tavern_commands: extractedCommands,
-          action_options: this.sanitizeActionOptionsForDisplay(extractedActionOptions)
-        };
-        console.warn('[AI双向系统] 使用容错模式提取初始消息 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
-      }
-
-      if (!gmResponse || !gmResponse.text) {
-        throw new Error('AI响应解析失败或为空');
+        if (!gmResponse || !gmResponse.text) {
+          throw new Error('AI响应解析失败或为空');
+        }
       }
 
       // 流式传输完成后调用回调
@@ -1415,7 +1546,12 @@ ${cotAnalysis}
         options.onStreamComplete();
       }
 
-      return gmResponse;
+      // 最终验证：确保gmResponse已设置
+      if (!gmResponse! || !gmResponse!.text) {
+        throw new Error('AI响应解析失败或为空');
+      }
+
+      return gmResponse!;
     } catch (error) {
       console.error('[AI双向系统] 初始消息生成失败:', error);
       throw new Error(`初始消息生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -2302,8 +2438,8 @@ ${saveDataJson}`;
     let parsedObj = tryParse(cleanedText);
     if (parsedObj) return standardize(parsedObj);
 
-    // 2. 提取代码块
-    const codeBlockMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    // 2. 提取代码块（结尾的```可选，处理AI未闭合代码块的情况）
+    const codeBlockMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i);
     if (codeBlockMatch?.[1]) {
       parsedObj = tryParse(codeBlockMatch[1].trim());
       if (parsedObj) return standardize(parsedObj);

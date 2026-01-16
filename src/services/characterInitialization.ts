@@ -390,9 +390,10 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
  * @param age - 开局年龄
  * @param useStreaming - 是否使用流式传输（默认true）
  * @param generateMode - 生成模式：generate（标准）或 generateRaw（纯净）
+ * @param splitResponseGeneration - 是否使用分步生成（默认true）
  * @returns 包含开场剧情和AI指令的响应
  */
-async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number, useStreaming: boolean = true, generateMode: 'generate' | 'generateRaw' = 'generate') {
+async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number, useStreaming: boolean = true, generateMode: 'generate' | 'generateRaw' = 'generate', splitResponseGeneration: boolean = true) {
   console.log('[初始化流程] 3. 生成开场剧情');
   const uiStore = useUIStore();
   const tavernEnv = isTavernEnv();
@@ -485,17 +486,29 @@ ${selectionsSummary}
 async () => {
   console.log('[初始化] ===== 开始生成开场剧情 =====');
   const startTime = Date.now();
+  let receivedChars = 0; // 追踪接收的字符数
   try {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
     const aiSystem = AIBidirectionalSystem;
     const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, {
       useStreaming,
       generateMode,
-      onStreamChunk: onStreamChunk
+      splitResponseGeneration,
+      onStreamChunk: (chunk: string) => {
+        receivedChars += chunk.length;
+        onStreamChunk(chunk);
+      },
+      onProgressUpdate: (status: string) => {
+        // 分步生成时更新进度提示
+        const statusWithChars = receivedChars > 0
+          ? `${status}（已接收 ${receivedChars} 字符）`
+          : status;
+        uiStore.updateLoadingText(`${loadingHeaderHtml}<br/><span style="font-size: 0.9em; opacity: 0.8;">${statusWithChars}</span>`);
+      }
     });
 
     const elapsed = Date.now() - startTime;
-    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms, 流式模式: ${useStreaming}, 生成模式: ${generateMode}`);
+    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms, 流式模式: ${useStreaming}, 生成模式: ${generateMode}, 分步生成: ${splitResponseGeneration}`);
 
     // generateInitialMessage 内部已经解析，这里直接返回
     return response;
@@ -1021,9 +1034,11 @@ export async function initializeCharacter(
   world: World,
   age: number,
   useStreaming: boolean = true,
-  generateMode: 'generate' | 'generateRaw' = 'generate'
+  generateMode: 'generate' | 'generateRaw' = 'generate',
+  splitResponseGeneration: boolean = true
 ): Promise<SaveData> {
   console.log('[初始化流程] ===== initializeCharacter 入口 =====');
+  console.log('[初始化流程] 分步生成模式:', splitResponseGeneration);
 
   // [Roo] 补丁：修复从创角store到基础信息的种族字段映射问题
   const creationStore = useCharacterCreationStore();
@@ -1072,10 +1087,13 @@ export async function initializeCharacter(
       if (isTavernEnv()) {
         console.log('[角色初始化] 🎲 触发合欢宗彩蛋：生成灰夫人NPC');
 
+        // 获取游戏时间，默认1000年
+        const currentYear = (initialSaveData as any).元数据?.时间?.年 ?? 1000;
+
         const greyLady: NpcProfile = {
           名字: "灰夫人(合欢圣女)",
           性别: "女",
-          出生日期: { 年: age - 18, 月: 1, 日: 1 }, // 设定为20岁（允许负数出生年）
+          出生日期: { 年: currentYear - 200, 月: 1, 日: 1 }, // 金丹圆满约200岁
           种族: "人族",
           出生: "合欢宗",
           外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
@@ -1084,6 +1102,12 @@ export async function initializeCharacter(
           灵根: { name: "天阴灵根", tier: "天品" } as any,
           天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
           先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          属性: {
+            气血: { 当前: 5000, 上限: 5000 }, // 金丹圆满
+            灵气: { 当前: 8000, 上限: 8000 },
+            神识: { 当前: 3000, 上限: 3000 },
+            寿元上限: 500 // 金丹期寿命约500年
+          },
           与玩家关系: "陌生人", // 初始关系
           好感度: 10, // 初始好感略高
           当前位置: { 描述: `${sectName}驻地` },
@@ -1141,7 +1165,8 @@ export async function initializeCharacter(
     console.log('[初始化流程] 准备调用generateOpeningScene...');
     console.log('[初始化流程] 使用流式模式:', useStreaming);
     console.log('[初始化流程] 使用生成模式:', generateMode);
-    const { finalSaveData } = await generateOpeningScene(initialSaveData, processedBaseInfo, world, age, useStreaming, generateMode);
+    console.log('[初始化流程] 使用分步生成:', splitResponseGeneration);
+    const { finalSaveData } = await generateOpeningScene(initialSaveData, processedBaseInfo, world, age, useStreaming, generateMode, splitResponseGeneration);
     console.log('[初始化流程] generateOpeningScene已返回');
 
     // 步骤 3.5: 核心属性校准

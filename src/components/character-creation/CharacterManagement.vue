@@ -42,10 +42,12 @@
       />
       <LegacySaveMigrationModal
         :open="showLegacyMigrationModal"
-        :targetCharId="selectedCharId"
-        :targetCharName="selectedCharacter?.角色?.名字"
-        @close="showLegacyMigrationModal = false"
+        :targetCharId="legacyMigrationStandalone ? null : selectedCharId"
+        :targetCharName="legacyMigrationStandalone ? undefined : selectedCharacter?.角色?.名字"
+        :standalone="legacyMigrationStandalone"
+        @close="closeLegacyMigration"
         @imported="handleLegacyImported"
+        @character-created="handleLegacyCharacterCreated"
       />
       <!-- 返回按钮 - 仅在全屏模式显示 -->
       <div v-if="isFullscreen" class="fullscreen-header">
@@ -116,6 +118,14 @@
             >
               <Upload :size="16" />
               <span>{{ $t('导入') }}</span>
+            </button>
+            <button
+              @click="openLegacyMigrationStandalone"
+              class="btn-header-action migrate"
+              :title="$t('导入旧版本角色')"
+            >
+              <Wrench :size="16" />
+              <span>{{ $t('旧版本') }}</span>
             </button>
           </div>
           <div class="grid-header-right">
@@ -594,6 +604,7 @@ const loading = ref(false);
 const isLoadingSaves = ref(false); // 新增：用于控制存档加载状态
 const importMode = ref<'character' | 'saves'>('character');
 const showLegacyMigrationModal = ref(false);
+const legacyMigrationStandalone = ref(false);
 
 // 响应式屏幕尺寸检测
 const screenWidth = ref(window.innerWidth);
@@ -621,12 +632,32 @@ const openLegacyMigration = () => {
     toast.error('联机角色不支持旧存档转化/导入');
     return;
   }
+  legacyMigrationStandalone.value = false;
   showLegacyMigrationModal.value = true;
+};
+
+// 独立模式打开旧版本转化（不需要选择角色）
+const openLegacyMigrationStandalone = () => {
+  legacyMigrationStandalone.value = true;
+  showLegacyMigrationModal.value = true;
+};
+
+const closeLegacyMigration = () => {
+  showLegacyMigrationModal.value = false;
+  legacyMigrationStandalone.value = false;
 };
 
 const handleLegacyImported = async () => {
   if (!selectedCharId.value) return;
   await selectCharacter(selectedCharId.value);
+};
+
+// 处理从旧版本角色创建新角色
+const handleLegacyCharacterCreated = async (charId: string) => {
+  closeLegacyMigration();
+  toast.success('旧版本角色已成功导入');
+  // 选中新创建的角色
+  await selectCharacter(charId);
 };
 
 onMounted(async () => {
@@ -1108,6 +1139,9 @@ const exportCharacter = async (charId: string) => {
     ).then(results => results.filter(Boolean)); // 🔥 过滤掉空的存档
 
     const normalizedSaves = savesWithFullData.map((s) => {
+      if (!s) {
+        throw new Error(`存档数据为空，无法导出`);
+      }
       const rawSaveData = (s as any).存档数据;
       if (!rawSaveData) {
         throw new Error(`存档「${s.存档名}」缺少存档数据，无法导出`);
@@ -1884,7 +1918,7 @@ const handleImportFile = async (event: Event) => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.4rem 0.8rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid;
   border-radius: 6px;
   cursor: pointer;
@@ -1895,6 +1929,21 @@ const handleImportFile = async (event: Event) => {
   flex-shrink: 0;
 }
 
+/* 默认隐藏按钮文字，只显示图标 */
+.btn-header-action span {
+  display: none;
+}
+
+/* 大屏幕显示按钮文字 */
+@media (min-width: 1200px) {
+  .btn-header-action {
+    padding: 0.4rem 0.8rem;
+  }
+  .btn-header-action span {
+    display: inline;
+  }
+}
+
 .btn-header-action.import {
   color: var(--color-info);
   border-color: rgba(var(--color-info-rgb), 0.4);
@@ -1903,6 +1952,16 @@ const handleImportFile = async (event: Event) => {
 .btn-header-action.import:hover {
   background: rgba(var(--color-info-rgb), 0.1);
   border-color: var(--color-info);
+}
+
+.btn-header-action.migrate {
+  color: var(--color-warning);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
+}
+
+.btn-header-action.migrate:hover {
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border-color: var(--color-warning);
 }
 
 .character-count {
@@ -3964,6 +4023,16 @@ const handleImportFile = async (event: Event) => {
 [data-theme='dark'] .btn-header-action.import:hover {
   background: rgba(119, 205, 254, 0.15);
   border-color: #77cdfe;
+}
+
+[data-theme='dark'] .btn-header-action.migrate {
+  color: #e0af68;
+  border-color: rgba(224, 175, 104, 0.4);
+}
+
+[data-theme='dark'] .btn-header-action.migrate:hover {
+  background: rgba(224, 175, 104, 0.15);
+  border-color: #e0af68;
 }
 
 [data-theme='dark'] .btn-save-action {

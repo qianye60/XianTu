@@ -828,6 +828,14 @@ export interface NpcProfile {
   天赋: CharacterBaseInfo['天赋']; // 天赋列表
   先天六司: InnateAttributes; // NPC只有一个六司字段，不分先天/最终
 
+  // === 核心数值（整合为属性对象）===
+  属性: {
+    气血: ValuePair<number>; // HP，生命值
+    灵气: ValuePair<number>; // MP/真元，法力值
+    神识: ValuePair<number>; // 精神力
+    寿元上限: number; // 最大寿命（当前年龄由出生日期自动计算）
+  };
+
   // === 社交关系 ===
   与玩家关系: string; // 如：道侣、师徒、朋友、敌人、陌生人
   好感度: number; // -100 到 100

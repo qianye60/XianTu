@@ -83,8 +83,32 @@ class AIService {
     }
   };
 
+  // 用于取消正在进行的请求
+  private abortController: AbortController | null = null;
+  private isAborted = false;
+
   constructor() {
     this.loadConfig();
+  }
+
+  /**
+   * 取消所有正在进行的请求（包括重试中的请求）
+   */
+  cancelAllRequests() {
+    console.log('[AI服务] 取消所有请求');
+    this.isAborted = true;
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
+  /**
+   * 重置取消状态（在新请求开始前调用）
+   */
+  private resetAbortState() {
+    this.isAborted = false;
+    this.abortController = new AbortController();
   }
 
   private syncModeWithEnvironment() {
@@ -121,6 +145,49 @@ class AIService {
     }
     localStorage.setItem('ai_service_config', JSON.stringify(this.config));
     console.log('[AI服务] 配置已保存:', this.config.mode);
+  }
+
+  /**
+   * 直接使用指定API配置进行测试（绕过环境检测，强制直连）
+   */
+  async testAPIDirectly(apiConfig: {
+    provider: APIProvider;
+    url: string;
+    apiKey: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+  }, testPrompt: string): Promise<string> {
+    console.log(`[AI服务] 直接测试API: ${apiConfig.url}, model: ${apiConfig.model}`);
+
+    // 临时保存当前配置
+    const originalConfig = this.config.customAPI ? { ...this.config.customAPI } : null;
+    const originalMode = this.config.mode;
+
+    try {
+      // 强制使用custom模式和指定的API配置
+      this.config.mode = 'custom';
+      this.config.customAPI = {
+        provider: apiConfig.provider,
+        url: apiConfig.url.replace(/\/v1\/?$/, '').replace(/\/+$/, ''),
+        apiKey: apiConfig.apiKey,
+        model: apiConfig.model,
+        temperature: apiConfig.temperature ?? 0.7,
+        maxTokens: apiConfig.maxTokens ?? 1000
+      };
+
+      // 直接调用自定义API（不走环境检测）
+      return await this.generateWithCustomAPI({
+        user_input: testPrompt,
+        should_stream: false
+      });
+    } finally {
+      // 恢复原配置
+      this.config.mode = originalMode;
+      if (originalConfig) {
+        this.config.customAPI = originalConfig;
+      }
+    }
   }
 
   getConfig(): AIConfig {
@@ -187,22 +254,21 @@ class AIService {
    * - 如果没有配置独立API，使用默认API
    */
   async generate(options: GenerateOptions): Promise<string> {
+    // 重置取消状态
+    this.resetAbortState();
+
     this.syncModeWithEnvironment();
     const usageType = options.usageType || 'main';
     console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${usageType}`);
 
     // 酒馆模式特殊处理
     if (this.config.mode === 'tavern') {
-      // 主API（main）永远通过酒馆调用
-      if (usageType === 'main') {
-        console.log('[AI服务-酒馆] 主API调用，使用酒馆TavernHelper');
-        return this.generateWithTavern(options);
-      }
-
-      // 辅助功能：检查是否配置了独立API
+      // 检查是否配置了独立API（非default）
       const apiConfig = this.getAPIConfigForUsageType(usageType);
+
+      // 如果配置了独立API，直接请求，不走酒馆代理
       if (apiConfig) {
-        console.log(`[AI服务-酒馆] 辅助功能[${usageType}]使用独立API: ${apiConfig.name}`);
+        console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连: ${apiConfig.name}`);
         return this.generateWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -213,8 +279,8 @@ class AIService {
         });
       }
 
-      // 辅助功能没有配置独立API，也走酒馆
-      console.log(`[AI服务-酒馆] 辅助功能[${usageType}]未配置独立API，使用酒馆TavernHelper`);
+      // 没有配置独立API（使用default），走酒馆
+      console.log(`[AI服务-酒馆] 功能[${usageType}]使用酒馆TavernHelper`);
       return this.generateWithTavern(options);
     }
 
@@ -254,16 +320,12 @@ class AIService {
 
     // 酒馆模式特殊处理
     if (this.config.mode === 'tavern') {
-      // 主API（main）永远通过酒馆调用
-      if (usageType === 'main') {
-        console.log('[AI服务-酒馆] 主API Raw调用，使用酒馆TavernHelper');
-        return this.generateRawWithTavern(options);
-      }
-
-      // 辅助功能：检查是否配置了独立API
+      // 检查是否配置了独立API（非default）
       const apiConfig = this.getAPIConfigForUsageType(usageType);
+
+      // 如果配置了独立API，直接请求，不走酒馆代理
       if (apiConfig) {
-        console.log(`[AI服务-酒馆] 辅助功能[${usageType}]使用独立API: ${apiConfig.name}`);
+        console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连(Raw): ${apiConfig.name}`);
         return this.generateRawWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -274,8 +336,8 @@ class AIService {
         });
       }
 
-      // 辅助功能没有配置独立API，也走酒馆
-      console.log(`[AI服务-酒馆] 辅助功能[${usageType}]未配置独立API，使用酒馆TavernHelper`);
+      // 没有配置独立API（使用default），走酒馆
+      console.log(`[AI服务-酒馆] 功能[${usageType}]使用酒馆TavernHelper(Raw)`);
       return this.generateRawWithTavern(options);
     }
 
@@ -426,9 +488,21 @@ class AIService {
 
     let lastError: unknown;
     for (let attempt = 0; attempt <= retries; attempt++) {
+      // 检查是否已取消
+      if (this.isAborted) {
+        console.log(`[AI服务] ${label} 请求已被取消，停止重试`);
+        throw new Error('请求已取消');
+      }
+
       try {
         return await fn();
       } catch (error) {
+        // 再次检查取消状态
+        if (this.isAborted) {
+          console.log(`[AI服务] ${label} 请求已被取消，停止重试`);
+          throw new Error('请求已取消');
+        }
+
         lastError = error;
         const retryable = this.isRetryableError(error);
         if (!retryable || attempt >= retries) break;
@@ -436,7 +510,21 @@ class AIService {
         const jitter = Math.floor(Math.random() * 250);
         const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
         console.warn(`[AI服务] ${label} 失败，准备重试 (${attempt + 1}/${retries + 1})，${delay}ms`, error);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+
+        // 使用可中断的延迟
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, delay);
+          // 如果在等待期间被取消，立即结束
+          const checkAbort = setInterval(() => {
+            if (this.isAborted) {
+              clearTimeout(timer);
+              clearInterval(checkAbort);
+              reject(new Error('请求已取消'));
+            }
+          }, 100);
+          // 正常完成时清理检查器
+          setTimeout(() => clearInterval(checkAbort), delay + 10);
+        });
       }
     }
     throw lastError;
@@ -1013,7 +1101,14 @@ class AIService {
 
     return this.processSSEStream(response, (data) => {
       const parsed = JSON.parse(data);
-      return parsed.choices[0]?.delta?.content || '';
+      const delta = parsed.choices[0]?.delta;
+      // 🔥 兼容 Gemini/DeepSeek 等模型的 reasoning_content 字段
+      // 这些模型会先输出 reasoning_content（思维链），然后输出 content（实际内容）
+      // reasoning_content 会被包裹在 <thinking> 标签中，由 processSSEStream 过滤
+      if (delta?.reasoning_content) {
+        return `<thinking>${delta.reasoning_content}</thinking>`;
+      }
+      return delta?.content || '';
     }, onStreamChunk);
   }
 

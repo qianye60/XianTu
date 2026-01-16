@@ -425,6 +425,34 @@ function repairNpc(npc: NpcProfile): NpcProfile {
     repaired.先天六司 = { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 };
   }
 
+  // 修复核心数值（整合为属性对象，旧存档自动补上默认值）
+  if (!repaired.属性 || typeof repaired.属性 !== 'object') {
+    repaired.属性 = {
+      气血: { 当前: 100, 上限: 100 },
+      灵气: { 当前: 50, 上限: 50 },
+      神识: { 当前: 30, 上限: 30 },
+      寿元上限: 100
+    };
+  } else {
+    repaired.属性.气血 = repairValuePair(repaired.属性.气血, 100, 100);
+    repaired.属性.灵气 = repairValuePair(repaired.属性.灵气, 50, 50);
+    repaired.属性.神识 = repairValuePair(repaired.属性.神识, 30, 30);
+    repaired.属性.寿元上限 = typeof repaired.属性.寿元上限 === 'number' ? repaired.属性.寿元上限 : 100;
+  }
+  // 兼容旧格式：如果有旧的独立字段，迁移到属性对象
+  if ((repaired as any).气血 || (repaired as any).灵气 || (repaired as any).神识 || (repaired as any).寿元) {
+    repaired.属性 = {
+      气血: repairValuePair((repaired as any).气血, 100, 100),
+      灵气: repairValuePair((repaired as any).灵气, 50, 50),
+      神识: repairValuePair((repaired as any).神识, 30, 30),
+      寿元上限: (repaired as any).寿元?.上限 ?? 100
+    };
+    delete (repaired as any).气血;
+    delete (repaired as any).灵气;
+    delete (repaired as any).神识;
+    delete (repaired as any).寿元;
+  }
+
   // 修复位置
   if (!repaired.当前位置 || typeof repaired.当前位置 !== 'object') {
     repaired.当前位置 = { 描述: '朝天大陆·无名之地' };

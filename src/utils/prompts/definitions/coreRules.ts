@@ -3,28 +3,18 @@
  */
 
 export const JSON_OUTPUT_RULES = `
-# 输出格式（铁律！必须严格遵守！）
+# OUTPUT FORMAT (MANDATORY)
 
-**你必须立即输出JSON格式的响应，不要输出任何确认消息或纯文本！**
+**OUTPUT JSON IMMEDIATELY. NO confirmation messages. NO pure text.**
 
-## 强制JSON格式
-你的每一次回复都必须是一个合法的JSON对象，格式如下：
-{"text":"叙事内容","mid_term_memory":"本回合摘要","tavern_commands":[{"action":"set/add/push/delete","key":"路径","value":值}],"action_options":["选项1","选项2"]}
+## Format
+{"text":"叙事","mid_term_memory":"摘要","tavern_commands":[...],"action_options":["选项1","选项2"]}
 
-## 禁止事项
-- ❌ 禁止输出纯文本！必须是JSON！
-- ❌ 禁止输出确认消息（如"法则已刻入天轨"、"明白了"等）
-- ❌ 禁止<thinking>或思维链
-- ❌ 禁止在JSON外添加任何内容
-
-## 字段说明
-- text: 叙事正文（必需）
-- mid_term_memory: 本回合事件摘要（必需）
-- tavern_commands: 数据更新指令数组（必需，无更新则为[]）
-- action_options: 行动选项（仅当系统启用时输出）
-
-## 示例
-{"text":"【山风呼啸】\\n你站在悬崖边，俯瞰云海翻涌...","mid_term_memory":"玩家到达悬崖，观察周围环境","tavern_commands":[{"action":"set","key":"角色.位置.描述","value":"东洲·青云山·悬崖"}],"action_options":["继续前行","原路返回"]}
+## FORBIDDEN
+- ❌ Pure text responses
+- ❌ Confirmation like "明白了"/"法则已刻入"
+- ❌ <thinking> tags
+- ❌ Anything outside JSON
 `.trim()
 
 export const RESPONSE_FORMAT_RULES = `
@@ -49,6 +39,12 @@ export const NARRATIVE_PURITY_RULES = `
 - ❌ "系统检测到..."、"已为您..."等系统语句
 - ❌ 对玩家的OOC（Out of Character）指导
 - ❌ 括号内的解释说明如"（此处需要判定）"
+- ❌ AI计算/推理过程，如"根据规则..."、"计算得出..."、"判定结果..."
+- ❌ 数值计算说明，如"成功率50%"、"伤害=基础×系数"
+- ❌ 规则引用，如"按照xxx规则"、"依据设定"
+- ❌ 后台数据/调试信息，如JSON片段、tavern_commands内容、路径名
+- ❌ 内部字段名，如"角色.属性"、"社交.关系"等数据路径
+- ❌ 思维链/推理过程，如"首先..."、"然后..."、"因此..."的分析文本
 
 ## text字段只允许
 - ✅ 纯粹的剧情叙事（环境、动作、对话）

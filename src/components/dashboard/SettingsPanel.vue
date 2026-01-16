@@ -243,7 +243,7 @@
             @save="handleSaveReplaceRules"
           />
 
-          
+
 
           <div class="setting-item">
             <div class="setting-info">
@@ -352,7 +352,7 @@ const settings = reactive({
 
   // 游戏设置
   fastAnimations: false,
-  splitResponseGeneration: true,  // 默认启用分步生成，提高开局稳定性
+  splitResponseGeneration: false,  // 默认关闭分步生成
 
   // 🔞 成人内容（仅酒馆环境可用；非酒馆环境将被忽略/隐藏）
   enableNsfwMode: true,
@@ -493,7 +493,7 @@ const validateSettings = () => {
     }
 
     if (typeof (settings as any).splitResponseGeneration !== 'boolean') {
-      (settings as any).splitResponseGeneration = true;  // 默认启用分步生成
+      (settings as any).splitResponseGeneration = false;  // 默认关闭分步生成
     }
 
     // 正则替换规则：确保结构正确并限制大小，避免卡顿/存储膨胀
@@ -586,7 +586,7 @@ const resetSettings = () => {
         uiScale: 100,
         fontSize: 16,
         fastAnimations: false,
-        splitResponseGeneration: true,  // 默认启用分步生成
+        splitResponseGeneration: false,  // 默认关闭分步生成
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,

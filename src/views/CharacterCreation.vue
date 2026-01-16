@@ -97,14 +97,14 @@
           type="button"
           @click.prevent="(event: Event) => { console.log('[DEBUG] 开启仙途按钮被点击!'); handleNext(event); }"
           :disabled="
-            isGenerating ||
+            store.isCreating ||
             isNextDisabled ||
             (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           "
           class="btn"
           :class="{
             'btn-complete': store.currentStep === store.totalSteps,
-            'disabled': isGenerating || isNextDisabled || (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
+            'disabled': store.isCreating || isNextDisabled || (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           }"
         >
           {{ store.currentStep === store.totalSteps ? $t('开启仙途') : $t('下一步') }}
@@ -160,7 +160,7 @@ const emit = defineEmits<{
 const store = useCharacterCreationStore();
 const { t } = useI18n();
 const isCodeModalVisible = ref(false)
-const isGenerating = ref(false) // This now primarily acts as a state guard for buttons
+// 使用 store 中的 isCreating 状态，不再使用本地 ref
 const currentAIType = ref<'world' | 'talent_tier' | 'origin' | 'spirit_root' | 'talent'>('world')
 
 type PresetGender = NonNullable<CharacterPreset['data']['gender']>;
@@ -231,7 +231,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
       return
   }
 
-  isGenerating.value = true;
+  store.startCreation();
   const toastId = `cloud-ai-generate-${type}`;
   const initialMessage = userPrompt ? '基于你的心愿推演玄妙...' : '天机推演中...';
   toast.loading(initialMessage, { id: toastId });
@@ -247,7 +247,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
       // 后端会返回具体错误信息（404=不存在，400=已用完/已过期）
       const message = error instanceof Error ? error.message : '仙缘信物验证失败';
       toast.error(message, { id: toastId });
-      isGenerating.value = false;
+      store.resetCreationState();
       return;
     }
 
@@ -277,7 +277,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
 
     if (!aiResponse) {
       toast.error('天机阁未能推演出结果', { id: toastId });
-      isGenerating.value = false;
+      store.resetCreationState();
       return;
     }
 
@@ -293,7 +293,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
       }
     } catch {
       toast.error('天机推演结果格式异常', { id: toastId });
-      isGenerating.value = false;
+      store.resetCreationState();
       return;
     }
 
@@ -326,7 +326,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
       toast.error('天机紊乱：' + message, { id: toastId });
     }
   } finally {
-    isGenerating.value = false;
+    store.resetCreationState();
     // 确保toast在非成功路径也被关闭
     setTimeout(() => toast.hide(toastId), 3000);
   }
@@ -405,10 +405,10 @@ const isNextDisabled = computed(() => {
   const selectedWorld = store.selectedWorld;
   const selectedTalentTier = store.selectedTalentTier;
   const remainingPoints = store.remainingTalentPoints;
-  const generating = isGenerating.value;
+  const generating = store.isCreating;
 
   console.log('[DEBUG] 按钮状态检查 - 当前步骤:', currentStep, '/', totalSteps);
-  console.log('[DEBUG] 按钮状态检查 - isGenerating:', generating);
+  console.log('[DEBUG] 按钮状态检查 - isCreating:', generating);
   console.log('[DEBUG] 按钮状态检查 - 选中的世界:', selectedWorld?.name);
   console.log('[DEBUG] 按钮状态检查 - 选中的天资:', selectedTalentTier?.name);
   console.log('[DEBUG] 按钮状态检查 - 剩余天赋点:', remainingPoints);
@@ -472,9 +472,9 @@ async function handleCodeSubmit(data: { code: string; prompt?: string }) {
 
 async function createCharacter() {
   console.log('[DEBUG] createCharacter 开始执行');
-  console.log('[DEBUG] isGenerating.value:', isGenerating.value);
+  console.log('[DEBUG] store.isCreating:', store.isCreating);
 
-  if (isGenerating.value) {
+  if (store.isCreating) {
     console.warn('[CharacterCreation.vue] 角色创建已在进行中，忽略重复请求');
     return;
   }
@@ -506,18 +506,18 @@ async function createCharacter() {
   console.log('[DEBUG] selectedSpiritRoot:', store.selectedSpiritRoot, '(可为空，表示随机灵根)');
 
   // 进入创建流程后锁定按钮，防止重复点击/重复请求
-  isGenerating.value = true;
+  store.startCreation();
 
   if (!store.isLocalCreation) {
     if (!isBackendConfigured()) {
       toast.error('联机模式需要先配置后端服务器地址');
-      isGenerating.value = false;
+      store.resetCreationState();
       return;
     }
     const tokenOk = await verifyStoredToken();
     if (!tokenOk) {
       toast.error('联机模式需要先登录');
-      isGenerating.value = false;
+      store.resetCreationState();
       return;
     }
   }
@@ -592,11 +592,11 @@ async function createCharacter() {
   } catch (error: unknown) {
     console.error('创建角色时发生严重错误:', error);
     // 重置状态
-    isGenerating.value = false;
+    store.failCreation(error instanceof Error ? error.message : '未知错误');
     // 错误现在由App.vue统一处理，这里只记录日志并重新抛出，以便App.vue捕获
     emit('creation-complete', { error: error }); // 发射一个带错误的事件
   }
-  // 注意：成功情况下不在这里重置isGenerating.value，因为需要等待整个流程完成
+  // 注意：成功情况下不在这里重置状态，因为需要等待App.vue处理完成后再重置
 }
 
 // 处理云端同步完成事件

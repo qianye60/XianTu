@@ -1061,6 +1061,89 @@ export class GameMapManager {
   }
 
   /**
+   * 更新其他玩家位置（联机模式下显示被入侵用户）
+   */
+  updateOtherPlayerPosition(position: GameCoordinates | null, playerName: string = '玩家') {
+    const npcLayer = this.layers.get(4); // MapLayer.NPC - 使用NPC层显示其他玩家
+    if (!npcLayer) return;
+
+    // 清除旧的其他玩家标记（通过name属性识别）
+    const existingMarker = npcLayer.children.find((c: any) => c.name === 'otherPlayer');
+    if (existingMarker) {
+      npcLayer.removeChild(existingMarker);
+    }
+
+    if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+      return;
+    }
+
+    // 创建其他玩家容器
+    const playerContainer = new PIXI.Container();
+    playerContainer.name = 'otherPlayer';
+    playerContainer.x = position.x;
+    playerContainer.y = position.y;
+
+    // 绘制蓝色光环（区别于红色的自己）
+    const aura1 = new PIXI.Graphics();
+    aura1.beginFill(0x3b82f6, 0.3);
+    aura1.drawCircle(0, 0, 45);
+    aura1.endFill();
+    playerContainer.addChild(aura1);
+
+    const aura2 = new PIXI.Graphics();
+    aura2.beginFill(0x60a5fa, 0.5);
+    aura2.drawCircle(0, 0, 28);
+    aura2.endFill();
+    playerContainer.addChild(aura2);
+
+    // 绘制蓝色菱形标记（区别于三角形的自己）
+    const marker = new PIXI.Graphics();
+    marker.beginFill(0x2563eb);
+    marker.moveTo(0, -25);
+    marker.lineTo(18, 0);
+    marker.lineTo(0, 25);
+    marker.lineTo(-18, 0);
+    marker.closePath();
+    marker.endFill();
+
+    // 边框
+    marker.lineStyle(3, 0xffffff, 0.95);
+    marker.moveTo(0, -25);
+    marker.lineTo(18, 0);
+    marker.lineTo(0, 25);
+    marker.lineTo(-18, 0);
+    marker.closePath();
+
+    // 中心点
+    marker.beginFill(0xffffff);
+    marker.drawCircle(0, 0, 6);
+    marker.endFill();
+    marker.beginFill(0x2563eb);
+    marker.drawCircle(0, 0, 3);
+    marker.endFill();
+
+    playerContainer.addChild(marker);
+
+    // 添加玩家名称
+    const label = new PIXI.Text(`${playerName}玩家`, {
+      fontFamily: 'Microsoft YaHei, sans-serif',
+      fontSize: 40,
+      fill: 0x2563eb,
+      fontWeight: '700',
+      align: 'center',
+      stroke: '#ffffff',
+      strokeThickness: 5,
+    });
+    label.anchor.set(0.5, 0);
+    label.y = 35;
+    playerContainer.addChild(label);
+
+    npcLayer.addChild(playerContainer);
+
+    console.log('[地图管理器] 更新其他玩家位置:', position, playerName);
+  }
+
+  /**
    * 居中到指定坐标
    */
   centerTo(x: number, y: number, animate: boolean = true) {

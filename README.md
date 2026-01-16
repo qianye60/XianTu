@@ -2,6 +2,13 @@
   <img src="https://ddct.top/XianTu.png">
 </p>
 
+<table align="center">
+  <tr>
+    <td><img src="https://ddct.top/XianTu_black.png" width="400" alt="黑色主题"/></td>
+    <td><img src="https://ddct.top/XianTu_light.png" width="400" alt="浅色主题"/></td>
+  </tr>
+</table>
+
 <h1 align="center">仙途（Xian Tu）</h1>
 
 <p align="center">

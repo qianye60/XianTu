@@ -1,4 +1,5 @@
 import { request } from './request';
+import { buildBackendUrl, isBackendConfigured } from './backendConfig';
 
 export type TravelProfile = {
   travel_points: number;
@@ -110,6 +111,36 @@ export async function startTravel(target_username: string, invite_code?: string)
 
 export async function endTravel(session_id: number): Promise<{ success: boolean; message: string }> {
   return request.post<{ success: boolean; message: string }>('/api/v1/travel/end', { session_id });
+}
+
+/**
+ * 使用 keepalive fetch 结束穿越会话（用于页面关闭时）
+ * keepalive 在页面卸载时比普通 fetch 更可靠，且支持 Authorization header
+ */
+export function endTravelBeacon(session_id: number): boolean {
+  if (!isBackendConfigured()) return false;
+  const token = localStorage.getItem('access_token');
+  if (!token) return false;
+  const fullUrl = buildBackendUrl('/api/v1/travel/end');
+  if (!fullUrl) return false;
+
+  try {
+    // 使用 keepalive: true 确保请求在页面关闭时也能完成
+    fetch(fullUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ session_id }),
+      keepalive: true,
+    }).catch(() => {
+      // 忽略错误，页面已关闭
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function getMyWorldInstance(): Promise<WorldInstanceSummary> {

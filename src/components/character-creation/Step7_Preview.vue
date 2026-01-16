@@ -69,7 +69,7 @@
       </div>
 
       <!-- Start Mode (Streaming / Non-Streaming) -->
-      <div v-if="props.isLocalCreation" class="preview-item">
+      <div class="preview-item">
         <h3>{{ $t('开局模式') }}</h3>
         <div class="streaming-control">
           <label class="streaming-label">
@@ -87,7 +87,7 @@
       </div>
 
       <!-- Split Response Generation -->
-      <div v-if="props.isLocalCreation" class="preview-item">
+      <div class="preview-item">
         <h3>{{ $t('生成方式') }}</h3>
         <div class="generate-mode-control">
           <label class="generate-mode-label">

@@ -8,6 +8,10 @@
         <span v-if="ownerUsername" class="meta">· 主人：{{ ownerUsername }}</span>
       </div>
       <div class="actions">
+        <button class="tool-btn graphic-btn" @click="emit('toggle-graphic-mode')">
+          <MapIcon :size="14" />
+          图形模式
+        </button>
         <button class="tool-btn" @click="refreshAll" :disabled="isLoading">
           刷新
         </button>
@@ -86,6 +90,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { Map as MapIcon } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import {
   getActiveTravelSession,
@@ -93,6 +98,11 @@ import {
   type MapGraphResponse,
   type TravelStartResponse,
 } from '@/services/onlineTravel';
+
+// Emits
+const emit = defineEmits<{
+  (e: 'toggle-graphic-mode'): void;
+}>();
 
 const gameStateStore = useGameStateStore();
 
@@ -219,6 +229,20 @@ watch([sessionId, targetWorldId], () => {
   cursor: not-allowed;
 }
 
+.tool-btn.graphic-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  color: white;
+  border: none;
+  font-weight: 500;
+}
+
+.tool-btn.graphic-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+}
+
 .empty-state {
   flex: 1;
   border: 1px dashed var(--color-border, #e2e8f0);
@@ -315,7 +339,7 @@ watch([sessionId, targetWorldId], () => {
   padding: 10px 12px;
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 8px;
-  background: var(--color-bg, #f8fafc);
+  background: var(--color-background, rgba(0, 0, 0, 0.2));
 }
 
 .item-name {

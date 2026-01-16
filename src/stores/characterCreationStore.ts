@@ -116,6 +116,13 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   const isLocalCreation = ref(true);
   const initialGameMessage = ref<string | null>(null);
   const useStreamingStart = ref(true); // 开局是否使用流式传输（默认启用）
+
+  // ========== 角色创建流程状态管理 ==========
+  // 用于跟踪创建流程的状态，确保按钮状态正确
+  const isCreating = ref(false); // 是否正在创建角色
+  type CreationPhase = 'idle' | 'preparing' | 'world_generation' | 'opening_scene' | 'finalizing' | 'completed' | 'failed';
+  const creationPhase = ref<CreationPhase>('idle'); // 当前创建阶段
+  const creationError = ref<string | null>(null); // 创建过程中的错误信息
   const generateMode = ref<'generate' | 'generateRaw'>('generate'); // 开局生成模式（默认使用 generate）
   const splitResponseGeneration = ref(true); // 第七步是否使用分步生成（默认启用，提高开局稳定性）
 
@@ -139,26 +146,43 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 - 敌人实力普遍较弱，战斗容易获胜
 - 资源获取容易，修炼进度较快
 - 突破瓶颈的难度降低
-- NPC对主角态度友好，容易获得帮助`,
+- NPC对主角态度友好，容易获得帮助
+- 判定难度-10，幸运点+5`,
     普通: `【难度模式：普通】
 - 世界遵循正常修仙规则，机缘与危险并存
 - 敌人实力与主角相当，战斗需要策略
 - 资源获取需要努力，修炼进度正常
 - 突破瓶颈需要积累和机缘
-- NPC态度中立，需要建立关系`,
-    困难: `【难度模式：困难】
+- NPC态度中立，需要建立关系
+- 判定难度正常，无额外修正`,
+    困难: `【难度模式：困难】天道对主角格外严苛！
 - 世界充满危险，机缘稀少且竞争激烈
 - 敌人实力普遍较强，战斗需要谨慎
 - 资源稀缺，修炼进度缓慢
 - 突破瓶颈困难重重，需要特殊机缘
-- NPC对主角态度冷淡，需要付出代价获得帮助`,
-    噩梦: `【难度模式：噩梦】
+- NPC对主角态度冷淡，需要付出代价获得帮助
+【困难模式惩罚】
+- 所有判定难度+10
+- 幸运点上限-5
+- 大失败阈值扩大：<难度-10即为大失败
+- 失败必有代价，不可轻描淡写
+- 敌人境界普遍比主角高半级到一级`,
+    噩梦: `【难度模式：噩梦】天道要看这只蝼蚁如何挣扎！
 - 世界极度危险，处处是陷阱和敌人
 - 敌人实力远超主角，战斗九死一生
 - 资源极度稀缺，修炼举步维艰
 - 突破瓶颈几乎不可能，需要逆天机缘
 - NPC对主角充满敌意，信任难以建立
-- 死亡风险极高，每一步都需谨慎`
+- 死亡风险极高，每一步都需谨慎
+【噩梦模式惩罚】
+- 所有判定难度+20
+- 幸运点上限-10，下限-15
+- 大失败阈值扩大：<难度-5即为大失败
+- 大失败惩罚翻倍（重伤变濒死，损失翻倍）
+- 失败也有严重代价
+- 敌人境界普遍比主角高一到两级
+- 开局自带负面状态：【天道试炼】（所有判定-5，持续整个游戏）
+- 机缘出现概率减半，陷阱出现概率翻倍`
   };
 
   // 获取当前难度的提示词
@@ -917,8 +941,44 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   async function startLocalCreation() { await resetCharacter(); isLocalCreation.value = true; mode.value = 'single'; }
   async function startCloudCreation() { await resetCharacter(); isLocalCreation.value = false; mode.value = 'cloud'; }
 
+  // ========== 创建流程状态管理函数 ==========
+  function startCreation() {
+    isCreating.value = true;
+    creationPhase.value = 'preparing';
+    creationError.value = null;
+    console.log('[创世神殿] 开始创建角色流程');
+  }
+
+  function setCreationPhase(phase: CreationPhase) {
+    creationPhase.value = phase;
+    console.log(`[创世神殿] 创建阶段更新: ${phase}`);
+  }
+
+  function completeCreation() {
+    isCreating.value = false;
+    creationPhase.value = 'completed';
+    creationError.value = null;
+    console.log('[创世神殿] 角色创建完成');
+  }
+
+  function failCreation(errorMsg: string) {
+    isCreating.value = false;
+    creationPhase.value = 'failed';
+    creationError.value = errorMsg;
+    console.log(`[创世神殿] 角色创建失败: ${errorMsg}`);
+  }
+
+  function resetCreationState() {
+    isCreating.value = false;
+    creationPhase.value = 'idle';
+    creationError.value = null;
+    console.log('[创世神殿] 重置创建状态');
+  }
+
   return {
     mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig, useStreamingStart, generateMode, splitResponseGeneration,
+    // 创建流程状态
+    isCreating, creationPhase, creationError,
     gameDifficulty, currentDifficultyPrompt, // 难度配置
     totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
@@ -929,5 +989,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     resetOnExit, startLocalCreation, startCloudCreation, persistCustomData,
     setAIGeneratedSpiritRoot,
     setAIGeneratedOrigin,
+    // 创建流程状态管理函数
+    startCreation, setCreationPhase, completeCreation, failCreation, resetCreationState,
   };
 });

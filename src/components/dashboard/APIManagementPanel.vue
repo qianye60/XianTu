@@ -260,6 +260,24 @@
             </div>
           </div>
 
+          <!-- 分步生成第2步流式设置 -->
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">分步第2步流式传输</label>
+              <span class="setting-desc">分步生成时，第2步（指令生成）是否使用流式传输（默认关闭，部分API不支持流式）</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input
+                  type="checkbox"
+                  :checked="apiStore.aiGenerationSettings.splitStep2Streaming"
+                  @change="apiStore.updateAIGenerationSettings({ splitStep2Streaming: ($event.target as HTMLInputElement).checked })"
+                />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
           <!-- ========== 辅助功能（6个） ========== -->
           <div class="function-group-header">
             <h5 class="group-title">🛠️ 辅助功能</h5>
@@ -346,6 +364,19 @@
             <div class="setting-control">
               <label class="setting-switch">
                 <input type="checkbox" v-model="streamingEnabled" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('分步生成') }}</label>
+              <span class="setting-desc">{{ t('开启后AI分两步生成：先输出正文，再生成指令（推荐开启）') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="splitResponseGeneration" @change="saveSplitResponseSetting" />
                 <span class="switch-slider"></span>
               </label>
             </div>
@@ -530,6 +561,7 @@ onMounted(() => {
 
 // AI服务通用配置
 const streamingEnabled = ref(true);
+const splitResponseGeneration = ref(false); // 分步生成开关，默认关闭
 const vectorMemoryEnabled = ref(false);
 const vectorMemoryMaxCount = ref(10);
 const isTavernEnvFlag = ref(isTavernEnv());
@@ -562,6 +594,16 @@ const loadLocalSettings = () => {
   nsfwMode.value = nsfwSettings.nsfwMode;
   nsfwGenderFilter.value = nsfwSettings.nsfwGenderFilter;
   isTavernEnvFlag.value = isTavernEnv();
+
+  // 加载分步生成设置
+  const gameSettings = readGameSettings();
+  splitResponseGeneration.value = gameSettings.splitResponseGeneration === true; // 默认关闭
+};
+
+const saveSplitResponseSetting = () => {
+  saveGameSettings({
+    splitResponseGeneration: splitResponseGeneration.value,
+  });
 };
 
 const saveNsfwSettings = () => {
@@ -786,27 +828,17 @@ const testAPI = async (api: APIConfig) => {
 
   testingApiId.value = api.id;
   try {
-    // 临时保存当前配置并切换到要测试的API
-    const currentConfig = aiService.getConfig();
-
-    aiService.saveConfig({
-      mode: 'custom',
-      customAPI: {
-        provider: api.provider,
-        url: api.url,
-        apiKey: api.apiKey,
-        model: api.model,
-        temperature: api.temperature,
-        maxTokens: api.maxTokens
-      }
-    });
-
     const testPrompt = '你正在进行API连通性测试。请仅输出：仙途本-连通测试-OK';
-    const response = await aiService.generate({
-      user_input: testPrompt,
-      should_stream: false,
-      generation_id: `api_test_${Date.now()}`
-    });
+
+    // 使用直接测试方法，绕过环境检测
+    const response = await aiService.testAPIDirectly({
+      provider: api.provider,
+      url: api.url,
+      apiKey: api.apiKey,
+      model: api.model,
+      temperature: api.temperature,
+      maxTokens: 1000
+    }, testPrompt);
 
     const ok = response.toLowerCase().includes('仙途本') || response.toLowerCase().includes('ok');
     apiTestResults.value[api.id] = ok ? 'success' : 'fail';
@@ -816,9 +848,6 @@ const testAPI = async (api: APIConfig) => {
     } else {
       toast.warning(`${api.name} ${t('响应异常')}`);
     }
-
-    // 恢复原配置
-    aiService.saveConfig(currentConfig);
   } catch (error) {
     apiTestResults.value[api.id] = 'fail';
     toast.error(`${api.name} ${t('连接失败')}: ${error instanceof Error ? error.message : '未知错误'}`);

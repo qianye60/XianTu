@@ -13,7 +13,13 @@
 
       <div class="legacy-modal-body">
         <p class="hint">
-          选择旧存档/旧导出文件后，会先检测并转换为当前格式，再进行校验。你可以下载转换后的文件，或导入到当前选中单机角色。
+          选择旧存档/旧导出文件后，会先检测并转换为当前格式，再进行校验。
+          <template v-if="standalone">
+            如果是角色包文件，可以直接创建新角色。
+          </template>
+          <template v-else>
+            你可以下载转换后的文件，或导入到当前选中单机角色。
+          </template>
         </p>
 
         <div class="file-row">
@@ -69,6 +75,15 @@
           <ArrowDownToLine :size="16" />
           导入到当前角色
         </button>
+        <button
+          class="btn btn-primary"
+          v-if="canCreateCharacter"
+          :disabled="!!analysis?.errors.length"
+          @click="createNewCharacter"
+        >
+          <UserPlus :size="16" />
+          创建新角色
+        </button>
       </div>
 
       <input ref="fileInput" type="file" accept=".json,application/json" hidden @change="onFileChange" />
@@ -78,7 +93,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ArrowDownToLine, Download, Upload, Wrench, X } from 'lucide-vue-next'
+import { ArrowDownToLine, Download, Upload, UserPlus, Wrench, X } from 'lucide-vue-next'
 import { toast } from '@/utils/toast'
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle'
 import { detectLegacySaveData, isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration'
@@ -89,12 +104,14 @@ interface Props {
   open: boolean
   targetCharId?: string | null
   targetCharName?: string
+  standalone?: boolean  // 独立模式：不需要选择角色，可以创建新角色
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'imported', count: number): void
+  (e: 'character-created', charId: string): void  // 新角色创建成功
 }>()
 
 const characterStore = useCharacterStore()
@@ -120,6 +137,7 @@ type Analysis = {
 const analysis = ref<Analysis | null>(null)
 const convertedBundle = ref<unknown>(null)
 const convertedSaves = ref<SaveLike[] | null>(null)
+const sourceInfo = ref<SourceInfo | null>(null)  // 保存源信息用于判断是否为角色包
 
 const convertedPreview = computed(() => {
   if (!convertedBundle.value) return null
@@ -132,6 +150,16 @@ const canImport = computed(() => {
   const profile = (characterStore.rootState.角色列表 as any)?.[props.targetCharId]
   if (!profile || profile.模式 !== '单机') return false
   return Array.isArray(convertedSaves.value) && convertedSaves.value.length > 0
+})
+
+// 是否可以创建新角色（独立模式 + 角色包类型 + 有存档数据）
+const canCreateCharacter = computed(() => {
+  if (!props.standalone) return false
+  if (!sourceInfo.value) return false
+  if (sourceInfo.value.exportType !== 'character') return false
+  if (!Array.isArray(convertedSaves.value) || convertedSaves.value.length === 0) return false
+  if (analysis.value?.errors.length) return false
+  return true
 })
 
 const pickFile = () => {
@@ -253,10 +281,12 @@ const onFileChange = async (e: Event) => {
     analysis.value = null
     convertedBundle.value = null
     convertedSaves.value = null
+    sourceInfo.value = null
 
     const text = await file.text()
     const raw = JSON.parse(text)
     const source = normalizeSavesFromUnknown(raw)
+    sourceInfo.value = source  // 保存源信息
     convertSaves(source)
 
     const result = analysis.value as Analysis | null
@@ -270,6 +300,7 @@ const onFileChange = async (e: Event) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : '未知错误'
     analysis.value = { typeLabel: '未知', totalSaves: 0, needsMigration: 0, invalidSaves: 0, legacyKeys: [], errors: [msg] }
+    sourceInfo.value = null
     toast.error(`读取/解析失败：${msg}`)
   } finally {
     if (fileInput.value) fileInput.value.value = ''
@@ -303,6 +334,43 @@ const importToSelectedCharacter = async () => {
     emit('imported', convertedSaves.value.length)
   } catch (err) {
     toast.error(`导入失败：${err instanceof Error ? err.message : '未知错误'}`)
+  }
+}
+
+// 从旧版本角色包创建新角色
+const createNewCharacter = async () => {
+  if (!sourceInfo.value || sourceInfo.value.exportType !== 'character') {
+    toast.error('当前文件不是角色包，无法创建新角色')
+    return
+  }
+  if (!convertedSaves.value?.length) {
+    toast.error('没有可用的存档数据')
+    return
+  }
+
+  try {
+    const payload = sourceInfo.value.exportPayloadBase
+    const characterData = payload?.角色信息 || payload
+
+    if (!characterData?.角色) {
+      toast.error('角色数据不完整，无法创建')
+      return
+    }
+
+    // 清空原有存档列表，由导入的存档列表接管
+    characterData.存档列表 = {}
+    characterData._导入存档列表 = convertedSaves.value
+
+    // 使用 characterStore.importCharacter 创建新角色
+    const newCharId = await characterStore.importCharacter(characterData)
+
+    if (newCharId) {
+      emit('character-created', newCharId)
+    } else {
+      toast.error('角色创建失败')
+    }
+  } catch (err) {
+    toast.error(`创建角色失败：${err instanceof Error ? err.message : '未知错误'}`)
   }
 }
 </script>

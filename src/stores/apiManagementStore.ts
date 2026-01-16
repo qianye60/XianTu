@@ -111,6 +111,7 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
   // AI生成设置
   const aiGenerationSettings = ref({
     enableSystemCoT: false, // 是否启用系统思维链
+    splitStep2Streaming: false, // 分步生成第2步是否使用流式传输（默认关闭）
   });
 
   // 计算属性：获取所有已启用的API

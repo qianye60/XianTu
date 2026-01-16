@@ -613,16 +613,17 @@ const parseDetailSource = (detail: string) => {
   font-weight: 500;
 }
 
-/* 对话 - 橙色 */
+/* 对话 - 橙色加粗 */
 .text-dialogue {
   color: #d97706;
-  font-weight: 500;
+  font-weight: 700;
 }
 
-/* 引用/独白 - 橙色斜体 */
+/* 引用/独白 - 橙色斜体加粗 */
 .text-quote {
   color: rgb(254 125 0);
   font-style: italic;
+  font-weight: 700;
 }
 
 /* 普通文本 */

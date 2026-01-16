@@ -478,17 +478,60 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
 };
 
 const buildOnlineLocation = (mapGraph: MapGraphResponse, worldLabel: string): PlayerLocation => {
-  // 现在不再使用 POI，直接返回世界标签作为位置描述
+  // 从世界信息中获取地图配置
+  const worldInfo = mapGraph.world_info as any;
+  const mapConfig = worldInfo?.['地图配置'] || { width: 10000, height: 10000 };
+  const width = Number(mapConfig.width) || 10000;
+  const height = Number(mapConfig.height) || 10000;
+
+  // 生成随机落点坐标（在地图范围内，避开边缘10%区域）
+  const margin = 0.1;
+  const x = Math.round(width * margin + Math.random() * width * (1 - 2 * margin));
+  const y = Math.round(height * margin + Math.random() * height * (1 - 2 * margin));
+
   return {
-    描述: worldLabel,
+    描述: `${worldLabel}（穿越落点）`,
+    x,
+    y,
     灵气浓度: 20
   };
+};
+
+/**
+ * 清理关系数据，为入侵者创建"陌生人视角"的NPC数据
+ *
+ * 入侵者是外来者，NPC不认识入侵者
+ * 清空NPC的所有记忆和与玩家的关系
+ */
+const sanitizeRelationshipsForInvader = (rels: Record<string, any>): Record<string, any> => {
+  const sanitized: Record<string, any> = {};
+  for (const [key, npc] of Object.entries(rels)) {
+    if (npc && typeof npc === 'object') {
+      sanitized[key] = {
+        ...npc,
+        // 核心重置：入侵者对NPC来说是陌生人
+        与玩家关系: '陌生人',
+        好感度: 0,
+        // 清空NPC的所有记忆（入侵者不应该知道NPC的过往）
+        记忆: [],
+        记忆总结: [],
+        // 内心想法重置为中性
+        当前内心想法: '...',
+        // 入侵者不继承关注状态
+        实时关注: false,
+      };
+    } else {
+      sanitized[key] = npc;
+    }
+  }
+  return sanitized;
 };
 
 const syncTravelState = async (
   mapGraph: MapGraphResponse,
   activeSession: TravelStartResponse,
-  snapshot?: TravelWorldSnapshotResponse | null
+  snapshot?: TravelWorldSnapshotResponse | null,
+  isInitialTravel: boolean = false
 ) => {
   storeWorldBackup();
 
@@ -513,14 +556,24 @@ const syncTravelState = async (
         特殊设定: [],
         版本: 'online',
       } as any as WorldInfo);
-  const location = buildOnlineLocation(mapGraph, worldLabel);
 
   gameStateStore.updateState('worldInfo', worldInfo);
-  gameStateStore.updateState('location', location);
+
+  // 只在首次穿越时设置位置，恢复会话时保留玩家已有的位置
+  if (isInitialTravel) {
+    const location = buildOnlineLocation(mapGraph, worldLabel);
+    gameStateStore.updateState('location', location);
+  }
+
+  // 入侵者保留自己原来的叙事历史和记忆，不做任何修改
+  // （备份机制已经在 storeWorldBackup 中保存了原始状态）
+
   // 优先使用 mapGraph.relationships，其次使用 snapshot.relationships
+  // 入侵者不应继承世界主人的好感度关系，需要重置为陌生人状态
   const rels = mapGraph.relationships ?? snapshot?.relationships;
   if (rels && typeof rels === 'object') {
-    gameStateStore.updateState('relationships', rels as any);
+    const sanitizedRels = sanitizeRelationshipsForInvader(rels as Record<string, any>);
+    gameStateStore.updateState('relationships', sanitizedRels as any);
   }
 
   const currentOnline = gameStateStore.onlineState ?? {
@@ -532,6 +585,14 @@ const syncTravelState = async (
     冲突策略: '服务器',
   };
 
+  // 调试日志：追踪世界主人位置数据
+  const ownerLocation = mapGraph.owner_location ?? snapshot?.owner_location ?? null;
+  console.log('[联机穿越] 世界主人位置数据:', {
+    'mapGraph.owner_location': mapGraph.owner_location,
+    'snapshot?.owner_location': snapshot?.owner_location,
+    '最终使用': ownerLocation
+  });
+
   gameStateStore.updateState('onlineState', {
     ...currentOnline,
     模式: '联机',
@@ -541,16 +602,36 @@ const syncTravelState = async (
       ...((currentOnline as any).穿越目标 ?? {}),
       世界ID: activeSession.target_world_instance_id,
       主人用户名: snapshot?.owner_username ?? selectedWorld.value?.owner_username ?? null,
-      世界主人位置: mapGraph.owner_location ?? snapshot?.owner_location ?? null,
+      世界主人位置: ownerLocation,
       世界主人档案: (() => {
         const base = mapGraph.owner_base_info ?? snapshot?.owner_base_info;
         if (!base || typeof base !== 'object') return null;
         const b = base as any;
+        // 存储完整的角色信息用于AI代理
         return {
+          // 基本信息
           名字: b.名字 ?? b.name ?? null,
           性别: b.性别 ?? b.gender ?? null,
           种族: b.种族 ?? b.race ?? null,
           世界: b.世界?.name ?? b.世界 ?? null,
+          // 修为信息
+          境界: b.境界 ?? b.cultivation_level ?? null,
+          修为进度: b.修为进度 ?? null,
+          // 属性值
+          气血: b.气血 ?? null,
+          灵气: b.灵气 ?? null,
+          神识: b.神识 ?? null,
+          寿命: b.寿命 ?? null,
+          // 六司属性
+          先天六司: b.先天六司 ?? null,
+          后天六司: b.后天六司 ?? null,
+          // 其他
+          门派: b.门派 ?? b.sect ?? null,
+          功法: b.功法 ?? null,
+          技能: b.技能 ?? b.skills ?? null,
+          特质: b.特质 ?? b.traits ?? null,
+          // 保留原始数据以防遗漏
+          _raw: b,
         };
       })(),
       存档版本: snapshot?.save_version ?? null,
@@ -614,7 +695,7 @@ const formatEventType = (eventType: string): string => {
   return map[eventType] || eventType;
 };
 
-const refreshGraph = async () => {
+const refreshGraph = async (isInitialTravel: boolean = false) => {
   if (!session.value) {
     graph.value = null;
     return;
@@ -627,7 +708,7 @@ const refreshGraph = async () => {
     travelSnapshot.value = null;
   }
   if (graph.value) {
-    await syncTravelState(graph.value, session.value, travelSnapshot.value);
+    await syncTravelState(graph.value, session.value, travelSnapshot.value, isInitialTravel);
   }
 };
 
@@ -799,7 +880,7 @@ const handleStartTravel = async () => {
     travelPoints.value = session.value.travel_points_left;
     storeWorldBackup(true);
     await characterStore.saveCurrentGame();
-    await refreshGraph();
+    await refreshGraph(true);  // 首次穿越，设置初始位置
     startSessionPolling();
     toast.success(t('穿越成功'));
   } catch {
@@ -822,7 +903,11 @@ const handleEndTravel = async () => {
       graph.value = null;
       travelSnapshot.value = null;
       await restoreWorldBackup({ persist: true });
-      gameStateStore.addToShortTermMemory(`你结束了联机穿越，返回原世界。`);
+      // 添加更详细的返回提示，说明原世界是冻结的
+      gameStateStore.addToShortTermMemory(
+        `你结束了联机穿越，通过虚空通道返回了自己的世界。` +
+        `原世界在你离开期间处于时间冻结状态，一切如你离开时一样，NPC们并不知道你曾经离开过。`
+      );
       await characterStore.saveCurrentGame();
       await refreshReports();
       await loadSessionLogs(endedSessionId);
@@ -925,15 +1010,36 @@ const handleStartTravelToSelected = async () => {
     }
 
     await characterStore.saveCurrentGame();
-    await refreshGraph();
+    await refreshGraph(true);  // 首次穿越，设置初始位置
     startSessionPolling();
     const owner = selectedWorld.value?.owner_username || '对方';
-    const loc = gameStateStore.location;
-    const x = loc?.x ?? 0;
-    const y = loc?.y ?? 0;
     const continents = gameStateStore.worldInfo?.大陆信息 || [];
     const continentName = continents.length > 0 ? (continents[0].名称 || continents[0].name || '未知大陆') : '未知大陆';
-    gameStateStore.addToShortTermMemory(`你进行了联机穿越，抵达${owner}的世界，坐标(${x}, ${y})，所在大陆：${continentName}。`);
+    const playerLocation = gameStateStore.location as any;
+    const locationDesc = playerLocation?.描述 || continentName;
+
+    // 添加穿越消息到叙事历史（正文），让AI能看到穿越发生了
+    const travelMessage = {
+      type: 'system' as const,
+      content: `【穿越事件】时空裂隙突然出现，你被一股神秘力量卷入其中。` +
+        `当你再次睁开眼睛时，发现自己已经来到了一个完全陌生的世界——「${owner}」的世界。` +
+        `你降临在${locationDesc}，坐标(${playerLocation?.x ?? '未知'}, ${playerLocation?.y ?? '未知'})。` +
+        `这里的一切都是陌生的，没有人认识你。你需要小心行事，探索这个新世界。` +
+        `【提示：你现在处于联机穿越状态，这是${owner}的世界，世界主人可能在某处活动。】`,
+      time: new Date().toISOString(),
+      actionOptions: ['观察四周环境', '寻找附近的人', '查看自己的状态'],
+    };
+    if (gameStateStore.narrativeHistory) {
+      gameStateStore.narrativeHistory.push(travelMessage);
+    }
+
+    // 同时添加到短期记忆
+    gameStateStore.addToShortTermMemory(
+      `【系统穿越】你感受到一股神秘的力量牵引，眼前的空间开始扭曲。` +
+      `虚空裂隙在你面前撕开，你被卷入其中，穿越到了「${owner}」的世界。` +
+      `这是一个陌生的世界，你降临在${continentName}。` +
+      `周围的一切都是陌生的，这里的人都不认识你，你需要小心行事。`
+    );
     await characterStore.saveCurrentGame();
     toast.success(t('穿越成功'));
   } catch {

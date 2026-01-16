@@ -20,7 +20,22 @@
             </svg>
           </div>
           <h3>地图尚未初始化</h3>
-          <p>当前世界还没有生成势力和地点，点击下方按钮开始生成地图内容</p>
+          <p>当前世界还没有生成势力和地点，选择密度后点击按钮开始生成</p>
+          <div class="density-selector">
+            <label class="density-label">地图密度：</label>
+            <div class="density-options">
+              <label
+                v-for="opt in densityOptions"
+                :key="opt.value"
+                class="density-option"
+                :class="{ active: mapDensity === opt.value }"
+              >
+                <input type="radio" :value="opt.value" v-model="mapDensity" />
+                <span class="option-label">{{ opt.label }}</span>
+                <span class="option-desc">{{ opt.desc }}</span>
+              </label>
+            </div>
+          </div>
           <button @click="initializeMap" class="initialize-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
               <circle cx="12" cy="12" r="10" />
@@ -135,7 +150,7 @@
     <!-- 地图图例 -->
     <div class="map-legend" :class="{ collapsed: legendCollapsed }">
       <div class="legend-header" @click="legendCollapsed = !legendCollapsed">
-        <div class="legend-title">{{ worldName || '联机地图' }}图例</div>
+        <div class="legend-title">{{ worldName }}图例{{ props.isOnline ? '（联机）' : '' }}</div>
         <button class="legend-toggle">
           <ChevronUp v-if="!legendCollapsed" :size="16" />
           <ChevronDown v-if="legendCollapsed" :size="16" />
@@ -191,16 +206,29 @@
     </div>
 
     <!-- 地图操作按钮 -->
-    <div v-if="hasMapContent" class="map-actions">
-      <div class="actions-header">地图操作</div>
-      <div class="actions-content">
+    <div class="map-actions" :class="{ expanded: actionsExpanded }">
+      <div class="actions-header" @click="actionsExpanded = !actionsExpanded">
+        <Menu :size="16" />
+        <span>地图功能</span>
+        <ChevronDown v-if="!actionsExpanded" :size="14" class="toggle-icon" />
+        <ChevronUp v-else :size="14" class="toggle-icon" />
+      </div>
+      <div v-if="actionsExpanded" class="actions-content">
         <button
+          v-if="hasMapContent"
           @click="showGenerateModal = true"
           class="action-btn"
           :disabled="isGenerating"
         >
           <Plus :size="14" />
           <span>追加生成</span>
+        </button>
+        <button
+          @click="emit('toggle-text-mode')"
+          class="action-btn text-mode-btn"
+        >
+          <FileText :size="14" />
+          <span>文字模式</span>
         </button>
       </div>
     </div>
@@ -261,7 +289,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { Mountain, Building2, Store, Sparkles, Gem, AlertTriangle, Zap, User, Users, ChevronUp, ChevronDown, Plus } from 'lucide-vue-next';
+import { Mountain, Building2, Store, Sparkles, Gem, AlertTriangle, Zap, User, Users, ChevronUp, ChevronDown, Plus, FileText, Menu } from 'lucide-vue-next';
 import { GameMapManager } from '@/utils/gameMapManager';
 import { normalizeLocationsData, normalizeContinentBounds } from '@/utils/coordinateConverter';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -271,6 +299,16 @@ import { isTavernEnv } from '@/utils/tavern';
 import type { WorldLocation } from '@/types/location';
 import type { GameCoordinates } from '@/types/gameMap';
 import type { NpcProfile, GameTime } from '@/types/game';
+
+// Props
+const props = defineProps<{
+  isOnline?: boolean;
+}>();
+
+// Emits
+const emit = defineEmits<{
+  (e: 'toggle-text-mode'): void;
+}>();
 
 const gameStateStore = useGameStateStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -282,6 +320,7 @@ const mapStatus = ref('初始化中...');
 const popupPosition = ref({ x: 0, y: 0 });
 const isInitializing = ref(false);
 const legendCollapsed = ref(false);
+const actionsExpanded = ref(false);
 
 // 追加生成相关
 const showGenerateModal = ref(false);
@@ -292,6 +331,20 @@ const generateOptions = ref({
   factions: false,
   factionCount: 1
 });
+
+// 地图密度配置
+type MapDensity = 'sparse' | 'normal' | 'dense';
+const mapDensity = ref<MapDensity>('normal');
+const densityOptions: { value: MapDensity; label: string; desc: string }[] = [
+  { value: 'sparse', label: '稀疏', desc: '势力3-4个，地点6-8个' },
+  { value: 'normal', label: '正常', desc: '势力5-8个，地点12-16个' },
+  { value: 'dense', label: '密集', desc: '势力8-12个，地点20-30个' },
+];
+const densityMultipliers: Record<MapDensity, { faction: number; location: number }> = {
+  sparse: { faction: 0.5, location: 0.5 },
+  normal: { faction: 1, location: 1 },
+  dense: { faction: 1.5, location: 1.5 },
+};
 
 const worldName = computed(() => gameStateStore.worldInfo?.世界名称 || '修仙界');
 const worldBackground = computed(() => gameStateStore.worldInfo?.世界背景 || '');
@@ -382,6 +435,7 @@ const popupStyle = computed(() => {
   const popupWidth = 320; // 最小宽度
   const popupHeight = 200; // 估计高度
   const padding = 20;
+  let showBelow = false; // 是否显示在点击位置下方
 
   // 水平方向调整
   if (left + popupWidth / 2 > containerRect.width - padding) {
@@ -391,19 +445,22 @@ const popupStyle = computed(() => {
     left = popupWidth / 2 + padding;
   }
 
-  // 垂直方向调整（弹窗在点击位置上方）
+  // 垂直方向调整
   if (top - popupHeight < padding) {
     // 如果上方空间不足，显示在下方
-    top = top + 60;
+    top = top + 20;
+    showBelow = true;
   } else {
-    top = top - 20;
+    // 显示在上方，添加小间距
+    top = top - 10;
   }
 
   return {
     position: 'absolute',
     left: `${left}px`,
     top: `${top}px`,
-    transform: 'translate(-50%, -100%)',
+    // 上方显示时向上偏移100%，下方显示时不偏移
+    transform: showBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
     zIndex: '2000',
   };
 });
@@ -517,6 +574,51 @@ watch(
   { deep: true }
 );
 
+// 监听联机状态，显示被入侵用户（世界主人）的位置
+watch(
+  () => {
+    const online = gameStateStore.onlineState as any;
+    return {
+      isOnline: props.isOnline,
+      ownerLocation: online?.穿越目标?.世界主人位置,
+      ownerName: online?.穿越目标?.世界主人档案?.名字 || online?.穿越目标?.主人用户名
+    };
+  },
+  ({ isOnline, ownerLocation, ownerName }) => {
+    if (!mapManager.value) return;
+
+    console.log('[地图] 联机状态变化:', { isOnline, ownerLocation, ownerName });
+
+    if (isOnline && ownerLocation) {
+      // 尝试从不同格式中提取坐标
+      let x = ownerLocation.x ?? ownerLocation.坐标?.x ?? ownerLocation.coordinates?.x;
+      let y = ownerLocation.y ?? ownerLocation.坐标?.y ?? ownerLocation.coordinates?.y;
+
+      // 如果坐标缺失，根据地图配置生成一个默认位置（地图中心偏移）
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        console.warn('[地图] 世界主人位置坐标缺失，使用默认位置:', ownerLocation);
+        const mapConfig = mapRenderConfig.value;
+        // 使用描述的哈希值来生成一个相对固定的位置（避免每次刷新都变化）
+        const desc = ownerLocation.描述 || ownerLocation.description || '未知';
+        const hash = desc.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+        x = mapConfig.width * 0.3 + (hash % 100) * (mapConfig.width * 0.004);
+        y = mapConfig.height * 0.3 + ((hash * 7) % 100) * (mapConfig.height * 0.004);
+      }
+
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        mapManager.value.updateOtherPlayerPosition({ x, y }, ownerName || '世界主人');
+        console.log('[地图] 显示世界主人位置:', { x, y, ownerName });
+      } else {
+        mapManager.value.updateOtherPlayerPosition(null);
+      }
+    } else {
+      // 非联机模式或没有位置信息时清除其他玩家标记
+      mapManager.value.updateOtherPlayerPosition(null);
+    }
+  },
+  { deep: true, immediate: true }
+);
+
 watch(
   () => mapSizeKey.value,
   (next, prev) => {
@@ -561,8 +663,9 @@ const initializeMap = async () => {
 
   try {
     const continentCount = worldInfo.大陆信息?.length || 3;
-    const factionCount = Math.max(3, Math.round(continentCount * 2));
-    const locationCount = Math.max(8, Math.round(continentCount * 4));
+    const multiplier = densityMultipliers[mapDensity.value];
+    const factionCount = Math.max(3, Math.round(continentCount * 2 * multiplier.faction));
+    const locationCount = Math.max(6, Math.round(continentCount * 4 * multiplier.location));
     const secretRealmsCount = Math.max(2, Math.round(locationCount * 0.25));
     const mapConfig = (worldInfo as any)?.['地图配置'] || {
       width: mapRenderConfig.value.width,
@@ -572,6 +675,8 @@ const initializeMap = async () => {
       minLat: 0,
       maxLat: mapRenderConfig.value.height,
     };
+
+    console.log(`[地图] 密度: ${mapDensity.value}, 势力: ${factionCount}, 地点: ${locationCount}`);
 
     // 🔥 随机判断是否生成合欢宗（30%概率，仅酒馆环境）
     const shouldGenerateHehuan = isTavernEnv() && Math.random() < 0.3;
@@ -624,7 +729,7 @@ const initializeMap = async () => {
         const greyLady: NpcProfile = {
           名字: "灰夫人(合欢圣女)",
           性别: "女",
-          出生日期: { 年: (gameTime?.年 || 1000) - 20, 月: 1, 日: 1 },
+          出生日期: { 年: (gameTime?.年 || 1000) - 200, 月: 1, 日: 1 },
           种族: "人族",
           出生: "合欢宗",
           外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
@@ -633,6 +738,12 @@ const initializeMap = async () => {
           灵根: { name: "天阴灵根", tier: "天品" } as any,
           天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
           先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          属性: {
+            气血: { 当前: 5000, 上限: 5000 },
+            灵气: { 当前: 8000, 上限: 8000 },
+            神识: { 当前: 3000, 上限: 3000 },
+            寿元上限: 500
+          },
           与玩家关系: "陌生人",
           好感度: 10,
           当前位置: { 描述: `${sectName}驻地` },
@@ -660,7 +771,7 @@ const initializeMap = async () => {
             ],
             性格倾向: "开放且顺从(待调教)",
             性取向: "双性恋",
-            性癖好: ["BDSM", "足交", "乳交", "捆绑", "调教", "采补", "角色扮演", "支配", "被支配", "露出", "放尿", "凌辱", "刑具"],
+            性癖好: ["吞精","BDSM", "足交", "乳交", "捆绑", "调教", "采补", "角色扮演", "支配", "被支配", "露出", "放尿", "凌辱", "刑具"],
             性渴望程度: 80,
             当前性状态: "渴望",
             体液分泌状态: "充沛",
@@ -742,6 +853,15 @@ const generateAdditionalContent = async () => {
       maxRetries: 2,
       retryDelay: 500,
       enableHehuanEasterEgg: shouldGenerateHehuan,
+      existingFactions: worldInfo.势力信息?.map((f: any) => ({
+        名称: f.名称 || f.name,
+        位置: f.位置 || f.location,
+        势力范围: f.势力范围 || f.territory
+      })) || [],
+      existingLocations: worldInfo.地点信息?.map((l: any) => ({
+        名称: l.名称 || l.name,
+        coordinates: l.coordinates || l.坐标
+      })) || []
     });
 
     const result = await generator.generateValidatedWorld();
@@ -769,7 +889,7 @@ const generateAdditionalContent = async () => {
         const greyLady: NpcProfile = {
           名字: "灰夫人(合欢圣女)",
           性别: "女",
-          出生日期: { 年: (gameTime?.年 || 1000) - 20, 月: 1, 日: 1 },
+          出生日期: { 年: (gameTime?.年 || 1000) - 200, 月: 1, 日: 1 },
           种族: "人族",
           出生: "合欢宗",
           外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
@@ -778,6 +898,12 @@ const generateAdditionalContent = async () => {
           灵根: { name: "天阴灵根", tier: "天品" } as any,
           天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
           先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          属性: {
+            气血: { 当前: 5000, 上限: 5000 },
+            灵气: { 当前: 8000, 上限: 8000 },
+            神识: { 当前: 3000, 上限: 3000 },
+            寿元上限: 500
+          },
           与玩家关系: "陌生人",
           好感度: 10,
           当前位置: { 描述: `${sectName}驻地` },
@@ -942,6 +1068,32 @@ const loadMapData = async (options?: { silent?: boolean; reset?: boolean }) => {
       if (npcs.length > 0) {
         mapManager.value?.updateNPCPositions(npcs);
         console.log(`[地图] 已更新 ${npcs.length} 个NPC位置`);
+      }
+    }
+
+    // 联机模式下更新世界主人位置
+    if (props.isOnline) {
+      const online = gameStateStore.onlineState as any;
+      const ownerLocation = online?.穿越目标?.世界主人位置;
+      const ownerName = online?.穿越目标?.世界主人档案?.名字 || online?.穿越目标?.主人用户名;
+
+      console.log('[地图] loadMapData 检查世界主人位置:', { isOnline: props.isOnline, ownerLocation, ownerName });
+
+      if (ownerLocation) {
+        let x = ownerLocation.x ?? ownerLocation.坐标?.x ?? ownerLocation.coordinates?.x;
+        let y = ownerLocation.y ?? ownerLocation.坐标?.y ?? ownerLocation.coordinates?.y;
+
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          const desc = ownerLocation.描述 || ownerLocation.description || '未知';
+          const hash = desc.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+          x = mapConfig.width * 0.3 + (hash % 100) * (mapConfig.width * 0.004);
+          y = mapConfig.height * 0.3 + ((hash * 7) % 100) * (mapConfig.height * 0.004);
+        }
+
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          mapManager.value?.updateOtherPlayerPosition({ x, y }, ownerName || '世界主人');
+          console.log('[地图] 已更新世界主人位置:', { x, y, ownerName });
+        }
       }
     }
 
@@ -1257,10 +1409,67 @@ canvas:active {
 }
 
 .initialize-prompt p {
-  margin: 0 0 2rem 0;
+  margin: 0 0 1.5rem 0;
   font-size: 1rem;
   color: #64748b;
   line-height: 1.6;
+}
+
+/* 密度选择器 */
+.density-selector {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.density-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.75rem;
+}
+
+.density-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.density-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.density-option:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.density-option.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.density-option input[type="radio"] {
+  display: none;
+}
+
+.option-label {
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 3rem;
+}
+
+.option-desc {
+  font-size: 0.85rem;
+  color: #64748b;
 }
 
 .initialize-btn {
@@ -1491,53 +1700,91 @@ canvas:active {
   color: white;
 }
 
-/* 地图操作按钮 */
+/* 地图操作按钮 - 一体化样式，左下角 */
 .map-actions {
   position: absolute;
-  top: 60px;
-  left: 10px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 8px;
-  padding: 8px;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   z-index: 100;
+  min-width: 100px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.map-actions.expanded {
+  min-width: 130px;
 }
 
 .actions-header {
-  font-size: 12px;
-  color: #94a3b8;
-  padding: 4px 8px;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.actions-header:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.actions-header .toggle-icon {
+  margin-left: auto;
+  color: #475569;
 }
 
 .actions-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: 0 10px 10px;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 4px;
-  color: #e2e8f0;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .action-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.action-btn.text-mode-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.action-btn.text-mode-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 /* 追加生成弹窗 */

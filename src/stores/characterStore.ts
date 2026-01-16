@@ -531,8 +531,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[角色商店] 准备调用initializeCharacter...');
       let initialSaveData: SaveData | null = null;
       try {
-        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age, useStreaming: creationStore.useStreamingStart, generateMode: creationStore.generateMode });
-        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age, creationStore.useStreamingStart, creationStore.generateMode);
+        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age, useStreaming: creationStore.useStreamingStart, generateMode: creationStore.generateMode, splitResponseGeneration: creationStore.splitResponseGeneration });
+        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age, creationStore.useStreamingStart, creationStore.generateMode, creationStore.splitResponseGeneration);
         console.log('[角色商店] ✅ initializeCharacter返回成功,数据有效:', !!initialSaveData);
       } catch (e) {
         console.error('[角色商店] ❌ initializeCharacter失败:', e);
@@ -2503,6 +2503,7 @@ const importCharacter = async (profileData: CharacterProfile & { _导入存档�
 
   await commitMetadataToStorage();
   debug.log('角色商店', `成功导入角色: ${characterName} (新ID: ${newCharId})，含 ${Object.keys(profileData.存档列表).length} 个存档`);
+  return newCharId;  // 返回新角色ID
 };
 
 /**

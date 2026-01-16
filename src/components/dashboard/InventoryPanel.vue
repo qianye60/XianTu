@@ -724,15 +724,16 @@ const filteredItems = computed(() => {
       // 如果品质字段缺失或格式错误，设置默认值
       normalizedQuality = { quality: '凡', grade: 1 }
     } else {
-      // 确保quality字段正确
-      if (
-        !normalizedQuality.quality ||
-        !['凡', '黄', '玄', '地', '天', '仙', '神'].includes(normalizedQuality.quality)
-      ) {
+      // 确保quality字段存在且为字符串（支持自定义品级）
+      if (!normalizedQuality.quality || typeof normalizedQuality.quality !== 'string') {
         normalizedQuality.quality = '凡'
       }
-      // 确保grade字段正确
-      if (
+      // 确保grade字段正确（支持数字0-10或自定义字符串）
+      if (normalizedQuality.grade === undefined || normalizedQuality.grade === null) {
+        normalizedQuality.grade = 1
+      } else if (typeof normalizedQuality.grade === 'string') {
+        // 自定义字符串品级，保持原样
+      } else if (
         typeof normalizedQuality.grade !== 'number' ||
         normalizedQuality.grade < 0 ||
         normalizedQuality.grade > 10
@@ -818,17 +819,24 @@ const getItemTypeIcon = (type: string): string => {
   return typeIcons[type] || '📦'
 }
 
-// 质量等阶规范化（兼容 “凡阶/黄阶/…” 与 “凡/黄/…”；未知返回 '未知'）
-const getNormalizedQuality = (quality: unknown): string => {
+// 质量等阶规范化（兼容 "凡阶/黄阶/…" 与 "凡/黄/…"；支持自定义品质）
+const PRESET_QUALITIES = ['凡', '黄', '玄', '地', '天', '仙', '神']
+const getNormalizedQuality = (quality: unknown): { value: string; isCustom: boolean } => {
   const raw = String(quality || '').trim()
-  if (!raw) return '未知'
+  if (!raw) return { value: '未知', isCustom: false }
   const s = raw.endsWith('阶') ? raw.slice(0, -1) : raw
-  const allowed = ['凡', '黄', '玄', '地', '天', '仙', '神']
-  return allowed.includes(s) ? s : '未知'
+  if (PRESET_QUALITIES.includes(s)) {
+    return { value: s, isCustom: false }
+  }
+  // 自定义品质，保留原值
+  return { value: s, isCustom: true }
 }
 
-// 获取品级文本显示
-const getGradeText = (grade: number): string => {
+// 获取品级文本显示（支持数字和自定义字符串）
+const getGradeText = (grade: number | string): string => {
+  // 自定义字符串品级，直接返回
+  if (typeof grade === 'string') return grade
+  // 数字品级
   if (grade === 0) return '残缺'
   if (grade >= 1 && grade <= 3) return '下品'
   if (grade >= 4 && grade <= 6) return '中品'
@@ -837,8 +845,11 @@ const getGradeText = (grade: number): string => {
   return '未知'
 }
 
-// 获取品级样式
-const getGradeClass = (grade: number): string => {
+// 获取品级样式（支持数字和自定义字符串）
+const getGradeClass = (grade: number | string): string => {
+  // 自定义字符串品级，使用特殊样式
+  if (typeof grade === 'string') return 'grade-custom'
+  // 数字品级
   if (grade === 0) return 'grade-broken'
   if (grade >= 1 && grade <= 3) return 'grade-low'
   if (grade >= 4 && grade <= 6) return 'grade-mid'
@@ -1094,8 +1105,10 @@ const getItemQualityClass = (
   type: 'border' | 'text' | 'badge' | 'card' = 'border',
 ): string => {
   if (!item) return ''
-  const q = getNormalizedQuality(item.品质?.quality)
+  const { value: q, isCustom } = getNormalizedQuality(item.品质?.quality)
   if (q === '未知') return ''
+  // 自定义品质使用特殊样式
+  if (isCustom) return `${type}-quality-custom`
   return `${type}-quality-${q}`
 }
 
@@ -1477,6 +1490,12 @@ const refreshFromTavern = async () => {
   background: #9ca3af;
   color: white;
   border-color: #9ca3af;
+}
+
+.grade-display.grade-custom {
+  background: linear-gradient(135deg, #06b6d4, #a855f7);
+  color: white;
+  border-color: #06b6d4;
 }
 
 .modal-description {
@@ -1864,6 +1883,11 @@ const refreshFromTavern = async () => {
 
 .grade-unknown {
   background: #9ca3af;
+  color: white;
+}
+
+.grade-custom {
+  background: linear-gradient(135deg, #06b6d4, #a855f7);
   color: white;
 }
 
@@ -2482,6 +2506,27 @@ const refreshFromTavern = async () => {
 
 .border-quality-凡 {
   border-color: #6b7280 !important;
+}
+
+/* 自定义品质样式 - 使用渐变彩虹色 */
+.border-quality-custom {
+  border-color: #06b6d4 !important;
+  border-width: 2px !important;
+}
+
+.text-quality-custom {
+  color: #06b6d4 !important;
+  font-weight: bold;
+}
+
+.card-quality-custom {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(168, 85, 247, 0.1)) !important;
+  border-color: #06b6d4 !important;
+}
+
+.badge-quality-custom {
+  background: linear-gradient(135deg, #06b6d4, #a855f7) !important;
+  color: white !important;
 }
 
 /* 装备标签页样式 */
