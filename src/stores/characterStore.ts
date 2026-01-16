@@ -1960,9 +1960,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
 
     const uiStore = useUIStore();
+    const gameStateStore = useGameStateStore();
     try {
       uiStore.startLoading('正在退出游戏...');
       await clearAllCharacterData();
+      gameStateStore.resetState(); // 清除游戏状态（包括联机状态）
       rootState.value.当前激活存档 = null;
       await commitMetadataToStorage();
       toast.success(isTavernEnv() ? '已成功退出游戏，酒馆环境已重置。' : '已成功退出游戏。');

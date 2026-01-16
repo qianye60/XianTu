@@ -880,21 +880,12 @@ ${stateJsonString}
 
         type SplitUsageType = 'main' | 'instruction_generation';
         const generateOnce = async (args: { user_input: string; should_stream: boolean; generation_id: string; injects: any; usageType?: SplitUsageType; onStreamChunk?: (chunk: string) => void; }) => {
-          const usageType = args.usageType || 'main';
-          if (tavernHelper) {
-            return await tavernHelper.generate({
-              user_input: args.user_input,
-              should_stream: args.should_stream,
-              generation_id: args.generation_id,
-              usageType,
-              injects: args.injects,
-            });
-          }
+          // 始终通过 aiService.generate 调用，让它根据 usageType 决定使用独立 API 还是酒馆代理
           return await aiService.generate({
             user_input: args.user_input,
             should_stream: args.should_stream,
             generation_id: args.generation_id,
-            usageType,
+            usageType: args.usageType || 'main',
             injects: args.injects,
             onStreamChunk: args.onStreamChunk,
           });
@@ -1242,31 +1233,8 @@ ${systemPrompt}`;
         const generateOnce = async (args: { step: 1 | 2; system: string; user: string; should_stream: boolean; usageType?: InitialSplitUsageType; onStreamChunk?: (chunk: string) => void; }): Promise<string> => {
           const generationId = `initial_message_split_step${args.step}_${Date.now()}`;
           const usageType = args.usageType || 'main';
-          if (tavernHelper) {
-            if (generateMode === 'generateRaw') {
-              return String(await tavernHelper.generateRaw({
-                ordered_prompts: [
-                  { role: 'system', content: args.system },
-                  { role: 'user', content: args.user }
-                ],
-                should_stream: args.should_stream,
-                generation_id: generationId,
-                usageType,
-              }));
-            }
 
-            const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
-              { content: args.system, role: 'user', depth: 4, position: 'in_chat' }
-            ];
-            return await tavernHelper.generate({
-              user_input: args.user,
-              should_stream: args.should_stream,
-              generation_id: generationId,
-              usageType,
-              injects,
-            });
-          }
-
+          // 始终通过 aiService 调用，让它根据 usageType 决定使用独立 API 还是酒馆代理
           if (generateMode === 'generateRaw') {
             return await aiService.generateRaw({
               ordered_prompts: [
