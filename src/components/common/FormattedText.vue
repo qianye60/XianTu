@@ -287,6 +287,156 @@ const computeJudgementResult = (finalValue: number, difficulty: number) => {
   return '失败'
 }
 
+const splitKeyValue = (text: string): { key: string; value: string } | null => {
+  const match = text.match(/^([^:：]+)[:：](.+)$/)
+  if (!match) return null
+  return { key: match[1].trim(), value: match[2].trim() }
+}
+
+const MESSAGE_TITLES = new Set(['系统提示', '系统判定', '系统', '状态变化', '状态结算'])
+
+const parseJudgementMarkedContent = (markedContent: string): JudgementData | null => {
+  const content = markedContent.trim()
+  if (!content) return null
+
+  // 1) 消息类：以“系统提示：...”等开头（不要按逗号拆分，避免把正文逗号当字段分隔）
+  const wholeKv = splitKeyValue(content)
+  if (wholeKv && MESSAGE_TITLES.has(wholeKv.key)) {
+    return {
+      title: wholeKv.key,
+      result: '提示',
+      dice: '',
+      attribute: '',
+      details: [`内容:${wholeKv.value}`]
+    }
+  }
+
+  // 2) 判定类：字段用逗号分隔（兼容中文/英文逗号）
+  const parts = content
+    .split(/[，,]/)
+    .map(p => p.trim())
+    .filter(Boolean)
+
+  if (parts.length === 0) return null
+
+  const titleResult = splitKeyValue(parts[0])
+  if (!titleResult) {
+    // 兜底：无法解析为判定结构时，仍用“系统提示”卡片展示，避免渲染错乱
+    return {
+      title: '系统提示',
+      result: '提示',
+      dice: '',
+      attribute: '',
+      details: [`内容:${content}`]
+    }
+  }
+
+  const judgement: JudgementData = {
+    title: titleResult.key,
+    result: titleResult.value,
+    dice: '',
+    attribute: '',
+    details: []
+  }
+
+  for (let i = 1; i < parts.length; i++) {
+    const kv = splitKeyValue(parts[i])
+    if (!kv) {
+      judgement.details?.push(`备注:${parts[i]}`)
+      continue
+    }
+
+    const key = kv.key
+    const value = kv.value
+    if (!key || !value) continue
+
+    if (key.includes('难度')) {
+      judgement.difficulty = value
+    } else if (key.includes('判定值') || key.includes('最终值') || key.includes('总值')) {
+      judgement.finalValue = value
+    } else if (key.includes('幸运')) {
+      judgement.lucky = value
+    } else if (key.includes('加成')) {
+      judgement.bonus = value
+    } else if (key.includes('造成伤害')) {
+      judgement.damage = value
+    } else if (key.includes('剩余气血')) {
+      judgement.remainingHp = value
+    } else if (key.includes('骰点') || key.includes('骰子')) {
+      judgement.dice = value
+    } else {
+      judgement.details?.push(`${key}:${value}`)
+    }
+  }
+
+  const finalValueNum = parseNumberValue(judgement.finalValue)
+  const difficultyNum = parseNumberValue(judgement.difficulty)
+  if (finalValueNum !== null && difficultyNum !== null) {
+    const computedResult = computeJudgementResult(finalValueNum, difficultyNum)
+    if (computedResult && computedResult !== judgement.result) {
+      judgement.details = judgement.details || []
+      judgement.details.push(`结果校验:${judgement.result}→${computedResult}`)
+      judgement.result = computedResult
+    }
+  }
+
+  return judgement
+}
+
+const repairCommonAIFormat = (text: string): string => {
+  const lines = text.split('\n')
+  const out: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i]
+    const line = rawLine.trim()
+
+    // 去掉重复的“系统提示/系统判定”单行标题
+    if (line === '系统提示' || line === '系统判定') continue
+
+    // 把裸露的系统行包进 〖〗，避免污染正文解析
+    const systemHint = line.match(/^系统提示[:：]\s*(.+)$/)
+    if (systemHint) {
+      out.push(`〖系统提示：${systemHint[1].trim()}〗`)
+      continue
+    }
+
+    const systemJudgement = line.match(/^系统判定[:：]\s*(.+)$/)
+    if (systemJudgement) {
+      out.push(`〖系统判定：${systemJudgement[1].trim()}〗`)
+      continue
+    }
+
+    // 修复误用的“【当前状态】”面板：转为 〖状态变化：...〗
+    if (line === '【当前状态】') {
+      const statusLines: string[] = []
+      let j = i + 1
+      for (; j < lines.length; j++) {
+        const candidateRaw = lines[j]
+        const candidate = candidateRaw.trim()
+        if (!candidate) break
+        const firstChar = candidate[0]
+        if (firstChar === '【' || firstChar === '〖' || firstChar === '`' || firstChar === '"' || firstChar === '“' || firstChar === '「') break
+        statusLines.push(candidate)
+        if (statusLines.length >= 8) {
+          j++
+          break
+        }
+      }
+
+      if (statusLines.length > 0) {
+        out.push(`〖状态变化：${statusLines.join('；')}〗`)
+        i = j - 1
+      }
+      continue
+    }
+
+    out.push(rawLine)
+  }
+
+  return out.join('\n')
+}
+
 const props = defineProps<{
   text: string
 }>()
@@ -383,11 +533,13 @@ const parsedText = computed(() => {
   let currentIndex = 0
   // 统一换行并规范化引号（压缩重复的中英文引号，避免解析异常）
   // 🔥 增强：将各种Unicode引号统一转换为标准引号，并处理转义反斜杠
-  const processedText = text
+  const normalizedText = text
     .replace(/\\\\/g, '\n')     // 处理 \\ 转义的换行符
     .replace(/\\n/g, '\n')       // 处理 \n 换行符
     .replace(/\r\n/g, '\n')      // 统一 Windows 换行符
     .replace(/\r/g, '\n')        // 统一 Mac 换行符
+
+  const processedText = repairCommonAIFormat(normalizedText)
 
   while (currentIndex < processedText.length) {
     // 查找标记的顺序：先找最近的开始标记
@@ -408,9 +560,23 @@ const parsedText = computed(() => {
       }
     }
 
-    // 心理描写 ``
+    // 心理描写 `...`（兼容旧格式 ``...``）
+    const psyDoubleStart = processedText.indexOf('``', currentIndex)
+    if (psyDoubleStart !== -1) {
+      const psyDoubleEnd = processedText.indexOf('``', psyDoubleStart + 2)
+      if (psyDoubleEnd !== -1) {
+        markers.push({
+          start: psyDoubleStart,
+          end: psyDoubleEnd + 2,
+          type: 'psychology' as const,
+          contentStart: psyDoubleStart + 2,
+          contentEnd: psyDoubleEnd
+        })
+      }
+    }
+
     const psyStart = processedText.indexOf('`', currentIndex)
-    if (psyStart !== -1) {
+    if (psyStart !== -1 && !processedText.startsWith('``', psyStart)) {
       const psyEnd = processedText.indexOf('`', psyStart + 1)
       if (psyEnd !== -1) {
         markers.push({
@@ -512,110 +678,10 @@ const parsedText = computed(() => {
     const markedContent = processedText.slice(nextMarker.contentStart, nextMarker.contentEnd)
     if (markedContent.trim()) {
       if (nextMarker.type === 'judgement') {
-        // 增强的判定解析
-        // 支持格式: "修炼判定:完美,骰点:45,灵性:8,加成:12,最终值:65,难度:50"
-        const contentParts = markedContent.split(',').map(p => p.trim())
-
-        if (contentParts.length >= 1) {
-          const titleResult = contentParts[0].split(':')
-
-          if (titleResult.length === 2) {
-            const judgement: JudgementData = {
-              title: titleResult[0].trim(),
-              result: titleResult[1].trim(),
-              dice: '未知',
-              attribute: '',
-              details: []
-            }
-
-            // 解析所有其他字段
-            for (let i = 1; i < contentParts.length; i++) {
-              const part = contentParts[i]
-              const [key, value] = part.split(':').map(s => s.trim())
-
-              if (!key || !value) continue
-
-              if (key.includes('难度')) {
-                judgement.difficulty = value
-              } else if (key.includes('判定值')) {
-                judgement.finalValue = value
-              } else if (key.includes('幸运')) {
-                judgement.lucky = value
-              } else if (key.includes('加成')) {
-                judgement.bonus = value
-              } else if (key.includes('最终值') || key.includes('总值')) {
-                judgement.finalValue = value
-              } else if (key.includes('造成伤害')) {
-                judgement.damage = value
-              } else if (key.includes('剩余气血')) {
-                judgement.remainingHp = value
-              } else {
-                // 通用字段处理：自动识别所有加成字段（先天、后天、境界、装备、功法、状态、天赋、大道、阵法、法宝等）
-                judgement.details?.push(`${key}:${value}`)
-              }
-            }
-
-            const finalValueNum = parseNumberValue(judgement.finalValue)
-            const difficultyNum = parseNumberValue(judgement.difficulty)
-            if (finalValueNum !== null && difficultyNum !== null) {
-              const computedResult = computeJudgementResult(finalValueNum, difficultyNum)
-              if (computedResult && computedResult !== judgement.result) {
-                judgement.details = judgement.details || []
-                judgement.details.push(`结果校验:${judgement.result}→${computedResult}`)
-                judgement.result = computedResult
-              }
-            }
-
-            parts.push({
-              type: 'judgement-card',
-              content: judgement
-            })
-          } else if (titleResult.length === 1) {
-            // 处理简单系统提示格式，如"系统提示：星屑吊坠效果触发，悟性+2，灵性+2，凝神静气效果生效。"
-            const judgement: JudgementData = {
-              title: '系统提示',
-              result: markedContent.trim(),
-              dice: '',
-              attribute: '',
-              details: []
-            }
-
-            // 解析所有其他字段
-            for (let i = 1; i < contentParts.length; i++) {
-              const part = contentParts[i]
-              const [key, value] = part.split(':').map(s => s.trim())
-
-              if (!key || !value) continue
-
-              if (key.includes('难度')) {
-                judgement.difficulty = value
-              } else if (key.includes('加成')) {
-                judgement.bonus = value
-              } else if (key.includes('最终值') || key.includes('总值')) {
-                judgement.finalValue = value
-              } else if (key.match(/^[^\d\s]+$/)) {
-                // 属性名(如"灵性"、"悟性"等)
-                if (!judgement.attribute) {
-                  judgement.attribute = `${key}:${value}`
-                } else {
-                  judgement.details?.push(`${key}:${value}`)
-                }
-              } else {
-                // 其他信息放入详情
-                judgement.details?.push(part)
-              }
-            }
-
-            parts.push({
-              type: 'judgement-card',
-              content: judgement
-            })
-          } else {
-            // 解析失败，作为普通文本处理
-            parts.push({ type: 'normal', content: `〖${markedContent}〗` })
-          }
+        const judgement = parseJudgementMarkedContent(markedContent)
+        if (judgement) {
+          parts.push({ type: 'judgement-card', content: judgement })
         } else {
-          // 解析失败，作为普通文本处理
           parts.push({ type: 'normal', content: `〖${markedContent}〗` })
         }
       } else {
