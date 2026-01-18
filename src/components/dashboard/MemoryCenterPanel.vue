@@ -536,7 +536,7 @@ const jumpToPage = ref('');
 
 // 记忆系统配置
 const memoryConfig = ref({
-  shortTermLimit: 3, // 与后端配置同步
+  shortTermLimit: 5, // 与后端配置同步
   midTermTrigger: 25, // 与后端配置同步
   midTermKeep: 8,
   autoSummaryEnabled: true,
@@ -1109,7 +1109,7 @@ const saveMemoryConfig = async () => {
 
 const resetMemoryConfig = () => {
   memoryConfig.value = {
-    shortTermLimit: 3,
+  shortTermLimit: 5,
     midTermTrigger: 20,
     midTermKeep: 8,
     autoSummaryEnabled: true,

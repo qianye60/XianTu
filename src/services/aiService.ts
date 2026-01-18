@@ -22,6 +22,7 @@ export interface AIConfig {
   streaming?: boolean;
   memorySummaryMode?: 'raw' | 'standard';
   initMode?: 'generate' | 'generateRaw';
+  maxRetries?: number; // API调用失败后的重试次数，默认1
   customAPI?: {
     provider: APIProvider;  // API提供商
     url: string;
@@ -73,6 +74,7 @@ class AIService {
     streaming: true,
     memorySummaryMode: 'raw',
     initMode: 'generate',
+    maxRetries: 1, // 默认重试1次
     customAPI: {
       provider: 'openai',
       url: '',
@@ -101,6 +103,18 @@ class AIService {
       this.abortController.abort();
       this.abortController = null;
     }
+    const tavernHelper = this.getTavernHelper();
+    if (tavernHelper) {
+      if (typeof (tavernHelper as any).abortGeneration === 'function') {
+        (tavernHelper as any).abortGeneration();
+      }
+      if (typeof (tavernHelper as any).stopGeneration === 'function') {
+        (tavernHelper as any).stopGeneration();
+      }
+      if (typeof (tavernHelper as any).cancelGeneration === 'function') {
+        (tavernHelper as any).cancelGeneration();
+      }
+    }
   }
 
   /**
@@ -109,6 +123,63 @@ class AIService {
   private resetAbortState() {
     this.isAborted = false;
     this.abortController = new AbortController();
+  }
+
+  /**
+   * 带重试的执行函数
+   */
+  private async executeWithRetry<T>(
+    fn: () => Promise<T>,
+    operationName: string
+  ): Promise<T> {
+    const maxRetries = this.config.maxRetries ?? 1;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // 在每次尝试前检查是否已取消
+        if (this.isAborted) {
+          console.log(`[AI服务] ${operationName} 已被取消，停止执行`);
+          throw new Error('请求已被取消');
+        }
+
+        if (attempt > 0) {
+          console.log(`[AI服务] ${operationName} 重试第 ${attempt}/${maxRetries} 次`);
+        }
+
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+
+        // 如果是取消操作，立即停止，不重试
+        if (this.isAborted || lastError.message?.includes('取消') || lastError.message?.includes('abort')) {
+          console.log(`[AI服务] ${operationName} 检测到取消信号，立即停止`);
+          throw lastError;
+        }
+
+        // 如果还有重试机会，等待后继续
+        if (attempt < maxRetries) {
+          console.warn(`[AI服务] ${operationName} 失败，准备重试:`, lastError.message);
+
+          // 在延迟期间也检查取消状态
+          const delayMs = 1000 * (attempt + 1);
+          const checkInterval = 100; // 每100ms检查一次
+          for (let waited = 0; waited < delayMs; waited += checkInterval) {
+            if (this.isAborted) {
+              console.log(`[AI服务] ${operationName} 在重试等待期间被取消`);
+              throw new Error('请求已被取消');
+            }
+            await new Promise(resolve => setTimeout(resolve, Math.min(checkInterval, delayMs - waited)));
+          }
+        }
+      }
+    }
+
+    throw lastError || new Error(`${operationName} 失败`);
+  }
+
+  private getAbortSignal(): AbortSignal | undefined {
+    return this.abortController?.signal;
   }
 
   private syncModeWithEnvironment() {
@@ -205,7 +276,8 @@ class AIService {
     try {
       const baseUrl = this.config.customAPI.url.replace(/\/+$/, '');
       const response = await axios.get(`${baseUrl}/v1/models`, {
-        headers: { 'Authorization': `Bearer ${this.config.customAPI.apiKey}` }
+        headers: { 'Authorization': `Bearer ${this.config.customAPI.apiKey}` },
+        signal: this.getAbortSignal()
       });
 
       return response.data.data?.map((m: any) => m.id) || [];
@@ -254,21 +326,41 @@ class AIService {
    * - 如果没有配置独立API，使用默认API
    */
   async generate(options: GenerateOptions): Promise<string> {
-    // 重置取消状态
+    // 重置取消状态（只在最外层重置一次，重试时不再重置）
     this.resetAbortState();
 
-    this.syncModeWithEnvironment();
-    const usageType = options.usageType || 'main';
-    console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${usageType}`);
+    return this.executeWithRetry(async () => {
+      this.syncModeWithEnvironment();
+      const usageType = options.usageType || 'main';
+      console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${usageType}`);
 
-    // 酒馆模式特殊处理
-    if (this.config.mode === 'tavern') {
-      // 检查是否配置了独立API（非default）
+      // 酒馆模式特殊处理
+      if (this.config.mode === 'tavern') {
+        // 检查是否配置了独立API（非default）
+        const apiConfig = this.getAPIConfigForUsageType(usageType);
+
+        // 如果配置了独立API，直接请求，不走酒馆代理
+        if (apiConfig) {
+          console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连: ${apiConfig.name}`);
+          return this.generateWithAPIConfig(options, {
+            provider: apiConfig.provider,
+            url: apiConfig.url,
+            apiKey: apiConfig.apiKey,
+            model: apiConfig.model,
+            temperature: apiConfig.temperature,
+            maxTokens: apiConfig.maxTokens
+          });
+        }
+
+        // 没有配置独立API（使用default），走酒馆
+        console.log(`[AI服务-酒馆] 功能[${usageType}]使用酒馆TavernHelper`);
+        return this.generateWithTavern(options);
+      }
+
+      // 网页模式：检查是否需要使用特定功能的 API 配置
       const apiConfig = this.getAPIConfigForUsageType(usageType);
-
-      // 如果配置了独立API，直接请求，不走酒馆代理
       if (apiConfig) {
-        console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连: ${apiConfig.name}`);
+        console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
         return this.generateWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -279,27 +371,9 @@ class AIService {
         });
       }
 
-      // 没有配置独立API（使用default），走酒馆
-      console.log(`[AI服务-酒馆] 功能[${usageType}]使用酒馆TavernHelper`);
-      return this.generateWithTavern(options);
-    }
-
-    // 网页模式：检查是否需要使用特定功能的 API 配置
-    const apiConfig = this.getAPIConfigForUsageType(usageType);
-    if (apiConfig) {
-      console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
-      return this.generateWithAPIConfig(options, {
-        provider: apiConfig.provider,
-        url: apiConfig.url,
-        apiKey: apiConfig.apiKey,
-        model: apiConfig.model,
-        temperature: apiConfig.temperature,
-        maxTokens: apiConfig.maxTokens
-      });
-    }
-
-    // 网页模式默认
-    return this.generateWithCustomAPI(options);
+      // 网页模式默认
+      return this.generateWithCustomAPI(options);
+    }, `generate[${options.usageType || 'main'}]`);
   }
 
   /**
@@ -314,18 +388,41 @@ class AIService {
    * - 如果没有配置独立API，使用默认API
    */
   async generateRaw(options: GenerateOptions): Promise<string> {
-    this.syncModeWithEnvironment();
-    const usageType = options.usageType || 'main';
-    console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}, usageType: ${usageType}`);
+    // 重置取消状态
+    this.resetAbortState();
 
-    // 酒馆模式特殊处理
-    if (this.config.mode === 'tavern') {
-      // 检查是否配置了独立API（非default）
+    return this.executeWithRetry(async () => {
+      this.syncModeWithEnvironment();
+      const usageType = options.usageType || 'main';
+      console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}, usageType: ${usageType}`);
+
+      // 酒馆模式特殊处理
+      if (this.config.mode === 'tavern') {
+        // 检查是否配置了独立API（非default）
+        const apiConfig = this.getAPIConfigForUsageType(usageType);
+
+        // 如果配置了独立API，直接请求，不走酒馆代理
+        if (apiConfig) {
+          console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连(Raw): ${apiConfig.name}`);
+          return this.generateRawWithAPIConfig(options, {
+            provider: apiConfig.provider,
+            url: apiConfig.url,
+            apiKey: apiConfig.apiKey,
+            model: apiConfig.model,
+            temperature: apiConfig.temperature,
+            maxTokens: apiConfig.maxTokens
+          });
+        }
+
+        // 没有配置独立API（使用default），走酒馆
+        console.log(`[AI服务-酒馆] 功能[${usageType}]使用酒馆TavernHelper(Raw)`);
+        return this.generateRawWithTavern(options);
+      }
+
+      // 网页模式：检查是否需要使用特定功能的 API 配置
       const apiConfig = this.getAPIConfigForUsageType(usageType);
-
-      // 如果配置了独立API，直接请求，不走酒馆代理
       if (apiConfig) {
-        console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连(Raw): ${apiConfig.name}`);
+        console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
         return this.generateRawWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -336,27 +433,9 @@ class AIService {
         });
       }
 
-      // 没有配置独立API（使用default），走酒馆
-      console.log(`[AI服务-酒馆] 功能[${usageType}]使用酒馆TavernHelper(Raw)`);
-      return this.generateRawWithTavern(options);
-    }
-
-    // 网页模式：检查是否需要使用特定功能的 API 配置
-    const apiConfig = this.getAPIConfigForUsageType(usageType);
-    if (apiConfig) {
-      console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
-      return this.generateRawWithAPIConfig(options, {
-        provider: apiConfig.provider,
-        url: apiConfig.url,
-        apiKey: apiConfig.apiKey,
-        model: apiConfig.model,
-        temperature: apiConfig.temperature,
-        maxTokens: apiConfig.maxTokens
-      });
-    }
-
-    // 网页模式默认
-    return this.generateRawWithCustomAPI(options);
+      // 网页模式默认
+      return this.generateRawWithCustomAPI(options);
+    }, `generateRaw[${options.usageType || 'main'}]`);
   }
 
   /**
@@ -455,7 +534,13 @@ class AIService {
 
     console.log('[AI服务-酒馆] 调用tavernHelper.generate');
     try {
-      return await this.withRetry('tavern.generate', () => tavernHelper.generate(options));
+      return await this.withRetry('tavern.generate', async () => {
+        // 在调用前检查是否已取消
+        if (this.isAborted) {
+          throw new Error('请求已被取消');
+        }
+        return await tavernHelper.generate(options);
+      });
     } catch (error) {
       throw this.toUserFacingError(error);
     }
@@ -471,7 +556,13 @@ class AIService {
 
     console.log('[AI服务-酒馆] 调用tavernHelper.generateRaw');
     try {
-      const result = await this.withRetry('tavern.generateRaw', () => tavernHelper.generateRaw(options));
+      const result = await this.withRetry('tavern.generateRaw', async () => {
+        // 在调用前检查是否已取消
+        if (this.isAborted) {
+          throw new Error('请求已被取消');
+        }
+        return await tavernHelper.generateRaw(options);
+      });
       return String(result);
     } catch (error) {
       throw this.toUserFacingError(error);
@@ -495,7 +586,27 @@ class AIService {
       }
 
       try {
-        return await fn();
+        // 使用 Promise.race 来同时监听函数执行和取消信号
+        let checkInterval: NodeJS.Timeout | null = null;
+        const abortPromise = new Promise<never>((_, reject) => {
+          checkInterval = setInterval(() => {
+            if (this.isAborted) {
+              if (checkInterval) clearInterval(checkInterval);
+              reject(new Error('请求已被取消'));
+            }
+          }, 50); // 每50ms检查一次，更快响应
+        });
+
+        try {
+          const result = await Promise.race([fn(), abortPromise]);
+          // 函数正常完成，清理检查器
+          if (checkInterval) clearInterval(checkInterval);
+          return result;
+        } catch (error) {
+          // 出错时也要清理检查器
+          if (checkInterval) clearInterval(checkInterval);
+          throw error;
+        }
       } catch (error) {
         // 再次检查取消状态
         if (this.isAborted) {
@@ -513,17 +624,26 @@ class AIService {
 
         // 使用可中断的延迟
         await new Promise((resolve, reject) => {
-          const timer = setTimeout(resolve, delay);
+          let timer: NodeJS.Timeout | null = null;
+          let checkAbort: NodeJS.Timeout | null = null;
+
+          const cleanup = () => {
+            if (timer) clearTimeout(timer);
+            if (checkAbort) clearInterval(checkAbort);
+          };
+
+          timer = setTimeout(() => {
+            cleanup();
+            resolve(undefined);
+          }, delay);
+
           // 如果在等待期间被取消，立即结束
-          const checkAbort = setInterval(() => {
+          checkAbort = setInterval(() => {
             if (this.isAborted) {
-              clearTimeout(timer);
-              clearInterval(checkAbort);
+              cleanup();
               reject(new Error('请求已取消'));
             }
           }, 100);
-          // 正常完成时清理检查器
-          setTimeout(() => clearInterval(checkAbort), delay + 10);
         });
       }
     }
@@ -814,7 +934,8 @@ class AIService {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
               },
-              timeout: 120000
+              timeout: 120000,
+              signal: this.getAbortSignal()
             }
           );
 
@@ -837,7 +958,8 @@ class AIService {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json'
             },
-            timeout: 120000
+            timeout: 120000,
+            signal: this.getAbortSignal()
           }
         );
 
@@ -918,7 +1040,8 @@ class AIService {
                 'anthropic-version': '2023-06-01',
                 'Content-Type': 'application/json'
               },
-              timeout: 120000
+              timeout: 120000,
+              signal: this.getAbortSignal()
             }
           );
 
@@ -942,7 +1065,8 @@ class AIService {
               'anthropic-version': '2023-06-01',
               'Content-Type': 'application/json'
             },
-            timeout: 120000
+            timeout: 120000,
+            signal: this.getAbortSignal()
           }
         );
 
@@ -1022,7 +1146,8 @@ class AIService {
             },
             {
               headers: { 'Content-Type': 'application/json' },
-              timeout: 120000
+              timeout: 120000,
+              signal: this.getAbortSignal()
             }
           );
 
@@ -1043,7 +1168,8 @@ class AIService {
           },
           {
             headers: { 'Content-Type': 'application/json' },
-            timeout: 120000
+            timeout: 120000,
+            signal: this.getAbortSignal()
           }
         );
 
@@ -1087,7 +1213,8 @@ class AIService {
         temperature,
         max_tokens: maxTokens,
         stream: true
-      })
+      }),
+      signal: this.getAbortSignal()
     });
 
     if (!response.ok) {
@@ -1140,7 +1267,8 @@ class AIService {
         messages,
         temperature,
         stream: true
-      })
+      }),
+      signal: this.getAbortSignal()
     });
 
     if (!response.ok) {
@@ -1185,7 +1313,8 @@ class AIService {
           temperature,
           maxOutputTokens: maxTokens
         }
-      })
+      }),
+      signal: this.getAbortSignal()
     });
 
     if (!response.ok) {
@@ -1242,6 +1371,14 @@ class AIService {
 
     try {
       while (true) {
+        if (this.isAborted) {
+          try {
+            await reader.cancel();
+          } catch {
+            // ignore cancel errors
+          }
+          throw new Error('请求已取消');
+        }
         const { done, value } = await reader.read();
         if (done) break;
 

@@ -9,6 +9,43 @@ function shouldDebugTavern(): boolean {
   }
 }
 
+function hasTavernSignals(target: Window): boolean {
+  const anyWin = target as any;
+  return Boolean(anyWin?.TavernHelper) || (typeof anyWin?.eventOn === 'function' && typeof anyWin?.eventOff === 'function');
+}
+
+function findTavernSignals(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  if (hasTavernSignals(window)) return true;
+
+  try {
+    if (window.top && window.top !== window && hasTavernSignals(window.top)) {
+      return true;
+    }
+  } catch {
+    // Cross-origin access blocked.
+  }
+
+  let currentWindow: Window = window;
+  for (let i = 0; i < 5; i++) {
+    try {
+      if (currentWindow.parent && currentWindow.parent !== currentWindow) {
+        if (hasTavernSignals(currentWindow.parent)) {
+          return true;
+        }
+        currentWindow = currentWindow.parent;
+      } else {
+        break;
+      }
+    } catch {
+      break;
+    }
+  }
+
+  return false;
+}
+
 /**
  * 递归向上查找 TavernHelper，兼容多层 iframe 嵌套
  * 最多查找 5 层，防止无限循环
@@ -70,7 +107,7 @@ function getNativeTavernHelper(): any | null {
 }
 
 export function isTavernEnv(): boolean {
-  return !!getNativeTavernHelper();
+  return !!getNativeTavernHelper() || findTavernSignals();
 }
 
 /**

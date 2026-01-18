@@ -147,6 +147,31 @@
           </div>
         </div>
         <div class="settings-list">
+          <!-- ========== 全局设置 ========== -->
+          <div class="function-group-header">
+            <h5 class="group-title">⚙️ 全局设置</h5>
+            <span class="group-desc">影响所有API调用的通用配置</span>
+          </div>
+
+          <!-- 重试次数设置 -->
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">重试次数</label>
+              <span class="setting-desc">API调用失败后的重试次数。0=不重试，1=重试1次，以此类推</span>
+            </div>
+            <div class="setting-control">
+              <input
+                type="number"
+                :value="retryCount"
+                @input="updateRetryCount(($event.target as HTMLInputElement).value)"
+                min="0"
+                max="5"
+                class="setting-number-input"
+              />
+              <span class="input-hint">次</span>
+            </div>
+          </div>
+
           <!-- ========== 主游戏流程（3个） ========== -->
           <div class="function-group-header">
             <h5 class="group-title">🎮 主游戏流程</h5>
@@ -309,6 +334,19 @@
                       type="checkbox"
                       v-model="vectorMemoryEnabled"
                       @change="onVectorMemoryChange"
+                    />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <!-- text_optimization 功能的启用开关 -->
+                <div v-if="funcType === 'text_optimization'" class="inline-toggle">
+                  <label class="toggle-label">启用</label>
+                  <label class="setting-switch compact">
+                    <input
+                      type="checkbox"
+                      :checked="apiStore.isFunctionEnabled('text_optimization')"
+                      @change="apiStore.setFunctionEnabled('text_optimization', ($event.target as HTMLInputElement).checked)"
                     />
                     <span class="switch-slider"></span>
                   </label>
@@ -567,6 +605,7 @@ const vectorMemoryMaxCount = ref(10);
 const isTavernEnvFlag = ref(isTavernEnv());
 const nsfwMode = ref(true);
 const nsfwGenderFilter = ref<NsfwGenderFilter>('female');
+const retryCount = ref(1); // 重试次数，默认1次
 
 const readGameSettings = (): Record<string, unknown> => {
   try {
@@ -598,6 +637,14 @@ const loadLocalSettings = () => {
   // 加载分步生成设置
   const gameSettings = readGameSettings();
   splitResponseGeneration.value = gameSettings.splitResponseGeneration === true; // 默认关闭
+
+  // 加载重试次数设置
+  const savedRetryCount = gameSettings.retryCount;
+  if (typeof savedRetryCount === 'number' && savedRetryCount >= 0 && savedRetryCount <= 5) {
+    retryCount.value = savedRetryCount;
+  } else {
+    retryCount.value = 1; // 默认1次
+  }
 };
 
 const saveSplitResponseSetting = () => {
@@ -611,6 +658,22 @@ const saveNsfwSettings = () => {
     enableNsfwMode: nsfwMode.value,
     nsfwGenderFilter: nsfwGenderFilter.value,
   });
+};
+
+const updateRetryCount = (value: string) => {
+  const num = parseInt(value, 10);
+  if (isNaN(num) || num < 0 || num > 5) {
+    toast.error('重试次数必须在 0-5 之间');
+    return;
+  }
+  retryCount.value = num;
+  saveGameSettings({ retryCount: num });
+
+  // 更新 aiService 的配置
+  const currentConfig = aiService.getConfig();
+  aiService.saveConfig({ ...currentConfig, maxRetries: num });
+
+  toast.success(`重试次数已设置为 ${num} 次`);
 };
 
 const loadVectorMemoryConfig = () => {
@@ -1616,6 +1679,35 @@ const handleImport = () => {
   opacity: 0.5;
   cursor: not-allowed;
   background-color: #f3f4f6;
+}
+
+/* 数字输入框样式 */
+.setting-number-input {
+  width: 80px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: white;
+  color: #374151;
+  font-size: 0.875rem;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.setting-number-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.setting-number-input:hover {
+  border-color: #9ca3af;
+}
+
+.input-hint {
+  margin-left: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
 }
 
 /* 开关样式 */

@@ -11,7 +11,7 @@
  * - src/services/characterInitialization.ts
  */
 
-import type { NpcProfile, SaveData } from '@/types/game';
+import type { GameTime, NpcProfile, SaveData } from '@/types/game';
 import type { TavernHelper } from '@/types';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 
@@ -83,7 +83,7 @@ export async function cleanTavernDuplicates(_tavernHelper: TavernHelper): Promis
  * @param npcData - 从AI或其他来源接收到的原始NPC数据。
  * @returns 一个元组，第一个元素是布尔值，表示是否有效；第二个元素是处理（可能被修复）后的NPC数据。
  */
-export function validateAndRepairNpcProfile(npcData: unknown): [boolean, NpcProfile | null] {
+export function validateAndRepairNpcProfile(npcData: unknown, gameTime?: GameTime): [boolean, NpcProfile | null] {
   try {
     if (!npcData || typeof npcData !== 'object') {
       console.error('[NPC校验] 提供的输入不是一个有效的对象:', npcData);
@@ -99,6 +99,9 @@ export function validateAndRepairNpcProfile(npcData: unknown): [boolean, NpcProf
     }
 
     const repairedNpc: Partial<NpcProfile> = { ...data };
+    const fallbackYear = typeof gameTime?.年 === 'number' ? gameTime.年 : 1000;
+    const fallbackMonth = typeof gameTime?.月 === 'number' ? gameTime.月 : 1;
+    const fallbackDay = typeof gameTime?.日 === 'number' ? gameTime.日 : 1;
 
     // 2. 修复与默认值填充（防御性编程，确保不会因为任何字段导致崩溃）
     try {
@@ -109,9 +112,9 @@ export function validateAndRepairNpcProfile(npcData: unknown): [boolean, NpcProf
 
     // 年龄已从出生日期自动计算,不需要验证
     try {
-      if (typeof repairedNpc.与玩家关系 !== 'string') repairedNpc.与玩家关系 = '相识';
+      if (typeof repairedNpc.与玩家关系 !== 'string') repairedNpc.与玩家关系 = '陌生人';
     } catch (e) {
-      repairedNpc.与玩家关系 = '相识';
+      repairedNpc.与玩家关系 = '陌生人';
     }
 
     try {
@@ -144,6 +147,49 @@ export function validateAndRepairNpcProfile(npcData: unknown): [boolean, NpcProf
       repairedNpc.性格特征 = [];
     }
 
+    try {
+      if (!repairedNpc.出生日期 || typeof repairedNpc.出生日期 !== 'object') {
+        const birthYear = Math.max(1, fallbackYear - 18);
+        repairedNpc.出生日期 = { 年: birthYear, 月: fallbackMonth, 日: fallbackDay };
+      } else {
+        const birthDate = repairedNpc.出生日期 as { 年?: number; 月?: number; 日?: number };
+        if (typeof birthDate.年 !== 'number' || !Number.isFinite(birthDate.年)) birthDate.年 = Math.max(1, fallbackYear - 18);
+        if (typeof birthDate.月 !== 'number' || !Number.isFinite(birthDate.月)) birthDate.月 = fallbackMonth;
+        if (typeof birthDate.日 !== 'number' || !Number.isFinite(birthDate.日)) birthDate.日 = fallbackDay;
+        repairedNpc.出生日期 = birthDate as any;
+      }
+    } catch (e) {
+      repairedNpc.出生日期 = { 年: Math.max(1, fallbackYear - 18), 月: fallbackMonth, 日: fallbackDay };
+    }
+
+    try {
+      if (!repairedNpc.出生) repairedNpc.出生 = '散修';
+    } catch (e) {
+      repairedNpc.出生 = '散修';
+    }
+
+    try {
+      if (typeof repairedNpc.外貌描述 !== 'string' || !repairedNpc.外貌描述.trim()) {
+        repairedNpc.外貌描述 = '相貌普通，气质平和。';
+      }
+    } catch (e) {
+      repairedNpc.外貌描述 = '相貌普通，气质平和。';
+    }
+
+    try {
+      if (!repairedNpc.灵根) repairedNpc.灵根 = '五行杂灵根';
+    } catch (e) {
+      repairedNpc.灵根 = '五行杂灵根';
+    }
+
+    try {
+      if (!repairedNpc.先天六司 || typeof repairedNpc.先天六司 !== 'object') {
+        repairedNpc.先天六司 = { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 };
+      }
+    } catch (e) {
+      repairedNpc.先天六司 = { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 };
+    }
+
     // 3. 结构检查与修复 (境界) - 防御性处理
     try {
       if (typeof repairedNpc.境界 !== 'object' || repairedNpc.境界 === null) {
@@ -170,6 +216,63 @@ export function validateAndRepairNpcProfile(npcData: unknown): [boolean, NpcProf
         下一级所需: 100,
         突破描述: '引气入体，感悟天地灵气，踏上修仙第一步'
       };
+    }
+
+    try {
+      if (!repairedNpc.属性 || typeof repairedNpc.属性 !== 'object') {
+        repairedNpc.属性 = {
+          气血: { 当前: 100, 上限: 100 },
+          灵气: { 当前: 50, 上限: 50 },
+          神识: { 当前: 30, 上限: 30 },
+          寿元上限: 100
+        };
+      } else {
+        const attrs = repairedNpc.属性 as any;
+        if (!attrs.气血 || typeof attrs.气血 !== 'object') attrs.气血 = { 当前: 100, 上限: 100 };
+        if (!attrs.灵气 || typeof attrs.灵气 !== 'object') attrs.灵气 = { 当前: 50, 上限: 50 };
+        if (!attrs.神识 || typeof attrs.神识 !== 'object') attrs.神识 = { 当前: 30, 上限: 30 };
+        if (typeof attrs.寿元上限 !== 'number' || !Number.isFinite(attrs.寿元上限)) attrs.寿元上限 = 100;
+        repairedNpc.属性 = attrs;
+      }
+    } catch (e) {
+      repairedNpc.属性 = {
+        气血: { 当前: 100, 上限: 100 },
+        灵气: { 当前: 50, 上限: 50 },
+        神识: { 当前: 30, 上限: 30 },
+        寿元上限: 100
+      };
+    }
+
+    try {
+      if (!repairedNpc.当前位置 || typeof repairedNpc.当前位置 !== 'object') {
+        repairedNpc.当前位置 = { 描述: '朝天大陆·无名之地' };
+      } else if (!(repairedNpc.当前位置 as any).描述) {
+        (repairedNpc.当前位置 as any).描述 = '朝天大陆·无名之地';
+      }
+    } catch (e) {
+      repairedNpc.当前位置 = { 描述: '朝天大陆·无名之地' };
+    }
+
+    try {
+      if (typeof repairedNpc.当前外貌状态 !== 'string' || !repairedNpc.当前外貌状态.trim()) {
+        repairedNpc.当前外貌状态 = '神色平静';
+      }
+    } catch (e) {
+      repairedNpc.当前外貌状态 = '神色平静';
+    }
+
+    try {
+      if (typeof repairedNpc.当前内心想法 !== 'string' || !repairedNpc.当前内心想法.trim()) {
+        repairedNpc.当前内心想法 = '心思难测';
+      }
+    } catch (e) {
+      repairedNpc.当前内心想法 = '心思难测';
+    }
+
+    try {
+      if (typeof repairedNpc.种族 !== 'string' || !repairedNpc.种族.trim()) repairedNpc.种族 = '人族';
+    } catch (e) {
+      repairedNpc.种族 = '人族';
     }
 
     // 4. 结构检查与修复 (背包) - 防御性处理

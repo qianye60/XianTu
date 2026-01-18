@@ -265,7 +265,7 @@ interface JudgementData {
 }
 
 interface TextPart {
-  type: 'environment' | 'psychology' | 'dialogue' | 'judgement-card' | 'normal' | 'quote'
+  type: 'environment' | 'psychology' | 'dialogue' | 'judgement-card' | 'normal' | 'quote' | 'bold' | 'italic'
   content: string | JudgementData
 }
 
@@ -273,9 +273,104 @@ const isJudgementData = (content: string | JudgementData): content is JudgementD
   return typeof content === 'object' && content !== null && 'title' in content
 }
 
+const parseNumberValue = (value?: string) => {
+  if (!value) return null
+  const match = value.match(/[+-]?\d+(?:\.\d+)?/)
+  return match ? Number(match[0]) : null
+}
+
+const computeJudgementResult = (finalValue: number, difficulty: number) => {
+  if (finalValue >= difficulty + 30) return '完美'
+  if (finalValue >= difficulty + 15) return '大成功'
+  if (finalValue >= difficulty) return '成功'
+  if (finalValue < difficulty - 15) return '大失败'
+  return '失败'
+}
+
 const props = defineProps<{
   text: string
 }>()
+
+// 解析普通文本中的Markdown格式（**粗体** 和 *斜体*）
+const parseMarkdownInText = (text: string, parts: TextPart[]) => {
+  let currentIndex = 0
+
+  while (currentIndex < text.length) {
+    // 查找 ** 粗体
+    const boldStart = text.indexOf('**', currentIndex)
+    // 查找 * 斜体（但要排除 **）
+    let italicStart = text.indexOf('*', currentIndex)
+    if (italicStart !== -1 && text[italicStart + 1] === '*') {
+      italicStart = text.indexOf('*', italicStart + 2)
+    }
+
+    // 确定最近的标记
+    let nextMarkStart = -1
+    let markType: 'bold' | 'italic' | null = null
+
+    if (boldStart !== -1 && (italicStart === -1 || boldStart < italicStart)) {
+      nextMarkStart = boldStart
+      markType = 'bold'
+    } else if (italicStart !== -1) {
+      nextMarkStart = italicStart
+      markType = 'italic'
+    }
+
+    // 没有找到标记，剩余文本作为普通文本
+    if (nextMarkStart === -1) {
+      if (currentIndex < text.length) {
+        parts.push({
+          type: 'normal',
+          content: text.slice(currentIndex)
+        })
+      }
+      break
+    }
+
+    // 添加标记前的普通文本
+    if (nextMarkStart > currentIndex) {
+      parts.push({
+        type: 'normal',
+        content: text.slice(currentIndex, nextMarkStart)
+      })
+    }
+
+    // 查找结束标记
+    if (markType === 'bold') {
+      const boldEnd = text.indexOf('**', nextMarkStart + 2)
+      if (boldEnd !== -1) {
+        parts.push({
+          type: 'bold',
+          content: text.slice(nextMarkStart + 2, boldEnd)
+        })
+        currentIndex = boldEnd + 2
+      } else {
+        // 没有找到结束标记，作为普通文本
+        parts.push({
+          type: 'normal',
+          content: text.slice(nextMarkStart)
+        })
+        break
+      }
+    } else if (markType === 'italic') {
+      const italicEnd = text.indexOf('*', nextMarkStart + 1)
+      if (italicEnd !== -1 && text[italicEnd + 1] !== '*') {
+        parts.push({
+          type: 'italic',
+          content: text.slice(nextMarkStart + 1, italicEnd)
+        })
+        currentIndex = italicEnd + 1
+      } else {
+        // 没有找到结束标记，作为普通文本
+        parts.push({
+          type: 'normal',
+          content: text.slice(nextMarkStart)
+        })
+        break
+      }
+    }
+  }
+}
 
 const parsedText = computed(() => {
   const parts: TextPart[] = []
@@ -396,26 +491,20 @@ const parsedText = computed(() => {
       .sort((a, b) => a.start - b.start)
 
     if (validMarkers.length === 0) {
-      // 没有更多标记，剩余的都是普通文本
+      // 没有更多标记，剩余文本需要解析Markdown
       if (currentIndex < processedText.length) {
-        parts.push({
-          type: 'normal',
-          content: processedText.slice(currentIndex)
-        })
+        parseMarkdownInText(processedText.slice(currentIndex), parts)
       }
       break
     }
 
     const nextMarker = validMarkers[0]
 
-    // 添加标记前的普通文本
+    // 添加标记前的普通文本（需要解析Markdown）
     if (nextMarker.start > currentIndex) {
       const normalText = processedText.slice(currentIndex, nextMarker.start)
       if (normalText) {
-        parts.push({
-          type: 'normal',
-          content: normalText
-        })
+        parseMarkdownInText(normalText, parts)
       }
     }
 
@@ -463,6 +552,17 @@ const parsedText = computed(() => {
               } else {
                 // 通用字段处理：自动识别所有加成字段（先天、后天、境界、装备、功法、状态、天赋、大道、阵法、法宝等）
                 judgement.details?.push(`${key}:${value}`)
+              }
+            }
+
+            const finalValueNum = parseNumberValue(judgement.finalValue)
+            const difficultyNum = parseNumberValue(judgement.difficulty)
+            if (finalValueNum !== null && difficultyNum !== null) {
+              const computedResult = computeJudgementResult(finalValueNum, difficultyNum)
+              if (computedResult && computedResult !== judgement.result) {
+                judgement.details = judgement.details || []
+                judgement.details.push(`结果校验:${judgement.result}→${computedResult}`)
+                judgement.result = computedResult
               }
             }
 
@@ -538,6 +638,8 @@ const getPartClass = (type: string) => {
     'text-psychology': type === 'psychology',
     'text-dialogue': type === 'dialogue',
     'text-quote': type === 'quote',
+    'text-bold': type === 'bold',
+    'text-italic': type === 'italic',
     'text-normal': type === 'normal'
   }
 }
@@ -629,6 +731,20 @@ const parseDetailSource = (detail: string) => {
 /* 普通文本 */
 .text-normal {
   color: var(--color-text, #1a1a1a);
+}
+
+/* Markdown 粗体 - 低调的强调，使用微妙的颜色和字重 */
+.text-bold {
+  font-weight: 600;
+  color: #2c3e50;
+  letter-spacing: 0.01em;
+}
+
+/* Markdown 斜体 - 优雅的倾斜，略微透明 */
+.text-italic {
+  font-style: italic;
+  opacity: 0.92;
+  color: #34495e;
 }
 
 /* 判定卡片样式 - 清爽版 */
@@ -956,6 +1072,18 @@ const parseDetailSource = (detail: string) => {
 
 [data-theme="dark"] .text-quote {
   color: rgb(254 125 0);
+}
+
+[data-theme="dark"] .text-bold {
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] .text-italic {
+  font-style: italic;
+  opacity: 0.88;
+  color: #cbd5e1;
 }
 
 [data-theme="dark"] .judgement-card {

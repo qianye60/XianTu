@@ -129,7 +129,7 @@ function parseItemChange(change: StateChange): FormattedChange | null {
 
 /**
  * 解析角色核心属性变更 (修为、气血等)
- * V3：角色.属性 / 角色.位置
+ * V3：角色.属性 / 角色.位置 / 社交.关系.[NPC名].属性
  * @param change - 单条变更记录
  * @returns FormattedChange | null
  */
@@ -146,7 +146,20 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     key.includes('.神识') ||
     key.includes('.寿命');
 
-  if (!isPlayerStatus) return null;
+  // 🔥 新增：检测NPC属性变更（路径格式：社交.关系.[NPC名].属性.xxx）
+  const isNpcStatus = key.startsWith('社交.关系.') && key.includes('.属性.');
+
+  if (!isPlayerStatus && !isNpcStatus) return null;
+
+  // 🔥 提取NPC名称（如果是NPC属性）
+  let npcName: string | null = null;
+  if (isNpcStatus) {
+    const parts = key.split('.');
+    // 路径格式：社交.关系.[NPC名].属性.xxx
+    if (parts.length >= 3 && parts[0] === '社交' && parts[1] === '关系') {
+      npcName = parts[2];
+    }
+  }
 
   const attributeName = key.split('.').pop() || '属性';
 
@@ -155,7 +168,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'add',
       color: 'green',
-      title: '境界突破',
+      title: npcName ? `【${npcName}】境界突破` : '境界突破',
       description: `${oldValue || '凡人'} → ${newValue}`,
     };
   }
@@ -164,7 +177,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'update',
       color: 'blue',
-      title: '境界阶段提升',
+      title: npcName ? `【${npcName}】境界阶段提升` : '境界阶段提升',
       description: `${oldValue || '无'} → ${newValue}`,
     };
   }
@@ -186,7 +199,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'update',
       color: 'blue',
-      title: '位置变更',
+      title: npcName ? `【${npcName}】位置变更` : '位置变更',
       description: `${extractLocation(oldValue)} → ${extractLocation(newValue)}`,
     };
   }
@@ -209,7 +222,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'update',
       color: 'blue',
-      title: `${attributeBaseName}上限变化`,
+      title: npcName ? `【${npcName}】${attributeBaseName}上限变化` : `${attributeBaseName}上限变化`,
       description,
     };
   }
@@ -227,7 +240,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'update',
       color: 'blue',
-      title: `${attributeBaseName}当前值变化`,
+      title: npcName ? `【${npcName}】${attributeBaseName}当前值变化` : `${attributeBaseName}当前值变化`,
       description,
     };
   }
@@ -245,7 +258,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'update',
       color: 'blue',
-      title: `${attributeName}变化`,
+      title: npcName ? `【${npcName}】${attributeName}变化` : `${attributeName}变化`,
       description,
     };
   }
@@ -260,7 +273,7 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
     return {
       icon: 'update',
       color: 'blue',
-      title: `${attributeName}变化`,
+      title: npcName ? `【${npcName}】${attributeName}变化` : `${attributeName}变化`,
       description,
     };
   }
@@ -295,11 +308,26 @@ function parseRelationshipChange(change: StateChange): FormattedChange | null {
 
     // 人物记忆新增
     if (field === '人物记忆' && action === 'push') {
+      // 提取记忆内容
+      let memoryContent = '新增了关于你的记忆';
+      if (newValue) {
+        // 如果是摘要格式（包含 __last）
+        if (isObject(newValue) && '__last' in newValue) {
+          const lastMemory = (newValue as any).__last;
+          if (typeof lastMemory === 'string') {
+            memoryContent = lastMemory.length > 50 ? lastMemory.substring(0, 50) + '...' : lastMemory;
+          }
+        } else if (typeof newValue === 'string') {
+          // 如果是直接的字符串
+          memoryContent = newValue.length > 50 ? newValue.substring(0, 50) + '...' : newValue;
+        }
+      }
+
       return {
         icon: 'add',
         color: 'blue',
         title: `【${npcName}】记忆更新`,
-        description: `新增了关于你的记忆`,
+        description: memoryContent,
       };
     }
 
@@ -379,6 +407,56 @@ function parseValidationError(change: StateChange): FormattedChange | null {
 function parseGenericChange(change: StateChange): FormattedChange {
   const { key, action, oldValue, newValue } = change;
 
+  // 🔥 特殊处理：事件记录的 push 操作
+  if ((key.includes('社交.事件') || key.includes('系统.事件')) && action === 'push') {
+    let eventDesc = '新增事件';
+    if (newValue) {
+      // 如果是摘要格式
+      if (isObject(newValue) && '__last' in newValue) {
+        const lastEvent = (newValue as any).__last;
+        if (isObject(lastEvent)) {
+          const eventObj = lastEvent as any;
+          eventDesc = eventObj.描述 || eventObj.description || eventObj.事件 || '新增事件';
+        }
+      } else if (isObject(newValue)) {
+        const eventObj = newValue as any;
+        eventDesc = eventObj.描述 || eventObj.description || eventObj.事件 || '新增事件';
+      }
+    }
+    return {
+      icon: 'add',
+      color: 'blue',
+      title: '事件记录',
+      description: eventDesc.length > 60 ? eventDesc.substring(0, 60) + '...' : eventDesc,
+    };
+  }
+
+  // 🔥 特殊处理：记忆相关的 push 操作
+  if ((key.includes('短期记忆') || key.includes('中期记忆') || key.includes('隐式中期记忆')) && action === 'push') {
+    let memoryDesc = '新增记忆';
+    if (newValue) {
+      // 如果是摘要格式
+      if (isObject(newValue) && '__last' in newValue) {
+        const lastMemory = (newValue as any).__last;
+        if (typeof lastMemory === 'string') {
+          memoryDesc = lastMemory;
+        }
+      } else if (typeof newValue === 'string') {
+        memoryDesc = newValue;
+      }
+    }
+
+    const memoryType = key.includes('短期记忆') ? '短期记忆' :
+                       key.includes('隐式中期记忆') ? '隐式中期记忆' : '中期记忆';
+
+    return {
+      icon: 'add',
+      color: 'blue',
+      title: `${memoryType}更新`,
+      description: memoryDesc.length > 60 ? memoryDesc.substring(0, 60) + '...' : memoryDesc,
+    };
+  }
+
   let description = '';
   if (action === 'set' || action === 'update') {
     description = `值从 ${JSON.stringify(oldValue)} 变为 ${JSON.stringify(newValue)}`;
@@ -386,6 +464,8 @@ function parseGenericChange(change: StateChange): FormattedChange {
     description = `数值增加了 ${newValue}`;
   } else if (action === 'delete') {
     description = `移除了该字段`;
+  } else if (action === 'push') {
+    description = `执行了 ${action} 操作`;
   } else {
     description = `执行了 ${action} 操作`;
   }

@@ -132,6 +132,20 @@
               </div>
 
               <div class="action-panel-body">
+                <div v-if="session" class="session-info-box session-info-standalone">
+                  <div class="session-header">
+                    <div class="session-label">{{ t('当前会话') }} #{{ session.session_id }}</div>
+                    <!-- 🔥 心跳状态指示器 -->
+                    <div class="heartbeat-indicator" :class="`heartbeat-${heartbeatStatus}`">
+                      <div class="heartbeat-dot"></div>
+                      <span class="heartbeat-text">{{ heartbeatMessage || '通信正常' }}</span>
+                    </div>
+                  </div>
+                  <button class="action-btn" @click="handleEndTravel" :disabled="isLoading">
+                    <CornerUpLeft :size="16" />
+                    {{ t('返回原世界') }}
+                  </button>
+                </div>
                 <template v-if="actionPanelMode === 'target'">
                   <div v-if="selectedWorld" class="selected-world-detail">
                     <h3>{{ selectedWorld.owner_username }} {{ t('的世界') }}</h3>
@@ -183,14 +197,6 @@
                         {{ t('该世界未开启下线代理，无法穿越') }}
                       </div>
 
-                      <!-- 当前会话信息 -->
-                      <div v-if="session" class="session-info-box">
-                        <div class="session-label">{{ t('当前会话') }} #{{ session.session_id }}</div>
-                        <button class="action-btn" @click="handleEndTravel" :disabled="isLoading">
-                          <CornerUpLeft :size="16" />
-                          {{ t('返回') }}
-                        </button>
-                      </div>
                     </div>
                   </div>
 
@@ -401,6 +407,11 @@ const searchDebounceTimer = ref<number | null>(null);
 const sessionPollTimer = ref<number | null>(null);
 const SESSION_POLL_INTERVAL = 30000; // 30秒轮询一次
 
+// 🔥 新增：心跳状态
+const heartbeatStatus = ref<'normal' | 'warning' | 'error'>('normal');
+const lastHeartbeatTime = ref<Date | null>(null);
+const heartbeatMessage = ref('');
+
 // 使用 uiStore 的统一后端状态
 const backendReady = computed(() => uiStore.isBackendAvailable);
 const isOnlineMode = computed(() => characterStore.activeCharacterProfile?.模式 === '联机');
@@ -432,47 +443,125 @@ const getBackupKey = () => {
   return `${onlineBackupPrefix}${characterId}`;
 };
 
-const readWorldBackup = (): { worldInfo: WorldInfo | null; location: PlayerLocation | null; relationships: any | null; onlineState: any | null } | null => {
-  const raw = localStorage.getItem(getBackupKey());
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    localStorage.removeItem(getBackupKey());
-    return null;
+// 🔥 修复：增强备份读取，支持多个备份 key 的降级策略
+const readWorldBackup = (): { worldInfo: WorldInfo | null; location: PlayerLocation | null; relationships: any | null; onlineState: any | null; backupKey?: string } | null => {
+  // 尝试多个可能的备份 key
+  const active = characterStore.rootState?.当前激活存档;
+  const characterId = active?.角色ID ?? 'unknown';
+  const possibleKeys = [
+    `${onlineBackupPrefix}${characterId}`,  // 当前角色ID
+    `${onlineBackupPrefix}latest`,  // 最新备份（降级策略）
+  ];
+
+  for (const key of possibleKeys) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      const backup = JSON.parse(raw);
+      // 验证备份数据的完整性
+      if (backup && typeof backup === 'object') {
+        console.log(`[联机穿越] 找到备份: ${key}`, {
+          hasWorldInfo: !!backup.worldInfo,
+          hasLocation: !!backup.location,
+          hasRelationships: !!backup.relationships,
+          hasOnlineState: !!backup.onlineState,
+        });
+        return { ...backup, backupKey: key };
+      }
+    } catch (e) {
+      console.warn(`[联机穿越] 备份解析失败: ${key}`, e);
+      localStorage.removeItem(key);
+    }
   }
+  return null;
 };
 
 const storeWorldBackup = (force: boolean = false) => {
   const key = getBackupKey();
-  if (!force && localStorage.getItem(key)) return;
+  if (!force && localStorage.getItem(key)) {
+    console.log('[联机穿越] 世界备份已存在，跳过');
+    return;
+  }
   const payload = {
     worldInfo: gameStateStore.worldInfo ? cloneJson(gameStateStore.worldInfo) : null,
     location: gameStateStore.location ? cloneJson(gameStateStore.location) : null,
     relationships: gameStateStore.relationships ? cloneJson(gameStateStore.relationships) : null,
     onlineState: gameStateStore.onlineState ? cloneJson(gameStateStore.onlineState) : null,
+    timestamp: new Date().toISOString(),  // 🔥 添加时间戳
+    characterId: characterStore.rootState?.当前激活存档?.角色ID,  // 🔥 添加角色ID
   };
+  console.log('[联机穿越] 保存世界备份:', {
+    key,
+    hasWorldInfo: !!payload.worldInfo,
+    hasLocation: !!payload.location,
+    hasRelationships: !!payload.relationships,
+    hasOnlineState: !!payload.onlineState,
+    characterId: payload.characterId,
+  });
+
+  // 🔥 修复：同时保存到当前角色ID的key和"latest"的key（降级策略）
   localStorage.setItem(key, JSON.stringify(payload));
+  localStorage.setItem(`${onlineBackupPrefix}latest`, JSON.stringify(payload));
 };
 
 const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
   const backup = readWorldBackup();
   if (backup) {
+    console.log('[联机穿越] 恢复世界备份:', {
+      hasWorldInfo: !!backup.worldInfo,
+      hasLocation: !!backup.location,
+      hasRelationships: !!backup.relationships,
+      hasOnlineState: !!backup.onlineState,
+      backupKey: backup.backupKey,
+      timestamp: (backup as any).timestamp,
+      characterId: (backup as any).characterId,
+    });
+
+    // 🔥 修复：验证备份的角色ID是否匹配（如果有的话）
+    const currentCharId = characterStore.rootState?.当前激活存档?.角色ID;
+    const backupCharId = (backup as any).characterId;
+    if (backupCharId && currentCharId && backupCharId !== currentCharId) {
+      console.warn('[联机穿越] 备份角色ID不匹配，但仍然恢复', {
+        current: currentCharId,
+        backup: backupCharId,
+      });
+      // 继续恢复，但给出警告
+      toast.warning(t('备份角色ID不匹配，可能存在数据不一致'));
+    }
+
     if (backup.worldInfo) gameStateStore.updateState('worldInfo', backup.worldInfo);
     if (backup.location) gameStateStore.updateState('location', backup.location);
     if (backup.relationships) gameStateStore.updateState('relationships', backup.relationships);
     if (backup.onlineState) gameStateStore.updateState('onlineState', backup.onlineState);
+
+    // 🔥 修复：清理所有相关的备份 key
+    if (backup.backupKey) {
+      localStorage.removeItem(backup.backupKey);
+    }
     localStorage.removeItem(getBackupKey());
+    localStorage.removeItem(`${onlineBackupPrefix}latest`);
+
     if (options.persist) await characterStore.saveCurrentGame();
+    console.log('[联机穿越] 世界备份恢复成功');
     return true;
   }
 
+  console.warn('[联机穿越] 未找到世界备份，尝试清理联机状态');
+  // 如果没有备份，至少清理联机状态
   if (gameStateStore.onlineState && (gameStateStore.onlineState as any).房间ID) {
+    const currentOnline = gameStateStore.onlineState as any;
+    console.log('[联机穿越] 清理联机状态:', {
+      房间ID: currentOnline.房间ID,
+      模式: currentOnline.模式,
+    });
+
     gameStateStore.updateState('onlineState', {
       ...(gameStateStore.onlineState || {}),
       房间ID: null,
+      穿越目标: null,
     });
     if (options.persist) await characterStore.saveCurrentGame();
+    console.log('[联机穿越] 联机状态已清理');
   }
   return false;
 };
@@ -737,6 +826,11 @@ const checkSessionStatus = async () => {
   try {
     const status = await getTravelSessionStatus(session.value.session_id);
 
+    // 🔥 更新心跳状态
+    lastHeartbeatTime.value = new Date();
+    heartbeatStatus.value = 'normal';
+    heartbeatMessage.value = '通信正常';
+
     if (status.state !== 'active') {
       // 会话已结束
       const wasEvicted = status.end_reason === 'owner_online' || status.end_reason === 'kicked';
@@ -746,6 +840,43 @@ const checkSessionStatus = async () => {
       session.value = null;
       graph.value = null;
       await restoreWorldBackup({ persist: true });
+
+      // 添加返回叙事消息
+      let returnContent = '';
+      if (wasEvicted) {
+        if (status.end_reason === 'owner_online') {
+          returnContent = `【强制驱逐】你突然感到一股强大的排斥力量！` +
+            `世界主人已经上线，这个世界的真正主人回归了。` +
+            `虚空裂隙被强行撕开，你被一股不可抗拒的力量推出了这个世界。` +
+            `\n\n当你回过神来，发现自己已经回到了自己的世界。`;
+        } else {
+          returnContent = `【强制驱逐】你突然感到一股强大的排斥力量！` +
+            `世界主人发现了你的存在，决定将你驱逐出境。` +
+            `虚空裂隙被强行撕开，你被一股不可抗拒的力量推出了这个世界。` +
+            `\n\n当你回过神来，发现自己已经回到了自己的世界。`;
+        }
+      } else {
+        returnContent = `【穿越结束】虚空裂隙再次出现，将你从异世界拉回。` +
+          `当你睁开眼睛时，发现自己已经回到了熟悉的世界。` +
+          `周围的一切都如你离开时一样，仿佛时间在你离开期间被冻结了。`;
+      }
+
+      const returnMessage = {
+        type: 'system' as const,
+        content: returnContent,
+        time: new Date().toISOString(),
+        actionOptions: ['查看自身状态', '回忆穿越经历', '继续当前活动'],
+      };
+      if (gameStateStore.narrativeHistory) {
+        gameStateStore.narrativeHistory.push(returnMessage);
+      }
+
+      gameStateStore.addToShortTermMemory(
+        `你的联机穿越结束了，已返回自己的世界。` +
+        `原世界在你离开期间处于时间冻结状态，一切如你离开时一样。`
+      );
+
+      await characterStore.saveCurrentGame();
       await refreshReports();
       await loadSessionLogs(endedSessionId);
       activeTab.value = 'logs';
@@ -766,13 +897,36 @@ const checkSessionStatus = async () => {
       session.value = null;
       graph.value = null;
       await restoreWorldBackup({ persist: true });
+
+      // 添加返回叙事消息
+      const returnMessage = {
+        type: 'system' as const,
+        content: `【穿越结束】虚空裂隙突然消失，你被强制拉回了自己的世界。` +
+          `当你回过神来，发现自己已经回到了熟悉的地方。` +
+          `周围的一切都如你离开时一样。`,
+        time: new Date().toISOString(),
+        actionOptions: ['查看自身状态', '继续当前活动'],
+      };
+      if (gameStateStore.narrativeHistory) {
+        gameStateStore.narrativeHistory.push(returnMessage);
+      }
+
+      gameStateStore.addToShortTermMemory(
+        `你的联机穿越会话已结束，已返回自己的世界。`
+      );
+
+      await characterStore.saveCurrentGame();
       if (endedSessionId) {
         await loadSessionLogs(endedSessionId);
       }
       activeTab.value = 'logs';
       toast.warning(t('穿越会话已结束'));
+    } else {
+      // 🔥 其他错误：更新心跳状态为警告
+      heartbeatStatus.value = 'warning';
+      heartbeatMessage.value = '通信异常，正在重试...';
+      console.warn('[联机穿越] 心跳检测失败:', e);
     }
-    // 其他错误静默忽略，下次轮询再试
   }
 };
 
@@ -903,11 +1057,28 @@ const handleEndTravel = async () => {
       graph.value = null;
       travelSnapshot.value = null;
       await restoreWorldBackup({ persist: true });
-      // 添加更详细的返回提示，说明原世界是冻结的
+
+      // 添加返回叙事消息到历史记录（让用户在界面上看到）
+      const returnMessage = {
+        type: 'system' as const,
+        content: `【穿越结束】虚空裂隙再次出现，将你从异世界拉回。` +
+          `当你睁开眼睛时，发现自己已经回到了熟悉的世界。` +
+          `周围的一切都如你离开时一样，仿佛时间在你离开期间被冻结了。` +
+          `NPC们并不知道你曾经离开过，对他们来说，你只是短暂地失神了片刻。` +
+          `\n\n你的联机穿越之旅结束了，但那段经历将永远留在你的记忆中。`,
+        time: new Date().toISOString(),
+        actionOptions: ['查看自身状态', '回忆穿越经历', '继续当前活动'],
+      };
+      if (gameStateStore.narrativeHistory) {
+        gameStateStore.narrativeHistory.push(returnMessage);
+      }
+
+      // 同时添加到短期记忆
       gameStateStore.addToShortTermMemory(
         `你结束了联机穿越，通过虚空通道返回了自己的世界。` +
         `原世界在你离开期间处于时间冻结状态，一切如你离开时一样，NPC们并不知道你曾经离开过。`
       );
+
       await characterStore.saveCurrentGame();
       await refreshReports();
       await loadSessionLogs(endedSessionId);
@@ -1024,10 +1195,12 @@ const handleStartTravelToSelected = async () => {
       content: `【穿越事件】时空裂隙突然出现，你被一股神秘力量卷入其中。` +
         `当你再次睁开眼睛时，发现自己已经来到了一个完全陌生的世界——「${owner}」的世界。` +
         `你降临在${locationDesc}，坐标(${playerLocation?.x ?? '未知'}, ${playerLocation?.y ?? '未知'})。` +
-        `这里的一切都是陌生的，没有人认识你。你需要小心行事，探索这个新世界。` +
-        `【提示：你现在处于联机穿越状态，这是${owner}的世界，世界主人可能在某处活动。】`,
+        `\n\n这里的一切都是陌生的，没有人认识你。你是一个外来者，一个穿越者。` +
+        `你保留着原世界的所有记忆，但这个世界的人并不知道"穿越"是什么。` +
+        `如果你提到原世界、寻找原世界的人、或者说一些这个世界的人听不懂的话，他们可能会觉得你在说胡话，或者认为你修炼走火入魔了。` +
+        `\n\n你需要小心行事，探索这个新世界。世界主人「${owner}」可能在某处活动，你可以选择寻找他，或者独自探索。`,
       time: new Date().toISOString(),
-      actionOptions: ['观察四周环境', '寻找附近的人', '查看自己的状态'],
+      actionOptions: ['观察四周环境', '寻找附近的人', '查看自己的状态', `打听「${owner}」的消息`],
     };
     if (gameStateStore.narrativeHistory) {
       gameStateStore.narrativeHistory.push(travelMessage);
@@ -1035,10 +1208,11 @@ const handleStartTravelToSelected = async () => {
 
     // 同时添加到短期记忆
     gameStateStore.addToShortTermMemory(
-      `【系统穿越】你感受到一股神秘的力量牵引，眼前的空间开始扭曲。` +
-      `虚空裂隙在你面前撕开，你被卷入其中，穿越到了「${owner}」的世界。` +
-      `这是一个陌生的世界，你降临在${continentName}。` +
-      `周围的一切都是陌生的，这里的人都不认识你，你需要小心行事。`
+      `【穿越到异世界】你通过虚空裂隙穿越到了「${owner}」的世界。` +
+      `这是一个完全陌生的世界，你降临在${continentName}，坐标(${playerLocation?.x ?? '未知'}, ${playerLocation?.y ?? '未知'})。` +
+      `你是一个外来者，保留着原世界的记忆，但这里的人都不认识你。` +
+      `如果你提到原世界或说一些奇怪的话，这里的人可能会觉得你在说胡话。` +
+      `世界主人「${owner}」可能在某处活动，你可以选择寻找他或独自探索。`
     );
     await characterStore.saveCurrentGame();
     toast.success(t('穿越成功'));
@@ -1486,6 +1660,69 @@ onUnmounted(() => {
   border-radius: 6px;
   background: rgba(var(--color-primary-rgb), 0.05);
 }
+
+.session-info-standalone {
+  margin-bottom: 1rem;
+}
+
+/* 🔥 会话头部布局 */
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* 🔥 心跳状态指示器 */
+.heartbeat-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.heartbeat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: heartbeat-pulse 2s ease-in-out infinite;
+}
+
+.heartbeat-normal .heartbeat-dot {
+  background-color: #10b981;
+}
+
+.heartbeat-warning .heartbeat-dot {
+  background-color: #f59e0b;
+}
+
+.heartbeat-error .heartbeat-dot {
+  background-color: #ef4444;
+}
+
+.heartbeat-normal .heartbeat-text {
+  color: #10b981;
+}
+
+.heartbeat-warning .heartbeat-text {
+  color: #f59e0b;
+}
+
+.heartbeat-error .heartbeat-text {
+  color: #ef4444;
+}
+
+@keyframes heartbeat-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
 
 .session-label {
   font-size: 0.75rem;

@@ -63,16 +63,35 @@ export const NPC_RULES = `
 ❌ 出生年>=当前年 = 负年龄 = CRITICAL BUG!
 ❌ 出生年991+筑基 = 9岁筑基 = BUG!
 
-## 动态世界
-世界不以主角为中心！NPC有独立生活，什么身份干什么事。
+## 动态世界（铁律）
+世界不以主角为中心！即使没有{user}参与，当前世界依旧正常运转。
+- NPC有独立生活轨迹：什么身份干什么事，什么境界在什么地方
+- 世界自主演化：宗门有自己的发展、势力有自己的争斗、修士有自己的机缘
+- 合理性优先：NPC的行为、位置、境界必须符合其身份和世界设定
 
 ## REALM INDEPENDENCE (CRITICAL)
 - ❌ FORBIDDEN: Generate NPCs "slightly stronger/weaker than protagonist"
 - ❌ FORBIDDEN: Tailor opponents for plot convenience
+- ❌ FORBIDDEN: 参考{user}修为境界生成与{user}属性等相差无几的人物
+- ❌ FORBIDDEN: 为剧情需要刻意生成"合适"的对手或帮手
 - ✅ CORRECT: Distribute by location (mortal village=mortals, outer sect=炼气筑基, market=mixed)
+- ✅ CORRECT: 根据地点、场景、势力合理分布NPC境界，与{user}无关
+
+## 性格与姓名多样化（铁律）
+- 性格特征必须多样化：避免千篇一律的"冷漠高手"、"温柔师姐"、"狂傲天才"
+- 性格应符合出身、经历、境界：凡人质朴、散修谨慎、宗门弟子傲气、魔修狠辣
+- 同一场景中的多个NPC性格必须有明显差异
+- 姓名多样化已在上文规定，性格同样需要避免模板化
 
 ## 技术规范
 创建NPC必须一次性set完整对象，必需字段：名字/性别/年龄/境界/性格/外貌/背景/好感度/记忆/位置
+- 禁止残缺对象：只给名字/好感度/当前外貌状态都是错误
+- 信息不足时必须合理补全，禁止“待生成/暂无/空对象/空字符串”
+
+## NSFW 私密信息（酒馆端）
+- 当 系统配置.nsfwMode=true 且 NPC性别符合 系统配置.nsfwGenderFilter 时，**创建NPC必须包含完整私密信息(PrivacyProfile)**，禁止“待生成/暂无/空对象”
+- 若 NPC 已存在但缺少私密信息，需使用 set 写入 \`社交.关系.[NPC名].私密信息\` 完整对象
+- 当 nsfwMode=false 或 性别不匹配 时，**禁止生成私密信息**
 `.trim()
 
 export const GRAND_CONCEPT_CONSTRAINTS = `

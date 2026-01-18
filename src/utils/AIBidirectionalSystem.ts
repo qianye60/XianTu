@@ -5,7 +5,7 @@
  * 2. 解析AI响应，执行AI返回的指令
  * 3. 更新并返回游戏状态
  */
-import { set, get, unset, cloneDeep } from 'lodash';
+import { set, get, unset, cloneDeep, merge } from 'lodash';
 import { getTavernHelper, isTavernEnv } from '@/utils/tavern';
 import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -19,6 +19,7 @@ import { getPrompt } from '@/services/defaultPrompts';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
+import { validateAndRepairNpcProfile } from '@/utils/dataValidation';
 import { stripNsfwContent } from '@/utils/prompts/definitions/dataDefinitions';
 import { isSaveDataV3, migrateSaveDataToLatest } from './saveMigration';
 
@@ -32,6 +33,7 @@ export interface ProcessOptions {
   useStreaming?: boolean;
   generateMode?: 'generate' | 'generateRaw'; // 生成模式：generate（标准）或 generateRaw（纯净）
   splitResponseGeneration?: boolean;
+  shouldAbort?: () => boolean;
 }
 
 /**
@@ -286,6 +288,61 @@ class AIBidirectionalSystemClass {
       .filter((opt) => opt.length > 0);
   }
 
+  /**
+   * 文本优化：调用AI对生成的文本进行润色
+   * @param text 原始文本
+   * @param onProgressUpdate 进度回调
+   * @returns 优化后的文本，失败时返回原文本
+   */
+  private async optimizeText(
+    text: string,
+    onProgressUpdate?: (progress: string) => void
+  ): Promise<string> {
+    // 检查功能是否启用
+    const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
+    const apiStore = useAPIManagementStore();
+
+    if (!apiStore.isFunctionEnabled('text_optimization')) {
+      return text;
+    }
+
+    // 检查是否有可用的API配置
+    const apiConfig = apiStore.getAPIForType('text_optimization');
+    if (!apiConfig) {
+      console.warn('[文本优化] 未配置text_optimization API，跳过优化');
+      return text;
+    }
+
+    onProgressUpdate?.('正在优化文本…');
+
+    try {
+      const { aiService } = await import('@/services/aiService');
+      const textOptPrompt = await getPrompt('textOptimization');
+
+      const optimizedText = await aiService.generateRaw({
+        ordered_prompts: [
+          { role: 'system', content: textOptPrompt },
+          { role: 'user', content: `请优化以下文本：\n\n${text}` }
+        ],
+        should_stream: false,
+        generation_id: `text_optimization_${Date.now()}`,
+        usageType: 'text_optimization',
+      });
+
+      const result = String(optimizedText).trim();
+      if (result && result.length > 0) {
+        console.log('[文本优化] 优化完成，原长度:', text.length, '新长度:', result.length);
+        return result;
+      }
+
+      console.warn('[文本优化] 优化结果为空，使用原文本');
+      return text;
+    } catch (error) {
+      console.error('[文本优化] 优化失败:', error);
+      return text;
+    }
+  }
+
   private constructor() {}
 
   public static getInstance(): AIBidirectionalSystemClass {
@@ -312,6 +369,7 @@ class AIBidirectionalSystemClass {
     const gameStateStore = useGameStateStore();
     const tavernHelper = getTavernHelper();
     const uiStore = useUIStore();
+    const shouldAbort = () => options?.shouldAbort?.() ?? false;
 
     // 检查AI服务可用性（酒馆或自定义API）
     if (!tavernHelper) {
@@ -528,11 +586,11 @@ class AIBidirectionalSystemClass {
       // 🔥 世界事件规则始终注入（用于“世界会变化”的叙事一致性）
       activePrompts.push('eventSystem');
 
-      // 🔥 固定随机事件：若已到触发时间，则先生成“刚刚发生”的事件并注入短期记忆
+      // 🔥 固定随机事件：若已到触发时间，则先生成"刚刚发生"的事件并注入短期记忆
       const shortTermMemoryForPrompt = Array.isArray(shortTermMemory) ? [...shortTermMemory] : [];
       await this.maybeTriggerScheduledWorldEvent({ v3, stateForAI, shortTermMemoryForPrompt });
 
-      const assembledPrompt = await assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt);
+      const assembledPrompt = await assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt, stateForAI);
 
       // 🌐 构建穿越状态提示（直接写入主提示词，确保AI一定能看到）
       const onlineState = stateForAI?.系统?.联机;
@@ -786,11 +844,18 @@ ${stateJsonString}
             // 第1步：只输出正文纯文本，不需要JSON格式和指令相关的提示词
             const stepRules = (await getPrompt('splitGenerationStep1')).trim();
             const worldStandardsPrompt = await getPrompt('worldStandards');
+            // 🔥 添加判定规则，确保战斗等场景使用判定系统
+            const textFormatsPrompt = await getPrompt('textFormatRules');
             // 🔥 添加精简版存档数据，用于叙事判定（知道玩家装备、状态、NPC关系等）
             const narrativeStateJson = buildNarrativeStateForStep1();
             // 只给叙事相关的提示词，不给coreOutputRules/dataDefinitions等指令格式提示词
             return `
 ${stepRules}
+
+---
+
+# 判定系统（战斗/修炼/探索等场景必须使用）
+${textFormatsPrompt}
 
 ---
 
@@ -1066,6 +1131,19 @@ ${step1Text}
       }
       }
 
+      // 🔥 文本优化：如果启用，对生成的文本进行润色
+      if (shouldAbort()) {
+        console.log('[AI System] Abort detected, skip text optimization and command execution');
+        return gmResponse;
+      }
+      if (gmResponse && gmResponse.text) {
+        gmResponse.text = await this.optimizeText(gmResponse.text, options?.onProgressUpdate);
+      }
+
+      if (shouldAbort()) {
+        console.log('[AI System] Abort detected, skip command execution');
+        return gmResponse;
+      }
       if (!gmResponse || !gmResponse.text || gmResponse.text.trim() === '') {
         console.error('[AI双向系统] AI响应为空，原始响应:', String(response).substring(0, 200));
         throw new Error('AI响应为空或格式错误');
@@ -1087,10 +1165,14 @@ ${step1Text}
 
     // 3. 执行AI指令
     options?.onProgressUpdate?.('执行AI指令…');
+    if (shouldAbort()) {
+      console.log('[AI System] Abort detected, skip command execution');
+      return gmResponse;
+    }
     try {
       // 🔥 使用 v3 而不是原始 saveData，因为 maybeTriggerScheduledWorldEvent 可能已修改了 v3（如下次事件时间）
       const dataForProcessing = isSaveDataV3(saveData) ? saveData : migrateSaveDataToLatest(saveData).migrated;
-      const { saveData: updatedSaveData } = await this.processGmResponse(gmResponse, dataForProcessing as SaveData);
+      const { saveData: updatedSaveData } = await this.processGmResponse(gmResponse, dataForProcessing as SaveData, false, options?.shouldAbort);
       if (options?.onStateChange) {
         options.onStateChange(updatedSaveData as unknown as PlainObject);
       }
@@ -1333,6 +1415,9 @@ ${step1Text}
             ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options?.length ? parsedStep2.action_options : defaultInitialActionOptions)
             : []
         };
+
+        // 🔥 文本优化：如果启用，对生成的文本进行润色（分步模式）
+        gmResponse.text = await this.optimizeText(gmResponse.text, options?.onProgressUpdate);
       } else if (tavernHelper) {
         // 酒馆模式
         if (generateMode === 'generateRaw') {
@@ -1507,6 +1592,9 @@ ${step1Text}
         if (!gmResponse || !gmResponse.text) {
           throw new Error('AI响应解析失败或为空');
         }
+
+        // 🔥 文本优化：如果启用，对生成的文本进行润色（非分步模式）
+        gmResponse.text = await this.optimizeText(gmResponse.text, options?.onProgressUpdate);
       }
 
       // 流式传输完成后调用回调
@@ -1537,8 +1625,14 @@ ${step1Text}
   public async processGmResponse(
     response: GM_Response,
     currentSaveData: SaveData,
-    isInitialization = false
+    isInitialization = false,
+    shouldAbort?: () => boolean
   ): Promise<{ saveData: SaveData; stateChanges: StateChangeLog }> {
+    const abortRequested = () => shouldAbort?.() ?? false;
+    if (abortRequested()) {
+      console.log('[AI System] Abort detected, skip command processing');
+      return { saveData: currentSaveData, stateChanges: { changes: [], timestamp: new Date().toISOString() } };
+    }
     // 🔥 先修复数据格式，确保所有字段正确
     const { repairSaveData } = await import('./dataRepair');
     const repairedData = repairSaveData(currentSaveData);
@@ -1590,14 +1684,15 @@ ${step1Text}
 
     // 🔥 检查短期记忆是否超限，超限则删除最旧的短期记忆，并将对应的隐式中期记忆转化为正式中期记忆
     // 从 localStorage 读取短期记忆上限配置
-    let SHORT_TERM_LIMIT = 10; // 默认值
+    let SHORT_TERM_LIMIT = 5; // 默认值
     try {
       const memorySettings = localStorage.getItem('memory-settings');
       if (memorySettings) {
         const settings = JSON.parse(memorySettings);
-        if (typeof settings.shortTermLimit === 'number' && settings.shortTermLimit > 0) {
-          SHORT_TERM_LIMIT = settings.shortTermLimit;
-        }
+        const limit = typeof settings.shortTermLimit === 'number' && settings.shortTermLimit > 0
+          ? settings.shortTermLimit
+          : (typeof settings.maxShortTerm === 'number' && settings.maxShortTerm > 0 ? settings.maxShortTerm : null);
+        if (limit) SHORT_TERM_LIMIT = limit;
       }
     } catch (error) {
       console.warn('[AI双向系统] 读取记忆配置失败，使用默认值:', error);
@@ -1721,6 +1816,10 @@ ${step1Text}
     console.log(`[AI双向系统] 执行 ${sortedCommands.length} 条有效指令，拒绝 ${rejectedCommands.length} 条无效指令`);
 
     for (const command of sortedCommands) {
+      if (abortRequested()) {
+        console.log('[AI System] Abort detected, stop command execution loop');
+        break;
+      }
       try {
         const oldValue = get(saveData, command.key);
         this.executeCommand(command, saveData);
@@ -1728,8 +1827,8 @@ ${step1Text}
         changes.push({
           key: command.key,
           action: command.action,
-          oldValue: this._summarizeValue(oldValue),
-          newValue: this._summarizeValue(newValue)
+          oldValue: this._summarizeValueForChangeLog(command.key, oldValue, command.action),
+          newValue: this._summarizeValueForChangeLog(command.key, newValue, command.action)
         });
       } catch (error) {
         console.error(`[AI双向系统] 指令执行失败:`, command, error);
@@ -2176,6 +2275,24 @@ ${saveDataJson}`;
       }
     }
 
+    if (action === 'set') {
+      const segments = path.split('.');
+      const isNpcRoot = segments.length === 3 && segments[0] === '社交' && segments[1] === '关系';
+      if (isNpcRoot && value && typeof value === 'object') {
+        const existingNpc = get(saveData, path);
+        const baseNpc = existingNpc && typeof existingNpc === 'object' ? existingNpc : {};
+        const mergedNpc = merge({}, baseNpc, value as Record<string, unknown>);
+        if (typeof (mergedNpc as any).名字 !== 'string' || !(mergedNpc as any).名字) {
+          (mergedNpc as any).名字 = segments[2];
+        }
+        const gameTime = (saveData as any)?.元数据?.时间;
+        const [isValid, repairedNpc] = validateAndRepairNpcProfile(mergedNpc, gameTime);
+        if (isValid && repairedNpc) {
+          set(saveData, path, repairedNpc);
+          return;
+        }
+      }
+    }
     switch (action) {
       case 'set':
         set(saveData, path, value);
@@ -2287,6 +2404,68 @@ ${saveDataJson}`;
    * 智能摘要值，避免在状态变更日志中存储大量重复数据
    * 对于大型数组和对象，只记录摘要信息
    */
+  /**
+   * 为变更日志优化的值摘要方法
+   * 对于关键路径（NPC记忆、事件等），保留更多信息以便正确显示
+   */
+  private _summarizeValueForChangeLog(key: string, value: any, action: string): any {
+    // null 或 undefined 直接返回
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    // 基本类型直接返回
+    if (typeof value !== 'object') {
+      return value;
+    }
+
+    // 🔥 关键路径：对于 push/pull 操作，保留完整的新增/删除值
+    if (action === 'push' || action === 'pull') {
+      // 对于单个值的 push/pull，完整保留
+      return cloneDeep(value);
+    }
+
+    // 🔥 关键路径：NPC记忆相关（社交.关系.*.人物记忆）
+    if (key.includes('社交.关系.') && key.includes('.人物记忆')) {
+      // 对于记忆数组，保留最后一个元素（最新记忆）
+      if (Array.isArray(value) && value.length > 0) {
+        return {
+          __type: 'Array',
+          __length: value.length,
+          __summary: `[${value.length}条记忆]`,
+          __last: cloneDeep(value[value.length - 1])
+        };
+      }
+    }
+
+    // 🔥 关键路径：事件记录
+    if (key.includes('社交.事件') || key.includes('系统.事件')) {
+      if (Array.isArray(value) && value.length > 0) {
+        return {
+          __type: 'Array',
+          __length: value.length,
+          __summary: `[${value.length}个事件]`,
+          __last: cloneDeep(value[value.length - 1])
+        };
+      }
+    }
+
+    // 🔥 关键路径：短期记忆、中期记忆
+    if (key.includes('记忆.短期记忆') || key.includes('记忆.中期记忆') || key.includes('记忆.隐式中期记忆')) {
+      if (Array.isArray(value) && value.length > 0) {
+        return {
+          __type: 'Array',
+          __length: value.length,
+          __summary: `[${value.length}条记忆]`,
+          __last: cloneDeep(value[value.length - 1])
+        };
+      }
+    }
+
+    // 其他情况使用原有的摘要逻辑
+    return this._summarizeValue(value);
+  }
+
   private _summarizeValue(value: any): any {
     // null 或 undefined 直接返回
     if (value === null || value === undefined) {

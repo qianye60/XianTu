@@ -86,10 +86,10 @@
           <BookOpen :size="18" />
           <span>教程说明</span>
         </button>
-        <a href="https://afdian.com/a/qianye60" target="_blank" rel="noopener noreferrer" class="action-menu-item sponsor-item" @click="close()">
+        <button class="action-menu-item sponsor-item" @click="showSponsorModal = true; close()">
           <Heart :size="18" />
           <span>赞助支持</span>
-        </a>
+        </button>
       </template>
     </ActionMenu>
 
@@ -130,6 +130,26 @@
         </div>
         <div class="settings-modal-body">
           <APIManagementPanel />
+        </div>
+      </div>
+    </div>
+
+    <!-- 赞助支持弹窗 -->
+    <div v-if="showSponsorModal" class="settings-modal-overlay" @click.self="showSponsorModal = false">
+      <div class="settings-modal-content sponsor-modal-content">
+        <div class="settings-modal-header">
+          <h3>赞助支持（自愿）</h3>
+          <button class="close-btn" @click="showSponsorModal = false">&times;</button>
+        </div>
+        <div class="settings-modal-body sponsor-modal-body">
+          <div class="sponsor-qr">
+            <img src="https://ddct.top/zhifubao.jpg" alt="支付宝赞助二维码" loading="lazy" />
+            <span>支付宝</span>
+          </div>
+          <div class="sponsor-qr">
+            <img src="https://ddct.top/weixing.jpg" alt="微信赞助二维码" loading="lazy" />
+            <span>微信</span>
+          </div>
         </div>
       </div>
     </div>
@@ -221,6 +241,7 @@ const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
 const showSettingsModal = ref(false);
 const showAPIModal = ref(false);
+const showSponsorModal = ref(false);
 const backendReady = ref(isBackendConfigured());
 const isAdmin = computed(() => localStorage.getItem('is_admin') === 'true');
 const displayVersion = computed(() => (
@@ -1425,6 +1446,40 @@ watch(route, (newRoute, oldRoute) => {
 .settings-modal-body {
   flex: 1;
   overflow: auto;
+}
+
+.sponsor-modal-content {
+  width: min(540px, 100%);
+}
+
+.sponsor-modal-body {
+  padding: 1rem 1.25rem 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  justify-items: center;
+}
+
+.sponsor-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.sponsor-qr img {
+  width: 100%;
+  max-width: 240px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  display: block;
+}
+
+.sponsor-qr span {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
 }
 
 .close-btn {

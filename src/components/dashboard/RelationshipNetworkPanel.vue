@@ -165,7 +165,7 @@
                 <div v-show="activeTab === 'basic'" class="tab-panel">
                   <!-- 基础档案 -->
                   <div class="detail-section">
-                    <h5 class="section-title">基础档案</h5>
+                    <h5 class="section-title">📋 基本信息</h5>
                     <div class="info-grid-responsive">
                       <div class="info-item-row">
                         <span class="info-label">境界</span
@@ -190,6 +190,49 @@
                       <div class="info-item-row" v-if="selectedPerson.出生">
                         <span class="info-label">出生</span
                         ><span class="info-value">{{ getNpcOrigin(selectedPerson.出生) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 核心数值 -->
+                  <div class="detail-section" v-if="hasNpcCoreStats(selectedPerson)">
+                    <h5 class="section-title">核心数值</h5>
+                    <div class="npc-vitals-container">
+                      <div class="npc-vital-row">
+                        <div class="npc-vital-meta">
+                          <span class="npc-vital-name">气血</span>
+                          <span class="npc-vital-nums">{{ formatNpcStatPair(selectedPerson, '气血') }}</span>
+                        </div>
+                        <div class="npc-vital-track">
+                          <div class="npc-vital-bar red-bar" :style="{ width: getNpcStatPercentage(selectedPerson, '气血') + '%' }"></div>
+                        </div>
+                      </div>
+                      <div class="npc-vital-row">
+                        <div class="npc-vital-meta">
+                          <span class="npc-vital-name">灵气</span>
+                          <span class="npc-vital-nums">{{ formatNpcStatPair(selectedPerson, '灵气') }}</span>
+                        </div>
+                        <div class="npc-vital-track">
+                          <div class="npc-vital-bar blue-bar" :style="{ width: getNpcStatPercentage(selectedPerson, '灵气') + '%' }"></div>
+                        </div>
+                      </div>
+                      <div class="npc-vital-row">
+                        <div class="npc-vital-meta">
+                          <span class="npc-vital-name">神识</span>
+                          <span class="npc-vital-nums">{{ formatNpcStatPair(selectedPerson, '神识') }}</span>
+                        </div>
+                        <div class="npc-vital-track">
+                          <div class="npc-vital-bar gold-bar" :style="{ width: getNpcStatPercentage(selectedPerson, '神识') + '%' }"></div>
+                        </div>
+                      </div>
+                      <div class="npc-vital-row">
+                        <div class="npc-vital-meta">
+                          <span class="npc-vital-name">寿元</span>
+                          <span class="npc-vital-nums">{{ formatNpcLifespan(selectedPerson) }}</span>
+                        </div>
+                        <div class="npc-vital-track">
+                          <div class="npc-vital-bar purple-bar" :style="{ width: getNpcLifespanPercentage(selectedPerson) + '%' }"></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1048,6 +1091,43 @@ const getNpcOrigin = (origin: string | { 名称?: string; 描述?: string; name?
   return '未知';
 };
 
+const toFiniteNumber = (value: unknown): number | null => {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+};
+
+type NpcCoreStatKey = '气血' | '灵气' | '神识';
+
+const getNpcStatPair = (npc: NpcProfile, key: NpcCoreStatKey): { current: number | null; max: number | null } => {
+  const raw = (npc as any)?.属性?.[key] ?? (npc as any)?.[key];
+  if (!raw || typeof raw !== 'object') {
+    return { current: null, max: null };
+  }
+  const current = toFiniteNumber((raw as any).当前 ?? (raw as any).current);
+  const max = toFiniteNumber((raw as any).上限 ?? (raw as any).max);
+  return { current, max };
+};
+
+const formatNpcStatPair = (npc: NpcProfile, key: NpcCoreStatKey): string => {
+  const { current, max } = getNpcStatPair(npc, key);
+  if (current === null && max === null) return '--';
+  if (current === null) return `--/${max}`;
+  if (max === null) return `${current}/--`;
+  return `${current}/${max}`;
+};
+
+const getNpcLifespanMax = (npc: NpcProfile): number | null => {
+  const raw = (npc as any)?.属性?.寿元上限 ?? (npc as any)?.寿元上限 ?? (npc as any)?.寿命?.上限;
+  return toFiniteNumber(raw);
+};
+
+const hasNpcCoreStats = (npc: NpcProfile): boolean => {
+  const hasPair = (key: NpcCoreStatKey) => {
+    const pair = getNpcStatPair(npc, key);
+    return pair.current !== null || pair.max !== null;
+  };
+  return hasPair('气血') || hasPair('灵气') || hasPair('神识') || getNpcLifespanMax(npc) !== null;
+};
+
 // 获取NPC最近三条记忆
 const getNpcRecentMemories = (npc: NpcProfile): string[] => {
   if (!npc.记忆) return [];
@@ -1133,6 +1213,38 @@ const getNpcAge = (npc: NpcProfile | null): string => {
   const currentYear = gameTime.年;
   const age = currentYear - birthYear;
   return age > 0 ? `${age}岁` : '1岁以内';
+};
+
+const getNpcAgeValue = (npc: NpcProfile | null): number | null => {
+  if (!npc) return null;
+  const ageText = getNpcAge(npc);
+  if (!ageText || ageText === '未知') return null;
+  const match = ageText.match(/\d+/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatNpcLifespan = (npc: NpcProfile): string => {
+  const current = getNpcAgeValue(npc);
+  const max = getNpcLifespanMax(npc);
+  if (current === null && max === null) return '--';
+  if (current === null) return `--/${max}`;
+  if (max === null) return `${current}/--`;
+  return `${current}/${max}`;
+};
+
+const getNpcStatPercentage = (npc: NpcProfile, key: NpcCoreStatKey): number => {
+  const { current, max } = getNpcStatPair(npc, key);
+  if (current === null || max === null || max === 0) return 0;
+  return Math.min(100, Math.round((current / max) * 100));
+};
+
+const getNpcLifespanPercentage = (npc: NpcProfile): number => {
+  const current = getNpcAgeValue(npc);
+  const max = getNpcLifespanMax(npc);
+  if (current === null || max === null || max === 0) return 0;
+  return Math.min(100, Math.round((current / max) * 100));
 };
 
 const relationshipStats = computed(() => {
@@ -2343,6 +2455,35 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   text-align: right;
 }
 
+.npc-core-stats {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.npc-core-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.08);
+}
+
+.npc-core-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.npc-core-value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
 .arrow-icon {
   color: var(--color-border-hover);
   transition: transform 0.2s;
@@ -2484,6 +2625,68 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
 }
+
+/* NPC核心数值进度条样式 */
+.npc-vitals-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.npc-vital-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.npc-vital-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.npc-vital-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.npc-vital-nums {
+  color: var(--color-text-secondary);
+}
+
+.npc-vital-track {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.npc-vital-bar {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.npc-vital-bar.red-bar {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.npc-vital-bar.blue-bar {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+.npc-vital-bar.gold-bar {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.npc-vital-bar.purple-bar {
+  background: linear-gradient(90deg, #a855f7, #c084fc);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+}
+
 
 .info-grid-2col {
   display: grid;

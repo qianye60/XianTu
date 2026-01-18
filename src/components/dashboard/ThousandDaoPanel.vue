@@ -55,7 +55,7 @@
     </div>
 
     <!-- 主内容区 -->
-    <div class="dao-content">
+    <div class="dao-content" :class="{ 'has-detail': selectedDao && selectedDaoProgress }">
       <!-- 无大道时的快速入门 -->
       <div v-if="unlockedDaosCount === 0" class="dao-empty">
         <div class="empty-illustration">
@@ -1260,7 +1260,12 @@ const comprehendFromNature = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
   padding: 12px;
+}
+
+.dao-content.has-detail {
+  overflow-y: auto;
 }
 
 /* 空状态 */
@@ -1286,6 +1291,11 @@ const comprehendFromNature = () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.dao-content.has-detail .dao-list {
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .dao-name {

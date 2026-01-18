@@ -431,6 +431,7 @@ const forceResetAIProcessingState = () => {
   console.log('[强制重置] 清除AI处理状态和会话存储');
   // 取消所有正在进行的AI请求（包括重试中的）
   aiService.cancelAllRequests();
+  aiResetToken += 1;
   uiStore.resetStreamingState();
   streamingMessageIndex.value = null;
   rawStreamingContent.value = '';
@@ -468,6 +469,7 @@ const router = useRouter();
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
+let aiResetToken = 0;
 const gameStateStore = useGameStateStore();
 const isTavernEnvFlag = isTavernEnv();
 const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
@@ -660,7 +662,7 @@ const saveImageToGallery = () => {
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
 
 // 短期记忆设置 - 可配置
-const maxShortTermMemories = ref(3); // 默认3条，与记忆中心同步
+const maxShortTermMemories = ref(5); // 默认5条，与记忆中心同步
 const maxMidTermMemories = ref(25); // 默认25条触发阈值
 const midTermKeepCount = ref(8); // 默认保留8条最新的中期记忆
 // 长期记忆无限制，不设上限
@@ -673,8 +675,10 @@ const loadMemorySettings = async () => {
     const memorySettings = localStorage.getItem('memory-settings');
     if (memorySettings) {
       const settings = JSON.parse(memorySettings);
-      if (settings.maxShortTerm) maxShortTermMemories.value = settings.maxShortTerm;
-      if (settings.maxMidTerm) maxMidTermMemories.value = settings.maxMidTerm;
+      const shortLimit = typeof settings.shortTermLimit === 'number' ? settings.shortTermLimit : settings.maxShortTerm;
+      const midTrigger = typeof settings.midTermTrigger === 'number' ? settings.midTermTrigger : settings.maxMidTerm;
+      if (shortLimit) maxShortTermMemories.value = shortLimit;
+      if (midTrigger) maxMidTermMemories.value = midTrigger;
       if (settings.midTermKeep) midTermKeepCount.value = settings.midTermKeep;
       console.log('[记忆设置] 已从localStorage加载配置:', {
         短期记忆上限: maxShortTermMemories.value,
@@ -690,9 +694,13 @@ const loadMemorySettings = async () => {
 // 保存记忆配置
 const saveMemorySettings = () => {
   try {
+    const raw = localStorage.getItem('memory-settings');
+    const existing = raw ? JSON.parse(raw) : {};
     const settings = {
-      maxShortTerm: maxShortTermMemories.value,
-      maxMidTerm: maxMidTermMemories.value
+      ...existing,
+      shortTermLimit: maxShortTermMemories.value,
+      midTermTrigger: maxMidTermMemories.value,
+      midTermKeep: midTermKeepCount.value,
     };
     localStorage.setItem('memory-settings', JSON.stringify(settings));
     console.log('[记忆设置] 已保存配置:', settings);
@@ -1015,6 +1023,13 @@ const validateAIResponse = (response: unknown): { isValid: boolean; errors: stri
   return { isValid: errors.length === 0, errors };
 };
 
+const isCanceledError = (error: unknown): boolean => {
+  if (!error) return false;
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /请求已取消|abort|aborted|canceled|cancelled/i.test(message);
+};
+
 // 重新请求AI响应（当结构验证失败时）
 const retryAIResponse = async (
   userMessage: string,
@@ -1023,9 +1038,14 @@ const retryAIResponse = async (
   maxRetries: number = 2
 ): Promise<GM_Response | null> => {
   console.log('[AI响应重试] 开始重试，之前的错误:', previousErrors);
+  const resetSnapshot = aiResetToken;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      if (!uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+        console.log('[AI响应重试] 已中止：检测到重置状态');
+        return null;
+      }
       console.log(`[AI响应重试] 第${attempt}次尝试`);
 
       // 🔥 重置流式内容，准备新的流式输出
@@ -1072,6 +1092,7 @@ const retryAIResponse = async (
           console.log('[AI重试进度]', progress);
         },
         useStreaming: useStreaming.value, // 🔥 启用流式传输
+        shouldAbort: () => !uiStore.isAIProcessing || aiResetToken !== resetSnapshot,
         generation_id: retryGenerationId  // 🔥 传递 generation_id
       };
 
@@ -1092,6 +1113,11 @@ const retryAIResponse = async (
         options
       );
 
+      if (!uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+        console.log('[AI响应重试] 已中止：检测到重置状态');
+        return null;
+      }
+
       if (aiResponse) {
         const validation = validateAIResponse(aiResponse);
         if (validation.isValid) {
@@ -1104,6 +1130,10 @@ const retryAIResponse = async (
         }
       }
     } catch (error) {
+      if (isCanceledError(error) || !uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+        console.log('[AI响应重试] 已取消，停止重试');
+        return null;
+      }
       console.error(`[AI响应重试] 第${attempt}次尝试出错:`, error);
       // 继续下一次重试
     }
@@ -1236,6 +1266,7 @@ const sendMessage = async () => {
   });
 
   // 用户消息只作为行动趋向提示词，不添加到记忆中
+  const resetSnapshot = aiResetToken;
   uiStore.setAIProcessing(true);
   persistAIProcessingState();
 
@@ -1261,7 +1292,8 @@ const sendMessage = async () => {
         onProgressUpdate: (progress: string) => {
           console.log('[AI进度]', progress);
         },
-        useStreaming: useStreaming.value
+        useStreaming: useStreaming.value,
+        shouldAbort: () => !uiStore.isAIProcessing || aiResetToken !== resetSnapshot,
       };
 
       // 酒馆环境：流式通过事件系统处理（STREAM_TOKEN_RECEIVED_INCREMENTALLY）
@@ -1295,6 +1327,12 @@ const sendMessage = async () => {
         options
       );
 
+      if (!uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+        console.log('[AI响应处理] 已重置，忽略本次响应');
+        aiResponse = null;
+        return;
+      }
+
       // 验证AI响应结构
       if (aiResponse) {
         const validation = validateAIResponse(aiResponse);
@@ -1308,6 +1346,12 @@ const sendMessage = async () => {
             character,
             validation.errors
           );
+
+          if (!uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+            console.log('[AI响应处理] 已重置，停止重试结果处理');
+            aiResponse = null;
+            return;
+          }
 
           if (retryResponse) {
             aiResponse = retryResponse;
@@ -1411,6 +1455,11 @@ const sendMessage = async () => {
     }
 
     } catch (aiError) {
+      if (isCanceledError(aiError) || !uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+        console.log('[AI处理失败] 已取消，停止后续处理');
+        aiResponse = null;
+        return;
+      }
       console.error('[AI处理失败]', aiError);
       hasError = true;
 
@@ -1456,6 +1505,10 @@ const sendMessage = async () => {
     }
 
   } catch (error: unknown) {
+    if (isCanceledError(error) || !uiStore.isAIProcessing || aiResetToken !== resetSnapshot) {
+      console.log('[AI交互] 已取消，停止处理');
+      return;
+    }
     console.error('[AI交互] 处理失败:', error);
     hasError = true;
 

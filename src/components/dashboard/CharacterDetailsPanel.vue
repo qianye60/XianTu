@@ -103,6 +103,7 @@
           </div>
         </div>
 
+
         <!-- 标签页导航 -->
         <div class="tabs-nav-wrapper">
           <div class="tabs-nav">
@@ -126,11 +127,11 @@
           <div v-if="activeTab === 'character'" class="tab-pane">
             <div class="pane-grid">
 
-              <!-- 属性状态组 -->
+              <!-- 基本信息 -->
               <section class="info-card glass-panel">
                  <div class="card-header">
                   <Heart :size="20" class="header-icon red" />
-                  <h3>{{ t('生命本源') }}</h3>
+                  <h3>{{ t('📋 基本信息') }}</h3>
                 </div>
                 <div class="vitals-container">
                   <div class="vital-row" v-for="vital in vitalsData" :key="vital.label">
@@ -623,6 +624,7 @@ const vitalsData = computed(() => {
     { label: t('气血'), current: s.气血?.当前 || 0, max: s.气血?.上限 || 100, color: 'red-bar' },
     { label: t('灵气'), current: s.灵气?.当前 || 0, max: s.灵气?.上限 || 100, color: 'blue-bar' },
     { label: t('神识'), current: s.神识?.当前 || 0, max: s.神识?.上限 || 100, color: 'gold-bar' },
+    { label: t('寿元'), current: currentAge.value || 0, max: s.寿命?.上限 || 100, color: 'purple-bar' },
   ];
 });
 
@@ -897,12 +899,22 @@ const getSpiritRootCultivationSpeed = (info: { 灵根?: unknown } | null): strin
 
   if (typeof rootObj.cultivation_speed === 'string') return rootObj.cultivation_speed;
 
-  const bonus =
-    typeof rootObj.修炼加成 === 'number'
-      ? rootObj.修炼加成
-      : (typeof rootObj.修炼加成 === 'string' ? Number(rootObj.修炼加成) : null);
-  if (typeof bonus === 'number' && !isNaN(bonus)) {
-    const pct = bonus * 100;
+  let bonus: number | null = null;
+  let bonusIsPercent = false;
+  if (typeof rootObj.修炼加成 === 'number') {
+    bonus = rootObj.修炼加成;
+  } else if (typeof rootObj.修炼加成 === 'string') {
+    const raw = rootObj.修炼加成.trim();
+    if (raw.endsWith('%')) {
+      bonusIsPercent = true;
+      bonus = Number(raw.slice(0, -1));
+    } else {
+      bonus = Number(raw);
+    }
+  }
+
+  if (typeof bonus === 'number' && !Number.isNaN(bonus)) {
+    const pct = bonusIsPercent ? bonus : (Math.abs(bonus) >= 10 ? bonus : bonus * 100);
     const sign = pct > 0 ? '+' : '';
     return `${sign}${pct.toFixed(0)}%`;
   }
@@ -1155,6 +1167,206 @@ const closeModals = () => {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   background: linear-gradient(135deg, rgba(var(--color-surface-rgb), 0.8), rgba(var(--color-background-rgb), 0.9));
+}
+
+/* 核心数值卡片 */
+.core-stats-card {
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, rgba(var(--color-surface-rgb), 0.6), rgba(var(--color-background-rgb), 0.8));
+}
+
+.core-stats-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.core-stats-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.header-icon-mini {
+  padding: 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.header-icon-mini.red {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.core-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.core-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s;
+}
+
+.core-stat-item:hover {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.stat-icon::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  padding: 2px;
+  background: linear-gradient(135deg, currentColor, transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.3;
+}
+
+.red-glow {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+}
+
+.blue-glow {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.gold-glow {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.purple-glow {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+
+.stat-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-weight: 700;
+}
+
+.stat-current {
+  font-size: 1.3rem;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.stat-divider {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.stat-max {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+}
+
+.stat-unit {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-left: 0.1rem;
+}
+
+.mini-progress-bar {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.mini-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+.red-fill {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.blue-fill {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+}
+
+.gold-fill {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.purple-fill {
+  background: linear-gradient(90deg, #a855f7, #c084fc);
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .header-bg-decoration {
@@ -1418,6 +1630,7 @@ const closeModals = () => {
 .vital-bar.red-bar { background: linear-gradient(90deg, #ef4444, #f87171); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
 .vital-bar.blue-bar { background: linear-gradient(90deg, #3b82f6, #60a5fa); box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
 .vital-bar.gold-bar { background: linear-gradient(90deg, #f59e0b, #fbbf24); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+.vital-bar.purple-bar { background: linear-gradient(90deg, #a855f7, #c084fc); box-shadow: 0 0 8px rgba(168, 85, 247, 0.4); }
 
 .reputation-badge {
     display: flex; justify-content: space-between; padding: 0.5rem 0.8rem;
@@ -1733,6 +1946,7 @@ const closeModals = () => {
   .character-details-wrapper { padding: 1rem; }
   .tabs-nav { overflow-x: auto; padding-bottom: 0.5rem; }
   .nav-tab { white-space: nowrap; }
+  .core-stats-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 }
 
 /* 侧栏/窄容器适配（按面板宽度，而不是按窗口宽度） */
@@ -1743,6 +1957,7 @@ const closeModals = () => {
   .attr-group.final { grid-template-columns: repeat(2, 1fr); }
   .spirit-stones-grid { grid-template-columns: repeat(2, 1fr); }
   .sect-grid { grid-template-columns: 1fr; }
+  .core-stats-grid { grid-template-columns: 1fr; }
 }
 
 @container (max-width: 420px) {

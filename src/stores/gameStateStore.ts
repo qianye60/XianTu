@@ -796,8 +796,13 @@ export const useGameStateStore = defineStore('gameState', {
       const maxShortTerm = (() => {
         try {
           const settings = localStorage.getItem('memory-settings');
-          return settings ? JSON.parse(settings).maxShortTerm || 3 : 3;
-        } catch { return 3; }
+          if (!settings) return 5;
+          const parsed = JSON.parse(settings);
+          const limit = typeof parsed.shortTermLimit === 'number' && parsed.shortTermLimit > 0
+            ? parsed.shortTermLimit
+            : (typeof parsed.maxShortTerm === 'number' && parsed.maxShortTerm > 0 ? parsed.maxShortTerm : 5);
+          return limit;
+        } catch { return 5; }
       })();
 
       while (this.memory.短期记忆.length > maxShortTerm) {
