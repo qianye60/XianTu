@@ -62,7 +62,7 @@
           <Plug :size="18" />
           <span>API管理</span>
         </button>
-        <button class="action-menu-item" @click="router.push('/prompts'); close()">
+        <button class="action-menu-item" @click="showPromptModal = true; close()">
           <FileText :size="18" />
           <span>提示词管理</span>
         </button>
@@ -134,6 +134,19 @@
         </div>
         <div class="settings-modal-body">
           <APIManagementPanel />
+        </div>
+      </div>
+    </div>
+
+    <!-- 提示词管理弹窗 -->
+    <div v-if="showPromptModal" class="settings-modal-overlay" @click.self="showPromptModal = false">
+      <div class="settings-modal-content prompt-modal-content">
+        <div class="settings-modal-header">
+          <h3>提示词管理</h3>
+          <button class="close-btn" @click="showPromptModal = false">&times;</button>
+        </div>
+        <div class="settings-modal-body">
+          <PromptManagementPanel />
         </div>
       </div>
     </div>
@@ -222,6 +235,7 @@ import DetailModal from './components/common/DetailModal.vue';
 import ActionMenu from './components/common/ActionMenu.vue';
 import SettingsPanel from './components/dashboard/SettingsPanel.vue';
 import APIManagementPanel from './components/dashboard/APIManagementPanel.vue';
+import PromptManagementPanel from './components/dashboard/PromptManagementPanel.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
@@ -246,6 +260,7 @@ const showAuthorModal = ref(false);
 const showSettingsModal = ref(false);
 const showAPIModal = ref(false);
 const showSponsorModal = ref(false);
+const showPromptModal = ref(false);
 const backendReady = ref(isBackendConfigured());
 const isAdmin = computed(() => localStorage.getItem('is_admin') === 'true');
 const displayVersion = computed(() => (
@@ -1454,6 +1469,10 @@ watch(route, (newRoute, oldRoute) => {
 
 .sponsor-modal-content {
   width: min(540px, 100%);
+}
+
+.prompt-modal-content {
+  width: min(900px, 100%);
 }
 
 .sponsor-modal-body {

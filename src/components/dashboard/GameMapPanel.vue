@@ -1266,10 +1266,11 @@ canvas:active {
   backdrop-filter: blur(12px);
   border: 2px solid rgba(59, 130, 246, 0.3);
   border-radius: 16px;
-  padding: 20px;
+  padding: 16px;
+  max-width: 400px;
+  max-height: 50vh;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-  min-width: 320px;
-  max-width: 450px;
+  min-width: 280px;
   pointer-events: auto;
   z-index: 2000;
 }
@@ -1328,9 +1329,10 @@ canvas:active {
   color: #374151;
   margin: 0 0 14px 0;
   font-weight: 500;
-  max-height: 150px;
-  overflow-y: auto;
   line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .location-detail {

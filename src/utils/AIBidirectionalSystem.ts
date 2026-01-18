@@ -2157,10 +2157,41 @@ ${saveDataJson}`;
   private _preprocessCommands(commands: any[]): any[] {
     if (!Array.isArray(commands)) return [];
 
-    const inventoryRootKeys = new Set(['背包.物品', '物品栏.物品']);
+    const inventoryRootKeys = new Set(['角色.背包.物品', '背包.物品', '物品栏.物品']);
+    const allowedRoots = ['元数据', '角色', '社交', '世界', '系统'] as const;
+
+    const normalizeCommandKey = (key: unknown): unknown => {
+      if (typeof key !== 'string') return key;
+      const trimmed = key.trim();
+      if (!trimmed) return key;
+
+      // already V3
+      if (allowedRoots.some((r) => trimmed === r || trimmed.startsWith(`${r}.`))) return trimmed;
+
+      // legacy shortcuts -> V3
+      if (trimmed === '位置' || trimmed.startsWith('位置.')) return `角色.${trimmed}`;
+      if (trimmed === '属性' || trimmed.startsWith('属性.')) return `角色.${trimmed}`;
+      if (trimmed === '背包' || trimmed.startsWith('背包.')) return `角色.${trimmed}`;
+      if (trimmed === '物品栏' || trimmed.startsWith('物品栏.')) return `角色.背包.${trimmed.slice('物品栏.'.length)}`;
+      if (trimmed === '装备' || trimmed.startsWith('装备.')) return `角色.${trimmed}`;
+      if (trimmed === '效果' || trimmed.startsWith('效果')) return `角色.${trimmed}`;
+      if (trimmed === '大道' || trimmed.startsWith('大道.')) return `角色.${trimmed}`;
+      if (trimmed === '修炼' || trimmed.startsWith('修炼.')) return `角色.${trimmed}`;
+      if (trimmed === '技能' || trimmed.startsWith('技能.')) return `角色.${trimmed}`;
+
+      return trimmed;
+    };
 
     return commands.map((cmd) => {
       if (!cmd || typeof cmd !== 'object') return cmd;
+
+      if (typeof (cmd as any).key === 'string') {
+        const normalized = normalizeCommandKey((cmd as any).key);
+        if (typeof normalized === 'string' && normalized !== (cmd as any).key) {
+          console.warn(`[AI双向系统] 预处理: key 纠正 "${(cmd as any).key}" -> "${normalized}"`);
+          (cmd as any).key = normalized;
+        }
+      }
 
       // 修复: AI推送一个字符串而不是物品对象到物品栏
       if (cmd.action === 'push' && inventoryRootKeys.has(cmd.key) && typeof cmd.value === 'string') {

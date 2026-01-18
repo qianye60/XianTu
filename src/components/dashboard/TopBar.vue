@@ -486,6 +486,8 @@ onMounted(() => {
     height: 50px;
     min-height: 50px;
     flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .game-title {

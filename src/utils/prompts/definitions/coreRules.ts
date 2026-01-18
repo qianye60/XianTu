@@ -27,7 +27,7 @@ export const JSON_OUTPUT_RULES = `
 export const RESPONSE_FORMAT_RULES = `
 # 数据同步
 text写什么，commands就更新什么：
-场景变化→set位置 | 时间流逝→add时间 | 世界事件→push社交.事件.事件记录(可选) | NPC互动→push记忆+add好感 | 战斗→add气血(负) | 技能→add灵气(负) | 修炼→add进度 | 物品→set/delete背包
+场景变化→set 角色.位置 | 时间流逝→add 元数据.时间.* | 世界事件→push 社交.事件.事件记录(可选) | NPC互动→push 记忆 + add 好感 | 战斗→add 气血(负) | 技能→add 灵气(负) | 修炼→add 进度 | 物品→set/delete 角色.背包.物品.*
 补充规则：
 - 每个变化至少一条指令，避免合并导致漏更
 - 若无法生成对应指令，就删掉对应text内容

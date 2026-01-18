@@ -10,10 +10,6 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="action-btn" @click="goToPromptManagement">
-          <FileText :size="16" />
-          <span class="btn-text">{{ t('提示词管理') }}</span>
-        </button>
         <button class="action-btn" @click="resetSettings">
           <RotateCcw :size="16" />
           <span class="btn-text">{{ t('重置') }}</span>
@@ -260,6 +256,18 @@
             @save="handleSaveReplaceRules"
           />
 
+          <!-- 提示词管理弹窗 -->
+          <div v-if="showPromptModal" class="prompt-modal-overlay" @click.self="showPromptModal = false">
+            <div class="prompt-modal-content">
+              <div class="prompt-modal-header">
+                <h3>提示词管理</h3>
+                <button class="close-btn" @click="showPromptModal = false">&times;</button>
+              </div>
+              <div class="prompt-modal-body">
+                <PromptManagementPanel />
+              </div>
+            </div>
+          </div>
 
 
           <div class="setting-item">
@@ -313,6 +321,7 @@ import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
 import TextReplaceRulesModal from '@/components/common/TextReplaceRulesModal.vue';
+import PromptManagementPanel from '@/components/dashboard/PromptManagementPanel.vue';
 import type { TextReplaceRule } from '@/types/textRules';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -386,6 +395,7 @@ const settings = reactive({
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
 const showReplaceRulesModal = ref(false);
+const showPromptModal = ref(false);
 
 const enabledReplaceRulesCount = computed(() => {
   const rules = (settings as any).replaceRules as TextReplaceRule[] | undefined;
@@ -751,15 +761,7 @@ const importSettings = () => {
 };
 
 const openPromptManagement = () => {
-  // 检查当前是否在游戏中（/game路由下）
-  const currentPath = router.currentRoute.value.path;
-  if (currentPath.startsWith('/game')) {
-    // 在游戏中，跳转到游戏内的提示词管理
-    router.push('/game/prompts');
-  } else {
-    // 不在游戏中（如首页），跳转到独立的提示词管理页面
-    router.push('/prompts');
-  }
+  showPromptModal.value = true;
 };
 
 // 加载向量记忆配置（占位函数）
@@ -1330,6 +1332,66 @@ input:checked + .switch-slider:before {
   }
   50% {
     opacity: 0.4;
+  }
+}
+
+/* 提示词管理弹窗 */
+.prompt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.prompt-modal-content {
+  background: var(--color-surface, #ffffff);
+  border-radius: 14px;
+  width: min(900px, 100%);
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--color-border);
+  animation: modalIn 0.2s ease;
+}
+
+.prompt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+}
+
+.prompt-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.prompt-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
