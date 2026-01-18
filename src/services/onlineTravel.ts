@@ -62,6 +62,8 @@ export type WorldInstanceSummary = {
   owner_player_id: number;
   owner_char_id?: string | null;
   visibility_mode: string;
+  // hidden/locked worlds only; returned only for the owner (my world).
+  invite_code?: string | null;
   allow_offline_travel?: boolean;
   offline_agent_prompt?: string | null;
   revision: number;
@@ -157,6 +159,10 @@ export async function updateMyWorldPolicy(allow_offline_travel: boolean): Promis
 
 export async function updateMyWorldOfflinePrompt(offline_agent_prompt: string): Promise<WorldInstanceSummary> {
   return request.post<WorldInstanceSummary>('/api/v1/worlds/instance/me/offline-prompt', { offline_agent_prompt });
+}
+
+export async function regenerateMyWorldInviteCode(): Promise<WorldInstanceSummary> {
+  return request.post<WorldInstanceSummary>('/api/v1/worlds/instance/me/invite-code/regenerate', {});
 }
 
 export async function getMapGraph(

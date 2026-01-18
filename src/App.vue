@@ -169,7 +169,7 @@
 
           <p class="help-desc">AI驱动的沉浸式修仙文字冒险游戏</p>
 
-          <a href="游戏介绍.html" target="_blank" class="help-link-card">
+          <a href="https://ddct.top/" target="_blank" class="help-link-card">
             <Globe :size="18" />
             <span>查看官网介绍</span>
             <ArrowRight :size="16" />

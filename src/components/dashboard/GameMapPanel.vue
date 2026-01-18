@@ -1326,6 +1326,9 @@ canvas:active {
   color: #374151;
   margin: 0 0 14px 0;
   font-weight: 500;
+  max-height: 150px;
+  overflow-y: auto;
+  line-height: 1.6;
 }
 
 .location-detail {

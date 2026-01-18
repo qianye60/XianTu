@@ -89,7 +89,7 @@
                       <div class="owner-name">{{ world.owner_username }}</div>
                       <div class="world-meta">
                         <span class="badge" :class="`badge-${world.visibility_mode}`">
-                          {{ world.visibility_mode }}
+                          {{ formatVisibilityMode(world.visibility_mode) }}
                         </span>
                         <span class="badge" :class="world.owner_online ? 'badge-online' : 'badge-offline'">
                           {{ world.owner_online ? t('在线') : t('离线') }}
@@ -141,6 +141,9 @@
                       <span class="heartbeat-text">{{ heartbeatMessage || '通信正常' }}</span>
                     </div>
                   </div>
+                  <button class="action-btn sm" @click="viewCurrentSessionLogs" :disabled="isLoading">
+                    <FileText :size="14" />{{ t('查看会话日志') }}
+                  </button>
                   <button class="action-btn" @click="handleEndTravel" :disabled="isLoading">
                     <CornerUpLeft :size="16" />
                     {{ t('返回原世界') }}
@@ -158,7 +161,7 @@
                       <div class="info-row">
                         <span class="info-label">{{ t('可见性') }}</span>
                         <span class="badge" :class="`badge-${selectedWorld.visibility_mode}`">
-                          {{ selectedWorld.visibility_mode }}
+                          {{ formatVisibilityMode(selectedWorld.visibility_mode) }}
                         </span>
                       </div>
                       <div class="info-row">
@@ -171,10 +174,10 @@
 
                     <!-- 邀请码输入(仅hidden/locked) -->
                     <div v-if="selectedWorld.visibility_mode !== 'public'" class="invite-code-section">
-                      <label>{{ t('邀请码') }}</label>
+                      <label>{{ t('邀请码（世界主人提供）') }}</label>
                       <input
                         v-model="inviteCode"
-                        :placeholder="t('输入邀请码...')"
+                        :placeholder="t('向世界主人索要邀请码...')"
                         class="invite-code-input"
                         :disabled="isLoading"
                       />
@@ -212,7 +215,7 @@
                     <div class="info-row"><span class="muted">ID</span><span>#{{ myWorld.world_instance_id }}</span></div>
                     <div class="info-row">
                       <span class="muted">{{ t('隐私') }}</span>
-                      <span class="badge" :class="`badge-${myWorld.visibility_mode}`">{{ myWorld.visibility_mode }}</span>
+                      <span class="badge" :class="`badge-${myWorld.visibility_mode}`">{{ formatVisibilityMode(myWorld.visibility_mode) }}</span>
                     </div>
                     <div class="info-row">
                       <span class="muted">{{ t('下线代理') }}</span>
@@ -225,6 +228,24 @@
                       <span class="badge" :class="myPresence.is_online ? 'badge-online' : 'badge-offline'">
                         {{ myPresence.is_online ? t('在线') : t('离线') }}
                       </span>
+                    </div>
+
+                    <!-- 我的邀请码（仅hidden/locked） -->
+                    <div v-if="myWorld.visibility_mode !== 'public'" class="invite-code-section">
+                      <div class="section-label">
+                        <span>{{ t('我的邀请码') }}</span>
+                        <span class="hint-text">{{ t('把它发给想来你世界的人') }}</span>
+                      </div>
+                      <div class="invite-code-row">
+                        <input class="invite-code-input" :value="myWorld.invite_code || ''" readonly />
+                        <button class="action-btn sm" @click="copyMyInviteCode" :disabled="isLoading || !myWorld.invite_code">
+                          <Copy :size="14" />{{ t('复制') }}
+                        </button>
+                        <button class="action-btn sm" @click="regenerateInviteCode" :disabled="isLoading">
+                          <RotateCcw :size="14" />{{ t('重新生成') }}
+                        </button>
+                      </div>
+                      <div v-if="!myWorld.invite_code" class="inline-hint danger">{{ t('邀请码未生成，请点击重新生成') }}</div>
                     </div>
 
                     <div class="my-world-actions">
@@ -290,10 +311,13 @@
             <p>{{ t('暂无报告') }}</p>
           </div>
           <div v-else class="report-list">
-            <div v-for="r in reports" :key="r.id" class="report-item">
+           <div v-for="r in reports" :key="r.id" class="report-item">
               <span :class="['badge', r.unread ? 'unread' : 'read']">{{ r.unread ? t('未读') : t('已读') }}</span>
               <span>world: {{ r.world_instance_id }}</span>
               <span class="muted">{{ r.created_at }}</span>
+              <button v-if="getReportSessionId(r)" class="action-btn sm" @click="openSessionLogsFromReport(r)" :disabled="isLoading">
+                <FileText :size="14" />{{ t('查看会话日志') }}
+              </button>
               <div v-if="getReportPreview(r)" class="report-preview">{{ getReportPreview(r) }}</div>
             </div>
           </div>
@@ -304,6 +328,17 @@
           <div v-if="!sessionLogs" class="empty-state">
             <FileText :size="48" class="empty-icon" />
             <p>{{ t('暂无会话日志') }}</p>
+            <div v-if="availableReportSessionIds.length > 0" class="quick-session-list">
+              <button
+                v-for="sid in availableReportSessionIds"
+                :key="sid"
+                class="action-btn sm"
+                @click="loadSessionLogs(sid)"
+                :disabled="isLoading"
+              >
+                {{ t('会话') }} #{{ sid }}
+              </button>
+            </div>
           </div>
           <div v-else class="logs-layout">
             <div class="reports-header">
@@ -337,7 +372,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type { WorldInfo, PlayerLocation } from '@/types/game';
-import { ArrowRight, CalendarCheck, Coins, CornerUpLeft, Globe, Lock, RefreshCw, ScrollText, Shield, FileText, Save } from 'lucide-vue-next';
+import { ArrowRight, CalendarCheck, Coins, CornerUpLeft, Globe, Lock, RefreshCw, ScrollText, Shield, FileText, Save, Copy, RotateCcw } from 'lucide-vue-next';
 
 const tabs = [
   { id: 'travel', label: '穿越', icon: Globe },
@@ -356,6 +391,7 @@ import {
   getTravelProfile,
   getTravelableWorlds,
   getTravelSessionStatus,
+  regenerateMyWorldInviteCode,
   signinTravel,
   startTravel,
   updateMyWorldPolicy,
@@ -411,6 +447,73 @@ const SESSION_POLL_INTERVAL = 30000; // 30秒轮询一次
 const heartbeatStatus = ref<'normal' | 'warning' | 'error'>('normal');
 const lastHeartbeatTime = ref<Date | null>(null);
 const heartbeatMessage = ref('');
+
+const formatVisibilityMode = (mode: string): string => {
+  const map: Record<string, string> = { public: t('公开'), hidden: t('隐藏'), locked: t('上锁') };
+  return map[mode] || mode;
+};
+
+const copyText = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(t('已复制'));
+  } catch {
+    toast.warning(t('复制失败'));
+  }
+};
+
+const copyMyInviteCode = async () => {
+  const code = myWorld.value?.invite_code;
+  if (!code) return;
+  await copyText(code);
+};
+
+const regenerateInviteCode = async () => {
+  if (!myWorld.value) return;
+  if (myWorld.value.visibility_mode === 'public') {
+    toast.info(t('公开世界无需邀请码'));
+    return;
+  }
+  if (isLoading.value) return;
+  isLoading.value = true;
+  try {
+    myWorld.value = await regenerateMyWorldInviteCode();
+    if (myWorld.value.invite_code) {
+      toast.success(t('邀请码已重新生成'));
+    }
+  } catch {
+    // request.ts 已统一处理错误弹窗
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const viewCurrentSessionLogs = async () => {
+  if (!session.value) return;
+  activeTab.value = 'logs';
+  await loadSessionLogs(session.value.session_id);
+};
+
+const getReportSessionId = (r: InvasionReportOut): number | null => {
+  const summary = r.summary;
+  if (!summary || typeof summary !== 'object') return null;
+  const raw = (summary as any).session_id ?? (summary as any).sessionId;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string' && /^\d+$/.test(raw)) return Number(raw);
+  return null;
+};
+
+const availableReportSessionIds = computed(() => {
+  const ids = reports.value.map(getReportSessionId).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  return Array.from(new Set(ids)).slice(0, 10);
+});
+
+const openSessionLogsFromReport = async (r: InvasionReportOut) => {
+  const sid = getReportSessionId(r);
+  if (!sid) return;
+  activeTab.value = 'logs';
+  await loadSessionLogs(sid);
+};
 
 // 使用 uiStore 的统一后端状态
 const backendReady = computed(() => uiStore.isBackendAvailable);
@@ -984,7 +1087,7 @@ const toggleVisibility = async () => {
   try {
     const next = myWorld.value.visibility_mode === 'public' ? 'hidden' : myWorld.value.visibility_mode === 'hidden' ? 'locked' : 'public';
     myWorld.value = await updateMyWorldVisibility(next);
-    toast.success(`世界隐私已切换为 ${myWorld.value.visibility_mode}`);
+    toast.success(`${t('世界隐私已切换为')} ${formatVisibilityMode(myWorld.value.visibility_mode)}`);
   } catch {
     // request.ts 已统一处理错误弹窗
   } finally {
@@ -1050,7 +1153,11 @@ const handleEndTravel = async () => {
   isLoading.value = true;
     try {
       const endedSessionId = session.value.session_id;
+      console.log('[OnlineTravel] 结束穿越会话:', endedSessionId);
+
       const res = await endTravel(endedSessionId);
+      console.log('[OnlineTravel] 结束穿越成功:', res);
+
       toast.success(res.message);
       stopSessionPolling();
       session.value = null;
@@ -1081,9 +1188,14 @@ const handleEndTravel = async () => {
 
       await characterStore.saveCurrentGame();
       await refreshReports();
+
+      console.log('[OnlineTravel] 准备加载会话日志:', endedSessionId);
       await loadSessionLogs(endedSessionId);
+      console.log('[OnlineTravel] 会话日志加载完成');
+
       activeTab.value = 'logs';
-    } catch {
+    } catch (error) {
+      console.error('[OnlineTravel] 结束穿越失败:', error);
       // request.ts 已统一处理错误弹窗
   } finally {
     isLoading.value = false;
@@ -1648,6 +1760,16 @@ onUnmounted(() => {
   border-color: var(--color-primary);
 }
 
+.invite-code-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.invite-code-row .invite-code-input {
+  flex: 1;
+}
+
 .action-buttons {
   display: flex;
   flex-direction: column;
@@ -1915,6 +2037,7 @@ onUnmounted(() => {
 .report-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.75rem;
   background: var(--color-surface);
@@ -1925,6 +2048,14 @@ onUnmounted(() => {
 .badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
 .badge.unread { background: rgba(245,158,11,0.15); color: #f59e0b; }
 .badge.read { background: rgba(107,114,128,0.15); color: #6b7280; }
+
+.quick-session-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
 
 .log-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .log-item {
