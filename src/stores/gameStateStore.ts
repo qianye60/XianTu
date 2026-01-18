@@ -236,7 +236,18 @@ export const useGameStateStore = defineStore('gameState', {
       const worldInfo: WorldInfo | null = v3?.世界?.信息 ? deepCopy(v3.世界.信息) : null;
       const sectSystem: SectSystemV2 | null = v3?.社交?.宗门 ? deepCopy(v3.社交.宗门) : null;
       const sectMemberInfo: SectMemberInfo | null = (v3?.社交?.宗门 as any)?.成员信息 ? deepCopy((v3.社交.宗门 as any).成员信息) : null;
-      const memory: Memory | null = v3?.社交?.记忆 ? deepCopy(v3.社交.记忆) : null;
+      const coerceMemoryArray = (value: unknown): string[] => {
+        if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+        if (typeof value === 'string' && value.trim().length > 0) return [value.trim()];
+        return [];
+      };
+      const memoryCandidate: any = v3?.社交?.记忆 ? deepCopy(v3.社交.记忆) : {};
+      const memory: Memory = {
+        短期记忆: coerceMemoryArray(memoryCandidate?.短期记忆),
+        中期记忆: coerceMemoryArray(memoryCandidate?.中期记忆),
+        长期记忆: coerceMemoryArray(memoryCandidate?.长期记忆),
+        隐式中期记忆: coerceMemoryArray(memoryCandidate?.隐式中期记忆),
+      };
       const gameTime: GameTime | null = v3?.元数据?.时间 ? deepCopy(v3.元数据.时间) : null;
 
       const narrativeHistory: GameMessage[] = Array.isArray(v3?.系统?.历史?.叙事) ? deepCopy(v3.系统.历史.叙事) : [];

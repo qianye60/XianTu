@@ -368,9 +368,11 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 分步生成 1/2：仅正文
 
 ## 🔴 输出格式
-\`\`\`json
 {"text":"500-1500字叙事正文"}
-\`\`\`
+
+## ✅ JSON字符串规则（CRITICAL）
+- 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
+- \`text\` 如需分段换行，用 \`\\n\` 表示（不要在引号内直接换行，否则JSON会解析失败）
 
 ## 📖 文本格式标记 / Text Format Markers
 使用以下标记增强叙事表现力：
@@ -385,6 +387,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 3. **判定格式**：〖类型:结果,判定值:X,难度:Y,基础:B,幸运:L,环境:E,状态:S〗
 4. **叙事风格**：多描写少总结，结尾留钩子，承接上文情节
 5. **格式标记**：合理使用【】环境、\`\`心理、""对话、〖〗判定
+6. **画面感配方（最低标准）**：至少1段【环境】+2个可见动作细节+1轮"对话"或NPC内心\`...\`
 
 ## ⚔️ 战斗场景特别要求
 - 每次攻防都要进行判定
@@ -409,9 +412,13 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 分步生成 2/2：仅指令
 
 ## 🔴 输出格式（必须严格遵守）
-\`\`\`json
 {"mid_term_memory":"50-100字摘要","tavern_commands":[{"action":"add","key":"元数据.时间.分钟","value":30}],"action_options":["选项1","选项2","选项3","选项4","选项5"]}
-\`\`\`
+
+## ✅ JSON与key规则（CRITICAL）
+- 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
+- 字符串如需换行，用 \`\\n\`
+- 规则文中的 \`[NPC名]\` / \`[道名]\` / \`{功法ID}\` 只是占位符，输出key时必须替换成真实名称，且不要保留方括号/花括号
+- 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
 
 ## ⚠️ 严禁（违反将导致生成失败）
 - ❌ text 字段（正文已在第1步完成，不要重复生成）
@@ -441,9 +448,11 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 开局生成 1/2：仅开局叙事
 
 ## 🔴 输出格式（必须严格遵守）
-\`\`\`json
 {"text":"1200-2500字开局叙事，第三人称，修仙正剧风"}
-\`\`\`
+
+## ✅ JSON字符串规则（CRITICAL）
+- 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
+- \`text\` 如需分段换行，用 \`\\n\` 表示（不要在引号内直接换行，否则JSON会解析失败）
 
 ## 📖 文本格式标记 / Text Format Markers
 - 环境描写: 【...】 (场景、天气、氛围)
@@ -454,6 +463,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 开篇交代时间地点→中段展现出身处境→结尾留悬念
 - 严禁游戏术语和数据罗列
 - 合理使用【】环境描写、""对话增强表现力
+- 画面感配方（最低标准）：至少1段【环境】+3个可见动作细节+2轮对话（或1轮对话+1段NPC内心\`...\`）
 
 ## ⚠️ 严禁（违反将导致生成失败）
 - ❌ mid_term_memory 字段
@@ -481,9 +491,13 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 开局生成 2/2：初始化数据
 
 ## 🔴 输出格式（必须严格遵守）
-\`\`\`json
 {"mid_term_memory":"50-100字摘要","tavern_commands":[...],"action_options":["选项1","选项2","选项3","选项4","选项5"]}
-\`\`\`
+
+## ✅ JSON与key规则（CRITICAL）
+- 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
+- 字符串如需换行，用 \`\\n\`
+- 规则文中的 \`[NPC名]\` / \`[道名]\` / \`{功法ID}\` 只是占位符，输出key时必须替换成真实名称，且不要保留方括号/花括号
+- 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
 
 ## 必须执行的命令（tavern_commands）
 1. 时间：set \`元数据.时间\` + set \`角色.身份.出生日期\`

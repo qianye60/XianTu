@@ -28,10 +28,15 @@ export function getCotCorePrompt(userInput: string, enableActionOptions: boolean
 
 用户意图："${actualIntent}"
 
-## 禁止
-- 绝对禁止输出：\`<thinking>\` / 思维链 / 任何推理过程标签
+ ## 禁止
+ - 绝对禁止输出：\`<thinking>\` / 思维链 / 任何推理过程标签
+ 
+## 占位符规则（CRITICAL）
+- 本提示词中出现的 [NPC名] / [道名] / [功法ID] 只是占位符说明
+- 输出 tavern_commands.key 时必须替换为真实名称，且不要保留方括号 []
+- 方括号 [] 只有“数组索引”能用：例如 角色.效果[0]
 
-## 内部自检清单（不要写出来）
+ ## 内部自检清单（不要写出来）
 
 ### 基础同步（V3短路径）- 必须全面更新！
 □ 位置变化 → set \`角色.位置\`

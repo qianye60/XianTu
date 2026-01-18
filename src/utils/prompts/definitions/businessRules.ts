@@ -141,6 +141,13 @@ export const COMMAND_PATH_CONSTRUCTION_RULES = `
 顶层：元数据/角色/社交/世界/系统
 常用：add增减数值 | set设置对象 | push添加数组 | delete删除
 删除物品用delete不用remove！技能消耗=上限×百分比！
+
+## 占位符规则（CRITICAL）
+- 规则文中的 [NPC名] / [道名] / {功法ID} 只是“占位符说明”
+- 你输出的 tavern_commands.key **必须替换为真实名称**，且 **不能包含方括号/花括号**
+- 方括号仅用于“数组索引”，例如：角色.效果[0]（这是唯一保留 [] 的情况）
+错误：社交.关系.[NPC名].好感度
+正确：社交.关系.林清玄.好感度
 `.trim();
 
 export const TECHNIQUE_SYSTEM_RULES = `

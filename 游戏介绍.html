@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="仙途 - AI驱动的修仙世界。体验思维链AI、动态地图、开放预设系统，开启你的修行之旅。"
+      content="仙途 - AI驱动的修仙世界。体验思维链AI、动态地图、开放预设系统、联机穿越,开启你的修行之旅。"
     />
-    <meta name="keywords" content="仙途,修仙游戏,AI游戏,文字游戏,修仙世界,思维链AI" />
+    <meta name="keywords" content="仙途,修仙游戏,AI游戏,文字游戏,修仙世界,思维链AI,联机穿越" />
     <meta name="author" content="仙途开发团队" />
     <title>仙途 - AI驱动的修仙世界 | 官方网站</title>
     <meta name="theme-color" content="#0a0e23" />
@@ -31,13 +31,34 @@
       /* 自定义样式 - 定义仙气背景、粒子、玻璃拟态和字体 */
 
       body {
-        /* 核心的"仙气"渐变：从底部的凡间到顶部的天界 */
-        background: linear-gradient(to top, #0a0e23 0%, #0f1a4a 30%, #5e79c2 70%, #f0f4ff 100%);
-        background-attachment: fixed; /* 固定背景，营造深邃感 */
+        /* 更深邃的仙侠渐变：从深邃星空到仙境云海 */
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2847 100%);
+        background-attachment: fixed;
         font-family: 'Inter', 'Microsoft YaHei', 'SimSun', sans-serif;
-        overflow-x: hidden; /* 防止水平滚动 */
-        color: #e0e7ff; /* 基础文字颜色改为淡蓝色，更柔和 */
-        scroll-behavior: smooth; /* 页面内锚点平滑滚动 */
+        overflow-x: hidden;
+        color: #e0e7ff;
+        scroll-behavior: smooth;
+        position: relative;
+      }
+
+      /* 添加动态光晕效果 */
+      body::before {
+        content: '';
+        position: fixed;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle at 30% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 70% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+        animation: glow 20s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      @keyframes glow {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(-5%, 5%) scale(1.1); }
       }
 
       /* 粒子画布，固定在背景中 */
@@ -51,25 +72,53 @@
         pointer-events: none; /* 允许点击穿透 */
       }
 
-      /* 自定义玻璃拟态效果 (毛玻璃) */
+      /* 自定义玻璃拟态效果 (毛玻璃) - 增强版 */
       .glass-card {
-        background: rgba(10, 14, 35, 0.45); /* 增加一点不透明度 */
-        backdrop-filter: blur(12px); /* 模糊背景 */
-        border: 1px solid rgba(255, 255, 255, 0.1); /* 模拟高光边缘 */
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); /* 增加深度 */
-        transition: all 0.3s ease;
-      }
-      .glass-card:hover {
-        border-color: rgba(255, 255, 255, 0.3); /* 悬浮时边框更亮 */
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(16px) saturate(180%);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
       }
 
-      /* 标题的渐变文字 */
+      .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: left 0.5s;
+      }
+
+      .glass-card:hover {
+        border-color: rgba(139, 92, 246, 0.5);
+        box-shadow: 0 12px 48px 0 rgba(139, 92, 246, 0.3),
+                    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+        transform: translateY(-4px);
+      }
+
+      .glass-card:hover::before {
+        left: 100%;
+      }
+
+      /* 标题的渐变文字 - 增强版 */
       .text-gradient {
-        background: linear-gradient(to right, #ffffff, #d4e0ff, #fde68a); /* 白 -> 淡蓝 -> 淡金 */
+        background: linear-gradient(135deg, #ffffff 0%, #a78bfa 25%, #60a5fa 50%, #fbbf24 75%, #ffffff 100%);
+        background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        text-fill-color: transparent;
+        animation: gradient-shift 8s ease infinite;
+      }
+
+      @keyframes gradient-shift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
       }
 
       /* 内容容器，确保在粒子之上 */
@@ -78,18 +127,20 @@
         z-index: 1;
       }
 
-      /* 导航栏毛玻璃效果 */
+      /* 导航栏毛玻璃效果 - 增强版 */
       nav.sticky-nav {
-        background: rgba(10, 14, 35, 0.3);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        transition: background 0.3s ease;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(20px) saturate(180%);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
       }
       nav.sticky-nav:hover {
-        background: rgba(10, 14, 35, 0.5);
+        background: rgba(15, 23, 42, 0.85);
+        border-bottom-color: rgba(139, 92, 246, 0.4);
       }
 
-      /* 移动端菜单 */
+      /* 移动端菜单 - 增强版 */
       .mobile-menu {
         display: none;
         position: fixed;
@@ -97,26 +148,60 @@
         left: 0;
         width: 100%;
         height: 100vh;
-        background: rgba(10, 14, 35, 0.98);
-        backdrop-filter: blur(20px);
-        z-index: 100;
+        background: rgba(15, 23, 42, 0.98);
+        backdrop-filter: blur(24px) saturate(180%);
+        z-index: 150;
         padding: 2rem;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         gap: 2rem;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        opacity: 0;
+        transition: opacity 0.3s ease;
       }
       .mobile-menu.active {
-        display: flex;
+        display: flex !important;
+        animation: fadeIn 0.3s ease forwards;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      /* 防止移动端菜单打开时页面滚动 */
+      body.menu-open {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
       }
       .mobile-menu a {
         font-size: 1.5rem;
         color: white;
         text-decoration: none;
-        transition: color 0.3s ease;
+        transition: all 0.3s ease;
+        position: relative;
+        padding: 0.5rem 1rem;
+      }
+      .mobile-menu a::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #a78bfa, #60a5fa);
+        transition: all 0.3s ease;
+        transform: translateX(-50%);
       }
       .mobile-menu a:hover {
-        color: #fbbf24;
+        color: #a78bfa;
+        transform: scale(1.05);
+      }
+      .mobile-menu a:hover::after {
+        width: 80%;
       }
 
       /* 汉堡菜单按钮 */
@@ -125,7 +210,8 @@
         flex-direction: column;
         gap: 4px;
         cursor: pointer;
-        z-index: 101;
+        z-index: 200;
+        position: relative;
       }
       .hamburger span {
         width: 25px;
@@ -160,29 +246,33 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
 
-      /* 滚动条美化 */
+      /* 滚动条美化 - 增强版 */
       ::-webkit-scrollbar {
-        width: 10px;
+        width: 12px;
       }
       ::-webkit-scrollbar-track {
-        background: rgba(10, 14, 35, 0.5);
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 10px;
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 5px;
+        background: linear-gradient(180deg, rgba(139, 92, 246, 0.6), rgba(59, 130, 246, 0.6));
+        border-radius: 10px;
+        border: 2px solid rgba(15, 23, 42, 0.5);
+        transition: all 0.3s ease;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.3);
+        background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(59, 130, 246, 0.9));
+        border-color: rgba(15, 23, 42, 0.3);
       }
 
-      /* 返回顶部按钮 */
+      /* 返回顶部按钮 - 增强版 */
       .back-to-top {
         position: fixed;
         bottom: 2rem;
         right: 2rem;
-        width: 50px;
-        height: 50px;
-        background: rgba(255, 255, 255, 0.1);
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(59, 130, 246, 0.8));
         backdrop-filter: blur(10px);
         border: 2px solid rgba(255, 255, 255, 0.3);
         border-radius: 50%;
@@ -190,18 +280,32 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 50;
         color: white;
         font-size: 24px;
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
       }
       .back-to-top.show {
         display: flex;
+        animation: slideInUp 0.4s ease;
       }
       .back-to-top:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.5);
-        transform: translateY(-5px);
+        background: linear-gradient(135deg, rgba(139, 92, 246, 1), rgba(59, 130, 246, 1));
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: translateY(-8px) scale(1.1);
+        box-shadow: 0 12px 32px rgba(139, 92, 246, 0.6);
+      }
+
+      @keyframes slideInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       /* 加载动画 */
@@ -510,24 +614,33 @@
         <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <!-- 截图 1: 地图 -->
           <div
-            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2 group"
           >
             <div
-              class="aspect-video bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10"
+              class="aspect-video bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10 overflow-hidden relative"
             >
-              <svg
-                class="w-16 h-16 text-white/30"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                ></path>
+              <!-- 地图网格背景 -->
+              <div class="absolute inset-0 opacity-20" style="background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+              <!-- 地图标记点 -->
+              <div class="absolute top-1/4 left-1/4 w-3 h-3 bg-amber-400 rounded-full animate-pulse shadow-lg shadow-amber-400/50"></div>
+              <div class="absolute top-1/3 right-1/3 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-lg shadow-cyan-400/50" style="animation-delay: 0.5s;"></div>
+              <div class="absolute bottom-1/3 left-1/2 w-2.5 h-2.5 bg-purple-400 rounded-full animate-pulse shadow-lg shadow-purple-400/50" style="animation-delay: 1s;"></div>
+              <div class="absolute top-1/2 right-1/4 w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" style="animation-delay: 1.5s;"></div>
+
+              <!-- 连接线 -->
+              <svg class="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 25 25 Q 40 30 33 33" stroke="rgba(139, 92, 246, 0.5)" stroke-width="0.5" fill="none" class="animate-pulse"/>
+                <path d="M 33 33 Q 45 40 50 66" stroke="rgba(59, 130, 246, 0.5)" stroke-width="0.5" fill="none" class="animate-pulse" style="animation-delay: 0.3s;"/>
+                <path d="M 50 66 Q 60 55 75 50" stroke="rgba(168, 85, 247, 0.5)" stroke-width="0.5" fill="none" class="animate-pulse" style="animation-delay: 0.6s;"/>
               </svg>
+
+              <!-- 中心图标 -->
+              <div class="relative z-10 text-white/80 group-hover:scale-110 transition-transform duration-300">
+                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+              </div>
             </div>
             <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">广袤的游戏地图</h4>
             <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">
@@ -536,24 +649,45 @@
           </div>
           <!-- 截图 2: 角色 -->
           <div
-            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2 group"
           >
             <div
-              class="aspect-video bg-gradient-to-br from-blue-900/50 to-cyan-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10"
+              class="aspect-video bg-gradient-to-br from-blue-900/50 to-cyan-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10 overflow-hidden relative"
             >
-              <svg
-                class="w-16 h-16 text-white/30"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                ></path>
-              </svg>
+              <!-- 能量光环 -->
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-32 h-32 rounded-full bg-cyan-500/10 animate-pulse"></div>
+                <div class="absolute w-24 h-24 rounded-full bg-blue-500/20 animate-pulse" style="animation-delay: 0.5s;"></div>
+                <div class="absolute w-16 h-16 rounded-full bg-cyan-400/30 animate-pulse" style="animation-delay: 1s;"></div>
+              </div>
+
+              <!-- 属性条 -->
+              <div class="absolute top-4 left-4 right-4 space-y-1.5 opacity-60">
+                <div class="flex items-center gap-2">
+                  <div class="w-12 h-1 bg-gradient-to-r from-red-500 to-red-400 rounded-full shadow-lg shadow-red-500/50"></div>
+                  <div class="text-xs text-red-300 font-bold">HP</div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-16 h-1 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full shadow-lg shadow-blue-500/50"></div>
+                  <div class="text-xs text-blue-300 font-bold">MP</div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-10 h-1 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full shadow-lg shadow-amber-500/50"></div>
+                  <div class="text-xs text-amber-300 font-bold">EXP</div>
+                </div>
+              </div>
+
+              <!-- 中心角色图标 -->
+              <div class="relative z-10 text-white/80 group-hover:scale-110 transition-transform duration-300">
+                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+              </div>
+
+              <!-- 境界标识 -->
+              <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 backdrop-blur-sm rounded-full border border-cyan-400/30">
+                <span class="text-xs text-cyan-200 font-bold">筑基期</span>
+              </div>
             </div>
             <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">深度角色养成</h4>
             <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">
@@ -562,24 +696,42 @@
           </div>
           <!-- 截图 3: 对话 -->
           <div
-            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2"
+            class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2 group"
           >
             <div
-              class="aspect-video bg-gradient-to-br from-violet-900/50 to-pink-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10"
+              class="aspect-video bg-gradient-to-br from-violet-900/50 to-pink-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10 overflow-hidden relative"
             >
-              <svg
-                class="w-16 h-16 text-white/30"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                ></path>
-              </svg>
+              <!-- 对话气泡 -->
+              <div class="absolute top-6 left-6 max-w-[40%]">
+                <div class="bg-violet-500/30 backdrop-blur-sm rounded-lg rounded-tl-none px-3 py-2 border border-violet-400/30">
+                  <div class="h-1.5 w-12 bg-violet-300/50 rounded-full mb-1"></div>
+                  <div class="h-1.5 w-16 bg-violet-300/40 rounded-full"></div>
+                </div>
+              </div>
+
+              <div class="absolute bottom-6 right-6 max-w-[45%]">
+                <div class="bg-pink-500/30 backdrop-blur-sm rounded-lg rounded-br-none px-3 py-2 border border-pink-400/30">
+                  <div class="h-1.5 w-14 bg-pink-300/50 rounded-full mb-1"></div>
+                  <div class="h-1.5 w-10 bg-pink-300/40 rounded-full"></div>
+                </div>
+              </div>
+
+              <!-- 思维链节点 -->
+              <div class="absolute top-1/3 left-1/3 w-2 h-2 bg-purple-400 rounded-full animate-ping"></div>
+              <div class="absolute top-1/2 left-1/2 w-2 h-2 bg-fuchsia-400 rounded-full animate-ping" style="animation-delay: 0.5s;"></div>
+              <div class="absolute bottom-1/3 right-1/3 w-2 h-2 bg-pink-400 rounded-full animate-ping" style="animation-delay: 1s;"></div>
+
+              <!-- 中心图标 -->
+              <div class="relative z-10 text-white/80 group-hover:scale-110 transition-transform duration-300">
+                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+              </div>
+
+              <!-- AI标识 -->
+              <div class="absolute top-3 right-3 px-2 py-1 bg-gradient-to-r from-violet-500/30 to-fuchsia-500/30 backdrop-blur-sm rounded-full border border-violet-400/30">
+                <span class="text-xs text-violet-200 font-bold">AI</span>
+              </div>
             </div>
             <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">思维链AI互动</h4>
             <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">
@@ -612,19 +764,201 @@
                 class="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-sm font-semibold mb-2"
                 >最新版本</span
               >
-              <h3 class="text-2xl sm:text-3xl font-bold text-white">V3.7.4 正式版</h3>
+              <h3 class="text-2xl sm:text-3xl font-bold text-white">V4.0 正式版</h3>
             </div>
             <div class="text-right">
               <p class="text-blue-200/70 text-sm">发布日期</p>
-              <p class="text-white font-mono">2026-01-02</p>
+              <p class="text-white font-mono">2026-01-18</p>
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mb-4">
-            <span class="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">关键修复</span>
-            <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">新功能</span>
-            <span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">提示词优化</span>
+            <span class="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs">重大更新</span>
+            <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">联机穿越</span>
+            <span class="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">存档系统V3</span>
+            <span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">API管理</span>
           </div>
-          <p class="text-blue-100/80 text-sm">指令格式统一 | API测试功能 | 分步提示词自定义 | 物品/功法修复</p>
+          <p class="text-blue-100/80 text-sm mb-4">存档格式V3 | 联机世界穿越 | 多API智能调度 | 向量记忆系统 | 世界事件系统 | 宗门系统V2</p>
+
+          <!-- v4.0 与 v3.x 对比 -->
+          <details class="mt-6 group">
+            <summary
+              class="cursor-pointer text-amber-300 hover:text-amber-200 transition-colors flex items-center gap-2 py-2 font-semibold"
+            >
+              <svg
+                class="w-5 h-5 transition-transform group-open:rotate-90"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5l7 7-7 7"
+                ></path>
+              </svg>
+              查看 v4.0 与 v3.x 对比详情
+            </summary>
+            <div class="mt-4 space-y-4 pl-4 border-l-2 border-amber-300/30 text-sm">
+              <div class="comparison-section">
+                <h4 class="text-white font-bold mb-2">🎯 存档系统：从单机到联机的革命性升级</h4>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p class="text-red-300 font-semibold mb-1">❌ v3.x 旧版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 字段路径冗长，AI生成易出错</li>
+                      <li>• 数据结构混乱，缺少校验</li>
+                      <li>• 不支持存档迁移，升级困难</li>
+                      <li>• 无法适配联机场景</li>
+                    </ul>
+                  </div>
+                  <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p class="text-green-300 font-semibold mb-1">✅ v4.0 新版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 模块化结构（元数据/角色/社交/世界/系统）</li>
+                      <li>• 短路径设计，AI输出更稳定</li>
+                      <li>• 完整的迁移工具链与可视化入口</li>
+                      <li>• V3格式原生支持联机同步</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comparison-section">
+                <h4 class="text-white font-bold mb-2">🌐 联机系统：从"单机游戏"到"联机穿越"</h4>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p class="text-red-300 font-semibold mb-1">❌ v3.x 旧版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 仅支持单机游玩</li>
+                      <li>• 无法进入他人世界</li>
+                      <li>• 缺少联机交互功能</li>
+                      <li>• 世界完全封闭</li>
+                    </ul>
+                  </div>
+                  <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p class="text-green-300 font-semibold mb-1">✅ v4.0 新版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 世界穿越系统（浏览、搜索、分页）</li>
+                      <li>• 穿越会话管理与日志记录</li>
+                      <li>• 穿越点签到与地图联动</li>
+                      <li>• 入侵报告与世界可见性策略</li>
+                      <li>• 离线代理AI系统</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comparison-section">
+                <h4 class="text-white font-bold mb-2">🤖 AI调度：从"单API"到"智能流水线"</h4>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p class="text-red-300 font-semibold mb-1">❌ v3.x 旧版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 单一API配置</li>
+                      <li>• 无法按任务分配模型</li>
+                      <li>• 成本与质量难以平衡</li>
+                      <li>• API故障全局影响</li>
+                    </ul>
+                  </div>
+                  <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p class="text-green-300 font-semibold mb-1">✅ v4.0 新版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 多API配置管理（新增/编辑/启禁用）</li>
+                      <li>• 功能分配（主流程/思维链/指令生成/记忆/优化/世界生成/事件/宗门/向量）</li>
+                      <li>• 智能请求合并策略</li>
+                      <li>• 连通性测试与导入导出</li>
+                      <li>• 酒馆/网页双模式适配</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comparison-section">
+                <h4 class="text-white font-bold mb-2">🧠 记忆系统：从"全部记忆"到"智能检索"</h4>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p class="text-red-300 font-semibold mb-1">❌ v3.x 旧版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 历史记录全部塞入上下文</li>
+                      <li>• Token消耗巨大</li>
+                      <li>• 相关性检索困难</li>
+                      <li>• 长期记忆难以召回</li>
+                    </ul>
+                  </div>
+                  <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p class="text-green-300 font-semibold mb-1">✅ v4.0 新版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 向量记忆服务（IndexedDB本地存储）</li>
+                      <li>• 关键词/标签提取 + 混合检索</li>
+                      <li>• 默认TF-IDF向量化（无需外部API）</li>
+                      <li>• 可选Embedding API（更强语义检索）</li>
+                      <li>• 降低Token压力，提升相关性</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comparison-section">
+                <h4 class="text-white font-bold mb-2">🌍 驱动机制：从"任务系统"到"世界事件"</h4>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p class="text-red-300 font-semibold mb-1">❌ v3.x 旧版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 传统任务面板驱动</li>
+                      <li>• 世界静态，缺少变化</li>
+                      <li>• 长期游玩动力不足</li>
+                      <li>• 事件触发被动</li>
+                    </ul>
+                  </div>
+                  <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p class="text-green-300 font-semibold mb-1">✅ v4.0 新版本</p>
+                    <ul class="text-blue-100/70 text-xs space-y-1">
+                      <li>• 世界事件系统（可配置开关与间隔）</li>
+                      <li>• 随时间推进发生变化与危机</li>
+                      <li>• 自定义事件提示词</li>
+                      <li>• 事件记录查询（时间倒序）</li>
+                      <li>• 增强沉浸感与长期动力</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comparison-section">
+                <h4 class="text-white font-bold mb-2">⚙️ 其他重要升级</h4>
+                <ul class="text-blue-100/80 text-xs space-y-1">
+                  <li>• <span class="text-white">宗门系统V2</span>：系统化面板（成员/藏经阁/贡献商店）+ 迁移工具</li>
+                  <li>• <span class="text-white">地图优化</span>：开局减负（先生成大陆，再按需生成细节）+ 局内初始化</li>
+                  <li>• <span class="text-white">角色详情</span>：新增身体数据面板（寿元/体格/三围/敏感/纹身等）</li>
+                  <li>• <span class="text-white">提示词系统</span>：分类管理 + 权重调整 + 联机只读 + 远程配置</li>
+                  <li>• <span class="text-white">全局菜单</span>：统一入口（设置/API管理/创意工坊/账号中心/后端管理）</li>
+                  <li>• <span class="text-white">后端管理页</span>：管理员界面（查看/删除存档与角色）</li>
+                </ul>
+              </div>
+
+              <div class="comparison-section mt-4 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                <h4 class="text-amber-300 font-bold mb-2">📊 统计数据</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div>
+                    <p class="text-white font-bold text-lg">148</p>
+                    <p class="text-blue-100/60 text-xs">文件变更</p>
+                  </div>
+                  <div>
+                    <p class="text-green-400 font-bold text-lg">+27,679</p>
+                    <p class="text-blue-100/60 text-xs">新增代码</p>
+                  </div>
+                  <div>
+                    <p class="text-red-400 font-bold text-lg">-12,151</p>
+                    <p class="text-blue-100/60 text-xs">删除代码</p>
+                  </div>
+                  <div>
+                    <p class="text-white font-bold text-lg">36</p>
+                    <p class="text-blue-100/60 text-xs">新增文件</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
 
         <div
@@ -636,6 +970,277 @@
           </div>
 
           <div class="changelog-content space-y-8">
+            <!-- V4.0 -->
+            <div class="version-block">
+              <div
+                class="version-header flex items-center gap-3 mb-4 pb-2 border-b border-white/10"
+              >
+                <span class="version-number text-lg font-bold text-amber-300">V4.0</span>
+                <span
+                  class="version-type px-2 py-0.5 bg-red-500/20 text-red-300 rounded text-xs"
+                  >重大更新</span
+                >
+                <span class="version-date text-blue-200/50 text-sm ml-auto">2026-01-18</span>
+              </div>
+
+              <div class="version-content space-y-4 pl-4 border-l-2 border-white/5">
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">💾</span> 存档系统V3
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      ✨ 模块化存档结构：拆分为元数据/角色/社交/世界/系统五大领域，路径更短、更稳定
+                    </li>
+                    <li>
+                      🔧 完整校验与修复链路：读档时自动校验关键字段，降低坏档风险
+                    </li>
+                    <li>
+                      🔄 可视化迁移工具：支持旧存档一键转换，识别文件类型并展示迁移详情
+                    </li>
+                    <li>
+                      🌐 联机友好设计：V3格式原生支持联机同步与权威验证
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🌐</span> 联机穿越系统
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      🚀 世界穿越：浏览他人世界、按用户名搜索、可见性筛选、分页加载
+                    </li>
+                    <li>
+                      📍 穿越点与签到：显示穿越点位置，支持签到获取状态
+                    </li>
+                    <li>
+                      🎮 会话管理：开始穿越、查询当前会话、结束返回、会话日志查看
+                    </li>
+                    <li>
+                      🗺️ 地图联动：穿越面板内集成地图视图与位置移动
+                    </li>
+                    <li>
+                      📊 入侵报告：查看"我的入侵报告"，了解世界被访问记录
+                    </li>
+                    <li>
+                      ⚙️ 世界策略：调整世界可见性、离线代理开关与提示词配置
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🤖</span> API管理与智能调度
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      📋 多API配置：新增/编辑/启用禁用/删除多个API，支持导入导出
+                    </li>
+                    <li>
+                      🎯 功能分配：为主流程/思维链/指令生成/记忆总结/文本优化/世界生成/事件/宗门/向量等任务分配独立API
+                    </li>
+                    <li>
+                      🔀 智能合并：同一API的多个功能自动合并请求，节省调用次数
+                    </li>
+                    <li>
+                      🔌 连通性测试：配置后可验证API可用性
+                    </li>
+                    <li>
+                      🍺 酒馆/网页双模式：酒馆端主流程锁定走酒馆API，网页端全走自定义API
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🧠</span> 向量记忆系统
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      💾 本地存储：基于IndexedDB的向量记忆服务
+                    </li>
+                    <li>
+                      🔍 混合检索：关键词/标签提取 + 向量相似度检索
+                    </li>
+                    <li>
+                      📊 默认可用：内置TF-IDF向量化，无需外部API
+                    </li>
+                    <li>
+                      🚀 可选增强：支持对接Embedding API获得更强语义检索
+                    </li>
+                    <li>
+                      💡 降低Token压力：智能召回相关记忆，避免全部历史塞入上下文
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🌍</span> 世界事件系统
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      ⚡ 替代任务系统：用世界级事件驱动剧情，增强沉浸感
+                    </li>
+                    <li>
+                      ⏱️ 可配置间隔：设置随机事件触发年限范围
+                    </li>
+                    <li>
+                      📝 自定义提示词：支持自定义事件生成提示词
+                    </li>
+                    <li>
+                      📜 事件记录：按时间倒序查看历史事件
+                    </li>
+                    <li>
+                      🔄 重抽机制：可重抽下次事件时间
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🏛️</span> 宗门系统V2
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      📊 系统化面板：成员管理/藏经阁/贡献商店分区展示
+                    </li>
+                    <li>
+                      🔄 宗门迁移：提供迁移工具与清晰的数据落盘结构
+                    </li>
+                    <li>
+                      🏭 宗门工厂：`sectSystemFactory` 系统化生成宗门内容
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🗺️</span> 地图系统优化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      🚀 开局减负：仅生成大陆骨架，势力/地点可在局内按需生成
+                    </li>
+                    <li>
+                      ⚙️ 修仙难度：新增难度选项，不同难度使用不同提示词
+                    </li>
+                    <li>
+                      📍 局内初始化：地图为空时提示一键生成势力/地点
+                    </li>
+                    <li>
+                      ⚠️ 风险提示：配置过高时给出明确警告
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">👤</span> 角色系统增强
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      💪 身体数据面板：集中展示寿元/体格/三围/敏感/开发/纹身印记等
+                    </li>
+                    <li>
+                      🔢 六司管理器：新增 `sixSiManager` 处理身体相关计算
+                    </li>
+                    <li>
+                      ⏳ 寿元计算：优化寿元计算与展示逻辑
+                    </li>
+                    <li>
+                      🎨 状态格式化：改进状态效果与格式化渲染
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">📝</span> 提示词系统升级
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      📂 分类管理：按使用阶段/类别分组，支持批量展开/折叠
+                    </li>
+                    <li>
+                      ⚖️ 权重调整：支持1-10权重配置
+                    </li>
+                    <li>
+                      🔒 联机只读：联机模式下提示词只读，保证一致性
+                    </li>
+                    <li>
+                      ☁️ 远程配置：支持从后端拉取远程提示词配置
+                    </li>
+                    <li>
+                      📥 导入导出：单项/全部导入导出功能
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🎨</span> 界面与体验
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      🎯 全局菜单整合：统一入口（全局设置/API管理/创意工坊/账号中心/后端管理）
+                    </li>
+                    <li>
+                      👨‍💼 后端管理页：管理员界面（查看/删除存档与角色资源）
+                    </li>
+                    <li>
+                      🎨 设计系统：新增 `design-system.css` 统一视觉风格
+                    </li>
+                    <li>
+                      📱 响应式优化：改进移动端与桌面端体验
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">🔧</span> 工程化与优化
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      📦 依赖升级：新增 @vueuse/core、clsx、class-variance-authority、tailwind-merge
+                    </li>
+                    <li>
+                      🛠️ 工具增强：新增 jsonExtract、regex、chatBus、dadBundle 等工具
+                    </li>
+                    <li>
+                      🔐 后端拆分：server/ 已移至私有仓库，移除 docker-compose.yml
+                    </li>
+                    <li>
+                      ✅ ESLint修复：修复空接口类型报错
+                    </li>
+                    <li>
+                      📊 代码统计：148个文件变更，+27,679/-12,151行代码
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="update-category">
+                  <h4 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                    <span class="text-lg">⚠️</span> 重要变更
+                  </h4>
+                  <ul class="space-y-1 text-sm text-blue-100/80">
+                    <li>
+                      🔴 任务系统移除：移除 QuestPanel / questStore / questGenerators，用世界事件系统替代
+                    </li>
+                    <li>
+                      🔄 存档升级：建议通过"旧存档转化/迁移"升级到V3格式
+                    </li>
+                    <li>
+                      🌐 后端部署：联机/穿越功能需单独部署后端并配置地址
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <!-- V3.7.4 -->
             <div class="version-block">
               <div
@@ -1156,8 +1761,18 @@
       function toggleMobileMenu() {
           const menu = document.getElementById('mobileMenu');
           const hamburger = document.querySelector('.hamburger');
-          menu.classList.toggle('active');
+          const body = document.body;
+
+          // 切换菜单状态
+          const isActive = menu.classList.toggle('active');
           hamburger.classList.toggle('active');
+
+          // 防止页面滚动
+          if (isActive) {
+              body.classList.add('menu-open');
+          } else {
+              body.classList.remove('menu-open');
+          }
       }
 
       // 简单的"仙气"粒子效果
@@ -1283,6 +1898,12 @@
               e.preventDefault();
               const target = document.querySelector(this.getAttribute('href'));
               if (target) {
+                  // 如果是移动端菜单内的链接，先关闭菜单
+                  const menu = document.getElementById('mobileMenu');
+                  if (menu && menu.classList.contains('active')) {
+                      toggleMobileMenu();
+                  }
+
                   if (prefersReducedMotion) {
                       target.scrollIntoView({ block: 'start' });
                   } else {
@@ -1311,6 +1932,17 @@
               behavior: 'smooth'
           });
       });
+
+      // 移动端菜单：点击背景关闭
+      const mobileMenu = document.getElementById('mobileMenu');
+      if (mobileMenu) {
+          mobileMenu.addEventListener('click', (e) => {
+              // 只有点击背景（菜单容器本身）时才关闭，点击内部元素不关闭
+              if (e.target === mobileMenu) {
+                  toggleMobileMenu();
+              }
+          });
+      }
 
       // 滚动动画 - Intersection Observer
       const observerOptions = {

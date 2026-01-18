@@ -129,6 +129,32 @@ const buildDefaultEventSystem = (): EventSystem => ({
   事件记录: [],
 });
 
+const buildDefaultMemory = (): SaveDataV3['社交']['记忆'] => ({
+  短期记忆: [],
+  中期记忆: [],
+  长期记忆: [],
+  隐式中期记忆: [],
+});
+
+const coerceStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+  if (typeof value === 'string' && value.trim().length > 0) return [value.trim()];
+  return [];
+};
+
+const normalizeMemory = (value: unknown): SaveDataV3['社交']['记忆'] => {
+  const base = buildDefaultMemory();
+  if (!isPlainObject(value)) return base;
+
+  const anyValue = value as any;
+  return {
+    短期记忆: coerceStringArray(anyValue.短期记忆 ?? anyValue.short_term ?? anyValue.shortTerm),
+    中期记忆: coerceStringArray(anyValue.中期记忆 ?? anyValue.mid_term ?? anyValue.midTerm),
+    长期记忆: coerceStringArray(anyValue.长期记忆 ?? anyValue.long_term ?? anyValue.longTerm),
+    隐式中期记忆: coerceStringArray(anyValue.隐式中期记忆 ?? anyValue.implicit_mid_term ?? anyValue.implicitMidTerm),
+  };
+};
+
 const buildDefaultOnline = (): SaveDataV3['系统']['联机'] => ({
   模式: '单机',
   房间ID: null,
@@ -175,7 +201,10 @@ export function migrateSaveDataToLatest(raw: SaveData): { migrated: SaveDataV3; 
   };
 
   if (isSaveDataV3(source)) {
-    return { migrated: source, report };
+    const normalized = deepClone(source) as any;
+    if (!isPlainObject(normalized.社交)) normalized.社交 = {};
+    normalized.社交.记忆 = normalizeMemory(normalized.社交.记忆);
+    return { migrated: normalized as SaveDataV3, report };
   }
 
   report.legacyKeysFound = LEGACY_ROOT_KEYS.filter((k) => k in source) as string[];
@@ -242,8 +271,7 @@ export function migrateSaveDataToLatest(raw: SaveData): { migrated: SaveDataV3; 
 
   const flatSect = source.宗门 ?? source.宗门系统 ?? undefined;
   const flatRelationships = source.关系 ?? source.人物关系 ?? {};
-  const flatMemory =
-    source.记忆 ?? { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+  const flatMemory = normalizeMemory(source.记忆 ?? source.社交?.记忆);
 
   const flatEventRaw = source.事件 ?? source.事件系统 ?? buildDefaultEventSystem();
   const flatEvent = (() => {

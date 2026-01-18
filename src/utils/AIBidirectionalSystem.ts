@@ -5,7 +5,7 @@
  * 2. 解析AI响应，执行AI返回的指令
  * 3. 更新并返回游戏状态
  */
-import { set, get, unset, cloneDeep, merge } from 'lodash';
+import { set, get, unset, cloneDeep } from 'lodash';
 import { getTavernHelper, isTavernEnv } from '@/utils/tavern';
 import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -24,6 +24,30 @@ import { stripNsfwContent } from '@/utils/prompts/definitions/dataDefinitions';
 import { isSaveDataV3, migrateSaveDataToLatest } from './saveMigration';
 
 type PlainObject = Record<string, unknown>;
+
+function isPlainObject(value: unknown): value is PlainObject {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+function mergePlainObjectsReplacingArrays(base: PlainObject, patch: PlainObject): PlainObject {
+  const merged = cloneDeep(base) as PlainObject;
+  applyPlainObjectPatchReplacingArrays(merged, patch);
+  return merged;
+}
+
+function applyPlainObjectPatchReplacingArrays(target: PlainObject, patch: PlainObject): void {
+  for (const [key, patchValue] of Object.entries(patch)) {
+    const targetValue = (target as any)[key];
+    if (isPlainObject(targetValue) && isPlainObject(patchValue)) {
+      applyPlainObjectPatchReplacingArrays(targetValue, patchValue);
+      continue;
+    }
+    (target as any)[key] = cloneDeep(patchValue);
+  }
+}
 
 export interface ProcessOptions {
   onStreamChunk?: (chunk: string) => void;
@@ -871,9 +895,9 @@ ${narrativeStateJson}
 `.trim();
           }
 
-          // 第2步：COT + 指令生成（合并），需要完整的提示词
-          const [coreOutputRulesPrompt, businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
-            getPrompt('coreOutputRules'),
+          // 第2步：COT + 指令生成（合并），需要结构与业务规则
+          // 注意：不要注入 coreOutputRules（它会要求输出 text，和第2步“禁止text”冲突）
+          const [businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
             getPrompt('businessRules'),
             getPrompt('dataDefinitions'),
             getPrompt('textFormatRules'),
@@ -902,7 +926,8 @@ ${cotPrompt}
 `.trim());
           }
 
-          sections.push(coreOutputRulesPrompt, businessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
+          const sanitizedBusinessRulesPrompt = tavernEnv ? businessRulesPrompt : stripNsfwContent(businessRulesPrompt);
+          sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
 
           if (uiStore.enableActionOptions) {
             const actionOptionsPrompt = await getPrompt('actionOptions');
@@ -1281,17 +1306,24 @@ ${userPrompt}
             `.trim();
           }
 
-          // 第2步：COT + 指令生成（合并）
+          // 第2步：指令生成（合并）。不要拼接完整 systemPrompt（它包含 text 输出规则，会和“禁止text”冲突）
+          const tavernEnv = !!tavernHelper;
           const stepRules = (await getPrompt('splitInitStep2')).trim();
           const cotPrompt = enableCot ? await getPrompt('cotCore') : '';
-          let prompt = stepRules;
+          const [businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
+            getPrompt('businessRules'),
+            getPrompt('dataDefinitions'),
+            getPrompt('textFormatRules'),
+            getPrompt('worldStandards')
+          ]);
+          const sanitizedDataDefinitionsPrompt = tavernEnv ? dataDefinitionsPrompt : stripNsfwContent(dataDefinitionsPrompt);
+          const sanitizedBusinessRulesPrompt = tavernEnv ? businessRulesPrompt : stripNsfwContent(businessRulesPrompt);
+
+          const sections: string[] = [stepRules];
 
           // 如果启用COT，添加思维链提示
           if (enableCot && cotPrompt) {
-            prompt += `
-
----
-
+            sections.push(`
 # 思维链分析（先分析再生成指令）
 根据第1步正文内容，分析：
 1. 初始场景设定（位置、时间、环境）
@@ -1299,16 +1331,11 @@ ${userPrompt}
 3. 玩家初始状态
 4. 可能的发展方向
 
-${cotPrompt}`;
+${cotPrompt}`.trim());
           }
 
-          prompt += `
-
----
-
-# 原始系统提示词（供参考）
-${systemPrompt}`;
-          return prompt.trim();
+          sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
+          return sections.map(s => s.trim()).filter(Boolean).join('\n\n---\n\n').trim();
         };
 
         type InitialSplitUsageType = 'main' | 'instruction_generation';
@@ -2278,10 +2305,10 @@ ${saveDataJson}`;
     if (action === 'set') {
       const segments = path.split('.');
       const isNpcRoot = segments.length === 3 && segments[0] === '社交' && segments[1] === '关系';
-      if (isNpcRoot && value && typeof value === 'object') {
+      if (isNpcRoot && isPlainObject(value)) {
         const existingNpc = get(saveData, path);
-        const baseNpc = existingNpc && typeof existingNpc === 'object' ? existingNpc : {};
-        const mergedNpc = merge({}, baseNpc, value as Record<string, unknown>);
+        const baseNpc = isPlainObject(existingNpc) ? existingNpc : {};
+        const mergedNpc = mergePlainObjectsReplacingArrays(baseNpc, value);
         if (typeof (mergedNpc as any).名字 !== 'string' || !(mergedNpc as any).名字) {
           (mergedNpc as any).名字 = segments[2];
         }

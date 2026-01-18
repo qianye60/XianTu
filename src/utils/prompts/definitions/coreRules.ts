@@ -10,6 +10,13 @@ export const JSON_OUTPUT_RULES = `
 ## Format
 {"text":"叙事","mid_term_memory":"摘要","tavern_commands":[...],"action_options":["选项1","选项2"]}
 
+## JSON VALIDITY (CRITICAL)
+- Output a single JSON object only (no code fences, no prefix/suffix text)
+- JSON strings MUST be valid:
+  - Use "\\n" to represent newlines inside "text" / "mid_term_memory" (do NOT put raw line breaks inside quotes)
+  - Escape " and \\ properly
+- No trailing commas, no comments
+
 ## FORBIDDEN
 - ❌ Pure text responses
 - ❌ Confirmation like "明白了"/"法则已刻入"
@@ -55,6 +62,15 @@ text字段 = 纯镜头记录。
 * 纯文本客观叙述（无心理、无判断）
 
 除此之外一律禁止。
+
+———
+
+【画面感最低标准（不增加任何“主角心理”】【必须客观可见】）
+为了让叙事更有场景感与镜头感，每回合正文至少包含：
+1) 1段【环境】（光影/天气/气味/声响/地形）
+2) 2个可见动作细节（脚步/衣袂/手势/兵器/尘土/呼吸）
+3) 1次人物互动（"对话" 或 NPC内心（双反引号））
+写法：多描写少总结；用具体名词与动词；结尾留一个“可行动的钩子”。
 
 ———
 
@@ -125,5 +141,3 @@ AI只描述主角**看到、听到、闻到**的世界
 如果你想，我也可以再压成**超短版（约10行）**，或者做成**违规自检版**，专门防止模型越界。
 
 `.trim()
-
-
