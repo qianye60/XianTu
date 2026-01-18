@@ -910,27 +910,56 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   const aiLocation = aiLocationCandidate; // 从V3路径 角色.位置 提取
 
-  // 🔥 位置信息应该已经通过验证器检查，这里只是确认
-  if (aiLocation && typeof aiLocation.描述 === 'string' && aiLocation.描述.includes('·')) {
-    // V3格式：位置存储在 角色.位置
-    if (!(saveData as any).角色) (saveData as any).角色 = {};
-    (saveData as any).角色.位置 = aiLocation as any;
-    console.log(`[数据最终化] ✅ 已保留AI生成的位置信息: "${aiLocation.描述}"`);
-  } else {
-    // 如果没有有效位置，记录详细的诊断信息
-    console.error('[数据最终化] ❌ 位置信息无效或丢失');
-    console.error('[数据最终化-诊断] aiLocation:', aiLocation);
-    console.error('[数据最终化-诊断] aiLocation.描述:', aiLocation?.描述);
-    console.error('[数据最终化-诊断] 完整saveData keys:', Object.keys(saveData));
+  const isValidLocation = (loc: any): loc is { 描述: string; x?: number; y?: number } => {
+    if (!loc || typeof loc !== 'object') return false;
+    if (typeof loc.描述 !== 'string' || !loc.描述.trim()) return false;
+    if (loc.描述.includes('位置生成失败')) return false;
+    return true;
+  };
 
-    // 尝试从叙事历史中找到位置命令
-    const narrativeHistory = saveData.历史?.叙事 || [];
-    if (narrativeHistory.length > 0) {
-      const lastEntry = narrativeHistory[narrativeHistory.length - 1];
-      console.error('[数据最终化-诊断] 最后的叙事历史:', JSON.stringify(lastEntry).substring(0, 500));
+  const ensureDotSeparatedDescription = (desc: string): string => {
+    if (desc.includes('·')) return desc;
+    const continents = (saveData as any).世界?.信息?.大陆信息;
+    const firstContinentName =
+      (Array.isArray(continents) && continents[0] && (continents[0].名称 || continents[0].name)) || '朝天大陆';
+    return `${firstContinentName}·${desc}`;
+  };
+
+  const pickFallbackLocation = (): { 描述: string; x: number; y: number } => {
+    const locList = (saveData as any).世界?.信息?.地点信息;
+    if (Array.isArray(locList) && locList.length > 0) {
+      const picked = locList[Math.floor(Math.random() * locList.length)];
+      const rawName = picked?.名称 || picked?.name || picked?.描述 || picked?.description;
+      const desc = ensureDotSeparatedDescription(String(rawName || '无名之地'));
+
+      const coords = picked?.coordinates;
+      const xCandidate =
+        (coords && typeof coords === 'object' && (coords.x ?? coords.lng ?? coords.lon ?? coords.longitude)) ?? undefined;
+      const yCandidate =
+        (coords && typeof coords === 'object' && (coords.y ?? coords.lat ?? coords.latitude)) ?? undefined;
+
+      const x = typeof xCandidate === 'number' && Number.isFinite(xCandidate) ? xCandidate : Math.floor(Math.random() * 10001);
+      const y = typeof yCandidate === 'number' && Number.isFinite(yCandidate) ? yCandidate : Math.floor(Math.random() * 10001);
+      return { 描述: desc, x, y };
     }
 
-    throw new Error(`位置信息在处理过程中丢失，aiLocation=${JSON.stringify(aiLocation)}`);
+    return { 描述: '朝天大陆·无名之地', x: 5000, y: 5000 };
+  };
+
+  // 🔥 位置信息优先使用 AI 生成；若缺失/无效则兜底一个可用位置（避免创角直接失败）
+  if (!(saveData as any).角色) (saveData as any).角色 = {};
+  if (isValidLocation(aiLocation)) {
+    const desc = ensureDotSeparatedDescription(aiLocation.描述);
+    const x = typeof aiLocation.x === 'number' && Number.isFinite(aiLocation.x) ? aiLocation.x : Math.floor(Math.random() * 10001);
+    const y = typeof aiLocation.y === 'number' && Number.isFinite(aiLocation.y) ? aiLocation.y : Math.floor(Math.random() * 10001);
+    (saveData as any).角色.位置 = { ...(aiLocation as any), 描述: desc, x, y };
+    console.log(`[数据最终化] ✅ 已保留/修复AI生成的位置信息: "${desc}" (${x}, ${y})`);
+  } else {
+    console.warn('[数据最终化] ⚠️ AI未提供有效位置信息，将使用兜底位置继续创角');
+    console.error('[数据最终化-诊断] aiLocation:', aiLocation);
+    const fallback = pickFallbackLocation();
+    (saveData as any).角色.位置 = fallback as any;
+    console.log(`[数据最终化] ✅ 已使用兜底位置信息: "${fallback.描述}" (${fallback.x}, ${fallback.y})`);
   }
   console.log('[数据最终化] 核心玩家状态校准完成。');
 

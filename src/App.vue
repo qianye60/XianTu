@@ -62,6 +62,10 @@
           <Plug :size="18" />
           <span>API管理</span>
         </button>
+        <button class="action-menu-item" @click="router.push('/prompts'); close()">
+          <FileText :size="18" />
+          <span>提示词管理</span>
+        </button>
         <button class="action-menu-item" :class="{ 'is-disabled': !backendReady }" @click="openWorkshop(close)">
           <Store :size="18" />
           <span>创意工坊</span>
@@ -208,7 +212,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { BookOpen, X, Scroll, Sparkles, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart, ArrowRight, Plug, Shield } from 'lucide-vue-next'; // 导入图标
+import { BookOpen, X, Scroll, Sparkles, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart, ArrowRight, Plug, Shield, FileText } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';

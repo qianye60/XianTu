@@ -10,6 +10,10 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="action-btn" @click="goToPromptManagement">
+          <FileText :size="16" />
+          <span class="btn-text">{{ t('提示词管理') }}</span>
+        </button>
         <button class="action-btn" @click="resetSettings">
           <RotateCcw :size="16" />
           <span class="btn-text">{{ t('重置') }}</span>
@@ -183,6 +187,19 @@
         <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
+              <label class="setting-name">{{ t('提示词管理') }}</label>
+              <span class="setting-desc">{{ t('跳转到提示词页面修改提示词') }}</span>
+            </div>
+            <div class="setting-control">
+              <button class="utility-btn" @click="openPromptManagement">
+                <FileText :size="16" />
+                {{ t('打开') }}
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
               <label class="setting-name">{{ t('调试模式') }}</label>
               <span class="setting-desc">{{ t('启用开发者调试信息和详细日志') }}</span>
             </div>
@@ -291,7 +308,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { Save, RotateCcw, Trash2, Download, Upload } from 'lucide-vue-next';
+import { Save, RotateCcw, Trash2, Download, Upload, FileText } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
@@ -569,6 +586,19 @@ const applyAnimationSettings = () => {
   const transitionSeconds = settings.fastAnimations ? 0.12 : 0.2;
   document.documentElement.style.setProperty('--transition-fast', `all ${transitionSeconds}s ease-in-out`);
   debug.log('设置面板', `动画速度已应用: ${transitionSeconds}s`);
+};
+
+// 跳转到提示词管理页面
+const goToPromptManagement = () => {
+  // 检查当前是否在游戏中（/game路由下）
+  const currentPath = router.currentRoute.value.path;
+  if (currentPath.startsWith('/game')) {
+    // 在游戏中，跳转到游戏内的提示词管理
+    router.push('/game/prompts');
+  } else {
+    // 不在游戏中（如首页），跳转到独立的提示词管理页面
+    router.push('/prompts');
+  }
 };
 
 // uiStore 已在脚本顶部初始化

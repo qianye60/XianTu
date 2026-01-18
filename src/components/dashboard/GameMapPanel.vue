@@ -1313,6 +1313,8 @@ canvas:active {
 .popup-content {
   font-size: 0.95rem;
   line-height: 1.6;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .location-type {
