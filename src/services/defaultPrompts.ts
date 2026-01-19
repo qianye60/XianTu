@@ -48,6 +48,7 @@ import { TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAGE_RULES, NAMING_CO
 import { REALM_ATTRIBUTE_STANDARDS, QUALITY_SYSTEM, REPUTATION_GUIDE } from '@/utils/prompts/definitions/worldStandards';
 import { ACTION_OPTIONS_RULES } from '@/utils/prompts/definitions/actionOptions';
 import { EVENT_SYSTEM_RULES } from '@/utils/prompts/definitions/eventSystemRules';
+import { PLAYER_PERSONALITY_RULES } from '@/utils/prompts/definitions/playerPersonality';
 
 export interface PromptDefinition {
   name: string;
@@ -155,6 +156,14 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       description: '境界、NPC、战斗规则',
       order: 2,
       weight: 9
+    },
+    playerPersonality: {
+      name: '2.1 主角性格',
+      content: PLAYER_PERSONALITY_RULES,
+      category: 'coreRequest',
+      description: '默认“正常人”人设，可自定义',
+      order: 2.1,
+      weight: 6
     },
     extendedBusinessRules: {
       name: '2.5 扩展规则',
