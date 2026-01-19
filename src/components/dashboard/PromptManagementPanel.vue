@@ -4,6 +4,16 @@
       <div class="panel-title-compact">
         <span class="title-text">📝 提示词管理</span>
       </div>
+      <div class="panel-search">
+        <input
+          v-model="searchQuery"
+          class="search-input"
+          type="text"
+          placeholder="搜索提示词（名称 / 键名 / 描述）"
+          :disabled="Object.keys(promptsByCategory).length === 0"
+        />
+        <button class="clear-btn" @click="searchQuery = ''" :disabled="!searchQuery" title="清空搜索">×</button>
+      </div>
       <div class="panel-actions">
         <button class="action-btn-compact" @click="expandAllCategories" title="全部展开">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -46,8 +56,11 @@
     </div>
 
     <div class="prompt-list">
+      <div v-if="Object.keys(displayPromptsByCategory).length === 0" class="empty-search">
+        未找到匹配的提示词
+      </div>
       <!-- 分类显示 -->
-      <div v-for="(categoryData, categoryKey) in promptsByCategory" :key="categoryKey" class="category-section">
+      <div v-for="(categoryData, categoryKey) in displayPromptsByCategory" :key="categoryKey" class="category-section">
         <!-- 分类头部 -->
         <div class="category-header" @click="toggleCategory(String(categoryKey))">
           <div class="category-title">
@@ -102,6 +115,9 @@
                 <span v-if="prompt.description" class="prompt-desc" :title="prompt.description">
                   {{ truncateText(prompt.description, 30) }}
                 </span>
+                <span class="prompt-key" :title="prompt.key" @click.stop>
+                  {{ prompt.key }}
+                </span>
                 <span class="prompt-status" :class="{ modified: prompt.modified }">
                   {{ prompt.modified ? '已修改' : '默认' }}
                 </span>
@@ -133,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { promptStorage, type PromptItem, type PromptsByCategory } from '@/services/promptStorage';
 import { toast } from '@/utils/toast';
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
@@ -170,6 +186,24 @@ const isEventSystemEnabled = computed(() => {
 const promptsByCategory = ref<PromptsByCategory>({});
 const expandedPrompts = ref<Record<string, boolean>>({});
 const expandedCategories = ref<Record<string, boolean>>({});
+const searchQuery = ref('');
+
+const displayPromptsByCategory = computed<PromptsByCategory>(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) return promptsByCategory.value;
+
+  const filtered: PromptsByCategory = {};
+  for (const [categoryKey, categoryData] of Object.entries(promptsByCategory.value)) {
+    const prompts = categoryData.prompts.filter((prompt) => {
+      const haystack = [prompt.key, prompt.name, prompt.description ?? ''].join('\n').toLowerCase();
+      return haystack.includes(query);
+    });
+    if (prompts.length > 0) {
+      filtered[categoryKey] = { info: categoryData.info, prompts };
+    }
+  }
+  return filtered;
+});
 
 onMounted(async () => {
   await loadPrompts();
@@ -187,6 +221,14 @@ async function loadPrompts() {
     expandedCategories.value[firstCategory] = true;
   }
 }
+
+watch(searchQuery, () => {
+  const query = searchQuery.value.trim();
+  if (!query) return;
+  for (const key of Object.keys(displayPromptsByCategory.value)) {
+    expandedCategories.value[key] = true;
+  }
+});
 
 
 function toggleCategory(categoryKey: string) {
@@ -212,13 +254,13 @@ async function toggleEnabled(key: string, enabled: boolean) {
 }
 
 function expandAllCategories() {
-  for (const key in promptsByCategory.value) {
+  for (const key in displayPromptsByCategory.value) {
     expandedCategories.value[key] = true;
   }
 }
 
 function collapseAllCategories() {
-  for (const key in promptsByCategory.value) {
+  for (const key in displayPromptsByCategory.value) {
     expandedCategories.value[key] = false;
   }
   // 同时折叠所有提示词
@@ -415,13 +457,75 @@ function downloadJSON(data: any, filename: string) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .title-text {
   font-size: 0.92rem;
   font-weight: 600;
   color: var(--color-text);
+}
+
+.panel-search {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.search-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clear-btn:not(:disabled):hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.empty-search {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px dashed var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
+  margin: 0.9rem 0;
 }
 
 .panel-actions {
@@ -651,6 +755,17 @@ function downloadJSON(data: any, filename: string) {
   gap: 1rem;
 }
 
+.prompt-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.72rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  user-select: text;
+}
+
 .prompt-desc {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
@@ -808,6 +923,15 @@ function downloadJSON(data: any, filename: string) {
 
 /* 响应式适配 */
 @media (max-width: 768px) {
+  .panel-header.compact {
+    flex-wrap: wrap;
+  }
+
+  .panel-search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
   .category-header {
     flex-direction: column;
     align-items: flex-start;

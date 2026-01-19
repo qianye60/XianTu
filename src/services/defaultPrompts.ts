@@ -68,6 +68,11 @@ export const PROMPT_CATEGORIES = {
     description: '正常游戏请求时按顺序发送的提示词',
     icon: '📨'
   },
+  cot: {
+    name: '思维链（CoT）提示词',
+    description: '系统CoT推理/自检用提示词（不会输出思维链）',
+    icon: '🧠'
+  },
   summary: {
     name: '总结请求提示词',
     description: '记忆总结时使用的提示词',
@@ -339,11 +344,11 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       condition: 'onlineMode'
     },
     cotCore: {
-      name: '6. 自检协议',
+      name: '思维链推理（CoT）',
       content: COT_CORE_PROMPT_TEMPLATE,
-      category: 'coreRequest',
-      description: '禁止思维链输出',
-      order: 6,
+      category: 'cot',
+      description: '启用系统CoT时注入，用于自检与指令生成（禁止输出<thinking>）',
+      order: 1,
       weight: 8
     },
     actionOptions: {
@@ -430,7 +435,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
 - tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头（V3短路径）
   - ✅ \`角色.背包.物品.item_ore_mystery_001\`
-  - ❌ \`背包.物品.item_ore_mystery_001\`
+  - 禁止以 \`背包.\` 开头（必须写 \`角色.背包.\`）
 - 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`，禁止中文引号/逗号/顿号（“” ， 、）
 
 ## ⚠️ 严禁（违反将导致生成失败）
@@ -513,7 +518,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
 - tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头（V3短路径）
   - ✅ \`角色.背包.物品.item_001\`
-  - ❌ \`背包.物品.item_001\`
+  - 禁止以 \`背包.\` 开头（必须写 \`角色.背包.\`）
 - 开局阶段 tavern_commands 只允许 \`action: "set"\`（不要 add/push/delete）
 - 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`，禁止中文引号/逗号/顿号（“” ， 、）
 
