@@ -394,20 +394,20 @@ const repairCommonAIFormat = (text: string): string => {
     // 去掉重复的“系统提示/系统判定”单行标题
     if (line === '系统提示' || line === '系统判定') continue
 
-    // 把裸露的系统行包进 〖〗，避免污染正文解析
+    // 把裸露的系统行包进 〔〕，避免污染正文解析
     const systemHint = line.match(/^系统提示[:：]\s*(.+)$/)
     if (systemHint) {
-      out.push(`〖系统提示：${systemHint[1].trim()}〗`)
+      out.push(`〔系统提示：${systemHint[1].trim()}〕`)
       continue
     }
 
     const systemJudgement = line.match(/^系统判定[:：]\s*(.+)$/)
     if (systemJudgement) {
-      out.push(`〖系统判定：${systemJudgement[1].trim()}〗`)
+      out.push(`〔系统判定：${systemJudgement[1].trim()}〕`)
       continue
     }
 
-    // 修复误用的“【当前状态】”面板：转为 〖状态变化：...〗
+    // 修复误用的“【当前状态】”面板：转为 〔状态变化：...〕
     if (line === '【当前状态】') {
       const statusLines: string[] = []
       let j = i + 1
@@ -416,7 +416,7 @@ const repairCommonAIFormat = (text: string): string => {
         const candidate = candidateRaw.trim()
         if (!candidate) break
         const firstChar = candidate[0]
-        if (firstChar === '【' || firstChar === '〖' || firstChar === '`' || firstChar === '"' || firstChar === '“' || firstChar === '「') break
+        if (firstChar === '【' || firstChar === '〔' || firstChar === '〖' || firstChar === '`' || firstChar === '"' || firstChar === '“' || firstChar === '「') break
         statusLines.push(candidate)
         if (statusLines.length >= 8) {
           j++
@@ -425,7 +425,7 @@ const repairCommonAIFormat = (text: string): string => {
       }
 
       if (statusLines.length > 0) {
-        out.push(`〖状态变化：${statusLines.join('；')}〗`)
+        out.push(`〔状态变化：${statusLines.join('；')}〕`)
         i = j - 1
       }
       continue
@@ -636,17 +636,35 @@ const parsedText = computed(() => {
       }
     }
 
-    // 判定结果 〖〗
-    const judgementStart = processedText.indexOf('〖', currentIndex)
+    // 判定结果 〔〕（兼容旧格式 〖〗）
+    const judgementStart = processedText.indexOf('〔', currentIndex)
     if (judgementStart !== -1) {
-      const judgementEnd = processedText.indexOf('〗', judgementStart + 1)
+      const judgementEnd = processedText.indexOf('〕', judgementStart + 1)
       if (judgementEnd !== -1) {
         markers.push({
           start: judgementStart,
           end: judgementEnd + 1,
           type: 'judgement' as const,
           contentStart: judgementStart + 1,
-          contentEnd: judgementEnd
+          contentEnd: judgementEnd,
+          wrapStart: '〔',
+          wrapEnd: '〕'
+        })
+      }
+    }
+
+    const legacyJudgementStart = processedText.indexOf('〖', currentIndex)
+    if (legacyJudgementStart !== -1) {
+      const legacyJudgementEnd = processedText.indexOf('〗', legacyJudgementStart + 1)
+      if (legacyJudgementEnd !== -1) {
+        markers.push({
+          start: legacyJudgementStart,
+          end: legacyJudgementEnd + 1,
+          type: 'judgement' as const,
+          contentStart: legacyJudgementStart + 1,
+          contentEnd: legacyJudgementEnd,
+          wrapStart: '〖',
+          wrapEnd: '〗'
         })
       }
     }
@@ -682,7 +700,9 @@ const parsedText = computed(() => {
         if (judgement) {
           parts.push({ type: 'judgement-card', content: judgement })
         } else {
-          parts.push({ type: 'normal', content: `〖${markedContent}〗` })
+          const wrapStart = nextMarker.wrapStart ?? '〔'
+          const wrapEnd = nextMarker.wrapEnd ?? '〕'
+          parts.push({ type: 'normal', content: `${wrapStart}${markedContent}${wrapEnd}` })
         }
       } else {
         parts.push({
