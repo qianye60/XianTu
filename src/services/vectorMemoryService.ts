@@ -373,7 +373,11 @@ class VectorMemoryService {
     if (isTavernEnv()) {
       return { available: false, reason: '酒馆环境下需为 Embedding 分配独立API（非默认）并填写 Key/模型' };
     }
-    return { available: false, reason: '请在 API管理 中为 Embedding 配置 API 地址/Key/模型' };
+    return {
+      available: false,
+      reason:
+        '请在 API管理 中为 Embedding 配置 API 地址/Key/模型；阿里百炼 Embedding 请用 DashScope 原生域名（https://dashscope.aliyuncs.com 或 https://dashscope-intl.aliyuncs.com），不要用 OpenAI 兼容 /compatible-mode',
+    };
   }
 
   private async embedText(text: string): Promise<{ vector: number[]; model: string } | null> {

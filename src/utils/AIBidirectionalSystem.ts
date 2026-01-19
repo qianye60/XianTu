@@ -1861,6 +1861,15 @@ ${step1Text}
         });
       } catch (error) {
         console.error(`[AI双向系统] 指令执行失败:`, command, error);
+        changes.unshift({
+          key: '? 执行失败',
+          action: 'execution_error',
+          oldValue: undefined,
+          newValue: {
+            command: JSON.stringify(command, null, 2),
+            error: error instanceof Error ? error.message : String(error)
+          }
+        });
       }
     }
 
@@ -2185,6 +2194,33 @@ ${saveDataJson}`;
       const trimmed = key.trim();
       if (!trimmed) return key;
 
+      // common "looks-valid" but wrong V3 paths -> correct paths
+      if (trimmed === '角色.声望' || trimmed.startsWith('角色.声望.')) return trimmed.replace(/^角色\.声望/, '角色.属性.声望');
+      if (trimmed === '角色.气血' || trimmed.startsWith('角色.气血.')) return trimmed.replace(/^角色\.气血/, '角色.属性.气血');
+      if (trimmed === '角色.灵气' || trimmed.startsWith('角色.灵气.')) return trimmed.replace(/^角色\.灵气/, '角色.属性.灵气');
+      if (trimmed === '角色.神识' || trimmed.startsWith('角色.神识.')) return trimmed.replace(/^角色\.神识/, '角色.属性.神识');
+      if (trimmed === '角色.寿命' || trimmed.startsWith('角色.寿命.')) return trimmed.replace(/^角色\.寿命/, '角色.属性.寿命');
+      if (trimmed === '角色.境界' || trimmed.startsWith('角色.境界.')) return trimmed.replace(/^角色\.境界/, '角色.属性.境界');
+      if (trimmed === '角色.状态效果' || trimmed.startsWith('角色.状态效果')) return trimmed.replace(/^角色\.状态效果/, '角色.效果');
+
+      // legacy time shortcuts -> V3
+      if (trimmed === '游戏时间') return '元数据.时间';
+      if (trimmed.startsWith('游戏时间.')) return `元数据.时间.${trimmed.slice('游戏时间.'.length)}`;
+      if (trimmed === '时间') return '元数据.时间';
+      if (trimmed.startsWith('时间.')) return `元数据.时间.${trimmed.slice('时间.'.length)}`;
+
+      // legacy memory shortcuts -> V3
+      if (trimmed === '记忆') return '社交.记忆';
+      if (trimmed.startsWith('记忆.')) return `社交.记忆.${trimmed.slice('记忆.'.length)}`;
+
+      // legacy attribute shortcuts -> V3
+      if (trimmed === '声望' || trimmed.startsWith('声望.')) return `角色.属性.${trimmed}`;
+      if (trimmed === '气血' || trimmed.startsWith('气血.')) return `角色.属性.${trimmed}`;
+      if (trimmed === '灵气' || trimmed.startsWith('灵气.')) return `角色.属性.${trimmed}`;
+      if (trimmed === '神识' || trimmed.startsWith('神识.')) return `角色.属性.${trimmed}`;
+      if (trimmed === '寿命' || trimmed.startsWith('寿命.')) return `角色.属性.${trimmed}`;
+      if (trimmed === '境界' || trimmed.startsWith('境界.')) return `角色.属性.${trimmed}`;
+
       // already V3
       if (allowedRoots.some((r) => trimmed === r || trimmed.startsWith(`${r}.`))) return trimmed;
 
@@ -2211,6 +2247,74 @@ ${saveDataJson}`;
           console.warn(`[AI双向系统] 预处理: key 纠正 "${(cmd as any).key}" -> "${normalized}"`);
           (cmd as any).key = normalized;
         }
+      }
+
+      // 修复: set 元数据.时间 时缺少小时/分钟（补齐为 0，避免时间显示异常）
+      if (cmd.action === 'set' && cmd.key === '元数据.时间' && cmd.value && typeof cmd.value === 'object' && !Array.isArray(cmd.value)) {
+        const t = cmd.value as Record<string, any>;
+        if (typeof t.小时 !== 'number') t.小时 = 0;
+        if (typeof t.分钟 !== 'number') t.分钟 = 0;
+      }
+
+      // 修复: AI 把“新增一个物品”写成 set 角色.背包.物品 = {物品对象}
+      if (
+        cmd.action === 'set' &&
+        cmd.key === '角色.背包.物品' &&
+        cmd.value &&
+        typeof cmd.value === 'object' &&
+        !Array.isArray(cmd.value) &&
+        (((cmd.value as any).物品ID && typeof (cmd.value as any).物品ID === 'string') ||
+          (typeof (cmd.value as any).名称 === 'string' && (cmd.value as any).名称) ||
+          (typeof (cmd.value as any).类型 === 'string' && (cmd.value as any).类型))
+      ) {
+        let itemValue: any = cmd.value;
+        if (itemValue.类型 === '功法') itemValue = this._repairTechniqueItem(itemValue);
+        const itemId =
+          typeof itemValue.物品ID === 'string' && itemValue.物品ID.trim()
+            ? itemValue.物品ID.trim()
+            : `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        itemValue.物品ID = itemId;
+        console.warn(`[AI双向系统] 预处理: 背包物品 set-root→set 角色.背包.物品.${itemId}`);
+        return { action: 'set', key: `角色.背包.物品.${itemId}`, value: itemValue };
+      }
+
+      // 修复: AI 把背包物品当数组 push（实际是对象字典）
+      if (cmd.action === 'push' && typeof cmd.key === 'string' && inventoryRootKeys.has(cmd.key)) {
+        let itemValue: any = cmd.value ?? null;
+
+        // 兼容：push 进来的是字符串（物品名）
+        if (typeof itemValue === 'string') {
+          const itemName = itemValue.trim();
+          itemValue = {
+            物品ID: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            名称: itemName || '未知物品',
+            类型: '杂物',
+            品质: { quality: '凡品', grade: 0 },
+            数量: 1,
+            描述: `一个普通的${itemName || '物品'}。`
+          };
+        }
+
+        // 若是功法物品，补齐功法技能等字段，避免后续校验/显示异常
+        if (itemValue && typeof itemValue === 'object' && itemValue.类型 === '功法') {
+          itemValue = this._repairTechniqueItem(itemValue);
+        }
+
+        const itemId =
+          itemValue && typeof itemValue === 'object' && typeof itemValue.物品ID === 'string' && itemValue.物品ID.trim()
+            ? itemValue.物品ID.trim()
+            : `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        if (itemValue && typeof itemValue === 'object') {
+          itemValue.物品ID = itemId;
+        }
+
+        console.warn(`[AI双向系统] 预处理: 背包物品 push→set 角色.背包.物品.${itemId}`);
+        return {
+          action: 'set',
+          key: `角色.背包.物品.${itemId}`,
+          value: itemValue
+        };
       }
 
       // 修复: AI推送一个字符串而不是物品对象到物品栏
@@ -2389,6 +2493,17 @@ ${saveDataJson}`;
           set(saveData, path, 0);
         } else {
           set(saveData, path, newValue);
+        }
+
+        // ?? 大道经验：add 当前经验 时同步累计总经验（仅正增量）
+        const daoCurrentExpMatch = path.match(/^角色\.大道\.大道列表\.([^\.]+)\.当前经验$/);
+        if (daoCurrentExpMatch && value > 0) {
+          const daoName = daoCurrentExpMatch[1];
+          const totalPath = `角色.大道.大道列表.${daoName}.总经验`;
+          const totalValue = get(saveData, totalPath, 0);
+          if (typeof totalValue === 'number') {
+            set(saveData, totalPath, Math.max(0, totalValue + value));
+          }
         }
 
         break;

@@ -170,12 +170,12 @@ const isSplitGeneration = computed(() => {
   if (settings) {
     try {
       const parsed = JSON.parse(settings);
-      return parsed.splitResponseGeneration !== false; // 默认为true
+      return parsed.splitResponseGeneration === true; // 默认关闭，仅显式开启时为true
     } catch {
-      return true;
+      return false;
     }
   }
-  return true;
+  return false;
 });
 
 // 检测是否开启事件系统
