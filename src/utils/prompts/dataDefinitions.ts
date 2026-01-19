@@ -72,7 +72,7 @@ const CHARACTER_STRUCTURE = `
 - 装备6: string|null
 
 ### 1.6 法身（NSFW/酒馆端；路径：\`角色.身体\`）
-仅当 **系统配置.nsfwMode=true** 且为酒馆端时，才会生成/更新。
+仅当 **系统.配置.nsfwMode=true** 且为酒馆端时，才会生成/更新。
 
 - 身高?: number (cm)
 - 体重?: number (kg)
@@ -451,7 +451,7 @@ const EVENT_SYSTEM_STRUCTURE = `
 `
 
 const SYSTEM_CONFIG_STRUCTURE = `
-## 9. 系统配置 (System Config - Read-only)
+## 9. 系统.配置 (SystemConfig - Read-only)
 - nsfwMode: boolean
 - nsfwGenderFilter: "all"|"female"|"male"
 `
