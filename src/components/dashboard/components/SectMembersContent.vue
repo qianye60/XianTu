@@ -241,8 +241,9 @@ function sendPrompt(text: string) {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-height: 60vh;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .player-info-bar {
@@ -315,6 +316,7 @@ function sendPrompt(text: string) {
 
 .member-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 

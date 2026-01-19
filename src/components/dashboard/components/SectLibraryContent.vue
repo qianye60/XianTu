@@ -10,6 +10,12 @@
         <span class="info-label">贡献点</span>
         <span class="info-value contribution">{{ playerContribution }}</span>
       </div>
+      <div class="info-actions">
+        <button class="gen-btn" @click="generateLibraryContent" :disabled="isGenerating || !canGenerate">
+          <RefreshCw :size="14" :class="{ spin: isGenerating }" />
+          <span>{{ hasTechniques ? '换一批' : '生成藏经阁' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- 藏经阁分层 -->
@@ -38,6 +44,10 @@
               <BookOpen :size="32" class="empty-icon" />
               <p>此层暂无可学功法</p>
               <p class="hint">功法将由AI根据剧情生成</p>
+              <button v-if="canGenerate" class="ask-btn" @click="generateLibraryContent" :disabled="isGenerating">
+                <RefreshCw :size="14" :class="{ spin: isGenerating }" />
+                <span>{{ isGenerating ? '生成中...' : '点击生成' }}</span>
+              </button>
             </div>
             <div v-else class="technique-list">
               <div
@@ -86,12 +96,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
-import { Lock, ChevronDown, BookOpen, Coins, Info } from 'lucide-vue-next';
+import { Lock, ChevronDown, BookOpen, Coins, Info, RefreshCw } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
+import { useCharacterStore } from '@/stores/characterStore';
+import { generateWithRawPrompt } from '@/utils/tavernCore';
+import { parseJsonFromText } from '@/utils/jsonExtract';
+import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
+import type { GM_Response } from '@/types/AIGameMaster';
 
 const gameStateStore = useGameStateStore();
+const characterStore = useCharacterStore();
 const expandedFloor = ref<number | null>(1);
+const isGenerating = ref(false);
 
 // 职位等级映射
 const positionLevels: Record<string, number> = {
@@ -109,6 +126,8 @@ const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
 const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
 const playerContribution = computed(() => playerSectInfo.value?.贡献 || 0);
 const playerPositionLevel = computed(() => positionLevels[playerPosition.value] ?? -1);
+const canGenerate = computed(() => !!playerSectInfo.value?.宗门名称 && !!gameStateStore.sectSystem);
+const hasTechniques = computed(() => getAvailableTechniques().length > 0);
 
 // 获取背包中的功法
 const ownedTechniqueIds = computed(() => {
@@ -229,6 +248,89 @@ function learnTechnique(tech: { id: string; name: string; cost: number }) {
   sendChat(promptText);
   toast.success('已发送到对话');
 }
+
+async function generateLibraryContent() {
+  if (!canGenerate.value) {
+    toast.warning('未加入宗门或宗门数据未加载');
+    return;
+  }
+  if (isGenerating.value) return;
+  isGenerating.value = true;
+  try {
+    const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+    if (!sectName) {
+      toast.warning('未加入宗门');
+      return;
+    }
+
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (!saveData) {
+      toast.error('未加载存档，无法生成');
+      return;
+    }
+
+    const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
+    const existing = (gameStateStore.sectSystem as any)?.宗门藏经阁?.[sectName] ?? [];
+    const existingNames = Array.isArray(existing)
+      ? existing
+          .map((v: any) => String(v?.name || v?.名称 || '').trim())
+          .filter(Boolean)
+          .slice(0, 20)
+      : [];
+
+    const nowIso = new Date().toISOString();
+    const prompt = `
+# 任务：生成【宗门藏经阁】功法列表（单次功能请求）
+你将为宗门「${sectName}」生成可兑换/可学习的功法条目，供前端“宗门藏经阁”页面展示与兑换。
+
+## 输出格式（必须）
+只输出 1 个 JSON 对象（不要代码块/不要解释/不要额外文本/不要<thinking>）：
+{"text":"...","mid_term_memory":"","tavern_commands":[...],"action_options":[]}
+
+## 写入路径（必须，V3短路径）
+- 社交.宗门.宗门藏经阁.${sectName} : 功法数组（完整覆盖）
+- 社交.宗门.内容状态.${sectName}.藏经阁已初始化 : true
+- 社交.宗门.内容状态.${sectName}.最后更新时间 : "${nowIso}"
+- 社交.宗门.内容状态.${sectName}.演变次数 : 若已有则 +1，否则 1
+
+## 功法对象字段（每条必须包含）
+{
+  "id": "string（唯一，建议 sectlib_<随机>）",
+  "name": "string（功法名）",
+  "quality": "凡品|黄品|玄品|地品|天品|仙品|神品",
+  "cost": number（正整数，贡献点）,
+  "description": "string（20-80字，简介）"
+}
+可选字段（如有就填，没必要可省略）："功法效果" "境界要求" "职位要求" "剩余数量"
+
+## 约束（必须遵守）
+- 生成 16-30 条功法，至少覆盖：凡/黄/玄/地/天 中的 4 个品阶
+- cost 需与品阶、职位匹配（越高级越贵），不能全都同价
+- 内容必须与宗门设定匹配；不要出现现代枪械、现实品牌等
+- 不要输出 Markdown（不要#、不要列表符号作为行首），JSON 字符串内换行用 \\\\n
+- text 字段写简短系统提示即可，例如：〔宗门藏经阁已更新〕（不要长篇叙事）
+
+## 宗门信息（参考）
+- 玩家职位：${playerPosition.value}
+- 玩家可用贡献点：${playerContribution.value}
+- 宗门档案（可能为空）：${JSON.stringify(sectProfile).slice(0, 1200)}
+- 现有条目（仅供参考，可替换）：${existingNames.join('，') || '（无）'}
+    `.trim();
+
+    const raw = await generateWithRawPrompt('生成宗门藏经阁', prompt, false, 'sect_generation');
+    const parsed = parseJsonFromText(raw) as Partial<GM_Response>;
+
+    const { saveData: updated } = await AIBidirectionalSystem.processGmResponse(parsed as GM_Response, saveData, false);
+    gameStateStore.loadFromSaveData(updated);
+    await characterStore.saveCurrentGame();
+    toast.success('宗门藏经阁已更新');
+  } catch (e) {
+    console.error('[SectLibrary] generate failed', e);
+    toast.error('生成失败，请稍后重试');
+  } finally {
+    isGenerating.value = false;
+  }
+}
 </script>
 
 <style scoped>
@@ -236,8 +338,9 @@ function learnTechnique(tech: { id: string; name: string; cost: number }) {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-height: 60vh;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .player-info-bar {
@@ -247,6 +350,46 @@ function learnTechnique(tech: { id: string; name: string; cost: number }) {
   background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(168, 85, 247, 0.05));
   border-radius: 8px;
   border: 1px solid rgba(147, 51, 234, 0.2);
+}
+
+.info-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.gen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(147, 51, 234, 0.25);
+  background: rgba(147, 51, 234, 0.08);
+  color: #9333ea;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gen-btn:hover:not(:disabled) {
+  border-color: rgba(147, 51, 234, 0.45);
+  background: rgba(147, 51, 234, 0.12);
+}
+
+.gen-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .info-item {
@@ -277,6 +420,9 @@ function learnTechnique(tech: { id: string; name: string; cost: number }) {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .floor-section {
@@ -354,6 +500,31 @@ function learnTechnique(tech: { id: string; name: string; cost: number }) {
 .empty-icon {
   opacity: 0.5;
   margin-bottom: 0.5rem;
+}
+
+.ask-btn {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 8px;
+  border: 1px solid rgba(147, 51, 234, 0.25);
+  background: rgba(147, 51, 234, 0.08);
+  color: #9333ea;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ask-btn:hover:not(:disabled) {
+  border-color: rgba(147, 51, 234, 0.45);
+  background: rgba(147, 51, 234, 0.12);
+}
+
+.ask-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .hint {

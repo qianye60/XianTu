@@ -10,6 +10,12 @@
         <span class="info-label">可用贡献点</span>
         <span class="info-value contribution">{{ playerContribution }}</span>
       </div>
+      <div class="info-actions">
+        <button class="gen-btn" @click="generateShopContent" :disabled="isGenerating || !canGenerate">
+          <RefreshCw :size="14" :class="{ spin: isGenerating }" />
+          <span>{{ hasItems ? '换一批' : '生成商店' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- 兑换分类 -->
@@ -32,9 +38,9 @@
         <Package :size="48" class="empty-icon" />
         <p class="empty-text">暂无可兑换物品</p>
         <p class="empty-hint">可兑换物品由AI根据宗门设定生成</p>
-        <button class="ask-btn" @click="sendPrompt('请告诉我宗门贡献可以兑换什么物品')">
-          <MessageCircle :size="14" />
-          <span>询问可兑换物品</span>
+        <button v-if="canGenerate" class="ask-btn" @click="generateShopContent" :disabled="isGenerating">
+          <RefreshCw :size="14" :class="{ spin: isGenerating }" />
+          <span>{{ isGenerating ? '生成中...' : '点击生成' }}</span>
         </button>
       </div>
 
@@ -116,14 +122,21 @@
 import { ref, computed } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import {
-  Coins, Package, MessageCircle, ShoppingCart, Info, Lightbulb,
+  Coins, Package, ShoppingCart, Info, Lightbulb, RefreshCw,
   Scroll, Swords, Users, Pill, Sword, BookOpen, Gem
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
+import { useCharacterStore } from '@/stores/characterStore';
+import { generateWithRawPrompt } from '@/utils/tavernCore';
+import { parseJsonFromText } from '@/utils/jsonExtract';
+import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
+import type { GM_Response } from '@/types/AIGameMaster';
 
 const gameStateStore = useGameStateStore();
+const characterStore = useCharacterStore();
 const activeTab = ref<string>('all');
+const isGenerating = ref(false);
 
 // 兑换分类
 const exchangeTabs = [
@@ -138,6 +151,7 @@ const exchangeTabs = [
 const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
 const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
 const playerContribution = computed(() => playerSectInfo.value?.贡献 || 0);
+const canGenerate = computed(() => !!playerSectInfo.value?.宗门名称 && !!gameStateStore.sectSystem);
 
 // 可兑换物品列表（来自宗门系统）
 type ExchangeItem = {
@@ -171,6 +185,7 @@ const exchangeItems = computed<ExchangeItem[]>(() => {
 
   return rawItems.map(normalizeExchangeItem);
 });
+const hasItems = computed(() => exchangeItems.value.length > 0);
 // 过滤后的物品
 const filteredItems = computed(() => {
   if (activeTab.value === 'all') return exchangeItems.value;
@@ -204,6 +219,92 @@ function sendPrompt(text: string) {
   sendChat(text);
   toast.success('已发送到对话');
 }
+
+async function generateShopContent() {
+  if (!canGenerate.value) {
+    toast.warning('未加入宗门或宗门数据未加载');
+    return;
+  }
+  if (isGenerating.value) return;
+  isGenerating.value = true;
+  try {
+    const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+    if (!sectName) {
+      toast.warning('未加入宗门');
+      return;
+    }
+
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (!saveData) {
+      toast.error('未加载存档，无法生成');
+      return;
+    }
+
+    const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
+    const existing = (gameStateStore.sectSystem as any)?.宗门贡献商店?.[sectName] ?? [];
+    const existingNames = Array.isArray(existing)
+      ? existing
+          .map((v: any) => String(v?.name || v?.名称 || '').trim())
+          .filter(Boolean)
+          .slice(0, 20)
+      : [];
+
+    const nowIso = new Date().toISOString();
+    const prompt = `
+# 任务：生成【宗门贡献商店】可兑换物品（单次功能请求）
+你将为宗门「${sectName}」生成“贡献点兑换商店”的物品条目，供前端展示与玩家点击兑换。
+
+## 输出格式（必须）
+只输出 1 个 JSON 对象（不要代码块/不要解释/不要额外文本/不要<thinking>）：
+{"text":"...","mid_term_memory":"","tavern_commands":[...],"action_options":[]}
+
+## 写入路径（必须，V3短路径）
+- 社交.宗门.宗门贡献商店.${sectName} : 物品数组（完整覆盖）
+- 社交.宗门.内容状态.${sectName}.贡献商店已初始化 : true
+- 社交.宗门.内容状态.${sectName}.最后更新时间 : "${nowIso}"
+- 社交.宗门.内容状态.${sectName}.演变次数 : 若已有则 +1，否则 1
+
+## 物品对象字段（每条必须包含）
+{
+  "id": "string（唯一，建议 sectshop_<随机>）",
+  "name": "string（物品名）",
+  "icon": "string（1-2字符，如：丹/剑/卷/玉/符/草/石）",
+  "type": "丹药|功法|装备|材料|其他",
+  "quality": "凡品|黄品|玄品|地品|天品|仙品|神品",
+  "description": "string（20-80字，简介）",
+  "cost": number（正整数，贡献点）
+}
+可选字段（如有就填，没必要可省略）："stock" "使用效果" "限购数量" "职位要求" "稀有度"
+
+## 约束（必须遵守）
+- 生成 12-24 件物品，type 至少覆盖 4 类
+- cost 需拉开梯度，不能全都同价；高品阶更贵
+- stock 可选：如提供必须是 0-999 的整数（0 表示售罄）
+- 内容必须与宗门设定匹配；不要出现现代枪械、现实品牌等
+- 不要输出 Markdown（不要#、不要列表符号作为行首），JSON 字符串内换行用 \\\\n
+- text 字段写简短系统提示即可，例如：〔宗门贡献商店已更新〕（不要长篇叙事）
+
+## 宗门信息（参考）
+- 玩家职位：${playerPosition.value}
+- 玩家可用贡献点：${playerContribution.value}
+- 宗门档案（可能为空）：${JSON.stringify(sectProfile).slice(0, 1200)}
+- 现有条目（仅供参考，可替换）：${existingNames.join('，') || '（无）'}
+    `.trim();
+
+    const raw = await generateWithRawPrompt('生成宗门贡献商店', prompt, false, 'sect_generation');
+    const parsed = parseJsonFromText(raw) as Partial<GM_Response>;
+
+    const { saveData: updated } = await AIBidirectionalSystem.processGmResponse(parsed as GM_Response, saveData, false);
+    gameStateStore.loadFromSaveData(updated);
+    await characterStore.saveCurrentGame();
+    toast.success('宗门贡献商店已更新');
+  } catch (e) {
+    console.error('[SectShop] generate failed', e);
+    toast.error('生成失败，请稍后重试');
+  } finally {
+    isGenerating.value = false;
+  }
+}
 </script>
 
 <style scoped>
@@ -211,8 +312,9 @@ function sendPrompt(text: string) {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-height: 60vh;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .player-info-bar {
@@ -222,6 +324,46 @@ function sendPrompt(text: string) {
   background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(168, 85, 247, 0.05));
   border-radius: 8px;
   border: 1px solid rgba(147, 51, 234, 0.2);
+}
+
+.info-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.gen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.08);
+  color: #f59e0b;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gen-btn:hover:not(:disabled) {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.gen-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .info-item {
@@ -283,6 +425,7 @@ function sendPrompt(text: string) {
 
 .exchange-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
