@@ -122,6 +122,12 @@ export async function assembleSystemPrompt(
     if (onlineInteraction) {
       promptSections.push(onlineInteraction);
     }
+
+    // 注入“用指令上报联机日志”的规则（让AI主动生成上报命令）
+    const onlineServerLogCommand = (await getPrompt('onlineServerLogCommand')).trim();
+    if (onlineServerLogCommand) {
+      promptSections.push(onlineServerLogCommand);
+    }
   }
 
   const normalizedSections = promptSections
