@@ -1199,35 +1199,82 @@ ${step1Text}
     try {
       // 🔥 使用 v3 而不是原始 saveData，因为 maybeTriggerScheduledWorldEvent 可能已修改了 v3（如下次事件时间）
       const dataForProcessing = isSaveDataV3(saveData) ? saveData : migrateSaveDataToLatest(saveData).migrated;
-      const { saveData: updatedSaveData } = await this.processGmResponse(gmResponse, dataForProcessing as SaveData, false, options?.shouldAbort);
+      const { saveData: updatedSaveData, stateChanges, onlineLogPosted } = await this.processGmResponse(
+        gmResponse,
+        dataForProcessing as SaveData,
+        false,
+        options?.shouldAbort
+      );
       if (options?.onStateChange) {
         options.onStateChange(updatedSaveData as unknown as PlainObject);
       }
 
-      // 🌐 联机穿越：每回合追加一条“被入侵者视角”的简短入侵日志到服务器
-      try {
-        const gameStateStore = useGameStateStore();
-        const onlineState = gameStateStore.onlineState as any;
-        const sessionIdRaw = onlineState?.房间ID;
-        const target = onlineState?.穿越目标;
-        const inTravel = onlineState?.模式 === '联机' && sessionIdRaw && target?.世界ID;
-        const sessionId = Number(sessionIdRaw);
-        if (inTravel && Number.isFinite(sessionId) && sessionId > 0) {
-          const actorName = gameStateStore.character?.名字 || '陌生人';
-          const place = gameStateStore.location?.描述 || '未知之地';
-          const action = (userMessage && String(userMessage).trim()) || '继续行动';
-          const snippet = String((gmResponse as any)?.text || '')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 80);
-          const note = snippet
-            ? `你离线期间，${actorName}出现在「${place}」，并尝试：${action}。异动概述：${snippet}`
-            : `你离线期间，${actorName}出现在「${place}」，并尝试：${action}`;
-          const { appendTravelNote } = await import('@/services/onlineTravel');
-          await appendTravelNote(sessionId, note, { place, action, snippet });
+      // 🌐 联机穿越：如果 AI 没有通过“系统.联机.服务器日志”指令上报，则兜底生成一条简短日志
+      if (!onlineLogPosted) {
+        try {
+          const gameStateStore = useGameStateStore();
+          const onlineState = gameStateStore.onlineState as any;
+          const sessionIdRaw = onlineState?.房间ID;
+          const target = onlineState?.穿越目标;
+          const inTravel = onlineState?.模式 === '联机' && sessionIdRaw && target?.世界ID;
+          const sessionId = Number(sessionIdRaw);
+          if (inTravel && Number.isFinite(sessionId) && sessionId > 0) {
+            const actorName = gameStateStore.character?.名字 || '陌生人';
+            const place = gameStateStore.location?.描述 || '未知之地';
+            const action = (userMessage && String(userMessage).trim()) || '继续行动';
+
+            const formatChangeValue = (v: unknown): string => {
+              if (v == null) return String(v);
+              if (typeof v === 'string') return v.length > 60 ? `${v.slice(0, 60)}…` : v;
+              if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+              if (Array.isArray(v)) return `数组(${v.length})`;
+              if (typeof v === 'object') return '对象';
+              return String(v);
+            };
+
+            const allChanges = Array.isArray((stateChanges as any)?.changes) ? ((stateChanges as any).changes as any[]) : [];
+            const relevantChanges = allChanges.filter((c) => {
+              const key = String(c?.key ?? '');
+              if (!key) return false;
+              if (key.startsWith('系统.历史') || key.startsWith('历史.')) return false;
+              if (key.includes('系统.历史') || key.includes('叙事历史') || key.includes('对话历史')) return false;
+              return true;
+            });
+            const changeSummary = relevantChanges
+              .slice(0, 6)
+              .map((c) => {
+                const key = String(c?.key ?? '');
+                const act = String(c?.action ?? '');
+                const next = formatChangeValue(c?.newValue);
+                return act ? `${key}(${act})=${next}` : `${key}=${next}`;
+              })
+              .join('；');
+
+            const snippet = String((gmResponse as any)?.text || '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 80);
+
+            let note = `你离线期间，${actorName}出现在「${place}」，并尝试：${action}`;
+            if (changeSummary) note += `。状态变更：${changeSummary}`;
+            if (snippet) note += `。异动概述：${snippet}`;
+
+            const { appendTravelNote } = await import('@/services/onlineTravel');
+            await appendTravelNote(sessionId, note, {
+              place,
+              action,
+              snippet,
+              changes: relevantChanges.slice(0, 10).map((c) => ({
+                key: c?.key,
+                action: c?.action,
+                oldValue: c?.oldValue,
+                newValue: c?.newValue,
+              })),
+            });
+          }
+        } catch (e) {
+          console.warn('[AI双向系统] travel note append failed', e);
         }
-      } catch (e) {
-        console.warn('[AI双向系统] travel note append failed', e);
       }
       return gmResponse;
     } catch (error) {
@@ -1656,11 +1703,11 @@ ${step1Text}
     currentSaveData: SaveData,
     isInitialization = false,
     shouldAbort?: () => boolean
-  ): Promise<{ saveData: SaveData; stateChanges: StateChangeLog }> {
+  ): Promise<{ saveData: SaveData; stateChanges: StateChangeLog; onlineLogPosted: boolean }> {
     const abortRequested = () => shouldAbort?.() ?? false;
     if (abortRequested()) {
       console.log('[AI System] Abort detected, skip command processing');
-      return { saveData: currentSaveData, stateChanges: { changes: [], timestamp: new Date().toISOString() } };
+      return { saveData: currentSaveData, stateChanges: { changes: [], timestamp: new Date().toISOString() }, onlineLogPosted: false };
     }
     // 🔥 先修复数据格式，确保所有字段正确
     const { repairSaveData } = await import('./dataRepair');
@@ -1761,7 +1808,7 @@ ${step1Text}
 
 
     if (!response.tavern_commands?.length) {
-      return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() } };
+      return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() }, onlineLogPosted: false };
     }
 
     // 🔥 新增：预处理指令以修复常见的AI错误
@@ -1844,12 +1891,61 @@ ${step1Text}
 
     console.log(`[AI双向系统] 执行 ${sortedCommands.length} 条有效指令，拒绝 ${rejectedCommands.length} 条无效指令`);
 
+    let onlineLogPosted = false;
+    let onlineLogPostedCount = 0;
+    const isOnlineServerLogCommand = (cmd: any): boolean =>
+      cmd && cmd.action === 'push' && typeof cmd.key === 'string' && cmd.key === '系统.联机.服务器日志';
+
     for (const command of sortedCommands) {
       if (abortRequested()) {
         console.log('[AI System] Abort detected, stop command execution loop');
         break;
       }
       try {
+        // 🌐 联机：允许 AI 通过指令上报“本回合日志”到服务器（不修改存档）
+        if (isOnlineServerLogCommand(command)) {
+          if (onlineLogPostedCount >= 1) {
+            continue;
+          }
+          onlineLogPostedCount++;
+
+          try {
+            const gameStateStore = useGameStateStore();
+            const onlineState = (gameStateStore as any)?.onlineState as any;
+            const sessionIdRaw = onlineState?.房间ID;
+            const inTravel = onlineState?.模式 === '联机' && sessionIdRaw;
+            const sessionId = Number(sessionIdRaw);
+            if (!inTravel || !Number.isFinite(sessionId) || sessionId <= 0) {
+              continue;
+            }
+
+            const raw = (command as any).value;
+            let note: string | null = null;
+            let meta: unknown = undefined;
+
+            if (typeof raw === 'string') {
+              note = raw;
+            } else if (raw && typeof raw === 'object') {
+              const val = raw as Record<string, any>;
+              note = typeof val.note === 'string' ? val.note : (typeof val.文本 === 'string' ? val.文本 : null);
+              meta = val.meta !== undefined ? val.meta : undefined;
+            }
+
+            if (typeof note === 'string') {
+              const trimmed = note.trim();
+              if (trimmed) {
+                const safeNote = trimmed.slice(0, 600);
+                const { appendTravelNote } = await import('@/services/onlineTravel');
+                await appendTravelNote(sessionId, safeNote, meta);
+                onlineLogPosted = true;
+              }
+            }
+          } catch (e) {
+            console.warn('[AI双向系统] online server log command failed', e);
+          }
+          continue;
+        }
+
         const oldValue = get(saveData, command.key);
         this.executeCommand(command, saveData);
         const newValue = get(saveData, command.key);
@@ -1897,7 +1993,7 @@ ${step1Text}
       gameStateStore.loadFromSaveData(saveData);
     }
 
-    return { saveData, stateChanges: stateChangesLog };
+    return { saveData, stateChanges: stateChangesLog, onlineLogPosted };
   }
 
 

@@ -354,7 +354,9 @@
               <div v-for="(e, idx) in sessionLogs.events" :key="idx" class="log-item">
                 <span class="log-time">{{ e.created_at }}</span>
                 <span class="log-type">{{ formatEventType(e.event_type) }}</span>
+                <span v-if="e.map_id != null" class="log-meta">map #{{ e.map_id }}</span>
                 <span v-if="e.poi_id != null" class="log-meta">poi #{{ e.poi_id }}</span>
+                <span v-if="getEventNoteText(e)" class="log-meta note">{{ getEventNoteText(e) }}</span>
               </div>
             </div>
           </div>
@@ -401,6 +403,7 @@ import {
   type TravelStartResponse,
   type TravelSessionStatusResponse,
   type TravelableWorld,
+  type TravelSessionEvent,
   type TravelSessionLogsResponse,
   type WorldInstanceSummary,
   type InvasionReportOut,
@@ -876,11 +879,22 @@ const loadSessionLogs = async (sessionId: number) => {
   }
 };
 
+const getEventNoteText = (e: TravelSessionEvent): string | null => {
+  const payload = (e as any)?.payload;
+  if (!payload || typeof payload !== 'object') return null;
+  const note = (payload as any)?.note;
+  if (typeof note === 'string' && note.trim()) return note.trim();
+  const message = (payload as any)?.message;
+  if (typeof message === 'string' && message.trim()) return message.trim();
+  return null;
+};
+
 const formatEventType = (eventType: string): string => {
   const map: Record<string, string> = {
     travel_start: '穿越开始',
     travel_end: '返回原世界',
     travel_evicted: '被驱逐（主人上线）',
+    note: '日志',
     move: '移动',
     world_action_move: '移动',
   };
@@ -2060,17 +2074,19 @@ onUnmounted(() => {
 .log-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .log-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
+  flex-wrap: wrap;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface);
   font-size: 0.875rem;
 }
-.log-time { color: var(--color-text-secondary); font-size: 0.8rem; }
+.log-time { color: var(--color-text-secondary); font-size: 0.8rem; white-space: nowrap; }
 .log-type { color: var(--color-text); font-weight: 600; }
 .log-meta { color: var(--color-text-secondary); font-size: 0.8rem; }
+.log-meta.note { flex-basis: 100%; white-space: pre-wrap; line-height: 1.4; }
 
 .muted { color: var(--color-text-secondary); font-size: 0.8rem; }
 

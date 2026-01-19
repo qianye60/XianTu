@@ -352,6 +352,26 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       weight: 6,
       condition: 'onlineMode'
     },
+    onlineServerLogCommand: {
+      name: '联机日志上报指令',
+      content: `# 联机日志上报（必须执行）
+当你处于**联机穿越/入侵状态**时，你必须在本回合的 tavern_commands 末尾追加 1 条“上报日志”指令，把本回合发生的关键行为与结果提交给联机服务器，供世界主人下次上线查看。
+
+## 指令格式（必须严格照抄结构）
+{"action":"push","key":"系统.联机.服务器日志","value":{"note":"...","meta":{"tags":["..."],"poi":"...","result":"..."}}}
+
+## 约束
+- 每回合最多 1 条该指令
+- note：50-200字，客观描述“你做了什么/造成了什么影响”（移动/交互/战斗/伤害/死亡/获得/消耗/偷取等）
+- note 严禁出现：AI/提示词/指令/JSON/规则/系统后台 等元信息
+- meta 可省略；如提供必须是对象，内容要小（不要塞完整存档/长文本）
+- 该指令只用于上报日志，不用于修改任何数值/状态（数值更新仍必须用正常 tavern_commands）`,
+      category: 'online',
+      description: '让AI用指令上报联机日志',
+      order: 3.5,
+      weight: 6,
+      condition: 'onlineMode'
+    },
     cotCore: {
       name: '思维链推理（CoT）',
       content: COT_CORE_PROMPT_TEMPLATE,
@@ -382,7 +402,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 分步生成 1/2：仅正文
 
 ## 🔴 输出格式
-{"text":"500-1500字叙事正文"}
+{"text":"1500-2500字叙事正文"}
 
 ## ✅ JSON字符串规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
@@ -403,7 +423,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
   - ❌ 系统提示：……
 
 ## 📝 正文要求（必须遵守）
-1. **长度**：500-1500字，不要太短！
+1. **长度**：不少于1500字（推荐1500-2500字），不要太短！
 2. **判定系统**：战斗/修炼/炼丹/探索/社交等场景**必须使用判定**
 3. **判定格式（必须严格遵守）**：〔类型:结果,判定值:数字,难度:数字,基础:数字,幸运:+/-数字,环境:+/-数字,状态:+/-数字〕
    - 类型 ∈ 战斗/修炼/炼丹/探索/社交/逃跑/感知
@@ -475,7 +495,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 开局生成 1/2：仅开局叙事
 
 ## 🔴 输出格式（必须严格遵守）
-{"text":"1200-2500字开局叙事，第三人称，修仙正剧风"}
+{"text":"1500-2500字开局叙事，第三人称，修仙正剧风"}
 
 ## ✅ JSON字符串规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
