@@ -62,14 +62,14 @@
 
       <div class="legacy-modal-actions">
         <button class="btn btn-secondary" @click="emit('close')">关闭</button>
-        <button class="btn" :disabled="!convertedBundle || !!analysis?.errors.length" @click="downloadConverted">
+        <button class="btn" :disabled="!convertedBundle || analysis?.hasFatalErrors" @click="downloadConverted">
           <Download :size="16" />
           转换并下载
         </button>
         <button
           class="btn"
           v-if="canImport"
-          :disabled="!convertedSaves || !!analysis?.errors.length"
+          :disabled="!convertedSaves || analysis?.hasFatalErrors"
           @click="importToSelectedCharacter"
         >
           <ArrowDownToLine :size="16" />
@@ -78,7 +78,7 @@
         <button
           class="btn btn-primary"
           v-if="canCreateCharacter"
-          :disabled="!!analysis?.errors.length"
+          :disabled="analysis?.hasFatalErrors"
           @click="createNewCharacter"
         >
           <UserPlus :size="16" />
@@ -131,7 +131,8 @@ type Analysis = {
   needsMigration: number
   invalidSaves: number
   legacyKeys: string[]
-  errors: string[]
+  errors: string[]  // 🔥 现在只用于显示，不阻止操作
+  hasFatalErrors: boolean  // 🔥 新增：是否有致命错误（阻止操作）
 }
 
 const analysis = ref<Analysis | null>(null)
@@ -158,7 +159,7 @@ const canCreateCharacter = computed(() => {
   if (!sourceInfo.value) return false
   if (sourceInfo.value.exportType !== 'character') return false
   if (!Array.isArray(convertedSaves.value) || convertedSaves.value.length === 0) return false
-  if (analysis.value?.errors.length) return false
+  if (analysis.value?.hasFatalErrors) return false  // 🔥 使用 hasFatalErrors 代替 errors.length
   return true
 })
 
@@ -215,6 +216,7 @@ const normalizeSavesFromUnknown = (raw: any): SourceInfo => {
 
 const convertSaves = (source: SourceInfo) => {
   const errors: string[] = []
+  const warnings: string[] = []  // 🔥 新增：区分错误和警告
   const legacyKeys = new Set<string>()
   let needsMigration = 0
   let invalidSaves = 0
@@ -227,13 +229,24 @@ const convertSaves = (source: SourceInfo) => {
     if (detection.needsMigration) needsMigration++
     detection.legacyKeysFound.forEach((k) => legacyKeys.add(k))
 
-    const v3 = isSaveDataV3(rawSaveData) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated
-    const validation = validateSaveDataV3(v3 as any)
-    if (!validation.isValid) {
-      invalidSaves++
-      errors.push(
-        `第 ${idx + 1} 个存档「${slot?.存档名 ?? '未命名'}」校验失败：${validation.errors[0] || '未知原因'}`
+    // 🔥 兼容旧格式：尝试迁移，如果失败则使用原始数据
+    let v3 = rawSaveData
+    try {
+      v3 = isSaveDataV3(rawSaveData) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated
+      const validation = validateSaveDataV3(v3 as any)
+      if (!validation.isValid) {
+        invalidSaves++
+        // 🔥 改为警告而不是错误，不阻止导入
+        warnings.push(
+          `第 ${idx + 1} 个存档「${slot?.存档名 ?? '未命名'}」校验警告：${validation.errors[0] || '未知原因'}`
+        )
+      }
+    } catch (migrateError) {
+      // 🔥 迁移失败时使用原始数据，只记录警告
+      warnings.push(
+        `第 ${idx + 1} 个存档「${slot?.存档名 ?? '未命名'}」迁移失败，将使用原始格式`
       )
+      console.warn('[旧存档转化] 迁移失败:', migrateError)
     }
 
     const nextName = String(slot?.存档名 ?? `导入存档_${idx + 1}`)
@@ -253,7 +266,8 @@ const convertSaves = (source: SourceInfo) => {
     needsMigration,
     invalidSaves,
     legacyKeys: Array.from(legacyKeys).sort((a, b) => a.localeCompare(b, 'zh')),
-    errors,
+    errors: [...errors, ...warnings],  // 🔥 合并错误和警告用于显示
+    hasFatalErrors: errors.length > 0,  // 🔥 只有真正的错误才阻止操作
   }
 
   convertedSaves.value = normalizedSaves
@@ -290,8 +304,11 @@ const onFileChange = async (e: Event) => {
     convertSaves(source)
 
     const result = analysis.value as Analysis | null
-    if (result && result.errors.length) {
-      toast.error('检测到转换/校验问题，请先处理后再导入')
+    if (result?.hasFatalErrors) {
+      toast.error('检测到致命错误，无法导入')
+    } else if (result && result.errors.length) {
+      // 🔥 有警告但没有致命错误，仍然可以导入
+      toast.warning('检测到一些兼容性问题（可继续导入）')
     } else if (result && (result.needsMigration ?? 0) > 0) {
       toast.success('旧存档已转换为当前格式（未写入本地，需手动下载/导入）')
     } else {
@@ -299,7 +316,7 @@ const onFileChange = async (e: Event) => {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : '未知错误'
-    analysis.value = { typeLabel: '未知', totalSaves: 0, needsMigration: 0, invalidSaves: 0, legacyKeys: [], errors: [msg] }
+    analysis.value = { typeLabel: '未知', totalSaves: 0, needsMigration: 0, invalidSaves: 0, legacyKeys: [], errors: [msg], hasFatalErrors: true }
     sourceInfo.value = null
     toast.error(`读取/解析失败：${msg}`)
   } finally {
@@ -351,18 +368,25 @@ const createNewCharacter = async () => {
   try {
     const payload = sourceInfo.value.exportPayloadBase
     const characterData = payload?.角色信息 || payload
+    const normalizedProfile = JSON.parse(JSON.stringify(characterData || {}))
 
-    if (!characterData?.角色) {
+    // 兼容旧字段：角色基础信息 → 角色
+    if (!normalizedProfile.角色 && normalizedProfile.角色基础信息) {
+      normalizedProfile.角色 = normalizedProfile.角色基础信息
+      delete normalizedProfile.角色基础信息
+    }
+
+    if (!normalizedProfile?.角色) {
       toast.error('角色数据不完整，无法创建')
       return
     }
 
     // 清空原有存档列表，由导入的存档列表接管
-    characterData.存档列表 = {}
-    characterData._导入存档列表 = convertedSaves.value
+    normalizedProfile.存档列表 = {}
+    normalizedProfile._导入存档列表 = convertedSaves.value
 
     // 使用 characterStore.importCharacter 创建新角色
-    const newCharId = await characterStore.importCharacter(characterData)
+    const newCharId = await characterStore.importCharacter(normalizedProfile)
 
     if (newCharId) {
       emit('character-created', newCharId)

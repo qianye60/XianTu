@@ -18,6 +18,108 @@ export interface SaveMigrationReport {
   warnings: string[];
 }
 
+/**
+ * 从存档数据中提取显示信息（兼容V3和旧格式）
+ * 用于存档列表显示，无需完整迁移
+ */
+export interface SaveDisplayInfo {
+  角色名字: string;
+  境界: string;
+  位置: string;
+  游戏时间: GameTime | null;
+}
+
+/**
+ * 从任意格式的存档数据中提取显示信息
+ * 兼容 V3 格式和所有旧格式
+ */
+export function extractSaveDisplayInfo(saveData: SaveData | null | undefined): SaveDisplayInfo {
+  const defaultInfo: SaveDisplayInfo = {
+    角色名字: '未知',
+    境界: '凡人',
+    位置: '未知',
+    游戏时间: null,
+  };
+
+  if (!saveData || typeof saveData !== 'object') {
+    return defaultInfo;
+  }
+
+  const anySave = saveData as any;
+
+  // 提取角色名字
+  let 角色名字 = defaultInfo.角色名字;
+  if (anySave.角色?.身份?.名字) {
+    // V3 格式
+    角色名字 = anySave.角色.身份.名字;
+  } else if (anySave.角色基础信息?.名字) {
+    角色名字 = anySave.角色基础信息.名字;
+  } else if (anySave.玩家角色基础信息?.名字) {
+    角色名字 = anySave.玩家角色基础信息.名字;
+  } else if (anySave.玩家角色信息?.名字) {
+    角色名字 = anySave.玩家角色信息.名字;
+  } else if (anySave.玩家角色状态信息?.角色?.名字) {
+    角色名字 = anySave.玩家角色状态信息.角色.名字;
+  }
+
+  // 提取境界
+  let 境界 = defaultInfo.境界;
+  if (anySave.角色?.属性?.境界) {
+    // V3 格式
+    const realmData = anySave.角色.属性.境界;
+    境界 = typeof realmData === 'string' ? realmData : (realmData?.名称 || realmData?.name || '凡人');
+  } else if (anySave.属性?.境界) {
+    const realmData = anySave.属性.境界;
+    境界 = typeof realmData === 'string' ? realmData : (realmData?.名称 || realmData?.name || '凡人');
+  } else if (anySave.状态?.境界) {
+    const realmData = anySave.状态.境界;
+    境界 = typeof realmData === 'string' ? realmData : (realmData?.名称 || realmData?.name || '凡人');
+  } else if (anySave.玩家角色状态?.境界) {
+    const realmData = anySave.玩家角色状态.境界;
+    境界 = typeof realmData === 'string' ? realmData : (realmData?.名称 || realmData?.name || '凡人');
+  } else if (anySave.玩家角色状态信息?.境界) {
+    const realmData = anySave.玩家角色状态信息.境界;
+    境界 = typeof realmData === 'string' ? realmData : (realmData?.名称 || realmData?.name || '凡人');
+  }
+
+  // 提取位置
+  let 位置 = defaultInfo.位置;
+  if (anySave.角色?.位置?.描述) {
+    // V3 格式
+    位置 = anySave.角色.位置.描述;
+  } else if (anySave.角色?.位置?.地点) {
+    位置 = anySave.角色.位置.地点;
+  } else if (anySave.位置?.描述) {
+    位置 = anySave.位置.描述;
+  } else if (anySave.位置?.地点) {
+    位置 = anySave.位置.地点;
+  } else if (typeof anySave.位置 === 'string') {
+    位置 = anySave.位置;
+  } else if (anySave.状态?.位置) {
+    const locData = anySave.状态.位置;
+    位置 = typeof locData === 'string' ? locData : (locData?.描述 || locData?.地点 || '未知');
+  } else if (anySave.玩家角色状态?.位置) {
+    const locData = anySave.玩家角色状态.位置;
+    位置 = typeof locData === 'string' ? locData : (locData?.描述 || locData?.地点 || '未知');
+  } else if (anySave.玩家角色状态信息?.位置) {
+    const locData = anySave.玩家角色状态信息.位置;
+    位置 = typeof locData === 'string' ? locData : (locData?.描述 || locData?.地点 || '未知');
+  }
+
+  // 提取游戏时间
+  let 游戏时间: GameTime | null = null;
+  if (anySave.元数据?.时间) {
+    // V3 格式
+    游戏时间 = coerceTime(anySave.元数据.时间);
+  } else if (anySave.时间) {
+    游戏时间 = coerceTime(anySave.时间);
+  } else if (anySave.游戏时间) {
+    游戏时间 = coerceTime(anySave.游戏时间);
+  }
+
+  return { 角色名字, 境界, 位置, 游戏时间 };
+}
+
 const LEGACY_ROOT_KEYS = [
   '状态',
   '玩家角色状态',

@@ -16,7 +16,7 @@ import { getAIDataRepairSystemPrompt } from '@/utils/prompts/tasks/dataRepairPro
 import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/utils/lifespanCalculator'; // <-- 导入寿命计算工具
 import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 导入掌握技能计算工具
 import { updateStatusEffects } from '@/utils/statusEffectManager'; // <-- 导入状态效果管理工具
-import { detectLegacySaveData, isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { detectLegacySaveData, isSaveDataV3, migrateSaveDataToLatest, extractSaveDisplayInfo } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import SaveMigrationModal from '@/components/dashboard/components/SaveMigrationModal.vue';
@@ -48,6 +48,14 @@ function getOnlineSaveSlot(profile: CharacterProfile): SaveSlot | null {
 
   // 新结构：使用存档列表
   if (profile.存档列表?.['云端修行']) {
+    return profile.存档列表['云端修行'];
+  }
+
+  // 兼容：部分旧版本/旧数据使用 “存档” 作为联机槽位 key
+  if (profile.存档列表?.['存档'] && !profile.存档列表?.['云端修行']) {
+    debug.log('角色商店', '?? 检测到联机存档槽位 key=存档，正在迁移为 云端修行...');
+    profile.存档列表['云端修行'] = { ...(profile.存档列表['存档'] as any), 存档名: '云端修行' };
+    delete (profile.存档列表 as any)['存档'];
     return profile.存档列表['云端修行'];
   }
 
@@ -137,11 +145,33 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 🔥 3. 兼容性迁移：将旧版本的存档结构迁移到新结构
       let needsSave = false;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      Object.entries(rootState.value.角色列表).forEach(([_charId, profile]) => {
+      const asyncMigrations: Promise<void>[] = [];
+      Object.entries(rootState.value.角色列表).forEach(([charId, profile]) => {
+        const anyProfile = profile as any;
+        const roleNameForLog = anyProfile.角色?.名字 || anyProfile.角色基础信息?.名字 || charId;
+
+        // 3.0 迁移角色字段：角色基础信息 → 角色（v3.7.x -> v4.0）
+        if (!anyProfile.角色 && anyProfile.角色基础信息) {
+          anyProfile.角色 = anyProfile.角色基础信息;
+          delete anyProfile.角色基础信息;
+          needsSave = true;
+        }
+
+        // 3.0.1 确保存档列表存在（新结构要求）
+        if (!anyProfile.存档列表 || typeof anyProfile.存档列表 !== 'object') {
+          anyProfile.存档列表 = {};
+          needsSave = true;
+        }
+
+        // 3.0.2 修复联机槽位 key：存档 → 云端修行
+        if (anyProfile.模式 === '联机' && anyProfile.存档列表?.['存档'] && !anyProfile.存档列表?.['云端修行']) {
+          anyProfile.存档列表['云端修行'] = { ...(anyProfile.存档列表['存档'] as any), 存档名: '云端修行' };
+          delete anyProfile.存档列表['存档'];
+          needsSave = true;
+        }
         // 3.1 迁移联机模式：profile.存档 → profile.存档列表['云端修行']
         if (profile.模式 === '联机' && profile.存档 && !profile.存档列表?.['云端修行']) {
-          debug.log('角色商店', `🔄 迁移联机角色「${profile.角色.名字}」的存档结构`);
+          debug.log('角色商店', `🔄 迁移联机角色「${roleNameForLog}」的存档结构`);
 
           // 初始化存档列表（如果不存在）
           if (!profile.存档列表) {
@@ -168,12 +198,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
           delete profile.存档;
           needsSave = true;
 
-          debug.log('角色商店', `✅ 角色「${profile.角色.名字}」存档结构迁移完成`);
+          debug.log('角色商店', `✅ 角色「${roleNameForLog}」存档结构迁移完成`);
         }
 
         // 3.2 迁移单机模式：兼容3.7.8版本的旧存档结构
-        if (profile.模式 === '单机' && profile.存档 && !profile.存档列表) {
-          debug.log('角色商店', `🔄 迁移单机角色「${profile.角色.名字}」的旧版本存档结构（3.7.8）`);
+        if (profile.模式 === '单机' && profile.存档 && (!profile.存档列表 || Object.keys(profile.存档列表).length === 0)) {
+          debug.log('角色商店', `🔄 迁移单机角色「${roleNameForLog}」的旧版本存档结构`);
 
           // 初始化存档列表
           profile.存档列表 = {};
@@ -202,7 +232,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           delete profile.存档;
           needsSave = true;
 
-          debug.log('角色商店', `✅ 角色「${profile.角色.名字}」旧版本存档结构迁移完成`);
+          debug.log('角色商店', `✅ 角色「${roleNameForLog}」旧版本存档结构迁移完成`);
         }
 
         // 3.3 确保所有角色都有必要的存档槽位
@@ -223,7 +253,42 @@ export const useCharacterStore = defineStore('characterV3', () => {
           };
           needsSave = true;
         }
+
+        // 3.3.1 联机存档名修正
+        if (profile.模式 === '联机' && profile.存档列表?.['云端修行']?.存档名 !== '云端修行') {
+          profile.存档列表['云端修行'].存档名 = '云端修行';
+          needsSave = true;
+        }
+
+        // 3.4 迁移激活存档槽位 key（联机：存档 → 云端修行）
+        if (rootState.value.当前激活存档?.角色ID === charId && profile.模式 === '联机') {
+          if (rootState.value.当前激活存档.存档槽位 === '存档') {
+            rootState.value.当前激活存档.存档槽位 = '云端修行';
+            needsSave = true;
+          }
+        }
+
+        // 3.5 迁移联机 SaveData 键（IDB：savedata_{charId}_存档 → savedata_{charId}_云端修行）
+        if (profile.模式 === '联机') {
+          asyncMigrations.push((async () => {
+            const newDataKey = `savedata_${charId}_云端修行`;
+            const oldDataKey = `savedata_${charId}_存档`;
+            const existingNew = await storage.loadFromIndexedDB(newDataKey);
+            if (!existingNew) {
+              const existingOld = await storage.loadFromIndexedDB(oldDataKey);
+              if (existingOld) {
+                await storage.saveSaveData(charId, '云端修行', existingOld as any);
+                debug.log('角色商店', `? 已迁移联机存档数据键：${oldDataKey} → ${newDataKey}`);
+              }
+            }
+          })());
+        }
       });
+
+      // 等待异步迁移（例如联机存档键迁移）完成
+      if (asyncMigrations.length > 0) {
+        await Promise.all(asyncMigrations);
+      }
 
       // 如果有迁移，保存到存储
       if (needsSave) {
@@ -282,13 +347,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
     if (profile.模式 === '单机' && profile.存档列表) {
       // 为每个存档添加必要的展示信息
       return Object.entries(profile.存档列表).map(([key, slot]) => {
-        // 🔥 修复：确保所有必要字段都有默认值
+        // 🔥 修复：使用 extractSaveDisplayInfo 兼容旧格式和 V3 格式
+        const displayInfo = extractSaveDisplayInfo(slot.存档数据 as any);
         const enhancedSlot = {
           ...slot,
           id: key,
-          角色名字: slot.角色名字 || profile.角色?.名字 || '未知',
-          境界: slot.境界 || slot.存档数据?.属性?.境界?.名称 || '凡人',
-          位置: slot.位置 || slot.存档数据?.位置?.描述 || '未知',
+          角色名字: slot.角色名字 || displayInfo.角色名字 || profile.角色?.名字 || '未知',
+          境界: slot.境界 || displayInfo.境界 || '凡人',
+          位置: slot.位置 || displayInfo.位置 || '未知',
           保存时间: slot.保存时间 || null,
           最后保存时间: slot.最后保存时间 ?? slot.保存时间 ?? null,
           游戏时长: slot.游戏时长 || 0
@@ -299,12 +365,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
     if (profile.模式 === '联机') {
       const onlineSlot = getOnlineSaveSlot(profile);
       if (onlineSlot) {
+        // 🔥 修复：使用 extractSaveDisplayInfo 兼容旧格式和 V3 格式
+        const displayInfo = extractSaveDisplayInfo(onlineSlot.存档数据 as any);
         const enhancedSlot = {
           ...onlineSlot,
           id: '云端修行',
-          角色名字: onlineSlot.角色名字 || profile.角色?.名字 || '未知',
-          境界: onlineSlot.境界 || onlineSlot.存档数据?.属性?.境界?.名称 || '凡人',
-          位置: onlineSlot.位置 || onlineSlot.存档数据?.位置?.描述 || '未知',
+          角色名字: onlineSlot.角色名字 || displayInfo.角色名字 || profile.角色?.名字 || '未知',
+          境界: onlineSlot.境界 || displayInfo.境界 || '凡人',
+          位置: onlineSlot.位置 || displayInfo.位置 || '未知',
           保存时间: onlineSlot.保存时间 || null,
           最后保存时间: onlineSlot.最后保存时间 ?? onlineSlot.保存时间 ?? null,
           游戏时长: onlineSlot.游戏时长 || 0
@@ -1032,7 +1100,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 🔥 保存后从内存中移除存档数据，保持与saveCurrentGame一致
       delete currentSlot.存档数据;
 
-      debug.log('角色商店', `✅ 已将【${profile.角色.名字}】的存档保存至 IndexedDB`);
+      debug.log('角色商店', `✅ 已将【${profile.角色?.名字 || '未知角色'}】的存档保存至 IndexedDB`);
 
     } catch (error) {
       debug.error('角色商店', '保存角色存档失败', error);
@@ -1897,7 +1965,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       return await loadGame(charId, saveId);
     } else {
       // 联机模式只有一个存档
-      return await loadGame(charId, '存档');
+      return await loadGame(charId, '云端修行');
     }
   };
 

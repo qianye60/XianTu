@@ -963,8 +963,14 @@ const handleLogin = () => {
 
 const normalizeSaveDataV3 = (saveData: unknown): SaveDataV3 | null => {
   if (!saveData || typeof saveData !== 'object') return null;
-  const raw = saveData as any;
-  return (isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw).migrated) as SaveDataV3;
+  try {
+    const raw = saveData as any;
+    return (isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw).migrated) as SaveDataV3;
+  } catch (error) {
+    console.warn('[CharacterManagement] 存档格式转换失败（旧版存档兼容性问题）:', error);
+    // 返回 null，让 UI 显示默认值而不是崩溃
+    return null;
+  }
 };
 
 // 境界显示：统一为“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
@@ -1146,12 +1152,20 @@ const exportCharacter = async (charId: string) => {
       if (!rawSaveData) {
         throw new Error(`存档「${s.存档名}」缺少存档数据，无法导出`);
       }
-      const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
-      const validation = validateSaveDataV3(v3SaveData as any);
-      if (!validation.isValid) {
-        throw new Error(`存档「${s.存档名}」校验失败：${validation.errors[0] || '未知原因'}`);
+      // 🔥 兼容旧格式：尝试迁移，如果失败则使用原始数据
+      let exportSaveData = rawSaveData;
+      try {
+        const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+        const validation = validateSaveDataV3(v3SaveData as any);
+        if (!validation.isValid) {
+          console.warn(`[角色导出] 存档「${s.存档名}」校验警告：${validation.errors[0] || '未知原因'}`);
+        }
+        exportSaveData = v3SaveData;
+      } catch (migrateError) {
+        console.warn(`[角色导出] 存档「${s.存档名}」迁移失败，使用原始数据:`, migrateError);
+        // 继续使用原始数据
       }
-      return { ...s, 存档数据: v3SaveData };
+      return { ...s, 存档数据: exportSaveData };
     });
 
     const exportData = createDadBundle('character', {
@@ -1202,10 +1216,21 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
       return;
     }
 
-    const v3SaveData = isSaveDataV3(fullSaveData as any) ? fullSaveData : migrateSaveDataToLatest(fullSaveData as any).migrated;
-    const validation = validateSaveDataV3(v3SaveData as any);
-    if (!validation.isValid) {
-      throw new Error(validation.errors[0] || '存档结构校验失败');
+    // 🔥 兼容旧格式：尝试迁移，如果失败则导出原始数据
+    let exportSaveData = fullSaveData;
+    let migrationWarning = '';
+    try {
+      const v3SaveData = isSaveDataV3(fullSaveData as any) ? fullSaveData : migrateSaveDataToLatest(fullSaveData as any).migrated;
+      const validation = validateSaveDataV3(v3SaveData as any);
+      if (!validation.isValid) {
+        migrationWarning = `存档格式校验有警告：${validation.errors[0] || '未知问题'}`;
+        console.warn('[导出存档]', migrationWarning);
+      }
+      exportSaveData = v3SaveData;
+    } catch (migrateError) {
+      migrationWarning = '旧版存档格式，将导出原始数据';
+      console.warn('[导出存档] 迁移失败，导出原始数据:', migrateError);
+      // 继续使用原始数据导出
     }
 
     const exportData = createDadBundle('saves', {
@@ -1214,7 +1239,7 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
       saves: [{
         ...slot,
         存档名: slotKey,
-        存档数据: v3SaveData,
+        存档数据: exportSaveData,
       }],
     });
 
@@ -1267,7 +1292,7 @@ const _exportSaves = async () => {
     const savesWithFullData = await Promise.all(
       saveSlots.map(async (save) => {
         const fullData = await loadSaveData(charId, save.存档名);
-        const patchedData = isTavernEnv() ? (ensureSaveDataHasTavernNsfw(fullData) as any) : fullData;
+        const patchedData = fullData && isTavernEnv() ? (ensureSaveDataHasTavernNsfw(fullData) as any) : fullData;
         return {
           ...save,
           存档数据: patchedData  // 使用统一的字段名
@@ -1286,12 +1311,20 @@ const _exportSaves = async () => {
 
     const normalizedSaves = validSaves.map((s) => {
       const rawSaveData = (s as any).存档数据;
-      const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
-      const validation = validateSaveDataV3(v3SaveData as any);
-      if (!validation.isValid) {
-        throw new Error(`存档「${s.存档名}」校验失败：${validation.errors[0] || '未知原因'}`);
+      if (!rawSaveData) return { ...s, 存档数据: rawSaveData };
+
+      // 兼容旧格式：逐个尝试迁移与校验，失败则保留原始数据（保证“能导出”）
+      try {
+        const v3SaveData = isSaveDataV3(rawSaveData as any) ? rawSaveData : migrateSaveDataToLatest(rawSaveData as any).migrated;
+        const validation = validateSaveDataV3(v3SaveData as any);
+        if (!validation.isValid) {
+          console.warn(`[存档导出] 存档「${s.存档名}」校验警告：${validation.errors[0] || '未知原因'}`);
+        }
+        return { ...s, 存档数据: v3SaveData };
+      } catch (e) {
+        console.warn(`[存档导出] 存档「${s.存档名}」迁移失败，导出原始数据:`, e);
+        return { ...s, 存档数据: rawSaveData };
       }
-      return { ...s, 存档数据: v3SaveData };
     });
 
     const exportData = createDadBundle('saves', {

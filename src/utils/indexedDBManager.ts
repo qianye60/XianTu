@@ -359,8 +359,36 @@ export async function loadSaveData(
           console.log(`【乾坤宝库-IDB】SaveData 已加载 (${characterId}/${slotId})`);
           resolve(result.data as SaveData);
         } else {
-          console.warn(`【乾坤宝库-IDB】SaveData 不存在 (${characterId}/${slotId})`);
-          resolve(null);
+          // 兼容：联机存档槽位历史上使用过 “存档” / “云端修行” 两种 key
+          // - v3.7.x 常见：存档
+          // - v4.0+ 常见：云端修行
+          const alias =
+            slotId === '云端修行' ? '存档' :
+            slotId === '存档' ? '云端修行' :
+            null;
+
+          if (!alias) {
+            console.warn(`【乾坤宝库-IDB】SaveData 不存在 (${characterId}/${slotId})`);
+            resolve(null);
+            return;
+          }
+
+          const aliasKey = `${SAVEDATA_KEY_PREFIX}${characterId}_${alias}`;
+          const aliasReq = objectStore.get(aliasKey);
+          aliasReq.onsuccess = () => {
+            const aliasResult = aliasReq.result;
+            if (aliasResult && aliasResult.data) {
+              console.warn(`【乾坤宝库-IDB】SaveData 未命中(${slotId})，回退命中(${alias}) (${characterId}/${slotId})`);
+              resolve(aliasResult.data as SaveData);
+            } else {
+              console.warn(`【乾坤宝库-IDB】SaveData 不存在 (${characterId}/${slotId})`);
+              resolve(null);
+            }
+          };
+          aliasReq.onerror = () => {
+            console.error('【乾坤宝库-IDB】加载 SaveData 失败(别名):', aliasReq.error);
+            reject(aliasReq.error);
+          };
         }
       };
 

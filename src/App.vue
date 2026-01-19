@@ -512,7 +512,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
         throw new Error('严重错误：角色创建后无法在角色列表中找到！');
       }
 
-      const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
+      const slotKey = profile.模式 === '单机' ? '存档1' : '云端修行';
       characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       await characterStore.commitMetadataToStorage();
 
