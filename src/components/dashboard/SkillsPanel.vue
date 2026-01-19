@@ -519,9 +519,13 @@ const checkAndUnlockSkills = () => {
   if (unlocked) characterStore.saveCurrentGame();
 };
 
-watch(cultivationSkills, () => {
-  checkAndUnlockSkills();
-}, { immediate: true });
+watch(
+  [() => cultivationSkills.value?.物品ID, () => cultivationSkills.value?.修炼进度],
+  () => {
+    checkAndUnlockSkills();
+  },
+  { immediate: true }
+);
 
 const filteredInventoryTechniques = computed(() => {
   const q = techniqueQuery.value.trim().toLowerCase();

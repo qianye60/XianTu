@@ -1748,14 +1748,24 @@ ${saveDataJson}
     }
 
     let summary: string;
-    const responseText = String(response).trim();
+    const responseText = String(response).replace(/<\/input>/g, '').trim();
 
     const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
     if (jsonBlockMatch?.[1]) {
+      const fenced = jsonBlockMatch[1].trim();
       try {
-        summary = JSON.parse(jsonBlockMatch[1].trim()).text?.trim() || '';
+        summary = JSON.parse(fenced).text?.trim() || '';
       } catch {
-        summary = '';
+        const textFieldMatch = fenced.match(/"text"\s*:\s*"([\s\S]*?)"\s*[},]/);
+        if (textFieldMatch?.[1]) {
+          try {
+            summary = JSON.parse('"' + textFieldMatch[1].replace(/"/g, '\\"') + '"').trim();
+          } catch {
+            summary = textFieldMatch[1].trim();
+          }
+        } else {
+          summary = fenced;
+        }
       }
     } else {
       try {

@@ -20,6 +20,15 @@ export function calculateMasteredSkills(saveData: SaveData): MasteredSkill[] {
     return masteredSkills;
   }
 
+  // 优先仅从“已装备/修炼中/当前功法引用”中提取掌握技能；若无法判定当前功法，则回退为扫描全部功法
+  const activeTechniqueIds = new Set<string>();
+  const refTechniqueId =
+    ((saveData as any)?.角色?.修炼?.修炼功法?.物品ID as string | undefined) ??
+    ((saveData as any)?.角色?.功法?.当前功法ID as string | undefined);
+  if (typeof refTechniqueId === 'string' && refTechniqueId) {
+    activeTechniqueIds.add(refTechniqueId);
+  }
+
   // 遍历背包中的所有物品
   for (const [itemId, item] of Object.entries(itemsMap as Record<string, any>)) {
     // 只处理功法类型的物品
@@ -28,6 +37,13 @@ export function calculateMasteredSkills(saveData: SaveData): MasteredSkill[] {
     }
 
     const technique = item as TechniqueItem;
+
+    // 若可确定当前功法：只采集当前/已装备/修炼中的功法，避免把未装备功法的技能也算进“掌握技能”
+    if (activeTechniqueIds.size > 0) {
+      const equipped = (technique as any)?.已装备 === true || (technique as any)?.修炼中 === true;
+      const isActive = equipped || activeTechniqueIds.has(itemId) || activeTechniqueIds.has((technique as any)?.物品ID);
+      if (!isActive) continue;
+    }
 
     // 检查功法是否有技能定义
     if (!technique.功法技能 || typeof technique.功法技能 !== 'object') {
@@ -101,7 +117,10 @@ export function updateMasteredSkills(saveData: SaveData): MasteredSkill[] {
 
   // 🔥 保留现有技能的熟练度和使用次数
   // 如果技能之前就已经掌握，保留其熟练度和使用次数
-  const existingSkills = (((saveData as any).系统?.缓存?.掌握技能) || []) as MasteredSkill[];
+  const existingSkills =
+    (((saveData as any).角色?.技能?.掌握技能 as MasteredSkill[] | undefined) ||
+      ((saveData as any).系统?.缓存?.掌握技能 as MasteredSkill[] | undefined) ||
+      []) as MasteredSkill[];
 
   for (const newSkill of calculatedSkills) {
     const existingSkill = existingSkills.find((s: MasteredSkill) =>
@@ -115,7 +134,19 @@ export function updateMasteredSkills(saveData: SaveData): MasteredSkill[] {
     }
   }
 
-  // 更新存档数据
+  // 更新存档数据（V3：角色.技能.掌握技能 为主；系统.缓存.* 为兼容旧逻辑的镜像）
+  if (!(saveData as any).角色) (saveData as any).角色 = {};
+  if (!(saveData as any).角色.技能 || typeof (saveData as any).角色.技能 !== 'object') {
+    (saveData as any).角色.技能 = { 掌握技能: [], 装备栏: [], 冷却: {} };
+  } else {
+    if (!Array.isArray((saveData as any).角色.技能.掌握技能)) (saveData as any).角色.技能.掌握技能 = [];
+    if (!Array.isArray((saveData as any).角色.技能.装备栏)) (saveData as any).角色.技能.装备栏 = [];
+    if (!(saveData as any).角色.技能.冷却 || typeof (saveData as any).角色.技能.冷却 !== 'object') {
+      (saveData as any).角色.技能.冷却 = {};
+    }
+  }
+  (saveData as any).角色.技能.掌握技能 = calculatedSkills;
+
   if (!(saveData as any).系统) (saveData as any).系统 = {};
   if (!(saveData as any).系统.缓存) (saveData as any).系统.缓存 = {};
   (saveData as any).系统.缓存.掌握技能 = calculatedSkills;

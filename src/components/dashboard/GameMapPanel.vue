@@ -1205,32 +1205,33 @@ const handleFullscreenChange = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
   background: var(--color-background);
 }
 
 /* 世界信息头部 */
 .world-info-header {
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  backdrop-filter: blur(8px);
 }
 
 .world-name {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #1e40af;
-  text-shadow: 0 1px 2px rgba(30, 64, 175, 0.1);
+  color: var(--color-primary);
   white-space: nowrap;
 }
 
 .world-background {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   max-width: 400px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1243,9 +1244,8 @@ const handleFullscreenChange = () => {
   position: relative;
   overflow: hidden;
   border-radius: 12px;
-  border: 3px solid #cbd5e1;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #dbeafe 100%);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 canvas {
@@ -1262,14 +1262,13 @@ canvas:active {
 /* 地点信息弹窗 */
 .location-popup {
   position: absolute;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 16px;
   max-width: 400px;
   max-height: 50vh;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
   min-width: 280px;
   pointer-events: auto;
   z-index: 2000;
@@ -1284,7 +1283,7 @@ canvas:active {
 
 .popup-header h4 {
   margin: 0;
-  color: #1e40af;
+  color: var(--color-text);
   font-size: 1.25rem;
   font-weight: 700;
 }
@@ -1319,14 +1318,14 @@ canvas:active {
 }
 
 .location-type {
-  color: #6366f1;
+  color: var(--color-primary);
   font-weight: 700;
   margin: 0 0 10px 0;
   font-size: 1rem;
 }
 
 .location-desc {
-  color: #374151;
+  color: var(--color-text);
   margin: 0 0 14px 0;
   font-weight: 500;
   line-height: 1.6;
@@ -1336,7 +1335,7 @@ canvas:active {
 }
 
 .location-detail {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 8px 0;
   font-size: 0.875rem;
   font-weight: 500;
@@ -1367,8 +1366,8 @@ canvas:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
   z-index: 2000;
 }
 
@@ -1376,6 +1375,10 @@ canvas:active {
   text-align: center;
   padding: 3rem 2rem;
   max-width: 500px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -1412,13 +1415,13 @@ canvas:active {
   margin: 0 0 1rem 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e40af;
+  color: var(--color-text);
 }
 
 .initialize-prompt p {
   margin: 0 0 1.5rem 0;
   font-size: 1rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -1447,21 +1450,21 @@ canvas:active {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .density-option:hover {
-  border-color: #94a3b8;
-  background: #f1f5f9;
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-hover);
 }
 
 .density-option.active {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
 }
 
 .density-option input[type="radio"] {
@@ -1470,13 +1473,13 @@ canvas:active {
 
 .option-label {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
   min-width: 3rem;
 }
 
 .option-desc {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .initialize-btn {
@@ -1526,7 +1529,7 @@ canvas:active {
 
 .status-text {
   font-size: 0.9rem;
-  color: #3b82f6;
+  color: var(--color-text-secondary);
   margin-top: 1rem;
   min-height: 1.5rem;
 }
@@ -1536,14 +1539,13 @@ canvas:active {
   position: absolute;
   bottom: 24px;
   right: 24px;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
+  background: var(--color-surface);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
   z-index: 1000;
   min-width: 200px;
   max-width: 280px;
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid var(--color-border);
   pointer-events: auto;
   transition: all 0.3s ease;
 }
@@ -1564,20 +1566,20 @@ canvas:active {
 }
 
 .legend-header:hover {
-  background: rgba(59, 130, 246, 0.05);
+  background: var(--color-surface-hover);
 }
 
 .legend-title {
   font-weight: 700;
-  color: #1e40af;
-  font-size: 1.05rem;
+  color: var(--color-text);
+  font-size: 1rem;
   flex: 1;
 }
 
 .legend-toggle {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -1588,8 +1590,7 @@ canvas:active {
 }
 
 .legend-toggle:hover {
-  background: rgba(59, 130, 246, 0.1);
-  transform: scale(1.1);
+  background: var(--color-surface-light);
 }
 
 .legend-items {
@@ -1624,7 +1625,7 @@ canvas:active {
   align-items: center;
   gap: 10px;
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--color-text);
   padding: 8px 10px;
   font-weight: 600;
   border-radius: 8px;
@@ -1632,8 +1633,7 @@ canvas:active {
 }
 
 .legend-item:hover {
-  background: rgba(59, 130, 246, 0.08);
-  transform: translateX(2px);
+  background: var(--color-surface-hover);
 }
 
 .legend-icon {
@@ -1712,13 +1712,13 @@ canvas:active {
   position: absolute;
   bottom: 12px;
   left: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   z-index: 100;
   min-width: 100px;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
 }
 
 .map-actions.expanded {
@@ -1731,7 +1731,7 @@ canvas:active {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
   padding: 10px 14px;
   cursor: pointer;
   border-radius: 10px;
@@ -1740,12 +1740,12 @@ canvas:active {
 }
 
 .actions-header:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--color-surface-hover);
 }
 
 .actions-header .toggle-icon {
   margin-left: auto;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 .actions-content {
@@ -1912,6 +1912,11 @@ canvas:active {
 
 /* 响应式设计 */
 @media (max-width: 640px) {
+  .game-map-panel {
+    /* Reserve space so bottom legend and actions can sit side-by-side */
+    --map-mobile-actions-reserve: 152px;
+  }
+
   .world-info-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1920,16 +1925,24 @@ canvas:active {
 
   .world-background {
     max-width: 100%;
-    white-space: normal;
-    line-height: 1.5;
   }
 
   .map-legend {
-    position: static;
-    margin: 10px 0 0;
-    width: 100%;
+    left: auto;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    transform: none;
+    width: min(320px, calc(100% - 24px - var(--map-mobile-actions-reserve)));
+    min-width: 0;
     max-width: none;
-    padding: 12px;
+  }
+
+  .map-actions {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    right: auto;
+    top: auto;
+    max-width: var(--map-mobile-actions-reserve);
   }
 
   .location-popup {

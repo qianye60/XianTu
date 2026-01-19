@@ -19,22 +19,19 @@ import { DICE_ROLLING_RULES } from '../definitions/textFormats';
  * - v4.0.0: 全面重构思维链，增强AI感知游戏状态能力
  */
 
-export function getCotCorePrompt(userInput: string, enableActionOptions: boolean = false): string {
-  const intentMatch = userInput.match(/<行动趋向>([\s\S]*?)<\/行动趋向>/);
-  const actualIntent = intentMatch ? intentMatch[1].trim() : (userInput || '无');
-
-  return `
+// 导出静态的CoT核心提示词模板，用于提示词管理页面
+export const COT_CORE_PROMPT_TEMPLATE = `
 # 🧭 低噪声协议（无思维链）
 
-用户意图："${actualIntent}"
+用户意图："{{用户输入}}"
 
  ## 禁止
  - 绝对禁止输出：\`<thinking>\` / 思维链 / 任何推理过程标签
- 
+
 ## 占位符规则（CRITICAL）
 - 本提示词中出现的 [NPC名] / [道名] / [功法ID] 只是占位符说明
 - 输出 tavern_commands.key 时必须替换为真实名称，且不要保留方括号 []
-- 方括号 [] 只有“数组索引”能用：例如 角色.效果[0]
+- 方括号 [] 只有"数组索引"能用：例如 角色.效果[0]
 
  ## 内部自检清单（不要写出来）
 
@@ -110,7 +107,16 @@ export function getCotCorePrompt(userInput: string, enableActionOptions: boolean
 - 若未启用：不要输出 \`action_options\`
 
 ${DICE_ROLLING_RULES}
-`;
+`.trim();
+
+/**
+ * 动态生成CoT提示词（用于运行时）
+ */
+export function getCotCorePrompt(userInput: string, enableActionOptions: boolean = false): string {
+  const intentMatch = userInput.match(/<行动趋向>([\s\S]*?)<\/行动趋向>/);
+  const actualIntent = intentMatch ? intentMatch[1].trim() : (userInput || '无');
+
+  return COT_CORE_PROMPT_TEMPLATE.replace('{{用户输入}}', actualIntent);
 }
 
 // 保留旧的导出以兼容现有代码

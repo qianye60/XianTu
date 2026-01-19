@@ -135,11 +135,11 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 2. 加载数据
       rootState.value = await storage.loadRootData();
 
-      // 🔥 3. 兼容性迁移：将旧版本的联机存档（profile.存档）迁移到新结构（profile.存档列表）
+      // 🔥 3. 兼容性迁移：将旧版本的存档结构迁移到新结构
       let needsSave = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       Object.entries(rootState.value.角色列表).forEach(([_charId, profile]) => {
-        // 访问废弃字段用于迁移
+        // 3.1 迁移联机模式：profile.存档 → profile.存档列表['云端修行']
         if (profile.模式 === '联机' && profile.存档 && !profile.存档列表?.['云端修行']) {
           debug.log('角色商店', `🔄 迁移联机角色「${profile.角色.名字}」的存档结构`);
 
@@ -165,11 +165,63 @@ export const useCharacterStore = defineStore('characterV3', () => {
           }
 
           // 删除废弃字段
-          // 删除旧的 profile.存档 字段
           delete profile.存档;
           needsSave = true;
 
           debug.log('角色商店', `✅ 角色「${profile.角色.名字}」存档结构迁移完成`);
+        }
+
+        // 3.2 迁移单机模式：兼容3.7.8版本的旧存档结构
+        if (profile.模式 === '单机' && profile.存档 && !profile.存档列表) {
+          debug.log('角色商店', `🔄 迁移单机角色「${profile.角色.名字}」的旧版本存档结构（3.7.8）`);
+
+          // 初始化存档列表
+          profile.存档列表 = {};
+
+          // 将旧的单个存档迁移到"存档1"槽位
+          profile.存档列表['存档1'] = {
+            ...profile.存档,
+            存档名: '存档1',
+          };
+
+          // 添加"上次对话"槽位
+          profile.存档列表['上次对话'] = {
+            存档名: '上次对话',
+            保存时间: null,
+            存档数据: null
+          };
+
+          // 添加"时间点存档"槽位
+          profile.存档列表['时间点存档'] = {
+            存档名: '时间点存档',
+            保存时间: null,
+            存档数据: null
+          };
+
+          // 删除废弃字段
+          delete profile.存档;
+          needsSave = true;
+
+          debug.log('角色商店', `✅ 角色「${profile.角色.名字}」旧版本存档结构迁移完成`);
+        }
+
+        // 3.3 确保所有角色都有必要的存档槽位
+        if (profile.存档列表 && !profile.存档列表['上次对话']) {
+          profile.存档列表['上次对话'] = {
+            存档名: '上次对话',
+            保存时间: null,
+            存档数据: null
+          };
+          needsSave = true;
+        }
+
+        if (profile.模式 === '单机' && profile.存档列表 && !profile.存档列表['时间点存档']) {
+          profile.存档列表['时间点存档'] = {
+            存档名: '时间点存档',
+            保存时间: null,
+            存档数据: null
+          };
+          needsSave = true;
         }
       });
 
@@ -1260,7 +1312,18 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 2. 自动更新年龄、技能等派生数据
       updateLifespanFromGameTime(currentSaveData);
-      updateMasteredSkills(currentSaveData);
+      {
+        const updatedSkills = updateMasteredSkills(currentSaveData);
+        // 同步到当前内存态，避免“已掌握技能”UI需要重载才更新
+        try {
+          gameStateStore.masteredSkills = JSON.parse(JSON.stringify(updatedSkills)) as any;
+          if (gameStateStore.skillState && typeof gameStateStore.skillState === 'object') {
+            (gameStateStore.skillState as any).掌握技能 = gameStateStore.masteredSkills;
+          }
+        } catch {
+          // 保底：不影响保存流程
+        }
+      }
       if ((currentSaveData as any).社交?.关系 && (currentSaveData as any).元数据?.时间) {
         Object.values((currentSaveData as any).社交.关系).forEach((npc) => {
           if (npc && typeof npc === 'object') {

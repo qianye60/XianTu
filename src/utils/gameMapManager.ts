@@ -613,6 +613,57 @@ export class GameMapManager {
     const locationLayer = this.layers.get(4); // MapLayer.LOCATION
     if (!locationLayer) return;
 
+    const clampToMap = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+    const isOverlappingExistingLocation = (x: number, y: number, minDistance: number): boolean => {
+      const minDistanceSquared = minDistance * minDistance;
+      for (const sprite of this.locationSprites.values()) {
+        const dx = x - sprite.x;
+        const dy = y - sprite.y;
+        if (dx * dx + dy * dy < minDistanceSquared) return true;
+      }
+      return false;
+    };
+
+    const findNonOverlappingLocationPosition = (
+      base: GameCoordinates,
+      minDistance: number,
+      seed: string
+    ): GameCoordinates => {
+      const mapWidth = this.config.width;
+      const mapHeight = this.config.height;
+
+      const startX = clampToMap(Number(base.x) || 0, 0, mapWidth);
+      const startY = clampToMap(Number(base.y) || 0, 0, mapHeight);
+
+      if (!isOverlappingExistingLocation(startX, startY, minDistance)) {
+        return { x: startX, y: startY };
+      }
+
+      let hash = 2166136261;
+      for (let i = 0; i < seed.length; i++) {
+        hash ^= seed.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      hash >>>= 0;
+
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+      const startAngle = ((hash % 360) * Math.PI) / 180;
+
+      const attempts = 80;
+      for (let i = 1; i <= attempts; i++) {
+        const radius = minDistance * Math.sqrt(i);
+        const angle = startAngle + goldenAngle * i;
+        const candidateX = clampToMap(startX + Math.cos(angle) * radius, 0, mapWidth);
+        const candidateY = clampToMap(startY + Math.sin(angle) * radius, 0, mapHeight);
+        if (!isOverlappingExistingLocation(candidateX, candidateY, minDistance)) {
+          return { x: candidateX, y: candidateY };
+        }
+      }
+
+      return { x: startX, y: startY };
+    };
+
     // 势力等级决定图标缩放（基础缩放提升至2.5倍）
     const levelText = String(location.等级 || (location as any).level || '').toLowerCase();
     let scale = 2.5; // 提升基础缩放
@@ -620,6 +671,14 @@ export class GameMapManager {
     else if (levelText.includes('一')) scale = 3.2;
     else if (levelText.includes('二')) scale = 2.8;
     else if (levelText.includes('三')) scale = 2.5;
+
+    const minDistance = 44 * scale;
+    const resolvedCoordinates = findNonOverlappingLocationPosition(
+      location.coordinates || { x: 0, y: 0 },
+      minDistance,
+      `${location.id}|${location.name}`
+    );
+    location.coordinates = resolvedCoordinates;
 
     // 创建地点容器
     const locationContainer = new PIXI.Container();

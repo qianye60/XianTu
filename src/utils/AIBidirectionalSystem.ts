@@ -45,6 +45,8 @@ function applyPlainObjectPatchReplacingArrays(target: PlainObject, patch: PlainO
       applyPlainObjectPatchReplacingArrays(targetValue, patchValue);
       continue;
     }
+    // NOTE: Unlike lodash.merge, arrays are replaced (not merged by index),
+    // so `{a:[1,2]} + {a:[]}` correctly becomes `{a:[]}`.
     (target as any)[key] = cloneDeep(patchValue);
   }
 }
@@ -1927,8 +1929,13 @@ ${step1Text}
         throw new Error('无法获取存档数据或记忆模块');
       }
 
-      // 1. 从 localStorage 读取最新配置
-      const settings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
+      // 1. 从 localStorage 读取最新配置（容错：防止 JSON 损坏导致整个流程失败）
+      let settings: any = {};
+      try {
+        settings = JSON.parse(localStorage.getItem('memory-settings') || '{}');
+      } catch {
+        settings = {};
+      }
       const midTermTrigger = settings.midTermTrigger ?? 25;
       const midTermKeep = settings.midTermKeep ?? 8;
       const longTermFormat = settings.longTermFormat || '';
@@ -1978,18 +1985,20 @@ ${step1Text}
       // 从aiService读取通用配置（流式等）
       const { aiService } = await import('@/services/aiService');
       const aiConfig = aiService.getConfig();
-      const useStreaming = aiConfig.streaming !== false;
+      const useStreaming = options?.useStreaming ?? (aiConfig.streaming !== false);
 
       // 记忆总结模式：从 API管理 的“功能分配 -> 模式”读取（酒馆端有效）
-      let useRawMode = true;
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { useAPIManagementStore } = require('@/stores/apiManagementStore');
-        const apiStore = useAPIManagementStore();
-        useRawMode = apiStore.getFunctionMode('memory_summary') === 'raw';
-      } catch {
-        // 兼容旧配置
-        useRawMode = aiConfig.memorySummaryMode === 'raw';
+      let useRawMode = typeof options?.useRawMode === 'boolean' ? options.useRawMode : true;
+      if (typeof options?.useRawMode !== 'boolean') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { useAPIManagementStore } = require('@/stores/apiManagementStore');
+          const apiStore = useAPIManagementStore();
+          useRawMode = apiStore.getFunctionMode('memory_summary') === 'raw';
+        } catch {
+          // 兼容旧配置
+          useRawMode = aiConfig.memorySummaryMode === 'raw';
+        }
       }
 
       // 检查AI服务可用性
@@ -2092,14 +2101,25 @@ ${saveDataJson}`;
 
       // 解析响应（与NPC记忆总结相同的方式）
       let summaryText: string;
-      const responseText = String(response).trim();
+      const responseText = String(response).replace(/<\/input>/g, '').trim();
 
       const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
       if (jsonBlockMatch?.[1]) {
+        const fenced = jsonBlockMatch[1].trim();
         try {
-          summaryText = JSON.parse(jsonBlockMatch[1].trim()).text?.trim() || '';
+          summaryText = JSON.parse(fenced).text?.trim() || '';
         } catch {
-          summaryText = '';
+          // 容错：模型可能在代码块里输出纯文本或非严格JSON（尾逗号/注释等）
+          const textFieldMatch = fenced.match(/"text"\s*:\s*"([\s\S]*?)"\s*[},]/);
+          if (textFieldMatch?.[1]) {
+            try {
+              summaryText = JSON.parse('"' + textFieldMatch[1].replace(/"/g, '\\"') + '"').trim();
+            } catch {
+              summaryText = textFieldMatch[1].trim();
+            }
+          } else {
+            summaryText = fenced;
+          }
         }
       } else {
         try {

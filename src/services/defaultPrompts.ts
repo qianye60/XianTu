@@ -9,7 +9,7 @@
  */
 import { getSaveDataStructureForEnv } from '@/utils/prompts/definitions/dataDefinitions';
 import { getCharacterInitializationPromptForEnv } from '@/utils/prompts/tasks/characterInitializationPrompts';
-import { getCotCorePrompt } from '@/utils/prompts/cot/cotCore';
+import { COT_CORE_PROMPT_TEMPLATE } from '@/utils/prompts/cot/cotCore';
 import { EnhancedWorldPromptBuilder } from '@/utils/worldGeneration/enhancedWorldPrompts';
 import { promptStorage } from './promptStorage';
 import { isTavernEnv } from '@/utils/tavern';
@@ -340,7 +340,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     cotCore: {
       name: '6. 自检协议',
-      content: getCotCorePrompt('{{用户输入}}', false),
+      content: COT_CORE_PROMPT_TEMPLATE,
       category: 'coreRequest',
       description: '禁止思维链输出',
       order: 6,
