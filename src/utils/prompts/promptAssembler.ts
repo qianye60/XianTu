@@ -23,12 +23,14 @@ export async function assembleSystemPrompt(
   const [
     coreRulesPrompt,
     businessRulesPrompt,
+    playerPersonalityPrompt,
     dataDefinitionsPrompt,
     textFormatsPrompt,
     worldStandardsPrompt
   ] = await Promise.all([
     getPrompt('coreOutputRules'),
     getPrompt('businessRules'),
+    getPrompt('playerPersonality'),
     getPrompt('dataDefinitions'),
     getPrompt('textFormatRules'),
     getPrompt('worldStandards')
@@ -43,6 +45,8 @@ export async function assembleSystemPrompt(
     coreRulesPrompt,
     // 2. 业务规则
     sanitizedBusinessRulesPrompt,
+    // 2.1 主角性格（可自定义）
+    playerPersonalityPrompt,
     // 3. 数据结构定义
     sanitizedDataDefinitionsPrompt,
     // 4. 文本格式与命名
