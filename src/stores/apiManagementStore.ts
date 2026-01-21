@@ -27,8 +27,7 @@ export type APIUsageType =
   | 'memory_summary'  // 记忆总结（包括NPC记忆）
   | 'embedding'  // 向量/语义检索用 Embedding
   | 'text_optimization'  // 文本优化
-  | 'cot'  // 思维链
-  | 'instruction_generation'  // 指令生成
+  | 'instruction_generation'  // 指令生成（含思维链推理）
   | 'world_generation'  // 世界生成
   | 'event_generation'  // 世界事件生成（随机事件/世界变革等）
   | 'sect_generation'  // 宗门内容生成（藏经阁、贡献商店等）
@@ -73,7 +72,6 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'memory_summary', apiId: 'default' },
     { type: 'embedding', apiId: 'default' },
     { type: 'text_optimization', apiId: 'default' },
-    { type: 'cot', apiId: 'default' },
     { type: 'instruction_generation', apiId: 'default' },
     { type: 'world_generation', apiId: 'default' },
     { type: 'event_generation', apiId: 'default' },
@@ -97,7 +95,6 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'world_generation', enabled: true },
     { type: 'event_generation', enabled: true },
     { type: 'sect_generation', enabled: true },
-    { type: 'cot', enabled: false },  // 思维链默认关闭
     { type: 'crafting', enabled: true }
   ];
 
@@ -115,7 +112,6 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
 
   // AI生成设置
   const aiGenerationSettings = ref({
-    enableSystemCoT: false, // 是否启用系统思维链
     splitStep2Streaming: false, // 分步生成第2步是否使用流式传输（默认关闭）
   });
 
@@ -125,14 +121,12 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
   });
 
   // 计算属性：判断是否需要自动启用分步生成
-  // 如果 cot、main、instruction_generation 任一分配了独立API且启用，则自动启用分步生成
+  // 如果 main、instruction_generation 任一分配了独立API且启用，则自动启用分步生成
   const shouldEnableSplitGeneration = computed(() => {
-    const cotAssignment = apiAssignments.value.find(a => a.type === 'cot');
     const mainAssignment = apiAssignments.value.find(a => a.type === 'main');
     const instructionAssignment = apiAssignments.value.find(a => a.type === 'instruction_generation');
 
     return (
-      (cotAssignment?.apiId && cotAssignment.apiId !== 'default') ||
       (mainAssignment?.apiId && mainAssignment.apiId !== 'default') ||
       (instructionAssignment?.apiId && instructionAssignment.apiId !== 'default')
     );

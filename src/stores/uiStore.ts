@@ -85,9 +85,6 @@ export const useUIStore = defineStore('ui', () => {
   // 🔥 [流式传输设置] 控制是否启用流式传输（全局持久化）
   const useStreaming = ref(localStorage.getItem('useStreaming') !== 'false'); // 默认开启
 
-  // 🔥 [CoT设置] 控制是否使用系统CoT（默认关闭）
-  const useSystemCot = ref(localStorage.getItem('useSystemCot') === 'true');
-
   // 🔥 [后端状态管理] 统一管理后端连接状态
   const backendStatus = ref({
     configured: isBackendConfigured(),
@@ -154,12 +151,16 @@ export const useUIStore = defineStore('ui', () => {
   // 🔥 流式响应状态管理
   function setStreamingContent(content: string) {
     rawStreamingContent.value = content;
-    streamingContent.value = sanitizeAITextForDisplay(content);
+    // 🔥 流式过程中也尝试解析 JSON 提取 text 字段
+    const extracted = extractTextFromJsonResponse(content);
+    streamingContent.value = extracted || sanitizeAITextForDisplay(content);
   }
 
   function appendStreamingContent(chunk: string) {
     rawStreamingContent.value += chunk;
-    streamingContent.value = sanitizeAITextForDisplay(rawStreamingContent.value);
+    // 🔥 流式过程中也尝试解析 JSON 提取 text 字段
+    const extracted = extractTextFromJsonResponse(rawStreamingContent.value);
+    streamingContent.value = extracted || sanitizeAITextForDisplay(rawStreamingContent.value);
   }
 
   function clearStreamingContent() {
@@ -408,15 +409,6 @@ export const useUIStore = defineStore('ui', () => {
       set: (val) => {
         useStreaming.value = val;
         localStorage.setItem('useStreaming', String(val));
-      }
-    }),
-
-    // 🔥 [CoT设置] 暴露系统CoT开关（全局持久化）
-    useSystemCot: computed({
-      get: () => useSystemCot.value,
-      set: (val) => {
-        useSystemCot.value = val;
-        localStorage.setItem('useSystemCot', String(val));
       }
     }),
 

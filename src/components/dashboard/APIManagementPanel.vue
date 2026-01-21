@@ -153,7 +153,7 @@
             <strong>智能流水线：</strong>只有配置了独立API的功能才会触发额外调用。
             如果所有功能都使用"默认API"，系统会合并请求以节省调用次数。
             <br/>
-            <span class="hint-example">示例：CoT + Main 使用同一API = 1次调用 | CoT + Main 使用不同API = 2次调用</span>
+            <span class="hint-example">示例：指令生成 + Main 使用同一API = 1次调用 | 指令生成 + Main 使用不同API = 2次调用</span>
           </div>
         </div>
         <div class="settings-list">
@@ -222,48 +222,7 @@
             </div>
           </div>
 
-          <!-- 2. 思维链（CoT）+ 启用系统CoT开关 -->
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ getFunctionName('cot') }}</label>
-              <span class="setting-desc">{{ getFunctionDesc('cot') }}</span>
-            </div>
-            <div class="setting-control">
-              <div class="control-row">
-                <!-- 启用系统CoT开关 -->
-                <div class="inline-toggle">
-                  <label class="toggle-label">启用</label>
-                  <label class="setting-switch compact">
-                    <input
-                      type="checkbox"
-                      :checked="apiStore.aiGenerationSettings.enableSystemCoT"
-                      @change="apiStore.updateAIGenerationSettings({ enableSystemCoT: ($event.target as HTMLInputElement).checked })"
-                    />
-                    <span class="switch-slider"></span>
-                  </label>
-                </div>
-                <!-- API分配 -->
-                <select
-                  :value="apiStore.apiAssignments.find(a => a.type === 'cot')?.apiId"
-                  @change="updateAssignment('cot', ($event.target as HTMLSelectElement).value)"
-                  class="setting-select"
-                  :class="{ 'disabled-hint': !apiStore.aiGenerationSettings.enableSystemCoT }"
-                  :disabled="!apiStore.aiGenerationSettings.enableSystemCoT"
-                  :title="!apiStore.aiGenerationSettings.enableSystemCoT ? '请先启用思维链功能' : ''"
-                >
-                  <option
-                    v-for="api in apiStore.enabledAPIs"
-                    :key="api.id"
-                    :value="api.id"
-                  >
-                    {{ getDisplayName(api) }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- 3. 指令生成 -->
+          <!-- 2. 指令生成 -->
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ getFunctionName('instruction_generation') }}</label>
@@ -832,7 +791,6 @@ const getFunctionName = (type: APIUsageType): string => {
     memory_summary: '记忆总结',
     embedding: '向量检索(Embedding)',
     text_optimization: '文本优化',
-    cot: '思维链',
     instruction_generation: '指令生成',
     world_generation: '世界生成',
       event_generation: '事件生成',
@@ -851,8 +809,7 @@ const getFunctionDesc = (type: APIUsageType): string => {
       memory_summary: '压缩总结历史记忆，包括NPC记忆（可配置Raw/标准模式）',
       embedding: '向量记忆语义检索用Embedding（需要embedding模型，建议使用独立API）',
       text_optimization: '优化AI输出文本（可配置Raw/标准模式）',
-      cot: '思维链推理（启用后可配置独立API）',
-      instruction_generation: '将用户模糊指令转化为明确游戏指令（一次对话生成）',
+      instruction_generation: '将用户模糊指令转化为明确游戏指令（含思维链推理）',
       world_generation: '生成世界、地点等（可配置Raw/标准模式）',
         event_generation: '生成世界事件（可配置Raw/标准模式）',
         sect_generation: '生成宗门内容如藏经阁、贡献商店（可配置Raw/标准模式）',
@@ -866,8 +823,7 @@ const getFunctionDesc = (type: APIUsageType): string => {
       memory_summary: '压缩总结历史记忆，包括NPC记忆（可用快速模型节省成本）',
       embedding: '向量记忆语义检索用Embedding（需要embedding模型）',
       text_optimization: '优化AI输出的文本质量',
-      cot: '思维链推理（启用后可配置独立API）',
-      instruction_generation: '将用户模糊指令转化为明确游戏指令（一次对话生成）',
+      instruction_generation: '将用户模糊指令转化为明确游戏指令（含思维链推理）',
       world_generation: '生成世界、地点等内容（开局时使用）',
         event_generation: '生成世界事件（可用快速模型）',
         sect_generation: '生成宗门内容如藏经阁、贡献商店（可用快速模型）',

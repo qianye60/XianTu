@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AIBidirectionalSystem
  * 核心功能：
  * 1. 接收用户输入，构建Prompt，调用AI生成响应
@@ -123,6 +123,33 @@ class AIBidirectionalSystemClass {
     const a = Math.ceil(min);
     const b = Math.floor(max);
     return Math.floor(Math.random() * (b - a + 1)) + a;
+  }
+
+  private getFocusedNpcNames(stateForAI: any): string[] {
+    const relationships = stateForAI?.社交?.关系;
+    if (!relationships || typeof relationships !== 'object') return [];
+    return Object.entries(relationships)
+      .filter(([, npc]) => {
+        if (!npc || typeof npc !== 'object') return false;
+        const flag = (npc as any).实时关注;
+        return flag === true || flag === 1 || flag === 'true' || flag === 'True' || flag === 'TRUE' || flag === '是';
+      })
+      .map(([name]) => String(name))
+      .filter((name) => name.trim().length > 0);
+  }
+
+  private buildFocusedNpcPrompt(stateForAI: any): string {
+    const focusedNames = this.getFocusedNpcNames(stateForAI);
+    const list = focusedNames.length > 0 ? focusedNames.map(name => `- ${name}`).join('\n') : '- （无）';
+    return [
+      '# 🔎 实时关注NPC（必须更新）',
+      '请先检查“实时关注”名单；若名单非空，本回合必须推演并更新其💭当前状态（实时），即使不在玩家身边：',
+      list,
+      '要求：',
+      '- 必须更新 社交.关系.[NPC名].当前内心想法',
+      '- 如有变化，同步更新 当前位置 / 当前外貌状态 / 属性 等',
+      '- 所有名单必须全部覆盖，可合并或分多条 tavern_commands 更新'
+    ].join('\n');
   }
 
   private normalizeEventConfig(config: any): { enabled: boolean; minYears: number; maxYears: number; customPrompt: string } {
@@ -686,6 +713,8 @@ ${offlinePrompt ? `\n### 世界主人性格/行为提示词\n${offlinePrompt}` :
 `;
       }
 
+      const focusedNpcPrompt = this.buildFocusedNpcPrompt(stateForAI);
+
       const systemPrompt = `
 ${assembledPrompt}
 ${travelStatusPrompt}
@@ -709,6 +738,12 @@ ${stateJsonString}
           position: 'in_chat',
         }
       ];
+      injects.push({
+        content: focusedNpcPrompt,
+        role: 'system',
+        depth: 3,
+        position: 'in_chat',
+      });
 
       // 如果有短期记忆，作为独立的 assistant 消息发送
       const memoryToSend = (typeof shortTermMemoryForPrompt !== 'undefined' ? shortTermMemoryForPrompt : shortTermMemory) as string[];
@@ -717,17 +752,6 @@ ${stateJsonString}
           content: `# 【最近事件】\n${memoryToSend.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅、不断层，符合上文的文本信息`,
           role: 'assistant',
           depth: 2,
-          position: 'in_chat',
-        });
-      }
-
-      // 🔥 添加 CoT 提示词（仅在启用系统CoT时注入）
-      if (uiStore.useSystemCot) {
-        const cotPrompt = await getPrompt('cotCore');
-        injects.push({
-          content: cotPrompt.replace('{{用户输入}}', userActionForAI),
-          role: 'system',
-          depth: 1,
           position: 'in_chat',
         });
       }
@@ -848,11 +872,7 @@ ${stateJsonString}
       // 🔥 获取 API 管理配置，判断是否真正需要分步生成
       const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
       const apiStore = useAPIManagementStore();
-      const enableCot = apiStore.aiGenerationSettings.enableSystemCoT;
-      const cotApiConfig = apiStore.getAPIForType('cot');
       const instructionApiConfig = apiStore.getAPIForType('instruction_generation');
-      // 判断是否有独立的 COT API 配置
-      const hasCotApi = enableCot && cotApiConfig && cotApiConfig.id !== 'default';
       // 判断是否有独立的指令生成 API 配置
       const hasInstructionApi = instructionApiConfig && instructionApiConfig.id !== 'default';
 
@@ -908,25 +928,9 @@ ${narrativeStateJson}
 
           const sanitizedDataDefinitionsPrompt = tavernEnv ? dataDefinitionsPrompt : stripNsfwContent(dataDefinitionsPrompt);
 
-          // 第2步：COT + 指令生成（合并）
+          // 第2步：指令生成（CoT 自检清单已合并到 splitGenerationStep2 提示词中）
           const stepRules = (await getPrompt('splitGenerationStep2')).trim();
-          const cotPrompt = enableCot ? await getPrompt('cotCore') : '';
           const sections: string[] = [stepRules];
-
-          // 如果启用COT，添加思维链提示
-          if (enableCot && cotPrompt) {
-            sections.push(`
-# 思维链分析（先分析再生成指令）
-根据第1步正文内容，分析：
-1. 场景变化（位置、时间、环境）
-2. NPC状态变化（出场、互动、好感度）
-3. 玩家状态变化（气血、灵气、效果）
-4. 物品/灵石变化
-5. 修炼进度变化
-
-${cotPrompt}
-`.trim());
-          }
 
           const sanitizedBusinessRulesPrompt = tavernEnv ? businessRulesPrompt : stripNsfwContent(businessRulesPrompt);
           sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
@@ -946,6 +950,7 @@ ${cotPrompt}
 ${assembled}
 
 ${coreStatusSummary}
+${focusedNpcPrompt ? `\n${focusedNpcPrompt}\n` : ''}
 
 # 游戏状态（JSON）
 ${stateJsonString}
@@ -1325,7 +1330,6 @@ ${step1Text}
       // 🔥 获取 API 管理配置，判断是否真正需要分步生成
       const { useAPIManagementStore } = await import('@/stores/apiManagementStore');
       const apiStore = useAPIManagementStore();
-      const enableCot = apiStore.aiGenerationSettings.enableSystemCoT;
       const instructionApiConfig = apiStore.getAPIForType('instruction_generation');
       // 判断是否有独立的指令生成 API 配置
       const hasInstructionApi = instructionApiConfig && instructionApiConfig.id !== 'default';
@@ -1355,10 +1359,9 @@ ${userPrompt}
             `.trim();
           }
 
-          // 第2步：指令生成（合并）。不要拼接完整 systemPrompt（它包含 text 输出规则，会和“禁止text”冲突）
+          // 第2步：指令生成（CoT 自检清单已合并到 splitInitStep2 提示词中）
           const tavernEnv = !!tavernHelper;
           const stepRules = (await getPrompt('splitInitStep2')).trim();
-          const cotPrompt = enableCot ? await getPrompt('cotCore') : '';
           const [businessRulesPrompt, dataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt] = await Promise.all([
             getPrompt('businessRules'),
             getPrompt('dataDefinitions'),
@@ -1369,19 +1372,6 @@ ${userPrompt}
           const sanitizedBusinessRulesPrompt = tavernEnv ? businessRulesPrompt : stripNsfwContent(businessRulesPrompt);
 
           const sections: string[] = [stepRules];
-
-          // 如果启用COT，添加思维链提示
-          if (enableCot && cotPrompt) {
-            sections.push(`
-# 思维链分析（先分析再生成指令）
-根据第1步正文内容，分析：
-1. 初始场景设定（位置、时间、环境）
-2. 出场NPC的状态
-3. 玩家初始状态
-4. 可能的发展方向
-
-${cotPrompt}`.trim());
-          }
 
           sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
           return sections.map(s => s.trim()).filter(Boolean).join('\n\n---\n\n').trim();
@@ -2923,3 +2913,4 @@ export const AIBidirectionalSystem = AIBidirectionalSystemClass.getInstance();
 
 // 导出 getTavernHelper 以供其他模块使用
 export { getTavernHelper };
+

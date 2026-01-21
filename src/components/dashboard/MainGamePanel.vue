@@ -1325,8 +1325,6 @@ const sendMessage = async () => {
         console.log('[图片上传] 将发送', selectedImages.value.length, '张图片');
       }
 
-      // 天道系统已整合到COT判定流程中，无需单独同步
-
       aiResponse = await bidirectionalSystem.processPlayerAction(
         finalUserMessage,
         character,
