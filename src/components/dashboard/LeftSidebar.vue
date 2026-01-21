@@ -161,6 +161,7 @@
 
       <!-- 系统功能区 -->
       <div class="system-section">
+        <div class="section-title">{{ t('系统功能') }}</div>
         <div class="function-group">
           <button class="function-btn system" @click="handleSaveGame" :disabled="!activeCharacter">
             <div class="btn-icon">
@@ -463,9 +464,9 @@ const exitToMenu = async () => {
   --sidebar-card-radius: 10px;
   --sidebar-btn-radius: 8px;
   --sidebar-pill-radius: 6px;
-  width: var(100% + 6px);
+  width: 100%;
   height: 100%;
-  padding: 10px 6px;
+  padding: 10px 8px;
   box-sizing: border-box;
   font-family: var(--font-family-sans-serif);
   display: flex;
@@ -475,7 +476,7 @@ const exitToMenu = async () => {
   box-shadow: none;
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .left-sidebar::before {
@@ -712,10 +713,11 @@ const exitToMenu = async () => {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible; /* 改为 visible 防止右边框被截断 */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   padding-bottom: 4px;
+  padding-right: 2px; /* 给右边框留出空间 */
   min-width: 0;
 }
 
@@ -735,12 +737,11 @@ const exitToMenu = async () => {
 
 /* 功能分区样式 */
 .function-section {
-  margin: 0 auto 8px auto;
+  margin: 0 5px 8px 5px;
   padding: 8px;
   border-radius: var(--sidebar-card-radius);
   border: 1px solid rgba(var(--color-border-rgb), 0.3);
   background: rgba(var(--color-surface-rgb), 0.4);
-  width: calc(100% - 10px);
 }
 
 .section-title {
@@ -764,12 +765,11 @@ const exitToMenu = async () => {
 }
 
 .system-section {
-  margin: 0 auto;
+  margin: 0 5px 8px 5px;
   padding: 8px;
   border-radius: var(--sidebar-card-radius);
   border: 1px solid rgba(var(--color-border-rgb), 0.3);
   background: rgba(var(--color-surface-rgb), 0.4);
-  width: calc(100% - 4px);
 }
 
 .divider {

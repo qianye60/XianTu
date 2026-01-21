@@ -481,6 +481,7 @@ watch(isPanelOpen, (isOpen) => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-x: visible; /* 防止边框被截断 */
 }
 
 .main-content {
@@ -801,10 +802,11 @@ watch(isPanelOpen, (isOpen) => {
 
   .left-sidebar .sidebar-wrapper {
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: visible;
     height: 100%;
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
+    padding-right: 2px; /* 防止边框被截断 */
   }
 
   .right-panel-area {

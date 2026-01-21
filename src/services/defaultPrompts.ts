@@ -9,7 +9,6 @@
  */
 import { getSaveDataStructureForEnv } from '@/utils/prompts/definitions/dataDefinitions';
 import { getCharacterInitializationPromptForEnv } from '@/utils/prompts/tasks/characterInitializationPrompts';
-import { COT_CORE_PROMPT_TEMPLATE } from '@/utils/prompts/cot/cotCore';
 import { EnhancedWorldPromptBuilder } from '@/utils/worldGeneration/enhancedWorldPrompts';
 import { promptStorage } from './promptStorage';
 import { isTavernEnv } from '@/utils/tavern';
@@ -69,11 +68,6 @@ export const PROMPT_CATEGORIES = {
     name: '核心请求提示词',
     description: '正常游戏请求时按顺序发送的提示词',
     icon: '📨'
-  },
-  cot: {
-    name: '思维链（CoT）提示词',
-    description: '系统CoT推理/自检用提示词（不会输出思维链）',
-    icon: '🧠'
   },
   summary: {
     name: '总结请求提示词',
@@ -374,14 +368,6 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       weight: 6,
       condition: 'onlineMode'
     },
-    cotCore: {
-      name: '思维链推理（CoT）',
-      content: COT_CORE_PROMPT_TEMPLATE,
-      category: 'cot',
-      description: '启用系统CoT时注入，用于自检与指令生成（禁止输出<thinking>）',
-      order: 1,
-      weight: 8
-    },
     actionOptions: {
       name: '7. 行动选项',
       content: ACTION_OPTIONS_RULES,
@@ -456,6 +442,45 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       name: '10. 分步指令',
       content: `# 分步生成 2/2：仅指令
 
+## 🧭 内部自检清单（不要输出，仅用于生成指令）
+
+### 基础同步（V3短路径）- 必须全面更新！
+□ 位置变化 → set \`角色.位置\`
+□ 时间流逝 → add \`元数据.时间.分钟\`（修炼/闭关按实际时长）
+□ 货币变化 → add \`角色.背包.货币.<币种ID>.数量\`
+□ 物品增删 → set/delete \`角色.背包.物品.[物品ID]\`
+
+### 修炼与突破
+□ 日常修炼 → add \`角色.属性.境界.当前进度\`
+□ 功法熟练 → add \`角色.背包.物品.[功法ID].修炼进度\`
+□ 悟道进展 → add \`角色.大道.大道列表.[道名].当前经验\`
+□ 小阶段突破 → set \`角色.属性.境界.阶段\`（初期→中期→后期→圆满→极境）
+□ 大境界突破 → set \`角色.属性.境界.名称\` + 更新属性上限
+
+### 渡劫系统
+□ 渡劫开始 → push \`角色.效果\` 添加"渡劫中"状态
+□ 每道天雷 → add \`角色.属性.气血.当前\`（负）+ add \`角色.属性.灵气.当前\`（负）
+□ 渡劫成功 → set 新境界 + 更新属性上限 + push \`社交.事件.事件记录\`
+□ 渡劫失败 → 重伤/陨落处理 + push \`社交.事件.事件记录\`
+
+### 战斗与消耗 - 必须更新所有参与者！
+□ 施法/出招 → add \`角色.属性.灵气.当前\`（负，按技能消耗%）
+□ 玩家受伤 → add \`角色.属性.气血.当前\`（负）
+□ NPC受伤 → add \`社交.关系.[NPC名].属性.气血.当前\`（负）
+□ 神识消耗 → add \`角色.属性.神识.当前\`（负）
+□ 状态效果 → push \`角色.效果\`（中毒/重伤/虚弱等）
+
+### NPC交互 - 必须全面更新NPC状态！
+□ NPC出场 → set \`社交.关系.[NPC名]\`（完整对象）
+□ 好感变化 → add \`社交.关系.[NPC名].好感度\`
+□ NPC记忆 → push \`社交.关系.[NPC名].记忆\`
+□ NPC状态 → set \`社交.关系.[NPC名].当前外貌状态\`
+□ NPC属性变化：气血/灵气/神识/境界/位置都要更新
+
+### 世界事件与宗门
+□ 重大事件 → push \`社交.事件.事件记录\`
+□ 宗门贡献 → add \`社交.宗门.成员信息.贡献\`
+
 ## 🔴 输出格式（必须严格遵守）
 {"mid_term_memory":"50-100字摘要","tavern_commands":[{"action":"add","key":"元数据.时间.分钟","value":30}],"action_options":["选项1","选项2","选项3","选项4","选项5"]}
 
@@ -465,15 +490,12 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 规则文中的 \`[NPC名]\` / \`[道名]\` / \`{功法ID}\` 只是占位符，输出key时必须替换成真实名称，且不要保留方括号/花括号
 - 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
 - tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头（V3短路径）
-  - ✅ \`角色.背包.物品.item_ore_mystery_001\`
-  - 禁止以 \`背包.\` 开头（必须写 \`角色.背包.\`）
-- 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`，禁止中文引号/逗号/顿号（“” ， 、）
+- 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`，禁止中文引号/逗号/顿号
 
 ## ⚠️ 严禁（违反将导致生成失败）
-- ❌ text 字段（正文已在第1步完成，不要重复生成）
+- ❌ text 字段（正文已在第1步完成）
 - ❌ <thinking> 标签
 - ❌ JSON以外的内容
-- ❌ 任何叙事/正文内容
 
 ## ✅ 本步骤只需要
 - mid_term_memory：摘要
@@ -481,11 +503,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - action_options：行动选项（如启用）
 
 ## 🔔 实时关注NPC
-若有NPC的\`实时关注\`为true，即使不在玩家身边，也要根据第1步正文推演其动态并更新
-
-## 🔴 再次强调输出格式
-只输出：\`{"mid_term_memory":"...","tavern_commands":[...],"action_options":[...]}\`
-禁止输出text字段！`.trim(),
+若有NPC的\`实时关注\`为true，即使不在玩家身边，也要根据第1步正文推演其动态并更新`.trim(),
       category: 'coreRequest',
       description: '分步模式第2步',
       order: 10,
@@ -539,36 +557,30 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       name: '12. 开局指令',
       content: `# 开局生成 2/2：初始化数据
 
+## 🧭 内部自检清单（不要输出，仅用于生成指令）
+
+### 开局必须初始化的数据
+□ 时间：set \`元数据.时间\` + set \`角色.身份.出生日期\`
+□ 位置：set \`角色.位置\` {描述,x,y,灵气浓度}
+□ 声望：set \`角色.属性.声望\`
+□ 资源：set \`角色.背包.灵石\`
+□ NPC：set \`社交.关系.{NPC名}\`（0-3个重要人物）
+
 ## 🔴 输出格式（必须严格遵守）
 {"mid_term_memory":"50-100字摘要","tavern_commands":[...],"action_options":["选项1","选项2","选项3","选项4","选项5"]}
 
 ## ✅ JSON与key规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
 - 字符串如需换行，用 \`\\n\`
-- 规则文中的 \`[NPC名]\` / \`[道名]\` / \`{功法ID}\` 只是占位符，输出key时必须替换成真实名称，且不要保留方括号/花括号
-- 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
-- tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头（V3短路径）
-  - ✅ \`角色.背包.物品.item_001\`
-  - 禁止以 \`背包.\` 开头（必须写 \`角色.背包.\`）
-- 开局阶段 tavern_commands 只允许 \`action: "set"\`（不要 add/push/delete）
-- 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`，禁止中文引号/逗号/顿号（“” ， 、）
+- 占位符 \`[NPC名]\` / \`[道名]\` 必须替换成真实名称
+- tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头
+- 开局阶段 tavern_commands 只允许 \`action: "set"\`
+- 必须输出严格JSON：只用英文半角标点
 
-## 必须执行的命令（tavern_commands）
-1. 时间：set \`元数据.时间\` + set \`角色.身份.出生日期\`
-2. 位置：set \`角色.位置\` {描述,x,y,灵气浓度}（灵气浓度1-100，影响修炼速度）
-3. 声望：set \`角色.属性.声望\`（普通0-10/宗门10-50/名门50-100）
-4. 资源：set \`角色.背包.灵石\`（贫困0-10/普通10-50/世家100-300）
-5. NPC：set \`社交.关系.{NPC名}\`（0-3个重要人物）
-
-## ⚠️ 严禁（违反将导致生成失败）
-- ❌ text 字段（正文已在第1步完成，不要重复生成）
+## ⚠️ 严禁
+- ❌ text 字段（正文已在第1步完成）
 - ❌ <thinking> 标签
-- ❌ JSON以外的内容
-- ❌ 任何叙事/正文内容
-
-## 🔴 再次强调输出格式
-只输出：\`{"mid_term_memory":"...","tavern_commands":[...],"action_options":[...]}\`
-禁止输出text字段！`.trim(),
+- ❌ JSON以外的内容`.trim(),
       category: 'coreRequest',
       description: '开局分步第2步',
       order: 12,

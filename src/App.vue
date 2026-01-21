@@ -193,7 +193,7 @@
           </a>
 
           <div class="help-warning">
-            <span>⚠️ 游玩尽量使用推荐预设，了解原理后可自行调整，<strong>禁止打开COT</strong></span>
+            <span>⚠️ 游玩尽量使用推荐预设，了解原理后可自行调整</span>
           </div>
 
           <div class="help-section">
