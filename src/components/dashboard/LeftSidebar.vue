@@ -463,7 +463,7 @@ const exitToMenu = async () => {
   --sidebar-card-radius: 10px;
   --sidebar-btn-radius: 8px;
   --sidebar-pill-radius: 6px;
-  width: 100%;
+  width: var(100% + 6px);
   height: 100%;
   padding: 10px 6px;
   box-sizing: border-box;
