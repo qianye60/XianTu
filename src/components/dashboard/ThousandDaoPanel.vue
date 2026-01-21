@@ -1205,6 +1205,14 @@ const comprehendFromNature = () => {
   flex-wrap: wrap;
 }
 
+.detail-actions .action-btn.large {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 /* 工具栏 */
 .dao-toolbar {
   display: flex;

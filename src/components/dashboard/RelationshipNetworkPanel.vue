@@ -856,7 +856,7 @@
               @click.stop="handleGraphNodeClick(n.id)"
             >
               <circle class="graph-node-dot" :r="n.kind === 'player' ? 18 : 14" :class="getGraphNodeClass(n.id)" />
-              <text class="graph-node-label" x="0" y="30" text-anchor="middle">{{ n.label }}</text>
+              <text class="graph-node-label" x="0" :y="n.kind === 'player' ? 28 : 24" text-anchor="middle">{{ n.label }}</text>
             </g>
           </g>
         </svg>
@@ -1092,12 +1092,13 @@ const actionQueue = useActionQueueStore();
     const others = Array.from(nodeIds).filter((id) => id !== playerNodeId);
     const centerX = GRAPH_W / 2;
     const centerY = GRAPH_H / 2;
-    const radius = clamp(180 + others.length * 6, 200, 320);
+    // 增加半径，让节点分布更开
+    const radius = clamp(200 + others.length * 8, 220, 260);
 
     const nodes: GraphNode[] = [];
     nodes.push({ id: playerNodeId, label: playerName.value, kind: 'player', x: centerX, y: centerY });
     others.forEach((id, index) => {
-      const angle = (2 * Math.PI * index) / Math.max(1, others.length);
+      const angle = (2 * Math.PI * index) / Math.max(1, others.length) - Math.PI / 2;
       const x = centerX + Math.cos(angle) * radius;
       const y = centerY + Math.sin(angle) * radius;
       const isNpc = relationships.value.some((n) => n.名字 === id);
@@ -2592,21 +2593,22 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .graph-node-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   fill: var(--color-text);
   paint-order: stroke;
-  stroke: rgba(255, 255, 255, 0.9);
-  stroke-width: 4px;
+  stroke: var(--color-background);
+  stroke-width: 5px;
   stroke-linejoin: round;
   transition: all 0.3s ease;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
+  dominant-baseline: hanging;
 }
 
 .graph-node:hover .graph-node-label {
-  font-size: 14px;
+  font-size: 13px;
   fill: var(--color-primary);
-  stroke-width: 5px;
+  stroke-width: 6px;
 }
 
 .relationship-list {
@@ -4535,12 +4537,12 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .delete-npc-btn {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4550,7 +4552,7 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .delete-npc-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.2);
   border-color: #ef4444;
   color: #ef4444;
   transform: scale(1.1);
@@ -4563,12 +4565,12 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .action-btn {
-  background: transparent;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
+  color: var(--color-text);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4577,15 +4579,27 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   flex-shrink: 0;
 }
 
-.action-btn.download-btn:hover {
+.action-btn.download-btn {
   background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.action-btn.download-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
   border-color: #3b82f6;
   color: #3b82f6;
   transform: scale(1.1);
 }
 
-.action-btn.export-btn:hover {
+.action-btn.export-btn {
   background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.action-btn.export-btn:hover {
+  background: rgba(16, 185, 129, 0.2);
   border-color: #10b981;
   color: #10b981;
   transform: scale(1.1);

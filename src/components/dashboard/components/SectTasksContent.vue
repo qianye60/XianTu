@@ -490,6 +490,7 @@ Context:
 .info-value.contribution { color: #0e7490; font-size: 1.1rem; }
 
 .task-filters {
+  left: 4px;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;

@@ -808,12 +808,15 @@ onMounted(() => {
   border-radius: 0.75rem;
   border: 1px solid var(--color-border);
   flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .header-icon {
@@ -841,6 +844,8 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .action-btn {
@@ -855,6 +860,8 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.875rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .action-btn:hover {

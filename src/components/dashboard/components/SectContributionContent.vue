@@ -401,6 +401,7 @@ async function generateShopContent() {
 .info-value.contribution { color: #f59e0b; font-size: 1.1rem; }
 
 .exchange-tabs {
+  left: 4px;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;

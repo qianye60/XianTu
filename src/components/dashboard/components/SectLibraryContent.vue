@@ -459,6 +459,7 @@ async function generateLibraryContent() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding-bottom: 1rem;
 }
 
 .floor-section {
@@ -523,10 +524,9 @@ async function generateLibraryContent() {
 
 .floor-content {
   padding: 1rem;
+  padding-bottom: 1.5rem;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 .empty-floor {

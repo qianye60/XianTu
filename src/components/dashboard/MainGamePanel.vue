@@ -339,6 +339,7 @@ import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { AIBidirectionalSystem, getTavernHelper } from '@/utils/AIBidirectionalSystem';
 import { isTavernEnv } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
+import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
 import { aiService } from '@/services/aiService';
 import FormattedText from '@/components/common/FormattedText.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -1216,12 +1217,16 @@ const sendMessage = async () => {
       toast.error('角色已死亡，气血耗尽。无法继续游戏，请重新开始或复活角色。');
       return;
     }
-    // 检查寿命
-    if ((saveData as any).角色?.属性?.寿命?.当前 !== undefined &&
-        (saveData as any).角色?.属性?.寿命?.上限 !== undefined &&
-        (saveData as any).角色.属性.寿命.当前 >= (saveData as any).角色.属性.寿命.上限) {
-      toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
-      return;
+    // 检查寿命（通过出生日期计算当前年龄，与寿元上限比较）
+    const birthDate = (saveData as any).角色?.身份?.出生日期;
+    const gameTime = (saveData as any).元数据?.时间;
+    const lifespanLimit = (saveData as any).角色?.属性?.寿元上限;
+    if (birthDate && gameTime && typeof lifespanLimit === 'number') {
+      const currentAge = calculateAgeFromBirthdate(birthDate, gameTime);
+      if (currentAge >= lifespanLimit) {
+        toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
+        return;
+      }
     }
   }
 
@@ -1443,11 +1448,15 @@ const sendMessage = async () => {
         if (currentSaveData.属性?.气血?.当前 !== undefined && currentSaveData.属性.气血.当前 <= 0) {
           toast.error('角色已死亡，气血耗尽');
         }
-        // 检查寿命
-        if (currentSaveData.属性?.寿命?.当前 !== undefined &&
-            currentSaveData.属性?.寿命?.上限 !== undefined &&
-            currentSaveData.属性.寿命.当前 >= currentSaveData.属性.寿命.上限) {
-          toast.error('角色已死亡，寿元耗尽');
+        // 检查寿命（通过出生日期计算当前年龄，与寿元上限比较）
+        const birthDate2 = (currentSaveData as any).角色?.身份?.出生日期;
+        const gameTime2 = (currentSaveData as any).元数据?.时间;
+        const lifespanLimit2 = currentSaveData.属性?.寿元上限;
+        if (birthDate2 && gameTime2 && typeof lifespanLimit2 === 'number') {
+          const currentAge2 = calculateAgeFromBirthdate(birthDate2, gameTime2);
+          if (currentAge2 >= lifespanLimit2) {
+            toast.error('角色已死亡，寿元耗尽');
+          }
         }
       }
     } else if (aiResponse) {
