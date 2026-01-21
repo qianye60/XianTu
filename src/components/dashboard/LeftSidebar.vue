@@ -760,6 +760,7 @@ const exitToMenu = async () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding-right: 2px; /* 防止按钮右边框被截断 */
 }
 
 .system-section {
