@@ -97,7 +97,8 @@
 │  │  ├─ 描述: string (必填)                   # 对 UI/叙事友好
 │  │  ├─ 地图ID: string (可选)                 # 便于联机/地图系统
 │  │  ├─ x: number (可选)
-│  │  └─ y: number (可选)
+│  │  ├─ y: number (可选)
+│  │  └─ 灵气浓度: number (可选)               # 1-100，影响修炼速度
 │  ├─ 效果: array (必填)                       # 效果（buff/debuff），不再叫"状态效果/修行状态"
 │  │  └─ [i]: object
 │  │     ├─ 状态名称: string (必填)
@@ -115,6 +116,11 @@
 │  │  │  ├─ 中品: number (必填)
 │  │  │  ├─ 上品: number (必填)
 │  │  │  └─ 极品: number (必填)
+│  │  ├─ 货币?: object (可选)                   # 新货币系统（见附录6.2）
+│  │  │  └─ <币种ID>: CurrencyAsset
+│  │  ├─ 货币设置?: object (可选)               # 货币配置
+│  │  │  ├─ 禁用币种: array (string[])
+│  │  │  └─ 基准币种?: string
 │  │  └─ 物品: object (必填)                   # key=物品ID -> Item（见附录）
 │  │     └─ <物品ID>: object
 │  ├─ 装备: object (必填)                      # Equipment：只存物品ID引用（引用 角色.背包.物品）
@@ -198,6 +204,7 @@
 │     └─ 隐式中期记忆?: array (可选)
 ├─ 世界: object (必填)                         # 世界全局（联机：服务器权威）
 │  ├─ 信息: object (必填)                      # WorldInfo（世界生成+地图+势力+地点）
+│  │  └─ 经济?: object (可选)                  # 经济系统（见附录6.8）
 │  └─ 状态: object (可选)                      # 动态世界状态（可选/可重建）
 │     ├─ 环境?: object (可选)                  # 灵气浓度/天气/劫数...
 │     ├─ 事件?: array (可选)                   # 世界事件（实现决定）
@@ -280,7 +287,7 @@
       "寿命": { "当前": 18, "上限": 80 },
       "声望": 0
     },
-    "位置": { "描述": "朝天大陆·无名之地", "地图ID": "w_0" },
+    "位置": { "描述": "朝天大陆·无名之地", "地图ID": "w_0", "灵气浓度": 30 },
     "效果": [],
     "身体": { "总体状况": "", "部位": {} },
     "背包": {
@@ -342,7 +349,7 @@
 
 - 境界：`角色.属性.境界.名称` / `角色.属性.境界.当前进度`
 - 血/气：`角色.属性.气血.当前` / `角色.属性.灵气.当前`
-- 位置：`角色.位置.描述` / `角色.位置.x`
+- 位置：`角色.位置.描述` / `角色.位置.x` / `角色.位置.灵气浓度`
 - 效果：`角色.效果[]`
 - 修炼：`角色.修炼.修炼状态.模式` / `角色.修炼.修炼功法.物品ID`
 - 背包：`角色.背包.物品` / `角色.装备.装备1`
@@ -437,7 +444,25 @@ Item (通用字段)
 └─ ...（按类型扩展）
 ```
 
-### 6.2 掌握技能（MasteredSkill）
+### 6.2 货币系统（CurrencyAsset）
+
+> `角色.背包.货币.<币种ID>` 的 value。新货币系统支持多币种和动态汇率。
+
+```text
+CurrencyAsset
+├─ 币种: string                                # 币种ID（与 key 一致）
+├─ 名称: string                                # 展示名称
+├─ 数量: number                                # 余额
+├─ 价值度: number                              # 相对基准币种的价值（默认1下品灵石=1）
+├─ 描述?: string
+└─ 图标?: string                               # lucide 图标名
+
+CurrencySettings
+├─ 禁用币种: array (string[])                  # 用户删除过的币种ID
+└─ 基准币种?: string                           # 默认：灵石_下品
+```
+
+### 6.3 掌握技能（MasteredSkill）
 
 ```text
 MasteredSkill
@@ -449,7 +474,7 @@ MasteredSkill
 └─ 使用次数: number
 ```
 
-### 6.3 任务系统（QuestSystem）
+### 6.4 任务系统（QuestSystem）
 
 ```text
 QuestSystem
@@ -480,7 +505,7 @@ Quest
 └─ AI生成: boolean
 ```
 
-### 6.4 叙事消息（GameMessage）
+### 6.5 叙事消息（GameMessage）
 
 ```text
 GameMessage
@@ -491,7 +516,7 @@ GameMessage
 └─ stateChanges?: object
 ```
 
-### 6.5 NPC 档案（NpcProfile）
+### 6.6 NPC 档案（NpcProfile）
 
 > `社交.关系.<NPC键>` 的 value（键建议用 NPC 唯一ID；没有ID时用名字，但要确保唯一）。
 
@@ -523,7 +548,7 @@ NpcProfile（核心字段）
 └─ 当前内心想法: string
 ```
 
-#### 6.5.1 关系矩阵（RelationshipMatrixV3，可选）
+#### 6.6.1 关系矩阵（RelationshipMatrixV3，可选）
 
 > 路径：`社交.关系矩阵`（用于记录 NPC-NPC 的明确关系，可选）
 
@@ -541,7 +566,7 @@ RelationshipMatrixV3
       └─ updatedAt?: string
 ```
 
-### 6.6 宗门系统（SectSystemV2）
+### 6.7 宗门系统（SectSystemV2）
 
 ```text
 SectSystemV2
@@ -549,10 +574,133 @@ SectSystemV2
 ├─ 当前宗门?: string|null
 ├─ 宗门档案: object (key=宗门ID/名称 -> WorldFaction)
 ├─ 宗门成员?: object (key=宗门ID/名称 -> string[])
-├─ 宗门任务?: object (key=宗门ID/名称 -> string[])
+├─ 宗门任务?: object (key=宗门ID/名称 -> SectTaskItem[])
+├─ 宗门任务状态?: object (key=宗门ID/名称 -> SectTaskStatus)
 ├─ 宗门藏经阁?: object (key=宗门ID/名称 -> any[])
 ├─ 宗门贡献商店?: object (key=宗门ID/名称 -> any[])
+├─ 宗门经营?: object (key=宗门ID/名称 -> SectManagementState)
+├─ 宗门战争?: SectWarSystem
+├─ 内容状态?: object (key=宗门ID/名称 -> SectContentStatus)
 └─ 迁移记录?: object
+
+SectTaskItem
+├─ 任务ID: string
+├─ 任务名称: string
+├─ 任务描述: string
+├─ 任务类型: string
+├─ 难度: string
+├─ 贡献奖励: number
+├─ 额外奖励?: string
+├─ 状态: string
+├─ 期限?: string
+├─ 发布人?: string
+└─ 要求?: string
+
+SectTaskStatus
+├─ 已初始化: boolean
+├─ 最后更新时间?: string
+└─ 演变次数: number
+```
+
+#### 6.7.1 宗门经营（SectManagementState）
+
+```text
+SectManagementState
+├─ 宗门名称: string
+├─ 战力?: number                               # 0-100
+├─ 安定?: number                               # 0-100
+├─ 外门训练度?: number                         # 0-100，影响战力与战损
+├─ 府库?: object
+│  ├─ 灵石?: number
+│  ├─ 灵材?: number
+│  ├─ 丹药?: number
+│  └─ 阵材?: number
+├─ 设施?: object (key=设施名 -> level)         # 练功房/藏经阁/炼丹房/护山大阵等
+├─ 最近结算?: string                           # ISO时间或游戏时间
+└─ 月报?: array
+   └─ [i]: object { 时间, 摘要, 变化? }
+```
+
+#### 6.7.2 宗门战争（SectWarSystem）
+
+```text
+SectWarSystem
+├─ 当前?: SectWarState|null
+└─ 历史?: array (SectWarState[])
+
+SectWarState
+├─ 战争ID: string
+├─ 状态: string (备战|进行中|停战|胜利|失败)
+├─ 发起方: string
+├─ 守方: string
+├─ 目标?: string
+├─ 阶段列表: array (string[])
+├─ 阶段索引: number                            # 0-based
+├─ 当前阶段: string (侦察|交锋|破阵|攻山|善后)
+├─ 我方: SectWarSideState
+├─ 敌方: SectWarSideState
+├─ 累计伤亡?: object { 我方?, 敌方? }
+├─ 战报?: array (SectWarReport[])
+└─ 上一次?: object                             # 上一步结算结果
+
+SectWarSideState
+├─ 宗门名称: string
+├─ 战力: number                                # 0-100
+├─ 外门: number
+├─ 内门: number
+├─ 核心: number
+└─ 士气?: number                               # 0-100
+
+SectWarReport
+├─ 时间: string
+├─ 阶段: string
+├─ 摘要: string
+├─ 我方变化?: object
+└─ 敌方变化?: object
+```
+
+### 6.8 经济系统（EconomyState）
+
+> 路径：`世界.信息.经济`（可选，用于动态汇率和地区差异）
+
+```text
+EconomyState
+├─ 货币波动?: object (key=币种ID -> number)    # 全局波动系数（1=基准，0.6~1.6）
+├─ 地区波动?: object (key=位置描述 -> object)
+│  └─ <位置>: object
+│     └─ 货币波动?: object (key=币种ID -> number)
+└─ 最后更新时间?: string
+```
+
+### 6.9 炼制系统（Crafting）
+
+> 炼器/炼丹系统的类型定义。
+
+```text
+CraftingSlot
+├─ slotId: number                              # 槽位ID (1-5)
+└─ item: Item|null                             # 放入的物品
+
+CraftingRecipe
+├─ materials: array (CraftingSlot[])           # 5个材料槽位
+└─ craftingType: string (炼器|炼丹)
+
+CraftingResult
+├─ success: boolean
+├─ resultQuality: string (废品|残次品|成品|精品|极品|神品)
+├─ resultItem: Item|null
+├─ processDescription: string                  # AI生成的炼制过程描述
+├─ itemDescription: string                     # AI生成的成品描述
+└─ successRate: number
+
+CraftingEvent
+├─ eventId: string
+├─ eventType: string (炼器|炼丹)
+├─ timestamp: string
+├─ materials: array (string[])                 # 材料名称列表
+├─ result: string                              # 结果品质
+├─ itemName: string
+└─ canDelete: boolean
 ```
 
 ---

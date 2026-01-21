@@ -340,12 +340,51 @@ const GAME_STATE_STRUCTURE = `
 - 宗门成员: {宗门名: string[]}
 - 宗门藏经阁: {宗门名: 功法物品[]}
 - 宗门贡献商店: {宗门名: 商品[]}
-- 宗门任务: {宗门名: 宗门任务[]}
+- 宗门任务: {宗门名: SectTaskItem[]}
 - 宗门任务状态: {宗门名: {已初始化, 最后更新时间, 演变次数}}
-- 宗门经营?: {宗门名称, 战力, 安定, 外门训练度, 府库, 设施}
-  - 府库: {灵石:number, 灵材:number, 丹药?:number, 阵材?:number}
-  - 设施: {练功房?:number, 藏经阁?:number, 炼丹房?:number, 护山大阵?:number}
-- 宗门战争?: {当前?: {阶段, 阶段索引, 战报, 上一次?}}
+- 宗门经营?: {宗门名: SectManagementState}
+- 宗门战争?: SectWarSystem
+
+### 7.3 宗门任务（SectTaskItem）
+- 任务ID: string
+- 任务名称: string
+- 任务描述: string
+- 任务类型: string (采集/狩猎/护送/探索/炼制等)
+- 难度: string (简单/普通/困难/极难)
+- 贡献奖励: number
+- 额外奖励?: string
+- 状态: string (可接取/进行中/已完成)
+- 期限?: string
+- 发布人?: string
+- 要求?: string
+
+### 7.4 宗门经营（SectManagementState，宗主面板）
+- 宗门名称: string
+- 战力?: number (0-100)
+- 安定?: number (0-100)
+- 外门训练度?: number (0-100，影响战力与战损)
+- 府库?: {灵石, 灵材, 丹药?, 阵材?}
+- 设施?: {练功房?, 藏经阁?, 炼丹房?, 护山大阵?} (各设施等级0-10)
+- 最近结算?: string
+- 月报?: [{时间, 摘要, 变化?}]
+
+### 7.5 宗门战争（SectWarSystem）
+- 当前?: SectWarState|null
+- 历史?: SectWarState[]
+
+SectWarState:
+- 战争ID: string
+- 状态: 备战|进行中|停战|胜利|失败
+- 发起方: string
+- 守方: string
+- 阶段列表: [侦察, 交锋, 破阵, 攻山, 善后]
+- 阶段索引: number (0-based)
+- 当前阶段: string
+- 我方: {宗门名称, 战力, 外门, 内门, 核心, 士气?}
+- 敌方: {宗门名称, 战力, 外门, 内门, 核心, 士气?}
+- 累计伤亡?: {我方?, 敌方?}
+- 战报?: [{时间, 阶段, 摘要, 我方变化?, 敌方变化?}]
+- 上一次?: object (上一步结算结果)
 
 `
 
