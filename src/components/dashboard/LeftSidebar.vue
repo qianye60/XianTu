@@ -716,7 +716,6 @@ const exitToMenu = async () => {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   padding-bottom: 4px;
-  padding-right: 2px;
   min-width: 0;
 }
 
