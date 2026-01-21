@@ -435,12 +435,13 @@ const getReputationClass = (): string => {
 .right-sidebar {
   width: 100%;
   height: 100%;
-  padding: 16px;
+  padding: 10px 6px;
   box-sizing: border-box;
   font-family: var(--font-family-sans-serif);
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.96) 0%, rgba(var(--color-surface-rgb), 0.82) 100%);
+  background: var(--color-surface);
+  border-radius: 0;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -451,9 +452,8 @@ const getReputationClass = (): string => {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 12% 8%, rgba(var(--color-primary-rgb), 0.14), transparent 45%),
-    radial-gradient(circle at 85% 0%, rgba(var(--color-accent-rgb), 0.1), transparent 55%);
-  opacity: 0.6;
+    radial-gradient(ellipse 80% 50% at 90% 0%, rgba(var(--color-primary-rgb), 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 5% 5%, rgba(var(--color-accent-rgb), 0.06), transparent);
   pointer-events: none;
   z-index: 0;
 }
@@ -466,12 +466,10 @@ const getReputationClass = (): string => {
 }
 
 .sidebar-header {
-  margin-bottom: 16px;
-  padding: 10px 12px;
-  border: 1px solid rgba(var(--color-border-rgb), 0.6);
-  border-radius: 12px;
-  background: rgba(var(--color-surface-rgb), 0.7);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  margin: 0 0 10px 0;
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.3);
+  background: transparent;
 }
 
 .sidebar-title {
@@ -536,7 +534,7 @@ const getReputationClass = (): string => {
   padding: 12px;
   background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
   border: 1px solid rgba(var(--color-border-rgb), 0.6);
-  border-radius: 8px;
+  border-radius: 4px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -569,7 +567,7 @@ const getReputationClass = (): string => {
   padding: 12px;
   background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
   border: 1px solid rgba(var(--color-border-rgb), 0.6);
-  border-radius: 8px;
+  border-radius: 4px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -665,26 +663,26 @@ const getReputationClass = (): string => {
 
 /* 收缩区域通用样式 */
 .collapsible-section {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   padding: 0;
-  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
-  border: 1px solid rgba(var(--color-border-rgb), 0.6);
-  border-radius: 8px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  background: rgba(var(--color-surface-rgb), 0.5);
+  border: 1px solid rgba(var(--color-border-rgb), 0.4);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: background 0.2s ease;
-  border-radius: 8px 8px 0 0;
+  border-radius: 10px 10px 0 0;
 }
 
 .section-header:hover {
-  background: var(--color-surface-hover);
+  background: rgba(var(--color-surface-rgb), 0.4);
 }
 
 .collapse-toggle {
@@ -761,7 +759,7 @@ const getReputationClass = (): string => {
   padding: 12px;
   background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
   border: 1px solid rgba(var(--color-border-rgb), 0.6);
-  border-radius: 8px;
+  border-radius: 4px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -908,20 +906,20 @@ const getReputationClass = (): string => {
 .attributes-section,
 .location-section,
 .wealth-section {
-  margin-bottom: 16px;
-  padding: 12px;
-  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
-  border: 1px solid rgba(var(--color-border-rgb), 0.6);
-  border-radius: 8px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  margin-bottom: 10px;
+  padding: 10px;
+  background: rgba(var(--color-surface-rgb), 0.5);
+  border: 1px solid rgba(var(--color-border-rgb), 0.4);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
 }
 
 /* 天赋神通特定样式 */
 .talents-list {
-  padding: 0 16px 16px;
+  padding: 0 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 /* 空状态样式 */
@@ -944,26 +942,25 @@ const getReputationClass = (): string => {
 }
 
 
-/* 新的标签式状态效果样式 - 紧凑且美观 */
+/* 新的标签式状态效果样式 */
 .status-tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 16px;
+  gap: 6px;
+  padding: 12px;
 }
 
 .status-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 20px;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 16px;
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid;
-  backdrop-filter: blur(4px);
   white-space: nowrap;
   max-width: 100%;
   overflow: hidden;
@@ -982,20 +979,17 @@ const getReputationClass = (): string => {
 }
 
 .status-tag:hover {
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
 }
 
 .status-tag.buff:hover {
-  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.3), rgba(var(--color-success-rgb), 0.15));
-  border-color: rgba(var(--color-success-rgb), 0.6);
-  box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.25), rgba(var(--color-success-rgb), 0.15));
+  border-color: rgba(var(--color-success-rgb), 0.5);
 }
 
 .status-tag.debuff:hover {
-  background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.3), rgba(var(--color-error-rgb), 0.15));
-  border-color: rgba(var(--color-error-rgb), 0.6);
-  box-shadow: 0 4px 12px rgba(var(--color-error-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.25), rgba(var(--color-error-rgb), 0.15));
+  border-color: rgba(var(--color-error-rgb), 0.5);
 }
 
 .tag-icon {
@@ -1071,21 +1065,20 @@ const getReputationClass = (): string => {
 /* 声望显示样式 */
 .reputation-display {
   margin-top: 8px;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgba(var(--color-border-rgb), 0.3);
   padding-top: 8px;
 }
 
 .reputation-item {
-  background: var(--color-surface);
-  border-radius: 6px;
+  background: rgba(var(--color-surface-rgb), 0.6);
+  border-radius: 8px;
   padding: 8px;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
   transition: all 0.2s ease;
 }
 
 .reputation-item:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-hover);
+  background: rgba(var(--color-surface-rgb), 0.8);
 }
 
 .reputation-info {
@@ -1203,49 +1196,24 @@ const getReputationClass = (): string => {
   transition: all 0.2s ease;
 }
 .clickable:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  border-color: rgba(var(--color-accent-rgb), 0.5);
+  transform: translateY(-1px);
 }
 
-/* 天赋卡片样式 - 增强美观性 */
+/* 天赋卡片样式 */
 .talent-card {
-  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-accent-rgb), 0.1));
-  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
-  border-left: 4px solid var(--color-accent);
-  border-radius: 12px;
-  padding: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px);
+  background: rgba(var(--color-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.2);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
   position: relative;
-  overflow: hidden;
-}
-
-.talent-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg,
-    rgba(var(--color-accent-rgb), 0.1) 0%,
-    rgba(var(--color-accent-rgb), 0.05) 50%,
-    rgba(var(--color-accent-rgb), 0.1) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-
-.talent-card:hover::before {
-  opacity: 1;
 }
 
 .talent-card:hover {
-  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.2), rgba(var(--color-accent-rgb), 0.15));
-  border-color: rgba(var(--color-accent-rgb), 0.5);
-  transform: translateX(6px) translateY(-2px);
-  box-shadow: 0 8px 32px rgba(var(--color-accent-rgb), 0.25), 0 0 0 1px rgba(var(--color-accent-rgb), 0.2);
+  background: rgba(var(--color-accent-rgb), 0.12);
+  border-color: rgba(var(--color-accent-rgb), 0.3);
+  transform: translateX(3px);
 }
 
 .talent-header {
@@ -1289,20 +1257,19 @@ const getReputationClass = (): string => {
 .vitals-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .vital-item {
-  background: var(--color-surface);
+  background: rgba(var(--color-surface-rgb), 0.6);
   border-radius: 8px;
-  padding: 12px;
-  border: 1px solid var(--color-border);
+  padding: 10px;
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
   transition: all 0.2s ease;
 }
 
 .vital-item:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-hover);
+  background: rgba(var(--color-surface-rgb), 0.8);
 }
 
 .vital-info {
@@ -1350,11 +1317,11 @@ const getReputationClass = (): string => {
 
 /* 修为状态样式 */
 .realm-display {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  background: rgba(var(--color-surface-rgb), 0.6);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
+  border-radius: 8px;
   padding: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .realm-info {
@@ -1414,7 +1381,7 @@ const getReputationClass = (): string => {
 
 /* 状态效果样式 */
 .status-effects {
-  padding: 0 16px 16px;
+  padding: 0 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1709,47 +1676,5 @@ const getReputationClass = (): string => {
   }
 }
 
-/* 深色主题适配：使用CSS变量自动适配 */
-@media (prefers-color-scheme: dark) {
-  .right-sidebar {
-    background: linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.96) 0%, rgba(var(--color-surface-rgb), 0.82) 100%);
-  }
-
-  .vitals-section,
-  .cultivation-section,
-  .collapsible-section {
-    background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
-  }
-
-  .status-tag.buff {
-    background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.15), rgba(var(--color-success-rgb), 0.08));
-    border-color: rgba(var(--color-success-rgb), 0.3);
-    color: var(--color-success);
-  }
-
-  .status-tag.debuff {
-    background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.15), rgba(var(--color-error-rgb), 0.08));
-    border-color: rgba(var(--color-error-rgb), 0.3);
-    color: var(--color-danger);
-  }
-
-  .status-tag.buff:hover {
-    background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.25), rgba(var(--color-success-rgb), 0.12));
-    border-color: rgba(var(--color-success-rgb), 0.5);
-    color: var(--color-success);
-    box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.2);
-  }
-
-  .status-tag.debuff:hover {
-    background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.25), rgba(var(--color-error-rgb), 0.12));
-    border-color: rgba(var(--color-error-rgb), 0.5);
-    color: var(--color-danger);
-    box-shadow: 0 4px 12px rgba(var(--color-error-rgb), 0.2);
-  }
-
-  .tag-intensity {
-    background: rgba(var(--color-warning-rgb), 0.9);
-    color: var(--color-text);
-  }
-}
+/* 深色主题：使用CSS变量自动适配，无需额外覆盖 */
 </style>

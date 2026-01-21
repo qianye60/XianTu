@@ -1739,6 +1739,9 @@ const addTestMediumTermMemory = async () => {
 
 /* 通用操作按钮基样式，确保有清晰边框 */
 .action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
@@ -1746,11 +1749,18 @@ const addTestMediumTermMemory = async () => {
   font-size: 0.875rem;
   transition: var(--transition-fast);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   box-sizing: border-box;
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+/* 修复按钮文字被全局样式覆盖的问题 */
+.action-btn .btn-text {
+  display: inline;
+  width: auto;
+  text-align: left;
+  font-size: inherit;
+  color: inherit;
 }
 
 @keyframes fadeIn {
@@ -2019,8 +2029,17 @@ const addTestMediumTermMemory = async () => {
     overflow: hidden;
   }
 
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .header-actions .action-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
   .header-actions .btn-text {
-    display: none;
+    display: inline;
   }
 
   .filter-tabs {

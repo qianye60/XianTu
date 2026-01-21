@@ -114,3 +114,38 @@ function sanitizeWithRules(
 export function sanitizeAITextForDisplay(text: string): string {
   return sanitizeWithRules(text, getCompiledReplaceRules());
 }
+
+/**
+ * 从完整的 JSON 响应中提取 text 字段
+ * 用于最终显示时调用，不用于流式过程中
+ */
+export function extractTextFromJsonResponse(text: string): string {
+  if (!text) return '';
+
+  // 先移除 thinking 类标签
+  let cleaned = text
+    .replace(/<think[^>]*>[\s\S]*?<\/think[^>]*>/gi, '')
+    .replace(/<\/?think[^>]*>/gi, '')
+    .trim();
+
+  // 查找 JSON 对象
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    return cleaned;
+  }
+
+  const jsonStr = cleaned.slice(jsonStart, jsonEnd + 1);
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+    if (typeof parsed.text === 'string') {
+      return parsed.text;
+    }
+  } catch {
+    // JSON 解析失败，返回原文
+  }
+
+  return cleaned;
+}

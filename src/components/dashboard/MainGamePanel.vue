@@ -341,6 +341,7 @@ import { isTavernEnv } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
 import { aiService } from '@/services/aiService';
+import { extractTextFromJsonResponse } from '@/utils/textSanitizer';
 import FormattedText from '@/components/common/FormattedText.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type {  CharacterProfile } from '@/types/game';
@@ -1389,8 +1390,9 @@ const sendMessage = async () => {
         console.log('[AI响应处理] 使用 gmResponse.text 作为最终文本，长度:', finalText.length);
       } else if (streamingContent.value) {
         // 如果以上都没有，使用流式输出的最终结果作为备用
-        finalText = streamingContent.value;
-        console.log('[AI响应处理] 使用 streamingContent 作为最终文本，长度:', finalText.length);
+        // 🔥 从 JSON 响应中提取 text 字段
+        finalText = extractTextFromJsonResponse(streamingContent.value);
+        console.log('[AI响应处理] 使用 streamingContent 提取后作为最终文本，长度:', finalText.length);
       } else {
         console.warn('[AI响应处理] 未找到任何有效的文本内容');
       }

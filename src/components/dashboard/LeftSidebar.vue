@@ -460,18 +460,18 @@ const exitToMenu = async () => {
 
 <style scoped>
 .left-sidebar {
-  --sidebar-card-radius: 16px;
-  --sidebar-btn-radius: 16px;
-  --sidebar-pill-radius: 12px;
+  --sidebar-card-radius: 10px;
+  --sidebar-btn-radius: 8px;
+  --sidebar-pill-radius: 6px;
   width: 100%;
   height: 100%;
-  padding: 16px;
+  padding: 10px 6px;
   box-sizing: border-box;
   font-family: var(--font-family-sans-serif);
   display: flex;
   flex-direction: column;
-  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.98) 0%, rgba(var(--color-surface-rgb), 0.88) 100%);
-  border-radius: var(--sidebar-radius);
+  background: var(--color-surface);
+  border-radius: 0;
   box-shadow: none;
   position: relative;
   isolation: isolate;
@@ -483,9 +483,8 @@ const exitToMenu = async () => {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 10% 6%, rgba(var(--color-primary-rgb), 0.14), transparent 40%),
-    radial-gradient(circle at 90% 0%, rgba(var(--color-accent-rgb), 0.1), transparent 45%);
-  opacity: 0.65;
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(var(--color-primary-rgb), 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 95% 5%, rgba(var(--color-accent-rgb), 0.06), transparent);
   pointer-events: none;
   z-index: 0;
 }
@@ -498,29 +497,26 @@ const exitToMenu = async () => {
 }
 
 .sidebar-header {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--sidebar-card-radius);
-  background: rgba(var(--color-surface-rgb), 0.65);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  margin: 0 0 10px 0;
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(var(--color-border-rgb), 0.3);
+  background: transparent;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .sidebar-footer {
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: auto;
+  padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--sidebar-card-radius);
-  background: rgba(var(--color-surface-rgb), 0.65);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(var(--color-border-rgb), 0.3);
+  background: transparent;
   flex-shrink: 0;
 }
 
@@ -740,60 +736,58 @@ const exitToMenu = async () => {
 
 /* 功能分区样式 */
 .function-section {
-  margin-bottom: 16px;
-  padding: 10px;
+  margin: 0 auto 8px auto;
+  padding: 8px;
   border-radius: var(--sidebar-card-radius);
-  border: 1px solid rgba(var(--color-border-rgb), 0.4);
-  background: rgba(var(--color-surface-rgb), 0.7);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
+  background: rgba(var(--color-surface-rgb), 0.4);
+  width: calc(100% - 4px);
 }
 
 .section-title {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
-  margin-bottom: 10px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
-  background: rgba(var(--color-primary-rgb), 0.08);
+  margin-bottom: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(var(--color-primary-rgb), 0.05);
   display: inline-flex;
   align-items: center;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.3px;
 }
 
 .function-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .system-section {
-  padding: 10px;
+  margin: 0 auto;
+  padding: 8px;
   border-radius: var(--sidebar-card-radius);
-  border: 1px solid rgba(var(--color-border-rgb), 0.4);
-  background: rgba(var(--color-surface-rgb), 0.65);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
+  background: rgba(var(--color-surface-rgb), 0.4);
+  width: calc(100% - 4px);
 }
 
 .divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
-  margin: 14px 0;
-  border-radius: 999px;
+  background: linear-gradient(90deg, transparent 10%, rgba(var(--color-border-rgb), 0.4) 50%, transparent 90%);
+  margin: 8px 0;
 }
 
 /* 增强的按钮样式 */
 .function-btn {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  background: rgba(var(--color-surface-rgb), 0.85);
-  border: 1px solid rgba(var(--color-border-rgb), 0.55);
+  padding: 10px 12px;
+  background: rgba(var(--color-surface-rgb), 0.6);
+  border: 1px solid rgba(var(--color-border-rgb), 0.3);
   border-radius: var(--sidebar-btn-radius);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   font-family: inherit;
   text-align: left;
   width: 100%;
@@ -801,49 +795,32 @@ const exitToMenu = async () => {
   overflow: hidden;
 }
 
-.function-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, var(--color-surface-light), transparent);
-  transition: left 0.5s ease;
-}
-
-.function-btn:hover::before {
-  left: 100%;
-}
-
 .function-btn:hover {
-  background: var(--color-surface-light);
-  border-color: var(--color-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.18);
+  background: rgba(var(--color-surface-rgb), 0.9);
+  border-color: rgba(var(--color-primary-rgb), 0.4);
+  transform: translateX(2px);
 }
 
 .function-btn:active {
-  transform: translateY(-1px) scale(0.98);
-  transition: all 0.1s ease;
+  transform: translateX(1px) scale(0.99);
 }
 
 /* 按钮图标区域 */
-.btn-icon {
+.function-btn .btn-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--sidebar-pill-radius);
   background: var(--color-background);
-  margin-right: 12px;
-  transition: all 0.3s ease;
+  margin-right: 10px;
+  transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 /* 按钮内容区域 */
-.btn-content {
+.function-btn .btn-content {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -851,8 +828,8 @@ const exitToMenu = async () => {
   gap: 2px;
 }
 
-.btn-text {
-  font-size: 0.875rem;
+.function-btn .btn-text {
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-text);
   line-height: 1.3;
@@ -862,13 +839,13 @@ const exitToMenu = async () => {
 }
 
 /* 英文环境下允许文字换行 */
-.lang-en .btn-text {
+.lang-en .function-btn .btn-text {
   white-space: normal;
   word-break: break-word;
   font-size: 0.8rem;
 }
 
-.btn-desc {
+.function-btn .btn-desc {
   font-size: 0.7rem;
   color: var(--color-text-secondary);
   line-height: 1.2;
@@ -878,23 +855,24 @@ const exitToMenu = async () => {
 }
 
 /* 英文环境下允许描述换行 */
-.lang-en .btn-desc {
+.lang-en .function-btn .btn-desc {
   white-space: normal;
   word-break: break-word;
   font-size: 0.65rem;
 }
 
 /* 按钮箭头 */
-.btn-arrow {
+.function-btn .btn-arrow {
   color: var(--color-text-muted);
-  transition: all 0.3s ease;
-  margin-left: 8px;
+  transition: all 0.2s ease;
+  margin-left: 6px;
+  opacity: 0.5;
 }
-
 
 .function-btn:hover .btn-arrow {
   color: var(--color-primary);
   transform: translateX(2px);
+  opacity: 1;
 }
 
 /* 无箭头按钮的右边距补偿 */
@@ -904,60 +882,50 @@ const exitToMenu = async () => {
 
 /* 分类颜色主题 */
 .function-btn.primary .btn-icon {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.08);
   color: rgb(59, 130, 246);
 }
 
 .function-btn.primary:hover .btn-icon {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.12);
 }
 
 .function-btn.secondary .btn-icon {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.08);
   color: rgb(16, 185, 129);
 }
 
 .function-btn.secondary:hover .btn-icon {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.12);
 }
 
 /* 修炼系统 - 金色 */
 .function-btn.cultivation .btn-icon {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.08);
   color: rgb(245, 158, 11);
 }
 
 .function-btn.cultivation:hover .btn-icon {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 /* 任务探索 - 紫色 */
 .function-btn.quest .btn-icon {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(139, 92, 246, 0.08);
   color: rgb(139, 92, 246);
 }
 
 .function-btn.quest:hover .btn-icon {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.12);
 }
 
 .function-btn.system .btn-icon {
-  background: rgba(107, 114, 128, 0.1);
-  border: 1px solid rgba(107, 114, 128, 0.2);
+  background: rgba(107, 114, 128, 0.08);
   color: rgb(107, 114, 128);
 }
 
 .function-btn.system:hover .btn-icon {
-  background: rgba(107, 114, 128, 0.15);
-  border-color: rgba(107, 114, 128, 0.3);
+  background: rgba(107, 114, 128, 0.12);
 }
 
 /* 禁用状态样式 */
@@ -996,14 +964,13 @@ const exitToMenu = async () => {
 
 /* 退出按钮特殊样式 */
 .exit-btn {
-  border-color: var(--color-error);
-  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.04);
 }
 
 .exit-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: var(--color-error);
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .exit-btn .btn-text {
@@ -1011,29 +978,26 @@ const exitToMenu = async () => {
 }
 
 .exit-btn .btn-desc {
-  color: rgba(239, 68, 68, 0.7);
+  color: rgba(239, 68, 68, 0.6);
 }
 
 .exit-btn .btn-icon {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-error);
 }
 
 .exit-btn:hover .btn-icon {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 /* 管理员按钮样式 */
 .function-btn.admin .btn-icon {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.08);
   color: rgb(245, 158, 11);
 }
 
 .function-btn.admin:hover .btn-icon {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .function-btn.admin .btn-text {
@@ -1041,7 +1005,7 @@ const exitToMenu = async () => {
 }
 
 .function-btn.admin .btn-desc {
-  color: rgba(245, 158, 11, 0.7);
+  color: rgba(245, 158, 11, 0.6);
 }
 
 /* 深色主题无需额外适配：已统一使用主题变量 */
@@ -1061,16 +1025,16 @@ const exitToMenu = async () => {
     padding: 10px 12px;
   }
 
-  .btn-icon {
+  .function-btn .btn-icon {
     width: 32px;
     height: 32px;
   }
 
-  .btn-text {
+  .function-btn .btn-text {
     font-size: 0.8rem;
   }
 
-  .btn-desc {
+  .function-btn .btn-desc {
     font-size: 0.65rem;
   }
 }

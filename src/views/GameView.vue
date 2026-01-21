@@ -444,8 +444,8 @@ watch(isPanelOpen, (isOpen) => {
 }
 
 .left-sidebar {
-  width: 260px;
-  min-width: 260px;
+  width: 240px;
+  min-width: 240px;
   background: var(--color-surface);
   transition: all 0.3s ease;
   z-index: 10;
@@ -462,7 +462,7 @@ watch(isPanelOpen, (isOpen) => {
 }
 
 .right-panel-area {
-  width: 280px;
+  width: 260px;
   background: var(--color-surface);
   transition: all 0.3s ease;
   border-left: 1px solid var(--color-border);
@@ -498,8 +498,8 @@ watch(isPanelOpen, (isOpen) => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 24px;
-  height: 48px;
+  width: 20px;
+  height: 40px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   cursor: pointer;
@@ -509,30 +509,33 @@ watch(isPanelOpen, (isOpen) => {
   justify-content: center;
   z-index: 20;
   color: var(--color-text-secondary);
+  padding: 0;
 }
 
 .collapse-btn:hover {
   background: var(--color-surface-light);
   color: var(--color-text);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 左侧收缩按钮 */
 .collapse-btn.left {
-  left: 260px;
-  border-radius: 0 8px 8px 0;
+  left: 240px;
+  border-radius: 0 6px 6px 0;
+  border-left: none;
   transition: left 0.3s ease, background 0.2s ease;
 }
 
 /* 左侧栏收缩时，按钮移动到最左侧 */
 .collapse-btn.left.collapsed {
   left: 0;
+  border-left: 1px solid var(--color-border);
 }
 
 /* 右侧收缩按钮 */
 .collapse-btn.right {
-  right: 280px;
-  border-radius: 8px 0 0 8px;
+  right: 260px;
+  border-radius: 6px 0 0 6px;
+  border-right: none;
   transition: right 0.3s ease, background 0.2s ease;
 }
 
@@ -540,6 +543,7 @@ watch(isPanelOpen, (isOpen) => {
 .right-panel-area.collapsed ~ .collapse-btn.right,
 .collapse-btn.right.collapsed {
   right: 0;
+  border-right: 1px solid var(--color-border);
 }
 
 /* 面板覆盖模式样式 - 只隐藏右侧栏，保留左侧栏 */

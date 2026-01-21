@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, shallowRef, computed, type Component } from 'vue';
-import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
+import { sanitizeAITextForDisplay, extractTextFromJsonResponse } from '@/utils/textSanitizer';
 import { isBackendConfigured, fetchBackendVersion } from '@/services/backendConfig';
 
 interface RetryDialogConfig {
@@ -180,6 +180,10 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   function stopStreaming() {
+    // 🔥 流式结束时，从 JSON 中提取 text 字段用于最终显示
+    if (rawStreamingContent.value) {
+      streamingContent.value = extractTextFromJsonResponse(rawStreamingContent.value);
+    }
     currentGenerationId.value = null;
     streamingTimestamp.value = null;
     isAIProcessing.value = false;

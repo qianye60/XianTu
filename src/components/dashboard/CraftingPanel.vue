@@ -1827,6 +1827,11 @@ function extractFirstJson(text: string): string | null {
 @media (max-width: 980px) {
   .content {
     grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .crafting-area {
+    max-height: none;
   }
 
   .craft-grid {
@@ -1847,6 +1852,7 @@ function extractFirstJson(text: string): string | null {
 @media (max-width: 520px) {
   .toolbar {
     flex-wrap: wrap;
+    padding: 10px 12px;
   }
 
   .toolbar-actions {
@@ -1863,13 +1869,75 @@ function extractFirstJson(text: string): string | null {
     min-width: 0;
   }
 
+  .content {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .crafting-area {
+    flex-shrink: 0;
+  }
+
   .craft-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: minmax(60px, auto);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .slot {
+    min-height: 60px;
+    padding: 8px;
+  }
+
+  .slot-index {
+    font-size: 0.9rem;
+  }
+
+  .slot-hint {
+    font-size: 0.7rem;
+  }
+
+  .slot-item-name {
+    font-size: 0.75rem;
+  }
+
+  .slot-item-meta {
+    margin-top: 4px;
+    gap: 4px;
+  }
+
+  .slot-item-meta .meta-pill {
+    font-size: 0.65rem;
+    padding: 2px 4px;
+  }
+
+  .furnace-cell {
+    min-height: 60px;
+    padding: 8px;
+  }
+
+  .furnace-cell .furnace-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .options {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .option {
+    padding: 10px;
+  }
+
+  .option-title {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
   }
 
   .range-row {
-    grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 4px;
   }
 
   .range-meta {
@@ -1879,11 +1947,18 @@ function extractFirstJson(text: string): string | null {
 
   .range-hint {
     white-space: normal;
+    font-size: 0.7rem;
   }
 
-  /* 下中炉位：2列布局时占满一行 */
-  .furnace-cell {
-    grid-column: 1 / -1;
+  .actions {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    padding: 10px 12px;
+    font-size: 0.85rem;
   }
 
   .summary-row {
@@ -1905,7 +1980,7 @@ function extractFirstJson(text: string): string | null {
 
   .material {
     padding: 8px 10px;
-    min-height: 64px;
+    min-height: 56px;
   }
 
   .material-right {

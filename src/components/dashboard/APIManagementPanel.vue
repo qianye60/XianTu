@@ -1226,6 +1226,15 @@ const handleImport = () => {
   font-size: 0.875rem;
 }
 
+/* 修复按钮文字被全局样式覆盖的问题 */
+.action-btn .btn-text {
+  display: inline;
+  width: auto;
+  text-align: left;
+  font-size: inherit;
+  color: inherit;
+}
+
 .action-btn:hover {
   background: #f1f5f9;
   border-color: #94a3b8;
@@ -2209,8 +2218,17 @@ input:checked + .switch-slider:before {
 
 /* 响应式 */
 @media (max-width: 640px) {
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .header-actions .action-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
   .header-actions .btn-text {
-    display: none;
+    display: inline;
   }
 
   .api-card-body {

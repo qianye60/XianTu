@@ -467,6 +467,7 @@ async function generateLibraryContent() {
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .floor-section.locked {
@@ -527,6 +528,8 @@ async function generateLibraryContent() {
   padding-bottom: 1.5rem;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .empty-floor {
