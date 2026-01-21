@@ -35,6 +35,7 @@ export interface SystemConfig extends AIMetadata {
   提示?: string | string[]; // 可放置给AI的约束提示，随存档一并注入
   nsfwMode?: boolean; // 是否开启NSFW模式
   nsfwGenderFilter?: 'all' | 'male' | 'female'; // NSFW性别过滤
+  isTavernEnv?: boolean; // 是否为酒馆环境（用于判断是否需要生成法身数据）
 }
 
 // --- 状态变更日志接口 ---
@@ -269,7 +270,28 @@ export interface Inventory extends AIMetadata {
     上品: number;
     极品: number;
   };
+  /**
+   * 新货币系统（可选，兼容旧存档）
+   * - key = 币种ID（建议：无点号`.`，例如：灵石_下品 / 铜币 / 银两 / 金锭）
+   * - value = 币种结构体（包含价值度/数量/描述等）
+   */
+  货币?: Record<string, CurrencyAsset>;
+  货币设置?: CurrencySettings;
   物品: Record<string, Item>; // 物品现在是对象结构，key为物品ID，value为Item对象
+}
+
+export interface CurrencyAsset extends AIMetadata {
+  币种: string; // 币种ID（建议与 key 一致）
+  名称: string; // 展示名称
+  数量: number; // 余额（整数为主，允许小数但建议避免）
+  价值度: number; // 相对“基准币种”的价值（默认以 1 下品灵石为 1）
+  描述?: string;
+  图标?: string; // lucide 图标名，如：Gem / Coins / HandCoins / BadgeDollarSign
+}
+
+export interface CurrencySettings extends AIMetadata {
+  禁用币种: string[]; // 用户删除过的币种ID（避免数据修复再次自动补回）
+  基准币种?: string; // 默认：灵石_下品
 }
 
 /** 功法中的技能信息 */
@@ -287,7 +309,20 @@ export interface SkillInfo {
 export type SectType = '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '世家' | '散修联盟';
 
 /** 宗门职位 */
-export type SectPosition = '散修' | '外门弟子' | '内门弟子' | '核心弟子' | '传承弟子' | '执事' | '长老' | '太上长老' | '副掌门' | '掌门';
+export type SectPosition =
+  | '散修'
+  | '外门弟子'
+  | '内门弟子'
+  | '核心弟子'
+  | '传承弟子'
+  | '执事'
+  | '长老'
+  | '太上长老'
+  | '副掌门'
+  | '掌门'
+  // 兼容：部分存档/叙事会使用“宗主/副宗主”
+  | '副宗主'
+  | '宗主';
 
 /** 宗门关系 */
 export type SectRelationship = '仇敌' | '敌对' | '冷淡' | '中立' | '友好' | '盟友' | '附庸';
@@ -370,8 +405,14 @@ export interface SectSystemV2 extends AIMetadata {
   宗门成员?: Record<string, string[]>;
   宗门藏经阁?: Record<string, any[]>;
   宗门贡献商店?: Record<string, any[]>;
+  宗门任务?: Record<string, SectTaskItem[]>;
+  宗门任务状态?: Record<string, SectTaskStatus>;
   迁移记录?: SectMigrationRecord;
   内容状态?: Record<string, SectContentStatus>; // 宗门内容初始化状态
+  /** 宗门轻度经营（宗主面板） */
+  宗门经营?: Record<string, SectManagementState>;
+  /** 宗门大战（分阶段推进） */
+  宗门战争?: SectWarSystem;
 }
 
 /** 宗门内容初始化状态 */
@@ -380,6 +421,72 @@ export interface SectContentStatus {
   贡献商店已初始化: boolean;
   最后更新时间?: string;
   演变次数: number; // AI随机增加内容的次数
+}
+
+// --- 宗门经营 / 宗门大战（扩展） ---
+
+export interface SectManagementState extends AIMetadata {
+  宗门名称: string;
+  战力?: number; // 0-100（默认与 宗门档案.领导层.综合战力 同口径）
+  安定?: number; // 0-100
+  外门训练度?: number; // 0-100（用于战力与战损修正）
+  府库?: {
+    灵石?: number;
+    灵材?: number;
+    丹药?: number;
+    阵材?: number;
+  };
+  设施?: Record<string, number>; // e.g. 练功房/藏经阁/炼丹房/护山大阵 -> level
+  最近结算?: string; // ISO时间或游戏时间字符串
+  月报?: Array<{
+    时间: string;
+    摘要: string;
+    变化?: Record<string, number>;
+  }>;
+}
+
+export type SectWarStatus = '备战' | '进行中' | '停战' | '胜利' | '失败';
+export type SectWarStageName = '侦察' | '交锋' | '破阵' | '攻山' | '善后';
+
+export interface SectWarSideState {
+  宗门名称: string;
+  战力: number; // 0-100
+  外门: number;
+  内门: number;
+  核心: number;
+  士气?: number; // 0-100
+}
+
+export interface SectWarReport {
+  时间: string;
+  阶段: SectWarStageName | string;
+  摘要: string;
+  我方变化?: Record<string, any>;
+  敌方变化?: Record<string, any>;
+}
+
+export interface SectWarState extends AIMetadata {
+  战争ID: string;
+  状态: SectWarStatus;
+  发起方: string;
+  守方: string;
+  目标?: string;
+  阶段列表: string[];
+  阶段索引: number; // 0-based
+  当前阶段: SectWarStageName | string;
+  我方: SectWarSideState;
+  敌方: SectWarSideState;
+  累计伤亡?: {
+    我方?: Partial<Pick<SectWarSideState, '外门' | '内门' | '核心'>>;
+    敌方?: Partial<Pick<SectWarSideState, '外门' | '内门' | '核心'>>;
+  };
+  战报?: SectWarReport[];
+  上一次?: Record<string, any>; // 上一步结算的结构化结果（便于下次发给AI）
+}
+
+export interface SectWarSystem extends AIMetadata {
+  当前?: SectWarState | null;
+  历史?: SectWarState[];
 }
 
 /** 宗门藏经阁功法 - 扩展版本 */
@@ -411,6 +518,26 @@ export interface SectShopItemExtended {
   限购数量?: number;
   职位要求?: string;
   稀有度?: '普通' | '稀有' | '珍贵' | '极品';
+}
+
+export interface SectTaskItem {
+  任务ID: string;
+  任务名称: string;
+  任务描述: string;
+  任务类型: string;
+  难度: string;
+  贡献奖励: number;
+  额外奖励?: string;
+  状态: string;
+  期限?: string;
+  发布人?: string;
+  要求?: string;
+}
+
+export interface SectTaskStatus {
+  已初始化: boolean;
+  最后更新时间?: string;
+  演变次数: number;
 }
 
 // --- 三千大道系统 ---
@@ -666,12 +793,26 @@ export interface WorldInfo {
   势力信息: WorldFaction[];
   地点信息: WorldLocation[];
   地图配置?: WorldMapConfig; // 新增地图配置
+  经济?: EconomyState; // 可选：经济/货币波动（用于动态汇率、地区差异）
   // 从 WorldGenerationInfo 扁平化
   生成时间: string;
   世界背景: string;
   世界纪元: string;
   特殊设定: string[];
   版本: string;
+}
+
+export interface EconomyState extends AIMetadata {
+  /**
+   * 全局货币波动系数（1=基准，建议范围 0.6~1.6）
+   * key = 币种ID（如：灵石_下品 / 铜币）
+   */
+  货币波动?: Record<string, number>;
+  /**
+   * 地区货币波动（按 角色.位置.描述 作为 key，简单但直观）
+   */
+  地区波动?: Record<string, { 货币波动?: Record<string, number> }>;
+  最后更新时间?: string;
 }
 
 // --- 事件系统 ---
@@ -861,6 +1002,8 @@ export interface NpcProfile {
   // === 资产物品 ===
   背包: {
     灵石: { 下品: number; 中品: number; 上品: number; 极品: number };
+    货币?: Record<string, CurrencyAsset>;
+    货币设置?: CurrencySettings;
     物品: Record<string, Item>;
   };
 
@@ -1114,4 +1257,45 @@ export interface SixSiWeights {
   心性: number;
   气运: number;
   魅力: number;
+}
+
+// --- 炼器/炼丹系统 ---
+
+/** 炼制类型 */
+export type CraftingType = '炼器' | '炼丹';
+
+/** 炼制结果品质 */
+export type CraftingResultQuality = '废品' | '残次品' | '成品' | '精品' | '极品' | '神品';
+
+/** 炼制材料槽位 */
+export interface CraftingSlot {
+  slotId: number; // 槽位ID (1-5)
+  item: Item | null; // 放入的物品
+}
+
+/** 炼制配方 */
+export interface CraftingRecipe {
+  materials: CraftingSlot[]; // 5个材料槽位
+  craftingType: CraftingType; // 炼制类型
+}
+
+/** 炼制结果 */
+export interface CraftingResult {
+  success: boolean; // 是否成功
+  resultQuality: CraftingResultQuality; // 结果品质
+  resultItem: Item | null; // 生成的物品
+  processDescription: string; // AI生成的炼制过程描述
+  itemDescription: string; // AI生成的成品描述
+  successRate: number; // 实际成功率
+}
+
+/** 炼制事件记录 */
+export interface CraftingEvent {
+  eventId: string;
+  eventType: '炼器' | '炼丹';
+  timestamp: string;
+  materials: string[]; // 材料名称列表
+  result: CraftingResultQuality;
+  itemName: string;
+  canDelete: boolean; // 是否可删除
 }

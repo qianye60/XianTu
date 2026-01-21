@@ -14,6 +14,7 @@
 import type { GameTime, NpcProfile, SaveData } from '@/types/game';
 import type { TavernHelper } from '@/types';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
+import { normalizeBackpackCurrencies } from '@/utils/currencySystem';
 
 export function deepCleanForClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
@@ -47,6 +48,9 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
   if (!anySave.角色.背包.灵石 || typeof anySave.角色.背包.灵石 !== 'object') {
     anySave.角色.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
   }
+
+  // 兼容旧存档 + 新货币系统兜底
+  normalizeBackpackCurrencies(anySave.角色.背包);
 
   // 清理无效的物品数据
   if (anySave.角色?.背包?.物品) {

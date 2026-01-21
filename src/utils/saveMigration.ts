@@ -1,5 +1,6 @@
 import type { SaveData, GameTime, EventSystem } from '@/types/game';
 import type { SaveDataV3 } from '@/types/saveSchemaV3';
+import { normalizeBackpackCurrencies } from '@/utils/currencySystem';
 
 export type SaveMigrationIssue =
   | 'legacy-root-keys'
@@ -306,6 +307,10 @@ export function migrateSaveDataToLatest(raw: SaveData): { migrated: SaveDataV3; 
     const normalized = deepClone(source) as any;
     if (!isPlainObject(normalized.社交)) normalized.社交 = {};
     normalized.社交.记忆 = normalizeMemory(normalized.社交.记忆);
+    // V3 兜底：旧版本可能仍然只有“灵石”字段而未初始化“货币”结构
+    if (normalized?.角色?.背包 && typeof normalized.角色.背包 === 'object') {
+      normalizeBackpackCurrencies(normalized.角色.背包);
+    }
     return { migrated: normalized as SaveDataV3, report };
   }
 
@@ -350,6 +355,10 @@ export function migrateSaveDataToLatest(raw: SaveData): { migrated: SaveDataV3; 
   const flatTime = coerceTime(source.元数据?.时间 ?? source.时间 ?? source.游戏时间);
 
   const flatInventory = source.背包 ?? { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} };
+  // 新货币系统迁移（兼容旧存档）
+  if (flatInventory && typeof flatInventory === 'object') {
+    normalizeBackpackCurrencies(flatInventory as any);
+  }
   const flatEquipment =
     source.装备 ?? source.装备栏 ?? { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null };
 

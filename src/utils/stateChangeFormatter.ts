@@ -124,6 +124,31 @@ function parseItemChange(change: StateChange): FormattedChange | null {
     }
   }
 
+  // 货币（V3：角色.背包.货币.<币种ID>.数量）
+  if (key.startsWith('角色.背包.货币.') && key.endsWith('.数量')) {
+    const parts = key.split('.');
+    const currencyId = parts.length >= 4 ? parts[3] : '货币';
+    const oldNum = typeof oldValue === 'number' ? oldValue : 0;
+    const newNum = typeof newValue === 'number' ? newValue : 0;
+    const diff = newNum - oldNum;
+
+    if (diff > 0) {
+      return {
+        icon: 'add',
+        color: 'green',
+        title: `获得${currencyId}`,
+        description: `+ ${diff}`,
+      };
+    } else if (diff < 0) {
+      return {
+        icon: 'remove',
+        color: 'red',
+        title: `消耗${currencyId}`,
+        description: `${diff}`,
+      };
+    }
+  }
+
   return null;
 }
 
@@ -406,6 +431,24 @@ function parseValidationError(change: StateChange): FormattedChange | null {
  */
 function parseGenericChange(change: StateChange): FormattedChange {
   const { key, action, oldValue, newValue } = change;
+
+  // 🔥 特殊处理：AI 指令执行错误（指令通过了格式校验，但在本地执行时抛错）
+  if (action === 'execution_error' && (key === '? 执行失败' || key.includes('执行失败'))) {
+    const errorData = (isObject(newValue) ? (newValue as any) : {}) as any;
+    const command = typeof errorData?.command === 'string' ? errorData.command : '未知指令';
+    const errorMessage = typeof errorData?.error === 'string' ? errorData.error : '未知错误';
+
+    return {
+      icon: 'error',
+      color: 'red',
+      title: '? AI指令执行失败',
+      description: '指令在执行阶段报错，已跳过（存档未被该指令修改）。',
+      details: [
+        `指令内容:\n${command}`,
+        `\n错误原因:\n${errorMessage}`,
+      ],
+    };
+  }
 
   // 🔥 特殊处理：事件记录的 push 操作
   if ((key.includes('社交.事件') || key.includes('系统.事件')) && action === 'push') {

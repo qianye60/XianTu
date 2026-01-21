@@ -8,22 +8,22 @@
       <div class="top-info">
         <div class="status-indicator" :class="backendReady ? 'online' : 'offline'">
           <span class="status-dot"></span>
-          <span>{{ backendReady ? '已连接' : '离线' }}</span>
+          <span>{{ backendReady ? $t('已连接') : $t('离线') }}</span>
         </div>
         <div class="version-tag">V{{ displayVersion }}</div>
       </div>
 
       <!-- 标题区域 -->
       <div class="header-section">
-        <h1 class="main-title"><span class="header-title">仙</span> 途</h1>
-        <p class="sub-title">闲时坐看涛生灭，千秋不过酒一壶</p>
+        <h1 class="main-title"><span class="header-title">{{ $t('仙') }}</span> {{ $t('途') }}</h1>
+        <p class="sub-title">{{ $t('闲时坐看涛生灭，千秋不过酒一壶') }}</p>
       </div>
 
       <!-- 道途选择 -->
       <div class="paths-section">
         <div class="section-header">
           <span class="line"></span>
-          <span class="text">择一道途</span>
+          <span class="text">{{ $t('择一道途') }}</span>
           <span class="line"></span>
         </div>
 
@@ -40,11 +40,11 @@
             </div>
             <div class="gate-info">
               <h2 class="gate-title">{{ $t('独自修行') }}</h2>
-              <p class="gate-desc">避世清修 · 心无旁骛</p>
-              <p class="gate-detail">独居洞府，专心修炼，所有进度本地存储</p>
+              <p class="gate-desc">{{ $t('避世清修 · 心无旁骛') }}</p>
+              <p class="gate-detail">{{ $t('独居洞府，专心修炼，所有进度本地存储') }}</p>
               <div class="gate-tags">
-                <span class="tag-local">本地存储</span>
-                <span class="tag-offline">离线可用</span>
+                <span class="tag-local">{{ $t('本地存储') }}</span>
+                <span class="tag-offline">{{ $t('离线可用') }}</span>
               </div>
             </div>
             <div v-if="selectedMode === 'single'" class="check-mark">
@@ -64,11 +64,11 @@
             </div>
             <div class="gate-info">
               <h2 class="gate-title">{{ $t('联机共修') }}</h2>
-              <p class="gate-desc">{{ backendReady ? '道友相伴 · 共证大道' : '仙门未启 · 暂不可入' }}</p>
-              <p class="gate-detail">云端存档，多端同步，与道友共闯仙途</p>
+              <p class="gate-desc">{{ backendReady ? $t('道友相伴 · 共证大道') : $t('仙门未启 · 暂不可入') }}</p>
+              <p class="gate-detail">{{ $t('云端存档，多端同步，与道友共闯仙途') }}</p>
               <div class="gate-tags">
-                <span class="tag-cloud">云端同步</span>
-                <span class="tag-secure">数据安全</span>
+                <span class="tag-cloud">{{ $t('云端同步') }}</span>
+                <span class="tag-secure">{{ $t('数据安全') }}</span>
               </div>
             </div>
             <div v-if="selectedMode === 'cloud'" class="check-mark">
@@ -107,6 +107,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from '@/i18n';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { Sparkles, History, User, Users, Check, Lock } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
@@ -117,8 +118,10 @@ const selectedMode = ref<'single' | 'cloud' | null>(null);
 const backendReady = ref(false);
 const backendVersion = ref<string | null>(null);
 
+const { t } = useI18n();
+
 const displayVersion = computed(() => (
-  backendReady.value ? (backendVersion.value ?? '同步中') : APP_VERSION
+  backendReady.value ? (backendVersion.value ?? t('同步中')) : APP_VERSION
 ));
 
 onMounted(async () => {
@@ -149,10 +152,10 @@ const _isLoggedIn = () => {
 const selectPath = async (mode: 'single' | 'cloud') => {
   if (mode === 'cloud' && !backendReady.value) {
     uiStore.showRetryDialog({
-      title: '联机未启用',
-      message: '未配置后端服务器，无法使用联机共修与登录功能。请先选择"单机闯关"。',
-      confirmText: '知道了',
-      cancelText: '取消',
+      title: t('联机未启用'),
+      message: t('未配置后端服务器，无法使用联机共修与登录功能。请先选择"单机闯关"。'),
+      confirmText: t('知道了'),
+      cancelText: t('取消'),
       onConfirm: () => {},
       onCancel: () => {}
     });
@@ -188,10 +191,10 @@ const startNewGame = async () => {
     const isValid = await verifyStoredToken();
     if (!isValid) {
       uiStore.showRetryDialog({
-        title: '请先登录',
-        message: '联机共修需要先登录账号，是否前往登录？',
-        confirmText: '前往登录',
-        cancelText: '取消',
+        title: t('请先登录'),
+        message: t('联机共修需要先登录账号，是否前往登录？'),
+        confirmText: t('前往登录'),
+        cancelText: t('取消'),
         onConfirm: () => {
           emit('go-to-login');
         },

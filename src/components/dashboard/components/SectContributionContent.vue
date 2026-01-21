@@ -85,32 +85,6 @@
     </div>
 
     <!-- 贡献获取途径 -->
-    <div class="contribution-tips">
-      <h4 class="tips-title">
-        <Lightbulb :size="14" />
-        <span>贡献点获取途径</span>
-      </h4>
-      <div class="tips-list">
-        <div class="tip-item">
-          <Scroll :size="12" />
-          <span>参与宗门事务</span>
-        </div>
-        <div class="tip-item">
-          <Package :size="12" />
-          <span>上交珍稀资源</span>
-        </div>
-        <div class="tip-item">
-          <Swords :size="12" />
-          <span>参与宗门战斗</span>
-        </div>
-        <div class="tip-item">
-          <Users :size="12" />
-          <span>指导低阶弟子</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 提示信息 -->
     <div class="exchange-notice">
       <Info :size="14" />
       <span>点击兑换将直接发送到对话（由AI判定并执行兑换）</span>
@@ -122,16 +96,15 @@
 import { ref, computed } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import {
-  Coins, Package, ShoppingCart, Info, Lightbulb, RefreshCw,
-  Scroll, Swords, Users, Pill, Sword, BookOpen, Gem
+  Coins, Package, ShoppingCart, Info, RefreshCw,
+  Pill, Sword, BookOpen, Gem
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { generateWithRawPrompt } from '@/utils/tavernCore';
-import { parseJsonFromText } from '@/utils/jsonExtract';
-import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
-import type { GM_Response } from '@/types/AIGameMaster';
+import { parseJsonSmart } from '@/utils/jsonExtract';
+import { aiService } from '@/services/aiService';
 
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
@@ -256,13 +229,17 @@ async function generateShopContent() {
 
 ## 输出格式（必须）
 只输出 1 个 JSON 对象（不要代码块/不要解释/不要额外文本/不要<thinking>）：
-{"text":"...","mid_term_memory":"","tavern_commands":[...],"action_options":[]}
+{"text":"...","items":[...],"evolve_count":1,"last_updated":"${nowIso}"}
 
-## 写入路径（必须，V3短路径）
-- 社交.宗门.宗门贡献商店.${sectName} : 物品数组（完整覆盖）
-- 社交.宗门.内容状态.${sectName}.贡献商店已初始化 : true
-- 社交.宗门.内容状态.${sectName}.最后更新时间 : "${nowIso}"
-- 社交.宗门.内容状态.${sectName}.演变次数 : 若已有则 +1，否则 1
+## 顶层字段严格限制（强JSON）
+- 顶层只允许：text / items / evolve_count / last_updated
+- 禁止输出任何额外字段（例如：tavern_commands / action_options / 社交 / 宗门 / 系统 等）
+- items 必须是数组
+- 禁止输出多个 JSON 或 JSON 之外的任何字符
+
+## 说明
+- 程序会把 items 写入宗门贡献商店并更新内容状态
+- evolve_count/last_updated 可省略，缺失时由程序自动补全
 
 ## 物品对象字段（每条必须包含）
 {
@@ -292,9 +269,40 @@ async function generateShopContent() {
     `.trim();
 
     const raw = await generateWithRawPrompt('生成宗门贡献商店', prompt, false, 'sect_generation');
-    const parsed = parseJsonFromText(raw) as Partial<GM_Response>;
+    const parsed = parseJsonSmart(raw, aiService.isForceJsonEnabled('sect_generation')) as {
+      text?: string;
+      items?: unknown;
+      evolve_count?: number;
+      last_updated?: string;
+    };
 
-    const { saveData: updated } = await AIBidirectionalSystem.processGmResponse(parsed as GM_Response, saveData, false);
+    if (!Array.isArray(parsed.items)) {
+      throw new Error('items 字段缺失或不是数组');
+    }
+
+    const updated = typeof structuredClone === 'function'
+      ? structuredClone(saveData)
+      : JSON.parse(JSON.stringify(saveData));
+
+    const socialRoot = ((updated as any).社交 ??= {});
+    const sectRoot = (socialRoot.宗门 ??= {});
+    const shopRoot = (sectRoot.宗门贡献商店 ??= {});
+    shopRoot[sectName] = parsed.items;
+
+    const statusRoot = (sectRoot.内容状态 ??= {});
+    const status = (statusRoot[sectName] ??= {});
+    const prevCount = typeof status.演变次数 === 'number' ? status.演变次数 : 0;
+    const evolveCount = typeof parsed.evolve_count === 'number' && Number.isFinite(parsed.evolve_count)
+      ? parsed.evolve_count
+      : prevCount + 1;
+    const lastUpdated = typeof parsed.last_updated === 'string' && parsed.last_updated.trim()
+      ? parsed.last_updated
+      : nowIso;
+
+    status.贡献商店已初始化 = true;
+    status.最后更新时间 = lastUpdated;
+    status.演变次数 = evolveCount;
+
     gameStateStore.loadFromSaveData(updated);
     await characterStore.saveCurrentGame();
     toast.success('宗门贡献商店已更新');
@@ -591,39 +599,13 @@ async function generateShopContent() {
   cursor: not-allowed;
 }
 
-.contribution-tips {
-  padding: 0.75rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-}
 
-.tips-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.5rem 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
 
-.tips-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
 
-.tip-item {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  padding: 0.25rem 0.5rem;
-  background: var(--color-background);
-  border-radius: 4px;
-}
+
+
+
+
 
 .exchange-notice {
   display: flex;

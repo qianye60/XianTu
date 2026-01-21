@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { set as lodashSet } from 'lodash'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { useCharacterStore } from '@/stores/characterStore'
 import { toast } from '@/utils/toast'
@@ -295,6 +296,10 @@ const editVariable = (item: EditingItem) => {
     toast.warning(t('联机模式下不允许直接修改变量（服务器权威控制）'))
     return
   }
+  if (item.type !== 'saveData') {
+    toast.warning(t('该视图为只读展示，请切换到「存档数据(短路径)」后再编辑具体路径'))
+    return
+  }
   editingItem.value = { ...item }
   showEditModal.value = true
 }
@@ -323,8 +328,16 @@ const saveVariable = async (item: EditingItem) => {
     toast.error(t('没有要保存的数据'))
     return
   }
+  if (!gameStateStore.isGameLoaded) {
+    toast.warning(t('请先加载游戏存档'))
+    return
+  }
   if (isOnlineMode.value) {
     toast.warning(t('联机模式下不允许直接修改变量（服务器权威控制）'))
+    return
+  }
+  if (item.type !== 'saveData') {
+    toast.warning(t('该视图不支持保存修改，请在「存档数据(短路径)」中编辑具体路径'))
     return
   }
 
@@ -341,111 +354,22 @@ const saveVariable = async (item: EditingItem) => {
       }
     }
 
-    console.log('=== [诊断日志] 开始保存变量 ===')
-    console.log('[1] 原始Key:', key)
-    console.log('[2-A] editingItem.value完整对象:', editingItem.value)
-    console.log('[2-B] 解构后的value:', value, 'typeof:', typeof value)
-    console.log('[2-C] parsedValue:', parsedValue, 'typeof:', typeof parsedValue)
-
-    // 🔥 关键修复：直接使用完整的 key，先转换为 store 的路径格式
-    // V3（五域）路径 -> Pinia store 字段映射
-    const mapSavePathToStorePath = (pathValue: string): string | null => {
-      const replacePrefix = (from: string, to: string) => {
-        if (pathValue === from) return to
-        if (pathValue.startsWith(`${from}.`)) return `${to}${pathValue.slice(from.length)}`
-        return null
-      }
-
-      const mappings: Array<{ from: string; to: string }> = [
-        // 元数据
-        { from: '元数据.时间', to: 'gameTime' },
-        { from: '元数据', to: 'saveMeta' },
-
-        // 角色（store.character 对应 角色.身份）
-        { from: '角色.身份', to: 'character' },
-        { from: '角色.属性', to: 'attributes' },
-        { from: '角色.位置', to: 'location' },
-        { from: '角色.效果', to: 'effects' },
-        { from: '角色.身体.部位开发', to: 'bodyPartDevelopment' },
-        { from: '角色.背包', to: 'inventory' },
-        { from: '角色.装备', to: 'equipment' },
-        { from: '角色.功法', to: 'techniqueSystem' },
-        { from: '角色.修炼', to: 'cultivation' },
-        { from: '角色.大道', to: 'thousandDao' },
-        { from: '角色.技能', to: 'skillState' },
-
-        // 社交
-        { from: '社交.关系', to: 'relationships' },
-        { from: '社交.宗门', to: 'sectSystem' },
-        { from: '社交.事件', to: 'eventSystem' },
-        { from: '社交.记忆', to: 'memory' },
-
-        // 世界
-        { from: '世界.信息', to: 'worldInfo' },
-
-        // 系统
-        { from: '系统.配置', to: 'systemConfig' },
-        { from: '系统.设置', to: 'userSettings' },
-        { from: '系统.缓存.掌握技能', to: 'masteredSkills' },
-        { from: '系统.历史.叙事', to: 'narrativeHistory' },
-        { from: '系统.联机', to: 'onlineState' },
-      ]
-
-      for (const { from, to } of mappings) {
-        const mapped = replacePrefix(from, to)
-        if (mapped) return mapped
-      }
-
-      toast.warning(t('不支持的字段路径（仅支持V3五域路径）'))
-      return null
-    }
-
-    const mappedPath = mapSavePathToStorePath(key)
-    if (!mappedPath) {
-      toast.warning(t('字段路径无法映射到 Store，请检查路径是否正确'))
+    // ✅ 直接对 V3 五域 SaveData 打补丁，然后重新 loadFromSaveData（避免派生字段覆盖）
+    const current = gameStateStore.toSaveData()
+    if (!current) {
+      toast.error(t('未获取到存档数据（存档可能未完整加载）'))
       return
     }
-
-    console.log('[3] 映射后Store路径:', mappedPath)
-
-    // 🔥 关键诊断：检查 parsedValue 是否正确
-    console.log('[3.5] 🔍 即将传给updateState的值:', parsedValue, '类型:', typeof parsedValue)
-
-    // 🔥 检查 updateState 前的值
-    const pathParts = mappedPath.split('.')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let beforeValue: any = gameStateStore
-    for (const part of pathParts) {
-      beforeValue = beforeValue?.[part]
-    }
-    console.log('[4] updateState前的Store值:', beforeValue)
-
-    // 🔥 关键诊断：检查传递给updateState的值
-    console.log('[4-CRITICAL] 即将传递给updateState的parsedValue:', parsedValue, 'typeof:', typeof parsedValue, 'JSON:', JSON.stringify(parsedValue))
-
-    // 🔥 直接使用 updateState 更新
-    gameStateStore.updateState(mappedPath, parsedValue);
-
-    // 🔥 检查 updateState 后的值
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let afterValue: any = gameStateStore
-    for (const part of pathParts) {
-      afterValue = afterValue?.[part]
-    }
-    console.log('[5] updateState后的Store值:', afterValue)
-
-    // 🔥 检查 toSaveData() 的结果
-    console.log('[6] 开始调用 gameStateStore.saveGame()')
+    const v3 = isSaveDataV3(current) ? current : migrateSaveDataToLatest(current as any).migrated
+    const next = JSON.parse(JSON.stringify(v3))
+    lodashSet(next, key, parsedValue)
+    gameStateStore.loadFromSaveData(next as any)
     await gameStateStore.saveGame()
-    console.log('[7] gameStateStore.saveGame() 完成')
-
-    console.log('=== [诊断日志] 保存变量结束 ===')
 
     toast.success(t('✅ 已成功更新 ') + `${key}`)
     closeEditModal()
-
-    // 刷新显示
     await refreshData()
+    return
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : t('未知错误')
     toast.error(t('保存失败: ') + `${errorMsg}`)

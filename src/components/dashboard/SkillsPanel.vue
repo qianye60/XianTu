@@ -438,7 +438,10 @@ const equipTechnique = async (technique: TechniqueItem) => {
   if (cultivationSkills.value) {
     uiStore.showRetryDialog({
       title: t('切换功法'),
-      message: `${t('当前正在修炼')}《${cultivationSkills.value.名称}》，${t('确定要切换到')}《${technique.名称}》${t('吗')}？`,
+      message: t('当前正在修炼《{current}》，确定要切换到《{next}》吗？', {
+        current: cultivationSkills.value.名称,
+        next: technique.名称,
+      }),
       onConfirm: action,
       onCancel: () => {},
     });
@@ -454,7 +457,7 @@ const unequipSkill = async () => {
   const skillToUnequip = cultivationSkills.value;
   uiStore.showRetryDialog({
     title: t('卸下功法'),
-    message: `${t('确定要卸下')}《${skillToUnequip.名称}》${t('吗')}？`,
+    message: t('确定要卸下《{name}》吗？', { name: skillToUnequip.名称 }),
     confirmText: t('确定卸下'),
     cancelText: t('取消'),
     onConfirm: async () => {

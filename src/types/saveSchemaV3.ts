@@ -47,6 +47,26 @@ export interface OnlineStateV3 {
   冲突策略?: '服务器' | '客户端' | '合并' | string;
 }
 
+export interface RelationshipEdgeV3 {
+  from: string;
+  to: string;
+  relation?: string;
+  score?: number;
+  tags?: string[];
+  updatedAt?: string;
+}
+
+/**
+ * 关系矩阵/关系网（可选）
+ * - 不作为硬依赖字段：缺失时 UI 可由社交.关系即时推导
+ * - 未来用于 NPC-NPC 关系与实时演变记录
+ */
+export interface RelationshipMatrixV3 {
+  version?: number;
+  nodes?: string[];
+  edges?: RelationshipEdgeV3[];
+}
+
 export interface TechniqueProgressEntryV3 {
   熟练度: number;
   已解锁技能: string[];
@@ -103,6 +123,7 @@ export interface SaveDataV3 {
   };
   社交: {
     关系: Record<string, NpcProfile>;
+    关系矩阵?: RelationshipMatrixV3;
     宗门?: (SectSystemV2 & { 成员信息?: SectMemberInfo }) | null;
     事件: EventSystem;
     记忆: Memory;

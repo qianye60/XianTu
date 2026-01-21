@@ -41,20 +41,20 @@
             :class="{ disabled: !api.enabled, default: api.id === 'default' }"
           >
             <div class="api-card-header">
+              <label class="card-toggle" :title="t('启用/禁用')">
+                <input
+                  type="checkbox"
+                  :checked="api.enabled"
+                  @change="toggleAPI(api.id)"
+                />
+                <span class="toggle-slider"></span>
+              </label>
               <div class="api-info">
                 <span class="api-name">{{ getDisplayName(api) }}</span>
                 <span class="api-provider" v-if="!(isTavernEnvFlag && api.id === 'default')">{{ getProviderName(api.provider) }}</span>
                 <span class="api-provider tavern-tag" v-else>🍺 酒馆配置</span>
               </div>
               <div class="api-actions">
-                <label class="setting-switch" :title="t('启用/禁用')">
-                  <input
-                    type="checkbox"
-                    :checked="api.enabled"
-                    @change="toggleAPI(api.id)"
-                  />
-                  <span class="switch-slider"></span>
-                </label>
                 <button class="icon-btn" @click="testAPI(api)" :title="t('测试连接')">
                   <FlaskConical :size="16" :class="{ 'loading-pulse': testingApiId === api.id }" />
                 </button>
@@ -92,6 +92,16 @@
                   <span class="detail-value" :class="getAPIStatus(api.id)">
                     {{ getAPIStatusText(api.id) }}
                   </span>
+                </div>
+                <div class="api-detail" v-if="['openai', 'deepseek', 'custom', 'gemini', 'claude'].includes(api.provider)">
+                  <label class="json-toggle">
+                    <input
+                      type="checkbox"
+                      :checked="api.forceJsonOutput"
+                      @change="toggleForceJson(api.id, ($event.target as HTMLInputElement).checked)"
+                    />
+                    <span>{{ t('强制JSON') }}</span>
+                  </label>
                 </div>
               </template>
             </div>
@@ -311,7 +321,7 @@
 
           <!-- 辅助功能列表 -->
             <div
-              v-for="funcType in ['memory_summary', 'text_optimization', 'world_generation', 'event_generation', 'sect_generation', 'embedding']"
+              v-for="funcType in ['memory_summary', 'text_optimization', 'world_generation', 'event_generation', 'sect_generation', 'crafting', 'embedding']"
               :key="funcType"
               class="setting-item"
             >
@@ -562,6 +572,44 @@
               />
             </div>
           </div>
+
+          <!-- 强制JSON输出选项 -->
+          <div
+            class="form-group"
+            v-if="['openai', 'deepseek', 'custom', 'gemini', 'claude'].includes(editingAPI.provider || 'openai')"
+          >
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                v-model="editingAPI.forceJsonOutput"
+                class="form-checkbox"
+              />
+              <span>{{ t('强制JSON格式输出') }}</span>
+            </label>
+            <div class="form-hint">
+              {{ t('启用后，API将强制返回JSON格式。需要在提示词中包含"json"字样并给出JSON格式样例。') }}
+              <br/>
+              <span class="hint-warning" v-if="editingAPI.provider === 'gemini'">
+                ℹ️ {{ t('Gemini使用response_mime_type实现JSON模式') }}
+              </span>
+              <span class="hint-warning" v-else-if="editingAPI.provider === 'claude'">
+                ℹ️ {{ t('Claude使用prefill技巧实现JSON模式') }}
+              </span>
+              <span class="hint-warning" v-else>
+                ⚠️ {{ t('仅支持OpenAI兼容API（如DeepSeek）。使用前请确保提示词中包含JSON格式说明。') }}
+              </span>
+              <br v-if="editingAPI.provider === 'custom'"/>
+              <span class="hint-warning" v-if="editingAPI.provider === 'custom'">
+                ⚠️ {{ t('重要：如果使用New-API等中转服务，需确认底层模型支持！') }}
+                <br/>
+                {{ t('• 底层是OpenAI/DeepSeek/Qwen/GLM-4: ✅ 通常可用') }}
+                <br/>
+                {{ t('• 底层是Gemini/Claude/旧模型: ❌ 可能报错') }}
+                <br/>
+                <strong>{{ t('• 务必先用"测试连接"验证！') }}</strong>
+              </span>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDialogs">{{ t('取消') }}</button>
@@ -788,7 +836,8 @@ const getFunctionName = (type: APIUsageType): string => {
     instruction_generation: '指令生成',
     world_generation: '世界生成',
       event_generation: '事件生成',
-      sect_generation: '宗门生成'
+      sect_generation: '宗门生成',
+      crafting: '炼丹炼器'
     };
   return names[type] || type;
 };
@@ -806,7 +855,8 @@ const getFunctionDesc = (type: APIUsageType): string => {
       instruction_generation: '将用户模糊指令转化为明确游戏指令（一次对话生成）',
       world_generation: '生成世界、地点等（可配置Raw/标准模式）',
         event_generation: '生成世界事件（可配置Raw/标准模式）',
-        sect_generation: '生成宗门内容如藏经阁、贡献商店（可配置Raw/标准模式）'
+        sect_generation: '生成宗门内容如藏经阁、贡献商店（可配置Raw/标准模式）',
+        crafting: '炼丹炼器系统（可配置Raw/标准模式）'
       };
     return descs[type] || '';
   } else {
@@ -820,7 +870,8 @@ const getFunctionDesc = (type: APIUsageType): string => {
       instruction_generation: '将用户模糊指令转化为明确游戏指令（一次对话生成）',
       world_generation: '生成世界、地点等内容（开局时使用）',
         event_generation: '生成世界事件（可用快速模型）',
-        sect_generation: '生成宗门内容如藏经阁、贡献商店（可用快速模型）'
+        sect_generation: '生成宗门内容如藏经阁、贡献商店（可用快速模型）',
+        crafting: '炼丹炼器系统（可用快速模型）'
       };
     return descs[type] || '';
   }
@@ -858,6 +909,12 @@ const toggleAPI = (id: string) => {
   apiStore.toggleAPI(id);
 };
 
+// 切换强制JSON
+const toggleForceJson = (id: string, enabled: boolean) => {
+  apiStore.updateAPI(id, { forceJsonOutput: enabled });
+  toast.success(enabled ? t('已启用强制JSON') : t('已关闭强制JSON'));
+};
+
 // 编辑API
 const editAPI = (api: APIConfig) => {
   editingAPI.value = { ...api };
@@ -891,7 +948,10 @@ const testAPI = async (api: APIConfig) => {
 
   testingApiId.value = api.id;
   try {
-    const testPrompt = '你正在进行API连通性测试。请仅输出：仙途本-连通测试-OK';
+    // 根据是否启用强制JSON选择不同的测试提示词
+    const testPrompt = api.forceJsonOutput
+      ? '你正在进行API连通性测试。请按照以下JSON格式输出测试结果：\n\n示例JSON格式：\n{"status": "ok", "message": "仙途本-连通测试-OK"}\n\n请严格按照上述JSON格式输出。'
+      : '你正在进行API连通性测试。请仅输出：仙途本-连通测试-OK';
 
     // 使用直接测试方法，绕过环境检测
     const response = await aiService.testAPIDirectly({
@@ -900,10 +960,26 @@ const testAPI = async (api: APIConfig) => {
       apiKey: api.apiKey,
       model: api.model,
       temperature: api.temperature,
-      maxTokens: 1000
+      maxTokens: 1000,
+      forceJsonOutput: api.forceJsonOutput
     }, testPrompt);
 
-    const ok = response.toLowerCase().includes('仙途本') || response.toLowerCase().includes('ok');
+    // 根据是否启用强制JSON进行不同的验证
+    let ok = false;
+    if (api.forceJsonOutput) {
+      try {
+        const jsonResponse = JSON.parse(response);
+        ok = jsonResponse.status === 'ok' ||
+             (jsonResponse.message && jsonResponse.message.includes('仙途本')) ||
+             response.toLowerCase().includes('ok');
+      } catch {
+        // JSON解析失败，尝试普通文本匹配
+        ok = response.toLowerCase().includes('仙途本') || response.toLowerCase().includes('ok');
+      }
+    } else {
+      ok = response.toLowerCase().includes('仙途本') || response.toLowerCase().includes('ok');
+    }
+
     apiTestResults.value[api.id] = ok ? 'success' : 'fail';
 
     if (ok) {
@@ -978,7 +1054,8 @@ const saveAPI = () => {
       model: editingAPI.value.model || getProviderPresetModel(editingAPI.value.provider as APIProvider),
       temperature: editingAPI.value.temperature || 0.7,
       maxTokens: editingAPI.value.maxTokens || 16000,
-      enabled: true
+      enabled: true,
+      forceJsonOutput: editingAPI.value.forceJsonOutput || false
     };
     apiStore.addAPI(newConfig);
     toast.success(t('API配置已添加'));
@@ -1011,6 +1088,16 @@ const syncDefaultAPIToService = () => {
 // 更新功能分配
 const updateAssignment = (type: APIUsageType, apiId: string) => {
   apiStore.assignAPI(type, apiId);
+
+  // 如果分配指令生成到独立API，自动开启分步生成
+  if (type === 'instruction_generation' && apiId !== 'default') {
+    if (!splitResponseGeneration.value) {
+      splitResponseGeneration.value = true;
+      saveSplitResponseSetting();
+      toast.success('已自动开启分步生成（指令生成需要分步模式）');
+    }
+  }
+
   toast.success(`${getFunctionName(type)} ${t('已分配到')} ${apiStore.apiConfigs.find(a => a.id === apiId)?.name || 'API'}`);
 };
 
@@ -1294,37 +1381,97 @@ const handleImport = () => {
 }
 
 .api-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 1rem;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .api-card:hover {
-  border-color: #94a3b8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-2px);
 }
 
 .api-card.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
+  filter: grayscale(0.3);
+}
+
+.api-card.disabled:hover {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .api-card.default {
   border-color: #3b82f6;
-  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
 }
 
 .api-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: white;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
   border-bottom: 1px solid #e2e8f0;
 }
 
+/* 卡片开关样式 */
+.card-toggle {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 28px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.card-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.card-toggle .toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 28px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-toggle .toggle-slider:before {
+  position: absolute;
+  content: '';
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.card-toggle input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+.card-toggle input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
 .api-info {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1332,6 +1479,7 @@ const handleImport = () => {
 
 .api-name {
   font-weight: 600;
+  font-size: 1rem;
   color: #1e293b;
 }
 
@@ -1339,8 +1487,9 @@ const handleImport = () => {
   font-size: 0.75rem;
   color: #64748b;
   background: #e2e8f0;
-  padding: 0.125rem 0.5rem;
+  padding: 0.25rem 0.625rem;
   border-radius: 1rem;
+  font-weight: 500;
 }
 
 .api-provider.tavern-tag {
@@ -1360,10 +1509,10 @@ const handleImport = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   background: transparent;
   color: #64748b;
   cursor: pointer;
@@ -1373,6 +1522,7 @@ const handleImport = () => {
 .icon-btn:hover {
   background: #e2e8f0;
   color: #1e293b;
+  transform: scale(1.05);
 }
 
 .icon-btn.danger:hover {
@@ -1383,6 +1533,10 @@ const handleImport = () => {
 .icon-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.icon-btn:disabled:hover {
+  transform: none;
 }
 
 .api-card-body {
@@ -1437,6 +1591,23 @@ const handleImport = () => {
 
 .detail-value.unknown {
   color: var(--color-text-secondary);
+}
+
+.json-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  user-select: none;
+}
+
+.json-toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
 }
 
 .api-card-footer {
@@ -1856,6 +2027,37 @@ input:checked + .switch-slider:before {
 
 .form-group.half {
   flex: 1;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+}
+
+.form-checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.form-hint {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.hint-warning {
+  color: #d97706;
+  font-weight: 500;
 }
 
 .model-input-row {

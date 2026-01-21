@@ -110,6 +110,8 @@ export const createJoinedSectState = (
       宗门成员: {},
       宗门藏经阁: {},  // 由 AI 动态生成
       宗门贡献商店: {},  // 由 AI 动态生成
+      宗门任务: {},
+      宗门任务状态: {},
     },
     memberInfo,
   };
@@ -171,6 +173,8 @@ export function createSectFramework(
       宗门成员: {},
       宗门藏经阁: {},  // 空，由 AI 动态生成
       宗门贡献商店: {},  // 空，由 AI 动态生成
+      宗门任务: {},
+      宗门任务状态: {},
       内容状态: {
         [sectName]: contentStatus,
       },

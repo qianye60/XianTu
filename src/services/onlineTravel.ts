@@ -65,6 +65,7 @@ export type WorldInstanceSummary = {
   // hidden/locked worlds only; returned only for the owner (my world).
   invite_code?: string | null;
   allow_offline_travel?: boolean;
+  allow_map_overwrite?: boolean;
   offline_agent_prompt?: string | null;
   revision: number;
   maps: Array<{ map_id: number; map_key: string; revision: number }>;
@@ -77,6 +78,7 @@ export type TravelableWorld = {
   owner_char_id: string | null;
   visibility_mode: string;
   allow_offline_travel?: boolean;
+  allow_map_overwrite?: boolean;
   owner_online?: boolean;
   owner_last_heartbeat_at?: string | null;
   revision: number;
@@ -192,6 +194,13 @@ export type TravelSessionLogsResponse = {
   events: TravelSessionEvent[];
 };
 
+export type WorldActionResponse = {
+  success: boolean;
+  message: string;
+  new_map_id?: number;
+  new_poi_id?: number;
+};
+
 export async function getTravelSessionLogs(session_id: number): Promise<TravelSessionLogsResponse> {
   return request.get<TravelSessionLogsResponse>(`/api/v1/travel/logs/${session_id}`);
 }
@@ -231,6 +240,22 @@ export async function moveInWorld(
     session_id,
     action_type: 'move',
     intent: { to_poi_id },
+  });
+}
+
+export async function overwriteWorldMap(
+  world_instance_id: number,
+  locations: unknown[],
+  session_id?: number,
+  map_id?: number
+): Promise<WorldActionResponse> {
+  return request.post(`/api/v1/worlds/instance/${world_instance_id}/action`, {
+    session_id,
+    action_type: 'map_overwrite',
+    intent: {
+      locations,
+      map_id,
+    },
   });
 }
 

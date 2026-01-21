@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Home, Users, BookOpen, Coins } from 'lucide-vue-next';
+import { Home, Users, BookOpen, Coins, Building2, Swords, ClipboardList } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
 
 const route = useRoute();
@@ -35,17 +35,30 @@ const hasJoinedSect = computed(() => {
   return sectInfo && sectInfo.宗门名称;
 });
 
+// 判断是否为宗门高层（宗主/掌门/副宗主/副掌门）
+const isSectLeader = computed(() => {
+  const position = String(gameStateStore.sectMemberInfo?.职位 || '');
+  return /掌门|宗主|副掌门|副宗主/.test(position);
+});
+
 // 所有Tab定义
 const allTabs = [
   { name: 'SectOverview', label: '宗门概览', icon: Home, requireJoin: false },
   { name: 'SectMembers', label: '宗门成员', icon: Users, requireJoin: true },
+  { name: 'SectManagement', label: '宗门经营', icon: Building2, requireJoin: true, requireLeader: true },
   { name: 'SectLibrary', label: '宗门藏经', icon: BookOpen, requireJoin: true },
+  { name: 'SectTasks', label: '宗门任务', icon: ClipboardList, requireJoin: true },
   { name: 'SectContribution', label: '贡献兑换', icon: Coins, requireJoin: true },
+  { name: 'SectWar', label: '宗门大战', icon: Swords, requireJoin: true, requireLeader: true },
 ];
 
 // 根据是否加入宗门过滤Tab
 const tabs = computed(() => {
-  return allTabs.filter(tab => !tab.requireJoin || hasJoinedSect.value);
+  return allTabs.filter((tab: any) => {
+    if (tab.requireJoin && !hasJoinedSect.value) return false;
+    if (tab.requireLeader && !isSectLeader.value) return false;
+    return true;
+  });
 });
 
 const isActiveTab = (name: string) => String(route.name) === name;
@@ -104,6 +117,13 @@ const goToTab = (name: string) => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sect-system-content :deep(> *) {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }

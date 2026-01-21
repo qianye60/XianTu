@@ -1,13 +1,13 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
   /* --- Light Theme Colors (明亮版) --- */
-  --color-background: #f5f2ed; /* 更白的基底色 */
-  --color-background-transparent: rgba(245, 242, 237, 0.92);
-  --color-surface: #ffffff; /* 纯白面板色 */
-  --color-surface-transparent: rgba(255, 255, 255, 0.88);
-  --color-surface-light: #f0ede8; /* 浅灰做层次 */
+  --color-background: #ebe8e1; /* 更柔和的米白色 */
+  --color-background-transparent: rgba(235, 232, 225, 0.92);
+  --color-surface: #f8f6f3; /* 柔和的浅米色，不再是纯白 */
+  --color-surface-transparent: rgba(248, 246, 243, 0.88);
+  --color-surface-light: #e6e3dc; /* 更柔和的浅灰 */
   /* Derived/interactive states (light) */
-  --color-surface-hover: #faf8f5; /* 悬浮时的柔和色 */
+  --color-surface-hover: #f2efe9; /* 悬浮时的柔和色 */
   --color-primary: #1e4a9a; /* 更深的主色调 */
   --color-primary-rgb: 30, 74, 154;
   --color-primary-hover: #163d82;
@@ -21,8 +21,8 @@
   --color-text-secondary: #4a4a4a; /* 更深，提高对比度 */
   --color-text-muted: #5a5a5a; /* 更深，提高对比度 */
   --color-white-soft: #f1eee7; /* 柔和的白色 */
-  --color-border: rgba(0, 0, 0, 0.15); /* 更明显的边框 */
-  --color-border-hover: rgba(0, 0, 0, 0.28);
+  --color-border: rgba(0, 0, 0, 0.12); /* 更柔和的边框 */
+  --color-border-hover: rgba(0, 0, 0, 0.25);
   --color-success: #2e8b32; /* 更深的绿色，提高可读性 */
   --color-success-hover: #267529;
   --color-warning: #e68a00; /* 更深的橙色 */
@@ -40,8 +40,8 @@
   --color-code-bg: #0f172a0f; /* subtle deep slate with opacity */
   /* Global scrollbar tokens (light) – hide track, show only thumb */
   --scrollbar-track-color: transparent;
-  --scrollbar-thumb-color: rgba(0, 0, 0, 0.35);
-  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.5);
+  --scrollbar-thumb-color: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.4);
 
   /* Vital colors (light theme) */
   --vital-health: #ff2929;   /* 气血/健康（与 --color-error 保持一致） */
@@ -50,8 +50,8 @@
   --vital-lifespan: #c253ff; /* 寿元(紫色) */
 
   /* Derived RGB triplets for rgba() usage (light) */
-  --color-background-rgb: 245, 242, 237;
-  --color-surface-rgb: 255, 255, 255;
+  --color-background-rgb: 235, 232, 225;
+  --color-surface-rgb: 248, 246, 243;
   --color-accent-rgb: 46, 139, 87;
   --color-border-rgb: 0, 0, 0;
   --color-success-rgb: 46, 139, 50;
@@ -62,6 +62,7 @@
   /* UI缩放变量 */
   --ui-scale: 1;
   --base-font-size: 1rem;
+  --lang-font-scale: 1;
 
   /* 字体与过渡 */
   --font-family-serif: 'SimSun', 'NSimSun', 'STSong', '宋体', 'Noto Serif SC', 'KaiTi', 'STKaiti', serif;
@@ -127,6 +128,10 @@
   --color-info-rgb: 119, 205, 254;
 }
 
+html[data-lang='en'] {
+  --lang-font-scale: 0.94;
+}
+
 /* --- Base Styles --- */
 html,
 body {
@@ -158,7 +163,7 @@ body {
   /* 应用UI缩放，使用zoom属性（Chrome, Safari等支持） */
   zoom: var(--ui-scale);
   /* 应用基础字体大小 */
-  font-size: var(--base-font-size);
+  font-size: calc(var(--base-font-size) * var(--lang-font-scale));
   /* 透明背景以显示视频背景 */
   background-color: transparent;
 }
@@ -174,6 +179,69 @@ body {
   align-items: center;
   overflow-x: hidden;
   position: relative;
+}
+
+/* English UI overflow guards */
+html[data-lang='en'] .panel-tab,
+html[data-lang='en'] .filter-tab,
+html[data-lang='en'] .tabs-nav button,
+html[data-lang='en'] .tab-item,
+html[data-lang='en'] .menu-item,
+html[data-lang='en'] .nav-item,
+html[data-lang='en'] .action-btn,
+html[data-lang='en'] .tech-btn,
+html[data-lang='en'] .function-btn,
+html[data-lang='en'] .btn {
+  min-width: 0;
+}
+
+html[data-lang='en'] .panel-tab span,
+html[data-lang='en'] .filter-tab span,
+html[data-lang='en'] .tabs-nav button span,
+html[data-lang='en'] .tab-item span,
+html[data-lang='en'] .menu-item span,
+html[data-lang='en'] .nav-item span,
+html[data-lang='en'] .action-btn span,
+html[data-lang='en'] .tech-btn,
+html[data-lang='en'] .function-btn span,
+html[data-lang='en'] .btn,
+html[data-lang='en'] .btn-text,
+html[data-lang='en'] .btn-desc,
+html[data-lang='en'] .sidebar-title,
+html[data-lang='en'] .section-title,
+html[data-lang='en'] .panel-title,
+html[data-lang='en'] .section-header span,
+html[data-lang='en'] .stat-label,
+html[data-lang='en'] .stat-value,
+html[data-lang='en'] .meta-label,
+html[data-lang='en'] .meta-tag,
+html[data-lang='en'] .meta-stat,
+html[data-lang='en'] .tab-count,
+html[data-lang='en'] .badge,
+html[data-lang='en'] .tag,
+html[data-lang='en'] .title-text,
+html[data-lang='en'] .list-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+html[data-lang='en'] .btn-content {
+  min-width: 0;
+}
+
+html[data-lang='en'] p,
+html[data-lang='en'] .desc,
+html[data-lang='en'] .description,
+html[data-lang='en'] .subtitle,
+html[data-lang='en'] .panel-subtitle,
+html[data-lang='en'] .empty-description,
+html[data-lang='en'] .technique-desc,
+html[data-lang='en'] .skill-desc,
+html[data-lang='en'] .mastered-desc {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* --- Reusable Button Class (The Master's Touch) --- */

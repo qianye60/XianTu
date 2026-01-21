@@ -93,6 +93,7 @@
   /* 允许在需要时收缩，避免容器被撑破 */
   flex: 0 1 auto;
   max-width: 100%;
+  min-width: 0;
 }
 
 .action-btn:hover {
@@ -151,6 +152,17 @@
 
 .btn-text {
   font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-btn > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* === 内容区域 === */

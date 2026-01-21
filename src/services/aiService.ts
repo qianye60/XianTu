@@ -30,6 +30,7 @@ export interface AIConfig {
     model: string;
     temperature?: number;
     maxTokens?: number;
+    forceJsonOutput?: boolean;
   };
 }
 
@@ -65,6 +66,8 @@ export interface GenerateOptions {
     world_info_after?: string;
   };
   onStreamChunk?: (chunk: string) => void;
+  /** 强制JSON格式输出（仅支持OpenAI兼容API，如DeepSeek）*/
+  responseFormat?: 'json_object';
 }
 
 // ============ AI服务类 ============
@@ -228,6 +231,7 @@ class AIService {
     model: string;
     temperature?: number;
     maxTokens?: number;
+    forceJsonOutput?: boolean;
   }, testPrompt: string): Promise<string> {
     console.log(`[AI服务] 直接测试API: ${apiConfig.url}, model: ${apiConfig.model}`);
 
@@ -244,7 +248,8 @@ class AIService {
         apiKey: apiConfig.apiKey,
         model: apiConfig.model,
         temperature: apiConfig.temperature ?? 0.7,
-        maxTokens: apiConfig.maxTokens ?? 1000
+        maxTokens: apiConfig.maxTokens ?? 1000,
+        forceJsonOutput: apiConfig.forceJsonOutput
       };
 
       // 直接调用自定义API（不走环境检测）
@@ -273,23 +278,174 @@ class AIService {
       throw new Error('请先配置API地址和密钥');
     }
 
-    try {
-      const baseUrl = this.config.customAPI.url.replace(/\/+$/, '');
-      const response = await axios.get(`${baseUrl}/v1/models`, {
-        headers: { 'Authorization': `Bearer ${this.config.customAPI.apiKey}` },
-        signal: this.getAbortSignal()
-      });
+    const { provider, url, apiKey } = this.config.customAPI;
+    const baseUrl = url.replace(/\/+$/, '');
 
-      return response.data.data?.map((m: any) => m.id) || [];
+    try {
+      switch (provider) {
+        case 'gemini': {
+          // Gemini API: GET /v1beta/models?key={apiKey}
+          // 注意：官方Gemini使用查询参数，但某些中转服务可能使用Bearer token
+          try {
+            // 首先尝试使用查询参数方式（官方Gemini格式）
+            const response = await axios.get(`${baseUrl}/v1beta/models?key=${apiKey}`, {
+              signal: this.getAbortSignal(),
+              timeout: 10000
+            });
+
+            // 过滤出支持 generateContent 的模型
+            const models = response.data.models || [];
+            return models
+              .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+              .map((m: any) => m.name.replace('models/', ''));
+          } catch (error) {
+            // 如果查询参数方式失败，尝试使用Bearer token方式（中转服务可能使用）
+            if (axios.isAxiosError(error) && error.response?.status === 401) {
+              console.warn('[AI服务] Gemini查询参数认证失败，尝试Bearer token方式');
+              try {
+                const response = await axios.get(`${baseUrl}/v1beta/models`, {
+                  headers: { 'Authorization': `Bearer ${apiKey}` },
+                  signal: this.getAbortSignal(),
+                  timeout: 10000
+                });
+
+                const models = response.data.models || [];
+                return models
+                  .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+                  .map((m: any) => m.name.replace('models/', ''));
+              } catch (bearerError) {
+                console.error('[AI服务] Bearer token方式也失败:', bearerError);
+              }
+            }
+
+            console.error('[AI服务] Gemini模型列表获取失败:', error);
+            // 如果所有方式都失败，返回常用模型
+            console.warn('[AI服务] 返回Gemini预设模型列表');
+            return [
+              'gemini-2.0-flash-exp',
+              'gemini-exp-1206',
+              'gemini-2.0-flash-thinking-exp-1219',
+              'gemini-1.5-pro',
+              'gemini-1.5-flash',
+              'gemini-1.5-flash-8b'
+            ];
+          }
+        }
+
+        case 'claude': {
+          // Claude API 不提供模型列表端点，返回常用模型列表
+          console.warn('[AI服务] Claude API不支持获取模型列表，返回预设模型');
+          return [
+            'claude-3-5-sonnet-20241022',
+            'claude-3-5-haiku-20241022',
+            'claude-3-opus-20240229',
+            'claude-3-sonnet-20240229',
+            'claude-3-haiku-20240307'
+          ];
+        }
+
+        case 'openai':
+        case 'deepseek':
+        case 'custom':
+        default: {
+          // OpenAI 兼容 API: GET /v1/models
+          try {
+            const response = await axios.get(`${baseUrl}/v1/models`, {
+              headers: { 'Authorization': `Bearer ${apiKey}` },
+              signal: this.getAbortSignal(),
+              timeout: 10000
+            });
+
+            const models = response.data.data?.map((m: any) => m.id) || [];
+
+            // 如果成功获取到模型列表，返回
+            if (models.length > 0) {
+              return models;
+            }
+
+            // 如果返回空列表，根据provider返回预设列表
+            console.warn('[AI服务] API返回空模型列表，使用预设列表');
+            return this.getPresetModels(provider, baseUrl);
+          } catch (fetchError) {
+            // 如果获取失败，返回预设模型列表
+            console.warn('[AI服务] 获取模型列表失败，使用预设列表:', fetchError);
+            return this.getPresetModels(provider, baseUrl);
+          }
+        }
+      }
     } catch (error) {
       console.error('[AI服务] 获取模型列表失败:', error);
-      throw new Error('获取模型列表失败');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          throw new Error('API密钥无效或已过期');
+        } else if (error.response?.status === 404) {
+          throw new Error('API端点不存在，请检查URL配置是否正确');
+        } else if (error.response) {
+          throw new Error(`获取模型列表失败: ${error.response.status} ${error.response.statusText}`);
+        } else if (error.code === 'ECONNABORTED') {
+          throw new Error('请求超时，请检查网络连接');
+        }
+      }
+      throw new Error('获取模型列表失败，请检查网络连接和API配置');
     }
   }
 
   /**
+   * 获取预设模型列表（当API获取失败时使用）
+   */
+  private getPresetModels(provider: APIProvider, baseUrl: string): string[] {
+    // 根据URL判断是否为硅基流动
+    if (baseUrl.includes('siliconflow.cn')) {
+      console.log('[AI服务] 检测到硅基流动API，返回硅基流动预设模型列表');
+      return [
+        'Qwen/Qwen2.5-7B-Instruct',
+        'Qwen/Qwen2.5-14B-Instruct',
+        'Qwen/Qwen2.5-32B-Instruct',
+        'Qwen/Qwen2.5-72B-Instruct',
+        'Qwen/QwQ-32B-Preview',
+        'deepseek-ai/DeepSeek-V2.5',
+        'deepseek-ai/DeepSeek-R1',
+        'Pro/Qwen/Qwen2.5-7B-Instruct',
+        'Pro/Qwen/Qwen2.5-14B-Instruct',
+        'Pro/Qwen/Qwen2.5-32B-Instruct',
+        'Pro/Qwen/Qwen2.5-72B-Instruct'
+      ];
+    }
+
+    // DeepSeek预设模型
+    if (provider === 'deepseek' || baseUrl.includes('deepseek.com')) {
+      return [
+        'deepseek-chat',
+        'deepseek-reasoner'
+      ];
+    }
+
+    // OpenAI预设模型
+    if (provider === 'openai' || baseUrl.includes('openai.com')) {
+      return [
+        'gpt-4o',
+        'gpt-4o-mini',
+        'gpt-4-turbo',
+        'gpt-3.5-turbo'
+      ];
+    }
+
+    // 默认返回通用模型列表
+    return [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-3.5-turbo',
+      'deepseek-chat'
+    ];
+  }
+
+  /**
    * 根据 usageType 获取对应的 API 配置
-   * 返回 null 表示使用默认配置
+   * 返回 null 表示使用默认配置（aiService.customAPI 或酒馆代理）。
+   *
+   * 额外兜底：
+   * - 当某个功能仍使用 default 分配时，如果主流程（main）分配了非 default 的独立 API，
+   *   则该功能默认跟随 main，避免出现“主流程能用但某些生成按钮用不了”的割裂体验。
    */
   private getAPIConfigForUsageType(usageType?: APIUsageType): StoreAPIConfig | null {
     if (!usageType) return null;
@@ -304,10 +460,17 @@ class AIService {
       const apiConfig = apiStore.getAPIForType(usageType);
       if (!apiConfig) return null;
 
-      // 如果是默认 API，返回 null 表示使用主配置
-      if (apiConfig.id === 'default') return null;
+      // 该功能明确分配了非 default API：直接使用
+      if (apiConfig.id !== 'default') return apiConfig;
 
-      return apiConfig;
+      // 该功能仍为 default：如果 main 使用了独立 API，则跟随 main（提升可用性）
+      if (usageType !== 'main') {
+        const mainApi = apiStore.getAPIForType('main');
+        if (mainApi && mainApi.id !== 'default') return mainApi;
+      }
+
+      // 仍使用默认（aiService.customAPI 或酒馆代理）
+      return null;
     } catch (e) {
       console.warn('[AI服务] 获取功能API配置失败，使用默认配置:', e);
       return null;
@@ -342,6 +505,10 @@ class AIService {
         // 如果配置了独立API，直接请求，不走酒馆代理
         if (apiConfig) {
           console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连: ${apiConfig.name}`);
+          // 如果API配置启用了强制JSON输出，设置responseFormat
+          if (apiConfig.forceJsonOutput && !options.responseFormat) {
+            options = { ...options, responseFormat: 'json_object' };
+          }
           return this.generateWithAPIConfig(options, {
             provider: apiConfig.provider,
             url: apiConfig.url,
@@ -361,6 +528,10 @@ class AIService {
       const apiConfig = this.getAPIConfigForUsageType(usageType);
       if (apiConfig) {
         console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
+        // 如果API配置启用了强制JSON输出，设置responseFormat
+        if (apiConfig.forceJsonOutput && !options.responseFormat) {
+          options = { ...options, responseFormat: 'json_object' };
+        }
         return this.generateWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -404,6 +575,10 @@ class AIService {
         // 如果配置了独立API，直接请求，不走酒馆代理
         if (apiConfig) {
           console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连(Raw): ${apiConfig.name}`);
+          // 如果API配置启用了强制JSON输出，设置responseFormat
+          if (apiConfig.forceJsonOutput && !options.responseFormat) {
+            options = { ...options, responseFormat: 'json_object' };
+          }
           return this.generateRawWithAPIConfig(options, {
             provider: apiConfig.provider,
             url: apiConfig.url,
@@ -423,6 +598,10 @@ class AIService {
       const apiConfig = this.getAPIConfigForUsageType(usageType);
       if (apiConfig) {
         console.log(`[AI服务-网页] 使用功能[${usageType}]分配的API: ${apiConfig.name}`);
+        // 如果API配置启用了强制JSON输出，设置responseFormat
+        if (apiConfig.forceJsonOutput && !options.responseFormat) {
+          options = { ...options, responseFormat: 'json_object' };
+        }
         return this.generateRawWithAPIConfig(options, {
           provider: apiConfig.provider,
           url: apiConfig.url,
@@ -792,7 +971,8 @@ class AIService {
     }
 
     const shouldStream = options.should_stream ?? this.config.streaming ?? false;
-    return this.callAPI(messages, shouldStream, options.onStreamChunk);
+    const responseFormat = options.responseFormat || (this.config.customAPI.forceJsonOutput ? 'json_object' : undefined);
+    return this.callAPI(messages, shouldStream, options.onStreamChunk, responseFormat);
   }
 
   private async generateRawWithCustomAPI(options: GenerateOptions): Promise<string> {
@@ -807,13 +987,15 @@ class AIService {
 
     console.log(`[AI服务-自定义Raw] 消息数量: ${messages.length}`);
     const shouldStream = options.should_stream ?? this.config.streaming ?? false;
-    return this.callAPI(messages, shouldStream, options.onStreamChunk);
+    const responseFormat = options.responseFormat || (this.config.customAPI.forceJsonOutput ? 'json_object' : undefined);
+    return this.callAPI(messages, shouldStream, options.onStreamChunk, responseFormat);
   }
 
   private async callAPI(
     messages: AIMessage[],
     streaming: boolean,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    responseFormat?: 'json_object'
   ): Promise<string> {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
@@ -822,14 +1004,14 @@ class AIService {
     // 根据provider选择不同的调用方式
     switch (provider) {
       case 'claude':
-        return this.callClaudeAPI(messages, streaming, onStreamChunk);
+        return this.callClaudeAPI(messages, streaming, onStreamChunk, responseFormat);
       case 'gemini':
-        return this.callGeminiAPI(messages, streaming, onStreamChunk);
+        return this.callGeminiAPI(messages, streaming, onStreamChunk, responseFormat);
       case 'openai':
       case 'deepseek':
       case 'custom':
       default:
-        return this.callOpenAICompatibleAPI(messages, streaming, onStreamChunk);
+        return this.callOpenAICompatibleAPI(messages, streaming, onStreamChunk, responseFormat);
     }
   }
 
@@ -906,29 +1088,39 @@ class AIService {
   private async callOpenAICompatibleAPI(
     messages: AIMessage[],
     streaming: boolean,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    responseFormat?: 'json_object'
   ): Promise<string> {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
-    const safeMaxTokens = this.clampMaxTokensForContext(provider, model, messages, maxTokens || 16000);
+    // 使用更保守的默认值8192，兼容更多API（如某些中转API限制为8192）
+    const safeMaxTokens = this.clampMaxTokensForContext(provider, model, messages, maxTokens || 8192);
 
     try {
       if (streaming) {
         try {
-          return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, safeMaxTokens, onStreamChunk);
+          return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, safeMaxTokens, onStreamChunk, responseFormat);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (!this.isStreamUnsupportedError(msg)) throw e;
           console.warn('[AI服务-OpenAI兼容] 当前API可能不支持流式传输，已自动降级为非流式请求。');
 
+          const requestBody: any = {
+            model,
+            messages,
+            temperature: temperature || 0.7,
+            max_tokens: safeMaxTokens,
+            stream: false
+          };
+
+          // 如果指定了 JSON 格式，添加 response_format
+          if (responseFormat === 'json_object') {
+            requestBody.response_format = { type: 'json_object' };
+            console.log('[AI服务-OpenAI兼容] 启用JSON格式输出(降级非流式)');
+          }
+
           const response = await axios.post(
             `${url}/v1/chat/completions`,
-            {
-              model,
-              messages,
-              temperature: temperature || 0.7,
-              max_tokens: safeMaxTokens,
-              stream: false
-            },
+            requestBody,
             {
               headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -944,15 +1136,23 @@ class AIService {
           return content;
         }
       } else {
+        const requestBody: any = {
+          model,
+          messages,
+          temperature: temperature || 0.7,
+          max_tokens: safeMaxTokens,
+          stream: false
+        };
+
+        // 如果指定了 JSON 格式，添加 response_format
+        if (responseFormat === 'json_object') {
+          requestBody.response_format = { type: 'json_object' };
+          console.log('[AI服务-OpenAI兼容] 启用JSON格式输出(非流式)');
+        }
+
         const response = await axios.post(
           `${url}/v1/chat/completions`,
-          {
-            model,
-            messages,
-            temperature: temperature || 0.7,
-            max_tokens: safeMaxTokens,
-            stream: false
-          },
+          requestBody,
           {
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -984,7 +1184,8 @@ class AIService {
   private async callClaudeAPI(
     messages: AIMessage[],
     streaming: boolean,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    responseFormat?: 'json_object'
   ): Promise<string> {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
@@ -1013,8 +1214,31 @@ class AIService {
         ...(systemPrompt ? [{ content: systemPrompt }] : []),
         ...claudeMessages.map(m => ({ content: m.content })),
       ],
-      maxTokens || 16000
+      maxTokens || 8192
     );
+
+    // 构建请求体
+    const buildRequestBody = () => {
+      const body: any = {
+        model,
+        max_tokens: safeMaxTokens,
+        system: systemPrompt || undefined,
+        messages: claudeMessages,
+        temperature: temperature || 0.7
+      };
+
+      // Claude 支持 JSON 模式（通过 prefill 技巧）
+      if (responseFormat === 'json_object') {
+        console.log('[AI服务-Claude] 启用JSON格式输出（使用prefill技巧）');
+        // 在最后一条用户消息后添加助手的 prefill，强制 JSON 输出
+        const lastMsg = body.messages[body.messages.length - 1];
+        if (lastMsg && lastMsg.role === 'user') {
+          body.messages.push({ role: 'assistant', content: '{' });
+        }
+      }
+
+      return body;
+    };
 
     try {
       if (streaming) {
@@ -1027,13 +1251,7 @@ class AIService {
 
           const response = await axios.post(
             `${baseUrl}/v1/messages`,
-            {
-              model,
-              max_tokens: safeMaxTokens,
-              system: systemPrompt || undefined,
-              messages: claudeMessages,
-              temperature: temperature || 0.7
-            },
+            buildRequestBody(),
             {
               headers: {
                 'x-api-key': apiKey,
@@ -1045,20 +1263,18 @@ class AIService {
             }
           );
 
-          const content = response.data.content[0]?.text || '';
+          let content = response.data.content[0]?.text || '';
+          // 如果使用了 prefill，需要在返回内容前加上 '{'
+          if (responseFormat === 'json_object' && content && !content.startsWith('{')) {
+            content = '{' + content;
+          }
           console.log(`[AI服务-Claude] 响应长度: ${content.length}`);
           return content;
         }
       } else {
         const response = await axios.post(
           `${baseUrl}/v1/messages`,
-          {
-            model,
-            max_tokens: safeMaxTokens,
-            system: systemPrompt || undefined,
-            messages: claudeMessages,
-            temperature: temperature || 0.7
-          },
+          buildRequestBody(),
           {
             headers: {
               'x-api-key': apiKey,
@@ -1070,7 +1286,11 @@ class AIService {
           }
         );
 
-        const content = response.data.content[0]?.text || '';
+        let content = response.data.content[0]?.text || '';
+        // 如果使用了 prefill，需要在返回内容前加上 '{'
+        if (responseFormat === 'json_object' && content && !content.startsWith('{')) {
+          content = '{' + content;
+        }
         console.log(`[AI服务-Claude] 响应长度: ${content.length}`);
         return content;
       }
@@ -1089,9 +1309,15 @@ class AIService {
   private async callGeminiAPI(
     messages: AIMessage[],
     streaming: boolean,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    responseFormat?: 'json_object'
   ): Promise<string> {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
+
+    // 验证必需参数
+    if (!model || model.trim() === '') {
+      throw new Error('Gemini API调用失败：未指定模型名称');
+    }
 
     // 转换为Gemini格式
     let systemInstruction = '';
@@ -1122,8 +1348,49 @@ class AIService {
         ...(systemInstruction ? [{ content: systemInstruction }] : []),
         ...contents.map(c => ({ content: (c.parts || []).map(p => p.text).join('\n') })),
       ],
-      maxTokens || 16000
+      maxTokens || 8192
     );
+
+    // 构建 generationConfig
+    const buildGenerationConfig = () => {
+      const config: any = {
+        temperature: temperature || 0.7,
+        maxOutputTokens: safeMaxTokens
+      };
+
+      // Gemini 支持 JSON 模式（通过 response_mime_type）
+      if (responseFormat === 'json_object') {
+        console.log('[AI服务-Gemini] 启用JSON格式输出（使用response_mime_type）');
+        config.response_mime_type = 'application/json';
+      }
+
+      return config;
+    };
+
+    // 构建请求体
+    const requestBody = {
+      contents,
+      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+      generationConfig: buildGenerationConfig()
+    };
+
+    // Gemini API请求辅助函数：支持查询参数和Bearer token两种方式
+    const makeGeminiRequest = async (urlPath: string, useQueryParam: boolean = true) => {
+      const requestUrl = useQueryParam
+        ? `${baseUrl}${urlPath}?key=${apiKey}`
+        : `${baseUrl}${urlPath}`;
+
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (!useQueryParam) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      return axios.post(requestUrl, requestBody, {
+        headers,
+        timeout: 120000,
+        signal: this.getAbortSignal()
+      });
+    };
 
     try {
       if (streaming) {
@@ -1134,48 +1401,42 @@ class AIService {
           if (!this.isStreamUnsupportedError(msg)) throw e;
           console.warn('[AI服务-Gemini] 当前API可能不支持流式传输，已自动降级为非流式请求。');
 
-          const response = await axios.post(
-            `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            {
-              contents,
-              systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-              generationConfig: {
-                temperature: temperature || 0.7,
-                maxOutputTokens: safeMaxTokens
-              }
-            },
-            {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 120000,
-              signal: this.getAbortSignal()
+          // 尝试查询参数方式
+          try {
+            const response = await makeGeminiRequest(`/v1beta/models/${model}:generateContent`, true);
+            const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
+            return content;
+          } catch (queryError) {
+            // 如果查询参数方式失败且是401错误，尝试Bearer token方式
+            if (axios.isAxiosError(queryError) && queryError.response?.status === 401) {
+              console.warn('[AI服务-Gemini] 查询参数认证失败，尝试Bearer token方式');
+              const response = await makeGeminiRequest(`/v1beta/models/${model}:generateContent`, false);
+              const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
+              return content;
             }
-          );
-
+            throw queryError;
+          }
+        }
+      } else {
+        // 尝试查询参数方式
+        try {
+          const response = await makeGeminiRequest(`/v1beta/models/${model}:${endpoint}`, true);
           const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
           console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
           return content;
-        }
-      } else {
-        const response = await axios.post(
-          `${baseUrl}/v1beta/models/${model}:${endpoint}?key=${apiKey}`,
-          {
-            contents,
-            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: {
-              temperature: temperature || 0.7,
-              maxOutputTokens: safeMaxTokens
-            }
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 120000,
-            signal: this.getAbortSignal()
+        } catch (queryError) {
+          // 如果查询参数方式失败且是401错误，尝试Bearer token方式
+          if (axios.isAxiosError(queryError) && queryError.response?.status === 401) {
+            console.warn('[AI服务-Gemini] 查询参数认证失败，尝试Bearer token方式');
+            const response = await makeGeminiRequest(`/v1beta/models/${model}:${endpoint}`, false);
+            const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
+            return content;
           }
-        );
-
-        const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        console.log(`[AI服务-Gemini] 响应长度: ${content.length}`);
-        return content;
+          throw queryError;
+        }
       }
     } catch (error) {
       console.error('[AI服务-Gemini] 失败:', error);
@@ -1196,9 +1457,24 @@ class AIService {
     messages: AIMessage[],
     temperature: number,
     maxTokens: number,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    responseFormat?: 'json_object'
   ): Promise<string> {
     console.log('[AI服务-OpenAI流式] 开始');
+
+    const requestBody: any = {
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: true
+    };
+
+    // 如果指定了 JSON 格式，添加 response_format
+    if (responseFormat === 'json_object') {
+      requestBody.response_format = { type: 'json_object' };
+      console.log('[AI服务-OpenAI流式] 启用JSON格式输出');
+    }
 
     const response = await fetch(`${url}/v1/chat/completions`, {
       method: 'POST',
@@ -1207,13 +1483,7 @@ class AIService {
         'Accept': 'text/event-stream',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-        stream: true
-      }),
+      body: JSON.stringify(requestBody),
       signal: this.getAbortSignal()
     });
 
@@ -1470,6 +1740,16 @@ class AIService {
 
     console.log(`[AI服务-流式] 完成，总长度: ${rawFullText.length}`);
     return rawFullText;
+  }
+
+  /**
+   * 检查指定功能是否启用了强制JSON输出
+   * @param usageType 功能类型
+   * @returns 是否启用强制JSON输出
+   */
+  isForceJsonEnabled(usageType?: APIUsageType): boolean {
+    const apiConfig = this.getAPIConfigForUsageType(usageType);
+    return apiConfig?.forceJsonOutput === true;
   }
 
   /**

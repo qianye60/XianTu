@@ -12,13 +12,16 @@ import type { APIUsageType } from '@/stores/apiManagementStore';
  * @param userPrompt 用户提示词
  * @param systemPrompt 系统提示词
  * @param streaming 是否使用流式输出
+ * @param usageType 功能类型
+ * @param onStreamChunk 流式输出回调函数
  * @returns AI生成的响应文本
  */
 export async function generateWithRawPrompt(
   userPrompt: string,
   systemPrompt: string,
   streaming: boolean = false,
-  usageType?: APIUsageType
+  usageType?: APIUsageType,
+  onStreamChunk?: (chunk: string) => void
 ): Promise<string> {
   try {
     // 注意：使用 user 角色而不是 system，避免中转API忽略
@@ -30,6 +33,7 @@ export async function generateWithRawPrompt(
       ],
       should_stream: streaming,
       usageType,
+      onStreamChunk,
       overrides: {
         world_info_before: '',
         world_info_after: ''

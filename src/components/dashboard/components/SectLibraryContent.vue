@@ -101,9 +101,8 @@ import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { generateWithRawPrompt } from '@/utils/tavernCore';
-import { parseJsonFromText } from '@/utils/jsonExtract';
-import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
-import type { GM_Response } from '@/types/AIGameMaster';
+import { parseJsonSmart } from '@/utils/jsonExtract';
+import { aiService } from '@/services/aiService';
 
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
@@ -285,13 +284,17 @@ async function generateLibraryContent() {
 
 ## 输出格式（必须）
 只输出 1 个 JSON 对象（不要代码块/不要解释/不要额外文本/不要<thinking>）：
-{"text":"...","mid_term_memory":"","tavern_commands":[...],"action_options":[]}
+{"text":"...","techniques":[...],"evolve_count":1,"last_updated":"${nowIso}"}
 
-## 写入路径（必须，V3短路径）
-- 社交.宗门.宗门藏经阁.${sectName} : 功法数组（完整覆盖）
-- 社交.宗门.内容状态.${sectName}.藏经阁已初始化 : true
-- 社交.宗门.内容状态.${sectName}.最后更新时间 : "${nowIso}"
-- 社交.宗门.内容状态.${sectName}.演变次数 : 若已有则 +1，否则 1
+## 顶层字段严格限制（强JSON）
+- 顶层只允许：text / techniques / evolve_count / last_updated
+- 禁止输出任何额外字段（例如：tavern_commands / action_options / 社交 / 宗门 / 系统 等）
+- techniques 必须是数组
+- 禁止输出多个 JSON 或 JSON 之外的任何字符
+
+## 说明
+- 程序会把 techniques 写入宗门藏经阁并更新内容状态
+- evolve_count/last_updated 可省略，缺失时由程序自动补全
 
 ## 功法对象字段（每条必须包含）
 {
@@ -318,9 +321,40 @@ async function generateLibraryContent() {
     `.trim();
 
     const raw = await generateWithRawPrompt('生成宗门藏经阁', prompt, false, 'sect_generation');
-    const parsed = parseJsonFromText(raw) as Partial<GM_Response>;
+    const parsed = parseJsonSmart(raw, aiService.isForceJsonEnabled('sect_generation')) as {
+      text?: string;
+      techniques?: unknown;
+      evolve_count?: number;
+      last_updated?: string;
+    };
 
-    const { saveData: updated } = await AIBidirectionalSystem.processGmResponse(parsed as GM_Response, saveData, false);
+    if (!Array.isArray(parsed.techniques)) {
+      throw new Error('techniques 字段缺失或不是数组');
+    }
+
+    const updated = typeof structuredClone === 'function'
+      ? structuredClone(saveData)
+      : JSON.parse(JSON.stringify(saveData));
+
+    const socialRoot = ((updated as any).社交 ??= {});
+    const sectRoot = (socialRoot.宗门 ??= {});
+    const libRoot = (sectRoot.宗门藏经阁 ??= {});
+    libRoot[sectName] = parsed.techniques;
+
+    const statusRoot = (sectRoot.内容状态 ??= {});
+    const status = (statusRoot[sectName] ??= {});
+    const prevCount = typeof status.演变次数 === 'number' ? status.演变次数 : 0;
+    const evolveCount = typeof parsed.evolve_count === 'number' && Number.isFinite(parsed.evolve_count)
+      ? parsed.evolve_count
+      : prevCount + 1;
+    const lastUpdated = typeof parsed.last_updated === 'string' && parsed.last_updated.trim()
+      ? parsed.last_updated
+      : nowIso;
+
+    status.藏经阁已初始化 = true;
+    status.最后更新时间 = lastUpdated;
+    status.演变次数 = evolveCount;
+
     gameStateStore.loadFromSaveData(updated);
     await characterStore.saveCurrentGame();
     toast.success('宗门藏经阁已更新');
@@ -340,6 +374,7 @@ async function generateLibraryContent() {
   gap: 1rem;
   flex: 1;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -350,6 +385,7 @@ async function generateLibraryContent() {
   background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(168, 85, 247, 0.05));
   border-radius: 8px;
   border: 1px solid rgba(147, 51, 234, 0.2);
+  flex-shrink: 0;
 }
 
 .info-actions {
@@ -489,6 +525,8 @@ async function generateLibraryContent() {
   padding: 1rem;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .empty-floor {
@@ -639,6 +677,7 @@ async function generateLibraryContent() {
   border-radius: 6px;
   font-size: 0.75rem;
   color: #3b82f6;
+  flex-shrink: 0;
 }
 
 .slide-enter-active,

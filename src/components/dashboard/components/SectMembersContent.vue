@@ -1,14 +1,98 @@
 <template>
   <div class="sect-members">
-    <!-- 玩家信息栏 -->
-    <div class="player-info-bar">
-      <div class="info-item">
-        <span class="info-label">所属宗门</span>
-        <span class="info-value sect-name">{{ playerSectName }}</span>
+    <!-- 我的宗门身份 -->
+    <div class="my-sect-identity">
+      <div class="identity-header">
+        <Crown :size="16" />
+        <span>我的宗门身份</span>
       </div>
-      <div class="info-item">
-        <span class="info-label">我的职位</span>
-        <span class="info-value position">{{ playerPosition }}</span>
+      <div class="identity-content">
+        <div class="identity-stats">
+          <div class="stat-item">
+            <span class="stat-label">所属宗门</span>
+            <span class="stat-value sect-name">{{ playerSectName }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">职位</span>
+            <span class="stat-value position">{{ playerPosition }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">贡献点</span>
+            <span class="stat-value contribution">{{ playerContribution }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">声望</span>
+            <span class="stat-value reputation">{{ playerReputation }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">加入时间</span>
+            <span class="stat-value join-date">{{ formatJoinDate(playerJoinDate) }}</span>
+          </div>
+        </div>
+        <div class="identity-actions">
+          <button class="quick-action-btn" @click="goToTab('SectContribution')">
+            <Coins :size="14" />
+            <span>贡献兑换</span>
+          </button>
+          <button class="quick-action-btn" @click="goToTab('SectLibrary')">
+            <BookOpen :size="14" />
+            <span>宗门藏书</span>
+          </button>
+          <button class="leave-sect-btn" @click="requestLeaveSect">
+            <LogOut :size="14" />
+            <span>退出宗门</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 宗门领导层（来自势力信息/宗门档案，不依赖NPC关系） -->
+    <div class="leadership-card" v-if="playerSectName !== '未加入宗门'">
+      <div class="leadership-header">
+        <div class="leadership-title">
+          <Crown :size="14" />
+          <span>宗门高层</span>
+        </div>
+        <button v-if="!sectLeadership" class="ask-btn small" @click="sendPrompt(`请告诉我${playerSectName}的宗主、副宗主、太上长老、主要长老，以及他们的修为与性格特点`)">
+          <MessageCircle :size="14" />
+          <span>询问高层</span>
+        </button>
+      </div>
+
+      <div v-if="sectLeadership" class="leadership-grid">
+        <div class="leader-item primary">
+          <span class="role">宗主</span>
+          <span class="name">{{ sectLeadership.宗主 }}</span>
+          <span class="realm" v-if="sectLeadership.宗主修为">{{ sectLeadership.宗主修为 }}</span>
+          <button class="link" @click="sendPrompt(`我想拜见${playerSectName}宗主「${sectLeadership.宗主}」`)">拜见</button>
+        </div>
+        <div class="leader-item" v-if="sectLeadership.副宗主">
+          <span class="role">副宗主</span>
+          <span class="name">{{ sectLeadership.副宗主 }}</span>
+          <button class="link" @click="sendPrompt(`我想向${playerSectName}副宗主「${sectLeadership.副宗主}」请教`)">请教</button>
+        </div>
+        <div class="leader-item" v-if="sectLeadership.太上长老">
+          <span class="role">太上长老</span>
+          <span class="name">{{ sectLeadership.太上长老 }}</span>
+          <span class="realm" v-if="sectLeadership.太上长老修为">{{ sectLeadership.太上长老修为 }}</span>
+          <button class="link" @click="sendPrompt(`我想拜见${playerSectName}太上长老「${sectLeadership.太上长老}」`)">拜见</button>
+        </div>
+        <div class="leader-item" v-if="sectLeadership.长老数量">
+          <span class="role">长老数量</span>
+          <span class="name">{{ sectLeadership.长老数量 }}位</span>
+        </div>
+        <div class="leader-item" v-if="sectLeadership.最强修为">
+          <span class="role">最强修为</span>
+          <span class="name">{{ sectLeadership.最强修为 }}</span>
+        </div>
+        <div class="leader-item" v-if="sectLeadership.综合战力">
+          <span class="role">战力</span>
+          <span class="name">{{ sectLeadership.综合战力 }}/100</span>
+        </div>
+      </div>
+
+      <div v-else class="leadership-empty">
+        <span>暂无宗门高层信息（可在“宗门概览”生成势力信息，或点击上方“询问高层”）</span>
       </div>
     </div>
 
@@ -78,31 +162,6 @@
       </div>
     </div>
 
-    <!-- 快捷操作 -->
-    <div class="quick-actions">
-      <h4 class="actions-title">
-        <MessageCircle :size="14" />
-        <span>快捷对话</span>
-      </h4>
-      <div class="action-buttons">
-        <button class="action-btn" @click="sendPrompt('我想找同门切磋修炼')">
-          <Swords :size="14" />
-          <span>邀请切磋</span>
-        </button>
-        <button class="action-btn" @click="sendPrompt('我想请教师兄修炼心得')">
-          <BookOpen :size="14" />
-          <span>请教修炼</span>
-        </button>
-        <button class="action-btn" @click="sendPrompt('我想和同门一起探险')">
-          <Compass :size="14" />
-          <span>组队探险</span>
-        </button>
-        <button class="action-btn" @click="sendPrompt('我想了解宗门最近有什么消息')">
-          <Bell :size="14" />
-          <span>宗门消息</span>
-        </button>
-      </div>
-    </div>
 
     <!-- 提示信息 -->
     <div class="members-notice">
@@ -114,14 +173,16 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import {
   Users, MessageCircle, ChevronRight, Zap, Heart, Info,
-  Swords, BookOpen, Compass, Bell, Crown, User, UserCircle
+  Crown, User, UserCircle, Coins, BookOpen, LogOut
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
 
+const router = useRouter();
 const gameStateStore = useGameStateStore();
 const activeTab = ref<string>('all');
 
@@ -137,6 +198,54 @@ const memberTabs = [
 const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
 const playerSectName = computed(() => playerSectInfo.value?.宗门名称 || '未加入宗门');
 const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
+const playerContribution = computed(() => playerSectInfo.value?.贡献 || 0);
+const playerReputation = computed(() => playerSectInfo.value?.声望 || 0);
+const playerJoinDate = computed(() => playerSectInfo.value?.加入日期 || '');
+
+// 格式化加入日期
+function formatJoinDate(dateStr: string | undefined): string {
+  if (!dateStr) return '未知';
+  try {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+// 跳转到指定标签页
+function goToTab(tabName: string) {
+  router.push({ name: tabName });
+}
+
+// 退出宗门
+function requestLeaveSect() {
+  if (!playerSectInfo.value?.宗门名称) {
+    toast.error('你还未加入任何宗门');
+    return;
+  }
+  // 清空宗门信息
+  gameStateStore.sectMemberInfo = null;
+  toast.success('已退出宗门');
+}
+
+const currentSectFaction = computed(() => {
+  const sectName = String(playerSectName.value || '').trim();
+  if (!sectName || sectName === '未加入宗门') return null;
+  const fromSystem = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
+  if (fromSystem) return fromSystem;
+  const list = gameStateStore.worldInfo?.势力信息;
+  if (!Array.isArray(list)) return null;
+  return (list as any[]).find((f) => f?.名称 === sectName) ?? null;
+});
+
+const sectLeadership = computed(() => {
+  const leadership = currentSectFaction.value?.领导层;
+  if (!leadership || typeof leadership !== 'object') return null;
+  const master = String((leadership as any).宗主 || '').trim();
+  if (!master) return null;
+  return leadership as any;
+});
 
 // 从人物关系中获取同门
 const sectMembers = computed(() => {
@@ -198,6 +307,8 @@ function getRelationText(favorability: number | undefined): string {
 // 获取成员分类
 function getCategory(position: string | undefined): string {
   if (!position) return '同辈';
+  if (position.includes('宗主') || position.includes('掌门')) return '长老';
+  if (position.includes('副宗主') || position.includes('副掌门')) return '长老';
   if (position.includes('长老') || position.includes('太上')) return '长老';
   if (position.includes('真传') || position.includes('核心')) return '真传';
   return '同辈';
@@ -205,6 +316,8 @@ function getCategory(position: string | undefined): string {
 
 // 职位样式
 function getPositionClass(position: string): string {
+  if (position.includes('宗主') || position.includes('掌门')) return 'position-leader';
+  if (position.includes('副宗主') || position.includes('副掌门')) return 'position-leader';
   if (position.includes('长老')) return 'position-elder';
   if (position.includes('真传')) return 'position-true';
   if (position.includes('内门')) return 'position-inner';
@@ -243,16 +356,202 @@ function sendPrompt(text: string) {
   gap: 1rem;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.player-info-bar {
+/* 我的宗门身份卡片 */
+.my-sect-identity {
+  border: 1px solid rgba(147, 51, 234, 0.25);
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.08), rgba(168, 85, 247, 0.03));
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.identity-header {
   display: flex;
-  gap: 1.5rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(168, 85, 247, 0.05));
-  border-radius: 8px;
-  border: 1px solid rgba(147, 51, 234, 0.2);
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #9333ea;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(147, 51, 234, 0.15);
+}
+
+.identity-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.identity-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--color-background);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.stat-label {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.stat-value.sect-name { color: var(--color-text); }
+.stat-value.position { color: #9333ea; }
+.stat-value.contribution { color: #f59e0b; }
+.stat-value.reputation { color: #3b82f6; }
+.stat-value.join-date { color: var(--color-text-secondary); font-size: 0.8rem; }
+
+.identity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+}
+
+.leave-sect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.leave-sect-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.leadership-card {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.leadership-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.leadership-title {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 800;
+}
+
+.leadership-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.leader-item {
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leader-item.primary {
+  border-color: rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.06);
+}
+
+.leader-item .role {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.leader-item .name {
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.leader-item .realm {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.leader-item .link {
+  margin-top: 4px;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: #9333ea;
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0;
+}
+
+.leader-item .link:hover {
+  text-decoration: underline;
+}
+
+.leadership-empty {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.ask-btn.small {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.position-leader {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.35);
+  color: #a855f7;
 }
 
 .info-item {
@@ -315,9 +614,7 @@ function sendPrompt(text: string) {
 }
 
 .member-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex: none;
 }
 
 .empty-state {

@@ -81,3 +81,38 @@ export function parseJsonFromText<T = unknown>(text: string): T {
   return JSON.parse(snippet) as T;
 }
 
+/**
+ * 智能JSON解析 - 自动适配强JSON模式和普通文本模式
+ *
+ * @param text - AI返回的文本内容
+ * @param forceJsonMode - 是否启用了强JSON模式
+ * @returns 解析后的JSON对象
+ *
+ * 使用场景:
+ * - forceJsonMode=true: 直接解析整个文本为JSON(DeepSeek强JSON格式)
+ * - forceJsonMode=false: 从文本中提取JSON片段再解析(传统模式)
+ */
+export function parseJsonSmart<T = unknown>(text: string, forceJsonMode: boolean = false): T {
+  if (!text || !text.trim()) {
+    throw new Error('AI返回内容为空');
+  }
+
+  // 强JSON模式: 直接解析整个文本
+  if (forceJsonMode) {
+    try {
+      return JSON.parse(text.trim()) as T;
+    } catch (error) {
+      // 如果直接解析失败,尝试提取JSON片段(容错处理)
+      console.warn('[JSON解析] 强JSON模式解析失败,尝试提取JSON片段:', error);
+      const snippet = extractFirstJsonSnippet(text);
+      if (!snippet) {
+        throw new Error('强JSON模式下解析失败,且未找到可提取的JSON片段');
+      }
+      return JSON.parse(snippet) as T;
+    }
+  }
+
+  // 普通模式: 提取JSON片段
+  return parseJsonFromText<T>(text);
+}
+

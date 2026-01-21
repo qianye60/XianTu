@@ -172,4 +172,16 @@ export async function clearAllCharacterData(): Promise<void> {
     console.error('[Tavern] 清除酒馆变量失败:', error);
     throw error;
   }
+
+  // 🔥 清理向量记忆数据库
+  try {
+    const { vectorMemoryService } = await import('@/services/vectorMemoryService');
+    if (vectorMemoryService) {
+      await vectorMemoryService.clear();
+      console.log('[Tavern] 向量记忆已清理');
+    }
+  } catch (error) {
+    console.warn('[Tavern] 清理向量记忆失败（非致命）:', error);
+    // 不抛出错误，因为向量记忆清理失败不应该阻止游戏创建
+  }
 }

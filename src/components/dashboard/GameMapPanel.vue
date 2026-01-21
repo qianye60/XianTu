@@ -363,6 +363,36 @@ const mapRenderConfig = computed(() => {
 });
 const mapSizeKey = computed(() => `${mapRenderConfig.value.width}x${mapRenderConfig.value.height}`);
 
+const resolveNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const resolveNpcCoordinates = (npcName: string, npcData: any): GameCoordinates | null => {
+  const raw = npcData?.['\u5F53\u524D\u4F4D\u7F6E'] || npcData?.['\u4F4D\u7F6E'] || npcData?.coordinates;
+  if (!raw || typeof raw !== 'object') return null;
+
+  const rawAny = raw as any;
+  let x = resolveNumber(rawAny.x ?? rawAny['\u5750\u6807']?.x ?? rawAny.coordinates?.x) ?? NaN;
+  let y = resolveNumber(rawAny.y ?? rawAny['\u5750\u6807']?.y ?? rawAny.coordinates?.y) ?? NaN;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    const mapConfig = mapRenderConfig.value;
+    const desc = rawAny['\u63CF\u8FF0'] || rawAny.description || npcName || 'NPC';
+    const seed = `${npcName}|${desc}`;
+    const hash = seed.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+    x = mapConfig.width * 0.3 + (hash % 100) * (mapConfig.width * 0.004);
+    y = mapConfig.height * 0.3 + ((hash * 7) % 100) * (mapConfig.height * 0.004);
+  }
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+};
+
 // 检查地图是否有内容 (地点或势力)
 const hasMapContent = computed(() => {
   const worldInfo = gameStateStore.worldInfo;
@@ -560,11 +590,11 @@ watch(
     const npcs: Array<{ name: string; coordinates: GameCoordinates }> = [];
 
     Object.entries(relationships).forEach(([npcName, npcData]: [string, any]) => {
-      const coords = npcData?.当前位置 || npcData?.位置 || npcData?.coordinates;
-      if (coords && Number.isFinite(coords.x) && Number.isFinite(coords.y)) {
+      const coords = resolveNpcCoordinates(npcName, npcData);
+      if (coords) {
         npcs.push({
           name: npcName,
-          coordinates: coords as GameCoordinates
+          coordinates: coords
         });
       }
     });
@@ -1055,23 +1085,21 @@ const loadMapData = async (options?: { silent?: boolean; reset?: boolean }) => {
       const npcs: Array<{ name: string; coordinates: GameCoordinates }> = [];
 
       Object.entries(relationships).forEach(([npcName, npcData]: [string, any]) => {
-        // 检查NPC是否有坐标信息
-        const coords = npcData?.当前位置 || npcData?.位置 || npcData?.coordinates;
-        if (coords && Number.isFinite(coords.x) && Number.isFinite(coords.y)) {
+        const coords = resolveNpcCoordinates(npcName, npcData);
+        if (coords) {
           npcs.push({
             name: npcName,
-            coordinates: coords as GameCoordinates
+            coordinates: coords
           });
         }
       });
 
       if (npcs.length > 0) {
         mapManager.value?.updateNPCPositions(npcs);
-        console.log(`[地图] 已更新 ${npcs.length} 个NPC位置`);
+        console.log(`[Map] Updated ${npcs.length} NPC positions`);
       }
     }
 
-    // 联机模式下更新世界主人位置
     if (props.isOnline) {
       const online = gameStateStore.onlineState as any;
       const ownerLocation = online?.穿越目标?.世界主人位置;

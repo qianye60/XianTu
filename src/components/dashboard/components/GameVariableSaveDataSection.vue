@@ -67,6 +67,22 @@ const handleEditItem = (path: string, value: unknown) => {
     toast.warning('联机模式下不允许直接修改存档数据（服务器权威控制）');
     return;
   }
+
+  // 这些字段是 UI 为展示添加的“只读信息”，并不会真正落盘到存档结构
+  const readOnlyPaths = [
+    '元数据.存档ID',
+    '元数据.角色ID',
+    '元数据.模式',
+    '元数据.游玩时长',
+    '元数据.创建时间',
+    '元数据.更新时间',
+    '系统.联机.同步状态',
+  ];
+  if (readOnlyPaths.some((p) => path === p || path.startsWith(`${p}.`))) {
+    toast.warning('该字段为界面展示信息，无法直接修改（请修改实际存档字段）');
+    return;
+  }
+
   emit('edit-variable', {
     type: 'saveData',
     key: path,

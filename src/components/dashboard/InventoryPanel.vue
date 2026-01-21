@@ -343,110 +343,174 @@
 
       <!-- 装备标签 -->
       <div v-if="activeTab === 'equipment'" class="equipment-tab">
-        <div class="equipment-content">
-          <div class="equipment-grid">
+        <div class="equipment-showcase">
+          <!-- 装备总览卡片 -->
+          <div class="equipment-overview">
+            <div class="overview-header">
+              <div class="overview-title">
+                <Sword :size="20" class="title-icon" />
+                <span>法宝装备</span>
+              </div>
+              <div class="overview-stats">
+                <div class="stat-item">
+                  <span class="stat-label">已装备</span>
+                  <span class="stat-value">{{ equippedCount }}/{{ equipmentSlots.length }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 装备槽位网格 -->
+          <div class="equipment-slots-grid">
             <div
               v-for="(slot, index) in equipmentSlots"
               :key="index"
-              class="equipment-slot"
-              :class="{ 'has-equipment': slot.item, 'empty-slot': !slot.item }"
+              class="equipment-slot-card"
+              :class="[
+                slot.item ? 'equipped' : 'empty',
+                slot.item ? getItemQualityClass(slot.item, 'card') : ''
+              ]"
             >
-              <div class="slot-header">
-                <div class="slot-name">{{ slot.name }}</div>
-                <div v-if="slot.item" class="slot-actions">
-                  <button
-                    class="action-btn unequip-btn"
-                    :disabled="equipBusy"
-                    @click="unequipItem(slot)"
-                    :title="t('卸下装备')"
-                  >
-                    <X :size="12" />
-                  </button>
+              <!-- 槽位标题栏 -->
+              <div class="slot-title-bar">
+                <div class="slot-position">
+                  <div class="position-icon">{{ getSlotIcon(slot.name) }}</div>
+                  <span class="position-name">{{ slot.name }}</span>
                 </div>
+                <button
+                  v-if="slot.item"
+                  class="slot-unequip-btn"
+                  :disabled="equipBusy"
+                  @click="unequipItem(slot)"
+                  :title="t('卸下装备')"
+                >
+                  <X :size="14" />
+                </button>
               </div>
 
-              <div v-if="slot.item" class="equipment-item" :class="getItemQualityClass(slot.item)">
-                <div class="item-icon" :class="getItemQualityClass(slot.item, 'border')">
-                  <div class="item-type-text">{{ t('装备') }}</div>
+              <!-- 已装备内容 -->
+              <div v-if="slot.item" class="equipped-content">
+                <!-- 装备图标区 -->
+                <div class="equipped-icon-area">
+                  <div class="icon-glow" :class="getItemQualityClass(slot.item, 'glow')"></div>
+                  <div class="icon-frame" :class="getItemQualityClass(slot.item, 'border')">
+                    <div class="icon-inner">
+                      <Sword :size="32" :class="getItemQualityClass(slot.item, 'text')" />
+                    </div>
+                  </div>
+                  <div class="quality-badge" :class="getItemQualityClass(slot.item, 'badge')">
+                    {{ slot.item.品质?.quality ? t(slot.item.品质.quality) : '？' }}
+                  </div>
                 </div>
-                <div class="item-info">
-                  <div
-                    class="item-name"
-                    :class="getItemQualityClass(slot.item, 'text')"
-                    :title="slot.item.名称"
-                  >
+
+                <!-- 装备信息区 -->
+                <div class="equipped-info">
+                  <div class="equipped-name" :class="getItemQualityClass(slot.item, 'text')">
                     {{ slot.item.名称 }}
                   </div>
-                  <div class="item-quality">
-                    {{ slot.item.品质?.quality ? t(slot.item.品质.quality) : '？' }}{{t('品')}}
+                  <div class="equipped-grade">
                     <span
                       v-if="slot.item.品质?.grade !== undefined"
-                      class="item-grade"
+                      class="grade-badge"
                       :class="getGradeClass(slot.item.品质.grade)"
                     >
-                      {{ t(getGradeText(slot.item.品质.grade)) }}({{ slot.item.品质.grade }})
+                      {{ t(getGradeText(slot.item.品质.grade)) }} ({{ slot.item.品质.grade }})
                     </span>
                   </div>
-                  <div v-if="slot.item.描述" class="item-description" :title="slot.item.描述">
+                  <div v-if="slot.item.描述" class="equipped-desc">
                     {{ slot.item.描述 }}
                   </div>
-                  <div v-if="slot.item.类型 === '装备' && slot.item.装备增幅" class="item-effects">
-                    <div class="effects-title">{{ t('增幅效果：') }}</div>
-                    <div class="effects-text">{{ typeof slot.item.装备增幅 === 'string' ? slot.item.装备增幅 : formatItemAttributes(slot.item.装备增幅) }}</div>
-                  </div>
-                  <div v-if="slot.item.类型 === '装备' && slot.item.特殊效果" class="item-effects">
-                    <div class="effects-title">{{ t('特殊效果：') }}</div>
-                    <div class="effects-text">{{ typeof slot.item.特殊效果 === 'string' ? slot.item.特殊效果 : formatItemAttributes(slot.item.特殊效果) }}</div>
+
+                  <!-- 装备效果 -->
+                  <div class="equipped-effects">
+                    <div v-if="slot.item.类型 === '装备' && slot.item.装备增幅" class="effect-section">
+                      <div class="effect-label">
+                        <div class="effect-dot"></div>
+                        <span>增幅效果</span>
+                      </div>
+                      <div class="effect-content">
+                        {{ typeof slot.item.装备增幅 === 'string' ? slot.item.装备增幅 : formatItemAttributes(slot.item.装备增幅) }}
+                      </div>
+                    </div>
+                    <div v-if="slot.item.类型 === '装备' && slot.item.特殊效果" class="effect-section special">
+                      <div class="effect-label">
+                        <div class="effect-dot special"></div>
+                        <span>特殊效果</span>
+                      </div>
+                      <div class="effect-content">
+                        {{ typeof slot.item.特殊效果 === 'string' ? slot.item.特殊效果 : formatItemAttributes(slot.item.特殊效果) }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div v-else class="empty-equipment-slot">
-                <div class="empty-icon">
-                  <Package :size="24" />
+              <!-- 空槽位内容 -->
+              <div v-else class="empty-slot-content">
+                <div class="empty-slot-icon">
+                  <Package :size="40" />
                 </div>
-                <div class="empty-text">{{ t('空槽位') }}</div>
-                <div class="empty-hint">{{ t('可装备装备') }}</div>
+                <div class="empty-slot-text">
+                  <div class="empty-main">空槽位</div>
+                  <div class="empty-hint">可装备法宝</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 灵石标签 -->
+      <!-- 财产管理标签 -->
       <div v-if="activeTab === 'currency'" class="currency-tab">
+        <div class="currency-summary">
+          <div class="summary-title">总价值</div>
+          <div class="summary-value">
+            {{ formatNumber(totalValueInBase) }}
+            <span class="summary-unit">{{ baseCurrencyLabel }}</span>
+          </div>
+          <div v-if="currentMarketLabel" class="summary-hint">{{ currentMarketLabel }}</div>
+        </div>
         <div class="currency-grid">
           <div
-            v-for="grade in spiritStoneGrades"
-            :key="grade.name"
+            v-for="c in currencyCards"
+            :key="c.id"
             class="currency-card"
-            :class="grade.colorClass"
+            :class="c.colorClass"
           >
             <div class="currency-card-top">
-              <div class="currency-icon" :class="`icon-${grade.colorClass}`">
-                <Gem :size="isMobile ? 32 : 40" />
+              <div class="currency-icon" :class="`icon-${c.colorClass}`">
+                <component :is="c.icon" :size="isMobile ? 32 : 40" />
               </div>
               <div class="currency-info">
-                <div class="currency-amount">{{ (gameStateStore.inventory?.灵石?.[grade.name] || 0) }}</div>
-                <div class="currency-label">{{ t(grade.name) }}{{t('灵石')}}</div>
+                <div class="currency-amount">{{ formatNumber(c.amount) }}</div>
+                <div class="currency-label">{{ c.label }}</div>
+                <div class="currency-sub">{{ c.subLabel }}</div>
               </div>
-            </div>
-            <div v-if="grade.canExchange || grade.canExchangeDown" class="currency-exchange">
               <button
-                v-if="grade.canExchange"
+                v-if="c.canDelete"
+                class="currency-delete-btn"
+                :title="t('删除')"
+                @click="confirmDeleteCurrency(c.id)"
+              >
+                <Trash2 :size="16" />
+              </button>
+            </div>
+            <div v-if="c.exchangeUp || c.exchangeDown" class="currency-exchange">
+              <button
+                v-if="c.exchangeUp"
                 class="exchange-btn"
-                @click="handleExchange(grade.name, 'up')"
-                :disabled="((gameStateStore.inventory?.灵石?.[grade.name] || 0) < 100)"
-                :title="t('兑换为{0}灵石 (100:1)').replace('{0}', t(grade.exchangeUp))"
+                @click="handleExchange(c.id, 'up')"
+                :disabled="c.exchangeUp && c.amount < c.exchangeUp.cost"
+                :title="c.exchangeUp ? c.exchangeUp.title : ''"
               >
                 {{ t('↑ 兑换') }}
               </button>
               <button
-                v-if="grade.canExchangeDown"
+                v-if="c.exchangeDown"
                 class="exchange-btn down"
-                @click="handleExchange(grade.name, 'down')"
-                :disabled="((gameStateStore.inventory?.灵石?.[grade.name] || 0) < 1)"
-                :title="t('分解为{0}灵石 (1:100)').replace('{0}', t(grade.exchangeDown))"
+                @click="handleExchange(c.id, 'down')"
+                :disabled="c.amount < 1"
+                :title="c.exchangeDown ? c.exchangeDown.title : ''"
               >
                 {{ t('↓ 分解') }}
               </button>
@@ -472,8 +536,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next'
+import { ref, computed, watch } from 'vue'
+import { Search, BoxSelect, Gem, Coins, HandCoins, BadgeDollarSign, Package, X, RotateCcw, Sword, Trash2 } from 'lucide-vue-next'
 import { useI18n } from '@/i18n'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useGameStateStore } from '@/stores/gameStateStore'
@@ -484,6 +548,12 @@ import type { Item, ConsumableItem } from '@/types/game'
 import { toast } from '@/utils/toast'
 import { debug } from '@/utils/debug'
 import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue'
+import {
+  DEFAULT_BASE_CURRENCY_ID,
+  DEFAULT_CURRENCIES,
+  syncWalletToLegacySpiritStones,
+  normalizeInventoryCurrencies,
+} from '@/utils/currencySystem'
 
 const { t } = useI18n()
 const characterStore = useCharacterStore()
@@ -523,9 +593,9 @@ const isMobile = computed(() => {
 
 // 标签配置
 const tabs = computed(() => [
-  { id: 'items', label: '物品', icon: Package },
-  { id: 'equipment', label: '装备', icon: Sword },
-  { id: 'currency', label: '灵石', icon: Gem },
+  { id: 'items', label: '背包物品', icon: Package },
+  { id: 'equipment', label: '法宝装备', icon: Sword },
+  { id: 'currency', label: '财产管理', icon: Gem },
 ])
 
 // 装备槽位（短路径：装备）
@@ -819,6 +889,24 @@ const getItemTypeIcon = (type: string): string => {
   return typeIcons[type] || '📦'
 }
 
+// 获取装备槽位图标
+const getSlotIcon = (slotName: string): string => {
+  const slotIcons: Record<string, string> = {
+    '装备1': '⚔️',
+    '装备2': '🛡️',
+    '装备3': '👑',
+    '装备4': '💍',
+    '装备5': '📿',
+    '装备6': '🔮',
+  }
+  return slotIcons[slotName] || '⚡'
+}
+
+// 已装备数量
+const equippedCount = computed(() => {
+  return equipmentSlots.value.filter(slot => slot.item).length
+})
+
 // 质量等阶规范化（兼容 "凡阶/黄阶/…" 与 "凡/黄/…"；支持自定义品质）
 const PRESET_QUALITIES = ['凡', '黄', '玄', '地', '天', '仙', '神']
 const getNormalizedQuality = (quality: unknown): { value: string; isCustom: boolean } => {
@@ -1102,48 +1190,16 @@ const isCultivating = (item: Item | null): boolean => {
 
 const getItemQualityClass = (
   item: Item | null,
-  type: 'border' | 'text' | 'badge' | 'card' = 'border',
+  type: 'border' | 'text' | 'badge' | 'card' | 'glow' = 'border',
 ): string => {
   if (!item) return ''
   const { value: q, isCustom } = getNormalizedQuality(item.品质?.quality)
   if (q === '未知') return ''
   // 自定义品质使用特殊样式
-  if (isCustom) return `${type}-quality-custom`
+  if (isCustom) return type === 'glow' ? 'q-custom-glow' : `${type}-quality-custom`
+  if (type === 'glow') return `q-${q}-glow`
   return `${type}-quality-${q}`
 }
-
-const spiritStoneGrades = [
-  {
-    name: '极品',
-    colorClass: 'grade-legend',
-    canExchange: false, // 最高级，不能向上兑换
-    canExchangeDown: true,
-    exchangeDown: '上品',
-  },
-  {
-    name: '上品',
-    colorClass: 'grade-epic',
-    canExchange: true,
-    canExchangeDown: true,
-    exchangeUp: '极品',
-    exchangeDown: '中品',
-  },
-  {
-    name: '中品',
-    colorClass: 'grade-rare',
-    canExchange: true,
-    canExchangeDown: true,
-    exchangeUp: '上品',
-    exchangeDown: '下品',
-  },
-  {
-    name: '下品',
-    colorClass: 'grade-common',
-    canExchange: true,
-    canExchangeDown: false, // 最低级，不能向下分解
-    exchangeUp: '中品',
-  },
-] as const
 
 // 选择物品
 const selectItem = (item: Item) => {
@@ -1166,45 +1222,331 @@ const closeModal = () => {
   showItemModal.value = false
 }
 
-// 灵石兑换功能
-const handleExchange = async (
-  currentGrade: '下品' | '中品' | '上品' | '极品',
-  direction: 'up' | 'down',
-) => {
-  const gradeInfo = spiritStoneGrades.find((g) => g.name === currentGrade)
-  if (!gradeInfo) return
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
-  if (direction === 'up' && gradeInfo.canExchange && gradeInfo.exchangeUp) {
-    // 向上兑换：100个当前等级 → 1个高级
-    const currentAmount = gameStateStore.inventory?.灵石?.[currentGrade] || 0
-    if (currentAmount >= 100) {
-      // 更新数据
-      if (gameStateStore.inventory?.灵石) {
-        ;(gameStateStore.inventory.灵石[currentGrade] as number) = currentAmount - 100
-        const targetGrade = gradeInfo.exchangeUp as '下品' | '中品' | '上品' | '极品'
-        const targetAmount = gameStateStore.inventory.灵石[targetGrade] || 0
-        ;(gameStateStore.inventory.灵石[targetGrade] as number) = targetAmount + 1
+const formatNumber = (value: unknown) => {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : 0
+  if (Math.abs(n) >= 1e12) return n.toExponential(2)
+  if (Math.abs(n) >= 1e6) return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+  return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+}
 
-        // 保存数据
-        await characterStore.saveCurrentGame()
-      }
+const normalizedInventoryRef = ref<any>(null)
+watch(
+  () => gameStateStore.inventory,
+  (inv) => {
+    if (!inv || typeof inv !== 'object') return
+    if (normalizedInventoryRef.value === inv) return
+    try {
+      normalizeInventoryCurrencies(inv as any)
+    } catch (e) {
+      console.warn('[背包面板] 货币系统规范化失败（将继续使用原数据）', e)
     }
-  } else if (direction === 'down' && gradeInfo.canExchangeDown && gradeInfo.exchangeDown) {
-    // 向下分解：1个当前等级 → 100个低级
-    const currentAmount = gameStateStore.inventory?.灵石?.[currentGrade] || 0
-    if (currentAmount >= 1) {
-      // 更新数据
-      if (gameStateStore.inventory?.灵石) {
-        ;(gameStateStore.inventory.灵石[currentGrade] as number) = currentAmount - 1
-        const targetGrade = gradeInfo.exchangeDown as '下品' | '中品' | '上品' | '极品'
-        const targetAmount = gameStateStore.inventory.灵石[targetGrade] || 0
-        ;(gameStateStore.inventory.灵石[targetGrade] as number) = targetAmount + 100
+    normalizedInventoryRef.value = inv
+  },
+  { immediate: true },
+)
 
-        // 保存数据
-        await characterStore.saveCurrentGame()
-      }
-    }
+// 注意：不要在 computed/渲染链里写入 inv（否则可能触发无限重算卡死）
+const getCurrencyWallet = () => {
+  const inv: any = gameStateStore.inventory as any
+  if (!inv) return null
+  return inv
+}
+
+const ensureCurrencyWalletWritable = () => {
+  const inv: any = gameStateStore.inventory as any
+  if (!inv) return null
+  if (!inv.货币 || typeof inv.货币 !== 'object' || Array.isArray(inv.货币)) inv.货币 = {}
+  if (!inv.货币设置 || typeof inv.货币设置 !== 'object' || Array.isArray(inv.货币设置)) {
+    inv.货币设置 = { 禁用币种: [], 基准币种: DEFAULT_BASE_CURRENCY_ID }
   }
+  if (!Array.isArray(inv.货币设置.禁用币种)) inv.货币设置.禁用币种 = []
+  if (typeof inv.货币设置.基准币种 !== 'string' || !inv.货币设置.基准币种.trim()) inv.货币设置.基准币种 = DEFAULT_BASE_CURRENCY_ID
+  return inv
+}
+
+const iconByName: Record<string, any> = {
+  Gem,
+  Coins,
+  HandCoins,
+  BadgeDollarSign,
+}
+
+const marketLocationKey = computed(() => gameStateStore.location?.描述 || '全局')
+
+const getMarketMultiplier = (currencyId: string): number => {
+  const world: any = gameStateStore.worldInfo as any
+  const locKey = marketLocationKey.value
+  const raw =
+    world?.经济?.地区波动?.[locKey]?.货币波动?.[currencyId] ??
+    world?.经济?.货币波动?.[currencyId] ??
+    1
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : 1
+  return clamp(n, 0.6, 1.6)
+}
+
+const setMarketMultiplier = (currencyId: string, next: number) => {
+  const world: any = gameStateStore.worldInfo as any
+  if (!world) return
+  if (!world.经济 || typeof world.经济 !== 'object' || Array.isArray(world.经济)) world.经济 = {}
+  if (!world.经济.地区波动 || typeof world.经济.地区波动 !== 'object' || Array.isArray(world.经济.地区波动)) {
+    world.经济.地区波动 = {}
+  }
+  const locKey = marketLocationKey.value
+  if (!world.经济.地区波动[locKey] || typeof world.经济.地区波动[locKey] !== 'object') {
+    world.经济.地区波动[locKey] = { 货币波动: {} }
+  }
+  if (!world.经济.地区波动[locKey].货币波动 || typeof world.经济.地区波动[locKey].货币波动 !== 'object') {
+    world.经济.地区波动[locKey].货币波动 = {}
+  }
+  world.经济.地区波动[locKey].货币波动[currencyId] = clamp(next, 0.6, 1.6)
+}
+
+const baseCurrencyId = computed(() => {
+  const inv: any = gameStateStore.inventory as any
+  const wallet: Record<string, any> = inv?.货币 && typeof inv.货币 === 'object' ? inv.货币 : {}
+  const raw = inv?.货币设置?.基准币种
+  const candidate = typeof raw === 'string' && raw.trim() ? raw.trim() : DEFAULT_BASE_CURRENCY_ID
+  if (wallet && candidate in wallet) return candidate
+  if (wallet && DEFAULT_BASE_CURRENCY_ID in wallet) return DEFAULT_BASE_CURRENCY_ID
+  const first = wallet ? Object.keys(wallet)[0] : ''
+  return first || DEFAULT_BASE_CURRENCY_ID
+})
+
+const baseCurrencyLabel = computed(() => {
+  const inv: any = gameStateStore.inventory as any
+  const wallet: any = inv?.货币
+  const baseId = baseCurrencyId.value
+  const name = wallet?.[baseId]?.名称
+  return typeof name === 'string' && name.trim() ? name.trim() : baseId
+})
+
+const totalValueInBase = computed(() => {
+  const inv: any = gameStateStore.inventory as any
+  const wallet: Record<string, any> = inv?.货币 && typeof inv.货币 === 'object' ? inv.货币 : {}
+  const baseId = baseCurrencyId.value
+  const baseValueDegree = typeof wallet?.[baseId]?.价值度 === 'number' && Number.isFinite(wallet[baseId].价值度) ? wallet[baseId].价值度 : 1
+  const baseMult = getMarketMultiplier(baseId)
+  const denom = baseValueDegree * baseMult || 1
+
+  let sum = 0
+  for (const asset of Object.values(wallet)) {
+    if (!asset || typeof asset !== 'object') continue
+    const amount = typeof asset.数量 === 'number' && Number.isFinite(asset.数量) ? asset.数量 : 0
+    const valueDegree = typeof asset.价值度 === 'number' && Number.isFinite(asset.价值度) ? asset.价值度 : 0
+    const id = typeof asset.币种 === 'string' && asset.币种.trim() ? asset.币种.trim() : ''
+    const mult = id ? getMarketMultiplier(id) : 1
+    sum += (amount * valueDegree * mult) / denom
+  }
+  return sum
+})
+
+const currentMarketLabel = computed(() => {
+  const loc = marketLocationKey.value
+  if (!loc) return ''
+  const m = getMarketMultiplier('灵石_下品')
+  if (m === 1) return `当前地区：${loc}（汇率平稳）`
+  return `当前地区：${loc}（汇率波动系数：${m.toFixed(3)}）`
+})
+
+type CurrencyCard = {
+  id: string
+  label: string
+  subLabel: string
+  amount: number
+  valueDegree: number
+  colorClass: string
+  icon: any
+  canDelete: boolean
+  exchangeUp?: { cost: number; title: string }
+  exchangeDown?: { yield: number; title: string }
+}
+
+const currencyCards = computed<CurrencyCard[]>(() => {
+  const inv: any = gameStateStore.inventory as any
+  const wallet: Record<string, any> = inv?.货币 && typeof inv.货币 === 'object' ? inv.货币 : {}
+
+  const order = [
+    '灵石_下品',
+    '灵石_中品',
+    '灵石_上品',
+    '灵石_极品',
+    '铜币',
+    '银两',
+    '金锭',
+  ]
+
+  const knownIds = new Set(Object.keys(wallet))
+  const extraIds = Array.from(knownIds).filter((id) => !order.includes(id)).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+  const ids = [...order, ...extraIds].filter((id) => wallet[id])
+
+  const baseId = baseCurrencyId.value
+  const baseValueDegree = typeof wallet?.[baseId]?.价值度 === 'number' && Number.isFinite(wallet[baseId].价值度) ? wallet[baseId].价值度 : 1
+  const baseMult = getMarketMultiplier(baseId)
+  const denom = baseValueDegree * baseMult || 1
+
+  const toBaseValue = (id: string, amount: number, valueDegree: number) => {
+    const mult = getMarketMultiplier(id)
+    return (amount * valueDegree * mult) / denom
+  }
+
+  const makeExchange = (id: string) => {
+    const fee = 0.02
+    const baseRatio = 100
+    const map: Record<string, { up?: string; down?: string }> = {
+      灵石_下品: { up: '灵石_中品' },
+      灵石_中品: { up: '灵石_上品', down: '灵石_下品' },
+      灵石_上品: { up: '灵石_极品', down: '灵石_中品' },
+      灵石_极品: { down: '灵石_上品' },
+      铜币: { up: '银两' },
+      银两: { up: '金锭', down: '铜币' },
+      金锭: { down: '银两' },
+    }
+    const pair = map[id]
+    if (!pair) return {}
+
+    const fromMult = getMarketMultiplier(id)
+    const out: any = {}
+    if (pair.up) {
+      const toMult = getMarketMultiplier(pair.up)
+      const ratio = toMult / fromMult
+      const cost = Math.max(1, Math.ceil(baseRatio * ratio * (1 + fee)))
+      out.exchangeUp = {
+        cost,
+        title: `兑换：${cost} ${wallet[id]?.名称 ?? id} → 1 ${wallet[pair.up]?.名称 ?? pair.up}（波动系数比值：${ratio.toFixed(3)}）`,
+      }
+    }
+    if (pair.down) {
+      const toMult = getMarketMultiplier(pair.down)
+      const ratio = toMult / fromMult
+      const yieldAmount = Math.max(1, Math.floor((baseRatio / ratio) * (1 - fee)))
+      out.exchangeDown = {
+        yield: yieldAmount,
+        title: `分解：1 ${wallet[id]?.名称 ?? id} → ${yieldAmount} ${wallet[pair.down]?.名称 ?? pair.down}（波动系数比值：${ratio.toFixed(3)}）`,
+      }
+    }
+    return out
+  }
+
+  return ids.map((id) => {
+    const asset = wallet[id] || {}
+    const label = typeof asset.名称 === 'string' && asset.名称.trim() ? asset.名称.trim() : id
+    const amount = typeof asset.数量 === 'number' && Number.isFinite(asset.数量) ? asset.数量 : 0
+    const valueDegree =
+      typeof asset.价值度 === 'number' && Number.isFinite(asset.价值度)
+        ? asset.价值度
+        : (DEFAULT_CURRENCIES as any)[id]?.价值度 ?? 0
+    const iconName = typeof asset.图标 === 'string' && asset.图标.trim() ? asset.图标.trim() : (DEFAULT_CURRENCIES as any)[id]?.图标
+    const icon = (iconName && iconByName[iconName]) || Coins
+
+    const approx = toBaseValue(id, amount, valueDegree)
+    const subLabel = `≈ ${formatNumber(approx)} ${baseCurrencyLabel.value}`
+
+    const colorClass =
+      id.startsWith('灵石_') ? (id === '灵石_极品' ? 'grade-legend' : id === '灵石_上品' ? 'grade-epic' : id === '灵石_中品' ? 'grade-rare' : 'grade-common') : 'grade-money'
+
+    const canDelete = true
+
+    const exchange = makeExchange(id)
+
+    return { id, label, subLabel, amount, valueDegree, colorClass, icon, canDelete, ...exchange }
+  })
+})
+
+const confirmDeleteCurrency = (currencyId: string) => {
+  confirmTitle.value = '删除币种'
+  confirmMessage.value = `确定删除币种「${currencyId}」并清空其数量吗？（可在后续剧情/AI再次创建）`
+  confirmCallback.value = async () => {
+    const inv = ensureCurrencyWalletWritable()
+    if (!inv) return
+
+    if (inv.货币 && typeof inv.货币 === 'object') {
+      delete inv.货币[currencyId]
+    }
+    if (!inv.货币设置) inv.货币设置 = { 禁用币种: [], 基准币种: DEFAULT_BASE_CURRENCY_ID }
+    if (!Array.isArray(inv.货币设置.禁用币种)) inv.货币设置.禁用币种 = []
+    if (!inv.货币设置.禁用币种.includes(currencyId)) inv.货币设置.禁用币种.push(currencyId)
+
+    // 如果删掉了基准币种，自动切换到默认或现存第一项
+    if (inv.货币设置.基准币种 === currencyId) {
+      const remaining = inv.货币 ? Object.keys(inv.货币) : []
+      inv.货币设置.基准币种 = remaining.includes(DEFAULT_BASE_CURRENCY_ID) ? DEFAULT_BASE_CURRENCY_ID : remaining[0] || DEFAULT_BASE_CURRENCY_ID
+    }
+
+    syncWalletToLegacySpiritStones(inv)
+    await characterStore.saveCurrentGame()
+    toast.success('币种已删除')
+  }
+  showCustomConfirm.value = true
+}
+
+// 灵石兑换功能（动态汇率）
+const handleExchange = async (fromCurrencyId: string, direction: 'up' | 'down') => {
+  const inv = ensureCurrencyWalletWritable()
+  if (!inv) return
+
+  const wallet: Record<string, any> = inv.货币
+  if (!wallet || typeof wallet !== 'object') return
+
+  const map: Record<string, { up?: string; down?: string }> = {
+    灵石_下品: { up: '灵石_中品' },
+    灵石_中品: { up: '灵石_上品', down: '灵石_下品' },
+    灵石_上品: { up: '灵石_极品', down: '灵石_中品' },
+    灵石_极品: { down: '灵石_上品' },
+    铜币: { up: '银两' },
+    银两: { up: '金锭', down: '铜币' },
+    金锭: { down: '银两' },
+  }
+  const pair = map[fromCurrencyId]
+  if (!pair) return
+
+  const fee = 0.02
+  const baseRatio = 100
+  const fromMult = getMarketMultiplier(fromCurrencyId)
+
+  const ensureAsset = (id: string) => {
+    if (!wallet[id] || typeof wallet[id] !== 'object') {
+      const def: any = (DEFAULT_CURRENCIES as any)[id]
+      wallet[id] = def ? { ...def, 数量: 0 } : { 币种: id, 名称: id, 数量: 0, 价值度: 0, 图标: 'Coins' }
+    }
+    if (typeof wallet[id].数量 !== 'number' || !Number.isFinite(wallet[id].数量)) wallet[id].数量 = 0
+  }
+
+  ensureAsset(fromCurrencyId)
+  const fromAmount = wallet[fromCurrencyId].数量 as number
+
+  if (direction === 'up' && pair.up) {
+    ensureAsset(pair.up)
+    const toMult = getMarketMultiplier(pair.up)
+    const ratio = toMult / fromMult
+    const cost = Math.max(1, Math.ceil(baseRatio * ratio * (1 + fee)))
+    if (fromAmount < cost) return
+
+    wallet[fromCurrencyId].数量 = fromAmount - cost
+    wallet[pair.up].数量 = (wallet[pair.up].数量 as number) + 1
+
+    // 轻微施加“交易压力”，体现波动
+    setMarketMultiplier(pair.up, toMult * (1 + clamp(cost / 50000, 0, 0.01)))
+    setMarketMultiplier(fromCurrencyId, fromMult * (1 - clamp(cost / 80000, 0, 0.006)))
+  }
+
+  if (direction === 'down' && pair.down) {
+    if (fromAmount < 1) return
+    ensureAsset(pair.down)
+    const toMult = getMarketMultiplier(pair.down)
+    const ratio = toMult / fromMult
+    const yieldAmount = Math.max(1, Math.floor((baseRatio / ratio) * (1 - fee)))
+
+    wallet[fromCurrencyId].数量 = fromAmount - 1
+    wallet[pair.down].数量 = (wallet[pair.down].数量 as number) + yieldAmount
+
+    setMarketMultiplier(pair.down, toMult * (1 + clamp(yieldAmount / 80000, 0, 0.01)))
+    setMarketMultiplier(fromCurrencyId, fromMult * (1 - clamp(yieldAmount / 120000, 0, 0.006)))
+  }
+
+  syncWalletToLegacySpiritStones(inv)
+  await characterStore.saveCurrentGame()
 }
 
 // 手动刷新数据
@@ -1664,7 +2006,8 @@ const refreshFromTavern = async () => {
 /* 标签内容 */
 .tab-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* 物品标签 */
@@ -1679,6 +2022,7 @@ const refreshFromTavern = async () => {
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-auto-rows: minmax(160px, auto);
   gap: 18px;
   align-content: start;
   background: var(--color-background);
@@ -1723,12 +2067,12 @@ const refreshFromTavern = async () => {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 8px;
+  padding: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  height: 140px;
+  min-height: 160px;
   position: relative;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1809,19 +2153,21 @@ const refreshFromTavern = async () => {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 0 4px;
+  padding: 4px;
+  min-height: 40px;
 }
 
 .item-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.4;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   word-break: break-word;
+  color: var(--color-text);
 }
 
 /* 底部区域：类型和品级 */
@@ -1829,30 +2175,33 @@ const refreshFromTavern = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: 6px;
+  flex-wrap: wrap;
 }
 
 .item-type-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--color-text-secondary);
   background: var(--color-background);
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
   border: 1px solid var(--color-border);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .item-grade-info {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: bold;
-  padding: 2px 4px;
+  padding: 3px 6px;
   border-radius: 4px;
   border: 1px solid currentColor;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* 品级样式 - 简化版本 */
@@ -2010,10 +2359,49 @@ const refreshFromTavern = async () => {
   gap: 8px;
 }
 
-/* 灵石标签 */
+/* 财产管理标签 */
 .currency-tab {
   padding: 24px;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.currency-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  margin-bottom: 16px;
+}
+
+.summary-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.summary-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.summary-unit {
+  margin-left: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.summary-hint {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
 }
 
 .currency-grid {
@@ -2021,6 +2409,10 @@ const refreshFromTavern = async () => {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .currency-card {
@@ -2064,6 +2456,10 @@ const refreshFromTavern = async () => {
   background: linear-gradient(90deg, #f59e0b, #d97706);
 }
 
+.currency-card.grade-money::before {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
 .currency-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
@@ -2102,6 +2498,10 @@ const refreshFromTavern = async () => {
   color: #f59e0b;
 }
 
+.icon-grade-money {
+  color: #22c55e;
+}
+
 .currency-info {
   flex: 1;
 }
@@ -2116,6 +2516,37 @@ const refreshFromTavern = async () => {
 .currency-label {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
+}
+
+.currency-sub {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.currency-delete-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.currency-delete-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.currency-delete-btn:active {
+  transform: scale(0.98);
 }
 
 /* 兑换功能 */
@@ -2533,202 +2964,393 @@ const refreshFromTavern = async () => {
 .equipment-tab {
   height: 100%;
   overflow-y: auto;
-}
-.item-grade {
-  border-radius: 5px;
-  border: 2px solid #9ca3af;
-}
-.equipment-content {
-  padding: 20px;
+  padding: 0;
 }
 
-.equipment-header {
+.equipment-showcase {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 装备总览卡片 */
+.equipment-overview {
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.08), rgba(var(--color-primary-rgb), 0.02));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.overview-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--color-border);
 }
 
-.equipment-title {
+.overview-title {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.title-icon {
+  color: var(--color-primary);
+}
+
+.overview-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+/* 装备槽位网格 */
+.equipment-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+/* 装备槽位卡片 */
+.equipment-slot-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.equipment-slot-card.empty {
+  border-style: dashed;
+  border-color: var(--color-border);
+  opacity: 0.7;
+}
+
+.equipment-slot-card.empty:hover {
+  opacity: 1;
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+  transform: translateY(-2px);
+}
+
+.equipment-slot-card.equipped {
+  border-color: rgba(var(--color-primary-rgb), 0.4);
+  box-shadow: 0 4px 16px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.equipment-slot-card.equipped:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.2);
+  border-color: rgba(var(--color-primary-rgb), 0.6);
+}
+
+/* 槽位标题栏 */
+.slot-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--color-surface-light);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.slot-position {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.position-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.position-name {
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--color-text);
 }
 
-.equipment-stats {
+.slot-unequip-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.slot-unequip-btn:hover {
+  background: #ef4444;
+  color: white;
+  transform: scale(1.1);
+}
+
+.slot-unequip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 已装备内容 */
+.equipped-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-.equipment-stats .stat-item {
+/* 装备图标区 */
+.equipped-icon-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+
+.icon-glow {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  filter: blur(20px);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.icon-glow.q-凡-glow { background: #808080; }
+.icon-glow.q-黄-glow { background: #daa520; }
+.icon-glow.q-玄-glow { background: #9370db; }
+.icon-glow.q-地-glow { background: #00ced1; }
+.icon-glow.q-天-glow { background: #ff69b4; }
+.icon-glow.q-仙-glow { background: #ffd700; }
+.icon-glow.q-神-glow { background: #9932cc; }
+.icon-glow.q-custom-glow { background: rgba(var(--color-primary-rgb), 0.8); }
+
+.icon-frame {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  border: 3px solid;
+  background: var(--color-background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.icon-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quality-badge {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.quality-badge.q-凡-badge { background: linear-gradient(135deg, #808080, #696969); }
+.quality-badge.q-黄-badge { background: linear-gradient(135deg, #daa520, #b8860b); }
+.quality-badge.q-玄-badge { background: linear-gradient(135deg, #9370db, #8a2be2); }
+.quality-badge.q-地-badge { background: linear-gradient(135deg, #00ced1, #20b2aa); }
+.quality-badge.q-天-badge { background: linear-gradient(135deg, #ff69b4, #ff1493); }
+.quality-badge.q-仙-badge { background: linear-gradient(135deg, #ffd700, #ffa500); }
+.quality-badge.q-神-badge { background: linear-gradient(135deg, #9932cc, #8b008b); }
+
+/* 装备信息区 */
+.equipped-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equipped-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+
+.equipped-grade {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grade-badge {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid;
+  display: inline-block;
+}
+
+.equipped-desc {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  padding: 10px;
+  background: var(--color-surface-light);
+  border-radius: 10px;
+  border-left: 3px solid rgba(var(--color-primary-rgb), 0.5);
+}
+
+/* 装备效果 */
+.equipped-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.effect-section {
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.05), rgba(var(--color-primary-rgb), 0.02));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.15);
+  border-radius: 10px;
+}
+
+.effect-section.special {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(168, 85, 247, 0.02));
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.effect-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.effect-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.effect-dot.special {
+  background: #a855f7;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+}
+
+.effect-content {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  padding-left: 14px;
+}
+
+/* 空槽位内容 */
+.empty-slot-content {
+  padding: 40px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 200px;
+}
+
+.empty-slot-icon {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+}
+
+.empty-slot-text {
   text-align: center;
 }
 
-.equipment-stats .stat-label {
-  font-size: 0.8rem;
+.empty-main {
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
 
-.equipment-stats .stat-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-primary);
+.empty-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
 }
 
-/* 装备网格 */
-.equipment-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 20px;
-}
+/* 品质边框颜色 */
+.q-凡-border { border-color: #808080; }
+.q-黄-border { border-color: #daa520; }
+.q-玄-border { border-color: #9370db; }
+.q-地-border { border-color: #00ced1; }
+.q-天-border { border-color: #ff69b4; }
+.q-仙-border { border-color: #ffd700; }
+.q-神-border { border-color: #9932cc; }
 
-.equipment-slot {
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
-  transition: all 0.3s ease;
-  min-height: 160px;
-  position: relative;
-}
+/* 品质文字颜色 */
+.q-凡-text { color: #808080; }
+.q-黄-text { color: #daa520; }
+.q-玄-text { color: #9370db; }
+.q-地-text { color: #00ced1; }
+.q-天-text { color: #ff69b4; }
+.q-仙-text { color: #ffd700; }
+.q-神-text { color: #9932cc; }
 
-.equipment-slot.has-equipment {
-  border-color: var(--color-success);
-  box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.1);
-}
-
-.equipment-slot.has-equipment:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(var(--color-success-rgb), 0.2);
-}
-
-.equipment-slot.empty-slot {
-  border-style: dashed;
-  border-color: var(--color-border);
-}
-
-.slot-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.slot-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--color-surface-light);
-  display: inline-block;
-}
-
-.slot-actions {
-  display: flex;
-  gap: 4px;
-}
-
-/* 卸下按钮样式优化 */
-.unequip-btn {
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border: 1px solid #ef4444;
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.unequip-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.unequip-btn:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
-}
-
-.unequip-btn:hover::before {
-  left: 100%;
-}
-
-.unequip-btn:active {
-  transform: translateY(0);
-}
-
-/* 详情区域的卸下按钮保持与其他 action-btn 一致且不上浮 */
-.action-btn.unequip-btn {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: white;
-  border-radius: 8px;
-}
-
-.action-btn.unequip-btn:hover {
-  background: var(--color-danger-hover);
-  transform: none;
-  box-shadow: none;
-}
-
-/* 装备物品显示 - 优化样式 */
-.equipment-item {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  background: var(--color-background);
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
-  transition: all 0.3s ease;
-}
-
-.equipment-item:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
-  transform: translateY(-2px);
-}
-
-.item-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 10px;
-  border: 3px solid;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-light);
-  flex-shrink: 0;
-  font-weight: bold;
-  transition: all 0.3s ease;
+/* 品级样式 */
+.item-grade {
+  border-radius: 5px;
+  border: 2px solid #9ca3af;
 }
 
 .item-type-text {
@@ -2864,14 +3486,15 @@ const refreshFromTavern = async () => {
   }
 
   .items-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-auto-rows: minmax(150px, auto);
     padding: 16px;
     gap: 12px;
   }
 
   .item-card {
-    height: 130px;
-    padding: 6px;
+    min-height: 150px;
+    padding: 8px;
   }
 
   .item-icon-area {
@@ -2883,18 +3506,24 @@ const refreshFromTavern = async () => {
     font-size: 20px;
   }
 
+  .item-name-section {
+    min-height: 36px;
+    padding: 3px;
+  }
+
   .item-name {
     font-size: 11px;
+    line-height: 1.3;
   }
 
   .item-type-label {
-    font-size: 8px;
-    padding: 1px 4px;
+    font-size: 9px;
+    padding: 2px 6px;
   }
 
   .item-grade-info {
-    font-size: 7px;
-    padding: 1px 3px;
+    font-size: 8px;
+    padding: 2px 5px;
   }
 
   .currency-grid {
@@ -2921,14 +3550,18 @@ const refreshFromTavern = async () => {
     align-items: flex-start;
   }
 
-  .equipment-grid {
+  .equipment-slots-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
 
-  .equipment-slot {
-    min-height: 140px;
-    padding: 12px;
+  .equipment-slot-card {
+    min-height: auto;
+  }
+
+  .equipped-icon-area {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -2943,14 +3576,15 @@ const refreshFromTavern = async () => {
   }
 
   .items-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    grid-auto-rows: minmax(140px, auto);
     gap: 10px;
     padding: 12px;
   }
 
   .item-card {
-    height: 120px;
-    padding: 5px;
+    min-height: 140px;
+    padding: 6px;
   }
 
   .item-icon-area {
@@ -2962,18 +3596,24 @@ const refreshFromTavern = async () => {
     font-size: 16px;
   }
 
+  .item-name-section {
+    min-height: 32px;
+    padding: 2px;
+  }
+
   .item-name {
     font-size: 10px;
+    line-height: 1.3;
   }
 
   .item-type-label {
-    font-size: 7px;
-    padding: 1px 3px;
+    font-size: 8px;
+    padding: 2px 4px;
   }
 
   .item-grade-info {
-    font-size: 6px;
-    padding: 1px 2px;
+    font-size: 7px;
+    padding: 2px 3px;
   }
 
   .item-quality-badge {
