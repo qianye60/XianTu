@@ -740,7 +740,7 @@ const exitToMenu = async () => {
   border-radius: var(--sidebar-card-radius);
   border: 1px solid rgba(var(--color-border-rgb), 0.3);
   background: rgba(var(--color-surface-rgb), 0.4);
-  width: calc(100% - 4px);
+  width: calc(100% - 10px);
 }
 
 .section-title {
