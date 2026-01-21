@@ -876,7 +876,7 @@ const exitToMenu = async () => {
 
 /* 无箭头按钮的右边距补偿 */
 .function-btn.no-arrow .btn-content {
-  margin-right: 22px; /* 14px (箭头宽度) + 8px (margin-left) */
+  margin-right: 16px; /* 14px (箭头宽度) + 8px (margin-left) */
 }
 
 /* 分类颜色主题 */
