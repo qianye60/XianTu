@@ -17,8 +17,8 @@
 .right-sidebar .location-section,
 .right-sidebar .wealth-section,
 .right-sidebar .collapsible-section {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border) !important;
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72)) !important;
+  border: 1px solid rgba(var(--color-border-rgb), 0.6) !important;
 }
 
 /* Subtle hover */
@@ -103,12 +103,12 @@
 
 /* Character summary sections keep a subtle primary/accents using existing rgb if available */
 .right-sidebar .character-info-section {
-  background: rgba(var(--color-primary-rgb), 0.06) !important;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.15) !important;
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.88), rgba(var(--color-surface-rgb), 0.74)) !important;
+  border: 1px solid rgba(var(--color-border-rgb), 0.6) !important;
 }
 .right-sidebar .character-state-section {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border) !important;
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72)) !important;
+  border: 1px solid rgba(var(--color-border-rgb), 0.6) !important;
 }
 
 /* Inventory item count badge: keep readable in both themes */
@@ -128,12 +128,14 @@
 
 /* 确保右侧面板的背景完全不透明 */
 .right-sidebar {
-  background: var(--color-surface) !important;
+  background: linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.96) 0%, rgba(var(--color-surface-rgb), 0.82) 100%) !important;
 }
 
 /* 移除任何可能的伪元素遮罩 */
 .right-sidebar::before,
-.right-sidebar::after,
+.right-sidebar::after {
+  display: block !important;
+}
 .right-panel-area::before,
 .right-panel-area::after {
   display: none !important;

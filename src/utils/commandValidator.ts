@@ -133,6 +133,11 @@ function validateValueType(key: string, value: unknown, action: string): string[
         errors.push(`${key} 使用 add 时 value 必须是数字，当前类型: ${typeof value}`);
       }
 
+      // 新货币系统：角色.背包.货币.<币种ID>.数量
+      if (key.startsWith('角色.背包.货币.') && key.endsWith('.数量') && typeof value !== 'number') {
+        errors.push(`${key} 使用 add 时 value 必须是数字，当前类型: ${typeof value}`);
+      }
+
       if (key.startsWith('角色.身份.后天六司.') && houTianFields.some((f) => key.endsWith(`.${f}`))) {
         if (typeof value !== 'number') {
           errors.push(`${key} 使用 add 时 value 必须是数字，当前类型: ${typeof value}`);

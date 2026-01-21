@@ -15,6 +15,7 @@ import type { GradeType } from '@/data/itemQuality';
 import { cloneDeep } from 'lodash';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
+import { normalizeBackpackCurrencies } from '@/utils/currencySystem';
 
 /**
  * 修复并清洗存档数据，确保所有必需字段存在且格式正确
@@ -134,6 +135,9 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
       }
     }
 
+    // --- 背包.货币（新货币系统，兼容旧存档） ---
+    normalizeBackpackCurrencies(repaired.角色.背包 as any);
+
     // --- 社交.关系 ---
     if (!repaired.社交 || typeof repaired.社交 !== 'object') repaired.社交 = createMinimalSaveDataV3().社交;
     if (!repaired.社交.关系 || typeof repaired.社交.关系 !== 'object') {
@@ -157,6 +161,90 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
       }
 
       repaired.社交.关系 = validNpcs;
+    }
+
+    // --- 社交.关系矩阵（可选；用于 NPC-NPC 关系网） ---
+    const normalizeString = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+    const normalizeStringArray = (v: unknown): string[] => {
+      if (!Array.isArray(v)) return [];
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const item of v) {
+        const s = normalizeString(item);
+        if (!s || seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
+      }
+      return out;
+    };
+
+    const rawMatrix = (repaired.社交 as any).关系矩阵;
+    const npcNames = Object.keys((repaired.社交.关系 as any) || {}).filter((n) => typeof n === 'string' && n.trim());
+
+    if (rawMatrix == null) {
+      // 不强制要求该字段，但如果已有 NPC，则给一个轻量默认值，方便后续增量维护
+      if (npcNames.length > 0) {
+        (repaired.社交 as any).关系矩阵 = { version: 1, nodes: npcNames.slice(0, 300), edges: [] };
+      }
+    } else if (typeof rawMatrix !== 'object' || Array.isArray(rawMatrix)) {
+      delete (repaired.社交 as any).关系矩阵;
+    } else {
+      const matrix = rawMatrix as any;
+      const nodes = normalizeStringArray(matrix.nodes);
+      const mergedNodes: string[] = [];
+      {
+        const seen = new Set<string>();
+        for (const n of [...nodes, ...npcNames]) {
+          const name = normalizeString(n);
+          if (!name || seen.has(name)) continue;
+          seen.add(name);
+          mergedNodes.push(name);
+          if (mergedNodes.length >= 300) break;
+        }
+      }
+
+      const edgesRaw = Array.isArray(matrix.edges) ? matrix.edges : [];
+      const edges: Array<{
+        from: string;
+        to: string;
+        relation?: string;
+        score?: number;
+        tags?: string[];
+        updatedAt?: string;
+      }> = [];
+
+      const seenEdge = new Set<string>();
+      for (const item of edgesRaw) {
+        if (!item || typeof item !== 'object') continue;
+        const from = normalizeString((item as any).from);
+        const to = normalizeString((item as any).to);
+        if (!from || !to || from === to) continue;
+
+        const key = `${from}::${to}`;
+        if (seenEdge.has(key)) continue;
+        seenEdge.add(key);
+
+        const relation = normalizeString((item as any).relation) || undefined;
+        const score = typeof (item as any).score === 'number' && Number.isFinite((item as any).score) ? (item as any).score : undefined;
+        const tags = normalizeStringArray((item as any).tags);
+        const updatedAt = normalizeString((item as any).updatedAt) || undefined;
+
+        edges.push({
+          from,
+          to,
+          relation,
+          score,
+          tags: tags.length ? tags : undefined,
+          updatedAt,
+        });
+        if (edges.length >= 2000) break;
+      }
+
+      (repaired.社交 as any).关系矩阵 = {
+        version: typeof matrix.version === 'number' && Number.isFinite(matrix.version) ? matrix.version : 1,
+        nodes: mergedNodes.length ? mergedNodes : npcNames.slice(0, 300),
+        edges,
+      };
     }
 
     // --- 社交.记忆 ---

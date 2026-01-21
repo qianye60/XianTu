@@ -2675,15 +2675,15 @@ ${saveDataJson}`;
   private _extractEssentialDataForSummary(saveData: SaveData): SaveData {
     const simplified = cloneDeep(saveData);
 
-    // 移除叙事历史（避免与短期记忆重复）
-    if (simplified.历史?.叙事) {
-      delete simplified.历史.叙事;
+    // 🔥 修复：移除叙事历史（正确路径是 系统.历史.叙事）
+    if ((simplified as any).系统?.历史?.叙事) {
+      delete (simplified as any).系统.历史.叙事;
     }
 
-    // 移除短期和隐式中期记忆（以优化AI上下文）
-    if (simplified.记忆) {
-      delete simplified.记忆.短期记忆;
-      delete simplified.记忆.隐式中期记忆;
+    // 🔥 修复：移除短期和隐式中期记忆（正确路径是 社交.记忆）
+    if ((simplified as any).社交?.记忆) {
+      delete (simplified as any).社交.记忆.短期记忆;
+      delete (simplified as any).社交.记忆.隐式中期记忆;
     }
 
     return simplified;

@@ -62,25 +62,32 @@
 
         <!-- 右侧：宗门详情 -->
         <div class="sect-detail">
-          <div v-if="selectedSect" class="detail-content">
-            <!-- 详情头部 -->
-            <div class="detail-header">
-              <div class="detail-icon">
-                <span class="sect-emoji-large">{{ getSectEmoji(selectedSect.类型) }}</span>
-              </div>
-              <div class="detail-info">
-                <h3 class="detail-name">{{ selectedSect.名称 }}</h3>
-                <div class="detail-badges">
-                  <span class="type-badge" :class="`type-${getSectTypeClass(selectedSect.类型)}`">
-                    {{ selectedSect.类型 }}
-                  </span>
-                  <span class="level-badge" :class="`level-${selectedSect.等级}`">
-                    {{ formatSectLevel(selectedSect.等级) }}
-                  </span>
+            <div v-if="selectedSect" class="detail-content">
+              <!-- 详情头部 -->
+              <div class="detail-header">
+                <div class="detail-icon">
+                  <span class="sect-emoji-large">{{ getSectEmoji(selectedSect.类型) }}</span>
+                </div>
+                <div class="detail-info">
+                  <h3 class="detail-name">{{ selectedSect.名称 }}</h3>
+                  <div class="detail-badges">
+                    <span class="type-badge" :class="`type-${getSectTypeClass(selectedSect.类型)}`">
+                      {{ selectedSect.类型 }}
+                    </span>
+                    <span class="level-badge" :class="`level-${selectedSect.等级}`">
+                      {{ formatSectLevel(selectedSect.等级) }}
+                    </span>
 
+                  </div>
+
+                  <div class="detail-actions">
+                    <button class="danger-btn" :disabled="isOnlineMode" @click.stop="deleteFaction(selectedSect)">
+                      <Trash2 :size="14" />
+                      <span>删除势力</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
             <!-- 详情主体 -->
             <div class="detail-body">
@@ -182,7 +189,7 @@
                       <span class="strength-value peak-power">{{ selectedLeadership.最强修为 || selectedLeadership.宗主修为 }}</span>
                     </div>
                     <div v-if="selectedLeadership?.综合战力" class="strength-item">
-                      <span class="strength-label">综合战力</span>
+                      <span class="strength-label">战力</span>
                       <span class="strength-value power-rating" :class="getPowerRatingClass(selectedLeadership.综合战力 || 0)">
                         {{ selectedLeadership.综合战力 || 0 }}/100
                         <span class="power-level">({{ getPowerLevel(selectedLeadership.综合战力 || 0) }})</span>
@@ -319,58 +326,6 @@
                 </div>
               </div>
 
-              <!-- 已加入宗门信息 -->
-              <div class="detail-section" v-if="isCurrentSect(selectedSect)">
-                <h5 class="section-title">
-                  <Crown :size="16" />
-                  <span>我的宗门身份</span>
-                </h5>
-                <div class="current-member-info">
-                  <div class="member-status">
-                    <div class="status-item">
-                      <span class="status-label">职位</span>
-                      <span class="status-value position">{{ playerSectInfo?.职位 || '散修' }}</span>
-                    </div>
-                    <div class="status-item">
-                      <span class="status-label">贡献点</span>
-                      <span class="status-value contribution">{{ playerSectInfo?.贡献 || 0 }}</span>
-                    </div>
-                    <div class="status-item">
-                      <span class="status-label">声望</span>
-                      <span class="status-value reputation">{{ playerSectInfo?.声望 || 0 }}</span>
-                    </div>
-                    <div class="status-item">
-                      <span class="status-label">加入时间</span>
-                      <span class="status-value join-date">{{ formatJoinDate(playerSectInfo?.加入日期) }}</span>
-                    </div>
-                  </div>
-                  <div class="member-actions">
-                    <button class="leave-btn" @click="requestLeaveSect(selectedSect)">
-                      <LogOut :size="16" />
-                      <span>退出宗门</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 宗门功能 -->
-                <div class="sect-actions">
-                  <h6 class="actions-title">宗门势力</h6>
-                  <div class="action-buttons">
-                    <button class="sect-action-btn" @click="showContribution">
-                      <Coins :size="16" />
-                      <span>贡献兑换</span>
-                    </button>
-                    <button class="sect-action-btn" @click="showSectLibrary">
-                      <Book :size="16" />
-                      <span>宗门藏书</span>
-                    </button>
-                    <button class="sect-action-btn" @click="showSectMembers">
-                      <Users :size="16" />
-                      <span>同门师兄弟</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -396,7 +351,7 @@ import type { WorldFaction, SectMemberInfo, WorldInfo } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
   Gift, Coins, Book, Search, Loader2,
-  ChevronRight, Map, LogOut
+  ChevronRight, Map, LogOut, Trash2
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
@@ -408,6 +363,7 @@ const gameStateStore = useGameStateStore();
 const router = useRouter();
 const { t } = useI18n();
 const isTavernEnvFlag = isTavernEnv();
+const isOnlineMode = computed(() => characterStore.activeCharacterProfile?.模式 === '联机');
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');
@@ -429,6 +385,73 @@ const buildSectGenerationPrompt = () => {
 const sendSectGenerationPrompt = () => {
   sendChat(buildSectGenerationPrompt());
   toast.success('已发送到对话');
+};
+
+const deleteFaction = async (sect: WorldFaction) => {
+  if (isOnlineMode.value) {
+    toast.warning('联机模式下不允许直接修改势力信息');
+    return;
+  }
+  if (!sect?.名称) return;
+
+  const confirmed = window.confirm(`确认从势力信息中移除「${sect.名称}」？\n\n该操作会同时尝试从：\n- 世界.信息.势力信息\n- 社交.宗门.宗门档案\n中删除该势力。`);
+  if (!confirmed) return;
+
+  try {
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (!saveData) {
+      toast.error('存档数据不完整或未加载，无法删除');
+      return;
+    }
+
+    const next = JSON.parse(JSON.stringify(saveData)) as any;
+    const worldInfo = next?.世界?.信息;
+    if (worldInfo?.势力信息 && Array.isArray(worldInfo.势力信息)) {
+      const targetName = String(sect.名称).trim();
+      const targetId = String((sect as any).id || '').trim();
+      worldInfo.势力信息 = worldInfo.势力信息.filter((f: any) => {
+        const name = String(f?.名称 || '').trim();
+        const id = String(f?.id || '').trim();
+        if (targetId && id && id === targetId) return false;
+        if (targetName && name && name === targetName) return false;
+        return true;
+      });
+    }
+
+    const sectSystem = next?.社交?.宗门;
+    if (sectSystem?.宗门档案 && typeof sectSystem.宗门档案 === 'object') {
+      const targetName = String(sect.名称).trim();
+      const targetId = String((sect as any).id || '').trim();
+      // 常见：key 就是宗门名称
+      if (targetName && targetName in sectSystem.宗门档案) {
+        delete sectSystem.宗门档案[targetName];
+      }
+      // 兜底：遍历删除匹配项
+      for (const k of Object.keys(sectSystem.宗门档案)) {
+        const v = sectSystem.宗门档案[k];
+        const name = String(v?.名称 || k || '').trim();
+        const id = String(v?.id || '').trim();
+        if (targetId && id && id === targetId) {
+          delete sectSystem.宗门档案[k];
+          continue;
+        }
+        if (targetName && name && name === targetName) {
+          delete sectSystem.宗门档案[k];
+        }
+      }
+    }
+
+    gameStateStore.loadFromSaveData(next);
+    await characterStore.saveCurrentGame();
+
+    if (selectedSect.value?.名称 === sect.名称) {
+      selectedSect.value = null;
+    }
+    toast.success(`已移除势力：${sect.名称}`);
+  } catch (e) {
+    console.error('[SectPanel] deleteFaction failed', e);
+    toast.error('删除失败，请稍后重试');
+  }
 };
 
 // 获取世界中的宗门势力数据 - 统一数据源（V3：世界.信息.势力信息）
@@ -1119,6 +1142,37 @@ const forceRefresh = () => {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.detail-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.danger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.06);
+  color: #ef4444;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.danger-btn:hover {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.danger-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .type-badge, .level-badge {

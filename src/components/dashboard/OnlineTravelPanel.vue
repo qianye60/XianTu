@@ -374,6 +374,8 @@ import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import type { WorldInfo, PlayerLocation } from '@/types/game';
+import { normalizeLocationsData } from '@/utils/coordinateConverter';
+import { saveData as saveToIndexedDB, loadFromIndexedDB } from '@/utils/indexedDBManager';
 import { ArrowRight, CalendarCheck, Coins, CornerUpLeft, Globe, Lock, RefreshCw, ScrollText, Shield, FileText, Save, Copy, RotateCcw } from 'lucide-vue-next';
 
 const tabs = [
@@ -396,6 +398,7 @@ import {
   regenerateMyWorldInviteCode,
   signinTravel,
   startTravel,
+  overwriteWorldMap,
   updateMyWorldPolicy,
   updateMyWorldVisibility,
   updateMyWorldOfflinePrompt,
@@ -543,10 +546,20 @@ const canTravelToSelected = computed(() => {
 
 const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const onlineBackupPrefix = 'dad_online_world_backup_';
+const fullBackupPrefix = 'dad_travel_full_backup_';  // 🔥 新增：完整存档备份前缀
+
 const getBackupKey = () => {
   const active = characterStore.rootState?.当前激活存档;
   const characterId = active?.角色ID ?? 'unknown';
   return `${onlineBackupPrefix}${characterId}`;
+};
+
+// 🔥 新增：获取完整存档备份的IndexedDB key
+const getFullBackupKey = () => {
+  const active = characterStore.rootState?.当前激活存档;
+  const characterId = active?.角色ID ?? 'unknown';
+  const slotId = active?.存档槽位 ?? 'unknown';
+  return `${fullBackupPrefix}${characterId}_${slotId}`;
 };
 
 // 🔥 修复：增强备份读取，支持多个备份 key 的降级策略
@@ -582,6 +595,72 @@ const readWorldBackup = (): { worldInfo: WorldInfo | null; location: PlayerLocat
   return null;
 };
 
+// 🔥 新增：保存完整存档到IndexedDB（防止穿越时数据丢失）
+const storeFullBackup = async (): Promise<boolean> => {
+  try {
+    const key = getFullBackupKey();
+    // 获取当前完整的存档数据
+    const fullSaveData = gameStateStore.toSaveData();
+    if (!fullSaveData) {
+      console.error('[联机穿越] 无法生成完整存档备份：toSaveData返回空');
+      return false;
+    }
+
+    const payload = {
+      saveData: cloneJson(fullSaveData),
+      timestamp: new Date().toISOString(),
+      characterId: characterStore.rootState?.当前激活存档?.角色ID,
+      slotId: characterStore.rootState?.当前激活存档?.存档槽位,
+    };
+
+    await saveToIndexedDB(key, payload);
+    console.log('[联机穿越] ✅ 完整存档已备份到IndexedDB:', {
+      key,
+      characterId: payload.characterId,
+      slotId: payload.slotId,
+      timestamp: payload.timestamp,
+    });
+    return true;
+  } catch (e) {
+    console.error('[联机穿越] ❌ 保存完整存档备份失败:', e);
+    return false;
+  }
+};
+
+// 🔥 新增：从IndexedDB读取完整存档备份
+const readFullBackup = async (): Promise<{ saveData: any; characterId: string; slotId: string; timestamp: string } | null> => {
+  try {
+    const key = getFullBackupKey();
+    const backup = await loadFromIndexedDB(key);
+    if (backup && backup.saveData) {
+      console.log('[联机穿越] 找到完整存档备份:', {
+        key,
+        characterId: backup.characterId,
+        slotId: backup.slotId,
+        timestamp: backup.timestamp,
+      });
+      return backup;
+    }
+    console.warn('[联机穿越] 未找到完整存档备份:', key);
+    return null;
+  } catch (e) {
+    console.error('[联机穿越] 读取完整存档备份失败:', e);
+    return null;
+  }
+};
+
+// 🔥 新增：清理完整存档备份
+const clearFullBackup = async () => {
+  try {
+    const key = getFullBackupKey();
+    // 通过保存null来清理（IndexedDB没有直接的delete方法导出）
+    await saveToIndexedDB(key, null);
+    console.log('[联机穿越] 完整存档备份已清理:', key);
+  } catch (e) {
+    console.warn('[联机穿越] 清理完整存档备份失败:', e);
+  }
+};
+
 const storeWorldBackup = (force: boolean = false) => {
   const key = getBackupKey();
   if (!force && localStorage.getItem(key)) {
@@ -593,8 +672,8 @@ const storeWorldBackup = (force: boolean = false) => {
     location: gameStateStore.location ? cloneJson(gameStateStore.location) : null,
     relationships: gameStateStore.relationships ? cloneJson(gameStateStore.relationships) : null,
     onlineState: gameStateStore.onlineState ? cloneJson(gameStateStore.onlineState) : null,
-    timestamp: new Date().toISOString(),  // 🔥 添加时间戳
-    characterId: characterStore.rootState?.当前激活存档?.角色ID,  // 🔥 添加角色ID
+    timestamp: new Date().toISOString(),
+    characterId: characterStore.rootState?.当前激活存档?.角色ID,
   };
   console.log('[联机穿越] 保存世界备份:', {
     key,
@@ -605,15 +684,44 @@ const storeWorldBackup = (force: boolean = false) => {
     characterId: payload.characterId,
   });
 
-  // 🔥 修复：同时保存到当前角色ID的key和"latest"的key（降级策略）
+  // 同时保存到当前角色ID的key和"latest"的key（降级策略）
   localStorage.setItem(key, JSON.stringify(payload));
   localStorage.setItem(`${onlineBackupPrefix}latest`, JSON.stringify(payload));
 };
 
 const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
+  // 🔥 修复：优先尝试从IndexedDB恢复完整存档
+  const fullBackup = await readFullBackup();
+  if (fullBackup && fullBackup.saveData) {
+    console.log('[联机穿越] 从IndexedDB恢复完整存档...');
+
+    // 验证角色ID是否匹配
+    const currentCharId = characterStore.rootState?.当前激活存档?.角色ID;
+    if (fullBackup.characterId && currentCharId && fullBackup.characterId !== currentCharId) {
+      console.warn('[联机穿越] 完整备份角色ID不匹配，跳过完整恢复', {
+        current: currentCharId,
+        backup: fullBackup.characterId,
+      });
+    } else {
+      // 恢复完整存档到gameStateStore
+      await gameStateStore.loadFromSaveData(fullBackup.saveData);
+
+      // 清理备份
+      await clearFullBackup();
+      // 同时清理localStorage中的部分备份
+      localStorage.removeItem(getBackupKey());
+      localStorage.removeItem(`${onlineBackupPrefix}latest`);
+
+      if (options.persist) await characterStore.saveCurrentGame();
+      console.log('[联机穿越] ✅ 完整存档恢复成功');
+      return true;
+    }
+  }
+
+  // 降级：使用localStorage中的部分备份
   const backup = readWorldBackup();
   if (backup) {
-    console.log('[联机穿越] 恢复世界备份:', {
+    console.log('[联机穿越] 降级：从localStorage恢复部分世界备份:', {
       hasWorldInfo: !!backup.worldInfo,
       hasLocation: !!backup.location,
       hasRelationships: !!backup.relationships,
@@ -623,7 +731,7 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
       characterId: (backup as any).characterId,
     });
 
-    // 🔥 修复：验证备份的角色ID是否匹配（如果有的话）
+    // 验证备份的角色ID是否匹配
     const currentCharId = characterStore.rootState?.当前激活存档?.角色ID;
     const backupCharId = (backup as any).characterId;
     if (backupCharId && currentCharId && backupCharId !== currentCharId) {
@@ -631,7 +739,6 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
         current: currentCharId,
         backup: backupCharId,
       });
-      // 继续恢复，但给出警告
       toast.warning(t('备份角色ID不匹配，可能存在数据不一致'));
     }
 
@@ -640,7 +747,7 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
     if (backup.relationships) gameStateStore.updateState('relationships', backup.relationships);
     if (backup.onlineState) gameStateStore.updateState('onlineState', backup.onlineState);
 
-    // 🔥 修复：清理所有相关的备份 key
+    // 清理所有相关的备份 key
     if (backup.backupKey) {
       localStorage.removeItem(backup.backupKey);
     }
@@ -652,7 +759,7 @@ const restoreWorldBackup = async (options: { persist?: boolean } = {}) => {
     return true;
   }
 
-  console.warn('[联机穿越] 未找到世界备份，尝试清理联机状态');
+  console.warn('[联机穿越] 未找到任何世界备份，尝试清理联机状态');
   // 如果没有备份，至少清理联机状态
   if (gameStateStore.onlineState && (gameStateStore.onlineState as any).房间ID) {
     const currentOnline = gameStateStore.onlineState as any;
@@ -722,6 +829,67 @@ const sanitizeRelationshipsForInvader = (rels: Record<string, any>): Record<stri
   return sanitized;
 };
 
+const buildMapOverwriteLocations = () => {
+  const worldInfo = gameStateStore.worldInfo as any;
+  if (!worldInfo) return [];
+  const rawLocations = (worldInfo.地点信息 ?? worldInfo.locations ?? []) as any[];
+  if (!Array.isArray(rawLocations) || rawLocations.length === 0) return [];
+
+  const mapConfig = worldInfo['地图配置'] || worldInfo.mapConfig || { width: 10000, height: 10000 };
+  const normalized = normalizeLocationsData(rawLocations, mapConfig);
+
+  return normalized.map((loc: any, index: number) => {
+    const coords = loc.coordinates || { x: 0, y: 0 };
+    const name = loc.name || loc.名称 || `地点${index + 1}`;
+    const type = loc.type || loc.类型;
+    const desc = loc.description || loc.描述;
+    const faction = loc.所属势力 || loc.faction;
+    const tags = loc.标签 ?? loc.tags;
+
+    const payload: Record<string, any> = {
+      名称: name,
+      类型: type,
+      坐标: { x: Math.round(coords.x), y: Math.round(coords.y) },
+      状态: {
+        名称: name,
+        类型: type,
+        描述: desc,
+        所属势力: faction,
+      },
+    };
+
+    if (tags !== undefined) {
+      payload.标签 = tags;
+    }
+
+    return payload;
+  });
+};
+
+const syncMapOverwrite = async (context: string) => {
+  if (!session.value) return;
+  const onlineTarget = (gameStateStore.onlineState as any)?.穿越目标;
+  if (onlineTarget?.允许地图覆盖 === false) {
+    console.log(`[联机穿越] 地图覆盖被禁用，跳过同步 (${context})`);
+    return;
+  }
+
+  const locations = buildMapOverwriteLocations();
+  if (locations.length === 0) return;
+
+  try {
+    await overwriteWorldMap(
+      session.value.target_world_instance_id,
+      locations,
+      session.value.session_id,
+      graph.value?.map_id ?? session.value.entry_map_id
+    );
+    console.log(`[联机穿越] 已同步地图覆盖 (${context})`, { count: locations.length });
+  } catch (error) {
+    console.warn(`[联机穿越] 同步地图覆盖失败 (${context})`, error);
+  }
+};
+
 const syncTravelState = async (
   mapGraph: MapGraphResponse,
   activeSession: TravelStartResponse,
@@ -788,6 +956,11 @@ const syncTravelState = async (
     '最终使用': ownerLocation
   });
 
+  const allowMapOverwrite =
+    selectedWorld.value?.allow_map_overwrite ??
+    (currentOnline as any)?.穿越目标?.允许地图覆盖 ??
+    null;
+
   gameStateStore.updateState('onlineState', {
     ...currentOnline,
     模式: '联机',
@@ -797,6 +970,7 @@ const syncTravelState = async (
       ...((currentOnline as any).穿越目标 ?? {}),
       世界ID: activeSession.target_world_instance_id,
       主人用户名: snapshot?.owner_username ?? selectedWorld.value?.owner_username ?? null,
+      允许地图覆盖: allowMapOverwrite,
       世界主人位置: ownerLocation,
       世界主人档案: (() => {
         const base = mapGraph.owner_base_info ?? snapshot?.owner_base_info;
@@ -1169,6 +1343,7 @@ const handleEndTravel = async () => {
       const endedSessionId = session.value.session_id;
       console.log('[OnlineTravel] 结束穿越会话:', endedSessionId);
 
+      await syncMapOverwrite('manual_end');
       const res = await endTravel(endedSessionId);
       console.log('[OnlineTravel] 结束穿越成功:', res);
 
@@ -1287,12 +1462,19 @@ const handleStartTravelToSelected = async () => {
 
   isLoading.value = true;
   try {
+    // 🔥 修复：在穿越开始前，先备份完整存档到IndexedDB
+    const backupSuccess = await storeFullBackup();
+    if (!backupSuccess) {
+      toast.warning(t('备份本地存档失败，但仍将继续穿越'));
+      console.warn('[联机穿越] 完整存档备份失败，继续穿越但可能有数据丢失风险');
+    }
+
     session.value = await startTravel(
       selectedWorld.value.owner_username,
       inviteCode.value.trim() || undefined
     );
     travelPoints.value = session.value.travel_points_left;
-    storeWorldBackup(true);
+    storeWorldBackup(true);  // 保留localStorage备份作为兼容层
 
     // 存储离线代理提示词到游戏状态
     if (session.value.owner_offline_agent_prompt || session.value.owner_character_info) {

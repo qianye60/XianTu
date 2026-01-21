@@ -685,11 +685,13 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
         (afterCounts.origins - beforeCounts.origins) +
         (afterCounts.spiritRoots - beforeCounts.spiritRoots) +
         (afterCounts.talents - beforeCounts.talents);
-      
+
       console.log(`【创世神殿】同步完成，新增 ${newItemsCount} 项数据。`);
 
-      // 保存云端数据到全局变量
-      await persistCustomData();
+      // 🔥 修复：移除此处的 persistCustomData() 调用
+      // 云端数据不需要保存到 IndexedDB，每次联机时可以重新获取
+      // 之前的实现会覆盖用户在单机模式下创建的自定义数据
+      // await persistCustomData();  // 已移除，避免覆盖用户自定义数据
       return newItemsCount; // 返回新增数量
     } catch (e) {
       console.error("【创世神殿】获取云端创世数据失败", e);

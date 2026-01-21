@@ -440,14 +440,38 @@ const getReputationClass = (): string => {
   font-family: var(--font-family-sans-serif);
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
+  background: linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.96) 0%, rgba(var(--color-surface-rgb), 0.82) 100%);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.right-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(var(--color-primary-rgb), 0.14), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(var(--color-accent-rgb), 0.1), transparent 55%);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-header,
+.sidebar-content,
+.no-character {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-header {
   margin-bottom: 16px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--color-border);
-  background: transparent;
+  padding: 10px 12px;
+  border: 1px solid rgba(var(--color-border-rgb), 0.6);
+  border-radius: 12px;
+  background: rgba(var(--color-surface-rgb), 0.7);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 }
 
 .sidebar-title {
@@ -482,8 +506,11 @@ const getReputationClass = (): string => {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
+  padding-right: 2px;
+  min-width: 0;
 }
 
 .sidebar-content::-webkit-scrollbar {
@@ -507,9 +534,10 @@ const getReputationClass = (): string => {
 .character-info-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
+  border: 1px solid rgba(var(--color-border-rgb), 0.6);
   border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .character-basic {
@@ -539,9 +567,10 @@ const getReputationClass = (): string => {
 .character-state-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
+  border: 1px solid rgba(var(--color-border-rgb), 0.6);
   border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .character-states {
@@ -638,9 +667,10 @@ const getReputationClass = (): string => {
 .collapsible-section {
   margin-bottom: 16px;
   padding: 0;
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
+  border: 1px solid rgba(var(--color-border-rgb), 0.6);
   border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .section-header {
@@ -729,9 +759,10 @@ const getReputationClass = (): string => {
 .attributes-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
+  border: 1px solid rgba(var(--color-border-rgb), 0.6);
   border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .attributes-grid {
@@ -879,9 +910,10 @@ const getReputationClass = (): string => {
 .wealth-section {
   margin-bottom: 16px;
   padding: 12px;
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
+  border: 1px solid rgba(var(--color-border-rgb), 0.6);
   border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 /* 天赋神通特定样式 */
@@ -974,6 +1006,10 @@ const getReputationClass = (): string => {
 .tag-name {
   font-weight: 600;
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tag-intensity {
@@ -1006,6 +1042,10 @@ const getReputationClass = (): string => {
 
 .section-title span {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .section-icon {
@@ -1672,13 +1712,13 @@ const getReputationClass = (): string => {
 /* 深色主题适配：使用CSS变量自动适配 */
 @media (prefers-color-scheme: dark) {
   .right-sidebar {
-    background: var(--color-surface);
+    background: linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.96) 0%, rgba(var(--color-surface-rgb), 0.82) 100%);
   }
 
   .vitals-section,
   .cultivation-section,
   .collapsible-section {
-    background: var(--color-surface-light);
+    background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.86), rgba(var(--color-surface-rgb), 0.72));
   }
 
   .status-tag.buff {

@@ -867,7 +867,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 🔥 检查后端创建是否失败，如果失败则跳过云端获取
       const onlineSlot = getOnlineSaveSlot(profile);
       const backendCreationFailed = (onlineSlot?.云端同步信息 as any)?.后端创建失败;
-      if (profile.模式 === '联机' && isBackendConfigured() && !backendCreationFailed) {
+      if (profile.模式 === '联机' && isBackendConfigured()) {
+        if (backendCreationFailed) {
+          debug.warn('角色商店', '检测到后端创建失败标记，尝试重新拉取云端存档');
+        }
         // 先验证token有效性
         const tokenValid = await verifyStoredToken();
         if (!tokenValid) {
@@ -898,6 +901,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
                   最后同步: cloudSave?.last_sync ? String(cloudSave.last_sync) : new Date().toISOString(),
                   版本: typeof cloudSave?.version === 'number' ? cloudSave.version : (currentOnlineSlot.云端同步信息?.版本 ?? 1),
                   需要同步: false,
+                  后端创建失败: false,
                 };
                 await commitMetadataToStorage();
               }

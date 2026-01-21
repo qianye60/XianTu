@@ -50,6 +50,13 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
   const { action, key, value } = command;
   const errors: string[] = [];
 
+  if (typeof key !== 'string' || !key) {
+    return { valid: false, errors: ['????key??'] };
+  }
+  if (typeof action !== 'string' || !action) {
+    return { valid: false, errors: ['????action??'] };
+  }
+
   try {
     // 1. 玩家境界对象
     if (key === '角色.属性.境界' && action === 'set') {

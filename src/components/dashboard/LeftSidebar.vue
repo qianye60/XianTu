@@ -1,5 +1,5 @@
 <template>
-  <div class="left-sidebar">
+  <div class="left-sidebar" :class="{ 'lang-en': currentLanguage === 'en' }">
     <div class="sidebar-header">
       <h3 class="sidebar-title">
         <LayoutGrid :size="20" class="title-icon" />
@@ -62,6 +62,17 @@
             <div class="btn-content">
               <span class="btn-text">{{ t('大道感悟') }}</span>
               <span class="btn-desc">{{ t('领悟天地法则') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn cultivation" @click="handleCrafting">
+            <div class="btn-icon">
+              <Hammer :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('炼制工坊') }}</span>
+              <span class="btn-desc">{{ t('炼丹炼器炼天地') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -271,7 +282,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Bell, ChevronRight, Database, Clock, FileText, Plug, LayoutGrid, Heart, Shield } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Bell, ChevronRight, Database, Clock, FileText, Plug, LayoutGrid, Heart, Shield, Hammer } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
@@ -281,7 +292,7 @@ import { isBackendConfigured, fetchBackendVersion } from '@/services/backendConf
 const router = useRouter();
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
-const { t } = useI18n();
+const { t, currentLanguage } = useI18n();
 
 // 版本号相关
 const backendReady = ref(false);
@@ -362,6 +373,10 @@ const handleTechniques = () => {
 
 const handleThousandDao = () => {
   router.push('/game/thousand-dao');
+};
+
+const handleCrafting = () => {
+  router.push('/game/crafting');
 };
 
 const handleMemoryCenter = () => {
@@ -445,6 +460,9 @@ const exitToMenu = async () => {
 
 <style scoped>
 .left-sidebar {
+  --sidebar-card-radius: 16px;
+  --sidebar-btn-radius: 16px;
+  --sidebar-pill-radius: 12px;
   width: 100%;
   height: 100%;
   padding: 16px;
@@ -452,13 +470,40 @@ const exitToMenu = async () => {
   font-family: var(--font-family-sans-serif);
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.98) 0%, rgba(var(--color-surface-rgb), 0.88) 100%);
+  border-radius: var(--sidebar-radius);
+  box-shadow: none;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.left-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 10% 6%, rgba(var(--color-primary-rgb), 0.14), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(var(--color-accent-rgb), 0.1), transparent 45%);
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-header,
+.sidebar-content,
+.sidebar-footer {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-header {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--sidebar-card-radius);
+  background: rgba(var(--color-surface-rgb), 0.65);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -466,12 +511,16 @@ const exitToMenu = async () => {
 }
 
 .sidebar-footer {
-  padding-top: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border-top: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sidebar-card-radius);
+  background: rgba(var(--color-surface-rgb), 0.65);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
 }
 
@@ -614,7 +663,7 @@ const exitToMenu = async () => {
   padding: 0.25rem 0.6rem;
   background: linear-gradient(135deg, rgba(34, 211, 238, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
   border: 1px solid rgba(34, 211, 238, 0.35);
-  border-radius: 6px;
+  border-radius: 10px;
   display: inline-block;
   letter-spacing: 0.5px;
   text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
@@ -651,9 +700,9 @@ const exitToMenu = async () => {
   color: var(--color-text-secondary);
   font-family: 'Courier New', monospace;
   padding: 4px 8px;
-  background: var(--color-surface-light);
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
+  background: rgba(var(--color-surface-rgb), 0.7);
+  border-radius: var(--sidebar-pill-radius);
+  border: 1px solid rgba(var(--color-border-rgb), 0.5);
 }
 
 .time-icon {
@@ -667,9 +716,12 @@ const exitToMenu = async () => {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  padding-right: 4px;
+  padding-bottom: 4px;
+  padding-right: 2px;
+  min-width: 0;
 }
 
 .sidebar-content::-webkit-scrollbar {
@@ -688,17 +740,27 @@ const exitToMenu = async () => {
 
 /* 功能分区样式 */
 .function-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  padding: 10px;
+  border-radius: var(--sidebar-card-radius);
+  border: 1px solid rgba(var(--color-border-rgb), 0.4);
+  background: rgba(var(--color-surface-rgb), 0.7);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
 }
 
 .section-title {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   color: var(--color-text-secondary);
-  margin-bottom: 8px;
-  padding: 0 4px;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  display: inline-flex;
+  align-items: center;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 .function-group {
@@ -708,14 +770,18 @@ const exitToMenu = async () => {
 }
 
 .system-section {
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding: 10px;
+  border-radius: var(--sidebar-card-radius);
+  border: 1px solid rgba(var(--color-border-rgb), 0.4);
+  background: rgba(var(--color-surface-rgb), 0.65);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
 }
 
 .divider {
   height: 1px;
-  background: var(--color-border);
-  margin: 12px 0;
+  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+  margin: 14px 0;
+  border-radius: 999px;
 }
 
 /* 增强的按钮样式 */
@@ -723,9 +789,9 @@ const exitToMenu = async () => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
+  background: rgba(var(--color-surface-rgb), 0.85);
+  border: 1px solid rgba(var(--color-border-rgb), 0.55);
+  border-radius: var(--sidebar-btn-radius);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: inherit;
@@ -754,7 +820,7 @@ const exitToMenu = async () => {
   background: var(--color-surface-light);
   border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.15);
+  box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.18);
 }
 
 .function-btn:active {
@@ -769,7 +835,7 @@ const exitToMenu = async () => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--sidebar-pill-radius);
   background: var(--color-background);
   margin-right: 12px;
   transition: all 0.3s ease;
@@ -795,6 +861,13 @@ const exitToMenu = async () => {
   text-overflow: ellipsis;
 }
 
+/* 英文环境下允许文字换行 */
+.lang-en .btn-text {
+  white-space: normal;
+  word-break: break-word;
+  font-size: 0.8rem;
+}
+
 .btn-desc {
   font-size: 0.7rem;
   color: var(--color-text-secondary);
@@ -802,6 +875,13 @@ const exitToMenu = async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 英文环境下允许描述换行 */
+.lang-en .btn-desc {
+  white-space: normal;
+  word-break: break-word;
+  font-size: 0.65rem;
 }
 
 /* 按钮箭头 */
@@ -970,6 +1050,11 @@ const exitToMenu = async () => {
 @media (max-width: 768px) {
   .left-sidebar {
     padding: 12px;
+  }
+
+  .function-section,
+  .system-section {
+    padding: 8px;
   }
 
   .function-btn {

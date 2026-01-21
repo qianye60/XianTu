@@ -51,11 +51,13 @@
             </div>
           </div>
           <div class="panel-content compact">
-            <router-view v-slot="{ Component }">
-              <keep-alive>
-                <component :is="Component" />
-              </keep-alive>
-            </router-view>
+            <div class="panel-shell">
+              <router-view v-slot="{ Component }">
+                <keep-alive>
+                  <component :is="Component" />
+                </keep-alive>
+              </router-view>
+            </div>
           </div>
         </div>
 
@@ -78,7 +80,9 @@
             </button>
           </div>
           <div class="panel-content">
-            <CharacterManagement @back="uiStore.closeCharacterManagement" />
+            <div class="panel-shell">
+              <CharacterManagement @back="uiStore.closeCharacterManagement" />
+            </div>
           </div>
         </div>
       </div>
@@ -143,7 +147,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug, Globe } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug, Globe, Hammer, Building2, Swords, ClipboardList } from 'lucide-vue-next';
 import { panelBus, type PanelAction } from '@/utils/panelBus';
 import { detectSectMigration } from '@/utils/sectMigration';
 import TopBar from '@/components/dashboard/TopBar.vue'
@@ -217,7 +221,7 @@ const maybePromptSectMigration = () => {
 const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
-  'Events', 'Sect', 'SectOverview', 'SectMembers', 'SectLibrary', 'SectContribution', 'GameVariables',
+  'Events', 'Crafting', 'Sect', 'SectOverview', 'SectMembers', 'SectManagement', 'SectLibrary', 'SectTasks', 'SectContribution', 'SectWar', 'GameVariables',
   'Prompts', 'APIManagement', 'Travel'
 ]);
 
@@ -229,7 +233,7 @@ const noDataRequiredRoutes = new Set([
 // 右侧相关面板（应该影响右侧收缩按钮）
 const rightPanelRoutes = new Set([
   'Memory', 'Relationships', 'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save',
-  'Sect', 'SectOverview', 'SectMembers', 'SectLibrary', 'SectContribution'
+  'Sect', 'SectOverview', 'SectMembers', 'SectManagement', 'SectLibrary', 'SectTasks', 'SectContribution', 'SectWar'
 ]);
 
 type IconComponent = typeof Package;
@@ -246,11 +250,15 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   Save: { title: '保存游戏', icon: Save },
   WorldMap: { title: '世界地图', icon: Map },
   Events: { title: '世界事件', icon: Bell },
+  Crafting: { title: '炼制工坊', icon: Hammer },
   Sect: { title: '宗门势力', icon: Home },
   SectOverview: { title: '宗门概览', icon: Home },
   SectMembers: { title: '宗门成员', icon: Users },
+  SectManagement: { title: '宗门经营', icon: Building2 },
   SectLibrary: { title: '宗门藏经', icon: BookOpen },
+  SectTasks: { title: '宗门任务', icon: ClipboardList },
   SectContribution: { title: '贡献兑换', icon: Coins },
+  SectWar: { title: '宗门大战', icon: Swords },
   GameVariables: { title: '游戏变量', icon: Database },
   Prompts: { title: '提示词管理', icon: FileText },
   APIManagement: { title: 'API管理', icon: Plug },
@@ -586,10 +594,24 @@ watch(isPanelOpen, (isOpen) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 12px;
+  background: transparent;
+}
+
+.panel-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, rgba(var(--color-surface-rgb), 0.98), rgba(var(--color-surface-rgb), 0.92));
+  border: 1px solid rgba(var(--color-border-rgb), 0.55);
+  border-radius: 18px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 .panel-header.compact { padding: 6px 10px; position: sticky; top: 0; z-index: 2; background: var(--color-background); }
-.panel-content.compact { padding: 6px 10px 10px 10px; }
+.panel-content.compact { padding: 8px 10px 10px 10px; }
 
 /* 数据加载提示样式 */
 .data-loading {
@@ -954,6 +976,12 @@ watch(isPanelOpen, (isOpen) => {
     padding: 6px 8px 8px 8px;
   }
 
+  .panel-shell {
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+    overflow: auto;
+  }
+
   /* 确保面板内所有文本元素自动换行 */
   .panel-content *,
   .panel-overlay * {
@@ -1177,6 +1205,11 @@ watch(isPanelOpen, (isOpen) => {
   .panel-content {
     padding: 6px;
     font-size: 0.9em;
+  }
+
+  .panel-shell {
+    border-radius: 12px;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
   }
 
   .loading-title {

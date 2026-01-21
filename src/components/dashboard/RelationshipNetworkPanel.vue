@@ -1,8 +1,13 @@
 <template>
   <div class="relationship-network-panel">
     <div class="panel-content">
+      <div class="view-mode-tabs">
+        <button class="view-tab" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">列表</button>
+        <button class="view-tab" :class="{ active: viewMode === 'graph' }" @click="viewMode = 'graph'">关系网</button>
+        <span v-if="viewMode === 'graph'" class="view-hint">滚轮缩放，拖拽平移，点击节点进入详情</span>
+      </div>
       <!-- 人物关系列表 -->
-      <div class="relationships-container" :class="{ 'details-active': isDetailViewActive }">
+      <div v-if="viewMode === 'list'" class="relationships-container" :class="{ 'details-active': isDetailViewActive }">
         <!-- 左侧：人物列表 -->
         <div class="relationship-list">
           <div class="list-header">
@@ -819,6 +824,43 @@
           </div>
         </div>
       </div>
+
+      <div v-else class="relationship-graph">
+        <svg
+          ref="graphSvgRef"
+          class="graph-svg"
+          viewBox="0 0 900 600"
+          @wheel.prevent="onGraphWheel"
+          @pointerdown="onGraphPointerDown"
+          @pointermove="onGraphPointerMove"
+          @pointerup="onGraphPointerUp"
+          @pointerleave="onGraphPointerUp"
+        >
+          <g :transform="graphTransform">
+            <line
+              v-for="(e, idx) in graphEdges"
+              :key="idx"
+              :x1="graphNodeById[e.from]?.x ?? 0"
+              :y1="graphNodeById[e.from]?.y ?? 0"
+              :x2="graphNodeById[e.to]?.x ?? 0"
+              :y2="graphNodeById[e.to]?.y ?? 0"
+              class="graph-edge"
+              :style="{ stroke: getGraphEdgeColor(e), strokeWidth: getGraphEdgeWidth(e) }"
+            />
+
+            <g
+              v-for="n in graphNodes"
+              :key="n.id"
+              class="graph-node"
+              :transform="`translate(${n.x} ${n.y})`"
+              @click.stop="handleGraphNodeClick(n.id)"
+            >
+              <circle class="graph-node-dot" :r="n.kind === 'player' ? 18 : 14" :class="getGraphNodeClass(n.id)" />
+              <text class="graph-node-label" x="0" y="30" text-anchor="middle">{{ n.label }}</text>
+            </g>
+          </g>
+        </svg>
+      </div>
     </div>
   </div>
 </template>
@@ -947,12 +989,211 @@ onActivated(() => {
 const { t } = useI18n();
 const characterData = computed(() => gameStateStore.getCurrentSaveData());
 const actionQueue = useActionQueueStore();
-const uiStore = useUIStore();
-const characterStore = useCharacterStore();
-const isLoading = ref(false);
-const selectedPerson = ref<NpcProfile | null>(null);
-const searchQuery = ref('');
-const isDetailViewActive = ref(false); // 用于移动端视图切换
+  const uiStore = useUIStore();
+  const characterStore = useCharacterStore();
+  const isLoading = ref(false);
+  const selectedPerson = ref<NpcProfile | null>(null);
+  const searchQuery = ref('');
+  const isDetailViewActive = ref(false); // 用于移动端视图切换
+  const viewMode = ref<'list' | 'graph'>('list');
+
+  type RelationshipMatrixEdge = {
+    from: string;
+    to: string;
+    relation?: string;
+    score?: number;
+    tags?: string[];
+    updatedAt?: string;
+  };
+
+  type GraphNode = {
+    id: string;
+    label: string;
+    kind: 'player' | 'npc' | 'extra';
+    x: number;
+    y: number;
+  };
+
+  const GRAPH_W = 900;
+  const GRAPH_H = 600;
+  const graphSvgRef = ref<SVGSVGElement | null>(null);
+  const graphScale = ref(1);
+  const graphTranslate = ref({ x: 0, y: 0 });
+  const graphPanning = ref(false);
+  const graphPanStart = ref({ x: 0, y: 0, tx: 0, ty: 0 });
+
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  const graphTransform = computed(() => `translate(${graphTranslate.value.x} ${graphTranslate.value.y}) scale(${graphScale.value})`);
+
+  const playerName = computed(() => {
+    const anySave = characterData.value as any;
+    const name = anySave?.角色?.身份?.名字 || anySave?.角色?.名字;
+    return typeof name === 'string' && name.trim() ? name.trim() : '玩家';
+  });
+  const playerNodeId = '玩家';
+
+  const relationshipMatrixEdges = computed<RelationshipMatrixEdge[]>(() => {
+    const raw = (characterData.value as any)?.社交?.关系矩阵?.edges;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((e: any) => e && typeof e === 'object')
+      .map((e: any) => ({
+        from: String(e.from ?? '').trim(),
+        to: String(e.to ?? '').trim(),
+        relation: typeof e.relation === 'string' ? e.relation : undefined,
+        score: typeof e.score === 'number' && Number.isFinite(e.score) ? e.score : undefined,
+        tags: Array.isArray(e.tags) ? e.tags.filter((t: any) => typeof t === 'string' && t.trim()) : undefined,
+        updatedAt: typeof e.updatedAt === 'string' ? e.updatedAt : undefined,
+      }))
+      .filter((e: RelationshipMatrixEdge) => e.from && e.to);
+  });
+
+  const graphEdges = computed<RelationshipMatrixEdge[]>(() => {
+    const base = relationships.value.map((npc) => ({
+      from: playerNodeId,
+      to: npc.名字,
+      relation: npc.与玩家关系 || '相识',
+      score: typeof npc.好感度 === 'number' ? npc.好感度 : 0,
+    }));
+
+    const extra = relationshipMatrixEdges.value
+      .map((e) => ({
+        ...e,
+        from: e.from === '玩家' ? playerNodeId : e.from,
+        to: e.to === '玩家' ? playerNodeId : e.to,
+      }))
+      .filter((e) => e.from !== e.to);
+
+    const seen = new Set<string>();
+    const merged: RelationshipMatrixEdge[] = [];
+    for (const e of [...base, ...extra]) {
+      const a = e.from.trim();
+      const b = e.to.trim();
+      if (!a || !b) continue;
+      const [k1, k2] = a < b ? [a, b] : [b, a];
+      const key = `${k1}::${k2}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push({ ...e, from: a, to: b });
+    }
+    return merged;
+  });
+
+  const graphNodes = computed<GraphNode[]>(() => {
+    const nodeIds = new Set<string>();
+    nodeIds.add(playerNodeId);
+    for (const npc of relationships.value) nodeIds.add(npc.名字);
+    for (const e of relationshipMatrixEdges.value) {
+      if (e.from) nodeIds.add(e.from === '玩家' ? playerNodeId : e.from);
+      if (e.to) nodeIds.add(e.to === '玩家' ? playerNodeId : e.to);
+    }
+
+    const others = Array.from(nodeIds).filter((id) => id !== playerNodeId);
+    const centerX = GRAPH_W / 2;
+    const centerY = GRAPH_H / 2;
+    const radius = clamp(180 + others.length * 6, 200, 320);
+
+    const nodes: GraphNode[] = [];
+    nodes.push({ id: playerNodeId, label: playerName.value, kind: 'player', x: centerX, y: centerY });
+    others.forEach((id, index) => {
+      const angle = (2 * Math.PI * index) / Math.max(1, others.length);
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      const isNpc = relationships.value.some((n) => n.名字 === id);
+      nodes.push({ id, label: id, kind: isNpc ? 'npc' : 'extra', x, y });
+    });
+
+    return nodes;
+  });
+
+  const graphNodeById = computed<Record<string, GraphNode>>(() => {
+    const map: Record<string, GraphNode> = {};
+    for (const n of graphNodes.value) map[n.id] = n;
+    return map;
+  });
+
+  const getGraphEdgeColor = (e: RelationshipMatrixEdge): string => {
+    const score = typeof e.score === 'number' ? e.score : 0;
+    if (score >= 60) return 'rgba(236, 72, 153, 0.55)'; // 亲密/粉
+    if (score >= 20) return 'rgba(34, 197, 94, 0.55)'; // 友好/绿
+    if (score <= -40) return 'rgba(239, 68, 68, 0.55)'; // 敌对/红
+    if (score < 0) return 'rgba(245, 158, 11, 0.55)'; // 不佳/橙
+    const rel = String(e.relation ?? '');
+    if (rel.includes('仇') || rel.includes('敌')) return 'rgba(239, 68, 68, 0.55)';
+    return 'rgba(107, 114, 128, 0.45)';
+  };
+
+  const getGraphEdgeWidth = (e: RelationshipMatrixEdge): string => {
+    const score = typeof e.score === 'number' ? Math.abs(e.score) : 0;
+    return `${clamp(1.2 + score / 30, 1.2, 5)}`;
+  };
+
+  const getGraphNodeClass = (id: string): string => {
+    if (id === playerNodeId) return 'player';
+    if (selectedPerson.value?.名字 === id) return 'selected';
+    return '';
+  };
+
+  const toGraphPoint = (evt: PointerEvent | WheelEvent): { x: number; y: number } | null => {
+    const svg = graphSvgRef.value;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const x = ((evt.clientX - rect.left) / rect.width) * GRAPH_W;
+    const y = ((evt.clientY - rect.top) / rect.height) * GRAPH_H;
+    return { x, y };
+  };
+
+  const onGraphWheel = (evt: WheelEvent) => {
+    const p = toGraphPoint(evt);
+    if (!p) return;
+    const prevScale = graphScale.value;
+    const nextScale = clamp(prevScale * Math.exp(-evt.deltaY * 0.001), 0.35, 3);
+    if (nextScale === prevScale) return;
+
+    const wx = (p.x - graphTranslate.value.x) / prevScale;
+    const wy = (p.y - graphTranslate.value.y) / prevScale;
+    graphScale.value = nextScale;
+    graphTranslate.value.x = p.x - wx * nextScale;
+    graphTranslate.value.y = p.y - wy * nextScale;
+  };
+
+  const onGraphPointerDown = (evt: PointerEvent) => {
+    if ((evt.target as Element | null)?.closest('.graph-node')) return;
+    const p = toGraphPoint(evt);
+    if (!p) return;
+    graphPanning.value = true;
+    graphPanStart.value = { x: p.x, y: p.y, tx: graphTranslate.value.x, ty: graphTranslate.value.y };
+    graphSvgRef.value?.setPointerCapture?.(evt.pointerId);
+  };
+
+  const onGraphPointerMove = (evt: PointerEvent) => {
+    if (!graphPanning.value) return;
+    const p = toGraphPoint(evt);
+    if (!p) return;
+    graphTranslate.value.x = graphPanStart.value.tx + (p.x - graphPanStart.value.x);
+    graphTranslate.value.y = graphPanStart.value.ty + (p.y - graphPanStart.value.y);
+  };
+
+  const onGraphPointerUp = (evt: PointerEvent) => {
+    if (!graphPanning.value) return;
+    graphPanning.value = false;
+    try {
+      graphSvgRef.value?.releasePointerCapture?.(evt.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleGraphNodeClick = (nodeId: string) => {
+    if (nodeId === playerNodeId) return;
+    const npc = relationships.value.find((n) => n.名字 === nodeId);
+    if (!npc) return;
+    selectPerson(npc);
+    isDetailViewActive.value = true;
+    viewMode.value = 'list';
+  };
 
 const privacy = computed<PrivacyProfile | null>(() => selectedPerson.value?.私密信息 ?? null);
 const privacyLastTime = computed(() => normalizeNonEmptyString(privacy.value?.最近一次性行为时间) ?? '');
@@ -2191,33 +2432,207 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 .panel-content {
   flex: 1;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.view-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.view-tab {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.view-tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.view-tab:hover {
+  color: var(--color-text);
+  border-color: rgba(59, 130, 246, 0.3);
+  background: var(--color-surface);
+  transform: translateY(-1px);
+}
+
+.view-tab:hover::before {
+  opacity: 1;
+}
+
+.view-tab.active {
+  color: white;
+  border-color: var(--color-primary);
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.view-tab.active::before {
+  opacity: 0;
+}
+
+.view-hint {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
 }
 
 .relationships-container {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   background: var(--color-surface);
   overflow: hidden;
 }
 
+.relationship-graph {
+  flex: 1;
+  min-height: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.03) 0%, var(--color-surface) 100%);
+  border-top: 1px solid var(--color-border);
+  position: relative;
+}
+
+.graph-svg {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.02) 0%,
+    rgba(147, 51, 234, 0.02) 50%,
+    rgba(236, 72, 153, 0.02) 100%);
+}
+
+.graph-edge {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.2));
+}
+
+.graph-edge:hover {
+  stroke-width: 3 !important;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
+}
+
+.graph-node {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.graph-node:hover .graph-node-dot {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+}
+
+.graph-node-dot {
+  fill: rgba(59, 130, 246, 0.15);
+  stroke: rgba(59, 130, 246, 0.8);
+  stroke-width: 2.5;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3));
+}
+
+.graph-node-dot.player {
+  fill: rgba(147, 51, 234, 0.25);
+  stroke: rgba(147, 51, 234, 1);
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 12px rgba(147, 51, 234, 0.6));
+  animation: pulse-player 2s ease-in-out infinite;
+}
+
+@keyframes pulse-player {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px rgba(147, 51, 234, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(147, 51, 234, 0.8));
+  }
+}
+
+.graph-node-dot.selected {
+  fill: rgba(34, 197, 94, 0.25);
+  stroke: rgba(34, 197, 94, 1);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.6));
+  animation: pulse-selected 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-selected {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.graph-node-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--color-text);
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  transition: all 0.3s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.graph-node:hover .graph-node-label {
+  font-size: 14px;
+  fill: var(--color-primary);
+  stroke-width: 5px;
+}
+
 .relationship-list {
-  width: 280px; /* 窄一点 */
+  width: 300px;
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.02) 0%, transparent 100%);
 }
 
 .list-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--color-border);
+  padding: 1.25rem;
+  border-bottom: 2px solid var(--color-border);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
 }
 
 .panel-title {
   margin: 0 0 1rem 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-primary);
+  font-size: 1.35rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #3b82f6, #9333ea);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   text-align: center;
+  letter-spacing: 0.5px;
 }
 
 .search-bar {
@@ -2225,14 +2640,26 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   display: flex;
   align-items: center;
   background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.65rem 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.search-bar:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: var(--color-surface);
 }
 
 .search-bar svg {
   color: var(--color-text-secondary);
-  margin-right: 0.5rem;
+  margin-right: 0.65rem;
+  transition: color 0.3s ease;
+}
+
+.search-bar:focus-within svg {
+  color: var(--color-primary);
 }
 
 .search-input {
@@ -2241,7 +2668,13 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   outline: none;
   background: transparent;
   color: var(--color-text);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.6;
 }
 
 .list-content {
@@ -2285,24 +2718,48 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 .person-card {
   display: flex;
   align-items: center;
-  padding: 0.75rem; /* 更紧凑 */
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  padding: 0.85rem;
+  background: linear-gradient(135deg, var(--color-background) 0%, rgba(59, 130, 246, 0.02) 100%);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.person-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .person-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15), 0 2px 8px rgba(59, 130, 246, 0.1);
+  transform: translateY(-2px);
+}
+
+.person-card:hover::before {
+  opacity: 1;
 }
 
 .person-card.selected {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(147, 51, 234, 0.12));
   border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25), 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: translateY(-2px);
+}
+
+.person-card.selected::before {
+  opacity: 1;
 }
 
 .person-avatar {
@@ -2312,28 +2769,60 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 700;
   color: white;
-  margin-right: 0.75rem;
+  margin-right: 0.85rem;
   flex-shrink: 0;
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.person-card:hover .person-avatar {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.person-card.selected .person-avatar {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+  animation: avatar-pulse 2s ease-in-out infinite;
+}
+
+@keyframes avatar-pulse {
+  0%, 100% {
+    box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(34, 197, 94, 0.6);
+  }
 }
 
 .avatar-text {
   font-size: 1.2rem;
+  font-weight: 700;
 }
 
 .person-info {
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .person-name {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text);
   margin-bottom: 0.5rem;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
+  transition: color 0.3s ease;
+}
+
+.person-card:hover .person-name {
+  color: var(--color-primary);
 }
 
 .person-meta {
@@ -2345,12 +2834,19 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .relationship-type {
-  background: rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(147, 51, 234, 0.12));
   color: var(--color-primary);
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 3px 10px;
+  border-radius: 14px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+}
+
+.person-card:hover .relationship-type {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(147, 51, 234, 0.18));
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .attention-toggle {
@@ -2415,54 +2911,65 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 .intimacy-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .intimacy-bar {
   flex: 1;
-  height: 4px;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 2px;
+  height: 6px;
+  background: rgba(59, 130, 246, 0.12);
+  border-radius: 3px;
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .intimacy-fill {
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  border-radius: 3px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px currentColor;
 }
 
 .intimacy-high {
   background: linear-gradient(90deg, #22c55e, #16a34a);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
 }
 .intimacy-good {
   background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
 }
 .intimacy-medium {
   background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
 }
 .intimacy-low {
   background: linear-gradient(90deg, #f59e0b, #d97706);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
 }
 .intimacy-neutral {
   background: linear-gradient(90deg, #6b7280, #4b5563);
+  box-shadow: 0 0 8px rgba(107, 114, 128, 0.4);
 }
 .intimacy-dislike {
   background: linear-gradient(90deg, #f97316, #ea580c);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
 }
 .intimacy-hostile {
   background: linear-gradient(90deg, #dc2626, #b91c1c);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.5);
 }
 .intimacy-enemy {
   background: linear-gradient(90deg, #ef4444, #dc2626);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
 }
 
 .intimacy-value {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  min-width: 30px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 35px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .npc-core-stats {

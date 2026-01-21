@@ -42,6 +42,7 @@ export interface EnhancedWorldGenConfig {
   characterBackground?: string;
   mapConfig?: WorldMapConfig;
   onStreamChunk?: (chunk: string) => void; // 流式输出回调
+  useStreaming?: boolean; // 是否使用流式传输（默认true）
   enableHehuanEasterEgg?: boolean; // 是否启用合欢宗彩蛋（仅在地图初始化时启用）
   existingFactions?: Array<{ 名称: string; 位置?: any; 势力范围?: any[] }>; // 现有势力（防止重叠）
   existingLocations?: Array<{ 名称: string; coordinates?: any }>; // 现有地点（防止重叠）
@@ -136,7 +137,7 @@ export class EnhancedWorldGenerator {
 
       const response = await tavern.generateRaw({
         ordered_prompts: orderedPrompts,
-        should_stream: true,
+        should_stream: this.config.useStreaming !== false,
         usageType: 'world_generation',
         overrides: {
           world_info_before: '',

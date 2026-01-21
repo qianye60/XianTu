@@ -21,6 +21,7 @@ import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import { isTavernEnv } from '@/utils/tavern';
 import { ensureSystemConfigHasNsfw } from '@/utils/nsfw';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { normalizeInventoryCurrencies } from '@/utils/currencySystem';
 
 function buildTechniqueProgress(inventory: Inventory | null) {
   const progress: Record<string, { 熟练度: number; 已解锁技能: string[] }> = {};
@@ -281,6 +282,8 @@ export const useGameStateStore = defineStore('gameState', {
       }
 
       this.inventory = inventory;
+      // 兼容旧存档/旧字段：确保货币系统已迁移（避免打开背包卡死/显示异常）
+      normalizeInventoryCurrencies(this.inventory);
       this.equipment = equipment;
       this.relationships = relationships;
       this.worldInfo = worldInfo;

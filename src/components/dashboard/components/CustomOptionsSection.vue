@@ -2,7 +2,7 @@
   <div class="variable-section">
     <div class="section-header">
       <h3 class="section-title">{{ type === 'chat' ? 'Chat Variables (聊天变量)' : type === 'core' ? 'Core Data (核心数据)' : 'Custom Options (自定义选项)' }}</h3>
-      <button @click="$emit('add-new-variable', type)" class="add-btn" :disabled="readOnly">
+      <button v-if="canEdit" @click="$emit('add-new-variable', type)" class="add-btn" :disabled="readOnly">
         <Plus :size="14" />
         <span>新增变量</span>
       </button>
@@ -15,13 +15,13 @@
             <span class="variable-key">{{ key }}</span>
             <span class="variable-type">{{ getDataType(value) }}</span>
             <div class="variable-actions">
-              <button @click="$emit('edit-variable', { type, key, value })" class="action-btn edit" title="编辑" :disabled="readOnly">
+              <button v-if="canEdit" @click="$emit('edit-variable', { type, key, value })" class="action-btn edit" title="编辑" :disabled="readOnly">
                 <Edit3 :size="12" />
               </button>
               <button @click="$emit('copy-variable', { key, value })" class="action-btn copy" title="复制">
                 <Copy :size="12" />
               </button>
-              <button @click="$emit('delete-variable', { type, key })" class="action-btn delete" title="删除" :disabled="readOnly">
+              <button v-if="canEdit" @click="$emit('delete-variable', { type, key })" class="action-btn delete" title="删除" :disabled="readOnly">
                 <Trash2 :size="12" />
               </button>
             </div>
@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { Plus, Edit3, Copy, Trash2, Package } from 'lucide-vue-next'
+import { computed } from 'vue'
 
 type GameVariableValue = string | number | boolean | object | null | undefined
 
@@ -72,7 +73,7 @@ interface Props {
   coreDataViews?: Record<string, GameVariableValue>
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   readOnly: false
 })
 
@@ -83,6 +84,8 @@ defineEmits<{
   (e: 'add-new-variable', type: string): void
   (e: 'debug-log'): void
 }>()
+
+const canEdit = computed(() => props.type === 'chat')
 
 const getDataType = (value: GameVariableValue): string => {
   if (value === null) return 'null'

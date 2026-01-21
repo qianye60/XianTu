@@ -3,41 +3,67 @@
     <VideoBackground />
 
     <div class="workshop-panel">
-      <div class="header">
-        <div class="title-row">
-          <div class="title-group">
-            <span class="title-icon">✦</span>
-            <h2 class="title">创意工坊</h2>
+      <!-- 顶部标题区域 - 增加层次感 -->
+      <div class="header-section">
+        <div class="header-bg"></div>
+        <div class="header-content">
+          <div class="title-row">
+            <div class="title-group">
+              <div class="title-icon-wrapper">
+                <Store :size="20" />
+              </div>
+              <h2 class="title">创意工坊</h2>
+            </div>
+            <div v-if="backendReady" class="auth-pill" :class="{ ok: authState === 'authed', warn: authState !== 'authed' }">
+              <CheckCircle v-if="authState === 'authed'" :size="14" />
+              <AlertCircle v-else-if="authState === 'unauthed'" :size="14" />
+              <Loader2 v-else :size="14" class="spin" />
+              <span v-if="authState === 'checking'">检测中</span>
+              <span v-else-if="authState === 'authed'">已验证</span>
+              <span v-else>未验证</span>
+              <button v-if="authState !== 'authed'" class="pill-link" @click="goLogin">去验证</button>
+              <button class="pill-link" @click="refreshAuth">
+                <RefreshCw :size="12" />
+              </button>
+            </div>
+            <div v-else class="auth-pill warn">
+              <AlertCircle :size="14" />
+              <span>未配置后端</span>
+            </div>
           </div>
-          <div v-if="backendReady" class="auth-pill" :class="{ ok: authState === 'authed', warn: authState !== 'authed' }">
-            <span v-if="authState === 'checking'">检测中…</span>
-            <span v-else-if="authState === 'authed'">已验证</span>
-            <span v-else>未验证</span>
-            <button v-if="authState !== 'authed'" class="pill-link" @click="goLogin">去验证</button>
-            <button class="pill-link" @click="refreshAuth">刷新</button>
-          </div>
-          <div v-else class="auth-pill warn">
-            <span>未配置后端</span>
-          </div>
+          <p class="subtitle">分享设置、提示词、开局配置、存档</p>
+          <p class="notice">
+            <Info :size="12" />
+            工坊内容仅对<strong>单机本地</strong>生效，联机模式由后端控制
+          </p>
         </div>
-        <p class="subtitle">分享设置、提示词、开局配置、存档</p>
-        <p class="notice">
-          工坊内容仅对<strong>单机本地</strong>生效，联机模式由后端控制。
-        </p>
       </div>
 
       <div v-if="!backendReady" class="backend-locked">
-        <p>未配置后端服务器，创意工坊不可用。</p>
+        <ServerOff :size="48" class="locked-icon" />
+        <p>未配置后端服务器，创意工坊不可用</p>
         <div class="actions">
-          <button class="btn btn-secondary" @click="goBack">返回</button>
+          <button class="btn btn-secondary" @click="goBack">
+            <ArrowLeft :size="16" />
+            返回
+          </button>
         </div>
       </div>
 
       <template v-else>
       <div class="tabs">
-        <button class="tab" :class="{ active: activeTab === 'browse' }" @click="switchTab('browse')">浏览</button>
-        <button class="tab" :class="{ active: activeTab === 'mine' }" @click="switchTab('mine')">我的发布</button>
-        <button class="tab" :class="{ active: activeTab === 'upload' }" @click="switchTab('upload')">上传</button>
+        <button class="tab" :class="{ active: activeTab === 'browse' }" @click="switchTab('browse')">
+          <Compass :size="16" />
+          <span>浏览</span>
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'mine' }" @click="switchTab('mine')">
+          <User :size="16" />
+          <span>我的发布</span>
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'upload' }" @click="switchTab('upload')">
+          <Upload :size="16" />
+          <span>上传</span>
+        </button>
       </div>
 
       <div v-if="activeTab !== 'upload'" class="browse scroll-content">
@@ -49,42 +75,76 @@
             <option value="saves">单机存档</option>
             <option value="start_config">开局配置</option>
           </select>
-          <input v-model="query" class="input" :placeholder="isMineTab ? '搜索标题 / 说明' : '搜索标题 / 作者 / 说明'" />
-          <select v-model.number="pageSize" class="input">
+          <div class="search-input-wrapper">
+            <Search :size="14" class="search-icon" />
+            <input v-model="query" class="input search-input" :placeholder="isMineTab ? '搜索标题 / 说明' : '搜索标题 / 作者 / 说明'" />
+          </div>
+          <select v-model.number="pageSize" class="input page-size-select">
             <option v-for="size in pageSizeOptions" :key="size" :value="size">
               每页 {{ size }} 个
             </option>
           </select>
-          <button class="btn btn-secondary" @click="refreshList" :disabled="loadingList">刷新</button>
+          <button class="btn btn-icon-only" @click="refreshList" :disabled="loadingList" title="刷新">
+            <RefreshCw :size="16" :class="{ spin: loadingList }" />
+          </button>
         </div>
 
         <div v-if="isMineTab" class="manage-bar">
-          <div class="manage-title">我的发布管理</div>
+          <div class="manage-title">
+            <Folder :size="16" />
+            我的发布管理
+          </div>
           <div class="manage-meta">仅显示自己发布的内容 · 共 {{ total }} 条</div>
         </div>
 
-        <div v-if="loadingList" class="loading">加载中…</div>
+        <div v-if="loadingList" class="loading">
+          <Loader2 :size="24" class="spin" />
+          <span>加载中…</span>
+        </div>
         <div v-else-if="items.length === 0" class="empty">
+          <Package :size="40" class="empty-icon" />
           <p>暂无内容</p>
         </div>
         <div v-else class="item-list">
-          <div v-for="item in items" :key="item.id" class="item-card">
-            <div class="item-top">
-              <div class="item-title">{{ item.title }}</div>
-              <div class="item-type">{{ typeLabel[item.type] || item.type }}</div>
+          <div
+            v-for="item in items"
+            :key="item.id"
+            class="item-card"
+            @click="openDetailModal(item)"
+          >
+            <div class="item-header">
+              <div class="item-type-badge">
+                <component :is="typeIcon[item.type]" :size="12" />
+                {{ typeLabel[item.type] || item.type }}
+              </div>
+              <div class="item-stats">
+                <span class="stat-item downloads" :title="`${item.downloads} 次下载`">
+                  <Download :size="11" />
+                  <span class="stat-value">{{ item.downloads }}</span>
+                </span>
+              </div>
             </div>
+            <div class="item-title" :title="item.title">{{ item.title }}</div>
             <div v-if="item.description" class="item-desc">{{ item.description }}</div>
             <div class="item-meta">
-              <span>作者：{{ item.author_name }}</span>
-              <span v-if="item.game_version">版本：{{ item.game_version }}</span>
-              <span>下载：{{ item.downloads }}</span>
+              <span class="meta-author" :title="item.author_name">
+                <UserCircle :size="12" />
+                {{ item.author_name }}
+              </span>
+              <span v-if="item.game_version" class="meta-version">{{ item.game_version }}</span>
             </div>
             <div v-if="item.tags?.length" class="tags">
               <span v-for="t in item.tags" :key="t" class="tag">{{ t }}</span>
             </div>
-            <div class="item-actions">
-              <button class="btn btn-secondary" @click="openDownload(item.id)">下载</button>
-              <button v-if="isMineTab" class="btn danger" @click="deleteItem(item)">删除</button>
+            <div class="item-actions" @click.stop>
+              <button class="btn btn-sm btn-primary" @click="openDownload(item.id)">
+                <Download :size="14" />
+                下载
+              </button>
+              <button v-if="isMineTab" class="btn btn-sm danger" @click="deleteItem(item)">
+                <Trash2 :size="14" />
+                删除
+              </button>
             </div>
           </div>
         </div>
@@ -95,18 +155,28 @@
             <span>第 {{ page }} / {{ totalPages }} 页</span>
           </div>
           <div class="page-controls">
-            <button class="btn btn-secondary" @click="goPrevPage" :disabled="page <= 1">上一页</button>
-            <button class="btn" @click="goNextPage" :disabled="page >= totalPages">下一页</button>
+            <button class="btn btn-secondary btn-sm" @click="goPrevPage" :disabled="page <= 1">
+              <ChevronLeft :size="16" />
+              上一页
+            </button>
+            <button class="btn btn-sm" @click="goNextPage" :disabled="page >= totalPages">
+              下一页
+              <ChevronRight :size="16" />
+            </button>
           </div>
         </div>
       </div>
 
       <div v-else class="upload scroll-content">
         <div v-if="authState !== 'authed'" class="upload-locked">
-          <p>上传需要先完成账号验证（用于标识作者与权限控制）。</p>
+          <Lock :size="32" class="locked-icon" />
+          <p>上传需要先完成账号验证（用于标识作者与权限控制）</p>
           <div class="actions">
             <button class="btn btn-secondary" @click="goLogin">去验证</button>
-            <button class="btn" @click="refreshAuth">刷新</button>
+            <button class="btn" @click="refreshAuth">
+              <RefreshCw :size="14" />
+              刷新
+            </button>
           </div>
         </div>
         <div v-else class="upload-form">
@@ -136,64 +206,162 @@
             <label class="label">内容</label>
             <div class="content-actions">
               <button v-if="uploadType === 'settings'" class="btn btn-secondary" @click="loadLocalSettings">
+                <Settings :size="14" />
                 从本地读取设置
               </button>
               <button v-if="uploadType === 'prompts'" class="btn btn-secondary" @click="loadLocalPrompts">
+                <FileText :size="14" />
                 从本地导出提示词
               </button>
               <label class="file-btn btn btn-secondary">
+                <File :size="14" />
                 选择 JSON 文件
                 <input type="file" accept=".json,application/json" @change="handleUploadFile" hidden />
               </label>
-              <span class="hint" v-if="payloadHint">{{ payloadHint }}</span>
+              <span class="hint" v-if="payloadHint">
+                <CheckCircle :size="12" />
+                {{ payloadHint }}
+              </span>
             </div>
           </div>
 
-          <div class="actions">
-            <button class="btn btn-secondary" @click="goBack">返回</button>
-            <button class="btn" @click="submitUpload" :disabled="uploading">
+          <div class="actions upload-actions">
+            <button class="btn btn-secondary" @click="goBack">
+              <ArrowLeft :size="16" />
+              返回
+            </button>
+            <button class="btn btn-primary" @click="submitUpload" :disabled="uploading">
+              <Upload :size="16" v-if="!uploading" />
+              <Loader2 :size="16" class="spin" v-else />
               {{ uploading ? '上传中…' : '上传到工坊' }}
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="activeTab !== 'upload'" class="actions">
-        <button class="btn btn-secondary" @click="goBack">返回</button>
-      </div>
       </template>
+
+      <!-- 底部返回按钮 -->
+      <div v-if="backendReady && activeTab !== 'upload'" class="footer-actions">
+        <button class="btn btn-secondary" @click="goBack">
+          <ArrowLeft :size="16" />
+          返回
+        </button>
+      </div>
 
     </div>
 
 
-    <!-- 下载/导入弹窗 -->
+    <!-- 详情弹窗 -->
+    <div v-if="detailModal.open" class="modal-overlay" @click.self="closeDetailModal">
+      <div class="modal detail-modal">
+        <div class="modal-header">
+          <h3>
+            <component :is="typeIcon[detailModal.item?.type || 'settings']" :size="18" />
+            {{ detailModal.item?.title }}
+          </h3>
+          <button class="close-btn" @click="closeDetailModal">
+            <X :size="18" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">类型</span>
+              <span class="detail-value">
+                <span class="item-type-badge">
+                  <component :is="typeIcon[detailModal.item?.type || 'settings']" :size="12" />
+                  {{ typeLabel[detailModal.item?.type || ''] }}
+                </span>
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">作者</span>
+              <span class="detail-value">
+                <UserCircle :size="14" />
+                {{ detailModal.item?.author_name }}
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">下载次数</span>
+              <span class="detail-value downloads-value">
+                <Download :size="14" />
+                {{ detailModal.item?.downloads }}
+              </span>
+            </div>
+            <div v-if="detailModal.item?.game_version" class="detail-row">
+              <span class="detail-label">游戏版本</span>
+              <span class="detail-value">{{ detailModal.item?.game_version }}</span>
+            </div>
+            <div v-if="detailModal.item?.tags?.length" class="detail-row">
+              <span class="detail-label">标签</span>
+              <div class="detail-tags">
+                <span v-for="t in detailModal.item?.tags" :key="t" class="tag">{{ t }}</span>
+              </div>
+            </div>
+            <div v-if="detailModal.item?.description" class="detail-row desc-row">
+              <span class="detail-label">说明</span>
+              <p class="detail-desc">{{ detailModal.item?.description }}</p>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" @click="closeDetailModal">关闭</button>
+            <button class="btn btn-primary" @click="openDownloadFromDetail">
+              <Download :size="16" />
+              下载
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <!-- 下载/导入弹窗 -->
     <div v-if="downloadModal.open" class="modal-overlay" @click.self="closeDownloadModal">
       <div class="modal">
         <div class="modal-header">
-          <h3>下载内容</h3>
-          <button class="close-btn" @click="closeDownloadModal">&times;</button>
+          <h3>
+            <Download :size="18" />
+            下载内容
+          </h3>
+          <button class="close-btn" @click="closeDownloadModal">
+            <X :size="18" />
+          </button>
         </div>
-        <div v-if="downloadModal.loading" class="modal-body">加载中…</div>
+        <div v-if="downloadModal.loading" class="modal-body loading-body">
+          <Loader2 :size="24" class="spin" />
+          <span>加载中…</span>
+        </div>
         <div v-else class="modal-body">
           <div class="modal-info">
             <div class="modal-title">{{ downloadModal.item?.title }}</div>
             <div class="modal-sub">
-              <span v-if="downloadModal.item">类型：{{ typeLabel[downloadModal.item.type] || downloadModal.item.type }}</span>
-              <span v-if="downloadModal.item?.author_name">作者：{{ downloadModal.item.author_name }}</span>
-              <span v-if="downloadModal.item?.game_version">版本：{{ downloadModal.item.game_version }}</span>
+              <span v-if="downloadModal.item">
+                <component :is="typeIcon[downloadModal.item.type]" :size="12" />
+                {{ typeLabel[downloadModal.item.type] || downloadModal.item.type }}
+              </span>
+              <span v-if="downloadModal.item?.author_name">
+                <UserCircle :size="12" />
+                {{ downloadModal.item.author_name }}
+              </span>
+              <span v-if="downloadModal.item?.game_version">{{ downloadModal.item.game_version }}</span>
             </div>
           </div>
 
           <div class="modal-actions">
-            <button class="btn btn-secondary" @click="downloadAsFile">下载为文件</button>
-            <button v-if="downloadModal.item?.type === 'settings'" class="btn" @click="applySettingsFromPayload">
+            <button class="btn btn-secondary" @click="downloadAsFile">
+              <FileDown :size="16" />
+              下载为文件
+            </button>
+            <button v-if="downloadModal.item?.type === 'settings'" class="btn btn-primary" @click="applySettingsFromPayload">
+              <Import :size="16" />
               导入到本地设置
             </button>
-            <button v-if="downloadModal.item?.type === 'prompts'" class="btn" @click="applyPromptsFromPayload">
+            <button v-if="downloadModal.item?.type === 'prompts'" class="btn btn-primary" @click="applyPromptsFromPayload">
+              <Import :size="16" />
               导入到本地提示词
             </button>
-            <button v-if="downloadModal.item?.type === 'start_config'" class="btn" @click="applyStartConfigFromPayload">
+            <button v-if="downloadModal.item?.type === 'start_config'" class="btn btn-primary" @click="applyStartConfigFromPayload">
+              <Import :size="16" />
               应用到开局配置
             </button>
           </div>
@@ -208,7 +376,10 @@
                 </option>
               </select>
             </div>
-            <button class="btn" :disabled="!targetCharId" @click="applySavesFromPayload">导入存档</button>
+            <button class="btn btn-primary" :disabled="!targetCharId" @click="applySavesFromPayload">
+              <Import :size="16" />
+              导入存档
+            </button>
           </div>
         </div>
       </div>
@@ -217,7 +388,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch, type Component } from 'vue';
 import { useRouter } from 'vue-router';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { verifyStoredToken } from '@/services/request';
@@ -229,6 +400,12 @@ import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConf
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
+import {
+  Store, CheckCircle, AlertCircle, Loader2, RefreshCw, Info, ServerOff, ArrowLeft,
+  Compass, User, Upload, Search, Folder, Package, Download, UserCircle, Trash2,
+  ChevronLeft, ChevronRight, Lock, Settings, FileText, File, X, FileDown, Import,
+  ScrollText, Save, PlayCircle
+} from 'lucide-vue-next';
 
 const router = useRouter();
 const characterStore = useCharacterStore();
@@ -258,6 +435,40 @@ const typeLabel: Record<string, string> = {
   prompts: '提示词',
   saves: '单机存档',
   start_config: '开局配置',
+};
+
+// 类型对应的图标
+const typeIcon: Record<string, Component> = {
+  settings: Settings,
+  prompts: ScrollText,
+  saves: Save,
+  start_config: PlayCircle,
+};
+
+// 详情弹窗
+const detailModal = ref<{
+  open: boolean;
+  item: WorkshopItemOut | null;
+}>({
+  open: false,
+  item: null,
+});
+
+const openDetailModal = (item: WorkshopItemOut) => {
+  detailModal.value.open = true;
+  detailModal.value.item = item;
+};
+
+const closeDetailModal = () => {
+  detailModal.value.open = false;
+  detailModal.value.item = null;
+};
+
+const openDownloadFromDetail = () => {
+  if (detailModal.value.item) {
+    openDownload(detailModal.value.item.id);
+    closeDetailModal();
+  }
 };
 
 const refreshAuth = async () => {
@@ -768,26 +979,28 @@ const submitUpload = async () => {
   height: 100svh;
   height: 100dvh;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  padding: 12px;
-  padding-top: calc(12px + env(safe-area-inset-top));
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .workshop-panel {
   width: 100%;
-  max-width: 880px;
-  height: 100%;
+  max-width: 960px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100svh - 32px);
+  max-height: calc(100dvh - 32px);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  padding: 20px 24px;
+  padding: 0;
   color: var(--color-text);
   display: flex;
   flex-direction: column;
@@ -795,18 +1008,29 @@ const submitUpload = async () => {
   min-height: 0;
 }
 
-.workshop-panel > .header {
+/* 顶部标题区域 - 层次感设计 */
+.header-section {
   flex: 0 0 auto;
+  position: relative;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(180deg,
+    rgba(147, 197, 253, 0.08) 0%,
+    rgba(147, 197, 253, 0.02) 50%,
+    transparent 100%
+  );
 }
 
-.workshop-panel > .tabs {
-  flex: 0 0 auto !important;
-  height: auto !important;
-  max-height: 50px;
+.header-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(147, 197, 253, 0.1) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-.workshop-panel > .actions {
-  flex: 0 0 auto;
+.header-content {
+  position: relative;
+  z-index: 1;
 }
 
 .title-row {
@@ -819,49 +1043,54 @@ const submitUpload = async () => {
 .title-group {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
-.title-icon {
-  font-size: 1.4rem;
+.title-icon-wrapper {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.2) 0%, rgba(147, 197, 253, 0.1) 100%);
+  border: 1px solid rgba(147, 197, 253, 0.3);
   color: var(--color-primary);
-  opacity: 0.8;
 }
 
 .title {
   margin: 0;
   font-family: var(--font-family-serif);
-  font-size: 1.5rem;
-  color: var(--color-primary);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .auth-pill {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-  color: var(--color-text);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   user-select: none;
   white-space: nowrap;
+  font-size: 0.8rem;
 }
 
 .auth-pill.ok {
-  border-color: var(--color-success);
-}
-
-.auth-pill.ok span {
-  color: var(--color-success);
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
 }
 
 .auth-pill.warn {
-  border-color: var(--color-warning);
-}
-
-.auth-pill.warn span:first-child {
-  color: var(--color-error);
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+  color: #f59e0b;
 }
 
 .pill-link {
@@ -869,82 +1098,85 @@ const submitUpload = async () => {
   background: transparent;
   color: var(--color-primary);
   cursor: pointer;
-  padding: 0;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: background 0.15s;
 }
 
 .pill-link:hover {
-  text-decoration: underline;
+  background: rgba(147, 197, 253, 0.15);
 }
 
 .subtitle {
   margin: 0.5rem 0 0;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-.notice {
-  margin: 0.4rem 0 0;
-  color: var(--color-text-muted);
   font-size: 0.85rem;
 }
 
-.actions {
-  margin-top: 1.25rem;
+.notice {
+  margin: 0.35rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
   display: flex;
-  justify-content: flex-start;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-.btn {
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
-}
-
-.btn:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-hover);
-}
-
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--color-surface);
-}
-
+/* Tabs */
 .tabs {
-  margin-top: 1rem;
-  margin-bottom: 0.75rem;
+  flex: 0 0 auto;
+  margin: 0.75rem 1.5rem 0;
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 0.5rem;
+  gap: 0.35rem;
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 4px;
-  flex: 0 0 auto;
-  height: auto;
 }
 
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: rgba(147, 197, 253, 0.05);
+}
+
+.tab.active {
+  background: var(--color-surface);
+  border-color: rgba(147, 197, 253, 0.3);
+  color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Content Area */
 .scroll-content {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  padding: 0 1.5rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(147, 197, 253, 0.3) transparent;
 }
 
 .scroll-content::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .scroll-content::-webkit-scrollbar-track {
@@ -952,75 +1184,101 @@ const submitUpload = async () => {
 }
 
 .scroll-content::-webkit-scrollbar-thumb {
-  background: rgba(147, 197, 253, 0.3);
+  background: rgba(147, 197, 253, 0.25);
   border-radius: 3px;
 }
 
 .scroll-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(147, 197, 253, 0.5);
+  background: rgba(147, 197, 253, 0.4);
 }
 
-.tab {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0.55rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-.tab.active {
-  background: var(--color-surface);
-  border-color: var(--color-primary);
-  color: var(--color-text);
-}
-
+/* Filters */
 .filters {
-  margin-top: 1rem;
-  display: grid;
-  grid-template-columns: 160px 1fr 160px auto;
-  gap: 0.75rem;
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.6rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
+.filters > select.input {
+  width: auto;
+  min-width: 120px;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  min-width: 180px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  padding-left: 2.2rem;
+}
+
+.page-size-select {
+  width: auto;
+  min-width: 100px;
+}
+
+.btn-icon-only {
+  padding: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Manage Bar */
 .manage-bar {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  background: var(--color-surface-light);
-  border: 1px solid var(--color-border);
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(147, 197, 253, 0.06);
+  border: 1px solid rgba(147, 197, 253, 0.15);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .manage-title {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .manage-meta {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
 }
 
+/* Input */
 .input {
   width: 100%;
-  padding: 0.75rem 0.9rem;
-  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
   outline: none;
+  font-size: 0.85rem;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--color-primary);
 }
 
 select.input {
@@ -1029,212 +1287,318 @@ select.input {
   -moz-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  padding-right: 2.5rem;
+  background-position: right 0.6rem center;
+  padding-right: 2rem;
   cursor: pointer;
 }
 
 select.input option {
   background: var(--color-surface);
   color: var(--color-text);
-  padding: 0.5rem;
 }
 
 .textarea {
-  min-height: 84px;
+  min-height: 80px;
   resize: vertical;
 }
 
+/* Loading & Empty */
 .loading {
-  margin-top: 1.25rem;
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
   color: var(--color-text-secondary);
+  font-size: 0.9rem;
 }
 
 .empty {
-  margin-top: 1.25rem;
-  padding: 1rem 1.25rem;
+  margin-top: 2rem;
+  padding: 2rem;
   border-radius: 12px;
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--color-text-muted);
 }
 
+.empty-icon {
+  opacity: 0.4;
+}
+
+.locked-icon {
+  opacity: 0.5;
+  color: var(--color-text-muted);
+}
+
+/* Item List */
 .item-list {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
 }
 
+/* Item Card */
 .item-card {
-  padding: 1rem 1.1rem;
-  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  min-height: 180px;
+  min-height: 165px;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .item-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-color: rgba(147, 197, 253, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 
-.item-top {
+.item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  flex-shrink: 0;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.item-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(147, 197, 253, 0.08);
+  white-space: nowrap;
+}
+
+.item-stats {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.stat-item.downloads {
+  color: #10b981;
+}
+
+.stat-value {
+  font-weight: 600;
 }
 
 .item-title {
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-  line-height: 1.4;
-}
-
-.item-type {
-  font-size: 0.72rem;
-  color: var(--color-primary);
-  border: 1px solid rgba(147, 197, 253, 0.3);
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(147, 197, 253, 0.1);
-  white-space: nowrap;
-  flex-shrink: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+  margin-bottom: 0.35rem;
+  word-break: break-word;
 }
 
 .item-desc {
-  margin-top: 0.5rem;
   color: var(--color-text-secondary);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.78rem;
+  line-height: 1.45;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  flex-shrink: 0;
-  min-height: 2.55em;
+  margin-bottom: 0.35rem;
 }
 
 .item-meta {
-  margin-top: 0.5rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.8rem;
-  color: var(--color-text-muted);
-  font-size: 0.78rem;
-  overflow: hidden;
-  flex-shrink: 0;
-  max-height: 1.8em;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  font-size: 0.72rem;
+  margin-bottom: 0.35rem;
 }
 
-.item-meta span {
-  white-space: nowrap;
+.meta-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-text-muted);
+}
+
+.meta-version {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  font-size: 0.68rem;
 }
 
 .tags {
-  margin-top: 0.5rem;
   display: flex;
-  gap: 0.35rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
   overflow: hidden;
-  max-height: 1.5rem;
-  flex-shrink: 0;
+  max-height: 1.4rem;
+  margin-bottom: 0.35rem;
 }
 
 .tag {
-  font-size: 0.68rem;
-  padding: 0.12rem 0.4rem;
-  border-radius: 999px;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-light);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .item-actions {
   margin-top: auto;
-  padding-top: 0.6rem;
+  padding-top: 0.5rem;
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.5rem 0.85rem;
+  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.15) 0%, rgba(147, 197, 253, 0.08) 100%);
+  border-color: rgba(147, 197, 253, 0.4);
+  color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.25) 0%, rgba(147, 197, 253, 0.15) 100%);
+  border-color: rgba(147, 197, 253, 0.5);
 }
 
 .btn.danger {
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
   color: #ef4444;
 }
 
 .btn.danger:hover {
-  background: rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.15);
 }
 
+/* Pagination */
 .pagination {
-  margin-top: 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .page-meta {
   display: flex;
-  gap: 1rem;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  gap: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
 }
 
 .page-controls {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
+/* Upload */
 .upload-locked {
-  margin-top: 1.25rem;
-  padding: 1rem 1.25rem;
-  border-radius: 14px;
+  margin-top: 2rem;
+  padding: 2rem;
+  border-radius: 12px;
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
 }
 
 .upload-form {
-  margin-top: 1.25rem;
+  margin-top: 1rem;
   display: grid;
-  gap: 0.9rem;
+  gap: 0.8rem;
 }
 
 .form-row {
   display: grid;
-  grid-template-columns: 110px minmax(300px, 600px);
-  gap: 0.75rem;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 0.6rem;
   align-items: start;
 }
 
 .label {
   color: var(--color-text);
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding-top: 0.55rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding-top: 0.5rem;
 }
 
 .content-actions {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -1242,14 +1606,53 @@ select.input option {
 .file-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .hint {
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #10b981;
+  font-size: 0.8rem;
 }
 
+.actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.6rem;
+}
+
+.upload-actions {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Footer */
+.footer-actions {
+  flex: 0 0 auto;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+}
+
+.backend-locked {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Modal */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1259,11 +1662,11 @@ select.input option {
   align-items: center;
   justify-content: center;
   z-index: 1600;
-  padding: 18px;
+  padding: 16px;
 }
 
 .modal {
-  width: min(760px, 100%);
+  width: min(640px, 100%);
   max-height: 85vh;
   overflow: hidden;
   display: flex;
@@ -1271,63 +1674,101 @@ select.input option {
   border-radius: 14px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+}
+
+.detail-modal {
+  width: min(520px, 100%);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.1rem;
+  padding: 0.9rem 1rem;
   border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(180deg, rgba(147, 197, 253, 0.05) 0%, transparent 100%);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .close-btn {
   border: 1px solid var(--color-border);
-  background: var(--color-surface-light);
+  background: var(--color-surface);
   color: var(--color-text-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.close-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .modal-body {
-  padding: 1.1rem;
+  padding: 1rem;
   overflow: auto;
 }
 
+.loading-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2rem;
+  color: var(--color-text-secondary);
+}
+
 .modal-info {
-  padding: 0.9rem 1rem;
-  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  border-radius: 10px;
   background: var(--color-surface-light);
   border: 1px solid var(--color-border);
 }
 
 .modal-title {
-  font-weight: 800;
+  font-weight: 600;
   color: var(--color-text);
+  font-size: 0.95rem;
 }
 
 .modal-sub {
-  margin-top: 0.45rem;
+  margin-top: 0.4rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem;
+  gap: 0.6rem;
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+}
+
+.modal-sub span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .modal-actions {
-  margin-top: 1rem;
+  margin-top: 0.9rem;
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
@@ -1337,15 +1778,82 @@ select.input option {
   border-top: 1px solid var(--color-border);
 }
 
-@media (max-height: 720px) {
-  .workshop-panel {
-    padding: 14px;
-  }
+/* Detail Modal */
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }
 
-@media (max-height: 600px) {
-  .workshop-panel {
-    padding: 12px;
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.detail-label {
+  flex: 0 0 70px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.detail-value {
+  flex: 1;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.downloads-value {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.desc-row {
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.detail-desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Animation */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Media Queries */
+@media (max-height: 700px) {
+  .header-section {
+    padding: 1rem 1.25rem 0.75rem;
+  }
+
+  .title-icon-wrapper {
+    width: 32px;
+    height: 32px;
+  }
+
+  .title {
+    font-size: 1.2rem;
   }
 }
 
@@ -1356,21 +1864,68 @@ select.input option {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
-  .workshop-panel { padding: 14px; }
-  .tabs { gap: 0.25rem; padding: 3px; }
-  .tab { padding: 0.5rem 0.4rem; font-size: 0.85rem; }
-  .filters { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
-  .label { padding-top: 0; }
+  .header-section {
+    padding: 1rem 1rem 0.75rem;
+  }
+
+  .tabs {
+    margin: 0.6rem 1rem 0;
+  }
+
+  .scroll-content {
+    padding: 0 1rem;
+  }
+
+  .footer-actions {
+    padding: 0.6rem 1rem;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters > select.input,
+  .page-size-select {
+    width: 100%;
+  }
+
+  .search-input-wrapper {
+    width: 100%;
+  }
+
+  .btn-icon-only {
+    width: 100%;
+    justify-content: center;
+  }
 
   .item-list {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 0.75rem;
+    gap: 0.6rem;
   }
 
   .item-card {
-    min-height: 160px;
-    padding: 0.85rem 1rem;
+    min-height: 150px;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .label {
+    padding-top: 0;
+  }
+
+  .upload-actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .upload-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -1382,17 +1937,52 @@ select.input option {
   }
 
   .workshop-panel {
-    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .header-section {
+    padding: 0.85rem 0.85rem 0.65rem;
+  }
+
+  .title-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .auth-pill {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .tabs {
+    margin: 0.5rem 0.85rem 0;
+  }
+
+  .tab {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  .tab span {
+    display: none;
+  }
+
+  .scroll-content {
+    padding: 0 0.85rem;
+  }
+
+  .footer-actions {
+    padding: 0.5rem 0.85rem;
   }
 
   .item-list {
     grid-template-columns: 1fr;
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
 
   .item-card {
     min-height: auto;
-    padding: 0.75rem 0.9rem;
+    padding: 0.7rem 0.8rem;
   }
 
   .item-card:hover {
@@ -1400,11 +1990,12 @@ select.input option {
   }
 
   .item-title {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    -webkit-line-clamp: 2;
   }
 
   .item-desc {
-    min-height: auto;
+    -webkit-line-clamp: 2;
   }
 }
 </style>

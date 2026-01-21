@@ -287,13 +287,12 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     }
   };
 
-  // 🔥 初始化玩家身体详细数据（NSFW/酒馆模式）
-  // 根据性别初始化不同的身体结构，AI将在后续流程中填充详细描述
-  const nsfwEnabled =
-    tavernEnv &&
-    Boolean((legacySaveData as any).系统?.nsfwMode ?? (legacySaveData as any).系统?.配置?.nsfwMode);
-  if (nsfwEnabled) {
-    console.log('[角色初始化] NSFW模式已开启：初始化角色.身体骨架（等待AI生成详细法身数据）');
+  // 🔥 初始化玩家身体详细数据（酒馆模式）
+  // 酒馆端：无论 NSFW 开关，都初始化身体骨架（用于法身面板展示基础体格）
+  // AI 会根据提示词在初始化时填充基础体格数据（身高/体重/三围等）
+  // 敏感字段（胸部描述/私处描述等）仅在 nsfwMode=true 时由 AI 生成
+  if (tavernEnv) {
+    console.log('[角色初始化] 酒馆端检测：初始化角色.身体骨架（等待AI生成法身数据）');
     legacySaveData.身体 = { 部位开发: {}, 部位: {} } as any;
   }
 
@@ -359,6 +358,7 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
     retryDelay: 2000,
     characterBackground: extractName(baseInfo.出生),
     mapConfig: (userWorldConfig as any).mapConfig,
+    useStreaming: characterCreationStore.useStreamingStart,
     onStreamChunk: (chunk: string) => {
       // 实时更新UI显示世界生成进度
       uiStore.updateLoadingText(`🌍 世界生成中...\n\n${chunk.substring(0, 150)}...`);
@@ -445,9 +445,13 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
       coordinates: location.coordinates
     })) || [],
     mapConfig: (saveData as any).世界?.信息?.地图配置,
-    systemSettings: tavernEnv
-      ? (ensureSystemConfigHasNsfw((saveData as any).系统?.配置 ?? {}) as any)
-      : ((saveData as any).系统?.配置 || {})
+    systemSettings: {
+      ...(tavernEnv
+        ? (ensureSystemConfigHasNsfw((saveData as any).系统?.配置 ?? {}) as any)
+        : ((saveData as any).系统?.配置 || {})),
+      // 🔥 明确标识当前是否为酒馆环境，用于提示词判断是否需要生成法身数据
+      isTavernEnv: tavernEnv
+    }
   };
 
   console.log('[初始化] 🔥 世界检查:');

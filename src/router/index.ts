@@ -45,11 +45,15 @@ import SettingsPanel from '../components/dashboard/SettingsPanel.vue';
 import SavePanel from '../components/dashboard/SavePanel.vue';
 import WorldMapRoute from '../components/dashboard/WorldMapRoute.vue';
 import EventPanel from '../components/dashboard/EventPanel.vue';
+import CraftingPanel from '../components/dashboard/CraftingPanel.vue';
 import SectPanel from '../components/dashboard/SectPanel.vue';
 import SectSystemPanel from '../components/dashboard/SectSystemPanel.vue';
 import SectMembersContent from '../components/dashboard/components/SectMembersContent.vue';
 import SectLibraryContent from '../components/dashboard/components/SectLibraryContent.vue';
 import SectContributionContent from '../components/dashboard/components/SectContributionContent.vue';
+import SectTasksContent from '../components/dashboard/components/SectTasksContent.vue';
+import SectManagementContent from '../components/dashboard/components/SectManagementContent.vue';
+import SectWarContent from '../components/dashboard/components/SectWarContent.vue';
 import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 import OnlineTravelPanel from '../components/dashboard/OnlineTravelPanel.vue';
@@ -153,6 +157,11 @@ const routes = [
         component: EventPanel,
       },
       {
+        path: 'crafting',
+        name: 'Crafting',
+        component: CraftingPanel,
+      },
+      {
         path: 'sect',
         name: 'Sect',
         component: SectSystemPanel,
@@ -172,14 +181,29 @@ const routes = [
             component: SectMembersContent,
           },
           {
+            path: 'management',
+            name: 'SectManagement',
+            component: SectManagementContent,
+          },
+          {
             path: 'library',
             name: 'SectLibrary',
             component: SectLibraryContent,
           },
           {
+            path: 'tasks',
+            name: 'SectTasks',
+            component: SectTasksContent,
+          },
+          {
             path: 'contribution',
             name: 'SectContribution',
             component: SectContributionContent,
+          },
+          {
+            path: 'war',
+            name: 'SectWar',
+            component: SectWarContent,
           },
         ],
       },

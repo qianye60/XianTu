@@ -103,6 +103,8 @@ const buildSectSystem = (
     宗门成员: existing.宗门成员 ?? membersBySect,
     宗门藏经阁: existing.宗门藏经阁 ?? {},
     宗门贡献商店: existing.宗门贡献商店 ?? {},
+    宗门任务: existing.宗门任务 ?? {},
+    宗门任务状态: existing.宗门任务状态 ?? {},
     迁移记录: {
       来源版本: fromVersion,
       目标版本: SECT_SYSTEM_VERSION,

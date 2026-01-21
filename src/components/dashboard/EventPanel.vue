@@ -211,6 +211,9 @@
             <span class="event-type">{{ e.事件类型 }}</span>
             <span class="event-name">{{ e.事件名称 }}</span>
             <span class="event-time">{{ formatGameTime(e.发生时间) }}</span>
+            <div class="event-actions">
+              <button class="icon-btn event-delete-btn" title="删除" @click="deleteEventById(e.事件ID)">🗑️</button>
+            </div>
           </div>
           <div class="event-desc">{{ e.事件描述 }}</div>
         </div>
@@ -423,6 +426,27 @@ const resetNextEventTime = async () => {
   } catch (error) {
     console.error('重置下次事件失败:', error);
     toast.error('重置失败，请重试');
+  }
+};
+
+const deleteEventById = async (eventId: string) => {
+  try {
+    const list = (eventSystem.value?.事件记录 || []) as GameEvent[];
+    const index = list.findIndex(e => e.事件ID === eventId);
+    if (index === -1) return;
+
+    const target = list[index];
+    const ok = confirm(`确定要删除这条事件记录吗？\n\n【${target.事件类型}】${target.事件名称}`);
+    if (!ok) return;
+
+    const next = [...list];
+    next.splice(index, 1);
+    gameStateStore.updateState('eventSystem.事件记录', next);
+    await characterStore.saveCurrentGame();
+    toast.success('已删除事件记录');
+  } catch (error) {
+    console.error('删除事件记录失败:', error);
+    toast.error('删除失败，请重试');
   }
 };
 
@@ -1019,10 +1043,24 @@ input:checked + .toggle-slider:before {
 
 .event-header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   gap: 10px;
   align-items: baseline;
   margin-bottom: 8px;
+}
+
+.event-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.event-delete-btn {
+  color: var(--color-text-secondary);
+}
+
+.event-delete-btn:hover {
+  color: var(--color-error);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .event-type {

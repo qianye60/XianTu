@@ -19,6 +19,7 @@ export interface APIConfig {
   temperature: number;
   maxTokens: number;
   enabled: boolean;
+  forceJsonOutput?: boolean;  // 强制JSON格式输出（仅支持OpenAI兼容API，如DeepSeek）
 }
 
 export type APIUsageType =
@@ -30,7 +31,8 @@ export type APIUsageType =
   | 'instruction_generation'  // 指令生成
   | 'world_generation'  // 世界生成
   | 'event_generation'  // 世界事件生成（随机事件/世界变革等）
-  | 'sect_generation';  // 宗门内容生成（藏经阁、贡献商店等）
+  | 'sect_generation'  // 宗门内容生成（藏经阁、贡献商店等）
+  | 'crafting';  // 炼丹炼器
 
 /**
  * 辅助功能的生成模式（仅酒馆端可选）
@@ -75,7 +77,8 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'instruction_generation', apiId: 'default' },
     { type: 'world_generation', apiId: 'default' },
     { type: 'event_generation', apiId: 'default' },
-    { type: 'sect_generation', apiId: 'default' }
+    { type: 'sect_generation', apiId: 'default' },
+    { type: 'crafting', apiId: 'default' }
   ];
 
   const DEFAULT_FUNCTION_MODES: FunctionModeConfig[] = [
@@ -83,7 +86,8 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'text_optimization', mode: 'raw' },
     { type: 'world_generation', mode: 'raw' },
     { type: 'event_generation', mode: 'raw' },
-    { type: 'sect_generation', mode: 'raw' }
+    { type: 'sect_generation', mode: 'raw' },
+    { type: 'crafting', mode: 'raw' }
   ];
 
   // 默认功能启用状态（可选功能默认关闭，核心功能默认开启）
@@ -94,6 +98,7 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'event_generation', enabled: true },
     { type: 'sect_generation', enabled: true },
     { type: 'cot', enabled: false },  // 思维链默认关闭
+    { type: 'crafting', enabled: true }
   ];
 
   // API配置列表

@@ -740,12 +740,12 @@ onMounted(async () => {
   // 5. 定时保存当前存档 - 每5分钟
   const saveInterval = setInterval(async () => {
     try {
+      if (!gameStateStore.isGameLoaded) return;
       const activeSlot = characterStore.activeSaveSlot;
-      if (activeSlot?.存档数据) {
-        console.log('[定时保存] 保存当前存档...');
-        await characterStore.saveCurrentGame();
-        console.log('[定时保存] 保存成功');
-      }
+      if (!activeSlot) return;
+      console.log('[定时保存] 保存当前存档...');
+      await characterStore.saveCurrentGame();
+      console.log('[定时保存] 保存成功');
     } catch (error) {
       console.error('[定时保存] 保存失败:', error);
     }
