@@ -314,6 +314,15 @@ const gameStateStore = useGameStateStore();
 const loading = ref(false);
 const fileInput = ref<HTMLInputElement>();
 
+// 🔥 获取本地日期字符串（用于文件名，避免 toISOString 的 UTC 时区问题）
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // 🔥 联机模式检测
 const isOnlineMode = computed(() => {
   return characterStore.activeCharacterProfile?.模式 === '联机';
@@ -674,7 +683,7 @@ const exportSingleSave = async (save: SaveSlot) => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const fileName = `仙途-${save.存档名}-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `仙途-${save.存档名}-${getLocalDateString()}.json`;
     link.download = fileName;
 
     document.body.appendChild(link);
@@ -761,7 +770,7 @@ const exportCharacter = async () => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const characterName = characterProfile.角色?.名字 || '未命名角色';
-    const fileName = `仙途-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `仙途-角色-${characterName}-${getLocalDateString()}.json`;
     link.download = fileName;
 
     document.body.appendChild(link);
@@ -844,7 +853,7 @@ const exportSaves = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const fileName = `仙途-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    const fileName = `仙途-存档备份-${getLocalDateString()}.json`;
     link.download = fileName;
 
     // 添加到DOM并触发点击
