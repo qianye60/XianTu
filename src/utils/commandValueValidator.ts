@@ -51,10 +51,10 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
   const errors: string[] = [];
 
   if (typeof key !== 'string' || !key) {
-    return { valid: false, errors: ['????key??'] };
+    return { valid: false, errors: ['指令缺少key字段'] };
   }
   if (typeof action !== 'string' || !action) {
-    return { valid: false, errors: ['????action??'] };
+    return { valid: false, errors: ['指令缺少action字段'] };
   }
 
   try {
