@@ -215,6 +215,23 @@
               <button class="icon-btn event-delete-btn" title="删除" @click="deleteEventById(e.事件ID)">🗑️</button>
             </div>
           </div>
+          <!-- 事件元信息 -->
+          <div class="event-meta">
+            <span v-if="e.影响等级" class="meta-tag" :class="'level-' + e.影响等级">{{ e.影响等级 }}</span>
+            <span v-if="e.影响范围" class="meta-tag scope">{{ e.影响范围 }}</span>
+            <span v-if="e.事件来源" class="meta-tag source">{{ e.事件来源 }}</span>
+          </div>
+          <!-- 相关人物/势力 -->
+          <div v-if="(e.相关人物 && e.相关人物.length) || (e.相关势力 && e.相关势力.length)" class="event-relations">
+            <span v-if="e.相关人物 && e.相关人物.length" class="relation-group">
+              <span class="relation-label">相关人物:</span>
+              <span v-for="(person, idx) in e.相关人物" :key="idx" class="relation-item person">{{ person }}</span>
+            </span>
+            <span v-if="e.相关势力 && e.相关势力.length" class="relation-group">
+              <span class="relation-label">相关势力:</span>
+              <span v-for="(faction, idx) in e.相关势力" :key="idx" class="relation-item faction">{{ faction }}</span>
+            </span>
+          </div>
           <div class="event-desc">{{ e.事件描述 }}</div>
         </div>
       </div>
@@ -1090,5 +1107,87 @@ input:checked + .toggle-slider:before {
   color: var(--color-text);
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+/* 事件元信息 */
+.event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.meta-tag {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
+}
+
+.meta-tag.level-轻微 {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.meta-tag.level-中等 {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+
+.meta-tag.level-重大 {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+}
+
+.meta-tag.level-灾难 {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.meta-tag.scope {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.meta-tag.source {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
+
+/* 相关人物/势力 */
+.event-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+}
+
+.relation-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.relation-label {
+  color: var(--color-text-secondary);
+}
+
+.relation-item {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+
+.relation-item.person {
+  background: rgba(236, 72, 153, 0.12);
+  color: #ec4899;
+}
+
+.relation-item.faction {
+  background: rgba(20, 184, 166, 0.12);
+  color: #14b8a6;
 }
 </style>

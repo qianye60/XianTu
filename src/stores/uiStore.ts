@@ -44,6 +44,11 @@ export const useUIStore = defineStore('ui', () => {
   const currentGenerationId = ref<string | null>(null);
   const streamingTimestamp = ref<number | null>(null);
 
+  // 🔥 思维链状态（DeepSeek Reasoner 等模型的推理过程）
+  const thinkingContent = ref('');  // 思维链内容
+  const isThinkingPhase = ref(false);  // 是否在思维链阶段
+  const thinkingExpanded = ref(false);  // 思维链是否展开显示
+
   const showRetryDialogState = ref(false);
   const retryDialogConfig = ref<RetryDialogConfig | null>(null);
   const wasLoadingBeforeDialog = ref(false); // 记录显示弹窗前的loading状态
@@ -196,8 +201,36 @@ export const useUIStore = defineStore('ui', () => {
     currentGenerationId.value = null;
     streamingTimestamp.value = null;
     isAIProcessing.value = false;
+    // 重置思维链状态
+    thinkingContent.value = '';
+    isThinkingPhase.value = false;
     sessionStorage.removeItem('ai-processing-state');
     sessionStorage.removeItem('ai-processing-timestamp');
+  }
+
+  // 🔥 思维链状态管理
+  function appendThinkingContent(chunk: string) {
+    thinkingContent.value += chunk;
+    isThinkingPhase.value = true;
+    // 有内容时自动展开，方便用户实时查看
+    if (chunk && !thinkingExpanded.value) {
+      thinkingExpanded.value = true;
+    }
+  }
+
+  function endThinkingPhase() {
+    isThinkingPhase.value = false;
+    // 思维链结束后保持展开状态，让用户可以继续查看
+    // 不再自动收起
+  }
+
+  function clearThinkingContent() {
+    thinkingContent.value = '';
+    isThinkingPhase.value = false;
+  }
+
+  function toggleThinkingExpanded() {
+    thinkingExpanded.value = !thinkingExpanded.value;
   }
 
   function updateLoadingText(text: string) {
@@ -350,6 +383,15 @@ export const useUIStore = defineStore('ui', () => {
     startStreaming,
     stopStreaming,
     resetStreamingState,
+
+    // 🔥 思维链状态
+    thinkingContent,
+    isThinkingPhase,
+    thinkingExpanded,
+    appendThinkingContent,
+    endThinkingPhase,
+    clearThinkingContent,
+    toggleThinkingExpanded,
 
     showRetryDialogState,
     retryDialogConfig,

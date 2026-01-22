@@ -316,6 +316,22 @@ function validateNPCObject(value: any): ValidationResult {
   }
 
   if (value.私密信息 && typeof value.私密信息 === 'object') {
+    const privacy = value.私密信息 as any;
+    const listFields = ['性癖好', '性伴侣名单', '特殊体质', '亲密偏好', '禁忌清单'];
+    for (const field of listFields) {
+      if (privacy[field] !== undefined) {
+        const coerced = coerceStringArray(privacy[field]);
+        if (coerced) privacy[field] = coerced;
+      }
+    }
+    if (privacy.生育状态 !== undefined) {
+      const fertility = privacy.生育状态;
+      if (typeof fertility === 'string') {
+        privacy.生育状态 = { 当前状态: fertility };
+      } else if (typeof fertility !== 'object' || fertility === null) {
+        errors.push('NPC私密信息.生育状态必须是对象或字符串');
+      }
+    }
     if (value.私密信息.身体部位 !== undefined) {
       const bp = value.私密信息.身体部位;
       const ok = Array.isArray(bp) || (bp && typeof bp === 'object');

@@ -46,6 +46,23 @@
           </div>
         </div>
 
+        <!-- 思维链显示区域（可折叠）- 生成中和完成后都显示 -->
+        <div v-if="thinkingContent || lastThinkingContent" class="thinking-section">
+          <div class="thinking-header" @click="uiStore.toggleThinkingExpanded()">
+            <BrainCircuit :size="16" class="thinking-icon" />
+            <span class="thinking-title">{{ t('思维过程') }}</span>
+            <span v-if="isThinkingPhase" class="thinking-badge streaming">{{ t('思考中...') }}</span>
+            <span v-else-if="thinkingContent || lastThinkingContent" class="thinking-badge completed">{{ t('已完成') }}</span>
+            <ChevronDown v-if="thinkingExpanded" :size="16" class="expand-icon" />
+            <ChevronRight v-else :size="16" class="expand-icon" />
+          </div>
+          <Transition name="thinking-expand">
+            <div v-if="thinkingExpanded" class="thinking-content">
+              <FormattedText :text="thinkingContent || lastThinkingContent" />
+            </div>
+          </Transition>
+        </div>
+
         <!-- 流式输出内容（生成时实时显示，优先级最高） -->
         <div v-if="isAIProcessing && streamingContent" class="streaming-narrative-content">
           <div class="streaming-text">
@@ -375,6 +392,106 @@ const isAIProcessing = computed(() => uiStore.isAIProcessing);
 const streamingContent = computed(() => uiStore.streamingContent);
 const currentGenerationId = computed(() => uiStore.currentGenerationId);
 const streamingCharCount = computed(() => uiStore.streamingContent.length);
+
+// 🔥 思维链状态
+const thinkingContent = computed(() => uiStore.thinkingContent);
+const isThinkingPhase = computed(() => uiStore.isThinkingPhase);
+const thinkingExpanded = computed(() => uiStore.thinkingExpanded);
+
+// 🔥 保存上一次的思维链内容（传输完成后仍可查看）
+const lastThinkingContent = ref('');
+
+// 🔥 流式内容解析状态（用于解析 <thinking> 标签）
+const streamParseState = ref({
+  inThinking: false,
+  buffer: ''
+});
+
+// 🔥 处理流式 chunk，解析思维链标签
+const handleStreamChunk = (chunk: string) => {
+  if (!chunk) return;
+
+  const state = streamParseState.value;
+  state.buffer += chunk;
+
+  // 处理缓冲区中的内容
+  while (state.buffer.length > 0) {
+    if (!state.inThinking) {
+      // 查找 <thinking> 开始标签
+      const thinkingStart = state.buffer.indexOf('<thinking>');
+      if (thinkingStart === -1) {
+        // 没有找到标签，检查是否可能是不完整的标签
+        if (state.buffer.length > 10 && !state.buffer.includes('<')) {
+          // 安全地输出所有内容作为正文
+          uiStore.appendStreamingContent(state.buffer);
+          state.buffer = '';
+        } else if (state.buffer.length > 50) {
+          // 缓冲区太长，输出前面的内容
+          const safeLen = state.buffer.lastIndexOf('<');
+          if (safeLen > 0) {
+            uiStore.appendStreamingContent(state.buffer.substring(0, safeLen));
+            state.buffer = state.buffer.substring(safeLen);
+          } else {
+            uiStore.appendStreamingContent(state.buffer);
+            state.buffer = '';
+          }
+        }
+        break;
+      } else {
+        // 找到 <thinking> 标签
+        if (thinkingStart > 0) {
+          // 标签前有正文内容
+          uiStore.appendStreamingContent(state.buffer.substring(0, thinkingStart));
+        }
+        state.buffer = state.buffer.substring(thinkingStart + 10); // 跳过 <thinking>
+        state.inThinking = true;
+        uiStore.isThinkingPhase = true;
+      }
+    } else {
+      // 在思维链中，查找 </thinking> 结束标签
+      const thinkingEnd = state.buffer.indexOf('</thinking>');
+      if (thinkingEnd === -1) {
+        // 没有找到结束标签，检查是否可能是不完整的标签
+        if (state.buffer.length > 11 && !state.buffer.includes('<')) {
+          // 安全地输出所有内容作为思维链
+          uiStore.appendThinkingContent(state.buffer);
+          state.buffer = '';
+        } else if (state.buffer.length > 100) {
+          // 缓冲区太长，输出前面的内容
+          const safeLen = state.buffer.lastIndexOf('<');
+          if (safeLen > 0) {
+            uiStore.appendThinkingContent(state.buffer.substring(0, safeLen));
+            state.buffer = state.buffer.substring(safeLen);
+          } else {
+            uiStore.appendThinkingContent(state.buffer);
+            state.buffer = '';
+          }
+        }
+        break;
+      } else {
+        // 找到 </thinking> 标签
+        if (thinkingEnd > 0) {
+          // 标签前有思维链内容
+          uiStore.appendThinkingContent(state.buffer.substring(0, thinkingEnd));
+        }
+        state.buffer = state.buffer.substring(thinkingEnd + 11); // 跳过 </thinking>
+        state.inThinking = false;
+        uiStore.endThinkingPhase();
+      }
+    }
+  }
+};
+
+// 🔥 重置流式解析状态
+const resetStreamParseState = () => {
+  // 保存当前思维链内容，以便传输完成后仍可查看
+  if (uiStore.thinkingContent) {
+    lastThinkingContent.value = uiStore.thinkingContent;
+  }
+  streamParseState.value = { inThinking: false, buffer: '' };
+  uiStore.clearThinkingContent();
+  uiStore.clearStreamingContent();
+};
 
 const inputRef = ref<HTMLTextAreaElement>();
 const contentAreaRef = ref<HTMLDivElement>();
@@ -1101,11 +1218,11 @@ const retryAIResponse = async (
       // 非酒馆环境（网页版自定义API）：需要设置 onStreamChunk 才能实时渲染
       if (!isTavernEnvFlag) {
         console.log('[网页版流式-重试] 设置 onStreamChunk 回调');
+        resetStreamParseState(); // 重置解析状态
         (options as any).onStreamChunk = (chunk: string) => {
           if (!useStreaming.value || !chunk) return;
           console.log('[网页版流式-重试] 收到chunk:', chunk.length, '字符');
-          rawStreamingContent.value += chunk;
-          uiStore.setStreamingContent(rawStreamingContent.value);
+          handleStreamChunk(chunk);
         };
       }
 
@@ -1210,6 +1327,9 @@ const sendMessage = async () => {
     return;
   }
 
+  // 🔥 新的生成开始，清除上一次的思维链内容
+  lastThinkingContent.value = '';
+
   // 检查角色死亡状态
   const saveData = gameStateStore.toSaveData();
   if (saveData) {
@@ -1306,11 +1426,11 @@ const sendMessage = async () => {
       // 非酒馆环境（网页版自定义API）：需要设置 onStreamChunk 才能实时渲染
       if (!isTavernEnvFlag) {
         console.log('[网页版流式] 设置 onStreamChunk 回调');
+        resetStreamParseState(); // 重置解析状态
         (options as any).onStreamChunk = (chunk: string) => {
           if (!useStreaming.value || !chunk) return;
           console.log('[网页版流式] 收到chunk:', chunk.length, '字符');
-          rawStreamingContent.value += chunk;
-          uiStore.setStreamingContent(rawStreamingContent.value);
+          handleStreamChunk(chunk);
         };
       }
 
@@ -2236,6 +2356,95 @@ const syncGameState = async () => {
   transform: translateY(-10px);
 }
 
+/* 思维链区域样式 */
+.thinking-section {
+  margin: 12px 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0; /* 防止被挤压 */
+  min-width: 0; /* 允许内容收缩但不被完全挤压 */
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.thinking-header:hover {
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.thinking-icon {
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.thinking-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #92400e;
+  flex: 1;
+}
+
+.thinking-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.thinking-badge.streaming {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.3);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.thinking-badge.completed {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.2);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.expand-icon {
+  color: #b45309;
+  flex-shrink: 0;
+}
+
+.thinking-content {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(251, 191, 36, 0.3);
+  font-size: 0.85rem;
+  color: #78350f;
+  line-height: 1.6;
+  max-height: 300px;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* 思维链展开动画 */
+.thinking-expand-enter-active,
+.thinking-expand-leave-active {
+  transition: all 0.3s ease;
+}
+
+.thinking-expand-enter-from,
+.thinking-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 /* 当前叙述显示区域 */
 .current-narrative {
   flex: 1;
@@ -2246,6 +2455,7 @@ const syncGameState = async () => {
   border-radius: 12px; /* 圆角 */
   box-shadow: none !important; /* 移除阴影 */
   background-color: var(--color-surface) !important; /* 提亮叙事区域但不刺眼 */
+  overflow: hidden; /* 防止子元素导致不必要的滚动条 */
 }
 
 /* 流式输出内容样式 */
@@ -2258,10 +2468,15 @@ const syncGameState = async () => {
   animation: fadeIn 0.3s ease-in;
 }
 
-.streaming-text {
+.streaming-text,
+.narrative-text {
   line-height: 1.8;
   color: var(--color-text);
   font-size: 0.95rem;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 @keyframes fadeIn {
@@ -2336,6 +2551,8 @@ const syncGameState = async () => {
   padding: 12px 16px;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+  flex-shrink: 0; /* 防止被挤压 */
+  box-sizing: border-box;
 }
 
 /* 重置状态按钮 */
@@ -3265,6 +3482,44 @@ const syncGameState = async () => {
   background: rgba(129, 140, 248, 0.1);
   border-left-color: #818cf8;
   color: #e2e8f0;
+}
+
+/* 思维链深色主题 */
+[data-theme="dark"] .thinking-section {
+  background: linear-gradient(135deg, #422006 0%, #451a03 100%);
+  border-color: #92400e;
+}
+
+[data-theme="dark"] .thinking-header:hover {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+[data-theme="dark"] .thinking-icon {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .thinking-title {
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .thinking-badge.streaming {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.2);
+}
+
+[data-theme="dark"] .thinking-badge.completed {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+[data-theme="dark"] .expand-icon {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .thinking-content {
+  background: rgba(0, 0, 0, 0.2);
+  border-top-color: rgba(251, 191, 36, 0.2);
+  color: #fef3c7;
 }
 
 /* 等待覆盖层深色主题 - 更新为AI处理显示样式 */

@@ -1035,7 +1035,8 @@ const syncDefaultAPIToService = () => {
         apiKey: defaultAPI.apiKey,
         model: defaultAPI.model,
         temperature: defaultAPI.temperature,
-        maxTokens: defaultAPI.maxTokens
+        maxTokens: defaultAPI.maxTokens,
+        forceJsonOutput: defaultAPI.forceJsonOutput
       }
     });
   }
@@ -1573,6 +1574,31 @@ const handleImport = () => {
   height: 16px;
   cursor: pointer;
   accent-color: #3b82f6;
+}
+
+.thinking-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  user-select: none;
+}
+
+.thinking-toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #f59e0b;
+}
+
+.thinking-toggle span {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #92400e;
+  font-weight: 500;
 }
 
 .api-card-footer {

@@ -332,6 +332,7 @@ export interface TavernHelper {
     custom_api?: Record<string, unknown>;
     generation_id?: string;
     usageType?: APIUsageType;
+    onStreamChunk?: (chunk: string) => void;
   }) => Promise<string>; // 更新generate方法签名
   generateRaw: (config: Record<string, unknown>) => Promise<unknown>; // 更改为接受配置对象
   triggerSlash: (command: string) => Promise<unknown>;

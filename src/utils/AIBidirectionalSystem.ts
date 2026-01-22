@@ -878,6 +878,7 @@ ${stateJsonString}
 
       // 🔥 分步生成：只根据开关按钮判断，同一个API也可以分步（减少单次输出压力）
       const shouldActuallySplit = isSplitEnabled;
+      console.log(`[AI双向系统] shouldActuallySplit=${shouldActuallySplit}, isSplitEnabled=${isSplitEnabled}, tavernHelper=${!!tavernHelper}`);
 
       if (shouldActuallySplit) {
         // 🔥 分步生成第1步直接复用 buildNarrativeState（已在上方定义）
@@ -1060,15 +1061,18 @@ ${step1Text}
         };
       } else if (tavernHelper) {
         // 酒馆模式
+        console.log(`[AI双向系统] 进入酒馆模式, hasOnStreamChunk=${!!options?.onStreamChunk}`);
         response = await tavernHelper.generate({
           user_input: finalUserInput,
           should_stream: useStreaming,
           generation_id: generationId,
           usageType: 'main',
           injects: injects as any,
+          onStreamChunk: options?.onStreamChunk,
         });
       } else {
         // 自定义API模式
+        console.log(`[AI双向系统] 进入自定义API模式, hasOnStreamChunk=${!!options?.onStreamChunk}`);
         const { aiService } = await import('@/services/aiService');
         response = await aiService.generate({
           user_input: finalUserInput,

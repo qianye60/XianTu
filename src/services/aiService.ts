@@ -495,7 +495,7 @@ class AIService {
     return this.executeWithRetry(async () => {
       this.syncModeWithEnvironment();
       const usageType = options.usageType || 'main';
-      console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${usageType}`);
+      console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${usageType}, hasOnStreamChunk=${!!options.onStreamChunk}`);
 
       // 酒馆模式特殊处理
       if (this.config.mode === 'tavern') {
@@ -940,6 +940,7 @@ class AIService {
     }
 
     console.log('[AI服务-自定义] 构建消息列表');
+    console.log(`[AI服务-自定义] hasOnStreamChunk=${!!options.onStreamChunk}, should_stream=${options.should_stream}`);
 
     // 构建消息列表
     const messages: AIMessage[] = [];
@@ -988,6 +989,7 @@ class AIService {
     console.log(`[AI服务-自定义Raw] 消息数量: ${messages.length}`);
     const shouldStream = options.should_stream ?? this.config.streaming ?? false;
     const responseFormat = options.responseFormat || (this.config.customAPI.forceJsonOutput ? 'json_object' : undefined);
+    console.log(`[AI服务-自定义Raw] shouldStream=${shouldStream}, hasOnStreamChunk=${!!options.onStreamChunk}, options.should_stream=${options.should_stream}, config.streaming=${this.config.streaming}`);
     return this.callAPI(messages, shouldStream, options.onStreamChunk, responseFormat);
   }
 
@@ -1094,6 +1096,8 @@ class AIService {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
     // 使用更保守的默认值8192，兼容更多API（如某些中转API限制为8192）
     const safeMaxTokens = this.clampMaxTokensForContext(provider, model, messages, maxTokens || 8192);
+
+    console.log(`[AI服务-OpenAI兼容] streaming=${streaming}, hasOnStreamChunk=${!!onStreamChunk}`);
 
     try {
       if (streaming) {
@@ -1496,16 +1500,45 @@ class AIService {
       throw new Error(`Stream unsupported (content-type=${contentType || 'unknown'})`);
     }
 
+    // DeepSeek Reasoner 状态追踪
+    let inReasoningPhase = false;
+
     return this.processSSEStream(response, (data) => {
       const parsed = JSON.parse(data);
       const delta = parsed.choices[0]?.delta;
-      // 🔥 兼容 Gemini/DeepSeek 等模型的 reasoning_content 字段
-      // 这些模型会先输出 reasoning_content（思维链），然后输出 content（实际内容）
-      // reasoning_content 会被包裹在 <thinking> 标签中，由 processSSEStream 过滤
-      if (delta?.reasoning_content) {
-        return `<thinking>${delta.reasoning_content}</thinking>`;
+
+      // DeepSeek Reasoner: 处理 reasoning_content（思维链）
+      // 注意：空字符串 "" 也是有效的 reasoning_content，表示思维链阶段
+      const hasReasoningContent = delta?.reasoning_content !== undefined && delta?.reasoning_content !== null;
+      const hasActualContent = delta?.content !== undefined && delta?.content !== null && delta?.content !== '';
+
+      if (hasReasoningContent) {
+        const reasoningText = delta.reasoning_content;
+        if (!inReasoningPhase && reasoningText) {
+          inReasoningPhase = true;
+          // 发送开始标签 + 第一个内容
+          return `<thinking>${reasoningText}`;
+        } else if (inReasoningPhase && reasoningText) {
+          // 继续发送思维链内容（不带标签）
+          return reasoningText;
+        }
+        // 空字符串的 reasoning_content，跳过
+        return '';
       }
-      return delta?.content || '';
+
+      // 从 reasoning 切换到 content
+      if (inReasoningPhase && hasActualContent) {
+        inReasoningPhase = false;
+        // 发送结束标签 + 第一个实际内容
+        return `</thinking>${delta.content}`;
+      }
+
+      // 普通 content
+      if (hasActualContent) {
+        return delta.content;
+      }
+
+      return '';
     }, onStreamChunk);
   }
 
@@ -1520,7 +1553,16 @@ class AIService {
     maxTokens: number,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
-    console.log('[AI服务-Claude流式] 开始');
+    console.log(`[AI服务-Claude流式] 开始`);
+
+    const requestBody: any = {
+      model,
+      max_tokens: maxTokens,
+      system: systemPrompt || undefined,
+      messages,
+      temperature,
+      stream: true
+    };
 
     const response = await fetch(`${url}/v1/messages`, {
       method: 'POST',
@@ -1530,14 +1572,7 @@ class AIService {
         'Accept': 'text/event-stream',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        system: systemPrompt || undefined,
-        messages,
-        temperature,
-        stream: true
-      }),
+      body: JSON.stringify(requestBody),
       signal: this.getAbortSignal()
     });
 
@@ -1550,10 +1585,32 @@ class AIService {
       throw new Error(`Stream unsupported (content-type=${contentType || 'unknown'})`);
     }
 
+    // Claude thinking 状态追踪
+    let inThinkingPhase = false;
+
     return this.processSSEStream(response, (data) => {
       const parsed = JSON.parse(data);
+
+      // Claude extended thinking: 处理 thinking content block
+      if (parsed.type === 'content_block_start') {
+        if (parsed.content_block?.type === 'thinking') {
+          inThinkingPhase = true;
+          return '<thinking>';
+        }
+      }
+
+      if (parsed.type === 'content_block_stop' && inThinkingPhase) {
+        inThinkingPhase = false;
+        return '</thinking>';
+      }
+
       // Claude流式响应格式：content_block_delta事件
       if (parsed.type === 'content_block_delta') {
+        // thinking_delta 事件
+        if (parsed.delta?.type === 'thinking_delta') {
+          return parsed.delta?.thinking || '';
+        }
+        // 普通 text_delta 事件
         return parsed.delta?.text || '';
       }
       return '';
@@ -1571,7 +1628,12 @@ class AIService {
     maxTokens: number,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
-    console.log('[AI服务-Gemini流式] 开始');
+    console.log(`[AI服务-Gemini流式] 开始`);
+
+    const generationConfig: any = {
+      temperature,
+      maxOutputTokens: maxTokens
+    };
 
     const response = await fetch(`${url}/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`, {
       method: 'POST',
@@ -1579,10 +1641,7 @@ class AIService {
       body: JSON.stringify({
         contents,
         systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens
-        }
+        generationConfig
       }),
       signal: this.getAbortSignal()
     });
@@ -1596,18 +1655,43 @@ class AIService {
       throw new Error(`Stream unsupported (content-type=${contentType || 'unknown'})`);
     }
 
+    // Gemini thinking 状态追踪
+    let lastWasThought = false;
+
     return this.processSSEStream(response, (data) => {
       const parsed = JSON.parse(data);
-      return parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const parts = parsed.candidates?.[0]?.content?.parts || [];
+      let result = '';
+
+      for (const part of parts) {
+        // Gemini thinking mode: thought 字段包含思维内容
+        if (part.thought) {
+          if (!lastWasThought) {
+            result += '<thinking>';
+            lastWasThought = true;
+          }
+          result += part.thought;
+        } else if (part.text) {
+          if (lastWasThought) {
+            result += '</thinking>';
+            lastWasThought = false;
+          }
+          result += part.text;
+        }
+      }
+
+      return result;
     }, onStreamChunk);
   }
 
-  // 通用SSE流处理（带thinking标签过滤）
+  // 通用SSE流处理 - 真流式版本（保留thinking标签，前端处理显示）
   private async processSSEStream(
     response: Response,
     extractContent: (data: string) => string,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string> {
+    console.log(`[AI服务-流式] processSSEStream 开始, hasOnStreamChunk=${!!onStreamChunk}`);
+
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error('无法获取响应流');
@@ -1616,39 +1700,26 @@ class AIService {
     const decoder = new TextDecoder();
     let rawFullText = '';
     let buffer = '';
-    let inThinkingTag = false;
-    let thinkingBuffer = '';
-    const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
-    const yieldToUi = () => new Promise<void>((resolve) => {
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => resolve());
-      } else {
-        setTimeout(resolve, 0);
-      }
-    });
-    let lastYieldAt = nowMs();
-    let pendingChars = 0;
-    const maybeYield = async (addedChars: number) => {
-      if (!onStreamChunk) return;
-      pendingChars += addedChars;
-      const now = nowMs();
-      if (pendingChars >= 80 || now - lastYieldAt >= 60) {
-        pendingChars = 0;
-        lastYieldAt = now;
-        await yieldToUi();
+    let chunkCount = 0;
+
+    // 立即发送内容到前端（真流式，不做任何过滤）
+    const sendChunk = (text: string) => {
+      if (text && onStreamChunk) {
+        chunkCount++;
+        if (chunkCount <= 3 || chunkCount % 100 === 0) {
+          console.log(`[AI服务-流式] chunk #${chunkCount}: "${text.substring(0, 30)}..."`);
+        }
+        onStreamChunk(text);
       }
     };
 
     try {
       while (true) {
         if (this.isAborted) {
-          try {
-            await reader.cancel();
-          } catch {
-            // ignore cancel errors
-          }
+          try { await reader.cancel(); } catch { /* ignore */ }
           throw new Error('请求已取消');
         }
+
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -1668,71 +1739,13 @@ class AIService {
             const content = extractContent(data);
             if (content) {
               rawFullText += content;
-              // 处理thinking标签过滤
-              for (let i = 0; i < content.length; i++) {
-                const char = content[i];
-                thinkingBuffer += char;
-
-                if (thinkingBuffer.includes('<thinking>')) {
-                  inThinkingTag = true;
-                  thinkingBuffer = '';
-                  continue;
-                }
-
-                if (inThinkingTag && thinkingBuffer.includes('</thinking>')) {
-                  inThinkingTag = false;
-                  thinkingBuffer = '';
-                  continue;
-                }
-
-                // 容错：部分模型可能不会输出 </thinking>，但会直接开始输出 ```json
-                // 此时为了避免把后续JSON也吞掉，检测到代码块起始后自动结束 thinking 过滤。
-                if (inThinkingTag) {
-                  const jsonFenceIndex = thinkingBuffer.indexOf('```json');
-                  const anyFenceIndex = thinkingBuffer.indexOf('```');
-                  const fenceIndex = jsonFenceIndex !== -1 ? jsonFenceIndex : anyFenceIndex;
-
-                  if (fenceIndex !== -1) {
-                    const carry = thinkingBuffer.slice(fenceIndex);
-                    inThinkingTag = false;
-                    thinkingBuffer = '';
-                    if (onStreamChunk) onStreamChunk(carry);
-                    await maybeYield(carry.length);
-                    continue;
-                  }
-                }
-
-                if (!inThinkingTag) {
-                  const possibleTagStart = '<thinking>'.startsWith(thinkingBuffer) ||
-                                          '</thinking>'.startsWith(thinkingBuffer);
-
-                    if (!possibleTagStart && thinkingBuffer.length > 0) {
-                      if (onStreamChunk) {
-                        console.log('[AI服务-流式] 发送chunk到前端:', thinkingBuffer.length, '字符');
-                        onStreamChunk(thinkingBuffer);
-                      }
-                      await maybeYield(thinkingBuffer.length);
-                      thinkingBuffer = '';
-                    } else if (thinkingBuffer.length > 10) {
-                      if (onStreamChunk) {
-                        console.log('[AI服务-流式] 发送chunk到前端(缓冲区过大):', thinkingBuffer.length, '字符');
-                        onStreamChunk(thinkingBuffer);
-                      }
-                      await maybeYield(thinkingBuffer.length);
-                      thinkingBuffer = '';
-                    }
-                  }
-                }
+              // 真流式：立即发送，不做任何缓冲
+              sendChunk(content);
             }
           } catch (e) {
             console.warn('[AI服务-流式] 解析chunk失败:', data.substring(0, 100));
           }
         }
-      }
-
-      if (!inThinkingTag && thinkingBuffer.length > 0) {
-        if (onStreamChunk) onStreamChunk(thinkingBuffer);
-        await maybeYield(thinkingBuffer.length);
       }
     } finally {
       reader.releaseLock();

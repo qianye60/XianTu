@@ -325,6 +325,7 @@ ${worldContext?.systemSettings?.isTavernEnv ? `- **运行环境**: 酒馆端 ✅
 ${worldContext?.systemSettings?.nsfwMode ? `- **NSFW模式**: 已开启
 - **私密信息生成范围**: ${worldContext?.systemSettings?.nsfwGenderFilter === 'all' ? '所有NPC' : worldContext?.systemSettings?.nsfwGenderFilter === 'female' ? '仅女性NPC' : '仅男性NPC'}
   ⚠️ 创建NPC时，若NPC性别符合上述范围，必须生成完整的"私密信息(PrivacyProfile)"字段
+  ⚠️ 私密信息需补全：性经验等级/亲密节奏/亲密需求/安全偏好/避孕措施/生育状态/亲密偏好/禁忌清单/身体部位反应-偏好-禁忌
   ⚠️ 玩家法身：除基础体格外，还需生成敏感字段（胸部描述/私处描述/生殖器描述/敏感点/开发度）` : '- **NSFW模式**: 已关闭（不生成私密信息/敏感字段）'}
 
 ---

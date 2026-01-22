@@ -411,6 +411,10 @@
                             ><span class="info-value">{{ privacy.性取向 || '无' }}</span>
                           </div>
                           <div class="info-item-row">
+                            <span class="info-label">性经验等级</span
+                            ><span class="info-value">{{ privacyExperienceLevel || '无' }}</span>
+                          </div>
+                          <div class="info-item-row">
                             <span class="info-label">当前性状态</span
                             ><span class="info-value">{{ privacy.当前性状态 || '无' }}</span>
                           </div>
@@ -428,6 +432,10 @@
                             <span class="info-label">性交总次数</span
                             ><span class="info-value">{{ privacy.性交总次数 ?? 0 }}</span>
                           </div>
+                        </div>
+
+                        <div v-if="privacyFirstTime" class="first-time-info">
+                          尚未有亲密记录
                         </div>
 
                         <div class="development-bars" style="margin-top: 0.75rem">
@@ -451,18 +459,72 @@
                         </div>
                       </div>
 
-                      <!-- 偏好/体质 -->
+                      <!-- 亲密画像 -->
                       <div
-                        v-if="privacyFetishesAll.length || privacyTraitsAll.length"
+                        v-if="privacyIntimacyRhythm || privacyIntimacyNeed || privacySafetyPreference || privacyContraception"
                         class="nsfw-subsection"
                       >
-                        <h6 class="subsection-title">偏好与体质</h6>
-                        <div v-if="privacyFetishesAll.length" class="bottomline-tags">
+                        <h6 class="subsection-title">亲密画像</h6>
+                        <div class="info-grid-responsive">
+                          <div v-if="privacyIntimacyRhythm" class="info-item-row">
+                            <span class="info-label">亲密节奏</span
+                            ><span class="info-value">{{ privacyIntimacyRhythm }}</span>
+                          </div>
+                          <div v-if="privacySafetyPreference" class="info-item-row">
+                            <span class="info-label">安全偏好</span
+                            ><span class="info-value">{{ privacySafetyPreference }}</span>
+                          </div>
+                          <div v-if="privacyContraception" class="info-item-row">
+                            <span class="info-label">避孕措施</span
+                            ><span class="info-value">{{ privacyContraception }}</span>
+                          </div>
+                        </div>
+                        <div v-if="privacyIntimacyNeed" class="fluid-status">
+                          亲密需求：{{ privacyIntimacyNeed }}
+                        </div>
+                      </div>
+
+                      <!-- 偏好与边界 -->
+                      <div
+                        v-if="
+                          privacyIntimacyPrefsAll.length ||
+                          privacyFetishesAll.length ||
+                          privacyTaboosAll.length ||
+                          privacyTraitsAll.length
+                        "
+                        class="nsfw-subsection"
+                      >
+                        <h6 class="subsection-title">偏好与边界</h6>
+                        <div v-if="privacyIntimacyPrefsAll.length" class="bottomline-tags">
+                          <span
+                            v-for="(pref, index) in privacyIntimacyPrefsAll"
+                            :key="`${pref}-${index}`"
+                            class="preference-tag"
+                            >{{ pref }}</span
+                          >
+                        </div>
+                        <div
+                          v-if="privacyFetishesAll.length"
+                          class="bottomline-tags"
+                          style="margin-top: 0.5rem"
+                        >
                           <span
                             v-for="(kink, index) in privacyFetishesAll"
                             :key="`${kink}-${index}`"
                             class="fetish-tag"
                             >{{ kink }}</span
+                          >
+                        </div>
+                        <div
+                          v-if="privacyTaboosAll.length"
+                          class="bottomline-tags"
+                          style="margin-top: 0.5rem"
+                        >
+                          <span
+                            v-for="(taboo, index) in privacyTaboosAll"
+                            :key="`${taboo}-${index}`"
+                            class="taboo-tag"
+                            >{{ taboo }}</span
                           >
                         </div>
                         <div
@@ -476,6 +538,30 @@
                             class="special-trait-tag"
                             >{{ trait }}</span
                           >
+                        </div>
+                      </div>
+
+                      <!-- 生育与妊娠 -->
+                      <div v-if="privacyFertility" class="nsfw-subsection">
+                        <h6 class="subsection-title">生育与妊娠</h6>
+                        <div class="pregnancy-info">
+                          <div v-if="pregnancyActive" class="pregnancy-active">
+                            <span class="pregnancy-icon">🤰</span>
+                            <div class="pregnancy-details">
+                              <div>当前状态：{{ fertilityStatus || '已怀孕' }}</div>
+                              <div v-if="pregnancyMonths !== null">怀孕月数：{{ pregnancyMonths }}个月</div>
+                              <div v-if="pregnancyDue">预计分娩：{{ pregnancyDue }}</div>
+                            </div>
+                          </div>
+                          <div v-else class="pregnancy-inactive">
+                            {{ fertilityStatus || '未怀孕' }}
+                          </div>
+                        </div>
+                        <div class="info-grid-responsive" style="margin-top: 0.5rem">
+                          <div v-if="fertilityCanPregnant !== null" class="info-item-row">
+                            <span class="info-label">是否可孕</span
+                            ><span class="info-value">{{ fertilityCanPregnant ? '是' : '否' }}</span>
+                          </div>
                         </div>
                       </div>
 
@@ -531,6 +617,15 @@
                             </div>
                             <div v-if="part.特征描述" class="part-description">
                               {{ part.特征描述 }}
+                            </div>
+                            <div v-if="part.反应描述" class="part-description">
+                              反应：{{ part.反应描述 }}
+                            </div>
+                            <div v-if="part.偏好刺激" class="part-description">
+                              偏好：{{ part.偏好刺激 }}
+                            </div>
+                            <div v-if="part.禁忌" class="part-description">
+                              禁忌：{{ part.禁忌 }}
                             </div>
                             <div class="part-stats">
                               <div class="part-stat">
@@ -1196,10 +1291,72 @@ const actionQueue = useActionQueueStore();
     viewMode.value = 'list';
   };
 
-const privacy = computed<PrivacyProfile | null>(() => selectedPerson.value?.私密信息 ?? null);
-const privacyLastTime = computed(() => normalizeNonEmptyString(privacy.value?.最近一次性行为时间) ?? '');
-const privacyFetishesAll = computed(() => normalizeStringList(privacy.value?.性癖好));
-const privacyTraitsAll = computed(() => normalizeStringList(privacy.value?.特殊体质));
+  const privacy = computed<PrivacyProfile | null>(() => selectedPerson.value?.私密信息 ?? null);
+  const privacyExperienceLevel = computed(() => {
+    const explicit = normalizeNonEmptyString(privacy.value?.性经验等级);
+    if (explicit) return explicit;
+    const count = typeof privacy.value?.性交总次数 === 'number' ? privacy.value.性交总次数 : null;
+    if (count === null) return '';
+    if (count <= 0) return '无经验';
+    if (count <= 2) return '初体验';
+    if (count <= 8) return '有经验';
+    if (count <= 20) return '熟练';
+    if (count <= 60) return '丰富';
+    return '资深';
+  });
+  const privacyIntimacyRhythm = computed(() => normalizeNonEmptyString(privacy.value?.亲密节奏) ?? '');
+  const privacyIntimacyNeed = computed(() => normalizeNonEmptyString(privacy.value?.亲密需求) ?? '');
+  const privacySafetyPreference = computed(() => normalizeNonEmptyString(privacy.value?.安全偏好) ?? '');
+  const privacyContraception = computed(() => normalizeNonEmptyString(privacy.value?.避孕措施) ?? '');
+  const privacyIntimacyPrefsAll = computed(() => normalizeStringList(privacy.value?.亲密偏好));
+  const privacyTaboosAll = computed(() => normalizeStringList(privacy.value?.禁忌清单));
+  const privacyLastTime = computed(() => normalizeNonEmptyString(privacy.value?.最近一次性行为时间) ?? '');
+  const privacyFetishesAll = computed(() => normalizeStringList(privacy.value?.性癖好));
+  const privacyTraitsAll = computed(() => normalizeStringList(privacy.value?.特殊体质));
+  const privacyFirstTime = computed(() => {
+    const count = typeof privacy.value?.性交总次数 === 'number' ? privacy.value.性交总次数 : null;
+    if (count !== null) return count <= 0;
+    const lastTime = normalizeNonEmptyString(privacy.value?.最近一次性行为时间);
+    if (!lastTime) return false;
+    return /无|未有|暂无|没有/.test(lastTime);
+  });
+
+  type RawFertilityStatus = Record<string, unknown>;
+  const privacyFertility = computed<RawFertilityStatus | null>(() => {
+    const raw = privacy.value?.生育状态 as unknown;
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      return { 当前状态: raw };
+    }
+    if (typeof raw === 'object') return raw as RawFertilityStatus;
+    return null;
+  });
+  const fertilityCanPregnant = computed(() => {
+    const raw = privacyFertility.value;
+    if (!raw) return null;
+    const direct = raw.是否可孕;
+    if (typeof direct === 'boolean') return direct;
+    if (typeof direct === 'string') {
+      if (/[是可]/.test(direct)) return true;
+      if (/[否不]/.test(direct)) return false;
+    }
+    return null;
+  });
+  const fertilityStatus = computed(() => normalizeNonEmptyString(privacyFertility.value?.当前状态) ?? '');
+  const pregnancyMonths = computed(() => {
+    const raw = privacyFertility.value as any;
+    const month = raw?.妊娠月数 ?? raw?.怀孕月数 ?? raw?.妊娠状态?.怀孕月数;
+    return typeof month === 'number' && Number.isFinite(month) ? month : null;
+  });
+  const pregnancyDue = computed(() => normalizeNonEmptyString((privacyFertility.value as any)?.预计分娩时间) ?? '');
+  const pregnancyActive = computed(() => {
+    const raw = privacyFertility.value as any;
+    if (!raw) return false;
+    if (typeof raw?.妊娠状态?.是否怀孕 === 'boolean') return raw.妊娠状态.是否怀孕;
+    const status = normalizeNonEmptyString(raw?.当前状态);
+    if (status && /怀孕|妊娠/.test(status) && !/未怀孕|未妊娠|未孕|不怀孕/.test(status)) return true;
+    return pregnancyMonths.value !== null;
+  });
 
 const privacyPartnersPreviewLimit = 10;
 const showAllPrivacyPartners = ref(false);
@@ -3943,6 +4100,26 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   font-size: 0.75rem;
   font-weight: 500;
   border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.preference-tag {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(236, 72, 153, 0.12));
+  color: #3b82f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.taboo-tag {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.12));
+  color: #ef4444;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 .partner-tag {

@@ -895,6 +895,9 @@ export interface BodyPartDevelopment {
   开发度: number; // 0-100（统一使用"开发度"，与AI提示词保持一致）
   特殊印记?: string; // 如：「已调教」「极度敏感」「可喷奶」、「合欢莲印」等
   特征描述: string; // 部位的详细描述，如："娇小粉嫩，轻触即颤"、"紧致温润，吸附感强"
+  反应描述?: string; // 触发时的反应描述
+  偏好刺激?: string; // 偏好的刺激方式
+  禁忌?: string; // 不接受的刺激或触碰
 }
 
 /** 玩家身体部位开发数据 - 简化结构 */
@@ -937,6 +940,18 @@ export interface BodyStats {
 }
 
 /** 统一的私密信息模块 (NSFW) */
+export interface FertilityStatus {
+  是否可孕: boolean;
+  当前状态: string; // 如：未怀孕/备孕/已怀孕/不具备
+  妊娠月数?: number;
+  预计分娩时间?: string;
+  妊娠状态?: {
+    是否怀孕: boolean;
+    怀孕月数?: number;
+    预计分娩时间?: string;
+  };
+}
+
 export interface PrivacyProfile {
   是否为处女: boolean;
   身体部位: BodyPartDevelopment[];
@@ -950,6 +965,14 @@ export interface PrivacyProfile {
   性伴侣名单: string[];
   最近一次性行为时间: string;
   特殊体质: string[];
+  性经验等级: string;
+  亲密偏好: string[];
+  亲密节奏: string;
+  亲密需求: string;
+  禁忌清单: string[];
+  安全偏好: string;
+  避孕措施: string;
+  生育状态: FertilityStatus;
 }
 
 /** NPC核心档案 - 精简高效的数据结构 */
