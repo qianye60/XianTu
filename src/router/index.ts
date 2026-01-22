@@ -58,6 +58,7 @@ import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 import OnlineTravelPanel from '../components/dashboard/OnlineTravelPanel.vue';
 import APIManagementPanel from '../components/dashboard/APIManagementPanel.vue';
+import BackendAdminPanel from '../components/dashboard/BackendAdminPanel.vue';
 
 const routes = [
   {
@@ -226,6 +227,11 @@ const routes = [
         path: 'api-management',
         name: 'APIManagement',
         component: APIManagementPanel,
+      },
+      {
+        path: 'backend-admin',
+        name: 'BackendAdminPanel',
+        component: BackendAdminPanel,
       },
     ],
   },
