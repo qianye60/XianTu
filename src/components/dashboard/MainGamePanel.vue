@@ -24,7 +24,7 @@
     </div>
 
     <!-- 文本显示区域 - 当前AI回复 -->
-    <div class="content-area" ref="contentAreaRef">
+    <div class="content-area" ref="contentAreaRef" @scroll="handleContentScroll">
       <!-- 左侧：当前叙述 -->
       <div class="current-narrative">
         <!-- AI生成状态指示器（生成时显示在顶部） -->
@@ -496,6 +496,9 @@ const resetStreamParseState = () => {
 const inputRef = ref<HTMLTextAreaElement>();
 const contentAreaRef = ref<HTMLDivElement>();
 const memoryExpanded = ref(false);
+
+// 🔥 用户滚动检测：当用户手动向上滚动时，停止自动跟随
+const userHasScrolledUp = ref(false);
 const showMemorySection = ref(true);
 
 const handleChatPrefill = async ({ text, focus }: ChatBusPayload) => {
@@ -1127,13 +1130,13 @@ const validateAIResponse = (response: unknown): { isValid: boolean; errors: stri
     if (!Array.isArray(resp.tavern_commands)) {
       errors.push('tavern_commands字段必须是数组');
     } else {
-      // 检查每个命令的基本结构
+      // 基本结构检查仅做告警，避免阻塞响应
       resp.tavern_commands.forEach((cmd: unknown, index: number) => {
         const command = cmd as Record<string, unknown>;
         if (!cmd || typeof cmd !== 'object') {
-          errors.push(`tavern_commands[${index}]不是有效对象`);
+          console.warn(`[AI响应校验] tavern_commands[${index}]不是有效对象`);
         } else if (!command.action || !command.key) {
-          errors.push(`tavern_commands[${index}]缺少必要字段(action/key)`);
+          console.warn(`[AI响应校验] tavern_commands[${index}]缺少必要字段(action/key)`);
         }
       });
     }
@@ -1326,9 +1329,6 @@ const sendMessage = async () => {
     toast.error('请先选择或创建角色');
     return;
   }
-
-  // 🔥 新的生成开始，清除上一次的思维链内容
-  lastThinkingContent.value = '';
 
   // 检查角色死亡状态
   const saveData = gameStateStore.toSaveData();
@@ -1990,6 +1990,35 @@ onUnmounted(() => {
   }
 });
 
+// 🔥 监听用户滚动，检测是否手动向上滚动
+const handleContentScroll = () => {
+  if (!contentAreaRef.value) return;
+  const el = contentAreaRef.value;
+  // 如果距离底部超过 100px，认为用户手动向上滚动了
+  const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+  userHasScrolledUp.value = distanceFromBottom > 100;
+};
+
+// 🔥 监听流式内容变化，自动滚动到底部（可被用户打断）
+watch(streamingContent, () => {
+  // 如果用户手动向上滚动了，不自动跟随
+  if (userHasScrolledUp.value) return;
+
+  if (streamingContent.value && contentAreaRef.value) {
+    nextTick(() => {
+      contentAreaRef.value!.scrollTop = contentAreaRef.value!.scrollHeight;
+    });
+  }
+});
+
+// 🔥 当新的流式传输开始时，重置滚动状态
+watch(isAIProcessing, (newVal, oldVal) => {
+  if (newVal && !oldVal) {
+    // 新的AI处理开始，重置用户滚动状态
+    userHasScrolledUp.value = false;
+  }
+});
+
 // 🔥 [核心修复] 监听叙事历史变化，自动更新 currentNarrative 为最新一条
 watch(() => gameStateStore.narrativeHistory, (newHistory) => {
   if (newHistory && newHistory.length > 0) {
@@ -2455,7 +2484,8 @@ const syncGameState = async () => {
   border-radius: 12px; /* 圆角 */
   box-shadow: none !important; /* 移除阴影 */
   background-color: var(--color-surface) !important; /* 提亮叙事区域但不刺眼 */
-  overflow: hidden; /* 防止子元素导致不必要的滚动条 */
+  overflow-x: hidden; /* 防止水平滚动条 */
+  overflow-y: auto; /* 允许垂直滚动 */
 }
 
 /* 流式输出内容样式 */
