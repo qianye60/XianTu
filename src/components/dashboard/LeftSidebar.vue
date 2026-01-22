@@ -409,7 +409,7 @@ const handleGameVariables = () => {
 };
 
 const handleBackendAdmin = () => {
-  router.push('/backend-admin');
+  router.push('/game/backend-admin');
 };
 
 const handleBackToMenu = () => {

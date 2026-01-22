@@ -407,7 +407,7 @@ const openBackendAdmin = (close: () => void) => {
     return;
   }
 
-  router.push('/backend-admin');
+  router.push('/game/backend-admin');
   close();
 };
 

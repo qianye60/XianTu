@@ -379,7 +379,7 @@
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('分步生成') }}</label>
-              <span class="setting-desc">{{ t('开启后AI分两步生成：先输出正文，再生成指令（推荐开启）') }}</span>
+              <span class="setting-desc">{{ t('开启后AI分两步生成：先输出正文，再生成指令') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
