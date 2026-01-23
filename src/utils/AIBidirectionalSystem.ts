@@ -2808,17 +2808,6 @@ ${saveDataJson}`;
     console.log('[parseAIResponse] 原始响应长度:', rawText.length);
     console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
 
-    // 🔥 移除思维链（兜底保护）
-    // 支持多种变体：<thinking>, <antThinking>, <ant-thinking>, <reasoning>, <thought> 等
-    const cleanedText = rawText
-      .replace(/<(?:ant[-_]?)?thinking>[\s\S]*?<\/(?:ant[-_]?)?thinking>/gi, '')
-      .replace(/<\/?(?:ant[-_]?)?thinking>/gi, '')
-      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
-      .replace(/<\/?reasoning>/gi, '')
-      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-      .replace(/<\/?thought>/gi, '')
-      .trim();
-
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {
         return JSON.parse(text) as Record<string, unknown>;
@@ -2864,18 +2853,7 @@ ${saveDataJson}`;
       };
     };
 
-    // 1. 直接解析
-    let parsedObj = tryParse(cleanedText);
-    if (parsedObj) return standardize(parsedObj);
-
-    // 2. 提取代码块（结尾的```可选，处理AI未闭合代码块的情况）
-    const codeBlockMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i);
-    if (codeBlockMatch?.[1]) {
-      parsedObj = tryParse(codeBlockMatch[1].trim());
-      if (parsedObj) return standardize(parsedObj);
-    }
-
-    // 3. 提取第一个JSON对象
+    // 🔥 核心策略：直接提取JSON，忽略所有非JSON内容（思维链、标签等）
     const extractFirstJSON = (text: string): string | null => {
       const startIndex = text.indexOf('{');
       if (startIndex === -1) return null;
@@ -2900,12 +2878,26 @@ ${saveDataJson}`;
       return null;
     };
 
-    const firstJSON = extractFirstJSON(cleanedText);
+    // 1. 直接从原始文本提取第一个完整JSON对象（无需预处理）
+    const firstJSON = extractFirstJSON(rawText);
     if (firstJSON) {
-      parsedObj = tryParse(firstJSON);
+      const parsedObj = tryParse(firstJSON);
       if (parsedObj) {
-        console.log('[parseAIResponse] ✅ 成功提取第一个JSON对象');
+        console.log('[parseAIResponse] ✅ 成功直接提取JSON对象');
         return standardize(parsedObj);
+      }
+    }
+
+    // 2. 尝试提取代码块内的JSON（兜底）
+    const codeBlockMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i);
+    if (codeBlockMatch?.[1]) {
+      const codeBlockJSON = extractFirstJSON(codeBlockMatch[1]);
+      if (codeBlockJSON) {
+        const parsedObj = tryParse(codeBlockJSON);
+        if (parsedObj) {
+          console.log('[parseAIResponse] ✅ 从代码块提取JSON成功');
+          return standardize(parsedObj);
+        }
       }
     }
 
