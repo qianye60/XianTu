@@ -139,6 +139,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     normalizeBackpackCurrencies(repaired.角色.背包 as any);
 
     // --- 社交.关系 ---
+    const playerName = typeof repaired.角色?.身份?.名字 === 'string' ? repaired.角色.身份.名字.trim() : '';
     if (!repaired.社交 || typeof repaired.社交 !== 'object') repaired.社交 = createMinimalSaveDataV3().社交;
     if (!repaired.社交.关系 || typeof repaired.社交.关系 !== 'object') {
       repaired.社交.关系 = {};
@@ -155,6 +156,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
         const nameFromKey = typeof key === 'string' ? key.trim() : '';
         const finalName = nameFromValue || nameFromKey;
         if (!finalName) continue;
+        if (playerName && finalName === playerName) continue;
 
         npc.名字 = finalName;
         validNpcs[finalName] = repairNpc(npc as NpcProfile);

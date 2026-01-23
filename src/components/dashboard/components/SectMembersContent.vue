@@ -53,9 +53,9 @@
           <Crown :size="14" />
           <span>宗门高层</span>
         </div>
-        <button v-if="!sectLeadership" class="ask-btn small" @click="sendPrompt(`请告诉我${playerSectName}的宗主、副宗主、太上长老、主要长老，以及他们的修为与性格特点`)">
-          <MessageCircle :size="14" />
-          <span>询问高层</span>
+        <button v-if="!sectLeadership" class="ask-btn small" @click="generateLeadership" :disabled="isGeneratingLeadership">
+          <RefreshCw :size="14" :class="{ spin: isGeneratingLeadership }" />
+          <span>{{ isGeneratingLeadership ? '生成中...' : '生成高层' }}</span>
         </button>
       </div>
 
@@ -117,9 +117,9 @@
         <Users :size="48" class="empty-icon" />
         <p class="empty-text">暂无同门信息</p>
         <p class="empty-hint">同门信息由AI根据剧情生成</p>
-        <button class="ask-btn" @click="sendPrompt('请告诉我宗门有哪些师兄弟姐妹')">
-          <MessageCircle :size="14" />
-          <span>询问同门信息</span>
+        <button class="ask-btn" @click="generateMembers" :disabled="isGeneratingMembers">
+          <RefreshCw :size="14" :class="{ spin: isGeneratingMembers }" />
+          <span>{{ isGeneratingMembers ? '生成中...' : '生成同门' }}</span>
         </button>
       </div>
 
@@ -175,16 +175,23 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { useCharacterStore } from '@/stores/characterStore';
 import {
-  Users, MessageCircle, ChevronRight, Zap, Heart, Info,
-  Crown, User, UserCircle, Coins, BookOpen, LogOut
+  Users, ChevronRight, Zap, Heart, Info,
+  Crown, User, UserCircle, Coins, BookOpen, LogOut, RefreshCw
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
+import { generateWithRawPrompt } from '@/utils/tavernCore';
+import { parseJsonSmart } from '@/utils/jsonExtract';
+import { aiService } from '@/services/aiService';
 
 const router = useRouter();
 const gameStateStore = useGameStateStore();
+const characterStore = useCharacterStore();
 const activeTab = ref<string>('all');
+const isGeneratingLeadership = ref(false);
+const isGeneratingMembers = ref(false);
 
 // 成员分类
 const memberTabs = [
@@ -347,6 +354,171 @@ function sendPrompt(text: string) {
   sendChat(text);
   toast.success('已发送到对话');
 }
+
+// 生成宗门高层信息
+async function generateLeadership() {
+  if (isGeneratingLeadership.value) return;
+  const sectName = playerSectName.value;
+  if (!sectName || sectName === '未加入宗门') {
+    toast.warning('未加入宗门');
+    return;
+  }
+  isGeneratingLeadership.value = true;
+  try {
+    const worldInfo = gameStateStore.worldInfo;
+    const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
+
+    const worldContext = worldInfo ? {
+      世界名称: worldInfo.世界名称,
+      世界背景: worldInfo.世界背景,
+    } : null;
+
+    const prompt = `
+# 任务：生成【宗门高层】信息
+为宗门「${sectName}」生成领导层信息。
+
+## 输出格式
+只输出 1 个 JSON 对象：
+{"leadership":{...}}
+
+## leadership 对象字段
+{
+  "宗主": "string（名字）",
+  "宗主修为": "string（境界）",
+  "副宗主": "string（可选）",
+  "太上长老": "string（可选）",
+  "太上长老修为": "string（可选）",
+  "长老数量": number,
+  "最强修为": "string",
+  "综合战力": number（1-100）
+}
+
+## 世界背景
+${JSON.stringify(worldContext).slice(0, 400)}
+
+## 宗门档案
+${JSON.stringify(sectProfile).slice(0, 800)}
+    `.trim();
+
+    const raw = await generateWithRawPrompt('生成宗门高层', prompt, false, 'sect_generation');
+    const parsed = parseJsonSmart(raw, aiService.isForceJsonEnabled('sect_generation')) as {
+      leadership?: any;
+    };
+
+    if (!parsed.leadership) {
+      throw new Error('leadership 字段缺失');
+    }
+
+    // 更新宗门档案中的领导层
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (saveData) {
+      const updated = typeof structuredClone === 'function'
+        ? structuredClone(saveData)
+        : JSON.parse(JSON.stringify(saveData));
+
+      const socialRoot = ((updated as any).社交 ??= {});
+      const sectRoot = (socialRoot.宗门 ??= {});
+      const profileRoot = (sectRoot.宗门档案 ??= {});
+      const profile = (profileRoot[sectName] ??= {});
+      profile.领导层 = parsed.leadership;
+
+      gameStateStore.loadFromSaveData(updated);
+      await characterStore.saveCurrentGame();
+    }
+    toast.success('宗门高层信息已生成');
+  } catch (e) {
+    console.error('[SectMembers] generate leadership failed', e);
+    toast.error('生成失败');
+  } finally {
+    isGeneratingLeadership.value = false;
+  }
+}
+
+// 生成同门成员信息
+async function generateMembers() {
+  if (isGeneratingMembers.value) return;
+  const sectName = playerSectName.value;
+  if (!sectName || sectName === '未加入宗门') {
+    toast.warning('未加入宗门');
+    return;
+  }
+  isGeneratingMembers.value = true;
+  try {
+    const worldInfo = gameStateStore.worldInfo;
+    const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
+
+    const worldContext = worldInfo ? {
+      世界名称: worldInfo.世界名称,
+      世界背景: worldInfo.世界背景,
+    } : null;
+
+    const prompt = `
+# 任务：生成【宗门同门】信息
+为宗门「${sectName}」生成同门弟子信息。
+
+## 输出格式
+只输出 1 个 JSON 对象：
+{"members":[...]}
+
+## member 对象字段
+{
+  "名字": "string",
+  "性别": "男|女",
+  "职位": "外门弟子|内门弟子|真传弟子|核心弟子|长老",
+  "境界": "string",
+  "势力归属": "${sectName}",
+  "好感度": number（30-70）
+}
+
+## 约束
+- 生成 5-10 个同门
+- 职位分布合理
+
+## 世界背景
+${JSON.stringify(worldContext).slice(0, 400)}
+
+## 宗门档案
+${JSON.stringify(sectProfile).slice(0, 600)}
+    `.trim();
+
+    const raw = await generateWithRawPrompt('生成同门信息', prompt, false, 'sect_generation');
+    const parsed = parseJsonSmart(raw, aiService.isForceJsonEnabled('sect_generation')) as {
+      members?: any[];
+    };
+
+    if (!Array.isArray(parsed.members)) {
+      throw new Error('members 字段缺失');
+    }
+
+    // 更新人物关系
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (saveData) {
+      const updated = typeof structuredClone === 'function'
+        ? structuredClone(saveData)
+        : JSON.parse(JSON.stringify(saveData));
+
+      const charRoot = ((updated as any).角色 ??= {});
+      const relRoot = (charRoot.人物关系 ??= {});
+      for (const m of parsed.members) {
+        const name = m.名字;
+        if (!name) continue;
+        relRoot[name] = {
+          ...m,
+          宗门: sectName,
+        };
+      }
+
+      gameStateStore.loadFromSaveData(updated);
+      await characterStore.saveCurrentGame();
+    }
+    toast.success('同门信息已生成');
+  } catch (e) {
+    console.error('[SectMembers] generate members failed', e);
+    toast.error('生成失败');
+  } finally {
+    isGeneratingMembers.value = false;
+  }
+}
 </script>
 
 <style scoped>
@@ -358,6 +530,15 @@ function sendPrompt(text: string) {
   min-height: 0;
   overflow: hidden;
   padding: 8px;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* 我的宗门身份卡片 - 紧凑版 */
