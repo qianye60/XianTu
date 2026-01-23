@@ -209,13 +209,13 @@
                 :key="index"
                 class="stage-node"
                 :class="{
-                  done: index < (selectedDaoProgress?.当前阶段 ?? 0),
-                  current: index === (selectedDaoProgress?.当前阶段 ?? 0),
-                  locked: index > (selectedDaoProgress?.当前阶段 ?? 0)
+                  done: index < (selectedDaoProgress?.当前阶段 ?? 1) - 1,
+                  current: index === (selectedDaoProgress?.当前阶段 ?? 1) - 1,
+                  locked: index > (selectedDaoProgress?.当前阶段 ?? 1) - 1
                 }"
               >
                 <div class="node-marker">
-                  <Check v-if="index < (selectedDaoProgress?.当前阶段 ?? 0)" :size="12" />
+                  <Check v-if="index < (selectedDaoProgress?.当前阶段 ?? 1) - 1" :size="12" />
                   <span v-else class="node-number">{{ index + 1 }}</span>
                 </div>
                 <div class="node-content">
@@ -413,8 +413,10 @@ const getDaoStageDisplay = (daoName: string): string => {
   const daoData = getDaoData(daoName);
   if (!daoData) return '未悟';
   const stage = daoData.当前阶段 ?? 0;
-  const stageData = daoData.阶段列表?.[stage];
-  return stageData?.名称 || `第${stage + 1}阶`;
+  // 当前阶段从1开始计数，数组索引从0开始，所以需要 stage - 1
+  const stageIndex = Math.max(0, stage - 1);
+  const stageData = daoData.阶段列表?.[stageIndex];
+  return stageData?.名称 || `第${stage}阶`;
 };
 
 // 获取大道进度百分比
@@ -431,8 +433,10 @@ const getNextStageRequirement = (daoName: string): number => {
   const daoData = getDaoData(daoName);
   if (!daoData) return 100;
   const currentStage = daoData.当前阶段 ?? 0;
-  const stageData = daoData.阶段列表?.[currentStage];
-  return stageData?.突破经验 ?? (currentStage + 1) * 100;
+  // 当前阶段从1开始计数，数组索引从0开始
+  const stageIndex = Math.max(0, currentStage - 1);
+  const stageData = daoData.阶段列表?.[stageIndex];
+  return stageData?.突破经验 ?? currentStage * 100;
 };
 
 // 获取突破成功率预估

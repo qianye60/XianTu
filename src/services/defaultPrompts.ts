@@ -18,12 +18,6 @@ import { JSON_OUTPUT_RULES, RESPONSE_FORMAT_RULES, DATA_STRUCTURE_STRICTNESS, NA
 import {
   REALM_SYSTEM_RULES,
   THREE_THOUSAND_DAOS_RULES,
-  NPC_RULES,
-  GRAND_CONCEPT_CONSTRAINTS,
-  SKILL_AND_SPELL_USAGE_RULES,
-  ECONOMY_AND_PRICING_RULES,
-  CULTIVATION_DETAIL_RULES,
-  STATUS_EFFECT_RULES,
   LOCATION_UPDATE_RULES,
   COMMAND_PATH_CONSTRUCTION_RULES,
   TECHNIQUE_SYSTEM_RULES,
@@ -40,7 +34,13 @@ import {
   CULTIVATION_SPEED_RULES,
   SIX_SI_ACQUISITION_RULES,
   SECT_DYNAMIC_GENERATION_RULES,
-  COMBAT_TURN_BASED_RULES
+  COMBAT_TURN_BASED_RULES,
+  NPC_RULES,
+  GRAND_CONCEPT_CONSTRAINTS,
+  SKILL_AND_SPELL_USAGE_RULES,
+  ECONOMY_AND_PRICING_RULES,
+  CULTIVATION_DETAIL_RULES,
+  STATUS_EFFECT_RULES
 } from '@/utils/prompts/definitions/businessRules';
 // 文本格式
 import { TEXT_FORMAT_MARKERS, DICE_ROLLING_RULES, COMBAT_DAMAGE_RULES, NAMING_CONVENTIONS } from '@/utils/prompts/definitions/textFormats';
@@ -102,8 +102,6 @@ const BUSINESS_RULES = [
   DUAL_REALM_NARRATIVE_RULES,
   DIFFICULTY_ENHANCEMENT_RULES,
   REALM_SYSTEM_RULES,
-  ECONOMY_AND_PRICING_RULES,
-  NPC_RULES,
   COMMAND_PATH_CONSTRUCTION_RULES,
   TECHNIQUE_SYSTEM_RULES,
   COMBAT_ALCHEMY_RISK_RULES,
@@ -114,17 +112,19 @@ const BUSINESS_RULES = [
 // 扩展业务规则（可选，用户可自定义开启）
 const EXTENDED_BUSINESS_RULES = [
   THREE_THOUSAND_DAOS_RULES,
-  GRAND_CONCEPT_CONSTRAINTS,
-  SKILL_AND_SPELL_USAGE_RULES,
-  CULTIVATION_DETAIL_RULES,
-  STATUS_EFFECT_RULES,
   LOCATION_UPDATE_RULES,
   SECT_SYSTEM_RULES,
   CULTIVATION_PRACTICE_RULES,
   DAO_COMPREHENSION_RULES,
   CULTIVATION_SPEED_RULES,
   SIX_SI_ACQUISITION_RULES,
-  SECT_DYNAMIC_GENERATION_RULES
+  SECT_DYNAMIC_GENERATION_RULES,
+  NPC_RULES,
+  GRAND_CONCEPT_CONSTRAINTS,
+  SKILL_AND_SPELL_USAGE_RULES,
+  ECONOMY_AND_PRICING_RULES,
+  CULTIVATION_DETAIL_RULES,
+  STATUS_EFFECT_RULES
 ].join('\n\n');
 
 // 合并文本格式规范
@@ -390,7 +390,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 分步生成 1/2：仅正文
 
 ## 🔴 输出格式
-{"text":"1500-2500字叙事正文"}
+{"text":"400-800字叙事正文（重要场景可到1000字）"}
 
 ## ✅ JSON字符串规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
@@ -411,14 +411,14 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
   - ❌ 系统提示：……
 
 ## 📝 正文要求（必须遵守）
-1. **长度**：不少于1500字（推荐1500-2500字），不要太短！
+1. **长度**：建议400-800字，重要场景可到1000字，不要太长！
 2. **判定系统**：战斗/修炼/炼丹/探索/社交等场景**必须使用判定**
 3. **判定格式（必须严格遵守）**：〔类型:结果,判定值:数字,难度:数字,基础:数字,幸运:+/-数字,环境:+/-数字,状态:+/-数字〕
    - 类型 ∈ 战斗/修炼/炼丹/探索/社交/逃跑/感知
    - 结果 ∈ 大失败/失败/成功/大成功/完美
 4. **叙事风格**：多描写少总结，结尾留钩子，承接上文情节
 5. **格式标记**：合理使用【】环境、\`心理\`、""对话、〔〕判定
-6. **画面感配方（最低标准）**：至少1段【环境】+2个可见动作细节+1轮"对话"或NPC内心\`...\`（动作细节必须融入叙事，禁止写成“动作细节一/二”等编号）
+6. **画面感配方（最低标准）**：至少1个可见动作细节+1轮"对话"或NPC内心\`...\`；【环境】仅在场景变化/信息必要时写1-2句（动作细节必须融入叙事，禁止写成“动作细节一/二”等编号）
 
 ## ⚔️ 战斗场景特别要求
 - 每次攻防都要进行判定
@@ -454,6 +454,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 □ 日常修炼 → add \`角色.属性.境界.当前进度\`
 □ 功法熟练 → add \`角色.背包.物品.[功法ID].修炼进度\`
 □ 悟道进展 → add \`角色.大道.大道列表.[道名].当前经验\`
+□ 大道解锁 → set \`角色.大道.大道列表.[道名]\`（完整DaoData对象）
+□ 功法解锁技能 → push \`角色.背包.物品.[功法ID].已解锁技能\`
 □ 小阶段突破 → set \`角色.属性.境界.阶段\`（初期→中期→后期→圆满→极境）
 □ 大境界突破 → set \`角色.属性.境界.名称\` + 更新属性上限
 
@@ -515,7 +517,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 开局生成 1/2：仅开局叙事
 
 ## 🔴 输出格式（必须严格遵守）
-{"text":"1500-2500字开局叙事，第三人称，修仙正剧风"}
+{"text":"600-1000字开局叙事，第三人称，修仙正剧风"}
 
 ## ✅ JSON字符串规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
@@ -530,7 +532,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 开篇交代时间地点→中段展现出身处境→结尾留悬念
 - 严禁游戏术语和数据罗列
 - 合理使用【】环境描写、""对话增强表现力
-- 画面感配方（最低标准）：至少1段【环境】+3个可见动作细节+2轮对话（或1轮对话+1段NPC内心\`...\`）（动作细节必须融入叙事，禁止写成“动作细节一/二”等编号）
+- 画面感配方（最低标准）：至少1段简短【环境】(1-2句)+2-3个可见动作细节+1-2轮对话（或1轮对话+1段NPC内心\`...\`）（动作细节必须融入叙事，禁止写成“动作细节一/二”等编号）
 
 ## ⚠️ 严禁（违反将导致生成失败）
 - ❌ mid_term_memory 字段
