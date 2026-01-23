@@ -46,6 +46,12 @@
             <polyline points="7 3 7 8 15 8"></polyline>
           </svg>
         </button>
+        <button class="action-btn-compact danger" @click="resetAllPrompts" title="重置全部" :disabled="isOnlineMode">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -349,6 +355,15 @@ async function resetPrompt(key: string) {
   }
 }
 
+async function resetAllPrompts() {
+  if (!confirm('确定要重置全部提示词为默认值吗？此操作不可撤销。')) {
+    return;
+  }
+  await promptStorage.resetAll();
+  await loadPrompts();
+  toast.success('已重置全部提示词为默认值');
+}
+
 function exportSingle(key: string) {
   for (const categoryKey in promptsByCategory.value) {
     const prompt = promptsByCategory.value[categoryKey].prompts.find(p => p.key === key);
@@ -563,6 +578,16 @@ function downloadJSON(data: any, filename: string) {
 
 .action-btn-compact.primary:hover {
   background: var(--color-primary-hover);
+}
+
+.action-btn-compact.danger {
+  background: #dc2626;
+  color: white;
+  border-color: #dc2626;
+}
+
+.action-btn-compact.danger:hover {
+  background: #b91c1c;
 }
 
 .prompt-list {
