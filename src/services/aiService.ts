@@ -1112,7 +1112,7 @@ class AIService {
             model,
             messages,
             temperature: temperature || 0.7,
-            max_tokens: safeMaxTokens,
+            max_completion_tokens: safeMaxTokens,
             stream: false
           };
 
@@ -1144,7 +1144,7 @@ class AIService {
           model,
           messages,
           temperature: temperature || 0.7,
-          max_tokens: safeMaxTokens,
+          max_completion_tokens: safeMaxTokens,
           stream: false
         };
 
@@ -1470,7 +1470,7 @@ class AIService {
       model,
       messages,
       temperature,
-      max_tokens: maxTokens,
+      max_completion_tokens: maxTokens,
       stream: true
     };
 

@@ -557,7 +557,7 @@ export interface DaoData {
 
   // 进度数据（与大道数据合并）
   是否解锁: boolean;
-  当前阶段: number; // 阶段索引，0为"入门"
+  当前阶段: number; // 从1开始计数，1=入门，2=初窥...（数组索引=当前阶段-1）
   当前经验: number;
   总经验: number;
 }

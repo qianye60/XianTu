@@ -401,7 +401,7 @@ const getDaoData = (daoName: string): DaoData | null => {
 const getDaoStageClass = (daoName: string): string => {
   const daoData = getDaoData(daoName);
   if (!daoData) return 'stage-0';
-  const stage = daoData.当前阶段 ?? 0;
+  const stage = daoData.当前阶段 ?? 1;
   if (stage >= 5) return 'stage-max';
   if (stage >= 3) return 'stage-high';
   if (stage >= 1) return 'stage-mid';
@@ -412,11 +412,15 @@ const getDaoStageClass = (daoName: string): string => {
 const getDaoStageDisplay = (daoName: string): string => {
   const daoData = getDaoData(daoName);
   if (!daoData) return '未悟';
-  const stage = daoData.当前阶段 ?? 0;
+  const stage = daoData.当前阶段 ?? 1;
   // 当前阶段从1开始计数，数组索引从0开始，所以需要 stage - 1
   const stageIndex = Math.max(0, stage - 1);
-  const stageData = daoData.阶段列表?.[stageIndex];
-  return stageData?.名称 || `第${stage}阶`;
+  const stageData = daoData.阶段列表?.[stageIndex] as { 名称?: string; 阶段名?: string } | undefined;
+  // 兼容两种字段名：名称 或 阶段名
+  const stageName = stageData?.名称 || stageData?.阶段名;
+  if (stageName) return stageName;
+  const defaultStageNames = ['入门', '初窥', '小成', '大成', '圆满', '化境', '归一'];
+  return defaultStageNames[stageIndex] || `第${stage}阶`;
 };
 
 // 获取大道进度百分比
@@ -432,7 +436,7 @@ const getDaoProgressPercent = (daoName: string): number => {
 const getNextStageRequirement = (daoName: string): number => {
   const daoData = getDaoData(daoName);
   if (!daoData) return 100;
-  const currentStage = daoData.当前阶段 ?? 0;
+  const currentStage = daoData.当前阶段 ?? 1;
   // 当前阶段从1开始计数，数组索引从0开始
   const stageIndex = Math.max(0, currentStage - 1);
   const stageData = daoData.阶段列表?.[stageIndex];
@@ -443,7 +447,7 @@ const getNextStageRequirement = (daoName: string): number => {
 const getDaoBreakthroughChance = (daoName: string): number => {
   const daoData = getDaoData(daoName);
   if (!daoData) return 0;
-  const stage = daoData.当前阶段 ?? 0;
+  const stage = daoData.当前阶段 ?? 1;
   // 阶段越高，突破越难
   const baseChance = Math.max(30, 90 - stage * 10);
   return baseChance;
