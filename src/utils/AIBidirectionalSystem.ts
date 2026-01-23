@@ -1377,6 +1377,15 @@ ${userPrompt}
 
           const sections: string[] = [stepRules];
 
+          // 🔥 酒馆端：注入身体数据生成要求
+          if (tavernEnv) {
+            sections.push(`## ⚠️ 酒馆端必须生成身体数据
+□ 身体：set \`角色.身体\` {身高:num(cm),体重:num(kg),体脂率:num(%),三围:{胸围,腰围,臀围},肤色,发色,瞳色,纹身与印记:[],穿刺:[],敏感点:[],开发度:{},其它:{}}
+- 必须根据角色性别/年龄/种族填写合理的具体数值
+- 男性身高165-185cm，女性155-170cm，儿童按年龄
+- 严禁使用占位文本或照抄示例`);
+          }
+
           sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
           return sections.map(s => s.trim()).filter(Boolean).join('\n\n---\n\n').trim();
         };
@@ -2514,6 +2523,17 @@ ${saveDataJson}`;
       throw new Error(`指令key必须以 ${allowedRoots.join(' / ')} 开头（V3短路径），当前: ${path}`);
     }
 
+    const playerName = typeof (saveData as any)?.角色?.身份?.名字 === 'string' ? (saveData as any).角色.身份.名字.trim() : '';
+    if (playerName) {
+      const segments = path.split('.');
+      const npcKey = typeof segments[2] === 'string' ? segments[2].trim() : '';
+      const isPlayerInRelations = segments[0] === '社交' && segments[1] === '关系' && npcKey === playerName;
+      if (isPlayerInRelations && action !== 'delete') {
+        console.warn(`[AI双向系统] 阻止将玩家本人写入社交.关系: ${path}`);
+        return;
+      }
+    }
+
     // 🔥 保护关键数组字段，防止被设为 null
     const arrayFields = [
       // V3
@@ -2551,6 +2571,10 @@ ${saveDataJson}`;
       const segments = path.split('.');
       const isNpcRoot = segments.length === 3 && segments[0] === '社交' && segments[1] === '关系';
       if (isNpcRoot && isPlainObject(value)) {
+        if (playerName && typeof (value as any).名字 === 'string' && (value as any).名字.trim() === playerName) {
+          console.warn(`[AI双向系统] 阻止将玩家本人写入社交.关系: ${path}`);
+          return;
+        }
         const existingNpc = get(saveData, path);
         const baseNpc = isPlainObject(existingNpc) ? existingNpc : {};
         const mergedNpc = mergePlainObjectsReplacingArrays(baseNpc, value);
@@ -2909,4 +2933,3 @@ export const AIBidirectionalSystem = AIBidirectionalSystemClass.getInstance();
 
 // 导出 getTavernHelper 以供其他模块使用
 export { getTavernHelper };
-

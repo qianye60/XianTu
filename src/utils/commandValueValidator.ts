@@ -131,12 +131,6 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
       errors.push(...result.errors);
     }
 
-    // 9. 任务对象
-    if (key === '社交.任务.当前任务列表' && action === 'push') {
-      const result = validateTaskObject(value);
-      errors.push(...result.errors);
-    }
-
     return {
       valid: errors.length === 0,
       errors
@@ -402,26 +396,6 @@ function validateDaoObject(value: any, daoNameFromKey?: string): ValidationResul
   if (typeof value.总经验 !== 'number') {
     value.总经验 = 0;
   }
-
-  return { valid: errors.length === 0, errors };
-}
-
-/**
- * 验证任务对象
- */
-function validateTaskObject(value: any): ValidationResult {
-  const errors: string[] = [];
-
-  if (typeof value !== 'object' || value === null) {
-    errors.push('任务对象必须是对象类型');
-    return { valid: false, errors };
-  }
-
-  if (!value.任务ID) errors.push('任务缺少"任务ID"字段');
-  if (!value.任务名称) errors.push('任务缺少"任务名称"字段');
-  if (value.任务描述 === undefined) errors.push('任务缺少"任务描述"字段');
-  if (!value.任务状态) errors.push('任务缺少"任务状态"字段');
-  if (!value.任务类型) errors.push('任务缺少"任务类型"字段');
 
   return { valid: errors.length === 0, errors };
 }

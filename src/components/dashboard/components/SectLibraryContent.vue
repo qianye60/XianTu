@@ -269,7 +269,9 @@ async function generateLibraryContent() {
     }
 
     const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
-    const existing = (gameStateStore.sectSystem as any)?.宗门藏经阁?.[sectName] ?? [];
+    const worldInfo = gameStateStore.worldInfo;
+    const sectSystem = gameStateStore.sectSystem;
+    const existing = (sectSystem as any)?.宗门藏经阁?.[sectName] ?? [];
     const existingNames = Array.isArray(existing)
       ? existing
           .map((v: any) => String(v?.name || v?.名称 || '').trim())
@@ -278,46 +280,59 @@ async function generateLibraryContent() {
       : [];
 
     const nowIso = new Date().toISOString();
+
+    // 构建世界背景信息
+    const worldContext = worldInfo ? {
+      世界名称: worldInfo.世界名称,
+      世界背景: worldInfo.世界背景,
+      世界纪元: worldInfo.世界纪元,
+    } : null;
+
+    // 构建宗门完整信息
+    const sectContext = {
+      宗门档案: sectProfile,
+      宗门成员: (sectSystem as any)?.宗门成员?.[sectName],
+    };
+
     const prompt = `
 # 任务：生成【宗门藏经阁】功法列表（单次功能请求）
-你将为宗门「${sectName}」生成可兑换/可学习的功法条目，供前端“宗门藏经阁”页面展示与兑换。
+你将为宗门「${sectName}」生成可兑换/可学习的功法条目。
 
 ## 输出格式（必须）
-只输出 1 个 JSON 对象（不要代码块/不要解释/不要额外文本/不要<thinking>）：
+只输出 1 个 JSON 对象：
 {"text":"...","techniques":[...],"evolve_count":1,"last_updated":"${nowIso}"}
 
-## 顶层字段严格限制（强JSON）
+## 顶层字段严格限制
 - 顶层只允许：text / techniques / evolve_count / last_updated
-- 禁止输出任何额外字段（例如：tavern_commands / action_options / 社交 / 宗门 / 系统 等）
+- 禁止输出额外字段
 - techniques 必须是数组
-- 禁止输出多个 JSON 或 JSON 之外的任何字符
 
-## 说明
-- 程序会把 techniques 写入宗门藏经阁并更新内容状态
-- evolve_count/last_updated 可省略，缺失时由程序自动补全
-
-## 功法对象字段（每条必须包含）
+## 功法对象字段
 {
-  "id": "string（唯一，建议 sectlib_<随机>）",
+  "id": "string（唯一）",
   "name": "string（功法名）",
   "quality": "凡品|黄品|玄品|地品|天品|仙品|神品",
-  "cost": number（正整数，贡献点）,
-  "description": "string（20-80字，简介）"
+  "cost": number（贡献点）,
+  "description": "string（20-80字）"
 }
-可选字段（如有就填，没必要可省略）："功法效果" "境界要求" "职位要求" "剩余数量"
+可选字段："功法效果" "境界要求" "职位要求" "剩余数量"
 
-## 约束（必须遵守）
-- 生成 16-30 条功法，至少覆盖：凡/黄/玄/地/天 中的 4 个品阶
-- cost 需与品阶、职位匹配（越高级越贵），不能全都同价
-- 内容必须与宗门设定匹配；不要出现现代枪械、现实品牌等
-- 不要输出 Markdown（不要#、不要列表符号作为行首），JSON 字符串内换行用 \\\\n
-- text 字段写简短系统提示即可，例如：〔宗门藏经阁已更新〕（不要长篇叙事）
+## 约束
+- 生成 16-30 条功法，至少覆盖 4 个品阶
+- cost 需与品阶匹配（越高级越贵）
+- 功法风格必须与宗门特色和世界背景匹配
+- text 字段写简短提示即可
 
-## 宗门信息（参考）
+## 世界背景
+${JSON.stringify(worldContext).slice(0, 600)}
+
+## 宗门信息
 - 玩家职位：${playerPosition.value}
-- 玩家可用贡献点：${playerContribution.value}
-- 宗门档案（可能为空）：${JSON.stringify(sectProfile).slice(0, 1200)}
-- 现有条目（仅供参考，可替换）：${existingNames.join('，') || '（无）'}
+- 玩家贡献点：${playerContribution.value}
+- 宗门详情：${JSON.stringify(sectContext).slice(0, 1200)}
+
+## 现有功法（避免重复）
+${existingNames.join('，') || '（无）'}
     `.trim();
 
     const raw = await generateWithRawPrompt('生成宗门藏经阁', prompt, false, 'sect_generation');

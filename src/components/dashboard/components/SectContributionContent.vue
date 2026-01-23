@@ -214,7 +214,9 @@ async function generateShopContent() {
     }
 
     const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
-    const existing = (gameStateStore.sectSystem as any)?.宗门贡献商店?.[sectName] ?? [];
+    const worldInfo = gameStateStore.worldInfo;
+    const sectSystem = gameStateStore.sectSystem;
+    const existing = (sectSystem as any)?.宗门贡献商店?.[sectName] ?? [];
     const existingNames = Array.isArray(existing)
       ? existing
           .map((v: any) => String(v?.name || v?.名称 || '').trim())
@@ -223,49 +225,59 @@ async function generateShopContent() {
       : [];
 
     const nowIso = new Date().toISOString();
-    const prompt = `
-# 任务：生成【宗门贡献商店】可兑换物品（单次功能请求）
-你将为宗门「${sectName}」生成“贡献点兑换商店”的物品条目，供前端展示与玩家点击兑换。
 
-## 输出格式（必须）
-只输出 1 个 JSON 对象（不要代码块/不要解释/不要额外文本/不要<thinking>）：
+    // 构建世界背景信息
+    const worldContext = worldInfo ? {
+      世界名称: worldInfo.世界名称,
+      世界背景: worldInfo.世界背景,
+      世界纪元: worldInfo.世界纪元,
+    } : null;
+
+    // 构建宗门完整信息
+    const sectContext = {
+      宗门档案: sectProfile,
+      宗门成员: (sectSystem as any)?.宗门成员?.[sectName],
+    };
+
+    const prompt = `
+# 任务：生成【宗门贡献商店】可兑换物品
+你将为宗门「${sectName}」生成贡献点兑换商店的物品条目。
+
+## 输出格式
+只输出 1 个 JSON 对象：
 {"text":"...","items":[...],"evolve_count":1,"last_updated":"${nowIso}"}
 
-## 顶层字段严格限制（强JSON）
-- 顶层只允许：text / items / evolve_count / last_updated
-- 禁止输出任何额外字段（例如：tavern_commands / action_options / 社交 / 宗门 / 系统 等）
+## 顶层字段限制
+- 只允许：text / items / evolve_count / last_updated
 - items 必须是数组
-- 禁止输出多个 JSON 或 JSON 之外的任何字符
 
-## 说明
-- 程序会把 items 写入宗门贡献商店并更新内容状态
-- evolve_count/last_updated 可省略，缺失时由程序自动补全
-
-## 物品对象字段（每条必须包含）
+## 物品对象字段
 {
-  "id": "string（唯一，建议 sectshop_<随机>）",
+  "id": "string（唯一）",
   "name": "string（物品名）",
-  "icon": "string（1-2字符，如：丹/剑/卷/玉/符/草/石）",
+  "icon": "string（1-2字符）",
   "type": "丹药|功法|装备|材料|其他",
   "quality": "凡品|黄品|玄品|地品|天品|仙品|神品",
-  "description": "string（20-80字，简介）",
-  "cost": number（正整数，贡献点）
+  "description": "string（20-80字）",
+  "cost": number（贡献点）
 }
-可选字段（如有就填，没必要可省略）："stock" "使用效果" "限购数量" "职位要求" "稀有度"
+可选字段："stock" "使用效果" "限购数量" "职位要求"
 
-## 约束（必须遵守）
+## 约束
 - 生成 12-24 件物品，type 至少覆盖 4 类
-- cost 需拉开梯度，不能全都同价；高品阶更贵
-- stock 可选：如提供必须是 0-999 的整数（0 表示售罄）
-- 内容必须与宗门设定匹配；不要出现现代枪械、现实品牌等
-- 不要输出 Markdown（不要#、不要列表符号作为行首），JSON 字符串内换行用 \\\\n
-- text 字段写简短系统提示即可，例如：〔宗门贡献商店已更新〕（不要长篇叙事）
+- cost 需拉开梯度，高品阶更贵
+- 物品风格必须与宗门特色和世界背景匹配
 
-## 宗门信息（参考）
+## 世界背景
+${JSON.stringify(worldContext).slice(0, 600)}
+
+## 宗门信息
 - 玩家职位：${playerPosition.value}
-- 玩家可用贡献点：${playerContribution.value}
-- 宗门档案（可能为空）：${JSON.stringify(sectProfile).slice(0, 1200)}
-- 现有条目（仅供参考，可替换）：${existingNames.join('，') || '（无）'}
+- 玩家贡献点：${playerContribution.value}
+- 宗门详情：${JSON.stringify(sectContext).slice(0, 1200)}
+
+## 现有物品（避免重复）
+${existingNames.join('，') || '（无）'}
     `.trim();
 
     const raw = await generateWithRawPrompt('生成宗门贡献商店', prompt, false, 'sect_generation');

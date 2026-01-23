@@ -228,11 +228,6 @@ function validateValueType(key: string, value: unknown, action: string): string[
       if (typeof value !== 'object' || value === null) errors.push('大道对象必须是对象类型');
     }
 
-    // 任务对象（社交.任务.当前任务列表 push）
-    if (key === '社交.任务.当前任务列表' && action === 'push') {
-      if (typeof value !== 'object' || value === null) errors.push('任务对象必须是对象类型');
-    }
-
     return errors;
   } catch (error) {
     console.error('[指令验证] validateValueType发生异常:', error);

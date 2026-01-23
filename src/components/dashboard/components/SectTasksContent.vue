@@ -70,13 +70,7 @@
             >
               接取
             </button>
-            <button
-              v-if="task.状态 === '进行中'"
-              class="task-btn success"
-              @click="completeTask(task.任务ID)"
-            >
-              完成
-            </button>
+            <span v-if="task.状态 === '进行中'" class="task-in-progress">进行中</span>
             <button
               v-if="task.状态 === '进行中'"
               class="task-btn ghost"
@@ -92,7 +86,7 @@
 
     <div class="task-notice">
       <Info :size="14" />
-      <span>任务列表可随剧情更新，完成后自动增加贡献点</span>
+      <span>任务完成由AI根据剧情判断，完成后自动发放奖励</span>
     </div>
   </div>
 </template>
@@ -241,41 +235,6 @@ async function acceptTask(taskId: string) {
   toast.success('已接取任务');
 }
 
-async function completeTask(taskId: string) {
-  const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
-  const saveData = gameStateStore.getCurrentSaveData();
-  if (!saveData || !sectName) {
-    toast.error('未找到当前存档');
-    return;
-  }
-
-  const updated = typeof structuredClone === 'function'
-    ? structuredClone(saveData)
-    : JSON.parse(JSON.stringify(saveData));
-
-  const socialRoot = ((updated as any).社交 ??= {});
-  const sectRoot = (socialRoot.宗门 ??= {});
-  const taskRoot = (sectRoot.宗门任务 ??= {});
-  const tasks = Array.isArray(taskRoot[sectName]) ? taskRoot[sectName].map(normalizeTask) : [];
-  let reward = 0;
-  const nextTasks = tasks.map((task) => {
-    if (task.任务ID !== taskId) return task;
-    if (task.状态 !== '进行中') return task;
-    reward = task.贡献奖励 || 0;
-    return { ...task, 状态: '已完成' };
-  });
-  taskRoot[sectName] = nextTasks;
-
-  const memberInfo = (sectRoot.成员信息 ??= {});
-  const currentContribution = Number(memberInfo.贡献 ?? 0);
-  memberInfo.贡献 = currentContribution + reward;
-
-  gameStateStore.loadFromSaveData(updated);
-  await characterStore.saveCurrentGame();
-  sendChat(`宗门任务完成：${taskId}, 贡献+${reward}`);
-  toast.success('任务已完成');
-}
-
 async function abandonTask(taskId: string) {
   await updateTasks((tasks) => tasks.map((task) => {
     if (task.任务ID !== taskId) return task;
@@ -306,7 +265,9 @@ async function generateSectTasks() {
     }
 
     const sectProfile = (gameStateStore.sectSystem as any)?.宗门档案?.[sectName] ?? null;
-    const existing = (gameStateStore.sectSystem as any)?.宗门任务?.[sectName] ?? [];
+    const worldInfo = gameStateStore.worldInfo;
+    const sectSystem = gameStateStore.sectSystem;
+    const existing = (sectSystem as any)?.宗门任务?.[sectName] ?? [];
     const existingNames = Array.isArray(existing)
       ? existing
           .map((v: any) => String(v?.任务名称 || v?.name || '').trim())
@@ -315,44 +276,65 @@ async function generateSectTasks() {
       : [];
 
     const nowIso = new Date().toISOString();
-    const prompt = `
-# Sect Task Generation (JSON only)
-You generate tasks for sect "${sectName}".
 
-Output JSON:
+    // 构建世界背景信息
+    const worldContext = worldInfo ? {
+      世界名称: worldInfo.世界名称,
+      世界背景: worldInfo.世界背景,
+      世界纪元: worldInfo.世界纪元,
+      大陆信息: (worldInfo.大陆信息 || []).slice(0, 3).map((c: any) => c.名称 || c.name),
+    } : null;
+
+    // 构建宗门完整信息
+    const sectContext = {
+      宗门档案: sectProfile,
+      宗门成员: (sectSystem as any)?.宗门成员?.[sectName],
+      宗门关系: (sectSystem as any)?.宗门关系?.[sectName],
+    };
+
+    const prompt = `
+# 任务：生成【宗门任务】列表（单次功能请求）
+你将为宗门「${sectName}」生成任务条目。
+
+## 输出格式（必须）
+只输出 1 个 JSON 对象：
 {"text":"...","tasks":[...],"evolve_count":1,"last_updated":"${nowIso}"}
 
-Rules:
-- Only fields: text, tasks, evolve_count, last_updated.
-- No extra fields (e.g., tavern_commands, action_options, 社交, 宗门, 系统).
-- tasks must be an array.
-- Output pure JSON only. No code fences, no extra text.
-- Do not output Markdown; use \n for newlines inside JSON strings.
+## 顶层字段严格限制
+- 顶层只允许：text / tasks / evolve_count / last_updated
+- 禁止输出额外字段（tavern_commands / action_options / 社交 / 宗门 / 系统 等）
+- tasks 必须是数组
+- 禁止输出代码块或额外文本
 
-Task item schema:
+## 任务对象字段
 {
-  "任务ID": "string, unique id",
+  "任务ID": "string（唯一）",
   "任务名称": "string",
-  "任务描述": "string (20-100 chars)",
+  "任务描述": "string（20-100字）",
   "任务类型": "巡逻|采集|护送|除魔|求援|侦查|炼丹|炼器|内门事务|秘境",
   "难度": "低|中|高|极",
   "贡献奖励": number,
   "额外奖励": "string or empty",
   "状态": "可接取"
 }
-Optional: "期限", "发布人", "要求"
+可选字段："期限", "发布人", "要求"
 
-Requirements:
-- 6-12 tasks, at least 4 available.
-- Reward scales: low(10-80) mid(80-200) high(200-400) extreme(400-800).
-- Match sect theme and player position.
-- text should be short (e.g. "宗门任务已更新").
+## 约束
+- 生成 6-12 个任务，至少 4 个可接取
+- 奖励梯度：低(10-80) 中(80-200) 高(200-400) 极(400-800)
+- 任务内容必须与宗门特色和世界背景匹配
+- text 字段写简短提示即可
 
-Context:
-- Player position: ${playerPosition.value}
-- Current contribution: ${playerContribution.value}
-- Sect profile: ${JSON.stringify(sectProfile).slice(0, 1200)}
-- Existing tasks: ${existingNames.join(', ') || 'none'}
+## 世界背景
+${JSON.stringify(worldContext).slice(0, 800)}
+
+## 宗门信息
+- 玩家职位：${playerPosition.value}
+- 玩家贡献点：${playerContribution.value}
+- 宗门详情：${JSON.stringify(sectContext).slice(0, 1500)}
+
+## 现有任务（避免重复）
+${existingNames.join('，') || '（无）'}
     `.trim();
 
     const raw = await generateWithRawPrompt('Generate Sect Tasks', prompt, false, 'sect_generation');
@@ -679,6 +661,12 @@ Context:
 .task-done {
   font-size: 0.75rem;
   color: #16a34a;
+  font-weight: 600;
+}
+
+.task-in-progress {
+  font-size: 0.75rem;
+  color: #d97706;
   font-weight: 600;
 }
 
