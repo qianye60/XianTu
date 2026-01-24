@@ -803,7 +803,7 @@ const bodyStatsForPanel = computed(() => (isMeaningfulBodyStats(bodyStats.value)
 const lifespanForBodyPanelDisplay = computed(() => {
   const ls = playerStatus.value?.寿命;
   if (!ls) return undefined;
-  const current = ls.当前;
+  const current = currentAge.value; // 使用动态计算的年龄，而非存储值
   const max = ls.上限;
   if (typeof current !== 'number' || typeof max !== 'number' || max <= 0) return undefined;
   return { current, max };
@@ -1105,53 +1105,46 @@ const closeModals = () => {
 <style scoped>
 /* ========== 仙途主题变量 ========== */
 .character-details-wrapper {
-  /* 主色调 - 深邃星空 */
-  --xiantu-bg-deep: #080c14;
-  --xiantu-bg-base: #0d1320;
-  --xiantu-bg-elevated: #131a2b;
+  /* 主题变量映射 */
+  --xiantu-bg-deep: var(--color-background);
+  --xiantu-bg-base: var(--color-background);
+  --xiantu-bg-elevated: var(--color-surface);
 
-  /* 卡片背景 */
-  --card-bg: rgba(19, 26, 43, 0.85);
-  --card-bg-hover: rgba(25, 34, 55, 0.9);
+  --card-bg: var(--color-surface-transparent);
+  --card-bg-hover: var(--color-surface-light);
 
-  /* 边框色 */
-  --border-color: rgba(100, 180, 220, 0.12);
-  --border-hover: rgba(100, 180, 220, 0.35);
-  --border-active: rgba(100, 200, 255, 0.5);
+  --border-color: var(--color-border);
+  --border-hover: var(--color-border-hover);
+  --border-active: rgba(var(--color-primary-rgb), 0.5);
 
-  /* 文字色 */
-  --text-primary: #e8eef5;
-  --text-secondary: #a0aec0;
-  --text-muted: #64748b;
-  --text-highlight: #f0f6ff;
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --text-highlight: var(--color-white-soft);
 
-  /* 主题强调色 - 灵韵青 */
-  --accent-primary: #5cc4e8;
-  --accent-primary-dim: rgba(92, 196, 232, 0.15);
-  --accent-primary-glow: rgba(92, 196, 232, 0.4);
+  --accent-primary: var(--color-primary);
+  --accent-primary-dim: rgba(var(--color-primary-rgb), 0.15);
+  --accent-primary-glow: rgba(var(--color-primary-rgb), 0.4);
+  --accent-primary-bright: var(--color-primary-hover);
+  --accent-cyan: var(--color-primary);
 
-  /* 辅助强调色 - 仙金 */
-  --accent-gold: #e8c55c;
-  --accent-gold-dim: rgba(232, 197, 92, 0.15);
+  --accent-gold: var(--color-accent);
+  --accent-gold-dim: rgba(var(--color-accent-rgb), 0.15);
 
-  /* 功能色 */
-  --accent-green: #5ce8a0;
-  --accent-red: #e85c6c;
-  --accent-purple: #a87ce8;
-  --accent-blue: #5c8ce8;
-  --accent-orange: #e8a05c;
+  --accent-green: var(--color-success);
+  --accent-red: var(--color-error);
+  --accent-purple: var(--color-info);
+  --accent-blue: var(--color-info);
+  --accent-orange: var(--color-warning);
 
-  /* 圆角 */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
 
-  /* 阴影 */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
-
 /* ========== 主容器 ========== */
 .character-details-wrapper {
   width: 100%;
@@ -1169,8 +1162,8 @@ const closeModals = () => {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(92, 196, 232, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(92, 196, 232, 0.02) 1px, transparent 1px);
+    linear-gradient(rgba(var(--color-primary-rgb), 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--color-primary-rgb), 0.02) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
   z-index: 0;
@@ -1204,7 +1197,7 @@ const closeModals = () => {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--accent-cyan), #00ffc8);
+  background: linear-gradient(180deg, var(--accent-cyan), var(--accent-primary-bright));
   border-radius: 3px;
 }
 
@@ -1257,7 +1250,7 @@ const closeModals = () => {
 }
 
 .retry-btn:hover {
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--color-primary-rgb), 0.1);
   border-color: var(--border-hover);
 }
 
@@ -1277,7 +1270,7 @@ const closeModals = () => {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--color-primary-rgb), 0.3), transparent);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
@@ -1340,8 +1333,8 @@ const closeModals = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 212, 255, 0.1);
-  border: 1px solid rgba(0, 212, 255, 0.3);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
   transition: all 0.2s ease;
 }
 
@@ -1370,54 +1363,54 @@ const closeModals = () => {
 
 /* 境界颜色变体 */
 .avatar-circle[data-realm="qi-refining"] {
-  background: rgba(156, 163, 175, 0.1);
-  border-color: rgba(156, 163, 175, 0.3);
+  background: rgba(var(--color-border-rgb), 0.1);
+  border-color: rgba(var(--color-border-rgb), 0.3);
 }
-.avatar-circle[data-realm="qi-refining"] .avatar-text { color: #9ca3af; }
+.avatar-circle[data-realm="qi-refining"] .avatar-text { color: var(--text-muted); }
 
 .avatar-circle[data-realm="foundation"] {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(var(--color-success-rgb), 0.1);
+  border-color: rgba(var(--color-success-rgb), 0.3);
 }
-.avatar-circle[data-realm="foundation"] .avatar-text { color: #10b981; }
+.avatar-circle[data-realm="foundation"] .avatar-text { color: var(--color-success); }
 
 .avatar-circle[data-realm="golden-core"] {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-color: rgba(var(--color-info-rgb), 0.3);
 }
-.avatar-circle[data-realm="golden-core"] .avatar-text { color: #3b82f6; }
+.avatar-circle[data-realm="golden-core"] .avatar-text { color: var(--color-info); }
 
 .avatar-circle[data-realm="nascent-soul"] {
-  background: rgba(168, 85, 247, 0.1);
-  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
 }
-.avatar-circle[data-realm="nascent-soul"] .avatar-text { color: #a855f7; }
+.avatar-circle[data-realm="nascent-soul"] .avatar-text { color: var(--color-primary); }
 
 .avatar-circle[data-realm="soul-formation"] {
-  background: rgba(236, 72, 153, 0.1);
-  border-color: rgba(236, 72, 153, 0.3);
+  background: rgba(var(--color-accent-rgb), 0.1);
+  border-color: rgba(var(--color-accent-rgb), 0.3);
 }
-.avatar-circle[data-realm="soul-formation"] .avatar-text { color: #ec4899; }
+.avatar-circle[data-realm="soul-formation"] .avatar-text { color: var(--color-accent); }
 
 .avatar-circle[data-realm="void-refining"] {
-  background: rgba(249, 115, 22, 0.1);
-  border-color: rgba(249, 115, 22, 0.3);
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border-color: rgba(var(--color-warning-rgb), 0.3);
 }
-.avatar-circle[data-realm="void-refining"] .avatar-text { color: #f97316; }
+.avatar-circle[data-realm="void-refining"] .avatar-text { color: var(--color-warning); }
 
 .avatar-circle[data-realm="body-integration"] {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(var(--color-error-rgb), 0.1);
+  border-color: rgba(var(--color-error-rgb), 0.3);
 }
-.avatar-circle[data-realm="body-integration"] .avatar-text { color: #ef4444; }
+.avatar-circle[data-realm="body-integration"] .avatar-text { color: var(--color-error); }
 
 .avatar-circle[data-realm="tribulation"],
 .avatar-circle[data-realm="custom"] {
-  background: rgba(255, 215, 0, 0.1);
-  border-color: rgba(255, 215, 0, 0.3);
+  background: rgba(var(--color-accent-rgb), 0.1);
+  border-color: rgba(var(--color-accent-rgb), 0.3);
 }
 .avatar-circle[data-realm="tribulation"] .avatar-text,
-.avatar-circle[data-realm="custom"] .avatar-text { color: #ffd700; }
+.avatar-circle[data-realm="custom"] .avatar-text { color: var(--color-accent); }
 
 /* ========== 身份信息 ========== */
 .identity-info {
@@ -1439,7 +1432,7 @@ const closeModals = () => {
 }
 
 .text-gradient {
-  background: linear-gradient(90deg, var(--accent-cyan), #00ffc8);
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-primary-bright));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1463,15 +1456,15 @@ const closeModals = () => {
 }
 
 .tag-badge.gender.male {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(var(--color-info-rgb), 0.15);
+  color: var(--color-info);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
 }
 
 .tag-badge.gender.female {
-  background: rgba(236, 72, 153, 0.15);
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  background: rgba(var(--color-accent-rgb), 0.15);
+  color: var(--color-accent);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .meta-chip {
@@ -1479,8 +1472,8 @@ const closeModals = () => {
   align-items: center;
   padding: 3px 10px;
   font-size: 12px;
-  background: rgba(0, 212, 255, 0.08);
-  border: 1px solid rgba(0, 212, 255, 0.2);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
 }
@@ -1491,8 +1484,8 @@ const closeModals = () => {
 }
 
 .link-chip:hover {
-  background: rgba(92, 196, 232, 0.15);
-  border-color: rgba(92, 196, 232, 0.4);
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.4);
   color: var(--accent-primary);
 }
 
@@ -1641,14 +1634,14 @@ const closeModals = () => {
 
 .progress-track {
   height: 6px;
-  background: rgba(92, 196, 232, 0.1);
+  background: rgba(var(--color-primary-rgb), 0.1);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-primary), #7dd8f0);
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-primary-bright));
   border-radius: 3px;
   position: relative;
 }
@@ -1704,12 +1697,12 @@ const closeModals = () => {
 
 .nav-tab:hover {
   color: var(--text-secondary);
-  background: rgba(92, 196, 232, 0.05);
+  background: rgba(var(--color-primary-rgb), 0.05);
 }
 
 .nav-tab.active {
   color: var(--accent-primary);
-  background: rgba(92, 196, 232, 0.1);
+  background: rgba(var(--color-primary-rgb), 0.1);
 }
 
 .active-indicator {
@@ -1873,18 +1866,18 @@ const closeModals = () => {
 }
 
 .spirit-root-banner.spirit-common {
-  background: rgba(156, 163, 175, 0.1);
-  border: 1px solid rgba(156, 163, 175, 0.2);
+  background: rgba(var(--color-border-rgb), 0.1);
+  border: 1px solid rgba(var(--color-border-rgb), 0.2);
 }
 
 .spirit-root-banner.spirit-earth {
-  background: rgba(92, 196, 232, 0.1);
-  border: 1px solid rgba(92, 196, 232, 0.25);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
 }
 
 .spirit-root-banner.spirit-divine {
   background: var(--accent-gold-dim);
-  border: 1px solid rgba(232, 197, 92, 0.3);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .banner-content {
@@ -1982,8 +1975,8 @@ const closeModals = () => {
 
 .talent-chip.trait-chip {
   color: var(--accent-purple);
-  background: rgba(168, 124, 232, 0.1);
-  border-color: rgba(168, 124, 232, 0.2);
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-color: rgba(var(--color-info-rgb), 0.2);
 }
 
 .talent-chip.empty {
@@ -2774,7 +2767,7 @@ const closeModals = () => {
 
 .progress-big .fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-gold), #f0d878);
+  background: linear-gradient(90deg, var(--accent-gold), var(--color-accent-hover));
   border-radius: var(--radius-md);
 }
 

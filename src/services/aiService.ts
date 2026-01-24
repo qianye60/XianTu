@@ -500,11 +500,11 @@ class AIService {
 
       // 酒馆模式特殊处理
       if (this.config.mode === 'tavern') {
-        // 检查是否配置了独立API（非default）
+        // 检查是否配置了独立API（必须是非 default；default 在酒馆端表示“使用酒馆配置”）
         const apiConfig = this.getAPIConfigForUsageType(usageType);
 
         // 如果配置了独立API，直接请求，不走酒馆代理
-        if (apiConfig) {
+        if (apiConfig && apiConfig.id !== 'default') {
           console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连: ${apiConfig.name}`);
           // 如果API配置启用了强制JSON输出，设置responseFormat
           if (apiConfig.forceJsonOutput && !options.responseFormat) {
@@ -570,11 +570,11 @@ class AIService {
 
       // 酒馆模式特殊处理
       if (this.config.mode === 'tavern') {
-        // 检查是否配置了独立API（非default）
+        // 检查是否配置了独立API（必须是非 default；default 在酒馆端表示“使用酒馆配置”）
         const apiConfig = this.getAPIConfigForUsageType(usageType);
 
         // 如果配置了独立API，直接请求，不走酒馆代理
-        if (apiConfig) {
+        if (apiConfig && apiConfig.id !== 'default') {
           console.log(`[AI服务-酒馆] 功能[${usageType}]使用独立API直连(Raw): ${apiConfig.name}`);
           // 如果API配置启用了强制JSON输出，设置responseFormat
           if (apiConfig.forceJsonOutput && !options.responseFormat) {

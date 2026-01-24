@@ -79,8 +79,8 @@
           <span>后端管理</span>
         </button>
         <button class="action-menu-item" @click="toggleTheme(); close()">
-          <component :is="isDarkMode ? Sun : Moon" :size="18" />
-          <span>{{ isDarkMode ? '切换亮色' : '切换暗色' }}</span>
+          <component :is="themeMode === 'dark' ? Sun : Moon" :size="18" />
+          <span>{{ themeMode === 'dark' ? '切换亮色' : '切换暗色' }}</span>
         </button>
         <button class="action-menu-item" @click="toggleFullscreen(); close()">
           <component :is="isFullscreenMode ? Minimize2 : Maximize2" :size="18" />
@@ -225,7 +225,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { BookOpen, X, Scroll, Sparkles, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart, ArrowRight, Plug, Shield, FileText } from 'lucide-vue-next'; // 导入图标
+import { BookOpen, X, Scroll, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart, ArrowRight, Plug, Shield, FileText } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
@@ -254,7 +254,12 @@ const backendVersion = ref<string | null>(null);
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
-const isDarkMode = ref(localStorage.getItem('theme') !== 'light');
+type ThemeMode = 'light' | 'dark';
+const normalizeTheme = (value: string | null): ThemeMode => {
+  if (value === 'light' || value === 'dark') return value;
+  return 'dark';
+};
+const themeMode = ref<ThemeMode>(normalizeTheme(localStorage.getItem('theme')));
 const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
 const showSettingsModal = ref(false);
@@ -599,13 +604,12 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
 
 // --- 主题与全屏 ---
 watchEffect(() => {
-  const theme = isDarkMode.value ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('theme', theme);
+  document.documentElement.setAttribute('data-theme', themeMode.value);
+  localStorage.setItem('theme', themeMode.value);
 });
 
 const toggleTheme = () => {
-  isDarkMode.value = !isDarkMode.value;
+  themeMode.value = themeMode.value === 'dark' ? 'light' : 'dark';
 };
 
 const toggleFullscreen = () => {
