@@ -9,6 +9,8 @@ import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
 import { WorldMapConfig } from '@/types/worldMap';
 import { promptStorage } from '@/services/promptStorage';
+import { parseJsonSmart } from '@/utils/jsonExtract';
+import { aiService } from '@/services/aiService';
 
 // 重新定义 ValidationResult 接口，解除对外部文件的依赖
 interface ValidationError {
@@ -100,12 +102,20 @@ export class EnhancedWorldGenerator {
 
   /**
    * 重试时减少数量参数，降低token消耗
+   * 注意："仅生成大陆"模式下只减少大陆数量
    * @param retryCount 当前重试次数
    */
   private reduceCountsForRetry(retryCount: number): void {
     const reductionFactor = 0.8;
     const factor = Math.pow(reductionFactor, retryCount);
 
+    // "仅生成大陆"模式：只减少大陆数量
+    if (this.originalConfig.factionCount === 0) {
+      this.config.continentCount = Math.max(2, Math.floor(this.originalConfig.continentCount * factor));
+      return;
+    }
+
+    // 完整世界生成模式：减少所有数量
     this.config.factionCount = Math.max(3, Math.floor(this.originalConfig.factionCount * factor));
     this.config.locationCount = Math.max(5, Math.floor(this.originalConfig.locationCount * factor));
     this.config.secretRealmsCount = Math.max(2, Math.floor(this.originalConfig.secretRealmsCount * factor));
@@ -122,6 +132,10 @@ export class EnhancedWorldGenerator {
     }
 
     const prompt = await this.buildPromptWithErrors();
+
+    // 🔥 检查是否启用了强JSON模式
+    const forceJsonMode = aiService.isForceJsonEnabled('world_generation');
+    console.log('[世界生成] 强JSON模式:', forceJsonMode);
 
     try {
       const orderedPrompts: Array<{ role: 'system' | 'user'; content: string }> = [
@@ -150,7 +164,19 @@ export class EnhancedWorldGenerator {
         }
       });
 
-      const worldData = this.parseAIResponse(String(response));
+      // 处理返回值：可能是字符串或对象
+      let responseText: string;
+      if (response && typeof response === 'object' && 'text' in response) {
+        responseText = (response as { text: string }).text;
+      } else if (typeof response === 'string') {
+        responseText = response;
+      } else {
+        responseText = String(response);
+      }
+
+      console.log('[世界生成] 响应长度:', responseText?.length || 0);
+
+      const worldData = this.parseAIResponse(responseText, forceJsonMode);
       return this.convertToWorldInfo(worldData);
 
     } catch (error: unknown) {
@@ -182,7 +208,8 @@ export class EnhancedWorldGenerator {
       }
 
       // 获取默认提示词用于比较
-      const { factionCount, locationCount, secretRealmsCount, continentCount, mapConfig } = this.config;
+      // 🔥 使用 originalConfig 确保重试时提示词和第一次一样
+      const { factionCount, locationCount, secretRealmsCount, continentCount } = this.originalConfig;
       const promptConfig: WorldPromptConfig = {
         factionCount,
         totalLocations: locationCount,
@@ -192,7 +219,7 @@ export class EnhancedWorldGenerator {
         worldBackground: this.config.worldBackground,
         worldEra: this.config.worldEra,
         worldName: this.config.worldName,
-        mapConfig: mapConfig
+        mapConfig: this.config.mapConfig
       };
       let defaultPrompt = EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
 
@@ -242,63 +269,36 @@ export class EnhancedWorldGenerator {
     }
 
   /**
-   * 解析AI响应
+   * 解析AI响应 - 智能处理强JSON模式和普通模式
+   * @param response AI返回的原始文本
+   * @param forceJsonMode 是否启用强JSON模式（API返回纯JSON）
    */
-  private parseAIResponse(response: string): RawWorldData {
+  private parseAIResponse(response: string, forceJsonMode: boolean = false): RawWorldData {
     try {
-      let jsonMatch = null;
-      let jsonText = '';
+      // 1. 移除 <thinking> 标签（reasoner模型可能包含）
+      let text = response.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+      text = text.replace(/<thinking>[\s\S]*/gi, ''); // 处理未闭合的情况
 
-      jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-      if (jsonMatch) {
-        jsonText = jsonMatch[1];
-      }
+      console.log('[世界生成] 清理thinking后长度:', text?.length || 0);
 
-      // 🔥 修改：支持仅包含continents的JSON（仅生成大陆模式）
-      if (!jsonMatch) {
-        // 优先匹配包含continents的完整JSON
-        jsonMatch = response.match(/(\{[\s\S]*?"continents"\s*:\s*\[[\s\S]*?\][\s\S]*?\})/);
-        if (jsonMatch) {
-          jsonText = jsonMatch[1];
-        }
-      }
+      // 2. 使用智能JSON解析（根据forceJsonMode自动选择策略）
+      const worldDataRaw = parseJsonSmart<RawWorldData>(text.trim(), forceJsonMode);
 
-      if (!jsonMatch) {
-        const jsonMatches = response.match(/\{[\s\S]*?\}/g);
-        if (jsonMatches) {
-          for (const match of jsonMatches) {
-            try {
-              const testParse = JSON.parse(match);
-              // 🔥 修改：只要有continents就接受（支持仅生成大陆模式）
-              if (testParse.continents || testParse.factions || testParse.locations) {
-                jsonText = match;
-                break;
-              }
-            } catch {
-              continue;
-            }
-          }
-        }
-      }
-
-      if (!jsonText) {
-        throw new Error('无法解析AI响应中的JSON数据');
-      }
-
-      let worldDataRaw = JSON.parse(jsonText);
-
-      if (worldDataRaw.world_data && typeof worldDataRaw.world_data === 'object') {
-        worldDataRaw = worldDataRaw.world_data;
-      }
+      // 3. 处理嵌套的 world_data
+      const data = worldDataRaw.world_data && typeof worldDataRaw.world_data === 'object'
+        ? worldDataRaw.world_data
+        : worldDataRaw;
 
       return {
-        continents: Array.isArray(worldDataRaw.continents) ? worldDataRaw.continents : [],
-        factions: Array.isArray(worldDataRaw.factions) ? worldDataRaw.factions : [],
-        locations: Array.isArray(worldDataRaw.locations) ? worldDataRaw.locations : []
+        continents: Array.isArray(data.continents) ? data.continents : [],
+        factions: Array.isArray(data.factions) ? data.factions : [],
+        locations: Array.isArray(data.locations) ? data.locations : []
       };
 
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
+      console.error('[世界生成] JSON解析失败:', message);
+      console.error('[世界生成] 原始响应前1000字符:', response?.substring(0, 1000));
       throw new Error(`JSON解析失败: ${message}`);
     }
   }

@@ -10,15 +10,14 @@ export function extractFirstJsonSnippet(text: string): string | null {
   }
 
   // 2) Fallback: find first balanced {...} or [...]
-  const starts: Array<{ index: number; opener: '{' | '['; closer: '}' | ']' }> = [];
+  const starts: number[] = [];
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '{') starts.push({ index: i, opener: '{', closer: '}' });
-    if (ch === '[') starts.push({ index: i, opener: '[', closer: ']' });
+    if (ch === '{' || ch === '[') starts.push(i);
   }
 
-  for (const start of starts) {
-    const snippet = extractBalancedJson(text, start.index, start.opener, start.closer);
+  for (const startIndex of starts) {
+    const snippet = extractBalancedJson(text, startIndex);
     if (snippet) return snippet;
   }
 
@@ -27,11 +26,9 @@ export function extractFirstJsonSnippet(text: string): string | null {
 
 function extractBalancedJson(
   text: string,
-  startIndex: number,
-  opener: '{' | '[',
-  closer: '}' | ']',
+  startIndex: number
 ): string | null {
-  const stack: string[] = [closer];
+  const stack: string[] = [];
   let inString = false;
   let escape = false;
 
@@ -61,8 +58,7 @@ function extractBalancedJson(
     if (ch === '{') stack.push('}');
     else if (ch === '[') stack.push(']');
     else if (ch === '}' || ch === ']') {
-      const expected = stack[stack.length - 1];
-      if (ch !== expected) return null;
+      if (stack.length === 0 || stack[stack.length - 1] !== ch) return null;
       stack.pop();
       if (stack.length === 0) {
         return text.slice(startIndex, i + 1).trim();

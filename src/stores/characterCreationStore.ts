@@ -926,7 +926,15 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   async function resetCharacter() {
     const newPayload = await createEmptyPayload();
     characterPayload.value = newPayload;
-    currentStep.value = 1; 
+    currentStep.value = 1;
+    // 重置世界生成配置为默认值
+    worldGenerationConfig.value = {
+      majorFactionsCount: 5,
+      totalLocations: 12,
+      secretRealmsCount: 5,
+      continentCount: 4,
+      generateOnlyContinents: true // 默认只生成大陆（开局优化）
+    };
   }
   function nextStep() { if (currentStep.value < TOTAL_STEPS) currentStep.value++; }
   function prevStep() { if (currentStep.value > 1) currentStep.value--; }

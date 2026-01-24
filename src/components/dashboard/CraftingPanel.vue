@@ -355,6 +355,7 @@ import { type CraftingType } from '@/utils/craftingSystem';
 import { generateWithRawPrompt } from '@/utils/tavernCore';
 import { computeCrafting, type FireLevel, type Formation } from '@/utils/craftingSystem';
 import { buildCraftingNarrativePrompts, buildCraftingSimulationPrompts } from '@/utils/prompts/tasks/craftingPrompts';
+import { extractFirstJsonSnippet } from '@/utils/jsonExtract';
 
 type Slot = { slotId: number; itemId: string | null };
 
@@ -922,7 +923,7 @@ function parseFirstJsonObject(raw: string): any | null {
     if (parsed) return parsed;
   }
 
-  const extracted = extractFirstJson(text);
+  const extracted = extractFirstJsonSnippet(text);
   if (extracted) return tryParseJson(extracted);
   return null;
 }
@@ -933,30 +934,6 @@ function tryParseJson(text: string): any | null {
   } catch {
     return null;
   }
-}
-
-function extractFirstJson(text: string): string | null {
-  const startIndex = text.indexOf('{');
-  if (startIndex === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escapeNext = false;
-
-  for (let i = startIndex; i < text.length; i++) {
-    const char = text[i];
-    if (escapeNext) { escapeNext = false; continue; }
-    if (char === '\\') { escapeNext = true; continue; }
-    if (char === '"') { inString = !inString; continue; }
-    if (inString) continue;
-
-    if (char === '{') depth++;
-    if (char === '}') {
-      depth--;
-      if (depth === 0) return text.substring(startIndex, i + 1);
-    }
-  }
-  return null;
 }
 </script>
 

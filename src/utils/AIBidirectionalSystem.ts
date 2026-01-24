@@ -22,6 +22,8 @@ import { sanitizeAITextForDisplay } from '@/utils/textSanitizer';
 import { validateAndRepairNpcProfile } from '@/utils/dataValidation';
 import { stripNsfwContent } from '@/utils/prompts/definitions/dataDefinitions';
 import { isSaveDataV3, migrateSaveDataToLatest } from './saveMigration';
+import { parseJsonSmart } from '@/utils/jsonExtract';
+import type { APIUsageType } from '@/stores/apiManagementStore';
 
 type PlainObject = Record<string, unknown>;
 
@@ -1030,6 +1032,8 @@ ${step1Text}
 
         // 🔥 第2步指令生成：根据设置决定是否使用流式传输，失败重试1次
         const step2Streaming = apiStore.aiGenerationSettings.splitStep2Streaming;
+        const step2UsageType: APIUsageType = hasInstructionApi ? 'instruction_generation' : 'main';
+        const step2ForceJson = aiService.isForceJsonEnabled(step2UsageType);
         let parsedStep2: GM_Response | null = null;
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
@@ -1039,10 +1043,10 @@ ${step1Text}
               should_stream: step2Streaming,
               generation_id: `${generationId}_step2_${attempt}`,
               injects: injectsStep2 as any,
-              usageType: hasInstructionApi ? 'instruction_generation' : 'main',
+              usageType: step2UsageType,
               onStreamChunk: undefined,
             });
-            parsedStep2 = this.parseAIResponse(String(step2Response));
+            parsedStep2 = this.parseAIResponse(String(step2Response), step2ForceJson);
             if (parsedStep2.tavern_commands && parsedStep2.tavern_commands.length > 0) break;
             parsedStep2 = null;
           } catch (e) {
@@ -1087,8 +1091,10 @@ ${step1Text}
       // 流式传输通过事件系统在 MainGamePanel 中处理
       // 这里只需要解析最终响应
       if (!isSplitEnabled) {
+        // 🔥 获取主API的强JSON模式设置
+        const mainForceJson = aiService.isForceJsonEnabled('main');
         try {
-          gmResponse = this.parseAIResponse(response);
+          gmResponse = this.parseAIResponse(response, mainForceJson);
         } catch (parseError) {
         console.error('[AI双向系统] 响应解析失败，尝试容错处理:', parseError);
 
@@ -1454,6 +1460,8 @@ ${step1Text}
 
         // 🔥 第2步指令生成：根据设置决定是否使用流式传输，失败重试1次
         const step2StreamingInitial = apiStore.aiGenerationSettings.splitStep2Streaming;
+        const initStep2UsageType: APIUsageType = hasInstructionApi ? 'instruction_generation' : 'main';
+        const initStep2ForceJson = aiService.isForceJsonEnabled(initStep2UsageType);
         options?.onProgressUpdate?.('分步生成：第2步（指令生成）…');
         let parsedStep2: GM_Response | null = null;
         for (let attempt = 1; attempt <= 2; attempt++) {
@@ -1464,10 +1472,10 @@ ${step1Text}
               system: await buildInitialSplitSystemPrompt(2),
               user: step2UserPrompt,
               should_stream: step2StreamingInitial,
-              usageType: hasInstructionApi ? 'instruction_generation' : 'main',
+              usageType: initStep2UsageType,
               onStreamChunk: undefined,
             });
-            parsedStep2 = this.parseAIResponse(String(step2Response));
+            parsedStep2 = this.parseAIResponse(String(step2Response), initStep2ForceJson);
             if (parsedStep2.tavern_commands && parsedStep2.tavern_commands.length > 0) break;
             parsedStep2 = null;
           } catch (e) {
@@ -1582,8 +1590,10 @@ ${step1Text}
         }
 
         // 流式传输通过事件系统在调用方处理
+        // 🔥 获取主API的强JSON模式设置
+        const initMainForceJson = aiService.isForceJsonEnabled('main');
         try {
-          gmResponse = this.parseAIResponse(String(response));
+          gmResponse = this.parseAIResponse(String(response), initMainForceJson);
         } catch (parseError) {
           console.error('[AI双向系统] 初始消息解析失败，尝试容错处理:', parseError);
 
@@ -2823,22 +2833,20 @@ ${saveDataJson}`;
     return summary;
   }
 
-  private parseAIResponse(rawResponse: string): GM_Response {
+  private parseAIResponse(rawResponse: string, forceJsonMode: boolean = false): GM_Response {
     if (!rawResponse || typeof rawResponse !== 'string') {
       throw new Error('AI响应为空或格式错误');
     }
 
-    const rawText = rawResponse.trim();
+    // 🔥 先移除 <thinking> 标签内容（某些模型会输出思考过程）
+    let rawText = rawResponse.trim();
+    rawText = rawText.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+    rawText = rawText.replace(/<thinking>[\s\S]*/gi, ''); // 移除未闭合的标签
+    rawText = rawText.trim();
+
     console.log('[parseAIResponse] 原始响应长度:', rawText.length);
     console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
-
-    const tryParse = (text: string): Record<string, unknown> | null => {
-      try {
-        return JSON.parse(text) as Record<string, unknown>;
-      } catch {
-        return null;
-      }
-    };
+    console.log('[parseAIResponse] 强JSON模式:', forceJsonMode);
 
     const standardize = (obj: Record<string, unknown>): GM_Response => {
       const commands = Array.isArray(obj.tavern_commands) ? obj.tavern_commands :
@@ -2877,55 +2885,15 @@ ${saveDataJson}`;
       };
     };
 
-    // 🔥 核心策略：直接提取JSON，忽略所有非JSON内容（思维链、标签等）
-    const extractFirstJSON = (text: string): string | null => {
-      const startIndex = text.indexOf('{');
-      if (startIndex === -1) return null;
-
-      let depth = 0;
-      let inString = false;
-      let escapeNext = false;
-
-      for (let i = startIndex; i < text.length; i++) {
-        const char = text[i];
-        if (escapeNext) { escapeNext = false; continue; }
-        if (char === '\\') { escapeNext = true; continue; }
-        if (char === '"') { inString = !inString; continue; }
-        if (inString) continue;
-
-        if (char === '{') depth++;
-        if (char === '}') {
-          depth--;
-          if (depth === 0) return text.substring(startIndex, i + 1);
-        }
-      }
-      return null;
-    };
-
-    // 1. 直接从原始文本提取第一个完整JSON对象（无需预处理）
-    const firstJSON = extractFirstJSON(rawText);
-    if (firstJSON) {
-      const parsedObj = tryParse(firstJSON);
-      if (parsedObj) {
-        console.log('[parseAIResponse] ✅ 成功直接提取JSON对象');
-        return standardize(parsedObj);
-      }
+    // 🔥 核心策略：使用统一的智能JSON解析（根据forceJsonMode自动选择策略）
+    try {
+      const parsedObj = parseJsonSmart<Record<string, unknown>>(rawText, forceJsonMode);
+      console.log('[parseAIResponse] ✅ 成功解析JSON对象');
+      return standardize(parsedObj);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`无法解析AI响应：${message}`);
     }
-
-    // 2. 尝试提取代码块内的JSON（兜底）
-    const codeBlockMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i);
-    if (codeBlockMatch?.[1]) {
-      const codeBlockJSON = extractFirstJSON(codeBlockMatch[1]);
-      if (codeBlockJSON) {
-        const parsedObj = tryParse(codeBlockJSON);
-        if (parsedObj) {
-          console.log('[parseAIResponse] ✅ 从代码块提取JSON成功');
-          return standardize(parsedObj);
-        }
-      }
-    }
-
-    throw new Error('无法解析AI响应：未找到有效的JSON格式');
   }
 }
 

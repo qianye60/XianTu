@@ -14,7 +14,7 @@ import axios from 'axios';
 import type { APIUsageType, APIConfig as StoreAPIConfig } from '@/stores/apiManagementStore';
 
 // ============ API提供商类型 ============
-export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'custom';
+export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'zhipu' | 'custom';
 
 // ============ 配置接口 ============
 export interface AIConfig {
@@ -40,6 +40,7 @@ export const API_PROVIDER_PRESETS: Record<APIProvider, { url: string; defaultMod
   claude: { url: 'https://api.anthropic.com', defaultModel: 'claude-sonnet-4-20250514', name: 'Claude' },
   gemini: { url: 'https://generativelanguage.googleapis.com', defaultModel: 'gemini-2.0-flash', name: 'Gemini' },
   deepseek: { url: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', name: 'DeepSeek' },
+  zhipu: { url: 'https://open.bigmodel.cn', defaultModel: 'glm-4-flash', name: '智谱AI' },
   custom: { url: '', defaultModel: '', name: '自定义(OpenAI兼容)' }
 };
 
@@ -1001,19 +1002,28 @@ class AIService {
   ): Promise<string> {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
+    // 🔥 reasoner/r1 模型不支持 response_format: json_object
+    // 使用该参数会导致只输出 reasoning_content 而没有实际 content
+    const isReasonerModel = model.includes('reasoner') || model.includes('r1');
+    const effectiveResponseFormat = (responseFormat && !isReasonerModel) ? responseFormat : undefined;
+    if (responseFormat && isReasonerModel) {
+      console.log(`[AI服务-API调用] 跳过JSON格式输出（${model} 不支持 response_format）`);
+    }
+
     console.log(`[AI服务-API调用] Provider: ${provider}, URL: ${url}, Model: ${model}, 消息数: ${messages.length}, 流式: ${streaming}`);
 
     // 根据provider选择不同的调用方式
     switch (provider) {
       case 'claude':
-        return this.callClaudeAPI(messages, streaming, onStreamChunk, responseFormat);
+        return this.callClaudeAPI(messages, streaming, onStreamChunk, effectiveResponseFormat);
       case 'gemini':
-        return this.callGeminiAPI(messages, streaming, onStreamChunk, responseFormat);
+        return this.callGeminiAPI(messages, streaming, onStreamChunk, effectiveResponseFormat);
       case 'openai':
       case 'deepseek':
+      case 'zhipu':
       case 'custom':
       default:
-        return this.callOpenAICompatibleAPI(messages, streaming, onStreamChunk, responseFormat);
+        return this.callOpenAICompatibleAPI(messages, streaming, onStreamChunk, effectiveResponseFormat);
     }
   }
 
@@ -1044,6 +1054,7 @@ class AIService {
     // Many OpenAI-compatible providers expose these model names; match by model string first.
     if (m.includes('deepseek')) return 64_000;
     if (m.includes('moonshot') || m.includes('kimi')) return 128_000;
+    if (provider === 'zhipu' || m.includes('glm')) return 128_000;
 
     // OpenAI-compatible defaults
     if (m.includes('gpt-4o') || m.includes('gpt-4.1') || m.includes('o1') || m.includes('o3')) return 128_000;
@@ -1097,12 +1108,17 @@ class AIService {
     // 使用更保守的默认值8192，兼容更多API（如某些中转API限制为8192）
     const safeMaxTokens = this.clampMaxTokensForContext(provider, model, messages, maxTokens || 8192);
 
+    // 智谱AI使用不同的API路径
+    const chatEndpoint = provider === 'zhipu'
+      ? `${url}/api/paas/v4/chat/completions`
+      : `${url}/v1/chat/completions`;
+
     console.log(`[AI服务-OpenAI兼容] streaming=${streaming}, hasOnStreamChunk=${!!onStreamChunk}`);
 
     try {
       if (streaming) {
         try {
-          return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, safeMaxTokens, onStreamChunk, responseFormat);
+          return await this.streamingRequestOpenAI(url, apiKey, model, messages, temperature || 0.7, safeMaxTokens, onStreamChunk, responseFormat, provider);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (!this.isStreamUnsupportedError(msg)) throw e;
@@ -1112,18 +1128,20 @@ class AIService {
             model,
             messages,
             temperature: temperature || 0.7,
-            max_completion_tokens: safeMaxTokens,
+            max_tokens: safeMaxTokens,
             stream: false
           };
 
           // 如果指定了 JSON 格式，添加 response_format
-          if (responseFormat === 'json_object') {
+          // 🔥 注意：deepseek-reasoner 不支持 response_format
+          const isReasonerModel = model.includes('reasoner') || model.includes('r1');
+          if (responseFormat === 'json_object' && !isReasonerModel) {
             requestBody.response_format = { type: 'json_object' };
             console.log('[AI服务-OpenAI兼容] 启用JSON格式输出(降级非流式)');
           }
 
           const response = await axios.post(
-            `${url}/v1/chat/completions`,
+            chatEndpoint,
             requestBody,
             {
               headers: {
@@ -1149,13 +1167,15 @@ class AIService {
         };
 
         // 如果指定了 JSON 格式，添加 response_format
-        if (responseFormat === 'json_object') {
+        // 🔥 注意：deepseek-reasoner 不支持 response_format
+        const isReasonerModel = model.includes('reasoner') || model.includes('r1');
+        if (responseFormat === 'json_object' && !isReasonerModel) {
           requestBody.response_format = { type: 'json_object' };
           console.log('[AI服务-OpenAI兼容] 启用JSON格式输出(非流式)');
         }
 
         const response = await axios.post(
-          `${url}/v1/chat/completions`,
+          chatEndpoint,
           requestBody,
           {
             headers: {
@@ -1462,7 +1482,8 @@ class AIService {
     temperature: number,
     maxTokens: number,
     onStreamChunk?: (chunk: string) => void,
-    responseFormat?: 'json_object'
+    responseFormat?: 'json_object',
+    provider?: APIProvider
   ): Promise<string> {
     console.log('[AI服务-OpenAI流式] 开始');
 
@@ -1470,17 +1491,26 @@ class AIService {
       model,
       messages,
       temperature,
-      max_completion_tokens: maxTokens,
+      max_tokens: maxTokens,
       stream: true
     };
 
     // 如果指定了 JSON 格式，添加 response_format
-    if (responseFormat === 'json_object') {
+    // 🔥 注意：deepseek-reasoner 不支持 response_format，会导致只输出 reasoning_content
+    const isReasonerModel = model.includes('reasoner') || model.includes('r1');
+    if (responseFormat === 'json_object' && !isReasonerModel) {
       requestBody.response_format = { type: 'json_object' };
       console.log('[AI服务-OpenAI流式] 启用JSON格式输出');
+    } else if (responseFormat === 'json_object' && isReasonerModel) {
+      console.log('[AI服务-OpenAI流式] 跳过JSON格式输出（reasoner模型不支持）');
     }
 
-    const response = await fetch(`${url}/v1/chat/completions`, {
+    // 智谱AI使用不同的API路径
+    const chatEndpoint = provider === 'zhipu'
+      ? `${url}/api/paas/v4/chat/completions`
+      : `${url}/v1/chat/completions`;
+
+    const response = await fetch(chatEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -1502,8 +1532,9 @@ class AIService {
 
     // DeepSeek Reasoner 状态追踪
     let inReasoningPhase = false;
+    let needsClosingTag = false; // 追踪是否需要闭合 </thinking>
 
-    return this.processSSEStream(response, (data) => {
+    const result = await this.processSSEStream(response, (data) => {
       const parsed = JSON.parse(data);
       const delta = parsed.choices[0]?.delta;
 
@@ -1516,6 +1547,7 @@ class AIService {
         const reasoningText = delta.reasoning_content;
         if (!inReasoningPhase && reasoningText) {
           inReasoningPhase = true;
+          needsClosingTag = true;
           // 发送开始标签 + 第一个内容
           return `<thinking>${reasoningText}`;
         } else if (inReasoningPhase && reasoningText) {
@@ -1529,6 +1561,7 @@ class AIService {
       // 从 reasoning 切换到 content
       if (inReasoningPhase && hasActualContent) {
         inReasoningPhase = false;
+        needsClosingTag = false;
         // 发送结束标签 + 第一个实际内容
         return `</thinking>${delta.content}`;
       }
@@ -1540,6 +1573,14 @@ class AIService {
 
       return '';
     }, onStreamChunk);
+
+    // 🔥 修复：如果流结束时仍在 reasoning 阶段，补充闭合标签
+    if (needsClosingTag) {
+      console.warn('[AI服务-OpenAI流式] 警告：reasoning_content 未正常闭合，补充 </thinking> 标签');
+      return result + '</thinking>';
+    }
+
+    return result;
   }
 
   // Claude格式流式请求
