@@ -2486,6 +2486,7 @@ const syncGameState = async () => {
   background-color: var(--color-surface) !important; /* 提亮叙事区域但不刺眼 */
   overflow-x: hidden; /* 防止水平滚动条 */
   overflow-y: auto; /* 允许垂直滚动 */
+  padding-right: 12px; /* 给斜体字留出空间，防止被滚动条截断 */
 }
 
 /* 流式输出内容样式 */
@@ -2502,7 +2503,7 @@ const syncGameState = async () => {
 .narrative-text {
   line-height: 1.8;
   color: var(--color-text);
-  font-size: 0.95rem;
+  font-size: var(--base-font-size, 1rem);
   max-width: 100%;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -2522,7 +2523,7 @@ const syncGameState = async () => {
 
 .content-area {
   background-color: var(--color-surface) !important; /* 提亮内容区 */
-  padding: 20px;
+  padding: 20px 8px 20px 20px; /* 右侧留小间距给滚动条 */
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
