@@ -8,6 +8,11 @@ export const JSON_OUTPUT_RULES = `
 格式:{"text":"叙事","mid_term_memory":"摘要","tavern_commands":[...],"action_options":["选项1","选项2"]}
 JSON有效性(CRITICAL):禁止代码围栏/前后缀文本;字符串内换行用\\n;正确转义"和\\;禁止尾逗号/注释
 禁止:纯文本响应/"明白了"/"法则已刻入"/<thinking>标签/JSON外任何内容
+
+[action_options位置](CRITICAL)
+action_options是JSON顶层字段,不是tavern_commands里的指令!
+正确:{"text":"...","tavern_commands":[...],"action_options":["选项1","选项2"]}
+错误:{"tavern_commands":[{"action":"action_options","value":[...]}]} ← 绝对禁止!
 `.trim()
 
 export const RESPONSE_FORMAT_RULES = `
@@ -71,6 +76,12 @@ NPC内心想法:{"action":"set","key":"社交.关系.李青云.当前内心想�
 export const DATA_STRUCTURE_STRICTNESS = `
 [数据结构]
 只读:角色.身份/装备/技能.掌握技能;境界:小突破add进度,大突破set整体;NPC:必须一次性创建完整对象,字段缺失必须补齐合理默认值,禁止残缺对象
+
+[字段类型与操作对应](CRITICAL-防止push/set混淆)
+字符串字段(用set):当前内心想法/外貌描述/当前外貌状态/反应描述/特征描述/描述/状态描述
+数组字段(用push):记忆/记忆总结/性格特征/人格底线/天赋/身体部位/效果
+数值字段(用add):好感度/气血.当前/灵气.当前/神识.当前/熟练度/当前经验/当前进度
+错误示例:push到字符串字段如"push 当前内心想法"→应改为"set 当前内心想法"
 `.trim()
 
 export const NARRATIVE_PURITY_RULES = `
