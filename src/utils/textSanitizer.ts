@@ -123,7 +123,7 @@ export function extractTextFromJsonResponse(text: string): string {
   if (!text) return '';
 
   // 先移除 thinking 类标签
-  let cleaned = text
+  const cleaned = text
     .replace(/<think[^>]*>[\s\S]*?<\/think[^>]*>/gi, '')
     .replace(/<\/?think[^>]*>/gi, '')
     .trim();

@@ -27,6 +27,7 @@
               <p class="empty-hint">{{ t('世界信息将由AI根据游戏进程生成') }}</p>
               <div class="empty-actions">
                 <button class="empty-action-btn primary" @click="sendSectGenerationPrompt">生成势力信息</button>
+                <button class="empty-action-btn" @click="goInitWorld">去初始化世界（世界地图）</button>
                 <button class="empty-action-btn" @click="forceRefresh">刷新</button>
               </div>
               <p class="empty-prompt-hint">提示：点击“生成势力信息”会自动发送到对话并写入 <code>世界.信息.势力信息</code>。</p>
@@ -380,6 +381,10 @@ const buildSectGenerationPrompt = () => {
   const height = Number(mapConfig?.height) || 10000;
 
   return `你是GM，请根据当前剧情与世界设定，生成/补全「世界.信息.势力信息」（数组）。\n\n要求：\n- 每条势力至少包含：名称、类型、等级、描述、宗门驻地、主要资源、可否加入、加入条件、领导层、成员数量、势力范围详情、与玩家关系、声望值。\n- 坐标范围：x 0-${width}，y 0-${height}（游戏坐标，左上角为原点）。\n- 势力必须包含「位置」坐标（对象，含x/y）与「势力范围」（至少4个坐标点）。\n- 内容要与当前世界一致，避免与已存在信息冲突。\n- 严格输出一个 JSON 对象（不要代码块/解释/额外文本，不要 <thinking>）：\n{\n  \"text\": \"【系统】势力信息已补全。\",\n  \"mid_term_memory\": \"\",\n  \"tavern_commands\": [\n    {\"action\":\"set\",\"key\":\"世界.信息.势力信息\",\"value\":[/*...势力数组...*/]}\n  ],\n  \"action_options\": []\n}`;
+};
+
+const goInitWorld = () => {
+  router.push({ name: 'WorldMap' });
 };
 
 const sendSectGenerationPrompt = () => {

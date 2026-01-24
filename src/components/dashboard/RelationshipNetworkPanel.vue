@@ -399,8 +399,12 @@
 
                         <div class="info-grid-responsive">
                           <div class="info-item-row">
-                            <span class="info-label">是否为处女</span
-                            ><span class="info-value">{{ privacy.是否为处女 ? '是' : '否' }}</span>
+                            <span class="info-label">{{ t('贞洁') }}</span
+                            ><span class="info-value">{{ virginityValue }}</span>
+                          </div>
+                          <div class="info-item-row">
+                            <span class="info-label">{{ t('性别') }}</span
+                            ><span class="info-value">{{ selectedPerson?.性别 ? t(selectedPerson.性别) : '—' }}</span>
                           </div>
                           <div class="info-item-row">
                             <span class="info-label">性格倾向</span
@@ -543,9 +547,9 @@
 
                       <!-- 生育与妊娠 -->
                       <div v-if="privacyFertility" class="nsfw-subsection">
-                        <h6 class="subsection-title">生育与妊娠</h6>
+                        <h6 class="subsection-title">{{ isNpcFemale ? '生育与妊娠' : t('生育状态') }}</h6>
                         <div class="pregnancy-info">
-                          <div v-if="pregnancyActive" class="pregnancy-active">
+                          <div v-if="isNpcFemale && pregnancyActive" class="pregnancy-active">
                             <span class="pregnancy-icon">🤰</span>
                             <div class="pregnancy-details">
                               <div>当前状态：{{ fertilityStatus || '已怀孕' }}</div>
@@ -553,11 +557,14 @@
                               <div v-if="pregnancyDue">预计分娩：{{ pregnancyDue }}</div>
                             </div>
                           </div>
-                          <div v-else class="pregnancy-inactive">
+                          <div v-else-if="isNpcFemale" class="pregnancy-inactive">
                             {{ fertilityStatus || '未怀孕' }}
                           </div>
+                          <div v-else class="pregnancy-inactive">
+                            {{ isNpcMale ? '不适用（男性）' : (fertilityStatus || '不适用') }}
+                          </div>
                         </div>
-                        <div class="info-grid-responsive" style="margin-top: 0.5rem">
+                        <div v-if="isNpcFemale" class="info-grid-responsive" style="margin-top: 0.5rem">
                           <div v-if="fertilityCanPregnant !== null" class="info-item-row">
                             <span class="info-label">是否可孕</span
                             ><span class="info-value">{{ fertilityCanPregnant ? '是' : '否' }}</span>
@@ -1291,7 +1298,40 @@ const actionQueue = useActionQueueStore();
     viewMode.value = 'list';
   };
 
+  type NpcGender = 'male' | 'female' | 'unknown';
+  const normalizeNpcGender = (value: unknown): NpcGender => {
+    if (typeof value !== 'string') return 'unknown';
+    const v = value.trim();
+    if (!v) return 'unknown';
+    if (v === '男' || v.toLowerCase() === 'male' || v.includes('男')) return 'male';
+    if (v === '女' || v.toLowerCase() === 'female' || v.includes('女')) return 'female';
+    return 'unknown';
+  };
+  const npcGender = computed<NpcGender>(() => normalizeNpcGender(selectedPerson.value?.性别));
+  const isNpcMale = computed(() => npcGender.value === 'male');
+  const isNpcFemale = computed(() => npcGender.value === 'female');
+
+  // Avoid obvious gender mismatches in display (e.g. "小穴" shown on male NPCs)
+  const isMaleOnlyBodyPart = (name: string) => /(阳具|阴茎|龟头|前列腺|精囊|睾丸)/.test(name);
+  const isFemaleOnlyBodyPart = (name: string) => /(小穴|阴道|子宫|宫颈|阴蒂|卵巢)/.test(name);
+  const filterBodyPartsForGender = (parts: BodyPartDevelopment[], gender: NpcGender) => {
+    if (gender === 'male') return parts.filter((p) => !isFemaleOnlyBodyPart(String(p.部位名称 ?? '')));
+    if (gender === 'female') return parts.filter((p) => !isMaleOnlyBodyPart(String(p.部位名称 ?? '')));
+    return parts;
+  };
+
   const privacy = computed<PrivacyProfile | null>(() => selectedPerson.value?.私密信息 ?? null);
+  const virginityValue = computed(() => {
+    const raw = privacy.value?.是否为处女;
+    if (typeof raw !== 'boolean') return '—';
+    if (raw) {
+      if (isNpcMale.value) return t('处男');
+      if (isNpcFemale.value) return t('处女');
+      return '处子';
+    }
+    if (isNpcMale.value) return '非处男';
+    return t('非处');
+  });
   const privacyExperienceLevel = computed(() => {
     const explicit = normalizeNonEmptyString(privacy.value?.性经验等级);
     if (explicit) return explicit;
@@ -1367,7 +1407,9 @@ const privacyPartners = computed(() =>
 
 const privacyBodyPartsPreviewLimit = 6;
 const showAllPrivacyBodyParts = ref(false);
-const privacyBodyPartsAll = computed(() => normalizeBodyParts(privacy.value?.身体部位));
+const privacyBodyPartsAll = computed(() =>
+  filterBodyPartsForGender(normalizeBodyParts(privacy.value?.身体部位), npcGender.value),
+);
 const privacyBodyParts = computed(() =>
   showAllPrivacyBodyParts.value
     ? privacyBodyPartsAll.value
@@ -4003,8 +4045,12 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 
 /* === NSFW 私密信息样式 === */
 .nsfw-section {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(219, 39, 119, 0.05));
-  border: 2px solid rgba(236, 72, 153, 0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--color-primary-rgb), 0.06),
+    rgba(var(--color-accent-rgb), 0.06)
+  );
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
 }
 
 .nsfw-subsection {
@@ -4040,21 +4086,21 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .dev-value {
-  color: #ec4899;
+  color: var(--color-primary);
   font-weight: 700;
   font-size: 0.75rem;
 }
 
 .dev-bar-track {
   height: 8px;
-  background: rgba(236, 72, 153, 0.1);
+  background: rgba(var(--color-primary-rgb), 0.12);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .dev-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ec4899, #db2777);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -4093,43 +4139,43 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .fetish-tag {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(219, 39, 119, 0.15));
-  color: #ec4899;
+  background: rgba(var(--color-accent-rgb), 0.14);
+  color: var(--color-accent);
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.3);
 }
 
 .preference-tag {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(236, 72, 153, 0.12));
-  color: #3b82f6;
+  background: rgba(var(--color-primary-rgb), 0.12);
+  color: var(--color-primary);
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.28);
 }
 
 .taboo-tag {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.12));
-  color: #ef4444;
+  background: rgba(var(--color-error-rgb), 0.12);
+  color: var(--color-error);
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  border: 1px solid rgba(var(--color-error-rgb), 0.28);
 }
 
 .partner-tag {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(219, 39, 119, 0.12));
-  color: #db2777;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 500;
-  border: 1px solid rgba(236, 72, 153, 0.25);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
 }
 
 .partner-list {
@@ -4138,9 +4184,9 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 
 .toggle-more-btn {
   margin-top: 0.75rem;
-  background: rgba(236, 72, 153, 0.08);
-  border: 1px solid rgba(236, 72, 153, 0.25);
-  color: #db2777;
+  background: rgba(var(--color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  color: var(--color-primary);
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
   font-size: 0.8rem;
@@ -4150,8 +4196,8 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 }
 
 .toggle-more-btn:hover {
-  background: rgba(236, 72, 153, 0.12);
-  border-color: rgba(236, 72, 153, 0.35);
+  background: rgba(var(--color-primary-rgb), 0.12);
+  border-color: rgba(var(--color-primary-rgb), 0.35);
 }
 
 .pregnancy-info {
@@ -4187,9 +4233,9 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 
 .first-time-info {
   padding: 0.75rem;
-  background: rgba(236, 72, 153, 0.05);
+  background: rgba(var(--color-accent-rgb), 0.06);
   border-radius: 6px;
-  border-left: 3px solid #ec4899;
+  border-left: 3px solid var(--color-accent);
   font-size: 0.85rem;
   color: var(--color-text);
 }

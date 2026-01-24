@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const content = fs.readFileSync('src/i18n/index.ts', 'utf8');
 const lines = content.split('\n');
