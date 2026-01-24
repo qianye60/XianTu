@@ -470,8 +470,8 @@ class AIService {
         if (mainApi && mainApi.id !== 'default') return mainApi;
       }
 
-      // 仍使用默认（aiService.customAPI 或酒馆代理）
-      return null;
+      // 🔥 返回 default API 配置（而不是 null），以便读取 forceJsonOutput 等设置
+      return apiConfig;
     } catch (e) {
       console.warn('[AI服务] 获取功能API配置失败，使用默认配置:', e);
       return null;
