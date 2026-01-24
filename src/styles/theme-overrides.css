@@ -386,3 +386,630 @@ button {
     padding: 8px 16px !important;
   }
 }
+
+/* ===== 仙途主题覆盖样式 ===== */
+/* 确保暗色背景和浅色文字 */
+
+:root[data-theme='xiantu'] {
+  /* 强制所有背景为暗色 */
+  --color-background: #0d1320 !important;
+  --color-surface: #131a2b !important;
+  --color-surface-light: #1a2332 !important;
+
+  /* 强制所有文字为浅色 */
+  --color-text: #e8eef5 !important;
+  --color-text-secondary: #a0aec0 !important;
+}
+
+/* 仙途主题 - 全局背景和文字覆盖 */
+[data-theme='xiantu'] body,
+[data-theme='xiantu'] .app-container,
+[data-theme='xiantu'] .main-content,
+[data-theme='xiantu'] .game-layout {
+  background: #0d1320 !important;
+  color: #e8eef5 !important;
+}
+
+/* 仙途主题 - 面板和卡片 */
+[data-theme='xiantu'] .panel,
+[data-theme='xiantu'] .card,
+[data-theme='xiantu'] .modal,
+[data-theme='xiantu'] .dialog,
+[data-theme='xiantu'] .popup,
+[data-theme='xiantu'] .dropdown,
+[data-theme='xiantu'] .menu {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+/* 仙途主题 - 侧边栏 */
+[data-theme='xiantu'] .left-sidebar,
+[data-theme='xiantu'] .right-sidebar,
+[data-theme='xiantu'] .sidebar {
+  background: linear-gradient(180deg, #0d1320 0%, #131a2b 100%) !important;
+  color: #e8eef5 !important;
+}
+
+/* 仙途主题 - 输入框和表单 */
+[data-theme='xiantu'] input,
+[data-theme='xiantu'] textarea,
+[data-theme='xiantu'] select,
+[data-theme='xiantu'] .input,
+[data-theme='xiantu'] .textarea,
+[data-theme='xiantu'] .select {
+  background: #1a2332 !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.25) !important;
+}
+
+[data-theme='xiantu'] input::placeholder,
+[data-theme='xiantu'] textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* 仙途主题 - 按钮 */
+[data-theme='xiantu'] .btn,
+[data-theme='xiantu'] button {
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .btn-primary {
+  background: #5cc4e8 !important;
+  color: #0d1320 !important;
+}
+
+[data-theme='xiantu'] .btn-secondary {
+  background: #1a2332 !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.3) !important;
+}
+
+/* 仙途主题 - 标签页和导航 */
+[data-theme='xiantu'] .tabs-list,
+[data-theme='xiantu'] .tab-list,
+[data-theme='xiantu'] .nav-tabs {
+  background: #131a2b !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+[data-theme='xiantu'] .tab-trigger,
+[data-theme='xiantu'] .tab-item,
+[data-theme='xiantu'] .nav-tab {
+  color: #a0aec0 !important;
+  background: transparent !important;
+}
+
+[data-theme='xiantu'] .tab-trigger:hover,
+[data-theme='xiantu'] .tab-trigger.active,
+[data-theme='xiantu'] .tab-trigger[data-state="active"] {
+  color: #e8eef5 !important;
+  background: rgba(92, 196, 232, 0.15) !important;
+}
+
+/* 仙途主题 - 列表项 */
+[data-theme='xiantu'] .list-item,
+[data-theme='xiantu'] .item,
+[data-theme='xiantu'] .list-group-item {
+  background: #1a2332 !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+[data-theme='xiantu'] .list-item:hover {
+  background: #1e2a3d !important;
+}
+
+/* 仙途主题 - 统计卡片 */
+[data-theme='xiantu'] .stat-card,
+[data-theme='xiantu'] .stat-mini-card,
+[data-theme='xiantu'] .stats-card {
+  background: #1a2332 !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+[data-theme='xiantu'] .stat-value,
+[data-theme='xiantu'] .stat-label {
+  color: #e8eef5 !important;
+}
+
+/* 仙途主题 - 徽章 */
+[data-theme='xiantu'] .badge,
+[data-theme='xiantu'] .tag {
+  background: rgba(92, 196, 232, 0.15) !important;
+  color: #5cc4e8 !important;
+  border-color: rgba(92, 196, 232, 0.3) !important;
+}
+
+/* 仙途主题 - 进度条 */
+[data-theme='xiantu'] .progress-bar,
+[data-theme='xiantu'] .progress {
+  background: #1a2332 !important;
+}
+
+/* 仙途主题 - 表格 */
+[data-theme='xiantu'] table,
+[data-theme='xiantu'] .table {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] th,
+[data-theme='xiantu'] td {
+  border-color: rgba(92, 196, 232, 0.15) !important;
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] tr:hover {
+  background: #1a2332 !important;
+}
+
+/* 仙途主题 - 设置面板 */
+[data-theme='xiantu'] .settings-panel,
+[data-theme='xiantu'] .setting-group,
+[data-theme='xiantu'] .setting-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .setting-label,
+[data-theme='xiantu'] .setting-description {
+  color: #a0aec0 !important;
+}
+
+/* 仙途主题 - 弹窗和对话框 */
+[data-theme='xiantu'] .modal-content,
+[data-theme='xiantu'] .dialog-content,
+[data-theme='xiantu'] .popup-content {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.25) !important;
+}
+
+[data-theme='xiantu'] .modal-header,
+[data-theme='xiantu'] .dialog-header {
+  background: #0d1320 !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+[data-theme='xiantu'] .modal-footer,
+[data-theme='xiantu'] .dialog-footer {
+  background: #0d1320 !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+/* 仙途主题 - 遮罩层 */
+[data-theme='xiantu'] .modal-overlay,
+[data-theme='xiantu'] .overlay {
+  background: rgba(5, 8, 15, 0.85) !important;
+}
+
+/* 仙途主题 - 聊天和消息区域 */
+[data-theme='xiantu'] .chat-container,
+[data-theme='xiantu'] .message-list,
+[data-theme='xiantu'] .chat-area {
+  background: #0d1320 !important;
+}
+
+[data-theme='xiantu'] .message,
+[data-theme='xiantu'] .message-item,
+[data-theme='xiantu'] .chat-message {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .message-content,
+[data-theme='xiantu'] .message-text {
+  color: #e8eef5 !important;
+}
+
+/* 仙途主题 - 工具提示 */
+[data-theme='xiantu'] .tooltip,
+[data-theme='xiantu'] .tippy-box {
+  background: #1a2332 !important;
+  color: #e8eef5 !important;
+}
+
+/* 仙途主题 - 空状态 */
+[data-theme='xiantu'] .empty-state,
+[data-theme='xiantu'] .no-data {
+  color: #64748b !important;
+}
+
+/* 仙途主题 - 分割线 */
+[data-theme='xiantu'] .divider,
+[data-theme='xiantu'] hr {
+  background: rgba(92, 196, 232, 0.15) !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+/* 仙途主题 - 滚动区域 */
+[data-theme='xiantu'] .scrollable,
+[data-theme='xiantu'] .scroll-area {
+  background: #0d1320 !important;
+}
+
+/* 仙途主题 - 头部和标题 */
+[data-theme='xiantu'] .header,
+[data-theme='xiantu'] .title,
+[data-theme='xiantu'] h1, [data-theme='xiantu'] h2,
+[data-theme='xiantu'] h3, [data-theme='xiantu'] h4 {
+  color: #e8eef5 !important;
+}
+
+/* 仙途主题 - 链接 */
+[data-theme='xiantu'] a {
+  color: #5cc4e8 !important;
+}
+
+[data-theme='xiantu'] a:hover {
+  color: #7dd8f0 !important;
+}
+
+/* 仙途主题 - 代码块 */
+[data-theme='xiantu'] code,
+[data-theme='xiantu'] pre {
+  background: #0d1320 !important;
+  color: #5cc4e8 !important;
+}
+
+/* 仙途主题 - 修复硬编码的浅色背景 (#f8fafc, #FBFBFE 等) */
+[data-theme='xiantu'] .section-header {
+  background: #131a2b !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+[data-theme='xiantu'] .section-title {
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .setting-item:hover {
+  background: #1a2332 !important;
+}
+
+[data-theme='xiantu'] .settings-list {
+  background: #0d1320 !important;
+}
+
+/* API管理面板 */
+[data-theme='xiantu'] .api-management-panel,
+[data-theme='xiantu'] .api-card,
+[data-theme='xiantu'] .api-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .pipeline-hint {
+  background: #1a2332 !important;
+  color: #a0aec0 !important;
+}
+
+/* MainGamePanel 相关 */
+[data-theme='xiantu'] .game-panel,
+[data-theme='xiantu'] .main-game-panel {
+  background: #0d1320 !important;
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .action-card,
+[data-theme='xiantu'] .option-card {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+[data-theme='xiantu'] .action-card:hover,
+[data-theme='xiantu'] .option-card:hover {
+  background: #1a2332 !important;
+  border-color: rgba(92, 196, 232, 0.4) !important;
+}
+
+/* SavePanel 相关 */
+[data-theme='xiantu'] .save-panel,
+[data-theme='xiantu'] .save-card,
+[data-theme='xiantu'] .save-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* FormattedText 相关 */
+[data-theme='xiantu'] .formatted-text,
+[data-theme='xiantu'] .text-content {
+  color: #e8eef5 !important;
+}
+
+/* 通用修复 - 所有使用 #f8fafc 的元素 */
+[data-theme='xiantu'] [style*="f8fafc"],
+[data-theme='xiantu'] [style*="F8FAFC"] {
+  background: #131a2b !important;
+}
+
+/* ===== 全局硬编码颜色覆盖 ===== */
+
+/* 覆盖所有 background: white */
+[data-theme='xiantu'] .settings-section,
+[data-theme='xiantu'] .api-card,
+[data-theme='xiantu'] .prompt-card,
+[data-theme='xiantu'] .event-card,
+[data-theme='xiantu'] .crafting-card,
+[data-theme='xiantu'] .travel-card,
+[data-theme='xiantu'] .memory-card,
+[data-theme='xiantu'] .map-card,
+[data-theme='xiantu'] .character-card,
+[data-theme='xiantu'] .world-card,
+[data-theme='xiantu'] .selection-card,
+[data-theme='xiantu'] .preview-card,
+[data-theme='xiantu'] .talent-card,
+[data-theme='xiantu'] .origin-card,
+[data-theme='xiantu'] .spirit-root-card,
+[data-theme='xiantu'] .attribute-card {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+/* 覆盖 #1e293b 深灰文字色 */
+[data-theme='xiantu'] .panel-title,
+[data-theme='xiantu'] .card-title,
+[data-theme='xiantu'] .section-title,
+[data-theme='xiantu'] .item-title,
+[data-theme='xiantu'] .item-name,
+[data-theme='xiantu'] .api-name,
+[data-theme='xiantu'] .prompt-name,
+[data-theme='xiantu'] .event-name,
+[data-theme='xiantu'] .memory-title,
+[data-theme='xiantu'] .world-name,
+[data-theme='xiantu'] .character-name,
+[data-theme='xiantu'] .talent-name,
+[data-theme='xiantu'] .origin-name,
+[data-theme='xiantu'] .step-title,
+[data-theme='xiantu'] .preview-title {
+  color: #e8eef5 !important;
+}
+
+/* 覆盖 #64748b 次要文字色 */
+[data-theme='xiantu'] .panel-desc,
+[data-theme='xiantu'] .card-desc,
+[data-theme='xiantu'] .item-desc,
+[data-theme='xiantu'] .api-desc,
+[data-theme='xiantu'] .prompt-desc,
+[data-theme='xiantu'] .event-desc,
+[data-theme='xiantu'] .memory-desc,
+[data-theme='xiantu'] .world-desc,
+[data-theme='xiantu'] .character-desc,
+[data-theme='xiantu'] .talent-desc,
+[data-theme='xiantu'] .origin-desc,
+[data-theme='xiantu'] .step-desc,
+[data-theme='xiantu'] .preview-desc,
+[data-theme='xiantu'] .hint-text,
+[data-theme='xiantu'] .help-text,
+[data-theme='xiantu'] .meta-text {
+  color: #a0aec0 !important;
+}
+
+/* 覆盖 #e2e8f0 边框色 */
+[data-theme='xiantu'] .card-border,
+[data-theme='xiantu'] .section-border,
+[data-theme='xiantu'] .item-border {
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+/* 覆盖 #f8fafc 浅灰背景 */
+[data-theme='xiantu'] .section-header,
+[data-theme='xiantu'] .card-header,
+[data-theme='xiantu'] .item-header,
+[data-theme='xiantu'] .panel-header {
+  background: #1a2332 !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+/* PromptManagementPanel */
+[data-theme='xiantu'] .prompt-management-panel,
+[data-theme='xiantu'] .prompt-list,
+[data-theme='xiantu'] .prompt-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* EventPanel */
+[data-theme='xiantu'] .event-panel,
+[data-theme='xiantu'] .event-list,
+[data-theme='xiantu'] .event-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* CraftingPanel */
+[data-theme='xiantu'] .crafting-panel,
+[data-theme='xiantu'] .crafting-list,
+[data-theme='xiantu'] .crafting-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* OnlineTravelPanel */
+[data-theme='xiantu'] .online-travel-panel,
+[data-theme='xiantu'] .travel-list,
+[data-theme='xiantu'] .travel-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* MemoryCenterPanel */
+[data-theme='xiantu'] .memory-center-panel,
+[data-theme='xiantu'] .memory-list,
+[data-theme='xiantu'] .memory-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* GameMapPanel */
+[data-theme='xiantu'] .game-map-panel,
+[data-theme='xiantu'] .map-container,
+[data-theme='xiantu'] .location-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* TopBar */
+[data-theme='xiantu'] .top-bar,
+[data-theme='xiantu'] .topbar {
+  background: #0d1320 !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+/* ModeSelection 页面 */
+[data-theme='xiantu'] .mode-selection,
+[data-theme='xiantu'] .mode-card,
+[data-theme='xiantu'] .mode-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* CharacterCreation 页面 */
+[data-theme='xiantu'] .character-creation,
+[data-theme='xiantu'] .creation-step,
+[data-theme='xiantu'] .step-container {
+  background: #0d1320 !important;
+  color: #e8eef5 !important;
+}
+
+/* 角色创建步骤卡片 */
+[data-theme='xiantu'] .world-option,
+[data-theme='xiantu'] .origin-option,
+[data-theme='xiantu'] .spirit-root-option,
+[data-theme='xiantu'] .talent-option,
+[data-theme='xiantu'] .attribute-option {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+[data-theme='xiantu'] .world-option:hover,
+[data-theme='xiantu'] .origin-option:hover,
+[data-theme='xiantu'] .spirit-root-option:hover,
+[data-theme='xiantu'] .talent-option:hover,
+[data-theme='xiantu'] .attribute-option:hover {
+  background: #1a2332 !important;
+  border-color: rgba(92, 196, 232, 0.4) !important;
+}
+
+/* CharacterManagement */
+[data-theme='xiantu'] .character-management,
+[data-theme='xiantu'] .char-list,
+[data-theme='xiantu'] .char-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* RedemptionCodeModal */
+[data-theme='xiantu'] .redemption-modal,
+[data-theme='xiantu'] .redemption-content {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* TextReplaceRulesModal */
+[data-theme='xiantu'] .text-replace-modal,
+[data-theme='xiantu'] .rules-list,
+[data-theme='xiantu'] .rule-item {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* OnlineTravelMapPanel */
+[data-theme='xiantu'] .online-travel-map-panel,
+[data-theme='xiantu'] .map-overlay {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* GameView */
+[data-theme='xiantu'] .game-view,
+[data-theme='xiantu'] .game-container {
+  background: #0d1320 !important;
+  color: #e8eef5 !important;
+}
+
+/* step-selection.css 相关 */
+[data-theme='xiantu'] .selection-container,
+[data-theme='xiantu'] .selection-item,
+[data-theme='xiantu'] .selection-grid {
+  background: #131a2b !important;
+  color: #e8eef5 !important;
+}
+
+/* 通用：所有使用 white 背景的元素 */
+[data-theme='xiantu'] [style*="background: white"],
+[data-theme='xiantu'] [style*="background:white"],
+[data-theme='xiantu'] [style*="background-color: white"],
+[data-theme='xiantu'] [style*="background-color:white"] {
+  background: #131a2b !important;
+}
+
+/* 通用：覆盖内联样式中的浅色 */
+[data-theme='xiantu'] [style*="#FBFBFE"],
+[data-theme='xiantu'] [style*="#fbfbfe"] {
+  background: #131a2b !important;
+}
+
+/* ===== MainGamePanel 短期记忆和输入框修复 ===== */
+
+/* 短期记忆区域 */
+[data-theme='xiantu'] .memory-section {
+  background: linear-gradient(135deg, #131a2b 0%, #1a2332 100%) !important;
+  border-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+[data-theme='xiantu'] .memory-title {
+  color: #5cc4e8 !important;
+}
+
+[data-theme='xiantu'] .memory-icon {
+  color: #64748b !important;
+}
+
+[data-theme='xiantu'] .memory-dropdown {
+  background: #131a2b !important;
+  border-color: rgba(92, 196, 232, 0.2) !important;
+}
+
+[data-theme='xiantu'] .memory-item {
+  color: #e8eef5 !important;
+  background: rgba(92, 196, 232, 0.08) !important;
+  border-left-color: #5cc4e8 !important;
+}
+
+[data-theme='xiantu'] .no-memory {
+  color: #64748b !important;
+}
+
+/* 输入区域外层容器 */
+[data-theme='xiantu'] .input-section {
+  background: #131a2b !important;
+  border-top-color: rgba(92, 196, 232, 0.15) !important;
+}
+
+/* 输入框容器 */
+[data-theme='xiantu'] .input-container {
+  background: #1a2332 !important;
+  border-color: rgba(92, 196, 232, 0.25) !important;
+}
+
+[data-theme='xiantu'] .input-container:focus-within {
+  border-color: #5cc4e8 !important;
+  box-shadow: 0 0 0 3px rgba(92, 196, 232, 0.15) !important;
+}
+
+[data-theme='xiantu'] .input-container:has(.game-input:disabled) {
+  background: #0d1320 !important;
+}
+
+[data-theme='xiantu'] .game-input {
+  color: #e8eef5 !important;
+}
+
+[data-theme='xiantu'] .game-input::placeholder {
+  color: #64748b !important;
+}

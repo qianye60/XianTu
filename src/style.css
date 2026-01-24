@@ -128,6 +128,74 @@
   --color-info-rgb: 119, 205, 254;
 }
 
+/* --- 仙途主题: "星河仙韵" (通过 data-theme='xiantu' 激活) --- */
+:root[data-theme='xiantu'] {
+  /* 主色调 - 深邃星空 */
+  --color-background: #0d1320;
+  --color-background-transparent: rgba(13, 19, 32, 0.92);
+  --color-surface: #131a2b;
+  --color-surface-transparent: rgba(19, 26, 43, 0.85);
+  --color-surface-light: #1a2332;
+  --color-surface-hover: #1e2a3d;
+
+  /* 主题强调色 - 灵韵青 */
+  --color-primary: #5cc4e8;
+  --color-primary-rgb: 92, 196, 232;
+  --color-primary-hover: #7dd8f0;
+  --color-primary-active: #4ab5d9;
+  --color-primary-light: rgba(92, 196, 232, 0.15);
+
+  /* 辅助强调色 - 仙金 */
+  --color-accent: #e8c55c;
+  --color-accent-hover: #f0d878;
+  --color-accent-light: rgba(232, 197, 92, 0.15);
+
+  /* 文字色 */
+  --color-text: #e8eef5;
+  --color-text-secondary: #a0aec0;
+  --color-text-muted: #64748b;
+  --color-white-soft: #f0f6ff;
+
+  /* 边框色 */
+  --color-border: rgba(100, 180, 220, 0.12);
+  --color-border-hover: rgba(100, 180, 220, 0.35);
+
+  /* 功能色 */
+  --color-success: #5ce8a0;
+  --color-success-hover: #7df0b8;
+  --color-warning: #e8a05c;
+  --color-warning-hover: #f0b878;
+  --color-error: #e85c6c;
+  --color-error-hover: #f07888;
+  --color-info: #5c8ce8;
+  --color-info-hover: #78a4f0;
+  --color-danger: var(--color-error);
+  --color-danger-hover: var(--color-error-hover);
+  --color-hover: var(--color-surface-hover);
+  --color-code-bg: rgba(8, 12, 20, 0.6);
+
+  /* 滚动条 */
+  --scrollbar-track-color: transparent;
+  --scrollbar-thumb-color: rgba(92, 196, 232, 0.4);
+  --scrollbar-thumb-hover-color: rgba(92, 196, 232, 0.6);
+
+  /* 生命值颜色 */
+  --vital-health: #e85c6c;
+  --vital-lingqi: #5c8ce8;
+  --vital-spirit: #e8c55c;
+  --vital-lifespan: #a87ce8;
+
+  /* RGB 值 */
+  --color-background-rgb: 13, 19, 32;
+  --color-surface-rgb: 19, 26, 43;
+  --color-accent-rgb: 232, 197, 92;
+  --color-border-rgb: 100, 180, 220;
+  --color-success-rgb: 92, 232, 160;
+  --color-warning-rgb: 232, 160, 92;
+  --color-error-rgb: 232, 92, 108;
+  --color-info-rgb: 92, 140, 232;
+}
+
 html[data-lang='en'] {
   --lang-font-scale: 0.94;
 }

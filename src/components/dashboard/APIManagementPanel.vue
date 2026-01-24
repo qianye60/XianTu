@@ -1156,12 +1156,12 @@ const handleImport = () => {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .settings-subtitle {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .header-actions {
@@ -1193,19 +1193,19 @@ const handleImport = () => {
 }
 
 .action-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 .action-btn.primary {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white-soft);
 }
 
 .action-btn.primary:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 /* 内容区域 */
@@ -1235,9 +1235,9 @@ const handleImport = () => {
 /* 设置区块 */
 .settings-section {
   margin-bottom: 1.5rem;
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -1246,8 +1246,8 @@ const handleImport = () => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-surface-light);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .section-title {
@@ -1262,8 +1262,8 @@ const handleImport = () => {
   display: flex;
   gap: 0.75rem;
   padding: 0.875rem 1.25rem;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(147, 51, 234, 0.08));
-  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.08), rgba(var(--color-accent-rgb), 0.08));
+  border-bottom: 1px solid var(--color-border);
 }
 
 .hint-icon {
@@ -1291,7 +1291,7 @@ const handleImport = () => {
 
 .section-count {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 /* 模式标识 */
@@ -1321,7 +1321,7 @@ const handleImport = () => {
   display: flex;
   gap: 0.75rem;
   padding: 0.875rem 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .mode-hint.tavern {
@@ -1335,7 +1335,7 @@ const handleImport = () => {
 .mode-hint .hint-content em {
   font-style: normal;
   font-weight: 600;
-  color: #dc2626;
+  color: var(--color-error);
 }
 
 /* API卡片列表 */
@@ -1347,8 +1347,8 @@ const handleImport = () => {
 }
 
 .api-card {
-  background: white;
-  border: 2px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: 1rem;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1356,8 +1356,8 @@ const handleImport = () => {
 }
 
 .api-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
   transform: translateY(-2px);
 }
 
@@ -1381,8 +1381,8 @@ const handleImport = () => {
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
+  border-bottom: 1px solid var(--color-border);
 }
 
 /* 卡片开关样式 */
@@ -1421,7 +1421,7 @@ const handleImport = () => {
   width: 22px;
   left: 3px;
   bottom: 3px;
-  background: white;
+  background: var(--color-white-soft);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -1446,13 +1446,13 @@ const handleImport = () => {
 .api-name {
   font-weight: 600;
   font-size: 1rem;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .api-provider {
   font-size: 0.75rem;
-  color: #64748b;
-  background: #e2e8f0;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-light);
   padding: 0.25rem 0.625rem;
   border-radius: 1rem;
   font-weight: 500;
@@ -1480,20 +1480,20 @@ const handleImport = () => {
   border: none;
   border-radius: 0.5rem;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .icon-btn:hover {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: var(--color-surface-light);
+  color: var(--color-text);
   transform: scale(1.05);
 }
 
 .icon-btn.danger:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(var(--color-error-rgb), 0.15);
+  color: var(--color-error);
 }
 
 .icon-btn:disabled {
@@ -1603,8 +1603,8 @@ const handleImport = () => {
 
 .api-card-footer {
   padding: 0.5rem 1rem;
-  background: rgba(59, 130, 246, 0.05);
-  border-top: 1px solid #e2e8f0;
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1613,7 +1613,7 @@ const handleImport = () => {
 
 .assigned-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .assigned-tags {
@@ -1624,8 +1624,8 @@ const handleImport = () => {
 
 .function-tag {
   font-size: 0.75rem;
-  background: #3b82f6;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-white-soft);
   padding: 0.125rem 0.5rem;
   border-radius: 1rem;
 }
@@ -1652,12 +1652,12 @@ const handleImport = () => {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .group-desc {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
 /* 自动分步生成提示 */
@@ -1697,7 +1697,7 @@ const handleImport = () => {
 }
 
 .setting-item:hover {
-  background: #f8fafc;
+  background: var(--color-surface-light);
 }
 
 /* 控制行样式 */
@@ -1717,7 +1717,7 @@ const handleImport = () => {
 
 .toggle-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
@@ -1748,12 +1748,12 @@ const handleImport = () => {
 
 .setting-name {
   font-weight: 500;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .setting-desc {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 /* 酒馆模式锁定状态 */
@@ -1779,10 +1779,10 @@ const handleImport = () => {
   display: inline-flex;
   align-items: center;
   padding: 0.5rem 0.75rem;
-  background: #f8fafc;
-  border: 1px dashed #d1d5db;
+  background: var(--color-surface-light);
+  border: 1px dashed var(--color-border);
   border-radius: 0.5rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-style: italic;
 }
@@ -1807,7 +1807,7 @@ const handleImport = () => {
 
 .mode-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
@@ -1817,14 +1817,14 @@ const handleImport = () => {
 
 .setting-select {
   padding: 0.5rem 2rem 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: white;
+  background-color: var(--color-surface);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 12px;
-  color: #374151;
+  color: var(--color-text);
   font-size: 0.875rem;
   cursor: pointer;
   appearance: none;
@@ -1847,10 +1847,10 @@ const handleImport = () => {
 .setting-number-input {
   width: 80px;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: white;
-  color: #374151;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.875rem;
   text-align: center;
   transition: all 0.2s;
@@ -1858,17 +1858,17 @@ const handleImport = () => {
 
 .setting-number-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
 }
 
 .setting-number-input:hover {
-  border-color: #9ca3af;
+  border-color: var(--color-border-hover);
 }
 
 .input-hint {
   margin-left: 0.5rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
 }
 
@@ -1905,13 +1905,13 @@ const handleImport = () => {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--color-white-soft);
   transition: 0.2s;
   border-radius: 50%;
 }
 
 input:checked + .switch-slider {
-  background-color: #3b82f6;
+  background-color: var(--color-primary);
 }
 
 input:checked + .switch-slider:before {
@@ -1933,7 +1933,7 @@ input:checked + .switch-slider:before {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface);
   border-radius: 1rem;
   width: 90%;
   max-width: 500px;
@@ -1948,14 +1948,14 @@ input:checked + .switch-slider:before {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .close-btn {
@@ -1967,13 +1967,13 @@ input:checked + .switch-slider:before {
   border: none;
   border-radius: 0.5rem;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .close-btn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
+  background: var(--color-surface-light);
+  color: var(--color-text);
 }
 
 .modal-body {
@@ -1996,19 +1996,19 @@ input:checked + .switch-slider:before {
 .form-select {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   font-size: 0.875rem;
-  background: white;
-  color: #374151;
+  background: var(--color-surface);
+  color: var(--color-text);
   box-sizing: border-box;
 }
 
 .form-input:focus,
 .form-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.1);
 }
 
 .form-row {
@@ -2071,8 +2071,8 @@ input:checked + .switch-slider:before {
   right: 0;
   max-height: 200px;
   overflow-y: auto;
-  background: white;
-  border: 1px solid #d1d5db;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 100;
@@ -2083,17 +2083,17 @@ input:checked + .switch-slider:before {
   padding: 0.5rem 0.75rem;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text);
   transition: background 0.15s ease;
 }
 
 .model-dropdown-item:hover {
-  background: #f1f5f9;
+  background: var(--color-surface-light);
 }
 
 .model-dropdown-item.active {
-  background: #eff6ff;
-  color: #3b82f6;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -2102,16 +2102,16 @@ input:checked + .switch-slider:before {
   align-items: center;
   justify-content: center;
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
 }
 
 .utility-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
 }
 
 .utility-btn:disabled {
@@ -2128,24 +2128,24 @@ input:checked + .switch-slider:before {
 
 .model-tag {
   padding: 0.25rem 0.75rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 1rem;
   font-size: 0.75rem;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .model-tag:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .model-tag.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white-soft);
 }
 
 .modal-footer {
@@ -2153,7 +2153,7 @@ input:checked + .switch-slider:before {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--color-border);
 }
 
 .btn-cancel,
@@ -2167,25 +2167,25 @@ input:checked + .switch-slider:before {
 }
 
 .btn-cancel {
-  background: white;
-  border: 1px solid #d1d5db;
-  color: #374151;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 .btn-cancel:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: var(--color-surface-light);
+  border-color: var(--color-border-hover);
 }
 
 .btn-confirm {
-  background: #3b82f6;
-  border: 1px solid #3b82f6;
-  color: white;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: var(--color-white-soft);
 }
 
 .btn-confirm:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 /* 加载动画 */

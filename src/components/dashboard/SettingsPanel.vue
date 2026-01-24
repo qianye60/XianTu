@@ -45,12 +45,13 @@
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('主题模式') }}</label>
-              <span class="setting-desc">{{ t('选择明亮或暗黑主题') }}</span>
+              <span class="setting-desc">{{ t('选择界面主题风格') }}</span>
             </div>
             <div class="setting-control">
               <select v-model="settings.theme" class="setting-select" @change="onSettingChange">
                 <option value="light">{{ t('明亮') }}</option>
                 <option value="dark">{{ t('暗黑') }}</option>
+                <option value="xiantu">{{ t('仙途') }}</option>
                 <option value="auto">{{ t('跟随系统') }}</option>
               </select>
             </div>
@@ -833,12 +834,12 @@ onMounted(() => {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .settings-subtitle {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .header-actions {
@@ -923,23 +924,23 @@ onMounted(() => {
 /* 设置区块 */
 .settings-section {
   margin-bottom: 1.5rem;
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
 .section-header {
   padding: 1rem 1.25rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-surface-light);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .section-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .settings-list {
@@ -957,7 +958,7 @@ onMounted(() => {
 }
 
 .setting-item:hover {
-  background: #f8fafc;
+  background: var(--color-surface-light);
 }
 
 .setting-info {
@@ -969,13 +970,13 @@ onMounted(() => {
 
 .setting-name {
   font-weight: 500;
-  color: #1e293b;
+  color: var(--color-text);
   cursor: pointer;
 }
 
 .setting-desc {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .setting-control {
@@ -1282,10 +1283,10 @@ input:checked + .switch-slider:before {
 /* 授权验证相关样式 */
 .form-input-inline {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: white;
-  color: #374151;
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.875rem;
   min-width: 200px;
   transition: all 0.2s ease;
@@ -1293,7 +1294,7 @@ input:checked + .switch-slider:before {
 
 .form-input-inline:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
