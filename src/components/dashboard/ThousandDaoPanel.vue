@@ -417,9 +417,8 @@ const getDaoStageDisplay = (daoName: string): string => {
   const stageData = daoData.阶段列表?.[stage] as { 名称?: string; 阶段名?: string } | undefined;
   // 兼容两种字段名：名称 或 阶段名
   const stageName = stageData?.名称 || stageData?.阶段名;
-  if (stageName) return stageName;
-  const defaultStageNames = ['入门', '初窥', '小成', '大成', '圆满', '化境', '归一'];
-  return defaultStageNames[stage] || `第${stage + 1}阶`;
+  // 完全依赖AI生成的阶段数据，无阶段数据时显示通用提示
+  return stageName || `第${stage + 1}重`;
 };
 
 // 获取大道进度百分比

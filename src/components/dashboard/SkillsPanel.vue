@@ -800,6 +800,16 @@ const filteredInventoryTechniques = computed(() => {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.skills-section .skills-grid {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .section-header {
