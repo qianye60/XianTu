@@ -92,6 +92,7 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
   const DEFAULT_FUNCTION_ENABLED: FunctionEnabledConfig[] = [
     { type: 'memory_summary', enabled: true },
     { type: 'text_optimization', enabled: false },
+    { type: 'embedding', enabled: false },  // 向量检索默认关闭，需要用户明确启用
     { type: 'world_generation', enabled: true },
     { type: 'event_generation', enabled: true },
     { type: 'sect_generation', enabled: true },
