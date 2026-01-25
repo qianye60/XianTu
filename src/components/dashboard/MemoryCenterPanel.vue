@@ -180,23 +180,6 @@
                 {{ embeddingStatus.reason }}
               </template>
             </div>
-            <div class="embedding-api-selector">
-              <label class="selector-label">Embedding API：</label>
-              <select
-                v-model="selectedEmbeddingApiId"
-                @change="updateEmbeddingApiId(selectedEmbeddingApiId)"
-                class="api-select"
-              >
-                <option :value="undefined">使用默认（embedding 类型分配的 API）</option>
-                <option
-                  v-for="api in availableAPIs"
-                  :key="api.id"
-                  :value="api.id"
-                >
-                  {{ api.name }} ({{ api.provider }}/{{ api.model }})
-                </option>
-              </select>
-            </div>
           </div>
           <div class="vector-actions">
             <button
@@ -567,7 +550,12 @@ const vectorLoading = ref(false);
 const vectorError = ref('');
 const vectorConverting = ref(false);
 const vectorConvertProgress = ref({ done: 0, total: 0 });
-const vectorEnabled = computed(() => vectorMemoryService.getConfig().enabled);
+// 🔥 向量检索启用状态：需要同时检查 vectorMemoryService 和 apiStore 的 embedding 功能
+const vectorEnabled = computed(() => {
+  const serviceEnabled = vectorMemoryService.getConfig().enabled;
+  const storeEnabled = apiManagementStore.isFunctionEnabled('embedding');
+  return serviceEnabled && storeEnabled;
+});
 const embeddingStatus = computed(() => vectorMemoryService.getEmbeddingStatus());
 const vectorTotalCount = computed(() => vectorStats.value?.total ?? vectorEntries.value.length);
 const vectorTotalPages = computed(() => Math.ceil(vectorTotalCount.value / pageSize.value) || 1);
@@ -584,10 +572,6 @@ const vectorLoadingText = computed(() => {
   }
   return '正在读取向量库...';
 });
-
-// Embedding API 选择
-const selectedEmbeddingApiId = ref<string | undefined>(vectorMemoryService.getConfig().embeddingApiId);
-const availableAPIs = computed(() => apiManagementStore.enabledAPIs);
 
 // 合并所有记忆用于显示
 const memories = computed(() => {
@@ -822,13 +806,6 @@ const refreshVectorMemories = async () => {
   } finally {
     vectorLoading.value = false;
   }
-};
-
-// 更新 Embedding API 选择
-const updateEmbeddingApiId = (apiId: string | undefined) => {
-  selectedEmbeddingApiId.value = apiId;
-  vectorMemoryService.saveConfig({ embeddingApiId: apiId });
-  toast.success('Embedding API 配置已更新');
 };
 
 // 设置活跃筛选器

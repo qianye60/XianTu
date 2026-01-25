@@ -686,15 +686,21 @@ const updateRetryCount = (value: string) => {
 
 const loadVectorMemoryConfig = () => {
   const config = vectorMemoryService.getConfig();
-  vectorMemoryEnabled.value = config.enabled;
+  // 🔥 同时检查 apiStore 中的 embedding 启用状态，两者需要同步
+  const storeEnabled = apiStore.isFunctionEnabled('embedding');
+  vectorMemoryEnabled.value = config.enabled && storeEnabled;
   vectorMemoryMaxCount.value = config.maxRetrieveCount;
 };
 
 const onVectorMemoryChange = () => {
+  // 🔥 同时更新 vectorMemoryService 和 apiStore 中的 embedding 启用状态
   vectorMemoryService.saveConfig({
     enabled: vectorMemoryEnabled.value,
     maxRetrieveCount: vectorMemoryMaxCount.value,
   });
+  // 同步到 apiStore，确保 embedding 功能启用状态一致
+  apiStore.setFunctionEnabled('embedding', vectorMemoryEnabled.value);
+
   if (vectorMemoryEnabled.value) {
     toast.success(`向量记忆检索已启用，每次最多检索 ${vectorMemoryMaxCount.value} 条`);
   } else {

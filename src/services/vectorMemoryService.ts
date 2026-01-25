@@ -337,6 +337,11 @@ class VectorMemoryService {
       const { useAPIManagementStore } = require('@/stores/apiManagementStore');
       const apiStore = useAPIManagementStore();
 
+      // 🔥 首先检查 embedding 功能是否在 API 管理中启用
+      if (!apiStore.isFunctionEnabled('embedding')) {
+        return null;
+      }
+
       // 如果配置了特定的 API ID，使用该 API；否则使用 'embedding' 类型分配的 API
       let cfg;
       if (this.config.embeddingApiId) {
@@ -347,8 +352,8 @@ class VectorMemoryService {
 
       if (!cfg || cfg.enabled === false) return null;
 
-      // 酒馆环境下默认API来自酒馆配置，但这里无法用于Embedding（缺少Key/协议）
-      if (isTavernEnv() && cfg.id === 'default') return null;
+      // 如果返回的是 default API，说明没有专门配置 embedding API，不应使用
+      if (cfg.id === 'default') return null;
 
       const baseUrl = normalizeBaseUrl(cfg.url);
       const apiKey = (cfg.apiKey || '').trim();
