@@ -1,11 +1,144 @@
 # 更新日志
 
-## [Unreleased]
+## V4.5 正式版&网页版 (2026-01-25)
 
-### Changed
+### 🎨 界面与主题
 
 - **角色详情面板主题化重构**：将 CharacterDetailsPanel.vue 中的硬编码颜色值重构为 CSS 变量引用，支持全局主题切换
 - **仙途主题调色板优化**：更新 xiantu 主题配色方案，调整主色调（灵韵青→天青蓝）、强调色、功能色等，提升视觉一致性
+- **主题覆盖样式系统**：新增 theme-overrides.css（627行），统一全局主题样式
+
+### ⚔️ 宗门战争系统
+
+- **宗门战争模拟**：新增 sectWarSimulation.ts（345行），实现宗门战争模拟逻辑
+- **宗门战争面板重构**：SectWarContent.vue 大幅扩展（+1254行），完善战争交互界面
+- **宗门管理优化**：改进宗门成员、任务、贡献、藏经阁等子系统
+
+### 🔧 核心修复
+
+- **API兼容性增强**：修复多种API接口兼容问题，优化aiService.ts请求逻辑
+- **提示词系统优化**：修复提示词错误，优化CoT思维链核心逻辑
+- **数据定义完善**：改进dataDefinitions.ts，增强数据结构定义
+- **JSON解析优化**：改进jsonExtract.ts，提升AI响应解析稳定性
+- **世界生成器重构**：优化enhancedWorldGenerator.ts，改进世界生成流程
+
+### ✨ 功能增强
+
+- **存档面板改进**：优化SavePanel.vue，改进存档管理体验
+- **三千大道面板优化**：改进ThousandDaoPanel.vue交互和显示
+- **炼制面板精简**：优化CraftingPanel.vue代码结构
+- **状态变化格式化**：改进stateChangeFormatter.ts，优化状态显示
+
+### 🐛 Bug修复
+
+- 修复人物数据相关问题
+- 修复配置加载问题
+- 修复命令验证器逻辑
+- 修复数据修复模块问题
+
+---
+
+## V4.4.9 (2026-01-24)
+
+### ⚔️ 宗门战争系统
+
+- **宗门战争模拟**：新增 sectWarSimulation.ts（345行），实现宗门战争模拟逻辑
+- **宗门战争面板重构**：SectWarContent.vue 大幅扩展（+1254行），完善战争交互界面
+- **宗门管理优化**：改进 SectManagementContent.vue 宗门管理功能
+
+### 🔧 修复
+
+- 优化 aiService.ts 请求逻辑
+- 改进 AIBidirectionalSystem.ts 双向通信
+- 修复提示词和数据定义问题
+
+---
+
+## V4.4.8 (2026-01-23)
+
+### 🔧 API兼容性修复
+
+- **API服务优化**：修复多种API接口兼容问题，优化aiService.ts请求逻辑（+71行）
+- **JSON解析优化**：改进jsonExtract.ts，提升AI响应解析稳定性
+- **世界生成器重构**：优化enhancedWorldGenerator.ts，改进世界生成流程
+- **双向通信精简**：优化AIBidirectionalSystem.ts代码结构
+
+---
+
+## V4.4.7 (2026-01-22)
+
+### 🔧 修复
+
+- **数据定义完善**：改进dataDefinitions.ts，增强数据结构定义
+
+---
+
+## V4.4.6 (2026-01-22)
+
+### 🎨 界面与主题
+
+- **角色详情面板重构**：CharacterDetailsPanel.vue 大规模重构（+2540行修改）
+- **API管理面板优化**：改进APIManagementPanel.vue交互体验
+- **主题覆盖样式系统**：新增 theme-overrides.css（627行），统一全局主题样式
+- **设置面板优化**：改进SettingsPanel.vue
+
+---
+
+## V4.4.5 (2026-01-21)
+
+### 🎨 界面优化
+
+- **角色详情面板增强**：CharacterDetailsPanel.vue 大幅优化（+904行）
+- **三千大道面板优化**：改进ThousandDaoPanel.vue交互和显示
+- **宗门子系统优化**：改进宗门贡献、藏经阁、成员、任务等面板
+
+### 🔧 核心修复
+
+- **提示词系统优化**：优化CoT思维链核心逻辑和业务规则
+- **双向通信改进**：优化AIBidirectionalSystem.ts
+- **数据修复增强**：改进dataRepair.ts
+
+---
+
+## V4.4.3 (2026-01-21)
+
+### 🔧 修复
+
+- **提示词错误修复**：修复提示词系统多处错误
+- **AI服务优化**：改进aiService.ts
+- **三千大道面板修复**：修复ThousandDaoPanel.vue显示问题
+
+---
+
+## V4.4.2 (2026-01-20)
+
+### 🎨 界面更新
+
+- **游戏介绍页面重构**：大幅精简和优化游戏介绍.html
+- **三千大道面板优化**：改进ThousandDaoPanel.vue
+
+### 🔧 修复
+
+- **提示词系统优化**：优化defaultPrompts.ts、cotCore.ts、businessRules.ts等
+- **角色初始化优化**：改进characterInitializationPrompts.ts
+
+---
+
+## V4.4.1 (2026-01-20)
+
+### 🔧 修复
+
+- **存档面板改进**：优化SavePanel.vue，改进存档管理体验
+- **提示词优化**：改进defaultPrompts.ts和coreRules.ts
+
+---
+
+## V4.4 正式版&网页版 (2026-01-20)
+
+### 🔧 修复
+
+- **主游戏面板优化**：改进MainGamePanel.vue交互逻辑
+- **命令值验证修复**：修复commandValueValidator.ts验证问题
 
 ---
 
