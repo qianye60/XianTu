@@ -87,7 +87,7 @@ export function buildCraftingNarrativePrompts(input: CraftingNarrativeInput): { 
 4) 必须严格遵守物品品质体系：仅使用给定 resultQuality（quality 与 grade），不要自行更改。
 5) 若提供 resources（灵气/神识消耗计划），文案与事件描述必须与其一致，不要写出超过当前值的消耗。
 
-## 【铁律】境界-品质上限（文案必须体现）
+## 【境界】-品质上限（文案必须体现）
 炼制成品品质受角色境界严格限制，文案描写必须与此一致：
 - 凡人/练气期：最高只能炼制【黄品】，通常只能炼制【凡品】
 - 筑基期：最高只能炼制【玄品】
@@ -95,7 +95,7 @@ export function buildCraftingNarrativePrompts(input: CraftingNarrativeInput): { 
 - 元婴期及以上：最高可炼制【天品】
 - 仙品/神品：需要渡劫期以上或特殊机缘，普通修士不可能炼制
 
-## 【铁律】大道熟练度限制
+## 【大道熟练度】限制
 无对应炼制大道（炼丹之道/炼器之道等）或大道等级过低时：
 - 无大道/入门：文案应体现手法生疏、险象环生
 - 略有所得/小有成就：文案应体现尚在摸索、偶有失误
@@ -143,7 +143,7 @@ export function buildCraftingSimulationPrompts(input: CraftingSimulationInput): 
 4) 这是"推演"，不是最终结果：不要输出成品物品，不要输出战斗/剧情延伸。
 5) 若提供 resources：视作"投入强度约束"，推演应考虑投入与阵法额外消耗，但不得写出超过当前值的消耗。
 
-## 【铁律】境界-品质上限（绝对不可突破）
+## 【境界】-品质上限（绝对不可突破）
 炼制成品品质受角色境界严格限制，这是硬性天花板：
 - 凡人/练气期：最高只能炼制【黄品】，通常只能炼制【凡品】
 - 筑基期：最高只能炼制【玄品】
@@ -151,7 +151,7 @@ export function buildCraftingSimulationPrompts(input: CraftingSimulationInput): 
 - 元婴期及以上：最高可炼制【天品】
 - 仙品/神品：需要渡劫期以上或特殊机缘，普通修士不可能炼制
 
-## 【铁律】大道熟练度限制
+## 【大道熟练度】限制
 无对应炼制大道（炼丹之道/炼器之道等）或大道等级过低时：
 - 无大道/入门：成功率极低(5-15%)，最高凡品下品
 - 略有所得：成功率低(15-30%)，最高凡品中品
@@ -159,7 +159,7 @@ export function buildCraftingSimulationPrompts(input: CraftingSimulationInput): 
 - 登堂入室：成功率中等(40-60%)，黄品稳定
 - 融会贯通及以上：可尝试更高品质，但仍受境界限制
 
-## 【铁律】材料品质限制
+## 【材料品质】限制
 成品品质不可能超过主材料品质，且通常会略低于主材料。
 
 输出 JSON 结构：
@@ -207,7 +207,7 @@ export function buildCraftingFinalizePrompts(input: CraftingFinalizeInput): { sy
 7) predictedQuality（如果给了）仅作参考，但【必须受境界限制约束】，不可突破境界上限。
 8) 若提供 resources（灵气/神识消耗计划）：你在 processText / eventDesc 里必须体现该投入与消耗，且不得写出超过当前值的消耗。
 
-## 【铁律·最高优先级】境界-品质硬性上限
+## 【最高优先级】境界-品质硬性上限
 这是绝对不可突破的天花板，无论材料多好、推演结果如何，都必须遵守：
 | 角色境界 | 炼制品质上限 | 说明 |
 |---------|-------------|------|
@@ -220,7 +220,7 @@ export function buildCraftingFinalizePrompts(input: CraftingFinalizeInput): { sy
 
 违反此规则的输出将被系统拒绝！
 
-## 【铁律】大道熟练度限制
+## 【大道熟练度】限制
 无对应炼制大道或等级过低时，成功率和品质都会大幅下降：
 - 无大道/入门：成功率5-15%，最高凡品下品，大概率失败
 - 略有所得：成功率15-30%，最高凡品中品
@@ -228,7 +228,7 @@ export function buildCraftingFinalizePrompts(input: CraftingFinalizeInput): { sy
 - 登堂入室：成功率40-60%，黄品稳定
 - 融会贯通+：可尝试更高，但仍受境界限制
 
-## 【铁律】材料品质限制
+## 【材料品质】限制
 成品品质绝不可能超过主材料品质。用凡品材料不可能炼出黄品以上。
 
 输出 JSON 结构：
