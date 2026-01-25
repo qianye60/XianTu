@@ -12,6 +12,7 @@
  */
 import axios from 'axios';
 import type { APIUsageType, APIConfig as StoreAPIConfig } from '@/stores/apiManagementStore';
+import { buildOpenAICompatibleUrl } from '@/utils/openaiUrl';
 
 // ============ API提供商类型 ============
 export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'custom';
@@ -208,11 +209,9 @@ class AIService {
     this.config = { ...this.config, ...config };
     // 强制按运行环境选择默认模式：酒馆=酒馆API，非酒馆=自定义API
     this.syncModeWithEnvironment();
-    // 自动清理自定义API URL末尾的 /v1 和 / 后缀
+    // 清理自定义API URL末尾的 / 后缀（保留版本路径）
     if (this.config.customAPI?.url) {
-      this.config.customAPI.url = this.config.customAPI.url
-        .replace(/\/v1\/?$/, '')  // 移除末尾的 /v1 或 /v1/
-        .replace(/\/+$/, '');      // 移除末尾的斜杠
+      this.config.customAPI.url = this.config.customAPI.url.replace(/\/+$/, '');
     }
     localStorage.setItem('ai_service_config', JSON.stringify(this.config));
     console.log('[AI服务] 配置已保存:', this.config.mode);
@@ -240,7 +239,7 @@ class AIService {
       this.config.mode = 'custom';
       this.config.customAPI = {
         provider: apiConfig.provider,
-        url: apiConfig.url.replace(/\/v1\/?$/, '').replace(/\/+$/, ''),
+        url: apiConfig.url.replace(/\/+$/, ''),
         apiKey: apiConfig.apiKey,
         model: apiConfig.model,
         temperature: apiConfig.temperature ?? 0.7,
@@ -274,8 +273,7 @@ class AIService {
     }
 
     try {
-      const baseUrl = this.config.customAPI.url.replace(/\/+$/, '');
-      const response = await axios.get(`${baseUrl}/v1/models`, {
+      const response = await axios.get(buildOpenAICompatibleUrl(this.config.customAPI.url, '/models'), {
         headers: { 'Authorization': `Bearer ${this.config.customAPI.apiKey}` },
         signal: this.getAbortSignal()
       });
@@ -921,7 +919,7 @@ class AIService {
           console.warn('[AI服务-OpenAI兼容] 当前API可能不支持流式传输，已自动降级为非流式请求。');
 
           const response = await axios.post(
-            `${url}/v1/chat/completions`,
+            buildOpenAICompatibleUrl(url, '/chat/completions'),
             {
               model,
               messages,
@@ -945,7 +943,7 @@ class AIService {
         }
       } else {
         const response = await axios.post(
-          `${url}/v1/chat/completions`,
+          buildOpenAICompatibleUrl(url, '/chat/completions'),
           {
             model,
             messages,
@@ -1190,7 +1188,7 @@ class AIService {
 
   // OpenAI格式流式请求
   private async streamingRequestOpenAI(
-    url: string,
+    _url: string,
     apiKey: string,
     model: string,
     messages: AIMessage[],
@@ -1200,7 +1198,7 @@ class AIService {
   ): Promise<string> {
     console.log('[AI服务-OpenAI流式] 开始');
 
-    const response = await fetch(`${url}/v1/chat/completions`, {
+    const response = await fetch(buildOpenAICompatibleUrl(this.config.customAPI?.url || _url, '/chat/completions'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
