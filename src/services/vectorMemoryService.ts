@@ -381,7 +381,7 @@ class VectorMemoryService {
     return {
       available: false,
       reason:
-        '请在 API管理 中为 Embedding 配置 API 地址/Key/模型；阿里百炼 Embedding 请用 DashScope 原生域名（https://dashscope.aliyuncs.com 或 https://dashscope-intl.aliyuncs.com），不要用 OpenAI 兼容 /compatible-mode',
+        '请在 API管理 中为 Embedding 配置 API 地址/Key/模型；硅基流动推荐使用 BAAI/bge-m3 模型；阿里百炼请用 DashScope 原生域名',
     };
   }
 

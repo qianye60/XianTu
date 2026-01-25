@@ -14,7 +14,7 @@ import axios from 'axios';
 import type { APIUsageType, APIConfig as StoreAPIConfig } from '@/stores/apiManagementStore';
 
 // ============ API提供商类型 ============
-export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'zhipu' | 'custom';
+export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'zhipu' | 'siliconflow-embedding' | 'custom';
 
 // ============ 配置接口 ============
 export interface AIConfig {
@@ -41,6 +41,7 @@ export const API_PROVIDER_PRESETS: Record<APIProvider, { url: string; defaultMod
   gemini: { url: 'https://generativelanguage.googleapis.com', defaultModel: 'gemini-2.0-flash', name: 'Gemini' },
   deepseek: { url: 'https://api.deepseek.com', defaultModel: 'deepseek-chat', name: 'DeepSeek' },
   zhipu: { url: 'https://open.bigmodel.cn', defaultModel: 'glm-4-flash', name: '智谱AI' },
+  'siliconflow-embedding': { url: 'https://api.siliconflow.cn', defaultModel: 'BAAI/bge-m3', name: '硅基流动(Embedding)' },
   custom: { url: '', defaultModel: '', name: '自定义(OpenAI兼容)' }
 };
 
@@ -342,6 +343,35 @@ class AIService {
             'claude-3-opus-20240229',
             'claude-3-sonnet-20240229',
             'claude-3-haiku-20240307'
+          ];
+        }
+
+        case 'siliconflow-embedding': {
+          // 硅基流动 Embedding 模型：使用 sub_type=embedding 过滤
+          try {
+            const response = await axios.get(`${baseUrl}/v1/models?sub_type=embedding`, {
+              headers: { 'Authorization': `Bearer ${apiKey}` },
+              signal: this.getAbortSignal(),
+              timeout: 10000
+            });
+
+            const models = response.data.data?.map((m: any) => m.id) || [];
+            if (models.length > 0) {
+              return models;
+            }
+          } catch (fetchError) {
+            console.warn('[AI服务] 获取硅基流动Embedding模型列表失败:', fetchError);
+          }
+          // 返回预设的 Embedding 模型列表
+          return [
+            'BAAI/bge-m3',
+            'Pro/BAAI/bge-m3',
+            'BAAI/bge-large-zh-v1.5',
+            'BAAI/bge-large-en-v1.5',
+            'netease-youdao/bce-embedding-base_v1',
+            'Qwen/Qwen3-Embedding-8B',
+            'Qwen/Qwen3-Embedding-4B',
+            'Qwen/Qwen3-Embedding-0.6B'
           ];
         }
 

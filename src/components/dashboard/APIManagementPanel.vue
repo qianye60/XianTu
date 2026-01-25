@@ -457,6 +457,7 @@
               <option value="gemini">Gemini</option>
               <option value="deepseek">DeepSeek</option>
               <option value="zhipu">智谱AI</option>
+              <option value="siliconflow-embedding">硅基流动(Embedding)</option>
               <option value="custom">{{ t('自定义(OpenAI兼容)') }}</option>
             </select>
           </div>
