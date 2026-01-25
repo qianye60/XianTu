@@ -15,7 +15,7 @@ const validateGameTime = (time: any): string[] => {
   const errors: string[] = [];
   if (!isPlainObject(time)) return ['元数据.时间 必须是对象'];
   const fields: Array<[keyof GameTime, number, number]> = [
-    ['年', 0, 999999],
+    ['年', 0, Number.MAX_SAFE_INTEGER],
     ['月', 1, 12],
     ['日', 1, 31],
     ['小时', 0, 23],

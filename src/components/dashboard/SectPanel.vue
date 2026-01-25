@@ -26,11 +26,8 @@
               <p class="empty-text">{{ t('暂无宗门信息') }}</p>
               <p class="empty-hint">{{ t('世界信息将由AI根据游戏进程生成') }}</p>
               <div class="empty-actions">
-                <button class="empty-action-btn primary" @click="sendSectGenerationPrompt">生成势力信息</button>
-                <button class="empty-action-btn" @click="goInitWorld">去初始化世界（世界地图）</button>
-                <button class="empty-action-btn" @click="forceRefresh">刷新</button>
+                <button class="empty-action-btn primary" @click="goInitWorld">去初始化世界（世界地图）</button>
               </div>
-              <p class="empty-prompt-hint">提示：点击“生成势力信息”会自动发送到对话并写入 <code>世界.信息.势力信息</code>。</p>
             </div>
             <div v-else class="sect-list-content">
               <div
@@ -347,15 +344,13 @@ import { useRouter } from 'vue-router';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useI18n } from '@/i18n';
-import { isTavernEnv } from '@/utils/tavern';
 import type { WorldFaction, SectMemberInfo, WorldInfo } from '@/types/game';
 import {
-  Building, Users, Heart, UserPlus, Crown, CheckCircle,
-  Gift, Coins, Book, Search, Loader2,
+  Building, Users, Heart, UserPlus, CheckCircle,
+  Gift, Search, Loader2,
   ChevronRight, Map, LogOut, Trash2
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
-import { sendChat } from '@/utils/chatBus';
 import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataValidator';
 import { createJoinedSectState } from '@/utils/sectSystemFactory';
 
@@ -363,7 +358,6 @@ const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
 const router = useRouter();
 const { t } = useI18n();
-const isTavernEnvFlag = isTavernEnv();
 const isOnlineMode = computed(() => characterStore.activeCharacterProfile?.模式 === '联机');
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
@@ -375,21 +369,8 @@ const selectedLeadership = computed(() => {
   return sect?.领导层 || sect?.leadership || null;
 });
 
-const buildSectGenerationPrompt = () => {
-  const mapConfig = (gameStateStore.worldInfo as any)?.地图配置;
-  const width = Number(mapConfig?.width) || 10000;
-  const height = Number(mapConfig?.height) || 10000;
-
-  return `你是GM，请根据当前剧情与世界设定，生成/补全「世界.信息.势力信息」（数组）。\n\n要求：\n- 每条势力至少包含：名称、类型、等级、描述、宗门驻地、主要资源、可否加入、加入条件、领导层、成员数量、势力范围详情、与玩家关系、声望值。\n- 坐标范围：x 0-${width}，y 0-${height}（游戏坐标，左上角为原点）。\n- 势力必须包含「位置」坐标（对象，含x/y）与「势力范围」（至少4个坐标点）。\n- 内容要与当前世界一致，避免与已存在信息冲突。\n- 严格输出一个 JSON 对象（不要代码块/解释/额外文本，不要 <thinking>）：\n{\n  \"text\": \"【系统】势力信息已补全。\",\n  \"mid_term_memory\": \"\",\n  \"tavern_commands\": [\n    {\"action\":\"set\",\"key\":\"世界.信息.势力信息\",\"value\":[/*...势力数组...*/]}\n  ],\n  \"action_options\": []\n}`;
-};
-
 const goInitWorld = () => {
   router.push({ name: 'WorldMap' });
-};
-
-const sendSectGenerationPrompt = () => {
-  sendChat(buildSectGenerationPrompt());
-  toast.success('已发送到对话');
 };
 
 const deleteFaction = async (sect: WorldFaction) => {
@@ -503,6 +484,11 @@ const sectSystemData = computed(() => {
   return { availableSects: validatedSects };
 });
 
+// 获取玩家名字
+const playerName = computed(() => {
+  return gameStateStore.character?.名字 || '';
+});
+
 // 玩家的宗门信息
 const playerSectInfo = computed((): SectMemberInfo | undefined => {
   return gameStateStore.sectMemberInfo || undefined;
@@ -510,6 +496,55 @@ const playerSectInfo = computed((): SectMemberInfo | undefined => {
 
 // 获取所有宗门列表
 const allSects = computed(() => sectSystemData.value.availableSects);
+
+// 检查玩家在某宗门中的实际职位（通过领导层信息）
+const getPlayerActualPosition = computed(() => {
+  const name = playerName.value;
+  if (!name) return null;
+
+  for (const sect of allSects.value) {
+    const leadership = (sect as any)?.领导层 || (sect as any)?.leadership;
+    if (!leadership) continue;
+
+    if (leadership.宗主 === name || leadership.掌门 === name) {
+      return { sect, position: '宗主' as const };
+    }
+    if (leadership.副宗主 === name || leadership.副掌门 === name) {
+      return { sect, position: '副宗主' as const };
+    }
+  }
+  return null;
+});
+
+// 判断玩家是否是宗门领导（宗主/掌门/副宗主/副掌门）
+const isPlayerSectLeader = computed(() => {
+  // 先检查 sectMemberInfo
+  const position = playerSectInfo.value?.职位;
+  if (['宗主', '掌门', '副宗主', '副掌门'].includes(position || '')) {
+    return true;
+  }
+  // 再检查宗门领导层
+  return !!getPlayerActualPosition.value;
+});
+
+// 获取玩家所在宗门的详细信息
+const playerSect = computed(() => {
+  // 优先使用领导层检测到的宗门
+  if (getPlayerActualPosition.value) {
+    return getPlayerActualPosition.value.sect;
+  }
+  // 否则使用 sectMemberInfo
+  if (!playerSectInfo.value?.宗门名称) return null;
+  return allSects.value.find(s => s.名称 === playerSectInfo.value?.宗门名称) || null;
+});
+
+// 获取玩家实际职位（用于显示）
+const playerActualPosition = computed(() => {
+  if (getPlayerActualPosition.value) {
+    return getPlayerActualPosition.value.position;
+  }
+  return playerSectInfo.value?.职位 || '';
+});
 
 // 过滤后的宗门列表（只保留搜索功能）
 const filteredSects = computed(() => {
@@ -822,24 +857,6 @@ const requestJoinSect = (sect: WorldFaction) => {
   toast.success(`已加入 ${sect.名称}`);
 };
 
-const showContribution = () => {
-  router.push({ name: 'SectContribution' });
-};
-
-const showSectLibrary = () => {
-  router.push({ name: 'SectLibrary' });
-};
-
-const showSectMembers = () => {
-  router.push({ name: 'SectMembers' });
-};
-
-// 强制刷新
-const forceRefresh = () => {
-  characterStore.reloadFromStorage();
-  toast.info('已强制刷新数据');
-};
-
 </script>
 
 <style scoped>
@@ -853,10 +870,13 @@ const forceRefresh = () => {
 .panel-content {
   flex: 1;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .sect-container {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   background: var(--color-surface);
   overflow: hidden;

@@ -1810,6 +1810,7 @@ const closeModals = () => {
 .vital-nums .divider {
   opacity: 0.5;
   margin: 0 2px;
+  background: transparent;
 }
 
 .vital-track {
