@@ -22,6 +22,16 @@ function isDashScopeHost(url: string): boolean {
   }
 }
 
+function isSiliconFlowHost(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === 'api.siliconflow.cn' || u.hostname.endsWith('.siliconflow.cn');
+  } catch {
+    const lower = (url || '').toString().toLowerCase();
+    return lower.includes('siliconflow.cn');
+  }
+}
+
 function buildDashScopeEmbeddingsEndpoint(urlOrBase: string): string {
   const trimmed = (urlOrBase || '').trim().replace(/\/+$/, '');
   const fullPath = '/api/v1/services/embeddings/text-embedding/text-embedding';
@@ -94,6 +104,37 @@ export async function createEmbeddings(
     return ordered.map((e: any) => {
       if (!Array.isArray(e?.embedding)) throw new Error('Embedding 响应缺少 embedding（DashScope）');
       return e.embedding as number[];
+    });
+  }
+
+  // 硅基流动（SiliconFlow）Embedding：使用 OpenAI 兼容格式
+  if (isSiliconFlowHost(baseUrl) || provider === 'siliconflow-embedding') {
+    const resp = await axios.post(
+      `${baseUrl}/v1/embeddings`,
+      {
+        model,
+        input: inputs,
+        encoding_format: 'float',
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    const data = resp.data?.data;
+    if (!Array.isArray(data) || data.length !== inputs.length) {
+      throw new Error('Embedding 响应格式异常（SiliconFlow）');
+    }
+
+    // 按 index 排序确保顺序正确
+    const sorted = [...data].sort((a: any, b: any) => (a.index ?? 0) - (b.index ?? 0));
+    return sorted.map((d: any) => {
+      const embedding = d?.embedding;
+      if (!Array.isArray(embedding)) throw new Error('Embedding 响应缺少 embedding（SiliconFlow）');
+      return embedding as number[];
     });
   }
 
