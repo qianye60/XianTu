@@ -120,10 +120,6 @@ function validateValueType(key: string, value: unknown, action: string): string[
       '角色.属性.神识.上限',
       '角色.属性.寿命.当前',
       '角色.属性.寿命.上限',
-      '角色.背包.灵石.下品',
-      '角色.背包.灵石.中品',
-      '角色.背包.灵石.上品',
-      '角色.背包.灵石.极品',
     ];
 
     const houTianFields = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'];

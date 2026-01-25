@@ -90,7 +90,7 @@ import { generateWithRawPrompt } from '@/utils/tavernCore';
 import { parseJsonFromText } from '@/utils/jsonExtract';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { rollD20 } from '@/utils/diceRoller';
-import { detectPlayerSectLeadership } from '@/utils/sectLeadershipUtils';
+import { detectPlayerSectLeadership, isLeaderPosition } from '@/utils/sectLeadershipUtils';
 import type { GM_Response } from '@/types/AIGameMaster';
 import type { WorldFaction, WorldInfo } from '@/types/game';
 import { Building2, Calendar, Info, RefreshCw } from 'lucide-vue-next';
@@ -119,13 +119,30 @@ const leaderInfo = computed(() => {
 });
 
 const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
-const playerSectName = computed(() => leaderInfo.value.sectName || playerSectInfo.value?.宗门名称 || '未加入宗门');
-const playerPosition = computed(() => leaderInfo.value.position || playerSectInfo.value?.职位 || '散修');
-const isLeader = computed(() => leaderInfo.value.isLeader);
-const canUse = computed(() => !!playerSectName.value && playerSectName.value !== '未加入宗门' && isLeader.value);
+const sectSystemCurrent = computed(() => String((gameStateStore.sectSystem as any)?.当前宗门 || '').trim());
+const resolvedSectName = computed(() => {
+  const fromMember = String(playerSectInfo.value?.宗门名称 || '').trim();
+  if (fromMember) return fromMember;
+  const fromLeader = String(leaderInfo.value.sectName || '').trim();
+  if (fromLeader) return fromLeader;
+  if (sectSystemCurrent.value) return sectSystemCurrent.value;
+  const fromSystemMember = String(((gameStateStore.sectSystem as any)?.成员信息?.宗门名称 ?? '') || '').trim();
+  return fromSystemMember;
+});
+
+const playerSectName = computed(() => resolvedSectName.value || '未加入宗门');
+const playerPosition = computed(() => {
+  const fromLeader = String(leaderInfo.value.position || '').trim();
+  if (fromLeader) return fromLeader;
+  const fromMember = String(playerSectInfo.value?.职位 || '').trim();
+  if (fromMember) return fromMember;
+  return '散修';
+});
+const isLeader = computed(() => leaderInfo.value.isLeader || isLeaderPosition(playerPosition.value));
+const canUse = computed(() => !!resolvedSectName.value && isLeader.value);
 
 const management = computed(() => {
-  const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+  const sectName = String(resolvedSectName.value || '').trim();
   if (!sectName) return null;
   return ((gameStateStore.sectSystem as any)?.宗门经营?.[sectName] ?? null) as any;
 });
@@ -145,8 +162,55 @@ function formatDeltas(d: Record<string, number>): string {
 
 async function applyGmResponse(rawText: string, saveData: any) {
   const parsed = parseJsonFromText(rawText) as Partial<GM_Response>;
-  const { saveData: updated } = await AIBidirectionalSystem.processGmResponse(parsed as GM_Response, saveData, false);
+  const { saveData: updated } = await AIBidirectionalSystem.processGmResponse(
+    parsed as GM_Response,
+    saveData,
+    false,
+    undefined,
+    { appendNarrativeHistory: false }
+  );
   gameStateStore.loadFromSaveData(updated as any);
+  await characterStore.saveCurrentGame();
+}
+
+async function ensureLeaderMembership() {
+  // 如果玩家是宗门高层（leaderInfo）但缺少成员信息，则自动补齐一份成员信息，避免各模块判定“未加入宗门”
+  if (playerSectInfo.value?.宗门名称) return;
+  const sectName = String(leaderInfo.value.sectName || '').trim();
+  if (!sectName) return;
+
+  const nowIso = new Date().toISOString();
+  const sectProfile = allSects.value.find((s) => String(s.名称 || '').trim() === sectName) ?? null;
+
+  const memberInfo = {
+    宗门名称: sectName,
+    宗门类型: (sectProfile as any)?.类型 || '修仙宗门',
+    职位: leaderInfo.value.position || '宗主',
+    贡献: 0,
+    关系: '友好',
+    声望: 0,
+    加入日期: nowIso,
+    描述: (sectProfile as any)?.描述 || '',
+  };
+
+  gameStateStore.updateState('sectMemberInfo', memberInfo);
+
+  // 同时确保 sectSystem 里有当前宗门（避免其它模块只读 sectSystem.当前宗门 时为空）
+  if (!gameStateStore.sectSystem) {
+    gameStateStore.updateState('sectSystem', {
+      版本: 2,
+      当前宗门: sectName,
+      宗门档案: sectProfile ? { [sectName]: sectProfile } : {},
+      宗门成员: {},
+      宗门藏经阁: {},
+      宗门贡献商店: {},
+      宗门任务: {},
+      宗门任务状态: {},
+    });
+  } else if (!sectSystemCurrent.value) {
+    gameStateStore.updateState('sectSystem.当前宗门', sectName);
+  }
+
   await characterStore.saveCurrentGame();
 }
 
@@ -154,7 +218,8 @@ async function initManagement() {
   if (!canUse.value || isWorking.value) return;
   isWorking.value = true;
   try {
-    const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+    await ensureLeaderMembership();
+    const sectName = String(resolvedSectName.value || '').trim();
     if (!sectName) {
       toast.warning('未加入宗门');
       return;
@@ -173,7 +238,7 @@ async function initManagement() {
 
 ## 输出格式（必须）
 只输出 1 个 JSON 对象：
-{"text":"...","mid_term_memory":"","tavern_commands":[...],"action_options":[]}
+{"text":"...","mid_term_memory":"（50-100字：本次初始化的关键摘要）","tavern_commands":[...],"action_options":[]}
 
 ## 写入路径（必须）
 - 社交.宗门.宗门经营.${sectName} : 完整覆盖
@@ -206,7 +271,8 @@ async function settleTenDays() {
   if (!canUse.value || !management.value || isWorking.value) return;
   isWorking.value = true;
   try {
-    const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+    await ensureLeaderMembership();
+    const sectName = String(resolvedSectName.value || '').trim();
     if (!sectName) {
       toast.warning('未加入宗门');
       return;
@@ -228,7 +294,7 @@ d20=${d20}
 
 ## 输出格式（必须）
 只输出 1 个 JSON 对象：
-{"text":"...","mid_term_memory":"","tavern_commands":[...],"action_options":[]}
+{"text":"...","mid_term_memory":"（50-100字：本次结算的关键摘要）","tavern_commands":[...],"action_options":[]}
 
 ## 写入路径（必须）
 - 社交.宗门.宗门经营.${sectName} : 建议 set 完整覆盖（或精准修改）

@@ -100,31 +100,7 @@ function parseItemChange(change: StateChange): FormattedChange | null {
     }
   }
 
-  // 灵石（V3：角色.背包.灵石.下品/中品/上品/极品）
-  if (key.startsWith('角色.背包.灵石.') || key.includes('.背包.灵石.')) {
-    const stoneType = key.split('.').pop() || '灵石';
-    const oldNum = typeof oldValue === 'number' ? oldValue : 0;
-    const newNum = typeof newValue === 'number' ? newValue : 0;
-    const diff = newNum - oldNum;
-
-    if (diff > 0) {
-      return {
-        icon: 'add',
-        color: 'green',
-        title: `获得${stoneType}`,
-        description: `+ ${diff}`,
-      };
-    } else if (diff < 0) {
-      return {
-        icon: 'remove',
-        color: 'red',
-        title: `消耗${stoneType}`,
-        description: `${diff}`,
-      };
-    }
-  }
-
-  // 货币（V3：角色.背包.货币.<币种ID>.数量）
+  // 货币（角色.背包.货币.<币种ID>.数量）
   if (key.startsWith('角色.背包.货币.') && key.endsWith('.数量')) {
     const parts = key.split('.');
     const currencyId = parts.length >= 4 ? parts[3] : '货币';

@@ -1715,7 +1715,35 @@ ${step1Text}
     response: GM_Response,
     currentSaveData: SaveData,
     isInitialization = false,
-    shouldAbort?: () => boolean
+    shouldAbort?: () => boolean,
+    options?: {
+      /**
+       * 是否写入系统.历史.叙事（用于主面板正文/主对话展示）
+       * - 默认 true
+       * - 宗门/后台面板类功能应设为 false，避免污染主对话
+       */
+      appendNarrativeHistory?: boolean;
+      /**
+       * 是否将 response.text 写入社交.记忆.短期记忆（用于AI上下文）
+       * - 默认 true
+       */
+      appendShortTermMemoryFromText?: boolean;
+      /**
+       * 是否将 response.mid_term_memory 写入社交.记忆.隐式中期记忆
+       * - 默认 true
+       */
+      appendImplicitMidMemoryFromMidTerm?: boolean;
+      /**
+       * 若 response.mid_term_memory 为空，是否为“短期记忆”补一个对应的“隐式中期记忆”
+       * - 默认 true（用截断后的 text 兜底）
+       */
+      ensureImplicitMidForEachShortTerm?: boolean;
+      /**
+       * ensureImplicitMidForEachShortTerm 为 true 时，隐式中期的兜底内容最大长度
+       * - 默认 80
+       */
+      implicitMidFallbackMaxLen?: number;
+    }
   ): Promise<{ saveData: SaveData; stateChanges: StateChangeLog; onlineLogPosted: boolean }> {
     const abortRequested = () => shouldAbort?.() ?? false;
     if (abortRequested()) {
@@ -1728,47 +1756,75 @@ ${step1Text}
     const saveData = cloneDeep(repairedData);
     const changes: StateChange[] = [];
 
-    // 确保叙事历史数组存在（V3：系统.历史.叙事）
-    if (!(saveData as any).系统) (saveData as any).系统 = {};
-    if (!(saveData as any).系统.历史) (saveData as any).系统.历史 = { 叙事: [] };
-    if (!Array.isArray((saveData as any).系统.历史.叙事)) (saveData as any).系统.历史.叙事 = [];
+    const behavior = {
+      appendNarrativeHistory: options?.appendNarrativeHistory !== false,
+      appendShortTermMemoryFromText: options?.appendShortTermMemoryFromText !== false,
+      appendImplicitMidMemoryFromMidTerm: options?.appendImplicitMidMemoryFromMidTerm !== false,
+      ensureImplicitMidForEachShortTerm: options?.ensureImplicitMidForEachShortTerm !== false,
+      implicitMidFallbackMaxLen:
+        typeof options?.implicitMidFallbackMaxLen === 'number' && Number.isFinite(options.implicitMidFallbackMaxLen)
+          ? Math.max(20, Math.min(200, Math.floor(options.implicitMidFallbackMaxLen)))
+          : 80,
+    };
 
-    // 处理text：添加到叙事历史和短期记忆
-    if (response.text?.trim()) {
-      const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
-      const textContent = sanitizeAITextForDisplay(response.text).trim();
-
-      // 1. 添加到叙事历史（用于UI显示）
-      const newNarrative = {
-        type: 'gm' as const,
-        role: 'assistant' as const,
-        content: `${timePrefix}${textContent}`,
-        time: timePrefix,
-        actionOptions: this.sanitizeActionOptionsForDisplay(response.action_options || [])
-      };
-      (saveData as any).系统.历史.叙事.push(newNarrative);
-      changes.push({
-        key: `系统.历史.叙事[${(saveData as any).系统.历史.叙事.length - 1}]`,
-        action: 'push',
-        oldValue: undefined,
-        newValue: cloneDeep(newNarrative)
-      });
-
-      // 2. 添加到短期记忆（用于AI上下文）
-      if (!(saveData as any).社交) (saveData as any).社交 = {};
-      if (!(saveData as any).社交.记忆) (saveData as any).社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
-      if (!Array.isArray((saveData as any).社交.记忆.短期记忆)) (saveData as any).社交.记忆.短期记忆 = [];
-      (saveData as any).社交.记忆.短期记忆.push(`${timePrefix}${textContent}`);
+    // 仅当需要写入叙事历史时才确保系统.历史.叙事存在
+    if (behavior.appendNarrativeHistory) {
+      if (!(saveData as any).系统) (saveData as any).系统 = {};
+      if (!(saveData as any).系统.历史) (saveData as any).系统.历史 = { 叙事: [] };
+      if (!Array.isArray((saveData as any).系统.历史.叙事)) (saveData as any).系统.历史.叙事 = [];
     }
 
-    // 处理mid_term_memory：添加到隐式中期记忆
-    const memoryContent = sanitizeAITextForDisplay(response.mid_term_memory || '').trim();
-    if (memoryContent) {
+    const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
+    const textContent = sanitizeAITextForDisplay(response.text || '').trim();
+    const midTermContent = sanitizeAITextForDisplay(response.mid_term_memory || '').trim();
+
+    // 处理 text：可选写入叙事历史；可选写入短期记忆
+    if (textContent) {
+      if (behavior.appendNarrativeHistory) {
+        const newNarrative = {
+          type: 'gm' as const,
+          role: 'assistant' as const,
+          content: `${timePrefix}${textContent}`,
+          time: timePrefix,
+          actionOptions: this.sanitizeActionOptionsForDisplay(response.action_options || [])
+        };
+        (saveData as any).系统.历史.叙事.push(newNarrative);
+        changes.push({
+          key: `系统.历史.叙事[${(saveData as any).系统.历史.叙事.length - 1}]`,
+          action: 'push',
+          oldValue: undefined,
+          newValue: cloneDeep(newNarrative)
+        });
+      }
+
+      if (behavior.appendShortTermMemoryFromText) {
+        if (!(saveData as any).社交) (saveData as any).社交 = {};
+        if (!(saveData as any).社交.记忆) (saveData as any).社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+        if (!Array.isArray((saveData as any).社交.记忆.短期记忆)) (saveData as any).社交.记忆.短期记忆 = [];
+        (saveData as any).社交.记忆.短期记忆.push(`${timePrefix}${textContent}`);
+      }
+    }
+
+    // 处理 mid_term_memory：写入隐式中期记忆（用于“短期->中期”过渡/总结）
+    if (behavior.appendImplicitMidMemoryFromMidTerm && midTermContent) {
       if (!(saveData as any).社交) (saveData as any).社交 = {};
       if (!(saveData as any).社交.记忆) (saveData as any).社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
       if (!Array.isArray((saveData as any).社交.记忆.隐式中期记忆)) (saveData as any).社交.记忆.隐式中期记忆 = [];
-      const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
-      (saveData as any).社交.记忆.隐式中期记忆.push(`${timePrefix}${memoryContent}`);
+      (saveData as any).社交.记忆.隐式中期记忆.push(`${timePrefix}${midTermContent}`);
+    }
+
+    // 兜底：若这次写入了短期记忆，但 mid_term_memory 为空，则补齐一条对应的隐式中期记忆，保持“短期-隐式中期”一一对应。
+    if (
+      behavior.appendShortTermMemoryFromText &&
+      textContent &&
+      behavior.ensureImplicitMidForEachShortTerm &&
+      (!midTermContent || !behavior.appendImplicitMidMemoryFromMidTerm)
+    ) {
+      if (!(saveData as any).社交) (saveData as any).社交 = {};
+      if (!(saveData as any).社交.记忆) (saveData as any).社交.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+      if (!Array.isArray((saveData as any).社交.记忆.隐式中期记忆)) (saveData as any).社交.记忆.隐式中期记忆 = [];
+      const fallback = textContent.length > behavior.implicitMidFallbackMaxLen ? `${textContent.slice(0, behavior.implicitMidFallbackMaxLen)}…` : textContent;
+      (saveData as any).社交.记忆.隐式中期记忆.push(`${timePrefix}${fallback}`);
     }
 
     // 🔥 检查短期记忆是否超限，超限则删除最旧的短期记忆，并将对应的隐式中期记忆转化为正式中期记忆
@@ -2659,6 +2715,29 @@ ${saveDataJson}`;
 
     if (action === 'set') {
       const segments = path.split('.');
+
+      // 🔥 保护关键模块：使用合并而非覆盖，防止 AI 的 set 操作意外清空数据
+      const protectedModulePaths = [
+        '角色.背包',
+        '角色.功法',
+        '角色.技能',
+        '角色.大道',
+        '角色.修炼',
+        '角色.属性',
+        '角色.身份',
+        '社交.记忆',
+        '社交.宗门',
+      ];
+      if (protectedModulePaths.includes(path) && isPlainObject(value)) {
+        const existing = get(saveData, path);
+        if (isPlainObject(existing)) {
+          const merged = mergePlainObjectsReplacingArrays(existing, value);
+          console.log(`[AI双向系统] 保护模块 ${path}：使用合并而非覆盖`);
+          set(saveData, path, merged);
+          return;
+        }
+      }
+
       const isNpcRoot = segments.length === 3 && segments[0] === '社交' && segments[1] === '关系';
       if (isNpcRoot && isPlainObject(value)) {
         if (playerName && typeof (value as any).名字 === 'string' && (value as any).名字.trim() === playerName) {

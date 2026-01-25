@@ -85,7 +85,7 @@ class AIService {
       apiKey: '',
       model: 'gpt-4o',
       temperature: 0.7,
-      maxTokens: 16000  // 输出token上限
+      maxTokens: 8192  // 输出token上限，使用8192兼容DeepSeek等API
     }
   };
 
@@ -646,7 +646,7 @@ class AIService {
         apiKey: apiConfig.apiKey,
         model: apiConfig.model,
         temperature: apiConfig.temperature ?? 0.7,
-        maxTokens: apiConfig.maxTokens ?? 16000
+        maxTokens: apiConfig.maxTokens ?? 8192  // 使用8192兼容DeepSeek等API
       };
 
       // 强制使用custom模式
@@ -688,7 +688,7 @@ class AIService {
         apiKey: apiConfig.apiKey,
         model: apiConfig.model,
         temperature: apiConfig.temperature ?? 0.7,
-        maxTokens: apiConfig.maxTokens ?? 16000
+        maxTokens: apiConfig.maxTokens ?? 8192  // 使用8192兼容DeepSeek等API
       };
 
       // 强制使用custom模式
@@ -934,6 +934,37 @@ class AIService {
     return !!this.getTavernHelper();
   }
 
+  /**
+   * 检测 API 是否不支持 response_format 参数
+   * 某些中转API（如豆包/Doubao、部分Claude中转）不支持该参数
+   */
+  private isResponseFormatUnsupported(url: string, model: string): boolean {
+    const lowerUrl = (url || '').toLowerCase();
+    const lowerModel = (model || '').toLowerCase();
+
+    // 豆包/Doubao API 不支持 response_format
+    if (lowerUrl.includes('doubao') || lowerUrl.includes('volcengine')) {
+      return true;
+    }
+
+    // 火山引擎 API
+    if (lowerUrl.includes('volc') || lowerUrl.includes('bytedance')) {
+      return true;
+    }
+
+    // 某些 Claude 中转服务
+    if (lowerUrl.includes('anthropic') || lowerModel.includes('claude')) {
+      return true;
+    }
+
+    // 通义千问某些版本
+    if (lowerUrl.includes('dashscope') && !lowerModel.includes('qwen-max')) {
+      return true;
+    }
+
+    return false;
+  }
+
   // ============ 自定义API模式实现 ============
   private async generateWithCustomAPI(options: GenerateOptions): Promise<string> {
     if (!this.config.customAPI) {
@@ -973,7 +1004,10 @@ class AIService {
     }
 
     const shouldStream = options.should_stream ?? this.config.streaming ?? false;
-    const responseFormat = options.responseFormat || (this.config.customAPI.forceJsonOutput ? 'json_object' : undefined);
+    // 🔥 读取功能对应的 API 配置的 forceJsonOutput 设置
+    const usageType = options.usageType;
+    const apiConfig = usageType ? this.getAPIConfigForUsageType(usageType) : null;
+    const responseFormat = options.responseFormat || (apiConfig?.forceJsonOutput ? 'json_object' : undefined);
     return this.callAPI(messages, shouldStream, options.onStreamChunk, responseFormat);
   }
 
@@ -989,7 +1023,10 @@ class AIService {
 
     console.log(`[AI服务-自定义Raw] 消息数量: ${messages.length}`);
     const shouldStream = options.should_stream ?? this.config.streaming ?? false;
-    const responseFormat = options.responseFormat || (this.config.customAPI.forceJsonOutput ? 'json_object' : undefined);
+    // 🔥 读取功能对应的 API 配置的 forceJsonOutput 设置
+    const usageType = options.usageType;
+    const apiConfig = usageType ? this.getAPIConfigForUsageType(usageType) : null;
+    const responseFormat = options.responseFormat || (apiConfig?.forceJsonOutput ? 'json_object' : undefined);
     console.log(`[AI服务-自定义Raw] shouldStream=${shouldStream}, hasOnStreamChunk=${!!options.onStreamChunk}, options.should_stream=${options.should_stream}, config.streaming=${this.config.streaming}`);
     return this.callAPI(messages, shouldStream, options.onStreamChunk, responseFormat);
   }
@@ -1002,28 +1039,47 @@ class AIService {
   ): Promise<string> {
     const { provider, url, apiKey, model, temperature, maxTokens } = this.config.customAPI!;
 
-    // 🔥 reasoner/r1 模型不支持 response_format: json_object
-    // 使用该参数会导致只输出 reasoning_content 而没有实际 content
+    // 🔥 某些模型/API不支持 response_format: json_object
     const isReasonerModel = model.includes('reasoner') || model.includes('r1');
-    const effectiveResponseFormat = (responseFormat && !isReasonerModel) ? responseFormat : undefined;
-    if (responseFormat && isReasonerModel) {
-      console.log(`[AI服务-API调用] 跳过JSON格式输出（${model} 不支持 response_format）`);
+    const isClaudeModel = model.includes('claude');
+    const isUnsupportedAPI = this.isResponseFormatUnsupported(url, model);
+    const shouldSkipResponseFormat = isReasonerModel || isClaudeModel || isUnsupportedAPI;
+    const effectiveResponseFormat = (responseFormat && !shouldSkipResponseFormat) ? responseFormat : undefined;
+    if (responseFormat && shouldSkipResponseFormat) {
+      const reason = isReasonerModel ? 'reasoner模型' : isClaudeModel ? 'Claude模型' : '该API';
+      console.log(`[AI服务-API调用] 跳过JSON格式输出（${reason} 不支持 response_format）`);
     }
 
-    console.log(`[AI服务-API调用] Provider: ${provider}, URL: ${url}, Model: ${model}, 消息数: ${messages.length}, 流式: ${streaming}`);
+    // 🔥 DeepSeek 等 API 使用 response_format: json_object 时，要求 prompt 中包含 "json"
+    let finalMessages = messages;
+    if (effectiveResponseFormat === 'json_object') {
+      const hasJsonKeyword = messages.some(msg => msg.content.toLowerCase().includes('json'));
+      if (!hasJsonKeyword) {
+        finalMessages = [...messages];
+        const sysIdx = finalMessages.findIndex(m => m.role === 'system');
+        if (sysIdx >= 0) {
+          finalMessages[sysIdx] = { ...finalMessages[sysIdx], content: finalMessages[sysIdx].content + '\n\nRespond in JSON format.' };
+        } else {
+          finalMessages.unshift({ role: 'system', content: 'Respond in JSON format.' });
+        }
+        console.log('[AI服务-API调用] 已自动添加JSON格式提示（API要求prompt中包含"json"）');
+      }
+    }
+
+    console.log(`[AI服务-API调用] Provider: ${provider}, URL: ${url}, Model: ${model}, 消息数: ${finalMessages.length}, 流式: ${streaming}`);
 
     // 根据provider选择不同的调用方式
     switch (provider) {
       case 'claude':
-        return this.callClaudeAPI(messages, streaming, onStreamChunk, effectiveResponseFormat);
+        return this.callClaudeAPI(finalMessages, streaming, onStreamChunk, effectiveResponseFormat);
       case 'gemini':
-        return this.callGeminiAPI(messages, streaming, onStreamChunk, effectiveResponseFormat);
+        return this.callGeminiAPI(finalMessages, streaming, onStreamChunk, effectiveResponseFormat);
       case 'openai':
       case 'deepseek':
       case 'zhipu':
       case 'custom':
       default:
-        return this.callOpenAICompatibleAPI(messages, streaming, onStreamChunk, effectiveResponseFormat);
+        return this.callOpenAICompatibleAPI(finalMessages, streaming, onStreamChunk, effectiveResponseFormat);
     }
   }
 
@@ -1133,9 +1189,11 @@ class AIService {
           };
 
           // 如果指定了 JSON 格式，添加 response_format
-          // 🔥 注意：deepseek-reasoner 不支持 response_format
+          // 🔥 注意：某些模型/API不支持 response_format
           const isReasonerModel = model.includes('reasoner') || model.includes('r1');
-          if (responseFormat === 'json_object' && !isReasonerModel) {
+          const isClaudeModel = model.includes('claude');
+          const isUnsupportedAPI = this.isResponseFormatUnsupported(url, model);
+          if (responseFormat === 'json_object' && !isReasonerModel && !isClaudeModel && !isUnsupportedAPI) {
             requestBody.response_format = { type: 'json_object' };
             console.log('[AI服务-OpenAI兼容] 启用JSON格式输出(降级非流式)');
           }
@@ -1167,9 +1225,11 @@ class AIService {
         };
 
         // 如果指定了 JSON 格式，添加 response_format
-        // 🔥 注意：deepseek-reasoner 不支持 response_format
+        // 🔥 注意：某些模型/API不支持 response_format
         const isReasonerModel = model.includes('reasoner') || model.includes('r1');
-        if (responseFormat === 'json_object' && !isReasonerModel) {
+        const isClaudeModel = model.includes('claude');
+        const isUnsupportedAPI = this.isResponseFormatUnsupported(url, model);
+        if (responseFormat === 'json_object' && !isReasonerModel && !isClaudeModel && !isUnsupportedAPI) {
           requestBody.response_format = { type: 'json_object' };
           console.log('[AI服务-OpenAI兼容] 启用JSON格式输出(非流式)');
         }
@@ -1496,13 +1556,17 @@ class AIService {
     };
 
     // 如果指定了 JSON 格式，添加 response_format
-    // 🔥 注意：deepseek-reasoner 不支持 response_format，会导致只输出 reasoning_content
+    // 🔥 注意：某些模型/API不支持 response_format
     const isReasonerModel = model.includes('reasoner') || model.includes('r1');
-    if (responseFormat === 'json_object' && !isReasonerModel) {
+    const isClaudeModel = model.includes('claude');
+    const isUnsupportedAPI = this.isResponseFormatUnsupported(url, model);
+    const shouldSkipFormat = isReasonerModel || isClaudeModel || isUnsupportedAPI;
+    if (responseFormat === 'json_object' && !shouldSkipFormat) {
       requestBody.response_format = { type: 'json_object' };
       console.log('[AI服务-OpenAI流式] 启用JSON格式输出');
-    } else if (responseFormat === 'json_object' && isReasonerModel) {
-      console.log('[AI服务-OpenAI流式] 跳过JSON格式输出（reasoner模型不支持）');
+    } else if (responseFormat === 'json_object' && shouldSkipFormat) {
+      const reason = isReasonerModel ? 'reasoner模型' : isClaudeModel ? 'Claude模型' : '该API';
+      console.log(`[AI服务-OpenAI流式] 跳过JSON格式输出（${reason}不支持）`);
     }
 
     // 智谱AI使用不同的API路径

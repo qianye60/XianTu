@@ -7,6 +7,7 @@ import type {
   Inventory,
   NpcProfile,
   WorldInfo,
+  WorldFaction,
   Memory,
   GameTime,
   SaveData,
@@ -22,6 +23,7 @@ import { isTavernEnv } from '@/utils/tavern';
 import { ensureSystemConfigHasNsfw } from '@/utils/nsfw';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
 import { normalizeInventoryCurrencies } from '@/utils/currencySystem';
+import { detectPlayerSectLeadership } from '@/utils/sectLeadershipUtils';
 
 function buildTechniqueProgress(inventory: Inventory | null) {
   const progress: Record<string, { 熟练度: number; 已解锁技能: string[] }> = {};
@@ -303,7 +305,33 @@ export const useGameStateStore = defineStore('gameState', {
       const relationshipMatrix = normalizeRelationshipMatrixV3(v3?.社交?.关系矩阵, Object.keys(relationships || {}));
       const worldInfo: WorldInfo | null = v3?.世界?.信息 ? deepCopy(v3.世界.信息) : null;
       const sectSystem: SectSystemV2 | null = v3?.社交?.宗门 ? deepCopy(v3.社交.宗门) : null;
-      const sectMemberInfo: SectMemberInfo | null = (v3?.社交?.宗门 as any)?.成员信息 ? deepCopy((v3.社交.宗门 as any).成员信息) : null;
+      let sectMemberInfo: SectMemberInfo | null = (v3?.社交?.宗门 as any)?.成员信息 ? deepCopy((v3.社交.宗门 as any).成员信息) : null;
+
+      // 🔥 兜底：若玩家在“宗门档案领导层”中被识别为高层，但存档缺失 成员信息，则在 store 中补齐一份（仅用于 UI/保存时回写）
+      try {
+        if (!sectMemberInfo) {
+          const playerNameForDetect = String((character as any)?.名字 || '').trim();
+          const factions = (worldInfo?.势力信息 || []) as WorldFaction[];
+          const leader = detectPlayerSectLeadership(playerNameForDetect, factions, null);
+
+          const sectNameCandidate = String((sectSystem as any)?.当前宗门 || leader.sectName || '').trim();
+          if (sectNameCandidate) {
+            const sectProfile = factions.find((s) => String((s as any)?.名称 || '').trim() === sectNameCandidate) ?? null;
+            sectMemberInfo = {
+              宗门名称: sectNameCandidate,
+              宗门类型: ((sectProfile as any)?.类型 as any) || '修仙宗门',
+              职位: leader.position || '外门弟子',
+              贡献: 0,
+              关系: '友好',
+              声望: 0,
+              加入日期: new Date().toISOString(),
+              描述: ((sectProfile as any)?.描述 as any) || '',
+            } as any;
+          }
+        }
+      } catch (e) {
+        console.warn('[gameStateStore.loadFromSaveData] 自动补齐 sectMemberInfo 失败（非致命）:', e);
+      }
       const coerceMemoryArray = (value: unknown): string[] => {
         if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
         if (typeof value === 'string' && value.trim().length > 0) return [value.trim()];
@@ -872,8 +900,9 @@ export const useGameStateStore = defineStore('gameState', {
       const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
       const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
 
-      this.memory.短期记忆.unshift(finalContent); // 最新的在前
-      this.memory.隐式中期记忆.unshift(finalContent); // 同步添加到隐式中期记忆
+      // 与 AIBidirectionalSystem / 主面板显示保持一致：使用 push，最新的在末尾
+      this.memory.短期记忆.push(finalContent);
+      this.memory.隐式中期记忆.push(finalContent); // 同步添加到隐式中期记忆（用于“短期->中期”过渡）
 
       // 检查溢出，从localStorage读取配置
       const maxShortTerm = (() => {
@@ -889,8 +918,9 @@ export const useGameStateStore = defineStore('gameState', {
       })();
 
       while (this.memory.短期记忆.length > maxShortTerm) {
-        this.memory.短期记忆.pop(); // 移除最旧的
-        const implicit = this.memory.隐式中期记忆.pop();
+        // 移除最旧的（第一个）
+        this.memory.短期记忆.shift();
+        const implicit = this.memory.隐式中期记忆.shift();
         if (implicit && !this.memory.中期记忆.includes(implicit)) {
           this.memory.中期记忆.push(implicit);
           console.log('[gameStateStore] ✅ 短期记忆溢出，已转移到中期记忆');

@@ -68,7 +68,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Home, Users, BookOpen, Coins, Building2, Swords, ClipboardList, Crown, Building } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
-import { detectPlayerSectLeadership } from '@/utils/sectLeadershipUtils';
+ import { detectPlayerSectLeadership, isLeaderPosition } from '@/utils/sectLeadershipUtils';
 import type { WorldFaction, WorldInfo } from '@/types/game';
 
 const route = useRoute();
@@ -94,7 +94,13 @@ const leaderInfo = computed(() => {
   );
 });
 
-const activeSectName = computed(() => gameStateStore.sectMemberInfo?.宗门名称 || leaderInfo.value.sectName || '');
+ const activeSectName = computed(() => {
+   const fromMember = String(gameStateStore.sectMemberInfo?.宗门名称 || '').trim();
+   if (fromMember) return fromMember;
+   const fromSystem = String((gameStateStore.sectSystem as any)?.当前宗门 || '').trim();
+   if (fromSystem) return fromSystem;
+   return String(leaderInfo.value.sectName || '').trim();
+ });
 const playerRole = computed(() => {
   if (leaderInfo.value.isLeader && leaderInfo.value.position) return leaderInfo.value.position;
   return gameStateStore.sectMemberInfo?.职位 || '';
@@ -104,12 +110,12 @@ const playerReputation = computed(() => gameStateStore.sectMemberInfo?.声望 ??
 const playerJoinDate = computed(() => gameStateStore.sectMemberInfo?.加入日期 || '');
 
 // 判断是否已加入宗门（或是宗门领导）
-const hasJoinedSect = computed(() => {
-  return !!(gameStateStore.sectMemberInfo?.宗门名称 || leaderInfo.value.sectName);
-});
+ const hasJoinedSect = computed(() => {
+   return !!(String(gameStateStore.sectMemberInfo?.宗门名称 || '').trim() || String((gameStateStore.sectSystem as any)?.当前宗门 || '').trim() || String(leaderInfo.value.sectName || '').trim());
+ });
 
 // 判断是否为宗门高层
-const isSectLeader = computed(() => leaderInfo.value.isLeader);
+const isSectLeader = computed(() => leaderInfo.value.isLeader || isLeaderPosition(String(gameStateStore.sectMemberInfo?.职位 || '')));
 
 type SectTab = {
   name: string;
