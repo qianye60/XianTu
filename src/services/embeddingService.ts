@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { APIProvider } from '@/services/aiService';
+import { buildOpenAICompatibleUrl } from '@/utils/openaiUrl';
 
 export interface EmbeddingRequestConfig {
   provider: APIProvider;
@@ -9,7 +10,7 @@ export interface EmbeddingRequestConfig {
 }
 
 export function normalizeBaseUrl(url: string): string {
-  return (url || '').toString().trim().replace(/\/v1\/?$/, '').replace(/\/+$/, '');
+  return (url || '').toString().trim().replace(/\/+$/, '');
 }
 
 export function normalizeToUnitVector(vec: number[]): number[] {
@@ -33,7 +34,7 @@ export async function createEmbeddings(
 
   if (provider === 'openai' || provider === 'deepseek' || provider === 'custom') {
     const resp = await axios.post(
-      `${baseUrl}/v1/embeddings`,
+      buildOpenAICompatibleUrl(baseUrl, '/embeddings'),
       {
         model,
         input: inputs,
