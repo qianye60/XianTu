@@ -4,7 +4,11 @@
       <div class="view-mode-tabs">
         <button class="view-tab" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">列表</button>
         <button class="view-tab" :class="{ active: viewMode === 'graph' }" @click="viewMode = 'graph'">关系网</button>
-        <span v-if="viewMode === 'graph'" class="view-hint">滚轮缩放，拖拽平移，点击节点进入详情</span>
+        <span v-if="viewMode === 'graph'" class="view-hint">
+          滚轮缩放，拖拽平移，点击节点进入详情
+          <span class="graph-edge-count">边 {{ effectiveMatrixEdges.length }}</span>
+          <span v-if="isUsingInferredMatrix" class="inferred-badge">推断</span>
+        </span>
       </div>
       <!-- 人物关系列表 -->
       <div v-if="viewMode === 'list'" class="relationships-container" :class="{ 'details-active': isDetailViewActive }">
@@ -1151,6 +1155,97 @@ const actionQueue = useActionQueueStore();
       .filter((e: RelationshipMatrixEdge) => e.from && e.to);
   });
 
+  const inferredMatrixEdges = computed<RelationshipMatrixEdge[]>(() => {
+    const npcs = relationships.value;
+    if (npcs.length < 3) return [];
+
+    const getRealmRank = (npc: NpcProfile): number => {
+      const realmName = normalizeNonEmptyString((npc as any)?.境界?.名称) ?? '';
+      const stage = normalizeNonEmptyString((npc as any)?.境界?.阶段) ?? '';
+      const realmOrder: Record<string, number> = {
+        凡人: 0,
+        炼气: 1,
+        筑基: 2,
+        金丹: 3,
+        元婴: 4,
+        化神: 5,
+        炼虚: 6,
+        合体: 7,
+        大乘: 8,
+        渡劫: 9,
+        真仙: 10,
+      };
+      const stageOrder: Record<string, number> = { 初期: 0, 中期: 1, 后期: 2, 圆满: 3 };
+      return (realmOrder[realmName] ?? 0) * 10 + (stageOrder[stage] ?? 0);
+    };
+
+    const nameSet = new Set(npcs.map((n) => n.名字).filter((n) => typeof n === 'string' && n.trim()));
+    const makeKey = (a: string, b: string) => {
+      const x = a < b ? a : b;
+      const y = a < b ? b : a;
+      return `${x}::${y}`;
+    };
+    const edges: RelationshipMatrixEdge[] = [];
+    const seen = new Set<string>();
+    const addEdge = (from: string, to: string, relation: string, score: number, tags: string[]) => {
+      const a = from.trim();
+      const b = to.trim();
+      if (!a || !b || a === b) return;
+      if (!nameSet.has(a) || !nameSet.has(b)) return;
+      const key = makeKey(a, b);
+      if (seen.has(key)) return;
+      seen.add(key);
+      edges.push({
+        from: a,
+        to: b,
+        relation,
+        score,
+        tags,
+      });
+    };
+
+    // 1) 同势力：每个势力以“最强/核心”作为枢纽，把同门串起来（避免 O(n^2) 爆炸）
+    const byFaction = new Map<string, NpcProfile[]>();
+    for (const npc of npcs) {
+      const faction = normalizeNonEmptyString((npc as any)?.势力归属) ?? '';
+      if (!faction) continue;
+      const list = byFaction.get(faction) ?? [];
+      list.push(npc);
+      byFaction.set(faction, list);
+    }
+    for (const [faction, members] of byFaction.entries()) {
+      if (members.length < 2) continue;
+      const hub = [...members].sort((a, b) => getRealmRank(b) - getRealmRank(a) || a.名字.localeCompare(b.名字))[0];
+      for (const npc of members) {
+        if (npc.名字 === hub.名字) continue;
+        addEdge(hub.名字, npc.名字, '同门', 25, ['auto', '同势力', faction]);
+      }
+    }
+
+    // 2) 记忆提及：若某 NPC 的“记忆”里直接提到另一位 NPC 名字，则补一条“旧识/牵连”
+    const allNames = Array.from(nameSet);
+    for (const npc of npcs) {
+      const mems = Array.isArray((npc as any)?.记忆) ? ((npc as any).记忆 as any[]) : [];
+      if (mems.length === 0) continue;
+      const joined = mems.filter((m) => typeof m === 'string').join('\n');
+      if (!joined) continue;
+      for (const otherName of allNames) {
+        if (otherName === npc.名字) continue;
+        if (joined.includes(otherName)) {
+          addEdge(npc.名字, otherName, '旧识', 10, ['auto', '记忆相关']);
+        }
+      }
+    }
+
+    return edges.slice(0, 200);
+  });
+
+  const effectiveMatrixEdges = computed<RelationshipMatrixEdge[]>(() => {
+    return relationshipMatrixEdges.value.length > 0 ? relationshipMatrixEdges.value : inferredMatrixEdges.value;
+  });
+
+  const isUsingInferredMatrix = computed(() => relationshipMatrixEdges.value.length === 0 && inferredMatrixEdges.value.length > 0);
+
   const graphEdges = computed<RelationshipMatrixEdge[]>(() => {
     const base = relationships.value.map((npc) => ({
       from: playerNodeId,
@@ -1159,7 +1254,7 @@ const actionQueue = useActionQueueStore();
       score: typeof npc.好感度 === 'number' ? npc.好感度 : 0,
     }));
 
-    const extra = relationshipMatrixEdges.value
+    const extra = effectiveMatrixEdges.value
       .map((e) => ({
         ...e,
         from: e.from === '玩家' ? playerNodeId : e.from,
@@ -1186,7 +1281,7 @@ const actionQueue = useActionQueueStore();
     const nodeIds = new Set<string>();
     nodeIds.add(playerNodeId);
     for (const npc of relationships.value) nodeIds.add(npc.名字);
-    for (const e of relationshipMatrixEdges.value) {
+    for (const e of effectiveMatrixEdges.value) {
       if (e.from) nodeIds.add(e.from === '玩家' ? playerNodeId : e.from);
       if (e.to) nodeIds.add(e.to === '玩家' ? playerNodeId : e.to);
     }
@@ -2697,8 +2792,34 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 
 .view-hint {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
+}
+
+.inferred-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 8px;
+  color: rgba(234, 88, 12, 0.95);
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.25);
+}
+
+.graph-edge-count {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  white-space: nowrap;
 }
 
 .relationships-container {

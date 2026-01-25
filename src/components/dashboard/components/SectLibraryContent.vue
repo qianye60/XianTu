@@ -43,11 +43,7 @@
             <div v-if="floor.techniques.length === 0" class="empty-floor">
               <BookOpen :size="32" class="empty-icon" />
               <p>此层暂无可学功法</p>
-              <p class="hint">功法将由AI根据剧情生成</p>
-              <button v-if="canGenerate" class="ask-btn" @click="generateLibraryContent" :disabled="isGenerating">
-                <RefreshCw :size="14" :class="{ spin: isGenerating }" />
-                <span>{{ isGenerating ? '生成中...' : '点击生成' }}</span>
-              </button>
+              <p class="hint">功法将由AI根据剧情生成（可在上方点击“生成藏经”）</p>
             </div>
             <div v-else class="technique-list">
               <div
@@ -98,7 +94,6 @@ import { ref, computed } from 'vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { Lock, ChevronDown, BookOpen, Coins, Info, RefreshCw } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
-import { sendChat } from '@/utils/chatBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { generateWithRawPrompt } from '@/utils/tavernCore';
 import { parseJsonSmart } from '@/utils/jsonExtract';
@@ -118,6 +113,12 @@ const positionLevels: Record<string, number> = {
   '核心弟子': 4,
   '长老': 5,
   '太上长老': 6
+  ,
+  // 宗门高层：默认拥有最高权限（至少不应低于核心/长老）
+  '副宗主': 6,
+  '副掌门': 6,
+  '宗主': 7,
+  '掌门': 7
 };
 
 // 玩家宗门信息
@@ -243,9 +244,73 @@ function getQualityClass(quality: string): string {
 }
 
 function learnTechnique(tech: { id: string; name: string; cost: number }) {
-  const promptText = `我想用${tech.cost}贡献点在藏经阁学习「${tech.name}」`;
-  sendChat(promptText);
-  toast.success('已发送到对话');
+  if (!playerSectInfo.value?.宗门名称 || !gameStateStore.sectSystem) {
+    toast.warning('未加入宗门或宗门数据未加载');
+    return;
+  }
+  if (playerContribution.value < tech.cost) {
+    toast.warning('贡献不足');
+    return;
+  }
+
+  const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+  if (!sectName) {
+    toast.warning('未加入宗门');
+    return;
+  }
+
+  try {
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (!saveData) {
+      toast.error('未加载存档，无法学习');
+      return;
+    }
+
+    const next = typeof structuredClone === 'function'
+      ? structuredClone(saveData)
+      : JSON.parse(JSON.stringify(saveData));
+
+    // 扣贡献（写入成员信息）
+    const socialRoot = ((next as any).社交 ??= {});
+    const sectRoot = (socialRoot.宗门 ??= {});
+    const memberInfo = (sectRoot.成员信息 ??= {});
+    const currentContribution = Number(memberInfo.贡献 ?? 0);
+    if (!Number.isFinite(currentContribution) || currentContribution < tech.cost) {
+      toast.warning('贡献不足（存档数据不同步）');
+      return;
+    }
+    memberInfo.贡献 = Math.max(0, Math.floor(currentContribution - tech.cost));
+
+    // 生成功法物品（用 tech.id 作为物品ID，确保“已拥有”判断一致）
+    const invRoot = (((next as any).角色 ??= {}).背包 ??= {});
+    const items = (invRoot.物品 ??= {});
+    if (items[tech.id]) {
+      toast.info('你已学过此功法');
+      return;
+    }
+
+    items[tech.id] = {
+      物品ID: tech.id,
+      名称: tech.name,
+      类型: '功法',
+      品质: { quality: '凡品', grade: 0 },
+      数量: 1,
+      描述: `藏经阁所得之法：${tech.name}。`,
+      功法效果: '',
+      功法技能: [{ 技能名称: `${tech.name}·入门`, 技能描述: '基础运转之法。', 熟练度要求: 0, 消耗: '灵气5%' }],
+      修炼进度: 0,
+      已解锁技能: [],
+      已装备: false,
+    };
+
+    gameStateStore.loadFromSaveData(next as any);
+    gameStateStore.addToShortTermMemory(`【藏经阁】以${tech.cost}贡献学习功法「${tech.name}」。`);
+    characterStore.saveCurrentGame();
+    toast.success('已学习，功法已放入背包');
+  } catch (e) {
+    console.error('[SectLibrary] learn failed', e);
+    toast.error('学习失败');
+  }
 }
 
 async function generateLibraryContent() {

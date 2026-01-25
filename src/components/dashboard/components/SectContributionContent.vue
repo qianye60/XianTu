@@ -37,11 +37,7 @@
       <div v-if="filteredItems.length === 0" class="empty-state">
         <Package :size="48" class="empty-icon" />
         <p class="empty-text">暂无可兑换物品</p>
-        <p class="empty-hint">可兑换物品由AI根据宗门设定生成</p>
-        <button v-if="canGenerate" class="ask-btn" @click="generateShopContent" :disabled="isGenerating">
-          <RefreshCw :size="14" :class="{ spin: isGenerating }" />
-          <span>{{ isGenerating ? '生成中...' : '点击生成' }}</span>
-        </button>
+        <p class="empty-hint">可兑换物品由AI根据宗门设定生成（可在上方点击“生成商店”）</p>
       </div>
 
       <div v-else class="items-grid">
@@ -87,7 +83,7 @@
     <!-- 贡献获取途径 -->
     <div class="exchange-notice">
       <Info :size="14" />
-      <span>点击兑换将直接发送到对话（由AI判定并执行兑换）</span>
+      <span>兑换会直接扣除贡献并把物品放入背包（不会发送到主对话）。</span>
     </div>
   </div>
 </template>
@@ -100,7 +96,6 @@ import {
   Pill, Sword, BookOpen, Gem
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
-import { sendChat } from '@/utils/chatBus';
 import { useCharacterStore } from '@/stores/characterStore';
 import { generateWithRawPrompt } from '@/utils/tavernCore';
 import { parseJsonSmart } from '@/utils/jsonExtract';
@@ -183,14 +178,114 @@ function getButtonText(item: { cost: number; stock?: number }): string {
 }
 
 // 兑换物品
-function exchangeItem(item: { name: string; cost: number }) {
-  const prompt = `我想用${item.cost}贡献点兑换「${item.name}」`;
-  sendPrompt(prompt);
+async function exchangeItem(item: ExchangeItem) {
+  if (!canGenerate.value) {
+    toast.warning('未加入宗门或宗门数据未加载');
+    return;
+  }
+  if (playerContribution.value < item.cost) {
+    toast.warning('贡献不足');
+    return;
+  }
+  if (item.stock === 0) {
+    toast.warning('已售罄');
+    return;
+  }
+
+  try {
+    const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();
+    if (!sectName) {
+      toast.warning('未加入宗门');
+      return;
+    }
+
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (!saveData) {
+      toast.error('未加载存档，无法兑换');
+      return;
+    }
+
+    const next = typeof structuredClone === 'function'
+      ? structuredClone(saveData)
+      : JSON.parse(JSON.stringify(saveData));
+
+    // 扣贡献
+    const socialRoot = ((next as any).社交 ??= {});
+    const sectRoot = (socialRoot.宗门 ??= {});
+    const memberInfo = (sectRoot.成员信息 ??= {});
+    const currentContribution = Number(memberInfo.贡献 ?? 0);
+    if (!Number.isFinite(currentContribution) || currentContribution < item.cost) {
+      toast.warning('贡献不足（存档数据不同步）');
+      return;
+    }
+    memberInfo.贡献 = Math.max(0, Math.floor(currentContribution - item.cost));
+
+    // 扣库存（如有）
+    const shopRoot = (sectRoot.宗门贡献商店 ??= {});
+    const list = Array.isArray(shopRoot[sectName]) ? shopRoot[sectName] : [];
+    const idx = list.findIndex((v: any) => String(v?.id || v?.物品ID || '') === item.id);
+    if (idx >= 0) {
+      const raw = list[idx];
+      const rawStock = raw?.库存 ?? raw?.stock;
+      const stockNum = rawStock === undefined ? undefined : Number(rawStock);
+      if (stockNum !== undefined && Number.isFinite(stockNum)) {
+        const nextStock = Math.max(0, Math.floor(stockNum) - 1);
+        if ('库存' in raw) raw.库存 = nextStock;
+        if ('stock' in raw) raw.stock = nextStock;
+        // 若原对象没有任何字段，则仍写入一个兼容字段
+        if (!('库存' in raw) && !('stock' in raw)) raw.库存 = nextStock;
+      }
+      list[idx] = raw;
+      shopRoot[sectName] = list;
+    }
+
+    // 发放物品到背包
+    const invRoot = (((next as any).角色 ??= {}).背包 ??= {});
+    const items = (invRoot.物品 ??= {});
+    const itemId = `item_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const quality = ensureQualitySuffix(String(item.quality || '凡品'));
+    const mappedType = mapItemType(String(item.type || '其他'));
+    items[itemId] = {
+      物品ID: itemId,
+      名称: item.name,
+      类型: mappedType,
+      品质: { quality, grade: 0 },
+      数量: 1,
+      描述: item.description || `宗门兑换所得之物：${item.name}。`,
+      ...(mappedType === '功法'
+        ? {
+            功法效果: item.description || '',
+            功法技能: [{ 技能名称: `${item.name}·入门`, 技能描述: '基础运转之法。', 熟练度要求: 0, 消耗: '灵气5%' }],
+            修炼进度: 0,
+            已解锁技能: [],
+            已装备: false,
+          }
+        : {}),
+    };
+
+    gameStateStore.loadFromSaveData(next as any);
+    gameStateStore.addToShortTermMemory(`【宗门兑换】以${item.cost}贡献兑换「${item.name}」。`);
+    await characterStore.saveCurrentGame();
+    toast.success('兑换成功，已放入背包');
+  } catch (e) {
+    console.error('[SectContribution] exchange failed', e);
+    toast.error('兑换失败');
+  }
 }
 
-function sendPrompt(text: string) {
-  sendChat(text);
-  toast.success('已发送到对话');
+function ensureQualitySuffix(quality: string): string {
+  const q = String(quality || '').trim() || '凡品';
+  return q.endsWith('品') ? q : `${q}品`;
+}
+
+function mapItemType(type: string): string {
+  const t = String(type || '').trim();
+  if (['丹药', '功法', '装备', '材料', '其他'].includes(t)) return t;
+  if (t.includes('丹')) return '丹药';
+  if (t.includes('功')) return '功法';
+  if (t.includes('装') || t.includes('器')) return '装备';
+  if (t.includes('材')) return '材料';
+  return '其他';
 }
 
 async function generateShopContent() {
@@ -631,4 +726,3 @@ ${existingNames.join('，') || '（无）'}
   color: #3b82f6;
 }
 </style>
-

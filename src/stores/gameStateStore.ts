@@ -40,6 +40,66 @@ function buildTechniqueProgress(inventory: Inventory | null) {
   return progress;
 }
 
+function normalizeRelationshipMatrixV3(raw: unknown, npcNames: string[]): any | null {
+  const names = (Array.isArray(npcNames) ? npcNames : [])
+    .map((n) => (typeof n === 'string' ? n.trim() : ''))
+    .filter(Boolean);
+
+  const ensureBase = (): any => ({
+    version: 1,
+    nodes: Array.from(new Set(names)).slice(0, 300),
+    edges: [],
+  });
+
+  if (raw == null) {
+    // 没有任何 NPC 时不强制生成该字段（保持可选）
+    return names.length > 0 ? ensureBase() : null;
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) return ensureBase();
+
+  const matrix: any = raw as any;
+
+  const nodes = Array.isArray(matrix.nodes)
+    ? matrix.nodes
+        .map((n: any) => (typeof n === 'string' ? n.trim() : ''))
+        .filter(Boolean)
+    : [];
+  const mergedNodes = Array.from(new Set([...nodes, ...names])).slice(0, 300);
+
+  const edgesRaw = Array.isArray(matrix.edges) ? matrix.edges : [];
+  const seen = new Set<string>();
+  const edges: any[] = [];
+  for (const e of edgesRaw) {
+    if (!e || typeof e !== 'object') continue;
+    const from = typeof (e as any).from === 'string' ? (e as any).from.trim() : '';
+    const to = typeof (e as any).to === 'string' ? (e as any).to.trim() : '';
+    if (!from || !to || from === to) continue;
+
+    // 以无向边去重（UI 也是按无向合并）
+    const a = from < to ? from : to;
+    const b = from < to ? to : from;
+    const key = `${a}::${b}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const relation = typeof (e as any).relation === 'string' ? (e as any).relation : undefined;
+    const score = typeof (e as any).score === 'number' && Number.isFinite((e as any).score) ? (e as any).score : undefined;
+    const tags = Array.isArray((e as any).tags)
+      ? (e as any).tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0, 12)
+      : undefined;
+    const updatedAt = typeof (e as any).updatedAt === 'string' ? (e as any).updatedAt : undefined;
+
+    edges.push({ from, to, relation, score, tags, updatedAt });
+    if (edges.length >= 2000) break;
+  }
+
+  return {
+    version: typeof matrix.version === 'number' && Number.isFinite(matrix.version) ? matrix.version : 1,
+    nodes: mergedNodes.length ? mergedNodes : Array.from(new Set(names)).slice(0, 300),
+    edges,
+  };
+}
+
 // 定义各个模块的接口
 interface GameState {
   // --- V3 元数据/系统字段（随存档保存）---
@@ -53,6 +113,11 @@ interface GameState {
   inventory: Inventory | null;
   equipment: Equipment | null;
   relationships: Record<string, NpcProfile> | null;
+  /**
+   * NPC-NPC 关系网（可选）。
+   * 之前该字段未落入 store，会导致 AI 写入的 `社交.关系矩阵` 在 UI/保存时丢失。
+   */
+  relationshipMatrix: any | null;
   worldInfo: WorldInfo | null;
   sectSystem: SectSystemV2 | null;
   sectMemberInfo: SectMemberInfo | null;
@@ -105,6 +170,7 @@ export const useGameStateStore = defineStore('gameState', {
     inventory: null,
     equipment: null,
     relationships: null,
+    relationshipMatrix: null,
     worldInfo: null,
     sectSystem: null,
     sectMemberInfo: null,
@@ -234,6 +300,7 @@ export const useGameStateStore = defineStore('gameState', {
       const inventory: Inventory | null = v3?.角色?.背包 ? deepCopy(v3.角色.背包) : null;
       const equipment: Equipment | null = v3?.角色?.装备 ? deepCopy(v3.角色.装备) : null;
       const relationships: Record<string, NpcProfile> | null = v3?.社交?.关系 ? deepCopy(v3.社交.关系) : null;
+      const relationshipMatrix = normalizeRelationshipMatrixV3(v3?.社交?.关系矩阵, Object.keys(relationships || {}));
       const worldInfo: WorldInfo | null = v3?.世界?.信息 ? deepCopy(v3.世界.信息) : null;
       const sectSystem: SectSystemV2 | null = v3?.社交?.宗门 ? deepCopy(v3.社交.宗门) : null;
       const sectMemberInfo: SectMemberInfo | null = (v3?.社交?.宗门 as any)?.成员信息 ? deepCopy((v3.社交.宗门 as any).成员信息) : null;
@@ -286,6 +353,7 @@ export const useGameStateStore = defineStore('gameState', {
       normalizeInventoryCurrencies(this.inventory);
       this.equipment = equipment;
       this.relationships = relationships;
+      this.relationshipMatrix = relationshipMatrix;
       this.worldInfo = worldInfo;
       this.sectSystem = sectSystem;
       this.sectMemberInfo = sectMemberInfo;
@@ -472,6 +540,7 @@ export const useGameStateStore = defineStore('gameState', {
         },
         社交: {
           关系: this.relationships ?? {},
+          关系矩阵: this.relationshipMatrix ?? undefined,
           宗门: sectNormalized,
           事件: this.eventSystem,
           记忆: this.memory,

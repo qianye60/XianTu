@@ -1030,8 +1030,8 @@ ${step1Text}
 请按"分步生成（第2步）"规则输出 JSON。
 `.trim();
 
-        // 🔥 第2步指令生成：根据设置决定是否使用流式传输，失败重试1次
-        const step2Streaming = apiStore.aiGenerationSettings.splitStep2Streaming;
+        // 🔥 第2步指令生成：统一使用用户选择的流式设置，失败重试1次
+        const step2Streaming = useStreaming;
         const step2UsageType: APIUsageType = hasInstructionApi ? 'instruction_generation' : 'main';
         const step2ForceJson = aiService.isForceJsonEnabled(step2UsageType);
         let parsedStep2: GM_Response | null = null;
@@ -1458,8 +1458,8 @@ ${step1Text}
 请按"分步生成（开局-第2步）"规则输出 JSON。
         `.trim();
 
-        // 🔥 第2步指令生成：根据设置决定是否使用流式传输，失败重试1次
-        const step2StreamingInitial = apiStore.aiGenerationSettings.splitStep2Streaming;
+        // 🔥 第2步指令生成：统一使用用户选择的流式设置，失败重试1次
+        const step2StreamingInitial = useStreaming;
         const initStep2UsageType: APIUsageType = hasInstructionApi ? 'instruction_generation' : 'main';
         const initStep2ForceJson = aiService.isForceJsonEnabled(initStep2UsageType);
         options?.onProgressUpdate?.('分步生成：第2步（指令生成）…');
@@ -2001,6 +2001,48 @@ ${step1Text}
       (latestNarrative as any).stateChanges = stateChangesLog;
     }
 
+    // 🔥 宗门兜底：若 AI 已生成“玩家创建/担任宗主”的宗门势力，但没初始化社交.宗门成员信息，
+    // 则自动补全加入状态，让后续宗门系统（成员/藏经阁/任务等）可直接使用。
+    try {
+      if (!(saveData as any).系统?.联机 || (saveData as any).系统?.联机?.模式 !== '联机') {
+        const currentSectName = String((saveData as any)?.社交?.宗门?.成员信息?.宗门名称 || '').trim();
+        if (!currentSectName) {
+          const playerName = String((saveData as any)?.角色?.身份?.名字 || '').trim();
+          const factions = (saveData as any)?.世界?.信息?.势力信息;
+
+          if (playerName && Array.isArray(factions)) {
+            const matchLeader = (f: any): boolean => {
+              const leader =
+                (typeof f?.领导层?.宗主 === 'string' ? f.领导层.宗主 : '') ||
+                (typeof f?.leadership?.宗主 === 'string' ? f.leadership.宗主 : '') ||
+                (typeof f?.宗主 === 'string' ? f.宗主 : '');
+              return typeof leader === 'string' && leader.trim() === playerName;
+            };
+
+            const ownedSect = factions.find(matchLeader);
+            if (ownedSect && typeof ownedSect === 'object' && typeof ownedSect.名称 === 'string' && ownedSect.名称.trim()) {
+              const { createJoinedSectState } = await import('@/utils/sectSystemFactory');
+              const { sectSystem, memberInfo } = createJoinedSectState(ownedSect, { nowIso: new Date().toISOString() });
+
+              // 玩家创建宗门：默认给最高职位（避免“创建了宗门但自己只是外门弟子”的违和感）
+              memberInfo.职位 = '宗主';
+              memberInfo.贡献 = Math.max(0, Number(memberInfo.贡献 || 0));
+
+              if (!(saveData as any).社交) (saveData as any).社交 = {};
+              (saveData as any).社交.宗门 = {
+                ...(sectSystem as any),
+                成员信息: memberInfo,
+              };
+
+              console.log(`[AI双向系统] 已自动初始化宗门系统：${ownedSect.名称}（玩家=宗主）`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[AI双向系统] 自动初始化宗门系统失败（非致命）:', e);
+    }
+
     if (!isInitialization) {
       const gameStateStore = useGameStateStore();
       gameStateStore.loadFromSaveData(saveData);
@@ -2347,8 +2389,40 @@ ${saveDataJson}`;
       return trimmed;
     };
 
-    return commands.map((cmd) => {
-      if (!cmd || typeof cmd !== 'object') return cmd;
+    const expandLegacySetState = (cmd: any): any[] | null => {
+      if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) return null;
+
+      // Some models still output the old `{ set_state: { "路径": 值 } }` format.
+      const payload = (cmd as any).set_state ?? (cmd as any).setState ?? null;
+      if (!payload) return null;
+
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+
+      const entries = Object.entries(payload as Record<string, any>);
+      if (entries.length === 0) return [];
+
+      console.warn(`[AI双向系统] 预处理: 发现旧指令格式 set_state，已转换为 ${entries.length} 条 set 指令。`);
+      return entries.map(([k, v]) => ({
+        action: 'set',
+        key: normalizeCommandKey(k),
+        value: v
+      }));
+    };
+
+    const out: any[] = [];
+
+    for (const cmd of commands) {
+      // Expand legacy format first (may turn 1 object into N commands).
+      const expanded = expandLegacySetState(cmd);
+      if (expanded) {
+        out.push(...expanded);
+        continue;
+      }
+
+      if (!cmd || typeof cmd !== 'object') {
+        out.push(cmd);
+        continue;
+      }
 
       if (typeof (cmd as any).key === 'string') {
         const normalized = normalizeCommandKey((cmd as any).key);
@@ -2384,7 +2458,8 @@ ${saveDataJson}`;
             : `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         itemValue.物品ID = itemId;
         console.warn(`[AI双向系统] 预处理: 背包物品 set-root→set 角色.背包.物品.${itemId}`);
-        return { action: 'set', key: `角色.背包.物品.${itemId}`, value: itemValue };
+        out.push({ action: 'set', key: `角色.背包.物品.${itemId}`, value: itemValue });
+        continue;
       }
 
       // 修复: AI 把背包物品当数组 push（实际是对象字典）
@@ -2419,18 +2494,19 @@ ${saveDataJson}`;
         }
 
         console.warn(`[AI双向系统] 预处理: 背包物品 push→set 角色.背包.物品.${itemId}`);
-        return {
+        out.push({
           action: 'set',
           key: `角色.背包.物品.${itemId}`,
           value: itemValue
-        };
+        });
+        continue;
       }
 
       // 修复: AI推送一个字符串而不是物品对象到物品栏
       if (cmd.action === 'push' && inventoryRootKeys.has(cmd.key) && typeof cmd.value === 'string') {
         console.warn(`[AI双向系统] 预处理: 将字符串物品 "${cmd.value}" 转换为对象。`);
         const itemName = cmd.value;
-        return {
+        out.push({
           ...cmd,
           value: {
             物品ID: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -2440,7 +2516,8 @@ ${saveDataJson}`;
             数量: 1,
             描述: `一个普通的${itemName}。`
           }
-        };
+        });
+        continue;
       }
 
       // 修复: 新增功法但缺少功法技能数组，导致后续生成/校验报错
@@ -2451,11 +2528,14 @@ ${saveDataJson}`;
           Array.from(inventoryRootKeys).some((root) => cmd.key.startsWith(root + '.')));
 
       if (isInventoryItemCreation && cmd.value && typeof cmd.value === 'object' && cmd.value.类型 === '功法') {
-        return { ...cmd, value: this._repairTechniqueItem(cmd.value) };
+        out.push({ ...cmd, value: this._repairTechniqueItem(cmd.value) });
+        continue;
       }
 
-      return cmd;
-    });
+      out.push(cmd);
+    }
+
+    return out;
   }
 
   private _repairTechniqueItem(item: any): any {

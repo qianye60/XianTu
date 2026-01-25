@@ -90,18 +90,39 @@ import { generateWithRawPrompt } from '@/utils/tavernCore';
 import { parseJsonFromText } from '@/utils/jsonExtract';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { rollD20 } from '@/utils/diceRoller';
+import { detectPlayerSectLeadership } from '@/utils/sectLeadershipUtils';
 import type { GM_Response } from '@/types/AIGameMaster';
+import type { WorldFaction, WorldInfo } from '@/types/game';
 import { Building2, Calendar, Info, RefreshCw } from 'lucide-vue-next';
 
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 const isWorking = ref(false);
 
+// 获取玩家名字
+const playerName = computed(() => gameStateStore.character?.名字 || '');
+
+// 获取所有宗门列表
+const allSects = computed(() => {
+  const data = gameStateStore.getCurrentSaveData();
+  const worldInfo = (data as any)?.世界?.信息 as WorldInfo | undefined;
+  return (worldInfo?.势力信息 || []) as WorldFaction[];
+});
+
+// 检测玩家宗门领导地位
+const leaderInfo = computed(() => {
+  return detectPlayerSectLeadership(
+    playerName.value,
+    allSects.value,
+    gameStateStore.sectMemberInfo
+  );
+});
+
 const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
-const playerSectName = computed(() => playerSectInfo.value?.宗门名称 || '未加入宗门');
-const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
-const isLeader = computed(() => /掌门|宗主|副掌门|副宗主/.test(String(playerPosition.value || '')));
-const canUse = computed(() => !!gameStateStore.sectSystem && !!playerSectInfo.value?.宗门名称 && isLeader.value);
+const playerSectName = computed(() => leaderInfo.value.sectName || playerSectInfo.value?.宗门名称 || '未加入宗门');
+const playerPosition = computed(() => leaderInfo.value.position || playerSectInfo.value?.职位 || '散修');
+const isLeader = computed(() => leaderInfo.value.isLeader);
+const canUse = computed(() => !!playerSectName.value && playerSectName.value !== '未加入宗门' && isLeader.value);
 
 const management = computed(() => {
   const sectName = String(playerSectInfo.value?.宗门名称 || '').trim();

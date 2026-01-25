@@ -31,15 +31,11 @@
     </div>
 
     <div class="task-list">
-      <div v-if="filteredTasks.length === 0" class="empty-state">
-        <ClipboardList :size="48" class="empty-icon" />
-        <p class="empty-text">暂无宗门任务</p>
-        <p class="empty-hint">任务将由AI根据宗门设定生成</p>
-        <button v-if="canGenerate" class="ask-btn" @click="generateSectTasks" :disabled="isGenerating">
-          <RefreshCw :size="14" :class="{ spin: isGenerating }" />
-          <span>{{ isGenerating ? '生成中...' : '点击生成' }}</span>
-        </button>
-      </div>
+    <div v-if="filteredTasks.length === 0" class="empty-state">
+      <ClipboardList :size="48" class="empty-icon" />
+      <p class="empty-text">暂无宗门任务</p>
+      <p class="empty-hint">任务将由AI根据宗门设定生成（可在上方点击“生成任务”）</p>
+    </div>
 
       <div v-else class="task-grid">
         <div v-for="task in filteredTasks" :key="task.任务ID" class="task-card" :class="task.statusClass">
@@ -337,7 +333,7 @@ ${JSON.stringify(worldContext).slice(0, 800)}
 ${existingNames.join('，') || '（无）'}
     `.trim();
 
-    const raw = await generateWithRawPrompt('Generate Sect Tasks', prompt, false, 'sect_generation');
+    const raw = await generateWithRawPrompt('生成宗门任务', prompt, false, 'sect_generation');
     const parsed = parseJsonSmart(raw, aiService.isForceJsonEnabled('sect_generation')) as {
       text?: string;
       tasks?: unknown;

@@ -30,14 +30,6 @@
           </div>
         </div>
         <div class="identity-actions">
-          <button class="quick-action-btn" @click="goToTab('SectContribution')">
-            <Coins :size="14" />
-            <span>贡献兑换</span>
-          </button>
-          <button class="quick-action-btn" @click="goToTab('SectLibrary')">
-            <BookOpen :size="14" />
-            <span>宗门藏书</span>
-          </button>
           <button class="leave-sect-btn" @click="requestLeaveSect">
             <LogOut :size="14" />
             <span>退出宗门</span>
@@ -173,25 +165,44 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore';
 import {
   Users, ChevronRight, Zap, Heart, Info,
-  Crown, User, UserCircle, Coins, BookOpen, LogOut, RefreshCw
+  Crown, User, UserCircle, LogOut, RefreshCw
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { sendChat } from '@/utils/chatBus';
 import { generateWithRawPrompt } from '@/utils/tavernCore';
 import { parseJsonSmart } from '@/utils/jsonExtract';
 import { aiService } from '@/services/aiService';
+import { detectPlayerSectLeadership } from '@/utils/sectLeadershipUtils';
+import type { WorldFaction, WorldInfo } from '@/types/game';
 
-const router = useRouter();
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
 const activeTab = ref<string>('all');
 const isGeneratingLeadership = ref(false);
 const isGeneratingMembers = ref(false);
+
+// 获取玩家名字
+const playerName = computed(() => gameStateStore.character?.名字 || '');
+
+// 获取所有宗门列表
+const allSects = computed(() => {
+  const data = gameStateStore.getCurrentSaveData();
+  const worldInfo = (data as any)?.世界?.信息 as WorldInfo | undefined;
+  return (worldInfo?.势力信息 || []) as WorldFaction[];
+});
+
+// 检测玩家宗门领导地位
+const leaderInfo = computed(() => {
+  return detectPlayerSectLeadership(
+    playerName.value,
+    allSects.value,
+    gameStateStore.sectMemberInfo
+  );
+});
 
 // 成员分类
 const memberTabs = [
@@ -203,8 +214,8 @@ const memberTabs = [
 
 // 玩家宗门信息
 const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
-const playerSectName = computed(() => playerSectInfo.value?.宗门名称 || '未加入宗门');
-const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
+const playerSectName = computed(() => leaderInfo.value.sectName || playerSectInfo.value?.宗门名称 || '未加入宗门');
+const playerPosition = computed(() => leaderInfo.value.position || playerSectInfo.value?.职位 || '散修');
 const playerContribution = computed(() => playerSectInfo.value?.贡献 || 0);
 const playerReputation = computed(() => playerSectInfo.value?.声望 || 0);
 const playerJoinDate = computed(() => playerSectInfo.value?.加入日期 || '');
@@ -218,11 +229,6 @@ function formatJoinDate(dateStr: string | undefined): string {
   } catch {
     return dateStr;
   }
-}
-
-// 跳转到指定标签页
-function goToTab(tabName: string) {
-  router.push({ name: tabName });
 }
 
 // 退出宗门
@@ -497,8 +503,9 @@ ${JSON.stringify(sectProfile).slice(0, 600)}
         ? structuredClone(saveData)
         : JSON.parse(JSON.stringify(saveData));
 
-      const charRoot = ((updated as any).角色 ??= {});
-      const relRoot = (charRoot.人物关系 ??= {});
+      // 正确路径：社交.关系（与 gameStateStore.loadFromSaveData 一致）
+      const socialRoot = ((updated as any).社交 ??= {});
+      const relRoot = (socialRoot.关系 ??= {});
       for (const m of parsed.members) {
         const name = m.名字;
         if (!name) continue;

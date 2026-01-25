@@ -37,13 +37,15 @@ text写什么,tavern_commands就必须更新什么(否则删掉对应text内容)
 □ 大道解锁 → set 角色.大道.大道列表.{道名} (完整DaoData,当前阶段从0开始)
 □ 大道升阶 → set 角色.大道.大道列表.{道名}.当前阶段 (数值+1)
 □ 功法解锁技能 → push 角色.功法.功法进度.{功法ID}.已解锁技能
-□ NPC出场 → set 社交.关系.{NPC名} (完整NPCData对象,仅限新NPC)
-□ NPC好感 → add 社交.关系.{NPC名}.好感度
-□ NPC记忆 → push 社交.关系.{NPC名}.记忆
-□ NPC受伤 → add 社交.关系.{NPC名}.属性.气血.当前 (负数)
-□ NPC内心想法 → set 社交.关系.{NPC名}.当前内心想法 (字符串,用set不用push)
-□ 状态效果 → push 角色.效果 (buff/debuff)
-□ 世界事件 → push 社交.事件.事件记录
+ □ NPC出场 → set 社交.关系.{NPC名} (完整NPCData对象,仅限新NPC)
+ □ NPC好感 → add 社交.关系.{NPC名}.好感度
+ □ NPC记忆 → push 社交.关系.{NPC名}.记忆
+ □ NPC受伤 → add 社交.关系.{NPC名}.属性.气血.当前 (负数)
+ □ NPC内心想法 → set 社交.关系.{NPC名}.当前内心想法 (字符串,用set不用push)
+ □ NPC与NPC关系网 → push 社交.关系矩阵.edges (当同场出现>=2个NPC时,至少新增/更新1条NPC-NPC边)
+   示例:{"action":"push","key":"社交.关系矩阵.edges","value":{"from":"李青云","to":"苏晚晴","relation":"同门","score":25,"tags":["同势力","青云宗"],"updatedAt":"【仙道1050年3月15日 08:30】"}}
+ □ 状态效果 → push 角色.效果 (buff/debuff)
+ □ 世界事件 → push 社交.事件.事件记录
 
 [物品指令示例](重要)
 获得物品:{"action":"set","key":"角色.背包.物品.item_1705123456_abc","value":{"物品ID":"item_1705123456_abc","名称":"聚灵丹","类型":"丹药","品质":{"quality":"凡","grade":3},"数量":1,"描述":"..."}}
