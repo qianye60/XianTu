@@ -35,7 +35,7 @@
               <span class="talent-name">{{ talent.name }}</span>
               <span class="talent-cost">{{ talent.talent_cost || 0 }}{{ $t('点') }}</span>
             </div>
-            <div v-if="talent.source === 'cloud' || talent.source === 'local'" class="action-buttons">
+            <div v-if="(talent.source === 'cloud' || talent.source === 'local') && store.isLocalCreation" class="action-buttons">
               <button @click.stop="openEditModal(talent)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>

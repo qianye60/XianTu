@@ -405,6 +405,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     isLoading.value = true;
     error.value = null;
     mode.value = currentMode;
+    isLocalCreation.value = (currentMode === 'single'); // 同步设置 isLocalCreation
 
     // 初始化时获取用户名字
     try {

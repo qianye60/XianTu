@@ -74,7 +74,7 @@
                 </div>
                 <span class="spirit-root-cost">{{ root.talent_cost }} {{ $t('点') }}</span>
               </div>
-              <div v-if="root.source === 'cloud'" class="action-buttons">
+              <div v-if="root.source === 'cloud' && store.isLocalCreation" class="action-buttons">
                 <button @click.stop="openEditModal(root)" class="edit-btn" title="编辑此项">
                   <Edit :size="14" />
                 </button>

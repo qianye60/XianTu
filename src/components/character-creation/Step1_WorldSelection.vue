@@ -41,7 +41,7 @@
             <div class="item-content">
               <span class="item-name">{{ world.name }}</span>
             </div>
-            <div v-if="world.source === 'cloud'" class="action-buttons">
+            <div v-if="world.source === 'cloud' && store.isLocalCreation" class="action-buttons">
               <button @click.stop="openEditModal(world)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>

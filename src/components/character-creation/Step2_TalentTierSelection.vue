@@ -34,7 +34,7 @@
               <span class="tier-name">{{ tier.name }}</span>
               <span class="tier-points">{{ tier.total_points }} {{ $t('点') }}</span>
             </div>
-            <div v-if="tier.source === 'cloud'" class="action-buttons">
+            <div v-if="tier.source === 'cloud' && store.isLocalCreation" class="action-buttons">
               <button @click.stop="openEditModal(tier)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>

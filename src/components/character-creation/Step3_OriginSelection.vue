@@ -46,7 +46,7 @@
               <span class="origin-name">{{ origin.name }}</span>
               <span class="origin-cost">{{ origin.talent_cost }} {{ $t('点') }}</span>
             </div>
-            <div v-if="origin.source === 'cloud'" class="action-buttons">
+            <div v-if="origin.source === 'cloud' && store.isLocalCreation" class="action-buttons">
               <button @click.stop="openEditModal(origin)" class="edit-btn" :title="$t('编辑此项')">
                 <Edit :size="14" />
               </button>
