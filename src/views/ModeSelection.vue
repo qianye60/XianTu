@@ -700,53 +700,85 @@ button {
 /* 响应式 */
 @media (max-width: 768px) {
   .mode-selection-container {
-    padding: 1rem;
+    padding: 0.75rem;
     align-items: flex-start;
-    padding-top: calc(1rem + env(safe-area-inset-top));
-    min-height: auto;
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+    padding-left: calc(0.75rem + env(safe-area-inset-left));
+    padding-right: calc(0.75rem + env(safe-area-inset-right));
+    min-height: 100vh;
+    min-height: 100svh;
   }
 
   .selection-content {
-    padding: 1.5rem 1.25rem;
-    gap: 1.5rem;
+    padding: 3.5rem 1rem 1.5rem;
+    gap: 1.25rem;
     max-height: none;
     min-height: auto;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .top-info {
-    top: 1rem;
-    right: 1rem;
+    position: static;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
     gap: 0.5rem;
   }
 
+  .header-section {
+    padding-top: 0;
+  }
+
   .main-title {
-    font-size: 2.5rem;
-    letter-spacing: 0.4em;
+    font-size: 2.75rem;
+    letter-spacing: 0.2em;
+    margin-right: -0.2em;
   }
 
   .sub-title {
-    font-size: 1rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
   }
 
   .gate-container {
     flex-direction: column;
+    padding: 0;
   }
 
   .gate-card {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 1.5rem 1.5rem;
+    padding: 0.75rem 0.75rem;
     min-height: auto;
+    gap: 0.5rem;
   }
 
   .gate-icon {
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .gate-icon svg {
+    width: 20px;
+    height: 20px;
   }
 
   .gate-info {
     width: 100%;
+  }
+
+  .gate-title {
+    font-size: 1rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .gate-desc {
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
   }
 
   .gate-detail {
@@ -756,69 +788,92 @@ button {
   .gate-tags {
     justify-content: center;
     flex-wrap: wrap;
+    gap: 0.3rem;
   }
 
   .gate-tags span {
     white-space: nowrap;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .section-header .line {
+    width: 30px;
+  }
+
+  .section-header .text {
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
   }
 
   .action-group {
     flex-direction: column;
     width: 100%;
+    gap: 0.5rem;
   }
 
   button {
     width: 100%;
-    min-height: 46px;
+    min-height: 38px;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
   }
 }
 
 @media (max-width: 480px) {
   .mode-selection-container {
-    padding: 0.75rem;
-    padding-top: calc(0.75rem + env(safe-area-inset-top));
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    padding: 0.5rem;
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
   }
 
   .selection-content {
-    padding: 1.5rem 1rem;
-    gap: 1.25rem;
+    padding: 1rem 0.75rem;
+    gap: 1rem;
     max-height: none;
     width: 100%;
   }
 
   .top-info {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.35rem;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .main-title {
-    font-size: 2rem;
-    letter-spacing: 0.35em;
+    font-size: 2.5rem;
+    letter-spacing: 0.15em;
+    margin-right: -0.15em;
   }
 
   .sub-title {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  .gate-card {
+    padding: 0.6rem;
+    gap: 0.4rem;
   }
 
   .gate-title {
-    font-size: 1.2rem;
+    font-size: 0.95rem;
   }
 
   .gate-desc {
-    font-size: 0.85rem;
+    font-size: 0.7rem;
   }
 
   button {
-    padding: 0.75rem 1.5rem;
-    font-size: 0.95rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8rem;
+    min-height: 36px;
   }
 
   .version-tag,
   .status-indicator {
-    font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
   }
 }
 </style>

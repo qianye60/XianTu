@@ -102,6 +102,28 @@
   overflow: auto;
   flex: 1;
   min-height: 0;
+  /* 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.main-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.main-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.main-scroll::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.main-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 
 .section {
@@ -166,6 +188,28 @@
   width: 100%;
   max-width: 100%;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.table::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.table::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.table::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
 }
 .table .row { min-width: 100%; border-bottom: 1px solid var(--color-border); }
 .table.crud .row { display: grid; grid-template-columns: 90px 200px 1fr 170px; gap: 0.5rem; padding: 0.6rem 0.75rem; align-items: center; }
@@ -196,7 +240,34 @@
 .modal { width: min(760px, 100%); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; box-shadow: 0 25px 60px rgba(0,0,0,0.4); overflow: hidden; }
 .modal-head { padding: 1rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-border); }
 .modal-title { font-weight: 900; }
-.modal-body { padding: 1rem; display: grid; gap: 0.75rem; }
+.modal-body {
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  max-height: 70vh;
+  overflow-y: auto;
+  /* 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
+}
 
 .locked { padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-light); }
 

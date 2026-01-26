@@ -172,67 +172,112 @@
         backdrop-filter: blur(10px);
         position: relative;
         overflow: hidden;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       .cyber-card::before {
         content: '';
         position: absolute;
         top: 0;
-        left: 0;
+        left: -100%;
         right: 0;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.5), transparent);
+        width: 200%;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.6), rgba(0, 255, 200, 0.4), transparent);
+        animation: card-shine 4s ease-in-out infinite;
+      }
+
+      @keyframes card-shine {
+        0%, 100% { transform: translateX(-50%); }
+        50% { transform: translateX(0%); }
+      }
+
+      .cyber-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 0%, rgba(0, 212, 255, 0.08), transparent 60%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        pointer-events: none;
+      }
+
+      .cyber-card:hover::after {
+        opacity: 1;
       }
 
       .cyber-card:hover {
         border-color: rgba(0, 212, 255, 0.5);
-        box-shadow: 0 0 30px rgba(0, 212, 255, 0.1);
-        transform: translateY(-4px);
+        box-shadow: 0 8px 40px rgba(0, 212, 255, 0.15), 0 0 60px rgba(0, 212, 255, 0.05);
+        transform: translateY(-6px);
       }
 
       /* 侧边导航 */
       .side-nav {
         position: fixed;
-        left: 0;
+        left: 12px;
         top: 50%;
         transform: translateY(-50%);
         z-index: 100;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 16px 8px;
-        background: rgba(10, 15, 26, 0.9);
-        border-right: 1px solid rgba(0, 212, 255, 0.2);
-        border-radius: 0 8px 8px 0;
+        gap: 6px;
+        padding: 12px 10px;
+        background: rgba(10, 15, 26, 0.95);
+        border: 1px solid rgba(0, 212, 255, 0.15);
+        border-radius: 16px;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 60px rgba(0, 212, 255, 0.05);
       }
 
       .side-nav a {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
-        height: 40px;
-        color: rgba(224, 232, 240, 0.6);
-        transition: all 0.3s ease;
-        border-radius: 8px;
+        width: 44px;
+        height: 44px;
+        color: rgba(224, 232, 240, 0.5);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
       }
 
-      .side-nav a:hover, .side-nav a.active {
+      .side-nav a::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at center, rgba(0, 212, 255, 0.15), transparent 70%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .side-nav a:hover::before {
+        opacity: 1;
+      }
+
+      .side-nav a:hover {
         color: #00d4ff;
-        background: rgba(0, 212, 255, 0.1);
+        transform: scale(1.1);
+        text-shadow: 0 0 12px rgba(0, 212, 255, 0.6);
+      }
+
+      .side-nav a.active {
+        color: #00d4ff;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 255, 200, 0.1));
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), inset 0 0 20px rgba(0, 212, 255, 0.1);
       }
 
       /* 科技感按钮 */
       .cyber-btn {
         position: relative;
-        padding: 12px 32px;
+        padding: 14px 36px;
         background: transparent;
         border: 1px solid rgba(0, 212, 255, 0.5);
         color: #00d4ff;
         font-weight: 600;
         overflow: hidden;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       .cyber-btn::before {
@@ -242,27 +287,52 @@
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
-        transition: left 0.5s ease;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.25), transparent);
+        transition: left 0.6s ease;
+      }
+
+      .cyber-btn::after {
+        content: '';
+        position: absolute;
+        inset: 2px;
+        background: transparent;
+        border-radius: inherit;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
       }
 
       .cyber-btn:hover::before {
         left: 100%;
       }
 
+      .cyber-btn:hover::after {
+        opacity: 1;
+      }
+
       .cyber-btn:hover {
-        background: rgba(0, 212, 255, 0.1);
-        box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        background: rgba(0, 212, 255, 0.12);
+        box-shadow: 0 0 30px rgba(0, 212, 255, 0.35), 0 0 60px rgba(0, 212, 255, 0.15);
+        transform: translateY(-2px);
       }
 
       .cyber-btn-gold {
         border-color: rgba(255, 215, 0, 0.5);
         color: #ffd700;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 180, 0, 0.05));
+      }
+
+      .cyber-btn-gold::before {
+        background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.25), transparent);
+      }
+
+      .cyber-btn-gold::after {
+        box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.2);
       }
 
       .cyber-btn-gold:hover {
-        background: rgba(255, 215, 0, 0.1);
-        box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.18), rgba(255, 180, 0, 0.12));
+        box-shadow: 0 0 35px rgba(255, 215, 0, 0.4), 0 0 70px rgba(255, 215, 0, 0.15);
       }
 
       /* 滚动条 */
@@ -282,62 +352,90 @@
       .mobile-menu {
         display: none;
         position: fixed;
-        top: 60px;
-        left: 0;
-        right: 0;
+        top: 64px;
+        left: 12px;
+        right: 12px;
         background: rgba(10, 15, 26, 0.98);
         backdrop-filter: blur(20px);
-        border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-        padding: 16px;
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-radius: 16px;
+        padding: 8px;
         z-index: 49;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(0, 212, 255, 0.1);
       }
 
       .mobile-menu.active {
         display: block;
+        animation: menu-slide-in 0.3s ease;
+      }
+
+      @keyframes menu-slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .mobile-menu a {
-        display: block;
-        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        padding: 14px 16px;
         color: #9ca3af;
-        border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        border-radius: 10px;
         transition: all 0.3s ease;
+        margin: 2px 0;
       }
 
       .mobile-menu a:hover, .mobile-menu a:active {
         color: #00d4ff;
-        background: rgba(0, 212, 255, 0.1);
-      }
-
-      .mobile-menu a:last-child {
-        border-bottom: none;
+        background: linear-gradient(90deg, rgba(0, 212, 255, 0.15), rgba(0, 255, 200, 0.08));
       }
 
       /* 数据标签 */
       .data-tag {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 4px 12px;
-        background: rgba(0, 212, 255, 0.1);
-        border: 1px solid rgba(0, 212, 255, 0.3);
+        gap: 6px;
+        padding: 6px 14px;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.12), rgba(0, 255, 200, 0.08));
+        border: 1px solid rgba(0, 212, 255, 0.35);
+        border-radius: 20px;
         font-size: 12px;
         font-family: monospace;
         color: #00d4ff;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .data-tag::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.15), transparent);
+        transform: translateX(-100%);
+        transition: transform 0.5s ease;
+      }
+
+      .data-tag:hover::before {
+        transform: translateX(100%);
       }
 
       .data-tag:hover {
-        background: rgba(0, 212, 255, 0.15);
-        border-color: rgba(0, 212, 255, 0.5);
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 255, 200, 0.15));
+        border-color: rgba(0, 212, 255, 0.6);
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+        box-shadow: 0 6px 20px rgba(0, 212, 255, 0.25);
       }
 
       /* 分隔线 */
       .cyber-divider {
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.3), transparent);
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.4), rgba(0, 255, 200, 0.3), rgba(0, 212, 255, 0.4), transparent);
         position: relative;
       }
 
@@ -346,12 +444,12 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        transform: translate(-50%, -50%);
-        width: 8px;
-        height: 8px;
-        background: #0a0f1a;
-        border: 1px solid rgba(0, 212, 255, 0.4);
         transform: translate(-50%, -50%) rotate(45deg);
+        width: 10px;
+        height: 10px;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(0, 255, 200, 0.2));
+        border: 1px solid rgba(0, 212, 255, 0.5);
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
       }
 
       /* 动画 */
@@ -399,69 +497,101 @@
       /* 导航栏装饰 */
       .nav-header {
         position: relative;
-        border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+        background: linear-gradient(180deg, rgba(10, 15, 26, 0.98) 0%, rgba(10, 15, 26, 0.92) 100%);
       }
+
+      /* 顶部装饰线已移除 */
 
       /* 导航链接容器 - 带底部发光线 */
       .nav-links {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 2px;
         position: relative;
-        padding-bottom: 8px;
+        padding: 6px 8px;
+        background: rgba(0, 212, 255, 0.03);
+        border: 1px solid rgba(0, 212, 255, 0.1);
+        border-radius: 12px;
       }
 
       .nav-links::before {
         content: '';
         position: absolute;
-        bottom: 0;
-        left: -20px;
-        right: -20px;
-        height: 1px;
-        background: linear-gradient(90deg,
-          transparent 0%,
-          rgba(0, 212, 255, 0.4) 15%,
-          rgba(0, 212, 255, 0.4) 85%,
-          transparent 100%
-        );
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.05), transparent);
+        border-radius: 12px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .nav-links:hover::before {
+        opacity: 1;
       }
 
       /* 导航链接悬停下划线 */
       .nav-link-cyber {
         position: relative;
+        border-radius: 8px;
+        transition: all 0.3s ease;
       }
 
       .nav-link-cyber::before {
         content: '';
         position: absolute;
-        bottom: 0;
+        bottom: 4px;
         left: 50%;
         width: 0;
         height: 2px;
-        background: #00d4ff;
+        background: linear-gradient(90deg, #00d4ff, #00ffc8);
         transition: all 0.3s ease;
         transform: translateX(-50%);
+        border-radius: 1px;
+        box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+      }
+
+      .nav-link-cyber:hover {
+        background: rgba(0, 212, 255, 0.08);
       }
 
       .nav-link-cyber:hover::before {
-        width: 60%;
+        width: 50%;
       }
 
       /* Logo 发光效果 */
       .logo-glow {
         position: relative;
+        transition: all 0.3s ease;
+      }
+
+      .logo-glow::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(0, 255, 200, 0.2));
+        border-radius: inherit;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+        filter: blur(8px);
       }
 
       .logo-glow::after {
         content: '';
         position: absolute;
         inset: -4px;
-        background: radial-gradient(circle, rgba(0, 212, 255, 0.2) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(0, 212, 255, 0.25) 0%, transparent 70%);
         opacity: 0;
         transition: opacity 0.3s ease;
         pointer-events: none;
       }
 
+      .logo-glow:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(0, 212, 255, 0.4);
+      }
+
+      .logo-glow:hover::before,
       .logo-glow:hover::after {
         opacity: 1;
       }
@@ -471,27 +601,16 @@
         position: absolute;
         top: 0;
         left: 0;
-        width: 200px;
+        width: 150px;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.03), transparent);
-        animation: header-scan 8s linear infinite;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.06), rgba(0, 255, 200, 0.04), transparent);
+        animation: header-scan 6s linear infinite;
         pointer-events: none;
       }
 
       @keyframes header-scan {
-        0% { transform: translateX(-200px); }
-        100% { transform: translateX(calc(100vw + 200px)); }
-      }
-
-      /* 导航栏两侧装饰线 */
-      .nav-deco-line {
-        width: 60px;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.3));
-      }
-
-      .nav-deco-line.right {
-        background: linear-gradient(90deg, rgba(0, 212, 255, 0.3), transparent);
+        0% { transform: translateX(-150px); }
+        100% { transform: translateX(calc(100vw + 150px)); }
       }
 
     </style>
@@ -523,13 +642,13 @@
 
     <!-- 顶部导航栏 -->
     <header class="fixed top-0 left-0 right-0 z-50">
-      <div class="nav-header bg-[#0a0f1a]/90 backdrop-blur-xl">
+      <div class="nav-header backdrop-blur-xl">
         <div class="header-scan"></div>
         <div class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
           <!-- Logo -->
           <a href="#home" class="flex items-center gap-3 group">
-            <div class="logo-glow w-10 h-10 border border-cyan-500/50 rounded flex items-center justify-center bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-all">
-              <svg class="w-6 h-6 text-cyan-400" viewBox="-5 -8 97 108" fill="currentColor">
+            <div class="logo-glow w-11 h-11 border border-cyan-500/40 rounded-xl flex items-center justify-center bg-gradient-to-br from-cyan-500/15 to-teal-500/10 group-hover:border-cyan-400/60 transition-all">
+              <svg class="w-6 h-6 text-cyan-400 group-hover:text-cyan-300 transition-colors" viewBox="-5 -8 97 108" fill="currentColor">
                 <g transform="translate(-23.4,116.8) scale(0.1,-0.1)">
                   <path d="M609 1141 c-43 -43 -41 -101 5 -147 42 -42 70 -43 106 -3 36 37 44 61 36 104 -14 73 -95 98 -147 46z" transform="translate(660, 1070) scale(1.25) translate(-660, -1070)"/>
                   <path d="M635 883 c-13 -92 -11 -90 -107 -138 -111 -55 -136 -58 -86 -10 20 20 42 33 50 30 21 -8 84 21 102 47 19 27 21 75 4 80 -7 3 -34 1 -60 -3 -44 -7 -56 -16 -154 -115 -96 -97 -105 -109 -95 -130 5 -13 21 -30 35 -39 24 -16 29 -16 78 0 74 24 179 80 227 122 37 31 42 33 57 19 49 -49 210 -136 281 -151 28 -6 37 -2 63 23 16 17 30 34 30 39 0 11 -199 211 -223 225 -10 5 -39 8 -65 6 -44 -3 -47 -5 -44 -28 5 -44 24 -68 66 -84 50 -19 59 -20 50 -3 -4 6 10 -4 32 -23 21 -19 41 -36 43 -37 2 -2 2 -5 -1 -8 -8 -9 -107 32 -158 64 -43 27 -45 31 -55 92 -9 59 -12 64 -36 67 -25 3 -27 0 -34 -45z"/>
@@ -546,7 +665,6 @@
 
           <!-- 导航链接 -->
           <nav class="hidden lg:flex items-center">
-            <div class="nav-deco-line"></div>
             <div class="nav-links">
               <a href="#home" class="nav-link-cyber px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-all relative">
                 <span class="relative z-10">首页</span>
@@ -564,29 +682,28 @@
                 <span class="relative z-10">更新日志</span>
               </a>
             </div>
-            <div class="nav-deco-line right"></div>
           </nav>
 
           <!-- 右侧按钮组 -->
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 sm:gap-3">
             <!-- 移动端菜单按钮 -->
-            <button id="mobile-menu-btn" class="lg:hidden flex items-center justify-center w-10 h-10 border border-cyan-500/30 rounded text-gray-400 hover:text-cyan-400 hover:border-cyan-500 transition-all">
+            <button id="mobile-menu-btn" class="lg:hidden flex items-center justify-center w-10 h-10 border border-cyan-500/30 rounded-xl text-gray-400 hover:text-cyan-400 hover:border-cyan-500/60 hover:bg-cyan-500/10 transition-all">
               <i data-lucide="menu" class="w-5 h-5"></i>
             </button>
-            <a href="https://afdian.com/a/qianye60" target="_blank" class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm border border-pink-500/50 text-pink-400 hover:bg-pink-500/10 hover:border-pink-400 transition-all rounded">
+            <a href="https://afdian.com/a/qianye60" target="_blank" class="hidden sm:flex items-center gap-2 px-3 py-2 text-sm border border-pink-500/40 text-pink-400 hover:bg-pink-500/15 hover:border-pink-400/70 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)] transition-all rounded-lg">
               <i data-lucide="heart" class="w-4 h-4"></i>
               <span>赞助</span>
             </a>
-            <a href="https://github.com/qianye60/XianTu" target="_blank" class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-600 text-gray-400 hover:border-cyan-500 hover:text-cyan-400 transition-all rounded">
+            <a href="https://github.com/qianye60/XianTu" target="_blank" class="hidden sm:flex items-center gap-2 px-3 py-2 text-sm border border-gray-600/60 text-gray-400 hover:border-cyan-500/50 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all rounded-lg">
               <i data-lucide="github" class="w-4 h-4"></i>
               <span>GitHub</span>
             </a>
-            <a href="https://www.ddct.top/" target="_blank" class="flex items-center gap-2 px-3 sm:px-4 py-1.5 text-sm bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/50 text-yellow-400 hover:from-yellow-500/30 hover:to-yellow-600/30 hover:border-yellow-400 transition-all rounded font-medium relative">
-              <i data-lucide="play" class="w-4 h-4"></i>
+            <a href="https://www.ddct.top/" target="_blank" class="flex items-center gap-2 px-4 sm:px-5 py-2 text-sm bg-gradient-to-r from-yellow-500/20 via-amber-500/15 to-yellow-600/20 border border-yellow-500/50 text-yellow-400 hover:from-yellow-500/30 hover:via-amber-500/25 hover:to-yellow-600/30 hover:border-yellow-400/70 hover:shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-all rounded-lg font-semibold relative group">
+              <i data-lucide="play" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
               <span class="hidden sm:inline">开始修行</span>
               <span class="sm:hidden">开始</span>
               <!-- 呼吸灯 -->
-              <div class="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_#00d4ff] animate-pulse"></div>
+              <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#00d4ff,0_0_20px_#00d4ff] animate-pulse"></div>
             </a>
           </div>
         </div>
@@ -1104,24 +1221,31 @@
     </main>
 
     <!-- 页脚 -->
-    <footer class="relative z-10 border-t border-cyan-500/20 py-12 px-6">
-      <div class="max-w-5xl mx-auto text-center">
-        <p class="text-gray-500 mb-4">仙途 - AI驱动的游戏 | AI修仙 | AI大世界</p>
-        <p class="text-gray-600 text-sm mb-6">天上白玉京，十二楼五城。</p>
-        <div class="flex flex-wrap justify-center gap-4 mb-6">
-          <a href="https://github.com/qianye60/XianTu" target="_blank" class="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors">
+    <footer class="relative z-10 py-16 px-6">
+      <div class="absolute inset-0 bg-gradient-to-t from-cyber-darker via-transparent to-transparent pointer-events-none"></div>
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
+      <div class="max-w-5xl mx-auto text-center relative">
+        <div class="mb-6">
+          <span class="text-2xl font-bold text-gradient-cyber">仙途</span>
+          <span class="text-gray-500 text-sm ml-2">XIANTU.AI</span>
+        </div>
+        <p class="text-gray-400 mb-3">AI驱动的游戏 | AI修仙 | AI大世界</p>
+        <p class="text-gray-500 text-sm mb-8 italic">天上白玉京，十二楼五城。</p>
+        <div class="flex flex-wrap justify-center gap-6 mb-8">
+          <a href="https://github.com/qianye60/XianTu" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30 rounded-lg transition-all hover:bg-cyan-500/5">
             <i data-lucide="github" class="w-4 h-4"></i>
             GitHub
           </a>
-          <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" class="inline-flex items-center gap-2 text-gray-400 hover:text-indigo-400 transition-colors">
+          <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-indigo-400 border border-transparent hover:border-indigo-500/30 rounded-lg transition-all hover:bg-indigo-500/5">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.36-.698.772-1.362 1.225-1.993a.076.076 0 0 0-.041-.107 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.12-.094.246-.198.373-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.094.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
             Discord
           </a>
-          <a href="https://afdian.com/a/qianye60" target="_blank" class="inline-flex items-center gap-2 text-gray-400 hover:text-pink-400 transition-colors">
+          <a href="https://afdian.com/a/qianye60" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-pink-400 border border-transparent hover:border-pink-500/30 rounded-lg transition-all hover:bg-pink-500/5">
             <i data-lucide="heart" class="w-4 h-4"></i>
             赞助支持
           </a>
         </div>
+        <div class="h-px w-32 mx-auto bg-gradient-to-r from-transparent via-gray-600 to-transparent mb-6"></div>
         <p class="text-gray-600 text-xs">© 2026 仙途. 版权所有.</p>
       </div>
     </footer>
