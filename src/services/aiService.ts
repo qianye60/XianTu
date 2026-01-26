@@ -1138,7 +1138,7 @@ class AIService {
     if (provider === 'gemini' || m.includes('gemini')) return 1_000_000;
 
     // Many OpenAI-compatible providers expose these model names; match by model string first.
-    if (m.includes('deepseek')) return 64_000;
+    if (m.includes('deepseek')) return 128_000;
     if (m.includes('moonshot') || m.includes('kimi')) return 128_000;
     if (provider === 'zhipu' || m.includes('glm')) return 128_000;
 
