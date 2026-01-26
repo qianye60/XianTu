@@ -864,7 +864,8 @@ const canRollback = computed(() => {
   const profile = characterStore.activeCharacterProfile;
   if (!profile || profile.模式 !== '单机') return false;
   const lastConversation = profile.存档列表?.['上次对话'];
-  return lastConversation?.存档数据 !== null && lastConversation?.存档数据 !== undefined;
+  // 🔥 修复：检查保存时间而不是存档数据，因为存档数据可能在IndexedDB中而不在内存中
+  return lastConversation?.保存时间 !== null && lastConversation?.保存时间 !== undefined;
 });
 
 // 回滚到上次对话

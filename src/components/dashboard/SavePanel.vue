@@ -267,6 +267,19 @@
           </button>
 
           <button
+            class="operation-btn warning"
+            @click="repairCurrentSave"
+            :disabled="loading || !currentSave"
+            title="修复当前存档数据结构"
+          >
+            <Wrench :size="16" />
+            <div class="btn-content">
+              <span class="btn-title">修复存档</span>
+              <span class="btn-desc">修复当前存档的数据结构问题</span>
+            </div>
+          </button>
+
+          <button
             class="operation-btn danger"
             v-if="!isOnlineMode"
             @click="clearAllSaves"
@@ -296,7 +309,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { panelBus } from '@/utils/panelBus';
-import { RefreshCw, Save, Play, Trash2, Download, Upload, History, Clock, Plus } from 'lucide-vue-next';
+import { RefreshCw, Save, Play, Trash2, Download, Upload, History, Clock, Plus, Wrench } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useI18n } from '@/i18n';
@@ -306,6 +319,7 @@ import type { SaveSlot } from '@/types/game';
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
+import { repairSaveData } from '@/utils/dataRepair';
 
 const { t } = useI18n();
 
@@ -921,6 +935,61 @@ const handleImportFile = async (event: Event) => {
       fileInput.value.value = '';
     }
   }
+};
+
+// 修复当前存档
+const repairCurrentSave = async () => {
+  if (!currentSave.value) {
+    toast.warning('没有当前激活的存档');
+    return;
+  }
+
+  uiStore.showRetryDialog({
+    title: '修复存档',
+    message: '将对当前存档进行数据结构修复，补全缺失字段、修正数据类型。建议先导出备份。确定继续？',
+    confirmText: '开始修复',
+    cancelText: '取消',
+    onConfirm: async () => {
+      loading.value = true;
+      try {
+        const characterId = characterStore.rootState.当前激活存档?.角色ID;
+        if (!characterId) {
+          throw new Error('无法获取角色ID');
+        }
+
+        const slotKey = currentSave.value!.存档名;
+        const { loadSaveData, saveSaveData } = await import('@/utils/indexedDBManager');
+
+        // 加载当前存档数据
+        const rawData = await loadSaveData(characterId, slotKey);
+        if (!rawData) {
+          throw new Error('无法加载存档数据');
+        }
+
+        console.log('[存档修复] 原始数据:', rawData);
+
+        // 执行修复
+        const repairedData = repairSaveData(rawData as any);
+
+        console.log('[存档修复] 修复后数据:', repairedData);
+
+        // 保存修复后的数据
+        await saveSaveData(characterId, slotKey, repairedData);
+
+        // 重新加载到游戏状态
+        await characterStore.loadGameById(slotKey);
+
+        toast.success('存档修复完成');
+        await refreshSaves();
+      } catch (error) {
+        debug.error('存档面板', '修复失败', error);
+        toast.error(`修复失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      } finally {
+        loading.value = false;
+      }
+    },
+    onCancel: () => {}
+  });
 };
 
 // 清空所有存档
@@ -1564,6 +1633,18 @@ onMounted(() => {
 .operation-btn.primary .btn-title,
 .operation-btn.primary .btn-desc {
   color: white;
+}
+
+.operation-btn.warning {
+  color: #f59e0b;
+}
+
+.operation-btn.warning:hover {
+  background: #fffbeb;
+}
+
+.operation-btn.warning .btn-title {
+  color: #d97706;
 }
 
 .operation-btn.danger:hover {

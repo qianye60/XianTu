@@ -109,7 +109,7 @@ export default (env, argv) => {
         __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
         __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
         'APP_VERSION': JSON.stringify(packageJson.version),
-        'BACKEND_BASE_URL': JSON.stringify(process.env.BACKEND_BASE_URL || 'https://back.ddct.top')
+        'BACKEND_BASE_URL': JSON.stringify('https://back.ddct.top') //后端路径
       }),
       new HtmlWebpackPlugin({
         template: './index.html',
