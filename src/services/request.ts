@@ -207,8 +207,8 @@ export async function verifyStoredToken(): Promise<boolean> {
  */
 export async function fetchWorlds(): Promise<World[]> {
   try {
-    const worlds = await request.get<World[]>('/api/v1/worlds/');
-    return worlds || [];
+    const response = await request.get<{ items: World[]; total: number }>('/api/v1/worlds/');
+    return response?.items || [];
   } catch (_error) {
     return [];
   }
@@ -219,8 +219,8 @@ export async function fetchWorlds(): Promise<World[]> {
  */
 export async function fetchTalentTiers(): Promise<TalentTier[]> {
   try {
-    const talentTiers = await request.get<TalentTier[]>('/api/v1/talent_tiers/');
-    return talentTiers || [];
+    const response = await request.get<{ items: TalentTier[]; total: number }>('/api/v1/talent_tiers/');
+    return response?.items || [];
   } catch (_error) {
     return [];
   }
@@ -231,8 +231,8 @@ export async function fetchTalentTiers(): Promise<TalentTier[]> {
  */
 export async function fetchOrigins(): Promise<Origin[]> {
   try {
-    const origins = await request.get<Origin[]>('/api/v1/origins/');
-    return origins || [];
+    const response = await request.get<{ items: Origin[]; total: number }>('/api/v1/origins/');
+    return response?.items || [];
   } catch (_error) {
     return [];
   }
@@ -243,8 +243,8 @@ export async function fetchOrigins(): Promise<Origin[]> {
  */
 export async function fetchSpiritRoots(): Promise<SpiritRoot[]> {
   try {
-    const spiritRoots = await request.get<SpiritRoot[]>('/api/v1/spirit_roots/');
-    return spiritRoots || [];
+    const response = await request.get<{ items: SpiritRoot[]; total: number }>('/api/v1/spirit_roots/');
+    return response?.items || [];
   } catch (_error) {
     return [];
   }
@@ -256,10 +256,11 @@ export async function fetchSpiritRoots(): Promise<SpiritRoot[]> {
 type RawTalent = Partial<Talent> & { tier?: { id?: number }; tier_id?: number | null };
 export async function fetchTalents(): Promise<Talent[]> {
   try {
-    const talents = await request.get<RawTalent[]>('/api/v1/talents/');
+    const response = await request.get<{ items: RawTalent[]; total: number }>('/api/v1/talents/');
+    const talents = response?.items || [];
 
     // 转换后端数据结构，提取tier_id
-    const convertedTalents: Talent[] = (talents || []).map((talent: RawTalent) => ({
+    const convertedTalents: Talent[] = talents.map((talent: RawTalent) => ({
       id: talent.id ?? 0,
       name: talent.name ?? '',
       description: talent.description,
