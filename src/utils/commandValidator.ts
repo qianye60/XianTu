@@ -20,6 +20,84 @@ interface ValidationResult {
 }
 
 /**
+ * 🔒 完全禁止AI操作的路径（系统管理，AI不得触碰）
+ */
+const FORBIDDEN_PATHS: string[] = [
+  '社交.记忆',           // 玩家记忆由系统自动管理
+  '角色.身份',           // 角色身份信息只读
+  '角色.装备',           // 装备系统只读
+  '角色.技能.掌握技能',  // 已掌握技能只读
+];
+
+/**
+ * 🔒 禁止被置空/删除/整体替换的核心路径（只允许子字段操作）
+ */
+const PROTECTED_ROOT_PATHS: string[] = [
+  // 顶级根路径
+  '角色',
+  '社交',
+  '元数据',
+  '世界',
+  '系统',
+
+  // 角色子结构
+  '角色.属性',
+  '角色.属性.境界',
+  '角色.属性.气血',
+  '角色.属性.灵气',
+  '角色.属性.神识',
+  '角色.属性.寿命',
+  '角色.背包',
+  '角色.背包.物品',
+  '角色.背包.货币',
+  '角色.功法',
+  '角色.功法.功法进度',
+  '角色.大道',
+  '角色.大道.大道列表',
+  '角色.效果',
+  '角色.位置',
+  '角色.技能',
+
+  // 社交子结构
+  '社交.关系',
+  '社交.关系矩阵',
+  '社交.关系矩阵.edges',
+  '社交.事件',
+  '社交.事件.事件记录',
+
+  // 元数据子结构
+  '元数据.时间',
+  '元数据.游戏设置',
+
+  // 世界子结构
+  '世界.地图',
+  '世界.势力',
+];
+
+/**
+ * 检查路径是否被禁止操作
+ */
+function checkForbiddenPath(key: string, action: string): string | null {
+  // 检查完全禁止的路径
+  for (const forbidden of FORBIDDEN_PATHS) {
+    if (key === forbidden || key.startsWith(`${forbidden}.`)) {
+      return `路径 "${key}" 禁止AI操作（系统保护字段）`;
+    }
+  }
+
+  // 检查核心路径的危险操作（set整体/delete）
+  if (action === 'set' || action === 'delete') {
+    for (const protected_path of PROTECTED_ROOT_PATHS) {
+      if (key === protected_path) {
+        return `禁止对核心路径 "${key}" 执行 ${action} 操作（会导致数据丢失）`;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * 验证单个指令对象
  */
 export function validateCommand(command: unknown, index: number): ValidationResult {
@@ -55,19 +133,27 @@ export function validateCommand(command: unknown, index: number): ValidationResu
       errors.push(`指令${index}: key必须是字符串类型`);
     }
 
-    // 4. 检查value（delete操作除外）
+    // 🔒 4. 核心路径保护检查
+    if (cmd.key && cmd.action) {
+      const forbiddenError = checkForbiddenPath(cmd.key, cmd.action);
+      if (forbiddenError) {
+        errors.push(`指令${index}: ${forbiddenError}`);
+      }
+    }
+
+    // 5. 检查value（delete操作除外）
     if (cmd.action !== 'delete' && cmd.value === undefined) {
       errors.push(`指令${index}: ${cmd.action}操作必须提供value字段`);
     }
 
-    // 5. 检查多余字段（scope虽然在类型中但不应使用）
+    // 6. 检查多余字段（scope虽然在类型中但不应使用）
     const allowedFields = ['action', 'key', 'value'];
     const extraFields = Object.keys(cmd).filter(k => !allowedFields.includes(k));
     if (extraFields.length > 0) {
       warnings.push(`指令${index}: 包含多余字段: ${extraFields.join(', ')}（这些字段会被自动移除）`);
     }
 
-    // 6. 特定路径的值类型检查
+    // 7. 特定路径的值类型检查
     if (cmd.key && cmd.value !== undefined) {
       try {
         const typeErrors = validateValueType(cmd.key, cmd.value, cmd.action);
