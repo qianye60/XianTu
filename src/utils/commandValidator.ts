@@ -19,6 +19,10 @@ interface ValidationResult {
   invalidCommands?: Array<{ command: any; errors: string[] }>; // 记录无效指令
 }
 
+const V3_ALLOWED_ROOTS = ['元数据', '角色', '社交', '世界', '系统'] as const;
+const isV3KeyPath = (key: string): boolean =>
+  V3_ALLOWED_ROOTS.some((root) => key === root || key.startsWith(`${root}.`));
+
 /**
  * 🔒 完全禁止AI操作的路径（系统管理，AI不得触碰）
  */
@@ -132,6 +136,11 @@ export function validateCommand(command: unknown, index: number): ValidationResu
     if (cmd.key && typeof cmd.key !== 'string') {
       errors.push(`指令${index}: key必须是字符串类型`);
     }
+    if (typeof cmd.key === 'string' && cmd.key && !isV3KeyPath(cmd.key)) {
+      errors.push(
+        `指令${index}: key必须以 ${V3_ALLOWED_ROOTS.join(' / ')} 开头（V3短路径），当前: ${cmd.key}`
+      );
+    }
 
     // 🔒 4. 核心路径保护检查
     if (cmd.key && cmd.action) {
@@ -183,13 +192,6 @@ function validateValueType(key: string, value: unknown, action: string): string[
   const errors: string[] = [];
 
   try {
-    const allowedRoots = ['元数据', '角色', '社交', '世界', '系统'] as const;
-    const isV3Key = allowedRoots.some((root) => key === root || key.startsWith(`${root}.`));
-    if (!isV3Key) {
-      errors.push(`key必须以 ${allowedRoots.join(' / ')} 开头（V3短路径），当前: ${key}`);
-      return errors;
-    }
-
     // 数值字段（只做最常见的严格校验，其它复杂结构由运行期校验器兜底）
     const numberFields = [
       '元数据.时间.年',

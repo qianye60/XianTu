@@ -11,7 +11,7 @@ import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商店
 import { useUIStore } from '@/stores/uiStore';
-import type { GM_Response } from '@/types/AIGameMaster';
+import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect, EventSystem, GameEvent } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import {  assembleSystemPrompt } from './prompts/promptAssembler';
@@ -1753,7 +1753,7 @@ ${step1Text}
     // 🔥 先修复数据格式，确保所有字段正确
     const { repairSaveData } = await import('./dataRepair');
     const repairedData = repairSaveData(currentSaveData);
-    const saveData = cloneDeep(repairedData);
+    let saveData = cloneDeep(repairedData);
     const changes: StateChange[] = [];
 
     const behavior = {
@@ -1883,69 +1883,65 @@ ${step1Text}
     // 🔥 新增：预处理指令以修复常见的AI错误
     const preprocessedCommands = this._preprocessCommands(response.tavern_commands);
 
-    // 🔥 步骤1：验证并清理指令格式
-    const { validateCommands, cleanCommands } = await import('./commandValidator');
-    const validation = validateCommands(preprocessedCommands);
-
-    // 🔥 步骤2：验证指令值的格式，过滤掉格式错误的指令
+    // 🔥 步骤1：指令格式校验（路径/字段/只读保护） + 指令值校验（结构完整性）
+    // 重要：两者都通过的指令才允许执行，避免“只校验但仍执行”的漏网风险
+    const { validateCommand, cleanCommands } = await import('./commandValidator');
     const { validateAndRepairCommandValue } = await import('./commandValueValidator');
-    const validCommands: any[] = [];
+
+    const validCommands: TavernCommand[] = [];
     const rejectedCommands: Array<{ command: any; errors: string[] }> = [];
+    const validationWarnings: string[] = [];
 
     preprocessedCommands.forEach((cmd, index) => {
-      const valueValidation = validateAndRepairCommandValue(cmd);
-      if (!valueValidation.valid) {
-        console.error(`[AI双向系统] ❌ 拒绝执行指令[${index}]，格式错误:`, valueValidation.errors);
+      const formatResult = validateCommand(cmd, index);
+      validationWarnings.push(...formatResult.warnings);
+      if (!formatResult.valid) {
+        rejectedCommands.push({ command: cmd, errors: formatResult.errors });
+        return;
+      }
+
+      // 仅在“看起来像指令对象”时做 value 校验；否则按格式错误处理
+      try {
+        const valueResult = validateAndRepairCommandValue(cmd as TavernCommand);
+        if (!valueResult.valid) {
+          rejectedCommands.push({
+            command: cmd,
+            errors: valueResult.errors.map((e) => `指令${index}: ${e}`),
+          });
+          return;
+        }
+      } catch (e) {
         rejectedCommands.push({
           command: cmd,
-          errors: valueValidation.errors
+          errors: [`指令${index}: value 校验异常: ${e instanceof Error ? e.message : String(e)}`],
         });
-      } else {
-        validCommands.push(cmd);
+        return;
       }
+
+      validCommands.push(cmd as TavernCommand);
     });
 
-    // 记录被拒绝的指令
+    // 记录被拒绝的指令（格式/只读保护/value 完整性）
     if (rejectedCommands.length > 0) {
-      console.error(`[AI双向系统] 共拒绝 ${rejectedCommands.length} 条格式错误的指令`);
+      console.error(`[AI双向系统] 共拒绝 ${rejectedCommands.length} 条无效指令（已拦截，不会执行）`);
       rejectedCommands.forEach(({ command, errors }) => {
         changes.unshift({
-          key: '❌ 格式错误（已拒绝）',
+          key: '❌ 无效指令（已拒绝）',
           action: 'validation_error',
           oldValue: undefined,
           newValue: {
             command: JSON.stringify(command, null, 2),
-            errors: errors
-          }
+            errors,
+          },
         });
       });
     }
 
-    if (!validation.valid) {
-      console.error('[AI双向系统] 指令格式验证失败:', validation.errors);
-      validation.errors.forEach(err => console.error(`  - ${err}`));
-
-      // 将验证错误添加到changes数组顶部
-      if (validation.invalidCommands && validation.invalidCommands.length > 0) {
-        validation.invalidCommands.forEach(({ command, errors }) => {
-          changes.unshift({
-            key: '❌ 错误指令',
-            action: 'validation_error',
-            oldValue: undefined,
-            newValue: {
-              command: JSON.stringify(command, null, 2),
-              errors: errors
-            }
-          });
-        });
-      }
+    if (validationWarnings.length > 0) {
+      validationWarnings.forEach((warn) => console.warn(`[AI双向系统] ${warn}`));
     }
 
-    if (validation.warnings.length > 0) {
-      validation.warnings.forEach(warn => console.warn(`[AI双向系统] ${warn}`));
-    }
-
-    // 🔥 步骤3：清理指令，移除多余字段（只处理通过验证的指令）
+    // 🔥 步骤2：清理指令，移除多余字段（只处理通过验证的指令）
     const cleanedCommands = cleanCommands(validCommands);
 
     // 🔥 步骤4：对指令排序，确保 set 上限的操作先于 set/add 当前值的操作
@@ -1964,6 +1960,11 @@ ${step1Text}
     let onlineLogPostedCount = 0;
     const isOnlineServerLogCommand = (cmd: any): boolean =>
       cmd && cmd.action === 'push' && typeof cmd.key === 'string' && cmd.key === '系统.联机.服务器日志';
+
+    const saveDataSnapshotBeforeCommands = cloneDeep(saveData);
+    const commandAppliedChanges: StateChange[] = [];
+    const commandErrorChanges: StateChange[] = [];
+    let hadExecutionError = false;
 
     for (const command of sortedCommands) {
       if (abortRequested()) {
@@ -2018,7 +2019,7 @@ ${step1Text}
         const oldValue = get(saveData, command.key);
         this.executeCommand(command, saveData);
         const newValue = get(saveData, command.key);
-        changes.push({
+        commandAppliedChanges.push({
           key: command.key,
           action: command.action,
           oldValue: this._summarizeValueForChangeLog(command.key, oldValue, command.action),
@@ -2026,7 +2027,8 @@ ${step1Text}
         });
       } catch (error) {
         console.error(`[AI双向系统] 指令执行失败:`, command, error);
-        changes.unshift({
+        hadExecutionError = true;
+        commandErrorChanges.unshift({
           key: '? 执行失败',
           action: 'execution_error',
           oldValue: undefined,
@@ -2035,6 +2037,53 @@ ${step1Text}
             error: error instanceof Error ? error.message : String(error)
           }
         });
+      }
+    }
+
+    // 🔥 步骤5：执行后安全校验（V3结构不合格则回滚，防止存档被破坏）
+    const applyMode = (() => {
+      try {
+        const raw = localStorage.getItem('command-apply-mode');
+        if (raw === 'atomic' || raw === 'atomic_on_invalid_state' || raw === 'best_effort') return raw;
+      } catch { /* noop */ }
+      return 'best_effort' as const;
+    })();
+
+    const { validateSaveDataV3 } = await import('@/utils/saveValidationV3');
+    const postValidation = validateSaveDataV3(saveData as any);
+    const shouldRollback =
+      !postValidation.isValid ||
+      (applyMode === 'atomic' && hadExecutionError);
+
+    if (shouldRollback) {
+      const reason =
+        !postValidation.isValid
+          ? '执行后存档结构校验失败（已自动回滚）'
+          : 'atomic 模式下出现执行错误（已自动回滚）';
+
+      console.error('[AI双向系统] ❌ 指令集回滚:', reason, postValidation.errors);
+      saveData = saveDataSnapshotBeforeCommands;
+
+      if (commandErrorChanges.length > 0) {
+        changes.unshift(...commandErrorChanges);
+      }
+
+      changes.unshift({
+        key: '❌ 指令已回滚',
+        action: 'rollback',
+        oldValue: undefined,
+        newValue: {
+          mode: applyMode,
+          reason,
+          validationErrors: postValidation.isValid ? [] : postValidation.errors,
+        },
+      });
+    } else {
+      if (commandErrorChanges.length > 0) {
+        changes.unshift(...commandErrorChanges);
+      }
+      if (commandAppliedChanges.length > 0) {
+        changes.push(...commandAppliedChanges);
       }
     }
 
