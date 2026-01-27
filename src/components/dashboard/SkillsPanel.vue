@@ -507,19 +507,22 @@ const checkAndUnlockSkills = () => {
   if (!technique.功法技能 || !Array.isArray(technique.功法技能)) return;
 
   const currentProgress = technique.修炼进度 || 0;
-  let unlocked = false;
+  const newUnlocked: string[] = [];
 
-  if (!technique.已解锁技能) technique.已解锁技能 = [];
+  const existingUnlocked = technique.已解锁技能 || [];
 
   technique.功法技能.forEach(skill => {
     const unlockThreshold = skill.熟练度要求 || 0;
-    if (currentProgress >= unlockThreshold && !technique.已解锁技能!.includes(skill.技能名称)) {
-      technique.已解锁技能!.push(skill.技能名称);
-      unlocked = true;
+    if (currentProgress >= unlockThreshold && !existingUnlocked.includes(skill.技能名称)) {
+      newUnlocked.push(skill.技能名称);
     }
   });
 
-  if (unlocked) characterStore.saveCurrentGame();
+  if (newUnlocked.length > 0) {
+    // 使用新数组替换，确保 Vue 响应式更新
+    technique.已解锁技能 = [...existingUnlocked, ...newUnlocked];
+    characterStore.saveCurrentGame();
+  }
 };
 
 watch(

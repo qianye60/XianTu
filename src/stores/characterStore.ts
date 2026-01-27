@@ -1386,11 +1386,21 @@ export const useCharacterStore = defineStore('characterV3', () => {
       updateLifespanFromGameTime(currentSaveData);
       {
         const updatedSkills = updateMasteredSkills(currentSaveData);
-        // 同步到当前内存态，避免“已掌握技能”UI需要重载才更新
+        // 同步到当前内存态，避免"已掌握技能"UI需要重载才更新
         try {
           gameStateStore.masteredSkills = JSON.parse(JSON.stringify(updatedSkills)) as any;
           if (gameStateStore.skillState && typeof gameStateStore.skillState === 'object') {
             (gameStateStore.skillState as any).掌握技能 = gameStateStore.masteredSkills;
+          }
+          // 🔥 同步已解锁技能到 gameStateStore.inventory，确保前端显示正确
+          const saveItems = (currentSaveData as any)?.角色?.背包?.物品;
+          const storeItems = gameStateStore.inventory?.物品;
+          if (saveItems && storeItems) {
+            for (const [itemId, item] of Object.entries(saveItems as Record<string, any>)) {
+              if ((item as any)?.类型 === '功法' && (item as any)?.已解锁技能 && storeItems[itemId]) {
+                (storeItems[itemId] as any).已解锁技能 = [...(item as any).已解锁技能];
+              }
+            }
           }
         } catch {
           // 保底：不影响保存流程
