@@ -705,22 +705,25 @@ button {
     padding-top: calc(0.75rem + env(safe-area-inset-top));
     padding-left: calc(0.75rem + env(safe-area-inset-left));
     padding-right: calc(0.75rem + env(safe-area-inset-right));
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
     min-height: 100vh;
     min-height: 100svh;
-    height: auto;
+    height: 100vh;
+    height: 100svh;
   }
 
   .selection-content {
     padding: 3.5rem 1rem 1.5rem;
     gap: 1.25rem;
-    max-height: none;
+    max-height: calc(100vh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100svh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     min-height: auto;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    overflow: visible;
-    margin-bottom: 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .top-info {
