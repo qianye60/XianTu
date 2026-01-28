@@ -591,11 +591,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
   const createNewCharacter = async (payload: CreationPayload): Promise<CharacterBaseInfo | undefined> => {
     const uiStore = useUIStore();
     const creationStore = useCharacterCreationStore(); // 导入创角状态
-    const { charId, baseInfo, world, mode, age } = payload;
+    let { charId, baseInfo, world, mode, age } = payload;
 
+    // 如果 ID 已存在，自动生成新 ID（避免因时间戳冲突导致创建失败）
     if (rootState.value.角色列表[charId]) {
-      toast.error(`角色ID ${charId} 已存在，创建失败！`);
-      return undefined;
+      const newCharId = `char_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      debug.log('角色商店', `角色ID ${charId} 已存在，自动生成新ID: ${newCharId}`);
+      charId = newCharId;
     }
 
     // [核心修复] 从创角store中提取最权威、最完整的数据，覆盖传入的payload
