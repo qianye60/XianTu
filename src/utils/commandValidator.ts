@@ -112,9 +112,9 @@ function isLikelyNumericPath(key: string): boolean {
  */
 const FORBIDDEN_PATHS: string[] = [
   '社交.记忆',           // 玩家记忆由系统自动管理
-  '角色.身份',           // 角色身份信息只读
   '角色.装备',           // 装备系统只读
   '角色.技能.掌握技能',  // 已掌握技能只读
+  // 注意：角色.身份 已移除，允许 AI 修改身份相关信息
 ];
 
 /**
@@ -156,13 +156,51 @@ const PROTECTED_ROOT_PATHS: string[] = [
 ];
 
 /**
- * ✅ 允许整体 set 的“安全对象字段”（避免反向保护导致无法修改）
+ * ✅ 允许 AI 操作的路径前缀（这些路径及其所有子路径都允许 set/add 等操作）
+ * 只需要列出父路径，子路径自动放行
  */
-const ALLOW_WHOLE_SET_PATHS = new Set<string>([
-  '角色.位置',
+const ALLOW_PATH_PREFIXES: string[] = [
+  // 元数据
   '元数据.时间',
-  '角色.属性.境界',
-]);
+
+  // 角色 - 几乎所有子路径都允许
+  '角色.身份',
+  '角色.属性',
+  '角色.位置',
+  '角色.身体',
+  '角色.背包.灵石',
+  '角色.背包.货币',
+  '角色.功法',
+  '角色.修炼',
+  '角色.大道',
+  '角色.效果',
+
+  // 社交
+  '社交.宗门',
+  '社交.关系矩阵',
+  '社交.事件',
+
+  // 世界
+  '世界.信息',
+  '世界.状态',
+
+  // 系统
+  '系统.配置',
+  '系统.设置',
+  '系统.行动队列',
+];
+
+/**
+ * 检查路径是否在允许列表中（包括子路径）
+ */
+function isAllowedPath(key: string): boolean {
+  for (const prefix of ALLOW_PATH_PREFIXES) {
+    if (key === prefix || key.startsWith(`${prefix}.`)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * 检查路径是否被禁止操作
@@ -175,11 +213,15 @@ function checkForbiddenPath(key: string, action: string, value: unknown): string
     }
   }
 
-  // ✅ 允许整体 set 的路径，直接放行（不检查 PROTECTED_ROOT_PATHS）
-  if (action === 'set' && ALLOW_WHOLE_SET_PATHS.has(key)) {
-    // 只禁止置空
-    if (value === null || value === undefined) {
-      return `禁止将 "${key}" set 为 null/undefined（会导致数据丢失）`;
+  // ✅ 允许的路径前缀，直接放行（包括所有子路径）
+  if (isAllowedPath(key)) {
+    // 只禁止置空顶级允许路径
+    if (action === 'set' && (value === null || value === undefined)) {
+      for (const prefix of ALLOW_PATH_PREFIXES) {
+        if (key === prefix) {
+          return `禁止将 "${key}" set 为 null/undefined（会导致数据丢失）`;
+        }
+      }
     }
     return null; // 放行
   }
@@ -191,12 +233,9 @@ function checkForbiddenPath(key: string, action: string, value: unknown): string
         return `禁止对核心路径 "${key}" 执行 delete 操作（会导致数据丢失）`;
       }
     }
-    if (ALLOW_WHOLE_SET_PATHS.has(key)) {
-      return `禁止对核心路径 "${key}" 执行 delete 操作（会导致数据丢失）`;
-    }
   }
 
-  // set：禁止整体覆盖"核心容器路径"（ALLOW_WHOLE_SET_PATHS 已在上面放行）
+  // set：禁止整体覆盖"核心容器路径"
   if (action === 'set') {
     for (const protectedPath of PROTECTED_ROOT_PATHS) {
       if (key === protectedPath) {
