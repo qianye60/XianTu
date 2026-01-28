@@ -175,7 +175,16 @@ function checkForbiddenPath(key: string, action: string, value: unknown): string
     }
   }
 
-  // delete：禁止删除核心路径（包括允许整体set的安全字段）
+  // ✅ 允许整体 set 的路径，直接放行（不检查 PROTECTED_ROOT_PATHS）
+  if (action === 'set' && ALLOW_WHOLE_SET_PATHS.has(key)) {
+    // 只禁止置空
+    if (value === null || value === undefined) {
+      return `禁止将 "${key}" set 为 null/undefined（会导致数据丢失）`;
+    }
+    return null; // 放行
+  }
+
+  // delete：禁止删除核心路径
   if (action === 'delete') {
     for (const protectedPath of PROTECTED_ROOT_PATHS) {
       if (key === protectedPath) {
@@ -187,16 +196,11 @@ function checkForbiddenPath(key: string, action: string, value: unknown): string
     }
   }
 
-  // set：禁止整体覆盖“核心容器路径”；允许 set 安全对象字段，但禁止置空
+  // set：禁止整体覆盖"核心容器路径"（ALLOW_WHOLE_SET_PATHS 已在上面放行）
   if (action === 'set') {
     for (const protectedPath of PROTECTED_ROOT_PATHS) {
       if (key === protectedPath) {
         return `禁止对核心路径 "${key}" 执行 set 操作（会导致数据丢失）`;
-      }
-    }
-    if (ALLOW_WHOLE_SET_PATHS.has(key)) {
-      if (value === null || value === undefined) {
-        return `禁止将 "${key}" set 为 null/undefined（会导致数据丢失）`;
       }
     }
   }
