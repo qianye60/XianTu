@@ -2040,7 +2040,7 @@ ${step1Text}
       }
     }
 
-    // 🔥 步骤5：执行后安全校验（V3结构不合格则回滚，防止存档被破坏）
+    // 🔥 步骤5：执行后安全校验（仅在结构完全损坏时回滚，防止存档被破坏）
     const applyMode = (() => {
       try {
         const raw = localStorage.getItem('command-apply-mode');
@@ -2051,17 +2051,20 @@ ${step1Text}
 
     const { validateSaveDataV3 } = await import('@/utils/saveValidationV3');
     const postValidation = validateSaveDataV3(saveData as any);
+
+    // best_effort 模式：只有致命错误（结构完全损坏）才回滚
+    // atomic 模式：任何错误或执行失败都回滚
     const shouldRollback =
-      !postValidation.isValid ||
-      (applyMode === 'atomic' && hadExecutionError);
+      postValidation.criticalErrors.length > 0 ||
+      (applyMode === 'atomic' && (hadExecutionError || !postValidation.isValid));
 
     if (shouldRollback) {
       const reason =
-        !postValidation.isValid
-          ? '执行后存档结构校验失败（已自动回滚）'
+        postValidation.criticalErrors.length > 0
+          ? '存档结构严重损坏（已自动回滚）'
           : 'atomic 模式下出现执行错误（已自动回滚）';
 
-      console.error('[AI双向系统] ❌ 指令集回滚:', reason, postValidation.errors);
+      console.error('[AI双向系统] ❌ 指令集回滚:', reason, postValidation.criticalErrors);
       saveData = saveDataSnapshotBeforeCommands;
 
       if (commandErrorChanges.length > 0) {
@@ -2075,7 +2078,7 @@ ${step1Text}
         newValue: {
           mode: applyMode,
           reason,
-          validationErrors: postValidation.isValid ? [] : postValidation.errors,
+          validationErrors: postValidation.criticalErrors,
         },
       });
     } else {

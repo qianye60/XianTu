@@ -2,6 +2,9 @@ import type { GameTime, SaveData } from '@/types/game';
 
 export interface SaveValidationResult {
   isValid: boolean;
+  /** 致命错误：结构完全损坏，必须回滚 */
+  criticalErrors: string[];
+  /** 非致命错误：字段缺失或类型不对，但不影响基本运行 */
   errors: string[];
   warnings: string[];
 }
@@ -42,13 +45,15 @@ export const isSaveDataV3Shape = (saveData: SaveData | null | undefined): boolea
 };
 
 export function validateSaveDataV3(saveData: SaveData): SaveValidationResult {
+  const criticalErrors: string[] = [];
   const errors: string[] = [];
   const warnings: string[] = [];
 
   if (!isSaveDataV3Shape(saveData)) {
     return {
       isValid: false,
-      errors: ['不是 V3 存档结构（缺少 元数据/角色/社交/世界/系统）'],
+      criticalErrors: ['不是 V3 存档结构（缺少 元数据/角色/社交/世界/系统）'],
+      errors: [],
       warnings: [],
     };
   }
@@ -98,5 +103,5 @@ export function validateSaveDataV3(saveData: SaveData): SaveValidationResult {
   const roPaths = anySave.系统?.联机?.只读路径;
   if (!Array.isArray(roPaths)) errors.push('系统.联机.只读路径 必填且必须是数组');
 
-  return { isValid: errors.length === 0, errors, warnings };
+  return { isValid: errors.length === 0 && criticalErrors.length === 0, criticalErrors, errors, warnings };
 }
