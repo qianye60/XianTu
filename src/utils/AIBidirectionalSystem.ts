@@ -1274,8 +1274,8 @@ ${step1Text}
             if (changeSummary) note += `。状态变更：${changeSummary}`;
             if (snippet) note += `。异动概述：${snippet}`;
 
-            const { appendTravelNote } = await import('@/services/onlineTravel');
-            await appendTravelNote(sessionId, note, {
+            const { tryPostTravelNoteWithQueue } = await import('@/services/onlineLogQueue');
+            await tryPostTravelNoteWithQueue(sessionId, note, {
               place,
               action,
               snippet,
@@ -2005,8 +2005,8 @@ ${step1Text}
               const trimmed = note.trim();
               if (trimmed) {
                 const safeNote = trimmed.slice(0, 600);
-                const { appendTravelNote } = await import('@/services/onlineTravel');
-                await appendTravelNote(sessionId, safeNote, meta);
+                const { tryPostTravelNoteWithQueue } = await import('@/services/onlineLogQueue');
+                await tryPostTravelNoteWithQueue(sessionId, safeNote, meta);
                 onlineLogPosted = true;
               }
             }

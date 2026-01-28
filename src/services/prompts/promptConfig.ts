@@ -4,8 +4,8 @@
  * 优先级：用户自定义 > 远程配置 > 本地默认
  */
 
-import { request } from './request';
-import { isBackendConfigured } from './backendConfig';
+import { request } from '../request';
+import { isBackendConfigured } from '../backendConfig';
 
 // 远程提示词配置接口
 export interface RemotePromptConfig {

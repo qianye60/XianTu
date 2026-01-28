@@ -70,6 +70,12 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
       errors.push(...result.errors);
     }
 
+    // 2.1 游戏时间对象（允许整体 set，用于时间跳跃/修复）
+    if (key === '元数据.时间' && action === 'set') {
+      const result = validateGameTimeObject(value);
+      errors.push(...result.errors);
+    }
+
     // 3. 状态效果对象（push操作）
     if (key === '角色.效果' && action === 'push') {
       const result = validateStatusEffectObject(value);
@@ -189,9 +195,44 @@ function validateLocationObject(value: any): ValidationResult {
   }
 
   if (!value.描述) errors.push('位置缺少"描述"字段');
-  if (value.x !== undefined && typeof value.x !== 'number') errors.push('位置.x类型错误，应为数字');
-  if (value.y !== undefined && typeof value.y !== 'number') errors.push('位置.y类型错误，应为数字');
+  if (value.x !== undefined) {
+    const numeric = coerceNumeric(value.x);
+    if (numeric !== null) value.x = numeric;
+    if (typeof value.x !== 'number') errors.push('位置.x类型错误，应为数字');
+  }
+  if (value.y !== undefined) {
+    const numeric = coerceNumeric(value.y);
+    if (numeric !== null) value.y = numeric;
+    if (typeof value.y !== 'number') errors.push('位置.y类型错误，应为数字');
+  }
   if (value.地图ID !== undefined && typeof value.地图ID !== 'string') errors.push('位置.地图ID类型错误，应为字符串');
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * 验证游戏时间对象（允许整体 set）
+ */
+function validateGameTimeObject(value: any): ValidationResult {
+  const errors: string[] = [];
+
+  if (typeof value !== 'object' || value === null) {
+    errors.push('时间必须是对象类型');
+    return { valid: false, errors };
+  }
+
+  const fields = ['年', '月', '日', '小时', '分钟'] as const;
+  for (const f of fields) {
+    if (value[f] === undefined) {
+      errors.push(`时间缺少"${f}"字段`);
+      continue;
+    }
+    const numeric = coerceNumeric(value[f]);
+    if (numeric !== null) value[f] = numeric;
+    if (typeof value[f] !== 'number') {
+      errors.push(`时间.${f}类型错误，应为数字`);
+    }
+  }
 
   return { valid: errors.length === 0, errors };
 }

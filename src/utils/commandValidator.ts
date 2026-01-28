@@ -23,6 +23,90 @@ const V3_ALLOWED_ROOTS = ['元数据', '角色', '社交', '世界', '系统'] a
 const isV3KeyPath = (key: string): boolean =>
   V3_ALLOWED_ROOTS.some((root) => key === root || key.startsWith(`${root}.`));
 
+const NUMERIC_VALUE_PATHS = [
+  '元数据.时间.年',
+  '元数据.时间.月',
+  '元数据.时间.日',
+  '元数据.时间.小时',
+  '元数据.时间.分钟',
+  '元数据.游戏时长秒',
+  '系统.联机.服务器版本',
+  '角色.属性.声望',
+  '角色.属性.气血.当前',
+  '角色.属性.气血.上限',
+  '角色.属性.灵气.当前',
+  '角色.属性.灵气.上限',
+  '角色.属性.神识.当前',
+  '角色.属性.神识.上限',
+  '角色.属性.寿命.当前',
+  '角色.属性.寿命.上限',
+  '角色.位置.x',
+  '角色.位置.y',
+  '角色.位置.灵气浓度',
+] as const;
+
+function coerceNumericValue(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function isLikelyNumericPath(key: string): boolean {
+  if (NUMERIC_VALUE_PATHS.includes(key as any)) return true;
+
+  // 时间：允许对元数据.时间.xxx 做 set/add
+  if (/^元数据\.时间\.(年|月|日|小时|分钟)$/.test(key)) return true;
+
+  // 位置：常见数值字段
+  if (/^角色\.位置\.(x|y|灵气浓度)$/.test(key)) return true;
+
+  // ValuePair<number>：xxx.当前 / xxx.上限（玩家&NPC）
+  if (
+    /^(角色\.属性|社交\.关系\.[^\.]+\.属性)\.(气血|灵气|神识|寿命)\.(当前|上限)$/.test(key)
+  ) {
+    return true;
+  }
+
+  // 境界进度：玩家&NPC
+  if (
+    /^(角色\.属性\.境界|社交\.关系\.[^\.]+\.境界)\.(当前进度|下一级所需)$/.test(key)
+  ) {
+    return true;
+  }
+
+  // 好感度：NPC
+  if (/^社交\.关系\.[^\.]+\.好感度$/.test(key)) return true;
+
+  // 宗门：贡献/声望（玩家在宗门）
+  if (/^社交\.宗门(\.成员信息)?\.(贡献|声望)$/.test(key)) return true;
+
+  // 大道：阶段/经验（玩家）
+  if (/^角色\.大道\.大道列表\.[^\.]+\.(当前阶段|当前经验|总经验)$/.test(key)) return true;
+
+  // 功法：熟练度 / 修炼进度（玩家&NPC）
+  if (
+    /^(角色|社交\.关系\.[^\.]+)\.功法\.功法进度\.[^\.]+\.(熟练度|修炼进度)$/.test(key)
+  ) {
+    return true;
+  }
+
+  // 货币/物品数量（玩家&NPC）
+  if (/^(角色|社交\.关系\.[^\.]+)\.背包\.货币\.[^\.]+\.数量$/.test(key)) return true;
+  if (/^(角色|社交\.关系\.[^\.]+)\.背包\.物品\.[^\.]+\.数量$/.test(key)) return true;
+
+  // 通用兜底：以“数量/贡献/声望/战力/士气/安定/训练度/经验/阶段/进度”等结尾的字段，通常应为数值
+  if (/(数量|贡献|声望|战力|士气|安定|训练度|当前经验|总经验|当前阶段|阶段索引|突破经验|当前进度|下一级所需)$/.test(key)) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * 🔒 完全禁止AI操作的路径（系统管理，AI不得触碰）
  */
@@ -46,11 +130,6 @@ const PROTECTED_ROOT_PATHS: string[] = [
 
   // 角色子结构
   '角色.属性',
-  '角色.属性.境界',
-  '角色.属性.气血',
-  '角色.属性.灵气',
-  '角色.属性.神识',
-  '角色.属性.寿命',
   '角色.背包',
   '角色.背包.物品',
   '角色.背包.货币',
@@ -59,7 +138,6 @@ const PROTECTED_ROOT_PATHS: string[] = [
   '角色.大道',
   '角色.大道.大道列表',
   '角色.效果',
-  '角色.位置',
   '角色.技能',
 
   // 社交子结构
@@ -70,7 +148,6 @@ const PROTECTED_ROOT_PATHS: string[] = [
   '社交.事件.事件记录',
 
   // 元数据子结构
-  '元数据.时间',
   '元数据.游戏设置',
 
   // 世界子结构
@@ -79,9 +156,18 @@ const PROTECTED_ROOT_PATHS: string[] = [
 ];
 
 /**
+ * ✅ 允许整体 set 的“安全对象字段”（避免反向保护导致无法修改）
+ */
+const ALLOW_WHOLE_SET_PATHS = new Set<string>([
+  '角色.位置',
+  '元数据.时间',
+  '角色.属性.境界',
+]);
+
+/**
  * 检查路径是否被禁止操作
  */
-function checkForbiddenPath(key: string, action: string): string | null {
+function checkForbiddenPath(key: string, action: string, value: unknown): string | null {
   // 检查完全禁止的路径
   for (const forbidden of FORBIDDEN_PATHS) {
     if (key === forbidden || key.startsWith(`${forbidden}.`)) {
@@ -89,11 +175,28 @@ function checkForbiddenPath(key: string, action: string): string | null {
     }
   }
 
-  // 检查核心路径的危险操作（set整体/delete）
-  if (action === 'set' || action === 'delete') {
-    for (const protected_path of PROTECTED_ROOT_PATHS) {
-      if (key === protected_path) {
-        return `禁止对核心路径 "${key}" 执行 ${action} 操作（会导致数据丢失）`;
+  // delete：禁止删除核心路径（包括允许整体set的安全字段）
+  if (action === 'delete') {
+    for (const protectedPath of PROTECTED_ROOT_PATHS) {
+      if (key === protectedPath) {
+        return `禁止对核心路径 "${key}" 执行 delete 操作（会导致数据丢失）`;
+      }
+    }
+    if (ALLOW_WHOLE_SET_PATHS.has(key)) {
+      return `禁止对核心路径 "${key}" 执行 delete 操作（会导致数据丢失）`;
+    }
+  }
+
+  // set：禁止整体覆盖“核心容器路径”；允许 set 安全对象字段，但禁止置空
+  if (action === 'set') {
+    for (const protectedPath of PROTECTED_ROOT_PATHS) {
+      if (key === protectedPath) {
+        return `禁止对核心路径 "${key}" 执行 set 操作（会导致数据丢失）`;
+      }
+    }
+    if (ALLOW_WHOLE_SET_PATHS.has(key)) {
+      if (value === null || value === undefined) {
+        return `禁止将 "${key}" set 为 null/undefined（会导致数据丢失）`;
       }
     }
   }
@@ -142,27 +245,42 @@ export function validateCommand(command: unknown, index: number): ValidationResu
       );
     }
 
-    // 🔒 4. 核心路径保护检查
+    // 🔧 4. 预处理：数值字段容错（"12" -> 12），降低因类型导致的回滚/拒绝
+    if (
+      typeof cmd.key === 'string' &&
+      typeof cmd.action === 'string' &&
+      (cmd.action === 'add' || cmd.action === 'set') &&
+      cmd.value !== undefined
+    ) {
+      const key = cmd.key;
+
+      if (isLikelyNumericPath(key)) {
+        const coerced = coerceNumericValue(cmd.value);
+        if (coerced !== null) cmd.value = coerced;
+      }
+    }
+
+    // 🔒 5. 核心路径保护检查
     if (cmd.key && cmd.action) {
-      const forbiddenError = checkForbiddenPath(cmd.key, cmd.action);
+      const forbiddenError = checkForbiddenPath(cmd.key, cmd.action, cmd.value);
       if (forbiddenError) {
         errors.push(`指令${index}: ${forbiddenError}`);
       }
     }
 
-    // 5. 检查value（delete操作除外）
+    // 6. 检查value（delete操作除外）
     if (cmd.action !== 'delete' && cmd.value === undefined) {
       errors.push(`指令${index}: ${cmd.action}操作必须提供value字段`);
     }
 
-    // 6. 检查多余字段（scope虽然在类型中但不应使用）
+    // 7. 检查多余字段（scope虽然在类型中但不应使用）
     const allowedFields = ['action', 'key', 'value'];
     const extraFields = Object.keys(cmd).filter(k => !allowedFields.includes(k));
     if (extraFields.length > 0) {
       warnings.push(`指令${index}: 包含多余字段: ${extraFields.join(', ')}（这些字段会被自动移除）`);
     }
 
-    // 7. 特定路径的值类型检查
+    // 8. 特定路径的值类型检查
     if (cmd.key && cmd.value !== undefined) {
       try {
         const typeErrors = validateValueType(cmd.key, cmd.value, cmd.action);
@@ -192,33 +310,10 @@ function validateValueType(key: string, value: unknown, action: string): string[
   const errors: string[] = [];
 
   try {
-    // 数值字段（只做最常见的严格校验，其它复杂结构由运行期校验器兜底）
-    const numberFields = [
-      '元数据.时间.年',
-      '元数据.时间.月',
-      '元数据.时间.日',
-      '元数据.时间.小时',
-      '元数据.时间.分钟',
-      '角色.属性.声望',
-      '角色.属性.气血.当前',
-      '角色.属性.气血.上限',
-      '角色.属性.灵气.当前',
-      '角色.属性.灵气.上限',
-      '角色.属性.神识.当前',
-      '角色.属性.神识.上限',
-      '角色.属性.寿命.当前',
-      '角色.属性.寿命.上限',
-    ];
-
     const houTianFields = ['根骨', '灵性', '悟性', '气运', '魅力', '心性'];
 
     if (action === 'add') {
-      if (numberFields.includes(key) && typeof value !== 'number') {
-        errors.push(`${key} 使用 add 时 value 必须是数字，当前类型: ${typeof value}`);
-      }
-
-      // 新货币系统：角色.背包.货币.<币种ID>.数量
-      if (key.startsWith('角色.背包.货币.') && key.endsWith('.数量') && typeof value !== 'number') {
+      if (isLikelyNumericPath(key) && typeof value !== 'number') {
         errors.push(`${key} 使用 add 时 value 必须是数字，当前类型: ${typeof value}`);
       }
 
@@ -226,6 +321,12 @@ function validateValueType(key: string, value: unknown, action: string): string[
         if (typeof value !== 'number') {
           errors.push(`${key} 使用 add 时 value 必须是数字，当前类型: ${typeof value}`);
         }
+      }
+    }
+
+    if (action === 'set') {
+      if (isLikelyNumericPath(key) && typeof value !== 'number') {
+        errors.push(`${key} 使用 set 时 value 必须是数字，当前类型: ${typeof value}`);
       }
     }
 
@@ -237,8 +338,16 @@ function validateValueType(key: string, value: unknown, action: string): string[
         const val = value as Record<string, any>;
         if (val.名称 !== undefined && typeof val.名称 !== 'string') errors.push('境界.名称必须是字符串类型');
         if (val.阶段 !== undefined && typeof val.阶段 !== 'string') errors.push('境界.阶段必须是字符串类型');
-        if (val.当前进度 !== undefined && typeof val.当前进度 !== 'number') errors.push('境界.当前进度必须是数字类型');
-        if (val.下一级所需 !== undefined && typeof val.下一级所需 !== 'number') errors.push('境界.下一级所需必须是数字类型');
+        if (val.当前进度 !== undefined && typeof val.当前进度 !== 'number') {
+          const coerced = coerceNumericValue(val.当前进度);
+          if (coerced !== null) val.当前进度 = coerced;
+          if (typeof val.当前进度 !== 'number') errors.push('境界.当前进度必须是数字类型');
+        }
+        if (val.下一级所需 !== undefined && typeof val.下一级所需 !== 'number') {
+          const coerced = coerceNumericValue(val.下一级所需);
+          if (coerced !== null) val.下一级所需 = coerced;
+          if (typeof val.下一级所需 !== 'number') errors.push('境界.下一级所需必须是数字类型');
+        }
         if (val.突破描述 !== undefined && typeof val.突破描述 !== 'string') errors.push('境界.突破描述必须是字符串类型');
       }
     }
@@ -250,8 +359,16 @@ function validateValueType(key: string, value: unknown, action: string): string[
       } else {
         const val = value as Record<string, any>;
         if (val.描述 !== undefined && typeof val.描述 !== 'string') errors.push('位置.描述必须是字符串类型');
-        if (val.x !== undefined && typeof val.x !== 'number') errors.push('位置.x必须是数字类型');
-        if (val.y !== undefined && typeof val.y !== 'number') errors.push('位置.y必须是数字类型');
+        if (val.x !== undefined && typeof val.x !== 'number') {
+          const coerced = coerceNumericValue(val.x);
+          if (coerced !== null) val.x = coerced;
+          if (typeof val.x !== 'number') errors.push('位置.x必须是数字类型');
+        }
+        if (val.y !== undefined && typeof val.y !== 'number') {
+          const coerced = coerceNumericValue(val.y);
+          if (coerced !== null) val.y = coerced;
+          if (typeof val.y !== 'number') errors.push('位置.y必须是数字类型');
+        }
         if (val.地图ID !== undefined && typeof val.地图ID !== 'string') errors.push('位置.地图ID必须是字符串类型');
       }
     }

@@ -414,6 +414,7 @@ import {
 } from '@/services/onlineTravel';
 
 import { getMyPresence, type PresenceStatusResponse } from '@/services/presence';
+import { flushPendingTravelNotes, TRAVEL_NOTE_EVENT } from '@/services/onlineLogQueue';
 
 const { t } = useI18n();
 const uiStore = useUIStore();
@@ -453,6 +454,15 @@ const SESSION_POLL_INTERVAL = 30000; // 30秒轮询一次
 const heartbeatStatus = ref<'normal' | 'warning' | 'error'>('normal');
 const lastHeartbeatTime = ref<Date | null>(null);
 const heartbeatMessage = ref('');
+
+const handleTravelNotePosted = (event: Event) => {
+  const detail = (event as CustomEvent)?.detail as any;
+  const sid = Number(detail?.sessionId);
+  if (!Number.isFinite(sid) || sid <= 0) return;
+  if (session.value?.session_id === sid) {
+    void loadSessionLogs(sid);
+  }
+};
 
 const formatVisibilityMode = (mode: string): string => {
   const map: Record<string, string> = { public: t('公开'), hidden: t('隐藏'), locked: t('上锁') };
@@ -1550,6 +1560,7 @@ watch(myWorld, (newWorld) => {
 }, { immediate: true });
 
 onMounted(async () => {
+  window.addEventListener(TRAVEL_NOTE_EVENT, handleTravelNotePosted as any);
   try {
     await uiStore.checkBackendConnection();
     if (!backendReady.value) return;
@@ -1558,6 +1569,7 @@ onMounted(async () => {
     await refreshPresence();
     await refreshReports();
     await restoreActiveSession();
+    void flushPendingTravelNotes({ sessionId: session.value?.session_id ? Number(session.value.session_id) : undefined, max: 25 });
     await loadWorlds(true); // 新增: 加载可穿越世界列表
   } catch (e: any) {
     console.warn('[OnlineTravelPanel] init failed', e);
@@ -1566,6 +1578,7 @@ onMounted(async () => {
 
 // 🔥 修复：组件卸载时清理定时器和防抖定时器，避免内存泄漏
 onUnmounted(() => {
+  window.removeEventListener(TRAVEL_NOTE_EVENT, handleTravelNotePosted as any);
   stopSessionPolling();
   if (searchDebounceTimer.value) {
     clearTimeout(searchDebounceTimer.value);

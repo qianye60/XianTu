@@ -26,6 +26,7 @@ import './styles/design-system.css'
 import './utils/consolePatch'
 import { migrateData } from './utils/indexedDBManager'
 import { useI18n } from './i18n'
+import { flushPendingTravelNotes } from '@/services/onlineLogQueue'
 
 async function initializeApp() {
   console.log('【应用启动】开始初始化流程...');
@@ -53,10 +54,12 @@ async function initializeApp() {
   app.use(router);
   app.mount('#app');
 
+  // 尝试补发联机穿越日志（网络波动/短暂掉线时的兜底）
+  void flushPendingTravelNotes();
+
   console.log('【应用启动】✅ Vue应用已成功挂载');
 }
 
 initializeApp();
-
 
 

@@ -82,6 +82,7 @@ import { toast } from '../utils/toast';
 import { request } from '../services/request';
 import { waitForTurnstile, renderTurnstile, resetTurnstile, removeTurnstile } from '../services/turnstile';
 import { isBackendConfigured } from '@/services/backendConfig';
+import { flushPendingTravelNotes } from '@/services/onlineLogQueue';
 
 const emit = defineEmits(['loggedIn', 'back']);
 
@@ -368,6 +369,9 @@ const handleLogin = async () => {
 
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('username', username.value);
+
+    // 登录后尝试补发联机穿越日志（可能是在未登录期间入队的）
+    void flushPendingTravelNotes();
 
     toast.success('登入成功，天机已连通！');
     emit('loggedIn');
