@@ -79,6 +79,10 @@ export const useUIStore = defineStore('ui', () => {
   // 用户输入框内容持久化
   const userInputText = ref('');
 
+  // 最近一次“实际发送给AI”的用户输入（仅用于UI展示/排查“我说的话不生效”类反馈；不写入存档/记忆）
+  const lastSentUserIntentText = ref('');
+  const lastSentUserIntentSource = ref<'manual' | 'action_option' | 'mixed' | 'unknown'>('unknown');
+
   // 🔥 [NPC自动生成设置] 控制AI是否在人物数量不足时自动生成NPC
   const autoGenerateNpc = ref(true); // 默认开启
   const minNpcCount = ref(3); // 最少NPC数量
@@ -86,6 +90,13 @@ export const useUIStore = defineStore('ui', () => {
   // 🔥 [行动选项设置] 控制AI是否生成行动选项
   const enableActionOptions = ref(localStorage.getItem('enableActionOptions') !== 'false'); // 默认开启
   const actionOptionsPrompt = ref(localStorage.getItem('actionOptionsPrompt') || ''); // 自定义行动选项提示词
+
+  // 🛡️ [指令/存档保护强度] 控制 AI 指令校验与保护力度
+  // - strict: 严格校验 + 保护（更安全）
+  // - skeleton: 仅保护存档骨干结构/记忆/系统自动字段（更自由，但更容易生成脏数据）
+  const commandProtectionMode = ref<'strict' | 'skeleton'>(
+    (localStorage.getItem('commandProtectionMode') as 'strict' | 'skeleton') || 'strict'
+  );
 
   // 🔥 [流式传输设置] 控制是否启用流式传输（全局持久化）
   const useStreaming = ref(localStorage.getItem('useStreaming') !== 'false'); // 默认开启
@@ -360,7 +371,7 @@ export const useUIStore = defineStore('ui', () => {
     showToastState.value = false;
   }
 
-  return {
+	  return {
     // Toast
     showToastState,
     toastMessage,
@@ -445,6 +456,15 @@ export const useUIStore = defineStore('ui', () => {
       }
     }),
 
+    commandProtectionMode: computed({
+      get: () => commandProtectionMode.value,
+      set: (val) => {
+        const normalized = val === 'skeleton' ? 'skeleton' : 'strict';
+        commandProtectionMode.value = normalized;
+        localStorage.setItem('commandProtectionMode', normalized);
+      }
+    }),
+
     // 🔥 [流式传输设置] 暴露流式传输开关（全局持久化）
     useStreaming: computed({
       get: () => useStreaming.value,
@@ -454,8 +474,10 @@ export const useUIStore = defineStore('ui', () => {
       }
     }),
 
-    // 暴露用户输入框内容
-    userInputText,
+	    // 暴露用户输入框内容
+	    userInputText,
+	    lastSentUserIntentText,
+	    lastSentUserIntentSource,
 
     // 🔥 [后端状态管理] 暴露后端状态相关
     backendStatus,

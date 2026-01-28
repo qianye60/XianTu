@@ -121,16 +121,13 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     return apiConfigs.value.filter(api => api.enabled);
   });
 
-  // 计算属性：判断是否需要自动启用分步生成
-  // 如果 main、instruction_generation 任一分配了独立API且启用，则自动启用分步生成
+  // 计算属性：提示“指令生成”是否配置了独立API
+  // 说明：真正是否分步生成由“分步生成”开关控制（dad_game_settings.splitResponseGeneration）。
+  // 这里仅用于UI提示：当指令生成绑定到非 default API 时，表示你希望第2步可单独调用独立API/模型。
   const shouldEnableSplitGeneration = computed(() => {
-    const mainAssignment = apiAssignments.value.find(a => a.type === 'main');
     const instructionAssignment = apiAssignments.value.find(a => a.type === 'instruction_generation');
 
-    return (
-      (mainAssignment?.apiId && mainAssignment.apiId !== 'default') ||
-      (instructionAssignment?.apiId && instructionAssignment.apiId !== 'default')
-    );
+    return !!(instructionAssignment?.apiId && instructionAssignment.apiId !== 'default');
   });
 
   // 初始化：从localStorage加载

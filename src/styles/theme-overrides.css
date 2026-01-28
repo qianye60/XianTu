@@ -145,11 +145,10 @@
 
 /* 通用按钮最小宽度和居中样式 */
 button {
-  min-width: fit-content;
+  /* 移动端/窄屏兼容：避免按钮因“内容最小宽度”导致容器横向溢出而被裁切 */
+  min-width: 0;
+  max-width: 100%;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* RetryConfirmDialog 按钮修复 */
@@ -386,4 +385,3 @@ button {
     padding: 8px 16px !important;
   }
 }
-

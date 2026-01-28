@@ -150,10 +150,10 @@
         <div class="pipeline-hint">
           <div class="hint-icon">💡</div>
           <div class="hint-content">
-            <strong>智能流水线：</strong>只有配置了独立API的功能才会触发额外调用。
-            如果所有功能都使用"默认API"，系统会合并请求以节省调用次数。
+            <strong>智能流水线：</strong>“主流程”默认一次性生成正文/行动选项/指令（1次调用）。
+            若开启“分步生成”，系统会拆成两次调用：第1步生成正文，第2步生成指令JSON（是否使用独立API由「指令生成」分配决定）。
             <br/>
-            <span class="hint-example">示例：指令生成 + Main 使用同一API = 1次调用 | 指令生成 + Main 使用不同API = 2次调用</span>
+            <span class="hint-example">示例：关闭分步生成=1次调用；开启分步生成=2次调用（第2步可单独指定模型以提高JSON稳定性）</span>
           </div>
         </div>
         <div class="settings-list">
@@ -245,12 +245,26 @@
             </div>
           </div>
 
-          <!-- 自动分步生成提示 -->
-          <div v-if="apiStore.shouldEnableSplitGeneration" class="auto-split-hint">
+          <!-- 分步/指令API提示（避免“主API/指令API”语义混淆） -->
+          <div v-if="splitResponseGeneration && apiStore.shouldEnableSplitGeneration" class="auto-split-hint">
             <div class="hint-icon">⚡</div>
             <div class="hint-text">
-              <strong>自动分步生成已启用：</strong>
-              检测到主游戏流程中有功能使用了独立API，系统将自动启用分步生成以优化性能。
+              <strong>分步生成将使用独立「指令生成」API：</strong>
+              第1步（正文/行动）走主流程API；第2步（tavern_commands 等结构化JSON）走你选择的「指令生成」API。
+            </div>
+          </div>
+          <div v-else-if="splitResponseGeneration" class="auto-split-hint">
+            <div class="hint-icon">⚡</div>
+            <div class="hint-text">
+              <strong>分步生成已开启：</strong>
+              当前未配置独立「指令生成」API，第2步将复用主流程API。
+            </div>
+          </div>
+          <div v-else-if="apiStore.shouldEnableSplitGeneration" class="auto-split-hint warn">
+            <div class="hint-icon">ℹ️</div>
+            <div class="hint-text">
+              <strong>已配置独立「指令生成」API：</strong>
+              但“分步生成”当前关闭，因此该配置不会生效；开启分步生成后才会用于第2步。
             </div>
           </div>
 
@@ -795,11 +809,11 @@ const onProviderChange = () => {
 // 获取功能名称
 const getFunctionName = (type: APIUsageType): string => {
   const names: Record<APIUsageType, string> = {
-    main: '主游戏流程',
+    main: '主流程（正文/行动）',
     memory_summary: '记忆总结',
     embedding: '向量检索(Embedding)',
     text_optimization: '文本优化',
-    instruction_generation: '指令生成',
+    instruction_generation: '指令生成（分步第2步）',
     world_generation: '世界生成',
       event_generation: '事件生成',
       sect_generation: '宗门生成',
@@ -813,11 +827,11 @@ const getFunctionDesc = (type: APIUsageType): string => {
   if (isTavernEnvFlag.value) {
     // 酒馆模式的描述
     const descs: Record<APIUsageType, string> = {
-      main: '游戏主要交互（酒馆模式下永远使用酒馆API）',
+      main: '游戏主要交互（正文/行动选项/指令；酒馆模式下永远使用酒馆API）',
       memory_summary: '压缩总结历史记忆，包括NPC记忆（可配置Raw/标准模式）',
       embedding: '向量记忆语义检索用Embedding（需要embedding模型，建议使用独立API）',
       text_optimization: '优化AI输出文本（可配置Raw/标准模式）',
-      instruction_generation: '将用户模糊指令转化为明确游戏指令（含思维链推理）',
+      instruction_generation: '分步生成的第2步：生成 tavern_commands 等结构化JSON（可单独指定更擅长JSON的模型）',
       world_generation: '生成世界、地点等（可配置Raw/标准模式）',
         event_generation: '生成世界事件（可配置Raw/标准模式）',
         sect_generation: '生成宗门内容如藏经阁、贡献商店（可配置Raw/标准模式）',
@@ -827,11 +841,11 @@ const getFunctionDesc = (type: APIUsageType): string => {
   } else {
     // 网页模式的描述
     const descs: Record<APIUsageType, string> = {
-      main: '游戏主要交互和剧情生成（核心API）',
+      main: '游戏主要交互与叙事生成（正文/行动选项/指令等的默认承载）',
       memory_summary: '压缩总结历史记忆，包括NPC记忆（可用快速模型节省成本）',
       embedding: '向量记忆语义检索用Embedding（需要embedding模型）',
       text_optimization: '优化AI输出的文本质量',
-      instruction_generation: '将用户模糊指令转化为明确游戏指令（含思维链推理）',
+      instruction_generation: '分步生成的第2步：生成 tavern_commands 等结构化JSON（可单独指定更擅长JSON的模型）',
       world_generation: '生成世界、地点等内容（开局时使用）',
         event_generation: '生成世界事件（可用快速模型）',
         sect_generation: '生成宗门内容如藏经阁、贡献商店（可用快速模型）',
@@ -1388,6 +1402,8 @@ const handleImport = () => {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
   padding: 1rem 1.25rem;
   background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
   border-bottom: 1px solid var(--color-border);
@@ -1449,12 +1465,18 @@ const handleImport = () => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .api-name {
   font-weight: 600;
   font-size: 1rem;
   color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .api-provider {
@@ -1477,6 +1499,7 @@ const handleImport = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .icon-btn {
@@ -1537,6 +1560,7 @@ const handleImport = () => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
+  min-width: 0;
 }
 
 .detail-label {
@@ -1546,6 +1570,7 @@ const handleImport = () => {
 .detail-value {
   color: var(--color-text);
   font-weight: 500;
+  min-width: 0;
 }
 
 .detail-value.url {
@@ -1677,6 +1702,19 @@ const handleImport = () => {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(37, 99, 235, 0.05));
   border: 1px solid rgba(59, 130, 246, 0.2);
   border-radius: 0.5rem;
+}
+
+.auto-split-hint.warn {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(251, 191, 36, 0.06));
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.auto-split-hint.warn .hint-text {
+  color: #92400e;
+}
+
+.auto-split-hint.warn .hint-text strong {
+  color: #78350f;
 }
 
 .auto-split-hint .hint-icon {
@@ -2224,6 +2262,12 @@ input:checked + .switch-slider:before {
   .api-card-body {
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  /* 关键：极窄屏下把卡片右侧操作（编辑/删除）换到新行，避免被裁切 */
+  .api-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .form-row {

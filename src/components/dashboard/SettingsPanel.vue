@@ -173,6 +173,19 @@
               ></textarea>
             </div>
           </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('存档保护强度') }}</label>
+              <span class="setting-desc">{{ t('控制AI指令的保护/拒绝力度；更低更自由，但更容易产生坏存档') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="uiStore.commandProtectionMode" class="setting-select">
+                <option value="strict">{{ t('严格（推荐）') }}</option>
+                <option value="skeleton">{{ t('仅骨干（更自由）') }}</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 

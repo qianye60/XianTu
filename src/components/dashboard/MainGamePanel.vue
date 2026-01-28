@@ -65,6 +65,14 @@
 
         <!-- 流式输出内容（生成时实时显示，优先级最高） -->
         <div v-if="isAIProcessing && streamingContent" class="streaming-narrative-content">
+          <div v-if="uiStore.lastSentUserIntentText" class="last-user-intent">
+            <div class="last-user-intent-header">
+              <span class="k">你的输入</span>
+              <span v-if="uiStore.lastSentUserIntentSource === 'action_option'" class="badge">来自行动推荐</span>
+              <span v-else-if="uiStore.lastSentUserIntentSource === 'mixed'" class="badge">含行动推荐</span>
+            </div>
+            <div class="last-user-intent-text">{{ uiStore.lastSentUserIntentText }}</div>
+          </div>
           <div class="streaming-text">
             <FormattedText :text="streamingContent" />
           </div>
@@ -111,6 +119,14 @@
                 <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
               </button>
             </div>
+          </div>
+          <div v-if="uiStore.lastSentUserIntentText" class="last-user-intent">
+            <div class="last-user-intent-header">
+              <span class="k">你的输入</span>
+              <span v-if="uiStore.lastSentUserIntentSource === 'action_option'" class="badge">来自行动推荐</span>
+              <span v-else-if="uiStore.lastSentUserIntentSource === 'mixed'" class="badge">含行动推荐</span>
+            </div>
+            <div class="last-user-intent-text">{{ uiStore.lastSentUserIntentText }}</div>
           </div>
           <div class="narrative-text">
             <FormattedText :text="currentNarrative.content" />
@@ -1269,6 +1285,8 @@ const retryAIResponse = async (
 
 // 存储原始流式内容（用于解析完整JSON）
 const rawStreamingContent = ref('');
+// 记录最近一次点击的行动推荐（用于判定“发送来源/被覆盖”）
+const lastSelectedActionOption = ref('');
 
 // 检查动作是否可撤回
 const isUndoableAction = (action: { type?: string }): boolean => {
@@ -1317,7 +1335,25 @@ const removeActionFromQueue = async (index: number) => {
 
 // 选择行动选项（只填充到输入框，不自动发送，防止误触）
 const selectActionOption = (option: string) => {
-  inputText.value = option;
+  const trimmed = (option || '').trim();
+  if (!trimmed) return;
+
+  lastSelectedActionOption.value = trimmed;
+
+  const existing = (inputText.value || '').trim();
+  if (!existing) {
+    inputText.value = trimmed;
+  } else if (existing === trimmed) {
+    return;
+  } else {
+    // 不覆盖用户手动输入：追加为参考项，避免“我说的被行动推荐覆盖”的误会
+    inputText.value = `${existing}\n（行动推荐）${trimmed}`;
+  }
+
+  nextTick(() => {
+    inputRef.value?.focus?.();
+    adjustTextareaHeight();
+  });
 };
 
 const sendMessage = async () => {
@@ -1363,9 +1399,21 @@ const sendMessage = async () => {
     }
   }
 
-  const userMessage = inputText.value.trim();
-  console.log('[前端] 用户输入 inputText.value:', inputText.value);
-  console.log('[前端] 处理后 userMessage:', userMessage);
+	  const userMessage = inputText.value.trim();
+	  console.log('[前端] 用户输入 inputText.value:', inputText.value);
+	  console.log('[前端] 处理后 userMessage:', userMessage);
+
+	  // 🔍 仅用于UI展示：记录本回合“实际发送给AI”的用户输入（不写入存档/记忆）
+	  uiStore.lastSentUserIntentText = userMessage;
+	  if (lastSelectedActionOption.value && userMessage === lastSelectedActionOption.value) {
+	    uiStore.lastSentUserIntentSource = 'action_option';
+	  } else if (lastSelectedActionOption.value && userMessage.includes(lastSelectedActionOption.value)) {
+	    uiStore.lastSentUserIntentSource = 'mixed';
+	  } else if (userMessage) {
+	    uiStore.lastSentUserIntentSource = 'manual';
+	  } else {
+	    uiStore.lastSentUserIntentSource = 'unknown';
+	  }
 
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
@@ -2498,6 +2546,47 @@ const syncGameState = async () => {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   animation: fadeIn 0.3s ease-in;
+}
+
+/* 用户本回合输入展示（仅UI；不进入记忆/存档） */
+.last-user-intent {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.last-user-intent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.last-user-intent-header .k {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.last-user-intent-header .badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.last-user-intent-text {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
 }
 
 .streaming-text,
