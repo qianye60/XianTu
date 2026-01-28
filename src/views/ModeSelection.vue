@@ -705,8 +705,10 @@ button {
     padding-top: calc(0.75rem + env(safe-area-inset-top));
     padding-left: calc(0.75rem + env(safe-area-inset-left));
     padding-right: calc(0.75rem + env(safe-area-inset-right));
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
     min-height: 100vh;
     min-height: 100svh;
+    height: auto;
   }
 
   .selection-content {
@@ -717,7 +719,8 @@ button {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
+    margin-bottom: 1rem;
   }
 
   .top-info {
