@@ -52,7 +52,7 @@
     "eslint-plugin-vue": "~10.3.0",
     "html-inline-css-webpack-plugin": "^1.11.2",
     "html-inline-script-webpack-plugin": "^3.2.1",
-    "html-webpack-plugin": "^5.6.5",
+    "html-webpack-plugin": "^5.6.6",
     "jiti": "^2.6.1",
     "lodash": "^4.17.21",
     "mini-css-extract-plugin": "^2.9.2",
