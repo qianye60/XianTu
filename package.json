@@ -44,7 +44,7 @@
     "@types/lodash": "^4.17.21",
     "@types/node": "^25.0.3",
     "@types/webpack-env": "^1.18.8",
-    "@vue/compiler-sfc": "^3.5.18",
+    "@vue/compiler-sfc": "^3.5.27",
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.6.0",
     "css-loader": "^7.1.2",
