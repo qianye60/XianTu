@@ -38,6 +38,13 @@ export const LOCATION_UPDATE_RULES = `
 触发:移动/场景变化时必须更新;格式:set角色.位置{描述,x,y,灵气浓度}
 字段:描述"大陆·区域·地点"必填;x/y坐标中心(5000,5000)东+x西-x北-y南+y;灵气浓度1-100必填(1-20稀薄/21-40普通/41-60充沛/61-80浓郁/81-100极盛)
 地点势力不重叠:每地点只归属一个势力;势力控制区域不能重叠
+
+[区域地图位置]
+当玩家/NPC进入某地点内部区域时,位置增加两个可选字段:
+regionId:所在区域的地点名(与地图上的地点名称一致)
+buildingId:所在建筑的id(对应区域地图的建筑id)
+在区域内移动时:set 角色.位置.buildingId 为目标建筑id
+离开区域返回世界地图:set 角色.位置 清除regionId和buildingId,更新x/y坐标
 `.trim();
 
 export const COMMAND_PATH_CONSTRUCTION_RULES = `
@@ -315,6 +322,11 @@ export const NPC_RULES = `
 人设一致(防OOC):立场与关系/势力/底线一致;知识边界一致(只基于亲眼所见与可靠传闻);口吻符合身份时代(禁现代网语/禁自称AI);变化需事件触发
 技术:创建NPC一次性set完整对象;更新用set/add/push具体字段;禁重复创建同名NPC
 禁止:玩家本人/玩家名不得写入社交.关系(否则会污染NPC列表)
+[NPC区域位置]
+NPC当前位置字段:社交.关系.{NPC名}.当前位置={描述,x,y,regionId?,buildingId?}
+regionId/buildingId可选:有值=NPC在某地点内部(如宗门某建筑);无值=NPC在世界地图两地之间移动
+NPC在区域内移动:set 社交.关系.{NPC名}.当前位置.buildingId 为目标建筑id
+NPC离开区域:set 当前位置 清除regionId/buildingId,更新x/y为新地点坐标
 [⚠️NPC先天六司]
 六项含义:根骨(体魄强度)/灵性(灵气感应)/悟性(学习理解)/气运(机缘福报)/魅力(吸引力)/心性(意志定力)
 数值范围:1-10,必须独立设定,严禁全同,至少3项不同

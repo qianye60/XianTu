@@ -656,9 +656,11 @@ export interface PlayerStatus extends AIMetadata {
   声望: number;
   位置: {
     描述: string;
-    x?: number; // 经度坐标 (Longitude, 通常 100-115)
-    y?: number; // 纬度坐标 (Latitude, 通常 25-35)
+    x?: number; // 世界地图 x 坐标 (0-10000)
+    y?: number; // 世界地图 y 坐标 (0-10000)
     灵气浓度?: number; // 当前位置的灵气浓度，1-100，影响修炼速度
+    regionId?: string; // 【区域地图】所在区域ID，存在时表示角色在区域内
+    buildingId?: string; // 【区域地图】所在建筑ID
   };
   气血: ValuePair<number>;
   灵气: ValuePair<number>;
@@ -794,6 +796,7 @@ export interface WorldInfo {
   地点信息: WorldLocation[];
   地图配置?: WorldMapConfig; // 新增地图配置
   经济?: EconomyState; // 可选：经济/货币波动（用于动态汇率、地区差异）
+  区域地图?: import('./gameMap').RegionMap[]; // 【区域地图】按需生成，存储已生成的区域地图
   // 从 WorldGenerationInfo 扁平化
   生成时间: string;
   世界背景: string;
@@ -918,23 +921,23 @@ export interface BodyStats {
     腰围: number; // cm
     臀围: number; // cm
   };
-  
+
   // 性征描述
   胸部描述?: string; // 罩杯、形状等
   私处描述?: string; // 女性私处/特殊部位
   生殖器描述?: string; // 尺寸、形状、特征
-  
+
   // 外观细节
   肤色?: string;
   发色?: string;
   瞳色?: string;
   纹身与印记?: string[];
   穿刺?: string[];
-  
+
   // 敏感与开发
   敏感点?: string[];
   开发度?: Record<string, number>; // 部位 -> 0-100
-  
+
   // 其他
   其它?: Record<string, any>;
 }
@@ -1005,9 +1008,11 @@ export interface NpcProfile {
   好感度: number; // -100 到 100
   当前位置: {
     描述: string;
-    x?: number; // 经度坐标 (Longitude, 通常 100-115)
-    y?: number; // 纬度坐标 (Latitude, 通常 25-35)
+    x?: number; // 世界地图 x 坐标 (0-10000)
+    y?: number; // 世界地图 y 坐标 (0-10000)
     灵气浓度?: number; // 当前位置的灵气浓度，1-100
+    regionId?: string; // 【区域地图】所在区域ID，存在时表示 NPC 在区域内
+    buildingId?: string; // 【区域地图】所在建筑ID
   };
   势力归属?: string;
 

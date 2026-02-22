@@ -594,7 +594,7 @@ export const useGameStateStore = defineStore('gameState', {
       // 否则会导致下次加载时重复叠加天赋/装备加成（基值被污染为总值，再算一遍加成）。
       // character.后天六司 应该只存储永久性的消耗品加成。
       // 天赋/装备加成应在运行时动态计算，不落盘到该字段。
-      
+
       return deepCopy(v3 as any);
     },
 
@@ -933,6 +933,60 @@ export const useGameStateStore = defineStore('gameState', {
       }
 
       console.log('[gameStateStore] ✅ 已添加到短期记忆', finalContent.substring(0, 50) + '...');
-    }
+    },
+
+    // ─── 区域地图操作 ───────────────────────────────────────────────────────────
+
+    /**
+     * 根据地点标识查询已生成的区域地图
+     * @param locationId WorldLocation 的名称或 id
+     */
+    getRegionMap(locationId: string) {
+      const maps = (this.worldInfo as any)?.区域地图 as import('@/types/gameMap').RegionMap[] | undefined;
+      return maps?.find((m) => m.linkedLocationId === locationId) ?? null;
+    },
+
+    /**
+     * 保存（新增或更新）一张区域地图到 worldInfo
+     * @param map 完整的 RegionMap 对象
+     */
+    saveRegionMap(map: import('@/types/gameMap').RegionMap) {
+      if (!this.worldInfo) return;
+      const worldInfo = this.worldInfo as any;
+      if (!Array.isArray(worldInfo.区域地图)) {
+        worldInfo.区域地图 = [];
+      }
+      const idx = (worldInfo.区域地图 as any[]).findIndex(
+        (m: any) => m.linkedLocationId === map.linkedLocationId
+      );
+      if (idx >= 0) {
+        worldInfo.区域地图[idx] = map;
+      } else {
+        worldInfo.区域地图.push(map);
+      }
+    },
+
+    /**
+     * 玩家进入区域：更新位置中的 regionId / buildingId
+     * @param regionId  区域地图 ID
+     * @param buildingId 初始落点建筑 ID（通常为入口建筑）
+     */
+    enterRegion(regionId: string, buildingId: string) {
+      if (!this.location) return;
+      this.location = { ...this.location, regionId, buildingId } as any;
+      console.log(`[gameStateStore] ✅ 进入区域: ${regionId} / 建筑: ${buildingId}`);
+    },
+
+    /**
+     * 玩家离开区域：清除位置中的 regionId / buildingId，恢复世界地图状态
+     */
+    leaveRegion() {
+      if (!this.location) return;
+      const loc = { ...this.location } as any;
+      delete loc.regionId;
+      delete loc.buildingId;
+      this.location = loc;
+      console.log('[gameStateStore] ✅ 已离开区域，返回世界地图');
+    },
   },
 });

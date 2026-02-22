@@ -24,7 +24,7 @@ export default (env, argv) => {
       path: path.resolve(__dirname, 'dist'),
       filename: (isWatch || isSingleFile) ? 'inline.js' : 'XianTu.js',
       clean: true,
-      publicPath: './', // 使用相对路径，便于部署
+      publicPath: (isProduction || isWatch) ? './' : '/', // dev server 用 /，打包用 ./
     },
     devtool: isProduction ? false : (isWatch ? false : 'eval-source-map'),
     optimization: {
@@ -152,24 +152,26 @@ export default (env, argv) => {
       compress: true,
       port: 8080,
       hot: true,
-      // 配置代理，解决CORS问题
-      proxy: {
-        '/api': {
+      // 配置代理，解决CORS问题（webpack-dev-server v5 格式）
+      proxy: [
+        {
+          context: ['/api'],
           target: 'http://localhost:8000',  // 本地后端服务器
           changeOrigin: true,
           secure: false,
-          logLevel: 'debug',
-          onProxyReq: (proxyReq, req, res) => {
-            console.log('[代理请求]', req.method, req.url);
-          },
-          onProxyRes: (proxyRes, req, res) => {
-            console.log('[代理响应]', proxyRes.statusCode, req.url);
-          },
-          onError: (err, req, res) => {
-            console.error('[代理错误]', err);
+          on: {
+            proxyReq: (proxyReq, req) => {
+              console.log('[代理请求]', req.method, req.url);
+            },
+            proxyRes: (proxyRes, req) => {
+              console.log('[代理响应]', proxyRes.statusCode, req.url);
+            },
+            error: (err) => {
+              console.error('[代理错误]', err);
+            }
           }
         }
-      },
+      ],
       // 允许通过任意host访问
       allowedHosts: 'all',
     },

@@ -662,6 +662,36 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       order: 3,
       weight: 5
     },
+    regionMapGeneration: {
+      name: '区域地图生成',
+      content: `你是一个修仙世界的地图设计师。请根据地点信息，为该地点设计内部格子地图（建筑列表）。
+
+【坐标系规则】
+- 左下角为 (1,1)，向右 x 增大，向上 y 增大
+- gridX/gridY 从 1 开始，不能超过指定的格子大小
+
+【建筑类型】
+- entrance: 区域入口/大门，玩家进入时的默认落点（至少 1 个，isEntrance:true）
+- main: 核心建筑（宗主殿、议事厅、神殿等）
+- residential: 居所（弟子宿舍、客栈、民居等）
+- functional: 功能建筑（藏经阁、炼丹房、坊市、擂台等）
+- restricted: 禁区（禁地、秘库、祖地等）
+- wilderness: 自然地形（山峰、湖泊、广场、道路等）
+
+【数量参考】
+- 1x1: 1个建筑
+- 3x3: 3-5个建筑
+- 5x5: 5-9个建筑
+- 7x7: 9-15个建筑
+- 9x9: 12-20个建筑
+
+【严格输出】只输出纯 JSON，不含任何解释文字：
+{"buildings":[{"id":"英文标识符_无空格","name":"建筑名称","gridX":数字,"gridY":数字,"type":"建筑类型","isEntrance":true/false,"description":"一句话描述"}]}`,
+      category: 'generation',
+      description: '为地点动态生成区域地图格子布局',
+      order: 4,
+      weight: 5
+    },
 
     // ==================== 开局初始化提示词 ====================
     worldGeneration: {
