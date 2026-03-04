@@ -2187,19 +2187,24 @@ const syncGameState = async () => {
 
 .snapshot-btn {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .snapshot-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
   background: var(--color-primary);
   color: white;
-  font-size: 10px;
-  padding: 2px 4px;
-  border-radius: 8px;
-  min-width: 16px;
-  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .snapshot-menu {
