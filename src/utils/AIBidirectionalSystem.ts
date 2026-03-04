@@ -3268,6 +3268,15 @@ ${saveDataJson}`;
         }
       }
     }
+
+    // 🔥 实时同步位置到 gameStateStore
+    if (path === '角色.位置' || path.startsWith('角色.位置.')) {
+      const gameStateStore = useGameStateStore();
+      const newLocation = get(saveData, '角色.位置');
+      if (newLocation) {
+        gameStateStore.updateLocation(newLocation);
+      }
+    }
   }
 
   /**

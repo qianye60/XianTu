@@ -72,6 +72,13 @@ export function clearSnapshots(charId: string, slot: string): void {
   snapshots.delete(getKey(charId, slot));
 }
 
+export function deleteSnapshotsFrom(charId: string, slot: string, fromIndex: number): void {
+  const key = getKey(charId, slot);
+  const list = snapshots.get(key) || [];
+  list.splice(fromIndex, 1);
+  snapshots.set(key, list);
+}
+
 export function restoreSnapshot(currentData: SaveData, snapshot: Snapshot): SaveData {
   return {
     ...currentData,

@@ -964,6 +964,16 @@ const rollbackToSnapshot = async (snapshotId: string) => {
 
         uiStore.resetStreamingState();
         uiStore.lastSentUserIntentText = '';
+
+        // 删除该快照及之后的所有快照
+        const { getSnapshots } = await import('@/utils/snapshotManager');
+        const allSnapshots = getSnapshots(active.角色ID, active.存档槽位);
+        const snapIndex = allSnapshots.findIndex(s => s.id === snapshotId);
+        if (snapIndex !== -1) {
+          const { deleteSnapshotsFrom } = await import('@/utils/snapshotManager');
+          deleteSnapshotsFrom(active.角色ID, active.存档槽位, snapIndex);
+        }
+
         toast.success('已回退到快照');
       } catch (error) {
         console.error('回退失败:', error);
@@ -2187,24 +2197,23 @@ const syncGameState = async () => {
 
 .snapshot-btn {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .snapshot-count {
-  background: var(--color-primary);
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #3b82f6;
   color: white;
   font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 10px;
-  min-width: 18px;
+  font-weight: 700;
+  width: 18px;
   height: 18px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .snapshot-menu {
