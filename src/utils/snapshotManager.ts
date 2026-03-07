@@ -9,7 +9,7 @@ export interface Snapshot {
   timestamp: number;
   label: string;
   data: Partial<SaveData>;
-  narrativeLength: number; // 保存叙事历史的长度而不是内容
+  叙事历史: SaveData['叙事历史'];
 }
 
 const MAX_SNAPSHOTS = 10;
@@ -51,7 +51,7 @@ export function createSnapshot(charId: string, slot: string, saveData: SaveData,
     timestamp: Date.now(),
     label: label || `${timeStr} ${memoryPreview}`,
     data: extractCoreData(saveData),
-    narrativeLength: saveData.叙事历史?.length || 0
+    叙事历史: saveData.叙事历史 || []
   };
 
   list.push(snapshot);
@@ -83,6 +83,6 @@ export function restoreSnapshot(currentData: SaveData, snapshot: Snapshot): Save
   return {
     ...currentData,
     ...snapshot.data,
-    叙事历史: currentData.叙事历史?.slice(0, snapshot.narrativeLength) || []
+    叙事历史: snapshot.叙事历史
   };
 }
