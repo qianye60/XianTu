@@ -29,7 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "idb": "^8.0.3",
-    "jquery": "^3.7.1",
+    "jquery": "^4.0.0",
     "lucide-vue-next": "^0.541.0",
     "pinia": "^3.0.4",
     "pixi.js": "^7.4.3",
