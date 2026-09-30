@@ -133,6 +133,7 @@ interface GameState {
   memory: Memory | null;
   gameTime: GameTime | null;
   narrativeHistory: GameMessage[] | null;
+  imageGallery: import('@/services/imagePlaceholders').StoryImageRecord[];
   isGameLoaded: boolean;
 
   // 三千大道系统
@@ -187,6 +188,7 @@ export const useGameStateStore = defineStore('gameState', {
     memory: null,
     gameTime: null,
     narrativeHistory: [],
+    imageGallery: [],
     isGameLoaded: false,
 
     // 其他游戏系统
@@ -359,6 +361,7 @@ export const useGameStateStore = defineStore('gameState', {
       const gameTime: GameTime | null = v3?.元数据?.时间 ? deepCopy(v3.元数据.时间) : null;
 
       const narrativeHistory: GameMessage[] = Array.isArray(v3?.系统?.历史?.叙事) ? deepCopy(v3.系统.历史.叙事) : [];
+      const imageGallery = Array.isArray(v3?.系统?.图廊) ? deepCopy(v3.系统.图廊) : [];
 
       const daoSystem = v3?.角色?.大道 ? deepCopy(v3.角色.大道) : null;
       const eventSystem: EventSystem | null = v3?.社交?.事件 ? deepCopy(v3.社交.事件) : null;
@@ -401,6 +404,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.memory = memory;
       this.gameTime = gameTime;
       this.narrativeHistory = narrativeHistory;
+      this.imageGallery = imageGallery;
 
       // 系统模块
       this.thousandDao = daoSystem ? deepCopy(daoSystem) : null;
@@ -466,7 +470,7 @@ export const useGameStateStore = defineStore('gameState', {
      * 将当前 state 转换为 SaveData 对象
      * @returns 完整的存档数据
      */
-    toSaveData(): SaveData | null {
+    toSaveData(options?: { omitNarrative?: boolean }): SaveData | null {
       // 🔥 详细的数据检查和日志输出，帮助诊断联机模式下的问题
       const missingFields: string[] = [];
       if (!this.character) missingFields.push('character');
@@ -596,6 +600,7 @@ export const useGameStateStore = defineStore('gameState', {
           设置: settings,
           缓存: { 掌握技能: this.masteredSkills ?? (skillState as any)?.掌握技能 ?? [] },
           历史: { 叙事: this.narrativeHistory || [] },
+          图廊: this.imageGallery || [],
           扩展: {},
           联机: online,
         },
@@ -606,6 +611,20 @@ export const useGameStateStore = defineStore('gameState', {
       // 否则会导致下次加载时重复叠加天赋/装备加成（基值被污染为总值，再算一遍加成）。
       // character.后天六司 应该只存储永久性的消耗品加成。
       // 天赋/装备加成应在运行时动态计算，不落盘到该字段。
+
+      // 变量页只展示结构。叙事历史通常是存档里最大的一块，整份再序列化一次会在手机上把页面撑白。
+      if (options?.omitNarrative && v3.系统) {
+        const count = Array.isArray(this.narrativeHistory) ? this.narrativeHistory.length : 0;
+        const imageCount = Array.isArray(this.imageGallery) ? this.imageGallery.length : 0;
+        v3.系统 = {
+          ...v3.系统,
+          历史: {
+            ...(v3.系统.历史 || {}),
+            叙事: { 条数: count, 说明: '叙事历史受保护，不在此展开' },
+          },
+          图廊: { 条数: imageCount, 说明: '图廊图片受保护，不在此展开' },
+        };
+      }
 
       return deepCopy(v3 as any);
     },
@@ -706,6 +725,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.memory = null;
       this.gameTime = null;
       this.narrativeHistory = [];
+      this.imageGallery = [];
       this.isGameLoaded = false;
 
       // 重置其他系统数据

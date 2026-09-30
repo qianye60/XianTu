@@ -136,7 +136,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Database, FileText, Plug, Hammer, Shield, BadgeCheck, ChevronLeft, ChevronRight, ArrowLeft, Check, Loader2 } from 'lucide-vue-next';
+import { Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Database, FileText, Plug, Hammer, Shield, BadgeCheck, ChevronLeft, ChevronRight, ArrowLeft, Check, Loader2, Images } from 'lucide-vue-next';
 import { useCurrentPageActions } from '@/composables/usePageActions';
 import { applyUIScale } from '@/utils/readingPrefs';
 import { detectSectMigration } from '@/utils/sectMigration';
@@ -210,7 +210,7 @@ const maybePromptSectMigration = () => {
 
 // 面板状态管理
 const panelRoutes = new Set([
-  'Inventory', 'CharacterDetails', 'Memory',
+  'Inventory', 'CharacterDetails', 'Memory', 'Gallery',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
   'Events', 'Crafting', 'Sect', 'SectOverview', 'SectMembers', 'SectManagement', 'SectLibrary', 'SectTasks', 'SectContribution', 'GameVariables',
   'Npcs',
@@ -235,6 +235,7 @@ const panelTitles: Record<string, { title: string; desc?: string; icon: IconComp
   Inventory: { title: '背包物品', desc: '管理道具装备', icon: Package },
   CharacterDetails: { title: '人物属性', desc: '修为境界状态', icon: User },
   Memory: { title: '记忆档案', desc: '重要事件回顾', icon: Brain },
+  Gallery: { title: '图廊', desc: '本局生成的剧情插图', icon: Images },
   Cultivation: { title: '修炼系统', icon: BookOpen },
   Techniques: { title: '功法技能', desc: '修炼突破晋级', icon: Zap },
   ThousandDao: { title: '大道感悟', desc: '领悟天地法则', icon: Scroll },
@@ -861,6 +862,8 @@ watch(isPanelOpen, (isOpen) => {
 
   .sheet-body {
     padding: 0 0.75rem 0.75rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 </style>

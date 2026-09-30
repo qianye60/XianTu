@@ -31,6 +31,12 @@ export interface APIConfig {
   /** 公益模型的简介和公益池里的渠道数，只用于展示 */
   description?: string;
   poolChannels?: number;
+  /** 生图默认宽。回合标记里的 size 优先。 */
+  imageWidth?: number;
+  imageHeight?: number;
+  imageSteps?: number;
+  imageScale?: number;
+  negativePrompt?: string;
 }
 
 export type APIUsageType =
@@ -42,7 +48,8 @@ export type APIUsageType =
   | 'world_generation'  // 世界生成
   | 'event_generation'  // 世界事件生成（随机事件/世界变革等）
   | 'sect_generation'  // 宗门内容生成（藏经阁、贡献商店等）
-  | 'crafting';  // 炼丹炼器
+  | 'crafting'  // 炼丹炼器
+  | 'image';  // 剧情生图（NAI / GPT 图片，不走对话）
 
 /**
  * 辅助功能的生成模式（仅酒馆端可选）
@@ -114,7 +121,8 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'world_generation', apiId: 'default' },
     { type: 'event_generation', apiId: 'default' },
     { type: 'sect_generation', apiId: 'default' },
-    { type: 'crafting', apiId: 'default' }
+    { type: 'crafting', apiId: 'default' },
+    { type: 'image', apiId: 'default' }
   ];
 
   const DEFAULT_FUNCTION_MODES: FunctionModeConfig[] = [
@@ -134,7 +142,8 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
     { type: 'world_generation', enabled: true },
     { type: 'event_generation', enabled: true },
     { type: 'sect_generation', enabled: true },
-    { type: 'crafting', enabled: true }
+    { type: 'crafting', enabled: true },
+    { type: 'image', enabled: false }
   ];
 
   // API配置列表

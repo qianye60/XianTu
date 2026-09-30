@@ -77,7 +77,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Save, Settings, Home, Bell, Database, Clock, FileText, Plug, Heart, Shield, Hammer, X, BadgeCheck } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Save, Settings, Home, Bell, Database, Clock, FileText, Plug, Heart, Shield, Hammer, X, BadgeCheck, Images } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
@@ -181,6 +181,7 @@ const navSections = computed<Array<{ title: string; short: string; items: NavIte
         { key: 'sect', label: '宗门事务', desc: '门派事务管理', icon: Home, path: '/game/sect', onClick: handleSect },
         { key: 'npcs', label: '人物名录', desc: '结识的人物与好感', icon: Users, path: '/game/npcs', onClick: openNpcList },
         { key: 'memory', label: '记忆档案', desc: '重要事件回顾', icon: Brain, path: '/game/memory', onClick: handleMemoryCenter },
+        { key: 'gallery', label: '图廊', desc: '本局生成的剧情插图', icon: Images, path: '/game/gallery', onClick: () => router.push('/game/gallery'), disabled: !activeCharacter.value },
       ],
     },
     { title: '系统功能', short: '系统', items: systemItems },

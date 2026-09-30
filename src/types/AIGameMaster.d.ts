@@ -219,4 +219,6 @@ export interface GM_Response {
   system_messages?: string[];
   /** 行动选项（必填，3-5个选项） */
   action_options: string[];
+  /** 从正文里拆出的插图标记，提交生图渠道，不再留在叙事文本里 */
+  storyImages?: Array<{ prompt: string; size: string }>;
 }

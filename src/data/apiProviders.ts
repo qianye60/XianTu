@@ -40,14 +40,20 @@ export const PROVIDER_OPTIONS: Array<{ value: APIProvider; label: string }> = [
   { value: 'zhipu', label: '智谱 AI' },
   { value: 'volcengine', label: '豆包' },
   { value: 'siliconflow-embedding', label: '硅基流动' },
+  { value: 'nai', label: 'NAI 生图' },
+  { value: 'gpt-image', label: 'GPT 生图' },
   { value: 'custom', label: '自定义' },
 ];
 
 /** 只发向量、不走对话接口的渠道 */
 export const isEmbeddingProvider = (provider?: APIProvider) => provider === 'siliconflow-embedding';
 
-export const CHAT_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter((p) => !isEmbeddingProvider(p.value));
+/** 只生生图、不走对话接口的渠道 */
+export const isImageProvider = (provider?: APIProvider) => provider === 'nai' || provider === 'gpt-image';
+
+export const CHAT_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter((p) => !isEmbeddingProvider(p.value) && !isImageProvider(p.value));
 export const EMBEDDING_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter((p) => isEmbeddingProvider(p.value));
+export const IMAGE_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter((p) => isImageProvider(p.value));
 
 export const MODEL_PRESETS: Record<APIProvider, ModelPreset[]> = {
   openai: [
@@ -88,6 +94,16 @@ export const MODEL_PRESETS: Record<APIProvider, ModelPreset[]> = {
     { id: 'Qwen/Qwen3-Embedding-4B', name: 'Qwen3-Embedding-4B', context: '32768 token', maxOutput: '2560 维', maxTokens: 1024, description: '默认 2560 维' },
     { id: 'Qwen/Qwen3-Embedding-8B', name: 'Qwen3-Embedding-8B', context: '32768 token', maxOutput: '最高 4096 维', maxTokens: 1024, description: 'Qwen3 向量。不传 dimensions 时用模型默认维度' },
   ],
+  nai: [
+    { id: 'nai-diffusion-4-5-full', name: 'NAI 4.5 Full', context: '文生图', maxOutput: '1024²', maxTokens: 1, description: 'NovelAI 4.5 完整模型' },
+    { id: 'nai-diffusion-4-5-curated', name: 'NAI 4.5 Curated', context: '文生图', maxOutput: '1024²', maxTokens: 1, description: 'NovelAI 4.5 精选模型' },
+    { id: 'nai-diffusion-5-full', name: 'NAI 5 Full', context: '文生图', maxOutput: '1024²', maxTokens: 1, description: 'NovelAI 5 完整模型' },
+    { id: 'nai-diffusion-5-curated', name: 'NAI 5 Curated', context: '文生图', maxOutput: '1024²', maxTokens: 1, description: 'NovelAI 5 精选模型' },
+  ],
+  'gpt-image': [
+    { id: 'gpt-image-1', name: 'GPT Image 1', context: '文生图', maxOutput: '1536px', maxTokens: 1, description: 'OpenAI 兼容 images/generations，和织界的 GPT 生图同一条协议' },
+    { id: 'gpt-image-1.5', name: 'GPT Image 1.5', context: '文生图', maxOutput: '1536px', maxTokens: 1, description: '较新的 GPT 图片模型，仍走 images/generations' },
+  ],
   custom: [],
 };
 
@@ -104,6 +120,7 @@ export const FUNCTION_NAMES: Record<APIUsageType, string> = {
   event_generation: '事件生成',
   sect_generation: '宗门生成',
   crafting: '炼丹炼器',
+  image: '剧情生图',
 };
 
 export const FUNCTION_DESCS: Record<APIUsageType, string> = {
@@ -116,6 +133,7 @@ export const FUNCTION_DESCS: Record<APIUsageType, string> = {
   event_generation: '生成世界大事件',
   sect_generation: '生成宗门的藏经阁、贡献商店等内容',
   crafting: '炼丹、炼器时的结果判定',
+  image: '正文里出现插图标记时，把那一段交给生图渠道。不沿用对话模型',
 };
 
 /** 辅助功能（叙事检索的 Embedding 单独一组） */

@@ -752,6 +752,7 @@ async () => {
   // 应用到Pinia Store
   const gameStateStore = useGameStateStore();
   gameStateStore.loadFromSaveData(saveDataAfterCommands);
+  void import('@/services/storyImageRunner').then((mod) => mod.runPendingStoryImages());
 
   if (nsfwEnabled) {
     const hasBodyCommands = Array.isArray((initialMessageResponse as any).tavern_commands)

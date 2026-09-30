@@ -64,6 +64,12 @@
           <div class="prose">
             <FormattedText :text="currentNarrative.content" />
           </div>
+          <section v-if="turnImages.length" class="story-images" :aria-label="t('本回合插图')">
+            <figure v-for="image in turnImages" :key="image.id">
+              <img v-if="image.dataUrl" :src="image.dataUrl" :alt="image.prompt" />
+              <figcaption v-else>{{ image.status === 'failed' ? (image.error || t('图片生成失败')) : t('图片生成中...') }}</figcaption>
+            </figure>
+          </section>
 
           <section
             v-if="uiStore.enableActionOptions && currentNarrative.actionOptions?.length"
@@ -670,6 +676,13 @@ const currentNarrative = computed(() => {
     stateChanges: { changes: [] },
     actionOptions: []
   };
+});
+
+const turnImages = computed(() => {
+  const history = gameStateStore.narrativeHistory || [];
+  const index = history.length - 1;
+  if (index < 0) return [];
+  return (gameStateStore.imageGallery || []).filter((item) => item.narrativeIndex === index);
 });
 
 // 绘图相关逻辑
@@ -2311,6 +2324,29 @@ const syncGameState = async () => {
   line-height: var(--narrative-leading, 2);
   letter-spacing: 0.04em;
   color: var(--cc-text);
+}
+
+.story-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 280px));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.story-images figure {
+  margin: 0;
+}
+
+.story-images img {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+}
+
+.story-images figcaption {
+  margin: 0;
+  color: var(--cc-text-3);
+  font-size: 0.86rem;
 }
 
 /* ---------- 行动签 ---------- */

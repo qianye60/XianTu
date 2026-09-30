@@ -3,6 +3,7 @@
  * OpenAI 走 Chat Completions（/v1/chat/completions），不是 Responses API（/v1/responses）。
  */
 import type { APIProvider } from '@/services/aiService';
+import { gptImagesUrl, gptModelsUrl, naiGenerateUrl, naiModelsUrl } from '@/services/imagePlaceholders';
 
 function isLocalApiHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
@@ -47,6 +48,10 @@ export function chatRequestPath(provider: APIProvider, model = ''): string {
     }
     case 'siliconflow-embedding':
       return '/v1/embeddings';
+    case 'nai':
+      return '/ai/generate-image';
+    case 'gpt-image':
+      return '/v1/images/generations';
     default:
       return '/v1/chat/completions';
   }
@@ -68,6 +73,10 @@ export function modelsRequestPath(provider: APIProvider): string {
       return '/v1beta/models';
     case 'siliconflow-embedding':
       return '/v1/models?sub_type=embedding';
+    case 'nai':
+      return '/models';
+    case 'gpt-image':
+      return '/v1/models';
     case 'claude':
       return '';
     default:
@@ -92,6 +101,10 @@ export function apiFormatLabel(provider: APIProvider): string {
       return 'Gemini generateContent';
     case 'siliconflow-embedding':
       return 'OpenAI 兼容 Embedding';
+    case 'nai':
+      return 'NAI 生图（POST /ai/generate-image，测试连接只请求 /models）';
+    case 'gpt-image':
+      return 'OpenAI 兼容生图（POST /v1/images/generations）';
     default:
       return 'OpenAI 兼容格式（Chat Completions）';
   }
@@ -109,7 +122,35 @@ export interface ApiRequestPreview {
   warning: string;
 }
 
+function splitUrl(full: string): { base: string; path: string } {
+  try {
+    const url = new URL(full);
+    return { base: url.origin, path: `${url.pathname}${url.search}` };
+  } catch {
+    return { base: '', path: full };
+  }
+}
+
 export function previewApiRequest(provider: APIProvider, rawUrl: string, model?: string): ApiRequestPreview {
+  if (provider === 'nai' || provider === 'gpt-image') {
+    const fallback = provider === 'nai' ? 'https://create.suanbohe.com/api' : 'https://api.openai.com';
+    const source = rawUrl.trim() || fallback;
+    const generate = provider === 'nai' ? naiGenerateUrl(source) : gptImagesUrl(source);
+    const models = provider === 'nai' ? naiModelsUrl(source) : gptModelsUrl(source);
+    const gen = splitUrl(generate);
+    const list = splitUrl(models);
+    return {
+      format: apiFormatLabel(provider),
+      method: 'POST',
+      base: gen.base,
+      path: gen.path,
+      url: generate,
+      streamPath: '',
+      modelsPath: list.path,
+      modelsUrl: models,
+      warning: '',
+    };
+  }
   const base = trimApiBase(rawUrl);
   const path = chatRequestPath(provider, model);
   const modelsPath = modelsRequestPath(provider);

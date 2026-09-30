@@ -45,6 +45,7 @@ export function filterSaveDataForCloud(saveData: SaveData | null): SaveData | nu
 
   // V3: 系统.历史.叙事；兼容旧结构: 历史.叙事 / 叙事历史 / 对话历史
   if (filtered?.系统?.历史 && typeof filtered.系统.历史 === 'object') delete filtered.系统.历史.叙事;
+  if (filtered?.系统 && typeof filtered.系统 === 'object') delete filtered.系统.图廊;
   if (filtered?.历史 && typeof filtered.历史 === 'object') delete filtered.历史.叙事;
   delete filtered.叙事历史;
   delete filtered.对话历史;

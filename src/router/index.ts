@@ -58,6 +58,7 @@ import GameVariablesPage from '../views/game/GameVariablesPage.vue';
 import PromptsPage from '../views/game/PromptsPage.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 import ApiPage from '../views/game/ApiPage.vue';
+import GalleryPage from '../views/game/GalleryPage.vue';
 import AccountPage from '../views/game/AccountPage.vue';
 
 const routes = [
@@ -106,6 +107,11 @@ const routes = [
         path: 'memory',
         name: 'Memory',
         component: MemoryPage,
+      },
+      {
+        path: 'gallery',
+        name: 'Gallery',
+        component: GalleryPage,
       },
       {
         path: 'character-details',

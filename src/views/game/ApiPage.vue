@@ -27,6 +27,7 @@
                     <span class="gm-row-sub">
                       {{ providerName(api.provider) }} · {{ api.model }}
                       <SealBadge v-if="isEmbeddingProvider(api.provider)" tone="muted">向量</SealBadge>
+                      <SealBadge v-else-if="isImageProvider(api.provider)" tone="muted">生图</SealBadge>
                     </span>
                   </span>
                   <span class="status" :class="m.testResults.value[api.id] || 'unknown'" :title="statusText(api.id)"></span>
@@ -51,7 +52,7 @@
                 </span>
                 <div>
                   <h2 class="d-name">{{ m.displayName(selected) }}</h2>
-                  <p class="d-sub">{{ providerName(selected.provider) }} · {{ isEmbeddingProvider(selected.provider) ? '向量模型' : statusText(selected.id) }}</p>
+                  <p class="d-sub">{{ providerName(selected.provider) }} · {{ channelKind(selected.provider) }}</p>
                 </div>
               </header>
 
@@ -64,8 +65,8 @@
                 <dd class="mono ep">
                   <span v-if="endpointOf(selected).base" class="ep-base">{{ endpointOf(selected).base }}</span><span class="ep-path">{{ endpointOf(selected).path }}</span>
                 </dd>
-                <dt>温度</dt><dd v-if="!isEmbeddingProvider(selected.provider)">{{ selected.temperature }}</dd><dd v-else>—</dd>
-                <dt>最大 Token</dt><dd v-if="!isEmbeddingProvider(selected.provider)">{{ selected.maxTokens }}</dd><dd v-else>—</dd>
+                <dt>温度</dt><dd v-if="isChatProvider(selected.provider)">{{ selected.temperature }}</dd><dd v-else>—</dd>
+                <dt>最大 Token</dt><dd v-if="isChatProvider(selected.provider)">{{ selected.maxTokens }}</dd><dd v-else>—</dd>
               </dl>
               <p v-if="preset(selected)" class="gm-muted">{{ preset(selected)!.description }}</p>
 
@@ -236,6 +237,24 @@
               </select>
             </div>
           </div>
+
+          <h4 class="gm-label group">剧情生图 <small>关闭时不解析插图，也不调用生图</small></h4>
+          <div class="gm-form-row">
+            <div class="gm-form-info">
+              <span class="gm-form-name">生图渠道</span>
+              <span class="gm-form-desc">单独的图片渠道，不能沿用对话模型。正文里出现 [[image prompt="..."]] 时，会把这一段提交给这里选中的 NAI 或 GPT 生图。</span>
+            </div>
+            <div class="inline">
+              <label class="gm-switch" title="启用剧情生图">
+                <input type="checkbox" :checked="m.store.isFunctionEnabled('image')" aria-label="启用剧情生图" @change="m.store.setFunctionEnabled('image', ($event.target as HTMLInputElement).checked)" />
+                <span></span>
+              </label>
+              <select v-if="m.store.isFunctionEnabled('image')" class="gm-field" :value="m.assignmentOf('image')" @change="m.assign('image', ($event.target as HTMLSelectElement).value)">
+                <option value="default">未选择生图渠道</option>
+                <option v-for="api in imageChoices" :key="api.id" :value="api.id" :disabled="!api.enabled">{{ m.displayName(api) }}{{ api.enabled ? '' : '（未启用）' }}</option>
+              </select>
+            </div>
+          </div>
         </div>
         <aside class="overview" aria-label="调用概览">
           <h4 class="gm-label">调用概览</h4>
@@ -274,7 +293,7 @@
             </span>
             <div class="e-title">
               <h3 id="api-editor-title" class="cc-modal-title">{{ editingId ? '编辑 API' : '新增 API' }}</h3>
-              <small>{{ providerName(draft.provider as APIProvider) }} · {{ isEmbeddingProvider(draft.provider as APIProvider) ? '向量模型' : '对话模型' }}</small>
+              <small>{{ providerName(draft.provider as APIProvider) }} · {{ channelKind(draft.provider as APIProvider) }}</small>
             </div>
             <button type="button" class="cc-modal-close" aria-label="关闭" @click="closeEditor"><X :size="18" /></button>
           </header>
@@ -308,6 +327,25 @@
                   <div class="providers" role="radiogroup" aria-label="嵌入模型">
                     <button
                       v-for="p in EMBEDDING_PROVIDER_OPTIONS"
+                      :key="p.value"
+                      type="button"
+                      role="radio"
+                      class="provider"
+                      :class="{ active: draft.provider === p.value }"
+                      :aria-checked="draft.provider === p.value"
+                      @click="pickProvider(p.value)"
+                    >
+                      <img v-if="PROVIDER_ICONS[p.value]" :src="PROVIDER_ICONS[p.value]" alt="" />
+                      <Server v-else :size="18" />
+                      <span>{{ p.label }}</span>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <span class="pg-label">生图</span>
+                  <div class="providers" role="radiogroup" aria-label="生图渠道">
+                    <button
+                      v-for="p in IMAGE_PROVIDER_OPTIONS"
                       :key="p.value"
                       type="button"
                       role="radio"
@@ -367,7 +405,13 @@
               <p v-if="currentPreset" class="preset-desc">{{ currentPreset.description }} · 最大输出 {{ currentPreset.maxOutput }}</p>
             </div>
 
-            <div v-if="!isEmbeddingProvider(draft.provider as APIProvider)" class="two">
+            <div v-if="draft.provider === 'nai'" class="two">
+              <label class="cc-field"><span class="cc-field-label">步数</span><input v-model.number="draft.imageSteps" class="cc-input" type="number" min="1" max="28" /></label>
+              <label class="cc-field"><span class="cc-field-label">提示词强度</span><input v-model.number="draft.imageScale" class="cc-input" type="number" min="0" max="10" step="0.5" /></label>
+            </div>
+            <label v-if="draft.provider === 'nai'" class="cc-field"><span class="cc-field-label">负面提示词</span><input v-model="draft.negativePrompt" class="cc-input" placeholder="low quality, blurry" /></label>
+
+            <div v-if="isChatProvider(draft.provider as APIProvider)" class="two">
               <label class="cc-field"><span class="cc-field-label">温度</span><input v-model.number="draft.temperature" class="cc-input" type="number" min="0" max="2" step="0.1" /></label>
               <label class="cc-field"><span class="cc-field-label">最大 Token</span><input v-model.number="draft.maxTokens" class="cc-input" type="number" min="100" :max="providerPreset(draft.provider as APIProvider)?.maxOutputTokens || 384000" /></label>
             </div>
@@ -393,7 +437,7 @@ import { ArrowLeftRight, Beer, Download, FlaskConical, Globe, Loader2, Lock, Pen
 import type { APIConfig, APIUsageType } from '@/stores/apiManagementStore';
 import type { APIProvider } from '@/services/aiService';
 import {
-  AUX_FUNCTIONS, CHAT_PROVIDER_OPTIONS, EMBEDDING_PROVIDER_OPTIONS, EMBEDDING_USABLE, FUNCTION_DESCS, FUNCTION_NAMES, JSON_CAPABLE, MODEL_PRESETS, PROVIDER_ICONS, findModelPreset, isEmbeddingProvider, type ModelPreset,
+  AUX_FUNCTIONS, CHAT_PROVIDER_OPTIONS, EMBEDDING_PROVIDER_OPTIONS, EMBEDDING_USABLE, FUNCTION_DESCS, FUNCTION_NAMES, IMAGE_PROVIDER_OPTIONS, JSON_CAPABLE, MODEL_PRESETS, PROVIDER_ICONS, findModelPreset, isEmbeddingProvider, isImageProvider, type ModelPreset,
 } from '@/data/apiProviders';
 import { providerName, providerPreset, useApiManager } from '@/composables/useApiManager';
 import { previewApiRequest } from '@/utils/apiEndpoint';
@@ -433,16 +477,19 @@ const tabs = computed(() => [
 const ownApis = computed(() => m.store.apiConfigs.filter((a) => !a.builtin));
 const publicApis = computed(() => m.store.apiConfigs.filter((a) => a.builtin));
 const others = computed(() => ownApis.value.filter((a) => a.id !== 'default'));
-const chatEnabled = computed(() => m.store.enabledAPIs.filter((a) => !isEmbeddingProvider(a.provider)));
+const isChatProvider = (provider?: APIProvider) => !isEmbeddingProvider(provider) && !isImageProvider(provider);
+const channelKind = (provider?: APIProvider) => (isImageProvider(provider) ? '生图渠道' : isEmbeddingProvider(provider) ? '向量模型' : '对话模型');
+const chatEnabled = computed(() => m.store.enabledAPIs.filter((a) => isChatProvider(a.provider)));
 const ownChatEnabled = computed(() => chatEnabled.value.filter((a) => !a.builtin));
-const ownChatOthers = computed(() => others.value.filter((a) => !isEmbeddingProvider(a.provider)));
+const ownChatOthers = computed(() => others.value.filter((a) => isChatProvider(a.provider)));
 const publicLabel = (api: APIConfig) => {
   const cost = `${formatCredit(api.cost ?? 1)} 额度/次`;
   if (!api.model || api.name.includes(api.model)) return `${api.name} · ${cost}`;
   return `${api.name} · ${api.model} · ${cost}`;
 };
 const embeddingChoices = computed(() => others.value.filter((a) => !a.builtin && EMBEDDING_USABLE.includes(a.provider)));
-const canSwitchTo = (api: APIConfig) => !isEmbeddingProvider(api.provider) && !(m.inTavern.value && api.id === 'default');
+const imageChoices = computed(() => others.value.filter((a) => isImageProvider(a.provider)));
+const canSwitchTo = (api: APIConfig) => isChatProvider(api.provider) && !(m.inTavern.value && api.id === 'default');
 const isCurrentMain = (api: APIConfig) => !m.inTavern.value && m.assignmentOf('main') === api.id;
 
 // ─── 调用概览 ───
@@ -459,11 +506,14 @@ const chain = computed(() => {
   const polish = m.store.isFunctionEnabled('text_optimization');
   const ragOn = m.store.isFunctionEnabled('embedding');
   const ragReady = ragOn && m.assignmentOf('embedding') !== 'default';
+  const imageOn = m.store.isFunctionEnabled('image');
+  const imageReady = imageOn && m.assignmentOf('image') !== 'default';
   return [
     { key: 'main', step: '1', name: split ? '正文与选项' : '正文、选项与指令', api: apiLabel('main'), cost: costFor('main'), on: true },
     { key: 'instruction_generation', step: '2', name: '游戏指令', api: apiLabel('instruction_generation'), cost: costFor('instruction_generation'), on: split },
     { key: 'text_optimization', step: split ? '3' : '2', name: '文本润色', api: apiLabel('text_optimization'), cost: costFor('text_optimization'), on: polish },
     { key: 'embedding', step: '检', name: '叙事检索', api: ragReady ? apiLabel('embedding') : '未指定向量模型', cost: 0, on: ragOn },
+    { key: 'image', step: '图', name: '剧情生图', api: imageReady ? apiLabel('image') : '未选择生图渠道', cost: 0, on: imageOn },
     { key: 'memory_summary', step: '忆', name: '记忆总结（按需）', api: apiLabel('memory_summary'), cost: costFor('memory_summary'), on: true },
   ];
 });
@@ -530,6 +580,11 @@ const pickProvider = (p: APIProvider) => {
     draft.value.url = pre.url;
     draft.value.model = pre.defaultModel;
     draft.value.maxTokens = pre.defaultMaxTokens || 16000;
+  }
+  if (p === 'nai') {
+    draft.value.imageSteps = draft.value.imageSteps || 23;
+    draft.value.imageScale = draft.value.imageScale || 5;
+    draft.value.negativePrompt = draft.value.negativePrompt || 'low quality, blurry';
   }
 };
 const presets = computed(() => MODEL_PRESETS[draft.value.provider as APIProvider] || []);

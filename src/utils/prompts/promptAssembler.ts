@@ -2,6 +2,8 @@ import { getPrompt } from '@/services/defaultPrompts';
 import { SAVE_DATA_STRUCTURE, stripNsfwContent } from './definitions/dataDefinitions';
 import { isTavernEnv } from '@/utils/tavern';
 import { getNsfwSettingsFromStorage } from '@/utils/nsfw';
+import { IMAGE_PROMPT_RULES } from '@/services/imagePlaceholders';
+import { resolveImageApi } from '@/services/storyImageRunner';
 
 // 导出常用的规则常量
 export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
@@ -75,6 +77,10 @@ export async function assembleSystemPrompt(
     if (actionOptionsPrompt) {
       promptSections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
     }
+  }
+
+  if (resolveImageApi()) {
+    promptSections.push(IMAGE_PROMPT_RULES);
   }
 
   if (activePrompts.includes('eventSystem')) {

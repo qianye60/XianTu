@@ -7,9 +7,10 @@ import { aiService, API_PROVIDER_PRESETS, type APIProvider } from '@/services/ai
 import { useUIStore } from '@/stores/uiStore';
 import { getNsfwSettingsFromStorage, type NsfwGenderFilter } from '@/utils/nsfw';
 import { isTavernEnv } from '@/utils/tavern';
-import { AUX_FUNCTIONS, FUNCTION_NAMES, JSON_CAPABLE, isEmbeddingProvider } from '@/data/apiProviders';
+import { AUX_FUNCTIONS, FUNCTION_NAMES, JSON_CAPABLE, isEmbeddingProvider, isImageProvider } from '@/data/apiProviders';
 import { narrativeRagService } from '@/services/narrativeRagService';
 import { testEmbeddingConnection } from '@/services/embeddingService';
+import { listImageModels, testImageConnection } from '@/services/imageGenerationService';
 import { toast } from '@/utils/toast';
 
 const readGameSettings = (): Record<string, unknown> => {
@@ -113,6 +114,10 @@ export function useApiManager() {
       toast.error('向量模型不能用作主流程');
       return;
     }
+    if (isImageProvider(api.provider)) {
+      toast.error('生图渠道不能用作主流程');
+      return;
+    }
     if (!api.enabled) store.toggleAPI(api.id);
     if (inTavern.value) {
       for (const type of AUX_FUNCTIONS) store.assignAPI(type, api.id);
@@ -156,6 +161,12 @@ export function useApiManager() {
         toast.success(`${api.name} 连接成功（向量维度 ${dim}）`);
         return;
       }
+      if (isImageProvider(api.provider)) {
+        const models = await testImageConnection(api);
+        testResults.value = { ...testResults.value, [api.id]: 'success' };
+        toast.success(`${api.name} 连接成功（${models.length} 个生图模型，未触发生图）`);
+        return;
+      }
       const res = await aiService.testAPIDirectly(
         { provider: api.provider, url: api.url, apiKey: api.apiKey, model: api.model, temperature: api.temperature, maxTokens: 1000, forceJsonOutput: api.forceJsonOutput, builtin: api.builtin, builtinServerId: api.builtinServerId },
         prompt,
@@ -184,6 +195,9 @@ export function useApiManager() {
   /** 用编辑中的地址和密钥临时切换配置去拉模型列表，完成后恢复 */
   const fetchModels = async (draft: Partial<APIConfig>): Promise<string[]> => {
     if (!draft.url || !draft.apiKey) throw new Error('请先填写 API 地址和密钥');
+    if (isImageProvider(draft.provider as APIProvider)) {
+      return listImageModels({ provider: draft.provider as APIProvider, url: draft.url, apiKey: draft.apiKey });
+    }
     const saved = aiService.getConfig();
     try {
       aiService.saveConfig({
@@ -220,6 +234,11 @@ export function useApiManager() {
         maxTokens: draft.maxTokens || API_PROVIDER_PRESETS[p]?.defaultMaxTokens || 16000,
         enabled: true,
         forceJsonOutput: forceJson,
+        imageWidth: draft.imageWidth,
+        imageHeight: draft.imageHeight,
+        imageSteps: draft.imageSteps,
+        imageScale: draft.imageScale,
+        negativePrompt: draft.negativePrompt,
       });
     }
     syncDefault();
