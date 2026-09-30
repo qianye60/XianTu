@@ -552,6 +552,7 @@
                 <span>{{ provider.label }}</span>
                 <Check v-if="editingAPI.provider === provider.value" :size="14" />
               </button>
+            </div>
             <div class="provider-kind">生图</div>
             <div class="provider-picker" role="listbox" aria-label="生图渠道">
               <button
