@@ -89,7 +89,7 @@ export const API_PROVIDER_PRESETS: Record<APIProvider, {
   volcengine: { url: 'https://ark.cn-beijing.volces.com', defaultModel: 'doubao-seed-evolving', name: '火山引擎(豆包)', defaultMaxTokens: 64000, maxOutputTokens: 256000 },
   'siliconflow-embedding': { url: 'https://api.siliconflow.cn', defaultModel: 'BAAI/bge-m3', name: '硅基流动(Embedding)' },
   nai: { url: 'https://create.suanbohe.com/api', defaultModel: 'nai-diffusion-4-5-full', name: 'NAI 生图' },
-  'gpt-image': { url: 'https://api.openai.com', defaultModel: 'gpt-image-1', name: 'GPT 生图' },
+  'gpt-image': { url: 'https://api.openai.com', defaultModel: 'gpt-image-2.5-sunburst', name: 'GPT 生图' },
   custom: { url: '', defaultModel: '', name: '自定义(OpenAI兼容)', defaultMaxTokens: 16000, maxOutputTokens: 384000 }
 };
 

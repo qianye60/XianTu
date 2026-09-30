@@ -101,8 +101,10 @@ export const MODEL_PRESETS: Record<APIProvider, ModelPreset[]> = {
     { id: 'nai-diffusion-5-curated', name: 'NAI 5 Curated', context: '文生图', maxOutput: '1024²', maxTokens: 1, description: 'NovelAI 5 精选模型' },
   ],
   'gpt-image': [
-    { id: 'gpt-image-1', name: 'GPT Image 1', context: '文生图', maxOutput: '1536px', maxTokens: 1, description: 'OpenAI 兼容 images/generations，和织界的 GPT 生图同一条协议' },
-    { id: 'gpt-image-1.5', name: 'GPT Image 1.5', context: '文生图', maxOutput: '1536px', maxTokens: 1, description: '较新的 GPT 图片模型，仍走 images/generations' },
+    { id: 'gpt-image-2.5-sunburst', name: 'GPT Image 2.5 Sunburst', context: '文生图', maxOutput: '4K', maxTokens: 1, description: '当前主力质量模型，偏精度与编辑稳定性' },
+    { id: 'gpt-image-2.5-flare', name: 'GPT Image 2.5 Flare', context: '文生图', maxOutput: '4K', maxTokens: 1, description: '当前最快的 2.5 小模型，适合日常剧情插图' },
+    { id: 'gpt-image-2', name: 'GPT Image 2', context: '文生图', maxOutput: '4K', maxTokens: 1, description: '上一档旗舰，部分中转仍用这个名字' },
+    { id: 'gpt-image-1.5', name: 'GPT Image 1.5', context: '文生图', maxOutput: '1536px', maxTokens: 1, description: '旧版兼容；官方计划逐步下线' },
   ],
   custom: [],
 };

@@ -152,7 +152,7 @@ export function buildNaiBody(input: {
 }
 
 export function buildGptImageBody(input: { prompt: string; model: string; size: string }): Record<string, unknown> {
-  const model = input.model || 'gpt-image-1';
+  const model = input.model || 'gpt-image-2.5-sunburst';
   const body: Record<string, unknown> = {
     model,
     prompt: input.prompt,
