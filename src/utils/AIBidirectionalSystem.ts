@@ -27,6 +27,8 @@ import type { APIUsageType } from '@/stores/apiManagementStore';
 import { buildJudgementRound, formatJudgementBlock } from '@/utils/judgement';
 import { ensureStoryImages, harvestStoryImages, parseStoryImagesFromObject } from '@/services/imagePlaceholders';
 import { appendStoryImages, resolveImageApi, runPendingStoryImages } from '@/services/storyImageRunner';
+import { calculateFinalAttributes } from '@/utils/attributeCalculation';
+import type { InnateAttributes } from '@/types/game';
 
 type PlainObject = Record<string, unknown>;
 
@@ -589,9 +591,20 @@ class AIBidirectionalSystemClass {
         coreStatusSummary += `\n- 天赋: ${formatTalentsForPrompt(character.天赋)}`;
       }
 
+      // 判定用最终后天六司（含装备/天赋/功法动态加成），不能只用存档基值，否则穿装备等于白穿
+      let judgementAcquired: unknown = character?.后天六司;
+      try {
+        const innateForJudgement = (character?.先天六司 || {
+          根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5,
+        }) as InnateAttributes;
+        judgementAcquired = calculateFinalAttributes(innateForJudgement, stateForAI as SaveData).后天六司;
+      } catch (error) {
+        console.warn('[判定] 动态后天六司计算失败，回退存档基值', error);
+      }
+
       const judgementRound = buildJudgementRound({
         先天六司: character?.先天六司,
-        后天六司: character?.后天六司,
+        后天六司: judgementAcquired,
         属性: attributes,
         效果: stateForAI.角色?.效果,
         灵气浓度: stateForAI.角色?.位置?.灵气浓度,

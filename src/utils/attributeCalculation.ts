@@ -203,27 +203,32 @@ export function calculateTalentBonuses(talents: Talent[]): InnateAttributes {
 }
 
 /**
- * 计算已装备功法提供的属性加成
+ * 计算当前修炼/已装备功法提供的属性加成
  */
 export function calculateTechniqueBonuses(saveData: SaveData): InnateAttributes {
   const bonuses: InnateAttributes = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
+  const itemsMap = ((saveData as any)?.角色?.背包?.物品 ?? (saveData as any)?.背包?.物品 ?? {}) as Record<string, Item>;
+  const techniqueState = (saveData as any)?.角色?.功法 ?? {};
+  const seen = new Set<string>();
 
-  const itemsMap = (saveData as any)?.角色?.背包?.物品 ?? (saveData as any)?.背包?.物品;
-  if (!itemsMap) {
-    return bonuses;
-  }
-
-  // 查找已装备的功法
-  const items = (itemsMap ?? {}) as Record<string, Item>;
-  const equippedTechnique = Object.values(items).find((item) => item.类型 === '功法' && item.已装备 === true);
-
-  if (equippedTechnique && equippedTechnique.类型 === '功法' && equippedTechnique.功法效果?.属性加成) {
-    const attributeBonuses = equippedTechnique.功法效果.属性加成;
-    for (const key in attributeBonuses) {
-      if (key in bonuses) {
-        bonuses[key as keyof InnateAttributes] += attributeBonuses[key as keyof InnateAttributes] || 0;
-      }
+  const addFromItem = (id: string | null | undefined, item?: Item) => {
+    const key = id || '';
+    const row = item || (key ? itemsMap[key] : undefined);
+    if (!row || row.类型 !== '功法') return;
+    const dedupe = key || String(row.名称 || '');
+    if (!dedupe || seen.has(dedupe)) return;
+    seen.add(dedupe);
+    const attributeBonuses = row.功法效果?.属性加成;
+    if (!attributeBonuses) return;
+    for (const attr of Object.keys(bonuses) as Array<keyof InnateAttributes>) {
+      bonuses[attr] += Number(attributeBonuses[attr] || 0) || 0;
     }
+  };
+
+  addFromItem(techniqueState?.当前功法ID);
+  addFromItem(techniqueState?.功法套装?.主修);
+  for (const [id, item] of Object.entries(itemsMap)) {
+    if (item?.类型 === '功法' && item.已装备 === true) addFromItem(id, item);
   }
 
   return bonuses;
@@ -255,17 +260,20 @@ export function calculateFinalAttributes(
   // 3. 计算天赋加成
   const talentBonuses = calculateTalentBonusesFromCharacter(saveData);
 
-  // 4. 合并所有后天加成
+  // 4. 计算已装备功法加成
+  const techniqueBonuses = calculateTechniqueBonuses(saveData);
+
+  // 5. 合并所有后天加成
   const totalAcquiredAttributes: InnateAttributes = {
-    根骨: storedAcquiredAttributes.根骨 + equipmentBonuses.根骨 + talentBonuses.根骨,
-    灵性: storedAcquiredAttributes.灵性 + equipmentBonuses.灵性 + talentBonuses.灵性,
-    悟性: storedAcquiredAttributes.悟性 + equipmentBonuses.悟性 + talentBonuses.悟性,
-    气运: storedAcquiredAttributes.气运 + equipmentBonuses.气运 + talentBonuses.气运,
-    魅力: storedAcquiredAttributes.魅力 + equipmentBonuses.魅力 + talentBonuses.魅力,
-    心性: storedAcquiredAttributes.心性 + equipmentBonuses.心性 + talentBonuses.心性,
+    根骨: storedAcquiredAttributes.根骨 + equipmentBonuses.根骨 + talentBonuses.根骨 + techniqueBonuses.根骨,
+    灵性: storedAcquiredAttributes.灵性 + equipmentBonuses.灵性 + talentBonuses.灵性 + techniqueBonuses.灵性,
+    悟性: storedAcquiredAttributes.悟性 + equipmentBonuses.悟性 + talentBonuses.悟性 + techniqueBonuses.悟性,
+    气运: storedAcquiredAttributes.气运 + equipmentBonuses.气运 + talentBonuses.气运 + techniqueBonuses.气运,
+    魅力: storedAcquiredAttributes.魅力 + equipmentBonuses.魅力 + talentBonuses.魅力 + techniqueBonuses.魅力,
+    心性: storedAcquiredAttributes.心性 + equipmentBonuses.心性 + talentBonuses.心性 + techniqueBonuses.心性,
   };
 
-  // 5. 计算最终属性（先天 + 后天）
+  // 6. 计算最终属性（先天 + 后天）
   const finalAttributes: InnateAttributes = {
     根骨: innateAttributes.根骨 + totalAcquiredAttributes.根骨,
     灵性: innateAttributes.灵性 + totalAcquiredAttributes.灵性,
