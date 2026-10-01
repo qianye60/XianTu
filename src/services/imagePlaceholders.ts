@@ -19,11 +19,14 @@ export interface StoryImageRecord {
 }
 
 export const IMAGE_PROMPT_RULES = `
-[剧情插图]
-需要出画面时，在 text 正文中单独插入一行：[[image prompt="画面描述" size="1024x1024"]]
-prompt 只写看得见的人物、场景、光线和构图，不要写剧情解说。
-size 只能是 1024x1024、832x1216、1216x832 之一。
-没有需要出图的回合不要写这个标记。标记不要放进 mid_term_memory，也不要写成 tavern_commands。
+[剧情插图 · 已开启]
+本局已开启生图。有外景、人物对峙、战斗、法术、仪式或关键道具登场的回合，必须在 text 正文中单独插入恰好 1 行：
+[[image prompt="画面描述" size="1024x1024"]]
+规则：
+1. prompt 只写看得见的人物、外貌、服装、场景、光线和构图，用英文或中英混合短标签，不要写剧情解说、心理独白或对话框。
+2. size 只能是 1024x1024、832x1216、1216x832 之一；竖构图用 832x1216，横构图用 1216x832。
+3. 标记必须出现在 text 字段里，不要放进 mid_term_memory，也不要写成 tavern_commands。
+4. 纯对话、纯内心、无画面推进的回合可以不插；其余有画面的回合默认都要插，每回合最多 1 个。
 `.trim();
 
 const ALLOWED_SIZES = ['1024x1024', '832x1216', '1216x832'] as const;

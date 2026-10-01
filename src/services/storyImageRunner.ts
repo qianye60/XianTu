@@ -14,14 +14,48 @@ export type { StoryImageRecord };
 const inflight = new Set<string>();
 let running = false;
 
+export function listEnabledImageApis(): APIConfig[] {
+  const store = useAPIManagementStore();
+  return store.apiConfigs.filter((item) => item.enabled && isImageProvider(item.provider));
+}
+
 export function resolveImageApi(): APIConfig | null {
   const store = useAPIManagementStore();
   if (!store.isFunctionEnabled('image')) return null;
+  const imageApis = listEnabledImageApis();
+  if (!imageApis.length) return null;
   const assignment = store.apiAssignments.find((item) => item.type === 'image');
-  if (!assignment || assignment.apiId === 'default') return null;
-  const api = store.apiConfigs.find((item) => item.id === assignment.apiId && item.enabled);
-  if (!api || !isImageProvider(api.provider)) return null;
-  return api;
+  if (assignment && assignment.apiId !== 'default') {
+    const picked = imageApis.find((item) => item.id === assignment.apiId);
+    if (picked) return picked;
+  }
+  // 开了开关但没指定渠道：只有一个生图 API 时直接用它，避免“开了等于没开”
+  return imageApis.length === 1 ? imageApis[0] : null;
+}
+
+/** 打开剧情生图。没有可用渠道时返回 false。 */
+export function enableStoryImage(preferredApiId?: string): { ok: boolean; message: string; api: APIConfig | null } {
+  const store = useAPIManagementStore();
+  const imageApis = listEnabledImageApis();
+  if (!imageApis.length) {
+    store.setFunctionEnabled('image', false);
+    return { ok: false, message: '请先新增并启用一个 NAI 或 GPT 生图渠道', api: null };
+  }
+  const preferred = preferredApiId
+    ? imageApis.find((item) => item.id === preferredApiId)
+    : undefined;
+  const assignedId = store.apiAssignments.find((item) => item.type === 'image')?.apiId;
+  const current = assignedId && assignedId !== 'default'
+    ? imageApis.find((item) => item.id === assignedId)
+    : undefined;
+  const api = preferred || current || (imageApis.length === 1 ? imageApis[0] : null);
+  if (!api) {
+    store.setFunctionEnabled('image', true);
+    return { ok: false, message: '已打开开关，请再选择要用的生图渠道', api: null };
+  }
+  store.assignAPI('image', api.id);
+  store.setFunctionEnabled('image', true);
+  return { ok: true, message: `剧情生图已开启，使用 ${api.name}`, api };
 }
 
 export function createStoryImageRecords(images: ParsedImage[], narrativeIndex: number): StoryImageRecord[] {
@@ -43,7 +77,14 @@ export function appendStoryImages(saveData: { 系统?: { 图廊?: StoryImageReco
   if (!images.length) return;
   if (!saveData.系统) saveData.系统 = {};
   if (!Array.isArray(saveData.系统.图廊)) saveData.系统.图廊 = [];
-  saveData.系统.图廊.push(...createStoryImageRecords(images, narrativeIndex));
+  const records = createStoryImageRecords(images, narrativeIndex);
+  saveData.系统.图廊.push(...records);
+  try {
+    const game = useGameStateStore();
+    game.imageGallery = [...(game.imageGallery || []), ...records];
+  } catch {
+    // Pinia 尚未就绪时只写存档即可
+  }
 }
 
 function patchRecord(id: string, patch: Partial<StoryImageRecord>) {

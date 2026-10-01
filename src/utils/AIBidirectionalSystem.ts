@@ -859,6 +859,9 @@ ${step1Text}
       gmResponse.text = peeledReply.text;
       if (peeledReply.images.length) storyImages.push(...peeledReply.images);
       if (storyImages.length) gmResponse.storyImages = storyImages;
+      if (!gmResponse.text.trim() && storyImages.length) {
+        gmResponse.text = '画面在这一刻定格。';
+      }
 
       // 🔥 文本优化：如果启用，对生成的文本进行润色
       if (shouldAbort()) {
@@ -873,7 +876,7 @@ ${step1Text}
         console.log('[AI System] Abort detected, skip command execution');
         return gmResponse;
       }
-      if (!gmResponse || !gmResponse.text || gmResponse.text.trim() === '') {
+      if (!gmResponse || ((!gmResponse.text || gmResponse.text.trim() === '') && !gmResponse.storyImages?.length)) {
         console.error('[AI双向系统] AI响应为空，原始响应:', String(response).substring(0, 200));
         throw new Error('AI响应为空或格式错误');
       }

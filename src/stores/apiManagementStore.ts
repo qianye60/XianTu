@@ -511,7 +511,11 @@ export const useAPIManagementStore = defineStore('apiManagement', () => {
   // 获取功能的启用状态
   const isFunctionEnabled = (type: APIUsageType): boolean => {
     const config = functionEnabled.value.find(c => c.type === type);
-    return config?.enabled ?? true;  // 默认启用
+    // 可选功能默认关；没写进配置时不要当成开着
+    if (type === 'image' || type === 'embedding' || type === 'text_optimization') {
+      return config?.enabled === true;
+    }
+    return config?.enabled ?? true;
   };
 
   // 更新 AI 生成设置

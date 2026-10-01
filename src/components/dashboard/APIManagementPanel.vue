@@ -489,6 +489,49 @@
               </div>
             </div>
           </div>
+
+          <!-- 剧情生图：默认关闭，打开后选择 NAI / GPT 生图渠道 -->
+          <div class="function-group-header">
+            <h5 class="group-title">剧情生图</h5>
+            <span class="group-desc">关闭时不解析插图，也不调用生图</span>
+          </div>
+
+          <div class="setting-item nested">
+            <div class="setting-info">
+              <label class="setting-name" for="api-image">生图渠道</label>
+              <span class="setting-desc">单独的图片渠道，不能沿用对话模型。正文出现插图标记时，会提交给这里选中的 NAI 或 GPT 生图。</span>
+            </div>
+            <div class="setting-control">
+              <div class="control-row">
+                <label class="setting-switch" title="启用剧情生图">
+                  <input
+                    type="checkbox"
+                    :checked="apiStore.isFunctionEnabled('image')"
+                    aria-label="启用剧情生图"
+                    @change="setImageEnabled(($event.target as HTMLInputElement).checked)"
+                  />
+                  <span class="switch-slider"></span>
+                </label>
+                <select
+                  v-if="apiStore.isFunctionEnabled('image')"
+                  id="api-image"
+                  class="setting-select"
+                  :value="apiStore.apiAssignments.find(a => a.type === 'image')?.apiId"
+                  @change="updateAssignment('image', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="default">未选择生图渠道</option>
+                  <option
+                    v-for="api in imageChoices"
+                    :key="api.id"
+                    :value="api.id"
+                    :disabled="!api.enabled"
+                  >
+                    {{ getDisplayName(api) }}{{ !api.enabled ? ` (${t('未启用')})` : '' }}
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -725,6 +768,7 @@ import doubaoIcon from '@/assets/provider-icons/doubao.png';
 import siliconcloudIcon from '@/assets/provider-icons/siliconcloud.png';
 import { EMBEDDING_USABLE, JSON_CAPABLE, isEmbeddingProvider, isImageProvider } from '@/data/apiProviders';
 import { listImageModels, testImageConnection } from '@/services/imageGenerationService';
+import { enableStoryImage } from '@/services/storyImageRunner';
 import { useAPIManagementStore, type APIConfig, type APIUsageType } from '@/stores/apiManagementStore';
 import { aiService, API_PROVIDER_PRESETS, type APIProvider } from '@/services/aiService';
 import { useUIStore } from '@/stores/uiStore';
@@ -917,6 +961,7 @@ const publicLabel = (api: APIConfig) => {
 };
 const turnCost = computed(() => publicApi.turnCost(splitResponseGeneration.value));
 const embeddingChoices = computed(() => apiStore.apiConfigs.filter((a) => a.id !== 'default' && !a.builtin && EMBEDDING_USABLE.includes(a.provider)));
+const imageChoices = computed(() => apiStore.apiConfigs.filter((a) => a.id !== 'default' && !a.builtin && isImageProvider(a.provider)));
 
 const MODEL_PRESETS: Record<APIProvider, ModelPreset[]> = {
   openai: [
@@ -1119,13 +1164,36 @@ const isFunctionActive = (type: APIUsageType): boolean => {
     const apiId = apiStore.apiAssignments.find(a => a.type === 'embedding')?.apiId ?? 'default';
     return apiStore.isFunctionEnabled('embedding') && apiId !== 'default';
   }
+  if (type === 'image') {
+    return !!resolveImageActive();
+  }
   return true;
+};
+
+const resolveImageActive = () => {
+  if (!apiStore.isFunctionEnabled('image')) return false;
+  const imageApis = imageChoices.value.filter((a) => a.enabled);
+  if (!imageApis.length) return false;
+  const apiId = apiStore.apiAssignments.find(a => a.type === 'image')?.apiId ?? 'default';
+  if (apiId !== 'default' && imageApis.some((a) => a.id === apiId)) return true;
+  return imageApis.length === 1;
 };
 
 const setEmbeddingEnabled = (on: boolean) => {
   apiStore.setFunctionEnabled('embedding', on);
   narrativeRagService.saveConfig({ enabled: on });
   toast.success(on ? '叙事检索已开启，请指定 Embedding 模型' : '叙事检索已关闭');
+};
+
+const setImageEnabled = (on: boolean) => {
+  if (!on) {
+    apiStore.setFunctionEnabled('image', false);
+    toast.success('剧情生图已关闭');
+    return;
+  }
+  const result = enableStoryImage();
+  if (result.ok) toast.success(result.message);
+  else toast.warning(result.message);
 };
 
 const getAssignedFunctions = (apiId: string): APIUsageType[] => {

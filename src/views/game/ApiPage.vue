@@ -246,7 +246,7 @@
             </div>
             <div class="inline">
               <label class="gm-switch" title="启用剧情生图">
-                <input type="checkbox" :checked="m.store.isFunctionEnabled('image')" aria-label="启用剧情生图" @change="m.store.setFunctionEnabled('image', ($event.target as HTMLInputElement).checked)" />
+                <input type="checkbox" :checked="m.store.isFunctionEnabled('image')" aria-label="启用剧情生图" @change="setImageEnabled(($event.target as HTMLInputElement).checked)" />
                 <span></span>
               </label>
               <select v-if="m.store.isFunctionEnabled('image')" class="gm-field" :value="m.assignmentOf('image')" @change="m.assign('image', ($event.target as HTMLSelectElement).value)">
@@ -453,10 +453,22 @@ import PublicApiHall from '@/components/publicApi/PublicApiHall.vue';
 import UsageLog from '@/components/publicApi/UsageLog.vue';
 import { usePublicApi } from '@/composables/usePublicApi';
 import { formatCredit } from '@/services/builtinApi';
+import { enableStoryImage, resolveImageApi } from '@/services/storyImageRunner';
 
 defineOptions({ name: 'ApiPage' });
 
 const m = useApiManager();
+
+const setImageEnabled = (on: boolean) => {
+  if (!on) {
+    m.store.setFunctionEnabled('image', false);
+    toast.success('剧情生图已关闭');
+    return;
+  }
+  const result = enableStoryImage();
+  if (result.ok) toast.success(result.message);
+  else toast.warning(result.message);
+};
 const pub = usePublicApi();
 onMounted(() => {
   void m.load();
@@ -507,13 +519,14 @@ const chain = computed(() => {
   const ragOn = m.store.isFunctionEnabled('embedding');
   const ragReady = ragOn && m.assignmentOf('embedding') !== 'default';
   const imageOn = m.store.isFunctionEnabled('image');
-  const imageReady = imageOn && m.assignmentOf('image') !== 'default';
+  const imageApi = resolveImageApi();
+  const imageReady = !!imageApi;
   return [
     { key: 'main', step: '1', name: split ? '正文与选项' : '正文、选项与指令', api: apiLabel('main'), cost: costFor('main'), on: true },
     { key: 'instruction_generation', step: '2', name: '游戏指令', api: apiLabel('instruction_generation'), cost: costFor('instruction_generation'), on: split },
     { key: 'text_optimization', step: split ? '3' : '2', name: '文本润色', api: apiLabel('text_optimization'), cost: costFor('text_optimization'), on: polish },
     { key: 'embedding', step: '检', name: '叙事检索', api: ragReady ? apiLabel('embedding') : '未指定向量模型', cost: 0, on: ragOn },
-    { key: 'image', step: '图', name: '剧情生图', api: imageReady ? apiLabel('image') : '未选择生图渠道', cost: 0, on: imageOn },
+    { key: 'image', step: '图', name: '剧情生图', api: imageReady ? `${m.displayName(imageApi)} · ${imageApi.model}` : (imageOn ? '未选择生图渠道' : '未启用'), cost: 0, on: imageReady },
     { key: 'memory_summary', step: '忆', name: '记忆总结（按需）', api: apiLabel('memory_summary'), cost: costFor('memory_summary'), on: true },
   ];
 });
