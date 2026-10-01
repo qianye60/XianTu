@@ -119,6 +119,10 @@ export async function runPendingStoryImages() {
       await persist();
       return;
     }
+    const { toast } = await import('@/utils/toast');
+    if (queue.some((item) => item.status === 'pending')) {
+      toast.info(`正在用 ${api.name} 生成剧情插图…`);
+    }
     for (const item of queue) {
       if (inflight.has(item.id)) continue;
       inflight.add(item.id);
@@ -127,10 +131,12 @@ export async function runPendingStoryImages() {
         const image = await generateStoryImage(api, item.prompt, item.size, item.idempotencyKey);
         patchRecord(item.id, { status: 'done', dataUrl: image.dataUrl, seed: image.seed, error: '' });
       } catch (error) {
+        const message = error instanceof Error ? error.message : '图片生成失败';
         patchRecord(item.id, {
           status: 'failed',
-          error: error instanceof Error ? error.message : '图片生成失败',
+          error: message,
         });
+        toast.error(`剧情插图失败：${message}`);
       } finally {
         inflight.delete(item.id);
         await persist();

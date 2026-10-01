@@ -499,7 +499,7 @@
           <div class="setting-item nested">
             <div class="setting-info">
               <label class="setting-name" for="api-image">生图渠道</label>
-              <span class="setting-desc">单独的图片渠道，不能沿用对话模型。正文出现插图标记时，会提交给这里选中的 NAI 或 GPT 生图。</span>
+              <span class="setting-desc">单独的图片渠道，不能沿用对话模型。开启后每回合尽量出图：可用 story_image 字段或 [[image prompt='...']]；没写也会按正文自动补一张，结果显示在正文下方并收入图廊。</span>
             </div>
             <div class="setting-control">
               <div class="control-row">
@@ -1135,7 +1135,7 @@ const getFunctionDesc = (type: APIUsageType): string => {
     event_generation: '生成世界大事件',
     sect_generation: '生成宗门的藏经阁、贡献商店等内容',
     crafting: '炼丹、炼器时的结果判定',
-    image: '正文里的插图标记交给 NAI 或 GPT 生图渠道',
+    image: '开启后按正文出图；可用 story_image 或标记覆盖。不沿用对话模型',
   };
   return descs[type] || '';
 };

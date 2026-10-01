@@ -1,5 +1,9 @@
 import {
   takeImagePlaceholders,
+  harvestStoryImages,
+  ensureStoryImages,
+  buildFallbackStoryImage,
+  parseStoryImagesFromObject,
   naiGenerateUrl,
   naiModelsUrl,
   gptImagesUrl,
@@ -10,10 +14,33 @@ import {
   normalizeImageSize,
 } from '../src/services/imagePlaceholders.ts';
 
-const peeled = takeImagePlaceholders('先写。\n[[image prompt="1girl, garden" size="832x1216"]]\n再写。');
-if (peeled.images.length !== 1) throw new Error('parse images');
+const peeled = takeImagePlaceholders("先写。\n[[image prompt='1girl, garden' size='832x1216']]\n再写。");
+if (peeled.images.length !== 1) throw new Error('parse images single-quote');
 if (peeled.images[0].size !== '832x1216') throw new Error('parse size');
 if (peeled.text.includes('[[image')) throw new Error('strip failed');
+
+const legacy = takeImagePlaceholders('旧写法\n[[image prompt="swordfight" size="1024x1024"]]');
+if (legacy.images[0]?.prompt !== 'swordfight') throw new Error('legacy double-quote');
+
+const pipe = takeImagePlaceholders('管道\n[[image|misty mountain temple|1216x832]]');
+if (pipe.images[0]?.prompt !== 'misty mountain temple') throw new Error('pipe prompt');
+if (pipe.images[0]?.size !== '1216x832') throw new Error('pipe size');
+
+// 双引号标记嵌在破损 JSON 里时，仍能从 raw 捞回
+const broken = '{"text":"山门大开\\n[[image prompt="a Daoist at the gate" size="1024x1024"]]"}';
+const recovered = harvestStoryImages({ text: '', raw: broken });
+if (recovered.images[0]?.prompt !== 'a Daoist at the gate') {
+  throw new Error(`recover from broken json: ${JSON.stringify(recovered.images)}`);
+}
+
+const fromObj = parseStoryImagesFromObject({
+  story_image: { prompt: 'crimson lotus', size: '832x1216' },
+});
+if (fromObj[0]?.prompt !== 'crimson lotus') throw new Error('story_image field');
+
+const ensured = ensureStoryImages([], '雾气散去，青衣女子立于断桥之上，手中长剑映出冷光，远处山门隐约可见，松涛阵阵，鹤影掠过云端。');
+if (!ensured.length) throw new Error('fallback missing');
+if (buildFallbackStoryImage('太短了') !== null) throw new Error('short should be null');
 
 if (naiGenerateUrl('https://create.suanbohe.com') !== 'https://create.suanbohe.com/api/ai/generate-image') {
   throw new Error('nai generate url');

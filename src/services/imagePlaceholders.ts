@@ -18,15 +18,27 @@ export interface StoryImageRecord {
   createdAt: string;
 }
 
+/**
+ * 插图规则。
+ * 重要：标记属性必须用单引号。双引号嵌在 JSON 的 "text" 里会把整段 JSON 弄坏，
+ * 宽松解析也会在 prompt=" 处截断，整张图就丢了。
+ */
 export const IMAGE_PROMPT_RULES = `
 [剧情插图 · 已开启]
-本局已开启生图。有外景、人物对峙、战斗、法术、仪式或关键道具登场的回合，必须在 text 正文中单独插入恰好 1 行：
-[[image prompt="画面描述" size="1024x1024"]]
+本局已开启生图。有外景、人物对峙、战斗、法术、仪式或关键道具登场的回合，必须额外给出画面（优先 JSON 字段，其次正文标记）：
+
+推荐（不会破坏 JSON）：
+"story_image":{"prompt":"可见的人物外貌服装场景光线构图，英文或中英短标签","size":"1024x1024"}
+
+或在 text 正文末尾单独一行（属性必须用单引号）：
+[[image prompt='画面描述' size='1024x1024']]
+
 规则：
-1. prompt 只写看得见的人物、外貌、服装、场景、光线和构图，用英文或中英混合短标签，不要写剧情解说、心理独白或对话框。
+1. prompt 只写看得见的内容，不要写剧情解说、心理独白或对话框。
 2. size 只能是 1024x1024、832x1216、1216x832 之一；竖构图用 832x1216，横构图用 1216x832。
-3. 标记必须出现在 text 字段里，不要放进 mid_term_memory，也不要写成 tavern_commands。
+3. story_image 与标记二选一即可；不要放进 mid_term_memory，也不要写成 tavern_commands。
 4. 纯对话、纯内心、无画面推进的回合可以不插；其余有画面的回合默认都要插，每回合最多 1 个。
+5. 禁止写成 [[image prompt="..."]]（双引号会破坏 JSON）。
 `.trim();
 
 const ALLOWED_SIZES = ['1024x1024', '832x1216', '1216x832'] as const;
@@ -37,10 +49,10 @@ export function normalizeImageSize(raw: string): string {
 }
 
 function readAttr(source: string, key: string): string {
-  const quoted = source.match(new RegExp(`${key}\\s*=\\s*"([^"]*)"`, 'i'));
-  if (quoted?.[1]) return quoted[1].trim();
   const single = source.match(new RegExp(`${key}\\s*=\\s*'([^']*)'`, 'i'));
   if (single?.[1]) return single[1].trim();
+  const quoted = source.match(new RegExp(`${key}\\s*=\\s*"([^"]*)"`, 'i'));
+  if (quoted?.[1]) return quoted[1].trim();
   return '';
 }
 
@@ -52,23 +64,76 @@ function removeBrokenTail(reply: string): string {
   return reply.slice(0, start);
 }
 
+function pushImage(images: ParsedImage[], prompt: string, size = ''): void {
+  const cleaned = String(prompt || '').trim();
+  if (!cleaned) return;
+  if (images.some((item) => item.prompt === cleaned)) return;
+  images.push({ prompt: cleaned, size: normalizeImageSize(size) });
+}
+
+/** 从 JSON 对象里抽出 story_image / image 等字段。 */
+export function parseStoryImagesFromObject(obj: unknown): ParsedImage[] {
+  if (!obj || typeof obj !== 'object') return [];
+  const row = obj as Record<string, unknown>;
+  const images: ParsedImage[] = [];
+
+  const takeOne = (value: unknown) => {
+    if (!value) return;
+    if (typeof value === 'string') {
+      pushImage(images, value);
+      return;
+    }
+    if (typeof value === 'object') {
+      const item = value as Record<string, unknown>;
+      pushImage(
+        images,
+        String(item.prompt || item.画面 || item.description || ''),
+        String(item.size || item.尺寸 || ''),
+      );
+    }
+  };
+
+  takeOne(row.story_image);
+  takeOne(row.storyImage);
+  takeOne(row.image);
+  if (Array.isArray(row.story_images)) row.story_images.forEach(takeOne);
+  if (Array.isArray(row.storyImages)) row.storyImages.forEach(takeOne);
+
+  return images.slice(0, 1);
+}
+
 export function parseImagePlaceholders(reply: string): ParsedImage[] {
   const source = removeBrokenTail(reply || '');
   const images: ParsedImage[] = [];
+
+  // [[image|prompt|size]] 管道写法，彻底避开引号
+  const pipe = /\[\[\s*image\s*\|\s*([^|\]]+?)\s*(?:\|\s*([^|\]]*?)\s*)?\]\]/gi;
+  let pipeMatch: RegExpExecArray | null = pipe.exec(source);
+  while (pipeMatch) {
+    pushImage(images, pipeMatch[1] || '', pipeMatch[2] || '');
+    pipeMatch = pipe.exec(source);
+  }
+
+  // [[image prompt='...' size='...']] 或双引号旧写法
   const regex = /\[\[\s*image([\s\S]*?)\]\]/gi;
   let match: RegExpExecArray | null = regex.exec(source);
   while (match) {
     const attrs = match[1] || '';
+    if (attrs.includes('|') && !/prompt\s*=/i.test(attrs)) {
+      match = regex.exec(source);
+      continue;
+    }
     const prompt = readAttr(attrs, 'prompt');
-    if (prompt) images.push({ prompt, size: normalizeImageSize(readAttr(attrs, 'size')) });
+    if (prompt) pushImage(images, prompt, readAttr(attrs, 'size'));
     match = regex.exec(source);
   }
-  return images;
+  return images.slice(0, 1);
 }
 
 export function stripImagePlaceholders(reply: string): string {
   const source = removeBrokenTail(reply || '');
   return source
+    .replace(/\[\[\s*image\s*\|[\s\S]*?\]\]/gi, '')
     .replace(/\[\[\s*image[\s\S]*?\]\]/gi, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -79,6 +144,58 @@ export function takeImagePlaceholders(reply: string): { text: string; images: Pa
     text: stripImagePlaceholders(reply),
     images: parseImagePlaceholders(reply),
   };
+}
+
+/**
+ * 汇总正文标记、原始响应恢复、JSON 字段里的插图。
+ * raw 用于 JSON 被双引号写坏时，仍能从原文捞出标记。
+ */
+export function harvestStoryImages(input: {
+  text?: string;
+  raw?: string;
+  obj?: unknown;
+}): { text: string; images: ParsedImage[] } {
+  const images: ParsedImage[] = [];
+  for (const item of parseStoryImagesFromObject(input.obj)) pushImage(images, item.prompt, item.size);
+  if (input.text) {
+    for (const item of parseImagePlaceholders(input.text)) pushImage(images, item.prompt, item.size);
+  }
+  if (input.raw && input.raw !== input.text) {
+    for (const item of parseImagePlaceholders(input.raw)) pushImage(images, item.prompt, item.size);
+  }
+  return {
+    text: stripImagePlaceholders(input.text || ''),
+    images: images.slice(0, 1),
+  };
+}
+
+/** 模型没给标记时，用正文拼一张兜底提示词，避免“开了等于没开”。 */
+export function buildFallbackStoryImage(narrative: string, location?: string): ParsedImage | null {
+  const cleaned = String(narrative || '')
+    .replace(/【[^】]*】/g, ' ')
+    .replace(/〔[^〕]*〕/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cleaned.length < 36) return null;
+  const snippet = cleaned.slice(0, 260);
+  const place = String(location || '').trim();
+  const prompt = [
+    'Chinese xianxia illustration, ink-wash and detailed painting, cinematic lighting, no text, no watermark',
+    place ? `location: ${place}` : '',
+    `scene: ${snippet}`,
+  ].filter(Boolean).join('. ');
+  return { prompt, size: '1024x1024' };
+}
+
+export function ensureStoryImages(
+  existing: ParsedImage[],
+  narrative: string,
+  location?: string,
+): ParsedImage[] {
+  if (existing.length) return existing.slice(0, 1);
+  const fallback = buildFallbackStoryImage(narrative, location);
+  return fallback ? [fallback] : [];
 }
 
 export function parseSize(size: string): { width: number; height: number } {

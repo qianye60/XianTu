@@ -242,7 +242,7 @@
           <div class="gm-form-row">
             <div class="gm-form-info">
               <span class="gm-form-name">生图渠道</span>
-              <span class="gm-form-desc">单独的图片渠道，不能沿用对话模型。正文里出现 [[image prompt="..."]] 时，会把这一段提交给这里选中的 NAI 或 GPT 生图。</span>
+              <span class="gm-form-desc">单独的图片渠道，不能沿用对话模型。开启后每回合会尽量出图：模型可写 story_image 字段或 [[image prompt='...']] 标记；没写时也会按正文自动补一张。生成结果出现在本回合正文下方，并收入图廊。</span>
             </div>
             <div class="inline">
               <label class="gm-switch" title="启用剧情生图">

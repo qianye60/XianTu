@@ -25,8 +25,8 @@ import { isSaveDataV3, migrateSaveDataToLatest } from './saveMigration';
 import { parseJsonSmart } from '@/utils/jsonExtract';
 import type { APIUsageType } from '@/stores/apiManagementStore';
 import { buildJudgementRound, formatJudgementBlock } from '@/utils/judgement';
-import { takeImagePlaceholders } from '@/services/imagePlaceholders';
-import { appendStoryImages, runPendingStoryImages } from '@/services/storyImageRunner';
+import { ensureStoryImages, harvestStoryImages, parseStoryImagesFromObject } from '@/services/imagePlaceholders';
+import { appendStoryImages, resolveImageApi, runPendingStoryImages } from '@/services/storyImageRunner';
 
 type PlainObject = Record<string, unknown>;
 
@@ -791,8 +791,9 @@ ${stateJsonString}
               injects: injectsStep1,
               onStreamChunk: options?.onStreamChunk,
             });
-            step1Text = this.extractNarrativeText(String(step1Raw));
-            const peeledStep1 = takeImagePlaceholders(step1Text);
+            const step1RawText = String(step1Raw);
+            step1Text = this.extractNarrativeText(step1RawText);
+            const peeledStep1 = harvestStoryImages({ text: step1Text, raw: step1RawText });
             step1Text = peeledStep1.text;
             if (step1Text.trim().length > 0 || peeledStep1.images.length) {
               if (peeledStep1.images.length) storyImages.push(...peeledStep1.images);
@@ -855,9 +856,17 @@ ${step1Text}
         gmResponse = this.parseAIResponseLenient(response, settings.mainForceJson, actionOptionsEnabled, DEFAULT_ACTION_OPTIONS);
       }
 
-      const peeledReply = takeImagePlaceholders(gmResponse.text || '');
+      const peeledReply = harvestStoryImages({
+        text: gmResponse.text || '',
+        raw: String(response || ''),
+        obj: gmResponse,
+      });
       gmResponse.text = peeledReply.text;
       if (peeledReply.images.length) storyImages.push(...peeledReply.images);
+      if (resolveImageApi()) {
+        const location = String((stateForAI as any)?.角色?.位置?.描述 || '');
+        storyImages.splice(0, storyImages.length, ...ensureStoryImages(storyImages, gmResponse.text, location));
+      }
       if (storyImages.length) gmResponse.storyImages = storyImages;
       if (!gmResponse.text.trim() && storyImages.length) {
         gmResponse.text = '画面在这一刻定格。';
@@ -964,6 +973,7 @@ ${step1Text}
           });
 
       let gmResponse: GM_Response;
+      let openingRawResponse = '';
 
       if (settings.splitEnabled) {
         const buildInitialSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
@@ -1030,7 +1040,11 @@ ${userPrompt}
           usageType: 'main',
           onStreamChunk: options?.onStreamChunk,
         });
-        const peeledOpeningStep = takeImagePlaceholders(this.extractNarrativeText(String(step1Raw)));
+        openingRawResponse = String(step1Raw);
+        const peeledOpeningStep = harvestStoryImages({
+          text: this.extractNarrativeText(openingRawResponse),
+          raw: openingRawResponse,
+        });
         const step1Text = peeledOpeningStep.text || (peeledOpeningStep.images.length ? '画面在这一刻定格。' : '');
         if (useStreaming) options?.onStreamComplete?.();
 
@@ -1077,7 +1091,7 @@ ${step1Text}
         };
       } else {
         // ========== 一次性生成 ==========
-        const response = String(await request({
+        openingRawResponse = String(await request({
           system: systemPrompt,
           user: userPrompt,
           generationId: `initial_message${generateMode === 'generateRaw' ? '_raw' : ''}_${Date.now()}`,
@@ -1085,17 +1099,25 @@ ${step1Text}
           usageType: 'main',
           onStreamChunk: options?.onStreamChunk,
         }));
-        if (!response.trim()) {
+        if (!openingRawResponse.trim()) {
           throw new Error('AI返回了空响应。可能原因：1) 模型使用了reasoning_content字段而非content字段（如Gemini 3 Pro）；2) API配置错误；3) 网络问题。建议：关闭流式传输，或更换模型。');
         }
         if (useStreaming) options?.onStreamComplete?.();
-        gmResponse = this.parseAIResponseLenient(response, settings.mainForceJson, actionOptionsEnabled, DEFAULT_INITIAL_ACTION_OPTIONS);
+        gmResponse = this.parseAIResponseLenient(openingRawResponse, settings.mainForceJson, actionOptionsEnabled, DEFAULT_INITIAL_ACTION_OPTIONS);
       }
 
-      const peeledOpening = takeImagePlaceholders(gmResponse.text || '');
+      const peeledOpening = harvestStoryImages({
+        text: gmResponse.text || '',
+        raw: openingRawResponse,
+        obj: gmResponse,
+      });
       gmResponse.text = peeledOpening.text;
-      if (peeledOpening.images.length) {
-        gmResponse.storyImages = [...(gmResponse.storyImages || []), ...peeledOpening.images];
+      let openingImages = [...(gmResponse.storyImages || []), ...peeledOpening.images];
+      if (resolveImageApi()) {
+        openingImages = ensureStoryImages(openingImages, gmResponse.text);
+      }
+      if (openingImages.length) {
+        gmResponse.storyImages = openingImages.slice(0, 1);
       }
 
       if (!gmResponse.text && !gmResponse.storyImages?.length) {
@@ -1181,7 +1203,9 @@ ${step1Text}
     }
 
     const timePrefix = this._formatGameTime((saveData as any).元数据?.时间);
-    const peeledNarrative = takeImagePlaceholders(sanitizeAITextForDisplay(response.text || '').trim());
+    const peeledNarrative = harvestStoryImages({
+      text: sanitizeAITextForDisplay(response.text || '').trim(),
+    });
     let textContent = peeledNarrative.text;
     const storyImages = (response.storyImages && response.storyImages.length) ? response.storyImages : peeledNarrative.images;
     const midTermContent = sanitizeAITextForDisplay(response.mid_term_memory || '').trim();
@@ -2802,6 +2826,10 @@ ${saveDataJson}`, role: 'system', depth: 4, position: 'in_chat' },
       text = textMatch?.[1] ? textMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : responseText;
     }
 
+    // 双引号插图标记会截断 text 字段正则：从原文再捞一次
+    const recovered = harvestStoryImages({ text, raw: responseText, obj });
+    text = recovered.text;
+
     if (!enableActionOptions) {
       actionOptions = [];
     } else if (!actionOptions.length) {
@@ -2815,6 +2843,7 @@ ${saveDataJson}`, role: 'system', depth: 4, position: 'in_chat' },
       mid_term_memory: memory,
       tavern_commands: commands,
       action_options: this.sanitizeActionOptionsForDisplay(actionOptions),
+      storyImages: recovered.images,
     };
   }
 
@@ -2864,7 +2893,8 @@ ${saveDataJson}`, role: 'system', depth: 4, position: 'in_chat' },
         text: String(obj.text || obj.叙事文本 || obj.narrative || ''),
         mid_term_memory: String(obj.mid_term_memory || obj.中期记忆 || obj.memory || ''),
         tavern_commands: tavernCommands,
-        action_options: enableActionOptions ? this.sanitizeActionOptionsForDisplay(normalized) : []
+        action_options: enableActionOptions ? this.sanitizeActionOptionsForDisplay(normalized) : [],
+        storyImages: parseStoryImagesFromObject(obj),
       };
     };
 

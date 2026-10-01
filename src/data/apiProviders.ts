@@ -135,7 +135,7 @@ export const FUNCTION_DESCS: Record<APIUsageType, string> = {
   event_generation: '生成世界大事件',
   sect_generation: '生成宗门的藏经阁、贡献商店等内容',
   crafting: '炼丹、炼器时的结果判定',
-  image: '正文里出现插图标记时，把那一段交给生图渠道。不沿用对话模型',
+  image: '开启后按正文出图；可用 story_image 或标记覆盖提示词。不沿用对话模型',
 };
 
 /** 辅助功能（叙事检索的 Embedding 单独一组） */
