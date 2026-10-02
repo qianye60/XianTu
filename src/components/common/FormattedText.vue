@@ -83,15 +83,15 @@
         </div>
         <div class="cc-modal-body">
           <section class="help-section">
-            <h3 class="cc-section-title">{{ $t('判定计算公式') }} (v7.0)</h3>
+            <h3 class="cc-section-title">{{ $t('判定计算公式') }} (v8.0)</h3>
             <div class="formula-box">
               <strong>{{ $t('最终判定值') }}</strong> = {{ $t('基础值') }} + {{ $t('幸运点') }} + {{ $t('环境修正') }} + {{ $t('状态修正') }}
             </div>
             <ol class="help-list">
-              <li><strong>{{ $t('基础值') }}</strong>：{{ $t('有效属性加权 + 境界加成。有效属性 = 先天×70% + 后天×30%') }}</li>
-              <li><strong>{{ $t('幸运点') }}</strong>：{{ $t('气运越高，区间从 -10～+5 抬到 -5～+15') }}</li>
+              <li><strong>{{ $t('基础值') }}</strong>：{{ $t('底子 10 + 有效属性加权 + 境界加成。有效属性 = 先天×70% + 后天×30%') }}</li>
+              <li><strong>{{ $t('幸运点') }}</strong>：{{ $t('气运越高，区间从 -8～+6 抬到 -3～+16') }}</li>
               <li><strong>{{ $t('环境修正') }}</strong>：{{ $t('灵气浓度影响（修炼/炼丹/战斗），探索社交不受影响') }}</li>
-              <li><strong>{{ $t('状态修正') }}</strong>：{{ $t('生命状态（重伤/虚弱）及 Buff/Debuff 影响') }}</li>
+              <li><strong>{{ $t('状态修正') }}</strong>：{{ $t('伤病只取最重一项（最多 -6），加上 Buff/Debuff，合计 -10～+15') }}</li>
             </ol>
           </section>
 
@@ -103,11 +103,11 @@
             <div class="result-list">
               <div class="result-item perfect">
                 <span class="result-label">{{ $t('完美') }}</span>
-                <span class="result-desc">{{ $t('判定值 ≥ 难度+30') }}</span>
+                <span class="result-desc">{{ $t('判定值 ≥ 难度+15') }}</span>
               </div>
               <div class="result-item great-success">
                 <span class="result-label">{{ $t('大成功') }}</span>
-                <span class="result-desc">{{ $t('判定值 ≥ 难度+15，超额完成') }}</span>
+                <span class="result-desc">{{ $t('判定值 ≥ 难度+8，超额完成') }}</span>
               </div>
               <div class="result-item success">
                 <span class="result-label">{{ $t('成功') }}</span>
@@ -119,7 +119,7 @@
               </div>
               <div class="result-item critical-failure">
                 <span class="result-label">{{ $t('大失败') }}</span>
-                <span class="result-desc">{{ $t('判定值远低于难度（难度-15以下）') }}</span>
+                <span class="result-desc">{{ $t('判定值低于难度-12') }}</span>
               </div>
             </div>
           </section>
@@ -157,7 +157,8 @@
               <li>{{ $t('修炼后天：后天六司可提升，权重为 30%') }}</li>
               <li>{{ $t('功法与装备：对六司的提升计入后天，从而抬高基础值') }}</li>
               <li>{{ $t('状态效果：buff增强判定，注意避免debuff') }}</li>
-              <li>{{ $t('境界压制：高境界对低境界有明显优势，但不是绝对') }}</li>
+              <li>{{ $t('境界压制：有对手时按对手强弱换难度，高一个小阶段为困难，高一个大境界为极难') }}</li>
+              <li>{{ $t('打不过就跑：逃跑比正面交手低两档，失败多是吃亏受伤，不会一次判定就丢命') }}</li>
             </ul>
           </section>
         </div>

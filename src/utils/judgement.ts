@@ -3,8 +3,9 @@
  *
  * 有效属性 = 先天 × 0.7 + 后天 × 0.3
  * 属性加权 = 主 × 0.5 + 副 × 0.3 + 辅 × 0.2
- * 基础值 = 属性加权 + 非对抗境界加成
+ * 基础值 = 底子 10 + 属性加权 + 境界加成
  * 判定值 = 基础值 + 幸运点 + 环境修正 + 状态修正
+ * 有对手时基础不变，按对手强弱换难度档位。
  */
 
 import { realmRank } from '@/utils/realmOrder'
@@ -33,6 +34,12 @@ const TYPE_WEIGHTS: Record<string, [SixSiKey, SixSiKey, SixSiKey]> = {
   逃跑: ['灵性', '气运', '根骨'],
   感知: ['灵性', '悟性', '气运'],
 }
+
+/**
+ * 人人都有的底子。凡人属性加权只有 3～5，没有这 10 点，简单、极易会被"难度至少为 1"截住，
+ * 跟普通几乎一样难，新手连极易的事都会失败。
+ */
+const BASE_FLOOR = 10
 
 /** 与境界序号对齐：凡人0 … 渡劫9。同序号的武道境界共用这一档。 */
 const REALM_BONUS_BY_RANK = [0, 5, 12, 20, 30, 42, 55, 70, 79, 88]
@@ -108,13 +115,13 @@ export function realmJudgementBonus(realmName: string): number {
 
 /**
  * 气运取有效值后限制在 0–10。区间随气运上移，均匀抽取：
- * 气运 0：-10～+5；气运 5：-8～+10；气运 10：-5～+15。
+ * 气运 0：-8～+6；气运 5：-6～+11；气运 10：-3～+16。
  */
 export function luckyRange(fortune: number): { min: number; max: number } {
   const f = Math.min(10, Math.max(0, Math.round(fortune)))
   return {
-    min: -10 + Math.floor(f * 0.5),
-    max: 5 + f,
+    min: -8 + Math.floor(f * 0.5),
+    max: 6 + f,
   }
 }
 
@@ -145,20 +152,24 @@ function effectSign(effect: unknown): number | null {
   return null
 }
 
-/** 气血、灵气、神识与增益/减益。合计限制在 ±20。 */
+/**
+ * 气血、灵气、神识与增益/减益，合计限制在 -10～+15。
+ * 伤病只取最重的一项，不叠加：受伤后减值叠满，下一次判定几乎必败，会一路输到死。
+ */
 export function statusModifier(attributes: unknown, effects: unknown): number {
   const attrs = attributes && typeof attributes === 'object' ? (attributes as Record<string, any>) : {}
-  let mod = 0
+  let injury = 0
 
   const hp = ratioOf(attrs.气血?.当前, attrs.气血?.上限)
   if (hp !== null) {
-    if (hp < 0.25) mod -= 15
-    else if (hp < 0.5) mod -= 5
+    if (hp < 0.25) injury = -6
+    else if (hp < 0.5) injury = -3
   }
   const spirit = ratioOf(attrs.灵气?.当前, attrs.灵气?.上限)
-  if (spirit !== null && spirit < 0.3) mod -= 8
+  if (spirit !== null && spirit < 0.3) injury = Math.min(injury, -2)
   const sense = ratioOf(attrs.神识?.当前, attrs.神识?.上限)
-  if (sense !== null && sense < 0.3) mod -= 10
+  if (sense !== null && sense < 0.3) injury = Math.min(injury, -3)
+  let mod = injury
 
   if (Array.isArray(effects)) {
     for (const effect of effects) {
@@ -170,30 +181,32 @@ export function statusModifier(attributes: unknown, effects: unknown): number {
     }
   }
 
-  return Math.min(20, Math.max(-20, mod))
+  return Math.min(15, Math.max(-10, mod))
 }
 
 /**
  * 难度跟着该类型基础值走，不再使用固定的 10/20/35/50。
- * 幸运大约在 -10～+15，档位必须落在这个跨度里，否则吃力以上永远失败。
+ * 幸运大约在 -8～+16，档位必须落在这个跨度里。气运 4、无伤时成功率约：
+ * 简单 100%｜普通 65%｜困难 47%｜艰难 29%｜极难 12%。
  */
 export function difficultyBands(base: number): Record<'极易' | '简单' | '普通' | '困难' | '艰难' | '极难', number> {
   const atLeastOne = (n: number) => Math.max(1, n)
   return {
-    极易: atLeastOne(base - 15),
-    简单: atLeastOne(base - 8),
+    极易: atLeastOne(base - 12),
+    简单: atLeastOne(base - 6),
     普通: atLeastOne(base),
-    困难: base + 4,
-    艰难: base + 8,
-    极难: base + 12,
+    困难: base + 3,
+    艰难: base + 6,
+    极难: base + 9,
   }
 }
 
+/** 档位间距跟幸运跨度对齐：原先完美要 +30，幸运最多 +15，永远出不来。 */
 export function computeJudgementResult(finalValue: number, difficulty: number): string {
-  if (finalValue >= difficulty + 30) return '完美'
-  if (finalValue >= difficulty + 15) return '大成功'
+  if (finalValue >= difficulty + 15) return '完美'
+  if (finalValue >= difficulty + 8) return '大成功'
   if (finalValue >= difficulty) return '成功'
-  if (finalValue < difficulty - 15) return '大失败'
+  if (finalValue < difficulty - 12) return '大失败'
   return '失败'
 }
 
@@ -225,7 +238,7 @@ export function buildJudgementRound(input: {
   for (const [type, weights] of Object.entries(TYPE_WEIGHTS)) {
     if (type === '战斗') continue
     const weighted = Math.round(weightedAttribute(attrs, weights))
-    分项[type] = { 属性加权: weighted, 基础: weighted + realmBonus }
+    分项[type] = { 属性加权: weighted, 基础: BASE_FLOOR + weighted + realmBonus }
   }
 
   return {
@@ -282,8 +295,9 @@ export function formatJudgementBlock(round: JudgementRound): string {
 幸运${signed(round.幸运点)}，状态${signed(round.状态修正)}。判定值 = 基础 + 幸运 + 环境 + 状态。〔〕里必须写上幸运。
 本境界正常行事（修炼、赶路、打听、对等交手、炼制当前境界能接触的物品）用简单难度。普通只用于明确偏难但仍在本境界内的事。
 判定值 ≥ 所选难度就必须写成功、大成功或完美，禁止改成失败。只有越级、条件不足的强行突破、硬闯才用困难及以上。
-困难=基础+4，越一级=基础+8，越两级=基础+12。禁止使用 10/20/35/50/70/90 这类固定难度。
+困难=基础+3，艰难=基础+6，极难=基础+9。禁止使用 10/20/35/50/70/90 这类固定难度。
 境界：${round.境界名}。凡人没有初期/中期/后期。
 ${lines.join('\n')}
-有明确对手时：基础改为该类型属性加权 + 境界差加成，难度档位按新基础重算，判定值再加幸运、环境、状态。境界差 3 及以上免判。`
+有明确对手时：基础不变，按对手强弱选难度。对手弱一个大境界及以上免判；弱一两个小阶段=简单；同阶=普通；高一个小阶段=困难；高两个小阶段=艰难；高一个大境界=极难；高两个大境界及以上免判，只能逃、躲、求饶。逃跑比正面交手低两档。
+失败是吃亏，不是死：失败最多轻伤，大失败才重伤；气血 25% 以上时一次判定不会致死；濒死时也要留活路（逃脱、昏迷被救、被俘），除非玩家执意送死。`
 }
