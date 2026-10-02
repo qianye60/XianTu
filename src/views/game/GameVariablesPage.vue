@@ -1,5 +1,6 @@
 <template>
   <EmptyState v-if="!gs.isGameLoaded" glyph="数" title="存档尚未加载" desc="进入游戏后才能查看变量" />
+  <EmptyState v-else-if="viewError" glyph="数" title="变量读不出来" :desc="viewError" />
 
   <div v-else class="vars-page">
     <div class="gm-toolbar">
@@ -202,20 +203,41 @@ const TYPE_NAMES: Record<string, string> = {
   string: '文本', number: '数字', boolean: '开关', object: '对象', array: '数组', null: '空值', undefined: '未定义',
 };
 
+const safeJson = (x: unknown, space?: number) => {
+  try {
+    const t = JSON.stringify(x, null, space);
+    return t === undefined ? 'undefined' : t;
+  } catch {
+    return '（无法序列化）';
+  }
+};
+const keysOf = (x: unknown): string[] => {
+  try {
+    if (!x || typeof x !== 'object') return [];
+    return Object.keys(x as object);
+  } catch {
+    return [];
+  }
+};
 const short = (x: unknown) => {
-  const t = x === undefined ? '（无）' : typeof x === 'object' ? JSON.stringify(x) : String(x);
+  const t = x === undefined ? '（无）' : typeof x === 'object' ? safeJson(x) : String(x);
   return t.length > 24 ? `${t.slice(0, 24)}…` : t;
 };
 const preview = (x: unknown) => {
   const t = typeOf(x);
-  if (t === 'object') return `{${Object.keys(x as object).length}}`;
+  if (t === 'object') return `{${keysOf(x).length}}`;
   if (t === 'array') return `[${(x as unknown[]).length}]`;
   return short(x);
 };
 const pretty = (x: unknown) => {
-  const t = x === undefined ? '（无）' : typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+  const t = x === undefined ? '（无）' : typeof x === 'string' ? x : safeJson(x, 2);
   return t.length > 4000 ? `${t.slice(0, 4000)}\n…（已截断）` : t;
 };
+
+const viewError = computed(() => {
+  const err = (v.saveView.value as { __error?: string }).__error;
+  return err || '';
+});
 
 // ─── 树 ───
 const expanded = ref(new Set<string>(['角色']));
@@ -228,24 +250,36 @@ const toggle = (path: string) => {
 
 interface Row { path: string; key: string; depth: number; type: string; expandable: boolean; preview: string; locked: string | null; more?: number }
 
-const lockOf = (path: string, value: unknown) => validateVariableEdit(v.saveView.value, path, value, v.mode.value);
+const lockOf = (path: string, value: unknown) => {
+  try {
+    return validateVariableEdit(v.saveView.value, path, value, v.mode.value);
+  } catch {
+    return '该字段暂时无法检查';
+  }
+};
 
 const treeRows = computed<Row[]>(() => {
   const rows: Row[] = [];
-  const walk = (obj: any, base: string, depth: number) => {
-    const keys = Object.keys(obj ?? {});
-    const shown = keys.slice(0, 200);
-    for (const key of shown) {
-      const path = base ? `${base}.${key}` : key;
-      const val = obj[key];
-      const t = typeOf(val);
-      const expandable = (t === 'object' || t === 'array') && Object.keys(val).length > 0;
-      rows.push({ path, key, depth, type: t, expandable, preview: expandable && expanded.value.has(path) ? '' : preview(val), locked: depth === 0 ? null : lockOf(path, val) });
-      if (expandable && expanded.value.has(path)) walk(val, path, depth + 1);
-    }
-    if (keys.length > shown.length) rows.push({ path: `${base}.__more`, key: '', depth, type: '', expandable: false, preview: '', locked: null, more: keys.length - shown.length });
-  };
-  walk(Object.fromEntries(DOMAINS.map((d) => [d, v.saveView.value[d]])), '', 0);
+  try {
+    const walk = (obj: any, base: string, depth: number) => {
+      if (depth > 12) return;
+      const keys = keysOf(obj);
+      const shown = keys.slice(0, 200);
+      for (const key of shown) {
+        const path = base ? `${base}.${key}` : key;
+        const val = obj[key];
+        const t = typeOf(val);
+        const expandable = (t === 'object' || t === 'array') && keysOf(val).length > 0;
+        rows.push({ path, key, depth, type: t, expandable, preview: expandable && expanded.value.has(path) ? '' : preview(val), locked: depth === 0 ? null : lockOf(path, val) });
+        if (expandable && expanded.value.has(path)) walk(val, path, depth + 1);
+      }
+      if (keys.length > shown.length) rows.push({ path: `${base}.__more`, key: '', depth, type: '', expandable: false, preview: '', locked: null, more: keys.length - shown.length });
+    };
+    walk(Object.fromEntries(DOMAINS.map((d) => [d, v.saveView.value[d]])), '', 0);
+  } catch (e) {
+    console.error('[游戏变量] 路径树生成失败', e);
+    rows.push({ path: '__error', key: '读取失败', depth: 0, type: 'string', expandable: false, preview: (e as Error).message || '未知错误', locked: null });
+  }
   return rows;
 });
 
@@ -254,13 +288,17 @@ const searchRows = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return [];
   const out: { path: string; type: string; locked: boolean }[] = [];
-  const stack: Array<{ path: string; value: unknown; depth: number }> = DOMAINS.map((d) => ({ path: d, value: v.saveView.value[d], depth: 0 }));
-  while (stack.length && out.length < 100) {
-    const n = stack.pop()!;
-    if (n.path.toLowerCase().includes(q)) out.push({ path: n.path, type: typeOf(n.value), locked: !!lockOf(n.path, n.value) });
-    if (n.depth < 8 && n.value && typeof n.value === 'object') {
-      for (const [k, val] of Object.entries(n.value)) stack.push({ path: `${n.path}.${k}`, value: val, depth: n.depth + 1 });
+  try {
+    const stack: Array<{ path: string; value: unknown; depth: number }> = DOMAINS.map((d) => ({ path: d, value: v.saveView.value[d], depth: 0 }));
+    while (stack.length && out.length < 100) {
+      const n = stack.pop()!;
+      if (n.path.toLowerCase().includes(q)) out.push({ path: n.path, type: typeOf(n.value), locked: !!lockOf(n.path, n.value) });
+      if (n.depth < 8 && n.value && typeof n.value === 'object') {
+        for (const key of keysOf(n.value)) stack.push({ path: `${n.path}.${key}`, value: (n.value as any)[key], depth: n.depth + 1 });
+      }
     }
+  } catch (e) {
+    console.error('[游戏变量] 搜索失败', e);
   }
   return out;
 });
@@ -281,7 +319,7 @@ const draftBool = ref(false);
 const resetDraft = () => {
   const c = currentValue.value;
   draftBool.value = !!c;
-  draftText.value = currentType.value === 'string' ? String(c) : currentType.value === 'number' ? String(c) : JSON.stringify(c ?? null, null, 2);
+  draftText.value = currentType.value === 'string' ? String(c ?? '') : currentType.value === 'number' ? String(c ?? '') : safeJson(c ?? null, 2);
 };
 watch([selectedPath, currentValue], resetDraft, { immediate: true });
 
@@ -290,8 +328,10 @@ const parsed = computed<{ value?: unknown; error?: string }>(() => {
   if (t === 'boolean') return { value: draftBool.value };
   if (t === 'string') return { value: draftText.value };
   if (t === 'number') {
-    const n = Number(draftText.value);
-    return draftText.value.trim() === '' || !Number.isFinite(n) ? { error: '请输入有效数字' } : { value: n };
+    // type="number" 的 v-model 会把输入转成 number，不能直接 .trim()
+    const text = String(draftText.value ?? '').trim();
+    const n = Number(text);
+    return text === '' || !Number.isFinite(n) ? { error: '请输入有效数字' } : { value: n };
   }
   try {
     return { value: JSON.parse(draftText.value) };
@@ -300,7 +340,7 @@ const parsed = computed<{ value?: unknown; error?: string }>(() => {
   }
 });
 const draftValue = computed(() => parsed.value.value);
-const changed = computed(() => !parsed.value.error && JSON.stringify(draftValue.value) !== JSON.stringify(currentValue.value));
+const changed = computed(() => !parsed.value.error && safeJson(draftValue.value) !== safeJson(currentValue.value));
 const draftError = computed(() => parsed.value.error || (changed.value ? v.validate(selectedPath.value, draftValue.value) : null));
 
 const select = (path: string) => {
@@ -367,8 +407,17 @@ const copyGuide = async () => {
   }
 };
 const exportJson = () => {
-  downloadText(`仙途-游戏变量-${localDateStamp()}.json`, JSON.stringify({ ...v.saveView.value, 自定义: v.custom.value }, null, 2));
-  toast.success('已导出');
+  try {
+    const full = gs.toSaveData();
+    if (!full) {
+      toast.error('存档读不出来，无法导出');
+      return;
+    }
+    downloadText(`仙途-游戏变量-${localDateStamp()}.json`, JSON.stringify({ ...full, 自定义: v.custom.value }, null, 2));
+    toast.success('已导出');
+  } catch (e) {
+    toast.error(`导出失败：${(e as Error).message}`);
+  }
 };
 const refresh = () => {
   resetDraft();
@@ -396,9 +445,11 @@ usePageActions(() => [
 .vars-page {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 0.9rem;
-  height: 100%;
+  width: 100%;
   min-height: 0;
+  overflow: hidden;
   padding-top: 1rem;
 }
 
@@ -738,9 +789,33 @@ usePageActions(() => [
 }
 
 @media (max-width: 768px) {
+  .vars-page {
+    flex: 1 0 auto;
+    height: auto;
+    overflow: visible;
+  }
+
   .cols {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 40% minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    height: auto;
+    min-height: min-content;
+    overflow: visible;
+  }
+
+  .tree {
+    flex: none;
+    height: auto;
+    max-height: 46vh;
+    min-height: 220px;
+    overflow-y: auto;
+  }
+
+  .editor {
+    flex: none;
+    min-height: 16rem;
+    overflow: visible;
   }
 }
 </style>

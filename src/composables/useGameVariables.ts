@@ -49,10 +49,18 @@ export function useGameVariables() {
     return isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw).migrated;
   };
 
-  /** 只展示 V3 五域；元数据补上槽位信息（只读） */
+  /** 只展示 V3 五域；元数据补上槽位信息（只读）。读失败时给出原因，避免整页渲染中断。 */
   const saveView = computed<Record<string, any>>(() => {
     if (!gs.isGameLoaded) return {};
-    const v3 = (currentV3() || {}) as any;
+    let v3: any;
+    try {
+      const raw = gs.toSaveData({ omitNarrative: true }) as any;
+      if (!raw) return { __error: '存档数据不完整，暂时读不出来' };
+      v3 = isSaveDataV3(raw) ? raw : migrateSaveDataToLatest(raw).migrated;
+    } catch (e) {
+      console.error('[游戏变量] 读取存档失败', e);
+      return { __error: (e as Error).message || '存档读不出来' };
+    }
     const slot = cs.activeSaveSlot;
     const profile = cs.activeCharacterProfile;
     const view: Record<string, any> = {
@@ -203,7 +211,12 @@ export function useGameVariables() {
         }
       };
       walk(v, 0);
-      const size = v ? new Blob([JSON.stringify(v)]).size : 0;
+      let size = 0;
+      try {
+        size = v ? new Blob([JSON.stringify(v)]).size : 0;
+      } catch {
+        size = 0;
+      }
       return { domain: d, keys: v && typeof v === 'object' ? Object.keys(v).length : 0, fields: count, size };
     }),
   );
