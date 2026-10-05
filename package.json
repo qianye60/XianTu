@@ -63,7 +63,7 @@
     "sass-loader": "^16.0.6",
     "socket.io": "^4.8.3",
     "style-loader": "^4.0.0",
-    "ts-loader": "^9.5.4",
+    "ts-loader": "^9.6.2",
     "typescript": "~5.8.0",
     "vue-loader": "^17.4.2",
     "webpack": "^5.99.8",
