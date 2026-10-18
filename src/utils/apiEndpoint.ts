@@ -132,11 +132,27 @@ function splitUrl(full: string): { base: string; path: string } {
 }
 
 export function previewApiRequest(provider: APIProvider, rawUrl: string, model?: string): ApiRequestPreview {
-  if (provider === 'nai' || provider === 'gpt-image') {
-    const fallback = provider === 'nai' ? 'https://create.suanbohe.com/api' : 'https://api.openai.com';
-    const source = rawUrl.trim() || fallback;
-    const generate = provider === 'nai' ? naiGenerateUrl(source) : gptImagesUrl(source);
-    const models = provider === 'nai' ? naiModelsUrl(source) : gptModelsUrl(source);
+  if (provider === 'nai') {
+    const source = rawUrl.trim() || 'https://create.suanbohe.com/api';
+    const generate = naiGenerateUrl(source);
+    const models = naiModelsUrl(source);
+    const base = generate.replace(/\/ai\/generate-image$/i, '');
+    return {
+      format: apiFormatLabel(provider),
+      method: 'POST',
+      base,
+      path: '/ai/generate-image',
+      url: generate,
+      streamPath: '',
+      modelsPath: '/models',
+      modelsUrl: models,
+      warning: '',
+    };
+  }
+  if (provider === 'gpt-image') {
+    const source = rawUrl.trim() || 'https://api.openai.com';
+    const generate = gptImagesUrl(source);
+    const models = gptModelsUrl(source);
     const gen = splitUrl(generate);
     const list = splitUrl(models);
     return {

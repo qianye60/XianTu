@@ -41,7 +41,8 @@ assert.equal(gpt.output_format, 'png');
 assert.equal(gpt.n, 1);
 assert.equal(buildGptImageBody({ prompt: 'x', model: 'dall-e-3', size: '1216x832' }).response_format, 'b64_json');
 
-assert.equal(naiGenerateUrl('https://create.suanbohe.com'), 'https://create.suanbohe.com/api/ai/generate-image');
+assert.equal(naiGenerateUrl('https://create.suanbohe.com'), 'https://create.suanbohe.com/ai/generate-image');
+assert.equal(naiGenerateUrl('https://dangao.iisbo.com/'), 'https://dangao.iisbo.com/ai/generate-image');
 assert.equal(naiGenerateUrl('https://create.suanbohe.com/api'), 'https://create.suanbohe.com/api/ai/generate-image');
 assert.equal(naiModelsUrl('https://create.suanbohe.com/api'), 'https://create.suanbohe.com/api/models');
 assert.equal(gptImagesUrl('https://api.openai.com'), 'https://api.openai.com/v1/images/generations');

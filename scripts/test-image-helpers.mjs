@@ -42,8 +42,14 @@ const ensured = ensureStoryImages([], '雾气散去，青衣女子立于断桥�
 if (!ensured.length) throw new Error('fallback missing');
 if (buildFallbackStoryImage('太短了') !== null) throw new Error('short should be null');
 
-if (naiGenerateUrl('https://create.suanbohe.com') !== 'https://create.suanbohe.com/api/ai/generate-image') {
+if (naiGenerateUrl('https://create.suanbohe.com') !== 'https://create.suanbohe.com/ai/generate-image') {
   throw new Error('nai generate url');
+}
+if (naiGenerateUrl('https://dangao.iisbo.com/') !== 'https://dangao.iisbo.com/ai/generate-image') {
+  throw new Error('nai generate url should not append /api');
+}
+if (naiGenerateUrl('https://create.suanbohe.com/api') !== 'https://create.suanbohe.com/api/ai/generate-image') {
+  throw new Error('nai generate url keeps user /api');
 }
 if (naiModelsUrl('https://create.suanbohe.com/api') !== 'https://create.suanbohe.com/api/models') {
   throw new Error('nai models url');

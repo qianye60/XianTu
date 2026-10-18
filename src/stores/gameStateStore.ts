@@ -126,6 +126,10 @@ interface GameState {
    */
   relationshipMatrix: any | null;
   worldInfo: WorldInfo | null;
+  /**
+   * 世界.状态。之前未落入 store，变量页和 AI 改完，下次保存会被写成 {}。
+   */
+  worldState: Record<string, unknown> | null;
   /** 【境界地图集】开关开启时使用， key 为境界名称，如 "练气期" */
   realmMapCollection: Record<string, WorldInfo> | null;
   sectSystem: SectSystemV2 | null;
@@ -154,6 +158,12 @@ interface GameState {
   masteredSkills: any[] | null;
   // 系统配置
   systemConfig: any | null;
+  /** 系统.缓存里除「掌握技能」以外的字段，例如临时统计 */
+  systemCache: Record<string, unknown> | null;
+  /** 系统.行动队列。未落入 store 时，修改无法写回存档 */
+  actionQueue: Record<string, unknown> | null;
+  /** 系统.扩展。未落入 store 时，修改会被写成 {} */
+  systemExtension: Record<string, unknown> | null;
   // 角色.身体（完整对象，包含酒馆端扩展字段）
   body: Record<string, any> | null;
   // 身体部位开发
@@ -182,6 +192,7 @@ export const useGameStateStore = defineStore('gameState', {
     relationships: null,
     relationshipMatrix: null,
     worldInfo: null,
+    worldState: null,
     realmMapCollection: null,
     sectSystem: null,
     sectMemberInfo: null,
@@ -210,6 +221,9 @@ export const useGameStateStore = defineStore('gameState', {
     effects: [],
     masteredSkills: null,
     systemConfig: null,
+    systemCache: null,
+    actionQueue: null,
+    systemExtension: null,
     body: null,
     bodyPartDevelopment: null,
 
@@ -314,6 +328,11 @@ export const useGameStateStore = defineStore('gameState', {
       const relationships: Record<string, NpcProfile> | null = v3?.社交?.关系 ? deepCopy(v3.社交.关系) : null;
       const relationshipMatrix = normalizeRelationshipMatrixV3(v3?.社交?.关系矩阵, Object.keys(relationships || {}));
       const worldInfo: WorldInfo | null = v3?.世界?.信息 ? deepCopy(v3.世界.信息) : null;
+      const worldStateRaw = v3?.世界?.状态;
+      const worldState =
+        worldStateRaw && typeof worldStateRaw === 'object' && !Array.isArray(worldStateRaw)
+          ? deepCopy(worldStateRaw)
+          : {};
       const realmMapCollection: Record<string, WorldInfo> | null =
         v3?.世界?.地图集 && typeof v3.世界.地图集 === 'object' && !Array.isArray(v3.世界.地图集)
           ? deepCopy(v3.世界.地图集)
@@ -372,6 +391,19 @@ export const useGameStateStore = defineStore('gameState', {
       const effects: StatusEffect[] = Array.isArray(v3?.角色?.效果) ? deepCopy(v3.角色.效果) : [];
 
       const systemConfig = v3?.系统?.配置 ? deepCopy(v3.系统.配置) : null;
+      const cacheRaw = v3?.系统?.缓存;
+      const systemCache =
+        cacheRaw && typeof cacheRaw === 'object' && !Array.isArray(cacheRaw) ? deepCopy(cacheRaw) : {};
+      const actionQueueRaw = v3?.系统?.行动队列;
+      const actionQueue =
+        actionQueueRaw && typeof actionQueueRaw === 'object' && !Array.isArray(actionQueueRaw)
+          ? deepCopy(actionQueueRaw)
+          : null;
+      const extensionRaw = v3?.系统?.扩展;
+      const systemExtension =
+        extensionRaw && typeof extensionRaw === 'object' && !Array.isArray(extensionRaw)
+          ? deepCopy(extensionRaw)
+          : {};
 
       const body = v3?.角色?.身体 ? deepCopy(v3.角色.身体) : null;
       let bodyPartDevelopment =
@@ -398,6 +430,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.relationships = relationships;
       this.relationshipMatrix = relationshipMatrix;
       this.worldInfo = worldInfo;
+      this.worldState = worldState;
       this.realmMapCollection = realmMapCollection;
       this.sectSystem = sectSystem;
       this.sectMemberInfo = sectMemberInfo;
@@ -432,6 +465,9 @@ export const useGameStateStore = defineStore('gameState', {
 
       this.effects = Array.isArray(effects) ? deepCopy(effects) : [];
       this.systemConfig = systemConfig ? deepCopy(systemConfig) : null;
+      this.systemCache = systemCache;
+      this.actionQueue = actionQueue;
+      this.systemExtension = systemExtension;
       if (isTavernEnv() && this.systemConfig) {
         this.systemConfig = ensureSystemConfigHasNsfw(this.systemConfig) as any;
       }
@@ -593,15 +629,29 @@ export const useGameStateStore = defineStore('gameState', {
         世界: {
           信息: this.worldInfo ?? {},
           ...(this.realmMapCollection ? { 地图集: this.realmMapCollection } : {}),
-          状态: {},
+          状态:
+            this.worldState && typeof this.worldState === 'object' && !Array.isArray(this.worldState)
+              ? this.worldState
+              : {},
         },
         系统: {
           配置: this.systemConfig ?? {},
           设置: settings,
-          缓存: { 掌握技能: this.masteredSkills ?? (skillState as any)?.掌握技能 ?? [] },
+          缓存: {
+            ...(this.systemCache && typeof this.systemCache === 'object' && !Array.isArray(this.systemCache)
+              ? this.systemCache
+              : {}),
+            掌握技能: this.masteredSkills ?? (skillState as any)?.掌握技能 ?? [],
+          },
+          ...(this.actionQueue && typeof this.actionQueue === 'object' && !Array.isArray(this.actionQueue)
+            ? { 行动队列: this.actionQueue }
+            : {}),
           历史: { 叙事: this.narrativeHistory || [] },
           图廊: this.imageGallery || [],
-          扩展: {},
+          扩展:
+            this.systemExtension && typeof this.systemExtension === 'object' && !Array.isArray(this.systemExtension)
+              ? this.systemExtension
+              : {},
           联机: online,
         },
       };
@@ -719,6 +769,7 @@ export const useGameStateStore = defineStore('gameState', {
       this.equipment = null;
       this.relationships = null;
       this.worldInfo = null;
+      this.worldState = null;
       this.realmMapCollection = null;
       this.sectSystem = null;
       this.sectMemberInfo = null;
@@ -747,6 +798,9 @@ export const useGameStateStore = defineStore('gameState', {
       this.effects = [];
       this.masteredSkills = null;
       this.systemConfig = null;
+      this.systemCache = null;
+      this.actionQueue = null;
+      this.systemExtension = null;
       this.body = null;
       this.bodyPartDevelopment = null;
 

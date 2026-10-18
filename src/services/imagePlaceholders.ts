@@ -225,7 +225,6 @@ export function gptImageSize(size: string): string {
 export function naiGenerateUrl(baseUrl: string): string {
   let root = String(baseUrl || '').trim().replace(/\/+$/, '');
   root = root.replace(/\/ai\/generate-image\/?$/i, '').replace(/\/models\/?$/i, '');
-  if (!/\/api$/i.test(root)) root = `${root}/api`;
   return `${root}/ai/generate-image`;
 }
 

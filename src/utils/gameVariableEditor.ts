@@ -9,6 +9,7 @@ const PROTECTED_PREFIXES = [
   '系统.联机',
   '系统.存档',
   '系统.历史',
+  '系统.图廊',
 ];
 
 export function describeVariablePath(path: string): string {
