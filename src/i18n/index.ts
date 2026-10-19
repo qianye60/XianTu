@@ -38,6 +38,10 @@ const autoTranslateMap: Record<string, string> = {
   '验证道友身份，以便同步云端天机。': 'Login to sync progress',
   '已有道号？': 'Have an account?', '立即登入': 'Log in', '初来乍到？': 'New here?', '注册道号': 'Register',
   '发送中': 'Sending', '发送验证码': 'Send code',
+  '找回令牌': 'Reset password', '忘记令牌？': 'Forgot password?', '想起道号了？': 'Remember your name?',
+  '新令牌': 'New password', '请设置新的身份令牌': 'Set a new password', '重置令牌': 'Reset password',
+  '验证绑定邮箱。邮件里会写上您的道号。': 'Verify your email. The message includes your username.',
+  '验证码邮件会写明绑定的道号，忘了道号也能凭邮件找回。': 'The email includes your username, so you can recover it too.',
   '未配置后端服务器，登录/注册不可用': 'No backend configured; login/register unavailable',
 
   // === 模式选择 ===

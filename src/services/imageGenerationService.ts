@@ -12,6 +12,7 @@ import {
   imageErrorMessage,
   naiGenerateUrl,
   naiModelsUrl,
+  readNaiPayload,
 } from '@/services/imagePlaceholders';
 
 export interface GeneratedImage {
@@ -81,6 +82,24 @@ async function postOnce(url: string, body: unknown, headers: Record<string, stri
   });
 }
 
+function decodePayload(data: ArrayBuffer): unknown {
+  const text = new TextDecoder().decode(data);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function postNai(url: string, body: unknown, headers: Record<string, string>, timeout: number) {
+  return axios.post(url, body, {
+    headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/zip, application/json' },
+    timeout,
+    responseType: 'arraybuffer',
+    validateStatus: () => true,
+  });
+}
+
 export async function generateNaiImage(api: APIConfig, prompt: string, size: string, idempotencyKey: string): Promise<GeneratedImage> {
   const body = buildNaiBody({
     prompt,
@@ -92,18 +111,23 @@ export async function generateNaiImage(api: APIConfig, prompt: string, size: str
   });
   const url = naiGenerateUrl(api.url);
   const headers = { ...bearer(api.apiKey), 'Idempotency-Key': idempotencyKey };
-  let response = await postOnce(url, body, headers, NAI_TIMEOUT);
+  let response = await postNai(url, body, headers, NAI_TIMEOUT);
   if (response.status === 429 || response.status === 503) {
-    response = await postOnce(url, body, headers, NAI_TIMEOUT);
+    response = await postNai(url, body, headers, NAI_TIMEOUT);
   }
+  const payload = response.data as ArrayBuffer;
   if (response.status !== 201 && response.status !== 200) {
-    throw new Error(imageErrorMessage(response.data, response.status));
+    throw new Error(imageErrorMessage(decodePayload(payload), response.status));
   }
-  const image = response.data?.images?.[0];
-  const raw = String(image?.image || '').trim();
-  if (!raw) throw new Error('生图接口没有返回图片');
-  const seed = Number(image?.seed);
-  return { dataUrl: pngDataUrl(raw), seed: Number.isFinite(seed) ? seed : undefined };
+  const image = await readNaiPayload(payload);
+  if (image?.base64) return { dataUrl: pngDataUrl(image.base64), seed: image.seed };
+  if (image?.bytes) {
+    const copy = image.bytes.slice();
+    const blob = new Blob([copy.buffer.slice(copy.byteOffset, copy.byteOffset + copy.byteLength)], { type: image.mime });
+    return { dataUrl: await blobToDataUrl(blob), seed: image.seed };
+  }
+  if (image?.url) return { dataUrl: await urlToDataUrl(image.url), seed: image.seed };
+  throw new Error('生图接口没有返回图片');
 }
 
 export async function generateGptImage(api: APIConfig, prompt: string, size: string): Promise<GeneratedImage> {

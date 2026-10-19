@@ -98,6 +98,8 @@ const extractErrorMessageFromBody = (body: unknown): string | null => {
 const shouldSkipAuthRedirect = (path: string): boolean =>
   path.includes('/api/v1/auth/token') ||
   path.includes('/api/v1/auth/register') ||
+  path.includes('/api/v1/auth/reset-password') ||
+  path.includes('/api/v1/auth/send-email-code') ||
   path.includes('/api/v1/auth/me') ||
   path.includes('/api/v1/admin/token');
 

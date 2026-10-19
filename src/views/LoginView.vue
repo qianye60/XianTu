@@ -9,11 +9,9 @@
       <span class="frame-corner br" aria-hidden="true"></span>
 
       <header class="header">
-        <div class="emblem" aria-hidden="true"><span>{{ isRegisterMode ? '籍' : '门' }}</span></div>
-        <h2 class="title">{{ isRegisterMode ? $t('初入道门') : $t('登入洞天') }}</h2>
-        <p v-if="backendReady" class="subtitle">
-          {{ isRegisterMode ? $t('注册新道号，踏入修仙之路。') : $t('验证道友身份，以便同步云端天机。') }}
-        </p>
+        <div class="emblem" aria-hidden="true"><span>{{ emblemChar }}</span></div>
+        <h2 class="title">{{ $t(panelTitle) }}</h2>
+        <p v-if="backendReady" class="subtitle">{{ $t(panelSubtitle) }}</p>
         <div class="header-rule" aria-hidden="true"></div>
       </header>
 
@@ -22,8 +20,8 @@
         <span>{{ $t('未配置后端服务器，登录/注册不可用') }}</span>
       </div>
 
-      <form v-else class="login-form" @submit.prevent="isRegisterMode ? handleRegister() : handleLogin()">
-        <div class="cc-field">
+      <form v-else class="login-form" @submit.prevent="submitAuth">
+        <div v-if="!isResetMode" class="cc-field">
           <label for="username">{{ $t('道号') }}</label>
           <div class="input-wrap">
             <User :size="15" class="input-icon" aria-hidden="true" />
@@ -39,40 +37,8 @@
           </div>
         </div>
 
-        <div class="cc-field">
-          <label for="password">{{ $t('令牌') }}</label>
-          <div class="input-wrap">
-            <KeyRound :size="15" class="input-icon" aria-hidden="true" />
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              class="cc-input"
-              :autocomplete="isRegisterMode ? 'new-password' : 'current-password'"
-              :placeholder="$t('请输入您的身份令牌')"
-              required
-            />
-          </div>
-        </div>
-
-        <div v-if="isRegisterMode" class="cc-field">
-          <label for="confirmPassword">{{ $t('确认令牌') }}</label>
-          <div class="input-wrap">
-            <KeyRound :size="15" class="input-icon" aria-hidden="true" />
-            <input
-              id="confirmPassword"
-              v-model="confirmPassword"
-              type="password"
-              class="cc-input"
-              autocomplete="new-password"
-              :placeholder="$t('请再次输入令牌')"
-              required
-            />
-          </div>
-        </div>
-
-        <!-- 邮箱验证（仅注册且启用时显示） -->
-        <template v-if="isRegisterMode && emailVerificationEnabled">
+        <!-- 注册验证，或凭邮箱找回令牌。找回时放在令牌前面，方便先收邮件里的道号。 -->
+        <template v-if="showEmailFields">
           <div class="cc-field">
             <label for="email">{{ $t('邮箱') }}</label>
             <div class="email-row">
@@ -100,6 +66,10 @@
             </div>
           </div>
 
+          <p v-if="isResetMode" class="field-hint">
+            {{ $t('验证码邮件会写明绑定的道号，忘了道号也能凭邮件找回。') }}
+          </p>
+
           <div class="cc-field">
             <label for="emailCode">{{ $t('验证码') }}</label>
             <div class="input-wrap">
@@ -118,8 +88,40 @@
           </div>
         </template>
 
-        <!-- Turnstile 人机验证 -->
-        <div v-if="turnstileEnabled" class="turnstile-container" ref="turnstileContainer"></div>
+        <div class="cc-field">
+          <label for="password">{{ isResetMode ? $t('新令牌') : $t('令牌') }}</label>
+          <div class="input-wrap">
+            <KeyRound :size="15" class="input-icon" aria-hidden="true" />
+            <input
+              id="password"
+              v-model="password"
+              type="password"
+              class="cc-input"
+              :autocomplete="isRegisterMode || isResetMode ? 'new-password' : 'current-password'"
+              :placeholder="isResetMode ? $t('请设置新的身份令牌') : $t('请输入您的身份令牌')"
+              required
+            />
+          </div>
+        </div>
+
+        <div v-if="isRegisterMode || isResetMode" class="cc-field">
+          <label for="confirmPassword">{{ $t('确认令牌') }}</label>
+          <div class="input-wrap">
+            <KeyRound :size="15" class="input-icon" aria-hidden="true" />
+            <input
+              id="confirmPassword"
+              v-model="confirmPassword"
+              type="password"
+              class="cc-input"
+              autocomplete="new-password"
+              :placeholder="$t('请再次输入令牌')"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- Turnstile 人机验证。找回令牌走邮箱验证码和接口限流，不挡在人机验证后面。 -->
+        <div v-if="turnstileEnabled && !isResetMode" class="turnstile-container" ref="turnstileContainer"></div>
 
         <p v-if="error" class="cc-errors" role="alert">{{ error }}</p>
         <p v-else-if="successMessage" class="success-message" role="status">
@@ -134,18 +136,30 @@
           </button>
           <button type="submit" class="cc-btn primary" :disabled="isLoading">
             <Loader2 v-if="isLoading" :size="15" class="cc-spin" />
+            <KeyRound v-else-if="isResetMode" :size="15" />
             <LogIn v-else-if="!isRegisterMode" :size="15" />
             <UserPlus v-else :size="15" />
-            <span>{{ isRegisterMode ? $t('注册') : $t('登入') }}</span>
+            <span>{{ $t(submitLabel) }}</span>
           </button>
         </div>
       </form>
 
       <footer v-if="backendReady" class="form-footer">
-        <span class="footer-text">{{ isRegisterMode ? $t('已有道号？') : $t('初来乍到？') }}</span>
-        <button type="button" class="link-btn" @click="toggleMode">
-          {{ isRegisterMode ? $t('立即登入') : $t('注册道号') }}
-        </button>
+        <template v-if="isResetMode">
+          <span class="footer-text">{{ $t('想起道号了？') }}</span>
+          <button type="button" class="link-btn" @click="switchMode('login')">
+            {{ $t('立即登入') }}
+          </button>
+        </template>
+        <template v-else>
+          <span class="footer-text">{{ isRegisterMode ? $t('已有道号？') : $t('初来乍到？') }}</span>
+          <button type="button" class="link-btn" @click="toggleMode">
+            {{ isRegisterMode ? $t('立即登入') : $t('注册道号') }}
+          </button>
+          <button v-if="!isRegisterMode" type="button" class="link-btn" @click="switchMode('reset')">
+            {{ $t('忘记令牌？') }}
+          </button>
+        </template>
       </footer>
       <footer v-else class="form-actions single">
         <button type="button" class="cc-btn" @click="emit('back')">
@@ -158,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { ArrowLeft, CheckCircle, KeyRound, Loader2, LogIn, Mail, ServerOff, ShieldCheck, User, UserPlus } from 'lucide-vue-next';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { useTheme } from '@/composables/useTheme';
@@ -178,13 +192,37 @@ const emailCode = ref('');
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
-const isRegisterMode = ref(false);
+const mode = ref<'login' | 'register' | 'reset'>('login');
+const isRegisterMode = computed(() => mode.value === 'register');
+const isResetMode = computed(() => mode.value === 'reset');
 const backendReady = ref(isBackendConfigured());
+
+const emblemChar = computed(() => {
+  if (isRegisterMode.value) return '籍';
+  if (isResetMode.value) return '令';
+  return '门';
+});
+const panelTitle = computed(() => {
+  if (isRegisterMode.value) return '初入道门';
+  if (isResetMode.value) return '找回令牌';
+  return '登入洞天';
+});
+const panelSubtitle = computed(() => {
+  if (isRegisterMode.value) return '注册新道号，踏入修仙之路。';
+  if (isResetMode.value) return '验证绑定邮箱。邮件里会写上您的道号。';
+  return '验证道友身份，以便同步云端天机。';
+});
+const submitLabel = computed(() => {
+  if (isRegisterMode.value) return '注册';
+  if (isResetMode.value) return '重置令牌';
+  return '登入';
+});
 
 // 安全配置（从后端获取）
 const turnstileEnabled = ref(false);
 const turnstileSiteKey = ref('');
 const emailVerificationEnabled = ref(false);
+const showEmailFields = computed(() => isResetMode.value || (isRegisterMode.value && emailVerificationEnabled.value));
 
 // Turnstile 相关
 const turnstileContainer = ref<HTMLElement | null>(null);
@@ -214,8 +252,8 @@ const fetchSecuritySettings = async () => {
   }
 };
 
-const toggleMode = () => {
-  isRegisterMode.value = !isRegisterMode.value;
+const switchMode = (next: 'login' | 'register' | 'reset') => {
+  mode.value = next;
   error.value = null;
   successMessage.value = null;
   password.value = '';
@@ -226,6 +264,10 @@ const toggleMode = () => {
   if (turnstileEnabled.value) {
     resetTurnstile(turnstileWidgetId.value);
   }
+};
+
+const toggleMode = () => {
+  switchMode(isRegisterMode.value ? 'login' : 'register');
 };
 
 // 发送邮箱验证码
@@ -250,12 +292,14 @@ const sendEmailCode = async () => {
       method: 'POST',
       body: JSON.stringify({
         email: email.value,
-        purpose: 'register',
+        purpose: isResetMode.value ? 'reset_password' : 'register',
       }),
     });
 
     if (res.success) {
-      toast.success('验证码已发送，请查收邮件');
+      toast.success(isResetMode.value
+        ? '若该邮箱已绑定道号，验证码已发送，邮件中会写明道号'
+        : '验证码已发送，请查收邮件');
       // 开始倒计时
       emailCooldown.value = 60;
       cooldownTimer = setInterval(() => {
@@ -388,8 +432,11 @@ const handleRegister = async () => {
     toast.success('道号注册成功，欢迎踏入修仙之路！');
 
     // 注册成功后切换到登录模式，让用户手动登录
+    mode.value = 'login';
     successMessage.value = '注册成功！请登录您的道号';
-    isRegisterMode.value = false;
+    password.value = '';
+    confirmPassword.value = '';
+    emailCode.value = '';
     turnstileToken.value = '';
     if (turnstileEnabled.value) {
       resetTurnstile(turnstileWidgetId.value);
@@ -413,6 +460,76 @@ const handleRegister = async () => {
       resetTurnstile(turnstileWidgetId.value);
     }
   }
+};
+
+const handleResetPassword = async () => {
+  if (isLoading.value) return;
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，重置不可用');
+    return;
+  }
+
+  const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!email.value || !emailPattern.test(email.value)) {
+    error.value = '邮箱格式不正确';
+    return;
+  }
+  if (!emailCode.value.trim()) {
+    error.value = '请输入邮箱验证码';
+    return;
+  }
+  if (password.value.length < 6) {
+    error.value = '令牌至少需要 6 位';
+    return;
+  }
+  if (password.value !== confirmPassword.value) {
+    error.value = '两次输入的令牌不一致！';
+    return;
+  }
+
+  isLoading.value = true;
+  error.value = null;
+  successMessage.value = null;
+
+  try {
+    const res = await request<{ success: boolean; message: string; user_name?: string }>('/api/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email.value.trim(),
+        email_code: emailCode.value.trim(),
+        new_password: password.value,
+      }),
+    });
+
+    if (res.user_name) username.value = res.user_name;
+    mode.value = 'login';
+    password.value = '';
+    confirmPassword.value = '';
+    emailCode.value = '';
+    successMessage.value = res.user_name
+      ? `令牌已重置。您的道号是「${res.user_name}」，请用新令牌登入。`
+      : '令牌已重置，请用新令牌登入。';
+    toast.success('令牌已重置');
+  } catch (e: unknown) {
+    let errorMessage = '重置令牌失败';
+    if (typeof e === 'object' && e !== null) {
+      if ('detail' in e && typeof (e as { detail?: unknown }).detail === 'string') {
+        errorMessage = (e as { detail: string }).detail;
+      } else if ('message' in e && typeof (e as { message?: unknown }).message === 'string') {
+        errorMessage = (e as { message: string }).message;
+      }
+    }
+    error.value = errorMessage;
+    toast.error(errorMessage);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const submitAuth = () => {
+  if (isRegisterMode.value) return handleRegister();
+  if (isResetMode.value) return handleResetPassword();
+  return handleLogin();
 };
 
 const handleLogin = async () => {
@@ -648,6 +765,14 @@ const handleLogin = async () => {
   gap: 0.5rem;
 }
 
+.field-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  color: var(--cc-text-3);
+}
+
 .code-btn {
   flex-shrink: 0;
   min-width: 108px;
@@ -705,7 +830,8 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.55rem;
   padding-top: 1rem;
   border-top: 1px solid var(--cc-divider);
   font-size: 0.85rem;

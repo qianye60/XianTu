@@ -283,6 +283,125 @@ export function buildGptImageBody(input: { prompt: string; model: string; size: 
   return body;
 }
 
+export interface NaiImagePayload {
+  base64?: string;
+  bytes?: Uint8Array;
+  url?: string;
+  mime: string;
+  seed?: number;
+}
+
+function mimeFromName(name: string): string {
+  if (/\.jpe?g$/i.test(name)) return 'image/jpeg';
+  if (/\.webp$/i.test(name)) return 'image/webp';
+  return 'image/png';
+}
+
+async function inflateRaw(data: Uint8Array): Promise<Uint8Array | null> {
+  if (!data.length) return null;
+  try {
+    const stream = new DecompressionStream('deflate-raw');
+    const copy = data.slice();
+    const source = new Blob([copy.buffer.slice(copy.byteOffset, copy.byteOffset + copy.byteLength)]);
+    const buffer = await new Response(source.stream().pipeThrough(stream)).arrayBuffer();
+    return new Uint8Array(buffer);
+  } catch {
+    return null;
+  }
+}
+
+function findZipEnd(view: DataView): number {
+  const start = Math.max(0, view.byteLength - 22 - 65535);
+  for (let offset = view.byteLength - 22; offset >= start; offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) return offset;
+  }
+  return -1;
+}
+
+/** NovelAI 原生接口成功时返回 ZIP，里面是 PNG。尺寸以中央目录为准。 */
+async function imageFromZip(bytes: Uint8Array): Promise<NaiImagePayload | null> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const end = findZipEnd(view);
+  if (end < 0) return null;
+  let offset = view.getUint32(end + 16, true);
+  const count = view.getUint16(end + 10, true);
+  for (let index = 0; index < count && offset + 46 <= bytes.length; index += 1) {
+    if (view.getUint32(offset, true) !== 0x02014b50) break;
+    const method = view.getUint16(offset + 10, true);
+    const compressedSize = view.getUint32(offset + 20, true);
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const localOffset = view.getUint32(offset + 42, true);
+    const name = new TextDecoder().decode(bytes.subarray(offset + 46, offset + 46 + nameLength));
+    offset += 46 + nameLength + extraLength + commentLength;
+    if (!/\.(png|jpe?g|webp)$/i.test(name) || localOffset + 30 > bytes.length) continue;
+    const localNameLength = view.getUint16(localOffset + 26, true);
+    const localExtraLength = view.getUint16(localOffset + 28, true);
+    const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > bytes.length) continue;
+    const compressed = bytes.subarray(dataStart, dataEnd);
+    const raw = method === 0 ? compressed : method === 8 ? await inflateRaw(compressed) : null;
+    if (!raw?.length) continue;
+    return { bytes: raw, mime: mimeFromName(name) };
+  }
+  return null;
+}
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function imageFromJson(data: unknown): NaiImagePayload | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Record<string, unknown>;
+  const first = Array.isArray(row.images) ? row.images[0] : undefined;
+  const item = first && typeof first === 'object' ? first as Record<string, unknown> : {};
+  const nested = Array.isArray(row.data) ? row.data[0] as Record<string, unknown> | undefined : undefined;
+  const base64 = firstString(
+    typeof first === 'string' ? first : '',
+    item.image,
+    item.b64_json,
+    item.b64,
+    item.base64,
+    row.image,
+    row.b64_json,
+    nested?.b64_json,
+    nested?.image,
+  );
+  const url = firstString(item.url, row.url, nested?.url);
+  const seed = Number(item.seed ?? row.seed);
+  if (base64) return { base64, mime: 'image/png', seed: Number.isFinite(seed) ? seed : undefined };
+  if (/^https?:\/\//i.test(url) || url.startsWith('data:image/')) {
+    return { url, mime: 'image/png', seed: Number.isFinite(seed) ? seed : undefined };
+  }
+  return null;
+}
+
+/**
+ * 把生图响应还原成图片。
+ * 蛋糕站 / NovelAI 原生接口返回 ZIP；部分中转返回 JSON。
+ */
+export async function readNaiPayload(payload: ArrayBuffer): Promise<NaiImagePayload | null> {
+  const bytes = new Uint8Array(payload);
+  if (!bytes.length) return null;
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b) return imageFromZip(bytes);
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) return { bytes, mime: 'image/png' };
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return { bytes, mime: 'image/jpeg' };
+  const text = new TextDecoder().decode(bytes).trim();
+  if (!text.startsWith('{') && !text.startsWith('[')) return null;
+  try {
+    return imageFromJson(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
+
 export function imageErrorMessage(data: unknown, status: number): string {
   if (data && typeof data === 'object') {
     const row = data as Record<string, unknown>;

@@ -10,14 +10,16 @@
     <meta name="keywords" content="仙途,AI游戏,AI驱动的游戏,AI修仙,AI大世界,修仙游戏,文字游戏,修仙世界,思维链AI,联机穿越,AI文字冒险,修仙模拟器,AI角色扮演,沉浸式修仙,开放世界修仙" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://www.ddct.top/" />
-    <link rel="icon" type="image/x-icon" href="https://www.ddct.top/favicon.ico" />
-    <link rel="shortcut icon" href="https://www.ddct.top/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <meta name="author" content="仙途开发团队" />
     <title>仙途 - AI驱动的修仙大世界 | AI游戏 | AI修仙 | 官方网站</title>
-    <meta name="theme-color" content="#0c1220" />
+    <meta name="theme-color" content="#f2ebdb" />
     <script>
       (function () {
-        var theme = 'dark';
+        var theme = 'light';
+        document.documentElement.classList.add('js');
         try {
           var stored = localStorage.getItem('theme');
           if (stored === 'light' || stored === 'dark') theme = stored;
@@ -88,727 +90,605 @@
     }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      tailwind.config = {
+        corePlugins: { preflight: true },
+        theme: { extend: { fontFamily: { sans: ['Noto Serif SC', 'serif'], serif: ['Noto Serif SC', 'serif'] } } }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              cyber: {
-                dark: '#0c1220',
-                darker: '#070b14',
-                blue: '#9db8ff',
-                gold: '#d4b878',
-                teal: '#5fbfa9',
-                gray: '#121a2c'
-              }
-            },
-            fontFamily: {
-              sans: ['Noto Serif SC', 'serif'],
-              serif: ['Noto Serif SC', 'serif']
-            }
-          }
-        }
-      }
-    </script>
     <style>
 * { box-sizing: border-box; }
 
+/* ───────── 色板：亮色「宣纸淡墨」/ 暗色「夜山松烟」 ───────── */
 :root {
   --calli: 'Ma Shan Zheng', 'STXingkai', '华文行楷', 'KaiTi', 'STKaiti', '楷体', 'Noto Serif SC', serif;
-  --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
-  --ink: #0b101b;
-  --ink-deep: #070b14;
-  --paper: #121a2c;
-  --gold: #d4b878;
-  --gold-rgb: 212, 184, 120;
-  --gold-bright: #e8d7a8;
-  --accent: #9db8ff;
-  --accent-rgb: 157, 184, 255;
-  --seal: #c0392b;
-  --seal-rgb: 192, 57, 43;
-  --seal-text: #fbe9dc;
-  --jade: #5fbfa9;
-  --text: #eceff5;
-  --text-2: #a9b2c3;
-  --text-3: #78839a;
-  --muted: #a9b2c3;
-  --surface: rgba(255, 255, 255, 0.04);
-  --surface-2: rgba(255, 255, 255, 0.06);
-  --inset: rgba(8, 12, 22, 0.72);
-  --card-bg: linear-gradient(165deg, rgba(22, 30, 50, 0.92), rgba(12, 18, 32, 0.9));
-  --nav-bg: linear-gradient(180deg, rgba(12, 18, 32, 0.96) 0%, rgba(12, 18, 32, 0.88) 100%);
-  --title-gradient: linear-gradient(170deg, #d0fff0 0%, #73d6c7 45%, #78a8ee 100%);
-  --title-tu: #eef0f5;
-  --primary-bg: linear-gradient(135deg, #3d6be0 0%, #5a4fd0 100%);
-  --primary-border: rgba(230, 206, 150, 0.55);
-  --primary-shadow: 0 10px 24px -8px rgba(90, 100, 230, 0.7);
-  --glyph-bg: radial-gradient(circle at 35% 30%, rgba(157, 184, 255, 0.22) 0%, rgba(40, 52, 90, 0.55) 72%);
-  --glow-a: rgba(157, 184, 255, 0.16);
-  --glow-b: rgba(115, 214, 199, 0.12);
-  --mountain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='none'%3E%3Cpath d='M0 210 C90 160 150 110 230 145 S360 80 430 120 S560 205 640 160 S790 55 870 105 S1010 190 1090 135 S1170 115 1200 140 V300 H0Z' fill='rgba(150,172,220,0.09)'/%3E%3Cpath d='M0 255 C110 222 180 190 270 214 S430 165 530 200 S710 248 810 210 S970 176 1070 205 S1170 238 1200 222 V300 H0Z' fill='rgba(150,172,220,0.12)'/%3E%3C/svg%3E");
+  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', serif;
+
+  --bg: #f2ebdb;
+  --bg-2: #e8dec6;
+  --card: rgba(250, 245, 231, 0.86);
+  --card-2: rgba(238, 229, 207, 0.78);
+  --bar: rgba(243, 236, 220, 0.95);
+  --ink: #1f2723;
+  --ink-rgb: 31, 39, 35;
+  --ink-2: #414b45;
+  --ink-3: #6d7268;
+  --dai: #2d5b55;
+  --dai-rgb: 45, 91, 85;
+  --seal: #b1382c;
+  --seal-rgb: 177, 56, 44;
+  --seal-ink: #fbeee0;
+  --gold: #86662c;
+  --gold-rgb: 134, 102, 44;
+  --line: rgba(94, 74, 40, 0.24);
+  --line-2: rgba(94, 74, 40, 0.42);
+  --shadow: rgba(76, 54, 22, 0.34);
+  --moon: radial-gradient(circle at 42% 38%, rgba(45, 91, 85, 0.17), rgba(45, 91, 85, 0.06) 70%, transparent 71%);
+  --mountains: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 320' preserveAspectRatio='none'%3E%3Cpath d='M0 214 L70 172 Q110 142 150 118 Q176 104 198 128 L262 178 Q302 194 332 162 L402 94 Q428 68 452 92 L522 168 Q562 188 592 152 L662 90 Q692 60 722 88 L802 162 Q832 182 862 150 L932 100 Q958 78 982 102 L1052 168 Q1092 184 1122 156 L1200 128 V320 H0Z' fill='rgba(56,86,82,0.10)'/%3E%3Cpath d='M0 262 L80 224 Q112 206 142 220 L222 258 Q262 270 302 246 L382 202 Q412 182 442 204 L522 252 Q562 270 612 242 L702 192 Q732 176 762 196 L842 248 Q882 264 932 238 L1012 202 Q1042 188 1072 208 L1152 248 L1200 238 V320 H0Z' fill='rgba(48,76,72,0.14)'/%3E%3Cpath d='M0 292 C90 276 170 262 260 272 C360 284 430 258 520 262 C620 266 700 292 800 284 C900 276 980 262 1070 270 C1130 275 1170 284 1200 280 V320 H0Z' fill='rgba(40,64,60,0.18)'/%3E%3C/svg%3E");
+}
+[data-theme='dark'] {
   color-scheme: dark;
+  --bg: #0f1311;
+  --bg-2: #161b18;
+  --card: rgba(24, 30, 27, 0.86);
+  --card-2: rgba(32, 40, 36, 0.8);
+  --bar: rgba(15, 19, 17, 0.95);
+  --ink: #ebe4d2;
+  --ink-rgb: 235, 228, 210;
+  --ink-2: #bcb6a4;
+  --ink-3: #8a8474;
+  --dai: #93bdb0;
+  --dai-rgb: 147, 189, 176;
+  --seal: #c8493a;
+  --seal-rgb: 200, 73, 58;
+  --seal-ink: #fbeee0;
+  --gold: #cba86a;
+  --gold-rgb: 203, 168, 106;
+  --line: rgba(203, 168, 106, 0.2);
+  --line-2: rgba(203, 168, 106, 0.4);
+  --shadow: rgba(0, 0, 0, 0.6);
+  --moon: radial-gradient(circle at 42% 38%, rgba(235, 228, 210, 0.16), rgba(235, 228, 210, 0.05) 70%, transparent 71%);
+  --mountains: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 320' preserveAspectRatio='none'%3E%3Cpath d='M0 214 L70 172 Q110 142 150 118 Q176 104 198 128 L262 178 Q302 194 332 162 L402 94 Q428 68 452 92 L522 168 Q562 188 592 152 L662 90 Q692 60 722 88 L802 162 Q832 182 862 150 L932 100 Q958 78 982 102 L1052 168 Q1092 184 1122 156 L1200 128 V320 H0Z' fill='rgba(147,189,176,0.07)'/%3E%3Cpath d='M0 262 L80 224 Q112 206 142 220 L222 258 Q262 270 302 246 L382 202 Q412 182 442 204 L522 252 Q562 270 612 242 L702 192 Q732 176 762 196 L842 248 Q882 264 932 238 L1012 202 Q1042 188 1072 208 L1152 248 L1200 238 V320 H0Z' fill='rgba(147,189,176,0.09)'/%3E%3Cpath d='M0 292 C90 276 170 262 260 272 C360 284 430 258 520 262 C620 266 700 292 800 284 C900 276 980 262 1070 270 C1130 275 1170 284 1200 280 V320 H0Z' fill='rgba(147,189,176,0.12)'/%3E%3C/svg%3E");
 }
 
-[data-theme='light'] {
-  --ink: #e7eeea;
-  --ink-deep: #d5e0db;
-  --paper: #f4f7f5;
-  --gold: #7f5d27;
-  --gold-rgb: 127, 93, 39;
-  --gold-bright: #6b4e1e;
-  --accent: #256a67;
-  --accent-rgb: 37, 106, 103;
-  --seal: #b8322a;
-  --seal-rgb: 184, 50, 42;
-  --seal-text: #fff4ea;
-  --jade: #2f7d6f;
-  --text: #233238;
-  --text-2: #44545a;
-  --text-3: #5b6b70;
-  --muted: #44545a;
-  --surface: rgba(255, 255, 255, 0.62);
-  --surface-2: rgba(255, 255, 255, 0.82);
-  --inset: rgba(221, 230, 226, 0.85);
-  --card-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.78), rgba(236, 243, 239, 0.9));
-  --nav-bg: linear-gradient(180deg, rgba(241, 245, 242, 0.94) 0%, rgba(232, 238, 234, 0.9) 100%);
-  --title-gradient: linear-gradient(170deg, #1d696d 0%, #2f9d93 55%, #3f7f96 100%);
-  --title-tu: #1b2a2f;
-  --primary-bg: linear-gradient(135deg, #2f7774 0%, #255b68 100%);
-  --primary-border: rgba(95, 157, 151, 0.62);
-  --primary-shadow: 0 10px 20px -10px rgba(37, 91, 104, 0.42);
-  --glyph-bg: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.96) 0%, rgba(223, 233, 229, 0.92) 75%);
-  --glow-a: rgba(47, 119, 116, 0.1);
-  --glow-b: rgba(127, 93, 39, 0.06);
-  --mountain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='none'%3E%3Cpath d='M0 210 C90 160 150 110 230 145 S360 80 430 120 S560 205 640 160 S790 55 870 105 S1010 190 1090 135 S1170 115 1200 140 V300 H0Z' fill='rgba(55,86,86,0.08)'/%3E%3Cpath d='M0 255 C110 222 180 190 270 214 S430 165 530 200 S710 248 810 210 S970 176 1070 205 S1170 238 1200 222 V300 H0Z' fill='rgba(55,86,86,0.1)'/%3E%3C/svg%3E");
-  color-scheme: light;
-}
-
+/* ───────── 底 ───────── */
+html { scroll-behavior: smooth; }
 body {
-  background:
-    radial-gradient(ellipse 70% 40% at 50% -8%, var(--glow-a), transparent 70%),
-    radial-gradient(ellipse 40% 30% at 100% 0%, var(--glow-b), transparent 60%),
-    linear-gradient(180deg, var(--ink) 0%, var(--ink-deep) 100%);
+  margin: 0;
+  background: var(--bg);
   font-family: var(--serif);
-  color: var(--text);
+  color: var(--ink);
   overflow-x: hidden;
-  scroll-behavior: smooth;
+  line-height: 1.8;
 }
+section[id] { scroll-margin-top: 84px; }
+a { color: inherit; text-decoration: none; }
+::selection { background: rgba(var(--seal-rgb), 0.28); }
 
-.grid-bg {
+.scenery {
   position: fixed;
   inset: 0;
-  background-image: var(--mountain);
-  background-repeat: no-repeat;
-  background-position: center calc(100% + 36px);
-  background-size: 100% 150px;
-  pointer-events: none;
   z-index: 0;
+  pointer-events: none;
+  background: var(--mountains) center bottom / 100% 280px no-repeat;
 }
-.grid-bg::after {
+.scenery::before {
   content: '';
   position: absolute;
-  inset: 0;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
-}
-
-.tech-particles {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 1;
-}
-.tech-particles::before,
-.tech-particles::after {
-  content: '';
-  position: absolute;
-  width: 420px;
-  height: 420px;
+  top: 12%;
+  right: 8%;
+  width: min(22vw, 260px);
+  aspect-ratio: 1;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.55;
-  animation: float-glow 22s ease-in-out infinite;
+  background: var(--moon);
+  box-shadow: 0 0 0 10px rgba(var(--dai-rgb), 0.05), 0 0 0 11px rgba(var(--dai-rgb), 0.12);
 }
-.tech-particles::before {
-  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.55) 0%, transparent 70%);
-  top: 6%;
-  left: 6%;
+.scenery::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-.tech-particles::after {
-  background: radial-gradient(circle, rgba(var(--gold-rgb), 0.28) 0%, transparent 70%);
-  bottom: 12%;
-  right: 6%;
-  animation-delay: -11s;
-}
-@keyframes float-glow {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(24px, -16px) scale(1.06); }
-}
+[data-theme='dark'] .scenery::after { mix-blend-mode: screen; opacity: 0.035; }
 
-h1, h2, .text-gradient-cyber, .xian-title, .logo-word {
-  font-family: var(--calli) !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.08em;
+h1, h2, h3.calli, .calli { font-family: var(--calli); font-weight: 400; letter-spacing: 0.08em; }
+
+/* ───────── 顶栏 ───────── */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  background: var(--bar);
+  border-bottom: 3px double var(--line-2);
+  box-shadow: 0 8px 22px -18px var(--shadow);
 }
-.text-gradient-cyber, .xian-title, .title-xian {
-  background: var(--title-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.brand { display: flex; align-items: center; gap: 0.75rem; }
+.brand-mark {
+  position: relative;
+  flex: none;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
 }
-[data-theme='dark'] .title-xian {
-  animation: glow-pulse 4s ease-in-out infinite;
+.brand-mark img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; }
+.brand-fallback {
+  position: absolute;
+  inset: 3px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--seal);
+  border-radius: 50%;
+  color: var(--seal);
+  font-family: var(--calli);
+  font-size: 1.5rem;
+  line-height: 1;
 }
-@keyframes glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 8px rgba(92, 218, 193, 0.45)) drop-shadow(0 0 16px rgba(78, 151, 224, 0.25)); }
-  50% { filter: drop-shadow(0 0 14px rgba(92, 218, 193, 0.7)) drop-shadow(0 0 24px rgba(78, 151, 224, 0.4)); }
+.brand-name { font-family: var(--calli); font-size: 1.75rem; line-height: 1; letter-spacing: 0.1em; color: var(--ink); }
+.brand-sub { font-size: 0.68rem; letter-spacing: 0.34em; color: var(--ink-3); margin-left: 0.6rem; }
+.nav-link {
+  position: relative;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.22em;
+  color: var(--ink-2);
+  transition: color 0.2s ease;
 }
-.title-tu { color: var(--title-tu); }
-[data-theme='dark'] .title-tu { text-shadow: 0 0 24px rgba(180, 200, 255, 0.25); }
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: -2px;
+  width: 4px; height: 4px;
+  background: var(--seal);
+  transform: translateX(-50%) rotate(45deg) scale(0);
+  transition: transform 0.25s ease;
+}
+.nav-link:hover, .nav-link:focus-visible { color: var(--seal); }
+.nav-link:hover::after, .nav-link:focus-visible::after { transform: translateX(-50%) rotate(45deg) scale(1); }
+
+.btn-plain {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.88rem; letter-spacing: 0.14em;
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.btn-plain:hover { color: var(--seal); border-color: var(--seal); background: rgba(var(--seal-rgb), 0.06); }
+.btn-plain.is-seal { color: var(--seal); border-color: rgba(var(--seal-rgb), 0.55); }
+.btn-plain svg { width: 15px; height: 15px; fill: currentColor; }
+
+.theme-switch {
+  width: 38px; height: 38px;
+  display: inline-grid; place-items: center;
+  font-family: var(--calli); font-size: 1.15rem; line-height: 1;
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.theme-switch:hover { color: var(--seal); border-color: var(--seal); }
+.theme-switch .t-day { display: none; }
+[data-theme='dark'] .theme-switch .t-day { display: inline; }
+[data-theme='dark'] .theme-switch .t-night { display: none; }
+
+.menu-btn {
+  display: inline-grid; place-content: center; gap: 5px;
+  width: 38px; height: 38px;
+  border: 1px solid var(--line-2); border-radius: 2px;
+  background: transparent; cursor: pointer;
+}
+.menu-btn i { display: block; width: 18px; height: 1.5px; background: var(--ink-2); }
+
+.mobile-menu {
+  display: none;
+  position: fixed; top: 82px; left: 12px; right: 12px;
+  z-index: 49;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  box-shadow: 0 18px 40px -18px var(--shadow);
+}
+.mobile-menu.active { display: block; }
+.mobile-menu a { display: block; padding: 13px 16px; letter-spacing: 0.2em; color: var(--ink-2); border-bottom: 1px dashed var(--line); }
+.mobile-menu a:last-child { border-bottom: 0; }
+.mobile-menu a:hover { color: var(--seal); }
+
+/* 侧边导航：用印章单字代替图标 */
+.side-nav {
+  position: fixed; left: 12px; top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 8px;
+  background: var(--bar);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--line), 0 14px 30px -18px var(--shadow);
+}
+.side-nav a {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  font-family: var(--calli); font-size: 1.15rem; line-height: 1;
+  color: var(--ink-3);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.side-nav a:hover { color: var(--seal); border-color: var(--line-2); }
+.side-nav a.active { color: var(--seal-ink); background: var(--seal); border-color: var(--seal); }
+
+/* ───────── 首屏 ───────── */
+.hero { position: relative; }
+.notice {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  padding: 0.6rem 1.4rem;
+  color: var(--seal);
+  letter-spacing: 0.2em; font-weight: 600;
+  background: rgba(var(--seal-rgb), 0.06);
+  border: 1px solid rgba(var(--seal-rgb), 0.6);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px rgba(var(--seal-rgb), 0.25);
+  transition: background 0.2s ease;
+}
+.notice:hover { background: rgba(var(--seal-rgb), 0.12); }
+.notice svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+
+.hero-tags {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.9rem;
+  font-size: 0.86rem; letter-spacing: 0.34em; color: var(--gold);
+}
+.hero-tags i { width: 5px; height: 5px; background: var(--seal); transform: rotate(45deg); }
 
 .hero-seal-wrap { position: relative; display: inline-block; }
+.title-xian, .title-tu { display: inline-block; text-shadow: 0 0 1px currentColor, 0 6px 16px rgba(var(--dai-rgb), 0.16); }
+.title-xian { color: var(--dai); }
+.title-tu { color: var(--ink); text-shadow: 0 0 1px currentColor, 0 6px 16px rgba(var(--ink-rgb), 0.12); }
 .title-seal {
   position: absolute;
-  left: calc(100% + 0.55rem);
-  bottom: 0.55rem;
+  left: calc(100% + 0.55rem); bottom: 0.55rem;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-auto-flow: column;
   grid-template-rows: repeat(2, 1fr);
-  width: 42px;
-  height: 42px;
-  padding: 3px;
-  box-sizing: border-box;
-  background: var(--seal);
-  color: var(--seal-text);
-  border-radius: 4px;
-  font-family: var(--calli);
-  font-size: 14px;
-  line-height: 1;
+  grid-auto-flow: column;
+  width: 44px; height: 44px; padding: 3px;
+  background: var(--seal); color: var(--seal-ink);
+  border-radius: 3px;
+  font-family: var(--calli); font-size: 14px; line-height: 1;
   transform: rotate(-4deg);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 240, 230, 0.55), 0 2px 6px rgba(120, 20, 10, 0.3);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 240, 230, 0.55), 0 3px 8px rgba(120, 20, 10, 0.28);
 }
 .title-seal span { display: flex; align-items: center; justify-content: center; }
 .title-seal span:nth-child(1) { grid-column: 2; grid-row: 1; }
 .title-seal span:nth-child(3) { grid-column: 2; grid-row: 2; }
 .title-seal span:nth-child(2) { grid-column: 1; grid-row: 1; }
 .title-seal span:nth-child(4) { grid-column: 1; grid-row: 2; }
-.news-points {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+
+.hero-verse { margin: 0 auto 1.75rem; font-size: 1.02rem; letter-spacing: 0.3em; color: var(--ink-2); }
+.couplet {
+  display: none;
+  position: absolute; top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  font-family: var(--calli); font-size: 1.85rem; letter-spacing: 0.5em;
+  color: var(--ink-2);
+  padding: 1.4rem 0.6rem;
+  border-left: 1px solid var(--line-2);
+  border-right: 1px solid var(--line-2);
 }
-.news-points li {
+.couplet::before, .couplet::after { content: ''; position: absolute; left: 50%; width: 5px; height: 5px; background: var(--seal); transform: translateX(-50%) rotate(45deg); }
+.couplet::before { top: -3px; }
+.couplet::after { bottom: -3px; }
+.couplet.l { left: 110px; }
+.couplet.r { right: 110px; }
+@media (min-width: 1360px) {
+  .couplet { display: block; }
+  .hero-verse { display: none; }
+}
+
+.lead { color: var(--ink-2); }
+.lead strong { color: var(--ink); }
+.hl { color: var(--dai); font-weight: 600; }
+.sub-lead { color: var(--ink-3); }
+
+.btn {
   position: relative;
-  padding-left: 0.9rem;
-  color: var(--text-2);
-  font-size: 0.92rem;
-  line-height: 1.7;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem;
+  padding: 13px 30px;
+  font-weight: 600; letter-spacing: 0.18em;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px var(--line);
+  transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
-.news-points li::before {
+.btn:hover { transform: translateY(-2px); border-color: var(--seal); color: var(--seal); }
+.btn svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.btn .wl-mark { width: 26px; height: 26px; object-fit: contain; }
+/* 织界标记是纯白 SVG：浅色主题下压成墨色，否则落在宣纸上看不见 */
+[data-theme='light'] .wl-mark { filter: brightness(0) opacity(0.78); }
+.btn-seal {
+  color: var(--seal-ink);
+  background: var(--seal);
+  border-color: var(--seal);
+  box-shadow: inset 0 0 0 3px var(--seal), inset 0 0 0 4px rgba(251, 238, 224, 0.5), 0 12px 22px -12px rgba(var(--seal-rgb), 0.7);
+}
+.btn-seal:hover { color: var(--seal-ink); filter: brightness(1.08); }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.88rem; color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.chip:hover { border-color: var(--seal); color: var(--seal); }
+.chip b { font-weight: 600; letter-spacing: 0.08em; color: var(--dai); padding: 0 0.5rem; background: rgba(var(--dai-rgb), 0.1); }
+.chip svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* ───────── 章节头 ───────── */
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--line-2), transparent); position: relative; }
+.divider::before {
   content: '';
-  position: absolute;
-  left: 0;
-  top: 0.62em;
-  width: 5px;
-  height: 5px;
-  background: var(--gold);
+  position: absolute; left: 50%; top: 50%;
+  width: 8px; height: 8px;
+  background: var(--bg);
+  border: 1px solid var(--seal);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.sec-head { text-align: center; margin-bottom: 3.5rem; }
+.sec-eyebrow {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-size: 0.85rem; letter-spacing: 0.4em; color: var(--gold);
+}
+.sec-eyebrow::before, .sec-eyebrow::after { content: ''; width: 34px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold)); }
+.sec-eyebrow::after { transform: scaleX(-1); }
+.sec-eyebrow b {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px;
+  font-family: var(--calli); font-size: 0.95rem; font-weight: 400; letter-spacing: 0;
+  color: var(--seal-ink); background: var(--seal); border-radius: 2px;
+  transform: rotate(-3deg);
+}
+.sec-title { margin: 0.9rem 0 0; font-size: clamp(2.2rem, 5vw, 3.2rem); line-height: 1.25; color: var(--ink); text-shadow: 0 0 1px currentColor; }
+
+/* ───────── 卡片：古籍双线框 ───────── */
+.card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  box-shadow: 0 18px 34px -24px var(--shadow);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.card::before { content: ''; position: absolute; inset: 6px; border: 1px solid var(--line); pointer-events: none; }
+.card.lift:hover { transform: translateY(-3px); border-color: rgba(var(--seal-rgb), 0.55); }
+.card-title { display: flex; align-items: center; gap: 0.75rem; margin: 0 0 1.5rem; font-size: 1.55rem; color: var(--ink); }
+.card-title::before { content: ''; width: 4px; height: 1.3em; background: var(--seal); }
+
+.about-body { position: relative; overflow: hidden; }
+.about-body::after {
+  content: '道';
+  position: absolute; right: 1.5rem; bottom: -3.5rem;
+  font-family: var(--calli); font-size: 15rem; line-height: 1;
+  color: var(--ink); opacity: 0.045;
+  pointer-events: none;
+}
+.about-body p { position: relative; z-index: 1; margin: 0 0 1.4rem; text-indent: 2em; color: var(--ink-2); line-height: 2; }
+.about-body p:last-child { margin-bottom: 0; }
+.about-body strong { color: var(--ink); }
+
+.glyph {
+  width: 50px; height: 50px;
+  display: grid; place-items: center;
+  margin-bottom: 1rem;
+  font-family: var(--calli); font-size: 1.7rem; line-height: 1;
+  color: var(--seal);
+  border: 1.5px solid var(--seal);
+  border-radius: 4px;
+  transform: rotate(-3deg);
+  box-shadow: inset 0 0 0 3px var(--card), inset 0 0 0 4px rgba(var(--seal-rgb), 0.35);
+}
+.feature h3 { margin: 0 0 0.7rem; font-family: var(--calli); font-weight: 400; font-size: 1.5rem; letter-spacing: 0.1em; color: var(--ink); }
+.feature p { margin: 0; font-size: 0.93rem; color: var(--ink-2); line-height: 1.85; }
+
+/* 境界：单色墨阶，越高越近朱砂 */
+.realm { padding: 0.9rem 1rem; background: var(--card-2); border: 1px solid var(--line); border-radius: 2px; }
+.realm-top { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.35rem; }
+.realm-no {
+  align-self: center;
+  width: 20px; height: 20px; display: grid; place-items: center;
+  font-family: var(--calli); font-size: 0.8rem; line-height: 1;
+  color: var(--ink-3); border: 1px solid var(--line-2); border-radius: 2px;
+}
+.realm-name {
+  font-family: var(--calli); font-size: 1.55rem; line-height: 1.2; letter-spacing: 0.12em;
+  color: var(--ink-3);
+  color: color-mix(in srgb, var(--seal) calc(var(--t) * 12.5%), var(--ink-3));
+}
+.realm-age { margin-left: auto; font-size: 0.75rem; letter-spacing: 0.1em; color: var(--ink-3); }
+.realm p { margin: 0; font-size: 0.8rem; line-height: 1.75; color: var(--ink-2); }
+
+.model {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 1rem 0.5rem;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.model:hover { border-color: rgba(var(--seal-rgb), 0.5); transform: translateY(-2px); }
+.model svg { width: 32px; height: 32px; margin-bottom: 0.5rem; filter: grayscale(1) opacity(0.72); transition: filter 0.25s ease; }
+.model:hover svg { filter: none; }
+[data-theme='dark'] .model svg { filter: grayscale(1) brightness(1.5) opacity(0.7); }
+[data-theme='dark'] .model:hover svg { filter: none; }
+.model b { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+.model span { font-size: 0.72rem; color: var(--ink-3); }
+
+/* ───────── 更新日志：编年 ───────── */
+.log { padding: 1.5rem 1.6rem; margin-bottom: 1.5rem; border-left: 4px solid var(--gold); }
+.log.latest { border-left-color: var(--seal); }
+.log-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; margin-bottom: 1rem; }
+.stamp { padding: 1px 10px; font-size: 0.78rem; letter-spacing: 0.2em; color: var(--gold); border: 1px solid var(--gold); border-radius: 2px; }
+.stamp.hot { color: var(--seal-ink); background: var(--seal); border-color: var(--seal); }
+.ver { font-family: var(--calli); font-size: 2rem; line-height: 1; letter-spacing: 0.06em; color: var(--ink); }
+.date { margin-left: auto; font-size: 0.82rem; letter-spacing: 0.12em; color: var(--ink-3); }
+.tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.tag { padding: 0 0.7rem; font-size: 0.76rem; letter-spacing: 0.1em; color: var(--dai); border: 1px solid rgba(var(--dai-rgb), 0.4); border-radius: 2px; background: rgba(var(--dai-rgb), 0.06); }
+.tag.hot { color: var(--seal); border-color: rgba(var(--seal-rgb), 0.5); background: rgba(var(--seal-rgb), 0.06); }
+.news-points { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.65rem; }
+.news-points li { position: relative; padding-left: 1.1rem; color: var(--ink-2); font-size: 0.93rem; line-height: 1.8; }
+.news-points li::before { content: ''; position: absolute; left: 0; top: 0.75em; width: 5px; height: 5px; background: var(--seal); transform: rotate(45deg); }
+.log > p { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+
+.hist { position: relative; margin: 0; padding: 0 0 0 1.6rem; list-style: none; }
+.hist::before { content: ''; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 1px; background: var(--line-2); }
+.hist li { position: relative; padding: 0.55rem 0 0.9rem; }
+.hist li::before {
+  content: ''; position: absolute; left: -1.6rem; top: 1.05rem;
+  width: 9px; height: 9px;
+  background: var(--bg); border: 1px solid var(--seal);
   transform: rotate(45deg);
 }
-.hero-verse {
-  margin: 0 auto 1.75rem;
-  font-family: var(--serif);
-  font-size: 1.02rem;
-  letter-spacing: 0.28em;
-  color: var(--text-2);
-}
+.hist .v { display: flex; align-items: baseline; gap: 0.9rem; margin-bottom: 0.2rem; }
+.hist .v b { font-family: var(--calli); font-weight: 400; font-size: 1.3rem; letter-spacing: 0.06em; color: var(--gold); }
+.hist .v span { font-size: 0.78rem; letter-spacing: 0.1em; color: var(--ink-3); }
+.hist p { margin: 0; font-size: 0.88rem; color: var(--ink-2); }
+.more-note { margin: 1.4rem 0 0; font-size: 0.85rem; color: var(--ink-3); }
+.more-note a { color: var(--dai); text-decoration: underline; text-underline-offset: 4px; }
+.more-note a:hover { color: var(--seal); }
 
-.cyber-card {
-  background: var(--card-bg);
-  border: 1px solid rgba(var(--gold-rgb), 0.22);
-  border-radius: 6px !important;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-.cyber-card::before {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border: 1px solid rgba(var(--gold-rgb), 0.16);
-  border-radius: 3px;
-  pointer-events: none;
-}
-.cyber-card:hover {
-  border-color: rgba(var(--gold-rgb), 0.45);
-  box-shadow: 0 16px 36px -18px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(var(--gold-rgb), 0.12);
-  transform: translateY(-3px);
-}
-.cyber-card .w-12,
-.cyber-card .w-10 {
-  width: 46px !important;
-  height: 46px !important;
-  border-radius: 50% !important;
-  background: var(--glyph-bg) !important;
-  border: 1px solid rgba(var(--gold-rgb), 0.4) !important;
-  box-shadow: inset 0 1px 4px rgba(255, 255, 255, 0.12);
-  color: var(--gold-bright);
-}
-.cyber-card .w-10 { width: 40px !important; height: 40px !important; }
-
-.xian-friends { position: relative; }
-.xian-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--serif);
-  font-size: 13px;
-  letter-spacing: 0.28em;
-  color: var(--gold);
-}
-.xian-eyebrow::before,
-.xian-eyebrow::after {
-  content: '';
-  width: 28px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(var(--gold-rgb), 0.7), transparent);
-}
+/* ───────── 友链 ───────── */
 .friend-links { list-style: none; margin: 0; padding: 0; }
-.friend-links > li { margin: 0; }
-.xian-friend-card {
-  position: relative;
-  display: block;
+.friend-card {
+  position: relative; display: block;
   padding: 1.75rem 1.5rem;
-  text-decoration: none;
-  color: inherit;
-  background: var(--card-bg);
-  border: 1px solid rgba(var(--gold-rgb), 0.32);
-  border-radius: 6px;
-  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.06), 0 18px 40px -24px rgba(0, 0, 0, 0.4);
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--line), 0 18px 34px -24px var(--shadow);
   transition: border-color 0.3s ease, transform 0.3s ease;
 }
-.xian-friend-card::before,
-.xian-friend-card::after {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border-color: rgba(var(--gold-rgb), 0.75);
-  border-style: solid;
-  pointer-events: none;
-}
-.xian-friend-card::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
-.xian-friend-card::after { right: 8px; bottom: 8px; border-width: 0 1px 1px 0; }
-.xian-friend-card:hover {
-  border-color: rgba(var(--gold-rgb), 0.7);
-  transform: translateY(-3px);
-}
-.xian-friend-card h3 {
-  font-family: var(--calli);
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  color: var(--text);
-  margin: 0.35rem 0 0.75rem;
-}
-.xian-friend-card h3 span {
-  font-family: var(--serif);
-  font-size: 0.62em;
-  letter-spacing: 0.06em;
-  color: var(--gold);
-}
-.xian-friend-meta {
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--gold);
-}
-.xian-friend-desc {
-  margin: 0;
-  color: var(--text-2);
-  line-height: 1.75;
-  font-size: 0.95rem;
-}
-.xian-friend-url {
-  display: inline-block;
-  margin-top: 0.85rem;
-  font-size: 0.85rem;
-  color: var(--accent);
-  letter-spacing: 0.04em;
-}
-.xian-friend-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding: 0.55rem 1.05rem;
-  border: 1px solid var(--primary-border);
-  border-radius: 6px;
-  background: var(--primary-bg);
-  color: #f4faf8;
-  letter-spacing: 0.12em;
-}
-.xian-footer-friend { border-radius: 6px; }
+.friend-card::before, .friend-card::after { content: ''; position: absolute; width: 16px; height: 16px; border: 0 solid var(--seal); pointer-events: none; }
+.friend-card::before { top: 8px; left: 8px; border-width: 1.5px 0 0 1.5px; }
+.friend-card::after { right: 8px; bottom: 8px; border-width: 0 1.5px 1.5px 0; }
+.friend-card:hover { border-color: rgba(var(--seal-rgb), 0.6); transform: translateY(-3px); }
+.friend-box { flex: none; display: grid; place-items: center; border: 1px solid var(--line-2); background: var(--card-2); border-radius: 2px; }
+.friend-box img { width: 44px; height: 44px; object-fit: contain; }
+.friend-meta { font-size: 0.78rem; letter-spacing: 0.24em; color: var(--gold); }
+.friend-card h3 { font-family: var(--calli); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: 0.08em; color: var(--ink); margin: 0.3rem 0 0.7rem; }
+.friend-card h3 span { font-family: var(--serif); font-size: 0.6em; letter-spacing: 0.06em; color: var(--gold); }
+.friend-desc { margin: 0; color: var(--ink-2); line-height: 1.8; font-size: 0.94rem; }
+.friend-url { display: inline-block; margin-top: 0.8rem; font-size: 0.84rem; color: var(--dai); }
+.friend-cta { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 1rem; padding: 0.5rem 1.1rem; color: var(--seal-ink); background: var(--seal); border-radius: 2px; letter-spacing: 0.18em; }
+.sec-note { margin: 1rem auto 0; max-width: 42rem; color: var(--ink-3); letter-spacing: 0.06em; }
+.sec-note a { color: var(--dai); text-decoration: underline; text-underline-offset: 4px; }
+.sec-note a:hover { color: var(--seal); }
 
-.wl-nav-btn, .wl-hero-btn { font-size: 1.02rem !important; }
-.wl-mark { display: block; flex-shrink: 0; width: 26px; height: 26px; object-fit: contain; }
-.wl-hero-btn .wl-mark, .wl-friend-mark { width: 28px; height: 28px; }
-.wl-friend-mark { width: 44px; height: 44px; }
-.wl-name { font-weight: 700; letter-spacing: 0.06em; }
+/* ───────── 页脚 ───────── */
+.site-footer { position: relative; z-index: 10; padding: 4rem 1.5rem 3rem; border-top: 3px double var(--line-2); background: linear-gradient(to top, var(--bg) 20%, transparent); }
+.foot-name { font-family: var(--calli); font-size: 2.2rem; letter-spacing: 0.14em; color: var(--ink); }
+.foot-sub { margin-left: 0.6rem; font-size: 0.8rem; letter-spacing: 0.3em; color: var(--ink-3); }
+.foot-link { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; color: var(--ink-2); letter-spacing: 0.12em; border: 1px solid transparent; border-radius: 2px; transition: color 0.2s ease, border-color 0.2s ease; }
+.foot-link:hover { color: var(--seal); border-color: var(--line-2); }
+.foot-link svg { width: 16px; height: 16px; fill: currentColor; }
 
-.side-nav {
-  position: fixed;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 8px;
-  background: var(--nav-bg);
-  border: 1px solid rgba(var(--gold-rgb), 0.22);
-  border-radius: 6px;
-  backdrop-filter: blur(18px);
-  box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.45);
-}
-.side-nav a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  color: var(--text-3);
-  border-radius: 6px;
-  transition: color 0.2s ease, background 0.2s ease;
-}
-.side-nav a:hover, .side-nav a.active {
-  color: var(--gold-bright);
-  background: rgba(var(--gold-rgb), 0.12);
-}
-.side-nav a.active { box-shadow: inset 2px 0 0 var(--gold); }
-
-.cyber-btn {
-  position: relative;
-  padding: 13px 28px;
-  background: var(--surface);
-  border: 1px solid rgba(var(--gold-rgb), 0.32);
-  border-radius: 6px !important;
-  color: var(--text);
-  font-weight: 600;
-  font-family: var(--serif);
-  letter-spacing: 0.12em;
-  overflow: hidden;
-  transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-}
-.cyber-btn:hover {
-  border-color: rgba(var(--gold-rgb), 0.6);
-  background: var(--surface-2);
-  transform: translateY(-2px);
-}
-.cyber-btn-gold {
-  border-color: var(--primary-border);
-  color: #f7f4ea;
-  background: var(--primary-bg);
-  box-shadow: var(--primary-shadow);
-}
-.cyber-btn-gold:hover {
-  filter: brightness(1.06);
-  box-shadow: var(--primary-shadow);
-}
-
-.theme-switch {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--gold-rgb), 0.32);
-  background: var(--surface);
-  color: var(--text-2);
+#backToTop {
+  position: fixed; right: 28px; bottom: 28px; z-index: 50;
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  font-family: var(--calli); font-size: 1.4rem; line-height: 1;
+  color: var(--seal-ink); background: var(--seal);
+  border: 0; border-radius: 3px;
+  box-shadow: inset 0 0 0 2px var(--seal), inset 0 0 0 3px rgba(251, 238, 224, 0.5), 0 8px 18px -8px var(--shadow);
+  opacity: 0; pointer-events: none;
   cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, transform 0.4s ease;
+  transition: opacity 0.3s ease, transform 0.2s ease;
 }
-.theme-switch:hover {
-  color: var(--gold);
-  border-color: rgba(var(--gold-rgb), 0.7);
-  transform: rotate(24deg);
-}
-.theme-switch .icon-moon { display: none; }
-[data-theme='light'] .theme-switch .icon-sun { display: none; }
-[data-theme='light'] .theme-switch .icon-moon { display: block; }
+#backToTop:hover { transform: translateY(-2px); }
 
 ::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--ink-deep); }
-::-webkit-scrollbar-thumb {
-  background: rgba(var(--gold-rgb), 0.55);
-  border-radius: 4px;
-}
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: rgba(var(--gold-rgb), 0.55); border-radius: 4px; }
+
+/* 出场：只有 JS 就绪时才隐藏，避免无脚本时内容不可见 */
+.js .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.8s ease, transform 0.8s ease; }
+.js .reveal.in { opacity: 1; transform: none; }
 
 @media (max-width: 768px) { .side-nav { display: none; } }
-@media (min-width: 769px) and (max-width: 1180px) {
-  main, footer { padding-left: 78px; }
-}
-
-.mobile-menu {
-  display: none;
-  position: fixed;
-  top: 68px;
-  left: 12px;
-  right: 12px;
-  background: var(--paper);
-  border: 1px solid rgba(var(--gold-rgb), 0.28);
-  border-radius: 8px;
-  padding: 8px;
-  z-index: 49;
-  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.45);
-}
-.mobile-menu.active { display: block; }
-.mobile-menu a {
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  color: var(--text-2);
-  border-radius: 6px;
-}
-.mobile-menu a:hover { color: var(--gold-bright); background: rgba(var(--gold-rgb), 0.1); }
-
-.data-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  background: rgba(var(--gold-rgb), 0.1);
-  border: 1px solid rgba(var(--gold-rgb), 0.32);
-  border-radius: 3px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  color: var(--gold-bright);
-}
-
-.cyber-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(var(--gold-rgb), 0.45), transparent);
-  position: relative;
-}
-.cyber-divider::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) rotate(45deg);
-  width: 7px;
-  height: 7px;
-  background: var(--ink);
-  border: 1px solid rgba(var(--gold-rgb), 0.7);
-}
-
-.nav-header {
-  border-bottom: 1px solid rgba(var(--gold-rgb), 0.16);
-  background: var(--nav-bg);
-  backdrop-filter: blur(18px);
-}
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid rgba(var(--gold-rgb), 0.16);
-  border-radius: 6px;
-}
-.nav-link-cyber {
-  position: relative;
-  border-radius: 4px;
-  color: var(--text-3) !important;
-  letter-spacing: 0.08em;
-}
-.nav-link-cyber:hover, .nav-link-cyber:focus-visible {
-  color: var(--gold-bright) !important;
-  background: rgba(var(--gold-rgb), 0.1);
-}
-.logo-glow {
-  border-radius: 50% !important;
-  border-color: rgba(var(--gold-rgb), 0.4) !important;
-  background: var(--glyph-bg) !important;
-  color: var(--gold-bright);
-}
-.logo-word { font-size: 1.55rem; }
-.header-scan { display: none; }
-
-.text-white { color: var(--text) !important; }
-.text-gray-300 { color: var(--text-2) !important; }
-.text-gray-400, .text-gray-500, .text-gray-600 { color: var(--text-3) !important; }
-.text-cyan-400, .text-cyan-300,
-.hover\:text-cyan-400:hover, .group-hover\:text-cyan-400:hover, .group-hover\:text-cyan-300:hover {
-  color: var(--accent) !important;
-}
-.text-cyan-500\/60, .group-hover\:text-cyan-400 { color: rgba(var(--accent-rgb), 0.8) !important; }
-.text-amber-100, .text-amber-200, .text-amber-300, .text-yellow-400,
-.hover\:text-amber-100:hover, .hover\:text-amber-200:hover {
-  color: var(--gold-bright) !important;
-}
-.bg-\[\#0a0f1a\] {
-  background: var(--inset) !important;
-  border-color: rgba(var(--gold-rgb), 0.16) !important;
-}
-.border-cyan-500\/10, .border-cyan-500\/20, .border-cyan-500\/30, .border-cyan-500\/40, .border-cyan-500\/50,
-.hover\:border-cyan-500\/30:hover, .hover\:border-cyan-500\/40:hover, .hover\:border-cyan-500\/50:hover, .hover\:border-cyan-500\/60:hover {
-  border-color: rgba(var(--gold-rgb), 0.28) !important;
-}
-.bg-cyan-500\/5, .bg-cyan-500\/10, .bg-cyan-500\/20,
-.hover\:bg-cyan-500\/5:hover, .hover\:bg-cyan-500\/10:hover {
-  background-color: rgba(var(--accent-rgb), 0.1) !important;
-}
-.border-l-yellow-500, .border-l-amber-600\/70, .border-amber-500\/30 { border-color: rgba(var(--gold-rgb), 0.55) !important; }
-#backToTop {
-  background: var(--paper) !important;
-  border: 1px solid rgba(var(--gold-rgb), 0.4) !important;
-  color: var(--gold-bright) !important;
-  border-radius: 6px !important;
-}
-footer .bg-gradient-to-t { background-image: linear-gradient(to top, var(--ink-deep), transparent) !important; }
-footer .via-cyan-500\/30, .via-cyan-500\/30 { --tw-gradient-via: rgba(var(--gold-rgb), 0.35) !important; }
-a.animate-pulse { animation: none; }
-
-[data-theme='light'] .text-green-400 { color: #166534 !important; }
-[data-theme='light'] .text-blue-400 { color: #1e429f !important; }
-[data-theme='light'] .text-purple-400 { color: #5b3fa0 !important; }
-[data-theme='light'] .text-pink-400 { color: #9d174d !important; }
-[data-theme='light'] .text-orange-400 { color: #9a3412 !important; }
-[data-theme='light'] .text-red-400 { color: #b91c1c !important; }
-[data-theme='light'] .text-emerald-300 { color: #166534 !important; }
-[data-theme='light'] .bg-green-500\/20 { background-color: rgba(22, 101, 52, 0.1) !important; }
-[data-theme='light'] .bg-blue-500\/20 { background-color: rgba(30, 66, 159, 0.1) !important; }
-[data-theme='light'] .bg-purple-500\/20 { background-color: rgba(91, 63, 160, 0.1) !important; }
-[data-theme='light'] .bg-pink-500\/20, [data-theme='light'] .bg-pink-500\/10 { background-color: rgba(157, 23, 77, 0.08) !important; }
-[data-theme='light'] .bg-orange-500\/20 { background-color: rgba(154, 52, 18, 0.1) !important; }
-[data-theme='light'] .bg-red-500\/20 { background-color: rgba(185, 28, 28, 0.1) !important; }
-[data-theme='light'] .bg-yellow-500\/20, [data-theme='light'] .bg-yellow-500\/10,
-[data-theme='light'] .bg-amber-500\/20, [data-theme='light'] .bg-amber-500\/15 {
-  background-color: rgba(127, 93, 39, 0.12) !important;
-}
-[data-theme='light'] .bg-gray-500\/20, [data-theme='light'] .bg-gray-500\/5 { background-color: rgba(55, 86, 86, 0.06) !important; }
-[data-theme='light'] .border-gray-500\/20, [data-theme='light'] .border-gray-500\/30 { border-color: rgba(55, 86, 86, 0.18) !important; }
-[data-theme='light'] .text-gray-300 { color: #3d4c52 !important; }
-
+@media (min-width: 769px) and (max-width: 1180px) { main, .site-footer { padding-left: 78px; } }
 @media (max-width: 640px) {
   .title-seal { position: static; margin: 0.75rem auto 0; }
   .hero-seal-wrap { display: flex; flex-direction: column; align-items: center; }
-  .hero-verse { letter-spacing: 0.12em; }
+  .hero-verse { letter-spacing: 0.14em; }
+  .brand-sub { display: none; }
+  .hero-tags { letter-spacing: 0.2em; gap: 0.6rem; }
+  .date { margin-left: 0; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-  }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .js .reveal { opacity: 1; transform: none; }
 }
     </style>
   </head>
-  <body class="min-h-screen theme-xian">
-    <!-- 水墨云雾背景 -->
-    <div class="grid-bg"></div>
-    <!-- 灵气光晕 -->
-    <div class="tech-particles"></div>
+  <body>
+    <!-- 远山 · 圆月 · 宣纸 -->
+    <div class="scenery" aria-hidden="true"></div>
 
     <!-- 侧边导航 -->
     <nav class="side-nav" aria-label="侧边导航">
-      <a href="#home" class="active" title="首页">
-        <i data-lucide="home" class="w-5 h-5"></i>
-      </a>
-      <a href="#about" title="世界观">
-        <i data-lucide="globe" class="w-5 h-5"></i>
-      </a>
-      <a href="#features" title="核心特色">
-        <i data-lucide="cpu" class="w-5 h-5"></i>
-      </a>
-      <a href="#gallery" title="道途一瞥">
-        <i data-lucide="image" class="w-5 h-5"></i>
-      </a>
-      <a href="#news" title="更新日志">
-        <i data-lucide="scroll-text" class="w-5 h-5"></i>
-      </a>
-      <a href="#friends" title="友情链接 · 织界">
-        <i data-lucide="scroll" class="w-5 h-5"></i>
-      </a>
+      <a href="#home" class="active" title="首页">首</a>
+      <a href="#about" title="世界观">界</a>
+      <a href="#features" title="核心特色">特</a>
+      <a href="#gallery" title="道途一瞥">途</a>
+      <a href="#news" title="更新日志">志</a>
+      <a href="#friends" title="友情链接 · 织界">友</a>
     </nav>
 
     <!-- 顶部导航栏 -->
-    <header class="fixed top-0 left-0 right-0 z-50">
-      <div class="nav-header backdrop-blur-xl">
-        <div class="header-scan"></div>
-        <div class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
-          <!-- Logo -->
-          <a href="#home" class="flex items-center gap-3 group">
-            <div class="logo-glow w-11 h-11 border border-cyan-500/40 rounded-xl flex items-center justify-center bg-gradient-to-br from-cyan-500/15 to-teal-500/10 group-hover:border-cyan-400/60 transition-all">
-              <svg class="w-6 h-6 text-cyan-400 group-hover:text-cyan-300 transition-colors" viewBox="-5 -8 97 108" fill="currentColor">
-                <g transform="translate(-23.4,116.8) scale(0.1,-0.1)">
-                  <path d="M609 1141 c-43 -43 -41 -101 5 -147 42 -42 70 -43 106 -3 36 37 44 61 36 104 -14 73 -95 98 -147 46z" transform="translate(660, 1070) scale(1.25) translate(-660, -1070)"/>
-                  <path d="M635 883 c-13 -92 -11 -90 -107 -138 -111 -55 -136 -58 -86 -10 20 20 42 33 50 30 21 -8 84 21 102 47 19 27 21 75 4 80 -7 3 -34 1 -60 -3 -44 -7 -56 -16 -154 -115 -96 -97 -105 -109 -95 -130 5 -13 21 -30 35 -39 24 -16 29 -16 78 0 74 24 179 80 227 122 37 31 42 33 57 19 49 -49 210 -136 281 -151 28 -6 37 -2 63 23 16 17 30 34 30 39 0 11 -199 211 -223 225 -10 5 -39 8 -65 6 -44 -3 -47 -5 -44 -28 5 -44 24 -68 66 -84 50 -19 59 -20 50 -3 -4 6 10 -4 32 -23 21 -19 41 -36 43 -37 2 -2 2 -5 -1 -8 -8 -9 -107 32 -158 64 -43 27 -45 31 -55 92 -9 59 -12 64 -36 67 -25 3 -27 0 -34 -45z"/>
-                  <path d="M604 677 c-60 -41 -62 -43 -67 -97 -3 -30 -3 -58 2 -63 4 -4 34 -12 67 -18 46 -9 74 -8 128 3 38 7 71 18 73 24 2 6 -21 30 -52 53 -65 50 -73 72 -12 36 53 -31 57 -31 57 -2 0 16 -17 33 -62 62 -34 22 -64 41 -67 42 -3 2 -34 -16 -67 -40z"/>
-                  <path d="M248 501 c-37 -48 2 -125 96 -187 86 -58 133 -66 343 -62 180 3 191 4 245 30 138 64 201 157 154 224 -13 18 -26 20 -110 22 -106 2 -78 12 -329 -122 -59 -32 -115 -56 -125 -54 -11 2 10 18 58 45 123 68 124 69 49 75 -37 4 -87 17 -119 32 -48 22 -67 25 -148 24 -87 -2 -95 -3 -114 -27z"/>
-                </g>
-              </svg>
-            </div>
-            <div>
-              <span class="logo-word text-gradient-cyber">仙途</span>
-              <span class="hidden sm:inline text-xs text-gray-500 ml-2 tracking-[0.18em]">XIANTU</span>
-            </div>
+    <header class="site-header">
+      <div class="container mx-auto px-4 sm:px-6 py-2 flex justify-between items-center">
+        <a href="#home" class="brand" aria-label="仙途 首页">
+          <span class="brand-mark">
+            <img src="logo.webp" alt="仙途标志" width="60" height="60" onload="this.nextElementSibling.style.display='none'" onerror="this.remove()" />
+            <span class="brand-fallback" aria-hidden="true">仙</span>
+          </span>
+          <span>
+            <span class="brand-name">仙途</span><span class="brand-sub hidden sm:inline">XIANTU</span>
+          </span>
+        </a>
+
+        <nav class="hidden lg:flex items-center" aria-label="主导航">
+          <a href="#home" class="nav-link">首页</a>
+          <a href="#about" class="nav-link">世界观</a>
+          <a href="#features" class="nav-link">核心特色</a>
+          <a href="#gallery" class="nav-link">道途一瞥</a>
+          <a href="#news" class="nav-link">更新日志</a>
+          <a href="#friends" class="nav-link">友情链接</a>
+        </nav>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button id="theme-toggle" class="theme-switch" type="button" aria-label="切换暗色">
+            <span class="t-night" aria-hidden="true">夜</span><span class="t-day" aria-hidden="true">昼</span>
+          </button>
+          <button id="mobile-menu-btn" class="menu-btn lg:hidden" type="button" aria-label="展开菜单"><i></i><i></i><i></i></button>
+          <a href="https://afdian.com/a/qianye60" target="_blank" rel="noopener noreferrer" class="btn-plain is-seal hidden sm:inline-flex">赞助</a>
+          <a href="https://github.com/qianye60/XianTu" target="_blank" rel="noopener noreferrer" class="btn-plain hidden sm:inline-flex">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.98 0 12.75c0 5.4 3.44 9.97 8.21 11.59.6.11.82-.27.82-.59 0-.29-.01-1.05-.02-2.06-3.34.74-4.04-1.67-4.04-1.67-.55-1.43-1.34-1.81-1.34-1.81-1.1-.77.08-.76.08-.76 1.21.09 1.85 1.28 1.85 1.28 1.08 1.9 2.83 1.35 3.52 1.03.11-.8.42-1.35.77-1.66-2.66-.31-5.46-1.38-5.46-6.14 0-1.36.46-2.46 1.22-3.33-.12-.31-.53-1.57.12-3.27 0 0 1-.33 3.3 1.27a11.1 11.1 0 0 1 6 0c2.29-1.6 3.29-1.27 3.29-1.27.65 1.7.24 2.96.12 3.27.76.87 1.22 1.97 1.22 3.33 0 4.77-2.8 5.82-5.48 6.13.43.38.82 1.13.82 2.28 0 1.65-.02 2.98-.02 3.38 0 .32.21.71.82.59C20.57 22.71 24 18.14 24 12.75 24 5.98 18.63.5 12 .5z"/></svg>
+            <span>GitHub</span>
           </a>
-
-          <!-- 导航链接 -->
-          <nav class="hidden lg:flex items-center">
-            <div class="nav-links">
-              <a href="#home" class="nav-link-cyber px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-all relative">
-                <span class="relative z-10">首页</span>
-              </a>
-              <a href="#about" class="nav-link-cyber px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-all relative">
-                <span class="relative z-10">世界观</span>
-              </a>
-              <a href="#features" class="nav-link-cyber px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-all relative">
-                <span class="relative z-10">核心特色</span>
-              </a>
-              <a href="#gallery" class="nav-link-cyber px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-all relative">
-                <span class="relative z-10">道途一瞥</span>
-              </a>
-              <a href="#news" class="nav-link-cyber px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-all relative">
-                <span class="relative z-10">更新日志</span>
-              </a>
-              <a href="#friends" class="nav-link-cyber px-4 py-2 text-sm text-amber-200/80 hover:text-amber-100 transition-all relative">
-                <span class="relative z-10">友情链接</span>
-              </a>
-            </div>
-          </nav>
-
-          <!-- 右侧按钮组 -->
-          <div class="flex items-center gap-2 sm:gap-3">
-            <button id="theme-toggle" class="theme-switch" type="button" aria-label="切换亮色">
-              <i data-lucide="sun" class="icon-sun w-4 h-4"></i>
-              <i data-lucide="moon" class="icon-moon w-4 h-4"></i>
-            </button>
-            <!-- 移动端菜单按钮 -->
-            <button id="mobile-menu-btn" class="lg:hidden flex items-center justify-center w-10 h-10 border border-cyan-500/30 rounded-xl text-gray-400 hover:text-cyan-400 hover:border-cyan-500/60 hover:bg-cyan-500/10 transition-all">
-              <i data-lucide="menu" class="w-5 h-5"></i>
-            </button>
-            <a href="https://afdian.com/a/qianye60" target="_blank" class="hidden sm:flex items-center gap-2 px-3 py-2 text-sm border border-pink-500/40 text-pink-400 hover:bg-pink-500/15 hover:border-pink-400/70 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)] transition-all rounded-lg">
-              <i data-lucide="heart" class="w-4 h-4"></i>
-              <span>赞助</span>
-            </a>
-            <a href="https://github.com/qianye60/XianTu" target="_blank" rel="noopener noreferrer" class="hidden sm:flex items-center gap-2 px-3 py-2 text-sm border border-amber-500/30 text-amber-100/80 hover:border-amber-400/60 hover:text-amber-100 hover:bg-amber-500/10 transition-all rounded-lg">
-              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.98 0 12.75c0 5.4 3.44 9.97 8.21 11.59.6.11.82-.27.82-.59 0-.29-.01-1.05-.02-2.06-3.34.74-4.04-1.67-4.04-1.67-.55-1.43-1.34-1.81-1.34-1.81-1.1-.77.08-.76.08-.76 1.21.09 1.85 1.28 1.85 1.28 1.08 1.9 2.83 1.35 3.52 1.03.11-.8.42-1.35.77-1.66-2.66-.31-5.46-1.38-5.46-6.14 0-1.36.46-2.46 1.22-3.33-.12-.31-.53-1.57.12-3.27 0 0 1-.33 3.3 1.27a11.1 11.1 0 0 1 6 0c2.29-1.6 3.29-1.27 3.29-1.27.65 1.7.24 2.96.12 3.27.76.87 1.22 1.97 1.22 3.33 0 4.77-2.8 5.82-5.48 6.13.43.38.82 1.13.82 2.28 0 1.65-.02 2.98-.02 3.38 0 .32.21.71.82.59C20.57 22.71 24 18.14 24 12.75 24 5.98 18.63.5 12 .5z"/></svg>
-              <span>GitHub</span>
-            </a>
-          </div>
         </div>
       </div>
     </header>
@@ -825,28 +705,25 @@ a.animate-pulse { animation: none; }
       <a href="https://worldloom.top/" target="_blank" rel="noopener noreferrer">织界 WorldLoom</a>
     </nav>
 
-    <!-- 主内容区域 -->
     <main class="relative z-10">
-      <!-- Hero 区域 -->
-      <section id="home" class="min-h-screen flex flex-col items-center justify-center text-center px-6 pt-20">
+      <!-- 首屏 -->
+      <section id="home" class="hero min-h-screen flex flex-col items-center justify-center text-center px-6 pt-24 pb-16">
+        <div class="couplet l" aria-hidden="true">山河无主皆可渡</div>
+        <div class="couplet r" aria-hidden="true">此心有路即朝天</div>
+
         <div class="max-w-5xl mx-auto">
-          <!-- B站教程入口 -->
-          <a href="https://www.bilibili.com/video/BV1zUk3BqE6C/" target="_blank" class="inline-flex items-center gap-3 px-6 py-3 mb-6 bg-pink-500/10 border-2 border-pink-500/50 rounded-xl hover:bg-pink-500/20 hover:border-pink-400 transition-all group animate-pulse">
-            <svg class="w-6 h-6 text-pink-400" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M4.977 3.561a1.31 1.31 0 111.818-1.884l2.828 2.728c.08.078.149.163.205.254h4.277a1.32 1.32 0 01.205-.254l2.828-2.728a1.31 1.31 0 011.818 1.884L17.82 4.66h.848A5.333 5.333 0 0124 9.992v7.34a5.333 5.333 0 01-5.333 5.334H5.333A5.333 5.333 0 010 17.333V9.992a5.333 5.333 0 015.333-5.333h.781L4.977 3.56zm.356 3.67a2.667 2.667 0 00-2.666 2.667v7.529a2.667 2.667 0 002.666 2.666h13.334a2.667 2.667 0 002.666-2.666v-7.53a2.667 2.667 0 00-2.666-2.666H5.333zm1.334 5.192a1.333 1.333 0 112.666 0v1.192a1.333 1.333 0 11-2.666 0v-1.192zM16 11.09c-.736 0-1.333.597-1.333 1.333v1.192a1.333 1.333 0 102.666 0v-1.192c0-.736-.597-1.333-1.333-1.333z" fill="#FB7299" fill-rule="evenodd"></path></svg>
-            <span class="text-pink-400 font-bold text-lg group-hover:text-pink-300">新手必看：游玩教程</span>
-            <i data-lucide="external-link" class="w-4 h-4 text-pink-400/60"></i>
+          <a href="https://www.bilibili.com/video/BV1CVaL6hEbt/" target="_blank" rel="noopener noreferrer" class="notice mb-7">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.977 3.561a1.31 1.31 0 111.818-1.884l2.828 2.728c.08.078.149.163.205.254h4.277a1.32 1.32 0 01.205-.254l2.828-2.728a1.31 1.31 0 011.818 1.884L17.82 4.66h.848A5.333 5.333 0 0124 9.992v7.34a5.333 5.333 0 01-5.333 5.334H5.333A5.333 5.333 0 010 17.333V9.992a5.333 5.333 0 015.333-5.333h.781L4.977 3.56zm.356 3.67a2.667 2.667 0 00-2.666 2.667v7.529a2.667 2.667 0 002.666 2.666h13.334a2.667 2.667 0 002.666-2.666v-7.53a2.667 2.667 0 00-2.666-2.666H5.333zm1.334 5.192a1.333 1.333 0 112.666 0v1.192a1.333 1.333 0 11-2.666 0v-1.192zM16 11.09c-.736 0-1.333.597-1.333 1.333v1.192a1.333 1.333 0 102.666 0v-1.192c0-.736-.597-1.333-1.333-1.333z"/></svg>
+            <span>新版必看：V5.0 更新视频</span>
+            <span aria-hidden="true">↗</span>
           </a>
 
-          <!-- 数据标签 -->
-          <div class="flex flex-wrap justify-center gap-3 mb-8">
-            <span class="data-tag"><i data-lucide="cpu" class="w-3 h-3"></i> AI驱动</span>
-            <span class="data-tag"><i data-lucide="brain" class="w-3 h-3"></i> 思维链NPC</span>
-            <span class="data-tag"><i data-lucide="globe" class="w-3 h-3"></i> 开放世界</span>
+          <div class="hero-tags mb-8">
+            <span>AI驱动</span><i></i><span>思维链NPC</span><i></i><span>开放世界</span>
           </div>
 
-          <!-- 主标题 -->
-          <div class="hero-seal-wrap mb-4">
-            <h1 class="text-4xl sm:text-6xl md:text-7xl mb-0">
+          <div class="hero-seal-wrap mb-5">
+            <h1 class="text-5xl sm:text-6xl md:text-7xl mb-0" style="line-height:1.3">
               <span class="title-xian">AI驱动的</span>
               <br>
               <span class="title-tu">修仙大世界</span>
@@ -855,331 +732,238 @@ a.animate-pulse { animation: none; }
           </div>
           <p class="hero-verse">山河无主皆可渡，此心有路即朝天</p>
 
-          <!-- 副标题 -->
-          <p class="text-lg sm:text-xl text-gray-400 max-w-3xl mx-auto mb-4 leading-relaxed">
-            这是一款真正<span class="text-cyan-400">动态</span>的<strong class="text-white">AI修仙</strong>世界。
+          <p class="lead text-lg sm:text-xl max-w-3xl mx-auto mb-4 leading-relaxed">
+            这是一款真正<span class="hl">动态</span>的<strong>AI修仙</strong>世界。
             NPC拥有独立思维，世界随时间演变。
           </p>
-          <p class="text-base text-gray-500 max-w-2xl mx-auto mb-10">
+          <p class="sub-lead text-base max-w-2xl mx-auto mb-10">
             你的选择会被记录并持续影响世界与人物；故事由你推动，数据由系统同步。
           </p>
 
-          <!-- 按钮组 -->
           <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <a href="https://www.ddct.top/" target="_blank" rel="noopener noreferrer" class="cyber-btn cyber-btn-gold rounded-lg flex items-center justify-center gap-2">
-              <i data-lucide="play" class="w-5 h-5"></i>
+            <a href="https://www.ddct.top/" target="_blank" rel="noopener noreferrer" class="btn btn-seal">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>
               开始修行
             </a>
-            <a href="https://worldloom.top/" target="_blank" rel="noopener noreferrer" class="cyber-btn wl-hero-btn rounded-lg flex items-center justify-center gap-2" title="友情链接：织界 WorldLoom">
-              <img src="https://worldloom.top/assets/brand/trademark-symbol-light.svg" alt="" width="28" height="28" class="wl-mark" />
-              <span><span class="wl-name">织界</span> WorldLoom</span>
+            <a href="https://worldloom.top/" target="_blank" rel="noopener noreferrer" class="btn" title="友情链接：织界 WorldLoom">
+              <img src="https://worldloom.top/assets/brand/trademark-symbol-light.svg" alt="" width="26" height="26" class="wl-mark" />
+              <span><span style="font-weight:700;letter-spacing:.06em">织界</span> WorldLoom</span>
             </a>
-            <a href="https://github.com/qianye60/XianTu" target="_blank" rel="noopener noreferrer" class="cyber-btn rounded-lg flex items-center justify-center gap-2">
-              <svg class="w-5 h-5 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.98 0 12.75c0 5.4 3.44 9.97 8.21 11.59.6.11.82-.27.82-.59 0-.29-.01-1.05-.02-2.06-3.34.74-4.04-1.67-4.04-1.67-.55-1.43-1.34-1.81-1.34-1.81-1.1-.77.08-.76.08-.76 1.21.09 1.85 1.28 1.85 1.28 1.08 1.9 2.83 1.35 3.52 1.03.11-.8.42-1.35.77-1.66-2.66-.31-5.46-1.38-5.46-6.14 0-1.36.46-2.46 1.22-3.33-.12-.31-.53-1.57.12-3.27 0 0 1-.33 3.3 1.27a11.1 11.1 0 0 1 6 0c2.29-1.6 3.29-1.27 3.29-1.27.65 1.7.24 2.96.12 3.27.76.87 1.22 1.97 1.22 3.33 0 4.77-2.8 5.82-5.48 6.13.43.38.82 1.13.82 2.28 0 1.65-.02 2.98-.02 3.38 0 .32.21.71.82.59C20.57 22.71 24 18.14 24 12.75 24 5.98 18.63.5 12 .5z"/></svg>
+            <a href="https://github.com/qianye60/XianTu" target="_blank" rel="noopener noreferrer" class="btn">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.98 0 12.75c0 5.4 3.44 9.97 8.21 11.59.6.11.82-.27.82-.59 0-.29-.01-1.05-.02-2.06-3.34.74-4.04-1.67-4.04-1.67-.55-1.43-1.34-1.81-1.34-1.81-1.1-.77.08-.76.08-.76 1.21.09 1.85 1.28 1.85 1.28 1.08 1.9 2.83 1.35 3.52 1.03.11-.8.42-1.35.77-1.66-2.66-.31-5.46-1.38-5.46-6.14 0-1.36.46-2.46 1.22-3.33-.12-.31-.53-1.57.12-3.27 0 0 1-.33 3.3 1.27a11.1 11.1 0 0 1 6 0c2.29-1.6 3.29-1.27 3.29-1.27.65 1.7.24 2.96.12 3.27.76.87 1.22 1.97 1.22 3.33 0 4.77-2.8 5.82-5.48 6.13.43.38.82 1.13.82 2.28 0 1.65-.02 2.98-.02 3.38 0 .32.21.71.82.59C20.57 22.71 24 18.14 24 12.75 24 5.98 18.63.5 12 .5z"/></svg>
               GitHub 开源
             </a>
           </div>
 
-          <!-- 社区链接 -->
           <div class="flex flex-wrap justify-center gap-3">
-            <a href="https://qm.qq.com/q/mKtqgX0FSo" target="_blank" class="inline-flex items-center gap-3 px-4 py-2 border border-cyan-500/20 rounded-lg hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all group">
-              <i data-lucide="users" class="w-4 h-4 text-cyan-500/60 group-hover:text-cyan-400 transition-colors"></i>
-              <span class="text-gray-400 text-sm group-hover:text-gray-300">QQ群</span>
-              <span class="text-cyan-400 font-mono text-xs bg-cyan-500/10 px-2 py-0.5 rounded">1079437686</span>
+            <a href="https://qm.qq.com/q/mKtqgX0FSo" target="_blank" rel="noopener noreferrer" class="chip">
+              <span>QQ群</span><b>1079437686</b>
             </a>
-            <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" class="inline-flex items-center gap-3 px-4 py-2 border border-indigo-500/20 rounded-lg hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all group">
-              <svg class="w-4 h-4 text-indigo-500/60 group-hover:text-indigo-400 transition-colors" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-              <span class="text-gray-400 text-sm group-hover:text-gray-300">Discord</span>
+            <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" rel="noopener noreferrer" class="chip">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              <span>Discord</span>
             </a>
           </div>
-
         </div>
       </section>
 
-      <!-- 分隔线 -->
-      <div class="cyber-divider max-w-4xl mx-auto"></div>
+      <div class="divider max-w-4xl mx-auto"></div>
 
-      <!-- 游戏介绍区域 -->
+      <!-- 壹 · 缘起 -->
       <section id="about" class="py-24 px-6">
-        <div class="max-w-5xl mx-auto">
-          <div class="text-center mb-16">
-            <span class="data-tag mb-4"><i data-lucide="book-open" class="w-3 h-3"></i> ABOUT</span>
-            <h2 class="text-3xl sm:text-5xl font-bold text-gradient-cyber mt-4">关于 仙途</h2>
+        <div class="max-w-5xl mx-auto reveal">
+          <div class="sec-head">
+            <span class="sec-eyebrow"><b>壹</b>缘起</span>
+            <h2 class="sec-title">关于 仙途</h2>
           </div>
 
-          <div class="cyber-card rounded-xl p-8 md:p-12">
-            <div class="space-y-6 text-gray-300 leading-relaxed">
-              <p>
-                <span class="text-cyan-400 font-semibold">《仙途》</span>是一款<strong class="text-white">AI驱动的沉浸式修仙文字冒险游戏</strong>。
-                支持 Gemini / Claude / OpenAI / DeepSeek 等多种大模型，实时生成个性化剧情。
-                NPC拥有独立思维链，会根据记忆、性格和核心利益作出合理行动。
-              </p>
-              <p>
-                游戏采用<strong class="text-white">开放式预设系统</strong>，你可以选择不同的世界观进行冒险——
-                无论是默认的朝天大陆，还是社区创作的其他世界预设，都能自由导入导出。
-                角色的境界、技能与资源会通过结构化存档持续累积，形成连贯可持续的个人进程。
-              </p>
-              <p>
-                完整的<strong class="text-white">修仙体系</strong>：境界突破、三千大道、功法修炼、装备炼制、NPC互动。
-                智能判定系统基于境界、属性、装备、功法等多维度计算结果。
-                支持多存档管理、云同步，完美适配桌面端与移动端。
-              </p>
-            </div>
+          <div class="card about-body p-8 md:p-12">
+            <p>
+              <span class="hl">《仙途》</span>是一款<strong>AI驱动的沉浸式修仙文字冒险游戏</strong>。
+              支持 Gemini / Claude / OpenAI / DeepSeek 等多种大模型，实时生成个性化剧情。
+              NPC拥有独立思维链，会根据记忆、性格和核心利益作出合理行动。
+            </p>
+            <p>
+              游戏采用<strong>开放式预设系统</strong>，你可以选择不同的世界观进行冒险——
+              无论是默认的朝天大陆，还是社区创作的其他世界预设，都能自由导入导出。
+              角色的境界、技能与资源会通过结构化存档持续累积，形成连贯可持续的个人进程。
+            </p>
+            <p>
+              完整的<strong>修仙体系</strong>：境界突破、三千大道、功法修炼、装备炼制、NPC互动。
+              智能判定系统基于境界、属性、装备、功法等多维度计算结果。
+              支持多存档管理、云同步，完美适配桌面端与移动端。
+            </p>
           </div>
         </div>
       </section>
 
-      <!-- 核心特色区域 -->
+      <!-- 贰 · 特色 -->
       <section id="features" class="py-24 px-6">
-        <div class="max-w-6xl mx-auto">
-          <div class="text-center mb-16">
-            <span class="data-tag mb-4"><i data-lucide="cpu" class="w-3 h-3"></i> FEATURES</span>
-            <h2 class="text-3xl sm:text-5xl font-bold text-gradient-cyber mt-4">核心特色</h2>
+        <div class="max-w-6xl mx-auto reveal">
+          <div class="sec-head">
+            <span class="sec-eyebrow"><b>贰</b>特色</span>
+            <h2 class="sec-title">核心特色</h2>
           </div>
 
           <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- 特色1 -->
-            <div class="cyber-card rounded-xl p-6">
-              <div class="w-12 h-12 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4">
-                <i data-lucide="brain" class="w-6 h-6 text-cyan-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white mb-3">AI思维链NPC</h3>
-              <p class="text-gray-400 text-sm leading-relaxed">
-                NPC拥有<span class="text-cyan-400">思维链</span>，会根据记忆、性格、人格底线和核心利益作出合理行动。
-              </p>
+            <div class="card lift feature p-7">
+              <div class="glyph">灵</div>
+              <h3>AI思维链NPC</h3>
+              <p>NPC拥有<span class="hl">思维链</span>，会根据记忆、性格、人格底线和核心利益作出合理行动。</p>
             </div>
-
-            <!-- 特色2 -->
-            <div class="cyber-card rounded-xl p-6">
-              <div class="w-12 h-12 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4">
-                <i data-lucide="map" class="w-6 h-6 text-cyan-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white mb-3">可交互地图</h3>
-              <p class="text-gray-400 text-sm leading-relaxed">
-                全新<span class="text-cyan-400">动态游戏地图</span>系统。在朝天大陆上自由探索、缩放、拖拽。
-              </p>
+            <div class="card lift feature p-7">
+              <div class="glyph">图</div>
+              <h3>可交互地图</h3>
+              <p>全新<span class="hl">动态游戏地图</span>系统。在朝天大陆上自由探索、缩放、拖拽。</p>
             </div>
-
-            <!-- 特色3 -->
-            <div class="cyber-card rounded-xl p-6">
-              <div class="w-12 h-12 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4">
-                <i data-lucide="users" class="w-6 h-6 text-cyan-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white mb-3">预设与社区创作</h3>
-              <p class="text-gray-400 text-sm leading-relaxed">
-                <span class="text-cyan-400">开放式社区创作平台</span>。自由分享、导入和导出完整游戏预设。
-              </p>
+            <div class="card lift feature p-7">
+              <div class="glyph">众</div>
+              <h3>预设与社区创作</h3>
+              <p><span class="hl">开放式社区创作平台</span>。自由分享、导入和导出完整游戏预设。</p>
             </div>
-
-            <!-- 特色4 -->
-            <div class="cyber-card rounded-xl p-6">
-              <div class="w-12 h-12 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mb-4">
-                <i data-lucide="trending-up" class="w-6 h-6 text-yellow-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white mb-3">森严的境界壁垒</h3>
-              <p class="text-gray-400 text-sm leading-relaxed">
-                从炼气到渡劫飞升，严谨的<span class="text-yellow-400">境界压制</span>法则。
-              </p>
+            <div class="card lift feature p-7">
+              <div class="glyph">阶</div>
+              <h3>森严的境界壁垒</h3>
+              <p>从炼气到渡劫飞升，严谨的<span class="hl">境界压制</span>法则。</p>
             </div>
-
-            <!-- 特色5 -->
-            <div class="cyber-card rounded-xl p-6">
-              <div class="w-12 h-12 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mb-4">
-                <i data-lucide="sparkles" class="w-6 h-6 text-yellow-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white mb-3">三千大道 万法归宗</h3>
-              <p class="text-gray-400 text-sm leading-relaxed">
-                精研<span class="text-yellow-400">炼丹、炼器、符箓、阵法</span>等修仙百艺。
-              </p>
+            <div class="card lift feature p-7">
+              <div class="glyph">道</div>
+              <h3>三千大道 万法归宗</h3>
+              <p>精研<span class="hl">炼丹、炼器、符箓、阵法</span>等修仙百艺。</p>
             </div>
-
-            <!-- 特色6 -->
-            <div class="cyber-card rounded-xl p-6">
-              <div class="w-12 h-12 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mb-4">
-                <i data-lucide="dice-5" class="w-6 h-6 text-yellow-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white mb-3">真随机与骰子系统</h3>
-              <p class="text-gray-400 text-sm leading-relaxed">
-                内置<span class="text-yellow-400">程序端真随机骰子系统</span>。
-              </p>
+            <div class="card lift feature p-7">
+              <div class="glyph">运</div>
+              <h3>真随机与骰子系统</h3>
+              <p>内置<span class="hl">程序端真随机骰子系统</span>。</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 道途一瞥区域 -->
+      <!-- 叁 · 道途 -->
       <section id="gallery" class="py-24 px-6">
-        <div class="max-w-5xl mx-auto">
-          <div class="text-center mb-16">
-            <span class="data-tag mb-4"><i data-lucide="image" class="w-3 h-3"></i> GALLERY</span>
-            <h2 class="text-3xl sm:text-5xl font-bold text-gradient-cyber mt-4">道途一瞥</h2>
+        <div class="max-w-5xl mx-auto reveal">
+          <div class="sec-head">
+            <span class="sec-eyebrow"><b>叁</b>道途</span>
+            <h2 class="sec-title">道途一瞥</h2>
           </div>
 
-          <!-- 境界体系展示 -->
-          <div class="cyber-card rounded-xl p-8 mb-6">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-10 h-10 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
-                <i data-lucide="trending-up" class="w-5 h-5 text-yellow-400"></i>
-              </div>
-              <h3 class="text-xl font-bold text-white">九重境界</h3>
-            </div>
+          <div class="card p-8 mb-6">
+            <h3 class="card-title calli">九重境界</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div class="p-3 bg-gray-500/5 border border-gray-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-gray-500/20 border border-gray-500/30 rounded text-gray-400 text-xs font-bold">凡人</span>
-                  <span class="text-gray-500 text-xs">约百载</span>
-                </div>
-                <p class="text-gray-500 text-xs">生老病死，轮回不止。不入仙门，终为蝼蚁。</p>
+              <div class="realm" style="--t:0">
+                <div class="realm-top"><span class="realm-no">一</span><span class="realm-name">凡人</span><span class="realm-age">约百载</span></div>
+                <p>生老病死，轮回不止。不入仙门，终为蝼蚁。</p>
               </div>
-              <div class="p-3 bg-gray-500/5 border border-gray-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-gray-500/20 border border-gray-500/30 rounded text-gray-300 text-xs font-bold">炼气</span>
-                  <span class="text-gray-500 text-xs">约120载</span>
-                </div>
-                <p class="text-gray-500 text-xs">引气入体，洗涤凡躯。在凡间已是异人，被乡野尊为"仙童"。</p>
+              <div class="realm" style="--t:1">
+                <div class="realm-top"><span class="realm-no">二</span><span class="realm-name">炼气</span><span class="realm-age">约120载</span></div>
+                <p>引气入体，洗涤凡躯。在凡间已是异人，被乡野尊为“仙童”。</p>
               </div>
-              <div class="p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded text-green-400 text-xs font-bold">筑基</span>
-                  <span class="text-gray-500 text-xs">约250载</span>
-                </div>
-                <p class="text-gray-500 text-xs">灵气液化，丹田筑基。正式脱凡，可御器飞行，被帝王尊为"护国仙师"。</p>
+              <div class="realm" style="--t:2">
+                <div class="realm-top"><span class="realm-no">三</span><span class="realm-name">筑基</span><span class="realm-age">约250载</span></div>
+                <p>灵气液化，丹田筑基。正式脱凡，可御器飞行，被帝王尊为“护国仙师”。</p>
               </div>
-              <div class="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-blue-400 text-xs font-bold">金丹</span>
-                  <span class="text-gray-500 text-xs">500-800载</span>
-                </div>
-                <p class="text-gray-500 text-xs">灵液结丹，法力自生。可开宗立派，为一派老祖，在凡间已是神话人物。</p>
+              <div class="realm" style="--t:3">
+                <div class="realm-top"><span class="realm-no">四</span><span class="realm-name">金丹</span><span class="realm-age">500-800载</span></div>
+                <p>灵液结丹，法力自生。可开宗立派，为一派老祖，在凡间已是神话人物。</p>
               </div>
-              <div class="p-3 bg-purple-500/5 border border-purple-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-purple-500/20 border border-purple-500/30 rounded text-purple-400 text-xs font-bold">元婴</span>
-                  <span class="text-gray-500 text-xs">1500-2000载</span>
-                </div>
-                <p class="text-gray-500 text-xs">丹碎婴生，神魂寄托。元婴不灭，真灵不死，是修行界的绝对霸主。</p>
+              <div class="realm" style="--t:4">
+                <div class="realm-top"><span class="realm-no">五</span><span class="realm-name">元婴</span><span class="realm-age">1500-2000载</span></div>
+                <p>丹碎婴生，神魂寄托。元婴不灭，真灵不死，是修行界的绝对霸主。</p>
               </div>
-              <div class="p-3 bg-pink-500/5 border border-pink-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-pink-500/20 border border-pink-500/30 rounded text-pink-400 text-xs font-bold">化神</span>
-                  <span class="text-gray-500 text-xs">约5000载</span>
-                </div>
-                <p class="text-gray-500 text-xs">神游太虚，感悟法则。神识即领域，意念可干涉现实。</p>
+              <div class="realm" style="--t:5">
+                <div class="realm-top"><span class="realm-no">六</span><span class="realm-name">化神</span><span class="realm-age">约5000载</span></div>
+                <p>神游太虚，感悟法则。神识即领域，意念可干涉现实。</p>
               </div>
-              <div class="p-3 bg-orange-500/5 border border-orange-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-orange-500/20 border border-orange-500/30 rounded text-orange-400 text-xs font-bold">炼虚</span>
-                  <span class="text-gray-500 text-xs">万载以上</span>
-                </div>
-                <p class="text-gray-500 text-xs">身融虚空，掌握空间。咫尺天涯，可短暂撕裂空间。</p>
+              <div class="realm" style="--t:6">
+                <div class="realm-top"><span class="realm-no">七</span><span class="realm-name">炼虚</span><span class="realm-age">万载以上</span></div>
+                <p>身融虚空，掌握空间。咫尺天涯，可短暂撕裂空间。</p>
               </div>
-              <div class="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-red-500/20 border border-red-500/30 rounded text-red-400 text-xs font-bold">合体</span>
-                  <span class="text-gray-500 text-xs">与世同君</span>
-                </div>
-                <p class="text-gray-500 text-xs">法则归体，身即是道。一举一动皆引动大道共鸣，稳定着一方天域。</p>
+              <div class="realm" style="--t:7">
+                <div class="realm-top"><span class="realm-no">八</span><span class="realm-name">合体</span><span class="realm-age">与世同君</span></div>
+                <p>法则归体，身即是道。一举一动皆引动大道共鸣，稳定着一方天域。</p>
               </div>
-              <div class="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400 text-xs font-bold">渡劫</span>
-                  <span class="text-gray-500 text-xs">不定</span>
-                </div>
-                <p class="text-gray-500 text-xs">超脱世界，叩问天道。已是人间道之极致，每一次渡劫都是天地盛景。</p>
+              <div class="realm" style="--t:8">
+                <div class="realm-top"><span class="realm-no">九</span><span class="realm-name">渡劫</span><span class="realm-age">不定</span></div>
+                <p>超脱世界，叩问天道。已是人间道之极致，每一次渡劫都是天地盛景。</p>
               </div>
             </div>
           </div>
 
-          <!-- 支持的API渠道 -->
-          <div class="cyber-card rounded-xl p-8">
-            <div class="flex items-center justify-between mb-6">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                  <i data-lucide="cpu" class="w-5 h-5 text-cyan-400"></i>
-                </div>
-                <h3 class="text-xl font-bold text-white">支持的API渠道</h3>
-              </div>
-              <a href="https://www.bilibili.com/video/BV1zUk3BqE6C/?share_source=copy_web&vd_source=d145a86d20297a21074483f945445cec" target="_blank" class="flex items-center gap-2 px-3 py-1.5 text-sm border border-pink-500/50 text-pink-400 hover:bg-pink-500/10 hover:border-pink-400 transition-all rounded">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M4.977 3.561a1.31 1.31 0 111.818-1.884l2.828 2.728c.08.078.149.163.205.254h4.277a1.32 1.32 0 01.205-.254l2.828-2.728a1.31 1.31 0 011.818 1.884L17.82 4.66h.848A5.333 5.333 0 0124 9.992v7.34a5.333 5.333 0 01-5.333 5.334H5.333A5.333 5.333 0 010 17.333V9.992a5.333 5.333 0 015.333-5.333h.781L4.977 3.56zm.356 3.67a2.667 2.667 0 00-2.666 2.667v7.529a2.667 2.667 0 002.666 2.666h13.334a2.667 2.667 0 002.666-2.666v-7.53a2.667 2.667 0 00-2.666-2.666H5.333zm1.334 5.192a1.333 1.333 0 112.666 0v1.192a1.333 1.333 0 11-2.666 0v-1.192zM16 11.09c-.736 0-1.333.597-1.333 1.333v1.192a1.333 1.333 0 102.666 0v-1.192c0-.736-.597-1.333-1.333-1.333z" fill="#FB7299" fill-rule="evenodd"></path></svg>
+          <div class="card p-8">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <h3 class="card-title calli" style="margin:0">支持的API渠道</h3>
+              <a href="https://www.bilibili.com/video/BV1zUk3BqE6C/?share_source=copy_web&vd_source=d145a86d20297a21074483f945445cec" target="_blank" rel="noopener noreferrer" class="btn-plain is-seal">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.977 3.561a1.31 1.31 0 111.818-1.884l2.828 2.728c.08.078.149.163.205.254h4.277a1.32 1.32 0 01.205-.254l2.828-2.728a1.31 1.31 0 011.818 1.884L17.82 4.66h.848A5.333 5.333 0 0124 9.992v7.34a5.333 5.333 0 01-5.333 5.334H5.333A5.333 5.333 0 010 17.333V9.992a5.333 5.333 0 015.333-5.333h.781L4.977 3.56zm.356 3.67a2.667 2.667 0 00-2.666 2.667v7.529a2.667 2.667 0 002.666 2.666h13.334a2.667 2.667 0 002.666-2.666v-7.53a2.667 2.667 0 00-2.666-2.666H5.333zm1.334 5.192a1.333 1.333 0 112.666 0v1.192a1.333 1.333 0 11-2.666 0v-1.192zM16 11.09c-.736 0-1.333.597-1.333 1.333v1.192a1.333 1.333 0 102.666 0v-1.192c0-.736-.597-1.333-1.333-1.333z"/></svg>
                 <span>适配教程</span>
               </a>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-              <!-- Gemini -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-fill-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-fill-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-fill-2)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="gemini-fill-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-fill-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-fill-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
-                <p class="text-cyan-400 font-semibold text-sm">Gemini</p>
-                <p class="text-gray-500 text-xs">Google</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-fill-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-fill-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-fill-2)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="gemini-fill-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-fill-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-fill-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
+                <b>Gemini</b>
+                <span>Google</span>
               </div>
-              <!-- Claude -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" fill="#D97757" fill-rule="nonzero"></path></svg>
-                <p class="text-orange-400 font-semibold text-sm">Claude</p>
-                <p class="text-gray-500 text-xs">Anthropic</p>
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" fill="#D97757" fill-rule="nonzero"></path></svg>
+                <b>Claude</b>
+                <span>Anthropic</span>
               </div>
-              <!-- OpenAI -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" fill="#10a37f" fill-rule="evenodd" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z"></path></svg>
-                <p class="text-green-400 font-semibold text-sm">GPT</p>
-                <p class="text-gray-500 text-xs">OpenAI</p>
+              <div class="model">
+                <svg fill="#10a37f" fill-rule="evenodd" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z"></path></svg>
+                <b>GPT</b>
+                <span>OpenAI</span>
               </div>
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg>
-                <p class="text-blue-400 font-semibold text-sm">DeepSeek</p>
-                <p class="text-gray-500 text-xs">深度求索</p>
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg>
+                <b>DeepSeek</b>
+                <span>深度求索</span>
               </div>
-              <!-- Qwen -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.604 1.34c.393.69.784 1.382 1.174 2.075a.18.18 0 00.157.091h5.552c.174 0 .322.11.446.327l1.454 2.57c.19.337.24.478.024.837-.26.43-.513.864-.76 1.3l-.367.658c-.106.196-.223.28-.04.512l2.652 4.637c.172.301.111.494-.043.77-.437.785-.882 1.564-1.335 2.34-.159.272-.352.375-.68.37-.777-.016-1.552-.01-2.327.016a.099.099 0 00-.081.05 575.097 575.097 0 01-2.705 4.74c-.169.293-.38.363-.725.364-.997.003-2.002.004-3.017.002a.537.537 0 01-.465-.271l-1.335-2.323a.09.09 0 00-.083-.049H4.982c-.285.03-.553-.001-.805-.092l-1.603-2.77a.543.543 0 01-.002-.54l1.207-2.12a.198.198 0 000-.197 550.951 550.951 0 01-1.875-3.272l-.79-1.395c-.16-.31-.173-.496.095-.965.465-.813.927-1.625 1.387-2.436.132-.234.304-.334.584-.335a338.3 338.3 0 012.589-.001.124.124 0 00.107-.063l2.806-4.895a.488.488 0 01.422-.246c.524-.001 1.053 0 1.583-.006L11.704 1c.341-.003.724.032.9.34zm-3.432.403a.06.06 0 00-.052.03L6.254 6.788a.157.157 0 01-.135.078H3.253c-.056 0-.07.025-.041.074l5.81 10.156c.025.042.013.062-.034.063l-2.795.015a.218.218 0 00-.2.116l-1.32 2.31c-.044.078-.021.118.068.118l5.716.008c.046 0 .08.02.104.061l1.403 2.454c.046.081.092.082.139 0l5.006-8.76.783-1.382a.055.055 0 01.096 0l1.424 2.53a.122.122 0 00.107.062l2.763-.02a.04.04 0 00.035-.02.041.041 0 000-.04l-2.9-5.086a.108.108 0 010-.113l.293-.507 1.12-1.977c.024-.041.012-.062-.035-.062H9.2c-.059 0-.073-.026-.043-.077l1.434-2.505a.107.107 0 000-.114L9.225 1.774a.06.06 0 00-.053-.031zm6.29 8.02c.046 0 .058.02.034.06l-.832 1.465-2.613 4.585a.056.056 0 01-.05.029.058.058 0 01-.05-.029L8.498 9.841c-.02-.034-.01-.052.028-.054l.216-.012 6.722-.012z" fill="url(#lobe-icons-qwen-fill)" fill-rule="nonzero"></path><defs><linearGradient id="lobe-icons-qwen-fill" x1="0%" x2="100%" y1="0%" y2="0%"><stop offset="0%" stop-color="#6336E7" stop-opacity=".84"></stop><stop offset="100%" stop-color="#6F69F7" stop-opacity=".84"></stop></linearGradient></defs></svg>
-                <p class="text-purple-400 font-semibold text-sm">Qwen</p>
-                <p class="text-gray-500 text-xs">阿里云</p>
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.604 1.34c.393.69.784 1.382 1.174 2.075a.18.18 0 00.157.091h5.552c.174 0 .322.11.446.327l1.454 2.57c.19.337.24.478.024.837-.26.43-.513.864-.76 1.3l-.367.658c-.106.196-.223.28-.04.512l2.652 4.637c.172.301.111.494-.043.77-.437.785-.882 1.564-1.335 2.34-.159.272-.352.375-.68.37-.777-.016-1.552-.01-2.327.016a.099.099 0 00-.081.05 575.097 575.097 0 01-2.705 4.74c-.169.293-.38.363-.725.364-.997.003-2.002.004-3.017.002a.537.537 0 01-.465-.271l-1.335-2.323a.09.09 0 00-.083-.049H4.982c-.285.03-.553-.001-.805-.092l-1.603-2.77a.543.543 0 01-.002-.54l1.207-2.12a.198.198 0 000-.197 550.951 550.951 0 01-1.875-3.272l-.79-1.395c-.16-.31-.173-.496.095-.965.465-.813.927-1.625 1.387-2.436.132-.234.304-.334.584-.335a338.3 338.3 0 012.589-.001.124.124 0 00.107-.063l2.806-4.895a.488.488 0 01.422-.246c.524-.001 1.053 0 1.583-.006L11.704 1c.341-.003.724.032.9.34zm-3.432.403a.06.06 0 00-.052.03L6.254 6.788a.157.157 0 01-.135.078H3.253c-.056 0-.07.025-.041.074l5.81 10.156c.025.042.013.062-.034.063l-2.795.015a.218.218 0 00-.2.116l-1.32 2.31c-.044.078-.021.118.068.118l5.716.008c.046 0 .08.02.104.061l1.403 2.454c.046.081.092.082.139 0l5.006-8.76.783-1.382a.055.055 0 01.096 0l1.424 2.53a.122.122 0 00.107.062l2.763-.02a.04.04 0 00.035-.02.041.041 0 000-.04l-2.9-5.086a.108.108 0 010-.113l.293-.507 1.12-1.977c.024-.041.012-.062-.035-.062H9.2c-.059 0-.073-.026-.043-.077l1.434-2.505a.107.107 0 000-.114L9.225 1.774a.06.06 0 00-.053-.031zm6.29 8.02c.046 0 .058.02.034.06l-.832 1.465-2.613 4.585a.056.056 0 01-.05.029.058.058 0 01-.05-.029L8.498 9.841c-.02-.034-.01-.052.028-.054l.216-.012 6.722-.012z" fill="url(#lobe-icons-qwen-fill)" fill-rule="nonzero"></path><defs><linearGradient id="lobe-icons-qwen-fill" x1="0%" x2="100%" y1="0%" y2="0%"><stop offset="0%" stop-color="#6336E7" stop-opacity=".84"></stop><stop offset="100%" stop-color="#6F69F7" stop-opacity=".84"></stop></linearGradient></defs></svg>
+                <b>Qwen</b>
+                <span>阿里云</span>
               </div>
-              <!-- Zhipu -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.991 23.503a.24.24 0 00-.244.248.24.24 0 00.244.249.24.24 0 00.245-.249.24.24 0 00-.22-.247l-.025-.001zM9.671 5.365a1.697 1.697 0 011.099 2.132l-.071.172-.016.04-.018.054c-.07.16-.104.32-.104.498-.035.71.47 1.279 1.186 1.314h.366c1.309.053 2.338 1.173 2.286 2.523-.052 1.332-1.152 2.38-2.478 2.327h-.174c-.715.018-1.274.64-1.239 1.368 0 .124.018.23.053.337.209.373.54.658.96.8.75.23 1.517-.125 1.9-.782l.018-.035c.402-.64 1.17-.96 1.92-.711.854.284 1.378 1.226 1.099 2.167a1.661 1.661 0 01-2.077 1.102 1.711 1.711 0 01-.907-.711l-.017-.035c-.2-.323-.463-.58-.851-.711l-.056-.018a1.646 1.646 0 00-1.954.746 1.66 1.66 0 01-1.065.764 1.677 1.677 0 01-1.989-1.279c-.209-.906.332-1.83 1.257-2.043a1.51 1.51 0 01.296-.035h.018c.68-.071 1.151-.622 1.116-1.333a1.307 1.307 0 00-.227-.693 2.515 2.515 0 01-.366-1.403 2.39 2.39 0 01.366-1.208c.14-.195.21-.444.227-.693.018-.71-.506-1.261-1.186-1.332l-.07-.018a1.43 1.43 0 01-.299-.07l-.05-.019a1.7 1.7 0 01-1.047-2.114 1.68 1.68 0 012.094-1.101zm-5.575 10.11c.26-.264.639-.367.994-.27.355.096.633.379.728.74.095.362-.007.748-.267 1.013-.402.41-1.053.41-1.455 0a1.062 1.062 0 010-1.482zm14.845-.294c.359-.09.738.024.992.297.254.274.344.665.237 1.025-.107.36-.396.634-.756.718-.551.128-1.1-.22-1.23-.781a1.05 1.05 0 01.757-1.26zm-.064-4.39c.314.32.49.753.49 1.206 0 .452-.176.886-.49 1.206-.315.32-.74.5-1.185.5-.444 0-.87-.18-1.184-.5a1.727 1.727 0 010-2.412 1.654 1.654 0 012.369 0zm-11.243.163c.364.484.447 1.128.218 1.691a1.665 1.665 0 01-2.188.923c-.855-.36-1.26-1.358-.907-2.228a1.68 1.68 0 011.33-1.038c.593-.08 1.183.169 1.547.652zm11.545-4.221c.368 0 .708.2.892.524.184.324.184.724 0 1.048a1.026 1.026 0 01-.892.524c-.568 0-1.03-.47-1.03-1.048 0-.579.462-1.048 1.03-1.048zm-14.358 0c.368 0 .707.2.891.524.184.324.184.724 0 1.048a1.026 1.026 0 01-.891.524c-.569 0-1.03-.47-1.03-1.048 0-.579.461-1.048 1.03-1.048zm10.031-1.475c.925 0 1.675.764 1.675 1.706s-.75 1.705-1.675 1.705-1.674-.763-1.674-1.705c0-.942.75-1.706 1.674-1.706zm-2.626-.684c.362-.082.653-.356.761-.718a1.062 1.062 0 00-.238-1.028 1.017 1.017 0 00-.996-.294c-.547.14-.881.7-.752 1.257.13.558.675.907 1.225.783zm0 16.876c.359-.087.644-.36.75-.72a1.062 1.062 0 00-.237-1.019 1.018 1.018 0 00-.985-.301 1.037 1.037 0 00-.762.717c-.108.361-.017.754.239 1.028.245.263.606.377.953.305l.043-.01zM17.19 3.5a.631.631 0 00.628-.64c0-.355-.279-.64-.628-.64a.631.631 0 00-.628.64c0 .355.28.64.628.64zm-10.38 0a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64a.631.631 0 00-.628.64c0 .355.279.64.628.64zm-5.182 7.852a.631.631 0 00-.628.64c0 .354.28.639.628.639a.63.63 0 00.627-.606l.001-.034a.62.62 0 00-.628-.64zm5.182 9.13a.631.631 0 00-.628.64c0 .355.279.64.628.64a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64zm10.38.018a.631.631 0 00-.628.64c0 .355.28.64.628.64a.631.631 0 00.628-.64c0-.355-.279-.64-.628-.64zm5.182-9.148a.631.631 0 00-.628.64c0 .354.279.639.628.639a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64zm-.384-4.992a.24.24 0 00.244-.249.24.24 0 00-.244-.249.24.24 0 00-.244.249c0 .142.122.249.244.249zM11.991.497a.24.24 0 00.245-.248A.24.24 0 0011.99 0a.24.24 0 00-.244.249c0 .133.108.236.223.247l.021.001zM2.011 6.36a.24.24 0 00.245-.249.24.24 0 00-.244-.249.24.24 0 00-.244.249.24.24 0 00.244.249zm0 11.263a.24.24 0 00-.243.248.24.24 0 00.244.249.24.24 0 00.244-.249.252.252 0 00-.244-.248zm19.995-.018a.24.24 0 00-.245.248.24.24 0 00.245.25.24.24 0 00.244-.25.252.252 0 00-.244-.248z" fill="#3859FF" fill-rule="nonzero"></path></svg>
-                <p class="text-blue-400 font-semibold text-sm">GLM</p>
-                <p class="text-gray-500 text-xs">智谱AI</p>
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.991 23.503a.24.24 0 00-.244.248.24.24 0 00.244.249.24.24 0 00.245-.249.24.24 0 00-.22-.247l-.025-.001zM9.671 5.365a1.697 1.697 0 011.099 2.132l-.071.172-.016.04-.018.054c-.07.16-.104.32-.104.498-.035.71.47 1.279 1.186 1.314h.366c1.309.053 2.338 1.173 2.286 2.523-.052 1.332-1.152 2.38-2.478 2.327h-.174c-.715.018-1.274.64-1.239 1.368 0 .124.018.23.053.337.209.373.54.658.96.8.75.23 1.517-.125 1.9-.782l.018-.035c.402-.64 1.17-.96 1.92-.711.854.284 1.378 1.226 1.099 2.167a1.661 1.661 0 01-2.077 1.102 1.711 1.711 0 01-.907-.711l-.017-.035c-.2-.323-.463-.58-.851-.711l-.056-.018a1.646 1.646 0 00-1.954.746 1.66 1.66 0 01-1.065.764 1.677 1.677 0 01-1.989-1.279c-.209-.906.332-1.83 1.257-2.043a1.51 1.51 0 01.296-.035h.018c.68-.071 1.151-.622 1.116-1.333a1.307 1.307 0 00-.227-.693 2.515 2.515 0 01-.366-1.403 2.39 2.39 0 01.366-1.208c.14-.195.21-.444.227-.693.018-.71-.506-1.261-1.186-1.332l-.07-.018a1.43 1.43 0 01-.299-.07l-.05-.019a1.7 1.7 0 01-1.047-2.114 1.68 1.68 0 012.094-1.101zm-5.575 10.11c.26-.264.639-.367.994-.27.355.096.633.379.728.74.095.362-.007.748-.267 1.013-.402.41-1.053.41-1.455 0a1.062 1.062 0 010-1.482zm14.845-.294c.359-.09.738.024.992.297.254.274.344.665.237 1.025-.107.36-.396.634-.756.718-.551.128-1.1-.22-1.23-.781a1.05 1.05 0 01.757-1.26zm-.064-4.39c.314.32.49.753.49 1.206 0 .452-.176.886-.49 1.206-.315.32-.74.5-1.185.5-.444 0-.87-.18-1.184-.5a1.727 1.727 0 010-2.412 1.654 1.654 0 012.369 0zm-11.243.163c.364.484.447 1.128.218 1.691a1.665 1.665 0 01-2.188.923c-.855-.36-1.26-1.358-.907-2.228a1.68 1.68 0 011.33-1.038c.593-.08 1.183.169 1.547.652zm11.545-4.221c.368 0 .708.2.892.524.184.324.184.724 0 1.048a1.026 1.026 0 01-.892.524c-.568 0-1.03-.47-1.03-1.048 0-.579.462-1.048 1.03-1.048zm-14.358 0c.368 0 .707.2.891.524.184.324.184.724 0 1.048a1.026 1.026 0 01-.891.524c-.569 0-1.03-.47-1.03-1.048 0-.579.461-1.048 1.03-1.048zm10.031-1.475c.925 0 1.675.764 1.675 1.706s-.75 1.705-1.675 1.705-1.674-.763-1.674-1.705c0-.942.75-1.706 1.674-1.706zm-2.626-.684c.362-.082.653-.356.761-.718a1.062 1.062 0 00-.238-1.028 1.017 1.017 0 00-.996-.294c-.547.14-.881.7-.752 1.257.13.558.675.907 1.225.783zm0 16.876c.359-.087.644-.36.75-.72a1.062 1.062 0 00-.237-1.019 1.018 1.018 0 00-.985-.301 1.037 1.037 0 00-.762.717c-.108.361-.017.754.239 1.028.245.263.606.377.953.305l.043-.01zM17.19 3.5a.631.631 0 00.628-.64c0-.355-.279-.64-.628-.64a.631.631 0 00-.628.64c0 .355.28.64.628.64zm-10.38 0a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64a.631.631 0 00-.628.64c0 .355.279.64.628.64zm-5.182 7.852a.631.631 0 00-.628.64c0 .354.28.639.628.639a.63.63 0 00.627-.606l.001-.034a.62.62 0 00-.628-.64zm5.182 9.13a.631.631 0 00-.628.64c0 .355.279.64.628.64a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64zm10.38.018a.631.631 0 00-.628.64c0 .355.28.64.628.64a.631.631 0 00.628-.64c0-.355-.279-.64-.628-.64zm5.182-9.148a.631.631 0 00-.628.64c0 .354.279.639.628.639a.631.631 0 00.628-.64c0-.355-.28-.64-.628-.64zm-.384-4.992a.24.24 0 00.244-.249.24.24 0 00-.244-.249.24.24 0 00-.244.249c0 .142.122.249.244.249zM11.991.497a.24.24 0 00.245-.248A.24.24 0 0011.99 0a.24.24 0 00-.244.249c0 .133.108.236.223.247l.021.001zM2.011 6.36a.24.24 0 00.245-.249.24.24 0 00-.244-.249.24.24 0 00-.244.249.24.24 0 00.244.249zm0 11.263a.24.24 0 00-.243.248.24.24 0 00.244.249.24.24 0 00.244-.249.252.252 0 00-.244-.248zm19.995-.018a.24.24 0 00-.245.248.24.24 0 00.245.25.24.24 0 00.244-.25.252.252 0 00-.244-.248z" fill="#3859FF" fill-rule="nonzero"></path></svg>
+                <b>GLM</b>
+                <span>智谱AI</span>
               </div>
-              <!-- NewAPI -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.078 16.34c-.506 1.323-1.198 2.519-2.117 3.562-2.378 2.696-5.374 4.057-8.971 4.098a.037.037 0 01-.024-.01.041.041 0 01-.013-.023.041.041 0 01.003-.025.037.037 0 01.019-.019c1.886-.779 3.454-1.973 4.625-3.639a10.148 10.148 0 001.626-3.677c.217-.98.33-1.955.282-2.942-.048-1.018-.152-1.601-.484-2.565-.386-1.12-.915-2.16-1.627-3.089-.883-1.154-1.876-1.87-2.9-2.779-.995-.88-2.19-2.623-1.059-3.754.384-.384.997-.59 1.838-.621 2.478-.09 5.011 1.636 6.597 3.453.75.86 1.38 1.798 1.865 2.837.486 1.041.814 2.122.978 3.246.133.915.117 1.441.092 2.365a10.82 10.82 0 01-.73 3.582z" fill="url(#newapi-fill-0)"></path><path d="M11.86.01a.041.041 0 01.009.049.038.038 0 01-.018.018C9.964.856 8.396 2.05 7.225 3.716a10.148 10.148 0 00-1.626 3.678c-.217.979-.33 1.955-.283 2.941.049 1.018.154 1.601.486 2.565.385 1.12.914 2.16 1.626 3.088.883 1.154 1.876 1.872 2.9 2.78.995.88 2.19 2.622 1.059 3.753-.385.385-.997.591-1.838.622-2.478.089-5.011-1.636-6.597-3.454-.75-.86-1.38-1.797-1.865-2.837a11.591 11.591 0 01-.978-3.246c-.133-.914-.117-1.44-.091-2.364.034-1.225.284-2.416.73-3.582.504-1.323 1.197-2.52 2.116-3.562C5.241 1.402 8.238.04 11.835 0c.009 0 .018.004.024.01z" fill="url(#newapi-fill-1)"></path><path d="M8.721 11.903l2.455-.708.72-2.48a.066.066 0 01.127.002l.58 2.26c.776.437 1.65.755 2.622.956a.05.05 0 01.028.075.05.05 0 01-.024.019l-2.382.709a.163.163 0 00-.109.108l-.72 2.444a.034.034 0 01-.031.027.034.034 0 01-.034-.024l-.713-2.395a.183.183 0 00-.128-.128l-2.39-.705a.084.084 0 01-.044-.13.084.084 0 01.043-.03z" fill="url(#newapi-fill-2)"></path><defs><linearGradient id="newapi-fill-0" x1="17.889" x2="17.889" y1=".854" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#F85EAD"></stop><stop offset="1" stop-color="#FD75FD"></stop></linearGradient><linearGradient id="newapi-fill-1" x1="5.936" x2="5.936" y1="0" y2="23.146" gradientUnits="userSpaceOnUse"><stop offset=".332" stop-color="#11F5EF"></stop><stop offset="1" stop-color="#C738FB"></stop></linearGradient><linearGradient id="newapi-fill-2" x1="11.961" x2="11.961" y1="8.666" y2="15.315" gradientUnits="userSpaceOnUse"><stop offset=".332" stop-color="#11F5EF"></stop><stop offset="1" stop-color="#C738FB"></stop></linearGradient></defs></svg>
-                <p class="text-pink-400 font-semibold text-sm">NewAPI</p>
-                <p class="text-gray-500 text-xs">中转站</p>
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.078 16.34c-.506 1.323-1.198 2.519-2.117 3.562-2.378 2.696-5.374 4.057-8.971 4.098a.037.037 0 01-.024-.01.041.041 0 01-.013-.023.041.041 0 01.003-.025.037.037 0 01.019-.019c1.886-.779 3.454-1.973 4.625-3.639a10.148 10.148 0 001.626-3.677c.217-.98.33-1.955.282-2.942-.048-1.018-.152-1.601-.484-2.565-.386-1.12-.915-2.16-1.627-3.089-.883-1.154-1.876-1.87-2.9-2.779-.995-.88-2.19-2.623-1.059-3.754.384-.384.997-.59 1.838-.621 2.478-.09 5.011 1.636 6.597 3.453.75.86 1.38 1.798 1.865 2.837.486 1.041.814 2.122.978 3.246.133.915.117 1.441.092 2.365a10.82 10.82 0 01-.73 3.582z" fill="url(#newapi-fill-0)"></path><path d="M11.86.01a.041.041 0 01.009.049.038.038 0 01-.018.018C9.964.856 8.396 2.05 7.225 3.716a10.148 10.148 0 00-1.626 3.678c-.217.979-.33 1.955-.283 2.941.049 1.018.154 1.601.486 2.565.385 1.12.914 2.16 1.626 3.088.883 1.154 1.876 1.872 2.9 2.78.995.88 2.19 2.622 1.059 3.753-.385.385-.997.591-1.838.622-2.478.089-5.011-1.636-6.597-3.454-.75-.86-1.38-1.797-1.865-2.837a11.591 11.591 0 01-.978-3.246c-.133-.914-.117-1.44-.091-2.364.034-1.225.284-2.416.73-3.582.504-1.323 1.197-2.52 2.116-3.562C5.241 1.402 8.238.04 11.835 0c.009 0 .018.004.024.01z" fill="url(#newapi-fill-1)"></path><path d="M8.721 11.903l2.455-.708.72-2.48a.066.066 0 01.127.002l.58 2.26c.776.437 1.65.755 2.622.956a.05.05 0 01.028.075.05.05 0 01-.024.019l-2.382.709a.163.163 0 00-.109.108l-.72 2.444a.034.034 0 01-.031.027.034.034 0 01-.034-.024l-.713-2.395a.183.183 0 00-.128-.128l-2.39-.705a.084.084 0 01-.044-.13.084.084 0 01.043-.03z" fill="url(#newapi-fill-2)"></path><defs><linearGradient id="newapi-fill-0" x1="17.889" x2="17.889" y1=".854" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#F85EAD"></stop><stop offset="1" stop-color="#FD75FD"></stop></linearGradient><linearGradient id="newapi-fill-1" x1="5.936" x2="5.936" y1="0" y2="23.146" gradientUnits="userSpaceOnUse"><stop offset=".332" stop-color="#11F5EF"></stop><stop offset="1" stop-color="#C738FB"></stop></linearGradient><linearGradient id="newapi-fill-2" x1="11.961" x2="11.961" y1="8.666" y2="15.315" gradientUnits="userSpaceOnUse"><stop offset=".332" stop-color="#11F5EF"></stop><stop offset="1" stop-color="#C738FB"></stop></linearGradient></defs></svg>
+                <b>NewAPI</b>
+                <span>中转站</span>
               </div>
-              <!-- SiliconFlow -->
-              <div class="flex flex-col items-center p-4 rounded-lg bg-[#0a0f1a] border border-cyan-500/10 hover:border-cyan-500/30 transition-all">
-                <svg class="w-8 h-8 mb-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7.223 21c4.252 0 7.018-2.22 7.018-5.56 0-2.59-1.682-4.236-4.69-4.918l-1.93-.571c-1.694-.375-2.683-.825-2.45-1.975.194-.957.773-1.497 2.122-1.497 4.285 0 5.873 1.497 5.873 1.497v-3.6S11.62 3 7.293 3C3.213 3 1 5.07 1 8.273c0 2.59 1.534 4.097 4.645 4.812l.334.083c.473.144 1.112.335 1.916.572 1.59.375 1.999.773 1.999 1.966 0 1.09-1.15 1.71-2.67 1.71C2.841 17.416 1 15.231 1 15.231v3.989S2.152 21 7.223 21z" fill="url(#lobe-icons-stability-fill)"></path><path d="M20.374 20.73c1.505 0 2.626-1.073 2.626-2.526 0-1.484-1.089-2.526-2.626-2.526-1.505 0-2.594 1.042-2.594 2.526 0 1.484 1.089 2.526 2.594 2.526z" fill="#E80000"></path><defs><linearGradient id="lobe-icons-stability-fill" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#9D39FF"></stop><stop offset="100%" stop-color="#A380FF"></stop></linearGradient></defs></svg>
-                <p class="text-purple-400 font-semibold text-sm">SiliconFlow</p>
-                <p class="text-gray-500 text-xs">硅基流动</p>
+              <div class="model">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7.223 21c4.252 0 7.018-2.22 7.018-5.56 0-2.59-1.682-4.236-4.69-4.918l-1.93-.571c-1.694-.375-2.683-.825-2.45-1.975.194-.957.773-1.497 2.122-1.497 4.285 0 5.873 1.497 5.873 1.497v-3.6S11.62 3 7.293 3C3.213 3 1 5.07 1 8.273c0 2.59 1.534 4.097 4.645 4.812l.334.083c.473.144 1.112.335 1.916.572 1.59.375 1.999.773 1.999 1.966 0 1.09-1.15 1.71-2.67 1.71C2.841 17.416 1 15.231 1 15.231v3.989S2.152 21 7.223 21z" fill="url(#lobe-icons-stability-fill)"></path><path d="M20.374 20.73c1.505 0 2.626-1.073 2.626-2.526 0-1.484-1.089-2.526-2.626-2.526-1.505 0-2.594 1.042-2.594 2.526 0 1.484 1.089 2.526 2.594 2.526z" fill="#E80000"></path><defs><linearGradient id="lobe-icons-stability-fill" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#9D39FF"></stop><stop offset="100%" stop-color="#A380FF"></stop></linearGradient></defs></svg>
+                <b>SiliconFlow</b>
+                <span>硅基流动</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 更新日志区域 -->
+      <!-- 肆 · 编年 -->
       <section id="news" class="py-24 px-6">
-        <div class="max-w-5xl mx-auto">
-          <div class="text-center mb-16">
-            <span class="data-tag mb-4"><i data-lucide="scroll-text" class="w-3 h-3"></i> CHANGELOG</span>
-            <h2 class="text-3xl sm:text-5xl font-bold text-gradient-cyber mt-4">最新更新日志</h2>
+        <div class="max-w-5xl mx-auto reveal">
+          <div class="sec-head">
+            <span class="sec-eyebrow"><b>肆</b>编年</span>
+            <h2 class="sec-title">最新更新日志</h2>
           </div>
 
-          <!-- 最新：V5.0 -->
-          <div class="cyber-card rounded-xl p-6 mb-6 border-l-4 border-l-yellow-500">
-            <div class="flex flex-wrap items-center gap-3 mb-4">
-              <span class="data-tag bg-yellow-500/20 border-yellow-500/30 text-yellow-400">
-                <i data-lucide="star" class="w-3 h-3"></i> 最新
-              </span>
-              <span class="text-2xl font-bold text-white">V5.0</span>
-              <span class="text-gray-500 text-sm ml-auto font-mono">2026-09-28</span>
+          <div class="card log latest">
+            <div class="log-head">
+              <span class="stamp hot">最新</span>
+              <span class="ver">V5.0</span>
+              <span class="date">2026-09-28</span>
             </div>
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-xs">夜山松烟</span>
-              <span class="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded text-xs">宣纸淡墨</span>
-              <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">功能页重写</span>
-              <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">公益额度</span>
-              <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">境界地图</span>
+            <div class="tags">
+              <span class="tag hot">夜山松烟</span>
+              <span class="tag hot">宣纸淡墨</span>
+              <span class="tag">功能页重写</span>
+              <span class="tag">公益额度</span>
+              <span class="tag">境界地图</span>
             </div>
             <ul class="news-points">
               <li>界面换成双主题：暗色「夜山松烟」、亮色「宣纸淡墨」。书法标题、玉璧图标、朱砂印，局内局外同一套。</li>
@@ -1188,140 +972,96 @@ a.animate-pulse { animation: none; }
               <li>道友账户可签到领取公益额度，主流程也能切到公益模型，并查看额度排行。</li>
               <li>主流程不再提供穿越、联机共修、关系网络图和宗门战争。</li>
             </ul>
+            <p class="more-note">
+              视频演示：<a href="https://www.bilibili.com/video/BV1CVaL6hEbt/" target="_blank" rel="noopener noreferrer">【仙途 V5.0】AI修仙文字冒险大更新！双主题水墨画风+功能页全部重写</a>
+            </p>
           </div>
 
-          <div class="cyber-card rounded-xl p-6 mb-6 border-l-4 border-l-amber-600/70">
-            <div class="flex flex-wrap items-center gap-3 mb-4">
-              <span class="data-tag bg-amber-500/15 border-amber-500/30 text-amber-200">
-                <i data-lucide="bookmark" class="w-3 h-3"></i> 正式版
-              </span>
-              <span class="text-2xl font-bold text-white">V4.5</span>
-              <span class="text-gray-500 text-sm ml-auto font-mono">2026-01-25</span>
+          <div class="card log">
+            <div class="log-head">
+              <span class="stamp">正式版</span>
+              <span class="ver">V4.5</span>
+              <span class="date">2026-01-25</span>
             </div>
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">宗门战争</span>
-              <span class="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-xs">主题系统</span>
-              <span class="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-xs">API兼容</span>
-              <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">界面优化</span>
+            <div class="tags">
+              <span class="tag">宗门战争</span>
+              <span class="tag">主题系统</span>
+              <span class="tag">API兼容</span>
+              <span class="tag">界面优化</span>
             </div>
-            <p class="text-gray-400 text-sm">宗门战争模拟 | 主题化重构 | API兼容性增强 | 角色详情面板优化 | 提示词系统优化</p>
+            <p>宗门战争模拟 | 主题化重构 | API兼容性增强 | 角色详情面板优化 | 提示词系统优化</p>
           </div>
 
-          <!-- 历史版本列表 -->
-          <div class="cyber-card rounded-xl p-6">
-            <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
-              <i data-lucide="history" class="w-5 h-5 text-amber-300"></i>
-              历史版本
-            </h3>
-            <div class="space-y-4">
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.4.9</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-24</span>
-                </div>
-                <p class="text-gray-400 text-sm">宗门战争模拟系统、宗门战争面板重构、AI 服务优化</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.4.8</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-23</span>
-                </div>
-                <p class="text-gray-400 text-sm">API 兼容性修复、JSON 解析优化、世界生成器重构</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.4.7</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-22</span>
-                </div>
-                <p class="text-gray-400 text-sm">数据定义完善，增强数据结构</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.4.6</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-22</span>
-                </div>
-                <p class="text-gray-400 text-sm">角色详情面板重构、主题覆盖样式系统、API 管理面板优化</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.4.5</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-21</span>
-                </div>
-                <p class="text-gray-400 text-sm">角色详情面板增强、宗门子系统优化、提示词系统优化</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.4</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-20</span>
-                </div>
-                <p class="text-gray-400 text-sm">主游戏面板优化、命令值验证修复</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V4.0</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-18</span>
-                </div>
-                <p class="text-gray-400 text-sm">存档格式 V3、联机世界穿越、多 API 智能调度、向量记忆系统</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V3.7.4</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-02</span>
-                </div>
-                <p class="text-gray-400 text-sm">指令格式统一、物品属性修复、功法生成修复、API 测试功能</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V3.7.0</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-01</span>
-                </div>
-                <p class="text-gray-400 text-sm">分步生成：第 1 步先出正文（可流式），第 2 步再出记忆/指令/行动选项</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V3.6.6</span>
-                  <span class="text-gray-500 text-xs font-mono">2026-01-01</span>
-                </div>
-                <p class="text-gray-400 text-sm">流式开关修复、上下文长度保护、失败返回主页</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V3.5</span>
-                  <span class="text-gray-500 text-xs font-mono">2025-11-27</span>
-                </div>
-                <p class="text-gray-400 text-sm">全新提示词管理系统、自定义 API 支持</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V3.2</span>
-                  <span class="text-gray-500 text-xs font-mono">2025-11-11</span>
-                </div>
-                <p class="text-gray-400 text-sm">重构全新地图系统：朝天大陆游戏地图正式上线</p>
-              </div>
-              <div class="border-l-2 border-amber-500/30 pl-4 py-2">
-                <div class="flex items-center gap-3 mb-1">
-                  <span class="font-bold text-amber-300">V3.0</span>
-                  <span class="text-gray-500 text-xs font-mono">2025-11-08</span>
-                </div>
-                <p class="text-gray-400 text-sm">思维链系统 CoT v3.0、判定系统重构、提示词优化</p>
-              </div>
-            </div>
-            <p class="mt-6 text-sm text-amber-200/50">
-              完整变更见仓库 <a href="https://github.com/qianye60/XianTu/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" class="underline underline-offset-4 hover:text-amber-200">CHANGELOG.md</a>
+          <div class="card p-8">
+            <h3 class="card-title calli">历史版本</h3>
+            <ul class="hist">
+              <li>
+                <div class="v"><b>V4.4.9</b><span>2026-01-24</span></div>
+                <p>宗门战争模拟系统、宗门战争面板重构、AI 服务优化</p>
+              </li>
+              <li>
+                <div class="v"><b>V4.4.8</b><span>2026-01-23</span></div>
+                <p>API 兼容性修复、JSON 解析优化、世界生成器重构</p>
+              </li>
+              <li>
+                <div class="v"><b>V4.4.7</b><span>2026-01-22</span></div>
+                <p>数据定义完善，增强数据结构</p>
+              </li>
+              <li>
+                <div class="v"><b>V4.4.6</b><span>2026-01-22</span></div>
+                <p>角色详情面板重构、主题覆盖样式系统、API 管理面板优化</p>
+              </li>
+              <li>
+                <div class="v"><b>V4.4.5</b><span>2026-01-21</span></div>
+                <p>角色详情面板增强、宗门子系统优化、提示词系统优化</p>
+              </li>
+              <li>
+                <div class="v"><b>V4.4</b><span>2026-01-20</span></div>
+                <p>主游戏面板优化、命令值验证修复</p>
+              </li>
+              <li>
+                <div class="v"><b>V4.0</b><span>2026-01-18</span></div>
+                <p>存档格式 V3、联机世界穿越、多 API 智能调度、向量记忆系统</p>
+              </li>
+              <li>
+                <div class="v"><b>V3.7.4</b><span>2026-01-02</span></div>
+                <p>指令格式统一、物品属性修复、功法生成修复、API 测试功能</p>
+              </li>
+              <li>
+                <div class="v"><b>V3.7.0</b><span>2026-01-01</span></div>
+                <p>分步生成：第 1 步先出正文（可流式），第 2 步再出记忆/指令/行动选项</p>
+              </li>
+              <li>
+                <div class="v"><b>V3.6.6</b><span>2026-01-01</span></div>
+                <p>流式开关修复、上下文长度保护、失败返回主页</p>
+              </li>
+              <li>
+                <div class="v"><b>V3.5</b><span>2025-11-27</span></div>
+                <p>全新提示词管理系统、自定义 API 支持</p>
+              </li>
+              <li>
+                <div class="v"><b>V3.2</b><span>2025-11-11</span></div>
+                <p>重构全新地图系统：朝天大陆游戏地图正式上线</p>
+              </li>
+              <li>
+                <div class="v"><b>V3.0</b><span>2025-11-08</span></div>
+                <p>思维链系统 CoT v3.0、判定系统重构、提示词优化</p>
+              </li>
+            </ul>
+            <p class="more-note">
+              完整变更见仓库 <a href="https://github.com/qianye60/XianTu/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">CHANGELOG.md</a>
             </p>
           </div>
         </div>
       </section>
 
-      <!-- 友情链接：爬虫可索引 + 修仙风展示 -->
-      <section id="friends" class="xian-friends py-20 px-6 relative" aria-labelledby="friends-heading">
-        <div class="max-w-5xl mx-auto relative">
-          <div class="text-center mb-10">
-            <div class="xian-eyebrow">道友相荐</div>
-            <h2 id="friends-heading" class="text-3xl sm:text-5xl font-bold xian-title mt-4">友情链接</h2>
-            <p class="text-amber-100/60 mt-4 max-w-2xl mx-auto font-serif tracking-wide">
-              同道共鉴。完整索引见 <a href="friends.html" class="text-amber-300 underline underline-offset-4 hover:text-amber-200">友链索引页</a>。
-            </p>
+      <!-- 伍 · 同道：友情链接（爬虫可索引） -->
+      <section id="friends" class="py-20 px-6 relative" aria-labelledby="friends-heading">
+        <div class="max-w-5xl mx-auto relative reveal">
+          <div class="sec-head" style="margin-bottom:2.5rem">
+            <span class="sec-eyebrow"><b>伍</b>道友相荐</span>
+            <h2 id="friends-heading" class="sec-title">友情链接</h2>
+            <p class="sec-note">同道共鉴。完整索引见 <a href="friends.html">友链索引页</a>。</p>
           </div>
 
           <ul class="friend-links" itemscope itemtype="https://schema.org/ItemList">
@@ -1329,25 +1069,25 @@ a.animate-pulse { animation: none; }
             <meta itemprop="numberOfItems" content="1" />
             <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
               <meta itemprop="position" content="1" />
-              <a class="xian-friend-card sm:p-10"
+              <a class="friend-card sm:p-10"
                  href="https://worldloom.top/"
                  target="_blank"
                  rel="noopener noreferrer"
                  itemprop="url"
                  title="织界 WorldLoom — AI 多世界文字冒险 RPG">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-8">
-                  <div class="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 border border-emerald-400/40 bg-emerald-500/10 flex items-center justify-center">
-                    <img src="https://worldloom.top/assets/brand/trademark-symbol-light.svg" alt="织界" width="44" height="44" class="wl-mark wl-friend-mark" />
+                  <div class="friend-box w-16 h-16 sm:w-20 sm:h-20">
+                    <img src="https://worldloom.top/assets/brand/trademark-symbol-light.svg" alt="织界" width="44" height="44" class="wl-mark" />
                   </div>
                   <div class="flex-1 text-left">
-                    <div class="xian-friend-meta" itemprop="name">友情链接 · 强烈推荐</div>
+                    <div class="friend-meta" itemprop="name">友情链接 · 强烈推荐</div>
                     <h3>织界 <span>WorldLoom</span></h3>
-                    <p class="xian-friend-desc" itemprop="description">
+                    <p class="friend-desc" itemprop="description">
                       AI 驱动的多世界文字冒险 RPG。自由输入、NPC 记忆、云端存档与创意工坊——修仙、科幻、废土，每个世界都因你而生。
                     </p>
-                    <span class="xian-friend-url">https://worldloom.top/</span>
+                    <span class="friend-url">https://worldloom.top/</span>
                     <div>
-                      <span class="xian-friend-cta">前往织界 <i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
+                      <span class="friend-cta">前往织界 <span aria-hidden="true">↗</span></span>
                     </div>
                   </div>
                 </div>
@@ -1359,16 +1099,13 @@ a.animate-pulse { animation: none; }
     </main>
 
     <!-- 页脚 -->
-    <footer class="relative z-10 py-16 px-6">
-      <div class="absolute inset-0 bg-gradient-to-t from-cyber-darker via-transparent to-transparent pointer-events-none"></div>
-      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
+    <footer class="site-footer">
       <div class="max-w-5xl mx-auto text-center relative">
-        <div class="mb-6">
-          <span class="text-3xl text-gradient-cyber">仙途</span>
-          <span class="text-gray-500 text-sm ml-2">XIANTU.AI</span>
+        <div class="mb-5">
+          <span class="foot-name">仙途</span><span class="foot-sub">XIANTU.AI</span>
         </div>
-        <p class="text-gray-400 mb-3">AI驱动的游戏 | AI修仙 | AI大世界</p>
-        <p class="text-gray-500 text-sm mb-8 italic font-serif">天上白玉京，十二楼五城。</p>
+        <p class="mb-3" style="color:var(--ink-2)">AI驱动的游戏 | AI修仙 | AI大世界</p>
+        <p class="mb-9" style="color:var(--ink-3);font-family:var(--calli);font-size:1.15rem;letter-spacing:.2em">天上白玉京，十二楼五城。</p>
 
         <nav class="mb-10" aria-label="友情链接">
           <ul class="friend-links max-w-xl mx-auto">
@@ -1376,132 +1113,102 @@ a.animate-pulse { animation: none; }
               <a href="https://worldloom.top/"
                  target="_blank"
                  rel="noopener noreferrer"
-                 class="xian-friend-card xian-footer-friend px-5 py-4 text-left"
+                 class="friend-card px-5 py-4 text-left"
                  title="织界 WorldLoom — AI 多世界文字冒险 RPG">
-                <div class="xian-friend-meta mb-1">友情链接</div>
-                <div class="text-lg font-serif font-bold text-amber-100 tracking-widest">织界 WorldLoom</div>
-                <p class="xian-friend-desc mt-1">AI 多世界文字冒险 RPG</p>
-                <span class="xian-friend-url">https://worldloom.top/</span>
+                <div class="friend-meta mb-1">友情链接</div>
+                <div class="calli" style="font-size:1.35rem;color:var(--ink)">织界 WorldLoom</div>
+                <p class="friend-desc mt-1">AI 多世界文字冒险 RPG</p>
+                <span class="friend-url">https://worldloom.top/</span>
               </a>
             </li>
           </ul>
-          <p class="mt-4 text-sm text-amber-200/50">
-            <a href="friends.html" class="hover:text-amber-200 underline underline-offset-4">查看完整友链索引</a>
+          <p class="more-note text-center">
+            <a href="friends.html">查看完整友链索引</a>
           </p>
         </nav>
 
-        <div class="flex flex-wrap justify-center gap-6 mb-8">
-          <a href="https://worldloom.top/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 text-amber-200 hover:text-amber-100 border border-amber-500/40 hover:border-amber-400/70 rounded-lg transition-all hover:bg-amber-500/10 font-serif tracking-wider">
-            <i data-lucide="scroll" class="w-4 h-4"></i>
-            织界 WorldLoom
+        <div class="flex flex-wrap justify-center gap-3 mb-8">
+          <a href="https://worldloom.top/" target="_blank" rel="noopener noreferrer" class="foot-link">织界 WorldLoom</a>
+          <a href="https://github.com/qianye60/XianTu" target="_blank" rel="noopener noreferrer" class="foot-link">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.98 0 12.75c0 5.4 3.44 9.97 8.21 11.59.6.11.82-.27.82-.59 0-.29-.01-1.05-.02-2.06-3.34.74-4.04-1.67-4.04-1.67-.55-1.43-1.34-1.81-1.34-1.81-1.1-.77.08-.76.08-.76 1.21.09 1.85 1.28 1.85 1.28 1.08 1.9 2.83 1.35 3.52 1.03.11-.8.42-1.35.77-1.66-2.66-.31-5.46-1.38-5.46-6.14 0-1.36.46-2.46 1.22-3.33-.12-.31-.53-1.57.12-3.27 0 0 1-.33 3.3 1.27a11.1 11.1 0 0 1 6 0c2.29-1.6 3.29-1.27 3.29-1.27.65 1.7.24 2.96.12 3.27.76.87 1.22 1.97 1.22 3.33 0 4.77-2.8 5.82-5.48 6.13.43.38.82 1.13.82 2.28 0 1.65-.02 2.98-.02 3.38 0 .32.21.71.82.59C20.57 22.71 24 18.14 24 12.75 24 5.98 18.63.5 12 .5z"/></svg>GitHub
           </a>
-          <a href="https://github.com/qianye60/XianTu" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30 rounded-lg transition-all hover:bg-cyan-500/5">
-            <i data-lucide="github" class="w-4 h-4"></i>
-            GitHub
+          <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" rel="noopener noreferrer" class="foot-link">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>Discord
           </a>
-          <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-indigo-400 border border-transparent hover:border-indigo-500/30 rounded-lg transition-all hover:bg-indigo-500/5">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.36-.698.772-1.362 1.225-1.993a.076.076 0 0 0-.041-.107 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.12-.094.246-.198.373-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.094.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-            Discord
-          </a>
-          <a href="https://afdian.com/a/qianye60" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-pink-400 border border-transparent hover:border-pink-500/30 rounded-lg transition-all hover:bg-pink-500/5">
-            <i data-lucide="heart" class="w-4 h-4"></i>
-            赞助支持
-          </a>
+          <a href="https://afdian.com/a/qianye60" target="_blank" rel="noopener noreferrer" class="foot-link">赞助支持</a>
         </div>
-        <div class="h-px w-32 mx-auto bg-gradient-to-r from-transparent via-gray-600 to-transparent mb-6"></div>
-        <p class="text-gray-600 text-xs">© 2026 仙途. 版权所有.</p>
+        <div class="divider max-w-xs mx-auto mb-6"></div>
+        <p style="color:var(--ink-3);font-size:0.75rem;letter-spacing:.1em">© 2026 仙途. 版权所有.</p>
       </div>
     </footer>
 
-    <!-- 返回顶部按钮 -->
-    <button id="backToTop" class="fixed bottom-8 right-8 w-12 h-12 bg-cyan-500/20 border border-cyan-500/50 rounded-lg text-cyan-400 opacity-0 pointer-events-none transition-all hover:bg-cyan-500/30 z-50">
-      <i data-lucide="chevron-up" class="w-6 h-6 mx-auto"></i>
-    </button>
+    <button id="backToTop" type="button" aria-label="返回顶部">升</button>
 
-    <!-- 脚本 -->
     <script>
-      // 初始化 Lucide 图标
-      lucide.createIcons();
-
       const themeToggle = document.getElementById('theme-toggle');
       const applyTheme = (theme) => {
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.style.colorScheme = theme;
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'light' ? '#e7eeea' : '#0c1220');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f2ebdb' : '#0f1311');
         if (themeToggle) themeToggle.setAttribute('aria-label', theme === 'light' ? '切换暗色' : '切换亮色');
         try { localStorage.setItem('theme', theme); } catch (e) {}
       };
-      applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+      applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
       themeToggle?.addEventListener('click', () => {
-        const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-        applyTheme(next);
+        applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
       });
 
       // 侧边导航高亮
       const sections = document.querySelectorAll('section[id]');
       const navLinks = document.querySelectorAll('.side-nav a');
-
       function updateActiveNav() {
-        const scrollY = window.scrollY;
-        sections.forEach(section => {
-          const top = section.offsetTop - 100;
-          const height = section.offsetHeight;
-          const id = section.getAttribute('id');
-          if (scrollY >= top && scrollY < top + height) {
-            navLinks.forEach(link => {
-              link.classList.remove('active');
-              if (link.getAttribute('href') === '#' + id) {
-                link.classList.add('active');
-              }
-            });
-          }
-        });
+        const y = window.scrollY + window.innerHeight * 0.35;
+        let current = sections[0] && sections[0].id;
+        sections.forEach((section) => { if (y >= section.offsetTop) current = section.id; });
+        navLinks.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === '#' + current));
       }
+      window.addEventListener('scroll', updateActiveNav, { passive: true });
+      updateActiveNav();
 
-      window.addEventListener('scroll', updateActiveNav);
-
-      // 返回顶部按钮
+      // 返回顶部
       const backToTop = document.getElementById('backToTop');
       window.addEventListener('scroll', () => {
-        if (window.scrollY > 300) {
-          backToTop.style.opacity = '1';
-          backToTop.style.pointerEvents = 'auto';
-        } else {
-          backToTop.style.opacity = '0';
-          backToTop.style.pointerEvents = 'none';
-        }
-      });
+        const show = window.scrollY > 300;
+        backToTop.style.opacity = show ? '1' : '0';
+        backToTop.style.pointerEvents = show ? 'auto' : 'none';
+      }, { passive: true });
+      backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-      backToTop.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-
-      // 移动端菜单控制
+      // 移动端菜单
       const mobileMenuBtn = document.getElementById('mobile-menu-btn');
       const mobileMenu = document.getElementById('mobile-menu');
-
-      mobileMenuBtn.addEventListener('click', () => {
-        mobileMenu.classList.toggle('active');
-      });
-
-      // 点击菜单链接后关闭菜单
-      mobileMenu.querySelectorAll('a').forEach(link => {
-        link.addEventListener('click', () => {
-          mobileMenu.classList.remove('active');
-        });
-      });
+      mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('active'));
+      mobileMenu.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => mobileMenu.classList.remove('active')));
 
       // 平滑滚动
-      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function(e) {
-          e.preventDefault();
+      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener('click', function (e) {
           const target = document.querySelector(this.getAttribute('href'));
           if (target) {
+            e.preventDefault();
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         });
       });
+
+      // 章节出场
+      const reveals = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) { entry.target.classList.add('in'); io.unobserve(entry.target); }
+          });
+        }, { rootMargin: '0px 0px -8% 0px' });
+        reveals.forEach((el) => io.observe(el));
+      } else {
+        reveals.forEach((el) => el.classList.add('in'));
+      }
     </script>
   </body>
 </html>
