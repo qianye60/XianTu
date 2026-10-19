@@ -28,17 +28,19 @@ export const IMAGE_PROMPT_RULES = `
 本局已开启生图。有外景、人物对峙、战斗、法术、仪式或关键道具登场的回合，必须额外给出画面（优先 JSON 字段，其次正文标记）：
 
 推荐（不会破坏 JSON）：
-"story_image":{"prompt":"可见的人物外貌服装场景光线构图，英文或中英短标签","size":"1024x1024"}
+"story_image":{"prompt":"1 young man, half body, sharp fox eyes, black hair tied with a white jade pin, layered white silk robe with silver cloud embroidery, right hand resting on a bronze sword, standing before a mossy stone stele, misty pine forest behind, cool morning light from the left, face large and detailed","size":"832x1216"}
 
 或在 text 正文末尾单独一行（属性必须用单引号）：
-[[image prompt='画面描述' size='1024x1024']]
+[[image prompt='同上这样的具体画面' size='832x1216']]
 
 规则：
-1. prompt 只写看得见的内容，不要写剧情解说、心理独白或对话框。
-2. size 只能是 1024x1024、832x1216、1216x832 之一；竖构图用 832x1216，横构图用 1216x832。
-3. story_image 与标记二选一即可；不要放进 mid_term_memory，也不要写成 tavern_commands。
-4. 纯对话、纯内心、无画面推进的回合可以不插；其余有画面的回合默认都要插，每回合最多 1 个。
-5. 禁止写成 [[image prompt="..."]]（双引号会破坏 JSON）。
+1. prompt 用英文写看得见的画面，要具体，不要一句概括，不要剧情解说、心理独白或对话框。
+2. 必须写到：前景人数（最多 2 人）、景别（半身或膝上，脸要大）、五官与发型、服装颜色层次和纹样、姿态和手在做什么、地点与前景道具、光线方向和颜色。
+3. 人多的场面只画最近的一到两人，不要远景小人，不要一排人站着。
+4. size 只能是 1024x1024、832x1216、1216x832 之一。有人物用 832x1216；只有风景、没有近景人物时才用 1216x832。
+5. story_image 与标记二选一即可；不要放进 mid_term_memory，也不要写成 tavern_commands。
+6. 纯对话、纯内心、无画面推进的回合可以不插；其余有画面的回合默认都要插，每回合最多 1 个。
+7. 禁止写成 [[image prompt="..."]]（双引号会破坏 JSON）。
 `.trim();
 
 const ALLOWED_SIZES = ['1024x1024', '832x1216', '1216x832'] as const;
@@ -178,14 +180,28 @@ export function buildFallbackStoryImage(narrative: string, location?: string): P
     .replace(/\s+/g, ' ')
     .trim();
   if (cleaned.length < 36) return null;
-  const snippet = cleaned.slice(0, 260);
+  const snippet = cleaned.slice(0, 480);
   const place = String(location || '').trim();
   const prompt = [
-    'Chinese xianxia illustration, ink-wash and detailed painting, cinematic lighting, no text, no watermark',
     place ? `location: ${place}` : '',
-    `scene: ${snippet}`,
+    `visible moment: ${snippet}`,
   ].filter(Boolean).join('. ');
-  return { prompt, size: '1024x1024' };
+  return { prompt, size: '832x1216' };
+}
+
+/** 发给画图接口前补上景别和细节，避免一句概括被画成远景群像。 */
+export function enrichStoryImagePrompt(prompt: string): string {
+  const text = String(prompt || '').replace(/\s+/g, ' ').trim();
+  if (!text) return text;
+  if (text.length > 700) {
+    return /no text/i.test(text) ? text : `${text} no text, no watermark, sharp face, detailed hands.`;
+  }
+  return [
+    text,
+    'Compose one clear foreground with at most two nearest people, half body or knee-up, faces about one third of the frame, sharp eyes, detailed skin, detailed hands, individual hair strands.',
+    'Clothing is layered silk with specific colors, embroidery, jewelry and weapons. Background stays soft and secondary.',
+    'Chinese xianxia anime, cinematic light, no text, no watermark, no tiny distant crowd, no extra limbs.',
+  ].join(' ');
 }
 
 export function ensureStoryImages(

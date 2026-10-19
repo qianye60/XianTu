@@ -2327,18 +2327,21 @@ const syncGameState = async () => {
 }
 
 .story-images {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 280px));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
   gap: 0.75rem;
-  margin-top: 1rem;
 }
 
 .story-images figure {
   margin: 0;
+  width: 100%;
 }
 
 .story-images img {
   width: 100%;
+  height: auto;
   border-radius: 10px;
   display: block;
 }

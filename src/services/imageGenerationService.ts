@@ -7,6 +7,7 @@ import type { APIConfig } from '@/stores/apiManagementStore';
 import {
   buildGptImageBody,
   buildNaiBody,
+  enrichStoryImagePrompt,
   gptImagesUrl,
   gptModelsUrl,
   imageErrorMessage,
@@ -102,7 +103,7 @@ async function postNai(url: string, body: unknown, headers: Record<string, strin
 
 export async function generateNaiImage(api: APIConfig, prompt: string, size: string, idempotencyKey: string): Promise<GeneratedImage> {
   const body = buildNaiBody({
-    prompt,
+    prompt: enrichStoryImagePrompt(prompt),
     model: api.model,
     size,
     steps: api.imageSteps,
@@ -131,7 +132,7 @@ export async function generateNaiImage(api: APIConfig, prompt: string, size: str
 }
 
 export async function generateGptImage(api: APIConfig, prompt: string, size: string): Promise<GeneratedImage> {
-  const body = buildGptImageBody({ prompt, model: api.model, size });
+  const body = buildGptImageBody({ prompt: enrichStoryImagePrompt(prompt), model: api.model, size });
   const response = await postOnce(gptImagesUrl(api.url), body, bearer(api.apiKey), GPT_TIMEOUT);
   if (response.status < 200 || response.status >= 300) {
     throw new Error(imageErrorMessage(response.data, response.status));
